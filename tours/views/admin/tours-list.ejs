@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Touren – Propus Tour Manager</title>
+  <%- include('_admin-styles') %>
+  <style>
+    .tours-toolbar {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+      margin-bottom: 0.55rem;
+    }
+    .stats.stats-core {
+      grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 0;
+    }
+    .stats.stats-core .stat-card {
+      padding: 0.8rem 1rem;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(20, 19, 17, 0.035);
+    }
+    .stats.stats-core .stat-card .label { font-size: 0.66rem; letter-spacing: 0.08em; margin-bottom: 0.22rem; }
+    .stats.stats-core .stat-card .value { font-size: 1.32rem; line-height: 1.15; }
+    .filters {
+      margin: 0;
+      gap: 0.42rem;
+      justify-content: flex-start;
+    }
+    .filters a {
+      padding: 0.38rem 0.72rem;
+      font-size: 0.79rem;
+      border-radius: 999px;
+    }
+    .tours-filter-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.85rem;
+      margin: 0.25rem 0 1.1rem;
+      flex-wrap: wrap;
+    }
+    .tours-search-form {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 0;
+      min-width: min(360px, 100%);
+      position: relative;
+    }
+    .tours-search-form input.tours-search-input {
+      min-width: 220px;
+      width: 100%;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.875rem;
+      padding: 0.52rem 2rem 0.52rem 2.35rem;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .tours-search-form input.tours-search-input::placeholder { color: #9d9890; }
+    .tours-search-form input.tours-search-input:focus {
+      outline: none;
+      border-color: var(--gold-400);
+      box-shadow: 0 0 0 3px rgba(196,163,90,0.17);
+    }
+    .tours-search-icon {
+      position: absolute;
+      left: 0.75rem;
+      color: #9d9890;
+      font-size: 0.9rem;
+      pointer-events: none;
+      z-index: 1;
+      line-height: 1;
+    }
+    .tours-search-submit {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+    .tour-hints {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      margin-top: 0.45rem;
+    }
+    .tour-hints .badge {
+      text-transform: none;
+      letter-spacing: 0;
+      font-size: 0.69rem;
+      font-weight: 600;
+      border-radius: 999px;
+      padding: 0.2rem 0.52rem;
+      border: 1px solid transparent;
+    }
+    .tour-hints .badge-sent {
+      background: rgba(37,99,235,0.09);
+      border-color: rgba(37,99,235,0.2);
+      color: #2b5fc8;
+    }
+    .tour-hints .badge-paid {
+      background: rgba(22,179,100,0.1);
+      border-color: rgba(22,179,100,0.2);
+      color: #11844d;
+    }
+    .tour-hints .badge-overdue {
+      background: rgba(239,68,68,0.1);
+      border-color: rgba(239,68,68,0.2);
+      color: #c33737;
+    }
+    .tour-hints-toggle {
+      border: 1px dashed var(--border);
+      background: #fff;
+      color: var(--text-muted);
+      border-radius: 999px;
+      font-size: 0.7rem;
+      padding: 0.2rem 0.48rem;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .tour-hints-toggle:hover { color: var(--text); border-color: var(--gold-300); }
+    .tour-hints-extra {
+      display: none;
+      width: 100%;
+      margin-top: 0.1rem;
+      gap: 0.35rem;
+      flex-wrap: wrap;
+    }
+    .row-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      flex-wrap: wrap;
+      position: relative;
+    }
+    .row-actions .btn {
+      padding: 0.32rem 0.62rem;
+      font-size: 0.77rem;
+      border-radius: 8px;
+    }
+    .tours-pagination {
+      margin-top: 0.95rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.8rem;
+      flex-wrap: wrap;
+      padding: 0.7rem 0.15rem 0.2rem;
+      border-top: 1px solid var(--border);
+    }
+    .tours-pagination-info {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+    .tours-pagination-links {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      flex-wrap: wrap;
+    }
+    .tours-page-link {
+      min-width: 34px;
+      height: 32px;
+      padding: 0 0.55rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--gray-700);
+      text-decoration: none;
+      font-size: 0.79rem;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .tours-page-link:hover { border-color: var(--gold-400); color: var(--gray-900); }
+    .tours-page-link.active {
+      background: var(--gold-100);
+      border-color: var(--gold-300);
+      color: var(--gold-800);
+    }
+    .tours-page-link.disabled {
+      pointer-events: none;
+      opacity: 0.45;
+    }
+    .invoice-status-tag {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 8px;
+      padding: 0.22rem 0.58rem;
+      font-size: 0.74rem;
+      font-weight: 700;
+      border: 1px solid transparent;
+      letter-spacing: 0.01em;
+    }
+    .invoice-status-tag.success {
+      background: rgba(22,179,100,0.11);
+      color: #11844d;
+      border-color: rgba(22,179,100,0.28);
+    }
+    .invoice-status-tag.warning {
+      background: rgba(245,158,11,0.14);
+      color: #b96c0d;
+      border-color: rgba(245,158,11,0.3);
+    }
+    .invoice-status-tag.danger {
+      background: rgba(239,68,68,0.12);
+      color: #c13737;
+      border-color: rgba(239,68,68,0.28);
+    }
+    .invoice-status-tag.none {
+      background: var(--gray-100);
+      color: var(--gray-600);
+      border-color: var(--gray-200);
+    }
+    .tm-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 15, 18, 0.5);
+      z-index: 2000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .tm-modal-backdrop.open { display: flex; }
+    .tm-modal {
+      width: min(560px, 100%);
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 24px 45px rgba(20, 19, 17, 0.2);
+      overflow: hidden;
+    }
+    .tm-modal-head {
+      padding: 0.9rem 1rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.6rem;
+      background: var(--gray-50);
+    }
+    .tm-modal-title { font-size: 0.95rem; font-weight: 700; margin: 0; color: var(--gray-900); }
+    .tm-modal-close {
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text-muted);
+      border-radius: 8px;
+      width: 30px;
+      height: 30px;
+      cursor: pointer;
+      line-height: 1;
+      font-size: 1rem;
+    }
+    .tm-modal-close:hover { color: var(--gray-900); border-color: var(--gold-300); }
+    .tm-modal-body { padding: 0.95rem 1rem; }
+    .tm-modal-foot {
+      padding: 0.85rem 1rem 0.95rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.45rem;
+      background: #fff;
+    }
+    .tm-modal-info {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #fcfcfb;
+      padding: 0.72rem 0.78rem;
+      font-size: 0.85rem;
+      color: var(--gray-700);
+      line-height: 1.5;
+      min-height: 60px;
+    }
+    .tm-modal-info.success {
+      background: rgba(22,179,100,0.08);
+      border-color: rgba(22,179,100,0.28);
+      color: #137347;
+    }
+    .tm-modal-info.warning {
+      background: rgba(245,158,11,0.1);
+      border-color: rgba(245,158,11,0.3);
+      color: #9f5b00;
+    }
+    .tm-modal-info.danger {
+      background: rgba(239,68,68,0.1);
+      border-color: rgba(239,68,68,0.28);
+      color: #a83636;
+    }
+    .tm-form-row { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.75rem; }
+    .tm-form-row label { font-size: 0.78rem; color: var(--text-muted); font-weight: 600; }
+    .tm-form-help { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem; }
+    .tm-checkbox-line { display: flex; align-items: center; gap: 0.45rem; font-size: 0.82rem; color: var(--gray-700); }
+    .tm-checkbox-line input { margin: 0; }
+  </style>
+</head>
+<body>
+  <div class="admin-shell">
+    <%- include('_header') %>
+    <main class="admin-main">
+      <% const statusLabels = { ACTIVE:'Aktiv', EXPIRING_SOON:'Läuft bald ab', CUSTOMER_ACCEPTED_AWAITING_PAYMENT:'Wartet auf Zahlung', CUSTOMER_DECLINED:'Keine Verlängerung', ARCHIVED:'Archiviert', AWAITING_CUSTOMER_DECISION:'Wartet auf Kunde', EXPIRED_PENDING_ARCHIVE:'Abgelaufen' }; %>
+      <% const mpStateLabels = { active:'Aktiv', inactive:'Archiviert', processing:'In Bearbeitung', failed:'Fehlgeschlagen', pending:'Ausstehend', staging:'Upload', activating:'Aktivierung…', inactivating:'Archivierung…', activation_pending:'Wartet Aktivierung', inactivation_pending:'Wartet Archivierung', unknown:'Unbekannt' }; %>
+      <h1>Touren</h1>
+      <p style="color:var(--text-muted);font-size:0.875rem;margin:0 0 1rem 0;">Pro Kunde an gleicher Adresse und Tag können mehrere Touren existieren.</p>
+
+      <% const dw = typeof dashboardWidgets !== 'undefined' ? dashboardWidgets : {}; %>
+      <% const showCard = (key) => dw[key] !== false; %>
+      <% if (typeof stats !== 'undefined' && stats) { %>
+      <%
+        const statItems = [];
+        if (showCard('total')) statItems.push({ key:'total', href:'/admin/tours', cls:'', label:'Touren total', value:stats.total || 0 });
+        if (showCard('activeTours')) statItems.push({ key:'activeTours', href:'/admin/tours?status=ACTIVE', cls:'active', label:'Touren aktiv', value:stats.ACTIVE || 0 });
+        if (showCard('archivedTours')) statItems.push({ key:'archivedTours', href:'/admin/tours?status=ARCHIVED', cls:'', label:'Touren archiviert', value:stats.ARCHIVED || 0 });
+        if (showCard('invoicesOffen')) statItems.push({ key:'invoicesOffen', href:'/admin/invoices?status=offen', cls:'awaiting', label:'Rechnung offen', value:(stats.invoicesOpenTotal || 0) });
+        const coreKeys = ['total','activeTours','archivedTours','invoicesOffen'];
+        const coreStats = statItems.filter(s => coreKeys.includes(s.key));
+      %>
+      <div class="tours-toolbar">
+        <div class="stats stats-core">
+          <% coreStats.forEach((s) => { %>
+            <a href="<%= s.href %>" class="stat-card <%= s.cls %>">
+              <div class="label"><%= s.label %></div>
+              <div class="value" style="<%= s.valueStyle || '' %>"><%= s.value %></div>
+            </a>
+          <% }) %>
+        </div>
+      </div>
+      <% } %>
+
+      <div class="tours-filter-row">
+      <div class="filters">
+        <a href="/admin/tours<%= filters.q ? ('?q=' + encodeURIComponent(filters.q)) : '' %>" class="<%= !filters.status && !filters.expiringSoon && !filters.awaitingPayment && !filters.unlinkedOnly && !filters.fremdeOnly && !filters.activeRunning && !filters.unverifiedOnly && !filters.verifiedOnly && !filters.invoiceOpenOnly && !filters.invoiceOverdueOnly ? 'active' : '' %>">Alle</a>
+        <a href="/admin/tours?status=ACTIVE<%= filters.q ? ('&q=' + encodeURIComponent(filters.q)) : '' %>" class="<%= filters.status === 'ACTIVE' ? 'active' : '' %>">Aktiv</a>
+        <a href="/admin/tours?status=ARCHIVED<%= filters.q ? ('&q=' + encodeURIComponent(filters.q)) : '' %>" class="<%= filters.status === 'ARCHIVED' ? 'active' : '' %>">Archiviert</a>
+        <a href="/admin/tours?expiringSoon=1<%= filters.q ? ('&q=' + encodeURIComponent(filters.q)) : '' %>" class="<%= filters.expiringSoon === '1' ? 'active' : '' %>">Läuft bald ab</a>
+        <a href="/admin/tours?invoiceOpenOnly=1<%= filters.q ? ('&q=' + encodeURIComponent(filters.q)) : '' %>" class="<%= filters.invoiceOpenOnly === '1' ? 'active' : '' %>">Rechnung offen</a>
+        <a href="/admin/tours?invoiceOverdueOnly=1<%= filters.q ? ('&q=' + encodeURIComponent(filters.q)) : '' %>" class="<%= filters.invoiceOverdueOnly === '1' ? 'active' : '' %>">Rechnung nicht bezahlt</a>
+      </div>
+      <form method="get" action="/admin/tours" class="tours-search-form">
+        <% if (filters.status) { %><input type="hidden" name="status" value="<%= filters.status %>"><% } %>
+        <% if (filters.expiringSoon === '1') { %><input type="hidden" name="expiringSoon" value="1"><% } %>
+        <% if (filters.awaitingPayment === '1') { %><input type="hidden" name="awaitingPayment" value="1"><% } %>
+        <% if (filters.unlinkedOnly === '1') { %><input type="hidden" name="unlinkedOnly" value="1"><% } %>
+        <% if (filters.fremdeOnly === '1') { %><input type="hidden" name="fremdeOnly" value="1"><% } %>
+        <% if (filters.activeRunning === '1') { %><input type="hidden" name="activeRunning" value="1"><% } %>
+        <% if (filters.invoiceOpenOnly === '1') { %><input type="hidden" name="invoiceOpenOnly" value="1"><% } %>
+        <% if (filters.invoiceOverdueOnly === '1') { %><input type="hidden" name="invoiceOverdueOnly" value="1"><% } %>
+        <i class="fa-solid fa-magnifying-glass tours-search-icon"></i>
+        <input type="text" class="tours-search-input" name="q" value="<%= filters.q || '' %>" placeholder="Suche...">
+        <button type="submit" class="tours-search-submit">Suchen</button>
+      </form>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <% function sortUrl(col) {
+              const p = {};
+              if (filters && filters.activeRunning === '1') p.activeRunning = '1';
+              else if (filters && filters.status) p.status = filters.status;
+              if (filters && filters.expiringSoon === '1') p.expiringSoon = '1';
+              if (filters && filters.awaitingPayment === '1') p.awaitingPayment = '1';
+              if (filters && filters.unlinkedOnly === '1') p.unlinkedOnly = '1';
+              if (filters && filters.fremdeOnly === '1') p.fremdeOnly = '1';
+              if (filters && filters.invoiceOpenOnly === '1') p.invoiceOpenOnly = '1';
+              if (filters && filters.invoiceOverdueOnly === '1') p.invoiceOverdueOnly = '1';
+              if (filters && filters.q) p.q = filters.q;
+              p.sort = col;
+              p.order = (typeof sort !== 'undefined' && sort === col && order === 'asc') ? 'desc' : 'asc';
+              return '/admin/tours?' + Object.entries(p).map(([k,v])=>k+'='+encodeURIComponent(v)).join('&');
+            } %>
+            <% function pageUrl(targetPage) {
+              const p = {};
+              if (filters && filters.activeRunning === '1') p.activeRunning = '1';
+              else if (filters && filters.status) p.status = filters.status;
+              if (filters && filters.expiringSoon === '1') p.expiringSoon = '1';
+              if (filters && filters.awaitingPayment === '1') p.awaitingPayment = '1';
+              if (filters && filters.unlinkedOnly === '1') p.unlinkedOnly = '1';
+              if (filters && filters.fremdeOnly === '1') p.fremdeOnly = '1';
+              if (filters && filters.invoiceOpenOnly === '1') p.invoiceOpenOnly = '1';
+              if (filters && filters.invoiceOverdueOnly === '1') p.invoiceOverdueOnly = '1';
+              if (filters && filters.q) p.q = filters.q;
+              if (typeof sort !== 'undefined' && sort) p.sort = sort;
+              if (typeof order !== 'undefined' && order) p.order = order;
+              p.page = targetPage;
+              return '/admin/tours?' + Object.entries(p).map(([k,v])=>k+'='+encodeURIComponent(v)).join('&');
+            } %>
+            <tr>
+              <th class="sortable <%= (typeof sort !== 'undefined' && sort === 'customer') ? 'sort-active' : '' %>"><a href="<%= sortUrl('customer') %>">Kunde / Kontakt / Objekt<span class="sort-icon"><%= (typeof sort !== 'undefined' && sort === 'customer') ? (order === 'desc' ? ' ▼' : ' ▲') : ' ◆' %></span></a></th>
+              <th class="sortable <%= (typeof sort !== 'undefined' && sort === 'matterport_created') ? 'sort-active' : '' %>"><a href="<%= sortUrl('matterport_created') %>">Tour erstellt<span class="sort-icon"><%= (typeof sort !== 'undefined' && sort === 'matterport_created') ? (order === 'desc' ? ' ▼' : ' ▲') : ' ◆' %></span></a></th>
+              <th class="sortable <%= (typeof sort !== 'undefined' && sort === 'ablaufdatum') ? 'sort-active' : '' %>"><a href="<%= sortUrl('ablaufdatum') %>">Ablaufdatum<span class="sort-icon"><%= (typeof sort !== 'undefined' && sort === 'ablaufdatum') ? (order === 'desc' ? ' ▼' : ' ▲') : ' ◆' %></span></a></th>
+              <th class="sortable <%= (typeof sort !== 'undefined' && sort === 'days') ? 'sort-active' : '' %>"><a href="<%= sortUrl('days') %>">Tage<span class="sort-icon"><%= (typeof sort !== 'undefined' && sort === 'days') ? (order === 'desc' ? ' ▼' : ' ▲') : ' ◆' %></span></a></th>
+              <th class="sortable <%= (typeof sort !== 'undefined' && sort === 'status') ? 'sort-active' : '' %>"><a href="<%= sortUrl('status') %>">Abostatus<span class="sort-icon"><%= (typeof sort !== 'undefined' && sort === 'status') ? (order === 'desc' ? ' ▼' : ' ▲') : ' ◆' %></span></a></th>
+              <th>Rechnungsstatus</th>
+              <th>Aktionen</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if (tours.length === 0) { %>
+            <tr><td colspan="7"><div class="empty"><p>Keine Touren gefunden</p></div></td></tr>
+            <% } else { %>
+            <% tours.forEach(t => {
+              const days = t.days_until_expiry != null ? t.days_until_expiry : null;
+              const daysClass = days === null ? '' : (days < 0 ? 'negative' : (days <= 30 ? 'soon' : 'ok'));
+              const expiryDate = t.canonical_term_end_date || t.term_end_date || t.ablaufdatum;
+              const formattedDate = expiryDate ? new Date(expiryDate).toLocaleDateString('de-CH', { day:'2-digit', month:'short', year:'numeric' }) : '-';
+              const hasMpId = t.canonical_matterport_space_id && String(t.canonical_matterport_space_id).trim() !== '';
+              const hasMpInUrl = t.tour_url && /[?&]m=[a-zA-Z0-9_-]+/.test(t.tour_url);
+              const isUnlinked = ['ACTIVE','EXPIRING_SOON'].includes(t.status) && !hasMpId && !hasMpInUrl;
+              const isFremde = t.matterport_is_own === false;
+            %>
+            <tr class="<%= isUnlinked ? 'row-unlinked' : '' %><%= isFremde ? ' row-fremde' : '' %>">
+              <td>
+                <div class="customer-name">
+                  <%= (t.canonical_customer_name || t.customer_name || t.kunde_ref || '-') %>
+                </div>
+                <div class="customer-contact" style="font-size:0.85rem;color:var(--text-muted);"><%= (t.customer_email || t.customer_contact || '') %></div>
+                <div class="customer-object"><%= (t.canonical_object_label || t.object_label || t.bezeichnung || '') %></div>
+                <%
+                  const hintBadges = [];
+                  if (!t.has_customer_connection) hintBadges.push({ text: 'Kein Kunde verknüpft', style: 'background:rgba(245,158,11,0.2);color:#fbbf24;' });
+                  if (t.needs_renewal_mail) hintBadges.push({ text: 'Keine Verlängerungsmail', style: 'background:rgba(239,68,68,0.18);color:#fca5a5;' });
+                  if (t.waiting_customer_reply) hintBadges.push({ text: 'Kundenantwort ausstehend', style: 'background:rgba(6,182,212,0.2);color:#22d3ee;' });
+                  if (t.awaiting_payment_without_invoice) hintBadges.push({ text: 'Wartet auf Zahlung ohne Exxas-Rechnung', style: 'background:rgba(245,158,11,0.2);color:#fbbf24;' });
+                  if (t.customer_intent) hintBadges.push({
+                    text: ({
+                      renew_yes: 'Kunde will verlängern',
+                      renew_no: 'Kunde will nicht verlängern',
+                      transfer_requested: 'Transfer gewünscht',
+                      billing_question: 'Rechnungsfrage',
+                      unclear: 'Kundenwunsch unklar'
+                    })[t.customer_intent] || t.customer_intent,
+                    className: 'badge-sent'
+                  });
+                  if (t.customer_transfer_requested) hintBadges.push({ text: 'Transfer prüfen', style: 'background:rgba(245,158,11,0.2);color:#fbbf24;' });
+                  if (t.customer_billing_attention) hintBadges.push({ text: 'Billing offen', style: 'background:rgba(6,182,212,0.2);color:#22d3ee;' });
+                  const visibleBadges = hintBadges.slice(0, 1);
+                  const extraBadges = hintBadges.slice(1);
+                %>
+                <div class="tour-hints">
+                  <% visibleBadges.forEach((b) => { %>
+                    <span class="badge <%= b.className || '' %>" style="<%= b.style || '' %>"><%= b.text %></span>
+                  <% }) %>
+                  <% if (extraBadges.length) { %>
+                    <button class="tour-hints-toggle" type="button" onclick="toggleExtraHints(event,<%= t.id %>)">+<%= extraBadges.length %> weitere Hinweise</button>
+                    <div class="tour-hints-extra" id="extraHints-<%= t.id %>">
+                      <% extraBadges.forEach((b) => { %>
+                        <span class="badge <%= b.className || '' %>" style="<%= b.style || '' %>"><%= b.text %></span>
+                      <% }) %>
+                    </div>
+                  <% } %>
+                </div>
+              </td>
+              <td style="color:var(--text-muted);font-size:0.85rem;"><%= (t.matterport_created_at || t.exxas_created_at) ? new Date(t.matterport_created_at || t.exxas_created_at).toLocaleDateString('de-CH', { day:'2-digit', month:'short', year:'numeric' }) : '-' %></td>
+              <td style="color:var(--text-muted);font-size:0.9rem;"><%= formattedDate %></td>
+              <td><span class="days <%= daysClass %>"><%= days != null ? days : '-' %></span></td>
+              <td>
+                <span class="badge badge-<%= t.displayed_status || t.status %>"><%= t.displayed_status_label || ((statusLabels && statusLabels[t.status]) || t.status.replace(/_/g,' ')) %></span>
+                <% if (t.displayed_status_note) { %>
+                <div style="color:var(--text-muted);font-size:0.78rem;margin-top:0.2rem;"><%= t.displayed_status_note %></div>
+                <% } %>
+              </td>
+              <td style="font-size:0.85rem;">
+                <span class="invoice-status-tag <%= t.invoice_status_tone || 'none' %>"><%= t.invoice_status_label || 'Keine Rechnung' %></span>
+              </td>
+              <td>
+                <div class="row-actions">
+                  <a href="/admin/tours/<%= t.id %>" class="btn btn-primary">Details</a>
+                </div>
+              </td>
+            </tr>
+            <% }); %>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+      <% if (pagination) { %>
+      <%
+        const startItem = pagination.totalItems ? ((pagination.page - 1) * pagination.pageSize) + 1 : 0;
+        const endItem = Math.min(pagination.page * pagination.pageSize, pagination.totalItems);
+        const maxVisiblePages = 5;
+        const startPage = Math.max(1, pagination.page - Math.floor(maxVisiblePages / 2));
+        const endPage = Math.min(pagination.totalPages, startPage + maxVisiblePages - 1);
+      %>
+      <div class="tours-pagination">
+        <div class="tours-pagination-info">
+          Seite <strong><%= pagination.page %></strong> von <strong><%= pagination.totalPages %></strong> · Zeige <strong><%= startItem %>–<%= endItem %></strong> von <strong><%= pagination.totalItems %></strong> Touren
+        </div>
+        <div class="tours-pagination-links">
+          <a href="<%= pageUrl(pagination.page - 1) %>" class="tours-page-link <%= pagination.hasPrev ? '' : 'disabled' %>">Zurück</a>
+          <% for (let p = startPage; p <= endPage; p++) { %>
+            <a href="<%= pageUrl(p) %>" class="tours-page-link <%= p === pagination.page ? 'active' : '' %>"><%= p %></a>
+          <% } %>
+          <a href="<%= pageUrl(pagination.page + 1) %>" class="tours-page-link <%= pagination.hasNext ? '' : 'disabled' %>">Weiter</a>
+        </div>
+      </div>
+      <% } %>
+    </main>
+  </div>
+  <div class="tm-modal-backdrop" id="paymentModalBackdrop" onclick="closePaymentModal(event)">
+    <div class="tm-modal" onclick="event.stopPropagation()">
+      <div class="tm-modal-head">
+        <h3 class="tm-modal-title">Zahlung prüfen</h3>
+        <button class="tm-modal-close" type="button" onclick="closePaymentModal()">&times;</button>
+      </div>
+      <div class="tm-modal-body">
+        <div class="tm-modal-info" id="paymentModalInfo">Prüfung wird gestartet...</div>
+      </div>
+      <div class="tm-modal-foot">
+        <button class="btn btn-primary" type="button" onclick="closePaymentModal()">Schließen</button>
+      </div>
+    </div>
+  </div>
+  <div class="tm-modal-backdrop" id="mailModalBackdrop" onclick="closeMailModal(event)">
+    <div class="tm-modal" onclick="event.stopPropagation()">
+      <div class="tm-modal-head">
+        <h3 class="tm-modal-title">Mail senden</h3>
+        <button class="tm-modal-close" type="button" onclick="closeMailModal()">&times;</button>
+      </div>
+      <div class="tm-modal-body">
+        <div class="tm-form-row">
+          <label for="mailTemplateSelect">E-Mail Vorlage auswählen</label>
+          <select id="mailTemplateSelect">
+            <option value="renewal_request">Verlängerungsanfrage</option>
+            <option value="archive_notice">Archiv-Hinweis</option>
+          </select>
+          <div class="tm-form-help">Die gewählte Vorlage wird direkt an den Kunden gesendet.</div>
+        </div>
+        <label class="tm-checkbox-line" for="mailCopyToMe">
+          <input type="checkbox" id="mailCopyToMe" value="1">
+          Kopie an mich senden
+        </label>
+        <div class="tm-modal-info" id="mailModalInfo" style="margin-top:0.75rem;">Wähle eine Vorlage und klicke auf „Senden“.</div>
+      </div>
+      <div class="tm-modal-foot">
+        <button class="btn btn-ghost" type="button" onclick="closeMailModal()">Abbrechen</button>
+        <button class="btn btn-primary" id="mailModalSendBtn" type="button" onclick="confirmSendMail()">Senden</button>
+      </div>
+    </div>
+  </div>
+  <div id="toast-container"></div>
+  <script>
+  let activePaymentTourId = null;
+  let activeMailTourId = null;
+  function toast(msg, type) {
+    const c = document.getElementById('toast-container');
+    const el = document.createElement('div');
+    el.className = 'toast ' + (type || 'success');
+    el.textContent = msg;
+    c.appendChild(el);
+    setTimeout(() => el.remove(), 3500);
+  }
+  function openMailModal(id) {
+    activeMailTourId = id;
+    document.getElementById('mailTemplateSelect').value = 'renewal_request';
+    document.getElementById('mailCopyToMe').checked = false;
+    document.getElementById('mailModalInfo').textContent = 'Wähle eine Vorlage und klicke auf „Senden“.';
+    document.getElementById('mailModalBackdrop').classList.add('open');
+  }
+  function closeMailModal(event) {
+    if (event && event.target && event.target.id !== 'mailModalBackdrop') return;
+    activeMailTourId = null;
+    document.getElementById('mailModalBackdrop').classList.remove('open');
+  }
+  async function confirmSendMail() {
+    if (!activeMailTourId) return;
+    const info = document.getElementById('mailModalInfo');
+    const sendBtn = document.getElementById('mailModalSendBtn');
+    const templateKey = document.getElementById('mailTemplateSelect').value;
+    const copyToMe = document.getElementById('mailCopyToMe').checked;
+    info.textContent = 'E-Mail wird gesendet...';
+    sendBtn.disabled = true;
+    try {
+      const r = await fetch('/api/tours/' + activeMailTourId + '/send-renewal-email', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ templateKey, copyToMe }),
+      });
+      const d = await r.json();
+      if (!r.ok || d.error) {
+        info.textContent = d.error || 'Fehler beim Senden.';
+        return;
+      }
+      const copyText = copyToMe ? (d.copySent ? ' · Kopie an dich gesendet.' : (d.copyError ? ` · Kopie fehlgeschlagen: ${d.copyError}` : '')) : '';
+      info.textContent = `E-Mail wurde gesendet${copyText}`;
+      setTimeout(() => closeMailModal(), 500);
+    } catch (e) {
+      info.textContent = 'Fehler: ' + e.message;
+    } finally {
+      sendBtn.disabled = false;
+    }
+  }
+  async function checkPayment(id) {
+    activePaymentTourId = id;
+    const backdrop = document.getElementById('paymentModalBackdrop');
+    const info = document.getElementById('paymentModalInfo');
+    backdrop.classList.add('open');
+    info.textContent = 'Zahlung wird geprüft...';
+    info.classList.remove('success', 'warning', 'danger');
+    try {
+      const r = await fetch('/api/tours/' + id + '/check-payment', { method: 'POST', credentials: 'include' });
+      const d = await r.json();
+      if (!r.ok || d.error) {
+        info.textContent = d.error || 'Fehler bei der Prüfung.';
+        info.classList.add('danger');
+        return;
+      }
+      info.textContent = d.summary || 'Zahlung wurde geprüft.';
+      if (d.paymentState === 'paid') info.classList.add('success');
+      else if (d.paymentState === 'overdue') info.classList.add('danger');
+      else if (d.paymentState === 'open') info.classList.add('warning');
+    } catch (e) {
+      info.textContent = 'Fehler: ' + e.message;
+      info.classList.add('danger');
+    }
+  }
+  function closePaymentModal(event) {
+    if (event && event.target && event.target.id !== 'paymentModalBackdrop') return;
+    activePaymentTourId = null;
+    document.getElementById('paymentModalBackdrop').classList.remove('open');
+  }
+  function unarchiveMatterport(id) {
+    fetch('/api/tours/'+id+'/unarchive-matterport', { method: 'POST', credentials: 'include' })
+      .then(r => r.json())
+      .then(d => {
+        if (d.ok) { toast('Matterport-Tour reaktiviert'); setTimeout(() => location.reload(), 800); }
+        else toast(d.error || 'Reaktivierung fehlgeschlagen', 'error');
+      })
+      .catch(e => toast('Fehler: '+e.message, 'error'));
+  }
+  function toggleExtraHints(evt, id) {
+    evt.preventDefault();
+    const el = document.getElementById('extraHints-' + id);
+    if (!el) return;
+    const visible = el.style.display === 'flex';
+    el.style.display = visible ? 'none' : 'flex';
+  }
+  document.addEventListener('keydown', function(e) {
+    if (e.key !== 'Escape') return;
+    closePaymentModal();
+    closeMailModal();
+  });
+  </script>
+</body>
+</html>

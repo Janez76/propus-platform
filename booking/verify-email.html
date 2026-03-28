@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="de-CH">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>E-Mail bestätigen – Propus</title>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="app.css">
+  <link rel="icon" type="image/png" href="assets/brand/favicon.png">
+  <style>
+    .verify-page{
+      min-height:100vh;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      padding:32px 16px;
+      background:var(--bg);
+    }
+    .verify-card{
+      background:#fff;
+      border:1.5px solid rgba(231,232,236,.9);
+      border-radius:24px;
+      box-shadow:0 8px 40px rgba(0,0,0,.1);
+      padding:36px 32px;
+      width:100%;
+      max-width:420px;
+      text-align:center;
+    }
+    .verify-logo{ display:flex; justify-content:center; margin-bottom:24px; }
+    .verify-logo img{ height:48px; }
+    .verify-title{ font-size:22px; font-weight:800; margin-bottom:8px; }
+    .verify-subtitle{ font-size:14px; opacity:.65; margin-bottom:18px; }
+    .verify-icon{ font-size:48px; margin:10px 0 12px; }
+    .verify-message{ font-size:15px; font-weight:600; margin-bottom:8px; }
+    .verify-hint{ font-size:13px; opacity:.65; }
+    .verify-error{ color:#b02030; font-size:13px; margin-top:10px; }
+    .verify-back-link{
+      display:block;
+      text-align:center;
+      margin-top:20px;
+      font-size:13px;
+      color:var(--gold);
+      text-decoration:underline;
+      cursor:pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="verify-page">
+    <div class="verify-card">
+      <div class="verify-logo">
+        <img src="assets/brand/logo.png" alt="Propus" onerror="this.style.display='none'">
+      </div>
+      <div class="verify-title">E-Mail bestätigen</div>
+      <div class="verify-subtitle">Wir prüfen Ihren Verifikationslink…</div>
+
+      <div id="verifyState">
+        <div id="verifyIcon" class="verify-icon">…</div>
+        <div id="verifyMessage" class="verify-message">Bitte warten</div>
+        <div id="verifyHint" class="verify-hint">Dies dauert nur einen Moment.</div>
+        <div id="verifyError" class="verify-error" style="display:none"></div>
+      </div>
+
+      <a class="verify-back-link" href="index.html">← Zurück zur Buchung</a>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      const API = (function(){
+        var base = window.location.hostname === "localhost" ? "http://localhost:3001" : "";
+        var port = window.location.port;
+        if(!base && port && port !== "80" && port !== "443"){
+          // Wenn Frontend auf Port 8092, API auf 3006
+          var apiPort = port === "8092" ? "3006" : port === "8090" ? "3005" : "3001";
+          base = window.location.protocol + "//" + window.location.hostname + ":" + apiPort;
+        }
+        return base;
+      })();
+
+      function setState(icon, msg, hint, err){
+        document.getElementById("verifyIcon").textContent = icon;
+        document.getElementById("verifyMessage").textContent = msg;
+        document.getElementById("verifyHint").textContent = hint || "";
+        const errEl = document.getElementById("verifyError");
+        if(err){
+          errEl.textContent = err;
+          errEl.style.display = "";
+        }else{
+          errEl.textContent = "";
+          errEl.style.display = "none";
+        }
+      }
+
+      var params = new URLSearchParams(window.location.search);
+      var token = params.get("token") || "";
+      if(!token){
+        setState("✕", "Ungültiger Link", "Bitte fordern Sie einen neuen Bestätigungslink an.", "Token fehlt.");
+        return;
+      }
+
+      fetch(API + "/api/customer/verify-email?token=" + encodeURIComponent(token), { method:"GET" })
+        .then(function(r){ return r.json().then(function(d){ return { ok:r.ok, status:r.status, data:d || {} }; }); })
+        .then(function(x){
+          if(!x.ok){
+            throw new Error(x.data.error || ("Fehler (" + x.status + ")"));
+          }
+          setState("✓", "E-Mail erfolgreich bestätigt", "Sie können sich jetzt einloggen.", "");
+        })
+        .catch(function(e){
+          setState("✕", "Bestätigung fehlgeschlagen", "Der Link ist evtl. abgelaufen. Bitte senden Sie sich einen neuen Link.", e.message || "");
+        });
+    })();
+  </script>
+</body>
+</html>

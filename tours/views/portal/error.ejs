@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fehler – Propus Tour-Portal</title>
+  <%- include('_styles') %>
+  <style>
+    body { display: flex; align-items: center; justify-content: center; padding: 2rem; }
+  </style>
+</head>
+<body>
+  <div style="text-align:center;max-width:400px;">
+    <div style="font-size:2.5rem;margin-bottom:1rem;">⚠️</div>
+    <h1 style="font-size:1.25rem;font-weight:700;margin:0 0 0.5rem 0;">Fehler</h1>
+    <p style="color:var(--text-muted);"><%= message || 'Ein unbekannter Fehler ist aufgetreten.' %></p>
+    <a href="/portal/login" class="btn btn-ghost" style="margin-top:1.25rem;">Zur Anmeldung</a>
+  </div>
+</body>
+</html>

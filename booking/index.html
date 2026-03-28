@@ -1,0 +1,1558 @@
+<!DOCTYPE html>
+<html lang="de-CH">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Propus – Buchung</title>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <link rel="stylesheet" href="app.css?v=20260327-0002">
+  <link rel="icon" type="image/png" href="assets/brand/logopropus.png">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand">
+        <!-- Logo ohne Titel -->
+        <img class="logo" src="assets/brand/logopropus.png" alt="Propus">
+      </div>
+
+      <nav class="stepper" aria-label="Fortschritt">
+        <div class="stepper-wrapper">
+          <div class="progress" aria-hidden="true"><div id="progressBar" class="bar"></div></div>
+          <ol>
+            <li class="step is-active" data-step="1"><span>1</span><span data-i18n="step_1_label">Standort</span></li>
+            <li class="step" data-step="2"><span>2</span><span data-i18n="step_2_label">Dienstleistungen</span></li>
+            <li class="step" data-step="3"><span>3</span><span data-i18n="step_3_label">Fotograf & Termin</span></li>
+            <li class="step" data-step="4"><span>4</span><span data-i18n="step_4_label">Rechnungsdetails</span></li>
+          </ol>
+        </div>
+      </nav>
+
+      <div class="header-lang" aria-label="Sprachauswahl">
+        <label class="db-hints-toggle" id="dbHintsToggleWrap" for="dbHintsToggle" title="DB-Feldhinweise" style="display:none">
+          <input id="dbHintsToggle" type="checkbox">
+          <span>(DB)</span>
+        </label>
+        <select id="langSelect" class="lang-select" aria-label="Sprache">
+          <option value="de">Deutsch</option>
+          <option value="en">English</option>
+          <option value="fr">Français</option>
+          <option value="it">Italiano</option>
+        </select>
+        <button id="accountBtn" class="account-btn" type="button" aria-haspopup="dialog" aria-controls="accountModal" data-i18n="account_btn_login">Anmelden</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Oberes Benachrichtigungs-Banner -->
+  <div id="notice" class="notice" aria-live="polite" aria-atomic="true" hidden></div>
+
+  <!-- Kundenkonto Modal -->
+  <div id="accountOverlay" class="modal-overlay" hidden></div>
+  <section id="accountModal" class="modal" role="dialog" aria-modal="true" aria-label="Kundenkonto (nicht Adminkonto)" hidden>
+    <div class="modal-card">
+      <div class="modal-head">
+        <div class="modal-title">Kundenkonto (nicht Adminkonto)</div>
+        <button id="accountClose" class="modal-x" type="button" aria-label="Schließen">✕</button>
+      </div>
+
+      <!-- Nicht eingeloggt: Lokaler Kunden-Login -->
+      <div id="accountLoggedOut" class="modal-body">
+        <div style="max-width:420px;margin:0 auto;padding:8px 0 16px">
+          <p class="modal-hint" style="margin-bottom:14px;text-align:center">Melden Sie sich mit Ihrer Kunden-E-Mail an oder erstellen Sie ein neues Kundenkonto. (Admin-Zugang nur unter admin-booking.propus.ch)</p>
+          <div class="field" style="margin-bottom:10px">
+            <label for="custLoginEmail">E-Mail</label>
+            <input id="custLoginEmail" type="email" autocomplete="email" placeholder="name@example.ch">
+          </div>
+          <div class="field" style="margin-bottom:12px">
+            <label for="custLoginPassword">Passwort</label>
+            <input id="custLoginPassword" type="password" autocomplete="current-password" placeholder="••••••••">
+          </div>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#666;cursor:pointer;margin:0 0 14px">
+            <input id="custRememberMe" type="checkbox" checked>
+            Angemeldet bleiben
+          </label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <button id="custLoginBtn" class="btn btn-primary" type="button" data-i18n="account_btn_login">
+              Anmelden
+            </button>
+            <button id="custRegisterBtn" class="btn" type="button">
+              Konto erstellen
+            </button>
+          </div>
+          <button id="custForgotBtn" class="btn-link" type="button" style="display:block;margin:12px auto 0;text-align:center">
+            Passwort vergessen?
+          </button>
+          <p class="modal-hint" style="margin-top:14px;font-size:12px;text-align:center">Nach dem Login werden die Rechnungsdetails automatisch übernommen.</p>
+        </div>
+      </div>
+
+      <!-- Eingeloggt -->
+      <div id="accountLoggedIn" class="modal-body" hidden>
+        <div class="account-row">
+          <div>
+            <div class="account-label">Eingeloggt als</div>
+            <div id="accountEmail" class="account-email">—</div>
+          </div>
+          <button id="custLogoutBtn" class="btn" type="button">Abmelden</button>
+        </div>
+
+        <div class="account-actions">
+          <button id="custLoadOrdersBtn" class="btn" type="button">Meine Buchungen</button>
+          <button id="custUploadBtn" class="btn" type="button" data-i18n="btn_upload_material">Daten hochladen</button>
+        </div>
+
+        <div id="custOrdersWrap" class="orders" hidden>
+          <div class="h3">Meine Buchungen</div>
+          <div class="modal-hint">Stornieren/Verschieben ist nur bis 48h (Arbeitszeit) vor Termin möglich.</div>
+          <div id="custOrdersList" class="orders-list"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div id="custMsgOverlay" class="modal-overlay" hidden></div>
+  <section id="custMsgModal" class="modal" role="dialog" aria-modal="true" aria-label="Nachricht zu Auftrag" hidden>
+    <div class="modal-card">
+      <div class="modal-head">
+        <div class="modal-title">Nachricht an Fotograf</div>
+        <button id="custMsgClose" class="modal-x" type="button" aria-label="Schließen">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="custMsgInfo" class="modal-hint" style="margin:0 0 10px"></div>
+        <div class="field">
+          <label for="custMsgText">Nachricht</label>
+          <textarea id="custMsgText" rows="4" placeholder="Ihre Nachricht..."></textarea>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px">
+          <button id="custMsgSendBtn" class="btn btn-primary" type="button">Senden</button>
+        </div>
+        <div class="cust-msg-history-wrap">
+          <div class="cust-msg-history-title">Verlauf</div>
+          <div id="custMsgHistory" class="cust-msg-history"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Mobile: kompakte Zusammenfassung (3 Zeilen) -->
+  <div id="mobileSummaryBar" class="mobile-summary-bar" hidden>
+    <button id="mobileSummaryToggle" class="mobile-summary-toggle" type="button" aria-expanded="false">
+      <div class="ms-row ms-row-0">
+        <span class="ms-title">Ihre Auswahl</span>
+        <span class="ms-total-pill" id="ms-total">CHF 0.00</span>
+        <span class="ms-chev" aria-hidden="true">▾</span>
+      </div>
+      <!-- hidden spans keep JS updates working -->
+      <span class="ms-address" id="ms-address" hidden></span>
+      <span class="ms-services" id="ms-services-compact" hidden></span>
+      <span class="ms-photog" id="ms-photographer" hidden></span>
+      <span class="ms-datetime" id="ms-datetime" hidden></span>
+    </button>
+  </div>
+  <div id="mobileSummaryOverlay" class="mobile-summary-overlay" hidden></div>
+
+  <section id="welcomeScreen" class="welcome-screen" aria-label="Propus Buchungsportal">
+
+    <canvas id="landing-canvas" hidden></canvas>
+
+    <nav class="landing-nav">
+      <div class="landing-logo">
+        <img src="assets/brand/logopropus.png" alt="Propus" class="landing-logo-img">
+      </div>
+      <button id="startBookingBtn" class="landing-nav-cta" type="button">
+        Jetzt buchen
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M1 6h10M7 2l4 4-4 4"/></svg>
+      </button>
+    </nav>
+
+    <section class="landing-hero">
+      <h1 class="landing-h1">
+        Ihr Objekt im<br>
+        <span class="landing-h1-italic">besten Licht.</span>
+      </h1>
+      <p class="landing-hero-sub">Pakete für jeden Anspruch — von professionellen Fotos mit Drohne bis zum cineastischen 4K-Video. Direkt online buchen, Lieferung in 48–72h. Kein Telefon, keine Wartezeit.</p>
+      <div class="landing-hero-buttons">
+        <button class="landing-btn-gold landing-main-cta" type="button" onclick="document.getElementById('startBookingBtn').click()">
+          Jetzt buchen
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M2 7h10M8 3l4 4-4 4"/></svg>
+        </button>
+        <a href="#landing-services" class="landing-btn-ghost">Pakete ansehen</a>
+      </div>
+      <div class="landing-scroll-hint" aria-hidden="true">
+        <span>Scrollen</span>
+        <div class="landing-scroll-line"></div>
+      </div>
+    </section>
+
+    <div class="landing-counters" aria-label="Kennzahlen">
+      <div class="landing-counter-item">
+        <div class="landing-counter-num" data-target="1200" data-suffix="+">—</div>
+        <div class="landing-counter-label">Aufträge abgeschlossen</div>
+      </div>
+      <div class="landing-counter-item" style="transition-delay:0.1s">
+        <div class="landing-counter-num" data-target="48" data-suffix="h">—</div>
+        <div class="landing-counter-label">Lieferzeit Fotos &amp; Drohne</div>
+      </div>
+      <div class="landing-counter-item" style="transition-delay:0.2s">
+        <div class="landing-counter-num" data-target="72" data-suffix="h">—</div>
+        <div class="landing-counter-label">Lieferzeit Video</div>
+      </div>
+      <div class="landing-counter-item" style="transition-delay:0.3s">
+        <div class="landing-counter-num" data-target="3" data-suffix="">—</div>
+        <div class="landing-counter-label">Pakete zur Wahl</div>
+      </div>
+    </div>
+
+    <section class="landing-services-section" id="landing-services">
+      <p class="landing-section-eyebrow">Unsere Pakete</p>
+      <h2 class="landing-section-title">Das Richtige für jedes Objekt.</h2>
+      <div class="landing-services-grid">
+
+        <button type="button" class="landing-hl-card highlight-card bestseller-card" aria-label="BESTSELLER Paket buchen" onclick="document.getElementById('startBookingBtn').click()">
+          <div class="highlight-badge" aria-hidden="true">
+            <span class="highlight-badge-line1">AM</span>
+            <span class="highlight-badge-line2">BELIEBTESTEN</span>
+          </div>
+          <div class="highlight-body">
+            <div class="landing-hl-media" aria-hidden="true">
+              <img src="assets/landing/packages/package-bestseller.png" alt="" width="640" height="360" loading="lazy" decoding="async">
+            </div>
+            <div class="landing-hl-inner">
+            <div class="highlight-title">BESTSELLER</div>
+            <div class="highlight-subtitle">THE GOLD STANDARD IN REAL ESTATE</div>
+            <div class="highlight-price"><span id="landing-price-bestseller">CHF 399</span></div>
+            <ul class="highlight-features">
+              <li>10 Immobilienfotos</li>
+              <li>4 Luftaufnahmen</li>
+              <li>HDR bearbeitet</li>
+              <li>Web-Fullsize Formaten</li>
+              <li>Medienlieferung in 48H</li>
+            </ul>
+            </div>
+          </div>
+        </button>
+
+        <button type="button" class="landing-hl-card highlight-card" style="transition-delay:0.1s" aria-label="CINEMATIC DUO Paket buchen" onclick="document.getElementById('startBookingBtn').click()">
+          <div class="highlight-body">
+            <div class="landing-hl-media" aria-hidden="true">
+              <img src="assets/landing/packages/package-cinematic.png" alt="" width="640" height="360" loading="lazy" decoding="async">
+            </div>
+            <div class="landing-hl-inner">
+            <div class="highlight-title">CINEMATIC DUO</div>
+            <div class="highlight-subtitle">TWO ANGLES. ONE STORY</div>
+            <div class="highlight-price"><span id="landing-price-cinematic">CHF 549</span></div>
+            <ul class="highlight-features">
+              <li>Hoch- oder Querformat</li>
+              <li>4K Auflösung</li>
+              <li>1-2 Minuten Clip</li>
+              <li>Kombination aus Boden / Luftaufnahme</li>
+              <li>Dynamischer Schnitt &amp; Musik</li>
+              <li>Medienlieferung in 72H</li>
+            </ul>
+            </div>
+          </div>
+        </button>
+
+        <button type="button" class="landing-hl-card highlight-card" style="transition-delay:0.2s" aria-label="THE FULL VIEW Paket buchen" onclick="document.getElementById('startBookingBtn').click()">
+          <div class="highlight-body">
+            <div class="landing-hl-media" aria-hidden="true">
+              <img src="assets/landing/packages/package-fullview.png" alt="" width="640" height="360" loading="lazy" decoding="async">
+            </div>
+            <div class="landing-hl-inner">
+            <div class="highlight-title">THE FULL VIEW</div>
+            <div class="highlight-subtitle">EVERY ANGLE EVERY DETAIL</div>
+            <div class="highlight-price"><span id="landing-price-fullview">CHF 649</span></div>
+            <ul class="highlight-features">
+              <li>10 Immobilienfotos</li>
+              <li>4 Luftaufnahmen</li>
+              <li>HDR bearbeitet</li>
+              <li>Web-Fullsize Formaten</li>
+              <li>360° Tour bis 199 m²</li>
+              <li>Medienlieferung in 48H</li>
+            </ul>
+            </div>
+          </div>
+        </button>
+
+        <button type="button" class="landing-hl-card highlight-card landing-hl-card-modular" style="transition-delay:0.3s" aria-label="Modular buchen — Einzelleistungen" onclick="document.getElementById('startBookingBtn').click()">
+          <div class="highlight-body">
+            <div class="landing-hl-media" aria-hidden="true">
+              <img src="assets/landing/packages/package-modular.png" alt="" width="640" height="360" loading="lazy" decoding="async">
+            </div>
+            <div class="landing-hl-inner">
+            <div class="highlight-title">NUR WAS DU BRAUCHST</div>
+            <div class="highlight-subtitle">MODULAR &amp; FREI KOMBINIERBAR</div>
+            <div class="highlight-price">ab CHF 229</div>
+            <ul class="highlight-features">
+              <li>Kamera-Aufnahmen nach Bedarf</li>
+              <li>Drohnen-Fotos &amp; Video-Clips</li>
+              <li>360°-Touren &amp; Floor Plans</li>
+              <li>Staging &amp; Zusatzleistungen</li>
+              <li>Kein fixes Paket nötig</li>
+            </ul>
+            </div>
+          </div>
+        </button>
+
+      </div>
+    </section>
+
+    <section class="landing-reviews" id="landing-reviews" aria-label="Google Bewertungen">
+      <div class="landing-reviews-header">
+        <p class="landing-section-eyebrow">Kundenstimmen</p>
+        <div class="landing-reviews-meta" id="landing-reviews-meta" hidden>
+          <span class="landing-reviews-score" id="landing-reviews-score"></span>
+          <span class="landing-reviews-stars" id="landing-reviews-stars" aria-hidden="true"></span>
+          <span class="landing-reviews-total" id="landing-reviews-total"></span>
+        </div>
+      </div>
+
+      <!-- Statischer Fallback (sichtbar bis API-Daten geladen sind) -->
+      <div class="landing-reviews-track" id="landing-reviews-track">
+        <div class="landing-review-card landing-review-fallback">
+          <div class="landing-review-stars" aria-label="5 von 5 Sternen">★★★★★</div>
+          <p class="landing-review-text">Schnelle Abwicklung, professionelle Qualität. Das Inserat war innerhalb weniger Tage vergeben — wir buchen definitiv wieder über Propus.</p>
+          <div class="landing-review-author">Maklerbüro Zürich · Google</div>
+        </div>
+      </div>
+
+      <div class="landing-reviews-nav" id="landing-reviews-nav" hidden>
+        <button class="landing-reviews-btn" id="landing-reviews-prev" aria-label="Vorherige Bewertung" type="button">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 3L5 8l5 5"/></svg>
+        </button>
+        <div class="landing-reviews-dots" id="landing-reviews-dots"></div>
+        <button class="landing-reviews-btn" id="landing-reviews-next" aria-label="Nächste Bewertung" type="button">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 3l5 5-5 5"/></svg>
+        </button>
+      </div>
+    </section>
+
+    <footer class="landing-final-cta" id="landing-booking">
+      <h2 class="landing-final-h2">Ihr Objekt,<br><em>in 2 Minuten gebucht.</em></h2>
+      <p class="landing-final-sub">Paket wählen, Termin festlegen, fertig — Bestätigung per E-Mail. Kein Telefon, keine Wartezeit.</p>
+      <button class="landing-btn-gold" type="button" style="font-size:1rem;padding:1.1rem 2.75rem" onclick="document.getElementById('startBookingBtn').click()">
+        Jetzt Termin buchen
+        <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M2 7h10M8 3l4 4-4 4"/></svg>
+      </button>
+      <div class="landing-final-note">Pakete ab CHF 399 · Schweizweit buchbar</div>
+    </footer>
+
+    <script>
+    (function(){
+      var canvas = document.getElementById('landing-canvas');
+      if (!canvas) return;
+      var ctx = canvas.getContext('2d');
+      var W, H, particles = [];
+      function resize(){ W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+      resize();
+      window.addEventListener('resize', resize);
+      function Particle(){
+        this.x = Math.random()*W; this.y = Math.random()*H;
+        this.r = Math.random()*1.2+0.2;
+        this.vx = (Math.random()-0.5)*0.15; this.vy = (Math.random()-0.5)*0.15;
+        this.alpha = Math.random()*0.4+0.1;
+        this.color = Math.random()>0.6 ? '#c9a14a' : '#f0ece4';
+      }
+      Particle.prototype.update = function(){
+        this.x += this.vx; this.y += this.vy;
+        if(this.x<0||this.x>W||this.y<0||this.y>H){ this.x=Math.random()*W; this.y=Math.random()*H; }
+      };
+      Particle.prototype.draw = function(){
+        ctx.beginPath(); ctx.arc(this.x,this.y,this.r,0,Math.PI*2);
+        ctx.fillStyle = this.color; ctx.globalAlpha = this.alpha; ctx.fill();
+      };
+      for(var i=0;i<80;i++) particles.push(new Particle());
+      var landingAnimId;
+      function animateParticles(){
+        var screen = document.getElementById('welcomeScreen');
+        if(screen && screen.hidden){ cancelAnimationFrame(landingAnimId); return; }
+        ctx.clearRect(0,0,W,H); ctx.globalAlpha=1;
+        particles.forEach(function(p){ p.update(); p.draw(); });
+        landingAnimId = requestAnimationFrame(animateParticles);
+      }
+      animateParticles();
+
+      var observer = new IntersectionObserver(function(entries){
+        entries.forEach(function(e){ if(e.isIntersecting) e.target.classList.add('is-visible'); });
+      },{threshold:0.15});
+      document.querySelectorAll('.landing-counter-item,.landing-hl-card,.landing-reviews,.landing-final-cta').forEach(function(el){ observer.observe(el); });
+
+      function animateCounter(el){
+        var num = el.querySelector('.landing-counter-num');
+        if(!num) return;
+        var target = parseFloat(num.dataset.target);
+        var suffix = num.dataset.suffix||'';
+        var decimal = parseInt(num.dataset.decimal)||0;
+        var duration = 1800, start = performance.now();
+        function tick(now){
+          var t = Math.min((now-start)/duration,1);
+          var ease = 1-Math.pow(1-t,3);
+          var val = target*ease;
+          num.textContent = decimal ? val.toFixed(decimal)+suffix : Math.floor(val).toLocaleString('de-CH')+suffix;
+          if(t<1) requestAnimationFrame(tick);
+        }
+        requestAnimationFrame(tick);
+      }
+      var counterObs = new IntersectionObserver(function(entries){
+        entries.forEach(function(e){ if(e.isIntersecting){ animateCounter(e.target); counterObs.unobserve(e.target); } });
+      },{threshold:0.5});
+      document.querySelectorAll('.landing-counter-item').forEach(function(el){ counterObs.observe(el); });
+
+      var mainCta = document.querySelector('.landing-main-cta');
+      var pulsing = true;
+      function pulseCta(){
+        if(!pulsing||!mainCta) return;
+        mainCta.style.boxShadow='0 0 0 8px rgba(201,161,74,0.15)';
+        setTimeout(function(){ if(pulsing&&mainCta) mainCta.style.boxShadow='0 0 0 0 transparent'; },600);
+      }
+      setInterval(pulseCta,2500);
+      if(mainCta){
+        mainCta.addEventListener('mouseenter',function(){ pulsing=false; });
+        mainCta.addEventListener('mouseleave',function(){ pulsing=true; });
+      }
+
+      // Preise vom selben API-Endpoint laden wie der Buchungs-Wizard
+      (function(){
+        var base = (typeof API_BASE !== 'undefined' && API_BASE) ? API_BASE : '';
+        fetch(base + '/api/catalog/products')
+          .then(function(r){ return r.ok ? r.json() : null; })
+          .then(function(data){
+            if(!data) return;
+            var packages = Array.isArray(data.packages) ? data.packages : [];
+            var map = { bestseller: 'landing-price-bestseller', cinematic: 'landing-price-cinematic', fullview: 'landing-price-fullview' };
+            packages.forEach(function(p){
+              var key = String(p.key || '');
+              var elId = map[key];
+              if(!elId) return;
+              var el = document.getElementById(elId);
+              if(el && Number.isFinite(Number(p.price))) el.textContent = 'CHF ' + Number(p.price).toLocaleString('de-CH');
+            });
+          })
+          .catch(function(){});
+      })();
+
+      // Google Reviews laden und Karussell aufbauen
+      (function(){
+        var base = (typeof API_BASE !== 'undefined' && API_BASE) ? API_BASE : '';
+        var track = document.getElementById('landing-reviews-track');
+        var nav = document.getElementById('landing-reviews-nav');
+        var dotsEl = document.getElementById('landing-reviews-dots');
+        var prevBtn = document.getElementById('landing-reviews-prev');
+        var nextBtn = document.getElementById('landing-reviews-next');
+        var metaEl = document.getElementById('landing-reviews-meta');
+        var scoreEl = document.getElementById('landing-reviews-score');
+        var starsEl = document.getElementById('landing-reviews-stars');
+        var totalEl = document.getElementById('landing-reviews-total');
+        var current = 0;
+        var cards = [];
+        var autoTimer = null;
+
+        function stars(n){
+          var s = '';
+          for(var i=1;i<=5;i++) s += i<=Math.round(n)?'★':'☆';
+          return s;
+        }
+
+        function showCard(idx){
+          current = (idx + cards.length) % cards.length;
+          cards.forEach(function(c,i){ c.classList.toggle('is-active', i===current); });
+          var dots = dotsEl ? dotsEl.querySelectorAll('.landing-reviews-dot') : [];
+          dots.forEach(function(d,i){ d.classList.toggle('is-active', i===current); });
+        }
+
+        function buildCarousel(reviews){
+          if(!track || !reviews.length) return;
+          track.innerHTML = '';
+          cards = [];
+          reviews.forEach(function(rv,i){
+            var card = document.createElement('div');
+            card.className = 'landing-review-card' + (i===0?' is-active':'');
+            card.innerHTML =
+              '<div class="landing-review-stars" aria-label="'+rv.rating+' von 5 Sternen">'+stars(rv.rating)+'</div>'+
+              '<p class="landing-review-text">'+escHtml(rv.text)+'</p>'+
+              '<div class="landing-review-author">'+escHtml(rv.author)+
+                (rv.relativeTime ? ' · <span class="landing-review-time">'+escHtml(rv.relativeTime)+'</span>' : '')+
+              '</div>';
+            track.appendChild(card);
+            cards.push(card);
+          });
+          if(reviews.length > 1 && nav && dotsEl){
+            dotsEl.innerHTML = '';
+            reviews.forEach(function(_,i){
+              var d = document.createElement('button');
+              d.type='button'; d.className='landing-reviews-dot'+(i===0?' is-active':'');
+              d.setAttribute('aria-label','Bewertung '+(i+1));
+              d.addEventListener('click',function(){ clearInterval(autoTimer); showCard(i); });
+              dotsEl.appendChild(d);
+            });
+            nav.hidden = false;
+            autoTimer = setInterval(function(){ showCard(current+1); }, 5000);
+          }
+        }
+
+        function escHtml(s){
+          return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        if(prevBtn) prevBtn.addEventListener('click',function(){ clearInterval(autoTimer); showCard(current-1); });
+        if(nextBtn) nextBtn.addEventListener('click',function(){ clearInterval(autoTimer); showCard(current+1); });
+
+        fetch(base + '/api/reviews')
+          .then(function(r){ return r.ok ? r.json() : null; })
+          .then(function(data){
+            if(!data || !data.ok || !data.reviews || !data.reviews.length) return;
+            buildCarousel(data.reviews);
+            if(metaEl && data.rating){
+              if(scoreEl) scoreEl.textContent = Number(data.rating).toFixed(1);
+              if(starsEl) starsEl.textContent = stars(data.rating);
+              if(totalEl && data.total) totalEl.textContent = '(' + data.total + ' Bewertungen)';
+              metaEl.hidden = false;
+            }
+          })
+          .catch(function(){});
+      })();
+    })();
+    </script>
+
+  </section>
+
+  <!-- Mobile-Hinweis -->
+  <section id="mobileBlockScreen" class="welcome-screen" hidden>
+    <div class="welcome-card" style="padding:28px 20px">
+      <img class="logo welcome-logo" src="assets/brand/logopropus.png" alt="Propus">
+      <div style="margin-top:16px;text-align:center">
+        <p style="font-weight:700;font-size:15px;margin:0 0 4px;color:#1f2329">Mobile Version nicht verfügbar</p>
+        <p style="font-size:13px;margin:0 0 16px;opacity:.65">Bitte tätige deine Buchung über einen Webbrowser am Computer.</p>
+        <p style="font-weight:700;font-size:15px;margin:0 0 4px;color:#1f2329">Mobile version not available</p>
+        <p style="font-size:13px;margin:0 0 16px;opacity:.65">Please make your booking via a web browser on your computer.</p>
+        <p style="font-weight:700;font-size:15px;margin:0 0 4px;color:#1f2329">Version mobile non disponible</p>
+        <p style="font-size:13px;margin:0 0 16px;opacity:.65">Veuillez effectuer votre réservation via un navigateur web sur votre ordinateur.</p>
+        <p style="font-weight:700;font-size:15px;margin:0 0 4px;color:#1f2329">Versione mobile non disponibile</p>
+        <p style="font-size:13px;margin:0;opacity:.65">Effettua la prenotazione tramite un browser web sul tuo computer.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="thankYouScreen" class="welcome-screen" aria-labelledby="thankyou-title" hidden>
+    <div class="ty-screen-content">
+      <div class="ty-check-badge" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6.5 12.5l3.5 3.5 7.5-8"></path>
+        </svg>
+      </div>
+      <h1 id="thankyou-title" class="ty-title">Vielen Dank für Ihre Buchung!</h1>
+      <p id="tySubtitle" class="ty-subtitle">Ihre Buchung wurde erfolgreich abgeschlossen. Sie erhalten in Kürze eine Bestätigung per E-Mail.</p>
+
+      <div class="ty-card">
+        <div class="ty-card-title">Buchungsdetails</div>
+        <div class="ty-data-row">
+          <span>Buchungsnummer</span>
+          <strong id="tyOrderNo">–</strong>
+        </div>
+        <div class="ty-data-row">
+          <span>Datum</span>
+          <strong id="tyDateVal">–</strong>
+        </div>
+        <div class="ty-data-row">
+          <span>Status</span>
+          <span id="tyStatusBadge" class="ty-status-badge">BESTÄTIGT</span>
+        </div>
+      </div>
+
+      <div class="ty-card">
+        <div class="ty-card-title">Kontaktperson</div>
+        <div class="ty-data-row">
+          <span>Name</span>
+          <strong id="tyContactName">–</strong>
+        </div>
+      </div>
+
+      <div class="ty-card">
+        <div class="ty-card-title">Dokument</div>
+        <div class="ty-doc-btns">
+          <button type="button" class="ty-doc-btn" id="tyPrintBtn">Drucken</button>
+          <button type="button" class="ty-doc-btn" id="tyPdfBtn">PDF herunterladen</button>
+        </div>
+      </div>
+
+      <div class="ty-card ty-account-card" id="tyAccountCard" hidden>
+        <div class="ty-card-title">Kundenkonto</div>
+        <p class="ty-account-copy">Möchten Sie ein Kundenkonto erstellen? Damit können Sie zukünftige Buchungen schneller abschliessen und Ihren Buchungsverlauf einsehen.</p>
+        <label class="ty-field" for="tyPassword">
+          <span>Passwort wählen <span class="req">*</span></span>
+          <input id="tyPassword" type="password" minlength="8" autocomplete="new-password" placeholder="Mind. 8 Zeichen">
+        </label>
+        <label class="ty-field" for="tyPasswordConfirm">
+          <span>Passwort bestätigen <span class="req">*</span></span>
+          <input id="tyPasswordConfirm" type="password" minlength="8" autocomplete="new-password" placeholder="Passwort wiederholen">
+        </label>
+        <div id="tyAccountError" class="ty-account-error" hidden></div>
+        <div id="tyAccountMsg" class="ty-account-success" hidden></div>
+        <div class="ty-account-actions">
+          <button type="button" class="btn-back" id="tySkipAccountBtn">Nein, danke</button>
+          <button type="button" class="btn-primary" id="tyCreateAccountBtn">Konto erstellen</button>
+        </div>
+      </div>
+
+      <a class="ty-back-link" href="/">← Zurück zur Startseite</a>
+    </div>
+
+    <div class="ty-print-doc" aria-hidden="true">
+      <div class="ty-print-head">
+        <div class="ty-print-brand">
+          <img class="ty-print-logo" src="assets/brand/logopropus.png" alt="Propus">
+          <div>
+            <div class="ty-print-kicker">propus.ch</div>
+            <div id="tyPrintTitle" class="ty-print-title">Buchungsbestätigung</div>
+          </div>
+        </div>
+        <div id="tyPrintStatusBadge" class="ty-print-pill">BESTÄTIGT</div>
+      </div>
+
+      <p id="tyPrintIntro" class="ty-print-intro">Vielen Dank für Ihre Buchung! Ihre Buchung wurde erfolgreich abgeschlossen. Sie erhalten in Kürze eine Bestätigung per E-Mail.</p>
+
+      <div class="ty-print-section">
+        <div class="ty-print-section-title">BUCHUNGSDETAILS</div>
+        <div class="ty-print-row"><span>Buchungsnummer</span><strong id="tyPrintOrderNo">–</strong></div>
+        <div class="ty-print-row"><span>Datum</span><strong id="tyPrintDate">–</strong></div>
+        <div class="ty-print-row"><span>Status</span><strong id="tyPrintStatusText">Bestätigt</strong></div>
+      </div>
+
+      <div class="ty-print-section">
+        <div class="ty-print-section-title">FIRMA &amp; RECHNUNGSADRESSE</div>
+        <div class="ty-print-row"><span>Firma</span><strong id="tyPrintCompany">–</strong></div>
+        <div class="ty-print-row" id="tyPrintCompanyEmailRow"><span>E-Mail</span><strong id="tyPrintCompanyEmail">–</strong></div>
+        <div class="ty-print-row" id="tyPrintCompanyPhoneRow"><span>Telefon</span><strong id="tyPrintCompanyPhone">–</strong></div>
+        <div class="ty-print-row"><span>Strasse, Nr.</span><strong id="tyPrintStreet">–</strong></div>
+        <div class="ty-print-row"><span>PLZ / Ort</span><strong id="tyPrintZipCity">–</strong></div>
+      </div>
+
+      <div class="ty-print-section">
+        <div class="ty-print-section-title">KONTAKTPERSON</div>
+        <div class="ty-print-row"><span>Name</span><strong id="tyPrintContactName">–</strong></div>
+        <div class="ty-print-row"><span>E-Mail</span><strong id="tyPrintContactEmail">–</strong></div>
+        <div class="ty-print-row"><span>Telefon</span><strong id="tyPrintContactPhone">–</strong></div>
+      </div>
+
+      <div class="ty-print-section" id="tyPrintExtraSection">
+        <div class="ty-print-section-title">WEITERE ANGABEN</div>
+        <div class="ty-print-row" id="tyPrintOrderRefRow"><span>Bestellreferenz</span><strong id="tyPrintOrderRef">–</strong></div>
+        <div class="ty-print-row" id="tyPrintNotesRow"><span>Hinweise</span><strong id="tyPrintNotes">–</strong></div>
+      </div>
+
+      <div class="ty-print-note">Hinweis: Anfahrtspauschale werden in Rechnung zusätzlich verrechnet. Weitere Infos auf propus.ch/preise/ unter Kategorie Zonen.</div>
+      <div class="ty-print-footer">propus.ch · Immobilien Fotografie &amp; Virtual Tours · Zug / Zürich</div>
+    </div>
+  </section>
+
+  <main id="mainContent" class="container main-grid">
+    <!-- =======================================
+         LINKSSPALTE – Inhalt
+    ======================================= -->
+    <section class="card">
+      <div class="content">
+        <div class="steps-accordion">
+        <!-- ===================== STEP 1 ===================== -->
+        <div class="step-acc-item is-open" id="step-acc-1">
+          <button class="step-acc-header" type="button" aria-expanded="true" aria-controls="step-1">
+            <span class="step-acc-num">1</span>
+            <div class="step-acc-label-group">
+              <span class="step-acc-title" data-i18n="step_1_label">Standort</span>
+              <span class="step-acc-summary" id="step-summary-1"></span>
+            </div>
+            <svg class="step-acc-chevron" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <section id="step-1" class="step-section" aria-labelledby="h1-1">
+          <h1 id="h1-1" class="h1" tabindex="-1" data-i18n="step_1_title">1. Standort</h1>
+          <p class="sub" data-i18n="step_1_sub">Adresse eingeben oder auf die Karte klicken. Alternativ GPS verwenden.</p>
+
+          <fieldset id="objectDetails" class="group">
+            <legend data-i18n="object_legend">Objekt</legend>
+
+            <div class="field">
+              <label for="address"><span data-i18n="label_address">Adresse</span> <span class="req">*</span></label>
+              <div class="suggest-wrap">
+                <input id="address" type="text" data-i18n-placeholder="ph_address" placeholder="Strasse Hausnummer, PLZ Ort" autocomplete="off" spellcheck="false">
+                <ul id="addressSuggestions" class="suggestions" role="listbox" hidden></ul>
+              </div>
+              <div id="addressStatus" class="status"></div>
+            </div>
+
+            <div class="map-wrap">
+              <div id="map" class="map" role="img" aria-label="Karte"></div>
+            </div>
+
+            <div class="field">
+              <label for="type"><span data-i18n="label_object_type">Objektart</span> <span class="req">*</span></label>
+              <select id="type" required>
+                <option value="" data-i18n="opt_choose">– bitte wählen –</option>
+                <option value="apartment" data-i18n="objtype_apartment">Wohnung</option>
+                <option value="single_house" data-i18n="objtype_single_house">Einfamilienhaus</option>
+                <option value="multi_house" data-i18n="objtype_multi_house">Mehrfamilienhaus</option>
+                <option value="commercial" data-i18n="objtype_commercial">Gewerbe</option>
+                <option value="land" data-i18n="objtype_land">Grundstück</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="area"><span data-i18n="label_area">Wohn-/Nutzfläche (m²)</span> <span class="req">*</span></label>
+              <input id="area" type="number" min="1" step="1" data-i18n-placeholder="ph_area" placeholder="z. B. 120" required>
+            </div>
+
+            <div class="field">
+              <label for="floors"><span data-i18n="label_floors">Etagen/Ebene</span> <span class="req">*</span></label>
+              <input id="floors" type="number" min="1" step="1" value="1" required>
+            </div>
+
+            <div class="field">
+              <label for="rooms" data-i18n="label_rooms">Zimmer</label>
+              <input id="rooms" type="text" data-i18n-placeholder="ph_rooms" placeholder="z. B. 4.5">
+            </div>
+
+            <div class="field">
+              <label for="specials" data-i18n="label_specials">Besonderheiten</label>
+              <input id="specials" type="text" data-i18n-placeholder="ph_specials" placeholder="z. B. Garten, Dachterrasse …">
+            </div>
+
+            <div class="field">
+              <label for="objDesc"><span data-i18n="label_desc">Beschreibung</span></label>
+              <textarea id="objDesc" rows="2" data-i18n-placeholder="ph_desc" placeholder="Kurzbeschreibung des Objekts (Lage, Zustand, Highlights) …"></textarea>
+            </div>
+
+            <div class="field">
+              <label for="onsiteName" data-i18n="label_onsite_name">Vor-Ort-Name</label>
+              <input id="onsiteName" type="text" data-i18n-placeholder="ph_onsite_name" placeholder="Name (optional)">
+            </div>
+
+            <div class="field">
+              <label for="onsitePhone" data-i18n="label_onsite_phone">Vor-Ort-Telefon</label>
+              <input id="onsitePhone" type="tel" data-i18n-placeholder="ph_phone" placeholder="+41 ...">
+              <p class="hint" data-i18n="onsite_contact_hint">Wichtig: Bitte hinterlegen Sie eine Kontaktperson, die am Shooting-Tag telefonisch erreichbar ist, falls kurzfristige Rückfragen oder Notfälle auftreten.</p>
+            </div>
+          </fieldset>
+
+          <div class="actions">
+            <button id="nextStep1" class="btn btn-primary next" disabled data-i18n="btn_next">Weiter</button>
+          </div>
+        </section>
+        </div><!-- /step-acc-item 1 -->
+
+        <!-- ===================== STEP 2 ===================== -->
+        <div class="step-acc-item is-locked" id="step-acc-2">
+          <button class="step-acc-header" type="button" aria-expanded="false" aria-controls="step-2">
+            <span class="step-acc-num">2</span>
+            <div class="step-acc-label-group">
+              <span class="step-acc-title" data-i18n="step_2_label">Dienstleistungen</span>
+              <span class="step-acc-summary" id="step-summary-2"></span>
+            </div>
+            <svg class="step-acc-chevron" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <section id="step-2" class="step-section" aria-labelledby="h1-2" hidden>
+          <h1 id="h1-2" class="h1" tabindex="-1" data-i18n="step_2_title">2. Dienstleistungen</h1>
+          <p class="sub" data-i18n="step_2_sub">Wähle ein Paket oder stelle dir dein Shooting modular zusammen.</p>
+
+          <!-- IMPRESSION & MOTION SET - Highlight Boxen -->
+          <div class="highlight-packages">
+            <label class="highlight-card">
+              <input type="radio" name="impression" value="cinematic" data-i18n-label="pkg_cinematic_title" data-label="CINEMATIC DUO" data-price="549">
+              <div class="highlight-body">
+                <div class="highlight-title" data-i18n="pkg_cinematic_title">CINEMATIC DUO</div>
+                <div class="highlight-subtitle" data-i18n="pkg_cinematic_sub">TWO ANGLES. ONE STORY</div>
+                <div class="highlight-price">549 CHF</div>
+                <ul class="highlight-features">
+                  <li data-i18n="feat_orientation">Hoch- oder Querformat</li>
+                  <li data-i18n="feat_4k">4K Auflösung</li>
+                  <li data-i18n="feat_clip_1_2">1-2 Minuten Clip</li>
+                  <li data-i18n="feat_ground_air_combo">Kombination aus Boden / Luftaufnahme</li>
+                  <li data-i18n="feat_edit_music">Dynamischer Schnitt & Musik</li>
+                  <li data-i18n="feat_delivery_72">Medienlieferung in 72H</li>
+                </ul>
+              </div>
+            </label>
+
+            <label class="highlight-card bestseller-card">
+              <input type="radio" name="impression" value="bestseller" data-i18n-label="pkg_bestseller_title" data-label="Bestseller" data-price="399">
+              <div class="highlight-badge">
+                <span class="highlight-badge-line1" data-i18n="badge_best_l1">AM</span>
+                <span class="highlight-badge-line2" data-i18n="badge_best_l2">BELIEBTESTEN</span>
+              </div>
+              <div class="highlight-body">
+                <div class="highlight-title" data-i18n="pkg_bestseller_title">BESTSELLER</div>
+                <div class="highlight-subtitle">THE GOLD STANDARD IN REAL ESTATE</div>
+                <div class="highlight-price">399 CHF</div>
+                <ul class="highlight-features">
+                  <li data-i18n="feat_photo10">10 Immobilienfotos</li>
+                  <li data-i18n="feat_drone4">4 Luftaufnahmen</li>
+                  <li data-i18n="feat_hdr">HDR bearbeitet</li>
+                  <li data-i18n="feat_web_full">Web-Fullsize Formaten</li>
+                  <li data-i18n="feat_delivery_48">Medienlieferung in 48H</li>
+                </ul>
+              </div>
+            </label>
+
+            <label class="highlight-card">
+              <input type="radio" name="impression" value="fullview" data-i18n-label="pkg_fullview_title" data-label="The Full View" data-price="649">
+              <div class="highlight-body">
+                <div class="highlight-title" data-i18n="pkg_fullview_title">THE FULL VIEW</div>
+                <div class="highlight-subtitle" data-i18n="pkg_fullview_sub">EVERY ANGLE EVERY DETAIL</div>
+                <div class="highlight-price">649 CHF</div>
+                <ul class="highlight-features">
+                  <li data-i18n="feat_photo10">10 Immobilienfotos</li>
+                  <li data-i18n="feat_drone4">4 Luftaufnahmen</li>
+                  <li data-i18n="feat_hdr">HDR bearbeitet</li>
+                  <li data-i18n="feat_web_full">Web-Fullsize Formaten</li>
+                  <li data-i18n="feat_tour_199">360° Tour bis 199 m²</li>
+                  <li data-i18n="feat_delivery_48">Medienlieferung in 48H</li>
+                </ul>
+              </div>
+            </label>
+          </div>
+
+          <div class="accordion" role="tablist">
+            <!-- CAMERA SHOOTING -->
+            <div class="acc-item">
+              <button class="acc-header" aria-expanded="false" aria-controls="cam-panel">
+                <span class="acc-sign" aria-hidden="true"></span>
+                <span class="acc-title" data-i18n="cat_camera">Camera Shooting</span>
+              </button>
+              <div id="cam-panel" class="acc-panel" role="region">
+                <div class="acc-body">
+                  <div class="product-grid">
+                    <label class="product-card">
+                      <input type="radio" name="cam" value="foto10" data-i18n-label="prod_cam_10" data-label="FOTO 10" data-price="229">
+                      <div class="product-body">
+                        <div class="product-title">Camera · 10 Fotos</div>
+                        <div class="product-price">229 CHF</div>
+                      </div>
+                    </label>
+                    <label class="product-card">
+                      <input type="radio" name="cam" value="foto20" data-i18n-label="prod_cam_20" data-label="FOTO 20" data-price="309">
+                      <div class="product-body">
+                        <div class="product-title">Camera · 20 Fotos</div>
+                        <div class="product-price">309 CHF</div>
+                      </div>
+                    </label>
+                    <label class="product-card">
+                      <input type="radio" name="cam" value="foto30" data-i18n-label="prod_cam_30" data-label="FOTO 30" data-price="360">
+                      <div class="product-body">
+                        <div class="product-title">Camera · 30 Fotos</div>
+                        <div class="product-price">360 CHF</div>
+                      </div>
+                    </label>
+                  </div>
+                  <div class="pauschale-notice service-notice">
+                    <p><strong data-i18n="notice_label">Hinweis:</strong> <span data-i18n="notice_cam_delivery_36">Lieferung der Medien innert 36h nach Bilderauswahl</span></p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- DRONE SHOOTING -->
+            <div class="acc-item">
+              <button class="acc-header" aria-expanded="false" aria-controls="drp-panel">
+                <span class="acc-sign" aria-hidden="true"></span>
+                <span class="acc-title" data-i18n="cat_drone">Drone Shooting</span>
+              </button>
+              <div id="drp-panel" class="acc-panel" role="region">
+                <div class="acc-body">
+                  <div class="product-grid">
+                    <label class="product-card">
+                      <input type="radio" name="dronePhoto" value="foto4" data-i18n-label="prod_drone_photo_4" data-label="Drone Foto 4" data-price="249">
+                      <div class="product-body">
+                        <div class="product-title">Drohne · 4 Fotos</div>
+                        <div class="product-price">249 CHF</div>
+                      </div>
+                    </label>
+                    <label class="product-card">
+                      <input type="radio" name="dronePhoto" value="foto8" data-i18n-label="prod_drone_photo_8" data-label="Drone Foto 8" data-price="329">
+                      <div class="product-body">
+                        <div class="product-title">Drohne · 8 Fotos</div>
+                        <div class="product-price">329 CHF</div>
+                      </div>
+                    </label>
+                    <label class="product-card">
+                      <input type="radio" name="dronePhoto" value="foto12" data-i18n-label="prod_drone_photo_12" data-label="Drone 12 Fotos" data-price="399">
+                      <div class="product-body">
+                        <div class="product-title">Drohne · 12 Fotos</div>
+                        <div class="product-price">399 CHF</div>
+                      </div>
+                    </label>
+                  </div>
+                  <div class="pauschale-notice service-notice">
+                    <p><strong data-i18n="notice_label">Hinweis:</strong> <span data-i18n="notice_drone_delivery_36">Lieferung der Medien innert 36h nach Bilderauswahl</span></p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 360° TOUR -->
+            <div class="acc-item">
+              <button class="acc-header" aria-expanded="false" aria-controls="tour-panel">
+                <span class="acc-sign" aria-hidden="true"></span>
+                <span class="acc-title" data-i18n="cat_tour">360° Tour</span>
+              </button>
+              <div id="tour-panel" class="acc-panel" role="region">
+                <div class="acc-body">
+                  <div class="product-grid">
+                    <label class="product-card">
+                      <input type="checkbox" id="tourToggle" data-i18n-label="prod_tour_360">
+                      <div class="product-body">
+                        <div class="product-title">360° Tour</div>
+                        <div id="tourPrice" class="product-price">199–399 CHF (+79/100 m²)</div>
+                      </div>
+                    </label>
+                  </div>
+                  <div class="pauschale-notice service-notice">
+                    <p><strong data-i18n="notice_label">Hinweis:</strong> <span data-i18n="notice_tour">Preis wird automatisch nach m² berechnet / Lieferung der Medien innert 36h</span></p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- SCHLÜSSELABHOLUNG -->
+            <div class="acc-item open">
+              <button class="acc-header" aria-expanded="true" aria-controls="key-panel">
+                <span class="acc-sign" aria-hidden="true"></span>
+                <span class="acc-title" data-i18n="cat_key_pickup">Schlüsselabholung</span>
+              </button>
+              <div id="key-panel" class="acc-panel" role="region">
+                <div class="acc-body">
+                  <div class="product-grid">
+                    <label class="product-card">
+                      <input type="checkbox" id="keyPickupToggle" data-i18n-label="prod_key_pickup">
+                      <div class="product-body">
+                        <div class="product-title">Schlüsselabholung (falls gewünscht)</div>
+                        <div class="product-price">+ 50 CHF</div>
+                      </div>
+                    </label>
+                  </div>
+
+                  <div class="key-form two-cols" id="keyForm" aria-hidden="true">
+                    <div class="field span-2">
+                      <label for="keyInfo" data-i18n="label_pickup_info">Hinweis</label>
+                      <textarea id="keyInfo" rows="3" data-i18n-placeholder="ph_pickup_info" placeholder="Wo und wie kann der Schlüssel abgeholt werden? z.B. Adresse, beim Empfang, Hausmeister, Code …" disabled></textarea>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- FLOOR PLANS -->
+            <div class="acc-item">
+              <button class="acc-header" aria-expanded="false" aria-controls="fp-panel">
+                <span class="acc-sign" aria-hidden="true"></span>
+                <span class="acc-title" data-i18n="cat_floorplans">Floor Plans</span>
+              </button>
+              <div id="fp-panel" class="acc-panel" role="region">
+                <div class="acc-body">
+                  <div class="product-grid">
+                    <label class="product-card">
+                      <input type="checkbox" id="fpTour" data-unitprice="49" data-i18n-label="prod_fp_from_tour">
+                      <div class="product-body">
+                        <div class="product-title">2D Plan von Tour</div>
+                        <div class="product-price" data-fp="tour">49 CHF</div>
+                      </div>
+                    </label>
+                    <label class="product-card">
+                      <input type="checkbox" id="fpNoTour" data-unitprice="79" data-i18n-label="prod_fp_no_tour">
+                      <div class="product-body">
+                        <div class="product-title">2D Plan ohne Tour</div>
+                        <div class="product-price" data-fp="notour">79 CHF</div>
+                      </div>
+                    </label>
+                    <label class="product-card">
+                      <input type="checkbox" id="fpSketch" data-unitprice="149" data-i18n-label="prod_fp_from_sketch">
+                      <div class="product-body">
+                        <div class="product-title">2D Plan nach Skizze</div>
+                        <div class="product-price" data-fp="sketch">149 CHF</div>
+                      </div>
+                    </label>
+                  </div>
+                  <div class="pauschale-notice service-notice">
+                    <p><strong data-i18n="notice_label">Hinweis:</strong> <span data-i18n="notice_floorplans">Preis wird automatisch nach Ebene berechnet / Lieferung der Medien innert 72h</span></p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- GROUND VIDEO -->
+            <div class="acc-item">
+              <button class="acc-header" aria-expanded="false" aria-controls="gv-panel">
+                <span class="acc-sign" aria-hidden="true"></span>
+                <span class="acc-title" data-i18n="cat_ground_video">Ground Video</span>
+              </button>
+              <div id="gv-panel" class="acc-panel" role="region">
+                <div class="acc-body">
+                  <div class="product-grid">
+                    <label class="product-card">
+                      <input type="radio" name="groundVideo" value="reel30" data-i18n-label="prod_ground_reel_30" data-label="Ground Video – Reel 30 Sek" data-price="299">
+                      <div class="product-body">
+                        <div class="product-title">Ground Video · Reel 30 Sek</div>
+                        <div class="product-price">299 CHF</div>
+                      </div>
+                    </label>
+                    <label class="product-card">
+                      <input type="radio" name="groundVideo" value="clip12" data-i18n-label="prod_ground_clip_1_2" data-label="Ground Video – Clip 1–2 Min" data-price="499">
+                      <div class="product-body">
+                        <div class="product-title">Ground Video · Clip 1–2 Min</div>
+                        <div class="product-price">499 CHF</div>
+                      </div>
+                    </label>
+                  </div>
+                  <div class="pauschale-notice service-notice">
+                    <p><strong data-i18n="notice_label">Hinweis:</strong> <span data-i18n="notice_ground_video">Innen- und Aussenaufnahmen im Preis inklusive / Lieferung der Medien innert 72h</span></p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- DRONE VIDEO -->
+            <div class="acc-item">
+              <button class="acc-header" aria-expanded="false" aria-controls="dv-panel">
+                <span class="acc-sign" aria-hidden="true"></span>
+                <span class="acc-title" data-i18n="cat_drone_video">Drone Video</span>
+              </button>
+              <div id="dv-panel" class="acc-panel" role="region">
+                <div class="acc-body">
+                  <div class="product-grid">
+                    <label class="product-card">
+                      <input type="radio" name="droneVideo" value="reel30" data-i18n-label="prod_drone_video_reel_30" data-label="Drone Video – Reel 30 Sek" data-price="269">
+                      <div class="product-body">
+                        <div class="product-title">Drone Video · Reel 30 Sek</div>
+                        <div class="product-price">269 CHF</div>
+                      </div>
+                    </label>
+                    <label class="product-card">
+                      <input type="radio" name="droneVideo" value="clip12" data-i18n-label="prod_drone_video_clip_1_2" data-label="Drone Video – Clip 1–2 Min" data-price="399">
+                      <div class="product-body">
+                        <div class="product-title">Drone Video · Clip 1–2 Min</div>
+                        <div class="product-price">399 CHF</div>
+                      </div>
+                    </label>
+                  </div>
+                  <div class="pauschale-notice service-notice">
+                    <p><strong data-i18n="notice_label">Hinweis:</strong> <span data-i18n="notice_drone_video">Lieferung der Medien innert 72h</span></p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- STAGING -->
+            <div class="acc-item">
+              <button class="acc-header" aria-expanded="false" aria-controls="stg-panel">
+                <span class="acc-sign" aria-hidden="true"></span>
+                <span class="acc-title" data-i18n="cat_staging">Staging</span>
+              </button>
+              <div id="stg-panel" class="acc-panel" role="region">
+                <div class="acc-body">
+                  <div class="staging-grid">
+                    <div class="staging-item">
+                      <label class="product-card">
+                        <input type="checkbox" id="stLiving" data-i18n-label="prod_staging_living" data-label="Staging – Wohnbereich" data-price="99">
+                        <div class="product-body">
+                          <div class="product-title">Staging – Wohnbereich</div>
+                          <div class="product-price">99 CHF / <span data-i18n="unit_item">Einheit</span></div>
+                        </div>
+                      </label>
+                      <div class="qty-wrap" data-for="stLiving" hidden>
+                        <label for="qty-stLiving" data-i18n="label_qty">Menge</label>
+                        <input type="number" id="qty-stLiving" class="qty" min="1" step="1" value="1">
+                      </div>
+                    </div>
+
+                    <div class="staging-item">
+                      <label class="product-card">
+                        <input type="checkbox" id="stBusiness" data-i18n-label="prod_staging_commercial" data-label="Staging – Gewerbe" data-price="149">
+                        <div class="product-body">
+                          <div class="product-title">Staging – Gewerbe</div>
+                          <div class="product-price">149 CHF / <span data-i18n="unit_item">Einheit</span></div>
+                        </div>
+                      </label>
+                      <div class="qty-wrap" data-for="stBusiness" hidden>
+                        <label for="qty-stBusiness" data-i18n="label_qty">Menge</label>
+                        <input type="number" id="qty-stBusiness" class="qty" min="1" step="1" value="1">
+                      </div>
+                    </div>
+
+                    <div class="staging-item">
+                      <label class="product-card">
+                        <input type="checkbox" id="stRenov" data-i18n-label="prod_staging_renov" data-label="Staging – Renovation" data-price="199">
+                        <div class="product-body">
+                          <div class="product-title">Staging – Renovation</div>
+                          <div class="product-price">199 CHF / <span data-i18n="unit_item">Einheit</span></div>
+                        </div>
+                      </label>
+                      <div class="qty-wrap" data-for="stRenov" hidden>
+                        <label for="qty-stRenov" data-i18n="label_qty">Menge</label>
+                        <input type="number" id="qty-stRenov" class="qty" min="1" step="1" value="1">
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="field" style="margin-top:12px">
+                    <label for="stNotes" data-i18n="label_rooms_notes">Räumlichkeiten & Hinweise</label>
+                    <textarea id="stNotes" rows="2" data-i18n-placeholder="ph_rooms_notes" placeholder="z. B. Wohnzimmer, Küche, Eingangsbereich …"></textarea>
+                  </div>
+                  <div class="pauschale-notice service-notice">
+                    <p><strong data-i18n="notice_label">Hinweis:</strong> <span data-i18n="notice_staging">Lieferung der Medien innert 72h nach Bilderauswahl</span></p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div><!-- accordion -->
+
+          <div id="dynamicCatalogCategories" class="accordion" role="tablist" hidden></div>
+
+          <!-- EXPRESS -->
+          <fieldset id="expressBox" class="group">
+            <label class="product-card">
+              <input id="express24" type="checkbox">
+              <div class="product-body">
+                <div class="product-title" data-i18n="express_title">Expresslieferung innerhalb von 24 h</div>
+                <div class="product-price">+ 99 CHF</div>
+              </div>
+            </label>
+            <div class="pauschale-notice service-notice">
+              <p><strong data-i18n="notice_label">Hinweis:</strong> <span data-i18n="express_sub">Nur für Camera/Drone Shooting, 360° Tour & Floor Plans</span></p>
+            </div>
+          </fieldset>
+
+          <div class="actions">
+            <button class="btn btn-ghost prev" data-i18n="btn_back">Zurück</button>
+            <button id="nextStep2" class="btn btn-primary next" disabled data-i18n="btn_next">Weiter</button>
+          </div>
+        </section>
+        </div><!-- /step-acc-item 2 -->
+
+        <!-- ===================== STEP 3 ===================== -->
+        <div class="step-acc-item is-locked" id="step-acc-3">
+          <button class="step-acc-header" type="button" aria-expanded="false" aria-controls="step-3">
+            <span class="step-acc-num">3</span>
+            <div class="step-acc-label-group">
+              <span class="step-acc-title" data-i18n="step_3_label">Fotograf &amp; Termin</span>
+              <span class="step-acc-summary" id="step-summary-3"></span>
+            </div>
+            <svg class="step-acc-chevron" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <section id="step-3" class="step-section" aria-labelledby="h1-3" hidden>
+          <h1 id="h1-3" class="h1" tabindex="-1" data-i18n="step_3_title">3. Fotograf & Termin</h1>
+          <p class="sub" data-i18n="step_3_sub">Wähle deine Präferenz, dann Datum & Uhrzeit.</p>
+
+          <!-- Präferenz-Auswahl (Radio-Buttons) -->
+          <div class="pref-row">
+            <label class="pref">
+              <input type="radio" name="photogPref" id="prefWish" value="wish">
+              <span data-i18n="pref_wish">Ich möchte einen Wunschfotografin wählen</span>
+            </label>
+            <label class="pref">
+              <input type="radio" name="photogPref" id="prefNoPref" value="nopref">
+              <span data-i18n="pref_no_pref">Kein Wunsch – egal wer</span>
+            </label>
+          </div>
+
+          <!-- Fotografenliste (nur sichtbar wenn „Wunschfotografin" aktiv) -->
+          <div id="photogBlock" hidden>
+            <div id="photogGrid" class="photog-grid"></div>
+          </div>
+
+          <div class="date-row field">
+            <label for="shootDate" data-i18n="label_date">Datum</label>
+            <div class="date-input-wrap">
+              <button id="shootDatePrev" class="date-nav-btn" type="button" aria-label="Vorheriger Tag">
+                <i class="fa-solid fa-chevron-left"></i>
+              </button>
+              <input id="shootDate" type="text" inputmode="none" autocomplete="off" data-i18n-placeholder="ph_date" placeholder="TT.MM.JJJJ">
+              <button id="shootDateBtn" class="date-icon-btn" type="button" aria-label="Kalender öffnen">
+                <i class="fa-regular fa-calendar"></i>
+              </button>
+              <button id="shootDateNext" class="date-nav-btn" type="button" aria-label="Nächster Tag">
+                <i class="fa-solid fa-chevron-right"></i>
+              </button>
+            </div>
+            <div class="pauschale-notice service-notice">
+              <p><strong data-i18n="notice_label">Hinweis:</strong> <span data-i18n="date_min_notice">Buchung frühestens 24h im Voraus möglich.</span></p>
+            </div>
+          </div>
+
+          <!-- PROVISORISCH -->
+          <fieldset id="provisionalBox" class="group">
+            <label class="product-card provisional-card">
+              <input type="checkbox" id="bookingProvisional">
+              <div class="product-body">
+                <div class="product-title" data-i18n="provisional_title">Termin provisorisch buchen</div>
+              </div>
+            </label>
+            <div class="pauschale-notice service-notice">
+              <p><strong data-i18n="notice_label">Hinweis:</strong> <span data-i18n="provisional_sub">Der Termin wird vorläufig reserviert. Wir kontaktieren dich zur Bestätigung.</span></p>
+            </div>
+          </fieldset>
+
+          <div class="slots-wrap">
+            <div id="slotHint" class="slots-head" data-i18n="slot_hint_default">Bitte Präferenz und Datum wählen.</div>
+            <div id="wishSkillWarning" class="pauschale-notice service-notice" hidden>
+              <p><strong data-i18n="wish_skill_warning_title">Hinweis zur Skill-Eignung</strong></p>
+              <p id="wishSkillMissing"></p>
+              <p id="wishSkillRecommendation"></p>
+              <div class="actions" style="margin-top:10px">
+                <button id="wishSkillUseRecommended" class="btn btn-ghost" type="button" data-i18n="wish_skill_use_recommended">Empfehlung übernehmen</button>
+              </div>
+            </div>
+            <div id="slotPeriod" class="slot-toolbar" hidden>
+              <button id="slotPeriodAm" class="slot-period-btn" type="button" data-period="am" data-i18n="slot_period_am">Vormittag</button>
+              <button id="slotPeriodPm" class="slot-period-btn" type="button" data-period="pm" data-i18n="slot_period_pm">Nachmittag</button>
+            </div>
+            <div id="timeSlots" class="slot-grid"></div>
+          </div>
+
+          <div class="actions">
+            <button class="btn btn-ghost prev" data-i18n="btn_back">Zurück</button>
+            <button id="nextStep3" class="btn btn-primary next" disabled data-i18n="btn_next">Weiter</button>
+          </div>
+        </section>
+        </div><!-- /step-acc-item 3 -->
+
+        <!-- ===================== STEP 4 ===================== -->
+        <div class="step-acc-item is-locked" id="step-acc-4">
+          <button class="step-acc-header" type="button" aria-expanded="false" aria-controls="step-4">
+            <span class="step-acc-num">4</span>
+            <div class="step-acc-label-group">
+              <span class="step-acc-title" data-i18n="step_4_label">Rechnungsdetails</span>
+              <span class="step-acc-summary" id="step-summary-4"></span>
+            </div>
+            <svg class="step-acc-chevron" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <section id="step-4" class="step-section" aria-labelledby="h1-4" hidden>
+          <h1 id="h1-4" class="h1" tabindex="-1" data-i18n="step_4_title">4. Rechnungsdetails</h1>
+          <p class="sub" data-i18n="step_4_sub">Bitte füllen Sie die Rechnungs- und Kontaktangaben aus.</p>
+
+          <div id="billAutofillBanner" class="autofill-banner" hidden>
+            <span id="billAutofillInfo">Eingeloggt als <strong id="billAutofillEmail"></strong> · Kontodaten wurden automatisch übernommen.</span>
+          </div>
+
+          <form id="billForm" novalidate class="bill-form-layout">
+            <div class="bill-section">
+              <div class="bill-section-title">Firma &amp; Rechnungsadresse</div>
+              <div class="bill-fields-stack">
+                <div class="field">
+                  <label for="billCompany">Firma <span class="req">*</span></label>
+                  <input id="billCompany" type="text" placeholder="Firmenname" autocomplete="organization">
+                </div>
+
+                <div class="bill-grid-2">
+                  <div class="field">
+                    <label for="billCompanyEmail">Firma E-Mail</label>
+                    <input id="billCompanyEmail" type="email" placeholder="info@firma.ch" autocomplete="email">
+                  </div>
+                  <div class="field">
+                    <label for="billCompanyPhone">Firma Telefon</label>
+                    <input id="billCompanyPhone" type="tel" placeholder="+41 44 ..." autocomplete="tel">
+                  </div>
+                </div>
+
+                <div class="bill-divider"></div>
+
+                <div class="field">
+                  <label for="billStreet">Strasse, Nr. <span class="req">*</span></label>
+                  <input id="billStreet" type="text" placeholder="Musterstrasse 12" autocomplete="off" spellcheck="false">
+                  <ul id="billStreetSuggestions" class="suggestions" hidden role="listbox" aria-label="Adressvorschläge"></ul>
+                </div>
+
+                <div class="bill-grid-plz">
+                  <div class="field">
+                    <label for="billZip">PLZ <span class="req">*</span></label>
+                    <input id="billZip" type="text" placeholder="8000" autocomplete="off">
+                  </div>
+                  <div class="field">
+                    <label for="billCity">Ort <span class="req">*</span></label>
+                    <input id="billCity" type="text" placeholder="Zürich" autocomplete="off">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="bill-section">
+              <div class="bill-section-title">Kontaktperson</div>
+              <div class="bill-fields-stack">
+                <div class="bill-grid-2">
+                  <div class="field">
+                    <label for="billSalutation">Anrede</label>
+                    <select id="billSalutation">
+                      <option value="">– bitte wählen –</option>
+                      <option value="Herr">Herr</option>
+                      <option value="Frau">Frau</option>
+                    </select>
+                  </div>
+                  <div></div>
+                </div>
+
+                <div class="bill-grid-2">
+                  <div class="field">
+                    <label for="billFirstName">Vorname</label>
+                    <input id="billFirstName" type="text" placeholder="Max" autocomplete="given-name">
+                  </div>
+                  <div class="field">
+                    <label for="billName">Name <span class="req">*</span></label>
+                    <input id="billName" type="text" placeholder="Muster" required autocomplete="family-name">
+                  </div>
+                </div>
+
+                <div class="bill-grid-2">
+                  <div class="field">
+                    <label for="billEmail">E-Mail <span class="req">*</span></label>
+                    <input id="billEmail" type="email" placeholder="name@example.ch" required autocomplete="email">
+                  </div>
+                  <div class="field">
+                    <label for="billPhone">Telefon <span class="req">*</span></label>
+                    <input id="billPhone" type="tel" placeholder="+41 ..." autocomplete="tel">
+                  </div>
+                </div>
+
+                <div class="field">
+                  <label for="billPhoneMobile">Mobil <span class="req">*</span></label>
+                  <input id="billPhoneMobile" type="tel" placeholder="+41 79 ..." autocomplete="tel-national">
+                </div>
+
+                <div id="billTelMobilHint" class="bill-inline-hint" hidden>Bitte Telefon oder Mobil angeben.</div>
+              </div>
+            </div>
+
+            <label class="bill-toggle-row" for="diffBillAddr" role="button" tabindex="0" aria-expanded="false">
+              <input type="checkbox" id="diffBillAddr" class="bill-hidden-checkbox">
+              <div class="bill-toggle-text">
+                <div class="bill-toggle-label">Abweichende Rechnungsadresse</div>
+                <div class="bill-toggle-desc">Rechnung an eine andere Adresse senden</div>
+              </div>
+              <div class="bill-toggle-icon" id="billAltToggleIcon" aria-hidden="true"></div>
+            </label>
+
+            <div id="billAltSection" hidden>
+              <div class="bill-section">
+                <div class="bill-section-title">Abweichende Firma &amp; Rechnungsadresse</div>
+                <div class="bill-fields-stack">
+                  <div class="field">
+                    <label for="altBillCompany">Firma <span class="req">*</span></label>
+                    <input id="altBillCompany" type="text" placeholder="Firmenname" autocomplete="organization">
+                  </div>
+
+                  <div class="bill-grid-2">
+                    <div class="field">
+                      <label for="altBillCompanyEmail">Firma E-Mail</label>
+                      <input id="altBillCompanyEmail" type="email" placeholder="info@firma.ch" autocomplete="email">
+                    </div>
+                    <div class="field">
+                      <label for="altBillCompanyPhone">Firma Telefon</label>
+                      <input id="altBillCompanyPhone" type="tel" placeholder="+41 44 ..." autocomplete="tel">
+                    </div>
+                  </div>
+
+                  <div class="bill-divider"></div>
+
+                  <div class="field">
+                    <label for="altBillStreet">Strasse, Nr. <span class="req">*</span></label>
+                    <input id="altBillStreet" type="text" placeholder="Musterstrasse 12" autocomplete="off" spellcheck="false">
+                    <ul id="altBillStreetSuggestions" class="suggestions" hidden role="listbox" aria-label="Adressvorschläge"></ul>
+                  </div>
+
+                  <div class="bill-grid-plz">
+                    <div class="field">
+                      <label for="altBillZip">PLZ <span class="req">*</span></label>
+                      <input id="altBillZip" type="text" placeholder="8000" autocomplete="off">
+                    </div>
+                    <div class="field">
+                      <label for="altBillCity">Ort <span class="req">*</span></label>
+                      <input id="altBillCity" type="text" placeholder="Zürich" autocomplete="off">
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="bill-section">
+                <div class="bill-section-title">Abweichende Kontaktperson</div>
+                <div class="bill-fields-stack">
+                  <div class="bill-grid-2">
+                    <div class="field">
+                      <label for="altBillSalutation">Anrede</label>
+                      <select id="altBillSalutation">
+                        <option value="">– bitte wählen –</option>
+                        <option value="Herr">Herr</option>
+                        <option value="Frau">Frau</option>
+                      </select>
+                    </div>
+                    <div></div>
+                  </div>
+
+                  <div class="bill-grid-2">
+                    <div class="field">
+                      <label for="altBillFirstName">Vorname</label>
+                      <input id="altBillFirstName" type="text" placeholder="Max" autocomplete="given-name">
+                    </div>
+                    <div class="field">
+                      <label for="altBillName">Name <span class="req">*</span></label>
+                      <input id="altBillName" type="text" placeholder="Muster" autocomplete="family-name">
+                    </div>
+                  </div>
+
+                  <div class="bill-grid-2">
+                    <div class="field">
+                      <label for="altBillEmail">E-Mail</label>
+                      <input id="altBillEmail" type="email" placeholder="name@example.ch" autocomplete="email">
+                    </div>
+                    <div class="field">
+                      <label for="altBillPhone">Telefon</label>
+                      <input id="altBillPhone" type="tel" placeholder="+41 ..." autocomplete="tel">
+                    </div>
+                  </div>
+
+                  <div class="field">
+                    <label for="altBillPhoneMobile">Mobil</label>
+                    <input id="altBillPhoneMobile" type="tel" placeholder="+41 79 ..." autocomplete="tel-national">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="bill-section">
+              <div class="bill-section-title">Bestellreferenz</div>
+              <div class="field">
+                <input id="billOrderRef" type="text" placeholder="z. B. PO-2024-001" autocomplete="off">
+              </div>
+            </div>
+
+            <div class="bill-section">
+              <div class="bill-section-title">Hinweise</div>
+              <div class="field">
+                <textarea id="billNotes" rows="3" placeholder="Bemerkungen zur Rechnung oder Durchführung …"></textarea>
+              </div>
+            </div>
+          </form>
+
+          <div class="pauschale-notice">
+            <p><strong data-i18n="notice_label">Hinweis:</strong> <span data-i18n="notice_pauschale">Anfahrtspauschale werden in Rechnung zusätzlich verechnet. Weitere Infos auf</span> <a href="https://propus.ch/preise/" target="_blank" rel="noopener">propus.ch/preise/</a> <span data-i18n="notice_zones">unten Kategorie Zonen.</span></p>
+          </div>
+
+          <div class="actions">
+            <button class="btn btn-ghost prev" data-i18n="btn_back">Zurück</button>
+            <button id="finishBtn" class="btn btn-primary" data-i18n="btn_finish">Buchung abschliessen</button>
+          </div>
+        </section>
+        </div><!-- /step-acc-item 4 -->
+        </div><!-- /steps-accordion -->
+      </div>
+    </section>
+
+    <!-- =======================================
+         RECHTSSPALTE – Zusammenfassung live
+    ======================================= -->
+    <aside class="summary card" aria-label="Zusammenfassung">
+      <div class="h3" data-i18n="summary_title">Ihre Auswahl</div>
+      <div class="summary-block">
+        <div class="summary-row"><span data-i18n="sum_address">Adresse</span><span id="sum-address">—</span></div>
+        <div class="summary-row services-row">
+          <span data-i18n="sum_services">Dienstleistungen</span>
+          <ul id="sum-services-list" class="services-list"></ul>
+        </div>
+        <div class="summary-row"><span data-i18n="sum_object">Objekt</span><span id="sum-object">—</span></div>
+        <div class="summary-row"><span data-i18n="sum_photographer">Fotograf:in</span><span id="sum-photographer">—</span></div>
+        <div class="summary-row"><span data-i18n="sum_datetime">Termin</span><span id="sum-datetime">—</span></div>
+      </div>
+      
+      <div class="summary-pricing">
+        <div class="summary-row subtotal-row">
+          <span data-i18n="sum_subtotal">Zwischensumme</span>
+          <span id="sum-subtotal">CHF 0.00</span>
+        </div>
+        <div class="summary-row discount-row" id="discountRow" style="display:none">
+          <span data-i18n="sum_discount">Rabatt</span>
+          <span id="sum-discount">- CHF 0.00</span>
+        </div>
+        <div class="summary-row vat-row">
+          <span data-i18n="sum_vat">MwSt. (8.1%)</span>
+          <span id="sum-vat">CHF 0.00</span>
+        </div>
+        <div class="total">
+          <span data-i18n="sum_total">Total</span>
+          <span id="sum-total">CHF 0.00</span>
+        </div>
+      </div>
+
+      <div class="summary-discount">
+        <label for="discountCode" data-i18n="label_discount_code">Rabattcode</label>
+        <div class="discount-input-wrap">
+          <input type="text" id="discountCode" data-i18n-placeholder="ph_discount_code" placeholder="Code eingeben">
+          <button type="button" id="applyDiscount" class="btn btn-ghost" data-i18n="btn_apply">Anwenden</button>
+        </div>
+      </div>
+
+      <div class="tiny" data-i18n="summary_auto_update">Änderungen werden automatisch übernommen.</div>
+    </aside>
+  </main>
+
+  <footer class="site-footer">
+    (c) 2026 Propus GmbH | Alle Rechte vorbehalten | Erstellt von <a href="https://propuscode.ch" target="_blank" rel="noopener" class="footer-link">Propuscode.ch</a> <span class="app-version" id="appVersion" aria-label="Version" style="display:none"></span>
+    <span class="footer-sep">|</span>
+    <a href="anleitung.html" target="_blank" class="footer-link" style="color:var(--text-light);text-decoration:none" onmouseover="this.style.color='var(--gold)'" onmouseout="this.style.color='var(--text-light)'"><i class="fa-solid fa-book"></i> Handbuch / Anleitung</a>
+    <span class="footer-sep">|</span>
+    <button class="footer-bug-btn" onclick="openBugReport()"><i class="fa-solid fa-bug"></i> Fehler melden</button>
+  </footer>
+
+  <!-- Bug Report Modal -->
+  <div id="bugReportOverlay" class="bug-overlay" style="display:none" onclick="closeBugReport()"></div>
+  <div id="bugReportModal" class="bug-modal" style="display:none">
+    <div class="bug-modal-header">
+      <div class="bug-modal-icon"><i class="fa-solid fa-bug"></i></div>
+      <div>
+        <div class="bug-modal-title">Fehler melden</div>
+        <div class="bug-modal-sub">Beschreibe das Problem – wir kümmern uns darum</div>
+      </div>
+      <button class="bug-modal-close" onclick="closeBugReport()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="bug-modal-body">
+      <div class="bug-field">
+        <label>Dein Name <span style="color:#9e8649">*</span></label>
+        <input id="bugName" type="text" placeholder="Vor- und Nachname">
+      </div>
+      <div class="bug-field">
+        <label>Fehlerbeschreibung <span style="color:#9e8649">*</span></label>
+        <textarea id="bugText" placeholder="Was ist passiert? Was hast du erwartet?"></textarea>
+      </div>
+      <div class="bug-field">
+        <label>Screenshot / Datei <span class="bug-hint">(optional, max. 5 MB)</span></label>
+        <label class="bug-upload-area" id="bugUploadArea" for="bugFile">
+          <i class="fa-solid fa-cloud-arrow-up bug-upload-icon"></i>
+          <span id="bugUploadLabel">Datei auswählen oder hierher ziehen</span>
+          <input type="file" id="bugFile" accept="image/*,.pdf" style="display:none" onchange="handleBugFile(this)">
+        </label>
+      </div>
+    </div>
+    <div class="bug-modal-footer">
+      <button class="btn btn-ghost" onclick="closeBugReport()">Abbrechen</button>
+      <button class="btn btn-primary" onclick="submitBugReport()"><i class="fa-solid fa-paper-plane"></i> Absenden</button>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="uiToast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+
+  <script src="photographers.config.js"></script>
+  <script src="discount-codes.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/de.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/fr.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/it.js"></script>
+  <script src="script.js?v=20260327-0005"></script>
+  <script src="version.js"></script>
+  <script>
+    // Mobile: nicht mehr blockieren. Der Screen bleibt nur als Fallback vorhanden.
+    (function(){
+      var el = document.getElementById("mobileBlockScreen");
+      if (el) el.style.display = "none";
+    })();
+  </script>
+</body>
+</html>

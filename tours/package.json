@@ -1,0 +1,28 @@
+{
+  "name": "propus-tour-manager",
+  "version": "1.0.0",
+  "description": "Propus Tour Manager - Admin UI & Customer Token Flow",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "test": "node --test test/*.test.js",
+    "eval:suggestions": "node scripts/run-suggestion-evals.js",
+    "export:training": "node scripts/export-training-dataset.js",
+    "test:archive-notice": "node scripts/send-archive-notice-test.js",
+    "test:email": "node scripts/send-test-email.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.3.1",
+    "ejs": "^3.1.9",
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "fast-xml-parser": "^5.5.9",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.10.1",
+    "pdfkit": "^0.17.2",
+    "pg": "^8.11.3",
+    "swissqrbill": "^4.3.0"
+  }
+}

@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Team – Propus Kundenportal</title>
+  <%- include('_styles') %>
+</head>
+<body>
+  <%
+    const rows = Array.isArray(teamAccessRows) ? teamAccessRows : [];
+    const canManage = typeof showTeamActionsColumn !== 'undefined' && showTeamActionsColumn;
+    const canInvite = typeof canManageTeam !== 'undefined' && canManageTeam;
+    const activeCount = rows.filter((r) => r.state !== 'pending').length;
+    const pendingCount = rows.filter((r) => r.state === 'pending').length;
+    const successMap = {
+      eingeladen_gesendet: 'Einladung wurde verschickt.',
+      eingeladen_angenommen: 'Einladung angenommen – Sie haben jetzt Zugriff.',
+      mitglied_entfernt: 'Zugriff wurde entfernt.',
+      rolle_gespeichert: 'Rolle wurde gespeichert.',
+    };
+    function getInitials(value) {
+      const parts = String(value || '')
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2);
+      if (parts.length) return parts.map((part) => part.charAt(0).toUpperCase()).join('');
+      const emailLocal = String(value || '').split('@')[0] || '';
+      return emailLocal.slice(0, 2).toUpperCase() || 'P';
+    }
+  %>
+  <div class="portal-shell">
+    <%- include('_topbar', { isAdminView, email }) %>
+    <div class="portal-body">
+    <%- include('_header', { activePage: 'team', email, isAdminView, organizationName, portalNav }) %>
+    <main class="portal-main portal-team-page">
+      <header class="portal-team-head">
+        <h1>Team</h1>
+        <p class="portal-team-sub">
+          <% if (typeof organizationName === 'string' && organizationName) { %>
+          <strong><%= organizationName %></strong>
+          <span> · </span>
+          <% } %>
+          <%= toursCount %> Tour<%= toursCount !== 1 ? 'en' : '' %> · <%= rows.length %> Person<%= rows.length !== 1 ? 'en' : '' %>
+        </p>
+      </header>
+
+      <div class="portal-team-summary">
+        <div class="portal-team-summary-card">
+          <span class="portal-team-summary-label">Aktive Personen</span>
+          <strong><%= activeCount %></strong>
+          <span class="portal-team-summary-meta"><%= pendingCount %> offen<%= pendingCount !== 1 ? 'e' : '' %> Einladung<%= pendingCount !== 1 ? 'en' : '' %></span>
+        </div>
+        <div class="portal-team-summary-card">
+          <span class="portal-team-summary-label">Touren</span>
+          <strong><%= toursCount %></strong>
+          <span class="portal-team-summary-meta">im gemeinsamen Kundenportal</span>
+        </div>
+      </div>
+
+      <% if (success && successMap[success]) { %>
+      <div class="alert alert-success"><%= successMap[success] %></div>
+      <% } %>
+      <% if (typeof mailError !== 'undefined' && mailError) { %>
+      <div class="alert alert-warning">Einladung gespeichert, E-Mail-Versand fehlgeschlagen – Link ggf. manuell weitergeben.</div>
+      <% } %>
+      <% if (error) { %>
+      <div class="alert alert-error"><%= error %></div>
+      <% } %>
+
+      <div class="portal-team-layout">
+        <section class="portal-team-card">
+          <div class="portal-team-card-h">
+            <h2>Team-Mitglieder</h2>
+          </div>
+          <div class="portal-team-list">
+            <% if (rows.length === 0) { %>
+              <div class="portal-team-row"><p class="portal-team-row-sub">Keine Personen gefunden.</p></div>
+            <% } else { %>
+              <% rows.forEach(function (row) { %>
+                <div class="portal-team-row <%= row.isSelf ? 'is-self' : '' %> <%= row.state === 'pending' ? 'is-pending' : '' %>">
+                  <div class="portal-team-avatar">
+                    <img
+                      src="/portal/profile/photo/<%= encodeURIComponent(row.email) %>"
+                      alt=""
+                      loading="lazy"
+                      onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                      onload="this.style.display='block'; this.nextElementSibling.style.display='none';">
+                    <span class="portal-team-avatar-fallback"><%= getInitials(row.name || row.email) %></span>
+                  </div>
+                  <div class="portal-team-row-main">
+                    <p class="portal-team-row-title">
+                      <%= row.name %>
+                      <% if (row.isSelf) { %><span class="portal-team-self-badge">Sie</span><% } %>
+                    </p>
+                    <p class="portal-team-row-sub">
+                      <span class="portal-team-row-mail"><%= row.email %></span>
+                    </p>
+                    <div class="portal-team-row-meta">
+                      <% if (row.roleKey === 'exxas') { %>
+                        <span class="portal-team-status portal-team-status--exxas">In System gefunden</span>
+                      <% } else { %>
+                        <span class="portal-team-role-pill portal-team-role-pill--<%= row.roleKey %>"><%= row.roleLabel %></span>
+                        <span class="portal-team-status <%= row.state === 'pending' ? 'portal-team-status--pending' : '' %>"><%= row.stateLabel %></span>
+                      <% } %>
+                    </div>
+                  </div>
+                  <% if (canManage) { %>
+                    <div class="portal-team-row-actions">
+                      <% if (row.manage && row.manage.kind === 'member') { %>
+                        <button
+                          type="button"
+                          class="btn btn-ghost btn-sm"
+                          data-member-id="<%= row.manage.memberId %>"
+                          data-member-name="<%= row.name %>"
+                          data-member-email="<%= row.email %>"
+                          data-member-role="<%= row.manage.currentRole %>"
+                          onclick="openEditMemberModal(this)">Bearbeiten</button>
+                      <% } else if (row.manage && row.manage.kind === 'pending') { %>
+                        <form method="post" action="/portal/team/members/<%= row.manage.memberId %>/revoke" style="margin:0;" onsubmit="return confirm('Einladung zurückziehen?');">
+                          <button type="submit" class="btn btn-soft-danger btn-sm">Zurückziehen</button>
+                        </form>
+                      <% } else if (row.manage && row.manage.kind === 'exxas') { %>
+                        <button
+                          type="button"
+                          class="btn btn-primary btn-sm"
+                          data-email="<%= row.email %>"
+                          data-name="<%= row.name %>"
+                          data-role="<%= row.manage.suggestedRole %>"
+                          onclick="openInviteExxasModal(this)">Einladen</button>
+                        <button
+                          type="button"
+                          class="btn btn-soft-danger btn-sm"
+                          data-email="<%= row.email %>"
+                          data-name="<%= row.name %>"
+                          onclick="openRemoveExxasModal(this)">Entfernen</button>
+                      <% } else { %>
+                        <span class="portal-team-row-noaction">—</span>
+                      <% } %>
+                    </div>
+                  <% } %>
+                </div>
+              <% }); %>
+            <% } %>
+          </div>
+        </section>
+      </div>
+
+      <% if (canInvite) { %>
+      <div class="portal-team-card portal-team-invite-panel">
+        <div class="portal-team-card-h">
+          <h2>Einladen</h2>
+        </div>
+        <p class="portal-team-invite-lead">Neue Team-Mitglieder hinzufügen und Rolle direkt setzen.</p>
+        <form method="post" action="/portal/team/invite" class="portal-team-invite-form">
+          <input type="hidden" name="ownerWorkspaceEmail" value="<%= typeof ownerEmail !== 'undefined' ? ownerEmail : '' %>">
+          <div class="form-group" style="margin:0;">
+            <label for="inviteEmail" style="display:block;font-size:0.8rem;color:var(--text-muted);margin-bottom:0.3rem;">E-Mail</label>
+            <input type="email" id="inviteEmail" name="email" required placeholder="kollegin@firma.ch" autocomplete="off">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label for="inviteName" style="display:block;font-size:0.8rem;color:var(--text-muted);margin-bottom:0.3rem;">Name (optional)</label>
+            <input type="text" id="inviteName" name="displayName" placeholder="Vor- und Nachname">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label for="inviteRole" style="display:block;font-size:0.8rem;color:var(--text-muted);margin-bottom:0.3rem;">Rolle</label>
+            <select id="inviteRole" name="role" class="portal-team-role-select portal-team-role-select--wide">
+              <option value="mitarbeiter" selected>Mitarbeiter (nur Zugriff, kein Team-Management)</option>
+              <option value="admin">Administrator (Team verwalten, einladen)</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primary portal-team-invite-submit"><i class="fa-solid fa-paper-plane"></i> Einladung senden</button>
+        </form>
+      </div>
+      <% } %>
+
+  <% if (canManage) { %>
+  <div class="tm-modal-backdrop" id="editMemberBackdrop" onclick="closeEditMemberModal(event)">
+    <div class="tm-modal tm-modal--portal" onclick="event.stopPropagation()">
+      <div class="tm-modal-head">
+        <h3 class="tm-modal-title">Team-Mitglied bearbeiten</h3>
+        <button class="tm-modal-close" type="button" onclick="closeEditMemberModal()" aria-label="Schließen">&times;</button>
+      </div>
+      <div class="tm-modal-body portal-modal-body">
+        <p class="portal-modal-person" id="editMemberText"></p>
+        <form method="post" id="editMemberRoleForm" class="portal-modal-form">
+          <div class="portal-modal-field">
+            <label for="editMemberRole">Rolle im Team</label>
+            <select name="role" id="editMemberRole" class="portal-modal-select">
+              <option value="mitarbeiter">Mitarbeiter – Zugriff auf Touren, kein Team-Management</option>
+              <option value="admin">Administrator – Team verwalten und einladen</option>
+            </select>
+          </div>
+        </form>
+      </div>
+      <div class="tm-modal-foot portal-modal-foot">
+        <form method="post" id="editMemberRemoveForm" class="portal-modal-foot-danger">
+          <button class="btn btn-soft-danger" type="submit">Aus Team entfernen</button>
+        </form>
+        <div class="portal-modal-foot-actions">
+          <button class="btn btn-ghost" type="button" onclick="closeEditMemberModal()">Abbrechen</button>
+          <button class="btn btn-primary" type="button" onclick="submitEditMemberRole()">Speichern</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tm-modal-backdrop" id="inviteExxasBackdrop" onclick="closeInviteExxasModal(event)">
+    <div class="tm-modal tm-modal--portal" onclick="event.stopPropagation()">
+      <div class="tm-modal-head">
+        <h3 class="tm-modal-title">Person einladen</h3>
+        <button class="tm-modal-close" type="button" onclick="closeInviteExxasModal()" aria-label="Schließen">&times;</button>
+      </div>
+      <form method="post" action="/portal/team/exxas/invite" id="inviteExxasForm">
+        <div class="tm-modal-body portal-modal-body">
+          <input type="hidden" name="ownerWorkspaceEmail" value="<%= typeof ownerEmail !== 'undefined' ? ownerEmail : '' %>">
+          <input type="hidden" name="email" id="inviteExxasEmail">
+          <p class="portal-modal-lead" id="inviteExxasText"></p>
+          <div class="portal-modal-form">
+            <div class="portal-modal-field">
+              <label for="inviteExxasDisplayName">Anzeigename</label>
+              <input type="text" id="inviteExxasDisplayName" name="displayName" class="portal-modal-input" placeholder="Vor- und Nachname" autocomplete="name">
+            </div>
+            <div class="portal-modal-field">
+              <label for="inviteExxasRole">Rolle</label>
+              <select id="inviteExxasRole" name="role" class="portal-modal-select">
+                <option value="mitarbeiter">Mitarbeiter – Zugriff auf Touren, kein Team-Management</option>
+                <option value="admin">Administrator – Team verwalten und einladen</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="tm-modal-foot portal-modal-foot">
+          <div class="portal-modal-foot-actions portal-modal-foot-actions--end">
+            <button class="btn btn-ghost" type="button" onclick="closeInviteExxasModal()">Abbrechen</button>
+            <button class="btn btn-primary" type="submit"><i class="fa-solid fa-paper-plane"></i> Einladung senden</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="tm-modal-backdrop" id="removeExxasBackdrop" onclick="closeRemoveExxasModal(event)">
+    <div class="tm-modal tm-modal--portal tm-modal--danger" onclick="event.stopPropagation()">
+      <div class="tm-modal-head">
+        <h3 class="tm-modal-title">Person entfernen</h3>
+        <button class="tm-modal-close" type="button" onclick="closeRemoveExxasModal()" aria-label="Schließen">&times;</button>
+      </div>
+      <form method="post" action="/portal/team/exxas/remove" id="removeExxasForm">
+        <div class="tm-modal-body portal-modal-body">
+          <input type="hidden" name="ownerWorkspaceEmail" value="<%= typeof ownerEmail !== 'undefined' ? ownerEmail : '' %>">
+          <input type="hidden" name="email" id="removeExxasEmail">
+          <div class="portal-modal-callout portal-modal-callout--danger">
+            <p class="portal-modal-lead portal-modal-lead--tight" id="removeExxasText"></p>
+            <p class="portal-modal-hint">Die Zuordnung über Exxas wird für diese Organisation ausgeblendet. Bereits eingeladene Team-Mitglieder bleiben unverändert.</p>
+          </div>
+        </div>
+        <div class="tm-modal-foot portal-modal-foot">
+          <div class="portal-modal-foot-actions portal-modal-foot-actions--end">
+            <button class="btn btn-ghost" type="button" onclick="closeRemoveExxasModal()">Abbrechen</button>
+            <button class="btn btn-soft-danger" type="submit">Ja, entfernen</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+  <% } %>
+
+    </main>
+    </div>
+  </div>
+
+  <% if (canManage) { %>
+  <script>
+    (() => {
+      const editBackdrop = document.getElementById('editMemberBackdrop');
+      const inviteBackdrop = document.getElementById('inviteExxasBackdrop');
+      const removeBackdrop = document.getElementById('removeExxasBackdrop');
+      const editRoleForm = document.getElementById('editMemberRoleForm');
+      const editRemoveForm = document.getElementById('editMemberRemoveForm');
+      const editText = document.getElementById('editMemberText');
+      const editRole = document.getElementById('editMemberRole');
+      const inviteText = document.getElementById('inviteExxasText');
+      const inviteEmail = document.getElementById('inviteExxasEmail');
+      const inviteDisplayName = document.getElementById('inviteExxasDisplayName');
+      const inviteRole = document.getElementById('inviteExxasRole');
+      const removeEmail = document.getElementById('removeExxasEmail');
+      const removeText = document.getElementById('removeExxasText');
+
+      window.openEditMemberModal = (btn) => {
+        const id = btn?.dataset?.memberId || '';
+        const name = btn?.dataset?.memberName || '';
+        const email = btn?.dataset?.memberEmail || '';
+        const role = btn?.dataset?.memberRole || 'mitarbeiter';
+        if (!id) return;
+        editRoleForm.action = `/portal/team/members/${encodeURIComponent(id)}/role`;
+        editRemoveForm.action = `/portal/team/members/${encodeURIComponent(id)}/revoke`;
+        editText.textContent = `${name} (${email})`;
+        editRole.value = role === 'admin' ? 'admin' : 'mitarbeiter';
+        editBackdrop.classList.add('open');
+      };
+      window.closeEditMemberModal = (event) => {
+        if (event && event.target && event.target.id !== 'editMemberBackdrop') return;
+        editBackdrop.classList.remove('open');
+      };
+      window.submitEditMemberRole = () => editRoleForm.submit();
+
+      window.openInviteExxasModal = (btn) => {
+        const email = btn?.dataset?.email || '';
+        const name = btn?.dataset?.name || '';
+        const role = btn?.dataset?.role || 'mitarbeiter';
+        if (!email) return;
+        inviteEmail.value = email;
+        inviteDisplayName.value = name;
+        inviteRole.value = role === 'admin' ? 'admin' : 'mitarbeiter';
+        inviteText.textContent = `Möchten Sie ${name || email} zu Ihrer Organisation einladen?`;
+        inviteBackdrop.classList.add('open');
+      };
+      window.closeInviteExxasModal = (event) => {
+        if (event && event.target && event.target.id !== 'inviteExxasBackdrop') return;
+        inviteBackdrop.classList.remove('open');
+      };
+
+      window.openRemoveExxasModal = (btn) => {
+        const email = btn?.dataset?.email || '';
+        const name = btn?.dataset?.name || '';
+        if (!email) return;
+        removeEmail.value = email;
+        removeText.textContent = `Möchten Sie ${name || email} aus der Organisations-Zuordnung entfernen?`;
+        removeBackdrop.classList.add('open');
+      };
+      window.closeRemoveExxasModal = (event) => {
+        if (event && event.target && event.target.id !== 'removeExxasBackdrop') return;
+        removeBackdrop.classList.remove('open');
+      };
+    })();
+  </script>
+  <% } %>
+</body>
+</html>

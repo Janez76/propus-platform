@@ -1,0 +1,401 @@
+[
+  {
+    "orderNo": 100039,
+    "status": "confirmed",
+    "createdAt": "2026-02-26T10:00:00.000Z",
+    "address": "Teststrasse 123",
+    "object": {
+      "type": "Wohnung",
+      "area": "80",
+      "floors": "",
+      "rooms": "3.5",
+      "desc": ""
+    },
+    "services": {
+      "package": {
+        "key": "bestseller",
+        "label": "BESTSELLER",
+        "price": 399
+      },
+      "addons": [
+        {
+          "id": "floorplans:tour",
+          "label": "2D Grundriss von Tour",
+          "price": 0
+        }
+      ]
+    },
+    "photographer": {
+      "key": "janez",
+      "name": "Janez Smirmaul",
+      "email": "janez.smirmaul@propus.ch"
+    },
+    "schedule": {
+      "date": "2026-03-15",
+      "time": "10:00",
+      "durationMin": 60
+    },
+    "billing": {
+      "name": "Max Mustermann",
+      "email": "max@test.ch",
+      "phone": "+41 79 123 45 67",
+      "company": "Test GmbH",
+      "onsiteName": "Max Mustermann",
+      "onsitePhone": "+41 79 123 45 67",
+      "street": "Teststrasse 123",
+      "zipcity": "2500 Biel",
+      "notes": "Test Bestellung"
+    },
+    "pricing": {
+      "subtotal": 448,
+      "discount": 0,
+      "vat": 36.3,
+      "total": 484.3
+    },
+    "discountCode": "",
+    "keyPickup": null,
+    "calendarCreated": false,
+    "officeCalendarCreated": false,
+    "photographerEventId": "AAMkADAxMzNhMDU3LTkyYzEtNDFmNS1hZDJhLTk3ZGI2YTE0NjI0NABGAAAAAAAdo8w1j8zqRraXeV3G7F4LBwCc9gJR2w3FQ58VeO-RLFDGAAAAAAENAACc9gJR2w3FQ58VeO-RLFDGAAO0O_iRAAA=",
+    "officeEventId": "AAMkAGM0NDA5YWFhLWNkNTEtNDg1OC1hYzFlLWUxMzZiYTkxNmMzNQBGAAAAAAD2O33qtm1KQbAPA0wkbTDSBwDNxkQFdytoTIhmh4np6qhUAAAAAAENAADNxkQFdytoTIhmh4np6qhUAAELTlxlAAA=",
+    "icsUid": "propus-1772339305637-756p5ac94me@propus.ch",
+    "doneAt": null,
+    "updatedAt": "2026-03-01T04:28:24.662Z"
+  },
+  {
+    "orderNo": 100040,
+    "createdAt": "2026-03-01T04:17:36.239Z",
+    "status": "pending",
+    "source": "manual",
+    "address": "Teststrasse 15",
+    "object": {
+      "type": "apartment",
+      "area": 85,
+      "floors": 1,
+      "rooms": "3.5",
+      "desc": "Testauftrag fuer Kalenderpruefung"
+    },
+    "services": {
+      "package": {
+        "key": "manual",
+        "label": "Testpaket",
+        "price": 350
+      },
+      "addons": []
+    },
+    "photographer": {
+      "key": "janez",
+      "name": "Janez Smirmaul",
+      "email": "janez.smirmaul@propus.ch"
+    },
+    "schedule": {
+      "date": "2026-03-15",
+      "time": "10:00",
+      "durationMin": 60
+    },
+    "billing": {
+      "company": "Testfirma AG",
+      "name": "Testkunde 20260301051736",
+      "email": "testkunde.20260301051736@example.local",
+      "phone": "+41 79 000 00 00",
+      "onsiteName": "",
+      "onsitePhone": "",
+      "street": "Teststrasse 15",
+      "zipcity": "8001 Zuerich",
+      "notes": "Automatisch angelegter Testauftrag"
+    },
+    "pricing": {
+      "subtotal": 350,
+      "discount": 0,
+      "vat": 28.35,
+      "total": 378.35
+    },
+    "discountCode": "",
+    "keyPickup": null,
+    "calendarCreated": true,
+    "officeCalendarCreated": true,
+    "photographerEventId": "AAMkADAxMzNhMDU3LTkyYzEtNDFmNS1hZDJhLTk3ZGI2YTE0NjI0NABGAAAAAAAdo8w1j8zqRraXeV3G7F4LBwCc9gJR2w3FQ58VeO-RLFDGAAAAAAENAACc9gJR2w3FQ58VeO-RLFDGAAO0O_iPAAA=",
+    "officeEventId": "AAMkAGM0NDA5YWFhLWNkNTEtNDg1OC1hYzFlLWUxMzZiYTkxNmMzNQBGAAAAAAD2O33qtm1KQbAPA0wkbTDSBwDNxkQFdytoTIhmh4np6qhUAAAAAAENAADNxkQFdytoTIhmh4np6qhUAAELTlxjAAA=",
+    "icsUid": "propus-1772338656240-vyl9zfkeda@propus.ch"
+  },
+  {
+    "orderNo": 100041,
+    "createdAt": "2026-03-01T04:18:29.591Z",
+    "status": "pending",
+    "source": "manual",
+    "address": "a",
+    "object": {
+      "type": "",
+      "area": "",
+      "floors": 1,
+      "rooms": "",
+      "desc": ""
+    },
+    "services": {
+      "package": {},
+      "addons": []
+    },
+    "photographer": {
+      "key": "",
+      "name": "",
+      "email": ""
+    },
+    "schedule": {
+      "date": "2026-03-15",
+      "time": "10:00",
+      "durationMin": 60
+    },
+    "billing": {
+      "company": "",
+      "name": "Probe",
+      "email": "probe@example.local",
+      "phone": "",
+      "onsiteName": "",
+      "onsitePhone": "",
+      "street": "",
+      "zipcity": "z",
+      "notes": ""
+    },
+    "pricing": {
+      "subtotal": 0,
+      "discount": 0,
+      "vat": 0,
+      "total": 0
+    },
+    "discountCode": "",
+    "keyPickup": null,
+    "calendarCreated": false,
+    "officeCalendarCreated": false,
+    "photographerEventId": null,
+    "officeEventId": null,
+    "icsUid": null
+  },
+  {
+    "orderNo": 100042,
+    "createdAt": "2026-03-01T04:18:46.117Z",
+    "status": "pending",
+    "source": "manual",
+    "address": "Teststrasse 15",
+    "object": {
+      "type": "apartment",
+      "area": 85,
+      "floors": 1,
+      "rooms": "3.5",
+      "desc": "Testauftrag fuer Kalenderpruefung"
+    },
+    "services": {
+      "package": {
+        "key": "manual",
+        "label": "Testpaket",
+        "price": 350
+      },
+      "addons": []
+    },
+    "photographer": {
+      "key": "janez",
+      "name": "Janez Smirmaul",
+      "email": "janez.smirmaul@propus.ch"
+    },
+    "schedule": {
+      "date": "2026-03-15",
+      "time": "10:00",
+      "durationMin": 60
+    },
+    "billing": {
+      "company": "Testfirma AG",
+      "name": "Testkunde 20260301051846",
+      "email": "testkunde.20260301051846@example.local",
+      "phone": "+41 79 000 00 00",
+      "onsiteName": "",
+      "onsitePhone": "",
+      "street": "Teststrasse 15",
+      "zipcity": "8001 Zuerich",
+      "notes": "Automatisch angelegter Testauftrag"
+    },
+    "pricing": {
+      "subtotal": 350,
+      "discount": 0,
+      "vat": 28.35,
+      "total": 378.35
+    },
+    "discountCode": "",
+    "keyPickup": null,
+    "calendarCreated": true,
+    "officeCalendarCreated": true,
+    "photographerEventId": "AAMkADAxMzNhMDU3LTkyYzEtNDFmNS1hZDJhLTk3ZGI2YTE0NjI0NABGAAAAAAAdo8w1j8zqRraXeV3G7F4LBwCc9gJR2w3FQ58VeO-RLFDGAAAAAAENAACc9gJR2w3FQ58VeO-RLFDGAAO0O_iQAAA=",
+    "officeEventId": "AAMkAGM0NDA5YWFhLWNkNTEtNDg1OC1hYzFlLWUxMzZiYTkxNmMzNQBGAAAAAAD2O33qtm1KQbAPA0wkbTDSBwDNxkQFdytoTIhmh4np6qhUAAAAAAENAADNxkQFdytoTIhmh4np6qhUAAELTlxkAAA=",
+    "icsUid": "propus-1772338726117-t4iplvki979@propus.ch"
+  },
+  {
+    "orderNo": 100043,
+    "createdAt": "2026-03-01T04:28:46.109Z",
+    "status": "cancelled",
+    "source": "manual",
+    "address": "Test 1",
+    "object": {
+      "type": "apartment",
+      "area": 60,
+      "floors": 1,
+      "rooms": 2,
+      "desc": ""
+    },
+    "services": {
+      "package": {
+        "key": "bestseller",
+        "label": "BESTSELLER",
+        "price": 0
+      },
+      "addons": []
+    },
+    "photographer": {
+      "key": "",
+      "name": "",
+      "email": ""
+    },
+    "schedule": {
+      "date": "2026-03-02",
+      "time": "10:00",
+      "durationMin": 60
+    },
+    "billing": {
+      "company": "",
+      "name": "Chat Smoke",
+      "email": "chat.smoke@example.test",
+      "phone": "",
+      "onsiteName": "",
+      "onsitePhone": "",
+      "street": "Test 1",
+      "zipcity": "2500 Biel",
+      "notes": ""
+    },
+    "pricing": {
+      "subtotal": 0,
+      "discount": 0,
+      "vat": 0,
+      "total": 0
+    },
+    "discountCode": "",
+    "keyPickup": null,
+    "calendarCreated": false,
+    "officeCalendarCreated": false,
+    "photographerEventId": null,
+    "officeEventId": null,
+    "icsUid": null,
+    "doneAt": null,
+    "updatedAt": "2026-03-01T04:28:46.385Z"
+  },
+  {
+    "orderNo": 100044,
+    "createdAt": "2026-03-01T04:30:00.806Z",
+    "status": "cancelled",
+    "source": "manual",
+    "address": "Test 1",
+    "object": {
+      "type": "apartment",
+      "area": 60,
+      "floors": 1,
+      "rooms": 2,
+      "desc": ""
+    },
+    "services": {
+      "package": {
+        "key": "bestseller",
+        "label": "BESTSELLER",
+        "price": 0
+      },
+      "addons": []
+    },
+    "photographer": {
+      "key": "",
+      "name": "",
+      "email": ""
+    },
+    "schedule": {
+      "date": "2026-03-02",
+      "time": "10:00",
+      "durationMin": 60
+    },
+    "billing": {
+      "company": "",
+      "name": "Chat Smoke",
+      "email": "chat.smoke@example.test",
+      "phone": "",
+      "onsiteName": "",
+      "onsitePhone": "",
+      "street": "Test 1",
+      "zipcity": "2500 Biel",
+      "notes": ""
+    },
+    "pricing": {
+      "subtotal": 0,
+      "discount": 0,
+      "vat": 0,
+      "total": 0
+    },
+    "discountCode": "",
+    "keyPickup": null,
+    "calendarCreated": false,
+    "officeCalendarCreated": false,
+    "photographerEventId": null,
+    "officeEventId": null,
+    "icsUid": null,
+    "doneAt": null,
+    "updatedAt": "2026-03-01T04:30:01.359Z"
+  },
+  {
+    "orderNo": 100045,
+    "createdAt": "2026-03-01T04:39:02.287Z",
+    "status": "pending",
+    "source": "manual",
+    "address": "Teststrasse 15",
+    "object": {
+      "type": "apartment",
+      "area": 85,
+      "floors": 1,
+      "rooms": "3.5",
+      "desc": "Testauftrag fuer Kalenderpruefung"
+    },
+    "services": {
+      "package": {
+        "key": "manual",
+        "label": "Testpaket",
+        "price": 350
+      },
+      "addons": []
+    },
+    "photographer": {
+      "key": "testma",
+      "name": "Test Mitarbeiter",
+      "email": "test.mitarbeiter@propus.local"
+    },
+    "schedule": {
+      "date": "2026-03-15",
+      "time": "10:00",
+      "durationMin": 60
+    },
+    "billing": {
+      "company": "Testfirma AG",
+      "name": "Testkunde 20260301053902",
+      "email": "testkunde.20260301053902@example.local",
+      "phone": "+41 79 000 00 00",
+      "onsiteName": "",
+      "onsitePhone": "",
+      "street": "Teststrasse 15",
+      "zipcity": "8001 Zuerich",
+      "notes": "Automatisch angelegter Testauftrag"
+    },
+    "pricing": {
+      "subtotal": 350,
+      "discount": 0,
+      "vat": 28.35,
+      "total": 378.35
+    },
+    "discountCode": "",
+    "keyPickup": null,
+    "calendarCreated": false,
+    "officeCalendarCreated": true,
+    "photographerEventId": null,
+    "officeEventId": "AAMkAGM0NDA5YWFhLWNkNTEtNDg1OC1hYzFlLWUxMzZiYTkxNmMzNQBGAAAAAAD2O33qtm1KQbAPA0wkbTDSBwDNxkQFdytoTIhmh4np6qhUAAAAAAENAADNxkQFdytoTIhmh4np6qhUAAELTlxmAAA=",
+    "icsUid": "propus-1772339942287-hykv3hmglk9@propus.ch"
+  }
+]

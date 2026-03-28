@@ -1,0 +1,60 @@
+/* ============================================================
+   PROPUS THEME — Front & Admin Panel
+   Fonts:      Montserrat (headings) · Roboto (body)
+   Gold:       #B68E20
+   Background: #F1F2EA
+   Toggle:     Dark / Normal / Automatisch
+   Steuerung:  .dark auf <html> | .light-mode für Normal-Override
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Roboto:wght@400;500&display=swap');
+
+/* ── LIGHT (Normal) ── */
+:root {
+  --propus-gold:           #B68E20;
+  --propus-gold-hover:     #9a7619;
+  --propus-gold-light:     #c9a22a;
+  --propus-gold-dark:      #8a7418;
+  --propus-bg-page:        #F1F2EA;
+  --propus-bg-card:        #ffffff;
+  --propus-bg-strip:       #F7F6F3;
+  --propus-text-primary:   #111111;
+  --propus-text-secondary: #333333;
+  --propus-text-muted:     #666666;
+  --propus-border:         #e8e6e2;
+  --propus-green:          #2a7a2a;
+  --propus-font-heading:   'Montserrat', sans-serif;
+  --propus-font-body:      'Roboto', -apple-system, sans-serif;
+}
+
+/* ── DARK ── */
+html.dark {
+  --propus-gold:           #c9a22a;
+  --propus-gold-hover:     #d4b860;
+  --propus-gold-light:     #d4b860;
+  --propus-gold-dark:      #B68E20;
+  --propus-bg-page:        #0f1012;
+  --propus-bg-card:        #161719;
+  --propus-bg-strip:       #1c1d1f;
+  --propus-text-primary:   #f0ece4;
+  --propus-text-secondary: #c0bbb4;
+  --propus-text-muted:     #8a8680;
+  --propus-border:         #2a2926;
+  --propus-green:          #5aaa5a;
+}
+
+/* ── LIGHT MODE FORCE (override auto dark) ── */
+html.light-mode {
+  --propus-gold:           #B68E20;
+  --propus-gold-hover:     #9a7619;
+  --propus-gold-light:     #c9a22a;
+  --propus-gold-dark:      #8a7418;
+  --propus-bg-page:        #F1F2EA;
+  --propus-bg-card:        #ffffff;
+  --propus-bg-strip:       #F7F6F3;
+  --propus-text-primary:   #111111;
+  --propus-text-secondary: #333333;
+  --propus-text-muted:     #666666;
+  --propus-border:         #e8e6e2;
+  --propus-green:          #2a7a2a;
+}

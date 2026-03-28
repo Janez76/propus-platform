@@ -1,0 +1,576 @@
+const fs = require("fs");
+const path = require("path");
+const crypto = require("crypto");
+const {
+  UPLOAD_CATEGORY_MAP,
+  sanitizeUploadFilename,
+  sanitizePathSegment,
+  checkUploadExtension,
+  normalizeUploadMode,
+  sanitizeUploadComment,
+  sha256File,
+  toPortablePath,
+  createStagingBatchDir,
+  provisionOrderFolders,
+  createUniqueBatchDir,
+  findDuplicateInTarget,
+  writeCommentFile,
+} = require("./order-storage");
+
+const activeTransfers = new Set();
+const log = (msg, data = {}) => {
+  const prefix = "[upload-batch]";
+  if (Object.keys(data).length) {
+    console.log(`${prefix} ${msg}`, JSON.stringify(data));
+  } else {
+    console.log(`${prefix} ${msg}`);
+  }
+};
+const logWarn = (msg, err) => console.warn("[upload-batch]", msg, err?.message || err);
+
+function buildBatchId(orderNo) {
+  const random = crypto.randomBytes(4).toString("hex");
+  return `upl_${String(orderNo)}_${Date.now()}_${random}`;
+}
+
+function normalizeBatchInput({
+  category,
+  uploadMode,
+  folderType,
+  comment,
+  batchFolderName,
+  conflictMode,
+  customFolderName,
+  uploadGroupId,
+  uploadGroupTotalParts,
+  uploadGroupPartIndex,
+}) {
+  const categoryKey = String(category || "").trim().toLowerCase();
+  if (!UPLOAD_CATEGORY_MAP[categoryKey]) {
+    throw new Error("Ungültige Kategorie");
+  }
+  const normalizedMode = normalizeUploadMode(uploadMode);
+  const normalizedFolderType = ["raw_material", "customer_folder"].includes(String(folderType || ""))
+    ? String(folderType)
+    : "customer_folder";
+  const normalizedComment = sanitizeUploadComment(comment);
+  const safeBatchFolderName = batchFolderName
+    ? sanitizePathSegment(String(batchFolderName), null, 80)
+    : null;
+  const normalizedConflictMode = String(conflictMode || "skip").toLowerCase() === "replace" ? "replace" : "skip";
+  const safeCustomFolderName = customFolderName
+    ? sanitizePathSegment(String(customFolderName), null, 80)
+    : null;
+  const normalizedUploadGroupId = String(uploadGroupId || "").trim() || null;
+  const normalizedUploadGroupTotalParts = Math.max(1, Number(uploadGroupTotalParts || 1));
+  const normalizedUploadGroupPartIndex = Math.min(
+    normalizedUploadGroupTotalParts,
+    Math.max(1, Number(uploadGroupPartIndex || 1))
+  );
+  return {
+    categoryKey,
+    normalizedMode,
+    normalizedFolderType,
+    normalizedComment,
+    safeBatchFolderName,
+    normalizedConflictMode,
+    safeCustomFolderName,
+    normalizedUploadGroupId,
+    normalizedUploadGroupTotalParts,
+    normalizedUploadGroupPartIndex,
+  };
+}
+
+async function createBatchFromStagedFiles({
+  db,
+  order,
+  batchId,
+  stagedFiles,
+  totalBytes,
+  uploadedBy,
+  localPath,
+  normalized,
+}) {
+  const batch = await db.createUploadBatch({
+    id: batchId,
+    orderNo: order.orderNo,
+    folderType: normalized.normalizedFolderType,
+    category: normalized.categoryKey,
+    uploadMode: normalized.normalizedMode,
+    status: "staged",
+    localPath,
+    batchFolder: normalized.normalizedMode === "new_batch" && normalized.safeBatchFolderName ? normalized.safeBatchFolderName : null,
+    comment: normalized.normalizedComment,
+    fileCount: stagedFiles.length,
+    totalBytes,
+    uploadedBy: uploadedBy || "",
+    conflictMode: normalized.normalizedConflictMode,
+    customFolderName: normalized.safeCustomFolderName,
+    uploadGroupId: normalized.normalizedUploadGroupId,
+    uploadGroupTotalParts: normalized.normalizedUploadGroupTotalParts,
+    uploadGroupPartIndex: normalized.normalizedUploadGroupPartIndex,
+  });
+  await db.createUploadBatchFiles(batchId, stagedFiles);
+  return getBatchWithFiles(db, batch.id);
+}
+
+function toBatchDto(batchRow, files) {
+  if (!batchRow) return null;
+  return {
+    id: String(batchRow.id),
+    orderNo: Number(batchRow.order_no),
+    folderType: String(batchRow.folder_type || "customer_folder"),
+    category: String(batchRow.category || ""),
+    uploadMode: String(batchRow.upload_mode || "existing"),
+    uploadGroupId: batchRow.upload_group_id ? String(batchRow.upload_group_id) : null,
+    uploadGroupTotalParts: Math.max(1, Number(batchRow.upload_group_total_parts || 1)),
+    uploadGroupPartIndex: Math.max(1, Number(batchRow.upload_group_part_index || 1)),
+    status: String(batchRow.status || "staged"),
+    localPath: String(batchRow.local_path || ""),
+    targetRelativePath: batchRow.target_relative_path ? String(batchRow.target_relative_path) : null,
+    targetAbsolutePath: batchRow.target_absolute_path ? String(batchRow.target_absolute_path) : null,
+    batchFolder: batchRow.batch_folder ? String(batchRow.batch_folder) : null,
+    comment: String(batchRow.comment || ""),
+    fileCount: Number(batchRow.file_count || 0),
+    totalBytes: Number(batchRow.total_bytes || 0),
+    uploadedBy: String(batchRow.uploaded_by || ""),
+    errorMessage: batchRow.error_message ? String(batchRow.error_message) : null,
+    createdAt: batchRow.created_at || null,
+    updatedAt: batchRow.updated_at || null,
+    startedAt: batchRow.started_at || null,
+    completedAt: batchRow.completed_at || null,
+    files: Array.isArray(files)
+      ? files.map((fileRow) => ({
+          id: Number(fileRow.id),
+          originalName: String(fileRow.original_name || ""),
+          storedName: String(fileRow.stored_name || ""),
+          stagingPath: String(fileRow.staging_path || ""),
+          sizeBytes: Number(fileRow.size_bytes || 0),
+          sha256: fileRow.sha256 ? String(fileRow.sha256) : null,
+          status: String(fileRow.status || "staged"),
+          duplicateOf: fileRow.duplicate_of ? String(fileRow.duplicate_of) : null,
+          errorMessage: fileRow.error_message ? String(fileRow.error_message) : null,
+        }))
+      : [],
+  };
+}
+
+async function getBatchWithFiles(db, batchId) {
+  const batch = await db.getUploadBatch(batchId);
+  if (!batch) return null;
+  const files = await db.listUploadBatchFiles(batchId);
+  return toBatchDto(batch, files);
+}
+
+async function stageUploadBatch({
+  db,
+  order,
+  files,
+  category,
+  uploadMode,
+  folderType,
+  batchFolderName,
+  comment,
+  uploadedBy,
+  conflictMode,
+  customFolderName,
+  uploadGroupId,
+  uploadGroupTotalParts,
+  uploadGroupPartIndex,
+}) {
+  const normalized = normalizeBatchInput({
+    category,
+    uploadMode,
+    folderType,
+    comment,
+    batchFolderName,
+    conflictMode,
+    customFolderName,
+    uploadGroupId,
+    uploadGroupTotalParts,
+    uploadGroupPartIndex,
+  });
+  const safeFiles = Array.isArray(files) ? files : [];
+  if (!safeFiles.length && !normalized.normalizedComment) {
+    throw new Error("Bitte mindestens eine Datei oder einen Kommentar angeben");
+  }
+
+  const batchId = buildBatchId(order.orderNo);
+  const batchDir = createStagingBatchDir(batchId);
+  const stagedFiles = [];
+  let totalBytes = 0;
+
+  for (const file of safeFiles) {
+    const safeName = sanitizeUploadFilename(file?.originalname);
+    const sourcePath = file?.path || null;
+    const targetPath = path.join(batchDir, safeName);
+    if (sourcePath && fs.existsSync(sourcePath)) {
+      // copyFileSync + unlinkSync verhindert EXDEV bei Cross-Filesystem-Mounts (tmp -> upload_staging)
+      fs.copyFileSync(sourcePath, targetPath);
+      try { fs.unlinkSync(sourcePath); } catch (_) {}
+    } else {
+      fs.writeFileSync(targetPath, file?.buffer || Buffer.alloc(0));
+    }
+    const hash = sha256File(targetPath);
+    const sizeBytes = Number(file?.size || fs.statSync(targetPath).size || 0);
+    totalBytes += sizeBytes;
+    stagedFiles.push({
+      originalName: file?.originalname || safeName,
+      storedName: safeName,
+      stagingPath: targetPath,
+      sizeBytes,
+      sha256: hash,
+      status: "staged",
+    });
+  }
+  return createBatchFromStagedFiles({
+    db,
+    order,
+    batchId,
+    stagedFiles,
+    totalBytes,
+    uploadedBy,
+    localPath: batchDir,
+    normalized,
+  });
+}
+
+async function stageUploadBatchFromPaths({
+  db,
+  order,
+  files,
+  category,
+  uploadMode,
+  folderType,
+  batchFolderName,
+  comment,
+  uploadedBy,
+  conflictMode,
+  customFolderName,
+  uploadGroupId,
+  uploadGroupTotalParts,
+  uploadGroupPartIndex,
+}) {
+  const normalized = normalizeBatchInput({
+    category,
+    uploadMode,
+    folderType,
+    comment,
+    batchFolderName,
+    conflictMode,
+    customFolderName,
+    uploadGroupId,
+    uploadGroupTotalParts,
+    uploadGroupPartIndex,
+  });
+  const safeFiles = Array.isArray(files) ? files : [];
+  if (!safeFiles.length && !normalized.normalizedComment) {
+    throw new Error("Bitte mindestens eine Datei oder einen Kommentar angeben");
+  }
+
+  const batchId = buildBatchId(order.orderNo);
+  const batchDir = createStagingBatchDir(batchId);
+  const stagedFiles = [];
+  let totalBytes = 0;
+
+  for (const file of safeFiles) {
+    const sourcePath = String(file?.path || "").trim();
+    if (!sourcePath || !fs.existsSync(sourcePath)) {
+      throw new Error(`Staging-Datei fehlt: ${sourcePath || "(leer)"}`);
+    }
+    const safeName = sanitizeUploadFilename(file?.originalName || path.basename(sourcePath));
+    const targetPath = path.join(batchDir, safeName);
+    fs.copyFileSync(sourcePath, targetPath);
+    try {
+      const srcStat = fs.statSync(sourcePath);
+      if (srcStat.atime && srcStat.mtime) {
+        try { fs.utimesSync(targetPath, srcStat.atime, srcStat.mtime); } catch (_) {}
+      }
+    } catch (_) {}
+    try { fs.unlinkSync(sourcePath); } catch (_) {}
+    const hash = sha256File(targetPath);
+    const sizeBytes = Number(file?.size || fs.statSync(targetPath).size || 0);
+    totalBytes += sizeBytes;
+    stagedFiles.push({
+      originalName: file?.originalName || safeName,
+      storedName: safeName,
+      stagingPath: targetPath,
+      sizeBytes,
+      sha256: hash,
+      status: "staged",
+    });
+  }
+
+  return createBatchFromStagedFiles({
+    db,
+    order,
+    batchId,
+    stagedFiles,
+    totalBytes,
+    uploadedBy,
+    localPath: batchDir,
+    normalized,
+  });
+}
+
+async function transferBatch(db, batchId, deps) {
+  if (!batchId || activeTransfers.has(batchId)) return;
+  activeTransfers.add(batchId);
+  const transferStart = Date.now();
+  try {
+    let batch = await db.getUploadBatch(batchId);
+    if (!batch) return;
+
+    batch = await db.updateUploadBatch(batchId, {
+      status: batch.status === "retrying" ? "retrying" : "transferring",
+      started_at: batch.started_at || new Date().toISOString(),
+      error_message: null,
+    });
+
+    const order = await deps.loadOrder(Number(batch.order_no));
+    if (!order) throw new Error(`Auftrag ${batch.order_no} nicht gefunden`);
+
+    const links = await provisionOrderFolders(order, db, {
+      folderTypes: [String(batch.folder_type || "customer_folder")],
+      createMissing: true,
+    });
+    const folderType = String(batch.folder_type || "customer_folder");
+    const folderLink = links[folderType] || await db.getOrderFolderLink(order.orderNo, folderType);
+    if (!folderLink) throw new Error(`Kein Zielordner für ${folderType} vorhanden`);
+
+    const categoryPath = UPLOAD_CATEGORY_MAP[String(batch.category || "")];
+    if (!categoryPath) throw new Error("Ungültige Upload-Kategorie");
+    const categoryDir = path.join(folderLink.absolute_path, categoryPath);
+    fs.mkdirSync(categoryDir, { recursive: true });
+
+    let targetDir = categoryDir;
+    let batchFolder = batch.batch_folder ? String(batch.batch_folder) : null;
+    const mode = String(batch.upload_mode || "existing");
+    const customName = String(batch.custom_folder_name || "").trim();
+
+    if (mode === "new_named" && customName) {
+      const safeFolderName = sanitizeUploadFilename(customName).replace(/\.[^.]+$/, "");
+      batchFolder = safeFolderName || batchFolder;
+      targetDir = path.join(categoryDir, safeFolderName);
+      fs.mkdirSync(targetDir, { recursive: true });
+    } else if (mode === "new_batch") {
+      if (batchFolder) {
+        targetDir = path.join(categoryDir, batchFolder);
+        fs.mkdirSync(targetDir, { recursive: true });
+      } else {
+        const newBatchDir = createUniqueBatchDir(categoryDir);
+        batchFolder = newBatchDir.name;
+        targetDir = newBatchDir.abs;
+      }
+    }
+
+    const conflictMode = String(batch.conflict_mode || "skip");
+    const targetRelativePath = toPortablePath(path.relative(folderLink.absolute_path, targetDir));
+    const files = await db.listUploadBatchFiles(batchId);
+    const totalMB = (Number(batch.total_bytes) / (1024 * 1024)).toFixed(1);
+    log("transfer started", {
+      batchId,
+      orderNo: batch.order_no,
+      folderType: batch.folder_type,
+      category: batch.category,
+      fileCount: files.length,
+      totalMB,
+      targetDir,
+    });
+    let failed = 0;
+    let fileIndex = 0;
+
+    for (const file of files) {
+      fileIndex += 1;
+      const currentStatus = String(file.status || "staged");
+      if (["stored", "skipped_duplicate", "skipped_invalid_type"].includes(currentStatus)) continue;
+
+      const safeName = sanitizeUploadFilename(file.stored_name || file.original_name);
+      const extCheck = checkUploadExtension(String(batch.category || ""), safeName);
+      if (!extCheck.ok) {
+        await db.updateUploadBatchFile(file.id, {
+          status: "skipped_invalid_type",
+          error_message: `Dateityp "${extCheck.ext}" ist für diese Kategorie nicht erlaubt`,
+        });
+        continue;
+      }
+
+      if (!fs.existsSync(file.staging_path)) {
+        failed += 1;
+        await db.updateUploadBatchFile(file.id, {
+          status: "failed",
+          error_message: "Staging-Datei fehlt",
+        });
+        continue;
+      }
+
+      const incomingHash = file.sha256 || sha256File(file.staging_path);
+      const duplicateInfo = findDuplicateInTarget(targetDir, safeName, incomingHash);
+      if (duplicateInfo.duplicate) {
+        if (conflictMode === "replace" && duplicateInfo.reason === "name") {
+          const existingPath = path.join(targetDir, duplicateInfo.existingFile || safeName);
+          const existingHash = fs.existsSync(existingPath) ? sha256File(existingPath) : null;
+          if (existingHash === incomingHash) {
+            await db.updateUploadBatchFile(file.id, {
+              status: "skipped_duplicate",
+              duplicate_of: duplicateInfo.existingFile || null,
+              error_message: "content_identical",
+            });
+            continue;
+          }
+          try { fs.unlinkSync(existingPath); } catch (_) {}
+        } else {
+          await db.updateUploadBatchFile(file.id, {
+            status: "skipped_duplicate",
+            duplicate_of: duplicateInfo.existingFile || null,
+            error_message: duplicateInfo.reason || null,
+          });
+          continue;
+        }
+      }
+
+      const destination = path.join(targetDir, safeName);
+      const fileStart = Date.now();
+      try {
+        fs.copyFileSync(file.staging_path, destination);
+        try {
+          const srcStat = fs.statSync(file.staging_path);
+          if (srcStat.atime && srcStat.mtime) {
+            fs.utimesSync(destination, srcStat.atime, srcStat.mtime);
+          }
+        } catch (_) {}
+        const sourceSize = Number(file.size_bytes || fs.statSync(file.staging_path).size || 0);
+        const targetSize = Number(fs.statSync(destination).size || 0);
+        if (sourceSize !== targetSize) {
+          throw new Error("Dateigrösse nach Kopie stimmt nicht überein");
+        }
+        const targetHash = sha256File(destination);
+        if (file.sha256 && targetHash !== file.sha256) {
+          throw new Error("SHA-256 nach Kopie stimmt nicht überein");
+        }
+        await db.updateUploadBatchFile(file.id, {
+          status: "stored",
+          error_message: null,
+        });
+        const fileMs = Date.now() - fileStart;
+        if (fileIndex % 5 === 0 || fileIndex === files.length || fileMs > 10000) {
+          log("file progress", { batchId, fileIndex, total: files.length, lastFileMs: fileMs, lastFile: safeName });
+        }
+      } catch (error) {
+        failed += 1;
+        const fileMs = Date.now() - fileStart;
+        logWarn(`file failed: ${safeName} (${(Number(file.size_bytes) / (1024 * 1024)).toFixed(2)} MB, ${fileMs}ms)`, error);
+        try {
+          if (fs.existsSync(destination)) fs.unlinkSync(destination);
+        } catch (_) {}
+        await db.updateUploadBatchFile(file.id, {
+          status: "failed",
+          error_message: error instanceof Error ? error.message : "Transfer fehlgeschlagen",
+        });
+      }
+    }
+
+    if (String(batch.comment || "").trim()) {
+      writeCommentFile(targetDir, batch.comment);
+    }
+
+    const completedFiles = await db.listUploadBatchFiles(batchId);
+    const storedCount = completedFiles.filter((entry) => entry.status === "stored").length;
+    const skippedCount = completedFiles.filter((entry) => entry.status === "skipped_duplicate").length;
+    const invalidCount = completedFiles.filter((entry) => entry.status === "skipped_invalid_type").length;
+    const failedCount = completedFiles.filter((entry) => entry.status === "failed").length;
+    const status = failedCount > 0 ? "failed" : "completed";
+    const completedAt = failedCount > 0 ? null : new Date().toISOString();
+
+    batch = await db.updateUploadBatch(batchId, {
+      status,
+      batch_folder: batchFolder,
+      target_relative_path: targetRelativePath,
+      target_absolute_path: targetDir,
+      error_message: failedCount > 0 ? `${failedCount} Datei(en) konnten nicht übertragen werden` : null,
+      completed_at: completedAt,
+    });
+
+    const durationMs = Date.now() - transferStart;
+    log("transfer completed", {
+      batchId,
+      status,
+      storedCount,
+      skippedCount,
+      invalidCount,
+      failedCount,
+      durationMs,
+      durationSec: (durationMs / 1000).toFixed(1),
+    });
+
+    if (failedCount === 0) {
+      try {
+        fs.rmSync(batch.local_path, { recursive: true, force: true });
+      } catch (_) {}
+      if (typeof deps.notifyCompleted === "function") {
+        const batchDto = toBatchDto(batch, completedFiles);
+        await deps.notifyCompleted({
+          order,
+          batch: batchDto,
+          storedCount,
+          skippedCount,
+          invalidCount,
+        });
+      }
+    }
+  } catch (error) {
+    const durationMs = Date.now() - transferStart;
+    logWarn(`transfer failed batchId=${batchId} after ${durationMs}ms`, error);
+    await db.updateUploadBatch(batchId, {
+      status: "failed",
+      error_message: error instanceof Error ? error.message : "Transfer fehlgeschlagen",
+    }).catch(() => {});
+  } finally {
+    activeTransfers.delete(batchId);
+  }
+}
+
+function enqueueBatchTransfer(db, batchId, deps) {
+  setTimeout(() => {
+    transferBatch(db, batchId, deps).catch(() => {});
+  }, 25);
+}
+
+async function retryBatchTransfer(db, batchId, deps) {
+  const batch = await db.getUploadBatch(batchId);
+  if (!batch) throw new Error("Upload-Batch nicht gefunden");
+  await db.updateUploadBatch(batchId, {
+    status: "retrying",
+    error_message: null,
+    completed_at: null,
+  });
+  const files = await db.listUploadBatchFiles(batchId);
+  for (const file of files) {
+    if (String(file.status || "") === "failed") {
+      await db.updateUploadBatchFile(file.id, {
+        status: "staged",
+        error_message: null,
+      });
+    }
+  }
+  enqueueBatchTransfer(db, batchId, deps);
+  return getBatchWithFiles(db, batchId);
+}
+
+async function resumePendingTransfers(db, deps) {
+  const pending = await db.listPendingUploadBatches();
+  for (const batch of pending) {
+    enqueueBatchTransfer(db, batch.id, deps);
+  }
+  return pending.length;
+}
+
+module.exports = {
+  stageUploadBatch,
+  stageUploadBatchFromPaths,
+  getBatchWithFiles,
+  enqueueBatchTransfer,
+  retryBatchTransfer,
+  resumePendingTransfers,
+  toBatchDto,
+};

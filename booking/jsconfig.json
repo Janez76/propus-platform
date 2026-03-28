@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "checkJs": false,
+    "maxNodeModuleJsDepth": 0
+  },
+  "include": [
+    "./*.js",
+    "./scripts/**/*.js",
+    "./tests/**/*.js"
+  ],
+  "exclude": [
+    "node_modules",
+    "*.bak",
+    "*.enc_bak",
+    "**/*.bak",
+    "**/*.enc_bak"
+  ]
+}

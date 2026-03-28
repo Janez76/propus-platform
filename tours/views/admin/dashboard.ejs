@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard – Propus Tour Manager</title>
+  <%- include('_admin-styles') %>
+</head>
+<body>
+  <div class="admin-shell">
+    <%- include('_header') %>
+    <main class="admin-main">
+      <% const statusLabels = { ACTIVE:'Aktiv', EXPIRING_SOON:'Läuft bald ab', CUSTOMER_ACCEPTED_AWAITING_PAYMENT:'Wartet auf Zahlung', CUSTOMER_DECLINED:'Keine Verlängerung', ARCHIVED:'Archiviert', AWAITING_CUSTOMER_DECISION:'Wartet auf Kunde', EXPIRED_PENDING_ARCHIVE:'Abgelaufen' }; %>
+      <h1>Dashboard</h1>
+      <p style="color:var(--text-muted);font-size:0.9rem;margin:0 0 1rem 0;">Schnellzugriffe und die wichtigsten 5 Einträge pro Bereich.</p>
+
+      <div class="section">
+        <h2>Schnellzugriffe</h2>
+        <div style="display:flex;gap:0.6rem;flex-wrap:wrap;">
+          <a href="/admin/tours" class="btn btn-primary"><i class="fa-solid fa-list"></i> Touren öffnen</a>
+          <a href="/admin/link-matterport" class="btn btn-ghost"><i class="fa-solid fa-cubes"></i> Matterport verknüpfen</a>
+          <a href="/admin/invoices" class="btn btn-ghost"><i class="fa-regular fa-file-lines"></i> Rechnungen</a>
+          <a href="/admin/settings" class="btn btn-ghost"><i class="fa-solid fa-gear"></i> Einstellungen</a>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Ohne Verknüpfung</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Space</th>
+                <th>Erstellt</th>
+                <th>Link</th>
+                <th>Aktion</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% if (!openMatterportSpaces || openMatterportSpaces.length === 0) { %>
+              <tr><td colspan="4"><div class="empty">Keine unverknüpften Touren gefunden.</div></td></tr>
+              <% } else { %>
+              <% openMatterportSpaces.forEach(space => { %>
+              <% const createdLabel = space.created ? new Date(space.created).toLocaleDateString('de-CH', { day:'2-digit', month:'short', year:'numeric' }) : '-'; %>
+              <% const defaultUrl = `https://my.matterport.com/show/?m=${space.id}`; %>
+              <tr>
+                <td>
+                  <div class="customer-name"><%= space.name || 'Ohne Namen' %></div>
+                  <div class="customer-object">ID: <code><%= space.id %></code></div>
+                </td>
+                <td><%= createdLabel %></td>
+                <td><a href="<%= defaultUrl %>" target="_blank" rel="noopener">Space öffnen</a></td>
+                <td><a href="/admin/link-matterport?openSpaceId=<%= encodeURIComponent(space.id || '') %>" class="btn btn-primary">Verknüpfen</a></td>
+              </tr>
+              <% }) %>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Nächste Abläufe</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Kunde / Objekt</th>
+                <th>Ablaufdatum</th>
+                <th>Tage</th>
+                <th>Status</th>
+                <th>Aktion</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% if (!expiringSoonTours || expiringSoonTours.length === 0) { %>
+              <tr><td colspan="5"><div class="empty">Keine aktiven Abläufe gefunden.</div></td></tr>
+              <% } else { %>
+              <% expiringSoonTours.forEach(t => { %>
+              <tr>
+                <td>
+                  <div class="customer-name"><%= t.canonical_customer_name || t.customer_name || t.kunde_ref || '-' %></div>
+                  <div class="customer-object"><%= t.canonical_object_label || t.object_label || t.bezeichnung || '' %></div>
+                </td>
+                <td><%= (t.canonical_term_end_date || t.term_end_date || t.ablaufdatum) ? new Date(t.canonical_term_end_date || t.term_end_date || t.ablaufdatum).toLocaleDateString('de-CH', { day:'2-digit', month:'short', year:'numeric' }) : '-' %></td>
+                <td><span class="days <%= (t.days_until_expiry || 0) < 0 ? 'negative' : ((t.days_until_expiry || 0) <= 30 ? 'soon' : 'ok') %>"><%= t.days_until_expiry != null ? t.days_until_expiry : '-' %></span></td>
+                <td><span class="badge badge-<%= t.status %>"><%= statusLabels[t.status] || t.status %></span></td>
+                <td><a href="/admin/tours/<%= t.id %>" class="btn btn-primary">Detail</a></td>
+              </tr>
+              <% }) %>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Neueste Touren</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Kunde / Objekt</th>
+                <th>Status</th>
+                <th>Matterport</th>
+                <th>Aktion</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% if (!recentTours || recentTours.length === 0) { %>
+              <tr><td colspan="4"><div class="empty">Keine Touren vorhanden.</div></td></tr>
+              <% } else { %>
+              <% recentTours.forEach(t => { %>
+              <tr>
+                <td>
+                  <div class="customer-name"><%= t.canonical_customer_name || t.customer_name || t.kunde_ref || '-' %></div>
+                  <div class="customer-object"><%= t.canonical_object_label || t.object_label || t.bezeichnung || '' %></div>
+                </td>
+                <td><span class="badge badge-<%= t.status %>"><%= statusLabels[t.status] || t.status %></span></td>
+                <td><%= t.canonical_matterport_space_id ? 'Verknüpft' : 'Nicht verknüpft' %></td>
+                <td><a href="/admin/tours/<%= t.id %>" class="btn btn-primary">Detail</a></td>
+              </tr>
+              <% }) %>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

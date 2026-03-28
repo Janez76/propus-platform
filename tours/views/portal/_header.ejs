@@ -1,0 +1,52 @@
+<% const active = typeof activePage === 'string' ? activePage : 'dashboard'; %>
+<% const pnav = (typeof portalNav === 'object' && portalNav) ? portalNav : { displayName: '', email: typeof email === 'string' ? email : '', organizationName: null }; %>
+<% const dn = String(pnav.displayName || '').trim(); %>
+<aside class="admin-sidebar">
+  <div class="logo">
+    <img
+      src="https://propus.ch/wp-content/uploads/2024/06/Asset-2-2.png"
+      alt="Propus"
+      class="admin-logo-img"
+      loading="eager"
+      decoding="async"
+    >
+    <div style="font-size:0.72rem;color:#a8a39a;font-weight:500;margin-top:0.28rem;letter-spacing:0.02em;">Kundenportal</div>
+  </div>
+
+  <nav>
+    <div class="portal-nav-main">
+      <a href="/portal/dashboard" class="<%= active === 'dashboard' ? 'active' : '' %>">
+        <i class="fa-solid fa-gauge-high"></i>
+        Dashboard
+      </a>
+      <div class="nav-divider"></div>
+
+      <div class="nav-section-label">Übersicht</div>
+      <a href="/portal/tours" class="<%= active === 'tours' ? 'active' : '' %>">
+        <i class="fa-solid fa-house"></i>
+        Touren
+      </a>
+      <a href="/portal/invoices" class="<%= active === 'invoices' ? 'active' : '' %>">
+        <i class="fa-regular fa-file-lines"></i>
+        Rechnungen
+      </a>
+      <a href="/portal/team" class="<%= active === 'team' ? 'active' : '' %>">
+        <i class="fa-solid fa-users"></i>
+        Team
+      </a>
+    </div>
+
+    <div class="portal-nav-footer">
+      <div class="nav-divider portal-nav-footer-divider"></div>
+      <%- include('../partials/_sidebar-user-card', { displayName: dn, organizationName: pnav.organizationName, variant: 'portal', hasProfilePhoto: !!pnav.hasProfilePhoto, profilePhotoVersion: pnav.profilePhotoVersion || 0 }) %>
+      <div class="nav-divider"></div>
+      <form method="get" action="/portal/logout" class="portal-logout-form">
+        <button type="submit" class="nav-link-logout">
+          <i class="fa-solid fa-right-from-bracket"></i>
+          Abmelden
+        </button>
+      </form>
+    </div>
+  </nav>
+</aside>
+<%- include('../partials/_profile-edit-modal', { variant: 'portal' }) %>

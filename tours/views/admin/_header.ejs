@@ -1,0 +1,930 @@
+<% 
+  const adminUserName = String(
+    (typeof adminSidebarDisplayName !== 'undefined' && adminSidebarDisplayName)
+      ? adminSidebarDisplayName
+      : (typeof adminName !== 'undefined' && adminName ? adminName : '')
+  ).trim();
+  const adminUserOrg = String(
+    (typeof adminSidebarOrganization !== 'undefined' && adminSidebarOrganization)
+      ? adminSidebarOrganization
+      : 'Propus GmbH'
+  ).trim();
+%>
+<aside class="admin-sidebar">
+  <div class="logo">
+    <img
+      src="https://propus.ch/wp-content/uploads/2024/06/Asset-2-2.png"
+      alt="Propus"
+      class="admin-logo-img"
+      loading="eager"
+      decoding="async"
+    >
+    <div style="font-size:0.72rem;color:#a8a39a;font-weight:500;margin-top:0.28rem;letter-spacing:0.02em;">Tour Manager Admin</div>
+  </div>
+
+  <div class="global-search-wrap">
+    <div class="global-search-box">
+      <i class="fa-solid fa-magnifying-glass search-icon"></i>
+      <input type="text" id="globalSearch" class="global-search-input" placeholder="Suche…" autocomplete="off" spellcheck="false">
+      <button type="button" id="globalSearchClear" class="search-clear" aria-label="Suche leeren">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <div id="globalSearchDropdown" class="global-search-dropdown" style="display:none;"></div>
+  </div>
+
+  <nav>
+    <div class="portal-nav-main">
+    <a href="/admin/dashboard" class="<%= typeof activePage !== 'undefined' && activePage === 'dashboard' ? 'active' : '' %>">
+      <i class="fa-solid fa-gauge-high"></i>
+      Dashboard
+    </a>
+    <div class="nav-divider"></div>
+
+    <div class="nav-section-label">Übersicht</div>
+    <a href="/admin/tours" class="<%= typeof activePage !== 'undefined' && activePage === 'tours' ? 'active' : '' %>">
+      <i class="fa-solid fa-house"></i>
+      Touren
+    </a>
+    <a href="/admin/invoices" class="<%= typeof activePage !== 'undefined' && activePage === 'invoices' ? 'active' : '' %>">
+      <i class="fa-regular fa-file-lines"></i>
+      Rechnungen
+    </a>
+    <div class="nav-divider"></div>
+
+    <div class="nav-section-label">Kunden</div>
+    <a href="/admin/customers" class="<%= typeof activePage !== 'undefined' && activePage === 'customers' ? 'active' : '' %>">
+      <i class="fa-solid fa-users"></i>
+      Kundenverwaltung
+    </a>
+    <a href="#" class="customer-view-toggle" id="customerViewToggle" onclick="toggleCustomerSearch(event)">
+      <i class="fa-regular fa-user"></i>
+      Kunden-Portal
+    </a>
+    <div class="nav-divider"></div>
+
+    <div class="nav-section-label">Verknüpfungen</div>
+    <a href="/admin/link-matterport" class="<%= typeof activePage !== 'undefined' && activePage === 'matterport' ? 'active' : '' %>">
+      <i class="fa-solid fa-cubes"></i>
+      Matterport verknüpfen
+    </a>
+    <div class="nav-divider"></div>
+    <div class="nav-section-label">Konfiguration</div>
+    <a href="/admin/email-templates" class="<%= typeof activePage !== 'undefined' && activePage === 'emailTemplates' ? 'active' : '' %>">
+      <i class="fa-regular fa-envelope"></i>
+      E-Mail-Templates
+    </a>
+    <a href="/admin/automations" class="<%= typeof activePage !== 'undefined' && activePage === 'automations' ? 'active' : '' %>">
+      <i class="fa-solid fa-rotate"></i>
+      Automatisierungen
+    </a>
+    <a href="/admin/team" class="<%= typeof activePage !== 'undefined' && activePage === 'team' ? 'active' : '' %>">
+      <i class="fa-solid fa-users"></i>
+      Team
+    </a>
+    <a href="/admin/settings" class="<%= typeof activePage !== 'undefined' && activePage === 'settings' ? 'active' : '' %>">
+      <i class="fa-solid fa-gear"></i>
+      Einstellungen
+    </a>
+    <div class="nav-divider"></div>
+    <div class="nav-section-label" style="padding-top:0.2rem;">Werkzeuge</div>
+    <a href="/admin/ai-chat" class="<%= typeof activePage !== 'undefined' && activePage === 'aiChat' ? 'active' : '' %>">
+      <i class="fa-solid fa-wand-magic-sparkles"></i>
+      KI-Chat
+    </a>
+    </div>
+    <div class="portal-nav-footer">
+      <div class="nav-divider portal-nav-footer-divider"></div>
+      <% const adminHasPhoto = typeof adminSidebarHasProfilePhoto !== 'undefined' && adminSidebarHasProfilePhoto; %>
+      <% const adminPhotoVer = typeof adminSidebarPhotoVersion !== 'undefined' ? adminSidebarPhotoVersion : 0; %>
+      <%- include('../partials/_sidebar-user-card', { displayName: adminUserName || 'Admin', organizationName: adminUserOrg, variant: 'admin', hasProfilePhoto: adminHasPhoto, profilePhotoVersion: adminPhotoVer }) %>
+      <div class="nav-divider"></div>
+      <form method="post" action="/logout" class="portal-logout-form">
+        <button type="submit" class="nav-link-logout">
+          <i class="fa-solid fa-right-from-bracket"></i>
+          Abmelden
+        </button>
+      </form>
+    </div>
+  </nav>
+</aside>
+<%- include('../partials/_profile-edit-modal', { variant: 'admin' }) %>
+
+<div id="customerSearchOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.38);z-index:1090;"></div>
+<aside id="customerSearchPanel" style="
+  position:fixed;top:0;right:0;bottom:0;width:min(420px,100vw);
+  background:var(--bg-card,#16161a);border-left:1px solid var(--border);
+  box-shadow:-8px 0 32px rgba(0,0,0,0.5);z-index:1100;
+  transform:translateX(100%);transition:transform 0.24s ease;
+  display:flex;flex-direction:column;overflow:hidden;">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:1rem 1.1rem;border-bottom:1px solid var(--border);">
+    <div style="font-weight:700;font-size:0.95rem;">Kunden-Portal</div>
+    <button type="button" onclick="closeCustomerSearchPanel()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.25rem;line-height:1;padding:0.1rem 0.3rem;">✕</button>
+  </div>
+  <div style="padding:1rem;position:relative;">
+    <input type="text" id="customerSearchInput" placeholder="E-Mail oder Name…"
+      autocomplete="off" spellcheck="false"
+      style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:10px;
+             padding:0.6rem 0.75rem;color:var(--text);font-size:0.88rem;box-sizing:border-box;">
+    <div id="customerSearchDropdown" style="display:none;position:absolute;left:1rem;right:1rem;top:calc(1rem + 46px);
+         background:var(--bg-card);border:1px solid var(--border);border-radius:10px;
+         box-shadow:0 8px 24px rgba(0,0,0,0.4);z-index:2;max-height:300px;overflow-y:auto;"></div>
+  </div>
+</aside>
+
+<script>
+(function() {
+  const input = document.getElementById('globalSearch');
+  const dropdown = document.getElementById('globalSearchDropdown');
+  const clearBtn = document.getElementById('globalSearchClear');
+  if (!input || !dropdown) return;
+
+  const STATUS_LABELS = {
+    ACTIVE: 'Aktiv', EXPIRING_SOON: 'Läuft bald ab',
+    CUSTOMER_ACCEPTED_AWAITING_PAYMENT: 'Wartet auf Zahlung',
+    CUSTOMER_DECLINED: 'Keine Verlängerung', ARCHIVED: 'Archiviert',
+    AWAITING_CUSTOMER_DECISION: 'Wartet auf Kunde',
+    EXPIRED_PENDING_ARCHIVE: 'Abgelaufen',
+  };
+  const TYPE_LABELS = { tour: 'Tour', invoice: 'Rechnung' };
+
+  let timer = null;
+  let activeIdx = -1;
+  let lastResults = [];
+
+  function renderResults(results) {
+    lastResults = results;
+    activeIdx = -1;
+    if (!results.length) {
+      dropdown.innerHTML = '<div class="gs-empty">Keine Treffer</div>';
+      dropdown.style.display = 'block';
+      return;
+    }
+    dropdown.innerHTML = results.map((r, i) => `
+      <a href="${r.url}" class="gs-item" data-idx="${i}">
+        <span class="gs-badge gs-badge-${r.type}">${TYPE_LABELS[r.type] || r.type}</span>
+        <span class="gs-content">
+          <span class="gs-title">${esc(r.title)}</span>
+          ${r.sub ? `<span class="gs-sub">${esc(r.sub)}</span>` : ''}
+        </span>
+        ${r.status ? `<span class="gs-status">${STATUS_LABELS[r.status] || r.status}</span>` : ''}
+      </a>`).join('');
+    dropdown.style.display = 'block';
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function close() {
+    dropdown.style.display = 'none';
+    activeIdx = -1;
+  }
+  function updateClearVisibility() {
+    if (!clearBtn) return;
+    clearBtn.style.display = input.value.trim() ? 'flex' : 'none';
+  }
+
+  function setActive(idx) {
+    const items = dropdown.querySelectorAll('.gs-item');
+    items.forEach((el, i) => el.classList.toggle('gs-active', i === idx));
+    activeIdx = idx;
+  }
+
+  input.addEventListener('input', () => {
+    clearTimeout(timer);
+    const q = input.value.trim();
+    updateClearVisibility();
+    if (q.length < 2) { close(); return; }
+    timer = setTimeout(async () => {
+      try {
+        const resp = await fetch('/admin/search?q=' + encodeURIComponent(q));
+        const data = await resp.json();
+        renderResults(data);
+      } catch(e) { close(); }
+    }, 180);
+  });
+
+  input.addEventListener('keydown', (e) => {
+    const items = dropdown.querySelectorAll('.gs-item');
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActive(Math.min(activeIdx + 1, items.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActive(Math.max(activeIdx - 1, 0));
+    } else if (e.key === 'Enter') {
+      if (activeIdx >= 0 && items[activeIdx]) {
+        window.location.href = items[activeIdx].href;
+      }
+    } else if (e.key === 'Escape') {
+      close();
+      input.blur();
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.global-search-wrap')) close();
+  });
+
+  input.addEventListener('focus', () => {
+    if (lastResults.length) dropdown.style.display = 'block';
+    updateClearVisibility();
+  });
+
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      input.value = '';
+      updateClearVisibility();
+      close();
+      input.focus();
+    });
+  }
+})();
+</script>
+
+<%/* ===== GLOBALES DETAIL-PANEL ===== */%>
+<div id="detailPanel" style="
+  position:fixed;top:0;right:0;bottom:0;width:min(520px,100vw);
+  background:var(--bg-card,#16161a);border-left:1px solid var(--border);
+  box-shadow:-8px 0 32px rgba(0,0,0,0.5);z-index:1000;
+  transform:translateX(100%);transition:transform 0.26s cubic-bezier(.4,0,.2,1);
+  display:flex;flex-direction:column;overflow:hidden;">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;border-bottom:1px solid var(--border);flex-shrink:0;">
+    <span id="panelTitle" style="font-weight:700;font-size:1rem;">Details</span>
+    <div style="display:flex;gap:0.5rem;align-items:center;">
+      <a id="panelOpenFull" href="#" target="_blank" style="font-size:0.8rem;color:var(--link);text-decoration:none;padding:0.25rem 0.5rem;border:1px solid var(--border);border-radius:6px;">↗ Vollansicht</a>
+      <button onclick="closePanel()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.3rem;line-height:1;padding:0.1rem 0.3rem;">✕</button>
+    </div>
+  </div>
+  <div id="panelBody" style="flex:1;overflow-y:auto;padding:1.25rem;"></div>
+</div>
+<div id="panelOverlay" onclick="closePanel()" style="position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:999;display:none;"></div>
+
+<style>
+  #detailPanel.open { transform: translateX(0); }
+  .panel-section { margin-bottom:1.25rem; }
+  .panel-section h3 { font-size:0.78rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin:0 0 0.5rem 0; }
+  .panel-kv { display:flex;justify-content:space-between;gap:0.5rem;padding:0.25rem 0;border-bottom:1px solid var(--border);font-size:0.875rem; }
+  .panel-kv:last-child { border-bottom:none; }
+  .panel-kv .pk { color:var(--text-muted); }
+  .panel-kv .pv { font-weight:600;text-align:right; }
+  .panel-mail-row { padding:0.4rem 0;border-bottom:1px solid var(--border);font-size:0.835rem; }
+  .panel-mail-row:last-child { border-bottom:none; }
+  .panel-mail-subj { font-weight:600;margin-bottom:0.1rem; }
+  .panel-mail-meta { color:var(--text-muted);font-size:0.76rem; }
+  .panel-mail-preview { color:var(--text-muted);font-size:0.77rem;margin-top:0.15rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%; }
+  .panel-inv { display:flex;justify-content:space-between;align-items:center;gap:0.5rem;padding:0.3rem 0;border-bottom:1px solid var(--border);font-size:0.84rem; }
+  .panel-inv:last-child { border-bottom:none; }
+  .pinv-paid { color:#22c55e; }
+  .pinv-open { color:#f59e0b; }
+  .pinv-overdue { color:#ef4444; }
+  .panel-badge { display:inline-block;padding:0.15rem 0.5rem;border-radius:5px;font-size:0.74rem;font-weight:600; }
+  .panel-badge.pb-open { background:rgba(59,130,246,0.2);color:#60a5fa; }
+  .panel-badge.pb-paid { background:rgba(34,197,94,0.2);color:#4ade80; }
+  .panel-badge.pb-overdue { background:rgba(239,68,68,0.2);color:#f87171; }
+  .panel-badge.pb-default { background:rgba(113,113,122,0.2);color:var(--text-muted); }
+  .panel-days-ok { color:#22c55e; }
+  .panel-days-warn { color:#f59e0b; }
+  .panel-days-danger { color:#ef4444; }
+  .panel-loading { display:flex;align-items:center;justify-content:center;height:120px;color:var(--text-muted);font-size:0.9rem; }
+  .panel-actions { display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.75rem; }
+</style>
+
+<script>
+(function() {
+  const STATUS_LABELS = {
+    ACTIVE:'Aktiv', EXPIRING_SOON:'Läuft bald ab',
+    CUSTOMER_ACCEPTED_AWAITING_PAYMENT:'Wartet auf Zahlung',
+    CUSTOMER_DECLINED:'Keine Verlängerung', ARCHIVED:'Archiviert',
+    AWAITING_CUSTOMER_DECISION:'Wartet auf Kunde',
+    EXPIRED_PENDING_ARCHIVE:'Abgelaufen',
+  };
+  const INTENT_LABELS = {
+    renew_yes:'Will verlängern', renew_no:'Nicht verlängern',
+    transfer_requested:'Transfer', billing_question:'Rechnungsfrage', unclear:'Unklar',
+  };
+
+  function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function fmtDate(d) { return d ? new Date(d).toLocaleDateString('de-CH',{day:'2-digit',month:'2-digit',year:'numeric'}) : '-'; }
+  function fmtDateTime(d) { return d ? new Date(d).toLocaleString('de-CH',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}) : '-'; }
+
+  window.openPanel = async function(tourId) {
+    const panel = document.getElementById('detailPanel');
+    const overlay = document.getElementById('panelOverlay');
+    const body = document.getElementById('panelBody');
+    const title = document.getElementById('panelTitle');
+    const fullLink = document.getElementById('panelOpenFull');
+
+    body.innerHTML = '<div class="panel-loading">Laden…</div>';
+    title.textContent = 'Details';
+    fullLink.href = `/admin/tours/${tourId}`;
+    panel.classList.add('open');
+    overlay.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+
+    try {
+      const resp = await fetch(`/admin/tours/${tourId}/panel`);
+      const d = await resp.json();
+      if (!resp.ok) {
+        // Cloudflare/WAF kann XHR auf /panel blockieren (403 Challenge).
+        // Dann sauber auf die normale Detailseite wechseln.
+        window.location.href = `/admin/tours/${tourId}`;
+        return;
+      }
+
+      title.textContent = d.tourName;
+      fullLink.href = `/admin/tours/${d.id}`;
+
+      const today = new Date();
+      const daysLeft = d.daysUntilRenewal;
+      const daysClass = daysLeft === null ? '' : (daysLeft < 0 ? 'panel-days-danger' : (daysLeft <= 30 ? 'panel-days-warn' : 'panel-days-ok'));
+      const daysText = daysLeft === null ? '-' : (daysLeft < 0 ? `Abgelaufen vor ${Math.abs(daysLeft)} Tagen` : `Noch ${daysLeft} Tage`);
+
+      let html = '';
+
+      // Stammdaten
+      html += `<div class="panel-section">
+        <h3>Tour</h3>
+        <div class="panel-kv"><span class="pk">Kunde</span><span class="pv">${esc(d.customerName||'-')}</span></div>
+        ${d.customerEmail ? `<div class="panel-kv"><span class="pk">Kontakt</span><span class="pv">${esc(d.customerEmail)}</span></div>` : ''}
+        <div class="panel-kv"><span class="pk">Status</span><span class="pv">${esc(STATUS_LABELS[d.status]||d.status)}</span></div>
+        ${d.matterportCreatedAt ? `<div class="panel-kv"><span class="pk">Tour erstellt</span><span class="pv">${fmtDate(d.matterportCreatedAt)}</span></div>` : ''}
+        ${d.termEndDate ? `<div class="panel-kv"><span class="pk">Aboende</span><span class="pv">${fmtDate(d.termEndDate)}</span></div>` : ''}
+        <div class="panel-kv"><span class="pk">Verbleibend</span><span class="pv ${daysClass}">${daysText}</span></div>
+        ${d.customerIntent ? `<div class="panel-kv"><span class="pk">Kundenabsicht</span><span class="pv">${esc(INTENT_LABELS[d.customerIntent]||d.customerIntent)}${d.customerIntentConfidence ? ` (${Math.round(d.customerIntentConfidence*100)}%)` : ''}</span></div>` : ''}
+        ${d.matterportId ? `<div class="panel-kv"><span class="pk">Matterport</span><span class="pv"><a href="https://my.matterport.com/show/?m=${esc(d.matterportId)}" target="_blank" style="color:var(--link);">${esc(d.matterportId)}</a></span></div>` : ''}
+      </div>`;
+
+      // Aktionen
+      html += `<div class="panel-actions">
+        <a href="/admin/tours/${d.id}" class="btn btn-ghost" style="font-size:0.82rem;">Vollansicht</a>
+        <button class="btn btn-ghost" style="font-size:0.82rem;" onclick="panelSendMail(${d.id})">Mail senden</button>
+        <button class="btn btn-ghost" style="font-size:0.82rem;" onclick="panelCheckPayment(${d.id})">Zahlung prüfen</button>
+      </div>`;
+
+      // Exxas-Rechnungen
+      if (d.exxasInvoices && d.exxasInvoices.length > 0) {
+        html += `<div class="panel-section" style="margin-top:1rem;"><h3>Exxas-Rechnungen</h3>`;
+        d.exxasInvoices.forEach(inv => {
+          const cls = inv.statusClass === 'paid' ? 'pinv-paid' : (inv.statusClass === 'overdue' ? 'pinv-overdue' : 'pinv-open');
+          html += `<div class="panel-inv">
+            <span style="font-weight:600;">${esc(inv.nummer||'-')}</span>
+            <span class="${cls}" style="font-size:0.82rem;">${esc(inv.statusText)}</span>
+            ${inv.betrag ? `<span style="font-size:0.82rem;font-weight:600;">CHF ${esc(inv.betrag)}</span>` : ''}
+          </div>`;
+        });
+        html += `</div>`;
+      } else {
+        html += `<div class="panel-section" style="margin-top:1rem;"><h3>Exxas-Rechnungen</h3><div style="color:var(--text-muted);font-size:0.84rem;">Keine Rechnungen gefunden.</div></div>`;
+      }
+
+      // Eingegangene Mails
+      if (d.incomingEmails && d.incomingEmails.length > 0) {
+        html += `<div class="panel-section"><h3>Eingegangene Mails</h3>`;
+        d.incomingEmails.forEach(m => {
+          html += `<div class="panel-mail-row">
+            <div class="panel-mail-subj">${esc(m.subject||'(kein Betreff)')}</div>
+            <div class="panel-mail-meta">${esc(m.from_name||m.from_email||'-')} · ${fmtDateTime(m.received_at)}</div>
+            ${m.body_preview ? `<div class="panel-mail-preview">${esc((m.body_preview||'').slice(0,120))}</div>` : ''}
+          </div>`;
+        });
+        html += `</div>`;
+      }
+
+      // Gesendete Mails
+      if (d.outgoingEmails && d.outgoingEmails.length > 0) {
+        html += `<div class="panel-section"><h3>Gesendete Mails</h3>`;
+        d.outgoingEmails.forEach(m => {
+          html += `<div class="panel-mail-row">
+            <div class="panel-mail-subj">${esc(m.subject||m.template_key||'-')}</div>
+            <div class="panel-mail-meta">An: ${esc(m.recipient_email||'-')} · ${fmtDateTime(m.sent_at)}</div>
+          </div>`;
+        });
+        html += `</div>`;
+      }
+
+      body.innerHTML = html;
+    } catch(e) {
+      // Netzwerk-/WAF-Problem -> harter Fallback zur Vollansicht
+      window.location.href = `/admin/tours/${tourId}`;
+    }
+  };
+
+  window.openPanelSafe = function(tourId, evt) {
+    if (evt && typeof evt.preventDefault === 'function') evt.preventDefault();
+    if (typeof window.openPanel === 'function') {
+      window.openPanel(tourId);
+      return false;
+    }
+    window.location.href = `/admin/tours/${tourId}`;
+    return false;
+  };
+
+  window.closePanel = function() {
+    document.getElementById('detailPanel').classList.remove('open');
+    document.getElementById('panelOverlay').style.display = 'none';
+    document.body.style.overflow = '';
+  };
+
+  window.panelSendMail = function(id) {
+    fetch('/api/tours/'+id+'/send-renewal-email', { method:'POST', credentials:'include' })
+      .then(r=>r.json()).then(d=>{ if(typeof toast==='function') toast(d.yesUrl?'E-Mail gesendet':(d.error||'Fehler'), d.yesUrl?'success':'error'); }).catch(()=>{});
+  };
+  window.panelCheckPayment = function(id) {
+    fetch('/api/tours/'+id+'/check-payment', { method:'POST', credentials:'include' })
+      .then(r=>r.json()).then(()=>{ if(typeof toast==='function') toast('Prüfung durchgeführt'); }).catch(()=>{});
+  };
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closePanel();
+  });
+})();
+</script>
+<style>
+  #sidebarAiToggle .ai-nav-chevron {
+    margin-left: auto;
+    font-size: 0.72rem;
+    opacity: 0.85;
+    transition: transform 0.2s ease;
+  }
+  #sidebarAiToggle.active .ai-nav-chevron {
+    transform: rotate(90deg);
+    opacity: 1;
+  }
+  .sidebar-ai-panel-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.46);
+    z-index: 1190;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+  }
+  .sidebar-ai-panel-overlay.open {
+    opacity: 1;
+    visibility: visible;
+  }
+  .sidebar-ai-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(520px, 100vw);
+    z-index: 1200;
+    transform: translateX(100%);
+    transition: transform 0.22s cubic-bezier(.4,0,.2,1);
+    border-left: 1px solid var(--border);
+    border-radius: 0;
+    background: var(--bg-card);
+    display: flex;
+    flex-direction: column;
+    padding: 0.75rem 0.75rem 0.85rem;
+    box-shadow: -8px 0 32px rgba(0,0,0,0.35);
+  }
+  .sidebar-ai-panel.open { transform: translateX(0); }
+  .sidebar-ai-close {
+    width: 30px;
+    height: 30px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 1.2rem;
+    line-height: 1;
+  }
+  .sidebar-ai-close:hover { color: var(--text); border-color: var(--gold-300); }
+  .sidebar-ai-head {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:0.4rem;
+    font-size:0.82rem;
+    padding: 0 0.15rem 0.55rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar-ai-head select {
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    border-radius: 6px;
+    font-size: 0.76rem;
+    padding: 0.2rem 0.35rem;
+  }
+  .sidebar-ai-help {
+    margin-top: 0.45rem;
+    font-size: 0.72rem;
+    line-height: 1.45;
+    color: var(--text-muted);
+  }
+  .sidebar-ai-help code { font-size: 0.71rem; }
+  .sidebar-ai-messages {
+    margin-top: 0.55rem;
+    min-height: 320px;
+    height: 58vh;
+    max-height: none;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    flex: 1;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.35rem;
+    background: rgba(255,255,255,0.01);
+  }
+  .sidebar-ai-msg {
+    font-size: 0.76rem;
+    line-height: 1.45;
+    border-radius: 8px;
+    padding: 0.4rem 0.5rem;
+    white-space: pre-wrap;
+  }
+  .sidebar-ai-msg.ai { background: var(--bg); border:1px solid var(--border); color: var(--text); }
+  .sidebar-ai-msg.user { background: rgba(196,163,90,0.15); border:1px solid rgba(196,163,90,0.32); color: var(--text); }
+  .sidebar-ai-actions { display:flex; gap:0.4rem; margin-top:0.4rem; flex-wrap:wrap; }
+  .sidebar-ai-action-card {
+    width: 100%;
+    padding: 0.45rem 0.5rem;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    color: var(--text-muted);
+    background: rgba(255,255,255,0.02);
+    font-size: 0.74rem;
+  }
+  .sidebar-ai-action-meta {
+    width: 100%;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    margin-top: -0.1rem;
+  }
+  .sidebar-ai-actions .btn { font-size:0.76rem; padding:0.32rem 0.7rem; }
+  .sidebar-ai-input-wrap { margin-top: 0.45rem; display:flex; flex-direction:column; gap:0.35rem; }
+  .sidebar-ai-input-wrap textarea {
+    width: 100%;
+    resize: none;
+    min-height: 90px;
+    max-height: 220px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 0.4rem 0.5rem;
+    font-size: 0.78rem;
+    font-family: inherit;
+  }
+</style>
+<script>
+(() => {
+  const STORAGE_KEY = 'sidebarAiStateV2';
+  const DEFAULT_GREETING = 'Frag mich etwas zu Touren, Rechnungen, Kundenmails, Matterport oder Exxas. Ich nutze DB + Live-Daten aus Matterport, Exxas und Exchange, wenn verfuegbar.';
+  let history = [];
+  let persistedMessages = [];
+  let pendingAction = null;
+  const panel = document.getElementById('sidebarAiPanel');
+  const msgWrap = document.getElementById('sidebarAiMessages');
+  const input = document.getElementById('sidebarAiInput');
+  const sendBtn = document.getElementById('sidebarAiSend');
+  const modelSel = document.getElementById('sidebarAiModel');
+  const toggleBtn = document.getElementById('sidebarAiToggle');
+  const overlay = document.getElementById('sidebarAiOverlay');
+  if (!panel || !msgWrap || !input || !sendBtn || !modelSel || !overlay) return;
+
+  function saveState() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        history: history.slice(-20),
+        messages: persistedMessages.slice(-30),
+        pendingAction,
+        panelOpen: panel.classList.contains('open'),
+        model: modelSel.value,
+      }));
+    } catch (e) {}
+  }
+
+  function restoreState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  try {
+    const savedHeight = localStorage.getItem('sidebarAiMessagesHeight');
+    if (savedHeight) {
+      msgWrap.style.height = savedHeight;
+    }
+  } catch (e) {}
+
+  let resizeSaveTimer = null;
+  const saveMessageHeight = () => {
+    try {
+      localStorage.setItem('sidebarAiMessagesHeight', `${msgWrap.offsetHeight}px`);
+    } catch (e) {}
+  };
+  if (typeof ResizeObserver !== 'undefined') {
+    const observer = new ResizeObserver(() => {
+      clearTimeout(resizeSaveTimer);
+      resizeSaveTimer = setTimeout(saveMessageHeight, 120);
+    });
+    observer.observe(msgWrap);
+  }
+
+  function renderMessages() {
+    msgWrap.innerHTML = '';
+    const messages = persistedMessages.length ? persistedMessages : [{ role: 'ai', text: DEFAULT_GREETING }];
+    messages.forEach((entry) => {
+      const div = document.createElement('div');
+      div.className = `sidebar-ai-msg ${entry.role}`;
+      div.textContent = entry.text;
+      msgWrap.appendChild(div);
+    });
+    msgWrap.scrollTop = msgWrap.scrollHeight;
+  }
+
+  function hydrateFromStorage() {
+    const state = restoreState();
+    if (!state) {
+      persistedMessages = [{ role: 'ai', text: DEFAULT_GREETING }];
+      renderMessages();
+      return;
+    }
+    history = Array.isArray(state.history) ? state.history : [];
+    persistedMessages = Array.isArray(state.messages) && state.messages.length
+      ? state.messages
+      : [{ role: 'ai', text: DEFAULT_GREETING }];
+    pendingAction = state.pendingAction || null;
+    if (state.model) modelSel.value = state.model;
+    if (state.panelOpen) openSidebarAiChat(false);
+    renderMessages();
+    if (pendingAction) addActionControls(pendingAction);
+  }
+
+  window.openSidebarAiChat = function(shouldFocus = true) {
+    panel.classList.add('open');
+    overlay.classList.add('open');
+    if (toggleBtn) toggleBtn.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    saveState();
+    if (shouldFocus) input.focus();
+  };
+
+  window.closeSidebarAiChat = function() {
+    panel.classList.remove('open');
+    overlay.classList.remove('open');
+    if (toggleBtn) toggleBtn.classList.remove('active');
+    document.body.style.overflow = '';
+    saveState();
+  };
+
+  window.toggleSidebarAiChat = function(event) {
+    if (event && typeof event.preventDefault === 'function') event.preventDefault();
+    if (panel.classList.contains('open')) {
+      closeSidebarAiChat();
+      return;
+    }
+    openSidebarAiChat(true);
+  };
+
+  function addMsg(role, text, persist = true) {
+    const div = document.createElement('div');
+    div.className = `sidebar-ai-msg ${role}`;
+    div.textContent = text;
+    msgWrap.appendChild(div);
+    msgWrap.scrollTop = msgWrap.scrollHeight;
+    if (persist) {
+      persistedMessages.push({ role, text });
+      saveState();
+    }
+    return div;
+  }
+
+  function clearActionControls() {
+    msgWrap.querySelectorAll('.sidebar-ai-actions').forEach((el) => el.remove());
+  }
+
+  function addActionControls(action) {
+    clearActionControls();
+    const label = action?.label || action?.labelShort || action?.type || 'Aktion zur Ausführung bereit';
+    const riskText = action?.riskLabel ? `Risiko: ${action.riskLabel}` : null;
+    const confirmText = action?.needsConfirmation === false ? 'ohne Bestätigung' : 'Bestätigung erforderlich';
+    const wrap = document.createElement('div');
+    wrap.className = 'sidebar-ai-actions';
+    wrap.innerHTML = `
+      <div class="sidebar-ai-action-card">${label || 'Aktion zur Ausführung bereit'}</div>
+      <div class="sidebar-ai-action-meta">${[riskText, confirmText].filter(Boolean).join(' · ')}</div>
+      <button type="button" class="btn btn-primary" id="sidebarAiConfirmBtn">Ausführen</button>
+      <button type="button" class="btn btn-ghost" id="sidebarAiCancelBtn">Abbrechen</button>
+    `;
+    msgWrap.appendChild(wrap);
+    msgWrap.scrollTop = msgWrap.scrollHeight;
+    document.getElementById('sidebarAiConfirmBtn').addEventListener('click', confirmSidebarAiAction);
+    document.getElementById('sidebarAiCancelBtn').addEventListener('click', cancelSidebarAiAction);
+  }
+
+  async function confirmSidebarAiAction() {
+    if (!pendingAction) return;
+    clearActionControls();
+    const loading = addMsg('ai', 'Führe Aktion aus...', false);
+    try {
+      const response = await fetch('/admin/chat-assistant/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const data = await response.json();
+      if (!response.ok || data.error) {
+        loading.textContent = `Fehler: ${data.error || 'Unbekannt'}`;
+        persistedMessages.push({ role: 'ai', text: loading.textContent });
+      } else {
+        loading.textContent = data.answer || 'Aktion ausgeführt.';
+        history.push({ role: 'assistant', content: data.answer || 'Aktion ausgeführt.' });
+        persistedMessages.push({ role: 'ai', text: loading.textContent });
+      }
+    } catch (err) {
+      loading.textContent = `Fehler: ${err.message}`;
+      persistedMessages.push({ role: 'ai', text: loading.textContent });
+    }
+    pendingAction = null;
+    saveState();
+  }
+
+  async function cancelSidebarAiAction() {
+    if (!pendingAction) return;
+    clearActionControls();
+    try {
+      await fetch('/admin/chat-assistant/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+    } catch (err) {}
+    addMsg('ai', 'Aktion verworfen.');
+    pendingAction = null;
+    saveState();
+  }
+
+  window.sendSidebarAiChat = async function() {
+    const message = (input.value || '').trim();
+    if (!message) return;
+    input.value = '';
+    input.disabled = true;
+    sendBtn.disabled = true;
+    modelSel.disabled = true;
+
+    addMsg('user', message);
+    history.push({ role: 'user', content: message });
+    clearActionControls();
+    const loading = addMsg('ai', 'Denke nach...', false);
+
+    try {
+      const response = await fetch('/admin/chat-assistant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message,
+          model: modelSel.value,
+          history: history.slice(0, -1),
+          activePage: '<%= typeof activePage !== "undefined" ? activePage : "" %>',
+          path: window.location.pathname + window.location.search,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || data.error) {
+        loading.textContent = `Fehler: ${data.error || 'Unbekannt'}`;
+        history.pop();
+        persistedMessages.push({ role: 'ai', text: loading.textContent });
+      } else {
+        loading.textContent = data.answer || '(Keine Antwort)';
+        history.push({ role: 'assistant', content: data.answer || '' });
+        persistedMessages.push({ role: 'ai', text: loading.textContent });
+        if (data.needsConfirmation && data.proposedAction) {
+          pendingAction = data.proposedAction;
+          addActionControls(data.proposedAction);
+        } else {
+          pendingAction = null;
+        }
+      }
+    } catch (err) {
+      loading.textContent = `Fehler: ${err.message}`;
+      history.pop();
+      persistedMessages.push({ role: 'ai', text: loading.textContent });
+    }
+
+    input.disabled = false;
+    sendBtn.disabled = false;
+    modelSel.disabled = false;
+    saveState();
+    input.focus();
+  };
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && panel.classList.contains('open')) {
+      e.preventDefault();
+      closeSidebarAiChat();
+      return;
+    }
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendSidebarAiChat();
+    }
+  });
+
+  hydrateFromStorage();
+})();
+</script>
+
+<script>
+(function() {
+  const panel = document.getElementById('customerSearchPanel');
+  const overlay = document.getElementById('customerSearchOverlay');
+  const toggle = document.getElementById('customerViewToggle');
+
+  function isOpen() {
+    return panel && panel.style.transform === 'translateX(0%)';
+  }
+  function openPanel() {
+    if (!panel || !overlay) return;
+    overlay.style.display = 'block';
+    panel.style.transform = 'translateX(0%)';
+    if (toggle) toggle.classList.add('active');
+  }
+  window.closeCustomerSearchPanel = function() {
+    if (!panel || !overlay) return;
+    panel.style.transform = 'translateX(100%)';
+    overlay.style.display = 'none';
+    if (toggle) toggle.classList.remove('active');
+  };
+
+  window.toggleCustomerSearch = function(e) {
+    e.preventDefault();
+    const inp = document.getElementById('customerSearchInput');
+    if (!isOpen()) {
+      openPanel();
+      setTimeout(() => inp && inp.focus(), 80);
+    } else {
+      window.closeCustomerSearchPanel();
+    }
+  };
+
+  if (overlay) {
+    overlay.addEventListener('click', () => window.closeCustomerSearchPanel());
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    const inp  = document.getElementById('customerSearchInput');
+    const drop = document.getElementById('customerSearchDropdown');
+    if (!inp || !drop) return;
+
+    function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    let timer = null;
+    inp.addEventListener('input', function() {
+      clearTimeout(timer);
+      const q = inp.value.trim();
+      if (q.length < 2) { drop.style.display = 'none'; return; }
+      timer = setTimeout(async function() {
+        try {
+          const r = await fetch('/admin/customers/search?q=' + encodeURIComponent(q));
+          const items = await r.json();
+          if (!items.length) {
+            drop.innerHTML = '<div style="padding:0.6rem 0.75rem;color:var(--text-muted);font-size:0.82rem;">Keine Treffer</div>';
+          } else {
+            drop.innerHTML = items.map(c => `
+              <a href="/admin/impersonate?email=${encodeURIComponent(c.email)}"
+                 style="display:block;padding:0.5rem 0.75rem;text-decoration:none;color:var(--text);
+                        font-size:0.82rem;border-bottom:1px solid var(--border);"
+                 onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
+                <div style="font-weight:600;">${esc(c.name !== c.email ? c.name : '')}</div>
+                <div style="color:var(--text-muted);font-size:0.78rem;">${esc(c.email)}
+                  <span style="margin-left:0.4rem;background:rgba(99,102,241,0.2);color:#a5b4fc;
+                         border-radius:999px;padding:0.05rem 0.4rem;font-size:0.72rem;">${c.count} Tour${c.count !== 1 ? 'en' : ''}</span>
+                </div>
+              </a>`).join('');
+          }
+          drop.style.display = 'block';
+        } catch(e) { drop.style.display = 'none'; }
+      }, 200);
+    });
+
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('#customerSearchPanel')) drop.style.display = 'none';
+    });
+
+    inp.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        if (drop.style.display === 'none') {
+          window.closeCustomerSearchPanel();
+        } else {
+          drop.style.display = 'none';
+        }
+        inp.blur();
+      }
+    });
+  });
+})();
+</script>

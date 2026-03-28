@@ -1,0 +1,32 @@
+<% 
+  const _dn = String(typeof displayName !== 'undefined' && displayName ? displayName : '').trim();
+  const _org = typeof organizationName !== 'undefined' && organizationName ? String(organizationName).trim() : '';
+  const _parts = _dn.split(/\s+/).filter(Boolean);
+  const _initials = _parts.length >= 2
+    ? (_parts[0].charAt(0) + _parts[1].charAt(0)).toUpperCase()
+    : (_dn.slice(0, 2).toUpperCase() || '?');
+  const _variant = typeof variant === 'string' ? variant : 'portal';
+  const _hasPhoto = typeof hasProfilePhoto !== 'undefined' && hasProfilePhoto;
+  const _pv = typeof profilePhotoVersion !== 'undefined' && profilePhotoVersion ? Number(profilePhotoVersion) : 0;
+  const _photoBase = _variant === 'admin' ? '/admin/profile/photo' : '/portal/profile/photo';
+  const _photoUrl = _hasPhoto ? (_photoBase + '?v=' + encodeURIComponent(String(_pv))) : '';
+%>
+      <div class="portal-user-card" role="group" aria-label="Angemeldeter Benutzer">
+        <button type="button" class="portal-user-card-trigger" id="sidebarProfileOpen" aria-haspopup="dialog" aria-controls="profileEditDialog" title="Profil bearbeiten">
+          <span class="portal-user-card-inner">
+            <% if (_hasPhoto && _photoUrl) { %>
+            <span class="portal-user-initials portal-user-initials--photo" aria-hidden="true">
+              <img class="portal-user-photo" src="<%= _photoUrl %>" alt="" width="36" height="36" decoding="async">
+            </span>
+            <% } else { %>
+            <span class="portal-user-initials" aria-hidden="true"><%= _initials %></span>
+            <% } %>
+            <span class="portal-user-meta">
+              <span class="portal-user-name"><%= _dn || '—' %></span>
+              <% if (_org) { %>
+              <span class="portal-user-org" title="<%= _org %>"><%= _org %></span>
+              <% } %>
+            </span>
+          </span>
+        </button>
+      </div>

@@ -1,0 +1,14 @@
+{
+  "name": "propus-platform-core",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Shared migrations and migration runner for Propus Platform",
+  "main": "migrate.js",
+  "scripts": {
+    "migrate": "node migrate.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "pg": "^8.13.3"
+  }
+}

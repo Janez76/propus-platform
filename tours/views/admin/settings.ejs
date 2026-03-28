@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Einstellungen – Propus Tour Manager</title>
+  <%- include('_admin-styles') %>
+  <style>
+    .api-list { margin: 0; padding: 0; list-style: none; }
+    .api-item { display: flex; align-items: flex-start; gap: 1rem; padding: 0.6rem 0; border-bottom: 1px solid var(--border); }
+    .api-item:last-child { border-bottom: none; }
+    .api-item .method { font-size: 0.7rem; font-weight: 700; padding: 0.2rem 0.5rem; border-radius: 4px; min-width: 3.5rem; text-align: center; }
+    .api-item .method.get { background: rgba(34,197,94,0.25); color: #4ade80; }
+    .api-item .method.post { background: rgba(6,182,212,0.25); color: #22d3ee; }
+    .api-item .endpoint { font-size: 0.85rem; color: var(--text-muted); word-break: break-all; }
+    .api-item .desc { font-size: 0.8rem; color: var(--text); margin-top: 0.15rem; }
+    .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.75rem; margin-top: 0.5rem; }
+    .dashboard-item { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0.75rem; background: var(--bg); border-radius: 8px; border: 1px solid var(--border); }
+    .dashboard-item input[type="checkbox"] { width: 1.1rem; height: 1.1rem; accent-color: var(--accent); cursor: pointer; }
+    .dashboard-item label { cursor: pointer; font-size: 0.9rem; flex: 1; }
+    .sync-section { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border); }
+    .sync-buttons { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1rem; }
+    .api-base { color: var(--text-muted); font-size: 0.8rem; margin-bottom: 1rem; }
+    .api-base code { background: var(--bg-hover); padding: 0.2rem 0.4rem; border-radius: 4px; }
+    .prompt-box { width: 100%; min-height: 220px; resize: vertical; padding: 0.85rem 1rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; line-height: 1.5; }
+    .hint { color: var(--text-muted); font-size: 0.85rem; margin-top: 0.4rem; }
+    .info-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:0.75rem; margin-top:0.85rem; }
+    .info-card { border:1px solid var(--border); border-radius:10px; background:var(--bg); padding:0.85rem 1rem; }
+    .info-card h3 { margin:0 0 0.45rem 0; font-size:0.95rem; }
+    .info-card p { margin:0; color:var(--text-muted); font-size:0.84rem; line-height:1.5; }
+    .model-table { width:100%; border-collapse:collapse; margin-top:0.9rem; font-size:0.86rem; }
+    .model-table th, .model-table td { text-align:left; vertical-align:top; padding:0.65rem 0.7rem; border-bottom:1px solid var(--border); }
+    .model-table th { color:var(--text-muted); font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; }
+    .pill-row { display:flex; gap:0.45rem; flex-wrap:wrap; margin-top:0.7rem; }
+    .pill { display:inline-flex; align-items:center; gap:0.35rem; padding:0.28rem 0.55rem; border-radius:999px; border:1px solid var(--border); background:var(--bg-hover); font-size:0.76rem; }
+    .risk-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:0.75rem; margin-top:0.9rem; }
+    .risk-card { border:1px solid var(--border); border-radius:10px; background:var(--bg); padding:0.85rem 1rem; }
+    .risk-card .risk-title { font-size:0.92rem; font-weight:700; margin-bottom:0.35rem; }
+    .risk-card .risk-desc { color:var(--text-muted); font-size:0.83rem; line-height:1.5; margin-bottom:0.6rem; }
+    .risk-card ul { margin:0; padding-left:1.1rem; color:var(--text-muted); font-size:0.82rem; line-height:1.5; }
+    .action-table { width:100%; border-collapse:collapse; margin-top:0.85rem; font-size:0.84rem; }
+    .action-table th, .action-table td { text-align:left; vertical-align:top; padding:0.55rem 0.65rem; border-bottom:1px solid var(--border); }
+    .badge-risk { display:inline-block; padding:0.18rem 0.45rem; border-radius:999px; font-size:0.72rem; font-weight:700; }
+    .badge-risk.low { background:rgba(34,197,94,0.18); color:#4ade80; }
+    .badge-risk.medium { background:rgba(245,158,11,0.18); color:#fbbf24; }
+    .badge-risk.high { background:rgba(239,68,68,0.18); color:#fca5a5; }
+    .settings-intro { color: var(--text-muted); margin: 0 0 1rem; max-width: 980px; }
+    .settings-stack { display: flex; flex-direction: column; gap: 0.75rem; }
+    .settings-group {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--bg-card);
+      overflow: hidden;
+    }
+    .settings-group summary {
+      list-style: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.7rem;
+      padding: 0.82rem 0.95rem;
+      user-select: none;
+      border-bottom: 1px solid transparent;
+    }
+    .settings-group summary::-webkit-details-marker { display: none; }
+    .settings-group[open] summary { border-bottom-color: var(--border); background: var(--bg); }
+    .settings-group-title { font-size: 0.95rem; font-weight: 700; color: var(--gray-900); margin: 0; }
+    .settings-group-sub { font-size: 0.8rem; color: var(--text-muted); margin: 0.15rem 0 0; }
+    .settings-group-chevron { color: var(--text-muted); font-size: 0.78rem; transition: transform .2s ease; }
+    .settings-group[open] .settings-group-chevron { transform: rotate(180deg); }
+    .settings-group-body { padding: 0.9rem 0.95rem 1rem; }
+    .settings-actions { margin-top: 0.2rem; display: flex; justify-content: flex-end; }
+  </style>
+</head>
+<body>
+  <div class="admin-shell">
+    <%- include('_header') %>
+    <main class="admin-main">
+      <h1>Einstellungen</h1>
+      <% if (typeof saved === 'boolean' && saved) { %><div class="alert alert-success">Einstellungen wurden gespeichert.</div><% } %>
+      <p class="settings-intro">Alle Bereiche sind als aufklappbare Liste organisiert. So bleibt die Seite sauber und jede Konfiguration ist schneller erreichbar.</p>
+
+      <form method="post" action="/admin/settings">
+        <div class="settings-stack">
+        <details class="settings-group">
+          <summary>
+            <div>
+              <p class="settings-group-title">Exxas API</p>
+              <p class="settings-group-sub">Endpoints und Dashboard-Widgets für Exxas.</p>
+            </div>
+            <span class="settings-group-chevron"><i class="fa-solid fa-chevron-down"></i></span>
+          </summary>
+          <div class="settings-group-body">
+          <p class="api-base">Basis: <code><%= exxasBase %></code></p>
+          <ul class="api-list">
+            <li class="api-item"><span class="method get">GET</span><div><div class="endpoint">/api/v2/contracts</div><div class="desc">Verträge / Tour-Abos</div></div></li>
+            <li class="api-item"><span class="method get">GET</span><div><div class="endpoint">/api/v2/customers</div><div class="desc">Kundendaten</div></div></li>
+            <li class="api-item"><span class="method get">GET</span><div><div class="endpoint">/api/v2/contacts</div><div class="desc">Kontakte</div></div></li>
+            <li class="api-item"><span class="method get">GET</span><div><div class="endpoint">/api/v2/documents</div><div class="desc">Dokumente (Rechnungen r, Kundenanlagen a, Aufträge s)</div></div></li>
+            <li class="api-item"><span class="method post">POST</span><div><div class="endpoint">/api/v2/rechnungen</div><div class="desc">Rechnung erstellen</div></div></li>
+            <li class="api-item"><span class="method post">POST</span><div><div class="endpoint">/api/v2/rechnungen/{id}/send</div><div class="desc">Rechnung senden</div></div></li>
+            <li class="api-item"><span class="method get">GET</span><div><div class="endpoint">/api/v2/rechnungen/{id}</div><div class="desc">Rechnungsstatus</div></div></li>
+            <li class="api-item"><span class="method post">POST</span><div><div class="endpoint">/api/v2/contracts/{id}/extend</div><div class="desc">Abo verlängern</div></div></li>
+          </ul>
+          <h3 style="font-size:0.95rem;margin:1.25rem 0 0.5rem 0;">Im Dashboard anzeigen (Exxas)</h3>
+          <div class="dashboard-grid">
+            <div class="dashboard-item"><input type="checkbox" name="total" value="1" id="w-total" <%= widgets.total ? 'checked' : '' %>><label for="w-total">Gesamt</label></div>
+            <div class="dashboard-item"><input type="checkbox" name="expiringSoon" value="1" id="w-expiringSoon" <%= widgets.expiringSoon ? 'checked' : '' %>><label for="w-expiringSoon">Läuft bald ab</label></div>
+            <div class="dashboard-item"><input type="checkbox" name="awaitingPayment" value="1" id="w-awaitingPayment" <%= widgets.awaitingPayment ? 'checked' : '' %>><label for="w-awaitingPayment">Wartet auf Zahlung</label></div>
+            <div class="dashboard-item"><input type="checkbox" name="active" value="1" id="w-active" <%= widgets.active ? 'checked' : '' %>><label for="w-active">Aktiv</label></div>
+            <div class="dashboard-item"><input type="checkbox" name="declined" value="1" id="w-declined" <%= widgets.declined ? 'checked' : '' %>><label for="w-declined">Abgelehnt</label></div>
+            <div class="dashboard-item"><input type="checkbox" name="archived" value="1" id="w-archived" <%= widgets.archived ? 'checked' : '' %>><label for="w-archived">Archiviert</label></div>
+            <div class="dashboard-item"><input type="checkbox" name="invoicesOffen" value="1" id="w-invoicesOffen" <%= widgets.invoicesOffen ? 'checked' : '' %>><label for="w-invoicesOffen">Rechnungen offen</label></div>
+            <div class="dashboard-item"><input type="checkbox" name="invoicesUeberfaellig" value="1" id="w-invoicesUeberfaellig" <%= widgets.invoicesUeberfaellig ? 'checked' : '' %>><label for="w-invoicesUeberfaellig">Überfällig</label></div>
+            <div class="dashboard-item"><input type="checkbox" name="invoicesBezahlt" value="1" id="w-invoicesBezahlt" <%= widgets.invoicesBezahlt ? 'checked' : '' %>><label for="w-invoicesBezahlt">Rechnungen bezahlt</label></div>
+          </div>
+          </div>
+        </details>
+
+        <details class="settings-group">
+          <summary>
+            <div>
+              <p class="settings-group-title">Matterport API</p>
+              <p class="settings-group-sub">Matterport-Endpunkte und Dashboard-Widgets.</p>
+            </div>
+            <span class="settings-group-chevron"><i class="fa-solid fa-chevron-down"></i></span>
+          </summary>
+          <div class="settings-group-body">
+          <p class="api-base">Basis: <code>https://api.matterport.com/api/models</code></p>
+          <ul class="api-list">
+            <li class="api-item"><span class="method get">GET</span><div><div class="endpoint">GraphQL models (listModels)</div><div class="desc">Alle 3D-Models auflisten</div></div></li>
+            <li class="api-item"><span class="method get">GET</span><div><div class="endpoint">GraphQL model(id) – getModel</div><div class="desc">Model-Details inkl. Erstellungsdatum</div></div></li>
+            <li class="api-item"><span class="method post">POST</span><div><div class="endpoint">/api/models/{id}/archive</div><div class="desc">Space archivieren</div></div></li>
+            <li class="api-item"><span class="method post">POST</span><div><div class="endpoint">/api/models/{id}/unarchive</div><div class="desc">Space reaktivieren</div></div></li>
+          </ul>
+          <h3 style="font-size:0.95rem;margin:1.25rem 0 0.5rem 0;">Im Dashboard anzeigen (Matterport)</h3>
+          <div class="dashboard-grid">
+            <div class="dashboard-item"><input type="checkbox" name="unlinked" value="1" id="w-unlinked" <%= widgets.unlinked ? 'checked' : '' %>><label for="w-unlinked">Ohne Verknüpfung</label></div>
+            <div class="dashboard-item"><input type="checkbox" name="fremdeTouren" value="1" id="w-fremdeTouren" <%= widgets.fremdeTouren ? 'checked' : '' %>><label for="w-fremdeTouren">Fremde Touren</label></div>
+          </div>
+          </div>
+        </details>
+
+        <details class="settings-group">
+          <summary>
+            <div>
+              <p class="settings-group-title">KI-Prompt</p>
+              <p class="settings-group-sub">Fachliche Zusatzregeln für Mail-Auswertung.</p>
+            </div>
+            <span class="settings-group-chevron"><i class="fa-solid fa-chevron-down"></i></span>
+          </summary>
+          <div class="settings-group-body">
+          <p class="api-base">Dieses Prompt wird bei der Auswertung eingehender Kundenmails zusaetzlich verwendet.</p>
+          <textarea
+            name="mailSystemPrompt"
+            id="mailSystemPrompt"
+            class="prompt-box"
+            placeholder="Beispiel: Wenn der Kunde schreibt 'brauchen wir nicht mehr', dann als renew_no einstufen. Wenn der Kunde eine Rechnung verlangt, als billing_question einstufen."
+          ><%= aiPromptSettings?.mailSystemPrompt || '' %></textarea>
+          <p class="hint">Gedacht fuer fachliche Regeln, Tonalitaet und Ausnahmeregeln. Das ersetzt kein echtes Lernen, wird aber bei jeder KI-Auswertung mitgegeben.</p>
+          </div>
+        </details>
+
+        <details class="settings-group">
+          <summary>
+            <div>
+              <p class="settings-group-title">KI-Modelle und Einsatzbereiche</p>
+              <p class="settings-group-sub">Übersicht über Modellrollen und Kontextlogik.</p>
+            </div>
+            <span class="settings-group-chevron"><i class="fa-solid fa-chevron-down"></i></span>
+          </summary>
+          <div class="settings-group-body">
+          <p class="api-base">Die Anwendung trennt Hauptmodell, Vorfilter, deterministische Fachabfragen und Aktionslogik bewusst voneinander.</p>
+
+          <div class="pill-row">
+            <span class="pill"><strong>Standardmodell:</strong> <code><%= aiConfig?.model || 'gpt-5.4' %></code></span>
+            <span class="pill"><strong>Vorfilter:</strong> <code><%= aiConfig?.prefilterModel || 'gpt-5-mini' %></code></span>
+            <span class="pill"><strong>Klare Fachabfragen:</strong> kein LLM</span>
+            <span class="pill"><strong>Kontext / Gedächtnis:</strong> App-Layer + Postgres</span>
+          </div>
+
+          <table class="model-table">
+            <thead>
+              <tr>
+                <th>Bereich</th>
+                <th>Modell</th>
+                <th>Zweck</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>Sidebar-Admin-Agent</td><td><code>gpt-5.4</code></td><td>Hauptmodell für freie Fragen, Kontextverständnis und Zusammenhänge zwischen lokalen Daten, Exxas, Matterport und Exchange.</td></tr>
+              <tr><td>Globaler KI-Chat</td><td><code>gpt-5.4</code></td><td>Allgemeine Chat-Antworten im Admin, Erklärungen, Zusammenfassungen und Rückfragen.</td></tr>
+              <tr><td>Vorschlag-Detail-Chat</td><td><code>gpt-5.4</code></td><td>Rückfragen zu einem konkreten Vorschlag, Begründungen, Alternativen und Review-Unterstützung.</td></tr>
+              <tr><td>Mail-Vorfilter</td><td><code>gpt-5-mini</code></td><td>Schnelle und kostengünstige Ersteinschätzung eingehender Mails sowie Eskalationsentscheidung.</td></tr>
+              <tr><td>Mail-Klassifikation voll</td><td><code>gpt-5.4</code></td><td>Genaue Intent- und Action-Klassifikation bei unklaren, heiklen oder komplexen Fällen.</td></tr>
+              <tr><td>Strukturierte Kurzaufgaben</td><td><code>gpt-5-mini</code></td><td>Extraktion, Normalisierung, kurze Zusammenfassungen und einfache Vorbewertungen.</td></tr>
+              <tr>
+                <td>Manuell auswählbar im Chat</td>
+                <td>
+                  <% (allowedChatModels || []).forEach((modelName, idx) => { %>
+                    <code><%= modelName %></code><%= idx < (allowedChatModels || []).length - 1 ? ', ' : '' %>
+                  <% }) %>
+                </td>
+                <td>Optionale Modellwahl für Vergleich, Debugging und individuelle Nutzung.</td>
+              </tr>
+              <tr><td>Deterministische Fachabfragen</td><td><strong>kein LLM</strong></td><td>Klare Read-Cases werden direkt aus Datenbank und externen Systemen aufgebaut.</td></tr>
+              <tr><td>Aktionen mit Seiteneffekt</td><td><code>gpt-5.4</code> + Confirm-Flow</td><td>Aktionen vorschlagen, begründen und erst nach technischer Validierung und Bestätigung ausführen.</td></tr>
+              <tr><td>Kontext / Session</td><td><strong>Applikationslogik</strong></td><td>Aktuelle Tour, Seite, Vorschlagsbezug, letzte Nachrichten und Pending Actions verwalten.</td></tr>
+              <tr><td>Langzeit-Memory</td><td><strong>Postgres / App-Layer</strong></td><td>Bestätigte Fakten, Review-Historie, Ground-Truth und stabile Zuordnungen speichern.</td></tr>
+            </tbody>
+          </table>
+
+          <div class="info-grid">
+            <div class="info-card">
+              <h3>Hauptmodell</h3>
+              <p><code>gpt-5.4</code> ist das zentrale Modell für Chat, komplexe Klassifikation, Vorschlagsbegründungen und Aktionsorchestrierung.</p>
+            </div>
+            <div class="info-card">
+              <h3>Vorfilter</h3>
+              <p><code>gpt-5-mini</code> übernimmt schnelle Vorprüfungen und leichte strukturierte Aufgaben, bevor bei Bedarf an das Hauptmodell eskaliert wird.</p>
+            </div>
+            <div class="info-card">
+              <h3>Deterministische Read-Cases</h3>
+              <p>Klare Fachabfragen wie Tourstatus, Rechnungsbezüge oder Mailhistorien werden direkt aus Postgres, Exxas, Matterport und Exchange zusammengesetzt.</p>
+            </div>
+            <div class="info-card">
+              <h3>Kontext und Memory</h3>
+              <p>Kurzfristiger Kontext lebt in Session und UI-Zustand, langfristige Wahrheiten und Review-Daten im App-Layer und in Postgres.</p>
+            </div>
+            <div class="info-card">
+              <h3>Aktionen</h3>
+              <p>Aktionen laufen nie blind aus natürlicher Sprache, sondern über eine definierte Action-Whitelist mit Rollenprüfung, Audit-Logging und Confirm-Flow.</p>
+            </div>
+          </div>
+          </div>
+        </details>
+
+        <details class="settings-group">
+          <summary>
+            <div>
+              <p class="settings-group-title">Action-Layer und Risikostufen</p>
+              <p class="settings-group-sub">Erlaubte KI-Aktionen, Risiken und Validierungen.</p>
+            </div>
+            <span class="settings-group-chevron"><i class="fa-solid fa-chevron-down"></i></span>
+          </summary>
+          <div class="settings-group-body">
+          <p class="api-base">Die KI darf nur definierte Systemaktionen auslösen. High-Risk-Aktionen werden nie blind ausgeführt.</p>
+
+          <div class="risk-grid">
+            <% (riskDefinitions || []).forEach((risk) => { %>
+            <div class="risk-card">
+              <div class="risk-title"><span class="badge-risk <%= risk.id %>"><%= risk.label %></span></div>
+              <div class="risk-desc"><%= risk.description %></div>
+              <ul>
+                <% if (risk.id === 'low') { %>
+                <li>Vorbereitende oder klar begrenzte Systemaktionen.</li>
+                <li>Technisch nachvollziehbar, geringe operative Auswirkung.</li>
+                <% } %>
+                <% if (risk.id === 'medium') { %>
+                <li>Ändernde Aktionen mit Validierungspflicht.</li>
+                <li>Fachregeln, Statuslogik und Zielobjekt müssen stimmen.</li>
+                <% } %>
+                <% if (risk.id === 'high') { %>
+                <li>Seiteneffektbehaftete oder schwer rückgängig zu machende Aktionen.</li>
+                <li>Immer mit explizitem Confirm-Flow und Audit-Logging.</li>
+                <% } %>
+              </ul>
+            </div>
+            <% }) %>
+          </div>
+
+          <table class="action-table">
+            <thead>
+              <tr>
+                <th>Aktion</th>
+                <th>Risiko</th>
+                <th>Bestätigung</th>
+                <th>Pflichtfelder</th>
+                <th>Validierung</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% (actionDefinitions || []).forEach((action) => { %>
+              <tr>
+                <td><strong><%= action.label %></strong><br><span style="color:var(--text-muted);font-size:0.76rem;"><code><%= action.actionName %></code></span></td>
+                <td><span class="badge-risk <%= action.riskLevel %>"><%= action.riskLevel %></span></td>
+                <td><%= action.needsConfirmation ? 'Ja' : 'Nein' %></td>
+                <td><%= action.requiredFields?.length ? action.requiredFields.join(', ') : '-' %></td>
+                <td><%= action.validationNotes?.join(' · ') || '-' %></td>
+              </tr>
+              <% }) %>
+            </tbody>
+          </table>
+          </div>
+        </details>
+
+        <details class="settings-group">
+          <summary>
+            <div>
+              <p class="settings-group-title">Sync</p>
+              <p class="settings-group-sub">Manuelle Synchronisationen für Matterport.</p>
+            </div>
+            <span class="settings-group-chevron"><i class="fa-solid fa-chevron-down"></i></span>
+          </summary>
+          <div class="settings-group-body">
+          <p style="color:var(--text-muted);font-size:0.875rem;margin:0 0 0.5rem 0;">Matterport-Verknüpfungen und Erstellungsdaten manuell aktualisieren.</p>
+          <div class="sync-buttons">
+            <button type="button" class="btn btn-ghost" id="btn-sync-mp-link">Verknüpfungen herstellen</button>
+            <button type="button" class="btn btn-ghost" id="btn-sync-mp-created">Erstellungsdaten aktualisieren</button>
+            <button type="button" class="btn btn-ghost" id="btn-sync-mp-status">MP-Status synchronisieren</button>
+            <button type="button" class="btn btn-ghost" id="btn-check-ownership">Zugehörigkeit prüfen</button>
+          </div>
+          </div>
+        </details>
+
+        <div class="settings-actions">
+          <button type="submit" class="btn btn-primary">Einstellungen speichern</button>
+        </div>
+        </div>
+      </form>
+    </main>
+  </div>
+  <div id="toast-container"></div>
+  <script>
+  function toast(msg, type) {
+    const c = document.getElementById('toast-container');
+    const el = document.createElement('div');
+    el.className = 'toast ' + (type || 'success');
+    el.textContent = msg;
+    c.appendChild(el);
+    setTimeout(() => el.remove(), 4000);
+  }
+  document.getElementById('btn-sync-mp-link').addEventListener('click', function() {
+    const btn = this; btn.disabled = true; btn.textContent = 'Läuft…';
+    fetch('/api/cron/auto-link-matterport', { method: 'POST', credentials: 'include' })
+      .then(r => r.json())
+      .then(d => {
+        const parts = [];
+        parts.push((d.linked || 0) + ' verknüpft');
+        if (d.skipped > 0) parts.push(d.skipped + ' ohne Matterport-ID in tour_url');
+        if (d.errors > 0) parts.push(d.errors + ' API-Fehler');
+        const msg = d.total === 0 ? 'Keine Touren ohne Verknüpfung gefunden.' : parts.join(', ') + '.';
+        toast(msg);
+        setTimeout(() => location.reload(), 1000);
+      })
+      .catch(e => { toast('Fehler: ' + e.message, 'error'); btn.disabled = false; btn.textContent = 'Verknüpfungen herstellen'; });
+  });
+  document.getElementById('btn-sync-mp-created').addEventListener('click', function() {
+    const btn = this; btn.disabled = true; btn.textContent = 'Läuft…';
+    fetch('/api/cron/refresh-matterport-created', { method: 'POST', credentials: 'include' })
+      .then(r => r.json())
+      .then(d => {
+        const u = d.updated || 0;
+        let msg = u + ' Erstellungsdaten aktualisiert.';
+        if (d.total === 0) msg = 'Keine Touren mit fehlendem Erstellungsdatum.';
+        else if (d.errors > 0) msg += ' ' + d.errors + ' API-Fehler.';
+        toast(msg, d.errors > 0 ? 'error' : 'success');
+        setTimeout(() => location.reload(), 1000);
+      })
+      .catch(e => { toast('Fehler: ' + e.message, 'error'); btn.disabled = false; btn.textContent = 'Erstellungsdaten aktualisieren'; });
+  });
+  document.getElementById('btn-sync-mp-status').addEventListener('click', function() {
+    const btn = this; btn.disabled = true; btn.textContent = 'Läuft…';
+    fetch('/api/cron/sync-matterport-status', { method: 'POST', credentials: 'include' })
+      .then(r => r.json())
+      .then(d => {
+        const u = d.updated || 0;
+        let msg = u + ' Touren (MP-Status) aktualisiert.';
+        if (d.total === 0) msg = 'Keine Touren mit Matterport-Verknüpfung. Zuerst „Verknüpfungen herstellen“.';
+        else if (d.errors > 0) msg += ' ' + d.errors + ' API-Fehler.';
+        toast(msg, d.errors > 0 ? 'error' : 'success');
+        setTimeout(() => location.reload(), 1000);
+      })
+      .catch(e => { toast('Fehler: ' + e.message, 'error'); btn.disabled = false; btn.textContent = 'MP-Status synchronisieren'; });
+  });
+  document.getElementById('btn-check-ownership').addEventListener('click', function() {
+    const btn = this; btn.disabled = true; btn.textContent = 'Läuft…';
+    fetch('/api/cron/check-matterport-ownership', { method: 'POST', credentials: 'include' })
+      .then(r => r.json())
+      .then(d => {
+        const msg = (d.own || 0) + ' unser Account, ' + (d.fremde || 0) + ' fremde Touren.' + (d.skipped ? ' ' + d.skipped + ' übersprungen.' : '');
+        toast(msg);
+        setTimeout(() => location.reload(), 1000);
+      })
+      .catch(e => { toast('Fehler: ' + e.message, 'error'); btn.disabled = false; btn.textContent = 'Zugehörigkeit prüfen'; });
+  });
+  </script>
+</body>
+</html>

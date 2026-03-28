@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= tour.canonical_object_label || tour.bezeichnung || 'Tour-Detail' %> – Propus Tour-Portal</title>
+  <%- include('_styles') %>
+  <style>
+    /* Tour-Detail – modern, Propus-Design (Gold / DM Sans / Cards) */
+    .portal-td-wrap { max-width: 1180px; margin: 0 auto; }
+    .portal-td-hero {
+      margin-bottom: 1.35rem;
+      padding: 1.15rem 1.35rem;
+      background: linear-gradient(135deg, var(--gold-50) 0%, #fff 48%, var(--gray-50) 100%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 8px 32px rgba(20, 19, 17, 0.06);
+      position: relative;
+      overflow: hidden;
+    }
+    .portal-td-hero::after {
+      content: '';
+      position: absolute;
+      top: -40%; right: -8%;
+      width: 42%; height: 140%;
+      background: radial-gradient(ellipse, rgba(196, 163, 90, 0.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .portal-td-back {
+      display: inline-block;
+      font-size: 0.82rem; font-weight: 600; color: var(--text-muted);
+      text-decoration: none; margin-bottom: 0.65rem;
+      transition: color 0.15s;
+    }
+    .portal-td-back:hover { color: var(--gold-700); }
+    .portal-td-hero h1 {
+      margin: 0 0 0.35rem 0;
+      font-size: clamp(1.35rem, 2.5vw, 1.75rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--gray-900);
+      position: relative; z-index: 1;
+    }
+    .portal-td-hero-assignee {
+      margin: 0.4rem 0 0.5rem 0;
+      display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.35rem 0.65rem;
+      font-size: 0.88rem;
+      line-height: 1.45;
+      position: relative; z-index: 1;
+    }
+    .portal-td-hero-assignee-k {
+      font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--text-muted);
+    }
+    .portal-td-hero-assignee-v { font-weight: 600; color: var(--gray-900); }
+    .portal-td-hero-assignee-none { color: var(--text-muted); font-weight: 500; }
+    .portal-td-hero-meta {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem;
+      font-size: 0.84rem; color: var(--text-muted);
+      position: relative; z-index: 1;
+    }
+    .portal-td-hero-meta .portal-td-meta-sep { opacity: 0.45; user-select: none; }
+
+    .portal-td-layout {
+      display: grid;
+      grid-template-columns: 1fr min(360px, 100%);
+      gap: 1.75rem;
+      align-items: start;
+    }
+    @media (min-width: 961px) {
+      .portal-td-layout > div:last-child {
+        padding-left: 1.25rem;
+        border-left: 1px solid var(--border);
+      }
+    }
+    @media (max-width: 960px) { .portal-td-layout { grid-template-columns: 1fr; } }
+
+    .portal-td-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 6px 24px rgba(20, 19, 17, 0.05);
+      overflow: hidden;
+      margin-bottom: 1rem;
+    }
+    .portal-td-card-h {
+      padding: 0.75rem 1.15rem;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, var(--gray-50) 0%, #fff 100%);
+    }
+    .portal-td-card-title {
+      margin: 0;
+      font-size: 0.7rem; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .portal-td-card-b { padding: 1.05rem 1.15rem 1.15rem; }
+
+    .portal-td-preview {
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: var(--gray-900);
+      box-shadow: 0 12px 40px rgba(20, 19, 17, 0.12);
+      margin-bottom: 1rem;
+    }
+    .portal-td-preview iframe {
+      display: block; width: 100%; height: min(52vh, 320px);
+      border: none;
+    }
+    .portal-td-preview-fallback {
+      min-height: 120px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--gray-50);
+    }
+
+    .portal-td-form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.75rem 1rem;
+    }
+    @media (max-width: 560px) { .portal-td-form-grid { grid-template-columns: 1fr; } }
+    .portal-td-form-grid .form-group label {
+      display: block;
+      font-size: 0.78rem; font-weight: 600; color: var(--text-muted);
+      margin-bottom: 0.3rem;
+    }
+    .portal-td-form-grid input {
+      width: 100%; font-size: 0.88rem; padding: 0.5rem 0.7rem;
+      border: 1px solid var(--border); border-radius: 10px;
+      background: #fff; transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .portal-td-form-grid input:focus {
+      outline: none; border-color: var(--gold-400);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+
+    .portal-td-vis {
+      display: flex; flex-direction: column; gap: 0.5rem;
+    }
+    .portal-td-vis-card {
+      display: flex; align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 0.9rem;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+      user-select: none;
+    }
+    .portal-td-vis-card:hover { border-color: var(--gold-300); background: var(--gold-50); }
+    .portal-td-vis-card.active {
+      border-color: var(--gold-500);
+      background: linear-gradient(135deg, rgba(196, 163, 90, 0.1) 0%, rgba(255,255,255,0.9) 100%);
+      box-shadow: 0 4px 16px rgba(196, 163, 90, 0.12);
+    }
+    .portal-td-vis-card input[type=radio] {
+      accent-color: var(--gold-600);
+      margin: 0; flex-shrink: 0;
+      align-self: center;
+      width: 1rem; height: 1rem;
+    }
+    .portal-td-vis-ico {
+      width: 2.25rem; height: 2.25rem;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      background: var(--gray-100);
+      color: var(--gold-700);
+      font-size: 1rem;
+    }
+    .portal-td-vis-card.active .portal-td-vis-ico {
+      background: var(--gold-100);
+      color: var(--gold-800);
+    }
+    .portal-td-vis-body { flex: 1; min-width: 0; }
+    .portal-td-vis-title { font-weight: 700; font-size: 0.88rem; color: var(--gray-800); }
+    .portal-td-vis-desc { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.15rem; line-height: 1.45; }
+
+    .portal-td-invoice {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: 0.75rem; padding: 0.75rem 0;
+      border-top: 1px solid var(--border);
+    }
+    .portal-td-invoice:first-child { border-top: none; padding-top: 0; }
+    .portal-td-invoice-id { font-weight: 700; font-size: 0.88rem; color: var(--text); }
+    .portal-td-invoice-meta { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.15rem; }
+    .portal-td-invoice-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; justify-content: flex-end; }
+
+    .portal-td-meta-table { border-collapse: collapse; width: 100%; font-size: 0.82rem; }
+    .portal-td-meta-table td { padding: 0.4rem 0; vertical-align: top; }
+    .portal-td-meta-table td:first-child { width: 38%; padding-right: 0.75rem; color: var(--text-muted); }
+
+    .portal-td-sidebar-sticky { position: sticky; top: 1rem; }
+    .portal-td-stat-row {
+      display: flex; justify-content: space-between; align-items: baseline;
+      gap: 0.5rem; margin-bottom: 0.5rem;
+    }
+    .portal-td-stat-row .k { font-size: 0.76rem; color: var(--text-muted); }
+    .portal-td-stat-row .v { font-size: 0.9rem; font-weight: 700; }
+
+    .portal-td-bar {
+      height: 6px; background: var(--gray-200);
+      border-radius: 9999px; overflow: hidden; margin-top: 0.35rem;
+    }
+    .portal-td-bar > div { height: 100%; border-radius: 9999px; transition: width 0.4s ease; }
+
+    .portal-td-btn-pay {
+      display: flex; align-items: center; justify-content: center;
+      width: 100%; padding: 0.7rem 1rem;
+      background: linear-gradient(180deg, #22c55e 0%, #16a34a 100%);
+      color: #fff; font-weight: 700; font-size: 0.9rem;
+      border: none; border-radius: 12px; cursor: pointer;
+      text-decoration: none; text-align: center;
+      box-shadow: 0 4px 14px rgba(22, 163, 74, 0.35);
+      transition: transform 0.12s, box-shadow 0.12s;
+    }
+    .portal-td-btn-pay:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(22, 163, 74, 0.4); color: #fff; }
+
+    .portal-td-btn-extend {
+      width: 100%; padding: 0.65rem 1rem;
+      background: var(--accent); color: #fff; font-weight: 600; font-size: 0.88rem;
+      border: 1px solid var(--accent); border-radius: 12px; cursor: pointer;
+      display: block; text-align: center;
+      transition: background 0.15s, border-color 0.15s, transform 0.12s;
+    }
+    .portal-td-btn-extend:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: #fff; transform: translateY(-1px); }
+
+    .portal-td-btn-archive {
+      width: 100%; padding: 0.6rem 1rem;
+      background: #fff; color: #b91c1c; font-weight: 600; font-size: 0.86rem;
+      border: 1px solid rgba(220, 38, 38, 0.45); border-radius: 12px; cursor: pointer;
+      display: block; text-align: center;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .portal-td-btn-archive:hover {
+      background: rgba(254, 242, 242, 0.95);
+      border-color: rgba(220, 38, 38, 0.65);
+      color: #991b1b;
+    }
+
+    .portal-td-btn-outline {
+      display: inline-block;
+      font-size: 0.8rem; font-weight: 600;
+      padding: 0.4rem 0.75rem;
+      border: 1px solid var(--border); border-radius: 10px;
+      color: var(--text-muted); text-decoration: none;
+      background: #fff; transition: border-color 0.15s, color 0.15s;
+    }
+    .portal-td-btn-outline:hover { border-color: var(--gold-400); color: var(--gold-800); }
+
+    .portal-td-invoice-actions .btn-sm { min-width: auto; }
+
+    .portal-td-hint { font-size: 0.74rem; color: var(--text-muted); line-height: 1.5; margin-top: 0.5rem; }
+    .portal-td-hint strong { color: var(--text); }
+
+    .portal-td-alert-stack { margin-bottom: 1rem; }
+
+    /* Bestätigungs-Dialog: Scroll sperren; Ausgleich nur per JS (padding-right), kein scrollbar-gutter (sonst Doppel-Effekt) */
+    body.portal-td-modal-open { overflow: hidden; }
+    .portal-td-modal-backdrop {
+      position: fixed; inset: 0; z-index: 3000;
+      background: rgba(20, 19, 17, 0.4);
+    }
+    .portal-td-modal {
+      position: fixed; inset: 0; z-index: 3001;
+      display: flex; align-items: center; justify-content: center;
+      padding: 1rem; pointer-events: none;
+    }
+    .portal-td-modal[hidden] { display: none !important; }
+    .portal-td-modal-panel {
+      pointer-events: auto;
+      width: min(420px, 100%);
+      background: var(--bg-card, #fff);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg, 16px);
+      box-shadow: var(--shadow, 0 12px 26px rgba(20, 19, 17, 0.08));
+      padding: 1.15rem 1.25rem 1.1rem;
+    }
+    .portal-td-modal-panel h3 {
+      margin: 0 0 0.65rem 0;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.02em;
+    }
+    .portal-td-modal-panel p {
+      margin: 0;
+      font-size: 0.9rem;
+      line-height: 1.55;
+      color: var(--text-muted);
+    }
+    .portal-td-modal-panel p strong { color: var(--text); font-weight: 600; }
+    .portal-td-modal-actions {
+      display: flex; justify-content: flex-end; gap: 0.5rem;
+      margin-top: 1.1rem; padding-top: 0.85rem;
+      border-top: 1px solid var(--border);
+    }
+    .portal-td-modal-btn {
+      border-radius: 10px;
+      padding: 0.5rem 1rem;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .portal-td-modal-btn--ghost {
+      background: #fff;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+    }
+    .portal-td-modal-btn--ghost:hover { background: var(--gray-50); color: var(--text); }
+    .portal-td-modal-btn--primary {
+      background: var(--accent);
+      border: 1px solid var(--accent);
+      color: #fff;
+    }
+    .portal-td-modal-btn--primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+    .portal-td-modal-btn--danger {
+      background: #fff;
+      border: 1px solid rgba(220, 38, 38, 0.45);
+      color: #b91c1c;
+    }
+    .portal-td-modal-btn--danger:hover { background: rgba(254, 242, 242, 0.95); }
+    .portal-td-payment-options {
+      display: flex; flex-direction: column; gap: 0.65rem; margin-top: 1rem;
+    }
+    .portal-td-payment-opt {
+      display: flex; align-items: flex-start; gap: 0.75rem;
+      padding: 0.85rem 1rem;
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      background: #fff;
+      cursor: pointer;
+      font-family: inherit;
+      text-align: left;
+      transition: border-color 0.15s, background 0.15s;
+      width: 100%;
+    }
+    .portal-td-payment-opt:hover { border-color: var(--accent); background: #f0f7ff; }
+    .portal-td-payment-opt-icon { font-size: 1.35rem; line-height: 1; flex-shrink: 0; margin-top: 1px; }
+    .portal-td-payment-opt-texts { display: flex; flex-direction: column; gap: 0.2rem; }
+    .portal-td-payment-opt-label { font-size: 0.92rem; font-weight: 600; color: var(--text); }
+    .portal-td-payment-opt-sub { font-size: 0.78rem; color: var(--text-muted); line-height: 1.4; }
+  </style>
+</head>
+<body>
+  <div class="portal-shell">
+    <%- include('_topbar', { isAdminView, email }) %>
+    <div class="portal-body">
+    <%- include('_header', { activePage: 'tours', email, isAdminView, organizationName, portalNav }) %>
+
+    <main class="portal-main" style="padding-top: 0.75rem;">
+      <%
+        const statusLabels = {
+          ACTIVE: 'Aktiv', EXPIRING_SOON: 'Läuft bald ab',
+          CUSTOMER_ACCEPTED_AWAITING_PAYMENT: 'Wartet auf Zahlung',
+          CUSTOMER_DECLINED: 'Abgelehnt', ARCHIVED: 'Archiviert',
+          AWAITING_CUSTOMER_DECISION: 'Entscheidung ausstehend',
+          EXPIRED_PENDING_ARCHIVE: 'Abgelaufen',
+        };
+        const label = tour.canonical_object_label || tour.bezeichnung || `Tour #${tour.id}`;
+        const openInvoices = invoices.filter(inv => inv.invoice_status === 'sent' || inv.invoice_status === 'overdue');
+        const successMessages = {
+          edited: 'Änderungen gespeichert.',
+          paid: 'Zahlung erfolgreich. Vielen Dank!',
+          extended: 'Verlängerung eingeleitet – Rechnung per E-Mail zugestellt.',
+          reactivation_requested: 'Reaktivierung eingeleitet – Rechnung per E-Mail zugestellt.',
+          visibility_updated: 'Datenschutz-Einstellung aktualisiert.',
+          zustaendigkeit_ok: 'Zuständigkeit wurde gespeichert.',
+        };
+        const errorMessages = {
+          not_archived: 'Tour muss erst archiviert werden.',
+          cancelled: 'Zahlung abgebrochen.',
+          payment_failed: 'Zahlung fehlgeschlagen.',
+          payrexx_not_configured: 'Online-Zahlung momentan nicht verfügbar.',
+          no_matterport: 'Keine Matterport-Verknüpfung.',
+          invalid_visibility: 'Ungültige Datenschutz-Einstellung.',
+          visibility_failed: 'Datenschutz konnte nicht gespeichert werden.',
+          delete_forbidden: 'Touren können im Portal nicht gelöscht werden.',
+          matterport_name: 'Ihre Angaben wurden gespeichert. Der Titel bei Matterport konnte nicht aktualisiert werden (bitte später erneut speichern oder uns kontaktieren).',
+        };
+        const isArchived = tour.status === 'ARCHIVED';
+        const wsKeyTour = String(tour.customer_email || '').trim().toLowerCase();
+        const abTour = typeof assigneeBundle !== 'undefined' && assigneeBundle ? assigneeBundle : { assigneeByTourId: {}, canManageByTourId: {}, candidatesByWorkspace: {} };
+        const assignTour = abTour.assigneeByTourId[tour.id];
+        const canAssignTour = !!abTour.canManageByTourId[tour.id];
+        const assignCandsTour = abTour.candidatesByWorkspace[wsKeyTour] || [];
+        const visOptions = [
+          { value:'PRIVATE',   apiValue:'private',  icon:'fa-solid fa-lock',            faLabel:'Privat',           desc:'Nur für berechtigte Personen in Ihrem Kundenportal.' },
+          { value:'LINK_ONLY', apiValue:'unlisted', icon:'fa-solid fa-link',            faLabel:'Nicht gelistet',   desc:'Jeder mit dem Link kann sehen.' },
+          { value:'PUBLIC',    apiValue:'public',   icon:'fa-solid fa-globe',           faLabel:'Öffentlich',       desc:'Jeder im Internet, indexiert.' },
+          { value:'PASSWORD',  apiValue:'password', icon:'fa-solid fa-key',             faLabel:'Passwortgeschützt', desc:'Nur mit Passwort zugänglich.' },
+        ];
+        const currentVis = (mpVisibility || 'unlisted').toLowerCase();
+        const _termForExtend = tour.canonical_term_end_date || tour.ablaufdatum;
+        const _termForExtendObj = _termForExtend ? new Date(_termForExtend) : null;
+        let extendUntilFormatted = '';
+        if (_termForExtendObj && tour.status !== 'ARCHIVED') {
+          const dExt = new Date(_termForExtendObj);
+          dExt.setMonth(dExt.getMonth() + 6);
+          extendUntilFormatted = dExt.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        }
+      %>
+
+      <div class="portal-td-wrap">
+        <% if (success && successMessages[success]) { %>
+          <div class="portal-td-alert-stack alert alert-success"><%= successMessages[success] %></div>
+        <% } %>
+        <% if (error) { %>
+          <% if (errorMessages[error]) { %>
+          <div class="portal-td-alert-stack alert alert-error"><%= errorMessages[error] %></div>
+          <% } else { %>
+          <div class="portal-td-alert-stack alert alert-error"><%= error %></div>
+          <% } %>
+        <% } %>
+
+        <header class="portal-td-hero">
+          <a href="/portal/tours" class="portal-td-back">Zurück zu Touren</a>
+          <h1><%= label %></h1>
+          <p class="portal-td-hero-assignee">
+            <% if (assignTour) { %>
+            <span class="portal-td-hero-assignee-k">Zuständig</span>
+            <span class="portal-td-hero-assignee-v" title="<%= assignTour.email %>"><%= assignTour.label %></span>
+            <% } else { %>
+            <span class="portal-td-hero-assignee-k">Zuständig</span>
+            <span class="portal-td-hero-assignee-none">Noch nicht zugewiesen</span>
+            <% } %>
+          </p>
+          <div class="portal-td-hero-meta">
+            <span>Tour #<%= tour.id %></span>
+            <% if (tour.matterport_space_id) { %>
+              <span class="portal-td-meta-sep">|</span>
+              <span>Matterport</span>
+            <% } %>
+            <span class="portal-td-meta-sep">|</span>
+            <span class="badge badge-<%= tour.status %>" style="font-size:0.78rem;"><%= statusLabels[tour.status] || tour.status %></span>
+          </div>
+        </header>
+
+        <div class="portal-td-layout">
+
+          <div>
+            <% if (tour.matterport_space_id || tour.tour_url) { %>
+              <div class="portal-td-preview">
+                <% if (tour.matterport_space_id) { %>
+                  <iframe src="https://my.matterport.com/show/?m=<%= tour.matterport_space_id %>&play=1&qs=1&help=0&lang=de"
+                    title="Matterport Vorschau" allow="xr-spatial-tracking; fullscreen" loading="lazy"></iframe>
+                <% } else { %>
+                  <div class="portal-td-preview-fallback">
+                    <a href="<%= tour.tour_url %>" target="_blank" rel="noopener" class="btn btn-primary btn-sm">Tour öffnen</a>
+                  </div>
+                <% } %>
+              </div>
+            <% } %>
+
+            <div class="portal-td-card">
+              <div class="portal-td-card-h">
+                <p class="portal-td-card-title">Tour-Details bearbeiten</p>
+              </div>
+              <div class="portal-td-card-b">
+                <p class="portal-td-hint" style="margin-top:0;">Titel und Kundenbezeichnung erscheinen in der Übersicht. Die <strong>Zuständigkeit</strong> legen Sie in der Seitenleiste fest (nur Inhaber/Administratoren).</p>
+                <form method="post" action="/portal/tours/<%= tour.id %>/edit">
+                  <div class="portal-td-form-grid">
+                    <div class="form-group">
+                      <label>Tour-Titel</label>
+                      <input type="text" name="object_label" value="<%= tour.object_label || '' %>" placeholder="z. B. Adresse oder Objektname" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                      <label>Firma / Kundenname</label>
+                      <input type="text" name="customer_name" value="<%= tour.customer_name || '' %>" placeholder="Name / Firma (optional)" autocomplete="organization">
+                    </div>
+                  </div>
+                  <button type="submit" class="btn btn-primary btn-sm" style="margin-top:0.85rem;">Speichern</button>
+                </form>
+              </div>
+            </div>
+
+            <% if (tour.matterport_space_id) { %>
+              <div class="portal-td-card">
+                <div class="portal-td-card-h">
+                  <p class="portal-td-card-title">Teilen &amp; Datenschutz</p>
+                </div>
+                <div class="portal-td-card-b">
+                  <form method="post" action="/portal/tours/<%= tour.id %>/visibility">
+                    <div class="portal-td-vis">
+                      <% visOptions.forEach(opt => { %>
+                        <label class="portal-td-vis-card <%= currentVis === opt.apiValue ? 'active' : '' %>"
+                               onclick="document.querySelectorAll('.portal-td-vis-card').forEach(function(e){ e.classList.remove('active'); });
+                                        this.classList.add('active');
+                                        document.getElementById('portalTdPwField').style.display =
+                                          (this.querySelector('input').value === 'PASSWORD') ? 'block' : 'none';">
+                          <input type="radio" name="visibility" value="<%= opt.value %>"
+                                 <%= currentVis === opt.apiValue ? 'checked' : '' %>>
+                          <span class="portal-td-vis-ico"><i class="<%= opt.icon %>" aria-hidden="true"></i></span>
+                          <span class="portal-td-vis-body">
+                            <span class="portal-td-vis-title"><%= opt.faLabel %></span>
+                            <span class="portal-td-vis-desc"><%= opt.desc %></span>
+                          </span>
+                        </label>
+                      <% }); %>
+                    </div>
+                    <div id="portalTdPwField" style="display:<%= currentVis === 'password' ? 'block' : 'none' %>;margin:0.85rem 0 0;">
+                      <label style="font-size:0.78rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:0.35rem;">Tour-Passwort</label>
+                      <input type="text" name="password" placeholder="Passwort eingeben" autocomplete="off"
+                             style="font-size:0.88rem;padding:0.5rem 0.7rem;width:100%;max-width:280px;border:1px solid var(--border);border-radius:10px;">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm" style="margin-top:0.85rem;">Speichern</button>
+                    <% if (!mpVisibility) { %>
+                      <p class="portal-td-hint" style="margin-top:0.65rem;">Einstellung konnte nicht geladen werden – Standardwert angezeigt.</p>
+                    <% } %>
+                  </form>
+                </div>
+              </div>
+            <% } %>
+
+            <% if (invoices.length > 0) { %>
+              <div class="portal-td-card">
+                <div class="portal-td-card-h">
+                  <p class="portal-td-card-title">Rechnungen</p>
+                </div>
+                <div class="portal-td-card-b" style="padding-top:0.65rem;">
+                  <% const invLabels = { paid:'Bezahlt', sent:'Ausstehend', overdue:'Überfällig', draft:'Entwurf', cancelled:'Storniert' }; %>
+                  <% const paymentMethodLabels = { bank_transfer:'Überweisung', cash:'Bar', twint:'TWINT', card:'Karte', payrexx:'Payrexx', other:'Sonstige' }; %>
+                  <% invoices.forEach((inv) => { %>
+                    <div class="portal-td-invoice">
+                      <div>
+                        <div class="portal-td-invoice-id"><%= inv.invoice_number || `Rechnung #${inv.id}` %></div>
+                        <div class="portal-td-invoice-meta">
+                          <%= inv.invoice_date ? new Date(inv.invoice_date).toLocaleDateString('de-CH',{day:'2-digit',month:'short',year:'numeric'}) : '-' %>
+                          <% if (inv.betrag) { %> · CHF <%= Number(inv.betrag).toFixed(2) %><% } %>
+                          <% if (inv.invoice_status === 'paid' && inv.paid_at) { %> · Bezahlt: <%= new Date(inv.paid_at).toLocaleDateString('de-CH',{day:'2-digit',month:'short',year:'numeric'}) %><% } %>
+                          <% if (inv.invoice_status === 'paid' && inv.payment_method) { %> · via <%= paymentMethodLabels[inv.payment_method] || inv.payment_method %><% } %>
+                        </div>
+                      </div>
+                      <div class="portal-td-invoice-actions">
+                        <span class="badge badge-<%= inv.invoice_status %>"><%= invLabels[inv.invoice_status] || inv.invoice_status %></span>
+                        <a href="/portal/tours/<%= tour.id %>/invoices/<%= inv.id %>/print" target="_blank" class="btn btn-ghost btn-sm">Drucken</a>
+                        <a href="/portal/tours/<%= tour.id %>/invoices/<%= inv.id %>/pdf" class="btn btn-ghost btn-sm" download>PDF</a>
+                        <% if ((inv.invoice_status === 'sent' || inv.invoice_status === 'overdue') && payrexxConfigured) { %>
+                          <a href="/portal/tours/<%= tour.id %>/pay/<%= inv.id %>" class="btn btn-pay btn-sm">Bezahlen</a>
+                        <% } %>
+                      </div>
+                    </div>
+                  <% }); %>
+                </div>
+              </div>
+            <% } %>
+
+            <% if (tour.matterport_space_id || tour.tour_url || tour.matterport_created_at) { %>
+              <div class="portal-td-card">
+                <div class="portal-td-card-h">
+                  <p class="portal-td-card-title">Technische Informationen</p>
+                </div>
+                <div class="portal-td-card-b">
+                  <table class="portal-td-meta-table">
+                    <% if (tour.matterport_space_id) { %>
+                      <tr><td>Matterport-ID</td><td><code style="font-size:0.78rem;background:var(--gray-100);padding:0.15rem 0.4rem;border-radius:6px;"><%= tour.matterport_space_id %></code></td></tr>
+                    <% } %>
+                    <% if (tour.tour_url) { %>
+                      <tr><td>Tour-Link</td><td><a href="<%= tour.tour_url %>" target="_blank" rel="noopener" style="color:var(--link);word-break:break-all;font-size:0.78rem;"><%= tour.tour_url %></a></td></tr>
+                    <% } %>
+                    <% if (tour.matterport_created_at) { %>
+                      <tr><td>Erstellt</td><td><%= new Date(tour.matterport_created_at).toLocaleDateString('de-CH',{day:'2-digit',month:'long',year:'numeric'}) %></td></tr>
+                    <% } %>
+                  </table>
+                </div>
+              </div>
+            <% } %>
+          </div>
+
+          <!-- Sidebar -->
+          <div class="portal-td-sidebar-sticky">
+            <%
+              const termDate   = tour.canonical_term_end_date || tour.ablaufdatum;
+              const termDateObj = termDate ? new Date(termDate) : null;
+              const today      = new Date();
+              const msLeft     = termDateObj ? (termDateObj - today) : null;
+              const daysLeft   = msLeft !== null ? Math.ceil(msLeft / 86400000) : null;
+              const isExpired  = daysLeft !== null && daysLeft <= 0;
+              const isCritical = daysLeft !== null && daysLeft > 0 && daysLeft <= 30;
+
+              const nextRenewalLabel = termDateObj
+                ? termDateObj.toLocaleDateString('de-CH', { day:'2-digit', month:'long', year:'numeric' })
+                : null;
+
+              const renewalAmountLabel = isArchived ? 'CHF 74.00' : 'CHF 59.00';
+            %>
+
+            <div class="portal-td-card">
+              <div class="portal-td-card-h">
+                <p class="portal-td-card-title">Abo-Status</p>
+              </div>
+              <div class="portal-td-card-b">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;margin-bottom:0.85rem;flex-wrap:wrap;">
+                  <span class="badge badge-<%= tour.status %>" style="font-size:0.82rem;padding:0.35rem 0.75rem;">
+                    <%= statusLabels[tour.status] || tour.status %>
+                  </span>
+                  <% if (tour.matterport_space_id) { %>
+                    <a href="https://my.matterport.com/show/?m=<%= tour.matterport_space_id %>"
+                       target="_blank" rel="noopener" class="portal-td-btn-outline">Vollbild öffnen</a>
+                  <% } %>
+                </div>
+
+                <div style="display:flex;flex-direction:column;gap:0.5rem;">
+                  <% if (termDateObj && !isArchived) { %>
+                    <div class="portal-td-stat-row">
+                      <span class="k">Gültig bis</span>
+                      <span class="v" style="color:<%= isExpired ? '#dc2626' : isCritical ? '#d97706' : 'var(--text)' %>;">
+                        <%= nextRenewalLabel %>
+                      </span>
+                    </div>
+                    <div class="portal-td-stat-row">
+                      <span class="k">Verbleibend</span>
+                      <span class="v" style="font-size:0.88rem;font-weight:600;color:<%= isExpired ? '#dc2626' : isCritical ? '#d97706' : 'var(--text-muted)' %>;">
+                        <% if (isExpired) { %>Abgelaufen
+                        <% } else { %><%= daysLeft %> Tag<%= daysLeft !== 1 ? 'e' : '' %>
+                        <% } %>
+                      </span>
+                    </div>
+                    <% const TERM_DAYS = 183;
+                       const pct = Math.max(0, Math.min(100, Math.round((daysLeft / TERM_DAYS) * 100)));
+                       const barColor = isExpired ? '#ef4444' : isCritical ? '#f59e0b' : 'var(--gold-500)';
+                    %>
+                    <div class="portal-td-bar"><div style="width:<%= pct %>%;background:<%= barColor %>;"></div></div>
+                  <% } else if (isArchived && termDateObj) { %>
+                    <div class="portal-td-stat-row">
+                      <span class="k">Archiviert seit</span>
+                      <span class="v" style="color:#dc2626;"><%= nextRenewalLabel %></span>
+                    </div>
+                  <% } %>
+
+                  <% if (nextRenewalLabel) { %>
+                    <div class="portal-td-stat-row" style="padding-top:0.65rem;border-top:1px solid var(--border);margin-top:0.25rem;">
+                      <span class="k" style="max-width:48%;">Nächste Verlängerung</span>
+                      <span class="v" style="font-size:0.8rem;font-weight:600;color:var(--text-muted);text-align:right;">
+                        <%= nextRenewalLabel %> · <%= renewalAmountLabel %>
+                      </span>
+                    </div>
+                  <% } %>
+                </div>
+              </div>
+            </div>
+
+            <% if (canAssignTour && assignCandsTour.length) { %>
+            <div class="portal-td-card">
+              <div class="portal-td-card-h">
+                <p class="portal-td-card-title">Zuständigkeit</p>
+              </div>
+              <div class="portal-td-card-b">
+                <p class="portal-td-hint" style="margin-top:0;">Wer ist für diese Tour verantwortlich? Sichtbar für alle mit Portal-Zugriff.</p>
+                <form method="post" action="/portal/tours/<%= tour.id %>/assignee" style="margin-top:0.85rem;">
+                  <label for="portalTdAssignee" style="display:block;font-size:0.78rem;font-weight:600;color:var(--text-muted);margin-bottom:0.35rem;">Zuständige Person</label>
+                  <select name="assigneeEmail" id="portalTdAssignee" style="width:100%;font-size:0.88rem;padding:0.5rem 0.65rem;border:1px solid var(--border);border-radius:10px;background:#fff;margin-bottom:0.65rem;">
+                    <option value="">— Keine Zuweisung —</option>
+                    <% assignCandsTour.forEach((c) => { %>
+                    <option value="<%= c.email %>" <%= assignTour && assignTour.email === c.email ? 'selected' : '' %>><%= c.label %></option>
+                    <% }) %>
+                  </select>
+                  <button type="submit" class="btn btn-primary btn-sm" style="width:100%;">Speichern</button>
+                </form>
+              </div>
+            </div>
+            <% } else if (!canAssignTour) { %>
+            <div class="portal-td-card">
+              <div class="portal-td-card-h">
+                <p class="portal-td-card-title">Zuständigkeit</p>
+              </div>
+              <div class="portal-td-card-b">
+                <p class="portal-td-hint" style="margin-top:0;">Nur <strong>Inhaber</strong> oder <strong>Administratoren</strong> des Arbeitsbereichs können die Zuständigkeit ändern. Der aktuelle Stand steht oben beim Titel.</p>
+              </div>
+            </div>
+            <% } %>
+
+            <div class="portal-td-card">
+              <div class="portal-td-card-h">
+                <p class="portal-td-card-title">Aktionen</p>
+              </div>
+              <div class="portal-td-card-b">
+                <div style="display:flex;flex-direction:column;gap:0.65rem;">
+                  <% if (openInvoices.length > 0 && payrexxConfigured) { %>
+                    <a href="/portal/tours/<%= tour.id %>/pay/<%= openInvoices[0].id %>" class="portal-td-btn-pay">
+                      Rechnung bezahlen · CHF <%= openInvoices[0].preis_brutto ? Number(openInvoices[0].preis_brutto).toFixed(2) : openInvoices[0].betrag ? Number(openInvoices[0].betrag).toFixed(2) : '–' %>
+                    </a>
+                    <p style="font-size:0.72rem;color:var(--text-muted);margin:0;text-align:center;">Sichere Zahlung via Payrexx</p>
+                  <% } %>
+
+                  <form id="portalTdFormExtend" method="post" action="/portal/tours/<%= tour.id %>/extend">
+                    <input type="hidden" name="paymentMethod" id="portalTdPaymentMethod" value="payrexx">
+                    <button type="button" class="portal-td-btn-extend" id="portalTdBtnExtend">
+                      <%= isArchived ? 'Tour reaktivieren' : 'Tour verlängern' %>
+                    </button>
+                  </form>
+
+                  <% if (tour.status !== 'ARCHIVED') { %>
+                  <form id="portalTdFormArchive" method="post" action="/portal/tours/<%= tour.id %>/archive">
+                    <button type="button" class="portal-td-btn-archive" id="portalTdBtnArchive">Tour archivieren</button>
+                  </form>
+                  <% } %>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Bestätigungs-Dialoge -->
+      <div id="portalTdModalBackdrop" class="portal-td-modal-backdrop" hidden></div>
+      <div id="portalTdModal" class="portal-td-modal" role="dialog" aria-modal="true" aria-labelledby="portalTdModalTitle" hidden>
+        <div class="portal-td-modal-panel">
+          <h3 id="portalTdModalTitle"></h3>
+          <div id="portalTdModalBody"></div>
+          <div class="portal-td-modal-actions">
+            <button type="button" class="portal-td-modal-btn portal-td-modal-btn--ghost" id="portalTdModalCancel">Abbrechen</button>
+            <button type="button" class="portal-td-modal-btn portal-td-modal-btn--primary" id="portalTdModalConfirm">Bestätigen</button>
+          </div>
+        </div>
+      </div>
+      <template id="portalTdTplPayChoiceActive">
+        <p>Tour verlängern für <strong>CHF 59.00</strong> – weitere <strong>6 Monate</strong> ab aktuellem Laufzeitende.<% if (extendUntilFormatted) { %> Neues Laufzeitende: <strong><%= extendUntilFormatted %></strong>.<% } %> Wie möchten Sie bezahlen?</p>
+        <div class="portal-td-payment-options">
+          <button type="button" class="portal-td-payment-opt" id="portalTdOptPayrexxActive">
+            <span class="portal-td-payment-opt-icon">💳</span>
+            <div class="portal-td-payment-opt-texts">
+              <span class="portal-td-payment-opt-label">Online bezahlen</span>
+              <span class="portal-td-payment-opt-sub">Kreditkarte, TWINT – sofortige Verlängerung via Payrexx</span>
+            </div>
+          </button>
+          <button type="button" class="portal-td-payment-opt" id="portalTdOptQrActive">
+            <span class="portal-td-payment-opt-icon">📄</span>
+            <div class="portal-td-payment-opt-texts">
+              <span class="portal-td-payment-opt-label">QR-Einzahlungsschein</span>
+              <span class="portal-td-payment-opt-sub">Rechnung mit QR-Code per E-Mail – Verlängerung nach Zahlungseingang</span>
+            </div>
+          </button>
+        </div>
+      </template>
+      <template id="portalTdTplPayChoiceArchived">
+        <p>Tour reaktivieren für <strong>CHF 74.00</strong> – inkl. <strong>6 Monate</strong> Laufzeit und einmaliger Reaktivierungsgebühr. Wie möchten Sie bezahlen?</p>
+        <div class="portal-td-payment-options">
+          <button type="button" class="portal-td-payment-opt" id="portalTdOptPayrexxArchived">
+            <span class="portal-td-payment-opt-icon">💳</span>
+            <div class="portal-td-payment-opt-texts">
+              <span class="portal-td-payment-opt-label">Online bezahlen</span>
+              <span class="portal-td-payment-opt-sub">Kreditkarte, TWINT – Freischaltung nach Zahlungsbestätigung via Payrexx</span>
+            </div>
+          </button>
+          <button type="button" class="portal-td-payment-opt" id="portalTdOptQrArchived">
+            <span class="portal-td-payment-opt-icon">📄</span>
+            <div class="portal-td-payment-opt-texts">
+              <span class="portal-td-payment-opt-label">QR-Einzahlungsschein</span>
+              <span class="portal-td-payment-opt-sub">Rechnung mit QR-Code per E-Mail – Freischaltung nach Zahlungseingang</span>
+            </div>
+          </button>
+        </div>
+      </template>
+      <template id="portalTdTplArchive">
+        <p><strong>Tour archivieren?</strong> Die Tour wird deaktiviert und ist für Besucher nicht mehr erreichbar. Eine Wiederherstellung ist nur über eine <strong>bezahlte Reaktivierung</strong> möglich (derzeit CHF 74.00 inkl. 6 Monate Laufzeit und Gebühr). Für bereits bezahlte, aber nicht mehr genutzte Restlaufzeit besteht <strong>kein Anspruch auf Rückerstattung</strong>.</p>
+      </template>
+      <script>
+        (function () {
+          var backdrop = document.getElementById('portalTdModalBackdrop');
+          var modal = document.getElementById('portalTdModal');
+          var titleEl = document.getElementById('portalTdModalTitle');
+          var bodyEl = document.getElementById('portalTdModalBody');
+          var btnCancel = document.getElementById('portalTdModalCancel');
+          var btnConfirm = document.getElementById('portalTdModalConfirm');
+          var formExtend = document.getElementById('portalTdFormExtend');
+          var formArchive = document.getElementById('portalTdFormArchive');
+          var tplPayChoiceActive = document.getElementById('portalTdTplPayChoiceActive');
+          var tplPayChoiceArchived = document.getElementById('portalTdTplPayChoiceArchived');
+          var tplArchive = document.getElementById('portalTdTplArchive');
+          var inputPaymentMethod = document.getElementById('portalTdPaymentMethod');
+          var pendingSubmit = null;
+
+          function scrollbarWidth() {
+            return Math.max(0, window.innerWidth - document.documentElement.clientWidth);
+          }
+
+          function lockScroll() {
+            var w = scrollbarWidth();
+            if (w > 0) document.body.style.paddingRight = w + 'px';
+            document.body.classList.add('portal-td-modal-open');
+          }
+
+          function unlockScroll() {
+            document.body.style.paddingRight = '';
+            document.body.classList.remove('portal-td-modal-open');
+          }
+
+          function openModal(title, templateEl, confirmClass, confirmLabel, onConfirm) {
+            titleEl.textContent = title;
+            bodyEl.innerHTML = '';
+            bodyEl.appendChild(templateEl.content.cloneNode(true));
+            if (confirmLabel) {
+              btnConfirm.className = 'portal-td-modal-btn ' + (confirmClass || 'portal-td-modal-btn--primary');
+              btnConfirm.textContent = confirmLabel;
+              btnConfirm.hidden = false;
+            } else {
+              btnConfirm.hidden = true;
+            }
+            pendingSubmit = onConfirm;
+            modal.hidden = false;
+            backdrop.hidden = false;
+            lockScroll();
+            if (!confirmLabel) btnCancel.focus();
+            else btnConfirm.focus();
+          }
+
+          function openPaymentChoiceModal(title, tpl, submitFn) {
+            openModal(title, tpl, null, null, null);
+            var optPayrexx = bodyEl.querySelector('[id^="portalTdOptPayrexx"]');
+            var optQr = bodyEl.querySelector('[id^="portalTdOptQr"]');
+            if (optPayrexx) {
+              optPayrexx.addEventListener('click', function () {
+                inputPaymentMethod.value = 'payrexx';
+                closeModal();
+                submitFn();
+              });
+            }
+            if (optQr) {
+              optQr.addEventListener('click', function () {
+                inputPaymentMethod.value = 'qr_invoice';
+                closeModal();
+                submitFn();
+              });
+            }
+          }
+
+          function closeModal() {
+            modal.hidden = true;
+            backdrop.hidden = true;
+            unlockScroll();
+            pendingSubmit = null;
+          }
+
+          btnCancel.addEventListener('click', closeModal);
+          backdrop.addEventListener('click', closeModal);
+          btnConfirm.addEventListener('click', function () {
+            if (typeof pendingSubmit === 'function') pendingSubmit();
+            closeModal();
+          });
+          document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && !modal.hidden) closeModal();
+          });
+
+          var btnExtend = document.getElementById('portalTdBtnExtend');
+          if (btnExtend && formExtend) {
+            btnExtend.addEventListener('click', function () {
+              var archived = <%= isArchived ? 'true' : 'false' %>;
+              if (archived) {
+                openPaymentChoiceModal('Reaktivierung – Zahlungsart wählen', tplPayChoiceArchived, function () {
+                  formExtend.submit();
+                });
+              } else {
+                openPaymentChoiceModal('Verlängerung – Zahlungsart wählen', tplPayChoiceActive, function () {
+                  formExtend.submit();
+                });
+              }
+            });
+          }
+
+          var btnArchive = document.getElementById('portalTdBtnArchive');
+          if (btnArchive && formArchive) {
+            btnArchive.addEventListener('click', function () {
+              openModal('Tour archivieren', tplArchive, 'portal-td-modal-btn--danger', 'Ja, archivieren', function () {
+                formArchive.submit();
+              });
+            });
+          }
+        })();
+      </script>
+    </main>
+    </div>
+  </div>
+</body>
+</html>

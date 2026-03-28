@@ -1,0 +1,61 @@
+node_modules/
+.env
+*.env
+.env.*
+!.env.example
+!.env.docker.example
+backend/.env
+backend/node_modules/
+*.log
+*.zip
+backups/
+Buchungstool-backups/
+.backups/
+_backup_*/
+admin-panel-backup-propus-css-redesign/
+.DS_Store
+Thumbs.db
+_deploy_now.py
+nas-analysis-instructions.md
+
+# Doppelte Komponenten-Baum (Kanon: admin-panel/src/components)
+admin-panel/components/
+
+# Build-Artefakte
+admin-panel/dist.tar.gz
+admin-panel/*.tar
+admin-panel/dist/
+test-results/
+screenshots/
+coverage/
+
+# Lokale Temp-Dateien
+.tmp-*.js
+tmp-live-*.html
+tmp-live-*.js
+
+# Lokale Datenfiles
+backend/admin-account.json
+backend/*.bak
+backend/*.enc_bak
+docs/reports/
+
+# Lokale Merge-/Backup-Artefakte (nicht versionieren)
+backend/server.js.local-broken-backup-*
+backend/server.js.pre-*
+backend/server.js.post-*
+backend/server.js.bak*
+backend/server.js.before-*
+backend/server.js.broken*
+backend/server.js.stable-*
+backend/server.old-image.js
+backend/server.recovered.js
+backend/server_head.txt
+# Entpack-/Deploy-Archive im Repo-Root
+/dist.tar
+/src.tar
+merge-server.cjs
+merge-server.sh
+backend/merge-server.js
+tools/putty/
+

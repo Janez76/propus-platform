@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rechnungen – Propus Tour Manager</title>
+  <%- include('_admin-styles') %>
+</head>
+<body>
+  <div class="admin-shell">
+    <%- include('_header') %>
+    <main class="admin-main">
+      <a href="/admin/tours" class="back">← Zurück zu Touren</a>
+      <h1>Rechnungen</h1>
+      <p style="color:var(--text-muted);margin:0 0 1rem 0;">Interne Verlängerungsrechnungen inklusive Zahlungsstatus und Abo-Laufzeit.</p>
+      <p style="margin:0 0 1rem 0;">
+        <a href="/admin/bank-import" class="btn btn-primary">Bankdaten-Upload (camt.054 / CSV)</a>
+      </p>
+
+      <div class="filters">
+        <a href="/admin/invoices" class="<%= !filters.status ? 'active' : '' %>">Alle</a>
+        <a href="/admin/invoices?status=offen" class="<%= filters.status === 'offen' ? 'active' : '' %>">Offen (<%= stats.offen %>)</a>
+        <a href="/admin/invoices?status=ueberfaellig" class="<%= filters.status === 'ueberfaellig' ? 'active' : '' %>">Überfällig (<%= stats.ueberfaellig %>)</a>
+        <a href="/admin/invoices?status=bezahlt" class="<%= filters.status === 'bezahlt' ? 'active' : '' %>">Bezahlt (<%= stats.bezahlt %>)</a>
+        <a href="/admin/invoices?status=entwurf" class="<%= filters.status === 'entwurf' ? 'active' : '' %>">Entwurf (<%= stats.entwurf %>)</a>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Nummer</th>
+              <th>Kunde / Objekt</th>
+              <th>Betrag</th>
+              <th>Fällig</th>
+              <th>Status</th>
+              <th>Zahlungsart</th>
+              <th>Gesendet</th>
+              <th>Bezahlt</th>
+              <th>Gültig ab</th>
+              <th>Gültig bis</th>
+              <th>Aktion</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if (invoices.length === 0) { %>
+            <tr><td colspan="11" class="empty">Keine Rechnungen<% if (filters.status) { %> für diesen Filter<% } %>.</td></tr>
+            <% } else { %>
+            <% invoices.forEach(inv => {
+              const statusLabels = { draft:'Entwurf', sent:'Gesendet', paid:'Bezahlt', overdue:'Überfällig', cancelled:'Storniert' };
+              const methodLabels = { bank_transfer:'Überweisung', cash:'Bar', twint:'TWINT', card:'Karte', payrexx:'Payrexx', other:'Sonstige' };
+            %>
+            <tr>
+              <td><code><%= inv.invoice_number || ('Rechnung #' + inv.id) %></code></td>
+              <td>
+                <div><%= inv.tour_object_label || '-' %></div>
+                <div style="font-size:0.8rem;color:var(--text-muted);"><%= inv.tour_customer_name || '-' %></div>
+              </td>
+              <td><%= inv.amount_chf != null ? ('CHF ' + parseFloat(inv.amount_chf).toFixed(2)) : '-' %></td>
+              <td><%= inv.due_at ? new Date(inv.due_at).toLocaleDateString('de-CH') : '-' %></td>
+              <td><span class="badge badge-<%= inv.invoice_status %>"><%= statusLabels[inv.invoice_status] || inv.invoice_status %></span></td>
+              <td><%= inv.payment_method ? (methodLabels[inv.payment_method] || inv.payment_method) : '-' %></td>
+              <td><%= inv.sent_at ? new Date(inv.sent_at).toLocaleDateString('de-CH') : '-' %></td>
+              <td><%= inv.paid_at ? new Date(inv.paid_at).toLocaleDateString('de-CH') : '-' %></td>
+              <td><%= inv.subscription_start_at ? new Date(inv.subscription_start_at).toLocaleDateString('de-CH') : '-' %></td>
+              <td><%= inv.subscription_end_at ? new Date(inv.subscription_end_at).toLocaleDateString('de-CH') : '-' %></td>
+              <td style="display:flex;gap:0.35rem;flex-wrap:wrap;">
+                <a href="/admin/tours/<%= inv.tour_id %>" class="btn btn-primary">Tour</a>
+                <a href="/admin/tours/<%= inv.tour_id %>/invoices/<%= inv.id %>/pdf" class="btn btn-ghost" target="_blank" rel="noopener noreferrer">PDF</a>
+              </td>
+            </tr>
+            <% }); %>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

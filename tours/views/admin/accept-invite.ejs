@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Einladung annehmen – Propus Tour Manager</title>
+  <%- include('_admin-styles') %>
+</head>
+<body>
+  <div class="admin-shell">
+    <main class="admin-main" style="max-width:760px;margin:2rem auto;">
+      <div class="section">
+        <h1>Team-Einladung annehmen</h1>
+        <% if (error) { %><div class="alert alert-error"><%= error %></div><% } %>
+        <% if (!invite) { %>
+          <p style="color:var(--text-muted);margin:0;">Bitte nutze den vollständigen Einladungslink aus der E-Mail.</p>
+          <p style="margin-top:1rem;"><a href="/login" class="btn btn-ghost">Zum Login</a></p>
+        <% } else { %>
+          <p style="color:var(--text-muted);margin:0 0 1rem 0;">
+            Einladung für <strong><%= invite.email %></strong>
+            <% if (invite.expiresAt) { %>· gültig bis <strong><%= new Date(invite.expiresAt).toLocaleString('de-CH') %></strong><% } %>
+          </p>
+          <form method="post" action="/accept-invite" class="form-grid">
+            <input type="hidden" name="token" value="<%= token %>">
+            <label class="full">
+              Neues Passwort
+              <input type="password" name="password" required minlength="8" placeholder="Mindestens 8 Zeichen">
+            </label>
+            <label class="full">
+              Passwort wiederholen
+              <input type="password" name="passwordRepeat" required minlength="8" placeholder="Passwort wiederholen">
+            </label>
+            <div class="full" style="display:flex;gap:0.6rem;flex-wrap:wrap;">
+              <button type="submit" class="btn btn-primary">Einladung annehmen</button>
+              <a href="/login" class="btn btn-ghost">Abbrechen</a>
+            </div>
+          </form>
+        <% } %>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

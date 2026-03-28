@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="de-CH">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Propus Booking – Handbuch / Anleitung</title>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+  <link rel="stylesheet" href="app.css?v=20260325">
+  <link rel="icon" type="image/png" href="assets/brand/favicon.png">
+  <style>
+    .manual-container {
+        max-width: 900px;
+        margin: 40px auto;
+        padding: 0 20px;
+    }
+    .manual-title {
+        text-align: center;
+        margin-bottom: 40px;
+        font-family: 'Manrope', sans-serif;
+        color: var(--text);
+        font-size: 2.2rem;
+        font-weight: 700;
+    }
+    .tabs {
+        display: flex;
+        border-bottom: 2px solid var(--border);
+        margin-bottom: 30px;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .tab {
+        padding: 15px 30px;
+        cursor: pointer;
+        font-weight: 600;
+        color: var(--text-light);
+        border-bottom: 3px solid transparent;
+        transition: all 0.3s ease;
+        margin-bottom: -2px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 1.1rem;
+    }
+    .tab:hover {
+        color: var(--gold);
+    }
+    .tab.active {
+        color: var(--gold);
+        border-bottom-color: var(--gold);
+    }
+    .tab-content {
+        display: none;
+        animation: fadeIn 0.4s ease-out;
+    }
+    .tab-content.active {
+        display: block;
+    }
+    .accordion {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        margin-bottom: 15px;
+        overflow: hidden;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+    }
+    .accordion-header {
+        padding: 20px 25px;
+        background: var(--card);
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-weight: 600;
+        font-size: 1.1rem;
+        transition: background 0.3s;
+        user-select: none;
+        color: var(--text);
+    }
+    .accordion-header:hover {
+        background: var(--card-hover);
+    }
+    .accordion-header i.fa-chevron-down {
+        color: var(--gold);
+        transition: transform 0.3s ease;
+        font-size: 1.2rem;
+    }
+    .accordion-header.active {
+        background: var(--card-hover);
+        color: var(--gold);
+    }
+    .accordion-header.active i.fa-chevron-down {
+        transform: rotate(180deg);
+    }
+    .accordion-content {
+        padding: 0 25px;
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.4s ease-out, padding 0.4s ease-out;
+        background: var(--bg);
+        font-size: 1rem;
+        color: var(--text);
+    }
+    .accordion-header.active + .accordion-content {
+        padding: 25px;
+        max-height: 2000px;
+        border-top: 1px solid var(--border);
+    }
+    .accordion-content p {
+        margin-bottom: 15px;
+        line-height: 1.7;
+    }
+    .accordion-content p:last-child {
+        margin-bottom: 0;
+    }
+    .accordion-content ul, .accordion-content ol {
+        margin-left: 20px;
+        margin-bottom: 15px;
+        line-height: 1.7;
+    }
+    .accordion-content li {
+        margin-bottom: 8px;
+    }
+    .accordion-content strong {
+        color: var(--gold);
+        font-weight: 600;
+    }
+    .accordion-content h4 {
+        margin-top: 20px;
+        margin-bottom: 10px;
+        color: var(--text);
+        font-weight: 700;
+    }
+    .accordion-content code {
+        background: rgba(0,0,0,0.05);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.9em;
+        color: var(--text-light);
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(5px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .back-btn {
+        display: inline-block;
+        margin-top: 30px;
+        color: var(--gold);
+        text-decoration: none;
+        font-weight: 600;
+        transition: opacity 0.3s;
+    }
+    .back-btn:hover {
+        opacity: 0.8;
+    }
+    .back-btn i {
+        margin-right: 8px;
+    }
+    .lang-selector {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+    }
+    .lang-selector select {
+        padding: 8px 14px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: #fff;
+        color: var(--text);
+        font-family: 'Inter', sans-serif;
+        font-weight: 600;
+        font-size: 13px;
+        cursor: pointer;
+        outline: none;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+    @media(max-width: 600px) {
+        .lang-selector {
+            position: static;
+            display: flex;
+            justify-content: center;
+            margin-top: 15px;
+        }
+        .header-inner {
+            flex-direction: column;
+        }
+    }
+  </style>
+</head>
+<body class="bg-light">
+  <header class="site-header" style="position:relative;">
+    <div class="container header-inner" style="justify-content: center; align-items: center;">
+      <div class="brand">
+        <a href="index.html"><img class="logo" src="assets/brand/logopropus.png" alt="Propus"></a>
+      </div>
+      <div class="lang-selector">
+        <select id="langSelect" onchange="applyLang(this.value)">
+          <option value="de">DE</option>
+          <option value="en">EN</option>
+          <option value="sr">SR</option>
+        </select>
+      </div>
+    </div>
+  </header>
+
+  <div class="manual-container">
+    <h1 class="manual-title" data-i18n="title">Handbuch & Anleitung</h1>
+
+    <div class="tabs">
+      <div class="tab active" data-tab="kunden"><i class="fa-solid fa-user"></i> <span data-i18n="tab_kunden">Für Kunden</span></div>
+      <div class="tab" data-tab="mitarbeiter"><i class="fa-solid fa-camera"></i> <span data-i18n="tab_mitarbeiter">Für Mitarbeiter</span></div>
+      <div class="tab" data-tab="admin"><i class="fa-solid fa-shield-halved"></i> <span data-i18n="tab_admin">Für Administratoren</span></div>
+    </div>
+
+    <!-- KUNDEN TAB -->
+    <div id="kunden" class="tab-content active">
+      
+      <div class="accordion">
+        <div class="accordion-header"><span data-i18n="c_login_title">Login & Zugang</span> <i class="fa-solid fa-chevron-down"></i></div>
+        <div class="accordion-content">
+          <p data-i18n="c_login_p1"><strong>Anmeldung:</strong> Klicken Sie oben rechts auf den Button "Konto", um das Kundenportal zu öffnen. Geben Sie Ihre registrierte E-Mail-Adresse und Ihr Passwort ein.</p>
+          <p data-i18n="c_login_p2"><strong>Registrierung:</strong> Falls Sie noch kein Konto haben, können Sie sich im Reiter "Neu registrieren" im selben Fenster anmelden.</p>
+          <p data-i18n="c_login_p3"><strong>Passwort vergessen:</strong> Nutzen Sie den Link im Login-Fenster. Sie erhalten eine E-Mail zum Zurücksetzen.</p>
+          <p data-i18n="c_login_p4"><strong>Sitzung:</strong> Nach dem Login bleiben Sie auf Ihrem Gerät für 30 Tage angemeldet.</p>
+        </div>
+      </div>
+
+      <div class="accordion">
+        <div class="accordion-header"><span data-i18n="c_book_title">Neue Buchung erstellen</span> <i class="fa-solid fa-chevron-down"></i></div>
+        <div class="accordion-content">
+          <p data-i18n="c_book_p1">Der Buchungsprozess ist in 4 einfache Schritte unterteilt:</p>
+          <ul>
+            <li data-i18n="c_book_li1"><strong>Schritt 1 (Standort):</strong> Geben Sie die Adresse der Immobilie sowie Details wie Wohnfläche (m²) und Etagen/Ebenen ein. Diese sind wichtig für die Preisberechnung.</li>
+            <li data-i18n="c_book_li2"><strong>Schritt 2 (Dienstleistungen):</strong> Wählen Sie das gewünschte Paket (z.B. Basic, Premium, The Full View) und fügen Sie nach Bedarf Add-ons wie Drohnenaufnahmen oder Grundrisse hinzu.</li>
+            <li data-i18n="c_book_li3"><strong>Schritt 3 (Fotograf & Termin):</strong> Wählen Sie einen bevorzugten Fotografen oder lassen Sie das System den bestmöglichen zuweisen. Anschliessend können Sie im Kalender einen passenden, verfügbaren Termin auswählen.</li>
+            <li data-i18n="c_book_li4"><strong>Schritt 4 (Rechnung):</strong> Überprüfen Sie Ihre Rechnungsadresse (diese wird aus Ihrem Profil vorausgefüllt) und den Kontakt vor Ort für den Fotografen. Bestätigen Sie abschliessend die AGB.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="accordion">
+        <div class="accordion-header"><span data-i18n="c_manage_title">Meine Aufträge verwalten</span> <i class="fa-solid fa-chevron-down"></i></div>
+        <div class="accordion-content">
+          <p data-i18n="c_manage_p1">Im Kundenkonto finden Sie eine Liste all Ihrer vergangenen und zukünftigen Aufträge.</p>
+          <p data-i18n="c_manage_p2"><strong>Detailansicht:</strong> Klicken Sie auf einen Auftrag, um diesen aufzuklappen.</p>
+          <h4 data-i18n="c_manage_h4">Status-Bedeutungen:</h4>
+          <ul>
+            <li data-i18n="c_manage_st1"><strong>Ausstehend:</strong> Buchung eingegangen, wartet auf Bestätigung.</li>
+            <li data-i18n="c_manage_st2"><strong>Bestätigt:</strong> Termin fixiert, Fotograf ist zugewiesen.</li>
+            <li data-i18n="c_manage_st3"><strong>Pausiert:</strong> Auftrag temporär gestoppt (z.B. wegen schlechtem Wetter). Wir melden uns für einen neuen Termin.</li>
+            <li data-i18n="c_manage_st4"><strong>Erledigt:</strong> Shooting abgeschlossen, Daten in Postproduktion.</li>
+            <li data-i18n="c_manage_st5"><strong>Abgeschlossen:</strong> Projekt beendet, finale Daten übergeben.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="accordion">
+        <div class="accordion-header"><span data-i18n="c_cancel_title">Termine verschieben oder stornieren</span> <i class="fa-solid fa-chevron-down"></i></div>
+        <div class="accordion-content">
+          <p data-i18n="c_cancel_p1"><strong>Stornieren:</strong> Öffnen Sie den Auftrag und klicken Sie auf 'Stornieren'. Bitte beachten Sie mögliche Gebühren gemäss AGB.</p>
+          <p data-i18n="c_cancel_p2"><strong>Verschieben:</strong> Nutzen Sie die Nachrichtenfunktion im Auftrag oder rufen Sie uns direkt an.</p>
+        </div>
+      </div>
+
+      <div class="accordion">
+        <div class="accordion-header"><span data-i18n="c_comm_title">Kommunikation & Daten hochladen</span> <i class="fa-solid fa-chevron-down"></i></div>
+        <div class="accordion-content">
+          <p data-i18n="c_comm_p1"><strong>Nachrichten senden:</strong> Bei jedem Auftrag finden Sie ein Feld 'Nachricht senden' für wichtige Infos an den Fotografen (z.B. 'Schlüssel unter der Fussmatte').</p>
+          <p data-i18n="c_comm_p2"><strong>Daten hochladen:</strong> Oben im Kundenkonto finden Sie den Button <strong>'Daten hochladen'</strong>. Nutzen Sie diesen, um Referenzbilder oder alte Grundrisse sicher an uns zu übermitteln.</p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- MITARBEITER TAB -->
+    <div id="mitarbeiter" class="tab-content">
+      
+      <div class="accordion">
+        <div class="accordion-header"><span data-i18n="m_login_title">Systemzugang & Login</span> <i class="fa-solid fa-chevron-down"></i></div>
+        <div class="accordion-content">
+          <p data-i18n="m_login_p1"><strong>Login:</strong> Öffnen Sie <code>admin-booking.propus.ch</code>. Nutzen Sie Ihre Mitarbeiter-Zugangsdaten.</p>
+          <p data-i18n="m_login_p2">Das System erkennt Ihre Rolle automatisch und blendet Admin-Funktionen aus.</p>
+        </div>
+      </div>
+
+      <div class="accordion">
+        <div class="accordion-header"><span data-i18n="m_dash_title">Auftragsübersicht & Kalender</span> <i class="fa-solid fa-chevron-down"></i></div>
+        <div class="accordion-content">
+          <p data-i18n="m_dash_p1"><strong>Auftragsliste:</strong> Eine tabellarische Übersicht aller Ihnen zugewiesenen Aufträge. Sie können diese nach Datum oder Status sortieren.</p>
+          <p data-i18n="m_dash_p2"><strong>Kalender:</strong> Übersicht über geplante Shootings. Bei jeder neuen Buchung erhalten Sie eine E-Mail mit einer ICS-Datei. Diese enthält auch einen Direktlink, um den Auftrag im System sofort zu öffnen.</p>
+        </div>
+      </div>
+
+      <div class="accordion">
+        <div class="accordion-header"><span data-i18n="m_status_title">Auftrag abwickeln & Status</span> <i class="fa-solid fa-chevron-down"></i></div>
+        <div class="accordion-content">
+          <p data-i18n="m_status_p1">Klicken Sie auf das 'Auge'-Symbol, um Details wie Adresse, Paket und Kontakt vor Ort einzusehen.</p>
+          <ul>
+            <li data-i18n="m_status_li1">Setzen Sie den Status auf <strong>'Bestätigt'</strong>, wenn Sie den Termin geprüft haben.</li>
+            <li data-i18n="m_status_li2">Setzen Sie den Status auf <strong>'Pausiert'</strong>, falls das Shooting nicht stattfinden kann (z.B. Wetter).</li>
+            <li data-i18n="m_status_li3">Setzen Sie den Status auf <strong>'Erledigt'</strong> nach erfolgreichem Shooting.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="accordion">
+        <div class="accordion-header"><span data-i18n="m_upload_title">Material Upload (Rohdaten)</span> <i class="fa-solid fa-chevron-down"></i></div>
+        <div class="accordion-content">
+          <p data-i18n="m_upload_p1">Der Upload erfolgt direkt im Buchungssystem:</p>
+          <ol>
+            <li data-i18n="m_upload_li1">Klicken Sie in der Liste beim Auftrag auf das <strong>Upload-Symbol</strong>.</li>
+            <li data-i18n="m_upload_li2">Wählen Sie den Ziel-Ordner (z.B. 'Unbearbeitete / Bilder').</li>
+            <li data-i18n="m_upload_li3">Ziehen Sie Ihre Dateien per Drag & Drop in das Feld. Erlaubt sind gängige RAW-Formate, Bilder, Videos und PDFs je nach Ordner.</li>
+            <li data-i18n="m_upload_li4">Das System erstellt automatisch die korrekte Ordnerstruktur auf dem Server und prüft auf Duplikate.</li>
+            <li data-i18n="m_upload_li5">Sollten Sie Dateien nachliefern, wählen Sie im Modus 'Nachlieferung in bestehenden Ordner'.</li>
+          </ol>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ADMIN TAB -->
+    <div id="admin" class="tab-content">
+      
+      <div class="accordion">
+        <div class="accordion-header"><span data-i18n="a_dash_title">Dashboard & Auftragsverwaltung</span> <i class="fa-solid fa-chevron-down"></i></div>
+        <div class="accordion-content">
+          <p data-i18n="a_dash_p1">Als Administrator haben Sie Zugriff auf alle Aufträge über <code>admin.html</code>.</p>
+          <ul>
+            <li data-i18n="a_dash_li1"><strong>Details/Bearbeiten:</strong> Termine, Fotografen oder Preise manuell anpassen.</li>
+            <li data-i18n="a_dash_li2"><strong>Drucken:</strong> Erstellen Sie eine druckfreundliche PDF. Diese enthält einen QR-Code für den schnellen digitalen Zugriff.</li>
+            <li data-i18n="a_dash_li3"><strong>Bestätigungs-Email:</strong> Bei Bedarf kann die Kunden-Bestätigung per Klick erneut gesendet werden.</li>
+            <li data-i18n="a_dash_li4"><strong>Upload:</strong> Sie können Material hochladen, Ordner leeren oder Unterordner erstellen.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="accordion">
+        <div class="accordion-header"><span data-i18n="a_manual_title">Manuelle Buchungen & Kundenverwaltung</span> <i class="fa-solid fa-chevron-down"></i></div>
+        <div class="accordion-content">
+          <p data-i18n="a_manual_p1"><strong>Neue Bestellung:</strong> Gehen Sie in den Tab 'Kunden' und klicken Sie auf das Plus-Symbol bei einem Kunden. Die Rechnungsadresse wird automatisch übernommen.</p>
+          <p data-i18n="a_manual_p2"><strong>Kundenprofil:</strong> Verwalten Sie Firmennamen, E-Mails und Adressen der Kunden zentral.</p>
+          <p data-i18n="a_manual_p3"><strong>Kundenkontakte:</strong> Jedem Kunden können mehrere Ansprechpartner (Kontakte) zugeordnet werden. Öffnen Sie den Kunden und scrollen Sie zum Abschnitt 'Kontakte', um Kontakte hinzuzufügen, zu bearbeiten oder zu verknüpfen.</p>
+          <p data-i18n="a_manual_p4"><strong>Als Kunde anzeigen:</strong> Mit dem Button 'Als Kunde anzeigen' in der Kundenliste öffnen Sie das Kundenportal direkt in der Ansicht dieses Kunden – nützlich zur Prüfung oder Unterstützung.</p>
+        </div>
+      </div>
+
+      <div class="accordion">
+        <div class="accordion-header"><span data-i18n="a_emp_title">Mitarbeiter & Aktivitätsprotokoll</span> <i class="fa-solid fa-chevron-down"></i></div>
+        <div class="accordion-content">
+          <ul>
+            <li data-i18n="a_emp_li1"><strong>Mitarbeiter anlegen:</strong> Definieren Sie Skills, Einzugsgebiete und Sprachen, welche für das automatische Matching wichtig sind.</li>
+            <li data-i18n="a_emp_li2"><strong>Aktivitätsprotokoll:</strong> Rechts oben finden Sie das Log. Es zeichnet auf, wer wann welche Aktion (Uploads, Statuswechsel etc.) durchgeführt hat (inkl. CSV-Export).</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="accordion">
+        <div class="accordion-header"><span data-i18n="a_nas_title">Uploads & NAS Struktur</span> <i class="fa-solid fa-chevron-down"></i></div>
+        <div class="accordion-content">
+          <ul>
+            <li data-i18n="a_nas_li1">Hauptpfad: <code>/volume1/PROPUS DRIVE/UPLOAD/BOOKING_UPLOAD</code>.</li>
+            <li data-i18n="a_nas_li2">Das System prüft auf Duplikate beim Hochladen.</li>
+            <li data-i18n="a_nas_li3">Sie können als Admin ganze Ordner (z.B. 'Zur Auswahl') leeren, bevor Sie neues Material bereitstellen.</li>
+            <li data-i18n="a_nas_li4">Externe Kunden-Uploads über die Webseite landen in <code>TOOL_UPLOAD</code>.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="accordion">
+        <div class="accordion-header"><span data-i18n="a_status_title">Status 'Pausiert'</span> <i class="fa-solid fa-chevron-down"></i></div>
+        <div class="accordion-content">
+          <p data-i18n="a_status_p1">Nutzen Sie <strong>'Pausiert'</strong> (Orange) wenn ein Termin verschoben werden muss (Wetter, Baustelle). Die Aufträge bleiben so in der Liste präsent, blockieren aber keine Kapazitäten falsch.</p>
+        </div>
+      </div>
+
+    </div>
+
+    <div style="text-align: center;">
+        <a href="index.html" class="back-btn"><i class="fa-solid fa-arrow-left"></i> <span data-i18n="back_home">Zurück zur Startseite</span></a>
+    </div>
+
+  </div>
+
+  <script>
+    const I18N = {
+      de: {
+        title: "Handbuch & Anleitung",
+        tab_kunden: "Für Kunden",
+        tab_mitarbeiter: "Für Mitarbeiter",
+        tab_admin: "Für Administratoren",
+        back_home: "Zurück zur Startseite",
+
+        // Customers
+        c_login_title: "Login & Zugang",
+        c_login_p1: "<strong>Anmeldung:</strong> Klicken Sie oben rechts auf den Button 'Konto', um das Kundenportal zu öffnen. Geben Sie Ihre registrierte E-Mail-Adresse und Ihr Passwort ein.",
+        c_login_p2: "<strong>Registrierung:</strong> Falls Sie noch kein Konto haben, können Sie sich im Reiter 'Neu registrieren' im selben Fenster anmelden.",
+        c_login_p3: "<strong>Passwort vergessen:</strong> Nutzen Sie den Link im Login-Fenster. Sie erhalten eine E-Mail zum Zurücksetzen.",
+        c_login_p4: "<strong>Sitzung:</strong> Nach dem Login bleiben Sie auf Ihrem Gerät für 30 Tage angemeldet.",
+        
+        c_book_title: "Neue Buchung erstellen",
+        c_book_p1: "Der Buchungsprozess ist in 4 einfache Schritte unterteilt:",
+        c_book_li1: "<strong>Schritt 1 (Standort):</strong> Geben Sie die Adresse der Immobilie sowie Details wie Wohnfläche (m²) und Etagen/Ebenen ein. Diese sind wichtig für die Preisberechnung.",
+        c_book_li2: "<strong>Schritt 2 (Dienstleistungen):</strong> Wählen Sie das gewünschte Paket (z.B. Basic, Premium, The Full View) und fügen Sie nach Bedarf Add-ons wie Drohnenaufnahmen oder Grundrisse hinzu.",
+        c_book_li3: "<strong>Schritt 3 (Fotograf & Termin):</strong> Wählen Sie einen bevorzugten Fotografen oder lassen Sie das System den bestmöglichen zuweisen. Anschliessend können Sie im Kalender einen passenden, verfügbaren Termin auswählen.",
+        c_book_li4: "<strong>Schritt 4 (Rechnung):</strong> Überprüfen Sie Ihre Rechnungsadresse (diese wird aus Ihrem Profil vorausgefüllt) und den Kontakt vor Ort für den Fotografen. Bestätigen Sie abschliessend die AGB.",
+        
+        c_manage_title: "Meine Aufträge verwalten",
+        c_manage_p1: "Im Kundenkonto finden Sie eine Liste all Ihrer vergangenen und zukünftigen Aufträge.",
+        c_manage_p2: "<strong>Detailansicht:</strong> Klicken Sie auf einen Auftrag, um diesen aufzuklappen.",
+        c_manage_h4: "Status-Bedeutungen:",
+        c_manage_st1: "<strong>Ausstehend:</strong> Buchung eingegangen, wartet auf Bestätigung.",
+        c_manage_st2: "<strong>Bestätigt:</strong> Termin fixiert, Fotograf ist zugewiesen.",
+        c_manage_st3: "<strong>Pausiert:</strong> Auftrag temporär gestoppt (z.B. wegen schlechtem Wetter). Wir melden uns für einen neuen Termin.",
+        c_manage_st4: "<strong>Erledigt:</strong> Shooting abgeschlossen, Daten in Postproduktion.",
+        c_manage_st5: "<strong>Abgeschlossen:</strong> Projekt beendet, finale Daten übergeben.",
+        
+        c_cancel_title: "Termine verschieben oder stornieren",
+        c_cancel_p1: "<strong>Stornieren:</strong> Öffnen Sie den Auftrag und klicken Sie auf 'Stornieren'. Bitte beachten Sie mögliche Gebühren gemäss AGB.",
+        c_cancel_p2: "<strong>Verschieben:</strong> Nutzen Sie die Nachrichtenfunktion im Auftrag oder rufen Sie uns direkt an.",
+        
+        c_comm_title: "Kommunikation & Daten hochladen",
+        c_comm_p1: "<strong>Nachrichten senden:</strong> Bei jedem Auftrag finden Sie ein Feld 'Nachricht senden' für wichtige Infos an den Fotografen (z.B. 'Schlüssel unter der Fussmatte').",
+        c_comm_p2: "<strong>Daten hochladen:</strong> Oben im Kundenkonto finden Sie den Button <strong>'Daten hochladen'</strong>. Nutzen Sie diesen, um Referenzbilder oder alte Grundrisse sicher an uns zu übermitteln.",
+
+        // Employees
+        m_login_title: "Systemzugang & Login",
+        m_login_p1: "<strong>Login:</strong> Öffnen Sie <code>admin-booking.propus.ch</code>. Nutzen Sie Ihre Mitarbeiter-Zugangsdaten.",
+        m_login_p2: "Das System erkennt Ihre Rolle als Fotograf automatisch und blendet alle irrelevanten Admin-Funktionen aus.",
+        
+        m_dash_title: "Auftragsübersicht & Kalender",
+        m_dash_p1: "<strong>Auftragsliste:</strong> Eine tabellarische Übersicht aller Ihnen zugewiesenen Aufträge. Sie können diese nach Datum oder Status sortieren.",
+        m_dash_p2: "<strong>Kalender:</strong> Übersicht über geplante Shootings. Bei jeder neuen Buchung erhalten Sie eine E-Mail mit einer ICS-Datei. Diese enthält auch einen Direktlink, um den Auftrag im System sofort zu öffnen.",
+        
+        m_status_title: "Auftrag abwickeln & Status",
+        m_status_p1: "Klicken Sie auf das 'Auge'-Symbol, um Details wie Adresse, Paket und Kontakt vor Ort einzusehen.",
+        m_status_li1: "Setzen Sie den Status auf <strong>'Bestätigt'</strong>, wenn Sie den Termin geprüft haben.",
+        m_status_li2: "Setzen Sie den Status auf <strong>'Pausiert'</strong>, falls das Shooting nicht stattfinden kann (z.B. schlechtes Wetter).",
+        m_status_li3: "Setzen Sie den Status auf <strong>'Erledigt'</strong> nach erfolgreichem Shooting.",
+        
+        m_upload_title: "Material Upload (Rohdaten)",
+        m_upload_p1: "Der Upload von Rohdaten und finalem Material erfolgt direkt über das Buchungssystem:",
+        m_upload_li1: "Klicken Sie in der Liste beim Auftrag auf das <strong>Upload-Symbol</strong> (Pfeil nach oben).",
+        m_upload_li2: "Wählen Sie den gewünschten Ziel-Ordner aus (z.B. 'Unbearbeitete / Bilder').",
+        m_upload_li3: "Ziehen Sie Ihre Dateien per Drag & Drop in das Feld. Erlaubt sind gängige RAW-Formate, Bilder, Videos und PDFs je nach Ordner.",
+        m_upload_li4: "Das System erstellt automatisch die korrekte Ordnerstruktur (PLZ, Ort, Strasse, Buchungs-Nr.) auf dem Server und filtert Duplikate heraus.",
+        m_upload_li5: "Sollten Sie Dateien nachliefern, wählen Sie im Modus 'Nachlieferung in bestehenden Ordner'.",
+
+        // Admin
+        a_dash_title: "Dashboard & Auftragsverwaltung",
+        a_dash_p1: "Als Administrator haben Sie vollen Zugriff auf alle Aufträge im System über <code>admin.html</code>.",
+        a_dash_li1: "<strong>Details einsehen/bearbeiten:</strong> Passen Sie Termine, zugewiesene Fotografen oder den Status manuell an.",
+        a_dash_li2: "<strong>Drucken:</strong> Erstellen Sie eine druckfreundliche PDF-Version des Auftrags. Diese enthält neuerdings einen QR-Code für Mitarbeiter.",
+        a_dash_li3: "<strong>E-Mails erneut senden:</strong> Falls ein Kunde keine Bestätigung erhalten hat, können Sie diese im Auftrag nochmals auslösen.",
+        a_dash_li4: "<strong>Upload:</strong> Über das Upload-Symbol können Sie Kundenmaterial empfangen oder finale Daten in die Ordner hochladen.",
+        
+        a_manual_title: "Manuelle Buchungen & Kundenverwaltung",
+        a_manual_p1: "<strong>Neue Bestellung:</strong> Gehen Sie in den Tab 'Kunden', suchen Sie den Kunden und klicken Sie auf das Plus-Symbol. Die Rechnungsadresse wird automatisch übernommen.",
+        a_manual_p2: "<strong>Kundenprofil:</strong> Verwalten Sie Firmennamen, E-Mails und Adressen der Kunden zentral an einem Ort.",
+        a_manual_p3: "<strong>Kundenkontakte:</strong> Jedem Kunden können mehrere Ansprechpartner zugeordnet werden. Im Kunden-Modal finden Sie den Bereich 'Kontakte' zum Hinzufügen, Bearbeiten oder Verknüpfen bestehender Kontakte.",
+        a_manual_p4: "<strong>Als Kunde anzeigen:</strong> Mit dem Button 'Als Kunde anzeigen' in der Kundenliste öffnen Sie das Kundenportal direkt in der Ansicht dieses Kunden – ideal zur Überprüfung oder telefonischen Unterstützung.",
+        
+        a_emp_title: "Mitarbeiter-Verwaltung & Aktivitätsprotokoll",
+        a_emp_li1: "<strong>Mitarbeiter anlegen:</strong> Definieren Sie Skills, Einsatzgebiet und Sprachen, welche für das automatische Matching wichtig sind.",
+        a_emp_li2: "<strong>Aktivitätsprotokoll (Log):</strong> Rechts oben in der Mitarbeiter-Ansicht finden Sie das Log. Es zeichnet auf, wer wann welche Aktion durchgeführt hat (inkl. CSV-Export).",
+        
+        a_nas_title: "Uploads & Ordnerverwaltung (NAS)",
+        a_nas_li1: "Hauptpfad auf der NAS: <code>/volume1/PROPUS DRIVE/UPLOAD/BOOKING_UPLOAD</code>.",
+        a_nas_li2: "Das System prüft Dateien über Hash-Werte auf Duplikate, um Speicherplatz zu sparen.",
+        a_nas_li3: "Sie können als Admin im Upload-Modal einzelne Unterordner (z.B. 'Zur Auswahl') komplett leeren.",
+        a_nas_li4: "Externe Kunden-Uploads über den separaten Upload-Button landen in <code>/volume1/PROPUS DRIVE/UPLOAD/TOOL_UPLOAD</code>.",
+        
+        a_status_title: "Status 'Pausiert'",
+        a_status_p1: "Der Status <strong>'Pausiert'</strong> (Orange) wird verwendet, wenn ein Auftrag momentan nicht durchgeführt werden kann, aber noch nicht storniert ist. Pausierte Aufträge können über Filter leicht gefunden werden."
+      },
+      en: {
+        title: "User Manual & Guide",
+        tab_kunden: "For Customers",
+        tab_mitarbeiter: "For Employees",
+        tab_admin: "For Administrators",
+        back_home: "Back to Home",
+
+        // Customers
+        c_login_title: "Login & Access",
+        c_login_p1: "<strong>Login:</strong> Click on 'Account' in the top right corner to open the customer portal. Enter your registered email address and password.",
+        c_login_p2: "<strong>Registration:</strong> If you don't have an account yet, switch to the 'Register' tab in the same window.",
+        c_login_p3: "<strong>Forgot Password:</strong> Use the link in the login window to receive a password reset email.",
+        c_login_p4: "<strong>Session:</strong> After logging in, you will stay logged in on your device for 30 days.",
+        
+        c_book_title: "Create a New Booking",
+        c_book_p1: "The booking process is divided into 4 simple steps:",
+        c_book_li1: "<strong>Step 1 (Location):</strong> Enter the property address, area (m²), and floors/levels. These are important for price calculation.",
+        c_book_li2: "<strong>Step 2 (Services):</strong> Select your package (e.g., Basic, Premium, The Full View) and add-ons.",
+        c_book_li3: "<strong>Step 3 (Photographer & Date):</strong> Pick a preferred photographer or let the system assign the best one. Choose an available date in the calendar.",
+        c_book_li4: "<strong>Step 4 (Billing):</strong> Check your billing address (pre-filled from your profile) and the on-site contact. Confirm the terms and conditions.",
+        
+        c_manage_title: "Manage My Orders",
+        c_manage_p1: "In your account, you will find a list of all your past and future orders.",
+        c_manage_p2: "<strong>Details:</strong> Click on an order to expand and view it.",
+        c_manage_h4: "Status Meanings:",
+        c_manage_st1: "<strong>Pending:</strong> Booking received, waiting for confirmation.",
+        c_manage_st2: "<strong>Confirmed:</strong> Date is fixed, photographer is assigned.",
+        c_manage_st3: "<strong>Paused:</strong> Order temporarily stopped (e.g., due to bad weather). We will contact you for a new date.",
+        c_manage_st4: "<strong>Done:</strong> Shooting is completed, data is in post-production.",
+        c_manage_st5: "<strong>Completed:</strong> Project finished, final data delivered.",
+        
+        c_cancel_title: "Reschedule or Cancel",
+        c_cancel_p1: "<strong>Cancel:</strong> Open the order and click 'Cancel'. Please note our cancellation policy and potential fees.",
+        c_cancel_p2: "<strong>Reschedule:</strong> Use the messaging feature in the order or call us directly.",
+        
+        c_comm_title: "Communication & Data Upload",
+        c_comm_p1: "<strong>Messages:</strong> Use the 'Send Message' field to give the photographer important instructions (e.g., 'Key is under the doormat').",
+        c_comm_p2: "<strong>Upload Data:</strong> Click the <strong>'Upload Data'</strong> button at the top of your account to send us reference images or floor plans securely.",
+
+        // Employees
+        m_login_title: "System Access & Login",
+        m_login_p1: "<strong>Login:</strong> Open <code>admin-booking.propus.ch</code> and use your employee credentials.",
+        m_login_p2: "The system automatically recognizes your role as a photographer and hides all irrelevant admin features.",
+        
+        m_dash_title: "Order Overview & Calendar",
+        m_dash_p1: "<strong>Order List:</strong> A table of all your assigned orders. You can sort them by date or status.",
+        m_dash_p2: "<strong>Calendar:</strong> Overview of scheduled shoots. You will receive an ICS file via email for each new booking containing a direct link to open the order immediately.",
+        
+        m_status_title: "Handling Orders & Status",
+        m_status_p1: "Click the 'Eye' icon to see details like address, package, and contact person.",
+        m_status_li1: "Set the status to <strong>'Confirmed'</strong> once you have checked the appointment.",
+        m_status_li2: "Set the status to <strong>'Paused'</strong> if the shoot cannot take place (e.g., bad weather).",
+        m_status_li3: "Set the status to <strong>'Done'</strong> after a successful shoot.",
+        
+        m_upload_title: "Material Upload (Raw Data)",
+        m_upload_p1: "Upload directly in the booking system:",
+        m_upload_li1: "Click the <strong>Upload icon</strong> (arrow pointing up) next to the order in the list.",
+        m_upload_li2: "Select the target folder (e.g., 'Unbearbeitete / Bilder').",
+        m_upload_li3: "Drag & drop your files. Supported formats include RAW, images, videos, and PDFs depending on the folder.",
+        m_upload_li4: "The system automatically creates the correct folder structure on the server and checks for duplicate files.",
+        m_upload_li5: "If you need to upload additional files later, select 'Nachlieferung' (Late delivery).",
+
+        // Admin
+        a_dash_title: "Dashboard & Order Management",
+        a_dash_p1: "As an administrator, you have full access via <code>admin.html</code>.",
+        a_dash_li1: "<strong>Edit:</strong> Manually adjust dates, photographers, or prices.",
+        a_dash_li2: "<strong>Print:</strong> Create a print-friendly PDF with a QR code for quick digital access by employees.",
+        a_dash_li3: "<strong>Resend Email:</strong> Resend customer confirmation emails with a single click if needed.",
+        a_dash_li4: "<strong>Upload:</strong> Upload material, clear folders, or create new subfolders.",
+        
+        a_manual_title: "Manual Bookings & Customer Management",
+        a_manual_p1: "<strong>New Order:</strong> Go to the 'Customers' tab and click the plus icon for a specific customer. The billing address will be pre-filled automatically.",
+        a_manual_p2: "<strong>Customer Profile:</strong> Manage company names, emails, and addresses centrally.",
+        a_manual_p3: "<strong>Customer Contacts:</strong> Multiple contact persons can be assigned to each customer. Open the customer record and scroll to the 'Contacts' section to add, edit, or link existing contacts.",
+        a_manual_p4: "<strong>View as Customer:</strong> Use the 'View as Customer' button in the customer list to open the booking portal directly in that customer's view – useful for checking or providing phone support.",
+        
+        a_emp_title: "Employees & Activity Log",
+        a_emp_li1: "<strong>Manage Employees:</strong> Define skills, areas of operation, and languages for automatic customer matching.",
+        a_emp_li2: "<strong>Activity Log:</strong> Find the log in the top right corner. It records who did what and when (including CSV export functionality).",
+        
+        a_nas_title: "Uploads & NAS Structure",
+        a_nas_li1: "Main path: <code>/volume1/PROPUS DRIVE/UPLOAD/BOOKING_UPLOAD</code>.",
+        a_nas_li2: "The system uses hash values to check for duplicate files and save storage space.",
+        a_nas_li3: "Admins can clear entire subfolders (e.g., 'Zur Auswahl') before uploading new material.",
+        a_nas_li4: "External customer uploads go to <code>/volume1/PROPUS DRIVE/UPLOAD/TOOL_UPLOAD</code>.",
+        
+        a_status_title: "Status 'Paused'",
+        a_status_p1: "Use <strong>'Paused'</strong> (Orange) when an appointment must be postponed due to weather or other reasons. The order stays visible but doesn't block capacities incorrectly."
+      },
+      sr: {
+        title: "Korisničko uputstvo",
+        tab_kunden: "Za Klijente",
+        tab_mitarbeiter: "Za Zaposlene",
+        tab_admin: "Za Administratore",
+        back_home: "Nazad na početnu",
+
+        // Customers
+        c_login_title: "Prijava i Pristup",
+        c_login_p1: "<strong>Prijava:</strong> Kliknite na 'Nalog' u gornjem desnom uglu. Unesite vaš email i lozinku.",
+        c_login_p2: "<strong>Registracija:</strong> Ako nemate nalog, prebacite se na karticu 'Registracija' u istom prozoru.",
+        c_login_p3: "<strong>Zaboravljena lozinka:</strong> Koristite link u prozoru za prijavu da dobijete email za resetovanje.",
+        c_login_p4: "<strong>Sesija:</strong> Ostaćete prijavljeni 30 dana na vašem uređaju.",
+        
+        c_book_title: "Kreiranje nove rezervacije",
+        c_book_p1: "Proces rezervacije ima 4 jednostavna koraka:",
+        c_book_li1: "<strong>Korak 1 (Lokacija):</strong> Unesite adresu nekretnine, površinu (m²) i spratove/nivoe. Ovo je bitno za cenu.",
+        c_book_li2: "<strong>Korak 2 (Usluge):</strong> Izaberite paket (npr. Basic, Premium, The Full View) i dodatne opcije.",
+        c_book_li3: "<strong>Korak 3 (Fotograf i Datum):</strong> Izaberite željenog fotografa ili prepustite sistemu da dodeli najboljeg. Izaberite slobodan datum u kalendaru.",
+        c_book_li4: "<strong>Korak 4 (Račun):</strong> Proverite adresu za račun (unapred popunjena iz vašeg profila) i kontakt na lokaciji. Potvrdite uslove.",
+        
+        c_manage_title: "Upravljanje mojim narudžbinama",
+        c_manage_p1: "U vašem nalogu ćete naći listu svih vaših prošlih i budućih narudžbina.",
+        c_manage_p2: "<strong>Detalji:</strong> Kliknite na narudžbinu da je proširite.",
+        c_manage_h4: "Značenje statusa:",
+        c_manage_st1: "<strong>Na čekanju:</strong> Rezervacija primljena, čeka se potvrda.",
+        c_manage_st2: "<strong>Potvrđeno:</strong> Datum je fiksiran, fotograf je dodeljen.",
+        c_manage_st3: "<strong>Pauzirano:</strong> Narudžbina je privremeno zaustavljena (npr. zbog lošeg vremena). Javićemo se za novi termin.",
+        c_manage_st4: "<strong>Završeno:</strong> Slikanje je završeno, podaci su u postprodukciji.",
+        c_manage_st5: "<strong>Zaključeno:</strong> Projekat je gotov, finalni podaci su predati.",
+        
+        c_cancel_title: "Pomeranje ili Otkazivanje",
+        c_cancel_p1: "<strong>Otkazivanje:</strong> Otvorite narudžbinu i kliknite 'Otkaži'. Imajte na umu uslove otkazivanja.",
+        c_cancel_p2: "<strong>Pomeranje:</strong> Koristite funkciju za poruke u narudžbini ili nas pozovite telefonom.",
+        
+        c_comm_title: "Komunikacija i Slanje podataka",
+        c_comm_p1: "<strong>Poruke:</strong> Koristite polje 'Pošalji poruku' za važne instrukcije fotografu (npr. 'Ključ je ispod otirača').",
+        c_comm_p2: "<strong>Slanje podataka:</strong> Kliknite na dugme <strong>'Otpremi podatke'</strong> na vrhu da nam pošaljete referentne slike ili nacrte bezbedno.",
+
+        // Employees
+        m_login_title: "Pristup sistemu i Prijava",
+        m_login_p1: "<strong>Prijava:</strong> Otvorite <code>admin-booking.propus.ch</code> i koristite vaše podatke za prijavu.",
+        m_login_p2: "Sistem prepoznaje vašu ulogu fotografa i automatski skriva administratorske opcije.",
+        
+        m_dash_title: "Pregled narudžbina i Kalendar",
+        m_dash_p1: "<strong>Lista narudžbina:</strong> Tabela svih vama dodeljenih narudžbina. Možete ih sortirati po datumu ili statusu.",
+        m_dash_p2: "<strong>Kalendar:</strong> Pregled zakazanih slikanja. Dobićete ICS fajl putem emaila za svaku novu rezervaciju sa direktnim linkom ka narudžbini.",
+        
+        m_status_title: "Obrada narudžbina i Status",
+        m_status_p1: "Kliknite na ikonu 'Oko' da vidite detalje poput adrese, paketa i kontakta na lokaciji.",
+        m_status_li1: "Postavite status na <strong>'Potvrđeno'</strong> kada proverite termin.",
+        m_status_li2: "Postavite status na <strong>'Pauzirano'</strong> ako slikanje ne može da se održi (npr. vreme).",
+        m_status_li3: "Postavite status na <strong>'Završeno'</strong> nakon uspešnog slikanja.",
+        
+        m_upload_title: "Slanje materijala (Raw podaci)",
+        m_upload_p1: "Slanje materijala se vrši direktno u sistemu:",
+        m_upload_li1: "Kliknite na <strong>ikonu za slanje</strong> (strelica na gore) pored narudžbine u listi.",
+        m_upload_li2: "Izaberite ciljni folder (npr. 'Unbearbeitete / Bilder').",
+        m_upload_li3: "Prevucite fajlove. Podržani su RAW formati, slike, videi i PDF-ovi zavisno od foldera.",
+        m_upload_li4: "Sistem automatski kreira ispravnu strukturu foldera na serveru i proverava duplikate.",
+        m_upload_li5: "Za naknadno dodavanje fajlova izaberite opciju 'Nachlieferung'.",
+
+        // Admin
+        a_dash_title: "Kontrolna tabla i Upravljanje",
+        a_dash_p1: "Kao administrator imate pun pristup svim funkcijama preko <code>admin.html</code>.",
+        a_dash_li1: "<strong>Izmena:</strong> Ručno prilagodite datume, fotografe ili cene.",
+        a_dash_li2: "<strong>Štampanje:</strong> Kreirajte PDF za štampu sa QR kodom za brzi digitalni pristup zaposlenima.",
+        a_dash_li3: "<strong>Ponovno slanje Emaila:</strong> Ponovo pošaljite potvrde klijentima jednim klikom ako je potrebno.",
+        a_dash_li4: "<strong>Slanje materijala:</strong> Šaljite materijal, praznite foldere ili kreirajte podfoldere.",
+        
+        a_manual_title: "Ručne rezervacije i Upravljanje klijentima",
+        a_manual_p1: "<strong>Nova narudžbina:</strong> Idite na karticu 'Klijenti' i kliknite na plus ikonu. Adresa za račun će biti unapred popunjena iz profila.",
+        a_manual_p2: "<strong>Profil klijenta:</strong> Centralizovano upravljanje podacima, imenima firmi i adresama klijenata.",
+        a_manual_p3: "<strong>Kontakti klijenta:</strong> Svakom klijentu mogu biti dodeljene više kontakt osoba. Otvorite klijenta i pronađite odeljak 'Kontakti' za dodavanje, uređivanje ili povezivanje postojećih kontakata.",
+        a_manual_p4: "<strong>Prikaz kao klijent:</strong> Dugme 'Prikaži kao klijent' u listi klijenata otvara portal direktno u prikazu tog klijenta – korisno za proveru ili telefonsku podršku.",
+        
+        a_emp_title: "Zaposleni i Dnevnik aktivnosti",
+        a_emp_li1: "<strong>Upravljanje zaposlenima:</strong> Definišite veštine, područja rada i jezike za automatsko uparivanje sa zahtevima klijenata.",
+        a_emp_li2: "<strong>Dnevnik aktivnosti (Log):</strong> Pronađite dnevnik u gornjem desnom uglu. Beleži ko je šta i kada uradio (uz opciju CSV izvoza).",
+        
+        a_nas_title: "Uploads i NAS Struktura",
+        a_nas_li1: "Glavna putanja: <code>/volume1/PROPUS DRIVE/UPLOAD/BOOKING_UPLOAD</code>.",
+        a_nas_li2: "Sistem proverava hash vrednosti fajlova kako bi sprečio duplikate i uštedeo prostor.",
+        a_nas_li3: "Administratori mogu da isprazne čitave podfoldere (npr. 'Zur Auswahl').",
+        a_nas_li4: "Spoljašnji materijali klijenata preko posebnog dugmeta idu u <code>TOOL_UPLOAD</code>.",
+        
+        a_status_title: "Status 'Pauzirano'",
+        a_status_p1: "Koristite status <strong>'Pauzirano'</strong> (Narandžasta) kada termin mora biti odložen. Narudžbina ostaje vidljiva ali ne blokira netačno kapacitete fotografa."
+      }
+    };
+
+    function applyLang(lang) {
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (I18N[lang] && I18N[lang][key]) {
+          el.innerHTML = I18N[lang][key];
+        }
+      });
+      document.documentElement.lang = lang;
+      localStorage.setItem("anleitung_lang", lang);
+      document.getElementById('langSelect').value = lang;
+    }
+
+    // Tab & Accordion Logik
+    document.addEventListener("DOMContentLoaded", () => {
+      
+      // Sprache initialisieren
+      let savedLang = localStorage.getItem("anleitung_lang");
+      if (!savedLang) {
+        const browserLang = navigator.language.slice(0, 2).toLowerCase();
+        if (browserLang === 'sr' || browserLang === 'hr' || browserLang === 'bs') {
+            savedLang = 'sr';
+        } else if (browserLang === 'en') {
+            savedLang = 'en';
+        } else {
+            savedLang = 'de';
+        }
+      }
+      applyLang(savedLang);
+
+      // Tabs umschalten
+      const tabs = document.querySelectorAll(".tab");
+      const contents = document.querySelectorAll(".tab-content");
+
+      tabs.forEach(tab => {
+        tab.addEventListener("click", () => {
+          // Alle inaktiv setzen
+          tabs.forEach(t => t.classList.remove("active"));
+          contents.forEach(c => c.classList.remove("active"));
+
+          // Geklickten Tab aktiv setzen
+          tab.classList.add("active");
+          const target = tab.getAttribute("data-tab");
+          document.getElementById(target).classList.add("active");
+        });
+      });
+
+      // Accordion auf/zu
+      const accordions = document.querySelectorAll(".accordion-header");
+
+      accordions.forEach(acc => {
+        acc.addEventListener("click", () => {
+          // Toggle active class
+          acc.classList.toggle("active");
+        });
+      });
+
+    });
+  </script>
+</body>
+</html>

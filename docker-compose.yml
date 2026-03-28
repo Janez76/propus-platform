@@ -1,0 +1,147 @@
+services:
+  # ─── Gemeinsame PostgreSQL-Instanz ──────────────────────────────────────────
+  postgres:
+    image: postgres:16
+    ports:
+      - "${PROPUS_PG_PORT:-5435}:5432"    # 5435 = frei auf VPS und lokal
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-propus}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_local}
+      POSTGRES_DB: ${POSTGRES_DB:-propus}
+    volumes:
+      - ./data/pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U propus -d propus"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - propus
+
+  # ─── Logto PostgreSQL (eigene DB) ──────────────────────────────────────────
+  logto-db:
+    image: postgres:16
+    ports:
+      - "${LOGTO_PG_PORT:-5436}:5432"     # 5436 = frei auf VPS und lokal
+    environment:
+      POSTGRES_USER: logto
+      POSTGRES_PASSWORD: logto_secret
+      POSTGRES_DB: ${LOGTO_DB:-logto}
+    volumes:
+      - logto-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U logto -d logto"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - propus
+
+  # ─── Logto Auth Server ─────────────────────────────────────────────────────
+  logto:
+    image: svhd/logto:latest
+    entrypoint: ["sh", "-c", "npm run cli db seed -- --swe && npm run cli db alteration deploy latest && npm start"]
+    ports:
+      - "3301:3001"
+      - "3302:3002"
+    environment:
+      TRUST_PROXY_HEADER: "1"
+      DB_URL: postgres://logto:logto_secret@logto-db:5432/logto
+      ENDPOINT: ${LOGTO_ENDPOINT:-http://localhost:3301}
+      ADMIN_ENDPOINT: ${LOGTO_ADMIN_ENDPOINT:-http://localhost:3302}
+    depends_on:
+      logto-db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - propus
+
+  # ─── Migration Runner ──────────────────────────────────────────────────────
+  migrate:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ./core:/app
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-propus}:${POSTGRES_PASSWORD:-change_me_local}@postgres:5432/${POSTGRES_DB:-propus}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["node", "migrate.js"]
+    networks:
+      - propus
+    profiles:
+      - migrate
+
+  # ─── Buchungstool Backend ──────────────────────────────────────────────────
+  booking:
+    build:
+      context: ./booking
+      dockerfile: Dockerfile
+    ports:
+      - "${BOOKING_PORT:-3100}:3000"
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-propus}:${POSTGRES_PASSWORD:-change_me_local}@postgres:5432/${POSTGRES_DB:-propus}
+      DB_SEARCH_PATH: booking,core,public
+      PORT: "3000"
+      SESSION_SECRET: ${BOOKING_SESSION_SECRET:-booking-session-secret-change-me}
+      LOGTO_ENDPOINT: ${LOGTO_ENDPOINT:-http://localhost:3301}
+      LOGTO_INTERNAL_ENDPOINT: http://logto:3001
+      PROPUS_BOOKING_LOGTO_APP_ID: ${PROPUS_BOOKING_LOGTO_APP_ID:-shm3xfnmsx6snd64w8p9r}
+      PROPUS_BOOKING_LOGTO_APP_SECRET: ${PROPUS_BOOKING_LOGTO_APP_SECRET:-zqEuQMQc2XGivVDBk47F9Se88mO8sIAD}
+      NODE_ENV: development
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - propus
+
+  # ─── Tour Manager ─────────────────────────────────────────────────────────
+  tours:
+    build:
+      context: .
+      dockerfile: ./tours/Dockerfile
+    ports:
+      - "${TOURS_PORT:-3200}:3000"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: ${POSTGRES_USER:-propus}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_local}
+      POSTGRES_DB: ${POSTGRES_DB:-propus}
+      DB_SEARCH_PATH: tour_manager,core,public
+      PORT: "3000"
+      SESSION_SECRET: ${TOURS_SESSION_SECRET:-tours-session-secret-change-me}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@propus.ch}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
+      LOGTO_ENDPOINT: ${LOGTO_ENDPOINT:-http://localhost:3301}
+      LOGTO_INTERNAL_ENDPOINT: http://logto:3001
+      PROPUS_TOURS_ADMIN_LOGTO_APP_ID: ${PROPUS_TOURS_ADMIN_LOGTO_APP_ID:-a7iqwie2bchzb1zmmju10}
+      PROPUS_TOURS_ADMIN_LOGTO_APP_SECRET: ${PROPUS_TOURS_ADMIN_LOGTO_APP_SECRET:-hde9obvRRXGxZ8Jb9vGSo8desOeleepS}
+      PROPUS_TOURS_PORTAL_LOGTO_APP_ID: ${PROPUS_TOURS_PORTAL_LOGTO_APP_ID:-9ypvctvsr7nikzb5ahl01}
+      PROPUS_TOURS_PORTAL_LOGTO_APP_SECRET: ${PROPUS_TOURS_PORTAL_LOGTO_APP_SECRET:-aZW4rt1uxSKJOvoPXMM9mKYaZEGCiQBF}
+      EXXAS_API_TOKEN: ${EXXAS_API_TOKEN:-}
+      EXXAS_BASE_URL: ${EXXAS_BASE_URL:-https://api.exxas.net}
+      MATTERPORT_TOKEN_ID: ${MATTERPORT_TOKEN_ID:-}
+      MATTERPORT_TOKEN_SECRET: ${MATTERPORT_TOKEN_SECRET:-}
+      NODE_ENV: development
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - propus
+
+volumes:
+  logto-pgdata:
+
+networks:
+  propus:
+    driver: bridge

@@ -1,0 +1,113 @@
+# Linux-VPS (z. B. /opt/buchungstool) – kein Synology-Pfad.
+# deploy-prod.ps1 legt diese Datei auf den Server.
+# Start: docker compose -p buchungstool_prod --env-file .env.prod -f docker-compose.prod.yml up -d
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: buchungstool
+      POSTGRES_USER: propus
+      POSTGRES_PASSWORD: ${DB_PASS}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U propus -d buchungstool"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "3005:3001"
+    volumes:
+      - backend_orders:/data
+      - ./backups:/data/backups
+      - .:/opt/buchungstool:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /usr/bin/docker:/usr/bin/docker:ro
+      - "${BOOKING_UPLOAD_STAGING_HOST_PATH:-/opt/buchungstool-upload-staging}:/upload_staging"
+      - "${BOOKING_UPLOAD_CUSTOMER_HOST_PATH:-/mnt/propus-nas-customers}:/booking_upload_customer"
+      - "${BOOKING_UPLOAD_RAW_HOST_PATH:-/mnt/propus-nas-raw}:/booking_upload_raw"
+    environment:
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
+      PORT: "3001"
+      BOOKING_UPLOAD_ROOT: /booking_upload_customer
+      BOOKING_UPLOAD_CUSTOMER_ROOT: /booking_upload_customer
+      BOOKING_UPLOAD_RAW_ROOT: /booking_upload_raw
+      BOOKING_UPLOAD_STAGING_ROOT: /upload_staging
+      BOOKING_UPLOAD_REQUIRE_MOUNT: ${BOOKING_UPLOAD_REQUIRE_MOUNT:-true}
+      ORDERS_FILE: /data/orders.json
+      DATABASE_URL: postgresql://propus:${DB_PASS}@postgres:5432/buchungstool
+      BACKUP_ROOT: /data/backups
+      BACKUP_SCRIPT_PATH: /opt/buchungstool/scripts/backup-container.sh
+      SRC_DIR: /opt/buchungstool
+      BACKUP_RESTORE_TARGET: /opt
+      ADMIN_USER: ${ADMIN_USER:-admin}
+      ADMIN_PASS: ${ADMIN_PASS}
+      MS_GRAPH_TENANT_ID: ${MS_GRAPH_TENANT_ID}
+      MS_GRAPH_CLIENT_ID: ${MS_GRAPH_CLIENT_ID}
+      MS_GRAPH_CLIENT_SECRET: ${MS_GRAPH_CLIENT_SECRET}
+      TIMEZONE: ${TIMEZONE:-Europe/Zurich}
+      WORK_START: ${WORK_START:-08:00}
+      WORK_END: ${WORK_END:-18:00}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_PRETTY: ${LOG_PRETTY:-false}
+      LOG_REDACT: ${LOG_REDACT:-true}
+      LOG_CONSOLE_ENABLED: ${LOG_CONSOLE_ENABLED:-false}
+      LOG_FILE_ENABLED: ${LOG_FILE_ENABLED:-true}
+      LOG_FILE_PATH: ${LOG_FILE_PATH:-/app/logs/backend.log}
+      LOG_RETENTION_DAYS: ${LOG_RETENTION_DAYS:-30}
+      FRONTEND_LOG_RATE_LIMIT_PER_MIN: ${FRONTEND_LOG_RATE_LIMIT_PER_MIN:-120}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      MAIL_FROM: ${MAIL_FROM:-office@propus.ch}
+      OFFICE_EMAIL: ${OFFICE_EMAIL:-office@propus.ch}
+      FRONTEND_URL: ${FRONTEND_URL:-https://booking.propus.ch}
+      ADMIN_PANEL_URL: ${ADMIN_PANEL_URL:-https://admin-booking.propus.ch}
+      SESSION_SECRET: ${SESSION_SECRET}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
+      SESSION_COOKIE_DOMAIN: ${SESSION_COOKIE_DOMAIN:-}
+      EXXAS_API_URL: ${EXXAS_API_URL:-}
+      EXXAS_API_KEY: ${EXXAS_API_KEY:-}
+      EXXAS_WEBHOOK_SECRET: ${EXXAS_WEBHOOK_SECRET:-}
+      TODO_SYNC_API_KEY: ${TODO_SYNC_API_KEY:-}
+      GOOGLE_PLACES_API_KEY: ${GOOGLE_PLACES_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: sh /app/docker-entrypoint-prod.sh
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"require('http').get('http://127.0.0.1:3001/api/health',r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>process.exit(r.statusCode===200&&d.includes('ok')?0:1));}).on('error',()=>process.exit(1))\"",
+        ]
+      interval: 5s
+      timeout: 8s
+      retries: 36
+      start_period: 180s
+    restart: unless-stopped
+
+  admin:
+    build:
+      context: ./admin-panel
+      dockerfile: Dockerfile
+    ports:
+      - "8091:80"
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  backend_orders:
+  postgres_data:

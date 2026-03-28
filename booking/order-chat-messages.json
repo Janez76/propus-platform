@@ -1,0 +1,52 @@
+[
+  {
+    "id": 1772338667828,
+    "orderNo": 100040,
+    "senderRole": "photographer",
+    "senderId": "photographer",
+    "senderName": "Fotograf",
+    "message": "E2E api -> ui 1772338667824",
+    "readAt": null,
+    "createdAt": "2026-03-01T04:17:47.828Z"
+  },
+  {
+    "id": 1772338669096,
+    "orderNo": 100040,
+    "senderRole": "photographer",
+    "senderId": "photographer",
+    "senderName": "Fotograf",
+    "message": "E2E ui -> api 1772338669043",
+    "readAt": null,
+    "createdAt": "2026-03-01T04:17:49.096Z"
+  },
+  {
+    "id": 1772339308027,
+    "orderNo": 100039,
+    "senderRole": "photographer",
+    "senderId": "photographer",
+    "senderName": "Fotograf",
+    "message": "rtrtrtr",
+    "readAt": "2026-03-01T06:57:47.792Z",
+    "createdAt": "2026-03-01T04:28:28.027Z"
+  },
+  {
+    "id": 1772339401381,
+    "orderNo": 100044,
+    "senderRole": "admin",
+    "senderId": "admin",
+    "senderName": "Admin",
+    "message": "admin kann immer schreiben",
+    "readAt": "2026-03-01T17:30:10.678Z",
+    "createdAt": "2026-03-01T04:30:01.381Z"
+  },
+  {
+    "id": 1772386225361,
+    "orderNo": 100044,
+    "senderRole": "admin",
+    "senderId": "admin",
+    "senderName": "Admin",
+    "message": "sss",
+    "readAt": "2026-03-01T17:30:25.374Z",
+    "createdAt": "2026-03-01T17:30:25.361Z"
+  }
+]

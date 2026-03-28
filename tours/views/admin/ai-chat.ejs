@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KI-Chat – Propus Tour Manager</title>
+  <%- include('_admin-styles') %>
+  <style>
+    .chat-shell {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 10px 24px rgba(20, 19, 17, 0.06);
+      height: calc(100vh - 9.6rem);
+      min-height: 560px;
+      max-height: calc(100vh - 9.6rem);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .chat-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.95rem 1.15rem;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, #fff 0%, #fcfbf7 100%);
+    }
+    .chat-topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      min-width: 0;
+    }
+    .chat-avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--gold-100);
+      color: var(--gold-700);
+      border: 1px solid var(--gold-200);
+      flex-shrink: 0;
+    }
+    .chat-topbar-title {
+      font-size: 0.96rem;
+      font-weight: 700;
+      color: var(--gray-900);
+      margin: 0;
+      line-height: 1.25;
+    }
+    .chat-topbar-sub {
+      margin: 0.08rem 0 0 0;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+    .chat-topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-shrink: 0;
+    }
+    .chat-model-select {
+      min-width: 145px;
+      font-size: 0.8rem;
+      padding: 0.35rem 0.5rem;
+      border-radius: 8px;
+    }
+    .chat-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.15rem 1.15rem 1.35rem;
+      background:
+        radial-gradient(circle at top right, rgba(219,191,124,0.08), transparent 46%),
+        radial-gradient(circle at top left, rgba(79,70,229,0.06), transparent 44%),
+        #fbfbfa;
+    }
+    .chat-day-divider {
+      width: fit-content;
+      margin: 0 auto 0.95rem;
+      padding: 0.25rem 0.58rem;
+      border-radius: 999px;
+      background: #f0ede6;
+      border: 1px solid #e4ded1;
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+    .chat-row {
+      display: flex;
+      margin-bottom: 0.78rem;
+    }
+    .chat-row.user {
+      justify-content: flex-end;
+    }
+    .chat-row.ai {
+      justify-content: flex-start;
+    }
+    .chat-bubble {
+      max-width: min(74ch, 84%);
+      border-radius: 14px;
+      padding: 0.62rem 0.72rem;
+      line-height: 1.47;
+      font-size: 0.86rem;
+      white-space: pre-wrap;
+      box-shadow: 0 5px 12px rgba(20, 19, 17, 0.04);
+    }
+    .chat-bubble.ai {
+      border: 1px solid #ebe7de;
+      background: #fff;
+      color: var(--gray-800);
+      border-bottom-left-radius: 5px;
+    }
+    .chat-bubble.user {
+      border: 1px solid rgba(176,140,62,0.28);
+      background: linear-gradient(180deg, #f7f1e5 0%, #f2e8d3 100%);
+      color: #423726;
+      border-bottom-right-radius: 5px;
+    }
+    .chat-system {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.76rem;
+      margin: 0.35rem 0 0.9rem;
+    }
+    .chat-actions {
+      margin-top: 0.35rem;
+      margin-bottom: 0.9rem;
+      padding: 0.72rem;
+      border: 1px dashed var(--gold-300);
+      border-radius: 11px;
+      background: #fffdf8;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.55rem;
+    }
+    .chat-actions-meta {
+      width: 100%;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: -0.12rem;
+    }
+    .chat-compose {
+      border-top: 1px solid var(--border);
+      padding: 0.85rem 1.1rem 1rem;
+      background: #fff;
+    }
+    .chat-compose-wrap {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.65rem;
+      align-items: end;
+    }
+    .chat-input {
+      width: 100%;
+      height: 92px;
+      min-height: 92px;
+      max-height: 92px;
+      resize: none;
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      background: #fff;
+      padding: 0.65rem 0.78rem;
+      font-size: 0.89rem;
+      line-height: 1.45;
+      font-family: inherit;
+      color: var(--gray-800);
+    }
+    .chat-input:focus {
+      outline: none;
+      border-color: var(--gold-400);
+      box-shadow: 0 0 0 3px rgba(196,163,90,0.15);
+    }
+    .chat-send-btn {
+      height: 42px;
+      padding: 0 1rem;
+      min-width: 110px;
+    }
+    .chat-compose-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.6rem;
+      margin-bottom: 0.6rem;
+      flex-wrap: wrap;
+    }
+    .chat-attach-btn {
+      height: 36px;
+      padding: 0 0.8rem;
+      font-size: 0.8rem;
+      border-radius: 9px;
+    }
+    .chat-attachments-preview {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .chat-attachment-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      border: 1px solid var(--border);
+      background: #fcfbf8;
+      border-radius: 10px;
+      padding: 0.28rem 0.45rem;
+      max-width: 280px;
+    }
+    .chat-attachment-thumb {
+      width: 34px;
+      height: 34px;
+      border-radius: 7px;
+      object-fit: cover;
+      border: 1px solid var(--border);
+      background: #fff;
+      flex-shrink: 0;
+    }
+    .chat-attachment-file-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text-muted);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .chat-attachment-meta {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      line-height: 1.25;
+    }
+    .chat-attachment-name {
+      font-size: 0.74rem;
+      font-weight: 600;
+      color: var(--gray-800);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .chat-attachment-size {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+    }
+    .chat-attachment-remove {
+      border: 0;
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 0.95rem;
+      line-height: 1;
+      padding: 0.15rem;
+      border-radius: 6px;
+      flex-shrink: 0;
+    }
+    .chat-attachment-remove:hover {
+      color: var(--danger);
+      background: rgba(239,68,68,0.08);
+    }
+    .chat-bubble-attachments {
+      margin-top: 0.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+    .chat-bubble-attachment {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.75rem;
+      border: 1px solid rgba(0,0,0,0.09);
+      border-radius: 8px;
+      padding: 0.3rem 0.42rem;
+      background: rgba(255,255,255,0.72);
+      width: fit-content;
+      max-width: 100%;
+    }
+    .chat-bubble-attachment img {
+      width: 42px;
+      height: 42px;
+      object-fit: cover;
+      border-radius: 6px;
+      border: 1px solid rgba(0,0,0,0.1);
+      flex-shrink: 0;
+    }
+    .chat-bubble-attachment-name {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 220px;
+      font-weight: 600;
+    }
+    .chat-hint {
+      margin-top: 0.5rem;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      display: flex;
+      gap: 0.85rem;
+      flex-wrap: wrap;
+    }
+  </style>
+</head>
+<body>
+  <div class="admin-shell">
+    <%- include('_header') %>
+    <main class="admin-main">
+      <h1>KI-Chat</h1>
+      <p style="color:var(--text-muted);font-size:0.9rem;margin:0 0 0.95rem 0;">Eigene Arbeitsfläche für den Admin-Assistenten mit Live-Kontext aus Tour Manager.</p>
+
+      <section class="chat-shell">
+        <header class="chat-topbar">
+          <div class="chat-topbar-left">
+            <span class="chat-avatar"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+            <div>
+              <p class="chat-topbar-title">Propus KI Assistent</p>
+              <p class="chat-topbar-sub">Schnelle Hilfe rund um den Tour Manager - von Touren und Rechnungen bis Matterport, Exxas und Kundenkommunikation.</p>
+            </div>
+          </div>
+          <div class="chat-topbar-right">
+            <select id="chatModel" class="chat-model-select">
+              <% const models = Array.isArray(allowedModels) && allowedModels.length ? allowedModels : ['gpt-5.4', 'gpt-5-mini', 'gpt-4.1']; %>
+              <% models.forEach(function(model) { %>
+                <option value="<%= model %>" <%= model === defaultModel ? 'selected' : '' %>><%= model %></option>
+              <% }) %>
+            </select>
+            <button type="button" class="btn btn-ghost" id="chatClearBtn"><i class="fa-solid fa-eraser"></i> Verlauf löschen</button>
+          </div>
+        </header>
+
+        <div id="chatScroll" class="chat-scroll">
+          <div class="chat-day-divider">Heute</div>
+        </div>
+
+        <footer class="chat-compose">
+          <div class="chat-compose-actions">
+            <button type="button" class="btn btn-ghost chat-attach-btn" id="chatAttachBtn"><i class="fa-solid fa-paperclip"></i> Datei/Bild anhängen</button>
+            <div id="chatAttachmentsPreview" class="chat-attachments-preview"></div>
+            <input type="file" id="chatFileInput" multiple style="display:none;">
+          </div>
+          <div class="chat-compose-wrap">
+            <textarea id="chatInput" class="chat-input" placeholder="Nachricht eingeben..."></textarea>
+            <button type="button" class="btn btn-primary chat-send-btn" id="chatSendBtn"><i class="fa-solid fa-paper-plane"></i> Senden</button>
+          </div>
+          <div class="chat-hint">
+            <span><i class="fa-regular fa-keyboard"></i> Enter = senden</span>
+            <span><i class="fa-solid fa-arrow-turn-down"></i> Shift+Enter = neue Zeile</span>
+          </div>
+        </footer>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    (() => {
+      const STORAGE_KEY = 'adminAiChatPageStateV1';
+      const ADMIN_NAME = <%- JSON.stringify(adminName || 'Admin') %>;
+      const DEFAULT_GREETING = `Hey ${ADMIN_NAME}, wobei kann ich dir behilflich sein?`;
+      const chatScroll = document.getElementById('chatScroll');
+      const chatInput = document.getElementById('chatInput');
+      const sendBtn = document.getElementById('chatSendBtn');
+      const modelSel = document.getElementById('chatModel');
+      const clearBtn = document.getElementById('chatClearBtn');
+      const attachBtn = document.getElementById('chatAttachBtn');
+      const fileInput = document.getElementById('chatFileInput');
+      const attachPreview = document.getElementById('chatAttachmentsPreview');
+      if (!chatScroll || !chatInput || !sendBtn || !modelSel || !clearBtn || !attachBtn || !fileInput || !attachPreview) return;
+
+      let history = [];
+      let persistedMessages = [];
+      let pendingAction = null;
+      let pendingAttachments = [];
+
+      const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const fmtBytes = (bytes) => {
+        const b = Number(bytes) || 0;
+        if (b < 1024) return `${b} B`;
+        if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
+        return `${(b / (1024 * 1024)).toFixed(1)} MB`;
+      };
+      const isImage = (type) => String(type || '').toLowerCase().startsWith('image/');
+
+      function buildAttachmentMarkup(attachment, forBubble = false) {
+        const safeName = esc(attachment.name || 'Datei');
+        const safeSize = esc(fmtBytes(attachment.size));
+        if (forBubble) {
+          const thumb = attachment.previewUrl && isImage(attachment.type)
+            ? `<img src="${attachment.previewUrl}" alt="${safeName}">`
+            : `<span class="chat-attachment-file-icon"><i class="fa-regular fa-file"></i></span>`;
+          return `
+            <div class="chat-bubble-attachment">
+              ${thumb}
+              <span class="chat-bubble-attachment-name" title="${safeName}">${safeName}</span>
+              <span style="opacity:.7;">· ${safeSize}</span>
+            </div>`;
+        }
+        const thumb = attachment.previewUrl && isImage(attachment.type)
+          ? `<img class="chat-attachment-thumb" src="${attachment.previewUrl}" alt="${safeName}">`
+          : `<span class="chat-attachment-file-icon"><i class="fa-regular fa-file"></i></span>`;
+        return `
+          <div class="chat-attachment-chip" data-id="${attachment.id}">
+            ${thumb}
+            <div class="chat-attachment-meta">
+              <span class="chat-attachment-name" title="${safeName}">${safeName}</span>
+              <span class="chat-attachment-size">${safeSize}</span>
+            </div>
+            <button type="button" class="chat-attachment-remove" data-remove-attachment="${attachment.id}" aria-label="Anhang entfernen">×</button>
+          </div>`;
+      }
+
+      function renderComposerAttachments() {
+        attachPreview.innerHTML = pendingAttachments.map((a) => buildAttachmentMarkup(a, false)).join('');
+      }
+
+      function clearPendingAttachments() {
+        pendingAttachments.forEach((a) => {
+          if (a.previewUrl) URL.revokeObjectURL(a.previewUrl);
+        });
+        pendingAttachments = [];
+        fileInput.value = '';
+        renderComposerAttachments();
+      }
+
+      function saveState() {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify({
+            history: history.slice(-20),
+            messages: persistedMessages.slice(-60),
+            pendingAction,
+            model: modelSel.value,
+          }));
+        } catch (e) {}
+      }
+
+      function restoreState() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return null;
+          return JSON.parse(raw);
+        } catch (e) {
+          return null;
+        }
+      }
+
+      function renderMessages() {
+        chatScroll.innerHTML = '<div class="chat-day-divider">Heute</div>';
+        if (!persistedMessages.length) {
+          addMessage('ai', DEFAULT_GREETING, false);
+          return;
+        }
+        persistedMessages.forEach((entry) => {
+          const attachments = Array.isArray(entry.attachments) ? entry.attachments : [];
+          addMessageWithAttachments(entry.role, entry.text, attachments, false);
+        });
+      }
+
+      function scrollToBottom() {
+        chatScroll.scrollTop = chatScroll.scrollHeight;
+      }
+
+      function addMessage(role, text, persist = true) {
+        const row = document.createElement('div');
+        row.className = `chat-row ${role === 'user' ? 'user' : 'ai'}`;
+        row.innerHTML = `<div class="chat-bubble ${role === 'user' ? 'user' : 'ai'}">${esc(text)}</div>`;
+        chatScroll.appendChild(row);
+        if (persist) {
+          persistedMessages.push({ role, text });
+          saveState();
+        }
+        scrollToBottom();
+        return row.querySelector('.chat-bubble');
+      }
+      function addMessageWithAttachments(role, text, attachments = [], persist = true) {
+        const bubble = addMessage(role, text, false);
+        if (attachments.length) {
+          const wrap = document.createElement('div');
+          wrap.className = 'chat-bubble-attachments';
+          wrap.innerHTML = attachments.map((a) => buildAttachmentMarkup(a, true)).join('');
+          bubble.appendChild(wrap);
+        }
+        if (persist) {
+          persistedMessages.push({
+            role,
+            text,
+            attachments: attachments.map((a) => ({ name: a.name, size: a.size, type: a.type })),
+          });
+          saveState();
+        }
+      }
+
+      function clearActionControls() {
+        chatScroll.querySelectorAll('.chat-actions').forEach((el) => el.remove());
+      }
+
+      function addActionControls(action) {
+        clearActionControls();
+        const label = action?.label || action?.labelShort || action?.type || 'Aktion bereit';
+        const riskText = action?.riskLabel ? `Risiko: ${action.riskLabel}` : null;
+        const confirmText = action?.needsConfirmation === false ? 'ohne Bestätigung' : 'Bestätigung erforderlich';
+        const wrap = document.createElement('div');
+        wrap.className = 'chat-actions';
+        wrap.innerHTML = `
+          <strong>${esc(label)}</strong>
+          <div class="chat-actions-meta">${[riskText, confirmText].filter(Boolean).join(' · ')}</div>
+          <button type="button" class="btn btn-primary" id="chatConfirmBtn">Ausführen</button>
+          <button type="button" class="btn btn-ghost" id="chatCancelBtn">Abbrechen</button>
+        `;
+        chatScroll.appendChild(wrap);
+        document.getElementById('chatConfirmBtn').addEventListener('click', confirmAction);
+        document.getElementById('chatCancelBtn').addEventListener('click', cancelAction);
+        scrollToBottom();
+      }
+
+      async function confirmAction() {
+        if (!pendingAction) return;
+        clearActionControls();
+        const loading = addMessage('ai', 'Führe Aktion aus...', false);
+        try {
+          const response = await fetch('/admin/chat-assistant/confirm', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({}),
+          });
+          const data = await response.json();
+          if (!response.ok || data.error) {
+            loading.textContent = `Fehler: ${data.error || 'Unbekannt'}`;
+          } else {
+            loading.textContent = data.answer || 'Aktion ausgeführt.';
+            history.push({ role: 'assistant', content: data.answer || 'Aktion ausgeführt.' });
+          }
+          persistedMessages.push({ role: 'ai', text: loading.textContent });
+        } catch (err) {
+          loading.textContent = `Fehler: ${err.message}`;
+          persistedMessages.push({ role: 'ai', text: loading.textContent });
+        }
+        pendingAction = null;
+        saveState();
+      }
+
+      async function cancelAction() {
+        if (!pendingAction) return;
+        clearActionControls();
+        try {
+          await fetch('/admin/chat-assistant/cancel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({}),
+          });
+        } catch (err) {}
+        addMessage('ai', 'Aktion verworfen.');
+        pendingAction = null;
+        saveState();
+      }
+
+      async function sendMessage() {
+        const message = (chatInput.value || '').trim();
+        if (!message && pendingAttachments.length === 0) return;
+        const attachmentsForMessage = pendingAttachments.map((a) => ({ ...a }));
+        const attachmentNames = attachmentsForMessage.map((a) => a.name).filter(Boolean);
+        const backendMessage = attachmentNames.length
+          ? `${message || '(Anhang ohne Text)'}\n\n[Anhänge: ${attachmentNames.join(', ')}]`
+          : message;
+        chatInput.value = '';
+        chatInput.disabled = true;
+        sendBtn.disabled = true;
+        modelSel.disabled = true;
+
+        addMessageWithAttachments('user', message || '(Anhang ohne Text)', attachmentsForMessage);
+        history.push({ role: 'user', content: backendMessage });
+        clearActionControls();
+        const loading = addMessage('ai', 'Denke nach...', false);
+        clearPendingAttachments();
+
+        try {
+          const response = await fetch('/admin/chat-assistant', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: backendMessage,
+              model: modelSel.value,
+              history: history.slice(0, -1),
+              activePage: 'aiChat',
+              path: window.location.pathname + window.location.search,
+            }),
+          });
+          const data = await response.json();
+          if (!response.ok || data.error) {
+            loading.textContent = `Fehler: ${data.error || 'Unbekannt'}`;
+            history.pop();
+          } else {
+            loading.textContent = data.answer || '(Keine Antwort)';
+            history.push({ role: 'assistant', content: data.answer || '' });
+            if (data.needsConfirmation && data.proposedAction) {
+              pendingAction = data.proposedAction;
+              addActionControls(data.proposedAction);
+            } else {
+              pendingAction = null;
+            }
+          }
+          persistedMessages.push({ role: 'ai', text: loading.textContent });
+        } catch (err) {
+          loading.textContent = `Fehler: ${err.message}`;
+          history.pop();
+          persistedMessages.push({ role: 'ai', text: loading.textContent });
+        }
+
+        chatInput.disabled = false;
+        sendBtn.disabled = false;
+        modelSel.disabled = false;
+        saveState();
+        chatInput.focus();
+      }
+
+      function bootstrap() {
+        const state = restoreState();
+        if (state) {
+          history = Array.isArray(state.history) ? state.history : [];
+          persistedMessages = Array.isArray(state.messages) ? state.messages : [];
+          pendingAction = state.pendingAction || null;
+          if (state.model) modelSel.value = state.model;
+        }
+        renderMessages();
+        if (pendingAction) addActionControls(pendingAction);
+        scrollToBottom();
+      }
+
+      clearBtn.addEventListener('click', () => {
+        history = [];
+        persistedMessages = [];
+        pendingAction = null;
+        localStorage.removeItem(STORAGE_KEY);
+        renderMessages();
+        clearPendingAttachments();
+        chatInput.focus();
+      });
+
+      attachBtn.addEventListener('click', () => fileInput.click());
+      fileInput.addEventListener('change', () => {
+        const files = Array.from(fileInput.files || []);
+        if (!files.length) return;
+        const nextAttachments = files.map((file) => ({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          name: file.name,
+          type: file.type,
+          size: file.size,
+          previewUrl: isImage(file.type) ? URL.createObjectURL(file) : null,
+        }));
+        pendingAttachments = pendingAttachments.concat(nextAttachments).slice(-8);
+        renderComposerAttachments();
+        fileInput.value = '';
+      });
+      attachPreview.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-remove-attachment]');
+        if (!btn) return;
+        const id = btn.getAttribute('data-remove-attachment');
+        const target = pendingAttachments.find((a) => a.id === id);
+        if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
+        pendingAttachments = pendingAttachments.filter((a) => a.id !== id);
+        renderComposerAttachments();
+      });
+
+      sendBtn.addEventListener('click', sendMessage);
+      chatInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          sendMessage();
+        }
+      });
+
+      bootstrap();
+    })();
+  </script>
+</body>
+</html>

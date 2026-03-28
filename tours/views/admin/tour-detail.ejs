@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tour <%= tour.id %> – Propus Tour Manager</title>
+  <%- include('_admin-styles') %>
+  <style>
+    .detail-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 0.95rem;
+    }
+    .detail-title {
+      margin: 0;
+      font-size: 1.5rem;
+      line-height: 1.2;
+      color: var(--gray-900);
+    }
+    .detail-sub {
+      margin: 0.18rem 0 0;
+      font-size: 0.84rem;
+      color: var(--text-muted);
+    }
+    .detail-meta-inline {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      flex-wrap: wrap;
+      margin: 0 0 1rem;
+      color: var(--text-muted);
+      font-size: 0.83rem;
+    }
+    .detail-meta-inline .meta-pill {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 0.25rem 0.58rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.36rem;
+      line-height: 1.2;
+    }
+    .detail-actions {
+      display: flex;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+    .detail-actions .btn {
+      padding: 0.32rem 0.68rem;
+      font-size: 0.8rem;
+      border-radius: 8px;
+    }
+    .detail-block {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1rem 1rem 0.95rem;
+      margin-bottom: 1rem;
+      box-shadow: 0 6px 20px rgba(20, 19, 17, 0.035);
+    }
+    .detail-block > h2 {
+      font-size: 0.95rem;
+      margin: 0 0 0.75rem;
+      color: var(--gray-700);
+      letter-spacing: 0.01em;
+    }
+    .detail-collapsible {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #fff;
+      margin-bottom: 0.85rem;
+      overflow: hidden;
+    }
+    .detail-collapsible summary {
+      cursor: pointer;
+      list-style: none;
+      padding: 0.72rem 0.85rem;
+      font-size: 0.86rem;
+      font-weight: 700;
+      color: var(--gray-700);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.65rem;
+      user-select: none;
+      border-bottom: 1px solid transparent;
+    }
+    .detail-collapsible summary::-webkit-details-marker { display: none; }
+    .detail-collapsible[open] summary { border-bottom-color: var(--border); }
+    .detail-collapsible summary .chev { transition: transform 0.2s ease; font-size: 0.76rem; color: var(--text-muted); }
+    .detail-collapsible[open] summary .chev { transform: rotate(180deg); }
+    .detail-collapsible-body { padding: 0.75rem; }
+    .tm-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 15, 18, 0.5);
+      z-index: 2000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .tm-modal-backdrop.open { display: flex; }
+    .tm-modal {
+      width: min(560px, 100%);
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 24px 45px rgba(20, 19, 17, 0.2);
+      overflow: hidden;
+    }
+    .tm-modal-head {
+      padding: 0.9rem 1rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.6rem;
+      background: var(--gray-50);
+    }
+    .tm-modal-title { font-size: 0.95rem; font-weight: 700; margin: 0; color: var(--gray-900); }
+    .tm-modal-close {
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text-muted);
+      border-radius: 8px;
+      width: 30px;
+      height: 30px;
+      cursor: pointer;
+      line-height: 1;
+      font-size: 1rem;
+    }
+    .tm-modal-close:hover { color: var(--gray-900); border-color: var(--gold-300); }
+    .tm-modal-body { padding: 0.95rem 1rem; }
+    .tm-modal-foot {
+      padding: 0.85rem 1rem 0.95rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.45rem;
+      background: #fff;
+    }
+    .tm-modal-info {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #fcfcfb;
+      padding: 0.72rem 0.78rem;
+      font-size: 0.85rem;
+      color: var(--gray-700);
+      line-height: 1.5;
+      min-height: 60px;
+    }
+    .tm-modal-info.success { background: rgba(22,179,100,0.08); border-color: rgba(22,179,100,0.28); color: #137347; }
+    .tm-modal-info.warning { background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.3); color: #9f5b00; }
+    .tm-modal-info.danger { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.28); color: #a83636; }
+    .tm-form-row { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.75rem; }
+    .tm-form-row label { font-size: 0.78rem; color: var(--text-muted); font-weight: 600; }
+    .tm-form-help { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem; }
+    .tm-checkbox-line { display: flex; align-items: center; gap: 0.45rem; font-size: 0.82rem; color: var(--gray-700); }
+    .tm-checkbox-line input { margin: 0; }
+    .manual-invoice-card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #fafaf9;
+      padding: 0.8rem;
+      margin: 0 0 0.9rem 0;
+    }
+    .manual-invoice-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.55rem 0.65rem;
+      align-items: end;
+    }
+    .manual-invoice-field { display: flex; flex-direction: column; gap: 0.28rem; }
+    .manual-invoice-field label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      line-height: 1.2;
+    }
+    .manual-invoice-field input,
+    .manual-invoice-field select {
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .manual-invoice-span-2 { grid-column: span 2; }
+    .manual-invoice-span-4 { grid-column: span 4; }
+    .manual-invoice-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      min-height: 38px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0 0.65rem;
+      background: #fff;
+      font-size: 0.85rem;
+      color: var(--gray-700);
+      cursor: pointer;
+      box-sizing: border-box;
+    }
+    .manual-invoice-checkbox input { margin: 0; flex-shrink: 0; }
+    .manual-invoice-help {
+      margin: 0.35rem 0 0;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+    }
+    .manual-invoice-actions {
+      display: flex;
+      justify-content: flex-end;
+      grid-column: span 4;
+      padding-top: 0.1rem;
+    }
+    @media (max-width: 900px) {
+      .manual-invoice-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .manual-invoice-span-2 { grid-column: span 2; }
+      .manual-invoice-actions { grid-column: span 2; }
+    }
+    @media (max-width: 540px) {
+      .manual-invoice-grid { grid-template-columns: 1fr; }
+      .manual-invoice-span-2,
+      .manual-invoice-span-4,
+      .manual-invoice-actions { grid-column: span 1; }
+      .manual-invoice-actions .btn { width: 100%; }
+    }
+    .status-text-active { color: #11844d; font-weight: 700; }
+    .status-text-archived { color: #b96c0d; font-weight: 700; }
+    .status-text-cancelled { color: #c13737; font-weight: 700; }
+    .btn-soft-warning {
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      color: #9f5b00;
+    }
+    .btn-soft-warning:hover { background: rgba(245, 158, 11, 0.2); }
+    .btn-soft-success {
+      background: rgba(22, 179, 100, 0.12);
+      border: 1px solid rgba(22, 179, 100, 0.35);
+      color: #137347;
+    }
+    .btn-soft-success:hover { background: rgba(22, 179, 100, 0.2); }
+    .btn-soft-danger {
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      color: #c13737;
+    }
+    .btn-soft-danger:hover { background: rgba(239, 68, 68, 0.2); }
+    .detail-divider {
+      border-top: 1px solid var(--border);
+      margin: 0.8rem 0 0.9rem;
+    }
+    .vis-card {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.65rem 0.85rem;
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+      user-select: none;
+      background: #fff;
+    }
+    .vis-card.active { border-color: var(--gray-900); background: #f2f4f9; }
+    .vis-card input[type=radio] { accent-color: #0b84f3; flex-shrink: 0; }
+    .vis-card-body { flex: 1; min-width: 0; }
+    .vis-card-title {
+      font-weight: 700;
+      font-size: 0.86rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: var(--gray-900);
+    }
+    .vis-card-desc {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 0.08rem;
+      line-height: 1.4;
+    }
+    .privacy-title {
+      font-size: 0.76rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      font-weight: 700;
+      margin: 0 0 0.6rem;
+    }
+    .privacy-password-wrap {
+      margin: 0.65rem 0 0.75rem;
+      max-width: 320px;
+    }
+    .privacy-password-wrap label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 0.25rem;
+    }
+    .privacy-note {
+      color: var(--text-muted);
+      font-size: 0.74rem;
+      margin: 0.45rem 0 0;
+    }
+    .privacy-save-btn {
+      margin-top: 0.45rem;
+    }
+    .vis-card-title i {
+      width: 1rem;
+      text-align: center;
+      color: var(--gray-700);
+    }
+  </style>
+</head>
+<body>
+  <div class="admin-shell">
+    <%- include('_header') %>
+    <main class="admin-main">
+      <a href="/admin/tours" class="back">← Zurück zu Touren</a>
+      <% if (typeof tourUrlSaved !== 'undefined' && tourUrlSaved) { %>
+      <div class="alert alert-success">Tour-URL gespeichert.</div>
+      <% } %>
+      <% if (typeof invoiceLinked !== 'undefined' && invoiceLinked) { %>
+      <div class="alert alert-success">Rechnung verknüpft.</div>
+      <% } %>
+      <% if (typeof invoiceDeleted !== 'undefined' && invoiceDeleted) { %>
+      <div class="alert alert-success">Rechnung gelöscht.</div>
+      <% } %>
+      <% if (typeof customerLinked !== 'undefined' && customerLinked) { %>
+      <div class="alert alert-success">Exxas-Kunde erfolgreich verknüpft.</div>
+      <% } %>
+      <% if (typeof verifiedSaved !== 'undefined' && verifiedSaved) { %>
+      <div class="alert alert-success">Prüfstatus gespeichert.</div>
+      <% } %>
+      <% if (typeof paymentSaved !== 'undefined' && paymentSaved) { %>
+      <div class="alert alert-success">Zahlung manuell erfasst und Laufzeit aktualisiert.</div>
+      <% } %>
+      <% if (typeof invoiceCreated !== 'undefined' && invoiceCreated) { %>
+      <div class="alert alert-success">Rechnung erfolgreich erfasst.</div>
+      <% } %>
+      <% if (typeof visibilitySaved !== 'undefined' && visibilitySaved) { %>
+      <div class="alert alert-success">Datenschutz-Einstellung aktualisiert.</div>
+      <% } %>
+      <% if (typeof visibilityError !== 'undefined' && visibilityError) { %>
+      <%
+        const visibilityErrorMap = {
+          no_matterport: 'Keine Matterport-Verknüpfung vorhanden.',
+          invalid_visibility: 'Ungültige Datenschutz-Einstellung.',
+          visibility_failed: 'Datenschutz konnte nicht gespeichert werden.',
+        };
+      %>
+      <div class="alert alert-error"><%= visibilityErrorMap[visibilityError] || 'Datenschutz konnte nicht gespeichert werden.' %></div>
+      <% } %>
+      <div class="detail-header">
+        <div>
+          <h1 class="detail-title"><%= tour.canonical_object_label || tour.object_label || tour.bezeichnung || 'Ohne Bezeichnung' %></h1>
+        </div>
+        <a href="/admin/tours/<%= tour.id %>/link-exxas-customer" class="btn btn-ghost">Kunde anpassen</a>
+      </div>
+      <% if (!tour.customer_verified) { %>
+      <div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.35);border-radius:8px;padding:0.65rem 1rem;margin:0 0 0.85rem 0;display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+        <span style="color:var(--warning);font-weight:600;">Ungeprüft</span>
+        <span style="color:var(--text-muted);font-size:0.87rem;">Diese Tour wurde noch nicht manuell geprüft. Bitte Kundenzuordnung kontrollieren.</span>
+        <form method="post" action="/admin/tours/<%= tour.id %>/set-verified" style="margin:0;">
+          <input type="hidden" name="verified" value="1">
+          <button type="submit" class="btn btn-ghost" style="font-size:0.85rem;padding:0.3rem 0.8rem;">Als geprüft markieren</button>
+        </form>
+      </div>
+      <% } %>
+      <div class="detail-meta-inline">
+        <%
+          const rawStatusText = (displayedTourStatus && displayedTourStatus.label ? String(displayedTourStatus.label) : '').trim();
+          let statusTextClass = '';
+          if (/aktiv/i.test(rawStatusText)) statusTextClass = 'status-text-active';
+          else if (/archiv/i.test(rawStatusText)) statusTextClass = 'status-text-archived';
+          else if (/gekündigt|gekundigt|keine verlängerung|keine verlaengerung/i.test(rawStatusText)) statusTextClass = 'status-text-cancelled';
+        %>
+        <span class="meta-pill"><strong style="color:var(--text);font-weight:700;">Kunde:</strong> <%= tour.canonical_customer_name || tour.customer_name || tour.kunde_ref || '-' %></span>
+        <span class="meta-pill"><strong style="color:var(--text);font-weight:700;">Kontakt:</strong> <%= tour.customer_contact || tour.canonical_customer_name || tour.customer_name || '-' %></span>
+        <span class="meta-pill">
+          <strong style="color:var(--text);font-weight:700;">Ablauf:</strong>
+          <%
+            const rawAblaufDate = tour.canonical_term_end_date || tour.term_end_date || tour.ablaufdatum;
+            const parsedAblaufDate = rawAblaufDate ? new Date(rawAblaufDate) : null;
+            const formattedAblaufDate = (parsedAblaufDate && !isNaN(parsedAblaufDate.getTime()))
+              ? parsedAblaufDate.toLocaleDateString('de-CH', { day: '2-digit', month: 'long', year: 'numeric' })
+              : (rawAblaufDate || '-');
+          %>
+          <%= formattedAblaufDate %>
+        </span>
+        <span class="meta-pill"><strong style="color:var(--text);font-weight:700;">Status:</strong> <span class="<%= statusTextClass %>"><%= displayedTourStatus.label || '-' %></span></span>
+      </div>
+      <div class="detail-block">
+      <h2>Zahlungsübersicht</h2>
+      <div class="stats" style="margin-bottom:0.7rem;">
+        <div class="stat-card active">
+          <div class="label">Letzte Zahlung</div>
+          <div class="value" style="font-size:1.35rem;">
+            <%= paymentSummary.lastPayment?.at ? new Date(paymentSummary.lastPayment.at).toLocaleDateString('de-CH', { day:'2-digit', month:'short', year:'numeric' }) : '-' %>
+          </div>
+          <div style="color:var(--text-muted);font-size:0.82rem;">
+            <% if (paymentSummary.lastPayment) { %>
+              <%= paymentSummary.lastPayment.label %>
+              <% if (paymentSummary.lastPayment.source === 'exxas') { %> · <%= paymentSummary.lastPayment.dateHint %><% } %>
+            <% } else { %>
+              Keine bezahlte Rechnung gefunden
+            <% } %>
+          </div>
+        </div>
+        <div class="stat-card active">
+          <div class="label">Bezahlt</div>
+          <div class="value" style="font-size:1.35rem;"><%= paymentSummary.paidCount %></div>
+          <div style="color:var(--text-muted);font-size:0.82rem;">CHF <%= paymentSummary.paidAmount.toFixed(2) %> intern als bezahlt markiert</div>
+        </div>
+        <div class="stat-card awaiting">
+          <div class="label">Offen</div>
+          <div class="value" style="font-size:1.35rem;"><%= paymentSummary.openCount %></div>
+          <div style="color:var(--text-muted);font-size:0.82rem;">CHF <%= paymentSummary.openAmount.toFixed(2) %> intern noch offen</div>
+        </div>
+      </div>
+      <details class="detail-collapsible">
+        <summary>Zahlungsverlauf <span class="chev"><i class="fa-solid fa-chevron-down"></i></span></summary>
+        <div class="detail-collapsible-body">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Quelle</th><th>Beleg</th><th>Status</th><th>Betrag</th><th>Datum</th><th>Fällig</th><th>Wie</th><th>Gültig ab</th><th>Gültig bis</th></tr></thead>
+            <tbody>
+              <% (paymentTimeline || []).forEach(p => { %>
+              <tr>
+                <td><span class="badge"><%= p.source === 'renewal' ? 'Verlängerung' : (p.source || '-') %></span></td>
+                <td><%= p.title %></td>
+                <td>
+                  <span class="badge badge-<%= p.status %>">
+                    <%= ({
+                      paid: 'Bezahlt',
+                      overdue: 'Überfällig',
+                      sent: 'Gesendet',
+                      open: 'Offen',
+                      draft: 'Entwurf',
+                      cancelled: 'Storniert'
+                    }[p.status] || p.statusLabel || p.status || '-') %>
+                  </span>
+                </td>
+                <td><%= p.amount != null ? ('CHF ' + p.amount.toFixed(2)) : '-' %></td>
+                <td>
+                  <%= p.primaryDate ? new Date(p.primaryDate).toLocaleDateString('de-CH') : '-' %>
+                  <div style="color:var(--text-muted);font-size:0.8rem;"><%= p.primaryDateLabel %></div>
+                </td>
+                <td><%= p.dueDate ? new Date(p.dueDate).toLocaleDateString('de-CH') : '-' %></td>
+                <td><%= p.paymentMethodLabel || '-' %></td>
+                <td><%= p.subscriptionStartAt ? new Date(p.subscriptionStartAt).toLocaleDateString('de-CH') : '-' %></td>
+                <td><%= p.subscriptionEndAt ? new Date(p.subscriptionEndAt).toLocaleDateString('de-CH') : '-' %></td>
+              </tr>
+              <% }); %>
+              <% if (!paymentTimeline || paymentTimeline.length === 0) { %><tr><td colspan="9" style="color:var(--text-muted);">Keine Zahlungsdaten zur Tour gefunden</td></tr><% } %>
+            </tbody>
+          </table>
+        </div>
+        </div>
+      </details>
+      </div>
+      <div class="detail-block">
+      <h2>Tour-Link und Aktionen</h2>
+      <p style="color:var(--text-muted);font-size:0.9rem;margin:0 0 0.5rem 0;">Nur my.matterport.com Link.</p>
+      <form method="post" action="/admin/tours/<%= tour.id %>/set-tour-url" class="form-inline" style="margin-bottom:1rem;">
+        <input type="url" name="tour_url" value="<%= tour.tour_url || '' %>" placeholder="https://my.matterport.com/show/?m=..." style="flex:1;min-width:320px;">
+        <button type="submit" class="btn btn-primary">Speichern</button>
+      </form>
+
+      <div class="detail-actions">
+        <% const tourOpenUrl = tour.canonical_matterport_space_id ? 'https://my.matterport.com/show/?m=' + tour.canonical_matterport_space_id : (tour.tour_url || null); %>
+        <% if (tourOpenUrl) { %>
+        <a href="<%= tourOpenUrl %>" class="btn btn-primary" target="_blank">Tour öffnen</a>
+        <% } else { %>
+        <span class="btn btn-ghost" style="opacity:0.6;cursor:default">Tour öffnen (keine Verknüpfung)</span>
+        <% } %>
+        <button class="btn btn-ghost" type="button" onclick="openMailModal()">Mail senden</button>
+        <button class="btn btn-soft-warning" type="button" onclick="openArchiveModal()">Archivieren</button>
+        <% if (tour.canonical_matterport_space_id) { %>
+        <button class="btn btn-soft-success" type="button" onclick="openReactivateModal()">Reaktivieren</button>
+        <% } %>
+        <button class="btn btn-soft-danger" type="button" onclick="openDeclineModal()">Kündigen</button>
+      </div>
+      <% if (tour.canonical_matterport_space_id || tour.matterport_space_id) { %>
+      <div class="detail-divider"></div>
+      <%
+        const visOptions = [
+          { value:'PRIVATE',   apiValue:'private',  icon:'fa-solid fa-lock',        label:'Privat',           desc:'Nur Mitarbeiter des Kontos.' },
+          { value:'LINK_ONLY', apiValue:'unlisted', icon:'fa-solid fa-link',        label:'Nicht gelistet',    desc:'Jeder mit dem Link kann sehen.' },
+          { value:'PUBLIC',    apiValue:'public',   icon:'fa-solid fa-globe',       label:'Öffentlich',         desc:'Jeder im Internet, indexiert.' },
+          { value:'PASSWORD',  apiValue:'password', icon:'fa-solid fa-key',         label:'Passwortgeschützt', desc:'Nur mit Passwort zugänglich.' },
+        ];
+        const currentVis = (mpVisibility || 'unlisted').toLowerCase();
+      %>
+      <form method="post" action="/admin/tours/<%= tour.id %>/visibility">
+        <div class="privacy-title">Teilen &amp; Datenschutz</div>
+        <div style="display:flex;flex-direction:column;gap:0.45rem;">
+          <% visOptions.forEach(opt => { %>
+            <label class="vis-card vis-card-admin <%= currentVis === opt.apiValue ? 'active' : '' %>">
+              <input type="radio" name="visibility" value="<%= opt.value %>" <%= currentVis === opt.apiValue ? 'checked' : '' %>>
+              <div class="vis-card-body">
+                <div class="vis-card-title"><i class="<%= opt.icon %>"></i> <%= opt.label %></div>
+                <div class="vis-card-desc"><%= opt.desc %></div>
+              </div>
+            </label>
+          <% }); %>
+        </div>
+        <div id="adminPwField" class="privacy-password-wrap" style="display:<%= currentVis === 'password' ? 'block' : 'none' %>;">
+          <label for="adminVisibilityPassword">Tour-Passwort</label>
+          <input id="adminVisibilityPassword" type="text" name="password" placeholder="Passwort eingeben" autocomplete="off">
+        </div>
+        <button type="submit" class="btn btn-primary privacy-save-btn">Speichern</button>
+        <% if (!mpVisibility) { %>
+        <p class="privacy-note">Einstellung konnte nicht geladen werden – Standardwert angezeigt.</p>
+        <% } %>
+      </form>
+      <% } %>
+      </div>
+
+      <% if ((tour.customer_intent === 'renew_no' || tour.status === 'CUSTOMER_DECLINED') && declineWorkflow && declineWorkflow.enabled) { %>
+      <div class="detail-block">
+        <h2>Folgeaktionen nach Ablehnung</h2>
+        <p style="margin:0 0 0.75rem 0;color:var(--text-muted);font-size:0.9rem;">
+          Diese Schritte werden nur manuell ausgelöst und jeweils separat bestätigt.
+        </p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.65rem;margin-bottom:0.9rem;">
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:0.65rem 0.8rem;">
+            <div style="font-size:0.74rem;color:var(--text-muted);margin-bottom:0.15rem;">Lokaler Tour-Status</div>
+            <div style="font-weight:700;"><%= declineWorkflow.tourStatusLabel %></div>
+            <div style="font-size:0.76rem;color:var(--text-muted);margin-top:0.15rem;">Kundenabsicht: <%= declineWorkflow.customerIntentLabel || '-' %></div>
+          </div>
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:0.65rem 0.8rem;">
+            <div style="font-size:0.74rem;color:var(--text-muted);margin-bottom:0.15rem;">Matterport jetzt</div>
+            <div style="font-weight:700;"><%= declineWorkflow.matterportStateLabel %></div>
+            <div style="font-size:0.76rem;color:var(--text-muted);margin-top:0.15rem;">Space: <%= declineWorkflow.matterportSpaceId || '-' %></div>
+          </div>
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:0.65rem 0.8rem;">
+            <div style="font-size:0.74rem;color:var(--text-muted);margin-bottom:0.15rem;">Exxas-Abo lokal</div>
+            <div style="font-weight:700;"><%= declineWorkflow.contractStateLabel %></div>
+            <div style="font-size:0.76rem;color:var(--text-muted);margin-top:0.15rem;">Abo-ID: <%= declineWorkflow.contractId || '-' %></div>
+          </div>
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:0.65rem 0.8rem;">
+            <div style="font-size:0.74rem;color:var(--text-muted);margin-bottom:0.15rem;">Exxas-Kunde jetzt</div>
+            <div style="font-weight:700;"><%= declineWorkflow.customerStateLabel || 'Keine Kunden-ID' %></div>
+            <div style="font-size:0.76rem;color:var(--text-muted);margin-top:0.15rem;">Kunde: <%= declineWorkflow.customerNumber || declineWorkflow.customerRef || '-' %></div>
+          </div>
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:0.65rem 0.8rem;">
+            <div style="font-size:0.74rem;color:var(--text-muted);margin-bottom:0.15rem;">Exxas-Rechnung jetzt</div>
+            <div style="font-weight:700;"><%= declineWorkflow.invoiceStateLabel %></div>
+            <div style="font-size:0.76rem;color:var(--text-muted);margin-top:0.15rem;">Rechnung: <%= declineWorkflow.preferredInvoice?.nummer || declineWorkflow.preferredInvoiceDocumentId || '-' %></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
+          <button class="btn btn-primary" <%= (declineWorkflow.hasMatterport && !declineWorkflow.isMatterportArchived) ? '' : 'disabled' %> onclick="runDeclineWorkflowAction('/admin/tours/<%= tour.id %>/archive-matterport', 'Matterport-Tour jetzt archivieren?')">Matterport archivieren</button>
+          <button class="btn btn-ghost" <%= declineWorkflow.hasContract ? '' : 'disabled' %> onclick="runDeclineWorkflowAction('/admin/tours/<%= tour.id %>/exxas-cancel-subscription', 'Exxas-Abo jetzt deaktivieren?')">Exxas-Abo deaktivieren</button>
+          <button class="btn btn-ghost" <%= declineWorkflow.hasCustomer ? '' : 'disabled' %> onclick="runDeclineWorkflowAction('/admin/tours/<%= tour.id %>/exxas-deactivate-customer', 'Exxas-Kundenanlage jetzt deaktivieren?')">Exxas-Kunde deaktivieren</button>
+          <button class="btn btn-ghost" <%= declineWorkflow.preferredInvoiceDocumentId ? '' : 'disabled' %> onclick="runDeclineWorkflowAction('/admin/tours/<%= tour.id %>/exxas-cancel-invoice', 'Exxas-Rechnung jetzt stornieren?', { exxasDocumentId: '<%= declineWorkflow.preferredInvoiceDocumentId || '' %>' })">Exxas-Rechnung stornieren</button>
+        </div>
+        <div style="margin-top:0.75rem;color:var(--text-muted);font-size:0.85rem;">
+          Matterport: <strong style="color:var(--text);"><%= declineWorkflow.matterportSpaceId || '-' %></strong>
+          · Exxas-Abo: <strong style="color:var(--text);"><%= declineWorkflow.contractId || '-' %></strong>
+          · Exxas-Kunde: <strong style="color:var(--text);"><%= declineWorkflow.customerNumber || declineWorkflow.customerRef || '-' %></strong>
+          · Exxas-Rechnung: <strong style="color:var(--text);"><%= declineWorkflow.preferredInvoice?.nummer || declineWorkflow.preferredInvoiceDocumentId || '-' %></strong>
+        </div>
+      </div>
+      <% } %>
+
+      <details class="detail-collapsible">
+        <summary>Rechnungen <span class="chev"><i class="fa-solid fa-chevron-down"></i></span></summary>
+        <div class="detail-collapsible-body">
+      <h3 style="font-size:0.95rem;margin:0 0 0.5rem 0;color:var(--text-muted);">Rechnung erfassen</h3>
+      <div class="manual-invoice-card">
+      <form method="post" action="/admin/tours/<%= tour.id %>/invoices/create-manual" class="manual-invoice-grid">
+        <div class="manual-invoice-field">
+          <label>Rechnungsnummer</label>
+          <input type="text" name="invoiceNumber" placeholder="Optional">
+        </div>
+        <div class="manual-invoice-field">
+          <label>Betrag (CHF)</label>
+          <input type="number" name="amountChf" step="0.01" min="0" placeholder="z.B. 99.00" required>
+        </div>
+        <div class="manual-invoice-field">
+          <label>Fällig am</label>
+          <input type="date" name="dueAt" value="<%= suggestedManualDueAt || '' %>">
+        </div>
+        <div class="manual-invoice-field">
+          <label>Zahlungsstatus</label>
+          <label class="manual-invoice-checkbox">
+            <input type="checkbox" name="markPaidNow" value="1">
+            Direkt als bezahlt erfassen
+          </label>
+        </div>
+        <div class="manual-invoice-field">
+          <label>Bezahlt am</label>
+          <input type="date" name="paidAt">
+        </div>
+        <div class="manual-invoice-field">
+          <label>Abo gültig ab</label>
+          <input type="date" name="subscriptionStartAt">
+        </div>
+        <div class="manual-invoice-field">
+          <label>Zahlungsart</label>
+          <select name="paymentMethod">
+            <option value="">Optional</option>
+            <option value="bank_transfer">Überweisung</option>
+            <option value="twint">TWINT</option>
+            <option value="card">Karte</option>
+            <option value="cash">Bar</option>
+            <option value="payrexx">Payrexx</option>
+            <option value="other">Sonstige</option>
+          </select>
+        </div>
+        <div class="manual-invoice-field">
+          <label>Notiz</label>
+          <input type="text" name="paymentNote" placeholder="Optional">
+        </div>
+        <div class="manual-invoice-actions">
+          <button type="submit" class="btn btn-primary">Rechnung erfassen</button>
+        </div>
+      </form>
+      <p class="manual-invoice-help">
+        Erstfakturierung: Fällig 6 Monate nach Tour-Erstellung. Reaktivierung: sofort fällig.
+      </p>
+      </div>
+      <h3 style="font-size:0.95rem;margin:0 0 0.5rem 0;color:var(--text-muted);">Verlängerungsrechnungen</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Rechnungsnummer</th><th>Status</th><th>Betrag</th><th>Gesendet</th><th>Bezahlt</th><th>Zahlungsart</th><th>Gültig ab</th><th>Gültig bis</th><th>Aktion</th></tr></thead>
+          <tbody>
+            <% const paymentMethodLabels = { bank_transfer:'Überweisung', cash:'Bar', twint:'TWINT', card:'Karte', payrexx:'Payrexx', other:'Sonstige' }; %>
+            <% renewalInvoices.forEach(i => { %>
+            <tr>
+              <td><code><%= i.invoice_number || ('Rechnung #' + i.id) %></code></td>
+              <td><span class="badge badge-<%= i.invoice_status %>"><%= {draft:'Entwurf',sent:'Gesendet',paid:'Bezahlt',overdue:'Überfällig',cancelled:'Storniert'}[i.invoice_status] || i.invoice_status %></span></td>
+              <td><%= i.amount_chf != null ? ('CHF ' + Number(i.amount_chf).toFixed(2)) : '-' %></td>
+              <td><%= i.sent_at ? new Date(i.sent_at).toLocaleDateString('de-CH') : '-' %></td>
+              <td><%= i.paid_at ? new Date(i.paid_at).toLocaleDateString('de-CH') : '-' %></td>
+              <td><%= i.payment_method ? (paymentMethodLabels[i.payment_method] || i.payment_method) : '-' %></td>
+              <td><%= i.subscription_start_at ? new Date(i.subscription_start_at).toLocaleDateString('de-CH') : '-' %></td>
+              <td><%= i.subscription_end_at ? new Date(i.subscription_end_at).toLocaleDateString('de-CH') : '-' %></td>
+              <td>
+                <div style="display:flex;gap:0.35rem;flex-wrap:wrap;margin-bottom:0.45rem;">
+                  <a href="/admin/tours/<%= tour.id %>/invoices/<%= i.id %>/pdf" class="btn btn-ghost" target="_blank" rel="noopener noreferrer" style="padding:0.24rem 0.48rem;font-size:0.75rem;">PDF anzeigen</a>
+                </div>
+                <% if (i.invoice_status !== 'paid' && i.invoice_status !== 'cancelled') { %>
+                <form method="post" action="/admin/tours/<%= tour.id %>/invoices/<%= i.id %>/mark-paid-manual" style="display:grid;gap:0.35rem;min-width:220px;">
+                  <input type="date" name="paidAt" required value="<%= new Date().toISOString().slice(0,10) %>" title="Bezahlt am">
+                  <input type="date" name="subscriptionStartAt" required value="<%= new Date().toISOString().slice(0,10) %>" title="Abo gültig ab">
+                  <select name="paymentMethod" required>
+                    <option value="bank_transfer">Überweisung</option>
+                    <option value="twint">TWINT</option>
+                    <option value="card">Karte</option>
+                    <option value="cash">Bar</option>
+                    <option value="payrexx">Payrexx</option>
+                    <option value="other">Sonstige</option>
+                  </select>
+                  <input type="number" step="0.01" min="0" name="amountChf" value="<%= i.amount_chf != null ? Number(i.amount_chf).toFixed(2) : '' %>" placeholder="Betrag CHF">
+                  <input type="text" name="paymentNote" placeholder="Notiz (optional)">
+                  <button type="submit" class="btn btn-primary" style="padding:0.3rem 0.55rem;font-size:0.8rem;">Manuell als bezahlt</button>
+                </form>
+                <% } else { %>
+                -
+                <% } %>
+              </td>
+            </tr>
+            <% }); %>
+            <% if (renewalInvoices.length === 0) { %><tr><td colspan="9" style="color:var(--text-muted);">Keine</td></tr><% } %>
+          </tbody>
+        </table>
+      </div>
+        </div>
+      </details>
+
+      <details class="detail-collapsible">
+        <summary>Kommunikation <span class="chev"><i class="fa-solid fa-chevron-down"></i></span></summary>
+        <div class="detail-collapsible-body">
+      <div class="table-wrap" style="margin-bottom:0;">
+        <table>
+          <thead><tr><th>Typ</th><th>Betreff / Quelle</th><th>Adresse</th><th>Zeit</th><th>Status</th></tr></thead>
+          <tbody>
+            <% (outgoingEmails || []).forEach((mail) => { %>
+            <tr>
+              <td><span class="badge badge-paid">Gesendet</span></td>
+              <td>
+                <div><%= mail.subject || '-' %></div>
+                <div style="font-size:0.78rem;color:var(--text-muted);"><%= mail.template_key || '-' %></div>
+              </td>
+              <td>
+                <div><%= mail.recipient_email || '-' %></div>
+                <div style="font-size:0.78rem;color:var(--text-muted);"><%= mail.mailbox_upn || '-' %></div>
+              </td>
+              <td><%= mail.sent_at ? new Date(mail.sent_at).toLocaleString('de-CH') : '-' %></td>
+              <td><span class="badge badge-paid">Erfasst</span></td>
+            </tr>
+            <% }); %>
+            <% (incomingEmails || []).forEach((mail) => { %>
+            <tr>
+              <td><span class="badge badge-sent">Antwort</span></td>
+              <td>
+                <div><%= mail.subject || '-' %></div>
+                <div style="font-size:0.78rem;color:var(--text-muted);">
+                  <%= mail.suggestion_reason || ({
+                    new: 'Neu',
+                    matched: 'Tour zugeordnet',
+                    suggested: 'Vorschlag erstellt',
+                    reviewed: 'Bearbeitet',
+                    ignored: 'Ignoriert',
+                    error: 'Fehler'
+                  }[mail.processing_status] || mail.processing_status || '-') %>
+                </div>
+              </td>
+              <td>
+                <div><%= mail.from_email || '-' %></div>
+                <div style="font-size:0.78rem;color:var(--text-muted);"><%= mail.mailbox_upn || '-' %></div>
+              </td>
+              <td><%= mail.received_at ? new Date(mail.received_at).toLocaleString('de-CH') : '-' %></td>
+              <td>
+                <span class="badge badge-<%= mail.suggestion_status === 'rejected' || mail.processing_status === 'ignored' ? 'overdue' : (mail.suggestion_status === 'open' ? 'sent' : 'paid') %>">
+                  <%= mail.suggestion_status === 'open'
+                    ? 'Offen'
+                    : mail.suggestion_status === 'rejected'
+                      ? 'Abgelehnt'
+                      : ({
+                        matched: 'Zugeteilt',
+                        suggested: 'Vorschlag',
+                        reviewed: 'Bearbeitet',
+                        ignored: 'Ignoriert',
+                        error: 'Fehler'
+                      }[mail.processing_status] || 'Erfasst') %>
+                </span>
+              </td>
+            </tr>
+            <% }); %>
+            <% if ((!outgoingEmails || outgoingEmails.length === 0) && (!incomingEmails || incomingEmails.length === 0)) { %>
+            <tr><td colspan="5" style="color:var(--text-muted);">Noch keine Kommunikationsdaten vorhanden</td></tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+        </div>
+      </details>
+
+    </main>
+  </div>
+  <div class="tm-modal-backdrop" id="mailModalBackdrop" onclick="closeMailModal(event)">
+    <div class="tm-modal" onclick="event.stopPropagation()">
+      <div class="tm-modal-head">
+        <h3 class="tm-modal-title">Mail senden</h3>
+        <button class="tm-modal-close" type="button" onclick="closeMailModal()">&times;</button>
+      </div>
+      <div class="tm-modal-body">
+        <div class="tm-form-row">
+          <label for="mailTemplateSelect">E-Mail Vorlage auswählen</label>
+          <select id="mailTemplateSelect">
+            <option value="renewal_request">Verlängerungsanfrage</option>
+            <option value="archive_notice">Archiv-Hinweis</option>
+          </select>
+          <div class="tm-form-help">Die gewählte Vorlage wird direkt an den Kunden gesendet.</div>
+        </div>
+        <label class="tm-checkbox-line" for="mailCopyToMe">
+          <input type="checkbox" id="mailCopyToMe" value="1">
+          Kopie an mich senden
+        </label>
+        <div class="tm-modal-info" id="mailModalInfo" style="margin-top:0.75rem;">Wähle eine Vorlage und klicke auf „Senden“.</div>
+      </div>
+      <div class="tm-modal-foot">
+        <button class="btn btn-ghost" type="button" onclick="closeMailModal()">Abbrechen</button>
+        <button class="btn btn-primary" id="mailModalSendBtn" type="button" onclick="confirmSendMail()">Senden</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="tm-modal-backdrop" id="confirmModalBackdrop" onclick="closeConfirmModal(event)">
+    <div class="tm-modal" onclick="event.stopPropagation()">
+      <div class="tm-modal-head">
+        <h3 class="tm-modal-title" id="confirmModalTitle">Bestätigung</h3>
+        <button class="tm-modal-close" type="button" onclick="closeConfirmModal()">&times;</button>
+      </div>
+      <div class="tm-modal-body">
+        <div class="tm-modal-info" id="confirmModalInfo">Aktion ausführen?</div>
+        <div class="tm-modal-info warning" id="confirmModalWarning" style="display:none;margin-top:0.7rem;"></div>
+      </div>
+      <div class="tm-modal-foot">
+        <button class="btn btn-ghost" type="button" onclick="closeConfirmModal()">Nein</button>
+        <button class="btn btn-primary" id="confirmModalYesBtn" type="button">Ja</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container"></div>
+  <script>
+  const id = <%= tour.id %>;
+  let confirmActionHandler = null;
+
+  function toast(m,t){const c=document.getElementById('toast-container');const e=document.createElement('div');e.className='toast '+(t||'success');e.textContent=m;c.appendChild(e);setTimeout(()=>e.remove(),3500);}
+  function runDeclineWorkflowAction(url, confirmText, body) {
+    if (confirmText && !confirm(confirmText)) return;
+    fetch(url, {
+      method: 'POST',
+      credentials: 'include',
+      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+    })
+      .then(r => r.json().then(d => ({ ok: r.ok, data: d })))
+      .then(({ ok, data }) => {
+        if (!ok || !data.ok) {
+          const details = Array.isArray(data.attempts) && data.attempts.length ? ' · ' + data.attempts.join(' | ') : '';
+          throw new Error((data.error || data.message || 'Aktion fehlgeschlagen') + details);
+        }
+        toast(data.message || 'Aktion erfolgreich');
+        setTimeout(() => location.reload(), 900);
+      })
+      .catch(e => toast('Fehler: ' + e.message, 'error'));
+  }
+
+  function openMailModal() {
+    document.getElementById('mailTemplateSelect').value = 'renewal_request';
+    document.getElementById('mailCopyToMe').checked = false;
+    document.getElementById('mailModalInfo').textContent = 'Wähle eine Vorlage und klicke auf „Senden“.';
+    document.getElementById('mailModalInfo').classList.remove('success', 'warning', 'danger');
+    document.getElementById('mailModalBackdrop').classList.add('open');
+  }
+  function closeMailModal(event) {
+    if (event && event.target && event.target.id !== 'mailModalBackdrop') return;
+    document.getElementById('mailModalBackdrop').classList.remove('open');
+  }
+  async function confirmSendMail() {
+    const info = document.getElementById('mailModalInfo');
+    const sendBtn = document.getElementById('mailModalSendBtn');
+    const templateKey = document.getElementById('mailTemplateSelect').value;
+    const copyToMe = document.getElementById('mailCopyToMe').checked;
+    info.textContent = 'E-Mail wird gesendet...';
+    info.classList.remove('success', 'warning', 'danger');
+    sendBtn.disabled = true;
+    try {
+      const r = await fetch('/api/tours/' + id + '/send-renewal-email', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ templateKey, copyToMe }),
+      });
+      const d = await r.json();
+      if (!r.ok || d.error) {
+        info.textContent = d.error || 'Fehler beim Senden.';
+        info.classList.add('danger');
+        return;
+      }
+      const copyText = copyToMe
+        ? (d.copySent ? ' · Kopie an dich gesendet.' : (d.copyError ? ` · Kopie fehlgeschlagen: ${d.copyError}` : ''))
+        : '';
+      info.textContent = `E-Mail wurde gesendet${copyText}`;
+      info.classList.add('success');
+      setTimeout(() => closeMailModal(), 600);
+    } catch (e) {
+      info.textContent = 'Fehler: ' + e.message;
+      info.classList.add('danger');
+    } finally {
+      sendBtn.disabled = false;
+    }
+  }
+
+  function openConfirmModal({ title, message, warning, onConfirm }) {
+    document.getElementById('confirmModalTitle').textContent = title || 'Bestätigung';
+    document.getElementById('confirmModalInfo').textContent = message || 'Aktion ausführen?';
+    const warnEl = document.getElementById('confirmModalWarning');
+    if (warning) {
+      warnEl.textContent = warning;
+      warnEl.style.display = 'block';
+    } else {
+      warnEl.textContent = '';
+      warnEl.style.display = 'none';
+    }
+    confirmActionHandler = onConfirm || null;
+    document.getElementById('confirmModalBackdrop').classList.add('open');
+  }
+  function closeConfirmModal(event) {
+    if (event && event.target && event.target.id !== 'confirmModalBackdrop') return;
+    confirmActionHandler = null;
+    document.getElementById('confirmModalBackdrop').classList.remove('open');
+  }
+
+  async function postAction(url, opts) {
+    const options = opts || {};
+    const r = await fetch(url, { method: 'POST', credentials: 'include' });
+    if (options.expectJson) {
+      const d = await r.json();
+      if (!r.ok || (d && d.error) || (typeof d.ok !== 'undefined' && !d.ok)) {
+        throw new Error((d && (d.error || d.message)) || 'Aktion fehlgeschlagen');
+      }
+      return d;
+    }
+    if (!r.ok) {
+      throw new Error('Aktion fehlgeschlagen');
+    }
+    return null;
+  }
+
+  function openDeclineModal() {
+    openConfirmModal({
+      title: 'Tour kündigen',
+      message: 'Bist du sicher, dass du die Tour kündigen willst?',
+      onConfirm: async () => {
+        try {
+          await postAction('/api/tours/' + id + '/decline');
+          closeConfirmModal();
+          toast('Tour wurde gekündigt');
+          setTimeout(() => location.reload(), 700);
+        } catch (e) {
+          toast('Fehler: ' + e.message, 'error');
+        }
+      },
+    });
+  }
+
+  function openArchiveModal() {
+    openConfirmModal({
+      title: 'Tour archivieren',
+      message: 'Willst du die Tour jetzt archivieren?',
+      onConfirm: async () => {
+        try {
+          await postAction('/api/tours/' + id + '/archive-now');
+          closeConfirmModal();
+          toast('Tour wurde archiviert');
+          setTimeout(() => location.reload(), 700);
+        } catch (e) {
+          toast('Fehler: ' + e.message, 'error');
+        }
+      },
+    });
+  }
+
+  function openReactivateModal() {
+    openConfirmModal({
+      title: 'Tour reaktivieren',
+      message: 'Willst du die Tour reaktivieren?',
+      warning: 'Achtung: Kunde erhält Rechnung mit Reaktivierungsgebühren von CHF 74.00 (inkl. CHF 15.00 einmalige Reaktivierungsgebühr).',
+      onConfirm: async () => {
+        try {
+          const d = await postAction('/api/tours/' + id + '/unarchive-matterport', { expectJson: true });
+          closeConfirmModal();
+          toast(d.message || 'Tour wurde reaktiviert');
+          setTimeout(() => location.reload(), 700);
+        } catch (e) {
+          toast('Fehler: ' + e.message, 'error');
+        }
+      },
+    });
+  }
+
+  (function bindVisibilityCards() {
+    const cards = Array.from(document.querySelectorAll('.vis-card-admin'));
+    const pwField = document.getElementById('adminPwField');
+    if (!cards.length) return;
+    function updateState(selectedValue) {
+      cards.forEach((card) => {
+        const input = card.querySelector('input[type="radio"]');
+        const isActive = !!input && input.value === selectedValue;
+        card.classList.toggle('active', isActive);
+      });
+      if (pwField) {
+        pwField.style.display = selectedValue === 'PASSWORD' ? 'block' : 'none';
+      }
+    }
+    cards.forEach((card) => {
+      card.addEventListener('click', () => {
+        const input = card.querySelector('input[type="radio"]');
+        if (!input) return;
+        input.checked = true;
+        updateState(input.value);
+      });
+    });
+    const checked = cards
+      .map((card) => card.querySelector('input[type="radio"]'))
+      .find((input) => input && input.checked);
+    updateState(checked ? checked.value : 'LINK_ONLY');
+  })();
+
+  document.getElementById('confirmModalYesBtn').addEventListener('click', async () => {
+    if (!confirmActionHandler) return;
+    await confirmActionHandler();
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key !== 'Escape') return;
+    closeMailModal();
+    closeConfirmModal();
+  });
+  </script>
+</body>
+</html>

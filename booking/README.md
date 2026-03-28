@@ -1,0 +1,56 @@
+# Buchungstool
+
+Zentrales Repository fuer Backend, Admin-Panel und Betriebsdokumentation.
+
+## Operations Quicklinks
+
+- Mail-Versand Betrieb und Incident-Ablauf: `docs/MAIL_OPERATIONS_CHECKLIST.md`
+- Logging-Konzept und Umgebungsvariablen: `docs/LOGGING.md`
+- Grafana/Loki Monitoring-Setup: `docs/MONITORING_GRAFANA_LOKI.md`
+- Projektstruktur und wichtige Hinweise: `docs/PROJEKT_STRUKTUR_HINWEISE.md`
+- Live-Setup Checklisten: `docs/LIVE_SETUP_PRICING_SCHEDULING_CHECKLIST.md`
+
+## Lokal: Admin-Panel und Backend
+
+Kurzanleitung zum parallelen Start von API und Admin-UI (inkl. Proxy `/api` → Backend): siehe Abschnitt **„Lokal starten“** in [`admin-panel/README.md`](admin-panel/README.md).
+
+## Lokal mit Docker
+
+- **Gesamt-Stack (Postgres + Backend + Buchungsseite + Admin):** aus dem Repo-Root:
+
+  ```bash
+  docker compose -f docker-compose.desktop.yml up --build
+  ```
+
+  - Buchungsseite: **http://localhost:8090**
+  - Admin-Panel: **http://localhost:8092**
+  - API (direkt): **http://localhost:3001**
+  - Postgres: **localhost:5432** (`propus` / `propus` / `buchungstool`)
+
+  Optional: `SESSION_SECRET`, `BUCHUNGSTOOL_DESKTOP_ADMIN_USER`, `BUCHUNGSTOOL_DESKTOP_ADMIN_PASS` (siehe `docker-compose.desktop.yml`) oder `docker compose --env-file .env.docker ...` mit Vorlage `.env.docker.example`. **Nicht** die allgemeine Windows-Variable `ADMIN_PASS` verwenden — Docker Compose wuerde sie sonst statt `localdev12` einsetzen. Ohne eigene Graph-App sind `MS_GRAPH_*` als **lokale Platzhalter** gesetzt (`MAIL_PREFER_GRAPH=false`).
+
+  **Admin-Login (lokal):** Benutzer **`admin`**, Passwort **`localdev12`** (wird per Bootstrap in `admin_users` angelegt bzw. bei `ADMIN_BOOTSTRAP_SYNC_PASSWORD` angepasst). Eigenes Passwort: `BUCHUNGSTOOL_DESKTOP_ADMIN_PASS` setzen und Backend-Container neu starten.
+
+  Unter Windows kannst du auch `powershell -File scripts/docker-desktop-up.ps1` ausführen (sucht `docker.exe` typischer Installationspfade). Der Compose-Projektname ist **`buchungstool-desktop`** (Volumes/Container sind darunter gruppiert).
+
+### Import von der VPS-Produktion in Docker Desktop
+
+Voraussetzungen: `.env` im Repo-Root mit `VPS_IP`, `VPS_USER`, ggf. `VPS_SSH_PW` (PuTTY) oder `VPS_USE_OPENSSH=1` mit SSH-Key; optional `VPS_PROJECT_ROOT`, `VPS_COMPOSE_PROJECT`, `VPS_ENV_FILE` wie bei `deploy-prod.ps1`.
+
+```powershell
+# Nur Datenbank (VPS pg_dump → lokale Postgres-Volume)
+.\scripts\import-vps-to-desktop.ps1 -Confirm
+
+# Code + DB + orders.json + photographers/discount/version (Root)
+.\scripts\import-vps-to-desktop.ps1 -Confirm -IncludeCode -IncludeOrders -IncludeBookingFiles
+```
+
+Hinweise: NAS-Upload-Pfade der VPS existieren lokal nicht; der Desktop-Stack nutzt bereits `BOOKING_UPLOAD_REQUIRE_MOUNT=false`. **Admin-Passwort:** Standard ist `ADMIN_BOOTSTRAP_SYNC_PASSWORD=true` — dann wird beim Start auf `BUCHUNGSTOOL_DESKTOP_ADMIN_PASS` (Default `localdev12`) gesetzt. Soll das Passwort aus dem VPS-Import gelten: in `docker-compose.desktop.yml` `ADMIN_BOOTSTRAP_SYNC_PASSWORD` auf `false` setzen und Stack neu starten.
+
+- **Nur PostgreSQL:** `docker compose -f docker-compose.local.yml up -d postgres` startet Postgres auf **Port 5432**. Backend und Admin startest du danach auf dem Host; im Ordner `backend` in der `.env` z. B. `DATABASE_URL=postgresql://propus:propus@127.0.0.1:5432/buchungstool` setzen.
+
+- **Hinweis:** Die Datei `docker-compose.yml` im Repo-Root ist für die NAS-/Produktionspfade (`/volume1/...`) ausgelegt und auf einem normalen Entwicklungsrechner in der Regel **nicht** ohne Anpassung lauffähig. Details: [`admin-panel/README.md`](admin-panel/README.md).
+
+## Weitere README-Dateien
+
+- Admin-Panel: `admin-panel/README.md`

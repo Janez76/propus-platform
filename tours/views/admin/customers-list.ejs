@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kunden – Propus Tour Manager</title>
+  <%- include('_admin-styles') %>
+</head>
+<body>
+  <div class="admin-shell">
+    <%- include('_header') %>
+    <main class="admin-main">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;margin-bottom:1.25rem;">
+        <div>
+          <h1 style="margin:0 0 0.2rem 0;">Kunden</h1>
+          <p style="color:var(--text-muted);font-size:0.88rem;margin:0;">
+            Zentrale Kundendatenbank · <%= totalCount %> Einträge
+          </p>
+        </div>
+        <a href="/admin/customers/new" class="btn btn-primary">
+          <i class="fa-solid fa-user-plus"></i> Neuer Kunde
+        </a>
+      </div>
+
+      <!-- Suche & Filter -->
+      <div class="section" style="padding:0.85rem 1rem;margin-bottom:1rem;">
+        <form method="GET" action="/admin/customers" style="display:flex;gap:0.6rem;flex-wrap:wrap;align-items:center;">
+          <div style="position:relative;flex:1;min-width:200px;">
+            <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:0.7rem;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:0.85rem;"></i>
+            <input type="text" name="q" value="<%= q || '' %>"
+              placeholder="Name, E-Mail, Firma…"
+              style="width:100%;padding:0.5rem 0.75rem 0.5rem 2rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.88rem;box-sizing:border-box;"
+              autocomplete="off">
+          </div>
+          <select name="source" style="padding:0.5rem 0.75rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.88rem;">
+            <option value="" <%= !source ? 'selected' : '' %>>Alle Quellen</option>
+            <option value="tours" <%= source==='tours' ? 'selected' : '' %>>Mit Touren</option>
+            <option value="booking" <%= source==='booking' ? 'selected' : '' %>>Mit Buchungen</option>
+            <option value="exxas" <%= source==='exxas' ? 'selected' : '' %>>Exxas verknüpft</option>
+          </select>
+          <button type="submit" class="btn btn-ghost" style="white-space:nowrap;">
+            <i class="fa-solid fa-filter"></i> Filtern
+          </button>
+          <% if (q || source) { %>
+            <a href="/admin/customers" class="btn btn-ghost" style="white-space:nowrap;">
+              <i class="fa-solid fa-xmark"></i> Zurücksetzen
+            </a>
+          <% } %>
+        </form>
+      </div>
+
+      <!-- Kundenliste -->
+      <div class="section" style="padding:0;">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Name / Firma</th>
+                <th>E-Mail</th>
+                <th>Telefon</th>
+                <th style="text-align:center;">Touren</th>
+                <th style="text-align:center;">Kontakte</th>
+                <th>Quelle</th>
+                <th>Erstellt</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <% if (!customers || customers.length === 0) { %>
+                <tr>
+                  <td colspan="8" style="text-align:center;color:var(--text-muted);padding:2rem;">
+                    <% if (q || source) { %>
+                      Keine Kunden gefunden für "<%= q || '' %>".
+                    <% } else { %>
+                      Noch keine Kunden vorhanden. <a href="/admin/customers/new" class="link">Ersten Kunden anlegen</a>
+                    <% } %>
+                  </td>
+                </tr>
+              <% } else { %>
+                <% customers.forEach(c => { %>
+                  <tr>
+                    <td>
+                      <div style="font-weight:600;font-size:0.9rem;">
+                        <%= c.name || '(kein Name)' %>
+                      </div>
+                      <% if (c.company && c.company !== c.name) { %>
+                        <div style="color:var(--text-muted);font-size:0.78rem;"><%= c.company %></div>
+                      <% } %>
+                    </td>
+                    <td style="font-size:0.85rem;">
+                      <a href="mailto:<%= c.email %>" style="color:var(--link);" onclick="event.stopPropagation()">
+                        <%= c.email %>
+                      </a>
+                    </td>
+                    <td style="font-size:0.85rem;color:var(--text-muted);">
+                      <%= c.phone || '–' %>
+                    </td>
+                    <td style="text-align:center;">
+                      <% if (c.tour_count > 0) { %>
+                        <a href="/admin/tours?customer_email=<%= encodeURIComponent(c.email) %>"
+                           style="font-size:0.82rem;font-weight:600;color:var(--link);"
+                           onclick="event.stopPropagation()">
+                          <%= c.tour_count %>
+                        </a>
+                      <% } else { %>
+                        <span style="color:var(--text-muted);font-size:0.82rem;">–</span>
+                      <% } %>
+                    </td>
+                    <td style="text-align:center;">
+                      <span style="font-size:0.82rem;color:<%= c.contact_count > 0 ? 'var(--text)' : 'var(--text-muted)' %>;">
+                        <%= c.contact_count || '–' %>
+                      </span>
+                    </td>
+                    <td>
+                      <% if (c.exxas_contact_id) { %>
+                        <span class="badge" style="background:rgba(251,191,36,0.15);color:#fbbf24;font-size:0.72rem;">
+                          <i class="fa-solid fa-link"></i> Exxas
+                        </span>
+                      <% } %>
+                      <% if (!c.exxas_contact_id && c.tour_count > 0) { %>
+                        <span class="badge" style="background:rgba(99,102,241,0.15);color:#a5b4fc;font-size:0.72rem;">
+                          Tour
+                        </span>
+                      <% } %>
+                    </td>
+                    <td style="font-size:0.78rem;color:var(--text-muted);">
+                      <%= c.created_at ? new Date(c.created_at).toLocaleDateString('de-CH', {day:'2-digit',month:'2-digit',year:'2-digit'}) : '–' %>
+                    </td>
+                    <td>
+                      <a href="/admin/customers/<%= c.id %>" class="btn btn-ghost btn-small">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                      </a>
+                    </td>
+                  </tr>
+                <% }) %>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <% if (totalPages > 1) { %>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:0.75rem 1rem;border-top:1px solid var(--border);">
+            <div style="font-size:0.82rem;color:var(--text-muted);">
+              Seite <%= page %> von <%= totalPages %> · <%= totalCount %> Kunden
+            </div>
+            <div style="display:flex;gap:0.4rem;">
+              <% if (page > 1) { %>
+                <a href="/admin/customers?q=<%= encodeURIComponent(q||'') %>&source=<%= source||'' %>&page=<%= page-1 %>"
+                   class="btn btn-ghost btn-small">← Zurück</a>
+              <% } %>
+              <% if (page < totalPages) { %>
+                <a href="/admin/customers?q=<%= encodeURIComponent(q||'') %>&source=<%= source||'' %>&page=<%= page+1 %>"
+                   class="btn btn-ghost btn-small">Weiter →</a>
+              <% } %>
+            </div>
+          </div>
+        <% } %>
+      </div>
+
+    </main>
+  </div>
+</body>
+</html>

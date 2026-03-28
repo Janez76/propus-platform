@@ -1,0 +1,9 @@
+<% if (typeof isAdminView !== 'undefined' && isAdminView) { %>
+<div class="portal-topbar-admin" role="status">
+  <div class="portal-topbar-admin-inner">
+    <span class="portal-topbar-admin-label"><i class="fa-regular fa-eye"></i> Admin-Ansicht</span>
+    <span class="portal-topbar-admin-email"><%= typeof email !== 'undefined' ? email : '' %></span>
+  </div>
+  <a href="/admin/tours" class="portal-topbar-admin-link">Zurück zum Admin</a>
+</div>
+<% } %>

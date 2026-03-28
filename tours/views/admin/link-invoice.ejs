@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rechnung mit Tour verknüpfen – Propus Tour Manager</title>
+  <%- include('_admin-styles') %>
+</head>
+<body>
+  <div class="admin-shell">
+    <%- include('_header') %>
+    <main class="admin-main">
+      <a href="/admin/tours/<%= tour.id %>" class="back">← Zurück zur Tour</a>
+      <h1>Rechnung mit Tour verknüpfen – <%= tour.object_label || tour.bezeichnung || 'Tour ' + tour.id %></h1>
+      <p style="color:var(--text-muted);margin:0 0 1rem 0;">Wähle eine unverknüpfte Exxas-Rechnung aus, um sie mit dieser Tour zu verknüpfen.</p>
+
+      <% if (typeof error !== 'undefined' && error) { %>
+      <div class="alert alert-error">
+        <% if (error === 'missing') { %>Rechnung muss ausgewählt werden.<% } %>
+        <% if (error === 'notfound') { %>Rechnung nicht gefunden.<% } %>
+        <% if (error === 'alreadylinked') { %>Rechnung ist bereits mit einer Tour verknüpft.<% } %>
+      </div>
+      <% } %>
+
+      <form method="get" action="/admin/tours/<%= tour.id %>/link-invoice" class="search-bar">
+        <input type="text" name="search" value="<%= search %>" placeholder="Kunde, Objekt oder Nummer…">
+        <button type="submit" class="btn btn-primary">Suchen</button>
+        <% if (search) { %><a href="/admin/tours/<%= tour.id %>/link-invoice" class="btn btn-ghost">Alle anzeigen</a><% } %>
+      </form>
+
+      <% if (suggestions && suggestions.length) { %>
+      <div class="section">
+        <h2 style="margin-top:0;">Vorgeschlagene Rechnungen</h2>
+        <p style="color:var(--text-muted);margin:0 0 1rem 0;">Die wahrscheinlichsten unverknüpften Rechnungen für diese Tour.</p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:0.85rem;">
+          <% suggestions.forEach((i) => { %>
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:1rem;">
+            <div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;">
+              <div>
+                <div style="font-weight:700;"><code><%= i.nummer || i.exxas_document_id || '-' %></code></div>
+                <div style="color:var(--text);margin-top:0.25rem;"><%= i.kunde_name || '-' %></div>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-weight:700;"><%= Math.round((parseFloat(i.suggestion_confidence) || 0) * 100) %>%</div>
+                <div style="font-size:0.75rem;color:var(--text-muted);">Score <%= i.suggestion_score %></div>
+              </div>
+            </div>
+            <div style="margin-top:0.6rem;color:var(--text-muted);font-size:0.88rem;"><%= i.bezeichnung || '-' %></div>
+            <div style="margin-top:0.75rem;display:flex;gap:0.35rem;flex-wrap:wrap;">
+              <% (i.suggestion_reasons || []).forEach((reason) => { %>
+              <span class="badge badge-sent"><%= reason %></span>
+              <% }); %>
+            </div>
+            <div style="margin-top:0.85rem;display:flex;justify-content:space-between;gap:0.75rem;align-items:center;flex-wrap:wrap;">
+              <div style="font-size:0.82rem;color:var(--text-muted);">
+                <div>Betrag: <strong style="color:var(--text);"><%= i.preis_brutto != null ? 'CHF ' + parseFloat(i.preis_brutto).toFixed(2) : '-' %></strong></div>
+                <div>Fällig: <strong style="color:var(--text);"><%= i.zahlungstermin ? new Date(i.zahlungstermin).toLocaleDateString('de-CH') : '-' %></strong></div>
+              </div>
+              <form method="post" action="/admin/tours/<%= tour.id %>/link-invoice" style="margin:0;">
+                <input type="hidden" name="invoice_id" value="<%= i.id %>">
+                <button type="submit" class="btn btn-primary">Vorschlag übernehmen</button>
+              </form>
+            </div>
+          </div>
+          <% }); %>
+        </div>
+      </div>
+      <% } %>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Nummer</th><th>Kunde</th><th>Bezeichnung</th><th>Betrag</th><th>Zahlungstermin</th><th>Status</th><th>Aktion</th></tr>
+          </thead>
+          <tbody>
+            <% if (!invoices || invoices.length === 0) { %>
+            <tr><td colspan="7" class="empty"><%= search ? 'Keine unverknüpften Rechnungen für diese Suche.' : 'Keine unverknüpften Exxas-Rechnungen vorhanden.' %></td></tr>
+            <% } else { %>
+            <% invoices.forEach(i => { %>
+            <tr>
+              <td><code><%= i.nummer || i.exxas_document_id || '-' %></code></td>
+              <td><%= i.kunde_name || '-' %></td>
+              <td style="max-width:220px;"><%= (i.bezeichnung || '-').slice(0, 50) %><%= (i.bezeichnung || '').length > 50 ? '…' : '' %></td>
+              <td><%= i.preis_brutto != null ? 'CHF ' + parseFloat(i.preis_brutto).toFixed(2) : '-' %></td>
+              <td><%= i.zahlungstermin ? new Date(i.zahlungstermin).toLocaleDateString('de-CH') : '-' %></td>
+              <td><span class="badge badge-<%= i.exxas_status === 'bz' ? 'paid' : 'sent' %>"><%= i.sv_status || i.exxas_status || '-' %></span></td>
+              <td>
+                <form method="post" action="/admin/tours/<%= tour.id %>/link-invoice" style="display:inline;">
+                  <input type="hidden" name="invoice_id" value="<%= i.id %>">
+                  <button type="submit" class="btn btn-primary">Verknüpfen</button>
+                </form>
+              </td>
+            </tr>
+            <% }); %>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

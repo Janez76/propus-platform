@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Automatisierungen – Propus Tour Manager</title>
+  <%- include('_admin-styles') %>
+  <style>
+    .intro { color: var(--text-muted); margin: 0 0 1rem; max-width: 980px; }
+    .rules-list {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #fff;
+      overflow: hidden;
+    }
+    .rule-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.8rem;
+      align-items: center;
+      padding: 0.9rem 1rem;
+      border-top: 1px solid var(--border);
+    }
+    .rule-row:first-child { border-top: none; }
+    .rule-title { margin: 0 0 0.12rem; font-size: 0.95rem; font-weight: 700; color: var(--gray-900); }
+    .rule-desc { margin: 0; font-size: 0.8rem; color: var(--text-muted); line-height: 1.45; }
+    .rule-meta { display: flex; gap: 0.35rem; align-items: center; margin-top: 0.34rem; flex-wrap: wrap; }
+    .status-tag {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 8px;
+      padding: 0.08rem 0.36rem;
+      font-size: 0.67rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      background: #f7f7f5;
+    }
+    .status-tag.on { color: #137347; border-color: rgba(22, 179, 100, 0.28); background: rgba(22, 179, 100, 0.08); }
+    .changed-tag {
+      display: none;
+      color: #9f5b00;
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      background: rgba(245, 158, 11, 0.12);
+    }
+    .changed-tag.show { display: inline-flex; }
+    .hidden-input { display: none; }
+
+    .tm-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 15, 18, 0.5);
+      z-index: 2000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .tm-modal-backdrop.open { display: flex; }
+    .tm-modal {
+      width: min(760px, 100%);
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 24px 45px rgba(20, 19, 17, 0.2);
+      overflow: hidden;
+      max-height: calc(100vh - 2rem);
+      display: flex;
+      flex-direction: column;
+    }
+    .tm-modal-head {
+      padding: 0.9rem 1rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.6rem;
+      background: var(--gray-50);
+    }
+    .tm-modal-title { margin: 0; font-size: 1rem; color: var(--gray-900); }
+    .tm-modal-subtitle { margin: 0.2rem 0 0; color: var(--text-muted); font-size: 0.8rem; line-height: 1.4; }
+    .tm-modal-close {
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text-muted);
+      border-radius: 8px;
+      width: 30px;
+      height: 30px;
+      cursor: pointer;
+      line-height: 1;
+      font-size: 1rem;
+      flex: 0 0 auto;
+    }
+    .tm-modal-body { padding: 0.95rem 1rem; overflow: auto; }
+    .tm-modal-foot {
+      padding: 0.85rem 1rem 0.95rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      gap: 0.45rem;
+      background: #fff;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .modal-actions-left { display: flex; gap: 0.45rem; align-items: center; }
+    .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
+    .modal-grid .full { grid-column: 1 / -1; }
+    .field { display: flex; flex-direction: column; gap: 0.3rem; }
+    .field label { font-size: 0.8rem; color: var(--text-muted); font-weight: 600; }
+    .field input[type="number"], .field select {
+      width: 100%;
+      min-height: 2.15rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--gray-800);
+      font: inherit;
+      padding: 0.38rem 0.62rem;
+    }
+    .toggle-line {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.86rem;
+      color: var(--gray-700);
+      margin: 0;
+      padding: 0.45rem 0.55rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fcfcfb;
+    }
+    .toggle-line input { margin: 0; }
+    .hint { color: var(--text-muted); font-size: 0.78rem; margin: 0.55rem 0 0; }
+    @media (max-width: 820px) {
+      .modal-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="admin-shell">
+    <%- include('_header') %>
+    <main class="admin-main">
+      <h1>Automatisierungen</h1>
+      <% if (typeof saved === 'boolean' && saved) { %><div class="alert alert-success">Automatisierungen wurden gespeichert.</div><% } %>
+      <p class="intro">Alle Regeln sind als Liste aufgebaut. Jede Regel wird über <strong>Bearbeiten</strong> separat konfiguriert und direkt im Popup gespeichert.</p>
+
+      <form method="post" action="/admin/automations" id="automationsForm">
+        <div class="rules-list">
+          <section class="rule-row" data-rule-id="expiringMail">
+            <div>
+              <p class="rule-title">Ablauf-Mails</p>
+              <p class="rule-desc">Automatische E-Mails vor Ablauf (Vorlage, Tage vorher, Cooldown, Batch).</p>
+              <div class="rule-meta">
+                <span class="status-tag <%= automationSettings?.expiringMailEnabled ? 'on' : '' %>" id="expiringMail_status"><%= automationSettings?.expiringMailEnabled ? 'Aktiv' : 'Inaktiv' %></span>
+                <span class="status-tag changed-tag" id="expiringMail_changed">Geändert</span>
+              </div>
+            </div>
+            <button type="button" class="btn btn-ghost" data-edit-rule="expiringMail">Bearbeiten</button>
+          </section>
+
+          <section class="rule-row" data-rule-id="expiryPolicy">
+            <div>
+              <p class="rule-title">Sperren & Archivieren nach Ablauf</p>
+              <p class="rule-desc">Statuswechsel nach Ablauf, optional Matterport-Sperre und automatische Archivierung.</p>
+              <div class="rule-meta">
+                <span class="status-tag <%= automationSettings?.expiryPolicyEnabled ? 'on' : '' %>" id="expiryPolicy_status"><%= automationSettings?.expiryPolicyEnabled ? 'Aktiv' : 'Inaktiv' %></span>
+                <span class="status-tag changed-tag" id="expiryPolicy_changed">Geändert</span>
+              </div>
+            </div>
+            <button type="button" class="btn btn-ghost" data-edit-rule="expiryPolicy">Bearbeiten</button>
+          </section>
+
+          <section class="rule-row" data-rule-id="paymentCheck">
+            <div>
+              <p class="rule-title">Zahlungsprüfung</p>
+              <p class="rule-desc">Automatische Prüfung offener Rechnungen (Batch-Limit pro Lauf).</p>
+              <div class="rule-meta">
+                <span class="status-tag <%= automationSettings?.paymentCheckEnabled ? 'on' : '' %>" id="paymentCheck_status"><%= automationSettings?.paymentCheckEnabled ? 'Aktiv' : 'Inaktiv' %></span>
+                <span class="status-tag changed-tag" id="paymentCheck_changed">Geändert</span>
+              </div>
+            </div>
+            <button type="button" class="btn btn-ghost" data-edit-rule="paymentCheck">Bearbeiten</button>
+          </section>
+
+          <section class="rule-row" data-rule-id="matterportSync">
+            <div>
+              <p class="rule-title">Matterport-Automationen</p>
+              <p class="rule-desc">Auto-Linking und Status-Synchronisierung für Matterport-Spaces.</p>
+              <div class="rule-meta">
+                <span class="status-tag <%= (automationSettings?.matterportAutoLinkEnabled || automationSettings?.matterportStatusSyncEnabled) ? 'on' : '' %>" id="matterportSync_status"><%= (automationSettings?.matterportAutoLinkEnabled || automationSettings?.matterportStatusSyncEnabled) ? 'Aktiv' : 'Inaktiv' %></span>
+                <span class="status-tag changed-tag" id="matterportSync_changed">Geändert</span>
+              </div>
+            </div>
+            <button type="button" class="btn btn-ghost" data-edit-rule="matterportSync">Bearbeiten</button>
+          </section>
+        </div>
+
+        <% const s = automationSettings || {}; %>
+        <input class="hidden-input" type="hidden" name="expiringMailEnabled" id="f_expiringMailEnabled" value="<%= s.expiringMailEnabled ? '1' : '' %>">
+        <input class="hidden-input" type="hidden" name="expiringMailLeadDays" id="f_expiringMailLeadDays" value="<%= s.expiringMailLeadDays ?? 30 %>">
+        <input class="hidden-input" type="hidden" name="expiringMailTemplateKey" id="f_expiringMailTemplateKey" value="<%= s.expiringMailTemplateKey || 'renewal_request' %>">
+        <input class="hidden-input" type="hidden" name="expiringMailCooldownDays" id="f_expiringMailCooldownDays" value="<%= s.expiringMailCooldownDays ?? 14 %>">
+        <input class="hidden-input" type="hidden" name="expiringMailBatchLimit" id="f_expiringMailBatchLimit" value="<%= s.expiringMailBatchLimit ?? 50 %>">
+        <input class="hidden-input" type="hidden" name="expiringMailCreateActionLinks" id="f_expiringMailCreateActionLinks" value="<%= s.expiringMailCreateActionLinks ? '1' : '' %>">
+        <input class="hidden-input" type="hidden" name="expiryPolicyEnabled" id="f_expiryPolicyEnabled" value="<%= s.expiryPolicyEnabled ? '1' : '' %>">
+        <input class="hidden-input" type="hidden" name="expirySetPendingAfterDays" id="f_expirySetPendingAfterDays" value="<%= s.expirySetPendingAfterDays ?? 0 %>">
+        <input class="hidden-input" type="hidden" name="expiryLockMatterportOnPending" id="f_expiryLockMatterportOnPending" value="<%= s.expiryLockMatterportOnPending ? '1' : '' %>">
+        <input class="hidden-input" type="hidden" name="expiryArchiveAfterDays" id="f_expiryArchiveAfterDays" value="<%= s.expiryArchiveAfterDays ?? 0 %>">
+        <input class="hidden-input" type="hidden" name="paymentCheckEnabled" id="f_paymentCheckEnabled" value="<%= s.paymentCheckEnabled ? '1' : '' %>">
+        <input class="hidden-input" type="hidden" name="paymentCheckBatchLimit" id="f_paymentCheckBatchLimit" value="<%= s.paymentCheckBatchLimit ?? 250 %>">
+        <input class="hidden-input" type="hidden" name="matterportAutoLinkEnabled" id="f_matterportAutoLinkEnabled" value="<%= s.matterportAutoLinkEnabled ? '1' : '' %>">
+        <input class="hidden-input" type="hidden" name="matterportAutoLinkBatchLimit" id="f_matterportAutoLinkBatchLimit" value="<%= s.matterportAutoLinkBatchLimit ?? 500 %>">
+        <input class="hidden-input" type="hidden" name="matterportStatusSyncEnabled" id="f_matterportStatusSyncEnabled" value="<%= s.matterportStatusSyncEnabled ? '1' : '' %>">
+        <input class="hidden-input" type="hidden" name="matterportStatusSyncBatchLimit" id="f_matterportStatusSyncBatchLimit" value="<%= s.matterportStatusSyncBatchLimit ?? 500 %>">
+      </form>
+    </main>
+  </div>
+
+  <div class="tm-modal-backdrop" id="ruleModalBackdrop" onclick="closeRuleModal(event)">
+    <div class="tm-modal" onclick="event.stopPropagation()">
+      <div class="tm-modal-head">
+        <div>
+          <h3 class="tm-modal-title" id="ruleModalTitle">Regel bearbeiten</h3>
+          <p class="tm-modal-subtitle" id="ruleModalSubtitle"></p>
+        </div>
+        <button class="tm-modal-close" type="button" onclick="closeRuleModal()">&times;</button>
+      </div>
+      <div class="tm-modal-body" id="ruleModalBody"></div>
+      <div class="tm-modal-foot">
+        <div class="modal-actions-left">
+          <button class="btn btn-ghost" type="button" id="ruleTestRunBtn" style="display:none;">Testlauf ausführen</button>
+        </div>
+        <div style="display:flex;gap:0.45rem;">
+          <button class="btn btn-ghost" type="button" onclick="closeRuleModal()">Abbrechen</button>
+          <button class="btn btn-primary" type="button" id="ruleModalSaveBtn">Speichern</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container"></div>
+  <script>
+    const FORM = document.getElementById('automationsForm');
+    const RULE_MODAL = document.getElementById('ruleModalBackdrop');
+    const RULE_MODAL_TITLE = document.getElementById('ruleModalTitle');
+    const RULE_MODAL_SUBTITLE = document.getElementById('ruleModalSubtitle');
+    const RULE_MODAL_BODY = document.getElementById('ruleModalBody');
+    const RULE_MODAL_SAVE = document.getElementById('ruleModalSaveBtn');
+    const RULE_TEST_BTN = document.getElementById('ruleTestRunBtn');
+    const TEMPLATE_OPTIONS = `<% Object.keys(templates || {}).forEach((key) => { %><option value="<%= key %>"><%= templates[key]?.name || key %> (<%= key %>)</option><% }) %>`;
+    let activeRuleId = null;
+
+    function toast(msg, type) {
+      const c = document.getElementById('toast-container');
+      const el = document.createElement('div');
+      el.className = 'toast ' + (type || 'success');
+      el.textContent = msg;
+      c.appendChild(el);
+      setTimeout(() => el.remove(), 4200);
+    }
+
+    const RULES = {
+      expiringMail: {
+        title: 'Ablauf-Mails',
+        subtitle: 'E-Mail-Versand vor Ablauf konfigurieren.',
+        testEndpoint: '/api/cron/send-expiring-soon',
+        fields: [
+          { key: 'expiringMailEnabled', type: 'checkbox', label: 'Regel aktivieren' },
+          { key: 'expiringMailLeadDays', type: 'number', label: 'Tage vor Ablauf senden', min: 0 },
+          { key: 'expiringMailTemplateKey', type: 'select', label: 'E-Mail Vorlage', optionsHtml: TEMPLATE_OPTIONS },
+          { key: 'expiringMailCooldownDays', type: 'number', label: 'Cooldown in Tagen', min: 0 },
+          { key: 'expiringMailBatchLimit', type: 'number', label: 'Max. Touren pro Lauf', min: 1 },
+          { key: 'expiringMailCreateActionLinks', type: 'checkbox', label: 'Verlängern/Nicht-verlängern-Links erzeugen' },
+        ],
+      },
+      expiryPolicy: {
+        title: 'Sperren & Archivieren nach Ablauf',
+        subtitle: 'Ablaufstatus und Archivierung steuern.',
+        testEndpoint: '/api/cron/archive-expired',
+        fields: [
+          { key: 'expiryPolicyEnabled', type: 'checkbox', label: 'Regel aktivieren' },
+          { key: 'expirySetPendingAfterDays', type: 'number', label: 'Nach Ablauf auf „Abgelaufen“ nach X Tagen', min: 0 },
+          { key: 'expiryArchiveAfterDays', type: 'number', label: 'Nach Ablauf automatisch archivieren nach X Tagen', min: 0 },
+          { key: 'expiryLockMatterportOnPending', type: 'checkbox', label: 'Matterport bei „Abgelaufen“ direkt sperren' },
+        ],
+      },
+      paymentCheck: {
+        title: 'Zahlungsprüfung',
+        subtitle: 'Automatische Exxas-Zahlungsprüfung konfigurieren.',
+        testEndpoint: '/api/cron/check-payments',
+        fields: [
+          { key: 'paymentCheckEnabled', type: 'checkbox', label: 'Regel aktivieren' },
+          { key: 'paymentCheckBatchLimit', type: 'number', label: 'Max. Touren pro Lauf', min: 1 },
+        ],
+      },
+      matterportSync: {
+        title: 'Matterport-Automationen',
+        subtitle: 'Auto-Linking und Statussync steuern.',
+        fields: [
+          { key: 'matterportAutoLinkEnabled', type: 'checkbox', label: 'Auto-Linking aktivieren' },
+          { key: 'matterportAutoLinkBatchLimit', type: 'number', label: 'Auto-Linking Batch-Limit', min: 1 },
+          { key: 'matterportStatusSyncEnabled', type: 'checkbox', label: 'Status-Sync aktivieren' },
+          { key: 'matterportStatusSyncBatchLimit', type: 'number', label: 'Status-Sync Batch-Limit', min: 1 },
+        ],
+      },
+    };
+
+    function hiddenValue(key) {
+      const el = document.getElementById('f_' + key);
+      return el ? el.value : '';
+    }
+
+    function buildField(field) {
+      const id = 'm_' + field.key;
+      const current = hiddenValue(field.key);
+      if (field.type === 'checkbox') {
+        return `<label class="toggle-line full"><input id="${id}" type="checkbox" ${current ? 'checked' : ''}> ${field.label}</label>`;
+      }
+      if (field.type === 'select') {
+        return `<div class="field"><label for="${id}">${field.label}</label><select id="${id}">${field.optionsHtml || ''}</select></div>`;
+      }
+      return `<div class="field"><label for="${id}">${field.label}</label><input id="${id}" type="number" min="${field.min || 0}" step="1" value="${current || 0}"></div>`;
+    }
+
+    function openRuleModal(ruleId) {
+      const rule = RULES[ruleId];
+      if (!rule) return;
+      activeRuleId = ruleId;
+      RULE_MODAL_TITLE.textContent = rule.title;
+      RULE_MODAL_SUBTITLE.textContent = rule.subtitle || '';
+
+      RULE_MODAL_BODY.innerHTML = `<div class="modal-grid">${rule.fields.map(buildField).join('')}</div><p class="hint">Speichern im Popup übernimmt die Änderung direkt.</p>`;
+      rule.fields.forEach((field) => {
+        if (field.type === 'select') {
+          const select = document.getElementById('m_' + field.key);
+          if (select) select.value = hiddenValue(field.key) || '';
+        }
+      });
+
+      if (rule.testEndpoint) {
+        RULE_TEST_BTN.style.display = 'inline-flex';
+        RULE_TEST_BTN.dataset.endpoint = rule.testEndpoint;
+      } else {
+        RULE_TEST_BTN.style.display = 'none';
+        RULE_TEST_BTN.dataset.endpoint = '';
+      }
+      RULE_MODAL.classList.add('open');
+    }
+
+    function closeRuleModal(event) {
+      if (event && event.target && event.target.id !== 'ruleModalBackdrop') return;
+      RULE_MODAL.classList.remove('open');
+      activeRuleId = null;
+    }
+    window.closeRuleModal = closeRuleModal;
+
+    function updateRuleStatus(ruleId) {
+      const activeMap = {
+        expiringMail: !!hiddenValue('expiringMailEnabled'),
+        expiryPolicy: !!hiddenValue('expiryPolicyEnabled'),
+        paymentCheck: !!hiddenValue('paymentCheckEnabled'),
+        matterportSync: !!hiddenValue('matterportAutoLinkEnabled') || !!hiddenValue('matterportStatusSyncEnabled'),
+      };
+      const tag = document.getElementById(ruleId + '_status');
+      if (!tag) return;
+      const on = !!activeMap[ruleId];
+      tag.classList.toggle('on', on);
+      tag.textContent = on ? 'Aktiv' : 'Inaktiv';
+    }
+
+    function markChanged(ruleId) {
+      const el = document.getElementById(ruleId + '_changed');
+      if (el) el.classList.add('show');
+    }
+
+    RULE_MODAL_SAVE.addEventListener('click', () => {
+      if (!activeRuleId) return;
+      const rule = RULES[activeRuleId];
+      if (!rule) return;
+      rule.fields.forEach((field) => {
+        const source = document.getElementById('m_' + field.key);
+        const hidden = document.getElementById('f_' + field.key);
+        if (!source || !hidden) return;
+        hidden.value = field.type === 'checkbox' ? (source.checked ? '1' : '') : source.value;
+      });
+      markChanged(activeRuleId);
+      updateRuleStatus(activeRuleId);
+      FORM.submit();
+    });
+
+    async function runRuleTest(endpoint, button) {
+      const original = button.textContent;
+      button.disabled = true;
+      button.textContent = 'Läuft…';
+      try {
+        const r = await fetch(endpoint, { method: 'POST', credentials: 'include' });
+        const d = await r.json();
+        if (!r.ok || d.error) throw new Error(d.error || 'Testlauf fehlgeschlagen');
+        toast('Testlauf erfolgreich: ' + JSON.stringify(d));
+      } catch (e) {
+        toast('Fehler: ' + e.message, 'error');
+      } finally {
+        button.disabled = false;
+        button.textContent = original;
+      }
+    }
+
+    RULE_TEST_BTN.addEventListener('click', function() {
+      const endpoint = this.dataset.endpoint;
+      if (!endpoint) return;
+      runRuleTest(endpoint, this);
+    });
+
+    document.querySelectorAll('[data-edit-rule]').forEach((btn) => {
+      btn.addEventListener('click', () => openRuleModal(btn.dataset.editRule));
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') closeRuleModal();
+    });
+  </script>
+</body>
+</html>
