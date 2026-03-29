@@ -15,6 +15,17 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.270",
+    date: "2026-03-29",
+    title: "EXXAS-Abgleich: Bestaetigungsdialog mit Uebersicht und Kundenwahl",
+    changes: [
+      {
+        type: "improvement",
+        text: "Bulk-Bestaetigen oeffnet einen Dialog: pro ausgewaehltem EXXAS-Kunden sichtbar, was gespeichert wird; Wahl Abgleich (bestehend verknuepfen), neuer Kunde oder ueberspringen; Kontakt-Zusammenfassung; Speichern erst bei vollstaendigen Zielen.",
+      },
+    ],
+  },
+  {
     version: "2.3.269",
     date: "2026-03-29",
     title: "Kundenliste: Suchfeld, Tabellenkopf, Aktion Buchungsportal",

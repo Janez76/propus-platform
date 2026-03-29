@@ -549,6 +549,7 @@ export function ExxasReconcilePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [singlePreviewItemId, setSinglePreviewItemId] = useState<string | null>(null);
   const [singleConfirmingId, setSingleConfirmingId] = useState<string | null>(null);
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
 
   const config = useMemo<ExxasMappingConfig>(() => loadExxasConfig(), []);
   const hasCredentials = Boolean(config.apiKey && config.endpoint);
@@ -643,6 +644,40 @@ export function ExxasReconcilePage() {
       }
     }
     return issues;
+  }
+
+  function resolveLocalCustomerLabel(
+    item: ExxasPreviewItem,
+    previewData: ExxasPreviewResponse,
+    localCustomerId: number | null,
+  ): string {
+    if (localCustomerId == null) return "nicht ausgewaehlt";
+    const fromSuggestion = item.customerSuggestions.find((c) => c.localCustomerId === localCustomerId);
+    if (fromSuggestion) {
+      return `#${localCustomerId} ${fromSuggestion.localCustomer.company || fromSuggestion.localCustomer.name}`;
+    }
+    const fromIndex = previewData.localCustomerIndex?.find((e) => e.id === localCustomerId);
+    if (fromIndex?.label) return `#${localCustomerId} ${fromIndex.label}`;
+    return `#${localCustomerId} (manuell)`;
+  }
+
+  function summarizeContactDecisions(item: ExxasPreviewItem, state: ItemState): string {
+    if (item.contactSuggestions.length === 0) return "Keine EXXAS-Kontakte.";
+    return item.contactSuggestions
+      .map((cs) => {
+        const st = state.contacts[cs.exxasContact.id];
+        const label = cs.exxasContact.name || cs.exxasContact.email || cs.exxasContact.id;
+        if (!st || st.action === "skip") return `${label}: uebersprungen`;
+        if (st.action === "create_contact") return `${label}: neuer Kontakt`;
+        return `${label}: verknuepfen${st.localContactId != null ? ` -> #${st.localContactId}` : " (Ziel fehlt)"}`;
+      })
+      .join(" · ");
+  }
+
+  function pickDefaultLocalCustomerId(item: ExxasPreviewItem, current: ItemState): number | null {
+    if (current.localCustomerId != null) return current.localCustomerId;
+    if (item.suggestedLocalCustomerId != null) return item.suggestedLocalCustomerId;
+    return item.customerSuggestions[0]?.localCustomerId ?? null;
   }
 
   function matchesSearch(item: ExxasPreviewItem, query: string) {
@@ -740,8 +775,8 @@ export function ExxasReconcilePage() {
     }
   }
 
-  async function runConfirm() {
-    if (!token || !preview) return;
+  async function runConfirm(): Promise<boolean> {
+    if (!token || !preview) return false;
     setConfirming(true);
     setError("");
     setSuccess("");
@@ -758,11 +793,18 @@ export function ExxasReconcilePage() {
         `${result.summary.success}/${result.summary.total} erfolgreich, ${result.summary.failed} fehlgeschlagen.`
       );
       setConfirmResult(result);
+      return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Bestaetigung fehlgeschlagen.");
+      return false;
     } finally {
       setConfirming(false);
     }
+  }
+
+  async function handleBulkConfirmExecute() {
+    const ok = await runConfirm();
+    if (ok) setBulkConfirmOpen(false);
   }
 
   async function runSingleConfirm(item: ExxasPreviewItem) {
@@ -836,6 +878,20 @@ export function ExxasReconcilePage() {
     ? getItemIssues(singlePreviewItem, singlePreviewState)
     : [];
 
+  const bulkSelectedItems = useMemo(() => {
+    if (!preview) return [];
+    return preview.items.filter((item) => selectedIds[item.exxasCustomer.id]);
+  }, [preview, selectedIds]);
+
+  const bulkConfirmBlocked = useMemo(
+    () =>
+      bulkSelectedItems.some((item) => {
+        const state = states[item.exxasCustomer.id] || initialStateForItem(item);
+        return !isItemReady(item, state);
+      }),
+    [bulkSelectedItems, states],
+  );
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -857,7 +913,7 @@ export function ExxasReconcilePage() {
           </button>
           <button
             type="button"
-            onClick={runConfirm}
+            onClick={() => setBulkConfirmOpen(true)}
             disabled={!preview || confirming || loading || selectedCount === 0}
             className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[#C5A059] text-white text-sm font-semibold disabled:opacity-50"
           >
@@ -1446,6 +1502,169 @@ export function ExxasReconcilePage() {
             </div>
           </DialogContent>
         ) : null}
+      </Dialog>
+
+      <Dialog
+        open={bulkConfirmOpen}
+        onOpenChange={(open) => {
+          if (!open && !confirming) setBulkConfirmOpen(false);
+        }}
+      >
+        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+          <DialogClose onClose={() => !confirming && setBulkConfirmOpen(false)} />
+          <DialogHeader>
+            <DialogTitle>Speichern: Auswahl pruefen</DialogTitle>
+            <p className="text-sm text-slate-500 dark:text-zinc-400">
+              Hier siehst du pro ausgewaehltem EXXAS-Kunden, was gespeichert wird. Du kannst noch zwischen{" "}
+              <strong className="text-slate-700 dark:text-zinc-200">Abgleich</strong> (bestehenden Kunden verknuepfen) und{" "}
+              <strong className="text-slate-700 dark:text-zinc-200">neuem Kunden</strong> waehlen.
+            </p>
+          </DialogHeader>
+
+          <div className="min-h-0 flex-1 overflow-y-auto space-y-4 pr-1">
+            {bulkSelectedItems.length === 0 ? (
+              <p className="text-sm text-slate-500 dark:text-zinc-400">Keine Eintraege ausgewaehlt.</p>
+            ) : (
+              bulkSelectedItems.map((item) => {
+                const state = states[item.exxasCustomer.id] || initialStateForItem(item);
+                const issues = getItemIssues(item, state);
+                return (
+                  <div
+                    key={item.exxasCustomer.id}
+                    className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/80 dark:bg-zinc-900/50 p-4 space-y-3"
+                  >
+                    <div>
+                      <div className="font-semibold text-slate-900 dark:text-zinc-100">
+                        {item.exxasCustomer.name || "—"}{" "}
+                        <span className="text-xs font-mono font-normal text-slate-500 dark:text-zinc-400">
+                          #{item.exxasCustomer.nummer}
+                        </span>
+                      </div>
+                      <div className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                        {item.exxasCustomer.email || "keine E-Mail"} · {item.exxasCustomer.city || "—"}
+                      </div>
+                    </div>
+
+                    <fieldset className="space-y-2 border-0 p-0 m-0">
+                      <legend className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-zinc-400 mb-1">
+                        Kunde
+                      </legend>
+                      <label className="flex cursor-pointer items-start gap-2 text-sm text-slate-800 dark:text-zinc-200">
+                        <input
+                          type="radio"
+                          className="mt-1"
+                          name={`bulk-customer-${item.exxasCustomer.id}`}
+                          checked={state.customerAction === "link_existing"}
+                          onChange={() => {
+                            updateItemState(item.exxasCustomer.id, (cur) => ({
+                              ...cur,
+                              customerAction: "link_existing",
+                              localCustomerId: pickDefaultLocalCustomerId(item, cur),
+                            }));
+                          }}
+                        />
+                        <span>
+                          <span className="font-medium">Abgleich</span>
+                          <span className="text-slate-600 dark:text-zinc-400">
+                            {" "}
+                            – EXXAS mit bestehendem lokalen Kunden verknuepfen
+                          </span>
+                          <div className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                            Ziel:{" "}
+                            {preview
+                              ? resolveLocalCustomerLabel(item, preview, state.localCustomerId)
+                              : "—"}
+                          </div>
+                        </span>
+                      </label>
+                      <label className="flex cursor-pointer items-start gap-2 text-sm text-slate-800 dark:text-zinc-200">
+                        <input
+                          type="radio"
+                          className="mt-1"
+                          name={`bulk-customer-${item.exxasCustomer.id}`}
+                          checked={state.customerAction === "create_customer"}
+                          onChange={() => {
+                            updateItemState(item.exxasCustomer.id, (cur) => ({
+                              ...cur,
+                              customerAction: "create_customer",
+                              localCustomerId: null,
+                            }));
+                          }}
+                        />
+                        <span>
+                          <span className="font-medium">Neuer Kunde</span>
+                          <span className="text-slate-600 dark:text-zinc-400">
+                            {" "}
+                            – lokalen Kunden aus den EXXAS-Daten neu anlegen
+                          </span>
+                        </span>
+                      </label>
+                      <label className="flex cursor-pointer items-start gap-2 text-sm text-slate-800 dark:text-zinc-200">
+                        <input
+                          type="radio"
+                          className="mt-1"
+                          name={`bulk-customer-${item.exxasCustomer.id}`}
+                          checked={state.customerAction === "skip"}
+                          onChange={() => {
+                            updateItemState(item.exxasCustomer.id, (cur) => ({
+                              ...cur,
+                              customerAction: "skip",
+                              localCustomerId: null,
+                            }));
+                          }}
+                        />
+                        <span>
+                          <span className="font-medium">Ueberspringen</span>
+                          <span className="text-slate-600 dark:text-zinc-400"> – fuer diesen EXXAS-Kunden nichts speichern</span>
+                        </span>
+                      </label>
+                    </fieldset>
+
+                    <div>
+                      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-zinc-400 mb-1">
+                        Kontakte (wie in der Liste eingestellt)
+                      </div>
+                      <p className="text-xs text-slate-600 dark:text-zinc-300 leading-relaxed">{summarizeContactDecisions(item, state)}</p>
+                    </div>
+
+                    {issues.length > 0 ? (
+                      <div className="rounded-lg border border-amber-300/60 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
+                        {issues.map((issue) => (
+                          <p key={issue}>{issue}</p>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-2 border-t border-slate-200 dark:border-zinc-800 pt-4">
+            <button
+              type="button"
+              disabled={confirming}
+              onClick={() => setBulkConfirmOpen(false)}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 dark:border-zinc-700 px-3 py-2 text-sm font-medium text-slate-700 dark:text-zinc-200 disabled:opacity-50"
+            >
+              Abbrechen
+            </button>
+            <button
+              type="button"
+              disabled={confirming || bulkConfirmBlocked || bulkSelectedItems.length === 0}
+              onClick={() => void handleBulkConfirmExecute()}
+              className="inline-flex items-center gap-2 rounded-lg bg-[#C5A059] px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              title={
+                bulkConfirmBlocked
+                  ? "Bitte fehlende Zielkunden oder Kontakte in der Liste ergaenzen, oder auf Ueberspringen stellen."
+                  : undefined
+              }
+            >
+              {confirming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Jetzt speichern ({bulkSelectedItems.length})
+            </button>
+          </div>
+        </DialogContent>
       </Dialog>
 
       {!preview?.items?.length && !loading ? (
