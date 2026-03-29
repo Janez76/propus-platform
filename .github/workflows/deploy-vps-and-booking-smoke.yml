@@ -38,11 +38,20 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$HOME/.ssh"
-          printf '%s\n' "$VPS_SSH_PRIVATE_KEY" > "$HOME/.ssh/id_ed25519_propus_vps"
+          printf '%s\n' "$VPS_SSH_PRIVATE_KEY" | tr -d '\r' > "$HOME/.ssh/id_ed25519_propus_vps"
           chmod 700 "$HOME/.ssh"
           chmod 600 "$HOME/.ssh/id_ed25519_propus_vps"
         env:
           VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Validate SSH key
+        run: |
+          set -euo pipefail
+          if ! ssh-keygen -y -f "$HOME/.ssh/id_ed25519_propus_vps" >/dev/null 2>&1; then
+            echo "VPS_SSH_PRIVATE_KEY ist ungueltig, falsch formatiert oder passwortgeschuetzt."
+            echo "Bitte Secret mit der kompletten Private-Key-Datei (BEGIN/END, echte Zeilenumbrueche) ohne Passphrase hinterlegen."
+            exit 1
+          fi
 
       - name: Write .env.vps
         run: |
