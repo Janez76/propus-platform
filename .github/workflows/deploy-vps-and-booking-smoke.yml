@@ -1,0 +1,139 @@
+name: Deploy VPS And Booking Smoke
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-vps-master
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to VPS
+    runs-on: windows-latest
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare SSH key
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "$HOME\.ssh" | Out-Null
+          @"
+          ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          "@ | Set-Content -Path "$HOME\.ssh\id_ed25519_propus_vps"
+
+      - name: Write .env.vps
+        if: ${{ secrets.VPS_ENV_FILE != '' }}
+        shell: pwsh
+        run: |
+          @"
+          ${{ secrets.VPS_ENV_FILE }}
+          "@ | Set-Content -Path ".env.vps"
+
+      - name: Upload and restart stack
+        shell: pwsh
+        run: |
+          .\scripts\deploy-vps.ps1 `
+            -VpsHost 87.106.24.107 `
+            -User root `
+            -KeyPath "$HOME\.ssh\id_ed25519_propus_vps" `
+            -SkipBackup `
+            -SkipSwitch `
+            -SkipCloudflarePurge
+
+      - name: Rebuild platform image on VPS
+        shell: pwsh
+        run: |
+          ssh `
+            -i "$HOME\.ssh\id_ed25519_propus_vps" `
+            -o IdentitiesOnly=yes `
+            -o StrictHostKeyChecking=accept-new `
+            root@87.106.24.107 `
+            "cd /opt/propus-platform && docker compose -p propus-platform -f docker-compose.vps.yml --env-file .env.vps build platform && docker compose -p propus-platform -f docker-compose.vps.yml --env-file .env.vps up -d platform"
+
+      - name: Health check
+        shell: pwsh
+        run: |
+          ssh `
+            -i "$HOME\.ssh\id_ed25519_propus_vps" `
+            -o IdentitiesOnly=yes `
+            -o StrictHostKeyChecking=accept-new `
+            root@87.106.24.107 `
+            "curl -fsS http://127.0.0.1:3100/api/health"
+
+      - name: Purge Cloudflare cache
+        if: ${{ secrets.CLOUDFLARE_ZONE_ID != '' && secrets.CLOUDFLARE_AUTH_EMAIL != '' && secrets.CLOUDFLARE_AUTH_KEY != '' }}
+        shell: pwsh
+        run: |
+          Invoke-RestMethod -Method Post `
+            -Uri "https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID }}/purge_cache" `
+            -Headers @{
+              "X-Auth-Email" = "${{ secrets.CLOUDFLARE_AUTH_EMAIL }}"
+              "X-Auth-Key" = "${{ secrets.CLOUDFLARE_AUTH_KEY }}"
+              "Content-Type" = "application/json"
+            } `
+            -Body '{"purge_everything":true}'
+
+  booking-smoke:
+    name: Booking staging smoke
+    runs-on: ubuntu-latest
+    needs: deploy
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: platform/frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: platform/frontend
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        working-directory: platform/frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run staging smoke test
+        working-directory: platform/frontend
+        env:
+          CI: "1"
+          PLAYWRIGHT_BASE_URL: ${{ secrets.PLAYWRIGHT_BASE_URL }}
+          PLAYWRIGHT_LIVE_BOOKING: ${{ secrets.PLAYWRIGHT_LIVE_BOOKING }}
+          PLAYWRIGHT_BOOKING_ADDRESS_QUERY: ${{ secrets.PLAYWRIGHT_BOOKING_ADDRESS_QUERY }}
+          PLAYWRIGHT_BOOKING_PACKAGE_KEY: ${{ secrets.PLAYWRIGHT_BOOKING_PACKAGE_KEY }}
+          PLAYWRIGHT_BOOKING_DATE: ${{ secrets.PLAYWRIGHT_BOOKING_DATE }}
+          PLAYWRIGHT_BOOKING_SLOT: ${{ secrets.PLAYWRIGHT_BOOKING_SLOT }}
+          PLAYWRIGHT_BOOKING_COMPANY: ${{ secrets.PLAYWRIGHT_BOOKING_COMPANY }}
+          PLAYWRIGHT_BOOKING_NAME: ${{ secrets.PLAYWRIGHT_BOOKING_NAME }}
+          PLAYWRIGHT_BOOKING_EMAIL: ${{ secrets.PLAYWRIGHT_BOOKING_EMAIL }}
+          PLAYWRIGHT_BOOKING_PHONE: ${{ secrets.PLAYWRIGHT_BOOKING_PHONE }}
+          PLAYWRIGHT_BOOKING_STREET: ${{ secrets.PLAYWRIGHT_BOOKING_STREET }}
+          PLAYWRIGHT_BOOKING_ZIP: ${{ secrets.PLAYWRIGHT_BOOKING_ZIP }}
+          PLAYWRIGHT_BOOKING_CITY: ${{ secrets.PLAYWRIGHT_BOOKING_CITY }}
+          PLAYWRIGHT_BOOKING_OBJECT_TYPE: ${{ secrets.PLAYWRIGHT_BOOKING_OBJECT_TYPE }}
+          PLAYWRIGHT_BOOKING_AREA: ${{ secrets.PLAYWRIGHT_BOOKING_AREA }}
+          PLAYWRIGHT_BOOKING_ONSITE_NAME: ${{ secrets.PLAYWRIGHT_BOOKING_ONSITE_NAME }}
+          PLAYWRIGHT_BOOKING_ONSITE_PHONE: ${{ secrets.PLAYWRIGHT_BOOKING_ONSITE_PHONE }}
+        run: npm run test:e2e:staging
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-booking-staging-report
+          path: |
+            platform/frontend/playwright-report
+            platform/frontend/test-results
+          if-no-files-found: ignore
