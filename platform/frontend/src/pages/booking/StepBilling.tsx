@@ -35,7 +35,7 @@ export function StepBilling({ lang }: { lang: Lang }) {
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <label className={labelClass}>{t(lang, "booking.step4.company")} *</label>
-            <input type="text" value={billing.company} onChange={(e) => setBilling({ company: e.target.value })} className={inputClass} />
+            <input data-testid="booking-input-company" type="text" value={billing.company} onChange={(e) => setBilling({ company: e.target.value })} className={inputClass} />
           </div>
           <div>
             <label className={labelClass}>{t(lang, "booking.step4.salutation")}</label>
@@ -51,15 +51,15 @@ export function StepBilling({ lang }: { lang: Lang }) {
           </div>
           <div>
             <label className={labelClass}>{t(lang, "booking.step4.lastName")} *</label>
-            <input type="text" value={billing.name} onChange={(e) => setBilling({ name: e.target.value })} className={inputClass} />
+            <input data-testid="booking-input-billing-name" type="text" value={billing.name} onChange={(e) => setBilling({ name: e.target.value })} className={inputClass} />
           </div>
           <div>
             <label className={labelClass}>{t(lang, "booking.step4.email")} *</label>
-            <input type="email" value={billing.email} onChange={(e) => setBilling({ email: e.target.value })} className={inputClass} />
+            <input data-testid="booking-input-email" type="email" value={billing.email} onChange={(e) => setBilling({ email: e.target.value })} className={inputClass} />
           </div>
           <div>
             <label className={labelClass}>{t(lang, "booking.step4.phone")}</label>
-            <input type="tel" value={billing.phone} onChange={(e) => setBilling({ phone: e.target.value })} className={inputClass} />
+            <input data-testid="booking-input-phone" type="tel" value={billing.phone} onChange={(e) => setBilling({ phone: e.target.value })} className={inputClass} />
           </div>
           <div>
             <label className={labelClass}>{t(lang, "booking.step4.mobile")}</label>
@@ -77,6 +77,7 @@ export function StepBilling({ lang }: { lang: Lang }) {
           <div className="sm:col-span-2">
             <label className={labelClass}>{t(lang, "booking.step4.street")} *</label>
             <AddressAutocompleteInput
+              data-testid="booking-input-billing-street"
               value={billing.street}
               onChange={(v) => setBilling({ street: v })}
               mode="combined"
@@ -87,11 +88,11 @@ export function StepBilling({ lang }: { lang: Lang }) {
           </div>
           <div>
             <label className={labelClass}>{t(lang, "booking.step4.zip")} *</label>
-            <input type="text" value={billing.zip} onChange={(e) => setBilling({ zip: e.target.value })} className={inputClass} />
+            <input data-testid="booking-input-zip" type="text" value={billing.zip} onChange={(e) => setBilling({ zip: e.target.value })} className={inputClass} />
           </div>
           <div>
             <label className={labelClass}>{t(lang, "booking.step4.city")} *</label>
-            <input type="text" value={billing.city} onChange={(e) => setBilling({ city: e.target.value })} className={inputClass} />
+            <input data-testid="booking-input-city" type="text" value={billing.city} onChange={(e) => setBilling({ city: e.target.value })} className={inputClass} />
           </div>
           <div>
             <label className={labelClass}>{t(lang, "booking.step4.orderRef")}</label>
@@ -172,7 +173,7 @@ export function StepBilling({ lang }: { lang: Lang }) {
 
       {/* AGB */}
       <label className="flex items-start gap-3 rounded-xl border border-zinc-200 bg-white px-5 py-4 dark:border-zinc-700 dark:bg-zinc-900">
-        <input type="checkbox" checked={agbAccepted} onChange={(e) => setAgbAccepted(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-[#C5A059]" />
+        <input data-testid="booking-checkbox-agb" type="checkbox" checked={agbAccepted} onChange={(e) => setAgbAccepted(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-[#C5A059]" />
         <span className="text-sm text-zinc-700 dark:text-zinc-300">
           {t(lang, "booking.step4.agb")}
         </span>

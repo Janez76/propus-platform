@@ -196,6 +196,7 @@ export function StepSchedule({ lang }: { lang: Lang }) {
         </h3>
         <input
           type="date"
+          data-testid="booking-input-date"
           value={date}
           min={tomorrowISO()}
           max={maxDateISO(lookahead)}
@@ -250,6 +251,7 @@ export function StepSchedule({ lang }: { lang: Lang }) {
                 <button
                   key={slot}
                   type="button"
+                  data-testid={`booking-slot-${slot.replace(":", "-")}`}
                   onClick={() => setTime(slot)}
                   className={cn(
                     "rounded-lg border px-2 py-2 text-center text-sm font-medium transition-all",

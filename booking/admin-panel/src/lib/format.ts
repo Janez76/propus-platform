@@ -79,3 +79,19 @@ export function looksLikeSwissMobile(input: string): boolean {
   if (d.length < 11 || !d.startsWith("41")) return false;
   return d[2] === "7";
 }
+
+/** Anzeige +41 xx xxx xx xx (oder Rohwert, wenn nicht als CH erkennbar). */
+export function formatPhoneDisplay(value?: string | null): string {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  return formatPhoneCH(raw) || raw;
+}
+
+/** `tel:`-URL mit E.164 (+ und Ziffern, keine Leerzeichen). */
+export function phoneTelHref(input: string): string | null {
+  const raw = sanitizePhoneInput(input);
+  if (!raw) return null;
+  const d = digitsForWhatsAppMe(raw);
+  if (!d || d.length < 9) return null;
+  return `tel:+${d}`;
+}

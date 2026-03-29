@@ -12,6 +12,7 @@ import {
   type CustomerContactPayload,
 } from "../../api/customers";
 import { formatPhoneCH, formatSwissDateTime } from "../../lib/format";
+import { PhoneLink } from "../ui/PhoneLink";
 import { toDisplayString } from "../../lib/utils";
 import { t } from "../../i18n";
 import { useAuthStore } from "../../store/authStore";
@@ -62,12 +63,6 @@ function toPayload(form: ContactFormState): CustomerContactPayload {
     email: form.email.trim(),
     department: form.department.trim(),
   };
-}
-
-function formatPhoneDisplay(value?: string | null) {
-  const raw = String(value || "").trim();
-  if (!raw) return "-";
-  return formatPhoneCH(raw) || raw;
 }
 
 function toForm(contact: CustomerContact): ContactFormState {
@@ -381,10 +376,12 @@ export function CustomerContactsSection({ token, customerId, readonly = false }:
                         <span className="font-semibold">{t(lang, "customers.label.role")}:</span> {toDisplayString(contact.role, "-")}
                       </p>
                       <p className="text-slate-700 dark:text-zinc-300">
-                        <span className="font-semibold">{t(lang, "contact.phoneDirect")}:</span> {formatPhoneDisplay(contact.phone_direct || contact.phone)}
+                        <span className="font-semibold">{t(lang, "contact.phoneDirect")}:</span>{" "}
+                        <PhoneLink value={contact.phone_direct || contact.phone} className="text-[#C5A059]" />
                       </p>
                       <p className="text-slate-700 dark:text-zinc-300">
-                        <span className="font-semibold">{t(lang, "customer.phoneMobile")}:</span> {formatPhoneDisplay(contact.phone_mobile)}
+                        <span className="font-semibold">{t(lang, "customer.phoneMobile")}:</span>{" "}
+                        <PhoneLink value={contact.phone_mobile} className="text-[#C5A059]" />
                       </p>
                       <p className="text-slate-700 dark:text-zinc-300">
                         <span className="font-semibold">{t(lang, "common.email")}:</span> {toDisplayString(contact.email, "-")}

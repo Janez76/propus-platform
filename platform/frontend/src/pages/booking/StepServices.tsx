@@ -134,6 +134,7 @@ export function StepServices({ lang }: { lang: Lang }) {
                 <button
                   key={pkg.key}
                   type="button"
+                  data-testid={`booking-package-${pkg.key}`}
                   onClick={() => setPackage(active ? null : { key: pkg.key, price: pkg.price, label: pkg.label, labelKey: pkg.key })}
                   className={cn(
                     "relative rounded-xl border-2 p-5 text-left transition-all",

@@ -4,6 +4,10 @@
  * Auth: Authorization: ApiKey <apiKey>
  */
 
+import { getSystemSettings, patchSystemSettings } from "./settings";
+
+export const EXXAS_APP_SETTING_KEY = "integration.exxas.config" as const;
+
 export const EXXAS_BASE_URL = "https://api.exxas.net";
 export const EXXAS_SYS_ID = "D239DEE32E17B4B49567C7650FDF2160";
 export const EXXAS_API_V2 = `${EXXAS_BASE_URL}/cloud/${EXXAS_SYS_ID}/api/v2`;
@@ -241,9 +245,8 @@ function extractSysIdFromToken(token: string): string | null {
   }
 }
 
-/** Exxas-Konfiguration aus localStorage laden */
-export function loadExxasConfig(): ExxasMappingConfig {
-  const defaults: ExxasMappingConfig = {
+function exxasConfigDefaults(): ExxasMappingConfig {
+  return {
     enabled: false,
     apiKey: "",
     appPassword: "",
@@ -253,27 +256,75 @@ export function loadExxasConfig(): ExxasMappingConfig {
     contacts: [],
     orders: [],
   };
+}
+
+/** Teilobjekte aus API/Storage in ein vollstaendiges ExxasMappingConfig ueberfuehren */
+export function normalizeExxasConfigPartial(parsed: Partial<ExxasMappingConfig> | null | undefined): ExxasMappingConfig {
+  const defaults = exxasConfigDefaults();
+  if (!parsed || typeof parsed !== "object") return defaults;
+  return {
+    ...defaults,
+    ...parsed,
+    customers: Array.isArray(parsed.customers) ? parsed.customers : [],
+    contacts: Array.isArray(parsed.contacts) ? parsed.contacts : [],
+    orders: Array.isArray(parsed.orders) ? parsed.orders : [],
+    endpoint: String(parsed.endpoint || defaults.endpoint),
+    authMode: parsed.authMode === "bearer" ? "bearer" : "apiKey",
+  };
+}
+
+function serverExxasConfigIsPresent(raw: unknown): boolean {
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) return false;
+  const o = raw as Record<string, unknown>;
+  if (String(o.apiKey || "").trim()) return true;
+  if (String(o.lastSyncAt || "").trim()) return true;
+  for (const key of ["customers", "contacts", "orders"] as const) {
+    const arr = o[key];
+    if (Array.isArray(arr) && arr.length > 0) return true;
+  }
+  return false;
+}
+
+/** Exxas-Konfiguration aus localStorage laden */
+export function loadExxasConfig(): ExxasMappingConfig {
   try {
     const raw = localStorage.getItem("exxas_config");
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<ExxasMappingConfig>;
-      return {
-        ...defaults,
-        ...parsed,
-        customers: Array.isArray(parsed.customers) ? parsed.customers : [],
-        contacts: Array.isArray(parsed.contacts) ? parsed.contacts : [],
-        orders: Array.isArray(parsed.orders) ? parsed.orders : [],
-        endpoint: String(parsed.endpoint || defaults.endpoint),
-        authMode: parsed.authMode === "bearer" ? "bearer" : "apiKey",
-      };
+      return normalizeExxasConfigPartial(parsed);
     }
   } catch {
     // ignore
   }
-  return defaults;
+  return exxasConfigDefaults();
+}
+
+/** Server (app_settings) mit localStorage mergen: Server gewinnt, wenn dort Eintraege existieren */
+export async function loadExxasConfigMerged(token: string | undefined): Promise<ExxasMappingConfig> {
+  const local = loadExxasConfig();
+  if (!token) return local;
+  try {
+    const settings = await getSystemSettings(token);
+    const server = settings[EXXAS_APP_SETTING_KEY];
+    if (serverExxasConfigIsPresent(server)) {
+      const merged = normalizeExxasConfigPartial(server as Partial<ExxasMappingConfig>);
+      saveExxasConfig(merged);
+      return merged;
+    }
+  } catch {
+    // Netzwerk: lokaler Cache
+  }
+  return local;
 }
 
 /** Exxas-Konfiguration in localStorage speichern */
 export function saveExxasConfig(config: ExxasMappingConfig): void {
   localStorage.setItem("exxas_config", JSON.stringify(config));
+}
+
+/** Speichert in localStorage und in der Datenbank (app_settings), wenn Admin-Token vorhanden */
+export async function saveExxasConfigMerged(config: ExxasMappingConfig, token: string | undefined): Promise<void> {
+  saveExxasConfig(config);
+  if (!token) return;
+  await patchSystemSettings(token, { [EXXAS_APP_SETTING_KEY]: config });
 }

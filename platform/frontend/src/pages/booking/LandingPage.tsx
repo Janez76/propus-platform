@@ -259,6 +259,7 @@ export function LandingPage({ lang, onLangChange, onStart }: LandingPageProps) {
           {onLangChange ? <BookingLangSelect lang={lang} onChange={onLangChange} /> : null}
           <button
             type="button"
+            data-testid="booking-landing-start"
             onClick={onStart}
             className="inline-flex items-center gap-2 rounded-full bg-gradient-to-br from-[#C5A059] to-[#b08f4a] px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-[#9e8649]/30 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#9e8649]/40 sm:px-5"
           >

@@ -4,6 +4,7 @@ import { createContact, createCustomer, createCustomerContact, deleteCustomer, g
 import { CustomerList, type CustomerSortKey } from "../components/customers/CustomerList";
 import { ContactModal } from "../components/customers/ContactModal";
 import { formatPhoneCH } from "../lib/format";
+import { PhoneLink } from "../components/ui/PhoneLink";
 import { CustomerViewModal } from "../components/customers/CustomerViewModal";
 import { CreateContactDialog } from "../components/customers/CreateContactDialog";
 import { CreateOrderWizard } from "../components/orders/CreateOrderWizard";
@@ -619,10 +620,10 @@ export function CustomersPage() {
                         </a>
                       ) : null}
                       {ct.phone ? (
-                        <a href={`tel:${ct.phone}`} onClick={(e) => e.stopPropagation()} className="flex items-center gap-1.5 text-sm p-text-muted p-hover-accent transition-colors mt-0.5 w-fit">
+                        <span onClick={(e) => e.stopPropagation()} className="flex items-center gap-1.5 text-sm p-text-muted p-hover-accent transition-colors mt-0.5 w-fit">
                           <Phone className="h-3.5 w-3.5 shrink-0 p-text-subtle" />
-                          <span>{ct.phone}</span>
-                        </a>
+                          <PhoneLink value={ct.phone} className="p-hover-accent" />
+                        </span>
                       ) : null}
                       {!ct.email && !ct.phone ? <span className="text-sm p-text-subtle">-</span> : null}
                     </td>

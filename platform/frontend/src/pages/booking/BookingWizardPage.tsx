@@ -212,7 +212,7 @@ export function BookingWizardPage() {
 
   if (submitted) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-zinc-50 to-zinc-100 dark:from-zinc-950 dark:to-zinc-900">
+      <div data-testid="booking-thank-you-root" className="min-h-screen bg-gradient-to-b from-zinc-50 to-zinc-100 dark:from-zinc-950 dark:to-zinc-900">
         <ThankYouScreen lang={lang} />
       </div>
     );
@@ -220,14 +220,14 @@ export function BookingWizardPage() {
 
   if (configLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-zinc-50 to-zinc-100 dark:from-zinc-950 dark:to-zinc-900">
+      <div data-testid="booking-wizard-loading" className="flex min-h-screen items-center justify-center bg-gradient-to-b from-zinc-50 to-zinc-100 dark:from-zinc-950 dark:to-zinc-900">
         <Loader2 className="h-8 w-8 animate-spin text-[#C5A059]" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-zinc-50 to-zinc-100 dark:from-zinc-950 dark:to-zinc-900">
+    <div data-testid="booking-wizard" className="min-h-screen bg-gradient-to-b from-zinc-50 to-zinc-100 dark:from-zinc-950 dark:to-zinc-900">
       {/* Header */}
       <header className="border-b border-zinc-200 bg-white/80 px-4 py-4 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/80">
         <div className="mx-auto flex max-w-5xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -302,6 +302,7 @@ export function BookingWizardPage() {
             <div className="mt-8 flex justify-between">
               <button
                 type="button"
+                data-testid="booking-nav-back"
                 disabled={step <= 1}
                 onClick={goPrev}
                 className="flex items-center gap-2 rounded-lg border border-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-40 dark:border-zinc-700 dark:text-zinc-300"
@@ -311,6 +312,7 @@ export function BookingWizardPage() {
               {step < 4 ? (
                 <button
                   type="button"
+                  data-testid="booking-nav-next"
                   onClick={goNext}
                   className="flex items-center gap-2 rounded-lg bg-[#C5A059] px-5 py-2.5 text-sm font-medium text-white shadow-md transition-colors hover:bg-[#b08f4a]"
                 >
@@ -319,6 +321,7 @@ export function BookingWizardPage() {
               ) : (
                 <button
                   type="button"
+                  data-testid="booking-nav-submit"
                   onClick={handleSubmit}
                   disabled={submitting}
                   className="flex items-center gap-2 rounded-lg bg-[#C5A059] px-6 py-2.5 text-sm font-bold text-white shadow-md transition-colors hover:bg-[#b08f4a] disabled:opacity-60"

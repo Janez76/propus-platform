@@ -12249,8 +12249,44 @@ async function ensureDatabaseBootstrapped() {
   }
 }
 
+/** EXXAS-Zugangsdaten aus Umgebungsvariablen in app_settings spielen, wenn noch kein API-Key in der DB liegt */
+async function seedExxasConfigFromEnvIfUnset() {
+  if (!process.env.DATABASE_URL || !db.getAppSetting || !db.setAppSetting) return;
+  const KEY = "integration.exxas.config";
+  const DEFAULT_ENDPOINT =
+    "https://api.exxas.net/cloud/D239DEE32E17B4B49567C7650FDF2160/api/v2/customers?limit=1";
+  try {
+    const existing = await db.getAppSetting(KEY);
+    if (existing && typeof existing === "object" && String(existing.apiKey || "").trim()) {
+      return;
+    }
+    const apiKey = String(process.env.EXXAS_API_KEY || process.env.EXXAS_JWT || "").trim();
+    if (!apiKey) return;
+    const exEn = process.env.EXXAS_ENABLED;
+    const enabled =
+      exEn === undefined || exEn === ""
+        ? true
+        : !["0", "false", "no", "off"].includes(String(exEn).toLowerCase());
+    await db.setAppSetting(KEY, {
+      enabled,
+      apiKey,
+      appPassword: String(process.env.EXXAS_APP_PASSWORD || ""),
+      endpoint: String(process.env.EXXAS_ENDPOINT || DEFAULT_ENDPOINT),
+      authMode: String(process.env.EXXAS_AUTH_MODE || "").toLowerCase() === "bearer" ? "bearer" : "apiKey",
+      customers: [],
+      contacts: [],
+      orders: [],
+      lastSyncAt: new Date().toISOString(),
+    });
+    console.log("[boot] integration.exxas.config aus EXXAS_* Umgebungsvariablen gesetzt");
+  } catch (e) {
+    console.warn("[boot] EXXAS env seed:", e?.message || e);
+  }
+}
+
 async function startServer() {
   await ensureDatabaseBootstrapped();
+  await seedExxasConfigFromEnvIfUnset();
   await initOrderCounter();
   try {
     await rbac.seedRbacIfNeeded();

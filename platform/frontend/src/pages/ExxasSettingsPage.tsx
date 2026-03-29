@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Link2,
@@ -18,7 +18,8 @@ import { t, type Lang } from "../i18n";
 import { formatSwissDateTime } from "../lib/format";
 import {
   loadExxasConfig,
-  saveExxasConfig,
+  loadExxasConfigMerged,
+  saveExxasConfigMerged,
   testExxasConnection,
   EXXAS_ALL_FIELDS,
   type ExxasMappingConfig,
@@ -26,14 +27,32 @@ import {
 
 export function ExxasSettingsPage() {
   const lang = useAuthStore((s) => s.language) as Lang;
+  const token = useAuthStore((s) => s.token);
 
   const [config, setConfig] = useState<ExxasMappingConfig>(() => loadExxasConfig());
+  const [configReady, setConfigReady] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const [showApiKey, setShowApiKey] = useState(false);
   const [showAppPassword, setShowAppPassword] = useState(false);
   const [testStatus, setTestStatus] = useState<"idle" | "testing" | "ok" | "error">("idle");
   const [testMessage, setTestMessage] = useState("");
   const [saved, setSaved] = useState(false);
   const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const merged = await loadExxasConfigMerged(token);
+        if (!cancelled) setConfig(merged);
+      } finally {
+        if (!cancelled) setConfigReady(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
 
   const handleFieldChange = useCallback(
     (field: "apiKey" | "appPassword" | "endpoint", value: string) => {
@@ -63,24 +82,40 @@ export function ExxasSettingsPage() {
     setTestMessage(result.message);
   }, [config.apiKey, config.appPassword, config.endpoint, config.authMode]);
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
+    setSaveError("");
     const toSave: ExxasMappingConfig = {
       ...config,
       lastSyncAt: new Date().toISOString(),
     };
-    saveExxasConfig(toSave);
-    setConfig(toSave);
-    setDirty(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
-  }, [config]);
+    try {
+      await saveExxasConfigMerged(toSave, token);
+      setConfig(toSave);
+      setDirty(false);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : "Speichern fehlgeschlagen");
+    }
+  }, [config, token]);
 
-  const handleReset = useCallback(() => {
-    setConfig(loadExxasConfig());
+  const handleReset = useCallback(async () => {
+    setSaveError("");
+    const next = await loadExxasConfigMerged(token);
+    setConfig(next);
     setDirty(false);
     setTestStatus("idle");
     setTestMessage("");
-  }, []);
+  }, [token]);
+
+  if (!configReady) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3 text-slate-500 dark:text-zinc-400">
+        <Loader2 className="h-8 w-8 animate-spin text-[#C5A059]" />
+        <p className="text-sm">{t(lang, "settings.exxas.loadingSettings")}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8">
@@ -101,41 +136,44 @@ export function ExxasSettingsPage() {
         </div>
 
         {/* Save / Reset Buttons */}
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {dirty && (
+        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+          <div className="flex items-center gap-2">
+            {dirty && (
+              <button
+                type="button"
+                onClick={handleReset}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+              >
+                <RotateCcw className="h-4 w-4" />
+                {t(lang, "exxas.button.reset")}
+              </button>
+            )}
             <button
               type="button"
-              onClick={handleReset}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+              onClick={handleSave}
+              disabled={!dirty}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                dirty
+                  ? "bg-[#C5A059] hover:bg-[#b8954e] text-white shadow-sm"
+                  : saved
+                    ? "bg-green-500 text-white"
+                    : "bg-slate-100 dark:bg-zinc-800 text-slate-400 dark:text-zinc-500 cursor-not-allowed"
+              }`}
             >
-              <RotateCcw className="h-4 w-4" />
-              {t(lang, "exxas.button.reset")}
+              {saved ? (
+                <>
+                  <CheckCircle2 className="h-4 w-4" />
+                  {t(lang, "exxas.button.saved")}
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4" />
+                  {t(lang, "exxas.button.save")}
+                </>
+              )}
             </button>
-          )}
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={!dirty}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-              dirty
-                ? "bg-[#C5A059] hover:bg-[#b8954e] text-white shadow-sm"
-                : saved
-                  ? "bg-green-500 text-white"
-                  : "bg-slate-100 dark:bg-zinc-800 text-slate-400 dark:text-zinc-500 cursor-not-allowed"
-            }`}
-          >
-            {saved ? (
-              <>
-                <CheckCircle2 className="h-4 w-4" />
-                {t(lang, "exxas.button.saved")}
-              </>
-            ) : (
-              <>
-                <Save className="h-4 w-4" />
-                {t(lang, "exxas.button.save")}
-              </>
-            )}
-          </button>
+          </div>
+          {saveError ? <p className="text-sm text-red-600 dark:text-red-400 text-right max-w-md">{saveError}</p> : null}
         </div>
       </div>
 

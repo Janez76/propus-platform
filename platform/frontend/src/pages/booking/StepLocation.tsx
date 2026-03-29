@@ -65,6 +65,7 @@ export function StepLocation({ lang }: { lang: Lang }) {
         </h3>
         <label className={labelClass}>{t(lang, "booking.step1.addressLabel")}</label>
         <AddressAutocompleteInput
+          data-testid="booking-input-address"
           value={address}
           onChange={setAddress}
           mode="combined"
@@ -101,6 +102,7 @@ export function StepLocation({ lang }: { lang: Lang }) {
                 <button
                   key={ot.value}
                   type="button"
+                  data-testid={`booking-object-type-${ot.value}`}
                   onClick={() => setObject({ type: ot.value })}
                   className={cn(
                     "rounded-lg border px-3 py-2 text-xs font-medium transition-all",
@@ -121,6 +123,7 @@ export function StepLocation({ lang }: { lang: Lang }) {
             <div className="relative">
               <input
                 type="number"
+                data-testid="booking-input-area"
                 min={1}
                 required
                 value={object.area}
@@ -193,11 +196,11 @@ export function StepLocation({ lang }: { lang: Lang }) {
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label className={labelClass}>{t(lang, "booking.step1.onsiteName")} <span className="text-red-500">*</span></label>
-            <input type="text" required value={object.onsiteName} onChange={(e) => setObject({ onsiteName: e.target.value })} className={inputClass} />
+            <input data-testid="booking-input-onsite-name" type="text" required value={object.onsiteName} onChange={(e) => setObject({ onsiteName: e.target.value })} className={inputClass} />
           </div>
           <div>
             <label className={labelClass}>{t(lang, "booking.step1.onsitePhone")} <span className="text-red-500">*</span></label>
-            <input type="tel" required value={object.onsitePhone} onChange={(e) => setObject({ onsitePhone: e.target.value })} className={inputClass} />
+            <input data-testid="booking-input-onsite-phone" type="tel" required value={object.onsitePhone} onChange={(e) => setObject({ onsitePhone: e.target.value })} className={inputClass} />
           </div>
           <div className="sm:col-span-2">
             <label className={labelClass}>{t(lang, "booking.step1.onsiteEmail")}</label>

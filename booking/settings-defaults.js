@@ -76,6 +76,8 @@ const DEFAULT_APP_SETTINGS = {
   // EXXAS Feldmapping fuer Integrationen
   "integration.exxas.fieldMappings": {},
   "integration.exxas.fieldCatalog": [],
+  /** Volle EXXAS-UI-Konfiguration (Zugangsdaten + Mapping); null = nur Defaults / localStorage */
+  "integration.exxas.config": null,
 };
 
 const LEGACY_DISCOUNT_FALLBACK = {

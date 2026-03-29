@@ -4,7 +4,8 @@ import { getAdminConfig, type AdminConfig } from "../../api/adminConfig";
 import { apiRequest } from "../../api/client";
 import { getPhotographers, type Photographer } from "../../api/photographers";
 import { useMutation } from "../../hooks/useMutation";
-import { formatPhoneCH } from "../../lib/format";
+import { formatPhoneDisplay } from "../../lib/format";
+import { PhoneLink } from "../ui/PhoneLink";
 import { formatCurrency, formatDateTime } from "../../lib/utils";
 import { ordersQueryKey } from "../../lib/queryKeys";
 import { OrderStatusSelect } from "./OrderStatusSelect";
@@ -56,11 +57,6 @@ function normalizeCompareValue(value?: string | null): string {
 
 function isSyntheticCompanyEmail(email?: string | null): boolean {
   return /@company\.local$/i.test(String(email || "").trim());
-}
-
-function formatPhoneDisplay(value?: string | null): string {
-  const raw = String(value || "").trim();
-  return formatPhoneCH(raw) || raw;
 }
 
 function CopyButton({ value, lang }: { value: string; lang: Lang }) {
@@ -527,12 +523,13 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
   }, [effectiveEditMode, recalcPricing]);
 
   const customerLabel = data?.billing?.company || data?.customerName || "";
-  const customerPhone = formatPhoneDisplay(data?.billing?.company_phone || data?.customerPhone || "");
+  const customerPhoneRaw = String(data?.billing?.company_phone || data?.customerPhone || "").trim();
   const customerEmailRaw = data?.billing?.company_email || data?.customerEmail || "";
   const customerEmailDisplay = isSyntheticCompanyEmail(customerEmailRaw) ? "" : customerEmailRaw;
   const billingName = data?.billing?.name || "";
   const billingEmail = data?.billing?.email || data?.customerEmail || "";
-  const billingPhone = formatPhoneDisplay(data?.billing?.phone || "");
+  const billingPhoneRaw = String(data?.billing?.phone || "").trim();
+  const contactPhoneRaw = String(data?.customerContactPhone || "").trim();
   const sameCustomerAndContact = normalizeCompareValue(billingName) !== "" && normalizeCompareValue(billingName) === normalizeCompareValue(customerLabel);
   const contactName = sameCustomerAndContact
     ? (data?.customerContactName || "")
@@ -540,8 +537,8 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
   const email = isSyntheticCompanyEmail(billingEmail)
     ? (data?.customerContactEmail || "")
     : (billingEmail || data?.customerContactEmail || "");
-  const phone = billingPhone || formatPhoneDisplay(data?.customerContactPhone || "");
-  const mobile = formatPhoneDisplay(data?.billing?.phone_mobile || "");
+  const phoneRaw = billingPhoneRaw || contactPhoneRaw;
+  const mobileRaw = String(data?.billing?.phone_mobile || "").trim();
   const customerStreetRaw = data?.customerStreet || "";
   const customerZipcityRaw = data?.customerZipcity || "";
   const billingStreetRaw = data?.billing?.street || "";
@@ -645,11 +642,11 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                     <div className="surface-card p-3">
                       <h4 className="mb-2 font-semibold">{t(lang, "orderDetail.label.customerSection")}</h4>
                       <div><b>{t(lang, "common.company")}:</b> {customerLabel || <span className="text-zinc-400">{t(lang, "common.notSet")}</span>}</div>
-                      {customerPhone && (
+                      {customerPhoneRaw && (
                         <div className="flex items-center gap-1">
                           <b>{t(lang, "common.phone")}:</b>&nbsp;
-                          <a href={`tel:${customerPhone}`} className="text-[#C5A059] hover:underline">{customerPhone}</a>
-                          <CopyButton value={customerPhone} lang={lang} />
+                          <PhoneLink value={customerPhoneRaw} className="text-[#C5A059]" />
+                          <CopyButton value={formatPhoneDisplay(customerPhoneRaw)} lang={lang} />
                         </div>
                       )}
                       <div className="flex items-center gap-1">
@@ -678,15 +675,15 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                       </div>
                       <div className="flex items-center gap-1">
                         <b>{t(lang, "common.phone")}:</b>&nbsp;
-                        {phone ? (
-                          <><a href={`tel:${phone}`} className="text-[#C5A059] hover:underline">{phone}</a><CopyButton value={phone} lang={lang} /></>
+                        {phoneRaw ? (
+                          <><PhoneLink value={phoneRaw} className="text-[#C5A059]" /><CopyButton value={formatPhoneDisplay(phoneRaw)} lang={lang} /></>
                         ) : <span className="text-zinc-400">{t(lang, "common.notSet")}</span>}
                       </div>
-                      {mobile ? (
+                      {mobileRaw ? (
                         <div className="flex items-center gap-1">
                           <b>Mobil:</b>&nbsp;
-                          <a href={`tel:${mobile}`} className="text-[#C5A059] hover:underline">{mobile}</a>
-                          <CopyButton value={mobile} lang={lang} />
+                          <PhoneLink value={mobileRaw} className="text-[#C5A059]" />
+                          <CopyButton value={formatPhoneDisplay(mobileRaw)} lang={lang} />
                         </div>
                       ) : null}
                     </div>
@@ -733,13 +730,25 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                           <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-500">Abweichende Rechnungsadresse</div>
                           {data.billing?.alt_company ? <div><b>Firma:</b> {data.billing.alt_company}</div> : null}
                           {data.billing?.alt_company_email ? <div><b>Firma E-Mail:</b> {data.billing.alt_company_email}</div> : null}
-                          {data.billing?.alt_company_phone ? <div><b>Firma Telefon:</b> {formatPhoneDisplay(data.billing.alt_company_phone)}</div> : null}
+                          {data.billing?.alt_company_phone ? (
+                            <div className="flex flex-wrap items-center gap-1">
+                              <b>Firma Telefon:</b> <PhoneLink value={data.billing.alt_company_phone} className="text-[#C5A059]" />
+                            </div>
+                          ) : null}
                           {data.billing?.alt_street ? <div><b>Strasse:</b> {data.billing.alt_street}</div> : null}
                           {data.billing?.alt_zipcity ? <div><b>PLZ / Ort:</b> {data.billing.alt_zipcity}</div> : null}
                           {(data.billing?.alt_salutation || data.billing?.alt_first_name || data.billing?.alt_name) ? <div><b>Kontakt:</b> {[data.billing?.alt_salutation, data.billing?.alt_first_name, data.billing?.alt_name].filter(Boolean).join(" ")}</div> : null}
                           {data.billing?.alt_email ? <div><b>Kontakt E-Mail:</b> {data.billing.alt_email}</div> : null}
-                          {data.billing?.alt_phone ? <div><b>Kontakt Telefon:</b> {formatPhoneDisplay(data.billing.alt_phone)}</div> : null}
-                          {data.billing?.alt_phone_mobile ? <div><b>Kontakt Mobil:</b> {formatPhoneDisplay(data.billing.alt_phone_mobile)}</div> : null}
+                          {data.billing?.alt_phone ? (
+                            <div className="flex flex-wrap items-center gap-1">
+                              <b>Kontakt Telefon:</b> <PhoneLink value={data.billing.alt_phone} className="text-[#C5A059]" />
+                            </div>
+                          ) : null}
+                          {data.billing?.alt_phone_mobile ? (
+                            <div className="flex flex-wrap items-center gap-1">
+                              <b>Kontakt Mobil:</b> <PhoneLink value={data.billing.alt_phone_mobile} className="text-[#C5A059]" />
+                            </div>
+                          ) : null}
                         </div>
                       ) : null}
                     </>
@@ -773,7 +782,11 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                         <div className="sm:col-span-2 mt-1 border-t border-zinc-100 pt-1">
                           <b>{t(lang, "orderDetail.label.onsiteContact")}:</b>{" "}
                           {data.billing.onsiteName || ""}
-                          {data.billing.onsitePhone && <span className="ml-1 text-zinc-500">({formatPhoneDisplay(data.billing.onsitePhone)})</span>}
+                          {data.billing.onsitePhone && (
+                            <span className="ml-1 text-zinc-500">
+                              (<PhoneLink value={data.billing.onsitePhone} className="text-zinc-500" />)
+                            </span>
+                          )}
                         </div>
                       )}
                       {data.keyPickup?.address && (
@@ -1172,9 +1185,7 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                     const phone = photographers.find((p) => p.key === pendingPhotographerKey)?.phone || data?.photographer?.phone;
                     return phone ? (
                       <div className="mt-2">
-                        <a href={`tel:${phone}`} className="text-sm text-[#C5A059] hover:underline">
-                          {phone}
-                        </a>
+                        <PhoneLink value={phone} className="text-sm text-[#C5A059]" />
                       </div>
                     ) : null;
                   })()}

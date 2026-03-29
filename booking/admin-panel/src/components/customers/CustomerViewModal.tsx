@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ShoppingBag } from "lucide-react";
 import { getCustomerImpersonateUrl, getCustomerOrders, type Customer, type CustomerOrder } from "../../api/customers";
 import { t } from "../../i18n";
-import { formatPhoneCH } from "../../lib/format";
+import { PhoneLink } from "../ui/PhoneLink";
 import { toDisplayString } from "../../lib/utils";
 import { useAuthStore } from "../../store/authStore";
 import { CustomerContactsSection } from "./CustomerContactsSection";
@@ -69,10 +69,8 @@ export function CustomerViewModal({ open, token, customer, onClose, onCreateOrde
   const companyName = String(customer?.company || "").trim();
   const displayTitle = companyName || String(customer?.name || "").trim();
   const isCompanyProfile = Boolean(companyName);
-  const fmtPhone = (value?: string | null) => {
-    const raw = String(value || "").trim();
-    return formatPhoneCH(raw) || raw || "-";
-  };
+  const phoneOrDash = (value?: string | null) =>
+    String(value || "").trim() ? <PhoneLink value={value} className="text-[#C5A059]" /> : "-";
   const [orders, setOrders] = useState<CustomerOrder[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
 
@@ -129,10 +127,10 @@ export function CustomerViewModal({ open, token, customer, onClose, onCreateOrde
             ) : null}
             <div><span className="font-medium">{t(lang, "common.email") + ":"}</span> {isSyntheticCompanyEmail ? "-" : toDisplayString(customer.email)}</div>
             <div><span className="font-medium">{t(lang, "common.company") + ":"}</span> {toDisplayString(customer.company)}</div>
-            <div><span className="font-medium">{t(lang, "common.phone") + ":"}</span> {fmtPhone(customer.phone)}</div>
-            <div><span className="font-medium">Telefon 2:</span> {fmtPhone(customer.phone_2)}</div>
-            <div><span className="font-medium">Mobile:</span> {fmtPhone(customer.phone_mobile)}</div>
-            <div><span className="font-medium">Fax:</span> {fmtPhone(customer.phone_fax)}</div>
+            <div><span className="font-medium">{t(lang, "common.phone") + ":"}</span> {phoneOrDash(customer.phone)}</div>
+            <div><span className="font-medium">Telefon 2:</span> {phoneOrDash(customer.phone_2)}</div>
+            <div><span className="font-medium">Mobile:</span> {phoneOrDash(customer.phone_mobile)}</div>
+            <div><span className="font-medium">Fax:</span> {phoneOrDash(customer.phone_fax)}</div>
             <div><span className="font-medium">Website:</span> {toDisplayString(customer.website)}</div>
             {!isCompanyProfile ? (
               <div><span className="font-medium">Anrede:</span> {toDisplayString(customer.salutation)}</div>

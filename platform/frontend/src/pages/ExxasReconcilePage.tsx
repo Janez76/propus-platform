@@ -3,7 +3,8 @@ import { CheckCircle2, Filter, Loader2, Plug, RefreshCcw, Save, Search, SkipForw
 import { useAuthStore } from "../store/authStore";
 import { t } from "../i18n";
 import { formatPhoneCH } from "../lib/format";
-import { loadExxasConfig, type ExxasMappingConfig } from "../api/exxas";
+import { PhoneLink } from "../components/ui/PhoneLink";
+import { loadExxasConfig, loadExxasConfigMerged, type ExxasMappingConfig } from "../api/exxas";
 import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import {
   confirmExxasReconciliation,
@@ -107,6 +108,8 @@ type ComparisonRow = {
   statusLabel: string;
   canOverwrite: boolean;
   overwriteChecked: boolean;
+  /** Rohwerte fuer klickbare `tel:`-Darstellung in den Vergleichsspalten. */
+  phoneSources?: { exxas: unknown; local?: unknown };
 };
 
 function displayValue(value: unknown): string {
@@ -143,10 +146,15 @@ function makeComparisonRow(
   options?: {
     fieldKey?: string;
     overwriteChecked?: boolean;
+    compareAsPhone?: boolean;
   }
 ): ComparisonRow {
-  const exxas = displayValue(exxasRaw);
-  const local = displayValue(localRaw);
+  const compareAsPhone = Boolean(options?.compareAsPhone);
+  const phoneExtra: Pick<ComparisonRow, "phoneSources"> = compareAsPhone
+    ? { phoneSources: { exxas: exxasRaw, local: localRaw } }
+    : {};
+  const exxas = compareAsPhone ? displayValue(displayPhoneValue(exxasRaw)) : displayValue(exxasRaw);
+  const local = compareAsPhone ? displayValue(displayPhoneValue(localRaw)) : displayValue(localRaw);
   const fieldKey = options?.fieldKey;
   const overwriteChecked = Boolean(options?.overwriteChecked);
 
@@ -162,6 +170,7 @@ function makeComparisonRow(
       statusLabel: "leer",
       canOverwrite: false,
       overwriteChecked: false,
+      ...phoneExtra,
     };
   }
   if (exxas !== "-" && local === "-") {
@@ -176,6 +185,7 @@ function makeComparisonRow(
       statusLabel: "wird ergänzt",
       canOverwrite: false,
       overwriteChecked: false,
+      ...phoneExtra,
     };
   }
   if (exxas === "-" && local !== "-") {
@@ -190,6 +200,7 @@ function makeComparisonRow(
       statusLabel: "bleibt unverändert",
       canOverwrite: false,
       overwriteChecked: false,
+      ...phoneExtra,
     };
   }
   if (normalizeCompareValue(exxas) === normalizeCompareValue(local)) {
@@ -204,6 +215,7 @@ function makeComparisonRow(
       statusLabel: "gleich",
       canOverwrite: false,
       overwriteChecked: false,
+      ...phoneExtra,
     };
   }
   return {
@@ -217,11 +229,15 @@ function makeComparisonRow(
     statusLabel: overwriteChecked ? "wird ueberschrieben" : "lokal schon belegt",
     canOverwrite: Boolean(fieldKey),
     overwriteChecked,
+    ...phoneExtra,
   };
 }
 
-function makeCreateRow(label: string, exxasRaw: unknown): ComparisonRow {
-  const exxas = displayValue(exxasRaw);
+function makeCreateRow(label: string, exxasRaw: unknown, opts?: { phone?: boolean }): ComparisonRow {
+  const exxas = opts?.phone ? displayValue(displayPhoneValue(exxasRaw)) : displayValue(exxasRaw);
+  const phoneExtra: Pick<ComparisonRow, "phoneSources"> = opts?.phone
+    ? { phoneSources: { exxas: exxasRaw } }
+    : {};
   return {
     fieldKey: undefined,
     label,
@@ -233,6 +249,7 @@ function makeCreateRow(label: string, exxasRaw: unknown): ComparisonRow {
     statusLabel: exxas === "-" ? "leer" : "wird angelegt",
     canOverwrite: false,
     overwriteChecked: false,
+    ...phoneExtra,
   };
 }
 
@@ -281,9 +298,9 @@ function buildCustomerComparisonRows(
       makeCreateRow("Vorname", item.exxasCustomer.firstName),
       makeCreateRow("Name / Firma", item.exxasCustomer.name),
       makeCreateRow("E-Mail", item.exxasCustomer.email),
-      makeCreateRow("Telefon", item.exxasCustomer.phone),
-      makeCreateRow("Telefon 2", item.exxasCustomer.phone2),
-      makeCreateRow("Mobile", item.exxasCustomer.phoneMobile),
+      makeCreateRow("Telefon", item.exxasCustomer.phone, { phone: true }),
+      makeCreateRow("Telefon 2", item.exxasCustomer.phone2, { phone: true }),
+      makeCreateRow("Mobile", item.exxasCustomer.phoneMobile, { phone: true }),
       makeCreateRow("Strasse", item.exxasCustomer.street),
       makeCreateRow("Adresszusatz", item.exxasCustomer.addressAddon1),
       makeCreateRow("PLZ", item.exxasCustomer.zip),
@@ -311,9 +328,9 @@ function buildCustomerComparisonRows(
     makeComparisonRow("Vorname", item.exxasCustomer.firstName, local?.first_name, { fieldKey: "first_name", overwriteChecked: overwriteFields?.has("first_name") }),
     makeComparisonRow("Name / Firma", item.exxasCustomer.name, local ? local.company || local.name : "", { fieldKey: "company_or_name", overwriteChecked: overwriteFields?.has("company_or_name") }),
     makeComparisonRow("E-Mail", item.exxasCustomer.email, displayCustomerEmail(local?.email), { fieldKey: "email", overwriteChecked: overwriteFields?.has("email") }),
-    makeComparisonRow("Telefon", displayPhoneValue(item.exxasCustomer.phone), displayPhoneValue(local?.phone), { fieldKey: "phone", overwriteChecked: overwriteFields?.has("phone") }),
-    makeComparisonRow("Telefon 2", displayPhoneValue(item.exxasCustomer.phone2), displayPhoneValue(local?.phone_2), { fieldKey: "phone_2", overwriteChecked: overwriteFields?.has("phone_2") }),
-    makeComparisonRow("Mobile", displayPhoneValue(item.exxasCustomer.phoneMobile), displayPhoneValue(local?.phone_mobile), { fieldKey: "phone_mobile", overwriteChecked: overwriteFields?.has("phone_mobile") }),
+    makeComparisonRow("Telefon", item.exxasCustomer.phone, local?.phone, { fieldKey: "phone", overwriteChecked: overwriteFields?.has("phone"), compareAsPhone: true }),
+    makeComparisonRow("Telefon 2", item.exxasCustomer.phone2, local?.phone_2, { fieldKey: "phone_2", overwriteChecked: overwriteFields?.has("phone_2"), compareAsPhone: true }),
+    makeComparisonRow("Mobile", item.exxasCustomer.phoneMobile, local?.phone_mobile, { fieldKey: "phone_mobile", overwriteChecked: overwriteFields?.has("phone_mobile"), compareAsPhone: true }),
     makeComparisonRow("Strasse", item.exxasCustomer.street, local?.street, { fieldKey: "street", overwriteChecked: overwriteFields?.has("street") }),
     makeComparisonRow("Adresszusatz", item.exxasCustomer.addressAddon1, local?.address_addon_1, { fieldKey: "address_addon_1", overwriteChecked: overwriteFields?.has("address_addon_1") }),
     makeComparisonRow("PLZ", item.exxasCustomer.zip, local?.zip, { fieldKey: "zip", overwriteChecked: overwriteFields?.has("zip") }),
@@ -352,8 +369,8 @@ function buildContactComparisonRows(
       makeInfoRow("Suchname (EXXAS)", c.suchname, ""),
       makeCreateRow("Name", c.name),
       makeCreateRow("E-Mail", c.email),
-      makeCreateRow("Direkt", displayPhoneValue(c.phoneDirect || c.phone)),
-      makeCreateRow("Mobile", displayPhoneValue(c.phoneMobile)),
+      makeCreateRow("Direkt", c.phoneDirect || c.phone, { phone: true }),
+      makeCreateRow("Mobile", c.phoneMobile, { phone: true }),
       makeCreateRow("Rolle", c.role),
       makeCreateRow("Abteilung", c.department),
       makeInfoRow("Details / Notizen (EXXAS)", c.details, "kein lokales Feld"),
@@ -369,12 +386,18 @@ function buildContactComparisonRows(
     makeInfoRow("Suchname (EXXAS)", c.suchname, "kein lokales Feld"),
     makeComparisonRow("Name", c.name, local?.name, { fieldKey: "name", overwriteChecked: overwriteFields?.has("name") }),
     makeComparisonRow("E-Mail", c.email, local?.email, { fieldKey: "email", overwriteChecked: overwriteFields?.has("email") }),
-    makeComparisonRow("Direkt", displayPhoneValue(c.phoneDirect || c.phone), displayPhoneValue(local?.phone_direct || local?.phone), { fieldKey: "phone", overwriteChecked: overwriteFields?.has("phone") }),
-    makeComparisonRow("Mobile", displayPhoneValue(c.phoneMobile), displayPhoneValue(local?.phone_mobile), { fieldKey: "phone_mobile", overwriteChecked: overwriteFields?.has("phone_mobile") }),
+    makeComparisonRow("Direkt", c.phoneDirect || c.phone, local?.phone_direct || local?.phone, { fieldKey: "phone", overwriteChecked: overwriteFields?.has("phone"), compareAsPhone: true }),
+    makeComparisonRow("Mobile", c.phoneMobile, local?.phone_mobile, { fieldKey: "phone_mobile", overwriteChecked: overwriteFields?.has("phone_mobile"), compareAsPhone: true }),
     makeComparisonRow("Rolle", c.role, local?.role, { fieldKey: "role", overwriteChecked: overwriteFields?.has("role") }),
     makeComparisonRow("Abteilung", c.department, local?.department, { fieldKey: "department", overwriteChecked: overwriteFields?.has("department") }),
     makeInfoRow("Details / Notizen (EXXAS)", c.details, "kein lokales Feld"),
   ];
+}
+
+function comparisonPhoneCell(fallbackText: string, raw: unknown) {
+  const s = String(raw ?? "").trim();
+  if (!s) return fallbackText;
+  return <PhoneLink value={s} className="text-[#C5A059]" />;
 }
 
 function ComparisonTable({
@@ -399,10 +422,14 @@ function ComparisonTable({
           <div key={row.label} className="grid grid-cols-[160px_minmax(0,1fr)_minmax(0,1fr)_180px] text-sm">
             <div className="px-3 py-2 font-medium text-slate-600 dark:text-zinc-300">{row.label}</div>
             <div className="border-l border-slate-100 px-3 py-2 text-slate-800 dark:text-zinc-100 dark:border-zinc-800 break-words">
-              {row.exxas}
+              {row.phoneSources
+                ? comparisonPhoneCell(row.exxas, row.phoneSources.exxas)
+                : row.exxas}
             </div>
             <div className="border-l border-slate-100 px-3 py-2 text-slate-700 dark:text-zinc-300 dark:border-zinc-800 break-words">
-              {row.local}
+              {row.phoneSources
+                ? comparisonPhoneCell(row.local, row.phoneSources.local)
+                : row.local}
             </div>
             <div className="border-l border-slate-100 px-3 py-2 dark:border-zinc-800">
               <div className="flex flex-wrap gap-1">
@@ -746,7 +773,7 @@ export function ExxasReconcilePage() {
   }
 
   async function runPreview() {
-    if (!token) return;
+    if (!token || !configReady) return;
     setLoading(true);
     setError("");
     setSuccess("");

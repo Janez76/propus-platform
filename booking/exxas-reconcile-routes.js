@@ -13,6 +13,14 @@ function registerExxasReconcileRoutes(app, db, requireAdmin, ensureCustomerInReq
     return value == null ? "" : String(value).trim();
   }
 
+  /** Gleiche Normalisierung wie bei INSERT/UPDATE, damit Lookup und Unique-Index zusammenpassen. */
+  function normalizeCustomerEmail(value) {
+    return asString(value)
+      .toLowerCase()
+      .replace(/[\u200B-\u200D\uFEFF]/g, "")
+      .trim();
+  }
+
   function normalizeText(value) {
     return asString(value)
       .toLowerCase()
@@ -696,7 +704,7 @@ function registerExxasReconcileRoutes(app, db, requireAdmin, ensureCustomerInReq
 
     const resolvedEmail = resolveIncomingValue(
       isSyntheticCompanyEmail(existing.email) ? "" : existing.email,
-      asString(exxasCustomer.email).toLowerCase(),
+      normalizeCustomerEmail(exxasCustomer.email),
       overwriteSet,
       "email"
     );
@@ -771,8 +779,8 @@ function registerExxasReconcileRoutes(app, db, requireAdmin, ensureCustomerInReq
   function emailFromExxasContactPayload(c) {
     if (!c || typeof c !== "object") return "";
     const raw = c.raw && typeof c.raw === "object" ? c.raw : null;
-    if (raw) return asString(raw.kt_email).toLowerCase();
-    return asString(c.email || c.kt_email).toLowerCase();
+    if (raw) return normalizeCustomerEmail(raw.kt_email);
+    return normalizeCustomerEmail(c.email || c.kt_email);
   }
 
   /** Erste gueltige E-Mail aus den Kontakt-Entscheidungen (auch bei skip), fuer Firmenkunden ohne Stammdaten-E-Mail. */
@@ -789,18 +797,30 @@ function registerExxasReconcileRoutes(app, db, requireAdmin, ensureCustomerInReq
    * Bei fehlender EXXAS-Kundenmail zuerst Kontakt-E-Mails nutzen, sonst leer lassen.
    */
   function resolveEmailForNewCustomerFromExxas(exxasCustomer, contactDecisions) {
-    let email = asString(exxasCustomer.email).toLowerCase();
-    if (!email) email = firstEmailFromContactDecisions(contactDecisions);
+    let email = normalizeCustomerEmail(exxasCustomer?.email);
+    if (!email) email = normalizeCustomerEmail(firstEmailFromContactDecisions(contactDecisions));
     return email;
   }
 
   async function findCustomerIdByEmailNorm(p, normEmail) {
-    const em = asString(normEmail).toLowerCase();
+    const em = normalizeCustomerEmail(normEmail);
     if (!em) return null;
     const { rows } = await p.query(
       `SELECT id FROM customers
-       WHERE LOWER(TRIM(COALESCE(email, ''))) = LOWER(TRIM($1))
+       WHERE NULLIF(TRIM(COALESCE(email, '')), '') IS NOT NULL
+         AND LOWER(TRIM(COALESCE(email, ''))) = $1
        LIMIT 1`,
+      [em]
+    );
+    return rows[0] ? Number(rows[0].id) : null;
+  }
+
+  /** Exakte gespeicherte Adresse (nach Normalisierung), z. B. fuer Retry nach 23505. */
+  async function findCustomerIdByEmailExact(p, email) {
+    const em = normalizeCustomerEmail(email);
+    if (!em) return null;
+    const { rows } = await p.query(
+      `SELECT id FROM customers WHERE NULLIF(TRIM(email), '') IS NOT NULL AND email = $1 LIMIT 1`,
       [em]
     );
     return rows[0] ? Number(rows[0].id) : null;
@@ -862,7 +882,7 @@ function registerExxasReconcileRoutes(app, db, requireAdmin, ensureCustomerInReq
   }
 
   async function createCustomerFromExxas(p, exxasCustomer, resolvedEmail) {
-    const email = asString(resolvedEmail).toLowerCase();
+    const email = normalizeCustomerEmail(resolvedEmail);
 
     const existingByExxas = await findCustomerIdByExxasIds(p, exxasCustomer);
     if (existingByExxas != null) {
@@ -918,7 +938,8 @@ function registerExxasReconcileRoutes(app, db, requireAdmin, ensureCustomerInReq
       return Number(insert.rows[0].id);
     } catch (err) {
       if (isCustomersEmailUniqueViolation(err) && email) {
-        const fallbackId = await findCustomerIdByEmailNorm(p, email);
+        let fallbackId = await findCustomerIdByEmailExact(p, email);
+        if (fallbackId == null) fallbackId = await findCustomerIdByEmailNorm(p, email);
         if (fallbackId != null) {
           await fillMissingCustomerFields(p, fallbackId, exxasCustomer);
           return fallbackId;
@@ -966,6 +987,8 @@ function registerExxasReconcileRoutes(app, db, requireAdmin, ensureCustomerInReq
       exxas_contact_id: asString(existing.exxas_contact_id || exxasContact.id),
     };
 
+    patch.email = normalizeCustomerEmail(patch.email);
+
     const existingLinkedContact = await findContactByExxasId(p, patch.exxas_contact_id, Number(existing.id));
     if (existingLinkedContact) {
       throw new Error(buildExxasContactConflictMessage(existingLinkedContact, existing.customer_id));
@@ -1000,11 +1023,11 @@ function registerExxasReconcileRoutes(app, db, requireAdmin, ensureCustomerInReq
   }
 
   async function createContactFromExxas(p, customerId, exxasContact) {
-    const displayName =
+    const baseDisplayName =
       [asString(exxasContact.firstName), asString(exxasContact.lastName)].filter(Boolean).join(" ") ||
       asString(exxasContact.name) ||
       asString(exxasContact.email);
-    const email = asString(exxasContact.email).toLowerCase();
+    const email = normalizeCustomerEmail(exxasContact.email);
     const existingLinkedContact = await findContactByExxasId(p, exxasContact.id, null);
     if (existingLinkedContact) {
       if (Number(existingLinkedContact.customer_id) !== Number(customerId)) {
@@ -1013,7 +1036,22 @@ function registerExxasReconcileRoutes(app, db, requireAdmin, ensureCustomerInReq
       await fillMissingContactFields(p, Number(existingLinkedContact.id), exxasContact);
       return Number(existingLinkedContact.id);
     }
-    await ensureNoDuplicateContact(p, customerId, email, displayName, null);
+    let displayName = baseDisplayName;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      try {
+        await ensureNoDuplicateContact(p, customerId, email, displayName, null);
+        break;
+      } catch (e) {
+        if (asString(e?.message) === "DUPLICATE_CONTACT_NAME" && attempt < 3) {
+          displayName =
+            attempt === 0
+              ? `${baseDisplayName} (EXXAS ${asString(exxasContact.id)})`
+              : `${baseDisplayName} (${attempt + 1})`;
+          continue;
+        }
+        throw e;
+      }
+    }
     const insert = await p.query(
       `INSERT INTO customer_contacts (
          customer_id, name, role, phone, email, sort_order,

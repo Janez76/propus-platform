@@ -2,7 +2,7 @@ import type { Photographer } from "../../api/photographers";
 import { useAuthStore } from "../../store/authStore";
 import { t } from "../../i18n";
 import { cn } from "../../lib/utils";
-import { formatPhoneCH } from "../../lib/format";
+import { PhoneLink } from "../ui/PhoneLink";
 
 type Props = { items: Photographer[]; onEdit: (key: string) => void };
 
@@ -45,7 +45,9 @@ export function EmployeeList({ items, onEdit }: Props) {
               </div>
               <div className="mb-3 space-y-1">
                 <div className={isModern ? "text-sm text-slate-700 dark:text-zinc-300" : "text-sm"}>{e.email || "-"}</div>
-                <div className={isModern ? "text-xs text-slate-500 dark:text-zinc-400" : "text-xs text-zinc-500"}>{e.phone || "-"}</div>
+                <div className={isModern ? "text-xs text-slate-500 dark:text-zinc-400" : "text-xs text-zinc-500"}>
+                  {e.phone?.trim() ? <PhoneLink value={e.phone} className="text-inherit hover:underline" /> : "-"}
+                </div>
               </div>
               <div className={isModern ? "mb-3 border-t border-slate-200 pt-3 text-xs font-semibold text-slate-600 dark:border-zinc-800 dark:text-zinc-400" : "mt-2 text-xs text-zinc-600"}>
                 {e.is_admin ? t(lang, "employeeList.role.admin") : t(lang, "employeeList.role.employee")}
@@ -91,7 +93,9 @@ export function EmployeeList({ items, onEdit }: Props) {
                   </td>
                   <td className="px-6 py-4">
                     <div className={isModern ? "text-slate-700 dark:text-zinc-300" : ""}>{e.email || "-"}</div>
-                    <div className={isModern ? "text-xs text-slate-500 dark:text-zinc-400" : "text-xs text-zinc-500"}>{formatPhoneCH(e.phone ?? "") || e.phone || "-"}</div>
+                    <div className={isModern ? "text-xs text-slate-500 dark:text-zinc-400" : "text-xs text-zinc-500"}>
+                      {e.phone?.trim() ? <PhoneLink value={e.phone} className="text-inherit hover:underline" /> : "-"}
+                    </div>
                   </td>
                   <td className={isModern ? "px-6 py-4 text-slate-700 dark:text-zinc-300" : "px-6 py-4"}>{e.is_admin ? t(lang, "employeeList.role.admin") : t(lang, "employeeList.role.employee")}</td>
                   <td className="px-6 py-4">

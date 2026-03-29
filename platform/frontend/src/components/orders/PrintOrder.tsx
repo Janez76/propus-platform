@@ -1,8 +1,9 @@
+import type { ReactNode } from "react";
 import { type Order } from "../../api/orders";
 import { t } from "../../i18n";
 import { useAuthStore } from "../../store/authStore";
 import { formatCurrency } from "../../lib/utils";
-import { formatPhoneCH } from "../../lib/format";
+import { formatPhoneDisplay, phoneTelHref } from "../../lib/format";
 import { getStatusLabel } from "../../lib/status";
 
 type Props = { data: Order };
@@ -20,18 +21,26 @@ function deriveZipCity(zipCity?: string, address?: string): string {
   return source.match(/((?:CH[-\s]?)?\d{4}\s+[^,]+)$/i)?.[1]?.trim() || "";
 }
 
-function Row({ label, value }: { label: string; value?: string | null }) {
+function Row({ label, value }: { label: string; value?: ReactNode }) {
+  const empty = value == null || value === "";
   return (
     <div style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", borderBottom: "1px solid #f0ece4", fontSize: 11 }}>
       <span style={{ color: "#888", flexShrink: 0, marginRight: 8 }}>{label}</span>
-      <span style={{ fontWeight: 500, textAlign: "right" }}>{value || "–"}</span>
+      <span style={{ fontWeight: 500, textAlign: "right" }}>{empty ? "–" : value}</span>
     </div>
   );
 }
 
-function formatPhoneDisplay(value?: string | null): string {
-  const raw = String(value || "").trim();
-  return formatPhoneCH(raw) || raw;
+function printPhoneLink(raw?: string | null): ReactNode {
+  const display = formatPhoneDisplay(raw);
+  if (!display) return null;
+  const href = phoneTelHref(String(raw ?? ""));
+  if (!href) return display;
+  return (
+    <a href={href} style={{ color: "#9E8649", textDecoration: "none" }}>
+      {display}
+    </a>
+  );
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -116,11 +125,17 @@ export function PrintOrder({ data }: Props) {
             <Row label={t(language, "common.name")} value={data.billing?.name || data.customerName} />
             <Row label={t(language, "common.company")} value={data.billing?.company} />
             <Row label={t(language, "common.email")} value={data.billing?.email || data.customerEmail} />
-            <Row label={t(language, "common.phone")} value={formatPhoneDisplay(data.billing?.phone)} />
+            <Row label={t(language, "common.phone")} value={printPhoneLink(data.billing?.phone)} />
             {(data.billing?.onsiteName || data.billing?.onsitePhone) && (
               <Row
                 label={t(language, "printOrder.onsiteContact")}
-                value={[data.billing.onsiteName, formatPhoneDisplay(data.billing.onsitePhone)].filter(Boolean).join(" · ")}
+                value={
+                  <>
+                    {data.billing.onsiteName || ""}
+                    {data.billing.onsiteName && data.billing.onsitePhone ? " · " : ""}
+                    {printPhoneLink(data.billing?.onsitePhone)}
+                  </>
+                }
               />
             )}
           </Section>
@@ -141,12 +156,22 @@ export function PrintOrder({ data }: Props) {
             <Row label={t(language, "orderCreate.label.time")} value={timeFormatted} />
             <Row
               label={t(language, "printOrder.photographer")}
-              value={[
-                data.photographer?.name || data.photographer?.key,
-                formatPhoneDisplay(data.photographer?.phone),
-              ]
-                .filter(Boolean)
-                .join(" | ")}
+              value={
+                (() => {
+                  const name = data.photographer?.name || data.photographer?.key;
+                  const phoneNode = printPhoneLink(data.photographer?.phone);
+                  if (name && phoneNode) {
+                    return (
+                      <>
+                        {name}
+                        {" | "}
+                        {phoneNode}
+                      </>
+                    );
+                  }
+                  return name || phoneNode || null;
+                })()
+              }
             />
           </Section>
 

@@ -22,7 +22,7 @@ import {
   DialogTitle,
   DialogClose,
 } from "../ui/dialog";
-import { formatCHF, formatSwissDate, formatArea } from "../../lib/format";
+import { formatCHF, formatSwissDate, formatArea, formatPhoneDisplay, phoneTelHref } from "../../lib/format";
 import type { Order, OrderStatus } from "../../types/order";
 import { cn } from "../../lib/utils";
 import { t } from "../../i18n";
@@ -79,11 +79,14 @@ function DataRow({
   value,
   href,
   icon: Icon,
+  linkTarget = "_blank",
 }: {
   label: string;
   value: string | React.ReactNode;
   href?: string;
   icon?: React.ElementType;
+  /** `tel:` / `mailto:` ohne neues Tab sinnvoller als `_blank`. */
+  linkTarget?: "_blank" | "_self";
 }) {
   const content = (
     <div className="flex items-start justify-between gap-4 group">
@@ -98,11 +101,12 @@ function DataRow({
   );
 
   if (href) {
+    const isBlank = linkTarget === "_blank";
     return (
       <a
         href={href}
-        target="_blank"
-        rel="noopener noreferrer"
+        target={linkTarget}
+        rel={isBlank ? "noopener noreferrer" : undefined}
         className="block hover:bg-slate-50/50 -mx-2 px-2 py-1 rounded-lg transition-colors"
       >
         {content}
@@ -152,8 +156,9 @@ function OrderDetailsContent({ order, onStatusChange, onDateChange }: OrderDetai
           />
           <DataRow
             label={t(language, "common.phone")}
-            value={order.contact.phone}
-            href={`tel:${order.contact.phone}`}
+            value={formatPhoneDisplay(order.contact.phone)}
+            href={phoneTelHref(order.contact.phone) ?? undefined}
+            linkTarget="_self"
             icon={Phone}
           />
           {order.contact.company && (
