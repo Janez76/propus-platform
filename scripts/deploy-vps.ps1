@@ -1,7 +1,7 @@
 param(
     [string]$VpsHost = "87.106.24.107",
     [string]$User = "propus",
-    [string]$KeyPath = "$HOME\.ssh\id_ed25519_propus_vps",
+    [string]$KeyPath = $(Join-Path $HOME (Join-Path '.ssh' 'id_ed25519_propus_vps')),
     [string]$RemoteProjectRoot = "/opt/propus-platform",
     [string]$RemoteLegacyRoot = "/opt/buchungstool",
     [string]$RemoteEnvFile = "/opt/propus-platform/.env.vps",
@@ -21,9 +21,9 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $WorkspaceRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-$LocalBackupRoot = Join-Path $WorkspaceRoot "backups\vps-pre-migration"
+$LocalBackupRoot = Join-Path $WorkspaceRoot "backups/vps-pre-migration"
 $LocalEnvFile = Join-Path $WorkspaceRoot ".env.vps"
-$LocalBookingEnv = Join-Path $WorkspaceRoot "booking\.env"
+$LocalBookingEnv = Join-Path $WorkspaceRoot "booking/.env"
 
 $script:DeployStarted = Get-Date
 $script:UseSshMux = $false
@@ -234,9 +234,9 @@ function Get-EnvFileValue {
 foreach ($required in @(
     "docker-compose.vps.yml",
     ".env.vps.example",
-    "platform\Dockerfile",
-    "scripts\backup-vps.sh",
-    "scripts\restore-vps.sh"
+    "platform/Dockerfile",
+    "scripts/backup-vps.sh",
+    "scripts/restore-vps.sh"
 )) {
     $full = Join-Path $WorkspaceRoot $required
     if (-not (Test-Path $full)) {
@@ -250,8 +250,16 @@ if (-not (Get-Command ssh -ErrorAction SilentlyContinue)) {
 if (-not (Get-Command scp -ErrorAction SilentlyContinue)) {
     throw "OpenSSH client (scp) not found."
 }
-if (-not (Get-Command tar.exe -ErrorAction SilentlyContinue)) {
-    throw "tar.exe not found."
+$isWinOS = [System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform(
+    [System.Runtime.InteropServices.OSPlatform]::Windows)
+if ($isWinOS -and (Get-Command tar.exe -ErrorAction SilentlyContinue)) {
+    $DeployTarCmd = 'tar.exe'
+}
+elseif (Get-Command tar -ErrorAction SilentlyContinue) {
+    $DeployTarCmd = 'tar'
+}
+else {
+    throw "tar (gzip) not found (Windows: tar.exe; Linux/macOS: tar)."
 }
 if (-not (Test-Path $KeyPath)) {
     throw "SSH key not found: $KeyPath"
@@ -307,23 +315,26 @@ if (-not $SkipUpload) {
     Write-Host "  Erstelle Archiv: $TempTar"
     Push-Location $WorkspaceRoot
     try {
-        & tar.exe `
-            --exclude=".git" `
-            --exclude="node_modules" `
-            --exclude="platform/frontend/node_modules" `
-            --exclude="platform/node_modules" `
-            --exclude="booking/node_modules" `
-            --exclude="booking/admin-panel/node_modules" `
-            --exclude="tours/node_modules" `
-            --exclude="auth/node_modules" `
-            --exclude="backups" `
-            --exclude="data" `
-            --exclude=".cursor" `
-            --exclude=".vscode" `
-            --exclude="platform/frontend/dist" `
-            --exclude="booking/admin-panel/dist" `
-            --exclude=".turbo" `
-            -czf $TempTar .
+        $tarArgs = @(
+            '--exclude=.git',
+            '--exclude=node_modules',
+            '--exclude=platform/frontend/node_modules',
+            '--exclude=platform/node_modules',
+            '--exclude=booking/node_modules',
+            '--exclude=booking/admin-panel/node_modules',
+            '--exclude=tours/node_modules',
+            '--exclude=auth/node_modules',
+            '--exclude=backups',
+            '--exclude=data',
+            '--exclude=.cursor',
+            '--exclude=.vscode',
+            '--exclude=platform/frontend/dist',
+            '--exclude=booking/admin-panel/dist',
+            '--exclude=.turbo',
+            '-czf', $TempTar,
+            '.'
+        )
+        & $DeployTarCmd @tarArgs
         if ($LASTEXITCODE -ne 0) { throw "tar failed (exit $LASTEXITCODE)" }
     }
     finally {
@@ -400,6 +411,8 @@ cd "$RemoteProjectRoot"
 test -f "$RemoteEnvFile"
 echo '[deploy] postgres + logto...'
 docker compose -p "$RemoteComposeProject" -f "$RemoteComposeFile" --env-file "$RemoteEnvFile" up -d postgres logto-db logto
+echo '[deploy] migrate image build...'
+docker compose -p "$RemoteComposeProject" -f "$RemoteComposeFile" --env-file "$RemoteEnvFile" build migrate
 echo '[deploy] core migrate (Profil migrate)...'
 docker compose -p "$RemoteComposeProject" -f "$RemoteComposeFile" --env-file "$RemoteEnvFile" --profile migrate run --rm migrate
 $buildLine
@@ -439,7 +452,7 @@ if (-not $SkipCloudflarePurge) {
         Invoke-RestMethod -Method Post -Uri "https://api.cloudflare.com/client/v4/zones/$cfZone/purge_cache" -Headers $headers -Body $body | Out-Null
     }
     else {
-        Write-Warning "Cloudflare-Variablen in booking\.env fehlen. Cache-Purge uebersprungen."
+        Write-Warning "Cloudflare-Variablen in booking/.env fehlen. Cache-Purge uebersprungen."
     }
 }
 else {

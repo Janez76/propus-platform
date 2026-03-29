@@ -24,7 +24,7 @@ concurrency:
 jobs:
   deploy:
     name: Deploy to VPS
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     environment: production
     if: ${{ github.event_name == 'push' || inputs.run_deploy }}
 
@@ -35,10 +35,14 @@ jobs:
       - name: Prepare SSH key
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path "$HOME\.ssh" | Out-Null
+          $keyDir = Join-Path $HOME '.ssh'
+          $keyPath = Join-Path $keyDir 'id_ed25519_propus_vps'
+          New-Item -ItemType Directory -Force -Path $keyDir | Out-Null
           @"
           ${{ secrets.VPS_SSH_PRIVATE_KEY }}
-          "@ | Set-Content -Path "$HOME\.ssh\id_ed25519_propus_vps"
+          "@ | Set-Content -Path $keyPath
+          chmod 700 $keyDir
+          chmod 600 $keyPath
 
       - name: Write .env.vps
         if: ${{ secrets.VPS_ENV_FILE != '' }}
@@ -48,32 +52,26 @@ jobs:
           ${{ secrets.VPS_ENV_FILE }}
           "@ | Set-Content -Path ".env.vps"
 
+      # deploy-vps.ps1: tar upload, migrate build+run, platform build+up, in-script /api/health wait (~90s).
+      # Kein zweites "docker compose build platform" hier — das war redundant und verdoppelte die Build-Zeit.
       - name: Upload and restart stack
         shell: pwsh
         run: |
-          .\scripts\deploy-vps.ps1 `
+          $vpsKey = Join-Path $HOME '.ssh/id_ed25519_propus_vps'
+          ./scripts/deploy-vps.ps1 `
             -VpsHost 87.106.24.107 `
             -User root `
-            -KeyPath "$HOME\.ssh\id_ed25519_propus_vps" `
+            -KeyPath $vpsKey `
             -SkipBackup `
             -SkipSwitch `
             -SkipCloudflarePurge
 
-      - name: Rebuild platform image on VPS
-        shell: pwsh
-        run: |
-          ssh `
-            -i "$HOME\.ssh\id_ed25519_propus_vps" `
-            -o IdentitiesOnly=yes `
-            -o StrictHostKeyChecking=accept-new `
-            root@87.106.24.107 `
-            "cd /opt/propus-platform && docker compose -p propus-platform -f docker-compose.vps.yml --env-file .env.vps build platform && docker compose -p propus-platform -f docker-compose.vps.yml --env-file .env.vps up -d platform"
-
       - name: Health check
         shell: pwsh
         run: |
+          $keyPath = Join-Path $HOME '.ssh/id_ed25519_propus_vps'
           ssh `
-            -i "$HOME\.ssh\id_ed25519_propus_vps" `
+            -i $keyPath `
             -o IdentitiesOnly=yes `
             -o StrictHostKeyChecking=accept-new `
             root@87.106.24.107 `
