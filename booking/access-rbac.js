@@ -76,6 +76,18 @@ function mapAdminDbRoleToSystemRole(dbRole) {
   return "internal_admin";
 }
 
+function mapLogtoRolesToSystemRole(logtoRoles) {
+  const roles = Array.isArray(logtoRoles) ? logtoRoles : [];
+  if (roles.includes("super_admin")) return "super_admin";
+  if (roles.includes("admin")) return "internal_admin";
+  if (roles.includes("photographer")) return "photographer";
+  if (roles.includes("company_owner")) return "company_owner";
+  if (roles.includes("company_admin")) return "company_admin";
+  if (roles.includes("company_employee")) return "company_employee";
+  if (roles.includes("customer")) return "customer_user";
+  return "photographer";
+}
+
 function mapCompanyMemberRoleToSystemRole(role) {
   const r = String(role || "").trim();
   if (r === "company_owner") return "company_owner";
@@ -466,6 +478,7 @@ module.exports = {
   syncCompanyMemberRolesFromDb,
   syncCustomerRolesFromDb,
   mapAdminDbRoleToSystemRole,
+  mapLogtoRolesToSystemRole,
   requirePermission,
   tableExists,
 };

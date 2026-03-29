@@ -9,10 +9,11 @@ common PostgreSQL instance.
 ```
 propus-platform/
 ├── core/           # Shared migrations, migration runner, seed data
-├── booking/        # Buchungstool backend (Express/Node)
-├── tours/          # Tour Manager backend (Express/Node/EJS)
-├── auth/           # Logto config helpers (future)
-├── infra/          # Nginx, backup scripts
+├── platform/       # Zentraler Entry (server.js): Booking + Tours, ein Port
+├── booking/        # Buchungstool Backend (Express) – weiterhin Quellcode
+├── tours/          # Tour Manager (Express/EJS) – wird unter /tour-manager gemountet
+├── auth/           # Logto-Middleware
+├── infra/          # Hilfsskripte (z. B. Logto)
 ├── docs/           # Architecture docs
 └── docker-compose.yml
 ```
@@ -40,13 +41,16 @@ docker compose up -d postgres logto-db logto
 # 3. Run migrations
 docker compose run --rm migrate
 
-# 4. Start application modules
-docker compose up -d booking tours
+# 4. Zentrale Plattform (Booking + Tour Manager, ein Container)
+docker compose up -d platform
 
-# 5. Access
-#    Booking:  http://localhost:3100
-#    Tours:    http://localhost:3200
-#    Logto:    http://localhost:3302 (Admin Console)
+# 5. Zugriff
+#    SPA (Admin + neue Routen /book, /account, …): http://localhost:3100
+#    Tour Manager (EJS):  http://localhost:3100/tour-manager/admin
+#    Logto Admin:         http://localhost:3002  (auch :3302 gemappt)
+#
+# Optional: getrennte Legacy-Container (Profil legacy-services)
+# docker compose --profile legacy-services up -d booking tours
 ```
 
 ## Migrations
@@ -57,3 +61,13 @@ All SQL migrations live in `core/migrations/` and are executed in order by
 ```bash
 docker compose run --rm migrate
 ```
+
+## Weiterarbeit auf einem anderen PC
+
+1. Repository klonen oder Ordner kopieren (Netzlaufwerk: bei Git ggf. `git config --global --add safe.directory "Z:/propus-platform"`).
+2. `.env` aus `.env.example` anlegen und anpassen.
+3. `.env.logto` aus `.env.logto.example` anlegen und echte Logto-App-IDs/Secrets eintragen (oder Datei vom alten Rechner **sicher** übernehmen – nicht ins Git committen).
+4. `docker compose up -d postgres logto-db logto` → `docker compose run --rm migrate` → `docker compose up -d platform`.
+5. Test: `http://localhost:3100` (SPA), Einstellungen → **Interne Verwaltung** / **Firmenverwaltung**.
+
+**Hinweis:** `core/dumps/` (SQL-Dumps) und `.env.logto` sind per `.gitignore` ausgeschlossen.

@@ -58,6 +58,7 @@ const { resolveEffectiveSqm } = require("./product-meta");
 const { markDiscountUsed, validateDiscountCode } = require("./discount-codes");
 const { getSetting, listEffectiveDefaults, setSystemSettings: settingsResolverSet } = require("./settings-resolver");
 const db = require("./db");
+const logtoOrgSync = require("./logto-org-sync");
 const {
   UPLOAD_CATEGORY_MAP,
   provisionOrderFolders,
@@ -2204,9 +2205,10 @@ app.use((err, req, res, next) => {
   const LOGTO_APP_SECRET      = process.env.PROPUS_BOOKING_LOGTO_APP_SECRET || '';
   const LOGTO_PUBLIC_ENDPOINT = process.env.LOGTO_ENDPOINT || 'http://localhost:3301';
   const LOGTO_INTERNAL_ENDPOINT = process.env.LOGTO_INTERNAL_ENDPOINT || LOGTO_PUBLIC_ENDPOINT;
-  if (!LOGTO_APP_ID || !LOGTO_APP_SECRET) return; // Logto nicht konfiguriert
+  if (!LOGTO_APP_ID || !LOGTO_APP_SECRET) return;
 
   const crypto = require('crypto');
+  const logtoClient = require('./logto-client');
   let oidcConfigCache = null;
 
   async function getOidcConfig() {
@@ -2231,7 +2233,7 @@ app.use((err, req, res, next) => {
         client_id: LOGTO_APP_ID,
         redirect_uri: `${baseUrl}/auth/logto/callback`,
         response_type: 'code',
-        scope: 'openid profile email',
+        scope: 'openid profile email urn:logto:scope:roles',
         state,
         code_challenge: challenge,
         code_challenge_method: 'S256',
@@ -2280,40 +2282,65 @@ app.use((err, req, res, next) => {
       const userInfo = userRes.ok ? await userRes.json() : {};
       const email    = String(userInfo.email || '').trim().toLowerCase();
       const name     = String(userInfo.name || userInfo.username || email || '');
+      const logtoUserId = userInfo.sub || '';
 
       if (!email) return res.status(400).send('Kein E-Mail-Konto in Logto hinterlegt.');
 
-      // admin_session erstellen (wie beim Passwort-Login)
+      // Logto-Rollen bestimmen (aus userinfo oder via Management API)
+      let logtoRoles = [];
+      if (Array.isArray(userInfo.roles)) {
+        logtoRoles = userInfo.roles;
+      } else if (logtoClient.isConfigured() && logtoUserId) {
+        try {
+          logtoRoles = await logtoClient.getUserRoles(logtoUserId);
+        } catch (e) {
+          console.warn('[logto] Rollen konnten nicht geladen werden:', e.message);
+        }
+      }
+
+      // Logto-Rollen auf interne Rolle mappen
+      const ROLE_PRIORITY = ['super_admin', 'admin', 'photographer', 'customer'];
+      let sessionRole = 'photographer';
+      for (const rp of ROLE_PRIORITY) {
+        if (logtoRoles.includes(rp)) { sessionRole = (rp === 'super_admin') ? 'admin' : rp; break; }
+      }
+
       const pool = db.getPool ? db.getPool() : null;
       if (!pool) return res.status(503).send('DB nicht verfügbar');
 
-      // Nutzer in admin_users anlegen/aktualisieren (beim ersten Logto-Login)
+      // admin_users Eintrag mit der tatsächlichen Rolle anlegen/aktualisieren
+      const dbRole = logtoRoles.includes('super_admin') ? 'super_admin' :
+                     logtoRoles.includes('admin') ? 'admin' : sessionRole;
       await pool.query(`
         INSERT INTO booking.admin_users (username, email, role, active, created_at, updated_at)
-        VALUES ($1, $2, 'admin', TRUE, NOW(), NOW())
+        VALUES ($1, $2, $3, TRUE, NOW(), NOW())
         ON CONFLICT (username) DO UPDATE
-          SET email=EXCLUDED.email, active=TRUE, updated_at=NOW()
-      `, [email, email]).catch(() => null);
+          SET email=EXCLUDED.email, role=$3, active=TRUE, updated_at=NOW()
+      `, [email, email, dbRole]).catch(() => null);
+
+      // RBAC sync (Logto → internes System)
+      try {
+        const rbac = require('./access-rbac');
+        await rbac.syncAdminUserRolesFromDb(email);
+      } catch (_) {}
 
       // admin_session Token ausgeben
       const sessionToken = crypto.randomBytes(32).toString('hex');
-      const { issueAdminSession } = require('./db');
       let token = sessionToken;
       try {
         const issued = await issueAdminSession(res, {
-          role: 'admin',
+          role: sessionRole,
           rememberMe: true,
           userKey: email,
           userName: name,
         });
         token = issued?.token || sessionToken;
       } catch (e) {
-        // Fallback: Token manuell in DB schreiben
         const tokenHash = crypto.createHash('sha256').update(sessionToken).digest('hex');
         await pool.query(`
           INSERT INTO booking.admin_sessions (token_hash, user_key, user_name, role, expires_at, created_at)
-          VALUES ($1, $2, $3, 'admin', NOW() + INTERVAL '30 days', NOW())
-        `, [tokenHash, email, name]).catch(() => null);
+          VALUES ($1, $2, $3, $4, NOW() + INTERVAL '30 days', NOW())
+        `, [tokenHash, email, name, sessionRole]).catch(() => null);
         token = sessionToken;
       }
 
@@ -2628,57 +2655,66 @@ app.post("/api/customer/logout", requireCustomer, async (req, res) => {
   }
 });
 
-app.post("/api/customer/login", async (req, res) => {
-  try {
-    if (!ensureDbForCustomer(res)) return;
-    const { email, password } = req.body || {};
-    const norm = customerAuth.normalizeEmail(email);
-    if (!norm || !password) return res.status(400).json({ error: "E-Mail und Passwort erforderlich" });
-    const customer = await db.getCustomerByEmail(norm);
-    if (!customer || !customer.password_hash) return res.status(401).json({ error: "Ungueltige Zugangsdaten" });
-    const ok = await customerAuth.verifyPassword(String(password), customer.password_hash);
-    if (!ok) return res.status(401).json({ error: "Ungueltige Zugangsdaten" });
-    const token = customerAuth.createSessionToken();
-    const tokenHash = customerAuth.hashSha256Hex(token);
-    const days = 30;
-    const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
-    await db.createCustomerSession({ customerId: customer.id, tokenHash, expiresAt });
-    res.cookie("customer_session", token, {
-      httpOnly: true,
-      secure: String(process.env.SESSION_COOKIE_SECURE || "false").toLowerCase() === "true",
-      sameSite: "lax",
-      maxAge: days * 24 * 60 * 60 * 1000,
-    });
-    res.json({ ok: true, token });
-  } catch (err) {
-    res.status(500).json({ error: err.message || "Login fehlgeschlagen" });
-  }
-});
+if (process.env.PROPUS_ENABLE_LEGACY_CUSTOMER_LOGIN !== "0") {
+  app.post("/api/customer/login", async (req, res) => {
+    try {
+      if (!ensureDbForCustomer(res)) return;
+      const { email, password } = req.body || {};
+      const norm = customerAuth.normalizeEmail(email);
+      if (!norm || !password) return res.status(400).json({ error: "E-Mail und Passwort erforderlich" });
+      const customer = await db.getCustomerByEmail(norm);
+      if (!customer || !customer.password_hash) return res.status(401).json({ error: "Ungueltige Zugangsdaten" });
+      const ok = await customerAuth.verifyPassword(String(password), customer.password_hash);
+      if (!ok) return res.status(401).json({ error: "Ungueltige Zugangsdaten" });
+      const token = customerAuth.createSessionToken();
+      const tokenHash = customerAuth.hashSha256Hex(token);
+      const days = 30;
+      const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+      await db.createCustomerSession({ customerId: customer.id, tokenHash, expiresAt });
+      res.cookie("customer_session", token, {
+        httpOnly: true,
+        secure: String(process.env.SESSION_COOKIE_SECURE || "false").toLowerCase() === "true",
+        sameSite: "lax",
+        maxAge: days * 24 * 60 * 60 * 1000,
+      });
+      res.json({ ok: true, token });
+    } catch (err) {
+      res.status(500).json({ error: err.message || "Login fehlgeschlagen" });
+    }
+  });
 
-app.post("/api/customer/register", async (req, res) => {
-  try {
-    if (!ensureDbForCustomer(res)) return;
-    const { email, password, name } = req.body || {};
-    const norm = customerAuth.normalizeEmail(email);
-    if (!norm || !password) return res.status(400).json({ error: "E-Mail und Passwort erforderlich" });
-    const existing = await db.getCustomerByEmail(norm);
-    if (existing) return res.status(409).json({ error: "Diese E-Mail ist bereits registriert" });
-    const passwordHash = await customerAuth.hashPassword(String(password));
-    await db.createCustomer({
-      email: norm,
-      name: String(name || "").trim() || norm,
-      passwordHash,
-      phone: "",
-      company: "",
-      street: "",
-      zipcity: "",
-    });
-    res.status(201).json({ ok: true });
-  } catch (err) {
-    const msg = err && err.message ? String(err.message) : "Registrierung fehlgeschlagen";
-    res.status(400).json({ error: msg });
-  }
-});
+  app.post("/api/customer/register", async (req, res) => {
+    try {
+      if (!ensureDbForCustomer(res)) return;
+      const { email, password, name } = req.body || {};
+      const norm = customerAuth.normalizeEmail(email);
+      if (!norm || !password) return res.status(400).json({ error: "E-Mail und Passwort erforderlich" });
+      const existing = await db.getCustomerByEmail(norm);
+      if (existing) return res.status(409).json({ error: "Diese E-Mail ist bereits registriert" });
+      const passwordHash = await customerAuth.hashPassword(String(password));
+      await db.createCustomer({
+        email: norm,
+        name: String(name || "").trim() || norm,
+        passwordHash,
+        phone: "",
+        company: "",
+        street: "",
+        zipcity: "",
+      });
+      res.status(201).json({ ok: true });
+    } catch (err) {
+      const msg = err && err.message ? String(err.message) : "Registrierung fehlgeschlagen";
+      res.status(400).json({ error: msg });
+    }
+  });
+} else {
+  app.post("/api/customer/login", (_req, res) => {
+    res.status(410).json({ error: "Legacy-Kundenlogin deaktiviert – bitte SSO (Logto) nutzen." });
+  });
+  app.post("/api/customer/register", (_req, res) => {
+    res.status(410).json({ error: "Legacy-Registrierung deaktiviert – bitte SSO (Logto) nutzen." });
+  });
+}
 
 app.get("/api/customer/verify-email", (_req, res) => {
   res.status(501).json({ error: "E-Mail-Verifizierung nicht aktiviert." });
@@ -7534,6 +7570,17 @@ app.get("/api/catalog/products", async (_req, res) => {
   }
 });
 
+app.get("/api/catalog/photographers", (_req, res) => {
+  const list = (PHOTOGRAPHERS_CONFIG || []).map((p) => ({
+    key: p.key,
+    name: p.name || p.key,
+    initials: p.initials || "",
+    image: p.image || "",
+  }));
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ ok: true, photographers: list });
+});
+
 app.get(ADDRESS_AUTOCOMPLETE_ENDPOINT, async (req, res) => {
   try {
     const q = String(req.query.q || "").trim().replace(/\u00DF/g, "ss");
@@ -7637,10 +7684,31 @@ app.get("/api/config", async (_req, res) => {
   const key = String(process.env.GOOGLE_PLACES_API_KEY || "").trim();
   const mapId = String(process.env.GOOGLE_MAP_ID || "DEMO_MAP_ID").trim();
   let dbFieldHintsEnabled = false;
+  let provisionalBookingEnabled = false;
+  let vatRate = 0.081;
+  let chfRoundingStep = 0.05;
+  let keyPickupPrice = 50;
+  let lookaheadDays = 365;
+  let minAdvanceHours = 24;
   try {
-    dbFieldHintsEnabled = !!(await getSetting("feature.dbFieldHints")).value;
+    const [dbHints, provisional, vat, rounding, pickup, lookahead, advance] = await Promise.all([
+      getSetting("feature.dbFieldHints").catch(() => ({ value: false })),
+      getSetting("feature.provisionalBooking").catch(() => ({ value: false })),
+      getSetting("pricing.vatRate").catch(() => ({ value: 0.081 })),
+      getSetting("pricing.chfRoundingStep").catch(() => ({ value: 0.05 })),
+      getSetting("pricing.keyPickupPrice").catch(() => ({ value: 50 })),
+      getSetting("scheduling.lookaheadDays").catch(() => ({ value: 365 })),
+      getSetting("scheduling.minAdvanceHours").catch(() => ({ value: 24 })),
+    ]);
+    dbFieldHintsEnabled = !!dbHints.value;
+    provisionalBookingEnabled = !!provisional.value;
+    vatRate = Number(vat.value) || 0.081;
+    chfRoundingStep = Number(rounding.value) || 0.05;
+    keyPickupPrice = Number(pickup.value) || 50;
+    lookaheadDays = Number(lookahead.value) || 365;
+    minAdvanceHours = Number(advance.value) || 24;
   } catch {
-    dbFieldHintsEnabled = false;
+    /* defaults above */
   }
   res.setHeader("Cache-Control", "private, max-age=60");
   res.json({
@@ -7648,6 +7716,12 @@ app.get("/api/config", async (_req, res) => {
     googleMapsKey: key || null,
     googleMapId: mapId || null,
     dbFieldHintsEnabled,
+    provisionalBookingEnabled,
+    vatRate,
+    chfRoundingStep,
+    keyPickupPrice,
+    lookaheadDays,
+    minAdvanceHours,
   });
 });
 
@@ -8644,9 +8718,71 @@ app.post("/api/company/invitations/accept", async (req, res, next) => {
     });
     if (!result) return res.status(404).json({ error: "Einladung nicht gefunden" });
     if (result.expired) return res.status(400).json({ error: "Einladung ist abgelaufen" });
+    if (result.accepted && result.member) {
+      try {
+        const co = await db.getCompanyById(Number(result.invitation.company_id));
+        if (co) await logtoOrgSync.ensureOrganizationForCompany(co);
+        await logtoOrgSync.addCompanyMemberToLogtoOrg(Number(result.invitation.company_id), result.member);
+      } catch (_syncErr) {}
+    }
     res.json({ ok: true, result });
   } catch (err) {
     res.status(400).json({ error: err.message || "Einladung konnte nicht akzeptiert werden" });
+  }
+});
+
+app.delete("/api/company/invitations/:id", requireCompanyAdmin, async (req, res) => {
+  try {
+    const invitations = await db.listCompanyInvitations(req.companyId, { includeExpired: true });
+    const target = invitations.find((i) => Number(i.id) === Number(req.params.id));
+    if (!target) return res.status(404).json({ error: "Einladung nicht gefunden" });
+    if (target.accepted_at) return res.status(400).json({ error: "Bereits akzeptierte Einladung kann nicht geloescht werden" });
+    await db.query("DELETE FROM company_invitations WHERE id = $1 AND company_id = $2", [req.params.id, req.companyId]);
+    const authCtx = buildAuthContext(req);
+    await db.logAuthAudit({
+      actorId: authCtx.userId || authCtx.email,
+      actorRole: authCtx.companyRole || authCtx.role,
+      action: "company_invitation_delete",
+      targetType: "company_invitation",
+      targetId: String(req.params.id),
+      details: { companyId: req.companyId, email: target.email },
+      ipAddress: req.ip,
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(400).json({ error: err.message || "Einladung konnte nicht geloescht werden" });
+  }
+});
+
+app.post("/api/company/invitations/:id/resend", requireCompanyAdmin, async (req, res) => {
+  try {
+    const invitations = await db.listCompanyInvitations(req.companyId, { includeExpired: true });
+    const target = invitations.find((i) => Number(i.id) === Number(req.params.id));
+    if (!target) return res.status(404).json({ error: "Einladung nicht gefunden" });
+    if (target.accepted_at) return res.status(400).json({ error: "Bereits akzeptierte Einladung kann nicht erneut gesendet werden" });
+    const newToken = generateToken();
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const invitation = await db.createCompanyInvitation({
+      companyId: req.companyId,
+      email: target.email,
+      role: target.role,
+      token: newToken,
+      expiresAt,
+      invitedBy: req.user?.email || req.user?.id || "",
+    });
+    const authCtx = buildAuthContext(req);
+    await db.logAuthAudit({
+      actorId: authCtx.userId || authCtx.email,
+      actorRole: authCtx.companyRole || authCtx.role,
+      action: "company_invitation_resend",
+      targetType: "company_invitation",
+      targetId: String(invitation?.id || req.params.id),
+      details: { companyId: req.companyId, email: target.email },
+      ipAddress: req.ip,
+    });
+    res.json({ ok: true, invitation });
+  } catch (err) {
+    res.status(400).json({ error: err.message || "Einladung konnte nicht erneut gesendet werden" });
   }
 });
 
@@ -8655,9 +8791,18 @@ app.patch("/api/company/members/:id/role", requireCompanyAdmin, async (req, res)
     const members = await db.listCompanyMembers(req.companyId);
     const target = members.find((m) => Number(m.id) === Number(req.params.id));
     if (!target) return res.status(404).json({ error: "Mitglied nicht gefunden" });
+    if (req.companyMembership && Number(target.id) === Number(req.companyMembership.id)) {
+      return res.status(403).json({ error: "Eigene Rolle kann nicht geaendert werden." });
+    }
     const parsed = parseCompanyMemberRoleFromBody(req.body?.role, req.companyMembership?.role);
     if (parsed.error) return res.status(403).json({ error: parsed.error });
     const role = parsed.role;
+    if (target.role === "company_admin" || target.role === "company_owner") {
+      const adminCount = members.filter((m) => m.status === "active" && (m.role === "company_admin" || m.role === "company_owner")).length;
+      if (role === "company_employee" && adminCount <= 1) {
+        return res.status(403).json({ error: "Mindestens ein Admin muss aktiv bleiben." });
+      }
+    }
     const updated = await db.updateCompanyMemberRole(req.params.id, role);
     try {
       await rbac.syncCompanyMemberRolesFromDb(Number(req.params.id));
@@ -8683,8 +8828,25 @@ app.patch("/api/company/members/:id/active", requireCompanyAdmin, async (req, re
     const members = await db.listCompanyMembers(req.companyId);
     const target = members.find((m) => Number(m.id) === Number(req.params.id));
     if (!target) return res.status(404).json({ error: "Mitglied nicht gefunden" });
+    if (req.companyMembership && Number(target.id) === Number(req.companyMembership.id)) {
+      return res.status(403).json({ error: "Eigener Status kann nicht geaendert werden." });
+    }
     const status = req.body?.active ? "active" : "disabled";
+    if (status === "disabled" && (target.role === "company_admin" || target.role === "company_owner")) {
+      const adminCount = members.filter((m) => m.status === "active" && (m.role === "company_admin" || m.role === "company_owner")).length;
+      if (adminCount <= 1) {
+        return res.status(403).json({ error: "Der letzte Admin kann nicht deaktiviert werden." });
+      }
+    }
     const updated = await db.updateCompanyMemberStatus(req.params.id, status);
+    try {
+      const merged = { ...target, ...updated };
+      if (status === "disabled") {
+        await logtoOrgSync.removeCompanyMemberFromLogtoOrg(req.companyId, merged);
+      } else if (status === "active") {
+        await logtoOrgSync.addCompanyMemberToLogtoOrg(req.companyId, merged);
+      }
+    } catch (_e) {}
     const authCtx = buildAuthContext(req);
     await db.logAuthAudit({
       actorId: authCtx.userId || authCtx.email,
@@ -8744,7 +8906,11 @@ app.patch("/api/company/profile", requireCompanyAdmin, async (req, res) => {
       details: { name },
       ipAddress: req.ip,
     });
-    res.json({ ok: true, company: rows[0] || null });
+    const co = rows[0] || null;
+    try {
+      if (co) await logtoOrgSync.ensureOrganizationForCompany(co);
+    } catch (_e) {}
+    res.json({ ok: true, company: co });
   } catch (err) {
     res.status(400).json({ error: err.message || "Firmenprofil konnte nicht gespeichert werden" });
   }
@@ -8928,6 +9094,9 @@ app.post("/api/admin/companies", requireAdmin, async (req, res) => {
       details: { name, standort, inviteEmail: inviteEmail || null },
       ipAddress: req.ip,
     });
+    try {
+      await logtoOrgSync.ensureOrganizationForCompany(company);
+    } catch (_e) {}
     res.status(201).json({ ok: true, company, invitation });
   } catch (err) {
     res.status(400).json({ error: err.message || "Firma konnte nicht angelegt werden" });
@@ -8965,6 +9134,35 @@ app.post("/api/admin/companies/:companyId/invitations", requireAdmin, async (req
     res.status(201).json({ ok: true, invitation });
   } catch (err) {
     res.status(400).json({ error: err.message || "Einladung konnte nicht erstellt werden" });
+  }
+});
+
+app.delete("/api/admin/companies/:companyId/invitations/:invitationId", requireAdmin, async (req, res) => {
+  try {
+    const companyId = Number(req.params.companyId);
+    const invitationId = Number(req.params.invitationId);
+    const invQ = await db.query(
+      "SELECT id, company_id, accepted_at FROM company_invitations WHERE id = $1 LIMIT 1",
+      [invitationId]
+    );
+    const inv = invQ.rows[0];
+    if (!inv) return res.status(404).json({ error: "Einladung nicht gefunden" });
+    if (Number(inv.company_id) !== companyId) return res.status(400).json({ error: "Ungueltige Firma" });
+    if (inv.accepted_at) return res.status(400).json({ error: "Einladung bereits akzeptiert" });
+    await db.query("DELETE FROM company_invitations WHERE id = $1", [invitationId]);
+    const authCtx = buildAuthContext(req);
+    await db.logAuthAudit({
+      actorId: authCtx.userId || authCtx.email,
+      actorRole: authCtx.companyRole || authCtx.role,
+      action: "admin_company_invitation_delete",
+      targetType: "company_invitation",
+      targetId: String(invitationId),
+      details: { companyId },
+      ipAddress: req.ip,
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(400).json({ error: err.message || "Einladung konnte nicht geloescht werden" });
   }
 });
 
@@ -9010,6 +9208,14 @@ app.patch("/api/admin/companies/:companyId/members/:memberId/status", requireAdm
       return res.status(400).json({ error: "Ungueltiger Status" });
     }
     const updated = await db.updateCompanyMemberStatus(memberId, st);
+    const merged = { ...target, ...updated };
+    try {
+      if (st === "disabled") {
+        await logtoOrgSync.removeCompanyMemberFromLogtoOrg(companyId, merged);
+      } else if (st === "active") {
+        await logtoOrgSync.addCompanyMemberToLogtoOrg(companyId, merged);
+      }
+    } catch (_e) {}
     const authCtx = buildAuthContext(req);
     await db.logAuthAudit({
       actorId: authCtx.userId || authCtx.email,
@@ -9031,6 +9237,9 @@ app.delete("/api/admin/companies/:companyId", requireSuperAdmin, async (req, res
     const companyId = Number(req.params.companyId);
     const co = await db.getCompanyById(companyId);
     if (!co) return res.status(404).json({ error: "Firma nicht gefunden" });
+    try {
+      await logtoOrgSync.deleteOrganizationForCompany(companyId);
+    } catch (_e) {}
     await db.query(`DELETE FROM companies WHERE id = $1`, [companyId]);
     const authCtx = buildAuthContext(req);
     await db.logAuthAudit({
@@ -9113,6 +9322,9 @@ app.post("/api/admin/users/companies", requireAdmin, async (req, res) => {
         invitedBy: req.user?.email || req.user?.id || "admin",
       });
     }
+    try {
+      await logtoOrgSync.ensureOrganizationForCompany(company);
+    } catch (_e) {}
     return res.status(201).json({ ok: true, company, invitation });
   } catch (err) {
     return res.status(400).json({ error: err.message || "Firma konnte nicht angelegt werden" });
@@ -9181,7 +9393,7 @@ app.patch("/api/admin/users/members/:memberId/role", requireAdmin, async (req, r
 app.patch("/api/admin/users/members/:memberId/status", requireAdmin, async (req, res) => {
   try {
     const memberId = Number(req.params.memberId);
-    const q = await db.query("SELECT id, company_id FROM company_members WHERE id = $1 LIMIT 1", [memberId]);
+    const q = await db.query("SELECT * FROM company_members WHERE id = $1 LIMIT 1", [memberId]);
     const target = q.rows[0];
     if (!target) return res.status(404).json({ error: "Mitglied nicht gefunden" });
     let st = String(req.body?.status || "").trim();
@@ -9191,7 +9403,16 @@ app.patch("/api/admin/users/members/:memberId/status", requireAdmin, async (req,
       return res.status(400).json({ error: "Ungueltiger Status" });
     }
     const updated = await db.updateCompanyMemberStatus(memberId, st);
-    return res.json({ ok: true, member: updated, companyId: Number(target.company_id) });
+    const companyId = Number(target.company_id);
+    const merged = { ...target, ...updated };
+    try {
+      if (st === "disabled") {
+        await logtoOrgSync.removeCompanyMemberFromLogtoOrg(companyId, merged);
+      } else if (st === "active") {
+        await logtoOrgSync.addCompanyMemberToLogtoOrg(companyId, merged);
+      }
+    } catch (_e) {}
+    return res.json({ ok: true, member: updated, companyId });
   } catch (err) {
     return res.status(400).json({ error: err.message || "Status konnte nicht gesetzt werden" });
   }
@@ -9222,6 +9443,133 @@ app.post("/api/admin/users/invitations/:invitationId/resend", requireAdmin, asyn
     return res.json({ ok: true, invitation });
   } catch (err) {
     return res.status(400).json({ error: err.message || "Einladung konnte nicht erneut gesendet werden" });
+  }
+});
+
+// ─── Interne Benutzer (Logto) ────────────────────────────────────────────────
+const logtoClient = require('./logto-client');
+
+const INTERNAL_ROLES = ['admin', 'super_admin', 'photographer'];
+
+// GET /api/admin/internal-users – alle internen Logto-User mit ihren Rollen
+app.get("/api/admin/internal-users", requireAdmin, async (req, res) => {
+  if (!logtoClient.isConfigured()) return res.json({ users: [] });
+  try {
+    const users = await logtoClient.mgmtApi('GET', '/users?pageSize=100');
+    const result = await Promise.all((users || []).map(async (u) => {
+      let roles = [];
+      try { roles = await logtoClient.getUserRoles(u.id); } catch (_) {}
+      return {
+        id: u.id,
+        name: u.name || '',
+        email: u.primaryEmail || '',
+        username: u.username || '',
+        roles,
+        createdAt: u.createdAt,
+        lastSignInAt: u.lastSignInAt,
+        isSuspended: u.isSuspended || false,
+      };
+    }));
+    // Nur interne Benutzer zurückgeben (mind. eine interne Rolle)
+    const internal = result.filter(u => u.roles.some(r => INTERNAL_ROLES.includes(r)));
+    res.json({ users: internal });
+  } catch (e) {
+    console.error('[internal-users] GET error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// PATCH /api/admin/internal-users/:id/roles – Rollen eines Benutzers setzen
+app.patch("/api/admin/internal-users/:id/roles", requireAdmin, async (req, res) => {
+  if (!logtoClient.isConfigured()) return res.status(503).json({ error: 'Logto nicht konfiguriert' });
+  const userId = req.params.id;
+  const { roles } = req.body || {};
+  if (!Array.isArray(roles)) return res.status(400).json({ error: 'roles muss ein Array sein' });
+
+  // Nur interne Rollen erlaubt
+  const allowed = roles.filter(r => INTERNAL_ROLES.includes(r));
+  try {
+    // Bestehende Rollen holen
+    const current = await logtoClient.getUserRoles(userId);
+    const toRemove = current.filter(r => INTERNAL_ROLES.includes(r) && !allowed.includes(r));
+    const toAdd = allowed.filter(r => !current.includes(r));
+    if (toRemove.length) await logtoClient.removeRolesFromUser(userId, toRemove);
+    if (toAdd.length) await logtoClient.assignRolesToUser(userId, toAdd);
+
+    // DB sync
+    const newRoles = [...current.filter(r => !INTERNAL_ROLES.includes(r)), ...allowed];
+    if (newRoles.includes('super_admin') || newRoles.includes('admin')) {
+      await db.query(
+        `INSERT INTO booking.admin_users (username, email, role, active, created_at, updated_at)
+         SELECT u.username, u.primary_email, $2, TRUE, NOW(), NOW()
+         FROM (SELECT $1::text AS username, (SELECT primary_email FROM booking.admin_users WHERE username = $1 LIMIT 1) AS primary_email) u
+         ON CONFLICT (username) DO UPDATE SET role=$2, active=TRUE, updated_at=NOW()`,
+        [userId, newRoles.includes('super_admin') ? 'super_admin' : 'admin']
+      ).catch(() => null);
+    }
+
+    res.json({ ok: true, userId, roles: allowed });
+  } catch (e) {
+    console.error('[internal-users] PATCH roles error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/admin/internal-users – neuen internen User in Logto anlegen
+app.post("/api/admin/internal-users", requireAdmin, async (req, res) => {
+  if (!logtoClient.isConfigured()) return res.status(503).json({ error: 'Logto nicht konfiguriert' });
+  const { name, email, username, password, roles = ['photographer'] } = req.body || {};
+  if (!email || !password) return res.status(400).json({ error: 'E-Mail und Passwort erforderlich' });
+  try {
+    const user = await logtoClient.mgmtApi('POST', '/users', {
+      name: name || email,
+      primaryEmail: email.toLowerCase(),
+      username: username || email.toLowerCase().split('@')[0].replace(/[^a-z0-9]/g, ''),
+      password,
+    });
+    const allowed = (roles || []).filter(r => INTERNAL_ROLES.includes(r));
+    if (allowed.length) await logtoClient.assignRolesToUser(user.id, allowed);
+    res.json({ ok: true, user: { id: user.id, name: user.name, email: user.primaryEmail, roles: allowed } });
+  } catch (e) {
+    console.error('[internal-users] POST error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// DELETE /api/admin/internal-users/:id – User in Logto deaktivieren (nicht löschen)
+app.delete("/api/admin/internal-users/:id", requireAdmin, async (req, res) => {
+  if (!logtoClient.isConfigured()) return res.status(503).json({ error: 'Logto nicht konfiguriert' });
+  const userId = req.params.id;
+  try {
+    await logtoClient.mgmtApi('PATCH', `/users/${userId}/is-suspended`, { isSuspended: true });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// PATCH /api/admin/internal-users/:id/suspend – aktivieren/deaktivieren
+app.patch("/api/admin/internal-users/:id/suspend", requireAdmin, async (req, res) => {
+  if (!logtoClient.isConfigured()) return res.status(503).json({ error: 'Logto nicht konfiguriert' });
+  const userId = req.params.id;
+  const { isSuspended } = req.body || {};
+  try {
+    await logtoClient.mgmtApi('PATCH', `/users/${userId}/is-suspended`, { isSuspended: Boolean(isSuspended) });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/admin/logto-roles – alle Logto-Rollen
+app.get("/api/admin/logto-roles", requireAdmin, async (req, res) => {
+  if (!logtoClient.isConfigured()) return res.json({ roles: [] });
+  try {
+    const roles = await logtoClient.mgmtApi('GET', '/roles?pageSize=100');
+    const internal = (roles || []).filter(r => INTERNAL_ROLES.includes(r.name));
+    res.json({ roles: internal });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
 
@@ -9385,7 +9733,8 @@ app.get("/api/admin/photographers/:key/settings", requireAdmin, async (req, res)
                   p.phone_mobile AS core_phone_mobile,
                   p.whatsapp AS core_whatsapp,
                   p.initials AS core_initials,
-                  p.is_admin AS core_is_admin
+                  p.is_admin AS core_is_admin,
+                  p.active AS core_active
            FROM photographer_settings ps
            RIGHT JOIN photographers p ON p.key = ps.photographer_key
            WHERE p.key = $1
@@ -9394,7 +9743,7 @@ app.get("/api/admin/photographers/:key/settings", requireAdmin, async (req, res)
         );
         const row = rows[0];
         if (row) {
-          const { core_name, core_email, core_phone, core_phone_mobile, core_whatsapp, core_initials, core_is_admin, ...ps } = row;
+          const { core_name, core_email, core_phone, core_phone_mobile, core_whatsapp, core_initials, core_is_admin, core_active, ...ps } = row;
           settings = { ...ps };
           if (settings.photographer_key == null) settings.photographer_key = key;
           settings.name = core_name;
@@ -9404,6 +9753,7 @@ app.get("/api/admin/photographers/:key/settings", requireAdmin, async (req, res)
           settings.whatsapp = core_whatsapp ?? "";
           settings.initials = core_initials;
           settings.is_admin = Boolean(core_is_admin);
+          settings.active = core_active !== false;
         }
       }
     } catch (_e) { /* Tabelle evtl. noch nicht vorhanden */ }
@@ -9427,12 +9777,33 @@ app.put("/api/admin/photographers/:key/settings", requireAdmin, async (req, res)
     if (body.phone_mobile !== undefined) core.phone_mobile = body.phone_mobile;
     if (body.whatsapp !== undefined) core.whatsapp = body.whatsapp;
     if (body.initials !== undefined) core.initials = body.initials;
+    if (body.active !== undefined) core.active = Boolean(body.active);
     if (Object.keys(core).length) await db.updatePhotographerCore(key, core);
-    if (body.is_admin !== undefined) await db.setPhotographerAdminFlag(key, Boolean(body.is_admin));
     if (body.is_admin !== undefined) {
-      try {
-        await rbac.syncPhotographerRolesFromDb(key);
-      } catch (_e) {}
+      const isAdmin = Boolean(body.is_admin);
+      await db.setPhotographerAdminFlag(key, isAdmin);
+      try { await rbac.syncPhotographerRolesFromDb(key); } catch (_e) {}
+
+      // Logto-Rollen synchronisieren
+      const logtoClient = require('./logto-client');
+      if (logtoClient.isConfigured()) {
+        try {
+          const { rows } = await pool.query(`SELECT email FROM booking.photographers WHERE key = $1`, [key]);
+          const email = rows[0]?.email;
+          if (email) {
+            const logtoUser = await logtoClient.findUserByEmail(email);
+            if (logtoUser) {
+              if (isAdmin) {
+                await logtoClient.assignRolesToUser(logtoUser.id, ['admin']);
+              } else {
+                await logtoClient.removeRolesFromUser(logtoUser.id, ['admin', 'super_admin']);
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('[logto] Rollen-Sync für', key, 'fehlgeschlagen:', e.message);
+        }
+      }
     }
 
     const jsonCols = new Set(["workdays", "work_hours_by_day", "languages", "blocked_dates", "skills", "depart_times"]);
@@ -11069,7 +11440,9 @@ registerAdminMissingRoutes(app, db, requireAdmin, mailer);
 // ─── Admin-Panel SPA (React/Vite Build) ─────────────────────────────────────
 // Liefert das gebaute Frontend aus admin-panel/dist aus.
 // Alle nicht-API-Routen geben index.html zurück (SPA-Routing).
-const ADMIN_PANEL_DIST = path.join(__dirname, "admin-panel", "dist");
+const ADMIN_PANEL_DIST = process.env.ADMIN_PANEL_DIST
+  ? path.resolve(process.env.ADMIN_PANEL_DIST)
+  : path.join(__dirname, "admin-panel", "dist");
 if (require("fs").existsSync(ADMIN_PANEL_DIST)) {
   app.use(express.static(ADMIN_PANEL_DIST));
   app.get(/^(?!\/api|\/auth).*$/, (_req, res) => {
@@ -11081,7 +11454,18 @@ if (require("fs").existsSync(ADMIN_PANEL_DIST)) {
   });
 }
 
+async function ensureDatabaseBootstrapped() {
+  if (!process.env.DATABASE_URL) return;
+  try {
+    if (db.initSchema) await db.initSchema();
+    if (db.runMigrations) await db.runMigrations();
+  } catch (e) {
+    console.error("[boot] DB init/migrations failed:", e?.message || e);
+  }
+}
+
 async function startServer() {
+  await ensureDatabaseBootstrapped();
   await initOrderCounter();
   try {
     await rbac.seedRbacIfNeeded();
@@ -11099,10 +11483,12 @@ async function startServer() {
       console.warn("[boot] admin_users Bootstrap:", e?.message || e);
     }
   }
-  app.listen(PORT, () => {
-    console.log(`[boot] ${getBuildId()}`);
-    console.log(`Availability API running on http://localhost:${PORT}`);
-  });
+  if (process.env.PROPUS_PLATFORM_MERGED !== "1") {
+    app.listen(PORT, () => {
+      console.log(`[boot] ${getBuildId()}`);
+      console.log(`Availability API running on http://localhost:${PORT}`);
+    });
+  }
 
   // Hintergrund-Jobs starten (hinter feature.backgroundJobs Flag)
   try {
@@ -11142,7 +11528,16 @@ if (process.env.DATABASE_URL) {
   }, 10 * 60 * 1000);
 }
 
-startServer().catch(err => {
-  console.error("[boot] fatal error", err.message);
-  process.exit(1);
-});
+async function runIfMain() {
+  if (process.env.PROPUS_PLATFORM_MERGED === "1") return;
+  try {
+    await startServer();
+  } catch (err) {
+    console.error("[boot] fatal error", err.message);
+    process.exit(1);
+  }
+}
+
+runIfMain();
+
+module.exports = { app, startServer };

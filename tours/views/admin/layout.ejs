@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <% const bp = typeof basePath === 'string' ? basePath : ''; %>
   <title><%= typeof title !== 'undefined' ? title : 'Propus Tour Manager' %></title>
   <style>
     * { box-sizing: border-box; }
@@ -29,10 +30,10 @@
 </head>
 <body>
   <nav>
-    <a href="/admin/dashboard">
+    <a href="<%= bp %>/admin/dashboard">
       <img src="https://propus.ch/wp-content/uploads/2024/06/Asset-2-2.png" alt="Propus" style="height:28px;width:auto;display:block;" loading="eager" decoding="async">
     </a>
-    <form method="post" action="/logout" style="display:inline;">
+    <form method="post" action="<%= bp %>/logout" style="display:inline;">
       <button type="submit" class="btn btn-small">Abmelden</button>
     </form>
   </nav>

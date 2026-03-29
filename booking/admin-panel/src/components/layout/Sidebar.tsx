@@ -25,6 +25,7 @@ import {
   Upload,
   Shield,
   UserCog,
+  Globe,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -49,8 +50,7 @@ type SidebarNavItem = {
 
 const navigationItems: SidebarNavItem[] = [
   { path: "/dashboard", icon: LayoutDashboard, labelKey: "nav.dashboard" },
-  { path: "/admin/users", icon: UserCog, label: "Benutzerverwaltung" },
-  { path: "/admin/roles", icon: Shield, label: "Rechte & Rollen" },
+  { path: "/admin/tours", icon: Globe, label: "Tour Manager" },
   { path: "/orders", icon: ShoppingCart, labelKey: "nav.orders" },
   { path: "/upload", icon: Upload, labelKey: "nav.upload" },
   { path: "/calendar", icon: Calendar, labelKey: "nav.calendar" },

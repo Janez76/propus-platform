@@ -70,9 +70,10 @@ function createLogtoAuth(options = {}) {
       req.session.oidcReturnTo = req.query.returnTo || '/';
 
       const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const mountPrefix = req.baseUrl || '';
       const params = new URLSearchParams({
         client_id: appId,
-        redirect_uri: `${baseUrl}${callbackPath}`,
+        redirect_uri: `${baseUrl}${mountPrefix}${callbackPath}`,
         response_type: 'code',
         scope: 'openid profile email',
         state,
@@ -94,6 +95,7 @@ function createLogtoAuth(options = {}) {
       if (!config) return res.status(503).send('Auth service unavailable');
 
       const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const mountPrefix = req.baseUrl || '';
       const tokenRes = await fetch(config.token_endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -102,7 +104,7 @@ function createLogtoAuth(options = {}) {
           code,
           client_id: appId,
           client_secret: appSecret,
-          redirect_uri: `${baseUrl}${callbackPath}`,
+          redirect_uri: `${baseUrl}${mountPrefix}${callbackPath}`,
           code_verifier: req.session.oidcCodeVerifier || '',
         }),
       });
@@ -149,9 +151,10 @@ function createLogtoAuth(options = {}) {
       req.session.destroy(() => {
         if (idToken) {
           const baseUrl = `${req.protocol}://${req.get('host')}`;
+          const mountPrefix = req.baseUrl || '';
           const params = new URLSearchParams({
             id_token_hint: idToken,
-            post_logout_redirect_uri: `${baseUrl}${logoutRedirect}`,
+            post_logout_redirect_uri: `${baseUrl}${mountPrefix}${logoutRedirect}`,
           });
           res.redirect(`${logtoEndpoint}/oidc/session/end?${params}`);
         } else {

@@ -1,3 +1,4 @@
+<% const bp = typeof basePath === 'string' ? basePath : ''; %>
 <% const active = typeof activePage === 'string' ? activePage : 'dashboard'; %>
 <% const pnav = (typeof portalNav === 'object' && portalNav) ? portalNav : { displayName: '', email: typeof email === 'string' ? email : '', organizationName: null }; %>
 <% const dn = String(pnav.displayName || '').trim(); %>
@@ -15,22 +16,22 @@
 
   <nav>
     <div class="portal-nav-main">
-      <a href="/portal/dashboard" class="<%= active === 'dashboard' ? 'active' : '' %>">
+      <a href="<%= bp %>/portal/dashboard" class="<%= active === 'dashboard' ? 'active' : '' %>">
         <i class="fa-solid fa-gauge-high"></i>
         Dashboard
       </a>
       <div class="nav-divider"></div>
 
       <div class="nav-section-label">Übersicht</div>
-      <a href="/portal/tours" class="<%= active === 'tours' ? 'active' : '' %>">
+      <a href="<%= bp %>/portal/tours" class="<%= active === 'tours' ? 'active' : '' %>">
         <i class="fa-solid fa-house"></i>
         Touren
       </a>
-      <a href="/portal/invoices" class="<%= active === 'invoices' ? 'active' : '' %>">
+      <a href="<%= bp %>/portal/invoices" class="<%= active === 'invoices' ? 'active' : '' %>">
         <i class="fa-regular fa-file-lines"></i>
         Rechnungen
       </a>
-      <a href="/portal/team" class="<%= active === 'team' ? 'active' : '' %>">
+      <a href="<%= bp %>/portal/team" class="<%= active === 'team' ? 'active' : '' %>">
         <i class="fa-solid fa-users"></i>
         Team
       </a>
@@ -40,7 +41,7 @@
       <div class="nav-divider portal-nav-footer-divider"></div>
       <%- include('../partials/_sidebar-user-card', { displayName: dn, organizationName: pnav.organizationName, variant: 'portal', hasProfilePhoto: !!pnav.hasProfilePhoto, profilePhotoVersion: pnav.profilePhotoVersion || 0 }) %>
       <div class="nav-divider"></div>
-      <form method="get" action="/portal/logout" class="portal-logout-form">
+      <form method="get" action="<%= bp %>/portal/logout" class="portal-logout-form">
         <button type="submit" class="nav-link-logout">
           <i class="fa-solid fa-right-from-bracket"></i>
           Abmelden
@@ -50,3 +51,22 @@
   </nav>
 </aside>
 <%- include('../partials/_profile-edit-modal', { variant: 'portal' }) %>
+<% if (typeof basePath === 'string' && basePath) { %>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var B = "<%= basePath %>";
+  function fix(sel, attr) {
+    document.querySelectorAll(sel).forEach(function(el) {
+      var v = el.getAttribute(attr);
+      if (!v) return;
+      if (v.indexOf('http') === 0) return;
+      if (v.startsWith('/api')) return;
+      if (v.startsWith('/')) el.setAttribute(attr, B + v);
+    });
+  }
+  fix('a[href^="/"]', 'href');
+  fix('form[action^="/"]', 'action');
+  fix('img[src^="/"]', 'src');
+});
+</script>
+<% } %>

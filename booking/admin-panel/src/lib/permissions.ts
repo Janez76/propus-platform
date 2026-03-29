@@ -28,6 +28,7 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   "/bugs": "bugs.read",
   "/backups": "backups.manage",
   "/changelog": "dashboard.view",
+  "/admin/tours": "dashboard.view",
 };
 
 const ADMIN_ONLY_ROLES: Role[] = ["admin", "super_admin"];
@@ -43,10 +44,14 @@ export const LEGACY_ROLE_PERMISSIONS: Partial<Record<Role, string[]>> = {
   company_owner: ["customers.read", "orders.read", "orders.update", "orders.create", "company.manage", "team.manage", "calendar.view"],
   company_admin: ["customers.read", "orders.read", "orders.update", "orders.create", "company.manage", "team.manage", "calendar.view"],
   company_employee: ["customers.read", "orders.read", "calendar.view"],
+  customer: ["dashboard.view"],
 };
 
 export function legacyCanAccessPath(role: Role, path: string): boolean {
   const isCompanyRole = role === "company_owner" || role === "company_admin" || role === "company_employee";
+  if (role === "customer") {
+    return path === "/account" || path.startsWith("/account/");
+  }
   if (isCompanyRole) {
     if (role === "company_employee") return path === "/portal/bestellungen" || path.startsWith("/portal/bestellungen/");
     return (

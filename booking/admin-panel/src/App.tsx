@@ -34,6 +34,16 @@ const PortalFirmaPage = lazy(() => import("./pages/PortalFirmaPage").then((m) =>
 const PortalBestellungenPage = lazy(() =>
   import("./pages/PortalBestellungenPage").then((m) => ({ default: m.PortalBestellungenPage }))
 );
+const BookingWizardPage = lazy(() => import("./pages/BookingWizardPage").then((m) => ({ default: m.BookingWizardPage })));
+const AccountDashboardPage = lazy(() =>
+  import("./pages/AccountDashboardPage").then((m) => ({ default: m.AccountDashboardPage }))
+);
+const CompanyDashboardPage = lazy(() =>
+  import("./pages/CompanyDashboardPage").then((m) => ({ default: m.CompanyDashboardPage }))
+);
+const ToursAdminHomePage = lazy(() =>
+  import("./pages/ToursAdminHomePage").then((m) => ({ default: m.ToursAdminHomePage }))
+);
 
 function PageSkeleton() {
   return (
@@ -46,6 +56,7 @@ function PageSkeleton() {
 function PrivateRoutes() {
   const { isLoggedIn, role } = useAuth();
   const isCompanyRole = isCompanyWorkspaceRole(role);
+  const isCustomer = role === "customer";
   const adminOnlyRoles: Role[] = ["admin", "super_admin"];
   const companyHome = role === "company_employee" ? "/portal/bestellungen" : "/portal/firma";
 
@@ -53,9 +64,22 @@ function PrivateRoutes() {
 
   function guardedElement(allowed: Role[], element: ReactElement) {
     if (!allowed.includes(role)) {
+      if (isCustomer) return <Navigate to="/account" replace />;
       return <Navigate to={isCompanyRole ? companyHome : "/dashboard"} replace />;
     }
     return element;
+  }
+
+  if (isCustomer) {
+    return (
+      <AppShell>
+        <Routes>
+          <Route path="/" element={<Navigate to="/account" replace />} />
+          <Route path="/account" element={<AccountDashboardPage />} />
+          <Route path="*" element={<Navigate to="/account" replace />} />
+        </Routes>
+      </AppShell>
+    );
   }
 
   return (
@@ -79,6 +103,10 @@ function PrivateRoutes() {
         <Route
           path="/company"
           element={<Navigate to={companyHome} replace />}
+        />
+        <Route
+          path="/company/dashboard"
+          element={guardedElement(["company_owner", "company_admin", "company_employee"], <CompanyDashboardPage />)}
         />
         <Route path="/dashboard" element={guardedElement(adminOnlyRoles, <DashboardPage />)} />
         <Route path="/orders" element={guardedElement([...adminOnlyRoles, "photographer"], <OrdersPage />)} />
@@ -104,6 +132,7 @@ function PrivateRoutes() {
         <Route path="/bugs" element={guardedElement(adminOnlyRoles, <BugsPage />)} />
         <Route path="/backups" element={guardedElement(adminOnlyRoles, <BackupsPage />)} />
         <Route path="/changelog" element={guardedElement(adminOnlyRoles, <ChangelogPage />)} />
+        <Route path="/admin/tours" element={guardedElement(adminOnlyRoles, <ToursAdminHomePage />)} />
       </Routes>
     </AppShell>
   );
@@ -115,6 +144,7 @@ export default function App() {
       <OfflineIndicator />
       <Suspense fallback={<PageSkeleton />}>
         <Routes>
+          <Route path="/book" element={<BookingWizardPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/confirm/:token" element={<ConfirmBookingPage />} />
           <Route path="/print/orders/:orderNo" element={<PrintOrderPage />} />

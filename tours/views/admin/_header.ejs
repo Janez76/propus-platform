@@ -1,4 +1,5 @@
 <% 
+  const bp = typeof basePath === 'string' ? basePath : '';
   const adminUserName = String(
     (typeof adminSidebarDisplayName !== 'undefined' && adminSidebarDisplayName)
       ? adminSidebarDisplayName
@@ -35,25 +36,25 @@
 
   <nav>
     <div class="portal-nav-main">
-    <a href="/admin/dashboard" class="<%= typeof activePage !== 'undefined' && activePage === 'dashboard' ? 'active' : '' %>">
+    <a href="<%= bp %>/admin/dashboard" class="<%= typeof activePage !== 'undefined' && activePage === 'dashboard' ? 'active' : '' %>">
       <i class="fa-solid fa-gauge-high"></i>
       Dashboard
     </a>
     <div class="nav-divider"></div>
 
     <div class="nav-section-label">Übersicht</div>
-    <a href="/admin/tours" class="<%= typeof activePage !== 'undefined' && activePage === 'tours' ? 'active' : '' %>">
+    <a href="<%= bp %>/admin/tours" class="<%= typeof activePage !== 'undefined' && activePage === 'tours' ? 'active' : '' %>">
       <i class="fa-solid fa-house"></i>
       Touren
     </a>
-    <a href="/admin/invoices" class="<%= typeof activePage !== 'undefined' && activePage === 'invoices' ? 'active' : '' %>">
+    <a href="<%= bp %>/admin/invoices" class="<%= typeof activePage !== 'undefined' && activePage === 'invoices' ? 'active' : '' %>">
       <i class="fa-regular fa-file-lines"></i>
       Rechnungen
     </a>
     <div class="nav-divider"></div>
 
     <div class="nav-section-label">Kunden</div>
-    <a href="/admin/customers" class="<%= typeof activePage !== 'undefined' && activePage === 'customers' ? 'active' : '' %>">
+    <a href="<%= bp %>/admin/customers" class="<%= typeof activePage !== 'undefined' && activePage === 'customers' ? 'active' : '' %>">
       <i class="fa-solid fa-users"></i>
       Kundenverwaltung
     </a>
@@ -64,31 +65,31 @@
     <div class="nav-divider"></div>
 
     <div class="nav-section-label">Verknüpfungen</div>
-    <a href="/admin/link-matterport" class="<%= typeof activePage !== 'undefined' && activePage === 'matterport' ? 'active' : '' %>">
+    <a href="<%= bp %>/admin/link-matterport" class="<%= typeof activePage !== 'undefined' && activePage === 'matterport' ? 'active' : '' %>">
       <i class="fa-solid fa-cubes"></i>
       Matterport verknüpfen
     </a>
     <div class="nav-divider"></div>
     <div class="nav-section-label">Konfiguration</div>
-    <a href="/admin/email-templates" class="<%= typeof activePage !== 'undefined' && activePage === 'emailTemplates' ? 'active' : '' %>">
+    <a href="<%= bp %>/admin/email-templates" class="<%= typeof activePage !== 'undefined' && activePage === 'emailTemplates' ? 'active' : '' %>">
       <i class="fa-regular fa-envelope"></i>
       E-Mail-Templates
     </a>
-    <a href="/admin/automations" class="<%= typeof activePage !== 'undefined' && activePage === 'automations' ? 'active' : '' %>">
+    <a href="<%= bp %>/admin/automations" class="<%= typeof activePage !== 'undefined' && activePage === 'automations' ? 'active' : '' %>">
       <i class="fa-solid fa-rotate"></i>
       Automatisierungen
     </a>
-    <a href="/admin/team" class="<%= typeof activePage !== 'undefined' && activePage === 'team' ? 'active' : '' %>">
+    <a href="<%= bp %>/admin/team" class="<%= typeof activePage !== 'undefined' && activePage === 'team' ? 'active' : '' %>">
       <i class="fa-solid fa-users"></i>
       Team
     </a>
-    <a href="/admin/settings" class="<%= typeof activePage !== 'undefined' && activePage === 'settings' ? 'active' : '' %>">
+    <a href="<%= bp %>/admin/settings" class="<%= typeof activePage !== 'undefined' && activePage === 'settings' ? 'active' : '' %>">
       <i class="fa-solid fa-gear"></i>
       Einstellungen
     </a>
     <div class="nav-divider"></div>
     <div class="nav-section-label" style="padding-top:0.2rem;">Werkzeuge</div>
-    <a href="/admin/ai-chat" class="<%= typeof activePage !== 'undefined' && activePage === 'aiChat' ? 'active' : '' %>">
+    <a href="<%= bp %>/admin/ai-chat" class="<%= typeof activePage !== 'undefined' && activePage === 'aiChat' ? 'active' : '' %>">
       <i class="fa-solid fa-wand-magic-sparkles"></i>
       KI-Chat
     </a>
@@ -99,7 +100,7 @@
       <% const adminPhotoVer = typeof adminSidebarPhotoVersion !== 'undefined' ? adminSidebarPhotoVersion : 0; %>
       <%- include('../partials/_sidebar-user-card', { displayName: adminUserName || 'Admin', organizationName: adminUserOrg, variant: 'admin', hasProfilePhoto: adminHasPhoto, profilePhotoVersion: adminPhotoVer }) %>
       <div class="nav-divider"></div>
-      <form method="post" action="/logout" class="portal-logout-form">
+      <form method="post" action="<%= bp %>/logout" class="portal-logout-form">
         <button type="submit" class="nav-link-logout">
           <i class="fa-solid fa-right-from-bracket"></i>
           Abmelden
@@ -358,7 +359,7 @@
 
       // Aktionen
       html += `<div class="panel-actions">
-        <a href="/admin/tours/${d.id}" class="btn btn-ghost" style="font-size:0.82rem;">Vollansicht</a>
+        <a href="<%= bp %>/admin/tours/${d.id}" class="btn btn-ghost" style="font-size:0.82rem;">Vollansicht</a>
         <button class="btn btn-ghost" style="font-size:0.82rem;" onclick="panelSendMail(${d.id})">Mail senden</button>
         <button class="btn btn-ghost" style="font-size:0.82rem;" onclick="panelCheckPayment(${d.id})">Zahlung prüfen</button>
       </div>`;
@@ -895,7 +896,7 @@
             drop.innerHTML = '<div style="padding:0.6rem 0.75rem;color:var(--text-muted);font-size:0.82rem;">Keine Treffer</div>';
           } else {
             drop.innerHTML = items.map(c => `
-              <a href="/admin/impersonate?email=${encodeURIComponent(c.email)}"
+              <a href="<%= bp %>/admin/impersonate?email=${encodeURIComponent(c.email)}"
                  style="display:block;padding:0.5rem 0.75rem;text-decoration:none;color:var(--text);
                         font-size:0.82rem;border-bottom:1px solid var(--border);"
                  onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
@@ -928,3 +929,22 @@
   });
 })();
 </script>
+<% if (typeof basePath === 'string' && basePath) { %>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var B = "<%= basePath %>";
+  function fix(sel, attr) {
+    document.querySelectorAll(sel).forEach(function(el) {
+      var v = el.getAttribute(attr);
+      if (!v) return;
+      if (v.indexOf('http') === 0) return;
+      if (v.startsWith('/api')) return;
+      if (v.startsWith('/')) el.setAttribute(attr, B + v);
+    });
+  }
+  fix('a[href^="/"]', 'href');
+  fix('form[action^="/"]', 'action');
+  fix('img[src^="/"]', 'src');
+});
+</script>
+<% } %>

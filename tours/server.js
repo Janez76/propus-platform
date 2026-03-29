@@ -30,6 +30,36 @@ try {
 }
 
 const app = express();
+/** Wenn unter /tour-manager gemountet: Prefix für Links in EJS (res.locals.basePath) */
+const TOURS_MOUNT_PATH = String(process.env.TOURS_MOUNT_PATH || '').replace(/\/$/, '');
+app.use((req, res, next) => {
+  res.locals.basePath = TOURS_MOUNT_PATH;
+  next();
+});
+
+/** Bei Mount unter /tour-manager: res.redirect('/admin') -> /tour-manager/admin */
+if (TOURS_MOUNT_PATH) {
+  app.use((req, res, next) => {
+    const mount = TOURS_MOUNT_PATH;
+    const _redirect = res.redirect.bind(res);
+    res.redirect = function redirectWithMount(...args) {
+      if (args.length === 1 && typeof args[0] === 'string' && args[0].startsWith('/') && !args[0].startsWith('//')) {
+        return _redirect(mount + args[0]);
+      }
+      if (
+        args.length === 2 &&
+        typeof args[0] === 'number' &&
+        typeof args[1] === 'string' &&
+        args[1].startsWith('/') &&
+        !args[1].startsWith('//')
+      ) {
+        return _redirect(args[0], mount + args[1]);
+      }
+      return _redirect(...args);
+    };
+    next();
+  });
+}
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
@@ -124,6 +154,11 @@ app.use('/api', apiRoutes);
 app.get('/health', (req, res) => res.json({ ok: true }));
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Propus Tour Manager listening on port ${PORT}`);
-});
+
+if (require.main === module) {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Propus Tour Manager listening on port ${PORT}`);
+  });
+}
+
+module.exports = { app };

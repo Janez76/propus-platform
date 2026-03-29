@@ -125,6 +125,8 @@ async function migrateGeneric(srcPool, srcQuery, targetTable, columns, client, o
     return rows;
   }
 
+  const firstErrors = [];
+
   for (const row of rows) {
     const data = transform ? transform(row) : row;
     if (!data) { inc(targetTable, 'skipped'); continue; }
@@ -136,20 +138,33 @@ async function migrateGeneric(srcPool, srcQuery, targetTable, columns, client, o
     const sql = `INSERT INTO ${targetTable} (${colStr}) VALUES (${placeholders}) ON CONFLICT ${conflict}`;
 
     try {
-      if (!DRY_RUN) await client.query(sql, vals);
+      if (!DRY_RUN) {
+        await client.query('SAVEPOINT sp_row');
+        await client.query(sql, vals);
+        await client.query('RELEASE SAVEPOINT sp_row');
+      }
       inc(targetTable, 'inserted');
     } catch (err) {
+      await client.query('ROLLBACK TO SAVEPOINT sp_row').catch(() => {});
       stats.errors.push({ table: targetTable, row: data, error: err.message });
+      if (firstErrors.length < 2) firstErrors.push(err.message);
       inc(targetTable, 'skipped');
     }
   }
 
-  console.log(`  [ok]   ${targetTable}: ${stats.inserted[targetTable] || 0} eingefügt, ${stats.skipped[targetTable] || 0} übersprungen`);
+  const inserted = stats.inserted[targetTable] || 0;
+  const skipped = stats.skipped[targetTable] || 0;
+  if (firstErrors.length && inserted === 0) {
+    console.log(`  [warn] ${targetTable}: ${inserted} eingefügt, ${skipped} übersprungen – Fehler: ${firstErrors[0]}`);
+  } else {
+    console.log(`  [ok]   ${targetTable}: ${inserted} eingefügt, ${skipped} übersprungen`);
+  }
   return rows;
 }
 
 async function resetSequences(client) {
   console.log('[migrate] Sequences synchronisieren …');
+  // Nur Tabellen mit integer id-Spalte auflisten
   const seqPairs = [
     ['core.customers', 'core.customers_id_seq'],
     ['core.customer_contacts', 'core.customer_contacts_id_seq'],
@@ -160,33 +175,25 @@ async function resetSequences(client) {
     ['booking.photographers', 'booking.photographers_id_seq'],
     ['booking.products', 'booking.products_id_seq'],
     ['booking.pricing_rules', 'booking.pricing_rules_id_seq'],
-    ['booking.service_categories', 'booking.service_categories_id_seq'],
     ['booking.discount_codes', 'booking.discount_codes_id_seq'],
-    ['booking.discount_code_usages', 'booking.discount_code_usages_id_seq'],
-    ['booking.bug_reports', 'booking.bug_reports_id_seq'],
     ['booking.order_messages', 'booking.order_messages_id_seq'],
     ['booking.order_chat_messages', 'booking.order_chat_messages_id_seq'],
-    ['booking.upload_batches', 'booking.upload_batches_id_seq'],
-    ['booking.upload_batch_files', 'booking.upload_batch_files_id_seq'],
-    ['booking.access_subjects', 'booking.access_subjects_id_seq'],
-    ['booking.permission_definitions', 'booking.permission_definitions_id_seq'],
-    ['booking.system_roles', 'booking.system_roles_id_seq'],
-    ['booking.permission_groups', 'booking.permission_groups_id_seq'],
+    ['booking.admin_users', 'booking.admin_users_id_seq'],
     ['tour_manager.tours', 'tour_manager.tours_id_seq'],
-    ['tour_manager.actions_log', 'tour_manager.actions_log_id_seq'],
-    ['tour_manager.exxas_invoices', 'tour_manager.exxas_invoices_id_seq'],
-    ['tour_manager.renewal_invoices', 'tour_manager.renewal_invoices_id_seq'],
     ['tour_manager.admin_users', 'tour_manager.admin_users_id_seq'],
   ];
 
   for (const [table, seq] of seqPairs) {
     try {
+      await client.query('SAVEPOINT sp_seq');
       const maxRes = await client.query(`SELECT COALESCE(MAX(id), 0) AS m FROM ${table}`);
       const maxId = maxRes.rows[0].m;
       if (maxId > 0) {
         await client.query(`SELECT setval('${seq}', ${maxId})`);
       }
+      await client.query('RELEASE SAVEPOINT sp_seq');
     } catch (err) {
+      await client.query('ROLLBACK TO SAVEPOINT sp_seq').catch(() => {});
       console.warn(`  [warn] Sequence ${seq}: ${err.message}`);
     }
   }
@@ -287,10 +294,13 @@ async function run() {
 
     await migrateGeneric(srcBooking,
       `SELECT id, company_id, COALESCE(keycloak_subject,'') as keycloak_subject,
-              customer_id, role, display_name, created_at, updated_at
+              customer_id, role, COALESCE(email,'') as email,
+              COALESCE(status,'active') as status,
+              COALESCE(is_primary_contact,false) as is_primary_contact,
+              created_at, updated_at
        FROM company_members ORDER BY id`,
       'core.company_members',
-      ['id', 'company_id', 'keycloak_subject', 'customer_id', 'role', 'display_name', 'created_at', 'updated_at'],
+      ['id', 'company_id', 'keycloak_subject', 'customer_id', 'role', 'email', 'status', 'is_primary_contact', 'created_at', 'updated_at'],
       client
     );
 
@@ -305,196 +315,127 @@ async function run() {
     console.log('\n══════ Phase 3: Booking ══════');
 
     await migrateGeneric(srcBooking,
-      `SELECT * FROM photographers ORDER BY id`,
+      `SELECT id, key, name, email, phone, COALESCE(phone_mobile,'') as phone_mobile,
+              COALESCE(whatsapp,'') as whatsapp, COALESCE(initials,'') as initials,
+              COALESCE(is_admin,false) as is_admin, created_at
+       FROM photographers ORDER BY id`,
       'booking.photographers',
       ['id', 'key', 'name', 'email', 'phone', 'phone_mobile', 'whatsapp', 'initials', 'is_admin', 'created_at'],
       client
     );
 
     await migrateGeneric(srcBooking,
-      `SELECT * FROM photographer_settings ORDER BY photographer_key`,
+      `SELECT photographer_key, COALESCE(home_address,'') as home_address, home_lat, home_lon,
+              max_radius_km, skills, blocked_dates, depart_times, work_start, work_end,
+              workdays, work_hours_by_day, buffer_minutes, slot_minutes,
+              COALESCE(national_holidays,true) as national_holidays,
+              languages, native_language, event_color, password_hash, created_at, updated_at
+       FROM photographer_settings ORDER BY photographer_key`,
       'booking.photographer_settings',
-      ['photographer_key', 'calendar_email', 'notify_on_new_order', 'notify_on_status_change',
-       'notify_on_cancel', 'languages', 'native_language', 'event_color', 'password_hash'],
+      ['photographer_key', 'home_address', 'home_lat', 'home_lon', 'max_radius_km', 'skills',
+       'blocked_dates', 'depart_times', 'work_start', 'work_end', 'workdays', 'work_hours_by_day',
+       'buffer_minutes', 'slot_minutes', 'national_holidays', 'languages', 'native_language',
+       'event_color', 'password_hash', 'created_at', 'updated_at'],
       client
     );
 
+    // kind_scope 'service' → 'addon' (Ziel-Schema erlaubt nur 'package','addon','both')
     await migrateGeneric(srcBooking,
-      `SELECT * FROM service_categories ORDER BY id`,
+      `SELECT key, name, COALESCE(description,'') as description,
+              CASE WHEN kind_scope IN ('package','addon','both') THEN kind_scope ELSE 'addon' END as kind_scope,
+              sort_order, active, show_in_frontpanel, created_at
+       FROM service_categories ORDER BY sort_order`,
       'booking.service_categories',
-      ['id', 'key', 'label', 'sort_order', 'created_at'],
+      ['key', 'name', 'description', 'kind_scope', 'sort_order', 'active', 'show_in_frontpanel', 'created_at'],
       client
     );
 
+    // kind 'service'/'extra' → 'addon' (Ziel-Schema erlaubt nur 'package','addon')
     await migrateGeneric(srcBooking,
-      `SELECT * FROM products ORDER BY id`,
+      `SELECT id, code, name,
+              CASE WHEN kind IN ('package','addon') THEN kind ELSE 'addon' END as kind,
+              COALESCE(group_key,'') as group_key, COALESCE(category_key,'') as category_key,
+              COALESCE(description,'') as description,
+              COALESCE(affects_travel,true) as affects_travel,
+              COALESCE(affects_duration,false) as affects_duration,
+              COALESCE(duration_minutes,0) as duration_minutes,
+              COALESCE(skill_key,'') as skill_key, required_skills, active, sort_order, created_at
+       FROM products ORDER BY id`,
       'booking.products',
-      ['id', 'key', 'label', 'category_id', 'min_duration', 'max_duration', 'default_duration',
-       'base_price', 'is_active', 'sort_order', 'created_at'],
+      ['id', 'code', 'name', 'kind', 'group_key', 'category_key', 'description', 'affects_travel',
+       'affects_duration', 'duration_minutes', 'skill_key', 'required_skills', 'active', 'sort_order', 'created_at'],
       client
     );
 
     await migrateGeneric(srcBooking,
-      `SELECT * FROM pricing_rules ORDER BY id`,
+      `SELECT id, product_id, rule_type, config_json, priority, valid_from, valid_to, active, created_at
+       FROM pricing_rules ORDER BY id`,
       'booking.pricing_rules',
-      ['id', 'product_id', 'label', 'rule_type', 'config', 'priority', 'is_active', 'created_at'],
+      ['id', 'product_id', 'rule_type', 'config_json', 'priority', 'valid_from', 'valid_to', 'active', 'created_at'],
       client
     );
 
     await migrateGeneric(srcBooking,
-      `SELECT * FROM app_settings`,
+      `SELECT key, value_json, updated_at FROM app_settings`,
       'booking.app_settings',
-      ['key', 'value', 'updated_at'],
+      ['key', 'value_json', 'updated_at'],
       client
     );
 
     await migrateGeneric(srcBooking,
-      `SELECT * FROM discount_codes ORDER BY id`,
+      `SELECT id, code, type, amount, active, valid_from, valid_to, max_uses,
+              uses_count, uses_per_customer, conditions_json, created_at
+       FROM discount_codes ORDER BY id`,
       'booking.discount_codes',
-      ['id', 'code', 'discount_type', 'discount_value', 'valid_from', 'valid_until',
-       'max_uses', 'used_count', 'description', 'is_active', 'created_at'],
+      ['id', 'code', 'type', 'amount', 'active', 'valid_from', 'valid_to',
+       'max_uses', 'uses_count', 'uses_per_customer', 'conditions_json', 'created_at'],
       client
     );
 
     await migrateGeneric(srcBooking,
-      `SELECT * FROM orders ORDER BY id`,
+      `SELECT id, order_no, customer_id, status, address, object, services, photographer,
+              schedule, billing, pricing, settings_snapshot, discount, key_pickup,
+              ics_uid, photographer_event_id, office_event_id, exxas_order_id,
+              COALESCE(exxas_status,'not_sent') as exxas_status, done_at, created_at, updated_at
+       FROM orders ORDER BY id`,
       'booking.orders',
-      ['id', 'order_no', 'customer_id', 'status', 'date', 'time', 'duration',
-       'address', 'products', 'price', 'notes', 'photographer', 'photographerEventId',
-       'officeEventId', 'onsite_name', 'onsite_phone', 'icsUid',
-       'cancellationReason', 'cancellationDate', 'price_details',
-       'company_id', 'created_by_member_id', 'created_at', 'updated_at'],
+      ['id', 'order_no', 'customer_id', 'status', 'address', 'object', 'services', 'photographer',
+       'schedule', 'billing', 'pricing', 'settings_snapshot', 'discount', 'key_pickup',
+       'ics_uid', 'photographer_event_id', 'office_event_id', 'exxas_order_id',
+       'exxas_status', 'done_at', 'created_at', 'updated_at'],
       client
     );
 
     await migrateGeneric(srcBooking,
-      `SELECT * FROM discount_code_usages ORDER BY id`,
-      'booking.discount_code_usages',
-      ['id', 'discount_code_id', 'order_id', 'used_at'],
-      client
-    );
-
-    await migrateGeneric(srcBooking,
-      `SELECT * FROM bug_reports ORDER BY id`,
-      'booking.bug_reports',
-      ['id', 'page', 'message', 'metadata', 'resolved', 'created_at'],
-      client
-    );
-
-    await migrateGeneric(srcBooking,
-      `SELECT * FROM order_messages ORDER BY id`,
+      `SELECT id, order_no, sender_role, sender_name, recipient_roles, message, created_at
+       FROM order_messages ORDER BY id`,
       'booking.order_messages',
-      ['id', 'order_no', 'sender_role', 'sender_label', 'message', 'created_at'],
+      ['id', 'order_no', 'sender_role', 'sender_name', 'recipient_roles', 'message', 'created_at'],
       client
     );
 
     await migrateGeneric(srcBooking,
-      `SELECT * FROM order_chat_messages ORDER BY id`,
+      `SELECT id, order_no, sender_role, sender_id, sender_name, message, read_at, created_at
+       FROM order_chat_messages ORDER BY id`,
       'booking.order_chat_messages',
-      ['id', 'order_no', 'sender_role', 'sender_name', 'message', 'read_by_admin',
-       'read_by_customer', 'read_by_photographer', 'created_at'],
+      ['id', 'order_no', 'sender_role', 'sender_id', 'sender_name', 'message', 'read_at', 'created_at'],
       client
     );
 
-    await migrateGeneric(srcBooking,
-      `SELECT * FROM order_folder_links WHERE 1=1`,
-      'booking.order_folder_links',
-      ['order_no', 'folder_url', 'created_at'],
-      client
-    );
+    try {
+      await migrateGeneric(srcBooking,
+        `SELECT order_no, folder_url, created_at FROM order_folder_links`,
+        'booking.order_folder_links',
+        ['order_no', 'folder_url', 'created_at'],
+        client
+      );
+    } catch (e) { console.log(`  [skip] booking.order_folder_links: ${e.message}`); }
 
     await migrateGeneric(srcBooking,
-      `SELECT * FROM upload_batches ORDER BY id`,
-      'booking.upload_batches',
-      ['id', 'order_no', 'photographer_key', 'status', 'created_at', 'updated_at'],
-      client
-    );
-
-    await migrateGeneric(srcBooking,
-      `SELECT * FROM upload_batch_files ORDER BY id`,
-      'booking.upload_batch_files',
-      ['id', 'batch_id', 'original_name', 'stored_path', 'size_bytes', 'mime_type', 'status', 'created_at'],
-      client
-    );
-
-    // RBAC-Tabellen
-    await migrateGeneric(srcBooking,
-      `SELECT * FROM permission_definitions ORDER BY id`,
-      'booking.permission_definitions',
-      ['id', 'key', 'label', 'description', 'category', 'created_at'],
-      client
-    );
-
-    await migrateGeneric(srcBooking,
-      `SELECT * FROM system_roles ORDER BY id`,
-      'booking.system_roles',
-      ['id', 'key', 'label', 'description', 'created_at'],
-      client
-    );
-
-    await migrateGeneric(srcBooking,
-      `SELECT * FROM system_role_permissions`,
-      'booking.system_role_permissions',
-      ['system_role_id', 'permission_id'],
-      client
-    );
-
-    await migrateGeneric(srcBooking,
-      `SELECT * FROM access_subjects ORDER BY id`,
-      'booking.access_subjects',
-      ['id', 'subject_type', 'admin_user_id', 'photographer_key', 'customer_id',
-       'customer_contact_id', 'company_member_id', 'label', 'is_active', 'created_at'],
-      client
-    );
-
-    await migrateGeneric(srcBooking,
-      `SELECT * FROM access_subject_system_roles`,
-      'booking.access_subject_system_roles',
-      ['access_subject_id', 'system_role_id'],
-      client
-    );
-
-    await migrateGeneric(srcBooking,
-      `SELECT * FROM permission_groups ORDER BY id`,
-      'booking.permission_groups',
-      ['id', 'name', 'description', 'scope_type', 'scope_company_id', 'scope_customer_id', 'created_at'],
-      client
-    );
-
-    await migrateGeneric(srcBooking,
-      `SELECT * FROM permission_group_permissions`,
-      'booking.permission_group_permissions',
-      ['permission_group_id', 'permission_id'],
-      client
-    );
-
-    await migrateGeneric(srcBooking,
-      `SELECT * FROM permission_group_members`,
-      'booking.permission_group_members',
-      ['permission_group_id', 'access_subject_id'],
-      client
-    );
-
-    await migrateGeneric(srcBooking,
-      `SELECT * FROM subject_permission_overrides ORDER BY id`,
-      'booking.subject_permission_overrides',
-      ['id', 'access_subject_id', 'permission_id', 'effect', 'scope_type',
-       'scope_company_id', 'scope_customer_id', 'created_at'],
-      client
-    );
-
-    await migrateGeneric(srcBooking,
-      `SELECT * FROM admin_users ORDER BY id`,
+      `SELECT id, username, email, name, role, password_hash, active, created_at
+       FROM admin_users ORDER BY id`,
       'booking.admin_users',
-      ['id', 'email', 'password_hash', 'display_name', 'is_active', 'created_at'],
-      client
-    );
-
-    await migrateGeneric(srcBooking,
-      `SELECT * FROM auth_audit_log ORDER BY id`,
-      'booking.auth_audit_log',
-      ['id', 'event_type', 'actor_type', 'actor_id', 'actor_label', 'ip', 'user_agent',
-       'details', 'created_at'],
+      ['id', 'username', 'email', 'name', 'role', 'password_hash', 'active', 'created_at'],
       client
     );
 
@@ -516,42 +457,55 @@ async function run() {
       client
     );
 
+    // renewal_invoices: source id ist UUID → weglassen, auto-increment nutzen
     await migrateGeneric(srcTours,
-      `SELECT * FROM tour_manager.exxas_invoices ORDER BY id`,
-      'tour_manager.exxas_invoices',
-      ['id', 'tour_id', 'exxas_invoice_id', 'invoice_number', 'invoice_date',
-       'amount', 'currency', 'status', 'pdf_url', 'raw_json', 'fetched_at', 'created_at'],
-      client
-    );
-
-    await migrateGeneric(srcTours,
-      `SELECT * FROM tour_manager.renewal_invoices ORDER BY id`,
+      `SELECT tour_id, invoice_number, invoice_status, invoice_kind, amount_chf, due_at,
+              sent_at, paid_at, payment_method, payment_source, payment_note,
+              recorded_by, recorded_at, subscription_start_at, subscription_end_at, created_at
+       FROM tour_manager.renewal_invoices`,
       'tour_manager.renewal_invoices',
-      ['id', 'tour_id', 'period_start', 'period_end', 'amount', 'currency',
-       'status', 'exxas_invoice_id', 'generated_at', 'created_at', 'updated_at'],
+      ['tour_id', 'invoice_number', 'invoice_status', 'invoice_kind', 'amount_chf', 'due_at',
+       'sent_at', 'paid_at', 'payment_method', 'payment_source', 'payment_note',
+       'recorded_by', 'recorded_at', 'subscription_start_at', 'subscription_end_at', 'created_at'],
       client
     );
 
+    // actions_log: source id ist UUID → weglassen
     await migrateGeneric(srcTours,
-      `SELECT * FROM tour_manager.actions_log ORDER BY id`,
+      `SELECT tour_id, actor_type, actor_ref, action, details_json, created_at
+       FROM tour_manager.actions_log`,
       'tour_manager.actions_log',
-      ['id', 'tour_id', 'action', 'actor', 'details', 'created_at'],
+      ['tour_id', 'actor_type', 'actor_ref', 'action', 'details_json', 'created_at'],
       client
     );
 
+    // exxas_invoices: source hat kein created_at → wird via DEFAULT befüllt
     await migrateGeneric(srcTours,
-      `SELECT * FROM tour_manager.admin_users ORDER BY id`,
-      'tour_manager.admin_users',
-      ['id', 'email', 'full_name', 'password_hash', 'is_active', 'invited_by',
-       'created_at', 'updated_at', 'last_login_at'],
+      `SELECT exxas_document_id, nummer, kunde_name, bezeichnung, ref_kunde, ref_vertrag,
+              exxas_status, sv_status, zahlungstermin, dok_datum, preis_brutto, tour_id, synced_at
+       FROM tour_manager.exxas_invoices ORDER BY id`,
+      'tour_manager.exxas_invoices',
+      ['exxas_document_id', 'nummer', 'kunde_name', 'bezeichnung', 'ref_kunde', 'ref_vertrag',
+       'exxas_status', 'sv_status', 'zahlungstermin', 'dok_datum', 'preis_brutto', 'tour_id', 'synced_at'],
       client
     );
 
+    // admin_invites: source id ist UUID, target ist integer → id weglassen
     await migrateGeneric(srcTours,
-      `SELECT * FROM tour_manager.admin_invites ORDER BY id`,
+      `SELECT email, token_hash, invited_by, created_at, expires_at, accepted_at, revoked_at
+       FROM tour_manager.admin_invites`,
       'tour_manager.admin_invites',
-      ['id', 'email', 'full_name', 'token', 'invited_by', 'expires_at',
-       'accepted_at', 'created_at'],
+      ['email', 'token_hash', 'invited_by', 'created_at', 'expires_at', 'accepted_at', 'revoked_at'],
+      client
+    );
+
+    await migrateGeneric(srcTours,
+      `SELECT email, full_name, password_hash, is_active, invited_by,
+              created_at, updated_at, last_login_at
+       FROM tour_manager.admin_users ORDER BY id`,
+      'tour_manager.admin_users',
+      ['email', 'full_name', 'password_hash', 'is_active', 'invited_by',
+       'created_at', 'updated_at', 'last_login_at'],
       client
     );
 
@@ -563,56 +517,62 @@ async function run() {
     );
 
     await migrateGeneric(srcTours,
-      `SELECT * FROM tour_manager.portal_team_members ORDER BY id`,
+      `SELECT id, owner_email, member_email, display_name, role, status,
+              invite_token_hash, expires_at, invited_by, created_at, accepted_at
+       FROM tour_manager.portal_team_members ORDER BY id`,
       'tour_manager.portal_team_members',
-      ['id', 'owner_email', 'member_email', 'member_name', 'relation', 'created_at'],
+      ['id', 'owner_email', 'member_email', 'display_name', 'role', 'status',
+       'invite_token_hash', 'expires_at', 'invited_by', 'created_at', 'accepted_at'],
       client
     );
 
     await migrateGeneric(srcTours,
-      `SELECT * FROM tour_manager.portal_tour_assignees ORDER BY id`,
+      `SELECT tour_id, assignee_email, workspace_owner_email, updated_by, updated_at
+       FROM tour_manager.portal_tour_assignees`,
       'tour_manager.portal_tour_assignees',
-      ['id', 'tour_id', 'portal_email', 'assigned_at'],
+      ['tour_id', 'assignee_email', 'workspace_owner_email', 'updated_by', 'updated_at'],
       client
     );
 
     await migrateGeneric(srcTours,
-      `SELECT * FROM tour_manager.settings ORDER BY key`,
+      `SELECT key, value, updated_at FROM tour_manager.settings ORDER BY key`,
       'tour_manager.settings',
       ['key', 'value', 'updated_at'],
       client
     );
 
-    // Optional: Tabellen die evtl. noch nicht existieren in der Quelle
-    try {
-      await migrateGeneric(srcTours,
-        `SELECT * FROM tour_manager.incoming_emails ORDER BY id`,
-        'tour_manager.incoming_emails',
-        ['id', 'message_id', 'from_email', 'from_name', 'to_email', 'subject',
-         'body_text', 'body_html', 'matched_tour_id', 'processing_status',
-         'received_at', 'created_at'],
-        client
-      );
-    } catch (e) { console.log(`  [skip] tour_manager.incoming_emails: ${e.message}`); }
+    // Optionale Tabellen
+    await migrateGeneric(srcTours,
+      `SELECT id, mailbox_upn, graph_message_id, internet_message_id, conversation_id,
+              subject, from_email, from_name, received_at, sent_at, body_preview, body_text,
+              is_read, matched_tour_id, processing_status, created_at
+       FROM tour_manager.incoming_emails ORDER BY id`,
+      'tour_manager.incoming_emails',
+      ['id', 'mailbox_upn', 'graph_message_id', 'internet_message_id', 'conversation_id',
+       'subject', 'from_email', 'from_name', 'received_at', 'sent_at', 'body_preview', 'body_text',
+       'is_read', 'matched_tour_id', 'processing_status', 'created_at'],
+      client
+    );
 
-    try {
-      await migrateGeneric(srcTours,
-        `SELECT * FROM tour_manager.outgoing_emails ORDER BY id`,
-        'tour_manager.outgoing_emails',
-        ['id', 'tour_id', 'template_key', 'to_email', 'subject', 'body_html',
-         'status', 'sent_at', 'created_at'],
-        client
-      );
-    } catch (e) { console.log(`  [skip] tour_manager.outgoing_emails: ${e.message}`); }
+    await migrateGeneric(srcTours,
+      `SELECT id, tour_id, mailbox_upn, graph_message_id, internet_message_id, conversation_id,
+              recipient_email, subject, template_key, sent_at, details_json, created_at
+       FROM tour_manager.outgoing_emails ORDER BY id`,
+      'tour_manager.outgoing_emails',
+      ['id', 'tour_id', 'mailbox_upn', 'graph_message_id', 'internet_message_id', 'conversation_id',
+       'recipient_email', 'subject', 'template_key', 'sent_at', 'details_json', 'created_at'],
+      client
+    );
 
-    try {
-      await migrateGeneric(srcTours,
-        `SELECT * FROM tour_manager.bank_import_runs ORDER BY id`,
-        'tour_manager.bank_import_runs',
-        ['id', 'filename', 'imported_by', 'total_rows', 'matched_rows', 'created_at'],
-        client
-      );
-    } catch (e) { console.log(`  [skip] tour_manager.bank_import_runs: ${e.message}`); }
+    await migrateGeneric(srcTours,
+      `SELECT id, created_at, created_by, source_format, file_name,
+              total_rows, exact_rows, review_rows, none_rows
+       FROM tour_manager.bank_import_runs ORDER BY id`,
+      'tour_manager.bank_import_runs',
+      ['id', 'created_at', 'created_by', 'source_format', 'file_name',
+       'total_rows', 'exact_rows', 'review_rows', 'none_rows'],
+      client
+    );
 
     // ─── Phase 5: Post-Migration ────────────────────────────────
     console.log('\n══════ Phase 5: Post-Migration ══════');

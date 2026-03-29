@@ -42,6 +42,7 @@ export type PhotographerSettings = {
   native_language?: string;
   languages?: string[];
   is_admin?: boolean;
+  active?: boolean;
   skills?: Record<string, number>;
   depart_times?: Record<string, string>;
   work_hours_by_day?: Partial<Record<WeekdayKey, Partial<WorkHoursRow>>>;

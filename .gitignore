@@ -2,6 +2,8 @@ node_modules/
 .env
 .env.local
 .env.*.local
+.env.logto
+core/dumps/
 data/pgdata/
 data/logto-pgdata/
 *.log
@@ -11,5 +13,7 @@ Thumbs.db
 .cursor/
 .vscode/
 dist/
+platform/frontend/dist.tar.gz
+platform/frontend/test-results/
 .next/
 coverage/
