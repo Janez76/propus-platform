@@ -64,8 +64,12 @@ function Open-SshDeployMux {
         Write-Host "  Hinweis: Unter Windows kein SSH-Multiplexing (OpenSSH-Limit); bei Key-Passphrase ggf. mehrfach eingeben oder ssh-add." -ForegroundColor DarkGray
         return
     }
+    $tempRoot = [System.IO.Path]::GetTempPath()
+    if ([string]::IsNullOrWhiteSpace($tempRoot)) {
+        throw "No temp directory available for SSH ControlMaster socket."
+    }
     $safeHost = ($VpsHost -replace '[^\w\-]', '_')
-    $script:SshControlPath = Join-Path $env:TEMP "propus-deploy-${User}-${safeHost}.sock"
+    $script:SshControlPath = Join-Path $tempRoot "propus-deploy-${User}-${safeHost}.sock"
     if (Test-Path -LiteralPath $script:SshControlPath) {
         if (-not (Test-SshMuxAlive)) {
             Remove-Item -LiteralPath $script:SshControlPath -Force -ErrorAction SilentlyContinue
