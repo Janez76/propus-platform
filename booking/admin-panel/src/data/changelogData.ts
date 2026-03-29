@@ -15,6 +15,17 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.278",
+    date: "2026-03-30",
+    title: "Deploy-Skript: tar-Pipe durch Temp-Datei + SCP ersetzt",
+    changes: [
+      {
+        type: "fix",
+        text: "deploy-vps.ps1: kein cmd.exe-Pipe mehr; tar -> tmp -> scp -> ssh. Behebt Spawn-Fehler im Cursor-Agent.",
+      },
+    ],
+  },
+  {
     version: "2.3.277",
     date: "2026-03-30",
     title: "Mitarbeiter-Settings: kein HTTP 500 bei fehlenden DB-Spalten",

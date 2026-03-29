@@ -179,49 +179,55 @@ else {
 }
 
 if (-not $SkipUpload) {
-    Write-Step "[3/6] Projekt per tar streamen (ohne node_modules, ohne Build-Artefakte)" "Cyan"
+    Write-Step "[3/6] Projekt packen + hochladen (tar -> tmp-Datei -> scp -> ssh-Extraktion)" "Cyan"
     $tUpload = [Diagnostics.Stopwatch]::StartNew()
+
+    # Temp-Archiv lokal anlegen (kein cmd.exe-Pipe-Trick noetig – funktioniert auch im Cursor-Agent)
+    $TempTar = Join-Path ([System.IO.Path]::GetTempPath()) "propus-deploy-$(Get-Date -Format 'yyyyMMddHHmmss').tar.gz"
+    Write-Host "  Erstelle Archiv: $TempTar"
     Push-Location $WorkspaceRoot
     try {
-        # Zusaetzliche Excludes: weniger Bytes, schnellerer Upload. platform/frontend/dist wird im Image neu gebaut.
-        $excludes = @(
-            "--exclude=.git",
-            "--exclude=node_modules",
-            "--exclude=platform/frontend/node_modules",
-            "--exclude=platform/node_modules",
-            "--exclude=booking/node_modules",
-            "--exclude=booking/admin-panel/node_modules",
-            "--exclude=tours/node_modules",
-            "--exclude=auth/node_modules",
-            "--exclude=backups",
-            "--exclude=data",
-            "--exclude=.cursor",
-            "--exclude=.vscode",
-            "--exclude=platform/frontend/dist",
-            "--exclude=booking/admin-panel/dist",
-            "--exclude=.turbo"
-        )
-        $excludeArgs = $excludes -join " "
-        $uploadCmd = @(
-            "tar.exe $excludeArgs -cf - .",
-            '| ssh',
-            ('-i "{0}"' -f $KeyPath),
-            '-o IdentitiesOnly=yes',
-            '-o StrictHostKeyChecking=accept-new',
-            ('{0}@{1}' -f $User, $VpsHost),
-            ('"mkdir -p ''{0}'' && tar -xf - -C ''{0}''"' -f $RemoteProjectRoot)
-        ) -join ' '
-
-        & cmd.exe /d /c $uploadCmd
-        if ($LASTEXITCODE -ne 0) {
-            throw "Streaming upload failed."
-        }
+        & tar.exe `
+            --exclude=".git" `
+            --exclude="node_modules" `
+            --exclude="platform/frontend/node_modules" `
+            --exclude="platform/node_modules" `
+            --exclude="booking/node_modules" `
+            --exclude="booking/admin-panel/node_modules" `
+            --exclude="tours/node_modules" `
+            --exclude="auth/node_modules" `
+            --exclude="backups" `
+            --exclude="data" `
+            --exclude=".cursor" `
+            --exclude=".vscode" `
+            --exclude="platform/frontend/dist" `
+            --exclude="booking/admin-panel/dist" `
+            --exclude=".turbo" `
+            -czf $TempTar .
+        if ($LASTEXITCODE -ne 0) { throw "tar failed (exit $LASTEXITCODE)" }
     }
     finally {
         Pop-Location
     }
+    $sizeMb = [math]::Round((Get-Item $TempTar).Length / 1MB, 1)
+    Write-Host "  Archiv: ${sizeMb} MB  -> upload via scp..."
+
+    & scp `
+        -i $KeyPath `
+        -o IdentitiesOnly=yes `
+        -o StrictHostKeyChecking=accept-new `
+        $TempTar `
+        "${User}@${VpsHost}:/tmp/propus-deploy.tar.gz"
+    if ($LASTEXITCODE -ne 0) { Remove-Item $TempTar -Force; throw "scp upload failed" }
+
+    Remove-Item $TempTar -Force
+    Write-Host "  Lokale Temp-Datei entfernt."
+
+    Write-Host "  Extrahiere auf VPS..."
+    Invoke-Ssh "mkdir -p '$RemoteProjectRoot' && tar -xzf /tmp/propus-deploy.tar.gz -C '$RemoteProjectRoot' && rm /tmp/propus-deploy.tar.gz"
+
     $tUpload.Stop()
-    Write-Elapsed "Upload (tar+ssh)" $tUpload.Elapsed
+    Write-Elapsed "Upload (tar+scp+ssh)" $tUpload.Elapsed
 
     if (Test-Path $LocalEnvFile) {
         Write-Host "Lade .env.vps..."
