@@ -15,6 +15,21 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.279",
+    date: "2026-03-30",
+    title: "RBAC-Deploy-Fix: Rollenstammdaten und Schema-Erkennung",
+    changes: [
+      {
+        type: "fix",
+        text: "booking/access-rbac.js erkennt RBAC-Tabellen jetzt im aktiven Schema-Search-Path statt nur in public.",
+      },
+      {
+        type: "fix",
+        text: "booking/migrations/047 legt benoetigte system_roles vor den role_permissions idempotent an. Behebt FK-Startfehler auf aelteren Installationen.",
+      },
+    ],
+  },
+  {
     version: "2.3.278",
     date: "2026-03-30",
     title: "Deploy-Skript: tar-Pipe durch Temp-Datei + SCP ersetzt",

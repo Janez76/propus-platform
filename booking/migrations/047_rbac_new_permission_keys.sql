@@ -13,6 +13,20 @@ INSERT INTO permission_definitions (permission_key, description, module_tag) VAL
   ('reviews.manage',       'Bewertungen verwalten',         'reviews')
 ON CONFLICT (permission_key) DO NOTHING;
 
+-- Aeltere Installationen koennen RBAC-Tabellen bereits haben, aber ohne seedRbacIfNeeded
+-- gestartete Rollenstammdaten. 047 referenziert diese Rollen per FK und muss sie daher
+-- vorab idempotent anlegen.
+INSERT INTO system_roles (role_key, label, description) VALUES
+  ('super_admin', 'Super-Admin', 'Voller Zugriff'),
+  ('internal_admin', 'Interner Admin', 'Admin-Panel'),
+  ('photographer', 'Fotograf', 'Auftraege und Kalender'),
+  ('company_owner', 'Firmen-Hauptkontakt', 'Company Workspace volle Firmensicht'),
+  ('company_admin', 'Firmen-Admin', 'Company Workspace'),
+  ('company_employee', 'Firmen-Mitarbeiter', 'Company Workspace eingeschraenkt'),
+  ('customer_admin', 'Kunden-Admin', 'Portal / Kunde erweitert'),
+  ('customer_user', 'Kunden-Benutzer', 'Portal eingeschraenkt')
+ON CONFLICT (role_key) DO NOTHING;
+
 -- super_admin + internal_admin: alle neuen Keys
 INSERT INTO system_role_permissions (role_key, permission_key) VALUES
   ('super_admin',    'orders.create'),

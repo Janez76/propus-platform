@@ -98,7 +98,11 @@ function mapCompanyMemberRoleToSystemRole(role) {
 async function tableExists(tableName) {
   try {
     const { rows } = await db.query(
-      `SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = $1 LIMIT 1`,
+      `SELECT 1
+         FROM information_schema.tables
+        WHERE table_name = $1
+          AND table_schema = ANY (current_schemas(false))
+        LIMIT 1`,
       [tableName]
     );
     return rows.length > 0;
