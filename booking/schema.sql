@@ -138,6 +138,12 @@ ALTER TABLE photographers
 ALTER TABLE photographers
   ADD COLUMN IF NOT EXISTS whatsapp TEXT NOT NULL DEFAULT '';
 
+ALTER TABLE photographers
+  ADD COLUMN IF NOT EXISTS bookable BOOLEAN NOT NULL DEFAULT TRUE;
+
+ALTER TABLE photographers
+  ADD COLUMN IF NOT EXISTS photo_url TEXT NOT NULL DEFAULT '';
+
 -- ─── Customer Auth (idempotent upgrades) ─────────────────────────────────────
 -- Falls customers Tabelle schon existiert: Spalte ergänzen.
 ALTER TABLE customers

@@ -10,6 +10,10 @@ export type Photographer = {
   initials?: string;
   is_admin?: boolean;
   active?: boolean;
+  /** Im öffentlichen Buchungs-Wizard als Fotograf wählbar */
+  bookable?: boolean;
+  /** Relativer Pfad (z.B. assets/photographers/Name.png) oder volle URL */
+  photo_url?: string;
   skills?: Record<string, number>;
 };
 
@@ -48,6 +52,8 @@ export type PhotographerSettings = {
   work_hours_by_day?: Partial<Record<WeekdayKey, Partial<WorkHoursRow>>>;
   phone_mobile?: string;
   whatsapp?: string;
+  bookable?: boolean;
+  photo_url?: string;
   blocked_dates?: Array<{ von?: string; bis?: string; grund?: string; ganztaegig?: boolean }>;
 };
 
@@ -72,6 +78,8 @@ function normalizePhotographer(raw: unknown): Photographer {
     initials: String(r.initials || ""),
     is_admin: Boolean(r.is_admin),
     active: r.active == null ? true : Boolean(r.active),
+    bookable: r.bookable == null ? true : Boolean(r.bookable),
+    photo_url: String(r.photo_url || ""),
     skills: (r.skills && typeof r.skills === "object" ? (r.skills as Record<string, number>) : {}) || {},
   };
 }

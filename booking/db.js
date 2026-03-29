@@ -2494,7 +2494,7 @@ async function deletePasswordResetToken(customerId) {
 
 async function getPhotographer(key) {
   const { rows } = await query(
-    "SELECT key, name, email, phone, phone_mobile, whatsapp, initials, is_admin FROM photographers WHERE key = $1",
+    "SELECT key, name, email, phone, phone_mobile, whatsapp, initials, is_admin, bookable, photo_url FROM photographers WHERE key = $1",
     [String(key || "").toLowerCase()]
   );
   return rows[0] || null;
@@ -2525,7 +2525,7 @@ async function getPhotographerSettings(key) {
 async function getAllPhotographerSettings({ includeInactive = false } = {}) {
   const whereClause = includeInactive ? "" : "WHERE p.active = TRUE";
   const { rows } = await query(
-    `SELECT p.key, p.name, p.email, p.phone, p.phone_mobile, p.whatsapp, p.initials, p.is_admin, p.active,
+    `SELECT p.key, p.name, p.email, p.phone, p.phone_mobile, p.whatsapp, p.initials, p.is_admin, p.active, p.bookable, p.photo_url,
             ps.home_address, ps.home_lat, ps.home_lon,
             ps.max_radius_km, ps.skills, ps.blocked_dates, ps.depart_times, ps.national_holidays,
             ps.work_start, ps.work_end, ps.workdays, ps.work_hours_by_day, ps.buffer_minutes, ps.slot_minutes,
@@ -2645,7 +2645,7 @@ async function setPhotographerAdminFlag(key, isAdmin) {
   );
 }
 
-async function updatePhotographerCore(key, { name, email, phone, phone_mobile, whatsapp, initials }) {
+async function updatePhotographerCore(key, { name, email, phone, phone_mobile, whatsapp, initials, bookable, photo_url }) {
   const normKey = String(key || "").toLowerCase();
   const updates = [];
   const values = [];
@@ -2662,6 +2662,8 @@ async function updatePhotographerCore(key, { name, email, phone, phone_mobile, w
     values.push(whatsapp == null ? "" : String(whatsapp).trim());
   }
   if (initials !== undefined) { updates.push(`initials = $${i++}`); values.push(String(initials || "")); }
+  if (bookable !== undefined) { updates.push(`bookable = $${i++}`); values.push(!!bookable); }
+  if (photo_url !== undefined) { updates.push(`photo_url = $${i++}`); values.push(String(photo_url == null ? "" : photo_url)); }
   if (updates.length === 0) return;
   values.push(normKey);
   await query(

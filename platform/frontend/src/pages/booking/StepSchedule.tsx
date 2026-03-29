@@ -256,14 +256,14 @@ export function StepSchedule({ lang }: { lang: Lang }) {
 
       {/* Provisorisch */}
       {provisionalEnabled && date && time && (
-        <label className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
+        <label className="flex items-start gap-3 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
           <input
             type="checkbox"
             checked={provisional}
             onChange={(e) => setProvisional(e.target.checked)}
-            className="h-4 w-4 rounded border-zinc-300 text-[#C5A059] focus:ring-[#C5A059]/30"
+            className="mt-0.5 h-4 w-4 shrink-0 rounded border-zinc-300 text-[#C5A059] focus:ring-[#C5A059]/30"
           />
-          <span className="text-sm text-zinc-700 dark:text-zinc-300">{t(lang, "booking.step3.provisional")}</span>
+          <span className="text-sm leading-snug text-zinc-700 dark:text-zinc-300">{t(lang, "booking.step3.provisional")}</span>
         </label>
       )}
     </div>

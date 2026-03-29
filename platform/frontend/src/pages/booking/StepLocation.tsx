@@ -96,12 +96,13 @@ export function StepLocation({ lang }: { lang: Lang }) {
           </div>
           <div>
             <label className={labelClass}>
-              <Ruler className="mr-1 inline h-3 w-3" /> {t(lang, "booking.step1.area")}
+              <Ruler className="mr-1 inline h-3 w-3" /> {t(lang, "booking.step1.area")} <span className="text-red-500">*</span>
             </label>
             <div className="relative">
               <input
                 type="number"
                 min={1}
+                required
                 value={object.area}
                 onChange={(e) => setObject({ area: e.target.value })}
                 className={inputClass}
@@ -112,11 +113,12 @@ export function StepLocation({ lang }: { lang: Lang }) {
           </div>
           <div>
             <label className={labelClass}>
-              <Layers className="mr-1 inline h-3 w-3" /> {t(lang, "booking.step1.floors")}
+              <Layers className="mr-1 inline h-3 w-3" /> {t(lang, "booking.step1.floors")} <span className="text-red-500">*</span>
             </label>
             <input
               type="number"
               min={1}
+              required
               value={object.floors}
               onChange={(e) => setObject({ floors: Math.max(1, parseInt(e.target.value) || 1) })}
               className={inputClass}
@@ -162,14 +164,17 @@ export function StepLocation({ lang }: { lang: Lang }) {
         <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
           {t(lang, "booking.step1.onsiteContact")}
         </h3>
+        <p className="mb-4 text-xs text-zinc-500 dark:text-zinc-400">
+          {t(lang, "booking.step1.onsiteContactHint")}
+        </p>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className={labelClass}>{t(lang, "booking.step1.onsiteName")}</label>
-            <input type="text" value={object.onsiteName} onChange={(e) => setObject({ onsiteName: e.target.value })} className={inputClass} />
+            <label className={labelClass}>{t(lang, "booking.step1.onsiteName")} <span className="text-red-500">*</span></label>
+            <input type="text" required value={object.onsiteName} onChange={(e) => setObject({ onsiteName: e.target.value })} className={inputClass} />
           </div>
           <div>
-            <label className={labelClass}>{t(lang, "booking.step1.onsitePhone")}</label>
-            <input type="tel" value={object.onsitePhone} onChange={(e) => setObject({ onsitePhone: e.target.value })} className={inputClass} />
+            <label className={labelClass}>{t(lang, "booking.step1.onsitePhone")} <span className="text-red-500">*</span></label>
+            <input type="tel" required value={object.onsitePhone} onChange={(e) => setObject({ onsitePhone: e.target.value })} className={inputClass} />
           </div>
         </div>
       </section>

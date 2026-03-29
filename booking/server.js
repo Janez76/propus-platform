@@ -7877,15 +7877,47 @@ app.get("/api/catalog/products", async (_req, res) => {
   }
 });
 
-app.get("/api/catalog/photographers", (_req, res) => {
-  const list = (PHOTOGRAPHERS_CONFIG || []).map((p) => ({
-    key: p.key,
-    name: p.name || p.key,
-    initials: p.initials || "",
-    image: p.image || "",
-  }));
+app.get("/api/catalog/photographers", async (_req, res) => {
   res.setHeader("Cache-Control", "no-store");
-  res.json({ ok: true, photographers: list });
+  const configMap = new Map((PHOTOGRAPHERS_CONFIG || []).map((p) => [p.key, p]));
+  const fallbackList = () =>
+    (PHOTOGRAPHERS_CONFIG || []).map((p) => ({
+      key: p.key,
+      name: p.name || p.key,
+      initials: p.initials || "",
+      image: p.image || "",
+    }));
+  try {
+    if (process.env.DATABASE_URL && typeof db.getAllPhotographerSettings === "function") {
+      const rows = await db.getAllPhotographerSettings({ includeInactive: false });
+      if (Array.isArray(rows) && rows.length > 0) {
+        const list = rows
+          .filter((r) => r.bookable !== false)
+          .map((r) => {
+            const cfg = configMap.get(r.key) || {};
+            const url = String(r.photo_url || "").trim();
+            return {
+              key: r.key,
+              name: r.name || cfg.name || r.key,
+              initials:
+                r.initials
+                || cfg.initials
+                || String(r.name || cfg.name || r.key)
+                  .split(" ")
+                  .map((n) => n[0])
+                  .join("")
+                  .slice(0, 2)
+                  .toUpperCase(),
+              image: url || (cfg.image || ""),
+            };
+          });
+        return res.json({ ok: true, photographers: list });
+      }
+    }
+  } catch (err) {
+    console.warn("[catalog/photographers] DB fallback to config:", err?.message || err);
+  }
+  res.json({ ok: true, photographers: fallbackList() });
 });
 
 app.get(ADDRESS_AUTOCOMPLETE_ENDPOINT, async (req, res) => {
@@ -9983,6 +10015,8 @@ app.get("/api/admin/photographers", requirePhotographerOrAdmin, async (req, res)
       initials: p.initials || (p.name || "").split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase(),
       active: true,
       is_admin: false,
+      bookable: true,
+      photo_url: p.image || "",
       skills: {},
     }));
 
@@ -10005,6 +10039,8 @@ app.get("/api/admin/photographers", requirePhotographerOrAdmin, async (req, res)
                 || (row.name || cfg.name || row.key).split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase(),
               active: row.active !== false,
               is_admin: Boolean(row.is_admin),
+              bookable: row.bookable == null ? true : row.bookable !== false,
+              photo_url: row.photo_url != null ? String(row.photo_url) : "",
               skills: row.skills && typeof row.skills === "object" ? row.skills : {},
               event_color: row.event_color || undefined,
               home_address: row.home_address || "",
@@ -10035,6 +10071,7 @@ app.get("/api/admin/photographers/:key", requirePhotographerOrAdmin, async (req,
       if (pool) {
         const { rows } = await pool.query(
           `SELECT p.key, p.name, p.email, p.phone, p.phone_mobile, p.whatsapp, p.initials, p.is_admin, p.active,
+                  p.bookable, p.photo_url,
                   ps.home_address, ps.home_lat, ps.home_lon, ps.max_radius_km, ps.skills,
                   ps.blocked_dates, ps.depart_times, ps.work_start,
                   ps.work_end, ps.workdays, ps.buffer_minutes, ps.slot_minutes,
@@ -10051,7 +10088,18 @@ app.get("/api/admin/photographers/:key", requirePhotographerOrAdmin, async (req,
   }
   const p = (PHOTOGRAPHERS_CONFIG || []).find((ph) => ph.key === key);
   if (!p) return res.status(404).json({ error: "Mitarbeiter nicht gefunden" });
-  res.json({ photographer: { key: p.key, name: p.name, email: p.email || "", phone: p.phone || "", initials: p.initials || "", active: true } });
+  res.json({
+    photographer: {
+      key: p.key,
+      name: p.name,
+      email: p.email || "",
+      phone: p.phone || "",
+      initials: p.initials || "",
+      active: true,
+      bookable: true,
+      photo_url: p.image || "",
+    },
+  });
 });
 
 // Mitarbeiter-Settings lesen (Stammdaten aus photographers mergen)
@@ -10071,7 +10119,9 @@ app.get("/api/admin/photographers/:key/settings", requireAdmin, async (req, res)
                   p.whatsapp AS core_whatsapp,
                   p.initials AS core_initials,
                   p.is_admin AS core_is_admin,
-                  p.active AS core_active
+                  p.active AS core_active,
+                  p.bookable AS core_bookable,
+                  p.photo_url AS core_photo_url
            FROM photographer_settings ps
            RIGHT JOIN photographers p ON p.key = ps.photographer_key
            WHERE p.key = $1
@@ -10080,7 +10130,19 @@ app.get("/api/admin/photographers/:key/settings", requireAdmin, async (req, res)
         );
         const row = rows[0];
         if (row) {
-          const { core_name, core_email, core_phone, core_phone_mobile, core_whatsapp, core_initials, core_is_admin, core_active, ...ps } = row;
+          const {
+            core_name,
+            core_email,
+            core_phone,
+            core_phone_mobile,
+            core_whatsapp,
+            core_initials,
+            core_is_admin,
+            core_active,
+            core_bookable,
+            core_photo_url,
+            ...ps
+          } = row;
           settings = { ...ps };
           if (settings.photographer_key == null) settings.photographer_key = key;
           settings.name = core_name;
@@ -10091,6 +10153,8 @@ app.get("/api/admin/photographers/:key/settings", requireAdmin, async (req, res)
           settings.initials = core_initials;
           settings.is_admin = Boolean(core_is_admin);
           settings.active = core_active !== false;
+          settings.bookable = core_bookable == null ? true : core_bookable !== false;
+          settings.photo_url = core_photo_url != null ? String(core_photo_url) : "";
         }
       }
     } catch (_e) { /* Tabelle evtl. noch nicht vorhanden */ }
@@ -10115,6 +10179,8 @@ app.put("/api/admin/photographers/:key/settings", requireAdmin, async (req, res)
     if (body.whatsapp !== undefined) core.whatsapp = body.whatsapp;
     if (body.initials !== undefined) core.initials = body.initials;
     if (body.active !== undefined) core.active = Boolean(body.active);
+    if (body.bookable !== undefined) core.bookable = Boolean(body.bookable);
+    if (body.photo_url !== undefined) core.photo_url = String(body.photo_url || "");
     if (Object.keys(core).length) await db.updatePhotographerCore(key, core);
     if (body.is_admin !== undefined) {
       const isAdmin = Boolean(body.is_admin);

@@ -331,6 +331,8 @@ export function EmployeeModal({ token, employeeKey, onClose, onSaved, isActive =
   const [phoneMobile, setPhoneMobile] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
   const [initials, setInitials] = useState("");
+  const [isBookableWizard, setIsBookableWizard] = useState(true);
+  const [photoUrl, setPhotoUrl] = useState("");
   const [homeAddress, setHomeAddress] = useState("");
   const [radiusKm, setRadiusKm] = useState("30");
   const [departTimes, setDepartTimes] = useState<Record<WeekdayKey, string>>(() => normalizeDepartTimes({}));
@@ -369,6 +371,8 @@ export function EmployeeModal({ token, employeeKey, onClose, onSaved, isActive =
           setPhoneMobile(formatPhoneCH(emp.phone_mobile || "") || String(emp.phone_mobile || ""));
           setWhatsapp(initialWhatsappFromStammdaten(emp.phone || "", emp.phone_mobile || "", String(emp.whatsapp || "")));
           setInitials(emp.initials || "");
+          setIsBookableWizard(emp.bookable !== false);
+          setPhotoUrl(emp.photo_url || "");
         }
       })
       .catch(() => {});
@@ -394,6 +398,8 @@ export function EmployeeModal({ token, employeeKey, onClose, onSaved, isActive =
         setPhoneMobile(formatPhoneCH(mob) || String(mob));
         setWhatsapp(initialWhatsappFromStammdaten(s.phone || "", mob, String(s.whatsapp || "")));
         if (s.initials) setInitials(s.initials);
+        if (s.bookable !== undefined) setIsBookableWizard(s.bookable !== false);
+        if (s.photo_url !== undefined) setPhotoUrl(String(s.photo_url || ""));
         setNativeLanguage(s.native_language || "de");
         setEventColor(String(s.event_color || "#3b82f6"));
         setLanguages((s.languages || ["de"]).join(","));
@@ -467,6 +473,8 @@ export function EmployeeModal({ token, employeeKey, onClose, onSaved, isActive =
         phone_mobile: mobileNorm,
         whatsapp: whatsappOut,
         initials,
+        bookable: isBookableWizard,
+        photo_url: photoUrl.trim(),
         home_address: homeAddress,
         radius_km: Number(radiusKm),
         native_language: nativeLanguage,
@@ -671,6 +679,16 @@ export function EmployeeModal({ token, employeeKey, onClose, onSaved, isActive =
               />
             </div>
             <div className="sm:col-span-2">
+              <label className="mb-1 block text-sm font-medium text-[var(--text-main)]">{t(lang, "employeeModal.label.photoUrl")}</label>
+              <input
+                className="ui-input"
+                value={photoUrl}
+                onChange={(e) => setPhotoUrl(e.target.value)}
+                placeholder="assets/photographers/Name.png"
+              />
+              <p className="mt-1 text-xs text-[var(--text-muted)]">{t(lang, "employeeModal.hint.photoUrl")}</p>
+            </div>
+            <div className="sm:col-span-2">
               <label className="mb-1 block text-sm font-medium text-[var(--text-muted)]">
                 {t(lang, "employeeModal.label.key")}{" "}
                 <span className="text-xs text-[var(--text-subtle)]">{t(lang, "employeeModal.hint.keyReadonly")}</span>
@@ -681,6 +699,23 @@ export function EmployeeModal({ token, employeeKey, onClose, onSaved, isActive =
                 disabled
               />
             </div>
+          </div>
+
+          {/* Buchungs-Wizard */}
+          <div className="mt-3 flex items-center justify-between rounded-xl bg-[var(--accent-subtle)] border border-[var(--border-soft)] px-4 py-3">
+            <div>
+              <div className="font-semibold text-[var(--text-main)]">{t(lang, "employeeModal.label.bookableWizard")}</div>
+              <div className="text-xs text-[var(--text-muted)]">{t(lang, "employeeModal.hint.bookableWizard")}</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsBookableWizard((v) => !v)}
+              className={`relative h-6 w-11 rounded-full transition-colors ${isBookableWizard ? "bg-[var(--accent)]" : "bg-[var(--border-strong)]"}`}
+            >
+              <span
+                className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${isBookableWizard ? "translate-x-5" : "translate-x-0"}`}
+              />
+            </button>
           </div>
 
           {/* Mitarbeiter-Zugang aktiv */}

@@ -3,7 +3,7 @@ export type ValidationError = { field: string; message: string };
 export type Step1State = {
   address: string;
   parsedAddress: { street: string; houseNumber: string; zip: string; city: string } | null;
-  object: { type: string; area: string; floors: number };
+  object: { type: string; area: string; floors: number; onsiteName: string; onsitePhone: string };
 };
 
 export function validateStep1(s: Step1State): ValidationError[] {
@@ -26,6 +26,12 @@ export function validateStep1(s: Step1State): ValidationError[] {
   }
   if (!s.object.floors || s.object.floors < 1) {
     errors.push({ field: "floors", message: "booking.validation.floorsRequired" });
+  }
+  if (!s.object.onsiteName.trim()) {
+    errors.push({ field: "onsiteName", message: "booking.validation.onsiteNameRequired" });
+  }
+  if (!s.object.onsitePhone.trim()) {
+    errors.push({ field: "onsitePhone", message: "booking.validation.onsitePhoneRequired" });
   }
   return errors;
 }
