@@ -347,6 +347,7 @@ CREATE TABLE IF NOT EXISTS products (
   skill_key     TEXT NOT NULL DEFAULT '',
   required_skills JSONB NOT NULL DEFAULT '[]'::jsonb,
   active        BOOLEAN NOT NULL DEFAULT TRUE,
+  show_on_website BOOLEAN NOT NULL DEFAULT TRUE,
   sort_order    INTEGER NOT NULL DEFAULT 0,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -364,6 +365,8 @@ ALTER TABLE products
   ADD COLUMN IF NOT EXISTS required_skills JSONB NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE products
   ADD COLUMN IF NOT EXISTS category_key TEXT NOT NULL DEFAULT '';
+ALTER TABLE products
+  ADD COLUMN IF NOT EXISTS show_on_website BOOLEAN NOT NULL DEFAULT TRUE;
 
 CREATE TABLE IF NOT EXISTS pricing_rules (
   id            BIGSERIAL PRIMARY KEY,

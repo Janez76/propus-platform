@@ -25,6 +25,7 @@ export type Product = {
   skill_key?: string;
   required_skills?: string[];
   active: boolean;
+  show_on_website?: boolean;
   sort_order: number;
   rules: PricingRule[];
 };
@@ -42,6 +43,7 @@ export type ProductPayload = {
   skill_key?: string;
   required_skills?: string[];
   active?: boolean;
+  show_on_website?: boolean;
   sort_order?: number;
   rules: PricingRule[];
 };

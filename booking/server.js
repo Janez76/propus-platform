@@ -3962,7 +3962,6 @@ app.post("/api/booking", async (req, res) => {
       hasCustomerEmail
     });
 
-    const orderNo = nextOrderNumber();
     const discountCode = String(payload.discountCode || "").trim();
     // Preise direkt aus Frontend-Payload -bernehmen (sind dort korrekt berechnet)
     const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
@@ -4078,6 +4077,9 @@ app.post("/api/booking", async (req, res) => {
         reason: "availability_check_failed",
       });
     }
+
+    // Bestellnummer erst nach erfolgreicher Validierung vergeben
+    const orderNo = nextOrderNumber();
 
     const photographerPhone = PHOTOG_PHONES[photographerKey] || "-";
 
@@ -4210,82 +4212,6 @@ app.post("/api/booking", async (req, res) => {
       text: customerEmailData.text,
       html: customerEmailData.html
     };
-
-    try {
-      await sendMailWithFallback({
-        to: officeMail.to,
-        subject: officeMail.subject,
-        html: officeMail.html,
-        text: officeMail.text,
-        context: `booking:${orderNo}:office`
-      });
-    } catch (err) {
-      const message = String(err?.message || err || "Office mail send failed");
-      const code = err?.code || "MAIL_SEND_FAILED";
-      console.error("[booking] office mail failed", {
-        requestId,
-        stage: "office",
-        code,
-        message,
-        attempts: err?.attempts || []
-      });
-      bookingWarnings.push({
-        stage: "office",
-        code,
-        message,
-        attempts: err?.attempts || []
-      });
-    }
-    try {
-      await sendMailWithFallback({
-        to: photographerMail.to,
-        subject: photographerMail.subject,
-        html: photographerMail.html,
-        text: photographerMail.text,
-        context: `booking:${orderNo}:photographer`
-      });
-    } catch (err) {
-      const message = String(err?.message || err || "Photographer mail send failed");
-      const code = err?.code || "MAIL_SEND_FAILED";
-      console.error("[booking] photographer mail failed", {
-        requestId,
-        stage: "photographer",
-        code,
-        message,
-        attempts: err?.attempts || []
-      });
-      bookingWarnings.push({
-        stage: "photographer",
-        code,
-        message,
-        attempts: err?.attempts || []
-      });
-    }
-    try {
-      await sendMailWithFallback({
-        to: customerMail.to,
-        subject: customerMail.subject,
-        html: customerMail.html,
-        text: customerMail.text,
-        context: `booking:${orderNo}:customer`
-      });
-    } catch (err) {
-      const message = String(err?.message || err || "Customer mail send failed");
-      const code = err?.code || "MAIL_SEND_FAILED";
-      console.error("[booking] customer mail failed", {
-        requestId,
-        stage: "customer",
-        code,
-        message,
-        attempts: err?.attempts || []
-      });
-      bookingWarnings.push({
-        stage: "customer",
-        code,
-        message,
-        attempts: err?.attempts || []
-      });
-    }
 
     let inviteCreated = false;
     let photographerEventId = null;
@@ -4424,6 +4350,83 @@ app.post("/api/booking", async (req, res) => {
         code,
         message,
         requestId
+      });
+    }
+
+    // E-Mails erst nach erfolgreichem DB-Speichern senden
+    try {
+      await sendMailWithFallback({
+        to: officeMail.to,
+        subject: officeMail.subject,
+        html: officeMail.html,
+        text: officeMail.text,
+        context: `booking:${orderNo}:office`
+      });
+    } catch (err) {
+      const message = String(err?.message || err || "Office mail send failed");
+      const code = err?.code || "MAIL_SEND_FAILED";
+      console.error("[booking] office mail failed", {
+        requestId,
+        stage: "office",
+        code,
+        message,
+        attempts: err?.attempts || []
+      });
+      bookingWarnings.push({
+        stage: "office",
+        code,
+        message,
+        attempts: err?.attempts || []
+      });
+    }
+    try {
+      await sendMailWithFallback({
+        to: photographerMail.to,
+        subject: photographerMail.subject,
+        html: photographerMail.html,
+        text: photographerMail.text,
+        context: `booking:${orderNo}:photographer`
+      });
+    } catch (err) {
+      const message = String(err?.message || err || "Photographer mail send failed");
+      const code = err?.code || "MAIL_SEND_FAILED";
+      console.error("[booking] photographer mail failed", {
+        requestId,
+        stage: "photographer",
+        code,
+        message,
+        attempts: err?.attempts || []
+      });
+      bookingWarnings.push({
+        stage: "photographer",
+        code,
+        message,
+        attempts: err?.attempts || []
+      });
+    }
+    try {
+      await sendMailWithFallback({
+        to: customerMail.to,
+        subject: customerMail.subject,
+        html: customerMail.html,
+        text: customerMail.text,
+        context: `booking:${orderNo}:customer`
+      });
+    } catch (err) {
+      const message = String(err?.message || err || "Customer mail send failed");
+      const code = err?.code || "MAIL_SEND_FAILED";
+      console.error("[booking] customer mail failed", {
+        requestId,
+        stage: "customer",
+        code,
+        message,
+        attempts: err?.attempts || []
+      });
+      bookingWarnings.push({
+        stage: "customer",
+        code,
+        message,
+        attempts: err?.attempts || []
       });
     }
 
@@ -8090,7 +8093,7 @@ function formatCatalogProducts(products) {
 
 app.get("/api/catalog/products", async (_req, res) => {
   try {
-    const products = await db.listProductsWithRules({ includeInactive: false });
+    const products = await db.listProductsWithRules({ includeInactive: false, showOnWebsiteOnly: true });
     const categories = await db.listServiceCategories({ includeInactive: false });
     const { packages, addons } = formatCatalogProducts(products);
     res.setHeader("Cache-Control", "no-store");
@@ -10540,6 +10543,13 @@ app.put("/api/admin/photographers/:key/settings", requireAdmin, async (req, res)
         [...vals, key]
       );
       if (u.rowCount === 0) {
+        const { rowCount: pkOk } = await pool.query(
+          `SELECT 1 FROM photographers WHERE key = $1 LIMIT 1`,
+          [key]
+        );
+        if (!pkOk) {
+          return res.status(404).json({ error: "Mitarbeiter nicht gefunden" });
+        }
         await pool.query(
           `INSERT INTO photographer_settings (photographer_key) VALUES ($1) ON CONFLICT (photographer_key) DO NOTHING`,
           [key]

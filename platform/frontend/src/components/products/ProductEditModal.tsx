@@ -22,6 +22,7 @@ type FormState = {
   description: string;
   sort_order: string;
   active: boolean;
+  show_on_website: boolean;
   affects_travel: boolean;
   affects_duration: boolean;
   duration_minutes: string;
@@ -54,6 +55,7 @@ const initialForm: FormState = {
   description: "",
   sort_order: "0",
   active: true,
+  show_on_website: true,
   affects_travel: true,
   affects_duration: false,
   duration_minutes: "0",
@@ -165,6 +167,7 @@ export function ProductEditModal({ open, mode, product, token, language, categor
       description: product.description || "",
       sort_order: String(product.sort_order || 0),
       active: !!product.active,
+      show_on_website: product.show_on_website !== false,
       affects_travel: product.affects_travel !== false,
       affects_duration: !!product.affects_duration,
       duration_minutes: String(product.duration_minutes || 0),
@@ -341,6 +344,7 @@ export function ProductEditModal({ open, mode, product, token, language, categor
         category_key: form.category_key.trim(),
         description: form.description.trim(),
         active: form.active,
+        show_on_website: form.show_on_website,
         affects_travel: form.affects_travel,
         affects_duration: form.affects_duration,
         duration_minutes: Number(form.duration_minutes || 0),
@@ -883,6 +887,14 @@ export function ProductEditModal({ open, mode, product, token, language, categor
               <label className="inline-flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={form.active} onChange={(e) => setForm((f) => ({ ...f, active: e.target.checked }))} />
                 {t(language, "products.active")}
+              </label>
+              <label className="inline-flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={form.show_on_website}
+                  onChange={(e) => setForm((f) => ({ ...f, show_on_website: e.target.checked }))}
+                />
+                {t(language, "products.showOnWebsite")}
               </label>
               <label className="inline-flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={form.affects_travel} onChange={(e) => setForm((f) => ({ ...f, affects_travel: e.target.checked }))} />

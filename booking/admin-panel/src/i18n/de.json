@@ -68,6 +68,7 @@
   "products.simplePrice": "Preis (einfach)",
   "products.rulePriority": "Regel-Priorität",
   "products.active": "Aktiv",
+  "products.showOnWebsite": "Auf Firmenwebsite anzeigen",
   "products.includeTravel": "Wegberechnung berücksichtigen",
   "products.includeDuration": "Dauer berücksichtigen",
   "products.skillKey.label": "Skill-Anforderung (Terminvergabe)",

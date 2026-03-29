@@ -65,6 +65,7 @@
   "products.simplePrice": "Price (simple)",
   "products.rulePriority": "Rule priority",
   "products.active": "Active",
+  "products.showOnWebsite": "Show on company website",
   "products.includeTravel": "Include travel calculation",
   "products.includeDuration": "Include duration",
   "products.skillKey.label": "Skill requirement (scheduling)",

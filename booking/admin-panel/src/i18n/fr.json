@@ -86,6 +86,7 @@
   "products.simplePrice": "Prix (simple)",
   "products.rulePriority": "Priorité de règle",
   "products.active": "Actif",
+  "products.showOnWebsite": "Afficher sur le site web",
   "products.includeTravel": "Prendre en compte le trajet",
   "products.includeDuration": "Prendre en compte la durée",
   "products.durationBonus": "Bonus de durée (min)",

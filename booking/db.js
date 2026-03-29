@@ -178,7 +178,7 @@ function buildLegacySeedProducts() {
   ];
 }
 
-function buildLegacyCatalogRows({ includeInactive = false, kind = "" } = {}) {
+function buildLegacyCatalogRows({ includeInactive = false, kind = "", showOnWebsiteOnly = false } = {}) {
   let rows = buildLegacySeedProducts().map((p, idx) => ({
     id: idx + 1,
     code: p.code,
@@ -193,11 +193,13 @@ function buildLegacyCatalogRows({ includeInactive = false, kind = "" } = {}) {
     skill_key: String(p.skill_key || ""),
     required_skills: inferRequiredSkillsFromLegacy(p.code, p.group_key, p.skill_key),
     active: p.active !== false,
+    show_on_website: p.show_on_website !== false,
     sort_order: Number(p.sort_order || 0),
     rules: safeJson(p.rules, []),
   }));
   if (!includeInactive) rows = rows.filter((p) => p.active);
   if (kind) rows = rows.filter((p) => p.kind === String(kind));
+  if (showOnWebsiteOnly) rows = rows.filter((p) => p.show_on_website !== false);
   rows.sort((a, b) => {
     if (a.kind !== b.kind) return String(a.kind).localeCompare(String(b.kind));
     if (Number(a.sort_order || 0) !== Number(b.sort_order || 0)) return Number(a.sort_order || 0) - Number(b.sort_order || 0);
@@ -403,9 +405,9 @@ async function ensureProductCatalogSeeded() {
   }
 }
 
-async function listProductsWithRules({ includeInactive = false, kind = "" } = {}) {
+async function listProductsWithRules({ includeInactive = false, kind = "", showOnWebsiteOnly = false } = {}) {
   if (!getPool()) {
-    return normalizeTextDeep(buildLegacyCatalogRows({ includeInactive, kind }));
+    return normalizeTextDeep(buildLegacyCatalogRows({ includeInactive, kind, showOnWebsiteOnly }));
   }
   await ensureProductCatalogSeeded();
   const clauses = [];
@@ -417,6 +419,10 @@ async function listProductsWithRules({ includeInactive = false, kind = "" } = {}
   if (kind) {
     params.push(String(kind));
     clauses.push(`p.kind = $${params.length}`);
+  }
+  if (showOnWebsiteOnly) {
+    params.push(true);
+    clauses.push(`p.show_on_website = $${params.length}`);
   }
   const whereSql = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   const { rows } = await query(
@@ -615,8 +621,8 @@ async function createProduct(payload) {
     if (!name) throw new Error("name ist erforderlich");
     if (!["package", "addon", "service", "extra"].includes(kind)) throw new Error("kind muss package, addon, service oder extra sein");
     const inserted = await client.query(
-      `INSERT INTO products (code, name, kind, group_key, category_key, description, affects_travel, affects_duration, duration_minutes, active, sort_order, skill_key, required_skills)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb)
+      `INSERT INTO products (code, name, kind, group_key, category_key, description, affects_travel, affects_duration, duration_minutes, active, show_on_website, sort_order, skill_key, required_skills)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::jsonb)
        RETURNING id`,
       [
         code,
@@ -629,6 +635,7 @@ async function createProduct(payload) {
         !!normalizedPayload?.affects_duration,
         Number(normalizedPayload?.duration_minutes || 0),
         normalizedPayload?.active !== false,
+        normalizedPayload?.show_on_website !== false,
         Number(normalizedPayload?.sort_order || 0),
         skillKey,
         JSON.stringify(requiredSkills),
@@ -678,6 +685,7 @@ async function updateProduct(id, payload) {
       affects_duration: normalizedPayload?.affects_duration != null ? !!normalizedPayload.affects_duration : existing.affects_duration,
       duration_minutes: normalizedPayload?.duration_minutes != null ? Number(normalizedPayload.duration_minutes || 0) : Number(existing.duration_minutes || 0),
       active: normalizedPayload?.active != null ? !!normalizedPayload.active : existing.active,
+      show_on_website: normalizedPayload?.show_on_website != null ? !!normalizedPayload.show_on_website : existing.show_on_website !== false,
       sort_order: normalizedPayload?.sort_order != null ? Number(normalizedPayload.sort_order || 0) : existing.sort_order,
       skill_key: nextSkillKey,
       required_skills: nextRequiredSkills,
@@ -685,9 +693,9 @@ async function updateProduct(id, payload) {
     if (!["package", "addon", "service", "extra"].includes(next.kind)) throw new Error("kind muss package, addon, service oder extra sein");
     await client.query(
       `UPDATE products
-       SET code=$1, name=$2, kind=$3, group_key=$4, category_key=$5, description=$6, affects_travel=$7, affects_duration=$8, duration_minutes=$9, active=$10, sort_order=$11, skill_key=$12, required_skills=$13::jsonb, updated_at=NOW()
-       WHERE id=$14`,
-      [next.code, next.name, next.kind, next.group_key, next.category_key, next.description, next.affects_travel, next.affects_duration, next.duration_minutes, next.active, next.sort_order, next.skill_key, JSON.stringify(next.required_skills), Number(id)]
+       SET code=$1, name=$2, kind=$3, group_key=$4, category_key=$5, description=$6, affects_travel=$7, affects_duration=$8, duration_minutes=$9, active=$10, show_on_website=$11, sort_order=$12, skill_key=$13, required_skills=$14::jsonb, updated_at=NOW()
+       WHERE id=$15`,
+      [next.code, next.name, next.kind, next.group_key, next.category_key, next.description, next.affects_travel, next.affects_duration, next.duration_minutes, next.active, next.show_on_website, next.sort_order, next.skill_key, JSON.stringify(next.required_skills), Number(id)]
     );
     if (Array.isArray(normalizedPayload?.rules)) {
       await setRulesForProduct(client, Number(id), normalizedPayload.rules);
@@ -2547,13 +2555,53 @@ async function getPhotographerSettings(key) {
 
 async function getAllPhotographerSettings({ includeInactive = false } = {}) {
   const whereClause = includeInactive ? "" : "WHERE p.active = TRUE";
+  const [pCols, psCols] = await Promise.all([
+    getRegclassColumnSet("photographers"),
+    getRegclassColumnSet("photographer_settings"),
+  ]);
+  const pWanted = [
+    "key",
+    "name",
+    "email",
+    "phone",
+    "phone_mobile",
+    "whatsapp",
+    "initials",
+    "is_admin",
+    "active",
+    "bookable",
+    "photo_url",
+  ];
+  const pParts = pWanted.filter((c) => pCols.has(c)).map((c) => `p.${c}`);
+  if (!pParts.some((s) => s === "p.key")) {
+    pParts.unshift("p.key");
+  }
+  const psWanted = [
+    "home_address",
+    "home_lat",
+    "home_lon",
+    "max_radius_km",
+    "skills",
+    "blocked_dates",
+    "depart_times",
+    "national_holidays",
+    "work_start",
+    "work_end",
+    "workdays",
+    "work_hours_by_day",
+    "buffer_minutes",
+    "slot_minutes",
+    "languages",
+    "native_language",
+    "event_color",
+  ];
+  const psParts = psWanted.filter((c) => psCols.has(c)).map((c) => `ps.${c}`);
+  if (psCols.has("updated_at")) {
+    psParts.push("ps.updated_at AS settings_updated_at");
+  }
+  const selectList = [...pParts, ...psParts].join(",\n            ");
   const { rows } = await query(
-    `SELECT p.key, p.name, p.email, p.phone, p.phone_mobile, p.whatsapp, p.initials, p.is_admin, p.active, p.bookable, p.photo_url,
-            ps.home_address, ps.home_lat, ps.home_lon,
-            ps.max_radius_km, ps.skills, ps.blocked_dates, ps.depart_times, ps.national_holidays,
-            ps.work_start, ps.work_end, ps.workdays, ps.work_hours_by_day, ps.buffer_minutes, ps.slot_minutes,
-            ps.languages, ps.native_language, ps.event_color,
-            ps.updated_at AS settings_updated_at
+    `SELECT ${selectList}
      FROM photographers p
      LEFT JOIN photographer_settings ps ON ps.photographer_key = p.key
      ${whereClause}
