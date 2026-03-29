@@ -32,30 +32,27 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Secret per env + bash: PowerShell-Here-Strings mit YAML-Einzug korruptieren PEM haeufig;
+      # schliessendes "@ muss in PS zudem in Spalte 1 stehen.
       - name: Prepare SSH key
-        shell: pwsh
         run: |
-          $keyDir = Join-Path $HOME '.ssh'
-          $keyPath = Join-Path $keyDir 'id_ed25519_propus_vps'
-          New-Item -ItemType Directory -Force -Path $keyDir | Out-Null
-          # OpenSSH lehnt Keys mit UTF-8-BOM ab; Set-Content kann BOM schreiben.
-          $keyMaterial = @"
-          ${{ secrets.VPS_SSH_PRIVATE_KEY }}
-          "@
-          $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
-          [System.IO.File]::WriteAllText($keyPath, $keyMaterial.TrimEnd() + [Environment]::NewLine, $utf8NoBom)
-          chmod 700 $keyDir
-          chmod 600 $keyPath
+          set -euo pipefail
+          mkdir -p "$HOME/.ssh"
+          printf '%s\n' "$VPS_SSH_PRIVATE_KEY" > "$HOME/.ssh/id_ed25519_propus_vps"
+          chmod 700 "$HOME/.ssh"
+          chmod 600 "$HOME/.ssh/id_ed25519_propus_vps"
+        env:
+          VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
 
       - name: Write .env.vps
         if: ${{ secrets.VPS_ENV_FILE != '' }}
-        shell: pwsh
         run: |
-          $envBody = @"
-          ${{ secrets.VPS_ENV_FILE }}
-          "@
-          $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
-          [System.IO.File]::WriteAllText((Join-Path $env:GITHUB_WORKSPACE '.env.vps'), $envBody.TrimEnd() + [Environment]::NewLine, $utf8NoBom)
+          set -euo pipefail
+          if [ -n "${VPS_ENV_FILE:-}" ]; then
+            printf '%s\n' "$VPS_ENV_FILE" > "$GITHUB_WORKSPACE/.env.vps"
+          fi
+        env:
+          VPS_ENV_FILE: ${{ secrets.VPS_ENV_FILE }}
 
       # deploy-vps.ps1: tar upload, migrate build+run, platform build+up, in-script /api/health wait (~90s).
       # Kein zweites "docker compose build platform" hier — das war redundant und verdoppelte die Build-Zeit.
