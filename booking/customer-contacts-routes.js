@@ -2,7 +2,83 @@
  * Routes für GET/POST/PUT/DELETE /api/admin/customers/:id/contacts
  * Wird in server.js nach den customer-Routen eingebunden.
  */
+const logtoOrgSync = require("./logto-org-sync");
+const rbac = require("./access-rbac");
+
 function registerCustomerContactsRoutes(app, db, requireAdmin, ensureCustomerInRequestCompany) {
+  async function ensureCompanyForContactSync(p, customerId) {
+    const cid = Number(customerId);
+    if (!Number.isFinite(cid)) return null;
+    const { rows } = await p.query(`SELECT id, company FROM customers WHERE id = $1 LIMIT 1`, [cid]);
+    const cust = rows[0];
+    if (!cust) return null;
+    const companyName = String(cust.company || "").trim();
+    if (!companyName) return null;
+    let company = await db.ensureCompanyByName(companyName, { billingCustomerId: cid });
+    if (!company) return null;
+    if (company.billing_customer_id == null) {
+      try {
+        await db.query(
+          `UPDATE companies SET billing_customer_id = $2, updated_at = NOW() WHERE id = $1 AND billing_customer_id IS NULL`,
+          [Number(company.id), cid]
+        );
+        company = await db.getCompanyById(Number(company.id));
+      } catch (_e) {}
+    }
+    return company;
+  }
+
+  async function disableCustomerContactCompanyMember(p, customerId, contactRow) {
+    const email = String(contactRow?.email || "").trim().toLowerCase();
+    if (!email || !email.includes("@")) return;
+    const cid = Number(customerId);
+    if (!Number.isFinite(cid)) return;
+    const { rows } = await p.query(`SELECT id, company FROM customers WHERE id = $1 LIMIT 1`, [cid]);
+    const cust = rows[0];
+    if (!cust) return;
+    const companyName = String(cust.company || "").trim();
+    if (!companyName) return;
+    const company = await db.findCompanyByName(companyName);
+    if (!company?.id) return;
+    const member = await db.findCompanyMemberByCompanyAndEmail(Number(company.id), email);
+    if (!member?.id) return;
+    try {
+      await logtoOrgSync.removeCompanyMemberFromLogtoOrg(Number(company.id), member);
+    } catch (_e) {}
+    try {
+      await db.updateCompanyMemberStatus(Number(member.id), "disabled");
+    } catch (_e) {}
+  }
+
+  async function syncCustomerContactToCompanyMember(p, customerId, contactRow) {
+    const email = String(contactRow?.email || "").trim().toLowerCase();
+    if (!email || !email.includes("@")) return null;
+    const cid = Number(customerId);
+    if (!Number.isFinite(cid)) return null;
+    const company = await ensureCompanyForContactSync(p, cid);
+    if (!company?.id) return null;
+    const role = db.mapCustomerContactRoleToCompanyMemberRole(contactRow?.role);
+    let member;
+    try {
+      member = await db.upsertCompanyMember({
+        companyId: Number(company.id),
+        customerId: cid,
+        email,
+        role,
+        status: "active",
+      });
+    } catch (_e) {
+      return null;
+    }
+    try {
+      await logtoOrgSync.ensureOrganizationForCompany(company);
+      if (member) await logtoOrgSync.addCompanyMemberToLogtoOrg(Number(company.id), member);
+    } catch (_e) {}
+    try {
+      if (member?.id) await rbac.syncCompanyMemberRolesFromDb(Number(member.id));
+    } catch (_e) {}
+    return member;
+  }
   // Globale Kontakt-Suche (z. B. Autocomplete)
   app.get("/api/admin/contacts", requireAdmin, async (req, res) => {
     try {
@@ -128,7 +204,11 @@ function registerCustomerContactsRoutes(app, db, requireAdmin, ensureCustomerInR
           v("department", ""),
         ]
       );
-      res.status(201).json({ ok: true, contact: rows[0] });
+      const created = rows[0];
+      try {
+        await syncCustomerContactToCompanyMember(p, customerId, created);
+      } catch (_e) {}
+      res.status(201).json({ ok: true, contact: created });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -197,6 +277,15 @@ function registerCustomerContactsRoutes(app, db, requireAdmin, ensureCustomerInR
       const salutation = pickField(b, "salutation", cur.salutation);
       const phoneMobile = pickField(b, "phone_mobile", cur.phone_mobile);
       const department = pickField(b, "department", cur.department);
+      const prevEmail = String(cur.email || "").trim().toLowerCase();
+      const nextEmail = String(email || "").trim().toLowerCase();
+      const prevCust = Number(cur.customer_id);
+      const nextCust = Number(targetCustomerId);
+      if (prevEmail && prevEmail.includes("@") && (prevCust !== nextCust || prevEmail !== nextEmail || !nextEmail)) {
+        try {
+          await disableCustomerContactCompanyMember(p, prevCust, { email: cur.email });
+        } catch (_e) {}
+      }
       const { rowCount, rows } = await p.query(
         `UPDATE customer_contacts SET customer_id=$1, name=$2, role=$3, phone=$4, email=$5, sort_order=$6,
             salutation=$7, first_name=$8, last_name=$9, phone_mobile=$10, department=$11
@@ -217,7 +306,11 @@ function registerCustomerContactsRoutes(app, db, requireAdmin, ensureCustomerInR
         ]
       );
       if (!rowCount || !rows[0]) return res.status(404).json({ error: "Kontakt nicht gefunden" });
-      res.json({ ok: true, contact: rows[0] });
+      const updated = rows[0];
+      try {
+        await syncCustomerContactToCompanyMember(p, Number(updated.customer_id), updated);
+      } catch (_e) {}
+      res.json({ ok: true, contact: updated });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -236,6 +329,9 @@ function registerCustomerContactsRoutes(app, db, requireAdmin, ensureCustomerInR
       }
       const { rowCount } = await p.query("DELETE FROM customer_contacts WHERE id = $1", [contactId]);
       if (!rowCount) return res.status(404).json({ error: "Kontakt nicht gefunden" });
+      try {
+        await disableCustomerContactCompanyMember(p, Number(cur.customer_id), cur);
+      } catch (_e) {}
       res.json({ ok: true });
     } catch (err) {
       res.status(500).json({ error: err.message });
@@ -276,31 +372,24 @@ function registerCustomerContactsRoutes(app, db, requireAdmin, ensureCustomerInR
       const v = (key, def) => (b[key] != null ? String(b[key]).trim() : (def != null ? def : ""));
       const newEmail = v("email", "");
       const newName = [v("first_name", ""), v("last_name", "")].filter(Boolean).join(" ").trim() || v("name", "");
-      if (newEmail) {
-        const { rows: emailCheck } = await p.query(
-          `SELECT id, name FROM customer_contacts WHERE customer_id = $1 AND email ILIKE $2 LIMIT 1`,
-          [customerId, newEmail]
-        );
-        if (emailCheck.length > 0) {
+      try {
+        await assertNoDuplicateContact(p, customerId, newEmail, newName, null);
+      } catch (e) {
+        if (e.code === "DUPLICATE_EMAIL") {
           return res.status(409).json({
-            error: `Ein Kontakt mit dieser E-Mail-Adresse existiert bereits: ${emailCheck[0].name || "(unbekannt)"}`,
+            error: `Ein Kontakt mit dieser E-Mail-Adresse existiert bereits: ${e.existing.name || "(unbekannt)"}`,
             code: "DUPLICATE_EMAIL",
-            existingId: emailCheck[0].id,
+            existingId: e.existing.id,
           });
         }
-      }
-      if (newName) {
-        const { rows: nameCheck } = await p.query(
-          `SELECT id, name FROM customer_contacts WHERE customer_id = $1 AND LOWER(TRIM(name)) = LOWER($2) LIMIT 1`,
-          [customerId, newName]
-        );
-        if (nameCheck.length > 0) {
+        if (e.code === "DUPLICATE_NAME") {
           return res.status(409).json({
-            error: `Ein Kontakt mit diesem Namen existiert bereits: ${nameCheck[0].name}`,
+            error: `Ein Kontakt mit diesem Namen existiert bereits: ${e.existing.name}`,
             code: "DUPLICATE_NAME",
-            existingId: nameCheck[0].id,
+            existingId: e.existing.id,
           });
         }
+        throw e;
       }
       const { rows } = await p.query(
         `INSERT INTO customer_contacts (customer_id, name, role, phone, email, sort_order, salutation, first_name, last_name, phone_mobile, department)
@@ -319,7 +408,11 @@ function registerCustomerContactsRoutes(app, db, requireAdmin, ensureCustomerInR
           v("department", ""),
         ]
       );
-      res.status(201).json({ ok: true, contact: rows[0] });
+      const created = rows[0];
+      try {
+        await syncCustomerContactToCompanyMember(p, customerId, created);
+      } catch (_e) {}
+      res.status(201).json({ ok: true, contact: created });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -335,28 +428,79 @@ function registerCustomerContactsRoutes(app, db, requireAdmin, ensureCustomerInR
       const customerId = Number(req.params.id);
       const contactId = Number(req.params.contactId);
       if (!Number.isFinite(customerId) || !Number.isFinite(contactId)) return res.status(400).json({ error: "Ungueltige ID" });
+      const cur = await loadContactRow(p, contactId);
+      if (!cur || Number(cur.customer_id) !== customerId) {
+        return res.status(404).json({ error: "Kontakt nicht gefunden" });
+      }
       const b = req.body || {};
-      const v = (key, def) => (b[key] != null ? String(b[key]).trim() : (def != null ? def : ""));
+      const name = pickField(b, "name", cur.name);
+      const firstName = pickField(b, "first_name", cur.first_name);
+      const lastName = pickField(b, "last_name", cur.last_name);
+      const displayName = [firstName, lastName].filter(Boolean).join(" ").trim() || name;
+      const email = pickField(b, "email", cur.email);
+      try {
+        await assertNoDuplicateContact(p, customerId, email, displayName, contactId);
+      } catch (e) {
+        if (e.code === "DUPLICATE_EMAIL") {
+          return res.status(409).json({
+            error: `Ein Kontakt mit dieser E-Mail-Adresse existiert bereits: ${e.existing.name || "(unbekannt)"}`,
+            code: "DUPLICATE_EMAIL",
+            existingId: e.existing.id,
+          });
+        }
+        if (e.code === "DUPLICATE_NAME") {
+          return res.status(409).json({
+            error: `Ein Kontakt mit diesem Namen existiert bereits: ${e.existing.name}`,
+            code: "DUPLICATE_NAME",
+            existingId: e.existing.id,
+          });
+        }
+        throw e;
+      }
+      const role = pickField(b, "role", cur.role);
+      const phone = pickField(b, "phone", cur.phone);
+      const phoneDirect = Object.prototype.hasOwnProperty.call(b, "phone_direct")
+        ? pickField(b, "phone_direct", cur.phone_direct || cur.phone)
+        : Object.prototype.hasOwnProperty.call(b, "phone")
+          ? phone
+          : cur.phone_direct || cur.phone;
+      const sortOrder = Object.prototype.hasOwnProperty.call(b, "sort_order")
+        ? Number(b.sort_order) || 0
+        : Number(cur.sort_order) || 0;
+      const salutation = pickField(b, "salutation", cur.salutation);
+      const phoneMobile = pickField(b, "phone_mobile", cur.phone_mobile);
+      const department = pickField(b, "department", cur.department);
+      const prevEmail = String(cur.email || "").trim().toLowerCase();
+      const nextEmail = String(email || "").trim().toLowerCase();
+      if (prevEmail && prevEmail.includes("@") && (prevEmail !== nextEmail || !nextEmail)) {
+        try {
+          await disableCustomerContactCompanyMember(p, customerId, { email: cur.email });
+        } catch (_e) {}
+      }
       const { rowCount, rows } = await p.query(
         `UPDATE customer_contacts SET name=$1, role=$2, phone=$3, email=$4, sort_order=$5, salutation=$6, first_name=$7, last_name=$8, phone_mobile=$9, department=$10
          WHERE id = $11 AND customer_id = $12 RETURNING id, customer_id, name, role, phone, phone AS phone_direct, email, sort_order, created_at, salutation, first_name, last_name, phone_mobile, department, exxas_contact_id`,
         [
-          v("name", ""),
-          v("role", ""),
-          v("phone_direct", v("phone", "")),
-          v("email", ""),
-          Number(b.sort_order) || 0,
-          v("salutation", ""),
-          v("first_name", ""),
-          v("last_name", ""),
-          v("phone_mobile", ""),
-          v("department", ""),
+          displayName || name,
+          role,
+          phoneDirect,
+          email,
+          sortOrder,
+          salutation,
+          firstName,
+          lastName,
+          phoneMobile,
+          department,
           contactId,
           customerId,
         ]
       );
       if (!rowCount || !rows[0]) return res.status(404).json({ error: "Kontakt nicht gefunden" });
-      res.json({ ok: true, contact: rows[0] });
+      const updated = rows[0];
+      try {
+        await syncCustomerContactToCompanyMember(p, customerId, updated);
+      } catch (_e) {}
+      res.json({ ok: true, contact: updated });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -372,8 +516,15 @@ function registerCustomerContactsRoutes(app, db, requireAdmin, ensureCustomerInR
       const customerId = Number(req.params.id);
       const contactId = Number(req.params.contactId);
       if (!Number.isFinite(customerId) || !Number.isFinite(contactId)) return res.status(400).json({ error: "Ungueltige ID" });
+      const cur = await loadContactRow(p, contactId);
+      if (!cur || Number(cur.customer_id) !== customerId) {
+        return res.status(404).json({ error: "Kontakt nicht gefunden" });
+      }
       const { rowCount } = await p.query("DELETE FROM customer_contacts WHERE id = $1 AND customer_id = $2", [contactId, customerId]);
       if (!rowCount) return res.status(404).json({ error: "Kontakt nicht gefunden" });
+      try {
+        await disableCustomerContactCompanyMember(p, customerId, cur);
+      } catch (_e) {}
       res.json({ ok: true });
     } catch (err) {
       res.status(500).json({ error: err.message });

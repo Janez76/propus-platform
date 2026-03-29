@@ -8,7 +8,7 @@ RUN npm run build
 
 FROM node:20-alpine
 WORKDIR /app
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat postgresql-client
 
 COPY booking/package*.json ./booking/
 RUN cd booking && npm ci --omit=dev
@@ -22,9 +22,12 @@ RUN cd platform && npm ci --omit=dev
 COPY booking ./booking
 COPY tours ./tours
 COPY auth ./auth
+COPY infra ./infra
 COPY platform ./platform
+COPY scripts ./scripts
 
 RUN ln -s /app/platform/node_modules /app/auth/node_modules
+RUN chmod +x /app/scripts/*.sh
 
 COPY --from=frontend /src/dist ./platform/frontend/dist
 

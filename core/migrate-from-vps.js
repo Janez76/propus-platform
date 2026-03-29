@@ -46,6 +46,13 @@ function inc(table, type) {
   stats[type][table]++;
 }
 
+function jsonParam(value, fallback) {
+  const normalized = value === undefined ? fallback : value;
+  if (normalized === undefined) return null;
+  if (normalized === null) return JSON.stringify(fallback ?? null);
+  return JSON.stringify(normalized);
+}
+
 async function clearTargetTables(client) {
   console.log('[migrate] Ziel-Tabellen leeren …');
   const tables = [
@@ -336,7 +343,18 @@ async function run() {
        'blocked_dates', 'depart_times', 'work_start', 'work_end', 'workdays', 'work_hours_by_day',
        'buffer_minutes', 'slot_minutes', 'national_holidays', 'languages', 'native_language',
        'event_color', 'password_hash', 'created_at', 'updated_at'],
-      client
+      client,
+      {
+        transform: (row) => ({
+          ...row,
+          skills: jsonParam(row.skills, {}),
+          blocked_dates: jsonParam(row.blocked_dates, []),
+          depart_times: jsonParam(row.depart_times, {}),
+          workdays: jsonParam(row.workdays, []),
+          work_hours_by_day: jsonParam(row.work_hours_by_day, null),
+          languages: jsonParam(row.languages, []),
+        }),
+      }
     );
 
     // kind_scope 'service' → 'addon' (Ziel-Schema erlaubt nur 'package','addon','both')
@@ -364,7 +382,13 @@ async function run() {
       'booking.products',
       ['id', 'code', 'name', 'kind', 'group_key', 'category_key', 'description', 'affects_travel',
        'affects_duration', 'duration_minutes', 'skill_key', 'required_skills', 'active', 'sort_order', 'created_at'],
-      client
+      client,
+      {
+        transform: (row) => ({
+          ...row,
+          required_skills: jsonParam(row.required_skills, []),
+        }),
+      }
     );
 
     await migrateGeneric(srcBooking,
@@ -372,14 +396,26 @@ async function run() {
        FROM pricing_rules ORDER BY id`,
       'booking.pricing_rules',
       ['id', 'product_id', 'rule_type', 'config_json', 'priority', 'valid_from', 'valid_to', 'active', 'created_at'],
-      client
+      client,
+      {
+        transform: (row) => ({
+          ...row,
+          config_json: jsonParam(row.config_json, {}),
+        }),
+      }
     );
 
     await migrateGeneric(srcBooking,
       `SELECT key, value_json, updated_at FROM app_settings`,
       'booking.app_settings',
       ['key', 'value_json', 'updated_at'],
-      client
+      client,
+      {
+        transform: (row) => ({
+          ...row,
+          value_json: jsonParam(row.value_json, null),
+        }),
+      }
     );
 
     await migrateGeneric(srcBooking,
@@ -389,7 +425,13 @@ async function run() {
       'booking.discount_codes',
       ['id', 'code', 'type', 'amount', 'active', 'valid_from', 'valid_to',
        'max_uses', 'uses_count', 'uses_per_customer', 'conditions_json', 'created_at'],
-      client
+      client,
+      {
+        transform: (row) => ({
+          ...row,
+          conditions_json: jsonParam(row.conditions_json, {}),
+        }),
+      }
     );
 
     await migrateGeneric(srcBooking,
@@ -411,7 +453,13 @@ async function run() {
        FROM order_messages ORDER BY id`,
       'booking.order_messages',
       ['id', 'order_no', 'sender_role', 'sender_name', 'recipient_roles', 'message', 'created_at'],
-      client
+      client,
+      {
+        transform: (row) => ({
+          ...row,
+          recipient_roles: jsonParam(row.recipient_roles, []),
+        }),
+      }
     );
 
     await migrateGeneric(srcBooking,

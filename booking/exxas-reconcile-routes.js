@@ -5,6 +5,9 @@
  * - Vorschlaege fuer Kunden/Kontakte erzeugen (ohne Schreibzugriff)
  * - Nach manueller Bestaetigung selektiv in lokale DB uebernehmen
  */
+const logtoOrgSync = require("./logto-org-sync");
+const rbac = require("./access-rbac");
+
 function registerExxasReconcileRoutes(app, db, requireAdmin, ensureCustomerInRequestCompany) {
   function asString(value) {
     return value == null ? "" : String(value).trim();
@@ -756,6 +759,86 @@ function registerExxasReconcileRoutes(app, db, requireAdmin, ensureCustomerInReq
     return Number(insert.rows[0].id);
   }
 
+  async function ensureCompanyForContactSync(customerId) {
+    const cid = Number(customerId);
+    if (!Number.isFinite(cid)) return null;
+    const { rows } = await db.query(`SELECT id, company FROM customers WHERE id = $1 LIMIT 1`, [cid]);
+    const customer = rows[0];
+    if (!customer) return null;
+    const companyName = asString(customer.company);
+    if (!companyName) return null;
+    let company = await db.ensureCompanyByName(companyName, { billingCustomerId: cid });
+    if (!company) return null;
+    if (company.billing_customer_id == null) {
+      try {
+        await db.query(
+          `UPDATE companies
+           SET billing_customer_id = $2, updated_at = NOW()
+           WHERE id = $1 AND billing_customer_id IS NULL`,
+          [Number(company.id), cid]
+        );
+        company = await db.getCompanyById(Number(company.id));
+      } catch (_e) {}
+    }
+    return company;
+  }
+
+  async function loadContactRowForSync(contactId) {
+    const cid = Number(contactId);
+    if (!Number.isFinite(cid)) return null;
+    const { rows } = await db.query(
+      `SELECT id, customer_id, name, role, phone, email, sort_order, created_at,
+              phone AS phone_direct, salutation, first_name, last_name, phone_mobile, department, exxas_contact_id
+       FROM customer_contacts
+       WHERE id = $1
+       LIMIT 1`,
+      [cid]
+    );
+    return rows[0] || null;
+  }
+
+  async function disableCustomerContactCompanyMember(customerId, email) {
+    const cid = Number(customerId);
+    const normalizedEmail = asString(email).toLowerCase();
+    if (!Number.isFinite(cid) || !normalizedEmail || !normalizedEmail.includes("@")) return;
+    const { rows } = await db.query(`SELECT company FROM customers WHERE id = $1 LIMIT 1`, [cid]);
+    const companyName = asString(rows[0]?.company);
+    if (!companyName) return;
+    const company = await db.findCompanyByName(companyName);
+    if (!company?.id) return;
+    const member = await db.findCompanyMemberByCompanyAndEmail(Number(company.id), normalizedEmail);
+    if (!member?.id) return;
+    try {
+      await logtoOrgSync.removeCompanyMemberFromLogtoOrg(Number(company.id), member);
+    } catch (_e) {}
+    try {
+      await db.updateCompanyMemberStatus(Number(member.id), "disabled");
+    } catch (_e) {}
+  }
+
+  async function syncCustomerContactToCompanyMember(customerId, contactRow) {
+    const cid = Number(customerId);
+    const email = asString(contactRow?.email).toLowerCase();
+    if (!Number.isFinite(cid) || !email || !email.includes("@")) return null;
+    const company = await ensureCompanyForContactSync(cid);
+    if (!company?.id) return null;
+    const member = await db.upsertCompanyMember({
+      companyId: Number(company.id),
+      customerId: cid,
+      email,
+      role: db.mapCustomerContactRoleToCompanyMemberRole(contactRow?.role),
+      status: "active",
+    });
+    try {
+      await logtoOrgSync.ensureOrganizationForCompany(company);
+      await logtoOrgSync.addCompanyMemberToLogtoOrg(Number(company.id), member);
+    } catch (_e) {}
+    try {
+      if (member?.id) await rbac.syncCompanyMemberRolesFromDb(Number(member.id));
+    } catch (_e) {}
+    return member;
+  }
+
   app.post("/api/admin/integrations/exxas/reconcile/preview", requireAdmin, async (req, res) => {
     try {
       const credentials = req.body?.credentials || {};
@@ -847,6 +930,7 @@ function registerExxasReconcileRoutes(app, db, requireAdmin, ensureCustomerInReq
       const mappedCustomer = resolveCustomerForConfirm(exxasCustomer);
       try {
         await p.query("BEGIN");
+        const postCommitContactSyncJobs = [];
 
         let targetCustomerId = null;
         if (customerAction === "skip") {
@@ -908,20 +992,31 @@ function registerExxasReconcileRoutes(app, db, requireAdmin, ensureCustomerInReq
               : [];
             if (!Number.isFinite(localContactId)) throw new Error("localContactId fehlt");
             const contactRow = await p.query(
-              "SELECT id, customer_id FROM customer_contacts WHERE id = $1 LIMIT 1",
+              "SELECT id, customer_id, email FROM customer_contacts WHERE id = $1 LIMIT 1",
               [localContactId]
             );
             if (!contactRow.rows[0]) throw new Error("Kontakt nicht gefunden");
             if (Number(contactRow.rows[0].customer_id) !== Number(targetCustomerId)) {
               throw new Error("Kontakt gehoert nicht zum Zielkunden");
             }
+            const previousEmail = asString(contactRow.rows[0].email).toLowerCase();
             await fillMissingContactFields(p, localContactId, exxasContact, overwriteFields);
+            postCommitContactSyncJobs.push({
+              contactId: localContactId,
+              customerId: Number(targetCustomerId),
+              previousEmail,
+            });
             contactOutcomes.push({ ok: true, exxasContactId: exxasContact.id, localContactId });
             continue;
           }
 
           if (contactAction === "create_contact") {
             const localContactId = await createContactFromExxas(p, Number(targetCustomerId), exxasContact);
+            postCommitContactSyncJobs.push({
+              contactId: localContactId,
+              customerId: Number(targetCustomerId),
+              previousEmail: "",
+            });
             contactOutcomes.push({ ok: true, exxasContactId: exxasContact.id, localContactId });
             continue;
           }
@@ -930,6 +1025,17 @@ function registerExxasReconcileRoutes(app, db, requireAdmin, ensureCustomerInReq
         }
 
         await p.query("COMMIT");
+        for (const job of postCommitContactSyncJobs) {
+          try {
+            const syncedRow = await loadContactRowForSync(job.contactId);
+            if (!syncedRow) continue;
+            const nextEmail = asString(syncedRow.email).toLowerCase();
+            if (job.previousEmail && job.previousEmail.includes("@") && job.previousEmail !== nextEmail) {
+              await disableCustomerContactCompanyMember(job.customerId, job.previousEmail);
+            }
+            await syncCustomerContactToCompanyMember(job.customerId, syncedRow);
+          } catch (_syncErr) {}
+        }
         outcomes.push({
           ok: true,
           exxasCustomerId,

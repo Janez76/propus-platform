@@ -1,0 +1,197 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "127.0.0.1:${PROPUS_PG_PORT:-5435}:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    networks:
+      - propus
+
+  logto-db:
+    image: postgres:16-alpine
+    ports:
+      - "127.0.0.1:${LOGTO_PG_PORT:-5436}:5432"
+    environment:
+      POSTGRES_USER: ${LOGTO_DB_USER:-logto}
+      POSTGRES_PASSWORD: ${LOGTO_DB_PASSWORD}
+      POSTGRES_DB: ${LOGTO_DB:-logto}
+    volumes:
+      - logto-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${LOGTO_DB_USER:-logto} -d ${LOGTO_DB:-logto}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    networks:
+      - propus
+
+  logto:
+    image: svhd/logto:latest
+    entrypoint:
+      [
+        "sh",
+        "-c",
+        "npm run cli db seed -- --swe && npm run cli db alteration deploy latest && npm start",
+      ]
+    ports:
+      - "127.0.0.1:${LOGTO_PORT:-3301}:3001"
+      - "127.0.0.1:${LOGTO_ADMIN_PORT:-3302}:3002"
+    environment:
+      TRUST_PROXY_HEADER: "1"
+      DB_URL: postgres://${LOGTO_DB_USER:-logto}:${LOGTO_DB_PASSWORD}@logto-db:5432/${LOGTO_DB:-logto}
+      ENDPOINT: ${LOGTO_ENDPOINT:-http://127.0.0.1:3301}
+      ADMIN_ENDPOINT: ${LOGTO_ADMIN_ENDPOINT:-http://127.0.0.1:3302}
+    depends_on:
+      logto-db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - propus
+
+  migrate:
+    build:
+      context: ./core
+      dockerfile_inline: |
+        FROM node:20-alpine
+        WORKDIR /app
+        COPY package*.json ./
+        RUN npm ci --omit=dev
+        COPY . .
+        CMD ["node", "migrate.js"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - propus
+    profiles:
+      - migrate
+
+  platform:
+    build:
+      context: .
+      dockerfile: platform/Dockerfile
+    ports:
+      - "127.0.0.1:${PLATFORM_PORT:-3100}:3000"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      DB_SEARCH_PATH: booking,tour_manager,core,public
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      PORT: "3000"
+      NODE_ENV: production
+      TIMEZONE: ${TIMEZONE:-Europe/Zurich}
+      WORK_START: ${WORK_START:-08:00}
+      WORK_END: ${WORK_END:-18:00}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_PRETTY: ${LOG_PRETTY:-false}
+      LOG_REDACT: ${LOG_REDACT:-true}
+      LOG_CONSOLE_ENABLED: ${LOG_CONSOLE_ENABLED:-false}
+      LOG_FILE_ENABLED: ${LOG_FILE_ENABLED:-true}
+      LOG_FILE_PATH: ${LOG_FILE_PATH:-/app/logs/platform.log}
+      LOG_RETENTION_DAYS: ${LOG_RETENTION_DAYS:-30}
+      FRONTEND_LOG_RATE_LIMIT_PER_MIN: ${FRONTEND_LOG_RATE_LIMIT_PER_MIN:-120}
+      SESSION_SECRET: ${BOOKING_SESSION_SECRET}
+      BOOKING_SESSION_SECRET: ${BOOKING_SESSION_SECRET}
+      TOURS_SESSION_SECRET: ${TOURS_SESSION_SECRET}
+      SESSION_COOKIE_SECURE: "true"
+      SESSION_COOKIE_DOMAIN: ${SESSION_COOKIE_DOMAIN:-}
+      TOURS_MOUNT_PATH: /tour-manager
+      PROPUS_ENABLE_LEGACY_CUSTOMER_LOGIN: ${PROPUS_ENABLE_LEGACY_CUSTOMER_LOGIN:-0}
+      ADMIN_USER: ${ADMIN_USER}
+      ADMIN_PASS: ${ADMIN_PASS}
+      ADMIN_BOOTSTRAP_SYNC_PASSWORD: ${ADMIN_BOOTSTRAP_SYNC_PASSWORD:-true}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      LOGTO_ENDPOINT: ${LOGTO_ENDPOINT:-http://127.0.0.1:3301}
+      LOGTO_ADMIN_ENDPOINT: ${LOGTO_ADMIN_ENDPOINT:-http://127.0.0.1:3302}
+      LOGTO_INTERNAL_ENDPOINT: http://logto:3001
+      PROPUS_BOOKING_LOGTO_APP_ID: ${PROPUS_BOOKING_LOGTO_APP_ID:-}
+      PROPUS_BOOKING_LOGTO_APP_SECRET: ${PROPUS_BOOKING_LOGTO_APP_SECRET:-}
+      PROPUS_TOURS_ADMIN_LOGTO_APP_ID: ${PROPUS_TOURS_ADMIN_LOGTO_APP_ID:-}
+      PROPUS_TOURS_ADMIN_LOGTO_APP_SECRET: ${PROPUS_TOURS_ADMIN_LOGTO_APP_SECRET:-}
+      PROPUS_TOURS_PORTAL_LOGTO_APP_ID: ${PROPUS_TOURS_PORTAL_LOGTO_APP_ID:-}
+      PROPUS_TOURS_PORTAL_LOGTO_APP_SECRET: ${PROPUS_TOURS_PORTAL_LOGTO_APP_SECRET:-}
+      PROPUS_MANAGEMENT_LOGTO_APP_ID: ${PROPUS_MANAGEMENT_LOGTO_APP_ID:-}
+      PROPUS_MANAGEMENT_LOGTO_APP_SECRET: ${PROPUS_MANAGEMENT_LOGTO_APP_SECRET:-}
+      MAIL_FROM: ${MAIL_FROM}
+      OFFICE_EMAIL: ${OFFICE_EMAIL}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      MS_GRAPH_TENANT_ID: ${MS_GRAPH_TENANT_ID:-}
+      MS_GRAPH_CLIENT_ID: ${MS_GRAPH_CLIENT_ID:-}
+      MS_GRAPH_CLIENT_SECRET: ${MS_GRAPH_CLIENT_SECRET:-}
+      TENANT_ID: ${TENANT_ID:-}
+      CLIENT_ID: ${CLIENT_ID:-}
+      CLIENT_SECRET: ${CLIENT_SECRET:-}
+      FRONTEND_URL: ${FRONTEND_URL:-https://booking.propus.ch}
+      ADMIN_PANEL_URL: ${ADMIN_PANEL_URL:-https://admin-booking.propus.ch}
+      BOOKING_UPLOAD_ROOT: /booking_upload_customer
+      BOOKING_UPLOAD_CUSTOMER_ROOT: /booking_upload_customer
+      BOOKING_UPLOAD_RAW_ROOT: /booking_upload_raw
+      BOOKING_UPLOAD_STAGING_ROOT: /upload_staging
+      BOOKING_UPLOAD_REQUIRE_MOUNT: ${BOOKING_UPLOAD_REQUIRE_MOUNT:-true}
+      ORDERS_FILE: /data/state/orders.json
+      BACKUP_ROOT: /data/backups
+      BACKUP_SCRIPT_PATH: /app/scripts/backup-vps.sh
+      BACKUP_RESTORE_TARGET: ${BACKUP_RESTORE_TARGET:-/opt/propus-platform}
+      EXXAS_API_TOKEN: ${EXXAS_API_TOKEN:-}
+      EXXAS_BASE_URL: ${EXXAS_BASE_URL:-https://api.exxas.net}
+      MATTERPORT_TOKEN_ID: ${MATTERPORT_TOKEN_ID:-}
+      MATTERPORT_TOKEN_SECRET: ${MATTERPORT_TOKEN_SECRET:-}
+      GOOGLE_PLACES_API_KEY: ${GOOGLE_PLACES_API_KEY:-}
+      GOOGLE_REVIEWS_PLACE_ID: ${GOOGLE_REVIEWS_PLACE_ID:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      logto:
+        condition: service_started
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"require('http').get('http://127.0.0.1:3000/api/health',r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>process.exit(r.statusCode===200&&d.includes('ok')?0:1));}).on('error',()=>process.exit(1))\"",
+        ]
+      interval: 10s
+      timeout: 8s
+      retries: 30
+      start_period: 180s
+    volumes:
+      - platform-state:/data/state
+      - ./backups:/data/backups
+      - platform-logs:/app/logs
+      - ${BOOKING_UPLOAD_STAGING_HOST_PATH:-/opt/propus-upload-staging}:/upload_staging
+      - ${BOOKING_UPLOAD_CUSTOMER_HOST_PATH:-/mnt/propus-nas-customers}:/booking_upload_customer
+      - ${BOOKING_UPLOAD_RAW_HOST_PATH:-/mnt/propus-nas-raw}:/booking_upload_raw
+    restart: unless-stopped
+    networks:
+      - propus
+
+volumes:
+  postgres-data:
+  logto-pgdata:
+  platform-state:
+  platform-logs:
+
+networks:
+  propus:
+    driver: bridge

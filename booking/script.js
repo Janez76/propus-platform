@@ -2022,19 +2022,24 @@ function normalizeFrontendUrl(rawUrl){
   }
 }
 
-// Magic-Link: Admin-Impersonation – ?impersonate=TOKEN im URL speichern und zur sauberen URL wechseln
+// Magic-Link: Auth-Token aus der URL uebernehmen und danach zur sauberen URL wechseln
 (function(){
   try {
     const url = normalizeFrontendUrl(window.location.href);
     const params = url.searchParams;
     const impersonateToken = params.get("impersonate");
+    const magicToken = params.get("magic");
     if (impersonateToken && typeof impersonateToken === "string" && impersonateToken.length > 10) {
       setCustomerToken(impersonateToken, { persist: false });
     }
+    if (magicToken && typeof magicToken === "string" && magicToken.length > 10) {
+      setCustomerToken(magicToken, { persist: true });
+    }
     const hadKnownAuthParams = rawContainsAuthParams(window.location.href);
-    if (impersonateToken || hadKnownAuthParams) {
+    if (impersonateToken || magicToken || hadKnownAuthParams) {
       const cleanUrl = new URL(url.toString());
       cleanUrl.searchParams.delete("impersonate");
+      cleanUrl.searchParams.delete("magic");
       const nextUrl = cleanUrl.pathname + (cleanUrl.search || "") + (cleanUrl.hash || "");
       window.history.replaceState({}, "", nextUrl || "/");
     }
@@ -2043,7 +2048,7 @@ function normalizeFrontendUrl(rawUrl){
 
 function rawContainsAuthParams(rawUrl){
   const raw = String(rawUrl || "");
-  return /[\?&](?:impersonate)=/i.test(raw);
+  return /[\?&](?:impersonate|magic)=/i.test(raw);
 }
 
 async function customerApi(path, { method="GET", body=null, auth=true } = {}){
@@ -2920,118 +2925,6 @@ function resolveThankYouInvoiceData(billing){
   };
 }
 
-function updateThankYouAccountCard(){
-  const card = qs("#tyAccountCard");
-  const msg = qs("#tyAccountMsg");
-  const error = qs("#tyAccountError");
-  const hasEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(state.billing?.email || "").trim());
-  const loggedIn = !!getCustomerToken();
-  if(card) card.hidden = loggedIn || !hasEmail;
-  if(msg && !card?.hidden) msg.hidden = true;
-  if(error && !card?.hidden) error.hidden = true;
-}
-
-async function createThankYouAccount(){
-  const email = String(state.billing?.email || "").trim();
-  const passwordEl = qs("#tyPassword");
-  const confirmEl = qs("#tyPasswordConfirm");
-  const btn = qs("#tyCreateAccountBtn");
-  const skipBtn = qs("#tySkipAccountBtn");
-  const errorEl = qs("#tyAccountError");
-  const msgEl = qs("#tyAccountMsg");
-  const card = qs("#tyAccountCard");
-  const password = String(passwordEl?.value || "");
-  const confirmPassword = String(confirmEl?.value || "");
-
-  if(errorEl){
-    errorEl.hidden = true;
-    errorEl.textContent = "";
-  }
-  if(msgEl){
-    msgEl.hidden = true;
-    msgEl.textContent = "";
-  }
-
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
-    if(errorEl){
-      errorEl.hidden = false;
-      errorEl.textContent = "Für die Kontoerstellung wird eine gültige E-Mail-Adresse benötigt.";
-    }
-    return;
-  }
-  if(password.length < 8){
-    if(errorEl){
-      errorEl.hidden = false;
-      errorEl.textContent = "Das Passwort muss mindestens 8 Zeichen lang sein.";
-    }
-    passwordEl?.focus();
-    return;
-  }
-  if(password !== confirmPassword){
-    if(errorEl){
-      errorEl.hidden = false;
-      errorEl.textContent = "Die Passwörter stimmen nicht überein.";
-    }
-    confirmEl?.focus();
-    return;
-  }
-
-  if(btn) {
-    btn.disabled = true;
-    btn.textContent = "Konto wird erstellt...";
-  }
-
-  try{
-    await customerApi("/api/customer/register", {
-      method: "POST",
-      auth: false,
-      body: {
-        email,
-        password,
-        name: joinTextParts([state.billing?.first_name, state.billing?.name]) || state.billing?.company || email
-      }
-    });
-    const loginRes = await customerApi("/api/customer/login", {
-      method: "POST",
-      auth: false,
-      body: { email, password }
-    });
-    if(loginRes?.token){
-      setCustomerToken(loginRes.token, { persist: true });
-      await syncCustomerUiAfterLogin(true);
-    }
-    if(msgEl){
-      msgEl.hidden = false;
-      msgEl.textContent = "Ihr Kundenkonto wurde erstellt. Sie sind jetzt angemeldet.";
-    }
-    if(errorEl) errorEl.hidden = true;
-    if(passwordEl){
-      passwordEl.value = "";
-      passwordEl.disabled = true;
-    }
-    if(confirmEl){
-      confirmEl.value = "";
-      confirmEl.disabled = true;
-    }
-    if(skipBtn) skipBtn.hidden = true;
-    if(btn){
-      btn.disabled = true;
-      btn.textContent = "Konto erstellt";
-    }
-    if(card) card.hidden = false;
-    showToast("Kundenkonto erfolgreich erstellt", 2500);
-  }catch(err){
-    if(errorEl){
-      errorEl.hidden = false;
-      errorEl.textContent = err?.message || "Konto konnte nicht erstellt werden.";
-    }
-    if(btn){
-      btn.disabled = false;
-      btn.textContent = "Konto erstellen";
-    }
-  }
-}
-
 function initThankYouScreenOnce(){
   const printBtn = qs("#tyPrintBtn");
   if(printBtn && printBtn.dataset.init !== "1"){
@@ -3042,21 +2935,6 @@ function initThankYouScreenOnce(){
   if(pdfBtn && pdfBtn.dataset.init !== "1"){
     pdfBtn.dataset.init = "1";
     pdfBtn.addEventListener("click", () => window.print());
-  }
-  const skipBtn = qs("#tySkipAccountBtn");
-  if(skipBtn && skipBtn.dataset.init !== "1"){
-    skipBtn.dataset.init = "1";
-    skipBtn.addEventListener("click", () => {
-      const card = qs("#tyAccountCard");
-      if(card) card.hidden = true;
-    });
-  }
-  const createBtn = qs("#tyCreateAccountBtn");
-  if(createBtn && createBtn.dataset.init !== "1"){
-    createBtn.dataset.init = "1";
-    createBtn.addEventListener("click", () => {
-      void createThankYouAccount();
-    });
   }
 }
 
@@ -3108,34 +2986,6 @@ function populateThankYouScreen(bookingData = {}){
   setHiddenState("#tyPrintNotesRow", !notes);
   setHiddenState("#tyPrintExtraSection", !orderRef && !notes);
 
-  const passwordEl = qs("#tyPassword");
-  const confirmEl = qs("#tyPasswordConfirm");
-  const createBtn = qs("#tyCreateAccountBtn");
-  const skipBtn = qs("#tySkipAccountBtn");
-  const msgEl = qs("#tyAccountMsg");
-  const errorEl = qs("#tyAccountError");
-  if(passwordEl){
-    passwordEl.disabled = false;
-    passwordEl.value = "";
-  }
-  if(confirmEl){
-    confirmEl.disabled = false;
-    confirmEl.value = "";
-  }
-  if(createBtn){
-    createBtn.disabled = false;
-    createBtn.textContent = "Konto erstellen";
-  }
-  if(skipBtn) skipBtn.hidden = false;
-  if(msgEl){
-    msgEl.hidden = true;
-    msgEl.textContent = "";
-  }
-  if(errorEl){
-    errorEl.hidden = true;
-    errorEl.textContent = "";
-  }
-  updateThankYouAccountCard();
 }
 
 // ==============================

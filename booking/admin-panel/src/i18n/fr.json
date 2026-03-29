@@ -925,6 +925,7 @@
   "customerList.table.actions": "Actions",
   "customerList.label.orderCount": "{{n}} commandes",
   "contacts.title": "Contacts supplémentaires",
+  "contacts.syncFirmHint": "Pour les clients entreprise (champ « Société » renseigné), les contacts avec e-mail sont synchronisés comme employés et rattachés à l’organisation Logto dès qu’un compte Logto correspondant existe.",
   "contacts.button.addContact": "Contact",
   "contacts.button.linkExisting": "Lier un contact existant",
   "contacts.button.linkNow": "Lier maintenant",

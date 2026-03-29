@@ -925,6 +925,7 @@
   "customerList.table.actions": "Azioni",
   "customerList.label.orderCount": "{{n}} ordini",
   "contacts.title": "Altri contatti",
+  "contacts.syncFirmHint": "Per clienti aziendali (campo « Azienda » compilato), i contatti con e-mail vengono sincronizzati come dipendenti e assegnati all’organizzazione Logto non appena esiste un account Logto corrispondente.",
   "contacts.button.addContact": "Contatto",
   "contacts.button.linkExisting": "Collega contatto esistente",
   "contacts.button.linkNow": "Collega ora",

@@ -283,6 +283,7 @@ export function CustomerContactsSection({ token, customerId, readonly = false }:
           </div>
         ) : null}
       </div>
+      <p className="mb-3 text-xs text-[var(--text-muted)]">{t(lang, "contacts.syncFirmHint")}</p>
 
       {loading ? <p className="text-sm p-text-muted">{t(lang, "common.loading")}</p> : null}
       {!loading && sortedContacts.length === 0 ? (

@@ -2614,6 +2614,56 @@ async function sendVerificationEmail(email, token) {
   }
 }
 
+function buildBookingCustomerProfile(billing = {}) {
+  const firstName = String(billing?.first_name || "").trim();
+  const lastName = String(billing?.name || "").trim();
+  const company = String(billing?.company || "").trim();
+  const street = String(billing?.street || "").trim();
+  const zip = String(billing?.zip || "").trim();
+  const city = String(billing?.city || "").trim();
+  const zipcity = String(billing?.zipcity || "").trim() || [zip, city].filter(Boolean).join(" ");
+  return {
+    name: [firstName, lastName].filter(Boolean).join(" ") || company || "",
+    company,
+    phone: String(billing?.phone || billing?.phone_mobile || "").trim(),
+    street,
+    zipcity,
+  };
+}
+
+async function createCustomerPortalMagicLink(billing = {}, { sessionDays = 14 } = {}) {
+  const pool = db.getPool ? db.getPool() : null;
+  if (!pool) return null;
+
+  const email = customerAuth.normalizeEmail(billing?.email);
+  if (!email) return null;
+
+  let customer = await db.getCustomerByEmail(email);
+  if (!customer) {
+    const profile = buildBookingCustomerProfile(billing);
+    await db.createCustomer({
+      email,
+      passwordHash: null,
+      name: profile.name || email,
+      company: profile.company,
+      phone: profile.phone,
+      street: profile.street,
+      zipcity: profile.zipcity,
+    });
+    customer = await db.getCustomerByEmail(email);
+  }
+
+  if (!customer?.id || customer?.blocked) return null;
+
+  const token = customerAuth.createSessionToken();
+  const tokenHash = customerAuth.hashSha256Hex(token);
+  const expiresAt = new Date(Date.now() + Math.max(1, Number(sessionDays) || 14) * 24 * 60 * 60 * 1000);
+  await db.createCustomerSession({ customerId: Number(customer.id), tokenHash, expiresAt });
+
+  const frontendUrl = String(process.env.FRONTEND_URL || "https://booking.propus.ch/").replace(/\/?$/, "/");
+  return `${frontendUrl}?magic=${encodeURIComponent(token)}`;
+}
+
 // Einfaches In-Memory Rate-Limit fuer erneutes Senden (pro E-Mail)
 const _resendVerifyThrottle = new Map(); // email -> lastSentMs
 
@@ -3946,7 +3996,19 @@ app.post("/api/booking", async (req, res) => {
       html: officeEmail.html
     };
 
-    const frontendBase = process.env.FRONTEND_URL || "https://admin-booking.propus.ch";
+    const frontendBase = process.env.FRONTEND_URL || "https://booking.propus.ch";
+    let portalMagicLink = null;
+    try {
+      portalMagicLink = await createCustomerPortalMagicLink(billing, { sessionDays: 14 });
+    } catch (err) {
+      const message = String(err?.message || err || "Customer portal link failed");
+      console.warn("[booking] customer portal link failed", { requestId, message, customerEmail });
+      bookingWarnings.push({
+        stage: "customer_portal",
+        code: "CUSTOMER_PORTAL_LINK_FAILED",
+        message,
+      });
+    }
     const customerEmailData = buildCustomerEmail({
       objectInfo,
       serviceListWithPrice,
@@ -3961,7 +4023,8 @@ app.post("/api/booking", async (req, res) => {
       keyPickup,
       orderNo,
       address: safeLocation,
-      icsUrl: `${frontendBase}/api/orders/${orderNo}/ics`
+      icsUrl: `${frontendBase}/api/orders/${orderNo}/ics`,
+      portalMagicLink,
     }, customerLang);
     const customerMail = {
       from: MAIL_FROM,
@@ -4241,9 +4304,10 @@ app.post("/api/admin/orders/:orderNo/resend-customer-email", requirePhotographer
       "";
     const photographerPhone = PHOTOG_PHONES[String(photographerKey).toLowerCase()] || "";
 
-    const frontendBaseResend = process.env.FRONTEND_URL || "https://admin-booking.propus.ch";
+    const frontendBaseResend = process.env.FRONTEND_URL || "https://booking.propus.ch";
     const billing = order.billing || {};
     const customerLang = order.billing?.language || billing?.language || "de";
+    const portalMagicLink = await createCustomerPortalMagicLink(billing, { sessionDays: 14 }).catch(() => null);
     const customerEmailData = buildCustomerEmail({
       objectInfo,
       serviceListWithPrice,
@@ -4258,7 +4322,8 @@ app.post("/api/admin/orders/:orderNo/resend-customer-email", requirePhotographer
       keyPickup: order.keyPickup || {},
       orderNo: order.orderNo,
       address: order.address || order.billing?.street || "",
-      icsUrl: `${frontendBaseResend}/api/orders/${order.orderNo}/ics`
+      icsUrl: `${frontendBaseResend}/api/orders/${order.orderNo}/ics`,
+      portalMagicLink,
     }, customerLang);
 
     const mail = {
@@ -4362,6 +4427,7 @@ app.post("/api/admin/orders/:orderNo/resend-email", requireAdmin, async (req, re
         order.photographer?.email ||
         "";
       const photographerPhone = PHOTOG_PHONES[String(photographerKey).toLowerCase()] || "";
+      const portalMagicLink = await createCustomerPortalMagicLink(order.billing || {}, { sessionDays: 14 }).catch(() => null);
       const emailData = buildCustomerEmail({
         objectInfo,
         serviceListWithPrice,
@@ -4376,7 +4442,8 @@ app.post("/api/admin/orders/:orderNo/resend-email", requireAdmin, async (req, re
         keyPickup: order.keyPickup || {},
         orderNo: order.orderNo,
         address: order.address || order.billing?.street || "",
-        icsUrl: `${frontendBase}/api/orders/${order.orderNo}/ics`
+        icsUrl: `${frontendBase}/api/orders/${order.orderNo}/ics`,
+        portalMagicLink,
       }, customerLang);
       subject = emailData.subject;
       html = emailData.html;
@@ -8925,9 +8992,29 @@ app.get("/api/admin/company-migration/preview", requireSuperAdmin, async (_req, 
   }
 });
 
+async function syncAllActiveCompanyMembersToProviders() {
+  const companies = await db.listCompanies({ limit: 5000, offset: 0, queryText: "" });
+  for (const company of companies || []) {
+    try {
+      await logtoOrgSync.ensureOrganizationForCompany(company);
+    } catch (_e) {}
+    const members = await db.listCompanyMembers(company.id);
+    for (const member of members || []) {
+      if (String(member.status || "") !== "active") continue;
+      try {
+        await logtoOrgSync.addCompanyMemberToLogtoOrg(company.id, member);
+      } catch (_e) {}
+      try {
+        await rbac.syncCompanyMemberRolesFromDb(Number(member.id));
+      } catch (_e) {}
+    }
+  }
+}
+
 app.post("/api/admin/company-migration/run", requireSuperAdmin, async (_req, res) => {
   try {
-    const result = await db.bootstrapCompaniesFromCustomers({ dryRun: false });
+    const result = await db.syncCompaniesFromCustomersAndContacts();
+    await syncAllActiveCompanyMembersToProviders();
     res.json({ ok: true, ...result });
   } catch (err) {
     res.status(500).json({ error: err.message || "Migration fehlgeschlagen" });
@@ -8979,6 +9066,9 @@ function mapCompanyMembersForAdminUsersList(members) {
 }
 
 async function buildAdminCompaniesPayload({ q = "", status = "alle" } = {}) {
+  try {
+    await db.syncCompaniesFromCustomersAndContacts();
+  } catch (_syncErr) {}
   const rows = await db.listCompanies({ limit: 500, offset: 0, queryText: q });
   const companies = [];
   let haupt = 0;
@@ -10929,11 +11019,17 @@ app.post("/api/admin/backups/:name/restore", requireAdmin, async (req, res) => {
     if (fs.statSync(fullPath).isDirectory()) {
       const filesTar = path.join(fullPath, "files.tar");
       if (!fs.existsSync(filesTar)) return res.status(400).json({ error: "files.tar nicht im Backup-Ordner gefunden" });
-      execFile("tar", ["-xf", filesTar, "-C", "/volume1/docker"],
+      const restoreTarget = process.env.BACKUP_RESTORE_TARGET || "/volume1/docker";
+      execFile("tar", ["-xf", filesTar, "-C", restoreTarget],
         { timeout: 60000 },
         (err, stdout, stderr) => {
           if (err) return res.status(500).json({ error: err.message, stderr });
-          res.json({ ok: true, message: "Dateien wiederhergestellt. Backend-Neustart empfohlen.", output: stdout });
+          res.json({
+            ok: true,
+            message: "Dateien wiederhergestellt. Backend-Neustart empfohlen.",
+            output: stdout,
+            restoreTarget,
+          });
         }
       );
       return;

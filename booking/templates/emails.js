@@ -281,6 +281,7 @@ const MAIL_I18N = {
       confirmedBadge: "\u2713 Bestaetigt",
       routeBtn: "\ud83d\udccd Route oeffnen",
       calendarBtn: "\ud83d\udcc5 Kalender (.ics)",
+      portalBtn: "Mein Konto oeffnen",
       servicesTitle: "\ud83d\udce6 Dienstleistungen",
       priceTitle: "\ud83d\udcb0 Preis",
       notesTitle: "\ud83d\udcdd Hinweise",
@@ -388,6 +389,7 @@ const MAIL_I18N = {
       confirmedBadge: "\u2713 Confirmed",
       routeBtn: "\ud83d\udccd Open Route",
       calendarBtn: "\ud83d\udcc5 Calendar (.ics)",
+      portalBtn: "Open my account",
       servicesTitle: "\ud83d\udce6 Services",
       priceTitle: "\ud83d\udcb0 Price",
       notesTitle: "\ud83d\udcdd Notes",
@@ -495,6 +497,7 @@ const MAIL_I18N = {
       confirmedBadge: "\u2713 Confirmee",
       routeBtn: "\ud83d\udccd Ouvrir l'itineraire",
       calendarBtn: "\ud83d\udcc5 Calendrier (.ics)",
+      portalBtn: "Ouvrir mon compte",
       servicesTitle: "\ud83d\udce6 Services",
       priceTitle: "\ud83d\udcb0 Prix",
       notesTitle: "\ud83d\udcdd Remarques",
@@ -602,6 +605,7 @@ const MAIL_I18N = {
       confirmedBadge: "\u2713 Confermata",
       routeBtn: "\ud83d\udccd Apri percorso",
       calendarBtn: "\ud83d\udcc5 Calendario (.ics)",
+      portalBtn: "Apri il mio account",
       servicesTitle: "\ud83d\udce6 Servizi",
       priceTitle: "\ud83d\udcb0 Prezzo",
       notesTitle: "\ud83d\udcdd Note",
@@ -709,6 +713,7 @@ const MAIL_I18N = {
       confirmedBadge: "\u2713 Potvrdjeno",
       routeBtn: "\ud83d\udccd Otvori rutu",
       calendarBtn: "\ud83d\udcc5 Kalendar (.ics)",
+      portalBtn: "Otvori moj nalog",
       servicesTitle: "\ud83d\udce6 Usluge",
       priceTitle: "\ud83d\udcb0 Cena",
       notesTitle: "\ud83d\udcdd Napomene",
@@ -1018,10 +1023,12 @@ function buildCustomerEmail(data, lang = "de"){
     : (data.address || "");
   const mapsUrl = addressStr ? `https://maps.google.com/?q=${encodeURIComponent(addressStr)}` : null;
   const icsUrl  = data.icsUrl || null;
+  const portalMagicLink = data.portalMagicLink || null;
 
   const ctaButtons = [
     mapsUrl ? `<a href="${mapsUrl}" style="display:inline-block;background:#9e8649;color:#fff;padding:11px 22px;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;margin-right:8px">${t.customerBooking.routeBtn}</a>` : null,
-    icsUrl  ? `<a href="${icsUrl}"  style="display:inline-block;background:#f3f4f6;color:#374151;padding:11px 22px;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;border:1px solid #d1d5db">${t.customerBooking.calendarBtn}</a>` : null,
+    icsUrl  ? `<a href="${icsUrl}"  style="display:inline-block;background:#f3f4f6;color:#374151;padding:11px 22px;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;border:1px solid #d1d5db;margin-right:8px">${t.customerBooking.calendarBtn}</a>` : null,
+    portalMagicLink ? `<a href="${portalMagicLink}" style="display:inline-block;background:#111827;color:#ffffff;padding:11px 22px;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px">${t.customerBooking.portalBtn}</a>` : null,
   ].filter(Boolean);
 
   const keyBlock = `<div style="background:#f9f7f2;border-left:4px solid #c5a059;border-radius:0 8px 8px 0;padding:16px 20px;margin-bottom:8px">

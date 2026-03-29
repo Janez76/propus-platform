@@ -1,8 +1,10 @@
 node_modules/
 .env
+.env.vps
 .env.local
 .env.*.local
 .env.logto
+backups/
 core/dumps/
 data/pgdata/
 data/logto-pgdata/

@@ -920,6 +920,7 @@
   "customerList.table.actions": "Actions",
   "customerList.label.orderCount": "{{n}} orders",
   "contacts.title": "Additional Contacts",
+  "contacts.syncFirmHint": "For business customers (customer \"Company\" field set), contacts with an email are kept as company employees and assigned to the Logto organization once a matching Logto account exists.",
   "contacts.button.addContact": "Contact",
   "contacts.button.linkExisting": "Link existing contact",
   "contacts.button.linkNow": "Link now",

@@ -981,6 +981,46 @@ function toCompanySlug(value) {
     .slice(0, 80);
 }
 
+/** Nur Lesen: Firma nach Name (case-insensitive), ohne Anlage. */
+async function findCompanyByName(name) {
+  const companyName = String(name || "").trim();
+  if (!companyName) return null;
+  const { rows } = await query(
+    `SELECT id, name, slug, billing_customer_id,
+            COALESCE(standort, '') AS standort, COALESCE(notiz, '') AS notiz,
+            COALESCE(status, 'aktiv') AS status,
+            created_at, updated_at
+     FROM companies
+     WHERE LOWER(name) = LOWER($1)
+     LIMIT 1`,
+    [companyName]
+  );
+  return rows[0] || null;
+}
+
+/** Gleiche Rollenlogik wie in syncCompaniesFromCustomersAndContacts (Kontaktfeld role). */
+function mapCustomerContactRoleToCompanyMemberRole(roleText) {
+  const txt = String(roleText || "").toLowerCase();
+  if (txt.includes("haupt") || txt.includes("owner") || txt.includes("admin")) {
+    return "company_admin";
+  }
+  return "company_employee";
+}
+
+async function findCompanyMemberByCompanyAndEmail(companyId, email) {
+  const cid = Number(companyId);
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  if (!Number.isFinite(cid) || !normalizedEmail) return null;
+  const { rows } = await query(
+    `SELECT *
+     FROM company_members
+     WHERE company_id = $1 AND LOWER(email) = $2
+     LIMIT 1`,
+    [cid, normalizedEmail]
+  );
+  return rows[0] || null;
+}
+
 async function ensureCompanyByName(name, { billingCustomerId = null } = {}) {
   const companyName = String(name || "").trim();
   if (!companyName) return null;
@@ -1552,11 +1592,7 @@ async function syncCompaniesFromCustomersAndContacts() {
       billingCustomerId: row.customer_id != null ? Number(row.customer_id) : null,
     });
     if (!company) continue;
-    const roleText = String(row.contact_role || "").toLowerCase();
-    const role =
-      roleText.includes("haupt") || roleText.includes("owner") || roleText.includes("admin")
-        ? "company_admin"
-        : "company_employee";
+    const role = mapCustomerContactRoleToCompanyMemberRole(row.contact_role);
     await upsertCompanyMember({
       companyId: Number(company.id),
       customerId: row.customer_id != null ? Number(row.customer_id) : null,
@@ -2621,6 +2657,9 @@ module.exports = {
   setCustomerPasswordHash,
   setCustomerPasswordById,
   ensureCompanyByName,
+  findCompanyByName,
+  mapCustomerContactRoleToCompanyMemberRole,
+  findCompanyMemberByCompanyAndEmail,
   createCompanyWithMeta,
   listCompanies,
   listCompaniesWithAdminData,

@@ -920,6 +920,7 @@
   "customerList.table.actions": "Aktionen",
   "customerList.label.orderCount": "{{n}} Bestellungen",
   "contacts.title": "Weitere Kontakte",
+  "contacts.syncFirmHint": "Bei Firmenkunden (Feld „Firma“ am Kunden) werden Kontakte mit E-Mail automatisch als Firmenmitarbeiter gepflegt und der Logto-Organisation zugeordnet, sobald ein passendes Logto-Konto existiert.",
   "contacts.button.addContact": "Kontakt",
   "contacts.button.linkExisting": "Vorhandenen Kontakt verknüpfen",
   "contacts.button.linkNow": "Jetzt verknüpfen",

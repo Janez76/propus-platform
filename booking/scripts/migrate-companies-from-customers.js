@@ -12,8 +12,16 @@ const db = require("../db");
 
 async function run() {
   const apply = process.argv.includes("--apply");
-  const result = await db.bootstrapCompaniesFromCustomers({ dryRun: !apply });
+  const result = apply
+    ? await db.syncCompaniesFromCustomersAndContacts()
+    : await db.bootstrapCompaniesFromCustomers({ dryRun: true });
   const mode = apply ? "APPLY" : "PREVIEW";
+  if (apply) {
+    console.log(
+      `[company-migration] mode=${mode} bootstrapCompanies=${result.bootstrapCompanies || 0} linkedContacts=${result.linkedContacts || 0}`
+    );
+    return;
+  }
   console.log(`[company-migration] mode=${mode} companies=${result.companies.length}`);
   for (const row of result.companies) {
     console.log(
