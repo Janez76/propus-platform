@@ -15,6 +15,25 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.276",
+    date: "2026-03-29",
+    title: "Deploy: Core-DB-Migrationen für Fotografen-Stammdaten",
+    changes: [
+      {
+        type: "fix",
+        text: "Core-Migrationen 009–011: booking.photographers um bookable, photo_url und active; booking.photographer_settings um Admin-Spalten (wie Booking 055/057). Läuft mit docker compose --profile migrate – behebt «column p.bookable does not exist» auf rein Core-migrierten DBs.",
+      },
+      {
+        type: "improvement",
+        text: "core/migrations/002_booking_schema.sql: CREATE booking.photographers entspricht den Feldern; booking/schema.sql um active ergänzt.",
+      },
+      {
+        type: "improvement",
+        text: "Backend-Boot: Fehler bei initSchema/runMigrations brechen den Start ab (kein stilles Weiterlaufen ohne Spalten).",
+      },
+    ],
+  },
+  {
     version: "2.3.274",
     date: "2026-03-29",
     title: "Mitarbeiter-Settings: Migration 057 und stabileres Speichern",

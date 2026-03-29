@@ -15,6 +15,21 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.276",
+    date: "2026-03-29",
+    title: "Deploy: Core-DB-Migrationen Fotografen-Stammdaten",
+    changes: [
+      {
+        type: "fix",
+        text: "Core-Migrationen 009–011: booking.photographers (bookable, photo_url, active) und photographer_settings Admin-Spalten; Compose-Profil migrate – behebt fehlende Spalte p.bookable auf Core-only DBs.",
+      },
+      {
+        type: "improvement",
+        text: "002_booking_schema photographers-CREATE und booking/schema.sql active; Boot bricht bei DB-Migrationsfehler ab.",
+      },
+    ],
+  },
+  {
     version: "2.3.274",
     date: "2026-03-29",
     title: "Mitarbeiter-Settings: Migration 057, stabileres Speichern",

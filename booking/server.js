@@ -12243,12 +12243,8 @@ if (fs.existsSync(ADMIN_PANEL_DIST)) {
 
 async function ensureDatabaseBootstrapped() {
   if (!process.env.DATABASE_URL) return;
-  try {
-    if (db.initSchema) await db.initSchema();
-    if (db.runMigrations) await db.runMigrations();
-  } catch (e) {
-    console.error("[boot] DB init/migrations failed:", e?.message || e);
-  }
+  if (db.initSchema) await db.initSchema();
+  if (db.runMigrations) await db.runMigrations();
 }
 
 /** EXXAS-Zugangsdaten aus Umgebungsvariablen in app_settings spielen, wenn noch kein API-Key in der DB liegt */

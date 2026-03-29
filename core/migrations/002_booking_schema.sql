@@ -53,6 +53,9 @@ CREATE TABLE IF NOT EXISTS booking.photographers (
   whatsapp  TEXT NOT NULL DEFAULT '',
   initials  TEXT NOT NULL DEFAULT '',
   is_admin  BOOLEAN NOT NULL DEFAULT FALSE,
+  active    BOOLEAN NOT NULL DEFAULT TRUE,
+  bookable  BOOLEAN NOT NULL DEFAULT TRUE,
+  photo_url TEXT NOT NULL DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

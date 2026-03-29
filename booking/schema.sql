@@ -147,6 +147,9 @@ ALTER TABLE photographers
 ALTER TABLE photographers
   ADD COLUMN IF NOT EXISTS photo_url TEXT NOT NULL DEFAULT '';
 
+ALTER TABLE photographers
+  ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE;
+
 -- ─── Customer Auth (idempotent upgrades) ─────────────────────────────────────
 -- Falls customers Tabelle schon existiert: Spalte ergänzen.
 ALTER TABLE customers
