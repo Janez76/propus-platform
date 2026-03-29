@@ -38,9 +38,12 @@ jobs:
           $keyDir = Join-Path $HOME '.ssh'
           $keyPath = Join-Path $keyDir 'id_ed25519_propus_vps'
           New-Item -ItemType Directory -Force -Path $keyDir | Out-Null
-          @"
+          # OpenSSH lehnt Keys mit UTF-8-BOM ab; Set-Content kann BOM schreiben.
+          $keyMaterial = @"
           ${{ secrets.VPS_SSH_PRIVATE_KEY }}
-          "@ | Set-Content -Path $keyPath
+          "@
+          $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+          [System.IO.File]::WriteAllText($keyPath, $keyMaterial.TrimEnd() + [Environment]::NewLine, $utf8NoBom)
           chmod 700 $keyDir
           chmod 600 $keyPath
 
@@ -48,9 +51,11 @@ jobs:
         if: ${{ secrets.VPS_ENV_FILE != '' }}
         shell: pwsh
         run: |
-          @"
+          $envBody = @"
           ${{ secrets.VPS_ENV_FILE }}
-          "@ | Set-Content -Path ".env.vps"
+          "@
+          $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+          [System.IO.File]::WriteAllText((Join-Path $env:GITHUB_WORKSPACE '.env.vps'), $envBody.TrimEnd() + [Environment]::NewLine, $utf8NoBom)
 
       # deploy-vps.ps1: tar upload, migrate build+run, platform build+up, in-script /api/health wait (~90s).
       # Kein zweites "docker compose build platform" hier — das war redundant und verdoppelte die Build-Zeit.
@@ -58,7 +63,9 @@ jobs:
         shell: pwsh
         run: |
           $vpsKey = Join-Path $HOME '.ssh/id_ed25519_propus_vps'
-          ./scripts/deploy-vps.ps1 `
+          $deployScript = Join-Path $env:GITHUB_WORKSPACE 'scripts/deploy-vps.ps1'
+          # Unter Linux schlaegt ./script.ps1 oft fehl (kein +x); & oder -File ist zuverlaessig.
+          & $deployScript `
             -VpsHost 87.106.24.107 `
             -User root `
             -KeyPath $vpsKey `
@@ -71,7 +78,7 @@ jobs:
         run: |
           $keyPath = Join-Path $HOME '.ssh/id_ed25519_propus_vps'
           ssh `
-            -i $keyPath `
+            -i "$keyPath" `
             -o IdentitiesOnly=yes `
             -o StrictHostKeyChecking=accept-new `
             root@87.106.24.107 `
