@@ -10515,6 +10515,13 @@ app.put("/api/admin/photographers/:key/settings", requireAdmin, async (req, res)
       patch.home_lon = Number.isFinite(n) ? n : null;
     }
 
+    const psCols = await db.getRegclassColumnSet("photographer_settings");
+    const droppedPs = Object.keys(patch).filter((k) => !psCols.has(k));
+    for (const k of droppedPs) delete patch[k];
+    if (droppedPs.length) {
+      console.warn("[photographers/settings PUT] Spalten fehlen in photographer_settings (Migration ausstehend?), ueberspringe:", droppedPs.join(", "));
+    }
+
     if (Object.keys(patch).length > 0) {
       const cols = Object.keys(patch);
       const setParts = cols.map((c, i) => `${c}=$${i + 1}`);

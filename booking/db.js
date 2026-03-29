@@ -51,6 +51,28 @@ async function query(sql, params = []) {
   return p.query(sql, params);
 }
 
+/** Spalten der per search_path aufgelösten Tabelle (wie unqualifizierte SQL-Namen). */
+const regclassColumnSetCache = new Map(); // tableName -> { set: Set<string>, at: number }
+const REGCLASS_COL_CACHE_MS = 5 * 60 * 1000;
+
+async function getRegclassColumnSet(tableName) {
+  const now = Date.now();
+  const hit = regclassColumnSetCache.get(tableName);
+  if (hit && now - hit.at < REGCLASS_COL_CACHE_MS) return hit.set;
+  const { rows } = await query(
+    `SELECT a.attname::text AS column_name
+     FROM pg_catalog.pg_attribute a
+     JOIN pg_catalog.pg_class c ON c.oid = a.attrelid
+     WHERE c.oid = ($1::text)::regclass
+       AND a.attnum > 0
+       AND NOT a.attisdropped`,
+    [tableName]
+  );
+  const set = new Set(rows.map((r) => r.column_name));
+  regclassColumnSetCache.set(tableName, { set, at: now });
+  return set;
+}
+
 let productSeedChecked = false;
 
 function safeJson(value, fallback) {
@@ -2648,24 +2670,25 @@ async function setPhotographerAdminFlag(key, isAdmin) {
 
 async function updatePhotographerCore(key, { name, email, phone, phone_mobile, whatsapp, initials, bookable, photo_url, active }) {
   const normKey = String(key || "").toLowerCase();
+  const col = await getRegclassColumnSet("photographers");
   const updates = [];
   const values = [];
   let i = 1;
-  if (name !== undefined) { updates.push(`name = $${i++}`); values.push(String(name || "")); }
-  if (email !== undefined) { updates.push(`email = $${i++}`); values.push(String(email || "")); }
-  if (phone !== undefined) { updates.push(`phone = $${i++}`); values.push(phone == null ? "" : (formatPhoneCH(String(phone)) || String(phone).trim())); }
-  if (phone_mobile !== undefined) {
+  if (name !== undefined && col.has("name")) { updates.push(`name = $${i++}`); values.push(String(name || "")); }
+  if (email !== undefined && col.has("email")) { updates.push(`email = $${i++}`); values.push(String(email || "")); }
+  if (phone !== undefined && col.has("phone")) { updates.push(`phone = $${i++}`); values.push(phone == null ? "" : (formatPhoneCH(String(phone)) || String(phone).trim())); }
+  if (phone_mobile !== undefined && col.has("phone_mobile")) {
     updates.push(`phone_mobile = $${i++}`);
     values.push(phone_mobile == null ? "" : (formatPhoneCH(String(phone_mobile)) || String(phone_mobile).trim()));
   }
-  if (whatsapp !== undefined) {
+  if (whatsapp !== undefined && col.has("whatsapp")) {
     updates.push(`whatsapp = $${i++}`);
     values.push(whatsapp == null ? "" : String(whatsapp).trim());
   }
-  if (initials !== undefined) { updates.push(`initials = $${i++}`); values.push(String(initials || "")); }
-  if (bookable !== undefined) { updates.push(`bookable = $${i++}`); values.push(!!bookable); }
-  if (active !== undefined) { updates.push(`active = $${i++}`); values.push(!!active); }
-  if (photo_url !== undefined) { updates.push(`photo_url = $${i++}`); values.push(String(photo_url == null ? "" : photo_url)); }
+  if (initials !== undefined && col.has("initials")) { updates.push(`initials = $${i++}`); values.push(String(initials || "")); }
+  if (bookable !== undefined && col.has("bookable")) { updates.push(`bookable = $${i++}`); values.push(!!bookable); }
+  if (active !== undefined && col.has("active")) { updates.push(`active = $${i++}`); values.push(!!active); }
+  if (photo_url !== undefined && col.has("photo_url")) { updates.push(`photo_url = $${i++}`); values.push(String(photo_url == null ? "" : photo_url)); }
   if (updates.length === 0) return;
   values.push(normKey);
   await query(
@@ -2827,6 +2850,7 @@ module.exports = {
   upsertPhotographerSettings,
   upsertPhotographer,
   setPhotographerAdminFlag,
+  getRegclassColumnSet,
   updatePhotographerCore,
   deactivatePhotographer,
   reactivatePhotographer,

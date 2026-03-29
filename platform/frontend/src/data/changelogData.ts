@@ -15,6 +15,21 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.277",
+    date: "2026-03-30",
+    title: "Mitarbeiter-Settings: kein HTTP 500 bei fehlenden DB-Spalten",
+    changes: [
+      {
+        type: "fix",
+        text: "PUT /api/admin/photographers/:key/settings: photographer_settings-Patch und updatePhotographerCore nur noch gegen vorhandene Tabellenspalten (pg regclass + Cache). Verhindert 500, wenn Migrationen auf einer Installation noch nicht alle Admin-Spalten angelegt haben.",
+      },
+      {
+        type: "improvement",
+        text: "Deploy-Version auf v2.3.277 erhöht.",
+      },
+    ],
+  },
+  {
     version: "2.3.276",
     date: "2026-03-29",
     title: "Deploy: Core-DB-Migrationen für Fotografen-Stammdaten",
