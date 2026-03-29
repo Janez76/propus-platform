@@ -17,6 +17,22 @@ Diese Notiz beschreibt das Zusammenspiel von VPS-Deploy und Playwright-Smoke-Tes
   - baut das `platform`-Image neu
   - prueft `/api/health`
   - startet danach den echten Buchungs-Smoke-Test
+  - bei `workflow_dispatch` kann man `deploy`, `smoke` oder beides auswaehlen
+
+## Manuelle Workflow-Starts
+
+Der Workflow kann auf zwei Arten laufen:
+
+- `push` auf `master`
+  - fuehrt immer `deploy` und danach `booking-smoke` aus
+
+- `workflow_dispatch`
+  - `run_deploy=true`, `run_smoke=true`
+    - kompletter Deploy plus Smoke-Test
+  - `run_deploy=true`, `run_smoke=false`
+    - nur Deploy
+  - `run_deploy=false`, `run_smoke=true`
+    - nur Smoke-Test gegen bereits laufende Staging-/Produktiv-URL
 
 ## GitHub Environment `production`
 
