@@ -15,6 +15,21 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.269",
+    date: "2026-03-29",
+    title: "Kundenliste: Suchfeld, Tabellenkopf, Aktion Buchungsportal",
+    changes: [
+      {
+        type: "improvement",
+        text: "Kunden-Seite: groesseres Suchfeld (Flex-Layout), keine Ueberlappung von Lupe und Leeren-Button; fehlende Uebersetzung customerList.table.id (DE/EN) fuer Tabellenkopf ID.",
+      },
+      {
+        type: "improvement",
+        text: "Desktop-Kundenliste: Button Buchungsportal oeffnen nur noch als Icon; voller Text im Tooltip und fuer Screenreader (sr-only).",
+      },
+    ],
+  },
+  {
     version: "2.3.265",
     date: "2026-03-29",
     title: "Buchungs-Wizard: Vor-Ort-Kontakte, Alt-Rechnungsadresse, Sprachauswahl",

@@ -492,40 +492,49 @@ export function CustomersPage() {
       </div>
 
       {/* Search & Filter */}
-      <div className="surface-card p-4">
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1 group">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 p-text-subtle transition-colors group-focus-within:text-[#C5A059]" />
-            <input
-              type="text"
-              placeholder={viewMode === "contacts" ? t(lang, "customers.placeholder.searchContacts") : t(lang, "customers.placeholder.search")}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="ui-input pl-11 pr-9 py-3 text-base"
-            />
-            {query && (
-              <button
-                type="button"
-                onClick={() => setQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:text-zinc-200 dark:hover:bg-zinc-700 transition-colors"
-                title="Suche leeren"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
+      <div className="surface-card p-5">
+        <div className="flex flex-col sm:flex-row sm:items-stretch gap-3">
+          <div className="flex flex-1 min-w-0 sm:min-w-[14rem] sm:flex-[2_1_62%] group">
+            <div
+              className="flex w-full min-h-[56px] items-center rounded-[10px] border border-[var(--border-strong)] bg-[var(--surface-raised)] transition-all duration-200 focus-within:border-[var(--accent)] focus-within:bg-[var(--surface)] focus-within:shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent)_22%,transparent)] dark:focus-within:shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent)_28%,transparent)]"
+            >
+              <span className="flex shrink-0 items-center justify-center pl-4 pr-2" aria-hidden>
+                <Search className="h-5 w-5 p-text-subtle transition-colors group-focus-within:text-[#C5A059]" />
+              </span>
+              <input
+                type="text"
+                autoComplete="off"
+                placeholder={viewMode === "contacts" ? t(lang, "customers.placeholder.searchContacts") : t(lang, "customers.placeholder.search")}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className="min-h-[56px] min-w-0 flex-1 border-0 bg-transparent py-3 pr-2 text-lg text-[var(--text-main)] placeholder:text-[var(--text-subtle)] focus:outline-none focus:ring-0"
+              />
+              {query ? (
+                <button
+                  type="button"
+                  onClick={() => setQuery("")}
+                  className="mr-2 flex shrink-0 items-center justify-center rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-zinc-700 dark:hover:text-zinc-200"
+                  title="Suche leeren"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              ) : (
+                <span className="w-2 shrink-0" aria-hidden />
+              )}
+            </div>
           </div>
           {viewMode === "customers" && (
             <select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
-              className="ui-input py-3"
+              className="ui-input py-4 text-base min-h-[56px] shrink-0 w-full sm:w-auto sm:min-w-[11rem]"
             >
               <option value="all">{t(lang, "customers.filter.allRoles")}</option>
               <option value="admin">{t(lang, "customers.filter.adminOnly")}</option>
               <option value="customer">{t(lang, "customers.filter.customersOnly")}</option>
             </select>
           )}
-          <div className="flex items-center gap-2 px-4 py-2 rounded-lg p-bg-raised border p-border-soft whitespace-nowrap">
+          <div className="flex items-center gap-2 px-4 py-2 sm:py-0 sm:self-center rounded-lg p-bg-raised border p-border-soft whitespace-nowrap shrink-0">
             <span className="text-xs font-semibold uppercase tracking-wider p-text-muted">{t(lang, "customers.label.hits")}</span>
             <span className="text-sm font-bold p-text-accent tabular-nums">{viewMode === "contacts" ? filteredContacts.length : filtered.length}</span>
           </div>

@@ -910,6 +910,7 @@
   "customerList.tooltip.edit": "Edit",
   "customerList.tooltip.view": "Open view",
   "customerList.tooltip.openAsCustomer": "Open booking portal – see what the customer sees",
+  "customerList.table.id": "ID",
   "customerList.table.customer": "Customer",
   "customerList.table.contact": "Contact",
   "customerList.table.address": "Address",

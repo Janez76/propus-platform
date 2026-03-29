@@ -161,9 +161,9 @@ export function CustomerList({ items, onEdit, onToggleBlocked, onView, onOpenAsC
       <div className="hidden lg:block surface-card overflow-hidden" style={{ padding: 0 }}>
           <table className="w-full table-fixed">
             <colgroup>
-              <col className="w-[4%]" />
-              <col className="w-[22%]" />
-              <col className="w-[22%]" />
+              <col className="w-[6%]" />
+              <col className="w-[21%]" />
+              <col className="w-[21%]" />
               <col className="w-[9%]" />
               <col className="w-[9%]" />
               <col className="w-[7%]" />
@@ -230,12 +230,13 @@ export function CustomerList({ items, onEdit, onToggleBlocked, onView, onOpenAsC
                     <div className="flex items-center justify-end gap-1 flex-nowrap">
                       {onOpenAsCustomer && !c.blocked && !isSyntheticCompanyEmail(c.email) && (
                         <button
+                          type="button"
                           onClick={() => onOpenAsCustomer(c)}
-                          className="btn-primary inline-flex items-center gap-1 px-2.5 py-1.5 text-xs min-h-0 min-w-0"
+                          className="btn-primary inline-flex items-center justify-center px-2.5 py-1.5 text-xs min-h-0 min-w-0"
                           title={t(lang, "customerList.tooltip.openAsCustomer")}
                         >
-                          <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-                          <span className="truncate max-w-[90px]">{t(lang, "customerList.button.openAsCustomer")}</span>
+                          <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                          <span className="sr-only">{t(lang, "customerList.button.openAsCustomer")}</span>
                         </button>
                       )}
                       {onView && (
