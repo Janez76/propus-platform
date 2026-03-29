@@ -57,6 +57,13 @@ function Test-SshMuxAlive {
 
 function Open-SshDeployMux {
     if ($NoMultiplex) { return }
+    # Windows-OpenSSH: ControlMaster/ControlPath fuehrt oft zu "getsockname failed: Not a socket" — kein Mux.
+    $isWin = [System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform(
+        [System.Runtime.InteropServices.OSPlatform]::Windows)
+    if ($isWin) {
+        Write-Host "  Hinweis: Unter Windows kein SSH-Multiplexing (OpenSSH-Limit); bei Key-Passphrase ggf. mehrfach eingeben oder ssh-add." -ForegroundColor DarkGray
+        return
+    }
     $safeHost = ($VpsHost -replace '[^\w\-]', '_')
     $script:SshControlPath = Join-Path $env:TEMP "propus-deploy-${User}-${safeHost}.sock"
     if (Test-Path -LiteralPath $script:SshControlPath) {
@@ -80,7 +87,9 @@ function Open-SshDeployMux {
         -o StrictHostKeyChecking=accept-new `
         "${User}@${VpsHost}"
     if ($LASTEXITCODE -ne 0) {
-        throw "SSH ControlMaster konnte nicht gestartet werden (Passphrase/Netzwerk?)."
+        Write-Warning "SSH ControlMaster Start fehlgeschlagen — Deploy ohne Multiplexing (Passphrase ggf. mehrfach)."
+        Remove-Item -LiteralPath $script:SshControlPath -Force -ErrorAction SilentlyContinue
+        return
     }
     $wait = 0
     while ($wait -lt 150) {
@@ -89,7 +98,9 @@ function Open-SshDeployMux {
         $wait++
     }
     if (-not (Test-SshMuxAlive)) {
-        throw "SSH Control-Socket wurde nicht bereit (Timeout)."
+        Write-Warning "SSH Control-Socket Timeout — Deploy ohne Multiplexing."
+        Remove-Item -LiteralPath $script:SshControlPath -Force -ErrorAction SilentlyContinue
+        return
     }
     $script:UseSshMux = $true
     $script:SshMuxStartedHere = $true
