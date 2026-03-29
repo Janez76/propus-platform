@@ -4,7 +4,7 @@ import { useAuthStore } from "../store/authStore";
 import { t } from "../i18n";
 import { formatPhoneCH } from "../lib/format";
 import { PhoneLink } from "../components/ui/PhoneLink";
-import { loadExxasConfig, loadExxasConfigMerged, type ExxasMappingConfig } from "../api/exxas";
+import { loadExxasConfig, type ExxasMappingConfig } from "../api/exxas";
 import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import {
   confirmExxasReconciliation,
@@ -769,7 +769,7 @@ export function ExxasReconcilePage() {
   }
 
   async function runPreview() {
-    if (!token || !configReady) return;
+    if (!token || !hasCredentials) return;
     setLoading(true);
     setError("");
     setSuccess("");
@@ -931,7 +931,7 @@ export function ExxasReconcilePage() {
           <button
             type="button"
             onClick={runPreview}
-            disabled={!configReady || !hasCredentials || loading || confirming}
+            disabled={!hasCredentials || loading || confirming}
             className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm font-medium text-slate-700 dark:text-zinc-200 disabled:opacity-50"
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
@@ -1703,7 +1703,7 @@ export function ExxasReconcilePage() {
           <button
             type="button"
             onClick={runPreview}
-            disabled={!configReady || !hasCredentials || loading || confirming}
+            disabled={!hasCredentials || loading || confirming}
             className="mt-4 inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm font-medium disabled:opacity-50"
           >
             <SkipForward className="h-4 w-4" />

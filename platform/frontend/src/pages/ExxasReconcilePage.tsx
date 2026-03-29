@@ -4,7 +4,7 @@ import { useAuthStore } from "../store/authStore";
 import { t } from "../i18n";
 import { formatPhoneCH } from "../lib/format";
 import { PhoneLink } from "../components/ui/PhoneLink";
-import { loadExxasConfig, loadExxasConfigMerged, type ExxasMappingConfig } from "../api/exxas";
+import { loadExxasConfig, type ExxasMappingConfig } from "../api/exxas";
 import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import {
   confirmExxasReconciliation,
@@ -773,7 +773,7 @@ export function ExxasReconcilePage() {
   }
 
   async function runPreview() {
-    if (!token || !configReady) return;
+    if (!token || !hasCredentials) return;
     setLoading(true);
     setError("");
     setSuccess("");

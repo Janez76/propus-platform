@@ -172,10 +172,9 @@ export function BookingWizardPage() {
         setSubmitted(hasOrderNo ? orderNoNum : null);
         window.scrollTo(0, 0);
       } else {
+        const r = res as unknown as { error?: unknown } | null | undefined;
         const apiErr =
-          res && typeof (res as { error?: unknown }).error === "string"
-            ? String((res as { error: string }).error).trim()
-            : "";
+          r && typeof r.error === "string" ? String(r.error).trim() : "";
         setSubmitError(apiErr || t(lang, "booking.submit.error"));
         window.scrollTo(0, 0);
       }

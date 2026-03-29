@@ -15,6 +15,21 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.274",
+    date: "2026-03-29",
+    title: "Mitarbeiter-Settings: Migration 057, stabileres Speichern",
+    changes: [
+      {
+        type: "fix",
+        text: "DB-Migration 057: photographer_settings um languages, native_language, event_color, password_hash ergaenzt (behebt HTTP 500 bei PUT /api/admin/photographers/:key/settings).",
+      },
+      {
+        type: "fix",
+        text: "Backend: JSONB-Patch fuer Mitarbeiter-Settings; photographers.active im Core-Update; Logto SELECT auf photographers; EXXAS-Seite configReady -> hasCredentials.",
+      },
+    ],
+  },
+  {
     version: "2.3.270",
     date: "2026-03-29",
     title: "EXXAS-Abgleich: Bestaetigungsdialog mit Uebersicht und Kundenwahl",

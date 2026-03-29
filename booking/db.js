@@ -2646,7 +2646,7 @@ async function setPhotographerAdminFlag(key, isAdmin) {
   );
 }
 
-async function updatePhotographerCore(key, { name, email, phone, phone_mobile, whatsapp, initials, bookable, photo_url }) {
+async function updatePhotographerCore(key, { name, email, phone, phone_mobile, whatsapp, initials, bookable, photo_url, active }) {
   const normKey = String(key || "").toLowerCase();
   const updates = [];
   const values = [];
@@ -2664,6 +2664,7 @@ async function updatePhotographerCore(key, { name, email, phone, phone_mobile, w
   }
   if (initials !== undefined) { updates.push(`initials = $${i++}`); values.push(String(initials || "")); }
   if (bookable !== undefined) { updates.push(`bookable = $${i++}`); values.push(!!bookable); }
+  if (active !== undefined) { updates.push(`active = $${i++}`); values.push(!!active); }
   if (photo_url !== undefined) { updates.push(`photo_url = $${i++}`); values.push(String(photo_url == null ? "" : photo_url)); }
   if (updates.length === 0) return;
   values.push(normKey);

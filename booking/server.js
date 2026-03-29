@@ -10454,7 +10454,7 @@ app.put("/api/admin/photographers/:key/settings", requireAdmin, async (req, res)
       const logtoClient = require('./logto-client');
       if (logtoClient.isConfigured()) {
         try {
-          const { rows } = await pool.query(`SELECT email FROM booking.photographers WHERE key = $1`, [key]);
+          const { rows } = await pool.query(`SELECT email FROM photographers WHERE key = $1`, [key]);
           const email = rows[0]?.email;
           if (email) {
             const logtoUser = await logtoClient.findUserByEmail(email);
@@ -10546,7 +10546,9 @@ app.put("/api/admin/photographers/:key/settings", requireAdmin, async (req, res)
 
     res.json({ ok: true });
   } catch (err) {
-    console.error("[photographers/settings PUT]", err?.message || err);
+    const code = err && err.code;
+    const detail = err && err.detail;
+    console.error("[photographers/settings PUT]", err?.message || err, code ? { code, detail } : "");
     res.status(500).json({ error: err.message || "Speichern fehlgeschlagen" });
   }
 });

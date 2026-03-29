@@ -15,6 +15,25 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.274",
+    date: "2026-03-29",
+    title: "Mitarbeiter-Settings: Migration 057 und stabileres Speichern",
+    changes: [
+      {
+        type: "fix",
+        text: "DB-Migration 057: Spalten languages, native_language, event_color, password_hash in photographer_settings nachziehen (behebt HTTP 500 bei PUT /api/admin/photographers/:key/settings auf älteren Installationen).",
+      },
+      {
+        type: "fix",
+        text: "Backend: JSONB-Felder für Mitarbeiter-Settings als Objekte an pg übergeben; photographers.active im Stammdaten-Update; Logto-Abfrage auf photographers; Fehlerlogging mit PG-Code.",
+      },
+      {
+        type: "fix",
+        text: "EXXAS-Abgleich & Buchungs-Wizard: kleine TypeScript-/Konfig-Fixes (hasCredentials, API-Antwort-Cast).",
+      },
+    ],
+  },
+  {
     version: "2.3.272",
     date: "2026-03-29",
     title: "Buchungsportal: Wizard-Fixes, Verfügbarkeit, Deploy",
