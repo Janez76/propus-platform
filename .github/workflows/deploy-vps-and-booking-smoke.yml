@@ -45,11 +45,12 @@ jobs:
           VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
 
       - name: Write .env.vps
-        if: ${{ secrets.VPS_ENV_FILE != '' }}
         run: |
           set -euo pipefail
           if [ -n "${VPS_ENV_FILE:-}" ]; then
             printf '%s\n' "$VPS_ENV_FILE" > "$GITHUB_WORKSPACE/.env.vps"
+          else
+            echo "VPS_ENV_FILE ist leer; verwende ggf. vorhandene .env.vps im Deploy-Skript."
           fi
         env:
           VPS_ENV_FILE: ${{ secrets.VPS_ENV_FILE }}
@@ -82,17 +83,25 @@ jobs:
             "curl -fsS http://127.0.0.1:3100/api/health"
 
       - name: Purge Cloudflare cache
-        if: ${{ secrets.CLOUDFLARE_ZONE_ID != '' && secrets.CLOUDFLARE_AUTH_EMAIL != '' && secrets.CLOUDFLARE_AUTH_KEY != '' }}
         shell: pwsh
         run: |
+          if (-not $env:CLOUDFLARE_ZONE_ID -or -not $env:CLOUDFLARE_AUTH_EMAIL -or -not $env:CLOUDFLARE_AUTH_KEY) {
+            Write-Host "Cloudflare-Secrets fehlen; Cache-Purge wird uebersprungen."
+            exit 0
+          }
+
           Invoke-RestMethod -Method Post `
-            -Uri "https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID }}/purge_cache" `
+            -Uri "https://api.cloudflare.com/client/v4/zones/$env:CLOUDFLARE_ZONE_ID/purge_cache" `
             -Headers @{
-              "X-Auth-Email" = "${{ secrets.CLOUDFLARE_AUTH_EMAIL }}"
-              "X-Auth-Key" = "${{ secrets.CLOUDFLARE_AUTH_KEY }}"
+              "X-Auth-Email" = $env:CLOUDFLARE_AUTH_EMAIL
+              "X-Auth-Key" = $env:CLOUDFLARE_AUTH_KEY
               "Content-Type" = "application/json"
             } `
             -Body '{"purge_everything":true}'
+        env:
+          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+          CLOUDFLARE_AUTH_EMAIL: ${{ secrets.CLOUDFLARE_AUTH_EMAIL }}
+          CLOUDFLARE_AUTH_KEY: ${{ secrets.CLOUDFLARE_AUTH_KEY }}
 
   booking-smoke:
     name: Booking staging smoke
