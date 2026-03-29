@@ -258,6 +258,8 @@ const MAIL_I18N = {
       dateTime: "Datum & Zeit",
       orderNo: "Auftragsnr.",
       name: "Name",
+      firstName: "Vorname",
+      reference: "Referenz",
       company: "Firma",
       email: "E-Mail",
       phone: "Telefon",
@@ -366,6 +368,8 @@ const MAIL_I18N = {
       dateTime: "Date & Time",
       orderNo: "Order No.",
       name: "Name",
+      firstName: "First name",
+      reference: "Reference",
       company: "Company",
       email: "E-Mail",
       phone: "Phone",
@@ -474,6 +478,8 @@ const MAIL_I18N = {
       dateTime: "Date & Heure",
       orderNo: "No. de commande",
       name: "Nom",
+      firstName: "Prenom",
+      reference: "Reference",
       company: "Societe",
       email: "E-Mail",
       phone: "Telephone",
@@ -582,6 +588,8 @@ const MAIL_I18N = {
       dateTime: "Data & Ora",
       orderNo: "N. ordine",
       name: "Nome",
+      firstName: "Nome",
+      reference: "Riferimento",
       company: "Azienda",
       email: "E-Mail",
       phone: "Telefono",
@@ -690,6 +698,8 @@ const MAIL_I18N = {
       dateTime: "Datum i vreme",
       orderNo: "Br. naloga",
       name: "Ime",
+      firstName: "Ime",
+      reference: "Referenca",
       company: "Firma",
       email: "E-posta",
       phone: "Telefon",
@@ -915,13 +925,29 @@ function secPhotog(data, lang = "de"){
   ]);
 }
 
-function secOnsite(billing, lang = "de"){
-  if (!billing?.onsiteName && !billing?.onsitePhone) return null;
+function secOnsite(billing, lang = "de", onsiteContacts) {
+  const contacts = Array.isArray(onsiteContacts) && onsiteContacts.length
+    ? onsiteContacts
+    : billing?.onsiteName || billing?.onsitePhone || billing?.onsiteEmail
+      ? [
+          {
+            name: billing?.onsiteName,
+            phone: billing?.onsitePhone,
+            email: billing?.onsiteEmail,
+          },
+        ]
+      : [];
+  const filtered = contacts.filter((c) => c && (c.name || c.phone || c.email));
+  if (!filtered.length) return null;
   const t = getMailT(lang);
-  return sec(t.sections.onsite, [
-    tr(t.labels.name, billing.onsiteName),
-    tr(t.labels.phone, billing.onsitePhone)
-  ]);
+  return sec(
+    t.sections.onsite,
+    filtered.flatMap((c) => [
+      tr(t.labels.name, c.name),
+      tr(t.labels.phone, c.phone),
+      tr(t.labels.email, c.email),
+    ])
+  );
 }
 
 function secKeyPickup(keyPickup, lang = "de"){
@@ -1056,7 +1082,7 @@ function buildCustomerEmail(data, lang = "de"){
       ]),
       price ? sec(t.customerBooking.priceTitle, [ tr("", `<div style="background:#fefce8;border:1px solid #fef08a;border-radius:8px;padding:12px 16px">${price}</div>`) ]) : null,
       secPhotog(data, lang),
-      secOnsite(data.billing, lang),
+      secOnsite(data.billing, lang, data.onsiteContacts),
       data.billing?.notes ? sec(t.customerBooking.notesTitle, [ tr("", `<div style="background:#f3f4f6;border-left:4px solid #9e8649;padding:12px 16px;border-radius:4px;font-style:italic;color:#4b5563">${data.billing.notes}</div>`) ]) : null,
       secKeyPickup(data.keyPickup, lang),
       `<div style="margin-top:32px;padding:20px;background:linear-gradient(135deg,#fef3c7,#fde68a);border-radius:12px;border:1px solid #fbbf24">
@@ -1092,7 +1118,7 @@ function buildPhotographerEmail(data, lang){
         tr(t.phone,   data.billing?.phone),
         tr("Bestellreferenz", data.billing?.order_ref)
       ]),
-      secOnsite(data.billing),
+      secOnsite(data.billing, lang, data.onsiteContacts),
       data.billing?.notes ? sec(t.notes, [ tr("", data.billing.notes) ]) : null,
       secKeyPickup(data.keyPickup)
     ],
@@ -1154,19 +1180,22 @@ function buildOfficeEmail(data, lang = "de"){
         tr(t.labels.street, data.billing?.street),
         tr(t.labels.zipCity, data.billing?.zipcity || [data.billing?.zip, data.billing?.city].filter(Boolean).join(" "))
       ]),
-      (data.billing?.alt_company || data.billing?.alt_name || data.billing?.alt_street || data.billing?.alt_zipcity)
+      (data.billing?.alt_company || data.billing?.alt_first_name || data.billing?.alt_name || data.billing?.alt_street || data.billing?.alt_zipcity || data.billing?.alt_email || data.billing?.alt_order_ref || data.billing?.alt_notes)
         ? sec("Abweichende Rechnungsadresse", [
             tr(t.labels.company, data.billing?.alt_company),
+            tr(t.labels.firstName, data.billing?.alt_first_name),
             tr(t.labels.name, data.billing?.alt_name),
             tr("Firma E-Mail", data.billing?.alt_company_email),
             tr("Firma Telefon", data.billing?.alt_company_phone),
             tr(t.labels.email, data.billing?.alt_email),
             tr(t.labels.phone, data.billing?.alt_phone || data.billing?.alt_phone_mobile),
             tr(t.labels.street, data.billing?.alt_street),
-            tr(t.labels.zipCity, data.billing?.alt_zipcity || [data.billing?.alt_zip, data.billing?.alt_city].filter(Boolean).join(" "))
+            tr(t.labels.zipCity, data.billing?.alt_zipcity || [data.billing?.alt_zip, data.billing?.alt_city].filter(Boolean).join(" ")),
+            tr(t.labels.reference, data.billing?.alt_order_ref),
+            tr(t.labels.notes, data.billing?.alt_notes),
           ])
         : null,
-      secOnsite(data.billing, lang),
+      secOnsite(data.billing, lang, data.onsiteContacts),
       data.billing?.notes ? sec(t.sections.notes, [ tr("", data.billing.notes) ]) : null,
       secKeyPickup(data.keyPickup, lang)
     ],

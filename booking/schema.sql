@@ -108,6 +108,9 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+ALTER TABLE orders
+  ADD COLUMN IF NOT EXISTS onsite_contacts JSONB NOT NULL DEFAULT '[]'::jsonb;
+
 -- Fotografen (aus photographers.config.js)
 CREATE TABLE IF NOT EXISTS photographers (
   id        SERIAL PRIMARY KEY,

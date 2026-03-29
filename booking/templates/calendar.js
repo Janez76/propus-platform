@@ -4,6 +4,29 @@ function fmt(val) {
   return val && String(val).trim() ? String(val).trim() : null;
 }
 
+/** Alle Vor-Ort-Kontakte aus Order (JSONB-Array oder Legacy billing/object). */
+function orderOnsiteContactRows(order) {
+  const raw = order?.onsiteContacts || order?.onsite_contacts;
+  if (Array.isArray(raw) && raw.length) {
+    return raw
+      .map((c) => ({
+        name: String(c?.name || "").trim(),
+        phone: String(c?.phone || "").trim(),
+        email: String(c?.email || "").trim(),
+      }))
+      .filter((c) => c.name || c.phone || c.email);
+  }
+  const billing = order?.billing || {};
+  const object = order?.object || {};
+  const name = String(billing.onsiteName || object.onsiteName || "").trim();
+  const phone = String(billing.onsitePhone || object.onsitePhone || "").trim();
+  const email = String(
+    billing.onsiteEmail || object.onsiteEmail || order?.onsiteEmail || order?.onsite_email || ""
+  ).trim();
+  if (name || phone || email) return [{ name, phone, email }];
+  return [];
+}
+
 async function resolvePhotographerCalendarVars(pool, order, extra = {}) {
   const vars = templateRenderer.buildTemplateVars(order, extra);
   await templateRenderer.enrichPhotographerVars(pool, vars);
@@ -93,11 +116,22 @@ function buildCalendarVars(order, extra = {}) {
   }
   const customerBlock = customerLines.join("\n") || "—";
 
-  const onsiteName = (billing.onsiteName || object.onsiteName || "").trim();
-  const onsitePhone = (billing.onsitePhone || object.onsitePhone || "").trim();
+  const onsiteRows = orderOnsiteContactRows(order);
   let onsiteBlock = "";
-  if (onsiteName || onsitePhone) {
-    onsiteBlock = `👤 Vor Ort: ${[onsiteName, onsitePhone ? `Tel: ${onsitePhone}` : null].filter(Boolean).join(" | ")}`;
+  if (onsiteRows.length) {
+    const lines = onsiteRows.map((c, i) => {
+      const parts = [
+        c.name,
+        c.phone ? `Tel: ${c.phone}` : null,
+        c.email ? `E-Mail: ${c.email}` : null,
+      ].filter(Boolean);
+      return parts.length
+        ? `   ${onsiteRows.length > 1 ? `${i + 1}. ` : ""}${parts.join(" | ")}`
+        : null;
+    }).filter(Boolean);
+    if (lines.length) {
+      onsiteBlock = `👤 Vor Ort:\n${lines.join("\n")}`;
+    }
   }
 
   const notes = (billing.notes || "").trim();
@@ -256,6 +290,7 @@ async function renderStoredCalendarTemplate(pool, templateKey, order, options = 
       email: enrichedPhotographerVars.photographerEmail || (order.photographer && order.photographer.email) || "",
     },
     orderNo: order.orderNo,
+    onsiteContacts: orderOnsiteContactRows(order),
   });
 
   const calSubject = buildCalendarSubject({
@@ -268,7 +303,17 @@ async function renderStoredCalendarTemplate(pool, templateKey, order, options = 
   return { subject: calSubject, body: calDescription, addressText };
 }
 
-function buildCalendarContent({ objectInfo, address, object, servicesText, billing, keyPickup, photographer, orderNo }) {
+function buildCalendarContent({
+  objectInfo,
+  address,
+  object,
+  servicesText,
+  billing,
+  keyPickup,
+  photographer,
+  orderNo,
+  onsiteContacts,
+}) {
   const lines = [];
 
   const addr = fmt(address) || (fmt(objectInfo) ? objectInfo.split("\n")[0] : null);
@@ -308,10 +353,36 @@ function buildCalendarContent({ objectInfo, address, object, servicesText, billi
     if (orderRef) lines.push(`   Referenz: ${orderRef}`);
   }
 
-  const onsiteName = fmt(billing?.onsiteName);
-  const onsitePhone = fmt(billing?.onsitePhone);
-  if (onsiteName || onsitePhone) {
-    lines.push("   Vor Ort: " + [onsiteName, onsitePhone ? `Tel: ${onsitePhone}` : null].filter(Boolean).join(" | "));
+  let onsiteList = [];
+  if (Array.isArray(onsiteContacts) && onsiteContacts.length) {
+    onsiteList = onsiteContacts
+      .map((c) => ({
+        name: fmt(c?.name),
+        phone: fmt(c?.phone),
+        email: fmt(c?.email),
+      }))
+      .filter((c) => c.name || c.phone || c.email);
+  }
+  if (!onsiteList.length) {
+    const n = fmt(billing?.onsiteName);
+    const p = fmt(billing?.onsitePhone);
+    const e = fmt(billing?.onsiteEmail);
+    if (n || p || e) onsiteList = [{ name: n, phone: p, email: e }];
+  }
+  if (onsiteList.length) {
+    lines.push("");
+    lines.push("\uD83D\uDC64 Kontakt vor Ort:");
+    onsiteList.forEach((c, idx) => {
+      const bits = [
+        c.name,
+        c.phone ? `Tel: ${c.phone}` : null,
+        c.email ? `E-Mail: ${c.email}` : null,
+      ].filter(Boolean);
+      if (bits.length) {
+        const prefix = onsiteList.length > 1 ? `${idx + 1}. ` : "";
+        lines.push(`   ${prefix}${bits.join(" \u00b7 ")}`);
+      }
+    });
   }
 
   const photogName = fmt(photographer?.name);
@@ -395,4 +466,5 @@ module.exports = {
   normalizeCalendarBody,
   applyCalendarEventTypePrefix,
   calendarAddressTitle,
+  orderOnsiteContactRows,
 };

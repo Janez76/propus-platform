@@ -55,7 +55,12 @@ const {
   buildCredentialsEmail,
   buildResetPasswordEmail
 } = require("./templates/emails");
-const { buildCalendarContent, buildCalendarSubject, renderStoredCalendarTemplate } = require("./templates/calendar");
+const {
+  buildCalendarContent,
+  buildCalendarSubject,
+  renderStoredCalendarTemplate,
+  orderOnsiteContactRows,
+} = require("./templates/calendar");
 const { computePricing, computeTourDuration } = require("./pricing");
 const { resolveEffectiveSqm } = require("./product-meta");
 const { markDiscountUsed, validateDiscountCode } = require("./discount-codes");
@@ -1012,6 +1017,36 @@ function getTitleSafe(addressText, zipCity) {
   const safeZipCity = repairTextEncoding(zipCity);
   const place = extractPostalCityFromAddress(safeAddress) || safeZipCity || safeAddress || "Ort";
   return `Shooting ${place}`;
+}
+
+const ONSITE_INVITE_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Primärer + zusätzliche Vor-Ort-Kontakte aus Buchungs-Payload. */
+function normalizeOnsiteContactsFromObject(object) {
+  if (!object || typeof object !== "object") return [];
+  const out = [];
+  const name = String(object.onsiteName || "").trim();
+  const phone = String(object.onsitePhone || "").trim();
+  const email = String(object.onsiteEmail || "").trim();
+  const calendarInvite =
+    object.onsiteCalendarInvite === true ||
+    object.onsiteCalendarInvite === "true" ||
+    object.onsiteCalendarInvite === 1;
+  if (name || phone || email) {
+    out.push({ name, phone, email, calendarInvite });
+  }
+  const extras = Array.isArray(object.additionalOnsiteContacts) ? object.additionalOnsiteContacts : [];
+  for (const x of extras) {
+    const row = {
+      name: String(x?.name || "").trim(),
+      phone: String(x?.phone || "").trim(),
+      email: String(x?.email || "").trim(),
+      calendarInvite:
+        x?.calendarInvite === true || x?.calendarInvite === "true" || x?.calendarInvite === 1,
+    };
+    if (row.name || row.phone || row.email) out.push(row);
+  }
+  return out;
 }
 
 function ensureSmtpConfigured(){
@@ -3739,6 +3774,7 @@ app.post("/api/booking", async (req, res) => {
     const schedule = payload.schedule || {};
     const billing = payload.billing || {};
     const object = payload.object || {};
+    const onsiteContactsList = normalizeOnsiteContactsFromObject(object);
     const services = payload.services || {};
     const addressText = payload?.address?.text || "";
     const keyPickup = payload.keyPickup || {};
@@ -3968,6 +4004,8 @@ app.post("/api/booking", async (req, res) => {
 
     const description = buildCalendarContent({
       objectInfo,
+      address: safeLocation,
+      object,
       servicesText: serviceListNoPrice,
       billing,
       keyPickup,
@@ -3975,7 +4013,9 @@ app.post("/api/booking", async (req, res) => {
         name: photographerName || photographerKey,
         email: photographerEmail,
         phone: photographerPhoneSafe
-      }
+      },
+      orderNo,
+      onsiteContacts: onsiteContactsList,
     });
     const calendarSubject = buildCalendarSubject({ title, orderNo });
     const { icsContent: ics, uid: icsUid } = buildIcsEvent({
@@ -4010,7 +4050,8 @@ app.post("/api/booking", async (req, res) => {
       date,
       time,
       billing,
-      keyPickup
+      keyPickup,
+      onsiteContacts: onsiteContactsList,
     }, photogNativeLang);
     const photographerMail = {
       from: MAIL_FROM,
@@ -4038,7 +4079,8 @@ app.post("/api/booking", async (req, res) => {
       photographerName,
       photographerKey,
       billing,
-      keyPickup
+      keyPickup,
+      onsiteContacts: onsiteContactsList,
     }, officeLang);
     const officeMail = {
       from: MAIL_FROM,
@@ -4077,6 +4119,7 @@ app.post("/api/booking", async (req, res) => {
       address: safeLocation,
       icsUrl: `${frontendBase}/api/orders/${orderNo}/ics`,
       portalMagicLink,
+      onsiteContacts: onsiteContactsList,
     }, customerLang);
     const customerMail = {
       from: MAIL_FROM,
@@ -4205,6 +4248,12 @@ app.post("/api/booking", async (req, res) => {
     }
 
     // Bestellung speichern fuer Admin-Panel
+    const firstOnsite = onsiteContactsList[0] || {
+      name: String(object.onsiteName || billing.onsiteName || "").trim(),
+      phone: String(object.onsitePhone || billing.onsitePhone || "").trim(),
+      email: String(object.onsiteEmail || billing.onsiteEmail || "").trim(),
+      calendarInvite: false,
+    };
     const orderRecord = {
       orderNo,
       createdAt: new Date().toISOString(),
@@ -4223,6 +4272,8 @@ app.post("/api/booking", async (req, res) => {
       },
       photographer: { key: photographerKey, name: photographerName, email: photographerEmail },
       schedule: { date, time, durationMin },
+      onsiteContacts: onsiteContactsList,
+      onsiteEmail: firstOnsite.email || null,
       billing: {
         salutation: billing.salutation || "",
         first_name: billing.first_name || "",
@@ -4233,8 +4284,9 @@ app.post("/api/booking", async (req, res) => {
         email: customerEmail,
         phone: billing.phone || "",
         phone_mobile: billing.phone_mobile || "",
-        onsiteName: object.onsiteName || billing.onsiteName || "",
-        onsitePhone: object.onsitePhone || billing.onsitePhone || "",
+        onsiteName: firstOnsite.name || object.onsiteName || billing.onsiteName || "",
+        onsitePhone: firstOnsite.phone || object.onsitePhone || billing.onsitePhone || "",
+        onsiteEmail: firstOnsite.email || object.onsiteEmail || billing.onsiteEmail || "",
         street: billing.street || "",
         zip: billing.zip || "",
         city: billing.city || "",
@@ -4253,6 +4305,8 @@ app.post("/api/booking", async (req, res) => {
         alt_email: billing.alt_email || "",
         alt_phone: billing.alt_phone || "",
         alt_phone_mobile: billing.alt_phone_mobile || "",
+        alt_order_ref: billing.alt_order_ref || "",
+        alt_notes: billing.alt_notes || "",
         notes: billing.notes || ""
       },
       pricing: { subtotal: subtotalFinal, discount: discountAmountFinal, vat: vatFinal, total: totalFinal },
@@ -4289,6 +4343,40 @@ app.post("/api/booking", async (req, res) => {
         message,
         requestId
       });
+    }
+
+    for (const c of onsiteContactsList) {
+      if (!c.calendarInvite) continue;
+      const em = String(c.email || "").trim();
+      if (!em || !ONSITE_INVITE_EMAIL_RE.test(em)) continue;
+      try {
+        const safeName = String(c.name || "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+        await sendMailWithFallback({
+          to: em,
+          subject: `Propus – Kalendereinladung Shooting #${orderNo}`,
+          html: `<p>Guten Tag${safeName ? ` ${safeName}` : ""},</p><p>anbei finden Sie die Kalendereinladung zu Ihrem Shooting-Termin (Auftrag #${orderNo}).</p>`,
+          text: `Kalendereinladung Shooting #${orderNo}`,
+          icsAttachment: {
+            filename: `Termin-Propus-${orderNo}.ics`,
+            content: ics,
+            contentType: "text/calendar; method=REQUEST",
+          },
+          context: `booking:${orderNo}:onsite-invite:${em}`,
+        });
+      } catch (inviteErr) {
+        const message = String(inviteErr?.message || inviteErr || "Onsite invite failed");
+        console.warn("[booking] onsite calendar invite failed", { requestId, em, message });
+        bookingWarnings.push({
+          stage: "onsite_calendar_invite",
+          code: inviteErr?.code || "MAIL_SEND_FAILED",
+          message,
+          recipient: em,
+          attempts: inviteErr?.attempts || [],
+        });
+      }
     }
 
     console.log("[booking] success", {
@@ -4376,6 +4464,7 @@ app.post("/api/admin/orders/:orderNo/resend-customer-email", requirePhotographer
       address: order.address || order.billing?.street || "",
       icsUrl: `${frontendBaseResend}/api/orders/${order.orderNo}/ics`,
       portalMagicLink,
+      onsiteContacts: order.onsiteContacts || order.onsite_contacts || [],
     }, customerLang);
 
     const mail = {
@@ -4496,6 +4585,7 @@ app.post("/api/admin/orders/:orderNo/resend-email", requireAdmin, async (req, re
         address: order.address || order.billing?.street || "",
         icsUrl: `${frontendBase}/api/orders/${order.orderNo}/ics`,
         portalMagicLink,
+        onsiteContacts: order.onsiteContacts || order.onsite_contacts || [],
       }, customerLang);
       subject = emailData.subject;
       html = emailData.html;
@@ -5217,6 +5307,7 @@ app.patch("/api/admin/orders/:orderNo", requireAdmin, async (req, res) => {
       if (hasOwn("phone_mobile")) mergedBilling.phone_mobile = String(b.phone_mobile || "");
       if (hasOwn("onsiteName")) mergedBilling.onsiteName = String(b.onsiteName || "");
       if (hasOwn("onsitePhone")) mergedBilling.onsitePhone = String(b.onsitePhone || "");
+      if (hasOwn("onsiteEmail")) mergedBilling.onsiteEmail = String(b.onsiteEmail || "");
       if (hasOwn("street")) mergedBilling.street = String(b.street || "");
       if (hasOwn("zip")) mergedBilling.zip = String(b.zip || "");
       if (hasOwn("city")) mergedBilling.city = String(b.city || "");
@@ -5236,6 +5327,8 @@ app.patch("/api/admin/orders/:orderNo", requireAdmin, async (req, res) => {
       if (hasOwn("alt_email")) mergedBilling.alt_email = String(b.alt_email || "");
       if (hasOwn("alt_phone")) mergedBilling.alt_phone = String(b.alt_phone || "");
       if (hasOwn("alt_phone_mobile")) mergedBilling.alt_phone_mobile = String(b.alt_phone_mobile || "");
+      if (hasOwn("alt_order_ref")) mergedBilling.alt_order_ref = String(b.alt_order_ref || "");
+      if (hasOwn("alt_notes")) mergedBilling.alt_notes = String(b.alt_notes || "");
 
       if (!mergedBilling.zipcity) {
         mergedBilling.zipcity = [mergedBilling.zip, mergedBilling.city].filter(Boolean).join(" ");
@@ -5290,6 +5383,16 @@ app.patch("/api/admin/orders/:orderNo", requireAdmin, async (req, res) => {
         : null;
     }
 
+    if (Object.prototype.hasOwnProperty.call(body, "onsiteContacts")) {
+      const arr = Array.isArray(body.onsiteContacts) ? body.onsiteContacts : [];
+      updateFields.onsite_contacts = JSON.stringify(arr);
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "onsite_email")) {
+      const raw = body.onsite_email;
+      updateFields.onsite_email =
+        raw != null && String(raw).trim() ? String(raw).trim() : null;
+    }
+
     if (Object.keys(updateFields).length === 0) {
       return res.status(400).json({ error: "No updatable fields provided" });
     }
@@ -5304,6 +5407,16 @@ app.patch("/api/admin/orders/:orderNo", requireAdmin, async (req, res) => {
       if (updateFields.services) order.services = JSON.parse(updateFields.services);
       if (updateFields.pricing) order.pricing = JSON.parse(updateFields.pricing);
       if (updateFields.key_pickup !== undefined) order.keyPickup = updateFields.key_pickup ? JSON.parse(updateFields.key_pickup) : null;
+      if (updateFields.onsite_contacts !== undefined) {
+        try {
+          order.onsiteContacts = JSON.parse(updateFields.onsite_contacts);
+        } catch {
+          order.onsiteContacts = [];
+        }
+      }
+      if (updateFields.onsite_email !== undefined) {
+        order.onsiteEmail = updateFields.onsite_email;
+      }
       await saveAllOrders(fallbackOrders || []);
     }
 
@@ -6029,6 +6142,7 @@ app.patch("/api/admin/orders/:orderNo/reschedule", requireAdmin, async (req, res
           keyPickup: order.keyPickup,
           photographer: { name: photographerName, phone: photogPhoneRs, email: order.photographer?.email || "" },
           orderNo,
+          onsiteContacts: orderOnsiteContactRows(order),
         });
         calendarSubject = buildCalendarSubject({ title: titleText, orderNo, eventType: evTypeRs });
       }
@@ -6199,8 +6313,19 @@ app.patch("/api/admin/orders/:orderNo/photographer", requireAdmin, async (req, r
       const zipCity = order.billing?.zipcity || "";
       const titleText = getTitleSafe(order.address, zipCity);
       const calDescription = buildCalendarContent({
-        objectInfo, servicesText, billing: order.billing, keyPickup: order.keyPickup,
-        photographer: { name: newPhotogName, phone: PHOTOG_PHONES[newKey] || "-" }
+        objectInfo,
+        address: order.address,
+        object: order.object || {},
+        servicesText,
+        billing: order.billing,
+        keyPickup: order.keyPickup,
+        photographer: {
+          name: newPhotogName,
+          phone: PHOTOG_PHONES[newKey] || "-",
+          email: newPhotogEmail || "",
+        },
+        orderNo,
+        onsiteContacts: orderOnsiteContactRows(order),
       });
       const calendarSubject = buildCalendarSubject({ title: titleText, orderNo });
 
@@ -6412,6 +6537,14 @@ app.post("/api/admin/orders", requireAdmin, async (req, res) => {
       totalManual = round05((subtotalManual - discountManual) + vatManual);
     }
 
+    const manualOnsiteList = (() => {
+      const name = String(data.onsiteName || "").trim();
+      const phone = String(data.onsitePhone || "").trim();
+      const email = String(data.onsiteEmail || "").trim();
+      if (!name && !phone && !email) return [];
+      return [{ name, phone, email, calendarInvite: false }];
+    })();
+
     const orderRecord = {
       orderNo,
       createdAt: new Date().toISOString(),
@@ -6431,6 +6564,8 @@ app.post("/api/admin/orders", requireAdmin, async (req, res) => {
       },
       photographer: { key: photographerKey, name: photographerName, email: photographerEmail },
       schedule: { date: data.date || "", time: data.time || "", durationMin: num(data.durationMin) || 60 },
+      onsiteContacts: manualOnsiteList,
+      onsiteEmail: manualOnsiteList[0]?.email || null,
       billing: {
         company: data.company || "",
         name: data.customerName || "",
@@ -6438,6 +6573,7 @@ app.post("/api/admin/orders", requireAdmin, async (req, res) => {
         phone: data.customerPhone || "",
         onsiteName: data.onsiteName || "",
         onsitePhone: data.onsitePhone || "",
+        onsiteEmail: manualOnsiteList[0]?.email || String(data.onsiteEmail || "").trim() || "",
         street: data.street || "",
         zipcity: data.zipcity || "",
         notes: data.notes || ""
@@ -6475,6 +6611,8 @@ app.post("/api/admin/orders", requireAdmin, async (req, res) => {
 
       const calDescription = buildCalendarContent({
         objectInfo,
+        address: orderRecord.address,
+        object: orderRecord.object || {},
         servicesText: serviceListNoPrice,
         billing: orderRecord.billing,
         keyPickup: orderRecord.keyPickup,
@@ -6482,7 +6620,9 @@ app.post("/api/admin/orders", requireAdmin, async (req, res) => {
           name: photographerName,
           email: photographerEmail,
           phone: photographerPhone
-        }
+        },
+        orderNo,
+        onsiteContacts: manualOnsiteList,
       });
       const calendarSubject = buildCalendarSubject({ title: titleText, orderNo });
 
@@ -6563,7 +6703,8 @@ app.post("/api/admin/orders", requireAdmin, async (req, res) => {
         photographerName, photographerKey, photographerEmail,
         photographerPhone: PHOTOG_PHONES[photographerKey] || "-",
         billing: orderRecord.billing,
-        keyPickup: null
+        keyPickup: null,
+        onsiteContacts: orderRecord.onsiteContacts || manualOnsiteList,
       };
 
       // ICS-Anhang fuer Mails (falls vorhanden)

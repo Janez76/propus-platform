@@ -17,19 +17,13 @@ import { t, type Lang } from "../../i18n";
 import { cn } from "../../lib/utils";
 import { bookingBrandLogoUrl } from "../../lib/bookingAssets";
 import { BookingThemeToggle } from "./BookingThemeToggle";
+import { BookingLangSelect } from "./BookingLangSelect";
 
 const STEPS = [
   { id: 1, titleKey: "booking.step1.title", descKey: "booking.step1.desc" },
   { id: 2, titleKey: "booking.step2.title", descKey: "booking.step2.desc" },
   { id: 3, titleKey: "booking.step3.title", descKey: "booking.step3.desc" },
   { id: 4, titleKey: "booking.step4.title", descKey: "booking.step4.desc" },
-];
-
-const LANGS: { value: Lang; label: string }[] = [
-  { value: "de", label: "DE" },
-  { value: "en", label: "EN" },
-  { value: "fr", label: "FR" },
-  { value: "it", label: "IT" },
 ];
 
 export function BookingWizardPage() {
@@ -126,6 +120,9 @@ export function BookingWizardPage() {
         desc: object.desc,
         onsiteName: object.onsiteName,
         onsitePhone: object.onsitePhone,
+        onsiteEmail: object.onsiteEmail,
+        onsiteCalendarInvite: object.onsiteCalendarInvite,
+        additionalOnsiteContacts: object.additionalOnsiteContacts,
       },
       services: {
         package: selectedPackage ? { key: selectedPackage.key, price: selectedPackage.price, label: selectedPackage.label, labelKey: selectedPackage.labelKey } : null,
@@ -172,6 +169,7 @@ export function BookingWizardPage() {
         >
           <LandingPage
             lang={lang}
+            onLangChange={changeLang}
             onStart={() => {
               setShowLanding(false);
               window.scrollTo(0, 0);
@@ -209,23 +207,7 @@ export function BookingWizardPage() {
           </div>
           <div className="flex items-center gap-3">
             <BookingThemeToggle lang={lang} />
-            <div className="flex gap-1">
-              {LANGS.map((l) => (
-                <button
-                  key={l.value}
-                  type="button"
-                  onClick={() => changeLang(l.value)}
-                  className={cn(
-                    "rounded px-2 py-0.5 text-xs font-medium transition-colors",
-                    lang === l.value
-                      ? "bg-[#C5A059] text-white"
-                      : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200",
-                  )}
-                >
-                  {l.label}
-                </button>
-              ))}
-            </div>
+            <BookingLangSelect lang={lang} onChange={changeLang} />
             <div className="flex gap-1.5">
               {STEPS.map((s) => (
                 <button

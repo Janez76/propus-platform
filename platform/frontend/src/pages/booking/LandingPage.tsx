@@ -6,6 +6,7 @@ import { apiRequest } from "../../api/client";
 import type { CatalogAddon, CatalogCategory, CatalogData } from "../../api/bookingPublic";
 import { bookingBrandLogoUrl, bookingPublicAssetUrl } from "../../lib/bookingAssets";
 import { BookingThemeToggle } from "./BookingThemeToggle";
+import { BookingLangSelect } from "./BookingLangSelect";
 
 type Review = { author: string; rating: number; text: string; relativeTime?: string };
 type ReviewsData = { ok: boolean; rating?: number; total?: number; reviews: Review[] };
@@ -75,6 +76,7 @@ function AnimatedCounter({ target, suffix = "", delay = 0 }: { target: number; s
 
 interface LandingPageProps {
   lang: Lang;
+  onLangChange?: (l: Lang) => void;
   onStart: () => void;
 }
 
@@ -163,7 +165,7 @@ function PriceListCategory({ category, addons, defaultOpen, lang }: { category: 
   );
 }
 
-export function LandingPage({ lang, onStart }: LandingPageProps) {
+export function LandingPage({ lang, onLangChange, onStart }: LandingPageProps) {
   const [catalog, setCatalog] = useState<CatalogData | null>(null);
   const [reviews, setReviews] = useState<Review[]>([FALLBACK_REVIEW]);
   const [reviewMeta, setReviewMeta] = useState<{ rating: number; total: number } | null>(null);
@@ -254,6 +256,7 @@ export function LandingPage({ lang, onStart }: LandingPageProps) {
         />
         <div className="flex items-center gap-2 sm:gap-3">
           <BookingThemeToggle lang={lang} />
+          {onLangChange ? <BookingLangSelect lang={lang} onChange={onLangChange} /> : null}
           <button
             type="button"
             onClick={onStart}

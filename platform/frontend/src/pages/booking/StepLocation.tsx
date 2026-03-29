@@ -1,7 +1,7 @@
 import { useCallback } from "react";
-import { MapPin, Home, Ruler, Layers, DoorOpen } from "lucide-react";
+import { MapPin, Home, Ruler, Layers, DoorOpen, Plus, Trash2 } from "lucide-react";
 import { AddressAutocompleteInput, type ParsedAddress } from "../../components/ui/AddressAutocompleteInput";
-import { useBookingWizardStore } from "../../store/bookingWizardStore";
+import { useBookingWizardStore, type OnsiteContactRow } from "../../store/bookingWizardStore";
 import { AddressPreviewMap } from "./AddressPreviewMap";
 import { t, type Lang } from "../../i18n";
 import { cn } from "../../lib/utils";
@@ -25,8 +25,28 @@ const inputClass = cn(
 
 const labelClass = "block text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-1.5";
 
+const emptyOnsiteRow = (): OnsiteContactRow => ({
+  name: "",
+  phone: "",
+  email: "",
+  calendarInvite: false,
+});
+
 export function StepLocation({ lang }: { lang: Lang }) {
   const { address, coords, setAddress, parsedAddress, setParsedAddress, setCoords, object, setObject, config } = useBookingWizardStore();
+
+  function updateAdditionalAt(index: number, patch: Partial<OnsiteContactRow>) {
+    const next = object.additionalOnsiteContacts.map((row, i) => (i === index ? { ...row, ...patch } : row));
+    setObject({ additionalOnsiteContacts: next });
+  }
+
+  function removeAdditionalAt(index: number) {
+    setObject({ additionalOnsiteContacts: object.additionalOnsiteContacts.filter((_, i) => i !== index) });
+  }
+
+  function addAdditional() {
+    setObject({ additionalOnsiteContacts: [...object.additionalOnsiteContacts, emptyOnsiteRow()] });
+  }
 
   const onSelectParsed = useCallback((p: ParsedAddress) => {
     setParsedAddress({ street: p.street, houseNumber: p.houseNumber, zip: p.zip, city: p.city });
@@ -167,6 +187,9 @@ export function StepLocation({ lang }: { lang: Lang }) {
         <p className="mb-4 text-xs text-zinc-500 dark:text-zinc-400">
           {t(lang, "booking.step1.onsiteContactHint")}
         </p>
+        <p className="mb-4 text-xs text-zinc-500 dark:text-zinc-400">
+          {t(lang, "booking.step1.onsiteOnlyOrderHint")}
+        </p>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label className={labelClass}>{t(lang, "booking.step1.onsiteName")} <span className="text-red-500">*</span></label>
@@ -176,7 +199,71 @@ export function StepLocation({ lang }: { lang: Lang }) {
             <label className={labelClass}>{t(lang, "booking.step1.onsitePhone")} <span className="text-red-500">*</span></label>
             <input type="tel" required value={object.onsitePhone} onChange={(e) => setObject({ onsitePhone: e.target.value })} className={inputClass} />
           </div>
+          <div className="sm:col-span-2">
+            <label className={labelClass}>{t(lang, "booking.step1.onsiteEmail")}</label>
+            <input type="email" value={object.onsiteEmail} onChange={(e) => setObject({ onsiteEmail: e.target.value })} className={inputClass} />
+          </div>
+          <label className="flex cursor-pointer items-start gap-3 sm:col-span-2">
+            <input
+              type="checkbox"
+              checked={object.onsiteCalendarInvite}
+              onChange={(e) => setObject({ onsiteCalendarInvite: e.target.checked })}
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-zinc-300 text-[#C5A059] focus:ring-[#C5A059]/30"
+            />
+            <span className="text-sm leading-snug text-zinc-700 dark:text-zinc-300">{t(lang, "booking.step1.onsiteCalendarInvite")}</span>
+          </label>
         </div>
+
+        {object.additionalOnsiteContacts.map((row, idx) => (
+          <div
+            key={idx}
+            className="mt-4 rounded-lg border border-zinc-200 bg-zinc-50/80 p-4 dark:border-zinc-600 dark:bg-zinc-800/40"
+          >
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#C5A059]">
+                {t(lang, "booking.step1.onsiteAdditionalPerson")} ({idx + 2})
+              </span>
+              <button
+                type="button"
+                onClick={() => removeAdditionalAt(idx)}
+                className="inline-flex items-center gap-1 rounded-lg border border-zinc-300 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-700"
+              >
+                <Trash2 className="h-3.5 w-3.5" /> {t(lang, "booking.step1.onsiteRemovePerson")}
+              </button>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className={labelClass}>{t(lang, "booking.step1.onsiteName")}</label>
+                <input type="text" value={row.name} onChange={(e) => updateAdditionalAt(idx, { name: e.target.value })} className={inputClass} />
+              </div>
+              <div>
+                <label className={labelClass}>{t(lang, "booking.step1.onsitePhone")}</label>
+                <input type="tel" value={row.phone} onChange={(e) => updateAdditionalAt(idx, { phone: e.target.value })} className={inputClass} />
+              </div>
+              <div className="sm:col-span-2">
+                <label className={labelClass}>{t(lang, "booking.step1.onsiteEmail")}</label>
+                <input type="email" value={row.email} onChange={(e) => updateAdditionalAt(idx, { email: e.target.value })} className={inputClass} />
+              </div>
+              <label className="flex cursor-pointer items-start gap-3 sm:col-span-2">
+                <input
+                  type="checkbox"
+                  checked={row.calendarInvite}
+                  onChange={(e) => updateAdditionalAt(idx, { calendarInvite: e.target.checked })}
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-zinc-300 text-[#C5A059] focus:ring-[#C5A059]/30"
+                />
+                <span className="text-sm leading-snug text-zinc-700 dark:text-zinc-300">{t(lang, "booking.step1.onsiteCalendarInvite")}</span>
+              </label>
+            </div>
+          </div>
+        ))}
+
+        <button
+          type="button"
+          onClick={addAdditional}
+          className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-zinc-300 py-2.5 text-sm font-medium text-zinc-600 transition-colors hover:border-[#C5A059]/50 hover:text-[#C5A059] dark:border-zinc-600 dark:text-zinc-400"
+        >
+          <Plus className="h-4 w-4" /> {t(lang, "booking.step1.onsiteAddPerson")}
+        </button>
       </section>
     </div>
   );

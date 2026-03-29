@@ -1,9 +1,20 @@
 export type ValidationError = { field: string; message: string };
 
+const EMAIL_RE_STEP1 = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export type Step1State = {
   address: string;
   parsedAddress: { street: string; houseNumber: string; zip: string; city: string } | null;
-  object: { type: string; area: string; floors: number; onsiteName: string; onsitePhone: string };
+  object: {
+    type: string;
+    area: string;
+    floors: number;
+    onsiteName: string;
+    onsitePhone: string;
+    onsiteEmail?: string;
+    onsiteCalendarInvite?: boolean;
+    additionalOnsiteContacts?: Array<{ name: string; phone: string; email: string; calendarInvite: boolean }>;
+  };
 };
 
 export function validateStep1(s: Step1State): ValidationError[] {
@@ -33,6 +44,21 @@ export function validateStep1(s: Step1State): ValidationError[] {
   if (!s.object.onsitePhone.trim()) {
     errors.push({ field: "onsitePhone", message: "booking.validation.onsitePhoneRequired" });
   }
+  if (s.object.onsiteCalendarInvite) {
+    const em = String(s.object.onsiteEmail || "").trim();
+    if (!em || !EMAIL_RE_STEP1.test(em)) {
+      errors.push({ field: "onsiteEmail", message: "booking.validation.onsiteEmailRequiredForInvite" });
+    }
+  }
+  const extras = Array.isArray(s.object.additionalOnsiteContacts) ? s.object.additionalOnsiteContacts : [];
+  extras.forEach((row, i) => {
+    if (row.calendarInvite) {
+      const em = String(row.email || "").trim();
+      if (!em || !EMAIL_RE_STEP1.test(em)) {
+        errors.push({ field: `onsiteExtra_${i}`, message: "booking.validation.onsiteEmailRequiredForInvite" });
+      }
+    }
+  });
   return errors;
 }
 
@@ -78,7 +104,11 @@ export type Step4State = {
     alt_street?: string;
     alt_zip?: string;
     alt_city?: string;
+    alt_first_name?: string;
     alt_name?: string;
+    alt_email?: string;
+    alt_order_ref?: string;
+    alt_notes?: string;
   };
   altBilling: boolean;
   agbAccepted: boolean;

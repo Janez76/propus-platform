@@ -2,6 +2,14 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { BookingConfig, CatalogData, PhotographerInfo } from "../api/bookingPublic";
 
+/** Weitere Personen vor Ort – nur Bestellung, keine Kundenkartei */
+export type OnsiteContactRow = {
+  name: string;
+  phone: string;
+  email: string;
+  calendarInvite: boolean;
+};
+
 export type ObjectData = {
   type: string;
   area: string;
@@ -11,6 +19,9 @@ export type ObjectData = {
   desc: string;
   onsiteName: string;
   onsitePhone: string;
+  onsiteEmail: string;
+  onsiteCalendarInvite: boolean;
+  additionalOnsiteContacts: OnsiteContactRow[];
 };
 
 export type SelectedPackage = {
@@ -58,6 +69,8 @@ export type BillingData = {
   alt_email: string;
   alt_phone: string;
   alt_phone_mobile: string;
+  alt_order_ref: string;
+  alt_notes: string;
 };
 
 const EMPTY_BILLING: BillingData = {
@@ -69,10 +82,21 @@ const EMPTY_BILLING: BillingData = {
   alt_street: "", alt_zip: "", alt_city: "", alt_zipcity: "",
   alt_salutation: "", alt_first_name: "", alt_name: "",
   alt_email: "", alt_phone: "", alt_phone_mobile: "",
+  alt_order_ref: "", alt_notes: "",
 };
 
-const EMPTY_OBJECT: ObjectData = {
-  type: "", area: "", floors: 1, rooms: "", specials: "", desc: "", onsiteName: "", onsitePhone: "",
+export const EMPTY_OBJECT: ObjectData = {
+  type: "",
+  area: "",
+  floors: 1,
+  rooms: "",
+  specials: "",
+  desc: "",
+  onsiteName: "",
+  onsitePhone: "",
+  onsiteEmail: "",
+  onsiteCalendarInvite: false,
+  additionalOnsiteContacts: [],
 };
 
 export type BookingWizardState = {
@@ -218,6 +242,37 @@ export const useBookingWizardStore = create<BookingWizardState>()(
     }),
     {
       name: "propus-booking-wizard-draft",
+      version: 3,
+      migrate: (persisted, fromVersion) => {
+        let p: unknown = persisted;
+        if (fromVersion < 2 && p && typeof p === "object" && "object" in p) {
+          const po = p as { object?: Partial<ObjectData> } & Record<string, unknown>;
+          const obj = po.object;
+          if (obj) {
+            p = {
+              ...po,
+              object: {
+                ...EMPTY_OBJECT,
+                ...obj,
+                additionalOnsiteContacts: Array.isArray(obj.additionalOnsiteContacts) ? obj.additionalOnsiteContacts : [],
+              },
+            };
+          }
+        }
+        if (fromVersion < 3 && p && typeof p === "object" && p !== null && "billing" in p) {
+          const po = p as { billing?: Record<string, unknown> } & Record<string, unknown>;
+          const b = po.billing && typeof po.billing === "object" ? po.billing : {};
+          p = {
+            ...po,
+            billing: {
+              ...b,
+              alt_order_ref: typeof b.alt_order_ref === "string" ? b.alt_order_ref : "",
+              alt_notes: typeof b.alt_notes === "string" ? b.alt_notes : "",
+            },
+          };
+        }
+        return p;
+      },
       partialize: (s) => ({
         step: s.step,
         address: s.address,

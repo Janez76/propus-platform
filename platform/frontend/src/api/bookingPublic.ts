@@ -104,6 +104,14 @@ export type BookingPayload = {
     desc?: string;
     onsiteName?: string;
     onsitePhone?: string;
+    onsiteEmail?: string;
+    onsiteCalendarInvite?: boolean;
+    additionalOnsiteContacts?: Array<{
+      name: string;
+      phone: string;
+      email: string;
+      calendarInvite: boolean;
+    }>;
   };
   services: {
     package: { key: string; price: number; label: string; labelKey?: string } | null;

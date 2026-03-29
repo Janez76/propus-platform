@@ -1946,7 +1946,7 @@ async function insertOrder(record, customerId, createdByMemberId = null) {
       settings_snapshot, discount, key_pickup, ics_uid, photographer_event_id, office_event_id,
       created_at,
       confirmation_token, confirmation_token_expires_at, confirmation_pending_since,
-      attendee_emails, onsite_email,
+      attendee_emails, onsite_email, onsite_contacts,
       created_by_member_id
     ) VALUES (
       $1,$2,$3,$4,
@@ -1954,8 +1954,8 @@ async function insertOrder(record, customerId, createdByMemberId = null) {
       $11,$12,$13,$14,$15,$16,
       $17,
       $18,$19,$20,
-      $21,$22,
-      $23
+      $21,$22,$23,
+      $24
     ) RETURNING id`;
   const baseParams = [
     normalizedRecord.orderNo,
@@ -1980,6 +1980,7 @@ async function insertOrder(record, customerId, createdByMemberId = null) {
     normalizedRecord.confirmationPendingSince ? new Date(normalizedRecord.confirmationPendingSince) : null,
     normalizedRecord.attendeeEmails || null,
     normalizedRecord.onsiteEmail || normalizedRecord.billing?.onsiteEmail || null,
+    JSON.stringify(Array.isArray(normalizedRecord.onsiteContacts) ? normalizedRecord.onsiteContacts : []),
     mid,
   ];
 
@@ -2755,6 +2756,9 @@ function dbRowToRecord(row) {
     confirmationPendingSince: row.confirmation_pending_since || null,
     attendeeEmails: row.attendee_emails || null,
     onsiteEmail: row.onsite_email || null,
+    onsiteContacts: Array.isArray(row.onsite_contacts)
+      ? row.onsite_contacts
+      : (row.onsite_contacts && typeof row.onsite_contacts === "object" ? row.onsite_contacts : []),
     createdByMemberId: row.created_by_member_id != null ? Number(row.created_by_member_id) : null,
     provisionalBookedAt: row.provisional_booked_at || null,
     provisionalExpiresAt: row.provisional_expires_at || null,

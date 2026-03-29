@@ -352,6 +352,8 @@ function buildTemplateVars(order, extra) {
     altBillingEmail: billing.alt_email || "",
     altBillingPhone: billing.alt_phone || "",
     altBillingMobile: billing.alt_phone_mobile || "",
+    altBillingOrderRef: billing.alt_order_ref || "",
+    altBillingNotes: billing.alt_notes || "",
   };
 
   try {
@@ -400,6 +402,10 @@ function buildTemplateVars(order, extra) {
   vars.objectSpecials  = object.specials ? String(object.specials) : "";
   vars.onsiteName      = billing.onsiteName || object.onsiteName || "";
   vars.onsitePhone     = billing.onsitePhone || object.onsitePhone || "";
+  vars.onsiteEmail =
+    billing.onsiteEmail || object.onsiteEmail || order.onsiteEmail || order.onsite_email || "";
+  const contactsRaw = order.onsiteContacts || order.onsite_contacts;
+  vars.onsiteContacts = JSON.stringify(Array.isArray(contactsRaw) ? contactsRaw : []);
 
   const keyPickup = order.keyPickup || {};
   vars.keyPickupAddress = keyPickup.address ? String(keyPickup.address) : "";
@@ -531,6 +537,8 @@ const AVAILABLE_PLACEHOLDERS = [
   { key: "objectSpecials",      desc: "Besonderheiten des Objekts" },
   { key: "onsiteName",          desc: "Name des Vor-Ort-Kontakts" },
   { key: "onsitePhone",         desc: "Telefon des Vor-Ort-Kontakts" },
+  { key: "onsiteEmail",         desc: "E-Mail des Vor-Ort-Kontakts (Legacy: erster Kontakt)" },
+  { key: "onsiteContacts",      desc: "JSON-Array aller Vor-Ort-Kontakte (name, phone, email, calendarInvite)" },
   { key: "altBillingCompany",   desc: "Abweichende Rechnungsfirma" },
   { key: "altBillingCompanyEmail", desc: "Abweichende Firmen-E-Mail" },
   { key: "altBillingCompanyPhone", desc: "Abweichendes Firmen-Telefon" },
@@ -542,6 +550,8 @@ const AVAILABLE_PLACEHOLDERS = [
   { key: "altBillingEmail",     desc: "Abweichende Kontakt-E-Mail" },
   { key: "altBillingPhone",     desc: "Abweichendes Kontakt-Telefon" },
   { key: "altBillingMobile",    desc: "Abweichendes Kontakt-Mobil" },
+  { key: "altBillingOrderRef",  desc: "Referenz zur abweichenden Rechnungsadresse" },
+  { key: "altBillingNotes",     desc: "Bemerkungen zur abweichenden Rechnungsadresse" },
   { key: "keyPickupAddress",    desc: "Adresse der Schluesselabholung" },
   { key: "keyPickupInfo",       desc: "Info/Hinweis zur Schluesselabholung" },
 ];

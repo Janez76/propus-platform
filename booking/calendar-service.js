@@ -13,7 +13,12 @@
 
 "use strict";
 
-const { buildCalendarContent, buildCalendarSubject, renderStoredCalendarTemplate } = require("./templates/calendar");
+const {
+  buildCalendarContent,
+  buildCalendarSubject,
+  renderStoredCalendarTemplate,
+  orderOnsiteContactRows,
+} = require("./templates/calendar");
 
 // ─── Hilfsfunktionen ──────────────────────────────────────────────────────────
 
@@ -99,6 +104,7 @@ function buildOrderEventDataSync(order, photogPhone, opts) {
       email: (order.photographer && order.photographer.email) || "",
     },
     orderNo: order.orderNo,
+    onsiteContacts: orderOnsiteContactRows(order),
   });
 
   return { calSubject, calDescription, addressText };

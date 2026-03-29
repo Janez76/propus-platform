@@ -15,6 +15,25 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.265",
+    date: "2026-03-29",
+    title: "Buchungs-Wizard: Vor-Ort-Kontakte, Alt-Rechnungsadresse, Sprachauswahl",
+    changes: [
+      {
+        type: "feature",
+        text: "Kontakt vor Ort: E-Mail, optionale Kalender-Einladung (ICS), mehrere Personen; Zusatzpersonen nur in der Bestellung (onsite_contacts), nicht in der Kundenkartei.",
+      },
+      {
+        type: "improvement",
+        text: "Abweichende Rechnungsadresse: Vorname, E-Mail, Referenz und Bemerkungen; Backend und Buero-Mail ergaenzt.",
+      },
+      {
+        type: "improvement",
+        text: "Sprachwahl im Buchungs-Wizard und auf der Landing-Page als Dropdown statt einzelner Buttons.",
+      },
+    ],
+  },
+  {
     version: "2.3.264",
     date: "2026-03-29",
     title: "Oeffentliche Buchung: React-SPA statt Legacy-HTML",

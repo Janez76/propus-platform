@@ -119,6 +119,10 @@ export function StepBilling({ lang }: { lang: Lang }) {
               <input type="text" value={billing.alt_company} onChange={(e) => setBilling({ alt_company: e.target.value })} className={inputClass} />
             </div>
             <div>
+              <label className={labelClass}>{t(lang, "booking.step4.firstName")}</label>
+              <input type="text" value={billing.alt_first_name} onChange={(e) => setBilling({ alt_first_name: e.target.value })} className={inputClass} />
+            </div>
+            <div>
               <label className={labelClass}>{t(lang, "booking.step4.lastName")} *</label>
               <input type="text" value={billing.alt_name} onChange={(e) => setBilling({ alt_name: e.target.value })} className={inputClass} />
             </div>
@@ -140,6 +144,23 @@ export function StepBilling({ lang }: { lang: Lang }) {
             <div>
               <label className={labelClass}>{t(lang, "booking.step4.city")} *</label>
               <input type="text" value={billing.alt_city} onChange={(e) => setBilling({ alt_city: e.target.value })} className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>{t(lang, "booking.step4.email")}</label>
+              <input type="email" value={billing.alt_email} onChange={(e) => setBilling({ alt_email: e.target.value })} className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>{t(lang, "booking.step4.orderRef")}</label>
+              <input type="text" value={billing.alt_order_ref} onChange={(e) => setBilling({ alt_order_ref: e.target.value })} className={inputClass} />
+            </div>
+            <div className="sm:col-span-2">
+              <label className={labelClass}>{t(lang, "booking.step4.notes")}</label>
+              <textarea
+                value={billing.alt_notes}
+                onChange={(e) => setBilling({ alt_notes: e.target.value })}
+                rows={3}
+                className={cn(inputClass, "resize-none")}
+              />
             </div>
           </div>
         </section>
