@@ -158,7 +158,7 @@ export type BookingWizardState = {
   setPhotographers: (p: PhotographerInfo[]) => void;
   setConfigLoading: (v: boolean) => void;
   setSubmitting: (v: boolean) => void;
-  setSubmitted: (orderNo: number) => void;
+  setSubmitted: (orderNo: number | null) => void;
 
   reset: () => void;
 };
@@ -236,13 +236,28 @@ export const useBookingWizardStore = create<BookingWizardState>()(
       setPhotographers: (photographers) => set({ photographers }),
       setConfigLoading: (configLoading) => set({ configLoading }),
       setSubmitting: (submitting) => set({ submitting }),
-      setSubmitted: (orderNo) => set({ submitted: true, submitting: false, orderNo }),
+      setSubmitted: (orderNo) =>
+        set({
+          submitted: true,
+          submitting: false,
+          orderNo: orderNo != null && Number.isFinite(Number(orderNo)) ? Number(orderNo) : null,
+        }),
 
       reset: () => set({ ...INITIAL }),
     }),
     {
       name: "propus-booking-wizard-draft",
-      version: 3,
+      version: 5,
+      merge: (persistedState, currentState) => {
+        const p =
+          persistedState && typeof persistedState === "object"
+            ? { ...(persistedState as Record<string, unknown>) }
+            : {};
+        delete p.submitted;
+        delete p.submitting;
+        delete p.orderNo;
+        return { ...currentState, ...p };
+      },
       migrate: (persisted, fromVersion) => {
         let p: unknown = persisted;
         if (fromVersion < 2 && p && typeof p === "object" && "object" in p) {
@@ -271,6 +286,20 @@ export const useBookingWizardStore = create<BookingWizardState>()(
             },
           };
         }
+        if (fromVersion < 4 && p && typeof p === "object" && p !== null) {
+          const po = p as { photographer?: unknown; step?: unknown } & Record<string, unknown>;
+          const step = typeof po.step === "number" ? po.step : 1;
+          if (po.photographer === null && step >= 3) {
+            p = { ...po, photographer: { key: "any", name: "" } };
+          }
+        }
+        if (fromVersion < 5 && p && typeof p === "object" && p !== null) {
+          const po = p as Record<string, unknown>;
+          p = {
+            ...po,
+            keyPickup: { enabled: false, address: "", info: "" },
+          };
+        }
         return p;
       },
       partialize: (s) => ({
@@ -288,7 +317,6 @@ export const useBookingWizardStore = create<BookingWizardState>()(
         billing: s.billing,
         altBilling: s.altBilling,
         discount: s.discount,
-        keyPickup: s.keyPickup,
         slotPeriod: s.slotPeriod,
       }),
     },

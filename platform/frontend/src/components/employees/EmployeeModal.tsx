@@ -1,20 +1,23 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import {
   getEmployeeLog,
   getPhotographerSettings,
+  getPhotographers,
   sendPhotographerCredentials,
   setPhotographerPassword,
   updatePhotographerSettings,
   deactivatePhotographer,
   reactivatePhotographer,
+  listPhotographerPortraitLibrary,
+  uploadPhotographerPortrait,
   type EmployeeLog,
   type PhotographerSettings,
+  type PortraitLibraryItem,
   type WeekdayKey,
   type WorkHoursByDay,
 } from "../../api/photographers";
 import { getSystemSettings } from "../../api/settings";
-import { getPhotographers } from "../../api/photographers";
 import {
   MapPin,
   Clock,
@@ -31,6 +34,8 @@ import {
   RotateCcw,
   AlertTriangle,
   Check,
+  Upload,
+  Images,
 } from "lucide-react";
 import { AbsenceCalendar } from "./AbsenceCalendar";
 import { AddressAutocompleteInput } from "../ui/AddressAutocompleteInput";
@@ -98,6 +103,13 @@ function normalizeWorkHoursByDay(settings: PhotographerSettings): WorkHoursByDay
     };
   }
   return next;
+}
+
+function portraitPreviewSrc(photoUrl: string): string | null {
+  const u = String(photoUrl || "").trim();
+  if (!u) return null;
+  if (/^https?:\/\//i.test(u)) return u;
+  return u.startsWith("/") ? u : `/${u}`;
 }
 
 function initialWhatsappFromStammdaten(phone: string, phoneMobile: string, storedWhatsapp: string): string {
@@ -333,6 +345,11 @@ export function EmployeeModal({ token, employeeKey, onClose, onSaved, isActive =
   const [initials, setInitials] = useState("");
   const [isBookableWizard, setIsBookableWizard] = useState(true);
   const [photoUrl, setPhotoUrl] = useState("");
+  const portraitFileRef = useRef<HTMLInputElement>(null);
+  const [portraitUploading, setPortraitUploading] = useState(false);
+  const [portraitLibraryOpen, setPortraitLibraryOpen] = useState(false);
+  const [portraitLibraryLoading, setPortraitLibraryLoading] = useState(false);
+  const [portraitLibraryItems, setPortraitLibraryItems] = useState<PortraitLibraryItem[]>([]);
   const [homeAddress, setHomeAddress] = useState("");
   const [radiusKm, setRadiusKm] = useState("30");
   const [departTimes, setDepartTimes] = useState<Record<WeekdayKey, string>>(() => normalizeDepartTimes({}));
@@ -425,6 +442,37 @@ export function EmployeeModal({ token, employeeKey, onClose, onSaved, isActive =
 
   function toggleSection(id: Section) {
     setOpenSection((prev) => (prev === id ? null : id));
+  }
+
+  async function handlePortraitFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setPortraitUploading(true);
+    setError("");
+    try {
+      const path = await uploadPhotographerPortrait(token, file);
+      setPhotoUrl(path);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload fehlgeschlagen");
+    } finally {
+      setPortraitUploading(false);
+    }
+  }
+
+  async function openPortraitLibrary() {
+    setPortraitLibraryOpen(true);
+    setPortraitLibraryLoading(true);
+    setError("");
+    try {
+      const items = await listPhotographerPortraitLibrary(token);
+      setPortraitLibraryItems(items);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Bibliothek konnte nicht geladen werden");
+      setPortraitLibraryItems([]);
+    } finally {
+      setPortraitLibraryLoading(false);
+    }
   }
 
   async function submit(e: FormEvent) {
@@ -568,6 +616,7 @@ export function EmployeeModal({ token, employeeKey, onClose, onSaved, isActive =
   });
 
   return (
+    <>
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-2 sm:p-4 backdrop-blur-sm">
       <form
         onSubmit={submit}
@@ -680,12 +729,59 @@ export function EmployeeModal({ token, employeeKey, onClose, onSaved, isActive =
             </div>
             <div className="sm:col-span-2">
               <label className="mb-1 block text-sm font-medium text-[var(--text-main)]">{t(lang, "employeeModal.label.photoUrl")}</label>
-              <input
-                className="ui-input"
-                value={photoUrl}
-                onChange={(e) => setPhotoUrl(e.target.value)}
-                placeholder="assets/photographers/Name.png"
-              />
+              <div className="flex flex-wrap items-start gap-3">
+                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full border border-[var(--border-soft)] bg-[var(--accent-subtle)]">
+                  {portraitPreviewSrc(photoUrl) ? (
+                    <img
+                      src={portraitPreviewSrc(photoUrl)!}
+                      alt=""
+                      className="h-full w-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = "none";
+                      }}
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-[var(--text-muted)]">
+                      <UserRound className="h-8 w-8 opacity-60" />
+                    </div>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1 space-y-2">
+                  <input
+                    className="ui-input"
+                    value={photoUrl}
+                    onChange={(e) => setPhotoUrl(e.target.value)}
+                    placeholder="assets/photographers/Name.png"
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <input
+                      ref={portraitFileRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/gif"
+                      className="hidden"
+                      onChange={handlePortraitFileChange}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => portraitFileRef.current?.click()}
+                      disabled={portraitUploading}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-elevated)] px-3 py-1.5 text-sm font-medium text-[var(--text-main)] transition-colors hover:bg-[var(--accent-subtle)] disabled:opacity-50"
+                    >
+                      <Upload className="h-4 w-4 shrink-0" />
+                      {portraitUploading ? t(lang, "employeeModal.photo.uploading") : t(lang, "employeeModal.photo.upload")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void openPortraitLibrary()}
+                      disabled={portraitUploading}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-elevated)] px-3 py-1.5 text-sm font-medium text-[var(--text-main)] transition-colors hover:bg-[var(--accent-subtle)] disabled:opacity-50"
+                    >
+                      <Images className="h-4 w-4 shrink-0" />
+                      {t(lang, "employeeModal.photo.library")}
+                    </button>
+                  </div>
+                </div>
+              </div>
               <p className="mt-1 text-xs text-[var(--text-muted)]">{t(lang, "employeeModal.hint.photoUrl")}</p>
             </div>
             <div className="sm:col-span-2">
@@ -1154,5 +1250,62 @@ export function EmployeeModal({ token, employeeKey, onClose, onSaved, isActive =
         </div>
       </form>
     </div>
+    {portraitLibraryOpen && (
+      <div
+        className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="portrait-library-title"
+        onMouseDown={(e) => {
+          if (e.target === e.currentTarget) setPortraitLibraryOpen(false);
+        }}
+      >
+        <div
+          className="max-h-[85vh] w-full max-w-lg overflow-hidden rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] shadow-2xl"
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between border-b border-[var(--border-soft)] px-4 py-3">
+            <h3 id="portrait-library-title" className="font-semibold text-[var(--text-main)]">
+              {t(lang, "employeeModal.photo.libraryTitle")}
+            </h3>
+            <button
+              type="button"
+              onClick={() => setPortraitLibraryOpen(false)}
+              className="rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--accent-subtle)] hover:text-[var(--text-main)]"
+              aria-label={t(lang, "common.close")}
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          <div className="max-h-[min(60vh,520px)] overflow-y-auto p-4">
+            {portraitLibraryLoading ? (
+              <p className="text-sm text-[var(--text-muted)]">{t(lang, "employeeModal.photo.libraryLoading")}</p>
+            ) : portraitLibraryItems.length === 0 ? (
+              <p className="text-sm text-[var(--text-muted)]">{t(lang, "employeeModal.photo.libraryEmpty")}</p>
+            ) : (
+              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+                {portraitLibraryItems.map((item) => {
+                  const thumb = item.path.startsWith("/") ? item.path : `/${item.path}`;
+                  return (
+                    <button
+                      key={item.path}
+                      type="button"
+                      onClick={() => {
+                        setPhotoUrl(item.path);
+                        setPortraitLibraryOpen(false);
+                      }}
+                      className="group aspect-square overflow-hidden rounded-lg border border-[var(--border-soft)] bg-[var(--accent-subtle)] transition hover:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+                    >
+                      <img src={thumb} alt="" className="h-full w-full object-cover" loading="lazy" />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

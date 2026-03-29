@@ -247,18 +247,52 @@ Die Login-Oberfläche wird von **Logto** ausgeliefert (nicht vom React-Frontend)
 | Brandfarbe (Light) | `#B68E20` (`--propus-gold`) |
 | Brandfarbe (Dark, falls aktiv) | `#d4b860` (`--propus-gold-dark`) |
 | Hintergrund / Stimmung | Beige `#F1F2EA` (`--propus-beige`) – über **Custom CSS** (unten) |
-| Logo / Favicon | Propus-Assets, maximal 500 KB pro Datei (PNG/SVG) |
+| Logo / Favicon | Dieselbe Datei wie im Admin: öffentlich unter [https://booking.propus.ch/assets/brand/logopropus.png](https://booking.propus.ch/assets/brand/logopropus.png) (speichern und in Logto **hochladen**; Logto nutzt in der Regel keine Hotlink-URL). Favicon: z. B. dieselbe PNG oder `favicon.png` aus dem Brand-Ordner, maximal 500 KB |
 | Pro App abweichend | **Applications → [App] → App-level sign-in experience** |
 
-Optional **„Powered by Logto“ ausblenden**, wenn die Lizenz/Edition das erlaubt.
+#### Automatisch per Skript (empfohlen)
+
+Repository: `auth/apply-logto-propus-branding.js` setzt per **Logto Management API** den Tenant-Default für **Anmeldung & Konto**: Brandfarben, Logo-/Favicon-URLs (`https://booking.propus.ch/assets/brand/logopropus.png`), **Custom CSS** (`auth/logto-propus-branding.css`), Terms/Privacy, Forgot Password und ein konservatives Patch der vorhandenen Sign-in-/Sign-up-Einstellungen. Für Booking/Tours-Apps setzt es zusaetzlich das **App-Level-Branding** mit den von Logto erlaubten Feldern (Farben, Branding, Display-Name, Terms/Privacy). Voraussetzung: `PROPUS_MANAGEMENT_LOGTO_APP_ID` / `SECRET` und `LOGTO_ENDPOINT` wie im laufenden Betrieb (lokal oder VPS).
+
+```bash
+# Auf dem Rechner mit gültiger .env.logto / .env.vps (oder exportierte Variablen):
+node auth/apply-logto-propus-branding.js
+
+# Nur anzeigen, nichts schreiben:
+node auth/apply-logto-propus-branding.js --dry-run
+```
+
+Auf dem VPS (Beispiel, Pfade wie in `AGENTS.md`):
+
+```bash
+cd /opt/propus-platform && set -a && source .env.vps 2>/dev/null; set +a; node auth/apply-logto-propus-branding.js
+```
+
+`--dry-run` zeigt sowohl den Tenant-Patch (`PATCH /api/sign-in-exp`) als auch alle geplanten App-Level-Payloads. Ohne M2M-Credentials wird dabei kein aktueller Tenant-Zustand geladen; die Vorschau basiert dann nur auf Defaults/Overrides.
+
+Overrides per Umgebungsvariable:
+
+- `PROPUS_LOGTO_BRAND_PRIMARY`, `PROPUS_LOGTO_BRAND_DARK`
+- `PROPUS_LOGTO_BRAND_LOGO_URL`, `PROPUS_LOGTO_BRAND_FAVICON_URL`
+- `PROPUS_LOGTO_BRAND_CSS_FILE`
+- `PROPUS_LOGTO_DISPLAY_NAME`
+- `PROPUS_LOGTO_TERMS_URL`, `PROPUS_LOGTO_PRIVACY_URL`
+- `PROPUS_LOGTO_FORGOT_PASSWORD_METHODS`
+- `PROPUS_LOGTO_FALLBACK_LANGUAGE`, `PROPUS_LOGTO_LANGUAGE_AUTO_DETECT`
+- `PROPUS_LOGTO_AGREE_TO_TERMS_POLICY`
+- `PROPUS_LOGTO_HIDE_BRANDING`
+
+Optional **„Powered by Logto“ ausblenden**, wenn die Lizenz/Edition das erlaubt (das Skript setzt `hideLogtoBranding`, falls die API das Feld liefert).
+
+Wichtig: **App-Level** unterstuetzt in Logto nur Branding-nahe Felder. **Custom CSS, Forgot Password und Sign-in-/Sign-up-Methoden** werden weiterhin ueber den Tenant-Default gesteuert.
 
 #### Branding wirkt nicht (noch Lila / Standard-Logto)?
 
 1. **Speichern nicht vergessen** – nach Änderungen in der Console explizit speichern.
 2. **Brandfarbe in der Oberfläche setzen** – unter **Branding** die Felder **Brandfarbe (Light)** = `#B68E20` (nicht nur Custom CSS; Logto schreibt die Farbe in die Experience-Variablen).
-3. **App-Level prüfen** – unter **Applications → [eure App]**: Wenn **App-level sign-in experience** aktiv ist, gilt das **Omni**-Branding dort nicht. Entweder dort dieselben Farben/Custom CSS eintragen oder App-Level wieder aus.
+3. **App-Level prüfen** – unter **Applications → [eure App]**: Wenn **App-level sign-in experience** aktiv ist, gilt das **Omni**-Branding dort nicht. Entweder dort dieselben Farben / Logos / Links setzen oder App-Level wieder aus.
 4. **Cache** – Seite mit hartem Reload testen (`Strg+F5`) oder privates Fenster; bei Cloudflare ggf. Cache für `auth.propus.ch` leeren (oder kurz **Development Mode**).
-5. **Logo** – bleibt das Logto-Logo, solange unter **Branding** kein eigenes Logo hochgeladen ist.
+5. **Logo** – bleibt das Logto-Logo, solange unter **Branding** kein eigenes Logo hochgeladen ist (Propus-Logo: siehe Tabelle, URL `booking.propus.ch/.../logopropus.png`).
 
 **Custom CSS** (unter **Branding → Custom CSS**): Neuere Logto-Versionen stylen Buttons und Links über **CSS-Variablen auf `body`** (z. B. `--color-brand-default`), nicht über feste `#app`-Strukturen. Deshalb zuerst die Variablen setzen; die alten Selektoren aus älteren Beispielen greifen oft nicht mehr.
 
@@ -318,6 +352,7 @@ button[type='submit']:hover {
 | `core/migrate.js`              | Schema-Migrationen                       |
 | `core/migrate-from-vps.js`     | Daten-Migration vom alten Buchungstool   |
 | `auth/setup-logto.js`          | Logto-App-Setup-Script                   |
+| `auth/apply-logto-propus-branding.js` | Sign-in & Konto per Management API auf Logto anwenden |
 
 ---
 

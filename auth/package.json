@@ -3,5 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "description": "Shared Logto auth helpers for Propus Platform modules",
-  "main": "logto-config.js"
+  "main": "logto-config.js",
+  "scripts": {
+    "apply-logto-branding": "node apply-logto-propus-branding.js",
+    "apply-logto-experience": "node apply-logto-propus-branding.js"
+  }
 }

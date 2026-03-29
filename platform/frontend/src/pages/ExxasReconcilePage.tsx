@@ -38,13 +38,13 @@ function initialStateForItem(item: ExxasPreviewItem): ItemState {
   const contacts: Record<string, ContactState> = {};
   for (const c of item.contactSuggestions) {
     contacts[c.exxasContact.id] = {
-      action: c.suggestedAction,
+      action: c.reviewRequired ? "skip" : c.suggestedAction,
       localContactId: c.suggestedLocalContactId,
       overwriteFields: [],
     };
   }
   return {
-    customerAction: item.suggestedCustomerAction,
+    customerAction: item.customerReviewRequired ? "skip" : item.suggestedCustomerAction,
     localCustomerId: item.suggestedLocalCustomerId,
     overwriteCustomerFields: [],
     contacts,
@@ -602,9 +602,12 @@ export function ExxasReconcilePage() {
   }
 
   function needsReview(item: ExxasPreviewItem) {
+  if (item.reviewRequired || item.customerReviewRequired) return true;
     const bestCustomerScore = item.customerSuggestions[0]?.score ?? 0;
     if (bestCustomerScore < 60) return true;
-    return item.contactSuggestions.some((contact) => (contact.localCandidates[0]?.score ?? 0) < 70);
+  return item.contactSuggestions.some(
+    (contact) => contact.reviewRequired || (contact.localCandidates[0]?.score ?? 0) < 70,
+  );
   }
 
   /**

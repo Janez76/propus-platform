@@ -1,4 +1,4 @@
-import { apiRequest } from "./client";
+import { apiRequest, API_BASE } from "./client";
 
 export type Photographer = {
   key: string;
@@ -80,6 +80,41 @@ function normalizePhotographer(raw: unknown): Photographer {
     photo_url: String(r.photo_url || ""),
     skills: (r.skills && typeof r.skills === "object" ? (r.skills as Record<string, number>) : {}) || {},
   };
+}
+
+export type PortraitLibraryItem = { name: string; path: string };
+
+export async function listPhotographerPortraitLibrary(token: string): Promise<PortraitLibraryItem[]> {
+  const data = await apiRequest<{ ok?: boolean; files?: PortraitLibraryItem[] }>(
+    "/api/admin/photographers/portraits/library",
+    "GET",
+    token,
+  );
+  return Array.isArray(data?.files) ? data.files : [];
+}
+
+export async function uploadPhotographerPortrait(token: string, file: File): Promise<string> {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(`${API_BASE}/api/admin/photographers/portraits/upload`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  });
+  const text = await res.text();
+  if (!res.ok) {
+    let msg = text;
+    try {
+      const j = JSON.parse(text) as { error?: string };
+      if (j?.error) msg = j.error;
+    } catch {
+      /* raw text */
+    }
+    throw new Error(msg.trim() || `HTTP ${res.status}`);
+  }
+  const json = JSON.parse(text) as { path?: string };
+  if (!json.path) throw new Error("Ungültige Server-Antwort");
+  return json.path;
 }
 
 export async function getPhotographers(token: string): Promise<Photographer[]> {

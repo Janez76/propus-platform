@@ -3,6 +3,7 @@ import { CheckCircle, Printer, ArrowLeft, UserPlus, Check, Eye, EyeOff } from "l
 import { useBookingWizardStore } from "../../store/bookingWizardStore";
 import { apiRequest } from "../../api/client";
 import { t, type Lang } from "../../i18n";
+import { bookingPhotographerLabel } from "../../lib/bookingLabels";
 import { formatDateCH } from "../../lib/utils";
 
 function AccountCard({ lang, email, name }: { lang: Lang; email: string; name: string }) {
@@ -155,7 +156,9 @@ export function ThankYouScreen({ lang }: { lang: Lang }) {
         <div className="space-y-3 text-sm">
           <div className="flex justify-between">
             <span className="text-zinc-500">{t(lang, "booking.thankyou.orderNo")}</span>
-            <span className="font-bold text-zinc-900 dark:text-zinc-100">#{orderNo}</span>
+            <span className="font-bold text-zinc-900 dark:text-zinc-100">
+              {orderNo != null ? `#${orderNo}` : "—"}
+            </span>
           </div>
           {date && (
             <div className="flex justify-between">
@@ -172,7 +175,7 @@ export function ThankYouScreen({ lang }: { lang: Lang }) {
           {photographer && (
             <div className="flex justify-between">
               <span className="text-zinc-500">{t(lang, "booking.step3.photographer")}</span>
-              <span className="text-zinc-900 dark:text-zinc-100">{photographer.name}</span>
+              <span className="text-zinc-900 dark:text-zinc-100">{bookingPhotographerLabel(lang, photographer)}</span>
             </div>
           )}
           <div className="flex justify-between">

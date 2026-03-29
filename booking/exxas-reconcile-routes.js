@@ -232,69 +232,134 @@ function registerExxasReconcileRoutes(app, db, requireAdmin, ensureCustomerInReq
     return { customers, contacts };
   }
 
-  function scoreCustomerCandidate(exxasCustomer, localCustomer) {
+  function uniqueNonBlank(values, normalizeFn = asString) {
+    return [...new Set((Array.isArray(values) ? values : []).map((value) => normalizeFn(value)).filter(Boolean))];
+  }
+
+  function normalizeEmail(value) {
+    return asString(value).toLowerCase();
+  }
+
+  function normalizeZip(value) {
+    return asString(value).replace(/[^0-9]/g, "");
+  }
+
+  function getPhoneTokens(values) {
+    const out = new Set();
+    for (const value of Array.isArray(values) ? values : []) {
+      const digits = normalizePhone(value).replace(/^\+/, "").replace(/^00/, "");
+      if (digits.length >= 6) out.add(digits);
+      if (digits.length >= 8) out.add(digits.slice(-8));
+      if (digits.length >= 9) out.add(digits.slice(-9));
+    }
+    return [...out];
+  }
+
+  function havePhoneOverlap(aValues, bValues) {
+    const a = getPhoneTokens(aValues);
+    const b = new Set(getPhoneTokens(bValues));
+    return a.some((value) => b.has(value));
+  }
+
+  function normalizeCustomerLabel(customer) {
+    return normalizeText(customer?.company || customer?.name);
+  }
+
+  function normalizeContactLabel(contact) {
+    const fullName =
+      [asString(contact?.firstName || contact?.first_name), asString(contact?.lastName || contact?.last_name)]
+        .filter(Boolean)
+        .join(" ") || asString(contact?.name);
+    return normalizeText(fullName);
+  }
+
+  function hasReason(candidate, reason) {
+    return Array.isArray(candidate?.reasons) && candidate.reasons.includes(reason);
+  }
+
+  function candidateGap(candidates) {
+    const top = candidates[0];
+    const second = candidates[1];
+    if (!top) return 0;
+    if (!second) return top.score;
+    return top.score - second.score;
+  }
+
+  function scoreCustomerCandidate(exxasCustomer, localCustomer, relatedExxasContacts = [], localCustomerContacts = []) {
     let score = 0;
     const reasons = [];
 
     const exxasCustomerId = asString(exxasCustomer.exxasCustomerId);
     const exxasAddressId = asString(exxasCustomer.exxasAddressId);
     if (exxasCustomerId && exxasCustomerId === asString(localCustomer.exxas_customer_id)) {
-      score += 100;
+      score += 140;
       reasons.push("exxas_customer_id");
     }
     if (exxasAddressId && exxasAddressId === asString(localCustomer.exxas_address_id)) {
-      score += 100;
+      score += 140;
       reasons.push("exxas_address_id");
     }
 
-    if (exxasCustomer.email && exxasCustomer.email === asString(localCustomer.email).toLowerCase()) {
-      score += 60;
-      reasons.push("email");
+    const exxasEmails = uniqueNonBlank([
+      exxasCustomer.email,
+      ...relatedExxasContacts.map((contact) => contact.email),
+    ], normalizeEmail);
+    const localEmails = uniqueNonBlank([
+      localCustomer.email,
+      ...localCustomerContacts.map((contact) => contact.email),
+    ], normalizeEmail);
+    if (exxasEmails.length && localEmails.length && exxasEmails.some((email) => localEmails.includes(email))) {
+      const directCustomerEmail = normalizeEmail(exxasCustomer.email);
+      score += directCustomerEmail && localEmails.includes(directCustomerEmail) ? 70 : 45;
+      reasons.push(directCustomerEmail && localEmails.includes(directCustomerEmail) ? "email" : "contact_email");
     }
 
     const exxasCompanyNorm = normalizeText(exxasCustomer.name);
-    const localCompanyNorm = normalizeText(localCustomer.company || localCustomer.name);
+    const localCompanyNorm = normalizeCustomerLabel(localCustomer);
     if (exxasCompanyNorm && localCompanyNorm) {
       if (exxasCompanyNorm === localCompanyNorm) {
-        score += 25;
+        score += 30;
         reasons.push("company_or_name");
       } else if (
         exxasCompanyNorm.length >= 4 &&
         localCompanyNorm.length >= 4 &&
         (exxasCompanyNorm.includes(localCompanyNorm) || localCompanyNorm.includes(exxasCompanyNorm))
       ) {
-        score += 15;
+        score += 18;
         reasons.push("company_partial");
       }
     }
 
-    const exxasPhones = [exxasCustomer.phone, exxasCustomer.phone2, exxasCustomer.phoneMobile]
-      .map(normalizePhone)
-      .filter((p) => p.length >= 6);
-    const localPhones = [localCustomer.phone, localCustomer.phone_2, localCustomer.phone_mobile]
-      .map(normalizePhone)
-      .filter((p) => p.length >= 6);
-    if (exxasPhones.length && localPhones.length && exxasPhones.some((ep) => localPhones.includes(ep))) {
-      score += 10;
+    if (
+      havePhoneOverlap(
+        [exxasCustomer.phone, exxasCustomer.phone2, exxasCustomer.phoneMobile],
+        [localCustomer.phone, localCustomer.phone_2, localCustomer.phone_mobile]
+      )
+    ) {
+      score += 14;
       reasons.push("phone");
     }
 
-    const localZip = asString(localCustomer.zip) || splitZipCity(localCustomer.zipcity).zip;
+    const localZip = normalizeZip(asString(localCustomer.zip) || splitZipCity(localCustomer.zipcity).zip);
     const localCity = asString(localCustomer.city) || splitZipCity(localCustomer.zipcity).city;
-    if (exxasCustomer.zip && localZip && exxasCustomer.zip === localZip) {
-      score += 5;
+    if (normalizeZip(exxasCustomer.zip) && localZip && normalizeZip(exxasCustomer.zip) === localZip) {
+      score += 8;
       reasons.push("zip");
     }
     if (normalizeText(exxasCustomer.city) && normalizeText(exxasCustomer.city) === normalizeText(localCity)) {
-      score += 5;
+      score += 6;
       reasons.push("city");
     }
     if (normalizeText(exxasCustomer.street) && normalizeText(exxasCustomer.street) === normalizeText(localCustomer.street)) {
-      score += 5;
+      score += 8;
       reasons.push("street");
     }
 
-    return { score, reasons };
+    return {
+      score,
+      reasons,
+      exactMatch: reasons.includes("exxas_customer_id") || reasons.includes("exxas_address_id"),
+    };
   }
 
   function scoreContactCandidate(exxasContact, localContact) {
@@ -302,26 +367,136 @@ function registerExxasReconcileRoutes(app, db, requireAdmin, ensureCustomerInReq
     const reasons = [];
 
     if (exxasContact.id && exxasContact.id === asString(localContact.exxas_contact_id)) {
-      score += 100;
+      score += 140;
       reasons.push("exxas_contact_id");
     }
-    if (exxasContact.email && exxasContact.email === asString(localContact.email).toLowerCase()) {
-      score += 70;
+    if (normalizeEmail(exxasContact.email) && normalizeEmail(exxasContact.email) === normalizeEmail(localContact.email)) {
+      score += 80;
       reasons.push("email");
     }
-    const exxasName = normalizeText(exxasContact.name);
-    const localName = normalizeText(localContact.name);
+    const exxasName = normalizeContactLabel(exxasContact);
+    const localName = normalizeContactLabel(localContact);
     if (exxasName && exxasName === localName) {
-      score += 20;
+      score += 24;
       reasons.push("name");
     }
-    const exxasPhone = normalizePhone(exxasContact.phone);
-    const localPhone = normalizePhone(localContact.phone_mobile || localContact.phone);
-    if (exxasPhone && localPhone && exxasPhone === localPhone) {
-      score += 10;
+    if (
+      havePhoneOverlap(
+        [exxasContact.phoneDirect, exxasContact.phone, exxasContact.phoneMobile],
+        [localContact.phone_direct, localContact.phone, localContact.phone_mobile]
+      )
+    ) {
+      score += 12;
       reasons.push("phone");
     }
-    return { score, reasons };
+    if (
+      normalizeText(exxasContact.department) &&
+      normalizeText(exxasContact.department) === normalizeText(localContact.department)
+    ) {
+      score += 6;
+      reasons.push("department");
+    }
+    return {
+      score,
+      reasons,
+      exactMatch: reasons.includes("exxas_contact_id"),
+    };
+  }
+
+  function decideCustomerSuggestion(customerSuggestions) {
+    const top = customerSuggestions[0] || null;
+    const gap = candidateGap(customerSuggestions);
+    if (!top) {
+      return {
+        suggestedCustomerAction: "create_customer",
+        suggestedLocalCustomerId: null,
+        customerMatchQuality: "none",
+        customerReviewRequired: false,
+      };
+    }
+    const corroborated =
+      hasReason(top, "email") ||
+      hasReason(top, "contact_email") ||
+      ((hasReason(top, "company_or_name") || hasReason(top, "company_partial")) &&
+        (hasReason(top, "phone") || hasReason(top, "street") || hasReason(top, "zip") || hasReason(top, "city")));
+
+    if (top.exactMatch) {
+      return {
+        suggestedCustomerAction: "link_existing",
+        suggestedLocalCustomerId: Number(top.localCustomerId),
+        customerMatchQuality: "exact",
+        customerReviewRequired: false,
+      };
+    }
+    if (top.score >= 90 && gap >= 20 && corroborated) {
+      return {
+        suggestedCustomerAction: "link_existing",
+        suggestedLocalCustomerId: Number(top.localCustomerId),
+        customerMatchQuality: "strong",
+        customerReviewRequired: false,
+      };
+    }
+    if (top.score >= 55) {
+      return {
+        suggestedCustomerAction: "skip",
+        suggestedLocalCustomerId: Number(top.localCustomerId),
+        customerMatchQuality: "ambiguous",
+        customerReviewRequired: true,
+      };
+    }
+    return {
+      suggestedCustomerAction: "create_customer",
+      suggestedLocalCustomerId: null,
+      customerMatchQuality: "none",
+      customerReviewRequired: false,
+    };
+  }
+
+  function decideContactSuggestion(localCandidates, fallbackAction, fallbackLocalContactId) {
+    const top = localCandidates[0] || null;
+    const gap = candidateGap(localCandidates);
+    if (!top) {
+      return {
+        suggestedAction: fallbackAction,
+        suggestedLocalContactId: fallbackLocalContactId,
+        matchQuality: "none",
+        reviewRequired: false,
+      };
+    }
+    const corroborated =
+      hasReason(top, "email") ||
+      (hasReason(top, "name") && hasReason(top, "phone")) ||
+      (hasReason(top, "name") && hasReason(top, "department"));
+    if (top.exactMatch) {
+      return {
+        suggestedAction: "link_existing",
+        suggestedLocalContactId: Number(top.localContactId),
+        matchQuality: "exact",
+        reviewRequired: false,
+      };
+    }
+    if (top.score >= 95 && gap >= 20 && corroborated) {
+      return {
+        suggestedAction: "link_existing",
+        suggestedLocalContactId: Number(top.localContactId),
+        matchQuality: "strong",
+        reviewRequired: false,
+      };
+    }
+    if (top.score >= 60) {
+      return {
+        suggestedAction: "skip",
+        suggestedLocalContactId: Number(top.localContactId),
+        matchQuality: "ambiguous",
+        reviewRequired: true,
+      };
+    }
+    return {
+      suggestedAction: fallbackAction,
+      suggestedLocalContactId: fallbackLocalContactId,
+      matchQuality: "none",
+      reviewRequired: false,
+    };
   }
 
   function buildPreview(exxasCustomersRaw, exxasContactsRaw, localCustomers, localContacts) {
@@ -342,57 +517,77 @@ function registerExxasReconcileRoutes(app, db, requireAdmin, ensureCustomerInReq
     }
 
     const items = exxasCustomers.map((exxasCustomer) => {
+      const relatedContacts = contactsByCustomerRef.get(exxasCustomer.id) || [];
       const customerSuggestions = localCustomers
         .map((localCustomer) => {
-          const { score, reasons } = scoreCustomerCandidate(exxasCustomer, localCustomer);
+          const { score, reasons, exactMatch } = scoreCustomerCandidate(
+            exxasCustomer,
+            localCustomer,
+            relatedContacts,
+            localContactsByCustomer.get(Number(localCustomer.id)) || []
+          );
           return {
             localCustomerId: Number(localCustomer.id),
             localCustomer,
             confidence: Math.min(1, score / 100),
             score,
             reasons,
+            exactMatch,
           };
         })
         .filter((candidate) => candidate.score > 0)
         .sort((a, b) => b.score - a.score)
         .slice(0, 5);
 
-      const topCustomer = customerSuggestions[0] || null;
-      const suggestedCustomerAction = topCustomer && topCustomer.score >= 60 ? "link_existing" : "create_customer";
-      const targetLocalCustomerId = topCustomer ? Number(topCustomer.localCustomerId) : null;
-      const relatedContacts = contactsByCustomerRef.get(exxasCustomer.id) || [];
+      const customerDecision = decideCustomerSuggestion(customerSuggestions);
+      const targetLocalCustomerId = customerDecision.suggestedLocalCustomerId;
       const localContactPool =
         targetLocalCustomerId != null ? localContactsByCustomer.get(Number(targetLocalCustomerId)) || [] : [];
 
       const contactSuggestions = relatedContacts.map((exxasContact) => {
         const localCandidates = localContactPool
           .map((localContact) => {
-            const { score, reasons } = scoreContactCandidate(exxasContact, localContact);
+            const { score, reasons, exactMatch } = scoreContactCandidate(exxasContact, localContact);
             return {
               localContactId: Number(localContact.id),
               localContact,
               confidence: Math.min(1, score / 100),
               score,
               reasons,
+              exactMatch,
             };
           })
           .filter((candidate) => candidate.score > 0)
           .sort((a, b) => b.score - a.score)
           .slice(0, 5);
-        const topContact = localCandidates[0] || null;
+        const contactDecision =
+          customerDecision.customerReviewRequired
+            ? {
+                suggestedAction: "skip",
+                suggestedLocalContactId: localCandidates[0] ? Number(localCandidates[0].localContactId) : null,
+                matchQuality: localCandidates[0] ? "ambiguous" : "none",
+                reviewRequired: localCandidates.length > 0,
+              }
+            : decideContactSuggestion(localCandidates, "create_contact", null);
         return {
           exxasContact,
           localCandidates,
-          suggestedAction: topContact && topContact.score >= 70 ? "link_existing" : "create_contact",
-          suggestedLocalContactId: topContact ? Number(topContact.localContactId) : null,
+          suggestedAction: contactDecision.suggestedAction,
+          suggestedLocalContactId: contactDecision.suggestedLocalContactId,
+          matchQuality: contactDecision.matchQuality,
+          reviewRequired: contactDecision.reviewRequired,
         };
       });
 
       return {
         exxasCustomer,
         customerSuggestions,
-        suggestedCustomerAction,
-        suggestedLocalCustomerId: targetLocalCustomerId,
+        suggestedCustomerAction: customerDecision.suggestedCustomerAction,
+        suggestedLocalCustomerId: customerDecision.suggestedLocalCustomerId,
+        customerMatchQuality: customerDecision.customerMatchQuality,
+        customerReviewRequired: customerDecision.customerReviewRequired,
+        reviewRequired:
+          customerDecision.customerReviewRequired || contactSuggestions.some((contact) => contact.reviewRequired),
         contactSuggestions,
       };
     });

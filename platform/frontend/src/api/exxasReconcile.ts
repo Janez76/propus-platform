@@ -104,13 +104,18 @@ export type LocalContactCandidate = {
 export type ExxasPreviewItem = {
   exxasCustomer: ExxasPreviewCustomer;
   customerSuggestions: LocalCustomerCandidate[];
-  suggestedCustomerAction: "link_existing" | "create_customer";
+  suggestedCustomerAction: "link_existing" | "create_customer" | "skip";
   suggestedLocalCustomerId: number | null;
+  customerMatchQuality?: "exact" | "strong" | "ambiguous" | "none";
+  customerReviewRequired?: boolean;
+  reviewRequired?: boolean;
   contactSuggestions: Array<{
     exxasContact: ExxasPreviewContact;
     localCandidates: LocalContactCandidate[];
-    suggestedAction: "link_existing" | "create_contact";
+    suggestedAction: "link_existing" | "create_contact" | "skip";
     suggestedLocalContactId: number | null;
+    matchQuality?: "exact" | "strong" | "ambiguous" | "none";
+    reviewRequired?: boolean;
   }>;
 };
 

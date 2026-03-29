@@ -15,9 +15,7 @@ const inputClass = cn(
 const labelClass = "block text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-1.5";
 
 export function StepBilling({ lang }: { lang: Lang }) {
-  const { billing, setBilling, altBilling, setAltBilling, keyPickup, setKeyPickup, agbAccepted, setAgbAccepted, config } = useBookingWizardStore();
-
-  const keyPickupPrice = config?.keyPickupPrice ?? 50;
+  const { billing, setBilling, altBilling, setAltBilling, agbAccepted, setAgbAccepted } = useBookingWizardStore();
 
   function onAddressParsed(p: ParsedAddress) {
     setBilling({ street: `${p.street} ${p.houseNumber}`.trim(), zip: p.zip, city: p.city, zipcity: `${p.zip} ${p.city}` });
@@ -161,29 +159,6 @@ export function StepBilling({ lang }: { lang: Lang }) {
                 rows={3}
                 className={cn(inputClass, "resize-none")}
               />
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Schluesselabholung */}
-      <label className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white px-5 py-4 dark:border-zinc-700 dark:bg-zinc-900">
-        <input type="checkbox" checked={keyPickup.enabled} onChange={(e) => setKeyPickup({ enabled: e.target.checked })} className="h-4 w-4 rounded border-zinc-300 text-[#C5A059]" />
-        <span className="text-sm text-zinc-700 dark:text-zinc-300">
-          {t(lang, "booking.step4.keyPickup")} (+CHF {keyPickupPrice.toFixed(0)})
-        </span>
-      </label>
-
-      {keyPickup.enabled && (
-        <section className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-900">
-          <div className="space-y-4">
-            <div>
-              <label className={labelClass}>{t(lang, "booking.step4.keyPickupAddress")}</label>
-              <input type="text" value={keyPickup.address} onChange={(e) => setKeyPickup({ address: e.target.value })} className={inputClass} />
-            </div>
-            <div>
-              <label className={labelClass}>{t(lang, "booking.step4.keyPickupInfo")}</label>
-              <textarea value={keyPickup.info} onChange={(e) => setKeyPickup({ info: e.target.value })} rows={2} className={cn(inputClass, "resize-none")} />
             </div>
           </div>
         </section>

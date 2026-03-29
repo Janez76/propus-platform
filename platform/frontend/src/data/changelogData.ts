@@ -15,6 +15,25 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.272",
+    date: "2026-03-29",
+    title: "Buchungsportal: Wizard-Fixes, Verfügbarkeit, Deploy",
+    changes: [
+      {
+        type: "fix",
+        text: "Öffentliche Buchung: Standard «Kein Wunsch» in Schritt 3; Validierungsbanner passt sich bei Korrektur an; Schlüsselabholung nur noch als Addon (Schritt 2), nicht doppelt in Schritt 4.",
+      },
+      {
+        type: "fix",
+        text: "Nach «Buchung absenden» zuverlässig zur Bestätigungsseite (Erkennung der API-Antwort, Persist-Merge ohne submitted/orderNo aus dem Draft).",
+      },
+      {
+        type: "fix",
+        text: "Backend: /api/availability nutzt dieselbe Shoot-Dauer wie die Buchung (getShootDurationMinutes); deutsche Fehlertexte mit korrekten Umlauten.",
+      },
+    ],
+  },
+  {
     version: "2.3.271",
     date: "2026-03-29",
     title: "Tour Manager: Mount-Prefix nicht mehr doppelt in Links",

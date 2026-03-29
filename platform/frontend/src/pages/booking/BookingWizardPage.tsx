@@ -14,6 +14,7 @@ import { StepBilling } from "./StepBilling";
 import { SummaryPanel } from "./SummaryPanel";
 import { ThankYouScreen } from "./ThankYouScreen";
 import { t, type Lang } from "../../i18n";
+import { bookingPhotographerForPayload } from "../../lib/bookingLabels";
 import { cn } from "../../lib/utils";
 import { bookingBrandLogoUrl } from "../../lib/bookingAssets";
 import { BookingThemeToggle } from "./BookingThemeToggle";
@@ -32,7 +33,7 @@ export function BookingWizardPage() {
     step, setStep, config, configLoading, setConfig, setCatalog, setPhotographers, setConfigLoading,
     submitted, submitting, setSubmitting, setSubmitted,
     selectedPackage, addons, photographer, date, time, billing, altBilling, agbAccepted,
-    address, coords, object, discount, keyPickup, provisional,
+    address, coords, object, discount, provisional,
   } = store;
 
   const [showLanding, setShowLanding] = useState(true);
@@ -73,6 +74,19 @@ export function BookingWizardPage() {
 
   useCatalogSync(reloadCatalog);
 
+  /** Validierungsbanner: Fehler verschwinden, sobald Nutzer:in die Felder korrigiert (nicht erst beim nächsten «Weiter»). */
+  useEffect(() => {
+    if (step !== 3) return;
+    setErrors((errs) =>
+      errs.filter((e) => {
+        if (e.field === "time" && time.trim()) return false;
+        if (e.field === "date" && date.trim()) return false;
+        if (e.field === "photographer" && photographer) return false;
+        return true;
+      }),
+    );
+  }, [time, date, photographer, step]);
+
   function validateCurrentStep(): boolean {
     let errs: ValidationError[] = [];
     if (step === 1) errs = validateStep1({ address, parsedAddress: store.parsedAddress, object });
@@ -105,8 +119,7 @@ export function BookingWizardPage() {
       vatRate: config?.vatRate ?? 0.081,
       chfRoundingStep: config?.chfRoundingStep ?? 0.05,
     };
-    const keyPickupPrice = keyPickup.enabled ? (config?.keyPickupPrice ?? 50) : 0;
-    const subtotal = (selectedPackage?.price ?? 0) + addons.reduce((s, a) => s + a.price * a.qty, 0) + keyPickupPrice;
+    const subtotal = (selectedPackage?.price ?? 0) + addons.reduce((s, a) => s + a.price * a.qty, 0);
     const pricing = computePricing(subtotal, discount.percent, pricingConfig);
 
     const payload: BookingPayload = {
@@ -129,7 +142,7 @@ export function BookingWizardPage() {
         addons: addons.map((a) => ({ id: a.id, group: a.group, label: a.label, labelKey: a.labelKey, price: a.price })),
       },
       schedule: {
-        photographer: photographer ?? { key: "any", name: "Egal" },
+        photographer: bookingPhotographerForPayload(lang, photographer),
         date,
         time,
         provisional,
@@ -140,19 +153,36 @@ export function BookingWizardPage() {
       },
       pricing,
       discountCode: discount.code || undefined,
-      keyPickup: keyPickup.enabled ? { enabled: true, address: keyPickup.address, info: keyPickup.info } : undefined,
     };
 
     try {
       const res = await submitBooking(payload);
-      if (res.ok || res.orderNo) {
-        setSubmitted(res.orderNo);
+      const rawNo = res?.orderNo as unknown;
+      const orderNoNum =
+        typeof rawNo === "number" && Number.isFinite(rawNo)
+          ? rawNo
+          : typeof rawNo === "string" && rawNo.trim() !== ""
+            ? Number(rawNo)
+            : NaN;
+      const hasOrderNo = Number.isFinite(orderNoNum) && orderNoNum > 0;
+      const success = res?.ok === true || hasOrderNo;
+      if (success) {
+        setShowLanding(false);
+        setSubmitError("");
+        setSubmitted(hasOrderNo ? orderNoNum : null);
+        window.scrollTo(0, 0);
       } else {
-        setSubmitError(t(lang, "booking.submit.error"));
+        const apiErr =
+          res && typeof (res as { error?: unknown }).error === "string"
+            ? String((res as { error: string }).error).trim()
+            : "";
+        setSubmitError(apiErr || t(lang, "booking.submit.error"));
+        window.scrollTo(0, 0);
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : t(lang, "booking.submit.error");
       setSubmitError(msg);
+      window.scrollTo(0, 0);
     } finally {
       setSubmitting(false);
     }

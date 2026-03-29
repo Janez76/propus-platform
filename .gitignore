@@ -8,6 +8,7 @@ backups/
 core/dumps/
 data/pgdata/
 data/logto-pgdata/
+booking/data/
 *.log
 .tmp*/
 .DS_Store

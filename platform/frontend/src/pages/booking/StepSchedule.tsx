@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useCallback, useRef, useState } from "react";
 import { Camera, CalendarDays, Clock, AlertTriangle, User } from "lucide-react";
 import { useBookingWizardStore } from "../../store/bookingWizardStore";
 import { fetchAvailability } from "../../api/bookingPublic";
@@ -68,6 +68,18 @@ export function StepSchedule({ lang }: { lang: Lang }) {
   } = useBookingWizardStore();
 
   const abortRef = useRef<AbortController | null>(null);
+
+  useLayoutEffect(() => {
+    const label = t(lang, "booking.step3.noPreference");
+    const p = useBookingWizardStore.getState().photographer;
+    if (p === null) {
+      setPhotographer({ key: "any", name: label });
+      return;
+    }
+    if (p.key === "any" && p.name !== label) {
+      setPhotographer({ ...p, name: label });
+    }
+  }, [lang, setPhotographer]);
 
   const loadSlots = useCallback(async () => {
     if (!date || !photographer) return;

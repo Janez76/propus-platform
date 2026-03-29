@@ -496,6 +496,39 @@ function runChunkPartUpload(req, res) {
   });
 }
 
+const PHOTOGRAPHER_PORTRAIT_DIR = process.env.PHOTOGRAPHER_PORTRAIT_DIR
+  ? path.resolve(process.env.PHOTOGRAPHER_PORTRAIT_DIR)
+  : path.join(__dirname, "data", "photographer-portraits");
+const PHOTOGRAPHER_PORTRAIT_MAX_MB = Math.min(8, Math.max(1, Number(process.env.PHOTOGRAPHER_PORTRAIT_MAX_MB || 5)));
+try {
+  fs.mkdirSync(PHOTOGRAPHER_PORTRAIT_DIR, { recursive: true });
+} catch (mkdirErr) {
+  console.warn("[photographer-portraits] mkdir failed:", PHOTOGRAPHER_PORTRAIT_DIR, mkdirErr?.message || mkdirErr);
+}
+
+const photographerPortraitUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, PHOTOGRAPHER_PORTRAIT_DIR),
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname || "").toLowerCase();
+      const allowed = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif"]);
+      const useExt = allowed.has(ext) ? ext : ".png";
+      const base = `portrait-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      cb(null, `${base}${useExt}`);
+    },
+  }),
+  limits: { fileSize: PHOTOGRAPHER_PORTRAIT_MAX_MB * 1024 * 1024 },
+});
+
+function runPhotographerPortraitUpload(req, res) {
+  return new Promise((resolve, reject) => {
+    photographerPortraitUpload.single("file")(req, res, (err) => {
+      if (err) return reject(err);
+      resolve();
+    });
+  });
+}
+
 // orderCounter wird async initialisiert (DB hat Vorrang, JSON als Fallback)
 let orderCounter = 99999;
 async function initOrderCounter() {
@@ -3423,8 +3456,6 @@ app.get("/api/availability", async (req, res) => {
     const photographer = String(req.query.photographer || "").toLowerCase();
     const date = parseDateFlexible(req.query.date);
     const sqmRaw = String(req.query.sqm || "");
-    const durationRaw = String(req.query.duration || "");
-    const durationMin = Number(durationRaw);
     const sqm = Number(sqmRaw);
     const lat = Number(req.query.lat);
     const lon = Number(req.query.lon);
@@ -3438,6 +3469,14 @@ app.get("/api/availability", async (req, res) => {
       package: packageCode ? { key: packageCode } : {},
       addons: addonCodes.map((id) => ({ id })),
     };
+    const areaForDuration = Number.isFinite(sqm) && sqm > 0 ? sqm : 0;
+    let durationMin = 60;
+    try {
+      durationMin = await getShootDurationMinutes(areaForDuration, servicesForTravel);
+    } catch (durErr) {
+      const fallback = Number(String(req.query.duration || ""));
+      if (Number.isFinite(fallback) && fallback > 0) durationMin = fallback;
+    }
     const getSkillLevel = (skills, key) => {
       const fallbackDrone = (key === "drohne_foto" || key === "drohne_video")
         ? skills?.drohne
@@ -4011,7 +4050,7 @@ app.post("/api/booking", async (req, res) => {
       const dayBk = resolveScheduleForDate(date, schedBk);
       if (dayBk.isHoliday || !dayBk.enabled) {
         return res.status(409).json({
-          error: "An diesem Tag ist keine Buchung m?glich.",
+          error: "An diesem Tag ist keine Buchung möglich.",
           reason: dayBk.isHoliday ? "holiday" : "outside_workdays",
         });
       }
@@ -4028,14 +4067,14 @@ app.post("/api/booking", async (req, res) => {
       });
       if (!(availBk.free || []).includes(time)) {
         return res.status(409).json({
-          error: "Dieser Zeitslot ist nicht verf?gbar (Kalender oder Abwesenheit).",
+          error: "Dieser Zeitslot ist nicht verfügbar (Kalender oder Abwesenheit).",
           reason: "slot_unavailable",
         });
       }
     } catch (e) {
       console.error("[booking] slot validation error", photographerKey, e?.message || e);
       return res.status(503).json({
-        error: "Verf?gbarkeit konnte nicht gepr?ft werden.",
+        error: "Verfügbarkeit konnte nicht geprüft werden.",
         reason: "availability_check_failed",
       });
     }
@@ -10187,6 +10226,46 @@ app.post("/api/admin/photographers", requireAdmin, async (req, res) => {
   }
 });
 
+// Porträt-Bibliothek (Dateien unter PHOTOGRAPHER_PORTRAIT_DIR, öffentlich unter /assets/photographers/)
+app.get("/api/admin/photographers/portraits/library", requirePhotographerOrAdmin, async (req, res) => {
+  try {
+    const entries = fs.readdirSync(PHOTOGRAPHER_PORTRAIT_DIR, { withFileTypes: true });
+    const files = entries
+      .filter((d) => d.isFile())
+      .map((d) => d.name)
+      .filter((name) => /\.(png|jpe?g|gif|webp)$/i.test(name))
+      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }))
+      .map((name) => ({ name, path: `assets/photographers/${name}` }));
+    res.json({ ok: true, files });
+  } catch (err) {
+    console.error("[photographers/portraits/library]", err?.message || err);
+    res.status(500).json({ error: err.message || "Bibliothek konnte nicht geladen werden" });
+  }
+});
+
+app.post("/api/admin/photographers/portraits/upload", requireAdmin, async (req, res, next) => {
+  try {
+    await runPhotographerPortraitUpload(req, res);
+    if (!req.file) return res.status(400).json({ error: "Keine Datei" });
+    const mime = String(req.file.mimetype || "");
+    if (!/^image\/(png|jpeg|pjpeg|gif|webp)$/i.test(mime)) {
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (_e) {}
+      return res.status(400).json({ error: "Nur Bilddateien (PNG, JPEG, WebP, GIF) erlaubt" });
+    }
+    res.json({ ok: true, path: `assets/photographers/${req.file.filename}` });
+  } catch (err) {
+    if (err instanceof multer.MulterError) {
+      if (err.code === "LIMIT_FILE_SIZE") {
+        return res.status(400).json({ error: `Datei zu gross (max. ${PHOTOGRAPHER_PORTRAIT_MAX_MB} MB)` });
+      }
+      return res.status(400).json({ error: err.message || "Upload fehlgeschlagen" });
+    }
+    next(err);
+  }
+});
+
 // Alle Mitarbeiter abrufen (DB als SSOT, Config als Fallback/Ergaenzung)
 app.get("/api/admin/photographers", requirePhotographerOrAdmin, async (req, res) => {
   try {
@@ -12146,7 +12225,10 @@ registerAdminMissingRoutes(app, db, requireAdmin, mailer);
 const ADMIN_PANEL_DIST = process.env.ADMIN_PANEL_DIST
   ? path.resolve(process.env.ADMIN_PANEL_DIST)
   : path.join(__dirname, "admin-panel", "dist");
-if (require("fs").existsSync(ADMIN_PANEL_DIST)) {
+if (fs.existsSync(PHOTOGRAPHER_PORTRAIT_DIR)) {
+  app.use("/assets/photographers", express.static(PHOTOGRAPHER_PORTRAIT_DIR));
+}
+if (fs.existsSync(ADMIN_PANEL_DIST)) {
   app.use(express.static(ADMIN_PANEL_DIST));
   app.get(/^(?!\/api|\/auth).*$/, (_req, res) => {
     res.sendFile(path.join(ADMIN_PANEL_DIST, "index.html"));

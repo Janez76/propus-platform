@@ -4,12 +4,13 @@ import { useBookingWizardStore } from "../../store/bookingWizardStore";
 import { computePricing, formatCHF, type PricingConfig } from "../../lib/bookingPricing";
 import { validateDiscount } from "../../api/bookingPublic";
 import { t, type Lang } from "../../i18n";
+import { bookingPhotographerLabel } from "../../lib/bookingLabels";
 import { cn, formatDateCH } from "../../lib/utils";
 
 export function SummaryPanel({ lang, mobile }: { lang: Lang; mobile?: boolean }) {
   const {
     address, selectedPackage, addons, photographer, date, time,
-    discount, setDiscount, config, keyPickup,
+    discount, setDiscount, config,
   } = useBookingWizardStore();
 
   const [discountInput, setDiscountInput] = useState(discount.code);
@@ -21,8 +22,7 @@ export function SummaryPanel({ lang, mobile }: { lang: Lang; mobile?: boolean })
     vatRate: config?.vatRate ?? 0.081,
     chfRoundingStep: config?.chfRoundingStep ?? 0.05,
   };
-  const keyPickupPrice = keyPickup.enabled ? (config?.keyPickupPrice ?? 50) : 0;
-  const subtotal = (selectedPackage?.price ?? 0) + addons.reduce((s, a) => s + a.price * a.qty, 0) + keyPickupPrice;
+  const subtotal = (selectedPackage?.price ?? 0) + addons.reduce((s, a) => s + a.price * a.qty, 0);
   const pricing = computePricing(subtotal, discount.percent, pricingConfig);
 
   const applyDiscount = useCallback(async () => {
@@ -108,19 +108,13 @@ export function SummaryPanel({ lang, mobile }: { lang: Lang; mobile?: boolean })
                 <span className="font-medium">{formatCHF(a.price * a.qty)}</span>
               </div>
             ))}
-            {keyPickup.enabled && (
-              <div className="flex justify-between text-zinc-700 dark:text-zinc-300">
-                <span>{t(lang, "booking.step4.keyPickup")}</span>
-                <span className="font-medium">{formatCHF(keyPickupPrice)}</span>
-              </div>
-            )}
           </div>
         )}
 
         {photographer && (
           <div className="flex items-center gap-2">
             <Camera className="h-3.5 w-3.5 text-[#C5A059]" />
-            <span className="text-zinc-700 dark:text-zinc-300">{photographer.name}</span>
+            <span className="text-zinc-700 dark:text-zinc-300">{bookingPhotographerLabel(lang, photographer)}</span>
           </div>
         )}
 

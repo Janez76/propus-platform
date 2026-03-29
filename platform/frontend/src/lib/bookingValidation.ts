@@ -83,8 +83,8 @@ export type Step3State = {
 export function validateStep3(s: Step3State): ValidationError[] {
   const errors: ValidationError[] = [];
   if (!s.photographer) errors.push({ field: "photographer", message: "booking.validation.photographerRequired" });
-  if (!s.date) errors.push({ field: "date", message: "booking.validation.dateRequired" });
-  if (!s.time) errors.push({ field: "time", message: "booking.validation.timeRequired" });
+  if (!String(s.date).trim()) errors.push({ field: "date", message: "booking.validation.dateRequired" });
+  if (!String(s.time).trim()) errors.push({ field: "time", message: "booking.validation.timeRequired" });
   return errors;
 }
 
