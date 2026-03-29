@@ -1273,6 +1273,10 @@
   "profile.passwordManagedExternally": "Le changement de mot de passe est désactivé avec SSO et géré en externe.",
 
   "booking.title": "Réservation Propus",
+  "booking.theme.title": "Thème",
+  "booking.theme.light": "Clair",
+  "booking.theme.dark": "Sombre",
+  "booking.theme.system": "Système",
   "booking.loading": "Chargement…",
   "booking.step1.title": "Lieu & Objet",
   "booking.step1.desc": "Où se trouve le bien immobilier ?",

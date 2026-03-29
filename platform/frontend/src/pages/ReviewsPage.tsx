@@ -37,6 +37,14 @@ interface ReviewRow {
   review_status: "responded" | "sent" | "pending" | "not_due";
 }
 
+function isSyntheticCompanyEmail(value?: string | null) {
+  return String(value || "").trim().toLowerCase().endsWith("@company.local");
+}
+
+function toVisibleCustomerEmail(value?: string | null) {
+  return isSyntheticCompanyEmail(value) ? "" : String(value || "");
+}
+
 function StarRating({ rating }: { rating: number }) {
   return (
     <span className="flex items-center gap-0.5">
@@ -99,7 +107,10 @@ export function ReviewsPage() {
       const res = await apiRequest<{ ok: boolean; sentTo: string | null }>(
         `/api/admin/orders/${orderNo}/review/resend`, "POST", token
       );
-      setMsg({ type: "ok", text: t(lang, "reviews.success.sent").replace("{{email}}", res.sentTo || "-") });
+      setMsg({
+        type: "ok",
+        text: t(lang, "reviews.success.sent").replace("{{email}}", toVisibleCustomerEmail(res.sentTo) || "-"),
+      });
       await loadAll();
     } catch (e) {
       setMsg({ type: "err", text: (e as Error).message });
@@ -244,12 +255,13 @@ export function ReviewsPage() {
               ) : filtered.map((row) => {
                 const sc = STATUS_CONFIG[row.review_status] || STATUS_CONFIG.not_due;
                 const StatusIcon = sc.icon;
+                const customerEmail = toVisibleCustomerEmail(row.customer_email);
                 return (
                   <tr key={row.order_no} className="hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors">
                     <td className="px-4 py-3 font-mono font-medium text-slate-900 dark:text-zinc-100">#{row.order_no}</td>
                     <td className="px-4 py-3">
                       <div className="font-medium text-slate-900 dark:text-zinc-100">{row.customer_name || "—"}</div>
-                      <div className="text-xs text-slate-400 dark:text-zinc-500">{row.customer_email || ""}</div>
+                      <div className="text-xs text-slate-400 dark:text-zinc-500">{customerEmail}</div>
                     </td>
                     <td className="px-4 py-3 text-slate-600 dark:text-zinc-400">
                       {row.done_at ? new Date(row.done_at).toLocaleDateString("de-CH") : "—"}

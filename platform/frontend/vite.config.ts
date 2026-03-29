@@ -5,6 +5,7 @@ import tailwindcss from "@tailwindcss/vite";
 // Optional env vars used in frontend:
 // - VITE_API_BASE  (leer = im Dev gleicher Host, /api wird per Proxy ans Backend weitergeleitet)
 // - VITE_CUSTOMER_PORTAL_URL
+// - VITE_PUBLIC_BOOKING_HOSTNAME (default booking.propus.ch – Root `/` = Buchungs-Wizard)
 const backendPort = process.env.BACKEND_PORT || "3001";
 
 export default defineConfig({

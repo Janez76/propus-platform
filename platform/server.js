@@ -20,59 +20,21 @@ const { createCoreRouter } = require("./modules/core/routes");
 const booking = require("../booking/server");
 const tours = require("../tours/server");
 
-const fs = require("fs");
-
 const main = express();
 const mount = String(process.env.TOURS_MOUNT_PATH || "/tour-manager").replace(/\/$/, "") || "/tour-manager";
 
-// Legacy Booking-Frontend unter /legacy-booking (nur lokal, Produktion bleibt unberührt)
-const legacyDir = path.join(__dirname, "..", "booking");
-const API_BASE_RE = /const API_BASE\s*=\s*window\.location\.hostname[\s\S]*?;/;
-
-main.get("/legacy-booking/index.html", serveLegacyIndex);
-main.get("/legacy-booking/", serveLegacyIndex);
-main.get("/legacy-booking", serveLegacyIndex);
-
-function serveLegacyIndex(_req, res) {
-  const htmlPath = path.join(legacyDir, "index.html");
+function publicBookingHostname() {
+  const raw = String(process.env.FRONTEND_URL || "https://booking.propus.ch").trim();
   try {
-    let html = fs.readFileSync(htmlPath, "utf8");
-    html = html.replace(
-      'href="app.css',     'href="/legacy-booking/app.css'
-    ).replace(
-      'src="photographers.config.js"', 'src="/legacy-booking/photographers.config.js"'
-    ).replace(
-      'src="discount-codes.js"', 'src="/legacy-booking/discount-codes.js"'
-    ).replace(
-      /src="script\.js[^"]*"/,  'src="/legacy-booking/script.js"'
-    ).replace(
-      'src="version.js"',  'src="/legacy-booking/version.js"'
-    ).replace(
-      'src="assets/',      'src="/legacy-booking/assets/'
-    ).replace(
-      'href="assets/',     'href="/legacy-booking/assets/'
-    );
-    res.type("html").send(html);
-  } catch (e) {
-    res.status(404).send("Legacy booking frontend not found");
+    return new URL(raw.startsWith("http") ? raw : `https://${raw}`).hostname.toLowerCase();
+  } catch (_) {
+    return "booking.propus.ch";
   }
 }
 
-main.get("/legacy-booking/script.js", (_req, res) => {
-  const jsPath = path.join(legacyDir, "script.js");
-  try {
-    let js = fs.readFileSync(jsPath, "utf8");
-    js = js.replace(API_BASE_RE, 'const API_BASE = "";');
-    res.type("application/javascript").send(js);
-  } catch (e) {
-    res.status(404).send("// not found");
-  }
-});
-
-main.use("/legacy-booking", express.static(legacyDir, { index: false }));
-
 main.use("/api/core", createCoreRouter());
 main.use(mount, tours.app);
+
 main.use(booking.app);
 
 const PORT = parseInt(process.env.PORT || "3100", 10);
@@ -82,7 +44,9 @@ const PORT = parseInt(process.env.PORT || "3100", 10);
     await booking.startServer();
     main.listen(PORT, "0.0.0.0", () => {
       console.log(`[propus-platform] listening on http://0.0.0.0:${PORT}`);
-      console.log(`[propus-platform] booking SPA + API: /`);
+      console.log(
+        `[propus-platform] public booking SPA: https://${publicBookingHostname()}/  | admin SPA: ${process.env.ADMIN_PANEL_URL || "admin host"}`,
+      );
       console.log(`[propus-platform] tour manager: http://0.0.0.0:${PORT}${mount}/admin`);
     });
   } catch (e) {

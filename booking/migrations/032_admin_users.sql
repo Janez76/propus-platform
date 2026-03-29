@@ -1,4 +1,4 @@
--- Migration 032: admin_users Tabelle fuer lokale Admin-Verwaltung (Keycloak-Abloesung)
+-- Migration 032: admin_users Tabelle fuer lokale Admin-Verwaltung (SSO-Abloesung fuer Admin-Login)
 -- Ermoeglicht mehrere Admin-Accounts ohne externen Identity-Provider.
 
 CREATE TABLE IF NOT EXISTS admin_users (

@@ -506,9 +506,8 @@ function registerExxasReconcileRoutes(app, db, requireAdmin, ensureCustomerInReq
       "email"
     );
     const patch = {
-      // Wenn EXXAS keine E-Mail hat, bestehende (ggf. synthetische) Adresse behalten
-      // damit kein leerer String einen customers_email_key-Konflikt auslöst
-      email: isBlank(resolvedEmail) ? (existing.email || "") : resolvedEmail,
+      // Synthetische Platzhalter-Mailadressen werden nicht konserviert.
+      email: resolvedEmail,
       name: overwriteSet.has("company_or_name")
         ? resolveIncomingValue(existingNameForMerge, customerNameValue, overwriteSet, "company_or_name")
         : resolveIncomingValue(existingNameForMerge, customerNameValue, overwriteSet, "name"),
@@ -592,28 +591,23 @@ function registerExxasReconcileRoutes(app, db, requireAdmin, ensureCustomerInReq
   }
 
   /**
-   * customers.email ist NOT NULL UNIQUE: bei fehlender EXXAS-Kundenmail Kontakte nutzen,
-   * sonst fuer Firmen synthetische Adresse (wie bestehende Firma-Platzhalter).
+   * Bei fehlender EXXAS-Kundenmail zuerst Kontakt-E-Mails nutzen, sonst leer lassen.
    */
   function resolveEmailForNewCustomerFromExxas(exxasCustomer, contactDecisions) {
     let email = asString(exxasCustomer.email).toLowerCase();
     if (!email) email = firstEmailFromContactDecisions(contactDecisions);
-    if (!email && isExxasCompanyCustomer(exxasCustomer)) {
-      const id = asString(exxasCustomer.exxasCustomerId || exxasCustomer.id);
-      if (id) email = `exxas-${id}@company.local`;
-    }
     return email;
   }
 
   async function createCustomerFromExxas(p, exxasCustomer, resolvedEmail) {
     const email = asString(resolvedEmail).toLowerCase();
-    if (!email) throw new Error("EXXAS_KUNDE_EMAIL_FEHLT");
-
-    const existingByEmail = await p.query("SELECT id FROM customers WHERE LOWER(email)=LOWER($1) LIMIT 1", [email]);
-    if (existingByEmail.rows[0]) {
-      const existingId = Number(existingByEmail.rows[0].id);
-      await fillMissingCustomerFields(p, existingId, exxasCustomer);
-      return existingId;
+    if (email) {
+      const existingByEmail = await p.query("SELECT id FROM customers WHERE LOWER(email)=LOWER($1) LIMIT 1", [email]);
+      if (existingByEmail.rows[0]) {
+        const existingId = Number(existingByEmail.rows[0].id);
+        await fillMissingCustomerFields(p, existingId, exxasCustomer);
+        return existingId;
+      }
     }
 
     const zip = asString(exxasCustomer.zip);

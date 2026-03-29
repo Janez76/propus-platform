@@ -65,7 +65,7 @@ async function deleteOrganizationForCompany(companyId) {
 }
 
 async function resolveLogtoUserIdForMember(member) {
-  const sub = String(member?.keycloak_subject || '').trim();
+  const sub = String(member?.auth_subject || '').trim();
   if (sub) {
     try {
       await logtoClient.getUserById(sub);

@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { MapPin, Home, Ruler, Layers, DoorOpen } from "lucide-react";
 import { AddressAutocompleteInput, type ParsedAddress } from "../../components/ui/AddressAutocompleteInput";
 import { useBookingWizardStore } from "../../store/bookingWizardStore";
+import { AddressPreviewMap } from "./AddressPreviewMap";
 import { t, type Lang } from "../../i18n";
 import { cn } from "../../lib/utils";
 
@@ -25,7 +26,7 @@ const inputClass = cn(
 const labelClass = "block text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-1.5";
 
 export function StepLocation({ lang }: { lang: Lang }) {
-  const { address, setAddress, parsedAddress, setParsedAddress, setCoords, object, setObject, config } = useBookingWizardStore();
+  const { address, coords, setAddress, parsedAddress, setParsedAddress, setCoords, object, setObject, config } = useBookingWizardStore();
 
   const onSelectParsed = useCallback((p: ParsedAddress) => {
     setParsedAddress({ street: p.street, houseNumber: p.houseNumber, zip: p.zip, city: p.city });
@@ -34,8 +35,6 @@ export function StepLocation({ lang }: { lang: Lang }) {
   const onSelectCoords = useCallback((lat: number, lon: number) => {
     setCoords({ lat, lng: lon });
   }, [setCoords]);
-
-  const hasMap = !!config?.googleMapsKey;
 
   return (
     <div className="space-y-6">
@@ -60,7 +59,9 @@ export function StepLocation({ lang }: { lang: Lang }) {
             {parsedAddress.street} {parsedAddress.houseNumber}, {parsedAddress.zip} {parsedAddress.city}
           </p>
         )}
-        {!hasMap && (
+        {config?.googleMapsKey ? (
+          <AddressPreviewMap apiKey={config.googleMapsKey} address={address} coords={coords} />
+        ) : (
           <div className="mt-3 rounded-lg border border-dashed border-zinc-300 bg-zinc-50 p-4 text-center text-xs text-zinc-400 dark:border-zinc-600 dark:bg-zinc-800/50">
             {t(lang, "booking.step1.mapUnavailable")}
           </div>

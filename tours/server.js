@@ -11,6 +11,8 @@ const adminRoutes = require('./routes/admin');
 const authRoutes = require('./routes/auth');
 const portalRoutes = require('./routes/portal');
 const userProfiles = require('./lib/user-profiles');
+const { pool } = require('./lib/db');
+const { createPostgresSessionStore } = require('../auth/postgres-session-store');
 
 let logtoAuth = null;
 try {
@@ -99,15 +101,30 @@ app.use(express.urlencoded({ extended: true }));
 // true = allen Proxies in der Chain vertrauen (Cloudflare → Tunnel → Nginx → App)
 app.set('trust proxy', true);
 
+const toursSessionSecret =
+  process.env.TOURS_SESSION_SECRET ||
+  process.env.SESSION_SECRET ||
+  'propus-tour-manager-secret';
+const toursSessionPath = TOURS_MOUNT_PATH || '/';
+const toursSessionStore = createPostgresSessionStore(session.Store, {
+  pool,
+  tableName: 'core.tours_sessions',
+  ttlSeconds: 24 * 60 * 60,
+  logger: console,
+});
+
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'propus-tour-manager-secret',
+  name: 'propus_tours.sid',
+  secret: toursSessionSecret,
   resave: false,
   saveUninitialized: false,
+  store: toursSessionStore,
   cookie: {
     secure: 'auto',     // über Proxy automatisch HTTPS-Cookie setzen
     sameSite: 'lax',
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000,
+    path: toursSessionPath,
   },
 }));
 

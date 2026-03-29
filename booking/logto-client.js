@@ -105,6 +105,18 @@ async function getUserById(userId) {
   return mgmtApi('GET', `/users/${userId}`);
 }
 
+async function updateUser(userId, patch) {
+  return mgmtApi('PATCH', `/users/${userId}`, patch);
+}
+
+async function updateUserCustomData(userId, customData) {
+  return mgmtApi('PATCH', `/users/${userId}/custom-data`, customData);
+}
+
+async function updateUserPassword(userId, password) {
+  return mgmtApi('PATCH', `/users/${userId}/password`, { password });
+}
+
 /** Normalize Logto list responses (array or { data: [] }) */
 function normalizeListResponse(data) {
   if (Array.isArray(data)) return data;
@@ -168,6 +180,9 @@ module.exports = {
   removeRolesFromUser,
   findUserByEmail,
   getUserById,
+  updateUser,
+  updateUserCustomData,
+  updateUserPassword,
   listOrganizations,
   createOrganization,
   updateOrganization,

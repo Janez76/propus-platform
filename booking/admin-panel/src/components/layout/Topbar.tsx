@@ -57,6 +57,13 @@ function resolveCustomerPortalUrl() {
   return "https://booking.propus.ch/";
 }
 
+function resolveAdminBookingUrl() {
+  if (typeof window !== "undefined") {
+    return new URL("/book", window.location.origin).toString();
+  }
+  return "https://admin-booking.propus.ch/book";
+}
+
 export function Topbar({ onMenuToggle }: TopbarProps) {
   const [showProfile, setShowProfile] = useState(false);
   const [customerPanelWarning, setCustomerPanelWarning] = useState("");
@@ -107,6 +114,10 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
     }
     const customerUrl = resolveCustomerPortalUrl();
     window.open(customerUrl, "_blank", "noopener,noreferrer");
+  };
+
+  const openAdminBooking = () => {
+    window.open(resolveAdminBookingUrl(), "_blank", "noopener,noreferrer");
   };
 
   return (
@@ -182,6 +193,17 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
 
           {/* Customer Panel Switch */}
           <button
+            onClick={openAdminBooking}
+            className="hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all duration-200 hover:text-[var(--accent)] focus:outline-none"
+            style={{ background: "var(--surface)", borderColor: "var(--border-soft)", color: "var(--text-main)" }}
+            aria-label={t(language, "landing.nav.cta")}
+          >
+            <ExternalLink className="h-4 w-4" />
+            <span>{t(language, "landing.nav.cta")}</span>
+          </button>
+
+          {/* Customer Panel Switch */}
+          <button
             onClick={openCustomerPanel}
             className="hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all duration-200 hover:text-[var(--accent)] focus:outline-none"
             style={{ background: "var(--surface)", borderColor: "var(--border-soft)", color: "var(--text-main)" }}
@@ -199,6 +221,16 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
           >
             <LogOut className="h-4 w-4" />
             <span>{t(language, "auth.logout")}</span>
+          </button>
+
+          {/* Mobile: Customer Panel */}
+          <button
+            onClick={openAdminBooking}
+            className="sm:hidden p-2.5 rounded-lg transition-all duration-200 hover:text-[var(--accent)]"
+            style={{ background: "var(--surface-raised)", color: "var(--text-muted)" }}
+            aria-label={t(language, "landing.nav.cta")}
+          >
+            <ExternalLink className="h-4 w-4" />
           </button>
 
           {/* Mobile: Customer Panel */}

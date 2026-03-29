@@ -15,6 +15,8 @@ import { SummaryPanel } from "./SummaryPanel";
 import { ThankYouScreen } from "./ThankYouScreen";
 import { t, type Lang } from "../../i18n";
 import { cn } from "../../lib/utils";
+import { bookingBrandLogoUrl } from "../../lib/bookingAssets";
+import { BookingThemeToggle } from "./BookingThemeToggle";
 
 const STEPS = [
   { id: 1, titleKey: "booking.step1.title", descKey: "booking.step1.desc" },
@@ -202,10 +204,11 @@ export function BookingWizardPage() {
       <header className="border-b border-zinc-200 bg-white/80 px-4 py-4 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/80">
         <div className="mx-auto flex max-w-5xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <img src="/legacy-booking/assets/brand/logopropus.png" alt="Propus" className="h-7" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+            <img src={bookingBrandLogoUrl()} alt="Propus" className="h-7" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
             <h1 className="font-display text-xl font-semibold text-zinc-900 dark:text-zinc-50">{t(lang, "booking.title")}</h1>
           </div>
           <div className="flex items-center gap-3">
+            <BookingThemeToggle lang={lang} />
             <div className="flex gap-1">
               {LANGS.map((l) => (
                 <button
@@ -214,7 +217,9 @@ export function BookingWizardPage() {
                   onClick={() => changeLang(l.value)}
                   className={cn(
                     "rounded px-2 py-0.5 text-xs font-medium transition-colors",
-                    lang === l.value ? "bg-[#C5A059] text-white" : "text-zinc-500 hover:text-zinc-700",
+                    lang === l.value
+                      ? "bg-[#C5A059] text-white"
+                      : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200",
                   )}
                 >
                   {l.label}
@@ -256,7 +261,7 @@ export function BookingWizardPage() {
               <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
                 {t(lang, STEPS[step - 1].titleKey)}
               </h2>
-              <p className="mt-1 text-sm text-zinc-500">
+              <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
                 {t(lang, STEPS[step - 1].descKey)}
               </p>
             </div>

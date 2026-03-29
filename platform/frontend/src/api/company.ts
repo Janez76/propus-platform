@@ -12,7 +12,7 @@ export type Company = {
 export type CompanyMember = {
   id: number;
   company_id: number;
-  keycloak_subject: string;
+  auth_subject: string;
   customer_id?: number | null;
   email: string;
   role: CompanyMemberRole;

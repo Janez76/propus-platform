@@ -9,7 +9,7 @@ SET search_path TO core, public;
 -- ─── Kunden (dedupliziert per E-Mail, Single Source of Truth) ────────────────
 CREATE TABLE IF NOT EXISTS core.customers (
   id            SERIAL PRIMARY KEY,
-  email         TEXT NOT NULL,
+  email         TEXT NOT NULL DEFAULT '',
   name          TEXT NOT NULL DEFAULT '',
   company       TEXT NOT NULL DEFAULT '',
   phone         TEXT NOT NULL DEFAULT '',
@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS core.customers (
   zipcity       TEXT NOT NULL DEFAULT '',
   password_hash TEXT,
   exxas_contact_id TEXT,
-  keycloak_sub  TEXT,
+  auth_sub  TEXT,
   blocked       BOOLEAN NOT NULL DEFAULT FALSE,
   notes         TEXT NOT NULL DEFAULT '',
   email_verified BOOLEAN NOT NULL DEFAULT FALSE,
@@ -29,7 +29,8 @@ CREATE TABLE IF NOT EXISTS core.customers (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_core_customers_email
-  ON core.customers (LOWER(email));
+  ON core.customers (email)
+  WHERE email <> '';
 CREATE INDEX IF NOT EXISTS idx_core_customers_exxas
   ON core.customers (exxas_contact_id) WHERE exxas_contact_id IS NOT NULL;
 
@@ -68,7 +69,7 @@ CREATE INDEX IF NOT EXISTS idx_core_companies_name ON core.companies(name);
 CREATE TABLE IF NOT EXISTS core.company_members (
   id              SERIAL PRIMARY KEY,
   company_id      INTEGER NOT NULL REFERENCES core.companies(id) ON DELETE CASCADE,
-  keycloak_subject TEXT NOT NULL DEFAULT '',
+  auth_subject TEXT NOT NULL DEFAULT '',
   customer_id     INTEGER REFERENCES core.customers(id) ON DELETE SET NULL,
   email           TEXT NOT NULL DEFAULT '',
   role            TEXT NOT NULL CHECK (role IN ('company_owner','company_admin','company_employee')),
@@ -79,16 +80,16 @@ CREATE TABLE IF NOT EXISTS core.company_members (
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_core_company_members_company_subject
-  ON core.company_members(company_id, keycloak_subject)
-  WHERE keycloak_subject <> '';
+CREATE UNIQUE INDEX IF NOT EXISTS idx_core_company_members_company_auth_subject
+  ON core.company_members(company_id, auth_subject)
+  WHERE auth_subject <> '';
 CREATE UNIQUE INDEX IF NOT EXISTS idx_core_company_members_company_customer
   ON core.company_members(company_id, customer_id)
   WHERE customer_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_core_company_members_company_email
   ON core.company_members(company_id, LOWER(email));
-CREATE INDEX IF NOT EXISTS idx_core_company_members_subject
-  ON core.company_members(keycloak_subject);
+CREATE INDEX IF NOT EXISTS idx_core_company_members_auth_subject
+  ON core.company_members(auth_subject);
 
 -- ─── Company Invitations ────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS core.company_invitations (

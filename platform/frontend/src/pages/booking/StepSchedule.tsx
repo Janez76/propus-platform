@@ -1,10 +1,48 @@
-import { useEffect, useCallback, useRef } from "react";
+import { useEffect, useCallback, useRef, useState } from "react";
 import { Camera, CalendarDays, Clock, AlertTriangle, User } from "lucide-react";
 import { useBookingWizardStore } from "../../store/bookingWizardStore";
 import { fetchAvailability } from "../../api/bookingPublic";
 import { computeShootDuration } from "../../lib/bookingPricing";
 import { t, type Lang } from "../../i18n";
 import { cn } from "../../lib/utils";
+import { photographerPortraitUrl } from "../../lib/bookingAssets";
+import type { PhotographerInfo } from "../../api/bookingPublic";
+
+function PhotographerPickButton({
+  p,
+  selected,
+  onSelect,
+}: {
+  p: PhotographerInfo;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const [imgFailed, setImgFailed] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={cn(
+        "flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all",
+        selected ? "border-[#C5A059] bg-[#C5A059]/5" : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-700",
+      )}
+    >
+      {p.image && !imgFailed ? (
+        <img
+          src={photographerPortraitUrl(p.image)}
+          alt={p.name}
+          className="h-12 w-12 rounded-full object-cover"
+          onError={() => setImgFailed(true)}
+        />
+      ) : (
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#C5A059]/10 text-sm font-bold text-[#C5A059]">
+          {p.initials || p.name.charAt(0)}
+        </div>
+      )}
+      <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">{p.name}</span>
+    </button>
+  );
+}
 
 function tomorrowISO(): string {
   const d = new Date();
@@ -107,26 +145,12 @@ export function StepSchedule({ lang }: { lang: Lang }) {
               <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">{t(lang, "booking.step3.noPreference")}</span>
             </button>
             {photographers.map((p) => (
-              <button
+              <PhotographerPickButton
                 key={p.key}
-                type="button"
-                onClick={() => setPhotographer({ key: p.key, name: p.name })}
-                className={cn(
-                  "flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all",
-                  photographer?.key === p.key
-                    ? "border-[#C5A059] bg-[#C5A059]/5"
-                    : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-700",
-                )}
-              >
-                {p.image ? (
-                  <img src={`/legacy-booking/${p.image}`} alt={p.name} className="h-12 w-12 rounded-full object-cover" />
-                ) : (
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#C5A059]/10 text-sm font-bold text-[#C5A059]">
-                    {p.initials || p.name.charAt(0)}
-                  </div>
-                )}
-                <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">{p.name}</span>
-              </button>
+                p={p}
+                selected={photographer?.key === p.key}
+                onSelect={() => setPhotographer({ key: p.key, name: p.name })}
+              />
             ))}
           </div>
         )}

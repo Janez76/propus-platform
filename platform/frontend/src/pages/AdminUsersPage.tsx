@@ -26,6 +26,20 @@ type Tab = "users" | "roles";
 const ALL_ROLES = ["super_admin", "admin", "photographer"] as const;
 type RoleKey = (typeof ALL_ROLES)[number];
 
+function detectLogtoAdminUrl() {
+  const configured = String(import.meta.env.VITE_LOGTO_ADMIN_URL || "").trim();
+  if (configured) return configured;
+  if (typeof window !== "undefined") {
+    const { hostname } = window.location;
+    if (hostname === "localhost" || hostname === "127.0.0.1") {
+      return "http://localhost:3002";
+    }
+  }
+  return "https://auth-admin.propus.ch/console";
+}
+
+const LOGTO_ADMIN_URL = detectLogtoAdminUrl();
+
 const ROLE_CFG: Record<RoleKey, {
   label: string;
   description: string;
@@ -428,7 +442,7 @@ function RolesTab({ users, loading, saving, onToggleRole, onReload }: {
           <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--accent)]" />
           <span>Rollen werden direkt in <strong className="text-[var(--text-muted)]">Logto</strong> gespeichert. Neue Rollen können nur in der Logto Admin Console erstellt werden.</span>
         </div>
-        <a href="http://localhost:3002" target="_blank" rel="noopener noreferrer"
+        <a href={LOGTO_ADMIN_URL} target="_blank" rel="noopener noreferrer"
           className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--accent)]/30 bg-[var(--accent)]/5 px-4 py-3 text-sm font-medium text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors whitespace-nowrap">
           Logto Admin öffnen →
         </a>

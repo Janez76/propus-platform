@@ -4,6 +4,7 @@ import { AppShell } from "./components/layout/AppShell";
 import { OfflineIndicator } from "./components/layout/OfflineIndicator";
 import { useAuth } from "./hooks/useAuth";
 import { isCompanyWorkspaceRole } from "./lib/companyRoles";
+import { isPublicBookingHost } from "./lib/publicBookingHost";
 import type { ReactElement } from "react";
 import type { Role } from "./types";
 
@@ -141,12 +142,17 @@ function PrivateRoutes() {
   );
 }
 
+function PublicBookingIndex() {
+  return isPublicBookingHost() ? <BookingWizardPage /> : <Navigate to="/dashboard" replace />;
+}
+
 export default function App() {
   return (
     <>
       <OfflineIndicator />
       <Suspense fallback={<PageSkeleton />}>
         <Routes>
+          <Route path="/" element={<PublicBookingIndex />} />
           <Route path="/book" element={<BookingWizardPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/confirm/:token" element={<ConfirmBookingPage />} />

@@ -1273,6 +1273,10 @@
   "profile.passwordManagedExternally": "La modifica password è disattivata con SSO ed è gestita esternamente.",
 
   "booking.title": "Prenotazione Propus",
+  "booking.theme.title": "Tema colori",
+  "booking.theme.light": "Chiaro",
+  "booking.theme.dark": "Scuro",
+  "booking.theme.system": "Sistema",
   "booking.loading": "Caricamento…",
   "booking.step1.title": "Posizione & Oggetto",
   "booking.step1.desc": "Dove si trova l'immobile?",

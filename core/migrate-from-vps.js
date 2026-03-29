@@ -215,7 +215,7 @@ async function migrateCustomersDeduplicated(client) {
             COALESCE(phone,'') as phone, COALESCE(onsite_name,'') as onsite_name,
             COALESCE(onsite_phone,'') as onsite_phone, COALESCE(street,'') as street,
             COALESCE(zipcity,'') as zipcity, password_hash, exxas_contact_id,
-            keycloak_sub, COALESCE(blocked,false) as blocked, COALESCE(notes,'') as notes,
+            auth_sub, COALESCE(blocked,false) as blocked, COALESCE(notes,'') as notes,
             COALESCE(email_verified,false) as email_verified,
             COALESCE(is_admin,false) as is_admin, created_at, updated_at
      FROM customers ORDER BY id`
@@ -228,12 +228,12 @@ async function migrateCustomersDeduplicated(client) {
     if (DRY_RUN) { inc('core.customers', 'inserted'); continue; }
     await client.query(
       `INSERT INTO core.customers (id, email, name, company, phone, onsite_name, onsite_phone,
-        street, zipcity, password_hash, exxas_contact_id, keycloak_sub, blocked, notes,
+        street, zipcity, password_hash, exxas_contact_id, auth_sub, blocked, notes,
         email_verified, is_admin, created_at, updated_at)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
        ON CONFLICT ((LOWER(email))) DO NOTHING`,
       [c.id, c.email, c.name, c.company, c.phone, c.onsite_name, c.onsite_phone,
-       c.street, c.zipcity, c.password_hash, c.exxas_contact_id, c.keycloak_sub,
+       c.street, c.zipcity, c.password_hash, c.exxas_contact_id, c.auth_sub,
        c.blocked, c.notes, c.email_verified, c.is_admin, c.created_at, c.updated_at]
     );
     emailMap.set(c.email.toLowerCase(), c.id);
@@ -300,14 +300,14 @@ async function run() {
     );
 
     await migrateGeneric(srcBooking,
-      `SELECT id, company_id, COALESCE(keycloak_subject,'') as keycloak_subject,
+      `SELECT id, company_id, COALESCE(auth_subject,'') as auth_subject,
               customer_id, role, COALESCE(email,'') as email,
               COALESCE(status,'active') as status,
               COALESCE(is_primary_contact,false) as is_primary_contact,
               created_at, updated_at
        FROM company_members ORDER BY id`,
       'core.company_members',
-      ['id', 'company_id', 'keycloak_subject', 'customer_id', 'role', 'email', 'status', 'is_primary_contact', 'created_at', 'updated_at'],
+      ['id', 'company_id', 'auth_subject', 'customer_id', 'role', 'email', 'status', 'is_primary_contact', 'created_at', 'updated_at'],
       client
     );
 

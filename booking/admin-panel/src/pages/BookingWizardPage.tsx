@@ -8,8 +8,8 @@ const steps = [
 ];
 
 /**
- * Öffentlicher Buchungs-Wizard (React) – ersetzt schrittweise booking/script.js.
- * API: dieselben Endpoints wie das Legacy-Frontend (/api/catalog, /api/booking, …).
+ * Platzhalter-Seite für den Buchungs-Wizard im alten admin-panel-Tree.
+ * Produktiv: Wizard in `platform/frontend` unter `/` (öffentlicher Host) bzw. `/book`.
  */
 export function BookingWizardPage() {
   const [step, setStep] = useState(1);
@@ -42,9 +42,9 @@ export function BookingWizardPage() {
           <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">{steps[step - 1].title}</h2>
           <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{steps[step - 1].desc}</p>
           <p className="mt-6 text-sm text-zinc-500">
-            Hier wird der Katalog und die Buchungs-API angebunden (parallel zu index.html / script.js). Für den produktiven
-            Ablauf kannst du vorerst das klassische Frontend unter <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-900">/legacy-booking</code>{" "}
-            nutzen (statische Dateien), bis die Integration abgeschlossen ist.
+            Die Buchung läuft über die React-SPA im <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-900">platform/frontend</code>
+            -Projekt (öffentlich <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-900">/</code>, Admin-Host{" "}
+            <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-900">/book</code>).
           </p>
           <div className="mt-8 flex justify-between">
             <button

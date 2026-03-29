@@ -15,7 +15,7 @@ CREATE INDEX IF NOT EXISTS idx_companies_name ON companies(name);
 CREATE TABLE IF NOT EXISTS company_members (
   id               SERIAL PRIMARY KEY,
   company_id       INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-  keycloak_subject TEXT NOT NULL DEFAULT '',
+  auth_subject TEXT NOT NULL DEFAULT '',
   customer_id      INTEGER REFERENCES customers(id) ON DELETE SET NULL,
   email            TEXT NOT NULL DEFAULT '',
   role             TEXT NOT NULL CHECK (role IN ('company_admin','company_employee')),
@@ -24,15 +24,15 @@ CREATE TABLE IF NOT EXISTS company_members (
   updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_company_members_company_subject
-  ON company_members(company_id, keycloak_subject)
-  WHERE keycloak_subject <> '';
+CREATE UNIQUE INDEX IF NOT EXISTS idx_company_members_company_auth_subject
+  ON company_members(company_id, auth_subject)
+  WHERE auth_subject <> '';
 CREATE UNIQUE INDEX IF NOT EXISTS idx_company_members_company_customer
   ON company_members(company_id, customer_id)
   WHERE customer_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_company_members_company_email
   ON company_members(company_id, LOWER(email));
-CREATE INDEX IF NOT EXISTS idx_company_members_subject ON company_members(keycloak_subject);
+CREATE INDEX IF NOT EXISTS idx_company_members_auth_subject ON company_members(auth_subject);
 
 CREATE TABLE IF NOT EXISTS company_invitations (
   id          SERIAL PRIMARY KEY,

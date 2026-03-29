@@ -15,6 +15,71 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.264",
+    date: "2026-03-29",
+    title: "Oeffentliche Buchung: React-SPA statt Legacy-HTML",
+    changes: [
+      {
+        type: "breaking",
+        text: "booking.propus.ch liefert die React-Buchung (Root `/` = Wizard); statisches Legacy-Frontend (booking/index.html, script.js) entfernt.",
+      },
+      {
+        type: "improvement",
+        text: "Buchungs-Landing/Wizard: Medien unter `/assets/booking/...` statt `/legacy-booking/...` (Logo im Repo; Paket- und Fotografen-PNGs ggf. nach `public/assets/booking/` kopieren).",
+      },
+      {
+        type: "improvement",
+        text: "Optional: `VITE_PUBLIC_BOOKING_HOSTNAME` setzen, falls der oeffentliche Buchungs-Host nicht `booking.propus.ch` ist.",
+      },
+    ],
+  },
+  {
+    version: "2.3.263",
+    date: "2026-03-29",
+    title: "Backup-System: Vollstaendiges Backup mit NAS-Sync und erweiterter UI",
+    changes: [
+      {
+        type: "feature",
+        text: "Backup-Script sichert jetzt beide Datenbanken (propus + logto) sowie optional die Upload-Ordner (Kundenbilder) als .tar.gz.",
+      },
+      {
+        type: "feature",
+        text: "Backup-Panel zeigt Konfigurations-Panel mit Zeitplan, Aufbewahrung, NAS-Sync-Status und aktiven Modulen.",
+      },
+      {
+        type: "feature",
+        text: "Neues Backup erstellen: Dialog mit Option 'Upload-Ordner mitsichern' und Uebersicht der gesicherten Daten.",
+      },
+      {
+        type: "feature",
+        text: "Wiederherstellen: Option 'Logto-Datenbank ueberspringen' um nur Haupt-DB wiederherzustellen.",
+      },
+      {
+        type: "feature",
+        text: "Backup-Eintraege zeigen Inhalt (db.sql, logto.sql, uploads) als aufklappbare Detail-Zeile.",
+      },
+      {
+        type: "improvement",
+        text: "Automatischer NAS-Sync taeglich 02:00 Uhr via Cron auf der UGREEN NAS nach /volume1/backup/propus-platform/data/.",
+      },
+    ],
+  },
+  {
+    version: "2.3.262",
+    date: "2026-03-29",
+    title: "Admin-Topbar: Direkter Einstieg in die Buchung",
+    changes: [
+      {
+        type: "feature",
+        text: "Admin-Topbar: Neuer Button 'Jetzt buchen' oeffnet die oeffentliche Buchungsmaske direkt unter /book im neuen Tab.",
+      },
+      {
+        type: "improvement",
+        text: "Deploy-Version auf v2.3.262 erhoeht, damit der neue Stand im Footer und bei Cache-Busting eindeutig sichtbar ist.",
+      },
+    ],
+  },
+  {
     version: "2.3.261",
     date: "2026-03-27",
     title: "Benutzerverwaltung: Auto-Sync, korrekter UI-Status und Empty State",
@@ -176,15 +241,15 @@ export const CHANGELOG: ChangelogVersion[] = [
   {
     version: "2.3.223",
     date: "2026-03-24",
-    title: "Kunden-Admin & Passwort lokal, Kontakt-Duplikate, Profil ohne Keycloak-Zwang",
+    title: "Kunden-Admin & Passwort lokal, Kontakt-Duplikate, Profil ohne SSO-Zwang",
     changes: [
       {
         type: "fix",
-        text: "Backend: PATCH /api/admin/customers/:id/admin und POST .../reset-password setzen is_admin bzw. Passwort (scrypt) und beenden Keycloak-Stubs; Kundenliste liefert echtes is_admin statt immer false.",
+        text: "Backend: PATCH /api/admin/customers/:id/admin und POST .../reset-password setzen is_admin bzw. Passwort (scrypt) und beenden SSO-Stubs; Kundenliste liefert echtes is_admin statt immer false.",
       },
       {
         type: "improvement",
-        text: "Admin-Profil: SSO-Banner nur noch bei VITE_ADMIN_SSO=true; Texte ohne Keycloak-Namen. Photographen-Login-Stub ohne Keycloak-Hinweis.",
+        text: "Admin-Profil: SSO-Banner nur noch bei VITE_ADMIN_SSO=true; Texte ohne festen IdP-Namen. Photographen-Login-Stub ohne SSO-Hinweis.",
       },
       {
         type: "fix",
@@ -210,8 +275,8 @@ export const CHANGELOG: ChangelogVersion[] = [
     changes: [
       { type: "feature", text: "Kalender: Öffentlicher ICS-Download und Graph-/E-Mail-Termine nutzen gespeicherte Vorlagen (customer_event / photographer_event) mit buildCalendarVars und Fallback auf die bisherige Logik." },
       { type: "fix", text: "Admin Reschedule: Kalender-E-Mail-Adresse des Fotografen (workMailbox) statt undefinierter Variable; Kunden-Mail nach Verschiebung nutzt rsPhotogPhone im richtigen Scope." },
-      { type: "breaking", text: "Keycloak-Admin-SSO entfernt: Anmeldung über POST /api/admin/login und Tabelle admin_users (Migration 032). Bearer-Token / admin_session wie bisher." },
-      { type: "feature", text: "Kunden: POST /api/customer/login und /api/customer/register mit Passwort (scrypt); Keycloak bleibt optional für /auth/customer/* falls konfiguriert." },
+      { type: "breaking", text: "Externes Admin-SSO entfernt: Anmeldung über POST /api/admin/login und Tabelle admin_users (Migration 032). Bearer-Token / admin_session wie bisher." },
+      { type: "feature", text: "Kunden: POST /api/customer/login und /api/customer/register mit Passwort (scrypt); Legacy-URLs /auth/customer/* leiten bei Bedarf ins Frontend um." },
       { type: "feature", text: "GET /api/admin/contacts für Kontakt-Suche; Platzhalter {{photographerPhone}} in E-Mail-Templates." },
       { type: "improvement", text: "Kundendialog: Firma Pflicht, Nachname optional; Feld Etage bei Schlüsselabholung (cf_kp_floor) entfernt." },
     ],
@@ -334,7 +399,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     changes: [
       {
         type: "fix",
-        text: "Admin-OIDC-Callback loggt Fehler mit Kontext ([oidc] SSO callback failed); OAuth-Fehler von Keycloak (access_denied, invalid_scope) werden als eigene sso_error-Codes an die Login-Seite uebergeben.",
+        text: "Admin-OIDC-Callback loggt Fehler mit Kontext ([oidc] SSO callback failed); OAuth-Fehler vom SSO-Anbieter (access_denied, invalid_scope) werden als eigene sso_error-Codes an die Login-Seite uebergeben.",
       },
       {
         type: "improvement",
@@ -373,7 +438,7 @@ export const CHANGELOG: ChangelogVersion[] = [
       },
       {
         type: "improvement",
-        text: "Kunden-Admin/Passwort-Operationen geben nun eine klare Keycloak-Hinweismeldung statt 404, da diese zentral ueber SSO verwaltet werden.",
+        text: "Kunden-Admin/Passwort-Operationen geben nun eine klare SSO-Hinweismeldung statt 404, da diese zentral ueber SSO verwaltet werden.",
       },
     ],
   },
@@ -871,7 +936,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     title: "OIDC-Login-Fehler behoben: Session-Cookie nach SSO-Callback",
     changes: [
       { type: "fix", text: "Backend setzt jetzt 'trust proxy', damit der Session-Cookie beim OIDC-Callback korrekt übermittelt wird und kein 'oidc_failed'-Fehler mehr auftritt." },
-      { type: "fix", text: "Session-Cookie erhält SameSite=lax, um den Keycloak-Callback-Flow mit Nginx-Reverse-Proxy zuverlässig zu unterstützen." },
+      { type: "fix", text: "Session-Cookie erhält SameSite=lax, um den SSO-Callback-Flow mit Nginx-Reverse-Proxy zuverlässig zu unterstützen." },
     ],
   },
   {
@@ -906,16 +971,16 @@ export const CHANGELOG: ChangelogVersion[] = [
     date: "2026-03-12",
     title: "Kunden-SSO auf echten Portal-Client umgestellt",
     changes: [
-      { type: "fix", text: "Kunden-Login/-Logout nutzt jetzt den Keycloak-Client 'booking-app' statt den Admin-Client, inklusive gültiger Callback-URL über api-booking.propus.ch." },
+      { type: "fix", text: "Kunden-Login/-Logout nutzt jetzt den OIDC-Client 'booking-app' statt den Admin-Client, inklusive gültiger Callback-URL über api-booking.propus.ch." },
       { type: "improvement", text: "Passwort-Reset im Kundenportal verwendet jetzt dynamisch die produktive Kunden-Client-ID aus /api/config." },
     ],
   },
   {
     version: "2.3.132",
     date: "2026-03-12",
-    title: "Kunden-Abmelden ohne Keycloak-Fehler",
+    title: "Kunden-Abmelden ohne SSO-Fehler",
     changes: [
-      { type: "fix", text: "Kunden-Abmelden leitet jetzt bei fehlender separater Kunden-OIDC-Konfiguration direkt sauber ins Buchungsportal zurück, statt eine Keycloak-Fehlerseite mit 'Invalid redirect uri' zu öffnen." },
+      { type: "fix", text: "Kunden-Abmelden leitet jetzt bei fehlender separater Kunden-OIDC-Konfiguration direkt sauber ins Buchungsportal zurück, statt eine SSO-Fehlerseite mit 'Invalid redirect uri' zu öffnen." },
     ],
   },
   {
@@ -923,7 +988,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     date: "2026-03-12",
     title: "Kunden-Login Redirect robuster gemacht",
     changes: [
-      { type: "fix", text: "Keycloak-Callback hängt customer_token und auth_error jetzt sauber an bestehende Redirect-URLs an, ohne kaputte Mehrfach-Querystrings mit wiederholten '?' zu erzeugen." },
+      { type: "fix", text: "SSO-Callback hängt customer_token und auth_error jetzt sauber an bestehende Redirect-URLs an, ohne kaputte Mehrfach-Querystrings mit wiederholten '?' zu erzeugen." },
       { type: "fix", text: "Buchungsportal bereinigt alte fehlerhafte auth_error/customer_token-Parameterketten vor dem nächsten Kunden-Login automatisch." },
     ],
   },
@@ -955,18 +1020,18 @@ export const CHANGELOG: ChangelogVersion[] = [
   {
     version: "2.3.127",
     date: "2026-03-12",
-    title: "Kunden-Logout und Registrierung via Keycloak verbessert",
+    title: "Kunden-Logout und Registrierung via SSO verbessert",
     changes: [
-      { type: "fix", text: "Kunden-Logout ohne aktive Session leitet jetzt sauber zurück ins Buchungsportal statt in einen Keycloak-Fehler (HTTP 400)." },
-      { type: "improvement", text: "Kunden-Registrierung springt jetzt direkt in die Keycloak-Self-Registration, auch aus dem 'Konto erstellen'-Hinweis nach einer Buchung." },
+      { type: "fix", text: "Kunden-Logout ohne aktive Session leitet jetzt sauber zurück ins Buchungsportal statt in einen SSO-Fehler (HTTP 400)." },
+      { type: "improvement", text: "Kunden-Registrierung springt jetzt direkt in die SSO-Selbstregistrierung, auch aus dem 'Konto erstellen'-Hinweis nach einer Buchung." },
     ],
   },
   {
     version: "2.3.126",
     date: "2026-03-12",
-    title: "Keycloak-Logout für Kunden und Admin stabilisiert",
+    title: "SSO-Logout für Kunden und Admin stabilisiert",
     changes: [
-      { type: "fix", text: "Keycloak-Logout übergibt jetzt den benötigten id_token_hint und verhindert damit den Fehler 'Missing parameter: id_token_hint'." },
+      { type: "fix", text: "SSO-Logout übergibt jetzt den benötigten id_token_hint und verhindert damit den Fehler 'Missing parameter: id_token_hint'." },
       { type: "improvement", text: "Cloudflare-Tunnel-Routing für booking.propus.ch, admin-booking.propus.ch und api-booking.propus.ch auf das korrekte Docker-Gateway umgestellt." },
     ],
   },
@@ -999,23 +1064,23 @@ export const CHANGELOG: ChangelogVersion[] = [
   {
     version: "2.3.122",
     date: "2026-03-12",
-    title: "Kunden-Modal auf Keycloak umgestellt",
+    title: "Kunden-Modal auf SSO umgestellt",
     changes: [
-      { type: "improvement", text: "Login-/Registrierungs-Formular im Kundenkonto-Modal durch Keycloak-Redirect ersetzt." },
-      { type: "improvement", text: "Passwort-Feld im Checkout-Widget entfernt — Kontobeitritt läuft über Keycloak." },
+      { type: "improvement", text: "Login-/Registrierungs-Formular im Kundenkonto-Modal über SSO-Redirect (Logto) ersetzt." },
+      { type: "improvement", text: "Passwort-Feld im Checkout-Widget entfernt — Kontobeitritt läuft über SSO (Logto)." },
     ],
   },
   {
     version: "2.3.121",
     date: "2026-03-12",
-    title: "Nur noch Keycloak – lokale Auth vollständig entfernt",
+    title: "SSO-only: lokale Auth vollständig entfernt",
     changes: [
-      { type: "breaking", text: "Alle lokalen Login-Mechanismen entfernt. Admin, Fotografen und Kunden melden sich ausschliesslich über Keycloak an." },
+      { type: "breaking", text: "Alle lokalen Login-Mechanismen entfernt. Admin, Fotografen und Kunden melden sich ausschliesslich über SSO an." },
       { type: "feature", text: "Kunden-OIDC-Flow: /auth/customer/login und /auth/customer/callback für Kunden-Portal implementiert." },
-      { type: "feature", text: "Migrations-Skript migrate-customers-to-keycloak.js: bestehende Kunden werden per Keycloak Admin REST API importiert." },
-      { type: "improvement", text: "SSO_ENABLED Variable entfernt – Keycloak ist permanent aktiv." },
+      { type: "feature", text: "Legacy: früheres Import-Skript für externe IdPs wurde entfernt (Kunden verknüpfen jetzt über Logto/SSO)." },
+      { type: "improvement", text: "SSO_ENABLED Variable entfernt – SSO ist dauerhaft aktiv." },
       { type: "improvement", text: "Admin-Panel: ForgotPasswordPage, ResetPasswordPage und useSsoStatus-Hook entfernt." },
-      { type: "improvement", text: "DB-Migration 022: keycloak_sub Spalte in customers-Tabelle für schnelle OIDC-Lookups." },
+      { type: "improvement", text: "DB-Migration 022: auth_sub-Spalte in customers-Tabelle für schnelle OIDC-Lookups." },
     ],
   },
   {

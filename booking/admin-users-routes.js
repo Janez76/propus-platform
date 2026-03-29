@@ -45,7 +45,7 @@ async function ensureUniqueCompanySlug(db, companyName) {
   const base = toSlug(companyName) || `firma-${Date.now()}`;
   for (let i = 0; i < 1000; i += 1) {
     const slug = i === 0 ? base : `${base}-${i + 1}`;
-    const check = await db.query(`SELECT 1 FROM companies WHERE slug = $1 LIMIT 1`, [slug]);
+    const check = await db.query(`SELECT 1 FROM core.companies WHERE slug = $1 LIMIT 1`, [slug]);
     if (!check.rows[0]) return slug;
   }
   throw new Error("Konnte keinen eindeutigen Firmen-Slug erzeugen");
@@ -100,13 +100,13 @@ function registerAdminUsersRoutes(app, deps) {
                 COALESCE(SUM(CASE WHEN cm.status = 'active' AND cm.role = 'company_employee' THEN 1 ELSE 0 END), 0)::int AS mitarbeiter_count,
                 COALESCE((
                   SELECT COUNT(*)
-                  FROM company_invitations ci
+                  FROM core.company_invitations ci
                   WHERE ci.company_id = c.id
                     AND ci.accepted_at IS NULL
                     AND ci.expires_at > NOW()
                 ), 0)::int AS pending_invitations
-         FROM companies c
-         LEFT JOIN company_members cm ON cm.company_id = c.id
+         FROM core.companies c
+         LEFT JOIN core.company_members cm ON cm.company_id = c.id
          ${where}
          GROUP BY c.id
          ORDER BY LOWER(c.name) ASC`,
@@ -120,7 +120,7 @@ function registerAdminUsersRoutes(app, deps) {
       if (companyIds.length > 0) {
         const membersResult = await db.query(
           `SELECT cm.id, cm.company_id, cm.email, cm.role, cm.status, cm.is_primary_contact, cm.created_at, cm.updated_at
-           FROM company_members cm
+           FROM core.company_members cm
            WHERE cm.company_id = ANY($1::int[])
            ORDER BY
              CASE cm.role WHEN 'company_owner' THEN 0 WHEN 'company_admin' THEN 1 ELSE 2 END,
@@ -146,7 +146,7 @@ function registerAdminUsersRoutes(app, deps) {
         const invitationsResult = await db.query(
           `SELECT id, company_id, email, role, token, expires_at, accepted_at, invited_by, created_at,
                   COALESCE(given_name, '') AS given_name, COALESCE(family_name, '') AS family_name, COALESCE(login_name, '') AS login_name
-           FROM company_invitations
+           FROM core.company_invitations
            WHERE company_id = ANY($1::int[])
              AND accepted_at IS NULL
              AND expires_at > NOW()
@@ -176,22 +176,22 @@ function registerAdminUsersRoutes(app, deps) {
 
       const statsResult = await db.query(
         `SELECT
-           COALESCE((SELECT COUNT(*) FROM companies c WHERE COALESCE(c.status, 'aktiv') = 'aktiv'), 0)::int AS active_companies,
+           COALESCE((SELECT COUNT(*) FROM core.companies c WHERE COALESCE(c.status, 'aktiv') = 'aktiv'), 0)::int AS active_companies,
            COALESCE((
              SELECT COUNT(*)
-             FROM company_members cm
+             FROM core.company_members cm
              WHERE cm.status = 'active'
                AND cm.role IN ('company_owner','company_admin')
            ), 0)::int AS main_contacts,
            COALESCE((
              SELECT COUNT(*)
-             FROM company_members cm
+             FROM core.company_members cm
              WHERE cm.status = 'active'
                AND cm.role = 'company_employee'
            ), 0)::int AS employees,
            COALESCE((
              SELECT COUNT(*)
-             FROM company_invitations ci
+             FROM core.company_invitations ci
              WHERE ci.accepted_at IS NULL
                AND ci.expires_at > NOW()
            ), 0)::int AS pending_invitations`
@@ -229,7 +229,7 @@ function registerAdminUsersRoutes(app, deps) {
       const slug = await ensureUniqueCompanySlug(db, name);
       const companyStatus = mainContactEmail ? "ausstehend" : "aktiv";
       const companyInsert = await db.query(
-        `INSERT INTO companies (name, slug, standort, notiz, status, created_at, updated_at)
+        `INSERT INTO core.companies (name, slug, standort, notiz, status, created_at, updated_at)
          VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
          RETURNING id, name, slug, standort, notiz, status, created_at, updated_at`,
         [name, slug, standort, notiz, companyStatus]
@@ -282,7 +282,7 @@ function registerAdminUsersRoutes(app, deps) {
         });
       }
 
-      const companyCheck = await db.query(`SELECT id FROM companies WHERE id = $1 LIMIT 1`, [companyId]);
+      const companyCheck = await db.query(`SELECT id FROM core.companies WHERE id = $1 LIMIT 1`, [companyId]);
       if (!companyCheck.rows[0]) return res.status(404).json({ error: "Firma nicht gefunden" });
 
       const token = crypto.randomBytes(32).toString("base64url");
@@ -312,7 +312,7 @@ function registerAdminUsersRoutes(app, deps) {
 
       const originalResult = await db.query(
         `SELECT id, company_id, email, role, given_name, family_name, login_name
-         FROM company_invitations
+         FROM core.company_invitations
          WHERE id = $1
            AND accepted_at IS NULL
          LIMIT 1`,

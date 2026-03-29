@@ -1,4 +1,4 @@
-/** Muss mit `PUBLIC_CATALOG_BROADCAST` in script.js übereinstimmen. */
+/** Feste Kanal-ID für Tabs mit öffentlichem Buchungs-Frontend (muss serverseitig/admin konsistent bleiben). */
 export const PUBLIC_CATALOG_BROADCAST_CHANNEL = "propus-public-catalog-v1";
 /** Fallback fuer Browser/Tab-Kontexte ohne BroadcastChannel-Zustellung. */
 export const PUBLIC_CATALOG_BROADCAST_STORAGE_KEY = "propus-public-catalog-v1:invalidate-at";

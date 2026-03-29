@@ -898,7 +898,7 @@ async function upsertCustomer(billing) {
   const { rows } = await query(
     `INSERT INTO customers (email, name, company, phone, street, zipcity)
      VALUES ($1, $2, $3, $4, $5, $6)
-     ON CONFLICT (email) DO UPDATE SET
+     ON CONFLICT (email) WHERE email <> '' DO UPDATE SET
        name    = EXCLUDED.name,
        company = EXCLUDED.company,
        phone   = EXCLUDED.phone,
@@ -919,46 +919,49 @@ async function upsertCustomer(billing) {
 }
 
 async function getCustomerByEmail(email) {
+  const normEmail = (email || "").toLowerCase().trim();
+  if (!normEmail) return null;
   const { rows } = await query(
     "SELECT * FROM customers WHERE email = $1",
-    [(email || "").toLowerCase().trim()]
+    [normEmail]
   );
   return rows[0] || null;
 }
 
-async function createCustomer({ email, passwordHash, name = "", company = "", phone = "", street = "", zipcity = "", keycloakSub = null }) {
+async function createCustomer({ email, passwordHash, name = "", company = "", phone = "", street = "", zipcity = "", authSub = null }) {
   const normEmail = (email || "").toLowerCase().trim();
   if (!normEmail) throw new Error("email required");
 
   const { rows } = await query(
-    `INSERT INTO customers (email, password_hash, name, company, phone, street, zipcity, keycloak_sub)
+    `INSERT INTO customers (email, password_hash, name, company, phone, street, zipcity, auth_sub)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-     ON CONFLICT (email) DO NOTHING
+     ON CONFLICT (email) WHERE email <> '' DO NOTHING
      RETURNING id, email`,
-    [normEmail, passwordHash || null, name || "", company || "", phone || "", street || "", zipcity || "", keycloakSub || null]
+    [normEmail, passwordHash || null, name || "", company || "", phone || "", street || "", zipcity || "", authSub || null]
   );
   return rows[0] || null;
 }
 
-async function getCustomerByKeycloakSub(keycloakSub) {
-  const sub = String(keycloakSub || "").trim();
+async function getCustomerByAuthSub(authSub) {
+  const sub = String(authSub || "").trim();
   if (!sub) return null;
   const { rows } = await query(
-    "SELECT * FROM customers WHERE keycloak_sub = $1",
+    "SELECT * FROM customers WHERE auth_sub = $1",
     [sub]
   );
   return rows[0] || null;
 }
 
-async function updateCustomerKeycloakSub(customerId, keycloakSub) {
+async function updateCustomerAuthSub(customerId, authSub) {
   await query(
-    "UPDATE customers SET keycloak_sub = $1, updated_at = NOW() WHERE id = $2",
-    [String(keycloakSub || ""), customerId]
+    "UPDATE customers SET auth_sub = $1, updated_at = NOW() WHERE id = $2",
+    [String(authSub || ""), customerId]
   );
 }
 
 async function setCustomerPasswordHash(email, passwordHash) {
   const normEmail = (email || "").toLowerCase().trim();
+  if (!normEmail) return;
   await query(
     "UPDATE customers SET password_hash = $1, updated_at = NOW() WHERE email = $2",
     [passwordHash || null, normEmail]
@@ -981,16 +984,87 @@ function toCompanySlug(value) {
     .slice(0, 80);
 }
 
+let coreCompaniesColumnAvailabilityPromise = null;
+let coreCompanyMembersColumnAvailabilityPromise = null;
+
+async function getCoreCompaniesColumnAvailability() {
+  if (!coreCompaniesColumnAvailabilityPromise) {
+    coreCompaniesColumnAvailabilityPromise = query(
+      `SELECT column_name
+       FROM information_schema.columns
+       WHERE table_schema = 'core'
+         AND table_name = 'companies'
+         AND column_name = ANY($1::text[])`,
+      [["standort", "notiz", "status"]]
+    )
+      .then(({ rows }) => {
+        const names = new Set((rows || []).map((row) => String(row.column_name || "").toLowerCase()));
+        return {
+          hasStandort: names.has("standort"),
+          hasNotiz: names.has("notiz"),
+          hasStatus: names.has("status"),
+        };
+      })
+      .catch((err) => {
+        coreCompaniesColumnAvailabilityPromise = null;
+        throw err;
+      });
+  }
+  return coreCompaniesColumnAvailabilityPromise;
+}
+
+async function getCoreCompanyMembersColumnAvailability() {
+  if (!coreCompanyMembersColumnAvailabilityPromise) {
+    coreCompanyMembersColumnAvailabilityPromise = query(
+      `SELECT column_name
+       FROM information_schema.columns
+       WHERE table_schema = 'core'
+         AND table_name = 'company_members'
+         AND column_name = ANY($1::text[])`,
+      [["auth_subject", "keycloak_subject"]]
+    )
+      .then(({ rows }) => {
+        const names = new Set((rows || []).map((row) => String(row.column_name || "").toLowerCase()));
+        const subjectColumn = names.has("auth_subject")
+          ? "auth_subject"
+          : (names.has("keycloak_subject") ? "keycloak_subject" : "auth_subject");
+        return {
+          hasAuthSubject: names.has("auth_subject"),
+          hasKeycloakSubject: names.has("keycloak_subject"),
+          subjectColumn,
+        };
+      })
+      .catch((err) => {
+        coreCompanyMembersColumnAvailabilityPromise = null;
+        throw err;
+      });
+  }
+  return coreCompanyMembersColumnAvailabilityPromise;
+}
+
+function buildCoreCompaniesSelect(columns, alias = "") {
+  const prefix = alias ? `${alias}.` : "";
+  return [
+    `${prefix}id`,
+    `${prefix}name`,
+    `${prefix}slug`,
+    `${prefix}billing_customer_id`,
+    columns.hasStandort ? `COALESCE(${prefix}standort, '') AS standort` : `''::text AS standort`,
+    columns.hasNotiz ? `COALESCE(${prefix}notiz, '') AS notiz` : `''::text AS notiz`,
+    columns.hasStatus ? `COALESCE(${prefix}status, 'aktiv') AS status` : `'aktiv'::text AS status`,
+    `${prefix}created_at`,
+    `${prefix}updated_at`,
+  ].join(",\n            ");
+}
+
 /** Nur Lesen: Firma nach Name (case-insensitive), ohne Anlage. */
 async function findCompanyByName(name) {
   const companyName = String(name || "").trim();
   if (!companyName) return null;
+  const columns = await getCoreCompaniesColumnAvailability();
   const { rows } = await query(
-    `SELECT id, name, slug, billing_customer_id,
-            COALESCE(standort, '') AS standort, COALESCE(notiz, '') AS notiz,
-            COALESCE(status, 'aktiv') AS status,
-            created_at, updated_at
-     FROM companies
+    `SELECT ${buildCoreCompaniesSelect(columns)}
+     FROM core.companies
      WHERE LOWER(name) = LOWER($1)
      LIMIT 1`,
     [companyName]
@@ -1013,7 +1087,7 @@ async function findCompanyMemberByCompanyAndEmail(companyId, email) {
   if (!Number.isFinite(cid) || !normalizedEmail) return null;
   const { rows } = await query(
     `SELECT *
-     FROM company_members
+     FROM core.company_members
      WHERE company_id = $1 AND LOWER(email) = $2
      LIMIT 1`,
     [cid, normalizedEmail]
@@ -1024,14 +1098,12 @@ async function findCompanyMemberByCompanyAndEmail(companyId, email) {
 async function ensureCompanyByName(name, { billingCustomerId = null } = {}) {
   const companyName = String(name || "").trim();
   if (!companyName) return null;
+  const columns = await getCoreCompaniesColumnAvailability();
 
   const baseSlug = toCompanySlug(companyName) || `company-${Date.now()}`;
   const existing = await query(
-    `SELECT id, name, slug, billing_customer_id,
-            COALESCE(standort, '') AS standort, COALESCE(notiz, '') AS notiz,
-            COALESCE(status, 'aktiv') AS status,
-            created_at, updated_at
-     FROM companies
+    `SELECT ${buildCoreCompaniesSelect(columns)}
+     FROM core.companies
      WHERE LOWER(name) = LOWER($1)
      LIMIT 1`,
     [companyName]
@@ -1042,13 +1114,18 @@ async function ensureCompanyByName(name, { billingCustomerId = null } = {}) {
     const suffix = i === 0 ? "" : `-${i + 1}`;
     const slug = `${baseSlug}${suffix}`;
     try {
+      const insertColumns = ["name", "slug", "billing_customer_id"];
+      const insertValues = ["$1", "$2", "$3"];
       const { rows } = await query(
-        `INSERT INTO companies (name, slug, billing_customer_id, status)
-         VALUES ($1,$2,$3,'aktiv')
-         RETURNING id, name, slug, billing_customer_id,
-                   COALESCE(standort, '') AS standort, COALESCE(notiz, '') AS notiz,
-                   COALESCE(status, 'aktiv') AS status,
-                   created_at, updated_at`,
+        `INSERT INTO core.companies (${[
+          ...insertColumns,
+          ...(columns.hasStatus ? ["status"] : []),
+        ].join(", ")})
+         VALUES (${[
+           ...insertValues,
+           ...(columns.hasStatus ? ["'aktiv'"] : []),
+         ].join(",")})
+         RETURNING ${buildCoreCompaniesSelect(columns)}`,
         [companyName, slug, billingCustomerId]
       );
       return rows[0] || null;
@@ -1063,6 +1140,7 @@ async function ensureCompanyByName(name, { billingCustomerId = null } = {}) {
 async function createCompanyWithMeta({ name, standort = "", notiz = "", status = "aktiv", billingCustomerId = null } = {}) {
   const companyName = String(name || "").trim();
   if (!companyName) throw new Error("company name required");
+  const columns = await getCoreCompaniesColumnAvailability();
   const baseSlug = toCompanySlug(companyName) || `company-${Date.now()}`;
   const st = String(standort || "").trim();
   const nt = String(notiz || "").trim();
@@ -1072,14 +1150,29 @@ async function createCompanyWithMeta({ name, standort = "", notiz = "", status =
     const suffix = i === 0 ? "" : `-${i + 1}`;
     const slug = `${baseSlug}${suffix}`;
     try {
+      const insertColumns = ["name", "slug", "billing_customer_id"];
+      const insertValues = ["$1", "$2", "$3"];
+      const insertParams = [companyName, slug, Number.isFinite(bid) ? bid : null];
+      if (columns.hasStandort) {
+        insertColumns.push("standort");
+        insertValues.push(`$${insertParams.length + 1}`);
+        insertParams.push(st);
+      }
+      if (columns.hasNotiz) {
+        insertColumns.push("notiz");
+        insertValues.push(`$${insertParams.length + 1}`);
+        insertParams.push(nt);
+      }
+      if (columns.hasStatus) {
+        insertColumns.push("status");
+        insertValues.push(`$${insertParams.length + 1}`);
+        insertParams.push(safeStatus);
+      }
       const { rows } = await query(
-        `INSERT INTO companies (name, slug, billing_customer_id, standort, notiz, status)
-         VALUES ($1,$2,$3,$4,$5,$6)
-         RETURNING id, name, slug, billing_customer_id,
-                   COALESCE(standort, '') AS standort, COALESCE(notiz, '') AS notiz,
-                   COALESCE(status, 'aktiv') AS status,
-                   created_at, updated_at`,
-        [companyName, slug, Number.isFinite(bid) ? bid : null, st, nt, safeStatus]
+        `INSERT INTO core.companies (${insertColumns.join(", ")})
+         VALUES (${insertValues.join(", ")})
+         RETURNING ${buildCoreCompaniesSelect(columns)}`,
+        insertParams
       );
       return rows[0] || null;
     } catch (err) {
@@ -1091,6 +1184,7 @@ async function createCompanyWithMeta({ name, standort = "", notiz = "", status =
 }
 
 async function listCompanies({ limit = 200, offset = 0, queryText = "" } = {}) {
+  const columns = await getCoreCompaniesColumnAvailability();
   const safeLimit = Math.max(1, Math.min(1000, Number(limit) || 200));
   const safeOffset = Math.max(0, Number(offset) || 0);
   const q = String(queryText || "").trim();
@@ -1099,19 +1193,19 @@ async function listCompanies({ limit = 200, offset = 0, queryText = "" } = {}) {
   if (q) {
     params.push(`%${q.toLowerCase()}%`);
     where = `WHERE LOWER(c.name) LIKE $${params.length} OR LOWER(c.slug) LIKE $${params.length}`;
+    if (columns.hasStandort) {
+      where += ` OR LOWER(COALESCE(c.standort, '')) LIKE $${params.length}`;
+    }
   }
   params.push(safeLimit, safeOffset);
 
   const { rows } = await query(
-    `SELECT c.id, c.name, c.slug, c.billing_customer_id,
-            COALESCE(c.standort, '') AS standort, COALESCE(c.notiz, '') AS notiz,
-            COALESCE(c.status, 'aktiv') AS status,
-            c.created_at, c.updated_at,
+    `SELECT ${buildCoreCompaniesSelect(columns, "c")},
             COALESCE(m.member_count, 0) AS member_count
-     FROM companies c
+     FROM core.companies c
      LEFT JOIN (
        SELECT company_id, COUNT(*)::INT AS member_count
-       FROM company_members
+       FROM core.company_members
        GROUP BY company_id
      ) m ON m.company_id = c.id
      ${where}
@@ -1123,6 +1217,9 @@ async function listCompanies({ limit = 200, offset = 0, queryText = "" } = {}) {
 }
 
 async function listCompaniesWithAdminData({ queryText = "", status = "" } = {}) {
+  const columns = await getCoreCompaniesColumnAvailability();
+  const memberColumns = await getCoreCompanyMembersColumnAvailability();
+  const subjectColumn = memberColumns.subjectColumn;
   const q = String(queryText || "").trim().toLowerCase();
   const safeStatus = String(status || "").trim().toLowerCase();
   const params = [];
@@ -1130,42 +1227,45 @@ async function listCompaniesWithAdminData({ queryText = "", status = "" } = {}) 
 
   if (q) {
     params.push(`%${q}%`);
-    where.push(`(
-      LOWER(c.name) LIKE $${params.length}
-      OR LOWER(c.slug) LIKE $${params.length}
-      OR LOWER(COALESCE(c.standort, '')) LIKE $${params.length}
-    )`);
+    const searchParts = [
+      `LOWER(c.name) LIKE $${params.length}`,
+      `LOWER(c.slug) LIKE $${params.length}`,
+    ];
+    if (columns.hasStandort) {
+      searchParts.push(`LOWER(COALESCE(c.standort, '')) LIKE $${params.length}`);
+    }
+    where.push(`(${searchParts.join("\n      OR ")})`);
   }
 
   if (safeStatus && safeStatus !== "alle") {
-    params.push(safeStatus);
-    where.push(`LOWER(COALESCE(c.status, 'aktiv')) = $${params.length}`);
+    if (columns.hasStatus) {
+      params.push(safeStatus);
+      where.push(`LOWER(COALESCE(c.status, 'aktiv')) = $${params.length}`);
+    } else if (safeStatus !== "aktiv") {
+      where.push(`1 = 0`);
+    }
   }
 
   const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
   const { rows: companies } = await query(
-    `SELECT c.id, c.name, c.slug, c.billing_customer_id,
-            COALESCE(c.standort, '') AS standort,
-            COALESCE(c.notiz, '') AS notiz,
-            COALESCE(c.status, 'aktiv') AS status,
-            c.created_at, c.updated_at,
+    `SELECT ${buildCoreCompaniesSelect(columns, "c")},
             COALESCE(mc.main_contact_count, 0) AS main_contact_count,
             COALESCE(mc.staff_count, 0) AS staff_count,
             COALESCE(mc.active_count, 0) AS active_count,
             COALESCE(ic.pending_invitation_count, 0) AS pending_invitation_count
-     FROM companies c
+     FROM core.companies c
      LEFT JOIN (
        SELECT company_id,
               COUNT(*) FILTER (WHERE role IN ('company_owner', 'company_admin'))::INT AS main_contact_count,
               COUNT(*) FILTER (WHERE role = 'company_employee')::INT AS staff_count,
               COUNT(*) FILTER (WHERE status = 'active')::INT AS active_count
-       FROM company_members
+       FROM core.company_members
        GROUP BY company_id
      ) mc ON mc.company_id = c.id
      LEFT JOIN (
        SELECT company_id,
               COUNT(*) FILTER (WHERE accepted_at IS NULL AND expires_at > NOW())::INT AS pending_invitation_count
-       FROM company_invitations
+       FROM core.company_invitations
        GROUP BY company_id
      ) ic ON ic.company_id = c.id
      ${whereSql}
@@ -1177,10 +1277,10 @@ async function listCompaniesWithAdminData({ queryText = "", status = "" } = {}) 
 
   const companyIds = companies.map((row) => Number(row.id));
   const { rows: members } = await query(
-    `SELECT cm.id, cm.company_id, cm.keycloak_subject, cm.customer_id, cm.email, cm.role, cm.status,
+    `SELECT cm.id, cm.company_id, cm.${subjectColumn} AS auth_subject, cm.customer_id, cm.email, cm.role, cm.status,
             cm.is_primary_contact, cm.created_at, cm.updated_at,
             cu.name AS customer_name, cu.phone AS customer_phone
-     FROM company_members cm
+     FROM core.company_members cm
      LEFT JOIN customers cu ON cu.id = cm.customer_id
      WHERE cm.company_id = ANY($1::int[])
      ORDER BY
@@ -1192,7 +1292,7 @@ async function listCompaniesWithAdminData({ queryText = "", status = "" } = {}) 
 
   const { rows: invitations } = await query(
     `SELECT ci.id, ci.company_id, ci.email, ci.role, ci.token, ci.expires_at, ci.accepted_at, ci.invited_by, ci.created_at
-     FROM company_invitations ci
+     FROM core.company_invitations ci
      WHERE ci.company_id = ANY($1::int[])
        AND ci.accepted_at IS NULL
      ORDER BY ci.company_id ASC, ci.created_at DESC`,
@@ -1224,12 +1324,10 @@ async function listCompaniesWithAdminData({ queryText = "", status = "" } = {}) 
 }
 
 async function getCompanyById(companyId) {
+  const columns = await getCoreCompaniesColumnAvailability();
   const { rows } = await query(
-    `SELECT id, name, slug, billing_customer_id,
-            COALESCE(standort, '') AS standort, COALESCE(notiz, '') AS notiz,
-            COALESCE(status, 'aktiv') AS status,
-            created_at, updated_at
-     FROM companies
+    `SELECT ${buildCoreCompaniesSelect(columns)}
+     FROM core.companies
      WHERE id = $1
      LIMIT 1`,
     [Number(companyId)]
@@ -1237,20 +1335,22 @@ async function getCompanyById(companyId) {
   return rows[0] || null;
 }
 
-async function getCompanyMemberForIdentity({ keycloakSubject = "", email = "" }) {
-  const subject = String(keycloakSubject || "").trim();
+async function getCompanyMemberForIdentity({ authSubject = "", email = "" }) {
+  const memberColumns = await getCoreCompanyMembersColumnAvailability();
+  const subjectColumn = memberColumns.subjectColumn;
+  const subject = String(authSubject || "").trim();
   const mail = String(email || "").trim().toLowerCase();
 
   const { rows } = await query(
-    `SELECT cm.id, cm.company_id, cm.keycloak_subject, cm.customer_id, cm.email, cm.role, cm.status,
+    `SELECT cm.id, cm.company_id, cm.${subjectColumn} AS auth_subject, cm.customer_id, cm.email, cm.role, cm.status,
             cm.is_primary_contact, cm.created_at, cm.updated_at,
             c.name AS company_name, c.slug AS company_slug
-     FROM company_members cm
-     JOIN companies c ON c.id = cm.company_id
-     WHERE (cm.keycloak_subject <> '' AND cm.keycloak_subject = $1)
+     FROM core.company_members cm
+     JOIN core.companies c ON c.id = cm.company_id
+     WHERE (cm.${subjectColumn} <> '' AND cm.${subjectColumn} = $1)
         OR (LOWER(cm.email) = $2)
      ORDER BY
-       CASE WHEN cm.keycloak_subject = $1 AND $1 <> '' THEN 0 ELSE 1 END,
+       CASE WHEN cm.${subjectColumn} = $1 AND $1 <> '' THEN 0 ELSE 1 END,
        CASE WHEN cm.status = 'active' THEN 0 WHEN cm.status = 'invited' THEN 1 ELSE 2 END,
        cm.id ASC
      LIMIT 1`,
@@ -1267,11 +1367,13 @@ function normalizeCompanyMemberRole(role) {
 }
 
 async function listCompanyMembers(companyId) {
+  const memberColumns = await getCoreCompanyMembersColumnAvailability();
+  const subjectColumn = memberColumns.subjectColumn;
   const { rows } = await query(
-    `SELECT cm.id, cm.company_id, cm.keycloak_subject, cm.customer_id, cm.email, cm.role, cm.status,
+    `SELECT cm.id, cm.company_id, cm.${subjectColumn} AS auth_subject, cm.customer_id, cm.email, cm.role, cm.status,
             cm.is_primary_contact, cm.created_at, cm.updated_at,
             cu.name AS customer_name, cu.phone AS customer_phone
-     FROM company_members cm
+     FROM core.company_members cm
      LEFT JOIN customers cu ON cu.id = cm.customer_id
      WHERE cm.company_id = $1
      ORDER BY
@@ -1282,23 +1384,25 @@ async function listCompanyMembers(companyId) {
   return rows;
 }
 
-async function upsertCompanyMember({ companyId, keycloakSubject = "", customerId = null, email = "", role = "company_employee", status = "active" }) {
+async function upsertCompanyMember({ companyId, authSubject = "", customerId = null, email = "", role = "company_employee", status = "active" }) {
+  const memberColumns = await getCoreCompanyMembersColumnAvailability();
+  const subjectColumn = memberColumns.subjectColumn;
   const safeRole = normalizeCompanyMemberRole(role);
   const safeStatus = ["invited", "active", "disabled"].includes(String(status)) ? String(status) : "active";
-  const subject = String(keycloakSubject || "").trim();
+  const subject = String(authSubject || "").trim();
   const normalizedEmail = String(email || "").trim().toLowerCase();
   const safeCustomerId = customerId == null ? null : Number(customerId);
 
   if (!subject && !normalizedEmail) {
-    throw new Error("company member requires keycloak subject or email");
+    throw new Error("company member requires auth subject or email");
   }
 
   const existing = await query(
     `SELECT id
-     FROM company_members
+     FROM core.company_members
      WHERE company_id = $1
        AND (
-         (keycloak_subject <> '' AND keycloak_subject = $2)
+         (${subjectColumn} <> '' AND ${subjectColumn} = $2)
          OR LOWER(email) = $3
        )
      LIMIT 1`,
@@ -1307,8 +1411,8 @@ async function upsertCompanyMember({ companyId, keycloakSubject = "", customerId
 
   if (existing.rows[0]) {
     const { rows } = await query(
-      `UPDATE company_members
-       SET keycloak_subject = CASE WHEN $2 <> '' THEN $2 ELSE keycloak_subject END,
+      `UPDATE core.company_members
+       SET ${subjectColumn} = CASE WHEN $2 <> '' THEN $2 ELSE ${subjectColumn} END,
            customer_id = COALESCE($3, customer_id),
            email = CASE WHEN $4 <> '' THEN $4 ELSE email END,
            role = $5,
@@ -1322,7 +1426,7 @@ async function upsertCompanyMember({ companyId, keycloakSubject = "", customerId
   }
 
   const { rows } = await query(
-    `INSERT INTO company_members (company_id, keycloak_subject, customer_id, email, role, status)
+    `INSERT INTO core.company_members (company_id, ${subjectColumn}, customer_id, email, role, status)
      VALUES ($1,$2,$3,$4,$5,$6)
      RETURNING *`,
     [Number(companyId), subject, safeCustomerId, normalizedEmail, safeRole, safeStatus]
@@ -1333,7 +1437,7 @@ async function upsertCompanyMember({ companyId, keycloakSubject = "", customerId
 async function updateCompanyMemberRole(memberId, role) {
   const safeRole = normalizeCompanyMemberRole(role);
   const { rows } = await query(
-    `UPDATE company_members
+    `UPDATE core.company_members
      SET role = $2, updated_at = NOW()
      WHERE id = $1
      RETURNING *`,
@@ -1345,7 +1449,7 @@ async function updateCompanyMemberRole(memberId, role) {
 async function updateCompanyMemberStatus(memberId, status) {
   const safeStatus = ["invited", "active", "disabled"].includes(String(status)) ? String(status) : "active";
   const { rows } = await query(
-    `UPDATE company_members
+    `UPDATE core.company_members
      SET status = $2, updated_at = NOW()
      WHERE id = $1
      RETURNING *`,
@@ -1374,7 +1478,7 @@ async function createCompanyInvitation({
   const l = String(loginName || "").trim().toLowerCase();
 
   const { rows } = await query(
-    `INSERT INTO company_invitations (company_id, email, role, token, expires_at, invited_by, given_name, family_name, login_name)
+    `INSERT INTO core.company_invitations (company_id, email, role, token, expires_at, invited_by, given_name, family_name, login_name)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
      RETURNING *`,
     [Number(companyId), normalizedEmail, safeRole, String(token), expiresAt, String(invitedBy || ""), g, f, l]
@@ -1385,7 +1489,7 @@ async function createCompanyInvitation({
 async function listCompanyInvitations(companyId, { includeExpired = false } = {}) {
   const { rows } = await query(
     `SELECT ci.*
-     FROM company_invitations ci
+     FROM core.company_invitations ci
      WHERE ci.company_id = $1
        AND ($2::boolean = true OR (ci.expires_at > NOW() AND ci.accepted_at IS NULL))
      ORDER BY ci.created_at DESC`,
@@ -1399,8 +1503,8 @@ async function getPendingCompanyInvitationByEmail(email) {
   if (!normalizedEmail) return null;
   const { rows } = await query(
     `SELECT ci.*, c.name AS company_name, c.slug AS company_slug
-     FROM company_invitations ci
-     JOIN companies c ON c.id = ci.company_id
+     FROM core.company_invitations ci
+     JOIN core.companies c ON c.id = ci.company_id
      WHERE LOWER(ci.email) = $1
        AND ci.accepted_at IS NULL
        AND ci.expires_at > NOW()
@@ -1414,8 +1518,8 @@ async function getPendingCompanyInvitationByEmail(email) {
 async function getCompanyInvitationByToken(token) {
   const { rows } = await query(
     `SELECT ci.*, c.name AS company_name, c.slug AS company_slug
-     FROM company_invitations ci
-     JOIN companies c ON c.id = ci.company_id
+     FROM core.company_invitations ci
+     JOIN core.companies c ON c.id = ci.company_id
      WHERE ci.token = $1
      LIMIT 1`,
     [String(token || "")]
@@ -1423,7 +1527,7 @@ async function getCompanyInvitationByToken(token) {
   return rows[0] || null;
 }
 
-async function acceptCompanyInvitation({ token, keycloakSubject = "", customerId = null, email = "" }) {
+async function acceptCompanyInvitation({ token, authSubject = "", customerId = null, email = "" }) {
   const invitation = await getCompanyInvitationByToken(token);
   if (!invitation) return null;
   if (invitation.accepted_at) return { invitation, member: null, alreadyAccepted: true };
@@ -1433,7 +1537,7 @@ async function acceptCompanyInvitation({ token, keycloakSubject = "", customerId
 
   const member = await upsertCompanyMember({
     companyId: invitation.company_id,
-    keycloakSubject,
+    authSubject,
     customerId,
     email: email || invitation.email,
     role: invitation.role,
@@ -1441,11 +1545,11 @@ async function acceptCompanyInvitation({ token, keycloakSubject = "", customerId
   });
 
   await query(
-    "UPDATE company_invitations SET accepted_at = NOW() WHERE id = $1",
+    "UPDATE core.company_invitations SET accepted_at = NOW() WHERE id = $1",
     [Number(invitation.id)]
   );
   await query(
-    `UPDATE companies
+    `UPDATE core.companies
      SET status = 'aktiv', updated_at = NOW()
      WHERE id = $1`,
     [Number(invitation.company_id)]
@@ -1476,7 +1580,7 @@ async function listCompanyOrders(companyId, { limit = 200, offset = 0, member = 
      LEFT JOIN customers c ON c.id = o.customer_id
      WHERE c.id IN (
        SELECT customer_id
-       FROM company_members
+       FROM core.company_members
        WHERE company_id = $1
          AND customer_id IS NOT NULL
      )
@@ -1511,7 +1615,7 @@ async function listCompanyCustomers(companyId, { member = null } = {}) {
      FROM customers c
      WHERE c.id IN (
        SELECT customer_id
-       FROM company_members
+       FROM core.company_members
        WHERE company_id = $1
          AND customer_id IS NOT NULL
      )
@@ -1656,11 +1760,24 @@ async function getAdminUserByUsername(username) {
   if (!u) return null;
   // Sucht nach Benutzername ODER E-Mail – beides erlaubt
   const { rows } = await query(
-    `SELECT id, username, email, name, role, password_hash, active
+    `SELECT id, username, email, name, phone, language, logto_user_id, role, password_hash, active
      FROM admin_users
      WHERE LOWER(username) = $1 OR LOWER(email) = $1
      LIMIT 1`,
     [u]
+  );
+  return rows[0] || null;
+}
+
+async function getAdminUserById(adminUserId) {
+  const id = Number(adminUserId);
+  if (!Number.isFinite(id) || id <= 0) return null;
+  const { rows } = await query(
+    `SELECT id, username, email, name, phone, language, logto_user_id, role, password_hash, active
+     FROM admin_users
+     WHERE id = $1
+     LIMIT 1`,
+    [id]
   );
   return rows[0] || null;
 }
@@ -1760,6 +1877,7 @@ async function deleteCustomerSessionByTokenHash(tokenHash) {
 
 async function getOrdersForCustomerEmail(email, { limit = 200, offset = 0 } = {}) {
   const normEmail = (email || "").toLowerCase().trim();
+  if (!normEmail) return [];
   const { rows } = await query(
     `SELECT o.*, c.email AS customer_email, c.exxas_contact_id
      FROM orders o
@@ -2651,8 +2769,8 @@ module.exports = {
   runMigrations,
   upsertCustomer,
   getCustomerByEmail,
-  getCustomerByKeycloakSub,
-  updateCustomerKeycloakSub,
+  getCustomerByAuthSub,
+  updateCustomerAuthSub,
   createCustomer,
   setCustomerPasswordHash,
   setCustomerPasswordById,
@@ -2683,6 +2801,7 @@ module.exports = {
   getAdminSessionByTokenHash,
   deleteAdminSessionByTokenHash,
   getAdminUserByUsername,
+  getAdminUserById,
   bootstrapAdminUserFromEnvIfMissing,
   createCustomerSession,
   getCustomerBySessionTokenHash,

@@ -4,7 +4,7 @@
 -- Kunden (dedupliziert per E-Mail)
 CREATE TABLE IF NOT EXISTS customers (
   id            SERIAL PRIMARY KEY,
-  email         TEXT NOT NULL UNIQUE,
+  email         TEXT NOT NULL DEFAULT '',
   name          TEXT NOT NULL DEFAULT '',
   company       TEXT NOT NULL DEFAULT '',
   phone         TEXT NOT NULL DEFAULT '',
@@ -125,6 +125,9 @@ CREATE INDEX IF NOT EXISTS idx_orders_status     ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_orders_customer   ON orders(customer_id);
 CREATE INDEX IF NOT EXISTS idx_customers_email   ON customers(email);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_customers_email_nonempty
+  ON customers(email)
+  WHERE email <> '';
 
 ALTER TABLE photographers
   ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE;
@@ -139,6 +142,13 @@ ALTER TABLE photographers
 -- Falls customers Tabelle schon existiert: Spalte ergänzen.
 ALTER TABLE customers
   ADD COLUMN IF NOT EXISTS password_hash TEXT;
+
+ALTER TABLE customers
+  ADD COLUMN IF NOT EXISTS auth_sub TEXT;
+
+CREATE UNIQUE INDEX IF NOT EXISTS customers_auth_sub_uq
+  ON customers (auth_sub)
+  WHERE auth_sub IS NOT NULL;
 
 -- Sessions (Bearer Tokens) für Kunden-Login
 CREATE TABLE IF NOT EXISTS customer_sessions (
@@ -436,7 +446,7 @@ CREATE INDEX IF NOT EXISTS idx_companies_name ON companies(name);
 CREATE TABLE IF NOT EXISTS company_members (
   id              SERIAL PRIMARY KEY,
   company_id      INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-  keycloak_subject TEXT NOT NULL DEFAULT '',
+  auth_subject TEXT NOT NULL DEFAULT '',
   customer_id     INTEGER REFERENCES customers(id) ON DELETE SET NULL,
   email           TEXT NOT NULL DEFAULT '',
   role            TEXT NOT NULL CHECK (role IN ('company_owner','company_admin','company_employee')),
@@ -446,15 +456,15 @@ CREATE TABLE IF NOT EXISTS company_members (
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_company_members_company_subject
-  ON company_members(company_id, keycloak_subject)
-  WHERE keycloak_subject <> '';
+CREATE UNIQUE INDEX IF NOT EXISTS idx_company_members_company_auth_subject
+  ON company_members(company_id, auth_subject)
+  WHERE auth_subject <> '';
 CREATE UNIQUE INDEX IF NOT EXISTS idx_company_members_company_customer
   ON company_members(company_id, customer_id)
   WHERE customer_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_company_members_company_email
   ON company_members(company_id, LOWER(email));
-CREATE INDEX IF NOT EXISTS idx_company_members_subject ON company_members(keycloak_subject);
+CREATE INDEX IF NOT EXISTS idx_company_members_auth_subject ON company_members(auth_subject);
 
 CREATE TABLE IF NOT EXISTS company_invitations (
   id            SERIAL PRIMARY KEY,
@@ -579,6 +589,9 @@ CREATE TABLE IF NOT EXISTS admin_users (
   username      TEXT NOT NULL UNIQUE,
   email         TEXT,
   name          TEXT,
+  phone         TEXT,
+  language      TEXT NOT NULL DEFAULT 'de',
+  logto_user_id TEXT,
   role          TEXT NOT NULL DEFAULT 'admin',
   password_hash TEXT NOT NULL,
   active        BOOLEAN NOT NULL DEFAULT TRUE,
@@ -588,6 +601,7 @@ CREATE TABLE IF NOT EXISTS admin_users (
 
 CREATE INDEX IF NOT EXISTS idx_admin_users_username ON admin_users(username);
 CREATE INDEX IF NOT EXISTS idx_admin_users_email ON admin_users(email) WHERE email IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_admin_users_logto_user_id ON admin_users(logto_user_id) WHERE logto_user_id IS NOT NULL;
 
 -- ─── Zentrales RBAC (Subjects, Rollen, Gruppen) ─────────────────────────────
 CREATE TABLE IF NOT EXISTS permission_definitions (
