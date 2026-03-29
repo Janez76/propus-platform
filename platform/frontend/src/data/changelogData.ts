@@ -17,11 +17,11 @@ export const CHANGELOG: ChangelogVersion[] = [
   {
     version: "2.3.270",
     date: "2026-03-29",
-    title: "EXXAS-Abgleich: Bestaetigungsdialog mit Uebersicht und Kundenwahl",
+    title: "EXXAS-Abgleich: Bestätigungsdialog mit Übersicht und Kundenwahl",
     changes: [
       {
         type: "improvement",
-        text: "Bulk-Bestaetigen oeffnet einen Dialog: pro ausgewaehltem EXXAS-Kunden sichtbar, was gespeichert wird; Wahl Abgleich (bestehend verknuepfen), neuer Kunde oder ueberspringen; Kontakt-Zusammenfassung; Speichern erst bei vollstaendigen Zielen.",
+        text: "Bulk-Bestätigen öffnet einen Dialog: pro ausgewähltem EXXAS-Kunden sichtbar, was gespeichert wird; Wahl Abgleich (bestehend verknüpfen), neuer Kunde oder überspringen; Kontakt-Zusammenfassung; Speichern erst bei vollständigen Zielen.",
       },
     ],
   },
@@ -32,11 +32,11 @@ export const CHANGELOG: ChangelogVersion[] = [
     changes: [
       {
         type: "improvement",
-        text: "Kunden-Seite: groesseres Suchfeld (Flex-Layout), keine Ueberlappung von Lupe und Leeren-Button; fehlende Uebersetzung customerList.table.id (DE/EN) fuer Tabellenkopf ID.",
+        text: "Kunden-Seite: größeres Suchfeld (Flex-Layout), keine Überlappung von Lupe und Leeren-Button; fehlende Übersetzung customerList.table.id (DE/EN) für Tabellenkopf ID.",
       },
       {
         type: "improvement",
-        text: "Desktop-Kundenliste: Button Buchungsportal oeffnen nur noch als Icon; voller Text im Tooltip und fuer Screenreader (sr-only).",
+        text: "Desktop-Kundenliste: Button Buchungsportal öffnen nur noch als Icon; voller Text im Tooltip und für Screenreader (sr-only).",
       },
     ],
   },
@@ -51,7 +51,7 @@ export const CHANGELOG: ChangelogVersion[] = [
       },
       {
         type: "improvement",
-        text: "Abweichende Rechnungsadresse: Vorname, E-Mail, Referenz und Bemerkungen; Backend und Buero-Mail ergaenzt.",
+        text: "Abweichende Rechnungsadresse: Vorname, E-Mail, Referenz und Bemerkungen; Backend und Büro-Mail ergänzt.",
       },
       {
         type: "improvement",
@@ -62,7 +62,7 @@ export const CHANGELOG: ChangelogVersion[] = [
   {
     version: "2.3.264",
     date: "2026-03-29",
-    title: "Oeffentliche Buchung: React-SPA statt Legacy-HTML",
+    title: "Öffentliche Buchung: React-SPA statt Legacy-HTML",
     changes: [
       {
         type: "breaking",
@@ -74,14 +74,14 @@ export const CHANGELOG: ChangelogVersion[] = [
       },
       {
         type: "improvement",
-        text: "Optional: `VITE_PUBLIC_BOOKING_HOSTNAME` setzen, falls der oeffentliche Buchungs-Host nicht `booking.propus.ch` ist.",
+        text: "Optional: `VITE_PUBLIC_BOOKING_HOSTNAME` setzen, falls der öffentliche Buchungs-Host nicht `booking.propus.ch` ist.",
       },
     ],
   },
   {
     version: "2.3.263",
     date: "2026-03-29",
-    title: "Backup-System: Vollstaendiges Backup mit NAS-Sync und erweiterter UI",
+    title: "Backup-System: Vollständiges Backup mit NAS-Sync und erweiterter UI",
     changes: [
       {
         type: "feature",
@@ -93,19 +93,19 @@ export const CHANGELOG: ChangelogVersion[] = [
       },
       {
         type: "feature",
-        text: "Neues Backup erstellen: Dialog mit Option 'Upload-Ordner mitsichern' und Uebersicht der gesicherten Daten.",
+        text: "Neues Backup erstellen: Dialog mit Option zum Einbeziehen der Upload-Ordner und Übersicht der gesicherten Daten.",
       },
       {
         type: "feature",
-        text: "Wiederherstellen: Option 'Logto-Datenbank ueberspringen' um nur Haupt-DB wiederherzustellen.",
+        text: "Wiederherstellen: Option 'Logto-Datenbank überspringen' um nur Haupt-DB wiederherzustellen.",
       },
       {
         type: "feature",
-        text: "Backup-Eintraege zeigen Inhalt (db.sql, logto.sql, uploads) als aufklappbare Detail-Zeile.",
+        text: "Backup-Einträge zeigen Inhalt (db.sql, logto.sql, uploads) als aufklappbare Detail-Zeile.",
       },
       {
         type: "improvement",
-        text: "Automatischer NAS-Sync taeglich 02:00 Uhr via Cron auf der UGREEN NAS nach /volume1/backup/propus-platform/data/.",
+        text: "Automatischer NAS-Sync täglich 02:00 Uhr via Cron auf der UGREEN NAS nach /volume1/backup/propus-platform/data/.",
       },
     ],
   },
@@ -116,11 +116,11 @@ export const CHANGELOG: ChangelogVersion[] = [
     changes: [
       {
         type: "feature",
-        text: "Admin-Topbar: Neuer Button 'Jetzt buchen' oeffnet die oeffentliche Buchungsmaske direkt unter /book im neuen Tab.",
+        text: "Admin-Topbar: Neuer Button 'Jetzt buchen' öffnet die öffentliche Buchungsmaske direkt unter /book im neuen Tab.",
       },
       {
         type: "improvement",
-        text: "Deploy-Version auf v2.3.262 erhoeht, damit der neue Stand im Footer und bei Cache-Busting eindeutig sichtbar ist.",
+        text: "Deploy-Version auf v2.3.262 erhöht, damit der neue Stand im Footer und bei Cache-Busting eindeutig sichtbar ist.",
       },
     ],
   },
@@ -131,15 +131,15 @@ export const CHANGELOG: ChangelogVersion[] = [
     changes: [
       {
         type: "fix",
-        text: "Beim Laden der Firmenliste wird syncCompaniesFromCustomersAndContacts ausgefuehrt (soft-fail), damit Firmen aus Kunden mit gesetztem Feld company und verknuepften Kontakten erscheinen.",
+        text: "Beim Laden der Firmenliste wird syncCompaniesFromCustomersAndContacts ausgeführt (soft-fail), damit Firmen aus Kunden mit gesetztem Feld company und verknüpften Kontakten erscheinen.",
       },
       {
         type: "fix",
-        text: "Berechneter Firmen-UI-Status: inaktiv wird nicht mehr faelschlich als ausstehend gemappt; GET /api/admin/users/companies liefert uiStatus explizit.",
+        text: "Berechneter Firmen-UI-Status: inaktiv wird nicht mehr fälschlich als ausstehend gemappt; GET /api/admin/users/companies liefert uiStatus explizit.",
       },
       {
         type: "improvement",
-        text: "Admin Benutzerverwaltung: Empty State mit Hinweis, Meldung bei leerer Suche/Filter, korrektes setLoading ohne users.manage, Status-Badge Inaktiv, Super-Admin-Loeschbutton auch fuer inaktive Firmen.",
+        text: "Admin Benutzerverwaltung: Empty State mit Hinweis, Meldung bei leerer Suche/Filter, korrektes setLoading ohne users.manage, Status-Badge Inaktiv, Super-Admin-Löschbutton auch für inaktive Firmen.",
       },
     ],
   },
@@ -154,11 +154,11 @@ export const CHANGELOG: ChangelogVersion[] = [
       },
       {
         type: "feature",
-        text: "Kundenportal erweitert: /portal/firma mit Status-/Datums-/Mitarbeiter-Filtern sowie Mitarbeiter-Uebersicht inklusive letzter Bestellung; /portal/bestellungen mit Aktionen fuer Dateien und Feedback.",
+        text: "Kundenportal erweitert: /portal/firma mit Status-/Datums-/Mitarbeiter-Filtern sowie Mitarbeiter-Übersicht inklusive letzter Bestellung; /portal/bestellungen mit Aktionen für Dateien und Feedback.",
       },
       {
         type: "improvement",
-        text: "Backend: neue Admin-Endpunkte fuer Firmenverwaltung unter /api/admin/companies plus kompatible Alias-Routen unter /api/admin/users/* fuer bestehende Clients.",
+        text: "Backend: neue Admin-Endpunkte für Firmenverwaltung unter /api/admin/companies plus kompatible Alias-Routen unter /api/admin/users/* für bestehende Clients.",
       },
     ],
   },
@@ -169,11 +169,11 @@ export const CHANGELOG: ChangelogVersion[] = [
     changes: [
       {
         type: "fix",
-        text: "deploy-prod.ps1: Mit -SkipRestart wurde zuvor der gesamte Docker-Block uebersprungen – der Admin-Container lief weiter auf altem Image (u.a. Zuweisung Explorer sichtbar, Nginx-302 fehlte). Admin-Rebuild laeuft jetzt immer bei geaenderten Admin-Quellen; SkipRestart betrifft nur noch Backend/Health-Checks. Deploy-Hashes werden immer geschrieben.",
+        text: "deploy-prod.ps1: Mit -SkipRestart wurde zuvor der gesamte Docker-Block übersprungen – der Admin-Container lief weiter auf altem Image (u.a. Zuweisung Explorer sichtbar, Nginx-302 fehlte). Admin-Rebuild läuft jetzt immer bei geänderten Admin-Quellen; SkipRestart betrifft nur noch Backend/Health-Checks. Deploy-Hashes werden immer geschrieben.",
       },
       {
         type: "improvement",
-        text: "Beispiel-Host-Nginx deploy/nginx/admin-booking.propus.ch.conf: 302 von /settings/assignment-explorer nach /settings/access (falls Host-Nginx vor dem Container laeuft).",
+        text: "Beispiel-Host-Nginx deploy/nginx/admin-booking.propus.ch.conf: 302 von /settings/assignment-explorer nach /settings/access (falls Host-Nginx vor dem Container läuft).",
       },
     ],
   },
@@ -199,15 +199,15 @@ export const CHANGELOG: ChangelogVersion[] = [
     changes: [
       {
         type: "improvement",
-        text: "Einstellungen-Sidebar: Eintrag \u201eRechte & Rollen\u201c steht direkt unter \u201eAllgemein\u201c; Unterpunkte werden nach effektiver Route-Berechtigung gefiltert (u.a. roles.manage fuer /settings/access).",
+        text: "Einstellungen-Sidebar: Eintrag \u201eRechte & Rollen\u201c steht direkt unter \u201eAllgemein\u201c; Unterpunkte werden nach effektiver Route-Berechtigung gefiltert (u.a. roles.manage für /settings/access).",
       },
       {
         type: "fix",
-        text: "i18n: sidebar.nav.access fuer Franzoesisch und Italienisch ergaenzt (kein Roh-Key mehr bei FR/IT).",
+        text: "i18n: sidebar.nav.access für Französisch und Italienisch ergänzt (kein Roh-Key mehr bei FR/IT).",
       },
       {
         type: "improvement",
-        text: "Zuweisung Explorer entfernt (eigene Seite, API-Client assignment.ts und zugehoerige Komponenten) – Zuteilungsregeln bleiben unter Konfiguration.",
+        text: "Zuweisung Explorer entfernt (eigene Seite, API-Client assignment.ts und zugehörige Komponenten) – Zuteilungsregeln bleiben unter Konfiguration.",
       },
     ],
   },
@@ -230,7 +230,7 @@ export const CHANGELOG: ChangelogVersion[] = [
       },
       {
         type: "improvement",
-        text: "Sidebar-Navigation wird dynamisch nach effektiven Berechtigungen gefiltert. Legacy-Rollenfallback fuer bestehende Sessions.",
+        text: "Sidebar-Navigation wird dynamisch nach effektiven Berechtigungen gefiltert. Legacy-Rollenfallback für bestehende Sessions.",
       },
     ],
   },
@@ -425,15 +425,15 @@ export const CHANGELOG: ChangelogVersion[] = [
       },
       {
         type: "fix",
-        text: "deploy-prod.ps1: Get-NpmPath bevorzugt unter Windows npm.cmd statt npm.ps1, damit npm run build die lokalen Binaries (tsc, vite) zuverlaessig findet.",
+        text: "deploy-prod.ps1: Get-NpmPath bevorzugt unter Windows npm.cmd statt npm.ps1, damit npm run build die lokalen Binaries (tsc, vite) zuverlässig findet.",
       },
       {
         type: "fix",
-        text: "Admin: assignment-API-Modul liegt wieder unter src/api/assignment.ts (Importpfade fuer AssignmentExplorer und Vergabe-Komponenten).",
+        text: "Admin: assignment-API-Modul liegt wieder unter src/api/assignment.ts (Importpfade für AssignmentExplorer und Vergabe-Komponenten).",
       },
       {
         type: "fix",
-        text: "deploy-prod.ps1: SSH-Befehle fuer Entpacken, Docker-Compose und Hash-Dateien wieder als Einzeiler (Windows-CRLF in Here-Strings loeste auf dem VPS bash: set: - aus). Admin-Restart nach Backend-Recreate wieder eingefuegt.",
+        text: "deploy-prod.ps1: SSH-Befehle für Entpacken, Docker-Compose und Hash-Dateien wieder als Einzeiler (Windows-CRLF in Here-Strings lösten auf dem VPS bash: set: - aus). Admin-Restart nach Backend-Recreate wieder eingefügt.",
       },
     ],
   },
@@ -444,23 +444,23 @@ export const CHANGELOG: ChangelogVersion[] = [
     changes: [
       {
         type: "fix",
-        text: "Admin-OIDC-Callback loggt Fehler mit Kontext ([oidc] SSO callback failed); OAuth-Fehler vom SSO-Anbieter (access_denied, invalid_scope) werden als eigene sso_error-Codes an die Login-Seite uebergeben.",
+        text: "Admin-OIDC-Callback loggt Fehler mit Kontext ([oidc] SSO callback failed); OAuth-Fehler vom SSO-Anbieter (access_denied, invalid_scope) werden als eigene sso_error-Codes an die Login-Seite übergeben.",
       },
       {
         type: "improvement",
-        text: "CALLBACK_URL kann aus ADMIN_PANEL_URL abgeleitet werden; OIDC_SCOPE per Umgebung steuerbar; SESSION_COOKIE_DOMAIN fuer Subdomain-Split; Docker Compose (prod/Synology) und DEPLOY-Doku um die neuen Variablen ergaenzt.",
+        text: "CALLBACK_URL kann aus ADMIN_PANEL_URL abgeleitet werden; OIDC_SCOPE per Umgebung steuerbar; SESSION_COOKIE_DOMAIN für Subdomain-Split; Docker Compose (prod/Synology) und DEPLOY-Doku um die neuen Variablen ergänzt.",
       },
       {
         type: "improvement",
-        text: "Login-Seite: spezifische Meldungen fuer abgebrochene Anmeldung und invalid_scope; sso_error wird nach Anzeige aus der URL entfernt.",
+        text: "Login-Seite: spezifische Meldungen für abgebrochene Anmeldung und invalid_scope; sso_error wird nach Anzeige aus der URL entfernt.",
       },
       {
         type: "improvement",
-        text: "Neues Skript scripts/pull-deploy-prod.ps1: git pull --rebase und anschliessend Prod-Deploy; DEPLOY.md um Ablauf ergaenzt.",
+        text: "Neues Skript scripts/pull-deploy-prod.ps1: git pull --rebase und anschließend Prod-Deploy; DEPLOY.md um Ablauf ergänzt.",
       },
       {
         type: "improvement",
-        text: "scripts/git-sync-all.ps1: add/commit/push mit optionalem safe.directory fuer NAS; optional -Deploy; Doku in DEPLOY.md.",
+        text: "scripts/git-sync-all.ps1: add/commit/push mit optionalem safe.directory für NAS; optional -Deploy; Doku in DEPLOY.md.",
       },
       {
         type: "improvement",
@@ -479,11 +479,11 @@ export const CHANGELOG: ChangelogVersion[] = [
     changes: [
       {
         type: "fix",
-        text: "Backend stellt die fehlenden Kunden-Admin-Routen wieder bereit (u. a. PUT /api/admin/customers/:id). Dadurch schlagen Kundenaenderungen im Admin nicht mehr mit 404 fehl.",
+        text: "Backend stellt die fehlenden Kunden-Admin-Routen wieder bereit (u. a. PUT /api/admin/customers/:id). Dadurch schlagen Kundenänderungen im Admin nicht mehr mit 404 fehl.",
       },
       {
         type: "improvement",
-        text: "Kunden-Admin/Passwort-Operationen geben nun eine klare SSO-Hinweismeldung statt 404, da diese zentral ueber SSO verwaltet werden.",
+        text: "Kunden-Admin/Passwort-Operationen geben nun eine klare SSO-Hinweismeldung statt 404, da diese zentral über SSO verwaltet werden.",
       },
     ],
   },
@@ -494,11 +494,11 @@ export const CHANGELOG: ChangelogVersion[] = [
     changes: [
       {
         type: "fix",
-        text: "Order- und Customer-Abfragen referenzieren optionale NAS-Spalten jetzt migrationssicher ueber to_jsonb(...)->>'...'. Dadurch crasht das Backend nicht mehr, wenn die Spalten in einer Umgebung noch fehlen.",
+        text: "Order- und Customer-Abfragen referenzieren optionale NAS-Spalten jetzt migrationssicher über to_jsonb(...)->>'...'. Dadurch crasht das Backend nicht mehr, wenn die Spalten in einer Umgebung noch fehlen.",
       },
       {
         type: "improvement",
-        text: "PATCH fuer Kunden-NAS-Basen prueft jetzt explizit auf vorhandene DB-Spalten und liefert eine klare Fehlermeldung statt indirekter SQL-Exceptions.",
+        text: "PATCH für Kunden-NAS-Basen prüft jetzt explizit auf vorhandene DB-Spalten und liefert eine klare Fehlermeldung statt indirekter SQL-Exceptions.",
       },
     ],
   },
@@ -509,18 +509,18 @@ export const CHANGELOG: ChangelogVersion[] = [
     changes: [
       {
         type: "improvement",
-        text: "Deploy-Routine fuer Service-Neustarts weiter gehaertet: Ziel ist, dass bei Admin-only-Aenderungen der Backend-Container nicht mehr unnnoetig neu erstellt wird und damit keine API-Aussetzer erzeugt.",
+        text: "Deploy-Routine für Service-Neustarts weiter gehärtet: Ziel ist, dass bei Admin-only-Änderungen der Backend-Container nicht mehr unnötig neu erstellt wird und damit keine API-Aussetzer erzeugt.",
       },
     ],
   },
   {
     version: "2.3.193",
     date: "2026-03-18",
-    title: "Deploy-Kompatibilitaet auf Windows",
+    title: "Deploy-Kompatibilität auf Windows",
     changes: [
       {
         type: "fix",
-        text: "Die Hash-Erkennung im Deploy-Skript verwendet jetzt eine Windows-/PowerShell-kompatible relative Pfadberechnung. Dadurch laeuft die selektive Restart-Logik auch auf dem lokalen Deploy-Rechner stabil durch.",
+        text: "Die Hash-Erkennung im Deploy-Skript verwendet jetzt eine Windows-/PowerShell-kompatible relative Pfadberechnung. Dadurch läuft die selektive Restart-Logik auch auf dem lokalen Deploy-Rechner stabil durch.",
       },
     ],
   },
@@ -531,11 +531,11 @@ export const CHANGELOG: ChangelogVersion[] = [
     changes: [
       {
         type: "improvement",
-        text: "Produktiv-Deploy erkennt jetzt getrennt Backend- und Admin-Aenderungen per Inhalts-Hash und startet nur die betroffenen Services neu. Reine Admin-Deploys loesen damit keinen unnoetigen Backend-Recreate und keine wiederkehrenden 502 mehr aus.",
+        text: "Produktiv-Deploy erkennt jetzt getrennt Backend- und Admin-Änderungen per Inhalts-Hash und startet nur die betroffenen Services neu. Reine Admin-Deploys lösen damit keinen unnötigen Backend-Recreate und keine wiederkehrenden 502 mehr aus.",
       },
       {
         type: "fix",
-        text: "Die Backend-Build-ID wird nicht mehr in server.js umgeschrieben, sondern zur Laufzeit aus VERSION gelesen. Dadurch erzeugt ein reiner Versions-/Admin-Deploy keine kuenstliche Backend-Aenderung mehr.",
+        text: "Die Backend-Build-ID wird nicht mehr in server.js umgeschrieben, sondern zur Laufzeit aus VERSION gelesen. Dadurch erzeugt ein reiner Versions-/Admin-Deploy keine künstliche Backend-Änderung mehr.",
       },
     ],
   },
@@ -546,7 +546,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     changes: [
       {
         type: "fix",
-        text: "Nginx im Admin-Container loest den Hostnamen backend jetzt dynamisch (Docker-DNS 127.0.0.11 + variabler proxy_pass). Nach Deploy bekam das Backend oft eine neue Container-IP – fester Upstream zeigte noch auf die alte Adresse und lieferte dauerhaft 502.",
+        text: "Nginx im Admin-Container löst den Hostnamen backend jetzt dynamisch (Docker-DNS 127.0.0.11 + variabler proxy_pass). Nach Deploy bekam das Backend oft eine neue Container-IP – fester Upstream zeigte noch auf die alte Adresse und lieferte dauerhaft 502.",
       },
     ],
   },
@@ -557,7 +557,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     changes: [
       {
         type: "fix",
-        text: "Backend-Start: npm ci nur bei geaenderten Dependencies (docker-entrypoint-prod.sh) statt jedes Mal npm install - deutlich kuerzere Ausfallzeit beim Container-Neustart.",
+        text: "Backend-Start: npm ci nur bei geänderten Dependencies (docker-entrypoint-prod.sh) statt jedes Mal npm install - deutlich kürzere Ausfallzeit beim Container-Neustart.",
       },
       {
         type: "improvement",
@@ -576,7 +576,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     changes: [
       {
         type: "feature",
-        text: "Pro Kunde optionaler Basis-Pfad fuer Kundenordner und Rohmaterial (relativ zu NAS-Root): neue Auftraege erhalten Unterordner Basis + PLZ Ort, Strasse #Auftragsnr. Pflege im Kunden-Modal; Migration 026.",
+        text: "Pro Kunde optionaler Basis-Pfad für Kundenordner und Rohmaterial (relativ zu NAS-Root): neue Aufträge erhalten Unterordner Basis + PLZ Ort, Strasse #Auftragsnr. Pflege im Kunden-Modal; Migration 026.",
       },
     ],
   },
@@ -585,7 +585,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     date: "2026-03-18",
     title: "Zentrale Konfiguration und Deploy-Absicherung",
     changes: [
-      { type: "feature", text: "Neue zentrale Konfigurationsseite im React-Admin: globale Settings, Workflow, EXXAS und Mitarbeiter gebuendelt unter /settings." },
+      { type: "feature", text: "Neue zentrale Konfigurationsseite im React-Admin: globale Settings, Workflow, EXXAS und Mitarbeiter gebündelt unter /settings." },
       { type: "fix", text: "Mitarbeiter-API und Backend-SSOT konsolidiert (inkl. POST /api/admin/photographers, aktiv/inaktiv auf photographers.active, erweiterte Settings-Felder)." },
       { type: "improvement", text: "Deploy-Skript nimmt jetzt auch admin.html mit; Legacy-Mitarbeiterbereich verweist auf die zentrale Konfiguration statt Parallelpflege." },
     ],
@@ -595,9 +595,9 @@ export const CHANGELOG: ChangelogVersion[] = [
     date: "2026-03-18",
     title: "Abwesenheit im Kalender und Buchung",
     changes: [
-      { type: "fix", text: "Abwesenheiten (blocked_dates) fliessen in /api/availability, Admin-Verfuegbarkeit, Buchung und Reschedule ein – gewaehlte Fotograf:innen sind an Abwesenden Tagen/Zeiten nicht mehr buchbar." },
+      { type: "fix", text: "Abwesenheiten (blocked_dates) fließen in /api/availability, Admin-Verfügbarkeit, Buchung und Reschedule ein – gewählte Fotograf:innen sind an Abwesenden Tagen/Zeiten nicht mehr buchbar." },
       { type: "fix", text: "Admin-Kalender zeigt Abwesenheiten als eigene Events (grau, Typ absence)." },
-      { type: "improvement", text: "POST /api/booking prueft Slot serverseitig gegen Kalender + Abwesenheit (409 bei Konflikt)." },
+      { type: "improvement", text: "POST /api/booking prüft Slot serverseitig gegen Kalender + Abwesenheit (409 bei Konflikt)." },
     ],
   },
   {
@@ -605,15 +605,15 @@ export const CHANGELOG: ChangelogVersion[] = [
     date: "2026-03-18",
     title: "Abwesenheiten speichern",
     changes: [
-      { type: "fix", text: "Abwesenheit: Frontend sendet von/bis, Backend erwartete start/end – Eintraege landeten nicht in blocked_dates. Speichern jetzt in photographer_settings.blocked_dates mit UUID; Loeschen per ID. Terminvergabe prueft Von–Bis-Bereiche." },
+      { type: "fix", text: "Abwesenheit: Frontend sendet von/bis, Backend erwartete start/end – Einträge landeten nicht in blocked_dates. Speichern jetzt in photographer_settings.blocked_dates mit UUID; Löschen per ID. Terminvergabe prüft Von–Bis-Bereiche." },
     ],
   },
   {
     version: "2.3.185",
     date: "2026-03-18",
-    title: "Kundenauftraege API",
+    title: "Kundenaufträge API",
     changes: [
-      { type: "fix", text: "GET /api/admin/customers/:id/orders: Auftraege nach customer_id und E-Mail (billing/object) wie in der Kundenliste; behebt 404 im Kunden-Dialog/Wizard." },
+      { type: "fix", text: "GET /api/admin/customers/:id/orders: Aufträge nach customer_id und E-Mail (billing/object) wie in der Kundenliste; behebt 404 im Kunden-Dialog/Wizard." },
       { type: "improvement", text: "Kunden-Modal: Passwort-Feld mit autocomplete=new-password (Browser-Hinweis)." },
     ],
   },
@@ -630,7 +630,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     date: "2026-03-18",
     title: "Mitarbeiter-Settings PUT repariert",
     changes: [
-      { type: "fix", text: "PUT /api/admin/photographers/:key/settings: phone/is_admin/name/email/initials gehen in photographers; nur gueltige Spalten in photographer_settings. radius_km wird als max_radius_km gespeichert. Behebt 500 beim Speichern im Mitarbeiter-Dialog." },
+      { type: "fix", text: "PUT /api/admin/photographers/:key/settings: phone/is_admin/name/email/initials gehen in photographers; nur gültige Spalten in photographer_settings. radius_km wird als max_radius_km gespeichert. Behebt 500 beim Speichern im Mitarbeiter-Dialog." },
     ],
   },
   {
@@ -638,8 +638,8 @@ export const CHANGELOG: ChangelogVersion[] = [
     date: "2026-03-18",
     title: "Kalender-E-Mail aus Mitarbeiter-DB",
     changes: [
-      { type: "fix", text: "Verfuegbarkeit, Buchung und Graph-Kalender nutzen photographers.email aus der DB vor photographers.config.js – freie Slots entsprechen dem echten Outlook-Kalender des Mitarbeiters (wenn E-Mail im Admin gepflegt ist)." },
-      { type: "fix", text: "Admin-Terminverschiebung: Kalender/Mail nutzen dieselbe aufgeloeste E-Mail; photographer.email in der Bestellung wird bei Verschieben auf die kanonische Adresse aktualisiert." },
+      { type: "fix", text: "Verfügbarkeit, Buchung und Graph-Kalender nutzen photographers.email aus der DB vor photographers.config.js – freie Slots entsprechen dem echten Outlook-Kalender des Mitarbeiters (wenn E-Mail im Admin gepflegt ist)." },
+      { type: "fix", text: "Admin-Terminverschiebung: Kalender/Mail nutzen dieselbe aufgelöste E-Mail; photographer.email in der Bestellung wird bei Verschieben auf die kanonische Adresse aktualisiert." },
     ],
   },
   {
@@ -647,7 +647,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     date: "2026-03-16",
     title: "Backend-Routen: require-Fix",
     changes: [
-      { type: "fix", text: "Backend: Fehlenden require('./admin-missing-routes') in server.js ergaenzt – behebt ReferenceError beim Start und 404 fuer Reviews, E-Mail-Templates, Bug-Reports und Backups." },
+      { type: "fix", text: "Backend: Fehlenden require('./admin-missing-routes') in server.js ergänzt – behebt ReferenceError beim Start und 404 für Reviews, E-Mail-Templates, Bug-Reports und Backups." },
     ],
   },
   {
@@ -655,7 +655,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     date: "2026-03-16",
     title: "Deploy-Skript: Build optional",
     changes: [
-      { type: "improvement", text: "Deploy: Wenn npm nicht im PATH ist, wird der Build uebersprungen und vorhandenes dist deployed (statt Abbruch); Hinweis auf manuellen Build + -SkipBuild." },
+      { type: "improvement", text: "Deploy: Wenn npm nicht im PATH ist, wird der Build übersprungen und vorhandenes dist deployed (statt Abbruch); Hinweis auf manuellen Build + -SkipBuild." },
     ],
   },
   {
@@ -663,7 +663,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     date: "2026-03-16",
     title: "Deploy (Changelog 2.3.178)",
     changes: [
-      { type: "improvement", text: "Changelog-Eintrag fuer Deploy; inhaltliche Aenderungen siehe v2.3.178 (npm-Pfad im Deploy-Skript)." },
+      { type: "improvement", text: "Changelog-Eintrag für Deploy; inhaltliche Änderungen siehe v2.3.178 (npm-Pfad im Deploy-Skript)." },
     ],
   },
   {
@@ -671,7 +671,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     date: "2026-03-16",
     title: "Deploy-Skript und Changelog",
     changes: [
-      { type: "improvement", text: "Deploy-Skript: npm wird automatisch gesucht (Get-NpmPath: PATH, node-Verzeichnis, Program Files, fnm/nvm-Pfade) – Build laeuft auch ohne npm im aktuellen PATH." },
+      { type: "improvement", text: "Deploy-Skript: npm wird automatisch gesucht (Get-NpmPath: PATH, node-Verzeichnis, Program Files, fnm/nvm-Pfade) – Build läuft auch ohne npm im aktuellen PATH." },
     ],
   },
   {
@@ -688,10 +688,10 @@ export const CHANGELOG: ChangelogVersion[] = [
     date: "2026-03-16",
     title: "Performance und Bundle-Optimierung",
     changes: [
-      { type: "improvement", text: "Backend: Gzip-Compression fuer API-Responses, Cache-Control fuer /api/catalog/products und /api/config (60s)." },
+      { type: "improvement", text: "Backend: Gzip-Compression für API-Responses, Cache-Control für /api/catalog/products und /api/config (60s)." },
       { type: "fix", text: "N+1 bei Upload-Batches behoben: Batches und Group-Batch-Files werden parallel geladen (Promise.all)." },
       { type: "improvement", text: "Admin-Panel: Vite manualChunks (React, FullCalendar, TipTap, Table, Framer) – kleinere Initial-Chunks." },
-      { type: "improvement", text: "Logger: Pino entfernt, schlanker Console-Logger – weniger Bundle-Groesse." },
+      { type: "improvement", text: "Logger: Pino entfernt, schlanker Console-Logger – weniger Bundle-Größe." },
       { type: "improvement", text: "Changelog-Daten nach data/changelogData.ts ausgelagert." },
     ],
   },
@@ -709,17 +709,17 @@ export const CHANGELOG: ChangelogVersion[] = [
     date: "2026-03-16",
     title: "Deploy (Changelog 2.3.173)",
     changes: [
-      { type: "improvement", text: "Changelog-Eintrag fuer Deploy-Skript; inhaltliche Aenderungen siehe v2.3.173." },
+      { type: "improvement", text: "Changelog-Eintrag für Deploy-Skript; inhaltliche Änderungen siehe v2.3.173." },
     ],
   },
   {
     version: "2.3.173",
     date: "2026-03-16",
-    title: "Bot-API und Bestelldetail fuer Mitarbeiter",
+    title: "Bot-API und Bestelldetail für Mitarbeiter",
     changes: [
       { type: "fix", text: "POST /api/bot war nicht implementiert – jetzt mit action 'config' (Pakete, Addons, Fotografen). Behebt 404 beim Oeffnen der Bestellseite." },
-      { type: "fix", text: "Bestelldetail GET /api/admin/orders/:orderNo erlaubt jetzt Fotografen/Mitarbeiter (nur eigene Auftraege); Detail-Dialog laedt ohne 404." },
-      { type: "improvement", text: "OrderDetail: Fotografen sehen nur Leseansicht (kein Bearbeiten, Loeschen, E-Mail-Resend); Admin-Config wird optional geladen." },
+      { type: "fix", text: "Bestelldetail GET /api/admin/orders/:orderNo erlaubt jetzt Fotografen/Mitarbeiter (nur eigene Aufträge); Detail-Dialog lädt ohne 404." },
+      { type: "improvement", text: "OrderDetail: Fotografen sehen nur Leseansicht (kein Bearbeiten, Löschen, E-Mail-Resend); Admin-Config wird optional geladen." },
     ],
   },
   {
@@ -728,8 +728,8 @@ export const CHANGELOG: ChangelogVersion[] = [
     title: "DNG-Preview Buildfix",
     changes: [
       { type: "fix", text: "TypeScript-Buildfehler bei der eingebetteten JPEG-Vorschau aus DNG behoben." },
-      { type: "improvement", text: "Die schnelle DNG-Vorschau ueber eingebettete JPEG-Daten bleibt damit deploybar und produktiv nutzbar." },
-      { type: "fix", text: "Blob-Erzeugung fuer RAW-Preview verwendet jetzt ein sauberes ArrayBuffer-Slice statt eines inkompatiblen Uint8Array-BlobParts." },
+      { type: "improvement", text: "Die schnelle DNG-Vorschau über eingebettete JPEG-Daten bleibt damit deploybar und produktiv nutzbar." },
+      { type: "fix", text: "Blob-Erzeugung für RAW-Preview verwendet jetzt ein sauberes ArrayBuffer-Slice statt eines inkompatiblen Uint8Array-BlobParts." },
     ],
   },
   {
@@ -738,8 +738,8 @@ export const CHANGELOG: ChangelogVersion[] = [
     title: "Schnellere DNG-Vorschau",
     changes: [
       { type: "fix", text: "DNG-Vorschau liest jetzt zuerst die eingebettete JPEG-Preview aus der RAW-Datei, statt sofort die volle RAW-Dekodierung zu starten." },
-      { type: "improvement", text: "Dadurch erscheinen Vorschauen bei DJI-DNG-Dateien deutlich schneller und bleiben nicht mehr auf PREVIEW haengen." },
-      { type: "improvement", text: "RAW-Dekodierung hat jetzt zusaetzliche Timeouts, damit die UI nicht endlos im Ladezustand bleibt." },
+      { type: "improvement", text: "Dadurch erscheinen Vorschauen bei DJI-DNG-Dateien deutlich schneller und bleiben nicht mehr auf PREVIEW hängen." },
+      { type: "improvement", text: "RAW-Dekodierung hat jetzt zusätzliche Timeouts, damit die UI nicht endlos im Ladezustand bleibt." },
     ],
   },
   {
@@ -747,9 +747,9 @@ export const CHANGELOG: ChangelogVersion[] = [
     date: "2026-03-15",
     title: "RAW-Vorschau lokal ausgeliefert",
     changes: [
-      { type: "fix", text: "DNG/RAW-Vorschau wird nicht mehr ueber externe CDN-Worker geladen, sondern lokal aus dem Admin-Frontend ausgeliefert." },
-      { type: "improvement", text: "Dadurch funktionieren Worker, WASM und relative Asset-Loads fuer die RAW-Vorschau robuster im produktiven Browser-Kontext." },
-      { type: "improvement", text: "Bei fehlgeschlagener RAW-Dekodierung erscheint jetzt zusaetzlich ein Browser-Console-Hinweis fuer schnellere Diagnose." },
+      { type: "fix", text: "DNG/RAW-Vorschau wird nicht mehr über externe CDN-Worker geladen, sondern lokal aus dem Admin-Frontend ausgeliefert." },
+      { type: "improvement", text: "Dadurch funktionieren Worker, WASM und relative Asset-Loads für die RAW-Vorschau robuster im produktiven Browser-Kontext." },
+      { type: "improvement", text: "Bei fehlgeschlagener RAW-Dekodierung erscheint jetzt zusaetzlich ein Browser-Console-Hinweis für schnellere Diagnose." },
     ],
   },
   {
@@ -757,9 +757,9 @@ export const CHANGELOG: ChangelogVersion[] = [
     date: "2026-03-15",
     title: "Echte DNG-Vorschau vor Upload",
     changes: [
-      { type: "feature", text: "Upload-Tool erzeugt fuer DNG/RAW-Dateien jetzt lokale Vorschaubilder direkt im Browser vor dem Upload." },
-      { type: "improvement", text: "RAW-Vorschau wird asynchron geladen, damit die Upload-Oberflaeche waehrenddessen bedienbar bleibt." },
-      { type: "fix", text: "Upload-Karten zeigen bei DNG nicht mehr nur Platzhalter, sondern wenn moeglich ein echtes Thumbnail." },
+      { type: "feature", text: "Upload-Tool erzeugt für DNG/RAW-Dateien jetzt lokale Vorschaubilder direkt im Browser vor dem Upload." },
+      { type: "improvement", text: "RAW-Vorschau wird asynchron geladen, damit die Upload-Oberfläche währenddessen bedienbar bleibt." },
+      { type: "fix", text: "Upload-Karten zeigen bei DNG nicht mehr nur Platzhalter, sondern wenn möglich ein echtes Thumbnail." },
     ],
   },
   {
@@ -767,9 +767,9 @@ export const CHANGELOG: ChangelogVersion[] = [
     date: "2026-03-15",
     title: "Upload stabiler und Vorschau klarer",
     changes: [
-      { type: "fix", text: "Chunk-Upload-Timeout deutlich erhoeht und Upload-Chunks auf 8 MB reduziert. Dadurch brechen langsame Uploads wesentlich seltener mit Timeout ab." },
+      { type: "fix", text: "Chunk-Upload-Timeout deutlich erhöht und Upload-Chunks auf 8 MB reduziert. Dadurch brechen langsame Uploads wesentlich seltener mit Timeout ab." },
       { type: "improvement", text: "Dateivorschau verbessert: Browser-Bilder werden jetzt auch bei leerem Dateityp korrekt als Thumbnail angezeigt." },
-      { type: "improvement", text: "RAW/PDF/Video-Dateien zeigen jetzt eine sichtbare Vorschaukarte mit Dateityp, Name und Groesse statt wie eine leere oder nichtssagende Kachel zu wirken." },
+      { type: "improvement", text: "RAW/PDF/Video-Dateien zeigen jetzt eine sichtbare Vorschaukarte mit Dateityp, Name und Größe statt wie eine leere oder nichtssagende Kachel zu wirken." },
     ],
   },
   {
@@ -778,7 +778,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     title: "Kalender-API implementiert",
     changes: [
       { type: "fix", text: "Kalender: API-Fehler 'HTTP 404 – Server antwortet mit HTML statt JSON' behoben. Die fehlenden Backend-Routen /api/admin/calendar-events und /api/admin/photographers wurden implementiert." },
-      { type: "feature", text: "Mitarbeiter-Routen vollstaendig ergaenzt (GET/PUT Settings, Abwesenheiten, Aktivitaetslog, De-/Reaktivierung)." },
+      { type: "feature", text: "Mitarbeiter-Routen vollständig ergänzt (GET/PUT Settings, Abwesenheiten, Aktivitätslog, De-/Reaktivierung)." },
     ],
   },
   {
@@ -787,8 +787,8 @@ export const CHANGELOG: ChangelogVersion[] = [
     title: "Upload-Vorschau und Fortschrittsanzeige",
     changes: [
       { type: "improvement", text: "Vorschau-Grid: RAW/DNG-Dateien zeigen jetzt Dateityp-Icon und Erweiterung statt '?' – klarer erkennbar welcher Dateityp." },
-      { type: "improvement", text: "Fortschrittsbalken pro Karte: waehrend des Uploads wird der Prozentsatz auf der Karte angezeigt, bei 100% erscheint ein gruenes Haken-Icon." },
-      { type: "feature", text: "Dialog waehrend Upload: zeigt Gesamtfortschrittsbalken, aktuelle Datei und Status jeder einzelnen Datei (ausstehend / laufend / abgeschlossen)." },
+      { type: "improvement", text: "Fortschrittsbalken pro Karte: während des Uploads wird der Prozentsatz auf der Karte angezeigt, bei 100% erscheint ein grünes Haken-Icon." },
+      { type: "feature", text: "Dialog während Upload: zeigt Gesamtfortschrittsbalken, aktuelle Datei und Status jeder einzelnen Datei (ausstehend / laufend / abgeschlossen)." },
     ],
   },
   {
@@ -796,7 +796,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     date: "2026-03-15",
     title: "Footer-Version aus Backend",
     changes: [
-      { type: "fix", text: "Footer zeigt jetzt die Version vom Backend (/api/health) statt aus dem Frontend-Build – angezeigte Version entspricht der tatsaechlich deployten." },
+      { type: "fix", text: "Footer zeigt jetzt die Version vom Backend (/api/health) statt aus dem Frontend-Build – angezeigte Version entspricht der tatsächlich deployten." },
     ],
   },
   {
@@ -805,7 +805,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     title: "Original-Datum bei Upload und Transfer erhalten",
     changes: [
       { type: "improvement", text: "Datum und Uhrzeit der Originaldateien bleiben bei Rohmaterial- und Kundenordner-Uploads erhalten – weder beim Staging noch beim NAS-Transfer noch bei Websize-Erzeugung." },
-      { type: "improvement", text: "Upload-Bestaetigungsdialog erscheint jetzt beim Klick auf «Upload starten» (vor dem Upload), nicht erst nach NAS-Transfer." },
+      { type: "improvement", text: "Upload-Bestätigungsdialog erscheint jetzt beim Klick auf «Upload starten» (vor dem Upload), nicht erst nach NAS-Transfer." },
       { type: "improvement", text: "Vorschau-Grid mit Filter-Tabs (ALLE, RAW, JPG, …) und Thumbnails vor dem Upload." },
     ],
   },
@@ -820,10 +820,10 @@ export const CHANGELOG: ChangelogVersion[] = [
   {
     version: "2.3.161",
     date: "2026-03-15",
-    title: "Upload: bessere Fehlermeldungen und laengere Timeouts",
+    title: "Upload: bessere Fehlermeldungen und längere Timeouts",
     changes: [
       { type: "fix", text: "API-Fehlerbehandlung verbessert: echte Backend-Meldungen werden statt 'Unbekannter API-Fehler' angezeigt." },
-      { type: "improvement", text: "Timeout fuer Chunked-Upload-Endpoints (init, status, complete, finalize) auf 2 Minuten erhoeht." },
+      { type: "improvement", text: "Timeout für Chunked-Upload-Endpoints (init, status, complete, finalize) auf 2 Minuten erhöht." },
     ],
   },
   {
@@ -831,7 +831,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     date: "2026-03-15",
     title: "Chunked Upload stabilisiert (Chunk-Grenzwert)",
     changes: [
-      { type: "fix", text: "Chunk-Groesse im Frontend auf 31 MiB reduziert, damit Uploads nicht mehr an der 32-MB-Limitgrenze scheitern." },
+      { type: "fix", text: "Chunk-Größe im Frontend auf 31 MiB reduziert, damit Uploads nicht mehr an der 32-MB-Limitgrenze scheitern." },
       { type: "improvement", text: "Upload bleibt kompatibel mit dem 32-MB-Backend-Limit und ist robuster bei Browser-/Multipart-Overhead." },
     ],
   },
@@ -858,7 +858,7 @@ export const CHANGELOG: ChangelogVersion[] = [
   {
     version: "2.3.157",
     date: "2026-03-14",
-    title: "Upload-Bestaetigungsdialog mit Vorschau und Kommentar",
+    title: "Upload-Bestätigungsdialog mit Vorschau und Kommentar",
     changes: [
       { type: "feature", text: "Nach jedem erfolgreichen Upload öffnet sich ein Popup-Dialog mit der Frage ob alles hochgeladen wurde, inklusive Dateivorschau mit Thumbnails für Bilder." },
       { type: "feature", text: "Im Bestätigungsdialog kann ein Abschluss-Kommentar eingegeben werden, der als Kommentar.txt im Zielordner auf der NAS gespeichert wird." },
@@ -871,28 +871,28 @@ export const CHANGELOG: ChangelogVersion[] = [
     date: "2026-03-14",
     title: "Sammelupload und Storage-Routen abgesichert",
     changes: [
-      { type: "fix", text: "Mehrteilige NAS-Uploads bleiben jetzt logisch ein Sammelupload mit einem Zielordner und einer aggregierten Abschlussmail statt vieler Einzelabschluesse." },
-      { type: "fix", text: "Die fehlenden Storage-Routen fuer UploadsPage wurden in server.js wiederhergestellt, damit Deploy-Preflight und Storage-Ansicht konsistent bleiben." },
+      { type: "fix", text: "Mehrteilige NAS-Uploads bleiben jetzt logisch ein Sammelupload mit einem Zielordner und einer aggregierten Abschlussmail statt vieler Einzelabschlüsse." },
+      { type: "fix", text: "Die fehlenden Storage-Routen für UploadsPage wurden in server.js wiederhergestellt, damit Deploy-Preflight und Storage-Ansicht konsistent bleiben." },
       { type: "improvement", text: "Die Upload-Gruppenlogik ist jetzt auch gegen fehlende DB-Spalten abgesichert, bis alle Migrationen auf dem Zielsystem eingespielt sind." },
     ],
   },
   {
     version: "2.3.155",
     date: "2026-03-14",
-    title: "Sammelupload fuer NAS stabilisiert",
+    title: "Sammelupload für NAS stabilisiert",
     changes: [
-      { type: "fix", text: "Mehrteilige Uploads bleiben technisch klein genug fuer Cloudflare, laufen aber logisch als ein Sammelupload statt als viele isolierte Einzelabschluesse." },
+      { type: "fix", text: "Mehrteilige Uploads bleiben technisch klein genug für Cloudflare, laufen aber logisch als ein Sammelupload statt als viele isolierte Einzelabschlüsse." },
       { type: "fix", text: "Bei 'Neuer Unterordner' verwenden alle Teil-Requests jetzt denselben Zielordner, auch wenn der Ordnername serverseitig erst beim ersten Paket erzeugt wird." },
-      { type: "improvement", text: "Abschlussmails werden fuer grosse Sammeluploads nur noch einmal mit aggregierten Datei- und Teilpaket-Zahlen versendet." },
+      { type: "improvement", text: "Abschlussmails werden für grosse Sammeluploads nur noch einmal mit aggregierten Datei- und Teilpaket-Zahlen versendet." },
     ],
   },
   {
     version: "2.3.154",
     date: "2026-03-14",
-    title: "Upload-Limit fuer Cloudflare angepasst",
+    title: "Upload-Limit für Cloudflare angepasst",
     changes: [
       { type: "fix", text: "RAW-Uploads werden jetzt unter dem Cloudflare-Request-Limit portioniert, damit ~94 MB DNG-Dateien nicht mehr sofort mit HTTP 502 abbrechen." },
-      { type: "improvement", text: "Grosse Dateien werden weiterhin automatisch seriell hochgeladen, aber mit kleinerem Request-Volumen pro Teil-Batch." },
+      { type: "improvement", text: "Große Dateien werden weiterhin automatisch seriell hochgeladen, aber mit kleinerem Request-Volumen pro Teil-Batch." },
     ],
   },
   {
@@ -915,7 +915,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     date: "2026-03-13",
     title: "Upload-Ziel: Rohmaterial oder Kundenordner",
     changes: [
-      { type: "feature", text: "Beim Upload wird jetzt gefragt: Rohmaterial oder Kundenordner? Der gewaehlte Ordnertyp wird an das Backend uebergeben." },
+      { type: "feature", text: "Beim Upload wird jetzt gefragt: Rohmaterial oder Kundenordner? Der gewählte Ordnertyp wird an das Backend übergeben." },
       { type: "fix", text: "EXDEV-Fehler bei Cross-Filesystem-Uploads behoben (renameSync durch copyFileSync + unlinkSync ersetzt)." },
     ],
   },
@@ -1390,8 +1390,8 @@ export const CHANGELOG: ChangelogVersion[] = [
     date: "2026-03-09",
     title: "Kunden-Exxas-Struktur und Modal-Schließen",
     changes: [
-      { type: "feature", text: "Exxas-aehnliche Kunden-/Kontaktstruktur: Anrede, Vorname/Nachname, Adresszusatz, PLZ/Ort/Land, Telefon 2/Mobil/Fax, Website, Abteilung." },
-      { type: "improvement", text: "Kunden-Modal: Schliessen-Button (X) oben rechts hinzugefuegt." },
+      { type: "feature", text: "Exxas-ähnliche Kunden-/Kontaktstruktur: Anrede, Vorname/Nachname, Adresszusatz, PLZ/Ort/Land, Telefon 2/Mobil/Fax, Website, Abteilung." },
+      { type: "improvement", text: "Kunden-Modal: Schließen-Button (X) oben rechts hinzugefügt." },
     ],
   },
   {
@@ -1399,7 +1399,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     date: "2026-03-09",
     title: "E-Mail-Verlauf: Doppelte Route entfernt",
     changes: [
-      { type: "fix", text: "Doppelte Backend-Route fuer E-Mail-Verlauf entfernt. Nur noch eine saubere Implementierung mit Order-Pruefung und sent_at-Normalisierung aktiv." },
+      { type: "fix", text: "Doppelte Backend-Route für E-Mail-Verlauf entfernt. Nur noch eine saubere Implementierung mit Order-Prüfung und sent_at-Normalisierung aktiv." },
     ],
   },
   {
@@ -1407,8 +1407,8 @@ export const CHANGELOG: ChangelogVersion[] = [
     date: "2026-03-09",
     title: "Daueranpassung aktualisiert Kalender still",
     changes: [
-      { type: "fix", text: "Wenn im Bestell-Detail nur die Einsatzdauer geaendert wird, werden keine Reschedule-E-Mails mehr ausgeloest." },
-      { type: "improvement", text: "Dauer-Only-Aenderungen aktualisieren weiterhin Kalender, Events und ICS stillschweigend im Hintergrund." },
+      { type: "fix", text: "Wenn im Bestell-Detail nur die Einsatzdauer geändert wird, werden keine Reschedule-E-Mails mehr ausgelöst." },
+      { type: "improvement", text: "Dauer-Only-Änderungen aktualisieren weiterhin Kalender, Events und ICS stillschweigend im Hintergrund." },
     ],
   },
   {
@@ -1416,8 +1416,8 @@ export const CHANGELOG: ChangelogVersion[] = [
     date: "2026-03-09",
     title: "Bestelldetails: E-Mail-Log und Dauer-Override",
     changes: [
-      { type: "fix", text: "Backend ergaenzt die fehlenden Admin-Endpunkte fuer E-Mail-Verlauf und erneuten Versand von Status-Mails, damit die Bestelldetails in Produktion keine 404 mehr zeigen." },
-      { type: "feature", text: "Im Bestell-Detaildialog kann die Einsatzdauer beim Termin jetzt manuell in Minuten ueberschrieben und mitgespeichert werden." },
+      { type: "fix", text: "Backend ergänzt die fehlenden Admin-Endpunkte für E-Mail-Verlauf und erneuten Versand von Status-Mails, damit die Bestelldetails in Produktion keine 404 mehr zeigen." },
+      { type: "feature", text: "Im Bestell-Detaildialog kann die Einsatzdauer beim Termin jetzt manuell in Minuten überschrieben und mitgespeichert werden." },
       { type: "improvement", text: "Terminblock zeigt die aktuelle Dauer kompakt direkt neben dem aktuellen Termin an." },
     ],
   },
@@ -1427,7 +1427,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     title: "Encoding-Reparatur greift jetzt end-to-end",
     changes: [
       { type: "fix", text: "Backend normalisiert mojibake-beschaedigte Texte jetzt bereits beim API-Eingang, beim DB-Schreiben und beim DB-Lesen." },
-      { type: "fix", text: "Kalender-, Mail- und Admin-Daten reparieren typische UTF-8/Latin1-Zeichenfehler zentral ueber den neuen Text-Normalisierer." },
+      { type: "fix", text: "Kalender-, Mail- und Admin-Daten reparieren typische UTF-8/Latin1-Zeichenfehler zentral über den neuen Text-Normalisierer." },
     ],
   },
   {
@@ -1435,8 +1435,8 @@ export const CHANGELOG: ChangelogVersion[] = [
     date: "2026-03-09",
     title: "E-Mail-Encoding dauerhaft stabilisiert",
     changes: [
-      { type: "fix", text: "Backend verwendet fuer Objekt-/Service-Fallbacks jetzt stabile ASCII-Defaults statt beschädigter Mojibake-Strings." },
-      { type: "fix", text: "Mail-Renderdaten enthalten strukturierte Objektfelder (Typ/Flaeche/Zimmer/Etagen), damit fehlerhafte Legacy-Textbloecke nicht mehr in E-Mails erscheinen." },
+      { type: "fix", text: "Backend verwendet für Objekt-/Service-Fallbacks jetzt stabile ASCII-Defaults statt beschädigter Mojibake-Strings." },
+      { type: "fix", text: "Mail-Renderdaten enthalten strukturierte Objektfelder (Typ/Fläche/Zimmer/Etagen), damit fehlerhafte Legacy-Textblöcke nicht mehr in E-Mails erscheinen." },
     ],
   },
   {
@@ -1444,7 +1444,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     date: "2026-03-09",
     title: "E-Mail-Encoding: Mojibake in Benachrichtigungen behoben",
     changes: [
-      { type: "fix", text: "Kryptische Zeichen (Mojibake) in E-Mail-Benachrichtigungen vollstaendig behoben - Zimmeranzahl, Flaeche, Adresse und Servicezeilen werden jetzt korrekt angezeigt." },
+      { type: "fix", text: "Kryptische Zeichen (Mojibake) in E-Mail-Benachrichtigungen vollständig behoben - Zimmeranzahl, Fläche, Adresse und Servicezeilen werden jetzt korrekt angezeigt." },
     ],
   },
   {
@@ -1505,7 +1505,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     date: "2026-03-09",
     title: "Admin-Login synchronisiert Env-Passwort automatisch",
     changes: [
-      { type: "fix", text: "Backend-Admin-Login: Bestehende admin-account.json wird jetzt bei geaendertem ADMIN_PASS automatisch mit einem neuen Passwort-Hash aktualisiert, damit gueltige Zugangsdaten nicht mehr als ungueltig abgelehnt werden." },
+      { type: "fix", text: "Backend-Admin-Login: Bestehende admin-account.json wird jetzt bei geändertem ADMIN_PASS automatisch mit einem neuen Passwort-Hash aktualisiert, damit gültige Zugangsdaten nicht mehr als ungültig abgelehnt werden." },
     ],
   },
   {
@@ -1571,7 +1571,7 @@ export const CHANGELOG: ChangelogVersion[] = [
   {
     version: "2.3.72",
     date: "2026-03-09",
-    title: "Booking-Frontend Cache-Bust fuer Magic-Link",
+    title: "Booking-Frontend Cache-Bust für Magic-Link",
     changes: [
       { type: "fix", text: "Script-Asset-Version in `index.html` wurde angehoben, damit Browser garantiert die aktuelle Token-Handling-Logik laden und Admin-Magic-Links korrekt uebernehmen." },
     ],
@@ -1965,7 +1965,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     date: "2026-03-04",
     title: "Todo-Sync: Erledigt-Status aus Propus Todo",
     changes: [
-      { type: "feature", text: "API-Endpoints fuer Propus Todo: Bestellung als erledigt synchronisieren (POST /api/todo-sync/orders/:orderNo/complete) und Existenzpruefung (GET /api/todo-sync/orders/:orderNo/exists)." },
+      { type: "feature", text: "API-Endpoints für Propus Todo: Bestellung als erledigt synchronisieren (POST /api/todo-sync/orders/:orderNo/complete) und Existenzprüfung (GET /api/todo-sync/orders/:orderNo/exists)." },
     ],
   },
   {
@@ -1973,7 +1973,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     date: "2026-03-04",
     title: "Deploy-Build Fixes",
     changes: [
-      { type: "fix", text: "PhotographerSettings-Typ ergaenzt (max_radius_km) fuer Backend-Kompatibilitaet." },
+      { type: "fix", text: "PhotographerSettings-Typ ergänzt (max_radius_km) für Backend-Kompatibilität." },
       { type: "fix", text: "ProductEditModal: TypeScript-Fehler bei compositeOf/includes behoben." },
     ],
   },
@@ -1998,25 +1998,25 @@ export const CHANGELOG: ChangelogVersion[] = [
     date: "2026-03-03",
     title: "Live-Skills aus Produkt-Config + aktive Mitarbeiter in Terminvergabe",
     changes: [
-      { type: "feature", text: "Produkte unterstuetzen jetzt mehrere benoetigte Skills (required_skills), z.B. Drohnenvideo = Drohne + Video." },
-      { type: "improvement", text: "Produkt-Editor hat Skill-Checkboxen fuer die Terminvergabe, damit Produkte direkt Skills zugeordnet werden koennen." },
+      { type: "feature", text: "Produkte unterstützen jetzt mehrere benötigte Skills (required_skills), z.B. Drohnenvideo = Drohne + Video." },
+      { type: "improvement", text: "Produkt-Editor hat Skill-Checkboxen für die Terminvergabe, damit Produkte direkt Skills zugeordnet werden können." },
       { type: "fix", text: "Terminvorschlag (Beliebig) nutzt jetzt aktive Mitarbeiter + produktbasierte Skill-Zuordnung aus der DB, statt statischer Heuristik." },
     ],
   },
   {
     version: "2.3.19",
     date: "2026-03-03",
-    title: "Skill-Erkennung fuer Video/Drohne im Wizard behoben",
+    title: "Skill-Erkennung für Video/Drohne im Wizard behoben",
     changes: [
-      { type: "fix", text: "Admin-Bestellwizard: Addon-Codes (z.B. groundVideo, droneVideo) wurden nicht als Skill-Anforderungen an den Fotograf-Resolver übergeben. Maher wird jetzt korrekt vorgeschlagen wenn Video-Addons ausgewaehlt sind." },
+      { type: "fix", text: "Admin-Bestellwizard: Addon-Codes (z.B. groundVideo, droneVideo) wurden nicht als Skill-Anforderungen an den Fotograf-Resolver übergeben. Maher wird jetzt korrekt vorgeschlagen wenn Video-Addons ausgewählt sind." },
     ],
   },
   {
     version: "2.3.18",
     date: "2026-03-03",
-    title: "Fotograf-Vorschlag beruecksichtigt jetzt Skills (Beliebig-Modus)",
+    title: "Fotograf-Vorschlag berücksichtigt jetzt Skills (Beliebig-Modus)",
     changes: [
-      { type: "fix", text: "Im Bestellwizard bei 'Beliebig (automatisch)' wurde der Fotograf-Vorschlag ohne Skill-Pruefung ausgewaehlt. Jetzt werden Skills (Video, Drohne, Matterport) korrekt beruecksichtigt: ein Fotograf wird nur vorgeschlagen wenn er freie Slots UND die nötigen Skills hat." },
+      { type: "fix", text: "Im Bestellwizard bei 'Beliebig (automatisch)' wurde der Fotograf-Vorschlag ohne Skill-Prüfung ausgewählt. Jetzt werden Skills (Video, Drohne, Matterport) korrekt berücksichtigt: ein Fotograf wird nur vorgeschlagen wenn er freie Slots UND die nötigen Skills hat." },
     ],
   },
   {
@@ -2024,7 +2024,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     date: "2026-03-03",
     title: "Slot-Picker: Kein freier Termin bei Beliebig behoben",
     changes: [
-      { type: "fix", text: "Slot-Picker zeigte 'Kein freier Termin' bei Fotograf 'Beliebig (automatisch)', weil kein Zeitfilter angewendet werden sollte. Admin-Browse-Modus (time=00:00) waehlt jetzt den Fotografen mit den meisten freien Slots." },
+      { type: "fix", text: "Slot-Picker zeigte 'Kein freier Termin' bei Fotograf 'Beliebig (automatisch)', weil kein Zeitfilter angewendet werden sollte. Admin-Browse-Modus (time=00:00) wählt jetzt den Fotografen mit den meisten freien Slots." },
     ],
   },
   {
@@ -2032,8 +2032,8 @@ export const CHANGELOG: ChangelogVersion[] = [
     date: "2026-03-03",
     title: "Passwort-Reset & Slot-Picker Fix",
     changes: [
-      { type: "fix", text: "Passwort-Vergessen-Link wurde nicht gesendet, wenn fuer einen Mitarbeiter noch kein Einstellungs-Eintrag existierte (INNER JOIN → LEFT JOIN)." },
-      { type: "improvement", text: "Reset-Link ist jetzt 24 Stunden gueltig (vorher: 2 Stunden)." },
+      { type: "fix", text: "Passwort-Vergessen-Link wurde nicht gesendet, wenn für einen Mitarbeiter noch kein Einstellungs-Eintrag existierte (INNER JOIN → LEFT JOIN)." },
+      { type: "improvement", text: "Reset-Link ist jetzt 24 Stunden gültig (vorher: 2 Stunden)." },
       { type: "fix", text: "Slot-Picker im Bestellwizard zeigte 'Kein freier Termin' bei Fotograf 'Beliebig', weil time=00:00 nie in den Slots enthalten war. Jetzt wird bei Browse-Modus (kein Zeitfilter) der Fotograf mit den meisten freien Slots vorgeschlagen." },
     ],
   },
@@ -2042,9 +2042,9 @@ export const CHANGELOG: ChangelogVersion[] = [
     date: "2026-03-03",
     title: "Mitarbeiter deaktivieren / reaktivieren",
     changes: [
-      { type: "feature", text: "Mitarbeiter koennen jetzt deaktiviert werden (nicht geloescht). Deaktivierte Mitarbeiter erscheinen ausgegraut mit 'Inaktiv'-Badge und werden nicht mehr in der automatischen Terminvergabe beruecksichtigt." },
-      { type: "feature", text: "Reaktivierung jederzeit moeglich per Klick im Bearbeitungs-Modal." },
-      { type: "improvement", text: "Bestehende Bestellungen und historische Daten bleiben bei Deaktivierung unveraendert." },
+      { type: "feature", text: "Mitarbeiter können jetzt deaktiviert werden (nicht gelöscht). Deaktivierte Mitarbeiter erscheinen ausgegraut mit 'Inaktiv'-Badge und werden nicht mehr in der automatischen Terminvergabe berücksichtigt." },
+      { type: "feature", text: "Reaktivierung jederzeit möglich per Klick im Bearbeitungs-Modal." },
+      { type: "improvement", text: "Bestehende Bestellungen und historische Daten bleiben bei Deaktivierung unverändert." },
     ],
   },
   {
@@ -2053,7 +2053,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     title: "Preis-Zusammenfassung: Neues Quittungs-Layout",
     changes: [
       { type: "improvement", text: "Preis & Zusammenfassung: Neues zweispaltiges Layout mit Live-Kalkulation (Paket, Addons, Schluesselabholung werden automatisch summiert)." },
-      { type: "improvement", text: "Subtotal und Total werden bei Paket-/Addon-/Rabatt-Aenderungen automatisch neu berechnet (8.1% MWST)." },
+      { type: "improvement", text: "Subtotal und Total werden bei Paket-/Addon-/Rabatt-Änderungen automatisch neu berechnet (8.1% MWST)." },
       { type: "improvement", text: "Quittungs-Darstellung rechts mit allen Positionen, Rabatt in Gruen, Total in Gold." },
       { type: "fix", text: "Best??tigungs-E-Mails-Checkbox entfernt (ersetzt durch granulare E-Mail-Zielgruppen im Anfangsstatus-Bereich)." },
     ],
@@ -2065,9 +2065,9 @@ export const CHANGELOG: ChangelogVersion[] = [
     changes: [
       { type: "fix", text: "Slot-Anzeige bei 'Beliebig'-Fotograf: Alle Slots des empfohlenen Fotografen werden angezeigt, mit Hinweis auf den vorgeschlagenen Namen." },
       { type: "fix", text: "Encoding-Fehler (Schl??sselabholung) durch sauberen Neubuild behoben." },
-      { type: "improvement", text: "Anfangsstatus als Select-Dropdown statt Balken-Buttons fuer bessere Uebersicht." },
-      { type: "feature", text: "E-Mail-Zielgruppen (Kunde, Buero, Fotograf, CC) im Bestellformular hinzugefuegt – analog zu Bestelldetail und Kalender." },
-      { type: "improvement", text: "Backend: /api/admin/availability gibt bei 'any' neu resolvedPhotographer + freeSlots zurueck." },
+      { type: "improvement", text: "Anfangsstatus als Select-Dropdown statt Balken-Buttons für bessere Übersicht." },
+      { type: "feature", text: "E-Mail-Zielgruppen (Kunde, Büro, Fotograf, CC) im Bestellformular hinzugefügt – analog zu Bestelldetail und Kalender." },
+      { type: "improvement", text: "Backend: /api/admin/availability gibt bei 'any' neu resolvedPhotographer + freeSlots zurück." },
     ],
   },
   {
@@ -2100,7 +2100,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     date: "2026-03-03",
     title: "Mail-Zielgruppen Default aus",
     changes: [
-      { type: "improvement", text: "Im Statusbereich sind Kunde/Buero/Fotograf/CC jetzt standardmaessig nicht vorausgewaehlt. Auswahl erfolgt bewusst pro Aenderung." },
+      { type: "improvement", text: "Im Statusbereich sind Kunde/Büro/Fotograf/CC jetzt standardmäßig nicht vorausgewählt. Auswahl erfolgt bewusst pro Änderung." },
     ],
   },
   {

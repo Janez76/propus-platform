@@ -1,73 +1,82 @@
 # Propus Platform
 
-Unified platform combining the **Booking Tool** and **Tour Manager** into a single
-codebase with shared customer data, centralized authentication (Logto), and a
-common PostgreSQL instance.
+Die **Propus Platform** bündelt **Buchungstool** und **Tour Manager** in **einer Codebasis**: gemeinsame Kundendaten, zentrale Anmeldung über **Logto** und **eine PostgreSQL-Datenbank**.
 
-## Architecture
+## Architektur
 
 ```
 propus-platform/
-├── core/           # Shared migrations, migration runner, seed data
-├── platform/       # Zentraler Entry (server.js): Booking + Tours, ein Port
-├── booking/        # Buchungstool Backend (Express) – weiterhin Quellcode
-├── tours/          # Tour Manager (Express/EJS) – wird unter /tour-manager gemountet
+├── core/           # Gemeinsame Migrationen, Migration Runner, Seed-Daten
+├── platform/       # Zentraler Einstieg (server.js): Booking + Tours, ein Port
+├── booking/        # Backend Buchungstool (Express)
+├── tours/          # Tour Manager (Express/EJS), unter /tour-manager gemountet
 ├── auth/           # Logto-Middleware
 ├── infra/          # Hilfsskripte (z. B. Logto)
-├── docs/           # Architecture docs
+├── docs/           # Zusätzliche Dokumentation
 └── docker-compose.yml
 ```
 
-### Database Schema Layout
+**Hinweis:** Wo sich nutzer- und admin-sichtbare Texte pflegen lassen, steht in [docs/PLATTFORM-TEXTE-UND-ARCHITEKTUR.md](docs/PLATTFORM-TEXTE-UND-ARCHITEKTUR.md).
 
-| Schema         | Purpose                                      |
-|---------------|----------------------------------------------|
-| `core`        | Shared: customers, contacts, companies, auth |
-| `booking`     | Orders, photographers, products, pricing     |
-| `tour_manager`| Tours, invoices, portal users, suggestions   |
+### Datenbank-Schemas
 
-Each module connects to the same PostgreSQL database (`propus`) and sets
-`search_path` so unqualified queries resolve correctly.
+| Schema          | Inhalt |
+|-----------------|--------|
+| `core`          | Gemeinsam: Kunden, Kontakte, Firmen, Auth-Bezüge |
+| `booking`       | Aufträge, Fotografen, Produkte, Preise |
+| `tour_manager`  | Touren, Rechnungen, Portalnutzer, Vorschläge |
 
-## Quick Start (Local Docker)
+Alle Module nutzen dieselbe Datenbank (`propus`) und setzen `search_path`, damit unqualifizierte SQL-Abfragen im richtigen Schema landen.
+
+## Schnellstart (Docker, lokal)
+
+Voraussetzung: [Docker Compose v2](https://docs.docker.com/compose/) im Projektroot (`propus-platform/`).
 
 ```bash
-# 1. Copy and edit environment
+# 1. Umgebung anlegen und anpassen
 cp .env.example .env
+# Optional: .env.logto aus .env.logto.example (echte Logto-App-IDs für produktionsnahe SSO-Tests)
 
-# 2. Start infrastructure
+# 2. Datenbanken + Logto starten
 docker compose up -d postgres logto-db logto
 
-# 3. Run migrations
-docker compose run --rm migrate
+# 3. SQL-Migrationen (Service „migrate“ ist nur mit Profil aktiv)
+docker compose --profile migrate run --rm migrate
 
-# 4. Zentrale Plattform (Booking + Tour Manager, ein Container)
+# 4. Zentrale Plattform (Booking + Tour Manager, ein Prozess)
 docker compose up -d platform
-
-# 5. Zugriff
-#    SPA (Admin + neue Routen /book, /account, …): http://localhost:3100
-#    Tour Manager (EJS):  http://localhost:3100/tour-manager/admin
-#    Logto Admin:         http://localhost:3002  (auch :3302 gemappt)
-#
-# Optional: getrennte Legacy-Container (Profil legacy-services)
-# docker compose --profile legacy-services up -d booking tours
 ```
 
-## Migrations
+**Standard-Hostports** (über Variablen in `.env` änderbar, siehe `docker-compose.yml`):
 
-All SQL migrations live in `core/migrations/` and are executed in order by
-`core/migrate.js`. Run them with:
+| Dienst | Host (Default) | Hinweis |
+|--------|----------------|---------|
+| Plattform (SPA, API, Tour Manager) | [http://localhost:3100](http://localhost:3100) | `BOOKING_PORT`, Container lauscht intern auf 3000 |
+| Tour Manager (EJS) | [http://localhost:3100/tour-manager/admin](http://localhost:3100/tour-manager/admin) | gleicher Container wie Plattform |
+| Logto (OIDC / App-Endpunkt) | [http://localhost:3301](http://localhost:3301) | `LOGTO_PORT`; in `.env` typisch `LOGTO_ENDPOINT=http://localhost:3301` für Redirects vom Browser |
+| Logto Admin Console | [http://localhost:3002](http://localhost:3002) oder [http://localhost:3302](http://localhost:3302) | beide mappen auf Port 3002 im Container |
+| PostgreSQL (Propus) | `localhost:5435` | `PROPUS_PG_PORT` |
+
+**Optional:** getrennte Legacy-Container statt gebündelter Plattform:
 
 ```bash
-docker compose run --rm migrate
+docker compose --profile legacy-services up -d booking tours
 ```
 
-## Weiterarbeit auf einem anderen PC
+## Migrationen
+
+Alle SQL-Migrationen liegen unter `core/migrations/` und werden von `core/migrate.js` in Reihenfolge ausgeführt:
+
+```bash
+docker compose --profile migrate run --rm migrate
+```
+
+## Weiterarbeit auf einem anderen Rechner
 
 1. Repository klonen oder Ordner kopieren (Netzlaufwerk: bei Git ggf. `git config --global --add safe.directory "Z:/propus-platform"`).
-2. `.env` aus `.env.example` anlegen und anpassen.
-3. `.env.logto` aus `.env.logto.example` anlegen und echte Logto-App-IDs/Secrets eintragen (oder Datei vom alten Rechner **sicher** übernehmen – nicht ins Git committen).
-4. `docker compose up -d postgres logto-db logto` → `docker compose run --rm migrate` → `docker compose up -d platform`.
-5. Test: `http://localhost:3100` (SPA), Einstellungen → **Interne Verwaltung** / **Firmenverwaltung**.
+2. `.env` aus `.env.example` erzeugen und anpassen.
+3. `.env.logto` aus `.env.logto.example` anlegen und echte Logto-App-IDs und -Secrets eintragen (oder die Datei vom bisherigen Rechner **sicher** übernehmen – **nicht** ins Repository committen).
+4. `docker compose up -d postgres logto-db logto` → `docker compose --profile migrate run --rm migrate` → `docker compose up -d platform`.
+5. Kurztest: `http://localhost:3100` (SPA), in den Einstellungen z. B. **Interne Verwaltung** / **Firmenverwaltung**.
 
 **Hinweis:** `core/dumps/` (SQL-Dumps) und `.env.logto` sind per `.gitignore` ausgeschlossen.
