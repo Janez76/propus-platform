@@ -12,7 +12,9 @@ param(
     [switch]$SkipSwitch,
     [switch]$SkipCloudflarePurge,
     # Ohne Image-Neuaufbau: nur Container neu starten (schnell; bei Codeaenderungen nicht verwenden).
-    [switch]$SkipBuild
+    [switch]$SkipBuild,
+    # Kein SSH-ControlMaster: jede ssh/scp-Verbindung authentifiziert separat (zum Debuggen).
+    [switch]$NoMultiplex
 )
 
 Set-StrictMode -Version Latest
@@ -24,6 +26,9 @@ $LocalEnvFile = Join-Path $WorkspaceRoot ".env.vps"
 $LocalBookingEnv = Join-Path $WorkspaceRoot "booking\.env"
 
 $script:DeployStarted = Get-Date
+$script:UseSshMux = $false
+$script:SshMuxStartedHere = $false
+$script:SshControlPath = $null
 
 function Write-Step {
     param(
@@ -43,19 +48,98 @@ function Write-Elapsed {
     Write-Host "  -> $Label : ${sec}s" -ForegroundColor DarkGray
 }
 
-function Invoke-Ssh {
-    param([Parameter(Mandatory = $true)][string]$Command)
+function Test-SshMuxAlive {
+    if (-not $script:SshControlPath) { return $false }
+    if (-not (Test-Path -LiteralPath $script:SshControlPath)) { return $false }
+    & ssh -S $script:SshControlPath -O check "${User}@${VpsHost}" 2>$null
+    return ($LASTEXITCODE -eq 0)
+}
 
+function Open-SshDeployMux {
+    if ($NoMultiplex) { return }
+    $safeHost = ($VpsHost -replace '[^\w\-]', '_')
+    $script:SshControlPath = Join-Path $env:TEMP "propus-deploy-${User}-${safeHost}.sock"
+    if (Test-Path -LiteralPath $script:SshControlPath) {
+        if (-not (Test-SshMuxAlive)) {
+            Remove-Item -LiteralPath $script:SshControlPath -Force -ErrorAction SilentlyContinue
+        }
+    }
+    if (Test-SshMuxAlive) {
+        $script:UseSshMux = $true
+        $script:SshMuxStartedHere = $false
+        return
+    }
+    Write-Host "  SSH Multiplexing: eine Passphrase fuer alle Verbindungen in diesem Lauf (ControlMaster)." -ForegroundColor DarkGray
+    Write-Host "  (Ohne das: ssh-agent oder mehrfache Passphrase-Eingabe.)" -ForegroundColor DarkGray
     & ssh `
+        -M -S $script:SshControlPath `
+        -o ControlPersist=30m `
+        -fN `
         -i $KeyPath `
         -o IdentitiesOnly=yes `
         -o StrictHostKeyChecking=accept-new `
-        "$User@$VpsHost" `
-        $Command
+        "${User}@${VpsHost}"
+    if ($LASTEXITCODE -ne 0) {
+        throw "SSH ControlMaster konnte nicht gestartet werden (Passphrase/Netzwerk?)."
+    }
+    $wait = 0
+    while ($wait -lt 150) {
+        if (Test-SshMuxAlive) { break }
+        Start-Sleep -Milliseconds 100
+        $wait++
+    }
+    if (-not (Test-SshMuxAlive)) {
+        throw "SSH Control-Socket wurde nicht bereit (Timeout)."
+    }
+    $script:UseSshMux = $true
+    $script:SshMuxStartedHere = $true
+}
+
+function Close-SshDeployMux {
+    if (-not $script:UseSshMux -or -not $script:SshControlPath) { return }
+    if ($script:SshMuxStartedHere) {
+        & ssh -S $script:SshControlPath -O exit "${User}@${VpsHost}" 2>$null
+        if (Test-Path -LiteralPath $script:SshControlPath) {
+            Remove-Item -LiteralPath $script:SshControlPath -Force -ErrorAction SilentlyContinue
+        }
+    }
+    $script:UseSshMux = $false
+    $script:SshMuxStartedHere = $false
+}
+
+function Invoke-Ssh {
+    param([Parameter(Mandatory = $true)][string]$Command)
+
+    if ($script:UseSshMux) {
+        & ssh -S $script:SshControlPath "${User}@${VpsHost}" $Command
+    }
+    else {
+        & ssh `
+            -i $KeyPath `
+            -o IdentitiesOnly=yes `
+            -o StrictHostKeyChecking=accept-new `
+            "${User}@${VpsHost}" `
+            $Command
+    }
 
     if ($LASTEXITCODE -ne 0) {
         throw "SSH command failed: $Command"
     }
+}
+
+function Invoke-SshOutput {
+    param([Parameter(Mandatory = $true)][string]$Command)
+
+    if ($script:UseSshMux) {
+        $out = & ssh -S $script:SshControlPath "${User}@${VpsHost}" $Command 2>&1
+    }
+    else {
+        $out = & ssh -i $KeyPath -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new "${User}@${VpsHost}" $Command 2>&1
+    }
+    if ($LASTEXITCODE -ne 0) {
+        throw "SSH command failed: $Command"
+    }
+    return ($out | Out-String).Trim()
 }
 
 function Invoke-ScpDownload {
@@ -64,13 +148,24 @@ function Invoke-ScpDownload {
         [Parameter(Mandatory = $true)][string]$LocalPath
     )
 
-    & scp `
-        -i $KeyPath `
-        -o IdentitiesOnly=yes `
-        -o StrictHostKeyChecking=accept-new `
-        -r `
-        "${User}@${VpsHost}:${RemotePath}" `
-        $LocalPath
+    if ($script:UseSshMux) {
+        & scp `
+            -o "ControlPath=$script:SshControlPath" `
+            -o ControlMaster=no `
+            -o StrictHostKeyChecking=accept-new `
+            -r `
+            "${User}@${VpsHost}:${RemotePath}" `
+            $LocalPath
+    }
+    else {
+        & scp `
+            -i $KeyPath `
+            -o IdentitiesOnly=yes `
+            -o StrictHostKeyChecking=accept-new `
+            -r `
+            "${User}@${VpsHost}:${RemotePath}" `
+            $LocalPath
+    }
 
     if ($LASTEXITCODE -ne 0) {
         throw "SCP download failed: $RemotePath"
@@ -83,12 +178,22 @@ function Invoke-ScpUpload {
         [Parameter(Mandatory = $true)][string]$RemotePath
     )
 
-    & scp `
-        -i $KeyPath `
-        -o IdentitiesOnly=yes `
-        -o StrictHostKeyChecking=accept-new `
-        $LocalPath `
-        "${User}@${VpsHost}:${RemotePath}"
+    if ($script:UseSshMux) {
+        & scp `
+            -o "ControlPath=$script:SshControlPath" `
+            -o ControlMaster=no `
+            -o StrictHostKeyChecking=accept-new `
+            $LocalPath `
+            "${User}@${VpsHost}:${RemotePath}"
+    }
+    else {
+        & scp `
+            -i $KeyPath `
+            -o IdentitiesOnly=yes `
+            -o StrictHostKeyChecking=accept-new `
+            $LocalPath `
+            "${User}@${VpsHost}:${RemotePath}"
+    }
 
     if ($LASTEXITCODE -ne 0) {
         throw "SCP upload failed: $LocalPath"
@@ -143,6 +248,10 @@ if (-not (Test-Path $KeyPath)) {
 
 New-Item -ItemType Directory -Force -Path $LocalBackupRoot | Out-Null
 
+Open-SshDeployMux
+
+try {
+
 Write-Step "[1/6] SSH-Verbindung" "Cyan"
 $t0 = [Diagnostics.Stopwatch]::StartNew()
 Invoke-Ssh "echo connected && hostname && id -un"
@@ -163,8 +272,8 @@ if [ -f /etc/cloudflared/config.yml ]; then cp /etc/cloudflared/config.yml "`$BA
 test -s "`$BACKUP_DIR/db.sql"
 printf %s "`$BACKUP_DIR"
 "@
-    $remoteBackupDir = (& ssh -i $KeyPath -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new "$User@$VpsHost" $backupCommand)
-    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($remoteBackupDir)) {
+    $remoteBackupDir = Invoke-SshOutput $backupCommand
+    if ([string]::IsNullOrWhiteSpace($remoteBackupDir)) {
         throw "Could not create remote backup."
     }
 
@@ -212,13 +321,13 @@ if (-not $SkipUpload) {
     $sizeMb = [math]::Round((Get-Item $TempTar).Length / 1MB, 1)
     Write-Host "  Archiv: ${sizeMb} MB  -> upload via scp..."
 
-    & scp `
-        -i $KeyPath `
-        -o IdentitiesOnly=yes `
-        -o StrictHostKeyChecking=accept-new `
-        $TempTar `
-        "${User}@${VpsHost}:/tmp/propus-deploy.tar.gz"
-    if ($LASTEXITCODE -ne 0) { Remove-Item $TempTar -Force; throw "scp upload failed" }
+    try {
+        Invoke-ScpUpload -LocalPath $TempTar -RemotePath "/tmp/propus-deploy.tar.gz"
+    }
+    catch {
+        Remove-Item $TempTar -Force -ErrorAction SilentlyContinue
+        throw
+    }
 
     Remove-Item $TempTar -Force
     Write-Host "  Lokale Temp-Datei entfernt."
@@ -332,3 +441,8 @@ Write-Host "Gesamtdauer: $([math]::Round($total.TotalMinutes, 2)) Min ($([math]:
 Write-Host ""
 Write-Host "Hinweis: Booking-DB-Migrationen laufen beim Start des platform-Containers (booking/server.js -> db.runMigrations)." -ForegroundColor DarkGray
 Write-Host "Ohne Code-Deploy nur schnell neu starten: -SkipUpload -SkipBuild und auf dem Host: docker compose ... up -d platform" -ForegroundColor DarkGray
+
+}
+finally {
+    Close-SshDeployMux
+}
