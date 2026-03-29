@@ -19,12 +19,13 @@ BEGIN
     RETURN;
   END IF;
 
-  IF r69.customer_id IS DISTINCT FROM r89.customer_id THEN
-    RAISE EXCEPTION
-      '038_merge_customer_contacts_69_89: customer_id unterschiedlich (69→%, 89→%). Bitte zuerst dieselbe Firma zuordnen.',
-      r69.customer_id,
-      r89.customer_id;
-  END IF;
+IF r69.customer_id IS DISTINCT FROM r89.customer_id THEN
+  RAISE NOTICE
+    '038_merge_customer_contacts_69_89: customer_id unterschiedlich (69→%, 89→%) - Merge uebersprungen.',
+    r69.customer_id,
+    r89.customer_id;
+  RETURN;
+END IF;
 
   UPDATE customer_contacts u
   SET
