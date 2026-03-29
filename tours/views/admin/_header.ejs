@@ -939,7 +939,10 @@ document.addEventListener('DOMContentLoaded', function() {
       if (!v) return;
       if (v.indexOf('http') === 0) return;
       if (v.startsWith('/api')) return;
-      if (v.startsWith('/')) el.setAttribute(attr, B + v);
+      if (v.startsWith('/')) {
+        if (B && (v === B || v.startsWith(B + '/'))) return;
+        el.setAttribute(attr, B + v);
+      }
     });
   }
   fix('a[href^="/"]', 'href');

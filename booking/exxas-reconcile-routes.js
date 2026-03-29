@@ -599,14 +599,87 @@ function registerExxasReconcileRoutes(app, db, requireAdmin, ensureCustomerInReq
     return email;
   }
 
+  async function findCustomerIdByEmailNorm(p, normEmail) {
+    const em = asString(normEmail).toLowerCase();
+    if (!em) return null;
+    const { rows } = await p.query(
+      `SELECT id FROM customers
+       WHERE LOWER(TRIM(COALESCE(email, ''))) = LOWER(TRIM($1))
+       LIMIT 1`,
+      [em]
+    );
+    return rows[0] ? Number(rows[0].id) : null;
+  }
+
+  async function findCustomerIdByExxasIds(p, exxasCustomer) {
+    const cid = asString(exxasCustomer.exxasCustomerId);
+    const aid = asString(exxasCustomer.exxasAddressId);
+    if (cid) {
+      const { rows } = await p.query(
+        `SELECT id FROM customers
+         WHERE TRIM(COALESCE(exxas_customer_id, '')) = TRIM($1)
+         LIMIT 1`,
+        [cid]
+      );
+      if (rows[0]) return Number(rows[0].id);
+    }
+    if (aid && aid !== cid) {
+      const { rows } = await p.query(
+        `SELECT id FROM customers
+         WHERE TRIM(COALESCE(exxas_address_id, '')) = TRIM($1)
+         LIMIT 1`,
+        [aid]
+      );
+      if (rows[0]) return Number(rows[0].id);
+    }
+    return null;
+  }
+
+  function isPgUniqueViolation(err) {
+    return err && String(err.code) === "23505";
+  }
+
+  function isCustomersEmailUniqueViolation(err) {
+    if (!isPgUniqueViolation(err)) return false;
+    const c = asString(err.constraint);
+    const msg = asString(err.message);
+    const det = asString(err.detail);
+    return (
+      c === "idx_core_customers_email" ||
+      c === "uq_customers_email_nonempty" ||
+      c === "customers_email_key" ||
+      msg.includes("idx_core_customers_email") ||
+      msg.includes("uq_customers_email_nonempty") ||
+      det.includes("(email)=")
+    );
+  }
+
+  function isCustomersExxasIdUniqueViolation(err) {
+    if (!isPgUniqueViolation(err)) return false;
+    const c = asString(err.constraint);
+    const msg = asString(err.message);
+    return (
+      c === "uq_customers_exxas_customer_id" ||
+      c === "uq_customers_exxas_address_id" ||
+      msg.includes("uq_customers_exxas_customer_id") ||
+      msg.includes("uq_customers_exxas_address_id")
+    );
+  }
+
   async function createCustomerFromExxas(p, exxasCustomer, resolvedEmail) {
     const email = asString(resolvedEmail).toLowerCase();
+
+    const existingByExxas = await findCustomerIdByExxasIds(p, exxasCustomer);
+    if (existingByExxas != null) {
+      await fillMissingCustomerFields(p, existingByExxas, exxasCustomer);
+      return existingByExxas;
+    }
+
     if (email) {
-      const existingByEmail = await p.query("SELECT id FROM customers WHERE LOWER(email)=LOWER($1) LIMIT 1", [email]);
-      if (existingByEmail.rows[0]) {
-        const existingId = Number(existingByEmail.rows[0].id);
-        await fillMissingCustomerFields(p, existingId, exxasCustomer);
-        return existingId;
+      const byEmail = await findCustomerIdByEmailNorm(p, email);
+      if (byEmail != null) {
+        await fillMissingCustomerFields(p, byEmail, exxasCustomer);
+        return byEmail;
       }
     }
 
@@ -614,37 +687,57 @@ function registerExxasReconcileRoutes(app, db, requireAdmin, ensureCustomerInReq
     const city = asString(exxasCustomer.city);
     const zipcity = zip && city ? `${zip} ${city}` : "";
 
-    const insert = await p.query(
-      `INSERT INTO customers (
-         email, name, company, phone, phone_2, phone_mobile, street, address_addon_1, zipcity,
-         salutation, first_name, zip, city, country, website, notes, exxas_customer_id, exxas_address_id
-       ) VALUES (
-         $1,$2,$3,$4,$5,$6,$7,$8,$9,
-         $10,$11,$12,$13,$14,$15,$16,$17,$18
-       )
-       RETURNING id`,
-      [
-        email,
-        getExxasCustomerNameValue(exxasCustomer),
-        asString(exxasCustomer.name),
-        asString(exxasCustomer.phone),
-        asString(exxasCustomer.phone2),
-        asString(exxasCustomer.phoneMobile),
-        asString(exxasCustomer.street),
-        asString(exxasCustomer.addressAddon1),
-        zipcity,
-        asString(exxasCustomer.salutation),
-        asString(exxasCustomer.firstName),
-        zip,
-        city,
-        asString(exxasCustomer.country || "Schweiz"),
-        asString(exxasCustomer.website),
-        asString(exxasCustomer.notes),
-        asString(exxasCustomer.exxasCustomerId),
-        asString(exxasCustomer.exxasAddressId),
-      ]
-    );
-    return Number(insert.rows[0].id);
+    const insertParams = [
+      email,
+      getExxasCustomerNameValue(exxasCustomer),
+      asString(exxasCustomer.name),
+      asString(exxasCustomer.phone),
+      asString(exxasCustomer.phone2),
+      asString(exxasCustomer.phoneMobile),
+      asString(exxasCustomer.street),
+      asString(exxasCustomer.addressAddon1),
+      zipcity,
+      asString(exxasCustomer.salutation),
+      asString(exxasCustomer.firstName),
+      zip,
+      city,
+      asString(exxasCustomer.country || "Schweiz"),
+      asString(exxasCustomer.website),
+      asString(exxasCustomer.notes),
+      asString(exxasCustomer.exxasCustomerId),
+      asString(exxasCustomer.exxasAddressId),
+    ];
+
+    try {
+      const insert = await p.query(
+        `INSERT INTO customers (
+           email, name, company, phone, phone_2, phone_mobile, street, address_addon_1, zipcity,
+           salutation, first_name, zip, city, country, website, notes, exxas_customer_id, exxas_address_id
+         ) VALUES (
+           $1,$2,$3,$4,$5,$6,$7,$8,$9,
+           $10,$11,$12,$13,$14,$15,$16,$17,$18
+         )
+         RETURNING id`,
+        insertParams
+      );
+      return Number(insert.rows[0].id);
+    } catch (err) {
+      if (isCustomersEmailUniqueViolation(err) && email) {
+        const fallbackId = await findCustomerIdByEmailNorm(p, email);
+        if (fallbackId != null) {
+          await fillMissingCustomerFields(p, fallbackId, exxasCustomer);
+          return fallbackId;
+        }
+      }
+      if (isCustomersExxasIdUniqueViolation(err)) {
+        const fallbackExxas = await findCustomerIdByExxasIds(p, exxasCustomer);
+        if (fallbackExxas != null) {
+          await fillMissingCustomerFields(p, fallbackExxas, exxasCustomer);
+          return fallbackExxas;
+        }
+      }
+      throw err;
+    }
   }
 
   async function fillMissingContactFields(p, contactId, exxasContact, overwriteFields = []) {

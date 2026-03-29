@@ -15,6 +15,17 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.271",
+    date: "2026-03-29",
+    title: "Tour Manager: Mount-Prefix nicht mehr doppelt in Links",
+    changes: [
+      {
+        type: "fix",
+        text: "Unter /tour-manager verdoppelte Pfade (/tour-manager/tour-manager/...) behoben: DOM-Fix in admin- und portal-Header setzt basePath nur noch, wenn der Link noch nicht mit dem Mount-Prefix beginnt.",
+      },
+    ],
+  },
+  {
     version: "2.3.270",
     date: "2026-03-29",
     title: "EXXAS-Abgleich: Bestätigungsdialog mit Übersicht und Kundenwahl",

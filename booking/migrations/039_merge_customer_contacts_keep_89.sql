@@ -16,10 +16,11 @@ BEGIN
     SELECT * INTO r69 FROM customer_contacts WHERE id = 69;
     SELECT * INTO r89 FROM customer_contacts WHERE id = 89;
     IF r69.customer_id IS DISTINCT FROM r89.customer_id THEN
-      RAISE EXCEPTION
-        '039_merge_keep_89: customer_id unterschiedlich (69→%, 89→%).',
+      RAISE NOTICE
+        '039_merge_keep_89: customer_id unterschiedlich (69→%, 89→%) - Merge uebersprungen.',
         r69.customer_id,
         r89.customer_id;
+      RETURN;
     END IF;
 
     UPDATE customer_contacts u

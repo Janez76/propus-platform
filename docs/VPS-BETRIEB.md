@@ -238,6 +238,70 @@ curl -X POST "https://api.cloudflare.com/client/v4/zones/705b4ad4994d062aada5c54
 
 Admin-Console: https://auth-admin.propus.ch/console
 
+### Sign-in im Propus-Stil (Branding)
+
+Die Login-Oberfläche wird von **Logto** ausgeliefert (nicht vom React-Frontend). Anpassungen erfolgen in der **Logto Console** unter **Sign-in & account → Branding**. Siehe auch [Match your brand](https://docs.logto.io/customization/match-your-brand) und [Custom CSS](https://docs.logto.io/customization/custom-css).
+
+| Einstellung | Wert (Propus, siehe `platform/frontend/src/index.css`) |
+|-------------|--------------------------------------------------------|
+| Brandfarbe (Light) | `#B68E20` (`--propus-gold`) |
+| Brandfarbe (Dark, falls aktiv) | `#d4b860` (`--propus-gold-dark`) |
+| Hintergrund / Stimmung | Beige `#F1F2EA` (`--propus-beige`) – über **Custom CSS** (unten) |
+| Logo / Favicon | Propus-Assets, maximal 500 KB pro Datei (PNG/SVG) |
+| Pro App abweichend | **Applications → [App] → App-level sign-in experience** |
+
+Optional **„Powered by Logto“ ausblenden**, wenn die Lizenz/Edition das erlaubt.
+
+#### Branding wirkt nicht (noch Lila / Standard-Logto)?
+
+1. **Speichern nicht vergessen** – nach Änderungen in der Console explizit speichern.
+2. **Brandfarbe in der Oberfläche setzen** – unter **Branding** die Felder **Brandfarbe (Light)** = `#B68E20` (nicht nur Custom CSS; Logto schreibt die Farbe in die Experience-Variablen).
+3. **App-Level prüfen** – unter **Applications → [eure App]**: Wenn **App-level sign-in experience** aktiv ist, gilt das **Omni**-Branding dort nicht. Entweder dort dieselben Farben/Custom CSS eintragen oder App-Level wieder aus.
+4. **Cache** – Seite mit hartem Reload testen (`Strg+F5`) oder privates Fenster; bei Cloudflare ggf. Cache für `auth.propus.ch` leeren (oder kurz **Development Mode**).
+5. **Logo** – bleibt das Logto-Logo, solange unter **Branding** kein eigenes Logo hochgeladen ist.
+
+**Custom CSS** (unter **Branding → Custom CSS**): Neuere Logto-Versionen stylen Buttons und Links über **CSS-Variablen auf `body`** (z. B. `--color-brand-default`), nicht über feste `#app`-Strukturen. Deshalb zuerst die Variablen setzen; die alten Selektoren aus älteren Beispielen greifen oft nicht mehr.
+
+```css
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Roboto:wght@400;500;600&display=swap');
+
+/* Primärfarbe & Hintergrund – Logto Design Tokens (Experience) */
+body {
+  font-family: 'Roboto', system-ui, sans-serif !important;
+  --color-brand-default: #B68E20;
+  --color-brand-hover: #c9a22a;
+  --color-brand-pressed: #9a7619;
+  --color-type-link: #B68E20;
+  --color-bg-body-base: #F1F2EA;
+}
+
+body h1,
+body h2 {
+  font-family: 'Montserrat', system-ui, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    --color-brand-default: #d4b860;
+    --color-brand-hover: #c9a22a;
+    --color-brand-pressed: #B68E20;
+    --color-type-link: #d4b860;
+  }
+}
+
+/* Fallback für Submit-Buttons, falls Variablen nicht greifen */
+button[type='submit'] {
+  background: #B68E20 !important;
+  color: #111111 !important;
+  font-family: 'Montserrat', system-ui, sans-serif !important;
+  font-weight: 600 !important;
+}
+
+button[type='submit']:hover {
+  background: #9a7619 !important;
+}
+```
+
 ---
 
 ## Wichtige Dateien

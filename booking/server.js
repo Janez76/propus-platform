@@ -2469,6 +2469,49 @@ app.use((err, req, res, next) => {
   console.log('[booking] Logto OIDC auth enabled, app_id:', LOGTO_APP_ID.slice(0, 8) + '…');
 })();
 
+// SPA/Topbar nutzt /auth/logout; Logto-Routen liegen nur unter /auth/logto/* (siehe IIFE oben).
+app.get("/auth/logout", async (req, res) => {
+  const idToken = req.session?.logtoIdToken;
+  const wasLogto = req.session?.logtoLogout;
+
+  try {
+    const token = getRequestToken(req);
+    if (token && db.deleteAdminSessionByTokenHash) {
+      await db.deleteAdminSessionByTokenHash(customerAuth.hashSha256Hex(token));
+    }
+  } catch (_e) {}
+  res.clearCookie("admin_session");
+
+  const LOGTO_APP_ID = process.env.PROPUS_BOOKING_LOGTO_APP_ID || "";
+  const LOGTO_APP_SECRET = process.env.PROPUS_BOOKING_LOGTO_APP_SECRET || "";
+  const logtoConfigured = !!(LOGTO_APP_ID && LOGTO_APP_SECRET);
+  const LOGTO_PUBLIC_ENDPOINT = process.env.LOGTO_ENDPOINT || "http://localhost:3301";
+  const LOGTO_REDIRECT_BASE_URL = String(
+    process.env.BOOKING_LOGTO_REDIRECT_BASE_URL ||
+      process.env.ADMIN_PANEL_URL ||
+      process.env.ADMIN_FRONTEND_URL ||
+      "",
+  )
+    .trim()
+    .replace(/\/$/, "");
+
+  function postLogoutRedirectUri(r) {
+    const base = LOGTO_REDIRECT_BASE_URL || `${r.protocol}://${r.get("host")}`;
+    return `${base}/`;
+  }
+
+  req.session.destroy(() => {
+    if (logtoConfigured && wasLogto && idToken) {
+      const params = new URLSearchParams({
+        id_token_hint: idToken,
+        post_logout_redirect_uri: postLogoutRedirectUri(req),
+      });
+      return res.redirect(`${LOGTO_PUBLIC_ENDPOINT}/oidc/session/end?${params}`);
+    }
+    res.redirect(resolveAdminFrontendUrl(req));
+  });
+});
+
 // Lokaler Admin-Login (admin_users + admin_sessions)
 app.post("/api/admin/login", async (req, res) => {
   try {
