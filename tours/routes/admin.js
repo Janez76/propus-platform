@@ -3602,6 +3602,16 @@ router.post('/link-matterport', async (req, res) => {
     return res.redirect('/admin/link-matterport?error=insert');
   }
 
+  // Wenn "Kann nicht zugewiesen werden" + "Archivieren" → Modell auch in Matterport auf inaktiv setzen
+  if (cannotAssign && archiveIt && mpId) {
+    try {
+      await matterport.archiveSpace(mpId);
+    } catch (e) {
+      console.warn('[link-matterport] Matterport archiveSpace fehlgeschlagen:', e.message);
+      // Kein harter Fehler – Tour wurde lokal korrekt angelegt
+    }
+  }
+
   return res.redirect('/admin/link-matterport?linked=1');
 });
 
