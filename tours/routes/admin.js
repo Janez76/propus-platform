@@ -1619,7 +1619,19 @@ router.get('/portal-roles', async (req, res) => {
         m.status,
         m.accepted_at,
         m.created_at,
-        COALESCE(NULLIF(trim(c.name),''), c.company, m.owner_email) AS customer_name,
+        COALESCE(
+          NULLIF(trim(c.name),''),
+          NULLIF(trim(c.company),''),
+          (
+            SELECT trim(t.customer_name)
+            FROM tour_manager.tours t
+            WHERE LOWER(TRIM(t.customer_email)) = LOWER(TRIM(m.owner_email))
+              AND trim(coalesce(t.customer_name, '')) <> ''
+            ORDER BY t.customer_name
+            LIMIT 1
+          ),
+          m.owner_email
+        ) AS customer_name,
         c.id AS customer_id
       FROM tour_manager.portal_team_members m
       LEFT JOIN core.customers c ON LOWER(c.email) = LOWER(m.owner_email)
