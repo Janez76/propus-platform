@@ -15,6 +15,21 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.327",
+    date: "2026-03-30",
+    title: "Tour-Manager Portal: Propus-Design",
+    changes: [
+      {
+        type: "improvement",
+        text: "Portal-Seiten Passwort vergessen und Passwort zurücksetzen (EJS) auf Montserrat/Roboto, Propus-Beige/Gold und konsistente Fokus-Ringe umgestellt.",
+      },
+      {
+        type: "improvement",
+        text: "Portal-Sidebar-Profil-Styling: Gold-Fallback auf #B68E20 vereinheitlicht.",
+      },
+    ],
+  },
+  {
     version: "2.3.326",
     date: "2026-03-30",
     title: "Gesamt-Design-Vereinheitlichung",
