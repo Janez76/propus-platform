@@ -5,135 +5,317 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Kunden – Propus Tour Manager</title>
   <%- include('_admin-styles') %>
+  <style>
+    .cl-toolbar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.75rem; margin-bottom:1.25rem; }
+    .cl-filters { display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center; }
+    .cl-search-wrap { position:relative; flex:1; min-width:220px; }
+    .cl-search-wrap i { position:absolute; left:0.7rem; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:0.85rem; pointer-events:none; }
+    .cl-search-input { width:100%; padding:0.48rem 0.75rem 0.48rem 2.1rem; background:var(--bg); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:0.88rem; box-sizing:border-box; }
+    .cl-select { padding:0.48rem 0.75rem; background:var(--bg); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:0.88rem; }
+    .cl-hits { font-size:0.82rem; color:var(--text-muted); white-space:nowrap; }
+
+    /* Tabelle */
+    .cl-table { width:100%; border-collapse:collapse; }
+    .cl-table thead th {
+      padding:0.55rem 0.85rem; font-size:0.78rem; font-weight:600; color:var(--text-muted);
+      text-align:left; border-bottom:1px solid var(--border); white-space:nowrap; background:var(--bg-subtle,var(--bg));
+    }
+    .cl-table thead th.sortable { cursor:pointer; user-select:none; }
+    .cl-table thead th.sortable:hover { color:var(--text); }
+    .cl-table thead th .sort-icon { margin-left:4px; opacity:0.4; }
+    .cl-table thead th.active-sort .sort-icon { opacity:1; color:var(--primary,#C5A059); }
+    .cl-table tbody tr { border-bottom:1px solid var(--border-subtle,var(--border)); transition:background .1s; }
+    .cl-table tbody tr:hover { background:var(--row-hover,rgba(197,160,89,.06)); }
+    .cl-table tbody td { padding:0.65rem 0.85rem; font-size:0.85rem; vertical-align:middle; }
+
+    /* Kunde Name+Avatar */
+    .cl-customer { display:flex; align-items:center; gap:0.65rem; }
+    .cl-avatar {
+      width:34px; height:34px; border-radius:50%; flex-shrink:0;
+      background:var(--primary-muted,rgba(197,160,89,.15)); color:var(--primary,#C5A059);
+      font-size:0.72rem; font-weight:700; display:flex; align-items:center; justify-content:center;
+    }
+    .cl-customer-name { font-weight:600; font-size:0.88rem; color:var(--text); }
+    .cl-customer-sub  { font-size:0.76rem; color:var(--text-muted); margin-top:1px; }
+
+    /* Adresse */
+    .cl-address { color:var(--text-muted); font-size:0.82rem; max-width:190px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+    /* Status-Badge */
+    .badge-aktiv    { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:20px; font-size:0.72rem; font-weight:600; background:rgba(34,197,94,.12); color:#22c55e; }
+    .badge-gesperrt { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:20px; font-size:0.72rem; font-weight:600; background:rgba(239,68,68,.12); color:#ef4444; }
+    .badge-source   { display:inline-flex; align-items:center; gap:3px; padding:2px 7px; border-radius:20px; font-size:0.70rem; font-weight:500; }
+    .badge-tour  { background:rgba(99,102,241,.13); color:#a5b4fc; }
+    .badge-exxas { background:rgba(251,191,36,.13); color:#fbbf24; }
+
+    /* Tour-Anzahl Link */
+    .cl-tour-count { font-weight:600; color:var(--primary,#C5A059); font-size:0.85rem; }
+    .cl-tour-none  { color:var(--text-muted); font-size:0.82rem; }
+
+    /* Aktionen */
+    .cl-actions { display:flex; gap:0.3rem; align-items:center; white-space:nowrap; }
+    .cl-actions .btn-sm { padding:0.28rem 0.6rem; font-size:0.77rem; }
+
+    /* Pagination */
+    .cl-pagination { display:flex; align-items:center; justify-content:space-between; padding:0.75rem 1rem; border-top:1px solid var(--border); flex-wrap:wrap; gap:0.5rem; }
+    .cl-pagination-info { font-size:0.82rem; color:var(--text-muted); }
+    .cl-pagination-btns { display:flex; gap:0.35rem; }
+
+    /* Empty */
+    .cl-empty { text-align:center; padding:3rem 1rem; color:var(--text-muted); }
+    .cl-empty i { font-size:2rem; opacity:.3; display:block; margin-bottom:0.75rem; }
+  </style>
 </head>
 <body>
   <div class="admin-shell">
     <%- include('_header') %>
     <main class="admin-main">
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;margin-bottom:1.25rem;">
+
+      <%
+        /* ── Helpers ── */
+        const bp = typeof res !== 'undefined' && res.locals?.basePath ? res.locals.basePath : (typeof basePath !== 'undefined' ? basePath : '');
+        function qp(overrides) {
+          const base = { q: q||'', source: source||'', status: status||'', sort: sortBy||'name', dir: sortDir||'ASC' };
+          Object.assign(base, overrides);
+          return Object.entries(base).filter(([,v])=>v).map(([k,v])=>`${k}=${encodeURIComponent(v)}`).join('&');
+        }
+        function sortLink(col) {
+          const newDir = (sortBy === col && sortDir === 'ASC') ? 'DESC' : 'ASC';
+          return bp + '/admin/customers?' + qp({ sort: col, dir: newDir, page: 1 });
+        }
+        function sortIcon(col) {
+          if (sortBy !== col) return '<i class="fa-solid fa-sort sort-icon"></i>';
+          return sortDir === 'ASC'
+            ? '<i class="fa-solid fa-sort-up sort-icon"></i>'
+            : '<i class="fa-solid fa-sort-down sort-icon"></i>';
+        }
+        function initials(name, email) {
+          const parts = String(name||email||'').trim().split(/\s+/).filter(Boolean).slice(0,2);
+          if (parts.length) return parts.map(p=>p[0].toUpperCase()).join('');
+          return String(email||'').slice(0,2).toUpperCase()||'K';
+        }
+        function fmtDate(d) {
+          if (!d) return '–';
+          return new Date(d).toLocaleDateString('de-CH',{day:'2-digit',month:'2-digit',year:'2-digit'});
+        }
+        function fmtAddress(c) {
+          const parts = [c.street, [c.zip, c.city].filter(Boolean).join(' ')].filter(Boolean);
+          return parts.join(', ') || null;
+        }
+      %>
+
+      <!-- Toolbar -->
+      <div class="cl-toolbar">
         <div>
           <h1 style="margin:0 0 0.2rem 0;">Kunden</h1>
           <p style="color:var(--text-muted);font-size:0.88rem;margin:0;">
-            Zentrale Kundendatenbank · <%= totalCount %> Einträge
+            Verwaltung der Kundendaten und Berechtigungen
           </p>
         </div>
-        <a href="/admin/customers/new" class="btn btn-primary">
+        <a href="<%= bp %>/admin/customers/new" class="btn btn-primary">
           <i class="fa-solid fa-user-plus"></i> Neuer Kunde
         </a>
       </div>
 
+      <!-- Filter-Tabs -->
+      <div style="display:flex;gap:0.4rem;margin-bottom:1rem;flex-wrap:wrap;align-items:center;border-bottom:1px solid var(--border);padding-bottom:0.75rem;">
+        <a href="<%= bp %>/admin/customers?<%= qp({status:'',page:1}) %>"
+           class="btn <%= !status ? 'btn-primary' : 'btn-ghost' %>" style="font-size:0.82rem;padding:0.3rem 0.85rem;">
+          <i class="fa-solid fa-users"></i> Kunden / Firmen
+        </a>
+        <a href="<%= bp %>/admin/customers?<%= qp({status:'aktiv',page:1}) %>"
+           class="btn <%= status==='aktiv' ? 'btn-primary' : 'btn-ghost' %>" style="font-size:0.82rem;padding:0.3rem 0.85rem;">
+          Aktiv
+        </a>
+        <a href="<%= bp %>/admin/customers?<%= qp({status:'gesperrt',page:1}) %>"
+           class="btn <%= status==='gesperrt' ? 'btn-primary' : 'btn-ghost' %>" style="font-size:0.82rem;padding:0.3rem 0.85rem;">
+          Gesperrt
+        </a>
+      </div>
+
       <!-- Suche & Filter -->
-      <div class="section" style="padding:0.85rem 1rem;margin-bottom:1rem;">
-        <form method="GET" action="/admin/customers" style="display:flex;gap:0.6rem;flex-wrap:wrap;align-items:center;">
-          <div style="position:relative;flex:1;min-width:200px;">
-            <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:0.7rem;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:0.85rem;"></i>
+      <div class="section" style="padding:0.75rem 1rem;margin-bottom:1rem;">
+        <form method="GET" action="<%= bp %>/admin/customers" class="cl-filters">
+          <input type="hidden" name="sort" value="<%= sortBy %>">
+          <input type="hidden" name="dir"  value="<%= sortDir %>">
+          <div class="cl-search-wrap">
+            <i class="fa-solid fa-magnifying-glass"></i>
             <input type="text" name="q" value="<%= q || '' %>"
-              placeholder="Name, E-Mail, Firma…"
-              style="width:100%;padding:0.5rem 0.75rem 0.5rem 2rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.88rem;box-sizing:border-box;"
+              placeholder="Kunde suchen…"
+              class="cl-search-input"
               autocomplete="off">
           </div>
-          <select name="source" style="padding:0.5rem 0.75rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.88rem;">
-            <option value="" <%= !source ? 'selected' : '' %>>Alle Quellen</option>
-            <option value="tours" <%= source==='tours' ? 'selected' : '' %>>Mit Touren</option>
-            <option value="booking" <%= source==='booking' ? 'selected' : '' %>>Mit Buchungen</option>
-            <option value="exxas" <%= source==='exxas' ? 'selected' : '' %>>Exxas verknüpft</option>
+          <select name="source" class="cl-select">
+            <option value=""        <%= !source ? 'selected' : '' %>>Alle Rollen</option>
+            <option value="tours"   <%= source==='tours'    ? 'selected' : '' %>>Mit Touren</option>
+            <option value="contacts"<%= source==='contacts' ? 'selected' : '' %>>Mit Kontakten</option>
           </select>
           <button type="submit" class="btn btn-ghost" style="white-space:nowrap;">
             <i class="fa-solid fa-filter"></i> Filtern
           </button>
-          <% if (q || source) { %>
-            <a href="/admin/customers" class="btn btn-ghost" style="white-space:nowrap;">
-              <i class="fa-solid fa-xmark"></i> Zurücksetzen
+          <% if (q || source || status) { %>
+            <a href="<%= bp %>/admin/customers" class="btn btn-ghost" style="white-space:nowrap;">
+              <i class="fa-solid fa-xmark"></i>
             </a>
           <% } %>
+          <span class="cl-hits">TREFFER: <%= totalCount %></span>
         </form>
       </div>
 
-      <!-- Kundenliste -->
+      <!-- Tabelle -->
       <div class="section" style="padding:0;">
         <div class="table-wrap">
-          <table>
+          <table class="cl-table">
             <thead>
               <tr>
-                <th>Name / Firma</th>
-                <th>E-Mail</th>
-                <th>Telefon</th>
-                <th style="text-align:center;">Touren</th>
+                <th class="sortable <%= sortBy==='name' ? 'active-sort' : '' %>">
+                  <a href="<%= sortLink('name') %>" style="color:inherit;text-decoration:none;">
+                    ID &nbsp; Kunde/Firma <%- sortIcon('name') %>
+                  </a>
+                </th>
+                <th class="sortable <%= sortBy==='address' ? 'active-sort' : '' %>">
+                  <a href="<%= sortLink('address') %>" style="color:inherit;text-decoration:none;">
+                    Adresse <%- sortIcon('address') %>
+                  </a>
+                </th>
+                <th>Rolle</th>
+                <th>Status</th>
+                <th class="sortable <%= sortBy==='tour_count' ? 'active-sort' : '' %>" style="text-align:center;">
+                  <a href="<%= sortLink('tour_count') %>" style="color:inherit;text-decoration:none;">
+                    Touren <%- sortIcon('tour_count') %>
+                  </a>
+                </th>
                 <th style="text-align:center;">Kontakte</th>
-                <th>Quelle</th>
-                <th>Erstellt</th>
-                <th></th>
+                <th class="sortable <%= sortBy==='created_at' ? 'active-sort' : '' %>">
+                  <a href="<%= sortLink('created_at') %>" style="color:inherit;text-decoration:none;">
+                    Erstellt <%- sortIcon('created_at') %>
+                  </a>
+                </th>
+                <th style="text-align:right;">Aktionen</th>
               </tr>
             </thead>
             <tbody>
               <% if (!customers || customers.length === 0) { %>
                 <tr>
-                  <td colspan="8" style="text-align:center;color:var(--text-muted);padding:2rem;">
-                    <% if (q || source) { %>
-                      Keine Kunden gefunden für "<%= q || '' %>".
-                    <% } else { %>
-                      Noch keine Kunden vorhanden. <a href="/admin/customers/new" class="link">Ersten Kunden anlegen</a>
-                    <% } %>
+                  <td colspan="8">
+                    <div class="cl-empty">
+                      <i class="fa-solid fa-users"></i>
+                      <% if (q || source || status) { %>
+                        Keine Kunden gefunden für „<%= q || '' %>".
+                      <% } else { %>
+                        Noch keine Kunden vorhanden.
+                        <a href="<%= bp %>/admin/customers/new" class="link">Ersten Kunden anlegen</a>
+                      <% } %>
+                    </div>
                   </td>
                 </tr>
               <% } else { %>
                 <% customers.forEach(c => { %>
+                  <%
+                    const displayName = (c.name||'').trim() || (c.company||'').trim();
+                    const showCompany = c.company && c.company.trim() !== (c.name||'').trim();
+                    const addr = fmtAddress(c);
+                    const isBlocked = !!c.blocked;
+                  %>
                   <tr>
+                    <!-- Kunde -->
                     <td>
-                      <div style="font-weight:600;font-size:0.9rem;">
-                        <% const displayName = (c.name || '').trim() || (c.company || '').trim(); %>
-                        <%= displayName || '(kein Name)' %>
+                      <div class="cl-customer">
+                        <div class="cl-avatar"><%= initials(displayName, c.email) %></div>
+                        <div>
+                          <div class="cl-customer-name"><%= displayName || '(kein Name)' %></div>
+                          <% if (showCompany) { %>
+                            <div class="cl-customer-sub"><%= c.company %></div>
+                          <% } else if (c.email) { %>
+                            <div class="cl-customer-sub"><%= c.email %></div>
+                          <% } %>
+                          <% if (c.customer_number) { %>
+                            <div class="cl-customer-sub" style="opacity:.6;font-size:0.72rem;">#<%= c.customer_number %></div>
+                          <% } %>
+                        </div>
                       </div>
-                      <% if (c.company && c.company.trim() !== (c.name || '').trim()) { %>
-                        <div style="color:var(--text-muted);font-size:0.78rem;"><%= c.company %></div>
+                    </td>
+
+                    <!-- Adresse -->
+                    <td>
+                      <% if (addr) { %>
+                        <span class="cl-address" title="<%= addr %>"><%= addr %></span>
+                      <% } else { %>
+                        <span style="color:var(--text-muted);">–</span>
                       <% } %>
                     </td>
-                    <td style="font-size:0.85rem;">
-                      <a href="mailto:<%= c.email %>" style="color:var(--link);" onclick="event.stopPropagation()">
-                        <%= c.email %>
-                      </a>
+
+                    <!-- Rolle -->
+                    <td>
+                      <% if (c.exxas_contact_id) { %>
+                        <span class="badge-source badge-exxas"><i class="fa-solid fa-link"></i> Exxas</span>
+                      <% } else if (c.tour_count > 0) { %>
+                        <span class="badge-source badge-tour">Tour</span>
+                      <% } else { %>
+                        <span style="color:var(--text-muted);font-size:0.78rem;">Kunde</span>
+                      <% } %>
                     </td>
-                    <td style="font-size:0.85rem;color:var(--text-muted);">
-                      <%= c.phone || '–' %>
+
+                    <!-- Status -->
+                    <td>
+                      <% if (isBlocked) { %>
+                        <span class="badge-gesperrt"><i class="fa-solid fa-ban"></i> Gesperrt</span>
+                      <% } else { %>
+                        <span class="badge-aktiv"><i class="fa-solid fa-circle-check"></i> Aktiv</span>
+                      <% } %>
                     </td>
+
+                    <!-- Touren -->
                     <td style="text-align:center;">
                       <% if (c.tour_count > 0) { %>
-                        <a href="/admin/tours?customer_email=<%= encodeURIComponent(c.email) %>"
-                           style="font-size:0.82rem;font-weight:600;color:var(--link);"
-                           onclick="event.stopPropagation()">
-                          <%= c.tour_count %>
+                        <a href="<%= bp %>/admin/tours?customer_email=<%= encodeURIComponent(c.email) %>"
+                           class="cl-tour-count" onclick="event.stopPropagation()">
+                          <i class="fa-solid fa-globe" style="font-size:0.7rem;opacity:.6;"></i> <%= c.tour_count %>
                         </a>
                       <% } else { %>
-                        <span style="color:var(--text-muted);font-size:0.82rem;">–</span>
+                        <span class="cl-tour-none">–</span>
                       <% } %>
                     </td>
+
+                    <!-- Kontakte -->
                     <td style="text-align:center;">
                       <span style="font-size:0.82rem;color:<%= c.contact_count > 0 ? 'var(--text)' : 'var(--text-muted)' %>;">
                         <%= c.contact_count || '–' %>
                       </span>
                     </td>
-                    <td>
-                      <% if (c.exxas_contact_id) { %>
-                        <span class="badge" style="background:rgba(251,191,36,0.15);color:#fbbf24;font-size:0.72rem;">
-                          <i class="fa-solid fa-link"></i> Exxas
-                        </span>
-                      <% } %>
-                      <% if (!c.exxas_contact_id && c.tour_count > 0) { %>
-                        <span class="badge" style="background:rgba(99,102,241,0.15);color:#a5b4fc;font-size:0.72rem;">
-                          Tour
-                        </span>
-                      <% } %>
+
+                    <!-- Erstellt -->
+                    <td style="color:var(--text-muted);font-size:0.78rem;white-space:nowrap;">
+                      <%= fmtDate(c.created_at) %>
                     </td>
-                    <td style="font-size:0.78rem;color:var(--text-muted);">
-                      <%= c.created_at ? new Date(c.created_at).toLocaleDateString('de-CH', {day:'2-digit',month:'2-digit',year:'2-digit'}) : '–' %>
-                    </td>
+
+                    <!-- Aktionen -->
                     <td>
-                      <a href="/admin/customers/<%= c.id %>" class="btn btn-ghost btn-small">
-                        <i class="fa-solid fa-pen-to-square"></i>
-                      </a>
+                      <div class="cl-actions" style="justify-content:flex-end;">
+                        <a href="<%= bp %>/admin/customers/<%= c.id %>"
+                           class="btn btn-ghost btn-sm" title="Ansehen">
+                          <i class="fa-solid fa-eye"></i> Ansicht
+                        </a>
+                        <a href="<%= bp %>/admin/customers/<%= c.id %>#edit"
+                           class="btn btn-ghost btn-sm" title="Bearbeiten">
+                          <i class="fa-solid fa-pen-to-square"></i>
+                        </a>
+                        <% if (c.email) { %>
+                          <a href="mailto:<%= c.email %>"
+                             class="btn btn-ghost btn-sm" title="E-Mail" onclick="event.stopPropagation()">
+                            <i class="fa-solid fa-envelope"></i>
+                          </a>
+                        <% } %>
+                        <% if (c.tour_count > 0) { %>
+                          <a href="<%= bp %>/admin/tours?customer_email=<%= encodeURIComponent(c.email) %>"
+                             class="btn btn-ghost btn-sm" title="Touren anzeigen" onclick="event.stopPropagation()" style="color:var(--primary,#C5A059);">
+                            <i class="fa-solid fa-globe"></i>
+                          </a>
+                        <% } %>
+                      </div>
                     </td>
                   </tr>
-                <% }) %>
+                <% }); %>
               <% } %>
             </tbody>
           </table>
@@ -141,17 +323,23 @@
 
         <!-- Pagination -->
         <% if (totalPages > 1) { %>
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:0.75rem 1rem;border-top:1px solid var(--border);">
-            <div style="font-size:0.82rem;color:var(--text-muted);">
+          <div class="cl-pagination">
+            <div class="cl-pagination-info">
               Seite <%= page %> von <%= totalPages %> · <%= totalCount %> Kunden
             </div>
-            <div style="display:flex;gap:0.4rem;">
+            <div class="cl-pagination-btns">
               <% if (page > 1) { %>
-                <a href="/admin/customers?q=<%= encodeURIComponent(q||'') %>&source=<%= source||'' %>&page=<%= page-1 %>"
+                <a href="<%= bp %>/admin/customers?<%= qp({page: page-1}) %>"
                    class="btn btn-ghost btn-small">← Zurück</a>
               <% } %>
+              <% for (let i = Math.max(1, page-2); i <= Math.min(totalPages, page+2); i++) { %>
+                <a href="<%= bp %>/admin/customers?<%= qp({page: i}) %>"
+                   class="btn <%= i===page ? 'btn-primary' : 'btn-ghost' %> btn-small">
+                  <%= i %>
+                </a>
+              <% } %>
               <% if (page < totalPages) { %>
-                <a href="/admin/customers?q=<%= encodeURIComponent(q||'') %>&source=<%= source||'' %>&page=<%= page+1 %>"
+                <a href="<%= bp %>/admin/customers?<%= qp({page: page+1}) %>"
                    class="btn btn-ghost btn-small">Weiter →</a>
               <% } %>
             </div>

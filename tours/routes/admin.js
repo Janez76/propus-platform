@@ -3921,10 +3921,13 @@ router.post('/profile/email', async (req, res) => {
 
 // ─── Kunden-Verwaltung (core.customers) ──────────────────────────────────────
 
-// GET /admin/customers – Kundenliste mit Suche & Pagination
+// GET /admin/customers – Kundenliste mit Suche, Filter & Pagination
 router.get('/customers', async (req, res) => {
   const q      = String(req.query.q      || '').trim();
   const source = String(req.query.source || '').trim();
+  const status = String(req.query.status || '').trim();
+  const sortBy = ['name', 'email', 'address', 'created_at', 'tour_count'].includes(req.query.sort) ? req.query.sort : 'name';
+  const sortDir = req.query.dir === 'desc' ? 'DESC' : 'ASC';
   const page   = Math.max(1, parseInt(req.query.page) || 1);
   const limit  = 30;
   const offset = (page - 1) * limit;
@@ -3940,6 +3943,9 @@ router.get('/customers', async (req, res) => {
         OR LOWER(c.email)   LIKE $${pIdx}
         OR LOWER(c.company) LIKE $${pIdx}
         OR LOWER(c.phone)   LIKE $${pIdx}
+        OR LOWER(coalesce(c.street,''))   LIKE $${pIdx}
+        OR LOWER(coalesce(c.city,''))     LIKE $${pIdx}
+        OR LOWER(coalesce(c.customer_number,'')) LIKE $${pIdx}
       )`;
       params.push(`%${q.toLowerCase()}%`);
       pIdx++;
@@ -3947,9 +3953,23 @@ router.get('/customers', async (req, res) => {
 
     if (source === 'tours') {
       whereClause += ` AND EXISTS (SELECT 1 FROM tour_manager.tours t WHERE LOWER(t.customer_email) = LOWER(c.email))`;
-    } else if (source === 'exxas') {
-      whereClause += ` AND c.exxas_contact_id IS NOT NULL`;
+    } else if (source === 'contacts') {
+      whereClause += ` AND EXISTS (SELECT 1 FROM core.customer_contacts cc WHERE cc.customer_id = c.id)`;
     }
+
+    if (status === 'aktiv') {
+      whereClause += ` AND (c.blocked IS NULL OR c.blocked = FALSE)`;
+    } else if (status === 'gesperrt') {
+      whereClause += ` AND c.blocked = TRUE`;
+    }
+
+    const orderExpr = {
+      name: `LOWER(COALESCE(NULLIF(trim(c.name),''), c.company, c.email))`,
+      email: `LOWER(c.email)`,
+      address: `LOWER(coalesce(c.city,''))`,
+      created_at: `c.created_at`,
+      tour_count: `tour_count`,
+    }[sortBy] || `LOWER(COALESCE(NULLIF(trim(c.name),''), c.company, c.email))`;
 
     const countResult = await pool.query(
       `SELECT COUNT(*) AS cnt FROM core.customers c ${whereClause}`,
@@ -3963,12 +3983,16 @@ router.get('/customers', async (req, res) => {
          c.id,
          CASE WHEN trim(coalesce(c.name,''))='' THEN coalesce(c.company, c.email, '') ELSE c.name END AS name,
          c.email, c.company, c.phone,
+         coalesce(c.street,'') AS street,
+         coalesce(c.zip,'') AS zip,
+         coalesce(c.city,'') AS city,
          c.exxas_contact_id, c.blocked, c.created_at,
+         c.customer_number,
          (SELECT COUNT(*) FROM tour_manager.tours t WHERE LOWER(t.customer_email) = LOWER(c.email)) AS tour_count,
          (SELECT COUNT(*) FROM core.customer_contacts cc WHERE cc.customer_id = c.id) AS contact_count
        FROM core.customers c
        ${whereClause}
-       ORDER BY LOWER(COALESCE(NULLIF(trim(c.name),''), c.company, c.email)) ASC
+       ORDER BY ${orderExpr} ${sortDir}
        LIMIT $${pIdx} OFFSET $${pIdx + 1}`,
       [...params, limit, offset]
     );
@@ -3987,6 +4011,9 @@ router.get('/customers', async (req, res) => {
       page,
       q,
       source,
+      status,
+      sortBy,
+      sortDir,
     });
   } catch (err) {
     console.error('[customers list]', err);
