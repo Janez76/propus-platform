@@ -69,7 +69,7 @@ WHERE m.customer_id IS NULL
   AND t.customer_name IS NOT NULL
   AND TRIM(t.customer_name) <> ''
   AND (
-    SELECT COUNT(DISTINCT cu2.id)
+    SELECT COUNT(DISTINCT cu2b.id)
     FROM tour_manager.tours t2
     JOIN core.customers cu2b ON (
       LOWER(TRIM(cu2b.name)) = LOWER(TRIM(t2.customer_name))
