@@ -2158,7 +2158,7 @@ const SORT_COLUMNS = {
 router.get('/tours', async (req, res) => {
   await pool.query('ALTER TABLE tour_manager.tours ADD COLUMN IF NOT EXISTS matterport_is_own BOOLEAN');
   await pool.query('ALTER TABLE tour_manager.tours ADD COLUMN IF NOT EXISTS customer_verified BOOLEAN NOT NULL DEFAULT FALSE');
-  const { status, expiringSoon, awaitingPayment, unlinkedOnly, fremdeOnly, activeRunning, unverifiedOnly, verifiedOnly, invoiceOpenOnly, invoiceOverdueOnly, sort, order, q: search } = req.query;
+  const { status, expiringSoon, awaitingPayment, unlinkedOnly, fremdeOnly, activeRunning, unverifiedOnly, verifiedOnly, invoiceOpenOnly, invoiceOverdueOnly, noCustomerOnly, sort, order, q: search } = req.query;
   const pageSize = 10;
   const requestedPage = Math.max(parseInt(req.query.page, 10) || 1, 1);
   let baseQ = `FROM tour_manager.tours t WHERE 1=1`;
@@ -2211,6 +2211,12 @@ router.get('/tours', async (req, res) => {
   if (verifiedOnly === '1') {
     baseQ += ` AND t.customer_verified = TRUE`;
   }
+  if (noCustomerOnly === '1') {
+    baseQ += ` AND (t.customer_email IS NULL OR TRIM(t.customer_email) = '')
+               AND (t.customer_name IS NULL OR TRIM(t.customer_name) = '')
+               AND (t.customer_contact IS NULL OR TRIM(t.customer_contact) = '')
+               AND (t.kunde_ref IS NULL OR TRIM(t.kunde_ref) = '')`;
+  }
   const searchQuery = String(search || '').trim();
   if (searchQuery) {
     const needle = `%${searchQuery.toLowerCase()}%`;
@@ -2250,6 +2256,7 @@ router.get('/tours', async (req, res) => {
     expiring,
     unlinked,
     fremde,
+    noCustomer,
     invOffen,
     invBezahlt,
     invUeberfaellig,
@@ -2272,6 +2279,13 @@ router.get('/tours', async (req, res) => {
     pool.query(`
       SELECT COUNT(*)::int as cnt FROM tour_manager.tours t
       WHERE t.matterport_is_own = false
+    `),
+    pool.query(`
+      SELECT COUNT(*)::int as cnt FROM tour_manager.tours t
+      WHERE (t.customer_email IS NULL OR TRIM(t.customer_email) = '')
+        AND (t.customer_name IS NULL OR TRIM(t.customer_name) = '')
+        AND (t.customer_contact IS NULL OR TRIM(t.customer_contact) = '')
+        AND (t.kunde_ref IS NULL OR TRIM(t.kunde_ref) = '')
     `),
     pool.query(`
       SELECT COUNT(*)::int as cnt
@@ -2407,6 +2421,7 @@ router.get('/tours', async (req, res) => {
       invoice_status_label: invoiceStatusLabel,
     };
   });
+  stats.noCustomer = noCustomer.rows[0]?.cnt || 0;
   stats.activeRunning = hasMatterportStats
     ? mpModels.filter((m) => m.state === 'active').length
     : ((stats.ACTIVE || 0) + (stats.EXPIRING_SOON || 0));
@@ -2420,7 +2435,7 @@ router.get('/tours', async (req, res) => {
   const dashboardWidgets = await getDashboardWidgets();
   res.render('admin/tours-list', {
     tours: toursWithLiveMatterportState,
-    filters: { status, expiringSoon, awaitingPayment, unlinkedOnly, fremdeOnly, activeRunning, unverifiedOnly, verifiedOnly, invoiceOpenOnly, invoiceOverdueOnly, q: searchQuery },
+    filters: { status, expiringSoon, awaitingPayment, unlinkedOnly, fremdeOnly, activeRunning, unverifiedOnly, verifiedOnly, invoiceOpenOnly, invoiceOverdueOnly, noCustomerOnly, q: searchQuery },
     sort: sortCol,
     order: order === 'desc' ? 'desc' : 'asc',
     pagination: {

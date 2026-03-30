@@ -340,12 +340,13 @@
 
       <div class="tours-filter-row">
       <div class="filters">
-        <a href="/admin/tours<%= filters.q ? ('?q=' + encodeURIComponent(filters.q)) : '' %>" class="<%= !filters.status && !filters.expiringSoon && !filters.awaitingPayment && !filters.unlinkedOnly && !filters.fremdeOnly && !filters.activeRunning && !filters.unverifiedOnly && !filters.verifiedOnly && !filters.invoiceOpenOnly && !filters.invoiceOverdueOnly ? 'active' : '' %>">Alle</a>
+        <a href="/admin/tours<%= filters.q ? ('?q=' + encodeURIComponent(filters.q)) : '' %>" class="<%= !filters.status && !filters.expiringSoon && !filters.awaitingPayment && !filters.unlinkedOnly && !filters.fremdeOnly && !filters.activeRunning && !filters.unverifiedOnly && !filters.verifiedOnly && !filters.invoiceOpenOnly && !filters.invoiceOverdueOnly && !filters.noCustomerOnly ? 'active' : '' %>">Alle</a>
         <a href="/admin/tours?status=ACTIVE<%= filters.q ? ('&q=' + encodeURIComponent(filters.q)) : '' %>" class="<%= filters.status === 'ACTIVE' ? 'active' : '' %>">Aktiv</a>
         <a href="/admin/tours?status=ARCHIVED<%= filters.q ? ('&q=' + encodeURIComponent(filters.q)) : '' %>" class="<%= filters.status === 'ARCHIVED' ? 'active' : '' %>">Archiviert</a>
         <a href="/admin/tours?expiringSoon=1<%= filters.q ? ('&q=' + encodeURIComponent(filters.q)) : '' %>" class="<%= filters.expiringSoon === '1' ? 'active' : '' %>">Läuft bald ab</a>
         <a href="/admin/tours?invoiceOpenOnly=1<%= filters.q ? ('&q=' + encodeURIComponent(filters.q)) : '' %>" class="<%= filters.invoiceOpenOnly === '1' ? 'active' : '' %>">Rechnung offen</a>
         <a href="/admin/tours?invoiceOverdueOnly=1<%= filters.q ? ('&q=' + encodeURIComponent(filters.q)) : '' %>" class="<%= filters.invoiceOverdueOnly === '1' ? 'active' : '' %>">Rechnung nicht bezahlt</a>
+        <a href="/admin/tours?noCustomerOnly=1<%= filters.q ? ('&q=' + encodeURIComponent(filters.q)) : '' %>" class="<%= filters.noCustomerOnly === '1' ? 'active' : '' %>">Kein Kunde verknüpft <% if (stats.noCustomer > 0) { %><span style="background:rgba(0,0,0,0.12);border-radius:8px;padding:0 5px;font-size:0.75em;margin-left:3px;"><%= stats.noCustomer %></span><% } %></a>
       </div>
       <form method="get" action="/admin/tours" class="tours-search-form">
         <% if (filters.status) { %><input type="hidden" name="status" value="<%= filters.status %>"><% } %>
@@ -356,6 +357,7 @@
         <% if (filters.activeRunning === '1') { %><input type="hidden" name="activeRunning" value="1"><% } %>
         <% if (filters.invoiceOpenOnly === '1') { %><input type="hidden" name="invoiceOpenOnly" value="1"><% } %>
         <% if (filters.invoiceOverdueOnly === '1') { %><input type="hidden" name="invoiceOverdueOnly" value="1"><% } %>
+        <% if (filters.noCustomerOnly === '1') { %><input type="hidden" name="noCustomerOnly" value="1"><% } %>
         <i class="fa-solid fa-magnifying-glass tours-search-icon"></i>
         <input type="text" class="tours-search-input" name="q" value="<%= filters.q || '' %>" placeholder="Suche...">
         <button type="submit" class="tours-search-submit">Suchen</button>
