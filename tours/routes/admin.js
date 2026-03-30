@@ -1590,18 +1590,21 @@ router.get('/portal-roles', async (req, res) => {
   } catch (_) { /* Tabelle existiert noch nicht – kein Problem */ }
 
   // Alle Workspace-Inhaber (owner_email aus tours) für "Kunden-Admin setzen"-Form
+  // Nur Einträge MIT Firmenname oder Name – reine E-Mail-only-Einträge werden auch gezeigt aber ans Ende sortiert
   let ownerList = [];
   try {
     const owR = await pool.query(`
       SELECT DISTINCT
         LOWER(TRIM(t.customer_email)) AS owner_email,
-        COALESCE(NULLIF(trim(c.name),''), c.company, t.customer_email) AS customer_name,
-        c.id AS customer_id
+        COALESCE(NULLIF(trim(c.name),''), NULLIF(trim(c.company),''), t.customer_email) AS customer_name,
+        COALESCE(NULLIF(trim(c.company),''), NULLIF(trim(c.name),'')) AS firma,
+        c.id AS customer_id,
+        CASE WHEN (NULLIF(trim(c.name),'') IS NOT NULL OR NULLIF(trim(c.company),'') IS NOT NULL) THEN 0 ELSE 1 END AS sort_prio
       FROM tour_manager.tours t
       LEFT JOIN core.customers c ON LOWER(c.email) = LOWER(t.customer_email)
       WHERE t.customer_email IS NOT NULL AND trim(t.customer_email) <> ''
-      ORDER BY 2
-      LIMIT 200
+      ORDER BY sort_prio ASC, LOWER(COALESCE(NULLIF(trim(c.name),''), NULLIF(trim(c.company),''), t.customer_email)) ASC
+      LIMIT 300
     `);
     ownerList = owR.rows;
   } catch (_) {}
