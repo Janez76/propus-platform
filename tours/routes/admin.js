@@ -1626,8 +1626,21 @@ router.get('/portal-roles', async (req, res) => {
                     THEN 0 ELSE 1 END
       LIMIT 300
     `);
-    // client-seitig sortieren: Firmen mit Namen zuerst, danach alphabetisch
-    ownerList = owR.rows.sort((a, b) => {
+    // Deduplizierung: pro customer_id oder Firmenname nur einen Eintrag
+    const seen = new Map();
+    for (const row of owR.rows) {
+      const key = row.customer_id
+        ? `cid:${row.customer_id}`
+        : `name:${(row.customer_name || row.owner_email).toLowerCase()}`;
+      if (!seen.has(key)) {
+        seen.set(key, row);
+      } else {
+        // Existierenden Eintrag bevorzugen wenn er besseren Namen hat
+        const existing = seen.get(key);
+        if (!existing.firma && row.firma) seen.set(key, row);
+      }
+    }
+    ownerList = [...seen.values()].sort((a, b) => {
       const aHas = a.firma ? 0 : 1;
       const bHas = b.firma ? 0 : 1;
       if (aHas !== bHas) return aHas - bHas;
