@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   Building2,
   ChevronDown,
+  Link2,
   Mail,
   Plus,
   RefreshCw,
@@ -117,7 +119,8 @@ export function CompanyManagementPage() {
     return companies.filter((c) => {
       if (filter !== "alle" && c.uiStatus !== filter) return false;
       if (!q) return true;
-      const hay = `${c.name} ${c.slug} ${c.standort || ""}`.toLowerCase();
+      const bid = c.billing_customer_id != null ? String(c.billing_customer_id) : "";
+      const hay = `${c.name} ${c.slug} ${c.standort || ""} ${bid}`.toLowerCase();
       if (hay.includes(q)) return true;
       return (c.members || []).some((m) => m.email.toLowerCase().includes(q));
     });
@@ -371,7 +374,7 @@ export function CompanyManagementPage() {
             </div>
             <input
               type="search"
-              placeholder="Firma oder E-Mail suchen…"
+              placeholder="Firma, E-Mail oder Rechnungs-Kunden-ID…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="ui-input w-full"
@@ -408,7 +411,20 @@ export function CompanyManagementPage() {
                             {c.name.slice(0, 2).toUpperCase()}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <div className="font-semibold text-[var(--text-main)] text-sm">{c.name}</div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <div className="font-semibold text-[var(--text-main)] text-sm">{c.name}</div>
+                              {c.billing_customer_id != null && Number(c.billing_customer_id) > 0 ? (
+                                <Link
+                                  to={`/customers?focusCustomerId=${c.billing_customer_id}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  title="Rechnungskunde im Stamm öffnen"
+                                  className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[var(--accent)]/35 bg-[var(--accent)]/10 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-[var(--accent)] hover:bg-[var(--accent)]/18"
+                                >
+                                  <Link2 className="h-3 w-3" />
+                                  Kunde #{c.billing_customer_id}
+                                </Link>
+                              ) : null}
+                            </div>
                             <div className="text-xs text-[var(--text-muted)]">
                               {c.hauptkontakte_count ?? 0} Hauptkontakt(e) · {c.mitarbeiter_count ?? 0} Mitarbeiter
                             </div>
@@ -429,6 +445,21 @@ export function CompanyManagementPage() {
                         </button>
                         {open && (
                           <div className="mt-4 space-y-4 border-t border-[var(--border-soft)] pt-4 pl-1">
+                            {c.billing_customer_id != null && Number(c.billing_customer_id) > 0 ? (
+                              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 py-2 text-xs text-[var(--text-muted)]">
+                                <Link2 className="h-3.5 w-3.5 shrink-0 text-[var(--accent)]" />
+                                <span>
+                                  Rechnungsverknüpfung: Kunde{" "}
+                                  <span className="font-mono tabular-nums text-[var(--text-main)]">#{c.billing_customer_id}</span>
+                                </span>
+                                <Link
+                                  to={`/customers?focusCustomerId=${c.billing_customer_id}`}
+                                  className="ml-auto shrink-0 rounded-md border border-[var(--accent)]/40 bg-[var(--accent)]/10 px-2 py-1 font-medium text-[var(--accent)] hover:bg-[var(--accent)]/20"
+                                >
+                                  Im Stamm öffnen
+                                </Link>
+                              </div>
+                            ) : null}
                             <div className="flex flex-wrap gap-2">
                               <button
                                 type="button"
@@ -563,7 +594,10 @@ export function CompanyManagementPage() {
               <ClipboardList className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--accent)]" />
               <span>
                 Neue und geänderte Firmen werden als <strong className="text-[var(--text-muted)]">Organisationen in Logto</strong>{" "}
-                gepflegt. Aktive Firmenmitglieder mit Logto-Konto werden der Organisation zugeordnet.
+                gepflegt. Aktive Firmenmitglieder mit Logto-Konto werden der Organisation zugeordnet. Ist eine Firma mit einem
+                Kundenstamm-Eintrag verknüpft (Rechnungskontext), werden{" "}
+                <strong className="text-[var(--text-muted)]">Rechnungsname und Standort</strong> beim Speichern des Kunden
+                automatisch übernommen (Logto-Organisationsname folgt).
               </span>
             </div>
           </>
@@ -676,7 +710,8 @@ export function CompanyManagementPage() {
                   required
                 />
                 <span className="mt-1 block text-[11px] text-[var(--text-subtle)]">
-                  Vorschläge aus dem Kundenstamm; bei Auswahl wird die Firma mit dem Kunden verknüpft.
+                  Vorschläge aus dem Kundenstamm (Rechnungsdaten); bei Auswahl ist die Firma mit diesem Kunden verknüpft und
+                  übernimmt künftig Rechnungsname und Standort von dort.
                 </span>
               </label>
               <label className="block text-xs text-[var(--text-muted)]">

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { ArrowUpDown, Building2, ChevronDown, ChevronUp, Mail, Phone, Plus, Search, User, UserPlus, X } from "lucide-react";
 import { createContact, createCustomer, createCustomerContact, deleteCustomer, getContacts, getCustomers, getCustomerImpersonateUrl, patchCustomerNasFolderBases, updateContact, updateCustomer, updateCustomerAdmin, updateCustomerBlocked, type Contact, type Customer } from "../api/customers";
 import { CustomerList, type CustomerSortKey } from "../components/customers/CustomerList";
@@ -44,12 +45,23 @@ const quickContactInputClass = "ui-input";
 export function CustomersPage() {
   const token = useAuthStore((s) => s.token);
   const lang = useAuthStore((s) => s.language);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedContactRecord, setSelectedContactRecord] = useState<Customer | null>(null);
   const [viewCustomer, setViewCustomer] = useState<Customer | null>(null);
   const [orderWizardCustomer, setOrderWizardCustomer] = useState<Customer | null>(null);
   const [contactCustomer, setContactCustomer] = useState<Customer | null>(null);
   const [createContactDialogOpen, setCreateContactDialogOpen] = useState(false);
   const [query, setQuery] = useState("");
+
+  useEffect(() => {
+    const raw = searchParams.get("focusCustomerId");
+    if (raw == null || raw === "") return;
+    if (!/^\d+$/.test(raw.trim())) return;
+    setQuery(raw.trim());
+    const next = new URLSearchParams(searchParams);
+    next.delete("focusCustomerId");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
   const [roleFilter, setRoleFilter] = useState("all");
   const [viewMode, setViewMode] = useState<"customers" | "contacts">("customers");
   const [customerSortKey, setCustomerSortKey] = useState<CustomerSortKey>("name");

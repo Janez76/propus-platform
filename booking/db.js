@@ -1213,6 +1213,65 @@ async function createCompanyWithMeta({ name, standort = "", notiz = "", status =
   throw new Error(`Could not create company slug for '${companyName}'`);
 }
 
+/** Wie bei Neuanlage Firmenverwaltung: Anzeigename = Firma, sonst Kontaktname. */
+function deriveCompanyFieldsFromCustomerRow(customerRow) {
+  const c = customerRow || {};
+  const company = String(c.company || "").trim();
+  const personName = String(c.name || "").trim();
+  const displayName = company || personName;
+  const zip = String(c.zip || "").trim();
+  const city = String(c.city || "").trim();
+  const zipcity = String(c.zipcity || "").trim();
+  const standort = zip && city ? `${zip} ${city}`.trim() : zipcity;
+  return { displayName, standort };
+}
+
+/**
+ * Alle Firmen mit billing_customer_id = Kunde: Name + Standort aus Stammkunde übernehmen.
+ * Slug bleibt unverändert (stabile interne Referenz). Notiz wird nicht überschrieben.
+ */
+async function syncCompaniesLinkedToBillingCustomer(customerRow) {
+  const customerId = Number(customerRow?.id);
+  if (!Number.isFinite(customerId) || customerId < 1) return { updated: [] };
+  const { displayName, standort } = deriveCompanyFieldsFromCustomerRow(customerRow);
+  if (!displayName) return { updated: [] };
+
+  const columns = await getCoreCompaniesColumnAvailability();
+  const { rows: linked } = await query(
+    `SELECT ${buildCoreCompaniesSelect(columns, "c")}
+     FROM core.companies c
+     WHERE c.billing_customer_id = $1`,
+    [customerId]
+  );
+  if (!linked.length) return { updated: [] };
+
+  const nextStandort = String(standort || "").trim();
+  const updated = [];
+  for (const comp of linked) {
+    const curName = String(comp.name || "").trim();
+    const curStandort = String(comp.standort || "").trim();
+    if (curName === displayName && curStandort === nextStandort) continue;
+
+    const params = [displayName];
+    const setParts = ["name = $1"];
+    if (columns.hasStandort) {
+      setParts.push("standort = $2");
+      params.push(nextStandort);
+    }
+    setParts.push("updated_at = NOW()");
+    const idPlaceholder = params.length + 1;
+    params.push(Number(comp.id));
+
+    const { rows: out } = await query(
+      `UPDATE core.companies SET ${setParts.join(", ")} WHERE id = $${idPlaceholder}
+       RETURNING ${buildCoreCompaniesSelect(columns)}`,
+      params
+    );
+    if (out[0]) updated.push(out[0]);
+  }
+  return { updated };
+}
+
 async function listCompanies({ limit = 200, offset = 0, queryText = "" } = {}) {
   const columns = await getCoreCompaniesColumnAvailability();
   const safeLimit = Math.max(1, Math.min(1000, Number(limit) || 200));
@@ -2857,6 +2916,7 @@ module.exports = {
   mapCustomerContactRoleToCompanyMemberRole,
   findCompanyMemberByCompanyAndEmail,
   createCompanyWithMeta,
+  syncCompaniesLinkedToBillingCustomer,
   listCompanies,
   listCompaniesWithAdminData,
   getCompanyById,

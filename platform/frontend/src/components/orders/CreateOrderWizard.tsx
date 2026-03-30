@@ -1273,126 +1273,211 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
               <Package className="h-4 w-4 text-[#C5A059]" />
               {t(lang, "wizard.section.servicePackage")}
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className={labelClass}>{t(lang, "orderDetail.label.package")}</label>
-                <select
-                  value={selectedPackageCode}
-                  onChange={(e) => {
-                    const code = e.target.value;
-                    setSelectedPackageCode(code);
-                    syncServiceFields(code, selectedAddonCodes);
-                  }}
-                  className={inputClass}
+
+            {/* Pakete als Karten */}
+            <div className="mb-5">
+              <label className={labelClass}>{t(lang, "orderDetail.label.package")}</label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                {/* «Kein Paket» */}
+                <button
+                  type="button"
+                  onClick={() => { setSelectedPackageCode(""); syncServiceFields("", selectedAddonCodes); }}
+                  className={cn(
+                    "relative flex flex-col items-center justify-center gap-1 rounded-xl border-2 px-3 py-4 text-center transition-all",
+                    !selectedPackageCode
+                      ? "border-[#C5A059] bg-[#C5A059]/10 shadow-md"
+                      : "border-slate-200 dark:border-zinc-700 hover:border-slate-300 dark:hover:border-zinc-600",
+                  )}
                 >
-                  <option value="">{t(lang, "wizard.select.noPackage")}</option>
-                  {catalog.filter((p) => p.kind === "package").map((p) => (
-                    <option key={p.id} value={p.code}>{p.name}</option>
-                  ))}
-                </select>
+                  <span className="text-xs font-semibold text-slate-500 dark:text-zinc-400">
+                    {t(lang, "wizard.select.noPackage")}
+                  </span>
+                </button>
+
+                {catalog.filter((p) => p.kind === "package").map((p) => {
+                  const price = estimatePrice(p);
+                  const isSelected = selectedPackageCode === p.code;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => { setSelectedPackageCode(p.code); syncServiceFields(p.code, selectedAddonCodes); }}
+                      className={cn(
+                        "relative flex flex-col items-start gap-1 rounded-xl border-2 px-4 py-3 text-left transition-all",
+                        isSelected
+                          ? "border-[#C5A059] bg-[#C5A059]/10 shadow-md"
+                          : "border-slate-200 dark:border-zinc-700 hover:border-slate-300 dark:hover:border-zinc-600",
+                      )}
+                    >
+                      {isSelected && (
+                        <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-[#C5A059]">
+                          <Check className="h-3 w-3 text-white" />
+                        </span>
+                      )}
+                      <span className={cn("text-sm font-bold leading-tight", isSelected ? "text-[#C5A059]" : "text-slate-800 dark:text-zinc-100")}>
+                        {p.name}
+                      </span>
+                      {price > 0 && (
+                        <span className="text-xs text-slate-500 dark:text-zinc-400 tabular-nums">
+                          CHF {price.toFixed(2)}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
-              <div>
-                <label className={labelClass}>{t(lang, "wizard.label.packagePrice")}</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.packagePrice}
-                  onChange={(e) => updateField("packagePrice", e.target.value)}
-                  className={inputClass}
-                />
-              </div>
-              <div className="sm:col-span-2">
-                <label className={labelClass}>{t(lang, "wizard.label.products")}</label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3 max-h-40 overflow-auto rounded-lg border border-slate-200 dark:border-zinc-700 p-2">
-                  {catalog.filter((p) => p.kind === "addon").map((addon) => (
-                    <label key={addon.id} className="inline-flex items-center gap-2 text-sm cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={selectedAddonCodes.includes(addon.code)}
-                        onChange={(e) => {
-                          const next = e.target.checked
-                            ? [...selectedAddonCodes, addon.code]
-                            : selectedAddonCodes.filter((x) => x !== addon.code);
-                          setSelectedAddonCodes(next);
-                          syncServiceFields(selectedPackageCode, next);
-                        }}
-                      />
-                      <span>{addon.name}</span>
-                    </label>
-                  ))}
+
+              {/* Paketpreis override */}
+              {selectedPackageCode && (
+                <div className="mt-3 flex items-center gap-3">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-400 whitespace-nowrap">
+                    {t(lang, "wizard.label.packagePrice")}
+                  </label>
+                  <div className="relative w-36">
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.packagePrice}
+                      onChange={(e) => updateField("packagePrice", e.target.value)}
+                      className={cn(inputClass, "pr-12")}
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none">CHF</span>
+                  </div>
                 </div>
-                <label className={labelClass}>{t(lang, "wizard.label.addons")}</label>
-                <textarea
-                  value={formData.addonsText}
-                  onChange={(e) => updateField("addonsText", e.target.value)}
-                  className={inputClass}
-                  rows={3}
-                  placeholder={"Drohnenaufnahmen;500\nVirtuelle Tour;800"}
-                />
-                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
+              )}
+            </div>
+
+            {/* Addons als Pill-Checkboxen */}
+            <div className="mb-5">
+              <label className={labelClass}>{t(lang, "wizard.label.products")}</label>
+              <div className="flex flex-wrap gap-2">
+                {catalog.filter((p) => p.kind === "addon").map((addon) => {
+                  const isChecked = selectedAddonCodes.includes(addon.code);
+                  const price = estimatePrice(addon);
+                  return (
+                    <button
+                      key={addon.id}
+                      type="button"
+                      onClick={() => {
+                        const next = isChecked
+                          ? selectedAddonCodes.filter((x) => x !== addon.code)
+                          : [...selectedAddonCodes, addon.code];
+                        setSelectedAddonCodes(next);
+                        syncServiceFields(selectedPackageCode, next);
+                      }}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all",
+                        isChecked
+                          ? "border-[#C5A059] bg-[#C5A059]/10 text-[#C5A059]"
+                          : "border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-500",
+                      )}
+                    >
+                      {isChecked && <Check className="h-3 w-3 shrink-0" />}
+                      {addon.name}
+                      {price > 0 && (
+                        <span className="ml-0.5 opacity-70 tabular-nums">+CHF {price}</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Manuelle Addons (Freitext) */}
+            <div className="mb-5">
+              <label className={labelClass}>
+                {t(lang, "wizard.label.addons")}
+                <span className="ml-2 font-normal normal-case tracking-normal text-xs text-slate-400 dark:text-zinc-500">
                   {t(lang, "wizard.hint.addonFormat")}
-                </p>
-              </div>
-              <div className="sm:col-span-2">
-                <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
-                  <input
-                    type="checkbox"
-                    className="rounded"
-                    checked={formData.keyPickupActive}
-                    onChange={(e) => {
-                      const active = e.target.checked;
-                      const keyPickupPrice = active && formData.keyPickupAddress.trim() ? 50 : 0;
-                      const pkg = catalog.find((p) => p.code === selectedPackageCode);
-                      const selectedAddons = catalog.filter((p) => selectedAddonCodes.includes(p.code));
-                      const pkgPrice = pkg ? estimatePrice(pkg) : 0;
-                      const addonTotal = selectedAddons.reduce((sum, a) => sum + estimatePrice(a), 0);
-                      const sub = pkgPrice + addonTotal + keyPickupPrice;
-                      const dis = Number(formData.discount || 0);
-                      const base = Math.max(0, sub - dis);
-                      const vat = Math.round(base * 0.081 * 100) / 100;
-                      const total = Math.round((base + vat) * 100) / 100;
-                      setFormData((prev) => ({
-                        ...prev,
-                        keyPickupActive: active,
-                        keyPickupAddress: active ? prev.keyPickupAddress : "",
-                        subtotal: String(sub),
-                        vat: String(vat),
-                        total: String(total),
-                      }));
-                    }}
-                  />
-                  {t(lang, "orderDetail.label.keyPickup")}
-                </label>
-                {formData.keyPickupActive && (
-                  <textarea
-                    value={formData.keyPickupAddress}
-                    onChange={(e) => {
-                      const text = e.target.value;
-                      const hasPickup = !!text.trim();
-                      const keyPickupPrice = hasPickup ? 50 : 0;
-                      const pkg = catalog.find((p) => p.code === selectedPackageCode);
-                      const selectedAddons = catalog.filter((p) => selectedAddonCodes.includes(p.code));
-                      const pkgPrice = pkg ? estimatePrice(pkg) : 0;
-                      const addonTotal = selectedAddons.reduce((sum, a) => sum + estimatePrice(a), 0);
-                      const sub = pkgPrice + addonTotal + keyPickupPrice;
-                      const dis = Number(formData.discount || 0);
-                      const base = Math.max(0, sub - dis);
-                      const vat = Math.round(base * 0.081 * 100) / 100;
-                      const total = Math.round((base + vat) * 100) / 100;
-                      setFormData((prev) => ({
-                        ...prev,
-                        keyPickupAddress: text,
-                        subtotal: String(sub),
-                        vat: String(vat),
-                        total: String(total),
-                      }));
-                    }}
-                    className={cn(inputClass, "mt-2")}
-                    rows={2}
-                    placeholder={t(lang, "wizard.placeholder.keyPickupInfo")}
-                  />
-                )}
-              </div>
+                </span>
+              </label>
+              <textarea
+                value={formData.addonsText}
+                onChange={(e) => updateField("addonsText", e.target.value)}
+                className={inputClass}
+                rows={2}
+                placeholder={"Drohnenaufnahmen;500\nVirtuelle Tour;800"}
+              />
+            </div>
+
+            {/* Schlüsselabholung */}
+            <div className={cn(
+              "rounded-xl border-2 p-4 transition-all",
+              formData.keyPickupActive
+                ? "border-[#C5A059]/40 bg-[#C5A059]/5"
+                : "border-slate-200 dark:border-zinc-700",
+            )}>
+              <label className="flex cursor-pointer items-center gap-3">
+                <div className={cn(
+                  "flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-all",
+                  formData.keyPickupActive
+                    ? "border-[#C5A059] bg-[#C5A059]"
+                    : "border-slate-300 dark:border-zinc-600",
+                )}>
+                  {formData.keyPickupActive && <Check className="h-3 w-3 text-white" />}
+                </div>
+                <input
+                  type="checkbox"
+                  className="sr-only"
+                  checked={formData.keyPickupActive}
+                  onChange={(e) => {
+                    const active = e.target.checked;
+                    const keyPickupPrice = active && formData.keyPickupAddress.trim() ? 50 : 0;
+                    const pkg = catalog.find((p) => p.code === selectedPackageCode);
+                    const selectedAddons = catalog.filter((p) => selectedAddonCodes.includes(p.code));
+                    const pkgPrice = pkg ? estimatePrice(pkg) : 0;
+                    const addonTotal = selectedAddons.reduce((sum, a) => sum + estimatePrice(a), 0);
+                    const sub = pkgPrice + addonTotal + keyPickupPrice;
+                    const dis = Number(formData.discount || 0);
+                    const base = Math.max(0, sub - dis);
+                    const vat = Math.round(base * 0.081 * 100) / 100;
+                    const total = Math.round((base + vat) * 100) / 100;
+                    setFormData((prev) => ({
+                      ...prev,
+                      keyPickupActive: active,
+                      keyPickupAddress: active ? prev.keyPickupAddress : "",
+                      subtotal: String(sub),
+                      vat: String(vat),
+                      total: String(total),
+                    }));
+                  }}
+                />
+                <div>
+                  <p className="text-sm font-semibold text-slate-700 dark:text-zinc-200">
+                    {t(lang, "orderDetail.label.keyPickup")}
+                  </p>
+                  <p className="text-xs text-slate-400 dark:text-zinc-500">+CHF 50.00</p>
+                </div>
+              </label>
+              {formData.keyPickupActive && (
+                <textarea
+                  value={formData.keyPickupAddress}
+                  onChange={(e) => {
+                    const text = e.target.value;
+                    const hasPickup = !!text.trim();
+                    const keyPickupPrice = hasPickup ? 50 : 0;
+                    const pkg = catalog.find((p) => p.code === selectedPackageCode);
+                    const selectedAddons = catalog.filter((p) => selectedAddonCodes.includes(p.code));
+                    const pkgPrice = pkg ? estimatePrice(pkg) : 0;
+                    const addonTotal = selectedAddons.reduce((sum, a) => sum + estimatePrice(a), 0);
+                    const sub = pkgPrice + addonTotal + keyPickupPrice;
+                    const dis = Number(formData.discount || 0);
+                    const base = Math.max(0, sub - dis);
+                    const vat = Math.round(base * 0.081 * 100) / 100;
+                    const total = Math.round((base + vat) * 100) / 100;
+                    setFormData((prev) => ({
+                      ...prev,
+                      keyPickupAddress: text,
+                      subtotal: String(sub),
+                      vat: String(vat),
+                      total: String(total),
+                    }));
+                  }}
+                  className={cn(inputClass, "mt-3")}
+                  rows={2}
+                  placeholder={t(lang, "wizard.placeholder.keyPickupInfo")}
+                />
+              )}
             </div>
           </div>
 

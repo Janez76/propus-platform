@@ -9063,6 +9063,14 @@ app.put("/api/admin/customers/:id", requireAdmin, async (req, res) => {
       ],
     );
     if (!rows[0]) return res.status(404).json({ error: "Nicht gefunden" });
+    try {
+      const { updated: syncedCos } = await db.syncCompaniesLinkedToBillingCustomer(rows[0]);
+      for (const co of syncedCos) {
+        try {
+          await logtoOrgSync.ensureOrganizationForCompany(co);
+        } catch (_e) {}
+      }
+    } catch (_syncErr) {}
     res.json({ ok: true, customer: rows[0] });
   } catch (err) {
     res.status(500).json({ error: err.message || "Kunde konnte nicht gespeichert werden" });
@@ -9232,6 +9240,17 @@ app.post("/api/admin/customers/merge", requireAdmin, async (req, res) => {
     const pool = db.getPool ? db.getPool() : null;
     if (!pool) return res.status(503).json({ error: "DB nicht verfuegbar" });
     await customerMerge.mergeCustomers(pool, keepId, mergeId);
+    const { rows: mergedKeepRows } = await pool.query("SELECT * FROM customers WHERE id = $1", [keepId]);
+    if (mergedKeepRows[0]) {
+      try {
+        const { updated: syncedAfterMerge } = await db.syncCompaniesLinkedToBillingCustomer(mergedKeepRows[0]);
+        for (const co of syncedAfterMerge) {
+          try {
+            await logtoOrgSync.ensureOrganizationForCompany(co);
+          } catch (_e) {}
+        }
+      } catch (_e) {}
+    }
     res.json({ ok: true, keepId });
   } catch (err) {
     const code = err && err.code;
@@ -10073,6 +10092,10 @@ app.get("/api/admin/users/companies", requireAdmin, async (req, res) => {
       id: c.id,
       name: c.name,
       slug: c.slug,
+      billing_customer_id:
+        c.billing_customer_id != null && Number.isFinite(Number(c.billing_customer_id))
+          ? Number(c.billing_customer_id)
+          : null,
       standort: c.standort || "",
       notiz: c.notiz || "",
       status: c.status,
