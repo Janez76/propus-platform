@@ -144,7 +144,7 @@ async function ensurePortalTeamSchema() {
   `).catch(() => null);
   await pool.query(`
     CREATE UNIQUE INDEX IF NOT EXISTS idx_portal_team_customer_member
-    ON tour_manager.portal_team_members (customer_id, (LOWER(member_email)))
+    ON tour_manager.portal_team_members (customer_id, (LOWER(TRIM(member_email))))
     WHERE customer_id IS NOT NULL
   `).catch(() => null);
   await pool.query(`
@@ -925,18 +925,10 @@ async function setExxasMemberExcluded(ownerEmail, memberEmail, createdBy, reason
   if (ownerCustomerId) {
     await pool.query(
       `INSERT INTO tour_manager.portal_team_exclusions (owner_email, member_email, reason, created_by, customer_id)
-       VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT ON CONSTRAINT idx_portal_team_exclusions_customer_member
+       VALUES ($1, TRIM($2), $3, $4, $5)
+       ON CONFLICT (customer_id, (LOWER(TRIM(member_email)))) WHERE customer_id IS NOT NULL
        DO UPDATE SET reason = EXCLUDED.reason, created_by = EXCLUDED.created_by, created_at = NOW()`,
       [owner, member, String(reason || 'manual_remove'), normalizeEmail(createdBy), ownerCustomerId]
-    ).catch(() =>
-      pool.query(
-        `INSERT INTO tour_manager.portal_team_exclusions (owner_email, member_email, reason, created_by, customer_id)
-         VALUES ($1, $2, $3, $4, $5)
-         ON CONFLICT ((LOWER(owner_email)), (LOWER(member_email)))
-         DO UPDATE SET reason = EXCLUDED.reason, created_by = EXCLUDED.created_by, created_at = NOW(), customer_id = EXCLUDED.customer_id`,
-        [owner, member, String(reason || 'manual_remove'), normalizeEmail(createdBy), ownerCustomerId]
-      )
     );
   } else {
     await pool.query(

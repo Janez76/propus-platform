@@ -1950,8 +1950,8 @@ router.post('/portal-roles/extern-set', async (req, res) => {
       await pool.query(`
         INSERT INTO tour_manager.portal_team_members
           (owner_email, member_email, role, status, accepted_at, created_at, customer_id)
-        VALUES ($1, $2, 'admin', 'active', NOW(), NOW(), $3)
-        ON CONFLICT (customer_id, (LOWER(member_email))) WHERE customer_id IS NOT NULL DO UPDATE
+        VALUES ($1, TRIM($2), 'admin', 'active', NOW(), NOW(), $3)
+        ON CONFLICT (customer_id, (LOWER(TRIM(member_email)))) WHERE customer_id IS NOT NULL DO UPDATE
           SET role = 'admin', status = 'active',
               accepted_at = COALESCE(tour_manager.portal_team_members.accepted_at, NOW()),
               owner_email = EXCLUDED.owner_email

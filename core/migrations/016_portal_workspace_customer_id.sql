@@ -4,13 +4,8 @@
 --
 -- Ziel: 1 Firma = 1 Workspace, identifiziert über core.customers.id
 --
--- Schritte:
---   1. customer_id-Spalten in portal_team_members / exclusions / assignees
---   2. Backfill über core.customers.email = owner_email
---      (sekund. Fallback über tour_manager.tours.kunde_ref → core.customers)
---   3. Unique-Index von (owner_email, member_email) → (customer_id, member_email)
---   4. owner_email / workspace_owner_email als gedeprecated markieren
---      (werden nicht sofort gedroppt, damit kein Breaking-Change auf einmal)
+-- Hinweis: member_email wird vor Unique-Index getrimmt; Index nutzt
+-- LOWER(TRIM(member_email)) – identisch zur Duplikat-Entfernung.
 -- ═══════════════════════════════════════════════════════════════════════════
 
 SET search_path TO tour_manager, core, public;
@@ -29,16 +24,23 @@ ALTER TABLE tour_manager.portal_tour_assignees
   ADD COLUMN IF NOT EXISTS customer_id BIGINT
     REFERENCES core.customers(id) ON DELETE CASCADE;
 
+-- E-Mails normalisieren (Whitespace), bevor Backfill + Unique-Indexes
+UPDATE tour_manager.portal_team_members
+SET member_email = TRIM(member_email)
+WHERE member_email IS NOT NULL AND member_email <> TRIM(member_email);
+
+UPDATE tour_manager.portal_team_exclusions
+SET member_email = TRIM(member_email)
+WHERE member_email IS NOT NULL AND member_email <> TRIM(member_email);
+
 -- ─── 2. Backfill: Primär über core.customers.email = owner_email ──────────
 
--- portal_team_members: direkt per E-Mail-Match
 UPDATE tour_manager.portal_team_members m
 SET customer_id = cu.id
 FROM core.customers cu
 WHERE m.customer_id IS NULL
   AND LOWER(TRIM(cu.email)) = LOWER(TRIM(m.owner_email));
 
--- portal_team_members: Fallback über tours.kunde_ref → customer_number
 UPDATE tour_manager.portal_team_members m
 SET customer_id = cu.id
 FROM tour_manager.tours t
@@ -55,7 +57,6 @@ WHERE m.customer_id IS NULL
       AND t2.kunde_ref IS NOT NULL
   ) = 1;
 
--- portal_team_members: Fallback über tours.customer_name → core.customers.name/company
 UPDATE tour_manager.portal_team_members m
 SET customer_id = cu.id
 FROM tour_manager.tours t
@@ -77,8 +78,6 @@ WHERE m.customer_id IS NULL
     WHERE LOWER(TRIM(t2.customer_email)) = LOWER(TRIM(m.owner_email))
       AND t2.customer_name IS NOT NULL
   ) = 1;
-
--- ─── portal_team_exclusions: gleiche Backfill-Kaskade ────────────────────
 
 UPDATE tour_manager.portal_team_exclusions e
 SET customer_id = cu.id
@@ -102,8 +101,6 @@ WHERE e.customer_id IS NULL
       AND t2.kunde_ref IS NOT NULL
   ) = 1;
 
--- ─── portal_tour_assignees: über workspace_owner_email ───────────────────
-
 UPDATE tour_manager.portal_tour_assignees a
 SET customer_id = cu.id
 FROM core.customers cu
@@ -126,38 +123,44 @@ WHERE a.customer_id IS NULL
       AND t2.kunde_ref IS NOT NULL
   ) = 1;
 
--- ─── 3. Neue Unique-Indexes (customer_id + member_email) ─────────────────
+-- ─── 3. Duplikate entfernen (pro customer_id + normalisierter member_email) ─
 
--- Zuerst alte Zeilen zusammenführen: Wenn mehrere owner_emails derselben
--- customer_id gehören, könnte es doppelte (customer_id, member_email) geben.
--- Hier entfernen wir Duplikate und behalten den neuesten aktiven Eintrag.
-DELETE FROM tour_manager.portal_team_members m
-WHERE customer_id IS NOT NULL
-  AND id NOT IN (
-    SELECT DISTINCT ON (customer_id, LOWER(TRIM(member_email))) id
+DELETE FROM tour_manager.portal_team_members
+WHERE id IN (
+  SELECT id FROM (
+    SELECT id,
+           ROW_NUMBER() OVER (
+             PARTITION BY customer_id, LOWER(TRIM(member_email))
+             ORDER BY CASE WHEN status = 'active' THEN 0 ELSE 1 END,
+                      accepted_at DESC NULLS LAST,
+                      created_at DESC NULLS LAST
+           ) AS rn
     FROM tour_manager.portal_team_members
     WHERE customer_id IS NOT NULL
-    ORDER BY customer_id, LOWER(TRIM(member_email)),
-             CASE WHEN status = 'active' THEN 0 ELSE 1 END,
-             accepted_at DESC NULLS LAST,
-             created_at DESC NULLS LAST
-  );
+  ) sub
+  WHERE rn > 1
+);
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_portal_team_customer_member
-  ON tour_manager.portal_team_members (customer_id, (LOWER(member_email)))
-  WHERE customer_id IS NOT NULL;
-
-DELETE FROM tour_manager.portal_team_exclusions e
-WHERE customer_id IS NOT NULL
-  AND id NOT IN (
-    SELECT DISTINCT ON (customer_id, LOWER(TRIM(member_email))) id
+DELETE FROM tour_manager.portal_team_exclusions
+WHERE id IN (
+  SELECT id FROM (
+    SELECT id,
+           ROW_NUMBER() OVER (
+             PARTITION BY customer_id, LOWER(TRIM(member_email))
+             ORDER BY created_at DESC NULLS LAST
+           ) AS rn
     FROM tour_manager.portal_team_exclusions
     WHERE customer_id IS NOT NULL
-    ORDER BY customer_id, LOWER(TRIM(member_email)), created_at DESC NULLS LAST
-  );
+  ) sub
+  WHERE rn > 1
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_portal_team_customer_member
+  ON tour_manager.portal_team_members (customer_id, (LOWER(TRIM(member_email))))
+  WHERE customer_id IS NOT NULL;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_portal_team_exclusions_customer_member
-  ON tour_manager.portal_team_exclusions (customer_id, (LOWER(member_email)))
+  ON tour_manager.portal_team_exclusions (customer_id, (LOWER(TRIM(member_email))))
   WHERE customer_id IS NOT NULL;
 
 -- ─── 4. Indexes auf customer_id für effiziente Abfragen ──────────────────
@@ -174,21 +177,19 @@ CREATE INDEX IF NOT EXISTS idx_portal_tour_assignees_customer_id
   ON tour_manager.portal_tour_assignees (customer_id)
   WHERE customer_id IS NOT NULL;
 
--- ─── 5. Hilfsfunktion: customer_id aus E-Mail auflösen (für Code-Transition) ─
+-- ─── 5. Hilfsfunktion: customer_id aus E-Mail auflösen ─
 
 CREATE OR REPLACE FUNCTION tour_manager.resolve_customer_id_for_email(p_email TEXT)
 RETURNS BIGINT AS $$
 DECLARE
   v_id BIGINT;
 BEGIN
-  -- Direkt über core.customers.email
   SELECT id INTO v_id
   FROM core.customers
   WHERE LOWER(TRIM(email)) = LOWER(TRIM(p_email))
   LIMIT 1;
   IF v_id IS NOT NULL THEN RETURN v_id; END IF;
 
-  -- Fallback über tour_manager.tours.kunde_ref
   SELECT DISTINCT cu.id INTO v_id
   FROM tour_manager.tours t
   JOIN core.customers cu ON cu.customer_number = TRIM(CAST(t.kunde_ref AS TEXT))
