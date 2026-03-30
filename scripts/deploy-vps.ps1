@@ -124,8 +124,15 @@ function Close-SshDeployMux {
     $script:SshMuxStartedHere = $false
 }
 
+function Normalize-SshRemoteScript {
+    param([Parameter(Mandatory = $true)][string]$Text)
+    # Windows-CRLF in Here-Strings fuehrt auf Linux zu "set: invalid option" und "\r" in export-Zeilen.
+    return (($Text -replace "`r`n", "`n") -replace "`r", "`n").Trim()
+}
+
 function Invoke-Ssh {
     param([Parameter(Mandatory = $true)][string]$Command)
+    $Command = Normalize-SshRemoteScript $Command
 
     if ($script:UseSshMux) {
         & ssh -S $script:SshControlPath "${User}@${VpsHost}" $Command
@@ -146,6 +153,7 @@ function Invoke-Ssh {
 
 function Invoke-SshOutput {
     param([Parameter(Mandatory = $true)][string]$Command)
+    $Command = Normalize-SshRemoteScript $Command
 
     if ($script:UseSshMux) {
         $out = & ssh -S $script:SshControlPath "${User}@${VpsHost}" $Command 2>&1
