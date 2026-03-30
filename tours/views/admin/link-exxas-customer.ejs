@@ -188,6 +188,7 @@
     const acList = document.getElementById('ac-list');
     const resultPanel = document.getElementById('result-panel');
     const tourId = '<%= tour.id %>';
+    const basePath = '<%= typeof basePath === "string" ? basePath : "" %>';
 
     let timer = null;
     let lastQ = '';
@@ -202,7 +203,7 @@
       if (q === lastQ) return;
       timer = setTimeout(() => {
         lastQ = q;
-        fetch('/admin/tours/' + tourId + '/link-customer/autocomplete?q=' + encodeURIComponent(q), { credentials: 'include' })
+        fetch(basePath + '/admin/tours/' + tourId + '/link-customer/autocomplete?q=' + encodeURIComponent(q), { credentials: 'include' })
           .then(r => r.json())
           .then(data => renderList(data.customers || []))
           .catch(() => closeList());
