@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Plus, Search, Filter } from "lucide-react";
-import { deleteOrder, getOrders, type Order } from "../api/orders";
+import { AlertTriangle, Plus, Search, Filter } from "lucide-react";
+import { deleteOrder, getOrders, updateOrderStatus, type Order } from "../api/orders";
 import { CreateOrderWizard } from "../components/orders/CreateOrderWizard";
 import { OrderDetail } from "../components/orders/OrderDetail";
 import { OrderMessages } from "../components/orders/OrderMessages";
@@ -11,7 +11,8 @@ import { useQuery } from "../hooks/useQuery";
 import { ordersQueryKey } from "../lib/queryKeys";
 import { useAuthStore } from "../store/authStore";
 import { t } from "../i18n";
-import { getStatusLabel, STATUS_KEYS, statusMatches } from "../lib/status";
+import { getStatusLabel, STATUS_KEYS, statusMatches, type StatusKey } from "../lib/status";
+import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { useOrderStore } from "../store/orderStore";
 import { useQueryStore } from "../store/queryStore";
 
@@ -53,6 +54,116 @@ export function OrdersPage() {
   const [detailNo, setDetailNo] = useState<string | null>(null);
   const [msgNo, setMsgNo] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [selectedNos, setSelectedNos] = useState<Set<string>>(() => new Set());
+  const [bulkTargetStatus, setBulkTargetStatus] = useState<StatusKey>("pending");
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkFeedback, setBulkFeedback] = useState<string | null>(null);
+  const [showBulkDelete, setShowBulkDelete] = useState(false);
+
+  const visibleOrderNoSet = useMemo(() => new Set(orders.map((o) => String(o.orderNo))), [orders]);
+  useEffect(() => {
+    setSelectedNos((prev) => {
+      const next = new Set([...prev].filter((n) => visibleOrderNoSet.has(n)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [visibleOrderNoSet]);
+
+  function toggleRowSelection(orderNo: string) {
+    setSelectedNos((prev) => {
+      const next = new Set(prev);
+      if (next.has(orderNo)) next.delete(orderNo);
+      else next.add(orderNo);
+      return next;
+    });
+  }
+
+  function toggleAllVisible(select: boolean) {
+    setSelectedNos((prev) => {
+      const next = new Set(prev);
+      const visible = orders.map((o) => String(o.orderNo));
+      if (select) visible.forEach((n) => next.add(n));
+      else visible.forEach((n) => next.delete(n));
+      return next;
+    });
+  }
+
+  function toggleSectionSelection(orderNos: string[], select: boolean) {
+    setSelectedNos((prev) => {
+      const next = new Set(prev);
+      if (select) orderNos.forEach((n) => next.add(n));
+      else orderNos.forEach((n) => next.delete(n));
+      return next;
+    });
+  }
+
+  async function runBulkSetStatus() {
+    const list = [...selectedNos];
+    if (!list.length || !token) return;
+    setBulkBusy(true);
+    setBulkFeedback(null);
+    let ok = 0;
+    let fail = 0;
+    for (const no of list) {
+      try {
+        await updateOrderStatus(token, no, bulkTargetStatus, { sendEmails: false });
+        ok++;
+      } catch {
+        fail++;
+      }
+    }
+    setBulkBusy(false);
+    await refetch({ force: true });
+    setSelectedNos(new Set());
+    if (fail > 0) {
+      setBulkFeedback(
+        t(lang, "orders.bulk.partialResult")
+          .replace("{{ok}}", String(ok))
+          .replace("{{fail}}", String(fail))
+          .replace("{{total}}", String(list.length)),
+      );
+    } else {
+      setBulkFeedback(t(lang, "orders.bulk.allStatusOk").replace("{{count}}", String(ok)));
+    }
+    window.setTimeout(() => setBulkFeedback(null), 8000);
+  }
+
+  async function runBulkDelete() {
+    const list = [...selectedNos];
+    if (!list.length || !token) return;
+    setBulkBusy(true);
+    setBulkFeedback(null);
+    let ok = 0;
+    let fail = 0;
+    for (const no of list) {
+      try {
+        await deleteOrder(token, no);
+        ok++;
+      } catch {
+        fail++;
+      }
+    }
+    setBulkBusy(false);
+    setShowBulkDelete(false);
+    if (detailNo && list.includes(detailNo)) {
+      setDetailNo(null);
+      const next = new URLSearchParams(searchParams);
+      next.delete("open");
+      setSearchParams(next, { replace: true });
+    }
+    await refetch({ force: true });
+    setSelectedNos(new Set());
+    if (fail > 0) {
+      setBulkFeedback(
+        t(lang, "orders.bulk.partialDeleteResult")
+          .replace("{{ok}}", String(ok))
+          .replace("{{fail}}", String(fail))
+          .replace("{{total}}", String(list.length)),
+      );
+    } else {
+      setBulkFeedback(t(lang, "orders.bulk.allDeleteOk").replace("{{count}}", String(ok)));
+    }
+    window.setTimeout(() => setBulkFeedback(null), 8000);
+  }
 
   const statuses = useMemo(() => ["all", ...STATUS_KEYS] as string[], []);
 
@@ -104,15 +215,16 @@ export function OrdersPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--accent)]"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-2"
+          style={{ borderColor: "var(--accent-subtle)", borderTopColor: "var(--accent)" }} />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-xl p-6 text-center">
-        <p className="text-red-700 dark:text-red-400 font-medium">{error}</p>
+      <div className="cust-alert cust-alert--error rounded-xl p-6 text-center">
+        <p className="font-medium">{error}</p>
       </div>
     );
   }
@@ -122,16 +234,12 @@ export function OrdersPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-[var(--text-main)] mb-2">
-            {t(lang, "orders.title")}
-          </h1>
-          <p className="text-[var(--text-subtle)]">
-            {t(lang, "orders.description")}
-          </p>
+          <h1 className="cust-page-header-title text-3xl mb-2">{t(lang, "orders.title")}</h1>
+          <p className="cust-page-header-sub">{t(lang, "orders.description")}</p>
         </div>
         <button
           onClick={() => setShowCreate(true)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[var(--accent)] text-white font-semibold text-sm hover:bg-[var(--accent-hover)] transition-all duration-200 shadow-sm hover:shadow-md"
+          className="cust-btn-new"
         >
           <Plus className="h-5 w-5" />
           <span className="hidden sm:inline">{t(lang, "orders.button.newOrder")}</span>
@@ -139,24 +247,24 @@ export function OrdersPage() {
       </div>
 
       {/* Search & Filter */}
-      <div className="bg-[var(--surface)] rounded-xl border border-slate-200/60 border-[var(--border-soft)] shadow-sm p-4">
+      <div className="rounded-xl p-4 shadow-sm" style={{ background: "var(--surface)", border: "1px solid var(--border-soft)" }}>
         <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--text-subtle)]" />
+          <div className="cust-search-wrap flex-1 max-w-none">
+            <Search className="h-4 w-4" />
             <input
               type="text"
               placeholder={t(lang, "orders.placeholder.search")}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="w-full pl-10 pr-3 py-2 rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] text-[var(--text-main)] text-sm placeholder:text-slate-400 placeholder:text-[var(--text-subtle)] hover:border-slate-300 hover:border-[var(--border-soft)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-colors"
+              className="cust-search-input"
             />
           </div>
           <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-[var(--text-subtle)] hidden sm:block" />
+            <Filter className="h-4 w-4 hidden sm:block" style={{ color: "var(--text-subtle)" }} />
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] text-[var(--text-main)] text-sm font-medium hover:border-slate-300 hover:border-[var(--border-soft)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] transition-colors min-w-[140px]"
+              className="cust-filter-select min-w-[140px]"
             >
               {statuses.map((s) => (
                 <option key={s} value={s}>
@@ -165,20 +273,117 @@ export function OrdersPage() {
               ))}
             </select>
           </div>
-          <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50">
-            <span className="text-xs font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">{t(lang, "orders.label.openCount")}</span>
-            <span className="text-sm font-bold text-amber-900 dark:text-amber-300">{openOrders}</span>
+          <div className="cust-status-badge cust-status-pending px-4 py-2 rounded-lg">
+            <span className="text-xs font-semibold uppercase tracking-wider">{t(lang, "orders.label.openCount")}</span>
+            <span className="text-sm font-bold ml-1">{openOrders}</span>
           </div>
         </div>
       </div>
 
+      {bulkFeedback ? (
+        <div className="cust-alert cust-alert--info rounded-xl px-4 py-3 text-sm">{bulkFeedback}</div>
+      ) : null}
+
+      {selectedNos.size > 0 ? (
+        <div
+          className="flex flex-col gap-3 rounded-xl p-4 shadow-md sm:flex-row sm:flex-wrap sm:items-center"
+          style={{ background: "var(--surface)", border: "1px solid var(--border-soft)" }}
+        >
+          <span className="text-sm font-semibold" style={{ color: "var(--text-main)" }}>
+            {t(lang, "orders.bulk.selected").replace("{{count}}", String(selectedNos.size))}
+          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-subtle)" }}>
+              {t(lang, "orders.bulk.targetStatus")}
+            </label>
+            <select
+              value={bulkTargetStatus}
+              onChange={(e) => setBulkTargetStatus(e.target.value as StatusKey)}
+              className="cust-filter-select min-w-[180px]"
+              disabled={bulkBusy}
+            >
+              {STATUS_KEYS.map((s) => (
+                <option key={s} value={s}>
+                  {getStatusLabel(s)}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className="btn-primary min-h-0 px-4 py-2 text-sm"
+              disabled={bulkBusy}
+              onClick={() => void runBulkSetStatus()}
+            >
+              {bulkBusy ? t(lang, "orders.bulk.applying") : t(lang, "orders.bulk.applyStatus")}
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-2 sm:ml-auto">
+            <button
+              type="button"
+              className="btn-secondary min-h-0 px-4 py-2 text-sm"
+              disabled={bulkBusy}
+              onClick={() => setSelectedNos(new Set())}
+            >
+              {t(lang, "orders.bulk.clearSelection")}
+            </button>
+            <button
+              type="button"
+              className="min-h-0 rounded-lg border border-red-500/40 px-4 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-500/10 disabled:opacity-50"
+              disabled={bulkBusy}
+              onClick={() => setShowBulkDelete(true)}
+            >
+              {t(lang, "orders.bulk.deleteSelected")}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {/* Orders Table */}
-      <OrderTable 
-        orders={orders} 
-        onOpenDetail={setDetailNo} 
-        onOpenMessages={setMsgNo} 
-        onOpenUpload={(no) => navigate(`/upload?order=${encodeURIComponent(no)}`)} 
+      <OrderTable
+        orders={orders}
+        onOpenDetail={setDetailNo}
+        onOpenMessages={setMsgNo}
+        onOpenUpload={(no) => navigate(`/upload?order=${encodeURIComponent(no)}`)}
+        selectedNos={selectedNos}
+        onToggleRow={toggleRowSelection}
+        onToggleAllVisible={toggleAllVisible}
+        onToggleSection={toggleSectionSelection}
       />
+
+      <Dialog open={showBulkDelete} onOpenChange={(open) => !bulkBusy && setShowBulkDelete(open)}>
+        <DialogContent className="max-w-md border-red-500/25">
+          <DialogClose onClose={() => !bulkBusy && setShowBulkDelete(false)} />
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-500/15">
+                <AlertTriangle className="h-5 w-5 text-red-500" />
+              </div>
+              <DialogTitle className="text-lg">{t(lang, "orders.bulk.confirmDeleteTitle")}</DialogTitle>
+            </div>
+          </DialogHeader>
+          <p className="mb-6 text-sm" style={{ color: "var(--text-muted)" }}>
+            {t(lang, "orders.bulk.confirmDeleteMessage").replace("{{count}}", String(selectedNos.size))}
+          </p>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              className="btn-secondary flex-1 justify-center"
+              disabled={bulkBusy}
+              onClick={() => setShowBulkDelete(false)}
+            >
+              {t(lang, "common.cancel")}
+            </button>
+            <button
+              type="button"
+              className="flex-1 justify-center rounded-lg border-none bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+              disabled={bulkBusy}
+              onClick={() => void runBulkDelete()}
+            >
+              {bulkBusy ? t(lang, "orders.bulk.deleting") : t(lang, "orders.bulk.confirmDelete")}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Modals */}
       <CreateOrderWizard
@@ -205,5 +410,4 @@ export function OrdersPage() {
     </div>
   );
 }
-
 

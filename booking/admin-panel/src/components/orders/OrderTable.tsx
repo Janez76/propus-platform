@@ -1,4 +1,4 @@
-import { useMemo, useState, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import type { Order } from "../../api/orders";
 import { formatCurrency, formatDateTime } from "../../lib/utils";
 import { getStatusEntry, getStatusIcon, normalizeStatusKey, type StatusKey } from "../../lib/status";
@@ -12,6 +12,10 @@ type Props = {
   onOpenDetail: (orderNo: string) => void;
   onOpenMessages: (orderNo: string) => void;
   onOpenUpload: (orderNo: string) => void;
+  selectedNos: Set<string>;
+  onToggleRow: (orderNo: string) => void;
+  onToggleAllVisible: (select: boolean) => void;
+  onToggleSection: (orderNos: string[], select: boolean) => void;
 };
 
 type SortKey = "orderNo" | "customer" | "address" | "appointment" | "total" | "status";
@@ -84,13 +88,37 @@ function IconBtn({
   );
 }
 
-export function OrderTable({ orders, onOpenDetail, onOpenMessages, onOpenUpload }: Props) {
+function orderKey(o: Order): string {
+  return String(o.orderNo);
+}
+
+export function OrderTable({
+  orders,
+  onOpenDetail,
+  onOpenMessages,
+  onOpenUpload,
+  selectedNos,
+  onToggleRow,
+  onToggleAllVisible,
+  onToggleSection,
+}: Props) {
   const lang = useAuthStore((s) => s.language);
   const tooltipMessage = t(lang, "orders.tooltip.sendMessage");
   const tooltipUpload = t(lang, "orders.tooltip.uploadFiles");
+  const headerSelectRef = useRef<HTMLInputElement>(null);
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [expandedSections, setExpandedSections] = useState<Record<StatusKey, boolean>>(DEFAULT_EXPANDED);
+
+  const allVisibleSelected =
+    orders.length > 0 && orders.every((o) => selectedNos.has(orderKey(o)));
+  const someVisibleSelected = orders.some((o) => selectedNos.has(orderKey(o)));
+
+  useEffect(() => {
+    const el = headerSelectRef.current;
+    if (!el) return;
+    el.indeterminate = someVisibleSelected && !allVisibleSelected;
+  }, [someVisibleSelected, allVisibleSelected]);
 
   function toggleSection(key: StatusKey) {
     setExpandedSections((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -174,6 +202,7 @@ export function OrderTable({ orders, onOpenDetail, onOpenMessages, onOpenUpload 
   }
 
   function renderOrderCard(o: Order) {
+    const k = orderKey(o);
     return (
       <article
         key={o.orderNo}
@@ -184,10 +213,21 @@ export function OrderTable({ orders, onOpenDetail, onOpenMessages, onOpenUpload 
         onKeyDown={(e) => e.key === "Enter" && onOpenDetail(o.orderNo)}
       >
         <div className="mb-2 flex items-start justify-between gap-2">
-          <div>
-            <div className="font-semibold">#{o.orderNo}</div>
-            <div className="text-xs text-zinc-500">{displayName(o)}</div>
-            {contactSubline(o) && <div className="text-xs text-zinc-600">{contactSubline(o)}</div>}
+          <div className="flex min-w-0 flex-1 items-start gap-2">
+            <input
+              type="checkbox"
+              className="mt-1 h-4 w-4 shrink-0 rounded border-[var(--border-soft)]"
+              style={{ accentColor: "var(--accent)" }}
+              checked={selectedNos.has(k)}
+              onChange={() => onToggleRow(k)}
+              onClick={(e) => e.stopPropagation()}
+              aria-label={t(lang, "orders.bulk.selectRow")}
+            />
+            <div className="min-w-0">
+              <div className="font-semibold">#{o.orderNo}</div>
+              <div className="text-xs text-zinc-500">{displayName(o)}</div>
+              {contactSubline(o) && <div className="text-xs text-zinc-600">{contactSubline(o)}</div>}
+            </div>
           </div>
           <StatusBadge status={o.status} />
         </div>
@@ -214,12 +254,23 @@ export function OrderTable({ orders, onOpenDetail, onOpenMessages, onOpenUpload 
   }
 
   function renderOrderRow(o: Order) {
+    const k = orderKey(o);
     return (
       <tr
         key={o.orderNo}
         className="cursor-pointer transition-colors hover:bg-zinc-800/30"
         onClick={() => onOpenDetail(o.orderNo)}
       >
+        <td className="w-10 px-2 py-2.5 align-middle" onClick={(e) => e.stopPropagation()}>
+          <input
+            type="checkbox"
+            className="h-4 w-4 rounded border-[var(--border-soft)]"
+            style={{ accentColor: "var(--accent)" }}
+            checked={selectedNos.has(k)}
+            onChange={() => onToggleRow(k)}
+            aria-label={t(lang, "orders.bulk.selectRow")}
+          />
+        </td>
         <td className="px-3 py-2.5">
           <div className="font-semibold">#{o.orderNo}</div>
           {o.appointmentDate && (
@@ -280,19 +331,45 @@ export function OrderTable({ orders, onOpenDetail, onOpenMessages, onOpenUpload 
           const i18nKey = `orders.section.${section.key}` as const;
           const label = t(lang, i18nKey).replace("{{count}}", String(section.orders.length));
 
+          const sectionKeys = sorted.map(orderKey);
+          const sectionAll = sectionKeys.length > 0 && sectionKeys.every((id) => selectedNos.has(id));
+          const sectionSome = sectionKeys.some((id) => selectedNos.has(id));
+
           return (
             <div key={section.key}>
-              <button
-                type="button"
-                onClick={() => toggleSection(section.key)}
-                className="flex w-full items-center justify-between gap-2 rounded-lg border border-zinc-700/60 bg-zinc-800/30 px-3 py-2.5 text-left text-sm font-medium text-zinc-400 transition-colors hover:bg-zinc-800/50 hover:text-zinc-300"
-              >
-                <span className="inline-flex items-center gap-2">
-                  <SectionIcon className="h-4 w-4 shrink-0" style={{ color: entry.eventColor }} />
-                  {label}
-                </span>
-                {expanded ? <ChevronUp className="h-4 w-4 shrink-0" /> : <ChevronDown className="h-4 w-4 shrink-0" />}
-              </button>
+              <div className="flex w-full items-stretch gap-1 rounded-lg border border-zinc-700/60 bg-zinc-800/30">
+                <label
+                  className="flex shrink-0 cursor-pointer items-center px-2 py-2.5"
+                  onClick={(e) => e.stopPropagation()}
+                  title={t(lang, "orders.bulk.selectSection")}
+                >
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-[var(--border-soft)]"
+                    style={{ accentColor: "var(--accent)" }}
+                    checked={sectionAll}
+                    ref={(el) => {
+                      if (el) el.indeterminate = sectionSome && !sectionAll;
+                    }}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      onToggleSection(sectionKeys, e.target.checked);
+                    }}
+                    aria-label={t(lang, "orders.bulk.selectSection")}
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => toggleSection(section.key)}
+                  className="flex min-w-0 flex-1 items-center justify-between gap-2 py-2.5 pr-3 text-left text-sm font-medium text-zinc-400 transition-colors hover:text-zinc-300"
+                >
+                  <span className="inline-flex min-w-0 items-center gap-2">
+                    <SectionIcon className="h-4 w-4 shrink-0" style={{ color: entry.eventColor }} />
+                    {label}
+                  </span>
+                  {expanded ? <ChevronUp className="h-4 w-4 shrink-0" /> : <ChevronDown className="h-4 w-4 shrink-0" />}
+                </button>
+              </div>
               {expanded && (
                 <div className="mt-3 space-y-3">
                   {sorted.map((o) => renderOrderCard(o))}
@@ -310,6 +387,17 @@ export function OrderTable({ orders, onOpenDetail, onOpenMessages, onOpenUpload 
           <table className="min-w-full text-sm">
             <thead className="border-b-2 border-[var(--accent)]/20">
               <tr>
+                <th className="w-10 px-2 py-2 text-left align-middle">
+                  <input
+                    ref={headerSelectRef}
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-[var(--border-soft)]"
+                    style={{ accentColor: "var(--accent)" }}
+                    checked={allVisibleSelected}
+                    onChange={(e) => onToggleAllVisible(e.target.checked)}
+                    aria-label={t(lang, "orders.bulk.selectAllVisible")}
+                  />
+                </th>
                 <th className="px-3 py-2 text-left"><SortHeader label={t(lang, "orders.table.order")} keyName="orderNo" /></th>
                 <th className="px-3 py-2 text-left"><SortHeader label={t(lang, "orders.table.customer")} keyName="customer" /></th>
                 <th className="px-3 py-2 text-left"><SortHeader label={t(lang, "orders.table.address")} keyName="address" /></th>
@@ -331,19 +419,47 @@ export function OrderTable({ orders, onOpenDetail, onOpenMessages, onOpenUpload 
           const i18nKey = `orders.section.${section.key}` as const;
           const label = t(lang, i18nKey).replace("{{count}}", String(section.orders.length));
 
+          const sectionKeysD = sorted.map(orderKey);
+          const sectionAllD = sectionKeysD.length > 0 && sectionKeysD.every((id) => selectedNos.has(id));
+          const sectionSomeD = sectionKeysD.some((id) => selectedNos.has(id));
+
           return (
             <div key={section.key}>
-              <button
-                type="button"
-                onClick={() => toggleSection(section.key)}
-                className={`flex w-full items-center justify-between gap-2 border border-zinc-800/50 bg-zinc-800/30 px-4 py-2.5 text-left text-sm font-medium text-zinc-400 transition-colors hover:bg-zinc-800/50 hover:text-zinc-300 ${expanded ? "rounded-t-xl border-b-0" : "rounded-xl"}`}
+              <div
+                className={`flex w-full items-stretch gap-1 border border-zinc-800/50 bg-zinc-800/30 ${expanded ? "rounded-t-xl border-b-0" : "rounded-xl"}`}
               >
-                <span className="inline-flex items-center gap-2">
-                  <SectionIcon className="h-4 w-4 shrink-0" style={{ color: entry.eventColor }} />
-                  {label}
-                </span>
-                {expanded ? <ChevronUp className="h-4 w-4 shrink-0" /> : <ChevronDown className="h-4 w-4 shrink-0" />}
-              </button>
+                <label
+                  className="flex shrink-0 cursor-pointer items-center px-3 py-2.5"
+                  onClick={(e) => e.stopPropagation()}
+                  title={t(lang, "orders.bulk.selectSection")}
+                >
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-[var(--border-soft)]"
+                    style={{ accentColor: "var(--accent)" }}
+                    checked={sectionAllD}
+                    ref={(el) => {
+                      if (el) el.indeterminate = sectionSomeD && !sectionAllD;
+                    }}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      onToggleSection(sectionKeysD, e.target.checked);
+                    }}
+                    aria-label={t(lang, "orders.bulk.selectSection")}
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => toggleSection(section.key)}
+                  className="flex min-w-0 flex-1 items-center justify-between gap-2 py-2.5 pr-4 text-left text-sm font-medium text-zinc-400 transition-colors hover:bg-zinc-800/50 hover:text-zinc-300"
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <SectionIcon className="h-4 w-4 shrink-0" style={{ color: entry.eventColor }} />
+                    {label}
+                  </span>
+                  {expanded ? <ChevronUp className="h-4 w-4 shrink-0" /> : <ChevronDown className="h-4 w-4 shrink-0" />}
+                </button>
+              </div>
               {expanded && (
                 <div className="overflow-auto rounded-b-xl border border-t-0 border-zinc-800/50 bg-transparent">
                   <table className="min-w-full text-sm">
