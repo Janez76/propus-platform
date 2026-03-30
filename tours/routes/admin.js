@@ -4195,6 +4195,7 @@ router.get('/customers/:id', async (req, res) => {
   if (!id) return res.status(400).send('Ungültige ID');
 
   try {
+    await portalTeam.ensurePortalTeamSchema();
     const [custR, contactsR, toursR] = await Promise.all([
       pool.query('SELECT * FROM core.customers WHERE id=$1', [id]),
       pool.query(
@@ -4212,6 +4213,25 @@ router.get('/customers/:id', async (req, res) => {
 
     if (!custR.rows.length) return res.status(404).send('Kunde nicht gefunden');
 
+    const customer = custR.rows[0];
+    const ownerEmail = String(customer.email || '').trim().toLowerCase();
+
+    // Portal-Rollen der Kontakte laden (member_email → role im Workspace des Kunden)
+    let contactPortalRoles = {};
+    if (ownerEmail) {
+      try {
+        const prR = await pool.query(
+          `SELECT LOWER(TRIM(member_email)) AS email, role, status
+           FROM tour_manager.portal_team_members
+           WHERE LOWER(owner_email) = $1`,
+          [ownerEmail]
+        );
+        for (const row of prR.rows) {
+          contactPortalRoles[row.email] = { role: row.role, status: row.status };
+        }
+      } catch (_) {}
+    }
+
     const admin = req.session?.admin || {};
     res.render('admin/customer-detail', {
       activePage: 'customers',
@@ -4220,9 +4240,10 @@ router.get('/customers/:id', async (req, res) => {
       adminSidebarOrganization: admin.organization || 'Propus GmbH',
       adminSidebarHasProfilePhoto: admin.hasProfilePhoto || false,
       adminSidebarPhotoVersion: admin.photoVersion || 0,
-      customer:  custR.rows[0],
+      customer,
       contacts:  contactsR.rows,
       tours:     toursR.rows,
+      contactPortalRoles,
       flash:     req.query.flash || null,
       error:     req.query.error || null,
     });
@@ -4322,6 +4343,67 @@ router.post('/customers/:id/contacts/:cid/delete', async (req, res) => {
     );
     res.redirect(`/admin/customers/${customerId}?flash=` + encodeURIComponent('Kontakt gelöscht.'));
   } catch (err) {
+    res.redirect(`/admin/customers/${customerId}?error=` + encodeURIComponent('Fehler: ' + err.message));
+  }
+});
+
+// POST /admin/customers/:id/contacts/:cid/portal-role – Portal-Rolle einer Kontaktperson setzen
+router.post('/customers/:id/contacts/:cid/portal-role', async (req, res) => {
+  const customerId = parseInt(req.params.id);
+  const contactId  = parseInt(req.params.cid);
+  const newRole    = String(req.body.portal_role || '').trim().toLowerCase();
+  // Erlaubte Rollen: '', 'mitarbeiter', 'admin'
+  const validRoles = ['', 'mitarbeiter', 'admin'];
+  if (!validRoles.includes(newRole)) {
+    return res.redirect(`/admin/customers/${customerId}?error=` + encodeURIComponent('Ungültige Rolle.'));
+  }
+
+  try {
+    await portalTeam.ensurePortalTeamSchema();
+
+    // Kontakt laden um member_email und owner_email (= Kunden-Email) zu ermitteln
+    const [contR, custR] = await Promise.all([
+      pool.query('SELECT * FROM core.customer_contacts WHERE id=$1 AND customer_id=$2', [contactId, customerId]),
+      pool.query('SELECT email FROM core.customers WHERE id=$1', [customerId]),
+    ]);
+    if (!contR.rows.length || !custR.rows.length) {
+      return res.redirect(`/admin/customers/${customerId}?error=` + encodeURIComponent('Kontakt oder Kunde nicht gefunden.'));
+    }
+
+    const memberEmail = String(contR.rows[0].email || '').trim().toLowerCase();
+    const ownerEmail  = String(custR.rows[0].email || '').trim().toLowerCase();
+    const displayName = String(contR.rows[0].name  || '').trim() || null;
+
+    if (!memberEmail) {
+      return res.redirect(`/admin/customers/${customerId}?error=` + encodeURIComponent('Kontakt hat keine E-Mail – Portal-Rolle kann nicht gesetzt werden.'));
+    }
+
+    if (newRole === '') {
+      // Rolle entfernen: Eintrag löschen
+      await pool.query(
+        `DELETE FROM tour_manager.portal_team_members
+         WHERE LOWER(owner_email)=$1 AND LOWER(member_email)=$2`,
+        [ownerEmail, memberEmail]
+      );
+    } else {
+      // Rolle setzen / aktualisieren (aktiv, accepted)
+      await pool.query(
+        `INSERT INTO tour_manager.portal_team_members
+           (owner_email, member_email, display_name, role, status, accepted_at, created_at)
+         VALUES ($1, $2, $3, $4, 'active', NOW(), NOW())
+         ON CONFLICT (owner_email, member_email) DO UPDATE
+           SET role = $4,
+               status = 'active',
+               display_name = COALESCE($3, tour_manager.portal_team_members.display_name),
+               accepted_at  = COALESCE(tour_manager.portal_team_members.accepted_at, NOW())`,
+        [ownerEmail, memberEmail, displayName, newRole]
+      );
+    }
+
+    const roleLabel = { '': 'entfernt', 'mitarbeiter': 'Mitarbeiter', 'admin': 'Kunden-Admin' }[newRole];
+    res.redirect(`/admin/customers/${customerId}?flash=` + encodeURIComponent(`Portal-Rolle für ${memberEmail} auf „${roleLabel}" gesetzt.`));
+  } catch (err) {
+    console.error('[portal-role POST]', err);
     res.redirect(`/admin/customers/${customerId}?error=` + encodeURIComponent('Fehler: ' + err.message));
   }
 });
