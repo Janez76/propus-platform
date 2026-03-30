@@ -155,6 +155,34 @@ router.get('/invoices', async (req, res) => {
   }
 });
 
+// ─── GET /portal/api/team/suggestions ────────────────────────────────────────
+// Liefert Firmenkontakte als Vorschlagsliste für das Einladungsformular.
+
+router.get('/team/suggestions', async (req, res) => {
+  try {
+    const email = req.session.portalCustomerEmail;
+    const { ownerEmails } = await getPortalScope(email);
+    if (ownerEmails.length === 0) return res.json({ ok: true, suggestions: [] });
+
+    const ownerEmail = ownerEmails[0];
+    const peers = await portalTeam.listExxasOrgPeersForOwner(ownerEmail);
+
+    // bereits eingeladene / aktive Mitglieder herausfiltern
+    const existing = await portalTeam.listTeamMembers(ownerEmail).catch(() => []);
+    const existingEmails = new Set(existing.map((m) => (m.member_email || '').toLowerCase()));
+    existingEmails.add(email.toLowerCase());
+
+    const suggestions = peers
+      .filter((p) => !existingEmails.has((p.email || '').toLowerCase()))
+      .map((p) => ({ email: p.email, name: p.name || '' }));
+
+    return res.json({ ok: true, suggestions });
+  } catch (err) {
+    console.error('[portal-api] /team/suggestions error:', err);
+    return res.status(500).json({ error: 'Interner Fehler' });
+  }
+});
+
 // ─── GET /portal/api/team ─────────────────────────────────────────────────────
 
 router.get('/team', async (req, res) => {

@@ -153,12 +153,26 @@
           <h2>Einladen</h2>
         </div>
         <p class="portal-team-invite-lead">Neue Team-Mitglieder hinzufügen und Rolle direkt setzen.</p>
-        <form method="post" action="/portal/team/invite" class="portal-team-invite-form">
+        <form method="post" action="/portal/team/invite" class="portal-team-invite-form" id="portalInviteForm">
           <input type="hidden" name="ownerWorkspaceEmail" value="<%= typeof ownerEmail !== 'undefined' ? ownerEmail : '' %>">
-          <div class="form-group" style="margin:0;">
+
+          <%# E-Mail mit Autocomplete-Dropdown %>
+          <div class="form-group portal-invite-autocomplete-wrap" style="margin:0;position:relative;">
             <label for="inviteEmail" style="display:block;font-size:0.8rem;color:var(--text-muted);margin-bottom:0.3rem;">E-Mail</label>
-            <input type="email" id="inviteEmail" name="email" required placeholder="kollegin@firma.ch" autocomplete="off">
+            <input
+              type="email"
+              id="inviteEmail"
+              name="email"
+              required
+              placeholder="kollegin@firma.ch"
+              autocomplete="off"
+              class="portal-invite-email-input"
+              aria-autocomplete="list"
+              aria-controls="inviteSuggestList"
+              aria-expanded="false">
+            <ul id="inviteSuggestList" class="portal-invite-suggest-list" role="listbox" aria-label="Vorschläge" hidden></ul>
           </div>
+
           <div class="form-group" style="margin:0;">
             <label for="inviteName" style="display:block;font-size:0.8rem;color:var(--text-muted);margin-bottom:0.3rem;">Name (optional)</label>
             <input type="text" id="inviteName" name="displayName" placeholder="Vor- und Nachname">
@@ -173,6 +187,189 @@
           <button type="submit" class="btn btn-primary portal-team-invite-submit"><i class="fa-solid fa-paper-plane"></i> Einladung senden</button>
         </form>
       </div>
+
+      <style>
+        .portal-invite-autocomplete-wrap { position: relative; }
+        .portal-invite-suggest-list {
+          position: absolute;
+          top: calc(100% + 2px);
+          left: 0;
+          right: 0;
+          z-index: 200;
+          background: var(--card-bg, #fff);
+          border: 1px solid var(--border-color, #e5e7eb);
+          border-radius: 8px;
+          box-shadow: 0 4px 16px rgba(0,0,0,.10);
+          padding: 4px 0;
+          margin: 0;
+          list-style: none;
+          max-height: 220px;
+          overflow-y: auto;
+        }
+        .portal-invite-suggest-list[hidden] { display: none; }
+        .portal-invite-suggest-item {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 8px 14px;
+          cursor: pointer;
+          transition: background .12s;
+        }
+        .portal-invite-suggest-item:hover,
+        .portal-invite-suggest-item.is-active {
+          background: var(--primary-soft, rgba(197,160,89,.12));
+        }
+        .portal-invite-suggest-avatar {
+          width: 30px;
+          height: 30px;
+          border-radius: 50%;
+          background: var(--primary-soft, rgba(197,160,89,.15));
+          color: var(--primary, #C5A059);
+          font-size: 11px;
+          font-weight: 700;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+        .portal-invite-suggest-info { min-width: 0; }
+        .portal-invite-suggest-name {
+          font-size: .85rem;
+          font-weight: 600;
+          color: var(--text-main, #111);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .portal-invite-suggest-email {
+          font-size: .75rem;
+          color: var(--text-muted, #888);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .portal-invite-suggest-badge {
+          margin-left: auto;
+          font-size: .68rem;
+          background: var(--primary-soft, rgba(197,160,89,.18));
+          color: var(--primary, #C5A059);
+          border-radius: 20px;
+          padding: 1px 7px;
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
+      </style>
+
+      <script>
+      (() => {
+        const emailInput = document.getElementById('inviteEmail');
+        const nameInput  = document.getElementById('inviteName');
+        const list       = document.getElementById('inviteSuggestList');
+        if (!emailInput || !list) return;
+
+        let allSuggestions = [];
+        let activeIdx = -1;
+
+        // Vorschläge vom API laden
+        fetch('/portal/api/team/suggestions', { credentials: 'same-origin' })
+          .then(r => r.ok ? r.json() : { suggestions: [] })
+          .then(data => { allSuggestions = Array.isArray(data.suggestions) ? data.suggestions : []; })
+          .catch(() => {});
+
+        function initials(name, email) {
+          const parts = (name || email || '').trim().split(/\s+/).filter(Boolean).slice(0, 2);
+          if (parts.length) return parts.map(p => p[0].toUpperCase()).join('');
+          return (email || '').slice(0, 2).toUpperCase() || 'P';
+        }
+
+        function highlight(text, query) {
+          if (!query) return text;
+          const idx = text.toLowerCase().indexOf(query.toLowerCase());
+          if (idx < 0) return text;
+          return text.slice(0, idx) +
+            '<mark style="background:rgba(197,160,89,.3);border-radius:2px;">' +
+            text.slice(idx, idx + query.length) + '</mark>' +
+            text.slice(idx + query.length);
+        }
+
+        function renderList(query) {
+          const q = (query || '').toLowerCase().trim();
+          const filtered = q.length === 0
+            ? allSuggestions.slice(0, 8)
+            : allSuggestions
+                .filter(s =>
+                  (s.email || '').toLowerCase().includes(q) ||
+                  (s.name  || '').toLowerCase().includes(q)
+                )
+                .slice(0, 8);
+
+          if (filtered.length === 0) {
+            closeSuggest();
+            return;
+          }
+          activeIdx = -1;
+          list.innerHTML = '';
+          filtered.forEach((s, i) => {
+            const li = document.createElement('li');
+            li.className = 'portal-invite-suggest-item';
+            li.setAttribute('role', 'option');
+            li.setAttribute('data-idx', i);
+            li.innerHTML =
+              `<div class="portal-invite-suggest-avatar">${initials(s.name, s.email)}</div>` +
+              `<div class="portal-invite-suggest-info">` +
+                `<div class="portal-invite-suggest-name">${highlight(s.name || s.email.split('@')[0], q)}</div>` +
+                `<div class="portal-invite-suggest-email">${highlight(s.email, q)}</div>` +
+              `</div>` +
+              `<span class="portal-invite-suggest-badge">Firma</span>`;
+            li.addEventListener('mousedown', e => {
+              e.preventDefault();
+              pickSuggestion(s);
+            });
+            list.appendChild(li);
+          });
+          list.hidden = false;
+          emailInput.setAttribute('aria-expanded', 'true');
+        }
+
+        function pickSuggestion(s) {
+          emailInput.value = s.email;
+          if (nameInput && !nameInput.value) nameInput.value = s.name || '';
+          closeSuggest();
+          nameInput && nameInput.focus();
+        }
+
+        function closeSuggest() {
+          list.hidden = true;
+          emailInput.setAttribute('aria-expanded', 'false');
+          activeIdx = -1;
+        }
+
+        function moveActive(dir) {
+          const items = list.querySelectorAll('.portal-invite-suggest-item');
+          if (!items.length) return;
+          items[activeIdx]?.classList.remove('is-active');
+          activeIdx = (activeIdx + dir + items.length) % items.length;
+          items[activeIdx].classList.add('is-active');
+        }
+
+        emailInput.addEventListener('input', () => renderList(emailInput.value));
+        emailInput.addEventListener('focus', () => {
+          if (allSuggestions.length > 0) renderList(emailInput.value);
+        });
+        emailInput.addEventListener('blur', () => setTimeout(closeSuggest, 150));
+        emailInput.addEventListener('keydown', e => {
+          if (list.hidden) return;
+          if (e.key === 'ArrowDown')  { e.preventDefault(); moveActive(1); }
+          else if (e.key === 'ArrowUp')   { e.preventDefault(); moveActive(-1); }
+          else if (e.key === 'Enter' && activeIdx >= 0) {
+            e.preventDefault();
+            const items = list.querySelectorAll('.portal-invite-suggest-item');
+            items[activeIdx]?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+          }
+          else if (e.key === 'Escape') closeSuggest();
+        });
+      })();
+      </script>
       <% } %>
 
   <% if (canManage) { %>
