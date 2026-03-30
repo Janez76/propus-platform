@@ -1,0 +1,20 @@
+<%/* Gleicher Schlüssel + Logik wie platform/frontend/index.html (React Admin) */%>
+<script>
+(function () {
+  try {
+    var t = localStorage.getItem("admin_theme_v1") || "system";
+    var dark =
+      t === "dark" ||
+      (t === "system" &&
+        window.matchMedia("(prefers-color-scheme: dark)").matches);
+    var html = document.documentElement;
+    if (dark) {
+      html.classList.add("dark");
+      html.style.colorScheme = "dark";
+    } else {
+      html.classList.remove("dark");
+      html.style.colorScheme = "light";
+    }
+  } catch (e) {}
+})();
+</script>

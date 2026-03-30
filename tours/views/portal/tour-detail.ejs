@@ -11,7 +11,7 @@
     .portal-td-hero {
       margin-bottom: 1.35rem;
       padding: 1.15rem 1.35rem;
-      background: linear-gradient(135deg, var(--gold-50) 0%, #fff 48%, var(--gray-50) 100%);
+      background: linear-gradient(135deg, var(--gold-50) 0%, var(--surface) 48%, var(--gray-50) 100%);
       border: 1px solid var(--border);
       border-radius: var(--radius-lg);
       box-shadow: 0 8px 32px rgba(20, 19, 17, 0.06);
@@ -86,7 +86,7 @@
     .portal-td-card-h {
       padding: 0.75rem 1.15rem;
       border-bottom: 1px solid var(--border);
-      background: linear-gradient(180deg, var(--gray-50) 0%, #fff 100%);
+      background: linear-gradient(180deg, var(--gray-50) 0%, var(--surface) 100%);
     }
     .portal-td-card-title {
       margin: 0;
@@ -151,7 +151,7 @@
     .portal-td-vis-card:hover { border-color: var(--gold-300); background: var(--gold-50); }
     .portal-td-vis-card.active {
       border-color: var(--gold-500);
-      background: linear-gradient(135deg, rgba(196, 163, 90, 0.1) 0%, rgba(255,255,255,0.9) 100%);
+      background: linear-gradient(135deg, var(--accent-subtle) 0%, var(--surface) 100%);
       box-shadow: 0 4px 16px rgba(196, 163, 90, 0.12);
     }
     .portal-td-vis-card input[type=radio] {
@@ -228,7 +228,7 @@
 
     .portal-td-btn-archive {
       width: 100%; padding: 0.6rem 1rem;
-      background: #fff; color: #b91c1c; font-weight: 600; font-size: 0.86rem;
+      background: var(--surface); color: #b91c1c; font-weight: 600; font-size: 0.86rem;
       border: 1px solid rgba(220, 38, 38, 0.45); border-radius: 12px; cursor: pointer;
       display: block; text-align: center;
       transition: background 0.15s, border-color 0.15s, color 0.15s;
@@ -245,7 +245,7 @@
       padding: 0.4rem 0.75rem;
       border: 1px solid var(--border); border-radius: 10px;
       color: var(--text-muted); text-decoration: none;
-      background: #fff; transition: border-color 0.15s, color 0.15s;
+      background: var(--surface); transition: border-color 0.15s, color 0.15s;
     }
     .portal-td-btn-outline:hover { border-color: var(--gold-400); color: var(--gold-800); }
 
@@ -305,7 +305,7 @@
       font-family: inherit;
     }
     .portal-td-modal-btn--ghost {
-      background: #fff;
+      background: var(--surface);
       border: 1px solid var(--border);
       color: var(--text-muted);
     }
@@ -317,7 +317,7 @@
     }
     .portal-td-modal-btn--primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
     .portal-td-modal-btn--danger {
-      background: #fff;
+      background: var(--surface);
       border: 1px solid rgba(220, 38, 38, 0.45);
       color: #b91c1c;
     }
@@ -330,14 +330,14 @@
       padding: 0.85rem 1rem;
       border: 1.5px solid var(--border);
       border-radius: 12px;
-      background: #fff;
+      background: var(--surface);
       cursor: pointer;
       font-family: inherit;
       text-align: left;
       transition: border-color 0.15s, background 0.15s;
       width: 100%;
     }
-    .portal-td-payment-opt:hover { border-color: var(--accent); background: #f0f7ff; }
+    .portal-td-payment-opt:hover { border-color: var(--accent); background: color-mix(in srgb, var(--link) 12%, var(--surface)); }
     .portal-td-payment-opt-icon { font-size: 1.35rem; line-height: 1; flex-shrink: 0; margin-top: 1px; }
     .portal-td-payment-opt-texts { display: flex; flex-direction: column; gap: 0.2rem; }
     .portal-td-payment-opt-label { font-size: 0.92rem; font-weight: 600; color: var(--text); }
@@ -667,7 +667,7 @@
                 <p class="portal-td-hint" style="margin-top:0;">Wer ist für diese Tour verantwortlich? Sichtbar für alle mit Portal-Zugriff.</p>
                 <form method="post" action="/portal/tours/<%= tour.id %>/assignee" style="margin-top:0.85rem;">
                   <label for="portalTdAssignee" style="display:block;font-size:0.78rem;font-weight:600;color:var(--text-muted);margin-bottom:0.35rem;">Zuständige Person</label>
-                  <select name="assigneeEmail" id="portalTdAssignee" style="width:100%;font-size:0.88rem;padding:0.5rem 0.65rem;border:1px solid var(--border);border-radius:10px;background:#fff;margin-bottom:0.65rem;">
+                  <select name="assigneeEmail" id="portalTdAssignee" style="width:100%;font-size:0.88rem;padding:0.5rem 0.65rem;border:1px solid var(--border);border-radius:10px;background:var(--surface);margin-bottom:0.65rem;">
                     <option value="">— Keine Zuweisung —</option>
                     <% assignCandsTour.forEach((c) => { %>
                     <option value="<%= c.email %>" <%= assignTour && assignTour.email === c.email ? 'selected' : '' %>><%= c.label %></option>

@@ -41,6 +41,7 @@
       <div class="nav-divider portal-nav-footer-divider"></div>
       <%- include('../partials/_sidebar-user-card', { displayName: dn, organizationName: pnav.organizationName, variant: 'portal', hasProfilePhoto: !!pnav.hasProfilePhoto, profilePhotoVersion: pnav.profilePhotoVersion || 0 }) %>
       <div class="nav-divider"></div>
+      <%- include('../partials/_theme-toggle') %>
       <form method="get" action="<%= bp %>/portal/logout" class="portal-logout-form">
         <button type="submit" class="nav-link-logout">
           <i class="fa-solid fa-right-from-bracket"></i>

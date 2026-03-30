@@ -1,3 +1,4 @@
+<%- include('../partials/_theme-boot') %>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
@@ -67,6 +68,61 @@
     --radius-lg: 16px;
     --shadow: 0 12px 32px rgba(17, 17, 17, 0.06);
   }
+
+  /* Dark-Mode: abgestimmt auf platform/frontend/src/index.css (html.dark) */
+  html.dark {
+    color: #f0ece4;
+    --text-main: #f0ece4;
+    --text-muted: #c0bbb4;
+    --text-subtle: #8a8680;
+    --surface: #161719;
+    --surface-raised: #1c1d1f;
+    --border-soft: #2a2926;
+    --border-strong: #3a3834;
+    --accent: var(--propus-gold-dark);
+    --accent-hover: #c9a22a;
+    --accent-subtle: color-mix(in srgb, var(--propus-gold-dark) 14%, transparent);
+
+    --gold-50: color-mix(in srgb, var(--surface-raised) 88%, var(--propus-gold-dark) 12%);
+    --gold-100: color-mix(in srgb, var(--surface-raised) 78%, var(--propus-gold-dark) 22%);
+    --gold-200: color-mix(in srgb, var(--border-soft) 55%, var(--propus-gold-dark) 45%);
+    --gold-300: color-mix(in srgb, var(--propus-gold-dark) 50%, var(--surface));
+    --gold-400: var(--propus-gold-light);
+    --gold-500: var(--propus-gold-dark);
+    --gold-600: var(--propus-gold-dark);
+    --gold-700: #e8d48a;
+    --gold-800: #c9a22a;
+    --gold-900: #f0ece4;
+
+    --gray-25: #0f1012;
+    --gray-50: #1c1d1f;
+    --gray-100: #222326;
+    --gray-200: #2a2926;
+    --gray-300: #3a3834;
+    --gray-400: #8a8680;
+    --gray-500: #c0bbb4;
+    --gray-600: #a8a29e;
+    --gray-700: #d6d3cd;
+    --gray-800: var(--text-main);
+    --gray-900: #f5f2ec;
+
+    --bg: #0f1012;
+    --bg-card: #161719;
+    --bg-elevated: #1c1d1f;
+    --bg-hover: color-mix(in srgb, var(--propus-gold-dark) 14%, #1c1d1f);
+    --bg-raised: #161719;
+    --text: var(--text-main);
+    --accent-soft: var(--accent-subtle);
+    --link: #60a5fa;
+    --matterport: var(--propus-gold-dark);
+    --border: var(--border-soft);
+    --shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  }
+  html.dark .table-wrap,
+  html.dark .section {
+    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.35);
+  }
+
   * { box-sizing: border-box; }
   body {
     font-family: var(--propus-font-body);
@@ -213,6 +269,35 @@
   }
   .nav-link-logout i { width: 18px; text-align: center; font-size: 0.95rem; opacity: 0.95; }
   .nav-link-logout-bottom { margin-top: auto; padding-top: 0.2rem; }
+  .tm-theme-toggle-wrap {
+    padding: 0 0 0.35rem;
+  }
+  .tm-theme-toggle {
+    all: unset;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.65rem 1.5rem;
+    width: 100%;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    font-weight: 500;
+    font-family: var(--propus-font-body), system-ui, sans-serif;
+    border-left: 3px solid transparent;
+    transition: color 0.2s, background 0.2s;
+  }
+  .tm-theme-toggle:hover {
+    color: var(--text);
+    background: rgba(255,255,255,0.06);
+  }
+  .tm-theme-toggle i {
+    width: 18px;
+    text-align: center;
+    font-size: 0.95rem;
+    opacity: 0.9;
+  }
   .admin-sidebar .nav-divider { height: 1px; background: rgba(255,255,255,0.1); margin: 0.75rem 1rem; }
   .admin-sidebar .logout-wrap { padding: 1rem 1.5rem; margin-top: auto; }
   <%- include('../partials/_portal-sidebar-footer-styles') %>
@@ -339,7 +424,7 @@
   .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); transform: translateY(-1px); }
   .btn-ghost { background: var(--surface); color: var(--text-main); border: 1px solid var(--border-soft); }
   .btn-ghost:hover { background: var(--surface-raised); color: var(--text-main); border-color: var(--accent); }
-  .btn-danger { background: #fff; color: var(--danger); border: 1px solid rgba(239,68,68,0.4); }
+  .btn-danger { background: var(--surface); color: var(--danger); border: 1px solid rgba(239,68,68,0.4); }
   .btn-danger:hover { background: var(--danger); color: #fff; }
   .btn-logout { background: transparent; color: #d6d2ca; border: 1px solid rgba(255,255,255,0.2); padding: 0.4rem 0.9rem; border-radius: 8px; font-family: inherit; font-size: 0.875rem; cursor: pointer; }
   .btn-logout:hover { background: rgba(255,255,255,0.07); color: #fff; }
@@ -373,7 +458,7 @@
     font-weight: 500;
     text-decoration: none;
     color: var(--text-muted);
-    background: #fff;
+    background: var(--surface);
     border: 1px solid var(--border);
     transition: all 0.2s;
   }
@@ -444,7 +529,7 @@
 
   /* Forms */
   input[type="text"]:not(.global-search-input), input[type="url"], input[type="email"], input[type="password"], select, textarea {
-    background: #fff;
+    background: var(--surface);
     color: var(--text);
     border: 1px solid var(--border);
     padding: 0.5rem 0.75rem;

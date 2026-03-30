@@ -112,6 +112,7 @@
       <% const adminPhotoVer = typeof adminSidebarPhotoVersion !== 'undefined' ? adminSidebarPhotoVersion : 0; %>
       <%- include('../partials/_sidebar-user-card', { displayName: adminUserName || 'Admin', organizationName: adminUserOrg, variant: 'admin', hasProfilePhoto: adminHasPhoto, profilePhotoVersion: adminPhotoVer }) %>
       <div class="nav-divider"></div>
+      <%- include('../partials/_theme-toggle') %>
       <form method="post" action="<%= bp %>/logout" class="portal-logout-form">
         <button type="submit" class="nav-link-logout">
           <i class="fa-solid fa-right-from-bracket"></i>

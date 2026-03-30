@@ -15,6 +15,54 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.331",
+    date: "2026-03-30",
+    title: "Tour-Manager: Theme Hell/Dunkel/System",
+    changes: [
+      {
+        type: "feature",
+        text: "Tour-Manager Admin und Kundenportal (EJS): Umschalter System/Hell/Dunkel in der Sidebar; Speicher localStorage admin_theme_v1 wie React-Admin; prefers-color-scheme-Listener bei System-Modus.",
+      },
+      {
+        type: "improvement",
+        text: "Dark-Mode-CSS-Tokens an platform/frontend index.css (html.dark) angeglichen; Portal- und Tour-Detail-Flächen auf var(--surface)/var(--bg) umgestellt.",
+      },
+    ],
+  },
+  {
+    version: "2.3.330",
+    date: "2026-03-30",
+    title: "Deploy",
+    changes: [
+      {
+        type: "improvement",
+        text: "Versionsnummer fuer VPS-Deploy auf v2.3.330 erhoeht.",
+      },
+    ],
+  },
+  {
+    version: "2.3.329",
+    date: "2026-03-30",
+    title: "Deploy",
+    changes: [
+      {
+        type: "improvement",
+        text: "Versionsnummer fuer VPS-Deploy auf v2.3.329 erhoeht.",
+      },
+    ],
+  },
+  {
+    version: "2.3.328",
+    date: "2026-03-30",
+    title: "Deploy",
+    changes: [
+      {
+        type: "improvement",
+        text: "Versionsnummer fuer VPS-Deploy auf v2.3.328 erhoeht.",
+      },
+    ],
+  },
+  {
     version: "2.3.327",
     date: "2026-03-30",
     title: "Tour-Manager Portal: Propus-Design",
