@@ -3555,6 +3555,35 @@ router.post('/link-matterport/check-ownership', async (req, res) => {
   res.redirect(`/admin/link-matterport?ownershipChecked=1&own=${own}&fremde=${fremde}&skipped=${skipped}`);
 });
 
+/** Kunden-Autocomplete aus lokaler DB (kein Exxas) */
+router.get('/tours/:id/link-customer/autocomplete', async (req, res) => {
+  const q = (req.query.q || '').trim();
+  if (q.length < 2) return res.json({ customers: [] });
+  try {
+    const local = await customerLookup.searchLocalCustomers(q, 12);
+    const customers = await Promise.all(
+      local.map(async (c) => {
+        const contacts = await customerLookup.getLocalContacts(c.id);
+        return {
+          id: c.id,
+          display_name: c.company || c.name || '',
+          email: c.email || '',
+          ref: c.exxas_contact_id || '',
+          contacts: contacts.map((ct) => ({
+            id: ct.id,
+            name: ct.name || '',
+            email: ct.email || '',
+            role: ct.role || '',
+          })),
+        };
+      })
+    );
+    res.json({ customers });
+  } catch (err) {
+    res.json({ customers: [] });
+  }
+});
+
 /** Kundendaten einer Tour anpassen (direktes Formular, kein Exxas) */
 router.get('/tours/:id/link-exxas-customer', async (req, res) => {
   const { id } = req.params;

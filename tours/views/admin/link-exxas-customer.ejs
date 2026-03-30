@@ -6,85 +6,66 @@
   <title>Kunde anpassen – Propus Tour Manager</title>
   <%- include('_admin-styles') %>
   <style>
-    .page-head {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 1rem;
-      flex-wrap: wrap;
-      margin-bottom: 1rem;
+    .page-head { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; flex-wrap:wrap; margin-bottom:1rem; }
+    .page-head h1 { margin:0; }
+    .panel { border:1px solid var(--border); border-radius:8px; background:#fff; padding:1.1rem 1.2rem; margin-bottom:1rem; box-shadow:0 8px 24px rgba(20,19,17,.04); }
+    .tour-context { background:#fff; border:1px solid var(--border); border-radius:8px; padding:.9rem; margin-bottom:1.5rem; font-size:.9rem; box-shadow:0 8px 24px rgba(20,19,17,.04); }
+    .tour-context .ctx-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:.55rem; }
+    .tour-context .ctx-item { display:flex; flex-direction:column; gap:.18rem; padding:.58rem .65rem; border:1px solid var(--border); border-radius:8px; background:var(--bg-subtle); min-height:58px; }
+    .tour-context .ctx-label { font-size:.75rem; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); font-weight:600; }
+    .tour-context .ctx-val { color:var(--text); font-weight:500; line-height:1.35; }
+    .tour-context .ctx-url { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace; font-size:.78rem; word-break:break-all; }
+
+    /* Suchfeld */
+    .search-wrap { position:relative; }
+    .search-wrap input { width:100%; box-sizing:border-box; }
+    #ac-list {
+      display:none; position:absolute; top:calc(100% + 4px); left:0; right:0;
+      background:#fff; border:1px solid var(--border); border-radius:8px;
+      z-index:300; max-height:320px; overflow-y:auto;
+      box-shadow:0 10px 28px rgba(20,19,17,.13);
     }
-    .page-head h1 { margin: 0; }
-    .panel {
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: #fff;
-      padding: 1.1rem 1.2rem;
-      margin-bottom: 1rem;
-      box-shadow: 0 8px 24px rgba(20, 19, 17, 0.04);
+    .ac-item {
+      padding:.6rem 1rem; cursor:pointer; font-size:.87rem;
+      border-bottom:1px solid var(--border);
+      display:flex; flex-direction:column; gap:.15rem;
     }
-    .tour-context {
-      background: #fff;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 0.9rem;
-      margin-bottom: 1.5rem;
-      font-size: 0.9rem;
-      box-shadow: 0 8px 24px rgba(20, 19, 17, 0.04);
+    .ac-item:last-child { border-bottom:none; }
+    .ac-item:hover, .ac-item.ac-active { background:var(--gold-50,#fdf8ee); }
+    .ac-item .ac-name { font-weight:600; color:var(--text); }
+    .ac-item .ac-sub { font-size:.78rem; color:var(--text-muted); }
+
+    /* Ergebnis-Panel */
+    #result-panel { display:none; }
+    .result-header {
+      display:flex; align-items:center; justify-content:space-between;
+      gap:1rem; flex-wrap:wrap; margin-bottom:1rem;
     }
-    .tour-context .ctx-row {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-      gap: 0.55rem;
+    .result-header .customer-name { font-size:1.05rem; font-weight:700; color:var(--text); }
+    .result-header .customer-meta { font-size:.83rem; color:var(--text-muted); margin-top:.15rem; }
+    .contacts-label { font-size:.72rem; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); font-weight:700; margin-bottom:.4rem; }
+    .contact-list { display:flex; flex-direction:column; gap:.25rem; margin-bottom:1rem; }
+    .contact-row {
+      display:flex; align-items:center; gap:.75rem; padding:.45rem .65rem;
+      border:1px solid var(--border); border-radius:6px; background:var(--bg-subtle);
+      cursor:pointer; transition:background .12s;
     }
-    .tour-context .ctx-item {
-      display: flex;
-      flex-direction: column;
-      gap: 0.18rem;
-      padding: 0.58rem 0.65rem;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: var(--bg-subtle);
-      min-height: 58px;
-    }
-    .tour-context .ctx-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); font-weight: 600; }
-    .tour-context .ctx-val { color: var(--text); font-weight: 500; line-height: 1.35; }
-    .tour-context .ctx-url {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
-      font-size: 0.78rem;
-      word-break: break-all;
-    }
-    .form-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1rem 1.5rem;
-    }
-    @media (max-width: 600px) {
-      .form-grid { grid-template-columns: 1fr; }
-    }
-    .field-group {
-      display: flex;
-      flex-direction: column;
-      gap: 0.3rem;
-    }
-    .field-group label {
-      font-size: 0.82rem;
-      font-weight: 600;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-    .field-group input {
-      width: 100%;
-      box-sizing: border-box;
-    }
-    .form-actions {
-      margin-top: 1.25rem;
-      display: flex;
-      gap: 0.75rem;
-      align-items: center;
-      flex-wrap: wrap;
-    }
+    .contact-row:hover { background:var(--gold-50,#fdf8ee); }
+    .contact-row.selected { border-color:var(--accent); background:var(--gold-50,#fdf8ee); }
+    .contact-row .ct-name { font-weight:600; font-size:.87rem; flex:1; }
+    .contact-row .ct-email { font-size:.82rem; color:var(--text-muted); }
+    .contact-row .ct-role { font-size:.75rem; color:var(--text-muted); font-style:italic; }
+    .no-contacts { font-size:.85rem; color:var(--text-muted); margin-bottom:1rem; }
+
+    .form-actions { margin-top:1.25rem; display:flex; gap:.75rem; align-items:center; flex-wrap:wrap; }
+    .reset-link { font-size:.83rem; color:var(--text-muted); cursor:pointer; background:none; border:none; padding:0; font-family:inherit; }
+    .reset-link:hover { color:var(--text); text-decoration:underline; }
+    .field-preview { display:grid; grid-template-columns:1fr 1fr; gap:.6rem 1.5rem; margin-top:1rem; }
+    @media(max-width:600px){ .field-preview { grid-template-columns:1fr; } }
+    .fp-item { display:flex; flex-direction:column; gap:.2rem; }
+    .fp-label { font-size:.72rem; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); font-weight:600; }
+    .fp-val { font-size:.9rem; color:var(--text); font-weight:500; padding:.45rem .65rem; background:var(--bg-subtle); border:1px solid var(--border); border-radius:6px; min-height:36px; }
+    .fp-val.empty { color:var(--text-muted); font-style:italic; }
   </style>
 </head>
 <body>
@@ -93,16 +74,14 @@
     <main class="admin-main">
       <a href="/admin/tours/<%= tour.id %>" class="back">← Zurück zur Tour</a>
       <div class="page-head">
-        <div>
-          <h1>Kunde anpassen</h1>
-        </div>
+        <h1>Kunde anpassen</h1>
       </div>
 
       <% if (saved) { %>
       <div class="alert alert-success">Kundendaten wurden gespeichert.</div>
       <% } %>
       <% if (error === 'missing') { %>
-      <div class="alert alert-error">Bitte mindestens den Kundennamen angeben.</div>
+      <div class="alert alert-error">Bitte einen Kunden aus der Liste auswählen.</div>
       <% } %>
 
       <!-- Tour-Kontext -->
@@ -118,7 +97,7 @@
           </div>
           <div class="ctx-item">
             <span class="ctx-label">Aktueller Kontakt</span>
-            <span class="ctx-val"><%= tour.customer_contact || tour.canonical_customer_name || tour.customer_name || '–' %></span>
+            <span class="ctx-val"><%= tour.customer_contact || '–' %></span>
           </div>
           <div class="ctx-item">
             <span class="ctx-label">Tour-Link</span>
@@ -131,60 +110,240 @@
         </div>
       </div>
 
-      <!-- Bearbeitungsformular -->
+      <!-- Kundensuche -->
       <div class="panel">
-        <form method="post" action="/admin/tours/<%= tour.id %>/link-exxas-customer">
-          <div class="form-grid">
-            <div class="field-group">
-              <label for="customer_name">Kundenname</label>
-              <input
-                type="text"
-                id="customer_name"
-                name="customer_name"
-                value="<%= tour.customer_name || '' %>"
-                placeholder="Firmenname oder Kundenname…"
-                autofocus
-              >
+        <div style="margin-bottom:.75rem;">
+          <label style="font-size:.82rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:.3rem;">Kundensuche</label>
+          <div class="search-wrap">
+            <input
+              type="text"
+              id="customer-search"
+              placeholder="Name, Firma oder E-Mail eingeben…"
+              autocomplete="off"
+              autofocus
+            >
+            <div id="ac-list"></div>
+          </div>
+        </div>
+
+        <!-- Ergebnis-Panel (wird per JS befüllt) -->
+        <div id="result-panel">
+          <hr style="border:none;border-top:1px solid var(--border);margin:.9rem 0;">
+
+          <div class="result-header">
+            <div>
+              <div class="customer-name" id="res-name"></div>
+              <div class="customer-meta" id="res-meta"></div>
             </div>
-            <div class="field-group">
-              <label for="customer_contact">Ansprechpartner</label>
-              <input
-                type="text"
-                id="customer_contact"
-                name="customer_contact"
-                value="<%= tour.customer_contact || '' %>"
-                placeholder="Vor- und Nachname…"
-              >
+            <button type="button" class="reset-link" onclick="resetSelection()">Auswahl zurücksetzen</button>
+          </div>
+
+          <!-- Kontaktauswahl -->
+          <div id="contacts-section">
+            <div class="contacts-label">Ansprechpartner wählen</div>
+            <div class="contact-list" id="contact-list"></div>
+          </div>
+
+          <!-- Vorschau der zu speichernden Daten -->
+          <div class="field-preview">
+            <div class="fp-item">
+              <span class="fp-label">Kundenname</span>
+              <span class="fp-val" id="prev-name">–</span>
             </div>
-            <div class="field-group">
-              <label for="customer_email">E-Mail</label>
-              <input
-                type="email"
-                id="customer_email"
-                name="customer_email"
-                value="<%= tour.customer_email || '' %>"
-                placeholder="E-Mail-Adresse…"
-              >
+            <div class="fp-item">
+              <span class="fp-label">Ansprechpartner</span>
+              <span class="fp-val" id="prev-contact">–</span>
             </div>
-            <div class="field-group">
-              <label for="kunde_ref">Kundennummer (optional)</label>
-              <input
-                type="text"
-                id="kunde_ref"
-                name="kunde_ref"
-                value="<%= tour.kunde_ref || '' %>"
-                placeholder="z. B. 10042"
-              >
+            <div class="fp-item">
+              <span class="fp-label">E-Mail</span>
+              <span class="fp-val" id="prev-email">–</span>
+            </div>
+            <div class="fp-item">
+              <span class="fp-label">Kundennummer</span>
+              <span class="fp-val" id="prev-ref">–</span>
             </div>
           </div>
+
+          <!-- Verstecktes Formular -->
+          <form method="post" action="/admin/tours/<%= tour.id %>/link-exxas-customer" id="save-form">
+            <input type="hidden" name="customer_name" id="f-name">
+            <input type="hidden" name="customer_email" id="f-email">
+            <input type="hidden" name="customer_contact" id="f-contact">
+            <input type="hidden" name="kunde_ref" id="f-ref">
+          </form>
+
           <div class="form-actions">
-            <button type="submit" class="btn btn-primary">Speichern</button>
+            <button type="submit" form="save-form" class="btn btn-primary" id="save-btn">Speichern</button>
             <a href="/admin/tours/<%= tour.id %>" class="btn btn-ghost">Abbrechen</a>
           </div>
-        </form>
+        </div>
       </div>
 
     </main>
   </div>
+
+  <script>
+  (function () {
+    const searchInput = document.getElementById('customer-search');
+    const acList = document.getElementById('ac-list');
+    const resultPanel = document.getElementById('result-panel');
+    const tourId = '<%= tour.id %>';
+
+    let timer = null;
+    let lastQ = '';
+    let acItems = [];
+    let acIndex = -1;
+
+    // ── Autocomplete ──────────────────────────────────────────────────
+    searchInput.addEventListener('input', function () {
+      const q = this.value.trim();
+      clearTimeout(timer);
+      if (q.length < 2) { closeList(); return; }
+      if (q === lastQ) return;
+      timer = setTimeout(() => {
+        lastQ = q;
+        fetch('/admin/tours/' + tourId + '/link-customer/autocomplete?q=' + encodeURIComponent(q), { credentials: 'include' })
+          .then(r => r.json())
+          .then(data => renderList(data.customers || []))
+          .catch(() => closeList());
+      }, 240);
+    });
+
+    searchInput.addEventListener('keydown', function (e) {
+      if (!acItems.length) return;
+      if (e.key === 'ArrowDown') { e.preventDefault(); setAcIndex(acIndex + 1); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); setAcIndex(acIndex - 1); }
+      else if (e.key === 'Enter') { e.preventDefault(); if (acIndex >= 0) selectCustomer(acItems[acIndex]); }
+      else if (e.key === 'Escape') closeList();
+    });
+
+    document.addEventListener('click', function (e) {
+      if (!searchInput.contains(e.target) && !acList.contains(e.target)) closeList();
+    });
+
+    function setAcIndex(idx) {
+      const items = acList.querySelectorAll('.ac-item');
+      if (!items.length) return;
+      acIndex = Math.max(0, Math.min(idx, items.length - 1));
+      items.forEach((el, i) => el.classList.toggle('ac-active', i === acIndex));
+    }
+
+    function renderList(customers) {
+      acList.innerHTML = '';
+      acItems = customers;
+      acIndex = -1;
+      if (!customers.length) { closeList(); return; }
+      customers.forEach((c) => {
+        const div = document.createElement('div');
+        div.className = 'ac-item';
+        div.innerHTML =
+          '<span class="ac-name">' + esc(c.display_name) + '</span>' +
+          '<span class="ac-sub">' + (c.email ? esc(c.email) : '') + (c.ref ? ' · Nr. ' + esc(c.ref) : '') + '</span>';
+        div.addEventListener('mousedown', (e) => { e.preventDefault(); selectCustomer(c); });
+        acList.appendChild(div);
+      });
+      acList.style.display = 'block';
+    }
+
+    function closeList() {
+      acList.style.display = 'none';
+      acList.innerHTML = '';
+      acItems = [];
+      acIndex = -1;
+    }
+
+    // ── Kundenauswahl ─────────────────────────────────────────────────
+    let selectedCustomer = null;
+    let selectedContact = null;
+
+    function selectCustomer(c) {
+      closeList();
+      searchInput.value = c.display_name;
+      selectedCustomer = c;
+      selectedContact = null;
+
+      document.getElementById('res-name').textContent = c.display_name;
+      document.getElementById('res-meta').textContent =
+        (c.email || '') + (c.ref ? ' · Nr. ' + c.ref : '');
+
+      renderContacts(c.contacts || []);
+      updatePreview();
+      resultPanel.style.display = 'block';
+    }
+
+    function renderContacts(contacts) {
+      const list = document.getElementById('contact-list');
+      const section = document.getElementById('contacts-section');
+      list.innerHTML = '';
+
+      if (!contacts.length) {
+        section.innerHTML = '<p class="no-contacts">Keine Ansprechpartner hinterlegt – Kunden-E-Mail wird übernommen.</p>';
+        return;
+      }
+
+      section.innerHTML = '<div class="contacts-label">Ansprechpartner wählen</div><div class="contact-list" id="contact-list"></div>';
+      const newList = document.getElementById('contact-list');
+
+      contacts.forEach((ct) => {
+        const row = document.createElement('div');
+        row.className = 'contact-row';
+        row.innerHTML =
+          '<span class="ct-name">' + esc(ct.name) + '</span>' +
+          (ct.role ? '<span class="ct-role">' + esc(ct.role) + '</span>' : '') +
+          (ct.email ? '<span class="ct-email">' + esc(ct.email) + '</span>' : '');
+        row.addEventListener('click', () => {
+          newList.querySelectorAll('.contact-row').forEach(r => r.classList.remove('selected'));
+          row.classList.add('selected');
+          selectedContact = ct;
+          updatePreview();
+        });
+        newList.appendChild(row);
+      });
+
+      // Ersten Kontakt automatisch vorauswählen
+      if (contacts.length) {
+        newList.firstChild.classList.add('selected');
+        selectedContact = contacts[0];
+        updatePreview();
+      }
+    }
+
+    function updatePreview() {
+      if (!selectedCustomer) return;
+      const name = selectedCustomer.display_name;
+      const contact = selectedContact ? selectedContact.name : '';
+      const email = selectedContact?.email || selectedCustomer.email || '';
+      const ref = selectedCustomer.ref || '';
+
+      setText('prev-name', name);
+      setText('prev-contact', contact || '–');
+      setText('prev-email', email || '–');
+      setText('prev-ref', ref || '–');
+
+      document.getElementById('f-name').value = name;
+      document.getElementById('f-contact').value = contact;
+      document.getElementById('f-email').value = email;
+      document.getElementById('f-ref').value = ref;
+    }
+
+    function setText(id, val) {
+      const el = document.getElementById(id);
+      el.textContent = val;
+      el.classList.toggle('empty', !val || val === '–');
+    }
+
+    function resetSelection() {
+      selectedCustomer = null;
+      selectedContact = null;
+      searchInput.value = '';
+      searchInput.focus();
+      resultPanel.style.display = 'none';
+    }
+
+    function esc(str) {
+      return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+  })();
+  </script>
 </body>
 </html>
