@@ -117,6 +117,59 @@ async function saveAiPromptSettings(promptSettings) {
   }
 }
 
+/** Matterport Model API: Token-ID + Secret (my.matterport.com → API-Token, nicht SDK). */
+async function getMatterportApiCredentials() {
+  try {
+    await ensureSettingsTable();
+    const r = await pool.query(
+      `SELECT value FROM tour_manager.settings WHERE key = 'matterport_api_credentials'`
+    );
+    const v = r.rows[0]?.value;
+    if (v && typeof v === 'object') {
+      return {
+        tokenId: String(v.tokenId || '').trim(),
+        tokenSecret: String(v.tokenSecret || '').trim(),
+      };
+    }
+  } catch (e) {
+    console.warn('getMatterportApiCredentials:', e.message);
+  }
+  return { tokenId: '', tokenSecret: '' };
+}
+
+/**
+ * @param {{ tokenId?: string, tokenSecret?: string, clearStored?: boolean }} payload
+ * Secret-Feld leer = bisheriges Secret behalten. clearStored = Eintrag in DB löschen (.env greift wieder).
+ */
+async function saveMatterportApiCredentials(payload) {
+  try {
+    await ensureSettingsTable();
+    if (payload?.clearStored) {
+      await pool.query(`DELETE FROM tour_manager.settings WHERE key = 'matterport_api_credentials'`);
+      return true;
+    }
+    const current = await getMatterportApiCredentials();
+    const newId = String(payload?.tokenId ?? '').trim();
+    const newSecretRaw = String(payload?.tokenSecret ?? '').trim();
+    const tokenSecret = newSecretRaw.length > 0 ? newSecretRaw : current.tokenSecret;
+    const tokenId = newId;
+    if (!tokenId && !tokenSecret) {
+      await pool.query(`DELETE FROM tour_manager.settings WHERE key = 'matterport_api_credentials'`);
+      return true;
+    }
+    await pool.query(
+      `INSERT INTO tour_manager.settings (key, value, updated_at)
+       VALUES ('matterport_api_credentials', $1::jsonb, NOW())
+       ON CONFLICT (key) DO UPDATE SET value = $1::jsonb, updated_at = NOW()`,
+      [JSON.stringify({ tokenId, tokenSecret })]
+    );
+    return true;
+  } catch (e) {
+    console.warn('saveMatterportApiCredentials:', e.message);
+    return false;
+  }
+}
+
 async function getAutomationSettings() {
   try {
     await ensureSettingsTable();
@@ -635,6 +688,8 @@ module.exports = {
   saveDashboardWidgets,
   getAiPromptSettings,
   saveAiPromptSettings,
+  getMatterportApiCredentials,
+  saveMatterportApiCredentials,
   getAutomationSettings,
   saveAutomationSettings,
   getEmailTemplates,

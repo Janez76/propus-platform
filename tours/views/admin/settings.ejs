@@ -71,6 +71,14 @@
     .settings-group[open] .settings-group-chevron { transform: rotate(180deg); }
     .settings-group-body { padding: 0.9rem 0.95rem 1rem; }
     .settings-actions { margin-top: 0.2rem; display: flex; justify-content: flex-end; }
+    .api-cred-row { margin-bottom: 1rem; max-width: 520px; }
+    .api-cred-row label { display: block; font-size: 0.82rem; font-weight: 700; margin-bottom: 0.35rem; color: var(--gray-900); }
+    .api-cred-row input[type="text"], .api-cred-row input[type="password"] {
+      width: 100%; box-sizing: border-box; padding: 0.55rem 0.65rem; border-radius: 8px; border: 1px solid var(--border);
+      background: var(--bg); color: var(--text); font: inherit;
+    }
+    .api-cred-clear { margin-top: 1rem; display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.84rem; color: var(--text-muted); }
+    .api-cred-clear input { margin-top: 0.2rem; accent-color: var(--accent); }
   </style>
 </head>
 <body>
@@ -128,6 +136,25 @@
           </summary>
           <div class="settings-group-body">
           <p class="api-base">Basis: <code>https://api.matterport.com/api/models</code></p>
+          <p class="hint" style="margin-bottom:1rem;">Zugangsdaten für die Model API: <strong>API-Token</strong> unter my.matterport.com (nicht der Showcase-SDK-Schlüssel). Werden in der Datenbank gespeichert; ohne Eintrag hier gelten <code>MATTERPORT_TOKEN_ID</code> / <code>MATTERPORT_TOKEN_SECRET</code> aus der Server-Umgebung.</p>
+          <div class="api-cred-row">
+            <label for="matterportTokenId">Token-ID</label>
+            <input type="text" name="matterportTokenId" id="matterportTokenId" autocomplete="off"
+              value="<%= matterportStored?.tokenId || '' %>"
+              placeholder="z. B. aus «Verwaltung von API-Token»">
+          </div>
+          <div class="api-cred-row">
+            <label for="matterportTokenSecret">Token-Secret</label>
+            <input type="password" name="matterportTokenSecret" id="matterportTokenSecret" autocomplete="new-password" value=""
+              placeholder="<%= matterportStored?.hasSecret ? 'Leer lassen = unverändert' : 'Secret aus dem API-Token' %>">
+            <% if (matterportStored?.hasSecret) { %>
+            <p class="hint" style="margin-top:0.35rem;">Ein Secret ist bereits gespeichert. Neues Secret nur eintragen, wenn Sie es ändern möchten.</p>
+            <% } %>
+          </div>
+          <div class="api-cred-clear">
+            <input type="checkbox" name="matterport_clear_stored" value="1" id="matterport_clear_stored">
+            <label for="matterport_clear_stored" style="margin:0;font-weight:500;cursor:pointer;">Gespeicherte Matterport-Zugangsdaten in der Datenbank löschen (es gelten wieder nur Umgebungsvariablen).</label>
+          </div>
           <ul class="api-list">
             <li class="api-item"><span class="method get">GET</span><div><div class="endpoint">GraphQL models (listModels)</div><div class="desc">Alle 3D-Models auflisten</div></div></li>
             <li class="api-item"><span class="method get">GET</span><div><div class="endpoint">GraphQL model(id) – getModel</div><div class="desc">Model-Details inkl. Erstellungsdatum</div></div></li>

@@ -19,6 +19,7 @@ import { cn } from "../../lib/utils";
 import { bookingBrandLogoUrl } from "../../lib/bookingAssets";
 import { BookingThemeToggle } from "./BookingThemeToggle";
 import { BookingLangSelect } from "./BookingLangSelect";
+import { BookingPublicFooter } from "./BookingPublicFooter";
 
 const STEPS = [
   { id: 1, titleKey: "booking.step1.title", descKey: "booking.step1.desc" },
@@ -211,22 +212,28 @@ export function BookingWizardPage() {
 
   if (submitted) {
     return (
-      <div data-testid="booking-thank-you-root" className="min-h-screen bg-gradient-to-b from-zinc-50 to-zinc-100 dark:from-zinc-950 dark:to-zinc-900">
-        <ThankYouScreen lang={lang} />
+      <div data-testid="booking-thank-you-root" className="flex min-h-screen flex-col bg-gradient-to-b from-zinc-50 to-zinc-100 dark:from-zinc-950 dark:to-zinc-900">
+        <div className="flex-1">
+          <ThankYouScreen lang={lang} />
+        </div>
+        <BookingPublicFooter lang={lang} className="shrink-0 bg-white/70 dark:bg-zinc-950/80" />
       </div>
     );
   }
 
   if (configLoading) {
     return (
-      <div data-testid="booking-wizard-loading" className="flex min-h-screen items-center justify-center bg-gradient-to-b from-zinc-50 to-zinc-100 dark:from-zinc-950 dark:to-zinc-900">
-        <Loader2 className="h-8 w-8 animate-spin text-[#C5A059]" />
+      <div data-testid="booking-wizard-loading" className="flex min-h-screen flex-col bg-gradient-to-b from-zinc-50 to-zinc-100 dark:from-zinc-950 dark:to-zinc-900">
+        <div className="flex flex-1 items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-[#C5A059]" />
+        </div>
+        <BookingPublicFooter lang={lang} className="shrink-0 bg-white/70 dark:bg-zinc-950/80" />
       </div>
     );
   }
 
   return (
-    <div data-testid="booking-wizard" className="min-h-screen bg-gradient-to-b from-zinc-50 to-zinc-100 dark:from-zinc-950 dark:to-zinc-900">
+    <div data-testid="booking-wizard" className="flex min-h-screen flex-col bg-gradient-to-b from-zinc-50 to-zinc-100 dark:from-zinc-950 dark:to-zinc-900">
       {/* Header */}
       <header className="border-b border-zinc-200 bg-white/80 px-4 py-4 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/80">
         <div className="mx-auto flex max-w-5xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -352,6 +359,8 @@ export function BookingWizardPage() {
           />
         </div>
       </main>
+
+      <BookingPublicFooter lang={lang} className="mt-auto shrink-0 bg-white/50 dark:bg-zinc-950/60" />
     </div>
   );
 }

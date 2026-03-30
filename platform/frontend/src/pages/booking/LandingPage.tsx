@@ -7,6 +7,7 @@ import type { CatalogAddon, CatalogCategory, CatalogData } from "../../api/booki
 import { bookingBrandLogoUrl, bookingPublicAssetUrl } from "../../lib/bookingAssets";
 import { BookingThemeToggle } from "./BookingThemeToggle";
 import { BookingLangSelect } from "./BookingLangSelect";
+import { BookingPublicFooter } from "./BookingPublicFooter";
 
 type Review = { author: string; rating: number; text: string; relativeTime?: string };
 type ReviewsData = { ok: boolean; rating?: number; total?: number; reviews: Review[] };
@@ -610,6 +611,8 @@ export function LandingPage({ lang, onLangChange, onStart }: LandingPageProps) {
           <div className="mt-3 text-sm text-zinc-400 dark:text-zinc-500">{t(lang, "landing.final.note")}</div>
         </motion.div>
       </footer>
+
+      <BookingPublicFooter lang={lang} className="bg-[#f6f1e8]/90 dark:bg-zinc-950/90" />
     </div>
   );
 }

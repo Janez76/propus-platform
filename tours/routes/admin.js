@@ -30,6 +30,8 @@ const {
   saveDashboardWidgets,
   getAiPromptSettings,
   saveAiPromptSettings,
+  getMatterportApiCredentials,
+  saveMatterportApiCredentials,
   getAutomationSettings,
   saveAutomationSettings,
   getEmailTemplates,
@@ -1443,15 +1445,20 @@ router.get('/search', async (req, res) => {
 
 /** Einstellungen: APIs, Dashboard-Widgets, Sync */
 router.get('/settings', async (req, res) => {
-  const [widgets, aiPromptSettings] = await Promise.all([
+  const [widgets, aiPromptSettings, matterportStored] = await Promise.all([
     getDashboardWidgets(),
     getAiPromptSettings(),
+    getMatterportApiCredentials(),
   ]);
   const exxasBase = (process.env.EXXAS_BASE_URL || 'https://api.exxas.net').replace(/\/$/, '');
   const aiConfig = getAiConfig();
   res.render('admin/settings', {
     widgets,
     aiPromptSettings,
+    matterportStored: {
+      tokenId: matterportStored.tokenId || '',
+      hasSecret: !!matterportStored.tokenSecret,
+    },
     aiConfig,
     allowedChatModels: getAllowedChatModels(),
     actionDefinitions: listActionDefinitions(),
@@ -1472,6 +1479,12 @@ router.post('/settings', async (req, res) => {
   for (const k of widgetKeys) {
     widgets[k] = !!body[k];
   }
+  await saveMatterportApiCredentials({
+    clearStored: body.matterport_clear_stored === '1',
+    tokenId: body.matterportTokenId,
+    tokenSecret: body.matterportTokenSecret,
+  });
+  matterport.invalidateMatterportCredentialsCache();
   await Promise.all([
     saveDashboardWidgets(widgets),
     saveAiPromptSettings({

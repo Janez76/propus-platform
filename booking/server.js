@@ -2724,9 +2724,9 @@ async function requireCustomer(req, res, next) {
       }
     }
     if (!token) {
-      token = String(req.query.token || "").trim();
+      token = String(req.query.token || req.query.magic || "").trim();
     }
-    
+
     if (!token) return res.status(401).json({ error: "Unauthorized" });
 
     const tokenHash = customerAuth.hashSha256Hex(token);
@@ -2826,8 +2826,9 @@ async function createCustomerPortalMagicLink(billing = {}, { sessionDays = 14 } 
   const expiresAt = new Date(Date.now() + Math.max(1, Number(sessionDays) || 14) * 24 * 60 * 60 * 1000);
   await db.createCustomerSession({ customerId: Number(customer.id), tokenHash, expiresAt });
 
-  const frontendUrl = String(process.env.FRONTEND_URL || "https://booking.propus.ch/").replace(/\/?$/, "/");
-  return `${frontendUrl}?magic=${encodeURIComponent(token)}`;
+  const fe = String(process.env.FRONTEND_URL || "https://booking.propus.ch/").replace(/\/?$/, "");
+  const returnTo = encodeURIComponent(`${fe}/account`);
+  return `${fe}/auth/customer/magic?magic=${encodeURIComponent(token)}&returnTo=${returnTo}`;
 }
 
 // Einfaches In-Memory Rate-Limit fuer erneutes Senden (pro E-Mail)
@@ -2845,6 +2846,99 @@ function resolveCustomerFrontendRedirect(rawRedirect) {
     return fallback;
   }
 }
+
+function appendCustomerAuthQueryParam(baseUrl, key, value) {
+  try {
+    const u = new URL(String(baseUrl || "").trim() || "https://booking.propus.ch/");
+    u.searchParams.set(key, String(value));
+    return u.toString();
+  } catch {
+    const b = String(baseUrl || "");
+    const sep = b.includes("?") ? "&" : "?";
+    return `${b}${sep}${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`;
+  }
+}
+
+/** Nur gleiche Origin oder sichere relative Pfade (open-redirect-Schutz). */
+function safeCustomerMagicReturnPath(raw) {
+  const fallback = "/account";
+  const s = String(raw || "").trim();
+  if (!s) return fallback;
+  if (s.startsWith("/")) {
+    if (s.startsWith("//") || s.includes("..")) return fallback;
+    return s.length > 2048 ? fallback : s;
+  }
+  try {
+    const feBase = resolveCustomerFrontendRedirect("/");
+    const u = new URL(s, feBase);
+    const base = new URL(feBase);
+    if (u.origin !== base.origin) return fallback;
+    const p = `${u.pathname}${u.search}${u.hash}`;
+    if (p.includes("..")) return fallback;
+    return p || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function absoluteCustomerRedirectTarget(pathOrUrl) {
+  const feBase = resolveCustomerFrontendRedirect("/").replace(/\/?$/, "/");
+  const p = String(pathOrUrl || "/").trim() || "/";
+  if (p.startsWith("http://") || p.startsWith("https://")) return p;
+  try {
+    return new URL(p.startsWith("/") ? p : `/${p}`, feBase).toString();
+  } catch {
+    return feBase;
+  }
+}
+
+function customerSessionCookieOptions(maxAgeMs) {
+  return {
+    httpOnly: true,
+    secure: String(process.env.SESSION_COOKIE_SECURE || "false").toLowerCase() === "true",
+    sameSite: "lax",
+    path: "/",
+    maxAge: maxAgeMs,
+  };
+}
+
+// Buchungs-Mail Magic-Link + Admin-Impersonate: Token in Cookie legen und ins Frontend weiterleiten
+app.get("/auth/customer/magic", async (req, res) => {
+  try {
+    if (!process.env.DATABASE_URL) {
+      return res.redirect(
+        302,
+        appendCustomerAuthQueryParam(resolveCustomerFrontendRedirect("/"), "auth_error", "db_unavailable"),
+      );
+    }
+    const raw = String(req.query.magic || req.query.impersonate || req.query.token || "").trim();
+    if (!raw) {
+      return res.redirect(
+        302,
+        appendCustomerAuthQueryParam(resolveCustomerFrontendRedirect("/"), "auth_error", "missing_token"),
+      );
+    }
+    const tokenHash = customerAuth.hashSha256Hex(raw);
+    const customer = await db.getCustomerBySessionTokenHash(tokenHash);
+    if (!customer || customer.blocked) {
+      return res.redirect(
+        302,
+        appendCustomerAuthQueryParam(resolveCustomerFrontendRedirect("/"), "auth_error", "invalid_session"),
+      );
+    }
+    const days = Math.max(1, Number(CUSTOMER_SESSION_DAYS) || 30);
+    const maxAgeMs = days * 24 * 60 * 60 * 1000;
+    res.cookie("customer_session", raw, customerSessionCookieOptions(maxAgeMs));
+    const targetPath = safeCustomerMagicReturnPath(req.query.returnTo);
+    res.redirect(302, absoluteCustomerRedirectTarget(targetPath));
+  } catch (err) {
+    console.error("[auth/customer/magic]", err?.message || err);
+    return res.redirect(
+      302,
+      appendCustomerAuthQueryParam(resolveCustomerFrontendRedirect("/"), "auth_error", "server_error"),
+    );
+  }
+});
 
 // Legacy-Kompatibilitaet: alte SSO-/Auth-URLs (/auth/customer/*) ins Frontend umleiten
 app.get("/auth/customer/login", (req, res) => {
@@ -2887,12 +2981,7 @@ if (process.env.PROPUS_ENABLE_LEGACY_CUSTOMER_LOGIN !== "0") {
       const days = 30;
       const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
       await db.createCustomerSession({ customerId: customer.id, tokenHash, expiresAt });
-      res.cookie("customer_session", token, {
-        httpOnly: true,
-        secure: String(process.env.SESSION_COOKIE_SECURE || "false").toLowerCase() === "true",
-        sameSite: "lax",
-        maxAge: days * 24 * 60 * 60 * 1000,
-      });
+      res.cookie("customer_session", token, customerSessionCookieOptions(days * 24 * 60 * 60 * 1000));
       res.json({ ok: true, token });
     } catch (err) {
       res.status(500).json({ error: err.message || "Login fehlgeschlagen" });
@@ -8876,8 +8965,9 @@ app.post("/api/admin/customers/:id/impersonate", requireAdmin, async (req, res) 
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
     await db.createCustomerSession({ customerId, tokenHash, expiresAt });
 
-    const frontendUrl = String(process.env.FRONTEND_URL || "https://booking.propus.ch/").replace(/\/?$/, "/");
-    const url = `${frontendUrl}?impersonate=${encodeURIComponent(token)}`;
+    const fe = String(process.env.FRONTEND_URL || "https://booking.propus.ch/").replace(/\/?$/, "");
+    const returnTo = encodeURIComponent(`${fe}/account`);
+    const url = `${fe}/auth/customer/magic?impersonate=${encodeURIComponent(token)}&returnTo=${returnTo}`;
     res.json({ ok: true, url });
   } catch (err) {
     res.status(500).json({ error: err.message || "Impersonate fehlgeschlagen" });
@@ -10022,7 +10112,16 @@ app.post("/api/admin/users/companies", requireAdmin, async (req, res) => {
     const notiz = String(req.body?.notiz || "").trim();
     const inviteEmail = String(req.body?.mainContactEmail || req.body?.inviteEmail || "").trim().toLowerCase();
     const inviteRole = parseAdminCompanyInviteRole(req.body?.inviteRole || req.body?.role || "company_owner");
-    const company = await db.createCompanyWithMeta({ name, standort, notiz, billingCustomerId: null });
+    let billingCustomerId = null;
+    const rawBillingId = req.body?.billingCustomerId ?? req.body?.billing_customer_id;
+    if (rawBillingId != null && String(rawBillingId).trim() !== "") {
+      const bid = Number(rawBillingId);
+      if (Number.isFinite(bid) && bid > 0) {
+        const { rows: custRows } = await db.query("SELECT id FROM customers WHERE id = $1 LIMIT 1", [bid]);
+        if (custRows[0]) billingCustomerId = bid;
+      }
+    }
+    const company = await db.createCompanyWithMeta({ name, standort, notiz, billingCustomerId });
     if (!company) return res.status(500).json({ error: "Firma konnte nicht angelegt werden" });
     let invitation = null;
     if (inviteEmail && inviteEmail.includes("@")) {

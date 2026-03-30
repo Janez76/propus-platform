@@ -21,6 +21,10 @@ concurrency:
   group: deploy-vps-master
   cancel-in-progress: false
 
+# Minimale Token-Rechte (Default-GITHUB_TOKEN).
+permissions:
+  contents: read
+
 # Offizielle Actions auf Node-24-Runtime (keine Node-20-Deprecation-Warnung).
 # Siehe https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
 env:
@@ -123,6 +127,9 @@ jobs:
     needs: deploy
     environment: production
     if: ${{ always() && (github.event_name == 'push' || inputs.run_smoke) && (needs.deploy.result == 'success' || needs.deploy.result == 'skipped') }}
+    permissions:
+      contents: read
+      actions: write
 
     steps:
       - name: Checkout

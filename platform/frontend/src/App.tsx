@@ -1,5 +1,6 @@
 import { Suspense, lazy } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
+import { CustomerMagicSessionRedirect } from "./components/auth/CustomerMagicSessionRedirect";
 import { AppShell } from "./components/layout/AppShell";
 import { OfflineIndicator } from "./components/layout/OfflineIndicator";
 import { useAuth } from "./hooks/useAuth";
@@ -149,6 +150,7 @@ function PublicBookingIndex() {
 export default function App() {
   return (
     <>
+      <CustomerMagicSessionRedirect />
       <OfflineIndicator />
       <Suspense fallback={<PageSkeleton />}>
         <Routes>

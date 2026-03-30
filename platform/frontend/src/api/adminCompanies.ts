@@ -83,6 +83,8 @@ export async function createAdminCompany(
     inviteEmail?: string;
     primaryContactEmail?: string;
     inviteRole?: CompanyMemberRole | string;
+    /** Stammkunde (Buchhaltung) – Verknüpfung in `companies.billing_customer_id` */
+    billingCustomerId?: number | null;
   },
 ) {
   return apiRequest<{ ok: true; company: Record<string, unknown>; invitation: unknown }>(
@@ -95,6 +97,9 @@ export async function createAdminCompany(
       notiz: body.notiz,
       mainContactEmail: body.inviteEmail || body.primaryContactEmail || "",
       role: body.inviteRole || "company_owner",
+      ...(body.billingCustomerId != null && Number.isFinite(body.billingCustomerId)
+        ? { billingCustomerId: body.billingCustomerId }
+        : {}),
     },
   );
 }

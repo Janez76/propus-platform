@@ -11,15 +11,16 @@
  *   my.matterport.com → Einstellungen → «Verwaltung von API-Token» (Model API).
  *   Nicht verwechseln mit «SDK-Schlüsseln» für eingebettete Showcase-Ansichten.
  *
- * Env: MATTERPORT_TOKEN_ID, MATTERPORT_TOKEN_SECRET (oder MATTERPORT_API_KEY für Bearer-Fallback)
+ * Env: MATTERPORT_TOKEN_ID, MATTERPORT_TOKEN_SECRET (oder MATTERPORT_API_KEY für Bearer-Fallback).
+ * Zusätzlich: Admin → Einstellungen → Matterport API (tour_manager.settings), überschreibt/ergänzt .env.
  *
  * Model-Felder (GraphQL): id, name, state, created, modified, publication { url, address, ... }
  *   created/modified: DateTime (ISO 8601)
  *   state: active | inactive | processing | failed | pending | staging
  */
 
-const MATTERPORT_TOKEN_ID = process.env.MATTERPORT_TOKEN_ID || '';
-const MATTERPORT_TOKEN_SECRET = process.env.MATTERPORT_TOKEN_SECRET || process.env.MATTERPORT_API_KEY || '';
+const { getMatterportApiCredentials } = require('./settings');
+
 const MATTERPORT_BASE = 'https://api.matterport.com/api/models';
 
 const GRAPH_URLS = [
@@ -35,13 +36,44 @@ const MSG_MISSING_CREDS =
 const MSG_AUTH_REJECTED =
   'Matterport lehnt die Anmeldung ab. Token-ID und Secret aus «Verwaltung von API-Token» verwenden (Basic Auth). SDK-Schlüssel für Showcase funktionieren für diese API nicht.';
 
-function getAuthHeader() {
-  if (MATTERPORT_TOKEN_ID && MATTERPORT_TOKEN_SECRET) {
-    const basic = Buffer.from(`${MATTERPORT_TOKEN_ID}:${MATTERPORT_TOKEN_SECRET}`).toString('base64');
+let credsCache = null;
+let credsCacheAt = 0;
+const CREDS_TTL_MS = 30_000;
+
+function invalidateMatterportCredentialsCache() {
+  credsCache = null;
+  credsCacheAt = 0;
+}
+
+async function resolveCredentials() {
+  const now = Date.now();
+  if (credsCache && now - credsCacheAt < CREDS_TTL_MS) {
+    return credsCache;
+  }
+  let stored = { tokenId: '', tokenSecret: '' };
+  try {
+    stored = await getMatterportApiCredentials();
+  } catch (e) {
+    console.warn('Matterport resolveCredentials:', e.message);
+  }
+  const envId = process.env.MATTERPORT_TOKEN_ID || '';
+  const envSecret = process.env.MATTERPORT_TOKEN_SECRET || process.env.MATTERPORT_API_KEY || '';
+  credsCache = {
+    tokenId: String(stored.tokenId || '').trim() || envId,
+    tokenSecret: String(stored.tokenSecret || '').trim() || envSecret,
+  };
+  credsCacheAt = now;
+  return credsCache;
+}
+
+async function getAuthHeader() {
+  const { tokenId, tokenSecret } = await resolveCredentials();
+  if (tokenId && tokenSecret) {
+    const basic = Buffer.from(`${tokenId}:${tokenSecret}`).toString('base64');
     return `Basic ${basic}`;
   }
-  if (MATTERPORT_TOKEN_SECRET) {
-    return `Bearer ${MATTERPORT_TOKEN_SECRET}`;
+  if (tokenSecret) {
+    return `Bearer ${tokenSecret}`;
   }
   return null;
 }
@@ -53,7 +85,7 @@ function allowsLinkWithoutVerify() {
 }
 
 async function graphRequest(query, variables = {}) {
-  const auth = getAuthHeader();
+  const auth = await getAuthHeader();
   if (!auth) {
     return { data: null, errors: [{ message: MSG_MISSING_CREDS }] };
   }
@@ -84,7 +116,7 @@ async function listModels() {
   const all = [];
   let offset = null;
   const result = { results: [], totalResults: 0, error: null };
-  if (!getAuthHeader()) {
+  if (!(await getAuthHeader())) {
     result.error = MSG_MISSING_CREDS;
     return result;
   }
@@ -120,7 +152,7 @@ async function listModels() {
 }
 
 async function getModel(modelId) {
-  if (!getAuthHeader()) {
+  if (!(await getAuthHeader())) {
     return { model: null, error: MSG_MISSING_CREDS };
   }
   const gql = `query getModel($modelId: ID!) {
@@ -157,7 +189,7 @@ async function getModel(modelId) {
 }
 
 async function archiveSpace(spaceId) {
-  const auth = getAuthHeader();
+  const auth = await getAuthHeader();
   if (!auth) {
     console.warn('MATTERPORT_TOKEN_ID/SECRET not set, skipping archive', spaceId);
     return { success: false };
@@ -183,7 +215,7 @@ async function archiveSpace(spaceId) {
 }
 
 async function unarchiveSpace(spaceId) {
-  const auth = getAuthHeader();
+  const auth = await getAuthHeader();
   if (!auth) {
     console.warn('MATTERPORT_TOKEN_ID/SECRET not set, skipping unarchive', spaceId);
     return { success: false };
@@ -245,7 +277,7 @@ const VISIBILITY_MAP = {
 };
 
 async function setVisibility(spaceId, visibilityKey, password = null) {
-  if (!getAuthHeader()) return { success: false, error: 'Kein Matterport-Token' };
+  if (!(await getAuthHeader())) return { success: false, error: 'Kein Matterport-Token' };
 
   const visibility = VISIBILITY_MAP[visibilityKey] || visibilityKey.toLowerCase();
 
@@ -275,7 +307,7 @@ async function setVisibility(spaceId, visibilityKey, password = null) {
  * GraphQL: patchModel(id, patch: { name }).
  */
 async function patchModelName(spaceId, name) {
-  if (!getAuthHeader()) return { success: false, error: 'Kein Matterport-Token' };
+  if (!(await getAuthHeader())) return { success: false, error: 'Kein Matterport-Token' };
   const trimmed = name != null ? String(name).trim() : '';
   if (!spaceId || !trimmed) return { success: false, error: 'Modell-ID oder Name fehlt' };
 
@@ -321,4 +353,5 @@ module.exports = {
   setVisibility,
   patchModelName,
   deriveTourDisplayLabelFromModel,
+  invalidateMatterportCredentialsCache,
 };

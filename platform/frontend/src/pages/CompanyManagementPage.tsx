@@ -27,6 +27,12 @@ import {
 import { usePermissions } from "../hooks/usePermissions";
 import { useAuthStore } from "../store/authStore";
 import { cn } from "../lib/utils";
+import { CustomerAutocompleteInput } from "../components/ui/CustomerAutocompleteInput";
+import type { Customer } from "../api/customers";
+
+function isSynthCustomerEmail(e?: string) {
+  return String(e || "").toLowerCase().endsWith("@company.local");
+}
 
 type PageTab = "firms" | "invitations";
 type StatusFilter = "alle" | "aktiv" | "ausstehend" | "inaktiv";
@@ -74,6 +80,7 @@ export function CompanyManagementPage() {
   const [newStandort, setNewStandort] = useState("");
   const [newNotiz, setNewNotiz] = useState("");
   const [newInviteEmail, setNewInviteEmail] = useState("");
+  const [newBillingCustomerId, setNewBillingCustomerId] = useState<number | null>(null);
   const [newSaving, setNewSaving] = useState(false);
   const [newErr, setNewErr] = useState("");
 
@@ -152,12 +159,14 @@ export function CompanyManagementPage() {
         notiz: newNotiz.trim(),
         inviteEmail: newInviteEmail.trim(),
         inviteRole: "company_owner",
+        billingCustomerId: newBillingCustomerId ?? undefined,
       });
       setShowNewCompany(false);
       setNewName("");
       setNewStandort("");
       setNewNotiz("");
       setNewInviteEmail("");
+      setNewBillingCustomerId(null);
       await load();
     } catch (e) {
       setNewErr(e instanceof Error ? e.message : "Fehler");
@@ -349,7 +358,10 @@ export function CompanyManagementPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowNewCompany(true)}
+                  onClick={() => {
+                    setNewBillingCustomerId(null);
+                    setShowNewCompany(true);
+                  }}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--accent)] px-4 py-1.5 text-sm font-semibold text-black hover:bg-[var(--accent)]/90"
                 >
                   <Plus className="h-4 w-4" />
@@ -628,6 +640,7 @@ export function CompanyManagementPage() {
                 onClick={() => {
                   setShowNewCompany(false);
                   setNewErr("");
+                  setNewBillingCustomerId(null);
                 }}
                 className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border-soft)]"
               >
@@ -637,7 +650,34 @@ export function CompanyManagementPage() {
             <div className="space-y-3">
               <label className="block text-xs text-[var(--text-muted)]">
                 Name *
-                <input className="ui-input mt-1" value={newName} onChange={(e) => setNewName(e.target.value)} required />
+                <CustomerAutocompleteInput
+                  token={token || undefined}
+                  className="ui-input mt-1 w-full"
+                  value={newName}
+                  minChars={2}
+                  maxSuggestions={10}
+                  placeholder="Tippen für Kundenvorschläge (Name, Firma, E-Mail)…"
+                  selectValue={(c) => String(c.company || "").trim() || c.name || ""}
+                  onChange={(v) => {
+                    setNewName(v);
+                    setNewBillingCustomerId(null);
+                  }}
+                  onSelectCustomer={(c: Customer) => {
+                    setNewBillingCustomerId(Number(c.id) > 0 ? c.id : null);
+                    const loc = [c.zip, c.city].filter(Boolean).join(" ");
+                    setNewStandort((prev) => (prev.trim() ? prev : loc || c.zipcity || ""));
+                    setNewInviteEmail((prev) => {
+                      if (prev.trim()) return prev;
+                      const em = String(c.email || "").trim();
+                      if (em && !isSynthCustomerEmail(em)) return em;
+                      return prev;
+                    });
+                  }}
+                  required
+                />
+                <span className="mt-1 block text-[11px] text-[var(--text-subtle)]">
+                  Vorschläge aus dem Kundenstamm; bei Auswahl wird die Firma mit dem Kunden verknüpft.
+                </span>
               </label>
               <label className="block text-xs text-[var(--text-muted)]">
                 Standort
@@ -661,7 +701,10 @@ export function CompanyManagementPage() {
             <div className="mt-4 flex gap-2">
               <button
                 type="button"
-                onClick={() => setShowNewCompany(false)}
+                onClick={() => {
+                  setShowNewCompany(false);
+                  setNewBillingCustomerId(null);
+                }}
                 className="flex-1 rounded-lg border border-[var(--border-soft)] py-2 text-sm"
               >
                 Abbrechen

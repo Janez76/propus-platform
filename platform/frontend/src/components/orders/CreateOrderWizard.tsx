@@ -11,6 +11,8 @@ import {
   AlertCircle,
   UserPlus,
   Users,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { createOrder, updateOrderStatus } from "../../api/orders";
 import { getProducts, type Product } from "../../api/products";
@@ -36,11 +38,21 @@ interface CreateOrderWizardProps {
   onSuccess: () => void;
 }
 
+type OnsiteContactRow = {
+  name: string;
+  phone: string;
+  email: string;
+  calendarInvite: boolean;
+};
+
 type OrderFormData = {
-  // Customer
+  // Customer / Billing
+  salutation: string;
+  first_name: string;
   customerName: string;
   customerEmail: string;
   customerPhone: string;
+  customerPhoneMobile: string;
   company: string;
   // Rechnungsadresse Kunde
   billingStreet: string;
@@ -48,9 +60,24 @@ type OrderFormData = {
   billingZip: string;
   billingCity: string;
   billingZipcity: string;
+  billingOrderRef: string;
+  // Abweichende Rechnungsadresse
+  altBilling: boolean;
+  altCompany: string;
+  altFirstName: string;
+  altName: string;
+  altStreet: string;
+  altZip: string;
+  altCity: string;
+  altZipcity: string;
+  altEmail: string;
+  altOrderRef: string;
+  altNotes: string;
   // Kontakt vor Ort
   onsiteName: string;
   onsitePhone: string;
+  onsiteEmail: string;
+  onsiteCalendarInvite: boolean;
   // CC / Weitere eingeladene Personen
   attendeeEmails: string;
   // Objekt-Adresse
@@ -64,6 +91,7 @@ type OrderFormData = {
   area: string;
   floors: string;
   rooms: string;
+  specials: string;
   desc: string;
   // Service
   packageLabel: string;
@@ -72,6 +100,7 @@ type OrderFormData = {
   // Schedule
   date: string;
   time: string;
+  provisional: boolean;
   durationMin: string;
   photographerKey: string;
   // Pricing
@@ -86,17 +115,34 @@ type OrderFormData = {
 };
 
 const EMPTY_FORM: OrderFormData = {
+  salutation: "",
+  first_name: "",
   customerName: "",
   customerEmail: "",
   customerPhone: "",
+  customerPhoneMobile: "",
   company: "",
   billingStreet: "",
   billingHouseNumber: "",
   billingZip: "",
   billingCity: "",
   billingZipcity: "",
+  billingOrderRef: "",
+  altBilling: false,
+  altCompany: "",
+  altFirstName: "",
+  altName: "",
+  altStreet: "",
+  altZip: "",
+  altCity: "",
+  altZipcity: "",
+  altEmail: "",
+  altOrderRef: "",
+  altNotes: "",
   onsiteName: "",
   onsitePhone: "",
+  onsiteEmail: "",
+  onsiteCalendarInvite: false,
   attendeeEmails: "",
   address: "",
   street: "",
@@ -108,12 +154,14 @@ const EMPTY_FORM: OrderFormData = {
   area: "",
   floors: "1",
   rooms: "",
+  specials: "",
   desc: "",
   packageLabel: "",
   packagePrice: "0",
   addonsText: "",
   date: "",
   time: "",
+  provisional: false,
   durationMin: "60",
   photographerKey: "",
   subtotal: "0",
@@ -143,6 +191,7 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
   const [formData, setFormData] = useState<OrderFormData>({ ...EMPTY_FORM });
   const [selectedPackageCode, setSelectedPackageCode] = useState("");
   const [selectedAddonCodes, setSelectedAddonCodes] = useState<string[]>([]);
+  const [additionalOnsiteContacts, setAdditionalOnsiteContacts] = useState<OnsiteContactRow[]>([]);
   const [initialStatus, setInitialStatus] = useState<StatusKey>("pending");
 
   // Catalog & photographers
@@ -234,6 +283,7 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
     setFormData({ ...EMPTY_FORM });
     setSelectedPackageCode("");
     setSelectedAddonCodes([]);
+    setAdditionalOnsiteContacts([]);
     setInitialStatus("pending");
     setAvailableSlots([]);
     setSlotsLoading(false);
@@ -424,16 +474,19 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
     return null;
   }
 
-  function handleSelectCustomer(customer: { id?: number; name?: string; email?: string; phone?: string; company?: string; onsite_name?: string; onsite_phone?: string; street?: string; zipcity?: string; [key: string]: unknown }) {
+  function handleSelectCustomer(customer: { id?: number; name?: string; email?: string; phone?: string; phone_mobile?: string; company?: string; salutation?: string; first_name?: string; onsite_name?: string; onsite_phone?: string; street?: string; zipcity?: string; [key: string]: unknown }) {
     const street = customer.street || "";
     const zipcity = customer.zipcity || "";
     const zipMatch = zipcity.match(/^(\d{4,5})\s+(.+)$/);
     const isSynthEmail = (e?: string) => String(e || "").toLowerCase().endsWith("@company.local");
     setFormData((prev) => ({
       ...prev,
+      salutation: customer.salutation || prev.salutation,
+      first_name: customer.first_name || prev.first_name,
       customerName: customer.name || "",
       customerEmail: isSynthEmail(customer.email) ? "" : (customer.email || ""),
       customerPhone: customer.phone || "",
+      customerPhoneMobile: customer.phone_mobile || prev.customerPhoneMobile,
       company: customer.company || "",
       onsiteName: "",
       onsitePhone: "",
@@ -482,18 +535,40 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
 
       const fmtPhone = (v: string) => formatPhoneCH(v) || (v || "").trim();
       const result = await createOrder(token, {
+        // Billing / Kunde
+        salutation: formData.salutation,
+        first_name: formData.first_name,
         customerName: formData.customerName,
         customerEmail: formData.customerEmail,
         customerPhone: fmtPhone(formData.customerPhone),
+        customerPhoneMobile: fmtPhone(formData.customerPhoneMobile),
         company: formData.company,
         billingStreet: formData.billingStreet,
         billingHouseNumber: formData.billingHouseNumber,
         billingZip: formData.billingZip,
         billingCity: formData.billingCity,
         billingZipcity: formData.billingZipcity,
+        billingOrderRef: formData.billingOrderRef,
+        // Abweichende Rechnungsadresse
+        altBilling: formData.altBilling,
+        altCompany: formData.altCompany,
+        altFirstName: formData.altFirstName,
+        altName: formData.altName,
+        altStreet: formData.altStreet,
+        altZip: formData.altZip,
+        altCity: formData.altCity,
+        altZipcity: formData.altZipcity,
+        altEmail: formData.altEmail,
+        altOrderRef: formData.altOrderRef,
+        altNotes: formData.altNotes,
+        // Vor-Ort-Kontakt
         onsiteName: formData.onsiteName,
         onsitePhone: fmtPhone(formData.onsitePhone),
+        onsiteEmail: formData.onsiteEmail,
+        onsiteCalendarInvite: formData.onsiteCalendarInvite,
+        additionalOnsiteContacts: additionalOnsiteContacts.filter((c) => c.name.trim() || c.phone.trim()),
         attendeeEmails: formData.attendeeEmails,
+        // Objekt
         address: formData.address,
         street: formData.street,
         zipcity: formData.zipcity,
@@ -501,10 +576,14 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
         area: Number(formData.area || 0),
         floors: Number(formData.floors || 1),
         rooms: formData.rooms,
+        specials: formData.specials,
         desc: formData.desc,
+        // Termin
         date: formData.date,
         time: formData.time,
+        provisional: formData.provisional,
         durationMin: Number(formData.durationMin || 60),
+        // Preise
         subtotal: Number(formData.subtotal || 0),
         discount: Number(formData.discount || 0),
         vat: Number(formData.vat || 0),
@@ -644,6 +723,28 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
               <div className="space-y-3">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
+                    <label className={labelClass}>{t(lang, "booking.step4.salutation")}</label>
+                    <select
+                      value={formData.salutation}
+                      onChange={(e) => updateField("salutation", e.target.value)}
+                      className={inputClass}
+                    >
+                      <option value="">--</option>
+                      <option value="Herr">{t(lang, "booking.step4.mr")}</option>
+                      <option value="Frau">{t(lang, "booking.step4.mrs")}</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className={labelClass}>{t(lang, "booking.step4.firstName")}</label>
+                    <input
+                      type="text"
+                      value={formData.first_name}
+                      onChange={(e) => updateField("first_name", e.target.value)}
+                      className={inputClass}
+                      placeholder={t(lang, "booking.step4.firstName")}
+                    />
+                  </div>
+                  <div>
                     <label className={labelClass}>{t(lang, "wizard.label.customerRequired")}</label>
                     <CustomerAutocompleteInput
                       required
@@ -683,6 +784,16 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                     />
                   </div>
                   <div>
+                    <label className={labelClass}>{t(lang, "booking.step4.mobile")}</label>
+                    <input
+                      type="tel"
+                      value={formData.customerPhoneMobile}
+                      onChange={(e) => updateField("customerPhoneMobile", e.target.value)}
+                      className={inputClass}
+                      placeholder="+41 79 123 45 67"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
                     <label className={labelClass}>{t(lang, "common.company")}</label>
                     <CustomerAutocompleteInput
                       value={formData.company}
@@ -803,7 +914,97 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                         placeholder="Zürich"
                       />
                     </div>
+                    <div>
+                      <label className={labelClass}>{t(lang, "booking.step4.orderRef")}</label>
+                      <input
+                        type="text"
+                        value={formData.billingOrderRef}
+                        onChange={(e) => updateField("billingOrderRef", e.target.value)}
+                        className={inputClass}
+                        placeholder="Ref-Nr."
+                      />
+                    </div>
                   </div>
+                </div>
+
+                {/* Abweichende Rechnungsadresse */}
+                <div className="pt-3 border-t border-slate-100 dark:border-zinc-800">
+                  <label className="flex items-center gap-2 cursor-pointer mb-3">
+                    <input
+                      type="checkbox"
+                      checked={formData.altBilling}
+                      onChange={(e) => updateField("altBilling", e.target.checked)}
+                      className="w-4 h-4 rounded border-slate-300 dark:border-zinc-700 text-[#C5A059]"
+                    />
+                    <span className="text-sm text-slate-700 dark:text-zinc-300">{t(lang, "booking.step4.altBilling")}</span>
+                  </label>
+                  {formData.altBilling && (
+                    <div className="rounded-lg border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800/40 p-4 space-y-3">
+                      <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                        {t(lang, "booking.step4.altBillingTitle")}
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="sm:col-span-2">
+                          <label className={labelClass}>{t(lang, "booking.step4.company")}</label>
+                          <input type="text" value={formData.altCompany} onChange={(e) => updateField("altCompany", e.target.value)} className={inputClass} />
+                        </div>
+                        <div>
+                          <label className={labelClass}>{t(lang, "booking.step4.firstName")}</label>
+                          <input type="text" value={formData.altFirstName} onChange={(e) => updateField("altFirstName", e.target.value)} className={inputClass} />
+                        </div>
+                        <div>
+                          <label className={labelClass}>{t(lang, "booking.step4.lastName")}</label>
+                          <input type="text" value={formData.altName} onChange={(e) => updateField("altName", e.target.value)} className={inputClass} />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className={labelClass}>{t(lang, "booking.step4.street")}</label>
+                          <AddressAutocompleteInput
+                            mode="street"
+                            value={formData.altStreet}
+                            onChange={(v) => updateField("altStreet", v)}
+                            onSelectParsed={(parsed) => {
+                              setFormData((prev) => ({
+                                ...prev,
+                                altStreet: `${parsed.street} ${parsed.houseNumber}`.trim(),
+                                altZip: parsed.zip,
+                                altCity: parsed.city,
+                                altZipcity: `${parsed.zip} ${parsed.city}`.trim(),
+                              }));
+                            }}
+                            onSelectZipcity={(zipcity) => {
+                              if (!zipcity) return;
+                              const m = zipcity.match(/^(\d{4,5})\s+(.+)$/);
+                              setFormData((prev) => ({ ...prev, altZipcity: zipcity, altZip: m ? m[1] : prev.altZip, altCity: m ? m[2] : prev.altCity }));
+                            }}
+                            lang={lang}
+                            className={inputClass}
+                            placeholder="Musterstrasse 12"
+                            minChars={3}
+                          />
+                        </div>
+                        <div>
+                          <label className={labelClass}>{t(lang, "booking.step4.zip")}</label>
+                          <input type="text" value={formData.altZip} onChange={(e) => { updateField("altZip", e.target.value); updateField("altZipcity", `${e.target.value} ${formData.altCity}`.trim()); }} className={inputClass} placeholder="8001" />
+                        </div>
+                        <div>
+                          <label className={labelClass}>{t(lang, "booking.step4.city")}</label>
+                          <input type="text" value={formData.altCity} onChange={(e) => { updateField("altCity", e.target.value); updateField("altZipcity", `${formData.altZip} ${e.target.value}`.trim()); }} className={inputClass} placeholder="Zürich" />
+                        </div>
+                        <div>
+                          <label className={labelClass}>{t(lang, "booking.step4.email")}</label>
+                          <input type="email" value={formData.altEmail} onChange={(e) => updateField("altEmail", e.target.value)} className={inputClass} />
+                        </div>
+                        <div>
+                          <label className={labelClass}>{t(lang, "booking.step4.orderRef")}</label>
+                          <input type="text" value={formData.altOrderRef} onChange={(e) => updateField("altOrderRef", e.target.value)} className={inputClass} />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className={labelClass}>{t(lang, "booking.step4.notes")}</label>
+                          <textarea value={formData.altNotes} onChange={(e) => updateField("altNotes", e.target.value)} rows={2} className={inputClass} />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
               </div>
@@ -896,28 +1097,45 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                   )}
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <>
-                      <div>
-                        <label className={labelClass}>{t(lang, "wizard.label.onsiteName")}</label>
-                        <input
-                          type="text"
-                          value={formData.onsiteName}
-                          onChange={(e) => updateField("onsiteName", e.target.value)}
-                          className={inputClass}
-                          placeholder="Vor-Ort-Name (optional)"
-                        />
-                      </div>
-                      <div>
-                        <label className={labelClass}>{t(lang, "wizard.label.onsitePhone")}</label>
-                        <input
-                          type="tel"
-                          value={formData.onsitePhone}
-                          onChange={(e) => updateField("onsitePhone", e.target.value)}
-                          className={inputClass}
-                          placeholder="+41 79 123 45 67"
-                        />
-                      </div>
-                    </>
+                    <div>
+                      <label className={labelClass}>{t(lang, "wizard.label.onsiteName")}</label>
+                      <input
+                        type="text"
+                        value={formData.onsiteName}
+                        onChange={(e) => updateField("onsiteName", e.target.value)}
+                        className={inputClass}
+                        placeholder="Vor-Ort-Name (optional)"
+                      />
+                    </div>
+                    <div>
+                      <label className={labelClass}>{t(lang, "wizard.label.onsitePhone")}</label>
+                      <input
+                        type="tel"
+                        value={formData.onsitePhone}
+                        onChange={(e) => updateField("onsitePhone", e.target.value)}
+                        className={inputClass}
+                        placeholder="+41 79 123 45 67"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className={labelClass}>{t(lang, "booking.step1.onsiteEmail")}</label>
+                      <input
+                        type="email"
+                        value={formData.onsiteEmail}
+                        onChange={(e) => updateField("onsiteEmail", e.target.value)}
+                        className={inputClass}
+                        placeholder="vorort@beispiel.ch"
+                      />
+                    </div>
+                    <label className="flex cursor-pointer items-start gap-3 sm:col-span-2">
+                      <input
+                        type="checkbox"
+                        checked={formData.onsiteCalendarInvite}
+                        onChange={(e) => updateField("onsiteCalendarInvite", e.target.checked)}
+                        className="mt-0.5 w-4 h-4 rounded border-slate-300 dark:border-zinc-700 text-[#C5A059]"
+                      />
+                      <span className="text-sm text-slate-700 dark:text-zinc-300">{t(lang, "booking.step1.onsiteCalendarInvite")}</span>
+                    </label>
                     <div className="sm:col-span-2">
                       <label className={labelClass}>
                         {t(lang, "wizard.label.ccEmails")}
@@ -934,6 +1152,49 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                       />
                     </div>
                   </div>
+
+                  {/* Zusätzliche Vor-Ort-Kontakte */}
+                  {additionalOnsiteContacts.map((row, idx) => (
+                    <div key={idx} className="mt-3 rounded-lg border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800/40 p-3">
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <span className="text-xs font-bold uppercase tracking-wider text-[#C5A059]">
+                          {t(lang, "booking.step1.onsiteAdditionalPerson")} ({idx + 2})
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setAdditionalOnsiteContacts((prev) => prev.filter((_, i) => i !== idx))}
+                          className="inline-flex items-center gap-1 rounded-lg border border-slate-300 dark:border-zinc-600 px-2 py-1 text-xs text-slate-600 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-700"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" /> {t(lang, "booking.step1.onsiteRemovePerson")}
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className={labelClass}>{t(lang, "booking.step1.onsiteName")}</label>
+                          <input type="text" value={row.name} onChange={(e) => setAdditionalOnsiteContacts((prev) => prev.map((r, i) => i === idx ? { ...r, name: e.target.value } : r))} className={inputClass} />
+                        </div>
+                        <div>
+                          <label className={labelClass}>{t(lang, "booking.step1.onsitePhone")}</label>
+                          <input type="tel" value={row.phone} onChange={(e) => setAdditionalOnsiteContacts((prev) => prev.map((r, i) => i === idx ? { ...r, phone: e.target.value } : r))} className={inputClass} />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className={labelClass}>{t(lang, "booking.step1.onsiteEmail")}</label>
+                          <input type="email" value={row.email} onChange={(e) => setAdditionalOnsiteContacts((prev) => prev.map((r, i) => i === idx ? { ...r, email: e.target.value } : r))} className={inputClass} />
+                        </div>
+                        <label className="flex cursor-pointer items-start gap-3 sm:col-span-2">
+                          <input type="checkbox" checked={row.calendarInvite} onChange={(e) => setAdditionalOnsiteContacts((prev) => prev.map((r, i) => i === idx ? { ...r, calendarInvite: e.target.checked } : r))} className="mt-0.5 w-4 h-4 rounded border-slate-300 dark:border-zinc-700 text-[#C5A059]" />
+                          <span className="text-sm text-slate-700 dark:text-zinc-300">{t(lang, "booking.step1.onsiteCalendarInvite")}</span>
+                        </label>
+                      </div>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setAdditionalOnsiteContacts((prev) => [...prev, { name: "", phone: "", email: "", calendarInvite: false }])}
+                    className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 dark:border-zinc-600 py-2 text-sm font-medium text-slate-600 dark:text-zinc-400 transition-colors hover:border-[#C5A059]/50 hover:text-[#C5A059]"
+                  >
+                    <Plus className="h-4 w-4" /> {t(lang, "booking.step1.onsiteAddPerson")}
+                  </button>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -979,6 +1240,16 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                       onChange={(e) => updateField("rooms", e.target.value)}
                       className={inputClass}
                       placeholder="4.5"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>{t(lang, "booking.step1.specials")}</label>
+                    <input
+                      type="text"
+                      value={formData.specials}
+                      onChange={(e) => updateField("specials", e.target.value)}
+                      className={inputClass}
+                      placeholder={t(lang, "booking.step1.specialsPlaceholder")}
                     />
                   </div>
                 </div>
@@ -1163,6 +1434,19 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                   className={inputClass}
                 />
                 <DbFieldHint fieldPath="schedule.date" />
+              </div>
+
+              {/* Provisorisch */}
+              <div className="sm:col-span-2">
+                <label className="flex cursor-pointer items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={formData.provisional}
+                    onChange={(e) => updateField("provisional", e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded border-slate-300 dark:border-zinc-700 text-[#C5A059]"
+                  />
+                  <span className="text-sm text-slate-700 dark:text-zinc-300">{t(lang, "orderDetails.status.provisional")}</span>
+                </label>
               </div>
             </div>
 
