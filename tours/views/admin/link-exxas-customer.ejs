@@ -166,10 +166,10 @@
 
           <!-- Verstecktes Formular -->
           <form method="post" action="/admin/tours/<%= tour.id %>/link-exxas-customer" id="save-form">
+            <input type="hidden" name="customer_id" id="f-customer-id" value="">
             <input type="hidden" name="customer_name" id="f-name">
             <input type="hidden" name="customer_email" id="f-email">
             <input type="hidden" name="customer_contact" id="f-contact">
-            <input type="hidden" name="kunde_ref" id="f-ref">
           </form>
 
           <div class="form-actions">
@@ -319,12 +319,18 @@
       setText('prev-name', name);
       setText('prev-contact', contact || '–');
       setText('prev-email', email || '–');
-      setText('prev-ref', ref || '–');
+      if (ref) {
+        setText('prev-ref', ref);
+      } else {
+        const el = document.getElementById('prev-ref');
+        el.textContent = 'wird beim Speichern vergeben';
+        el.classList.add('empty');
+      }
 
+      document.getElementById('f-customer-id').value = String(selectedCustomer.id);
       document.getElementById('f-name').value = name;
       document.getElementById('f-contact').value = contact;
       document.getElementById('f-email').value = email;
-      document.getElementById('f-ref').value = ref;
     }
 
     function setText(id, val) {

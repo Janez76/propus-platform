@@ -11,7 +11,7 @@ async function searchLocalCustomers(needle, limit = 10) {
   const like = `%${needle}%`;
   const { rows } = await pool.query(
     `SELECT c.id, c.email, c.name, c.company, c.phone, c.exxas_contact_id,
-            c.street, c.zipcity
+            c.customer_number, c.street, c.zipcity
      FROM core.customers c
      WHERE LOWER(c.name) LIKE LOWER($1)
         OR LOWER(COALESCE(c.company, '')) LIKE LOWER($1)
@@ -20,11 +20,58 @@ async function searchLocalCustomers(needle, limit = 10) {
         OR LOWER(COALESCE(c.street, '')) LIKE LOWER($1)
         OR LOWER(COALESCE(c.zipcity, '')) LIKE LOWER($1)
         OR (c.exxas_contact_id IS NOT NULL AND CAST(c.exxas_contact_id AS TEXT) ILIKE $1)
+        OR (c.customer_number IS NOT NULL AND CAST(c.customer_number AS TEXT) ILIKE $1)
      ORDER BY c.company, c.name
      LIMIT $2`,
     [like, limit]
   );
   return rows;
+}
+
+/**
+ * Stellt sicher, dass core.customers.customer_number gesetzt ist:
+ * bereits vorhanden → zurückgeben, sonst nächste reine Zahl ab 10001.
+ */
+async function ensureCustomerNumber(customerId) {
+  if (!customerId) return null;
+  const id = parseInt(String(customerId), 10);
+  if (!Number.isFinite(id) || id < 1) return null;
+
+  const { rows } = await pool.query(
+    'SELECT customer_number FROM core.customers WHERE id = $1',
+    [id]
+  );
+  if (!rows[0]) return null;
+  if (rows[0].customer_number) return rows[0].customer_number;
+
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    const { rows: maxRows } = await pool.query(
+      `SELECT MAX(CAST(customer_number AS INTEGER)) AS max
+       FROM core.customers
+       WHERE customer_number ~ '^[0-9]+$'`
+    );
+    const next = String((maxRows[0]?.max != null ? maxRows[0].max : 10000) + 1);
+
+    try {
+      const { rows: updated } = await pool.query(
+        `UPDATE core.customers SET customer_number = $1, updated_at = NOW()
+         WHERE id = $2 AND customer_number IS NULL
+         RETURNING customer_number`,
+        [next, id]
+      );
+      if (updated[0]) return updated[0].customer_number;
+    } catch (e) {
+      if (e && e.code === '23505') continue;
+      throw e;
+    }
+
+    const { rows: refetch } = await pool.query(
+      'SELECT customer_number FROM core.customers WHERE id = $1',
+      [id]
+    );
+    if (refetch[0]?.customer_number) return refetch[0].customer_number;
+  }
+  return null;
 }
 
 async function getLocalContacts(customerId) {
@@ -112,7 +159,11 @@ async function importFromExxas(exxasCustomerId) {
     if (byEmail) {
       if (!byEmail.exxas_contact_id) {
         await pool.query(
-          `UPDATE core.customers SET exxas_contact_id = $1, updated_at = NOW() WHERE id = $2`,
+          `UPDATE core.customers
+           SET exxas_contact_id = $1,
+               customer_number = COALESCE(customer_number, $1),
+               updated_at = NOW()
+           WHERE id = $2`,
           [ref, byEmail.id]
         );
       }
@@ -121,10 +172,11 @@ async function importFromExxas(exxasCustomerId) {
   }
 
   const { rows } = await pool.query(
-    `INSERT INTO core.customers (email, name, company, phone, exxas_contact_id)
-     VALUES ($1, $2, $3, $4, $5)
+    `INSERT INTO core.customers (email, name, company, phone, exxas_contact_id, customer_number)
+     VALUES ($1, $2, $3, $4, $5, $5)
      ON CONFLICT ((LOWER(email))) DO UPDATE SET
        exxas_contact_id = COALESCE(EXCLUDED.exxas_contact_id, core.customers.exxas_contact_id),
+       customer_number = COALESCE(core.customers.customer_number, EXCLUDED.customer_number),
        updated_at = NOW()
      RETURNING *`,
     [
@@ -193,10 +245,14 @@ function toLinkModalCustomer(customerRow, contactRows) {
   const contacts = Array.isArray(contactRows) ? contactRows : [];
   return {
     id: String(customerRow.id),
-    nummer: customerRow.exxas_contact_id || '',
+    nummer: customerRow.customer_number || customerRow.exxas_contact_id || '',
     firmenname: customerRow.company || customerRow.name || '',
     email: customerRow.email || null,
-    label: `${customerRow.company || customerRow.name || customerRow.id}${customerRow.exxas_contact_id ? ` (Ref. ${customerRow.exxas_contact_id})` : ''}`,
+    label: `${customerRow.company || customerRow.name || customerRow.id}${
+      customerRow.customer_number || customerRow.exxas_contact_id
+        ? ` (Nr. ${customerRow.customer_number || customerRow.exxas_contact_id})`
+        : ''
+    }`,
     source: 'local',
     contacts: contacts.map((ct) => ({ name: ct.name, email: ct.email, tel: ct.phone })),
   };
@@ -212,4 +268,5 @@ module.exports = {
   getCustomerByExxasRef,
   importFromExxas,
   searchCustomersWithExxasFallback,
+  ensureCustomerNumber,
 };

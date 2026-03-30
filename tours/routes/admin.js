@@ -3568,7 +3568,7 @@ router.get('/tours/:id/link-customer/autocomplete', async (req, res) => {
           id: c.id,
           display_name: c.company || c.name || '',
           email: c.email || '',
-          ref: c.exxas_contact_id || '',
+          ref: c.customer_number || c.exxas_contact_id || '',
           contacts: contacts.map((ct) => ({
             id: ct.id,
             name: ct.name || '',
@@ -3601,25 +3601,39 @@ router.get('/tours/:id/link-exxas-customer', async (req, res) => {
 
 router.post('/tours/:id/link-exxas-customer', async (req, res) => {
   const { id } = req.params;
-  const { customer_name, customer_email, customer_contact, kunde_ref } = req.body || {};
+  const { customer_id, customer_name, customer_email, customer_contact } = req.body || {};
 
   const name = (customer_name || '').trim() || null;
-  if (!name) {
+  const cid = parseInt(String(customer_id || '').trim(), 10);
+  if (!name || !Number.isFinite(cid) || cid < 1) {
     return res.redirect(`/admin/tours/${id}/link-exxas-customer?error=missing`);
   }
 
   const tourResult = await pool.query('SELECT id FROM tour_manager.tours WHERE id = $1', [id]);
   if (!tourResult.rows[0]) return res.status(404).send('Tour nicht gefunden');
 
+  const customer = await customerLookup.getCustomerById(cid);
+  if (!customer) {
+    return res.redirect(`/admin/tours/${id}/link-exxas-customer?error=missing`);
+  }
+  const expectedDisplay = String(customer.company || customer.name || '').trim();
+  if (expectedDisplay !== name) {
+    return res.redirect(`/admin/tours/${id}/link-exxas-customer?error=missing`);
+  }
+
   const email = (customer_email || '').trim() || null;
   const contact = (customer_contact || '').trim() || null;
-  const ref = (kunde_ref || '').trim() || null;
+  const kundeRef = await customerLookup.ensureCustomerNumber(cid);
+  if (!kundeRef) {
+    return res.redirect(`/admin/tours/${id}/link-exxas-customer?error=missing`);
+  }
 
   await pool.query(
     `UPDATE tour_manager.tours
-     SET kunde_ref = $1, customer_name = $2, customer_email = $3, customer_contact = $4, updated_at = NOW()
-     WHERE id = $5`,
-    [ref, name, email, contact, id]
+     SET kunde_ref = $1, customer_name = $2, customer_email = $3, customer_contact = $4,
+         customer_id = $5, updated_at = NOW()
+     WHERE id = $6`,
+    [kundeRef, name, email, contact, cid, id]
   );
 
   res.redirect(`/admin/tours/${id}/link-exxas-customer?saved=1`);
