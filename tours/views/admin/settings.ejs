@@ -79,6 +79,33 @@
     }
     .api-cred-clear { margin-top: 1rem; display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.84rem; color: var(--text-muted); }
     .api-cred-clear input { margin-top: 0.2rem; accent-color: var(--accent); }
+    .matterport-cred-panel {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.05rem;
+      margin-bottom: 1.1rem;
+      background: var(--bg);
+    }
+    .matterport-cred-panel-title {
+      margin: 0 0 0.35rem 0;
+      font-size: 0.98rem;
+      font-weight: 700;
+      color: var(--gray-900);
+    }
+    .matterport-cred-panel > .hint { margin-top: 0; margin-bottom: 0.75rem; }
+    .matterport-cred-warn {
+      font-size: 0.8rem;
+      line-height: 1.45;
+      color: var(--text-muted);
+      padding: 0.55rem 0.65rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg-hover);
+      margin-bottom: 1rem;
+    }
+    .mp-field-label { display: block; font-size: 0.82rem; font-weight: 700; margin-bottom: 0.35rem; color: var(--gray-900); }
+    .mp-field-label span.mp-term { font-weight: 800; letter-spacing: 0.02em; }
+    .mp-field-caption { font-size: 0.78rem; font-weight: 500; color: var(--text-muted); margin-top: 0.3rem; line-height: 1.4; }
   </style>
 </head>
 <body>
@@ -135,25 +162,36 @@
             <span class="settings-group-chevron"><i class="fa-solid fa-chevron-down"></i></span>
           </summary>
           <div class="settings-group-body">
-          <p class="api-base">Basis: <code>https://api.matterport.com/api/models</code></p>
-          <p class="hint" style="margin-bottom:1rem;">Zugangsdaten für die Model API: <strong>API-Token</strong> unter my.matterport.com (nicht der Showcase-SDK-Schlüssel). Werden in der Datenbank gespeichert; ohne Eintrag hier gelten <code>MATTERPORT_TOKEN_ID</code> / <code>MATTERPORT_TOKEN_SECRET</code> aus der Server-Umgebung.</p>
-          <div class="api-cred-row">
-            <label for="matterportTokenId">Token-ID</label>
-            <input type="text" name="matterportTokenId" id="matterportTokenId" autocomplete="off"
-              value="<%= matterportStored?.tokenId || '' %>"
-              placeholder="z. B. aus «Verwaltung von API-Token»">
+          <p class="api-base">Model-API-Basis: <code>https://api.matterport.com/api/models</code></p>
+          <p class="hint" style="margin-bottom:1rem;">Speicherung in dieser App in der Datenbank. Ohne Eintrag hier: Umgebungsvariablen <code>MATTERPORT_TOKEN_ID</code> und <code>MATTERPORT_TOKEN_SECRET</code>.</p>
+
+          <div class="matterport-cred-panel" aria-labelledby="mp-api-token-heading">
+            <h3 class="matterport-cred-panel-title" id="mp-api-token-heading">Verwaltung von API-Token</h3>
+            <p class="hint">Entspricht dem Bereich <strong>«Verwaltung von API-Token»</strong> auf <strong>my.matterport.com</strong> (nicht SDK).</p>
+            <div class="matterport-cred-warn">
+              <strong>Verwaltung von SDK-Schlüsseln</strong> ist etwas anderes: Dort liegen Schlüssel für den <strong>Showcase</strong> (eingebettete Ansicht). Für diese Model API brauchen Sie ausschließlich <strong>Token-ID</strong> und <strong>Secret</strong> aus <strong>API-Token</strong>.
+            </div>
+            <div class="api-cred-row">
+              <label class="mp-field-label" for="matterportTokenId"><span class="mp-term">Token-ID</span></label>
+              <input type="text" name="matterportTokenId" id="matterportTokenId" autocomplete="off" spellcheck="false"
+                value="<%= matterportStored?.tokenId || '' %>"
+                placeholder="ID aus der API-Token-Zeile (Kopieren)">
+              <p class="mp-field-caption">Die <strong>Token-ID</strong> ist der lange Code in derselben Zeile wie Ihr Token-Name (z. B. «manager»). Nicht den Namen eintragen – nur die ID, die Matterport dort anzeigt bzw. per «Kopieren» übernehmbar ist.</p>
+            </div>
+            <div class="api-cred-row">
+              <label class="mp-field-label" for="matterportTokenSecret"><span class="mp-term">Secret</span></label>
+              <input type="password" name="matterportTokenSecret" id="matterportTokenSecret" autocomplete="new-password" value=""
+                placeholder="<%= matterportStored?.hasSecret ? 'Leer lassen = Secret unverändert' : 'Secret (beim Anlegen des API-Tokens angezeigt)' %>">
+              <p class="mp-field-caption">Das <strong>Secret</strong> gehört zum <strong>selben</strong> API-Token wie die Token-ID. Matterport zeigt es in der Regel nur beim Erstellen; nicht mit einem SDK-Schlüssel verwechseln.</p>
+              <% if (matterportStored?.hasSecret) { %>
+              <p class="hint" style="margin-top:0.45rem;margin-bottom:0;">Ein Secret ist bereits gespeichert. Nur ausfüllen, wenn Sie es ersetzen möchten.</p>
+              <% } %>
+            </div>
           </div>
-          <div class="api-cred-row">
-            <label for="matterportTokenSecret">Token-Secret</label>
-            <input type="password" name="matterportTokenSecret" id="matterportTokenSecret" autocomplete="new-password" value=""
-              placeholder="<%= matterportStored?.hasSecret ? 'Leer lassen = unverändert' : 'Secret aus dem API-Token' %>">
-            <% if (matterportStored?.hasSecret) { %>
-            <p class="hint" style="margin-top:0.35rem;">Ein Secret ist bereits gespeichert. Neues Secret nur eintragen, wenn Sie es ändern möchten.</p>
-            <% } %>
-          </div>
+
           <div class="api-cred-clear">
             <input type="checkbox" name="matterport_clear_stored" value="1" id="matterport_clear_stored">
-            <label for="matterport_clear_stored" style="margin:0;font-weight:500;cursor:pointer;">Gespeicherte Matterport-Zugangsdaten in der Datenbank löschen (es gelten wieder nur Umgebungsvariablen).</label>
+            <label for="matterport_clear_stored" style="margin:0;font-weight:500;cursor:pointer;">API-Token-Zugangsdaten in der Datenbank löschen (nur noch Umgebungsvariablen <code>MATTERPORT_*</code>).</label>
           </div>
           <ul class="api-list">
             <li class="api-item"><span class="method get">GET</span><div><div class="endpoint">GraphQL models (listModels)</div><div class="desc">Alle 3D-Models auflisten</div></div></li>
