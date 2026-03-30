@@ -137,6 +137,16 @@ async function ensurePortalTeamSchema() {
     SET role = 'mitarbeiter'
     WHERE role IS NULL OR LOWER(TRIM(role)) = 'member'
   `);
+  // customer_id-Spalte: Migration 016 fügt diese hinzu, hier nur sicherstellen
+  await pool.query(`
+    ALTER TABLE tour_manager.portal_team_members
+    ADD COLUMN IF NOT EXISTS customer_id BIGINT REFERENCES core.customers(id) ON DELETE CASCADE
+  `).catch(() => null);
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_portal_team_customer_member
+    ON tour_manager.portal_team_members (customer_id, (LOWER(member_email)))
+    WHERE customer_id IS NOT NULL
+  `).catch(() => null);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS tour_manager.portal_team_exclusions (
       id BIGSERIAL PRIMARY KEY,
@@ -151,6 +161,10 @@ async function ensurePortalTeamSchema() {
     CREATE UNIQUE INDEX IF NOT EXISTS idx_portal_team_exclusions_owner_member
     ON tour_manager.portal_team_exclusions ((LOWER(owner_email)), (LOWER(member_email)))
   `);
+  await pool.query(`
+    ALTER TABLE tour_manager.portal_team_exclusions
+    ADD COLUMN IF NOT EXISTS customer_id BIGINT REFERENCES core.customers(id) ON DELETE CASCADE
+  `).catch(() => null);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS tour_manager.portal_tour_assignees (
       tour_id INTEGER PRIMARY KEY,
@@ -167,6 +181,10 @@ async function ensurePortalTeamSchema() {
     ON tour_manager.portal_tour_assignees ((LOWER(workspace_owner_email)))
   `);
   await pool.query(`
+    ALTER TABLE tour_manager.portal_tour_assignees
+    ADD COLUMN IF NOT EXISTS customer_id BIGINT REFERENCES core.customers(id) ON DELETE CASCADE
+  `).catch(() => null);
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS tour_manager.portal_staff_roles (
       email_norm TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT 'tour_manager',
@@ -180,6 +198,31 @@ async function ensurePortalTeamSchema() {
     ON tour_manager.portal_staff_roles (role)
   `);
   schemaReady = true;
+}
+
+/**
+ * Löst customer_id aus einer owner_email auf (über core.customers oder tours.kunde_ref).
+ * Gibt null zurück wenn keine eindeutige Zuordnung möglich.
+ */
+async function resolveCustomerIdForOwnerEmail(ownerEmail) {
+  const norm = normalizeEmail(ownerEmail);
+  if (!norm) return null;
+  const direct = await pool.query(
+    `SELECT id FROM core.customers WHERE LOWER(TRIM(email)) = $1 LIMIT 1`,
+    [norm]
+  );
+  if (direct.rows[0]?.id) return Number(direct.rows[0].id);
+
+  const viaRef = await pool.query(
+    `SELECT DISTINCT cu.id
+     FROM tour_manager.tours t
+     JOIN core.customers cu ON cu.customer_number = TRIM(CAST(t.kunde_ref AS TEXT))
+     WHERE LOWER(TRIM(t.customer_email)) = $1
+       AND t.kunde_ref IS NOT NULL AND TRIM(CAST(t.kunde_ref AS TEXT)) <> ''
+     LIMIT 1`,
+    [norm]
+  );
+  return viaRef.rows[0]?.id ? Number(viaRef.rows[0].id) : null;
 }
 
 /** Interner Tour-Manager (Propus): alle Kunden-Touren sichtbar. */
@@ -265,10 +308,28 @@ async function listTourOwnerEmailsForPortalUser(userEmail) {
   );
   if (direct.rows[0]) owners.add(norm);
 
+  // Über customer_id: alle owner_emails der zugehörigen Firma
+  const memberOfCustomers = await pool.query(
+    `SELECT DISTINCT t.customer_email AS e
+     FROM tour_manager.portal_team_members m
+     JOIN tour_manager.tours t ON t.customer_id = m.customer_id
+     WHERE LOWER(TRIM(m.member_email)) = $1
+       AND m.status = 'active' AND m.accepted_at IS NOT NULL
+       AND m.customer_id IS NOT NULL
+       AND t.customer_email IS NOT NULL AND TRIM(t.customer_email) <> ''`,
+    [norm]
+  );
+  memberOfCustomers.rows.forEach((r) => {
+    const e = normalizeEmail(r.e);
+    if (e) owners.add(e);
+  });
+
+  // Fallback: über owner_email für Zeilen ohne customer_id
   const memberOf = await pool.query(
     `SELECT DISTINCT LOWER(TRIM(owner_email)) AS e
      FROM tour_manager.portal_team_members
-     WHERE LOWER(TRIM(member_email)) = $1 AND status = 'active' AND accepted_at IS NOT NULL`,
+     WHERE LOWER(TRIM(member_email)) = $1 AND status = 'active' AND accepted_at IS NOT NULL
+       AND customer_id IS NULL`,
     [norm]
   );
   memberOf.rows.forEach((r) => owners.add(r.e));
@@ -366,16 +427,31 @@ async function ensurePortalTourAccess(tourRow, userEmail) {
 async function listTeamMembers(ownerEmail) {
   await ensurePortalTeamSchema();
   const e = normalizeEmail(ownerEmail);
-  const r = await pool.query(
-    `SELECT id, member_email, display_name, role, status, created_at, accepted_at, expires_at
-     FROM tour_manager.portal_team_members
-     WHERE LOWER(owner_email) = $1
-     ORDER BY
-       CASE status WHEN 'active' THEN 0 WHEN 'pending' THEN 1 ELSE 2 END,
-       accepted_at DESC NULLS LAST,
-       created_at DESC`,
-    [e]
-  );
+  const customerId = await resolveCustomerIdForOwnerEmail(e);
+  let r;
+  if (customerId) {
+    r = await pool.query(
+      `SELECT id, member_email, display_name, role, status, created_at, accepted_at, expires_at
+       FROM tour_manager.portal_team_members
+       WHERE customer_id = $1
+       ORDER BY
+         CASE status WHEN 'active' THEN 0 WHEN 'pending' THEN 1 ELSE 2 END,
+         accepted_at DESC NULLS LAST,
+         created_at DESC`,
+      [customerId]
+    );
+  } else {
+    r = await pool.query(
+      `SELECT id, member_email, display_name, role, status, created_at, accepted_at, expires_at
+       FROM tour_manager.portal_team_members
+       WHERE LOWER(owner_email) = $1
+       ORDER BY
+         CASE status WHEN 'active' THEN 0 WHEN 'pending' THEN 1 ELSE 2 END,
+         accepted_at DESC NULLS LAST,
+         created_at DESC`,
+      [e]
+    );
+  }
   return r.rows.map((row) => ({
     ...row,
     role: normalizeMemberRole(row.role),
@@ -436,12 +512,23 @@ async function listExxasOrgPeersForOwner(ownerEmail) {
     }
   }
 
-  const excluded = await pool.query(
-    `SELECT LOWER(TRIM(member_email)) AS email
-     FROM tour_manager.portal_team_exclusions
-     WHERE LOWER(TRIM(owner_email)) = $1`,
-    [owner]
-  );
+  const ownerCustomerId = await resolveCustomerIdForOwnerEmail(owner);
+  let excluded;
+  if (ownerCustomerId) {
+    excluded = await pool.query(
+      `SELECT LOWER(TRIM(member_email)) AS email
+       FROM tour_manager.portal_team_exclusions
+       WHERE customer_id = $1`,
+      [ownerCustomerId]
+    );
+  } else {
+    excluded = await pool.query(
+      `SELECT LOWER(TRIM(member_email)) AS email
+       FROM tour_manager.portal_team_exclusions
+       WHERE LOWER(TRIM(owner_email)) = $1`,
+      [owner]
+    );
+  }
   const excludedSet = new Set(excluded.rows.map((r) => String(r.email || '')));
 
   return Array.from(peers.values()).filter((p) => !excludedSet.has(normalizeEmail(p.email)));
@@ -473,13 +560,25 @@ async function getPortalTeamManageContext(sessionEmail, ownerEmail) {
 
   let sessionRole = null;
   if (!isWorkspaceOwner) {
-    const r = await pool.query(
-      `SELECT role FROM tour_manager.portal_team_members
-       WHERE LOWER(owner_email) = $1 AND LOWER(member_email) = $2
-         AND status = 'active' AND accepted_at IS NOT NULL
-       LIMIT 1`,
-      [owner, session]
-    );
+    const ownerCustomerId = await resolveCustomerIdForOwnerEmail(owner);
+    let r;
+    if (ownerCustomerId) {
+      r = await pool.query(
+        `SELECT role FROM tour_manager.portal_team_members
+         WHERE customer_id = $1 AND LOWER(TRIM(member_email)) = $2
+           AND status = 'active' AND accepted_at IS NOT NULL
+         LIMIT 1`,
+        [ownerCustomerId, session]
+      );
+    } else {
+      r = await pool.query(
+        `SELECT role FROM tour_manager.portal_team_members
+         WHERE LOWER(owner_email) = $1 AND LOWER(member_email) = $2
+           AND status = 'active' AND accepted_at IS NOT NULL
+         LIMIT 1`,
+        [owner, session]
+      );
+    }
     const role = r.rows[0]?.role;
     sessionRole = role ? normalizeMemberRole(role) : null;
   }
@@ -646,16 +745,18 @@ async function setTourAssignee(tourRow, assigneeRaw, sessionEmail) {
   }
 
   const by = normalizeEmail(sessionEmail);
+  const wsCustomerId = await resolveCustomerIdForOwnerEmail(workspace);
   await pool.query(
     `INSERT INTO tour_manager.portal_tour_assignees
-      (tour_id, assignee_email, workspace_owner_email, updated_by, updated_at)
-     VALUES ($1, $2, $3, $4, NOW())
+      (tour_id, assignee_email, workspace_owner_email, updated_by, updated_at, customer_id)
+     VALUES ($1, $2, $3, $4, NOW(), $5)
      ON CONFLICT (tour_id) DO UPDATE SET
        assignee_email = EXCLUDED.assignee_email,
        workspace_owner_email = EXCLUDED.workspace_owner_email,
        updated_by = EXCLUDED.updated_by,
-       updated_at = NOW()`,
-    [tourRow.id, assignee, workspace, by || null]
+       updated_at = NOW(),
+       customer_id = COALESCE(EXCLUDED.customer_id, tour_manager.portal_tour_assignees.customer_id)`,
+    [tourRow.id, assignee, workspace, by || null, wsCustomerId || null]
   );
 }
 
@@ -671,11 +772,22 @@ async function createTeamInvite({ ownerEmail, inviterEmail, memberEmail, display
   if (!member || !member.includes('@')) throw new Error('Ungültige E-Mail.');
   if (member === owner) throw new Error('Sie können sich nicht selbst einladen.');
 
-  const existing = await pool.query(
-    `SELECT id, status FROM tour_manager.portal_team_members
-     WHERE LOWER(owner_email) = $1 AND LOWER(member_email) = $2`,
-    [owner, member]
-  );
+  const ownerCustomerId = await resolveCustomerIdForOwnerEmail(owner);
+
+  let existing;
+  if (ownerCustomerId) {
+    existing = await pool.query(
+      `SELECT id, status FROM tour_manager.portal_team_members
+       WHERE customer_id = $1 AND LOWER(TRIM(member_email)) = $2`,
+      [ownerCustomerId, member]
+    );
+  } else {
+    existing = await pool.query(
+      `SELECT id, status FROM tour_manager.portal_team_members
+       WHERE LOWER(owner_email) = $1 AND LOWER(member_email) = $2`,
+      [owner, member]
+    );
+  }
   if (existing.rows[0]?.status === 'active') throw new Error('Diese Person ist bereits im Team.');
 
   const token = randomToken();
@@ -693,9 +805,9 @@ async function createTeamInvite({ ownerEmail, inviterEmail, memberEmail, display
   } else {
     await pool.query(
       `INSERT INTO tour_manager.portal_team_members
-        (owner_email, member_email, display_name, role, status, invite_token_hash, expires_at, invited_by)
-       VALUES ($1, $2, $3, $4, 'pending', $5, $6, $7)`,
-      [owner, member, displayName || null, memberRole, tokenHash, expiresAt, normalizeEmail(inviterEmail)]
+        (owner_email, member_email, display_name, role, status, invite_token_hash, expires_at, invited_by, customer_id)
+       VALUES ($1, $2, $3, $4, 'pending', $5, $6, $7, $8)`,
+      [owner, member, displayName || null, memberRole, tokenHash, expiresAt, normalizeEmail(inviterEmail), ownerCustomerId || null]
     );
   }
 
@@ -734,17 +846,33 @@ async function acceptTeamInvite(token, userEmail) {
 async function revokeTeamMember(ownerEmail, memberId) {
   await ensurePortalTeamSchema();
   const owner = normalizeEmail(ownerEmail);
-  const existing = await pool.query(
-    `SELECT member_email FROM tour_manager.portal_team_members
-     WHERE id = $1 AND LOWER(owner_email) = $2`,
-    [memberId, owner]
-  );
+  const ownerCustomerId = await resolveCustomerIdForOwnerEmail(owner);
+  let existing;
+  if (ownerCustomerId) {
+    existing = await pool.query(
+      `SELECT member_email FROM tour_manager.portal_team_members
+       WHERE id = $1 AND customer_id = $2`,
+      [memberId, ownerCustomerId]
+    );
+  } else {
+    existing = await pool.query(
+      `SELECT member_email FROM tour_manager.portal_team_members
+       WHERE id = $1 AND LOWER(owner_email) = $2`,
+      [memberId, owner]
+    );
+  }
   const memberEmail = existing.rows[0]?.member_email;
-  await pool.query(
-    `DELETE FROM tour_manager.portal_team_members
-     WHERE id = $1 AND LOWER(owner_email) = $2`,
-    [memberId, owner]
-  );
+  if (ownerCustomerId) {
+    await pool.query(
+      `DELETE FROM tour_manager.portal_team_members WHERE id = $1 AND customer_id = $2`,
+      [memberId, ownerCustomerId]
+    );
+  } else {
+    await pool.query(
+      `DELETE FROM tour_manager.portal_team_members WHERE id = $1 AND LOWER(owner_email) = $2`,
+      [memberId, owner]
+    );
+  }
   if (memberEmail) await runAfterTeamMemberRemoved(owner, normalizeEmail(memberEmail));
 }
 
@@ -752,13 +880,25 @@ async function updateTeamMemberRole(ownerEmail, memberId, newRole) {
   await ensurePortalTeamSchema();
   const role = normalizeMemberRole(newRole);
   const owner = normalizeEmail(ownerEmail);
-  const r = await pool.query(
-    `UPDATE tour_manager.portal_team_members
-     SET role = $3
-     WHERE id = $1 AND LOWER(owner_email) = $2 AND status = 'active'
-     RETURNING id, owner_email, member_email`,
-    [memberId, owner, role]
-  );
+  const ownerCustomerId = await resolveCustomerIdForOwnerEmail(owner);
+  let r;
+  if (ownerCustomerId) {
+    r = await pool.query(
+      `UPDATE tour_manager.portal_team_members
+       SET role = $3
+       WHERE id = $1 AND customer_id = $2 AND status = 'active'
+       RETURNING id, owner_email, member_email`,
+      [memberId, ownerCustomerId, role]
+    );
+  } else {
+    r = await pool.query(
+      `UPDATE tour_manager.portal_team_members
+       SET role = $3
+       WHERE id = $1 AND LOWER(owner_email) = $2 AND status = 'active'
+       RETURNING id, owner_email, member_email`,
+      [memberId, owner, role]
+    );
+  }
   if (r.rowCount > 0 && r.rows[0]) {
     await runAfterTeamMemberDbChange(r.rows[0].owner_email, r.rows[0].member_email);
   }
@@ -781,13 +921,32 @@ async function setExxasMemberExcluded(ownerEmail, memberEmail, createdBy, reason
   const owner = normalizeEmail(ownerEmail);
   const member = normalizeEmail(memberEmail);
   if (!owner || !member) return false;
-  await pool.query(
-    `INSERT INTO tour_manager.portal_team_exclusions (owner_email, member_email, reason, created_by)
-     VALUES ($1, $2, $3, $4)
-     ON CONFLICT ((LOWER(owner_email)), (LOWER(member_email)))
-     DO UPDATE SET reason = EXCLUDED.reason, created_by = EXCLUDED.created_by, created_at = NOW()`,
-    [owner, member, String(reason || 'manual_remove'), normalizeEmail(createdBy)]
-  );
+  const ownerCustomerId = await resolveCustomerIdForOwnerEmail(owner);
+  if (ownerCustomerId) {
+    await pool.query(
+      `INSERT INTO tour_manager.portal_team_exclusions (owner_email, member_email, reason, created_by, customer_id)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT ON CONSTRAINT idx_portal_team_exclusions_customer_member
+       DO UPDATE SET reason = EXCLUDED.reason, created_by = EXCLUDED.created_by, created_at = NOW()`,
+      [owner, member, String(reason || 'manual_remove'), normalizeEmail(createdBy), ownerCustomerId]
+    ).catch(() =>
+      pool.query(
+        `INSERT INTO tour_manager.portal_team_exclusions (owner_email, member_email, reason, created_by, customer_id)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT ((LOWER(owner_email)), (LOWER(member_email)))
+         DO UPDATE SET reason = EXCLUDED.reason, created_by = EXCLUDED.created_by, created_at = NOW(), customer_id = EXCLUDED.customer_id`,
+        [owner, member, String(reason || 'manual_remove'), normalizeEmail(createdBy), ownerCustomerId]
+      )
+    );
+  } else {
+    await pool.query(
+      `INSERT INTO tour_manager.portal_team_exclusions (owner_email, member_email, reason, created_by)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT ((LOWER(owner_email)), (LOWER(member_email)))
+       DO UPDATE SET reason = EXCLUDED.reason, created_by = EXCLUDED.created_by, created_at = NOW()`,
+      [owner, member, String(reason || 'manual_remove'), normalizeEmail(createdBy)]
+    );
+  }
   return true;
 }
 
@@ -796,12 +955,20 @@ async function clearExxasMemberExcluded(ownerEmail, memberEmail) {
   const owner = normalizeEmail(ownerEmail);
   const member = normalizeEmail(memberEmail);
   if (!owner || !member) return false;
-  await pool.query(
-    `DELETE FROM tour_manager.portal_team_exclusions
-     WHERE LOWER(TRIM(owner_email)) = $1
-       AND LOWER(TRIM(member_email)) = $2`,
-    [owner, member]
-  );
+  const ownerCustomerId = await resolveCustomerIdForOwnerEmail(owner);
+  if (ownerCustomerId) {
+    await pool.query(
+      `DELETE FROM tour_manager.portal_team_exclusions
+       WHERE customer_id = $1 AND LOWER(TRIM(member_email)) = $2`,
+      [ownerCustomerId, member]
+    );
+  } else {
+    await pool.query(
+      `DELETE FROM tour_manager.portal_team_exclusions
+       WHERE LOWER(TRIM(owner_email)) = $1 AND LOWER(TRIM(member_email)) = $2`,
+      [owner, member]
+    );
+  }
   return true;
 }
 
@@ -868,6 +1035,7 @@ module.exports = {
   removePortalStaffRole,
   normalizeEmail,
   normalizeMemberRole,
+  resolveCustomerIdForOwnerEmail,
   listTourOwnerEmailsForPortalUser,
   listOrgKundeRefsForOwnerEmails,
   getPortalTourAccessScope,

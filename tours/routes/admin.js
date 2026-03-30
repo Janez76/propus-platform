@@ -1619,9 +1619,12 @@ router.get('/portal-roles', async (req, res) => {
         m.status,
         m.accepted_at,
         m.created_at,
+        COALESCE(m.customer_id, c_mail.id) AS customer_id,
         COALESCE(
-          NULLIF(trim(c.name),''),
-          NULLIF(trim(c.company),''),
+          NULLIF(trim(c_cid.name),''),
+          NULLIF(trim(c_cid.company),''),
+          NULLIF(trim(c_mail.name),''),
+          NULLIF(trim(c_mail.company),''),
           (
             SELECT trim(t.customer_name)
             FROM tour_manager.tours t
@@ -1631,13 +1634,13 @@ router.get('/portal-roles', async (req, res) => {
             LIMIT 1
           ),
           m.owner_email
-        ) AS customer_name,
-        c.id AS customer_id
+        ) AS customer_name
       FROM tour_manager.portal_team_members m
-      LEFT JOIN core.customers c ON LOWER(c.email) = LOWER(m.owner_email)
+      LEFT JOIN core.customers c_cid ON m.customer_id IS NOT NULL AND c_cid.id = m.customer_id
+      LEFT JOIN core.customers c_mail ON m.customer_id IS NULL AND LOWER(c_mail.email) = LOWER(m.owner_email)
       WHERE m.role IN ('admin', 'inhaber')
         AND m.status = 'active'
-      ORDER BY LOWER(m.owner_email), m.role DESC, LOWER(m.member_email)
+      ORDER BY COALESCE(m.customer_id, c_mail.id) NULLS LAST, LOWER(m.owner_email), m.role DESC, LOWER(m.member_email)
     `);
     externRows = r.rows;
   } catch (_) { /* Tabelle existiert noch nicht – kein Problem */ }
@@ -1764,26 +1767,54 @@ router.get('/portal-roles/extern-contacts', async (req, res) => {
     return base;
   }
 
-  /** Lädt aktive portal_team_members für einen Workspace */
-  async function loadPortalMembers(ownerEmailNorm) {
-    if (!ownerEmailNorm) return [];
+  /** Lädt aktive portal_team_members für einen Workspace (bevorzugt customer_id) */
+  async function loadPortalMembers(ownerEmailNorm, customerIdOverride) {
+    if (!ownerEmailNorm && !customerIdOverride) return [];
     try {
-      const pm = await pool.query(
-        `SELECT
-           LOWER(TRIM(member_email)) AS email,
-           COALESCE(NULLIF(TRIM(display_name),''), LOWER(TRIM(member_email))) AS name,
-           CASE role
-             WHEN 'admin'   THEN 'Kunden-Admin'
-             WHEN 'inhaber' THEN 'Inhaber'
-             ELSE 'Mitarbeiter'
-           END AS position
-         FROM tour_manager.portal_team_members
-         WHERE LOWER(TRIM(owner_email)) = $1
-           AND status = 'active'
-           AND member_email IS NOT NULL AND TRIM(member_email) <> ''
-         ORDER BY member_email`,
-        [ownerEmailNorm]
-      );
+      const cid = customerIdOverride || await (async () => {
+        const r = await pool.query(
+          `SELECT id FROM core.customers WHERE LOWER(TRIM(email)) = $1 LIMIT 1`,
+          [ownerEmailNorm]
+        );
+        return r.rows[0]?.id ? Number(r.rows[0].id) : null;
+      })();
+
+      let pm;
+      if (cid) {
+        pm = await pool.query(
+          `SELECT
+             LOWER(TRIM(member_email)) AS email,
+             COALESCE(NULLIF(TRIM(display_name),''), LOWER(TRIM(member_email))) AS name,
+             CASE role
+               WHEN 'admin'   THEN 'Kunden-Admin'
+               WHEN 'inhaber' THEN 'Inhaber'
+               ELSE 'Mitarbeiter'
+             END AS position
+           FROM tour_manager.portal_team_members
+           WHERE customer_id = $1
+             AND status = 'active'
+             AND member_email IS NOT NULL AND TRIM(member_email) <> ''
+           ORDER BY member_email`,
+          [cid]
+        );
+      } else {
+        pm = await pool.query(
+          `SELECT
+             LOWER(TRIM(member_email)) AS email,
+             COALESCE(NULLIF(TRIM(display_name),''), LOWER(TRIM(member_email))) AS name,
+             CASE role
+               WHEN 'admin'   THEN 'Kunden-Admin'
+               WHEN 'inhaber' THEN 'Inhaber'
+               ELSE 'Mitarbeiter'
+             END AS position
+           FROM tour_manager.portal_team_members
+           WHERE LOWER(TRIM(owner_email)) = $1
+             AND status = 'active'
+             AND member_email IS NOT NULL AND TRIM(member_email) <> ''
+           ORDER BY member_email`,
+          [ownerEmailNorm]
+        );
+      }
       return pm.rows
         .map(row => ({
           email: String(row.email || '').trim().toLowerCase(),
@@ -1894,8 +1925,8 @@ router.get('/portal-roles/extern-contacts', async (req, res) => {
       });
     }
 
-    // 6. Aktive Portal-Team-Mitglieder ergänzen (dedupliziert)
-    const portalMembers = await loadPortalMembers(ownerEmailNorm || ownerEmail);
+    // 6. Aktive Portal-Team-Mitglieder ergänzen (dedupliziert, bevorzugt über customer_id)
+    const portalMembers = await loadPortalMembers(ownerEmailNorm || ownerEmail, customer.id);
     mergeContacts(contacts, portalMembers);
 
     res.json({ contacts });
@@ -1912,14 +1943,29 @@ router.post('/portal-roles/extern-set', async (req, res) => {
     if (!memberEmail.includes('@')) throw new Error('Ungültige E-Mail-Adresse.');
 
     await portalTeam.ensurePortalTeamSchema();
-    // Upsert: als aktiven Admin eintragen (accepted = jetzt)
-    await pool.query(`
-      INSERT INTO tour_manager.portal_team_members
-        (owner_email, member_email, role, status, accepted_at, created_at)
-      VALUES ($1, $2, 'admin', 'active', NOW(), NOW())
-      ON CONFLICT (lower(owner_email), lower(member_email)) DO UPDATE
-        SET role = 'admin', status = 'active', accepted_at = COALESCE(tour_manager.portal_team_members.accepted_at, NOW())
-    `, [ownerEmail, memberEmail]);
+    const ownerCustomerId = await portalTeam.resolveCustomerIdForOwnerEmail(ownerEmail);
+
+    if (ownerCustomerId) {
+      // Cutover-Pfad: Upsert über customer_id + member_email
+      await pool.query(`
+        INSERT INTO tour_manager.portal_team_members
+          (owner_email, member_email, role, status, accepted_at, created_at, customer_id)
+        VALUES ($1, $2, 'admin', 'active', NOW(), NOW(), $3)
+        ON CONFLICT (customer_id, (LOWER(member_email))) WHERE customer_id IS NOT NULL DO UPDATE
+          SET role = 'admin', status = 'active',
+              accepted_at = COALESCE(tour_manager.portal_team_members.accepted_at, NOW()),
+              owner_email = EXCLUDED.owner_email
+      `, [ownerEmail, memberEmail, ownerCustomerId]);
+    } else {
+      // Fallback: Upsert über owner_email + member_email
+      await pool.query(`
+        INSERT INTO tour_manager.portal_team_members
+          (owner_email, member_email, role, status, accepted_at, created_at)
+        VALUES ($1, $2, 'admin', 'active', NOW(), NOW())
+        ON CONFLICT (lower(owner_email), lower(member_email)) DO UPDATE
+          SET role = 'admin', status = 'active', accepted_at = COALESCE(tour_manager.portal_team_members.accepted_at, NOW())
+      `, [ownerEmail, memberEmail]);
+    }
 
     await runExternPortalSync(ownerEmail, memberEmail);
     return res.redirect('/admin/portal-roles?tab=extern&externSaved=1');
@@ -1935,11 +1981,22 @@ router.post('/portal-roles/extern-remove', async (req, res) => {
     const memberEmail = String(req.body?.member_email || '').trim().toLowerCase();
     if (!ownerEmail || !memberEmail) throw new Error('Fehlende Parameter.');
 
-    await pool.query(`
-      UPDATE tour_manager.portal_team_members
-      SET role = 'mitarbeiter'
-      WHERE LOWER(owner_email) = $1 AND LOWER(member_email) = $2
-    `, [ownerEmail, memberEmail]);
+    await portalTeam.ensurePortalTeamSchema();
+    const ownerCustomerId = await portalTeam.resolveCustomerIdForOwnerEmail(ownerEmail);
+
+    if (ownerCustomerId) {
+      await pool.query(`
+        UPDATE tour_manager.portal_team_members
+        SET role = 'mitarbeiter'
+        WHERE customer_id = $1 AND LOWER(TRIM(member_email)) = $2
+      `, [ownerCustomerId, memberEmail]);
+    } else {
+      await pool.query(`
+        UPDATE tour_manager.portal_team_members
+        SET role = 'mitarbeiter'
+        WHERE LOWER(owner_email) = $1 AND LOWER(member_email) = $2
+      `, [ownerEmail, memberEmail]);
+    }
 
     await runExternPortalSync(ownerEmail, memberEmail);
     return res.redirect('/admin/portal-roles?tab=extern&externRemoved=1');

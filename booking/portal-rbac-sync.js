@@ -15,6 +15,21 @@ async function findContactIdForWorkspaceMember(ownerEmail, memberEmail) {
   const owner = normEmail(ownerEmail);
   const member = normEmail(memberEmail);
   if (!owner || !member) return null;
+
+  // Primär: über customer_id in portal_team_members (Cutover-Pfad)
+  const viaCustomerId = await db.query(
+    `SELECT cc.id
+     FROM tour_manager.portal_team_members m
+     JOIN core.customer_contacts cc ON cc.customer_id = m.customer_id
+     WHERE m.customer_id IS NOT NULL
+       AND LOWER(TRIM(m.member_email)) = $1
+       AND LOWER(TRIM(cc.email)) = $1
+     LIMIT 1`,
+    [member]
+  );
+  if (viaCustomerId.rows[0]?.id) return viaCustomerId.rows[0].id;
+
+  // Fallback: über owner_email → core.customers.email
   const { rows } = await db.query(
     `SELECT cc.id
      FROM core.customers cu
@@ -88,12 +103,31 @@ async function syncPortalTeamMemberAdminRbac(ownerEmail, memberEmail) {
   const member = normEmail(memberEmail);
   if (!owner || !member) return;
 
-  const { rows } = await db.query(
-    `SELECT role, status FROM tour_manager.portal_team_members
-     WHERE LOWER(TRIM(owner_email)) = $1 AND LOWER(TRIM(member_email)) = $2
-     LIMIT 1`,
-    [owner, member]
+  // Bevorzuge customer_id-Lookup wenn vorhanden
+  const cidRes = await db.query(
+    `SELECT id FROM core.customers WHERE LOWER(TRIM(email)) = $1 LIMIT 1`,
+    [owner]
   );
+  const ownerCustomerId = cidRes.rows[0]?.id ? Number(cidRes.rows[0].id) : null;
+
+  let rows;
+  if (ownerCustomerId) {
+    const r = await db.query(
+      `SELECT role, status FROM tour_manager.portal_team_members
+       WHERE customer_id = $1 AND LOWER(TRIM(member_email)) = $2
+       LIMIT 1`,
+      [ownerCustomerId, member]
+    );
+    rows = r.rows;
+  } else {
+    const r = await db.query(
+      `SELECT role, status FROM tour_manager.portal_team_members
+       WHERE LOWER(TRIM(owner_email)) = $1 AND LOWER(TRIM(member_email)) = $2
+       LIMIT 1`,
+      [owner, member]
+    );
+    rows = r.rows;
+  }
   const row = rows[0];
   const isAdmin = row && String(row.status || "") === "active" && String(row.role || "") === "admin";
 
@@ -228,9 +262,12 @@ async function reconcileAllPortalRolesToRbac() {
   }
 
   const { rows: admins } = await db.query(
-    `SELECT DISTINCT LOWER(TRIM(owner_email)) AS o, LOWER(TRIM(member_email)) AS m
-     FROM tour_manager.portal_team_members
-     WHERE role = 'admin' AND status = 'active'`
+    `SELECT DISTINCT
+       COALESCE(cu.email, LOWER(TRIM(m.owner_email))) AS o,
+       LOWER(TRIM(m.member_email)) AS m
+     FROM tour_manager.portal_team_members m
+     LEFT JOIN core.customers cu ON cu.id = m.customer_id
+     WHERE m.role = 'admin' AND m.status = 'active'`
   );
   for (const r of admins || []) {
     await syncPortalTeamMemberAdminRbac(r.o, r.m);

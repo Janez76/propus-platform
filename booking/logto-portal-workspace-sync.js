@@ -38,6 +38,25 @@ async function findWorkspaceOrganizationByOwnerEmail(ownerEmail) {
   );
 }
 
+/**
+ * Sucht eine Logto-Org über customerId (bevorzugter Cutover-Pfad).
+ * Fallback: ownerEmail (Bestandsdaten).
+ */
+async function findWorkspaceOrganizationByCustomerId(customerId) {
+  if (!logtoClient.isConfigured()) return null;
+  if (!customerId) return null;
+  const id = Number(customerId);
+  if (!Number.isFinite(id)) return null;
+  const orgs = await logtoClient.listOrganizations({ pageSize: 200 });
+  return (
+    orgs.find(
+      (o) =>
+        o?.customData?.source === SOURCE &&
+        Number(o?.customData?.customerId) === id
+    ) || null
+  );
+}
+
 async function loadCustomerMetaForOwner(ownerEmail) {
   const norm = normEmail(ownerEmail);
   if (!norm) return { customerId: null, displayName: norm };
@@ -56,8 +75,29 @@ async function loadCustomerMetaForOwner(ownerEmail) {
   };
 }
 
+async function loadCustomerMetaById(customerId) {
+  const id = Number(customerId);
+  if (!Number.isFinite(id)) return null;
+  const { rows } = await db.query(
+    `SELECT id, email,
+            COALESCE(NULLIF(trim(company),''), NULLIF(trim(name),''), email) AS label
+     FROM core.customers
+     WHERE id = $1
+     LIMIT 1`,
+    [id]
+  );
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    customerId: Number(row.id),
+    email: normEmail(row.email),
+    displayName: String(row.label || '').trim() || String(row.email || ''),
+  };
+}
+
 /**
  * Stellt sicher, dass eine Logto-Org für diesen Tour-Workspace existiert.
+ * Bevorzugt customerId-Lookup; fällt auf ownerEmail zurück für Bestandsdaten.
  */
 async function ensureWorkspaceOrganizationForOwner(ownerEmail) {
   if (!logtoClient.isConfigured()) return null;
@@ -66,7 +106,16 @@ async function ensureWorkspaceOrganizationForOwner(ownerEmail) {
   await ensurePortalWorkspaceOrgRolesDefined();
 
   const meta = await loadCustomerMetaForOwner(norm);
-  let org = await findWorkspaceOrganizationByOwnerEmail(norm);
+
+  // Bevorzuge Lookup über customerId wenn vorhanden
+  let org = null;
+  if (meta.customerId) {
+    org = await findWorkspaceOrganizationByCustomerId(meta.customerId);
+  }
+  if (!org) {
+    org = await findWorkspaceOrganizationByOwnerEmail(norm);
+  }
+
   if (!org) {
     org = await logtoClient.createOrganization({
       name: meta.displayName.slice(0, 128),
@@ -78,10 +127,67 @@ async function ensureWorkspaceOrganizationForOwner(ownerEmail) {
       },
     });
   } else {
+    // Bestehende Org: customerId und Name aktualisieren (Cutover-Anreicherung)
+    const updates = {};
     const name = meta.displayName.slice(0, 128);
-    if (name && org.name !== name) {
+    if (name && org.name !== name) updates.name = name;
+    const needsCustomerIdPatch =
+      meta.customerId &&
+      Number(org.customData?.customerId) !== meta.customerId;
+    if (needsCustomerIdPatch) {
+      updates.customData = {
+        ...org.customData,
+        customerId: meta.customerId,
+        ownerEmail: norm,
+      };
+    }
+    if (Object.keys(updates).length > 0) {
       try {
-        await logtoClient.updateOrganization(org.id, { name });
+        await logtoClient.updateOrganization(org.id, updates);
+      } catch (_e) {}
+    }
+  }
+  return org;
+}
+
+/**
+ * Stellt sicher, dass eine Logto-Org für eine Firma über customer_id existiert.
+ * Direkter Cutover-Pfad ohne E-Mail-Abhängigkeit.
+ */
+async function ensureWorkspaceOrganizationForCustomer(customerId) {
+  if (!logtoClient.isConfigured()) return null;
+  const id = Number(customerId);
+  if (!Number.isFinite(id)) return null;
+  await ensurePortalWorkspaceOrgRolesDefined();
+
+  const meta = await loadCustomerMetaById(id);
+  if (!meta) return null;
+
+  let org = await findWorkspaceOrganizationByCustomerId(id);
+  if (!org && meta.email) {
+    org = await findWorkspaceOrganizationByOwnerEmail(meta.email);
+  }
+
+  if (!org) {
+    org = await logtoClient.createOrganization({
+      name: meta.displayName.slice(0, 128),
+      description: "Propus Tour-Portal Arbeitsbereich",
+      customData: {
+        source: SOURCE,
+        customerId: id,
+        ownerEmail: meta.email || null,
+      },
+    });
+  } else {
+    const updates = {};
+    const name = meta.displayName.slice(0, 128);
+    if (name && org.name !== name) updates.name = name;
+    if (Number(org.customData?.customerId) !== id) {
+      updates.customData = { ...org.customData, customerId: id, ownerEmail: meta.email || org.customData?.ownerEmail };
+    }
+    if (Object.keys(updates).length > 0) {
+      try {
+        await logtoClient.updateOrganization(org.id, updates);
       } catch (_e) {}
     }
   }
@@ -163,7 +269,9 @@ module.exports = {
   ORG_ROLE_MEMBER,
   ensurePortalWorkspaceOrgRolesDefined,
   findWorkspaceOrganizationByOwnerEmail,
+  findWorkspaceOrganizationByCustomerId,
   ensureWorkspaceOrganizationForOwner,
+  ensureWorkspaceOrganizationForCustomer,
   syncPortalMemberToLogtoOrg,
   syncWorkspaceOwnerToLogtoOrg,
   removePortalMemberFromLogtoOrg,
