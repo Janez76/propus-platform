@@ -140,9 +140,11 @@
          box-shadow:0 8px 24px rgba(0,0,0,0.4);z-index:2;max-height:300px;overflow-y:auto;"></div>
   </div>
 </aside>
+<script>window.__PROPUS_TM_ADMIN_BP = <%- JSON.stringify(bp) %>;</script>
 
 <script>
 (function() {
+  const TM_ADMIN_BP = typeof window.__PROPUS_TM_ADMIN_BP === 'string' ? window.__PROPUS_TM_ADMIN_BP : '';
   const input = document.getElementById('globalSearch');
   const dropdown = document.getElementById('globalSearchDropdown');
   const clearBtn = document.getElementById('globalSearchClear');
@@ -207,7 +209,7 @@
     if (q.length < 2) { close(); return; }
     timer = setTimeout(async () => {
       try {
-        const resp = await fetch('/admin/search?q=' + encodeURIComponent(q));
+        const resp = await fetch(TM_ADMIN_BP + '/admin/search?q=' + encodeURIComponent(q));
         const data = await resp.json();
         renderResults(data);
       } catch(e) { close(); }
@@ -302,6 +304,7 @@
 
 <script>
 (function() {
+  const TM_ADMIN_BP = typeof window.__PROPUS_TM_ADMIN_BP === 'string' ? window.__PROPUS_TM_ADMIN_BP : '';
   const STATUS_LABELS = {
     ACTIVE:'Aktiv', EXPIRING_SOON:'Läuft bald ab',
     CUSTOMER_ACCEPTED_AWAITING_PAYMENT:'Wartet auf Zahlung',
@@ -327,23 +330,23 @@
 
     body.innerHTML = '<div class="panel-loading">Laden…</div>';
     title.textContent = 'Details';
-    fullLink.href = `/admin/tours/${tourId}`;
+    fullLink.href = `${TM_ADMIN_BP}/admin/tours/${tourId}`;
     panel.classList.add('open');
     overlay.style.display = 'block';
     document.body.style.overflow = 'hidden';
 
     try {
-      const resp = await fetch(`/admin/tours/${tourId}/panel`);
+      const resp = await fetch(`${TM_ADMIN_BP}/admin/tours/${tourId}/panel`);
       const d = await resp.json();
       if (!resp.ok) {
         // Cloudflare/WAF kann XHR auf /panel blockieren (403 Challenge).
         // Dann sauber auf die normale Detailseite wechseln.
-        window.location.href = `/admin/tours/${tourId}`;
+        window.location.href = `${TM_ADMIN_BP}/admin/tours/${tourId}`;
         return;
       }
 
       title.textContent = d.tourName;
-      fullLink.href = `/admin/tours/${d.id}`;
+      fullLink.href = `${TM_ADMIN_BP}/admin/tours/${d.id}`;
 
       const today = new Date();
       const daysLeft = d.daysUntilRenewal;
@@ -416,7 +419,7 @@
       body.innerHTML = html;
     } catch(e) {
       // Netzwerk-/WAF-Problem -> harter Fallback zur Vollansicht
-      window.location.href = `/admin/tours/${tourId}`;
+      window.location.href = `${TM_ADMIN_BP}/admin/tours/${tourId}`;
     }
   };
 
@@ -426,7 +429,7 @@
       window.openPanel(tourId);
       return false;
     }
-    window.location.href = `/admin/tours/${tourId}`;
+    window.location.href = `${TM_ADMIN_BP}/admin/tours/${tourId}`;
     return false;
   };
 
@@ -586,6 +589,7 @@
 </style>
 <script>
 (() => {
+  const TM_ADMIN_BP = typeof window.__PROPUS_TM_ADMIN_BP === 'string' ? window.__PROPUS_TM_ADMIN_BP : '';
   const STORAGE_KEY = 'sidebarAiStateV2';
   const DEFAULT_GREETING = 'Frag mich etwas zu Touren, Rechnungen, Kundenmails, Matterport oder Exxas. Ich nutze DB + Live-Daten aus Matterport, Exxas und Exchange, wenn verfuegbar.';
   let history = [];
@@ -740,7 +744,7 @@
     clearActionControls();
     const loading = addMsg('ai', 'Führe Aktion aus...', false);
     try {
-      const response = await fetch('/admin/chat-assistant/confirm', {
+      const response = await fetch(TM_ADMIN_BP + '/admin/chat-assistant/confirm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
@@ -766,7 +770,7 @@
     if (!pendingAction) return;
     clearActionControls();
     try {
-      await fetch('/admin/chat-assistant/cancel', {
+      await fetch(TM_ADMIN_BP + '/admin/chat-assistant/cancel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
@@ -791,7 +795,7 @@
     const loading = addMsg('ai', 'Denke nach...', false);
 
     try {
-      const response = await fetch('/admin/chat-assistant', {
+      const response = await fetch(TM_ADMIN_BP + '/admin/chat-assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -849,6 +853,7 @@
 
 <script>
 (function() {
+  const TM_ADMIN_BP = typeof window.__PROPUS_TM_ADMIN_BP === 'string' ? window.__PROPUS_TM_ADMIN_BP : '';
   const panel = document.getElementById('customerSearchPanel');
   const overlay = document.getElementById('customerSearchOverlay');
   const toggle = document.getElementById('customerViewToggle');
@@ -898,9 +903,9 @@
       if (q.length < 2) { drop.style.display = 'none'; return; }
       timer = setTimeout(async function() {
         try {
-          const r = await fetch('/admin/customers/search?q=' + encodeURIComponent(q));
-          const items = await r.json();
-          if (!items.length) {
+          const r = await fetch(TM_ADMIN_BP + '/admin/customers/search?q=' + encodeURIComponent(q));
+          const items = await r.json().catch(() => []);
+          if (!Array.isArray(items) || !items.length) {
             drop.innerHTML = '<div style="padding:0.6rem 0.75rem;color:var(--text-muted);font-size:0.82rem;">Keine Treffer</div>';
           } else {
             drop.innerHTML = items.map(c => `

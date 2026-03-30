@@ -355,11 +355,33 @@
       %>
       <div class="alert alert-error"><%= visibilityErrorMap[visibilityError] || 'Datenschutz konnte nicht gespeichert werden.' %></div>
       <% } %>
+      <% if (typeof nameSaved !== 'undefined' && nameSaved) { %>
+      <div class="alert alert-success">Bezeichnung gespeichert.</div>
+      <% } %>
+      <% if (typeof nameSyncFailed !== 'undefined' && nameSyncFailed) { %>
+      <div class="alert alert-warning">Bezeichnung lokal gespeichert, Matterport-Sync fehlgeschlagen.</div>
+      <% } %>
+      <% if (typeof startSweepSaved !== 'undefined' && startSweepSaved) { %>
+      <div class="alert alert-success">Startpunkt gespeichert.</div>
+      <% } %>
       <div class="detail-header">
         <div>
           <h1 class="detail-title"><%= tour.canonical_object_label || tour.object_label || tour.bezeichnung || 'Ohne Bezeichnung' %></h1>
         </div>
         <a href="/admin/tours/<%= tour.id %>/link-exxas-customer" class="btn btn-ghost">Kunde anpassen</a>
+      </div>
+      <div class="detail-block">
+        <h2>Objekt / Bezeichnung</h2>
+        <form method="post" action="/admin/tours/<%= tour.id %>/set-name">
+          <div class="form-inline" style="flex-wrap:wrap;align-items:center;gap:0.5rem;">
+            <input type="text" name="name" value="<%= (tour.bezeichnung || tour.object_label || '') %>" placeholder="z. B. Musterstrasse 12, Zürich" style="flex:1;min-width:240px;">
+            <label style="display:inline-flex;align-items:center;gap:0.35rem;margin:0;font-size:0.88rem;color:var(--gray-700);white-space:nowrap;">
+              <input type="checkbox" name="syncMatterport" value="1">
+              In Matterport synchronisieren
+            </label>
+            <button type="submit" class="btn btn-primary">Speichern</button>
+          </div>
+        </form>
       </div>
       <% if (!tour.customer_verified) { %>
       <div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.35);border-radius:8px;padding:0.65rem 1rem;margin:0 0 0.85rem 0;display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
@@ -470,9 +492,27 @@
         <input type="url" name="tour_url" value="<%= tour.tour_url || '' %>" placeholder="https://my.matterport.com/show/?m=..." style="flex:1;min-width:320px;">
         <button type="submit" class="btn btn-primary">Speichern</button>
       </form>
+      <p style="color:var(--text-muted);font-size:0.9rem;margin:0 0 0.35rem 0;">Startpunkt (optional)</p>
+      <form method="post" action="/admin/tours/<%= tour.id %>/set-start-sweep" class="form-inline" style="margin-bottom:0.5rem;">
+        <input type="text" name="start_sweep" value="<%= tour.matterport_start_sweep || '' %>" placeholder="Sweep-ID (z. B. aus Matterport Workshop)" style="flex:1;min-width:200px;">
+        <button type="submit" class="btn btn-primary">Speichern</button>
+      </form>
+      <p style="font-size:0.8rem;color:var(--text-muted);margin:0 0 1rem 0;">Sweep-ID im Matterport Workshop kopieren: Tour öffnen → Bearbeiten → gewünschten Scan anwählen → ID kopieren.</p>
 
       <div class="detail-actions">
-        <% const tourOpenUrl = tour.canonical_matterport_space_id ? 'https://my.matterport.com/show/?m=' + tour.canonical_matterport_space_id : (tour.tour_url || null); %>
+        <%
+          const mpSpaceForOpen = tour.canonical_matterport_space_id || null;
+          const startSweepTrim = (tour.matterport_start_sweep || '').trim();
+          let tourOpenUrl = null;
+          if (mpSpaceForOpen) {
+            tourOpenUrl = 'https://my.matterport.com/show/?m=' + encodeURIComponent(mpSpaceForOpen) + (startSweepTrim ? '&ts=' + encodeURIComponent(startSweepTrim) : '');
+          } else if (tour.tour_url) {
+            tourOpenUrl = tour.tour_url;
+            if (startSweepTrim) {
+              tourOpenUrl += (tourOpenUrl.indexOf('?') >= 0 ? '&' : '?') + 'ts=' + encodeURIComponent(startSweepTrim);
+            }
+          }
+        %>
         <% if (tourOpenUrl) { %>
         <a href="<%= tourOpenUrl %>" class="btn btn-primary" target="_blank">Tour öffnen</a>
         <% } else { %>

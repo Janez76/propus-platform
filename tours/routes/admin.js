@@ -2270,6 +2270,52 @@ router.post('/tours/:id/set-tour-url', async (req, res) => {
   res.redirect(`/admin/tours/${id}?tourUrlSaved=1`);
 });
 
+router.post('/tours/:id/set-name', async (req, res) => {
+  const { id } = req.params;
+  const name = String(req.body?.name || '').trim();
+  const syncMatterport = req.body?.syncMatterport === '1';
+  const tourResult = await pool.query('SELECT * FROM tour_manager.tours WHERE id = $1 LIMIT 1', [id]);
+  if (!tourResult.rows[0]) {
+    return res.status(404).send('Tour nicht gefunden');
+  }
+  const bezeichnungVal = name || null;
+  await pool.query(
+    `UPDATE tour_manager.tours SET bezeichnung = $1, object_label = $1, updated_at = NOW() WHERE id = $2`,
+    [bezeichnungVal, id]
+  );
+
+  let nameSyncFailed = false;
+  if (syncMatterport && name) {
+    const tourRow = normalizeTourRow(tourResult.rows[0]);
+    const spaceId = tourRow.canonical_matterport_space_id || tourRow.matterport_space_id || null;
+    if (spaceId) {
+      const result = await matterport.patchModelName(spaceId, name);
+      if (!result.success) nameSyncFailed = true;
+    } else {
+      nameSyncFailed = true;
+    }
+  }
+
+  const qs = new URLSearchParams();
+  qs.set('nameSaved', '1');
+  if (nameSyncFailed) qs.set('nameSyncFailed', '1');
+  return res.redirect(`/admin/tours/${id}?${qs.toString()}`);
+});
+
+router.post('/tours/:id/set-start-sweep', async (req, res) => {
+  const { id } = req.params;
+  const sweep = String(req.body?.start_sweep || '').trim() || null;
+  const exists = await pool.query('SELECT id FROM tour_manager.tours WHERE id = $1 LIMIT 1', [id]);
+  if (!exists.rows[0]) {
+    return res.status(404).send('Tour nicht gefunden');
+  }
+  await pool.query(
+    `UPDATE tour_manager.tours SET matterport_start_sweep = $1, updated_at = NOW() WHERE id = $2`,
+    [sweep, id]
+  );
+  return res.redirect(`/admin/tours/${id}?startSweepSaved=1`);
+});
+
 router.post('/tours/:id/set-verified', async (req, res) => {
   const { id } = req.params;
   const verified = req.body.verified === '1';
@@ -3008,6 +3054,9 @@ router.get('/tours/:id', async (req, res) => {
     invoiceCreated: req.query.invoiceCreated === '1',
     visibilitySaved: req.query.visibilitySaved === '1',
     visibilityError: req.query.visibilityError || null,
+    nameSaved: req.query.nameSaved === '1',
+    nameSyncFailed: req.query.nameSyncFailed === '1',
+    startSweepSaved: req.query.startSweepSaved === '1',
     mpVisibility,
     declineWorkflow,
     activePage: 'tours',
@@ -3261,15 +3310,20 @@ router.get('/link-matterport', async (req, res) => {
 router.post('/link-matterport', async (req, res) => {
   const mpId = String(req.body?.matterportSpaceId || '').trim();
   const tourUrl = String(req.body?.tourUrl || '').trim();
+  const cannotAssign = req.body?.cannotAssign === '1';
+  const archiveIt = req.body?.archiveIt === '1';
   const selectedCustomerKey = String(req.body?.coreCustomerId || req.body?.exxasCustomerId || '').trim();
   const customerName = String(req.body?.customerName || '').trim();
   const customerEmail = String(req.body?.customerEmail || '').trim();
   const customerContact = String(req.body?.customerContact || '').trim();
   const bezeichnung = String(req.body?.bezeichnung || '').trim();
 
-  if (!mpId || !tourUrl) {
+  if (!mpId || (!tourUrl && !cannotAssign)) {
     return res.redirect('/admin/link-matterport?error=missing');
   }
+
+  const effectiveTourUrl = tourUrl || `https://my.matterport.com/show/?m=${mpId}`;
+  const initialStatus = cannotAssign && archiveIt ? 'ARCHIVED' : 'ACTIVE';
 
   const duplicate = await pool.query(
     `SELECT id
@@ -3303,7 +3357,7 @@ router.post('/link-matterport', async (req, res) => {
   /** core.customers.id → tour_manager.tours.customer_id (FK); kunde_ref nur Exxas-Kontaktref aus core.customers.exxas_contact_id. */
   let kundeRef = null;
   let coreCustomerIdFk = null;
-  if (selectedCustomerKey) {
+  if (!cannotAssign && selectedCustomerKey) {
     const pid = parseInt(selectedCustomerKey, 10);
     if (Number.isFinite(pid) && pid > 0) {
       const crow = await customerLookup.getCustomerById(pid);
@@ -3316,6 +3370,12 @@ router.post('/link-matterport', async (req, res) => {
       kundeRef = selectedCustomerKey;
     }
   }
+
+  const effectiveCustomerName = cannotAssign ? null : customerName || null;
+  const effectiveCustomerEmail = cannotAssign ? null : customerEmail || null;
+  const effectiveCustomerContact = cannotAssign ? null : customerContact || null;
+  const effectiveCoreCustomerId = cannotAssign ? null : coreCustomerIdFk;
+  const effectiveKundeRef = cannotAssign ? null : kundeRef;
 
   try {
     await pool.query(
@@ -3337,23 +3397,24 @@ router.post('/link-matterport', async (req, res) => {
         matterport_is_own,
         status
       ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::timestamptz, $12::date, $12::date, $13, $14, 'ACTIVE'
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::timestamptz, $12::date, $12::date, $13, $14, $15
       )`,
       [
         exxasAboId,
         mpId,
-        tourUrl,
-        kundeRef,
-        coreCustomerIdFk,
-        customerName || null,
-        customerEmail || null,
-        customerContact || null,
+        effectiveTourUrl,
+        effectiveKundeRef,
+        effectiveCoreCustomerId,
+        effectiveCustomerName,
+        effectiveCustomerEmail,
+        effectiveCustomerContact,
         derivedName,
         derivedName,
         matterportCreatedAt,
         initialTermEndDate,
         matterportState,
         matterportIsOwn,
+        initialStatus,
       ]
     );
   } catch (e) {
@@ -3645,29 +3706,80 @@ router.post('/tours/:id/link-exxas-customer', async (req, res) => {
 router.get('/customers/search', async (req, res) => {
   const q = String(req.query.q || '').trim().toLowerCase();
   if (q.length < 2) return res.json([]);
+  const like = `%${q}%`;
   try {
-    const result = await pool.query(
-      `SELECT DISTINCT
-         COALESCE(customer_name, '') AS name,
-         LOWER(TRIM(customer_email))  AS email,
-         COUNT(*) OVER (PARTITION BY LOWER(TRIM(customer_email))) AS tour_count
-       FROM tour_manager.tours
-       WHERE customer_email IS NOT NULL
-         AND (
-           LOWER(customer_email) LIKE $1
-           OR LOWER(COALESCE(customer_name,'')) LIKE $1
-           OR LOWER(COALESCE(customer_contact,'')) LIKE $1
-         )
-       ORDER BY email
-       LIMIT 20`,
-      [`%${q}%`]
+    const [toursRes, custRes] = await Promise.all([
+      pool.query(
+        `SELECT LOWER(TRIM(customer_email)) AS email,
+                MAX(COALESCE(NULLIF(TRIM(customer_name), ''), NULLIF(TRIM(customer_contact), ''))) AS name,
+                COUNT(*)::int AS tour_count
+         FROM tour_manager.tours
+         WHERE TRIM(COALESCE(customer_email, '')) <> ''
+           AND (
+             LOWER(customer_email) LIKE $1
+             OR LOWER(COALESCE(customer_name, '')) LIKE $1
+             OR LOWER(COALESCE(customer_contact, '')) LIKE $1
+           )
+         GROUP BY LOWER(TRIM(customer_email))`,
+        [like]
+      ),
+      pool.query(
+        `SELECT LOWER(TRIM(c.email)) AS email,
+                COALESCE(NULLIF(TRIM(c.company), ''), NULLIF(TRIM(c.name), ''), TRIM(c.email)) AS name,
+                (
+                  SELECT COUNT(*)::int
+                  FROM tour_manager.tours t
+                  WHERE TRIM(COALESCE(t.customer_email, '')) <> ''
+                    AND LOWER(TRIM(t.customer_email)) = LOWER(TRIM(c.email))
+                ) AS tour_count
+         FROM core.customers c
+         WHERE TRIM(c.email) <> ''
+           AND (
+             LOWER(c.email) LIKE $1
+             OR LOWER(COALESCE(c.name, '')) LIKE $1
+             OR LOWER(COALESCE(c.company, '')) LIKE $1
+           )
+         ORDER BY LOWER(TRIM(c.email))
+         LIMIT 30`,
+        [like]
+      ),
+    ]);
+
+    const byEmail = new Map();
+    for (const r of toursRes.rows) {
+      const email = r.email;
+      if (!email) continue;
+      const nm = r.name && String(r.name).trim() ? String(r.name).trim() : email;
+      byEmail.set(email, {
+        email,
+        name: nm,
+        count: Number(r.tour_count) || 0,
+      });
+    }
+    for (const r of custRes.rows) {
+      const email = r.email;
+      if (!email) continue;
+      const nm = r.name && String(r.name).trim() ? String(r.name).trim() : email;
+      const cnt = Number(r.tour_count) || 0;
+      const ex = byEmail.get(email);
+      if (!ex) {
+        byEmail.set(email, { email, name: nm, count: cnt });
+      } else {
+        if (cnt > ex.count) ex.count = cnt;
+        if (nm && nm !== email && (ex.name === ex.email || !ex.name)) ex.name = nm;
+      }
+    }
+
+    const list = Array.from(byEmail.values()).sort((a, b) => a.email.localeCompare(b.email));
+    res.json(
+      list.slice(0, 20).map((x) => ({
+        email: x.email,
+        name: x.name || x.email,
+        count: x.count,
+      }))
     );
-    res.json(result.rows.map(r => ({
-      email: r.email,
-      name:  r.name || r.email,
-      count: Number(r.tour_count),
-    })));
   } catch (err) {
+    console.warn('customers/search', err);
     res.status(500).json([]);
   }
 });

@@ -441,14 +441,23 @@
         <div class="portal-td-layout">
 
           <div>
+            <% const portalSweepTrim = (tour.matterport_start_sweep || '').trim(); %>
+            <% const portalMatterportQs = portalSweepTrim
+              ? '&play=1&qs=1&help=0&lang=de&ts=' + encodeURIComponent(portalSweepTrim)
+              : '&play=1&qs=1&help=0&lang=de'; %>
             <% if (tour.matterport_space_id || tour.tour_url) { %>
               <div class="portal-td-preview">
                 <% if (tour.matterport_space_id) { %>
-                  <iframe src="https://my.matterport.com/show/?m=<%= tour.matterport_space_id %>&play=1&qs=1&help=0&lang=de"
+                  <iframe src="https://my.matterport.com/show/?m=<%= tour.matterport_space_id %><%= portalMatterportQs %>"
                     title="Matterport Vorschau" allow="xr-spatial-tracking; fullscreen" loading="lazy"></iframe>
                 <% } else { %>
                   <div class="portal-td-preview-fallback">
-                    <a href="<%= tour.tour_url %>" target="_blank" rel="noopener" class="btn btn-primary btn-sm">Tour öffnen</a>
+                    <% let portalFallbackUrl = tour.tour_url || '';
+                       if (portalSweepTrim && portalFallbackUrl) {
+                         portalFallbackUrl += (portalFallbackUrl.indexOf('?') >= 0 ? '&' : '?') + 'ts=' + encodeURIComponent(portalSweepTrim);
+                       }
+                    %>
+                    <a href="<%= portalFallbackUrl %>" target="_blank" rel="noopener" class="btn btn-primary btn-sm">Tour öffnen</a>
                   </div>
                 <% } %>
               </div>
@@ -459,7 +468,7 @@
                 <p class="portal-td-card-title">Tour-Details bearbeiten</p>
               </div>
               <div class="portal-td-card-b">
-                <p class="portal-td-hint" style="margin-top:0;">Titel und Kundenbezeichnung erscheinen in der Übersicht. Die <strong>Zuständigkeit</strong> legen Sie in der Seitenleiste fest (nur Inhaber/Administratoren).</p>
+                <p class="portal-td-hint" style="margin-top:0;">Titel und Kundenbezeichnung erscheinen in der Übersicht. Der Tour-Titel wird bei Änderung mit Matterport abgeglichen. <strong>Erweiterte Modellbearbeitung</strong> (Blur, Mattertags usw.) erfolgt nur in Matterport. Die <strong>Zuständigkeit</strong> legen Sie in der Seitenleiste fest (nur Inhaber/Administratoren).</p>
                 <form method="post" action="/portal/tours/<%= tour.id %>/edit">
                   <div class="portal-td-form-grid">
                     <div class="form-group">
@@ -470,6 +479,13 @@
                       <label>Firma / Kundenname</label>
                       <input type="text" name="customer_name" value="<%= tour.customer_name || '' %>" placeholder="Name / Firma (optional)" autocomplete="organization">
                     </div>
+                    <% if (tour.matterport_space_id) { %>
+                    <div class="form-group" style="grid-column:1/-1;">
+                      <label>Startpunkt (Sweep-ID, optional)</label>
+                      <input type="text" name="start_sweep" value="<%= tour.matterport_start_sweep || '' %>" placeholder="z. B. aus Matterport Workshop kopieren" autocomplete="off">
+                      <p class="portal-td-hint" style="margin:0.35rem 0 0;">Legt fest, an welchem Scan die Tour startet. Leer lassen für Matterport-Standard.</p>
+                    </div>
+                    <% } %>
                   </div>
                   <button type="submit" class="btn btn-primary btn-sm" style="margin-top:0.85rem;">Speichern</button>
                 </form>
@@ -597,7 +613,7 @@
                     <%= statusLabels[tour.status] || tour.status %>
                   </span>
                   <% if (tour.matterport_space_id) { %>
-                    <a href="https://my.matterport.com/show/?m=<%= tour.matterport_space_id %>"
+                    <a href="https://my.matterport.com/show/?m=<%= tour.matterport_space_id %><%= portalMatterportQs %>"
                        target="_blank" rel="noopener" class="portal-td-btn-outline">Vollbild öffnen</a>
                   <% } %>
                 </div>

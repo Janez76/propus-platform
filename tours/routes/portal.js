@@ -946,15 +946,20 @@ router.post('/tours/:id/edit', requirePortalAuth, async (req, res) => {
   const objectLabel = String(req.body?.object_label || '').trim() || null;
   const customerContact = String(req.body?.customer_contact || '').trim() || null;
   const customerName = String(req.body?.customer_name || '').trim() || null;
+  const hasMpSpace = String(raw.matterport_space_id || '').trim() !== '';
+  const startSweep = hasMpSpace
+    ? (String(req.body?.start_sweep || '').trim() || null)
+    : raw.matterport_start_sweep;
 
   await pool.query(
     `UPDATE tour_manager.tours
      SET object_label = COALESCE($1, object_label),
          customer_contact = COALESCE($2, customer_contact),
          customer_name = COALESCE($3, customer_name),
+         matterport_start_sweep = $5,
          updated_at = NOW()
      WHERE id = $4`,
-    [objectLabel, customerContact, customerName, id]
+    [objectLabel, customerContact, customerName, id, startSweep]
   );
 
   const tourNorm = normalizeTourRow(raw);

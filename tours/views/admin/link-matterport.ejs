@@ -381,6 +381,29 @@
     @media (max-width: 820px) {
       .modal-grid { grid-template-columns: 1fr; }
     }
+    .modal-cannot-assign {
+      padding-top: 0;
+      border-top: none;
+      margin-top: 0;
+      margin-bottom: 0.75rem;
+    }
+    #linkModalForm .modal-cannot-assign > label,
+    #linkModalForm .modal-archive-row label {
+      flex-direction: row;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    #linkModalForm .modal-cannot-assign > label {
+      font-weight: 600;
+    }
+    #linkModalForm .modal-archive-row label {
+      color: var(--text-muted);
+    }
+    .modal-archive-row {
+      display: none;
+      margin-top: 0.45rem;
+      padding-left: 1.4rem;
+    }
   </style>
 </head>
 <body>
@@ -517,7 +540,19 @@
         <form method="post" action="/admin/link-matterport" id="linkModalForm">
           <input type="hidden" name="matterportSpaceId" id="modalMatterportSpaceId">
           <input type="hidden" name="coreCustomerId" id="modalCoreCustomerId" value="">
-          <div class="modal-section">
+          <div class="modal-section modal-cannot-assign">
+            <label>
+              <input type="checkbox" name="cannotAssign" id="modalCannotAssign" value="1">
+              Kann nicht zugewiesen werden
+            </label>
+            <div class="modal-archive-row" id="modalArchiveRow">
+              <label>
+                <input type="checkbox" name="archiveIt" id="modalArchiveIt" value="1" checked>
+                Archivieren
+              </label>
+            </div>
+          </div>
+          <div class="modal-section" id="modalSectionBasis">
             <p class="modal-section-title">Basisdaten</p>
             <div class="modal-grid">
               <label class="full">
@@ -531,7 +566,7 @@
             </div>
           </div>
 
-          <div class="modal-section">
+          <div class="modal-section" id="modalSectionFirmaKontakt">
             <p class="modal-section-title">Firma & Kontakt</p>
             <div class="modal-grid">
               <div class="full customer-search-group">
@@ -549,7 +584,7 @@
             </div>
           </div>
 
-          <div class="modal-section">
+          <div class="modal-section" id="modalSectionKundendaten">
             <p class="modal-section-title">Kundendaten</p>
             <div class="modal-grid">
               <label>
@@ -616,6 +651,11 @@
       const modalCustomerEmail = document.getElementById('modalCustomerEmail');
       const modalCustomerContact = document.getElementById('modalCustomerContact');
       const modalClearCustomer = document.getElementById('modalClearCustomer');
+      const modalCannotAssign = document.getElementById('modalCannotAssign');
+      const modalArchiveRow = document.getElementById('modalArchiveRow');
+      const modalArchiveIt = document.getElementById('modalArchiveIt');
+      const modalSectionFirmaKontakt = document.getElementById('modalSectionFirmaKontakt');
+      const modalSectionKundendaten = document.getElementById('modalSectionKundendaten');
       let suggestionsState = { companies: [], contacts: [] };
       let searchTimer = null;
       let selectedCustomerLabel = '';
@@ -735,6 +775,22 @@
         clearContactSelectionUI();
       }
 
+      function applyCannotAssignUi(checked) {
+        if (modalArchiveRow) modalArchiveRow.style.display = checked ? 'block' : 'none';
+        if (modalSectionFirmaKontakt) modalSectionFirmaKontakt.style.display = checked ? 'none' : '';
+        if (modalSectionKundendaten) modalSectionKundendaten.style.display = checked ? 'none' : '';
+        if (modalTourUrl) {
+          if (checked) {
+            modalTourUrl.removeAttribute('required');
+          } else {
+            modalTourUrl.setAttribute('required', 'required');
+          }
+        }
+        if (!checked && modalArchiveIt) {
+          modalArchiveIt.checked = true;
+        }
+      }
+
       window.openLinkModal = function openLinkModal(btn) {
         const spaceId = btn?.dataset?.spaceId || '';
         const spaceName = btn?.dataset?.spaceName || 'Ohne Namen';
@@ -744,6 +800,13 @@
         modalSpaceId.value = spaceId;
         modalTourUrl.value = spaceUrl;
         modalBezeichnung.value = spaceName || '';
+        if (modalCannotAssign) {
+          modalCannotAssign.checked = false;
+        }
+        if (modalArchiveIt) {
+          modalArchiveIt.checked = true;
+        }
+        applyCannotAssignUi(false);
         clearCustomerSelection(false);
         modalCustomerName.value = '';
         modalCustomerEmail.value = '';
@@ -759,6 +822,18 @@
         modalBackdrop.classList.remove('open');
       };
       window.closeContactPicker = closeContactPicker;
+
+      modalCannotAssign?.addEventListener('change', () => {
+        applyCannotAssignUi(!!modalCannotAssign.checked);
+        if (modalCannotAssign.checked) {
+          clearCustomerSelection(false);
+          modalCustomerName.value = '';
+          modalCustomerEmail.value = '';
+          modalCustomerContact.value = '';
+          suggestionsState = { companies: [], contacts: [] };
+          renderSuggestions(modalSuggestions, suggestionsState);
+        }
+      });
 
       modalCustomerSearch?.addEventListener('input', () => {
         clearTimeout(searchTimer);
