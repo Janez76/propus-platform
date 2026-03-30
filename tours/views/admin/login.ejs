@@ -6,20 +6,23 @@
   <title>Propus Tour Manager – Login</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
     :root {
+      --propus-gold: #B68E20;
+      --propus-gold-hover: #9a7619;
+      --propus-beige: #F1F2EA;
       --white: #ffffff;
       --gray-50: #fafaf8;
       --gray-100: #f3f2ef;
       --gray-400: #a09b92;
       --gray-500: #706b63;
       --gray-700: #3b3833;
-      --gray-900: #141311;
-      --gold-400: #c4a35a;
-      --gold-500: #b08c3e;
-      --gold-600: #967530;
-      --gold-700: #7a5e26;
+      --gray-900: #111111;
+      --gold-400: #c9a22a;
+      --gold-500: #B68E20;
+      --gold-600: #B68E20;
+      --gold-700: #9a7619;
       --error-50: #fef3f2;
       --error-700: #b42318;
       --danger: #ef4444;
@@ -28,7 +31,7 @@
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: 'DM Sans', system-ui, sans-serif;
+      font-family: 'Roboto', system-ui, sans-serif;
       min-height: 100vh;
       background: var(--gray-900);
       color: var(--gray-700);
@@ -85,7 +88,7 @@
     .visual-quote {
       margin: 0;
       color: #fff;
-      font-family: 'DM Serif Display', Georgia, serif;
+      font-family: 'Montserrat', system-ui, sans-serif;
       font-size: clamp(2rem, 3.4vw, 3.05rem);
       line-height: 1.25;
       margin-bottom: 32px;
@@ -98,7 +101,7 @@
       align-items: center;
       justify-content: center;
       padding: 48px;
-      background: var(--white);
+      background: var(--propus-beige);
       position: relative;
       overflow: hidden;
       border-radius: 0;
@@ -263,7 +266,7 @@
       flex-shrink: 0;
       appearance: none;
       -webkit-appearance: none;
-      border: 1px solid #b08c3e;
+      border: 1px solid var(--propus-gold);
       border-radius: 3px;
       background: #fff;
       display: inline-grid;
