@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ArrowUpDown, Building2, ChevronDown, ChevronUp, Mail, Phone, Plus, Search, User, UserPlus, X } from "lucide-react";
+import { ArrowUpDown, Building2, CheckCircle2, ChevronDown, ChevronUp, Mail, PackageX, Phone, Plus, Search, ShoppingBag, User, UserPlus, Users, X } from "lucide-react";
 import { createContact, createCustomer, createCustomerContact, deleteCustomer, getContacts, getCustomers, getCustomerImpersonateUrl, patchCustomerNasFolderBases, updateContact, updateCustomer, updateCustomerAdmin, updateCustomerBlocked, type Contact, type Customer } from "../api/customers";
 import { CustomerList, type CustomerSortKey } from "../components/customers/CustomerList";
 import { ContactModal } from "../components/customers/ContactModal";
@@ -42,6 +42,32 @@ const EMPTY_QUICK_CONTACT: QuickContactFormState = {
 
 const quickContactInputClass = "ui-input";
 
+const CUSTOMER_PAGE_SIZE = 15;
+
+function buildPaginationPages(current: number, total: number): (number | "ellipsis")[] {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  const set = new Set<number>([1, total, current, current - 1, current + 1]);
+  const sorted = [...set].filter((p) => p >= 1 && p <= total).sort((a, b) => a - b);
+  const out: (number | "ellipsis")[] = [];
+  for (let i = 0; i < sorted.length; i++) {
+    if (i > 0 && sorted[i]! - sorted[i - 1]! > 1) {
+      out.push("ellipsis");
+    }
+    out.push(sorted[i]!);
+  }
+  return out;
+}
+
+function normalizeSortValue(value: string) {
+  return value.replace(/\s+/g, " ").trim().toLocaleLowerCase();
+}
+
+function compareStrings(a: string, b: string) {
+  return normalizeSortValue(a).localeCompare(normalizeSortValue(b), "de-CH");
+}
+
 export function CustomersPage() {
   const token = useAuthStore((s) => s.token);
   const lang = useAuthStore((s) => s.language);
@@ -63,6 +89,8 @@ export function CustomersPage() {
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams]);
   const [roleFilter, setRoleFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [customerListPage, setCustomerListPage] = useState(1);
   const [viewMode, setViewMode] = useState<"customers" | "contacts">("customers");
   const [customerSortKey, setCustomerSortKey] = useState<CustomerSortKey>("name");
   const [customerSortDir, setCustomerSortDir] = useState<"asc" | "desc">("asc");
@@ -113,7 +141,9 @@ export function CustomersPage() {
         const v = payload.nas_raw_folder_base;
         nasPatch.nasRawFolderBase = v === "" || v == null ? null : String(v);
       }
-      const { nas_customer_folder_base: _nc, nas_raw_folder_base: _nr, ...customerPayload } = payload;
+      const customerPayload = { ...payload } as Record<string, unknown>;
+      delete customerPayload.nas_customer_folder_base;
+      delete customerPayload.nas_raw_folder_base;
       if (Object.keys(nasPatch).length > 0) {
         await patchCustomerNasFolderBases(token, id, nasPatch);
       }
@@ -336,14 +366,6 @@ export function CustomersPage() {
     });
   }
 
-  function normalizeSortValue(value: string) {
-    return value.replace(/\s+/g, " ").trim().toLocaleLowerCase();
-  }
-
-  function compareStrings(a: string, b: string) {
-    return normalizeSortValue(a).localeCompare(normalizeSortValue(b), "de-CH");
-  }
-
   const filteredContacts = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return allContacts;
@@ -359,8 +381,25 @@ export function CustomersPage() {
     const q = query.trim().toLowerCase();
     const hit = !q || [String(c.id), c.name, c.email, c.company, c.phone, c.phone_2, c.phone_mobile, c.street, c.zipcity, c.zip, c.city, c.website].join(" ").toLowerCase().includes(q);
     const roleOk = roleFilter === "all" || (roleFilter === "admin" ? Boolean(c.is_admin) : !c.is_admin);
-    return hit && roleOk;
-  }), [items, query, roleFilter]);
+    const blocked = Boolean(c.blocked);
+    const statusOk =
+      statusFilter === "all" ||
+      (statusFilter === "active" ? !blocked : blocked);
+    return hit && roleOk && statusOk;
+  }), [items, query, roleFilter, statusFilter]);
+
+  useEffect(() => {
+    setCustomerListPage(1);
+  }, [query, roleFilter, statusFilter, viewMode]);
+
+  const customerStats = useMemo(() => {
+    const total = items.length;
+    const active = items.filter((c) => !c.blocked).length;
+    const ordersTotal = items.reduce((sum, c) => sum + (c.order_count || 0), 0);
+    const zeroOrders = items.filter((c) => !(c.order_count || 0)).length;
+    const rate = total > 0 ? Math.round((active / total) * 100) : 0;
+    return { total, active, ordersTotal, zeroOrders, rate };
+  }, [items]);
 
   const sortedCustomers = useMemo(() => {
     const factor = customerSortDir === "asc" ? 1 : -1;
@@ -381,6 +420,15 @@ export function CustomersPage() {
       return factor * ((Number(a.order_count || 0) - Number(b.order_count || 0)));
     });
   }, [filtered, customerSortDir, customerSortKey]);
+
+  const customerTotalPages = Math.max(1, Math.ceil(sortedCustomers.length / CUSTOMER_PAGE_SIZE));
+  const effectiveCustomerPage = Math.min(customerListPage, customerTotalPages);
+  const customerPageStart = (effectiveCustomerPage - 1) * CUSTOMER_PAGE_SIZE;
+  const paginatedCustomers = sortedCustomers.slice(customerPageStart, customerPageStart + CUSTOMER_PAGE_SIZE);
+  const customerPaginationPages = useMemo(
+    () => buildPaginationPages(effectiveCustomerPage, customerTotalPages),
+    [effectiveCustomerPage, customerTotalPages],
+  );
 
   const sortedContacts = useMemo(() => {
     const factor = contactSortDir === "asc" ? 1 : -1;
@@ -467,94 +515,166 @@ export function CustomersPage() {
     );
   }
 
+  const fromIdx = sortedCustomers.length === 0 ? 0 : customerPageStart + 1;
+  const toIdx = Math.min(customerPageStart + CUSTOMER_PAGE_SIZE, sortedCustomers.length);
+  const paginationInfo = t(lang, "customers.pagination.showing")
+    .replace("{{from}}", String(fromIdx))
+    .replace("{{to}}", String(toIdx))
+    .replace("{{total}}", String(sortedCustomers.length));
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight p-text-main mb-2">
+          <h1 className="cust-page-header-title">
             {viewMode === "contacts" ? t(lang, "customers.titleContacts") : t(lang, "customers.title")}
           </h1>
-          <p className="p-text-muted">
+          <p className="cust-page-header-sub">
             {viewMode === "contacts" ? t(lang, "customers.descriptionContacts") : t(lang, "customers.description")}
           </p>
         </div>
         <button
+          type="button"
           onClick={() => setCreateContactDialogOpen(true)}
-          className="btn-primary px-4 py-2.5 text-sm shadow-sm"
+          className="cust-btn-new shrink-0 self-start"
         >
-          <Plus className="h-5 w-5" />
-          <span className="hidden sm:inline">{viewMode === "contacts" ? t(lang, "customers.button.newContact") : t(lang, "customers.button.newCustomer")}</span>
+          <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
+          <span className="hidden sm:inline">
+            {viewMode === "contacts" ? t(lang, "customers.button.newContact") : t(lang, "customers.button.newCustomer")}
+          </span>
+          <span className="sm:hidden">+</span>
         </button>
       </div>
 
-      {/* View Toggle */}
-      <div className="flex gap-2">
-        <button
-          onClick={() => { setViewMode("customers"); setQuery(""); }}
-          className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold border transition-colors ${viewMode === "customers" ? "btn-primary" : "btn-secondary"}`}
-        >
-          <Building2 className="h-4 w-4" />
-          {t(lang, "customers.view.customers")}
-        </button>
-        <button
-          onClick={() => { setViewMode("contacts"); setQuery(""); }}
-          className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold border transition-colors ${viewMode === "contacts" ? "btn-primary" : "btn-secondary"}`}
-        >
-          <User className="h-4 w-4" />
-          {t(lang, "customers.view.contacts")}
-        </button>
-      </div>
-
-      {/* Search & Filter */}
-      <div className="surface-card p-5">
-        <div className="flex flex-col sm:flex-row sm:items-stretch gap-3">
-          <div className="flex flex-1 min-w-0 sm:min-w-[14rem] sm:flex-[2_1_62%] group">
-            <div
-              className="flex w-full min-h-[56px] items-center rounded-[10px] border border-[var(--border-strong)] bg-[var(--surface-raised)] transition-all duration-200 focus-within:border-[var(--accent)] focus-within:bg-[var(--surface)] focus-within:shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent)_22%,transparent)] dark:focus-within:shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent)_28%,transparent)]"
-            >
-              <span className="flex shrink-0 items-center justify-center pl-4 pr-2" aria-hidden>
-                <Search className="h-5 w-5 p-text-subtle transition-colors group-focus-within:text-[#C5A059]" />
-              </span>
-              <input
-                type="text"
-                autoComplete="off"
-                placeholder={viewMode === "contacts" ? t(lang, "customers.placeholder.searchContacts") : t(lang, "customers.placeholder.search")}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                className="min-h-[56px] min-w-0 flex-1 border-0 bg-transparent py-3 pr-2 text-lg text-[var(--text-main)] placeholder:text-[var(--text-subtle)] focus:outline-none focus:ring-0"
-              />
-              {query ? (
-                <button
-                  type="button"
-                  onClick={() => setQuery("")}
-                  className="mr-2 flex shrink-0 items-center justify-center rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-zinc-700 dark:hover:text-zinc-200"
-                  title="Suche leeren"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              ) : (
-                <span className="w-2 shrink-0" aria-hidden />
-              )}
+      {viewMode === "customers" ? (
+        <div className="cust-stats-row">
+          <div className="cust-stat-card relative">
+            <div className="cust-stat-label">{t(lang, "customers.stats.total")}</div>
+            <div className="cust-stat-value">{customerStats.total}</div>
+            <div className="cust-stat-delta cust-stat-delta--muted">—</div>
+            <div className="cust-stat-icon" aria-hidden>
+              <Users className="h-5 w-5" strokeWidth={1.5} />
             </div>
           </div>
-          {viewMode === "customers" && (
-            <select
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
-              className="ui-input py-4 text-base min-h-[56px] shrink-0 w-full sm:w-auto sm:min-w-[11rem]"
-            >
-              <option value="all">{t(lang, "customers.filter.allRoles")}</option>
-              <option value="admin">{t(lang, "customers.filter.adminOnly")}</option>
-              <option value="customer">{t(lang, "customers.filter.customersOnly")}</option>
-            </select>
-          )}
-          <div className="flex items-center gap-2 px-4 py-2 sm:py-0 sm:self-center rounded-lg p-bg-raised border p-border-soft whitespace-nowrap shrink-0">
-            <span className="text-xs font-semibold uppercase tracking-wider p-text-muted">{t(lang, "customers.label.hits")}</span>
-            <span className="text-sm font-bold p-text-accent tabular-nums">{viewMode === "contacts" ? filteredContacts.length : filtered.length}</span>
+          <div className="cust-stat-card relative">
+            <div className="cust-stat-label">{t(lang, "customers.stats.active")}</div>
+            <div className="cust-stat-value">{customerStats.active}</div>
+            <div className="cust-stat-delta">
+              {t(lang, "customers.stats.activeRate").replace("{{n}}", String(customerStats.rate))}
+            </div>
+            <div className="cust-stat-icon" aria-hidden>
+              <CheckCircle2 className="h-5 w-5" strokeWidth={1.5} />
+            </div>
+          </div>
+          <div className="cust-stat-card relative">
+            <div className="cust-stat-label">{t(lang, "customers.stats.ordersTotal")}</div>
+            <div className="cust-stat-value">{customerStats.ordersTotal}</div>
+            <div className="cust-stat-delta cust-stat-delta--muted">—</div>
+            <div className="cust-stat-icon" aria-hidden>
+              <ShoppingBag className="h-5 w-5" strokeWidth={1.5} />
+            </div>
+          </div>
+          <div className="cust-stat-card relative">
+            <div className="cust-stat-label">{t(lang, "customers.stats.zeroOrders")}</div>
+            <div className="cust-stat-value">{customerStats.zeroOrders}</div>
+            <div className="cust-stat-delta cust-stat-delta--muted">{t(lang, "customers.stats.zeroOrdersHint")}</div>
+            <div className="cust-stat-icon" aria-hidden>
+              <PackageX className="h-5 w-5" strokeWidth={1.5} />
+            </div>
           </div>
         </div>
+      ) : null}
+
+      <div className="cust-tab-row" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={viewMode === "customers"}
+          className={`cust-tab ${viewMode === "customers" ? "active" : ""}`}
+          onClick={() => {
+            setViewMode("customers");
+            setQuery("");
+          }}
+        >
+          <Building2 className="h-[13px] w-[13px]" strokeWidth={1.8} />
+          {t(lang, "customers.view.customers")}
+          <span className={viewMode === "customers" ? "cust-tab-count" : "cust-tab-count cust-tab-count--neutral"}>{items.length}</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={viewMode === "contacts"}
+          className={`cust-tab ${viewMode === "contacts" ? "active" : ""}`}
+          onClick={() => {
+            setViewMode("contacts");
+            setQuery("");
+          }}
+        >
+          <User className="h-[13px] w-[13px]" strokeWidth={1.8} />
+          {t(lang, "customers.view.contacts")}
+          <span className={viewMode === "contacts" ? "cust-tab-count" : "cust-tab-count cust-tab-count--neutral"}>{allContacts.length}</span>
+        </button>
       </div>
+
+      {viewMode === "customers" ? (
+        <div className="cust-toolbar">
+          <div className="cust-search-wrap">
+            <Search className="h-[13px] w-[13px]" strokeWidth={2} aria-hidden />
+            <input
+              type="search"
+              autoComplete="off"
+              className="cust-search-input"
+              placeholder={t(lang, "customers.placeholder.search")}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
+          <select
+            className="cust-filter-select"
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+            aria-label={t(lang, "customers.filter.allRoles")}
+          >
+            <option value="all">{t(lang, "customers.filter.allRoles")}</option>
+            <option value="admin">{t(lang, "customers.filter.adminOnly")}</option>
+            <option value="customer">{t(lang, "customers.filter.customersOnly")}</option>
+          </select>
+          <select
+            className="cust-filter-select"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as "all" | "active" | "inactive")}
+            aria-label={t(lang, "customers.filter.allStatus")}
+          >
+            <option value="all">{t(lang, "customers.filter.allStatus")}</option>
+            <option value="active">{t(lang, "customers.filter.statusActive")}</option>
+            <option value="inactive">{t(lang, "customers.filter.statusInactive")}</option>
+          </select>
+          <div className="cust-toolbar-right">
+            <span className="cust-count-badge">
+              <span>{filtered.length}</span> {t(lang, "customers.label.hitWord")}
+            </span>
+          </div>
+        </div>
+      ) : (
+        <div className="cust-toolbar">
+          <div className="cust-search-wrap">
+            <Search className="h-[13px] w-[13px]" strokeWidth={2} aria-hidden />
+            <input
+              type="search"
+              autoComplete="off"
+              className="cust-search-input"
+              placeholder={t(lang, "customers.placeholder.searchContacts")}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
+          <div className="cust-toolbar-right">
+            <span className="cust-count-badge">
+              <span>{filteredContacts.length}</span> {t(lang, "customers.label.hitWord")}
+            </span>
+          </div>
+        </div>
+      )}
 
       {contactSuccess ? (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-300">
@@ -564,25 +684,70 @@ export function CustomersPage() {
 
       {/* Customer List / Contacts List */}
       {viewMode === "customers" ? (
-        <CustomerList
-          items={sortedCustomers}
-          onEdit={setSelectedContactRecord}
-          onToggleBlocked={toggleBlocked}
-          onView={setViewCustomer}
-          onOpenAsCustomer={async (c) => {
-            try {
-              const data = await getCustomerImpersonateUrl(token, c.id);
-              if (data?.url) window.open(data.url, "_blank", "noopener");
-            } catch {}
-          }}
-          onAddContact={openQuickContact}
-          onMerge={(c) => setMergeKeepCustomer(c)}
-          sortKey={customerSortKey}
-          sortDir={customerSortDir}
-          onSort={toggleCustomerSort}
-        />
+        <>
+          <CustomerList
+            items={paginatedCustomers}
+            onEdit={setSelectedContactRecord}
+            onToggleBlocked={toggleBlocked}
+            onView={setViewCustomer}
+            onOpenAsCustomer={async (c) => {
+              try {
+                const data = await getCustomerImpersonateUrl(token, c.id);
+                if (data?.url) window.open(data.url, "_blank", "noopener");
+              } catch {
+                /* ignore impersonation errors */
+              }
+            }}
+            onAddContact={openQuickContact}
+            onMerge={(c) => setMergeKeepCustomer(c)}
+            sortKey={customerSortKey}
+            sortDir={customerSortDir}
+            onSort={toggleCustomerSort}
+          />
+          {sortedCustomers.length > 0 ? (
+            <div className="cust-pagination">
+              <span className="cust-page-info">{paginationInfo}</span>
+              <div className="cust-page-btns">
+                <button
+                  type="button"
+                  className="cust-page-btn"
+                  disabled={effectiveCustomerPage <= 1}
+                  onClick={() => setCustomerListPage((p) => Math.max(1, p - 1))}
+                  aria-label="Previous page"
+                >
+                  ‹
+                </button>
+                {customerPaginationPages.map((entry, i) =>
+                  entry === "ellipsis" ? (
+                    <span key={`e-${i}`} className="cust-page-btn border-0 cursor-default text-[var(--text-subtle)]" aria-hidden>
+                      …
+                    </span>
+                  ) : (
+                    <button
+                      key={entry}
+                      type="button"
+                      className={`cust-page-btn ${entry === effectiveCustomerPage ? "active" : ""}`}
+                      onClick={() => setCustomerListPage(entry)}
+                    >
+                      {entry}
+                    </button>
+                  ),
+                )}
+                <button
+                  type="button"
+                  className="cust-page-btn"
+                  disabled={effectiveCustomerPage >= customerTotalPages}
+                  onClick={() => setCustomerListPage((p) => Math.min(customerTotalPages, p + 1))}
+                  aria-label="Next page"
+                >
+                  ›
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </>
       ) : (
-        <div className="surface-card overflow-hidden">
+        <div className="cust-table-wrap overflow-hidden">
           {contactsLoading ? (
             <div className="p-12 text-center p-text-muted text-sm">{t(lang, "common.loading")}</div>
           ) : filteredContacts.length === 0 ? (

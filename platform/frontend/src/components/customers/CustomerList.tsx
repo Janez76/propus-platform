@@ -1,7 +1,6 @@
-import { Edit2, Lock, Unlock, ShoppingBag, Eye, UserPlus, ArrowUpDown, ChevronDown, ChevronUp, ExternalLink, GitMerge } from "lucide-react";
+import { Edit2, Lock, Unlock, ShoppingBag, Eye, UserPlus, ExternalLink, GitMerge } from "lucide-react";
 import { motion } from "framer-motion";
 import type { Customer } from "../../api/customers";
-import { Badge } from "../ui/badge";
 import { cn, toDisplayString } from "../../lib/utils";
 import { t } from "../../i18n";
 import { useAuthStore } from "../../store/authStore";
@@ -22,6 +21,32 @@ type Props = {
   onSort: (key: CustomerSortKey) => void;
 };
 
+function customerInitials(c: Customer): string {
+  const label = String(c.company || c.name || "").trim() || "?";
+  return label
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
+
+function customerCityLine(c: Customer): string {
+  const city = (c.city || "").trim();
+  if (city) return city;
+  const zc = (c.zipcity || "").trim();
+  if (!zc) return "–";
+  const comma = zc.indexOf(",");
+  if (comma >= 0) {
+    const rest = zc.slice(comma + 1).trim();
+    if (rest) return rest;
+  }
+  const parts = zc.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return parts.slice(1).join(" ");
+  return zc;
+}
+
 function SortLabel({
   label,
   active,
@@ -34,13 +59,11 @@ function SortLabel({
   onClick: () => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="inline-flex items-center gap-1.5 hover:text-white transition-colors"
-    >
+    <button type="button" onClick={onClick} className="inline-flex items-center gap-1 font-inherit bg-transparent border-0 p-0 cursor-pointer">
       <span>{label}</span>
-      {active ? (dir === "asc" ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />) : <ArrowUpDown className="h-3.5 w-3.5 opacity-70" />}
+      <span className={cn("text-[10px] opacity-50", active && "opacity-100")} aria-hidden>
+        {active ? (dir === "asc" ? "↑" : "↓") : "↕"}
+      </span>
     </button>
   );
 }
@@ -53,7 +76,7 @@ export function CustomerList({ items, onEdit, onToggleBlocked, onView, onOpenAsC
 
   if (items.length === 0) {
     return (
-      <div className="surface-card p-12 text-center">
+      <div className="cust-table-wrap p-12 text-center">
         <p className="p-text-muted">{t(lang, "customerList.empty")}</p>
       </div>
     );
@@ -69,100 +92,88 @@ export function CustomerList({ items, onEdit, onToggleBlocked, onView, onOpenAsC
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.05, duration: 0.3 }}
-            className="surface-card hover:shadow-md transition-shadow p-4"
+            className="cust-table-wrap p-4 transition-shadow hover:shadow-md"
           >
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex-1">
-                <p className="text-[11px] font-medium tabular-nums p-text-subtle mb-0.5">
-                  {t(lang, "customerList.table.id")}: {c.id}
-                </p>
-                <h3 className="font-bold p-text-main mb-1">{customerListPrimaryLine(c)}</h3>
+            <div className="mb-3 flex items-start justify-between gap-2">
+              <div className="cust-customer-cell min-w-0 flex-1">
+                <div className="cust-avatar">{customerInitials(c)}</div>
+                <div className="min-w-0">
+                  <p className="text-[11px] font-medium tabular-nums p-text-subtle mb-0.5">
+                    {t(lang, "customerList.table.id")}: {c.id}
+                  </p>
+                  <h3 className="cust-customer-name">{customerListPrimaryLine(c)}</h3>
+                  <p className="cust-customer-city">{customerCityLine(c)}</p>
+                </div>
               </div>
-              <div className="flex flex-wrap gap-2 justify-end">
-                <Badge variant={c.is_admin ? "gold" : "secondary"}>
+              <div className="flex flex-shrink-0 flex-wrap justify-end gap-2">
+                <span className={cn("cust-role-badge", c.is_admin ? "cust-role-admin" : "cust-role-kunde")}>
                   {c.is_admin ? t(lang, "customerView.role.admin") : t(lang, "customerView.role.customer")}
-                </Badge>
-                <Badge variant={c.blocked ? "destructive" : "default"}>
+                </span>
+                <span className={cn("cust-status-badge", c.blocked ? "cust-status-inaktiv" : "cust-status-aktiv")}>
                   {c.blocked ? t(lang, "customerView.status.blocked") : t(lang, "customerView.status.active")}
-                </Badge>
+                </span>
               </div>
             </div>
 
-            {(toDisplayString(c.street, "") || toDisplayString(c.zipcity, "")) ? (
-              <p className="text-xs p-text-muted mb-3">
-                {[toDisplayString(c.street), toDisplayString(c.zipcity)].filter((s) => s).join(", ")}
+            {toDisplayString(c.street, "") || toDisplayString(c.zipcity, "") ? (
+              <p className="cust-td-address mb-3 text-xs">
+                <span className="cust-td-address-line">{[toDisplayString(c.street), toDisplayString(c.zipcity)].filter((s) => s).join(", ")}</span>
               </p>
             ) : null}
 
-            <div className="flex items-center gap-2 mb-3 pt-3 border-t p-border-soft">
-              <ShoppingBag className="h-4 w-4 p-text-subtle" />
+            <div className="cust-td-orders mb-3 border-t p-border-soft pt-3">
+              <ShoppingBag className="h-4 w-4 shrink-0 opacity-70" strokeWidth={1.8} />
               <span className="text-xs font-semibold p-text-muted">
                 {t(lang, "customerList.label.orderCount").replace("{{n}}", String(c.order_count || 0))}
               </span>
             </div>
 
-            <div className={cn("grid gap-2", onAddContact && onMerge ? "grid-cols-2 sm:grid-cols-4" : onAddContact || onMerge ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-2")}>
-              <button
-                onClick={() => onEdit(c)}
-                className="btn-secondary inline-flex items-center justify-center gap-2 px-3 py-2 text-sm"
-                title={t(lang, "customerList.tooltip.edit")}
-              >
-                <Edit2 className="h-4 w-4" />
+            <div
+              className={cn(
+                "grid gap-2",
+                onAddContact && onMerge ? "grid-cols-2 sm:grid-cols-4" : onAddContact || onMerge ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-2",
+              )}
+            >
+              {onView && (
+                <button type="button" onClick={() => onView(c)} className="cust-action-view justify-center text-xs" title={t(lang, "customerList.tooltip.view")}>
+                  <Eye className="h-3.5 w-3.5 shrink-0" />
+                  {t(lang, "customerList.button.viewShort")}
+                </button>
+              )}
+              <button type="button" onClick={() => onEdit(c)} className="cust-action-view justify-center bg-[var(--surface-raised)] text-[var(--text-main)] text-xs hover:bg-[var(--surface)]" title={t(lang, "customerList.tooltip.edit")}>
+                <Edit2 className="h-3.5 w-3.5 shrink-0" />
                 {t(lang, "common.edit")}
               </button>
               {onMerge && (
-                <button
-                  type="button"
-                  onClick={() => onMerge(c)}
-                  className="btn-secondary inline-flex items-center justify-center gap-2 px-3 py-2 text-sm"
-                  title={t(lang, "customerList.tooltip.merge")}
-                >
-                  <GitMerge className="h-4 w-4" />
+                <button type="button" onClick={() => onMerge(c)} className="cust-action-view justify-center bg-[var(--surface-raised)] text-[var(--text-main)] text-xs" title={t(lang, "customerList.tooltip.merge")}>
+                  <GitMerge className="h-3.5 w-3.5 shrink-0" />
                   {t(lang, "customerList.button.merge")}
                 </button>
               )}
               {onAddContact && (
-                <button
-                  onClick={() => onAddContact(c)}
-                  className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors p-text-accent"
-                  style={{ background: "var(--accent-subtle)" }}
-                  title={t(lang, "customerList.tooltip.addContact")}
-                >
-                  <UserPlus className="h-4 w-4" />
+                <button type="button" onClick={() => onAddContact(c)} className="cust-action-view justify-center text-xs" title={t(lang, "customerList.tooltip.addContact")}>
+                  <UserPlus className="h-3.5 w-3.5 shrink-0" />
                   {t(lang, "customerList.button.contact")}
                 </button>
               )}
               <button
+                type="button"
                 onClick={() => onToggleBlocked(c.id, !c.blocked)}
                 className={cn(
-                  "inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                  "cust-action-view justify-center text-xs border-0",
                   c.blocked
-                    ? "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-950/50"
-                    : "bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-950/50"
+                    ? "bg-[color-mix(in_srgb,#2ecc71_12%,transparent)] text-[#2ecc71]"
+                    : "bg-[var(--surface-raised)] text-[var(--text-main)] hover:bg-[color-mix(in_srgb,#e74c3c_12%,transparent)] hover:text-[#e74c3c]",
                 )}
                 title={c.blocked ? t(lang, "common.unblock") : t(lang, "common.block")}
               >
-                {c.blocked ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+                {c.blocked ? <Unlock className="h-3.5 w-3.5 shrink-0" /> : <Lock className="h-3.5 w-3.5 shrink-0" />}
                 {c.blocked ? t(lang, "common.unblock") : t(lang, "common.block")}
               </button>
             </div>
-            {onView && (
-              <button
-                onClick={() => onView(c)}
-                className="btn-secondary w-full inline-flex items-center justify-center gap-2 px-3 py-2 text-sm"
-                title={t(lang, "customerList.tooltip.view")}
-              >
-                <Eye className="h-4 w-4" />
-                {t(lang, "customerList.button.view")}
-              </button>
-            )}
             {onOpenAsCustomer && !c.blocked && !isSyntheticCompanyEmail(c.email) && (
-              <button
-                onClick={() => onOpenAsCustomer(c)}
-                className="btn-primary w-full inline-flex items-center justify-center gap-2 px-3 py-2 text-sm"
-                title={t(lang, "customerList.tooltip.openAsCustomer")}
-              >
-                <ExternalLink className="h-4 w-4" />
+              <button type="button" onClick={() => onOpenAsCustomer(c)} className="cust-btn-new mt-2 w-full justify-center text-xs py-2" title={t(lang, "customerList.tooltip.openAsCustomer")}>
+                <ExternalLink className="h-3.5 w-3.5 shrink-0" />
                 {t(lang, "customerList.button.openAsCustomer")}
               </button>
             )}
@@ -171,142 +182,125 @@ export function CustomerList({ items, onEdit, onToggleBlocked, onView, onOpenAsC
       </div>
 
       {/* Desktop Table */}
-      <div className="hidden lg:block surface-card overflow-hidden" style={{ padding: 0 }}>
-          <table className="w-full table-fixed">
-            <colgroup>
-              <col className="w-[6%]" />
-              <col className="w-[21%]" />
-              <col className="w-[21%]" />
-              <col className="w-[9%]" />
-              <col className="w-[9%]" />
-              <col className="w-[7%]" />
-              <col className="w-[27%]" />
-            </colgroup>
-            <thead>
-              <tr style={{ borderBottom: "2px solid color-mix(in srgb, var(--accent) 20%, var(--border-soft))" }}>
-                <th className="px-2 py-4 text-left text-xs font-bold uppercase tracking-wider p-text-accent tabular-nums">
-                  {t(lang, "customerList.table.id")}
-                </th>
-                <th className="px-3 py-4 text-left text-xs font-bold uppercase tracking-wider p-text-accent">
-                  <SortLabel label={`${t(lang, "customerList.table.customer")}/${t(lang, "common.company")}`} active={sortKey === "name"} dir={sortDir} onClick={() => onSort("name")} />
-                </th>
-                <th className="px-3 py-4 text-left text-xs font-bold uppercase tracking-wider p-text-accent">
-                  <SortLabel label={t(lang, "customerList.table.address")} active={sortKey === "address"} dir={sortDir} onClick={() => onSort("address")} />
-                </th>
-                <th className="px-3 py-4 text-left text-xs font-bold uppercase tracking-wider p-text-accent">
-                  <SortLabel label={t(lang, "customerList.table.role")} active={sortKey === "role"} dir={sortDir} onClick={() => onSort("role")} />
-                </th>
-                <th className="px-3 py-4 text-left text-xs font-bold uppercase tracking-wider p-text-accent">
-                  <SortLabel label={t(lang, "customerList.table.status")} active={sortKey === "status"} dir={sortDir} onClick={() => onSort("status")} />
-                </th>
-                <th className="px-3 py-4 text-left text-xs font-bold uppercase tracking-wider p-text-accent">
-                  <SortLabel label={t(lang, "customerList.table.orders")} active={sortKey === "orders"} dir={sortDir} onClick={() => onSort("orders")} />
-                </th>
-                <th className="px-3 py-4 text-right text-xs font-bold uppercase tracking-wider p-text-accent">{t(lang, "customerList.table.actions")}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y" style={{ borderColor: "var(--border-soft)" }}>
-              {items.map((c, index) => (
-                <motion.tr
-                  key={c.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.03, duration: 0.2 }}
-                  className="propus-table-row transition-colors"
-                >
-                  <td className="px-2 py-3 text-xs tabular-nums p-text-subtle whitespace-nowrap">
-                    {c.id}
-                  </td>
-                  <td className="px-3 py-3">
-                    <div className="font-semibold p-text-main truncate">{customerListPrimaryLine(c)}</div>
-                  </td>
-                  <td className="px-3 py-3 text-sm text-slate-600 dark:text-zinc-400 truncate">
-                    {[toDisplayString(c.street), toDisplayString(c.zipcity)].filter(Boolean).join(", ") || "-"}
-                  </td>
-                  <td className="px-3 py-3">
-                    <Badge variant={c.is_admin ? "gold" : "secondary"}>
-                      {c.is_admin ? t(lang, "customerView.role.admin") : t(lang, "customerView.role.customer")}
-                    </Badge>
-                  </td>
-                  <td className="px-3 py-3">
-                    <Badge variant={c.blocked ? "destructive" : "default"}>
-                      {c.blocked ? t(lang, "customerView.status.blocked") : t(lang, "customerView.status.active")}
-                    </Badge>
-                  </td>
-                  <td className="px-3 py-3">
-                    <div className="flex items-center gap-2">
-                      <ShoppingBag className="h-4 w-4 p-text-subtle" />
-                      <span className="text-sm font-semibold p-text-muted">{c.order_count || 0}</span>
+      <div className="cust-table-wrap hidden overflow-hidden lg:block" style={{ padding: 0 }}>
+        <table className="w-full table-fixed">
+          <colgroup>
+            <col className="w-[6%]" />
+            <col className="w-[22%]" />
+            <col className="w-[20%]" />
+            <col className="w-[9%]" />
+            <col className="w-[11%]" />
+            <col className="w-[8%]" />
+            <col className="w-[24%]" />
+          </colgroup>
+          <thead>
+            <tr>
+              <th className="cust-td-id">{t(lang, "customerList.table.id")}</th>
+              <th className={cn(sortKey === "name" && "cust-th-sorted")}>
+                <SortLabel label={`${t(lang, "customerList.table.customer")}/${t(lang, "common.company")}`} active={sortKey === "name"} dir={sortDir} onClick={() => onSort("name")} />
+              </th>
+              <th className={cn(sortKey === "address" && "cust-th-sorted")}>
+                <SortLabel label={t(lang, "customerList.table.address")} active={sortKey === "address"} dir={sortDir} onClick={() => onSort("address")} />
+              </th>
+              <th className={cn(sortKey === "role" && "cust-th-sorted")}>
+                <SortLabel label={t(lang, "customerList.table.role")} active={sortKey === "role"} dir={sortDir} onClick={() => onSort("role")} />
+              </th>
+              <th className={cn(sortKey === "status" && "cust-th-sorted")}>
+                <SortLabel label={t(lang, "customerList.table.status")} active={sortKey === "status"} dir={sortDir} onClick={() => onSort("status")} />
+              </th>
+              <th className={cn(sortKey === "orders" && "cust-th-sorted")}>
+                <SortLabel label={t(lang, "customerList.table.orders")} active={sortKey === "orders"} dir={sortDir} onClick={() => onSort("orders")} />
+              </th>
+              <th className="text-right pr-5">{t(lang, "customerList.table.actions")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((c, index) => (
+              <motion.tr
+                key={c.id}
+                initial={{ opacity: 0, x: -12 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.02, duration: 0.2 }}
+                onClick={() => onView?.(c)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onView?.(c);
+                  }
+                }}
+                tabIndex={onView ? 0 : undefined}
+                role={onView ? "button" : undefined}
+                className="outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface)]"
+              >
+                <td className="cust-td-id">{c.id}</td>
+                <td>
+                  <div className="cust-customer-cell">
+                    <div className="cust-avatar">{customerInitials(c)}</div>
+                    <div className="min-w-0">
+                      <div className="cust-customer-name">{customerListPrimaryLine(c)}</div>
+                      <div className="cust-customer-city">{customerCityLine(c)}</div>
                     </div>
-                  </td>
-                  <td className="px-2 py-3">
-                    <div className="flex items-center justify-end gap-1 flex-nowrap">
-                      {onOpenAsCustomer && !c.blocked && !isSyntheticCompanyEmail(c.email) && (
-                        <button
-                          type="button"
-                          onClick={() => onOpenAsCustomer(c)}
-                          className="btn-primary inline-flex items-center justify-center px-2.5 py-1.5 text-xs min-h-0 min-w-0"
-                          title={t(lang, "customerList.tooltip.openAsCustomer")}
-                        >
-                          <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                          <span className="sr-only">{t(lang, "customerList.button.openAsCustomer")}</span>
-                        </button>
-                      )}
-                      {onView && (
-                        <button
-                          onClick={() => onView(c)}
-                          className="btn-secondary inline-flex items-center gap-1 px-2.5 py-1.5 text-xs min-h-0 min-w-0"
-                          title={t(lang, "customerList.tooltip.view")}
-                        >
-                          <Eye className="h-3.5 w-3.5 shrink-0" />
-                          <span>{t(lang, "customerList.button.viewShort")}</span>
-                        </button>
-                      )}
-                      <button
-                        onClick={() => onEdit(c)}
-                        className="btn-secondary inline-flex items-center justify-center px-2 py-1.5 text-xs min-h-0 min-w-0"
-                        title={t(lang, "customerList.tooltip.edit")}
-                      >
-                        <Edit2 className="h-3.5 w-3.5" />
+                  </div>
+                </td>
+                <td className="cust-td-address">
+                  <div className="cust-td-address-line">{[toDisplayString(c.street), toDisplayString(c.zipcity)].filter(Boolean).join(", ") || "–"}</div>
+                </td>
+                <td>
+                  <span className={cn("cust-role-badge", c.is_admin ? "cust-role-admin" : "cust-role-kunde")}>
+                    {c.is_admin ? t(lang, "customerView.role.admin") : t(lang, "customerView.role.customer")}
+                  </span>
+                </td>
+                <td>
+                  <span className={cn("cust-status-badge", c.blocked ? "cust-status-inaktiv" : "cust-status-aktiv")}>
+                    {c.blocked ? t(lang, "customerView.status.blocked") : t(lang, "customerView.status.active")}
+                  </span>
+                </td>
+                <td>
+                  <div className="cust-td-orders">
+                    <ShoppingBag className="h-3 w-3 shrink-0 opacity-70" strokeWidth={1.8} />
+                    <span className={cn((c.order_count || 0) === 0 ? "cust-orders-zero" : "cust-orders-count")}>{c.order_count || 0}</span>
+                  </div>
+                </td>
+                <td className="text-right" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                  <div className="cust-row-actions">
+                    {onView && (
+                      <button type="button" className="cust-action-view" onClick={() => onView(c)} title={t(lang, "customerList.tooltip.view")}>
+                        <Eye className="h-3 w-3 shrink-0" strokeWidth={2} />
+                        {t(lang, "customerList.button.viewShort")}
                       </button>
-                      {onMerge && (
-                        <button
-                          type="button"
-                          onClick={() => onMerge(c)}
-                          className="btn-secondary inline-flex items-center justify-center px-2 py-1.5 text-xs min-h-0 min-w-0"
-                          title={t(lang, "customerList.tooltip.merge")}
-                        >
-                          <GitMerge className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                      {onAddContact && (
-                        <button
-                          onClick={() => onAddContact(c)}
-                          className="inline-flex items-center justify-center px-2 py-1.5 rounded-lg text-xs font-medium transition-colors p-text-accent min-h-0 min-w-0"
-                          style={{ background: "var(--accent-subtle)" }}
-                          title={t(lang, "customerList.tooltip.addContact")}
-                        >
-                          <UserPlus className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                      <button
-                        onClick={() => onToggleBlocked(c.id, !c.blocked)}
-                        className={cn(
-                          "inline-flex items-center justify-center px-2 py-1.5 rounded-lg text-xs font-medium transition-colors min-h-0 min-w-0",
-                          c.blocked
-                            ? "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-950/50"
-                            : "bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-950/50"
-                        )}
-                        title={c.blocked ? t(lang, "common.unblock") : t(lang, "common.block")}
-                      >
-                        {c.blocked ? <Unlock className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
+                    )}
+                    <button type="button" className="cust-action-icon" onClick={() => onEdit(c)} title={t(lang, "customerList.tooltip.edit")}>
+                      <Edit2 className="h-3 w-3" strokeWidth={2} />
+                    </button>
+                    {onMerge && (
+                      <button type="button" className="cust-action-icon" onClick={() => onMerge(c)} title={t(lang, "customerList.tooltip.merge")}>
+                        <GitMerge className="h-3 w-3" strokeWidth={2} />
                       </button>
-                    </div>
-                  </td>
-                </motion.tr>
-              ))}
-            </tbody>
-          </table>
+                    )}
+                    {onAddContact && (
+                      <button type="button" className="cust-action-icon" onClick={() => onAddContact(c)} title={t(lang, "customerList.tooltip.addContact")}>
+                        <UserPlus className="h-3 w-3" strokeWidth={2} />
+                      </button>
+                    )}
+                    {onOpenAsCustomer && !c.blocked && !isSyntheticCompanyEmail(c.email) && (
+                      <button type="button" className="cust-action-icon" onClick={() => onOpenAsCustomer(c)} title={t(lang, "customerList.tooltip.openAsCustomer")}>
+                        <ExternalLink className="h-3 w-3" strokeWidth={2} />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className={cn("cust-action-icon", !c.blocked && "cust-action-icon--danger")}
+                      onClick={() => onToggleBlocked(c.id, !c.blocked)}
+                      title={c.blocked ? t(lang, "common.unblock") : t(lang, "common.block")}
+                    >
+                      {c.blocked ? <Unlock className="h-3 w-3" strokeWidth={2} /> : <Lock className="h-3 w-3" strokeWidth={2} />}
+                    </button>
+                  </div>
+                </td>
+              </motion.tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </>
   );
