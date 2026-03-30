@@ -9461,6 +9461,27 @@ app.get("/api/company/members", requireCompanyMember, async (req, res) => {
   }
 });
 
+// Vorschläge für das Einladungsformular – Kunden der Firma die noch kein Mitglied sind
+app.get("/api/company/invitations/suggestions", requireCompanyAdmin, async (req, res) => {
+  try {
+    const customers = await db.listCompanyCustomers(req.companyId);
+    const members = await db.listCompanyMembers(req.companyId);
+    const memberEmails = new Set(members.map((m) => String(m.email || "").toLowerCase()));
+    const suggestions = customers
+      .filter((c) => {
+        const em = String(c.email || "").trim().toLowerCase();
+        return em && em.includes("@") && !memberEmails.has(em);
+      })
+      .map((c) => ({
+        email: String(c.email || "").trim().toLowerCase(),
+        name: String(c.name || c.company || "").trim(),
+      }));
+    res.json({ ok: true, suggestions });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Fehler" });
+  }
+});
+
 app.post("/api/company/invitations", requireCompanyAdmin, async (req, res) => {
   try {
     const email = String(req.body?.email || "").trim().toLowerCase();

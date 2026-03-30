@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   createCompanyInvitation,
   deleteCompanyInvitation,
   resendCompanyInvitation,
   getCompanyCustomers,
   getCompanyInvitations,
+  getCompanyInviteSuggestions,
   getCompanyMe,
   getCompanyMembers,
   getCompanyOrders,
@@ -16,6 +17,7 @@ import {
   type CompanyMember,
   type CompanyMemberRole,
   type CompanyOrder,
+  type InviteSuggestion,
 } from "../api/company";
 import { useAuth } from "../hooks/useAuth";
 import { isCompanyAdminLike } from "../lib/companyRoles";
@@ -87,6 +89,7 @@ export function PortalFirmaPage() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<CompanyMemberRole>("company_employee");
   const [inviteBusy, setInviteBusy] = useState(false);
+  const [inviteSuggestions, setInviteSuggestions] = useState<InviteSuggestion[]>([]);
 
   const [actionBusy, setActionBusy] = useState<number | null>(null);
 
@@ -95,12 +98,13 @@ export function PortalFirmaPage() {
     setBusy(true);
     setError("");
     try {
-      const [me, ordersRes, membersRes, invitesRes, customersRes] = await Promise.all([
+      const [me, ordersRes, membersRes, invitesRes, customersRes, suggestionsRes] = await Promise.all([
         getCompanyMe(token),
         getCompanyOrders(token),
         getCompanyMembers(token),
         canManage ? getCompanyInvitations(token) : Promise.resolve({ ok: true as const, invitations: [] }),
         getCompanyCustomers(token),
+        canManage ? getCompanyInviteSuggestions(token).catch(() => ({ ok: true as const, suggestions: [] })) : Promise.resolve({ ok: true as const, suggestions: [] }),
       ]);
       setCompany(me.company || null);
       setCompanyName(me.company?.name || "");
@@ -109,6 +113,7 @@ export function PortalFirmaPage() {
       setMembers(membersRes.members || []);
       setInvitations(invitesRes.invitations || []);
       setEmployeesCount((customersRes.customers || []).length);
+      setInviteSuggestions(suggestionsRes.suggestions || []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Portal konnte nicht geladen werden");
     } finally {
@@ -340,6 +345,7 @@ export function PortalFirmaPage() {
           onResend={handleResendInvitation}
           pendingInvitations={pendingInvitations}
           role={role}
+          suggestions={inviteSuggestions}
         />
       )}
     </div>
@@ -592,7 +598,7 @@ function TeamTab({
 
 /* ── Einladungen Tab ───────────────────────────────────── */
 function InvitationsTab({
-  inviteEmail, setInviteEmail, inviteRole, setInviteRole, inviteBusy, onInvite, onDelete, onResend, pendingInvitations, role,
+  inviteEmail, setInviteEmail, inviteRole, setInviteRole, inviteBusy, onInvite, onDelete, onResend, pendingInvitations, role, suggestions,
 }: {
   inviteEmail: string;
   setInviteEmail: (v: string) => void;
@@ -604,7 +610,77 @@ function InvitationsTab({
   onResend: (id: number) => void;
   pendingInvitations: CompanyInvitation[];
   role: string;
+  suggestions: InviteSuggestion[];
 }) {
+  const [showSuggest, setShowSuggest] = useState(false);
+  const [activeIdx, setActiveIdx] = useState(-1);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+
+  const filtered = useMemo(() => {
+    const q = inviteEmail.toLowerCase().trim();
+    if (!suggestions.length) return [];
+    return (q.length === 0
+      ? suggestions.slice(0, 8)
+      : suggestions.filter(
+          (s) =>
+            s.email.toLowerCase().includes(q) ||
+            (s.name || "").toLowerCase().includes(q),
+        ).slice(0, 8)
+    );
+  }, [inviteEmail, suggestions]);
+
+  function pickSuggestion(s: InviteSuggestion) {
+    setInviteEmail(s.email);
+    setShowSuggest(false);
+    setActiveIdx(-1);
+    setTimeout(() => inputRef.current?.blur(), 0);
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (!showSuggest || filtered.length === 0) {
+      if (e.key === "Enter") onInvite();
+      return;
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIdx((i) => (i + 1) % filtered.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIdx((i) => (i - 1 + filtered.length) % filtered.length);
+    } else if (e.key === "Enter") {
+      if (activeIdx >= 0) {
+        e.preventDefault();
+        pickSuggestion(filtered[activeIdx]);
+      } else {
+        onInvite();
+      }
+    } else if (e.key === "Escape") {
+      setShowSuggest(false);
+    }
+  }
+
+  function initials(name: string, email: string) {
+    const parts = (name || email).trim().split(/\s+/).filter(Boolean).slice(0, 2);
+    if (parts.length) return parts.map((p) => p[0].toUpperCase()).join("");
+    return email.slice(0, 2).toUpperCase() || "?";
+  }
+
+  function highlight(text: string, query: string) {
+    if (!query) return <>{text}</>;
+    const idx = text.toLowerCase().indexOf(query.toLowerCase());
+    if (idx < 0) return <>{text}</>;
+    return (
+      <>
+        {text.slice(0, idx)}
+        <mark className="bg-[#C5A059]/25 rounded-sm">{text.slice(idx, idx + query.length)}</mark>
+        {text.slice(idx + query.length)}
+      </>
+    );
+  }
+
+  const q = inviteEmail.trim().toLowerCase();
+
   return (
     <div className="space-y-4">
       {/* Invite Form */}
@@ -614,14 +690,57 @@ function InvitationsTab({
           <h2 className="text-sm font-medium text-slate-900 dark:text-zinc-100">Mitarbeiter einladen</h2>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
-          <input
-            value={inviteEmail}
-            onChange={(e) => setInviteEmail(e.target.value)}
-            placeholder="E-Mail-Adresse"
-            disabled={inviteBusy}
-            className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:border-[#C5A059] focus:outline-none focus:ring-1 focus:ring-[#C5A059] disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
-            onKeyDown={(e) => { if (e.key === "Enter") onInvite(); }}
-          />
+          {/* E-Mail mit Autocomplete */}
+          <div className="relative flex-1">
+            <input
+              ref={inputRef}
+              value={inviteEmail}
+              onChange={(e) => { setInviteEmail(e.target.value); setShowSuggest(true); setActiveIdx(-1); }}
+              onFocus={() => { if (suggestions.length > 0) setShowSuggest(true); }}
+              onBlur={() => setTimeout(() => setShowSuggest(false), 150)}
+              onKeyDown={handleKeyDown}
+              placeholder="E-Mail-Adresse"
+              disabled={inviteBusy}
+              autoComplete="off"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:border-[#C5A059] focus:outline-none focus:ring-1 focus:ring-[#C5A059] disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
+            />
+            {showSuggest && filtered.length > 0 && (
+              <ul
+                ref={listRef}
+                className="absolute left-0 right-0 top-full z-50 mt-0.5 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
+                style={{ maxHeight: 220 }}
+              >
+                {filtered.map((s, i) => (
+                  <li key={s.email}>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => { e.preventDefault(); pickSuggestion(s); }}
+                      className={`flex w-full items-center gap-3 px-3 py-2 text-left transition-colors ${
+                        i === activeIdx
+                          ? "bg-[#C5A059]/10 dark:bg-[#C5A059]/15"
+                          : "hover:bg-slate-50 dark:hover:bg-zinc-800"
+                      }`}
+                    >
+                      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#C5A059]/15 text-xs font-bold text-[#C5A059]">
+                        {initials(s.name, s.email)}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-medium text-slate-900 dark:text-zinc-100">
+                          {highlight(s.name || s.email.split("@")[0], q)}
+                        </div>
+                        <div className="truncate text-xs text-slate-500 dark:text-zinc-400">
+                          {highlight(s.email, q)}
+                        </div>
+                      </div>
+                      <span className="flex-shrink-0 rounded-full bg-[#C5A059]/15 px-2 py-0.5 text-[10px] font-medium text-[#C5A059]">
+                        Firma
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
           <select
             value={inviteRole}
             onChange={(e) => setInviteRole(e.target.value as CompanyMemberRole)}

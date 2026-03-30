@@ -69,6 +69,12 @@ export async function getCompanyInvitations(token: string) {
   return apiRequest<{ ok: true; invitations: CompanyInvitation[] }>("/api/company/invitations", "GET", token);
 }
 
+export type InviteSuggestion = { email: string; name: string };
+
+export async function getCompanyInviteSuggestions(token: string) {
+  return apiRequest<{ ok: true; suggestions: InviteSuggestion[] }>("/api/company/invitations/suggestions", "GET", token);
+}
+
 export async function createCompanyInvitation(
   token: string,
   payload: { email: string; role: CompanyMemberRole },
