@@ -1590,24 +1590,39 @@ router.get('/portal-roles', async (req, res) => {
   } catch (_) { /* Tabelle existiert noch nicht – kein Problem */ }
 
   // Alle Workspace-Inhaber (owner_email aus tours) für "Kunden-Admin setzen"-Form
-  // Nur Einträge MIT Firmenname oder Name – reine E-Mail-only-Einträge werden auch gezeigt aber ans Ende sortiert
   let ownerList = [];
   try {
     const owR = await pool.query(`
-      SELECT DISTINCT
+      SELECT DISTINCT ON (LOWER(TRIM(t.customer_email)))
         LOWER(TRIM(t.customer_email)) AS owner_email,
-        COALESCE(NULLIF(trim(c.name),''), NULLIF(trim(c.company),''), t.customer_email) AS customer_name,
-        COALESCE(NULLIF(trim(c.company),''), NULLIF(trim(c.name),'')) AS firma,
-        c.id AS customer_id,
-        CASE WHEN (NULLIF(trim(c.name),'') IS NOT NULL OR NULLIF(trim(c.company),'') IS NOT NULL) THEN 0 ELSE 1 END AS sort_prio
+        CASE
+          WHEN trim(coalesce(c.name,'')) <> '' THEN trim(c.name)
+          WHEN trim(coalesce(c.company,'')) <> '' THEN trim(c.company)
+          ELSE LOWER(TRIM(t.customer_email))
+        END AS customer_name,
+        CASE
+          WHEN trim(coalesce(c.company,'')) <> '' THEN trim(c.company)
+          WHEN trim(coalesce(c.name,'')) <> '' THEN trim(c.name)
+          ELSE NULL
+        END AS firma,
+        c.id AS customer_id
       FROM tour_manager.tours t
       LEFT JOIN core.customers c ON LOWER(c.email) = LOWER(t.customer_email)
       WHERE t.customer_email IS NOT NULL AND trim(t.customer_email) <> ''
-      ORDER BY sort_prio ASC, LOWER(COALESCE(NULLIF(trim(c.name),''), NULLIF(trim(c.company),''), t.customer_email)) ASC
+      ORDER BY LOWER(TRIM(t.customer_email)),
+               CASE WHEN trim(coalesce(c.name,'')) <> '' OR trim(coalesce(c.company,'')) <> '' THEN 0 ELSE 1 END
       LIMIT 300
     `);
-    ownerList = owR.rows;
-  } catch (_) {}
+    // client-seitig sortieren: Firmen mit Namen zuerst, danach alphabetisch
+    ownerList = owR.rows.sort((a, b) => {
+      const aHas = a.firma ? 0 : 1;
+      const bHas = b.firma ? 0 : 1;
+      if (aHas !== bHas) return aHas - bHas;
+      return (a.customer_name || '').localeCompare(b.customer_name || '', 'de');
+    });
+  } catch (err) {
+    console.error('[portal-roles ownerList]', err.message);
+  }
 
   const admin = req.session?.admin || {};
   res.render('admin/portal-roles', {
