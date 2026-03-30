@@ -15,6 +15,7 @@ const { pool } = require('./lib/db');
 const { createPostgresSessionStore } = require('../auth/postgres-session-store');
 
 let logtoAuth = null;
+let logtoPortalAuth = null;
 try {
   const { createLogtoAuth } = require('../auth/logto-middleware');
   logtoAuth = createLogtoAuth({
@@ -23,9 +24,21 @@ try {
     logoutRedirect: '/',
     loginPath: '/auth/login',
     logoutPath: '/auth/logout',
+    sessionKind: 'admin',
+  });
+  logtoPortalAuth = createLogtoAuth({
+    prefix: 'PROPUS_TOURS_PORTAL',
+    callbackPath: '/portal/auth/callback',
+    logoutRedirect: '/portal/login',
+    loginPath: '/portal/auth/login',
+    logoutPath: '/portal/auth/logout',
+    sessionKind: 'portal',
   });
   if (logtoAuth.enabled) {
-    console.log('[tours] Logto OIDC auth enabled');
+    console.log('[tours] Logto OIDC auth enabled (admin)');
+  }
+  if (logtoPortalAuth.enabled) {
+    console.log('[tours] Logto OIDC auth enabled (portal)');
   }
 } catch {
   // auth module not available – legacy-only mode
@@ -152,6 +165,9 @@ app.get('/', (req, res) => {
 // Logto OIDC Routes (wenn aktiviert)
 if (logtoAuth?.enabled) {
   app.use(logtoAuth.routes());
+}
+if (logtoPortalAuth?.enabled) {
+  app.use(logtoPortalAuth.routes());
 }
 
 // Kunden-Routes (touren.propus.ch)

@@ -20,6 +20,7 @@ const {
 const payrexx = require('../lib/payrexx');
 const portalAuth = require('../lib/portal-auth');
 const qrBill = require('../lib/qr-bill');
+const { isLogtoEnabled } = require('../../auth/logto-config');
 const {
   EXTENSION_PRICE_CHF,
   REACTIVATION_PRICE_CHF,
@@ -337,18 +338,22 @@ function getPortalNextPath(req) {
     : '/portal/dashboard';
 }
 
-function renderPortalLogin(res, options = {}) {
+function renderPortalLogin(req, res, options = {}) {
+  const bp = typeof res.locals.basePath === 'string' ? res.locals.basePath : '';
   return res.render('portal/login', {
     error: options.error || null,
     success: options.success || null,
     nextPath: options.nextPath || '/portal/dashboard',
     email: options.email || '',
+    bp,
+    logtoPortalEnabled: isLogtoEnabled('PROPUS_TOURS_PORTAL'),
   });
 }
 
 router.get('/login', async (req, res) => {
-  if (req.session?.portalCustomerEmail) return res.redirect('/portal/dashboard');
-  return renderPortalLogin(res, {
+  const bp = typeof res.locals.basePath === 'string' ? res.locals.basePath : '';
+  if (req.session?.portalCustomerEmail) return res.redirect(`${bp}/portal/dashboard`);
+  return renderPortalLogin(req, res, {
     success: req.query.success || null,
     nextPath: getPortalNextPath(req),
     email: typeof req.query?.email === 'string' ? String(req.query.email).trim() : '',
@@ -356,7 +361,8 @@ router.get('/login', async (req, res) => {
 });
 
 router.post('/login', async (req, res) => {
-  if (req.session?.portalCustomerEmail) return res.redirect('/portal/dashboard');
+  const bp = typeof res.locals.basePath === 'string' ? res.locals.basePath : '';
+  if (req.session?.portalCustomerEmail) return res.redirect(`${bp}/portal/dashboard`);
   const email = portalAuth.normalizeEmail(req.body?.email);
   const password = String(req.body?.password || '');
   const rememberMe = req.body?.rememberMe;
@@ -365,7 +371,7 @@ router.post('/login', async (req, res) => {
 
   const matchedEmail = await portalAuth.verifyDbPortalPassword(email, password).catch(() => null);
   if (!matchedEmail) {
-    return renderPortalLogin(res, {
+    return renderPortalLogin(req, res, {
       error: 'E-Mail oder Passwort falsch.',
       nextPath,
       email,
@@ -378,7 +384,7 @@ router.post('/login', async (req, res) => {
 
   return req.session.regenerate(async (regenErr) => {
     if (regenErr) {
-      return renderPortalLogin(res, {
+      return renderPortalLogin(req, res, {
         error: 'Session konnte nicht erstellt werden.',
         nextPath,
         email,
@@ -588,7 +594,11 @@ router.post('/profile/password', requirePortalAuth, async (req, res) => {
 });
 
 router.get('/logout', async (req, res) => {
-  req.session.destroy(() => res.redirect('/portal/login'));
+  const bp = typeof res.locals.basePath === 'string' ? res.locals.basePath : '';
+  if (req.session?.portalLogtoAuth) {
+    return res.redirect(`${bp}/portal/auth/logout`);
+  }
+  req.session.destroy(() => res.redirect(`${bp}/portal/login`));
 });
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────

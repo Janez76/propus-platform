@@ -5,6 +5,9 @@ type UiMode = "modern";
 
 const PERMS_STORAGE_KEY = "admin_permissions_v1";
 
+/** Vorbereitung zentrales Kunden-Panel: interne Admins vs. Kunden (Logto/Portal). */
+export type UserPanelKind = "admin_intern" | "admin_kunde" | null;
+
 type AuthState = {
   token: string;
   role: Role;
@@ -12,7 +15,10 @@ type AuthState = {
   language: "de" | "en" | "fr" | "it";
   uiMode: UiMode;
   isSso: false;
+  /** null = noch nicht gesetzt / Legacy */
+  userPanelKind: UserPanelKind;
   setAuth: (token: string, role: Role, remember?: boolean, permissions?: string[]) => void;
+  setUserPanelKind: (kind: UserPanelKind) => void;
   setPermissions: (permissions: string[]) => void;
   clearAuth: () => void;
   setLanguage: (lang: AuthState["language"]) => void;
@@ -92,6 +98,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   language: initialLang,
   uiMode: initialUiMode,
   isSso: false,
+  userPanelKind: null,
+  setUserPanelKind: (userPanelKind) => set({ userPanelKind }),
   setAuth: (token, role, remember = false, permissions) => {
     safeSet("admin_token_v2", token, remember);
     if (permissions !== undefined) {
@@ -109,7 +117,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     safeRemove("admin_token_v2");
     safeRemove("admin_auth_provider_v1");
     safeRemove(PERMS_STORAGE_KEY);
-    set({ token: "", role: "admin", permissions: [] });
+    set({ token: "", role: "admin", permissions: [], userPanelKind: null });
   },
   setLanguage: (language) => {
     const normalized = (String(language || "").toLowerCase()) as AuthState["language"];

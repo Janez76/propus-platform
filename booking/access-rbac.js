@@ -6,6 +6,13 @@ const db = require("./db");
 const COMPANY_MEMBER_ROLES = new Set(["company_owner", "company_admin", "company_employee"]);
 
 const ALL_PERMISSION_KEYS = [
+  "tours.read",
+  "tours.manage",
+  "tours.assign",
+  "tours.cross_company",
+  "tours.archive",
+  "tours.link_matterport",
+  "portal_team.manage",
   "dashboard.view",
   "orders.read",
   "orders.create",
@@ -35,9 +42,20 @@ const ALL_PERMISSION_KEYS = [
   "users.manage",
 ];
 
+const TOURS_INTERNAL_PERMS = [
+  "tours.read",
+  "tours.manage",
+  "tours.assign",
+  "tours.cross_company",
+  "tours.archive",
+  "tours.link_matterport",
+  "portal_team.manage",
+];
+
 const ROLE_PRESETS = {
   super_admin: ALL_PERMISSION_KEYS,
   internal_admin: ALL_PERMISSION_KEYS,
+  tour_manager: TOURS_INTERNAL_PERMS,
   photographer: [
     "dashboard.view",
     "orders.read",
@@ -79,6 +97,7 @@ function mapAdminDbRoleToSystemRole(dbRole) {
 function mapLogtoRolesToSystemRole(logtoRoles) {
   const roles = Array.isArray(logtoRoles) ? logtoRoles : [];
   if (roles.includes("super_admin")) return "super_admin";
+  if (roles.includes("tour_manager")) return "tour_manager";
   if (roles.includes("admin")) return "internal_admin";
   if (roles.includes("photographer")) return "photographer";
   if (roles.includes("company_owner")) return "company_owner";
@@ -124,6 +143,7 @@ async function seedRbacIfNeeded() {
   const roleMeta = [
     ["super_admin", "Super-Admin", "Voller Zugriff"],
     ["internal_admin", "Interner Admin", "Admin-Panel"],
+    ["tour_manager", "Tour-Manager (intern)", "Alle Touren firmenuebergreifend"],
     ["photographer", "Fotograf", "Auftraege und Kalender"],
     ["company_owner", "Firmen-Hauptkontakt", "Company Workspace volle Firmensicht"],
     ["company_admin", "Firmen-Admin", "Company Workspace"],
@@ -305,6 +325,7 @@ async function getEffectivePermissions(subjectId, ctx) {
 function legacyFallbackPermissions(sessionRole) {
   const r = String(sessionRole || "");
   if (r === "super_admin" || r === "admin" || r === "employee") return new Set(ALL_PERMISSION_KEYS);
+  if (r === "tour_manager") return new Set(ROLE_PRESETS.tour_manager);
   if (r === "photographer") return new Set(ROLE_PRESETS.photographer);
   if (r === "company_owner") return new Set(ROLE_PRESETS.company_owner);
   if (r === "company_admin") return new Set(ROLE_PRESETS.company_admin);

@@ -21,6 +21,8 @@ function createLogtoAuth(options = {}) {
     logoutRedirect = '/',
     loginPath = '/auth/login',
     logoutPath = '/auth/logout',
+    /** 'admin' = Session als Admin (isAdmin); 'portal' = Kundenportal (portalCustomerEmail), kein Admin */
+    sessionKind = 'admin',
   } = options;
 
   const appId = process.env[`${prefix}_LOGTO_APP_ID`] || '';
@@ -136,7 +138,33 @@ function createLogtoAuth(options = {}) {
         expiresAt: Date.now() + (tokens.expires_in || 3600) * 1000,
       };
       req.session.isLogtoAuth = true;
-      req.session.isAdmin = true;
+      if (sessionKind === 'portal') {
+        req.session.isAdmin = false;
+        const em = String(userInfo.email || '').trim().toLowerCase();
+        if (!em) {
+          return res.status(400).send('E-Mail fehlt im Logto-Profil.');
+        }
+        let portalAuth;
+        try {
+          portalAuth = require('../tours/lib/portal-auth');
+        } catch (err) {
+          console.error('[logto-auth] portal-auth load failed', err.message);
+          return res.status(500).send('Portal-Modul nicht verfügbar.');
+        }
+        const ensured = await portalAuth.ensurePortalUser(em);
+        if (!ensured) {
+          return res.status(403).send(
+            'Kein Zugang zum Kundenportal: Diese E-Mail ist keiner Tour zugeordnet und kein Tour-Manager.'
+          );
+        }
+        await portalAuth.touchPortalLastLogin(em).catch(() => null);
+        req.session.portalLogtoAuth = true;
+        req.session.portalCustomerEmail = em;
+        req.session.portalCustomerName =
+          userInfo.name || userInfo.username || userInfo.email || em;
+      } else {
+        req.session.isAdmin = true;
+      }
 
       const returnTo = req.session.oidcReturnTo || '/';
       delete req.session.oidcState;

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portal-Rollen – Propus Tour Manager</title>
+  <%- include('_admin-styles') %>
+  <style>
+    .pr-intro { color: var(--text-muted); margin: 0 0 1rem 0; max-width: 720px; }
+    .pr-list { border: 1px solid var(--border); border-radius: 12px; background: #fff; overflow: hidden; }
+    .pr-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.85rem 1rem; border-top: 1px solid var(--border); flex-wrap: wrap; }
+    .pr-row:first-child { border-top: none; }
+    .pr-email { font-weight: 600; color: var(--gray-900); }
+    .pr-meta { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem; }
+    .pr-form { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: flex-end; margin-top: 1rem; }
+    .pr-form label { display: grid; gap: 0.25rem; font-size: 0.82rem; color: var(--text-muted); }
+    .pr-form input[type="email"] { min-width: 260px; padding: 0.5rem 0.65rem; border-radius: 10px; border: 1px solid var(--border); }
+  </style>
+</head>
+<body>
+<% const bp = typeof basePath === 'string' ? basePath : ''; %>
+  <div class="admin-shell">
+    <%- include('_header') %>
+    <main class="admin-main">
+      <h1>Portal-Rollen (Tour-Manager)</h1>
+      <p class="pr-intro">
+        Interne Tour-Manager sehen im Kundenportal <strong>alle</strong> Touren aller Kunden und können Zuständigkeiten wie Arbeitsbereichs-Admins setzen.
+        Die Vergabe erfolgt zentral hier; die Rolle ist nicht über Teameinladungen im Portal abgebildet.
+      </p>
+      <% if (typeof logtoPortalEnabled !== 'undefined' && logtoPortalEnabled) { %>
+        <p class="pr-intro" style="margin-top:-0.5rem;">
+          <strong>Logto-SSO</strong> für das Portal ist aktiv (<code>PROPUS_TOURS_PORTAL_LOGTO_*</code>). Nutzer melden sich unter
+          <a href="<%= bp %>/portal/login">Kundenportal-Login</a> mit „Mit Propus-Konto anmelden“ an.
+        </p>
+      <% } %>
+
+      <% if (saved) { %><div class="alert alert-success">Tour-Manager wurde hinzugefügt.</div><% } %>
+      <% if (removed) { %><div class="alert alert-success">Eintrag wurde entfernt.</div><% } %>
+      <% if (error) { %><div class="alert alert-error"><%= error %></div><% } %>
+
+      <section class="section">
+        <h2>Tour-Manager (E-Mail)</h2>
+        <div class="pr-list">
+          <% if (!staffRows || staffRows.length === 0) { %>
+            <div class="pr-row"><span class="pr-meta">Noch keine Einträge.</span></div>
+          <% } else { %>
+            <% staffRows.forEach((row) => { %>
+              <div class="pr-row">
+                <div>
+                  <div class="pr-email"><%= row.email_norm %></div>
+                  <div class="pr-meta">Rolle: <%= row.role %> · seit <%= row.created_at ? new Date(row.created_at).toLocaleString('de-CH') : '—' %></div>
+                </div>
+                <form method="post" action="<%= bp %>/admin/portal-roles/remove" style="margin:0;" onsubmit="return confirm('Tour-Manager-Rechte für diese E-Mail entfernen?');">
+                  <input type="hidden" name="email" value="<%= row.email_norm %>">
+                  <button type="submit" class="btn btn-soft-danger">Entfernen</button>
+                </form>
+              </div>
+            <% }) %>
+          <% } %>
+        </div>
+
+        <form method="post" action="<%= bp %>/admin/portal-roles/add" class="pr-form">
+          <label>
+            E-Mail hinzufügen
+            <input type="email" name="email" required placeholder="name@firma.ch" autocomplete="off">
+          </label>
+          <button type="submit" class="btn btn-primary">Als Tour-Manager speichern</button>
+        </form>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

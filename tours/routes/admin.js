@@ -3,6 +3,8 @@ const multer = require('multer');
 const router = express.Router();
 const { pool } = require('../lib/db');
 const userProfiles = require('../lib/user-profiles');
+const portalTeam = require('../lib/portal-team');
+const { isLogtoEnabled } = require('../../auth/logto-config');
 
 const profileUpload = multer({
   storage: multer.memoryStorage(),
@@ -1558,6 +1560,40 @@ function teamInviteListLabel(email) {
   if (at <= 0) return e || '—';
   return `${e.slice(0, at)}@…`;
 }
+
+router.get('/portal-roles', async (req, res) => {
+  await portalTeam.ensurePortalTeamSchema();
+  const staffRows = await portalTeam.listPortalStaffRoles();
+  res.render('admin/portal-roles', {
+    activePage: 'portalRoles',
+    staffRows,
+    logtoPortalEnabled: isLogtoEnabled('PROPUS_TOURS_PORTAL'),
+    saved: req.query.saved === '1',
+    removed: req.query.removed === '1',
+    error: req.query.error || null,
+  });
+});
+
+router.post('/portal-roles/add', async (req, res) => {
+  try {
+    const email = String(req.body?.email || '').trim();
+    const inviter = String(req.session?.admin?.email || req.session?.adminEmail || '').trim().toLowerCase();
+    await portalTeam.addPortalStaffRole(email, portalTeam.ROLE_TOUR_MANAGER, inviter || null);
+    return res.redirect('/admin/portal-roles?saved=1');
+  } catch (e) {
+    return res.redirect(`/admin/portal-roles?error=${encodeURIComponent(e.message || 'Fehler')}`);
+  }
+});
+
+router.post('/portal-roles/remove', async (req, res) => {
+  try {
+    const email = String(req.body?.email || '').trim();
+    await portalTeam.removePortalStaffRole(email, portalTeam.ROLE_TOUR_MANAGER);
+    return res.redirect('/admin/portal-roles?removed=1');
+  } catch (e) {
+    return res.redirect(`/admin/portal-roles?error=${encodeURIComponent(e.message || 'Fehler')}`);
+  }
+});
 
 router.get('/team', async (req, res) => {
   await ensureAdminTeamSchema();

@@ -56,6 +56,15 @@ async function lookupPortalIdentity(email) {
   if (!norm) return null;
   await portalTeam.ensurePortalTeamSchema().catch(() => null);
 
+  const staff = await pool.query(
+    `SELECT 1 FROM tour_manager.portal_staff_roles
+     WHERE email_norm = $1 AND role = $2 LIMIT 1`,
+    [norm, portalTeam.ROLE_TOUR_MANAGER]
+  );
+  if (staff.rows[0]) {
+    return { email: norm, fullName: null };
+  }
+
   const directTour = await pool.query(
     `SELECT LOWER(TRIM(customer_email)) AS email,
             NULLIF(TRIM(customer_name), '') AS full_name

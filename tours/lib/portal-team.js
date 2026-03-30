@@ -13,6 +13,8 @@ let schemaReady = false;
 const ROLE_INHABER = 'inhaber';
 const ROLE_ADMIN = 'admin';
 const ROLE_MITARBEITER = 'mitarbeiter';
+/** Intern: zentral in Admin vergeben; sieht alle Kunden-Touren (tour_manager.portal_staff_roles). */
+const ROLE_TOUR_MANAGER = 'tour_manager';
 
 function normalizeEmail(value) {
   return String(value || '').trim().toLowerCase();
@@ -21,6 +23,7 @@ function normalizeEmail(value) {
 function normalizeMemberRole(value) {
   const r = String(value || '').trim().toLowerCase();
   if (r === ROLE_ADMIN) return ROLE_ADMIN;
+  if (r === ROLE_TOUR_MANAGER) return ROLE_TOUR_MANAGER;
   return ROLE_MITARBEITER;
 }
 
@@ -91,7 +94,67 @@ async function ensurePortalTeamSchema() {
     CREATE INDEX IF NOT EXISTS idx_portal_tour_assignees_workspace
     ON tour_manager.portal_tour_assignees ((LOWER(workspace_owner_email)))
   `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS tour_manager.portal_staff_roles (
+      email_norm TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'tour_manager',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      created_by TEXT NULL,
+      PRIMARY KEY (email_norm, role)
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_portal_staff_roles_role
+    ON tour_manager.portal_staff_roles (role)
+  `);
   schemaReady = true;
+}
+
+/** Interner Tour-Manager (Propus): alle Kunden-Touren sichtbar. */
+async function isGlobalTourManager(userEmail) {
+  await ensurePortalTeamSchema();
+  const norm = normalizeEmail(userEmail);
+  if (!norm) return false;
+  const r = await pool.query(
+    `SELECT 1 FROM tour_manager.portal_staff_roles
+     WHERE email_norm = $1 AND role = $2 LIMIT 1`,
+    [norm, ROLE_TOUR_MANAGER]
+  );
+  return !!r.rows[0];
+}
+
+async function listPortalStaffRoles() {
+  await ensurePortalTeamSchema();
+  const r = await pool.query(
+    `SELECT email_norm, role, created_at, created_by
+     FROM tour_manager.portal_staff_roles
+     ORDER BY email_norm, role`
+  );
+  return r.rows;
+}
+
+async function addPortalStaffRole(emailRaw, roleRaw, createdBy) {
+  await ensurePortalTeamSchema();
+  const emailNorm = normalizeEmail(emailRaw);
+  const role = String(roleRaw || ROLE_TOUR_MANAGER).trim().toLowerCase() || ROLE_TOUR_MANAGER;
+  if (!emailNorm || !emailNorm.includes('@')) throw new Error('Ungültige E-Mail.');
+  if (role !== ROLE_TOUR_MANAGER) throw new Error('Unbekannte Rolle.');
+  await pool.query(
+    `INSERT INTO tour_manager.portal_staff_roles (email_norm, role, created_by)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (email_norm, role) DO UPDATE SET created_by = EXCLUDED.created_by`,
+    [emailNorm, role, createdBy ? normalizeEmail(createdBy) : null]
+  );
+}
+
+async function removePortalStaffRole(emailRaw, roleRaw) {
+  await ensurePortalTeamSchema();
+  const emailNorm = normalizeEmail(emailRaw);
+  const role = String(roleRaw || ROLE_TOUR_MANAGER).trim().toLowerCase() || ROLE_TOUR_MANAGER;
+  await pool.query(
+    `DELETE FROM tour_manager.portal_staff_roles WHERE email_norm = $1 AND role = $2`,
+    [emailNorm, role]
+  );
 }
 
 /**
@@ -101,6 +164,15 @@ async function ensurePortalTeamSchema() {
 async function listTourOwnerEmailsForPortalUser(userEmail) {
   await ensurePortalTeamSchema();
   const norm = normalizeEmail(userEmail);
+  if (await isGlobalTourManager(norm)) {
+    const allRes = await pool.query(
+      `SELECT DISTINCT LOWER(TRIM(customer_email)) AS e
+       FROM tour_manager.tours
+       WHERE customer_email IS NOT NULL AND TRIM(customer_email) <> ''`
+    );
+    return allRes.rows.map((row) => String(row.e || '').trim().toLowerCase()).filter(Boolean);
+  }
+
   const owners = new Set();
 
   const direct = await pool.query(
@@ -298,6 +370,10 @@ async function getPortalTeamManageContext(sessionEmail, ownerEmail) {
   const owner = normalizeEmail(ownerEmail);
   if (!owner) return { canManage: false, isWorkspaceOwner: false, sessionRole: null };
 
+  if (await isGlobalTourManager(session)) {
+    return { canManage: true, isWorkspaceOwner: false, sessionRole: ROLE_TOUR_MANAGER };
+  }
+
   const isWorkspaceOwner = session === owner;
 
   let sessionRole = null;
@@ -492,6 +568,10 @@ async function createTeamInvite({ ownerEmail, inviterEmail, memberEmail, display
   await ensurePortalTeamSchema();
   const owner = normalizeEmail(ownerEmail);
   const member = normalizeEmail(memberEmail);
+  const rawRole = String(role || '').trim().toLowerCase();
+  if (rawRole === ROLE_TOUR_MANAGER) {
+    throw new Error('Die Rolle „Tour-Manager“ wird nur zentral in der Verwaltung vergeben.');
+  }
   const memberRole = normalizeMemberRole(role);
   if (!member || !member.includes('@')) throw new Error('Ungültige E-Mail.');
   if (member === owner) throw new Error('Sie können sich nicht selbst einladen.');
@@ -646,13 +726,14 @@ async function filterToursForMitarbeiterAssignee(userEmail, tours) {
   const list = Array.isArray(tours) ? tours : [];
   if (!list.length) return [];
   const norm = normalizeEmail(userEmail);
+  if (await isGlobalTourManager(norm)) return list;
   const tourIds = list.map((t) => t.id).filter((id) => Number.isFinite(Number(id)));
   const assigneeMap = await batchGetTourAssignees(tourIds);
   const out = [];
   for (const t of list) {
     const workspace = normalizeEmail(t.customer_email);
     const ctx = await getPortalTeamManageContext(norm, workspace);
-    if (ctx.isWorkspaceOwner || ctx.sessionRole === ROLE_ADMIN) {
+    if (ctx.isWorkspaceOwner || ctx.sessionRole === ROLE_ADMIN || ctx.sessionRole === ROLE_TOUR_MANAGER) {
       out.push(t);
       continue;
     }
@@ -672,7 +753,12 @@ module.exports = {
   ROLE_INHABER,
   ROLE_ADMIN,
   ROLE_MITARBEITER,
+  ROLE_TOUR_MANAGER,
   ensurePortalTeamSchema,
+  isGlobalTourManager,
+  listPortalStaffRoles,
+  addPortalStaffRole,
+  removePortalStaffRole,
   normalizeEmail,
   normalizeMemberRole,
   listTourOwnerEmailsForPortalUser,

@@ -263,6 +263,22 @@
       font-size: 0.76rem;
       color: var(--gray-400);
     }
+    .btn-sso {
+      display: flex; align-items: center; justify-content: center;
+      width: 100%; padding: 0.75rem 1rem; border-radius: var(--radius);
+      background: linear-gradient(145deg, #1e3a5f, #162d4a);
+      color: #fff; font-weight: 600; font-size: 0.92rem; text-decoration: none;
+      border: 1px solid rgba(255,255,255,0.12); transition: transform 0.12s, box-shadow 0.12s;
+    }
+    .btn-sso:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0,0,0,0.2); color: #fff; }
+    .login-divider {
+      text-align: center; font-size: 0.78rem; color: var(--gray-500); margin: 1rem 0; position: relative;
+    }
+    .login-divider::before, .login-divider::after {
+      content: ''; position: absolute; top: 50%; width: 42%; height: 1px; background: var(--border);
+    }
+    .login-divider::before { left: 0; }
+    .login-divider::after { right: 0; }
     @keyframes fadeInUp {
       from { opacity: 0; transform: translateY(30px); }
       to { opacity: 1; transform: translateY(0); }
@@ -293,6 +309,7 @@
 </head>
 <body>
   <% const np = typeof nextPath === 'string' && nextPath.startsWith('/') ? nextPath : '/portal/dashboard'; %>
+  <% const _bp = typeof bp === 'string' ? bp : ''; %>
   <% const successMap = {
     password_reset: 'Passwort gespeichert. Sie können sich jetzt anmelden.',
   }; %>
@@ -325,7 +342,12 @@
           <div class="login-success"><%= successMap[success] %></div>
         <% } %>
 
-        <form method="post" action="/portal/login" class="login-form">
+        <% if (typeof logtoPortalEnabled !== 'undefined' && logtoPortalEnabled) { %>
+          <a href="<%= _bp %>/portal/auth/login?returnTo=<%= encodeURIComponent(_bp + np) %>" class="btn-sso">Mit Propus-Konto anmelden (SSO)</a>
+          <p class="login-divider">oder mit Passwort</p>
+        <% } %>
+
+        <form method="post" action="<%= _bp %>/portal/login" class="login-form">
           <input type="hidden" name="next" value="<%= np %>">
           <div class="form-group">
             <label for="email">E-Mail</label>
@@ -340,7 +362,7 @@
               <input type="checkbox" name="rememberMe" value="1" checked>
               <span>Angemeldet bleiben</span>
             </label>
-            <a href="/portal/forgot-password<%= email ? ('?email=' + encodeURIComponent(email)) : '' %>" class="forgot-link">Passwort vergessen?</a>
+            <a href="<%= _bp %>/portal/forgot-password<%= email ? ('?email=' + encodeURIComponent(email)) : '' %>" class="forgot-link">Passwort vergessen?</a>
           </div>
           <button type="submit">Anmelden</button>
         </form>
