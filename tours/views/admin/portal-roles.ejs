@@ -95,7 +95,8 @@
       cursor:pointer; transition:background .1s, border-color .1s; font-size:0.83rem;
     }
     .contact-chip:hover { background:var(--row-hover,rgba(197,160,89,.08)); border-color:var(--primary,#C5A059); }
-    .contact-chip.selected { background:rgba(197,160,89,.1); border-color:var(--primary,#C5A059); }
+    .contact-chip.selected { background:rgba(197,160,89,.12); border-color:var(--primary,#C5A059); box-shadow:0 0 0 1px rgba(197,160,89,.2); }
+    .contact-chip-check { flex-shrink:0; display:flex; align-items:center; }
     .contact-chip-avatar {
       width:28px; height:28px; border-radius:50%; flex-shrink:0;
       background:rgba(197,160,89,.15); color:var(--primary,#C5A059);
@@ -331,7 +332,7 @@
                     <i class="fa-solid fa-magnifying-glass firma-ac-icon"></i>
                     <input type="text" id="firmaSearch" class="firma-ac-input"
                            placeholder="Firmenname oder Kunde suchen…" autocomplete="off">
-                    <input type="hidden" name="owner_email" id="externOwnerEmail" required>
+                    <input type="hidden" name="owner_email" id="externOwnerEmail">
                     <ul class="firma-ac-list" id="firmaAcList"></ul>
                   </div>
                   <div id="firmaSelected" style="display:none;margin-top:0.4rem;padding:0.4rem 0.65rem;background:rgba(197,160,89,.08);border:1px solid rgba(197,160,89,.3);border-radius:8px;font-size:0.82rem;">
@@ -343,42 +344,31 @@
                   </div>
                 </div>
 
-                <!-- Schritt 2: Firmen-Manager wählen -->
+                <!-- Schritt 2: Kontakte als Firmen-Manager wählen (Multi-Select) -->
                 <div>
                   <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:0.3rem;">
                     <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:var(--primary,#C5A059);color:#fff;font-size:0.65rem;font-weight:700;margin-right:5px;">2</span>
-                    Firmen-Manager
+                    Firmen-Manager wählen <span style="font-weight:400;font-size:0.72rem;">(mehrere möglich)</span>
                   </div>
-                  <input type="hidden" name="member_email" id="externMemberEmail" required>
+                  <div id="memberEmailsContainer"></div>
 
-                  <div class="firma-ac-wrap" id="managerAcWrap">
-                    <i class="fa-solid fa-user firma-ac-icon"></i>
-                    <input type="text" id="managerSearch" class="firma-ac-input"
-                           placeholder="Zuerst Firma wählen…" autocomplete="off" disabled>
-                    <ul class="firma-ac-list" id="managerAcList"></ul>
-                  </div>
-                  <div id="managerSelected" style="display:none;margin-top:0.4rem;padding:0.4rem 0.65rem;background:rgba(197,160,89,.08);border:1px solid rgba(197,160,89,.3);border-radius:8px;font-size:0.82rem;">
-                    <i class="fa-solid fa-user-check" style="color:var(--primary,#C5A059);margin-right:5px;"></i>
-                    <span id="managerSelectedLabel"></span>
-                    <button type="button" onclick="clearManager()" style="float:right;background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:0.75rem;padding:0;">
-                      <i class="fa-solid fa-xmark"></i>
-                    </button>
-                  </div>
-
-                  <div id="contactSuggestions" style="display:none;margin-top:0.5rem;">
+                  <div id="contactSuggestions" style="display:none;margin-top:0.25rem;">
                     <div style="font-size:0.74rem;color:var(--text-muted);margin-bottom:0.35rem;">
                       <i class="fa-solid fa-address-book"></i> Kontakte dieser Firma:
                     </div>
                     <div class="contact-suggestion-list" id="contactChipList"></div>
                   </div>
+                  <div id="contactLoading" style="display:none;font-size:0.78rem;color:var(--text-muted);padding:0.5rem 0;">
+                    <i class="fa-solid fa-spinner fa-spin"></i> Lade Kontakte…
+                  </div>
                 </div>
               </div>
 
               <div style="margin-top:1rem;display:flex;gap:0.6rem;align-items:center;">
-                <button type="submit" class="btn btn-primary">
+                <button type="submit" class="btn btn-primary" id="externSetSubmit" disabled>
                   <i class="fa-solid fa-user-gear"></i> Als Kunden-Admin setzen
                 </button>
-                <span style="font-size:0.77rem;color:var(--text-muted);">
+                <span style="font-size:0.77rem;color:var(--text-muted);" id="externSetHint">
                   Wähle Firma → Kontaktperson als Firmen-Manager auswählen
                 </span>
               </div>
@@ -388,6 +378,7 @@
           <script>
           (function() {
             const bp = '<%= bp %>';
+            const form = document.getElementById('externSetForm');
 
             const allFirmen = <%- JSON.stringify((ownerList||[]).map(o => ({
               email: o.owner_email,
@@ -397,24 +388,22 @@
               id: o.customer_id
             }))) %>;
 
-            // --- Firma (Schritt 1) ---
             const searchInput   = document.getElementById('firmaSearch');
             const hiddenEmail   = document.getElementById('externOwnerEmail');
             const acList        = document.getElementById('firmaAcList');
             const selectedBox   = document.getElementById('firmaSelected');
             const selectedName  = document.getElementById('firmaSelectedName');
 
-            // --- Manager (Schritt 2) ---
-            const managerSearch    = document.getElementById('managerSearch');
-            const managerAcList    = document.getElementById('managerAcList');
-            const managerSelectedBox   = document.getElementById('managerSelected');
-            const managerSelectedLabel = document.getElementById('managerSelectedLabel');
-            const memberEmail      = document.getElementById('externMemberEmail');
-            const contactSugg      = document.getElementById('contactSuggestions');
-            const chipList         = document.getElementById('contactChipList');
+            const memberContainer = document.getElementById('memberEmailsContainer');
+            const contactSugg     = document.getElementById('contactSuggestions');
+            const chipList        = document.getElementById('contactChipList');
+            const contactLoading  = document.getElementById('contactLoading');
+            const submitBtn       = document.getElementById('externSetSubmit');
+            const submitHint      = document.getElementById('externSetHint');
 
             let activeIdx = -1, filtered = [];
-            let mgrActiveIdx = -1, mgrFiltered = [], allContacts = [];
+            let allContacts = [];
+            let selectedEmails = new Set();
 
             function esc(s) { return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
             function hi(str, q) {
@@ -424,6 +413,21 @@
             }
             function initials(s) {
               return String(s||'').trim().split(/[\s@.]+/).filter(Boolean).slice(0,2).map(p=>p[0].toUpperCase()).join('') || '?';
+            }
+
+            function updateSubmitState() {
+              const n = selectedEmails.size;
+              submitBtn.disabled = n === 0;
+              if (n === 0) submitHint.textContent = 'Wähle Firma → Kontakte als Firmen-Manager anklicken';
+              else if (n === 1) submitHint.textContent = '1 Kontakt ausgewählt';
+              else submitHint.textContent = n + ' Kontakte ausgewählt';
+
+              memberContainer.innerHTML = '';
+              for (const email of selectedEmails) {
+                const inp = document.createElement('input');
+                inp.type = 'hidden'; inp.name = 'member_email'; inp.value = email;
+                memberContainer.appendChild(inp);
+              }
             }
 
             // ── Firma Autocomplete ──
@@ -458,10 +462,7 @@
               selectFirma(filtered[parseInt(li.dataset.idx)]);
             });
             document.addEventListener('click', e => {
-              if (!e.target.closest('.firma-ac-wrap')) {
-                acList.classList.remove('open');
-                managerAcList.classList.remove('open');
-              }
+              if (!e.target.closest('.firma-ac-wrap')) acList.classList.remove('open');
             });
 
             function selectFirma(f) {
@@ -471,7 +472,9 @@
               selectedBox.style.display = '';
               searchInput.style.display = 'none';
               acList.classList.remove('open');
-              resetManager();
+              selectedEmails.clear();
+              allContacts = [];
+              updateSubmitState();
               loadContacts(f.email, f.customerId);
             }
 
@@ -480,105 +483,52 @@
               searchInput.value = '';
               searchInput.style.display = '';
               selectedBox.style.display = 'none';
-              resetManager();
-              managerSearch.disabled = true;
-              managerSearch.placeholder = 'Zuerst Firma wählen…';
+              selectedEmails.clear();
+              allContacts = [];
               contactSugg.style.display = 'none';
+              contactLoading.style.display = 'none';
               chipList.innerHTML = '';
+              updateSubmitState();
               searchInput.focus();
             };
 
-            // ── Manager Autocomplete (Schritt 2) ──
-            function resetManager() {
-              memberEmail.value = '';
-              managerSearch.value = '';
-              managerSearch.style.display = '';
-              managerSelectedBox.style.display = 'none';
-              managerAcList.classList.remove('open');
-              allContacts = [];
-              mgrFiltered = [];
-            }
-
-            window.clearManager = function() {
-              resetManager();
-              managerSearch.disabled = false;
-              managerSearch.focus();
+            // ── Kontakt-Chips mit Checkbox ──
+            function toggleContact(email) {
+              if (selectedEmails.has(email)) selectedEmails.delete(email);
+              else selectedEmails.add(email);
               renderChips();
-            };
-
-            function renderManagerList(q) {
-              const lq = q.trim().toLowerCase();
-              mgrFiltered = lq
-                ? allContacts.filter(c =>
-                    (c.name||'').toLowerCase().includes(lq) ||
-                    (c.email||'').toLowerCase().includes(lq) ||
-                    (c.position||'').toLowerCase().includes(lq)
-                  )
-                : allContacts.slice();
-              if (mgrFiltered.length === 0) {
-                managerAcList.innerHTML = '<li class="firma-ac-empty">Keine passenden Kontakte</li>';
-              } else {
-                managerAcList.innerHTML = mgrFiltered.map((c, i) => `
-                  <li class="firma-ac-item${i===mgrActiveIdx?' active':''}" data-idx="${i}">
-                    <span class="firma-ac-item-name">${hi(c.name || c.email, lq)}</span>
-                    <span class="firma-ac-item-email">${c.position ? esc(c.position) + ' · ' : ''}${esc(c.email)}</span>
-                  </li>`).join('');
-              }
-              managerAcList.classList.add('open');
+              updateSubmitState();
             }
 
-            function selectManager(c) {
-              memberEmail.value = c.email;
-              managerSearch.value = '';
-              managerSearch.style.display = 'none';
-              managerSelectedLabel.textContent = (c.name || c.email) + ' (' + c.email + ')';
-              managerSelectedBox.style.display = '';
-              managerAcList.classList.remove('open');
-              renderChips(c.email);
-            }
-
-            managerSearch.addEventListener('input', () => { mgrActiveIdx = -1; renderManagerList(managerSearch.value); });
-            managerSearch.addEventListener('focus', () => { if (!memberEmail.value && allContacts.length) renderManagerList(managerSearch.value); });
-            managerSearch.addEventListener('keydown', e => {
-              if (!managerAcList.classList.contains('open')) return;
-              if (e.key === 'ArrowDown') { e.preventDefault(); mgrActiveIdx = Math.min(mgrActiveIdx+1, mgrFiltered.length-1); renderManagerList(managerSearch.value); }
-              else if (e.key === 'ArrowUp') { e.preventDefault(); mgrActiveIdx = Math.max(mgrActiveIdx-1, 0); renderManagerList(managerSearch.value); }
-              else if (e.key === 'Enter') { e.preventDefault(); if (mgrActiveIdx>=0 && mgrFiltered[mgrActiveIdx]) selectManager(mgrFiltered[mgrActiveIdx]); }
-              else if (e.key === 'Escape') { managerAcList.classList.remove('open'); }
-            });
-            managerAcList.addEventListener('mousedown', e => {
-              const li = e.target.closest('.firma-ac-item');
-              if (!li) return;
-              e.preventDefault();
-              selectManager(mgrFiltered[parseInt(li.dataset.idx)]);
-            });
-
-            // ── Kontakte laden & Chips ──
-            function renderChips(selectedEmail) {
+            function renderChips() {
               chipList.innerHTML = '';
               if (!allContacts.length) {
                 chipList.innerHTML = '<span style="font-size:0.78rem;color:var(--text-muted);">Keine Kontakte mit E-Mail gefunden.</span>';
                 return;
               }
               allContacts.forEach(c => {
+                const isSelected = selectedEmails.has(c.email.toLowerCase());
                 const chip = document.createElement('div');
-                chip.className = 'contact-chip' + (selectedEmail && c.email.toLowerCase() === selectedEmail.toLowerCase() ? ' selected' : '');
+                chip.className = 'contact-chip' + (isSelected ? ' selected' : '');
+                chip.style.cursor = 'pointer';
                 chip.innerHTML = `
+                  <div class="contact-chip-check">
+                    <i class="fa-${isSelected ? 'solid fa-square-check' : 'regular fa-square'}" style="font-size:1.1rem;color:${isSelected ? 'var(--primary,#C5A059)' : 'var(--text-muted)'};"></i>
+                  </div>
                   <div class="contact-chip-avatar">${initials(c.name || c.email)}</div>
                   <div class="contact-chip-info">
                     <div class="contact-chip-name">${esc(c.name || c.email)}</div>
                     <div class="contact-chip-sub">${c.position ? esc(c.position) + ' · ' : ''}${esc(c.email)}</div>
                   </div>`;
-                chip.addEventListener('click', () => selectManager(c));
+                chip.addEventListener('click', () => toggleContact(c.email.toLowerCase()));
                 chipList.appendChild(chip);
               });
             }
 
             async function loadContacts(ownerEmail, customerId) {
-              chipList.innerHTML = '<span style="font-size:0.78rem;color:var(--text-muted);">Lade…</span>';
-              contactSugg.style.display = '';
-              managerSearch.disabled = true;
-              managerSearch.placeholder = 'Lade Kontakte…';
+              contactLoading.style.display = '';
+              contactSugg.style.display = 'none';
+              chipList.innerHTML = '';
               try {
                 const qs = new URLSearchParams();
                 if (ownerEmail) qs.set('owner_email', ownerEmail);
@@ -586,17 +536,39 @@
                 const resp = await fetch(bp + '/admin/portal-roles/extern-contacts?' + qs.toString());
                 const data = await resp.json();
                 allContacts = (data.contacts || []);
-                managerSearch.disabled = false;
-                managerSearch.placeholder = allContacts.length
-                  ? 'Kontakt suchen oder unten klicken…'
-                  : 'Keine Kontakte vorhanden';
+                contactLoading.style.display = 'none';
+                contactSugg.style.display = '';
                 renderChips();
               } catch(e) {
+                contactLoading.style.display = 'none';
+                contactSugg.style.display = '';
                 chipList.innerHTML = '<span style="font-size:0.78rem;color:#f87171;">Fehler beim Laden der Kontakte.</span>';
-                managerSearch.disabled = false;
-                managerSearch.placeholder = 'Kontakt suchen…';
               }
             }
+
+            // ── Form-Submit: mehrere member_emails als einzelne Requests ──
+            form.addEventListener('submit', async function(e) {
+              e.preventDefault();
+              if (selectedEmails.size === 0 || !hiddenEmail.value) return;
+              submitBtn.disabled = true;
+              submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Speichere…';
+              const ownerEmail = hiddenEmail.value;
+              let lastErr = null;
+              for (const email of selectedEmails) {
+                try {
+                  const fd = new URLSearchParams();
+                  fd.set('owner_email', ownerEmail);
+                  fd.set('member_email', email);
+                  const r = await fetch(bp + '/admin/portal-roles/extern-set', {
+                    method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'},
+                    body: fd.toString(), redirect: 'manual',
+                  });
+                  if (r.status >= 400) lastErr = 'HTTP ' + r.status;
+                } catch(err) { lastErr = err.message; }
+              }
+              window.location.href = bp + '/admin/portal-roles?tab=extern' +
+                (lastErr ? '&error=' + encodeURIComponent(lastErr) : '&externSaved=1');
+            });
           })();
           </script>
         </div>

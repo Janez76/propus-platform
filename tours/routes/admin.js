@@ -1656,6 +1656,8 @@ router.get('/portal-roles', async (req, res) => {
           WHEN trim(coalesce(c_ref.company,'')) <> '' THEN trim(c_ref.company)
           WHEN trim(coalesce(c.name,'')) <> '' THEN trim(c.name)
           WHEN trim(coalesce(c.company,'')) <> '' THEN trim(c.company)
+          WHEN trim(coalesce(c_cc.name,'')) <> '' THEN trim(c_cc.name)
+          WHEN trim(coalesce(c_cc.company,'')) <> '' THEN trim(c_cc.company)
           WHEN trim(coalesce(t.customer_name,'')) <> '' THEN trim(t.customer_name)
           WHEN trim(coalesce(t.kunde_ref::text,'')) <> '' THEN trim(t.kunde_ref::text)
           ELSE LOWER(TRIM(t.customer_email))
@@ -1665,19 +1667,26 @@ router.get('/portal-roles', async (req, res) => {
           WHEN trim(coalesce(c_ref.name,'')) <> '' THEN trim(c_ref.name)
           WHEN trim(coalesce(c.company,'')) <> '' THEN trim(c.company)
           WHEN trim(coalesce(c.name,'')) <> '' THEN trim(c.name)
+          WHEN trim(coalesce(c_cc.company,'')) <> '' THEN trim(c_cc.company)
+          WHEN trim(coalesce(c_cc.name,'')) <> '' THEN trim(c_cc.name)
           WHEN trim(coalesce(t.customer_name,'')) <> '' THEN trim(t.customer_name)
           ELSE NULL
         END AS firma,
-        COALESCE(c_ref.id, c.id) AS customer_id
+        COALESCE(c_ref.id, c.id, c_cc.id) AS customer_id
       FROM tour_manager.tours t
       LEFT JOIN core.customers c ON LOWER(c.email) = LOWER(t.customer_email)
       LEFT JOIN core.customers c_ref ON trim(c_ref.customer_number) = trim(CAST(t.kunde_ref AS text))
+      LEFT JOIN core.customer_contacts cc_link ON LOWER(cc_link.email) = LOWER(t.customer_email)
+      LEFT JOIN core.customers c_cc ON c_cc.id = cc_link.customer_id
+        AND c.id IS NULL AND c_ref.id IS NULL
       WHERE t.customer_email IS NOT NULL AND trim(t.customer_email) <> ''
       ORDER BY LOWER(TRIM(t.customer_email)),
                CASE WHEN trim(coalesce(c_ref.name,'')) <> ''
                       OR trim(coalesce(c_ref.company,'')) <> ''
                       OR trim(coalesce(c.name,'')) <> ''
                       OR trim(coalesce(c.company,'')) <> ''
+                      OR trim(coalesce(c_cc.name,'')) <> ''
+                      OR trim(coalesce(c_cc.company,'')) <> ''
                       OR trim(coalesce(t.customer_name,'')) <> ''
                     THEN 0 ELSE 1 END
       LIMIT 300
