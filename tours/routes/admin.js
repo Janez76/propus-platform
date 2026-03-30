@@ -1802,7 +1802,7 @@ router.get('/portal-roles/extern-contacts', async (req, res) => {
       customer = r.rows[0] || null;
     }
 
-    // 2. Kein core.customers-Eintrag: owner_email + Portal-Mitglieder zurückgeben
+    // 2. Kein core.customers-Eintrag: owner_email + gleiche Firma aus tours + Portal-Mitglieder
     if (!customer) {
       if (!ownerEmail) return res.json({ contacts: [] });
       const base = [{
@@ -1810,6 +1810,38 @@ router.get('/portal-roles/extern-contacts', async (req, res) => {
         name: ownerEmail,
         position: 'Workspace-Inhaber',
       }];
+      // Weitere E-Mails derselben Firma (gleicher customer_name in tours, kein core.customers-Link)
+      try {
+        const nameRow = await pool.query(
+          `SELECT DISTINCT trim(t.customer_name) AS customer_name
+           FROM tour_manager.tours t
+           LEFT JOIN core.customers c ON LOWER(c.email) = LOWER(t.customer_email)
+           WHERE LOWER(TRIM(t.customer_email)) = $1
+             AND t.customer_name IS NOT NULL AND trim(t.customer_name) <> ''
+             AND c.id IS NULL
+           LIMIT 1`,
+          [ownerEmail]
+        );
+        const firmName = nameRow.rows[0]?.customer_name || null;
+        if (firmName) {
+          const siblingsRow = await pool.query(
+            `SELECT DISTINCT LOWER(TRIM(t.customer_email)) AS email
+             FROM tour_manager.tours t
+             LEFT JOIN core.customers c ON LOWER(c.email) = LOWER(t.customer_email)
+             WHERE LOWER(trim(t.customer_name)) = LOWER($1)
+               AND LOWER(TRIM(t.customer_email)) <> $2
+               AND t.customer_email IS NOT NULL AND TRIM(t.customer_email) <> ''
+               AND c.id IS NULL
+             LIMIT 50`,
+            [firmName, ownerEmail]
+          );
+          for (const r of siblingsRow.rows) {
+            if (r.email && !base.some(b => b.email === r.email)) {
+              base.push({ email: r.email, name: r.email, position: 'Kontakt dieser Firma' });
+            }
+          }
+        }
+      } catch (_) { /* ignorieren */ }
       const portalMembers = await loadPortalMembers(ownerEmail);
       return res.json({ contacts: mergeContacts(base, portalMembers) });
     }
