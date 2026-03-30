@@ -1740,22 +1740,36 @@ router.get('/portal-roles/extern-contacts', async (req, res) => {
   const customerId = Number.parseInt(String(req.query.customer_id || ''), 10);
   if (!ownerEmail && !Number.isInteger(customerId)) return res.json({ contacts: [] });
   try {
-    const customerLookup = Number.isInteger(customerId)
-      ? await pool.query(
-          `SELECT id, name, company, email
-           FROM core.customers
-           WHERE id = $1`,
-          [customerId]
-        )
-      : await pool.query(
-          `SELECT id, name, company, email
-           FROM core.customers
-           WHERE LOWER(email) = $1`,
-          [ownerEmail]
-        );
-    const customer = customerLookup.rows[0] || null;
-    if (!customer) return res.json({ contacts: [] });
+    // 1. Suche customer: zuerst per ID, dann per E-Mail, dann per Firmenname-Ähnlichkeit
+    let customer = null;
+    if (Number.isInteger(customerId)) {
+      const r = await pool.query(
+        `SELECT id, name, company, email FROM core.customers WHERE id = $1`,
+        [customerId]
+      );
+      customer = r.rows[0] || null;
+    }
+    if (!customer && ownerEmail) {
+      const r = await pool.query(
+        `SELECT id, name, company, email FROM core.customers WHERE LOWER(email) = $1`,
+        [ownerEmail]
+      );
+      customer = r.rows[0] || null;
+    }
 
+    // 2. Wenn kein core.customers-Eintrag gefunden: owner_email trotzdem als Kontakt zurückgeben
+    if (!customer) {
+      if (!ownerEmail) return res.json({ contacts: [] });
+      return res.json({
+        contacts: [{
+          email: ownerEmail,
+          name: ownerEmail,
+          position: 'Workspace-Inhaber',
+        }],
+      });
+    }
+
+    // 3. Kontakte der Firma laden
     const r = await pool.query(
       `SELECT cc.id, cc.name, cc.email, cc.role AS position
        FROM core.customer_contacts cc
@@ -1769,13 +1783,24 @@ router.get('/portal-roles/extern-contacts', async (req, res) => {
       name: String(row.name || '').trim(),
       position: String(row.position || '').trim(),
     })).filter(c => c.email);
-    const ownerEmailNorm = String(customer.email || ownerEmail || '').trim().toLowerCase();
+
+    // 4. Workspace-Inhaber (owner_email) an erster Stelle hinzufügen wenn noch nicht vorhanden
+    const ownerEmailNorm = String(ownerEmail || customer.email || '').trim().toLowerCase();
     const ownerName = String(customer.name || customer.company || '').trim();
     if (ownerEmailNorm && !contacts.some((c) => c.email === ownerEmailNorm)) {
       contacts.unshift({
         email: ownerEmailNorm,
-        name: ownerName,
-        position: customer.company ? 'Hauptkontakt' : '',
+        name: ownerName || ownerEmailNorm,
+        position: customer.company ? 'Hauptkontakt' : 'Workspace-Inhaber',
+      });
+    }
+    // 5. Kunden-E-Mail aus core.customers ebenfalls anbieten wenn abweichend
+    const customerEmailNorm = String(customer.email || '').trim().toLowerCase();
+    if (customerEmailNorm && customerEmailNorm !== ownerEmailNorm && !contacts.some((c) => c.email === customerEmailNorm)) {
+      contacts.push({
+        email: customerEmailNorm,
+        name: ownerName || customerEmailNorm,
+        position: 'Hauptkontakt',
       });
     }
     res.json({ contacts });
