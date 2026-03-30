@@ -1649,6 +1649,37 @@ router.post('/portal-roles/remove', async (req, res) => {
 });
 
 // Extern: Kunden-Admin direkt setzen (member_email als 'admin' in owner-Workspace eintragen)
+// GET /admin/portal-roles/extern-contacts?owner_email=... – JSON: Kontakte für Firma-Dropdown
+router.get('/portal-roles/extern-contacts', async (req, res) => {
+  const ownerEmail = String(req.query.owner_email || '').trim().toLowerCase();
+  if (!ownerEmail) return res.json({ contacts: [] });
+  try {
+    // Kontakte aus core.customer_contacts für den Kunden mit dieser E-Mail
+    const r = await pool.query(
+      `SELECT cc.id, cc.name, cc.email, cc.role AS position
+       FROM core.customer_contacts cc
+       JOIN core.customers c ON c.id = cc.customer_id
+       WHERE LOWER(c.email) = $1
+         AND cc.email IS NOT NULL AND trim(cc.email) <> ''
+       ORDER BY cc.name ASC`,
+      [ownerEmail]
+    );
+    // Auch den Hauptkunden selbst als Option anbieten
+    const custR = await pool.query(
+      `SELECT name, company, email FROM core.customers WHERE LOWER(email) = $1`,
+      [ownerEmail]
+    );
+    const contacts = r.rows.map(row => ({
+      email: String(row.email || '').trim().toLowerCase(),
+      name: String(row.name || '').trim(),
+      position: String(row.position || '').trim(),
+    })).filter(c => c.email);
+    res.json({ contacts });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.post('/portal-roles/extern-set', async (req, res) => {
   try {
     const ownerEmail = String(req.body?.owner_email || '').trim().toLowerCase();

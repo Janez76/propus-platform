@@ -264,34 +264,96 @@
 
           <!-- Form: Kunden-Admin direkt setzen -->
           <div style="padding:1rem;border-top:1px solid var(--border);">
-            <div style="font-size:0.82rem;font-weight:600;color:var(--text-muted);margin-bottom:0.5rem;">
+            <div style="font-size:0.82rem;font-weight:600;color:var(--text-muted);margin-bottom:0.75rem;">
               Kunden-Admin direkt setzen
             </div>
-            <form method="post" action="<%= bp %>/admin/portal-roles/extern-set" class="pr-form">
+            <form method="post" action="<%= bp %>/admin/portal-roles/extern-set" class="pr-form" id="externSetForm">
+              <!-- Schritt 1: Firma wählen -->
               <label>
-                Workspace (Kunden-E-Mail / Inhaber)
-                <select name="owner_email" required>
-                  <option value="">– Kunden auswählen –</option>
+                Firma / Workspace
+                <select name="owner_email" id="externOwnerSel" required onchange="loadExternContacts(this.value)">
+                  <option value="">– Firma auswählen –</option>
                   <% (ownerList||[]).forEach(o => { %>
                     <option value="<%= o.owner_email %>">
-                      <%= o.customer_name %> (<%= o.owner_email %>)
+                      <%= o.customer_name %><% if (o.owner_email !== o.customer_name) { %> · <%= o.owner_email %><% } %>
                     </option>
                   <% }) %>
                 </select>
               </label>
+
+              <!-- Schritt 2: Kontakt / Admin wählen (dynamisch befüllt) -->
+              <label id="externContactLabel" style="display:none;">
+                Kontaktperson
+                <select id="externContactSel" onchange="pickExternContact(this.value)">
+                  <option value="">– Kontakt auswählen –</option>
+                </select>
+              </label>
+
+              <!-- E-Mail (manuell editierbar, wird von Kontakt-Auswahl befüllt) -->
               <label>
                 Admin E-Mail
-                <input type="email" name="member_email" required placeholder="person@kunde.ch" autocomplete="off">
+                <input type="email" name="member_email" id="externMemberEmail"
+                       required placeholder="person@kunde.ch" autocomplete="off">
               </label>
+
               <button type="submit" class="btn btn-primary" style="align-self:flex-end;">
                 <i class="fa-solid fa-user-gear"></i> Als Kunden-Admin setzen
               </button>
             </form>
-            <p style="font-size:0.77rem;color:var(--text-muted);margin:0.5rem 0 0 0;">
+            <p style="font-size:0.77rem;color:var(--text-muted);margin:0.6rem 0 0 0;">
+              Wähle zuerst die Firma, dann einen Kontakt – oder trage die E-Mail manuell ein.
               Ist die E-Mail noch nicht im Portal-Team, wird sie als aktives Admin-Mitglied eingetragen.
-              Die Person kann sich danach mit dieser E-Mail im Kundenportal anmelden.
             </p>
           </div>
+
+          <script>
+          (function() {
+            const bp = '<%= bp %>';
+            async function loadExternContacts(ownerEmail) {
+              const label = document.getElementById('externContactLabel');
+              const sel   = document.getElementById('externContactSel');
+              const emailInput = document.getElementById('externMemberEmail');
+
+              if (!ownerEmail) { label.style.display = 'none'; return; }
+
+              sel.innerHTML = '<option value="">Lade…</option>';
+              label.style.display = '';
+
+              try {
+                const resp = await fetch(bp + '/admin/portal-roles/extern-contacts?owner_email=' + encodeURIComponent(ownerEmail));
+                const data = await resp.json();
+                sel.innerHTML = '<option value="">– Kontakt auswählen –</option>';
+                if (data.contacts && data.contacts.length > 0) {
+                  data.contacts.forEach(c => {
+                    const label = c.name ? (c.name + (c.position ? ' (' + c.position + ')' : '') + ' · ' + c.email) : c.email;
+                    const opt = document.createElement('option');
+                    opt.value = c.email;
+                    opt.textContent = label;
+                    opt.dataset.email = c.email;
+                    sel.appendChild(opt);
+                  });
+                } else {
+                  const opt = document.createElement('option');
+                  opt.value = '';
+                  opt.textContent = '(Keine Kontakte mit E-Mail gefunden)';
+                  opt.disabled = true;
+                  sel.appendChild(opt);
+                }
+              } catch(e) {
+                sel.innerHTML = '<option value="">Fehler beim Laden</option>';
+              }
+            }
+
+            function pickExternContact(email) {
+              if (email) {
+                document.getElementById('externMemberEmail').value = email;
+              }
+            }
+
+            window.loadExternContacts = loadExternContacts;
+            window.pickExternContact  = pickExternContact;
+          })();
+          </script>
         </div>
       <% } %>
 
