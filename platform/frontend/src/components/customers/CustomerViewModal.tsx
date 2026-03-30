@@ -152,7 +152,7 @@ export function CustomerViewModal({ open, token, customer, onClose, onCreateOrde
           </div>
         </div>
 
-        <CustomerContactsSection token={token} customerId={customer.id} readonly />
+        <CustomerContactsSection token={token} customerId={customer.id} />
 
         {/* Orders Section */}
         <div className="mb-6 surface-card p-4">
