@@ -15,6 +15,21 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.321",
+    date: "2026-03-30",
+    title: "Portal RBAC Phase 4 + Deploy",
+    changes: [
+      {
+        type: "improvement",
+        text: "Portal: isGlobalTourManager prueft zusaetzlich RBAC-Permission tours.cross_company; Team-Verwaltung auch bei portal_team.manage (System-Scope).",
+      },
+      {
+        type: "improvement",
+        text: "Deploy v2.3.321; optional Bulk-Sync Logto auf VPS (scripts/sync-portal-workspaces-to-logto.js).",
+      },
+    ],
+  },
+  {
     version: "2.3.320",
     date: "2026-03-30",
     title: "Zentrales Rollensystem Portal + RBAC + Logto",

@@ -150,6 +150,63 @@ async function emailHasPortalSystemRole(emailRaw, roleKey) {
   return !!rows[0];
 }
 
+/** Alle access_subjects-IDs für Portal-Nutzer per E-Mail (portal_user + customer_contact). */
+async function listSubjectIdsForPortalEmail(emailRaw) {
+  const email = normEmail(emailRaw);
+  if (!email) return [];
+  if (!(await rbac.tableExists("access_subjects"))) return [];
+
+  const hasCol = await db.query(
+    `SELECT 1 FROM information_schema.columns
+     WHERE table_schema = ANY (current_schemas(false))
+       AND table_name = 'access_subjects' AND column_name = 'portal_user_email'
+     LIMIT 1`
+  );
+  if (!hasCol.rows.length) return [];
+
+  const ids = new Set();
+  const pu = await db.query(
+    `SELECT id FROM access_subjects
+     WHERE subject_type = 'portal_user' AND LOWER(portal_user_email) = $1`,
+    [email]
+  );
+  for (const r of pu.rows) {
+    const id = Number(r.id);
+    if (Number.isFinite(id)) ids.add(id);
+  }
+
+  const cc = await db.query(
+    `SELECT s.id FROM access_subjects s
+     JOIN core.customer_contacts cc ON cc.id = s.customer_contact_id
+     WHERE s.subject_type = 'customer_contact'
+       AND LOWER(TRIM(cc.email)) = $1`,
+    [email]
+  );
+  for (const r of cc.rows) {
+    const id = Number(r.id);
+    if (Number.isFinite(id)) ids.add(id);
+  }
+
+  return [...ids];
+}
+
+/**
+ * Effektive RBAC-Permission für Portal-E-Mail (System-Scope), z. B. tours.cross_company, portal_team.manage.
+ */
+async function emailHasPortalPermission(emailRaw, permissionKey) {
+  const pk = String(permissionKey || "").trim();
+  if (!pk) return false;
+  await rbac.seedRbacIfNeeded();
+  const subjectIds = await listSubjectIdsForPortalEmail(emailRaw);
+  if (!subjectIds.length) return false;
+  const ctx = { scopeType: "system", companyId: null, customerId: null };
+  for (const sid of subjectIds) {
+    const perms = await rbac.getEffectivePermissions(sid, ctx);
+    if (perms.has(pk)) return true;
+  }
+  return false;
+}
+
 /**
  * Rebuild RBAC-Zuweisungen aus tour_manager-Tabellen (idempotent).
  */
@@ -186,6 +243,8 @@ module.exports = {
   syncPortalStaffTourManagerRbac,
   syncPortalTeamMemberAdminRbac,
   emailHasPortalSystemRole,
+  emailHasPortalPermission,
+  listSubjectIdsForPortalEmail,
   reconcileAllPortalRolesToRbac,
   findContactIdForWorkspaceMember,
   countActivePortalAdminWorkspaces,

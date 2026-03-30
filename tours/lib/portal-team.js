@@ -192,6 +192,7 @@ async function isGlobalTourManager(userEmail) {
     try {
       const ok = await m.portalRbac.emailHasPortalSystemRole(norm, ROLE_TOUR_MANAGER);
       if (ok) return true;
+      if (await m.portalRbac.emailHasPortalPermission(norm, "tours.cross_company")) return true;
     } catch (_e) {
       /* Migration 060 evtl. noch nicht */
     }
@@ -455,6 +456,17 @@ async function getPortalTeamManageContext(sessionEmail, ownerEmail) {
 
   if (await isGlobalTourManager(session)) {
     return { canManage: true, isWorkspaceOwner: false, sessionRole: ROLE_TOUR_MANAGER };
+  }
+
+  const m = getBookingPortalSync();
+  if (m) {
+    try {
+      if (await m.portalRbac.emailHasPortalPermission(session, "portal_team.manage")) {
+        return { canManage: true, isWorkspaceOwner: false, sessionRole: ROLE_TOUR_MANAGER };
+      }
+    } catch (_e) {
+      /* RBAC nicht verfügbar */
+    }
   }
 
   const isWorkspaceOwner = session === owner;
