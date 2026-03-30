@@ -424,8 +424,8 @@ echo '[deploy] platform Container...'
 docker compose -p "$RemoteComposeProject" -f "$RemoteComposeFile" --env-file "$RemoteEnvFile" up -d platform
 echo '[deploy] warte auf /api/health (max ~90s, Schritt 3s)...'
 i=0
-while [ $i -lt 30 ]; do
-  i=$((i+1))
+while [ `$i -lt 30 ]; do
+  i=`$((i+1))
   if curl -fsS http://127.0.0.1:3100/api/health >/dev/null 2>&1; then
     echo '[deploy] health ok'
     exit 0
