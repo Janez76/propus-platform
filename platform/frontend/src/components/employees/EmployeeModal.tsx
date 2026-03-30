@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import type { FormEvent } from "react";
 import {
   getEmployeeLog,
@@ -38,6 +38,7 @@ import {
   Images,
 } from "lucide-react";
 import { AbsenceCalendar } from "./AbsenceCalendar";
+import { PortraitCropDialog } from "./PortraitCropDialog";
 import { AddressAutocompleteInput } from "../ui/AddressAutocompleteInput";
 import { t } from "../../i18n";
 import { useAuthStore } from "../../store/authStore";
@@ -110,6 +111,15 @@ function portraitPreviewSrc(photoUrl: string): string | null {
   if (!u) return null;
   if (/^https?:\/\//i.test(u)) return u;
   return u.startsWith("/") ? u : `/${u}`;
+}
+
+function absoluteImageUrlForCrop(photoUrl: string): string {
+  const u = String(photoUrl || "").trim();
+  if (!u) return "";
+  if (/^https?:\/\//i.test(u)) return u;
+  const path = u.startsWith("/") ? u : `/${u.replace(/^\//, "")}`;
+  if (typeof window === "undefined") return path;
+  return `${window.location.origin}${path}`;
 }
 
 function initialWhatsappFromStammdaten(phone: string, phoneMobile: string, storedWhatsapp: string): string {
@@ -346,7 +356,7 @@ export function EmployeeModal({ token, employeeKey, onClose, onSaved, isActive =
   const [isBookableWizard, setIsBookableWizard] = useState(true);
   const [photoUrl, setPhotoUrl] = useState("");
   const portraitFileRef = useRef<HTMLInputElement>(null);
-  const [portraitUploading, setPortraitUploading] = useState(false);
+  const [portraitCropSrc, setPortraitCropSrc] = useState<string | null>(null);
   const [portraitLibraryOpen, setPortraitLibraryOpen] = useState(false);
   const [portraitLibraryLoading, setPortraitLibraryLoading] = useState(false);
   const [portraitLibraryItems, setPortraitLibraryItems] = useState<PortraitLibraryItem[]>([]);
@@ -444,20 +454,19 @@ export function EmployeeModal({ token, employeeKey, onClose, onSaved, isActive =
     setOpenSection((prev) => (prev === id ? null : id));
   }
 
-  async function handlePortraitFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  const closePortraitCrop = useCallback(() => {
+    setPortraitCropSrc((prev) => {
+      if (prev?.startsWith("blob:")) URL.revokeObjectURL(prev);
+      return null;
+    });
+  }, []);
+
+  function handlePortraitFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    setPortraitUploading(true);
     setError("");
-    try {
-      const path = await uploadPhotographerPortrait(token, file);
-      setPhotoUrl(path);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload fehlgeschlagen");
-    } finally {
-      setPortraitUploading(false);
-    }
+    setPortraitCropSrc(URL.createObjectURL(file));
   }
 
   async function openPortraitLibrary() {
@@ -764,16 +773,16 @@ export function EmployeeModal({ token, employeeKey, onClose, onSaved, isActive =
                     <button
                       type="button"
                       onClick={() => portraitFileRef.current?.click()}
-                      disabled={portraitUploading}
+                      disabled={Boolean(portraitCropSrc)}
                       className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-elevated)] px-3 py-1.5 text-sm font-medium text-[var(--text-main)] transition-colors hover:bg-[var(--accent-subtle)] disabled:opacity-50"
                     >
                       <Upload className="h-4 w-4 shrink-0" />
-                      {portraitUploading ? t(lang, "employeeModal.photo.uploading") : t(lang, "employeeModal.photo.upload")}
+                      {t(lang, "employeeModal.photo.upload")}
                     </button>
                     <button
                       type="button"
                       onClick={() => void openPortraitLibrary()}
-                      disabled={portraitUploading}
+                      disabled={Boolean(portraitCropSrc)}
                       className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-elevated)] px-3 py-1.5 text-sm font-medium text-[var(--text-main)] transition-colors hover:bg-[var(--accent-subtle)] disabled:opacity-50"
                     >
                       <Images className="h-4 w-4 shrink-0" />
@@ -1250,6 +1259,19 @@ export function EmployeeModal({ token, employeeKey, onClose, onSaved, isActive =
         </div>
       </form>
     </div>
+    {portraitCropSrc ? (
+      <PortraitCropDialog
+        open
+        lang={lang}
+        imageSrc={portraitCropSrc}
+        onClose={closePortraitCrop}
+        onConfirm={async (blob) => {
+          const file = new File([blob], "portrait.jpg", { type: "image/jpeg" });
+          const path = await uploadPhotographerPortrait(token, file);
+          setPhotoUrl(path);
+        }}
+      />
+    ) : null}
     {portraitLibraryOpen && (
       <div
         className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
@@ -1284,14 +1306,14 @@ export function EmployeeModal({ token, employeeKey, onClose, onSaved, isActive =
               <p className="text-sm text-[var(--text-muted)]">{t(lang, "employeeModal.photo.libraryEmpty")}</p>
             ) : (
               <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
-                {portraitLibraryItems.map((item) => {
+                    {portraitLibraryItems.map((item) => {
                   const thumb = item.path.startsWith("/") ? item.path : `/${item.path}`;
                   return (
                     <button
                       key={item.path}
                       type="button"
                       onClick={() => {
-                        setPhotoUrl(item.path);
+                        setPortraitCropSrc(absoluteImageUrlForCrop(thumb));
                         setPortraitLibraryOpen(false);
                       }}
                       className="group aspect-square overflow-hidden rounded-lg border border-[var(--border-soft)] bg-[var(--accent-subtle)] transition hover:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"

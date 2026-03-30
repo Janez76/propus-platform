@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useCallback, useRef, useState } from "react";
 import { Camera, CalendarDays, Clock, AlertTriangle, User } from "lucide-react";
 import { useBookingWizardStore } from "../../store/bookingWizardStore";
-import { fetchAvailability } from "../../api/bookingPublic";
+import { fetchAvailability, findFirstDateWithAvailability } from "../../api/bookingPublic";
 import { computeShootDuration } from "../../lib/bookingPricing";
 import { t, type Lang } from "../../i18n";
 import { cn } from "../../lib/utils";
@@ -65,7 +65,11 @@ export function StepSchedule({ lang }: { lang: Lang }) {
     selectedPackage, addons, object, coords, config,
     provisional, setProvisional,
     skillWarning, setSkillWarning,
+    scheduleAutoPickSignature,
+    setScheduleAutoPickSignature,
   } = useBookingWizardStore();
+
+  const lookahead = config?.lookaheadDays ?? 365;
 
   const abortRef = useRef<AbortController | null>(null);
 
@@ -80,6 +84,58 @@ export function StepSchedule({ lang }: { lang: Lang }) {
       setPhotographer({ ...p, name: label });
     }
   }, [lang, setPhotographer]);
+
+  const addonIdsKey = addons.map((a) => a.id).join(",");
+
+  useEffect(() => {
+    const key = photographer?.key;
+    if (!key) return;
+    const area = Number(object.area) || 0;
+    const sig = `${key}|${selectedPackage?.key ?? ""}|${area}|${addonIdsKey}|${coords?.lat ?? ""}|${coords?.lng ?? ""}`;
+    if (scheduleAutoPickSignature === sig) return;
+    if (date && scheduleAutoPickSignature == null) {
+      setScheduleAutoPickSignature(sig);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      const duration = computeShootDuration(area, selectedPackage?.key ?? null);
+      const next = await findFirstDateWithAvailability({
+        photographer: key,
+        minDate: tomorrowISO(),
+        maxDate: maxDateISO(lookahead),
+        duration,
+        sqm: area,
+        lat: coords?.lat,
+        lon: coords?.lng,
+        packageKey: selectedPackage?.key,
+        addonIds: addons.map((a) => a.id),
+      });
+      if (cancelled) return;
+      setScheduleAutoPickSignature(sig);
+      if (next) {
+        setDate(next);
+        setTime("");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    photographer?.key,
+    lookahead,
+    selectedPackage?.key,
+    addonIdsKey,
+    object.area,
+    coords?.lat,
+    coords?.lng,
+    scheduleAutoPickSignature,
+    date,
+    setDate,
+    setTime,
+    setScheduleAutoPickSignature,
+  ]);
 
   const loadSlots = useCallback(async () => {
     if (!date || !photographer) return;
@@ -127,7 +183,6 @@ export function StepSchedule({ lang }: { lang: Lang }) {
   const displaySlots = slotPeriod === "am" ? amSlots : pmSlots;
 
   const provisionalEnabled = config?.provisionalBookingEnabled ?? false;
-  const lookahead = config?.lookaheadDays ?? 365;
 
   return (
     <div className="space-y-6">

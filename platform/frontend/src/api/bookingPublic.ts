@@ -172,6 +172,42 @@ export async function fetchAvailability(params: AvailabilityParams): Promise<Ava
   return apiRequest<AvailabilityResult>(`/api/availability?${qs.toString()}`);
 }
 
+function addOneDayIso(isoDate: string): string {
+  const d = new Date(`${isoDate}T12:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Erstes Datum im Bereich mit mindestens einem freien Slot (sequentielle /api/availability-Aufrufe). */
+export async function findFirstDateWithAvailability(
+  params: Omit<AvailabilityParams, "date" | "includeSkillWarning"> & { minDate: string; maxDate: string },
+): Promise<string | null> {
+  const { minDate, maxDate, photographer, duration, sqm, lat, lon, packageKey, addonIds } = params;
+  let d = minDate;
+  const endMs = new Date(`${maxDate}T12:00:00.000Z`).getTime();
+  for (let i = 0; i < 370 && new Date(`${d}T12:00:00.000Z`).getTime() <= endMs; i++) {
+    try {
+      const res = await fetchAvailability({
+        photographer,
+        date: d,
+        duration,
+        sqm,
+        lat,
+        lon,
+        packageKey,
+        addonIds,
+        includeSkillWarning: false,
+      });
+      if (Array.isArray(res.free) && res.free.length > 0) return d;
+    } catch (e) {
+      const m = e instanceof Error ? e.message : "";
+      if (/lookahead|ausserhalb/i.test(m)) break;
+    }
+    d = addOneDayIso(d);
+  }
+  return null;
+}
+
 export async function submitBooking(payload: BookingPayload): Promise<BookingResult> {
   return apiRequest<BookingResult>("/api/booking", "POST", undefined, payload);
 }

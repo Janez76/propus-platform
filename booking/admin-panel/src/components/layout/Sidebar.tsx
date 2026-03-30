@@ -116,12 +116,12 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
       {/* Mobile Drawer */}
       <aside
         className={cn(
-          "lg:hidden fixed top-0 left-0 h-screen w-72 propus-sidebar z-50",
+          "lg:hidden fixed top-0 left-0 z-50 flex h-dvh max-h-dvh w-72 min-h-0 flex-col propus-sidebar",
           "transform transition-transform duration-300 ease-in-out",
           isMobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className="h-16 flex items-center justify-between px-4" style={{ borderBottom: "1px solid var(--border-soft)" }}>
+        <div className="flex h-16 flex-shrink-0 items-center justify-between px-4" style={{ borderBottom: "1px solid var(--border-soft)" }}>
           <div className="flex items-center gap-3">
             <img src="/assets/brand/logopropus.png" alt="Propus" className="h-8 w-auto" />
             <span className="font-bold text-lg" style={{ color: "var(--text-main)", fontFamily: "var(--propus-font-heading)" }}>Admin</span>
@@ -136,13 +136,14 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
           </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto py-4 px-3">
+        <nav className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 py-4 [-webkit-overflow-scrolling:touch]">
           <div className="space-y-0.5">
             {visibleNavigationItems.map(({ path, icon: Icon, labelKey, label }) => {
               if (path === "/settings") {
                 return (
                   <div key={path}>
                     <button
+                      type="button"
                       onClick={() => setSettingsOpen((v) => !v)}
                       className={cn("propus-nav-item w-full", isSettingsActive && "active")}
                     >
@@ -220,6 +221,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                 return (
                   <div key={path}>
                     <button
+                      type="button"
                       onClick={() => setSettingsOpen((v) => !v)}
                       className={cn("propus-nav-item w-full", isSettingsActive && "active")}
                     >

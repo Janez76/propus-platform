@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import "./index.css";
+import "react-easy-crop/react-easy-crop.css";
 import App from "./App";
 import { ErrorBoundary } from "./components/layout/ErrorBoundary";
 import { exposeLoggerOnWindow, logger, setupGlobalErrorLogging } from "./utils/logger";

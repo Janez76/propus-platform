@@ -131,6 +131,12 @@
     .suggestion-title { font-weight: 600; color: var(--gray-900); line-height: 1.25; }
     .suggestion-sub { font-size: 0.77rem; color: var(--text-muted); margin-top: 0.12rem; }
     .selected-customer { color: var(--text-muted); font-size: 0.82rem; margin-top: -0.2rem; }
+    .matterport-api-alert .matterport-api-alert-body {
+      margin-top: 0.45rem;
+      font-size: 0.9rem;
+      line-height: 1.45;
+      font-weight: 500;
+    }
     .empty-state { border: 1px solid var(--gold-300); background: var(--gold-50); border-radius: 12px; padding: 1rem; }
     .customer-row { display: grid; grid-template-columns: 1fr auto; gap: 0.5rem; align-items: end; }
     .customer-search-group { position: relative; }
@@ -366,7 +372,12 @@
       <% if (error === 'missing') { %><div class="alert alert-error">Bitte Matterport-Space und Tour-Link ausfüllen.</div><% } %>
       <% if (error === 'duplicate') { %><div class="alert alert-error">Diese Matterport-ID ist bereits verknüpft.<% if (duplicateTourId) { %> <a href="/admin/tours/<%= duplicateTourId %>" style="color:var(--danger);">Tour #<%= duplicateTourId %> öffnen</a><% } %></div><% } %>
       <% if (error === 'insert') { %><div class="alert alert-error">Verknüpfung konnte nicht gespeichert werden.</div><% } %>
-      <% if (mpError) { %><div class="alert alert-warning">Matterport API: <%= mpError %></div><% } %>
+      <% if (mpError) { %>
+        <div class="alert alert-warning matterport-api-alert">
+          <strong>Matterport API</strong>
+          <div class="matterport-api-alert-body"><%= mpError %></div>
+        </div>
+      <% } %>
 
       <div class="toolbar">
         <div class="count-pill">

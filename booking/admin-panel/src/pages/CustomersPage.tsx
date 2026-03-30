@@ -6,6 +6,7 @@ import { ContactModal } from "../components/customers/ContactModal";
 import { formatPhoneCH } from "../lib/format";
 import { PhoneLink } from "../components/ui/PhoneLink";
 import { CustomerViewModal } from "../components/customers/CustomerViewModal";
+import { CustomerMergeModal } from "../components/customers/CustomerMergeModal";
 import { CreateContactDialog } from "../components/customers/CreateContactDialog";
 import { CreateOrderWizard } from "../components/orders/CreateOrderWizard";
 import { useMutation } from "../hooks/useMutation";
@@ -61,6 +62,7 @@ export function CustomersPage() {
   const [linkCustomerId, setLinkCustomerId] = useState<string>("");
   const [linkBusy, setLinkBusy] = useState(false);
   const [linkError, setLinkError] = useState("");
+  const [mergeKeepCustomer, setMergeKeepCustomer] = useState<Customer | null>(null);
   const [contactSaving, setContactSaving] = useState(false);
   const [contactError, setContactError] = useState("");
   const [contactSuccess, setContactSuccess] = useState("");
@@ -562,6 +564,7 @@ export function CustomersPage() {
             } catch {}
           }}
           onAddContact={openQuickContact}
+          onMerge={(c) => setMergeKeepCustomer(c)}
           sortKey={customerSortKey}
           sortDir={customerSortDir}
           onSort={toggleCustomerSort}
@@ -709,6 +712,17 @@ export function CustomersPage() {
           }}
         />
       ) : null}
+
+      <CustomerMergeModal
+        open={!!mergeKeepCustomer}
+        keepCustomer={mergeKeepCustomer}
+        customers={items}
+        token={token}
+        onClose={() => setMergeKeepCustomer(null)}
+        onSuccess={async () => {
+          await refetch({ force: true });
+        }}
+      />
 
       <CreateOrderWizard
         token={token}

@@ -8,7 +8,8 @@
  *   - GraphiQL: https://api.matterport.com/model/graphiql
  *
  * Auth: Basic base64(TokenID:TokenSecret)
- *   Developer Tools → my.matterport.com → Settings → API Token
+ *   my.matterport.com → Einstellungen → «Verwaltung von API-Token» (Model API).
+ *   Nicht verwechseln mit «SDK-Schlüsseln» für eingebettete Showcase-Ansichten.
  *
  * Env: MATTERPORT_TOKEN_ID, MATTERPORT_TOKEN_SECRET (oder MATTERPORT_API_KEY für Bearer-Fallback)
  *
@@ -25,6 +26,14 @@ const GRAPH_URLS = [
   `${MATTERPORT_BASE}/graph`,
   'https://api.matterport.com/model/graphiql',
 ];
+
+/** Kurz, wenn gar kein Authorization-Header gebaut werden kann */
+const MSG_MISSING_CREDS =
+  'MATTERPORT_TOKEN_ID und MATTERPORT_TOKEN_SECRET setzen (Werte aus «API-Token» in my.matterport.com, nicht der SDK-Schlüssel).';
+
+/** Wenn HTTP 401/403 trotz gesetztem Header (falscher Typ, abgelaufen, nur Secret ohne ID) */
+const MSG_AUTH_REJECTED =
+  'Matterport lehnt die Anmeldung ab. Token-ID und Secret aus «Verwaltung von API-Token» verwenden (Basic Auth). SDK-Schlüssel für Showcase funktionieren für diese API nicht.';
 
 function getAuthHeader() {
   if (MATTERPORT_TOKEN_ID && MATTERPORT_TOKEN_SECRET) {
@@ -46,7 +55,7 @@ function allowsLinkWithoutVerify() {
 async function graphRequest(query, variables = {}) {
   const auth = getAuthHeader();
   if (!auth) {
-    return { data: null, errors: [{ message: 'MATTERPORT_TOKEN_ID und MATTERPORT_TOKEN_SECRET setzen' }] };
+    return { data: null, errors: [{ message: MSG_MISSING_CREDS }] };
   }
   const body = JSON.stringify({ query, variables });
   const headers = {
@@ -61,6 +70,9 @@ async function graphRequest(query, variables = {}) {
       if (data.errors) {
         return { data: data.data, errors: data.errors };
       }
+      if (!res.ok && (res.status === 401 || res.status === 403)) {
+        return { data: null, errors: [{ message: MSG_AUTH_REJECTED }] };
+      }
     } catch (e) {
       console.warn('Matterport graphRequest', url, e.message);
     }
@@ -73,7 +85,7 @@ async function listModels() {
   let offset = null;
   const result = { results: [], totalResults: 0, error: null };
   if (!getAuthHeader()) {
-    result.error = 'MATTERPORT_TOKEN_ID und MATTERPORT_TOKEN_SECRET setzen';
+    result.error = MSG_MISSING_CREDS;
     return result;
   }
   try {
@@ -109,7 +121,7 @@ async function listModels() {
 
 async function getModel(modelId) {
   if (!getAuthHeader()) {
-    return { model: null, error: 'MATTERPORT_TOKEN_ID und MATTERPORT_TOKEN_SECRET setzen' };
+    return { model: null, error: MSG_MISSING_CREDS };
   }
   const gql = `query getModel($modelId: ID!) {
     model(id: $modelId) {

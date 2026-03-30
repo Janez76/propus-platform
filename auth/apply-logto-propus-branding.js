@@ -6,7 +6,8 @@
  * - Branding / Farben / Logo / Favicon / Custom CSS
  * - Terms / Privacy
  * - Forgot Password
- * - konservatives Weiterreichen vorhandener Sign-in-/Sign-up-Einstellungen
+ * - Sign-in: Benutzername und E-Mail mit Passwort (Logto Smart Input); opt-out: PROPUS_LOGTO_SIGNIN_KEEP_AS_IS=true
+ * - konservatives Weiterreichen vorhandener Sign-in-/Sign-up-Einstellungen (sonst)
  *
  * App-Level (`PUT /api/applications/{id}/sign-in-experience`):
  * - nur die von Logto erlaubten Felder (Branding, Farben, Display-Name, Terms/Privacy)
@@ -115,6 +116,43 @@ function deepCopy(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+/**
+ * Logto Sign-in: neben Benutzername auch E-Mail mit Passwort erlauben (gleiches Formular, „Smart Input“).
+ * Schema siehe logto-io/logto packages/schemas signInGuard (methods[].identifier, password, …).
+ */
+function enrichSignInUsernameEmailPassword(currentSignIn) {
+  const signIn = deepCopy(currentSignIn) || { methods: [] };
+  const methods = Array.isArray(signIn.methods) ? signIn.methods.slice() : [];
+
+  function methodFor(identifier) {
+    const existing = methods.find((m) => m.identifier === identifier);
+    if (!existing) {
+      return {
+        identifier,
+        password: true,
+        verificationCode: false,
+        isPasswordPrimary: true,
+      };
+    }
+    const merged = {
+      ...existing,
+      password: true,
+    };
+    if (merged.verificationCode && merged.password) {
+      /* Beide Faktoren: isPasswordPrimary unveraendert lassen */
+    } else if (merged.password) {
+      merged.isPasswordPrimary = true;
+    }
+    return merged;
+  }
+
+  const rest = methods.filter(
+    (m) => m.identifier !== 'username' && m.identifier !== 'email'
+  );
+  signIn.methods = [methodFor('username'), methodFor('email'), ...rest];
+  return signIn;
+}
+
 function setIfDefined(target, key, value) {
   if (value !== undefined) target[key] = value;
 }
@@ -192,7 +230,15 @@ function buildTenantPatch(current) {
   }
 
   setIfDefined(patch, 'languageInfo', buildLanguageInfo(current));
-  setIfDefined(patch, 'signIn', deepCopy(current?.signIn));
+  const skipSignInEnrich =
+    parseBooleanEnv('PROPUS_LOGTO_SIGNIN_KEEP_AS_IS') === true;
+  setIfDefined(
+    patch,
+    'signIn',
+    skipSignInEnrich
+      ? deepCopy(current?.signIn)
+      : enrichSignInUsernameEmailPassword(current?.signIn)
+  );
   setIfDefined(patch, 'signUp', deepCopy(current?.signUp));
   setIfDefined(patch, 'signInMode', current?.signInMode);
   setIfDefined(patch, 'socialSignIn', deepCopy(current?.socialSignIn));

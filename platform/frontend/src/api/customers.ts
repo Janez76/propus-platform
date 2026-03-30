@@ -223,3 +223,6 @@ export const deleteCustomer = (token: string, id: number, force = false) =>
     "DELETE",
     token,
   );
+
+export const mergeCustomers = (token: string, keepId: number, mergeId: number) =>
+  apiRequest<{ ok: true; keepId: number }>("/api/admin/customers/merge", "POST", token, { keepId, mergeId });

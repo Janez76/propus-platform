@@ -130,6 +130,9 @@ export type BookingWizardState = {
   submitting: boolean;
   orderNo: number | null;
 
+  /** Session: letzte Kontext-Signatur, für die automatisch ein Datum gesetzt wurde (nicht persistiert). */
+  scheduleAutoPickSignature: string | null;
+
   setStep: (s: number) => void;
   setAddress: (addr: string) => void;
   setCoords: (c: { lat: number; lng: number } | null) => void;
@@ -160,6 +163,8 @@ export type BookingWizardState = {
   setSubmitting: (v: boolean) => void;
   setSubmitted: (orderNo: number | null) => void;
 
+  setScheduleAutoPickSignature: (sig: string | null) => void;
+
   reset: () => void;
 };
 
@@ -169,7 +174,7 @@ const INITIAL: Omit<BookingWizardState,
   "setTime" | "setProvisional" | "setBilling" | "setAltBilling" | "setDiscount" |
   "setKeyPickup" | "setAgbAccepted" | "setSlotPeriod" | "setAvailableSlots" |
   "setSlotsLoading" | "setSkillWarning" | "setConfig" | "setCatalog" | "setPhotographers" |
-  "setConfigLoading" | "setSubmitting" | "setSubmitted" | "reset"
+  "setConfigLoading" | "setSubmitting" | "setSubmitted" | "setScheduleAutoPickSignature" | "reset"
 > = {
   step: 1,
   address: "",
@@ -198,6 +203,7 @@ const INITIAL: Omit<BookingWizardState,
   submitted: false,
   submitting: false,
   orderNo: null,
+  scheduleAutoPickSignature: null,
 };
 
 export const useBookingWizardStore = create<BookingWizardState>()(
@@ -243,7 +249,18 @@ export const useBookingWizardStore = create<BookingWizardState>()(
           orderNo: orderNo != null && Number.isFinite(Number(orderNo)) ? Number(orderNo) : null,
         }),
 
-      reset: () => set({ ...INITIAL }),
+      setScheduleAutoPickSignature: (scheduleAutoPickSignature) => set({ scheduleAutoPickSignature }),
+
+      /** Leert die Buchung (Schritt 1), behält geladenes Config/Katalog/Fotografen — vermeidet leeren Wizard ohne erneuten Fetch. */
+      reset: () =>
+        set((s) => ({
+          ...INITIAL,
+          config: s.config,
+          catalog: s.catalog,
+          photographers: s.photographers,
+          configLoading: false,
+          scheduleAutoPickSignature: null,
+        })),
     }),
     {
       name: "propus-booking-wizard-draft",

@@ -15,6 +15,123 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.287",
+    date: "2026-03-30",
+    title: "Porträt-Crop: Strict-Mode + Same-Origin",
+    changes: [
+      {
+        type: "fix",
+        text: "PortraitCropDialog/cropImage: gleiche Fixes wie Platform (Strict Mode, CORS nur cross-origin, Cropper-Props).",
+      },
+      {
+        type: "improvement",
+        text: "Deploy-Version v2.3.287.",
+      },
+    ],
+  },
+  {
+    version: "2.3.286",
+    date: "2026-03-30",
+    title: "Admin: Kunden-Merge (Kontakte + Aufträge)",
+    changes: [
+      {
+        type: "feature",
+        text: "Kunden zusammenführen: Dialog + POST /api/admin/customers/merge (Transaktion).",
+      },
+      {
+        type: "improvement",
+        text: "Deploy-Version v2.3.286.",
+      },
+    ],
+  },
+  {
+    version: "2.3.285",
+    date: "2026-03-30",
+    title: "Health/buildId: VERSION aus Platform-Image vor Legacy /opt",
+    changes: [
+      {
+        type: "fix",
+        text: "getBuildId: platform/frontend/public/VERSION vor /opt/buchungstool/VERSION — verhindert festhängende Footer-Version bei alter Datei auf dem Host.",
+      },
+      {
+        type: "improvement",
+        text: "Deploy-Version v2.3.285.",
+      },
+    ],
+  },
+  {
+    version: "2.3.284",
+    date: "2026-03-30",
+    title: "Changelog: Aktuelle Version wie Footer (Server-buildId)",
+    changes: [
+      {
+        type: "fix",
+        text: "Changelog-Banner: gleiche Versionsquelle wie Footer (/api/health, Fallback /VERSION); Titel aus passendem Eintrag oder Hinweis bei veraltetem SPA-Build.",
+      },
+      {
+        type: "improvement",
+        text: "Deploy-Version v2.3.284.",
+      },
+    ],
+  },
+  {
+    version: "2.3.283",
+    date: "2026-03-30",
+    title: "Mitarbeiter-Porträt: Zuschneiden repariert (CSS + Portal)",
+    changes: [
+      {
+        type: "fix",
+        text: "Porträt-Crop: react-easy-crop CSS in main.tsx; Dialog per Portal + z-200; onCropAreaChange; Stage-Layout/Touch.",
+      },
+      {
+        type: "improvement",
+        text: "Deploy-Version v2.3.283.",
+      },
+    ],
+  },
+  {
+    version: "2.3.282",
+    date: "2026-03-30",
+    title: "Admin: Mobile-Sidebar scrollbar (Flex + dvh)",
+    changes: [
+      {
+        type: "fix",
+        text: "Mobile Drawer: flex-col, min-h-0, overflow-y-auto, h-dvh – Menü scrollt bei langen Listen (Einstellungen aufgeklappt).",
+      },
+      {
+        type: "improvement",
+        text: "Deploy-Version v2.3.282.",
+      },
+    ],
+  },
+  {
+    version: "2.3.281",
+    date: "2026-03-30",
+    title: "Buchungs-Wizard: Reset, Porträts, Auto-Termin; Admin: Porträt zuschneiden",
+    changes: [
+      {
+        type: "feature",
+        text: "Buchungs-Wizard: Zusammenfassung «Neu beginnen» mit Bestätigung; reset() behält Katalog/Config (sicher auch nach Dankeseite).",
+      },
+      {
+        type: "fix",
+        text: "Wizard-Fotografen-Avatare: URLs unter /assets/photographers wie Backend, nicht /assets/booking/photographers.",
+      },
+      {
+        type: "feature",
+        text: "Mitarbeiter-Modal: Porträt zuschneiden nach Upload/Bibliothek (react-easy-crop, JPEG 512×512).",
+      },
+      {
+        type: "feature",
+        text: "Schritt 3: erstes freies Datum automatisch; Store-Signatur schützt manuelles Datum beim Navigieren.",
+      },
+      {
+        type: "improvement",
+        text: "GET /api/availability: photographer=any = gemergte freie Slots aller Fotograf:innen.",
+      },
+    ],
+  },
+  {
     version: "2.3.280",
     date: "2026-03-30",
     title: "Katalog-i18n (catalog.*), Tour-Manager: Zurück ins Admin-Panel",

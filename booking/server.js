@@ -6,11 +6,13 @@ const pinoHttp = require("pino-http");
 const fs = require("fs");
 const path = require("path");
 const dotenv = require("dotenv");
+// Reihenfolge: explizite Override-Datei, dann VERSION aus dem Platform-Image (Docker),
+// dann Legacy-Pfad /opt/... — sonst gewinnt dort eine alte Datei und Footer/health bleiben auf z. B. v2.3.281.
 const BUILD_ID_FILE_CANDIDATES = [
   process.env.BUILD_ID_FILE,
+  path.join(__dirname, "..", "platform", "frontend", "public", "VERSION"),
   "/opt/buchungstool/VERSION",
   path.join(__dirname, "..", "VERSION"),
-  path.join(__dirname, "..", "platform", "frontend", "public", "VERSION"),
   path.join(__dirname, "admin-panel", "public", "VERSION"),
   path.join(__dirname, "public", "VERSION"),
   path.join(__dirname, "VERSION")
@@ -108,6 +110,7 @@ const { resolveAdminSendEmails, resolveAdminEmailTargets, getEmailSendListForAdm
 const crypto = require("crypto");
 const { registerCustomerContactsRoutes } = require("./customer-contacts-routes");
 const rbac = require("./access-rbac");
+const customerMerge = require("./customer-merge");
 const { buildAuthContext } = require("./authz/middleware");
 const { registerAccessRoutes } = require("./access-routes");
 const { registerAdminUsersRoutes } = require("./admin-users-routes");
@@ -3487,6 +3490,93 @@ app.get("/api/availability", async (req, res) => {
     const travelEnabled = await shouldApplyTravelCalculation(servicesForTravel);
     console.log("[availability] request", { photographer, date, durationMin, sqm });
 
+    if (!date) {
+      console.error("[availability] invalid date", req.query.date);
+      return res.status(400).json({ error: "Invalid date format (YYYY-MM-DD or DD.MM.YYYY)" });
+    }
+
+    const bookingCoords = Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : null;
+
+    if (photographer === "any") {
+      let maxLookaheadDays = 14;
+      try {
+        for (const p of PHOTOGRAPHERS_CONFIG) {
+          const s = await getSchedulingSettings(p.key);
+          const ld = Number(s.lookaheadDays);
+          if (Number.isFinite(ld) && ld > maxLookaheadDays) maxLookaheadDays = ld;
+        }
+      } catch (_) {
+        /* default */
+      }
+
+      const requestedDateAny = new Date(`${date}T00:00:00`);
+      const nowDateAny = new Date();
+      nowDateAny.setHours(0, 0, 0, 0);
+      const dayDiffAny = Math.floor((requestedDateAny.getTime() - nowDateAny.getTime()) / 86400000);
+      if (dayDiffAny > maxLookaheadDays) {
+        return res.status(400).json({ error: `Datum liegt ausserhalb Lookahead (${maxLookaheadDays} Tage)` });
+      }
+
+      const mergedFree = new Set();
+      let sampleWorkStart = "08:00";
+      let sampleWorkEnd = "18:00";
+      let hadWorkingPhotographer = false;
+
+      for (const p of PHOTOGRAPHERS_CONFIG) {
+        const email = await resolvePhotographerCalendarEmail(p.key);
+        if (!email) continue;
+        const schedulingSettings = await getSchedulingSettings(p.key);
+        const daySchedule = resolveScheduleForDate(date, schedulingSettings);
+        if (daySchedule.isHoliday || !daySchedule.enabled) continue;
+        hadWorkingPhotographer = true;
+        sampleWorkStart = daySchedule.workStart || schedulingSettings.workStart || sampleWorkStart;
+        sampleWorkEnd = daySchedule.workEnd || schedulingSettings.workEnd || sampleWorkEnd;
+        try {
+          let events = await fetchCalendarEvents(email, date, p.key);
+          events = await appendBlockedDateBusyEvents(p.key, date, events);
+          const availability = buildAvailability(events, durationMin, {
+            ...schedulingSettings,
+            workStart: daySchedule.workStart,
+            workEnd: daySchedule.workEnd,
+          });
+          let freeSlots = availability?.free || [];
+          if (travelEnabled && bookingCoords && freeSlots.length) {
+            const travelResult = await filterAvailabilityByTravel({
+              freeSlots,
+              events,
+              durationMin,
+              date,
+              photographerKey: p.key,
+              bookingCoord: bookingCoords,
+              bufferMinutes: schedulingSettings.bufferMinutes,
+            });
+            freeSlots = travelResult.free || [];
+          }
+          for (const slot of freeSlots) mergedFree.add(slot);
+        } catch (calErr) {
+          console.error("[availability] any-pool calendar failed for", p.key, calErr?.message || calErr);
+        }
+      }
+
+      const freeSorted = Array.from(mergedFree).sort();
+      return res.json({
+        photographer: "any",
+        date,
+        timeZone: TIMEZONE,
+        workStart: sampleWorkStart,
+        workEnd: sampleWorkEnd,
+        travelEnabled,
+        travelApplied: false,
+        travelFilteredCount: 0,
+        wishPhotographerSkillWarning: false,
+        missingSkills: [],
+        recommendedPhotographer: null,
+        free: freeSorted,
+        busy: [],
+        ...(!hadWorkingPhotographer ? { reason: "outside_workdays" } : {}),
+      });
+    }
+
     if (!PHOTOGRAPHERS[photographer]) {
       console.error("[availability] unknown photographer", photographer);
       return res.status(400).json({ error: "Unknown photographer key" });
@@ -3497,12 +3587,6 @@ app.get("/api/availability", async (req, res) => {
       return res.status(400).json({ error: "No calendar email for photographer" });
     }
 
-    if (!date) {
-      console.error("[availability] invalid date", req.query.date);
-      return res.status(400).json({ error: "Invalid date format (YYYY-MM-DD or DD.MM.YYYY)" });
-    }
-
-    const bookingCoords = Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : null;
     let wishPhotographerSkillWarning = false;
     let missingSkills = [];
     let recommendedPhotographer = null;
@@ -9039,6 +9123,42 @@ app.patch("/api/admin/customers/:id/nas-folder-bases", requireAdmin, async (req,
     res.json({ ok: true });
   } catch (err) {
     res.status(400).json({ error: err.message || "NAS-Pfade konnten nicht gespeichert werden" });
+  }
+});
+
+app.post("/api/admin/customers/merge", requireAdmin, async (req, res) => {
+  try {
+    const keepId = Number(req.body?.keepId);
+    const mergeId = Number(req.body?.mergeId);
+    if (!Number.isFinite(keepId) || !Number.isFinite(mergeId)) {
+      return res.status(400).json({ error: "keepId und mergeId sind erforderlich" });
+    }
+    if (keepId === mergeId) {
+      return res.status(400).json({ error: "Beide IDs sind identisch" });
+    }
+    if (!(await ensureCustomerInRequestCompany(req, keepId)) || !(await ensureCustomerInRequestCompany(req, mergeId))) {
+      return res.status(404).json({ error: "Nicht gefunden" });
+    }
+    const pool = db.getPool ? db.getPool() : null;
+    if (!pool) return res.status(503).json({ error: "DB nicht verfuegbar" });
+    await customerMerge.mergeCustomers(pool, keepId, mergeId);
+    res.json({ ok: true, keepId });
+  } catch (err) {
+    const code = err && err.code;
+    if (code === "NOT_FOUND" || String(err?.message) === "NOT_FOUND") {
+      return res.status(404).json({ error: "Kunde nicht gefunden" });
+    }
+    if (code === "SAME_ID" || String(err?.message) === "SAME_ID") {
+      return res.status(400).json({ error: "Beide IDs sind identisch" });
+    }
+    if (code === "23505") {
+      return res.status(409).json({
+        error:
+          "Eindeutigkeitskonflikt (z. B. E-Mail, SSO oder Exxas-ID). Bitte Daten prüfen oder Support kontaktieren.",
+      });
+    }
+    console.error("[customers/merge]", err?.message || err);
+    res.status(500).json({ error: err.message || "Zusammenfuehren fehlgeschlagen" });
   }
 });
 

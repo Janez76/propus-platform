@@ -1,7 +1,16 @@
 import { Clock, GitBranch, Wrench, Sparkles, Bug, Shield, ChevronDown, ChevronUp } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "../lib/utils";
 import { CHANGELOG, type ChangelogVersion, type ChangeType } from "../data/changelogData";
+import { API_BASE } from "../api/client";
+
+function stripVersionPrefix(raw: string): string {
+  return String(raw || "")
+    .trim()
+    .replace(/^\uFEFF/, "")
+    .replace(/\s+/g, "")
+    .replace(/^v+/i, "");
+}
 
 const TYPE_CONFIG: Record<ChangeType, { label: string; color: string; icon: React.ComponentType<{ className?: string }> }> = {
   feature:     { label: "Neu",         color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",  icon: Sparkles },
@@ -73,6 +82,50 @@ function VersionCard({ entry, defaultOpen }: { entry: ChangelogVersion; defaultO
 
 export function ChangelogPage() {
   const latest = CHANGELOG[0];
+  const [serverVersionNorm, setServerVersionNorm] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const applyRaw = (raw: string) => {
+      if (cancelled) return;
+      const t = String(raw || "").trim();
+      if (!t || t.includes("<!doctype") || t.includes("<html")) {
+        setServerVersionNorm(null);
+        return;
+      }
+      const cleaned = stripVersionPrefix(t);
+      setServerVersionNorm(cleaned && /^[a-zA-Z0-9._-]+$/.test(cleaned) ? cleaned : null);
+    };
+
+    const fallback = () =>
+      fetch(`/VERSION?cb=${Date.now()}`, { cache: "no-store" })
+        .then((r) => (r.ok ? r.text() : ""))
+        .then(applyRaw)
+        .catch(() => {
+          if (!cancelled) setServerVersionNorm(null);
+        });
+
+    fetch(`${API_BASE}/api/health`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled) return;
+        const id = data?.buildId;
+        if (typeof id === "string" && id.trim()) {
+          applyRaw(id);
+          return;
+        }
+        return fallback();
+      })
+      .catch(() => fallback());
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const bannerVersionNorm = serverVersionNorm ?? (stripVersionPrefix(latest.version) || latest.version);
+  const matched = CHANGELOG.find((e) => stripVersionPrefix(e.version) === bannerVersionNorm);
+  const anyBannerMatch = CHANGELOG.some((e) => stripVersionPrefix(e.version) === bannerVersionNorm);
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
@@ -88,21 +141,35 @@ export function ChangelogPage() {
           </div>
         </div>
 
-        {/* Aktuellste Version Banner */}
+        {/* Aktuellste Version Banner — gleiche Quelle wie Footer (/api/health, Fallback /VERSION) */}
         <div className="mt-4 p-4 rounded-xl bg-[#9E8649]/8 border border-[#C5A059]/30">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
             <Sparkles className="h-4 w-4 text-[#9E8649]" />
-            <span className="text-sm font-semibold text-[#9E8649]">Aktuelle Version: v{latest.version}</span>
-            <span className="text-xs text-slate-500 dark:text-zinc-400 ml-1">({latest.date})</span>
+            <span className="text-sm font-semibold text-[#9E8649]">Aktuelle Version: v{bannerVersionNorm}</span>
+            {matched ? (
+              <span className="text-xs text-slate-500 dark:text-zinc-400 ml-1">({matched.date})</span>
+            ) : null}
           </div>
-          <p className="text-sm text-slate-700 dark:text-zinc-300">{latest.title}</p>
+          {matched ? (
+            <p className="text-sm text-slate-700 dark:text-zinc-300">{matched.title}</p>
+          ) : serverVersionNorm !== null && !anyBannerMatch ? (
+            <p className="text-sm text-amber-700 dark:text-amber-400">
+              Kein Changelog-Eintrag für diese Server-Version in dieser App-Auslieferung — bitte Frontend neu bauen und deployen, damit die Liste zur Version passt.
+            </p>
+          ) : (
+            <p className="text-sm text-slate-700 dark:text-zinc-300">{latest.title}</p>
+          )}
         </div>
       </div>
 
       {/* Versionen */}
       <div className="space-y-3">
         {CHANGELOG.map((entry, idx) => (
-          <VersionCard key={entry.version} entry={entry} defaultOpen={idx === 0} />
+          <VersionCard
+            key={entry.version}
+            entry={entry}
+            defaultOpen={stripVersionPrefix(entry.version) === bannerVersionNorm || (!anyBannerMatch && idx === 0)}
+          />
         ))}
       </div>
 

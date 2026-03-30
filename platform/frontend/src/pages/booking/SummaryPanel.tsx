@@ -1,5 +1,5 @@
-import { useState, useCallback } from "react";
-import { MapPin, Package, Camera, CalendarDays, Percent, ChevronDown, ChevronUp } from "lucide-react";
+import { useState, useCallback, useEffect } from "react";
+import { MapPin, Package, Camera, CalendarDays, Percent, ChevronDown, ChevronUp, RotateCcw } from "lucide-react";
 import { useBookingWizardStore } from "../../store/bookingWizardStore";
 import { computePricing, formatCHF, type PricingConfig } from "../../lib/bookingPricing";
 import { validateDiscount } from "../../api/bookingPublic";
@@ -7,16 +7,29 @@ import { t, type Lang } from "../../i18n";
 import { bookingPhotographerLabel } from "../../lib/bookingLabels";
 import { cn, formatDateCH } from "../../lib/utils";
 
-export function SummaryPanel({ lang, mobile }: { lang: Lang; mobile?: boolean }) {
+export function SummaryPanel({
+  lang,
+  mobile,
+  onDraftRestart,
+}: {
+  lang: Lang;
+  mobile?: boolean;
+  /** Nach Zurücksetzen z. B. Validierungsfehler in der Wizard-Seite leeren */
+  onDraftRestart?: () => void;
+}) {
   const {
     address, selectedPackage, addons, photographer, date, time,
-    discount, setDiscount, config,
+    discount, setDiscount, config, reset,
   } = useBookingWizardStore();
 
   const [discountInput, setDiscountInput] = useState(discount.code);
   const [discountLoading, setDiscountLoading] = useState(false);
   const [discountError, setDiscountError] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    setDiscountInput(discount.code);
+  }, [discount.code]);
 
   const pricingConfig: PricingConfig = {
     vatRate: config?.vatRate ?? 0.081,
@@ -45,6 +58,15 @@ export function SummaryPanel({ lang, mobile }: { lang: Lang; mobile?: boolean })
       setDiscountLoading(false);
     }
   }, [discountInput, lang, setDiscount]);
+
+  function handleRestart() {
+    if (!window.confirm(t(lang, "booking.summary.restartConfirm"))) return;
+    reset();
+    setDiscountInput("");
+    setDiscountError("");
+    onDraftRestart?.();
+    window.scrollTo(0, 0);
+  }
 
   const hasContent = !!(address || selectedPackage || addons.length > 0 || photographer || date);
 
@@ -79,7 +101,19 @@ export function SummaryPanel({ lang, mobile }: { lang: Lang; mobile?: boolean })
 
   function renderContent() {
     if (!hasContent) {
-      return <p className="text-xs text-zinc-400">{t(lang, "booking.summary.empty")}</p>;
+      return (
+        <div className="space-y-3">
+          <p className="text-xs text-zinc-400">{t(lang, "booking.summary.empty")}</p>
+          <button
+            type="button"
+            onClick={handleRestart}
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-200 py-2 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            {t(lang, "booking.summary.restart")}
+          </button>
+        </div>
+      );
     }
 
     return (
@@ -180,6 +214,15 @@ export function SummaryPanel({ lang, mobile }: { lang: Lang; mobile?: boolean })
             </div>
           </div>
         )}
+
+        <button
+          type="button"
+          onClick={handleRestart}
+          className="flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-200 py-2 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+        >
+          <RotateCcw className="h-3.5 w-3.5" />
+          {t(lang, "booking.summary.restart")}
+        </button>
       </div>
     );
   }

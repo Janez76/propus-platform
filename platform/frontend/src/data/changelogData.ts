@@ -15,6 +15,123 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.287",
+    date: "2026-03-30",
+    title: "Mitarbeiter-Porträt-Crop: Strict-Mode + Same-Origin-CORS",
+    changes: [
+      {
+        type: "fix",
+        text: "PortraitCropDialog: setPixels(null) nicht mehr bei jedem open/imageSrc-Lauf (React 18 Strict Mode überschrieb sonst den ersten onCropComplete → «Übernehmen» blieb deaktiviert). crossOrigin nur bei echtem Cross-Origin (Cropper + Canvas-Export). CSS direkt im Dialog-Modul + disableAutomaticStylesInjection; Cropper key={imageSrc}; z-index 9999; rotation/minZoom/maxZoom/restrictPosition explizit.",
+      },
+      {
+        type: "improvement",
+        text: "Deploy-Version auf v2.3.287 erhöht.",
+      },
+    ],
+  },
+  {
+    version: "2.3.286",
+    date: "2026-03-30",
+    title: "Admin: Zwei Kunden zusammenführen (inkl. Kontakte)",
+    changes: [
+      {
+        type: "feature",
+        text: "Kundenliste: «Zusammenführen» öffnet Dialog; Zielzeile bleibt, zweiter Kunde wird aufgelöst. POST /api/admin/customers/merge verschiebt Aufträge, Kontakte, Firmen-Verknüpfungen, RBAC-scope u. a. in einer Transaktion und synchronisiert Rollen.",
+      },
+      {
+        type: "improvement",
+        text: "Deploy-Version auf v2.3.286 erhöht.",
+      },
+    ],
+  },
+  {
+    version: "2.3.285",
+    date: "2026-03-30",
+    title: "Health/buildId: VERSION aus Platform-Image vor /opt/buchungstool",
+    changes: [
+      {
+        type: "fix",
+        text: "getBuildId(): platform/frontend/public/VERSION wird vor /opt/buchungstool/VERSION gelesen. Auf dem VPS konnte eine alte Legacy-Datei unter /opt die angezeigte Version (Footer, /api/health) auf z. B. v2.3.281 festhalten trotz neuem Docker-Image.",
+      },
+      {
+        type: "improvement",
+        text: "Deploy-Version auf v2.3.285 erhöht.",
+      },
+    ],
+  },
+  {
+    version: "2.3.284",
+    date: "2026-03-30",
+    title: "Changelog: Aktuelle Version wie Footer (Server-buildId)",
+    changes: [
+      {
+        type: "fix",
+        text: "Seite «Letzte Änderungen»: Banner «Aktuelle Version» liest dieselbe Quelle wie der Footer (/api/health buildId, Fallback /VERSION), nicht nur die beim Build eingebettete CHANGELOG[0]. Titel/Datum kommen aus dem passenden Changelog-Eintrag; fehlt der, Hinweis auf veraltetes Frontend-Build.",
+      },
+      {
+        type: "improvement",
+        text: "Deploy-Version auf v2.3.284 erhöht.",
+      },
+    ],
+  },
+  {
+    version: "2.3.283",
+    date: "2026-03-30",
+    title: "Mitarbeiter-Porträt: Zuschneiden repariert (CSS + Portal)",
+    changes: [
+      {
+        type: "fix",
+        text: "react-easy-crop: Styles fest in main.tsx eingebunden (Paket meldet sideEffects:false; ohne CSS war der Crop-Bereich nicht bedienbar). Zuschneide-Dialog per createPortal nach document.body, z-index 200; onCropAreaChange zusätzlich zu onCropComplete; Stage-Breite w-full/min-height; touch-action none.",
+      },
+      {
+        type: "improvement",
+        text: "Deploy-Version auf v2.3.283 erhöht.",
+      },
+    ],
+  },
+  {
+    version: "2.3.282",
+    date: "2026-03-30",
+    title: "Admin: Mobile-Sidebar scrollbar (Flex + dvh)",
+    changes: [
+      {
+        type: "fix",
+        text: "Mobiles Admin-Menü (Drawer): flex flex-col mit min-h-0 auf dem Navigationsbereich, overflow-y-auto und 100dvh-Höhe. Ermöglicht Scrollen bei geöffnetem Einstellungen-Accordion (z. B. bis Fehlerberichte).",
+      },
+      {
+        type: "improvement",
+        text: "Deploy-Version auf v2.3.282 erhöht.",
+      },
+    ],
+  },
+  {
+    version: "2.3.281",
+    date: "2026-03-30",
+    title: "Buchungs-Wizard: Reset, Porträts, Auto-Termin; Admin: Porträt zuschneiden",
+    changes: [
+      {
+        type: "feature",
+        text: "Öffentlicher Buchungs-Wizard: In der Zusammenfassung «Neu beginnen» (mit Bestätigung); Store-reset behält geladenen Katalog/Config. Danke-Seite «Neue Buchung» profitiert vom gleichen sicheren reset().",
+      },
+      {
+        type: "fix",
+        text: "Buchungs-Wizard Fotografen-Avatare: portrait-URLs nutzen /assets/photographers/... wie das Backend (express.static), nicht /assets/booking/photographers.",
+      },
+      {
+        type: "feature",
+        text: "Admin Mitarbeiter-Modal: Nach Datei-Upload oder Bibliothek Porträt im Dialog zuschneiden (rund, Zoom/Position); Upload als JPEG 512×512. Abhängigkeit react-easy-crop.",
+      },
+      {
+        type: "feature",
+        text: "Buchung Schritt 3: Nächstes freies Datum wird automatisch vorgeschlagen (ab morgen, je nach Fotograf inkl. «Kein Wunsch»); Kontext-Signatur im Store verhindert Überschreiben bei Schritt-Wechsel nach manueller Datumswahl.",
+      },
+      {
+        type: "improvement",
+        text: "GET /api/availability: photographer=any liefert die Vereinigung freier Slots aller konfigurierten Fotograf:innen (Kalender + Fahrzeitfilter pro Person). Ermöglicht Verfügbarkeitssuche für «Kein Wunsch».",
+      },
+    ],
+  },
+  {
     version: "2.3.280",
     date: "2026-03-30",
     title: "Katalog-i18n (catalog.*), Tour-Manager: Zurück ins Admin-Panel",

@@ -1,4 +1,4 @@
-import { Edit2, Lock, Unlock, ShoppingBag, Eye, UserPlus, ArrowUpDown, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
+import { Edit2, Lock, Unlock, ShoppingBag, Eye, UserPlus, ArrowUpDown, ChevronDown, ChevronUp, ExternalLink, GitMerge } from "lucide-react";
 import { motion } from "framer-motion";
 import type { Customer } from "../../api/customers";
 import { Badge } from "../ui/badge";
@@ -15,6 +15,7 @@ type Props = {
   onView?: (item: Customer) => void;
   onOpenAsCustomer?: (item: Customer) => void;
   onAddContact?: (item: Customer) => void;
+  onMerge?: (item: Customer) => void;
   sortKey: CustomerSortKey;
   sortDir: "asc" | "desc";
   onSort: (key: CustomerSortKey) => void;
@@ -43,7 +44,7 @@ function SortLabel({
   );
 }
 
-export function CustomerList({ items, onEdit, onToggleBlocked, onView, onOpenAsCustomer, onAddContact, sortKey, sortDir, onSort }: Props) {
+export function CustomerList({ items, onEdit, onToggleBlocked, onView, onOpenAsCustomer, onAddContact, onMerge, sortKey, sortDir, onSort }: Props) {
   const lang = useAuthStore((s) => s.language);
   const isSyntheticCompanyEmail = (value?: string) => String(value || "").toLowerCase().endsWith("@company.local");
   /** Listenzeile: nur Firma; Personen-/Kontaktdaten siehe Kontakte. */
@@ -99,7 +100,7 @@ export function CustomerList({ items, onEdit, onToggleBlocked, onView, onOpenAsC
               </span>
             </div>
 
-            <div className={cn("grid gap-2", onAddContact ? "grid-cols-3" : "grid-cols-2")}>
+            <div className={cn("grid gap-2", onAddContact && onMerge ? "grid-cols-2 sm:grid-cols-4" : onAddContact || onMerge ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-2")}>
               <button
                 onClick={() => onEdit(c)}
                 className="btn-secondary inline-flex items-center justify-center gap-2 px-3 py-2 text-sm"
@@ -108,6 +109,17 @@ export function CustomerList({ items, onEdit, onToggleBlocked, onView, onOpenAsC
                 <Edit2 className="h-4 w-4" />
                 {t(lang, "common.edit")}
               </button>
+              {onMerge && (
+                <button
+                  type="button"
+                  onClick={() => onMerge(c)}
+                  className="btn-secondary inline-flex items-center justify-center gap-2 px-3 py-2 text-sm"
+                  title={t(lang, "customerList.tooltip.merge")}
+                >
+                  <GitMerge className="h-4 w-4" />
+                  {t(lang, "customerList.button.merge")}
+                </button>
+              )}
               {onAddContact && (
                 <button
                   onClick={() => onAddContact(c)}
@@ -256,6 +268,16 @@ export function CustomerList({ items, onEdit, onToggleBlocked, onView, onOpenAsC
                       >
                         <Edit2 className="h-3.5 w-3.5" />
                       </button>
+                      {onMerge && (
+                        <button
+                          type="button"
+                          onClick={() => onMerge(c)}
+                          className="btn-secondary inline-flex items-center justify-center px-2 py-1.5 text-xs min-h-0 min-w-0"
+                          title={t(lang, "customerList.tooltip.merge")}
+                        >
+                          <GitMerge className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                       {onAddContact && (
                         <button
                           onClick={() => onAddContact(c)}

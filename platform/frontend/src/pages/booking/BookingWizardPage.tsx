@@ -261,7 +261,14 @@ export function BookingWizardPage() {
       </header>
 
       {/* Mobile Summary */}
-      <SummaryPanel lang={lang} mobile />
+      <SummaryPanel
+        lang={lang}
+        mobile
+        onDraftRestart={() => {
+          setErrors([]);
+          setSubmitError("");
+        }}
+      />
 
       {/* Content */}
       <main className="mx-auto max-w-5xl px-4 py-8">
@@ -336,7 +343,13 @@ export function BookingWizardPage() {
           </div>
 
           {/* Desktop Summary */}
-          <SummaryPanel lang={lang} />
+          <SummaryPanel
+            lang={lang}
+            onDraftRestart={() => {
+              setErrors([]);
+              setSubmitError("");
+            }}
+          />
         </div>
       </main>
     </div>
