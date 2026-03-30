@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title><%= customer.name || customer.email %> – Propus Tour Manager</title>
+  <title><%= (customer.name||'').trim() || (customer.company||'').trim() || customer.email %> – Propus Tour Manager</title>
   <%- include('_admin-styles') %>
 </head>
 <body>
@@ -15,7 +15,7 @@
       <div style="font-size:0.82rem;color:var(--text-muted);margin-bottom:1rem;">
         <a href="/admin/customers" style="color:var(--link);text-decoration:none;">Kunden</a>
         <span style="margin:0 0.4rem;">›</span>
-        <span><%= customer.name || customer.email %></span>
+        <span><%= (customer.name||'').trim() || (customer.company||'').trim() || customer.email %></span>
       </div>
 
       <% if (flash) { %>

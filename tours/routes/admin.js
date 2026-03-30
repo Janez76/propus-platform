@@ -3960,13 +3960,15 @@ router.get('/customers', async (req, res) => {
 
     const dataResult = await pool.query(
       `SELECT
-         c.id, c.name, c.email, c.company, c.phone,
+         c.id,
+         CASE WHEN trim(coalesce(c.name,''))='' THEN coalesce(c.company, c.email, '') ELSE c.name END AS name,
+         c.email, c.company, c.phone,
          c.exxas_contact_id, c.blocked, c.created_at,
          (SELECT COUNT(*) FROM tour_manager.tours t WHERE LOWER(t.customer_email) = LOWER(c.email)) AS tour_count,
          (SELECT COUNT(*) FROM core.customer_contacts cc WHERE cc.customer_id = c.id) AS contact_count
        FROM core.customers c
        ${whereClause}
-       ORDER BY c.name ASC, c.email ASC
+       ORDER BY LOWER(COALESCE(NULLIF(trim(c.name),''), c.company, c.email)) ASC
        LIMIT $${pIdx} OFFSET $${pIdx + 1}`,
       [...params, limit, offset]
     );

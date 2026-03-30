@@ -81,9 +81,10 @@
                   <tr>
                     <td>
                       <div style="font-weight:600;font-size:0.9rem;">
-                        <%= c.name || '(kein Name)' %>
+                        <% const displayName = (c.name || '').trim() || (c.company || '').trim(); %>
+                        <%= displayName || '(kein Name)' %>
                       </div>
-                      <% if (c.company && c.company !== c.name) { %>
+                      <% if (c.company && c.company.trim() !== (c.name || '').trim()) { %>
                         <div style="color:var(--text-muted);font-size:0.78rem;"><%= c.company %></div>
                       <% } %>
                     </td>
