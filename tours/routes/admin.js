@@ -2150,7 +2150,7 @@ router.post('/tours/:id/exxas-cancel-invoice', async (req, res) => {
 const SORT_COLUMNS = {
   customer: 'COALESCE(t.customer_name, t.kunde_ref, \'\'), COALESCE(t.object_label, t.bezeichnung, \'\')',
   ablaufdatum: 'COALESCE(t.term_end_date, t.ablaufdatum)',
-  matterport_created: 'COALESCE(t.matterport_created_at, t.exxas_created_at)',
+  matterport_created: 'COALESCE(t.matterport_created_at, t.created_at)',
   days: '(COALESCE(t.term_end_date, t.ablaufdatum) - CURRENT_DATE)::int',
   status: 't.status',
 };
