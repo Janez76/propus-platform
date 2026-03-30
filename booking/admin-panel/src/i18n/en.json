@@ -1075,6 +1075,7 @@
   "sidebar.nav.exxas": "EXXAS Integration",
   "sidebar.nav.userManagement": "User management",
   "sidebar.nav.access": "Access & Roles",
+  "sidebar.nav.companies": "Company Management",
   "sidebar.button.collapse": "Collapse",
   "access.title": "Access & Roles",
   "access.description": "Manage system-wide permission groups and role assignments.",
