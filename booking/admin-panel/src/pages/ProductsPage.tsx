@@ -135,14 +135,14 @@ export function ProductsPage() {
     }
   }
 
-  if (loading) return <div className="p-4">{t(language, "products.loading")}</div>;
+  if (loading) return <div className="p-4">{t(language, "catalog.loading")}</div>;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="mb-2 text-3xl font-bold tracking-tight text-slate-900 dark:text-zinc-100">Produkte</h1>
-          <p className="text-slate-600 dark:text-zinc-400">{t(language, "products.subtitle")}</p>
+          <p className="text-slate-600 dark:text-zinc-400">{t(language, "catalog.subtitle")}</p>
         </div>
         <div className="flex gap-2">
           <button
@@ -152,10 +152,10 @@ export function ProductsPage() {
             }}
             className={btnSecondaryClass}
           >
-            <RefreshCw className="h-4 w-4" /> {t(language, "products.refresh")}
+            <RefreshCw className="h-4 w-4" /> {t(language, "catalog.refresh")}
           </button>
           <button onClick={startCreate} className={btnPrimaryClass}>
-            <Plus className="h-4 w-4" /> {t(language, "products.newProduct")}
+            <Plus className="h-4 w-4" /> {t(language, "catalog.newProduct")}
           </button>
         </div>
       </div>
@@ -167,20 +167,20 @@ export function ProductsPage() {
       ) : null}
       <div className="space-y-4">
         <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-          <h2 className="mb-3 font-semibold">{t(language, "products.categoryManager.title")}</h2>
+          <h2 className="mb-3 font-semibold">{t(language, "catalog.categoryManager.title")}</h2>
           {categorySectionError ? (
             <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{categorySectionError}</div>
           ) : null}
           <div className="mb-4 grid gap-2 md:grid-cols-4">
             <input
               className="ui-input"
-              placeholder={t(language, "products.categoryManager.keyPlaceholder")}
+              placeholder={t(language, "catalog.categoryManager.keyPlaceholder")}
               value={newCategory.key}
               onChange={(e) => setNewCategory((p) => ({ ...p, key: e.target.value }))}
             />
             <input
               className="ui-input md:col-span-2"
-              placeholder={t(language, "products.categoryManager.namePlaceholder")}
+              placeholder={t(language, "catalog.categoryManager.namePlaceholder")}
               value={newCategory.name}
               onChange={(e) => setNewCategory((p) => ({ ...p, name: e.target.value }))}
             />
@@ -219,16 +219,16 @@ export function ProductsPage() {
                   await refetchCategories({ force: true });
                   await refetch({ force: true });
                 } catch (err) {
-                  setCategorySectionError(err instanceof Error ? err.message : t(language, "products.category.createFailed"));
+                  setCategorySectionError(err instanceof Error ? err.message : t(language, "catalog.category.createFailed"));
                 } finally {
                   setCategoryBusy(false);
                 }
               }}
             >
-              {t(language, "products.categoryManager.add")}
+              {t(language, "catalog.categoryManager.add")}
             </button>
           </div>
-          <p className="mb-2 text-xs text-zinc-500">{t(language, "products.categoryManager.frontpanelHint")}</p>
+          <p className="mb-2 text-xs text-zinc-500">{t(language, "catalog.categoryManager.frontpanelHint")}</p>
         </div>
 
         <div className="space-y-4">
@@ -265,16 +265,16 @@ export function ProductsPage() {
               disabled={categoryDeleteBusy}
             />
             <DialogHeader>
-              <DialogTitle className="text-lg">{t(language, "products.category.deleteDialogTitle")}</DialogTitle>
+              <DialogTitle className="text-lg">{t(language, "catalog.category.deleteDialogTitle")}</DialogTitle>
             </DialogHeader>
             <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-              {t(language, "products.category.deleteDialogBody")
+              {t(language, "catalog.category.deleteDialogBody")
                 .replace("{{name}}", categoryPendingDelete.name)
                 .replace("{{key}}", categoryPendingDelete.key)
                 .replace("{{fallback}}", categoryDeleteFallback.label || "—")}
             </p>
             {!categoryDeleteFallback.key ? (
-              <p className="mt-2 text-sm text-amber-700 dark:text-amber-400">{t(language, "products.category.deleteDialogNoFallback")}</p>
+              <p className="mt-2 text-sm text-amber-700 dark:text-amber-400">{t(language, "catalog.category.deleteDialogNoFallback")}</p>
             ) : null}
             <div className="mt-6 flex gap-3">
               <button
@@ -300,13 +300,13 @@ export function ProductsPage() {
                     await refetch({ force: true });
                     setCategoryPendingDelete(null);
                   } catch (err) {
-                    setCategorySectionError(err instanceof Error ? err.message : t(language, "products.category.deleteFailed"));
+                    setCategorySectionError(err instanceof Error ? err.message : t(language, "catalog.category.deleteFailed"));
                   } finally {
                     setCategoryDeleteBusy(false);
                   }
                 }}
               >
-                {categoryDeleteBusy ? t(language, "products.category.deleteDialogRemoving") : t(language, "products.category.remove")}
+                {categoryDeleteBusy ? t(language, "catalog.category.deleteDialogRemoving") : t(language, "catalog.category.remove")}
               </button>
             </div>
           </DialogContent>
@@ -435,10 +435,10 @@ export function ProductsPage() {
       groups.set(category, arr);
     }
     return [
-      { key: "photo", label: t(language, "products.preview.category.photo") },
-      { key: "drone", label: t(language, "products.preview.category.drone") },
-      { key: "floorplans", label: t(language, "products.preview.category.floorplans") },
-      { key: "extras", label: t(language, "products.preview.category.extras") },
+      { key: "photo", label: t(language, "catalog.preview.category.photo") },
+      { key: "drone", label: t(language, "catalog.preview.category.drone") },
+      { key: "floorplans", label: t(language, "catalog.preview.category.floorplans") },
+      { key: "extras", label: t(language, "catalog.preview.category.extras") },
     ]
       .map((entry) => ({ ...entry, items: groups.get(entry.key as "photo" | "drone" | "floorplans" | "extras") || [] }))
       .filter((x) => x.items.length > 0);
@@ -509,21 +509,21 @@ export function ProductsPage() {
     return () => clearTimeout(timer);
   }, [runPreview]);
 
-  if (loading) return <div className="p-4">{t(language, "products.loading")}</div>;
+  if (loading) return <div className="p-4">{t(language, "catalog.loading")}</div>;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="mb-2 text-3xl font-bold tracking-tight text-slate-900 dark:text-zinc-100">Produkte</h1>
-          <p className="text-slate-600 dark:text-zinc-400">{t(language, "products.subtitle")}</p>
+          <p className="text-slate-600 dark:text-zinc-400">{t(language, "catalog.subtitle")}</p>
         </div>
         <div className="flex gap-2">
           <button onClick={() => load()} className={btnSecondaryClass}>
-            <RefreshCw className="h-4 w-4" /> {t(language, "products.refresh")}
+            <RefreshCw className="h-4 w-4" /> {t(language, "catalog.refresh")}
           </button>
           <button onClick={startCreate} className={btnPrimaryClass}>
-            <Plus className="h-4 w-4" /> {t(language, "products.newProduct")}
+            <Plus className="h-4 w-4" /> {t(language, "catalog.newProduct")}
           </button>
         </div>
       </div>
@@ -543,7 +543,7 @@ export function ProductsPage() {
           />
 
           <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-            <h2 className="mb-3 font-semibold">{t(language, "products.serviceAreas")}</h2>
+            <h2 className="mb-3 font-semibold">{t(language, "catalog.serviceAreas")}</h2>
             <div className="grid gap-3 lg:grid-cols-2">
               {previewAddonGroups.map((group) => (
                 <div key={group.label} className="rounded-lg border border-slate-200 p-2 dark:border-zinc-800">
@@ -578,21 +578,21 @@ export function ProductsPage() {
         </div>
 
         <div className="xl:sticky xl:top-20 rounded-xl border border-slate-200 bg-white p-4 shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
-          <h2 className="mb-3 font-semibold">{t(language, "products.pricingPreview")}</h2>
+          <h2 className="mb-3 font-semibold">{t(language, "catalog.pricingPreview")}</h2>
           {previewError ? <div className="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{previewError}</div> : null}
           <div className="grid gap-2">
             <select className="ui-input" value={previewPackage} onChange={(e) => setPreviewPackage(e.target.value)}>
-              <option value="">{t(language, "products.noPackage")}</option>
+              <option value="">{t(language, "catalog.noPackage")}</option>
               {packages.filter((p) => p.active).map((p) => <option key={p.id} value={p.code}>{p.name}</option>)}
             </select>
             <input className="ui-input" type="number" placeholder="Fläche (m²)" value={previewArea} onChange={(e) => setPreviewArea(e.target.value)} />
             <input className="ui-input" type="number" placeholder="Etagen" value={previewFloors} onChange={(e) => setPreviewFloors(e.target.value)} />
-            <button className={btnSecondaryClass} type="button" onClick={runPreview}>{t(language, "products.calculate")}</button>
+            <button className={btnSecondaryClass} type="button" onClick={runPreview}>{t(language, "catalog.calculate")}</button>
           </div>
           <div className="mt-3 rounded-lg border border-zinc-200 p-2 dark:border-zinc-700">
-            <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-500">{t(language, "products.selectedServices")}</div>
+            <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-500">{t(language, "catalog.selectedServices")}</div>
             {previewAddons.length === 0 ? (
-              <div className="text-sm text-zinc-500">{t(language, "products.noServicesSelected")}</div>
+              <div className="text-sm text-zinc-500">{t(language, "catalog.noServicesSelected")}</div>
             ) : (
               <div className="flex flex-wrap gap-1.5">
                 {previewAddons.map((code) => {
@@ -730,10 +730,10 @@ export function ProductsPage() {
       groups.set(category, arr);
     }
     return [
-      { key: "photo", label: t(language, "products.preview.category.photo") },
-      { key: "drone", label: t(language, "products.preview.category.drone") },
-      { key: "floorplans", label: t(language, "products.preview.category.floorplans") },
-      { key: "extras", label: t(language, "products.preview.category.extras") },
+      { key: "photo", label: t(language, "catalog.preview.category.photo") },
+      { key: "drone", label: t(language, "catalog.preview.category.drone") },
+      { key: "floorplans", label: t(language, "catalog.preview.category.floorplans") },
+      { key: "extras", label: t(language, "catalog.preview.category.extras") },
     ]
       .map((entry) => ({ ...entry, items: groups.get(entry.key as "photo" | "drone" | "floorplans" | "extras") || [] }))
       .filter((x) => x.items.length > 0);
@@ -804,21 +804,21 @@ export function ProductsPage() {
     return () => clearTimeout(timer);
   }, [runPreview]);
 
-  if (loading) return <div className="p-4">{t(language, "products.loading")}</div>;
+  if (loading) return <div className="p-4">{t(language, "catalog.loading")}</div>;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="mb-2 text-3xl font-bold tracking-tight text-slate-900 dark:text-zinc-100">Produkte</h1>
-          <p className="text-slate-600 dark:text-zinc-400">{t(language, "products.subtitle")}</p>
+          <p className="text-slate-600 dark:text-zinc-400">{t(language, "catalog.subtitle")}</p>
         </div>
         <div className="flex gap-2">
           <button onClick={() => load()} className={btnSecondaryClass}>
-            <RefreshCw className="h-4 w-4" /> {t(language, "products.refresh")}
+            <RefreshCw className="h-4 w-4" /> {t(language, "catalog.refresh")}
           </button>
           <button onClick={startCreate} className={btnPrimaryClass}>
-            <Plus className="h-4 w-4" /> {t(language, "products.newProduct")}
+            <Plus className="h-4 w-4" /> {t(language, "catalog.newProduct")}
           </button>
         </div>
       </div>
@@ -838,7 +838,7 @@ export function ProductsPage() {
           />
 
           <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-            <h2 className="mb-3 font-semibold">{t(language, "products.serviceAreas")}</h2>
+            <h2 className="mb-3 font-semibold">{t(language, "catalog.serviceAreas")}</h2>
             <div className="grid gap-3 lg:grid-cols-2">
               {previewAddonGroups.map((group) => (
                 <div key={group.label} className="rounded-lg border border-slate-200 p-2 dark:border-zinc-800">
@@ -873,21 +873,21 @@ export function ProductsPage() {
         </div>
 
         <div className="xl:sticky xl:top-20 rounded-xl border border-slate-200 bg-white p-4 shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
-          <h2 className="mb-3 font-semibold">{t(language, "products.pricingPreview")}</h2>
+          <h2 className="mb-3 font-semibold">{t(language, "catalog.pricingPreview")}</h2>
           {previewError ? <div className="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{previewError}</div> : null}
           <div className="grid gap-2">
             <select className="ui-input" value={previewPackage} onChange={(e) => setPreviewPackage(e.target.value)}>
-              <option value="">{t(language, "products.noPackage")}</option>
+              <option value="">{t(language, "catalog.noPackage")}</option>
               {packages.filter((p) => p.active).map((p) => <option key={p.id} value={p.code}>{p.name}</option>)}
             </select>
             <input className="ui-input" type="number" placeholder="Fläche (m²)" value={previewArea} onChange={(e) => setPreviewArea(e.target.value)} />
             <input className="ui-input" type="number" placeholder="Etagen" value={previewFloors} onChange={(e) => setPreviewFloors(e.target.value)} />
-            <button className={btnSecondaryClass} type="button" onClick={runPreview}>{t(language, "products.calculate")}</button>
+            <button className={btnSecondaryClass} type="button" onClick={runPreview}>{t(language, "catalog.calculate")}</button>
           </div>
           <div className="mt-3 rounded-lg border border-zinc-200 p-2 dark:border-zinc-700">
-            <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-500">{t(language, "products.selectedServices")}</div>
+            <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-500">{t(language, "catalog.selectedServices")}</div>
             {previewAddons.length === 0 ? (
-              <div className="text-sm text-zinc-500">{t(language, "products.noServicesSelected")}</div>
+              <div className="text-sm text-zinc-500">{t(language, "catalog.noServicesSelected")}</div>
             ) : (
               <div className="flex flex-wrap gap-1.5">
                 {previewAddons.map((code) => {
@@ -1050,10 +1050,10 @@ export function ProductsPage() {
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const productFormRef = useRef<HTMLFormElement | null>(null);
   const categoryOptions = [
-    { key: "photo", label: t(language, "products.preview.category.photo") },
-    { key: "drone", label: t(language, "products.preview.category.drone") },
-    { key: "floorplans", label: t(language, "products.preview.category.floorplans") },
-    { key: "extras", label: t(language, "products.preview.category.extras") },
+    { key: "photo", label: t(language, "catalog.preview.category.photo") },
+    { key: "drone", label: t(language, "catalog.preview.category.drone") },
+    { key: "floorplans", label: t(language, "catalog.preview.category.floorplans") },
+    { key: "extras", label: t(language, "catalog.preview.category.extras") },
   ];
 
   const load = useCallback(async () => {
@@ -1135,10 +1135,10 @@ export function ProductsPage() {
       groups.set(category, arr);
     }
     return [
-      { key: "photo", label: t(language, "products.preview.category.photo") },
-      { key: "drone", label: t(language, "products.preview.category.drone") },
-      { key: "floorplans", label: t(language, "products.preview.category.floorplans") },
-      { key: "extras", label: t(language, "products.preview.category.extras") },
+      { key: "photo", label: t(language, "catalog.preview.category.photo") },
+      { key: "drone", label: t(language, "catalog.preview.category.drone") },
+      { key: "floorplans", label: t(language, "catalog.preview.category.floorplans") },
+      { key: "extras", label: t(language, "catalog.preview.category.extras") },
     ]
       .map((entry) => ({ ...entry, items: groups.get(entry.key as "photo" | "drone" | "floorplans" | "extras") || [] }))
       .filter((x) => x.items.length > 0);
@@ -1256,7 +1256,7 @@ export function ProductsPage() {
     setError("");
     try {
       if (!form.code.trim() || !form.name.trim()) {
-        setError(t(language, "products.error.requiredCodeName"));
+        setError(t(language, "catalog.error.requiredCodeName"));
         return;
       }
       const parsedConfig = parseRuleConfig(form.rule_config_json || "{}");
@@ -1363,24 +1363,24 @@ export function ProductsPage() {
     return () => clearTimeout(timer);
   }, [runPreview]);
 
-  if (loading) return <div className="p-4">{t(language, "products.loading")}</div>;
+  if (loading) return <div className="p-4">{t(language, "catalog.loading")}</div>;
   const isEditing = Boolean(editing);
-  const modalTitle = isEditing ? `${t(language, "products.editProduct")} #${editing?.id}` : t(language, "products.newProductModalTitle");
-  const modalSubmitLabel = isEditing ? t(language, "products.save") : t(language, "products.createProduct");
+  const modalTitle = isEditing ? `${t(language, "catalog.editProduct")} #${editing?.id}` : t(language, "catalog.newProductModalTitle");
+  const modalSubmitLabel = isEditing ? t(language, "catalog.save") : t(language, "catalog.createProduct");
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-zinc-100 mb-2">Produkte</h1>
-          <p className="text-slate-600 dark:text-zinc-400">{t(language, "products.subtitle")}</p>
+          <p className="text-slate-600 dark:text-zinc-400">{t(language, "catalog.subtitle")}</p>
         </div>
         <div className="flex gap-2">
           <button onClick={() => load()} className={btnSecondaryClass}>
-            <RefreshCw className="h-4 w-4" /> {t(language, "products.refresh")}
+            <RefreshCw className="h-4 w-4" /> {t(language, "catalog.refresh")}
           </button>
           <button onClick={startCreate} className={btnPrimaryClass}>
-            <Plus className="h-4 w-4" /> {t(language, "products.newProduct")}
+            <Plus className="h-4 w-4" /> {t(language, "catalog.newProduct")}
           </button>
         </div>
       </div>
@@ -1398,7 +1398,7 @@ export function ProductsPage() {
                 <input
                   ref={searchInputRef}
                   className="ui-input pl-8"
-                  placeholder={t(language, "products.searchPlaceholder")}
+                  placeholder={t(language, "catalog.searchPlaceholder")}
                   value={listQuery}
                   onChange={(e) => setListQuery(e.target.value)}
                 />
@@ -1437,7 +1437,7 @@ export function ProductsPage() {
                                       ? "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
                                       : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
                                   )}>
-                                    {t(language, "products.travelCalcBadge")}: {p.affects_travel === false ? t(language, "products.no") : t(language, "products.yes")}
+                                    {t(language, "catalog.travelCalcBadge")}: {p.affects_travel === false ? t(language, "catalog.no") : t(language, "catalog.yes")}
                                   </span>
                                 </div>
                                 <div className="mt-1 text-xs text-slate-500">{p.code} · {p.kind} · {p.group_key || "—"}</div>
@@ -1448,7 +1448,7 @@ export function ProductsPage() {
                               <div className="flex shrink-0 gap-1.5">
                                 <button onClick={() => startEdit(p)} className={`${btnSmallClass} border border-zinc-300 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800`}>Bearbeiten</button>
                                 <button onClick={() => duplicateProduct(p)} className={`${btnSmallClass} border border-zinc-300 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800`}>
-                                  <Copy className="h-3 w-3" /> {t(language, "products.duplicate")}
+                                  <Copy className="h-3 w-3" /> {t(language, "catalog.duplicate")}
                                 </button>
                                 <button
                                   onClick={() => toggleActive(p)}
@@ -1472,7 +1472,7 @@ export function ProductsPage() {
               })}
               {filteredProducts.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-zinc-300 dark:border-zinc-700 p-5 text-center text-sm text-zinc-500">
-                  {t(language, "products.emptySearch")}
+                  {t(language, "catalog.emptySearch")}
                 </div>
               ) : null}
             </div>
@@ -1484,7 +1484,7 @@ export function ProductsPage() {
               onClick={() => setServiceAreasExpanded((prev) => !prev)}
               className="mb-3 flex w-full items-center justify-between text-left"
             >
-              <h2 className="font-semibold">{t(language, "products.serviceAreas")}</h2>
+              <h2 className="font-semibold">{t(language, "catalog.serviceAreas")}</h2>
               <ChevronDown className={cn("h-4 w-4 text-zinc-500 transition-transform", serviceAreasExpanded ? "rotate-180" : "rotate-0")} />
             </button>
             {serviceAreasExpanded ? (
@@ -1529,7 +1529,7 @@ export function ProductsPage() {
             onClick={() => setPricingPreviewExpanded((prev) => !prev)}
             className="mb-3 flex w-full items-center justify-between text-left"
           >
-            <h2 className="font-semibold">{t(language, "products.pricingPreview")}</h2>
+            <h2 className="font-semibold">{t(language, "catalog.pricingPreview")}</h2>
             <ChevronDown className={cn("h-4 w-4 text-zinc-500 transition-transform", pricingPreviewExpanded ? "rotate-180" : "rotate-0")} />
           </button>
           {pricingPreviewExpanded ? (
@@ -1537,17 +1537,17 @@ export function ProductsPage() {
               {previewError ? <div className="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{previewError}</div> : null}
               <div className="grid gap-2">
                 <select className="ui-input" value={previewPackage} onChange={(e) => setPreviewPackage(e.target.value)}>
-                  <option value="">{t(language, "products.noPackage")}</option>
+                  <option value="">{t(language, "catalog.noPackage")}</option>
                   {packages.filter((p) => p.active).map((p) => <option key={p.id} value={p.code}>{p.name}</option>)}
                 </select>
                 <input className="ui-input" type="number" placeholder="Fläche (m²)" value={previewArea} onChange={(e) => setPreviewArea(e.target.value)} />
                 <input className="ui-input" type="number" placeholder="Etagen" value={previewFloors} onChange={(e) => setPreviewFloors(e.target.value)} />
-                <button className={btnSecondaryClass} type="button" onClick={runPreview}>{t(language, "products.calculate")}</button>
+                <button className={btnSecondaryClass} type="button" onClick={runPreview}>{t(language, "catalog.calculate")}</button>
               </div>
               <div className="mt-3 rounded-lg border border-zinc-200 dark:border-zinc-700 p-2">
-                <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-500">{t(language, "products.selectedServices")}</div>
+                <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-500">{t(language, "catalog.selectedServices")}</div>
                 {previewAddons.length === 0 ? (
-                  <div className="text-sm text-zinc-500">{t(language, "products.noServicesSelected")}</div>
+                  <div className="text-sm text-zinc-500">{t(language, "catalog.noServicesSelected")}</div>
                 ) : (
                   <div className="flex flex-wrap gap-1.5">
                     {previewAddons.map((code) => {
@@ -1602,27 +1602,27 @@ export function ProductsPage() {
                   <input required className="ui-input" placeholder="Produktname" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
                 </label>
                 <label className="block">
-                  <span className={fieldLabelClass}>{t(language, "products.type")}</span>
+                  <span className={fieldLabelClass}>{t(language, "catalog.type")}</span>
                   <select className="ui-input" value={form.kind} onChange={(e) => setForm((f) => ({ ...f, kind: e.target.value as "package" | "addon" }))}>
                     <option value="package">package</option>
                     <option value="addon">addon</option>
                   </select>
                 </label>
                 <label className="block">
-                  <span className={fieldLabelClass}>{t(language, "products.groupKey")}</span>
+                  <span className={fieldLabelClass}>{t(language, "catalog.groupKey")}</span>
                   <input className="ui-input" placeholder="z.B. floorplans" value={form.group_key} onChange={(e) => setForm((f) => ({ ...f, group_key: e.target.value }))} />
                 </label>
                 <label className="col-span-2 block">
-                  <span className={fieldLabelClass}>{t(language, "products.description")}</span>
+                  <span className={fieldLabelClass}>{t(language, "catalog.description")}</span>
                   <input className="ui-input" placeholder="Kurze Beschreibung" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
                 </label>
                 <label className="col-span-2 block">
-                  <span className={fieldLabelClass}>{t(language, "products.categories")}</span>
+                  <span className={fieldLabelClass}>{t(language, "catalog.categories")}</span>
                   <details className="rounded-lg border border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-900">
                     <summary className="cursor-pointer list-none px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300">
                       {selectedCategories.length
                         ? selectedCategories.map((key) => categoryOptions.find((c) => c.key === key)?.label || key).join(", ")
-                        : t(language, "products.selectCategories")}
+                        : t(language, "catalog.selectCategories")}
                     </summary>
                     <div className="space-y-1 border-t border-zinc-200 p-2 dark:border-zinc-800">
                       {categoryOptions.map((opt) => (
@@ -1639,7 +1639,7 @@ export function ProductsPage() {
                   </details>
                 </label>
                 <label className="col-span-2 block">
-                  <span className={fieldLabelClass}>{t(language, "products.tags")}</span>
+                  <span className={fieldLabelClass}>{t(language, "catalog.tags")}</span>
                   <div className="rounded-lg border border-zinc-300 p-2 dark:border-zinc-700">
                     <div className="mb-2 flex flex-wrap gap-2">
                       {tags.map((tag) => (
@@ -1651,7 +1651,7 @@ export function ProductsPage() {
                     </div>
                     <input
                       className="ui-input"
-                      placeholder={t(language, "products.tagsPlaceholder")}
+                      placeholder={t(language, "catalog.tagsPlaceholder")}
                       value={tagInput}
                       onChange={(e) => setTagInput(e.target.value)}
                       onKeyDown={(e) => {
@@ -1664,11 +1664,11 @@ export function ProductsPage() {
                   </div>
                 </label>
                 <label className="block">
-                  <span className={fieldLabelClass}>{t(language, "products.sortOrder")}</span>
+                  <span className={fieldLabelClass}>{t(language, "catalog.sortOrder")}</span>
                   <input className="ui-input" placeholder="0" type="number" value={form.sort_order} onChange={(e) => setForm((f) => ({ ...f, sort_order: e.target.value }))} />
                 </label>
                 <label className="block">
-                  <span className={fieldLabelClass}>{t(language, "products.ruleType")}</span>
+                  <span className={fieldLabelClass}>{t(language, "catalog.ruleType")}</span>
                   <select className="ui-input" value={form.rule_type} onChange={(e) => {
                     const nextRuleType = e.target.value as FormState["rule_type"];
                     setForm((f) => ({ ...f, rule_type: nextRuleType }));
@@ -1681,7 +1681,7 @@ export function ProductsPage() {
                   </select>
                 </label>
                 <label className="block">
-                  <span className={fieldLabelClass}>{t(language, "products.simplePrice")}</span>
+                  <span className={fieldLabelClass}>{t(language, "catalog.simplePrice")}</span>
                   <input
                     className="ui-input"
                     type="number"
@@ -1693,12 +1693,12 @@ export function ProductsPage() {
                   />
                 </label>
                 <label className="block">
-                  <span className={fieldLabelClass}>{t(language, "products.rulePriority")}</span>
+                  <span className={fieldLabelClass}>{t(language, "catalog.rulePriority")}</span>
                   <input className="ui-input" placeholder="10" type="number" value={form.rule_priority} onChange={(e) => setForm((f) => ({ ...f, rule_priority: e.target.value }))} />
                 </label>
                 <label className="inline-flex items-center gap-2 text-sm">
                   <input type="checkbox" checked={form.active} onChange={(e) => setForm((f) => ({ ...f, active: e.target.checked }))} />
-                  {t(language, "products.active")}
+                  {t(language, "catalog.active")}
                 </label>
                 <label className="inline-flex items-center gap-2 text-sm">
                   <input
@@ -1706,18 +1706,18 @@ export function ProductsPage() {
                     checked={form.show_on_website}
                     onChange={(e) => setForm((f) => ({ ...f, show_on_website: e.target.checked }))}
                   />
-                  {t(language, "products.showOnWebsite")}
+                  {t(language, "catalog.showOnWebsite")}
                 </label>
                 <label className="inline-flex items-center gap-2 text-sm">
                   <input type="checkbox" checked={form.affects_travel} onChange={(e) => setForm((f) => ({ ...f, affects_travel: e.target.checked }))} />
-                  {t(language, "products.includeTravel")}
+                  {t(language, "catalog.includeTravel")}
                 </label>
                 <label className="inline-flex items-center gap-2 text-sm">
                   <input type="checkbox" checked={form.affects_duration} onChange={(e) => setForm((f) => ({ ...f, affects_duration: e.target.checked }))} />
-                  {t(language, "products.includeDuration")}
+                  {t(language, "catalog.includeDuration")}
                 </label>
                 <label className="block">
-                  <span className={fieldLabelClass}>{t(language, "products.durationBonus")}</span>
+                  <span className={fieldLabelClass}>{t(language, "catalog.durationBonus")}</span>
                   <input
                     className="ui-input"
                     placeholder="0"
@@ -1734,11 +1734,11 @@ export function ProductsPage() {
                   className="text-xs font-semibold text-[#C5A059] hover:underline"
                   onClick={() => setShowAdvancedRule((v) => !v)}
                 >
-                  {showAdvancedRule ? t(language, "products.hideAdvanced") : t(language, "products.showAdvanced")}
+                  {showAdvancedRule ? t(language, "catalog.hideAdvanced") : t(language, "catalog.showAdvanced")}
                 </button>
                 {showAdvancedRule ? (
                   <label className="mt-2 block">
-                    <span className={fieldLabelClass}>{t(language, "products.ruleConfigJson")}</span>
+                    <span className={fieldLabelClass}>{t(language, "catalog.ruleConfigJson")}</span>
                     <textarea
                       className="ui-input w-full min-h-[140px] font-mono text-xs"
                       value={form.rule_config_json}
@@ -1746,7 +1746,7 @@ export function ProductsPage() {
                     />
                   </label>
                 ) : (
-                  <p className="mt-1 text-xs text-zinc-500">{t(language, "products.simplePriceHint")}</p>
+                  <p className="mt-1 text-xs text-zinc-500">{t(language, "catalog.simplePriceHint")}</p>
                 )}
               </div>
               <div className="flex gap-2">

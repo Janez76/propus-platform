@@ -23,6 +23,14 @@
     <div style="font-size:0.72rem;color:#a8a39a;font-weight:500;margin-top:0.28rem;letter-spacing:0.02em;">Tour Manager Admin</div>
   </div>
 
+  <div class="admin-sidebar-back-wrap">
+    <% const _adminSpaHome = typeof adminSpaHomeHref === 'string' && adminSpaHomeHref ? adminSpaHomeHref : '/dashboard'; %>
+    <a href="<%= _adminSpaHome %>" class="admin-back-to-spa<%= _adminSpaHome.indexOf('http') === 0 ? '' : ' no-basepath-rewrite' %>" title="Propus Buchungs-Admin (React)">
+      <i class="fa-solid fa-arrow-left"></i>
+      <span>Zurück zum Admin-Panel</span>
+    </a>
+  </div>
+
   <div class="global-search-wrap">
     <div class="global-search-box">
       <i class="fa-solid fa-magnifying-glass search-icon"></i>
@@ -935,6 +943,7 @@ document.addEventListener('DOMContentLoaded', function() {
   var B = "<%= basePath %>";
   function fix(sel, attr) {
     document.querySelectorAll(sel).forEach(function(el) {
+      if (el.classList && el.classList.contains('no-basepath-rewrite')) return;
       var v = el.getAttribute(attr);
       if (!v) return;
       if (v.indexOf('http') === 0) return;

@@ -36,6 +36,8 @@ const app = express();
 const TOURS_MOUNT_PATH = String(process.env.TOURS_MOUNT_PATH || '').replace(/\/$/, '');
 app.use((req, res, next) => {
   res.locals.basePath = TOURS_MOUNT_PATH;
+  /** Link „Zurück zum Admin-Panel“ (React Buchungs-Admin). Absolut = kein basePath-Rewrite im Client. */
+  res.locals.adminSpaHomeHref = String(process.env.BOOKING_ADMIN_SPA_URL || "").trim() || "/dashboard";
   next();
 });
 

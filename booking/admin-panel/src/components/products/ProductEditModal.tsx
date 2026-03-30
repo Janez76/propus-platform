@@ -184,7 +184,7 @@ export function ProductEditModal({ open, mode, product, token, language, categor
 
     if (mode === "duplicate") {
       baseForm.code = `${product.code}-copy`;
-      baseForm.name = `${product.name} (${t(language, "products.copySuffix")})`;
+      baseForm.name = `${product.name} (${t(language, "catalog.copySuffix")})`;
       baseForm.active = false;
     }
 
@@ -308,7 +308,7 @@ export function ProductEditModal({ open, mode, product, token, language, categor
 
     try {
       if (!form.code.trim() || !form.name.trim()) {
-        setError(t(language, "products.error.requiredCodeName"));
+        setError(t(language, "catalog.error.requiredCodeName"));
         return;
       }
 
@@ -372,7 +372,7 @@ export function ProductEditModal({ open, mode, product, token, language, categor
       await onSaved();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t(language, "products.error.saveFailed"));
+      setError(err instanceof Error ? err.message : t(language, "catalog.error.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -381,10 +381,10 @@ export function ProductEditModal({ open, mode, product, token, language, categor
   if (!open) return null;
 
   const title = mode === "edit"
-    ? `${t(language, "products.editProduct")} #${product?.id || ""}`
+    ? `${t(language, "catalog.editProduct")} #${product?.id || ""}`
     : mode === "duplicate"
-      ? t(language, "products.duplicateTitle")
-      : t(language, "products.newProduct");
+      ? t(language, "catalog.duplicateTitle")
+      : t(language, "catalog.newProduct");
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 px-3 py-4">
@@ -403,9 +403,9 @@ export function ProductEditModal({ open, mode, product, token, language, categor
         <div className="border-b border-slate-200 px-4 py-2 dark:border-zinc-800">
           <div className="flex flex-wrap gap-2">
             {[
-              { key: "general", label: t(language, "products.tab.general") },
-              { key: "pricing", label: t(language, "products.tab.pricing") },
-              { key: "settings", label: t(language, "products.tab.settings") },
+              { key: "general", label: t(language, "catalog.tab.general") },
+              { key: "pricing", label: t(language, "catalog.tab.pricing") },
+              { key: "settings", label: t(language, "catalog.tab.settings") },
             ].map((tab) => (
               <button
                 key={tab.key}
@@ -434,15 +434,15 @@ export function ProductEditModal({ open, mode, product, token, language, categor
           {activeTab === "general" ? (
             <div className="grid grid-cols-2 gap-3">
               <label className="block">
-                <span className={fieldLabelClass}>{t(language, "products.field.code")} <span className="text-red-500">*</span></span>
-                <input required className="ui-input" placeholder={t(language, "products.placeholder.code")} value={form.code} onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))} />
+                <span className={fieldLabelClass}>{t(language, "catalog.field.code")} <span className="text-red-500">*</span></span>
+                <input required className="ui-input" placeholder={t(language, "catalog.placeholder.code")} value={form.code} onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))} />
               </label>
               <label className="block">
                 <span className={fieldLabelClass}>{t(language, "common.name")} <span className="text-red-500">*</span></span>
-                <input required className="ui-input" placeholder={t(language, "products.placeholder.name")} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+                <input required className="ui-input" placeholder={t(language, "catalog.placeholder.name")} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
               </label>
               <label className="block">
-                <span className={fieldLabelClass}>{t(language, "products.type")}</span>
+                <span className={fieldLabelClass}>{t(language, "catalog.type")}</span>
                 <select className="ui-input" value={form.kind} onChange={(e) => setForm((f) => ({ ...f, kind: e.target.value as "package" | "addon" | "service" | "extra" }))}>
                   <option value="package">Pakete</option>
                   <option value="addon">Zusatzprodukte</option>
@@ -468,23 +468,23 @@ export function ProductEditModal({ open, mode, product, token, language, categor
                 </label>
               </div>
               <label className="block">
-                <span className={fieldLabelClass}>{t(language, "products.groupKey")}</span>
-                <input className="ui-input" placeholder={t(language, "products.placeholder.groupKey")} value={form.group_key} onChange={(e) => setForm((f) => ({ ...f, group_key: e.target.value }))} />
+                <span className={fieldLabelClass}>{t(language, "catalog.groupKey")}</span>
+                <input className="ui-input" placeholder={t(language, "catalog.placeholder.groupKey")} value={form.group_key} onChange={(e) => setForm((f) => ({ ...f, group_key: e.target.value }))} />
               </label>
               <label className="col-span-2 block">
-                <span className={fieldLabelClass}>{t(language, "products.description")}</span>
-                <input className="ui-input" placeholder={t(language, "products.placeholder.description")} value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
+                <span className={fieldLabelClass}>{t(language, "catalog.description")}</span>
+                <input className="ui-input" placeholder={t(language, "catalog.placeholder.description")} value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
               </label>
 
               {form.rule_type === "area_tier" ? (
               <div className="col-span-2 rounded-xl border border-slate-200 bg-slate-50/80 p-3 dark:border-zinc-700 dark:bg-zinc-800/40">
                 <p className="mb-0.5 text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-zinc-400">
-                  {t(language, "products.general.planningTitle")}
+                  {t(language, "catalog.general.planningTitle")}
                 </p>
-                <p className="mb-3 text-xs text-slate-500 dark:text-zinc-400">{t(language, "products.general.planningHint")}</p>
+                <p className="mb-3 text-xs text-slate-500 dark:text-zinc-400">{t(language, "catalog.general.planningHint")}</p>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                   <label className="block">
-                    <span className={fieldLabelClass}>{t(language, "products.general.refSqm")}</span>
+                    <span className={fieldLabelClass}>{t(language, "catalog.general.refSqm")}</span>
                     <input
                       type="number"
                       min={1}
@@ -495,7 +495,7 @@ export function ProductEditModal({ open, mode, product, token, language, categor
                     />
                   </label>
                   <label className="block">
-                    <span className={fieldLabelClass}>{t(language, "products.general.priceAtRef")}</span>
+                    <span className={fieldLabelClass}>{t(language, "catalog.general.priceAtRef")}</span>
                     {form.rule_type === "area_tier" ? (
                       areaTierTierIdx >= 0 ? (
                         <input
@@ -521,7 +521,7 @@ export function ProductEditModal({ open, mode, product, token, language, categor
                             placeholder="—"
                           />
                           <span className="mt-1 block text-xs text-amber-700 dark:text-amber-400">
-                            {t(language, "products.general.priceOverflowHint")}
+                            {t(language, "catalog.general.priceOverflowHint")}
                           </span>
                         </>
                       )
@@ -539,14 +539,14 @@ export function ProductEditModal({ open, mode, product, token, language, categor
                     )}
                   </label>
                   <div className="block">
-                    <span className={fieldLabelClass}>{t(language, "products.general.durationAtRef")}</span>
+                    <span className={fieldLabelClass}>{t(language, "catalog.general.durationAtRef")}</span>
                     {form.rule_type === "area_tier" && areaTierTierIdx >= 0 ? (
                       <input
                         type="number"
                         min={0}
                         step={5}
                         className="ui-input border-amber-200 focus:border-amber-400 dark:border-amber-900/50"
-                        placeholder={t(language, "products.general.tierDurationPlaceholder")}
+                        placeholder={t(language, "catalog.general.tierDurationPlaceholder")}
                         value={tierDurationStr}
                         onChange={(e) => {
                           const v = e.target.value.trim();
@@ -574,7 +574,7 @@ export function ProductEditModal({ open, mode, product, token, language, categor
                             checked={form.affects_duration}
                             onChange={(e) => setForm((f) => ({ ...f, affects_duration: e.target.checked }))}
                           />
-                          {t(language, "products.includeDuration")}
+                          {t(language, "catalog.includeDuration")}
                         </label>
                       </div>
                     )}
@@ -582,7 +582,7 @@ export function ProductEditModal({ open, mode, product, token, language, categor
                       <div className="mt-2 space-y-1">
                         {computedTierDuration != null ? (
                           <p className="text-xs text-slate-500 dark:text-zinc-400">
-                            {t(language, "products.general.durationFromOverflow").replace(
+                            {t(language, "catalog.general.durationFromOverflow").replace(
                               "{{n}}",
                               String(computedTierDuration),
                             )}
@@ -603,7 +603,7 @@ export function ProductEditModal({ open, mode, product, token, language, categor
                               checked={form.affects_duration}
                               onChange={(e) => setForm((f) => ({ ...f, affects_duration: e.target.checked }))}
                             />
-                            {t(language, "products.includeDuration")}
+                            {t(language, "catalog.includeDuration")}
                           </label>
                         </div>
                       </div>
@@ -616,10 +616,10 @@ export function ProductEditModal({ open, mode, product, token, language, categor
                     <div className="mb-3 flex items-center justify-between gap-3">
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-zinc-400">
-                          {t(language, "products.general.moreTiers")}
+                          {t(language, "catalog.general.moreTiers")}
                         </p>
                         <p className="text-xs text-slate-500 dark:text-zinc-400">
-                          {t(language, "products.general.moreTiersHint")}
+                          {t(language, "catalog.general.moreTiersHint")}
                         </p>
                       </div>
                       <button
@@ -628,7 +628,7 @@ export function ProductEditModal({ open, mode, product, token, language, categor
                         onClick={addAreaTierRow}
                       >
                         <Plus className="h-4 w-4" />
-                        {t(language, "products.general.addTier")}
+                        {t(language, "catalog.general.addTier")}
                       </button>
                     </div>
 
@@ -640,7 +640,7 @@ export function ProductEditModal({ open, mode, product, token, language, categor
                             min={1}
                             step={1}
                             className="ui-input"
-                            placeholder={t(language, "products.general.tierMaxArea")}
+                            placeholder={t(language, "catalog.general.tierMaxArea")}
                             value={Number(row.maxArea || 0) || ""}
                             onChange={(e) => updateAreaTierRow(idx, "maxArea", e.target.value)}
                           />
@@ -649,7 +649,7 @@ export function ProductEditModal({ open, mode, product, token, language, categor
                             min={0}
                             step={0.05}
                             className="ui-input"
-                            placeholder={t(language, "products.general.tierPrice")}
+                            placeholder={t(language, "catalog.general.tierPrice")}
                             value={Number(row.price || 0) || ""}
                             onChange={(e) => updateAreaTierRow(idx, "price", e.target.value)}
                           />
@@ -658,7 +658,7 @@ export function ProductEditModal({ open, mode, product, token, language, categor
                             min={0}
                             step={5}
                             className="ui-input"
-                            placeholder={t(language, "products.general.tierDuration")}
+                            placeholder={t(language, "catalog.general.tierDuration")}
                             value={row.durationMinutes != null ? String(row.durationMinutes) : ""}
                             onChange={(e) => updateAreaTierRow(idx, "durationMinutes", e.target.value)}
                           />
@@ -667,7 +667,7 @@ export function ProductEditModal({ open, mode, product, token, language, categor
                             className={cn(btnSecondaryClass, "px-2", areaTierRows.length <= 1 ? "opacity-40" : "")}
                             onClick={() => removeAreaTierRow(idx)}
                             disabled={areaTierRows.length <= 1}
-                            aria-label={t(language, "products.general.removeTier")}
+                            aria-label={t(language, "catalog.general.removeTier")}
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -680,7 +680,7 @@ export function ProductEditModal({ open, mode, product, token, language, categor
               ) : null}
 
               <label className="col-span-2 block">
-                <span className={fieldLabelClass}>{t(language, "products.tags")}</span>
+                <span className={fieldLabelClass}>{t(language, "catalog.tags")}</span>
                 <div className="rounded-lg border border-zinc-300 p-2 dark:border-zinc-700">
                   <div className="mb-2 flex flex-wrap gap-2">
                     {tags.map((tag) => (
@@ -692,7 +692,7 @@ export function ProductEditModal({ open, mode, product, token, language, categor
                   </div>
                   <input
                     className="ui-input"
-                    placeholder={t(language, "products.tagsPlaceholder")}
+                    placeholder={t(language, "catalog.tagsPlaceholder")}
                     value={tagInput}
                     onChange={(e) => setTagInput(e.target.value)}
                     onKeyDown={(e) => {
@@ -710,20 +710,20 @@ export function ProductEditModal({ open, mode, product, token, language, categor
           {activeTab === "pricing" ? (
             <div className="grid grid-cols-2 gap-3">
               <label className="block">
-                <span className={fieldLabelClass}>{t(language, "products.ruleType")}</span>
+                <span className={fieldLabelClass}>{t(language, "catalog.ruleType")}</span>
                 <select className="ui-input" value={form.rule_type} onChange={(e) => {
                   const nextRuleType = e.target.value as FormState["rule_type"];
                   setForm((f) => ({ ...f, rule_type: nextRuleType }));
                 }}>
-                  <option value="fixed">{t(language, "products.ruleType.fixed")}</option>
-                  <option value="per_floor">{t(language, "products.ruleType.perFloor")}</option>
-                  <option value="per_room">{t(language, "products.ruleType.perRoom")}</option>
-                  <option value="area_tier">{t(language, "products.ruleType.areaTier")}</option>
-                  <option value="conditional">{t(language, "products.ruleType.conditional")}</option>
+                  <option value="fixed">{t(language, "catalog.ruleType.fixed")}</option>
+                  <option value="per_floor">{t(language, "catalog.ruleType.perFloor")}</option>
+                  <option value="per_room">{t(language, "catalog.ruleType.perRoom")}</option>
+                  <option value="area_tier">{t(language, "catalog.ruleType.areaTier")}</option>
+                  <option value="conditional">{t(language, "catalog.ruleType.conditional")}</option>
                 </select>
               </label>
               <label className="block">
-                <span className={fieldLabelClass}>{t(language, "products.simplePrice")}</span>
+                <span className={fieldLabelClass}>{t(language, "catalog.simplePrice")}</span>
                 <input
                   className="ui-input"
                   type="number"
@@ -735,11 +735,11 @@ export function ProductEditModal({ open, mode, product, token, language, categor
                 />
               </label>
               <label className="block">
-                <span className={fieldLabelClass}>{t(language, "products.rulePriority")}</span>
+                <span className={fieldLabelClass}>{t(language, "catalog.rulePriority")}</span>
                 <input className="ui-input" placeholder="10" type="number" value={form.rule_priority} onChange={(e) => setForm((f) => ({ ...f, rule_priority: e.target.value }))} />
               </label>
               <label className="block">
-                <span className={fieldLabelClass}>{t(language, "products.validFrom")}</span>
+                <span className={fieldLabelClass}>{t(language, "catalog.validFrom")}</span>
                 <input
                   className="ui-input"
                   type="date"
@@ -748,7 +748,7 @@ export function ProductEditModal({ open, mode, product, token, language, categor
                 />
               </label>
               <label className="block">
-                <span className={fieldLabelClass}>{t(language, "products.validTo")}</span>
+                <span className={fieldLabelClass}>{t(language, "catalog.validTo")}</span>
                 <input
                   className="ui-input"
                   type="date"
@@ -762,11 +762,11 @@ export function ProductEditModal({ open, mode, product, token, language, categor
           {activeTab === "settings" ? (
             <div className="grid grid-cols-2 gap-3">
               <label className="block">
-                <span className={fieldLabelClass}>{t(language, "products.sortOrder")}</span>
+                <span className={fieldLabelClass}>{t(language, "catalog.sortOrder")}</span>
                 <input className="ui-input" placeholder="0" type="number" value={form.sort_order} onChange={(e) => setForm((f) => ({ ...f, sort_order: e.target.value }))} />
               </label>
               <label className="block">
-                <span className={fieldLabelClass}>{t(language, "products.durationBonus")}</span>
+                <span className={fieldLabelClass}>{t(language, "catalog.durationBonus")}</span>
                 <input
                   className="ui-input"
                   placeholder="0"
@@ -775,7 +775,7 @@ export function ProductEditModal({ open, mode, product, token, language, categor
                   value={form.duration_minutes}
                   onChange={(e) => setForm((f) => ({ ...f, duration_minutes: e.target.value }))}
                 />
-                <span className="mt-1 block text-xs text-slate-500 dark:text-zinc-400">{t(language, "products.durationBonus.hint")}</span>
+                <span className="mt-1 block text-xs text-slate-500 dark:text-zinc-400">{t(language, "catalog.durationBonus.hint")}</span>
               </label>
 
               {/* Produktabhängigkeiten */}
@@ -823,13 +823,13 @@ export function ProductEditModal({ open, mode, product, token, language, categor
               {/* Skill-Zuordnung für Terminvergabe */}
               <div className="col-span-2 rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-800/40 dark:bg-amber-900/10">
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">
-                  {t(language, "products.skillKey.label")}
+                  {t(language, "catalog.skillKey.label")}
                 </p>
                 <p className="mb-2 text-xs text-amber-600/80 dark:text-amber-400/70">
-                  {t(language, "products.skillKey.hint")}
+                  {t(language, "catalog.skillKey.hint")}
                 </p>
                 <p className="mb-3 text-xs text-amber-600/80 dark:text-amber-400/70">
-                  {t(language, "products.skillKey.assignmentHint")}
+                  {t(language, "catalog.skillKey.assignmentHint")}
                 </p>
                 <div className="mb-2 text-xs text-amber-700/90 dark:text-amber-300/90">
                   Mehrfachauswahl möglich. Drone Foto = Drohne. Drohnenvideo = Drohne + Video. Video (Boden) = nur Video.
@@ -886,7 +886,7 @@ export function ProductEditModal({ open, mode, product, token, language, categor
 
               <label className="inline-flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={form.active} onChange={(e) => setForm((f) => ({ ...f, active: e.target.checked }))} />
-                {t(language, "products.active")}
+                {t(language, "catalog.active")}
               </label>
               <label className="inline-flex items-center gap-2 text-sm">
                 <input
@@ -894,15 +894,15 @@ export function ProductEditModal({ open, mode, product, token, language, categor
                   checked={form.show_on_website}
                   onChange={(e) => setForm((f) => ({ ...f, show_on_website: e.target.checked }))}
                 />
-                {t(language, "products.showOnWebsite")}
+                {t(language, "catalog.showOnWebsite")}
               </label>
               <label className="inline-flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={form.affects_travel} onChange={(e) => setForm((f) => ({ ...f, affects_travel: e.target.checked }))} />
-                {t(language, "products.includeTravel")}
+                {t(language, "catalog.includeTravel")}
               </label>
               <label className="inline-flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={form.affects_duration} onChange={(e) => setForm((f) => ({ ...f, affects_duration: e.target.checked }))} />
-                {t(language, "products.includeDuration")}
+                {t(language, "catalog.includeDuration")}
               </label>
             </div>
           ) : null}
@@ -912,7 +912,7 @@ export function ProductEditModal({ open, mode, product, token, language, categor
               {t(language, "common.cancel")}
             </button>
             <button type="submit" disabled={saving} className={cn(btnPrimaryClass, saving ? "cursor-not-allowed opacity-70" : "")}>
-              {saving ? t(language, "common.saving") : t(language, "products.save")}
+              {saving ? t(language, "common.saving") : t(language, "catalog.save")}
             </button>
           </div>
         </form>

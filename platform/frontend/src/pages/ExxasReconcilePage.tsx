@@ -1,5 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CheckCircle2, Filter, Loader2, Plug, RefreshCcw, Save, Search, SkipForward, UserPlus2 } from "lucide-react";
+import {
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  Filter,
+  Loader2,
+  Plug,
+  RefreshCcw,
+  Save,
+  Search,
+  SkipForward,
+  UserPlus2,
+} from "lucide-react";
 import { useAuthStore } from "../store/authStore";
 import { t } from "../i18n";
 import { formatPhoneCH } from "../lib/format";
@@ -34,6 +46,7 @@ type ItemState = {
 };
 
 type FilterMode = "all" | "selected" | "ready" | "needs_review" | "reconciled" | "not_reconciled";
+type ItemSection = "open" | "review" | "reconciled";
 
 function initialStateForItem(item: ExxasPreviewItem): ItemState {
   const contacts: Record<string, ContactState> = {};
@@ -572,11 +585,12 @@ export function ExxasReconcilePage() {
   const [success, setSuccess] = useState("");
   const [confirmSummary, setConfirmSummary] = useState<string>("");
   const [confirmResult, setConfirmResult] = useState<ExxasConfirmResponse | null>(null);
-  const [filterMode, setFilterMode] = useState<FilterMode>("all");
+  const [filterMode, setFilterMode] = useState<FilterMode>("not_reconciled");
   const [searchQuery, setSearchQuery] = useState("");
   const [singlePreviewItemId, setSinglePreviewItemId] = useState<string | null>(null);
   const [singleConfirmingId, setSingleConfirmingId] = useState<string | null>(null);
   const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
+  const [expandedReconciledIds, setExpandedReconciledIds] = useState<Record<string, boolean>>({});
 
   const config = useMemo<ExxasMappingConfig>(() => loadExxasConfig(), []);
   const hasCredentials = Boolean(config.apiKey && config.endpoint);
@@ -691,6 +705,23 @@ export function ExxasReconcilePage() {
     return `#${localCustomerId} (manuell)`;
   }
 
+  function requiresManualAttention(item: ExxasPreviewItem, state: ItemState): boolean {
+    return needsReview(item) || !isItemReady(item, state);
+  }
+
+  function getItemSection(item: ExxasPreviewItem, state: ItemState): ItemSection {
+    if (isAlreadyReconciled(item)) return "reconciled";
+    if (requiresManualAttention(item, state)) return "review";
+    return "open";
+  }
+
+  function toggleReconciledExpanded(exxasCustomerId: string) {
+    setExpandedReconciledIds((current) => ({
+      ...current,
+      [exxasCustomerId]: !current[exxasCustomerId],
+    }));
+  }
+
   function summarizeContactDecisions(item: ExxasPreviewItem, state: ItemState): string {
     if (item.contactSuggestions.length === 0) return "Keine EXXAS-Kontakte.";
     return item.contactSuggestions
@@ -792,6 +823,7 @@ export function ExxasReconcilePage() {
       }
       setPreview(response);
       setStates(nextStates);
+      setExpandedReconciledIds({});
       setSelectedIds(
         Object.fromEntries(response.items.map((item) => [item.exxasCustomer.id, true]))
       );
@@ -922,6 +954,353 @@ export function ExxasReconcilePage() {
     [bulkSelectedItems, states],
   );
 
+  const summaryCards = useMemo(
+    () => [
+      {
+        key: "not_reconciled" as const,
+        label: "Offen",
+        value: notReconciledCount,
+        helper: "Noch nicht abgeglichen",
+        tone: "border-slate-200 dark:border-zinc-800",
+      },
+      {
+        key: "needs_review" as const,
+        label: "Pruefen",
+        value: reviewCount,
+        helper: "Manuell pruefen",
+        tone: "border-amber-200 bg-amber-50/70 dark:border-amber-900/40 dark:bg-amber-900/10",
+      },
+      {
+        key: "reconciled" as const,
+        label: "Abgeglichen",
+        value: reconciledCount,
+        helper: "Bereits erledigt",
+        tone: "border-green-200 bg-green-50/70 dark:border-green-900/40 dark:bg-green-900/10",
+      },
+      {
+        key: "ready" as const,
+        label: "Bereit",
+        value: readyCount,
+        helper: "Kann gespeichert werden",
+        tone: "border-cyan-200 bg-cyan-50/70 dark:border-cyan-900/40 dark:bg-cyan-900/10",
+      },
+      {
+        key: "selected" as const,
+        label: "Ausgewaehlt",
+        value: selectedCount,
+        helper: "Aktuelle Auswahl",
+        tone: "border-slate-200 dark:border-zinc-800",
+      },
+    ],
+    [notReconciledCount, reviewCount, reconciledCount, readyCount, selectedCount],
+  );
+
+  const groupedVisibleSections =
+    filterMode !== "all"
+      ? []
+      : (() => {
+          const sections: Array<{ key: ItemSection; title: string; description: string; items: ExxasPreviewItem[] }> = [
+            { key: "open", title: "Noch nicht abgeglichen", description: "Offene Faelle mit hoher Prioritaet.", items: [] },
+            { key: "review", title: "Manuell pruefen", description: "Diese Eintraege brauchen Aufmerksamkeit.", items: [] },
+            { key: "reconciled", title: "Bereits abgeglichen", description: "Schon verknuepfte Eintraege, standardmaessig kompakt.", items: [] },
+          ];
+          for (const item of visibleItems) {
+            const state = states[item.exxasCustomer.id] || initialStateForItem(item);
+            const section = getItemSection(item, state);
+            sections.find((entry) => entry.key === section)?.items.push(item);
+          }
+          return sections.filter((section) => section.items.length > 0);
+        })();
+
+  function renderPreviewItem(item: ExxasPreviewItem) {
+    const state = states[item.exxasCustomer.id] || initialStateForItem(item);
+    const isLinkMode = state.customerAction === "link_existing";
+    const itemReady = isItemReady(item, state);
+    const itemNeedsReview = needsReview(item);
+    const itemNeedsAttention = requiresManualAttention(item, state);
+    const itemReconciled = isAlreadyReconciled(item);
+    const isExpanded = !itemReconciled || !!expandedReconciledIds[item.exxasCustomer.id];
+    const cardBorderClass = itemReconciled
+      ? "border-green-200 dark:border-green-900/40"
+      : itemNeedsAttention
+        ? "border-amber-300 dark:border-amber-800/60"
+        : "border-slate-200 dark:border-zinc-800";
+
+    return (
+      <div
+        key={item.exxasCustomer.id}
+        className={`rounded-2xl border bg-white dark:bg-zinc-900 ${cardBorderClass}`}
+      >
+        <div className={`${isExpanded ? "px-5 py-4 border-b border-slate-100 dark:border-zinc-800" : "px-5 py-3"}`}>
+          <div className="flex flex-wrap items-center gap-2 justify-between">
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="checkbox"
+                checked={!!selectedIds[item.exxasCustomer.id]}
+                onChange={() => toggleSelection(item.exxasCustomer.id)}
+                className="h-4 w-4 rounded border-slate-300"
+              />
+              <Plug className="h-4 w-4 text-[#C5A059]" />
+              <h3 className="font-semibold text-slate-900 dark:text-zinc-100">{item.exxasCustomer.name || "-"}</h3>
+              <span className="text-xs text-slate-500 dark:text-zinc-400 font-mono">#{item.exxasCustomer.nummer}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              {itemReconciled ? (
+                <button
+                  type="button"
+                  onClick={() => toggleReconciledExpanded(item.exxasCustomer.id)}
+                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 dark:border-zinc-700 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-zinc-200"
+                >
+                  {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  {isExpanded ? "Details ausblenden" : "Details anzeigen"}
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setSinglePreviewItemId(item.exxasCustomer.id)}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 dark:border-zinc-700 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-zinc-200"
+              >
+                Abgleichen
+              </button>
+              <span
+                className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+                  itemReady
+                    ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
+                    : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                }`}
+              >
+                {itemReady ? "bereit" : "unvollstaendig"}
+              </span>
+              {itemNeedsReview ? (
+                <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-300">
+                  manuell pruefen
+                </span>
+              ) : null}
+              {itemReconciled ? (
+                <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-cyan-100 text-cyan-800 dark:bg-cyan-900/35 dark:text-cyan-200">
+                  abgeglichen
+                </span>
+              ) : null}
+            </div>
+          </div>
+          <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
+            {item.exxasCustomer.email || "keine E-Mail"} | {item.exxasCustomer.street || "-"}{" "}
+            {item.exxasCustomer.zip || ""} {item.exxasCustomer.city || ""}
+          </p>
+          {!isExpanded ? (
+            <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-zinc-400">
+              <span>Bereits abgeglichen und standardmaessig eingeklappt.</span>
+              <span>{summarizeContactDecisions(item, state)}</span>
+            </div>
+          ) : null}
+        </div>
+
+        {isExpanded ? (
+          <div className="p-5 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <label className="text-xs uppercase tracking-wide text-slate-500 dark:text-zinc-400">Kunden-Aktion</label>
+              <select
+                value={state.customerAction}
+                onChange={(e) => {
+                  const next = e.target.value as CustomerAction;
+                  updateItemState(item.exxasCustomer.id, (current) => ({ ...current, customerAction: next }));
+                }}
+                className="px-3 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm"
+              >
+                <option value="link_existing">Mit bestehendem Kunden verknuepfen</option>
+                <option value="create_customer">Neuen Kunden anlegen</option>
+                <option value="skip">Ueberspringen</option>
+              </select>
+            </div>
+
+            {isLinkMode ? (
+              <div className="space-y-2">
+                <label className="text-xs uppercase tracking-wide text-slate-500 dark:text-zinc-400">
+                  Lokaler Zielkunde
+                </label>
+                {item.customerSuggestions.length > 0 && (
+                  <select
+                    value={
+                      item.customerSuggestions.some((c) => c.localCustomerId === state.localCustomerId)
+                        ? (state.localCustomerId ?? "")
+                        : ""
+                    }
+                    onChange={(e) => {
+                      const next = e.target.value ? Number(e.target.value) : null;
+                      updateItemState(item.exxasCustomer.id, (current) => ({ ...current, localCustomerId: next }));
+                    }}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm"
+                  >
+                    <option value="">-- Vorschlaege --</option>
+                    {item.customerSuggestions.map((candidate) => (
+                      <option key={candidate.localCustomerId} value={candidate.localCustomerId}>
+                        #{candidate.localCustomerId} {candidate.localCustomer.company || candidate.localCustomer.name} (
+                        {confidenceLabel(candidate.confidence)})
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {preview?.localCustomerIndex?.length ? (
+                  <EntitySearchInput
+                    index={preview.localCustomerIndex}
+                    value={
+                      !item.customerSuggestions.some((c) => c.localCustomerId === state.localCustomerId)
+                        ? state.localCustomerId
+                        : null
+                    }
+                    placeholder="Kunden suchen (Name, E-Mail oder ID)"
+                    onChange={(id) =>
+                      updateItemState(item.exxasCustomer.id, (current) => ({ ...current, localCustomerId: id }))
+                    }
+                  />
+                ) : null}
+                {item.customerSuggestions.map((candidate) => (
+                  <div key={candidate.localCustomerId} className="text-xs text-slate-500 dark:text-zinc-400">
+                    #{candidate.localCustomerId}: {candidate.localCustomer.company || candidate.localCustomer.name} -{" "}
+                    {candidate.reasons.join(", ") || "keine Gruende"} - {confidenceLabel(candidate.confidence)}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            <div className="rounded-xl border border-slate-200 dark:border-zinc-800 overflow-hidden">
+              <div className="px-4 py-2 bg-slate-50 dark:bg-zinc-800/60 text-xs uppercase tracking-wide text-slate-500 dark:text-zinc-400">
+                Kontakte
+              </div>
+              <div className="divide-y divide-slate-100 dark:divide-zinc-800">
+                {item.contactSuggestions.length === 0 ? (
+                  <div className="px-4 py-3 text-sm text-slate-500 dark:text-zinc-400">Keine EXXAS-Kontakte gefunden.</div>
+                ) : (
+                  item.contactSuggestions.map((contactItem) => {
+                    const contactState = state.contacts[contactItem.exxasContact.id];
+                    const activeCustomerId = state.localCustomerId;
+                    const byCustomerIndex =
+                      activeCustomerId != null
+                        ? preview?.localContactIndexByCustomer?.[String(activeCustomerId)] || []
+                        : [];
+                    const candidateIndex = contactItem.localCandidates.map((candidate) => ({
+                      id: candidate.localContactId,
+                      label: String(candidate.localContact.name || "").trim(),
+                      email: String(candidate.localContact.email || "").trim(),
+                    }));
+                    const mergedIndex = new Map<number, LocalContactIndexEntry>();
+                    for (const entry of [...byCustomerIndex, ...candidateIndex]) {
+                      mergedIndex.set(Number(entry.id), {
+                        id: Number(entry.id),
+                        label: String(entry.label || "").trim(),
+                        email: String(entry.email || "").trim(),
+                      });
+                    }
+                    const contactSearchIndex = Array.from(mergedIndex.values());
+                    return (
+                      <div key={contactItem.exxasContact.id} className="px-4 py-3 space-y-2">
+                        <div className="text-sm text-slate-700 dark:text-zinc-200">
+                          <span className="font-medium">{contactItem.exxasContact.name || "-"}</span>{" "}
+                          <span className="text-slate-500 dark:text-zinc-400">{contactItem.exxasContact.email || ""}</span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          <select
+                            value={contactState?.action || "skip"}
+                            onChange={(e) => {
+                              const next = e.target.value as ContactAction;
+                              updateItemState(item.exxasCustomer.id, (current) => ({
+                                ...current,
+                                contacts: {
+                                  ...current.contacts,
+                                  [contactItem.exxasContact.id]: {
+                                    action: next,
+                                    localContactId: current.contacts[contactItem.exxasContact.id]?.localContactId ?? null,
+                                    overwriteFields: current.contacts[contactItem.exxasContact.id]?.overwriteFields ?? [],
+                                  },
+                                },
+                              }));
+                            }}
+                            className="px-3 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm"
+                          >
+                            <option value="link_existing">Bestehenden Kontakt verknuepfen</option>
+                            <option value="create_contact">Neuen Kontakt anlegen</option>
+                            <option value="skip">Ueberspringen</option>
+                          </select>
+                          <div className="space-y-2">
+                            <select
+                              value={
+                                contactItem.localCandidates.some((c) => c.localContactId === (contactState?.localContactId ?? null))
+                                  ? (contactState?.localContactId ?? "")
+                                  : ""
+                              }
+                              onChange={(e) => {
+                                const next = e.target.value ? Number(e.target.value) : null;
+                                updateItemState(item.exxasCustomer.id, (current) => ({
+                                  ...current,
+                                  contacts: {
+                                    ...current.contacts,
+                                    [contactItem.exxasContact.id]: {
+                                      action: current.contacts[contactItem.exxasContact.id]?.action || "link_existing",
+                                      localContactId: next,
+                                      overwriteFields: current.contacts[contactItem.exxasContact.id]?.overwriteFields ?? [],
+                                    },
+                                  },
+                                }));
+                              }}
+                              className="flex-1 px-3 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm"
+                            >
+                              <option value="">-- Kontakt waehlen --</option>
+                              {contactItem.localCandidates.map((candidate) => (
+                                <option key={candidate.localContactId} value={candidate.localContactId}>
+                                  #{candidate.localContactId} {candidate.localContact.name || candidate.localContact.email} (
+                                  {confidenceLabel(candidate.confidence)})
+                                </option>
+                              ))}
+                            </select>
+                            {contactSearchIndex.length > 0 ? (
+                              <EntitySearchInput
+                                index={contactSearchIndex}
+                                value={contactState?.localContactId ?? null}
+                                placeholder="Kontakt suchen (Name, E-Mail oder ID)"
+                                onChange={(id) => {
+                                  updateItemState(item.exxasCustomer.id, (current) => ({
+                                    ...current,
+                                    contacts: {
+                                      ...current.contacts,
+                                      [contactItem.exxasContact.id]: {
+                                        action: current.contacts[contactItem.exxasContact.id]?.action || "link_existing",
+                                        localContactId: id,
+                                        overwriteFields: current.contacts[contactItem.exxasContact.id]?.overwriteFields ?? [],
+                                      },
+                                    },
+                                  }));
+                                }}
+                              />
+                            ) : null}
+                          </div>
+                        </div>
+                        {contactState?.localContactId != null &&
+                          !contactSearchIndex.some((c) => c.id === contactState.localContactId) &&
+                          !contactItem.localCandidates.some((c) => c.localContactId === contactState.localContactId) && (
+                            <div className="text-xs text-amber-600 dark:text-amber-400">
+                              Manuell eingegebene Kontakt-ID #{contactState.localContactId} (nicht in Vorschlaegen)
+                            </div>
+                          )}
+                        {contactItem.localCandidates.length > 0 ? (
+                          <div className="text-xs text-slate-500 dark:text-zinc-400">
+                            Beste Treffer: {contactItem.localCandidates
+                              .slice(0, 2)
+                              .map((candidate) => `#${candidate.localContactId} ${candidate.reasons.join(", ")} (${confidenceLabel(candidate.confidence)})`)
+                              .join(" | ")}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -975,10 +1354,32 @@ export function ExxasReconcilePage() {
 
       {preview ? (
         <div className="space-y-3">
-          <div className="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 text-sm text-slate-600 dark:text-zinc-300">
-            Quelle: <span className="font-mono">{preview.source}</span> | EXXAS Kunden: {preview.stats.exxasCustomers} |
-            EXXAS Kontakte: {preview.stats.exxasContacts} | Ausgewaehlt: {selectedCount} | Bereit: {readyCount} | Pruefen:{" "}
-            {reviewCount} | Abgeglichen: {reconciledCount} | Noch nicht abgeglichen: {notReconciledCount}
+          <div className="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 space-y-4">
+            <div className="text-sm text-slate-600 dark:text-zinc-300">
+              Quelle: <span className="font-mono">{preview.source}</span> | EXXAS Kunden: {preview.stats.exxasCustomers} | EXXAS
+              Kontakte: {preview.stats.exxasContacts}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
+              {summaryCards.map((card) => {
+                const active = filterMode === card.key;
+                return (
+                  <button
+                    key={card.key}
+                    type="button"
+                    onClick={() => setFilterMode(card.key)}
+                    className={`rounded-2xl border p-4 text-left transition ${
+                      active
+                        ? "border-[#C5A059] ring-1 ring-[#C5A059] bg-[#C5A059]/10"
+                        : card.tone
+                    }`}
+                  >
+                    <div className="text-2xl font-bold text-slate-900 dark:text-zinc-100">{card.value}</div>
+                    <div className="mt-1 text-sm font-semibold text-slate-700 dark:text-zinc-200">{card.label}</div>
+                    <div className="mt-1 text-xs text-slate-500 dark:text-zinc-400">{card.helper}</div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
           <div className="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 space-y-3">
             <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -1051,265 +1452,24 @@ export function ExxasReconcilePage() {
       ) : null}
 
       <div className="space-y-4">
-        {visibleItems.map((item) => {
-          const state = states[item.exxasCustomer.id] || initialStateForItem(item);
-          const isLinkMode = state.customerAction === "link_existing";
-          const itemReady = isItemReady(item, state);
-          const itemNeedsReview = needsReview(item);
-          const itemReconciled = isAlreadyReconciled(item);
-          return (
-            <div key={item.exxasCustomer.id} className="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
-              <div className="px-5 py-4 border-b border-slate-100 dark:border-zinc-800">
-                <div className="flex flex-wrap items-center gap-2 justify-between">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={!!selectedIds[item.exxasCustomer.id]}
-                      onChange={() => toggleSelection(item.exxasCustomer.id)}
-                      className="h-4 w-4 rounded border-slate-300"
-                    />
-                    <Plug className="h-4 w-4 text-[#C5A059]" />
-                    <h3 className="font-semibold text-slate-900 dark:text-zinc-100">{item.exxasCustomer.name || "-"}</h3>
-                    <span className="text-xs text-slate-500 dark:text-zinc-400 font-mono">#{item.exxasCustomer.nummer}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setSinglePreviewItemId(item.exxasCustomer.id)}
-                      className="inline-flex items-center gap-2 rounded-lg border border-slate-200 dark:border-zinc-700 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-zinc-200"
-                    >
-                      Abgleichen
-                    </button>
-                    <span
-                      className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                        itemReady
-                          ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
-                          : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
-                      }`}
-                    >
-                      {itemReady ? "bereit" : "unvollstaendig"}
+        {filterMode === "all"
+          ? groupedVisibleSections.map((section) => (
+              <section key={section.key} className="space-y-3">
+                <div className="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <h2 className="text-sm font-semibold text-slate-900 dark:text-zinc-100">{section.title}</h2>
+                      <p className="text-xs text-slate-500 dark:text-zinc-400">{section.description}</p>
+                    </div>
+                    <span className="rounded-full bg-slate-100 dark:bg-zinc-800 px-3 py-1 text-xs font-medium text-slate-700 dark:text-zinc-300">
+                      {section.items.length}
                     </span>
-                    {itemNeedsReview ? (
-                      <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-300">
-                        manuell pruefen
-                      </span>
-                    ) : null}
-                    {itemReconciled ? (
-                      <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-cyan-100 text-cyan-800 dark:bg-cyan-900/35 dark:text-cyan-200">
-                        abgeglichen
-                      </span>
-                    ) : null}
                   </div>
                 </div>
-                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
-                  {item.exxasCustomer.email || "keine E-Mail"} | {item.exxasCustomer.street || "-"}{" "}
-                  {item.exxasCustomer.zip || ""} {item.exxasCustomer.city || ""}
-                </p>
-              </div>
-
-              <div className="p-5 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <label className="text-xs uppercase tracking-wide text-slate-500 dark:text-zinc-400">Kunden-Aktion</label>
-                  <select
-                    value={state.customerAction}
-                    onChange={(e) => {
-                      const next = e.target.value as CustomerAction;
-                      updateItemState(item.exxasCustomer.id, (current) => ({ ...current, customerAction: next }));
-                    }}
-                    className="px-3 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm"
-                  >
-                    <option value="link_existing">Mit bestehendem Kunden verknuepfen</option>
-                    <option value="create_customer">Neuen Kunden anlegen</option>
-                    <option value="skip">Ueberspringen</option>
-                  </select>
-                </div>
-
-                {isLinkMode ? (
-                  <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-wide text-slate-500 dark:text-zinc-400">
-                      Lokaler Zielkunde
-                    </label>
-                    {item.customerSuggestions.length > 0 && (
-                      <select
-                        value={
-                          item.customerSuggestions.some((c) => c.localCustomerId === state.localCustomerId)
-                            ? (state.localCustomerId ?? "")
-                            : ""
-                        }
-                        onChange={(e) => {
-                          const next = e.target.value ? Number(e.target.value) : null;
-                          updateItemState(item.exxasCustomer.id, (current) => ({ ...current, localCustomerId: next }));
-                        }}
-                        className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm"
-                      >
-                        <option value="">-- Vorschlaege --</option>
-                        {item.customerSuggestions.map((candidate) => (
-                          <option key={candidate.localCustomerId} value={candidate.localCustomerId}>
-                            #{candidate.localCustomerId} {candidate.localCustomer.company || candidate.localCustomer.name} (
-                            {confidenceLabel(candidate.confidence)})
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                    {preview?.localCustomerIndex?.length ? (
-                      <EntitySearchInput
-                        index={preview.localCustomerIndex}
-                        value={
-                          !item.customerSuggestions.some((c) => c.localCustomerId === state.localCustomerId)
-                            ? state.localCustomerId
-                            : null
-                        }
-                        placeholder="Kunden suchen (Name, E-Mail oder ID)"
-                        onChange={(id) =>
-                          updateItemState(item.exxasCustomer.id, (current) => ({ ...current, localCustomerId: id }))
-                        }
-                      />
-                    ) : null}
-                    {item.customerSuggestions.map((candidate) => (
-                      <div key={candidate.localCustomerId} className="text-xs text-slate-500 dark:text-zinc-400">
-                        #{candidate.localCustomerId}: {candidate.localCustomer.company || candidate.localCustomer.name} -{" "}
-                        {candidate.reasons.join(", ") || "keine Gruende"} - {confidenceLabel(candidate.confidence)}
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-
-                <div className="rounded-xl border border-slate-200 dark:border-zinc-800 overflow-hidden">
-                  <div className="px-4 py-2 bg-slate-50 dark:bg-zinc-800/60 text-xs uppercase tracking-wide text-slate-500 dark:text-zinc-400">
-                    Kontakte
-                  </div>
-                  <div className="divide-y divide-slate-100 dark:divide-zinc-800">
-                    {item.contactSuggestions.length === 0 ? (
-                      <div className="px-4 py-3 text-sm text-slate-500 dark:text-zinc-400">Keine EXXAS-Kontakte gefunden.</div>
-                    ) : (
-                      item.contactSuggestions.map((contactItem) => {
-                        const contactState = state.contacts[contactItem.exxasContact.id];
-                        const activeCustomerId = state.localCustomerId;
-                        const byCustomerIndex =
-                          activeCustomerId != null
-                            ? preview?.localContactIndexByCustomer?.[String(activeCustomerId)] || []
-                            : [];
-                        const candidateIndex = contactItem.localCandidates.map((candidate) => ({
-                          id: candidate.localContactId,
-                          label: String(candidate.localContact.name || "").trim(),
-                          email: String(candidate.localContact.email || "").trim(),
-                        }));
-                        const mergedIndex = new Map<number, LocalContactIndexEntry>();
-                        for (const entry of [...byCustomerIndex, ...candidateIndex]) {
-                          mergedIndex.set(Number(entry.id), {
-                            id: Number(entry.id),
-                            label: String(entry.label || "").trim(),
-                            email: String(entry.email || "").trim(),
-                          });
-                        }
-                        const contactSearchIndex = Array.from(mergedIndex.values());
-                        return (
-                          <div key={contactItem.exxasContact.id} className="px-4 py-3 space-y-2">
-                            <div className="text-sm text-slate-700 dark:text-zinc-200">
-                              <span className="font-medium">{contactItem.exxasContact.name || "-"}</span>{" "}
-                              <span className="text-slate-500 dark:text-zinc-400">{contactItem.exxasContact.email || ""}</span>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                              <select
-                                value={contactState?.action || "skip"}
-                                onChange={(e) => {
-                                  const next = e.target.value as ContactAction;
-                                  updateItemState(item.exxasCustomer.id, (current) => ({
-                                    ...current,
-                                    contacts: {
-                                      ...current.contacts,
-                                      [contactItem.exxasContact.id]: {
-                                        action: next,
-                                        localContactId: current.contacts[contactItem.exxasContact.id]?.localContactId ?? null,
-                                        overwriteFields: current.contacts[contactItem.exxasContact.id]?.overwriteFields ?? [],
-                                      },
-                                    },
-                                  }));
-                                }}
-                                className="px-3 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm"
-                              >
-                                <option value="link_existing">Bestehenden Kontakt verknuepfen</option>
-                                <option value="create_contact">Neuen Kontakt anlegen</option>
-                                <option value="skip">Ueberspringen</option>
-                              </select>
-                              <div className="space-y-2">
-                                <select
-                                  value={
-                                    contactItem.localCandidates.some((c) => c.localContactId === (contactState?.localContactId ?? null))
-                                      ? (contactState?.localContactId ?? "")
-                                      : ""
-                                  }
-                                  onChange={(e) => {
-                                    const next = e.target.value ? Number(e.target.value) : null;
-                                    updateItemState(item.exxasCustomer.id, (current) => ({
-                                      ...current,
-                                      contacts: {
-                                        ...current.contacts,
-                                        [contactItem.exxasContact.id]: {
-                                          action: current.contacts[contactItem.exxasContact.id]?.action || "link_existing",
-                                          localContactId: next,
-                                          overwriteFields: current.contacts[contactItem.exxasContact.id]?.overwriteFields ?? [],
-                                        },
-                                      },
-                                    }));
-                                  }}
-                                  className="flex-1 px-3 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm"
-                                >
-                                  <option value="">-- Kontakt waehlen --</option>
-                                  {contactItem.localCandidates.map((candidate) => (
-                                    <option key={candidate.localContactId} value={candidate.localContactId}>
-                                      #{candidate.localContactId} {candidate.localContact.name || candidate.localContact.email} (
-                                      {confidenceLabel(candidate.confidence)})
-                                    </option>
-                                  ))}
-                                </select>
-                                {contactSearchIndex.length > 0 ? (
-                                  <EntitySearchInput
-                                    index={contactSearchIndex}
-                                    value={contactState?.localContactId ?? null}
-                                    placeholder="Kontakt suchen (Name, E-Mail oder ID)"
-                                    onChange={(id) => {
-                                      updateItemState(item.exxasCustomer.id, (current) => ({
-                                        ...current,
-                                        contacts: {
-                                          ...current.contacts,
-                                          [contactItem.exxasContact.id]: {
-                                            action: current.contacts[contactItem.exxasContact.id]?.action || "link_existing",
-                                            localContactId: id,
-                                            overwriteFields: current.contacts[contactItem.exxasContact.id]?.overwriteFields ?? [],
-                                          },
-                                        },
-                                      }));
-                                    }}
-                                  />
-                                ) : null}
-                              </div>
-                            </div>
-                            {contactState?.localContactId != null &&
-                              !contactSearchIndex.some((c) => c.id === contactState.localContactId) &&
-                              !contactItem.localCandidates.some((c) => c.localContactId === contactState.localContactId) && (
-                                <div className="text-xs text-amber-600 dark:text-amber-400">
-                                  Manuell eingegebene Kontakt-ID #{contactState.localContactId} (nicht in Vorschlaegen)
-                                </div>
-                              )}
-                            {contactItem.localCandidates.length > 0 ? (
-                              <div className="text-xs text-slate-500 dark:text-zinc-400">
-                                Beste Treffer: {contactItem.localCandidates
-                                  .slice(0, 2)
-                                  .map((candidate) => `#${candidate.localContactId} ${candidate.reasons.join(", ")} (${confidenceLabel(candidate.confidence)})`)
-                                  .join(" | ")}
-                              </div>
-                            ) : null}
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        })}
+                {section.items.map((item) => renderPreviewItem(item))}
+              </section>
+            ))
+          : visibleItems.map((item) => renderPreviewItem(item))}
       </div>
 
       {confirmResult ? (

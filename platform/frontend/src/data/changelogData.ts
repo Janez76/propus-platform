@@ -15,6 +15,21 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.280",
+    date: "2026-03-30",
+    title: "Katalog-i18n (catalog.*), Tour-Manager: Zurück ins Admin-Panel",
+    changes: [
+      {
+        type: "improvement",
+        text: "Admin-i18n: Namespace products.* → catalog.*; fehlende EN/DE-Strings für Kategorie-Manager ergänzt; sichtbare Texte ohne DB-Spaltennamen (group_key, category_key, CODE/NAME).",
+      },
+      {
+        type: "feature",
+        text: "Tour Manager (EJS): Link «Zurück zum Admin-Panel» in der Sidebar; optional BOOKING_ADMIN_SPA_URL; basePath-Rewrite überspringt diesen Link.",
+      },
+    ],
+  },
+  {
     version: "2.3.279",
     date: "2026-03-30",
     title: "RBAC-Deploy-Fix: Rollenstammdaten und Schema-Erkennung",

@@ -136,7 +136,7 @@ function SortableProductCard({
           <button
             type="button"
             className="mt-0.5 shrink-0 cursor-grab touch-none rounded p-1 text-[#C5A059]/80 hover:bg-[#C5A059]/15 hover:text-[#C5A059] active:cursor-grabbing dark:text-[#d8bf8a]/90 dark:hover:bg-[#C5A059]/20"
-            aria-label={t(lang, "products.dnd.dragProduct")}
+            aria-label={t(lang, "catalog.dnd.dragProduct")}
             {...attributes}
             {...listeners}
           >
@@ -155,7 +155,7 @@ function SortableProductCard({
                   : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300",
               )}
             >
-              {t(lang, product.affects_travel === false ? "products.label.travelNo" : "products.label.travelYes")}
+              {t(lang, product.affects_travel === false ? "catalog.label.travelNo" : "catalog.label.travelYes")}
             </span>
           </div>
           <div className="mt-1 text-xs text-slate-500">
@@ -163,7 +163,7 @@ function SortableProductCard({
           </div>
           {product.affects_duration ? (
             <div className="mt-1 text-xs text-amber-600 dark:text-amber-400">
-              {t(lang, "products.label.durationMinutes").replace("{{n}}", String(Number(product.duration_minutes || 0)))}
+              {t(lang, "catalog.label.durationMinutes").replace("{{n}}", String(Number(product.duration_minutes || 0)))}
             </div>
           ) : null}
         </div>
@@ -180,7 +180,7 @@ function SortableProductCard({
             onClick={() => onDuplicate(product)}
             className={`${btnSmallClass} border border-zinc-300 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800`}
           >
-            <Copy className="h-3 w-3" /> {t(lang, "products.button.duplicate")}
+            <Copy className="h-3 w-3" /> {t(lang, "catalog.button.duplicate")}
           </button>
           <button
             type="button"
@@ -265,7 +265,7 @@ function SortableCategorySection({
             <button
               type="button"
               className="shrink-0 cursor-grab touch-none rounded p-1 text-[#C5A059]/80 hover:bg-[#C5A059]/15 hover:text-[#C5A059] active:cursor-grabbing dark:text-[#d8bf8a]/90 dark:hover:bg-[#C5A059]/20"
-              aria-label={t(lang, "products.dnd.dragCategory")}
+              aria-label={t(lang, "catalog.dnd.dragCategory")}
               {...attributes}
               {...listeners}
               onClick={(e) => e.preventDefault()}
@@ -336,14 +336,14 @@ function SortableCategorySection({
                 onDeleteCategory(category);
               }}
             >
-              {t(lang, "products.category.remove")}
+              {t(lang, "catalog.category.remove")}
             </button>
           </div>
         </summary>
         <div className="space-y-2 border-t border-slate-200 p-2 dark:border-zinc-800">
           {group.items.length === 0 ? (
             <div className="rounded-md border border-dashed border-zinc-300 px-3 py-2 text-xs text-zinc-500 dark:border-zinc-700">
-              {t(lang, "products.category.empty")}
+              {t(lang, "catalog.category.empty")}
             </div>
           ) : (
             <SortableContext items={productSortableIds} strategy={verticalListSortingStrategy}>
@@ -413,7 +413,7 @@ function UnassignedCategorySection({
         <div className="space-y-2 border-t border-slate-200 p-2 dark:border-zinc-800">
           {group.items.length === 0 ? (
             <div className="rounded-md border border-dashed border-zinc-300 px-3 py-2 text-xs text-zinc-500 dark:border-zinc-700">
-              {t(lang, "products.category.empty")}
+              {t(lang, "catalog.category.empty")}
             </div>
           ) : (
             <SortableContext items={productSortableIds} strategy={verticalListSortingStrategy}>
@@ -560,7 +560,7 @@ export function ProductListByCategory({
         await onAfterPersist?.();
       } catch (e) {
         setCategoryOrder(null);
-        setReorderError(e instanceof Error ? e.message : t(lang, "products.dnd.error"));
+        setReorderError(e instanceof Error ? e.message : t(lang, "catalog.dnd.error"));
       } finally {
         setReordering(false);
       }
@@ -586,7 +586,7 @@ export function ProductListByCategory({
         useQueryStore.getState().invalidate(productsQueryKey);
         await onAfterPersist?.();
       } catch (e) {
-        setReorderError(e instanceof Error ? e.message : t(lang, "products.dnd.error"));
+        setReorderError(e instanceof Error ? e.message : t(lang, "catalog.dnd.error"));
       } finally {
         setReordering(false);
       }
@@ -654,7 +654,7 @@ export function ProductListByCategory({
         useQueryStore.getState().invalidate(productsQueryKey);
         await onAfterPersist?.();
       } catch (err) {
-        setCategoryError(err instanceof Error ? err.message : t(lang, "products.category.updateFailed"));
+        setCategoryError(err instanceof Error ? err.message : t(lang, "catalog.category.updateFailed"));
         throw err;
       } finally {
         setCategoryBusy(false);
@@ -682,19 +682,19 @@ export function ProductListByCategory({
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="font-semibold">{t(lang, "products.title.existing").replace("{{n}}", String(filteredProducts.length))}</h2>
+        <h2 className="font-semibold">{t(lang, "catalog.title.existing").replace("{{n}}", String(filteredProducts.length))}</h2>
         <div className="flex w-full flex-col gap-2 sm:max-w-xs">
           <div className="relative w-full">
             <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
             <input
               className="ui-input pl-8"
-              placeholder={t(lang, "products.search.placeholder")}
+              placeholder={t(lang, "catalog.search.placeholder")}
               value={query}
               onChange={(e) => onQueryChange(e.target.value)}
             />
           </div>
           {q ? (
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">{t(lang, "products.dnd.disabledWhileSearching")}</p>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">{t(lang, "catalog.dnd.disabledWhileSearching")}</p>
           ) : null}
         </div>
       </div>
@@ -709,7 +709,7 @@ export function ProductListByCategory({
           {reorderError}
         </div>
       ) : null}
-      {reordering ? <div className="mb-2 text-xs text-zinc-500">{t(lang, "products.dnd.saving")}</div> : null}
+      {reordering ? <div className="mb-2 text-xs text-zinc-500">{t(lang, "catalog.dnd.saving")}</div> : null}
 
       <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
         <div className="space-y-2">
@@ -757,7 +757,7 @@ export function ProductListByCategory({
           ) : null}
           {filteredProducts.length === 0 ? (
             <div className="rounded-lg border border-dashed border-zinc-300 p-5 text-center text-sm text-zinc-500 dark:border-zinc-700">
-              {t(lang, "products.search.empty")}
+              {t(lang, "catalog.search.empty")}
             </div>
           ) : null}
         </div>

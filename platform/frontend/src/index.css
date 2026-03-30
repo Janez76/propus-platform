@@ -575,11 +575,13 @@ html.dark .auth-error {
   border-radius: 0.625rem;
   font-size: 0.875rem;
   font-weight: 500;
-  font-family: var(--propus-font-heading);
+  font-family: var(--propus-font-body);
   color: var(--text-muted);
   transition: all 0.18s;
   cursor: pointer;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.02em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 .propus-nav-item:hover {
   background: var(--accent-subtle);
