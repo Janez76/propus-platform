@@ -14,7 +14,9 @@ param(
     # Ohne Image-Neuaufbau: nur Container neu starten (schnell; bei Codeaenderungen nicht verwenden).
     [switch]$SkipBuild,
     # Kein SSH-ControlMaster: jede ssh/scp-Verbindung authentifiziert separat (zum Debuggen).
-    [switch]$NoMultiplex
+    [switch]$NoMultiplex,
+    # Kein automatischer Patch-Bump der VERSION-/Changelog-Dateien vor dem Upload (nicht empfohlen).
+    [switch]$SkipVersionBump
 )
 
 Set-StrictMode -Version Latest
@@ -311,6 +313,18 @@ else {
 }
 
 if (-not $SkipUpload) {
+    if (-not $SkipVersionBump) {
+        Write-Step "[3/6a] Versionsnummer fuer Deploy (Patch +1)" "Cyan"
+        $bumpScript = Join-Path $PSScriptRoot "bump-deploy-version.ps1"
+        if (-not (Test-Path -LiteralPath $bumpScript)) {
+            throw "bump-deploy-version.ps1 fehlt: $bumpScript"
+        }
+        & $bumpScript -WorkspaceRoot $WorkspaceRoot
+    }
+    else {
+        Write-Step "[3/6a] Versions-Bump uebersprungen (-SkipVersionBump)" "DarkGray"
+    }
+
     Write-Step "[3/6] Projekt packen + hochladen (tar -> tmp-Datei -> scp -> ssh-Extraktion)" "Cyan"
     $tUpload = [Diagnostics.Stopwatch]::StartNew()
 
