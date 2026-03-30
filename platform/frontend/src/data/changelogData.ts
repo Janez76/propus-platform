@@ -15,6 +15,17 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.322",
+    date: "2026-03-30",
+    title: "Deploy",
+    changes: [
+      {
+        type: "improvement",
+        text: "Versionsnummer fuer VPS-Deploy auf v2.3.322 erhoeht.",
+      },
+    ],
+  },
+  {
     version: "2.3.321",
     date: "2026-03-30",
     title: "Portal RBAC Phase 4 + Deploy",
