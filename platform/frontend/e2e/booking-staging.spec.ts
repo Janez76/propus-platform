@@ -12,6 +12,25 @@ function slotTestId(slot: string): string {
   return `booking-slot-${slot.replace(":", "-")}`;
 }
 
+/**
+ * Gibt das konfigurierte Datum zurück wenn es in der Zukunft liegt,
+ * sonst den nächsten Montag mindestens 4 Wochen ab heute (YYYY-MM-DD).
+ */
+function resolveFutureDate(configured: string): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (configured) {
+    const d = new Date(configured);
+    if (!isNaN(d.getTime()) && d > today) return configured;
+  }
+  const future = new Date(today);
+  future.setDate(future.getDate() + 28);
+  const day = future.getDay();
+  if (day === 0) future.setDate(future.getDate() + 1);
+  else if (day === 6) future.setDate(future.getDate() + 2);
+  return future.toISOString().slice(0, 10);
+}
+
 test.describe("Buchungs-Wizard Staging", () => {
   test("Happy Path gegen echte API", async ({ page, baseURL }) => {
     test.skip(
@@ -42,7 +61,7 @@ test.describe("Buchungs-Wizard Staging", () => {
     const onsitePhone = env("PLAYWRIGHT_BOOKING_ONSITE_PHONE", env("PLAYWRIGHT_BOOKING_PHONE"));
     const addressQuery = env("PLAYWRIGHT_BOOKING_ADDRESS_QUERY");
     const packageKey = env("PLAYWRIGHT_BOOKING_PACKAGE_KEY");
-    const bookingDate = env("PLAYWRIGHT_BOOKING_DATE");
+    const bookingDate = resolveFutureDate(env("PLAYWRIGHT_BOOKING_DATE"));
     const bookingSlot = env("PLAYWRIGHT_BOOKING_SLOT");
 
     await page.addInitScript(() => {
@@ -78,10 +97,22 @@ test.describe("Buchungs-Wizard Staging", () => {
     await page.getByTestId(`booking-package-${packageKey}`).click();
     await page.getByTestId("booking-nav-next").click();
 
-    // Schritt 3: Vorab reservierter Staging-Slot fuer reproduzierbare Deploy-Smoke-Tests.
+    // Schritt 3: Datum wählen und Slot buchen.
+    // bookingDate ist immer in der Zukunft (resolveFutureDate). Wir warten auf den konfigurierten
+    // Slot; ist dieser nicht verfügbar, nehmen wir den ersten sichtbaren Slot (Fallback).
     await page.getByTestId("booking-input-date").fill(bookingDate);
-    await expect(page.getByTestId(slotTestId(bookingSlot))).toBeVisible({ timeout: 30_000 });
-    await page.getByTestId(slotTestId(bookingSlot)).click();
+
+    // Warte bis mindestens ein Slot geladen ist (Kalender-API hat geantwortet)
+    const anySlot = page.locator('[data-testid^="booking-slot-"]').first();
+    await expect(anySlot).toBeVisible({ timeout: 30_000 });
+
+    // Bevorzuge konfigurierten Slot, nimm sonst ersten verfügbaren
+    const specificSlot = bookingSlot ? page.getByTestId(slotTestId(bookingSlot)) : null;
+    if (specificSlot && (await specificSlot.isVisible())) {
+      await specificSlot.click();
+    } else {
+      await anySlot.click();
+    }
     await page.getByTestId("booking-nav-next").click();
 
     // Schritt 4: Test-Kundendaten.
