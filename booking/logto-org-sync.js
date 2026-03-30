@@ -4,6 +4,7 @@
  */
 
 const logtoClient = require('./logto-client');
+const logtoPortalWorkspace = require('./logto-portal-workspace-sync');
 
 const SOURCE = 'propus-core';
 
@@ -109,4 +110,11 @@ module.exports = {
   addCompanyMemberToLogtoOrg,
   removeCompanyMemberFromLogtoOrg,
   resolveLogtoUserIdForMember,
+  // Tour-Portal-Workspaces (Logto Organizations + Org-Rollen)
+  portalWorkspace: logtoPortalWorkspace,
+  ensurePortalWorkspaceOrgRolesDefined: logtoPortalWorkspace.ensurePortalWorkspaceOrgRolesDefined,
+  ensureWorkspaceOrganizationForOwner: logtoPortalWorkspace.ensureWorkspaceOrganizationForOwner,
+  syncPortalMemberToLogtoOrg: logtoPortalWorkspace.syncPortalMemberToLogtoOrg,
+  syncWorkspaceOwnerToLogtoOrg: logtoPortalWorkspace.syncWorkspaceOwnerToLogtoOrg,
+  removePortalMemberFromLogtoOrg: logtoPortalWorkspace.removePortalMemberFromLogtoOrg,
 };

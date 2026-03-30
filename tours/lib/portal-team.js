@@ -2,12 +2,84 @@
  * Kundenportal: Team-Mitglieder, Rollen (admin / mitarbeiter), Exxas-Organisationskontakte
  */
 const crypto = require('crypto');
+const path = require('path');
 const { pool } = require('./db');
 const exxas = require('./exxas');
 const customerLookup = require('./customer-lookup');
 const userProfiles = require('./user-profiles');
 
 let schemaReady = false;
+
+function getBookingPortalSync() {
+  try {
+    // Von tours/lib → Repo-Root/booking
+    const bookingRoot = path.join(__dirname, '..', '..', 'booking');
+    return {
+      portalRbac: require(path.join(bookingRoot, 'portal-rbac-sync')),
+      logtoRole: require(path.join(bookingRoot, 'logto-role-sync')),
+      logtoWs: require(path.join(bookingRoot, 'logto-portal-workspace-sync')),
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
+async function runAfterTeamMemberDbChange(ownerEmail, memberEmail) {
+  const m = getBookingPortalSync();
+  if (!m) return;
+  try {
+    await m.portalRbac.syncPortalTeamMemberAdminRbac(ownerEmail, memberEmail);
+    const cnt = await m.portalRbac.countActivePortalAdminWorkspaces(memberEmail);
+    if (cnt > 0) await m.logtoRole.syncSystemRoleToLogto(memberEmail, 'customer_admin', 'add');
+    else await m.logtoRole.syncSystemRoleToLogto(memberEmail, 'customer_admin', 'remove');
+
+    const tm = await pool.query(
+      `SELECT role, status FROM tour_manager.portal_team_members
+       WHERE LOWER(TRIM(owner_email)) = $1 AND LOWER(TRIM(member_email)) = $2
+       LIMIT 1`,
+      [normalizeEmail(ownerEmail), normalizeEmail(memberEmail)]
+    );
+    const t = tm.rows[0];
+    if (t && String(t.status) === 'active') {
+      await m.logtoWs.ensureWorkspaceOrganizationForOwner(ownerEmail);
+      await m.logtoWs.syncWorkspaceOwnerToLogtoOrg(ownerEmail);
+      await m.logtoWs.syncPortalMemberToLogtoOrg(ownerEmail, memberEmail, normalizeMemberRole(t.role));
+    } else {
+      await m.logtoWs.removePortalMemberFromLogtoOrg(ownerEmail, memberEmail);
+    }
+  } catch (e) {
+    console.warn('[portal-team sync]', e.message);
+  }
+}
+
+async function runAfterTeamMemberRemoved(ownerEmail, memberEmail) {
+  const m = getBookingPortalSync();
+  if (!m) return;
+  try {
+    await m.portalRbac.syncPortalTeamMemberAdminRbac(ownerEmail, memberEmail);
+    const cnt = await m.portalRbac.countActivePortalAdminWorkspaces(memberEmail);
+    if (cnt === 0) await m.logtoRole.syncSystemRoleToLogto(memberEmail, 'customer_admin', 'remove');
+    await m.logtoWs.removePortalMemberFromLogtoOrg(ownerEmail, memberEmail);
+  } catch (e) {
+    console.warn('[portal-team sync]', e.message);
+  }
+}
+
+async function runAfterStaffTourManagerChange(emailNorm, action) {
+  const m = getBookingPortalSync();
+  if (!m) return;
+  try {
+    if (action === 'add') {
+      await m.portalRbac.syncPortalStaffTourManagerRbac(emailNorm, 'add');
+      await m.logtoRole.syncSystemRoleToLogto(emailNorm, 'tour_manager', 'add');
+    } else {
+      await m.portalRbac.syncPortalStaffTourManagerRbac(emailNorm, 'remove');
+      await m.logtoRole.syncSystemRoleToLogto(emailNorm, 'tour_manager', 'remove');
+    }
+  } catch (e) {
+    console.warn('[portal-team staff sync]', e.message);
+  }
+}
 
 /** Workspace-Inhaber (customer_email der Tour); keine Zeile in portal_team_members. */
 const ROLE_INHABER = 'inhaber';
@@ -115,6 +187,15 @@ async function isGlobalTourManager(userEmail) {
   await ensurePortalTeamSchema();
   const norm = normalizeEmail(userEmail);
   if (!norm) return false;
+  const m = getBookingPortalSync();
+  if (m) {
+    try {
+      const ok = await m.portalRbac.emailHasPortalSystemRole(norm, ROLE_TOUR_MANAGER);
+      if (ok) return true;
+    } catch (_e) {
+      /* Migration 060 evtl. noch nicht */
+    }
+  }
   const r = await pool.query(
     `SELECT 1 FROM tour_manager.portal_staff_roles
      WHERE email_norm = $1 AND role = $2 LIMIT 1`,
@@ -145,6 +226,7 @@ async function addPortalStaffRole(emailRaw, roleRaw, createdBy) {
      ON CONFLICT (email_norm, role) DO UPDATE SET created_by = EXCLUDED.created_by`,
     [emailNorm, role, createdBy ? normalizeEmail(createdBy) : null]
   );
+  await runAfterStaffTourManagerChange(emailNorm, 'add');
 }
 
 async function removePortalStaffRole(emailRaw, roleRaw) {
@@ -155,6 +237,7 @@ async function removePortalStaffRole(emailRaw, roleRaw) {
     `DELETE FROM tour_manager.portal_staff_roles WHERE email_norm = $1 AND role = $2`,
     [emailNorm, role]
   );
+  await runAfterStaffTourManagerChange(emailNorm, 'remove');
 }
 
 /**
@@ -632,16 +715,25 @@ async function acceptTeamInvite(token, userEmail) {
      WHERE id = $1`,
     [row.id]
   );
+  await runAfterTeamMemberDbChange(row.owner_email, row.member_email);
   return row;
 }
 
 async function revokeTeamMember(ownerEmail, memberId) {
   await ensurePortalTeamSchema();
+  const owner = normalizeEmail(ownerEmail);
+  const existing = await pool.query(
+    `SELECT member_email FROM tour_manager.portal_team_members
+     WHERE id = $1 AND LOWER(owner_email) = $2`,
+    [memberId, owner]
+  );
+  const memberEmail = existing.rows[0]?.member_email;
   await pool.query(
     `DELETE FROM tour_manager.portal_team_members
      WHERE id = $1 AND LOWER(owner_email) = $2`,
-    [memberId, normalizeEmail(ownerEmail)]
+    [memberId, owner]
   );
+  if (memberEmail) await runAfterTeamMemberRemoved(owner, normalizeEmail(memberEmail));
 }
 
 async function updateTeamMemberRole(ownerEmail, memberId, newRole) {
@@ -652,9 +744,12 @@ async function updateTeamMemberRole(ownerEmail, memberId, newRole) {
     `UPDATE tour_manager.portal_team_members
      SET role = $3
      WHERE id = $1 AND LOWER(owner_email) = $2 AND status = 'active'
-     RETURNING id`,
+     RETURNING id, owner_email, member_email`,
     [memberId, owner, role]
   );
+  if (r.rowCount > 0 && r.rows[0]) {
+    await runAfterTeamMemberDbChange(r.rows[0].owner_email, r.rows[0].member_email);
+  }
   return r.rowCount > 0;
 }
 

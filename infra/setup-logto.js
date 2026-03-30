@@ -187,7 +187,17 @@ async function run() {
   // 2. Rollen erstellen
   console.log('\n=== Rollen ===');
   const roles = {};
-  for (const roleName of ['admin', 'super_admin', 'company_owner', 'company_admin', 'company_employee', 'photographer', 'customer']) {
+  for (const roleName of [
+    'admin',
+    'super_admin',
+    'company_owner',
+    'company_admin',
+    'company_employee',
+    'photographer',
+    'customer',
+    'tour_manager',
+    'customer_admin',
+  ]) {
     roles[roleName] = await findOrCreateRole(token, roleName, `Propus Platform Rolle: ${roleName}`);
   }
 

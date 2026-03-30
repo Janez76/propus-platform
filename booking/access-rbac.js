@@ -103,6 +103,7 @@ function mapLogtoRolesToSystemRole(logtoRoles) {
   if (roles.includes("company_owner")) return "company_owner";
   if (roles.includes("company_admin")) return "company_admin";
   if (roles.includes("company_employee")) return "company_employee";
+  if (roles.includes("customer_admin")) return "customer_admin";
   if (roles.includes("customer")) return "customer_user";
   return "photographer";
 }
@@ -235,6 +236,63 @@ async function ensureCustomerContactSubject(contactId) {
     [id]
   );
   return ins.rows[0]?.id || null;
+}
+
+/** Portal-Nutzer nur per E-Mail (ohne customer_contact-Zeile), z. B. interner Tour-Manager. */
+async function ensurePortalUserSubject(emailRaw) {
+  const em = String(emailRaw || "")
+    .trim()
+    .toLowerCase();
+  if (!em || !em.includes("@")) return null;
+  if (!(await tableExists("access_subjects"))) return null;
+  const hasCol = await db.query(
+    `SELECT 1 FROM information_schema.columns
+     WHERE table_schema = ANY (current_schemas(false))
+       AND table_name = 'access_subjects' AND column_name = 'portal_user_email'
+     LIMIT 1`
+  );
+  if (!hasCol.rows.length) return null;
+
+  const { rows } = await db.query(
+    `SELECT id FROM access_subjects WHERE subject_type = 'portal_user' AND LOWER(portal_user_email) = $1 LIMIT 1`,
+    [em]
+  );
+  if (rows[0]) return rows[0].id;
+  const ins = await db.query(
+    `INSERT INTO access_subjects (subject_type, portal_user_email) VALUES ('portal_user', $1) RETURNING id`,
+    [em]
+  );
+  return ins.rows[0]?.id || null;
+}
+
+async function addSubjectSystemRole(subjectId, roleKey) {
+  const sid = Number(subjectId);
+  const rk = String(roleKey || "").trim();
+  if (!Number.isFinite(sid) || !rk) return;
+  await db.query(
+    `INSERT INTO access_subject_system_roles (subject_id, role_key) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+    [sid, rk]
+  );
+}
+
+async function removeSubjectSystemRole(subjectId, roleKey) {
+  const sid = Number(subjectId);
+  const rk = String(roleKey || "").trim();
+  if (!Number.isFinite(sid) || !rk) return;
+  await db.query(`DELETE FROM access_subject_system_roles WHERE subject_id = $1 AND role_key = $2`, [sid, rk]);
+}
+
+/** Entfernt leeres portal_user-Subject (keine Rollen mehr). */
+async function prunePortalUserSubjectIfEmpty(subjectId) {
+  const sid = Number(subjectId);
+  if (!Number.isFinite(sid)) return;
+  const { rows } = await db.query(
+    `SELECT s.subject_type, (SELECT COUNT(*)::int FROM access_subject_system_roles r WHERE r.subject_id = s.id) AS n
+     FROM access_subjects s WHERE s.id = $1`,
+    [sid]
+  );
+  if (rows[0]?.subject_type !== "portal_user" || (rows[0]?.n || 0) > 0) return;
+  await db.query(`DELETE FROM access_subjects WHERE id = $1`, [sid]);
 }
 
 async function setSubjectSystemRoles(subjectId, roleKeys) {
@@ -496,6 +554,10 @@ module.exports = {
   ensureCompanyMemberSubject,
   ensureCustomerSubject,
   ensureCustomerContactSubject,
+  ensurePortalUserSubject,
+  addSubjectSystemRole,
+  removeSubjectSystemRole,
+  prunePortalUserSubjectIfEmpty,
   setSubjectSystemRoles,
   syncAllLegacySubjects,
   syncAdminUserRolesFromDb,

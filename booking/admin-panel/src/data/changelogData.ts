@@ -15,6 +15,36 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.320",
+    date: "2026-03-30",
+    title: "Zentrales Rollensystem Portal + RBAC + Logto",
+    changes: [
+      {
+        type: "feature",
+        text: "Portal-Rollen (Tour-Manager, Kunden-Admin) ins Booking-RBAC gespiegelt; Migration 060 portal_user access_subjects.",
+      },
+      {
+        type: "feature",
+        text: "Logto-Sync: globale Rollen tour_manager / customer_admin; Tour-Workspaces als Logto-Organizations mit workspace_* Org-Rollen.",
+      },
+      {
+        type: "improvement",
+        text: "Skripte: scripts/sync-portal-workspaces-to-logto.js, scripts/ensure-logto-portal-org-roles.js; setup-logto mit tour_manager + customer_admin.",
+      },
+    ],
+  },
+  {
+    version: "2.3.319",
+    date: "2026-03-30",
+    title: "Deploy",
+    changes: [
+      {
+        type: "improvement",
+        text: "Versionsnummer fuer VPS-Deploy auf v2.3.319 erhoeht.",
+      },
+    ],
+  },
+  {
     version: "2.3.317",
     date: "2026-03-30",
     title: "Deploy",

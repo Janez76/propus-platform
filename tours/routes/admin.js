@@ -1,10 +1,51 @@
 const express = require('express');
+const path = require('path');
 const multer = require('multer');
 const router = express.Router();
 const { pool } = require('../lib/db');
 const userProfiles = require('../lib/user-profiles');
 const portalTeam = require('../lib/portal-team');
 const { isLogtoEnabled } = require('../../auth/logto-config');
+
+function getBookingPortalSyncModules() {
+  try {
+    const br = path.join(__dirname, '..', '..', 'booking');
+    return {
+      portalRbac: require(path.join(br, 'portal-rbac-sync')),
+      logtoRole: require(path.join(br, 'logto-role-sync')),
+      logtoWs: require(path.join(br, 'logto-portal-workspace-sync')),
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function runExternPortalSync(ownerEmail, memberEmail) {
+  const m = getBookingPortalSyncModules();
+  if (!m) return;
+  try {
+    await m.portalRbac.syncPortalTeamMemberAdminRbac(ownerEmail, memberEmail);
+    const cnt = await m.portalRbac.countActivePortalAdminWorkspaces(memberEmail);
+    if (cnt > 0) await m.logtoRole.syncSystemRoleToLogto(memberEmail, 'customer_admin', 'add');
+    else await m.logtoRole.syncSystemRoleToLogto(memberEmail, 'customer_admin', 'remove');
+    const row = await pool.query(
+      `SELECT role, status FROM tour_manager.portal_team_members
+       WHERE LOWER(TRIM(owner_email)) = $1 AND LOWER(TRIM(member_email)) = $2
+       LIMIT 1`,
+      [String(ownerEmail).trim().toLowerCase(), String(memberEmail).trim().toLowerCase()]
+    );
+    const t = row.rows[0];
+    if (t && String(t.status) === 'active') {
+      await m.logtoWs.ensureWorkspaceOrganizationForOwner(ownerEmail);
+      await m.logtoWs.syncWorkspaceOwnerToLogtoOrg(ownerEmail);
+      await m.logtoWs.syncPortalMemberToLogtoOrg(ownerEmail, memberEmail, portalTeam.normalizeMemberRole(t.role));
+    } else {
+      await m.logtoWs.removePortalMemberFromLogtoOrg(ownerEmail, memberEmail);
+    }
+  } catch (e) {
+    console.warn('[admin extern portal sync]', e.message);
+  }
+}
 
 const profileUpload = multer({
   storage: multer.memoryStorage(),
@@ -1760,6 +1801,7 @@ router.post('/portal-roles/extern-set', async (req, res) => {
         SET role = 'admin', status = 'active', accepted_at = COALESCE(tour_manager.portal_team_members.accepted_at, NOW())
     `, [ownerEmail, memberEmail]);
 
+    await runExternPortalSync(ownerEmail, memberEmail);
     return res.redirect('/admin/portal-roles?tab=extern&externSaved=1');
   } catch (e) {
     return res.redirect(`/admin/portal-roles?tab=extern&error=${encodeURIComponent(e.message || 'Fehler')}`);
@@ -1779,6 +1821,7 @@ router.post('/portal-roles/extern-remove', async (req, res) => {
       WHERE LOWER(owner_email) = $1 AND LOWER(member_email) = $2
     `, [ownerEmail, memberEmail]);
 
+    await runExternPortalSync(ownerEmail, memberEmail);
     return res.redirect('/admin/portal-roles?tab=extern&externRemoved=1');
   } catch (e) {
     return res.redirect(`/admin/portal-roles?tab=extern&error=${encodeURIComponent(e.message || 'Fehler')}`);
@@ -4554,6 +4597,8 @@ router.post('/customers/:id/contacts/:cid/portal-role', async (req, res) => {
         [ownerEmail, memberEmail, displayName, newRole]
       );
     }
+
+    await runExternPortalSync(ownerEmail, memberEmail);
 
     const roleLabel = { '': 'entfernt', 'mitarbeiter': 'Mitarbeiter', 'admin': 'Kunden-Admin' }[newRole];
     res.redirect(`/admin/customers/${customerId}?flash=` + encodeURIComponent(`Portal-Rolle für ${memberEmail} auf „${roleLabel}" gesetzt.`));

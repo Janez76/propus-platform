@@ -63,12 +63,37 @@ async function mgmtApi(method, path, body) {
 let rolesCache = null;
 let rolesCacheAt = 0;
 
+function invalidateRolesCache() {
+  rolesCache = null;
+  rolesCacheAt = 0;
+}
+
 async function getRoles() {
   if (rolesCache && Date.now() - rolesCacheAt < 300_000) return rolesCache;
   const roles = await mgmtApi('GET', '/roles?pageSize=100');
   rolesCache = new Map(roles.map(r => [r.name, r.id]));
   rolesCacheAt = Date.now();
   return rolesCache;
+}
+
+/** Legt eine globale Rolle an, falls sie fehlt (für Portal-Sync). */
+async function ensureGlobalRole(name, description) {
+  const n = String(name || '').trim();
+  if (!n) return null;
+  let map = await getRoles();
+  if (map.get(n)) return map.get(n);
+  try {
+    await mgmtApi('POST', '/roles', {
+      name: n,
+      description: String(description || n).slice(0, 256),
+      type: 'User',
+    });
+  } catch (e) {
+    if (e.status !== 422) throw e;
+  }
+  invalidateRolesCache();
+  map = await getRoles();
+  return map.get(n) || null;
 }
 
 async function getUserRoles(userId) {
@@ -167,6 +192,84 @@ async function getOrganizationUsers(orgId) {
   return normalizeListResponse(data);
 }
 
+let orgRolesCache = null;
+let orgRolesCacheAt = 0;
+
+async function listOrganizationRoles({ pageSize = 100 } = {}) {
+  if (orgRolesCache && Date.now() - orgRolesCacheAt < 300_000) return orgRolesCache;
+  const data = await mgmtApi('GET', `/organization-roles?page_size=${pageSize}`);
+  const list = normalizeListResponse(data);
+  orgRolesCache = new Map(list.map((r) => [r.name, r.id]));
+  orgRolesCacheAt = Date.now();
+  return orgRolesCache;
+}
+
+function invalidateOrganizationRolesCache() {
+  orgRolesCache = null;
+  orgRolesCacheAt = 0;
+}
+
+async function ensureOrganizationRole(name, description) {
+  const n = String(name || '').trim();
+  if (!n) return null;
+  let map = await listOrganizationRoles({ pageSize: 100 });
+  if (map.get(n)) return map.get(n);
+  try {
+    await mgmtApi('POST', '/organization-roles', {
+      name: n,
+      description: String(description || n).slice(0, 256),
+      type: 'User',
+      organizationScopeIds: [],
+      resourceScopeIds: [],
+    });
+  } catch (e) {
+    if (e.status !== 422) throw e;
+  }
+  invalidateOrganizationRolesCache();
+  map = await listOrganizationRoles({ pageSize: 100 });
+  return map.get(n) || null;
+}
+
+async function assignOrganizationRolesToUser(orgId, userId, organizationRoleNames) {
+  const names = (organizationRoleNames || []).map((x) => String(x || '').trim()).filter(Boolean);
+  if (!orgId || !userId || !names.length) return null;
+  return mgmtApi('POST', `/organizations/${encodeURIComponent(orgId)}/users/${encodeURIComponent(userId)}/roles`, {
+    organizationRoleNames: names,
+  });
+}
+
+async function listUserOrganizationRoles(orgId, userId) {
+  if (!orgId || !userId) return [];
+  try {
+    const data = await mgmtApi(
+      'GET',
+      `/organizations/${encodeURIComponent(orgId)}/users/${encodeURIComponent(userId)}/roles`
+    );
+    return normalizeListResponse(data);
+  } catch (e) {
+    if (e.status === 404) return [];
+    throw e;
+  }
+}
+
+async function removeOrganizationRolesFromUser(orgId, userId, organizationRoleNames) {
+  const names = (organizationRoleNames || []).map((x) => String(x || '').trim()).filter(Boolean);
+  if (!orgId || !userId || !names.length) return;
+  const map = await listOrganizationRoles({ pageSize: 100 });
+  for (const name of names) {
+    const roleId = map.get(name);
+    if (!roleId) continue;
+    try {
+      await mgmtApi(
+        'DELETE',
+        `/organizations/${encodeURIComponent(orgId)}/users/${encodeURIComponent(userId)}/roles/${encodeURIComponent(roleId)}`
+      );
+    } catch (e) {
+      if (e.status !== 404) throw e;
+    }
+  }
+}
+
 function isConfigured() {
   return !!(M2M_APP_ID && M2M_APP_SECRET);
 }
@@ -175,6 +278,8 @@ module.exports = {
   getManagementToken,
   mgmtApi,
   getRoles,
+  invalidateRolesCache,
+  ensureGlobalRole,
   getUserRoles,
   assignRolesToUser,
   removeRolesFromUser,
@@ -190,5 +295,10 @@ module.exports = {
   addUsersToOrganization,
   removeUserFromOrganization,
   getOrganizationUsers,
+  listOrganizationRoles,
+  ensureOrganizationRole,
+  assignOrganizationRolesToUser,
+  listUserOrganizationRoles,
+  removeOrganizationRolesFromUser,
   isConfigured,
 };
