@@ -14,9 +14,12 @@ async function searchLocalCustomers(needle, limit = 10) {
             c.street, c.zipcity
      FROM core.customers c
      WHERE LOWER(c.name) LIKE LOWER($1)
-        OR LOWER(c.company) LIKE LOWER($1)
-        OR LOWER(c.email) LIKE LOWER($1)
-        OR LOWER(c.phone) LIKE $1
+        OR LOWER(COALESCE(c.company, '')) LIKE LOWER($1)
+        OR LOWER(COALESCE(c.email, '')) LIKE LOWER($1)
+        OR LOWER(COALESCE(c.phone, '')) LIKE LOWER($1)
+        OR LOWER(COALESCE(c.street, '')) LIKE LOWER($1)
+        OR LOWER(COALESCE(c.zipcity, '')) LIKE LOWER($1)
+        OR (c.exxas_contact_id IS NOT NULL AND CAST(c.exxas_contact_id AS TEXT) ILIKE $1)
      ORDER BY c.company, c.name
      LIMIT $2`,
     [like, limit]
@@ -31,6 +34,32 @@ async function getLocalContacts(customerId) {
      WHERE customer_id = $1
      ORDER BY sort_order, id`,
     [customerId]
+  );
+  return rows;
+}
+
+/** Kontakte (Ansprechpartner) suchen, inkl. zugehöriger Firma – nur lokale DB. */
+async function searchLocalContactMatches(needle, limit = 10) {
+  if (!needle || needle.length < 2) return [];
+  const like = `%${needle}%`;
+  const { rows } = await pool.query(
+    `SELECT cc.id AS contact_id,
+            cc.name AS contact_name,
+            cc.email AS contact_email,
+            cc.phone AS contact_phone,
+            c.id AS customer_id,
+            c.company,
+            c.name AS customer_name,
+            c.email AS customer_email,
+            c.exxas_contact_id
+     FROM core.customer_contacts cc
+     INNER JOIN core.customers c ON c.id = cc.customer_id
+     WHERE LOWER(COALESCE(cc.name, '')) LIKE LOWER($1)
+        OR LOWER(COALESCE(cc.email, '')) LIKE LOWER($1)
+        OR LOWER(COALESCE(cc.phone, '')) LIKE LOWER($1)
+     ORDER BY c.company NULLS LAST, c.name, cc.sort_order NULLS LAST, cc.id
+     LIMIT $2`,
+    [like, limit]
   );
   return rows;
 }
@@ -158,10 +187,27 @@ async function searchCustomersWithExxasFallback(needle, opts = {}) {
   };
 }
 
+/** JSON-Shape für Matterport-Verknüpfen – immer aus core.customers + core.customer_contacts abgeleitet. */
+function toLinkModalCustomer(customerRow, contactRows) {
+  if (!customerRow?.id) return null;
+  const contacts = Array.isArray(contactRows) ? contactRows : [];
+  return {
+    id: String(customerRow.id),
+    nummer: customerRow.exxas_contact_id || '',
+    firmenname: customerRow.company || customerRow.name || '',
+    email: customerRow.email || null,
+    label: `${customerRow.company || customerRow.name || customerRow.id}${customerRow.exxas_contact_id ? ` (Ref. ${customerRow.exxas_contact_id})` : ''}`,
+    source: 'local',
+    contacts: contacts.map((ct) => ({ name: ct.name, email: ct.email, tel: ct.phone })),
+  };
+}
+
 module.exports = {
   searchLocalCustomers,
+  searchLocalContactMatches,
   getLocalContacts,
   getCustomerById,
+  toLinkModalCustomer,
   getCustomerByEmail,
   getCustomerByExxasRef,
   importFromExxas,

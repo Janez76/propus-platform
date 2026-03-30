@@ -3261,7 +3261,7 @@ router.get('/link-matterport', async (req, res) => {
 router.post('/link-matterport', async (req, res) => {
   const mpId = String(req.body?.matterportSpaceId || '').trim();
   const tourUrl = String(req.body?.tourUrl || '').trim();
-  const exxasCustomerId = String(req.body?.exxasCustomerId || '').trim();
+  const selectedCustomerKey = String(req.body?.coreCustomerId || req.body?.exxasCustomerId || '').trim();
   const customerName = String(req.body?.customerName || '').trim();
   const customerEmail = String(req.body?.customerEmail || '').trim();
   const customerContact = String(req.body?.customerContact || '').trim();
@@ -3300,6 +3300,23 @@ router.post('/link-matterport', async (req, res) => {
     exxasAboId = `${baseContractId.slice(0, 32 - suffix.length)}${suffix}`;
   }
 
+  /** core.customers.id → tour_manager.tours.customer_id (FK); kunde_ref nur Exxas-Kontaktref aus core.customers.exxas_contact_id. */
+  let kundeRef = null;
+  let coreCustomerIdFk = null;
+  if (selectedCustomerKey) {
+    const pid = parseInt(selectedCustomerKey, 10);
+    if (Number.isFinite(pid) && pid > 0) {
+      const crow = await customerLookup.getCustomerById(pid);
+      if (crow?.id) {
+        coreCustomerIdFk = pid;
+        const xref = crow.exxas_contact_id != null ? String(crow.exxas_contact_id).trim() : '';
+        kundeRef = xref || null;
+      }
+    } else {
+      kundeRef = selectedCustomerKey;
+    }
+  }
+
   try {
     await pool.query(
       `INSERT INTO tour_manager.tours (
@@ -3307,6 +3324,7 @@ router.post('/link-matterport', async (req, res) => {
         matterport_space_id,
         tour_url,
         kunde_ref,
+        customer_id,
         customer_name,
         customer_email,
         customer_contact,
@@ -3319,13 +3337,14 @@ router.post('/link-matterport', async (req, res) => {
         matterport_is_own,
         status
       ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10::timestamptz, $11::date, $11::date, $12, $13, 'ACTIVE'
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::timestamptz, $12::date, $12::date, $13, $14, 'ACTIVE'
       )`,
       [
         exxasAboId,
         mpId,
         tourUrl,
-        exxasCustomerId || null,
+        kundeRef,
+        coreCustomerIdFk,
         customerName || null,
         customerEmail || null,
         customerContact || null,
@@ -3347,38 +3366,55 @@ router.post('/link-matterport', async (req, res) => {
 router.get('/link-matterport/customer-search', async (req, res) => {
   const q = String(req.query.q || '').trim();
   if (q.length < 2) {
-    return res.json({ customers: [], error: null });
+    return res.json({ companies: [], contacts: [], error: null });
   }
 
   try {
-    const { local, exxas_import } = await customerLookup.searchCustomersWithExxasFallback(q, { limit: 10 });
+    /** Nur lokale DB: Firmen (customers) + Ansprechpartner (customer_contacts). */
+    const [localResults, contactRows] = await Promise.all([
+      customerLookup.searchLocalCustomers(q, 10),
+      customerLookup.searchLocalContactMatches(q, 10),
+    ]);
 
-    const localCustomers = await Promise.all(local.map(async (c) => {
+    const companies = (await Promise.all(localResults.map(async (c) => {
       const contacts = await customerLookup.getLocalContacts(c.id);
-      return {
-        id: String(c.id),
-        nummer: c.exxas_contact_id || '',
-        firmenname: c.company || c.name || '',
-        email: c.email || null,
-        label: `${c.company || c.name || c.id}${c.exxas_contact_id ? ` (Ref. ${c.exxas_contact_id})` : ''}`,
-        source: 'local',
-        contacts: contacts.map((ct) => ({ name: ct.name, email: ct.email, tel: ct.phone })),
-      };
+      return customerLookup.toLinkModalCustomer(c, contacts);
+    }))).filter(Boolean);
+
+    const contacts = contactRows.map((row) => ({
+      customerId: String(row.customer_id),
+      contactId: String(row.contact_id),
+      firmenname: row.company || row.customer_name || '',
+      customerEmail: row.customer_email || null,
+      contactName: row.contact_name || '',
+      contactEmail: row.contact_email || null,
+      contactTel: row.contact_phone || null,
     }));
 
-    const exxasCustomers = exxas_import.map((c) => ({
-      id: String(c.exxas_id || ''),
-      nummer: String(c.nummer || ''),
-      firmenname: c.name || '',
-      email: c.email || null,
-      label: `${c.name || c.exxas_id}${c.nummer ? ` (Nr. ${c.nummer})` : ''} [Exxas Import]`,
-      source: 'exxas',
-      contacts: [],
-    }));
-
-    return res.json({ customers: [...localCustomers, ...exxasCustomers], error: null });
+    return res.json({ companies, contacts, error: null });
   } catch (err) {
-    return res.json({ customers: [], error: err.message });
+    return res.json({ companies: [], contacts: [], error: err.message });
+  }
+});
+
+/** Voller Kunde + Kontaktliste für Matterport-Verknüpfen (nach Auswahl). */
+router.get('/link-matterport/customer-detail', async (req, res) => {
+  const id = parseInt(String(req.query.customerId || '').trim(), 10);
+  if (!Number.isFinite(id) || id < 1) {
+    return res.status(400).json({ error: 'Ungültige Kunden-ID', customer: null });
+  }
+  try {
+    const customer = await customerLookup.getCustomerById(id);
+    if (!customer) {
+      return res.json({ customer: null, error: 'Nicht gefunden' });
+    }
+    const contactRows = await customerLookup.getLocalContacts(id);
+    return res.json({
+      error: null,
+      customer: customerLookup.toLinkModalCustomer(customer, contactRows),
+    });
+  } catch (err) {
+    return res.status(500).json({ customer: null, error: err.message });
   }
 });
 

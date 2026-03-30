@@ -128,7 +128,30 @@
     .suggestion-btn { width: 100%; text-align: left; border: none; border-bottom: 1px solid var(--border); background: #fff; color: var(--text); padding: 0.55rem 0.65rem; cursor: pointer; font-size: 0.84rem; }
     .suggestion-btn:last-child { border-bottom: none; }
     .suggestion-btn:hover { background: #f9f6ef; }
-    .suggestion-title { font-weight: 600; color: var(--gray-900); line-height: 1.25; }
+    .suggestion-section-title {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-muted);
+      padding: 0.4rem 0.65rem 0.15rem;
+      background: var(--bg-hover);
+      border-bottom: 1px solid var(--border);
+    }
+    .suggestion-kind {
+      display: inline-block;
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 0.12rem 0.38rem;
+      border-radius: 4px;
+      margin-right: 0.35rem;
+      vertical-align: middle;
+    }
+    .suggestion-kind.firma { background: rgba(34, 197, 94, 0.2); color: #15803d; }
+    .suggestion-kind.kontakt { background: rgba(59, 130, 246, 0.18); color: #1d4ed8; }
+    .suggestion-title { font-weight: 600; color: var(--gray-900); line-height: 1.25; display: inline; }
     .suggestion-sub { font-size: 0.77rem; color: var(--text-muted); margin-top: 0.12rem; }
     .selected-customer { color: var(--text-muted); font-size: 0.82rem; margin-top: -0.2rem; }
     .matterport-api-alert .matterport-api-alert-body {
@@ -493,7 +516,7 @@
         <div class="modal-meta" id="linkModalMeta">Space wird geladen…</div>
         <form method="post" action="/admin/link-matterport" id="linkModalForm">
           <input type="hidden" name="matterportSpaceId" id="modalMatterportSpaceId">
-          <input type="hidden" name="exxasCustomerId" id="modalExxasCustomerId">
+          <input type="hidden" name="coreCustomerId" id="modalCoreCustomerId" value="">
           <div class="modal-section">
             <p class="modal-section-title">Basisdaten</p>
             <div class="modal-grid">
@@ -509,19 +532,20 @@
           </div>
 
           <div class="modal-section">
-            <p class="modal-section-title">Organisation Auswahl</p>
+            <p class="modal-section-title">Firma & Kontakt</p>
             <div class="modal-grid">
               <div class="full customer-search-group">
                 <div class="customer-row">
                   <label style="margin:0;">
-                    Organisation suchen
-                    <input type="text" id="modalCustomerSearch" autocomplete="off" placeholder="Firma, Name oder Kundennummer">
+                    Suche (Firma oder Ansprechpartner)
+                    <input type="text" id="modalCustomerSearch" autocomplete="off" placeholder="Firmenname, Kontaktname, E-Mail, Telefon …">
                   </label>
                   <button type="button" class="btn btn-ghost" id="modalClearCustomer">Zurücksetzen</button>
                 </div>
+                <p class="selected-customer" style="margin:0.35rem 0 0.25rem 0;">Vorschläge aus Ihrer <strong>Kundendatenbank</strong>: passende <strong>Firmen</strong> und passende <strong>Kontakte</strong> (Ansprechpartner). Auswahl übernimmt Daten fürs Verknüpfen; Kontakte können Sie danach noch per Adressbuch-Symbol anpassen.</p>
                 <div class="suggestions" id="modalSuggestions"></div>
               </div>
-              <div class="full selected-customer" id="modalSelectedCustomer">Keine Organisation ausgewählt.</div>
+              <div class="full selected-customer" id="modalSelectedCustomer">Keine Firma / kein Kontakt ausgewählt.</div>
             </div>
           </div>
 
@@ -529,8 +553,8 @@
             <p class="modal-section-title">Kundendaten</p>
             <div class="modal-grid">
               <label>
-                Kundenname
-                <input type="text" name="customerName" id="modalCustomerName" placeholder="Manuell oder aus Organisation">
+                Kundenname (Firma)
+                <input type="text" name="customerName" id="modalCustomerName" placeholder="Aus Vorschlag oder manuell">
               </label>
               <label>
                 Kunden-E-Mail
@@ -571,14 +595,17 @@
     </div>
   </div>
 
+  <% const _tmAdminMount = typeof basePath === 'string' ? basePath : ''; %>
   <script>
     (() => {
+      /** Gleicher Präfix wie bei Links/Forms (Mount z. B. /tour-manager) – fetch() wird vom Header-Skript nicht umgeschrieben. */
+      const TM_ADMIN_PREFIX = <%- JSON.stringify(_tmAdminMount) %>;
       const modalBackdrop = document.getElementById('linkModalBackdrop');
       const modalMeta = document.getElementById('linkModalMeta');
       const modalSpaceId = document.getElementById('modalMatterportSpaceId');
       const modalTourUrl = document.getElementById('modalTourUrl');
       const modalBezeichnung = document.getElementById('modalBezeichnung');
-      const modalExxasCustomerId = document.getElementById('modalExxasCustomerId');
+      const modalCoreCustomerId = document.getElementById('modalCoreCustomerId');
       const modalCustomerSearch = document.getElementById('modalCustomerSearch');
       const modalSuggestions = document.getElementById('modalSuggestions');
       const modalSelectedCustomer = document.getElementById('modalSelectedCustomer');
@@ -589,23 +616,55 @@
       const modalCustomerEmail = document.getElementById('modalCustomerEmail');
       const modalCustomerContact = document.getElementById('modalCustomerContact');
       const modalClearCustomer = document.getElementById('modalClearCustomer');
-      let customerCache = [];
+      let suggestionsState = { companies: [], contacts: [] };
       let searchTimer = null;
       let selectedCustomerLabel = '';
       let activeCustomer = null;
 
-      function renderSuggestions(container, customers) {
-        if (!customers.length) {
+      function escHtml(s) {
+        return String(s || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      function renderSuggestions(container, { companies, contacts }) {
+        const co = Array.isArray(companies) ? companies : [];
+        const ct = Array.isArray(contacts) ? contacts : [];
+        if (!co.length && !ct.length) {
           container.style.display = 'none';
           container.innerHTML = '';
           return;
         }
-        container.innerHTML = customers.map((customer, idx) => (
-          `<button type="button" class="suggestion-btn" data-index="${idx}">
-            <div class="suggestion-title">${customer.firmenname || customer.id}${customer.nummer ? ` (Nr. ${customer.nummer})` : ''}</div>
-            ${customer.email ? `<div class="suggestion-sub">${customer.email}</div>` : ''}
-          </button>`
-        )).join('');
+        let html = '';
+        if (co.length) {
+          html += '<div class="suggestion-section-title">Firmen</div>';
+          co.forEach((customer, idx) => {
+            const title = escHtml(customer.firmenname || customer.id || '');
+            const refLine = customer.nummer
+              ? `<div class="suggestion-sub">Ref. ${escHtml(String(customer.nummer))}</div>`
+              : '';
+            const sub = customer.email ? `<div class="suggestion-sub">${escHtml(customer.email)}</div>` : '';
+            html += `<button type="button" class="suggestion-btn" data-pick="company" data-idx="${idx}">
+              <div><span class="suggestion-kind firma">Firma</span><span class="suggestion-title">${title}</span></div>
+              ${refLine}${sub}
+            </button>`;
+          });
+        }
+        if (ct.length) {
+          html += '<div class="suggestion-section-title">Kontakte</div>';
+          ct.forEach((hit, idx) => {
+            const cname = escHtml(hit.contactName || 'Kontakt');
+            const firma = escHtml(hit.firmenname || '');
+            const mail = hit.contactEmail || hit.customerEmail;
+            const sub = [firma, mail ? escHtml(mail) : ''].filter(Boolean).join(' · ');
+            html += `<button type="button" class="suggestion-btn" data-pick="contact" data-idx="${idx}">
+              <div><span class="suggestion-kind kontakt">Kontakt</span><span class="suggestion-title">${cname}</span></div>
+              <div class="suggestion-sub">${sub || '—'}</div>
+            </button>`;
+          });
+        }
+        container.innerHTML = html;
         container.style.display = 'block';
       }
 
@@ -645,7 +704,8 @@
 
         modalContactSuggestions.innerHTML = chips.map((chip, idx) => (
           `<button type="button" class="contact-chip" data-chip-index="${idx}">
-            ${chip.kind === 'organisation' ? '<span class="contact-chip-tag">Organisation</span>' : ''}
+            ${chip.kind === 'organisation' ? '<span class="contact-chip-tag">Firma</span>' : ''}
+            ${chip.kind === 'kontakt' ? '<span class="contact-chip-tag" style="border-color:#93c5fd;background:#eff6ff;color:#1d4ed8;">Kontakt</span>' : ''}
             <span class="contact-chip-title">${chip.title || '-'}</span>
             ${chip.subtitle ? `<span class="contact-chip-sub">${chip.subtitle}</span>` : ''}
           </button>`
@@ -667,11 +727,11 @@
       }
 
       function clearCustomerSelection(keepSearchValue) {
-        modalExxasCustomerId.value = '';
+        modalCoreCustomerId.value = '';
         selectedCustomerLabel = '';
         activeCustomer = null;
         if (!keepSearchValue) modalCustomerSearch.value = '';
-        modalSelectedCustomer.textContent = 'Keine Organisation ausgewählt.';
+        modalSelectedCustomer.textContent = 'Keine Firma / kein Kontakt ausgewählt.';
         clearContactSelectionUI();
       }
 
@@ -688,8 +748,8 @@
         modalCustomerName.value = '';
         modalCustomerEmail.value = '';
         modalCustomerContact.value = '';
-        customerCache = [];
-        renderSuggestions(modalSuggestions, []);
+        suggestionsState = { companies: [], contacts: [] };
+        renderSuggestions(modalSuggestions, suggestionsState);
         modalBackdrop.classList.add('open');
       };
 
@@ -707,36 +767,84 @@
           clearCustomerSelection(true);
         }
         if (q.length < 2) {
-          renderSuggestions(modalSuggestions, []);
+          suggestionsState = { companies: [], contacts: [] };
+          renderSuggestions(modalSuggestions, suggestionsState);
           return;
         }
         searchTimer = setTimeout(async () => {
           try {
-            const response = await fetch(`/admin/link-matterport/customer-search?q=${encodeURIComponent(q)}`);
-            const data = await response.json();
-            customerCache = Array.isArray(data.customers) ? data.customers : [];
-            renderSuggestions(modalSuggestions, customerCache);
+            const url = `${TM_ADMIN_PREFIX}/admin/link-matterport/customer-search?q=${encodeURIComponent(q)}`;
+            const response = await fetch(url, { credentials: 'same-origin' });
+            const data = await response.json().catch(() => ({}));
+            suggestionsState = {
+              companies: Array.isArray(data.companies) ? data.companies : [],
+              contacts: Array.isArray(data.contacts) ? data.contacts : [],
+            };
+            renderSuggestions(modalSuggestions, suggestionsState);
           } catch (e) {
-            renderSuggestions(modalSuggestions, []);
+            suggestionsState = { companies: [], contacts: [] };
+            renderSuggestions(modalSuggestions, suggestionsState);
           }
         }, 180);
       });
 
-      modalSuggestions?.addEventListener('click', (event) => {
+      modalSuggestions?.addEventListener('click', async (event) => {
         const btn = event.target.closest('.suggestion-btn');
         if (!btn) return;
-        const customer = customerCache[parseInt(btn.dataset.index, 10)];
-        if (!customer) return;
-        activeCustomer = customer;
-        modalExxasCustomerId.value = customer.id || '';
-        selectedCustomerLabel = customer.firmenname || customer.id || '';
-        modalCustomerSearch.value = selectedCustomerLabel;
-        modalSelectedCustomer.textContent = `Ausgewählt: ${customer.firmenname || customer.id}${customer.nummer ? ` (Nr. ${customer.nummer})` : ''}`;
-        modalCustomerName.value = customer.firmenname || modalCustomerName.value;
-        modalCustomerEmail.value = customer.email || modalCustomerEmail.value;
-        modalCustomerContact.value = '';
-        renderContactSuggestions(customer);
-        renderSuggestions(modalSuggestions, []);
+        const pick = btn.getAttribute('data-pick');
+        const idx = parseInt(btn.getAttribute('data-idx'), 10);
+        if (pick === 'company') {
+          const customer = suggestionsState.companies[idx];
+          if (!customer) return;
+          activeCustomer = customer;
+          modalCoreCustomerId.value = customer.id || '';
+          selectedCustomerLabel = customer.firmenname || customer.id || '';
+          modalCustomerSearch.value = selectedCustomerLabel;
+          modalSelectedCustomer.textContent = `Firma: ${customer.firmenname || customer.id}${customer.nummer ? ` (Ref. ${customer.nummer})` : ''}`;
+          modalCustomerName.value = customer.firmenname || modalCustomerName.value;
+          modalCustomerEmail.value = customer.email || modalCustomerEmail.value;
+          modalCustomerContact.value = '';
+          renderContactSuggestions(customer);
+          renderSuggestions(modalSuggestions, { companies: [], contacts: [] });
+          return;
+        }
+        if (pick === 'contact') {
+          const hit = suggestionsState.contacts[idx];
+          if (!hit) return;
+          modalCoreCustomerId.value = hit.customerId;
+          selectedCustomerLabel = `${hit.contactName || ''} · ${hit.firmenname || ''}`.trim() || hit.firmenname;
+          modalCustomerSearch.value = hit.contactName || hit.firmenname || '';
+          modalSelectedCustomer.textContent = `Kontakt: ${hit.contactName || '—'} · Firma: ${hit.firmenname || '—'}`;
+          modalCustomerName.value = hit.firmenname || modalCustomerName.value;
+          modalCustomerEmail.value = hit.contactEmail || hit.customerEmail || modalCustomerEmail.value;
+          modalCustomerContact.value = hit.contactName || '';
+          try {
+            const detailUrl = `${TM_ADMIN_PREFIX}/admin/link-matterport/customer-detail?customerId=${encodeURIComponent(hit.customerId)}`;
+            const dr = await fetch(detailUrl, { credentials: 'same-origin' });
+            const d = await dr.json().catch(() => ({}));
+            if (d.customer) {
+              activeCustomer = d.customer;
+              renderContactSuggestions(d.customer);
+            } else {
+              activeCustomer = {
+                id: hit.customerId,
+                firmenname: hit.firmenname,
+                email: hit.customerEmail,
+                contacts: [],
+              };
+              renderContactSuggestions(activeCustomer);
+            }
+          } catch (e) {
+            activeCustomer = {
+              id: hit.customerId,
+              firmenname: hit.firmenname,
+              email: hit.customerEmail,
+              contacts: [],
+            };
+            renderContactSuggestions(activeCustomer);
+          }
+          renderSuggestions(modalSuggestions, { companies: [], contacts: [] });
+        }
       });
 
       modalContactSuggestions?.addEventListener('click', (event) => {
@@ -756,7 +864,8 @@
         modalCustomerName.value = '';
         modalCustomerEmail.value = '';
         modalCustomerContact.value = '';
-        renderSuggestions(modalSuggestions, []);
+        suggestionsState = { companies: [], contacts: [] };
+        renderSuggestions(modalSuggestions, suggestionsState);
       });
 
       modalContactPickerToggle?.addEventListener('click', openContactPicker);
