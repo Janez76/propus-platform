@@ -633,12 +633,27 @@ router.get('/tours', requirePortalAuth, async (req, res) => {
   const email = req.session.portalCustomerEmail;
   const { tours, invoices } = await loadPortalData(email);
   const assigneeBundle = await portalTeam.getPortalTourAssigneeBundle(email, tours);
+
+  // Default-Assignee: für Touren ohne Zuweisung den eingeloggten User vorbelegen
+  const selfLabel = portalSidebarDisplayName(
+    req.session.portalCustomerGivenName,
+    req.session.portalCustomerFamilyName,
+    req.session.portalCustomerName,
+    email
+  ) || email;
+  for (const tour of tours) {
+    if (!assigneeBundle.assigneeByTourId[tour.id]) {
+      assigneeBundle.assigneeByTourId[tour.id] = { email, label: selfLabel };
+    }
+  }
+
   res.render('portal/tours', {
     ...(await portalBrandingForRequest(req, tours)),
     tours,
     invoices,
     assigneeBundle,
     email,
+    selfEmail: email,
     linked: req.query.linked === '1',
     error: req.query.error || null,
     success: req.query.success || null,

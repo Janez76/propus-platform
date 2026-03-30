@@ -12,8 +12,14 @@
     <div class="portal-body">
     <%- include('_header', { activePage: 'tours', email, isAdminView, organizationName, portalNav }) %>
     <main class="portal-main">
-      <h1>Touren</h1>
-      <p style="color:var(--text-muted);font-size:0.9rem;margin:0 0 1.25rem 0;">Ihre virtuellen Rundgänge mit Status, Ablaufdatum und Schnellaktionen.</p>
+      <!-- Begrüssung -->
+      <% const greetHour = new Date().getHours(); %>
+      <% const greetWord = greetHour < 12 ? 'Guten Morgen' : greetHour < 18 ? 'Guten Tag' : 'Guten Abend'; %>
+      <% const greetName = typeof welcomeFirstName !== 'undefined' && welcomeFirstName ? welcomeFirstName : (typeof portalNav !== 'undefined' ? portalNav.displayName : email); %>
+      <div style="margin-bottom:1.5rem;">
+        <h1 style="margin:0 0 0.2rem 0;"><%= greetWord %><% if (greetName) { %>, <%= greetName %><% } %> 👋</h1>
+        <p style="color:var(--text-muted);font-size:0.9rem;margin:0;">Hier sehen Sie alle Ihre virtuellen Rundgänge mit Status und Ablaufdatum.</p>
+      </div>
 
       <%
         const successMessages = {
@@ -104,13 +110,24 @@
                 <td><span class="badge badge-<%= tour.status %>"><%= statusLabels[tour.status] || tour.status %></span></td>
                 <td style="color:var(--text-muted);font-size:0.9rem;white-space:nowrap;"><%= termLabel %></td>
                 <td class="portal-tours-zustaendig-cell">
+                  <%
+                    const selfEm = typeof selfEmail !== 'undefined' ? selfEmail : email;
+                    // Prüfe ob selfEmail in den Kandidaten ist
+                    const selfInCands = assignCands.some(c => c.email && c.email.toLowerCase() === (selfEm||'').toLowerCase());
+                  %>
                   <% if (canAssign && assignCands.length) { %>
                   <form method="post" action="/portal/tours/<%= tour.id %>/assignee" class="portal-tours-assignee-form">
                     <input type="hidden" name="from" value="list">
                     <select name="assigneeEmail" id="assignee-<%= tour.id %>" class="portal-tours-assignee-select" aria-label="Zuständige Person für diese Tour" onchange="this.form.submit()">
                       <option value="">— Nicht zugewiesen —</option>
                       <% assignCands.forEach((c) => { %>
-                      <option value="<%= c.email %>" <%= assign && assign.email === c.email ? 'selected' : '' %>><%= c.label %></option>
+                      <%
+                        // Wenn kein Assignee explizit gesetzt, self-Email als Default vorwählen
+                        const isSelected = assign
+                          ? (assign.email && assign.email.toLowerCase() === c.email.toLowerCase())
+                          : (selfInCands && c.email.toLowerCase() === (selfEm||'').toLowerCase());
+                      %>
+                      <option value="<%= c.email %>" <%= isSelected ? 'selected' : '' %>><%= c.label %></option>
                       <% }) %>
                     </select>
                   </form>
