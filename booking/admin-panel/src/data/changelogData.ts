@@ -15,6 +15,83 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.316",
+    date: "2026-03-30",
+    title: "Deploy",
+    changes: [
+      {
+        type: "improvement",
+        text: "Versionsnummer fuer VPS-Deploy auf v2.3.316 erhoeht.",
+      },
+    ],
+  },
+  {
+    version: "2.3.314",
+    date: "2026-03-30",
+    title: "Deploy",
+    changes: [
+      {
+        type: "improvement",
+        text: "Versionsnummer fuer VPS-Deploy auf v2.3.314 erhoeht.",
+      },
+    ],
+  },
+  {
+    version: "2.3.313",
+    date: "2026-03-30",
+    title: "Deploy",
+    changes: [
+      {
+        type: "improvement",
+        text: "Versionsnummer fuer VPS-Deploy auf v2.3.313 erhoeht.",
+      },
+    ],
+  },
+  {
+    version: "2.3.310",
+    date: "2026-03-30",
+    title: "Deploy",
+    changes: [
+      {
+        type: "improvement",
+        text: "Versionsnummer fuer VPS-Deploy auf v2.3.310 erhoeht.",
+      },
+    ],
+  },
+  {
+    version: "2.3.308",
+    date: "2026-03-30",
+    title: "Deploy",
+    changes: [
+      {
+        type: "improvement",
+        text: "Versionsnummer fuer VPS-Deploy auf v2.3.308 erhoeht.",
+      },
+    ],
+  },
+  {
+    version: "2.3.306",
+    date: "2026-03-30",
+    title: "Deploy",
+    changes: [
+      {
+        type: "improvement",
+        text: "Versionsnummer fuer VPS-Deploy auf v2.3.306 erhoeht.",
+      },
+    ],
+  },
+  {
+    version: "2.3.305",
+    date: "2026-03-30",
+    title: "Deploy",
+    changes: [
+      {
+        type: "improvement",
+        text: "Versionsnummer fuer VPS-Deploy auf v2.3.305 erhoeht.",
+      },
+    ],
+  },
+  {
     version: "2.3.304",
     date: "2026-03-30",
     title: "Deploy",

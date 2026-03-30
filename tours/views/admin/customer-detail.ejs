@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title><%= (customer.name||'').trim() || (customer.company||'').trim() || customer.email %> – Propus Tour Manager</title>
+  <title><%= (customer.company||'').trim() || (customer.name||'').trim() || customer.email %> – Propus Tour Manager</title>
   <%- include('_admin-styles') %>
   <style>
     .contact-card { display:flex; align-items:center; gap:0.75rem; padding:0.65rem 0.75rem; background:var(--bg); border:1px solid var(--border); border-radius:8px; }
@@ -25,6 +25,7 @@
     .prb-mitarbeiter{ background:rgba(99,102,241,.12); color:#a5b4fc; }
     .prb-none       { background:rgba(0,0,0,.05); color:var(--text-muted); }
     .portal-role-save { padding:0.28rem 0.6rem; font-size:0.73rem; }
+    .customer-subsection { margin:1rem 0 0.55rem 0; font-size:0.76rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--text-muted); }
   </style>
 </head>
 <body>
@@ -33,11 +34,23 @@
     <main class="admin-main">
 
       <% const bp = typeof basePath === 'string' ? basePath : ''; %>
+      <% function displayCustomerLabel(c) {
+           return String((c.company || '').trim() || (c.name || '').trim() || c.email || '').trim();
+         }
+         function parseZipcity(zipcity) {
+           const raw = String(zipcity || '').trim();
+           const m = raw.match(/^(\d{4,5})\s+(.+)$/);
+           return m ? { zip: m[1], city: m[2] } : { zip: '', city: raw };
+         }
+         const parsedZipcity = parseZipcity(customer.zipcity);
+         const formZip = String(customer.zip || parsedZipcity.zip || '').trim();
+         const formCity = String(customer.city || parsedZipcity.city || '').trim();
+      %>
       <!-- Breadcrumb -->
       <div style="font-size:0.82rem;color:var(--text-muted);margin-bottom:1rem;">
         <a href="<%= bp %>/admin/customers" style="color:var(--link);text-decoration:none;">Kunden</a>
         <span style="margin:0 0.4rem;">›</span>
-        <span><%= (customer.name||'').trim() || (customer.company||'').trim() || customer.email %></span>
+        <span><%= displayCustomerLabel(customer) %></span>
       </div>
 
       <% if (flash) { %>
@@ -58,20 +71,43 @@
           <div class="section">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
               <h2 style="margin:0;font-size:1rem;">Kundendaten</h2>
-              <% if (customer.exxas_contact_id) { %>
-                <span class="badge" style="background:rgba(251,191,36,0.15);color:#fbbf24;font-size:0.78rem;">
-                  <i class="fa-solid fa-link"></i> Exxas #<%= customer.exxas_contact_id %>
-                </span>
-              <% } %>
+              <div style="display:flex;gap:0.45rem;flex-wrap:wrap;justify-content:flex-end;">
+                <% if (customer.exxas_contact_id) { %>
+                  <span class="badge" style="background:rgba(251,191,36,0.15);color:#fbbf24;font-size:0.78rem;">
+                    <i class="fa-solid fa-link"></i> Kontakt-ID <%= customer.exxas_contact_id %>
+                  </span>
+                <% } %>
+                <% if (customer.exxas_customer_id) { %>
+                  <span class="badge" style="background:rgba(59,130,246,0.15);color:#60a5fa;font-size:0.78rem;">
+                    <i class="fa-solid fa-building"></i> Kunden-ID <%= customer.exxas_customer_id %>
+                  </span>
+                <% } %>
+              </div>
             </div>
 
             <form method="POST" action="<%= bp %>/admin/customers/<%= customer.id %>">
+              <div class="customer-subsection">Firma & Kontakt</div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.85rem;">
+                <div class="form-group">
+                  <label class="form-label">Anrede</label>
+                  <select name="salutation" class="form-input">
+                    <option value="" <%= !customer.salutation ? 'selected' : '' %>>—</option>
+                    <option value="Firma" <%= customer.salutation === 'Firma' ? 'selected' : '' %>>Firma</option>
+                    <option value="Herr" <%= customer.salutation === 'Herr' ? 'selected' : '' %>>Herr</option>
+                    <option value="Frau" <%= customer.salutation === 'Frau' ? 'selected' : '' %>>Frau</option>
+                  </select>
+                </div>
 
                 <div class="form-group">
-                  <label class="form-label">Name *</label>
-                  <input type="text" name="name" value="<%= customer.name || '' %>"
-                    class="form-input" required placeholder="Vor- und Nachname oder Firmenname">
+                  <label class="form-label">Vorname</label>
+                  <input type="text" name="first_name" value="<%= customer.first_name || '' %>"
+                    class="form-input" placeholder="Optional">
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Firma / Kunde *</label>
+                  <input type="text" name="company" value="<%= customer.company || customer.name || '' %>"
+                    class="form-input" required placeholder="Firmenname">
                 </div>
 
                 <div class="form-group">
@@ -81,27 +117,96 @@
                 </div>
 
                 <div class="form-group">
-                  <label class="form-label">Firma</label>
-                  <input type="text" name="company" value="<%= customer.company || '' %>"
-                    class="form-input" placeholder="Firmenname">
-                </div>
-
-                <div class="form-group">
                   <label class="form-label">Telefon</label>
                   <input type="text" name="phone" value="<%= customer.phone || '' %>"
                     class="form-input" placeholder="+41 44 …">
                 </div>
 
                 <div class="form-group">
+                  <label class="form-label">Telefon 2</label>
+                  <input type="text" name="phone_2" value="<%= customer.phone_2 || '' %>"
+                    class="form-input" placeholder="+41 44 …">
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Mobil</label>
+                  <input type="text" name="phone_mobile" value="<%= customer.phone_mobile || '' %>"
+                    class="form-input" placeholder="+41 79 …">
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Fax</label>
+                  <input type="text" name="phone_fax" value="<%= customer.phone_fax || '' %>"
+                    class="form-input" placeholder="+41 44 …">
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Ansprechperson</label>
+                  <input type="text" name="onsite_name" value="<%= customer.onsite_name || '' %>"
+                    class="form-input" placeholder="Max Muster">
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Telefon Ansprechpartner</label>
+                  <input type="text" name="onsite_phone" value="<%= customer.onsite_phone || '' %>"
+                    class="form-input" placeholder="+41 44 …">
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Website</label>
+                  <input type="url" name="website" value="<%= customer.website || '' %>"
+                    class="form-input" placeholder="https://example.ch">
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Land</label>
+                  <input type="text" name="country" value="<%= customer.country || 'Schweiz' %>"
+                    class="form-input" placeholder="Schweiz">
+                </div>
+              </div>
+
+              <div class="customer-subsection">Adresse</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.85rem;">
+                <div class="form-group" style="grid-column:1/-1;">
                   <label class="form-label">Strasse</label>
                   <input type="text" name="street" value="<%= customer.street || '' %>"
                     class="form-input" placeholder="Musterstrasse 1">
                 </div>
 
                 <div class="form-group">
-                  <label class="form-label">PLZ / Ort</label>
-                  <input type="text" name="zipcity" value="<%= customer.zipcity || '' %>"
-                    class="form-input" placeholder="8001 Zürich">
+                  <label class="form-label">Adresszusatz</label>
+                  <input type="text" name="address_addon_1" value="<%= customer.address_addon_1 || '' %>"
+                    class="form-input" placeholder="c/o, 2. Stock, Empfang …">
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Adresszusatz 2</label>
+                  <input type="text" name="address_addon_2" value="<%= customer.address_addon_2 || '' %>"
+                    class="form-input" placeholder="Weitere Ergänzung">
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Adresszusatz 3</label>
+                  <input type="text" name="address_addon_3" value="<%= customer.address_addon_3 || '' %>"
+                    class="form-input" placeholder="Weitere Ergänzung">
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Postfach</label>
+                  <input type="text" name="po_box" value="<%= customer.po_box || '' %>"
+                    class="form-input" placeholder="Postfach">
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">PLZ</label>
+                  <input type="text" name="zip" value="<%= formZip %>"
+                    class="form-input" placeholder="8001">
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Ort</label>
+                  <input type="text" name="city" value="<%= formCity %>"
+                    class="form-input" placeholder="Zürich">
                 </div>
 
                 <div class="form-group" style="grid-column:1/-1;">
@@ -109,14 +214,29 @@
                   <textarea name="notes" rows="3" class="form-input"
                     placeholder="Interne Notizen zum Kunden…"><%= customer.notes || '' %></textarea>
                 </div>
+              </div>
 
+              <div class="customer-subsection">EXXAS & Status</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.85rem;">
                 <div class="form-group">
-                  <label class="form-label">Exxas Kontakt-ID</label>
+                  <label class="form-label">EXXAS Kontakt-ID</label>
                   <input type="text" name="exxas_contact_id" value="<%= customer.exxas_contact_id || '' %>"
-                    class="form-input" placeholder="Exxas ID (optional)">
+                    class="form-input" placeholder="Exxas Kontakt-ID">
                 </div>
 
-                <div class="form-group" style="display:flex;align-items:center;gap:0.6rem;padding-top:1.5rem;">
+                <div class="form-group">
+                  <label class="form-label">EXXAS Kunden-ID</label>
+                  <input type="text" name="exxas_customer_id" value="<%= customer.exxas_customer_id || '' %>"
+                    class="form-input" placeholder="EXXAS Kunden-ID">
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">EXXAS Adress-ID</label>
+                  <input type="text" name="exxas_address_id" value="<%= customer.exxas_address_id || '' %>"
+                    class="form-input" placeholder="EXXAS Adress-ID">
+                </div>
+
+                <div class="form-group" style="display:flex;align-items:center;gap:0.6rem;padding-top:1.9rem;">
                   <input type="checkbox" name="blocked" id="blocked" value="1"
                     <%= customer.blocked ? 'checked' : '' %>
                     style="width:16px;height:16px;accent-color:#ef4444;">
@@ -124,7 +244,6 @@
                     Konto gesperrt
                   </label>
                 </div>
-
               </div>
 
               <div style="display:flex;gap:0.6rem;margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--border);">
@@ -153,20 +272,41 @@
               <form method="POST" action="<%= bp %>/admin/customers/<%= customer.id %>/contacts">
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;">
                   <div class="form-group">
-                    <label class="form-label">Name *</label>
-                    <input type="text" name="name" class="form-input" placeholder="Max Muster" required>
+                    <label class="form-label">Anrede</label>
+                    <select name="salutation" class="form-input">
+                      <option value="">—</option>
+                      <option value="Herr">Herr</option>
+                      <option value="Frau">Frau</option>
+                      <option value="Firma">Firma</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Vorname</label>
+                    <input type="text" name="first_name" class="form-input" placeholder="Max">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Nachname *</label>
+                    <input type="text" name="last_name" class="form-input" placeholder="Muster" required>
                   </div>
                   <div class="form-group">
                     <label class="form-label">Rolle / Position</label>
                     <input type="text" name="role" class="form-input" placeholder="Geschäftsführer, IT, …">
                   </div>
                   <div class="form-group">
-                    <label class="form-label">E-Mail</label>
-                    <input type="email" name="email" class="form-input">
+                    <label class="form-label">Abteilung</label>
+                    <input type="text" name="department" class="form-input" placeholder="Verkauf, Marketing, IT …">
                   </div>
                   <div class="form-group">
-                    <label class="form-label">Telefon</label>
-                    <input type="text" name="phone" class="form-input" placeholder="+41 …">
+                    <label class="form-label">Direkt-Telefon</label>
+                    <input type="text" name="phone_direct" class="form-input" placeholder="+41 …">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Mobil</label>
+                    <input type="text" name="phone_mobile" class="form-input" placeholder="+41 …">
+                  </div>
+                  <div class="form-group" style="grid-column:1/-1;">
+                    <label class="form-label">E-Mail</label>
+                    <input type="email" name="email" class="form-input" placeholder="max@firma.ch">
                   </div>
                 </div>
                 <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
@@ -191,20 +331,23 @@
             <% } else { %>
               <div style="display:flex;flex-direction:column;gap:0.5rem;">
                 <% contacts.forEach(ct => {
+                   const ctDisplayName = [ct.first_name, ct.last_name].filter(Boolean).join(' ').trim() || ct.name;
                    const ctEmail = (ct.email || '').trim().toLowerCase();
                    const pr = ctEmail ? portalRoles[ctEmail] : null;
                    const currentRole = pr ? pr.role : '';
                 %> 
                   <div class="contact-card">
                     <div class="contact-avatar">
-                      <%= (ct.name || '?').charAt(0).toUpperCase() %>
+                      <%= (ctDisplayName || '?').charAt(0).toUpperCase() %>
                     </div>
                     <div class="contact-info">
-                      <div class="contact-name"><%= ct.name %></div>
+                      <div class="contact-name"><%= ctDisplayName %></div>
                       <div class="contact-meta">
                         <% if (ct.role) { %><span><%= ct.role %></span><% } %>
-                        <% if (ct.email) { %><% if (ct.role) { %> · <% } %><a href="mailto:<%= ct.email %>" style="color:var(--link);"><%= ct.email %></a><% } %>
+                        <% if (ct.department) { %><% if (ct.role) { %> · <% } %><span><%= ct.department %></span><% } %>
+                        <% if (ct.email) { %><% if (ct.role || ct.department) { %> · <% } %><a href="mailto:<%= ct.email %>" style="color:var(--link);"><%= ct.email %></a><% } %>
                         <% if (ct.phone) { %> · <%= ct.phone %><% } %>
+                        <% if (ct.phone_mobile) { %> · Mobile: <%= ct.phone_mobile %><% } %>
                       </div>
                       <% if (ctEmail) { %>
                         <div style="margin-top:0.35rem;">
@@ -284,10 +427,30 @@
           <div class="section" style="margin-top:0.75rem;">
             <h2 style="margin:0 0 0.75rem 0;font-size:0.95rem;">Info</h2>
             <div style="font-size:0.82rem;display:flex;flex-direction:column;gap:0.4rem;">
+              <div style="display:flex;justify-content:space-between;gap:0.8rem;">
+                <span style="color:var(--text-muted);">Firma</span>
+                <span style="text-align:right;"><%= customer.company || customer.name || '–' %></span>
+              </div>
               <div style="display:flex;justify-content:space-between;">
                 <span style="color:var(--text-muted);">Kunden-ID</span>
                 <span style="font-family:monospace;">#<%= customer.id %></span>
               </div>
+              <div style="display:flex;justify-content:space-between;gap:0.8rem;">
+                <span style="color:var(--text-muted);">Login E-Mail</span>
+                <span style="text-align:right;"><%= customer.email || '–' %></span>
+              </div>
+              <% if (customer.phone || customer.phone_mobile) { %>
+                <div style="display:flex;justify-content:space-between;gap:0.8rem;">
+                  <span style="color:var(--text-muted);">Telefon</span>
+                  <span style="text-align:right;"><%= customer.phone || customer.phone_mobile %></span>
+                </div>
+              <% } %>
+              <% if (customer.website) { %>
+                <div style="display:flex;justify-content:space-between;gap:0.8rem;">
+                  <span style="color:var(--text-muted);">Website</span>
+                  <span style="text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><%= customer.website %></span>
+                </div>
+              <% } %>
               <div style="display:flex;justify-content:space-between;">
                 <span style="color:var(--text-muted);">Erstellt</span>
                 <span><%= customer.created_at ? new Date(customer.created_at).toLocaleDateString('de-CH') : '–' %></span>
@@ -302,10 +465,28 @@
                   <%= customer.blocked ? '⛔ Gesperrt' : '✓ Aktiv' %>
                 </span>
               </div>
+              <% if (customer.country) { %>
+                <div style="display:flex;justify-content:space-between;gap:0.8rem;">
+                  <span style="color:var(--text-muted);">Land</span>
+                  <span style="text-align:right;"><%= customer.country %></span>
+                </div>
+              <% } %>
               <% if (customer.exxas_contact_id) { %>
                 <div style="display:flex;justify-content:space-between;">
-                  <span style="color:var(--text-muted);">Exxas ID</span>
+                  <span style="color:var(--text-muted);">EXXAS Kontakt-ID</span>
                   <span style="font-family:monospace;font-size:0.78rem;"><%= customer.exxas_contact_id %></span>
+                </div>
+              <% } %>
+              <% if (customer.exxas_customer_id) { %>
+                <div style="display:flex;justify-content:space-between;">
+                  <span style="color:var(--text-muted);">EXXAS Kunden-ID</span>
+                  <span style="font-family:monospace;font-size:0.78rem;"><%= customer.exxas_customer_id %></span>
+                </div>
+              <% } %>
+              <% if (customer.exxas_address_id) { %>
+                <div style="display:flex;justify-content:space-between;">
+                  <span style="color:var(--text-muted);">EXXAS Adress-ID</span>
+                  <span style="font-family:monospace;font-size:0.78rem;"><%= customer.exxas_address_id %></span>
                 </div>
               <% } %>
             </div>

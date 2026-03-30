@@ -4364,18 +4364,36 @@ router.post('/customers/:id', async (req, res) => {
   const id = parseInt(req.params.id);
   if (!id) return res.status(400).send('Ungültige ID');
 
-  const name             = String(req.body.name             || '').trim();
-  const email            = String(req.body.email            || '').trim().toLowerCase();
-  const company          = String(req.body.company          || '').trim() || null;
-  const phone            = String(req.body.phone            || '').trim() || null;
-  const street           = String(req.body.street           || '').trim() || null;
-  const zipcity          = String(req.body.zipcity          || '').trim() || null;
-  const notes            = String(req.body.notes            || '').trim() || null;
+  const company = String(req.body.company || '').trim();
+  const nameInput = String(req.body.name || '').trim();
+  const name = nameInput || company || null;
+  const email = String(req.body.email || '').trim().toLowerCase();
+  const salutation = String(req.body.salutation || '').trim() || null;
+  const first_name = String(req.body.first_name || '').trim() || null;
+  const phone = String(req.body.phone || '').trim() || null;
+  const phone_2 = String(req.body.phone_2 || '').trim() || null;
+  const phone_mobile = String(req.body.phone_mobile || '').trim() || null;
+  const phone_fax = String(req.body.phone_fax || '').trim() || null;
+  const onsite_name = String(req.body.onsite_name || '').trim() || null;
+  const onsite_phone = String(req.body.onsite_phone || '').trim() || null;
+  const website = String(req.body.website || '').trim() || null;
+  const street = String(req.body.street || '').trim() || null;
+  const address_addon_1 = String(req.body.address_addon_1 || '').trim() || null;
+  const address_addon_2 = String(req.body.address_addon_2 || '').trim() || null;
+  const address_addon_3 = String(req.body.address_addon_3 || '').trim() || null;
+  const po_box = String(req.body.po_box || '').trim() || null;
+  const zip = String(req.body.zip || '').trim() || null;
+  const city = String(req.body.city || '').trim() || null;
+  const zipcity = ((zip || city) ? [zip, city].filter(Boolean).join(' ').trim() : String(req.body.zipcity || '').trim()) || null;
+  const country = String(req.body.country || '').trim() || 'Schweiz';
+  const notes = String(req.body.notes || '').trim() || null;
   const exxas_contact_id = String(req.body.exxas_contact_id || '').trim() || null;
-  const blocked          = req.body.blocked === '1';
+  const exxas_customer_id = String(req.body.exxas_customer_id || '').trim() || null;
+  const exxas_address_id = String(req.body.exxas_address_id || '').trim() || null;
+  const blocked = req.body.blocked === '1';
 
-  if (!name || !email) {
-    return res.redirect(`/admin/customers/${id}?error=` + encodeURIComponent('Name und E-Mail sind Pflichtfelder.'));
+  if (!company || !email) {
+    return res.redirect(`/admin/customers/${id}?error=` + encodeURIComponent('Firma/Kunde und E-Mail sind Pflichtfelder.'));
   }
 
   try {
@@ -4389,9 +4407,18 @@ router.post('/customers/:id', async (req, res) => {
     await pool.query(
       `UPDATE core.customers
        SET name=$1, email=$2, company=$3, phone=$4, street=$5, zipcity=$6,
-           notes=$7, exxas_contact_id=$8, blocked=$9, updated_at=NOW()
-       WHERE id=$10`,
-      [name, email, company, phone, street, zipcity, notes, exxas_contact_id, blocked, id]
+           notes=$7, exxas_contact_id=$8, blocked=$9, salutation=$10, first_name=$11,
+           onsite_name=$12, onsite_phone=$13, address_addon_1=$14, address_addon_2=$15,
+           address_addon_3=$16, po_box=$17, zip=$18, city=$19, country=$20, phone_2=$21,
+           phone_mobile=$22, phone_fax=$23, website=$24, exxas_customer_id=$25,
+           exxas_address_id=$26, updated_at=NOW()
+       WHERE id=$27`,
+      [
+        name, email, company, phone, street, zipcity, notes, exxas_contact_id, blocked,
+        salutation, first_name, onsite_name, onsite_phone, address_addon_1, address_addon_2,
+        address_addon_3, po_box, zip, city, country, phone_2, phone_mobile, phone_fax, website,
+        exxas_customer_id, exxas_address_id, id,
+      ]
     );
     res.redirect(`/admin/customers/${id}?flash=` + encodeURIComponent('Änderungen gespeichert.'));
   } catch (err) {
@@ -4417,10 +4444,16 @@ router.post('/customers/:id/contacts', async (req, res) => {
   const customerId = parseInt(req.params.id);
   if (!customerId) return res.status(400).send('Ungültige ID');
 
-  const name  = String(req.body.name  || '').trim();
-  const role  = String(req.body.role  || '').trim() || null;
+  const salutation = String(req.body.salutation || '').trim() || null;
+  const first_name = String(req.body.first_name || '').trim() || null;
+  const last_name = String(req.body.last_name || '').trim();
+  const fallbackName = String(req.body.name || '').trim();
+  const name = [first_name, last_name].filter(Boolean).join(' ').trim() || fallbackName;
+  const role = String(req.body.role || '').trim() || null;
+  const department = String(req.body.department || '').trim() || null;
   const email = String(req.body.email || '').trim().toLowerCase() || null;
-  const phone = String(req.body.phone || '').trim() || null;
+  const phone = String(req.body.phone || req.body.phone_direct || '').trim() || null;
+  const phone_mobile = String(req.body.phone_mobile || '').trim() || null;
 
   if (!name) {
     return res.redirect(`/admin/customers/${customerId}?error=` + encodeURIComponent('Name ist ein Pflichtfeld.'));
@@ -4428,9 +4461,12 @@ router.post('/customers/:id/contacts', async (req, res) => {
 
   try {
     await pool.query(
-      `INSERT INTO core.customer_contacts (customer_id, name, role, email, phone, created_at)
-       VALUES ($1,$2,$3,$4,$5,NOW())`,
-      [customerId, name, role, email, phone]
+      `INSERT INTO core.customer_contacts (
+         customer_id, name, role, email, phone, created_at,
+         salutation, first_name, last_name, phone_mobile, department
+       )
+       VALUES ($1,$2,$3,$4,$5,NOW(),$6,$7,$8,$9,$10)`,
+      [customerId, name, role, email, phone, salutation, first_name, last_name || null, phone_mobile, department]
     );
     res.redirect(`/admin/customers/${customerId}?flash=` + encodeURIComponent('Kontaktperson hinzugefügt.'));
   } catch (err) {
