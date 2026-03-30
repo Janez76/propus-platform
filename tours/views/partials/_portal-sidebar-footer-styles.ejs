@@ -37,7 +37,7 @@
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 255, 255, 0.07);
     border-radius: 10px;
-    border-left: 2px solid rgba(196, 163, 90, 0.45);
+    border-left: 2px solid color-mix(in srgb, var(--accent, #d4b860) 50%, transparent);
   }
   .portal-user-initials {
     flex-shrink: 0;
@@ -90,7 +90,7 @@
     border-radius: 12px;
   }
   button.portal-user-card-trigger:focus-visible {
-    outline: 2px solid rgba(196, 163, 90, 0.75);
+    outline: 2px solid color-mix(in srgb, var(--accent, #d4b860) 75%, transparent);
     outline-offset: 2px;
   }
   button.portal-user-card-trigger:hover .portal-user-card-inner {
@@ -276,8 +276,8 @@
   .profile-edit-input:focus,
   .profile-edit-textarea:focus {
     outline: none;
-    border-color: var(--gold-400, #c4a35a);
-    box-shadow: 0 0 0 3px var(--accent-soft, rgba(176, 140, 62, 0.15));
+    border-color: var(--accent, #B68E20);
+    box-shadow: 0 0 0 3px var(--accent-soft, color-mix(in srgb, #B68E20 15%, transparent));
   }
   .profile-edit-input--readonly {
     background: var(--gray-100, #f3f2ef);
@@ -435,13 +435,13 @@
     border-color: var(--gray-300, #d4d1cb);
   }
   .profile-edit-btn--primary {
-    background: var(--gold-400, #c4a35a);
-    color: var(--gray-900, #141311);
-    border: 1px solid var(--gold-400, #c4a35a);
+    background: var(--accent, #B68E20);
+    color: #fff;
+    border: 1px solid var(--accent, #B68E20);
   }
   .profile-edit-btn--primary:hover {
-    background: var(--gold-300, #dbbf7c);
-    border-color: var(--gold-300, #dbbf7c);
+    background: var(--accent-hover, #9a7619);
+    border-color: var(--accent-hover, #9a7619);
   }
   .profile-edit-btn--primary:disabled {
     opacity: 0.55;
