@@ -242,14 +242,20 @@
         <div class="section" style="padding:0;">
           <!-- Gruppenweise nach Workspace -->
           <%
-            // Gruppieren nach owner_email
+            // Gruppieren nach customer_id (bevorzugt) oder owner_email als Fallback
             const grouped = {};
+            const groupOrder = [];
             (externRows||[]).forEach(r => {
-              const k = r.owner_email;
-              if (!grouped[k]) grouped[k] = { customer_name: r.customer_name, customer_id: r.customer_id, members: [] };
+              const k = r.customer_id ? `cid:${r.customer_id}` : `email:${r.owner_email}`;
+              if (!grouped[k]) {
+                grouped[k] = { customer_name: r.customer_name, customer_id: r.customer_id, owner_email: r.owner_email, members: [] };
+                groupOrder.push(k);
+              } else if (!grouped[k].customer_name && r.customer_name) {
+                grouped[k].customer_name = r.customer_name;
+              }
               grouped[k].members.push(r);
             });
-            const groupKeys = Object.keys(grouped);
+            const groupKeys = groupOrder;
           %>
 
           <% if (groupKeys.length === 0) { %>
@@ -258,8 +264,8 @@
               Noch keine externen Kunden-Admins gesetzt.
             </div>
           <% } else { %>
-            <% groupKeys.forEach(ownerEmail => {
-                const g = grouped[ownerEmail];
+            <% groupKeys.forEach(groupKey => {
+                const g = grouped[groupKey];
             %>
               <div class="pr-group-header">
                 <% if (g.customer_id) { %>
@@ -293,7 +299,7 @@
                   <% if (m.role !== 'inhaber') { %>
                     <form method="post" action="<%= bp %>/admin/portal-roles/extern-remove" style="margin:0;"
                           onsubmit="return confirm('Admin-Rolle entfernen und auf Mitarbeiter zurückstufen?');">
-                      <input type="hidden" name="owner_email"  value="<%= ownerEmail %>">
+                      <input type="hidden" name="owner_email"  value="<%= m.owner_email %>">
                       <input type="hidden" name="member_email" value="<%= m.member_email %>">
                       <button type="submit" class="btn btn-soft-danger btn-small">
                         <i class="fa-solid fa-arrow-down"></i> Zurückstufen
