@@ -1739,8 +1739,53 @@ router.get('/portal-roles/extern-contacts', async (req, res) => {
   const ownerEmail = String(req.query.owner_email || '').trim().toLowerCase();
   const customerId = Number.parseInt(String(req.query.customer_id || ''), 10);
   if (!ownerEmail && !Number.isInteger(customerId)) return res.json({ contacts: [] });
+
+  /** Hilfsfunktion: dedupliziert nach E-Mail; bereits gesehene überspringen */
+  function mergeContacts(base, additions) {
+    const seen = new Set(base.map(c => c.email));
+    for (const c of additions) {
+      if (c.email && !seen.has(c.email)) {
+        seen.add(c.email);
+        base.push(c);
+      }
+    }
+    return base;
+  }
+
+  /** Lädt aktive portal_team_members für einen Workspace */
+  async function loadPortalMembers(ownerEmailNorm) {
+    if (!ownerEmailNorm) return [];
+    try {
+      const pm = await pool.query(
+        `SELECT
+           LOWER(TRIM(member_email)) AS email,
+           COALESCE(NULLIF(TRIM(display_name),''), LOWER(TRIM(member_email))) AS name,
+           CASE role
+             WHEN 'admin'   THEN 'Kunden-Admin'
+             WHEN 'inhaber' THEN 'Inhaber'
+             ELSE 'Mitarbeiter'
+           END AS position
+         FROM tour_manager.portal_team_members
+         WHERE LOWER(TRIM(owner_email)) = $1
+           AND status = 'active'
+           AND member_email IS NOT NULL AND TRIM(member_email) <> ''
+         ORDER BY member_email`,
+        [ownerEmailNorm]
+      );
+      return pm.rows
+        .map(row => ({
+          email: String(row.email || '').trim().toLowerCase(),
+          name: String(row.name || '').trim(),
+          position: String(row.position || '').trim(),
+        }))
+        .filter(c => c.email);
+    } catch (_) {
+      return [];
+    }
+  }
+
   try {
-    // 1. Suche customer: zuerst per ID, dann per E-Mail, dann per Firmenname-Ähnlichkeit
+    // 1. Suche customer: zuerst per ID, dann per E-Mail
     let customer = null;
     if (Number.isInteger(customerId)) {
       const r = await pool.query(
@@ -1757,19 +1802,19 @@ router.get('/portal-roles/extern-contacts', async (req, res) => {
       customer = r.rows[0] || null;
     }
 
-    // 2. Wenn kein core.customers-Eintrag gefunden: owner_email trotzdem als Kontakt zurückgeben
+    // 2. Kein core.customers-Eintrag: owner_email + Portal-Mitglieder zurückgeben
     if (!customer) {
       if (!ownerEmail) return res.json({ contacts: [] });
-      return res.json({
-        contacts: [{
-          email: ownerEmail,
-          name: ownerEmail,
-          position: 'Workspace-Inhaber',
-        }],
-      });
+      const base = [{
+        email: ownerEmail,
+        name: ownerEmail,
+        position: 'Workspace-Inhaber',
+      }];
+      const portalMembers = await loadPortalMembers(ownerEmail);
+      return res.json({ contacts: mergeContacts(base, portalMembers) });
     }
 
-    // 3. Kontakte der Firma laden
+    // 3. Ansprechpartner aus core.customer_contacts laden
     const r = await pool.query(
       `SELECT cc.id, cc.name, cc.email, cc.role AS position
        FROM core.customer_contacts cc
@@ -1784,7 +1829,7 @@ router.get('/portal-roles/extern-contacts', async (req, res) => {
       position: String(row.position || '').trim(),
     })).filter(c => c.email);
 
-    // 4. Workspace-Inhaber (owner_email) an erster Stelle hinzufügen wenn noch nicht vorhanden
+    // 4. Workspace-Inhaber (owner_email) an erster Stelle
     const ownerEmailNorm = String(ownerEmail || customer.email || '').trim().toLowerCase();
     const ownerName = String(customer.name || customer.company || '').trim();
     if (ownerEmailNorm && !contacts.some((c) => c.email === ownerEmailNorm)) {
@@ -1794,7 +1839,8 @@ router.get('/portal-roles/extern-contacts', async (req, res) => {
         position: customer.company ? 'Hauptkontakt' : 'Workspace-Inhaber',
       });
     }
-    // 5. Kunden-E-Mail aus core.customers ebenfalls anbieten wenn abweichend
+
+    // 5. Kunden-E-Mail aus core.customers anbieten wenn abweichend von owner_email
     const customerEmailNorm = String(customer.email || '').trim().toLowerCase();
     if (customerEmailNorm && customerEmailNorm !== ownerEmailNorm && !contacts.some((c) => c.email === customerEmailNorm)) {
       contacts.push({
@@ -1803,6 +1849,11 @@ router.get('/portal-roles/extern-contacts', async (req, res) => {
         position: 'Hauptkontakt',
       });
     }
+
+    // 6. Aktive Portal-Team-Mitglieder ergänzen (dedupliziert)
+    const portalMembers = await loadPortalMembers(ownerEmailNorm || ownerEmail);
+    mergeContacts(contacts, portalMembers);
+
     res.json({ contacts });
   } catch (err) {
     res.status(500).json({ error: err.message });
