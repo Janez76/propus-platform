@@ -147,10 +147,11 @@ export function OrderCreate({ token, onDone, onClose }: Props) {
 
         {error ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}
         <div className="mt-4 flex gap-2">
-          <button type="submit" className={uiMode === "modern" ? "btn-primary" : "rounded bg-[#9E8649] px-3 py-1 text-sm font-semibold text-white"}>{t(language, "common.save")}</button>
+          <button type="submit" className={uiMode === "modern" ? "btn-primary" : "rounded bg-[var(--accent)] px-3 py-1 text-sm font-semibold text-white"}>{t(language, "common.save")}</button>
           <button type="button" className={uiMode === "modern" ? "btn-secondary" : "rounded border px-3 py-1 text-sm"} onClick={onClose}>{t(language, "common.cancel")}</button>
         </div>
       </form>
     </div>
   );
 }
+

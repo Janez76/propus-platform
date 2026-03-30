@@ -15,6 +15,36 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.326",
+    date: "2026-03-30",
+    title: "Gesamt-Design-Vereinheitlichung",
+    changes: [
+      {
+        type: "improvement",
+        text: "Alle Seiten und Komponenten beider Frontends auf einheitliche Design-Tokens umgestellt – keine hardcodierten Farben mehr.",
+      },
+      {
+        type: "improvement",
+        text: "Dark-Mode / Light-Mode / Auto vollständig über CSS-Variablen (var(--accent), var(--surface), var(--text-main) usw.) gesteuert – FOUC-Fix in index.html.",
+      },
+      {
+        type: "improvement",
+        text: "Neue cust-* Utility-Klassen (Status-Badges, Alert-Boxes, Form-Felder, Tabellen) in index.css beider Frontends verankert.",
+      },
+    ],
+  },
+  {
+    version: "2.3.325",
+    date: "2026-03-30",
+    title: "Deploy",
+    changes: [
+      {
+        type: "improvement",
+        text: "Versionsnummer fuer VPS-Deploy auf v2.3.325 erhoeht.",
+      },
+    ],
+  },
+  {
     version: "2.3.324",
     date: "2026-03-30",
     title: "Deploy",

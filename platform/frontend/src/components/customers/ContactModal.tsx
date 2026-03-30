@@ -282,7 +282,7 @@ export function ContactModal({ token, item, onSave, onToggleAdmin, onToggleBlock
               ? "bg-red-600 text-white hover:bg-red-700"
               : saveState === "saved" && !isDirty
               ? "bg-emerald-600/20 text-emerald-700 dark:text-emerald-400 cursor-default"
-              : "bg-[#C5A059] text-white hover:bg-[#B39049]")
+              : "bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]")
           : "rounded border px-3 py-1 text-sm disabled:opacity-50"
       }
     >
@@ -304,7 +304,7 @@ export function ContactModal({ token, item, onSave, onToggleAdmin, onToggleBlock
         <div className="mb-3 flex items-center justify-between gap-2">
           <div>
             <h3 className="text-lg font-bold">{t(lang, "customerModal.title")}</h3>
-            <p className="mt-0.5 text-[11px] font-medium tabular-nums text-zinc-500 dark:text-zinc-400">
+            <p className="mt-0.5 text-[11px] font-medium tabular-nums text-[var(--text-subtle)]">
               {t(lang, "customerList.table.id")}: {item.id}
             </p>
           </div>
@@ -313,14 +313,14 @@ export function ContactModal({ token, item, onSave, onToggleAdmin, onToggleBlock
             <button
               type="button"
               onClick={onClose}
-              className="rounded p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+              className="rounded p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 text-[var(--text-subtle)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-main)]"
               aria-label={t(lang, "profile.close")}
             >
               <X className="h-5 w-5" />
             </button>
           </div>
         </div>
-        <p className="mb-2 text-xs text-zinc-500 dark:text-zinc-400">{t(lang, "customerModal.hint.contactsForPersons")}</p>
+        <p className="mb-2 text-xs text-[var(--text-subtle)]">{t(lang, "customerModal.hint.contactsForPersons")}</p>
         <div className="mb-1 mt-1 text-xs font-semibold uppercase tracking-wide text-zinc-400">{t(lang, "customerModal.section.personalData")}</div>
         <div className="grid gap-2 sm:grid-cols-3">
           <div>
@@ -394,11 +394,11 @@ export function ContactModal({ token, item, onSave, onToggleAdmin, onToggleBlock
         <div className="grid gap-2 sm:grid-cols-2">
           <div>
             <label className="mb-1 block text-sm">EXXAS Kunden-ID</label>
-            <input className="ui-input bg-slate-50 dark:bg-zinc-900" value={form.exxas_customer_id} readOnly placeholder="Keine EXXAS-ID hinterlegt" />
+            <input className="ui-input bg-[var(--surface-raised)]" value={form.exxas_customer_id} readOnly placeholder="Keine EXXAS-ID hinterlegt" />
           </div>
           <div>
             <label className="mb-1 block text-sm">EXXAS Adress-ID</label>
-            <input className="ui-input bg-slate-50 dark:bg-zinc-900" value={form.exxas_address_id} readOnly placeholder="Keine EXXAS-ID hinterlegt" />
+            <input className="ui-input bg-[var(--surface-raised)]" value={form.exxas_address_id} readOnly placeholder="Keine EXXAS-ID hinterlegt" />
           </div>
         </div>
 
@@ -445,7 +445,7 @@ export function ContactModal({ token, item, onSave, onToggleAdmin, onToggleBlock
                 type="button"
                 onClick={() => { void openCustomerPortal(); }}
                 disabled={item.blocked || portalLoading}
-                className="text-[#9E8649] hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                className="text-[var(--accent)] hover:underline disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {portalLoading ? t(lang, "common.loading") : t(lang, "customerView.button.openPortal")}
               </button>
@@ -503,3 +503,4 @@ export function ContactModal({ token, item, onSave, onToggleAdmin, onToggleBlock
     </div>
   );
 }
+

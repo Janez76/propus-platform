@@ -92,7 +92,7 @@ export function OrderDetailsExample() {
         <div className="flex gap-4">
           <button
             onClick={() => setIsDialogOpen(true)}
-            className="px-4 py-2 bg-[#C5A059] text-white rounded-lg hover:bg-[#B39049] transition-colors"
+            className="px-4 py-2 bg-[var(--accent)] text-white rounded-lg hover:bg-[var(--accent-hover)] transition-colors"
           >
             {t(language, "orderDetailsExample.openDialog")}
           </button>
@@ -126,3 +126,4 @@ export function OrderDetailsExample() {
     </div>
   );
 }
+

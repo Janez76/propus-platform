@@ -194,13 +194,13 @@ export function CalendarPage() {
             <p className="text-xs text-zinc-400">{t(lang, "calendar.label.filterDesc")}</p>
           </div>
           <div className="flex items-center gap-2">
-            <span className="rounded-full border border-[#C5A059]/30 bg-[#C5A059]/15 px-3 py-1 text-xs font-bold text-[#C5A059]">
+            <span className="rounded-full border border-[var(--accent)]/30 bg-[var(--accent)]/15 px-3 py-1 text-xs font-bold text-[var(--accent)]">
               {t(lang, "calendar.label.eventCount").replace("{{n}}", String(filtered.length))}
             </span>
             <button
               type="button"
               onClick={() => openCreateBooking()}
-              className="inline-flex items-center gap-2 rounded-lg bg-[#C5A059] px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-[#B39049]"
+              className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-[var(--accent-hover)]"
             >
               <Plus className="h-3.5 w-3.5" />
               {t(lang, "calendar.button.createBooking")}
@@ -209,7 +209,7 @@ export function CalendarPage() {
         </div>
         <div className="grid gap-3 md:grid-cols-2">
           <div className="rounded-xl border border-zinc-800/70 bg-zinc-950/50 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]">
-            <label htmlFor="calendarStatusFilter" className="mb-2 block text-xs font-semibold uppercase tracking-[0.08em] text-[#C5A059]">
+            <label htmlFor="calendarStatusFilter" className="mb-2 block text-xs font-semibold uppercase tracking-[0.08em] text-[var(--accent)]">
               {t(lang, "calendar.label.status")}
             </label>
             <select id="calendarStatusFilter" name="calendarStatusFilter" aria-label={t(lang, "calendar.label.status")} className="ui-input w-full" value={filter} onChange={(e) => setFilter(e.target.value)}>
@@ -218,7 +218,7 @@ export function CalendarPage() {
             </select>
           </div>
           <div className="rounded-xl border border-zinc-800/70 bg-zinc-950/50 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]">
-            <label htmlFor="calendarPhotographerFilter" className="mb-2 block text-xs font-semibold uppercase tracking-[0.08em] text-[#C5A059]">
+            <label htmlFor="calendarPhotographerFilter" className="mb-2 block text-xs font-semibold uppercase tracking-[0.08em] text-[var(--accent)]">
               {t(lang, "calendar.label.employee")}
             </label>
             <select
@@ -271,13 +271,13 @@ export function CalendarPage() {
               <button className="btn-secondary" onClick={() => setSelected(null)}>{t(lang, "common.close")}</button>
             </div>
             <div className="space-y-3 text-sm text-zinc-300">
-              <div className="flex gap-2"><span className="font-semibold text-[#C5A059] min-w-[100px]">{t(lang, "calendar.label.title")}</span><span>{normalizeMojibakeText(selected.title) || "-"}</span></div>
-              <div className="flex gap-2"><span className="font-semibold text-[#C5A059] min-w-[100px]">{t(lang, "calendar.label.start")}</span><span>{formatDateTime(selected.start)}</span></div>
-              <div className="flex gap-2"><span className="font-semibold text-[#C5A059] min-w-[100px]">{t(lang, "calendar.label.end")}</span><span>{formatDateTime(selected.end)}</span></div>
-              <div className="flex gap-2"><span className="font-semibold text-[#C5A059] min-w-[100px]">{t(lang, "calendar.label.type")}</span><span>{selected.type || "-"}</span></div>
-              <div className="flex gap-2"><span className="font-semibold text-[#C5A059] min-w-[100px]">{t(lang, "calendar.label.address")}</span><span>{selected.address || "-"}</span></div>
-              <div className="flex gap-2"><span className="font-semibold text-[#C5A059] min-w-[100px]">{t(lang, "calendar.label.employeeColon")}</span><span>{selected.photographerName || selected.photographerKey || "-"}</span></div>
-              {selected.grund ? <div className="flex gap-2"><span className="font-semibold text-[#C5A059] min-w-[100px]">{t(lang, "calendar.label.reason")}</span><span>{selected.grund}</span></div> : null}
+              <div className="flex gap-2"><span className="font-semibold text-[var(--accent)] min-w-[100px]">{t(lang, "calendar.label.title")}</span><span>{normalizeMojibakeText(selected.title) || "-"}</span></div>
+              <div className="flex gap-2"><span className="font-semibold text-[var(--accent)] min-w-[100px]">{t(lang, "calendar.label.start")}</span><span>{formatDateTime(selected.start)}</span></div>
+              <div className="flex gap-2"><span className="font-semibold text-[var(--accent)] min-w-[100px]">{t(lang, "calendar.label.end")}</span><span>{formatDateTime(selected.end)}</span></div>
+              <div className="flex gap-2"><span className="font-semibold text-[var(--accent)] min-w-[100px]">{t(lang, "calendar.label.type")}</span><span>{selected.type || "-"}</span></div>
+              <div className="flex gap-2"><span className="font-semibold text-[var(--accent)] min-w-[100px]">{t(lang, "calendar.label.address")}</span><span>{selected.address || "-"}</span></div>
+              <div className="flex gap-2"><span className="font-semibold text-[var(--accent)] min-w-[100px]">{t(lang, "calendar.label.employeeColon")}</span><span>{selected.photographerName || selected.photographerKey || "-"}</span></div>
+              {selected.grund ? <div className="flex gap-2"><span className="font-semibold text-[var(--accent)] min-w-[100px]">{t(lang, "calendar.label.reason")}</span><span>{selected.grund}</span></div> : null}
             </div>
 
             {selected.orderNo ? (
@@ -382,3 +382,4 @@ export function CalendarPage() {
     </div>
   );
 }
+

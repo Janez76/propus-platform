@@ -6,13 +6,13 @@ import { cn } from "../../lib/utils";
 
 const inputClass = cn(
   "w-full rounded-lg border px-3 py-2.5 text-sm transition-colors",
-  "bg-white dark:bg-zinc-800",
-  "border-zinc-200 dark:border-zinc-700",
-  "text-zinc-900 dark:text-zinc-100",
-  "placeholder:text-zinc-400 dark:placeholder:text-zinc-500",
-  "focus:outline-none focus:ring-2 focus:ring-[#C5A059]/30 focus:border-[#C5A059]",
+  "bg-[var(--surface)]",
+  "border-[var(--border-soft)]",
+  "text-[var(--text-main)]",
+  "placeholder:text-zinc-400 placeholder:text-[var(--text-subtle)]",
+  "focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30 focus:border-[var(--accent)]",
 );
-const labelClass = "block text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-1.5";
+const labelClass = "block text-xs font-semibold uppercase tracking-wider text-[var(--text-subtle)] mb-1.5";
 
 export function StepBilling({ lang }: { lang: Lang }) {
   const { billing, setBilling, altBilling, setAltBilling, agbAccepted, setAgbAccepted } = useBookingWizardStore();
@@ -28,9 +28,9 @@ export function StepBilling({ lang }: { lang: Lang }) {
   return (
     <div className="space-y-6">
       {/* Firma & Kontakt */}
-      <section className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-900">
-        <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
-          <CreditCard className="h-4 w-4 text-[#C5A059]" /> {t(lang, "booking.step4.billing")}
+      <section className="rounded-xl border border-zinc-200 bg-white p-5 border-[var(--border-soft)] bg-[var(--surface)]">
+        <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-zinc-600 text-[var(--text-muted)]">
+          <CreditCard className="h-4 w-4 text-[var(--accent)]" /> {t(lang, "booking.step4.billing")}
         </h3>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
@@ -69,9 +69,9 @@ export function StepBilling({ lang }: { lang: Lang }) {
       </section>
 
       {/* Rechnungsadresse */}
-      <section className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-900">
-        <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
-          <MapPin className="h-4 w-4 text-[#C5A059]" /> {t(lang, "booking.step4.address")}
+      <section className="rounded-xl border border-zinc-200 bg-white p-5 border-[var(--border-soft)] bg-[var(--surface)]">
+        <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-zinc-600 text-[var(--text-muted)]">
+          <MapPin className="h-4 w-4 text-[var(--accent)]" /> {t(lang, "booking.step4.address")}
         </h3>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
@@ -102,14 +102,14 @@ export function StepBilling({ lang }: { lang: Lang }) {
       </section>
 
       {/* Abweichende Adresse */}
-      <label className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white px-5 py-4 dark:border-zinc-700 dark:bg-zinc-900">
-        <input type="checkbox" checked={altBilling} onChange={(e) => setAltBilling(e.target.checked)} className="h-4 w-4 rounded border-zinc-300 text-[#C5A059]" />
-        <span className="text-sm text-zinc-700 dark:text-zinc-300">{t(lang, "booking.step4.altBilling")}</span>
+      <label className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white px-5 py-4 border-[var(--border-soft)] bg-[var(--surface)]">
+        <input type="checkbox" checked={altBilling} onChange={(e) => setAltBilling(e.target.checked)} className="h-4 w-4 rounded border-zinc-300 text-[var(--accent)]" />
+        <span className="text-sm text-[var(--text-muted)]">{t(lang, "booking.step4.altBilling")}</span>
       </label>
 
       {altBilling && (
-        <section className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-900">
-          <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
+        <section className="rounded-xl border border-zinc-200 bg-white p-5 border-[var(--border-soft)] bg-[var(--surface)]">
+          <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-zinc-600 text-[var(--text-muted)]">
             {t(lang, "booking.step4.altBillingTitle")}
           </h3>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -166,18 +166,19 @@ export function StepBilling({ lang }: { lang: Lang }) {
       )}
 
       {/* Bemerkungen */}
-      <section className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-900">
+      <section className="rounded-xl border border-zinc-200 bg-white p-5 border-[var(--border-soft)] bg-[var(--surface)]">
         <label className={labelClass}>{t(lang, "booking.step4.notes")}</label>
         <textarea value={billing.notes} onChange={(e) => setBilling({ notes: e.target.value })} rows={3} className={cn(inputClass, "resize-none")} />
       </section>
 
       {/* AGB */}
-      <label className="flex items-start gap-3 rounded-xl border border-zinc-200 bg-white px-5 py-4 dark:border-zinc-700 dark:bg-zinc-900">
-        <input data-testid="booking-checkbox-agb" type="checkbox" checked={agbAccepted} onChange={(e) => setAgbAccepted(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-[#C5A059]" />
-        <span className="text-sm text-zinc-700 dark:text-zinc-300">
+      <label className="flex items-start gap-3 rounded-xl border border-zinc-200 bg-white px-5 py-4 border-[var(--border-soft)] bg-[var(--surface)]">
+        <input data-testid="booking-checkbox-agb" type="checkbox" checked={agbAccepted} onChange={(e) => setAgbAccepted(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-[var(--accent)]" />
+        <span className="text-sm text-[var(--text-muted)]">
           {t(lang, "booking.step4.agb")}
         </span>
       </label>
     </div>
   );
 }
+

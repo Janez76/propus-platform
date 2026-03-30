@@ -63,7 +63,7 @@ function SectionCard({
     >
       <div className="flex items-center gap-3 mb-4">
         <div className="p-2 bg-slate-50 rounded-lg">
-          <Icon className="h-5 w-5 text-[#C5A059]" />
+          <Icon className="h-5 w-5 text-[var(--accent)]" />
         </div>
         <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500">
           {title}
@@ -95,7 +95,7 @@ function DataRow({
       </span>
       <div className="flex items-center gap-2 text-right">
         <span className="text-sm font-medium text-slate-900">{value}</span>
-        {Icon && <Icon className="h-4 w-4 text-slate-400 group-hover:text-[#C5A059] transition-colors" />}
+        {Icon && <Icon className="h-4 w-4 text-slate-400 group-hover:text-[var(--accent)] transition-colors" />}
       </div>
     </div>
   );
@@ -238,7 +238,7 @@ function OrderDetailsContent({ order, onStatusChange, onDateChange }: OrderDetai
               <DataRow
                 label={t(language, "orderDetail.pricing.total")}
                 value={
-                  <span className="text-lg font-bold text-[#C5A059]">
+                  <span className="text-lg font-bold text-[var(--accent)]">
                     {formatCHF(order.finance.total)}
                   </span>
                 }
@@ -260,7 +260,7 @@ function OrderDetailsContent({ order, onStatusChange, onDateChange }: OrderDetai
                 token={token}
                 autoSave={false}
                 onChanged={(next) => onStatusChange?.(order.id, next as OrderStatus)}
-                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 shadow-sm transition-colors hover:border-slate-300 focus:border-[#C5A059] focus:outline-none focus:ring-2 focus:ring-[#C5A059]/20"
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 shadow-sm transition-colors hover:border-slate-300 focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20"
               />
             </div>
 
@@ -272,7 +272,7 @@ function OrderDetailsContent({ order, onStatusChange, onDateChange }: OrderDetai
                 type="date"
                 value={order.scheduledDate || ""}
                 onChange={(e) => onDateChange?.(order.id, e.target.value)}
-                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 shadow-sm transition-colors hover:border-slate-300 focus:border-[#C5A059] focus:outline-none focus:ring-2 focus:ring-[#C5A059]/20"
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 shadow-sm transition-colors hover:border-slate-300 focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20"
               />
             </div>
           </div>
@@ -361,3 +361,4 @@ export function OrderDetails(props: OrderDetailsProps) {
     </div>
   );
 }
+

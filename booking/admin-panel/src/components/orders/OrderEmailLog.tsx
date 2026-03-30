@@ -149,7 +149,7 @@ export function OrderEmailLog({ token, orderNo }: Props) {
                 <span className="text-xs text-white/45">
                   {t(language, "emailLog.label.sentAt")}:
                 </span>
-                <span className="text-xs font-medium text-[#C5A059] shrink-0">
+                <span className="text-xs font-medium text-[var(--accent)] shrink-0">
                   {formatSentAt((entry as OrderEmailLogEntry & { sentAt?: unknown }).sent_at ?? (entry as OrderEmailLogEntry & { sentAt?: unknown }).sentAt)}
                 </span>
               </div>
@@ -160,3 +160,4 @@ export function OrderEmailLog({ token, orderNo }: Props) {
     </div>
   );
 }
+

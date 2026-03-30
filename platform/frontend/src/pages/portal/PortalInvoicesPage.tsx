@@ -17,7 +17,7 @@ export function PortalInvoicesPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#C5A059]/25 border-t-[#C5A059]" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--accent)]/25 border-t-[var(--accent)]" />
       </div>
     );
   }
@@ -29,8 +29,8 @@ export function PortalInvoicesPage() {
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Rechnungen</h1>
-        <span className="text-sm text-slate-500 dark:text-zinc-400">{invoices.length} Einträge</span>
+        <h1 className="text-2xl font-bold text-[var(--text-main)]">Rechnungen</h1>
+        <span className="text-sm text-[var(--text-subtle)]">{invoices.length} Einträge</span>
       </div>
 
       {error && (
@@ -41,9 +41,9 @@ export function PortalInvoicesPage() {
       )}
 
       {invoices.length === 0 && !error ? (
-        <div className="rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-10 text-center">
-          <FileText className="h-10 w-10 mx-auto mb-3 text-slate-300 dark:text-zinc-600" />
-          <p className="text-slate-500 dark:text-zinc-400">Keine Rechnungen vorhanden.</p>
+        <div className="cust-form-section p-10 text-center">
+          <FileText className="h-10 w-10 mx-auto mb-3 text-[var(--text-subtle)]" />
+          <p className="text-[var(--text-subtle)]">Keine Rechnungen vorhanden.</p>
         </div>
       ) : (
         <>
@@ -73,34 +73,34 @@ function InvoiceSection({
 }) {
   return (
     <div>
-      <h2 className={`font-semibold mb-3 ${highlight ? "text-amber-700 dark:text-amber-400" : "text-slate-700 dark:text-zinc-300"}`}>
+      <h2 className={`font-semibold mb-3 ${highlight ? "text-amber-700 dark:text-amber-400" : "text-[var(--text-muted)]"}`}>
         {title}
       </h2>
-      <div className="rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 overflow-hidden">
+      <div className="cust-form-section overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-100 dark:border-zinc-800">
-              <th className="text-left px-4 py-3 font-medium text-slate-600 dark:text-zinc-400">Tour</th>
-              <th className="text-left px-4 py-3 font-medium text-slate-600 dark:text-zinc-400 hidden sm:table-cell">Datum</th>
-              <th className="text-right px-4 py-3 font-medium text-slate-600 dark:text-zinc-400">Betrag</th>
-              <th className="text-center px-4 py-3 font-medium text-slate-600 dark:text-zinc-400 hidden sm:table-cell">Status</th>
+            <tr className="border-b border-[var(--border-soft)]">
+              <th className="text-left px-4 py-3 font-medium text-[var(--text-subtle)]">Tour</th>
+              <th className="text-left px-4 py-3 font-medium text-[var(--text-subtle)] hidden sm:table-cell">Datum</th>
+              <th className="text-right px-4 py-3 font-medium text-[var(--text-subtle)]">Betrag</th>
+              <th className="text-center px-4 py-3 font-medium text-[var(--text-subtle)] hidden sm:table-cell">Status</th>
             </tr>
           </thead>
           <tbody>
             {invoices.map((inv) => (
               <tr
                 key={inv.id}
-                className="border-b border-slate-50 dark:border-zinc-800/50 last:border-0"
+                className="border-b border-[var(--border-soft)]/50 last:border-0"
               >
                 <td className="px-4 py-3">
-                  <div className="font-medium text-slate-900 dark:text-white">
+                  <div className="font-medium text-[var(--text-main)]">
                     {inv.object_label || inv.bezeichnung || `Tour #${inv.tour_id}`}
                   </div>
                 </td>
-                <td className="px-4 py-3 hidden sm:table-cell text-slate-500 dark:text-zinc-400">
+                <td className="px-4 py-3 hidden sm:table-cell text-[var(--text-subtle)]">
                   {formatDate(inv.invoice_date)}
                 </td>
-                <td className="px-4 py-3 text-right font-medium text-slate-900 dark:text-white">
+                <td className="px-4 py-3 text-right font-medium text-[var(--text-main)]">
                   {inv.betrag != null
                     ? `CHF ${Number(inv.betrag).toFixed(2)}`
                     : inv.amount_chf != null
@@ -121,13 +121,13 @@ function InvoiceSection({
 
 function InvoiceStatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
-    open: { label: "Offen", cls: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" },
-    sent: { label: "Gesendet", cls: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" },
-    paid: { label: "Bezahlt", cls: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" },
-    cancelled: { label: "Storniert", cls: "bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-400" },
-    overdue: { label: "Überfällig", cls: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" },
+    open: { label: "Offen", cls: "cust-status-badge cust-status-pending" },
+    sent: { label: "Gesendet", cls: "cust-status-badge cust-status-open" },
+    paid: { label: "Bezahlt", cls: "cust-status-badge cust-status-confirmed" },
+    cancelled: { label: "Storniert", cls: "cust-status-badge cust-status-draft" },
+    overdue: { label: "Überfällig", cls: "cust-status-badge cust-status-cancelled" },
   };
-  const s = map[status] ?? { label: status || "–", cls: "bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-400" };
+  const s = map[status] ?? { label: status || "–", cls: "cust-status-badge cust-status-draft" };
   return (
     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${s.cls}`}>
       {s.label}
@@ -139,3 +139,6 @@ function formatDate(dateStr?: string): string {
   if (!dateStr) return "–";
   return new Date(dateStr).toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
+
+
+

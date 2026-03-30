@@ -13,8 +13,9 @@ export function DbFieldHint({ fieldPath, className }: DbFieldHintProps) {
   const enabled = useDbFieldHints();
   if (!enabled) return null;
   return (
-    <p className={cn("mt-1 text-[11px] text-slate-400 dark:text-zinc-500", className)}>
+    <p className={cn("mt-1 text-[11px] text-[var(--text-subtle)]", className)}>
       ({t(lang, "form.dbHintPrefix")}: {fieldPath})
     </p>
   );
 }
+

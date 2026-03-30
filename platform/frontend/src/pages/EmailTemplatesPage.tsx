@@ -400,7 +400,7 @@ export function EmailTemplatesPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[40vh]">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#C5A059]/25 border-t-[#C5A059]" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 " />
       </div>
     );
   }
@@ -408,26 +408,26 @@ export function EmailTemplatesPage() {
   return (
     <div className="max-w-6xl mx-auto py-8 px-4">
       <div className="flex items-center gap-3 mb-6">
-        <Mail className="h-6 w-6 text-[#C5A059]" />
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-zinc-100">{t(lang, "emailTemplates.title")}</h1>
+        <Mail className="h-6 w-6 text-[var(--accent)]" />
+        <h1 className="text-2xl font-bold text-[var(--text-main)]">{t(lang, "emailTemplates.title")}</h1>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* ── Template-Liste ── */}
         <div className="space-y-2">
           <div className="flex items-center justify-between px-1 mb-3">
-            <h2 className="text-sm font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">
+            <h2 className="text-sm font-semibold text-[var(--text-subtle)] uppercase tracking-wider">
               {t(lang, "emailTemplates.templateCount").replace("{{n}}", String(templates.length))}
             </h2>
             <button
               onClick={openNewDialog}
-              className="flex items-center gap-1 text-xs font-medium text-[#C5A059] hover:text-[#b8934d] transition-colors"
+              className="flex items-center gap-1 text-xs font-medium text-[var(--accent)] hover:text-[var(--accent-hover)] transition-colors"
             >
               <Plus className="h-3.5 w-3.5" /> {t(lang, "emailTemplates.button.new")}
             </button>
           </div>
           {templates.length === 0 ? (
-            <p className="text-slate-400 dark:text-zinc-500 text-sm px-1">{t(lang, "emailTemplates.empty")}</p>
+            <p className="text-[var(--text-subtle)] text-sm px-1">{t(lang, "emailTemplates.empty")}</p>
           ) : (
             templates.map((tmpl) => (
               <button
@@ -435,20 +435,20 @@ export function EmailTemplatesPage() {
                 onClick={() => { void selectTemplate(tmpl); }}
                 className={`w-full text-left flex items-center justify-between px-4 py-3 rounded-xl border transition-all ${
                   selected?.key === tmpl.key
-                    ? "border-[#C5A059] bg-[#C5A059]/10 dark:bg-[#C5A059]/20"
-                    : "border-slate-200 dark:border-zinc-700 hover:border-[#C5A059]/50 bg-white dark:bg-zinc-900"
+                    ? "border-[var(--accent)] bg-[var(--accent-subtle)]"
+                    : "border-[var(--border-soft)] hover:border-[var(--accent)]/50 bg-[var(--surface)]"
                 }`}
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium text-sm text-slate-900 dark:text-zinc-100 truncate">{tmpl.label || tmpl.key}</span>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 ${tmpl.active ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" : "bg-slate-100 text-slate-400 dark:bg-zinc-800 dark:text-zinc-500"}`}>
+                    <span className="font-medium text-sm text-[var(--text-main)] truncate">{tmpl.label || tmpl.key}</span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 ${tmpl.active ? "cust-status-aktiv" : "cust-status-inaktiv"}`}>
                       {tmpl.active ? t(lang, "emailTemplates.badge.active") : t(lang, "emailTemplates.badge.inactive")}
                     </span>
                   </div>
-                  <code className="text-[10px] text-slate-400 dark:text-zinc-500">{tmpl.key}</code>
+                  <code className="text-[10px] text-[var(--text-subtle)]">{tmpl.key}</code>
                 </div>
-                <ChevronRight className="h-4 w-4 text-slate-300 dark:text-zinc-600 flex-shrink-0 ml-2" />
+                <ChevronRight className="h-4 w-4 text-[var(--text-subtle)] flex-shrink-0 ml-2" />
               </button>
             ))
           )}
@@ -457,27 +457,27 @@ export function EmailTemplatesPage() {
         {/* ── Editor ── */}
         <div className="lg:col-span-2 space-y-4">
           {!selected ? (
-            <div className="flex flex-col items-center justify-center min-h-[400px] rounded-xl border-2 border-dashed border-slate-200 dark:border-zinc-700 text-slate-400 dark:text-zinc-500">
+            <div className="flex flex-col items-center justify-center min-h-[400px] rounded-xl border-2 border-dashed border-[var(--border-soft)] text-[var(--text-subtle)]">
               <Mail className="h-10 w-10 mb-3" />
               <p className="text-sm">{t(lang, "emailTemplates.selectPrompt")}</p>
             </div>
           ) : (
             <>
               {msg && (
-                <div className={`flex items-center gap-2 rounded-lg px-4 py-3 text-sm ${msg.type === "ok" ? "bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-300" : "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300"}`}>
+                <div className={`flex items-center gap-2 rounded-lg px-4 py-3 text-sm ${msg.type === "ok" ? "cust-alert--success" : "cust-alert--error"}`}>
                   {msg.type === "ok" ? <CheckCircle2 className="h-4 w-4 flex-shrink-0" /> : <AlertCircle className="h-4 w-4 flex-shrink-0" />}
                   {msg.text}
                 </div>
               )}
 
-              <div className="rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-5 space-y-4">
+              <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-5 space-y-4">
                 {/* Header mit Toggle + Löschen */}
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-slate-900 dark:text-zinc-100">{selected.label || selected.key}</h3>
+                  <h3 className="font-semibold text-[var(--text-main)]">{selected.label || selected.key}</h3>
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => { void toggleActive(selected.key); }}
-                      className="flex items-center gap-1 text-sm text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 transition-colors"
+                      className="flex items-center gap-1 text-sm text-[var(--text-subtle)] hover:text-slate-900 hover:text-[var(--text-main)] transition-colors"
                     >
                       {selected.active
                         ? <><ToggleRight className="h-5 w-5 text-green-500" /> {t(lang, "emailTemplates.badge.active")}</>
@@ -486,7 +486,7 @@ export function EmailTemplatesPage() {
                     </button>
                     <button
                       onClick={() => setShowDeleteDialog(true)}
-                      className="flex items-center gap-1 text-sm text-red-400 hover:text-red-600 transition-colors"
+                      className="flex items-center gap-1 text-sm text-[var(--cust-error,#c0392b)] hover:text-red-600 transition-colors"
                       title={t(lang, "emailTemplates.dialog.deleteTitle")}
                     >
                       <Trash2 className="h-4 w-4" />
@@ -496,50 +496,50 @@ export function EmailTemplatesPage() {
 
                 {/* Bezeichnung */}
                 <div>
-                  <label className="text-xs font-medium text-slate-500 dark:text-zinc-400 uppercase tracking-wider">{t(lang, "emailTemplates.label.name")}</label>
+                  <label className="text-xs font-medium text-[var(--text-subtle)] uppercase tracking-wider">{t(lang, "emailTemplates.label.name")}</label>
                   <input
                     type="text"
                     value={editLabel}
                     onChange={(e) => setEditLabel(e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 px-3 py-2 text-sm text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#C5A059]/50"
+                    className="mt-1 w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20"
                   />
                 </div>
 
                 {/* Betreff */}
                 <div>
-                  <label className="text-xs font-medium text-slate-500 dark:text-zinc-400 uppercase tracking-wider">{t(lang, "emailTemplates.label.subject")}</label>
+                  <label className="text-xs font-medium text-[var(--text-subtle)] uppercase tracking-wider">{t(lang, "emailTemplates.label.subject")}</label>
                   <input
                     type="text"
                     value={editSubject}
                     onChange={(e) => setEditSubject(e.target.value)}
                     placeholder={t(lang, "emailTemplates.placeholder.subject")}
-                    className="mt-1 w-full rounded-lg border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 px-3 py-2 text-sm text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#C5A059]/50"
+                    className="mt-1 w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20"
                   />
                 </div>
 
                 {/* HTML-Body */}
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-medium text-slate-500 dark:text-zinc-400 uppercase tracking-wider">{t(lang, "emailTemplates.label.body")}</label>
+                    <label className="text-xs font-medium text-[var(--text-subtle)] uppercase tracking-wider">{t(lang, "emailTemplates.label.body")}</label>
                     <button
                       onClick={() => setShowPlaceholders(!showPlaceholders)}
-                      className="text-xs text-[#C5A059] hover:underline"
+                      className="text-xs text-[var(--accent)] hover:underline"
                     >
                       {showPlaceholders ? t(lang, "emailTemplates.toggle.hidePlaceholders") : t(lang, "emailTemplates.toggle.showPlaceholders")}
                     </button>
                   </div>
                   {showPlaceholders && (
-                    <div className="mb-2 p-3 rounded-lg bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs">
+                    <div className="mb-2 p-3 rounded-lg bg-[var(--surface-raised)] border border-[var(--border-soft)] grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs">
                       {placeholders.map((p) => (
                         <button
                           key={p.key}
                           type="button"
                           onClick={() => insertPlaceholder(p.key)}
-                          className="flex items-start gap-1 text-left hover:bg-slate-100 dark:hover:bg-zinc-700 rounded px-1 py-0.5 transition-colors"
+                          className="flex items-start gap-1 text-left hover:bg-[var(--surface-raised)] rounded px-1 py-0.5 transition-colors"
                           title={t(lang, "emailTemplates.tooltip.insertPlaceholder")}
                         >
-                          <code className="text-[#C5A059] font-mono whitespace-nowrap">{`{{${p.key}}}`}</code>
-                          <span className="text-slate-500 dark:text-zinc-400">{p.desc}</span>
+                          <code className="text-[var(--accent)] font-mono whitespace-nowrap">{`{{${p.key}}}`}</code>
+                          <span className="text-[var(--text-subtle)]">{p.desc}</span>
                         </button>
                       ))}
                     </div>
@@ -551,7 +551,7 @@ export function EmailTemplatesPage() {
                     rows={20}
                     placeholder="<p>Guten Tag {{customerName}},</p>"
                     spellCheck={false}
-                    className="w-full rounded-lg border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 px-3 py-2 text-xs text-slate-900 dark:text-zinc-100 font-mono resize-y focus:outline-none focus:ring-2 focus:ring-[#C5A059]/50 min-h-[320px]"
+                    className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 py-2 text-xs text-[var(--text-main)] font-mono resize-y focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 min-h-[320px]"
                   />
                 </div>
 
@@ -560,7 +560,7 @@ export function EmailTemplatesPage() {
                   <button
                     onClick={() => { void save(); }}
                     disabled={saving}
-                    className="px-4 py-2 rounded-lg bg-[#C5A059] text-white text-sm font-medium hover:bg-[#b8934d] disabled:opacity-50 transition-colors"
+                    className="btn-primary min-h-0 min-w-0 px-4 py-2 text-sm"
                   >
                     {saving ? t(lang, "common.saving") : t(lang, "common.save")}
                   </button>
@@ -571,43 +571,43 @@ export function EmailTemplatesPage() {
                       placeholder={t(lang, "emailTemplates.placeholder.orderNo")}
                       value={testOrderNo}
                       onChange={(e) => setTestOrderNo(e.target.value)}
-                      className="w-32 rounded-lg border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 px-3 py-2 text-sm text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#C5A059]/50"
+                      className="w-32 rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20"
                     />
                     <input
                       type="email"
                       placeholder="Test-E-Mail (optional)"
                       value={testEmail}
                       onChange={(e) => setTestEmail(e.target.value)}
-                      className="w-56 rounded-lg border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 px-3 py-2 text-sm text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#C5A059]/50"
+                      className="w-56 rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20"
                     />
-                    <label className="inline-flex items-center gap-1.5 text-xs text-slate-600 dark:text-zinc-300">
+                    <label className="inline-flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
                       <input
                         type="checkbox"
                         checked={testIcsCustomer}
                         onChange={(e) => setTestIcsCustomer(e.target.checked)}
-                        className="rounded border-slate-300 dark:border-zinc-600"
+                        className="rounded border-[var(--border-soft)]"
                       />
                       ICS Kunde
                     </label>
-                    <label className="inline-flex items-center gap-1.5 text-xs text-slate-600 dark:text-zinc-300">
+                    <label className="inline-flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
                       <input
                         type="checkbox"
                         checked={testIcsOffice}
                         onChange={(e) => setTestIcsOffice(e.target.checked)}
-                        className="rounded border-slate-300 dark:border-zinc-600"
+                        className="rounded border-[var(--border-soft)]"
                       />
                       ICS Büro
                     </label>
                     <button
                       onClick={() => { void previewTemplate(); }}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 text-sm hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors"
+                      className="btn-secondary min-h-0 min-w-0 flex items-center gap-1.5 px-3 py-2 text-sm"
                     >
                       <Eye className="h-4 w-4" /> {t(lang, "emailTemplates.button.preview")}
                     </button>
                     <button
                       onClick={() => { void sendTest(); }}
                       disabled={sendingTest}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 text-sm hover:bg-slate-50 dark:hover:bg-zinc-800 disabled:opacity-50 transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[var(--border-soft)] text-[var(--text-muted)] text-sm hover:bg-[var(--surface-raised)] disabled:opacity-50 transition-colors"
                     >
                       <Send className="h-4 w-4" /> {sendingTest ? t(lang, "emailTemplates.button.testSending") : t(lang, "emailTemplates.button.testMail")}
                     </button>
@@ -617,27 +617,27 @@ export function EmailTemplatesPage() {
 
               {/* Versionshistorie */}
               {history.length > 0 && (
-                <div className="rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 overflow-hidden">
+                <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] overflow-hidden">
                   <button
                     onClick={() => setShowHistory(!showHistory)}
-                    className="w-full flex items-center justify-between px-5 py-3 text-sm font-medium text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors"
+                    className="w-full flex items-center justify-between px-5 py-3 text-sm font-medium text-[var(--text-muted)] hover:bg-[var(--surface-raised)] transition-colors"
                   >
                     <span className="flex items-center gap-2"><History className="h-4 w-4" /> {t(lang, "emailTemplates.label.history").replace("{{n}}", String(history.length))}</span>
                     <ChevronRight className={`h-4 w-4 transition-transform ${showHistory ? "rotate-90" : ""}`} />
                   </button>
                   {showHistory && (
-                    <div className="border-t border-slate-200 dark:border-zinc-700 divide-y divide-slate-100 dark:divide-zinc-800">
+                    <div className="border-t border-[var(--border-soft)] divide-y divide-slate-100 dark:divide-zinc-800">
                       {history.map((h) => (
                         <div key={h.id} className="px-5 py-3 flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <div className="text-sm text-slate-700 dark:text-zinc-300 truncate">{h.subject || t(lang, "emailTemplates.label.noSubject")}</div>
-                            <div className="text-xs text-slate-400 dark:text-zinc-500 mt-0.5">
+                            <div className="text-sm text-[var(--text-muted)] truncate">{h.subject || t(lang, "emailTemplates.label.noSubject")}</div>
+                            <div className="text-xs text-[var(--text-subtle)] mt-0.5">
                               {new Date(h.changed_at).toLocaleString("de-CH")} &middot; {h.changed_by}
                             </div>
                           </div>
                           <button
                             onClick={() => { void restoreVersion(h.id); }}
-                            className="flex-shrink-0 flex items-center gap-1 text-xs text-[#C5A059] hover:underline"
+                            className="flex-shrink-0 flex items-center gap-1 text-xs text-[var(--accent)] hover:underline"
                           >
                             <RotateCcw className="h-3 w-3" /> {t(lang, "emailTemplates.button.restore")}
                           </button>
@@ -652,10 +652,10 @@ export function EmailTemplatesPage() {
                 const entries = workflowConfig.filter((entry) => selected && entry.template_key === selected.key);
                 if (entries.length === 0) return null;
                 return (
-                  <div className="rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 overflow-hidden">
-                    <div className="px-5 py-3 border-b border-slate-200 dark:border-zinc-700">
-                      <h4 className="text-sm font-medium text-slate-800 dark:text-zinc-200">Versandeinstellungen</h4>
-                      <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                  <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] overflow-hidden">
+                    <div className="px-5 py-3 border-b border-[var(--border-soft)]">
+                      <h4 className="text-sm font-medium text-[var(--text-main)]">Versandeinstellungen</h4>
+                      <p className="text-xs text-[var(--text-subtle)] mt-0.5">
                         Steuert ob und mit welchen Anhängen diese E-Mail bei Status-Wechsel versendet wird.
                       </p>
                     </div>
@@ -663,10 +663,10 @@ export function EmailTemplatesPage() {
                       {entries.map((entry) => (
                         <div key={entry.id} className="px-5 py-3 flex flex-wrap items-center gap-3">
                           <div className="flex-1 min-w-0">
-                            <span className="text-xs font-mono text-slate-500 dark:text-zinc-400">
-                              Bei Status <span className="text-[#C5A059] font-semibold">{entry.status_to}</span>
+                            <span className="text-xs font-mono text-[var(--text-subtle)]">
+                              Bei Status <span className="text-[var(--accent)] font-semibold">{entry.status_to}</span>
                               {" -> "}
-                              <span className="text-slate-700 dark:text-zinc-200">{entry.role}</span>
+                              <span className="text-[var(--text-muted)]">{entry.role}</span>
                             </span>
                           </div>
                           <div className="flex items-center gap-2 flex-wrap">
@@ -676,17 +676,17 @@ export function EmailTemplatesPage() {
                               onClick={() => { void patchWorkflowConfig(entry, { active: !entry.active }); }}
                               className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium border transition-all disabled:opacity-50 ${
                                 entry.active
-                                  ? "bg-green-50 border-green-300 text-green-700 dark:bg-green-950/30 dark:border-green-700 dark:text-green-300"
-                                  : "bg-slate-50 border-slate-300 text-slate-500 dark:bg-zinc-800 dark:border-zinc-600 dark:text-zinc-400"
+                                  ? "cust-status-badge cust-status-aktiv"
+                                  : "cust-status-badge cust-status-draft"
                               }`}
                             >
-                              <span className={`w-1.5 h-1.5 rounded-full ${entry.active ? "bg-green-500" : "bg-slate-400"}`} />
+                              <span className={`w-1.5 h-1.5 rounded-full ${entry.active ? "bg-[var(--accent)]" : "bg-[var(--text-subtle)]"}`} />
                               {entry.active ? "Aktiv" : "Inaktiv"}
                             </button>
                             <label className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium border cursor-pointer transition-all ${
                               entry.ics_customer
-                                ? "bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-950/30 dark:border-blue-700 dark:text-blue-300"
-                                : "bg-slate-50 border-slate-300 text-slate-500 dark:bg-zinc-800 dark:border-zinc-600 dark:text-zinc-400"
+                                ? "cust-status-badge cust-status-confirmed"
+                                : "cust-status-badge cust-status-draft"
                             }`}>
                               <input
                                 type="checkbox"
@@ -699,8 +699,8 @@ export function EmailTemplatesPage() {
                             </label>
                             <label className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium border cursor-pointer transition-all ${
                               entry.ics_office
-                                ? "bg-purple-50 border-purple-300 text-purple-700 dark:bg-purple-950/30 dark:border-purple-700 dark:text-purple-300"
-                                : "bg-slate-50 border-slate-300 text-slate-500 dark:bg-zinc-800 dark:border-zinc-600 dark:text-zinc-400"
+                                ? "cust-status-badge cust-status-open"
+                                : "cust-status-badge cust-status-draft"
                             }`}>
                               <input
                                 type="checkbox"
@@ -726,50 +726,50 @@ export function EmailTemplatesPage() {
       {/* ── Neu-Dialog ─────────────────────────────────────────────────────── */}
       {showNewDialog && (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 bg-black/50">
-          <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-md my-auto">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-zinc-700">
-              <h3 className="font-semibold text-slate-900 dark:text-zinc-100">{t(lang, "emailTemplates.dialog.newTitle")}</h3>
-              <button onClick={() => setShowNewDialog(false)} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors">
-                <X className="h-5 w-5 text-slate-500 dark:text-zinc-400" />
+          <div className="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-md my-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-soft)]">
+              <h3 className="font-semibold text-[var(--text-main)]">{t(lang, "emailTemplates.dialog.newTitle")}</h3>
+              <button onClick={() => setShowNewDialog(false)} className="p-2 rounded-lg hover:bg-[var(--surface-raised)] transition-colors">
+                <X className="h-5 w-5 text-[var(--text-subtle)]" />
               </button>
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="text-xs font-medium text-slate-500 dark:text-zinc-400 uppercase tracking-wider">Key <span className="text-red-500">*</span></label>
+                <label className="text-xs font-medium text-[var(--text-subtle)] uppercase tracking-wider">Key <span className="text-[var(--cust-error,#e74c3c)]">*</span></label>
                 <input
                   type="text"
                   value={newKey}
                   onChange={(e) => { setNewKey(e.target.value.toLowerCase()); setNewKeyError(""); }}
                   placeholder="z.B. welcome_customer"
                   autoFocus
-                  className="mt-1 w-full rounded-lg border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 px-3 py-2 text-sm text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#C5A059]/50"
+                  className="mt-1 w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20"
                   onKeyDown={(e) => { if (e.key === "Enter") void createTemplate(); }}
                 />
-                <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-1">Nur a–z, 0–9, _, - und . erlaubt.</p>
-                {newKeyError && <p className="text-xs text-red-500 mt-1">{newKeyError}</p>}
+                <p className="text-[11px] text-[var(--text-subtle)] mt-1">Nur a–z, 0–9, _, - und . erlaubt.</p>
+                {newKeyError && <p className="text-xs text-[var(--cust-error,#e74c3c)] mt-1">{newKeyError}</p>}
               </div>
               <div>
-                <label className="text-xs font-medium text-slate-500 dark:text-zinc-400 uppercase tracking-wider">{t(lang, "emailTemplates.label.name")}</label>
+                <label className="text-xs font-medium text-[var(--text-subtle)] uppercase tracking-wider">{t(lang, "emailTemplates.label.name")}</label>
                 <input
                   type="text"
                   value={newLabel}
                   onChange={(e) => setNewLabel(e.target.value)}
                   placeholder={t(lang, "emailTemplates.placeholder.label")}
-                  className="mt-1 w-full rounded-lg border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 px-3 py-2 text-sm text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#C5A059]/50"
+                  className="mt-1 w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20"
                 />
               </div>
             </div>
-            <div className="flex justify-end gap-2 px-6 py-4 border-t border-slate-200 dark:border-zinc-700">
+            <div className="flex justify-end gap-2 px-6 py-4 border-t border-[var(--border-soft)]">
               <button
                 onClick={() => setShowNewDialog(false)}
-                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 text-sm text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors"
+                className="btn-secondary min-h-0 min-w-0 px-4 py-2 text-sm"
               >
                 {t(lang, "common.cancel")}
               </button>
               <button
                 onClick={() => { void createTemplate(); }}
                 disabled={creating}
-                className="px-4 py-2 rounded-lg bg-[#C5A059] text-white text-sm font-medium hover:bg-[#b8934d] disabled:opacity-50 transition-colors"
+                className="btn-primary min-h-0 min-w-0 px-4 py-2 text-sm"
               >
                 {creating ? t(lang, "common.creating") : t(lang, "common.create")}
               </button>
@@ -781,31 +781,31 @@ export function EmailTemplatesPage() {
       {/* ── Löschen-Dialog ─────────────────────────────────────────────────── */}
       {showDeleteDialog && selected && (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 bg-black/50">
-          <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-md my-auto">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-zinc-700">
-              <h3 className="font-semibold text-red-600 dark:text-red-400">{t(lang, "emailTemplates.dialog.deleteTitle")}</h3>
-              <button onClick={() => setShowDeleteDialog(false)} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors">
-                <X className="h-5 w-5 text-slate-500 dark:text-zinc-400" />
+          <div className="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-md my-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-soft)]">
+              <h3 className="font-semibold text-red-600 dark:text-[var(--cust-error,#c0392b)]">{t(lang, "emailTemplates.dialog.deleteTitle")}</h3>
+              <button onClick={() => setShowDeleteDialog(false)} className="p-2 rounded-lg hover:bg-[var(--surface-raised)] transition-colors">
+                <X className="h-5 w-5 text-[var(--text-subtle)]" />
               </button>
             </div>
             <div className="px-6 py-5">
-              <p className="text-sm text-slate-700 dark:text-zinc-300">
+              <p className="text-sm text-[var(--text-muted)]">
                 {t(lang, "emailTemplates.dialog.deleteConfirm").replace("{{name}}", selected.label || selected.key)}
               </p>
-              <code className="block mt-2 text-xs text-slate-400 dark:text-zinc-500">{selected.key}</code>
-              <p className="mt-3 text-xs text-red-400">{t(lang, "emailTemplates.dialog.deleteWarning")}</p>
+              <code className="block mt-2 text-xs text-[var(--text-subtle)]">{selected.key}</code>
+              <p className="mt-3 text-xs text-[var(--cust-error,#c0392b)]">{t(lang, "emailTemplates.dialog.deleteWarning")}</p>
             </div>
-            <div className="flex justify-end gap-2 px-6 py-4 border-t border-slate-200 dark:border-zinc-700">
+            <div className="flex justify-end gap-2 px-6 py-4 border-t border-[var(--border-soft)]">
               <button
                 onClick={() => setShowDeleteDialog(false)}
-                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 text-sm text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors"
+                className="btn-secondary min-h-0 min-w-0 px-4 py-2 text-sm"
               >
                 {t(lang, "common.cancel")}
               </button>
               <button
                 onClick={() => { void confirmDelete(); }}
                 disabled={deleting}
-                className="px-4 py-2 rounded-lg bg-red-500 text-white text-sm font-medium hover:bg-red-600 disabled:opacity-50 transition-colors"
+                className="btn-primary min-h-0 min-w-0 px-4 py-2 text-sm"
               >
                 {deleting ? t(lang, "emailTemplates.button.deleting") : t(lang, "emailTemplates.button.deleteForever")}
               </button>
@@ -817,20 +817,20 @@ export function EmailTemplatesPage() {
       {/* ── Preview-Modal ──────────────────────────────────────────────────── */}
       {showPreview && previewHtml && (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 bg-black/50">
-          <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col my-auto">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-zinc-700">
+          <div className="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col my-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-soft)]">
               <div>
-                <h3 className="font-semibold text-slate-900 dark:text-zinc-100">{t(lang, "emailTemplates.dialog.previewTitle")}</h3>
-                <p className="text-sm text-slate-500 dark:text-zinc-400">{previewSubject}</p>
+                <h3 className="font-semibold text-[var(--text-main)]">{t(lang, "emailTemplates.dialog.previewTitle")}</h3>
+                <p className="text-sm text-[var(--text-subtle)]">{previewSubject}</p>
               </div>
-              <button onClick={() => setShowPreview(false)} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors">
-                <X className="h-5 w-5 text-slate-500 dark:text-zinc-400" />
+              <button onClick={() => setShowPreview(false)} className="p-2 rounded-lg hover:bg-[var(--surface-raised)] transition-colors">
+                <X className="h-5 w-5 text-[var(--text-subtle)]" />
               </button>
             </div>
             <div className="flex-1 overflow-auto p-6">
               <iframe
                 srcDoc={wrapEmailPreviewHtml(previewHtml)}
-                className="w-full min-h-[400px] rounded-lg border border-slate-200 dark:border-zinc-700"
+                className="w-full min-h-[400px] rounded-lg border border-[var(--border-soft)]"
                 title={t(lang, "emailTemplates.dialog.previewTitle")}
                 sandbox="allow-same-origin"
               />
@@ -841,3 +841,7 @@ export function EmailTemplatesPage() {
     </div>
   );
 }
+
+
+
+

@@ -147,3 +147,4 @@ export function CustomerMergeModal({ open, keepCustomer, customers, token, onClo
     </div>
   );
 }
+

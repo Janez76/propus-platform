@@ -942,11 +942,11 @@ export function CustomersPage() {
               e.preventDefault();
               void saveQuickContact();
             }}
-            className="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl border border-slate-200 bg-white p-4 shadow-xl dark:border-zinc-800 dark:bg-zinc-900 my-auto"
+            className="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl border border-slate-200 bg-white p-4 shadow-xl border-[var(--border-soft)] bg-[var(--surface)] my-auto"
           >
             <div className="mb-4 flex items-center justify-between gap-2">
-              <h3 className="inline-flex items-center gap-2 text-lg font-bold text-slate-900 dark:text-zinc-100">
-                <UserPlus className="h-5 w-5 text-[#C5A059]" />
+              <h3 className="inline-flex items-center gap-2 text-lg font-bold text-[var(--text-main)]">
+                <UserPlus className="h-5 w-5 text-[var(--accent)]" />
                 {t(lang, "customers.dialog.addContact").replace(
                   "{{name}}",
                   contactCustomer.company || contactCustomer.name || "-",
@@ -955,7 +955,7 @@ export function CustomersPage() {
               <button
                 type="button"
                 onClick={closeQuickContact}
-                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 text-[var(--text-subtle)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-main)]"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -963,7 +963,7 @@ export function CustomersPage() {
 
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-zinc-300">{t(lang, "customer.salutation")}</label>
+                <label className="mb-1 block text-sm font-medium text-[var(--text-muted)]">{t(lang, "customer.salutation")}</label>
                 <select
                   className={quickContactInputClass}
                   value={contactForm.salutation}
@@ -976,7 +976,7 @@ export function CustomersPage() {
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-zinc-300">{t(lang, "contact.firstName")}</label>
+                <label className="mb-1 block text-sm font-medium text-[var(--text-muted)]">{t(lang, "contact.firstName")}</label>
                 <input
                   type="text"
                   className={quickContactInputClass}
@@ -986,7 +986,7 @@ export function CustomersPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-zinc-300">{`${t(lang, "contact.lastName")} *`}</label>
+                <label className="mb-1 block text-sm font-medium text-[var(--text-muted)]">{`${t(lang, "contact.lastName")} *`}</label>
                 <input
                   type="text"
                   className={quickContactInputClass}
@@ -996,7 +996,7 @@ export function CustomersPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-zinc-300">{t(lang, "customers.label.role")}</label>
+                <label className="mb-1 block text-sm font-medium text-[var(--text-muted)]">{t(lang, "customers.label.role")}</label>
                 <input
                   type="text"
                   className={quickContactInputClass}
@@ -1006,7 +1006,7 @@ export function CustomersPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-zinc-300">{t(lang, "contact.phoneDirect")}</label>
+                <label className="mb-1 block text-sm font-medium text-[var(--text-muted)]">{t(lang, "contact.phoneDirect")}</label>
                 <input
                   type="tel"
                   className={quickContactInputClass}
@@ -1016,7 +1016,7 @@ export function CustomersPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-zinc-300">{t(lang, "customer.phoneMobile")}</label>
+                <label className="mb-1 block text-sm font-medium text-[var(--text-muted)]">{t(lang, "customer.phoneMobile")}</label>
                 <input
                   type="tel"
                   className={quickContactInputClass}
@@ -1026,7 +1026,7 @@ export function CustomersPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-zinc-300">{t(lang, "common.email")}</label>
+                <label className="mb-1 block text-sm font-medium text-[var(--text-muted)]">{t(lang, "common.email")}</label>
                 <input
                   type="email"
                   className={quickContactInputClass}
@@ -1036,7 +1036,7 @@ export function CustomersPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-zinc-300">{t(lang, "contact.department")}</label>
+                <label className="mb-1 block text-sm font-medium text-[var(--text-muted)]">{t(lang, "contact.department")}</label>
                 <input
                   type="text"
                   className={quickContactInputClass}
@@ -1053,14 +1053,14 @@ export function CustomersPage() {
               <button
                 type="button"
                 onClick={closeQuickContact}
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 border-[var(--border-soft)] text-[var(--text-main)] hover:bg-[var(--surface-raised)]"
               >
                 {t(lang, "common.cancel")}
               </button>
               <button
                 type="submit"
                 disabled={contactSaving}
-                className="inline-flex items-center gap-2 rounded-lg bg-[#C5A059] px-3 py-2 text-sm font-semibold text-white hover:bg-[#B39049] disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-white hover:bg-[var(--accent-hover)] disabled:opacity-60"
               >
                 <UserPlus className="h-4 w-4" />
                 {contactSaving ? t(lang, "customers.button.savingContact") : t(lang, "customers.button.saveContact")}
@@ -1077,28 +1077,28 @@ export function CustomersPage() {
               e.preventDefault();
               void saveContactLink();
             }}
-            className="w-full max-w-xl rounded-xl border border-slate-200 bg-white p-4 shadow-xl dark:border-zinc-800 dark:bg-zinc-900 my-auto"
+            className="w-full max-w-xl rounded-xl border border-slate-200 bg-white p-4 shadow-xl border-[var(--border-soft)] bg-[var(--surface)] my-auto"
           >
             <div className="mb-4 flex items-center justify-between gap-2">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-zinc-100">{t(lang, "customers.contacts.linkDialogTitle")}</h3>
+              <h3 className="text-lg font-bold text-[var(--text-main)]">{t(lang, "customers.contacts.linkDialogTitle")}</h3>
               <button
                 type="button"
                 onClick={closeLinkDialog}
-                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 text-[var(--text-subtle)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-main)]"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <p className="mb-3 text-sm text-slate-600 dark:text-zinc-400">
+            <p className="mb-3 text-sm text-[var(--text-subtle)]">
               {[linkContact.first_name, linkContact.last_name].filter(Boolean).join(" ").trim() || linkContact.name || "-"}
             </p>
-            <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-zinc-300">
+            <label className="mb-1 block text-sm font-medium text-[var(--text-muted)]">
               {t(lang, "customers.contacts.linkField")}
             </label>
             <select
               value={linkCustomerId}
               onChange={(e) => setLinkCustomerId(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#C5A059]/20 focus:border-[#C5A059] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)] border-[var(--border-soft)] bg-[var(--surface-raised)] text-[var(--text-main)]"
             >
               <option value="">{t(lang, "customers.contacts.noLinkOption")}</option>
               {items.map((customer) => {
@@ -1115,14 +1115,14 @@ export function CustomersPage() {
               <button
                 type="button"
                 onClick={closeLinkDialog}
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 border-[var(--border-soft)] text-[var(--text-main)] hover:bg-[var(--surface-raised)]"
               >
                 {t(lang, "common.cancel")}
               </button>
               <button
                 type="submit"
                 disabled={linkBusy}
-                className="inline-flex items-center gap-2 rounded-lg bg-[#C5A059] px-3 py-2 text-sm font-semibold text-white hover:bg-[#B39049] disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-white hover:bg-[var(--accent-hover)] disabled:opacity-60"
               >
                 {linkBusy ? t(lang, "common.saving") : t(lang, "common.save")}
               </button>
@@ -1133,3 +1133,4 @@ export function CustomersPage() {
     </div>
   );
 }
+

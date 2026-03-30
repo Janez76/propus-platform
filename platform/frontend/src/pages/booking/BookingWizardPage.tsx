@@ -216,7 +216,7 @@ export function BookingWizardPage() {
         <div className="flex-1">
           <ThankYouScreen lang={lang} />
         </div>
-        <BookingPublicFooter lang={lang} className="shrink-0 bg-white/70 dark:bg-zinc-950/80" />
+        <BookingPublicFooter lang={lang} className="shrink-0 bg-white/70 bg-[var(--surface)]/80" />
       </div>
     );
   }
@@ -225,9 +225,9 @@ export function BookingWizardPage() {
     return (
       <div data-testid="booking-wizard-loading" className="flex min-h-screen flex-col bg-gradient-to-b from-zinc-50 to-zinc-100 dark:from-zinc-950 dark:to-zinc-900">
         <div className="flex flex-1 items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-[#C5A059]" />
+          <Loader2 className="h-8 w-8 animate-spin text-[var(--accent)]" />
         </div>
-        <BookingPublicFooter lang={lang} className="shrink-0 bg-white/70 dark:bg-zinc-950/80" />
+        <BookingPublicFooter lang={lang} className="shrink-0 bg-white/70 bg-[var(--surface)]/80" />
       </div>
     );
   }
@@ -235,11 +235,11 @@ export function BookingWizardPage() {
   return (
     <div data-testid="booking-wizard" className="flex min-h-screen flex-col bg-gradient-to-b from-zinc-50 to-zinc-100 dark:from-zinc-950 dark:to-zinc-900">
       {/* Header */}
-      <header className="border-b border-zinc-200 bg-white/80 px-4 py-4 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/80">
+      <header className="border-b border-zinc-200 bg-white/80 px-4 py-4 backdrop-blur border-[var(--border-soft)] bg-[var(--surface)]/80">
         <div className="mx-auto flex max-w-5xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <img src={bookingBrandLogoUrl()} alt="Propus" className="h-7" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-            <h1 className="font-display text-xl font-semibold text-zinc-900 dark:text-zinc-50">{t(lang, "booking.title")}</h1>
+            <h1 className="font-display text-xl font-semibold text-[var(--text-main)]">{t(lang, "booking.title")}</h1>
           </div>
           <div className="flex items-center gap-3">
             <BookingThemeToggle lang={lang} />
@@ -253,10 +253,10 @@ export function BookingWizardPage() {
                   className={cn(
                     "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all",
                     step === s.id
-                      ? "bg-[#C5A059] text-white shadow-md"
+                      ? "bg-[var(--accent)] text-white shadow-md"
                       : step > s.id
-                        ? "bg-[#C5A059]/20 text-[#C5A059] cursor-pointer hover:bg-[#C5A059]/30"
-                        : "bg-zinc-200 text-zinc-400 dark:bg-zinc-800",
+                        ? "bg-[var(--accent)]/20 text-[var(--accent)] cursor-pointer hover:bg-[var(--accent)]/30"
+                        : "bg-zinc-200 text-zinc-400 bg-[var(--surface-raised)]",
                   )}
                 >
                   {s.id}
@@ -283,10 +283,10 @@ export function BookingWizardPage() {
           {/* Step Content */}
           <div>
             <div className="mb-6">
-              <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
+              <h2 className="text-lg font-bold text-[var(--text-main)]">
                 {t(lang, STEPS[step - 1].titleKey)}
               </h2>
-              <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+              <p className="mt-1 text-sm text-[var(--text-subtle)]">
                 {t(lang, STEPS[step - 1].descKey)}
               </p>
             </div>
@@ -318,7 +318,7 @@ export function BookingWizardPage() {
                 data-testid="booking-nav-back"
                 disabled={step <= 1}
                 onClick={goPrev}
-                className="flex items-center gap-2 rounded-lg border border-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-40 dark:border-zinc-700 dark:text-zinc-300"
+                className="flex items-center gap-2 rounded-lg border border-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-40 border-[var(--border-soft)] text-[var(--text-muted)]"
               >
                 <ArrowLeft className="h-4 w-4" /> {t(lang, "booking.nav.back")}
               </button>
@@ -327,7 +327,7 @@ export function BookingWizardPage() {
                   type="button"
                   data-testid="booking-nav-next"
                   onClick={goNext}
-                  className="flex items-center gap-2 rounded-lg bg-[#C5A059] px-5 py-2.5 text-sm font-medium text-white shadow-md transition-colors hover:bg-[#b08f4a]"
+                  className="flex items-center gap-2 rounded-lg bg-[var(--accent)] px-5 py-2.5 text-sm font-medium text-white shadow-md transition-colors hover:bg-[#b08f4a]"
                 >
                   {t(lang, "booking.nav.next")} <ArrowRight className="h-4 w-4" />
                 </button>
@@ -337,7 +337,7 @@ export function BookingWizardPage() {
                   data-testid="booking-nav-submit"
                   onClick={handleSubmit}
                   disabled={submitting}
-                  className="flex items-center gap-2 rounded-lg bg-[#C5A059] px-6 py-2.5 text-sm font-bold text-white shadow-md transition-colors hover:bg-[#b08f4a] disabled:opacity-60"
+                  className="flex items-center gap-2 rounded-lg bg-[var(--accent)] px-6 py-2.5 text-sm font-bold text-white shadow-md transition-colors hover:bg-[#b08f4a] disabled:opacity-60"
                 >
                   {submitting ? (
                     <><Loader2 className="h-4 w-4 animate-spin" /> {t(lang, "booking.submit.submitting")}</>
@@ -360,7 +360,8 @@ export function BookingWizardPage() {
         </div>
       </main>
 
-      <BookingPublicFooter lang={lang} className="mt-auto shrink-0 bg-white/50 dark:bg-zinc-950/60" />
+      <BookingPublicFooter lang={lang} className="mt-auto shrink-0 bg-white/50 bg-[var(--surface)]/60" />
     </div>
   );
 }
+

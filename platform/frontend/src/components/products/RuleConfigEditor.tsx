@@ -130,15 +130,15 @@ function FieldRow({ label, hint, children }: { label: string; hint?: string; chi
   return (
     <div className="grid grid-cols-[160px_1fr] items-start gap-3">
       <div className="pt-2">
-        <span className="block text-xs font-semibold text-slate-600 dark:text-zinc-400">{label}</span>
-        {hint ? <span className="mt-0.5 block text-[11px] text-slate-400 dark:text-zinc-500">{hint}</span> : null}
+        <span className="block text-xs font-semibold text-[var(--text-subtle)]">{label}</span>
+        {hint ? <span className="mt-0.5 block text-[11px] text-[var(--text-subtle)]">{hint}</span> : null}
       </div>
       <div>{children}</div>
     </div>
   );
 }
 
-const inputCls = "w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-900 shadow-sm transition-colors focus:border-[#C5A059] focus:outline-none focus:ring-1 focus:ring-[#C5A059]/30 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:focus:border-[#C5A059]/60";
+const inputCls = "w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-900 shadow-sm transition-colors focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]/30 border-[var(--border-soft)] bg-[var(--surface-raised)] text-[var(--text-main)] dark:focus:border-[var(--accent)]/60";
 
 // Fixed -----------------------------------------------------------------------
 function FixedEditor({ config, onChange }: { config: FixedConfig; onChange: (c: FixedConfig) => void }) {
@@ -238,41 +238,41 @@ function AreaTierEditor({ config, onChange }: { config: AreaTierConfig; onChange
       <div>
         <div className="mb-2 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-slate-600 dark:text-zinc-400">Staffeln</span>
-            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500 dark:bg-zinc-800 dark:text-zinc-400">
+            <span className="text-xs font-semibold text-[var(--text-subtle)]">Staffeln</span>
+            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500 bg-[var(--surface-raised)] text-[var(--text-subtle)]">
               Preis gilt bis einschliesslich maxArea m²
             </span>
           </div>
           {/* Dauer-Spalte Toggle */}
-          <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700">
+          <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 border-[var(--border-soft)] bg-[var(--surface-raised)] text-[var(--text-muted)] hover:bg-[var(--surface-raised)]">
             <input
               type="checkbox"
               checked={showDuration}
               onChange={(e) => toggleDuration(e.target.checked)}
-              className="h-3.5 w-3.5 accent-[#C5A059]"
+              className="h-3.5 w-3.5 accent-[var(--accent)]"
             />
             Dauer (Min) je Staffel
           </label>
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-zinc-700">
+        <div className="overflow-hidden rounded-xl border border-[var(--border-soft)]">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 dark:border-zinc-700 dark:bg-zinc-800/60">
-                <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 dark:text-zinc-400">Bis m²</th>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 dark:text-zinc-400">Preis (CHF)</th>
+              <tr className="border-b border-slate-200 bg-slate-50 border-[var(--border-soft)] bg-[var(--surface-raised)]/60">
+                <th className="px-3 py-2 text-left text-xs font-semibold text-[var(--text-subtle)]">Bis m²</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-[var(--text-subtle)]">Preis (CHF)</th>
                 {showDuration && (
                   <th className="px-3 py-2 text-left text-xs font-semibold text-amber-600 dark:text-amber-400">
                     Dauer (Min)
                   </th>
                 )}
-                <th className="w-24 px-3 py-2 text-left text-xs font-semibold text-slate-500 dark:text-zinc-400">Reihe</th>
+                <th className="w-24 px-3 py-2 text-left text-xs font-semibold text-[var(--text-subtle)]">Reihe</th>
                 <th className="w-10" />
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
               {config.tiers.map((tier, idx) => (
-                <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/30">
+                <tr key={idx} className="hover:bg-slate-50/50 hover:bg-[var(--surface-raised)]/30">
                   <td className="px-3 py-1.5">
                     <input
                       type="number" min="1" step="1" className={inputCls}
@@ -300,11 +300,11 @@ function AreaTierEditor({ config, onChange }: { config: AreaTierConfig; onChange
                   <td className="px-3 py-1.5">
                     <div className="flex gap-1">
                       <button type="button" disabled={idx === 0} onClick={() => moveTier(idx, -1)}
-                        className="rounded p-1 text-slate-400 hover:bg-slate-100 disabled:opacity-30 dark:hover:bg-zinc-700">
+                        className="rounded p-1 text-slate-400 hover:bg-slate-100 disabled:opacity-30 hover:bg-[var(--surface-raised)]">
                         <ChevronUp className="h-3.5 w-3.5" />
                       </button>
                       <button type="button" disabled={idx === config.tiers.length - 1} onClick={() => moveTier(idx, 1)}
-                        className="rounded p-1 text-slate-400 hover:bg-slate-100 disabled:opacity-30 dark:hover:bg-zinc-700">
+                        className="rounded p-1 text-slate-400 hover:bg-slate-100 disabled:opacity-30 hover:bg-[var(--surface-raised)]">
                         <ChevronDown className="h-3.5 w-3.5" />
                       </button>
                     </div>
@@ -321,15 +321,15 @@ function AreaTierEditor({ config, onChange }: { config: AreaTierConfig; onChange
           </table>
         </div>
         <button type="button" onClick={addTier}
-          className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-dashed border-[#C5A059]/50 px-3 py-1.5 text-xs font-medium text-[#8d7740] hover:border-[#C5A059] hover:bg-[#C5A059]/5 dark:text-[#d8bf8a]">
+          className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-dashed border-[var(--accent)]/50 px-3 py-1.5 text-xs font-medium text-[#8d7740] hover:border-[var(--accent)] hover:bg-[var(--accent)]/5 dark:text-[#d8bf8a]">
           <Plus className="h-3.5 w-3.5" />
           Staffel hinzufügen
         </button>
       </div>
 
       {/* Overflow settings */}
-      <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3 dark:border-zinc-700 dark:bg-zinc-800/30">
-        <p className="mb-3 text-xs font-semibold text-slate-600 dark:text-zinc-400">
+      <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3 border-[var(--border-soft)] bg-[var(--surface-raised)]/30">
+        <p className="mb-3 text-xs font-semibold text-[var(--text-subtle)]">
           Überlauf (über letzte Staffel hinaus)
         </p>
         <div className={cn("grid gap-3", showDuration ? "grid-cols-2 sm:grid-cols-5" : "grid-cols-3")}>
@@ -370,7 +370,7 @@ function AreaTierEditor({ config, onChange }: { config: AreaTierConfig; onChange
             </>
           )}
         </div>
-        <p className="mt-2 text-[11px] text-slate-400 dark:text-zinc-500">
+        <p className="mt-2 text-[11px] text-[var(--text-subtle)]">
           Preis: {config.basePrice} CHF Basis, +{config.incrementPrice} CHF je {config.incrementArea} m²
           {showDuration && config.baseDuration != null
             ? ` · Dauer: ${config.baseDuration} Min Basis, +${config.incrementDuration ?? 0} Min je ${config.incrementArea} m²`
@@ -410,27 +410,27 @@ function ConditionalChecklist({
   return (
     <div className="space-y-3">
       <div className="space-y-1">
-        <div className="text-xs font-semibold text-slate-600 dark:text-zinc-400">{title}</div>
-        {hint ? <div className="text-[11px] text-slate-400 dark:text-zinc-500">{hint}</div> : null}
+        <div className="text-xs font-semibold text-[var(--text-subtle)]">{title}</div>
+        {hint ? <div className="text-[11px] text-[var(--text-subtle)]">{hint}</div> : null}
       </div>
-      <div className="max-h-48 space-y-1 overflow-auto rounded-xl border border-slate-200 bg-white p-2 dark:border-zinc-700 dark:bg-zinc-900">
+      <div className="max-h-48 space-y-1 overflow-auto rounded-xl border border-slate-200 bg-white p-2 border-[var(--border-soft)] bg-[var(--surface)]">
         {options.length === 0 ? (
-          <div className="px-2 py-3 text-sm text-slate-400 dark:text-zinc-500">{emptyText}</div>
+          <div className="px-2 py-3 text-sm text-[var(--text-subtle)]">{emptyText}</div>
         ) : options.map((option) => (
           <label
             key={option.value}
-            className="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-2 text-sm hover:bg-slate-50 dark:hover:bg-zinc-800/70"
+            className="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-2 text-sm hover:bg-slate-50 hover:bg-[var(--surface-raised)]/70"
           >
             <input
               type="checkbox"
               checked={selected.includes(option.value)}
               onChange={() => toggle(option.value)}
-              className="mt-0.5 h-4 w-4 accent-[#C5A059]"
+              className="mt-0.5 h-4 w-4 accent-[var(--accent)]"
             />
             <span className="min-w-0">
-              <span className="block text-slate-800 dark:text-zinc-200">{option.label}</span>
+              <span className="block text-[var(--text-main)]">{option.label}</span>
               {option.hint ? (
-                <span className="block text-[11px] text-slate-400 dark:text-zinc-500">{option.hint}</span>
+                <span className="block text-[11px] text-[var(--text-subtle)]">{option.hint}</span>
               ) : null}
             </span>
           </label>
@@ -548,7 +548,7 @@ export function RuleConfigEditor({
     <div className="space-y-3">
       {/* Visual editor */}
       {!showRaw && (
-        <div className="rounded-xl border border-slate-200 bg-slate-50/40 p-4 dark:border-zinc-700 dark:bg-zinc-800/20">
+        <div className="rounded-xl border border-slate-200 bg-slate-50/40 p-4 border-[var(--border-soft)] bg-[var(--surface-raised)]/20">
           {ruleType === "fixed" && (
             <div className="space-y-4">
               <FixedEditor config={fixedConfig} onChange={(c) => emit(c)} />
@@ -611,7 +611,7 @@ export function RuleConfigEditor({
         <button
           type="button"
           onClick={() => setShowRaw((v) => !v)}
-          className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 dark:text-zinc-500 dark:hover:text-zinc-300"
+          className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 text-[var(--text-subtle)] hover:text-[var(--text-muted)]"
         >
           {showRaw ? "Visuelle Ansicht" : "JSON direkt bearbeiten"}
         </button>
@@ -629,8 +629,8 @@ export function RuleConfigEditor({
             "w-full rounded-lg border px-3 py-2 font-mono text-xs",
             jsonError
               ? "border-red-300 bg-red-50/30 dark:border-red-700 dark:bg-red-900/10"
-              : "border-slate-200 bg-white dark:border-zinc-700 dark:bg-zinc-800",
-            "min-h-[160px] text-slate-900 focus:border-[#C5A059] focus:outline-none focus:ring-1 focus:ring-[#C5A059]/30 dark:text-zinc-100",
+              : "border-slate-200 bg-white border-[var(--border-soft)] bg-[var(--surface-raised)]",
+            "min-h-[160px] text-slate-900 focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]/30 text-[var(--text-main)]",
           )}
           value={configJson}
           onChange={(e) => handleRawChange(e.target.value)}
@@ -640,3 +640,4 @@ export function RuleConfigEditor({
     </div>
   );
 }
+

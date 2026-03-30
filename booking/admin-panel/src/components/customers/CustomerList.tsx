@@ -136,8 +136,8 @@ export function CustomerList({ items, onEdit, onToggleBlocked, onView, onOpenAsC
                 className={cn(
                   "inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                   c.blocked
-                    ? "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-950/50"
-                    : "bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-950/50"
+                    ? "bg-green-50 text-green-700 hover:bg-green-100"
+                    : "bg-red-50 text-red-700 hover:bg-red-100"
                 )}
                 title={c.blocked ? t(lang, "common.unblock") : t(lang, "common.block")}
               >
@@ -219,7 +219,7 @@ export function CustomerList({ items, onEdit, onToggleBlocked, onView, onOpenAsC
                   <td className="px-3 py-3">
                     <div className="font-semibold p-text-main truncate">{customerListPrimaryLine(c)}</div>
                   </td>
-                  <td className="px-3 py-3 text-sm text-slate-600 dark:text-zinc-400 truncate">
+                  <td className="px-3 py-3 text-sm text-[var(--text-subtle)] truncate">
                     {[toDisplayString(c.street), toDisplayString(c.zipcity)].filter(Boolean).join(", ") || "-"}
                   </td>
                   <td className="px-3 py-3">
@@ -293,8 +293,8 @@ export function CustomerList({ items, onEdit, onToggleBlocked, onView, onOpenAsC
                         className={cn(
                           "inline-flex items-center justify-center px-2 py-1.5 rounded-lg text-xs font-medium transition-colors min-h-0 min-w-0",
                           c.blocked
-                            ? "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-950/50"
-                            : "bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-950/50"
+                            ? "bg-green-50 text-green-700 hover:bg-green-100"
+                            : "bg-red-50 text-red-700 hover:bg-red-100"
                         )}
                         title={c.blocked ? t(lang, "common.unblock") : t(lang, "common.block")}
                       >
@@ -310,3 +310,5 @@ export function CustomerList({ items, onEdit, onToggleBlocked, onView, onOpenAsC
     </>
   );
 }
+
+

@@ -51,3 +51,4 @@ export function BugReports({ bugs, onStatus, onDelete, onMail }: Props) {
     </div>
   );
 }
+

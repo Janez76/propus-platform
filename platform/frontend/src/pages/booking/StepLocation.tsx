@@ -16,14 +16,14 @@ const OBJECT_TYPES = [
 
 const inputClass = cn(
   "w-full rounded-lg border px-3 py-2.5 text-sm transition-colors",
-  "bg-white dark:bg-zinc-800",
-  "border-zinc-200 dark:border-zinc-700",
-  "text-zinc-900 dark:text-zinc-100",
-  "placeholder:text-zinc-400 dark:placeholder:text-zinc-500",
-  "focus:outline-none focus:ring-2 focus:ring-[#C5A059]/30 focus:border-[#C5A059]",
+  "bg-[var(--surface)]",
+  "border-[var(--border-soft)]",
+  "text-[var(--text-main)]",
+  "placeholder:text-zinc-400 placeholder:text-[var(--text-subtle)]",
+  "focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30 focus:border-[var(--accent)]",
 );
 
-const labelClass = "block text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-1.5";
+const labelClass = "block text-xs font-semibold uppercase tracking-wider text-[var(--text-subtle)] mb-1.5";
 
 const emptyOnsiteRow = (): OnsiteContactRow => ({
   name: "",
@@ -59,9 +59,9 @@ export function StepLocation({ lang }: { lang: Lang }) {
   return (
     <div className="space-y-6">
       {/* Adresse */}
-      <section className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-900">
-        <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
-          <MapPin className="h-4 w-4 text-[#C5A059]" /> {t(lang, "booking.step1.address")}
+      <section className="rounded-xl border border-zinc-200 bg-white p-5 border-[var(--border-soft)] bg-[var(--surface)]">
+        <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-zinc-600 text-[var(--text-muted)]">
+          <MapPin className="h-4 w-4 text-[var(--accent)]" /> {t(lang, "booking.step1.address")}
         </h3>
         <label className={labelClass}>{t(lang, "booking.step1.addressLabel")}</label>
         <AddressAutocompleteInput
@@ -83,16 +83,16 @@ export function StepLocation({ lang }: { lang: Lang }) {
         {config?.googleMapsKey ? (
           <AddressPreviewMap apiKey={config.googleMapsKey} address={address} coords={coords} />
         ) : (
-          <div className="mt-3 rounded-lg border border-dashed border-zinc-300 bg-zinc-50 p-4 text-center text-xs text-zinc-400 dark:border-zinc-600 dark:bg-zinc-800/50">
+          <div className="mt-3 rounded-lg border border-dashed border-zinc-300 bg-zinc-50 p-4 text-center text-xs text-zinc-400 border-[var(--border-soft)] bg-[var(--surface-raised)]/50">
             {t(lang, "booking.step1.mapUnavailable")}
           </div>
         )}
       </section>
 
       {/* Objektdaten */}
-      <section className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-900">
-        <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
-          <Home className="h-4 w-4 text-[#C5A059]" /> {t(lang, "booking.step1.objectDetails")}
+      <section className="rounded-xl border border-zinc-200 bg-white p-5 border-[var(--border-soft)] bg-[var(--surface)]">
+        <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-zinc-600 text-[var(--text-muted)]">
+          <Home className="h-4 w-4 text-[var(--accent)]" /> {t(lang, "booking.step1.objectDetails")}
         </h3>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
@@ -107,8 +107,8 @@ export function StepLocation({ lang }: { lang: Lang }) {
                   className={cn(
                     "rounded-lg border px-3 py-2 text-xs font-medium transition-all",
                     object.type === ot.value
-                      ? "border-[#C5A059] bg-[#C5A059]/10 text-[#C5A059]"
-                      : "border-zinc-200 text-zinc-600 hover:border-zinc-300 dark:border-zinc-700 dark:text-zinc-400",
+                      ? "border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]"
+                      : "border-zinc-200 text-zinc-600 hover:border-zinc-300 border-[var(--border-soft)] text-[var(--text-subtle)]",
                   )}
                 >
                   {t(lang, ot.labelKey)}
@@ -183,14 +183,14 @@ export function StepLocation({ lang }: { lang: Lang }) {
       </section>
 
       {/* Kontakt vor Ort */}
-      <section className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-900">
-        <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
+      <section className="rounded-xl border border-zinc-200 bg-white p-5 border-[var(--border-soft)] bg-[var(--surface)]">
+        <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-zinc-600 text-[var(--text-muted)]">
           {t(lang, "booking.step1.onsiteContact")}
         </h3>
-        <p className="mb-4 text-xs text-zinc-500 dark:text-zinc-400">
+        <p className="mb-4 text-xs text-[var(--text-subtle)]">
           {t(lang, "booking.step1.onsiteContactHint")}
         </p>
-        <p className="mb-4 text-xs text-zinc-500 dark:text-zinc-400">
+        <p className="mb-4 text-xs text-[var(--text-subtle)]">
           {t(lang, "booking.step1.onsiteOnlyOrderHint")}
         </p>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -211,25 +211,25 @@ export function StepLocation({ lang }: { lang: Lang }) {
               type="checkbox"
               checked={object.onsiteCalendarInvite}
               onChange={(e) => setObject({ onsiteCalendarInvite: e.target.checked })}
-              className="mt-0.5 h-4 w-4 shrink-0 rounded border-zinc-300 text-[#C5A059] focus:ring-[#C5A059]/30"
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-zinc-300 text-[var(--accent)] focus:ring-[var(--accent)]/30"
             />
-            <span className="text-sm leading-snug text-zinc-700 dark:text-zinc-300">{t(lang, "booking.step1.onsiteCalendarInvite")}</span>
+            <span className="text-sm leading-snug text-[var(--text-muted)]">{t(lang, "booking.step1.onsiteCalendarInvite")}</span>
           </label>
         </div>
 
         {object.additionalOnsiteContacts.map((row, idx) => (
           <div
             key={idx}
-            className="mt-4 rounded-lg border border-zinc-200 bg-zinc-50/80 p-4 dark:border-zinc-600 dark:bg-zinc-800/40"
+            className="mt-4 rounded-lg border border-zinc-200 bg-zinc-50/80 p-4 border-[var(--border-soft)] bg-[var(--surface-raised)]/40"
           >
             <div className="mb-3 flex items-center justify-between gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#C5A059]">
+              <span className="text-xs font-bold uppercase tracking-wider text-[var(--accent)]">
                 {t(lang, "booking.step1.onsiteAdditionalPerson")} ({idx + 2})
               </span>
               <button
                 type="button"
                 onClick={() => removeAdditionalAt(idx)}
-                className="inline-flex items-center gap-1 rounded-lg border border-zinc-300 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                className="inline-flex items-center gap-1 rounded-lg border border-zinc-300 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-100 border-[var(--border-soft)] text-[var(--text-muted)] hover:bg-[var(--surface-raised)]"
               >
                 <Trash2 className="h-3.5 w-3.5" /> {t(lang, "booking.step1.onsiteRemovePerson")}
               </button>
@@ -252,9 +252,9 @@ export function StepLocation({ lang }: { lang: Lang }) {
                   type="checkbox"
                   checked={row.calendarInvite}
                   onChange={(e) => updateAdditionalAt(idx, { calendarInvite: e.target.checked })}
-                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-zinc-300 text-[#C5A059] focus:ring-[#C5A059]/30"
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-zinc-300 text-[var(--accent)] focus:ring-[var(--accent)]/30"
                 />
-                <span className="text-sm leading-snug text-zinc-700 dark:text-zinc-300">{t(lang, "booking.step1.onsiteCalendarInvite")}</span>
+                <span className="text-sm leading-snug text-[var(--text-muted)]">{t(lang, "booking.step1.onsiteCalendarInvite")}</span>
               </label>
             </div>
           </div>
@@ -263,7 +263,7 @@ export function StepLocation({ lang }: { lang: Lang }) {
         <button
           type="button"
           onClick={addAdditional}
-          className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-zinc-300 py-2.5 text-sm font-medium text-zinc-600 transition-colors hover:border-[#C5A059]/50 hover:text-[#C5A059] dark:border-zinc-600 dark:text-zinc-400"
+          className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-zinc-300 py-2.5 text-sm font-medium text-zinc-600 transition-colors hover:border-[var(--accent)]/50 hover:text-[var(--accent)] border-[var(--border-soft)] text-[var(--text-subtle)]"
         >
           <Plus className="h-4 w-4" /> {t(lang, "booking.step1.onsiteAddPerson")}
         </button>
@@ -271,3 +271,4 @@ export function StepLocation({ lang }: { lang: Lang }) {
     </div>
   );
 }
+

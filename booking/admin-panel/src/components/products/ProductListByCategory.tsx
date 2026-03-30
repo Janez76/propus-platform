@@ -62,12 +62,12 @@ function ProductKindIcon({ product }: { product: Product }) {
   const name = String(product.name || "").toLowerCase();
   const code = String(product.code || "").toLowerCase();
   if (name.includes("bodenfoto") || code.includes("camera:")) {
-    return <Camera className="h-4 w-4 text-[#C5A059]" />;
+    return <Camera className="h-4 w-4 text-[var(--accent)]" />;
   }
   if (name.includes("luftaufnahme") || code.includes("drone")) {
-    return <Plane className="h-4 w-4 text-[#C5A059]" />;
+    return <Plane className="h-4 w-4 text-[var(--accent)]" />;
   }
-  return <Sparkles className="h-4 w-4 text-[#C5A059]" />;
+  return <Sparkles className="h-4 w-4 text-[var(--accent)]" />;
 }
 
 function sortProductsByOrder(a: Product, b: Product) {
@@ -127,15 +127,15 @@ function SortableProductCard({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "rounded-lg border border-slate-200/70 bg-slate-50/60 p-3 dark:border-zinc-800 dark:bg-zinc-900/60",
-        isDragging && "z-10 opacity-80 ring-2 ring-[#C5A059]/40",
+        "rounded-lg border border-slate-200/70 bg-slate-50/60 p-3 border-[var(--border-soft)] bg-[var(--surface)]/60",
+        isDragging && "z-10 opacity-80 ring-2 ring-[var(--accent)]/40",
       )}
     >
       <div className="flex items-start justify-between gap-3">
         {!dndDisabled ? (
           <button
             type="button"
-            className="mt-0.5 shrink-0 cursor-grab touch-none rounded p-1 text-[#C5A059]/80 hover:bg-[#C5A059]/15 hover:text-[#C5A059] active:cursor-grabbing dark:text-[#d8bf8a]/90 dark:hover:bg-[#C5A059]/20"
+            className="mt-0.5 shrink-0 cursor-grab touch-none rounded p-1 text-[var(--accent)]/80 hover:bg-[var(--accent)]/15 hover:text-[var(--accent)] active:cursor-grabbing "
             aria-label={t(lang, "catalog.dnd.dragProduct")}
             {...attributes}
             {...listeners}
@@ -151,7 +151,7 @@ function SortableProductCard({
               className={cn(
                 "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold",
                 product.affects_travel === false
-                  ? "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+                  ? "bg-zinc-200 text-zinc-700 bg-[var(--surface-raised)] text-[var(--text-muted)]"
                   : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300",
               )}
             >
@@ -171,14 +171,14 @@ function SortableProductCard({
           <button
             type="button"
             onClick={() => onEdit(product)}
-            className={`${btnSmallClass} border border-zinc-300 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800`}
+            className={`${btnSmallClass} border border-zinc-300 text-zinc-700 hover:bg-zinc-100 border-[var(--border-soft)] text-[var(--text-main)] hover:bg-[var(--surface-raised)]`}
           >
             {t(lang, "common.edit")}
           </button>
           <button
             type="button"
             onClick={() => onDuplicate(product)}
-            className={`${btnSmallClass} border border-zinc-300 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800`}
+            className={`${btnSmallClass} border border-zinc-300 text-zinc-700 hover:bg-zinc-100 border-[var(--border-soft)] text-[var(--text-main)] hover:bg-[var(--surface-raised)]`}
           >
             <Copy className="h-3 w-3" /> {t(lang, "catalog.button.duplicate")}
           </button>
@@ -188,8 +188,8 @@ function SortableProductCard({
             className={cn(
               btnSmallClass,
               product.active
-                ? "border border-red-300 text-red-700 hover:bg-red-50 dark:border-red-900/60 dark:text-red-300 dark:hover:bg-red-950/40"
-                : "border border-zinc-300 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800",
+                ? "border border-red-300 text-red-700 hover:bg-red-50"
+                : "border border-zinc-300 text-zinc-700 hover:bg-zinc-100 border-[var(--border-soft)] text-[var(--text-main)] hover:bg-[var(--surface-raised)]",
             )}
           >
             {product.active ? t(lang, "common.deactivate") : t(lang, "common.activate")}
@@ -254,17 +254,17 @@ function SortableCategorySection({
     <div
       ref={setNodeRef}
       style={style}
-      className={cn("rounded-lg border border-slate-200 dark:border-zinc-800", isDragging && "z-10 opacity-90 ring-2 ring-[#C5A059]/40")}
+      className={cn("rounded-lg border border-[var(--border-soft)]", isDragging && "z-10 opacity-90 ring-2 ring-[var(--accent)]/40")}
     >
       <details className="group/details" open={open}>
         <summary
-          className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 text-[var(--text-main)] hover:bg-[var(--surface-raised)]"
           onClick={(e) => e.preventDefault()}
         >
           {!dndDisabled ? (
             <button
               type="button"
-              className="shrink-0 cursor-grab touch-none rounded p-1 text-[#C5A059]/80 hover:bg-[#C5A059]/15 hover:text-[#C5A059] active:cursor-grabbing dark:text-[#d8bf8a]/90 dark:hover:bg-[#C5A059]/20"
+              className="shrink-0 cursor-grab touch-none rounded p-1 text-[var(--accent)]/80 hover:bg-[var(--accent)]/15 hover:text-[var(--accent)] active:cursor-grabbing "
               aria-label={t(lang, "catalog.dnd.dragCategory")}
               {...attributes}
               {...listeners}
@@ -283,7 +283,7 @@ function SortableCategorySection({
           >
             <button
               type="button"
-              className="shrink-0 rounded px-1 text-xs text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-700/50 dark:hover:text-zinc-200"
+              className="shrink-0 rounded px-1 text-xs text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 text-[var(--text-subtle)] hover:bg-[var(--surface-raised)]/50 hover:text-[var(--text-main)]"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -311,8 +311,8 @@ function SortableCategorySection({
               className={cn(
                 btnSmallClass,
                 category.active
-                  ? "border border-red-300 text-red-700 hover:bg-red-50 dark:border-red-900/60 dark:text-red-300 dark:hover:bg-red-950/40"
-                  : "border border-zinc-300 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800",
+                  ? "border border-red-300 text-red-700 hover:bg-red-50"
+                  : "border border-zinc-300 text-zinc-700 hover:bg-zinc-100 border-[var(--border-soft)] text-[var(--text-main)] hover:bg-[var(--surface-raised)]",
               )}
               disabled={categoryBusy}
               onClick={async (e) => {
@@ -327,7 +327,7 @@ function SortableCategorySection({
               type="button"
               className={cn(
                 btnSmallClass,
-                "border border-zinc-300 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800",
+                "border border-zinc-300 text-zinc-700 hover:bg-zinc-100 border-[var(--border-soft)] text-[var(--text-main)] hover:bg-[var(--surface-raised)]",
               )}
               disabled={categoryBusy}
               onClick={(e) => {
@@ -340,9 +340,9 @@ function SortableCategorySection({
             </button>
           </div>
         </summary>
-        <div className="space-y-2 border-t border-slate-200 p-2 dark:border-zinc-800">
+        <div className="space-y-2 border-t border-slate-200 p-2 border-[var(--border-soft)]">
           {group.items.length === 0 ? (
-            <div className="rounded-md border border-dashed border-zinc-300 px-3 py-2 text-xs text-zinc-500 dark:border-zinc-700">
+            <div className="rounded-md border border-dashed border-zinc-300 px-3 py-2 text-xs text-zinc-500 border-[var(--border-soft)]">
               {t(lang, "catalog.category.empty")}
             </div>
           ) : (
@@ -394,10 +394,10 @@ function UnassignedCategorySection({
   const productSortableIds = sortedItems.map((p) => prodId(p.id));
 
   return (
-    <div className="rounded-lg border border-slate-200 dark:border-zinc-800">
+    <div className="rounded-lg border border-[var(--border-soft)]">
       <details className="group/details" open={open}>
         <summary
-          className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 text-[var(--text-main)] hover:bg-[var(--surface-raised)]"
           onClick={(e) => e.preventDefault()}
         >
           <span
@@ -410,9 +410,9 @@ function UnassignedCategorySection({
             {group.label} ({group.items.length})
           </span>
         </summary>
-        <div className="space-y-2 border-t border-slate-200 p-2 dark:border-zinc-800">
+        <div className="space-y-2 border-t border-slate-200 p-2 border-[var(--border-soft)]">
           {group.items.length === 0 ? (
-            <div className="rounded-md border border-dashed border-zinc-300 px-3 py-2 text-xs text-zinc-500 dark:border-zinc-700">
+            <div className="rounded-md border border-dashed border-zinc-300 px-3 py-2 text-xs text-zinc-500 border-[var(--border-soft)]">
               {t(lang, "catalog.category.empty")}
             </div>
           ) : (
@@ -680,7 +680,7 @@ export function ProductListByCategory({
   );
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+    <div className="rounded-xl border border-slate-200 bg-white p-4 border-[var(--border-soft)] bg-[var(--surface)]">
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="font-semibold">{t(lang, "catalog.title.existing").replace("{{n}}", String(filteredProducts.length))}</h2>
         <div className="flex w-full flex-col gap-2 sm:max-w-xs">
@@ -694,7 +694,7 @@ export function ProductListByCategory({
             />
           </div>
           {q ? (
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">{t(lang, "catalog.dnd.disabledWhileSearching")}</p>
+            <p className="text-xs text-[var(--text-subtle)]">{t(lang, "catalog.dnd.disabledWhileSearching")}</p>
           ) : null}
         </div>
       </div>
@@ -756,7 +756,7 @@ export function ProductListByCategory({
             />
           ) : null}
           {filteredProducts.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-zinc-300 p-5 text-center text-sm text-zinc-500 dark:border-zinc-700">
+            <div className="rounded-lg border border-dashed border-zinc-300 p-5 text-center text-sm text-zinc-500 border-[var(--border-soft)]">
               {t(lang, "catalog.search.empty")}
             </div>
           ) : null}
@@ -765,3 +765,5 @@ export function ProductListByCategory({
     </div>
   );
 }
+
+

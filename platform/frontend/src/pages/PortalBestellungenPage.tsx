@@ -28,14 +28,14 @@ export function PortalBestellungenPage() {
   }, [load]);
 
   if (busy) {
-    return <div className="p-6 text-sm text-slate-500 dark:text-zinc-400">Bestellungen werden geladen…</div>;
+    return <div className="p-6 text-sm text-[var(--text-subtle)]">Bestellungen werden geladen…</div>;
   }
 
   return (
     <div className="space-y-4 p-4 md:p-6">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900 dark:text-zinc-100">Meine Bestellungen</h1>
-        <p className="mt-1 text-sm text-slate-600 dark:text-zinc-400">
+        <h1 className="text-2xl font-semibold text-[var(--text-main)]">Meine Bestellungen</h1>
+        <p className="mt-1 text-sm text-[var(--text-subtle)]">
           Hier siehst du nur Aufträge, die dir zugeordnet sind.
         </p>
       </div>
@@ -44,21 +44,21 @@ export function PortalBestellungenPage() {
           {error}
         </div>
       ) : null}
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="cust-table-wrap overflow-x-auto">
         <table className="min-w-full text-left text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 dark:border-zinc-800 dark:bg-zinc-950/80">
+          <thead className="border-b border-slate-200 bg-slate-50 border-[var(--border-soft)] bg-[var(--surface)]/80">
             <tr>
-              <th className="px-4 py-3 font-medium text-slate-700 dark:text-zinc-300">Nr.</th>
-              <th className="px-4 py-3 font-medium text-slate-700 dark:text-zinc-300">Status</th>
-              <th className="px-4 py-3 font-medium text-slate-700 dark:text-zinc-300">Adresse</th>
-              <th className="px-4 py-3 font-medium text-slate-700 dark:text-zinc-300">Erfasst</th>
-              <th className="px-4 py-3 font-medium text-slate-700 dark:text-zinc-300">Aktionen</th>
+              <th className="px-4 py-3 font-medium text-[var(--text-muted)]">Nr.</th>
+              <th className="px-4 py-3 font-medium text-[var(--text-muted)]">Status</th>
+              <th className="px-4 py-3 font-medium text-[var(--text-muted)]">Adresse</th>
+              <th className="px-4 py-3 font-medium text-[var(--text-muted)]">Erfasst</th>
+              <th className="px-4 py-3 font-medium text-[var(--text-muted)]">Aktionen</th>
             </tr>
           </thead>
           <tbody>
             {orders.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-slate-500 dark:text-zinc-500">
+                <td colSpan={5} className="px-4 py-8 text-center text-[var(--text-subtle)]">
                   Keine Aufträge gefunden.
                 </td>
               </tr>
@@ -66,25 +66,25 @@ export function PortalBestellungenPage() {
               orders.map((o) => (
                 <tr
                   key={String(o.orderNo ?? Math.random())}
-                  className="border-b border-slate-100 last:border-0 dark:border-zinc-800"
+                  className="border-b border-slate-100 last:border-0 border-[var(--border-soft)]"
                 >
-                  <td className="px-4 py-3 font-mono text-slate-900 dark:text-zinc-100">{String(o.orderNo ?? "–")}</td>
-                  <td className="px-4 py-3 text-slate-700 dark:text-zinc-300">{o.status ?? "–"}</td>
-                  <td className="px-4 py-3 text-slate-600 dark:text-zinc-400">{o.address ?? "–"}</td>
-                  <td className="px-4 py-3 text-slate-600 dark:text-zinc-400">
+                  <td className="px-4 py-3 font-mono text-[var(--text-main)]">{String(o.orderNo ?? "–")}</td>
+                  <td className="px-4 py-3 text-[var(--text-muted)]">{o.status ?? "–"}</td>
+                  <td className="px-4 py-3 text-[var(--text-subtle)]">{o.address ?? "–"}</td>
+                  <td className="px-4 py-3 text-[var(--text-subtle)]">
                     {o.createdAt ? new Date(o.createdAt).toLocaleDateString("de-CH") : "–"}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
-                        className="rounded-md border border-slate-300 px-2.5 py-1 text-xs text-slate-700 dark:border-zinc-700 dark:text-zinc-300"
+                        className="cust-action-icon text-xs px-2.5 py-1"
                       >
                         Dateien
                       </button>
                       <button
                         type="button"
-                        className="rounded-md border border-slate-300 px-2.5 py-1 text-xs text-slate-700 dark:border-zinc-700 dark:text-zinc-300"
+                        className="cust-action-icon text-xs px-2.5 py-1"
                       >
                         Feedback
                       </button>
@@ -99,3 +99,6 @@ export function PortalBestellungenPage() {
     </div>
   );
 }
+
+
+

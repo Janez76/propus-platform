@@ -72,7 +72,7 @@ function CopyButton({ value, lang }: { value: string; lang: Lang }) {
       type="button"
       onClick={copy}
       title={t(lang, "common.copy")}
-      className="ml-1 inline-flex items-center text-zinc-400 hover:text-[#C5A059] transition-colors"
+      className="ml-1 inline-flex items-center text-zinc-400 hover:text-[var(--accent)] transition-colors"
     >
       {copied ? (
         <svg className="h-3.5 w-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
@@ -645,21 +645,21 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                       {customerPhoneRaw && (
                         <div className="flex items-center gap-1">
                           <b>{t(lang, "common.phone")}:</b>&nbsp;
-                          <PhoneLink value={customerPhoneRaw} className="text-[#C5A059]" />
+                          <PhoneLink value={customerPhoneRaw} className="text-[var(--accent)]" />
                           <CopyButton value={formatPhoneDisplay(customerPhoneRaw)} lang={lang} />
                         </div>
                       )}
                       <div className="flex items-center gap-1">
                         <b>{t(lang, "common.email")}:</b>&nbsp;
                         {customerEmailDisplay ? (
-                          <><a href={`mailto:${customerEmailDisplay}`} className="text-[#C5A059] hover:underline">{customerEmailDisplay}</a><CopyButton value={customerEmailDisplay} lang={lang} /></>
+                          <><a href={`mailto:${customerEmailDisplay}`} className="text-[var(--accent)] hover:underline">{customerEmailDisplay}</a><CopyButton value={customerEmailDisplay} lang={lang} /></>
                         ) : <span className="text-zinc-400">{t(lang, "common.notSet")}</span>}
                       </div>
                       {(billingStreetDisplay || billingZipcityDisplay) && (
                         <div className="flex items-center gap-1">
                           <b>{t(lang, "orderDetail.label.street")}:</b>&nbsp;
                           {(billingStreetDisplay || billingZipcityDisplay) ? (
-                            <><a href={`https://maps.google.com/?q=${encodeURIComponent(`${billingStreetDisplay} ${billingZipcityDisplay}`.trim())}`} target="_blank" rel="noopener noreferrer" className="text-[#C5A059] hover:underline">{billingStreetDisplay}{billingZipcityDisplay && <span className="ml-1">{billingZipcityDisplay}</span>}</a><CopyButton value={`${billingStreetDisplay} ${billingZipcityDisplay}`.trim()} lang={lang} /></>
+                            <><a href={`https://maps.google.com/?q=${encodeURIComponent(`${billingStreetDisplay} ${billingZipcityDisplay}`.trim())}`} target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] hover:underline">{billingStreetDisplay}{billingZipcityDisplay && <span className="ml-1">{billingZipcityDisplay}</span>}</a><CopyButton value={`${billingStreetDisplay} ${billingZipcityDisplay}`.trim()} lang={lang} /></>
                           ) : <span className="text-zinc-400">{t(lang, "common.notSet")}</span>}
                         </div>
                       )}
@@ -670,19 +670,19 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                       <div className="flex items-center gap-1">
                         <b>{t(lang, "common.email")}:</b>&nbsp;
                         {email ? (
-                          <><a href={`mailto:${email}`} className="text-[#C5A059] hover:underline">{email}</a><CopyButton value={email} lang={lang} /></>
+                          <><a href={`mailto:${email}`} className="text-[var(--accent)] hover:underline">{email}</a><CopyButton value={email} lang={lang} /></>
                         ) : <span className="text-zinc-400">{t(lang, "common.notSet")}</span>}
                       </div>
                       <div className="flex items-center gap-1">
                         <b>{t(lang, "common.phone")}:</b>&nbsp;
                         {phoneRaw ? (
-                          <><PhoneLink value={phoneRaw} className="text-[#C5A059]" /><CopyButton value={formatPhoneDisplay(phoneRaw)} lang={lang} /></>
+                          <><PhoneLink value={phoneRaw} className="text-[var(--accent)]" /><CopyButton value={formatPhoneDisplay(phoneRaw)} lang={lang} /></>
                         ) : <span className="text-zinc-400">{t(lang, "common.notSet")}</span>}
                       </div>
                       {mobileRaw ? (
                         <div className="flex items-center gap-1">
                           <b>Mobil:</b>&nbsp;
-                          <PhoneLink value={mobileRaw} className="text-[#C5A059]" />
+                          <PhoneLink value={mobileRaw} className="text-[var(--accent)]" />
                           <CopyButton value={formatPhoneDisplay(mobileRaw)} lang={lang} />
                         </div>
                       ) : null}
@@ -732,7 +732,7 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                           {data.billing?.alt_company_email ? <div><b>Firma E-Mail:</b> {data.billing.alt_company_email}</div> : null}
                           {data.billing?.alt_company_phone ? (
                             <div className="flex flex-wrap items-center gap-1">
-                              <b>Firma Telefon:</b> <PhoneLink value={data.billing.alt_company_phone} className="text-[#C5A059]" />
+                              <b>Firma Telefon:</b> <PhoneLink value={data.billing.alt_company_phone} className="text-[var(--accent)]" />
                             </div>
                           ) : null}
                           {data.billing?.alt_street ? <div><b>Strasse:</b> {data.billing.alt_street}</div> : null}
@@ -741,12 +741,12 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                           {data.billing?.alt_email ? <div><b>Kontakt E-Mail:</b> {data.billing.alt_email}</div> : null}
                           {data.billing?.alt_phone ? (
                             <div className="flex flex-wrap items-center gap-1">
-                              <b>Kontakt Telefon:</b> <PhoneLink value={data.billing.alt_phone} className="text-[#C5A059]" />
+                              <b>Kontakt Telefon:</b> <PhoneLink value={data.billing.alt_phone} className="text-[var(--accent)]" />
                             </div>
                           ) : null}
                           {data.billing?.alt_phone_mobile ? (
                             <div className="flex flex-wrap items-center gap-1">
-                              <b>Kontakt Mobil:</b> <PhoneLink value={data.billing.alt_phone_mobile} className="text-[#C5A059]" />
+                              <b>Kontakt Mobil:</b> <PhoneLink value={data.billing.alt_phone_mobile} className="text-[var(--accent)]" />
                             </div>
                           ) : null}
                         </div>
@@ -771,7 +771,7 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                       <div className="flex items-center gap-1 sm:col-span-2">
                         <b>{t(lang, "orderDetail.label.address")}</b>&nbsp;
                         {data.address ? (
-                          <><a href={`https://maps.google.com/?q=${encodeURIComponent(data.address)}`} target="_blank" rel="noopener noreferrer" className="text-[#C5A059] hover:underline">{data.address}</a><CopyButton value={data.address} lang={lang} /></>
+                          <><a href={`https://maps.google.com/?q=${encodeURIComponent(data.address)}`} target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] hover:underline">{data.address}</a><CopyButton value={data.address} lang={lang} /></>
                         ) : <span className="text-zinc-400">{t(lang, "common.notSet")}</span>}
                       </div>
                       <div><b>{t(lang, "orderDetail.label.type")}:</b> {data.object?.type || <span className="text-zinc-400">{t(lang, "common.notSet")}</span>}</div>
@@ -818,7 +818,7 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                         <button key={pkg.key} type="button"
                           onClick={() => setEditPackageKey((k) => (k === pkg.key ? "" : pkg.key))}
                           className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                            editPackageKey === pkg.key ? "border-[#9E8649] bg-[#9E8649]/10 text-[#9E8649]" : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
+                            editPackageKey === pkg.key ? "border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]" : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
                           }`}
                         >
                           {pkg.label} <span className="font-normal text-zinc-500">{pkg.price} CHF</span>
@@ -840,7 +840,7 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                               <button key={addon.id} type="button"
                                 onClick={() => toggleRadioAddon(group, addon.id, addon.label, addon.price ?? 0)}
                                 className={`rounded-lg border px-2.5 py-1 text-xs transition-colors ${
-                                  activeId === addon.id ? "border-[#9E8649] bg-[#9E8649]/10 font-semibold text-[#9E8649]" : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
+                                  activeId === addon.id ? "border-[var(--accent)] bg-[var(--accent)]/10 font-semibold text-[var(--accent)]" : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
                                 }`}
                               >
                                 {addon.label} · {addon.price} CHF
@@ -982,7 +982,7 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                     <div className="mt-2 border-t border-zinc-200 pt-2 text-xs text-zinc-500">
                       <div className="flex justify-between"><span>{t(lang, "orderDetail.pricing.subtotal")}</span><span className="tabular-nums">{formatCurrency(editPricing.subtotal)}</span></div>
                       <div className="flex justify-between"><span>{t(lang, "orderDetail.pricing.vat")}</span><span className="tabular-nums">{formatCurrency(editPricing.vat)}</span></div>
-                      <div className="flex justify-between text-sm font-semibold text-[#9E8649]"><span>{t(lang, "orderDetail.pricing.total")}</span><span className="tabular-nums">{formatCurrency(editPricing.total)}</span></div>
+                      <div className="flex justify-between text-sm font-semibold text-[var(--accent)]"><span>{t(lang, "orderDetail.pricing.total")}</span><span className="tabular-nums">{formatCurrency(editPricing.total)}</span></div>
                     </div>
                   </div>
 
@@ -1053,7 +1053,7 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                     </div>
                     <div className="flex justify-between border-t border-zinc-200 pt-2 text-base font-bold">
                       <span>{t(lang, "orderDetail.pricing.total")}</span>
-                      <span className="tabular-nums text-[#9E8649]">{formatCurrency(data.total || data.pricing?.total || 0)}</span>
+                      <span className="tabular-nums text-[var(--accent)]">{formatCurrency(data.total || data.pricing?.total || 0)}</span>
                     </div>
                   </div>
                   {(data.notes || data.billing?.notes) && (
@@ -1185,7 +1185,7 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                     const phone = photographers.find((p) => p.key === pendingPhotographerKey)?.phone || data?.photographer?.phone;
                     return phone ? (
                       <div className="mt-2 text-sm">
-                        <PhoneLink value={phone} className="text-[#C5A059]" />
+                        <PhoneLink value={phone} className="text-[var(--accent)]" />
                       </div>
                     ) : null;
                   })()}
@@ -1299,3 +1299,4 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
     </>
   );
 }
+

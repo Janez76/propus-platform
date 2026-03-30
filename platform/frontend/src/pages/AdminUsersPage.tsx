@@ -52,35 +52,35 @@ const ROLE_CFG: Record<RoleKey, {
     label: "Super-Admin",
     description: "Voller Systemzugriff inkl. Benutzerverwaltung und Einstellungen",
     icon: <Crown className="h-4 w-4" />,
-    pill: "border-amber-500/40 bg-amber-500/10 text-amber-300",
-    card: "border-amber-500/20 bg-amber-500/5",
+    pill: "cust-badge cust-badge--gold",
+    card: "border-[color-mix(in_srgb,var(--propus-gold)_20%,transparent)] bg-[color-mix(in_srgb,var(--propus-gold)_5%,transparent)]",
     permissions: ["dashboard.view", "users.manage", "roles.manage", "settings.manage", "orders.*", "customers.*", "photographers.*", "products.*", "backups.manage"],
   },
   admin: {
     label: "Admin",
     description: "Zugriff auf Aufträge, Kunden, Mitarbeiter, Produkte und Einstellungen",
     icon: <Shield className="h-4 w-4" />,
-    pill: "border-violet-500/40 bg-violet-500/10 text-violet-300",
-    card: "border-violet-500/20 bg-violet-500/5",
+    pill: "cust-badge cust-badge--info",
+    card: "border-[color-mix(in_srgb,#3498db_20%,transparent)] bg-[color-mix(in_srgb,#3498db_5%,transparent)]",
     permissions: ["orders.read", "orders.create", "orders.update", "orders.delete", "customers.manage", "photographers.manage", "products.manage", "settings.manage"],
   },
   photographer: {
     label: "Mitarbeiter",
     description: "Zugriff auf eigene Aufträge und Kalender",
     icon: <Camera className="h-4 w-4" />,
-    pill: "border-sky-500/40 bg-sky-500/10 text-sky-300",
-    card: "border-sky-500/20 bg-sky-500/5",
+    pill: "cust-badge cust-badge--neutral",
+    card: "border-[var(--border-soft)] bg-[var(--surface-raised)]",
     permissions: ["dashboard.view", "orders.read", "orders.update", "calendar.view", "photographers.read"],
   },
 };
 
 const AVATAR_PALETTE = [
-  "bg-violet-500/20 text-violet-300",
-  "bg-teal-500/20 text-teal-300",
-  "bg-amber-500/20 text-amber-300",
-  "bg-sky-500/20 text-sky-300",
-  "bg-rose-500/20 text-rose-300",
-  "bg-emerald-500/20 text-emerald-300",
+  { bg: "color-mix(in srgb, #9b59b6 18%, transparent)", color: "#9b59b6" },
+  { bg: "color-mix(in srgb, #1abc9c 18%, transparent)", color: "#1abc9c" },
+  { bg: "color-mix(in srgb, var(--propus-gold) 18%, transparent)", color: "var(--propus-gold)" },
+  { bg: "color-mix(in srgb, #3498db 18%, transparent)", color: "#3498db" },
+  { bg: "color-mix(in srgb, #e74c3c 18%, transparent)", color: "#e74c3c" },
+  { bg: "color-mix(in srgb, #2ecc71 18%, transparent)", color: "#2ecc71" },
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -144,7 +144,10 @@ function RolePill({ role, active, busy, onClick }: {
 function UserAvatar({ user, size = "md" }: { user: LogtoUser; size?: "sm" | "md" }) {
   const sz = size === "sm" ? "h-7 w-7 text-[10px]" : "h-9 w-9 text-[11px]";
   return (
-    <div className={`flex shrink-0 items-center justify-center rounded-full font-bold ${sz} ${avatarColor(user.id)}`}>
+    <div
+      className={`flex shrink-0 items-center justify-center rounded-full font-bold ${sz}`}
+      style={{ background: avatarColor(user.id).bg, color: avatarColor(user.id).color }}
+    >
       {initials(user.name, user.email)}
     </div>
   );
@@ -198,9 +201,9 @@ function UsersTab({ users, loading, saving, onToggleRole, onToggleSuspend, onRel
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex gap-2">
           <StatChip label="Gesamt" value={users.length} />
-          <StatChip label="Aktiv" value={activeCount} color="text-emerald-400" />
-          <StatChip label="Admins" value={adminCount} color="text-amber-400" />
-          <StatChip label="Mitarbeiter" value={staffCount} color="text-sky-400" />
+          <StatChip label="Aktiv" value={activeCount} color="#2ecc71" />
+          <StatChip label="Admins" value={adminCount} color="var(--propus-gold)" />
+          <StatChip label="Mitarbeiter" value={staffCount} color="#3498db" />
         </div>
         <div className="flex gap-2">
           <button onClick={onReload}
@@ -236,7 +239,7 @@ function UsersTab({ users, loading, saving, onToggleRole, onToggleSuspend, onRel
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-semibold text-[var(--text-main)] text-sm">{user.name || user.email}</span>
                     {user.isSuspended && (
-                      <span className="rounded-full border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-[10px] font-medium text-red-400">Gesperrt</span>
+                      <span className="cust-status-badge cust-status-cancelled" style={{ borderRadius: "999px", fontSize: "10px" }}>Gesperrt</span>
                     )}
                   </div>
                   <div className="text-xs text-[var(--text-muted)] mt-0.5">{user.email}</div>
@@ -257,11 +260,10 @@ function UsersTab({ users, loading, saving, onToggleRole, onToggleSuspend, onRel
                 </div>
                 {/* Suspend */}
                 <button onClick={() => onToggleSuspend(user)} disabled={saving === user.id + ":suspend"}
-                  className={`shrink-0 inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${
-                    user.isSuspended
-                      ? "border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
-                      : "border-[var(--border-soft)] text-[var(--text-subtle)] hover:border-red-500/30 hover:text-red-400"
-                  } ${saving === user.id + ":suspend" ? "opacity-40 cursor-wait" : ""}`}>
+                  className={`shrink-0 inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${saving === user.id + ":suspend" ? "opacity-40 cursor-wait" : ""}`}
+                  style={user.isSuspended
+                    ? { borderColor: "color-mix(in srgb, #2ecc71 30%, transparent)", color: "#1d9e56" }
+                    : { borderColor: "var(--border-soft)", color: "var(--text-subtle)" }}>
                   {user.isSuspended ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
                   {user.isSuspended ? "Aktivieren" : "Sperren"}
                 </button>
@@ -328,7 +330,7 @@ function UsersTab({ users, loading, saving, onToggleRole, onToggleSuspend, onRel
                 </div>
               </Field>
             </div>
-            {formErr && <p className="mt-3 text-sm text-red-400">{formErr}</p>}
+            {formErr && <p className="mt-3 text-sm" style={{ color: "#e74c3c" }}>{formErr}</p>}
             <div className="mt-5 flex gap-2.5">
               <button type="button" onClick={() => { setShowNew(false); setForm({ ...EMPTY_FORM }); setFormErr(""); }}
                 className="flex-1 rounded-lg border border-[var(--border-soft)] py-2 text-sm text-[var(--text-muted)] hover:bg-[var(--surface-raised)] transition-colors">
@@ -420,7 +422,10 @@ function RolesTab({ users, loading, saving, onToggleRole, onReload }: {
                             has ? `${cfg.card} border-current text-[var(--text-main)]` : "border-[var(--border-soft)] bg-[var(--surface)] text-[var(--text-subtle)] hover:border-[var(--accent)]/30",
                             busy ? "opacity-40 cursor-wait" : "cursor-pointer",
                           ].join(" ")}>
-                          <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold ${avatarColor(user.id)}`}>
+                          <div
+                            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold"
+                            style={{ background: avatarColor(user.id).bg, color: avatarColor(user.id).color }}
+                          >
                             {initials(user.name, user.email)}
                           </div>
                           <span>{user.name || user.email}</span>
@@ -456,7 +461,7 @@ function RolesTab({ users, loading, saving, onToggleRole, onReload }: {
 function StatChip({ label, value, color }: { label: string; value: number; color?: string }) {
   return (
     <div className="flex items-center gap-1.5 rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 py-1.5">
-      <span className={`text-sm font-bold ${color ?? "text-[var(--text-main)]"}`}>{value}</span>
+      <span className="text-sm font-bold" style={{ color: color ?? "var(--text-main)" }}>{value}</span>
       <span className="text-xs text-[var(--text-subtle)]">{label}</span>
     </div>
   );
@@ -552,7 +557,7 @@ export function AdminUsersPage() {
 
         {/* Error */}
         {error && (
-          <div className="rounded-lg border border-red-800/50 bg-red-950/30 px-4 py-3 text-sm text-red-400 flex items-center gap-2">
+          <div className="cust-alert cust-alert--error rounded-lg text-sm">
             <span className="flex-1">{error}</span>
             <button onClick={() => setError("")} className="shrink-0 opacity-60 hover:opacity-100"><X className="h-4 w-4" /></button>
           </div>
@@ -575,3 +580,4 @@ export function AdminUsersPage() {
     </div>
   );
 }
+

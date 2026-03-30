@@ -70,7 +70,7 @@ export function EmployeesPage() {
   const isModern = uiMode === "modern";
   const createInputClass = cn(
     "w-full rounded-lg border px-3 py-2 text-sm transition-colors",
-    isModern ? "bg-zinc-900 border-zinc-800 text-zinc-100 placeholder:text-zinc-500 hover:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-[#C5A059]/25 focus:border-[#C5A059]" : "rounded border px-2 py-1"
+    isModern ? "bg-zinc-900 border-zinc-800 text-zinc-100 placeholder:text-zinc-500 hover:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/25 focus:border-[var(--accent)]" : "rounded border px-2 py-1"
   );
   const createLabelClass = isModern
     ? "mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-zinc-400"
@@ -107,8 +107,8 @@ export function EmployeesPage() {
               className={cn(
                 "inline-flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition-all",
                 isModern
-                  ? "bg-[#C5A059] text-white hover:bg-[#B39049] hover:shadow-md"
-                  : "rounded bg-[#9E8649] px-3 py-1 text-sm font-semibold text-white hover:bg-[#8d7740]"
+                  ? "bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] hover:shadow-md"
+                  : "rounded bg-[var(--accent)] px-3 py-1 text-sm font-semibold text-white hover:bg-[var(--accent-hover)]"
               )}
             >
               <Plus className="h-4 w-4" />
@@ -122,7 +122,7 @@ export function EmployeesPage() {
               onChange={(e) => setIsAdmin(e.target.checked)}
               className={cn(
                 "h-4 w-4 rounded",
-                isModern ? "border-zinc-600 bg-zinc-800 text-[#C5A059] focus:ring-[#C5A059]/30" : "border-zinc-300 text-[#9E8649]"
+                isModern ? "border-zinc-600 bg-zinc-800 text-[var(--accent)] focus:ring-[var(--accent)]/30" : "border-zinc-300 text-[var(--accent)]"
               )}
             />
             {t(lang, "employees.label.admin")}
@@ -132,11 +132,11 @@ export function EmployeesPage() {
 
       <div className={cn(
         "rounded-xl border p-4 shadow-sm",
-        isModern ? "border-slate-200/60 bg-white dark:border-zinc-800 dark:bg-zinc-900" : "border-zinc-200 bg-white"
+        isModern ? "border-slate-200/60 bg-white border-[var(--border-soft)] bg-[var(--surface)]" : "border-zinc-200 bg-white"
       )}>
         <div className="flex flex-col gap-3 sm:flex-row">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-zinc-500" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-subtle)]" />
             <input
               type="text"
               placeholder={t(lang, "employees.placeholder.search")}
@@ -144,9 +144,9 @@ export function EmployeesPage() {
               onChange={(e) => setQuery(e.target.value)}
               className={cn(
                 "w-full rounded-lg border py-2 pl-10 pr-3 text-sm transition-colors",
-                "placeholder:text-slate-400 hover:border-slate-300 focus:border-[#C5A059] focus:outline-none focus:ring-2 focus:ring-[#C5A059]/20",
+                "placeholder:text-slate-400 hover:border-slate-300 focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20",
                 isModern
-                  ? "border-slate-200 bg-white text-slate-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:hover:border-zinc-600"
+                  ? "border-slate-200 bg-white text-slate-900 border-[var(--border-soft)] bg-[var(--surface-raised)] text-[var(--text-main)] placeholder:text-[var(--text-subtle)] hover:border-[var(--border-soft)]"
                   : "border-zinc-300 bg-white text-zinc-900"
               )}
             />
@@ -154,13 +154,13 @@ export function EmployeesPage() {
           <div className={cn(
             "flex items-center gap-2 rounded-lg border px-4 py-2",
             isModern
-              ? "border-slate-200 bg-slate-100 dark:border-zinc-700 dark:bg-zinc-800"
+              ? "border-slate-200 bg-slate-100 border-[var(--border-soft)] bg-[var(--surface-raised)]"
               : "border-zinc-200 bg-zinc-50"
           )}>
-            <span className={cn("text-xs font-semibold uppercase tracking-wider", isModern ? "text-slate-500 dark:text-zinc-400" : "text-zinc-600")}>
+            <span className={cn("text-xs font-semibold uppercase tracking-wider", isModern ? "text-[var(--text-subtle)]" : "text-zinc-600")}>
               {t(lang, "employees.label.hits")}
             </span>
-            <span className="text-sm font-bold text-[#C5A059]">{filtered.length}</span>
+            <span className="text-sm font-bold text-[var(--accent)]">{filtered.length}</span>
           </div>
         </div>
       </div>
@@ -171,3 +171,5 @@ export function EmployeesPage() {
     </div>
   );
 }
+
+

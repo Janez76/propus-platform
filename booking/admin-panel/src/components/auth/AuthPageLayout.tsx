@@ -49,3 +49,4 @@ interface AuthCardProps {
 export function AuthCard({ children }: AuthCardProps) {
   return <div className="auth-card p-8 md:p-10">{children}</div>;
 }
+

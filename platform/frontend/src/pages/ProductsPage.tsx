@@ -98,9 +98,8 @@ export function ProductsPage() {
     },
   );
 
-  const btnBaseClass = "inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition-colors";
-  const btnPrimaryClass = `${btnBaseClass} bg-[#C5A059] text-white hover:bg-[#b8944f]`;
-  const btnSecondaryClass = `${btnBaseClass} border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800`;
+  const btnPrimaryClass = "btn-primary min-h-0 inline-flex items-center justify-center gap-2 px-3 py-2 text-sm";
+  const btnSecondaryClass = "btn-secondary min-h-0 inline-flex items-center justify-center gap-2 px-3 py-2 text-sm";
 
   function startCreate() {
     setModalMode("create");
@@ -141,8 +140,8 @@ export function ProductsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="mb-2 text-3xl font-bold tracking-tight text-slate-900 dark:text-zinc-100">Produkte</h1>
-          <p className="text-slate-600 dark:text-zinc-400">{t(language, "catalog.subtitle")}</p>
+          <h1 className="mb-2 cust-page-header-title text-3xl">Produkte</h1>
+          <p className="text-[var(--text-muted)]">{t(language, "catalog.subtitle")}</p>
         </div>
         <div className="flex gap-2">
           <button
@@ -161,15 +160,15 @@ export function ProductsPage() {
       </div>
 
       {queryError || actionError ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <div className="cust-alert cust-alert--error rounded-lg text-sm">
           {queryError || actionError}
         </div>
       ) : null}
       <div className="space-y-4">
-        <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="cust-form-section">
           <h2 className="mb-3 font-semibold">{t(language, "catalog.categoryManager.title")}</h2>
           {categorySectionError ? (
-            <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{categorySectionError}</div>
+            <div className="mb-3 cust-alert cust-alert--error rounded-lg text-sm">{categorySectionError}</div>
           ) : null}
           <div className="mb-4 grid gap-2 md:grid-cols-4">
             <input
@@ -287,7 +286,7 @@ export function ProductsPage() {
               </button>
               <button
                 type="button"
-                className={`${btnBaseClass} flex-1 justify-center border-none bg-red-600 text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-45`}
+                className={`${btnBaseClass} flex-1 justify-center border-none btn-primary min-h-0 disabled:cursor-not-allowed disabled:opacity-45`}
                 disabled={categoryDeleteBusy}
                 onClick={async () => {
                   if (!categoryPendingDelete) return;
@@ -422,9 +421,8 @@ export function ProductsPage() {
   const packages = useMemo(() => products.filter((p) => p.kind === "package"), [products]);
   const addons = useMemo(() => products.filter((p) => p.kind === "addon"), [products]);
 
-  const btnBaseClass = "inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition-colors";
-  const btnPrimaryClass = `${btnBaseClass} bg-[#C5A059] text-white hover:bg-[#b8944f]`;
-  const btnSecondaryClass = `${btnBaseClass} border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800`;
+  const btnPrimaryClass = "btn-primary min-h-0 inline-flex items-center justify-center gap-2 px-3 py-2 text-sm";
+  const btnSecondaryClass = "btn-secondary min-h-0 inline-flex items-center justify-center gap-2 px-3 py-2 text-sm";
 
   const previewAddonGroups = useMemo(() => {
     const groups = new Map<"photo" | "drone" | "floorplans" | "extras", Product[]>();
@@ -515,8 +513,8 @@ export function ProductsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="mb-2 text-3xl font-bold tracking-tight text-slate-900 dark:text-zinc-100">Produkte</h1>
-          <p className="text-slate-600 dark:text-zinc-400">{t(language, "catalog.subtitle")}</p>
+          <h1 className="mb-2 cust-page-header-title text-3xl">Produkte</h1>
+          <p className="text-[var(--text-muted)]">{t(language, "catalog.subtitle")}</p>
         </div>
         <div className="flex gap-2">
           <button onClick={() => load()} className={btnSecondaryClass}>
@@ -528,7 +526,7 @@ export function ProductsPage() {
         </div>
       </div>
 
-      {error ? <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
+      {error ? <div className="cust-alert cust-alert--error rounded-lg text-sm">{error}</div> : null}
       {backendHint ? <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">{backendHint}</div> : null}
 
       <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr),380px]">
@@ -542,11 +540,11 @@ export function ProductsPage() {
             onToggleActive={toggleActive}
           />
 
-          <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="cust-form-section">
             <h2 className="mb-3 font-semibold">{t(language, "catalog.serviceAreas")}</h2>
             <div className="grid gap-3 lg:grid-cols-2">
               {previewAddonGroups.map((group) => (
-                <div key={group.label} className="rounded-lg border border-slate-200 p-2 dark:border-zinc-800">
+                <div key={group.label} className="rounded-lg border border-slate-200 p-2 border-[var(--border-soft)]">
                   <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">{group.label}</h3>
                   <div className="space-y-2">
                     {group.items.map((a) => {
@@ -558,13 +556,13 @@ export function ProductsPage() {
                           onClick={() => togglePreviewAddon(a.code)}
                           className={
                             active
-                              ? "w-full rounded-lg border border-[#C5A059] bg-[#C5A059]/10 p-2 text-left shadow-sm transition-all"
-                              : "w-full rounded-lg border border-zinc-200 p-2 text-left transition-all hover:border-zinc-400 dark:border-zinc-700 dark:hover:border-zinc-500"
+                              ? "w-full rounded-lg border-2 border-[var(--accent)] bg-[var(--accent-subtle)] p-2 text-left shadow-sm transition-all"
+                              : "w-full rounded-lg border border-zinc-200 p-2 text-left transition-all hover:border-zinc-400 border-[var(--border-soft)] hover:border-[var(--border-soft)]"
                           }
                         >
                           <div className="flex items-center justify-between gap-2">
                             <span className="text-sm font-medium">{a.name}</span>
-                            <span className="text-xs font-semibold text-[#C5A059]">{productRulePriceLabel(a)}</span>
+                            <span className="text-xs font-semibold text-[var(--accent)]">{productRulePriceLabel(a)}</span>
                           </div>
                           {a.description ? <div className="mt-1 text-xs text-zinc-500">{a.description}</div> : null}
                         </button>
@@ -577,7 +575,7 @@ export function ProductsPage() {
           </div>
         </div>
 
-        <div className="xl:sticky xl:top-20 rounded-xl border border-slate-200 bg-white p-4 shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="xl:sticky xl:top-20 cust-form-section shadow-lg">
           <h2 className="mb-3 font-semibold">{t(language, "catalog.pricingPreview")}</h2>
           {previewError ? <div className="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{previewError}</div> : null}
           <div className="grid gap-2">
@@ -589,7 +587,7 @@ export function ProductsPage() {
             <input className="ui-input" type="number" placeholder="Etagen" value={previewFloors} onChange={(e) => setPreviewFloors(e.target.value)} />
             <button className={btnSecondaryClass} type="button" onClick={runPreview}>{t(language, "catalog.calculate")}</button>
           </div>
-          <div className="mt-3 rounded-lg border border-zinc-200 p-2 dark:border-zinc-700">
+          <div className="mt-3 rounded-lg border border-zinc-200 p-2 border-[var(--border-soft)]">
             <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-500">{t(language, "catalog.selectedServices")}</div>
             {previewAddons.length === 0 ? (
               <div className="text-sm text-zinc-500">{t(language, "catalog.noServicesSelected")}</div>
@@ -597,17 +595,17 @@ export function ProductsPage() {
               <div className="flex flex-wrap gap-1.5">
                 {previewAddons.map((code) => {
                   const item = addons.find((x) => x.code === code);
-                  return <span key={code} className="rounded-full bg-zinc-200 px-2 py-0.5 text-xs dark:bg-zinc-800">{item?.name || code}</span>;
+                  return <span key={code} className="rounded-full bg-zinc-200 px-2 py-0.5 text-xs bg-[var(--surface-raised)]">{item?.name || code}</span>;
                 })}
               </div>
             )}
           </div>
           {preview ? (
             <div className="mt-4 grid gap-2 text-sm">
-              <div className="rounded border border-zinc-200 px-3 py-2 dark:border-zinc-700">Zwischensumme: <strong>{preview.subtotal} CHF</strong></div>
-              <div className="rounded border border-zinc-200 px-3 py-2 dark:border-zinc-700">Rabatt: <strong>{preview.discountAmount} CHF</strong></div>
-              <div className="rounded border border-zinc-200 px-3 py-2 dark:border-zinc-700">MwSt: <strong>{preview.vat} CHF</strong></div>
-              <div className="rounded border border-[#C5A059]/40 bg-[#C5A059]/10 px-3 py-2 text-lg transition-all duration-300">Total: <strong>{preview.total} CHF</strong></div>
+              <div className="rounded border border-zinc-200 px-3 py-2 border-[var(--border-soft)]">Zwischensumme: <strong>{preview.subtotal} CHF</strong></div>
+              <div className="rounded border border-zinc-200 px-3 py-2 border-[var(--border-soft)]">Rabatt: <strong>{preview.discountAmount} CHF</strong></div>
+              <div className="rounded border border-zinc-200 px-3 py-2 border-[var(--border-soft)]">MwSt: <strong>{preview.vat} CHF</strong></div>
+              <div className="rounded border border-[var(--accent)]/40 bg-[var(--accent-subtle)] px-3 py-2 text-lg transition-all duration-300">Total: <strong>{preview.total} CHF</strong></div>
             </div>
           ) : null}
         </div>
@@ -717,9 +715,8 @@ export function ProductsPage() {
   const packages = useMemo(() => products.filter((p) => p.kind === "package"), [products]);
   const addons = useMemo(() => products.filter((p) => p.kind === "addon"), [products]);
 
-  const btnBaseClass = "inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition-colors";
-  const btnPrimaryClass = `${btnBaseClass} bg-[#C5A059] text-white hover:bg-[#b8944f]`;
-  const btnSecondaryClass = `${btnBaseClass} border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800`;
+  const btnPrimaryClass = "btn-primary min-h-0 inline-flex items-center justify-center gap-2 px-3 py-2 text-sm";
+  const btnSecondaryClass = "btn-secondary min-h-0 inline-flex items-center justify-center gap-2 px-3 py-2 text-sm";
 
   const previewAddonGroups = useMemo(() => {
     const groups = new Map<"photo" | "drone" | "floorplans" | "extras", Product[]>();
@@ -810,8 +807,8 @@ export function ProductsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="mb-2 text-3xl font-bold tracking-tight text-slate-900 dark:text-zinc-100">Produkte</h1>
-          <p className="text-slate-600 dark:text-zinc-400">{t(language, "catalog.subtitle")}</p>
+          <h1 className="mb-2 cust-page-header-title text-3xl">Produkte</h1>
+          <p className="text-[var(--text-muted)]">{t(language, "catalog.subtitle")}</p>
         </div>
         <div className="flex gap-2">
           <button onClick={() => load()} className={btnSecondaryClass}>
@@ -823,7 +820,7 @@ export function ProductsPage() {
         </div>
       </div>
 
-      {error ? <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
+      {error ? <div className="cust-alert cust-alert--error rounded-lg text-sm">{error}</div> : null}
       {backendHint ? <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">{backendHint}</div> : null}
 
       <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr),380px]">
@@ -837,11 +834,11 @@ export function ProductsPage() {
             onToggleActive={toggleActive}
           />
 
-          <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="cust-form-section">
             <h2 className="mb-3 font-semibold">{t(language, "catalog.serviceAreas")}</h2>
             <div className="grid gap-3 lg:grid-cols-2">
               {previewAddonGroups.map((group) => (
-                <div key={group.label} className="rounded-lg border border-slate-200 p-2 dark:border-zinc-800">
+                <div key={group.label} className="rounded-lg border border-slate-200 p-2 border-[var(--border-soft)]">
                   <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">{group.label}</h3>
                   <div className="space-y-2">
                     {group.items.map((a) => {
@@ -853,13 +850,13 @@ export function ProductsPage() {
                           onClick={() => togglePreviewAddon(a.code)}
                           className={
                             active
-                              ? "w-full rounded-lg border border-[#C5A059] bg-[#C5A059]/10 p-2 text-left shadow-sm transition-all"
-                              : "w-full rounded-lg border border-zinc-200 p-2 text-left transition-all hover:border-zinc-400 dark:border-zinc-700 dark:hover:border-zinc-500"
+                              ? "w-full rounded-lg border-2 border-[var(--accent)] bg-[var(--accent-subtle)] p-2 text-left shadow-sm transition-all"
+                              : "w-full rounded-lg border border-zinc-200 p-2 text-left transition-all hover:border-zinc-400 border-[var(--border-soft)] hover:border-[var(--border-soft)]"
                           }
                         >
                           <div className="flex items-center justify-between gap-2">
                             <span className="text-sm font-medium">{a.name}</span>
-                            <span className="text-xs font-semibold text-[#C5A059]">{productRulePriceLabel(a)}</span>
+                            <span className="text-xs font-semibold text-[var(--accent)]">{productRulePriceLabel(a)}</span>
                           </div>
                           {a.description ? <div className="mt-1 text-xs text-zinc-500">{a.description}</div> : null}
                         </button>
@@ -872,7 +869,7 @@ export function ProductsPage() {
           </div>
         </div>
 
-        <div className="xl:sticky xl:top-20 rounded-xl border border-slate-200 bg-white p-4 shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="xl:sticky xl:top-20 cust-form-section shadow-lg">
           <h2 className="mb-3 font-semibold">{t(language, "catalog.pricingPreview")}</h2>
           {previewError ? <div className="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{previewError}</div> : null}
           <div className="grid gap-2">
@@ -884,7 +881,7 @@ export function ProductsPage() {
             <input className="ui-input" type="number" placeholder="Etagen" value={previewFloors} onChange={(e) => setPreviewFloors(e.target.value)} />
             <button className={btnSecondaryClass} type="button" onClick={runPreview}>{t(language, "catalog.calculate")}</button>
           </div>
-          <div className="mt-3 rounded-lg border border-zinc-200 p-2 dark:border-zinc-700">
+          <div className="mt-3 rounded-lg border border-zinc-200 p-2 border-[var(--border-soft)]">
             <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-500">{t(language, "catalog.selectedServices")}</div>
             {previewAddons.length === 0 ? (
               <div className="text-sm text-zinc-500">{t(language, "catalog.noServicesSelected")}</div>
@@ -892,17 +889,17 @@ export function ProductsPage() {
               <div className="flex flex-wrap gap-1.5">
                 {previewAddons.map((code) => {
                   const item = addons.find((x) => x.code === code);
-                  return <span key={code} className="rounded-full bg-zinc-200 px-2 py-0.5 text-xs dark:bg-zinc-800">{item?.name || code}</span>;
+                  return <span key={code} className="rounded-full bg-zinc-200 px-2 py-0.5 text-xs bg-[var(--surface-raised)]">{item?.name || code}</span>;
                 })}
               </div>
             )}
           </div>
           {preview ? (
             <div className="mt-4 grid gap-2 text-sm">
-              <div className="rounded border border-zinc-200 px-3 py-2 dark:border-zinc-700">Zwischensumme: <strong>{preview.subtotal} CHF</strong></div>
-              <div className="rounded border border-zinc-200 px-3 py-2 dark:border-zinc-700">Rabatt: <strong>{preview.discountAmount} CHF</strong></div>
-              <div className="rounded border border-zinc-200 px-3 py-2 dark:border-zinc-700">MwSt: <strong>{preview.vat} CHF</strong></div>
-              <div className="rounded border border-[#C5A059]/40 bg-[#C5A059]/10 px-3 py-2 text-lg transition-all duration-300">Total: <strong>{preview.total} CHF</strong></div>
+              <div className="rounded border border-zinc-200 px-3 py-2 border-[var(--border-soft)]">Zwischensumme: <strong>{preview.subtotal} CHF</strong></div>
+              <div className="rounded border border-zinc-200 px-3 py-2 border-[var(--border-soft)]">Rabatt: <strong>{preview.discountAmount} CHF</strong></div>
+              <div className="rounded border border-zinc-200 px-3 py-2 border-[var(--border-soft)]">MwSt: <strong>{preview.vat} CHF</strong></div>
+              <div className="rounded border border-[var(--accent)]/40 bg-[var(--accent-subtle)] px-3 py-2 text-lg transition-all duration-300">Total: <strong>{preview.total} CHF</strong></div>
             </div>
           ) : null}
         </div>
@@ -1014,12 +1011,12 @@ function ProductKindIcon({ product }: { product: Product }) {
   const name = String(product.name || "").toLowerCase();
   const code = String(product.code || "").toLowerCase();
   if (name.includes("bodenfoto") || code.includes("camera:")) {
-    return <Camera className="h-4 w-4 text-[#C5A059]" />;
+    return <Camera className="h-4 w-4 text-[var(--accent)]" />;
   }
   if (name.includes("luftaufnahme") || code.includes("drone")) {
-    return <Plane className="h-4 w-4 text-[#C5A059]" />;
+    return <Plane className="h-4 w-4 text-[var(--accent)]" />;
   }
-  return <Sparkles className="h-4 w-4 text-[#C5A059]" />;
+  return <Sparkles className="h-4 w-4 text-[var(--accent)]" />;
 }
 
 export function ProductsPage() {
@@ -1095,10 +1092,9 @@ export function ProductsPage() {
 
   const packages = useMemo(() => products.filter((p) => p.kind === "package"), [products]);
   const addons = useMemo(() => products.filter((p) => p.kind === "addon"), [products]);
-  const fieldLabelClass = "mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-400";
-  const btnBaseClass = "inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition-colors";
-  const btnPrimaryClass = `${btnBaseClass} bg-[#C5A059] text-white hover:bg-[#b8944f]`;
-  const btnSecondaryClass = `${btnBaseClass} border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800`;
+  const fieldLabelClass = "mb-1 block text-xs font-semibold uppercase tracking-wider text-[var(--text-subtle)]";
+  const btnPrimaryClass = "btn-primary min-h-0 inline-flex items-center justify-center gap-2 px-3 py-2 text-sm";
+  const btnSecondaryClass = "btn-secondary min-h-0 inline-flex items-center justify-center gap-2 px-3 py-2 text-sm";
   const btnSmallClass = "inline-flex items-center justify-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors";
   const filteredProducts = useMemo(() => {
     const q = listQuery.trim().toLowerCase();
@@ -1372,8 +1368,8 @@ export function ProductsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-zinc-100 mb-2">Produkte</h1>
-          <p className="text-slate-600 dark:text-zinc-400">{t(language, "catalog.subtitle")}</p>
+          <h1 className="cust-page-header-title text-3xl mb-2">Produkte</h1>
+          <p className="text-[var(--text-muted)]">{t(language, "catalog.subtitle")}</p>
         </div>
         <div className="flex gap-2">
           <button onClick={() => load()} className={btnSecondaryClass}>
@@ -1385,12 +1381,12 @@ export function ProductsPage() {
         </div>
       </div>
 
-      {error ? <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
+      {error ? <div className="cust-alert cust-alert--error rounded-lg text-sm">{error}</div> : null}
       {backendHint ? <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">{backendHint}</div> : null}
 
       <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr),380px]">
         <div className="space-y-4">
-          <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+          <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-4">
             <div className="mb-3 flex items-center justify-between gap-3">
               <h2 className="font-semibold">Bestehende Produkte ({filteredProducts.length})</h2>
               <div className="relative w-full max-w-xs">
@@ -1408,7 +1404,7 @@ export function ProductsPage() {
               {groupedProducts.map((group) => {
                 const isExpanded = expandedGroups[group.key] ?? true;
                 return (
-                  <div key={group.key} className="rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-50/40 dark:bg-zinc-900/40">
+                  <div key={group.key} className="rounded-lg border border-[var(--border-soft)] bg-slate-50/40 bg-[var(--surface)]/40">
                     <button
                       type="button"
                       onClick={() => setExpandedGroups((prev) => ({ ...prev, [group.key]: !isExpanded }))}
@@ -1423,9 +1419,9 @@ export function ProductsPage() {
                       <ChevronDown className={cn("h-4 w-4 text-zinc-500 transition-transform", isExpanded ? "rotate-180" : "rotate-0")} />
                     </button>
                     {isExpanded ? (
-                      <div className="space-y-2 border-t border-slate-200 px-2 py-2 dark:border-zinc-800">
+                      <div className="space-y-2 border-t border-slate-200 px-2 py-2 border-[var(--border-soft)]">
                         {group.items.map((p) => (
-                          <div key={p.id} className="rounded-lg border border-slate-200/70 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 p-3">
+                          <div key={p.id} className="rounded-lg border border-slate-200/70 border-[var(--border-soft)] bg-white/80 bg-[var(--surface)]/80 p-3">
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0">
                                 <div className="flex items-center gap-2">
@@ -1434,7 +1430,7 @@ export function ProductsPage() {
                                   <span className={cn(
                                     "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold",
                                     p.affects_travel === false
-                                      ? "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+                                      ? "bg-zinc-200 text-zinc-700 bg-[var(--surface-raised)] text-[var(--text-muted)]"
                                       : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
                                   )}>
                                     {t(language, "catalog.travelCalcBadge")}: {p.affects_travel === false ? t(language, "catalog.no") : t(language, "catalog.yes")}
@@ -1446,8 +1442,8 @@ export function ProductsPage() {
                                 ) : null}
                               </div>
                               <div className="flex shrink-0 gap-1.5">
-                                <button onClick={() => startEdit(p)} className={`${btnSmallClass} border border-zinc-300 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800`}>Bearbeiten</button>
-                                <button onClick={() => duplicateProduct(p)} className={`${btnSmallClass} border border-zinc-300 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800`}>
+                                <button onClick={() => startEdit(p)} className={`${btnSmallClass} border border-zinc-300 text-zinc-700 hover:bg-zinc-100 border-[var(--border-soft)] text-[var(--text-main)] hover:bg-[var(--surface-raised)]`}>Bearbeiten</button>
+                                <button onClick={() => duplicateProduct(p)} className={`${btnSmallClass} border border-zinc-300 text-zinc-700 hover:bg-zinc-100 border-[var(--border-soft)] text-[var(--text-main)] hover:bg-[var(--surface-raised)]`}>
                                   <Copy className="h-3 w-3" /> {t(language, "catalog.duplicate")}
                                 </button>
                                 <button
@@ -1456,7 +1452,7 @@ export function ProductsPage() {
                                     btnSmallClass,
                                     p.active
                                       ? "border border-red-300 text-red-700 hover:bg-red-50 dark:border-red-900/60 dark:text-red-300 dark:hover:bg-red-950/40"
-                                      : "border border-zinc-300 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                                      : "border border-zinc-300 text-zinc-700 hover:bg-zinc-100 border-[var(--border-soft)] text-[var(--text-main)] hover:bg-[var(--surface-raised)]"
                                   )}
                                 >
                                   {p.active ? "Deaktivieren" : "Aktivieren"}
@@ -1471,14 +1467,14 @@ export function ProductsPage() {
                 );
               })}
               {filteredProducts.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-zinc-300 dark:border-zinc-700 p-5 text-center text-sm text-zinc-500">
+                <div className="rounded-lg border border-dashed border-zinc-300 border-[var(--border-soft)] p-5 text-center text-sm text-zinc-500">
                   {t(language, "catalog.emptySearch")}
                 </div>
               ) : null}
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+          <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-4">
             <button
               type="button"
               onClick={() => setServiceAreasExpanded((prev) => !prev)}
@@ -1490,7 +1486,7 @@ export function ProductsPage() {
             {serviceAreasExpanded ? (
               <div className="grid gap-3 lg:grid-cols-2">
                 {previewAddonGroups.map((group) => (
-                  <div key={group.label} className="rounded-lg border border-slate-200 dark:border-zinc-800 p-2">
+                  <div key={group.label} className="rounded-lg border border-[var(--border-soft)] p-2">
                     <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">{group.label}</h3>
                     <div className="space-y-2">
                       {group.items.map((a) => {
@@ -1503,13 +1499,13 @@ export function ProductsPage() {
                             className={cn(
                               "w-full rounded-lg border p-2 text-left transition-all",
                               active
-                                ? "border-[#C5A059] bg-[#C5A059]/10 shadow-sm"
-                                : "border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500"
+                                ? "border-[var(--accent)] bg-[var(--accent-subtle)] shadow-sm"
+                                : "border-[var(--border-soft)] hover:border-zinc-400 hover:border-[var(--border-soft)]"
                             )}
                           >
                             <div className="flex items-center justify-between gap-2">
                               <span className="font-medium text-sm">{a.name}</span>
-                              <span className="text-xs font-semibold text-[#C5A059]">{productRulePriceLabel(a)}</span>
+                              <span className="text-xs font-semibold text-[var(--accent)]">{productRulePriceLabel(a)}</span>
                             </div>
                             {a.description ? <div className="mt-1 text-xs text-zinc-500">{a.description}</div> : null}
                           </button>
@@ -1523,7 +1519,7 @@ export function ProductsPage() {
           </div>
         </div>
 
-        <div className="xl:sticky xl:top-20 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-lg">
+        <div className="xl:sticky xl:top-20 rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-4 shadow-lg">
           <button
             type="button"
             onClick={() => setPricingPreviewExpanded((prev) => !prev)}
@@ -1544,7 +1540,7 @@ export function ProductsPage() {
                 <input className="ui-input" type="number" placeholder="Etagen" value={previewFloors} onChange={(e) => setPreviewFloors(e.target.value)} />
                 <button className={btnSecondaryClass} type="button" onClick={runPreview}>{t(language, "catalog.calculate")}</button>
               </div>
-              <div className="mt-3 rounded-lg border border-zinc-200 dark:border-zinc-700 p-2">
+              <div className="mt-3 rounded-lg border border-[var(--border-soft)] p-2">
                 <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-500">{t(language, "catalog.selectedServices")}</div>
                 {previewAddons.length === 0 ? (
                   <div className="text-sm text-zinc-500">{t(language, "catalog.noServicesSelected")}</div>
@@ -1552,17 +1548,17 @@ export function ProductsPage() {
                   <div className="flex flex-wrap gap-1.5">
                     {previewAddons.map((code) => {
                       const item = addons.find((x) => x.code === code);
-                      return <span key={code} className="rounded-full bg-zinc-200 px-2 py-0.5 text-xs dark:bg-zinc-800">{item?.name || code}</span>;
+                      return <span key={code} className="rounded-full bg-zinc-200 px-2 py-0.5 text-xs bg-[var(--surface-raised)]">{item?.name || code}</span>;
                     })}
                   </div>
                 )}
               </div>
               {preview ? (
                 <div className="mt-4 grid gap-2 text-sm">
-                  <div className="rounded border border-zinc-200 dark:border-zinc-700 px-3 py-2">Zwischensumme: <strong>{preview.subtotal} CHF</strong></div>
-                  <div className="rounded border border-zinc-200 dark:border-zinc-700 px-3 py-2">Rabatt: <strong>{preview.discountAmount} CHF</strong></div>
-                  <div className="rounded border border-zinc-200 dark:border-zinc-700 px-3 py-2">MwSt: <strong>{preview.vat} CHF</strong></div>
-                  <div className="rounded border border-[#C5A059]/40 bg-[#C5A059]/10 px-3 py-2 text-lg transition-all duration-300">Total: <strong>{preview.total} CHF</strong></div>
+                  <div className="rounded border border-[var(--border-soft)] px-3 py-2">Zwischensumme: <strong>{preview.subtotal} CHF</strong></div>
+                  <div className="rounded border border-[var(--border-soft)] px-3 py-2">Rabatt: <strong>{preview.discountAmount} CHF</strong></div>
+                  <div className="rounded border border-[var(--border-soft)] px-3 py-2">MwSt: <strong>{preview.vat} CHF</strong></div>
+                  <div className="rounded border border-[var(--accent)]/40 bg-[var(--accent-subtle)] px-3 py-2 text-lg transition-all duration-300">Total: <strong>{preview.total} CHF</strong></div>
                 </div>
               ) : null}
             </>
@@ -1576,7 +1572,7 @@ export function ProductsPage() {
           onClick={() => closeEditorModal()}
         >
           <div
-            className="w-full max-w-4xl rounded-xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900"
+            className="w-full max-w-4xl rounded-xl border border-slate-200 bg-white p-4 shadow-2xl border-[var(--border-soft)] bg-[var(--surface)]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between gap-3">
@@ -1584,7 +1580,7 @@ export function ProductsPage() {
               <button
                 type="button"
                 onClick={closeEditorModal}
-                className="rounded-md border border-zinc-300 p-1 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                className="rounded-md border border-zinc-300 p-1 text-zinc-600 hover:bg-zinc-100 border-[var(--border-soft)] text-[var(--text-main)] hover:bg-[var(--surface-raised)]"
                 aria-label="Close"
               >
                 <X className="h-4 w-4" />
@@ -1618,15 +1614,15 @@ export function ProductsPage() {
                 </label>
                 <label className="col-span-2 block">
                   <span className={fieldLabelClass}>{t(language, "catalog.categories")}</span>
-                  <details className="rounded-lg border border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-900">
-                    <summary className="cursor-pointer list-none px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300">
+                  <details className="rounded-lg border border-[var(--border-soft)] bg-[var(--surface)]">
+                    <summary className="cursor-pointer list-none px-3 py-2 text-sm text-[var(--text-muted)]">
                       {selectedCategories.length
                         ? selectedCategories.map((key) => categoryOptions.find((c) => c.key === key)?.label || key).join(", ")
                         : t(language, "catalog.selectCategories")}
                     </summary>
-                    <div className="space-y-1 border-t border-zinc-200 p-2 dark:border-zinc-800">
+                    <div className="space-y-1 border-t border-zinc-200 p-2 border-[var(--border-soft)]">
                       {categoryOptions.map((opt) => (
-                        <label key={opt.key} className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">
+                        <label key={opt.key} className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-zinc-100 hover:bg-[var(--surface-raised)]">
                           <input
                             type="checkbox"
                             checked={selectedCategories.includes(opt.key)}
@@ -1640,10 +1636,10 @@ export function ProductsPage() {
                 </label>
                 <label className="col-span-2 block">
                   <span className={fieldLabelClass}>{t(language, "catalog.tags")}</span>
-                  <div className="rounded-lg border border-zinc-300 p-2 dark:border-zinc-700">
+                  <div className="rounded-lg border border-zinc-300 p-2 border-[var(--border-soft)]">
                     <div className="mb-2 flex flex-wrap gap-2">
                       {tags.map((tag) => (
-                        <span key={tag} className="inline-flex items-center gap-1 rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
+                        <span key={tag} className="inline-flex items-center gap-1 rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-700 bg-[var(--surface-raised)] text-[var(--text-main)]">
                           {tag}
                           <button type="button" className="text-zinc-500 hover:text-red-500" onClick={() => removeTag(tag)}>×</button>
                         </span>
@@ -1728,10 +1724,10 @@ export function ProductsPage() {
                   />
                 </label>
               </div>
-              <div className="rounded-lg border border-slate-200 p-2 dark:border-zinc-800">
+              <div className="rounded-lg border border-slate-200 p-2 border-[var(--border-soft)]">
                 <button
                   type="button"
-                  className="text-xs font-semibold text-[#C5A059] hover:underline"
+                  className="text-xs font-semibold text-[var(--accent)] hover:underline"
                   onClick={() => setShowAdvancedRule((v) => !v)}
                 >
                   {showAdvancedRule ? t(language, "catalog.hideAdvanced") : t(language, "catalog.showAdvanced")}
@@ -1761,3 +1757,7 @@ export function ProductsPage() {
   );
 }
 */
+
+
+
+

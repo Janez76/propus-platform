@@ -150,12 +150,12 @@ export function CreateContactDialog({ open, onOpenChange, onSubmit, onCreateCont
 
   const inputClass = cn(
     "w-full rounded-lg border px-3 py-2 text-sm transition-colors",
-    "bg-white dark:bg-zinc-100",
-    "border-zinc-300 dark:border-zinc-200",
+    "bg-[var(--surface)]",
+    "border-[var(--border-soft)]",
     "text-zinc-900",
     "placeholder:text-zinc-400",
     "hover:border-zinc-400",
-    "focus:outline-none focus:ring-2 focus:ring-[#C5A059]/25 focus:border-[#C5A059]",
+    "focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/25 focus:border-[var(--accent)]",
   );
 
   function applySelectedCustomer(customer: Customer) {
@@ -312,7 +312,7 @@ export function CreateContactDialog({ open, onOpenChange, onSubmit, onCreateCont
               type="checkbox"
               checked={form.is_admin}
               onChange={(e) => setForm((prev) => ({ ...prev, is_admin: e.target.checked }))}
-              className="h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-[#C5A059] focus:ring-[#C5A059]/30"
+              className="h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-[var(--accent)] focus:ring-[var(--accent)]/30"
             />
             {t(lang, "createCustomer.label.isAdmin")}
           </label>
@@ -324,9 +324,9 @@ export function CreateContactDialog({ open, onOpenChange, onSubmit, onCreateCont
               disabled={isSubmitting}
               className={cn(
                 "px-4 py-2 rounded-lg text-sm font-semibold transition-colors",
-                "bg-slate-100 dark:bg-zinc-800",
-                "text-slate-700 dark:text-zinc-300",
-                "hover:bg-slate-200 dark:hover:bg-zinc-700",
+                "bg-[var(--surface-raised)]",
+                "text-[var(--text-muted)]",
+                "hover:bg-slate-200 hover:bg-[var(--surface-raised)]",
                 "disabled:opacity-50 disabled:cursor-not-allowed"
               )}
             >
@@ -337,8 +337,8 @@ export function CreateContactDialog({ open, onOpenChange, onSubmit, onCreateCont
               disabled={isSubmitting || !form.name.trim() || !form.email.trim()}
               className={cn(
                 "inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all",
-                "bg-[#C5A059] text-white",
-                "hover:bg-[#B39049] hover:shadow-md",
+                "bg-[var(--accent)] text-white",
+                "hover:bg-[var(--accent-hover)] hover:shadow-md",
                 "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none"
               )}
             >
@@ -452,3 +452,5 @@ export function CreateContactDialog({ open, onOpenChange, onSubmit, onCreateCont
     </Dialog>
   );
 }
+
+

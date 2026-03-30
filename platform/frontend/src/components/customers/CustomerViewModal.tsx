@@ -70,7 +70,7 @@ export function CustomerViewModal({ open, token, customer, onClose, onCreateOrde
   const displayTitle = companyName || String(customer?.name || "").trim();
   const isCompanyProfile = Boolean(companyName);
   const phoneOrDash = (value?: string | null) =>
-    String(value || "").trim() ? <PhoneLink value={value} className="text-[#C5A059]" /> : "-";
+    String(value || "").trim() ? <PhoneLink value={value} className="text-[var(--accent)]" /> : "-";
   const [orders, setOrders] = useState<CustomerOrder[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
 
@@ -203,3 +203,4 @@ export function CustomerViewModal({ open, token, customer, onClose, onCreateOrde
     </div>
   );
 }
+

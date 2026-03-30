@@ -273,13 +273,13 @@ function statusBadgeClass(status: ComparisonRow["status"]): string {
   if (status === "new") return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300";
   if (status === "overwrite") return "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300";
   if (status === "unchanged") return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300";
-  if (status === "empty") return "bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-400";
+  if (status === "empty") return "bg-slate-100 text-slate-600 bg-[var(--surface-raised)] text-[var(--text-subtle)]";
   return "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300";
 }
 
 function presenceBadgeClass(presence: ComparisonRow["exxasPresence"]): string {
   if (presence === "present") return "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300";
-  return "bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-400";
+  return "bg-slate-100 text-slate-600 bg-[var(--surface-raised)] text-[var(--text-subtle)]";
 }
 
 function buildCustomerComparisonRows(
@@ -396,7 +396,7 @@ function buildContactComparisonRows(
 function comparisonPhoneCell(fallbackText: string, raw: unknown) {
   const s = String(raw ?? "").trim();
   if (!s) return fallbackText;
-  return <PhoneLink value={s} className="text-[#C5A059]" />;
+  return <PhoneLink value={s} className="text-[var(--accent)]" />;
 }
 
 function ComparisonTable({
@@ -409,28 +409,28 @@ function ComparisonTable({
   onToggleOverwrite?: (fieldKey: string, next: boolean) => void;
 }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-zinc-800">
-      <div className="grid grid-cols-[160px_minmax(0,1fr)_minmax(0,1fr)_180px] bg-slate-50 dark:bg-zinc-800/60 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-zinc-400">
+    <div className="overflow-hidden rounded-lg border border-[var(--border-soft)]">
+      <div className="grid grid-cols-[160px_minmax(0,1fr)_minmax(0,1fr)_180px] bg-[var(--surface-raised)]/60 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-subtle)]">
         <div className="px-3 py-2">Feld</div>
-        <div className="border-l border-slate-200 px-3 py-2 dark:border-zinc-700">EXXAS</div>
-        <div className="border-l border-slate-200 px-3 py-2 dark:border-zinc-700">{localTitle}</div>
-        <div className="border-l border-slate-200 px-3 py-2 dark:border-zinc-700">EXXAS / Uebernahme</div>
+        <div className="border-l border-slate-200 px-3 py-2 border-[var(--border-soft)]">EXXAS</div>
+        <div className="border-l border-slate-200 px-3 py-2 border-[var(--border-soft)]">{localTitle}</div>
+        <div className="border-l border-slate-200 px-3 py-2 border-[var(--border-soft)]">EXXAS / Uebernahme</div>
       </div>
       <div className="divide-y divide-slate-100 dark:divide-zinc-800">
         {rows.map((row) => (
           <div key={row.label} className="grid grid-cols-[160px_minmax(0,1fr)_minmax(0,1fr)_180px] text-sm">
-            <div className="px-3 py-2 font-medium text-slate-600 dark:text-zinc-300">{row.label}</div>
-            <div className="border-l border-slate-100 px-3 py-2 text-slate-800 dark:text-zinc-100 dark:border-zinc-800 break-words">
+            <div className="px-3 py-2 font-medium text-[var(--text-muted)]">{row.label}</div>
+            <div className="border-l border-slate-100 px-3 py-2 text-[var(--text-main)] border-[var(--border-soft)] break-words">
               {row.phoneSources
                 ? comparisonPhoneCell(row.exxas, row.phoneSources.exxas)
                 : row.exxas}
             </div>
-            <div className="border-l border-slate-100 px-3 py-2 text-slate-700 dark:text-zinc-300 dark:border-zinc-800 break-words">
+            <div className="border-l border-slate-100 px-3 py-2 text-[var(--text-muted)] border-[var(--border-soft)] break-words">
               {row.phoneSources
                 ? comparisonPhoneCell(row.local, row.phoneSources.local)
                 : row.local}
             </div>
-            <div className="border-l border-slate-100 px-3 py-2 dark:border-zinc-800">
+            <div className="border-l border-slate-100 px-3 py-2 border-[var(--border-soft)]">
               <div className="flex flex-wrap gap-1">
                 <span className={`inline-flex rounded-full px-2 py-1 text-[11px] font-medium ${presenceBadgeClass(row.exxasPresence)}`}>
                   {row.exxasPresenceLabel}
@@ -440,7 +440,7 @@ function ComparisonTable({
                 </span>
               </div>
               {row.canOverwrite && row.fieldKey && onToggleOverwrite ? (
-                <label className="mt-2 inline-flex items-center gap-2 text-xs text-slate-600 dark:text-zinc-300">
+                <label className="mt-2 inline-flex items-center gap-2 text-xs text-[var(--text-muted)]">
                   <input
                     type="checkbox"
                     checked={row.overwriteChecked}
@@ -512,7 +512,7 @@ function EntitySearchInput({
             if (selected) setQuery("");
             setOpen(true);
           }}
-          className="flex-1 px-3 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm"
+          className="flex-1 px-3 py-2 rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] text-sm"
         />
         {value != null && (
           <button
@@ -529,7 +529,7 @@ function EntitySearchInput({
         )}
       </div>
       {open && query.trim().length > 0 && (
-        <div className="absolute z-50 mt-1 w-full max-h-52 overflow-auto rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg">
+        <div className="absolute z-50 mt-1 w-full max-h-52 overflow-auto rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] shadow-lg">
           {results.length === 0 ? (
             <div className="px-3 py-2 text-xs text-slate-400">Kein Treffer</div>
           ) : (
@@ -542,7 +542,7 @@ function EntitySearchInput({
                   setQuery("");
                   setOpen(false);
                 }}
-                className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-zinc-800 flex justify-between items-center"
+                className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--surface-raised)] flex justify-between items-center"
               >
                 <span className="truncate">
                   <span className="font-mono text-xs text-slate-400 mr-1">#{c.id}</span>
@@ -922,8 +922,8 @@ export function ExxasReconcilePage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-zinc-100">{t(lang, "nav.exxasReconcile")}</h1>
-          <p className="text-sm text-slate-500 dark:text-zinc-400 mt-1">
+          <h1 className="text-2xl font-bold text-[var(--text-main)]">{t(lang, "nav.exxasReconcile")}</h1>
+          <p className="text-sm text-[var(--text-subtle)] mt-1">
             Vorschlaege werden zuerst berechnet. Gespeichert wird nur, was du manuell bestaetigst.
           </p>
         </div>
@@ -932,7 +932,7 @@ export function ExxasReconcilePage() {
             type="button"
             onClick={runPreview}
             disabled={!hasCredentials || loading || confirming}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm font-medium text-slate-700 dark:text-zinc-200 disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] text-sm font-medium text-[var(--text-muted)] disabled:opacity-50"
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
             Preview laden
@@ -941,7 +941,7 @@ export function ExxasReconcilePage() {
             type="button"
             onClick={() => setBulkConfirmOpen(true)}
             disabled={!preview || confirming || loading || selectedCount === 0}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[#C5A059] text-white text-sm font-semibold disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--accent)] text-white text-sm font-semibold disabled:opacity-50"
           >
             {confirming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             Bestaetigen
@@ -971,15 +971,15 @@ export function ExxasReconcilePage() {
 
       {preview ? (
         <div className="space-y-3">
-          <div className="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 text-sm text-slate-600 dark:text-zinc-300">
+          <div className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface)] p-4 text-sm text-[var(--text-muted)]">
             Quelle: <span className="font-mono">{preview.source}</span> | EXXAS Kunden: {preview.stats.exxasCustomers} |
             EXXAS Kontakte: {preview.stats.exxasContacts} | Ausgewaehlt: {selectedCount} | Bereit: {readyCount} | Pruefen:{" "}
             {reviewCount} | Abgeglichen: {reconciledCount} | Noch nicht abgeglichen: {notReconciledCount}
           </div>
-          <div className="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 space-y-3">
+          <div className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface)] p-4 space-y-3">
             <div className="flex flex-wrap items-center gap-2 text-sm">
-              <Filter className="h-4 w-4 text-slate-500 dark:text-zinc-400" />
-              <span className="font-medium text-slate-700 dark:text-zinc-200">Filter</span>
+              <Filter className="h-4 w-4 text-[var(--text-subtle)]" />
+              <span className="font-medium text-[var(--text-muted)]">Filter</span>
               {([
                 ["all", "Alle"],
                 ["selected", "Ausgewaehlt"],
@@ -994,8 +994,8 @@ export function ExxasReconcilePage() {
                   onClick={() => setFilterMode(key)}
                   className={`px-3 py-1.5 rounded-full border text-xs font-medium ${
                     filterMode === key
-                      ? "border-[#C5A059] bg-[#C5A059] text-white"
-                      : "border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-300"
+                      ? "border-[var(--accent)] bg-[var(--accent)] text-white"
+                      : "border-[var(--border-soft)] text-[var(--text-muted)]"
                   }`}
                 >
                   {label}
@@ -1003,41 +1003,41 @@ export function ExxasReconcilePage() {
               ))}
             </div>
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-zinc-500" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-subtle)]" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Suche nach Kunde, E-Mail, Nummer, Kontakt ..."
-                className="w-full rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 py-2 pl-9 pr-3 text-sm text-slate-700 dark:text-zinc-200"
+                className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] py-2 pl-9 pr-3 text-sm text-[var(--text-muted)]"
               />
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={() => bulkSelectVisible(visibleItems, true)}
-                className="px-3 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 text-sm"
+                className="px-3 py-2 rounded-lg border border-[var(--border-soft)] text-sm"
               >
                 Sichtbare auswaehlen
               </button>
               <button
                 type="button"
                 onClick={() => bulkSelectVisible(visibleItems, false)}
-                className="px-3 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 text-sm"
+                className="px-3 py-2 rounded-lg border border-[var(--border-soft)] text-sm"
               >
                 Sichtbare abwaehlen
               </button>
               <button
                 type="button"
                 onClick={() => applySuggestedToVisible(visibleItems)}
-                className="px-3 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 text-sm"
+                className="px-3 py-2 rounded-lg border border-[var(--border-soft)] text-sm"
               >
                 Vorschlaege fuer sichtbare uebernehmen
               </button>
               <button
                 type="button"
                 onClick={() => applyCustomerActionToVisible(visibleItems, "skip")}
-                className="px-3 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 text-sm"
+                className="px-3 py-2 rounded-lg border border-[var(--border-soft)] text-sm"
               >
                 Sichtbare Kunden auf Ueberspringen
               </button>
@@ -1054,8 +1054,8 @@ export function ExxasReconcilePage() {
           const itemNeedsReview = needsReview(item);
           const itemReconciled = isAlreadyReconciled(item);
           return (
-            <div key={item.exxasCustomer.id} className="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
-              <div className="px-5 py-4 border-b border-slate-100 dark:border-zinc-800">
+            <div key={item.exxasCustomer.id} className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface)]">
+              <div className="px-5 py-4 border-b border-slate-100 border-[var(--border-soft)]">
                 <div className="flex flex-wrap items-center gap-2 justify-between">
                   <div className="flex flex-wrap items-center gap-2">
                     <input
@@ -1064,15 +1064,15 @@ export function ExxasReconcilePage() {
                       onChange={() => toggleSelection(item.exxasCustomer.id)}
                       className="h-4 w-4 rounded border-slate-300"
                     />
-                    <Plug className="h-4 w-4 text-[#C5A059]" />
-                    <h3 className="font-semibold text-slate-900 dark:text-zinc-100">{item.exxasCustomer.name || "-"}</h3>
-                    <span className="text-xs text-slate-500 dark:text-zinc-400 font-mono">#{item.exxasCustomer.nummer}</span>
+                    <Plug className="h-4 w-4 text-[var(--accent)]" />
+                    <h3 className="font-semibold text-[var(--text-main)]">{item.exxasCustomer.name || "-"}</h3>
+                    <span className="text-xs text-[var(--text-subtle)] font-mono">#{item.exxasCustomer.nummer}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => setSinglePreviewItemId(item.exxasCustomer.id)}
-                      className="inline-flex items-center gap-2 rounded-lg border border-slate-200 dark:border-zinc-700 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-zinc-200"
+                      className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-xs font-semibold text-[var(--text-muted)]"
                     >
                       Abgleichen
                     </button>
@@ -1086,7 +1086,7 @@ export function ExxasReconcilePage() {
                       {itemReady ? "bereit" : "unvollstaendig"}
                     </span>
                     {itemNeedsReview ? (
-                      <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-300">
+                      <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 bg-[var(--surface-raised)] text-[var(--text-muted)]">
                         manuell pruefen
                       </span>
                     ) : null}
@@ -1097,7 +1097,7 @@ export function ExxasReconcilePage() {
                     ) : null}
                   </div>
                 </div>
-                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
+                <p className="text-xs text-[var(--text-subtle)] mt-1">
                   {item.exxasCustomer.email || "keine E-Mail"} | {item.exxasCustomer.street || "-"}{" "}
                   {item.exxasCustomer.zip || ""} {item.exxasCustomer.city || ""}
                 </p>
@@ -1105,14 +1105,14 @@ export function ExxasReconcilePage() {
 
               <div className="p-5 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <label className="text-xs uppercase tracking-wide text-slate-500 dark:text-zinc-400">Kunden-Aktion</label>
+                  <label className="text-xs uppercase tracking-wide text-[var(--text-subtle)]">Kunden-Aktion</label>
                   <select
                     value={state.customerAction}
                     onChange={(e) => {
                       const next = e.target.value as CustomerAction;
                       updateItemState(item.exxasCustomer.id, (current) => ({ ...current, customerAction: next }));
                     }}
-                    className="px-3 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm"
+                    className="px-3 py-2 rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] text-sm"
                   >
                     <option value="link_existing">Mit bestehendem Kunden verknuepfen</option>
                     <option value="create_customer">Neuen Kunden anlegen</option>
@@ -1122,7 +1122,7 @@ export function ExxasReconcilePage() {
 
                 {isLinkMode ? (
                   <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-wide text-slate-500 dark:text-zinc-400">
+                    <label className="text-xs uppercase tracking-wide text-[var(--text-subtle)]">
                       Lokaler Zielkunde
                     </label>
                     {item.customerSuggestions.length > 0 && (
@@ -1136,7 +1136,7 @@ export function ExxasReconcilePage() {
                           const next = e.target.value ? Number(e.target.value) : null;
                           updateItemState(item.exxasCustomer.id, (current) => ({ ...current, localCustomerId: next }));
                         }}
-                        className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm"
+                        className="w-full px-3 py-2 rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] text-sm"
                       >
                         <option value="">-- Vorschlaege --</option>
                         {item.customerSuggestions.map((candidate) => (
@@ -1162,7 +1162,7 @@ export function ExxasReconcilePage() {
                       />
                     ) : null}
                     {item.customerSuggestions.map((candidate) => (
-                      <div key={candidate.localCustomerId} className="text-xs text-slate-500 dark:text-zinc-400">
+                      <div key={candidate.localCustomerId} className="text-xs text-[var(--text-subtle)]">
                         #{candidate.localCustomerId}: {candidate.localCustomer.company || candidate.localCustomer.name} -{" "}
                         {candidate.reasons.join(", ") || "keine Gruende"} - {confidenceLabel(candidate.confidence)}
                       </div>
@@ -1170,13 +1170,13 @@ export function ExxasReconcilePage() {
                   </div>
                 ) : null}
 
-                <div className="rounded-xl border border-slate-200 dark:border-zinc-800 overflow-hidden">
-                  <div className="px-4 py-2 bg-slate-50 dark:bg-zinc-800/60 text-xs uppercase tracking-wide text-slate-500 dark:text-zinc-400">
+                <div className="rounded-xl border border-[var(--border-soft)] overflow-hidden">
+                  <div className="px-4 py-2 bg-[var(--surface-raised)]/60 text-xs uppercase tracking-wide text-[var(--text-subtle)]">
                     Kontakte
                   </div>
                   <div className="divide-y divide-slate-100 dark:divide-zinc-800">
                     {item.contactSuggestions.length === 0 ? (
-                      <div className="px-4 py-3 text-sm text-slate-500 dark:text-zinc-400">Keine EXXAS-Kontakte gefunden.</div>
+                      <div className="px-4 py-3 text-sm text-[var(--text-subtle)]">Keine EXXAS-Kontakte gefunden.</div>
                     ) : (
                       item.contactSuggestions.map((contactItem) => {
                         const contactState = state.contacts[contactItem.exxasContact.id];
@@ -1201,9 +1201,9 @@ export function ExxasReconcilePage() {
                         const contactSearchIndex = Array.from(mergedIndex.values());
                         return (
                           <div key={contactItem.exxasContact.id} className="px-4 py-3 space-y-2">
-                            <div className="text-sm text-slate-700 dark:text-zinc-200">
+                            <div className="text-sm text-[var(--text-muted)]">
                               <span className="font-medium">{contactItem.exxasContact.name || "-"}</span>{" "}
-                              <span className="text-slate-500 dark:text-zinc-400">{contactItem.exxasContact.email || ""}</span>
+                              <span className="text-[var(--text-subtle)]">{contactItem.exxasContact.email || ""}</span>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                               <select
@@ -1222,7 +1222,7 @@ export function ExxasReconcilePage() {
                                     },
                                   }));
                                 }}
-                                className="px-3 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm"
+                                className="px-3 py-2 rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] text-sm"
                               >
                                 <option value="link_existing">Bestehenden Kontakt verknuepfen</option>
                                 <option value="create_contact">Neuen Kontakt anlegen</option>
@@ -1249,7 +1249,7 @@ export function ExxasReconcilePage() {
                                       },
                                     }));
                                   }}
-                                  className="flex-1 px-3 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm"
+                                  className="flex-1 px-3 py-2 rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] text-sm"
                                 >
                                   <option value="">-- Kontakt waehlen --</option>
                                   {contactItem.localCandidates.map((candidate) => (
@@ -1289,7 +1289,7 @@ export function ExxasReconcilePage() {
                                 </div>
                               )}
                             {contactItem.localCandidates.length > 0 ? (
-                              <div className="text-xs text-slate-500 dark:text-zinc-400">
+                              <div className="text-xs text-[var(--text-subtle)]">
                                 Beste Treffer: {contactItem.localCandidates
                                   .slice(0, 2)
                                   .map((candidate) => `#${candidate.localContactId} ${candidate.reasons.join(", ")} (${confidenceLabel(candidate.confidence)})`)
@@ -1309,10 +1309,10 @@ export function ExxasReconcilePage() {
       </div>
 
       {confirmResult ? (
-        <div className="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 space-y-4">
+        <div className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface)] p-5 space-y-4">
           <div>
-            <h2 className="text-base font-semibold text-slate-900 dark:text-zinc-100">Letztes Ergebnis</h2>
-            <p className="text-sm text-slate-500 dark:text-zinc-400">
+            <h2 className="text-base font-semibold text-[var(--text-main)]">Letztes Ergebnis</h2>
+            <p className="text-sm text-[var(--text-subtle)]">
               Erfolgreich: {confirmResult.summary.success}, Fehlgeschlagen: {confirmResult.summary.failed}
             </p>
           </div>
@@ -1326,17 +1326,17 @@ export function ExxasReconcilePage() {
                     : "border-red-200 bg-red-50 dark:border-red-900/40 dark:bg-red-900/10"
                 }`}
               >
-                <div className="text-sm font-medium text-slate-900 dark:text-zinc-100">
+                <div className="text-sm font-medium text-[var(--text-main)]">
                   EXXAS Kunde: {outcome.exxasCustomerId || "-"}
                   {outcome.localCustomerId ? ` -> lokaler Kunde #${outcome.localCustomerId}` : ""}
                 </div>
-                <div className="text-xs text-slate-600 dark:text-zinc-300 mt-1">
+                <div className="text-xs text-[var(--text-muted)] mt-1">
                   {outcome.ok ? (outcome.skipped ? "Uebersprungen" : "Erfolgreich verarbeitet") : outcome.error}
                 </div>
                 {outcome.contactOutcomes?.length ? (
                   <div className="mt-2 space-y-1">
                     {outcome.contactOutcomes.map((contactOutcome, contactIndex) => (
-                      <div key={`${contactOutcome.exxasContactId || "contact"}-${contactIndex}`} className="text-xs text-slate-600 dark:text-zinc-300">
+                      <div key={`${contactOutcome.exxasContactId || "contact"}-${contactIndex}`} className="text-xs text-[var(--text-muted)]">
                         Kontakt {contactOutcome.exxasContactId || "-"}:{" "}
                         {contactOutcome.ok
                           ? contactOutcome.skipped
@@ -1359,16 +1359,16 @@ export function ExxasReconcilePage() {
             <DialogClose onClose={() => setSinglePreviewItemId(null)} />
             <DialogHeader>
               <DialogTitle>Abgleich-Vorschau</DialogTitle>
-              <p className="text-sm text-slate-500 dark:text-zinc-400">
+              <p className="text-sm text-[var(--text-subtle)]">
                 EXXAS Kunde #{singlePreviewItem.exxasCustomer.nummer || singlePreviewItem.exxasCustomer.id}{" "}
                 {singlePreviewItem.exxasCustomer.name || "-"}
               </p>
             </DialogHeader>
 
             <div className="space-y-4">
-              <div className="rounded-xl border border-slate-200 dark:border-zinc-800 p-4 space-y-3">
-                <div className="text-xs uppercase tracking-wide text-slate-500 dark:text-zinc-400">Kunde</div>
-                <div className="mt-2 text-sm text-slate-800 dark:text-zinc-100">
+              <div className="rounded-xl border border-[var(--border-soft)] p-4 space-y-3">
+                <div className="text-xs uppercase tracking-wide text-[var(--text-subtle)]">Kunde</div>
+                <div className="mt-2 text-sm text-[var(--text-main)]">
                   Aktion: <span className="font-semibold">{customerActionLabel(singlePreviewState.customerAction)}</span>
                 </div>
                 {(() => {
@@ -1378,7 +1378,7 @@ export function ExxasReconcilePage() {
                   if (singlePreviewState.customerAction === "link_existing") {
                     return (
                       <>
-                        <div className="text-sm text-slate-600 dark:text-zinc-300">
+                        <div className="text-sm text-[var(--text-muted)]">
                           Ziel: {selectedCustomerCandidate
                             ? `#${selectedCustomerCandidate.localCustomerId} ${selectedCustomerCandidate.localCustomer.company || selectedCustomerCandidate.localCustomer.name} (${confidenceLabel(selectedCustomerCandidate.confidence)})`
                             : "nicht ausgewaehlt"}
@@ -1395,7 +1395,7 @@ export function ExxasReconcilePage() {
                           }
                         />
                         {selectedCustomerCandidate?.reasons?.length ? (
-                          <div className="text-xs text-slate-500 dark:text-zinc-400">
+                          <div className="text-xs text-[var(--text-subtle)]">
                             Treffergruende: {selectedCustomerCandidate.reasons.join(", ")}
                           </div>
                         ) : null}
@@ -1405,7 +1405,7 @@ export function ExxasReconcilePage() {
                   if (singlePreviewState.customerAction === "create_customer") {
                     return (
                       <>
-                        <p className="text-sm text-slate-600 dark:text-zinc-300">
+                        <p className="text-sm text-[var(--text-muted)]">
                           Es wird ein neuer lokaler Kunde aus den EXXAS-Daten angelegt.
                         </p>
                         <ComparisonTable
@@ -1415,15 +1415,15 @@ export function ExxasReconcilePage() {
                       </>
                     );
                   }
-                  return <p className="text-sm text-slate-600 dark:text-zinc-300">Dieser Kunde wird uebersprungen.</p>;
+                  return <p className="text-sm text-[var(--text-muted)]">Dieser Kunde wird uebersprungen.</p>;
                 })()}
               </div>
 
-              <div className="rounded-xl border border-slate-200 dark:border-zinc-800 p-4">
-                <div className="text-xs uppercase tracking-wide text-slate-500 dark:text-zinc-400">Kontakte</div>
+              <div className="rounded-xl border border-[var(--border-soft)] p-4">
+                <div className="text-xs uppercase tracking-wide text-[var(--text-subtle)]">Kontakte</div>
                 <div className="mt-3 space-y-3">
                   {singlePreviewItem.contactSuggestions.length === 0 ? (
-                    <p className="text-sm text-slate-500 dark:text-zinc-400">Keine EXXAS-Kontakte gefunden.</p>
+                    <p className="text-sm text-[var(--text-subtle)]">Keine EXXAS-Kontakte gefunden.</p>
                   ) : (
                     singlePreviewItem.contactSuggestions.map((contactItem) => {
                       const contactState = singlePreviewState.contacts[contactItem.exxasContact.id];
@@ -1433,17 +1433,17 @@ export function ExxasReconcilePage() {
                       return (
                         <div
                           key={contactItem.exxasContact.id}
-                          className="rounded-lg border border-slate-100 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/60 p-3 space-y-3"
+                          className="rounded-lg border border-slate-100 border-[var(--border-soft)] bg-[var(--surface-raised)]/60 p-3 space-y-3"
                         >
-                          <div className="text-sm font-medium text-slate-900 dark:text-zinc-100">
+                          <div className="text-sm font-medium text-[var(--text-main)]">
                             {contactItem.exxasContact.name || "-"}
                           </div>
-                          <div className="mt-1 text-sm text-slate-600 dark:text-zinc-300">
+                          <div className="mt-1 text-sm text-[var(--text-muted)]">
                             Aktion: <span className="font-semibold">{contactActionLabel(contactState?.action || "skip")}</span>
                           </div>
                           {contactState?.action === "link_existing" ? (
                             <>
-                              <div className="mt-1 text-sm text-slate-600 dark:text-zinc-300">
+                              <div className="mt-1 text-sm text-[var(--text-muted)]">
                                 Ziel: {selectedCandidate
                                   ? `#${selectedCandidate.localContactId} ${selectedCandidate.localContact.name || selectedCandidate.localContact.email} (${confidenceLabel(selectedCandidate.confidence)})`
                                   : "nicht ausgewaehlt"}
@@ -1465,7 +1465,7 @@ export function ExxasReconcilePage() {
                                 }
                               />
                               {selectedCandidate?.reasons?.length ? (
-                                <div className="text-xs text-slate-500 dark:text-zinc-400">
+                                <div className="text-xs text-[var(--text-subtle)]">
                                   Treffergruende: {selectedCandidate.reasons.join(", ")}
                                 </div>
                               ) : null}
@@ -1473,7 +1473,7 @@ export function ExxasReconcilePage() {
                           ) : null}
                           {contactState?.action === "create_contact" ? (
                             <>
-                              <p className="text-sm text-slate-600 dark:text-zinc-300">
+                              <p className="text-sm text-[var(--text-muted)]">
                                 Es wird ein neuer lokaler Kontakt aus den EXXAS-Daten angelegt.
                               </p>
                               <ComparisonTable
@@ -1483,7 +1483,7 @@ export function ExxasReconcilePage() {
                             </>
                           ) : null}
                           {(!contactState || contactState.action === "skip") ? (
-                            <p className="text-sm text-slate-600 dark:text-zinc-300">Dieser Kontakt wird uebersprungen.</p>
+                            <p className="text-sm text-[var(--text-muted)]">Dieser Kontakt wird uebersprungen.</p>
                           ) : null}
                         </div>
                       );
@@ -1507,7 +1507,7 @@ export function ExxasReconcilePage() {
                 <button
                   type="button"
                   onClick={() => setSinglePreviewItemId(null)}
-                  className="inline-flex items-center gap-2 rounded-lg border border-slate-200 dark:border-zinc-700 px-3 py-2 text-sm font-medium text-slate-700 dark:text-zinc-200"
+                  className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm font-medium text-[var(--text-muted)]"
                 >
                   Schliessen
                 </button>
@@ -1515,7 +1515,7 @@ export function ExxasReconcilePage() {
                   type="button"
                   onClick={() => void runSingleConfirm(singlePreviewItem)}
                   disabled={confirming || singlePreviewIssues.length > 0}
-                  className="inline-flex items-center gap-2 rounded-lg bg-[#C5A059] px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
                 >
                   {singleConfirmingId === singlePreviewItem.exxasCustomer.id ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -1540,16 +1540,16 @@ export function ExxasReconcilePage() {
           <DialogClose onClose={() => !confirming && setBulkConfirmOpen(false)} />
           <DialogHeader>
             <DialogTitle>Speichern: Auswahl pruefen</DialogTitle>
-            <p className="text-sm text-slate-500 dark:text-zinc-400">
+            <p className="text-sm text-[var(--text-subtle)]">
               Hier siehst du pro ausgewaehltem EXXAS-Kunden, was gespeichert wird. Du kannst noch zwischen{" "}
-              <strong className="text-slate-700 dark:text-zinc-200">Abgleich</strong> (bestehenden Kunden verknuepfen) und{" "}
-              <strong className="text-slate-700 dark:text-zinc-200">neuem Kunden</strong> waehlen.
+              <strong className="text-[var(--text-muted)]">Abgleich</strong> (bestehenden Kunden verknuepfen) und{" "}
+              <strong className="text-[var(--text-muted)]">neuem Kunden</strong> waehlen.
             </p>
           </DialogHeader>
 
           <div className="min-h-0 flex-1 overflow-y-auto space-y-4 pr-1">
             {bulkSelectedItems.length === 0 ? (
-              <p className="text-sm text-slate-500 dark:text-zinc-400">Keine Eintraege ausgewaehlt.</p>
+              <p className="text-sm text-[var(--text-subtle)]">Keine Eintraege ausgewaehlt.</p>
             ) : (
               bulkSelectedItems.map((item) => {
                 const state = states[item.exxasCustomer.id] || initialStateForItem(item);
@@ -1557,25 +1557,25 @@ export function ExxasReconcilePage() {
                 return (
                   <div
                     key={item.exxasCustomer.id}
-                    className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/80 dark:bg-zinc-900/50 p-4 space-y-3"
+                    className="rounded-xl border border-[var(--border-soft)] bg-slate-50/80 bg-[var(--surface)]/50 p-4 space-y-3"
                   >
                     <div>
-                      <div className="font-semibold text-slate-900 dark:text-zinc-100">
+                      <div className="font-semibold text-[var(--text-main)]">
                         {item.exxasCustomer.name || "—"}{" "}
-                        <span className="text-xs font-mono font-normal text-slate-500 dark:text-zinc-400">
+                        <span className="text-xs font-mono font-normal text-[var(--text-subtle)]">
                           #{item.exxasCustomer.nummer}
                         </span>
                       </div>
-                      <div className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                      <div className="text-xs text-[var(--text-subtle)] mt-0.5">
                         {item.exxasCustomer.email || "keine E-Mail"} · {item.exxasCustomer.city || "—"}
                       </div>
                     </div>
 
                     <fieldset className="space-y-2 border-0 p-0 m-0">
-                      <legend className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-zinc-400 mb-1">
+                      <legend className="text-xs font-semibold uppercase tracking-wide text-[var(--text-subtle)] mb-1">
                         Kunde
                       </legend>
-                      <label className="flex cursor-pointer items-start gap-2 text-sm text-slate-800 dark:text-zinc-200">
+                      <label className="flex cursor-pointer items-start gap-2 text-sm text-[var(--text-main)]">
                         <input
                           type="radio"
                           className="mt-1"
@@ -1591,11 +1591,11 @@ export function ExxasReconcilePage() {
                         />
                         <span>
                           <span className="font-medium">Abgleich</span>
-                          <span className="text-slate-600 dark:text-zinc-400">
+                          <span className="text-[var(--text-subtle)]">
                             {" "}
                             – EXXAS mit bestehendem lokalen Kunden verknuepfen
                           </span>
-                          <div className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                          <div className="text-xs text-[var(--text-subtle)] mt-0.5">
                             Ziel:{" "}
                             {preview
                               ? resolveLocalCustomerLabel(item, preview, state.localCustomerId)
@@ -1603,7 +1603,7 @@ export function ExxasReconcilePage() {
                           </div>
                         </span>
                       </label>
-                      <label className="flex cursor-pointer items-start gap-2 text-sm text-slate-800 dark:text-zinc-200">
+                      <label className="flex cursor-pointer items-start gap-2 text-sm text-[var(--text-main)]">
                         <input
                           type="radio"
                           className="mt-1"
@@ -1619,13 +1619,13 @@ export function ExxasReconcilePage() {
                         />
                         <span>
                           <span className="font-medium">Neuer Kunde</span>
-                          <span className="text-slate-600 dark:text-zinc-400">
+                          <span className="text-[var(--text-subtle)]">
                             {" "}
                             – lokalen Kunden aus den EXXAS-Daten neu anlegen
                           </span>
                         </span>
                       </label>
-                      <label className="flex cursor-pointer items-start gap-2 text-sm text-slate-800 dark:text-zinc-200">
+                      <label className="flex cursor-pointer items-start gap-2 text-sm text-[var(--text-main)]">
                         <input
                           type="radio"
                           className="mt-1"
@@ -1641,16 +1641,16 @@ export function ExxasReconcilePage() {
                         />
                         <span>
                           <span className="font-medium">Ueberspringen</span>
-                          <span className="text-slate-600 dark:text-zinc-400"> – fuer diesen EXXAS-Kunden nichts speichern</span>
+                          <span className="text-[var(--text-subtle)]"> – fuer diesen EXXAS-Kunden nichts speichern</span>
                         </span>
                       </label>
                     </fieldset>
 
                     <div>
-                      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-zinc-400 mb-1">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-[var(--text-subtle)] mb-1">
                         Kontakte (wie in der Liste eingestellt)
                       </div>
-                      <p className="text-xs text-slate-600 dark:text-zinc-300 leading-relaxed">{summarizeContactDecisions(item, state)}</p>
+                      <p className="text-xs text-[var(--text-muted)] leading-relaxed">{summarizeContactDecisions(item, state)}</p>
                     </div>
 
                     {issues.length > 0 ? (
@@ -1666,12 +1666,12 @@ export function ExxasReconcilePage() {
             )}
           </div>
 
-          <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-2 border-t border-slate-200 dark:border-zinc-800 pt-4">
+          <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-2 border-t border-[var(--border-soft)] pt-4">
             <button
               type="button"
               disabled={confirming}
               onClick={() => setBulkConfirmOpen(false)}
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 dark:border-zinc-700 px-3 py-2 text-sm font-medium text-slate-700 dark:text-zinc-200 disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm font-medium text-[var(--text-muted)] disabled:opacity-50"
             >
               Abbrechen
             </button>
@@ -1679,7 +1679,7 @@ export function ExxasReconcilePage() {
               type="button"
               disabled={confirming || bulkConfirmBlocked || bulkSelectedItems.length === 0}
               onClick={() => void handleBulkConfirmExecute()}
-              className="inline-flex items-center gap-2 rounded-lg bg-[#C5A059] px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
               title={
                 bulkConfirmBlocked
                   ? "Bitte fehlende Zielkunden oder Kontakte in der Liste ergaenzen, oder auf Ueberspringen stellen."
@@ -1694,8 +1694,8 @@ export function ExxasReconcilePage() {
       </Dialog>
 
       {!preview?.items?.length && !loading ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 dark:border-zinc-700 p-10 text-center text-slate-500 dark:text-zinc-400">
-          <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-slate-100 dark:bg-zinc-800 mb-3">
+        <div className="rounded-2xl border border-dashed border-[var(--border-soft)] p-10 text-center text-[var(--text-subtle)]">
+          <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-[var(--surface-raised)] mb-3">
             <UserPlus2 className="h-5 w-5" />
           </div>
           <p className="font-medium">Noch keine Vorschlaege geladen.</p>
@@ -1704,7 +1704,7 @@ export function ExxasReconcilePage() {
             type="button"
             onClick={runPreview}
             disabled={!hasCredentials || loading || confirming}
-            className="mt-4 inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm font-medium disabled:opacity-50"
+            className="mt-4 inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] text-sm font-medium disabled:opacity-50"
           >
             <SkipForward className="h-4 w-4" />
             Jetzt Preview starten
@@ -1714,4 +1714,6 @@ export function ExxasReconcilePage() {
     </div>
   );
 }
+
+
 

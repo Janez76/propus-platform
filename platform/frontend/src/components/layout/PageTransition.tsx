@@ -13,3 +13,4 @@ export function PageTransition({ children }: PropsWithChildren) {
     </motion.div>
   );
 }
+

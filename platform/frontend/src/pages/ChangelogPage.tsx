@@ -30,23 +30,23 @@ function VersionCard({ entry, defaultOpen }: { entry: ChangelogVersion; defaultO
     <div className={cn(
       "rounded-xl border transition-all duration-200",
       open
-        ? "border-[#C5A059]/30 bg-white dark:bg-zinc-900 shadow-sm"
-        : "border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/50"
+        ? "border-[var(--accent)]/30 bg-[var(--surface)] shadow-sm"
+        : "border-[var(--border-soft)] bg-slate-50/50 bg-[var(--surface)]/50"
     )}>
       <button
         className="w-full flex items-center justify-between px-5 py-4 text-left gap-4"
         onClick={() => setOpen(p => !p)}
       >
         <div className="flex items-center gap-3 min-w-0">
-          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#9E8649]/10 flex items-center justify-center">
-            <GitBranch className="h-4 w-4 text-[#9E8649]" />
+          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[var(--accent)]/10 flex items-center justify-center">
+            <GitBranch className="h-4 w-4 text-[var(--accent)]" />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-mono text-sm font-bold text-[#9E8649]">v{entry.version}</span>
-              <span className="text-sm font-semibold text-slate-900 dark:text-zinc-100 truncate">{entry.title}</span>
+              <span className="font-mono text-sm font-bold text-[var(--accent)]">v{entry.version}</span>
+              <span className="text-sm font-semibold text-[var(--text-main)] truncate">{entry.title}</span>
             </div>
-            <div className="flex items-center gap-1 mt-0.5 text-xs text-slate-500 dark:text-zinc-400">
+            <div className="flex items-center gap-1 mt-0.5 text-xs text-[var(--text-subtle)]">
               <Clock className="h-3 w-3" />
               <span>{entry.date}</span>
               <span className="mx-1">·</span>
@@ -58,7 +58,7 @@ function VersionCard({ entry, defaultOpen }: { entry: ChangelogVersion; defaultO
       </button>
 
       {open && (
-        <div className="px-5 pb-4 border-t border-slate-100 dark:border-zinc-800">
+        <div className="px-5 pb-4 border-t border-slate-100 border-[var(--border-soft)]">
           <ul className="mt-3 space-y-2">
             {entry.changes.map((c, i) => {
               const cfg = TYPE_CONFIG[c.type];
@@ -69,7 +69,7 @@ function VersionCard({ entry, defaultOpen }: { entry: ChangelogVersion; defaultO
                     <Icon className="h-3 w-3" />
                     {cfg.label}
                   </span>
-                  <span className="text-slate-700 dark:text-zinc-300 leading-relaxed">{c.text}</span>
+                  <span className="text-[var(--text-muted)] leading-relaxed">{c.text}</span>
                 </li>
               );
             })}
@@ -132,32 +132,32 @@ export function ChangelogPage() {
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 rounded-xl bg-[#9E8649]/10 flex items-center justify-center">
-            <GitBranch className="h-5 w-5 text-[#9E8649]" />
+          <div className="w-10 h-10 rounded-xl bg-[var(--accent)]/10 flex items-center justify-center">
+            <GitBranch className="h-5 w-5 text-[var(--accent)]" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-zinc-100">Letzte Änderungen</h1>
-            <p className="text-sm text-slate-500 dark:text-zinc-400">Changelog aller Versionen</p>
+            <h1 className="text-2xl font-bold text-[var(--text-main)]">Letzte Änderungen</h1>
+            <p className="text-sm text-[var(--text-subtle)]">Changelog aller Versionen</p>
           </div>
         </div>
 
         {/* Aktuellste Version Banner — gleiche Quelle wie Footer (/api/health, Fallback /VERSION) */}
-        <div className="mt-4 p-4 rounded-xl bg-[#9E8649]/8 border border-[#C5A059]/30">
+        <div className="mt-4 p-4 rounded-xl bg-[var(--accent)]/8 border border-[var(--accent)]/30">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <Sparkles className="h-4 w-4 text-[#9E8649]" />
-            <span className="text-sm font-semibold text-[#9E8649]">Aktuelle Version: v{bannerVersionNorm}</span>
+            <Sparkles className="h-4 w-4 text-[var(--accent)]" />
+            <span className="text-sm font-semibold text-[var(--accent)]">Aktuelle Version: v{bannerVersionNorm}</span>
             {matched ? (
-              <span className="text-xs text-slate-500 dark:text-zinc-400 ml-1">({matched.date})</span>
+              <span className="text-xs text-[var(--text-subtle)] ml-1">({matched.date})</span>
             ) : null}
           </div>
           {matched ? (
-            <p className="text-sm text-slate-700 dark:text-zinc-300">{matched.title}</p>
+            <p className="text-sm text-[var(--text-muted)]">{matched.title}</p>
           ) : serverVersionNorm !== null && !anyBannerMatch ? (
             <p className="text-sm text-amber-700 dark:text-amber-400">
               Kein Changelog-Eintrag für diese Server-Version in dieser App-Auslieferung — bitte Frontend neu bauen und deployen, damit die Liste zur Version passt.
             </p>
           ) : (
-            <p className="text-sm text-slate-700 dark:text-zinc-300">{latest.title}</p>
+            <p className="text-sm text-[var(--text-muted)]">{latest.title}</p>
           )}
         </div>
       </div>
@@ -173,11 +173,12 @@ export function ChangelogPage() {
         ))}
       </div>
 
-      <p className="mt-8 text-center text-xs text-slate-400 dark:text-zinc-600">
+      <p className="mt-8 text-center text-xs text-slate-400 text-[var(--text-subtle)]">
         Alle Versionen werden hier automatisch angezeigt, wenn der CHANGELOG in
-        <code className="mx-1 px-1 py-0.5 bg-slate-100 dark:bg-zinc-800 rounded font-mono">data/changelogData.ts</code>
+        <code className="mx-1 px-1 py-0.5 bg-[var(--surface-raised)] rounded font-mono">data/changelogData.ts</code>
         erweitert wird.
       </p>
     </div>
   );
 }
+

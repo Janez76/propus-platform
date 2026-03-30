@@ -140,7 +140,7 @@ export function CompanyWorkspacePage() {
               <option value="company_admin">Admin</option>
               {role === "company_owner" ? <option value="company_owner">Hauptkontakt (Inhaber)</option> : null}
             </select>
-            <button type="button" onClick={() => void inviteMember()} className="rounded-lg bg-[#9E8649] text-white px-4 py-2">
+            <button type="button" onClick={() => void inviteMember()} className="rounded-lg bg-[var(--accent)] text-white px-4 py-2">
               Einladung senden
             </button>
           </div>
@@ -174,3 +174,4 @@ export function CompanyWorkspacePage() {
     </div>
   );
 }
+

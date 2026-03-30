@@ -166,3 +166,4 @@ export function PortraitCropDialog({ open, imageSrc, lang, onClose, onConfirm }:
     body,
   );
 }
+

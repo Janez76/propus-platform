@@ -135,16 +135,16 @@ export function OrderChat({ token, orderNo, order, actorRole = "admin" }: Props)
   }
 
   return (
-    <div data-testid="order-chat" className="mt-4 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+    <div data-testid="order-chat" className="mt-4 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm border-[var(--border-soft)] bg-[var(--surface)]">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-zinc-600 dark:text-zinc-300">{t(language, "chat.title")}</h3>
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-zinc-600 text-[var(--text-muted)]">{t(language, "chat.title")}</h3>
         {effectiveAvailability.feedbackUntil && (
           <span className="text-xs text-amber-600 dark:text-amber-400">
             {t(language, "chat.feedbackUntil").replace("{{date}}", formatDateTime(effectiveAvailability.feedbackUntil))}
           </span>
         )}
       </div>
-      <p className="mb-2 text-xs text-zinc-500 dark:text-zinc-400">
+      <p className="mb-2 text-xs text-[var(--text-subtle)]">
         {actorRole === "admin"
           ? t(language, "chat.rule.admin")
           : beforeAppointment
@@ -153,13 +153,13 @@ export function OrderChat({ token, orderNo, order, actorRole = "admin" }: Props)
       </p>
 
       {!effectiveAvailability.readable ? (
-        <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-950/50 dark:text-zinc-400">
+        <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-600 border-[var(--border-soft)] bg-[var(--surface)]/50 text-[var(--text-subtle)]">
           {t(language, "chat.closed")}
         </div>
       ) : (
         <>
-          <div data-testid="chat-messages" className="max-h-72 space-y-2 overflow-y-auto rounded-xl border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-950/40">
-            {!items.length && <p className="text-sm text-zinc-500 dark:text-zinc-400">{t(language, "chat.empty")}</p>}
+          <div data-testid="chat-messages" className="max-h-72 space-y-2 overflow-y-auto rounded-xl border border-zinc-200 bg-zinc-50 p-3 border-[var(--border-soft)] bg-[var(--surface)]/40">
+            {!items.length && <p className="text-sm text-[var(--text-subtle)]">{t(language, "chat.empty")}</p>}
             {items.map((item) => {
               const fromCustomer = String(item.senderRole || "").toLowerCase() === "customer";
               return (
@@ -167,11 +167,11 @@ export function OrderChat({ token, orderNo, order, actorRole = "admin" }: Props)
                   <div
                     className={`max-w-[85%] rounded-xl px-3 py-2 text-sm shadow-sm ${
                       fromCustomer
-                        ? "border border-zinc-200 bg-white text-zinc-800 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-                        : "bg-[#9E8649] text-white"
+                        ? "border border-zinc-200 bg-white text-zinc-800 border-[var(--border-soft)] bg-[var(--surface)] text-[var(--text-main)]"
+                        : "bg-[var(--accent)] text-white"
                     }`}
                   >
-                    <div className={`mb-1 text-[11px] ${fromCustomer ? "text-zinc-500 dark:text-zinc-400" : "text-amber-100"}`}>
+                    <div className={`mb-1 text-[11px] ${fromCustomer ? "text-[var(--text-subtle)]" : "text-amber-100"}`}>
                       {item.senderName || (fromCustomer ? t(language, "chat.sender.customer") : t(language, "chat.sender.photographer"))} · {item.createdAt ? formatDateTime(item.createdAt) : "—"}
                     </div>
                     <div className="whitespace-pre-wrap break-words">{item.message}</div>
@@ -182,7 +182,7 @@ export function OrderChat({ token, orderNo, order, actorRole = "admin" }: Props)
           </div>
 
           {!effectiveAvailability.writable && (
-            <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">{t(language, "chat.readonly")}</p>
+            <p className="mt-2 text-xs text-[var(--text-subtle)]">{t(language, "chat.readonly")}</p>
           )}
 
           <div className="mt-3 flex gap-2">
@@ -211,3 +211,4 @@ export function OrderChat({ token, orderNo, order, actorRole = "admin" }: Props)
     </div>
   );
 }
+

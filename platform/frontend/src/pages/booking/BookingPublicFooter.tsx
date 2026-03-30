@@ -33,7 +33,7 @@ export function BookingPublicFooter({ lang, className }: { lang: Lang; className
   return (
     <footer
       className={cn(
-        "border-t border-zinc-200/60 py-3 text-center text-[11px] text-zinc-500 dark:border-zinc-800 dark:text-zinc-500",
+        "border-t border-zinc-200/60 py-3 text-center text-[11px] text-zinc-500 border-[var(--border-soft)] text-[var(--text-subtle)]",
         className,
       )}
     >
@@ -42,3 +42,4 @@ export function BookingPublicFooter({ lang, className }: { lang: Lang; className
     </footer>
   );
 }
+

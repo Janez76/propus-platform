@@ -144,7 +144,7 @@ export function AddressPreviewMap({ apiKey, address, coords, className }: Addres
     <div
       ref={containerRef}
       className={cn(
-        "mt-3 w-full overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-950",
+        "mt-3 w-full overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100 border-[var(--border-soft)] bg-[var(--surface)]",
         "h-44 min-h-[11rem] max-h-[13rem]",
         className,
       )}
@@ -152,3 +152,4 @@ export function AddressPreviewMap({ apiKey, address, coords, className }: Addres
     />
   );
 }
+

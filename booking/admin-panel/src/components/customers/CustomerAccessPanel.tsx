@@ -75,17 +75,17 @@ export function CustomerAccessPanel({ token, customerId }: Props) {
   if (!canManage) return null;
 
   return (
-    <div className="mt-4 rounded-lg border border-zinc-200 p-3 dark:border-zinc-700">
+    <div className="mt-4 rounded-lg border border-zinc-200 p-3 border-[var(--border-soft)]">
       <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">{t(lang, "access.customerSection")}</div>
       {error ? <p className="mb-2 text-xs text-red-600">{error}</p> : null}
       {loading && !data ? <p className="text-xs text-zinc-500">{t(lang, "common.loading")}</p> : null}
       {data ? (
         <div className="space-y-3 text-sm">
           <div>
-            <div className="mb-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">Gruppen</div>
+            <div className="mb-1 text-xs font-medium text-[var(--text-subtle)]">Gruppen</div>
             <ul className="space-y-1 text-xs">
               {(data.groups || []).map((g) => (
-                <li key={g.id} className="rounded bg-zinc-50 px-2 py-1 dark:bg-zinc-800/80">
+                <li key={g.id} className="rounded bg-zinc-50 px-2 py-1 bg-[var(--surface-raised)]/80">
                   <span className="font-medium">{g.name}</span>
                   {Array.isArray(g.permission_keys) && g.permission_keys.length ? (
                     <span className="ml-2 font-mono text-[10px] text-zinc-500">({g.permission_keys.join(", ")})</span>
@@ -106,13 +106,13 @@ export function CustomerAccessPanel({ token, customerId }: Props) {
             </div>
           </div>
           <div>
-            <div className="mb-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">Kontakte</div>
+            <div className="mb-1 text-xs font-medium text-[var(--text-subtle)]">Kontakte</div>
             <ul className="space-y-2">
               {(data.contacts || []).map((c) => (
                 <li key={c.id} className="flex flex-wrap items-center gap-2 text-xs">
                   <span className="font-medium">{c.name || c.email || `#${c.id}`}</span>
                   {!c.subject_id ? (
-                    <button type="button" className="text-[#9E8649] hover:underline" onClick={() => void activateContact(c.id)}>
+                    <button type="button" className="text-[var(--accent)] hover:underline" onClick={() => void activateContact(c.id)}>
                       {t(lang, "access.contactSubject")}
                     </button>
                   ) : (
@@ -134,7 +134,7 @@ export function CustomerAccessPanel({ token, customerId }: Props) {
                       </select>
                       <button
                         type="button"
-                        className="rounded border border-zinc-300 px-2 py-0.5 dark:border-zinc-600"
+                        className="rounded border border-zinc-300 px-2 py-0.5 border-[var(--border-soft)]"
                         onClick={() => {
                           const gid = Number(groupPick[c.id]);
                           if (!Number.isFinite(gid) || !c.subject_id) return;
@@ -154,3 +154,4 @@ export function CustomerAccessPanel({ token, customerId }: Props) {
     </div>
   );
 }
+

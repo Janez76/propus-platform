@@ -72,26 +72,26 @@ export function SummaryPanel({
 
   if (mobile) {
     return (
-      <div className="sticky top-0 z-30 border-b border-zinc-200 bg-white/95 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95 lg:hidden">
+      <div className="sticky top-0 z-30 border-b border-zinc-200 bg-white/95 backdrop-blur border-[var(--border-soft)] bg-[var(--surface)]/95 lg:hidden">
         <button
           type="button"
           onClick={() => setMobileOpen(!mobileOpen)}
           className="flex w-full items-center justify-between px-4 py-3"
         >
-          <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
-            {t(lang, "booking.summary.title")} {subtotal > 0 && <span className="ml-2 text-[#C5A059]">{formatCHF(pricing.total)}</span>}
+          <span className="text-sm font-semibold text-[var(--text-muted)]">
+            {t(lang, "booking.summary.title")} {subtotal > 0 && <span className="ml-2 text-[var(--accent)]">{formatCHF(pricing.total)}</span>}
           </span>
           {mobileOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
         </button>
-        {mobileOpen && <div className="border-t border-zinc-100 px-4 pb-4 dark:border-zinc-800">{renderContent()}</div>}
+        {mobileOpen && <div className="border-t border-zinc-100 px-4 pb-4 border-[var(--border-soft)]">{renderContent()}</div>}
       </div>
     );
   }
 
   return (
     <aside className="hidden lg:block">
-      <div className="sticky top-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-        <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
+      <div className="sticky top-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm border-[var(--border-soft)] bg-[var(--surface)]">
+        <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-zinc-600 text-[var(--text-muted)]">
           {t(lang, "booking.summary.title")}
         </h3>
         {renderContent()}
@@ -107,7 +107,7 @@ export function SummaryPanel({
           <button
             type="button"
             onClick={handleRestart}
-            className="flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-200 py-2 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-200 py-2 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50 border-[var(--border-soft)] text-[var(--text-muted)] hover:bg-[var(--surface-raised)]"
           >
             <RotateCcw className="h-3.5 w-3.5" />
             {t(lang, "booking.summary.restart")}
@@ -120,8 +120,8 @@ export function SummaryPanel({
       <div className="space-y-4 text-sm">
         {address && (
           <div className="flex items-start gap-2">
-            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#C5A059]" />
-            <span className="text-zinc-700 dark:text-zinc-300">{address}</span>
+            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--accent)]" />
+            <span className="text-[var(--text-muted)]">{address}</span>
           </div>
         )}
 
@@ -131,13 +131,13 @@ export function SummaryPanel({
               <Package className="h-3 w-3" /> {t(lang, "booking.summary.services")}
             </div>
             {selectedPackage && (
-              <div className="flex justify-between text-zinc-700 dark:text-zinc-300">
+              <div className="flex justify-between text-[var(--text-muted)]">
                 <span>{selectedPackage.label}</span>
                 <span className="font-medium">{formatCHF(selectedPackage.price)}</span>
               </div>
             )}
             {addons.map((a) => (
-              <div key={a.id} className="flex justify-between text-zinc-700 dark:text-zinc-300">
+              <div key={a.id} className="flex justify-between text-[var(--text-muted)]">
                 <span>{a.label}{a.qty > 1 ? ` x${a.qty}` : ""}</span>
                 <span className="font-medium">{formatCHF(a.price * a.qty)}</span>
               </div>
@@ -147,15 +147,15 @@ export function SummaryPanel({
 
         {photographer && (
           <div className="flex items-center gap-2">
-            <Camera className="h-3.5 w-3.5 text-[#C5A059]" />
-            <span className="text-zinc-700 dark:text-zinc-300">{bookingPhotographerLabel(lang, photographer)}</span>
+            <Camera className="h-3.5 w-3.5 text-[var(--accent)]" />
+            <span className="text-[var(--text-muted)]">{bookingPhotographerLabel(lang, photographer)}</span>
           </div>
         )}
 
         {date && (
           <div className="flex items-center gap-2">
-            <CalendarDays className="h-3.5 w-3.5 text-[#C5A059]" />
-            <span className="text-zinc-700 dark:text-zinc-300">{formatDateCH(date)}{time ? ` ${time}` : ""}</span>
+            <CalendarDays className="h-3.5 w-3.5 text-[var(--accent)]" />
+            <span className="text-[var(--text-muted)]">{formatDateCH(date)}{time ? ` ${time}` : ""}</span>
           </div>
         )}
 
@@ -172,15 +172,15 @@ export function SummaryPanel({
               placeholder="CODE"
               className={cn(
                 "flex-1 rounded-lg border px-3 py-1.5 text-xs",
-                "border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800",
-                "focus:outline-none focus:ring-1 focus:ring-[#C5A059]/30",
+                "border-[var(--border-soft)] bg-[var(--surface)]",
+                "focus:outline-none focus:ring-1 focus:ring-[var(--accent)]/30",
               )}
             />
             <button
               type="button"
               onClick={applyDiscount}
               disabled={discountLoading || !discountInput.trim()}
-              className="rounded-lg bg-zinc-100 px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-200 disabled:opacity-50 dark:bg-zinc-800 dark:text-zinc-300"
+              className="rounded-lg bg-zinc-100 px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-200 disabled:opacity-50 bg-[var(--surface-raised)] text-[var(--text-muted)]"
             >
               {discountLoading ? "..." : t(lang, "booking.summary.apply")}
             </button>
@@ -193,7 +193,7 @@ export function SummaryPanel({
 
         {/* Preise */}
         {subtotal > 0 && (
-          <div className="space-y-1 border-t border-zinc-200 pt-3 dark:border-zinc-700">
+          <div className="space-y-1 border-t border-zinc-200 pt-3 border-[var(--border-soft)]">
             <div className="flex justify-between text-zinc-500">
               <span>{t(lang, "booking.summary.subtotal")}</span>
               <span>{formatCHF(pricing.subtotal)}</span>
@@ -208,9 +208,9 @@ export function SummaryPanel({
               <span>{t(lang, "booking.summary.vat")} ({((pricingConfig.vatRate) * 100).toFixed(1)}%)</span>
               <span>{formatCHF(pricing.vat)}</span>
             </div>
-            <div className="flex justify-between text-base font-bold text-zinc-900 dark:text-zinc-100">
+            <div className="flex justify-between text-base font-bold text-[var(--text-main)]">
               <span>{t(lang, "booking.summary.total")}</span>
-              <span className="text-[#C5A059]">{formatCHF(pricing.total)}</span>
+              <span className="text-[var(--accent)]">{formatCHF(pricing.total)}</span>
             </div>
           </div>
         )}
@@ -218,7 +218,7 @@ export function SummaryPanel({
         <button
           type="button"
           onClick={handleRestart}
-          className="flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-200 py-2 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          className="flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-200 py-2 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50 border-[var(--border-soft)] text-[var(--text-muted)] hover:bg-[var(--surface-raised)]"
         >
           <RotateCcw className="h-3.5 w-3.5" />
           {t(lang, "booking.summary.restart")}
@@ -227,3 +227,4 @@ export function SummaryPanel({
     );
   }
 }
+

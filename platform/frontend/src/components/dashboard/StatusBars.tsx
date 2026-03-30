@@ -26,7 +26,7 @@ export function StatusBars({ orders }: Props) {
         {stats.map((s) => (
           <div key={s.key} className="flex items-center gap-2">
             <div className="w-28 truncate text-xs text-zinc-600">{getStatusLabel(s.key)}</div>
-            <div className="h-2 flex-1 overflow-hidden rounded bg-zinc-100 dark:bg-zinc-800">
+            <div className="h-2 flex-1 overflow-hidden rounded bg-[var(--surface-raised)]">
               <div
                 className={cn("h-full", getStatusBarColor(s.key))}
                 style={{ width: `${(s.count / max) * 100}%` }}
@@ -39,3 +39,4 @@ export function StatusBars({ orders }: Props) {
     </div>
   );
 }
+

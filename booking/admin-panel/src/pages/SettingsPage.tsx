@@ -113,9 +113,9 @@ function SkillThresholdRow({
     pctRequired >= 70 ? "#22c55e" : pctRequired >= 40 ? "#f59e0b" : "#ef4444";
 
   return (
-    <div className="rounded-xl border border-slate-200 dark:border-zinc-700 p-3 space-y-3">
+    <div className="rounded-xl border border-[var(--border-soft)] p-3 space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-semibold text-slate-800 dark:text-zinc-100">{label}</span>
+        <span className="text-sm font-semibold text-[var(--text-main)]">{label}</span>
         {total > 0 && (
           <span
             className="text-[11px] font-semibold rounded-full px-2 py-0.5 shrink-0"
@@ -128,8 +128,8 @@ function SkillThresholdRow({
 
       <div className="space-y-1">
         <div className="flex justify-between text-[11px]">
-          <span className="text-slate-500 dark:text-zinc-400">Mindest-Level</span>
-          <span className="font-bold text-[#C5A059]">{requiredValue}/10</span>
+          <span className="text-[var(--text-subtle)]">Mindest-Level</span>
+          <span className="font-bold text-[var(--accent)]">{requiredValue}/10</span>
         </div>
         <input
           type="range"
@@ -139,13 +139,13 @@ function SkillThresholdRow({
           value={requiredValue}
           onChange={(e) => onRequiredChange(Number(e.target.value))}
           className="propus-slider w-full"
-          style={{ background: getSliderFill(requiredValue, "#C5A059") }}
+          style={{ background: getSliderFill(requiredValue, "var(--accent)") }}
         />
       </div>
 
       <div className="space-y-1">
         <div className="flex justify-between text-[11px]">
-          <span className="text-slate-500 dark:text-zinc-400">Untergrenze (niemals drunter)</span>
+          <span className="text-[var(--text-subtle)]">Untergrenze (niemals drunter)</span>
           <span className="font-bold text-indigo-500 dark:text-indigo-400">{minimumValue}/10</span>
         </div>
         <input
@@ -159,14 +159,14 @@ function SkillThresholdRow({
           style={{ background: getSliderFill(minimumValue, "#6366f1") }}
         />
         {total > 0 && (
-          <div className="text-[10px] text-slate-400 dark:text-zinc-500">
+          <div className="text-[10px] text-[var(--text-subtle)]">
             {meetsMinimum}/{total} über Untergrenze
           </div>
         )}
       </div>
 
       {total > 0 && (
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-zinc-700">
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200 bg-[var(--surface-raised)]">
           <div
             className="h-full rounded-full transition-all duration-300"
             style={{ width: `${pctRequired}%`, backgroundColor: badgeColor }}
@@ -530,15 +530,15 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-        <h2 className="text-lg font-bold text-slate-900 dark:text-zinc-100">{t(lang, "settings.title")}</h2>
-        <p className="mt-1 text-sm text-slate-500 dark:text-zinc-400">{t(lang, "settings.subtitle")}</p>
+      <div className="rounded-xl border border-slate-200 bg-white p-4 border-[var(--border-soft)] bg-[var(--surface)]">
+        <h2 className="text-lg font-bold text-[var(--text-main)]">{t(lang, "settings.title")}</h2>
+        <p className="mt-1 text-sm text-[var(--text-subtle)]">{t(lang, "settings.subtitle")}</p>
         <div className="mt-4 flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => setActiveTab("pricing")}
             className={`rounded-lg px-3 py-1.5 text-sm ${
-              activeTab === "pricing" ? "bg-[#C5A059] text-white" : "border border-slate-200 dark:border-zinc-700"
+              activeTab === "pricing" ? "bg-[var(--accent)] text-white" : "border border-[var(--border-soft)]"
             }`}
           >
             {t(lang, "settings.tabs.pricing")}
@@ -547,7 +547,7 @@ export function SettingsPage() {
             type="button"
             onClick={() => setActiveTab("scheduling")}
             className={`rounded-lg px-3 py-1.5 text-sm ${
-              activeTab === "scheduling" ? "bg-[#C5A059] text-white" : "border border-slate-200 dark:border-zinc-700"
+              activeTab === "scheduling" ? "bg-[var(--accent)] text-white" : "border border-[var(--border-soft)]"
             }`}
           >
             {t(lang, "settings.tabs.scheduling")}
@@ -556,7 +556,7 @@ export function SettingsPage() {
             type="button"
             onClick={() => setActiveTab("assignment")}
             className={`rounded-lg px-3 py-1.5 text-sm ${
-              activeTab === "assignment" ? "bg-[#C5A059] text-white" : "border border-slate-200 dark:border-zinc-700"
+              activeTab === "assignment" ? "bg-[var(--accent)] text-white" : "border border-[var(--border-soft)]"
             }`}
           >
             {t(lang, "settings.tabs.assignment")}
@@ -565,7 +565,7 @@ export function SettingsPage() {
             type="button"
             onClick={() => setActiveTab("discounts")}
             className={`rounded-lg px-3 py-1.5 text-sm ${
-              activeTab === "discounts" ? "bg-[#C5A059] text-white" : "border border-slate-200 dark:border-zinc-700"
+              activeTab === "discounts" ? "bg-[var(--accent)] text-white" : "border border-[var(--border-soft)]"
             }`}
           >
             {t(lang, "settings.tabs.discounts")}
@@ -574,7 +574,7 @@ export function SettingsPage() {
             type="button"
             onClick={() => setActiveTab("reviews")}
             className={`rounded-lg px-3 py-1.5 text-sm ${
-              activeTab === "reviews" ? "bg-[#C5A059] text-white" : "border border-slate-200 dark:border-zinc-700"
+              activeTab === "reviews" ? "bg-[var(--accent)] text-white" : "border border-[var(--border-soft)]"
             }`}
           >
             Reviews
@@ -582,19 +582,19 @@ export function SettingsPage() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-        <h3 className="text-sm font-semibold text-slate-900 dark:text-zinc-100">{t(lang, "settings.presets.title")}</h3>
-        <p className="mt-1 text-xs text-slate-500 dark:text-zinc-400">{t(lang, "settings.presets.help")}</p>
+      <div className="rounded-xl border border-slate-200 bg-white p-4 border-[var(--border-soft)] bg-[var(--surface)]">
+        <h3 className="text-sm font-semibold text-[var(--text-main)]">{t(lang, "settings.presets.title")}</h3>
+        <p className="mt-1 text-xs text-[var(--text-subtle)]">{t(lang, "settings.presets.help")}</p>
         <div className="mt-3 grid gap-2 md:grid-cols-3">
           {PRESET_OPTIONS.map((preset) => (
             <button
               key={preset.key}
               type="button"
               onClick={() => applyPreset(preset.key)}
-              className="rounded-lg border border-slate-200 px-3 py-2 text-left hover:bg-slate-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+              className="rounded-lg border border-slate-200 px-3 py-2 text-left hover:bg-slate-50 border-[var(--border-soft)] hover:bg-[var(--surface-raised)]"
             >
-              <div className="text-sm font-medium text-slate-900 dark:text-zinc-100">{t(lang, preset.labelKey)}</div>
-              <div className="mt-0.5 text-xs text-slate-500 dark:text-zinc-400">{t(lang, preset.hintKey)}</div>
+              <div className="text-sm font-medium text-[var(--text-main)]">{t(lang, preset.labelKey)}</div>
+              <div className="mt-0.5 text-xs text-[var(--text-subtle)]">{t(lang, preset.hintKey)}</div>
             </button>
           ))}
         </div>
@@ -604,13 +604,13 @@ export function SettingsPage() {
       {loading ? <p className="text-sm text-slate-500">{t(lang, "settings.loading")}</p> : null}
 
       {activeTab === "pricing" ? (
-        <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-          <p className="text-sm text-slate-500 dark:text-zinc-400">{t(lang, "settings.pricing.help")}</p>
+        <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 border-[var(--border-soft)] bg-[var(--surface)]">
+          <p className="text-sm text-[var(--text-subtle)]">{t(lang, "settings.pricing.help")}</p>
           <div className="grid gap-3 md:grid-cols-3">
             <label className="text-sm">
               {t(lang, "settings.pricing.vatLabel")}
               <input
-                className="mt-1 w-full rounded border px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800"
+                className="mt-1 w-full rounded border px-3 py-2 text-sm border-[var(--border-soft)] bg-[var(--surface-raised)]"
                 type="number"
                 min={0}
                 max={100}
@@ -618,12 +618,12 @@ export function SettingsPage() {
                 value={pricingVatPercent}
                 onChange={(e) => update("pricing.vatRate", toNumber(e.target.value, 0) / 100)}
               />
-              <span className="mt-1 block text-xs text-slate-500 dark:text-zinc-400">{t(lang, "settings.pricing.vatHint")}</span>
+              <span className="mt-1 block text-xs text-[var(--text-subtle)]">{t(lang, "settings.pricing.vatHint")}</span>
             </label>
             <label className="text-sm">
               {t(lang, "settings.pricing.roundingStepLabel")}
               <select
-                className="mt-1 w-full rounded border px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800"
+                className="mt-1 w-full rounded border px-3 py-2 text-sm border-[var(--border-soft)] bg-[var(--surface-raised)]"
                 value={String(roundingStep)}
                 onChange={(e) => update("pricing.chfRoundingStep", toNumber(e.target.value, 0.05))}
               >
@@ -633,32 +633,32 @@ export function SettingsPage() {
                   </option>
                 ))}
               </select>
-              <span className="mt-1 block text-xs text-slate-500 dark:text-zinc-400">{t(lang, "settings.pricing.roundingStepHint")}</span>
+              <span className="mt-1 block text-xs text-[var(--text-subtle)]">{t(lang, "settings.pricing.roundingStepHint")}</span>
             </label>
             <label className="text-sm">
               {t(lang, "settings.pricing.roundingModeLabel")}
               <select
-                className="mt-1 w-full rounded border px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800"
+                className="mt-1 w-full rounded border px-3 py-2 text-sm border-[var(--border-soft)] bg-[var(--surface-raised)]"
                 value={roundingMode}
                 onChange={(e) => update("pricing.roundingMode", e.target.value)}
               >
                 <option value="each_step">{t(lang, "settings.pricing.roundingMode.eachStep")}</option>
                 <option value="final_only">{t(lang, "settings.pricing.roundingMode.finalOnly")}</option>
               </select>
-              <span className="mt-1 block text-xs text-slate-500 dark:text-zinc-400">{t(lang, "settings.pricing.roundingModeHint")}</span>
+              <span className="mt-1 block text-xs text-[var(--text-subtle)]">{t(lang, "settings.pricing.roundingModeHint")}</span>
             </label>
           </div>
         </div>
       ) : null}
 
       {activeTab === "scheduling" ? (
-        <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-          <p className="text-sm text-slate-500 dark:text-zinc-400">{t(lang, "settings.scheduling.help")}</p>
+        <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 border-[var(--border-soft)] bg-[var(--surface)]">
+          <p className="text-sm text-[var(--text-subtle)]">{t(lang, "settings.scheduling.help")}</p>
           <div className="grid gap-3 md:grid-cols-3">
             <label className="text-sm">
               {t(lang, "settings.scheduling.slotMinutes")}
               <input
-                className="mt-1 w-full rounded border px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800"
+                className="mt-1 w-full rounded border px-3 py-2 text-sm border-[var(--border-soft)] bg-[var(--surface-raised)]"
                 type="number"
                 min={5}
                 max={180}
@@ -670,7 +670,7 @@ export function SettingsPage() {
             <label className="text-sm">
               {t(lang, "settings.scheduling.bufferMinutes")}
               <input
-                className="mt-1 w-full rounded border px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800"
+                className="mt-1 w-full rounded border px-3 py-2 text-sm border-[var(--border-soft)] bg-[var(--surface-raised)]"
                 type="number"
                 min={0}
                 max={180}
@@ -682,7 +682,7 @@ export function SettingsPage() {
             <label className="text-sm">
               {t(lang, "settings.scheduling.lookaheadDays")}
               <input
-                className="mt-1 w-full rounded border px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800"
+                className="mt-1 w-full rounded border px-3 py-2 text-sm border-[var(--border-soft)] bg-[var(--surface-raised)]"
                 type="number"
                 min={1}
                 max={365}
@@ -694,7 +694,7 @@ export function SettingsPage() {
             <label className="text-sm">
               {t(lang, "settings.scheduling.minAdvanceHours")}
               <input
-                className="mt-1 w-full rounded border px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800"
+                className="mt-1 w-full rounded border px-3 py-2 text-sm border-[var(--border-soft)] bg-[var(--surface-raised)]"
                 type="number"
                 min={0}
                 max={720}
@@ -706,7 +706,7 @@ export function SettingsPage() {
             <label className="text-sm">
               {t(lang, "settings.scheduling.workStart")}
               <input
-                className="mt-1 w-full rounded border px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800"
+                className="mt-1 w-full rounded border px-3 py-2 text-sm border-[var(--border-soft)] bg-[var(--surface-raised)]"
                 type="time"
                 value={String(value(draft, "scheduling.workStart", "08:00"))}
                 onChange={(e) => update("scheduling.workStart", e.target.value)}
@@ -715,7 +715,7 @@ export function SettingsPage() {
             <label className="text-sm">
               {t(lang, "settings.scheduling.workEnd")}
               <input
-                className="mt-1 w-full rounded border px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800"
+                className="mt-1 w-full rounded border px-3 py-2 text-sm border-[var(--border-soft)] bg-[var(--surface-raised)]"
                 type="time"
                 value={String(value(draft, "scheduling.workEnd", "18:00"))}
                 onChange={(e) => update("scheduling.workEnd", e.target.value)}
@@ -723,33 +723,33 @@ export function SettingsPage() {
             </label>
           </div>
 
-          <div className="rounded-lg border border-slate-200 p-3 dark:border-zinc-700">
-            <h3 className="text-sm font-semibold text-slate-900 dark:text-zinc-100">
+          <div className="rounded-lg border border-slate-200 p-3 border-[var(--border-soft)]">
+            <h3 className="text-sm font-semibold text-[var(--text-main)]">
               {t(lang, "settings.scheduling.workHoursByDayTitle")}
             </h3>
-            <p className="mt-1 text-xs text-slate-500 dark:text-zinc-400">
+            <p className="mt-1 text-xs text-[var(--text-subtle)]">
               {t(lang, "settings.scheduling.workHoursByDayHint")}
             </p>
             <div className="mt-3 space-y-2">
               {WEEKDAY_OPTIONS.map((day) => (
-                <div key={day.value} className="grid grid-cols-12 items-center gap-2 rounded border px-2 py-2 dark:border-zinc-700">
+                <div key={day.value} className="grid grid-cols-12 items-center gap-2 rounded border px-2 py-2 border-[var(--border-soft)]">
                   <label className="col-span-4 inline-flex items-center gap-2 text-sm">
                     <input type="checkbox" checked={schedulingWorkHoursByDay[day.value].enabled} onChange={() => toggleWorkday(day.value)} />
                     <span>{t(lang, day.labelKey)}</span>
                   </label>
                   <label className="col-span-4 text-xs">
-                    <span className="block text-slate-500 dark:text-zinc-400">{t(lang, "settings.scheduling.dayStart")}</span>
+                    <span className="block text-[var(--text-subtle)]">{t(lang, "settings.scheduling.dayStart")}</span>
                     <input
-                      className="mt-1 w-full rounded border px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-800"
+                      className="mt-1 w-full rounded border px-2 py-1.5 text-sm border-[var(--border-soft)] bg-[var(--surface-raised)]"
                       type="time"
                       value={schedulingWorkHoursByDay[day.value].start}
                       onChange={(e) => updateWorkdayTime(day.value, "start", e.target.value)}
                     />
                   </label>
                   <label className="col-span-4 text-xs">
-                    <span className="block text-slate-500 dark:text-zinc-400">{t(lang, "settings.scheduling.dayEnd")}</span>
+                    <span className="block text-[var(--text-subtle)]">{t(lang, "settings.scheduling.dayEnd")}</span>
                     <input
-                      className="mt-1 w-full rounded border px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-800"
+                      className="mt-1 w-full rounded border px-2 py-1.5 text-sm border-[var(--border-soft)] bg-[var(--surface-raised)]"
                       type="time"
                       value={schedulingWorkHoursByDay[day.value].end}
                       onChange={(e) => updateWorkdayTime(day.value, "end", e.target.value)}
@@ -760,14 +760,14 @@ export function SettingsPage() {
             </div>
           </div>
 
-          <div className="rounded-lg border border-slate-200 p-3 dark:border-zinc-700">
-            <h3 className="text-sm font-semibold text-slate-900 dark:text-zinc-100">
+          <div className="rounded-lg border border-slate-200 p-3 border-[var(--border-soft)]">
+            <h3 className="text-sm font-semibold text-[var(--text-main)]">
               {t(lang, "settings.scheduling.holidaysTitle")}
             </h3>
-            <p className="mt-1 text-xs text-slate-500 dark:text-zinc-400">
+            <p className="mt-1 text-xs text-[var(--text-subtle)]">
               {t(lang, "settings.scheduling.holidaysHint")}
             </p>
-            <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 p-3 dark:border-zinc-700">
+            <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 p-3 border-[var(--border-soft)]">
               <input
                 type="checkbox"
                 className="mt-0.5"
@@ -775,17 +775,17 @@ export function SettingsPage() {
                 onChange={(e) => update("scheduling.nationalHolidaysEnabled", e.target.checked)}
               />
               <span>
-                <span className="block text-sm font-medium text-slate-900 dark:text-zinc-100">
+                <span className="block text-sm font-medium text-[var(--text-main)]">
                   {t(lang, "settings.scheduling.nationalHolidaysLabel")}
                 </span>
-                <span className="mt-0.5 block text-xs text-slate-500 dark:text-zinc-400">
+                <span className="mt-0.5 block text-xs text-[var(--text-subtle)]">
                   {t(lang, "settings.scheduling.nationalHolidaysHint")}
                 </span>
               </span>
             </label>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <input
-                className="rounded border px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800"
+                className="rounded border px-3 py-2 text-sm border-[var(--border-soft)] bg-[var(--surface-raised)]"
                 type="date"
                 value={holidayInput}
                 onChange={(e) => setHolidayInput(e.target.value)}
@@ -793,19 +793,19 @@ export function SettingsPage() {
               <button
                 type="button"
                 onClick={addHoliday}
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100 border-[var(--border-soft)] hover:bg-[var(--surface-raised)]"
               >
                 {t(lang, "settings.scheduling.addHoliday")}
               </button>
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
               {schedulingHolidays.length === 0 ? (
-                <span className="text-xs text-slate-500 dark:text-zinc-400">{t(lang, "settings.scheduling.noHolidays")}</span>
+                <span className="text-xs text-[var(--text-subtle)]">{t(lang, "settings.scheduling.noHolidays")}</span>
               ) : (
                 schedulingHolidays.map((date) => (
                   <span
                     key={date}
-                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-2.5 py-1 text-xs dark:border-zinc-700"
+                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-2.5 py-1 text-xs border-[var(--border-soft)]"
                   >
                     {date}
                     <button type="button" onClick={() => removeHoliday(date)} className="text-red-600 hover:text-red-700">
@@ -822,13 +822,13 @@ export function SettingsPage() {
       {activeTab === "assignment" ? (
         <div className="space-y-4">
           {/* Policy & Relaxation */}
-          <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-            <p className="mb-3 text-sm text-slate-500 dark:text-zinc-400">{t(lang, "settings.assignment.help")}</p>
+          <div className="rounded-xl border border-slate-200 bg-white p-4 border-[var(--border-soft)] bg-[var(--surface)]">
+            <p className="mb-3 text-sm text-[var(--text-subtle)]">{t(lang, "settings.assignment.help")}</p>
             <div className="grid gap-3 md:grid-cols-2">
               <label className="text-sm">
                 {t(lang, "settings.assignment.policyLabel")}
                 <select
-                  className="mt-1 w-full rounded border px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800"
+                  className="mt-1 w-full rounded border px-3 py-2 text-sm border-[var(--border-soft)] bg-[var(--surface-raised)]"
                   value={fallbackPolicy}
                   onChange={(e) => update("assignment.fallbackPolicy", e.target.value)}
                 >
@@ -838,32 +838,32 @@ export function SettingsPage() {
                     </option>
                   ))}
                 </select>
-                <span className="mt-1 block text-xs text-slate-500 dark:text-zinc-400">{t(lang, "settings.assignment.policyHint")}</span>
+                <span className="mt-1 block text-xs text-[var(--text-subtle)]">{t(lang, "settings.assignment.policyHint")}</span>
               </label>
               <label className="text-sm">
                 {t(lang, "settings.assignment.relaxLabel")}
                 <select
-                  className="mt-1 w-full rounded border px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800"
+                  className="mt-1 w-full rounded border px-3 py-2 text-sm border-[var(--border-soft)] bg-[var(--surface-raised)]"
                   value={allowSkillRelaxation ? "true" : "false"}
                   onChange={(e) => update("assignment.allowSkillRelaxation", e.target.value === "true")}
                 >
                   <option value="false">{t(lang, "settings.common.no")}</option>
                   <option value="true">{t(lang, "settings.common.yes")}</option>
                 </select>
-                <span className="mt-1 block text-xs text-slate-500 dark:text-zinc-400">{t(lang, "settings.assignment.relaxHint")}</span>
+                <span className="mt-1 block text-xs text-[var(--text-subtle)]">{t(lang, "settings.assignment.relaxHint")}</span>
               </label>
             </div>
           </div>
 
           {/* Skill-Anforderungen mit Slider + Pool-Stats */}
-          <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="rounded-xl border border-slate-200 bg-white p-4 border-[var(--border-soft)] bg-[var(--surface)]">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div>
-                <h3 className="text-sm font-semibold text-slate-900 dark:text-zinc-100">{t(lang, "settings.assignment.skillSectionTitle")}</h3>
-                <p className="mt-0.5 text-xs text-slate-500 dark:text-zinc-400">{t(lang, "settings.assignment.skillSectionHint")}</p>
+                <h3 className="text-sm font-semibold text-[var(--text-main)]">{t(lang, "settings.assignment.skillSectionTitle")}</h3>
+                <p className="mt-0.5 text-xs text-[var(--text-subtle)]">{t(lang, "settings.assignment.skillSectionHint")}</p>
               </div>
               {activePhotographers.length > 0 && (
-                <span className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                <span className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 border-[var(--border-soft)] bg-[var(--surface-raised)] text-[var(--text-muted)]">
                   {activePhotographers.length} aktive Fotografen
                 </span>
               )}
@@ -886,9 +886,9 @@ export function SettingsPage() {
           </div>
 
           {/* Matterport Große Flächen */}
-          <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-            <h3 className="mb-1 text-sm font-semibold text-slate-900 dark:text-zinc-100">{t(lang, "settings.assignment.matterportSection")}</h3>
-            <p className="mb-3 text-xs text-slate-500 dark:text-zinc-400">
+          <div className="rounded-xl border border-slate-200 bg-white p-4 border-[var(--border-soft)] bg-[var(--surface)]">
+            <h3 className="mb-1 text-sm font-semibold text-[var(--text-main)]">{t(lang, "settings.assignment.matterportSection")}</h3>
+            <p className="mb-3 text-xs text-[var(--text-subtle)]">
               Radius kommt aus den Mitarbeiter-Einstellungen. Ab dem Schwellwert wird Matterport priorisiert, darunter abgestuft. Skill 0 bleibt immer ausgeschlossen.
             </p>
             <div className="grid gap-4 md:grid-cols-2">
@@ -899,18 +899,18 @@ export function SettingsPage() {
                   min={1}
                   max={10000}
                   step={10}
-                  className="mt-1 w-full rounded border px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800"
+                  className="mt-1 w-full rounded border px-3 py-2 text-sm border-[var(--border-soft)] bg-[var(--surface-raised)]"
                   value={matterportThreshold}
                   onChange={(e) => update("assignment.matterportLargeSqmThreshold", Math.max(1, Number(e.target.value || 300)))}
                 />
-                <span className="mt-1 block text-xs text-slate-500 dark:text-zinc-400">{t(lang, "settings.assignment.matterportThresholdHint")}</span>
+                <span className="mt-1 block text-xs text-[var(--text-subtle)]">{t(lang, "settings.assignment.matterportThresholdHint")}</span>
               </label>
               <div className="text-sm">
                 {t(lang, "settings.assignment.matterportMinLevel")}
                 <div className="mt-2 space-y-1">
                   <div className="flex justify-between text-xs">
-                    <span className="text-slate-500 dark:text-zinc-400">Level</span>
-                    <span className="font-bold text-[#C5A059]">{matterportMinLevel}/10</span>
+                    <span className="text-[var(--text-subtle)]">Level</span>
+                    <span className="font-bold text-[var(--accent)]">{matterportMinLevel}/10</span>
                   </div>
                   <input
                     type="range"
@@ -920,9 +920,9 @@ export function SettingsPage() {
                     value={matterportMinLevel}
                     onChange={(e) => update("assignment.matterportLargeSqmMinLevel", Number(e.target.value))}
                     className="propus-slider w-full"
-                    style={{ background: getSliderFill(matterportMinLevel, "#C5A059") }}
+                    style={{ background: getSliderFill(matterportMinLevel, "var(--accent)") }}
                   />
-                  <div className="text-xs text-slate-500 dark:text-zinc-400">
+                  <div className="text-xs text-[var(--text-subtle)]">
                     {t(lang, "settings.assignment.matterportMinLevelHint")}
                   </div>
                 </div>
@@ -937,7 +937,7 @@ export function SettingsPage() {
                 aria-checked={matterportFallbackOnBusy}
                 onClick={() => update("assignment.matterportLargeSqmFallbackOnBusy", !matterportFallbackOnBusy)}
                 className={`relative mt-0.5 inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 ${
-                  matterportFallbackOnBusy ? "bg-amber-500" : "bg-slate-300 dark:bg-zinc-600"
+                  matterportFallbackOnBusy ? "bg-amber-500" : "bg-[var(--surface-raised)]"
                 }`}
               >
                 <span
@@ -961,16 +961,16 @@ export function SettingsPage() {
 
           {/* Fotografen-Qualifikationsmatrix */}
           {activePhotographers.length > 0 && (
-            <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-              <h3 className="mb-1 text-sm font-semibold text-slate-900 dark:text-zinc-100">{t(lang, "settings.assignment.poolSection")}</h3>
-              <p className="mb-3 text-xs text-slate-500 dark:text-zinc-400">{t(lang, "settings.assignment.poolSectionHint")}</p>
-              <div className="overflow-auto rounded-xl border border-slate-200 dark:border-zinc-700">
+            <div className="rounded-xl border border-slate-200 bg-white p-4 border-[var(--border-soft)] bg-[var(--surface)]">
+              <h3 className="mb-1 text-sm font-semibold text-[var(--text-main)]">{t(lang, "settings.assignment.poolSection")}</h3>
+              <p className="mb-3 text-xs text-[var(--text-subtle)]">{t(lang, "settings.assignment.poolSectionHint")}</p>
+              <div className="overflow-auto rounded-xl border border-[var(--border-soft)]">
                 <table className="min-w-full text-xs">
                   <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50 dark:border-zinc-700 dark:bg-zinc-800/60">
-                      <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-zinc-400">Fotograf</th>
+                    <tr className="border-b border-slate-200 bg-slate-50 border-[var(--border-soft)] bg-[var(--surface-raised)]/60">
+                      <th className="px-3 py-2 text-left font-semibold text-[var(--text-subtle)]">Fotograf</th>
                       {SKILL_OPTIONS.map((skill) => (
-                        <th key={skill.key} className="px-3 py-2 text-center font-semibold text-slate-500 dark:text-zinc-400">
+                        <th key={skill.key} className="px-3 py-2 text-center font-semibold text-[var(--text-subtle)]">
                           {t(lang, skill.labelKey)}
                         </th>
                       ))}
@@ -978,8 +978,8 @@ export function SettingsPage() {
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
                     {activePhotographers.map((p) => (
-                      <tr key={p.key} className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/30">
-                        <td className="px-3 py-2 font-medium text-slate-700 dark:text-zinc-200">{p.name || p.key}</td>
+                      <tr key={p.key} className="hover:bg-slate-50/50 hover:bg-[var(--surface-raised)]/30">
+                        <td className="px-3 py-2 font-medium text-[var(--text-muted)]">{p.name || p.key}</td>
                         {SKILL_OPTIONS.map((skill) => {
                           const skillVal = getPhotographerSkillValue(p, skill.key);
                           const req = requiredSkills[skill.key];
@@ -1002,8 +1002,8 @@ export function SettingsPage() {
                     ))}
                   </tbody>
                   <tfoot>
-                    <tr className="border-t border-slate-200 bg-slate-50 dark:border-zinc-700 dark:bg-zinc-800/40">
-                      <td className="px-3 py-2 text-xs font-semibold text-slate-500 dark:text-zinc-400">Erfüllen Mindest</td>
+                    <tr className="border-t border-slate-200 bg-slate-50 border-[var(--border-soft)] bg-[var(--surface-raised)]/40">
+                      <td className="px-3 py-2 text-xs font-semibold text-[var(--text-subtle)]">Erfüllen Mindest</td>
                       {SKILL_OPTIONS.map((skill) => {
                         const { meetsRequired } = poolStats[skill.key] ?? { meetsRequired: 0 };
                         const pct = activePhotographers.length > 0 ? (meetsRequired / activePhotographers.length) * 100 : 0;
@@ -1026,23 +1026,23 @@ export function SettingsPage() {
       {activeTab === "discounts" ? <DiscountCodesPage /> : null}
 
       {activeTab === "reviews" ? (
-        <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-4 border-[var(--border-soft)] bg-[var(--surface)]">
           <div>
-            <h3 className="text-sm font-semibold text-slate-900 dark:text-zinc-100">Google-Bewertungs-Link</h3>
-            <p className="mt-1 text-xs text-slate-500 dark:text-zinc-400">
+            <h3 className="text-sm font-semibold text-[var(--text-main)]">Google-Bewertungs-Link</h3>
+            <p className="mt-1 text-xs text-[var(--text-subtle)]">
               Dieser Link wird in Review-E-Mails an Kunden sowie auf der Reviews-Seite angezeigt. Über Google Business Profile abrufbar.
             </p>
           </div>
           <label className="block text-sm">
-            <span className="font-medium text-slate-700 dark:text-zinc-300">Google Review URL</span>
+            <span className="font-medium text-[var(--text-muted)]">Google Review URL</span>
             <input
               type="url"
-              className="mt-1 w-full rounded border border-slate-200 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#C5A059]/20 focus:border-[#C5A059]"
+              className="mt-1 w-full rounded border border-slate-200 px-3 py-2 text-sm border-[var(--border-soft)] bg-[var(--surface-raised)] text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]"
               placeholder="https://g.page/r/..."
               value={String(value(draft, "google.reviewLink", "https://g.page/r/CSQ5RnWmJOumEAE/review"))}
               onChange={(e) => update("google.reviewLink", e.target.value)}
             />
-            <span className="mt-1 block text-xs text-slate-400 dark:text-zinc-500">
+            <span className="mt-1 block text-xs text-[var(--text-subtle)]">
               Wird in Review-Anfrage-E-Mails als "Auf Google bewerten"-Link eingesetzt.
             </span>
           </label>
@@ -1051,7 +1051,7 @@ export function SettingsPage() {
               href={String(value(draft, "google.reviewLink", ""))}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-xs text-[#C5A059] hover:underline"
+              className="inline-flex items-center gap-2 text-xs text-[var(--accent)] hover:underline"
             >
               Link testen ↗
             </a>
@@ -1060,7 +1060,7 @@ export function SettingsPage() {
       ) : null}
 
       <div className="flex items-center gap-3">
-        <button type="button" onClick={save} disabled={saving || !isDirty} className="rounded-lg bg-[#C5A059] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">
+        <button type="button" onClick={save} disabled={saving || !isDirty} className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">
           {saving ? t(lang, "settings.saving") : t(lang, "settings.save")}
         </button>
         {isDirty ? <span className="text-xs text-amber-600">{t(lang, "settings.unsaved")}</span> : null}
@@ -1073,3 +1073,5 @@ export function SettingsPage() {
     </div>
   );
 }
+
+

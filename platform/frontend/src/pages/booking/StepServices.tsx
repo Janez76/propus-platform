@@ -31,20 +31,20 @@ function CategoryAccordion({ category, addons }: { category: CatalogCategory; ad
   const hasSelected = groupAddons.some((a) => selectedAddons.find((s) => s.id === a.id));
 
   return (
-    <div className="rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden">
+    <div className="rounded-lg border border-[var(--border-soft)] overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen(!open)}
         className={cn(
           "flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium transition-colors",
-          hasSelected ? "bg-[#C5A059]/10 text-[#C5A059]" : "bg-zinc-50 text-zinc-700 hover:bg-zinc-100 dark:bg-zinc-800/50 dark:text-zinc-300 dark:hover:bg-zinc-800",
+          hasSelected ? "bg-[var(--accent)]/10 text-[var(--accent)]" : "bg-zinc-50 text-zinc-700 hover:bg-[var(--surface-raised)]/50 text-[var(--text-muted)] hover:bg-[var(--surface-raised)]",
         )}
       >
         <span>{category.name}</span>
         {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
       </button>
       {open && (
-        <div className="space-y-1 bg-white p-3 dark:bg-zinc-900">
+        <div className="space-y-1 bg-white p-3 bg-[var(--surface)]">
           {groupAddons.map((addon) => {
             const selected = selectedAddons.find((s) => s.id === addon.id);
             const price = addonPrice(addon, area, floors);
@@ -53,7 +53,7 @@ function CategoryAccordion({ category, addons }: { category: CatalogCategory; ad
                 key={addon.id}
                 className={cn(
                   "flex cursor-pointer items-center justify-between rounded-lg px-3 py-2.5 transition-colors",
-                  selected ? "bg-[#C5A059]/5 ring-1 ring-[#C5A059]/30" : "hover:bg-zinc-50 dark:hover:bg-zinc-800/50",
+                  selected ? "bg-[var(--accent)]/5 ring-1 ring-[var(--accent)]/30" : "hover:bg-zinc-50 hover:bg-[var(--surface-raised)]/50",
                 )}
               >
                 <div className="flex items-center gap-3">
@@ -68,11 +68,11 @@ function CategoryAccordion({ category, addons }: { category: CatalogCategory; ad
                         upsertAddon({ id: addon.id, group: addon.group, label: addon.label, labelKey: addon.id, price, qty: 1 });
                       }
                     }}
-                    className="h-4 w-4 rounded border-zinc-300 text-[#C5A059] focus:ring-[#C5A059]/30"
+                    className="h-4 w-4 rounded border-zinc-300 text-[var(--accent)] focus:ring-[var(--accent)]/30"
                   />
-                  <span className="text-sm text-zinc-800 dark:text-zinc-200">{addon.label}</span>
+                  <span className="text-sm text-[var(--text-main)]">{addon.label}</span>
                 </div>
-                <span className="text-sm font-semibold text-zinc-600 dark:text-zinc-400">{formatCHF(price)}</span>
+                <span className="text-sm font-semibold text-[var(--text-subtle)]">{formatCHF(price)}</span>
               </label>
             );
           })}
@@ -113,7 +113,7 @@ export function StepServices({ lang }: { lang: Lang }) {
 
   if (packages.length === 0 && addonList.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 p-10 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800/50">
+      <div className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 p-10 text-center text-sm text-zinc-500 border-[var(--border-soft)] bg-[var(--surface-raised)]/50">
         {t(lang, "booking.step2.noCatalog")}
       </div>
     );
@@ -124,8 +124,8 @@ export function StepServices({ lang }: { lang: Lang }) {
       {/* Pakete */}
       {packages.length > 0 && (
         <section>
-          <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
-            <Package className="h-4 w-4 text-[#C5A059]" /> {t(lang, "booking.step2.packages")}
+          <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-zinc-600 text-[var(--text-muted)]">
+            <Package className="h-4 w-4 text-[var(--accent)]" /> {t(lang, "booking.step2.packages")}
           </h3>
           <div className="grid gap-3 sm:grid-cols-3">
             {packages.map((pkg) => {
@@ -139,21 +139,21 @@ export function StepServices({ lang }: { lang: Lang }) {
                   className={cn(
                     "relative rounded-xl border-2 p-5 text-left transition-all",
                     active
-                      ? "border-[#C5A059] bg-[#C5A059]/5 shadow-md"
-                      : "border-zinc-200 bg-white hover:border-zinc-300 hover:shadow-sm dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-600",
+                      ? "border-[var(--accent)] bg-[var(--accent)]/5 shadow-md"
+                      : "border-zinc-200 bg-white hover:border-zinc-300 hover:shadow-sm border-[var(--border-soft)] bg-[var(--surface)] hover:border-[var(--border-soft)]",
                   )}
                 >
                   {active && (
-                    <div className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-[#C5A059] text-white">
+                    <div className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--accent)] text-white">
                       <Star className="h-3 w-3" fill="currentColor" />
                     </div>
                   )}
                   <div className="mb-2 text-2xl">{HIGHLIGHT_ICONS[pkg.key] ?? "📦"}</div>
-                  <div className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{pkg.label}</div>
+                  <div className="text-sm font-bold text-[var(--text-main)]">{pkg.label}</div>
                   {pkg.description && (
                     <p className="mt-1 text-xs text-zinc-500 line-clamp-3">{pkg.description}</p>
                   )}
-                  <div className="mt-3 text-lg font-bold text-[#C5A059]">{formatCHF(pkg.price)}</div>
+                  <div className="mt-3 text-lg font-bold text-[var(--accent)]">{formatCHF(pkg.price)}</div>
                 </button>
               );
             })}
@@ -164,7 +164,7 @@ export function StepServices({ lang }: { lang: Lang }) {
       {/* Modularer Builder */}
       {categories.length > 0 && (
         <section>
-          <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
+          <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-zinc-600 text-[var(--text-muted)]">
             {t(lang, "booking.step2.addons")}
           </h3>
           <div className="space-y-2">
@@ -177,14 +177,14 @@ export function StepServices({ lang }: { lang: Lang }) {
 
       {/* Ausgewaehlte Addons */}
       {addons.length > 0 && (
-        <section className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800/50">
+        <section className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 border-[var(--border-soft)] bg-[var(--surface-raised)]/50">
           <h4 className="mb-2 text-xs font-semibold uppercase text-zinc-500">{t(lang, "booking.step2.selected")}</h4>
           <div className="space-y-1">
             {addons.map((a) => (
               <div key={a.id} className="flex items-center justify-between text-sm">
-                <span className="text-zinc-700 dark:text-zinc-300">{a.label}</span>
+                <span className="text-[var(--text-muted)]">{a.label}</span>
                 <div className="flex items-center gap-2">
-                  <span className="font-medium text-zinc-600 dark:text-zinc-400">{formatCHF(a.price)}</span>
+                  <span className="font-medium text-[var(--text-subtle)]">{formatCHF(a.price)}</span>
                   <button type="button" onClick={() => useBookingWizardStore.getState().removeAddon(a.id)} className="text-zinc-400 hover:text-red-500">
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -197,3 +197,4 @@ export function StepServices({ lang }: { lang: Lang }) {
     </div>
   );
 }
+

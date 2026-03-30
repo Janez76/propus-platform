@@ -340,3 +340,4 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
     </>
   );
 }
+

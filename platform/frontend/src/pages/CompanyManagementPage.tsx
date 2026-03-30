@@ -822,3 +822,4 @@ function StatChip({ label, value }: { label: string; value: number }) {
     </div>
   );
 }
+

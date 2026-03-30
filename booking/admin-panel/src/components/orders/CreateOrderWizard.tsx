@@ -175,16 +175,16 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
 
   const inputClass = cn(
     "w-full rounded-lg border px-3 py-2 text-sm transition-colors",
-    "bg-white dark:bg-zinc-800",
-    "border-slate-200 dark:border-zinc-700",
-    "text-slate-900 dark:text-zinc-100",
-    "placeholder:text-slate-400 dark:placeholder:text-zinc-500",
-    "hover:border-slate-300 dark:hover:border-zinc-600",
-    "focus:outline-none focus:ring-2 focus:ring-[#C5A059]/20 focus:border-[#C5A059]",
+    "bg-[var(--surface)]",
+    "border-[var(--border-soft)]",
+    "text-[var(--text-main)]",
+    "placeholder:text-slate-400 placeholder:text-[var(--text-subtle)]",
+    "hover:border-slate-300 hover:border-[var(--border-soft)]",
+    "focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 focus:border-[var(--accent)]",
   );
-  const labelClass = "block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5";
-  const sectionClass = "rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-5";
-  const sectionTitleClass = "flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-slate-600 dark:text-zinc-300 mb-4";
+  const labelClass = "block text-xs font-semibold uppercase tracking-wider text-[var(--text-subtle)] mb-1.5";
+  const sectionClass = "rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-5";
+  const sectionTitleClass = "flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[var(--text-muted)] mb-4";
 
   // ── Load catalog + photographers on open ──────────────────────────────────
   useEffect(() => {
@@ -573,7 +573,7 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
           {/* ── Anfangsstatus + E-Mail-Zielgruppen ───────────────────────── */}
           <div className={sectionClass}>
             <div className={sectionTitleClass}>
-              <Check className="h-4 w-4 text-[#C5A059]" />
+              <Check className="h-4 w-4 text-[var(--accent)]" />
               {t(lang, "wizard.label.initialStatus")}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -602,11 +602,11 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                     type="checkbox"
                     checked={sendStatusEmails}
                     onChange={(e) => setSendStatusEmails(e.target.checked)}
-                    className="w-4 h-4 rounded border-slate-300 dark:border-zinc-700 text-[#C5A059] focus:ring-[#C5A059]"
+                    className="w-4 h-4 rounded border-[var(--border-soft)] text-[var(--accent)] focus:ring-[var(--accent)]"
                   />
-                  <span className="text-slate-700 dark:text-zinc-300">{t(lang, "orderStatus.sendEmailsLabel")}</span>
+                  <span className="text-[var(--text-muted)]">{t(lang, "orderStatus.sendEmailsLabel")}</span>
                 </label>
-                <div className={`grid grid-cols-2 gap-2 text-xs ${sendStatusEmails ? "text-zinc-500 dark:text-zinc-400" : "text-zinc-600 dark:text-zinc-600 opacity-70"}`}>
+                <div className={`grid grid-cols-2 gap-2 text-xs ${sendStatusEmails ? "text-[var(--text-subtle)]" : "text-zinc-600 text-[var(--text-subtle)] opacity-70"}`}>
                   <label className="inline-flex items-center gap-1.5">
                     <input type="checkbox" checked={statusEmailTargets.customer} disabled={!sendStatusEmails}
                       onChange={(e) => setStatusEmailTargets((p) => ({ ...p, customer: e.target.checked }))} />
@@ -638,7 +638,7 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
             {/* Kunde & Kontakt */}
             <div className={sectionClass}>
               <div className={sectionTitleClass}>
-                <User className="h-4 w-4 text-[#C5A059]" />
+                <User className="h-4 w-4 text-[var(--accent)]" />
                 {t(lang, "wizard.section.customerData")}
               </div>
               <div className="space-y-3">
@@ -698,8 +698,8 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
 
                 {/* Ansprechpartner (wenn Firma-Kontakte vorhanden) */}
                 {customerContacts.length > 0 && (
-                  <div className="pt-3 border-t border-slate-100 dark:border-zinc-800">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-zinc-500 mb-2 flex items-center gap-1.5">
+                  <div className="pt-3 border-t border-slate-100 border-[var(--border-soft)]">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-subtle)] mb-2 flex items-center gap-1.5">
                       <Users className="h-3.5 w-3.5" />
                       Ansprechpartner
                     </p>
@@ -739,8 +739,8 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                 )}
 
                 {/* Rechnungsadresse */}
-                <div className="pt-3 border-t border-slate-100 dark:border-zinc-800">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-zinc-500 mb-2">
+                <div className="pt-3 border-t border-slate-100 border-[var(--border-soft)]">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-subtle)] mb-2">
                     {t(lang, "wizard.section.billingAddress")}
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -812,7 +812,7 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
             {/* Objekt */}
             <div className={sectionClass}>
               <div className={sectionTitleClass}>
-                <Building2 className="h-4 w-4 text-[#C5A059]" />
+                <Building2 className="h-4 w-4 text-[var(--accent)]" />
                 {t(lang, "wizard.section.objectData")}
               </div>
               <div className="space-y-3">
@@ -844,7 +844,7 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                     minChars={3}
                   />
                   <DbFieldHint fieldPath="address.text" />
-                  <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
+                  <p className="mt-1 text-xs text-[var(--text-subtle)]">
                     {t(lang, "wizard.hint.fullStreetWithHouseNumber")}
                   </p>
                   {formData.address && !isObjectAddressComplete() && (
@@ -852,8 +852,8 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                   )}
                 </div>
                 {/* Vor-Ort-Kontakt – Auswahl aus Kundenkontakten oder manuell */}
-                <div className="pt-3 border-t border-slate-100 dark:border-zinc-800">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-zinc-500 mb-2 flex items-center gap-1.5">
+                <div className="pt-3 border-t border-slate-100 border-[var(--border-soft)]">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-subtle)] mb-2 flex items-center gap-1.5">
                     {customerContacts.length > 0
                       ? <Users className="h-3.5 w-3.5" />
                       : <UserPlus className="h-3.5 w-3.5" />}
@@ -921,7 +921,7 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                     <div className="sm:col-span-2">
                       <label className={labelClass}>
                         {t(lang, "wizard.label.ccEmails")}
-                        <span className="ml-1 font-normal text-slate-400 dark:text-zinc-500 text-xs normal-case tracking-normal">
+                        <span className="ml-1 font-normal text-[var(--text-subtle)] text-xs normal-case tracking-normal">
                           {t(lang, "wizard.hint.ccEmails")}
                         </span>
                       </label>
@@ -999,7 +999,7 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
           {/* ── Dienstleistungen ─────────────────────────────────────────── */}
           <div className={sectionClass}>
             <div className={sectionTitleClass}>
-              <Package className="h-4 w-4 text-[#C5A059]" />
+              <Package className="h-4 w-4 text-[var(--accent)]" />
               {t(lang, "wizard.section.servicePackage")}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1032,7 +1032,7 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
               </div>
               <div className="sm:col-span-2">
                 <label className={labelClass}>{t(lang, "wizard.label.products")}</label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3 max-h-40 overflow-auto rounded-lg border border-slate-200 dark:border-zinc-700 p-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3 max-h-40 overflow-auto rounded-lg border border-[var(--border-soft)] p-2">
                   {catalog.filter((p) => p.kind === "addon").map((addon) => (
                     <label key={addon.id} className="inline-flex items-center gap-2 text-sm cursor-pointer">
                       <input
@@ -1058,7 +1058,7 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                   rows={3}
                   placeholder={"Drohnenaufnahmen;500\nVirtuelle Tour;800"}
                 />
-                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
+                <p className="text-xs text-[var(--text-subtle)] mt-1">
                   {t(lang, "wizard.hint.addonFormat")}
                 </p>
               </div>
@@ -1128,7 +1128,7 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
           {/* ── Termin mit Slot-Picker ───────────────────────────────────── */}
           <div className={sectionClass}>
             <div className={sectionTitleClass}>
-              <CalendarIcon className="h-4 w-4 text-[#C5A059]" />
+              <CalendarIcon className="h-4 w-4 text-[var(--accent)]" />
               {t(lang, "wizard.section.scheduling")}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1168,7 +1168,7 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
 
             {/* Suggested photographer hint for "any" mode */}
             {!formData.photographerKey && suggestedPhotographerKey && (
-              <div className="mt-3 mb-1 flex items-center gap-2 text-xs text-[#C5A059] font-semibold">
+              <div className="mt-3 mb-1 flex items-center gap-2 text-xs text-[var(--accent)] font-semibold">
                 <Check className="h-3.5 w-3.5 shrink-0" />
                 {t(lang, "wizard.slot.suggestedPhotographer")}:{" "}
                 <span className="font-bold">
@@ -1180,11 +1180,11 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
             {/* Slot Picker */}
             <div className="mt-4">
               {!formData.date ? (
-                <p className="text-sm text-slate-400 dark:text-zinc-500 italic">
+                <p className="text-sm text-[var(--text-subtle)] italic">
                   {t(lang, "wizard.slot.selectFirst")}
                 </p>
               ) : slotsLoading ? (
-                <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-zinc-400">
+                <div className="flex items-center gap-2 text-sm text-[var(--text-subtle)]">
                   <Clock className="h-4 w-4 animate-spin" />
                   {t(lang, "wizard.slot.loading")}
                 </div>
@@ -1201,9 +1201,9 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                 <div>
                   {/* Berechnete Dauer */}
                   {calculatedDuration !== null && (
-                    <p className="text-xs text-slate-500 dark:text-zinc-400 mb-3">
+                    <p className="text-xs text-[var(--text-subtle)] mb-3">
                       {t(lang, "wizard.slot.duration")}:{" "}
-                      <span className="font-semibold text-slate-700 dark:text-zinc-200">
+                      <span className="font-semibold text-[var(--text-muted)]">
                         {calculatedDuration} Min.
                       </span>
                     </p>
@@ -1221,8 +1221,8 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                           className={cn(
                             "px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors",
                             slotPeriod === period
-                              ? "bg-[#C5A059] text-white"
-                              : "bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700",
+                              ? "bg-[var(--accent)] text-white"
+                              : "bg-[var(--surface-raised)] text-[var(--text-muted)] hover:bg-slate-200 hover:bg-[var(--surface-raised)]",
                           )}
                         >
                           {period === "am" ? t(lang, "wizard.slot.am") : t(lang, "wizard.slot.pm")}
@@ -1236,7 +1236,7 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
 
                   {/* Slot Buttons */}
                   {displaySlots.length === 0 ? (
-                    <p className="text-sm text-slate-400 dark:text-zinc-500 italic">
+                    <p className="text-sm text-[var(--text-subtle)] italic">
                       {slotPeriod === "am" ? "Keine Slots am Vormittag" : "Keine Slots am Nachmittag"}
                     </p>
                   ) : (
@@ -1249,8 +1249,8 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                           className={cn(
                             "px-3 py-1.5 rounded-lg text-sm font-mono font-semibold transition-all duration-150",
                             formData.time === slot
-                              ? "bg-[#C5A059] text-white shadow-md scale-105"
-                              : "bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 hover:bg-slate-200 dark:hover:bg-zinc-700",
+                              ? "bg-[var(--accent)] text-white shadow-md scale-105"
+                              : "bg-[var(--surface-raised)] text-[var(--text-muted)] hover:bg-slate-200 hover:bg-[var(--surface-raised)]",
                           )}
                         >
                           {slot}
@@ -1261,7 +1261,7 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
 
                   {/* Ausgewählter Slot Info */}
                   {formData.time && (
-                    <p className="mt-3 text-sm font-semibold text-[#C5A059]">
+                    <p className="mt-3 text-sm font-semibold text-[var(--accent)]">
                       Gewählt: {formData.date} um {formData.time} Uhr
                     </p>
                   )}
@@ -1273,7 +1273,7 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
           {/* ── Preis & Zusammenfassung ──────────────────────────────────── */}
           <div className={sectionClass}>
             <div className={sectionTitleClass}>
-              <CreditCard className="h-4 w-4 text-[#C5A059]" />
+              <CreditCard className="h-4 w-4 text-[var(--accent)]" />
               {t(lang, "wizard.section.priceSummary")}
             </div>
 
@@ -1300,7 +1300,7 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                         }}
                         className={cn(inputClass, "pr-12")}
                       />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 dark:text-zinc-500 pointer-events-none">CHF</span>
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--text-subtle)] pointer-events-none">CHF</span>
                     </div>
                   </div>
                   <div>
@@ -1321,7 +1321,7 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                         }}
                         className={cn(inputClass, "pr-12")}
                       />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 dark:text-zinc-500 pointer-events-none">CHF</span>
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--text-subtle)] pointer-events-none">CHF</span>
                     </div>
                   </div>
                 </div>
@@ -1348,16 +1348,16 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
               </div>
 
               {/* Rechte Seite: Preis-Zusammenfassung (Quittungs-Layout) */}
-              <div className="rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700 p-5 flex flex-col gap-3">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1">
+              <div className="rounded-xl bg-[var(--surface-raised)]/60 border border-[var(--border-soft)] p-5 flex flex-col gap-3">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text-subtle)] mb-1">
                   {t(lang, "wizard.section.priceSummary")}
                 </h4>
 
                 {/* Paket */}
                 {formData.packageLabel && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-slate-600 dark:text-zinc-300">{formData.packageLabel}</span>
-                    <span className="font-semibold text-slate-800 dark:text-zinc-100 tabular-nums">
+                    <span className="text-[var(--text-muted)]">{formData.packageLabel}</span>
+                    <span className="font-semibold text-slate-800 text-[var(--text-main)] tabular-nums">
                       CHF {Number(formData.packagePrice || 0).toFixed(2)}
                     </span>
                   </div>
@@ -1366,10 +1366,10 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                 {/* Addons aus Catalog */}
                 {catalog.filter((p) => selectedAddonCodes.includes(p.code)).map((addon) => (
                   <div key={addon.code} className="flex justify-between text-sm">
-                    <span className="text-slate-500 dark:text-zinc-400 pl-3 flex items-center gap-1">
-                      <span className="text-[#C5A059] text-xs">+</span> {addon.name}
+                    <span className="text-[var(--text-subtle)] pl-3 flex items-center gap-1">
+                      <span className="text-[var(--accent)] text-xs">+</span> {addon.name}
                     </span>
-                    <span className="tabular-nums text-slate-700 dark:text-zinc-200">
+                    <span className="tabular-nums text-[var(--text-muted)]">
                       CHF {estimatePrice(addon).toFixed(2)}
                     </span>
                   </div>
@@ -1378,16 +1378,16 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                 {/* Key Pickup */}
                 {formData.keyPickupActive && formData.keyPickupAddress && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-slate-500 dark:text-zinc-400 pl-3 flex items-center gap-1">
-                      <span className="text-[#C5A059] text-xs">+</span> {t(lang, "orderDetail.label.keyPickupShort")}
+                    <span className="text-[var(--text-subtle)] pl-3 flex items-center gap-1">
+                      <span className="text-[var(--accent)] text-xs">+</span> {t(lang, "orderDetail.label.keyPickupShort")}
                     </span>
-                    <span className="tabular-nums text-slate-700 dark:text-zinc-200">CHF 50.00</span>
+                    <span className="tabular-nums text-[var(--text-muted)]">CHF 50.00</span>
                   </div>
                 )}
 
                 {/* Divider */}
-                <div className="border-t border-slate-200 dark:border-zinc-700 pt-2 space-y-1.5">
-                  <div className="flex justify-between text-sm text-slate-500 dark:text-zinc-400">
+                <div className="border-t border-[var(--border-soft)] pt-2 space-y-1.5">
+                  <div className="flex justify-between text-sm text-[var(--text-subtle)]">
                     <span>{t(lang, "wizard.label.subtotal")}</span>
                     <span className="tabular-nums">CHF {Number(formData.subtotal || 0).toFixed(2)}</span>
                   </div>
@@ -1397,22 +1397,22 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                       <span className="tabular-nums">− CHF {Number(formData.discount || 0).toFixed(2)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between text-sm text-slate-500 dark:text-zinc-400">
+                  <div className="flex justify-between text-sm text-[var(--text-subtle)]">
                     <span>{t(lang, "wizard.label.vat")} (8.1%)</span>
                     <span className="tabular-nums">CHF {Number(formData.vat || 0).toFixed(2)}</span>
                   </div>
                 </div>
 
                 {/* Total */}
-                <div className="border-t-2 border-[#C5A059]/30 dark:border-[#C5A059]/20 pt-3 flex justify-between items-center">
-                  <span className="font-bold text-base text-slate-800 dark:text-zinc-100">{t(lang, "wizard.label.total")}</span>
-                  <span className="text-xl font-bold text-[#C5A059] tabular-nums">
+                <div className="border-t-2 border-[var(--accent)]/30 dark:border-[var(--accent)]/20 pt-3 flex justify-between items-center">
+                  <span className="font-bold text-base text-slate-800 text-[var(--text-main)]">{t(lang, "wizard.label.total")}</span>
+                  <span className="text-xl font-bold text-[var(--accent)] tabular-nums">
                     CHF {Number(formData.total || 0).toFixed(2)}
                   </span>
                 </div>
 
                 {/* Manual override note */}
-                <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-1">
+                <p className="text-[11px] text-[var(--text-subtle)] mt-1">
                   {t(lang, "wizard.hint.priceEditable")}
                 </p>
               </div>
@@ -1469,3 +1469,4 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
     </Dialog>
   );
 }
+

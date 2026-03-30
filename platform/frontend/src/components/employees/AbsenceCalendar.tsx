@@ -164,3 +164,4 @@ export function AbsenceCalendar({ token, employeeKey, employeeEmail }: Props) {
     </div>
   );
 }
+

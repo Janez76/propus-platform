@@ -22,9 +22,9 @@ export function BookingLangSelect({ lang, onChange, className }: Props) {
       onChange={(e) => onChange(e.target.value as Lang)}
       className={cn(
         "cursor-pointer appearance-none rounded-lg border border-zinc-200 bg-white py-1.5 pl-3 pr-8 text-xs font-semibold text-zinc-800 shadow-sm transition-colors",
-        "dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100",
+        "border-[var(--border-soft)] bg-[var(--surface)] text-[var(--text-main)]",
         "bg-[length:1rem_1rem] bg-[right_0.4rem_center] bg-no-repeat",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]/40",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40",
         className,
       )}
       style={{
@@ -39,3 +39,5 @@ export function BookingLangSelect({ lang, onChange, className }: Props) {
     </select>
   );
 }
+
+

@@ -292,13 +292,13 @@ export function CustomerContactsSection({ token, customerId, readonly = false }:
             return (
               <div
                 key={contact.id}
-                className="rounded-lg border border-slate-200 p-3 text-sm dark:border-zinc-700"
+                className="rounded-lg border border-slate-200 p-3 text-sm border-[var(--border-soft)]"
               >
-                <p className="mb-2 text-[11px] font-medium tabular-nums text-zinc-500 dark:text-zinc-500">
+                <p className="mb-2 text-[11px] font-medium tabular-nums text-zinc-500 text-[var(--text-subtle)]">
                   {t(lang, "customers.contacts.col.contactId")}: {contact.id}
                 </p>
                 {contact.exxas_contact_id ? (
-                  <p className="mb-2 text-[11px] font-medium tabular-nums text-zinc-500 dark:text-zinc-500">
+                  <p className="mb-2 text-[11px] font-medium tabular-nums text-zinc-500 text-[var(--text-subtle)]">
                     EXXAS-ID: {contact.exxas_contact_id}
                   </p>
                 ) : null}
@@ -321,11 +321,11 @@ export function CustomerContactsSection({ token, customerId, readonly = false }:
                     <input className={inputClass} placeholder={t(lang, "common.email")} value={editForm.email} onChange={(e) => setEditForm((prev) => ({ ...prev, email: e.target.value }))} />
                     <input className={inputClass} placeholder={t(lang, "contact.department")} value={editForm.department} onChange={(e) => setEditForm((prev) => ({ ...prev, department: e.target.value }))} />
                     <div className="md:col-span-2 lg:col-span-4">
-                      <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-zinc-400">
+                      <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--text-subtle)]">
                         EXXAS-ID
                       </label>
                       <input
-                        className={`${inputClass} bg-slate-50 dark:bg-zinc-900`}
+                        className={`${inputClass} bg-[var(--surface-raised)]`}
                         value={editForm.exxas_contact_id}
                         readOnly
                         placeholder="Keine EXXAS-ID hinterlegt"
@@ -347,7 +347,7 @@ export function CustomerContactsSection({ token, customerId, readonly = false }:
                           setEditId(null);
                           setEditForm(EMPTY_FORM);
                         }}
-                        className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                        className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 border-[var(--border-soft)] text-[var(--text-main)] hover:bg-[var(--surface-raised)]"
                       >
                         <X className="h-3.5 w-3.5" />
                         {t(lang, "common.cancel")}
@@ -357,45 +357,45 @@ export function CustomerContactsSection({ token, customerId, readonly = false }:
                 ) : (
                   <div className="flex items-start justify-between gap-3">
                     <div className="grid flex-1 gap-1 md:grid-cols-2">
-                      <p className="text-slate-900 dark:text-zinc-100">
+                      <p className="text-[var(--text-main)]">
                         <span className="font-semibold">{t(lang, "common.name")}:</span> {toDisplayString([contact.salutation, contact.first_name, contact.last_name].filter(Boolean).join(" ") || contact.name, "-")}
                       </p>
-                      <p className="text-slate-700 dark:text-zinc-300">
+                      <p className="text-[var(--text-muted)]">
                         <span className="font-semibold">{t(lang, "customer.salutation")}:</span> {toDisplayString(contact.salutation, "-")}
                       </p>
-                      <p className="text-slate-700 dark:text-zinc-300">
+                      <p className="text-[var(--text-muted)]">
                         <span className="font-semibold">{t(lang, "contact.firstName")}:</span> {toDisplayString(contact.first_name, "-")}
                       </p>
-                      <p className="text-slate-700 dark:text-zinc-300">
+                      <p className="text-[var(--text-muted)]">
                         <span className="font-semibold">{t(lang, "contact.lastName")}:</span> {toDisplayString(contact.last_name, "-")}
                       </p>
-                      <p className="text-slate-700 dark:text-zinc-300">
+                      <p className="text-[var(--text-muted)]">
                         <span className="font-semibold">Anzeigename:</span> {toDisplayString(contact.name, "-")}
                       </p>
-                      <p className="text-slate-700 dark:text-zinc-300">
+                      <p className="text-[var(--text-muted)]">
                         <span className="font-semibold">{t(lang, "customers.label.role")}:</span> {toDisplayString(contact.role, "-")}
                       </p>
-                      <p className="text-slate-700 dark:text-zinc-300">
+                      <p className="text-[var(--text-muted)]">
                         <span className="font-semibold">{t(lang, "contact.phoneDirect")}:</span>{" "}
-                        <PhoneLink value={contact.phone_direct || contact.phone} className="text-[#C5A059]" />
+                        <PhoneLink value={contact.phone_direct || contact.phone} className="text-[var(--accent)]" />
                       </p>
-                      <p className="text-slate-700 dark:text-zinc-300">
+                      <p className="text-[var(--text-muted)]">
                         <span className="font-semibold">{t(lang, "customer.phoneMobile")}:</span>{" "}
-                        <PhoneLink value={contact.phone_mobile} className="text-[#C5A059]" />
+                        <PhoneLink value={contact.phone_mobile} className="text-[var(--accent)]" />
                       </p>
-                      <p className="text-slate-700 dark:text-zinc-300">
+                      <p className="text-[var(--text-muted)]">
                         <span className="font-semibold">{t(lang, "common.email")}:</span> {toDisplayString(contact.email, "-")}
                       </p>
-                      <p className="text-slate-700 dark:text-zinc-300">
+                      <p className="text-[var(--text-muted)]">
                         <span className="font-semibold">{t(lang, "contact.department")}:</span> {toDisplayString(contact.department, "-")}
                       </p>
-                      <p className="text-slate-700 dark:text-zinc-300">
+                      <p className="text-[var(--text-muted)]">
                         <span className="font-semibold">EXXAS-ID:</span> {toDisplayString(contact.exxas_contact_id, "-")}
                       </p>
-                      <p className="text-slate-700 dark:text-zinc-300">
+                      <p className="text-[var(--text-muted)]">
                         <span className="font-semibold">Sortierung:</span> {toDisplayString(contact.sort_order, "-")}
                       </p>
-                      <p className="text-slate-700 dark:text-zinc-300 md:col-span-2">
+                      <p className="text-[var(--text-muted)] md:col-span-2">
                         <span className="font-semibold">Erstellt:</span> {contact.created_at ? formatSwissDateTime(contact.created_at) : "-"}
                       </p>
                     </div>
@@ -404,7 +404,7 @@ export function CustomerContactsSection({ token, customerId, readonly = false }:
                         <button
                           type="button"
                           onClick={() => startEdit(contact)}
-                          className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+                          className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-900 text-[var(--text-subtle)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-main)]"
                           title={t(lang, "contacts.tooltip.edit")}
                         >
                           <Edit2 className="h-3.5 w-3.5" />
@@ -429,7 +429,7 @@ export function CustomerContactsSection({ token, customerId, readonly = false }:
       ) : null}
 
       {!readonly && showCreate ? (
-        <div className="mt-3 rounded-lg border border-dashed border-slate-300 p-3 dark:border-zinc-600">
+        <div className="mt-3 rounded-lg border border-dashed border-slate-300 p-3 border-[var(--border-soft)]">
           <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
             <select
               className={inputClass}
@@ -520,3 +520,4 @@ export function CustomerContactsSection({ token, customerId, readonly = false }:
     </div>
   );
 }
+

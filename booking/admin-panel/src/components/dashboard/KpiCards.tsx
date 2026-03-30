@@ -31,3 +31,4 @@ export function KpiCards({ orders }: Props) {
     </div>
   );
 }
+

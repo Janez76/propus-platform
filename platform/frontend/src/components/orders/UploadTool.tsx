@@ -452,7 +452,7 @@ function FilePreviewCard({
       {(isUploading || progress >= 100) && (
         <div className="absolute bottom-[44px] left-0 right-0 h-1 bg-zinc-700">
           <div
-            className={`h-full transition-all ${progress >= 100 ? "bg-emerald-500" : "bg-[#C5A059]"}`}
+            className={`h-full transition-all ${progress >= 100 ? "bg-emerald-500" : "bg-[var(--accent)]"}`}
             style={{ width: `${progress}%` }}
           />
         </div>
@@ -524,7 +524,7 @@ function FileTreeNode({
                 return !v;
               })
             }
-            className="flex items-center gap-1.5 font-semibold text-zinc-200 hover:text-[#C5A059]"
+            className="flex items-center gap-1.5 font-semibold text-zinc-200 hover:text-[var(--accent)]"
           >
             <span className="text-sm">{open ? "📂" : "📁"}</span>
             <span className="text-sm">{node.name || t(lang, "upload.label.folder")}</span>
@@ -583,7 +583,7 @@ function FileTreeNode({
           <button
             type="button"
             onClick={() => onLightbox(url)}
-            className="h-7 w-7 shrink-0 overflow-hidden rounded border border-zinc-700 bg-zinc-800 hover:border-[#C5A059]"
+            className="h-7 w-7 shrink-0 overflow-hidden rounded border border-zinc-700 bg-zinc-800 hover:border-[var(--accent)]"
             title={t(lang, "upload.label.preview")}
           >
             <img
@@ -603,7 +603,7 @@ function FileTreeNode({
           href={url}
           target="_blank"
           rel="noreferrer"
-          className="text-[#C5A059] hover:underline text-xs truncate min-w-0 flex-1"
+          className="text-[var(--accent)] hover:underline text-xs truncate min-w-0 flex-1"
           title={node.name}
         >
           {node.name || t(lang, "upload.label.file")}
@@ -999,7 +999,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
             <h3 className="text-xl font-bold text-zinc-100">
               ☁ {t(lang, "upload.title").replace("{{orderNo}}", orderNo)}
             </h3>
-            <span className="text-sm text-[#C5A059] font-medium">
+            <span className="text-sm text-[var(--accent)] font-medium">
               {folderType === "raw_material" ? t(lang, "upload.folderType.rawMaterial") : t(lang, "upload.folderType.customerFolder")}
             </span>
           </div>
@@ -1085,7 +1085,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
             <div
               className={`relative rounded-xl border-2 border-dashed p-5 text-center transition-colors cursor-pointer ${
                 isDragging
-                  ? "border-[#C5A059] bg-[#C5A059]/10"
+                  ? "border-[var(--accent)] bg-[var(--accent)]/10"
                   : "border-zinc-700 hover:border-zinc-500 bg-zinc-800/30"
               }`}
               onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
@@ -1121,7 +1121,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
                       onClick={() => setFileTypeFilter(filt)}
                       className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
                         fileTypeFilter === filt
-                          ? "bg-[#C5A059] text-white"
+                          ? "bg-[var(--accent)] text-white"
                           : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200"
                       }`}
                     >
@@ -1213,7 +1213,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
             </div>
             <div className="h-2 overflow-hidden rounded bg-zinc-800">
               <div
-                className={`h-full bg-[#9E8649] transition-all ${transferActive ? "animate-pulse" : ""}`}
+                className={`h-full bg-[var(--accent)] transition-all ${transferActive ? "animate-pulse" : ""}`}
                 style={{ width: `${busy === "upload" ? progress : transferActive ? 100 : 0}%` }}
               />
             </div>
@@ -1372,7 +1372,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
                   {confirmBusy ? (
                     <div className="space-y-4">
                       <div className="flex items-center gap-3">
-                        <RefreshCw className="h-5 w-5 animate-spin text-[#C5A059] shrink-0" />
+                        <RefreshCw className="h-5 w-5 animate-spin text-[var(--accent)] shrink-0" />
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-zinc-100">
                             {busy === "transfer"
@@ -1396,7 +1396,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
                         </div>
                         <div className="h-2 w-full rounded bg-zinc-800 overflow-hidden">
                           <div
-                            className={`h-full transition-all duration-300 ${busy === "transfer" ? "animate-pulse bg-[#C5A059]" : "bg-[#C5A059]"}`}
+                            className={`h-full transition-all duration-300 ${busy === "transfer" ? "animate-pulse bg-[var(--accent)]" : "bg-[var(--accent)]"}`}
                             style={{ width: `${busy === "transfer" ? 100 : progress}%` }}
                           />
                         </div>
@@ -1415,7 +1415,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
                                   {done
                                     ? <CheckCircle2 className="h-4 w-4 text-emerald-400" />
                                     : active
-                                    ? <RefreshCw className="h-3.5 w-3.5 animate-spin text-[#C5A059]" />
+                                    ? <RefreshCw className="h-3.5 w-3.5 animate-spin text-[var(--accent)]" />
                                     : <span className="h-4 w-4 rounded-full border border-zinc-600" />}
                                 </span>
                                 <span className={`truncate flex-1 ${done ? "text-zinc-400" : active ? "text-zinc-100" : "text-zinc-500"}`}>{f.name}</span>
@@ -1519,3 +1519,4 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
     </div>
   );
 }
+

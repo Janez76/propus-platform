@@ -104,15 +104,16 @@ export function OrdersPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C5A059]"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-2"
+          style={{ borderColor: "var(--accent-subtle)", borderTopColor: "var(--accent)" }} />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-xl p-6 text-center">
-        <p className="text-red-700 dark:text-red-400 font-medium">{error}</p>
+      <div className="cust-alert cust-alert--error rounded-xl p-6 text-center">
+        <p className="font-medium">{error}</p>
       </div>
     );
   }
@@ -122,16 +123,12 @@ export function OrdersPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-zinc-100 mb-2">
-            {t(lang, "orders.title")}
-          </h1>
-          <p className="text-slate-600 dark:text-zinc-400">
-            {t(lang, "orders.description")}
-          </p>
+          <h1 className="cust-page-header-title text-3xl mb-2">{t(lang, "orders.title")}</h1>
+          <p className="cust-page-header-sub">{t(lang, "orders.description")}</p>
         </div>
         <button
           onClick={() => setShowCreate(true)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#C5A059] text-white font-semibold text-sm hover:bg-[#B39049] transition-all duration-200 shadow-sm hover:shadow-md"
+          className="cust-btn-new"
         >
           <Plus className="h-5 w-5" />
           <span className="hidden sm:inline">{t(lang, "orders.button.newOrder")}</span>
@@ -139,24 +136,24 @@ export function OrdersPage() {
       </div>
 
       {/* Search & Filter */}
-      <div className="bg-white dark:bg-zinc-900 rounded-xl border border-slate-200/60 dark:border-zinc-800 shadow-sm p-4">
+      <div className="rounded-xl p-4 shadow-sm" style={{ background: "var(--surface)", border: "1px solid var(--border-soft)" }}>
         <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-zinc-500" />
+          <div className="cust-search-wrap flex-1 max-w-none">
+            <Search className="h-4 w-4" />
             <input
               type="text"
               placeholder={t(lang, "orders.placeholder.search")}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="w-full pl-10 pr-3 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 text-sm placeholder:text-slate-400 dark:placeholder:text-zinc-500 hover:border-slate-300 dark:hover:border-zinc-600 focus:outline-none focus:ring-2 focus:ring-[#C5A059]/20 focus:border-[#C5A059] transition-colors"
+              className="cust-search-input"
             />
           </div>
           <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-slate-400 dark:text-zinc-500 hidden sm:block" />
+            <Filter className="h-4 w-4 hidden sm:block" style={{ color: "var(--text-subtle)" }} />
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 text-sm font-medium hover:border-slate-300 dark:hover:border-zinc-600 focus:outline-none focus:ring-2 focus:ring-[#C5A059]/20 focus:border-[#C5A059] transition-colors min-w-[140px]"
+              className="cust-filter-select min-w-[140px]"
             >
               {statuses.map((s) => (
                 <option key={s} value={s}>
@@ -165,9 +162,9 @@ export function OrdersPage() {
               ))}
             </select>
           </div>
-          <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50">
-            <span className="text-xs font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">{t(lang, "orders.label.openCount")}</span>
-            <span className="text-sm font-bold text-amber-900 dark:text-amber-300">{openOrders}</span>
+          <div className="cust-status-badge cust-status-pending px-4 py-2 rounded-lg">
+            <span className="text-xs font-semibold uppercase tracking-wider">{t(lang, "orders.label.openCount")}</span>
+            <span className="text-sm font-bold ml-1">{openOrders}</span>
           </div>
         </div>
       </div>
@@ -205,3 +202,4 @@ export function OrdersPage() {
     </div>
   );
 }
+

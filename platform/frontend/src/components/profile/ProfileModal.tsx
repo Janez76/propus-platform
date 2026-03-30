@@ -331,3 +331,4 @@ export function ProfileModal({ open, onClose }: Props) {
     </div>
   );
 }
+

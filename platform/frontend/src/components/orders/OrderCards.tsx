@@ -27,7 +27,7 @@ export function OrderCards({ orders, token, onStatusChange, onOpenDetail, onOpen
         const Icon = getStatusIcon(currentKey);
 
         return (
-          <article key={o.orderNo} className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+          <article key={o.orderNo} className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm border-[var(--border-soft)] bg-[var(--surface)]">
             <div className="mb-2 flex items-center justify-between">
               <h3 className="text-lg font-bold">#{o.orderNo}</h3>
               <span className={getStatusBadgeClass(currentKey)}>
@@ -45,13 +45,13 @@ export function OrderCards({ orders, token, onStatusChange, onOpenDetail, onOpen
                 orderNo={o.orderNo}
                 value={o.status}
                 token={token}
-                className="min-w-0 flex-1 rounded-md border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-600 dark:bg-zinc-800"
+                className="min-w-0 flex-1 rounded-md border border-zinc-300 px-2 py-1 text-xs border-[var(--border-soft)] bg-[var(--surface-raised)]"
                 onChanged={(next: StatusKey) => onStatusChange?.(o.orderNo, next)}
               />
               <button
                 type="button"
                 aria-label="Details"
-                className="rounded border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-600"
+                className="rounded border border-zinc-300 px-2 py-1 text-xs border-[var(--border-soft)]"
                 onClick={() => onOpenDetail(o.orderNo)}
               >
                 D
@@ -59,7 +59,7 @@ export function OrderCards({ orders, token, onStatusChange, onOpenDetail, onOpen
               <button
                 type="button"
                 aria-label="Nachrichten"
-                className="rounded border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-600"
+                className="rounded border border-zinc-300 px-2 py-1 text-xs border-[var(--border-soft)]"
                 onClick={() => onOpenMessages(o.orderNo)}
               >
                 M
@@ -67,7 +67,7 @@ export function OrderCards({ orders, token, onStatusChange, onOpenDetail, onOpen
               <button
                 type="button"
                 aria-label="Upload"
-                className="rounded border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-600"
+                className="rounded border border-zinc-300 px-2 py-1 text-xs border-[var(--border-soft)]"
                 onClick={() => onOpenUpload(o.orderNo)}
               >
                 U
@@ -81,3 +81,4 @@ export function OrderCards({ orders, token, onStatusChange, onOpenDetail, onOpen
 }
 
 export { STATUS_KEYS };
+

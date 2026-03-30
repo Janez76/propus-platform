@@ -50,14 +50,14 @@ export function ConfirmBookingPage() {
   }, [safeToken]);
 
   return (
-    <div className="min-h-screen bg-slate-100 dark:bg-zinc-950 flex items-center justify-center px-4">
-      <div className="w-full max-w-xl rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 shadow-sm">
-        <h1 className="text-xl font-bold text-slate-900 dark:text-zinc-100">Terminbestätigung</h1>
-        <p className="mt-2 text-sm text-slate-600 dark:text-zinc-400">
+    <div className="min-h-screen bg-slate-100 bg-[var(--surface)] flex items-center justify-center px-4">
+      <div className="w-full max-w-xl rounded-2xl border border-zinc-200 border-[var(--border-soft)] bg-[var(--surface)] p-6 shadow-sm">
+        <h1 className="text-xl font-bold text-[var(--text-main)]">Terminbestätigung</h1>
+        <p className="mt-2 text-sm text-[var(--text-subtle)]">
           Wir prüfen Ihren Link und bestätigen den Termin automatisch.
         </p>
 
-        {loading && <p className="mt-6 text-sm text-slate-700 dark:text-zinc-300">Bestätigung läuft…</p>}
+        {loading && <p className="mt-6 text-sm text-[var(--text-muted)]">Bestätigung läuft…</p>}
 
         {!loading && error && (
           <div className="mt-6 rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 px-4 py-3 text-sm text-red-700 dark:text-red-300">
@@ -78,7 +78,7 @@ export function ConfirmBookingPage() {
         )}
 
         <div className="mt-6">
-          <Link to="/login" className="text-sm font-medium text-[#9E8649] hover:underline">
+          <Link to="/login" className="text-sm font-medium text-[var(--accent)] hover:underline">
             Zum Login
           </Link>
         </div>
@@ -86,3 +86,4 @@ export function ConfirmBookingPage() {
     </div>
   );
 }
+

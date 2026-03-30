@@ -11,18 +11,20 @@ export function ToursAdminHomePage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">Tour Manager</h1>
-      <p className="text-sm text-zinc-600 dark:text-zinc-400">
+      <h1 className="text-2xl font-semibold text-[var(--text-main)]">Tour Manager</h1>
+      <p className="text-sm text-[var(--text-subtle)]">
         Die vollständige Admin-Oberfläche (Touren, Rechnungen, Matterport, …) läuft unter{" "}
-        <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">/tour-manager</code>. Später kann diese Ansicht in React
+        <code className="rounded bg-zinc-100 px-1 bg-[var(--surface-raised)]">/tour-manager</code>. Später kann diese Ansicht in React
         portiert werden.
       </p>
       <a
         href={adminUrl}
-        className="inline-flex rounded-lg bg-[#C5A059] px-4 py-2 text-sm font-medium text-white hover:opacity-95"
+        className="inline-flex rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white hover:opacity-95"
       >
         Tour Manager öffnen
       </a>
     </div>
   );
 }
+
+

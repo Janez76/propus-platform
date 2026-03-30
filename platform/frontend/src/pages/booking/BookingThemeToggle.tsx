@@ -52,3 +52,4 @@ export function BookingThemeToggle({ lang, className }: { lang: Lang; className?
     </button>
   );
 }
+

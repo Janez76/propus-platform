@@ -8,7 +8,6 @@ import { EmployeeModal } from "../components/employees/EmployeeModal";
 import { useMutation } from "../hooks/useMutation";
 import { useQuery } from "../hooks/useQuery";
 import { employeesQueryKey } from "../lib/queryKeys";
-import { cn } from "../lib/utils";
 import { formatPhoneCH } from "../lib/format";
 import { useAuthStore } from "../store/authStore";
 import { t } from "../i18n";
@@ -16,7 +15,6 @@ import { t } from "../i18n";
 export function EmployeesPage() {
   const token = useAuthStore((s) => s.token);
   const lang = useAuthStore((s) => s.language);
-  const uiMode = useAuthStore((s) => s.uiMode);
   const [selected, setSelected] = useState<string | null>(null);
   const [key, setKey] = useState("");
   const [name, setName] = useState("");
@@ -67,100 +65,69 @@ export function EmployeesPage() {
   }), [items, query]);
   const selectedEmployee = useMemo(() => items.find((item) => item.key === selected) || null, [items, selected]);
   const isSelectedActive = useMemo(() => selectedEmployee?.active !== false, [selectedEmployee]);
-  const isModern = uiMode === "modern";
-  const createInputClass = cn(
-    "w-full rounded-lg border px-3 py-2 text-sm transition-colors",
-    isModern ? "bg-zinc-900 border-zinc-800 text-zinc-100 placeholder:text-zinc-500 hover:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-[#C5A059]/25 focus:border-[#C5A059]" : "rounded border px-2 py-1"
-  );
-  const createLabelClass = isModern
-    ? "mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-zinc-400"
-    : "mb-1 block text-xs font-semibold text-zinc-600";
 
   return (
     <div className="space-y-3">
-      <form className={uiMode === "modern" ? "surface-card p-4" : "rounded-xl border border-zinc-200 bg-white p-3 shadow-sm"} onSubmit={create}>
-        <h3 className="mb-3 text-sm font-bold">{t(lang, "employees.title.create")}</h3>
+      <form className="cust-form-section" onSubmit={create}>
+        <h3 className="mb-3 text-sm font-bold text-[var(--text-main)]">{t(lang, "employees.title.create")}</h3>
         <div className="grid gap-3 sm:grid-cols-6">
           <div>
-            <label className={createLabelClass}>{t(lang, "employees.label.key")}</label>
-            <input className={createInputClass} placeholder="z. B. admin01" value={key} onChange={(e) => setKey(e.target.value.toLowerCase())} />
+            <label className="cust-form-label">{t(lang, "employees.label.key")}</label>
+            <input className="cust-form-input" placeholder="z. B. admin01" value={key} onChange={(e) => setKey(e.target.value.toLowerCase())} />
           </div>
           <div>
-            <label className={createLabelClass}>{t(lang, "common.name")}</label>
-            <input className={createInputClass} placeholder="Max Mustermann" value={name} onChange={(e) => setName(e.target.value)} />
+            <label className="cust-form-label">{t(lang, "common.name")}</label>
+            <input className="cust-form-input" placeholder="Max Mustermann" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div>
-            <label className={createLabelClass}>{t(lang, "common.email")}</label>
-            <input className={createInputClass} placeholder="max@beispiel.ch" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <label className="cust-form-label">{t(lang, "common.email")}</label>
+            <input className="cust-form-input" placeholder="max@beispiel.ch" value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
           <div>
-            <label className={createLabelClass}>{t(lang, "common.phone")}</label>
-            <input className={createInputClass} placeholder="+41 79 123 45 67" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            <label className="cust-form-label">{t(lang, "common.phone")}</label>
+            <input className="cust-form-input" placeholder="+41 79 123 45 67" value={phone} onChange={(e) => setPhone(e.target.value)} />
           </div>
           <div>
-            <label className={createLabelClass}>{t(lang, "employees.label.initials")}</label>
-            <input className={createInputClass} placeholder="MM" value={initials} onChange={(e) => setInitials(e.target.value)} />
+            <label className="cust-form-label">{t(lang, "employees.label.initials")}</label>
+            <input className="cust-form-input" placeholder="MM" value={initials} onChange={(e) => setInitials(e.target.value)} />
           </div>
           <div>
-            <label className={createLabelClass}>&nbsp;</label>
-            <button
-              className={cn(
-                "inline-flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition-all",
-                isModern
-                  ? "bg-[#C5A059] text-white hover:bg-[#B39049] hover:shadow-md"
-                  : "rounded bg-[#9E8649] px-3 py-1 text-sm font-semibold text-white hover:bg-[#8d7740]"
-              )}
-            >
+            <label className="cust-form-label">&nbsp;</label>
+            <button type="submit" className="btn-primary min-h-0 inline-flex w-full items-center justify-center gap-2 px-3 py-2 text-sm">
               <Plus className="h-4 w-4" />
               {t(lang, "common.create")}
             </button>
           </div>
-          <label className={cn("inline-flex items-center gap-2 text-sm font-medium", isModern ? "text-zinc-300" : "text-zinc-700")}>
+          <label className="inline-flex items-center gap-2 text-sm font-medium text-[var(--text-muted)]">
             <input
               type="checkbox"
               checked={isAdmin}
               onChange={(e) => setIsAdmin(e.target.checked)}
-              className={cn(
-                "h-4 w-4 rounded",
-                isModern ? "border-zinc-600 bg-zinc-800 text-[#C5A059] focus:ring-[#C5A059]/30" : "border-zinc-300 text-[#9E8649]"
-              )}
+              className="h-4 w-4 rounded"
+              style={{ accentColor: "var(--accent)" }}
             />
             {t(lang, "employees.label.admin")}
           </label>
         </div>
       </form>
 
-      <div className={cn(
-        "rounded-xl border p-4 shadow-sm",
-        isModern ? "border-slate-200/60 bg-white dark:border-zinc-800 dark:bg-zinc-900" : "border-zinc-200 bg-white"
-      )}>
+      <div className="cust-form-section">
         <div className="flex flex-col gap-3 sm:flex-row">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-zinc-500" />
+          <div className="cust-search-wrap flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-subtle)]" />
             <input
               type="text"
               placeholder={t(lang, "employees.placeholder.search")}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className={cn(
-                "w-full rounded-lg border py-2 pl-10 pr-3 text-sm transition-colors",
-                "placeholder:text-slate-400 hover:border-slate-300 focus:border-[#C5A059] focus:outline-none focus:ring-2 focus:ring-[#C5A059]/20",
-                isModern
-                  ? "border-slate-200 bg-white text-slate-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:hover:border-zinc-600"
-                  : "border-zinc-300 bg-white text-zinc-900"
-              )}
+              className="cust-search-input"
             />
           </div>
-          <div className={cn(
-            "flex items-center gap-2 rounded-lg border px-4 py-2",
-            isModern
-              ? "border-slate-200 bg-slate-100 dark:border-zinc-700 dark:bg-zinc-800"
-              : "border-zinc-200 bg-zinc-50"
-          )}>
-            <span className={cn("text-xs font-semibold uppercase tracking-wider", isModern ? "text-slate-500 dark:text-zinc-400" : "text-zinc-600")}>
+          <div className="flex items-center gap-2 rounded-lg border px-4 py-2" style={{ borderColor: "var(--border-soft)", background: "var(--surface-raised)" }}>
+            <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-subtle)]">
               {t(lang, "employees.label.hits")}
             </span>
-            <span className="text-sm font-bold text-[#C5A059]">{filtered.length}</span>
+            <span className="text-sm font-bold" style={{ color: "var(--accent)" }}>{filtered.length}</span>
           </div>
         </div>
       </div>
@@ -171,3 +138,4 @@ export function EmployeesPage() {
     </div>
   );
 }
+

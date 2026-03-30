@@ -57,18 +57,18 @@ function AccountCard({ lang, email, name }: { lang: Lang; email: string; name: s
   }
 
   return (
-    <div className="mx-auto mt-6 max-w-sm rounded-xl border border-zinc-200 bg-white p-5 text-left dark:border-zinc-700 dark:bg-zinc-900">
-      <div className="mb-3 flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
-        <UserPlus className="h-5 w-5 text-[#C5A059]" />
+    <div className="mx-auto mt-6 max-w-sm rounded-xl border border-zinc-200 bg-white p-5 text-left border-[var(--border-soft)] bg-[var(--surface)]">
+      <div className="mb-3 flex items-center gap-2 text-[var(--text-main)]">
+        <UserPlus className="h-5 w-5 text-[var(--accent)]" />
         <h3 className="text-sm font-semibold">{t(lang, "booking.account.title")}</h3>
       </div>
-      <p className="mb-4 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+      <p className="mb-4 text-xs leading-relaxed text-[var(--text-subtle)]">
         {t(lang, "booking.account.description")}
       </p>
 
       <div className="space-y-3">
         <div>
-          <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+          <label className="mb-1 block text-xs font-medium text-[var(--text-subtle)]">
             {t(lang, "booking.account.password")} <span className="text-red-500">*</span>
           </label>
           <div className="relative">
@@ -79,20 +79,20 @@ function AccountCard({ lang, email, name }: { lang: Lang; email: string; name: s
               placeholder={t(lang, "booking.account.passwordPlaceholder")}
               autoComplete="new-password"
               disabled={busy}
-              className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 pr-10 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-[#C5A059] focus:outline-none focus:ring-1 focus:ring-[#C5A059] disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
+              className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 pr-10 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:opacity-50 border-[var(--border-soft)] bg-[var(--surface-raised)] text-[var(--text-main)]"
             />
             <button
               type="button"
               onClick={() => setShowPw((v) => !v)}
               tabIndex={-1}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 hover:text-[var(--text-muted)]"
             >
               {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+          <label className="mb-1 block text-xs font-medium text-[var(--text-subtle)]">
             {t(lang, "booking.account.confirmPassword")} <span className="text-red-500">*</span>
           </label>
           <input
@@ -102,7 +102,7 @@ function AccountCard({ lang, email, name }: { lang: Lang; email: string; name: s
             placeholder={t(lang, "booking.account.confirmPlaceholder")}
             autoComplete="new-password"
             disabled={busy}
-            className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-[#C5A059] focus:outline-none focus:ring-1 focus:ring-[#C5A059] disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
+            className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:opacity-50 border-[var(--border-soft)] bg-[var(--surface-raised)] text-[var(--text-main)]"
           />
         </div>
       </div>
@@ -116,7 +116,7 @@ function AccountCard({ lang, email, name }: { lang: Lang; email: string; name: s
           type="button"
           onClick={() => setDismissed(true)}
           disabled={busy}
-          className="flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-400 dark:hover:bg-zinc-800"
+          className="flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50 disabled:opacity-50 border-[var(--border-soft)] text-[var(--text-subtle)] hover:bg-[var(--surface-raised)]"
         >
           {t(lang, "booking.account.skip")}
         </button>
@@ -124,7 +124,7 @@ function AccountCard({ lang, email, name }: { lang: Lang; email: string; name: s
           type="button"
           onClick={() => void handleCreate()}
           disabled={busy}
-          className="flex-1 rounded-lg bg-[#C5A059] px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-[#b08f4a] disabled:opacity-50"
+          className="flex-1 rounded-lg bg-[var(--accent)] px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-[#b08f4a] disabled:opacity-50"
         >
           {busy ? t(lang, "booking.account.creating") : t(lang, "booking.account.create")}
         </button>
@@ -145,37 +145,37 @@ export function ThankYouScreen({ lang }: { lang: Lang }) {
       <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-900/20">
         <CheckCircle className="h-10 w-10 text-emerald-500" />
       </div>
-      <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+      <h2 className="text-2xl font-bold text-[var(--text-main)]">
         {provisional ? t(lang, "booking.thankyou.provisionalTitle") : t(lang, "booking.thankyou.title")}
       </h2>
-      <p className="mt-2 text-zinc-600 dark:text-zinc-400">
+      <p className="mt-2 text-[var(--text-subtle)]">
         {t(lang, "booking.thankyou.subtitle")}
       </p>
 
-      <div className="mx-auto mt-8 max-w-sm rounded-xl border border-zinc-200 bg-white p-6 text-left dark:border-zinc-700 dark:bg-zinc-900">
+      <div className="mx-auto mt-8 max-w-sm rounded-xl border border-zinc-200 bg-white p-6 text-left border-[var(--border-soft)] bg-[var(--surface)]">
         <div className="space-y-3 text-sm">
           <div className="flex justify-between">
             <span className="text-zinc-500">{t(lang, "booking.thankyou.orderNo")}</span>
-            <span className="font-bold text-zinc-900 dark:text-zinc-100">
+            <span className="font-bold text-[var(--text-main)]">
               {orderNo != null ? `#${orderNo}` : "—"}
             </span>
           </div>
           {date && (
             <div className="flex justify-between">
               <span className="text-zinc-500">{t(lang, "booking.step3.date")}</span>
-              <span className="text-zinc-900 dark:text-zinc-100">{formatDateCH(date)}</span>
+              <span className="text-[var(--text-main)]">{formatDateCH(date)}</span>
             </div>
           )}
           {time && (
             <div className="flex justify-between">
               <span className="text-zinc-500">{t(lang, "booking.step3.time")}</span>
-              <span className="text-zinc-900 dark:text-zinc-100">{time}</span>
+              <span className="text-[var(--text-main)]">{time}</span>
             </div>
           )}
           {photographer && (
             <div className="flex justify-between">
               <span className="text-zinc-500">{t(lang, "booking.step3.photographer")}</span>
-              <span className="text-zinc-900 dark:text-zinc-100">{bookingPhotographerLabel(lang, photographer)}</span>
+              <span className="text-[var(--text-main)]">{bookingPhotographerLabel(lang, photographer)}</span>
             </div>
           )}
           <div className="flex justify-between">
@@ -193,14 +193,14 @@ export function ThankYouScreen({ lang }: { lang: Lang }) {
         <button
           type="button"
           onClick={() => window.print()}
-          className="flex items-center gap-2 rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300"
+          className="flex items-center gap-2 rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 border-[var(--border-soft)] text-[var(--text-muted)]"
         >
           <Printer className="h-4 w-4" /> {t(lang, "booking.thankyou.print")}
         </button>
         <button
           type="button"
           onClick={reset}
-          className="flex items-center gap-2 rounded-lg bg-[#C5A059] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#b08f4a]"
+          className="flex items-center gap-2 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#b08f4a]"
         >
           <ArrowLeft className="h-4 w-4" /> {t(lang, "booking.thankyou.newBooking")}
         </button>
@@ -208,3 +208,4 @@ export function ThankYouScreen({ lang }: { lang: Lang }) {
     </div>
   );
 }
+

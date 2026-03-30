@@ -155,3 +155,4 @@ export function ScheduleList({ orders, days = 7, onCreateOrder }: ScheduleListPr
     </div>
   );
 }
+

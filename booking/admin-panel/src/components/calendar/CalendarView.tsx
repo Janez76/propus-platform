@@ -230,7 +230,7 @@ export function CalendarView({
             );
           }}
           moreLinkContent={(arg) => (
-            <span className="text-xs font-semibold text-[#C5A059]">{t(lang, "calendar.label.moreEvents").replace("{{n}}", String(arg.num))}</span>
+            <span className="text-xs font-semibold text-[var(--accent)]">{t(lang, "calendar.label.moreEvents").replace("{{n}}", String(arg.num))}</span>
           )}
           height="auto"
           events={calendarEvents}
@@ -266,3 +266,4 @@ export function CalendarView({
     </div>
   );
 }
+

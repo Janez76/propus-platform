@@ -64,8 +64,8 @@ const PortalTeamPage = lazy(() =>
 
 function PageSkeleton() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-zinc-950">
-      <div className="h-10 w-10 animate-spin rounded-full border-2 border-[#C5A059]/25 border-t-[#C5A059]" />
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 bg-[var(--surface)]">
+      <div className="h-10 w-10 animate-spin rounded-full border-2 border-[var(--accent)]/25 border-t-[var(--accent)]" />
     </div>
   );
 }
@@ -189,3 +189,4 @@ export default function App() {
     </>
   );
 }
+

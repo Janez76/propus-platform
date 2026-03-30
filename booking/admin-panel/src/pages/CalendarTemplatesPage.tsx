@@ -262,7 +262,7 @@ export function CalendarTemplatesPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[40vh]">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#C5A059]/25 border-t-[#C5A059]" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--accent)]/25 border-t-[var(--accent)]" />
       </div>
     );
   }
@@ -270,31 +270,31 @@ export function CalendarTemplatesPage() {
   return (
     <div className="max-w-6xl mx-auto py-8 px-4">
       <div className="flex items-center gap-3 mb-6">
-        <CalendarDays className="h-6 w-6 text-[#C5A059]" />
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-zinc-100">Kalender-Vorlagen (ICS)</h1>
+        <CalendarDays className="h-6 w-6 text-[var(--accent)]" />
+        <h1 className="text-2xl font-bold text-[var(--text-main)]">Kalender-Vorlagen (ICS)</h1>
       </div>
 
-      <p className="text-sm text-slate-500 dark:text-zinc-400 mb-6 max-w-2xl">
+      <p className="text-sm text-[var(--text-subtle)] mb-6 max-w-2xl">
         Betreff und Beschreibung für Kalender-Events (ICS-Dateien) anpassen. Platzhalter wie{" "}
-        <code className="text-[#C5A059] font-mono text-xs">{"{{orderNo}}"}</code> werden beim Versand durch echte Werte ersetzt.
+        <code className="text-[var(--accent)] font-mono text-xs">{"{{orderNo}}"}</code> werden beim Versand durch echte Werte ersetzt.
       </p>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* ── Template-Liste ── */}
         <div className="space-y-2">
           <div className="flex items-center justify-between px-1 mb-3">
-            <h2 className="text-sm font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">
+            <h2 className="text-sm font-semibold text-[var(--text-subtle)] uppercase tracking-wider">
               Templates ({templates.length})
             </h2>
             <button
               onClick={openNewDialog}
-              className="flex items-center gap-1 text-xs font-medium text-[#C5A059] hover:text-[#b8934d] transition-colors"
+              className="flex items-center gap-1 text-xs font-medium text-[var(--accent)] hover:text-[var(--accent-hover)] transition-colors"
             >
               <Plus className="h-3.5 w-3.5" /> Neu
             </button>
           </div>
           {templates.length === 0 ? (
-            <p className="text-slate-400 dark:text-zinc-500 text-sm px-1">Noch keine Templates angelegt.</p>
+            <p className="text-[var(--text-subtle)] text-sm px-1">Noch keine Templates angelegt.</p>
           ) : (
             templates.map((tmpl) => (
               <button
@@ -302,20 +302,20 @@ export function CalendarTemplatesPage() {
                 onClick={() => selectTemplate(tmpl)}
                 className={`w-full text-left flex items-center justify-between px-4 py-3 rounded-xl border transition-all ${
                   selected?.key === tmpl.key
-                    ? "border-[#C5A059] bg-[#C5A059]/10 dark:bg-[#C5A059]/20"
-                    : "border-slate-200 dark:border-zinc-700 hover:border-[#C5A059]/50 bg-white dark:bg-zinc-900"
+                    ? "border-[var(--accent)] bg-[var(--accent)]/10 dark:bg-[var(--accent)]/20"
+                    : "border-[var(--border-soft)] hover:border-[var(--accent)]/50 bg-[var(--surface)]"
                 }`}
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium text-sm text-slate-900 dark:text-zinc-100 truncate">{tmpl.label || tmpl.key}</span>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 ${tmpl.active ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" : "bg-slate-100 text-slate-400 dark:bg-zinc-800 dark:text-zinc-500"}`}>
+                    <span className="font-medium text-sm text-[var(--text-main)] truncate">{tmpl.label || tmpl.key}</span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 ${tmpl.active ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" : "bg-slate-100 text-slate-400 bg-[var(--surface-raised)] text-[var(--text-subtle)]"}`}>
                       {tmpl.active ? "Aktiv" : "Inaktiv"}
                     </span>
                   </div>
-                  <code className="text-[10px] text-slate-400 dark:text-zinc-500">{tmpl.key}</code>
+                  <code className="text-[10px] text-[var(--text-subtle)]">{tmpl.key}</code>
                 </div>
-                <ChevronRight className="h-4 w-4 text-slate-300 dark:text-zinc-600 flex-shrink-0 ml-2" />
+                <ChevronRight className="h-4 w-4 text-slate-300 text-[var(--text-subtle)] flex-shrink-0 ml-2" />
               </button>
             ))
           )}
@@ -334,7 +334,7 @@ export function CalendarTemplatesPage() {
         {/* ── Editor ── */}
         <div className="lg:col-span-2 space-y-4">
           {!selected ? (
-            <div className="flex flex-col items-center justify-center min-h-[400px] rounded-xl border-2 border-dashed border-slate-200 dark:border-zinc-700 text-slate-400 dark:text-zinc-500">
+            <div className="flex flex-col items-center justify-center min-h-[400px] rounded-xl border-2 border-dashed border-[var(--border-soft)] text-[var(--text-subtle)]">
               <CalendarDays className="h-10 w-10 mb-3" />
               <p className="text-sm">Template aus der Liste auswählen</p>
             </div>
@@ -347,14 +347,14 @@ export function CalendarTemplatesPage() {
                 </div>
               )}
 
-              <div className="rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-5 space-y-4">
+              <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-5 space-y-4">
                 {/* Header mit Toggle + Löschen */}
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-slate-900 dark:text-zinc-100">{selected.label || selected.key}</h3>
+                  <h3 className="font-semibold text-[var(--text-main)]">{selected.label || selected.key}</h3>
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => { void toggleActive(selected.key); }}
-                      className="flex items-center gap-1 text-sm text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 transition-colors"
+                      className="flex items-center gap-1 text-sm text-[var(--text-subtle)] hover:text-slate-900 hover:text-[var(--text-main)] transition-colors"
                     >
                       {selected.active
                         ? <><ToggleRight className="h-5 w-5 text-green-500" /> Aktiv</>
@@ -373,34 +373,34 @@ export function CalendarTemplatesPage() {
 
                 {/* Bezeichnung */}
                 <div>
-                  <label className="text-xs font-medium text-slate-500 dark:text-zinc-400 uppercase tracking-wider">Bezeichnung</label>
+                  <label className="text-xs font-medium text-[var(--text-subtle)] uppercase tracking-wider">Bezeichnung</label>
                   <input
                     type="text"
                     value={editLabel}
                     onChange={(e) => setEditLabel(e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 px-3 py-2 text-sm text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#C5A059]/50"
+                    className="mt-1 w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/50"
                   />
                 </div>
 
                 {/* Betreff */}
                 <div>
-                  <label className="text-xs font-medium text-slate-500 dark:text-zinc-400 uppercase tracking-wider">Betreff (Kalender-Titel)</label>
+                  <label className="text-xs font-medium text-[var(--text-subtle)] uppercase tracking-wider">Betreff (Kalender-Titel)</label>
                   <input
                     type="text"
                     value={editSubject}
                     onChange={(e) => setEditSubject(e.target.value)}
                     placeholder="Betreff mit {{variablen}}"
-                    className="mt-1 w-full rounded-lg border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 px-3 py-2 text-sm text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#C5A059]/50"
+                    className="mt-1 w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/50"
                   />
                 </div>
 
                 {/* Body (Plain-Text Textarea) */}
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-medium text-slate-500 dark:text-zinc-400 uppercase tracking-wider">Beschreibung (ICS-Body)</label>
+                    <label className="text-xs font-medium text-[var(--text-subtle)] uppercase tracking-wider">Beschreibung (ICS-Body)</label>
                     <button
                       onClick={() => setShowPlaceholders(!showPlaceholders)}
-                      className="text-xs text-[#C5A059] hover:underline"
+                      className="text-xs text-[var(--accent)] hover:underline"
                     >
                       {showPlaceholders ? "Platzhalter ausblenden" : "Platzhalter anzeigen"}
                     </button>
@@ -419,7 +419,7 @@ export function CalendarTemplatesPage() {
                               key={tag}
                               type="button"
                               onClick={() => insertPlaceholder(tag.slice(2, -2))}
-                              className="px-2 py-1 rounded border border-amber-300 dark:border-amber-700 bg-white/70 dark:bg-zinc-900/40 font-mono text-[11px] hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors"
+                              className="px-2 py-1 rounded border border-amber-300 bg-[var(--surface)]/70 font-mono text-[11px] hover:bg-amber-100 transition-colors"
                               title="Klicken zum Einfügen"
                             >
                               {tag}
@@ -429,45 +429,45 @@ export function CalendarTemplatesPage() {
                       </div>
 
                       <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-                        <div className="p-3 rounded-lg bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700">
-                          <p className="text-xs font-semibold text-slate-700 dark:text-zinc-200 mb-2">Beispiel: customer_event</p>
+                        <div className="p-3 rounded-lg bg-[var(--surface-raised)] border border-[var(--border-soft)]">
+                          <p className="text-xs font-semibold text-[var(--text-muted)] mb-2">Beispiel: customer_event</p>
                           <div className="space-y-2 text-[11px]">
                             <div>
-                              <div className="text-slate-500 dark:text-zinc-400 mb-1">Betreff</div>
-                              <pre className="font-mono whitespace-pre-wrap text-slate-700 dark:text-zinc-200">{CALENDAR_TEMPLATE_EXAMPLES.customer_event.subject}</pre>
+                              <div className="text-[var(--text-subtle)] mb-1">Betreff</div>
+                              <pre className="font-mono whitespace-pre-wrap text-[var(--text-muted)]">{CALENDAR_TEMPLATE_EXAMPLES.customer_event.subject}</pre>
                             </div>
                             <div>
-                              <div className="text-slate-500 dark:text-zinc-400 mb-1">Beschreibung</div>
-                              <pre className="font-mono whitespace-pre-wrap text-slate-700 dark:text-zinc-200">{CALENDAR_TEMPLATE_EXAMPLES.customer_event.body}</pre>
+                              <div className="text-[var(--text-subtle)] mb-1">Beschreibung</div>
+                              <pre className="font-mono whitespace-pre-wrap text-[var(--text-muted)]">{CALENDAR_TEMPLATE_EXAMPLES.customer_event.body}</pre>
                             </div>
                           </div>
                         </div>
-                        <div className="p-3 rounded-lg bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700">
-                          <p className="text-xs font-semibold text-slate-700 dark:text-zinc-200 mb-2">Beispiel: photographer_event</p>
+                        <div className="p-3 rounded-lg bg-[var(--surface-raised)] border border-[var(--border-soft)]">
+                          <p className="text-xs font-semibold text-[var(--text-muted)] mb-2">Beispiel: photographer_event</p>
                           <div className="space-y-2 text-[11px]">
                             <div>
-                              <div className="text-slate-500 dark:text-zinc-400 mb-1">Betreff</div>
-                              <pre className="font-mono whitespace-pre-wrap text-slate-700 dark:text-zinc-200">{CALENDAR_TEMPLATE_EXAMPLES.photographer_event.subject}</pre>
+                              <div className="text-[var(--text-subtle)] mb-1">Betreff</div>
+                              <pre className="font-mono whitespace-pre-wrap text-[var(--text-muted)]">{CALENDAR_TEMPLATE_EXAMPLES.photographer_event.subject}</pre>
                             </div>
                             <div>
-                              <div className="text-slate-500 dark:text-zinc-400 mb-1">Beschreibung</div>
-                              <pre className="font-mono whitespace-pre-wrap text-slate-700 dark:text-zinc-200">{CALENDAR_TEMPLATE_EXAMPLES.photographer_event.body}</pre>
+                              <div className="text-[var(--text-subtle)] mb-1">Beschreibung</div>
+                              <pre className="font-mono whitespace-pre-wrap text-[var(--text-muted)]">{CALENDAR_TEMPLATE_EXAMPLES.photographer_event.body}</pre>
                             </div>
                           </div>
                         </div>
                       </div>
 
-                      <div className="p-3 rounded-lg bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs max-h-56 overflow-y-auto">
+                      <div className="p-3 rounded-lg bg-[var(--surface-raised)] border border-[var(--border-soft)] grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs max-h-56 overflow-y-auto">
                         {placeholders.map((p) => (
                           <button
                             key={p.key}
                             type="button"
                             onClick={() => insertPlaceholder(p.key)}
-                            className="flex items-start gap-1 text-left hover:bg-slate-100 dark:hover:bg-zinc-700 rounded px-1 py-0.5 transition-colors"
+                            className="flex items-start gap-1 text-left hover:bg-[var(--surface-raised)] rounded px-1 py-0.5 transition-colors"
                             title="Klicken zum Einfügen"
                           >
-                            <code className="text-[#C5A059] font-mono whitespace-nowrap">{`{{${p.key}}}`}</code>
-                            <span className="text-slate-500 dark:text-zinc-400">{p.desc}</span>
+                            <code className="text-[var(--accent)] font-mono whitespace-nowrap">{`{{${p.key}}}`}</code>
+                            <span className="text-[var(--text-subtle)]">{p.desc}</span>
                           </button>
                         ))}
                       </div>
@@ -478,10 +478,10 @@ export function CalendarTemplatesPage() {
                     onChange={(e) => setEditBody(e.target.value)}
                     rows={14}
                     placeholder={"📍 Adresse: {{address}}\n🏠 Objekt: {{objectTypeLabel}}\n\n{{customerName}}\nTel: {{customerPhone}}\n\n#{{orderNo}}"}
-                    className="w-full rounded-lg border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 px-3 py-3 text-sm text-slate-900 dark:text-zinc-100 font-mono focus:outline-none focus:ring-2 focus:ring-[#C5A059]/50 resize-y"
+                    className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 py-3 text-sm text-[var(--text-main)] font-mono focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/50 resize-y"
                     spellCheck={false}
                   />
-                  <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-1">
+                  <p className="text-[11px] text-[var(--text-subtle)] mt-1">
                     Plain-Text. Zeilenumbrüche werden als <code className="font-mono">\n</code> in der ICS-Datei kodiert.
                   </p>
                 </div>
@@ -491,7 +491,7 @@ export function CalendarTemplatesPage() {
                   <button
                     onClick={() => { void save(); }}
                     disabled={saving}
-                    className="px-4 py-2 rounded-lg bg-[#C5A059] text-white text-sm font-medium hover:bg-[#b8934d] disabled:opacity-50 transition-colors"
+                    className="px-4 py-2 rounded-lg bg-[var(--accent)] text-white text-sm font-medium hover:bg-[var(--accent-hover)] disabled:opacity-50 transition-colors"
                   >
                     {saving ? "Speichert..." : "Speichern"}
                   </button>
@@ -502,11 +502,11 @@ export function CalendarTemplatesPage() {
                       placeholder="Auftrag Nr."
                       value={testOrderNo}
                       onChange={(e) => setTestOrderNo(e.target.value)}
-                      className="w-32 rounded-lg border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 px-3 py-2 text-sm text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#C5A059]/50"
+                      className="w-32 rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/50"
                     />
                     <button
                       onClick={() => { void previewTemplate(); }}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 text-sm hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[var(--border-soft)] text-[var(--text-muted)] text-sm hover:bg-[var(--surface-raised)] transition-colors"
                     >
                       <Eye className="h-4 w-4" /> Vorschau
                     </button>
@@ -521,50 +521,50 @@ export function CalendarTemplatesPage() {
       {/* ── Neu-Dialog ─────────────────────────────────────────────────────── */}
       {showNewDialog && (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 bg-black/50">
-          <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-md my-auto">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-zinc-700">
-              <h3 className="font-semibold text-slate-900 dark:text-zinc-100">Neues Kalender-Template</h3>
-              <button onClick={() => setShowNewDialog(false)} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors">
-                <X className="h-5 w-5 text-slate-500 dark:text-zinc-400" />
+          <div className="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-md my-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-soft)]">
+              <h3 className="font-semibold text-[var(--text-main)]">Neues Kalender-Template</h3>
+              <button onClick={() => setShowNewDialog(false)} className="p-2 rounded-lg hover:bg-[var(--surface-raised)] transition-colors">
+                <X className="h-5 w-5 text-[var(--text-subtle)]" />
               </button>
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="text-xs font-medium text-slate-500 dark:text-zinc-400 uppercase tracking-wider">Key <span className="text-red-500">*</span></label>
+                <label className="text-xs font-medium text-[var(--text-subtle)] uppercase tracking-wider">Key <span className="text-red-500">*</span></label>
                 <input
                   type="text"
                   value={newKey}
                   onChange={(e) => { setNewKey(e.target.value.toLowerCase()); setNewKeyError(""); }}
                   placeholder="z.B. reminder_event"
                   autoFocus
-                  className="mt-1 w-full rounded-lg border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 px-3 py-2 text-sm text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#C5A059]/50"
+                  className="mt-1 w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/50"
                   onKeyDown={(e) => { if (e.key === "Enter") void createTemplate(); }}
                 />
-                <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-1">Nur a–z, 0–9, _, - und . erlaubt.</p>
+                <p className="text-[11px] text-[var(--text-subtle)] mt-1">Nur a–z, 0–9, _, - und . erlaubt.</p>
                 {newKeyError && <p className="text-xs text-red-500 mt-1">{newKeyError}</p>}
               </div>
               <div>
-                <label className="text-xs font-medium text-slate-500 dark:text-zinc-400 uppercase tracking-wider">Bezeichnung</label>
+                <label className="text-xs font-medium text-[var(--text-subtle)] uppercase tracking-wider">Bezeichnung</label>
                 <input
                   type="text"
                   value={newLabel}
                   onChange={(e) => setNewLabel(e.target.value)}
                   placeholder="Lesbare Beschriftung"
-                  className="mt-1 w-full rounded-lg border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 px-3 py-2 text-sm text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#C5A059]/50"
+                  className="mt-1 w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/50"
                 />
               </div>
             </div>
-            <div className="flex justify-end gap-2 px-6 py-4 border-t border-slate-200 dark:border-zinc-700">
+            <div className="flex justify-end gap-2 px-6 py-4 border-t border-[var(--border-soft)]">
               <button
                 onClick={() => setShowNewDialog(false)}
-                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 text-sm text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors"
+                className="px-4 py-2 rounded-lg border border-[var(--border-soft)] text-sm text-[var(--text-muted)] hover:bg-[var(--surface-raised)] transition-colors"
               >
                 Abbrechen
               </button>
               <button
                 onClick={() => { void createTemplate(); }}
                 disabled={creating}
-                className="px-4 py-2 rounded-lg bg-[#C5A059] text-white text-sm font-medium hover:bg-[#b8934d] disabled:opacity-50 transition-colors"
+                className="px-4 py-2 rounded-lg bg-[var(--accent)] text-white text-sm font-medium hover:bg-[var(--accent-hover)] disabled:opacity-50 transition-colors"
               >
                 {creating ? "Erstellt..." : "Erstellen"}
               </button>
@@ -576,24 +576,24 @@ export function CalendarTemplatesPage() {
       {/* ── Löschen-Dialog ─────────────────────────────────────────────────── */}
       {showDeleteDialog && selected && (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 bg-black/50">
-          <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-md my-auto">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-zinc-700">
+          <div className="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-md my-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-soft)]">
               <h3 className="font-semibold text-red-600 dark:text-red-400">Template löschen</h3>
-              <button onClick={() => setShowDeleteDialog(false)} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors">
-                <X className="h-5 w-5 text-slate-500 dark:text-zinc-400" />
+              <button onClick={() => setShowDeleteDialog(false)} className="p-2 rounded-lg hover:bg-[var(--surface-raised)] transition-colors">
+                <X className="h-5 w-5 text-[var(--text-subtle)]" />
               </button>
             </div>
             <div className="px-6 py-5">
-              <p className="text-sm text-slate-700 dark:text-zinc-300">
+              <p className="text-sm text-[var(--text-muted)]">
                 Möchtest du das Template <strong>{selected.label || selected.key}</strong> wirklich löschen?
               </p>
-              <code className="block mt-2 text-xs text-slate-400 dark:text-zinc-500">{selected.key}</code>
+              <code className="block mt-2 text-xs text-[var(--text-subtle)]">{selected.key}</code>
               <p className="mt-3 text-xs text-red-400">Diese Aktion kann nicht rückgängig gemacht werden.</p>
             </div>
-            <div className="flex justify-end gap-2 px-6 py-4 border-t border-slate-200 dark:border-zinc-700">
+            <div className="flex justify-end gap-2 px-6 py-4 border-t border-[var(--border-soft)]">
               <button
                 onClick={() => setShowDeleteDialog(false)}
-                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 text-sm text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors"
+                className="px-4 py-2 rounded-lg border border-[var(--border-soft)] text-sm text-[var(--text-muted)] hover:bg-[var(--surface-raised)] transition-colors"
               >
                 Abbrechen
               </button>
@@ -612,28 +612,28 @@ export function CalendarTemplatesPage() {
       {/* ── Preview-Modal ──────────────────────────────────────────────────── */}
       {showPreview && previewData && (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 bg-black/50">
-          <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-2xl my-auto">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-zinc-700">
+          <div className="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-2xl my-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-soft)]">
               <div>
-                <h3 className="font-semibold text-slate-900 dark:text-zinc-100">Kalender-Vorschau</h3>
-                <p className="text-sm text-slate-500 dark:text-zinc-400 mt-0.5">
+                <h3 className="font-semibold text-[var(--text-main)]">Kalender-Vorschau</h3>
+                <p className="text-sm text-[var(--text-subtle)] mt-0.5">
                   {testOrderNo ? `Auftrag #${testOrderNo}` : "Beispiel-Daten"}
                 </p>
               </div>
-              <button onClick={() => setShowPreview(false)} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors">
-                <X className="h-5 w-5 text-slate-500 dark:text-zinc-400" />
+              <button onClick={() => setShowPreview(false)} className="p-2 rounded-lg hover:bg-[var(--surface-raised)] transition-colors">
+                <X className="h-5 w-5 text-[var(--text-subtle)]" />
               </button>
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1">Betreff (Kalender-Titel)</p>
-                <div className="rounded-lg bg-slate-50 dark:bg-zinc-800 px-4 py-3 text-sm font-medium text-slate-900 dark:text-zinc-100 border border-slate-200 dark:border-zinc-700">
+                <p className="text-xs font-semibold text-[var(--text-subtle)] uppercase tracking-wider mb-1">Betreff (Kalender-Titel)</p>
+                <div className="rounded-lg bg-[var(--surface-raised)] px-4 py-3 text-sm font-medium text-[var(--text-main)] border border-[var(--border-soft)]">
                   {previewData.subject || <span className="text-slate-400">(kein Betreff)</span>}
                 </div>
               </div>
               <div>
-                <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1">Beschreibung (ICS-Body)</p>
-                <pre className="rounded-lg bg-slate-50 dark:bg-zinc-800 px-4 py-3 text-sm text-slate-900 dark:text-zinc-100 border border-slate-200 dark:border-zinc-700 whitespace-pre-wrap font-mono overflow-x-auto max-h-96">
+                <p className="text-xs font-semibold text-[var(--text-subtle)] uppercase tracking-wider mb-1">Beschreibung (ICS-Body)</p>
+                <pre className="rounded-lg bg-[var(--surface-raised)] px-4 py-3 text-sm text-[var(--text-main)] border border-[var(--border-soft)] whitespace-pre-wrap font-mono overflow-x-auto max-h-96">
                   {previewData.body || <span className="text-slate-400">(keine Beschreibung)</span>}
                 </pre>
               </div>
@@ -644,3 +644,6 @@ export function CalendarTemplatesPage() {
     </div>
   );
 }
+
+
+

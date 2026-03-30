@@ -110,3 +110,4 @@ export function KpiCard({
     </motion.div>
   );
 }
+

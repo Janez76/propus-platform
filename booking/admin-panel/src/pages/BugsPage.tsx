@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { BugReports } from "../components/bugs/BugReports";
 import { deleteBugReport, getBugReports, sendBugMail, type BugReport, updateBugStatus } from "../api/bugs";
 import { useAuthStore } from "../store/authStore";
@@ -28,3 +28,5 @@ export function BugsPage() {
     />
   );
 }
+
+

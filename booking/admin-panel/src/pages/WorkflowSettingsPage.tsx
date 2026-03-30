@@ -131,7 +131,7 @@ export function WorkflowSettingsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[40vh]">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#C5A059]/25 border-t-[#C5A059]" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--accent)]/25 border-t-[var(--accent)]" />
       </div>
     );
   }
@@ -139,10 +139,10 @@ export function WorkflowSettingsPage() {
   return (
     <div className="max-w-3xl mx-auto py-8 px-4 space-y-6">
       <div className="flex items-center gap-3 mb-2">
-        <Settings className="h-6 w-6 text-[#C5A059]" />
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-zinc-100">{t(lang, "workflow.title")}</h1>
+        <Settings className="h-6 w-6 text-[var(--accent)]" />
+        <h1 className="text-2xl font-bold text-[var(--text-main)]">{t(lang, "workflow.title")}</h1>
       </div>
-      <p className="text-slate-500 dark:text-zinc-400 text-sm">
+      <p className="text-[var(--text-subtle)] text-sm">
         {t(lang, "workflow.description")}
       </p>
 
@@ -161,20 +161,20 @@ export function WorkflowSettingsPage() {
           return (
             <div
               key={key}
-              className={`rounded-xl border-2 p-5 transition-all duration-200 ${enabled ? colors.enabled : "border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900"}`}
+              className={`rounded-xl border-2 p-5 transition-all duration-200 ${enabled ? colors.enabled : "border-[var(--border-soft)] bg-[var(--surface)]"}`}
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-start gap-3 flex-1 min-w-0">
-                  <Icon className={`h-5 w-5 mt-0.5 flex-shrink-0 ${enabled ? `text-${color}-600 dark:text-${color}-400` : "text-slate-400 dark:text-zinc-500"}`} />
+                  <Icon className={`h-5 w-5 mt-0.5 flex-shrink-0 ${enabled ? `text-${color}-600 dark:text-${color}-400` : "text-[var(--text-subtle)]"}`} />
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-slate-900 dark:text-zinc-100">{t(lang, labelKey)}</span>
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${enabled ? colors.badge : "bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-zinc-400"}`}>
+                      <span className="font-semibold text-[var(--text-main)]">{t(lang, labelKey)}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${enabled ? colors.badge : "bg-slate-100 text-slate-500 bg-[var(--surface-raised)] text-[var(--text-subtle)]"}`}>
                         {enabled ? t(lang, "workflow.badge.on") : t(lang, "workflow.badge.off")}
                       </span>
                     </div>
-                    <p className="text-sm text-slate-500 dark:text-zinc-400 mt-1">{t(lang, descKey)}</p>
-                    <code className="text-[11px] text-slate-400 dark:text-zinc-500 mt-1 block">{key}</code>
+                    <p className="text-sm text-[var(--text-subtle)] mt-1">{t(lang, descKey)}</p>
+                    <code className="text-[11px] text-[var(--text-subtle)] mt-1 block">{key}</code>
                   </div>
                 </div>
                 <button
@@ -184,11 +184,11 @@ export function WorkflowSettingsPage() {
                   aria-label={enabled ? t(lang, "common.deactivate") : t(lang, "common.activate")}
                 >
                   {isSaving ? (
-                    <div className="h-8 w-14 animate-pulse rounded-full bg-slate-200 dark:bg-zinc-700" />
+                    <div className="h-8 w-14 animate-pulse rounded-full bg-slate-200 bg-[var(--surface-raised)]" />
                   ) : enabled ? (
-                    <ToggleRight className="h-8 w-14 text-[#C5A059]" />
+                    <ToggleRight className="h-8 w-14 text-[var(--accent)]" />
                   ) : (
-                    <ToggleLeft className="h-8 w-14 text-slate-300 dark:text-zinc-600" />
+                    <ToggleLeft className="h-8 w-14 text-slate-300 text-[var(--text-subtle)]" />
                   )}
                 </button>
               </div>
@@ -198,12 +198,12 @@ export function WorkflowSettingsPage() {
       </div>
 
       {/* Review-Wartezeit */}
-      <div className="rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-5 space-y-3">
+      <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-5 space-y-3">
         <div className="flex items-center gap-2">
           <Clock className="h-5 w-5 text-slate-400" />
-          <h3 className="font-semibold text-slate-900 dark:text-zinc-100">{t(lang, "workflow.label.reviewDelay")}</h3>
+          <h3 className="font-semibold text-[var(--text-main)]">{t(lang, "workflow.label.reviewDelay")}</h3>
         </div>
-        <p className="text-sm text-slate-500 dark:text-zinc-400">
+        <p className="text-sm text-[var(--text-subtle)]">
           {t(lang, "workflow.label.reviewDelayDesc")}
         </p>
         <div className="flex items-center gap-3">
@@ -213,13 +213,13 @@ export function WorkflowSettingsPage() {
             max={8760}
             value={reviewDelay}
             onChange={(e) => setReviewDelay(Number(e.target.value))}
-            className="w-32 rounded-lg border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 px-3 py-2 text-sm text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#C5A059]/50"
+            className="w-32 rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/50"
           />
-          <span className="text-sm text-slate-500 dark:text-zinc-400">{t(lang, "workflow.label.hours")} (~{Math.round(reviewDelay / 24)} {t(lang, "workflow.label.days")})</span>
+          <span className="text-sm text-[var(--text-subtle)]">{t(lang, "workflow.label.hours")} (~{Math.round(reviewDelay / 24)} {t(lang, "workflow.label.days")})</span>
           <button
             onClick={() => { void saveDelay(); }}
             disabled={savingDelay}
-            className="ml-auto px-4 py-2 rounded-lg bg-[#C5A059] text-white text-sm font-medium hover:bg-[#b8934d] disabled:opacity-50 transition-colors"
+            className="ml-auto px-4 py-2 rounded-lg bg-[var(--accent)] text-white text-sm font-medium hover:bg-[var(--accent-hover)] disabled:opacity-50 transition-colors"
           >
             {savingDelay ? t(lang, "common.saving") : t(lang, "common.save")}
           </button>
@@ -228,3 +228,4 @@ export function WorkflowSettingsPage() {
     </div>
   );
 }
+

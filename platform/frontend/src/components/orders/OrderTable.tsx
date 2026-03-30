@@ -75,7 +75,7 @@ function IconBtn({
       <button
         type="button"
         aria-label={title}
-        className="inline-flex items-center justify-center rounded-lg border border-zinc-700 bg-transparent p-1.5 text-zinc-400 transition-colors hover:border-zinc-500 hover:text-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+        className="inline-flex items-center justify-center rounded-lg border border-zinc-700 bg-transparent p-1.5 text-zinc-400 transition-colors hover:border-zinc-500 hover:text-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
         onClick={(e) => { e.stopPropagation(); onClick(e); }}
       >
         {children}
@@ -161,7 +161,7 @@ export function OrderTable({ orders, onOpenDetail, onOpenMessages, onOpenUpload 
       <button
         type="button"
         onClick={() => toggleSort(keyName)}
-        className="inline-flex items-center gap-1.5 text-left text-xs font-bold uppercase tracking-wider text-[#C5A059] hover:text-[#d7b878]"
+        className="inline-flex items-center gap-1.5 text-left text-xs font-bold uppercase tracking-wider text-[var(--accent)] hover:text-[#d7b878]"
       >
         <span>{label}</span>
         {isActive ? (
@@ -308,7 +308,7 @@ export function OrderTable({ orders, onOpenDetail, onOpenMessages, onOpenUpload 
         {/* Sticky header */}
         <div className="overflow-auto rounded-xl border border-zinc-800/50 bg-transparent">
           <table className="min-w-full text-sm">
-            <thead className="border-b-2 border-[#C5A059]/20">
+            <thead className="border-b-2 border-[var(--accent)]/20">
               <tr>
                 <th className="px-3 py-2 text-left"><SortHeader label={t(lang, "orders.table.order")} keyName="orderNo" /></th>
                 <th className="px-3 py-2 text-left"><SortHeader label={t(lang, "orders.table.customer")} keyName="customer" /></th>
@@ -316,7 +316,7 @@ export function OrderTable({ orders, onOpenDetail, onOpenMessages, onOpenUpload 
                 <th className="px-3 py-2 text-left"><SortHeader label={t(lang, "orders.table.appointment")} keyName="appointment" /></th>
                 <th className="px-3 py-2 text-left"><SortHeader label={t(lang, "orders.table.total")} keyName="total" /></th>
                 <th className="px-3 py-2 text-left"><SortHeader label={t(lang, "orders.table.status")} keyName="status" /></th>
-                <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-[#C5A059]">{t(lang, "orders.table.actions")}</th>
+                <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-[var(--accent)]">{t(lang, "orders.table.actions")}</th>
               </tr>
             </thead>
           </table>
@@ -360,3 +360,4 @@ export function OrderTable({ orders, onOpenDetail, onOpenMessages, onOpenUpload 
     </>
   );
 }
+
