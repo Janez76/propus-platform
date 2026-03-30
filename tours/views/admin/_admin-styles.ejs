@@ -111,6 +111,7 @@
     --bg-hover: #242528;
     --text: #f0ece4;
     --text-muted: #c0bbb4;
+    --text-subtle: rgba(240, 236, 228, 0.42);
     --border: rgba(255,255,255,0.1);
     --accent: var(--propus-gold-dark);
     --accent-soft: color-mix(in srgb, var(--propus-gold-dark) 18%, transparent);
@@ -484,7 +485,7 @@
   /* Toast container */
   #toast-container { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 9999; display: flex; flex-direction: column; gap: 0.5rem; }
   .toast { padding: 1rem 1.25rem; border-radius: var(--radius); font-size: 0.9rem; animation: toastIn 0.3s ease; max-width: 360px; }
-  .toast.success { background: var(--gold-700); color: #fff; }
+  .toast.success { background: var(--accent); color: #fff; }
   .toast.error { background: var(--danger); color: #fff; }
   @keyframes toastIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
@@ -528,7 +529,7 @@
     }
     .portal-nav-main { overflow-y: visible; flex: 0 1 auto; }
     .admin-sidebar nav a { padding: 0.5rem 0.75rem; font-size: 0.85rem; border-left: none; border-bottom: 2px solid transparent; }
-    .admin-sidebar nav a.active { border-bottom-color: var(--gold-300); }
+    .admin-sidebar nav a.active { border-bottom-color: var(--accent); }
     .admin-sidebar .logout-wrap { margin: 0; padding: 0.5rem 0 0 1rem; }
     .admin-main { padding: 1rem; overflow: visible; min-height: 0; }
     .stats { grid-template-columns: repeat(2, 1fr); }
