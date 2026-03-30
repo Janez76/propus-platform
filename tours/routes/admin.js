@@ -1563,13 +1563,66 @@ function teamInviteListLabel(email) {
 
 router.get('/portal-roles', async (req, res) => {
   await portalTeam.ensurePortalTeamSchema();
+  const tab = req.query.tab === 'extern' ? 'extern' : 'intern';
   const staffRows = await portalTeam.listPortalStaffRoles();
+
+  // Externe Kunden-Admins: alle aktiven 'admin'-Mitglieder aller Workspaces
+  let externRows = [];
+  try {
+    const r = await pool.query(`
+      SELECT
+        m.owner_email,
+        m.member_email,
+        m.display_name,
+        m.role,
+        m.status,
+        m.accepted_at,
+        m.created_at,
+        COALESCE(NULLIF(trim(c.name),''), c.company, m.owner_email) AS customer_name,
+        c.id AS customer_id
+      FROM tour_manager.portal_team_members m
+      LEFT JOIN core.customers c ON LOWER(c.email) = LOWER(m.owner_email)
+      WHERE m.role IN ('admin', 'inhaber')
+        AND m.status = 'active'
+      ORDER BY LOWER(m.owner_email), m.role DESC, LOWER(m.member_email)
+    `);
+    externRows = r.rows;
+  } catch (_) { /* Tabelle existiert noch nicht – kein Problem */ }
+
+  // Alle Workspace-Inhaber (owner_email aus tours) für "Kunden-Admin setzen"-Form
+  let ownerList = [];
+  try {
+    const owR = await pool.query(`
+      SELECT DISTINCT
+        LOWER(TRIM(t.customer_email)) AS owner_email,
+        COALESCE(NULLIF(trim(c.name),''), c.company, t.customer_email) AS customer_name,
+        c.id AS customer_id
+      FROM tour_manager.tours t
+      LEFT JOIN core.customers c ON LOWER(c.email) = LOWER(t.customer_email)
+      WHERE t.customer_email IS NOT NULL AND trim(t.customer_email) <> ''
+      ORDER BY 2
+      LIMIT 200
+    `);
+    ownerList = owR.rows;
+  } catch (_) {}
+
+  const admin = req.session?.admin || {};
   res.render('admin/portal-roles', {
     activePage: 'portalRoles',
+    adminName: admin.email || '',
+    adminSidebarDisplayName: admin.displayName || admin.email || '',
+    adminSidebarOrganization: admin.organization || 'Propus GmbH',
+    adminSidebarHasProfilePhoto: admin.hasProfilePhoto || false,
+    adminSidebarPhotoVersion: admin.photoVersion || 0,
     staffRows,
+    externRows,
+    ownerList,
+    tab,
     logtoPortalEnabled: isLogtoEnabled('PROPUS_TOURS_PORTAL'),
     saved: req.query.saved === '1',
     removed: req.query.removed === '1',
+    externSaved: req.query.externSaved === '1',
+    externRemoved: req.query.externRemoved === '1',
     error: req.query.error || null,
   });
 });
@@ -1592,6 +1645,49 @@ router.post('/portal-roles/remove', async (req, res) => {
     return res.redirect('/admin/portal-roles?removed=1');
   } catch (e) {
     return res.redirect(`/admin/portal-roles?error=${encodeURIComponent(e.message || 'Fehler')}`);
+  }
+});
+
+// Extern: Kunden-Admin direkt setzen (member_email als 'admin' in owner-Workspace eintragen)
+router.post('/portal-roles/extern-set', async (req, res) => {
+  try {
+    const ownerEmail = String(req.body?.owner_email || '').trim().toLowerCase();
+    const memberEmail = String(req.body?.member_email || '').trim().toLowerCase();
+    if (!ownerEmail || !memberEmail) throw new Error('owner_email und member_email erforderlich.');
+    if (!memberEmail.includes('@')) throw new Error('Ungültige E-Mail-Adresse.');
+
+    await portalTeam.ensurePortalTeamSchema();
+    // Upsert: als aktiven Admin eintragen (accepted = jetzt)
+    await pool.query(`
+      INSERT INTO tour_manager.portal_team_members
+        (owner_email, member_email, role, status, accepted_at, created_at)
+      VALUES ($1, $2, 'admin', 'active', NOW(), NOW())
+      ON CONFLICT (owner_email, member_email) DO UPDATE
+        SET role = 'admin', status = 'active', accepted_at = COALESCE(tour_manager.portal_team_members.accepted_at, NOW())
+    `, [ownerEmail, memberEmail]);
+
+    return res.redirect('/admin/portal-roles?tab=extern&externSaved=1');
+  } catch (e) {
+    return res.redirect(`/admin/portal-roles?tab=extern&error=${encodeURIComponent(e.message || 'Fehler')}`);
+  }
+});
+
+// Extern: Kunden-Admin-Rolle entfernen / auf mitarbeiter zurückstufen
+router.post('/portal-roles/extern-remove', async (req, res) => {
+  try {
+    const ownerEmail = String(req.body?.owner_email || '').trim().toLowerCase();
+    const memberEmail = String(req.body?.member_email || '').trim().toLowerCase();
+    if (!ownerEmail || !memberEmail) throw new Error('Fehlende Parameter.');
+
+    await pool.query(`
+      UPDATE tour_manager.portal_team_members
+      SET role = 'mitarbeiter'
+      WHERE LOWER(owner_email) = $1 AND LOWER(member_email) = $2
+    `, [ownerEmail, memberEmail]);
+
+    return res.redirect('/admin/portal-roles?tab=extern&externRemoved=1');
+  } catch (e) {
+    return res.redirect(`/admin/portal-roles?tab=extern&error=${encodeURIComponent(e.message || 'Fehler')}`);
   }
 });
 

@@ -6,67 +6,295 @@
   <title>Portal-Rollen – Propus Tour Manager</title>
   <%- include('_admin-styles') %>
   <style>
-    .pr-intro { color: var(--text-muted); margin: 0 0 1rem 0; max-width: 720px; }
-    .pr-list { border: 1px solid var(--border); border-radius: 12px; background: #fff; overflow: hidden; }
-    .pr-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.85rem 1rem; border-top: 1px solid var(--border); flex-wrap: wrap; }
-    .pr-row:first-child { border-top: none; }
-    .pr-email { font-weight: 600; color: var(--gray-900); }
-    .pr-meta { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem; }
-    .pr-form { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: flex-end; margin-top: 1rem; }
-    .pr-form label { display: grid; gap: 0.25rem; font-size: 0.82rem; color: var(--text-muted); }
-    .pr-form input[type="email"] { min-width: 260px; padding: 0.5rem 0.65rem; border-radius: 10px; border: 1px solid var(--border); }
+    /* Tabs */
+    .pr-tabs { display:flex; gap:0; border-bottom:2px solid var(--border); margin-bottom:1.5rem; }
+    .pr-tab {
+      padding:0.6rem 1.25rem; font-size:0.88rem; font-weight:600;
+      color:var(--text-muted); cursor:pointer; text-decoration:none;
+      border-bottom:2px solid transparent; margin-bottom:-2px;
+      display:flex; align-items:center; gap:0.4rem; transition:color .15s;
+    }
+    .pr-tab:hover { color:var(--text); }
+    .pr-tab.active { color:var(--primary,#C5A059); border-bottom-color:var(--primary,#C5A059); }
+    .pr-tab-badge {
+      display:inline-flex; align-items:center; justify-content:center;
+      min-width:18px; height:18px; border-radius:9px; font-size:0.68rem; font-weight:700;
+      padding:0 5px; background:var(--primary-muted,rgba(197,160,89,.15)); color:var(--primary,#C5A059);
+    }
+
+    /* Intro */
+    .pr-intro { color:var(--text-muted); margin:0 0 1.25rem 0; max-width:720px; font-size:0.88rem; line-height:1.6; }
+
+    /* Liste */
+    .pr-list { border:1px solid var(--border); border-radius:12px; background:var(--bg-card,#fff); overflow:hidden; margin-bottom:1.25rem; }
+    .pr-row { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:0.85rem 1rem; border-top:1px solid var(--border); flex-wrap:wrap; }
+    .pr-row:first-child { border-top:none; }
+    .pr-avatar {
+      width:32px; height:32px; border-radius:50%; flex-shrink:0;
+      display:flex; align-items:center; justify-content:center;
+      font-size:0.7rem; font-weight:700;
+    }
+    .pr-avatar-intern { background:rgba(99,102,241,.13); color:#a5b4fc; }
+    .pr-avatar-extern { background:rgba(197,160,89,.13); color:#C5A059; }
+    .pr-row-left { display:flex; align-items:center; gap:0.7rem; }
+    .pr-email { font-weight:600; color:var(--text); font-size:0.88rem; }
+    .pr-meta  { font-size:0.76rem; color:var(--text-muted); margin-top:2px; }
+    .pr-badge {
+      display:inline-flex; align-items:center; gap:3px;
+      padding:2px 7px; border-radius:20px; font-size:0.7rem; font-weight:600;
+    }
+    .pr-badge-intern { background:rgba(99,102,241,.12); color:#a5b4fc; }
+    .pr-badge-admin  { background:rgba(197,160,89,.12); color:#C5A059; }
+    .pr-badge-inhaber{ background:rgba(34,197,94,.12); color:#22c55e; }
+
+    /* Form */
+    .pr-form { display:flex; gap:0.5rem; flex-wrap:wrap; align-items:flex-end; margin-top:0.25rem; }
+    .pr-form label { display:grid; gap:0.3rem; font-size:0.82rem; color:var(--text-muted); }
+    .pr-form input, .pr-form select {
+      padding:0.48rem 0.65rem; border-radius:10px; border:1px solid var(--border);
+      background:var(--bg); color:var(--text); font-size:0.88rem;
+    }
+    .pr-form input[type="email"], .pr-form input[type="text"] { min-width:250px; }
+    .pr-form select { min-width:200px; }
+
+    /* Group header for extern */
+    .pr-group-header {
+      padding:0.5rem 1rem; font-size:0.75rem; font-weight:700; letter-spacing:.04em;
+      color:var(--text-muted); background:var(--bg-subtle,rgba(0,0,0,.03)); text-transform:uppercase;
+      border-bottom:1px solid var(--border);
+    }
+
+    /* empty */
+    .pr-empty { padding:1.5rem 1rem; color:var(--text-muted); font-size:0.85rem; text-align:center; }
   </style>
 </head>
 <body>
 <% const bp = typeof basePath === 'string' ? basePath : ''; %>
+<% function initials(s) {
+   const parts = String(s||'').trim().split(/[\s@.]+/).filter(Boolean).slice(0,2);
+   return parts.map(p=>p[0].toUpperCase()).join('') || 'P';
+} %>
+<% function fmtDate(d) {
+   if (!d) return '–';
+   return new Date(d).toLocaleDateString('de-CH',{day:'2-digit',month:'2-digit',year:'2-digit'});
+} %>
+
   <div class="admin-shell">
     <%- include('_header') %>
     <main class="admin-main">
-      <h1>Portal-Rollen (Tour-Manager)</h1>
-      <p class="pr-intro">
-        Interne Tour-Manager sehen im Kundenportal <strong>alle</strong> Touren aller Kunden und können Zuständigkeiten wie Arbeitsbereichs-Admins setzen.
-        Die Vergabe erfolgt zentral hier; die Rolle ist nicht über Teameinladungen im Portal abgebildet.
-      </p>
-      <% if (typeof logtoPortalEnabled !== 'undefined' && logtoPortalEnabled) { %>
-        <p class="pr-intro" style="margin-top:-0.5rem;">
-          <strong>Logto-SSO</strong> für das Portal ist aktiv (<code>PROPUS_TOURS_PORTAL_LOGTO_*</code>). Nutzer melden sich unter
-          <a href="<%= bp %>/portal/login">Kundenportal-Login</a> mit „Mit Propus-Konto anmelden“ an.
+      <div style="margin-bottom:1.25rem;">
+        <h1 style="margin:0 0 0.25rem 0;">Portal-Rollen</h1>
+        <p style="margin:0;color:var(--text-muted);font-size:0.88rem;">
+          Zentrale Verwaltung interner Tour-Manager und externer Kunden-Admins.
         </p>
-      <% } %>
+      </div>
 
-      <% if (saved) { %><div class="alert alert-success">Tour-Manager wurde hinzugefügt.</div><% } %>
-      <% if (removed) { %><div class="alert alert-success">Eintrag wurde entfernt.</div><% } %>
-      <% if (error) { %><div class="alert alert-error"><%= error %></div><% } %>
+      <!-- Alerts -->
+      <% if (saved) { %><div class="alert alert-success" style="margin-bottom:1rem;">Tour-Manager wurde hinzugefügt.</div><% } %>
+      <% if (removed) { %><div class="alert alert-success" style="margin-bottom:1rem;">Interner Eintrag wurde entfernt.</div><% } %>
+      <% if (externSaved) { %><div class="alert alert-success" style="margin-bottom:1rem;">Kunden-Admin wurde gesetzt.</div><% } %>
+      <% if (externRemoved) { %><div class="alert alert-success" style="margin-bottom:1rem;">Admin-Rolle wurde zurückgestuft.</div><% } %>
+      <% if (error) { %><div class="alert alert-error" style="margin-bottom:1rem;"><%= error %></div><% } %>
 
-      <section class="section">
-        <h2>Tour-Manager (E-Mail)</h2>
-        <div class="pr-list">
-          <% if (!staffRows || staffRows.length === 0) { %>
-            <div class="pr-row"><span class="pr-meta">Noch keine Einträge.</span></div>
-          <% } else { %>
-            <% staffRows.forEach((row) => { %>
-              <div class="pr-row">
-                <div>
-                  <div class="pr-email"><%= row.email_norm %></div>
-                  <div class="pr-meta">Rolle: <%= row.role %> · seit <%= row.created_at ? new Date(row.created_at).toLocaleString('de-CH') : '—' %></div>
-                </div>
-                <form method="post" action="<%= bp %>/admin/portal-roles/remove" style="margin:0;" onsubmit="return confirm('Tour-Manager-Rechte für diese E-Mail entfernen?');">
-                  <input type="hidden" name="email" value="<%= row.email_norm %>">
-                  <button type="submit" class="btn btn-soft-danger">Entfernen</button>
-                </form>
-              </div>
-            <% }) %>
+      <!-- Tabs -->
+      <div class="pr-tabs">
+        <a href="<%= bp %>/admin/portal-roles?tab=intern"
+           class="pr-tab <%= tab === 'intern' ? 'active' : '' %>">
+          <i class="fa-solid fa-user-shield"></i>
+          Intern (Tour-Manager)
+          <% if (staffRows && staffRows.length > 0) { %>
+            <span class="pr-tab-badge"><%= staffRows.length %></span>
           <% } %>
+        </a>
+        <a href="<%= bp %>/admin/portal-roles?tab=extern"
+           class="pr-tab <%= tab === 'extern' ? 'active' : '' %>">
+          <i class="fa-solid fa-users"></i>
+          Extern (Kunden-Admins)
+          <% const adminCount = (externRows||[]).filter(r=>r.role==='admin').length; %>
+          <% if (adminCount > 0) { %>
+            <span class="pr-tab-badge"><%= adminCount %></span>
+          <% } %>
+        </a>
+      </div>
+
+      <!-- ═══ TAB INTERN ═══ -->
+      <% if (tab === 'intern') { %>
+        <p class="pr-intro">
+          Interne Tour-Manager sehen im Kundenportal <strong>alle</strong> Touren aller Kunden und können
+          Zuständigkeiten wie Arbeitsbereichs-Admins setzen. Die Vergabe erfolgt zentral hier –
+          die Rolle wird nicht über Teameinladungen vergeben.
+        </p>
+        <% if (typeof logtoPortalEnabled !== 'undefined' && logtoPortalEnabled) { %>
+          <p class="pr-intro" style="margin-top:-0.5rem;">
+            <i class="fa-solid fa-shield-check" style="color:var(--primary,#C5A059);"></i>
+            <strong>Logto-SSO</strong> ist aktiv. Interne Nutzer melden sich unter
+            <a href="<%= bp %>/portal/login">Kundenportal-Login</a> mit „Mit Propus-Konto anmelden" an.
+          </p>
+        <% } %>
+
+        <div class="section" style="padding:0;">
+          <div style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);font-size:0.82rem;font-weight:600;color:var(--text-muted);">
+            Tour-Manager (<%= (staffRows||[]).length %>)
+          </div>
+          <div class="pr-list" style="border:none;border-radius:0;margin:0;">
+            <% if (!staffRows || staffRows.length === 0) { %>
+              <div class="pr-empty">
+                <i class="fa-solid fa-user-shield" style="font-size:1.5rem;opacity:.2;display:block;margin-bottom:0.5rem;"></i>
+                Noch keine internen Tour-Manager eingetragen.
+              </div>
+            <% } else { %>
+              <% staffRows.forEach((row) => { %>
+                <div class="pr-row">
+                  <div class="pr-row-left">
+                    <div class="pr-avatar pr-avatar-intern"><%= initials(row.email_norm) %></div>
+                    <div>
+                      <div class="pr-email"><%= row.email_norm %></div>
+                      <div class="pr-meta">
+                        <span class="pr-badge pr-badge-intern"><i class="fa-solid fa-user-shield"></i> Tour-Manager</span>
+                        &nbsp;seit <%= fmtDate(row.created_at) %>
+                      </div>
+                    </div>
+                  </div>
+                  <form method="post" action="<%= bp %>/admin/portal-roles/remove" style="margin:0;"
+                        onsubmit="return confirm('Tour-Manager-Rechte für diese E-Mail entfernen?');">
+                    <input type="hidden" name="email" value="<%= row.email_norm %>">
+                    <button type="submit" class="btn btn-soft-danger btn-small">
+                      <i class="fa-solid fa-trash"></i> Entfernen
+                    </button>
+                  </form>
+                </div>
+              <% }) %>
+            <% } %>
+          </div>
+
+          <div style="padding:1rem;border-top:1px solid var(--border);">
+            <div style="font-size:0.82rem;font-weight:600;color:var(--text-muted);margin-bottom:0.5rem;">
+              Tour-Manager hinzufügen
+            </div>
+            <form method="post" action="<%= bp %>/admin/portal-roles/add" class="pr-form">
+              <label>
+                E-Mail (Propus-intern)
+                <input type="email" name="email" required placeholder="name@propus.ch" autocomplete="off">
+              </label>
+              <button type="submit" class="btn btn-primary" style="align-self:flex-end;">
+                <i class="fa-solid fa-user-plus"></i> Als Tour-Manager speichern
+              </button>
+            </form>
+          </div>
         </div>
 
-        <form method="post" action="<%= bp %>/admin/portal-roles/add" class="pr-form">
-          <label>
-            E-Mail hinzufügen
-            <input type="email" name="email" required placeholder="name@firma.ch" autocomplete="off">
-          </label>
-          <button type="submit" class="btn btn-primary">Als Tour-Manager speichern</button>
-        </form>
-      </section>
+      <!-- ═══ TAB EXTERN ═══ -->
+      <% } else { %>
+        <p class="pr-intro">
+          Kunden-Admins sind externe Nutzer, die im Kundenportal ihr eigenes Team verwalten dürfen
+          (Mitglieder einladen, Rollen setzen). Pro Workspace (Kunden-E-Mail) kann es einen oder
+          mehrere Admins geben. Der Workspace-Inhaber hat immer vollen Zugriff.
+        </p>
+
+        <div class="section" style="padding:0;">
+          <!-- Gruppenweise nach Workspace -->
+          <%
+            // Gruppieren nach owner_email
+            const grouped = {};
+            (externRows||[]).forEach(r => {
+              const k = r.owner_email;
+              if (!grouped[k]) grouped[k] = { customer_name: r.customer_name, customer_id: r.customer_id, members: [] };
+              grouped[k].members.push(r);
+            });
+            const groupKeys = Object.keys(grouped);
+          %>
+
+          <% if (groupKeys.length === 0) { %>
+            <div class="pr-empty" style="padding:2.5rem;">
+              <i class="fa-solid fa-users" style="font-size:1.8rem;opacity:.2;display:block;margin-bottom:0.5rem;"></i>
+              Noch keine externen Kunden-Admins gesetzt.
+            </div>
+          <% } else { %>
+            <% groupKeys.forEach(ownerEmail => {
+                const g = grouped[ownerEmail];
+            %>
+              <div class="pr-group-header">
+                <% if (g.customer_id) { %>
+                  <a href="<%= bp %>/admin/customers/<%= g.customer_id %>" style="color:inherit;">
+                    <%= g.customer_name %></a>
+                <% } else { %>
+                  <%= g.customer_name %>
+                <% } %>
+                <span style="font-weight:400;margin-left:0.5rem;opacity:.7;font-size:0.7rem;text-transform:none;">
+                  (<%= ownerEmail %>)
+                </span>
+              </div>
+              <% g.members.forEach(m => { %>
+                <div class="pr-row">
+                  <div class="pr-row-left">
+                    <div class="pr-avatar pr-avatar-extern"><%= initials(m.display_name || m.member_email) %></div>
+                    <div>
+                      <div class="pr-email">
+                        <%= m.display_name || m.member_email %>
+                        <% if (m.display_name) { %>
+                          <span style="font-weight:400;color:var(--text-muted);font-size:0.8rem;"> · <%= m.member_email %></span>
+                        <% } %>
+                      </div>
+                      <div class="pr-meta">
+                        <% if (m.role === 'inhaber') { %>
+                          <span class="pr-badge pr-badge-inhaber"><i class="fa-solid fa-crown"></i> Inhaber</span>
+                        <% } else { %>
+                          <span class="pr-badge pr-badge-admin"><i class="fa-solid fa-user-gear"></i> Kunden-Admin</span>
+                        <% } %>
+                        &nbsp;aktiv seit <%= fmtDate(m.accepted_at || m.created_at) %>
+                      </div>
+                    </div>
+                  </div>
+                  <% if (m.role !== 'inhaber') { %>
+                    <form method="post" action="<%= bp %>/admin/portal-roles/extern-remove" style="margin:0;"
+                          onsubmit="return confirm('Admin-Rolle entfernen und auf Mitarbeiter zurückstufen?');">
+                      <input type="hidden" name="owner_email"  value="<%= ownerEmail %>">
+                      <input type="hidden" name="member_email" value="<%= m.member_email %>">
+                      <button type="submit" class="btn btn-soft-danger btn-small">
+                        <i class="fa-solid fa-arrow-down"></i> Zurückstufen
+                      </button>
+                    </form>
+                  <% } else { %>
+                    <span style="font-size:0.75rem;color:var(--text-muted);">Inhaber kann nicht entfernt werden</span>
+                  <% } %>
+                </div>
+              <% }) %>
+            <% }) %>
+          <% } %>
+
+          <!-- Form: Kunden-Admin direkt setzen -->
+          <div style="padding:1rem;border-top:1px solid var(--border);">
+            <div style="font-size:0.82rem;font-weight:600;color:var(--text-muted);margin-bottom:0.5rem;">
+              Kunden-Admin direkt setzen
+            </div>
+            <form method="post" action="<%= bp %>/admin/portal-roles/extern-set" class="pr-form">
+              <label>
+                Workspace (Kunden-E-Mail / Inhaber)
+                <select name="owner_email" required>
+                  <option value="">– Kunden auswählen –</option>
+                  <% (ownerList||[]).forEach(o => { %>
+                    <option value="<%= o.owner_email %>">
+                      <%= o.customer_name %> (<%= o.owner_email %>)
+                    </option>
+                  <% }) %>
+                </select>
+              </label>
+              <label>
+                Admin E-Mail
+                <input type="email" name="member_email" required placeholder="person@kunde.ch" autocomplete="off">
+              </label>
+              <button type="submit" class="btn btn-primary" style="align-self:flex-end;">
+                <i class="fa-solid fa-user-gear"></i> Als Kunden-Admin setzen
+              </button>
+            </form>
+            <p style="font-size:0.77rem;color:var(--text-muted);margin:0.5rem 0 0 0;">
+              Ist die E-Mail noch nicht im Portal-Team, wird sie als aktives Admin-Mitglied eingetragen.
+              Die Person kann sich danach mit dieser E-Mail im Kundenportal anmelden.
+            </p>
+          </div>
+        </div>
+      <% } %>
+
     </main>
   </div>
 </body>
