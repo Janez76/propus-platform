@@ -1711,7 +1711,7 @@ router.post('/portal-roles/extern-set', async (req, res) => {
       INSERT INTO tour_manager.portal_team_members
         (owner_email, member_email, role, status, accepted_at, created_at)
       VALUES ($1, $2, 'admin', 'active', NOW(), NOW())
-      ON CONFLICT (owner_email, member_email) DO UPDATE
+      ON CONFLICT (lower(owner_email), lower(member_email)) DO UPDATE
         SET role = 'admin', status = 'active', accepted_at = COALESCE(tour_manager.portal_team_members.accepted_at, NOW())
     `, [ownerEmail, memberEmail]);
 
@@ -4450,7 +4450,7 @@ router.post('/customers/:id/contacts/:cid/portal-role', async (req, res) => {
         `INSERT INTO tour_manager.portal_team_members
            (owner_email, member_email, display_name, role, status, accepted_at, created_at)
          VALUES ($1, $2, $3, $4, 'active', NOW(), NOW())
-         ON CONFLICT (owner_email, member_email) DO UPDATE
+         ON CONFLICT (lower(owner_email), lower(member_email)) DO UPDATE
            SET role = $4,
                status = 'active',
                display_name = COALESCE($3, tour_manager.portal_team_members.display_name),
