@@ -55,6 +55,7 @@ const navigationItems: SidebarNavItem[] = [
   { path: "/upload", icon: Upload, labelKey: "nav.upload" },
   { path: "/calendar", icon: Calendar, labelKey: "nav.calendar" },
   { path: "/customers", icon: Users, labelKey: "nav.customers" },
+  { path: "/settings/companies", icon: Building2, labelKey: "sidebar.nav.companies" },
   { path: "/products", icon: Boxes, labelKey: "nav.catalog" },
   { path: "/discount-codes", icon: Tag, labelKey: "nav.discountCodes" },
   { path: "/reviews", icon: Star, labelKey: "nav.reviews" },
@@ -90,7 +91,8 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const location = useLocation();
   const showDevLoggerButton = import.meta.env.DEV;
   const isSettingsActive =
-    location.pathname.startsWith("/settings") || location.pathname.startsWith("/exxas-reconcile");
+    (location.pathname.startsWith("/settings") && !location.pathname.startsWith("/settings/companies")) ||
+    location.pathname.startsWith("/exxas-reconcile");
   const isCompanyRole = isCompanyWorkspaceRole(role);
   const visibleNavigationItems = useMemo(() => {
     if (!isCompanyRole) return navigationItems.filter((item) => canAccessPath(item.path));

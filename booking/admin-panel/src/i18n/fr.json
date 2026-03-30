@@ -1048,6 +1048,7 @@
   "sidebar.nav.exxas": "Intégration EXXAS",
   "sidebar.nav.userManagement": "Gestion des utilisateurs",
   "sidebar.nav.access": "Droits et rôles",
+  "sidebar.nav.companies": "Gestion des entreprises",
   "sidebar.button.collapse": "Réduire",
   "settings.exxas.title": "Intégration EXXAS",
   "settings.exxas.subtitle": "Charger les champs EXXAS, les afficher par catégorie et les lier aux champs du panneau admin.",
