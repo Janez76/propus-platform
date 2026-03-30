@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Globe, FileText, Users, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Globe, FileText, Users, AlertCircle } from "lucide-react";
 import { getPortalTours, getPortalInvoices, type PortalTour, type PortalInvoice } from "../../api/portalTours";
 
 export function PortalDashboardPage() {

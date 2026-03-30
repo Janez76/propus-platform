@@ -74,7 +74,6 @@ function PrivateRoutes() {
   const { isLoggedIn, role } = useAuth();
   const isCompanyRole = isCompanyWorkspaceRole(role);
   const isKunden = isKundenRole(role);
-  const isCustomer = role === "customer" || role === "customer_admin" || role === "customer_user";
   const adminOnlyRoles: Role[] = ["admin", "super_admin"];
   const companyHome = role === "company_employee" ? "/portal/bestellungen" : "/portal/firma";
 

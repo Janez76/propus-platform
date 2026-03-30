@@ -17,6 +17,17 @@ export const CHANGELOG: ChangelogVersion[] = [
   {
     version: "2.3.293",
     date: "2026-03-30",
+    title: "Deploy",
+    changes: [
+      {
+        type: "improvement",
+        text: "Versionsnummer fuer VPS-Deploy auf v2.3.293 erhoeht.",
+      },
+    ],
+  },
+  {
+    version: "2.3.293",
+    date: "2026-03-30",
     title: "Kunden-Portal Phase 6 & 7",
     changes: [
       {

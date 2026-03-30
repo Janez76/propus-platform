@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FileText, AlertCircle, CheckCircle2 } from "lucide-react";
+import { FileText, AlertCircle } from "lucide-react";
 import { getPortalInvoices, type PortalInvoice } from "../../api/portalTours";
 
 export function PortalInvoicesPage() {
