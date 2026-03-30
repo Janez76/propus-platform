@@ -15,6 +15,17 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.289",
+    date: "2026-03-30",
+    title: "Firmenverwaltung in Hauptnavigation",
+    changes: [
+      {
+        type: "improvement",
+        text: "Firmenverwaltung aus dem Einstellungen-Untermenü in die Hauptnavigation verschoben – direkt nach «Kunden» für schnelleren Zugriff.",
+      },
+    ],
+  },
+  {
     version: "2.3.288",
     date: "2026-03-30",
     title: "Deploy",
