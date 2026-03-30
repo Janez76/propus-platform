@@ -15,6 +15,40 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.293",
+    date: "2026-03-30",
+    title: "Zentrales Kunden-Portal (Phase 6 & 7)",
+    changes: [
+      {
+        type: "feature",
+        text: "Einheitliches Kunden-Portal im React SPA: Dashboard, Touren, Rechnungen, Team.",
+      },
+      {
+        type: "feature",
+        text: "Portal-JSON-API (/portal/api) fuer alle Kunden-Endpunkte.",
+      },
+      {
+        type: "feature",
+        text: "Sidebar erkennt Kunden-Rollen und zeigt Kunden-Navigation ('Kundenportal').",
+      },
+      {
+        type: "feature",
+        text: "Neue Rollen: tour_manager, customer_admin, customer_user in types.ts und permissions.ts.",
+      },
+    ],
+  },
+  {
+    version: "2.3.292",
+    date: "2026-03-30",
+    title: "Deploy",
+    changes: [
+      {
+        type: "improvement",
+        text: "Versionsnummer fuer VPS-Deploy auf v2.3.292 erhoeht.",
+      },
+    ],
+  },
+  {
     version: "2.3.291",
     date: "2026-03-30",
     title: "Deploy",

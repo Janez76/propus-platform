@@ -1,0 +1,226 @@
+/**
+ * JSON-API für das React-Kunden-Portal (SPA).
+ * Alle Endpunkte erfordern eine gültige Portal-Session (portalCustomerEmail).
+ * Gemounted unter /portal/api (in server.js).
+ */
+
+const express = require('express');
+const router = express.Router();
+const { pool } = require('../lib/db');
+const portalTeam = require('../lib/portal-team');
+const { normalizeTourRow } = require('../lib/normalize');
+
+// ─── Auth-Guard ──────────────────────────────────────────────────────────────
+
+function requirePortalSession(req, res, next) {
+  if (req.session?.portalCustomerEmail) return next();
+  return res.status(401).json({ error: 'Nicht angemeldet' });
+}
+
+router.use(requirePortalSession);
+
+// ─── Helper ──────────────────────────────────────────────────────────────────
+
+async function getPortalScope(email) {
+  const { ownerEmails, orgKundeRefs } = await portalTeam.getPortalTourAccessScope(email);
+  return { ownerEmails, orgKundeRefs };
+}
+
+async function loadTours(email) {
+  const { ownerEmails, orgKundeRefs } = await getPortalScope(email);
+  if (ownerEmails.length === 0) return [];
+
+  const toursResult =
+    orgKundeRefs.length > 0
+      ? await pool.query(
+          `SELECT * FROM tour_manager.tours
+           WHERE LOWER(TRIM(customer_email)) = ANY($1::text[])
+              OR TRIM(CAST(kunde_ref AS TEXT)) = ANY($2::text[])
+           ORDER BY created_at DESC`,
+          [ownerEmails, orgKundeRefs]
+        )
+      : await pool.query(
+          `SELECT * FROM tour_manager.tours
+           WHERE LOWER(TRIM(customer_email)) = ANY($1::text[])
+           ORDER BY created_at DESC`,
+          [ownerEmails]
+        );
+
+  let tours = toursResult.rows.map(normalizeTourRow);
+  tours = await portalTeam.filterToursForMitarbeiterAssignee(email, tours);
+  return tours;
+}
+
+// ─── GET /portal/api/me ───────────────────────────────────────────────────────
+
+router.get('/me', async (req, res) => {
+  try {
+    const email = req.session.portalCustomerEmail;
+    const name = req.session.portalCustomerName || email;
+    const isGlobal = await portalTeam.isGlobalTourManager(email);
+    // Prüfe ob Nutzer in seinem eigenen Workspace Inhaber/Admin ist
+    const { ownerEmails } = await getPortalScope(email);
+    let isAdmin = false;
+    if (!isGlobal && ownerEmails.length > 0) {
+      // Prüfe ob der Nutzer selbst Inhaber des ersten Workspace ist
+      if (ownerEmails[0] === email.toLowerCase()) {
+        isAdmin = true;
+      } else {
+        const teamMembers = await portalTeam.listTeamMembers(ownerEmails[0]).catch(() => []);
+        isAdmin = teamMembers.some(
+          (m) => m.member_email?.toLowerCase() === email.toLowerCase() &&
+            (m.role === 'inhaber' || m.role === 'admin')
+        );
+      }
+    }
+
+    return res.json({
+      ok: true,
+      email,
+      name,
+      role: isGlobal ? 'tour_manager' : (isAdmin ? 'customer_admin' : 'customer_user'),
+      permissions: isGlobal
+        ? ['tours.read', 'tours.manage', 'tours.assign', 'tours.cross_company', 'tours.archive', 'tours.link_matterport', 'portal_team.manage']
+        : (isAdmin
+          ? ['tours.read', 'tours.manage', 'portal_team.manage']
+          : ['tours.read']),
+    });
+  } catch (err) {
+    console.error('[portal-api] /me error:', err);
+    return res.status(500).json({ error: 'Interner Fehler' });
+  }
+});
+
+// ─── GET /portal/api/tours ────────────────────────────────────────────────────
+
+router.get('/tours', async (req, res) => {
+  try {
+    const email = req.session.portalCustomerEmail;
+    const tours = await loadTours(email);
+    return res.json({ ok: true, tours });
+  } catch (err) {
+    console.error('[portal-api] /tours error:', err);
+    return res.status(500).json({ error: 'Interner Fehler' });
+  }
+});
+
+// ─── GET /portal/api/tours/:id ────────────────────────────────────────────────
+
+router.get('/tours/:id', async (req, res) => {
+  try {
+    const email = req.session.portalCustomerEmail;
+    const tours = await loadTours(email);
+    const tour = tours.find((t) => String(t.id) === String(req.params.id));
+    if (!tour) return res.status(404).json({ error: 'Tour nicht gefunden oder kein Zugriff' });
+
+    const logs = await pool.query(
+      'SELECT * FROM tour_manager.actions_log WHERE tour_id = $1 ORDER BY created_at DESC LIMIT 20',
+      [tour.id]
+    );
+    return res.json({ ok: true, tour, actions_log: logs.rows });
+  } catch (err) {
+    console.error('[portal-api] /tours/:id error:', err);
+    return res.status(500).json({ error: 'Interner Fehler' });
+  }
+});
+
+// ─── GET /portal/api/invoices ─────────────────────────────────────────────────
+
+router.get('/invoices', async (req, res) => {
+  try {
+    const email = req.session.portalCustomerEmail;
+    const tours = await loadTours(email);
+    if (tours.length === 0) return res.json({ ok: true, invoices: [] });
+
+    const tourIds = tours.map((t) => t.id);
+    const result = await pool.query(
+      `SELECT ri.*,
+              ri.invoice_status,
+              COALESCE(ri.sent_at, ri.created_at) AS invoice_date,
+              ri.amount_chf AS betrag,
+              t.customer_email,
+              t.object_label,
+              t.bezeichnung,
+              t.id AS tour_id
+       FROM tour_manager.renewal_invoices ri
+       JOIN tour_manager.tours t ON t.id = ri.tour_id
+       WHERE t.id = ANY($1::int[])
+       ORDER BY COALESCE(ri.paid_at, ri.sent_at, ri.created_at) DESC NULLS LAST`,
+      [tourIds]
+    );
+    return res.json({ ok: true, invoices: result.rows });
+  } catch (err) {
+    console.error('[portal-api] /invoices error:', err);
+    return res.status(500).json({ error: 'Interner Fehler' });
+  }
+});
+
+// ─── GET /portal/api/team ─────────────────────────────────────────────────────
+
+router.get('/team', async (req, res) => {
+  try {
+    const email = req.session.portalCustomerEmail;
+    const { ownerEmails } = await getPortalScope(email);
+    if (ownerEmails.length === 0) return res.json({ ok: true, team: [] });
+
+    const ownerEmail = ownerEmails[0];
+    const { canManage, rows } = await portalTeam.getPortalTeamManageContext(email, ownerEmail);
+    return res.json({ ok: true, team: rows, canManage });
+  } catch (err) {
+    console.error('[portal-api] /team error:', err);
+    return res.status(500).json({ error: 'Interner Fehler' });
+  }
+});
+
+// ─── POST /portal/api/team/invite ─────────────────────────────────────────────
+
+router.post('/team/invite', async (req, res) => {
+  try {
+    const email = req.session.portalCustomerEmail;
+    const { inviteEmail, role } = req.body;
+    if (!inviteEmail) return res.status(400).json({ error: 'E-Mail fehlt' });
+
+    const { ownerEmails } = await getPortalScope(email);
+    if (ownerEmails.length === 0) return res.status(403).json({ error: 'Kein Zugriff' });
+
+    const ownerEmail = ownerEmails[0];
+    const { canManage } = await portalTeam.getPortalTeamManageContext(email, ownerEmail);
+    if (!canManage) return res.status(403).json({ error: 'Keine Berechtigung' });
+
+    await portalTeam.createTeamInvite({
+      ownerEmail,
+      inviteEmail: inviteEmail.trim().toLowerCase(),
+      role: role || portalTeam.ROLE_MITARBEITER,
+      invitedBy: email,
+    });
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('[portal-api] /team/invite error:', err);
+    return res.status(500).json({ error: err.message || 'Interner Fehler' });
+  }
+});
+
+// ─── DELETE /portal/api/team/:memberId ────────────────────────────────────────
+
+router.delete('/team/:memberId', async (req, res) => {
+  try {
+    const email = req.session.portalCustomerEmail;
+    const { ownerEmails } = await getPortalScope(email);
+    if (ownerEmails.length === 0) return res.status(403).json({ error: 'Kein Zugriff' });
+
+    const ownerEmail = ownerEmails[0];
+    const { canManage } = await portalTeam.getPortalTeamManageContext(email, ownerEmail);
+    if (!canManage) return res.status(403).json({ error: 'Keine Berechtigung' });
+
+    await pool.query(
+      `DELETE FROM tour_manager.portal_team WHERE id = $1 AND owner_email = $2`,
+      [req.params.memberId, ownerEmail]
+    );
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('[portal-api] /team/:memberId DELETE error:', err);
+    return res.status(500).json({ error: 'Interner Fehler' });
+  }
+});
+
+module.exports = router;

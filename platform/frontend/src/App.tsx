@@ -6,6 +6,7 @@ import { OfflineIndicator } from "./components/layout/OfflineIndicator";
 import { useAuth } from "./hooks/useAuth";
 import { isCompanyWorkspaceRole } from "./lib/companyRoles";
 import { isPublicBookingHost } from "./lib/publicBookingHost";
+import { isKundenRole } from "./lib/permissions";
 import type { ReactElement } from "react";
 import type { Role } from "./types";
 
@@ -48,6 +49,18 @@ const CompanyDashboardPage = lazy(() =>
 const ToursAdminHomePage = lazy(() =>
   import("./pages/ToursAdminHomePage").then((m) => ({ default: m.ToursAdminHomePage }))
 );
+const PortalDashboardPage = lazy(() =>
+  import("./pages/portal/PortalDashboardPage").then((m) => ({ default: m.PortalDashboardPage }))
+);
+const PortalToursPage = lazy(() =>
+  import("./pages/portal/PortalToursPage").then((m) => ({ default: m.PortalToursPage }))
+);
+const PortalInvoicesPage = lazy(() =>
+  import("./pages/portal/PortalInvoicesPage").then((m) => ({ default: m.PortalInvoicesPage }))
+);
+const PortalTeamPage = lazy(() =>
+  import("./pages/portal/PortalTeamPage").then((m) => ({ default: m.PortalTeamPage }))
+);
 
 function PageSkeleton() {
   return (
@@ -60,7 +73,8 @@ function PageSkeleton() {
 function PrivateRoutes() {
   const { isLoggedIn, role } = useAuth();
   const isCompanyRole = isCompanyWorkspaceRole(role);
-  const isCustomer = role === "customer";
+  const isKunden = isKundenRole(role);
+  const isCustomer = role === "customer" || role === "customer_admin" || role === "customer_user";
   const adminOnlyRoles: Role[] = ["admin", "super_admin"];
   const companyHome = role === "company_employee" ? "/portal/bestellungen" : "/portal/firma";
 
@@ -68,28 +82,38 @@ function PrivateRoutes() {
 
   function guardedElement(allowed: Role[], element: ReactElement) {
     if (!allowed.includes(role)) {
-      if (isCustomer) return <Navigate to="/account" replace />;
+      if (isKunden) return <Navigate to="/portal/dashboard" replace />;
       return <Navigate to={isCompanyRole ? companyHome : "/dashboard"} replace />;
     }
     return element;
   }
 
-  if (isCustomer) {
+  if (isKunden && !isCompanyRole) {
     return (
       <AppShell>
         <Routes>
-          <Route path="/" element={<Navigate to="/account" replace />} />
+          <Route path="/" element={<Navigate to="/portal/dashboard" replace />} />
           <Route path="/account" element={<AccountDashboardPage />} />
-          <Route path="*" element={<Navigate to="/account" replace />} />
+          <Route path="/portal/dashboard" element={<PortalDashboardPage />} />
+          <Route path="/portal/tours" element={<PortalToursPage />} />
+          <Route path="/portal/invoices" element={<PortalInvoicesPage />} />
+          {(role === "customer_admin") && (
+            <Route path="/portal/team" element={<PortalTeamPage />} />
+          )}
+          <Route path="*" element={<Navigate to="/portal/dashboard" replace />} />
         </Routes>
       </AppShell>
     );
   }
 
   return (
-    <AppShell>
+      <AppShell>
       <Routes>
         <Route path="/" element={<Navigate to={isCompanyRole ? companyHome : "/dashboard"} replace />} />
+        <Route path="/portal/dashboard" element={<PortalDashboardPage />} />
+        <Route path="/portal/tours" element={<PortalToursPage />} />
+        <Route path="/portal/invoices" element={<PortalInvoicesPage />} />
+        <Route path="/portal/team" element={<PortalTeamPage />} />
         <Route
           path="/portal/firma"
           element={guardedElement(["company_owner", "company_admin"], <PortalFirmaPage />)}

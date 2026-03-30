@@ -25,6 +25,7 @@ import {
   Upload,
   UserCog,
   Globe,
+  FileText,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -34,6 +35,7 @@ import { usePermissions } from "../../hooks/usePermissions";
 import { cn } from "../../lib/utils";
 import { logger } from "../../utils/logger";
 import { isCompanyWorkspaceRole } from "../../lib/companyRoles";
+import { isKundenRole } from "../../lib/permissions";
 
 interface SidebarProps {
   isMobileOpen?: boolean;
@@ -70,6 +72,15 @@ const companyNavigationEmployee: SidebarNavItem[] = [
   { path: "/portal/bestellungen", icon: ShoppingCart, label: "Meine Bestellungen" },
 ];
 
+/** Kunden-Panel: alle möglichen Items; werden per canAccessPath gefiltert. */
+const kundenNavigationItems: SidebarNavItem[] = [
+  { path: "/portal/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+  { path: "/portal/tours",     icon: Globe,           label: "Meine Touren" },
+  { path: "/portal/invoices",  icon: FileText,        label: "Rechnungen" },
+  { path: "/portal/team",      icon: Users,           label: "Team" },
+  { path: "/portal/firma",     icon: Building2,       label: "Firma" },
+];
+
 const settingsSubItems = [
   { path: "/settings/users", icon: UserCog, labelKey: "sidebar.nav.userManagement" },
   { path: "/settings/workflow", icon: GitBranch, labelKey: "sidebar.nav.workflow" },
@@ -92,11 +103,21 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
     (location.pathname.startsWith("/settings") && !location.pathname.startsWith("/settings/companies")) ||
     location.pathname.startsWith("/exxas-reconcile");
   const isCompanyRole = isCompanyWorkspaceRole(role);
+  const isKunden = isKundenRole(role);
   const visibleNavigationItems = useMemo(() => {
-    if (!isCompanyRole) return navigationItems.filter((item) => canAccessPath(item.path));
-    const base = role === "company_employee" ? companyNavigationEmployee : companyNavigationOwner;
-    return base.filter((item) => canAccessPath(item.path));
-  }, [isCompanyRole, role, canAccessPath]);
+    // Kunden-Rollen: einheitliches Kunden-Panel
+    if (isKunden) {
+      if (isCompanyRole) {
+        // company_owner/admin: Touren + Firma; company_employee: Touren + Bestellungen
+        if (role === "company_employee") {
+          return [...kundenNavigationItems, ...companyNavigationEmployee].filter((item) => canAccessPath(item.path));
+        }
+        return [...kundenNavigationItems, ...companyNavigationOwner].filter((item) => canAccessPath(item.path));
+      }
+      return kundenNavigationItems.filter((item) => canAccessPath(item.path));
+    }
+    return navigationItems.filter((item) => canAccessPath(item.path));
+  }, [isCompanyRole, isKunden, role, canAccessPath]);
 
   const visibleSettingsSubItems = useMemo(
     () => settingsSubItems.filter((item) => canAccessPath(item.path)),
@@ -124,7 +145,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
         <div className="flex h-16 flex-shrink-0 items-center justify-between px-4" style={{ borderBottom: "1px solid var(--border-soft)" }}>
           <div className="flex items-center gap-3">
             <img src="/assets/brand/logopropus.png" alt="Propus" className="h-8 w-auto" />
-            <span className="font-bold text-lg" style={{ color: "var(--text-main)", fontFamily: "var(--propus-font-heading)" }}>Admin</span>
+            <span className="font-bold text-lg" style={{ color: "var(--text-main)", fontFamily: "var(--propus-font-heading)" }}>{isKunden ? "Kundenportal" : "Admin"}</span>
           </div>
           <button
             onClick={onMobileClose}
@@ -200,7 +221,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                 className="h-8 w-auto"
               />
               <span className="font-bold text-lg" style={{ color: "var(--text-main)", fontFamily: "var(--propus-font-heading)" }}>
-                Admin
+                {isKunden ? "Kundenportal" : "Admin"}
               </span>
             </div>
           )}

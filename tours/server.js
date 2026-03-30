@@ -10,6 +10,7 @@ const apiRoutes = require('./routes/api');
 const adminRoutes = require('./routes/admin');
 const authRoutes = require('./routes/auth');
 const portalRoutes = require('./routes/portal');
+const portalApiRoutes = require('./routes/portal-api');
 const userProfiles = require('./lib/user-profiles');
 const { pool } = require('./lib/db');
 const { createPostgresSessionStore } = require('../auth/postgres-session-store');
@@ -178,6 +179,9 @@ app.use('/', authRoutes);
 
 // Admin-Routes (admin.touren.propus.ch)
 app.use('/admin', requireAdminOrRedirect, attachAdminSidebarLocals, adminRoutes);
+
+// Kunden-Portal JSON-API (für React SPA)
+app.use('/portal/api', portalApiRoutes);
 
 // Kunden-Portal (tour.propus.ch/portal)
 app.use('/portal', portalRoutes);
