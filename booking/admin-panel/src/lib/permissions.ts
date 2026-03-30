@@ -25,6 +25,7 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   "/exxas-reconcile": "settings.manage",
   "/settings/access": "roles.manage",
   "/settings/users": "users.manage",
+  "/settings/companies": "users.manage",
   "/bugs": "bugs.read",
   "/backups": "backups.manage",
   "/changelog": "dashboard.view",
@@ -74,6 +75,9 @@ export function legacyCanPermission(role: Role, permissionKey: string): boolean 
 }
 
 export function permissionForPath(path: string): string | null {
+  if (path === "/settings/companies") {
+    return ROUTE_PERMISSIONS["/settings/companies"] ?? null;
+  }
   if (path === "/settings" || path.startsWith("/settings/")) {
     const exact = ROUTE_PERMISSIONS[path];
     if (exact) return exact;

@@ -75,6 +75,9 @@ export function legacyCanPermission(role: Role, permissionKey: string): boolean 
 }
 
 export function permissionForPath(path: string): string | null {
+  if (path === "/settings/companies") {
+    return ROUTE_PERMISSIONS["/settings/companies"] ?? null;
+  }
   if (path === "/settings" || path.startsWith("/settings/")) {
     const exact = ROUTE_PERMISSIONS[path];
     if (exact) return exact;
