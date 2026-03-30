@@ -1596,21 +1596,34 @@ router.get('/portal-roles', async (req, res) => {
       SELECT DISTINCT ON (LOWER(TRIM(t.customer_email)))
         LOWER(TRIM(t.customer_email)) AS owner_email,
         CASE
+          WHEN trim(coalesce(c_ref.name,'')) <> '' THEN trim(c_ref.name)
+          WHEN trim(coalesce(c_ref.company,'')) <> '' THEN trim(c_ref.company)
           WHEN trim(coalesce(c.name,'')) <> '' THEN trim(c.name)
           WHEN trim(coalesce(c.company,'')) <> '' THEN trim(c.company)
+          WHEN trim(coalesce(t.customer_name,'')) <> '' THEN trim(t.customer_name)
+          WHEN trim(coalesce(t.kunde_ref::text,'')) <> '' THEN trim(t.kunde_ref::text)
           ELSE LOWER(TRIM(t.customer_email))
         END AS customer_name,
         CASE
+          WHEN trim(coalesce(c_ref.company,'')) <> '' THEN trim(c_ref.company)
+          WHEN trim(coalesce(c_ref.name,'')) <> '' THEN trim(c_ref.name)
           WHEN trim(coalesce(c.company,'')) <> '' THEN trim(c.company)
           WHEN trim(coalesce(c.name,'')) <> '' THEN trim(c.name)
+          WHEN trim(coalesce(t.customer_name,'')) <> '' THEN trim(t.customer_name)
           ELSE NULL
         END AS firma,
-        c.id AS customer_id
+        COALESCE(c_ref.id, c.id) AS customer_id
       FROM tour_manager.tours t
       LEFT JOIN core.customers c ON LOWER(c.email) = LOWER(t.customer_email)
+      LEFT JOIN core.customers c_ref ON trim(c_ref.customer_number) = trim(CAST(t.kunde_ref AS text))
       WHERE t.customer_email IS NOT NULL AND trim(t.customer_email) <> ''
       ORDER BY LOWER(TRIM(t.customer_email)),
-               CASE WHEN trim(coalesce(c.name,'')) <> '' OR trim(coalesce(c.company,'')) <> '' THEN 0 ELSE 1 END
+               CASE WHEN trim(coalesce(c_ref.name,'')) <> ''
+                      OR trim(coalesce(c_ref.company,'')) <> ''
+                      OR trim(coalesce(c.name,'')) <> ''
+                      OR trim(coalesce(c.company,'')) <> ''
+                      OR trim(coalesce(t.customer_name,'')) <> ''
+                    THEN 0 ELSE 1 END
       LIMIT 300
     `);
     // client-seitig sortieren: Firmen mit Namen zuerst, danach alphabetisch
@@ -1670,28 +1683,47 @@ router.post('/portal-roles/remove', async (req, res) => {
 // GET /admin/portal-roles/extern-contacts?owner_email=... – JSON: Kontakte für Firma-Dropdown
 router.get('/portal-roles/extern-contacts', async (req, res) => {
   const ownerEmail = String(req.query.owner_email || '').trim().toLowerCase();
-  if (!ownerEmail) return res.json({ contacts: [] });
+  const customerId = Number.parseInt(String(req.query.customer_id || ''), 10);
+  if (!ownerEmail && !Number.isInteger(customerId)) return res.json({ contacts: [] });
   try {
-    // Kontakte aus core.customer_contacts für den Kunden mit dieser E-Mail
+    const customerLookup = Number.isInteger(customerId)
+      ? await pool.query(
+          `SELECT id, name, company, email
+           FROM core.customers
+           WHERE id = $1`,
+          [customerId]
+        )
+      : await pool.query(
+          `SELECT id, name, company, email
+           FROM core.customers
+           WHERE LOWER(email) = $1`,
+          [ownerEmail]
+        );
+    const customer = customerLookup.rows[0] || null;
+    if (!customer) return res.json({ contacts: [] });
+
     const r = await pool.query(
       `SELECT cc.id, cc.name, cc.email, cc.role AS position
        FROM core.customer_contacts cc
-       JOIN core.customers c ON c.id = cc.customer_id
-       WHERE LOWER(c.email) = $1
+       WHERE cc.customer_id = $1
          AND cc.email IS NOT NULL AND trim(cc.email) <> ''
        ORDER BY cc.name ASC`,
-      [ownerEmail]
-    );
-    // Auch den Hauptkunden selbst als Option anbieten
-    const custR = await pool.query(
-      `SELECT name, company, email FROM core.customers WHERE LOWER(email) = $1`,
-      [ownerEmail]
+      [customer.id]
     );
     const contacts = r.rows.map(row => ({
       email: String(row.email || '').trim().toLowerCase(),
       name: String(row.name || '').trim(),
       position: String(row.position || '').trim(),
     })).filter(c => c.email);
+    const ownerEmailNorm = String(customer.email || ownerEmail || '').trim().toLowerCase();
+    const ownerName = String(customer.name || customer.company || '').trim();
+    if (ownerEmailNorm && !contacts.some((c) => c.email === ownerEmailNorm)) {
+      contacts.unshift({
+        email: ownerEmailNorm,
+        name: ownerName,
+        position: customer.company ? 'Hauptkontakt' : '',
+      });
+    }
     res.json({ contacts });
   } catch (err) {
     res.status(500).json({ error: err.message });

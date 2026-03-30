@@ -327,7 +327,7 @@
                   <div class="firma-ac-wrap">
                     <i class="fa-solid fa-magnifying-glass firma-ac-icon"></i>
                     <input type="text" id="firmaSearch" class="firma-ac-input"
-                           placeholder="Firmenname oder E-Mail…" autocomplete="off">
+                           placeholder="Firmenname oder Kunde suchen…" autocomplete="off">
                     <input type="hidden" name="owner_email" id="externOwnerEmail" required>
                     <ul class="firma-ac-list" id="firmaAcList"></ul>
                   </div>
@@ -380,6 +380,7 @@
               email: o.owner_email,
               name: o.customer_name,
               firma: o.firma || '',
+              customerId: o.customer_id || null,
               id: o.customer_id
             }))) %>;
 
@@ -410,8 +411,7 @@
               filtered = lq
                 ? allFirmen.filter(f =>
                     (f.name||'').toLowerCase().includes(lq) ||
-                    (f.firma||'').toLowerCase().includes(lq) ||
-                    (f.email||'').toLowerCase().includes(lq)
+                    (f.firma||'').toLowerCase().includes(lq)
                   )
                 : allFirmen.slice(0, 50);
 
@@ -458,7 +458,7 @@
               selectedBox.style.display = '';
               searchInput.style.display = 'none';
               acList.classList.remove('open');
-              loadContacts(f.email);
+              loadContacts(f.email, f.customerId);
             }
 
             window.clearFirma = function() {
@@ -472,11 +472,14 @@
               searchInput.focus();
             };
 
-            async function loadContacts(ownerEmail) {
+            async function loadContacts(ownerEmail, customerId) {
               chipList.innerHTML = '<span style="font-size:0.78rem;color:var(--text-muted);">Lade…</span>';
               contactSugg.style.display = '';
               try {
-                const resp = await fetch(bp + '/admin/portal-roles/extern-contacts?owner_email=' + encodeURIComponent(ownerEmail));
+                const qs = new URLSearchParams();
+                if (ownerEmail) qs.set('owner_email', ownerEmail);
+                if (customerId) qs.set('customer_id', String(customerId));
+                const resp = await fetch(bp + '/admin/portal-roles/extern-contacts?' + qs.toString());
                 const data = await resp.json();
                 chipList.innerHTML = '';
                 if (!data.contacts || data.contacts.length === 0) {
