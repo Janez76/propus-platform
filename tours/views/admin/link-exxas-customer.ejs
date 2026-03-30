@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Exxas-Kunde verknüpfen – Propus Tour Manager</title>
+  <title>Kunde anpassen – Propus Tour Manager</title>
   <%- include('_admin-styles') %>
   <style>
     .page-head {
@@ -15,129 +15,20 @@
       margin-bottom: 1rem;
     }
     .page-head h1 { margin: 0; }
-    .page-sub {
-      margin: 0.25rem 0 0;
-      color: var(--text-muted);
-      font-size: 0.87rem;
-    }
     .panel {
       border: 1px solid var(--border);
       border-radius: 8px;
       background: #fff;
-      padding: 0.9rem 1rem;
+      padding: 1.1rem 1.2rem;
       margin-bottom: 1rem;
       box-shadow: 0 8px 24px rgba(20, 19, 17, 0.04);
     }
-    .section-title {
-      margin: 0 0 0.4rem;
-      font-size: 1rem;
-      color: var(--gray-900);
-    }
-    .suggestion-divider {
-      border-top: 1px solid var(--border);
-      margin: 0.25rem 0 0.85rem;
-    }
-    .customer-card {
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: #fff;
-      margin-bottom: 1rem;
-      overflow: hidden;
-      box-shadow: 0 8px 24px rgba(20, 19, 17, 0.04);
-    }
-    .customer-card .badge { border-radius: 8px; }
-    .customer-card-header {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 1rem;
-      padding: 0.85rem 1rem 0.75rem 1rem;
-      flex-wrap: wrap;
-    }
-    .customer-info { flex: 1; min-width: 180px; }
-    .customer-name { font-weight: 600; color: var(--text); font-size: 1rem; }
-    .customer-meta { font-size: 0.82rem; color: var(--text-muted); margin-top: 0.15rem; }
-    .score-tag {
-      display: inline-flex;
-      align-items: center;
-      border: 1px solid transparent;
-      border-radius: 8px;
-      padding: 0.2rem 0.55rem;
-      font-size: 0.78rem;
-      font-weight: 700;
-      line-height: 1.1;
-      white-space: nowrap;
-    }
-    .score-tag.good {
-      background: rgba(22,179,100,0.12);
-      border-color: rgba(22,179,100,0.28);
-      color: #11844d;
-    }
-    .score-tag.mid {
-      background: rgba(245,158,11,0.14);
-      border-color: rgba(245,158,11,0.3);
-      color: #b96c0d;
-    }
-    .score-tag.low {
-      background: rgba(239,68,68,0.12);
-      border-color: rgba(239,68,68,0.28);
-      color: #c13737;
-    }
-    .contacts-section {
-      border-top: 1px solid var(--border);
-      padding: 0.6rem 1rem;
-      background: var(--bg-subtle);
-    }
-    .contacts-label {
-      font-size: 0.72rem;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: var(--text-muted);
-      font-weight: 700;
-      margin-bottom: 0.4rem;
-    }
-    .contact-row {
-      display: flex;
-      align-items: center;
-      gap: 0.6rem;
-      padding: 0.3rem 0;
-      font-size: 0.85rem;
-      flex-wrap: wrap;
-    }
-    .contact-row .contact-name { color: var(--text); font-weight: 500; }
-    .contact-row .contact-email { color: var(--text-muted); }
-    .contact-row .contact-tel { color: var(--text-muted); font-size: 0.8rem; }
-    .contact-use-btn {
-      background: none;
-      border: 1px solid var(--border);
-      border-radius: 5px;
-      color: var(--accent);
-      font-size: 0.78rem;
-      padding: 0.15rem 0.55rem;
-      cursor: pointer;
-      font-family: inherit;
-      transition: background 0.15s;
-    }
-    .contact-use-btn:hover { background: var(--gold-50); }
-    .link-form-section {
-      border-top: 1px solid var(--border);
-      padding: 0.75rem 1rem;
-    }
-    .email-field-row {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      flex-wrap: wrap;
-      margin-bottom: 0.5rem;
-    }
-    .email-field-row label { font-size: 0.82rem; color: var(--text-muted); min-width: 60px; }
-    .email-field-row input[type="email"] { flex: 1; min-width: 200px; }
     .tour-context {
       background: #fff;
       border: 1px solid var(--border);
       border-radius: 8px;
       padding: 0.9rem;
-      margin-bottom: 1rem;
+      margin-bottom: 1.5rem;
       font-size: 0.9rem;
       box-shadow: 0 8px 24px rgba(20, 19, 17, 0.04);
     }
@@ -163,7 +54,37 @@
       font-size: 0.78rem;
       word-break: break-all;
     }
-    .hint { font-size: 0.85rem; color: var(--text-muted); margin: 0.25rem 0 1.25rem 0; }
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem 1.5rem;
+    }
+    @media (max-width: 600px) {
+      .form-grid { grid-template-columns: 1fr; }
+    }
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+    .field-group label {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .field-group input {
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .form-actions {
+      margin-top: 1.25rem;
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
   </style>
 </head>
 <body>
@@ -177,11 +98,11 @@
         </div>
       </div>
 
-      <% if (linked) { %>
-      <div class="alert alert-success">Exxas-Kunde erfolgreich verknüpft.</div>
+      <% if (saved) { %>
+      <div class="alert alert-success">Kundendaten wurden gespeichert.</div>
       <% } %>
       <% if (error === 'missing') { %>
-      <div class="alert alert-error">Kein Kunde ausgewählt. Bitte einen Treffer aus der Liste wählen.</div>
+      <div class="alert alert-error">Bitte mindestens den Kundennamen angeben.</div>
       <% } %>
 
       <!-- Tour-Kontext -->
@@ -210,240 +131,60 @@
         </div>
       </div>
 
-      <% if (suggestions && suggestions.length) { %>
-      <div class="section" style="margin-bottom:1.25rem;">
-        <h2 class="section-title">Vorgeschlagene Kunden</h2>
-        <% suggestions.forEach((c, ci) => { %>
-        <% if (ci > 0) { %><div class="suggestion-divider"></div><% } %>
-        <div class="customer-card">
-          <div class="customer-card-header">
-            <div class="customer-info">
-              <div class="customer-name"><%= c.firmenname || '–' %></div>
-              <div class="customer-meta">
-                Nr. <code><%= c.nummer %></code>
-                <% if (c.email) { %> · <span><%= c.email %></span><% } %>
-              </div>
-            </div>
-            <%
-              const scorePct = Math.round((parseFloat(c.suggestion_confidence) || 0) * 100);
-              const scoreTone = scorePct >= 80 ? 'good' : (scorePct >= 60 ? 'mid' : 'low');
-            %>
-            <div><span class="score-tag <%= scoreTone %>"><%= scorePct %>%</span></div>
-          </div>
-          <div class="contacts-section">
-            <div style="display:flex;gap:0.35rem;flex-wrap:wrap;">
-              <% (c.suggestion_reasons || []).forEach((reason) => { %>
-              <span class="badge badge-sent"><%= reason %></span>
-              <% }); %>
-            </div>
-          </div>
-          <div class="link-form-section">
-            <form method="post" action="/admin/tours/<%= tour.id %>/link-exxas-customer">
-              <input type="hidden" name="exxas_kunde_id" value="<%= c.id %>">
-              <input type="hidden" name="exxas_kunde_nummer" value="<%= c.nummer %>">
-              <input type="hidden" name="exxas_kunde_name" value="<%= c.firmenname %>">
-              <input type="hidden" name="exxas_kunde_contact" value="<%= c.best_contact_name || '' %>">
-              <div class="email-field-row">
-                <label>E-Mail</label>
-                <input type="email" name="exxas_kunde_email" value="<%= c.best_email || c.email || '' %>" placeholder="E-Mail-Adresse…">
-              </div>
-              <button type="submit" class="btn btn-primary">Vorschlag übernehmen</button>
-            </form>
-          </div>
-        </div>
-        <% }); %>
-      </div>
-      <% } %>
-
-      <!-- Suchformular mit Autocomplete -->
+      <!-- Bearbeitungsformular -->
       <div class="panel">
-      <h2 class="section-title">Exxas-Suche</h2>
-      <form method="get" action="/admin/tours/<%= tour.id %>/link-exxas-customer" class="search-bar" style="margin-bottom:0.5rem;" id="search-form">
-        <div style="position:relative;flex:1;min-width:260px;">
-          <input
-            type="text"
-            name="search"
-            id="search-input"
-            value="<%= search %>"
-            placeholder="Kundennummer oder Kundenname…"
-            autofocus
-            autocomplete="off"
-            style="width:100%;"
-          >
-          <div id="autocomplete-list" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1px solid var(--border);border-radius:8px;z-index:200;max-height:280px;overflow-y:auto;box-shadow:0 10px 24px rgba(20,19,17,0.12);"></div>
-        </div>
-        <button type="submit" class="btn btn-primary">Suchen</button>
-        <% if (search) { %>
-        <a href="/admin/tours/<%= tour.id %>/link-exxas-customer" class="btn btn-ghost">Zurücksetzen</a>
-        <% } %>
-      </form>
+        <form method="post" action="/admin/tours/<%= tour.id %>/link-exxas-customer">
+          <div class="form-grid">
+            <div class="field-group">
+              <label for="customer_name">Kundenname</label>
+              <input
+                type="text"
+                id="customer_name"
+                name="customer_name"
+                value="<%= tour.customer_name || '' %>"
+                placeholder="Firmenname oder Kundenname…"
+                autofocus
+              >
+            </div>
+            <div class="field-group">
+              <label for="customer_contact">Ansprechpartner</label>
+              <input
+                type="text"
+                id="customer_contact"
+                name="customer_contact"
+                value="<%= tour.customer_contact || '' %>"
+                placeholder="Vor- und Nachname…"
+              >
+            </div>
+            <div class="field-group">
+              <label for="customer_email">E-Mail</label>
+              <input
+                type="email"
+                id="customer_email"
+                name="customer_email"
+                value="<%= tour.customer_email || '' %>"
+                placeholder="E-Mail-Adresse…"
+              >
+            </div>
+            <div class="field-group">
+              <label for="kunde_ref">Kundennummer (optional)</label>
+              <input
+                type="text"
+                id="kunde_ref"
+                name="kunde_ref"
+                value="<%= tour.kunde_ref || '' %>"
+                placeholder="z. B. 10042"
+              >
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Speichern</button>
+            <a href="/admin/tours/<%= tour.id %>" class="btn btn-ghost">Abbrechen</a>
+          </div>
+        </form>
       </div>
-
-      <% if (searchError) { %>
-      <div class="alert alert-warning"><%= searchError %></div>
-      <% } %>
-
-      <% if (search && search.length >= 2 && !searchError) { %>
-        <% if (customers.length === 0) { %>
-        <p style="color:var(--text-muted);">Keine Kunden in Exxas für <strong><%= search %></strong> gefunden.</p>
-        <% } else { %>
-        <p class="hint"><%= customers.length %> Treffer:</p>
-        <% customers.forEach((c, ci) => {
-          const bestEmail = (c.contacts && c.contacts.find(ct => ct.email))?.email || c.email || '';
-          const firstContact = c.contacts && c.contacts[0];
-          const bestContactName = firstContact?.name || '';
-        %>
-        <div class="customer-card">
-
-          <!-- Kunden-Info -->
-          <div class="customer-card-header">
-            <div class="customer-info">
-              <div class="customer-name"><%= c.firmenname || '–' %></div>
-              <div class="customer-meta">
-                Nr. <code><%= c.nummer %></code>
-                <% if (c.email) { %> · <span title="Kunden-E-Mail"><%= c.email %></span><% } %>
-              </div>
-            </div>
-          </div>
-
-          <!-- E-Mail + Kontakte -->
-          <% const hasKundeEmail = !!c.email;
-             const hasContactEmails = c.contacts && c.contacts.some(ct => ct.email);
-          %>
-          <% if (hasKundeEmail || hasContactEmails || (c.contacts && c.contacts.length > 0)) { %>
-          <div class="contacts-section">
-            <div class="contacts-label">E-Mail & Kontakte</div>
-
-            <% if (hasKundeEmail) { %>
-            <div class="contact-row">
-              <span class="contact-name" style="color:var(--text-muted);">Kunde direkt</span>
-              <span class="contact-email"><%= c.email %></span>
-              <button
-                type="button"
-                class="contact-use-btn"
-                onclick="useContact(<%= ci %>, '<%= (c.email || '').replace(/'/g, '') %>', '')"
-              >E-Mail übernehmen</button>
-            </div>
-            <% } %>
-
-            <% (c.contacts || []).forEach((ct, cti) => { %>
-            <div class="contact-row">
-              <span class="contact-name"><%= ct.name || '–' %></span>
-              <% if (ct.email) { %><span class="contact-email"><%= ct.email %></span><% } %>
-              <% if (ct.tel) { %><span class="contact-tel"><%= ct.tel %></span><% } %>
-              <% if (ct.email) { %>
-              <button
-                type="button"
-                class="contact-use-btn"
-                onclick="useContact(<%= ci %>, '<%= (ct.email || '').replace(/'/g, '') %>', '<%= (ct.name || '').replace(/'/g, '') %>')"
-              >E-Mail übernehmen</button>
-              <% } %>
-            </div>
-            <% }); %>
-          </div>
-          <% } %>
-
-          <!-- Verknüpfungs-Formular -->
-          <div class="link-form-section">
-            <form method="post" action="/admin/tours/<%= tour.id %>/link-exxas-customer" id="form-<%= ci %>">
-              <input type="hidden" name="exxas_kunde_id" value="<%= c.id %>">
-              <input type="hidden" name="exxas_kunde_nummer" value="<%= c.nummer %>">
-              <input type="hidden" name="exxas_kunde_name" value="<%= c.firmenname %>">
-              <input type="hidden" name="search" value="<%= search %>">
-              <input type="hidden" name="exxas_kunde_contact" id="contact-name-<%= ci %>" value="<%= bestContactName %>">
-              <div class="email-field-row">
-                <label for="email-<%= ci %>">E-Mail</label>
-                <input
-                  type="email"
-                  id="email-<%= ci %>"
-                  name="exxas_kunde_email"
-                  value="<%= bestEmail %>"
-                  placeholder="E-Mail-Adresse…"
-                >
-              </div>
-              <button type="submit" class="btn btn-primary">Verknüpfen</button>
-            </form>
-          </div>
-
-        </div>
-        <% }); %>
-        <% } %>
-      <% } %>
 
     </main>
   </div>
-  <script>
-  function useContact(cardIdx, email, contactName) {
-    const emailInput = document.getElementById('email-' + cardIdx);
-    const contactInput = document.getElementById('contact-name-' + cardIdx);
-    if (emailInput) emailInput.value = email;
-    if (contactInput) contactInput.value = contactName;
-  }
-
-  // Autocomplete
-  (function() {
-    const input = document.getElementById('search-input');
-    const list = document.getElementById('autocomplete-list');
-    if (!input || !list) return;
-
-    const tourId = '<%= tour.id %>';
-    let timer = null;
-    let lastQ = '';
-
-    function closeList() {
-      list.style.display = 'none';
-      list.innerHTML = '';
-    }
-
-    input.addEventListener('input', function() {
-      const q = this.value.trim();
-      clearTimeout(timer);
-      if (q.length < 2) { closeList(); return; }
-      if (q === lastQ) return;
-      timer = setTimeout(() => {
-        lastQ = q;
-        fetch('/admin/tours/' + tourId + '/link-exxas-customer/autocomplete?q=' + encodeURIComponent(q), { credentials: 'include' })
-          .then(r => r.json())
-          .then(data => {
-            const customers = data.customers || [];
-            if (!customers.length) { closeList(); return; }
-            list.innerHTML = '';
-            customers.forEach((c, i) => {
-              const item = document.createElement('div');
-              const isLast = i === customers.length - 1;
-              item.style.cssText = 'padding:0.6rem 1rem;cursor:pointer;font-size:0.87rem;' + (isLast ? '' : 'border-bottom:1px solid rgba(255,255,255,0.06);');
-              const name = document.createElement('span');
-              name.style.cssText = 'font-weight:500;color:var(--text);';
-              name.textContent = c.label.split(' (Nr.')[0].trim();
-              const nr = document.createElement('span');
-              nr.style.cssText = 'margin-left:0.5rem;font-size:0.78rem;color:var(--text-muted);font-family:monospace;';
-              nr.textContent = 'Nr. ' + c.nummer;
-              item.appendChild(name);
-              item.appendChild(nr);
-              item.addEventListener('mousedown', (e) => {
-                e.preventDefault();
-                input.value = c.label.split(' (Nr.')[0].trim();
-                closeList();
-                input.form.submit();
-              });
-              item.addEventListener('mouseover', () => item.style.background = 'rgba(255,255,255,0.06)');
-              item.addEventListener('mouseout', () => item.style.background = '');
-              list.appendChild(item);
-            });
-            list.style.display = 'block';
-          })
-          .catch(() => closeList());
-      }, 280);
-    });
-
-    input.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape') closeList();
-    });
-
-    document.addEventListener('click', function(e) {
-      if (!input.contains(e.target)) closeList();
-    });
-  })();
-  </script>
 </body>
 </html>

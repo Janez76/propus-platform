@@ -3555,70 +3555,16 @@ router.post('/link-matterport/check-ownership', async (req, res) => {
   res.redirect(`/admin/link-matterport?ownershipChecked=1&own=${own}&fremde=${fremde}&skipped=${skipped}`);
 });
 
-/** Kunden Autocomplete – lokal-first, Exxas als Import-Fallback */
-router.get('/tours/:id/link-exxas-customer/autocomplete', async (req, res) => {
-  const q = (req.query.q || '').trim();
-  if (q.length < 2) return res.json({ customers: [] });
-  const { local, exxas_import } = await customerLookup.searchCustomersWithExxasFallback(q, { limit: 10 });
-  const customers = [
-    ...local.map((c) => ({
-      id: c.id,
-      nummer: c.exxas_contact_id || '',
-      label: `${c.company || c.name} (lokal)`,
-      source: 'local',
-    })),
-    ...exxas_import.map((c) => ({
-      id: c.exxas_id,
-      nummer: c.nummer || '',
-      label: `${c.name}${c.nummer ? ' (Nr. ' + c.nummer + ')' : ''} [Import]`,
-      source: 'exxas',
-    })),
-  ];
-  res.json({ customers });
-});
-
-/** Exxas-Kunden live suchen und Tour damit verknüpfen */
+/** Kundendaten einer Tour anpassen (direktes Formular, kein Exxas) */
 router.get('/tours/:id/link-exxas-customer', async (req, res) => {
   const { id } = req.params;
   const tourResult = await pool.query('SELECT * FROM tour_manager.tours WHERE id = $1', [id]);
   if (!tourResult.rows[0]) return res.status(404).send('Tour nicht gefunden');
   const tour = normalizeTourRow(tourResult.rows[0]);
 
-  const search = (req.query.search || '').trim();
-  let customers = [];
-  let searchError = null;
-  const suggestions = await getCustomerLinkSuggestionsForTour(tour, { limit: 5, scanLimit: 8 });
-
-  if (search.length >= 2) {
-    try {
-      const { local, exxas_import } = await customerLookup.searchCustomersWithExxasFallback(search, { limit: 10 });
-      for (const c of local) {
-        const contacts = await customerLookup.getLocalContacts(c.id);
-        customers.push({
-          id: c.id, firmenname: c.company || c.name, email: c.email,
-          nummer: c.exxas_contact_id || '', source: 'local', contacts,
-        });
-      }
-      for (const c of exxas_import) {
-        customers.push({
-          id: c.exxas_id, firmenname: c.name, email: c.email,
-          nummer: c.nummer || '', source: 'exxas', contacts: [],
-        });
-      }
-    } catch (err) {
-      searchError = err.message;
-    }
-  } else if (search.length > 0 && search.length < 2) {
-    searchError = 'Suchanfrage zu kurz (min. 2 Zeichen)';
-  }
-
   res.render('admin/link-exxas-customer', {
     tour,
-    search,
-    customers,
-    suggestions,
-    searchError,
-    linked: req.query.linked === '1',
+    saved: req.query.saved === '1',
     error: req.query.error || null,
     activePage: 'tours',
   });
@@ -3626,28 +3572,28 @@ router.get('/tours/:id/link-exxas-customer', async (req, res) => {
 
 router.post('/tours/:id/link-exxas-customer', async (req, res) => {
   const { id } = req.params;
-  const { exxas_kunde_id, exxas_kunde_nummer, exxas_kunde_name, exxas_kunde_email, exxas_kunde_contact, search } = req.body || {};
+  const { customer_name, customer_email, customer_contact, kunde_ref } = req.body || {};
 
-  if (!exxas_kunde_id) {
-    return res.redirect(`/admin/tours/${id}/link-exxas-customer?error=missing&search=${encodeURIComponent(search || '')}`);
+  const name = (customer_name || '').trim() || null;
+  if (!name) {
+    return res.redirect(`/admin/tours/${id}/link-exxas-customer?error=missing`);
   }
 
   const tourResult = await pool.query('SELECT id FROM tour_manager.tours WHERE id = $1', [id]);
   if (!tourResult.rows[0]) return res.status(404).send('Tour nicht gefunden');
 
-  const name = (exxas_kunde_name || '').trim() || null;
-  const email = (exxas_kunde_email || '').trim() || null;
-  const contact = (exxas_kunde_contact || '').trim() || null;
-  const nummer = (exxas_kunde_nummer || exxas_kunde_id).trim();
+  const email = (customer_email || '').trim() || null;
+  const contact = (customer_contact || '').trim() || null;
+  const ref = (kunde_ref || '').trim() || null;
 
   await pool.query(
     `UPDATE tour_manager.tours
      SET kunde_ref = $1, customer_name = $2, customer_email = $3, customer_contact = $4, updated_at = NOW()
      WHERE id = $5`,
-    [nummer, name, email, contact, id]
+    [ref, name, email, contact, id]
   );
 
-  res.redirect(`/admin/tours/${id}?customerLinked=1`);
+  res.redirect(`/admin/tours/${id}/link-exxas-customer?saved=1`);
 });
 
 // ─── Admin Impersonation: Kunden-Portal-Ansicht ───────────────────────────────
