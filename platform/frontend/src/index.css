@@ -1256,3 +1256,304 @@ html:not(.dark) .cust-btn-new {
   opacity: 0.45;
   cursor: default;
 }
+
+/* ─────────────────────────────────────────
+   Generic status / state badge variants
+   Usage: <span class="cust-status-badge cust-status-pending">Ausstehend</span>
+───────────────────────────────────────── */
+.cust-status-pending {
+  background: color-mix(in srgb, #f39c12 12%, transparent);
+  color: #c87f0a;
+}
+.dark .cust-status-pending {
+  color: #f39c12;
+}
+.cust-status-pending::before {
+  background: #f39c12;
+}
+
+.cust-status-completed {
+  background: color-mix(in srgb, #2ecc71 12%, transparent);
+  color: #1d9e56;
+}
+.dark .cust-status-completed {
+  color: #2ecc71;
+}
+.cust-status-completed::before {
+  background: #2ecc71;
+}
+
+.cust-status-cancelled {
+  background: color-mix(in srgb, #e74c3c 10%, transparent);
+  color: #c0392b;
+}
+.dark .cust-status-cancelled {
+  color: #e74c3c;
+}
+.cust-status-cancelled::before {
+  background: #e74c3c;
+}
+
+.cust-status-draft {
+  background: color-mix(in srgb, var(--text-main) 6%, transparent);
+  color: var(--text-subtle);
+}
+.cust-status-draft::before {
+  background: var(--text-subtle);
+}
+
+.cust-status-warning {
+  background: color-mix(in srgb, #e67e22 10%, transparent);
+  color: #b85c00;
+}
+.dark .cust-status-warning {
+  color: #e67e22;
+}
+.cust-status-warning::before {
+  background: #e67e22;
+}
+
+/* Tour-spezifische Status-Varianten */
+.cust-status-confirmed {
+  background: color-mix(in srgb, #3498db 10%, transparent);
+  color: #1a6fa8;
+}
+.dark .cust-status-confirmed {
+  color: #5dade2;
+}
+.cust-status-confirmed::before {
+  background: #3498db;
+}
+
+.cust-status-in-progress {
+  background: color-mix(in srgb, var(--propus-gold) 14%, transparent);
+  color: color-mix(in srgb, var(--propus-gold) 80%, #3a2800 20%);
+}
+.dark .cust-status-in-progress {
+  color: var(--propus-gold-light);
+}
+.cust-status-in-progress::before {
+  background: var(--propus-gold);
+}
+
+.cust-status-open {
+  background: color-mix(in srgb, #9b59b6 10%, transparent);
+  color: #7d3c98;
+}
+.dark .cust-status-open {
+  color: #bb8fce;
+}
+.cust-status-open::before {
+  background: #9b59b6;
+}
+
+/* ─────────────────────────────────────────
+   Generic role badge variants (beyond kunde/admin)
+───────────────────────────────────────── */
+.cust-role-mitarbeiter {
+  background: color-mix(in srgb, #2ecc71 10%, transparent);
+  color: #1d9e56;
+}
+.dark .cust-role-mitarbeiter {
+  color: #2ecc71;
+}
+.cust-role-guide {
+  background: color-mix(in srgb, var(--propus-gold) 14%, transparent);
+  color: color-mix(in srgb, var(--propus-gold) 70%, #3a2800 30%);
+}
+.dark .cust-role-guide {
+  color: var(--propus-gold-light);
+}
+.cust-role-viewer {
+  background: color-mix(in srgb, var(--text-main) 6%, transparent);
+  color: var(--text-subtle);
+}
+
+/* ─────────────────────────────────────────
+   Inline badge (no dot) – for compact use in tables
+   Usage: <span class="cust-badge cust-badge--success">OK</span>
+───────────────────────────────────────── */
+.cust-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 5px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.cust-badge--success {
+  background: color-mix(in srgb, #2ecc71 12%, transparent);
+  color: #1d9e56;
+}
+.dark .cust-badge--success {
+  color: #2ecc71;
+}
+.cust-badge--warning {
+  background: color-mix(in srgb, #f39c12 12%, transparent);
+  color: #c87f0a;
+}
+.dark .cust-badge--warning {
+  color: #f39c12;
+}
+.cust-badge--error {
+  background: color-mix(in srgb, #e74c3c 10%, transparent);
+  color: #c0392b;
+}
+.dark .cust-badge--error {
+  color: #e74c3c;
+}
+.cust-badge--info {
+  background: color-mix(in srgb, #3498db 10%, transparent);
+  color: #1a6fa8;
+}
+.dark .cust-badge--info {
+  color: #5dade2;
+}
+.cust-badge--neutral {
+  background: color-mix(in srgb, var(--text-main) 6%, transparent);
+  color: var(--text-subtle);
+}
+.cust-badge--gold {
+  background: color-mix(in srgb, var(--propus-gold) 14%, transparent);
+  color: color-mix(in srgb, var(--propus-gold) 70%, #3a2800 30%);
+}
+.dark .cust-badge--gold {
+  color: var(--propus-gold-light);
+}
+
+/* ─────────────────────────────────────────
+   Generic empty-state helper
+───────────────────────────────────────── */
+.cust-empty-state {
+  text-align: center;
+  padding: 56px 24px;
+  color: var(--text-subtle);
+  font-size: 14px;
+}
+.cust-empty-state svg {
+  display: block;
+  margin: 0 auto 16px;
+  opacity: 0.35;
+}
+.cust-empty-title {
+  font-family: var(--propus-font-heading);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+/* ─────────────────────────────────────────
+   Generic form row helper (for settings pages)
+───────────────────────────────────────── */
+.cust-form-section {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  padding: 24px;
+  margin-bottom: 20px;
+}
+.cust-form-section-title {
+  font-family: var(--propus-font-heading);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-main);
+  margin-bottom: 18px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.cust-form-row {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 16px;
+  align-items: start;
+  padding: 12px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-soft) 60%, transparent);
+}
+.cust-form-row:last-child {
+  border-bottom: none;
+}
+.cust-form-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  padding-top: 9px;
+}
+.cust-form-label-hint {
+  font-size: 11px;
+  color: var(--text-subtle);
+  margin-top: 2px;
+}
+.cust-form-input {
+  width: 100%;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-soft);
+  border-radius: 9px;
+  padding: 9px 12px;
+  color: var(--text-main);
+  font-family: inherit;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.cust-form-input::placeholder {
+  color: var(--text-subtle);
+}
+.cust-form-input:focus {
+  border-color: var(--accent);
+}
+.cust-form-input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ─────────────────────────────────────────
+   Generic alert / info box
+───────────────────────────────────────── */
+.cust-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  border: 1px solid transparent;
+}
+.cust-alert svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.cust-alert--info {
+  background: color-mix(in srgb, #3498db 8%, transparent);
+  border-color: color-mix(in srgb, #3498db 25%, transparent);
+  color: color-mix(in srgb, #1a6fa8 90%, var(--text-main) 10%);
+}
+.dark .cust-alert--info {
+  color: #5dade2;
+}
+.cust-alert--success {
+  background: color-mix(in srgb, #2ecc71 8%, transparent);
+  border-color: color-mix(in srgb, #2ecc71 25%, transparent);
+  color: #1d9e56;
+}
+.dark .cust-alert--success {
+  color: #2ecc71;
+}
+.cust-alert--warning {
+  background: color-mix(in srgb, #f39c12 8%, transparent);
+  border-color: color-mix(in srgb, #f39c12 30%, transparent);
+  color: #c87f0a;
+}
+.dark .cust-alert--warning {
+  color: #f39c12;
+}
+.cust-alert--error {
+  background: color-mix(in srgb, #e74c3c 8%, transparent);
+  border-color: color-mix(in srgb, #e74c3c 25%, transparent);
+  color: #c0392b;
+}
+.dark .cust-alert--error {
+  color: #e74c3c;
+}

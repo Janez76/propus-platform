@@ -233,6 +233,7 @@
   "common.close": "Fermer",
   "common.delete": "Supprimer",
   "common.edit": "Modifier",
+  "common.actions": "Actions",
   "common.loading": "Chargement...",
   "common.error": "Erreur",
   "common.noData": "Aucune donnée",

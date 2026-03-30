@@ -32,10 +32,21 @@ export function BookingThemeToggle({ lang, className }: { lang: Lang; className?
       aria-label={`${t(lang, "booking.theme.title")}: ${label}`}
       className={cn(
         "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-colors",
-        "border-zinc-200/80 bg-white/80 text-zinc-600 hover:border-[#C5A059] hover:text-[#C5A059]",
-        "dark:border-zinc-700 dark:bg-zinc-900/80 dark:text-zinc-300 dark:hover:border-[#C5A059] dark:hover:text-[#C5A059]",
         className,
       )}
+      style={{
+        background: "var(--surface)",
+        borderColor: "var(--border-soft)",
+        color: "var(--text-muted)",
+      }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--accent)";
+        (e.currentTarget as HTMLButtonElement).style.color = "var(--accent)";
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border-soft)";
+        (e.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)";
+      }}
     >
       <Icon className="h-4 w-4" strokeWidth={2} />
     </button>

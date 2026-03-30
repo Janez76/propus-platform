@@ -51,7 +51,8 @@ function StarRating({ rating }: { rating: number }) {
       {[1, 2, 3, 4, 5].map((s) => (
         <Star
           key={s}
-          className={`h-3.5 w-3.5 ${s <= rating ? "text-yellow-400 fill-yellow-400" : "text-slate-300 dark:text-zinc-600"}`}
+          className={`h-3.5 w-3.5 ${s <= rating ? "text-yellow-400 fill-yellow-400" : ""}`}
+          style={s > rating ? { color: "var(--text-subtle)" } : undefined}
         />
       ))}
     </span>
@@ -59,10 +60,10 @@ function StarRating({ rating }: { rating: number }) {
 }
 
 const STATUS_CONFIG = {
-  responded:  { labelKey: "reviews.status.responded",  bg: "bg-green-100  text-green-700  dark:bg-green-900  dark:text-green-300",  icon: CheckCircle2 },
-  sent:       { labelKey: "reviews.status.sent",       bg: "bg-blue-100   text-blue-700   dark:bg-blue-900   dark:text-blue-300",   icon: MailCheck },
-  pending:    { labelKey: "reviews.status.pending",    bg: "bg-amber-100  text-amber-700  dark:bg-amber-900  dark:text-amber-300",  icon: Clock },
-  not_due:    { labelKey: "reviews.status.notDue",     bg: "bg-slate-100   text-slate-500  dark:bg-zinc-800   dark:text-zinc-500",  icon: Clock },
+  responded: { labelKey: "reviews.status.responded", cls: "cust-status-badge cust-status-completed", icon: CheckCircle2 },
+  sent:      { labelKey: "reviews.status.sent",       cls: "cust-status-badge cust-status-confirmed",  icon: MailCheck },
+  pending:   { labelKey: "reviews.status.pending",    cls: "cust-status-badge cust-status-pending",   icon: Clock },
+  not_due:   { labelKey: "reviews.status.notDue",     cls: "cust-status-badge cust-status-draft",     icon: Clock },
 };
 
 export function ReviewsPage() {
@@ -138,31 +139,36 @@ export function ReviewsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[40vh]">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#C5A059]/25 border-t-[#C5A059]" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2"
+          style={{ borderColor: "var(--accent-subtle)", borderTopColor: "var(--accent)" }} />
       </div>
     );
   }
 
   return (
     <div className="max-w-6xl mx-auto py-8 px-4 space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
-          <Star className="h-6 w-6 text-[#C5A059]" />
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-zinc-100">{t(lang, "reviews.title")}</h1>
+          <Star className="h-6 w-6" style={{ color: "var(--accent)" }} />
+          <h1 className="cust-page-header-title">{t(lang, "reviews.title")}</h1>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <a
             href={googleLink}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[#4285F4] text-white text-sm font-medium hover:bg-[#3367D6] transition-colors shadow-sm"
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm"
+            style={{ background: "#4285F4", color: "#ffffff" }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = "#3367D6"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = "#4285F4"; }}
           >
             <ExternalLink className="h-4 w-4" />
             {t(lang, "reviews.button.google")}
           </a>
           <button
             onClick={() => { void loadAll(); }}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 text-sm text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors"
+            className="btn-secondary flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm min-h-0 min-w-0"
           >
             <RefreshCw className="h-4 w-4" /> {t(lang, "common.refresh")}
           </button>
@@ -170,7 +176,7 @@ export function ReviewsPage() {
       </div>
 
       {msg && (
-        <div className={`flex items-center gap-2 rounded-lg px-4 py-3 text-sm ${msg.type === "ok" ? "bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-300" : "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300"}`}>
+        <div className={`cust-alert ${msg.type === "ok" ? "cust-alert--success" : "cust-alert--error"}`}>
           {msg.type === "ok" ? <CheckCircle2 className="h-4 w-4 flex-shrink-0" /> : <AlertCircle className="h-4 w-4 flex-shrink-0" />}
           {msg.text}
         </div>
@@ -179,34 +185,34 @@ export function ReviewsPage() {
       {/* KPI-Kacheln */}
       {kpi && (
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-          <div className="rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4 text-center">
-            <div className="text-2xl font-bold text-amber-600">{kpi.faellig}</div>
-            <div className="text-xs text-slate-500 dark:text-zinc-400 mt-1">{t(lang, "reviews.status.pending")}</div>
+          <div className="cust-stat-card text-center">
+            <div className="cust-stat-value" style={{ color: "#c87f0a" }}>{kpi.faellig}</div>
+            <div className="cust-stat-label mt-1">{t(lang, "reviews.status.pending")}</div>
           </div>
-          <div className="rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4 text-center">
-            <div className="text-2xl font-bold text-blue-600">{kpi.gesendet}</div>
-            <div className="text-xs text-slate-500 dark:text-zinc-400 mt-1">{t(lang, "reviews.status.sent")}</div>
+          <div className="cust-stat-card text-center">
+            <div className="cust-stat-value" style={{ color: "#1a6fa8" }}>{kpi.gesendet}</div>
+            <div className="cust-stat-label mt-1">{t(lang, "reviews.status.sent")}</div>
           </div>
-          <div className="rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4 text-center">
-            <div className="text-2xl font-bold text-green-600">{kpi.beantwortet}</div>
-            <div className="text-xs text-slate-500 dark:text-zinc-400 mt-1">{t(lang, "reviews.status.responded")}</div>
+          <div className="cust-stat-card text-center">
+            <div className="cust-stat-value" style={{ color: "#1d9e56" }}>{kpi.beantwortet}</div>
+            <div className="cust-stat-label mt-1">{t(lang, "reviews.status.responded")}</div>
           </div>
-          <div className="rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4 text-center">
-            <div className="text-2xl font-bold text-slate-900 dark:text-zinc-100">{kpi.responseRate}%</div>
-            <div className="text-xs text-slate-500 dark:text-zinc-400 mt-1">{t(lang, "reviews.kpi.responseRate")}</div>
+          <div className="cust-stat-card text-center">
+            <div className="cust-stat-value">{kpi.responseRate}%</div>
+            <div className="cust-stat-label mt-1">{t(lang, "reviews.kpi.responseRate")}</div>
           </div>
-          <div className="rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4 text-center">
+          <div className="cust-stat-card text-center">
             {kpi.avgRating != null ? (
               <>
-                <div className="text-2xl font-bold text-yellow-500">{kpi.avgRating.toFixed(1)}</div>
+                <div className="cust-stat-value text-yellow-500">{kpi.avgRating.toFixed(1)}</div>
                 <div className="flex justify-center mt-1">
                   <StarRating rating={Math.round(kpi.avgRating)} />
                 </div>
               </>
             ) : (
               <>
-                <div className="text-2xl font-bold text-slate-300 dark:text-zinc-600">—</div>
-                <div className="text-xs text-slate-400 dark:text-zinc-500 mt-1">{t(lang, "reviews.kpi.noRatings")}</div>
+                <div className="cust-stat-value" style={{ color: "var(--text-subtle)" }}>—</div>
+                <div className="cust-stat-label mt-1">{t(lang, "reviews.kpi.noRatings")}</div>
               </>
             )}
           </div>
@@ -214,16 +220,16 @@ export function ReviewsPage() {
       )}
 
       {/* Filter-Tabs */}
-      <div className="flex items-center gap-2 flex-wrap">
+      <div className="cust-tab-row">
         {(["all", "pending", "sent", "responded"] as const).map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filter === f ? "bg-[#C5A059] text-white" : "bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-200 dark:hover:bg-zinc-700"}`}
+            className={`cust-tab${filter === f ? " active" : ""}`}
           >
             {f === "all" ? t(lang, "common.all") : f === "pending" ? t(lang, "reviews.status.pending") : f === "sent" ? t(lang, "reviews.status.sent") : t(lang, "reviews.status.responded")}
             {f !== "all" && (
-              <span className="ml-1.5 text-xs opacity-70">
+              <span className={`cust-tab-count${filter !== f ? " cust-tab-count--neutral" : ""}`}>
                 {reviews.filter((r) => r.review_status === f).length}
               </span>
             )}
@@ -232,24 +238,27 @@ export function ReviewsPage() {
       </div>
 
       {/* Tabelle */}
-      <div className="rounded-xl border border-slate-200 dark:border-zinc-700 overflow-hidden">
+      <div className="cust-table-wrap">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table>
             <thead>
-              <tr className="bg-slate-50 dark:bg-zinc-800 text-left">
-                <th className="px-4 py-3 font-medium text-slate-500 dark:text-zinc-400 text-xs uppercase tracking-wider">{t(lang, "reviews.table.order")}</th>
-                <th className="px-4 py-3 font-medium text-slate-500 dark:text-zinc-400 text-xs uppercase tracking-wider">{t(lang, "reviews.table.customer")}</th>
-                <th className="px-4 py-3 font-medium text-slate-500 dark:text-zinc-400 text-xs uppercase tracking-wider">{t(lang, "reviews.table.completed")}</th>
-                <th className="px-4 py-3 font-medium text-slate-500 dark:text-zinc-400 text-xs uppercase tracking-wider">{t(lang, "orderDetail.section.status")}</th>
-                <th className="px-4 py-3 font-medium text-slate-500 dark:text-zinc-400 text-xs uppercase tracking-wider">{t(lang, "reviews.table.rating")}</th>
-                <th className="px-4 py-3 font-medium text-slate-500 dark:text-zinc-400 text-xs uppercase tracking-wider">{t(lang, "reviews.table.actions")}</th>
+              <tr>
+                <th>{t(lang, "reviews.table.order")}</th>
+                <th>{t(lang, "reviews.table.customer")}</th>
+                <th>{t(lang, "reviews.table.completed")}</th>
+                <th>{t(lang, "orderDetail.section.status")}</th>
+                <th>{t(lang, "reviews.table.rating")}</th>
+                <th>{t(lang, "reviews.table.actions")}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
+            <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-slate-400 dark:text-zinc-500">
-                    {t(lang, "reviews.table.empty")}
+                  <td colSpan={6}>
+                    <div className="cust-empty-state">
+                      <Star className="h-10 w-10 mx-auto" />
+                      <p className="cust-empty-title">{t(lang, "reviews.table.empty")}</p>
+                    </div>
                   </td>
                 </tr>
               ) : filtered.map((row) => {
@@ -257,49 +266,51 @@ export function ReviewsPage() {
                 const StatusIcon = sc.icon;
                 const customerEmail = toVisibleCustomerEmail(row.customer_email);
                 return (
-                  <tr key={row.order_no} className="hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors">
-                    <td className="px-4 py-3 font-mono font-medium text-slate-900 dark:text-zinc-100">#{row.order_no}</td>
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-slate-900 dark:text-zinc-100">{row.customer_name || "—"}</div>
-                      <div className="text-xs text-slate-400 dark:text-zinc-500">{customerEmail}</div>
+                  <tr key={row.order_no}>
+                    <td className="cust-td-id">#{row.order_no}</td>
+                    <td>
+                      <div className="font-medium" style={{ color: "var(--text-main)" }}>{row.customer_name || "—"}</div>
+                      <div className="text-xs" style={{ color: "var(--text-subtle)" }}>{customerEmail}</div>
                     </td>
-                    <td className="px-4 py-3 text-slate-600 dark:text-zinc-400">
+                    <td style={{ color: "var(--text-muted)", fontSize: "13px" }}>
                       {row.done_at ? new Date(row.done_at).toLocaleDateString("de-CH") : "—"}
                     </td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${sc.bg}`}>
+                    <td>
+                      <span className={sc.cls}>
                         <StatusIcon className="h-3 w-3" />
                         {t(lang, sc.labelKey)}
                       </span>
                       {row.review_request_count > 0 && (
-                        <div className="text-xs text-slate-400 dark:text-zinc-500 mt-0.5">{row.review_request_count}{t(lang, "reviews.label.timesSent")}</div>
+                        <div className="text-xs mt-0.5" style={{ color: "var(--text-subtle)" }}>
+                          {row.review_request_count}{t(lang, "reviews.label.timesSent")}
+                        </div>
                       )}
                     </td>
-                    <td className="px-4 py-3">
+                    <td>
                       {row.rating ? (
                         <div>
                           <StarRating rating={row.rating} />
                           {row.comment && (
-                            <div className="text-xs text-slate-500 dark:text-zinc-400 mt-1 max-w-xs truncate" title={row.comment}>
+                            <div className="text-xs mt-1 max-w-xs truncate" style={{ color: "var(--text-muted)" }} title={row.comment}>
                               <MessageSquare className="h-3 w-3 inline mr-1" />
                               {row.comment}
                             </div>
                           )}
                           {row.submitted_at && (
-                            <div className="text-xs text-slate-400 dark:text-zinc-500">{new Date(row.submitted_at).toLocaleDateString("de-CH")}</div>
+                            <div className="text-xs" style={{ color: "var(--text-subtle)" }}>{new Date(row.submitted_at).toLocaleDateString("de-CH")}</div>
                           )}
                         </div>
                       ) : (
-                        <span className="text-slate-300 dark:text-zinc-600">—</span>
+                        <span style={{ color: "var(--text-subtle)" }}>—</span>
                       )}
                     </td>
-                    <td className="px-4 py-3">
+                    <td>
                       <div className="flex items-center gap-2">
                         {(row.review_status === "pending" || row.review_status === "sent") && (
                           <button
                             onClick={() => { void resend(row.order_no); }}
                             disabled={actionMap[row.order_no] === "sending"}
-                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#C5A059] text-white text-xs hover:bg-[#b8934d] disabled:opacity-50 transition-colors"
+                            className="cust-action-view min-h-0 min-w-0 disabled:opacity-50"
                           >
                             <Send className="h-3 w-3" />
                             {actionMap[row.order_no] === "sending" ? "..." : t(lang, "common.send")}
@@ -309,10 +320,10 @@ export function ReviewsPage() {
                           <button
                             onClick={() => { void dismiss(row.order_no); }}
                             disabled={actionMap[row.order_no] === "dismissing"}
-                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-400 text-xs hover:bg-slate-50 dark:hover:bg-zinc-800 disabled:opacity-50 transition-colors"
+                            className="cust-action-icon disabled:opacity-50"
+                            title={t(lang, "reviews.button.ignore")}
                           >
-                            <BanIcon className="h-3 w-3" />
-                            {t(lang, "reviews.button.ignore")}
+                            <BanIcon className="h-3.5 w-3.5" />
                           </button>
                         )}
                       </div>

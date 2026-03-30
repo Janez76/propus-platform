@@ -13,6 +13,7 @@ import { CreateOrderWizard } from "../components/orders/CreateOrderWizard";
 import { useMutation } from "../hooks/useMutation";
 import { useQuery } from "../hooks/useQuery";
 import { customersQueryKey } from "../lib/queryKeys";
+import { cn } from "../lib/utils";
 import { useAuthStore } from "../store/authStore";
 import { t } from "../i18n";
 import { useQueryStore } from "../store/queryStore";
@@ -507,10 +508,13 @@ export function CustomersPage() {
       <button
         type="button"
         onClick={onClick}
-        className="inline-flex items-center gap-1.5 hover:text-white transition-colors"
+        className={cn(
+          "inline-flex items-center gap-1.5 font-inherit bg-transparent border-0 p-0 cursor-pointer transition-colors",
+          active ? "text-[var(--accent)]" : "text-[var(--text-subtle)] hover:text-[var(--text-main)]",
+        )}
       >
         <span>{label}</span>
-        {active ? (dir === "asc" ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />) : <ArrowUpDown className="h-3.5 w-3.5 opacity-70" />}
+        {active ? (dir === "asc" ? <ChevronUp className="h-3.5 w-3.5 shrink-0" /> : <ChevronDown className="h-3.5 w-3.5 shrink-0" />) : <ArrowUpDown className="h-3.5 w-3.5 shrink-0 opacity-70" />}
       </button>
     );
   }
@@ -764,78 +768,97 @@ export function CustomersPage() {
                 <col className="w-[13%]" />
               </colgroup>
               <thead>
-                <tr style={{ borderBottom: "2px solid color-mix(in srgb, var(--accent) 20%, var(--border-soft))" }}>
-                  <th className="px-2 py-4 text-left text-xs font-bold uppercase tracking-wider p-text-accent tabular-nums">{renderSortButton(t(lang, "customers.contacts.col.contactId"), contactSortKey === "contactId", contactSortDir, () => toggleContactSort("contactId"))}</th>
-                  <th className="px-2 py-4 text-left text-xs font-bold uppercase tracking-wider p-text-accent tabular-nums">{renderSortButton(t(lang, "customers.contacts.col.customerId"), contactSortKey === "customerId", contactSortDir, () => toggleContactSort("customerId"))}</th>
-                  <th className="px-3 py-4 text-left text-xs font-bold uppercase tracking-wider p-text-accent">{renderSortButton(t(lang, "customers.contacts.col.name"), contactSortKey === "name", contactSortDir, () => toggleContactSort("name"))}</th>
-                  <th className="px-3 py-4 text-left text-xs font-bold uppercase tracking-wider p-text-accent">{renderSortButton(t(lang, "customers.contacts.col.contact"), contactSortKey === "contact", contactSortDir, () => toggleContactSort("contact"))}</th>
-                  <th className="px-3 py-4 text-left text-xs font-bold uppercase tracking-wider p-text-accent">{renderSortButton(t(lang, "customers.contacts.col.firm"), contactSortKey === "customer", contactSortDir, () => toggleContactSort("customer"))}</th>
-                  <th className="px-3 py-4 text-left text-xs font-bold uppercase tracking-wider p-text-accent">{renderSortButton(t(lang, "customers.label.role"), contactSortKey === "role", contactSortDir, () => toggleContactSort("role"))}</th>
-                  <th className="px-3 py-4 text-right text-xs font-bold uppercase tracking-wider p-text-accent">{t(lang, "common.actions")}</th>
+                <tr>
+                  <th className={cn("cust-td-id tabular-nums whitespace-nowrap", contactSortKey === "contactId" && "cust-th-sorted")}>
+                    {renderSortButton(t(lang, "customers.contacts.col.contactId"), contactSortKey === "contactId", contactSortDir, () => toggleContactSort("contactId"))}
+                  </th>
+                  <th className={cn("cust-td-id tabular-nums whitespace-nowrap", contactSortKey === "customerId" && "cust-th-sorted")}>
+                    {renderSortButton(t(lang, "customers.contacts.col.customerId"), contactSortKey === "customerId", contactSortDir, () => toggleContactSort("customerId"))}
+                  </th>
+                  <th className={cn(contactSortKey === "name" && "cust-th-sorted")}>
+                    {renderSortButton(t(lang, "customers.contacts.col.name"), contactSortKey === "name", contactSortDir, () => toggleContactSort("name"))}
+                  </th>
+                  <th className={cn(contactSortKey === "contact" && "cust-th-sorted")}>
+                    {renderSortButton(t(lang, "customers.contacts.col.contact"), contactSortKey === "contact", contactSortDir, () => toggleContactSort("contact"))}
+                  </th>
+                  <th className={cn(contactSortKey === "customer" && "cust-th-sorted")}>
+                    {renderSortButton(t(lang, "customers.contacts.col.firm"), contactSortKey === "customer", contactSortDir, () => toggleContactSort("customer"))}
+                  </th>
+                  <th className={cn(contactSortKey === "role" && "cust-th-sorted")}>
+                    {renderSortButton(t(lang, "customers.label.role"), contactSortKey === "role", contactSortDir, () => toggleContactSort("role"))}
+                  </th>
+                  <th className="text-right pr-5">{t(lang, "common.actions")}</th>
                 </tr>
               </thead>
-              <tbody style={{ borderColor: "var(--border-soft)" }} className="divide-y">
+              <tbody>
                 {sortedContacts.map((ct) => (
                   <tr
                     key={`contact-${ct.id}`}
-                    className="propus-table-row transition-colors cursor-pointer"
+                    className="cursor-pointer transition-colors"
                     onClick={() => {
                       const parent = items.find((c) => c.id === (ct.customer_id ?? 0));
                       if (parent) setSelectedContactRecord(parent);
                     }}
                   >
-                    <td className="px-2 py-3 text-xs tabular-nums p-text-subtle whitespace-nowrap">{ct.id}</td>
-                    <td className="px-2 py-3 text-xs tabular-nums p-text-subtle whitespace-nowrap">{ct.customer_id ?? "—"}</td>
-                    <td className="px-3 py-3">
-                      <div className="flex items-center gap-2">
-                        <User className="h-3.5 w-3.5 shrink-0 p-text-subtle" />
-                        <span className="font-semibold text-sm p-text-main truncate">{[ct.first_name, ct.last_name].filter(Boolean).join(" ").trim() || ct.name || "-"}</span>
+                    <td className="cust-td-id whitespace-nowrap">{ct.id}</td>
+                    <td className="cust-td-id whitespace-nowrap">{ct.customer_id ?? "—"}</td>
+                    <td>
+                      <div className="cust-customer-cell">
+                        <User className="h-3.5 w-3.5 shrink-0 text-[var(--text-subtle)]" strokeWidth={1.8} />
+                        <span className="cust-customer-name truncate">{[ct.first_name, ct.last_name].filter(Boolean).join(" ").trim() || ct.name || "-"}</span>
                       </div>
                     </td>
-                    <td className="px-3 py-3">
+                    <td className="cust-td-address">
                       {ct.email ? (
-                        <a href={`mailto:${ct.email}`} onClick={(e) => e.stopPropagation()} className="flex items-center gap-1.5 text-sm p-text-muted p-hover-accent transition-colors w-fit">
-                          <Mail className="h-3.5 w-3.5 shrink-0 p-text-subtle" />
+                        <a
+                          href={`mailto:${ct.email}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex items-center gap-1.5 text-[length:12px] text-[var(--text-muted)] p-hover-accent transition-colors w-fit max-w-full"
+                        >
+                          <Mail className="h-3.5 w-3.5 shrink-0 text-[var(--text-subtle)]" />
                           <span className="truncate">{ct.email}</span>
                         </a>
                       ) : null}
                       {ct.phone ? (
-                        <span onClick={(e) => e.stopPropagation()} className="flex items-center gap-1.5 text-sm p-text-muted p-hover-accent transition-colors mt-0.5 w-fit">
-                          <Phone className="h-3.5 w-3.5 shrink-0 p-text-subtle" />
-                          <PhoneLink value={ct.phone} className="p-hover-accent" />
+                        <span onClick={(e) => e.stopPropagation()} className="mt-0.5 flex items-center gap-1.5 text-[length:12px] text-[var(--text-muted)] w-fit max-w-full">
+                          <Phone className="h-3.5 w-3.5 shrink-0 text-[var(--text-subtle)]" />
+                          <PhoneLink value={ct.phone} className="p-hover-accent truncate" />
                         </span>
                       ) : null}
-                      {!ct.email && !ct.phone ? <span className="text-sm p-text-subtle">-</span> : null}
+                      {!ct.email && !ct.phone ? <span className="text-[length:12px] text-[var(--text-subtle)]">-</span> : null}
                     </td>
-                    <td className="px-3 py-3">
+                    <td className="cust-td-address">
                       {ct.customer_id ? (
                         <button
+                          type="button"
                           onClick={(e) => {
                             e.stopPropagation();
                             const parent = items.find((c) => c.id === ct.customer_id);
                             if (parent) setSelectedContactRecord(parent);
                           }}
-                          className="flex items-center gap-1.5 text-sm p-text-muted p-hover-accent transition-colors w-fit"
+                          className="flex max-w-full items-center gap-1.5 text-left text-[length:12px] text-[var(--text-muted)] p-hover-accent transition-colors"
                           title={t(lang, "customers.contacts.openCustomer")}
                         >
-                          <Building2 className="h-3.5 w-3.5 shrink-0 p-text-subtle" />
+                          <Building2 className="h-3.5 w-3.5 shrink-0 text-[var(--text-subtle)]" />
                           <span className="truncate">
                             {ct.customer_company || ct.customer_name || items.find((c) => c.id === ct.customer_id)?.company || items.find((c) => c.id === ct.customer_id)?.name || "-"}
                           </span>
                         </button>
                       ) : (
-                        <span className="text-sm p-text-subtle">{t(lang, "customers.contacts.unlinked")}</span>
+                        <span className="text-[length:12px] text-[var(--text-subtle)]">{t(lang, "customers.contacts.unlinked")}</span>
                       )}
                     </td>
-                    <td className="px-3 py-3 text-sm p-text-muted truncate">{ct.role || "-"}</td>
-                    <td className="px-3 py-3 text-right">
+                    <td className="cust-td-address">
+                      <span className="cust-td-address-line block max-w-full">{ct.role || "-"}</span>
+                    </td>
+                    <td className="text-right">
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           openLinkDialog(ct);
                         }}
-                        className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                        className="rounded-md border border-[var(--border-soft)] bg-transparent px-2.5 py-1.5 text-xs font-medium text-[var(--text-main)] transition-colors hover:bg-[var(--surface-raised)]"
                       >
                         {ct.customer_id ? t(lang, "customers.contacts.reassign") : t(lang, "customers.contacts.link")}
                       </button>

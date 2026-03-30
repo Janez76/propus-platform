@@ -216,8 +216,20 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
           {/* Logout Button */}
           <button
             onClick={handleLogout}
-            className="hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-transparent text-sm font-medium transition-all duration-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200 dark:hover:bg-red-950/30 dark:hover:text-red-400 focus:outline-none"
+            className="hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-transparent text-sm font-medium transition-all duration-200 focus:outline-none"
             style={{ background: "var(--surface-raised)", color: "var(--text-muted)" }}
+            onMouseEnter={(e) => {
+              const el = e.currentTarget as HTMLButtonElement;
+              el.style.background = "color-mix(in srgb, #e74c3c 8%, transparent)";
+              el.style.color = "#c0392b";
+              el.style.borderColor = "color-mix(in srgb, #e74c3c 25%, transparent)";
+            }}
+            onMouseLeave={(e) => {
+              const el = e.currentTarget as HTMLButtonElement;
+              el.style.background = "var(--surface-raised)";
+              el.style.color = "var(--text-muted)";
+              el.style.borderColor = "transparent";
+            }}
           >
             <LogOut className="h-4 w-4" />
             <span>{t(language, "auth.logout")}</span>
@@ -246,8 +258,18 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
           {/* Mobile: Logout */}
           <button
             onClick={handleLogout}
-            className="sm:hidden p-2.5 rounded-lg transition-all duration-200 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30 dark:hover:text-red-400"
+            className="sm:hidden p-2.5 rounded-lg transition-all duration-200"
             style={{ background: "var(--surface-raised)", color: "var(--text-muted)" }}
+            onMouseEnter={(e) => {
+              const el = e.currentTarget as HTMLButtonElement;
+              el.style.background = "color-mix(in srgb, #e74c3c 8%, transparent)";
+              el.style.color = "#c0392b";
+            }}
+            onMouseLeave={(e) => {
+              const el = e.currentTarget as HTMLButtonElement;
+              el.style.background = "var(--surface-raised)";
+              el.style.color = "var(--text-muted)";
+            }}
             aria-label="Logout"
           >
             <LogOut className="h-4 w-4" />

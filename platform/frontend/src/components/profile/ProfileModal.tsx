@@ -108,22 +108,22 @@ export function ProfileModal({ open, onClose }: Props) {
   const statusPill = useMemo(() => {
     const map = {
       saving: {
-        cls: "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700/40",
+        cls: "cust-alert--warning",
         icon: <Loader2 className="h-3.5 w-3.5 animate-spin" />,
         label: t(language, "profile.saving"),
       },
       dirty: {
-        cls: "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700/40",
+        cls: "cust-alert--info",
         icon: <AlertCircle className="h-3.5 w-3.5" />,
         label: t(language, "profile.unsaved"),
       },
       error: {
-        cls: "bg-red-100 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-400 dark:border-red-700/40",
+        cls: "cust-alert--error",
         icon: <AlertCircle className="h-3.5 w-3.5" />,
         label: t(language, "profile.error"),
       },
       saved: {
-        cls: "bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-700/40",
+        cls: "cust-alert--success",
         icon: <CheckCircle2 className="h-3.5 w-3.5" />,
         label: t(language, "profile.saved"),
       },
@@ -163,37 +163,27 @@ export function ProfileModal({ open, onClose }: Props) {
 
   if (!open) return null;
 
-  const inputClass = cn(
-    "mt-1.5 block w-full rounded-xl border px-3 py-2.5 text-sm transition-all outline-none",
-    "bg-zinc-50 dark:bg-zinc-800/60",
-    "border-zinc-200 dark:border-zinc-700",
-    "text-zinc-900 dark:text-zinc-100",
-    "placeholder:text-zinc-400 dark:placeholder:text-zinc-500",
-    "focus:border-[#9e8649] dark:focus:border-[#d6b56a]",
-    "focus:ring-2 focus:ring-[#9e8649]/15 dark:focus:ring-[#d6b56a]/15",
-    "disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-zinc-100 dark:disabled:bg-zinc-900/40"
-  );
+  const inputClass = "cust-form-input mt-1.5";
 
-  const labelClass = "block text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-0.5";
+  const labelClass = "block text-xs font-bold uppercase tracking-wider mb-0.5"
+    + " " + "p-text-subtle";
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 px-3 py-6 backdrop-blur-sm">
-      <div className={cn(
-        "w-full max-w-3xl my-auto overflow-hidden rounded-2xl border shadow-2xl",
-        "bg-white dark:bg-zinc-900",
-        "border-zinc-200 dark:border-zinc-700/60"
-      )}>
+      <div className="w-full max-w-3xl my-auto overflow-hidden rounded-2xl border shadow-2xl"
+        style={{ background: "var(--surface)", borderColor: "var(--border-soft)" }}>
 
         {/* ── Header ── */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100 dark:border-zinc-800">
-          <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+        <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: "var(--border-soft)" }}>
+          <h3 className="text-base font-semibold p-text-main">
             {t(language, "profile.title")}
           </h3>
           <div className="flex items-center gap-3">
             {statusPill}
             <button
               onClick={close}
-              className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+              className="p-1.5 rounded-lg transition-colors propus-dialog-close"
+              style={{ color: "var(--text-subtle)" }}
               aria-label="Schliessen"
             >
               <X className="h-5 w-5" />
@@ -202,7 +192,7 @@ export function ProfileModal({ open, onClose }: Props) {
         </div>
 
         {/* ── Body ── */}
-        <div className="grid gap-0 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-zinc-100 dark:divide-zinc-800">
+        <div className="grid gap-0 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x" style={{ borderColor: "var(--border-soft)" }}>
 
           {/* Profildaten */}
           <form onSubmit={submitProfile} className="p-6 space-y-4">
@@ -264,12 +254,12 @@ export function ProfileModal({ open, onClose }: Props) {
             </div>
 
             {error && (
-              <div className="rounded-xl p-3 text-sm bg-red-50 border border-red-200 text-red-700 dark:bg-red-900/20 dark:border-red-700/40 dark:text-red-400">
+              <div className="cust-alert cust-alert--error rounded-xl text-sm">
                 {error}
               </div>
             )}
             {saveError && (
-              <div className="rounded-xl p-3 text-sm bg-red-50 border border-red-200 text-red-700 dark:bg-red-900/20 dark:border-red-700/40 dark:text-red-400">
+              <div className="cust-alert cust-alert--error rounded-xl text-sm">
                 {saveError}
               </div>
             )}
@@ -308,12 +298,12 @@ export function ProfileModal({ open, onClose }: Props) {
             </div>
 
             {pwError && (
-              <div className="rounded-xl p-3 text-sm bg-red-50 border border-red-200 text-red-700 dark:bg-red-900/20 dark:border-red-700/40 dark:text-red-400">
+              <div className="cust-alert cust-alert--error rounded-xl text-sm">
                 {pwError}
               </div>
             )}
             {pwSuccess && (
-              <div className="rounded-xl p-3 text-sm bg-emerald-50 border border-emerald-200 text-emerald-700 dark:bg-emerald-900/20 dark:border-emerald-700/40 dark:text-emerald-400">
+              <div className="cust-alert cust-alert--success rounded-xl text-sm">
                 {pwSuccess}
               </div>
             )}
@@ -321,14 +311,7 @@ export function ProfileModal({ open, onClose }: Props) {
             <button
               type="submit"
               disabled={pwSaving}
-              className={cn(
-                "mt-2 w-full flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold transition-all",
-                "bg-[#9e8649] hover:bg-[#8d7740] text-white",
-                "shadow-md hover:shadow-lg shadow-[#9e8649]/20 hover:shadow-[#9e8649]/30",
-                "dark:bg-[#d6b56a] dark:hover:bg-[#c6a457] dark:text-zinc-900",
-                "dark:shadow-[#d6b56a]/20 dark:hover:shadow-[#d6b56a]/30",
-                "disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none disabled:hover:bg-[#9e8649] dark:disabled:hover:bg-[#d6b56a]"
-              )}
+              className="btn-primary mt-2 w-full flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold"
             >
               {pwSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : t(language, "profile.passwordSave")}
             </button>
@@ -336,10 +319,10 @@ export function ProfileModal({ open, onClose }: Props) {
         </div>
 
         {/* ── Footer ── */}
-        <div className="px-6 py-3 flex justify-end border-t border-zinc-100 dark:border-zinc-800">
+        <div className="px-6 py-3 flex justify-end border-t" style={{ borderColor: "var(--border-soft)" }}>
           <button
             onClick={close}
-            className="px-4 py-2 rounded-lg text-sm font-semibold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+            className="btn-secondary px-4 py-2 rounded-lg text-sm font-semibold"
           >
             {t(language, "profile.close")}
           </button>
