@@ -286,7 +286,7 @@ export function ProductsPage() {
               </button>
               <button
                 type="button"
-                className={`${btnBaseClass} flex-1 justify-center border-none btn-primary min-h-0 disabled:cursor-not-allowed disabled:opacity-45`}
+                className={`btn-danger min-h-0 inline-flex items-center justify-center gap-2 px-3 py-2 text-sm flex-1 justify-center disabled:cursor-not-allowed disabled:opacity-45`}
                 disabled={categoryDeleteBusy}
                 onClick={async () => {
                   if (!categoryPendingDelete) return;
