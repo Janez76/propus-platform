@@ -442,7 +442,8 @@ docker compose -p "$RemoteComposeProject" -f "$RemoteComposeFile" --env-file "$R
 echo '[deploy] core migrate (Profil migrate)...'
 docker compose -p "$RemoteComposeProject" -f "$RemoteComposeFile" --env-file "$RemoteEnvFile" --profile migrate run --rm migrate
 $buildLine
-echo '[deploy] platform Container...'
+echo '[deploy] platform Container (alten gestoppten Container entfernen falls vorhanden)...'
+docker rm -f "$RemoteComposeProject-platform-1" 2>/dev/null || true
 docker compose -p "$RemoteComposeProject" -f "$RemoteComposeFile" --env-file "$RemoteEnvFile" up -d platform
 echo '[deploy] warte auf /api/health (max ~90s, Schritt 3s)...'
 i=0
