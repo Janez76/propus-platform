@@ -25,6 +25,7 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   "/exxas-reconcile": "settings.manage",
   "/settings/access": "roles.manage",
   "/settings/users": "users.manage",
+  "/settings/companies": "users.manage",
   "/bugs": "bugs.read",
   "/backups": "backups.manage",
   "/changelog": "dashboard.view",
