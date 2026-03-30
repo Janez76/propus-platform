@@ -421,7 +421,6 @@
                 acList.innerHTML = filtered.map((f, i) => `
                   <li class="firma-ac-item${i===activeIdx?' active':''}" data-idx="${i}">
                     <span class="firma-ac-item-name">${hi(f.name, lq)}</span>
-                    ${f.name !== f.email ? `<span class="firma-ac-item-email">${hi(f.email, lq)}</span>` : ''}
                   </li>`).join('');
               }
               acList.classList.add('open');
@@ -455,7 +454,7 @@
             function selectFirma(f) {
               hiddenEmail.value  = f.email;
               searchInput.value  = '';
-              selectedName.textContent = f.name + (f.name !== f.email ? ' · ' + f.email : '');
+              selectedName.textContent = f.name;
               selectedBox.style.display = '';
               searchInput.style.display = 'none';
               acList.classList.remove('open');
