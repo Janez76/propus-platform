@@ -5,7 +5,11 @@
  * This enables a clean migration path: individual routes can be converted
  * to Next.js Server Components by creating specific page.tsx files.
  */
-import ClientShell from "@/components/ClientShell";
+import dynamic from "next/dynamic";
+
+const ClientShell = dynamic(() => import("@/components/ClientShell"), {
+  ssr: false,
+});
 
 export default function SpaPage() {
   return <ClientShell />;
