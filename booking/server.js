@@ -2,7 +2,7 @@ const express = require("express");
 const compression = require("compression");
 const multer = require("multer");
 const cors = require("cors");
-const pinoHttp = require("pino-http");
+// pino-http removed – Winston HTTP logging via logger.httpLoggerOptions.middleware
 const fs = require("fs");
 const path = require("path");
 const dotenv = require("dotenv");
@@ -2231,9 +2231,7 @@ const app = express();
 const COMPANY_MEMBER_ROLES = new Set(["company_owner", "company_admin", "company_employee"]);
 const SUPER_ADMIN_ROLES = new Set(["super_admin", "admin", "employee"]);
 app.set("trust proxy", 1);
-app.use(
-  pinoHttp(logger.httpLoggerOptions)
-);
+app.use(logger.httpLoggerOptions.middleware);
 app.use(cors({ origin: "*", methods: ["GET","POST","PUT","PATCH","DELETE","OPTIONS"], allowedHeaders: ["Content-Type","Authorization"] }));
 app.use(compression());
 app.use(express.json({ limit: "1mb" }));

@@ -1,46 +1,13 @@
 const { randomUUID } = require("crypto");
 const fs = require("fs");
 const path = require("path");
-const pino = require("pino");
+const winston = require("winston");
 
 const isProduction = process.env.NODE_ENV === "production";
-const wantsPretty = parseBoolean(process.env.LOG_PRETTY, !isProduction);
-const wantsRedaction = parseBoolean(process.env.LOG_REDACT, true);
 const wantsFileLogging = parseBoolean(process.env.LOG_FILE_ENABLED, isProduction);
-const wantsRotation = parseBoolean(process.env.LOG_FILE_ROTATE, true);
 const wantsConsoleLogging = parseBoolean(process.env.LOG_CONSOLE_ENABLED, !isProduction);
 const retentionDays = normalizeRetentionDays(process.env.LOG_RETENTION_DAYS);
 const logDir = process.env.LOG_DIR || path.join(__dirname, "logs");
-const logFilePath = process.env.LOG_FILE_PATH || path.join(logDir, "backend.log");
-
-const loggerOptions = {
-  level: process.env.LOG_LEVEL || "info",
-  base: { service: "buchungstool-backend" },
-  timestamp: pino.stdTimeFunctions.isoTime,
-  formatters: {
-    level(label) {
-      return { level: label };
-    }
-  }
-};
-
-if (wantsRedaction) {
-  loggerOptions.redact = {
-    paths: [
-      "req.headers.authorization",
-      "req.headers.cookie",
-      "req.headers.x-api-key",
-      "res.headers.set-cookie",
-      "*.password",
-      "*.token",
-      "*.secret"
-    ],
-    censor: "[Redacted]"
-  };
-}
-
-const streams = buildStreams();
-const logger = streams.length ? pino(loggerOptions, pino.multistream(streams)) : pino(loggerOptions);
 
 function parseBoolean(value, defaultValue = false) {
   if (value == null || value === "") return defaultValue;
@@ -72,105 +39,151 @@ function cleanupOldLogs(dirPath, maxAgeDays) {
       }
     }
   } catch (_err) {
-    // Ignore cleanup failures so logging itself stays available.
+    // Ignore cleanup failures
   }
 }
 
-function buildStreams() {
-  const streamList = [];
+const consoleFormat = winston.format.combine(
+  winston.format.colorize(),
+  winston.format.timestamp({ format: "HH:mm:ss" }),
+  winston.format.printf(({ timestamp, level, message, module: mod, ...meta }) => {
+    const modStr = mod ? `[${mod}] ` : "";
+    const metaKeys = Object.keys(meta).filter(
+      (k) => k !== "service" && k !== "splat"
+    );
+    const metaStr = metaKeys.length ? " " + JSON.stringify(
+      Object.fromEntries(metaKeys.map((k) => [k, meta[k]]))
+    ) : "";
+    return `${timestamp} ${level}: ${modStr}${message}${metaStr}`;
+  })
+);
 
-  if (wantsConsoleLogging) {
-    if (wantsPretty) {
-      try {
-        const pinoPretty = require("pino-pretty");
-        streamList.push({
-          stream: pinoPretty({
-            colorize: true,
-            translateTime: "SYS:standard",
-            ignore: "pid,hostname"
-          })
-        });
-      } catch {
-        streamList.push({ stream: process.stdout });
-      }
-    } else {
-      streamList.push({ stream: process.stdout });
-    }
-  }
+const jsonFormat = winston.format.combine(
+  winston.format.timestamp(),
+  winston.format.errors({ stack: true }),
+  // Redact sensitive fields
+  winston.format((info) => {
+    if (info.password) info.password = "[Redacted]";
+    if (info.token) info.token = "[Redacted]";
+    if (info.secret) info.secret = "[Redacted]";
+    return info;
+  })(),
+  winston.format.json()
+);
 
-  if (wantsFileLogging) {
-    ensureDirectory(logDir);
-    cleanupOldLogs(logDir, retentionDays);
-    // Keep runtime stable on recent Node versions by using direct file streams.
-    // Rotation stays configurable externally (or via log shipping) if needed.
-    streamList.push({
-      stream: pino.destination({
-        dest: logFilePath,
-        mkdir: true,
-        sync: false
-      })
-    });
-  }
+const transports = [];
 
-  if (wantsRotation && !process.env.LOG_ROTATION_FREQUENCY) {
-    // no-op: variable is accepted for compatibility with previous setup.
-  }
-
-  return streamList;
+if (wantsConsoleLogging || !isProduction) {
+  transports.push(
+    new winston.transports.Console({
+      format: isProduction ? jsonFormat : consoleFormat,
+      level: process.env.LOG_LEVEL || (isProduction ? "info" : "debug"),
+    })
+  );
 }
 
-function createModuleConsole(targetLogger = logger) {
+if (wantsFileLogging) {
+  ensureDirectory(logDir);
+  cleanupOldLogs(logDir, retentionDays);
+  transports.push(
+    new winston.transports.File({
+      filename: path.join(logDir, "error.log"),
+      level: "error",
+      format: jsonFormat,
+      maxsize: 10 * 1024 * 1024,
+      maxFiles: 5,
+    }),
+    new winston.transports.File({
+      filename: path.join(logDir, "backend.log"),
+      format: jsonFormat,
+      maxsize: 20 * 1024 * 1024,
+      maxFiles: 10,
+    })
+  );
+}
+
+// Fallback: always have at least console transport
+if (transports.length === 0) {
+  transports.push(
+    new winston.transports.Console({
+      format: isProduction ? jsonFormat : consoleFormat,
+    })
+  );
+}
+
+const logger = winston.createLogger({
+  level: process.env.LOG_LEVEL || (isProduction ? "info" : "debug"),
+  defaultMeta: { service: "buchungstool-backend" },
+  transports,
+  exitOnError: false,
+});
+
+/**
+ * createModuleConsole – Drop-in replacement for console.log/warn/error
+ * scoped to a named module. Parses "[ModuleName] message" format.
+ */
+function createModuleConsole(targetLogger) {
+  const log = targetLogger || logger;
   function write(level, args) {
-    if (!args.length) return targetLogger[level]("");
+    if (!args.length) return log[level]("");
     const [first, ...rest] = args;
     if (typeof first !== "string") {
-      targetLogger[level](first, ...rest);
+      log[level](first, ...rest);
       return;
     }
-
     const match = first.match(/^\[([^\]]+)\]\s*(.*)$/);
     if (!match) {
-      targetLogger[level](first, ...rest);
+      log[level](first, ...rest);
       return;
     }
-
     const moduleName = match[1];
     const message = match[2] || first;
-    targetLogger[level]({ module: moduleName }, message, ...rest);
+    const extra = rest.length === 1 && typeof rest[0] === "object" ? rest[0] : {};
+    log[level](message, { module: moduleName, ...extra });
   }
-
   return {
     log: (...args) => write("info", args),
     warn: (...args) => write("warn", args),
-    error: (...args) => write("error", args)
+    error: (...args) => write("error", args),
   };
 }
 
+/**
+ * httpLoggerOptions – Express middleware compatible with previous pino-http contract.
+ * Used in booking/server.js as: app.use(pinoHttp(httpLoggerOptions))
+ * Now returns a Winston-based middleware instead.
+ */
 const httpLoggerOptions = {
+  // Kept for API compatibility – booking/server.js destructures this
   logger,
-  quietReqLogger: true,
-  autoLogging: {
-    ignore(req) {
-      return req.url === "/api/health" || req.url.startsWith("/api/health?");
-    }
+  middleware: function winstonHttpMiddleware(req, res, next) {
+    const start = Date.now();
+    const reqId =
+      req.headers["x-request-id"] ||
+      randomUUID();
+    res.setHeader("x-request-id", reqId);
+
+    res.on("finish", () => {
+      const ms = Date.now() - start;
+      const isHealthCheck =
+        req.url === "/api/health" || (req.url || "").startsWith("/api/health?");
+      if (isHealthCheck) return;
+
+      const level =
+        res.statusCode >= 500 ? "error" : res.statusCode >= 400 ? "warn" : "info";
+      logger[level](`${req.method} ${req.url} ${res.statusCode} ${ms}ms`, {
+        module: "http",
+        method: req.method,
+        url: req.url,
+        path: req.path,
+        status: res.statusCode,
+        ms,
+        reqId,
+        ip: req.ip,
+      });
+    });
+    next();
   },
-  genReqId(req, res) {
-    const incoming = req.headers["x-request-id"];
-    const requestId =
-      typeof incoming === "string" && incoming.trim()
-        ? incoming.trim()
-        : randomUUID();
-    res.setHeader("x-request-id", requestId);
-    return requestId;
-  },
-  customProps(req) {
-    return { module: "http", path: req.path };
-  },
-  customLogLevel(_req, res, err) {
-    if (err || res.statusCode >= 500) return "error";
-    if (res.statusCode >= 400) return "warn";
-    return "info";
-  }
 };
 
 module.exports = logger;
