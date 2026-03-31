@@ -26,7 +26,7 @@
     .pr-intro { color:var(--text-muted); margin:0 0 1.25rem 0; max-width:720px; font-size:0.88rem; line-height:1.6; }
 
     /* Liste */
-    .pr-list { border:1px solid var(--border); border-radius:12px; background:var(--bg-card,#fff); overflow:hidden; margin-bottom:1.25rem; }
+    .pr-list { border:1px solid var(--border); border-radius:12px; background:var(--bg-card); overflow:hidden; margin-bottom:1.25rem; }
     .pr-row { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:0.85rem 1rem; border-top:1px solid var(--border); flex-wrap:wrap; }
     .pr-row:first-child { border-top:none; }
     .pr-avatar {
@@ -52,7 +52,7 @@
     .pr-form label { display:grid; gap:0.3rem; font-size:0.82rem; color:var(--text-muted); }
     .pr-form input, .pr-form select {
       padding:0.48rem 0.65rem; border-radius:10px; border:1px solid var(--border);
-      background:var(--bg); color:var(--text); font-size:0.88rem;
+      background:var(--surface-raised); color:var(--text); font-size:0.88rem;
     }
     .pr-form input[type="email"], .pr-form input[type="text"] { min-width:250px; }
     .pr-form select { min-width:200px; }
@@ -61,7 +61,7 @@
     .firma-ac-wrap { position:relative; min-width:280px; }
     .firma-ac-input {
       width:100%; padding:0.48rem 0.65rem 0.48rem 2rem; border-radius:10px;
-      border:1px solid var(--border); background:var(--bg); color:var(--text);
+      border:1px solid var(--border); background:var(--surface-raised); color:var(--text);
       font-size:0.88rem; box-sizing:border-box;
     }
     .firma-ac-icon {
@@ -70,7 +70,7 @@
     }
     .firma-ac-list {
       position:absolute; top:calc(100% + 4px); left:0; right:0; z-index:200;
-      background:var(--bg-card,#fff); border:1px solid var(--border); border-radius:10px;
+      background:var(--bg-card); border:1px solid var(--border); border-radius:10px;
       box-shadow:0 4px 16px rgba(0,0,0,.12); max-height:260px; overflow-y:auto;
       display:none;
     }
@@ -91,7 +91,7 @@
     .contact-suggestion-list { display:flex; flex-direction:column; gap:0.3rem; margin-top:0.4rem; }
     .contact-chip {
       display:flex; align-items:center; gap:0.6rem; padding:0.45rem 0.7rem;
-      border:1px solid var(--border); border-radius:8px; background:var(--bg);
+      border:1px solid var(--border); border-radius:8px; background:var(--surface-raised);
       cursor:pointer; transition:background .1s, border-color .1s; font-size:0.83rem;
     }
     .contact-chip:hover { background:var(--row-hover,rgba(197,160,89,.08)); border-color:var(--primary,#C5A059); }

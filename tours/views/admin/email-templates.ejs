@@ -10,7 +10,7 @@
     .templates-list {
       border: 1px solid var(--border);
       border-radius: 12px;
-      background: #fff;
+      background: var(--surface);
       overflow: hidden;
     }
     .template-row {
@@ -60,7 +60,7 @@
       border: 1px dashed var(--border);
       border-radius: 8px;
       padding: 0.08rem 0.34rem;
-      background: #fcfcfb;
+      background: var(--surface-raised);
     }
     .template-updated {
       display: none;
@@ -90,7 +90,7 @@
     .tm-modal-backdrop.open { display: flex; }
     .tm-modal {
       width: min(980px, 100%);
-      background: #fff;
+      background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 14px;
       box-shadow: 0 24px 45px rgba(20, 19, 17, 0.2);
@@ -122,7 +122,7 @@
     }
     .tm-modal-close {
       border: 1px solid var(--border);
-      background: #fff;
+      background: var(--surface-raised);
       color: var(--text-muted);
       border-radius: 8px;
       width: 30px;
@@ -140,7 +140,7 @@
       display: flex;
       justify-content: flex-end;
       gap: 0.45rem;
-      background: #fff;
+      background: var(--surface);
     }
     .template-field {
       margin-bottom: 0.72rem;
@@ -158,8 +158,8 @@
       width: 100%;
       border-radius: 8px;
       border: 1px solid var(--border);
-      background: #fff;
-      color: var(--gray-800);
+      background: var(--surface-raised);
+      color: var(--text-main);
       font: inherit;
       padding: 0.42rem 0.62rem;
       min-height: 2.15rem;
@@ -192,7 +192,7 @@
       display: block;
       border: 1px solid var(--border);
       border-radius: 10px;
-      background: #fcfcfb;
+      background: var(--surface-raised);
       padding: 0.68rem 0.72rem;
     }
     .toolbar {
@@ -221,7 +221,7 @@
       padding: 0.85rem 0.92rem;
       border-radius: 10px;
       border: 1px solid var(--border);
-      background: #ffffff;
+      background: var(--surface-raised);
       color: var(--text);
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
       font-size: 0.83rem;
@@ -238,7 +238,8 @@
     .preview-shell {
       border: 1px solid var(--border);
       border-radius: 30px;
-      background: radial-gradient(circle at top right, rgba(196,163,90,0.12), transparent 32%), linear-gradient(180deg, #f7f5f0 0%, #efe9dd 100%);
+      background: radial-gradient(circle at top right, color-mix(in srgb, var(--accent) 14%, transparent), transparent 32%),
+        linear-gradient(180deg, var(--surface-raised) 0%, var(--bg) 100%);
       min-height: 420px;
       overflow: hidden;
     }
@@ -248,8 +249,8 @@
       justify-content: space-between;
       gap: 1rem;
       padding: 0.7rem 0.9rem;
-      border-bottom: 1px solid rgba(148, 136, 108, 0.18);
-      background: rgba(255, 255, 255, 0.72);
+      border-bottom: 1px solid var(--border-soft);
+      background: color-mix(in srgb, var(--surface) 78%, transparent);
       backdrop-filter: blur(4px);
     }
     .preview-title {
@@ -269,7 +270,7 @@
       gap: 0.42rem;
       padding: 0.34rem 0.58rem;
       border-radius: 999px;
-      background: #fff;
+      background: var(--surface);
       border: 1px solid var(--border);
       font-size: 0.72rem;
       color: var(--text-muted);
@@ -284,15 +285,15 @@
     .preview-iframe {
       width: 100%;
       min-height: 720px;
-      border: 1px solid #ddd6c6;
+      border: 1px solid var(--border-soft);
       border-radius: 32px;
-      background: #fff;
+      background: var(--surface);
       box-shadow: 0 22px 54px rgba(20, 19, 17, 0.12);
     }
     .preview-wrap.preview-text {
       white-space: pre-wrap;
       color: var(--text);
-      background: #ffffff;
+      background: var(--surface-raised);
       border: 1px solid var(--border);
       border-radius: 14px;
       padding: 1rem 1.1rem;
@@ -318,6 +319,10 @@
       border: 1px solid var(--border);
     }
     .placeholders-hint code:hover { border-color: var(--gold-300); }
+
+    html.dark .preview-iframe {
+      box-shadow: 0 22px 54px rgba(0, 0, 0, 0.35);
+    }
   </style>
 </head>
 <body>

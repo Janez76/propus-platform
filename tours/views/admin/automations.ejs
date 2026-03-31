@@ -10,7 +10,7 @@
     .rules-list {
       border: 1px solid var(--border);
       border-radius: 12px;
-      background: #fff;
+      background: var(--surface);
       overflow: hidden;
     }
     .rule-row {
@@ -36,7 +36,7 @@
       text-transform: uppercase;
       border: 1px solid var(--border);
       color: var(--text-muted);
-      background: #f7f7f5;
+      background: var(--surface-raised);
     }
     .status-tag.on { color: #137347; border-color: rgba(22, 179, 100, 0.28); background: rgba(22, 179, 100, 0.08); }
     .changed-tag {
@@ -61,7 +61,7 @@
     .tm-modal-backdrop.open { display: flex; }
     .tm-modal {
       width: min(760px, 100%);
-      background: #fff;
+      background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 14px;
       box-shadow: 0 24px 45px rgba(20, 19, 17, 0.2);
@@ -83,7 +83,7 @@
     .tm-modal-subtitle { margin: 0.2rem 0 0; color: var(--text-muted); font-size: 0.8rem; line-height: 1.4; }
     .tm-modal-close {
       border: 1px solid var(--border);
-      background: #fff;
+      background: var(--surface-raised);
       color: var(--text-muted);
       border-radius: 8px;
       width: 30px;
@@ -100,7 +100,7 @@
       display: flex;
       justify-content: space-between;
       gap: 0.45rem;
-      background: #fff;
+      background: var(--surface);
       align-items: center;
       flex-wrap: wrap;
     }
@@ -114,8 +114,8 @@
       min-height: 2.15rem;
       border-radius: 8px;
       border: 1px solid var(--border);
-      background: #fff;
-      color: var(--gray-800);
+      background: var(--surface-raised);
+      color: var(--text-main);
       font: inherit;
       padding: 0.38rem 0.62rem;
     }
@@ -124,12 +124,12 @@
       align-items: center;
       gap: 0.5rem;
       font-size: 0.86rem;
-      color: var(--gray-700);
+      color: var(--text-muted);
       margin: 0;
       padding: 0.45rem 0.55rem;
       border: 1px solid var(--border);
       border-radius: 8px;
-      background: #fcfcfb;
+      background: var(--surface-raised);
     }
     .toggle-line input { margin: 0; }
     .hint { color: var(--text-muted); font-size: 0.78rem; margin: 0.55rem 0 0; }

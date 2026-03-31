@@ -364,7 +364,7 @@
     top: calc(100% + 0.4rem);
     left: 1rem;
     right: 1rem;
-    background: #fff;
+    background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
@@ -527,9 +527,9 @@
   .alert-warning { background: rgba(239,140,33,0.1); border: 1px solid rgba(239,140,33,0.34); color: #b7610b; }
   .alert-info { background: var(--gold-50); border: 1px solid var(--gold-300); color: var(--gold-700); }
 
-  /* Forms */
-  input[type="text"]:not(.global-search-input), input[type="url"], input[type="email"], input[type="password"], select, textarea {
-    background: var(--surface);
+  /* Forms – surface-raised wie platform/frontend .ui-input (Karten bleiben --surface) */
+  input[type="text"]:not(.global-search-input), input[type="url"], input[type="email"], input[type="password"], input[type="number"], input[type="date"], input[type="time"], select, textarea {
+    background: var(--surface-raised);
     color: var(--text);
     border: 1px solid var(--border);
     padding: 0.5rem 0.75rem;
@@ -538,7 +538,12 @@
     font-family: inherit;
   }
   textarea { width: 100%; resize: vertical; min-height: 88px; }
-  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent); }
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
+    background: var(--surface);
+  }
   .search-bar { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
   .search-bar input { min-width: 200px; }
   .form-inline { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
