@@ -3,6 +3,7 @@
  * Mountet Tour Manager unter TOURS_MOUNT_PATH (default /tour-manager) und das Booking-Backend auf /.
  */
 const path = require("path");
+const crypto = require("crypto");
 
 const rootEnv = path.join(__dirname, "..", ".env");
 try {
@@ -19,6 +20,7 @@ const express = require("express");
 const session = require("express-session");
 const { createCoreRouter } = require("./modules/core/routes");
 const booking = require("../booking/server");
+const bookingDb = require("../booking/db");
 const tours = require("../tours/server");
 const { pool } = require("../tours/lib/db");
 const { createPostgresSessionStore } = require("../auth/postgres-session-store");
@@ -63,7 +65,56 @@ const toursSessionMiddleware = session({
   },
 });
 
-main.use("/api/tours/admin", express.json(), toursSessionMiddleware, requireAdmin, toursAdminApi);
+function getAdminSessionToken(req) {
+  const auth = String(req.headers.authorization || "");
+  let token = auth.replace(/^Bearer\s+/i, "").trim();
+  if (token) return token;
+
+  const cookieHeader = String(req.headers.cookie || "");
+  const cookies = cookieHeader.split(";").map((part) => part.trim());
+  for (const cookie of cookies) {
+    if (cookie.startsWith("admin_session=")) {
+      return cookie.substring("admin_session=".length);
+    }
+  }
+
+  return String(req.query?.token || "").trim();
+}
+
+async function bridgeBookingAdminSession(req, _res, next) {
+  if (req.session?.isAdmin) return next();
+
+  try {
+    const token = getAdminSessionToken(req);
+    if (!token || !bookingDb.getAdminSessionByTokenHash) return next();
+
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    const row = await bookingDb.getAdminSessionByTokenHash(tokenHash);
+    if (!row) return next();
+
+    const userKey = row.user_key != null ? String(row.user_key) : "";
+    const userName = row.user_name || "";
+    const emailFromKey = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userKey) ? userKey : "";
+    const emailFromName = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userName) ? userName : "";
+    const email = emailFromKey || emailFromName || "";
+
+    req.session.isAdmin = true;
+    req.session.admin = {
+      email,
+      username: userKey || email || "admin",
+      role: String(row.role || "admin"),
+      name: userName || email || userKey || "Admin",
+    };
+    req.session.adminEmail = email;
+
+    return req.session.save(() => next());
+  } catch (err) {
+    console.warn("[platform] tour admin session bridge failed", err?.message || err);
+    return next();
+  }
+}
+
+main.use("/api/tours/admin", express.json(), toursSessionMiddleware, bridgeBookingAdminSession, requireAdmin, toursAdminApi);
 
 main.use(mount, tours.app);
 
