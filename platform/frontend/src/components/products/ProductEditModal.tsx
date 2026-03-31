@@ -43,7 +43,7 @@ const SKILL_OPTIONS = [
   { key: "foto",       label: "Foto" },
   { key: "drohne",     label: "Drohne (Drone Foto)" },
   { key: "video",      label: "Video (Boden)" },
-  { key: "dronevideo", label: "Drohnenvideo", compositeOf: ["drohne", "video"] as const },
+  { key: "dronevideo", label: "Drohnenvideo" },
   { key: "matterport", label: "Matterport / 360° Tour" },
 ];
 
@@ -837,55 +837,48 @@ export function ProductEditModal({ open, mode, product, token, language, categor
                   {t(language, "catalog.skillKey.assignmentHint")}
                 </p>
                 <div className="mb-2 text-xs text-amber-700/90 dark:text-amber-300/90">
-                  Mehrfachauswahl möglich. Drone Foto = Drohne. Drohnenvideo = Drohne + Video. Video (Boden) = nur Video.
+                  Mehrfachauswahl möglich. Jeder Skill wird einzeln ausgewählt.
                 </div>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {SKILL_OPTIONS.map((opt) => (
-                    <label
-                      key={opt.key}
-                      className={cn(
-                        "flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors",
-                        (("compositeOf" in opt && opt.compositeOf?.every((k) => form.required_skills.includes(k))) || form.required_skills.includes(opt.key))
-                          ? "border-[var(--accent)] bg-[var(--accent)]/10 font-semibold text-[var(--accent)]"
-                          : "border-[var(--border-soft)] text-[var(--text-muted)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-raised)]",
-                      )}
-                    >
-                      <input
-                        type="checkbox"
-                        name="required_skills"
-                        value={opt.key}
-                        checked={("compositeOf" in opt && opt.compositeOf?.every((k) => form.required_skills.includes(k))) || form.required_skills.includes(opt.key)}
-                        onChange={(e) => {
-                          setForm((f) => {
-                            const add = e.target.checked;
-                            let next: string[];
-                            if ("compositeOf" in opt && Array.isArray(opt.compositeOf)) {
-                              next = add
-                                ? [...new Set([...f.required_skills, ...opt.compositeOf!])]
-                                : f.required_skills.filter((x) => !(opt.compositeOf as readonly string[]).includes(x));
-                            } else {
-                              next = add
-                                ? (f.required_skills.includes(opt.key) ? f.required_skills : [...f.required_skills, opt.key])
-                                : f.required_skills.filter((x) => x !== opt.key);
-                            }
-                            return { ...f, required_skills: next, skill_key: next[0] || "" };
-                          });
-                        }}
-                        className="sr-only"
-                      />
-                      <span className={cn(
-                        "flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 transition-colors",
-                        (("compositeOf" in opt && opt.compositeOf?.every((k) => form.required_skills.includes(k))) || form.required_skills.includes(opt.key))
-                          ? "border-[var(--accent)] bg-[var(--accent)]"
-                          : "border-[var(--border-soft)]",
-                      )}>
-                        {(("compositeOf" in opt && opt.compositeOf?.every((k) => form.required_skills.includes(k))) || form.required_skills.includes(opt.key)) && (
-                          <span className="block h-2 w-2 bg-white" />
+                  {SKILL_OPTIONS.map((opt) => {
+                    const checked = form.required_skills.includes(opt.key);
+                    return (
+                      <label
+                        key={opt.key}
+                        className={cn(
+                          "flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors",
+                          checked
+                            ? "border-[var(--accent)] bg-[var(--accent)]/10 font-semibold text-[var(--accent)]"
+                            : "border-[var(--border-soft)] text-[var(--text-muted)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-raised)]",
                         )}
-                      </span>
-                      {opt.label}
-                    </label>
-                  ))}
+                      >
+                        <input
+                          type="checkbox"
+                          name="required_skills"
+                          value={opt.key}
+                          checked={checked}
+                          onChange={(e) => {
+                            setForm((f) => {
+                              const next = e.target.checked
+                                ? [...f.required_skills, opt.key]
+                                : f.required_skills.filter((x) => x !== opt.key);
+                              return { ...f, required_skills: next, skill_key: next[0] || "" };
+                            });
+                          }}
+                          className="sr-only"
+                        />
+                        <span className={cn(
+                          "flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 transition-colors",
+                          checked
+                            ? "border-[var(--accent)] bg-[var(--accent)]"
+                            : "border-[var(--border-soft)]",
+                        )}>
+                          {checked && <span className="block h-2 w-2 bg-white" />}
+                        </span>
+                        {opt.label}
+                      </label>
+                    );
+                  })}
                 </div>
               </div>
 
