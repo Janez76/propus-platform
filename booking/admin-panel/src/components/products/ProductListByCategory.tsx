@@ -2,13 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   DndContext,
   type DragEndEvent,
-  type DragStartEvent,
   KeyboardSensor,
   PointerSensor,
   closestCenter,
   useSensor,
   useSensors,
-  type CollisionDetection,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -95,6 +93,10 @@ function prodId(id: number) {
   return `prod:${id}`;
 }
 
+// ---------------------------------------------------------------------------
+// Product card (sortable within its category's own DndContext)
+// ---------------------------------------------------------------------------
+
 type SortableProductCardProps = {
   product: Product;
   lang: Lang;
@@ -137,7 +139,7 @@ function SortableProductCard({
         {!dndDisabled ? (
           <button
             type="button"
-            className="mt-0.5 shrink-0 cursor-grab touch-none rounded p-1 text-[var(--accent)]/80 hover:bg-[var(--accent)]/15 hover:text-[var(--accent)] active:cursor-grabbing "
+            className="mt-0.5 shrink-0 cursor-grab touch-none rounded p-1 text-[var(--accent)]/80 hover:bg-[var(--accent)]/15 hover:text-[var(--accent)] active:cursor-grabbing"
             aria-label={t(lang, "catalog.dnd.dragProduct")}
             {...attributes}
             {...listeners}
@@ -202,6 +204,83 @@ function SortableProductCard({
   );
 }
 
+// ---------------------------------------------------------------------------
+// Product list with its own DndContext (used inside each category section)
+// ---------------------------------------------------------------------------
+
+type ProductDndListProps = {
+  items: Product[];
+  lang: Lang;
+  dndDisabled: boolean;
+  btnSmallClass: string;
+  onEdit: (product: Product) => void;
+  onDuplicate: (product: Product) => void;
+  onToggleActive: (product: Product) => void;
+  onReorder: (oldIndex: number, newIndex: number) => void;
+};
+
+function ProductDndList({
+  items,
+  lang,
+  dndDisabled,
+  btnSmallClass,
+  onEdit,
+  onDuplicate,
+  onToggleActive,
+  onReorder,
+}: ProductDndListProps) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const sortableIds = useMemo(() => items.map((p) => prodId(p.id)), [items]);
+
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      if (dndDisabled) return;
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+      const oldIndex = sortableIds.indexOf(String(active.id));
+      const newIndex = sortableIds.indexOf(String(over.id));
+      if (oldIndex < 0 || newIndex < 0) return;
+      onReorder(oldIndex, newIndex);
+    },
+    [dndDisabled, sortableIds, onReorder],
+  );
+
+  if (items.length === 0) {
+    return (
+      <div className="rounded-md border border-dashed px-3 py-2 text-xs border-[var(--border-soft)] text-[var(--text-subtle)]">
+        {t(lang, "catalog.category.empty")}
+      </div>
+    );
+  }
+
+  return (
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
+        {items.map((product) => (
+          <SortableProductCard
+            key={product.id}
+            product={product}
+            lang={lang}
+            dndDisabled={dndDisabled}
+            btnSmallClass={btnSmallClass}
+            onEdit={onEdit}
+            onDuplicate={onDuplicate}
+            onToggleActive={onToggleActive}
+          />
+        ))}
+      </SortableContext>
+    </DndContext>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Category section (sortable for category reorder; products have own DndContext)
+// ---------------------------------------------------------------------------
+
 type SortableCategorySectionProps = {
   group: ProductGroup;
   category: ServiceCategory;
@@ -219,6 +298,7 @@ type SortableCategorySectionProps = {
   onNameChange: (key: string, val: string) => void;
   onNameSave: (cat: ServiceCategory, val: string) => Promise<void>;
   categoryBusy: boolean;
+  onProductReorder: (groupKey: string, oldIndex: number, newIndex: number) => void;
 };
 
 function SortableCategorySection({
@@ -238,6 +318,7 @@ function SortableCategorySection({
   onNameChange,
   onNameSave,
   categoryBusy,
+  onProductReorder,
 }: SortableCategorySectionProps) {
   const sortableId = catId(group.key);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -249,7 +330,10 @@ function SortableCategorySection({
     transition,
   };
 
-  const productSortableIds = group.items.map((p) => prodId(p.id));
+  const handleReorder = useCallback(
+    (oldIndex: number, newIndex: number) => onProductReorder(group.key, oldIndex, newIndex),
+    [group.key, onProductReorder],
+  );
 
   return (
     <div
@@ -265,7 +349,7 @@ function SortableCategorySection({
           {!dndDisabled ? (
             <button
               type="button"
-              className="shrink-0 cursor-grab touch-none rounded p-1 text-[var(--accent)]/80 hover:bg-[var(--accent)]/15 hover:text-[var(--accent)] active:cursor-grabbing "
+              className="shrink-0 cursor-grab touch-none rounded p-1 text-[var(--accent)]/80 hover:bg-[var(--accent)]/15 hover:text-[var(--accent)] active:cursor-grabbing"
               aria-label={t(lang, "catalog.dnd.dragCategory")}
               {...attributes}
               {...listeners}
@@ -342,31 +426,25 @@ function SortableCategorySection({
           </div>
         </summary>
         <div className="space-y-2 border-t p-2 border-[var(--border-soft)]">
-          {group.items.length === 0 ? (
-            <div className="rounded-md border border-dashed px-3 py-2 text-xs border-[var(--border-soft)] text-[var(--text-subtle)]">
-              {t(lang, "catalog.category.empty")}
-            </div>
-          ) : (
-            <SortableContext items={productSortableIds} strategy={verticalListSortingStrategy}>
-              {group.items.map((product) => (
-                <SortableProductCard
-                  key={product.id}
-                  product={product}
-                  lang={lang}
-                  dndDisabled={dndDisabled}
-                  btnSmallClass={btnSmallClass}
-                  onEdit={onEdit}
-                  onDuplicate={onDuplicate}
-                  onToggleActive={onToggleActive}
-                />
-              ))}
-            </SortableContext>
-          )}
+          <ProductDndList
+            items={group.items}
+            lang={lang}
+            dndDisabled={dndDisabled}
+            btnSmallClass={btnSmallClass}
+            onEdit={onEdit}
+            onDuplicate={onDuplicate}
+            onToggleActive={onToggleActive}
+            onReorder={handleReorder}
+          />
         </div>
       </details>
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Unassigned section (not sortable as category, but products inside are)
+// ---------------------------------------------------------------------------
 
 type UnassignedCategorySectionProps = {
   group: ProductGroup;
@@ -378,6 +456,7 @@ type UnassignedCategorySectionProps = {
   onEdit: (product: Product) => void;
   onDuplicate: (product: Product) => void;
   onToggleActive: (product: Product) => void;
+  onProductReorder: (groupKey: string, oldIndex: number, newIndex: number) => void;
 };
 
 function UnassignedCategorySection({
@@ -390,8 +469,12 @@ function UnassignedCategorySection({
   onEdit,
   onDuplicate,
   onToggleActive,
+  onProductReorder,
 }: UnassignedCategorySectionProps) {
-  const productSortableIds = group.items.map((p) => prodId(p.id));
+  const handleReorder = useCallback(
+    (oldIndex: number, newIndex: number) => onProductReorder(group.key, oldIndex, newIndex),
+    [group.key, onProductReorder],
+  );
 
   return (
     <div className="rounded-lg border border-[var(--border-soft)]">
@@ -411,31 +494,25 @@ function UnassignedCategorySection({
           </span>
         </summary>
         <div className="space-y-2 border-t p-2 border-[var(--border-soft)]">
-          {group.items.length === 0 ? (
-            <div className="rounded-md border border-dashed px-3 py-2 text-xs border-[var(--border-soft)] text-[var(--text-subtle)]">
-              {t(lang, "catalog.category.empty")}
-            </div>
-          ) : (
-            <SortableContext items={productSortableIds} strategy={verticalListSortingStrategy}>
-              {group.items.map((product) => (
-                <SortableProductCard
-                  key={product.id}
-                  product={product}
-                  lang={lang}
-                  dndDisabled={dndDisabled}
-                  btnSmallClass={btnSmallClass}
-                  onEdit={onEdit}
-                  onDuplicate={onDuplicate}
-                  onToggleActive={onToggleActive}
-                />
-              ))}
-            </SortableContext>
-          )}
+          <ProductDndList
+            items={group.items}
+            lang={lang}
+            dndDisabled={dndDisabled}
+            btnSmallClass={btnSmallClass}
+            onEdit={onEdit}
+            onDuplicate={onDuplicate}
+            onToggleActive={onToggleActive}
+            onReorder={handleReorder}
+          />
         </div>
       </details>
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
 
 export function ProductListByCategory({
   products,
@@ -460,7 +537,6 @@ export function ProductListByCategory({
   const [categoryBusy, setCategoryBusy] = useState(false);
   const [categoryError, setCategoryError] = useState("");
   const [nameDrafts, setNameDrafts] = useState<Record<string, string>>({});
-  const [activeDragType, setActiveDragType] = useState<"cat" | "prod" | null>(null);
 
   useEffect(() => {
     setNameDrafts(Object.fromEntries(categories.map((c) => [c.key, c.name])));
@@ -469,7 +545,6 @@ export function ProductListByCategory({
   const btnSmallClass =
     "inline-flex items-center justify-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors";
   const q = query.trim().toLowerCase();
-  /** Suche aktiv oder nicht angemeldet: keine persistente Sortierung */
   const dndDisabled = Boolean(q) || !token;
 
   const filteredProducts = q
@@ -557,27 +632,12 @@ export function ProductListByCategory({
 
   const categorySortableIds = useMemo(() => sortableGroups.map((g) => catId(g.key)), [sortableGroups]);
 
-  const sensors = useSensors(
+  const categorySensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  const typedCollisionDetection: CollisionDetection = useCallback(
-    (args) => {
-      const collisions = closestCenter(args);
-      if (!activeDragType) return collisions;
-      const prefix = activeDragType === "cat" ? "cat:" : "prod:";
-      return collisions.filter((c) => String(c.id).startsWith(prefix));
-    },
-    [activeDragType],
-  );
-
-  const handleDragStart = useCallback((event: DragStartEvent) => {
-    const id = String(event.active.id);
-    if (id.startsWith("cat:")) setActiveDragType("cat");
-    else if (id.startsWith("prod:")) setActiveDragType("prod");
-    else setActiveDragType(null);
-  }, []);
+  // ---- Category reorder ----
 
   const persistCategoryOrder = useCallback(
     async (nextKeys: string[]) => {
@@ -608,6 +668,26 @@ export function ProductListByCategory({
     [token, categories, productsQueryKey, categoriesQueryKey, lang, onAfterPersist],
   );
 
+  const handleCategoryDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      if (dndDisabled) return;
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+      const keys = categoryOrder ?? baseCategoryKeys;
+      const fromKey = String(active.id).slice(4);
+      const toKey = String(over.id).slice(4);
+      const oldIndex = keys.indexOf(fromKey);
+      const newIndex = keys.indexOf(toKey);
+      if (oldIndex < 0 || newIndex < 0) return;
+      const nextKeys = arrayMove(keys, oldIndex, newIndex);
+      setCategoryOrder(nextKeys);
+      void persistCategoryOrder(nextKeys);
+    },
+    [dndDisabled, categoryOrder, baseCategoryKeys, persistCategoryOrder],
+  );
+
+  // ---- Product reorder (called from each section's inner DndContext) ----
+
   const persistProductOrder = useCallback(
     async (orderedIds: number[]) => {
       if (!token) return;
@@ -634,57 +714,20 @@ export function ProductListByCategory({
     [token, products, productsQueryKey, lang, onAfterPersist],
   );
 
-  const handleDragEnd = useCallback(
-    (event: DragEndEvent) => {
-      setActiveDragType(null);
-      if (dndDisabled) return;
-      const { active, over } = event;
-      if (!over || active.id === over.id) return;
-
-      const aid = String(active.id);
-      const oid = String(over.id);
-
-      if (aid.startsWith("cat:") && oid.startsWith("cat:")) {
-        const keys = categoryOrder ?? baseCategoryKeys;
-        const fromKey = aid.slice(4);
-        const toKey = oid.slice(4);
-        const oldIndex = keys.indexOf(fromKey);
-        const newIndex = keys.indexOf(toKey);
-        if (oldIndex < 0 || newIndex < 0) return;
-        const nextKeys = arrayMove(keys, oldIndex, newIndex);
-        setCategoryOrder(nextKeys);
-        void persistCategoryOrder(nextKeys);
-        return;
-      }
-
-      if (aid.startsWith("prod:") && oid.startsWith("prod:")) {
-        const fromId = Number(aid.slice(5));
-        const toId = Number(oid.slice(5));
-        const pools: ProductGroup[] = unassignedGroup ? [...sortableGroups, unassignedGroup] : [...sortableGroups];
-        const pool = pools.find(
-          (g) => g.items.some((p) => p.id === fromId) && g.items.some((p) => p.id === toId),
-        );
-        if (!pool) return;
-        const ids = pool.items.map((p) => p.id);
-        const oldIndex = ids.indexOf(fromId);
-        const newIndex = ids.indexOf(toId);
-        if (oldIndex < 0 || newIndex < 0) return;
-        const nextIds = arrayMove(ids, oldIndex, newIndex);
-        setProductOrder((prev) => new Map(prev).set(pool.key, nextIds));
-        void persistProductOrder(nextIds);
-      }
+  const handleProductReorder = useCallback(
+    (groupKey: string, oldIndex: number, newIndex: number) => {
+      const pools: ProductGroup[] = unassignedGroup ? [...sortableGroups, unassignedGroup] : [...sortableGroups];
+      const pool = pools.find((g) => g.key === groupKey);
+      if (!pool) return;
+      const ids = pool.items.map((p) => p.id);
+      const nextIds = arrayMove(ids, oldIndex, newIndex);
+      setProductOrder((prev) => new Map(prev).set(groupKey, nextIds));
+      void persistProductOrder(nextIds);
     },
-    [
-      dndDisabled,
-      categoryOrder,
-      baseCategoryKeys,
-      persistCategoryOrder,
-      persistProductOrder,
-      sortableGroups,
-      unassignedGroup,
-      setProductOrder,
-    ],
+    [sortableGroups, unassignedGroup, persistProductOrder],
   );
+
+  // ---- Category CRUD ----
 
   const updateCategory = useCallback(
     async (key: string, patch: Parameters<typeof updateServiceCategory>[2]) => {
@@ -722,6 +765,8 @@ export function ProductListByCategory({
     [updateCategory],
   );
 
+  // ---- Render ----
+
   return (
     <div className="rounded-xl border p-4 border-[var(--border-soft)] bg-[var(--surface)]">
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -754,7 +799,8 @@ export function ProductListByCategory({
       ) : null}
       {reordering ? <div className="mb-2 text-xs text-[var(--text-subtle)]">{t(lang, "catalog.dnd.saving")}</div> : null}
 
-      <DndContext sensors={sensors} collisionDetection={typedCollisionDetection} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      {/* Outer DndContext: ONLY for category reordering */}
+      <DndContext sensors={categorySensors} collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd}>
         <div className="space-y-2">
           <SortableContext items={categorySortableIds} strategy={verticalListSortingStrategy}>
             {sortableGroups.map((group) => {
@@ -781,6 +827,7 @@ export function ProductListByCategory({
                   onNameChange={(key, value) => setNameDrafts((d) => ({ ...d, [key]: value }))}
                   onNameSave={handleNameSave}
                   categoryBusy={categoryBusy}
+                  onProductReorder={handleProductReorder}
                 />
               );
             })}
@@ -796,6 +843,7 @@ export function ProductListByCategory({
               onEdit={onEdit}
               onDuplicate={onDuplicate}
               onToggleActive={onToggleActive}
+              onProductReorder={handleProductReorder}
             />
           ) : null}
           {filteredProducts.length === 0 ? (
@@ -808,5 +856,3 @@ export function ProductListByCategory({
     </div>
   );
 }
-
-
