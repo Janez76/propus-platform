@@ -5,7 +5,7 @@
 | Eigenschaft         | Wert                                       |
 |---------------------|--------------------------------------------|
 | VPS-IP              | `87.106.24.107`                            |
-| SSH-Zugang          | `root` / Passwort `Lvig22SI`               |
+| SSH-Zugang          | `root` / SSH-Key `id_ed25519_propus_vps` (Passwort entfernt) |
 | Projektpfad         | `/opt/propus-platform`                     |
 | Compose-Projekt     | `propus-platform`                          |
 | Env-Datei           | `/opt/propus-platform/.env.vps`            |
@@ -94,7 +94,7 @@ Erzeugt unter `/opt/propus-platform/backups/` ein Verzeichnis mit:
 
 ```powershell
 $ts = Get-Date -Format "yyyyMMdd-HHmmss"
-& "C:\Program Files\PuTTY\pscp.exe" -batch -pw "Lvig22SI" `
+& "C:\Program Files\PuTTY\pscp.exe" -batch -i "$env:USERPROFILE\.ssh\id_ed25519_propus_vps.ppk" `
   -hostkey "ssh-ed25519 255 SHA256:m9PtE+Rhlykcl5l8pfDibqU2s9FLwVkxwabcUxgJ0RQ" `
   -r root@87.106.24.107:/opt/propus-platform/backups/ `
   "z:\propus-platform\backups\vps-$ts\"

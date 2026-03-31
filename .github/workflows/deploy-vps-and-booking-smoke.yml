@@ -21,167 +21,129 @@ concurrency:
   group: deploy-vps-master
   cancel-in-progress: false
 
-# Minimale Token-Rechte (Default-GITHUB_TOKEN).
 permissions:
   contents: read
 
-# Offizielle Actions auf Node-24-Runtime (keine Node-20-Deprecation-Warnung).
-# Siehe https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  # ─── Build Next.js (Type-Check + Build) ────────────────────────────────────
+  build-nextjs:
+    name: Build Next.js App
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: app
+
+      - name: Build Next.js (type-check + build)
+        run: npm run build
+        working-directory: app
+        env:
+          NODE_ENV: production
+          NEXT_PUBLIC_PUBLIC_BOOKING_HOSTNAME: booking.propus.ch
+          NEXT_PUBLIC_BASE_URL: /
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nextjs-build
+          path: |
+            app/.next/standalone
+            app/.next/static
+            app/public
+          retention-days: 1
+
+  # ─── Deploy to VPS ──────────────────────────────────────────────────────────
   deploy:
     name: Deploy to VPS
     runs-on: ubuntu-latest
     environment: production
+    needs: build-nextjs
     if: ${{ github.event_name == 'push' || inputs.run_deploy }}
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
-      # Secret per env + bash: PowerShell-Here-Strings mit YAML-Einzug korruptieren PEM haeufig;
-      # schliessendes "@ muss in PS zudem in Spalte 1 stehen.
-      - name: Prepare SSH key
+      - name: Download Next.js build
+        uses: actions/download-artifact@v4
+        with:
+          name: nextjs-build
+          path: app-build
+
+      - name: Setup SSH
         run: |
-          set -euo pipefail
-          mkdir -p "$HOME/.ssh"
-          printf '%s\n' "$VPS_SSH_PRIVATE_KEY" | tr -d '\r' > "$HOME/.ssh/id_ed25519_propus_vps"
-          chmod 700 "$HOME/.ssh"
-          chmod 600 "$HOME/.ssh/id_ed25519_propus_vps"
-        env:
-          VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519_propus_vps
+          chmod 600 ~/.ssh/id_ed25519_propus_vps
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Validate SSH key
+      - name: Deploy to VPS
         run: |
-          set -euo pipefail
-          if ! ssh-keygen -y -f "$HOME/.ssh/id_ed25519_propus_vps" >/dev/null 2>&1; then
-            echo "VPS_SSH_PRIVATE_KEY ist ungueltig, falsch formatiert oder passwortgeschuetzt."
-            echo "Bitte Secret mit der kompletten Private-Key-Datei (BEGIN/END, echte Zeilenumbrueche) ohne Passphrase hinterlegen."
-            exit 1
-          fi
+          ssh -i ~/.ssh/id_ed25519_propus_vps root@${{ secrets.VPS_HOST }} << 'ENDSSH'
+            set -e
+            cd /opt/propus-platform
+            
+            echo "==> Git Pull"
+            git pull origin master
+            
+            echo "==> Docker Build & Restart"
+            docker compose build --no-cache platform
+            docker compose up -d --force-recreate platform
+            
+            echo "==> DB Migrations"
+            docker compose --profile migrate run --rm migrate
+            
+            echo "==> Health Check"
+            sleep 10
+            curl -sf http://localhost:3001/api/core/health || (echo "Health check failed" && exit 1)
+            
+            echo "==> Deploy complete"
+          ENDSSH
 
-      - name: Write .env.vps
+      - name: Notify deploy status
+        if: always()
         run: |
-          set -euo pipefail
-          if [ -n "${VPS_ENV_FILE:-}" ]; then
-            printf '%s\n' "$VPS_ENV_FILE" > "$GITHUB_WORKSPACE/.env.vps"
-          else
-            echo "VPS_ENV_FILE ist leer; verwende ggf. vorhandene .env.vps im Deploy-Skript."
-          fi
-        env:
-          VPS_ENV_FILE: ${{ secrets.VPS_ENV_FILE }}
+          STATUS=${{ job.status == 'success' && 'SUCCESS' || 'FAILED' }}
+          echo "Deploy status: $STATUS"
 
-      # deploy-vps.ps1: tar upload, migrate build+run, platform build+up, in-script /api/health wait (~90s).
-      # Kein zweites "docker compose build platform" hier — das war redundant und verdoppelte die Build-Zeit.
-      - name: Upload and restart stack
-        shell: pwsh
-        run: |
-          $vpsKey = Join-Path $HOME '.ssh/id_ed25519_propus_vps'
-          $deployScript = Join-Path $env:GITHUB_WORKSPACE 'scripts/deploy-vps.ps1'
-          # Unter Linux schlaegt ./script.ps1 oft fehl (kein +x); & oder -File ist zuverlaessig.
-          & $deployScript `
-            -VpsHost 87.106.24.107 `
-            -User root `
-            -KeyPath $vpsKey `
-            -SkipBackup `
-            -SkipSwitch `
-            -SkipCloudflarePurge
-
-      - name: Health check
-        shell: pwsh
-        run: |
-          $keyPath = Join-Path $HOME '.ssh/id_ed25519_propus_vps'
-          ssh `
-            -i "$keyPath" `
-            -o IdentitiesOnly=yes `
-            -o StrictHostKeyChecking=accept-new `
-            -o ServerAliveInterval=30 `
-            -o ServerAliveCountMax=12 `
-            root@87.106.24.107 `
-            "curl -fsS http://127.0.0.1:3100/api/health"
-
-      - name: Purge Cloudflare cache
-        shell: pwsh
-        run: |
-          if (-not $env:CLOUDFLARE_ZONE_ID -or -not $env:CLOUDFLARE_AUTH_EMAIL -or -not $env:CLOUDFLARE_AUTH_KEY) {
-            Write-Host "Cloudflare-Secrets fehlen; Cache-Purge wird uebersprungen."
-            exit 0
-          }
-
-          Invoke-RestMethod -Method Post `
-            -Uri "https://api.cloudflare.com/client/v4/zones/$env:CLOUDFLARE_ZONE_ID/purge_cache" `
-            -Headers @{
-              "X-Auth-Email" = $env:CLOUDFLARE_AUTH_EMAIL
-              "X-Auth-Key" = $env:CLOUDFLARE_AUTH_KEY
-              "Content-Type" = "application/json"
-            } `
-            -Body '{"purge_everything":true}'
-        env:
-          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
-          CLOUDFLARE_AUTH_EMAIL: ${{ secrets.CLOUDFLARE_AUTH_EMAIL }}
-          CLOUDFLARE_AUTH_KEY: ${{ secrets.CLOUDFLARE_AUTH_KEY }}
-
-  booking-smoke:
-    name: Booking staging smoke
+  # ─── Smoke Tests ────────────────────────────────────────────────────────────
+  smoke:
+    name: Booking Smoke Tests
     runs-on: ubuntu-latest
     needs: deploy
-    environment: production
-    # Nur manuell (workflow_dispatch) wenn run_smoke aktiv; nicht bei jedem Push nach Deploy.
-    if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.run_smoke && (needs.deploy.result == 'success' || needs.deploy.result == 'skipped') }}
-    permissions:
-      contents: read
-      actions: write
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_smoke }}
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v6
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: platform/frontend/package-lock.json
+          node-version: "20"
 
-      - name: Install frontend dependencies
-        working-directory: platform/frontend
-        run: npm ci
+      - name: Install Playwright
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+        working-directory: app
 
-      - name: Install Playwright Chromium
-        working-directory: platform/frontend
-        run: npx playwright install --with-deps chromium
-
-      - name: Run staging smoke test
-        working-directory: platform/frontend
+      - name: Run smoke tests
+        run: npx playwright test e2e/
+        working-directory: app
         env:
-          CI: "1"
-          PLAYWRIGHT_BASE_URL: ${{ secrets.PLAYWRIGHT_BASE_URL }}
-          PLAYWRIGHT_LIVE_BOOKING: ${{ secrets.PLAYWRIGHT_LIVE_BOOKING }}
-          PLAYWRIGHT_BOOKING_ADDRESS_QUERY: ${{ secrets.PLAYWRIGHT_BOOKING_ADDRESS_QUERY }}
-          PLAYWRIGHT_BOOKING_PACKAGE_KEY: ${{ secrets.PLAYWRIGHT_BOOKING_PACKAGE_KEY }}
-          PLAYWRIGHT_BOOKING_DATE: ${{ secrets.PLAYWRIGHT_BOOKING_DATE }}
-          PLAYWRIGHT_BOOKING_SLOT: ${{ secrets.PLAYWRIGHT_BOOKING_SLOT }}
-          PLAYWRIGHT_BOOKING_COMPANY: ${{ secrets.PLAYWRIGHT_BOOKING_COMPANY }}
-          PLAYWRIGHT_BOOKING_NAME: ${{ secrets.PLAYWRIGHT_BOOKING_NAME }}
-          PLAYWRIGHT_BOOKING_EMAIL: ${{ secrets.PLAYWRIGHT_BOOKING_EMAIL }}
-          PLAYWRIGHT_BOOKING_PHONE: ${{ secrets.PLAYWRIGHT_BOOKING_PHONE }}
-          PLAYWRIGHT_BOOKING_STREET: ${{ secrets.PLAYWRIGHT_BOOKING_STREET }}
-          PLAYWRIGHT_BOOKING_ZIP: ${{ secrets.PLAYWRIGHT_BOOKING_ZIP }}
-          PLAYWRIGHT_BOOKING_CITY: ${{ secrets.PLAYWRIGHT_BOOKING_CITY }}
-          PLAYWRIGHT_BOOKING_OBJECT_TYPE: ${{ secrets.PLAYWRIGHT_BOOKING_OBJECT_TYPE }}
-          PLAYWRIGHT_BOOKING_AREA: ${{ secrets.PLAYWRIGHT_BOOKING_AREA }}
-          PLAYWRIGHT_BOOKING_ONSITE_NAME: ${{ secrets.PLAYWRIGHT_BOOKING_ONSITE_NAME }}
-          PLAYWRIGHT_BOOKING_ONSITE_PHONE: ${{ secrets.PLAYWRIGHT_BOOKING_ONSITE_PHONE }}
-        run: npm run test:e2e:staging
-
-      - name: Upload Playwright report
-        if: always()
-        uses: actions/upload-artifact@v6
-        with:
-          name: playwright-booking-staging-report
-          path: |
-            platform/frontend/playwright-report
-            platform/frontend/test-results
-          if-no-files-found: ignore
+          BASE_URL: ${{ secrets.STAGING_URL || 'https://admin.propus.ch' }}

@@ -207,7 +207,7 @@ async function run() {
   const USERS = [
     {
       username: 'jsmirmaul',
-      password: 'Zuerich8038!',
+      password: process.env.ADMIN_PASSWORD || 'change_me_required',
       name: 'Janez Smirmaul',
       primaryEmail: 'js@propus.ch',
       assignRoles: ['admin', 'super_admin', 'photographer'],
