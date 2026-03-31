@@ -103,8 +103,8 @@ jobs:
 
             echo "==> Sync VPS env"
             cat > "$PROJECT_ROOT/.env.vps" <<'EOF_ENV'
-${{ secrets.VPS_ENV_FILE }}
-EOF_ENV
+            ${{ secrets.VPS_ENV_FILE }}
+            EOF_ENV
 
             echo "==> Extract deploy archive"
             tar -xzf "$ARCHIVE_PATH" -C "$STAGING_DIR"
