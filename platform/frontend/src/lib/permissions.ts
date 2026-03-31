@@ -35,6 +35,18 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   "/backups": "backups.manage",
   "/changelog": "dashboard.view",
   "/admin/tours": "dashboard.view",
+  "/admin/tours/dashboard": "dashboard.view",
+  "/admin/tours/list": "dashboard.view",
+  "/admin/tours/invoices": "dashboard.view",
+  "/admin/tours/matterport": "dashboard.view",
+  "/admin/tours/settings": "settings.manage",
+  "/admin/tours/email-templates": "emails.manage",
+  "/admin/tours/automations": "settings.manage",
+  "/admin/tours/portal-roles": "users.manage",
+  "/admin/tours/bank-import": "dashboard.view",
+  "/admin/tours/customers": "customers.read",
+  "/admin/tours/team": "team.manage",
+  "/admin/tours/ai-chat": "dashboard.view",
 };
 
 /** Rollen die als interne Admins behandelt werden (nicht Kunden-Panel). */

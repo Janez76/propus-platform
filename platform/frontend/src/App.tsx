@@ -49,6 +49,24 @@ const CompanyDashboardPage = lazy(() =>
 const ToursAdminHomePage = lazy(() =>
   import("./pages/ToursAdminHomePage").then((m) => ({ default: m.ToursAdminHomePage }))
 );
+const AdminToursDashboardPage = lazy(() =>
+  import("./pages/tourManager/AdminToursDashboardPage").then((m) => ({ default: m.AdminToursDashboardPage }))
+);
+const AdminToursListPage = lazy(() =>
+  import("./pages/tourManager/AdminToursListPage").then((m) => ({ default: m.AdminToursListPage }))
+);
+const AdminTourInvoicesPage = lazy(() =>
+  import("./pages/tourManager/AdminTourInvoicesPage").then((m) => ({ default: m.AdminTourInvoicesPage }))
+);
+const AdminTourDetailPage = lazy(() =>
+  import("./pages/tourManager/AdminTourDetailPage").then((m) => ({ default: m.AdminTourDetailPage }))
+);
+const AdminMatterportLinkPage = lazy(() =>
+  import("./pages/tourManager/AdminMatterportLinkPage").then((m) => ({ default: m.AdminMatterportLinkPage }))
+);
+const AdminBankImportPage = lazy(() =>
+  import("./pages/tourManager/AdminBankImportPage").then((m) => ({ default: m.AdminBankImportPage }))
+);
 const PortalDashboardPage = lazy(() =>
   import("./pages/portal/PortalDashboardPage").then((m) => ({ default: m.PortalDashboardPage }))
 );
@@ -60,6 +78,9 @@ const PortalInvoicesPage = lazy(() =>
 );
 const PortalTeamPage = lazy(() =>
   import("./pages/portal/PortalTeamPage").then((m) => ({ default: m.PortalTeamPage }))
+);
+const PortalTourDetailPage = lazy(() =>
+  import("./pages/portal/PortalTourDetailPage").then((m) => ({ default: m.PortalTourDetailPage }))
 );
 
 function PageSkeleton() {
@@ -95,6 +116,7 @@ function PrivateRoutes() {
           <Route path="/account" element={<AccountDashboardPage />} />
           <Route path="/portal/dashboard" element={<PortalDashboardPage />} />
           <Route path="/portal/tours" element={<PortalToursPage />} />
+          <Route path="/portal/tours/:id" element={<PortalTourDetailPage />} />
           <Route path="/portal/invoices" element={<PortalInvoicesPage />} />
           {(role === "customer_admin") && (
             <Route path="/portal/team" element={<PortalTeamPage />} />
@@ -111,6 +133,7 @@ function PrivateRoutes() {
         <Route path="/" element={<Navigate to={isCompanyRole ? companyHome : "/dashboard"} replace />} />
         <Route path="/portal/dashboard" element={<PortalDashboardPage />} />
         <Route path="/portal/tours" element={<PortalToursPage />} />
+        <Route path="/portal/tours/:id" element={<PortalTourDetailPage />} />
         <Route path="/portal/invoices" element={<PortalInvoicesPage />} />
         <Route path="/portal/team" element={<PortalTeamPage />} />
         <Route
@@ -161,6 +184,12 @@ function PrivateRoutes() {
         <Route path="/backups" element={guardedElement(adminOnlyRoles, <BackupsPage />)} />
         <Route path="/changelog" element={guardedElement(adminOnlyRoles, <ChangelogPage />)} />
         <Route path="/admin/tours" element={guardedElement(adminOnlyRoles, <ToursAdminHomePage />)} />
+        <Route path="/admin/tours/dashboard" element={guardedElement(adminOnlyRoles, <AdminToursDashboardPage />)} />
+        <Route path="/admin/tours/list" element={guardedElement(adminOnlyRoles, <AdminToursListPage />)} />
+        <Route path="/admin/tours/invoices" element={guardedElement(adminOnlyRoles, <AdminTourInvoicesPage />)} />
+        <Route path="/admin/tours/matterport" element={guardedElement(adminOnlyRoles, <AdminMatterportLinkPage />)} />
+        <Route path="/admin/tours/bank-import" element={guardedElement(adminOnlyRoles, <AdminBankImportPage />)} />
+        <Route path="/admin/tours/:id" element={guardedElement(adminOnlyRoles, <AdminTourDetailPage />)} />
       </Routes>
     </AppShell>
   );

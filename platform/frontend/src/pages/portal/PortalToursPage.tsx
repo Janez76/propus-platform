@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { Globe, Search, AlertCircle, ExternalLink } from "lucide-react";
 import { getPortalTours, type PortalTour } from "../../api/portalTours";
 
@@ -118,17 +119,25 @@ export function PortalToursPage() {
                     {formatDate(t.term_end_date ?? t.ablaufdatum)}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    {t.matterport_model_id && (
-                      <a
-                        href={`https://my.matterport.com/show/?m=${t.matterport_model_id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs text-[var(--accent)] hover:underline"
+                    <div className="inline-flex items-center gap-2">
+                      {t.matterport_model_id && (
+                        <a
+                          href={`https://my.matterport.com/show/?m=${t.matterport_model_id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-[var(--accent)] hover:underline"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          <span className="hidden sm:inline">Ansehen</span>
+                        </a>
+                      )}
+                      <Link
+                        to={`/portal/tours/${t.id}`}
+                        className="inline-flex items-center text-xs text-[var(--accent)] hover:underline"
                       >
-                        <ExternalLink className="h-3 w-3" />
-                        <span className="hidden sm:inline">Ansehen</span>
-                      </a>
-                    )}
+                        Details →
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))}
