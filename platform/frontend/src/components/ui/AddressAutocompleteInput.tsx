@@ -330,7 +330,7 @@ export function AddressAutocompleteInput({
         <ul
           id={listboxId}
           role="listbox"
-          className="absolute z-40 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-slate-200 bg-white p-1 shadow-xl border-[var(--border-soft)] bg-[var(--surface)]"
+          className="absolute z-40 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] p-1 shadow-xl"
         >
           {suggestions.map((item, index) => (
             <li
@@ -341,7 +341,7 @@ export function AddressAutocompleteInput({
                 "cursor-pointer rounded-md px-3 py-2 text-sm",
                 activeIndex === index
                   ? "bg-[var(--surface-raised)]"
-                  : "hover:bg-slate-50 hover:bg-[var(--surface-raised)]/70",
+                  : "hover:bg-[var(--surface-raised)]/70",
               )}
               onMouseDown={(e) => { e.preventDefault(); handleSelect(item); }}
             >
@@ -361,7 +361,7 @@ export function AddressAutocompleteInput({
 
       {showEmptyState ? (
         <div
-          className="absolute z-40 mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-400 shadow-xl border-[var(--border-soft)] bg-[var(--surface)] text-[var(--text-subtle)]"
+          className="absolute z-40 mt-1 w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-subtle)] shadow-xl"
         >
           Keine vollständige Adresse gefunden (Hausnummer erforderlich).
         </div>

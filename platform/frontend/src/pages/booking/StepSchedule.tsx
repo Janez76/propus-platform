@@ -24,7 +24,7 @@ function PhotographerPickButton({
       onClick={onSelect}
       className={cn(
         "flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all",
-        selected ? "border-[var(--accent)] bg-[var(--accent)]/5" : "border-zinc-200 hover:border-zinc-300 border-[var(--border-soft)]",
+        selected ? "border-[var(--accent)] bg-[var(--accent)]/5" : "border-[var(--border-soft)] hover:border-[var(--border-strong)]",
       )}
     >
       {p.image && !imgFailed ? (
@@ -187,13 +187,13 @@ export function StepSchedule({ lang }: { lang: Lang }) {
   return (
     <div className="space-y-6">
       {/* Fotografen */}
-      <section className="rounded-xl border border-zinc-200 bg-white p-5 border-[var(--border-soft)] bg-[var(--surface)]">
-        <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-zinc-600 text-[var(--text-muted)]">
+      <section className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-5 shadow-sm dark:shadow-none">
+        <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[var(--text-muted)]">
           <Camera className="h-4 w-4 text-[var(--accent)]" /> {t(lang, "booking.step3.photographer")}
         </h3>
 
         {photographers.length === 0 ? (
-          <p className="text-sm text-zinc-500">{t(lang, "booking.step3.noPhotographers")}</p>
+          <p className="text-sm text-[var(--text-subtle)]">{t(lang, "booking.step3.noPhotographers")}</p>
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <button
@@ -203,11 +203,11 @@ export function StepSchedule({ lang }: { lang: Lang }) {
                 "flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all",
                 photographer?.key === "any"
                   ? "border-[var(--accent)] bg-[var(--accent)]/5"
-                  : "border-zinc-200 hover:border-zinc-300 border-[var(--border-soft)]",
+                  : "border-[var(--border-soft)] hover:border-[var(--border-strong)]",
               )}
             >
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--surface-raised)]">
-                <User className="h-6 w-6 text-zinc-400" />
+                <User className="h-6 w-6 text-[var(--text-subtle)]" />
               </div>
               <span className="text-xs font-medium text-[var(--text-subtle)]">{t(lang, "booking.step3.noPreference")}</span>
             </button>
@@ -245,8 +245,8 @@ export function StepSchedule({ lang }: { lang: Lang }) {
       </section>
 
       {/* Datum */}
-      <section className="rounded-xl border border-zinc-200 bg-white p-5 border-[var(--border-soft)] bg-[var(--surface)]">
-        <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-zinc-600 text-[var(--text-muted)]">
+      <section className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-5 shadow-sm dark:shadow-none">
+        <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[var(--text-muted)]">
           <CalendarDays className="h-4 w-4 text-[var(--accent)]" /> {t(lang, "booking.step3.date")}
         </h3>
         <input
@@ -257,17 +257,17 @@ export function StepSchedule({ lang }: { lang: Lang }) {
           max={maxDateISO(lookahead)}
           onChange={(e) => setDate(e.target.value)}
           className={cn(
-            "w-full rounded-lg border px-3 py-2.5 text-sm",
-            "border-zinc-200 bg-white border-[var(--border-soft)] bg-[var(--surface-raised)]",
-            "focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30 focus:border-[var(--accent)]",
+            "w-full rounded-lg border px-3 py-2.5 text-sm text-[var(--text-main)]",
+            "border-[var(--border-soft)] bg-[var(--surface-raised)]",
+            "focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30 focus:border-[var(--accent)] focus:bg-[var(--surface)]",
           )}
         />
       </section>
 
       {/* Zeitfenster */}
       {date && (
-        <section className="rounded-xl border border-zinc-200 bg-white p-5 border-[var(--border-soft)] bg-[var(--surface)]">
-          <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-zinc-600 text-[var(--text-muted)]">
+        <section className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-5 shadow-sm dark:shadow-none">
+          <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[var(--text-muted)]">
             <Clock className="h-4 w-4 text-[var(--accent)]" /> {t(lang, "booking.step3.time")}
           </h3>
 
@@ -277,7 +277,7 @@ export function StepSchedule({ lang }: { lang: Lang }) {
               onClick={() => setSlotPeriod("am")}
               className={cn(
                 "rounded-lg px-4 py-1.5 text-xs font-medium transition-colors",
-                slotPeriod === "am" ? "bg-[var(--accent)] text-white" : "bg-zinc-100 text-zinc-600 bg-[var(--surface-raised)] text-[var(--text-subtle)]",
+                slotPeriod === "am" ? "bg-[var(--accent)] text-white" : "bg-[var(--surface-raised)] text-[var(--text-subtle)]",
               )}
             >
               {t(lang, "booking.step3.morning")} ({amSlots.length})
@@ -287,7 +287,7 @@ export function StepSchedule({ lang }: { lang: Lang }) {
               onClick={() => setSlotPeriod("pm")}
               className={cn(
                 "rounded-lg px-4 py-1.5 text-xs font-medium transition-colors",
-                slotPeriod === "pm" ? "bg-[var(--accent)] text-white" : "bg-zinc-100 text-zinc-600 bg-[var(--surface-raised)] text-[var(--text-subtle)]",
+                slotPeriod === "pm" ? "bg-[var(--accent)] text-white" : "bg-[var(--surface-raised)] text-[var(--text-subtle)]",
               )}
             >
               {t(lang, "booking.step3.afternoon")} ({pmSlots.length})
@@ -295,9 +295,9 @@ export function StepSchedule({ lang }: { lang: Lang }) {
           </div>
 
           {slotsLoading ? (
-            <div className="py-8 text-center text-sm text-zinc-400 animate-pulse">{t(lang, "booking.loading")}</div>
+            <div className="py-8 text-center text-sm text-[var(--text-subtle)] animate-pulse">{t(lang, "booking.loading")}</div>
           ) : displaySlots.length === 0 ? (
-            <div className="py-8 text-center text-sm text-zinc-400">
+            <div className="py-8 text-center text-sm text-[var(--text-subtle)]">
               {availableSlots.length === 0 ? t(lang, "booking.step3.noSlots") : t(lang, "booking.step3.noSlotsInPeriod")}
             </div>
           ) : (
@@ -312,7 +312,7 @@ export function StepSchedule({ lang }: { lang: Lang }) {
                     "rounded-lg border px-2 py-2 text-center text-sm font-medium transition-all",
                     time === slot
                       ? "border-[var(--accent)] bg-[var(--accent)] text-white shadow-md"
-                      : "border-zinc-200 text-zinc-700 hover:border-[var(--accent)]/50 hover:bg-[var(--accent)]/5 border-[var(--border-soft)] text-[var(--text-muted)]",
+                      : "border-[var(--border-soft)] text-[var(--text-muted)] hover:border-[var(--accent)]/50 hover:bg-[var(--accent)]/5",
                   )}
                 >
                   {slot}
@@ -325,12 +325,12 @@ export function StepSchedule({ lang }: { lang: Lang }) {
 
       {/* Provisorisch */}
       {provisionalEnabled && date && time && (
-        <label className="flex items-start gap-3 rounded-xl border border-zinc-200 bg-white p-4 border-[var(--border-soft)] bg-[var(--surface)]">
+        <label className="flex items-start gap-3 rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-4 shadow-sm dark:shadow-none">
           <input
             type="checkbox"
             checked={provisional}
             onChange={(e) => setProvisional(e.target.checked)}
-            className="mt-0.5 h-4 w-4 shrink-0 rounded border-zinc-300 text-[var(--accent)] focus:ring-[var(--accent)]/30"
+            className="mt-0.5 h-4 w-4 shrink-0 rounded border-[var(--border-strong)] text-[var(--accent)] focus:ring-[var(--accent)]/30"
           />
           <span className="text-sm leading-snug text-[var(--text-muted)]">{t(lang, "booking.step3.provisional")}</span>
         </label>

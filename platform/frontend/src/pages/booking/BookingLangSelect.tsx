@@ -21,8 +21,7 @@ export function BookingLangSelect({ lang, onChange, className }: Props) {
       value={lang}
       onChange={(e) => onChange(e.target.value as Lang)}
       className={cn(
-        "cursor-pointer appearance-none rounded-lg border border-zinc-200 bg-white py-1.5 pl-3 pr-8 text-xs font-semibold text-zinc-800 shadow-sm transition-colors",
-        "border-[var(--border-soft)] bg-[var(--surface)] text-[var(--text-main)]",
+        "cursor-pointer appearance-none rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] py-1.5 pl-3 pr-8 text-xs font-semibold text-[var(--text-main)] shadow-sm transition-colors",
         "bg-[length:1rem_1rem] bg-[right_0.4rem_center] bg-no-repeat",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40",
         className,

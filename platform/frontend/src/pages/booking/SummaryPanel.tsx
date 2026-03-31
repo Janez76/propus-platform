@@ -72,7 +72,7 @@ export function SummaryPanel({
 
   if (mobile) {
     return (
-      <div className="sticky top-0 z-30 border-b border-zinc-200 bg-white/95 backdrop-blur border-[var(--border-soft)] bg-[var(--surface)]/95 lg:hidden">
+      <div className="sticky top-0 z-30 border-b border-[var(--border-soft)] bg-[var(--surface)]/95 backdrop-blur lg:hidden">
         <button
           type="button"
           onClick={() => setMobileOpen(!mobileOpen)}
@@ -83,15 +83,15 @@ export function SummaryPanel({
           </span>
           {mobileOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
         </button>
-        {mobileOpen && <div className="border-t border-zinc-100 px-4 pb-4 border-[var(--border-soft)]">{renderContent()}</div>}
+        {mobileOpen && <div className="border-t border-[var(--border-soft)] px-4 pb-4">{renderContent()}</div>}
       </div>
     );
   }
 
   return (
     <aside className="hidden lg:block">
-      <div className="sticky top-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm border-[var(--border-soft)] bg-[var(--surface)]">
-        <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-zinc-600 text-[var(--text-muted)]">
+      <div className="sticky top-6 rounded-2xl border border-[var(--border-soft)] bg-[var(--surface)] p-5 shadow-sm dark:shadow-none">
+        <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-[var(--text-muted)]">
           {t(lang, "booking.summary.title")}
         </h3>
         {renderContent()}
@@ -103,11 +103,11 @@ export function SummaryPanel({
     if (!hasContent) {
       return (
         <div className="space-y-3">
-          <p className="text-xs text-zinc-400">{t(lang, "booking.summary.empty")}</p>
+          <p className="text-xs text-[var(--text-subtle)]">{t(lang, "booking.summary.empty")}</p>
           <button
             type="button"
             onClick={handleRestart}
-            className="flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-200 py-2 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50 border-[var(--border-soft)] text-[var(--text-muted)] hover:bg-[var(--surface-raised)]"
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-[var(--border-soft)] py-2 text-xs font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-raised)]"
           >
             <RotateCcw className="h-3.5 w-3.5" />
             {t(lang, "booking.summary.restart")}
@@ -127,7 +127,7 @@ export function SummaryPanel({
 
         {(selectedPackage || addons.length > 0) && (
           <div className="space-y-1">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase text-zinc-500">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase text-[var(--text-subtle)]">
               <Package className="h-3 w-3" /> {t(lang, "booking.summary.services")}
             </div>
             {selectedPackage && (
@@ -161,7 +161,7 @@ export function SummaryPanel({
 
         {/* Rabattcode */}
         <div className="space-y-1.5">
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase text-zinc-500">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase text-[var(--text-subtle)]">
             <Percent className="h-3 w-3" /> {t(lang, "booking.summary.discountCode")}
           </div>
           <div className="flex gap-2">
@@ -171,16 +171,16 @@ export function SummaryPanel({
               onChange={(e) => setDiscountInput(e.target.value.toUpperCase())}
               placeholder="CODE"
               className={cn(
-                "flex-1 rounded-lg border px-3 py-1.5 text-xs",
-                "border-[var(--border-soft)] bg-[var(--surface)]",
-                "focus:outline-none focus:ring-1 focus:ring-[var(--accent)]/30",
+                "flex-1 rounded-lg border px-3 py-1.5 text-xs text-[var(--text-main)]",
+                "border-[var(--border-soft)] bg-[var(--surface-raised)]",
+                "focus:outline-none focus:ring-1 focus:ring-[var(--accent)]/30 focus:bg-[var(--surface)]",
               )}
             />
             <button
               type="button"
               onClick={applyDiscount}
               disabled={discountLoading || !discountInput.trim()}
-              className="rounded-lg bg-zinc-100 px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-200 disabled:opacity-50 bg-[var(--surface-raised)] text-[var(--text-muted)]"
+              className="rounded-lg bg-[var(--surface-raised)] px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] transition-colors hover:opacity-90 disabled:opacity-50"
             >
               {discountLoading ? "..." : t(lang, "booking.summary.apply")}
             </button>
@@ -193,8 +193,8 @@ export function SummaryPanel({
 
         {/* Preise */}
         {subtotal > 0 && (
-          <div className="space-y-1 border-t border-zinc-200 pt-3 border-[var(--border-soft)]">
-            <div className="flex justify-between text-zinc-500">
+          <div className="space-y-1 border-t border-[var(--border-soft)] pt-3">
+            <div className="flex justify-between text-[var(--text-subtle)]">
               <span>{t(lang, "booking.summary.subtotal")}</span>
               <span>{formatCHF(pricing.subtotal)}</span>
             </div>
@@ -204,7 +204,7 @@ export function SummaryPanel({
                 <span>-{formatCHF(pricing.discountAmount)}</span>
               </div>
             )}
-            <div className="flex justify-between text-zinc-500">
+            <div className="flex justify-between text-[var(--text-subtle)]">
               <span>{t(lang, "booking.summary.vat")} ({((pricingConfig.vatRate) * 100).toFixed(1)}%)</span>
               <span>{formatCHF(pricing.vat)}</span>
             </div>
@@ -218,7 +218,7 @@ export function SummaryPanel({
         <button
           type="button"
           onClick={handleRestart}
-          className="flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-200 py-2 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50 border-[var(--border-soft)] text-[var(--text-muted)] hover:bg-[var(--surface-raised)]"
+          className="flex w-full items-center justify-center gap-2 rounded-lg border border-[var(--border-soft)] py-2 text-xs font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-raised)]"
         >
           <RotateCcw className="h-3.5 w-3.5" />
           {t(lang, "booking.summary.restart")}

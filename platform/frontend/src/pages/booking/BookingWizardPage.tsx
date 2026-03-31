@@ -216,7 +216,7 @@ export function BookingWizardPage() {
         <div className="flex-1">
           <ThankYouScreen lang={lang} />
         </div>
-        <BookingPublicFooter lang={lang} className="shrink-0 bg-white/70 bg-[var(--surface)]/80" />
+        <BookingPublicFooter lang={lang} className="shrink-0 bg-[var(--surface)]/80" />
       </div>
     );
   }
@@ -227,7 +227,7 @@ export function BookingWizardPage() {
         <div className="flex flex-1 items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-[var(--accent)]" />
         </div>
-        <BookingPublicFooter lang={lang} className="shrink-0 bg-white/70 bg-[var(--surface)]/80" />
+        <BookingPublicFooter lang={lang} className="shrink-0 bg-[var(--surface)]/80" />
       </div>
     );
   }
@@ -235,7 +235,7 @@ export function BookingWizardPage() {
   return (
     <div data-testid="booking-wizard" className="flex min-h-screen flex-col bg-gradient-to-b from-zinc-50 to-zinc-100 dark:from-zinc-950 dark:to-zinc-900">
       {/* Header */}
-      <header className="border-b border-zinc-200 bg-white/80 px-4 py-4 backdrop-blur border-[var(--border-soft)] bg-[var(--surface)]/80">
+      <header className="border-b border-[var(--border-soft)] bg-[var(--surface)]/90 px-4 py-4 backdrop-blur">
         <div className="mx-auto flex max-w-5xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <img src={bookingBrandLogoUrl()} alt="Propus" className="h-7" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
@@ -256,7 +256,7 @@ export function BookingWizardPage() {
                       ? "bg-[var(--accent)] text-white shadow-md"
                       : step > s.id
                         ? "bg-[var(--accent)]/20 text-[var(--accent)] cursor-pointer hover:bg-[var(--accent)]/30"
-                        : "bg-zinc-200 text-zinc-400 bg-[var(--surface-raised)]",
+                        : "bg-[var(--surface-raised)] text-[var(--text-subtle)]",
                   )}
                 >
                   {s.id}
@@ -318,7 +318,7 @@ export function BookingWizardPage() {
                 data-testid="booking-nav-back"
                 disabled={step <= 1}
                 onClick={goPrev}
-                className="flex items-center gap-2 rounded-lg border border-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-40 border-[var(--border-soft)] text-[var(--text-muted)]"
+                className="flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-5 py-2.5 text-sm font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-raised)] disabled:opacity-40"
               >
                 <ArrowLeft className="h-4 w-4" /> {t(lang, "booking.nav.back")}
               </button>
@@ -360,7 +360,7 @@ export function BookingWizardPage() {
         </div>
       </main>
 
-      <BookingPublicFooter lang={lang} className="mt-auto shrink-0 bg-white/50 bg-[var(--surface)]/60" />
+      <BookingPublicFooter lang={lang} className="mt-auto shrink-0 bg-[var(--surface)]/70" />
     </div>
   );
 }

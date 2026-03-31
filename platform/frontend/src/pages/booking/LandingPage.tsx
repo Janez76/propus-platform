@@ -41,7 +41,7 @@ function Stars({ count }: { count: number }) {
   return (
     <span className="flex gap-0.5">
       {Array.from({ length: 5 }, (_, i) => (
-        <Star key={i} className={`h-4 w-4 ${i < Math.round(count) ? "fill-[var(--accent)] text-[var(--accent)]" : "text-zinc-300 text-[var(--text-subtle)]"}`} />
+        <Star key={i} className={`h-4 w-4 ${i < Math.round(count) ? "fill-[var(--accent)] text-[var(--accent)]" : "text-[var(--text-subtle)]"}`} />
       ))}
     </span>
   );
@@ -123,31 +123,31 @@ function PriceListCategory({ category, addons, defaultOpen, lang }: { category: 
   const categoryNote = allSameNote ? sharedNotes[0] : null;
 
   return (
-    <div className="overflow-hidden rounded-xl border border-zinc-200/60 bg-white border-[var(--border-soft)]/80 bg-[var(--surface)]">
+    <div className="overflow-hidden rounded-xl border border-[var(--border-soft)]/80 bg-[var(--surface)]">
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="flex w-full items-center justify-between gap-4 px-5 py-3.5 text-left transition-colors hover:bg-zinc-50 hover:bg-[var(--surface-raised)]/80"
+        className="flex w-full items-center justify-between gap-4 px-5 py-3.5 text-left transition-colors hover:bg-[var(--surface-raised)]/80"
       >
         <div className="min-w-0 flex-1">
-          <span className="text-sm font-bold text-zinc-800 text-[var(--text-main)]">{category.name}</span>
+          <span className="text-sm font-bold text-[var(--text-main)]">{category.name}</span>
           {showDesc && (
-            <span className="ml-2 text-xs font-normal text-zinc-400">{desc}</span>
+            <span className="ml-2 text-xs font-normal text-[var(--text-subtle)]">{desc}</span>
           )}
         </div>
-        <ChevronDown className={`h-4 w-4 shrink-0 text-zinc-400 transition-transform ${open ? "rotate-180" : ""}`} />
+        <ChevronDown className={`h-4 w-4 shrink-0 text-[var(--text-subtle)] transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
-        <div className="border-t border-zinc-100 border-[var(--border-soft)]">
+        <div className="border-t border-[var(--border-soft)]">
           {items.map((addon, i) => (
             <div
               key={addon.id}
-              className={`flex items-center justify-between px-5 py-3 ${i < items.length - 1 ? "border-b border-zinc-100/80 border-[var(--border-soft)]/80" : ""}`}
+              className={`flex items-center justify-between px-5 py-3 ${i < items.length - 1 ? "border-b border-[var(--border-soft)]/80" : ""}`}
             >
               <div className="flex-1 pr-4">
                 <div className="text-sm text-[var(--text-muted)]">{addon.label}</div>
                 {!categoryNote && addon.pricingNote && (
-                  <div className="mt-0.5 text-xs text-zinc-400">{addon.pricingNote}</div>
+                  <div className="mt-0.5 text-xs text-[var(--text-subtle)]">{addon.pricingNote}</div>
                 )}
               </div>
               <div className="text-sm font-bold text-[var(--accent)] whitespace-nowrap">
@@ -156,8 +156,8 @@ function PriceListCategory({ category, addons, defaultOpen, lang }: { category: 
             </div>
           ))}
           {categoryNote && (
-            <div className="border-t border-zinc-100/80 bg-zinc-50/50 px-5 py-2.5 border-[var(--border-soft)] bg-[var(--surface)]/50">
-              <p className="text-xs text-zinc-400">{categoryNote}</p>
+            <div className="border-t border-[var(--border-soft)] bg-[var(--surface)]/50 px-5 py-2.5">
+              <p className="text-xs text-[var(--text-subtle)]">{categoryNote}</p>
             </div>
           )}
         </div>
@@ -246,9 +246,9 @@ export function LandingPage({ lang, onLangChange, onStart }: LandingPageProps) {
   const fadeUp = { hidden: { opacity: 0, y: 24 }, visible: { opacity: 1, y: 0 } };
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#f6f1e8] text-zinc-800 transition-colors bg-[var(--surface)] text-[var(--text-main)]">
+    <div className="min-h-screen overflow-x-hidden bg-[var(--bg-classic)] text-[var(--text-main)] transition-colors">
       {/* Nav */}
-      <nav className="sticky top-0 z-50 flex items-center justify-between gap-3 border-b border-zinc-200/60 bg-white/88 px-6 py-4 shadow-sm backdrop-blur-xl border-[var(--border-soft)]/80 bg-[var(--surface)]/90 sm:px-10">
+      <nav className="sticky top-0 z-50 flex items-center justify-between gap-3 border-b border-[var(--border-soft)]/80 bg-[var(--surface)]/90 px-6 py-4 shadow-sm backdrop-blur-xl sm:px-10">
         <img
           src={bookingBrandLogoUrl()}
           alt="Propus"
@@ -286,7 +286,7 @@ export function LandingPage({ lang, onLangChange, onStart }: LandingPageProps) {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.4 }}
-          className="mx-auto mt-5 max-w-[520px] text-base font-medium leading-relaxed text-zinc-600/80 text-[var(--text-subtle)]"
+          className="mx-auto mt-5 max-w-[520px] text-base font-medium leading-relaxed text-[var(--text-subtle)]"
         >
           {t(lang, "landing.hero.sub")}
         </motion.p>
@@ -308,14 +308,14 @@ export function LandingPage({ lang, onLangChange, onStart }: LandingPageProps) {
           <button
             type="button"
             onClick={scrollToPackages}
-            className="inline-flex items-center gap-2 rounded-full border-[1.5px] border-zinc-200/80 bg-white/80 px-7 py-3.5 text-[15px] font-bold text-zinc-800 backdrop-blur transition-all hover:border-[var(--accent)] hover:text-[var(--accent)] hover:shadow-lg border-[var(--border-soft)] bg-[var(--surface)]/80 text-[var(--text-main)] dark:hover:text-[var(--accent)]"
+            className="inline-flex items-center gap-2 rounded-full border-[1.5px] border-[var(--border-soft)] bg-[var(--surface)]/80 px-7 py-3.5 text-[15px] font-bold text-[var(--text-main)] backdrop-blur transition-all hover:border-[var(--accent)] hover:text-[var(--accent)] hover:shadow-lg"
           >
             {t(lang, "landing.hero.packages")}
           </button>
           <button
             type="button"
             onClick={scrollToPrices}
-            className="inline-flex items-center gap-2 rounded-full border-[1.5px] border-zinc-200/80 bg-white/80 px-7 py-3.5 text-[15px] font-bold text-zinc-800 backdrop-blur transition-all hover:border-[var(--accent)] hover:text-[var(--accent)] hover:shadow-lg border-[var(--border-soft)] bg-[var(--surface)]/80 text-[var(--text-main)] dark:hover:text-[var(--accent)]"
+            className="inline-flex items-center gap-2 rounded-full border-[1.5px] border-[var(--border-soft)] bg-[var(--surface)]/80 px-7 py-3.5 text-[15px] font-bold text-[var(--text-main)] backdrop-blur transition-all hover:border-[var(--accent)] hover:text-[var(--accent)] hover:shadow-lg"
           >
             {t(lang, "landing.hero.prices")}
           </button>
@@ -336,7 +336,7 @@ export function LandingPage({ lang, onLangChange, onStart }: LandingPageProps) {
       </section>
 
       {/* Counters */}
-      <section className="grid grid-cols-2 border-y border-zinc-200/70 bg-white/90 shadow-sm border-[var(--border-soft)] bg-[var(--surface)]/90 md:grid-cols-4">
+      <section className="grid grid-cols-2 border-y border-[var(--border-soft)] bg-[var(--surface)]/90 shadow-sm md:grid-cols-4">
         {counters.map((c, i) => (
           <motion.div
             key={c.labelKey}
@@ -345,7 +345,7 @@ export function LandingPage({ lang, onLangChange, onStart }: LandingPageProps) {
             whileInView="visible"
             viewport={{ once: true, margin: "-15%" }}
             transition={{ duration: 0.6, delay: i * 0.1 }}
-            className="group relative border-r border-zinc-200/70 px-6 py-9 text-center last:border-r-0 border-[var(--border-soft)]"
+            className="group relative border-r border-[var(--border-soft)] px-6 py-9 text-center last:border-r-0"
           >
             <div className="text-[2.4rem] font-extrabold leading-none tracking-tight text-[var(--accent)]">
               <AnimatedCounter target={c.target} suffix={c.suffix} delay={i * 100} />
@@ -386,7 +386,7 @@ export function LandingPage({ lang, onLangChange, onStart }: LandingPageProps) {
                 whileInView="visible"
                 viewport={{ once: true, margin: "-10%" }}
                 transition={{ duration: 0.6, delay: i * 0.1 }}
-                className="group relative flex flex-col overflow-hidden rounded-2xl border border-zinc-200/60 bg-white text-left shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] border-[var(--border-soft)] bg-[var(--surface)]"
+                className="group relative flex flex-col overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-[var(--surface)] text-left shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] dark:shadow-none"
               >
                 {pkg.popular && (
                   <div className="absolute right-4 top-4 z-10 rounded-full bg-[var(--accent)] px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow">
@@ -462,16 +462,16 @@ export function LandingPage({ lang, onLangChange, onStart }: LandingPageProps) {
                 <h3 className="mb-4 text-xs font-bold uppercase tracking-[.16em] text-[var(--text-subtle)]">
                   {t(lang, "landing.pricelist.packages")}
                 </h3>
-                <div className="overflow-hidden rounded-xl border border-zinc-200/60 bg-white border-[var(--border-soft)]/80 bg-[var(--surface)]">
+                <div className="overflow-hidden rounded-xl border border-[var(--border-soft)]/80 bg-[var(--surface)]">
                   {sortedPackages.map((pkg, i) => (
                     <div
                       key={pkg.key}
-                      className={`flex items-center justify-between px-5 py-4 ${i < sortedPackages.length - 1 ? "border-b border-zinc-100 border-[var(--border-soft)]" : ""}`}
+                      className={`flex items-center justify-between px-5 py-4 ${i < sortedPackages.length - 1 ? "border-b border-[var(--border-soft)]" : ""}`}
                     >
                       <div className="flex-1 pr-4">
-                        <div className="text-sm font-bold text-zinc-800 text-[var(--text-main)]">{pkg.label}</div>
+                        <div className="text-sm font-bold text-[var(--text-main)]">{pkg.label}</div>
                         {pkg.description && (
-                          <div className="mt-0.5 text-xs text-zinc-400 line-clamp-1 text-[var(--text-subtle)]">{pkg.description}</div>
+                          <div className="mt-0.5 line-clamp-1 text-xs text-[var(--text-subtle)]">{pkg.description}</div>
                         )}
                       </div>
                       <div className="text-base font-extrabold text-[var(--accent)] whitespace-nowrap">
@@ -545,7 +545,7 @@ export function LandingPage({ lang, onLangChange, onStart }: LandingPageProps) {
           </div>
         )}
 
-        <div className="relative mt-8 overflow-hidden rounded-2xl border border-zinc-200/60 bg-white p-8 shadow-sm border-[var(--border-soft)] bg-[var(--surface)]">
+        <div className="relative mt-8 overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-[var(--surface)] p-8 shadow-sm dark:shadow-none">
           {reviews.map((rv, i) => (
             <motion.div
               key={i}
@@ -563,7 +563,7 @@ export function LandingPage({ lang, onLangChange, onStart }: LandingPageProps) {
 
         {reviews.length > 1 && (
           <div className="mt-4 flex items-center justify-center gap-3">
-            <button type="button" onClick={() => goReview(-1)} className="rounded-full border border-zinc-200 p-2 transition hover:border-[var(--accent)] hover:text-[var(--accent)] border-[var(--border-soft)]" aria-label="Previous">
+            <button type="button" onClick={() => goReview(-1)} className="rounded-full border border-[var(--border-soft)] p-2 transition hover:border-[var(--accent)] hover:text-[var(--accent)]" aria-label="Previous">
               <ChevronLeft className="h-4 w-4" />
             </button>
             <div className="flex gap-1.5">
@@ -577,7 +577,7 @@ export function LandingPage({ lang, onLangChange, onStart }: LandingPageProps) {
                 />
               ))}
             </div>
-            <button type="button" onClick={() => goReview(1)} className="rounded-full border border-zinc-200 p-2 transition hover:border-[var(--accent)] hover:text-[var(--accent)] border-[var(--border-soft)]" aria-label="Next">
+            <button type="button" onClick={() => goReview(1)} className="rounded-full border border-[var(--border-soft)] p-2 transition hover:border-[var(--accent)] hover:text-[var(--accent)]" aria-label="Next">
               <ChevronRight className="h-4 w-4" />
             </button>
           </div>

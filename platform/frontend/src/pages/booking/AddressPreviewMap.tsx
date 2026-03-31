@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { cn } from "../../lib/utils";
+import { useThemeStore } from "../../store/themeStore";
+import { GMAPS_DARK_STYLES } from "./gmapsDarkStyles";
 
 const DEFAULT_CENTER: google.maps.LatLngLiteral = { lat: 47.3769, lng: 8.5417 };
 const DEFAULT_ZOOM = 8;
@@ -61,6 +63,7 @@ export function AddressPreviewMap({ apiKey, address, coords, className }: Addres
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const markerRef = useRef<google.maps.Marker | null>(null);
   const geocodeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const resolvedTheme = useThemeStore((s) => s.resolvedTheme);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -70,12 +73,14 @@ export function AddressPreviewMap({ apiKey, address, coords, className }: Addres
     loadGoogleMapsScript(apiKey)
       .then(() => {
         if (cancelled || !el || !window.google?.maps) return;
+        const dark = useThemeStore.getState().resolvedTheme === "dark";
         const m = new google.maps.Map(el, {
           center: DEFAULT_CENTER,
           zoom: DEFAULT_ZOOM,
           mapTypeControl: false,
           streetViewControl: false,
           fullscreenControl: false,
+          styles: dark ? GMAPS_DARK_STYLES : [],
         });
         setMap(m);
       })
@@ -89,6 +94,13 @@ export function AddressPreviewMap({ apiKey, address, coords, className }: Addres
       markerRef.current = null;
     };
   }, [apiKey]);
+
+  useEffect(() => {
+    if (!map) return;
+    map.setOptions({
+      styles: resolvedTheme === "dark" ? GMAPS_DARK_STYLES : [],
+    });
+  }, [map, resolvedTheme]);
 
   useEffect(() => {
     if (!map || !window.google?.maps) return;
@@ -144,7 +156,7 @@ export function AddressPreviewMap({ apiKey, address, coords, className }: Addres
     <div
       ref={containerRef}
       className={cn(
-        "mt-3 w-full overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100 border-[var(--border-soft)] bg-[var(--surface)]",
+        "mt-3 w-full overflow-hidden rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)]",
         "h-44 min-h-[11rem] max-h-[13rem]",
         className,
       )}

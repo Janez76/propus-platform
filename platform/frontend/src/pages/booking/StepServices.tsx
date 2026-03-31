@@ -37,14 +37,14 @@ function CategoryAccordion({ category, addons }: { category: CatalogCategory; ad
         onClick={() => setOpen(!open)}
         className={cn(
           "flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium transition-colors",
-          hasSelected ? "bg-[var(--accent)]/10 text-[var(--accent)]" : "bg-zinc-50 text-zinc-700 hover:bg-[var(--surface-raised)]/50 text-[var(--text-muted)] hover:bg-[var(--surface-raised)]",
+          hasSelected ? "bg-[var(--accent)]/10 text-[var(--accent)]" : "bg-[var(--surface-raised)]/60 text-[var(--text-muted)] hover:bg-[var(--surface-raised)]",
         )}
       >
         <span>{category.name}</span>
         {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
       </button>
       {open && (
-        <div className="space-y-1 bg-white p-3 bg-[var(--surface)]">
+        <div className="space-y-1 bg-[var(--surface)] p-3">
           {groupAddons.map((addon) => {
             const selected = selectedAddons.find((s) => s.id === addon.id);
             const price = addonPrice(addon, area, floors);
@@ -53,7 +53,7 @@ function CategoryAccordion({ category, addons }: { category: CatalogCategory; ad
                 key={addon.id}
                 className={cn(
                   "flex cursor-pointer items-center justify-between rounded-lg px-3 py-2.5 transition-colors",
-                  selected ? "bg-[var(--accent)]/5 ring-1 ring-[var(--accent)]/30" : "hover:bg-zinc-50 hover:bg-[var(--surface-raised)]/50",
+                  selected ? "bg-[var(--accent)]/5 ring-1 ring-[var(--accent)]/30" : "hover:bg-[var(--surface-raised)]/70",
                 )}
               >
                 <div className="flex items-center gap-3">
@@ -68,7 +68,7 @@ function CategoryAccordion({ category, addons }: { category: CatalogCategory; ad
                         upsertAddon({ id: addon.id, group: addon.group, label: addon.label, labelKey: addon.id, price, qty: 1 });
                       }
                     }}
-                    className="h-4 w-4 rounded border-zinc-300 text-[var(--accent)] focus:ring-[var(--accent)]/30"
+                    className="h-4 w-4 rounded border-[var(--border-strong)] text-[var(--accent)] focus:ring-[var(--accent)]/30"
                   />
                   <span className="text-sm text-[var(--text-main)]">{addon.label}</span>
                 </div>
@@ -105,7 +105,7 @@ export function StepServices({ lang }: { lang: Lang }) {
 
   if (!catalog) {
     return (
-      <div className="flex items-center justify-center py-20 text-zinc-400">
+      <div className="flex items-center justify-center py-20 text-[var(--text-subtle)]">
         <div className="animate-pulse text-sm">{t(lang, "booking.loading")}</div>
       </div>
     );
@@ -113,7 +113,7 @@ export function StepServices({ lang }: { lang: Lang }) {
 
   if (packages.length === 0 && addonList.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 p-10 text-center text-sm text-zinc-500 border-[var(--border-soft)] bg-[var(--surface-raised)]/50">
+      <div className="rounded-xl border border-dashed border-[var(--border-soft)] bg-[var(--surface-raised)]/50 p-10 text-center text-sm text-[var(--text-subtle)]">
         {t(lang, "booking.step2.noCatalog")}
       </div>
     );
@@ -124,7 +124,7 @@ export function StepServices({ lang }: { lang: Lang }) {
       {/* Pakete */}
       {packages.length > 0 && (
         <section>
-          <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-zinc-600 text-[var(--text-muted)]">
+          <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[var(--text-muted)]">
             <Package className="h-4 w-4 text-[var(--accent)]" /> {t(lang, "booking.step2.packages")}
           </h3>
           <div className="grid gap-3 sm:grid-cols-3">
@@ -140,7 +140,7 @@ export function StepServices({ lang }: { lang: Lang }) {
                     "relative rounded-xl border-2 p-5 text-left transition-all",
                     active
                       ? "border-[var(--accent)] bg-[var(--accent)]/5 shadow-md"
-                      : "border-zinc-200 bg-white hover:border-zinc-300 hover:shadow-sm border-[var(--border-soft)] bg-[var(--surface)] hover:border-[var(--border-soft)]",
+                      : "border-[var(--border-soft)] bg-[var(--surface)] hover:border-[var(--border-strong)] hover:shadow-sm dark:hover:shadow-none",
                   )}
                 >
                   {active && (
@@ -151,7 +151,7 @@ export function StepServices({ lang }: { lang: Lang }) {
                   <div className="mb-2 text-2xl">{HIGHLIGHT_ICONS[pkg.key] ?? "📦"}</div>
                   <div className="text-sm font-bold text-[var(--text-main)]">{pkg.label}</div>
                   {pkg.description && (
-                    <p className="mt-1 text-xs text-zinc-500 line-clamp-3">{pkg.description}</p>
+                    <p className="mt-1 text-xs text-[var(--text-subtle)] line-clamp-3">{pkg.description}</p>
                   )}
                   <div className="mt-3 text-lg font-bold text-[var(--accent)]">{formatCHF(pkg.price)}</div>
                 </button>
@@ -164,7 +164,7 @@ export function StepServices({ lang }: { lang: Lang }) {
       {/* Modularer Builder */}
       {categories.length > 0 && (
         <section>
-          <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-zinc-600 text-[var(--text-muted)]">
+          <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-[var(--text-muted)]">
             {t(lang, "booking.step2.addons")}
           </h3>
           <div className="space-y-2">
@@ -177,15 +177,15 @@ export function StepServices({ lang }: { lang: Lang }) {
 
       {/* Ausgewaehlte Addons */}
       {addons.length > 0 && (
-        <section className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 border-[var(--border-soft)] bg-[var(--surface-raised)]/50">
-          <h4 className="mb-2 text-xs font-semibold uppercase text-zinc-500">{t(lang, "booking.step2.selected")}</h4>
+        <section className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-raised)]/50 p-4">
+          <h4 className="mb-2 text-xs font-semibold uppercase text-[var(--text-subtle)]">{t(lang, "booking.step2.selected")}</h4>
           <div className="space-y-1">
             {addons.map((a) => (
               <div key={a.id} className="flex items-center justify-between text-sm">
                 <span className="text-[var(--text-muted)]">{a.label}</span>
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-[var(--text-subtle)]">{formatCHF(a.price)}</span>
-                  <button type="button" onClick={() => useBookingWizardStore.getState().removeAddon(a.id)} className="text-zinc-400 hover:text-red-500">
+                  <button type="button" onClick={() => useBookingWizardStore.getState().removeAddon(a.id)} className="text-[var(--text-subtle)] hover:text-red-500 dark:hover:text-red-400">
                     <X className="h-3.5 w-3.5" />
                   </button>
                 </div>
