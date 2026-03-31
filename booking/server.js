@@ -109,6 +109,7 @@ const templateRenderer = require("./template-renderer");
 const { normalizeTextDeep, repairTextEncoding } = require("./text-normalization");
 const { resolveAdminSendEmails, resolveAdminEmailTargets, getEmailSendListForAdminStatus, getResendEmailEffectsForStatus, shouldSendAttendeeNotifications } = require("./admin-status-email");
 const crypto = require("crypto");
+const rateLimit = require("express-rate-limit");
 const { registerCustomerContactsRoutes } = require("./customer-contacts-routes");
 const rbac = require("./access-rbac");
 const customerMerge = require("./customer-merge");
@@ -4693,7 +4694,14 @@ app.post("/api/booking", async (req, res) => {
 
 // Kunden-Bestätigungslink: GET /api/booking/confirm/:token
 // Verarbeitet den Bestätigungslink aus der provisorischen Buchungs-E-Mail.
-app.get("/api/booking/confirm/:token", async (req, res) => {
+const confirmBookingLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 Minuten
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { ok: false, error: "Zu viele Anfragen. Bitte versuchen Sie es sp\u00e4ter erneut." },
+});
+app.get("/api/booking/confirm/:token", confirmBookingLimiter, async (req, res) => {
   const token = String(req.params.token || "").trim();
   if (!token || token.length < 40) {
     return res.status(400).json({ ok: false, error: "Ung\u00fcltiger Best\u00e4tigungstoken." });
