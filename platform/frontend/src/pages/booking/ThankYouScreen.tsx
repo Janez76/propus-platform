@@ -142,14 +142,14 @@ export function ThankYouScreen({ lang }: { lang: Lang }) {
 
   return (
     <div data-testid="booking-thank-you" className="mx-auto max-w-lg py-16 text-center">
-      <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-900/20">
-        <CheckCircle className="h-10 w-10 text-emerald-500" />
+      <div className={`mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full ${provisional ? "bg-amber-50 dark:bg-amber-900/20" : "bg-emerald-50 dark:bg-emerald-900/20"}`}>
+        <CheckCircle className={`h-10 w-10 ${provisional ? "text-amber-500" : "text-emerald-500"}`} />
       </div>
       <h2 className="text-2xl font-bold text-[var(--text-main)]">
         {provisional ? t(lang, "booking.thankyou.provisionalTitle") : t(lang, "booking.thankyou.title")}
       </h2>
       <p className="mt-2 text-[var(--text-subtle)]">
-        {t(lang, "booking.thankyou.subtitle")}
+        {provisional ? t(lang, "booking.thankyou.provisionalSubtitle") : t(lang, "booking.thankyou.subtitle")}
       </p>
 
       <div className="mx-auto mt-8 max-w-sm rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-6 text-left shadow-sm dark:shadow-none">

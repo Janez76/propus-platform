@@ -365,7 +365,7 @@ function buildTemplateVars(order, extra) {
 
   if (order.confirmationToken || order.confirmation_token) {
     const base = process.env.FRONTEND_URL || "https://admin-booking.propus.ch";
-    vars.confirmationLink = `${base}/confirm?token=${order.confirmationToken || order.confirmation_token}`;
+    vars.confirmationLink = `${base}/confirm/${order.confirmationToken || order.confirmation_token}`;
   }
   // Rueckwaertskompatibel fuer alte Templates/Callsites.
   vars.confirmUrl = vars.confirmationLink || "";

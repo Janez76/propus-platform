@@ -1009,40 +1009,54 @@ function buildCustomerEmail(data, lang = "de"){
   const t = getMailT(lang);
   const langKey = normalizeLang(lang);
   const isProvisional = !!data.isProvisional;
+  const confirmationLink = data.confirmationLink || null;
   const provisionalCustomerCopy = {
     de: {
       heading: (no) => `Provisorische Buchung${no ? " #" + no : ""}`,
       subject: (no) => `Propus - Provisorische Buchung${no ? " #" + no : ""}`,
-      intro: "Vielen Dank fuer Ihre Buchung bei Propus. Ihr Termin wurde provisorisch reserviert. Nachfolgend finden Sie die Details der vorlaeufigen Reservierung.",
-      badge: "Provisorisch reserviert",
+      intro: "Vielen Dank f\u00fcr Ihre Buchung bei Propus. Ihr Termin ist vorl\u00e4ufig reserviert. Bitte best\u00e4tigen Sie Ihren Termin innerhalb von 3 Tagen \u00fcber den unten stehenden Link \u2013 andernfalls wird die Reservierung automatisch storniert.",
+      badge: "Vorl\u00e4ufig reserviert",
+      confirmBtn: "Termin best\u00e4tigen",
+      expireNote: "Dieser Best\u00e4tigungslink ist 3 Tage g\u00fcltig.",
     },
     en: {
       heading: (no) => `Provisional Booking${no ? " #" + no : ""}`,
       subject: (no) => `Propus - Provisional Booking${no ? " #" + no : ""}`,
-      intro: "Thank you for your booking with Propus. Your appointment has been reserved provisionally. Below you will find the details of the temporary reservation.",
+      intro: "Thank you for your booking with Propus. Your appointment is provisionally reserved. Please confirm your appointment within 3 days using the link below \u2013 otherwise the reservation will be automatically cancelled.",
       badge: "Provisionally reserved",
+      confirmBtn: "Confirm appointment",
+      expireNote: "This confirmation link is valid for 3 days.",
     },
     fr: {
-      heading: (no) => `Reservation provisoire${no ? " #" + no : ""}`,
-      subject: (no) => `Propus - Reservation provisoire${no ? " #" + no : ""}`,
-      intro: "Merci pour votre reservation chez Propus. Votre rendez-vous a ete reserve a titre provisoire. Vous trouverez ci-dessous les details de cette reservation temporaire.",
-      badge: "Reserve provisoirement",
+      heading: (no) => `R\u00e9servation provisoire${no ? " #" + no : ""}`,
+      subject: (no) => `Propus - R\u00e9servation provisoire${no ? " #" + no : ""}`,
+      intro: "Merci pour votre r\u00e9servation chez Propus. Votre rendez-vous est r\u00e9serv\u00e9 provisoirement. Veuillez confirmer votre rendez-vous dans les 3 jours via le lien ci-dessous \u2013 sinon la r\u00e9servation sera automatiquement annul\u00e9e.",
+      badge: "R\u00e9serv\u00e9 provisoirement",
+      confirmBtn: "Confirmer le rendez-vous",
+      expireNote: "Ce lien de confirmation est valable 3 jours.",
     },
     it: {
       heading: (no) => `Prenotazione provvisoria${no ? " #" + no : ""}`,
       subject: (no) => `Propus - Prenotazione provvisoria${no ? " #" + no : ""}`,
-      intro: "Grazie per la sua prenotazione con Propus. Il suo appuntamento e stato riservato in modo provvisorio. Di seguito trova i dettagli della prenotazione temporanea.",
+      intro: "Grazie per la sua prenotazione con Propus. Il suo appuntamento \u00e8 riservato provvisoriamente. La preghiamo di confermare l\u2019appuntamento entro 3 giorni tramite il link sottostante \u2013 altrimenti la prenotazione verr\u00e0 automaticamente annullata.",
       badge: "Riservato provvisoriamente",
+      confirmBtn: "Conferma appuntamento",
+      expireNote: "Questo link di conferma \u00e8 valido per 3 giorni.",
     },
   }[langKey] || {
     heading: (no) => `Provisorische Buchung${no ? " #" + no : ""}`,
     subject: (no) => `Propus - Provisorische Buchung${no ? " #" + no : ""}`,
-    intro: "Vielen Dank fuer Ihre Buchung bei Propus. Ihr Termin wurde provisorisch reserviert. Nachfolgend finden Sie die Details der vorlaeufigen Reservierung.",
-    badge: "Provisorisch reserviert",
+    intro: "Vielen Dank f\u00fcr Ihre Buchung bei Propus. Ihr Termin ist vorl\u00e4ufig reserviert. Bitte best\u00e4tigen Sie Ihren Termin innerhalb von 3 Tagen \u00fcber den unten stehenden Link \u2013 andernfalls wird die Reservierung automatisch storniert.",
+    badge: "Vorl\u00e4ufig reserviert",
+    confirmBtn: "Termin best\u00e4tigen",
+    expireNote: "Dieser Best\u00e4tigungslink ist 3 Tage g\u00fcltig.",
   };
   const price = pricingBlock(data, lang);
   const confirmationBadgeLabel = isProvisional ? provisionalCustomerCopy.badge : t.customerBooking.confirmedBadge;
-  const confirmationBadge = `<div style="display:inline-block;background:linear-gradient(135deg,#10b981,#059669);color:#fff;padding:6px 14px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:0.5px;margin-bottom:24px;text-transform:uppercase">${confirmationBadgeLabel}</div>`;
+  const badgeBg = isProvisional
+    ? "linear-gradient(135deg,#f59e0b,#d97706)"
+    : "linear-gradient(135deg,#10b981,#059669)";
+  const confirmationBadge = `<div style="display:inline-block;background:${badgeBg};color:#fff;padding:6px 14px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:0.5px;margin-bottom:24px;text-transform:uppercase">${confirmationBadgeLabel}</div>`;
 
   const addressStr = data.billing?.street
     ? [data.billing.street, data.billing.zipcity].filter(Boolean).join(", ")
@@ -1069,12 +1083,20 @@ function buildCustomerEmail(data, lang = "de"){
   </table>
 </div>`;
 
+  const confirmBlock = isProvisional && confirmationLink
+    ? `<div style="margin:28px 0;text-align:center">
+        <a href="${confirmationLink}" style="display:inline-block;background:#f59e0b;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;letter-spacing:0.03em">${provisionalCustomerCopy.confirmBtn}</a>
+        <p style="margin:12px 0 0;font-size:12px;color:#9ca3af">${provisionalCustomerCopy.expireNote}</p>
+      </div>`
+    : null;
+
   const html = buildMailHtml({
     lang,
     heading: isProvisional ? provisionalCustomerCopy.heading(data.orderNo) : t.customerBooking.heading(data.orderNo),
     intro:   confirmationBadge + `<p style="margin:16px 0 0;font-size:15px;color:#6b7280;line-height:1.65">${isProvisional ? provisionalCustomerCopy.intro : t.customerBooking.intro}</p>`,
     sections: [
       keyBlock,
+      confirmBlock,
       ctaButtons.length ? `<div style="margin:20px 0">${ctaButtons.join("")}</div>` : null,
       secAddress(data, lang),
       sec(t.customerBooking.servicesTitle, [

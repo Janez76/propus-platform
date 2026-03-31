@@ -103,6 +103,7 @@ const { isHoliday } = require("./holidays");
 const { shadowPricing, shadowAssignment, getShadowLog } = require("./shadow-mode");
 const { getTransitionError, getSideEffects, VALID_STATUSES, calcProvisionalExpiresAt } = require("./state-machine");
 const { executeSideEffects } = require("./workflow-effects");
+const { changeOrderStatus } = require("./order-status-workflow");
 const { startJobs } = require("./jobs/index");
 const templateRenderer = require("./template-renderer");
 const { normalizeTextDeep, repairTextEncoding } = require("./text-normalization");
@@ -4040,6 +4041,8 @@ app.post("/api/booking", async (req, res) => {
     time = String(schedule.time || "");
     const customerEmail = String(billing.email || "").trim();
     hasCustomerEmail = !!customerEmail;
+    const provisionalFlagResult = await getSetting("feature.provisionalBooking").catch(() => ({ value: false }));
+    const isProvisionalRequest = !!schedule.provisional && !!(provisionalFlagResult && provisionalFlagResult.value);
 
     const area = parseAreaToNumber(object.area);
     const durationMin = await getShootDurationMinutes(area, services);
@@ -4338,6 +4341,7 @@ app.post("/api/booking", async (req, res) => {
       billing,
       keyPickup,
       onsiteContacts: onsiteContactsList,
+      isProvisional: isProvisionalRequest,
     }, officeLang);
     const officeMail = {
       from: MAIL_FROM,
@@ -4348,6 +4352,18 @@ app.post("/api/booking", async (req, res) => {
     };
 
     const frontendBase = process.env.FRONTEND_URL || "https://booking.propus.ch";
+
+    // Provisorische Buchung: Token und Ablaufzeit vorab berechnen (vor E-Mail-Bau)
+    const provisionalConfirmationToken = isProvisionalRequest
+      ? crypto.randomBytes(32).toString("base64url")
+      : null;
+    const provisionalConfirmationTokenExpiresAt = isProvisionalRequest
+      ? new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
+      : null;
+    const provisionalConfirmUrl = isProvisionalRequest && provisionalConfirmationToken
+      ? `${frontendBase}/confirm/${provisionalConfirmationToken}`
+      : null;
+
     let portalMagicLink = null;
     try {
       portalMagicLink = await createCustomerPortalMagicLink(billing, { sessionDays: 14 });
@@ -4377,6 +4393,8 @@ app.post("/api/booking", async (req, res) => {
       icsUrl: `${frontendBase}/api/orders/${orderNo}/ics`,
       portalMagicLink,
       onsiteContacts: onsiteContactsList,
+      isProvisional: isProvisionalRequest,
+      confirmationLink: provisionalConfirmUrl,
     }, customerLang);
     const customerMail = {
       from: MAIL_FROM,
@@ -4501,7 +4519,10 @@ app.post("/api/booking", async (req, res) => {
       officeCalendarCreated: officeEventCreated,
       photographerEventId,
       officeEventId,
-      icsUid: icsUid || null
+      icsUid: icsUid || null,
+      confirmationToken: provisionalConfirmationToken,
+      confirmationTokenExpiresAt: provisionalConfirmationTokenExpiresAt,
+      confirmationPendingSince: null,
     };
     try {
       await saveOrder(orderRecord);
@@ -4670,7 +4691,84 @@ app.post("/api/booking", async (req, res) => {
   }
 });
 
-// Admin: resend customer confirmation email for an existing order
+// Kunden-Bestätigungslink: GET /api/booking/confirm/:token
+// Verarbeitet den Bestätigungslink aus der provisorischen Buchungs-E-Mail.
+app.get("/api/booking/confirm/:token", async (req, res) => {
+  const token = String(req.params.token || "").trim();
+  if (!token || token.length < 40) {
+    return res.status(400).json({ ok: false, error: "Ung\u00fcltiger Best\u00e4tigungstoken." });
+  }
+
+  const pool = db.getPool ? db.getPool() : null;
+  if (!pool) {
+    return res.status(503).json({ ok: false, error: "Datenbankverbindung nicht verf\u00fcgbar." });
+  }
+
+  try {
+    const { rows } = await pool.query(
+      `SELECT order_no, status, confirmation_token_expires_at FROM orders WHERE confirmation_token = $1 LIMIT 1`,
+      [token]
+    );
+
+    if (!rows[0]) {
+      return res.status(404).json({ ok: false, error: "Ung\u00fcltiger oder abgelaufener Best\u00e4tigungslink." });
+    }
+
+    const orderNo = rows[0].order_no;
+    const currentStatus = rows[0].status;
+    const expiresAt = rows[0].confirmation_token_expires_at;
+
+    // Token-Ablauf pruefen
+    if (expiresAt && new Date() > new Date(expiresAt)) {
+      return res.status(410).json({ ok: false, error: "Dieser Best\u00e4tigungslink ist abgelaufen." });
+    }
+
+    // Bereits in einem Endzustand (nicht mehr aenderbar via Bestaetigungslink)
+    if (!["pending", "provisional"].includes(String(currentStatus).toLowerCase())) {
+      return res.json({ ok: true, confirmed: false, already: true, status: currentStatus, orderNo });
+    }
+
+    // Order laden und Status via Workflow-Engine auf confirmed setzen
+    const order = await db.getOrderByNo(orderNo);
+    if (!order) {
+      return res.status(404).json({ ok: false, error: "Auftrag nicht gefunden." });
+    }
+
+    const result = await changeOrderStatus(
+      orderNo,
+      "confirmed",
+      {
+        source: "api",
+        actorId: "customer:confirmation_link",
+        loadOrder: async () => order,
+      },
+      { db, getSetting, graphClient, OFFICE_EMAIL, PHOTOG_PHONES: PHOTOG_PHONES || {} }
+    );
+
+    if (!result.success) {
+      console.warn("[confirm] changeOrderStatus fehlgeschlagen:", { orderNo, error: result.error, code: result.code });
+      return res.status(409).json({ ok: false, error: result.error || "Best\u00e4tigung fehlgeschlagen." });
+    }
+
+    // Token nach erfolgreicher Best\u00e4tigung loeschen
+    try {
+      await pool.query(
+        `UPDATE orders SET confirmation_token = NULL, confirmation_token_expires_at = NULL WHERE order_no = $1`,
+        [orderNo]
+      );
+    } catch (cleanupErr) {
+      console.warn("[confirm] Token-Bereinigung fehlgeschlagen:", cleanupErr?.message);
+    }
+
+    console.log("[confirm] Termin best\u00e4tigt:", { orderNo });
+    return res.json({ ok: true, confirmed: true, orderNo, status: "confirmed" });
+  } catch (err) {
+    console.error("[confirm] Unerwarteter Fehler:", err?.message);
+    return res.status(500).json({ ok: false, error: "Best\u00e4tigung fehlgeschlagen." });
+  }
+});
+
+
 app.post("/api/admin/orders/:orderNo/resend-customer-email", requirePhotographerOrAdmin, async (req, res) => {
   try {
     const orderNo = Number(req.params.orderNo);
@@ -4783,7 +4881,7 @@ app.post("/api/admin/orders/:orderNo/resend-email", requireAdmin, async (req, re
     if (emailType === "confirmation_request") {
       const confToken = order.confirmationToken;
       if (!confToken) return res.status(400).json({ error: "No confirmation token available for this order" });
-      const confirmUrl = `${frontendBase}/confirm?token=${confToken}`;
+      const confirmUrl = `${frontendBase}/confirm/${confToken}`;
       const pool = db.getPool ? db.getPool() : null;
       if (!pool) return res.status(503).json({ error: "No database connection available" });
       const sendFn = (to, subj, htm, txt) => sendMailWithFallback({
