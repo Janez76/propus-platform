@@ -7,5 +7,8 @@
   "scripts": {
     "apply-logto-branding": "node apply-logto-propus-branding.js",
     "apply-logto-experience": "node apply-logto-propus-branding.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0"
   }
 }

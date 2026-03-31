@@ -45,12 +45,15 @@ COPY --from=nextjs-builder --chown=propus:nodejs /nextjs/.next/standalone ./next
 COPY --from=nextjs-builder --chown=propus:nodejs /nextjs/.next/static ./nextjs/.next/static
 COPY --from=nextjs-builder --chown=propus:nodejs /nextjs/public ./nextjs/public
 
-# ── Express Backend (Booking + Tours + Platform) ──
+# ── Express Backend (Booking + Tours + Auth + Platform) ──
 COPY booking/package*.json ./booking/
 RUN cd booking && npm ci --omit=dev
 
 COPY tours/package*.json ./tours/
 RUN cd tours && npm ci --omit=dev
+
+COPY auth/package*.json ./auth/
+RUN cd auth && npm ci --omit=dev
 
 COPY platform/package*.json ./platform/
 RUN cd platform && npm ci --omit=dev
