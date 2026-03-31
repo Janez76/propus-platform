@@ -143,8 +143,13 @@ echo '===== [deploy-diagnose] docker compose ps -a ====='
 docker compose -p '$RemoteComposeProject' -f '$RemoteComposeFile' --env-file '$RemoteEnvFile' ps -a
 echo '===== [deploy-diagnose] platform logs (tail 200, container $platformCtn) ====='
 docker logs --tail 200 '$platformCtn' 2>&1
-echo '===== [deploy-diagnose] letzte migrate-Container (Name pattern migrate) ====='
-docker ps -a --filter 'name=migrate' --format 'table {{.Names}}	{{.Status}}	{{.Image}}' 2>&1 | tail -n 15
+echo '===== [deploy-diagnose] migrate / einmalige Container (letzte 8) ====='
+docker ps -a --filter "name=$RemoteComposeProject" --format '{{.Names}} {{.Status}}' 2>&1 | grep -i migrate | tail -n 8 || true
+MIG=`$(docker ps -a --filter "name=$RemoteComposeProject" --format '{{.Names}}' 2>/dev/null | grep -i migrate | head -n 1)
+if [ -n "`$MIG" ]; then
+  echo "===== [deploy-diagnose] logs von `$MIG (tail 120) ====="
+  docker logs --tail 120 "`$MIG" 2>&1
+fi
 "@
     Write-Host ""
     Write-Host "--- Deploy-Fehlerdiagnose (vorheriger ssh-Exit: $SshExitCode) ---" -ForegroundColor Yellow
@@ -163,8 +168,15 @@ docker ps -a --filter 'name=migrate' --format 'table {{.Names}}	{{.Status}}	{{.I
 }
 
 function Invoke-Ssh {
-    param([Parameter(Mandatory = $true)][string]$Command)
+    param(
+        [Parameter(Mandatory = $true)][string]$Command,
+        [string]$DeployStep = ""
+    )
     $Command = Normalize-SshRemoteScript $Command
+
+    if ($DeployStep) {
+        Write-Host "  [deploy-step] $DeployStep" -ForegroundColor DarkCyan
+    }
 
     if ($script:UseSshMux) {
         & ssh @script:SshAliveOpts -S $script:SshControlPath "${User}@${VpsHost}" $Command
@@ -187,7 +199,8 @@ function Invoke-Ssh {
         catch {
             Write-Warning "Zusaetzliche Diagnose konnte nicht abgerufen werden: $($_.Exception.Message)"
         }
-        throw "SSH command failed (remote exit $sshExit). Kurzfassung in den letzten Logzeilen; Diagnoseblock darueber zeigt compose ps und platform-Logs."
+        $stepHint = if ($DeployStep) { "Deploy-Schritt: $DeployStep. " } else { "" }
+        throw "SSH command failed (remote exit $sshExit). ${stepHint}Details: Logzeilen direkt UEBER dieser Meldung + Diagnoseblock [deploy-diagnose]."
     }
 }
 
@@ -480,20 +493,49 @@ date -u +'[deploy] build end   %Y-%m-%dT%H:%M:%SZ'
 "@
 }
 
-$startCommand = @"
+$composeBase = "docker compose -p `"$RemoteComposeProject`" -f `"$RemoteComposeFile`" --env-file `"$RemoteEnvFile`""
+
+$tRemote = [Diagnostics.Stopwatch]::StartNew()
+
+Invoke-Ssh -DeployStep "5a/6 cd + .env.vps vorhanden" @"
 set -eu
-cd "$RemoteProjectRoot"
-test -f "$RemoteEnvFile"
+cd '$RemoteProjectRoot'
+test -f '$RemoteEnvFile'
+"@
+
+Invoke-Ssh -DeployStep "5b/6 postgres + logto-db + logto (up -d)" @"
+set -eu
+cd '$RemoteProjectRoot'
 echo '[deploy] postgres + logto...'
-docker compose -p "$RemoteComposeProject" -f "$RemoteComposeFile" --env-file "$RemoteEnvFile" up -d postgres logto-db logto
+$composeBase up -d postgres logto-db logto
+"@
+
+Invoke-Ssh -DeployStep "5c/6 migrate-Image bauen" @"
+set -eu
+cd '$RemoteProjectRoot'
 echo '[deploy] migrate image build...'
-docker compose -p "$RemoteComposeProject" -f "$RemoteComposeFile" --env-file "$RemoteEnvFile" build migrate
+$composeBase build migrate
+"@
+
+Invoke-Ssh -DeployStep "5d/6 core migrate (compose run --rm migrate)" @"
+set -eu
+cd '$RemoteProjectRoot'
 echo '[deploy] core migrate (Profil migrate)...'
-docker compose -p "$RemoteComposeProject" -f "$RemoteComposeFile" --env-file "$RemoteEnvFile" --profile migrate run --rm migrate
+$composeBase --profile migrate run --rm migrate
+"@
+
+$platformUpBlock = @"
+set -eu
+cd '$RemoteProjectRoot'
 $buildLine
 echo '[deploy] platform Container (alten gestoppten Container entfernen falls vorhanden)...'
-docker rm -f "$RemoteComposeProject-platform-1" 2>/dev/null || true
-docker compose -p "$RemoteComposeProject" -f "$RemoteComposeFile" --env-file "$RemoteEnvFile" up -d platform
+docker rm -f "${RemoteComposeProject}-platform-1" 2>/dev/null || true
+$composeBase up -d platform
+"@
+Invoke-Ssh -DeployStep "5e/6 platform (build ggf.) + up -d" $platformUpBlock
+
+$healthBlock = @"
+set -eu
 echo '[deploy] warte auf /api/health (max ~120s, Schritt 3s)...'
 i=0
 while [ `$i -lt 40 ]; do
@@ -510,8 +552,8 @@ curl -sS http://127.0.0.1:3100/api/health >&2 || true
 echo 'platform health check failed' >&2
 exit 1
 "@
-$tRemote = [Diagnostics.Stopwatch]::StartNew()
-Invoke-Ssh $startCommand
+Invoke-Ssh -DeployStep "5f/6 Health-Check localhost:3100/api/health" $healthBlock
+
 $tRemote.Stop()
 Write-Elapsed "Remote (compose + optional build + health)" $tRemote.Elapsed
 
