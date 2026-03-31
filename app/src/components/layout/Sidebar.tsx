@@ -134,8 +134,8 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
     [canAccessPath],
   );
 
-  function triggerPinoTestLog() {
-    logger.info("Sidebar Pino test button clicked", {
+  function triggerTestLog() {
+    logger.info("Sidebar logger test button clicked", {
       module: "sidebar",
       source: "dev-button",
       href: typeof window !== "undefined" ? window.location.href : undefined,
@@ -416,12 +416,12 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
             {showDevLoggerButton && (
               <button
                 type="button"
-                onClick={triggerPinoTestLog}
-                title={t(lang, "nav.pinoTest")}
+                onClick={triggerTestLog}
+                title={t(lang, "nav.loggerTest")}
                 className="propus-nav-item w-full"
               >
                 <TestTube2 className="h-5 w-5 flex-shrink-0" />
-                {!isCollapsed && <span className="truncate">{t(lang, "nav.pinoTest")}</span>}
+                {!isCollapsed && <span className="truncate">{t(lang, "nav.loggerTest")}</span>}
               </button>
             )}
           </div>

@@ -15,7 +15,7 @@ function detectApiBase() {
     const url = new URL(window.location.href);
     const isLocalhost = url.hostname === "localhost" || url.hostname === "127.0.0.1";
     // In Produktion/staging immer relativen API-Pfad verwenden.
-    // So verhindert man fehlerhafte, eingebettete VITE_API_BASE-Werte im Build.
+    // So verhindert man fehlerhafte, eingebettete API_BASE-Werte im Build.
     if (!isLocalhost) return "";
 
     if (process.env.NEXT_PUBLIC_API_BASE !== undefined && process.env.NEXT_PUBLIC_API_BASE !== "") {
