@@ -84,10 +84,19 @@ jobs:
             --exclude='backups' \
             -czf "/tmp/propus-platform-${GITHUB_SHA}.tar.gz" .
 
+      - name: Write VPS env file
+        run: |
+          printf '%s\n' "${{ secrets.VPS_ENV_FILE }}" > /tmp/propus-platform.env.vps
+
       - name: Upload deploy archive
         run: |
           scp -i ~/.ssh/id_ed25519_propus_vps "/tmp/propus-platform-${GITHUB_SHA}.tar.gz" \
             root@${{ secrets.VPS_HOST }}:"/tmp/propus-platform-${GITHUB_SHA}.tar.gz"
+
+      - name: Upload VPS env file
+        run: |
+          scp -i ~/.ssh/id_ed25519_propus_vps /tmp/propus-platform.env.vps \
+            root@${{ secrets.VPS_HOST }}:/opt/propus-platform/.env.vps
 
       - name: Deploy to VPS
         run: |
@@ -100,11 +109,6 @@ jobs:
             mkdir -p "$PROJECT_ROOT"
             rm -rf "$STAGING_DIR"
             mkdir -p "$STAGING_DIR"
-
-            echo "==> Sync VPS env"
-            cat > "$PROJECT_ROOT/.env.vps" <<'EOF_ENV'
-            ${{ secrets.VPS_ENV_FILE }}
-            EOF_ENV
 
             echo "==> Extract deploy archive"
             tar -xzf "$ARCHIVE_PATH" -C "$STAGING_DIR"
