@@ -6,23 +6,31 @@ export const prerender = false;
 
 export const GET: APIRoute = async () => {
 	const [pages, settings] = await Promise.all([loadAllSeoPages(), loadSeoSettings()]);
-	const disallow = new Set<string>(['/admin/', '/api/admin/']);
 
+	const systemDisallow = new Set<string>([
+		'/admin/',
+		'/api/',
+		'/_astro/',
+		'/uploads/',
+	]);
+
+	const pageDisallow = new Set<string>();
 	for (const path of settings.robotsDisallow) {
-		disallow.add(path);
+		if (!path.startsWith('/_astro/') && !path.startsWith('/api/') && !path.startsWith('/uploads/')) {
+			pageDisallow.add(path);
+		}
 	}
-
 	for (const page of pages) {
-		if (!page.index) disallow.add(page.path);
+		if (!page.index) pageDisallow.add(page.path);
 	}
 
 	const lines = ['User-agent: *'];
 	if (!settings.allowIndexing) {
 		lines.push('Disallow: /');
-	} else if (disallow.size > 0) {
-		for (const path of [...disallow].sort()) lines.push(`Disallow: ${path}`);
 	} else {
 		lines.push('Allow: /');
+		for (const path of [...systemDisallow].sort()) lines.push(`Disallow: ${path}`);
+		for (const path of [...pageDisallow].sort()) lines.push(`Disallow: ${path}`);
 	}
 
 	if (settings.robotsCustom) {
@@ -35,6 +43,6 @@ export const GET: APIRoute = async () => {
 
 	return new Response(lines.join('\n'), {
 		status: 200,
-		headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+		headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=3600' },
 	});
 };

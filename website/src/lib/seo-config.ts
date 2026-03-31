@@ -56,9 +56,10 @@ export const SEO_PAGE_DEFINITIONS: readonly SeoPageDefinition[] = [
 		adminGroup: 'einstieg',
 		label: 'Startseite',
 		defaultPath: '/',
-		defaultTitle: seo.defaultTitle,
+		defaultTitle: `Immobilienfotografie & Drohnenaufnahmen in der Schweiz | ${site.name}`,
 		defaultDescription: seo.defaultDescription,
-		defaultKeywords: 'Immobilienfotografie, Drohne, Immobilienvideo, Matterport, Schweiz, Zug',
+		defaultKeywords:
+			'Immobilienfotografie, Drohnenaufnahmen, 360 Rundgang, Grundrisse, Immobilienvideo, Visualisierung, Zug, Schweiz',
 		defaultIndex: true,
 		slugEditable: false,
 		adminHref: '/admin/seo',
@@ -69,10 +70,11 @@ export const SEO_PAGE_DEFINITIONS: readonly SeoPageDefinition[] = [
 		adminGroup: 'angebot',
 		label: 'Portfolio',
 		defaultPath: '/portfolio/',
-		defaultTitle: `Portfolio | ${site.name}`,
+		defaultTitle: `Portfolio Immobilienfotografie & Luftaufnahmen | ${site.name}`,
 		defaultDescription:
-			'Referenzen: Boden- und Luftaufnahmen, 360°, Grundrisse, Video, Staging und Retusche – für überzeugende Immobilien-Exposés in der Schweiz.',
-		defaultKeywords: 'Portfolio, Referenzen, Immobilienfotografie, Matterport, Staging, Drohne',
+			'Referenzen von Propus: Boden- und Luftaufnahmen, 360°-Rundgänge, Grundrisse, Video, Staging und Retusche – für überzeugende Immobilien-Exposés in der Schweiz.',
+		defaultKeywords:
+			'Portfolio, Referenzen, Immobilienfotografie, Drohnenaufnahmen, 360 Rundgang, Matterport, Home Staging, Schweiz',
 		defaultIndex: true,
 		slugEditable: true,
 		adminHref: '/admin/portfolio',
@@ -83,11 +85,11 @@ export const SEO_PAGE_DEFINITIONS: readonly SeoPageDefinition[] = [
 		adminGroup: 'angebot',
 		label: 'Dienstleistungen',
 		defaultPath: '/dienstleistungen/',
-		defaultTitle: `Dienstleistungen | ${site.name}`,
+		defaultTitle: `Immobilienfotografie, Drohne, 360°, Grundrisse & mehr | ${site.name}`,
 		defaultDescription:
-			'Leistungen für die Immobilienvermarktung: Foto, Drohne, 360°, Grundriss, Video, Staging und Retusche – modular buchbar, professionell umgesetzt.',
+			'Alle Leistungen von Propus für die Immobilienvermarktung: Fotografie, Drohnenaufnahmen, 360°-Rundgänge, Grundrisse, Immobilienvideo, Home Staging und Retusche – modular buchbar, schweizweit.',
 		defaultKeywords:
-			'Immobilienfotografie, Drohne, 360 Rundgang, Grundriss, Video, Home Staging, Schweiz',
+			'Immobilienfotografie, Drohnenaufnahmen, 360 Rundgang, Grundriss, Immobilienvideo, Home Staging, Visualisierung, Retusche, Schweiz, Zug',
 		defaultIndex: true,
 		slugEditable: true,
 		adminHref: '/admin/dienstleistungen',
@@ -98,10 +100,11 @@ export const SEO_PAGE_DEFINITIONS: readonly SeoPageDefinition[] = [
 		adminGroup: 'angebot',
 		label: 'Preise',
 		defaultPath: '/preise/',
-		defaultTitle: `Preise | ${site.name}`,
+		defaultTitle: `Preise Immobilienfotografie & Drohne | ${site.name}`,
 		defaultDescription:
-			'Pakete und Einzelleistungen für Immobilienfotografie transparent dargestellt – passend zu Objekt und Vermarktung, online buchbar.',
-		defaultKeywords: 'Preise, Pakete, Immobilienfotografie, Buchung, Leistungen',
+			'Transparente Preise für Immobilienfotografie, Drohnenaufnahmen, 360°-Rundgänge und Grundrisse – modular buchbar, passend zum Objekt, online buchbar.',
+		defaultKeywords:
+			'Preise, Pakete, Immobilienfotografie, Drohne, Buchung, Leistungen, Schweiz',
 		defaultIndex: true,
 		slugEditable: true,
 		adminHref: '/admin/seo?focus=preise',
@@ -112,10 +115,11 @@ export const SEO_PAGE_DEFINITIONS: readonly SeoPageDefinition[] = [
 		adminGroup: 'angebot',
 		label: 'Über uns',
 		defaultPath: '/ueber-uns/',
-		defaultTitle: `Über uns | ${site.name}`,
+		defaultTitle: `Über uns – Immobilienfotograf in Zug | ${site.name}`,
 		defaultDescription:
-			'Propus GmbH aus Zug: Team und Werte – professionelle Immobilienvisualisierung schweizweit mit persönlicher Begleitung vom Shooting bis zur Lieferung.',
-		defaultKeywords: 'Über uns, Propus, Immobilienvermarktung, Zug, Team',
+			'Propus GmbH aus Zug: professionelle Immobilienfotografie und Visualisierung schweizweit. Persönliche Begleitung vom Shooting bis zur Lieferung innerhalb von 24–48 Stunden.',
+		defaultKeywords:
+			'Über uns, Propus GmbH, Immobilienfotograf Zug, Immobilienvermarktung Schweiz, Team',
 		defaultIndex: true,
 		slugEditable: true,
 		adminHref: '/admin/ueber-uns',
@@ -126,10 +130,10 @@ export const SEO_PAGE_DEFINITIONS: readonly SeoPageDefinition[] = [
 		adminGroup: 'angebot',
 		label: 'Kontakt',
 		defaultPath: '/kontakt/',
-		defaultTitle: `Kontakt | ${site.name}`,
-		defaultDescription:
-			`Kontakt zu ${site.name}: Anfragen, Offerten und Projektgespräch – wir antworten zügig und beraten Sie zu Fotografie, Drohne und Rundgang.`,
-		defaultKeywords: 'Kontakt, Anfrage, Offerte, Immobilienfotografie, Propus',
+		defaultTitle: `Kontakt – Immobilienfotografie anfragen | ${site.name}`,
+		defaultDescription: `Kontakt zu ${site.name}: Anfragen, Offerten und Projektgespräch – wir antworten zügig und beraten Sie zu Fotografie, Drohnenaufnahmen und 360°-Rundgängen.`,
+		defaultKeywords:
+			'Kontakt, Anfrage, Offerte, Immobilienfotografie, Drohne, Propus GmbH, Zug',
 		defaultIndex: true,
 		slugEditable: true,
 		adminHref: '/admin/seo?focus=kontakt',

@@ -19,7 +19,7 @@ export const site = {
 	logoSrc: logoFromEnv || '/images/propus-logo.png',
 	tagline: 'Gold Standard für Immobilienpräsentation',
 	description:
-		'Gold Standard für Immobilienpräsentation: Fotografie, Drohne und Bewegtbild – für Listings, die überzeugen und schneller führen.',
+		'Propus GmbH – Immobilienfotografie, Drohnenaufnahmen, 360°-Rundgänge, Grundrisse und Visualisierungen in Zug und der ganzen Schweiz. Professionell, schnell, online buchbar.',
 	url: 'https://www.propus.ch',
 	email: 'office@propus.ch',
 	phone: '+41445896363',
