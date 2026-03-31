@@ -12,6 +12,7 @@ import {
 } from "../../lib/areaTier";
 import { cn } from "../../lib/utils";
 import { t } from "../../i18n";
+import { RichTextEditor } from "../ui/RichTextEditor";
 
 type FormState = {
   code: string;
@@ -125,7 +126,7 @@ export function ProductEditModal({ open, mode, product, token, language, categor
   const fieldLabelClass = "mb-1 block text-xs font-semibold uppercase tracking-wider text-[var(--text-subtle)]";
   const btnBaseClass = "inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition-colors";
   const btnPrimaryClass = `${btnBaseClass} bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]`;
-  const btnSecondaryClass = `${btnBaseClass} border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 border-[var(--border-soft)] bg-[var(--surface)] text-[var(--text-main)] hover:bg-[var(--surface-raised)]`;
+  const btnSecondaryClass = `${btnBaseClass} border border-[var(--border-soft)] bg-[var(--surface)] text-[var(--text-main)] hover:bg-[var(--surface-raised)]`;
 
   const categorySelectOptions = useMemo(
     () =>
@@ -388,19 +389,19 @@ export function ProductEditModal({ open, mode, product, token, language, categor
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 px-3 py-4">
-      <div className="w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl border-[var(--border-soft)] bg-[var(--surface)] my-auto">
-        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 border-[var(--border-soft)]">
+        <div className="w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-2xl border shadow-2xl border-[var(--border-soft)] bg-[var(--surface)] my-auto">
+          <div className="flex items-center justify-between border-b px-4 py-3 border-[var(--border-soft)]">
           <h3 className="text-lg font-semibold text-[var(--text-main)]">{title}</h3>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 text-[var(--text-subtle)] hover:bg-[var(--surface-raised)]"
+            className="rounded-lg p-2 text-[var(--text-subtle)] hover:bg-[var(--surface-raised)]"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="border-b border-slate-200 px-4 py-2 border-[var(--border-soft)]">
+        <div className="border-b px-4 py-2 border-[var(--border-soft)]">
           <div className="flex flex-wrap gap-2">
             {[
               { key: "general", label: t(language, "catalog.tab.general") },
@@ -414,8 +415,8 @@ export function ProductEditModal({ open, mode, product, token, language, categor
                 className={cn(
                   "rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
                   activeTab === tab.key
-                    ? "bg-[var(--accent)]/15 text-[#8d7740] dark:text-[#d8bf8a]"
-                    : "text-slate-600 hover:bg-slate-100 text-[var(--text-muted)] hover:bg-[var(--surface-raised)]",
+                    ? "bg-[var(--accent)]/15 text-[var(--accent)]"
+                    : "text-[var(--text-muted)] hover:bg-[var(--surface-raised)]",
                 )}
               >
                 {tab.label}
@@ -426,7 +427,7 @@ export function ProductEditModal({ open, mode, product, token, language, categor
 
         <form onSubmit={submitForm} className="space-y-4 px-4 py-4">
           {error ? (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
               {error}
             </div>
           ) : null}
@@ -471,13 +472,17 @@ export function ProductEditModal({ open, mode, product, token, language, categor
                 <span className={fieldLabelClass}>{t(language, "catalog.groupKey")}</span>
                 <input className="ui-input" placeholder={t(language, "catalog.placeholder.groupKey")} value={form.group_key} onChange={(e) => setForm((f) => ({ ...f, group_key: e.target.value }))} />
               </label>
-              <label className="col-span-2 block">
+              <div className="col-span-2 block">
                 <span className={fieldLabelClass}>{t(language, "catalog.description")}</span>
-                <input className="ui-input" placeholder={t(language, "catalog.placeholder.description")} value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
-              </label>
+                <RichTextEditor
+                  value={form.description}
+                  onChange={(html) => setForm((f) => ({ ...f, description: html }))}
+                  placeholder={t(language, "catalog.placeholder.description")}
+                />
+              </div>
 
               {form.rule_type === "area_tier" ? (
-              <div className="col-span-2 rounded-xl border border-slate-200 bg-slate-50/80 p-3 border-[var(--border-soft)] bg-[var(--surface-raised)]/40">
+              <div className="col-span-2 rounded-xl border p-3 border-[var(--border-soft)] bg-[var(--surface-raised)]/40">
                 <p className="mb-0.5 text-xs font-semibold uppercase tracking-wider text-[var(--text-subtle)]">
                   {t(language, "catalog.general.planningTitle")}
                 </p>
@@ -612,7 +617,7 @@ export function ProductEditModal({ open, mode, product, token, language, categor
                 </div>
 
                 {form.rule_type === "area_tier" ? (
-                  <div className="mt-4 rounded-xl border border-slate-200 bg-white/70 p-3 border-[var(--border-soft)] bg-[var(--surface)]/40">
+                  <div className="mt-4 rounded-xl border p-3 border-[var(--border-soft)] bg-[var(--surface)]/40">
                     <div className="mb-3 flex items-center justify-between gap-3">
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-subtle)]">
@@ -681,12 +686,12 @@ export function ProductEditModal({ open, mode, product, token, language, categor
 
               <label className="col-span-2 block">
                 <span className={fieldLabelClass}>{t(language, "catalog.tags")}</span>
-                <div className="rounded-lg border border-zinc-300 p-2 border-[var(--border-soft)]">
+                <div className="rounded-lg border p-2 border-[var(--border-soft)]">
                   <div className="mb-2 flex flex-wrap gap-2">
                     {tags.map((tag) => (
-                      <span key={tag} className="inline-flex items-center gap-1 rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-700 bg-[var(--surface-raised)] text-[var(--text-main)]">
+                      <span key={tag} className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-[var(--surface-raised)] text-[var(--text-main)]">
                         {tag}
-                        <button type="button" className="text-zinc-500 hover:text-red-500" onClick={() => removeTag(tag)}>×</button>
+                        <button type="button" className="text-[var(--text-subtle)] hover:text-red-500" onClick={() => removeTag(tag)}>×</button>
                       </span>
                     ))}
                   </div>
@@ -841,8 +846,8 @@ export function ProductEditModal({ open, mode, product, token, language, categor
                       className={cn(
                         "flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors",
                         (("compositeOf" in opt && opt.compositeOf?.every((k) => form.required_skills.includes(k))) || form.required_skills.includes(opt.key))
-                          ? "border-[var(--accent)] bg-[var(--accent)]/10 font-semibold text-[#8d7740] dark:border-[#d8bf8a] dark:text-[#d8bf8a]"
-                          : "border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50 border-[var(--border-soft)] text-[var(--text-muted)] hover:bg-[var(--surface-raised)]",
+                          ? "border-[var(--accent)] bg-[var(--accent)]/10 font-semibold text-[var(--accent)]"
+                          : "border-[var(--border-soft)] text-[var(--text-muted)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-raised)]",
                       )}
                     >
                       <input
@@ -871,7 +876,7 @@ export function ProductEditModal({ open, mode, product, token, language, categor
                       <span className={cn(
                         "flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 transition-colors",
                         (("compositeOf" in opt && opt.compositeOf?.every((k) => form.required_skills.includes(k))) || form.required_skills.includes(opt.key))
-                          ? "border-[var(--accent)] bg-[var(--accent)] dark:border-[#d8bf8a] dark:bg-[#d8bf8a]"
+                          ? "border-[var(--accent)] bg-[var(--accent)]"
                           : "border-[var(--border-soft)]",
                       )}>
                         {(("compositeOf" in opt && opt.compositeOf?.every((k) => form.required_skills.includes(k))) || form.required_skills.includes(opt.key)) && (
@@ -907,7 +912,7 @@ export function ProductEditModal({ open, mode, product, token, language, categor
             </div>
           ) : null}
 
-          <div className="flex items-center justify-end gap-2 border-t border-slate-200 pt-3 border-[var(--border-soft)]">
+          <div className="flex items-center justify-end gap-2 border-t pt-3 border-[var(--border-soft)]">
             <button type="button" onClick={onClose} className={btnSecondaryClass}>
               {t(language, "common.cancel")}
             </button>
