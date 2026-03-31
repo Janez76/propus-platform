@@ -15,6 +15,32 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.335",
+    date: "2026-03-31",
+    title: "Produkte: DnD-Fix & Dark Mode",
+    changes: [
+      {
+        type: "fix",
+        text: "Produktreihenfolge springt nach dem Verschieben (Drag & Drop) nicht mehr zurueck – optimistischer lokaler State wird sofort gesetzt.",
+      },
+      {
+        type: "improvement",
+        text: "Dark Mode Produktliste: hardcodierte Light-Mode-Farben durch CSS-Variablen ersetzt; 'Deaktivieren'-Buttons haben jetzt korrekte Dark-Mode-Varianten.",
+      },
+    ],
+  },
+  {
+    version: "2.3.334",
+    date: "2026-03-31",
+    title: "Deploy",
+    changes: [
+      {
+        type: "improvement",
+        text: "Versionsnummer fuer VPS-Deploy auf v2.3.334 erhoeht.",
+      },
+    ],
+  },
+  {
     version: "2.3.333",
     date: "2026-03-31",
     title: "Deploy",
