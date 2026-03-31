@@ -642,6 +642,61 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                 {t(lang, "wizard.section.customerData")}
               </div>
               <div className="space-y-3">
+                {/* Firma (primärer Einstieg) */}
+                <div>
+                  <label className={labelClass}>{t(lang, "common.company")}</label>
+                  <CustomerAutocompleteInput
+                    value={formData.company}
+                    onChange={(v) => updateField("company", v)}
+                    onSelectCustomer={handleSelectCustomer}
+                    selectValue={(c) => c.company || ""}
+                    token={token}
+                    className={inputClass}
+                    placeholder={t(lang, "wizard.placeholder.company")}
+                  />
+                </div>
+
+                {/* Ansprechpartner (wenn Firma-Kontakte vorhanden) */}
+                {customerContacts.length > 0 && (
+                  <div>
+                    <label className={labelClass}>Ansprechpartner</label>
+                    <select
+                      value={selectedContactId}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSelectedContactId(val);
+                        if (val === "" || val === "new") {
+                          setFormData((prev) => ({ ...prev, customerName: "", customerEmail: "", customerPhone: "" }));
+                        } else {
+                          const contact = customerContacts.find((c) => String(c.id) === val);
+                          if (contact) {
+                            setFormData((prev) => ({
+                              ...prev,
+                              salutation: contact.salutation || prev.salutation,
+                              first_name: contact.first_name || prev.first_name,
+                              customerName: contact.name || `${contact.first_name || ""} ${contact.last_name || ""}`.trim(),
+                              customerEmail: contact.email || prev.customerEmail,
+                              customerPhone: contact.phone || contact.phone_direct || contact.phone_mobile || prev.customerPhone,
+                            }));
+                          }
+                        }
+                      }}
+                      className={inputClass}
+                    >
+                      <option value="">— Kontakt auswählen —</option>
+                      {customerContacts.map((c) => (
+                        <option key={c.id} value={String(c.id)}>
+                          {c.name || `${c.first_name || ""} ${c.last_name || ""}`.trim()}
+                          {c.role ? ` (${c.role})` : ""}
+                        </option>
+                      ))}
+                      <option value="new">+ Manuell eingeben</option>
+                    </select>
+                  </div>
+                )}
+
+                {/* Persönliche Felder: nur sichtbar wenn kein Kontakt aus Liste gewählt */}
+                {(customerContacts.length === 0 || selectedContactId === "" || selectedContactId === "new") && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className={labelClass}>{t(lang, "wizard.label.customerRequired")}</label>
@@ -683,57 +738,62 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                     />
                   </div>
                   <div>
-                    <label className={labelClass}>{t(lang, "common.company")}</label>
-                    <CustomerAutocompleteInput
-                      value={formData.company}
-                      onChange={(v) => updateField("company", v)}
-                      onSelectCustomer={handleSelectCustomer}
-                      selectValue={(c) => c.company || ""}
-                      token={token}
+                    <label className={labelClass}>{t(lang, "booking.step4.mobile")}</label>
+                    <input
+                      type="tel"
+                      value={formData.customerPhoneMobile}
+                      onChange={(e) => updateField("customerPhoneMobile", e.target.value)}
                       className={inputClass}
-                      placeholder={t(lang, "wizard.placeholder.company")}
+                      placeholder="+41 79 123 45 67"
                     />
                   </div>
                 </div>
+                )}
 
-                {/* Ansprechpartner (wenn Firma-Kontakte vorhanden) */}
-                {customerContacts.length > 0 && (
-                  <div className="pt-3 border-t border-slate-100 border-[var(--border-soft)]">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-subtle)] mb-2 flex items-center gap-1.5">
-                      <Users className="h-3.5 w-3.5" />
-                      Ansprechpartner
-                    </p>
-                    <div className="mb-3">
-                      <select
-                        value={selectedContactId}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setSelectedContactId(val);
-                          if (val === "" || val === "new") {
-                            setFormData((prev) => ({ ...prev, customerName: "", customerEmail: "", customerPhone: "" }));
-                          } else {
-                            const contact = customerContacts.find((c) => String(c.id) === val);
-                            if (contact) {
-                              setFormData((prev) => ({
-                                ...prev,
-                                customerName: contact.name || `${contact.first_name || ""} ${contact.last_name || ""}`.trim(),
-                                customerEmail: contact.email || prev.customerEmail,
-                                customerPhone: contact.phone || contact.phone_direct || contact.phone_mobile || prev.customerPhone,
-                              }));
-                            }
-                          }
-                        }}
+                {/* Wenn Kontakt aus Liste gewählt: kompakte Anzeige der befüllten Daten */}
+                {customerContacts.length > 0 && selectedContactId !== "" && selectedContactId !== "new" && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className={labelClass}>{t(lang, "wizard.label.customerRequired")}</label>
+                      <input
+                        type="text"
+                        value={formData.customerName}
+                        onChange={(e) => updateField("customerName", e.target.value)}
                         className={inputClass}
-                      >
-                        <option value="">— Kontakt auswählen —</option>
-                        {customerContacts.map((c) => (
-                          <option key={c.id} value={String(c.id)}>
-                            {c.name || `${c.first_name || ""} ${c.last_name || ""}`.trim()}
-                            {c.role ? ` (${c.role})` : ""}
-                          </option>
-                        ))}
-                        <option value="new">+ Manuell eingeben</option>
-                      </select>
+                        placeholder={t(lang, "wizard.placeholder.name")}
+                      />
+                      <DbFieldHint fieldPath="billing.name" />
+                    </div>
+                    <div>
+                      <label className={labelClass}>{t(lang, "wizard.label.emailRequired")}</label>
+                      <input
+                        type="email"
+                        value={formData.customerEmail}
+                        onChange={(e) => updateField("customerEmail", e.target.value)}
+                        className={inputClass}
+                        placeholder={t(lang, "wizard.placeholder.email")}
+                      />
+                      <DbFieldHint fieldPath="billing.email" />
+                    </div>
+                    <div>
+                      <label className={labelClass}>{t(lang, "common.phone")}</label>
+                      <input
+                        type="tel"
+                        value={formData.customerPhone}
+                        onChange={(e) => updateField("customerPhone", e.target.value)}
+                        className={inputClass}
+                        placeholder="+41 79 123 45 67"
+                      />
+                    </div>
+                    <div>
+                      <label className={labelClass}>{t(lang, "booking.step4.mobile")}</label>
+                      <input
+                        type="tel"
+                        value={formData.customerPhoneMobile}
+                        onChange={(e) => updateField("customerPhoneMobile", e.target.value)}
+                        className={inputClass}
+                        placeholder="+41 79 123 45 67"
+                      />
                     </div>
                   </div>
                 )}
