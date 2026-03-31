@@ -127,7 +127,7 @@ function SortableProductCard({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "rounded-lg border border-slate-200/70 bg-slate-50/60 p-3 border-[var(--border-soft)] bg-[var(--surface)]/60",
+        "rounded-lg border p-3 border-[var(--border-soft)] bg-[var(--surface)]/60",
         isDragging && "z-10 opacity-80 ring-2 ring-[var(--accent)]/40",
       )}
     >
@@ -135,7 +135,7 @@ function SortableProductCard({
         {!dndDisabled ? (
           <button
             type="button"
-            className="mt-0.5 shrink-0 cursor-grab touch-none rounded p-1 text-[var(--accent)]/80 hover:bg-[var(--accent)]/15 hover:text-[var(--accent)] active:cursor-grabbing dark:text-[#d8bf8a]/90 dark:hover:bg-[var(--accent)]/20"
+            className="mt-0.5 shrink-0 cursor-grab touch-none rounded p-1 text-[var(--accent)]/80 hover:bg-[var(--accent)]/15 hover:text-[var(--accent)] active:cursor-grabbing "
             aria-label={t(lang, "catalog.dnd.dragProduct")}
             {...attributes}
             {...listeners}
@@ -158,7 +158,7 @@ function SortableProductCard({
               {t(lang, product.affects_travel === false ? "catalog.label.travelNo" : "catalog.label.travelYes")}
             </span>
           </div>
-          <div className="mt-1 text-xs text-slate-500">
+          <div className="mt-1 text-xs text-[var(--text-subtle)]">
             {product.code} · {product.kind} · {getGroupLabel(String(product.group_key || ""))} · {productRulePriceLabel(product)}
           </div>
           {product.affects_duration ? (
@@ -171,14 +171,14 @@ function SortableProductCard({
           <button
             type="button"
             onClick={() => onEdit(product)}
-            className={`${btnSmallClass} border border-zinc-300 text-zinc-700 hover:bg-zinc-100 border-[var(--border-soft)] text-[var(--text-main)] hover:bg-[var(--surface-raised)]`}
+            className={`${btnSmallClass} border border-[var(--border-soft)] text-[var(--text-main)] hover:bg-[var(--surface-raised)]`}
           >
             {t(lang, "common.edit")}
           </button>
           <button
             type="button"
             onClick={() => onDuplicate(product)}
-            className={`${btnSmallClass} border border-zinc-300 text-zinc-700 hover:bg-zinc-100 border-[var(--border-soft)] text-[var(--text-main)] hover:bg-[var(--surface-raised)]`}
+            className={`${btnSmallClass} border border-[var(--border-soft)] text-[var(--text-main)] hover:bg-[var(--surface-raised)]`}
           >
             <Copy className="h-3 w-3" /> {t(lang, "catalog.button.duplicate")}
           </button>
@@ -188,8 +188,8 @@ function SortableProductCard({
             className={cn(
               btnSmallClass,
               product.active
-                ? "border border-red-300 text-red-700 hover:bg-red-50 dark:border-red-900/60 dark:text-red-300 dark:hover:bg-red-950/40"
-                : "border border-zinc-300 text-zinc-700 hover:bg-zinc-100 border-[var(--border-soft)] text-[var(--text-main)] hover:bg-[var(--surface-raised)]",
+                ? "border border-red-300 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/30"
+                : "border border-[var(--border-soft)] text-[var(--text-main)] hover:bg-[var(--surface-raised)]",
             )}
           >
             {product.active ? t(lang, "common.deactivate") : t(lang, "common.activate")}
@@ -247,8 +247,7 @@ function SortableCategorySection({
     transition,
   };
 
-  const sortedItems = [...group.items].sort(sortProductsByOrder);
-  const productSortableIds = sortedItems.map((p) => prodId(p.id));
+  const productSortableIds = group.items.map((p) => prodId(p.id));
 
   return (
     <div
@@ -258,13 +257,13 @@ function SortableCategorySection({
     >
       <details className="group/details" open={open}>
         <summary
-          className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 text-[var(--text-main)] hover:bg-[var(--surface-raised)]"
+          className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-sm font-semibold text-[var(--text-main)] hover:bg-[var(--surface-raised)]"
           onClick={(e) => e.preventDefault()}
         >
           {!dndDisabled ? (
             <button
               type="button"
-              className="shrink-0 cursor-grab touch-none rounded p-1 text-[var(--accent)]/80 hover:bg-[var(--accent)]/15 hover:text-[var(--accent)] active:cursor-grabbing dark:text-[#d8bf8a]/90 dark:hover:bg-[var(--accent)]/20"
+              className="shrink-0 cursor-grab touch-none rounded p-1 text-[var(--accent)]/80 hover:bg-[var(--accent)]/15 hover:text-[var(--accent)] active:cursor-grabbing "
               aria-label={t(lang, "catalog.dnd.dragCategory")}
               {...attributes}
               {...listeners}
@@ -283,7 +282,7 @@ function SortableCategorySection({
           >
             <button
               type="button"
-              className="shrink-0 rounded px-1 text-xs text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 text-[var(--text-subtle)] hover:bg-[var(--surface-raised)]/50 hover:text-[var(--text-main)]"
+              className="shrink-0 rounded px-1 text-xs text-[var(--text-subtle)] hover:bg-[var(--surface-raised)]/50 hover:text-[var(--text-main)]"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -305,14 +304,14 @@ function SortableCategorySection({
                 await onNameSave(category, e.target.value);
               }}
             />
-            <span className="text-xs text-zinc-500">({category.key})</span>
+            <span className="text-xs text-[var(--text-subtle)]">({category.key})</span>
             <button
               type="button"
               className={cn(
                 btnSmallClass,
                 category.active
-                  ? "border border-red-300 text-red-700 hover:bg-red-50 dark:border-red-900/60 dark:text-red-300 dark:hover:bg-red-950/40"
-                  : "border border-zinc-300 text-zinc-700 hover:bg-zinc-100 border-[var(--border-soft)] text-[var(--text-main)] hover:bg-[var(--surface-raised)]",
+                  ? "border border-red-300 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/30"
+                  : "border border-[var(--border-soft)] text-[var(--text-main)] hover:bg-[var(--surface-raised)]",
               )}
               disabled={categoryBusy}
               onClick={async (e) => {
@@ -327,7 +326,7 @@ function SortableCategorySection({
               type="button"
               className={cn(
                 btnSmallClass,
-                "border border-zinc-300 text-zinc-700 hover:bg-zinc-100 border-[var(--border-soft)] text-[var(--text-main)] hover:bg-[var(--surface-raised)]",
+                "border border-[var(--border-soft)] text-[var(--text-main)] hover:bg-[var(--surface-raised)]",
               )}
               disabled={categoryBusy}
               onClick={(e) => {
@@ -340,14 +339,14 @@ function SortableCategorySection({
             </button>
           </div>
         </summary>
-        <div className="space-y-2 border-t border-slate-200 p-2 border-[var(--border-soft)]">
+        <div className="space-y-2 border-t p-2 border-[var(--border-soft)]">
           {group.items.length === 0 ? (
-            <div className="rounded-md border border-dashed border-zinc-300 px-3 py-2 text-xs text-zinc-500 border-[var(--border-soft)]">
+            <div className="rounded-md border border-dashed px-3 py-2 text-xs border-[var(--border-soft)] text-[var(--text-subtle)]">
               {t(lang, "catalog.category.empty")}
             </div>
           ) : (
             <SortableContext items={productSortableIds} strategy={verticalListSortingStrategy}>
-              {sortedItems.map((product) => (
+              {group.items.map((product) => (
                 <SortableProductCard
                   key={product.id}
                   product={product}
@@ -390,14 +389,13 @@ function UnassignedCategorySection({
   onDuplicate,
   onToggleActive,
 }: UnassignedCategorySectionProps) {
-  const sortedItems = [...group.items].sort(sortProductsByOrder);
-  const productSortableIds = sortedItems.map((p) => prodId(p.id));
+  const productSortableIds = group.items.map((p) => prodId(p.id));
 
   return (
     <div className="rounded-lg border border-[var(--border-soft)]">
       <details className="group/details" open={open}>
         <summary
-          className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 text-[var(--text-main)] hover:bg-[var(--surface-raised)]"
+          className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-sm font-semibold text-[var(--text-main)] hover:bg-[var(--surface-raised)]"
           onClick={(e) => e.preventDefault()}
         >
           <span
@@ -410,14 +408,14 @@ function UnassignedCategorySection({
             {group.label} ({group.items.length})
           </span>
         </summary>
-        <div className="space-y-2 border-t border-slate-200 p-2 border-[var(--border-soft)]">
+        <div className="space-y-2 border-t p-2 border-[var(--border-soft)]">
           {group.items.length === 0 ? (
-            <div className="rounded-md border border-dashed border-zinc-300 px-3 py-2 text-xs text-zinc-500 border-[var(--border-soft)]">
+            <div className="rounded-md border border-dashed px-3 py-2 text-xs border-[var(--border-soft)] text-[var(--text-subtle)]">
               {t(lang, "catalog.category.empty")}
             </div>
           ) : (
             <SortableContext items={productSortableIds} strategy={verticalListSortingStrategy}>
-              {sortedItems.map((product) => (
+              {group.items.map((product) => (
                 <SortableProductCard
                   key={product.id}
                   product={product}
@@ -454,6 +452,7 @@ export function ProductListByCategory({
   const lang = useAuthStore((s) => s.language);
   const [openGroupKeys, setOpenGroupKeys] = useState<Record<string, boolean>>({});
   const [categoryOrder, setCategoryOrder] = useState<string[] | null>(null);
+  const [productOrder, setProductOrder] = useState<Map<string, number[]>>(new Map());
   const [reorderError, setReorderError] = useState("");
   const [reordering, setReordering] = useState(false);
   const [categoryBusy, setCategoryBusy] = useState(false);
@@ -489,6 +488,11 @@ export function ProductListByCategory({
     setCategoryOrder(null);
   }, [baseCategoryKeysSig]);
 
+  const productsSig = products.map((p) => `${p.id}:${p.sort_order}`).join(",");
+  useEffect(() => {
+    setProductOrder(new Map());
+  }, [productsSig]);
+
   const orderedCategoryKeys = categoryOrder ?? baseCategoryKeys;
 
   const { sortableGroups, unassignedGroup } = useMemo(() => {
@@ -509,11 +513,27 @@ export function ProductListByCategory({
       }
     }
 
+    for (const group of [...sortableGroupsInner, unassigned]) {
+      const override = productOrder.get(group.key);
+      if (override && override.length > 0) {
+        group.items.sort((a, b) => {
+          const ai = override.indexOf(a.id);
+          const bi = override.indexOf(b.id);
+          if (ai >= 0 && bi >= 0) return ai - bi;
+          if (ai >= 0) return -1;
+          if (bi >= 0) return 1;
+          return sortProductsByOrder(a, b);
+        });
+      } else {
+        group.items.sort(sortProductsByOrder);
+      }
+    }
+
     return {
       sortableGroups: sortableGroupsInner,
       unassignedGroup: unassigned.items.length ? unassigned : null,
     };
-  }, [orderedCategoryKeys, categories, filteredProducts]);
+  }, [orderedCategoryKeys, categories, filteredProducts, productOrder]);
 
   useEffect(() => {
     const availableKeys = sortableGroups.map((group) => group.key);
@@ -624,11 +644,12 @@ export function ProductListByCategory({
           (g) => g.items.some((p) => p.id === fromId) && g.items.some((p) => p.id === toId),
         );
         if (!pool) return;
-        const ids = [...pool.items].sort(sortProductsByOrder).map((p) => p.id);
+        const ids = pool.items.map((p) => p.id);
         const oldIndex = ids.indexOf(fromId);
         const newIndex = ids.indexOf(toId);
         if (oldIndex < 0 || newIndex < 0) return;
         const nextIds = arrayMove(ids, oldIndex, newIndex);
+        setProductOrder((prev) => new Map(prev).set(pool.key, nextIds));
         void persistProductOrder(nextIds);
       }
     },
@@ -640,6 +661,7 @@ export function ProductListByCategory({
       persistProductOrder,
       sortableGroups,
       unassignedGroup,
+      setProductOrder,
     ],
   );
 
@@ -685,7 +707,7 @@ export function ProductListByCategory({
         <h2 className="font-semibold">{t(lang, "catalog.title.existing").replace("{{n}}", String(filteredProducts.length))}</h2>
         <div className="flex w-full flex-col gap-2 sm:max-w-xs">
           <div className="relative w-full">
-            <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+            <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-subtle)]" />
             <input
               className="ui-input pl-8"
               placeholder={t(lang, "catalog.search.placeholder")}
@@ -709,7 +731,7 @@ export function ProductListByCategory({
           {reorderError}
         </div>
       ) : null}
-      {reordering ? <div className="mb-2 text-xs text-zinc-500">{t(lang, "catalog.dnd.saving")}</div> : null}
+      {reordering ? <div className="mb-2 text-xs text-[var(--text-subtle)]">{t(lang, "catalog.dnd.saving")}</div> : null}
 
       <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
         <div className="space-y-2">
@@ -756,7 +778,7 @@ export function ProductListByCategory({
             />
           ) : null}
           {filteredProducts.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-zinc-300 p-5 text-center text-sm text-zinc-500 border-[var(--border-soft)]">
+            <div className="rounded-lg border border-dashed p-5 text-center text-sm border-[var(--border-soft)] text-[var(--text-subtle)]">
               {t(lang, "catalog.search.empty")}
             </div>
           ) : null}
@@ -765,4 +787,5 @@ export function ProductListByCategory({
     </div>
   );
 }
+
 
