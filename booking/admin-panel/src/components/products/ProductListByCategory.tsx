@@ -2,11 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   DndContext,
   type DragEndEvent,
+  type DragStartEvent,
   KeyboardSensor,
   PointerSensor,
-  closestCorners,
+  closestCenter,
   useSensor,
   useSensors,
+  type CollisionDetection,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -151,7 +153,7 @@ function SortableProductCard({
               className={cn(
                 "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold",
                 product.affects_travel === false
-                  ? "bg-zinc-200 text-zinc-700 bg-[var(--surface-raised)] text-[var(--text-muted)]"
+                  ? "bg-[var(--surface-raised)] text-[var(--text-muted)]"
                   : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300",
               )}
             >
@@ -458,6 +460,7 @@ export function ProductListByCategory({
   const [categoryBusy, setCategoryBusy] = useState(false);
   const [categoryError, setCategoryError] = useState("");
   const [nameDrafts, setNameDrafts] = useState<Record<string, string>>({});
+  const [activeDragType, setActiveDragType] = useState<"cat" | "prod" | null>(null);
 
   useEffect(() => {
     setNameDrafts(Object.fromEntries(categories.map((c) => [c.key, c.name])));
@@ -559,6 +562,23 @@ export function ProductListByCategory({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
+  const typedCollisionDetection: CollisionDetection = useCallback(
+    (args) => {
+      const collisions = closestCenter(args);
+      if (!activeDragType) return collisions;
+      const prefix = activeDragType === "cat" ? "cat:" : "prod:";
+      return collisions.filter((c) => String(c.id).startsWith(prefix));
+    },
+    [activeDragType],
+  );
+
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    const id = String(event.active.id);
+    if (id.startsWith("cat:")) setActiveDragType("cat");
+    else if (id.startsWith("prod:")) setActiveDragType("prod");
+    else setActiveDragType(null);
+  }, []);
+
   const persistCategoryOrder = useCallback(
     async (nextKeys: string[]) => {
       if (!token) return;
@@ -616,6 +636,7 @@ export function ProductListByCategory({
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
+      setActiveDragType(null);
       if (dndDisabled) return;
       const { active, over } = event;
       if (!over || active.id === over.id) return;
@@ -702,7 +723,7 @@ export function ProductListByCategory({
   );
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 border-[var(--border-soft)] bg-[var(--surface)]">
+    <div className="rounded-xl border p-4 border-[var(--border-soft)] bg-[var(--surface)]">
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="font-semibold">{t(lang, "catalog.title.existing").replace("{{n}}", String(filteredProducts.length))}</h2>
         <div className="flex w-full flex-col gap-2 sm:max-w-xs">
@@ -733,7 +754,7 @@ export function ProductListByCategory({
       ) : null}
       {reordering ? <div className="mb-2 text-xs text-[var(--text-subtle)]">{t(lang, "catalog.dnd.saving")}</div> : null}
 
-      <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
+      <DndContext sensors={sensors} collisionDetection={typedCollisionDetection} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="space-y-2">
           <SortableContext items={categorySortableIds} strategy={verticalListSortingStrategy}>
             {sortableGroups.map((group) => {

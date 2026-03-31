@@ -15,6 +15,21 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.337",
+    date: "2026-03-31",
+    title: "Produkte: DnD-Collision-Fix & Dark Mode Cleanup",
+    changes: [
+      {
+        type: "fix",
+        text: "Drag & Drop Produkte: Collision Detection filtert nun nach Elementtyp (Produkt vs. Kategorie) – verschobene Produkte landen zuverlaessig an der neuen Position.",
+      },
+      {
+        type: "improvement",
+        text: "Dark Mode: letzte hardcodierte Light-Klassen (bg-zinc-200, bg-white, border-slate-200) entfernt; alle Farben laufen ueber CSS-Variablen.",
+      },
+    ],
+  },
+  {
     version: "2.3.335",
     date: "2026-03-31",
     title: "Produkte: DnD-Fix & Dark Mode",
