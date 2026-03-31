@@ -11,6 +11,16 @@ function normEmail(v) {
     .toLowerCase();
 }
 
+async function hasPortalUserEmailColumn() {
+  const { rows } = await db.query(
+    `SELECT 1 FROM information_schema.columns
+     WHERE table_schema = ANY (current_schemas(false))
+       AND table_name = 'access_subjects' AND column_name = 'portal_user_email'
+     LIMIT 1`
+  );
+  return rows.length > 0;
+}
+
 async function findContactIdForWorkspaceMember(ownerEmail, memberEmail) {
   const owner = normEmail(ownerEmail);
   const member = normEmail(memberEmail);
@@ -81,6 +91,7 @@ async function syncPortalStaffTourManagerRbac(emailRaw, action) {
     return;
   }
   if (action === "remove") {
+    if (!(await hasPortalUserEmailColumn())) return;
     const { rows } = await db.query(
       `SELECT id FROM access_subjects
        WHERE subject_type = 'portal_user' AND LOWER(portal_user_email) = $1
@@ -154,14 +165,7 @@ async function emailHasPortalSystemRole(emailRaw, roleKey) {
   const rk = String(roleKey || "").trim();
   if (!email || !rk) return false;
   if (!(await rbac.tableExists("access_subjects"))) return false;
-
-  const hasPortalCol = await db.query(
-    `SELECT 1 FROM information_schema.columns
-     WHERE table_schema = ANY (current_schemas(false))
-       AND table_name = 'access_subjects' AND column_name = 'portal_user_email'
-     LIMIT 1`
-  );
-  if (!hasPortalCol.rows.length) return false;
+  const canQueryPortalUsers = await hasPortalUserEmailColumn();
 
   const { rows } = await db.query(
     `SELECT 1
@@ -169,7 +173,7 @@ async function emailHasPortalSystemRole(emailRaw, roleKey) {
      JOIN access_subjects s ON s.id = asr.subject_id
      WHERE asr.role_key = $2
        AND (
-         (s.subject_type = 'portal_user' AND LOWER(s.portal_user_email) = $1)
+        (${canQueryPortalUsers} AND s.subject_type = 'portal_user' AND LOWER(s.portal_user_email) = $1)
          OR (
            s.subject_type = 'customer_contact'
            AND EXISTS (
@@ -189,24 +193,19 @@ async function listSubjectIdsForPortalEmail(emailRaw) {
   const email = normEmail(emailRaw);
   if (!email) return [];
   if (!(await rbac.tableExists("access_subjects"))) return [];
-
-  const hasCol = await db.query(
-    `SELECT 1 FROM information_schema.columns
-     WHERE table_schema = ANY (current_schemas(false))
-       AND table_name = 'access_subjects' AND column_name = 'portal_user_email'
-     LIMIT 1`
-  );
-  if (!hasCol.rows.length) return [];
+  const canQueryPortalUsers = await hasPortalUserEmailColumn();
 
   const ids = new Set();
-  const pu = await db.query(
-    `SELECT id FROM access_subjects
-     WHERE subject_type = 'portal_user' AND LOWER(portal_user_email) = $1`,
-    [email]
-  );
-  for (const r of pu.rows) {
-    const id = Number(r.id);
-    if (Number.isFinite(id)) ids.add(id);
+  if (canQueryPortalUsers) {
+    const pu = await db.query(
+      `SELECT id FROM access_subjects
+       WHERE subject_type = 'portal_user' AND LOWER(portal_user_email) = $1`,
+      [email]
+    );
+    for (const r of pu.rows) {
+      const id = Number(r.id);
+      if (Number.isFinite(id)) ids.add(id);
+    }
   }
 
   const cc = await db.query(
