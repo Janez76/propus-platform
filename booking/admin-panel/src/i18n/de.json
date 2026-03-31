@@ -62,6 +62,8 @@
   "catalog.categoryManager.title": "Kategorien",
   "catalog.categoryManager.keyPlaceholder": "Interner Schlüssel (z. B. premiumVideo)",
   "catalog.categoryManager.namePlaceholder": "Anzeigename",
+  "catalog.categoryManager.descriptionPlaceholder": "Kurze Beschreibung (z. B. Professionelle HDR-Fotos)",
+  "catalog.categoryManager.showInFrontpanel": "Im Buchungsformular anzeigen",
   "catalog.categoryManager.add": "Kategorie hinzufügen",
   "catalog.categoryManager.frontpanel": "Im Buchungsassistenten anzeigen",
   "catalog.categoryManager.frontpanelShort": "Buchungsassistent",

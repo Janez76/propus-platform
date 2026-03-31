@@ -94,7 +94,7 @@ function PriceLabel({ addon, lang }: { addon: CatalogAddon; lang: Lang }) {
   return <>{formatCHF(addon.price)}</>;
 }
 
-const CATEGORY_DESC_KEYS: Record<string, string> = {
+const CATEGORY_DESC_FALLBACK: Record<string, string> = {
   camera:      "landing.catdesc.camera",
   dronePhoto:  "landing.catdesc.dronePhoto",
   tour:        "landing.catdesc.tour",
@@ -114,9 +114,11 @@ function PriceListCategory({ category, addons, defaultOpen, lang }: { category: 
 
   if (items.length === 0) return null;
 
-  const descKey = CATEGORY_DESC_KEYS[category.key];
-  const desc = descKey ? t(lang, descKey) : "";
-  const showDesc = desc && desc !== descKey;
+  const apiDesc = (category.description ?? "").trim();
+  const fallbackKey = CATEGORY_DESC_FALLBACK[category.key];
+  const fallbackDesc = fallbackKey ? t(lang, fallbackKey) : "";
+  const desc = apiDesc || (fallbackDesc !== fallbackKey ? fallbackDesc : "");
+  const showDesc = Boolean(desc);
 
   const sharedNotes = items.filter((a) => a.pricingNote).map((a) => a.pricingNote!);
   const allSameNote = sharedNotes.length > 0 && sharedNotes.every((n) => n === sharedNotes[0]);

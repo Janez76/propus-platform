@@ -139,15 +139,15 @@ function inferRequiredSkillsFromLegacy(code, groupKey, skillKey = "") {
 function buildDefaultServiceCategories() {
   return [
     { key: "package", name: "Pakete", description: "Komplette Leistungspakete", kind_scope: "package", sort_order: 10, active: true, show_in_frontpanel: false },
-    { key: "camera", name: "Camera Shooting", description: "", kind_scope: "addon", sort_order: 110, active: true, show_in_frontpanel: true },
-    { key: "dronePhoto", name: "Drone Shooting", description: "", kind_scope: "addon", sort_order: 210, active: true, show_in_frontpanel: true },
-    { key: "tour", name: "360° Tour", description: "", kind_scope: "addon", sort_order: 310, active: true, show_in_frontpanel: true },
+    { key: "camera", name: "Camera Shooting", description: "Professionelle HDR-Immobilienfotos, bearbeitet und geliefert in Web- & Fullsize.", kind_scope: "addon", sort_order: 110, active: true, show_in_frontpanel: true },
+    { key: "dronePhoto", name: "Drone Shooting", description: "Luftaufnahmen per Drohne für eindrucksvolle Aussenansichten.", kind_scope: "addon", sort_order: 210, active: true, show_in_frontpanel: true },
+    { key: "tour", name: "360° Tour", description: "Interaktive 360°-Rundgänge — Preis je nach Wohnfläche.", kind_scope: "addon", sort_order: 310, active: true, show_in_frontpanel: true },
     { key: "keypickup", name: "Schlüsselabholung", description: "", kind_scope: "addon", sort_order: 320, active: true, show_in_frontpanel: true },
-    { key: "floorplans", name: "Floor Plans", description: "", kind_scope: "addon", sort_order: 410, active: true, show_in_frontpanel: true },
-    { key: "groundVideo", name: "Ground Video", description: "", kind_scope: "addon", sort_order: 510, active: true, show_in_frontpanel: true },
-    { key: "droneVideo", name: "Drone Video", description: "", kind_scope: "addon", sort_order: 530, active: true, show_in_frontpanel: true },
-    { key: "staging", name: "Staging", description: "", kind_scope: "addon", sort_order: 610, active: true, show_in_frontpanel: true },
-    { key: "express", name: "Express", description: "", kind_scope: "addon", sort_order: 710, active: true, show_in_frontpanel: true },
+    { key: "floorplans", name: "Floor Plans", description: "Maßstabgetreue 2D-Grundrisse nach Tour-Daten oder eigener Skizze.", kind_scope: "addon", sort_order: 410, active: true, show_in_frontpanel: true },
+    { key: "groundVideo", name: "Ground Video", description: "Professioneller Videoclip mit Innen- & Aussenaufnahmen, inkl. Schnitt & Musik.", kind_scope: "addon", sort_order: 510, active: true, show_in_frontpanel: true },
+    { key: "droneVideo", name: "Drone Video", description: "Cineastische Drohnenaufnahmen als Reel oder Clip, fertig geschnitten.", kind_scope: "addon", sort_order: 530, active: true, show_in_frontpanel: true },
+    { key: "staging", name: "Staging", description: "Virtuelles Home-Staging — leere Räume digital möbliert.", kind_scope: "addon", sort_order: 610, active: true, show_in_frontpanel: true },
+    { key: "express", name: "Express", description: "Expresslieferung innerhalb von 24 h für ausgewählte Leistungen.", kind_scope: "addon", sort_order: 710, active: true, show_in_frontpanel: true },
   ];
 }
 
