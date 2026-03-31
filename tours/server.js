@@ -123,7 +123,9 @@ const toursSessionSecret =
   process.env.TOURS_SESSION_SECRET ||
   process.env.SESSION_SECRET ||
   'propus-tour-manager-secret';
-const toursSessionPath = TOURS_MOUNT_PATH || '/';
+/** Gemergte Platform (SPA auf /): Cookie-Path / damit /api/tours/admin dieselbe Session nutzt. */
+const toursSessionPath =
+  process.env.PROPUS_PLATFORM_MERGED === '1' ? '/' : (TOURS_MOUNT_PATH || '/');
 const toursSessionStore = createPostgresSessionStore(session.Store, {
   pool,
   tableName: 'core.tours_sessions',

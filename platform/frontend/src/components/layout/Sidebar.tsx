@@ -26,6 +26,12 @@ import {
   UserCog,
   Globe,
   FileText,
+  List,
+  Link2,
+  Shield,
+  Settings2,
+  Zap,
+  MessageSquare,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -47,11 +53,13 @@ type SidebarNavItem = {
   icon: LucideIcon;
   labelKey?: string;
   label?: string;
+  /** Tour Manager: Untermenü wie bei Einstellungen */
+  toursNav?: boolean;
 };
 
 const navigationItems: SidebarNavItem[] = [
   { path: "/dashboard", icon: LayoutDashboard, labelKey: "nav.dashboard" },
-  { path: "/admin/tours", icon: Globe, label: "Tour Manager" },
+  { path: "/admin/tours", icon: Globe, label: "Tour Manager", toursNav: true },
   { path: "/orders", icon: ShoppingCart, labelKey: "nav.orders" },
   { path: "/upload", icon: Upload, labelKey: "nav.upload" },
   { path: "/calendar", icon: Calendar, labelKey: "nav.calendar" },
@@ -94,6 +102,7 @@ const settingsSubItems = [
 export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [toursNavOpen, setToursNavOpen] = useState(false);
   const lang = useAuthStore((s) => s.language);
   const role = useAuthStore((s) => s.role);
   const { canAccessPath } = usePermissions();
@@ -102,6 +111,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const isSettingsActive =
     (location.pathname.startsWith("/settings") && !location.pathname.startsWith("/settings/companies")) ||
     location.pathname.startsWith("/exxas-reconcile");
+  const isToursNavActive = location.pathname.startsWith("/admin/tours");
   const isCompanyRole = isCompanyWorkspaceRole(role);
   const isKunden = isKundenRole(role);
   const visibleNavigationItems = useMemo(() => {
@@ -159,7 +169,8 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
 
         <nav className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 py-4 [-webkit-overflow-scrolling:touch]">
           <div className="space-y-0.5">
-            {visibleNavigationItems.map(({ path, icon: Icon, labelKey, label }) => {
+            {visibleNavigationItems.map((item) => {
+              const { path, icon: Icon, labelKey, label, toursNav } = item;
               if (path === "/settings") {
                 return (
                   <div key={path}>
@@ -184,6 +195,45 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                             {t(lang, labelKey)}
                           </NavLink>
                         ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+              if (toursNav) {
+                return (
+                  <div key={path}>
+                    <button
+                      type="button"
+                      onClick={() => setToursNavOpen((v) => !v)}
+                      className={cn("propus-nav-item w-full", isToursNavActive && "active")}
+                    >
+                      <Icon className="h-5 w-5 flex-shrink-0" />
+                      <span className="truncate flex-1 text-left">{labelKey ? t(lang, labelKey) : label}</span>
+                      <ChevronDown className={cn("h-4 w-4 flex-shrink-0 transition-transform opacity-60", (toursNavOpen || isToursNavActive) ? "rotate-180" : "")} />
+                    </button>
+                    {(toursNavOpen || isToursNavActive) && (
+                      <div className="ml-4 mt-0.5 space-y-0.5 pl-3" style={{ borderLeft: "2px solid var(--border-soft)" }}>
+                        <NavLink to="/admin/tours" end onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <LayoutDashboard className="h-4 w-4 flex-shrink-0" />
+                          Dashboard
+                        </NavLink>
+                        <NavLink to="/admin/tours/list" onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <List className="h-4 w-4 flex-shrink-0" />
+                          Touren
+                        </NavLink>
+                        <NavLink to="/admin/tours/invoices" onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <FileText className="h-4 w-4 flex-shrink-0" />
+                          Rechnungen
+                        </NavLink>
+                        <NavLink to="/admin/tours/bank-import" onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <Upload className="h-4 w-4 flex-shrink-0" />
+                          Bank-Import
+                        </NavLink>
+                        <NavLink to="/admin/tours/link-matterport" onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <Link2 className="h-4 w-4 flex-shrink-0" />
+                          Matterport
+                        </NavLink>
                       </div>
                     )}
                   </div>
@@ -237,7 +287,8 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto py-4 px-3">
           <div className="space-y-0.5">
-            {visibleNavigationItems.map(({ path, icon: Icon, labelKey, label }) => {
+            {visibleNavigationItems.map((item) => {
+              const { path, icon: Icon, labelKey, label, toursNav } = item;
               if (path === "/settings") {
                 return (
                   <div key={path}>
@@ -266,6 +317,85 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                             {t(lang, labelKey)}
                           </NavLink>
                         ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+              if (toursNav) {
+                if (isCollapsed) {
+                  return (
+                    <NavLink
+                      key={path}
+                      to={path}
+                      title={label}
+                      className={cn("propus-nav-item", isToursNavActive ? "active" : "")}
+                    >
+                      <Icon className={cn("h-5 w-5 flex-shrink-0", isToursNavActive ? "text-white" : "")} />
+                    </NavLink>
+                  );
+                }
+                return (
+                  <div key={path}>
+                    <button
+                      type="button"
+                      onClick={() => setToursNavOpen((v) => !v)}
+                      className={cn("propus-nav-item w-full", isToursNavActive && "active")}
+                    >
+                      <Icon className="h-5 w-5 flex-shrink-0" />
+                      <span className="truncate flex-1 text-left">{labelKey ? t(lang, labelKey) : label}</span>
+                      <ChevronDown className={cn("h-4 w-4 flex-shrink-0 transition-transform opacity-60", (toursNavOpen || isToursNavActive) ? "rotate-180" : "")} />
+                    </button>
+                    {(toursNavOpen || isToursNavActive) && (
+                      <div className="ml-4 mt-0.5 space-y-0.5 pl-3" style={{ borderLeft: "2px solid var(--border-soft)" }}>
+                        <NavLink to="/admin/tours" end className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <LayoutDashboard className="h-4 w-4 flex-shrink-0" />
+                          Dashboard
+                        </NavLink>
+                        <NavLink to="/admin/tours/list" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <List className="h-4 w-4 flex-shrink-0" />
+                          Touren
+                        </NavLink>
+                        <NavLink to="/admin/tours/invoices" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <FileText className="h-4 w-4 flex-shrink-0" />
+                          Rechnungen
+                        </NavLink>
+                        <NavLink to="/admin/tours/bank-import" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <Upload className="h-4 w-4 flex-shrink-0" />
+                          Bank-Import
+                        </NavLink>
+                        <NavLink to="/admin/tours/link-matterport" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <Link2 className="h-4 w-4 flex-shrink-0" />
+                          Matterport
+                        </NavLink>
+                        <NavLink to="/admin/tours/customers" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <Users className="h-4 w-4 flex-shrink-0" />
+                          Kunden
+                        </NavLink>
+                        <NavLink to="/admin/tours/portal-roles" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <Shield className="h-4 w-4 flex-shrink-0" />
+                          Portal-Rollen
+                        </NavLink>
+                        <NavLink to="/admin/tours/settings" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <Settings2 className="h-4 w-4 flex-shrink-0" />
+                          Einstellungen
+                        </NavLink>
+                        <NavLink to="/admin/tours/email-templates" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <Mail className="h-4 w-4 flex-shrink-0" />
+                          E-Mail-Templates
+                        </NavLink>
+                        <NavLink to="/admin/tours/automations" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <Zap className="h-4 w-4 flex-shrink-0" />
+                          Automationen
+                        </NavLink>
+                        <NavLink to="/admin/tours/team" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <UserCog className="h-4 w-4 flex-shrink-0" />
+                          Admin-Team
+                        </NavLink>
+                        <NavLink to="/admin/tours/ai-chat" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <MessageSquare className="h-4 w-4 flex-shrink-0" />
+                          KI-Chat
+                        </NavLink>
                       </div>
                     )}
                   </div>
@@ -318,23 +448,27 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
       {/* Mobile Bottom Navigation */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 propus-sidebar z-30 safe-area-inset-bottom" style={{ borderTop: "1px solid var(--border-soft)" }}>
         <div className="flex items-center justify-around px-2 py-2">
-          {visibleNavigationItems.slice(0, 5).map(({ path, icon: Icon, labelKey, label }) => (
-            <NavLink
-              key={path}
-              to={path}
-              className={({ isActive }) =>
-                cn(
-                  "flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors min-w-[60px] text-xs font-medium",
-                  isActive ? "text-[var(--accent)]" : "text-[var(--text-muted)]"
-                )
-              }
-            >
-              <>
-                <Icon className="h-5 w-5" />
-                <span className="text-[10px] truncate w-full text-center">{labelKey ? t(lang, labelKey) : label}</span>
-              </>
-            </NavLink>
-          ))}
+          {visibleNavigationItems.slice(0, 5).map((item) => {
+            const { path, icon: Icon, labelKey, label, toursNav } = item;
+            const toursBottomActive = Boolean(toursNav && location.pathname.startsWith("/admin/tours"));
+            return (
+              <NavLink
+                key={path}
+                to={path}
+                className={({ isActive }) =>
+                  cn(
+                    "flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors min-w-[60px] text-xs font-medium",
+                    isActive || toursBottomActive ? "text-[var(--accent)]" : "text-[var(--text-muted)]"
+                  )
+                }
+              >
+                <>
+                  <Icon className="h-5 w-5" />
+                  <span className="text-[10px] truncate w-full text-center">{labelKey ? t(lang, labelKey) : label}</span>
+                </>
+              </NavLink>
+            );
+          })}
         </div>
       </nav>
     </>

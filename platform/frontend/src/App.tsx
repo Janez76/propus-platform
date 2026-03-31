@@ -46,26 +46,56 @@ const AccountDashboardPage = lazy(() =>
 const CompanyDashboardPage = lazy(() =>
   import("./pages/CompanyDashboardPage").then((m) => ({ default: m.CompanyDashboardPage }))
 );
-const ToursAdminHomePage = lazy(() =>
-  import("./pages/ToursAdminHomePage").then((m) => ({ default: m.ToursAdminHomePage }))
+const ToursAdminDashboardPage = lazy(() =>
+  import("./pages/tours/admin/ToursAdminDashboardPage").then((m) => ({ default: m.ToursAdminDashboardPage }))
 );
-const AdminToursDashboardPage = lazy(() =>
-  import("./pages/tourManager/AdminToursDashboardPage").then((m) => ({ default: m.AdminToursDashboardPage }))
+const ToursAdminListPage = lazy(() =>
+  import("./pages/tours/admin/ToursAdminListPage").then((m) => ({ default: m.ToursAdminListPage }))
 );
-const AdminToursListPage = lazy(() =>
-  import("./pages/tourManager/AdminToursListPage").then((m) => ({ default: m.AdminToursListPage }))
+const TourDetailPage = lazy(() =>
+  import("./pages/tours/admin/TourDetailPage").then((m) => ({ default: m.TourDetailPage }))
 );
-const AdminTourInvoicesPage = lazy(() =>
-  import("./pages/tourManager/AdminTourInvoicesPage").then((m) => ({ default: m.AdminTourInvoicesPage }))
+const ToursAdminInvoicesPage = lazy(() =>
+  import("./pages/tours/admin/ToursAdminInvoicesPage").then((m) => ({ default: m.ToursAdminInvoicesPage }))
 );
-const AdminTourDetailPage = lazy(() =>
-  import("./pages/tourManager/AdminTourDetailPage").then((m) => ({ default: m.AdminTourDetailPage }))
+const ToursAdminBankImportPage = lazy(() =>
+  import("./pages/tours/admin/ToursAdminBankImportPage").then((m) => ({ default: m.ToursAdminBankImportPage }))
 );
-const AdminMatterportLinkPage = lazy(() =>
-  import("./pages/tourManager/AdminMatterportLinkPage").then((m) => ({ default: m.AdminMatterportLinkPage }))
+const ToursAdminLinkMatterportPage = lazy(() =>
+  import("./pages/tours/admin/ToursAdminLinkMatterportPage").then((m) => ({ default: m.ToursAdminLinkMatterportPage }))
 );
-const AdminBankImportPage = lazy(() =>
-  import("./pages/tourManager/AdminBankImportPage").then((m) => ({ default: m.AdminBankImportPage }))
+const ToursAdminLinkInvoicePage = lazy(() =>
+  import("./pages/tours/admin/ToursAdminLinkInvoicePage").then((m) => ({ default: m.ToursAdminLinkInvoicePage }))
+);
+const ToursAdminLinkExxasCustomerPage = lazy(() =>
+  import("./pages/tours/admin/ToursAdminLinkExxasCustomerPage").then((m) => ({ default: m.ToursAdminLinkExxasCustomerPage }))
+);
+const ToursAdminCustomersListPage = lazy(() =>
+  import("./pages/tours/admin/ToursAdminCustomersListPage").then((m) => ({ default: m.ToursAdminCustomersListPage }))
+);
+const ToursAdminCustomerNewPage = lazy(() =>
+  import("./pages/tours/admin/ToursAdminCustomerNewPage").then((m) => ({ default: m.ToursAdminCustomerNewPage }))
+);
+const ToursAdminCustomerDetailPage = lazy(() =>
+  import("./pages/tours/admin/ToursAdminCustomerDetailPage").then((m) => ({ default: m.ToursAdminCustomerDetailPage }))
+);
+const ToursAdminPortalRolesPage = lazy(() =>
+  import("./pages/tours/admin/ToursAdminPortalRolesPage").then((m) => ({ default: m.ToursAdminPortalRolesPage }))
+);
+const ToursAdminTourSettingsPage = lazy(() =>
+  import("./pages/tours/admin/ToursAdminTourSettingsPage").then((m) => ({ default: m.ToursAdminTourSettingsPage }))
+);
+const ToursAdminEmailTemplatesPage = lazy(() =>
+  import("./pages/tours/admin/ToursAdminEmailTemplatesPage").then((m) => ({ default: m.ToursAdminEmailTemplatesPage }))
+);
+const ToursAdminAutomationsPage = lazy(() =>
+  import("./pages/tours/admin/ToursAdminAutomationsPage").then((m) => ({ default: m.ToursAdminAutomationsPage }))
+);
+const ToursAdminTeamPage = lazy(() =>
+  import("./pages/tours/admin/ToursAdminTeamPage").then((m) => ({ default: m.ToursAdminTeamPage }))
+);
+const ToursAdminAiChatPage = lazy(() =>
+  import("./pages/tours/admin/ToursAdminAiChatPage").then((m) => ({ default: m.ToursAdminAiChatPage }))
 );
 const PortalDashboardPage = lazy(() =>
   import("./pages/portal/PortalDashboardPage").then((m) => ({ default: m.PortalDashboardPage }))
@@ -78,9 +108,6 @@ const PortalInvoicesPage = lazy(() =>
 );
 const PortalTeamPage = lazy(() =>
   import("./pages/portal/PortalTeamPage").then((m) => ({ default: m.PortalTeamPage }))
-);
-const PortalTourDetailPage = lazy(() =>
-  import("./pages/portal/PortalTourDetailPage").then((m) => ({ default: m.PortalTourDetailPage }))
 );
 
 function PageSkeleton() {
@@ -96,6 +123,7 @@ function PrivateRoutes() {
   const isCompanyRole = isCompanyWorkspaceRole(role);
   const isKunden = isKundenRole(role);
   const adminOnlyRoles: Role[] = ["admin", "super_admin"];
+  const toursAdminRoles: Role[] = ["admin", "super_admin", "tour_manager"];
   const companyHome = role === "company_employee" ? "/portal/bestellungen" : "/portal/firma";
 
   if (!isLoggedIn) return <Navigate to="/login" replace />;
@@ -116,7 +144,6 @@ function PrivateRoutes() {
           <Route path="/account" element={<AccountDashboardPage />} />
           <Route path="/portal/dashboard" element={<PortalDashboardPage />} />
           <Route path="/portal/tours" element={<PortalToursPage />} />
-          <Route path="/portal/tours/:id" element={<PortalTourDetailPage />} />
           <Route path="/portal/invoices" element={<PortalInvoicesPage />} />
           {(role === "customer_admin") && (
             <Route path="/portal/team" element={<PortalTeamPage />} />
@@ -133,7 +160,6 @@ function PrivateRoutes() {
         <Route path="/" element={<Navigate to={isCompanyRole ? companyHome : "/dashboard"} replace />} />
         <Route path="/portal/dashboard" element={<PortalDashboardPage />} />
         <Route path="/portal/tours" element={<PortalToursPage />} />
-        <Route path="/portal/tours/:id" element={<PortalTourDetailPage />} />
         <Route path="/portal/invoices" element={<PortalInvoicesPage />} />
         <Route path="/portal/team" element={<PortalTeamPage />} />
         <Route
@@ -183,13 +209,74 @@ function PrivateRoutes() {
         <Route path="/bugs" element={guardedElement(adminOnlyRoles, <BugsPage />)} />
         <Route path="/backups" element={guardedElement(adminOnlyRoles, <BackupsPage />)} />
         <Route path="/changelog" element={guardedElement(adminOnlyRoles, <ChangelogPage />)} />
-        <Route path="/admin/tours" element={guardedElement(adminOnlyRoles, <ToursAdminHomePage />)} />
-        <Route path="/admin/tours/dashboard" element={guardedElement(adminOnlyRoles, <AdminToursDashboardPage />)} />
-        <Route path="/admin/tours/list" element={guardedElement(adminOnlyRoles, <AdminToursListPage />)} />
-        <Route path="/admin/tours/invoices" element={guardedElement(adminOnlyRoles, <AdminTourInvoicesPage />)} />
-        <Route path="/admin/tours/matterport" element={guardedElement(adminOnlyRoles, <AdminMatterportLinkPage />)} />
-        <Route path="/admin/tours/bank-import" element={guardedElement(adminOnlyRoles, <AdminBankImportPage />)} />
-        <Route path="/admin/tours/:id" element={guardedElement(adminOnlyRoles, <AdminTourDetailPage />)} />
+        <Route
+          path="/admin/tours/list"
+          element={guardedElement(toursAdminRoles, <ToursAdminListPage />)}
+        />
+        <Route
+          path="/admin/tours/invoices"
+          element={guardedElement(toursAdminRoles, <ToursAdminInvoicesPage />)}
+        />
+        <Route
+          path="/admin/tours/bank-import"
+          element={guardedElement(toursAdminRoles, <ToursAdminBankImportPage />)}
+        />
+        <Route
+          path="/admin/tours/link-matterport"
+          element={guardedElement(toursAdminRoles, <ToursAdminLinkMatterportPage />)}
+        />
+        <Route
+          path="/admin/tours/:id/link-invoice"
+          element={guardedElement(toursAdminRoles, <ToursAdminLinkInvoicePage />)}
+        />
+        <Route
+          path="/admin/tours/:id/link-exxas-customer"
+          element={guardedElement(toursAdminRoles, <ToursAdminLinkExxasCustomerPage />)}
+        />
+        <Route
+          path="/admin/tours/customers/new"
+          element={guardedElement(toursAdminRoles, <ToursAdminCustomerNewPage />)}
+        />
+        <Route
+          path="/admin/tours/customers/:customerId"
+          element={guardedElement(toursAdminRoles, <ToursAdminCustomerDetailPage />)}
+        />
+        <Route
+          path="/admin/tours/customers"
+          element={guardedElement(toursAdminRoles, <ToursAdminCustomersListPage />)}
+        />
+        <Route
+          path="/admin/tours/portal-roles"
+          element={guardedElement(toursAdminRoles, <ToursAdminPortalRolesPage />)}
+        />
+        <Route
+          path="/admin/tours/settings"
+          element={guardedElement(toursAdminRoles, <ToursAdminTourSettingsPage />)}
+        />
+        <Route
+          path="/admin/tours/email-templates"
+          element={guardedElement(toursAdminRoles, <ToursAdminEmailTemplatesPage />)}
+        />
+        <Route
+          path="/admin/tours/automations"
+          element={guardedElement(toursAdminRoles, <ToursAdminAutomationsPage />)}
+        />
+        <Route
+          path="/admin/tours/team"
+          element={guardedElement(toursAdminRoles, <ToursAdminTeamPage />)}
+        />
+        <Route
+          path="/admin/tours/ai-chat"
+          element={guardedElement(toursAdminRoles, <ToursAdminAiChatPage />)}
+        />
+        <Route
+          path="/admin/tours/:id"
+          element={guardedElement(toursAdminRoles, <TourDetailPage />)}
+        />
+        <Route
+          path="/admin/tours"
+          element={guardedElement(toursAdminRoles, <ToursAdminDashboardPage />)}
+        />
       </Routes>
     </AppShell>
   );

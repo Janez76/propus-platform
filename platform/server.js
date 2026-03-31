@@ -16,11 +16,17 @@ process.env.PROPUS_PLATFORM_MERGED = "1";
 if (!process.env.TOURS_MOUNT_PATH) process.env.TOURS_MOUNT_PATH = "/tour-manager";
 
 const express = require("express");
+const session = require("express-session");
 const { createCoreRouter } = require("./modules/core/routes");
 const booking = require("../booking/server");
 const tours = require("../tours/server");
+const { pool } = require("../tours/lib/db");
+const { createPostgresSessionStore } = require("../auth/postgres-session-store");
+const { requireAdmin } = require("../tours/middleware/auth");
+const toursAdminApi = require("../tours/routes/admin-api");
 
 const main = express();
+main.set("trust proxy", true);
 const mount = String(process.env.TOURS_MOUNT_PATH || "/tour-manager").replace(/\/$/, "") || "/tour-manager";
 
 function publicBookingHostname() {
@@ -33,6 +39,32 @@ function publicBookingHostname() {
 }
 
 main.use("/api/core", createCoreRouter());
+
+const toursSessionSecret =
+  process.env.TOURS_SESSION_SECRET || process.env.SESSION_SECRET || "propus-tour-manager-secret";
+const toursSessionStore = createPostgresSessionStore(session.Store, {
+  pool,
+  tableName: "core.tours_sessions",
+  ttlSeconds: 24 * 60 * 60,
+  logger: console,
+});
+const toursSessionMiddleware = session({
+  name: "propus_tours.sid",
+  secret: toursSessionSecret,
+  resave: false,
+  saveUninitialized: false,
+  store: toursSessionStore,
+  cookie: {
+    secure: "auto",
+    sameSite: "lax",
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000,
+    path: "/",
+  },
+});
+
+main.use("/api/tours/admin", express.json(), toursSessionMiddleware, requireAdmin, toursAdminApi);
+
 main.use(mount, tours.app);
 
 main.use(booking.app);
