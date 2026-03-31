@@ -1,12 +1,12 @@
 #!/bin/sh
 set -e
 
-echo "[start.sh] Starting Next.js on port ${NEXTJS_PORT:-3001}..."
-node /app/nextjs/server.js &
+echo "[start.sh] Starting Next.js on port ${NEXTJS_PORT:-3000}..."
+PORT="${NEXTJS_PORT:-3000}" HOSTNAME="0.0.0.0" node /app/nextjs/server.js &
 NEXTJS_PID=$!
 
 echo "[start.sh] Starting Express on port ${PORT:-3100}..."
-node /app/platform/server.js &
+PORT="${PORT:-3100}" node /app/platform/server.js &
 EXPRESS_PID=$!
 
 echo "[start.sh] Next.js PID=$NEXTJS_PID, Express PID=$EXPRESS_PID"
