@@ -1,17 +1,10 @@
-import { useEffect } from "react";
+import { Navigate } from "react-router-dom";
 
 /**
- * Leitet direkt zum Tour-Manager (EJS) weiter, gemountet unter /tour-manager auf derselben Origin.
+ * /admin/tours  →  weiterleiten zur React-Admin-Dashboard-Seite des Tour Managers.
+ * Die EJS-Oberfläche ist weiterhin unter /tour-manager/admin erreichbar (Fallback).
  */
 export function ToursAdminHomePage() {
-  useEffect(() => {
-    window.location.href = `${window.location.origin}/tour-manager/admin`;
-  }, []);
-
-  return (
-    <div className="flex min-h-[200px] items-center justify-center">
-      <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--accent)]/25 border-t-[var(--accent)]" />
-    </div>
-  );
+  return <Navigate to="/admin/tours/dashboard" replace />;
 }
 
