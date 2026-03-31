@@ -13,7 +13,7 @@ Diese Notiz beschreibt das Zusammenspiel von VPS-Deploy und Playwright-Smoke-Tes
   - laeuft nur mit gesetzter Remote-URL und `PLAYWRIGHT_LIVE_BOOKING=1`
 
 - `.github/workflows/deploy-vps-and-booking-smoke.yml`
-  - deployt den aktuellen Stand auf den VPS
+  - deployt den aktuellen Commit-Stand als Archiv auf den VPS (ohne `git pull` auf dem Server)
   - baut das `platform`-Image neu
   - prueft `/api/health`
   - leert bei gesetzten Cloudflare-Secrets den Zone-Cache (`purge_everything`)
@@ -44,6 +44,7 @@ Der Workflow kann auf zwei Arten laufen:
 
 - `VPS_ENV_FILE`
   - kompletter Inhalt der produktiven `.env.vps`
+  - wird bei jedem Deploy nach `/opt/propus-platform/.env.vps` geschrieben
 
 - `VPS_HOST`
   - Hostname oder IP des VPS (fuer `ssh` und `ssh-keyscan` im Workflow)

@@ -56,16 +56,6 @@ jobs:
           NEXT_PUBLIC_PUBLIC_BOOKING_HOSTNAME: booking.propus.ch
           NEXT_PUBLIC_BASE_URL: /
 
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: nextjs-build
-          path: |
-            app/.next/standalone
-            app/.next/static
-            app/public
-          retention-days: 1
-
   # ─── Deploy to VPS ──────────────────────────────────────────────────────────
   deploy:
     name: Deploy to VPS
@@ -78,12 +68,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Download Next.js build
-        uses: actions/download-artifact@v4
-        with:
-          name: nextjs-build
-          path: app-build
-
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
@@ -91,26 +75,55 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519_propus_vps
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
 
+      - name: Create deploy archive
+        run: |
+          tar \
+            --exclude-vcs \
+            --exclude='.github' \
+            --exclude='docs' \
+            --exclude='backups' \
+            -czf "/tmp/propus-platform-${GITHUB_SHA}.tar.gz" .
+
+      - name: Upload deploy archive
+        run: |
+          scp -i ~/.ssh/id_ed25519_propus_vps "/tmp/propus-platform-${GITHUB_SHA}.tar.gz" \
+            root@${{ secrets.VPS_HOST }}:"/tmp/propus-platform-${GITHUB_SHA}.tar.gz"
+
       - name: Deploy to VPS
         run: |
-          ssh -i ~/.ssh/id_ed25519_propus_vps root@${{ secrets.VPS_HOST }} << 'ENDSSH'
+          ssh -i ~/.ssh/id_ed25519_propus_vps root@${{ secrets.VPS_HOST }} "GITHUB_SHA='${GITHUB_SHA}' bash -se" << 'ENDSSH'
             set -e
-            cd /opt/propus-platform
-            
-            echo "==> Git Pull"
-            git pull origin master
-            
+            PROJECT_ROOT=/opt/propus-platform
+            ARCHIVE_PATH=/tmp/propus-platform-${GITHUB_SHA}.tar.gz
+            STAGING_DIR=/tmp/propus-platform-${GITHUB_SHA}
+
+            mkdir -p "$PROJECT_ROOT"
+            rm -rf "$STAGING_DIR"
+            mkdir -p "$STAGING_DIR"
+
+            echo "==> Sync VPS env"
+            cat > "$PROJECT_ROOT/.env.vps" <<'EOF_ENV'
+${{ secrets.VPS_ENV_FILE }}
+EOF_ENV
+
+            echo "==> Extract deploy archive"
+            tar -xzf "$ARCHIVE_PATH" -C "$STAGING_DIR"
+            tar -C "$STAGING_DIR" -cf - . | tar -C "$PROJECT_ROOT" -xf -
+            rm -rf "$STAGING_DIR" "$ARCHIVE_PATH"
+
+            cd "$PROJECT_ROOT"
+
             echo "==> Docker Build & Restart"
-            docker compose build --no-cache platform
-            docker compose up -d --force-recreate platform
-            
+            docker compose -f docker-compose.vps.yml --env-file .env.vps build --no-cache migrate platform
+            docker compose -f docker-compose.vps.yml --env-file .env.vps up -d --force-recreate platform
+
             echo "==> DB Migrations"
-            docker compose --profile migrate run --rm migrate
-            
+            docker compose -f docker-compose.vps.yml --env-file .env.vps --profile migrate run --rm migrate
+
             echo "==> Health Check"
             sleep 10
-            curl -sf http://localhost:3001/api/core/health || (echo "Health check failed" && exit 1)
-            
+            curl -sf http://127.0.0.1:3100/api/core/health || (echo "Health check failed" && exit 1)
+
             echo "==> Deploy complete"
           ENDSSH
 
