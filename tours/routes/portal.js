@@ -634,19 +634,6 @@ router.get('/tours', requirePortalAuth, async (req, res) => {
   const { tours, invoices } = await loadPortalData(email);
   const assigneeBundle = await portalTeam.getPortalTourAssigneeBundle(email, tours);
 
-  // Default-Assignee: für Touren ohne Zuweisung den eingeloggten User vorbelegen
-  const selfLabel = portalSidebarDisplayName(
-    req.session.portalCustomerGivenName,
-    req.session.portalCustomerFamilyName,
-    req.session.portalCustomerName,
-    email
-  ) || email;
-  for (const tour of tours) {
-    if (!assigneeBundle.assigneeByTourId[tour.id]) {
-      assigneeBundle.assigneeByTourId[tour.id] = { email, label: selfLabel };
-    }
-  }
-
   res.render('portal/tours', {
     ...(await portalBrandingForRequest(req, tours)),
     tours,
