@@ -1430,7 +1430,6 @@
   "roles.category.photographers": "Fotografen",
   "roles.category.products": "Produkte & Preise",
   "roles.category.communication": "Kommunikation",
-
   "booking.title": "Propus Buchung",
   "booking.theme.title": "Farbschema",
   "booking.theme.light": "Hell",
@@ -1571,7 +1570,6 @@
   "booking.validation.phoneRequired": "Telefon oder Mobilnummer erforderlich.",
   "booking.validation.streetRequired": "Strasse erforderlich.",
   "booking.validation.agbRequired": "Bitte AGB akzeptieren.",
-
   "landing.nav.cta": "Jetzt buchen",
   "landing.hero.line1": "Ihr Objekt im",
   "landing.hero.line2": "besten Licht.",
@@ -1623,5 +1621,21 @@
   "landing.catdesc.keyPickup": "Schlüsselabholung beim Eigentümer oder der Verwaltung.",
   "landing.pricelist.note": "Alle Preise exkl. MwSt. · Anfahrtspauschale je nach Zone · Aktuelle Preise direkt aus dem System",
   "landing.pricelist.cta": "Jetzt konfigurieren & buchen",
-  "landing.final.note": "Pakete ab CHF 399 · Schweizweit buchbar"
+  "landing.final.note": "Pakete ab CHF 399 · Schweizweit buchbar",
+  "backups.configuration": "Konfiguration",
+  "backups.directory": "Verzeichnis",
+  "backups.retention": "Aufbewahrung",
+  "backups.retentionDays": "{n} Tage",
+  "backups.schedule": "Zeitplan",
+  "backups.nasSync": "NAS-Sync",
+  "backups.lastSync": "zuletzt",
+  "backups.createTitle": "Neues Backup erstellen",
+  "backups.includeVolumes": "Volumes einschließen",
+  "backups.restore": "Wiederherstellen",
+  "backups.restoring": "Stellt wieder her...",
+  "backups.deleteConfirmTitle": "Backup löschen?",
+  "backups.deleteConfirmMessage": "{name} wird unwiderruflich gelöscht.",
+  "backups.restoreTitle": "Backup wiederherstellen",
+  "backups.restoreLogto": "Logto wiederherstellen",
+  "backups.restoreVolumes": "Volumes wiederherstellen"
 }

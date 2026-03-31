@@ -1006,7 +1006,7 @@
   "contacts.error.createFailed": "Le contact n'a pas pu être créé",
   "contacts.error.deleteFailed": "Le contact n'a pas pu être supprimé",
   "contacts.error.updateFailed": "Le contact n'a pas pu être mis à jour",
-  "contacts.error.duplicateEmail": "Un contact avec cette adresse e-mail existe déjà\u00a0: {{name}}",
+  "contacts.error.duplicateEmail": "Un contact avec cette adresse e-mail existe déjà : {{name}}",
   "contacts.error.duplicateName": "Un contact avec ce nom existe déjà ({{name}}). Veuillez adapter le rôle ou modifier l'entrée existante.",
   "employeeModal.title": "Modifier l'employé",
   "employeeModal.subtitle": "Données de base, compétences & absences",
@@ -1340,7 +1340,6 @@
   "profile.ssoManagedText": "Le profil et le mot de passe sont gérés par un SSO externe. Effectuez les modifications là-bas. La langue et l’apparence peuvent rester modifiées localement.",
   "profile.ssoManagedLink": "Ouvrir le compte externe",
   "profile.passwordManagedExternally": "Le changement de mot de passe est désactivé avec SSO et géré en externe.",
-
   "booking.title": "Réservation Propus",
   "booking.theme.title": "Thème",
   "booking.theme.light": "Clair",
@@ -1481,7 +1480,6 @@
   "booking.validation.phoneRequired": "Téléphone ou mobile requis.",
   "booking.validation.streetRequired": "Rue requise.",
   "booking.validation.agbRequired": "Veuillez accepter les conditions générales.",
-
   "landing.nav.cta": "Réserver",
   "landing.hero.line1": "Votre bien sous",
   "landing.hero.line2": "son meilleur jour.",
@@ -1533,5 +1531,21 @@
   "landing.catdesc.keyPickup": "Récupération des clés chez le propriétaire ou la régie.",
   "landing.pricelist.note": "Tous les prix HT · Frais de déplacement par zone · Prix en temps réel du système",
   "landing.pricelist.cta": "Configurer & réserver",
-  "landing.final.note": "Forfaits dès CHF 399 · Disponible dans toute la Suisse"
+  "landing.final.note": "Forfaits dès CHF 399 · Disponible dans toute la Suisse",
+  "backups.configuration": "Configuration",
+  "backups.directory": "Répertoire",
+  "backups.retention": "Rétention",
+  "backups.retentionDays": "{n} jours",
+  "backups.schedule": "Planification",
+  "backups.nasSync": "Sync NAS",
+  "backups.lastSync": "dernière sync",
+  "backups.createTitle": "Créer une nouvelle sauvegarde",
+  "backups.includeVolumes": "Inclure les volumes",
+  "backups.restore": "Restaurer",
+  "backups.restoring": "Restauration...",
+  "backups.deleteConfirmTitle": "Supprimer la sauvegarde ?",
+  "backups.deleteConfirmMessage": "{name} sera supprimé définitivement.",
+  "backups.restoreTitle": "Restaurer la sauvegarde",
+  "backups.restoreLogto": "Restaurer Logto",
+  "backups.restoreVolumes": "Restaurer les volumes"
 }

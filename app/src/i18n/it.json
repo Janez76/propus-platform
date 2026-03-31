@@ -1340,7 +1340,6 @@
   "profile.ssoManagedText": "Profilo e password sono gestiti da un SSO esterno. Apporta le modifiche lì. Lingua e aspetto restano modificabili localmente.",
   "profile.ssoManagedLink": "Apri account esterno",
   "profile.passwordManagedExternally": "La modifica password è disattivata con SSO ed è gestita esternamente.",
-
   "booking.title": "Prenotazione Propus",
   "booking.theme.title": "Tema colori",
   "booking.theme.light": "Chiaro",
@@ -1481,7 +1480,6 @@
   "booking.validation.phoneRequired": "Telefono o cellulare richiesto.",
   "booking.validation.streetRequired": "Via richiesta.",
   "booking.validation.agbRequired": "Accettare le condizioni generali.",
-
   "landing.nav.cta": "Prenota ora",
   "landing.hero.line1": "Il tuo immobile nella",
   "landing.hero.line2": "luce migliore.",
@@ -1533,5 +1531,21 @@
   "landing.catdesc.keyPickup": "Ritiro chiavi dal proprietario o dall'amministrazione.",
   "landing.pricelist.note": "Tutti i prezzi IVA esclusa · Supplemento di viaggio per zona · Prezzi in tempo reale dal sistema",
   "landing.pricelist.cta": "Configura e prenota ora",
-  "landing.final.note": "Pacchetti da CHF 399 · Disponibile in tutta la Svizzera"
+  "landing.final.note": "Pacchetti da CHF 399 · Disponibile in tutta la Svizzera",
+  "backups.configuration": "Configurazione",
+  "backups.directory": "Directory",
+  "backups.retention": "Conservazione",
+  "backups.retentionDays": "{n} giorni",
+  "backups.schedule": "Pianificazione",
+  "backups.nasSync": "Sync NAS",
+  "backups.lastSync": "ultima sync",
+  "backups.createTitle": "Crea nuovo backup",
+  "backups.includeVolumes": "Includi volumi",
+  "backups.restore": "Ripristina",
+  "backups.restoring": "Ripristino in corso...",
+  "backups.deleteConfirmTitle": "Eliminare il backup?",
+  "backups.deleteConfirmMessage": "{name} verrà eliminato definitivamente.",
+  "backups.restoreTitle": "Ripristina backup",
+  "backups.restoreLogto": "Ripristina Logto",
+  "backups.restoreVolumes": "Ripristina volumi"
 }

@@ -5,7 +5,7 @@ node_modules/
 .env.*.local
 .env.logto
 scripts/local.github-actions.secrets.env
-backups/
+/backups/
 core/dumps/
 data/pgdata/
 data/logto-pgdata/
