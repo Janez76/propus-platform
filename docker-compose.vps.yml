@@ -178,7 +178,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "node -e \"require('http').get('http://127.0.0.1:3000/api/health',r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>process.exit(r.statusCode===200&&d.includes('ok')?0:1));}).on('error',()=>process.exit(1))\"",
+          "node -e \"require('http').get('http://127.0.0.1:3000/api/core/health',r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>process.exit(r.statusCode===200&&d.includes('ok')?0:1));}).on('error',()=>process.exit(1))\"",
         ]
       interval: 10s
       timeout: 8s
