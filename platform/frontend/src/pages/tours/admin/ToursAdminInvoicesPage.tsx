@@ -1,11 +1,9 @@
 import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
-import { ExternalLink } from "lucide-react";
 import { getToursAdminRenewalInvoices, renewalInvoicePdfUrl } from "../../../api/toursAdmin";
 import { useQuery } from "../../../hooks/useQuery";
 import { toursAdminRenewalInvoicesQueryKey } from "../../../lib/queryKeys";
 
-const LEGACY = "/tour-manager/admin/invoices";
 
 function formatMoney(v: unknown) {
   const n = typeof v === "number" ? v : parseFloat(String(v ?? ""));
@@ -33,15 +31,8 @@ export function ToursAdminInvoicesPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-[var(--text-main)]">Verlängerungsrechnungen</h1>
-          <p className="text-sm text-[var(--text-subtle)] mt-1">Interne Renewal-Invoices (wie EJS-Rechnungsübersicht).</p>
+          <p className="text-sm text-[var(--text-subtle)] mt-1">Interne Verlängerungsrechnungen.</p>
         </div>
-        <a
-          href={LEGACY}
-          className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm text-[var(--text-main)]"
-        >
-          <ExternalLink className="h-4 w-4" />
-          EJS
-        </a>
       </div>
 
       {error ? (

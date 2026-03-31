@@ -54,6 +54,8 @@ export function ProductsPage() {
   const [newCategory, setNewCategory] = useState({
     key: "",
     name: "",
+    description: "",
+    show_in_frontpanel: true,
     kind_scope: "addon" as ServiceCategory["kind_scope"],
   });
 
@@ -170,7 +172,7 @@ export function ProductsPage() {
           {categorySectionError ? (
             <div className="mb-3 cust-alert cust-alert--error rounded-lg text-sm">{categorySectionError}</div>
           ) : null}
-          <div className="mb-4 grid gap-2 md:grid-cols-4">
+          <div className="mb-3 grid gap-2 md:grid-cols-4">
             <input
               className="ui-input"
               placeholder={t(language, "catalog.categoryManager.keyPlaceholder")}
@@ -197,7 +199,24 @@ export function ProductsPage() {
               <option value="both">both</option>
             </select>
           </div>
-          <div className="mb-4">
+          <div className="mb-3">
+            <input
+              className="ui-input w-full"
+              placeholder={t(language, "catalog.categoryManager.descriptionPlaceholder")}
+              value={newCategory.description}
+              onChange={(e) => setNewCategory((p) => ({ ...p, description: e.target.value }))}
+            />
+          </div>
+          <div className="mb-4 flex items-center gap-4">
+            <label className="inline-flex cursor-pointer items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="rounded"
+                checked={newCategory.show_in_frontpanel}
+                onChange={(e) => setNewCategory((p) => ({ ...p, show_in_frontpanel: e.target.checked }))}
+              />
+              {t(language, "catalog.categoryManager.showInFrontpanel")}
+            </label>
             <button
               type="button"
               className={btnSecondaryClass}
@@ -209,12 +228,13 @@ export function ProductsPage() {
                   await createServiceCategory(token, {
                     key: newCategory.key.trim(),
                     name: newCategory.name.trim(),
+                    description: newCategory.description.trim(),
                     kind_scope: newCategory.kind_scope,
                     active: true,
-                    show_in_frontpanel: newCategory.kind_scope === "addon" || newCategory.kind_scope === "both",
+                    show_in_frontpanel: newCategory.show_in_frontpanel,
                     sort_order: (categories?.length || 0) * 10 + 10,
                   });
-                  setNewCategory({ key: "", name: "", kind_scope: "addon" });
+                  setNewCategory({ key: "", name: "", description: "", show_in_frontpanel: true, kind_scope: "addon" });
                   await refetchCategories({ force: true });
                   await refetch({ force: true });
                 } catch (err) {

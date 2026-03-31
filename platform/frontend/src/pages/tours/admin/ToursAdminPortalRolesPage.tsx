@@ -12,7 +12,6 @@ import {
 import { useQuery } from "../../../hooks/useQuery";
 import { toursAdminPortalRolesQueryKey } from "../../../lib/queryKeys";
 
-const LEGACY = "/tour-manager/admin/portal-roles";
 
 export function ToursAdminPortalRolesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -106,10 +105,7 @@ export function ToursAdminPortalRolesPage() {
       <div>
         <h1 className="text-2xl font-semibold text-[var(--text-main)]">Portal-Rollen</h1>
         <p className="text-sm text-[var(--text-subtle)] mt-1">
-          Intern (Tour-Manager) und extern (Kunden-Admins).{" "}
-          <a href={LEGACY} className="text-[var(--accent)] hover:underline">
-            Klassische Ansicht
-          </a>
+          Intern (Tour-Manager) und extern (Kunden-Admins).
           {logtoPortalEnabled ? (
             <span className="ml-2 text-xs rounded bg-emerald-100 text-emerald-800 px-2 py-0.5 dark:bg-emerald-900/40 dark:text-emerald-200">
               Logto Portal aktiv

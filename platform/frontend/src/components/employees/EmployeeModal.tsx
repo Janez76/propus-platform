@@ -4,8 +4,6 @@ import {
   getEmployeeLog,
   getPhotographerSettings,
   getPhotographers,
-  sendPhotographerCredentials,
-  setPhotographerPassword,
   updatePhotographerSettings,
   deactivatePhotographer,
   reactivatePhotographer,
@@ -24,8 +22,8 @@ import {
   Star,
   CalendarOff,
   Settings,
-  KeyRound,
   ScrollText,
+  ExternalLink,
   ChevronDown,
   Save,
   UserRound,
@@ -52,7 +50,6 @@ type Section =
   | "skills"
   | "abwesenheiten"
   | "einstellungen"
-  | "passwort"
   | "protokoll"
   | null;
 
@@ -371,14 +368,13 @@ export function EmployeeModal({ token, employeeKey, onClose, onSaved, isActive =
   const [languages, setLanguages] = useState("de");
   const [nativeLanguage, setNativeLanguage] = useState("de");
   const [eventColor, setEventColor] = useState("#3b82f6");
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false); // read-only: synced from Logto via Interne Verwaltung
   const [isEmployeeActive, setIsEmployeeActive] = useState(true);
   const [workHoursByDay, setWorkHoursByDay] = useState<WorkHoursByDay>(() =>
     buildDefaultWorkHoursByDay(["mon", "tue", "wed", "thu", "fri"], "08:00", "18:00")
   );
   const [bufferMinutes, setBufferMinutes] = useState("");
   const [slotMinutes, setSlotMinutes] = useState("");
-  const [newPassword, setNewPassword] = useState("");
   const [logFilter, setLogFilter] = useState("all");
   const [logs, setLogs] = useState<EmployeeLog[]>([]);
   const [error, setError] = useState("");
@@ -562,24 +558,6 @@ export function EmployeeModal({ token, employeeKey, onClose, onSaved, isActive =
       }, 1500);
     } catch (err) {
       setError(err instanceof Error ? err.message : t(lang, "common.error"));
-    }
-  }
-
-  async function savePassword() {
-    if (!newPassword.trim()) return;
-    try {
-      await setPhotographerPassword(token, employeeKey, newPassword.trim());
-      setNewPassword("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t(lang, "employeeModal.error.passwordFailed"));
-    }
-  }
-
-  async function sendCredentials() {
-    try {
-      await sendPhotographerCredentials(token, employeeKey);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t(lang, "employeeModal.error.credentialsFailed"));
     }
   }
 
@@ -840,22 +818,24 @@ export function EmployeeModal({ token, employeeKey, onClose, onSaved, isActive =
             </button>
           </div>
 
-          {/* Admin Toggle */}
-          <div className="mt-2 flex items-center justify-between rounded-xl bg-[var(--accent-subtle)] border border-[var(--border-soft)] px-4 py-3">
-            <div>
-              <div className="font-semibold text-[var(--text-main)]">{t(lang, "employeeModal.label.adminAccess")}</div>
-              <div className="text-xs text-[var(--text-muted)]">{t(lang, "employeeModal.hint.adminAccess")}</div>
+          {/* Access & Roles hint */}
+          <a
+            href="/settings/users"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-2 flex items-center gap-3 rounded-xl border border-[var(--border-soft)] bg-[var(--surface-raised)] px-4 py-3 hover:border-[var(--accent)]/40 hover:bg-[var(--accent)]/5 transition-colors"
+          >
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--accent)]/10">
+              <ExternalLink className="h-3.5 w-3.5 text-[var(--accent)]" />
             </div>
-            <button
-              type="button"
-              onClick={() => setIsAdmin((v) => !v)}
-              className={`relative h-6 w-11 rounded-full transition-colors ${isAdmin ? "bg-[var(--accent)]" : "bg-[var(--border-strong)]"}`}
-            >
-              <span
-                className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${isAdmin ? "translate-x-5" : "translate-x-0"}`}
-              />
-            </button>
-          </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-semibold text-[var(--text-main)]">{t(lang, "employeeModal.label.accessManagement")}</div>
+              <div className="text-xs text-[var(--text-muted)]">{t(lang, "employeeModal.hint.accessManagement")}</div>
+            </div>
+            <div className="text-[10px] font-medium text-[var(--accent)] whitespace-nowrap">
+              {isAdmin ? t(lang, "employeeModal.badge.isAdmin") : t(lang, "employeeModal.badge.isStaff")} →
+            </div>
+          </a>
         </div>
 
         {/* Accordion sections */}
@@ -1111,35 +1091,6 @@ export function EmployeeModal({ token, employeeKey, onClose, onSaved, isActive =
                     <input type="number" className="ui-input" value={slotMinutes} onChange={(e) => setSlotMinutes(e.target.value)} placeholder="15" />
                   </div>
                 </div>
-              </div>
-            </div>
-          </AccordionSection>
-
-          <AccordionSection
-            id="passwort"
-            open={openSection === "passwort"}
-            onToggle={toggleSection}
-            icon={<KeyRound className="h-3.5 w-3.5" />}
-            label={t(lang, "employeeModal.section.password")}
-          >
-            <div className="space-y-3">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-[var(--text-main)]">{t(lang, "employeeModal.label.newPassword")}</label>
-                <input
-                  type="password"
-                  className="ui-input"
-                  placeholder={t(lang, "employeeModal.label.newPassword")}
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                />
-              </div>
-              <div className="flex gap-2">
-                <button type="button" className="btn-primary flex-1 justify-center" onClick={savePassword}>
-                  {t(lang, "employeeModal.button.setPassword")}
-                </button>
-                <button type="button" className="btn-secondary flex-1 justify-center" onClick={sendCredentials}>
-                  {t(lang, "employeeModal.button.sendCredentials")}
-                </button>
               </div>
             </div>
           </AccordionSection>

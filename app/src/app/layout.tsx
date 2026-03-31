@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description: "Propus Admin & Customer Portal",
 };
 
-const themeScript = `(function(){try{var s=localStorage.getItem("admin_theme_v1");if(s){var d=JSON.parse(s);var t=d.state&&d.state.theme;if(t==="dark"||(t==="system"&&matchMedia("(prefers-color-scheme:dark)").matches)){document.documentElement.classList.add("dark");document.documentElement.style.colorScheme="dark"}}else if(matchMedia("(prefers-color-scheme:dark)").matches){document.documentElement.classList.add("dark");document.documentElement.style.colorScheme="dark"}}catch(e){}})()`;
+const themeScript = `(function(){try{var t=localStorage.getItem("admin_theme_v1")||"system";var dark=t==="dark"||(t==="system"&&matchMedia("(prefers-color-scheme:dark)").matches);document.documentElement.classList.toggle("dark",dark);document.documentElement.style.colorScheme=dark?"dark":"light"}catch(e){}})()`;
 
 export default function RootLayout({
   children,

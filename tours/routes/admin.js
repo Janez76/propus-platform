@@ -1,7 +1,18 @@
-const express = require('express');
+﻿const express = require('express');
 const path = require('path');
 const multer = require('multer');
 const router = express.Router();
+
+/**
+ * Baut eine absolute URL zur React-SPA (Platform-Frontend).
+ * Umgeht den Mount-Path-Rewrite-Middleware aus tours/server.js,
+ * der relative Pfade mit /tour-manager prefixiert.
+ */
+function reactUrl(req, spaPart) {
+  const base = process.env.APP_BASE_URL || (req.protocol + '://' + req.get('host'));
+  return base.replace(/\/$/, '') + spaPart;
+}
+
 const { pool } = require('../lib/db');
 const userProfiles = require('../lib/user-profiles');
 const portalTeam = require('../lib/portal-team');
@@ -1346,81 +1357,12 @@ async function buildSidebarChatContext({ activePage, path, userMessage }) {
 
 router.get('/', (req, res) => res.redirect('/admin/dashboard'));
 
-router.get('/dashboard', async (req, res) => {
-  await pool.query('ALTER TABLE tour_manager.tours ADD COLUMN IF NOT EXISTS matterport_is_own BOOLEAN');
-
-  const [
-    matterportResult,
-    linkedResult,
-    recentToursRaw,
-    expiringSoonRowsRaw,
-  ] = await Promise.all([
-    matterport.listModels(),
-    pool.query(`
-      SELECT DISTINCT TRIM(matterport_space_id) AS space_id
-      FROM tour_manager.tours
-      WHERE matterport_space_id IS NOT NULL
-        AND TRIM(matterport_space_id) != ''
-    `),
-    pool.query(`
-      SELECT t.*,
-        (COALESCE(t.term_end_date, t.ablaufdatum) - CURRENT_DATE)::int AS days_until_expiry
-      FROM tour_manager.tours t
-      ORDER BY t.created_at DESC NULLS LAST, t.id DESC
-      LIMIT 5
-    `),
-    pool.query(`
-      SELECT t.*,
-        (COALESCE(t.term_end_date, t.ablaufdatum) - CURRENT_DATE)::int AS days_until_expiry
-      FROM tour_manager.tours t
-      WHERE t.status IN ('ACTIVE','EXPIRING_SOON')
-        AND COALESCE(t.term_end_date, t.ablaufdatum) IS NOT NULL
-      ORDER BY COALESCE(t.term_end_date, t.ablaufdatum) ASC
-      LIMIT 5
-    `),
-  ]);
-
-  const linkedSpaceIds = new Set(
-    linkedResult.rows
-      .map((row) => String(row.space_id || '').trim())
-      .filter(Boolean)
-  );
-  const openMatterportSpaces = (matterportResult.results || [])
-    .filter((model) => String(model.state || '').toLowerCase() === 'active')
-    .filter((model) => !linkedSpaceIds.has(String(model.id || '').trim()))
-    .sort((a, b) => {
-      const ta = a?.created ? new Date(a.created).getTime() : 0;
-      const tb = b?.created ? new Date(b.created).getTime() : 0;
-      return tb - ta;
-    })
-    .slice(0, 5);
-  const recentTours = recentToursRaw.rows.map(normalizeTourRow);
-  const expiringSoonTours = expiringSoonRowsRaw.rows.map(normalizeTourRow);
-
-  res.render('admin/dashboard', {
-    openMatterportSpaces,
-    recentTours,
-    expiringSoonTours,
-    activePage: 'dashboard',
-  });
+router.get('/dashboard', (req, res) => {
+  res.redirect(reactUrl(req, '/admin/tours'));
 });
 
-router.get('/ai-chat', async (req, res) => {
-  const rawEmail = String(req.session?.admin?.email || '').trim().toLowerCase();
-  const emailLocal = rawEmail.includes('@') ? rawEmail.split('@')[0] : rawEmail;
-  const adminName = emailLocal
-    ? emailLocal
-        .split(/[._-]+/)
-        .filter(Boolean)
-        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-        .join(' ')
-    : 'Admin';
-  res.render('admin/ai-chat', {
-    activePage: 'aiChat',
-    allowedModels: getAllowedChatModels(),
-    defaultModel: getAiConfig().model || 'gpt-5.4',
-    adminName,
-  });
+router.get('/ai-chat', (req, res) => {
+  res.redirect(reactUrl(req, '/admin/tours/ai-chat'));
 });
 
 router.use('/suggestions', (req, res) => {
@@ -1487,29 +1429,8 @@ router.get('/search', async (req, res) => {
 });
 
 /** Einstellungen: APIs, Dashboard-Widgets, Sync */
-router.get('/settings', async (req, res) => {
-  const [widgets, aiPromptSettings, matterportStored] = await Promise.all([
-    getDashboardWidgets(),
-    getAiPromptSettings(),
-    getMatterportApiCredentials(),
-  ]);
-  const exxasBase = (process.env.EXXAS_BASE_URL || 'https://api.exxas.net').replace(/\/$/, '');
-  const aiConfig = getAiConfig();
-  res.render('admin/settings', {
-    widgets,
-    aiPromptSettings,
-    matterportStored: {
-      tokenId: matterportStored.tokenId || '',
-      hasSecret: !!matterportStored.tokenSecret,
-    },
-    aiConfig,
-    allowedChatModels: getAllowedChatModels(),
-    actionDefinitions: listActionDefinitions(),
-    riskDefinitions: listRiskDefinitions(),
-    exxasBase,
-    saved: req.query.saved === '1',
-    activePage: 'settings',
-  });
+router.get('/settings', (req, res) => {
+  res.redirect(reactUrl(req, '/admin/tours/settings'));
 });
 
 router.post('/settings', async (req, res) => {
@@ -1538,25 +1459,8 @@ router.post('/settings', async (req, res) => {
 });
 
 /** E-Mail-Templates anzeigen und bearbeiten */
-router.get('/email-templates', async (req, res) => {
-  const templates = await getEmailTemplates();
-  const sharedPlaceholders = ['objectLabel', 'customerGreeting', 'tourLinkHtml', 'tourLinkText', 'termEndFormatted', 'portalUrl', 'portalLinkHtml', 'portalLinkText'];
-  res.render('admin/email-templates', {
-    templates,
-    defaultTemplates: DEFAULT_EMAIL_TEMPLATES,
-    placeholderHints: {
-      renewal_request: [...sharedPlaceholders, 'createdAt', 'amount', 'yesUrl', 'noUrl'],
-      payment_confirmed: sharedPlaceholders,
-      expiry_reminder: sharedPlaceholders,
-      extension_confirmed: sharedPlaceholders,
-      reactivation_confirmed: sharedPlaceholders,
-      archive_notice: sharedPlaceholders,
-      payment_failed: sharedPlaceholders,
-      team_invite: ['inviteLink', 'invitedByEmail', 'appName'],
-    },
-    saved: req.query.saved === '1',
-    activePage: 'emailTemplates',
-  });
+router.get('/email-templates', (req, res) => {
+  res.redirect(reactUrl(req, '/admin/tours/email-templates'));
 });
 
 router.post('/email-templates', async (req, res) => {
@@ -1602,138 +1506,8 @@ function teamInviteListLabel(email) {
   return `${e.slice(0, at)}@…`;
 }
 
-router.get('/portal-roles', async (req, res) => {
-  await portalTeam.ensurePortalTeamSchema();
-  const tab = req.query.tab === 'extern' ? 'extern' : 'intern';
-  const staffRows = await portalTeam.listPortalStaffRoles();
-
-  // Externe Kunden-Admins: alle aktiven 'admin'-Mitglieder aller Workspaces
-  let externRows = [];
-  try {
-    const r = await pool.query(`
-      SELECT
-        m.owner_email,
-        m.member_email,
-        m.display_name,
-        m.role,
-        m.status,
-        m.accepted_at,
-        m.created_at,
-        COALESCE(m.customer_id, c_mail.id) AS customer_id,
-        COALESCE(
-          NULLIF(trim(c_cid.name),''),
-          NULLIF(trim(c_cid.company),''),
-          NULLIF(trim(c_mail.name),''),
-          NULLIF(trim(c_mail.company),''),
-          (
-            SELECT trim(t.customer_name)
-            FROM tour_manager.tours t
-            WHERE LOWER(TRIM(t.customer_email)) = LOWER(TRIM(m.owner_email))
-              AND trim(coalesce(t.customer_name, '')) <> ''
-            ORDER BY t.customer_name
-            LIMIT 1
-          ),
-          m.owner_email
-        ) AS customer_name
-      FROM tour_manager.portal_team_members m
-      LEFT JOIN core.customers c_cid ON m.customer_id IS NOT NULL AND c_cid.id = m.customer_id
-      LEFT JOIN core.customers c_mail ON m.customer_id IS NULL AND LOWER(c_mail.email) = LOWER(m.owner_email)
-      WHERE m.role IN ('admin', 'inhaber')
-        AND m.status = 'active'
-      ORDER BY COALESCE(m.customer_id, c_mail.id) NULLS LAST, LOWER(m.owner_email), m.role DESC, LOWER(m.member_email)
-    `);
-    externRows = r.rows;
-  } catch (_) { /* Tabelle existiert noch nicht – kein Problem */ }
-
-  // Alle Workspace-Inhaber (owner_email aus tours) für "Kunden-Admin setzen"-Form
-  let ownerList = [];
-  try {
-    const owR = await pool.query(`
-      SELECT DISTINCT ON (LOWER(TRIM(t.customer_email)))
-        LOWER(TRIM(t.customer_email)) AS owner_email,
-        CASE
-          WHEN trim(coalesce(c_ref.name,'')) <> '' THEN trim(c_ref.name)
-          WHEN trim(coalesce(c_ref.company,'')) <> '' THEN trim(c_ref.company)
-          WHEN trim(coalesce(c.name,'')) <> '' THEN trim(c.name)
-          WHEN trim(coalesce(c.company,'')) <> '' THEN trim(c.company)
-          WHEN trim(coalesce(c_cc.name,'')) <> '' THEN trim(c_cc.name)
-          WHEN trim(coalesce(c_cc.company,'')) <> '' THEN trim(c_cc.company)
-          WHEN trim(coalesce(t.customer_name,'')) <> '' THEN trim(t.customer_name)
-          WHEN trim(coalesce(t.kunde_ref::text,'')) <> '' THEN trim(t.kunde_ref::text)
-          ELSE LOWER(TRIM(t.customer_email))
-        END AS customer_name,
-        CASE
-          WHEN trim(coalesce(c_ref.company,'')) <> '' THEN trim(c_ref.company)
-          WHEN trim(coalesce(c_ref.name,'')) <> '' THEN trim(c_ref.name)
-          WHEN trim(coalesce(c.company,'')) <> '' THEN trim(c.company)
-          WHEN trim(coalesce(c.name,'')) <> '' THEN trim(c.name)
-          WHEN trim(coalesce(c_cc.company,'')) <> '' THEN trim(c_cc.company)
-          WHEN trim(coalesce(c_cc.name,'')) <> '' THEN trim(c_cc.name)
-          WHEN trim(coalesce(t.customer_name,'')) <> '' THEN trim(t.customer_name)
-          ELSE NULL
-        END AS firma,
-        COALESCE(c_ref.id, c.id, c_cc.id) AS customer_id
-      FROM tour_manager.tours t
-      LEFT JOIN core.customers c ON LOWER(c.email) = LOWER(t.customer_email)
-      LEFT JOIN core.customers c_ref ON trim(c_ref.customer_number) = trim(CAST(t.kunde_ref AS text))
-      LEFT JOIN core.customer_contacts cc_link ON LOWER(cc_link.email) = LOWER(t.customer_email)
-      LEFT JOIN core.customers c_cc ON c_cc.id = cc_link.customer_id
-        AND c.id IS NULL AND c_ref.id IS NULL
-      WHERE t.customer_email IS NOT NULL AND trim(t.customer_email) <> ''
-      ORDER BY LOWER(TRIM(t.customer_email)),
-               CASE WHEN trim(coalesce(c_ref.name,'')) <> ''
-                      OR trim(coalesce(c_ref.company,'')) <> ''
-                      OR trim(coalesce(c.name,'')) <> ''
-                      OR trim(coalesce(c.company,'')) <> ''
-                      OR trim(coalesce(c_cc.name,'')) <> ''
-                      OR trim(coalesce(c_cc.company,'')) <> ''
-                      OR trim(coalesce(t.customer_name,'')) <> ''
-                    THEN 0 ELSE 1 END
-      LIMIT 300
-    `);
-    // Deduplizierung: pro customer_id oder Firmenname nur einen Eintrag
-    const seen = new Map();
-    for (const row of owR.rows) {
-      const key = row.customer_id
-        ? `cid:${row.customer_id}`
-        : `name:${(row.customer_name || row.owner_email).toLowerCase()}`;
-      if (!seen.has(key)) {
-        seen.set(key, row);
-      } else {
-        // Existierenden Eintrag bevorzugen wenn er besseren Namen hat
-        const existing = seen.get(key);
-        if (!existing.firma && row.firma) seen.set(key, row);
-      }
-    }
-    ownerList = [...seen.values()].sort((a, b) => {
-      const aHas = a.firma ? 0 : 1;
-      const bHas = b.firma ? 0 : 1;
-      if (aHas !== bHas) return aHas - bHas;
-      return (a.customer_name || '').localeCompare(b.customer_name || '', 'de');
-    });
-  } catch (err) {
-    console.error('[portal-roles ownerList]', err.message);
-  }
-
-  const admin = req.session?.admin || {};
-  res.render('admin/portal-roles', {
-    activePage: 'portalRoles',
-    adminName: admin.email || '',
-    adminSidebarDisplayName: admin.displayName || admin.email || '',
-    adminSidebarOrganization: admin.organization || 'Propus GmbH',
-    adminSidebarHasProfilePhoto: admin.hasProfilePhoto || false,
-    adminSidebarPhotoVersion: admin.photoVersion || 0,
-    staffRows,
-    externRows,
-    ownerList,
-    tab,
-    logtoPortalEnabled: isLogtoEnabled('PROPUS_TOURS_PORTAL'),
-    saved: req.query.saved === '1',
-    removed: req.query.removed === '1',
-    externSaved: req.query.externSaved === '1',
-    externRemoved: req.query.externRemoved === '1',
-    error: req.query.error || null,
-  });
+router.get('/portal-roles', (req, res) => {
+  res.redirect(reactUrl(req, '/admin/tours/portal-roles'));
 });
 
 router.post('/portal-roles/add', async (req, res) => {
@@ -2014,27 +1788,8 @@ router.post('/portal-roles/extern-remove', async (req, res) => {
   }
 });
 
-router.get('/team', async (req, res) => {
-  await ensureAdminTeamSchema();
-  const [users, pendingInvites] = await Promise.all([
-    listAdminAccessUsers(),
-    listPendingAdminInvites(),
-  ]);
-  res.render('admin/team', {
-    users,
-    pendingInvites,
-    invited: req.query.invited === '1',
-    accepted: req.query.accepted === '1',
-    updated: req.query.updated === '1',
-    edited: req.query.edited === '1',
-    deleted: req.query.deleted === '1',
-    revoked: req.query.revoked === '1',
-    inviteError: req.query.error || null,
-    activePage: 'team',
-    getInitials: teamAvatarInitials,
-    teamMemberListTitle,
-    teamInviteListLabel,
-  });
+router.get('/team', (req, res) => {
+  res.redirect(reactUrl(req, '/admin/tours/team'));
 });
 
 router.post('/team/invite', async (req, res) => {
@@ -2141,17 +1896,8 @@ router.post('/team/users/:id/delete', async (req, res) => {
   return res.redirect('/admin/team?deleted=1');
 });
 
-router.get('/automations', async (req, res) => {
-  const [automationSettings, templates] = await Promise.all([
-    getAutomationSettings(),
-    getEmailTemplates(),
-  ]);
-  res.render('admin/automations', {
-    automationSettings,
-    templates,
-    saved: req.query.saved === '1',
-    activePage: 'automations',
-  });
+router.get('/automations', (req, res) => {
+  res.redirect(reactUrl(req, '/admin/tours/automations'));
 });
 
 router.post('/automations', async (req, res) => {
@@ -2429,301 +2175,9 @@ const SORT_COLUMNS = {
   status: 't.status',
 };
 
-router.get('/tours', async (req, res) => {
-  await pool.query('ALTER TABLE tour_manager.tours ADD COLUMN IF NOT EXISTS matterport_is_own BOOLEAN');
-  await pool.query('ALTER TABLE tour_manager.tours ADD COLUMN IF NOT EXISTS customer_verified BOOLEAN NOT NULL DEFAULT FALSE');
-  const { status, expiringSoon, awaitingPayment, unlinkedOnly, fremdeOnly, activeRunning, unverifiedOnly, verifiedOnly, invoiceOpenOnly, invoiceOverdueOnly, noCustomerOnly, sort, order, q: search } = req.query;
-  const pageSize = 10;
-  const requestedPage = Math.max(parseInt(req.query.page, 10) || 1, 1);
-  let baseQ = `FROM tour_manager.tours t WHERE 1=1`;
-  const filterParams = [];
-  let i = 1;
-  if (activeRunning === '1') {
-    baseQ += ` AND t.status IN ('ACTIVE','EXPIRING_SOON')`;
-  } else if (status) {
-    baseQ += ` AND t.status = $${i++}`;
-    filterParams.push(status);
-  }
-  if (expiringSoon === '1') {
-    baseQ += ` AND COALESCE(t.term_end_date, t.ablaufdatum) BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '30 days'`;
-  }
-  if (awaitingPayment === '1') {
-    baseQ += ` AND t.status = 'CUSTOMER_ACCEPTED_AWAITING_PAYMENT'`;
-  }
-  if (invoiceOpenOnly === '1') {
-    baseQ += ` AND EXISTS (
-      SELECT 1
-      FROM tour_manager.exxas_invoices e
-      WHERE (e.tour_id = t.id OR (
-        TRIM(COALESCE(t.exxas_subscription_id::text, t.exxas_abo_id::text, '')) != ''
-        AND TRIM(COALESCE(e.ref_vertrag, '')) = TRIM(COALESCE(t.exxas_subscription_id::text, t.exxas_abo_id::text))
-      ))
-      AND e.exxas_status != 'bz'
-    )`;
-  }
-  if (invoiceOverdueOnly === '1') {
-    baseQ += ` AND EXISTS (
-      SELECT 1
-      FROM tour_manager.exxas_invoices e
-      WHERE (e.tour_id = t.id OR (
-        TRIM(COALESCE(t.exxas_subscription_id::text, t.exxas_abo_id::text, '')) != ''
-        AND TRIM(COALESCE(e.ref_vertrag, '')) = TRIM(COALESCE(t.exxas_subscription_id::text, t.exxas_abo_id::text))
-      ))
-      AND e.exxas_status != 'bz'
-      AND e.zahlungstermin < CURRENT_DATE
-    )`;
-  }
-  if (unlinkedOnly === '1') {
-    baseQ += ` AND t.status IN ('ACTIVE','EXPIRING_SOON') AND (t.matterport_space_id IS NULL OR TRIM(t.matterport_space_id) = '') AND (t.tour_url IS NULL OR t.tour_url = '' OR t.tour_url !~ '[?&]m=[a-zA-Z0-9_-]+')`;
-  }
-  if (fremdeOnly === '1') {
-    baseQ += ` AND t.matterport_is_own = false`;
-  }
-  if (unverifiedOnly === '1') {
-    baseQ += ` AND t.customer_verified = FALSE`;
-  }
-  if (verifiedOnly === '1') {
-    baseQ += ` AND t.customer_verified = TRUE`;
-  }
-  if (noCustomerOnly === '1') {
-    baseQ += ` AND (t.customer_email IS NULL OR TRIM(t.customer_email) = '')
-               AND (t.customer_name IS NULL OR TRIM(t.customer_name) = '')
-               AND (t.customer_contact IS NULL OR TRIM(t.customer_contact) = '')
-               AND (t.kunde_ref IS NULL OR TRIM(t.kunde_ref) = '')`;
-  }
-  const searchQuery = String(search || '').trim();
-  if (searchQuery) {
-    const needle = `%${searchQuery.toLowerCase()}%`;
-    baseQ += ` AND (
-      LOWER(COALESCE(t.customer_name, '')) LIKE $${i}
-      OR LOWER(COALESCE(t.kunde_ref, '')) LIKE $${i}
-      OR LOWER(COALESCE(t.customer_email, '')) LIKE $${i}
-      OR LOWER(COALESCE(t.customer_contact, '')) LIKE $${i}
-      OR LOWER(COALESCE(t.object_label, '')) LIKE $${i}
-      OR LOWER(COALESCE(t.bezeichnung, '')) LIKE $${i}
-      OR LOWER(COALESCE(t.exxas_subscription_id::text, t.exxas_abo_id::text, '')) LIKE $${i}
-      OR LOWER(COALESCE(t.matterport_space_id, '')) LIKE $${i}
-    )`;
-    filterParams.push(needle);
-    i += 1;
-  }
-  const totalCountRes = await pool.query(`SELECT COUNT(*)::int AS cnt ${baseQ}`, filterParams);
-  const totalItems = totalCountRes.rows[0]?.cnt || 0;
-  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-  const page = Math.min(requestedPage, totalPages);
-  const offset = (page - 1) * pageSize;
-  const sortCol = SORT_COLUMNS[sort] ? sort : 'ablaufdatum';
-  const sortDir = (order === 'desc') ? 'DESC' : 'ASC';
-  const orderExpr = SORT_COLUMNS[sortCol] || SORT_COLUMNS.ablaufdatum;
-  const verifiedLast = (unverifiedOnly !== '1' && verifiedOnly !== '1') ? 'CASE WHEN t.customer_verified = TRUE THEN 1 ELSE 0 END ASC, ' : '';
-  let q = `SELECT t.*,
-    (COALESCE(t.term_end_date, t.ablaufdatum) - CURRENT_DATE)::int as days_until_expiry
-    ${baseQ}
-    ORDER BY ${verifiedLast}${orderExpr} ${sortDir} NULLS LAST`;
-  const params = [...filterParams];
-  q += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
-  params.push(pageSize, offset);
-  const r = await pool.query(q, params);
-  const normalizedTourRows = r.rows.map(normalizeTourRow);
-  const [
-    counts,
-    expiring,
-    unlinked,
-    fremde,
-    noCustomer,
-    invOffen,
-    invBezahlt,
-    invUeberfaellig,
-    matterportModels,
-  ] = await Promise.all([
-    pool.query(`
-      SELECT status, COUNT(*)::int as cnt FROM tour_manager.tours
-      GROUP BY status
-    `),
-    pool.query(`
-      SELECT COUNT(*)::int as cnt FROM tour_manager.tours t
-      WHERE COALESCE(t.term_end_date, t.ablaufdatum) BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '30 days'
-    `),
-    pool.query(`
-      SELECT COUNT(*)::int as cnt FROM tour_manager.tours t
-      WHERE t.status IN ('ACTIVE','EXPIRING_SOON')
-        AND (t.matterport_space_id IS NULL OR TRIM(t.matterport_space_id) = '')
-        AND (t.tour_url IS NULL OR t.tour_url = '' OR t.tour_url !~ '[?&]m=[a-zA-Z0-9_-]+')
-    `),
-    pool.query(`
-      SELECT COUNT(*)::int as cnt FROM tour_manager.tours t
-      WHERE t.matterport_is_own = false
-    `),
-    pool.query(`
-      SELECT COUNT(*)::int as cnt FROM tour_manager.tours t
-      WHERE (t.customer_email IS NULL OR TRIM(t.customer_email) = '')
-        AND (t.customer_name IS NULL OR TRIM(t.customer_name) = '')
-        AND (t.customer_contact IS NULL OR TRIM(t.customer_contact) = '')
-        AND (t.kunde_ref IS NULL OR TRIM(t.kunde_ref) = '')
-    `),
-    pool.query(`
-      SELECT COUNT(*)::int as cnt
-      FROM tour_manager.exxas_invoices
-      WHERE exxas_status != 'bz'
-        AND (zahlungstermin IS NULL OR zahlungstermin >= CURRENT_DATE)
-    `),
-    pool.query(`
-      SELECT COUNT(*)::int as cnt FROM tour_manager.exxas_invoices WHERE exxas_status = 'bz'
-    `),
-    pool.query(`
-      SELECT COUNT(*)::int as cnt FROM tour_manager.exxas_invoices
-      WHERE exxas_status != 'bz' AND zahlungstermin < CURRENT_DATE
-    `),
-    matterport.listModels(),
-  ]);
-  const stats = Object.fromEntries(counts.rows.map(c => [c.status, c.cnt]));
-  stats.expiringSoon = expiring.rows[0]?.cnt || 0;
-  stats.unlinkedActive = unlinked.rows[0]?.cnt || 0;
-  stats.fremdeTouren = fremde.rows[0]?.cnt || 0;
-  stats.total = counts.rows.reduce((s, c) => s + c.cnt, 0);
-  // Dashboard soll die echten Matterport-Spaces zeigen, nicht nur Exxas-Vertragsstatus.
-  const mpModels = matterportModels?.results || [];
-  const hasMatterportStats = !matterportModels?.error && mpModels.length > 0;
-  const mpStateById = new Map(mpModels.map((m) => [m.id, m.state || null]));
-  const tourIds = normalizedTourRows.map((tour) => tour.id);
-  const contractIds = normalizedTourRows.map((tour) => tour.canonical_exxas_contract_id).filter(Boolean);
-  const [invoiceMatches, outgoingRenewalStats, incomingMailStats] = await Promise.all([
-    tourIds.length
-      ? pool.query(
-          `SELECT exxas_document_id, tour_id, ref_vertrag, exxas_status, zahlungstermin, dok_datum, synced_at, nummer
-           FROM tour_manager.exxas_invoices
-           WHERE tour_id = ANY($1::int[])
-              OR ref_vertrag = ANY($2::text[])`,
-          [tourIds, contractIds]
-        ).catch(() => ({ rows: [] }))
-      : { rows: [] },
-    tourIds.length
-      ? pool.query(
-          `SELECT tour_id, COUNT(*)::int AS cnt
-           FROM tour_manager.outgoing_emails
-           WHERE template_key = 'renewal_request'
-             AND tour_id = ANY($1::int[])
-           GROUP BY tour_id`,
-          [tourIds]
-        ).catch(() => ({ rows: [] }))
-      : { rows: [] },
-    tourIds.length
-      ? pool.query(
-          `SELECT matched_tour_id AS tour_id, COUNT(*)::int AS cnt
-           FROM tour_manager.incoming_emails
-           WHERE matched_tour_id = ANY($1::int[])
-           GROUP BY matched_tour_id`,
-          [tourIds]
-        ).catch(() => ({ rows: [] }))
-      : { rows: [] },
-  ]);
-  const outgoingRenewalCountByTourId = new Map(outgoingRenewalStats.rows.map((row) => [row.tour_id, row.cnt]));
-  const incomingMailCountByTourId = new Map(incomingMailStats.rows.map((row) => [row.tour_id, row.cnt]));
-  const invoiceRowsByTourId = new Map();
-  const dedupeInvoiceKeyByTourId = new Map();
-  for (const tour of normalizedTourRows) {
-    invoiceRowsByTourId.set(tour.id, []);
-    dedupeInvoiceKeyByTourId.set(tour.id, new Set());
-  }
-  for (const row of invoiceMatches.rows) {
-    for (const tour of normalizedTourRows) {
-      if (!(row.tour_id === tour.id || (tour.canonical_exxas_contract_id && row.ref_vertrag === String(tour.canonical_exxas_contract_id)))) {
-        continue;
-      }
-      const dedupeKey = `${row.exxas_document_id || row.nummer || ''}`;
-      const seen = dedupeInvoiceKeyByTourId.get(tour.id);
-      if (seen.has(dedupeKey)) continue;
-      seen.add(dedupeKey);
-      invoiceRowsByTourId.get(tour.id).push(row);
-    }
-  }
-  const today = new Date();
-  const toursWithLiveMatterportState = normalizedTourRows.map((tour) => {
-    const mpId = tour.canonical_matterport_space_id;
-    let liveMatterportState = tour.matterport_state || null;
-    if (mpId && mpStateById.has(mpId)) {
-      liveMatterportState = mpStateById.get(mpId);
-    } else if (mpId && !mpStateById.has(mpId) && tour.matterport_is_own !== false) {
-      liveMatterportState = 'unknown';
-    }
-    const relatedInvoices = invoiceRowsByTourId.get(tour.id) || [];
-    const exxasPaid = relatedInvoices.filter((row) => row.exxas_status === 'bz');
-    const exxasOpen = relatedInvoices.filter((row) => row.exxas_status !== 'bz');
-    const exxasOverdue = exxasOpen.filter((row) => row.zahlungstermin && new Date(row.zahlungstermin) < today);
-    const hasCustomerConnection = !!(tour.kunde_ref || tour.customer_name || tour.customer_email || tour.customer_contact);
-    const hasRenewalMail = !!(outgoingRenewalCountByTourId.get(tour.id) || tour.last_email_sent_at);
-    const hasCustomerReply = !!((incomingMailCountByTourId.get(tour.id) || 0) > 0 || tour.customer_intent || tour.customer_transfer_requested || tour.customer_billing_attention);
-    const expiryDate = tour.canonical_term_end_date || tour.term_end_date || tour.ablaufdatum;
-    const expiryIn30Days = expiryDate
-      ? (new Date(expiryDate) >= new Date(today.getFullYear(), today.getMonth(), today.getDate())
-        && new Date(expiryDate) <= new Date(today.getFullYear(), today.getMonth(), today.getDate() + 30))
-      : false;
-    const needsRenewalMail = ['ACTIVE', 'EXPIRING_SOON'].includes(tour.status) && expiryIn30Days && !hasRenewalMail;
-    const waitingCustomerReply = tour.status === 'AWAITING_CUSTOMER_DECISION' && hasRenewalMail && !hasCustomerReply;
-    const awaitingPaymentWithoutInvoice = tour.status === 'CUSTOMER_ACCEPTED_AWAITING_PAYMENT' && exxasOpen.length === 0 && exxasPaid.length === 0;
-    let invoiceStatusTone = 'none';
-    let invoiceStatusLabel = 'Keine Rechnung';
-    if (exxasOpen.length > 0 || exxasPaid.length > 0) {
-      if (exxasOverdue.length > 0) {
-        invoiceStatusTone = 'danger';
-        invoiceStatusLabel = 'Nicht bezahlt';
-      } else if (exxasOpen.length > 0) {
-        invoiceStatusTone = 'warning';
-        invoiceStatusLabel = 'Rechnung offen';
-      } else {
-        invoiceStatusTone = 'success';
-        invoiceStatusLabel = 'Bezahlt';
-      }
-    }
-
-    return {
-      ...tour,
-      live_matterport_state: liveMatterportState,
-      displayed_status: getDisplayedTourStatus(tour, liveMatterportState).code,
-      displayed_status_label: getDisplayedTourStatus(tour, liveMatterportState).label,
-      displayed_status_note: getDisplayedTourStatus(tour, liveMatterportState).note,
-      exxas_paid_count: exxasPaid.length,
-      exxas_open_count: exxasOpen.length,
-      exxas_overdue_count: exxasOverdue.length,
-      has_customer_connection: hasCustomerConnection,
-      has_renewal_mail: hasRenewalMail,
-      incoming_mail_count: incomingMailCountByTourId.get(tour.id) || 0,
-      needs_renewal_mail: needsRenewalMail,
-      waiting_customer_reply: waitingCustomerReply,
-      awaiting_payment_without_invoice: awaitingPaymentWithoutInvoice,
-      invoice_status_tone: invoiceStatusTone,
-      invoice_status_label: invoiceStatusLabel,
-    };
-  });
-  stats.noCustomer = noCustomer.rows[0]?.cnt || 0;
-  stats.activeRunning = hasMatterportStats
-    ? mpModels.filter((m) => m.state === 'active').length
-    : ((stats.ACTIVE || 0) + (stats.EXPIRING_SOON || 0));
-  stats.archivedMatterport = hasMatterportStats
-    ? mpModels.filter((m) => m.state === 'inactive').length
-    : (stats.ARCHIVED || 0);
-  stats.invoicesOffen = invOffen.rows[0]?.cnt || 0;
-  stats.invoicesBezahlt = invBezahlt.rows[0]?.cnt || 0;
-  stats.invoicesUeberfaellig = invUeberfaellig.rows[0]?.cnt || 0;
-  stats.invoicesOpenTotal = stats.invoicesOffen + stats.invoicesUeberfaellig;
-  const dashboardWidgets = await getDashboardWidgets();
-  res.render('admin/tours-list', {
-    tours: toursWithLiveMatterportState,
-    filters: { status, expiringSoon, awaitingPayment, unlinkedOnly, fremdeOnly, activeRunning, unverifiedOnly, verifiedOnly, invoiceOpenOnly, invoiceOverdueOnly, noCustomerOnly, q: searchQuery },
-    sort: sortCol,
-    order: order === 'desc' ? 'desc' : 'asc',
-    pagination: {
-      page,
-      pageSize,
-      totalItems,
-      totalPages,
-      hasPrev: page > 1,
-      hasNext: page < totalPages,
-    },
-    stats,
-    dashboardWidgets,
-    activePage: 'tours',
-  });
+router.get('/tours', (req, res) => {
+  const qs = new URLSearchParams(req.query).toString();
+  res.redirect(reactUrl(req, '/admin/tours/list' + (qs ? '?' + qs : '')));
 });
 
 router.post('/tours/:id/set-tour-url', async (req, res) => {
@@ -2834,9 +2288,8 @@ router.post('/tours/:id/visibility', async (req, res) => {
 });
 
 /** Rechnungsübersicht: interne Verlängerungsrechnungen */
-router.get('/invoices', async (req, res) => {
-  const { status } = req.query;
-  return handleRenewalInvoices(req, res, status);
+router.get('/invoices', (req, res) => {
+  res.redirect(reactUrl(req, '/admin/tours/invoices'));
 });
 
 async function handleRenewalInvoices(req, res, status) {
@@ -2866,48 +2319,11 @@ async function handleRenewalInvoices(req, res, status) {
     SELECT invoice_status, COUNT(*)::int as cnt FROM tour_manager.renewal_invoices GROUP BY invoice_status
   `);
   const statusCounts = Object.fromEntries(stats.rows.map(r => [r.invoice_status, r.cnt]));
-  res.render('admin/invoices', {
-    invoices: invoices.rows,
-    filters: { status, source: 'renewal' },
-    stats: {
-      offen: (statusCounts.sent || 0) + (statusCounts.overdue || 0),
-      ueberfaellig: statusCounts.overdue || 0,
-      bezahlt: statusCounts.paid || 0,
-      entwurf: statusCounts.draft || 0,
-    },
-    source: 'renewal',
-    activePage: 'invoices',
-  });
+  res.redirect(reactUrl(req, '/admin/tours/invoices'));
 }
 
-router.get('/bank-import', async (req, res) => {
-  await ensureBankImportSchema();
-  const runsRes = await pool.query(
-    `SELECT *
-     FROM tour_manager.bank_import_runs
-     ORDER BY created_at DESC
-     LIMIT 30`
-  );
-  const reviewRes = await pool.query(
-    `SELECT t.*,
-            i.invoice_number,
-            i.amount_chf AS invoice_amount_chf,
-            i.invoice_status,
-            tr.customer_email,
-            COALESCE(tr.object_label, tr.bezeichnung) AS tour_label
-     FROM tour_manager.bank_import_transactions t
-     LEFT JOIN tour_manager.renewal_invoices i ON i.id = t.matched_invoice_id
-     LEFT JOIN tour_manager.tours tr ON tr.id = COALESCE(t.matched_tour_id, i.tour_id)
-     WHERE t.match_status = 'review'
-     ORDER BY t.created_at DESC
-     LIMIT 120`
-  );
-  res.render('admin/bank-import', {
-    runs: runsRes.rows,
-    reviewRows: reviewRes.rows,
-    uploaded: req.query.uploaded === '1',
-    activePage: 'invoices',
-  });
+router.get('/bank-import', (req, res) => {
+  res.redirect(reactUrl(req, '/admin/tours/bank-import'));
 });
 
 router.post('/bank-import/upload', bankDataUpload.single('bankFile'), async (req, res) => {
@@ -3399,138 +2815,8 @@ router.get('/tours/:id/invoices/:invoiceId/pdf', async (req, res) => {
   doc.end();
 });
 
-router.get('/tours/:id', async (req, res) => {
-  const { id } = req.params;
-  const tour = await pool.query('SELECT * FROM tour_manager.tours WHERE id = $1', [id]);
-  if (!tour.rows[0]) {
-    return res.status(404).send('Tour nicht gefunden');
-  }
-  const tourRow = normalizeTourRow(tour.rows[0]);
-  const logs = await pool.query(
-    'SELECT * FROM tour_manager.actions_log WHERE tour_id = $1 ORDER BY created_at DESC LIMIT 50',
-    [id]
-  );
-  const [invoices, exxasInvoices, outgoingEmails, incomingEmails] = await Promise.all([
-    pool.query('SELECT * FROM tour_manager.renewal_invoices WHERE tour_id = $1 ORDER BY created_at DESC', [id]),
-    pool.query(
-      `SELECT * FROM tour_manager.exxas_invoices
-       WHERE tour_id = $1
-          OR ($2::text IS NOT NULL AND ref_vertrag = $2::text)
-       ORDER BY zahlungstermin DESC NULLS LAST, dok_datum DESC NULLS LAST`,
-      [id, tourRow.canonical_exxas_contract_id || null]
-    ),
-    pool.query(
-      `SELECT *
-       FROM tour_manager.outgoing_emails
-       WHERE tour_id = $1
-       ORDER BY sent_at DESC, created_at DESC`,
-      [id]
-    ).catch(() => ({ rows: [] })),
-    pool.query(
-      `SELECT m.*,
-              s.status AS suggestion_status,
-              s.reason AS suggestion_reason,
-              s.confidence AS suggestion_confidence
-       FROM tour_manager.incoming_emails m
-       LEFT JOIN LATERAL (
-         SELECT status, reason, confidence
-         FROM tour_manager.ai_suggestions
-         WHERE suggestion_type = 'email_intent'
-           AND source_email_id = m.id
-         ORDER BY created_at DESC
-         LIMIT 1
-       ) s ON TRUE
-       WHERE m.matched_tour_id = $1
-       ORDER BY m.received_at DESC NULLS LAST, m.created_at DESC`,
-      [id]
-    ).catch(() => ({ rows: [] })),
-  ]);
-  const renewalRows = invoices.rows;
-  const exxasRows = exxasInvoices.rows;
-  const renewalPaid = renewalRows.filter((row) => row.invoice_status === 'paid');
-  const renewalOpen = renewalRows.filter((row) => ['sent', 'overdue', 'draft'].includes(row.invoice_status));
-  const sumAmount = (rows) =>
-    rows.reduce((sum, row) => sum + (parseFloat(row.amount_chf) || parseFloat(row.preis_brutto) || 0), 0);
-
-  const paymentEvents = [
-    ...renewalPaid
-      .filter((row) => row.paid_at)
-      .map((row) => ({
-        at: row.paid_at,
-        source: 'renewal',
-        label: row.invoice_number || row.exxas_invoice_id || 'Verlaengerungsrechnung',
-        amount: parseFloat(row.amount_chf) || parseFloat(row.preis_brutto) || null,
-        dateHint: 'bezahlt am',
-      })),
-  ].sort((a, b) => new Date(b.at) - new Date(a.at));
-
-  const paymentTimeline = [
-    ...renewalRows.map((row) => ({
-      source: 'renewal',
-      title: row.invoice_number || row.exxas_invoice_id || 'Verlaengerungsrechnung',
-      status: row.invoice_status,
-      statusLabel: ({ draft: 'Entwurf', sent: 'Gesendet', paid: 'Bezahlt', overdue: 'Ueberfaellig', cancelled: 'Storniert' })[row.invoice_status] || row.invoice_status,
-      amount: parseFloat(row.amount_chf) || parseFloat(row.preis_brutto) || null,
-      primaryDate: row.paid_at || row.sent_at || row.created_at,
-      primaryDateLabel: row.paid_at ? 'Bezahlt' : (row.sent_at ? 'Gesendet' : 'Erstellt'),
-      dueDate: row.due_at || row.period_end || null,
-      relationLabel: 'Renewal',
-      paymentMethod: row.payment_method || null,
-      paymentMethodLabel: paymentMethodLabel(row.payment_method),
-      paymentSource: row.payment_source || null,
-      subscriptionStartAt: row.subscription_start_at || null,
-      subscriptionEndAt: row.subscription_end_at || null,
-    })),
-  ].sort((a, b) => new Date(b.primaryDate || 0) - new Date(a.primaryDate || 0));
-
-  const paymentSummary = {
-    renewalPaidCount: renewalPaid.length,
-    renewalOpenCount: renewalOpen.length,
-    exxasPaidCount: 0,
-    exxasOpenCount: 0,
-    paidCount: renewalPaid.length,
-    openCount: renewalOpen.length,
-    paidAmount: sumAmount(renewalPaid),
-    openAmount: sumAmount(renewalOpen),
-    lastPayment: paymentEvents[0] || null,
-  };
-  const suggestedManualDueAt = computeManualInvoiceDueDateIso(tourRow, renewalRows.length > 0);
-  const displayedTourStatus = getDisplayedTourStatus(tourRow);
-  const declineWorkflow = await enrichDeclineWorkflowState(buildDeclineWorkflowState(tourRow, exxasRows));
-  const spaceId = tourRow.canonical_matterport_space_id || tourRow.matterport_space_id || null;
-  let mpVisibility = null;
-  if (spaceId) {
-    const { model } = await matterport.getModel(spaceId).catch(() => ({ model: null }));
-    mpVisibility = model?.accessVisibility || model?.visibility || null;
-  }
-
-  res.render('admin/tour-detail', {
-    tour: tourRow,
-    displayedTourStatus,
-    actionsLog: logs.rows,
-    renewalInvoices: renewalRows,
-    exxasInvoices: exxasRows,
-    paymentSummary,
-    paymentTimeline,
-    suggestedManualDueAt,
-    outgoingEmails: outgoingEmails.rows,
-    incomingEmails: incomingEmails.rows,
-    apiBase: process.env.APP_BASE_URL || '',
-    tourUrlSaved: req.query.tourUrlSaved === '1',
-    invoiceLinked: req.query.invoiceLinked === '1',
-    customerLinked: req.query.customerLinked === '1',
-    verifiedSaved: req.query.verifiedSaved === '1',
-    paymentSaved: req.query.paymentSaved === '1',
-    invoiceCreated: req.query.invoiceCreated === '1',
-    visibilitySaved: req.query.visibilitySaved === '1',
-    visibilityError: req.query.visibilityError || null,
-    nameSaved: req.query.nameSaved === '1',
-    nameSyncFailed: req.query.nameSyncFailed === '1',
-    startSweepSaved: req.query.startSweepSaved === '1',
-    mpVisibility,
-    declineWorkflow,
-    activePage: 'tours',
-  });
+router.get('/tours/:id', (req, res) => {
+  res.redirect(reactUrl(req, '/admin/tours/' + req.params.id));
 });
 
 /** Panel-API: kompakte Tour-Daten fuer Slide-Panel (JSON) */
@@ -3614,34 +2900,8 @@ router.get('/tours/:id/panel', async (req, res) => {
 });
 
 /** Rechnung mit Tour verknüpfen: unverknüpfte Exxas-Rechnungen */
-router.get('/tours/:id/link-invoice', async (req, res) => {
-  const { id } = req.params;
-  const tour = await pool.query('SELECT * FROM tour_manager.tours WHERE id = $1', [id]);
-  if (!tour.rows[0]) {
-    return res.status(404).send('Tour nicht gefunden');
-  }
-  const normalizedTour = normalizeTourRow(tour.rows[0]);
-  const search = (req.query.search || '').trim();
-  let q = 'SELECT * FROM tour_manager.exxas_invoices WHERE tour_id IS NULL ORDER BY zahlungstermin DESC NULLS LAST, dok_datum DESC NULLS LAST';
-  const params = [];
-  if (search) {
-    q = `SELECT * FROM tour_manager.exxas_invoices
-      WHERE tour_id IS NULL
-        AND (LOWER(COALESCE(kunde_name,'')) LIKE $1 OR LOWER(COALESCE(bezeichnung,'')) LIKE $1 OR LOWER(COALESCE(nummer,'')) LIKE $1)
-      ORDER BY zahlungstermin DESC NULLS LAST, dok_datum DESC NULLS LAST`;
-    params.push('%' + search.toLowerCase() + '%');
-  }
-  const [invoices, suggestions] = await Promise.all([
-    pool.query(q, params),
-    getInvoiceLinkSuggestionsForTour(normalizedTour, { limit: 5, scanLimit: 250 }),
-  ]);
-  res.render('admin/link-invoice', {
-    tour: normalizedTour,
-    invoices: invoices.rows,
-    suggestions,
-    search: req.query.search || '',
-    activePage: 'tours',
-  });
+router.get('/tours/:id/link-invoice', (req, res) => {
+  res.redirect(reactUrl(req, '/admin/tours/' + req.params.id + '/link-invoice'));
 });
 
 router.post('/tours/:id/link-invoice', async (req, res) => {
@@ -3687,94 +2947,9 @@ router.post('/invoices/:invoiceId/delete', async (req, res) => {
 });
 
 /** Matterport-Verknüpfung: nur aktive, noch nicht verknüpfte Spaces anzeigen */
-router.get('/link-matterport', async (req, res) => {
-  const q = String(req.query.q || '').trim();
-  const qLower = q.toLowerCase();
-  const openSpaceId = String(req.query.openSpaceId || '').trim();
-  const allowedSort = new Set(['space', 'created']);
-  const sort = allowedSort.has(String(req.query.sort || '')) ? String(req.query.sort) : 'space';
-  const order = String(req.query.order || '').toLowerCase() === 'desc' ? 'desc' : 'asc';
-  const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
-  const pageSize = 10;
-  const [matterportResult, linkedResult] = await Promise.all([
-    matterport.listModels(),
-    pool.query(`
-      SELECT DISTINCT TRIM(matterport_space_id) AS space_id
-      FROM tour_manager.tours
-      WHERE matterport_space_id IS NOT NULL
-        AND TRIM(matterport_space_id) != ''
-    `),
-  ]);
-
-  const mpError = matterportResult.error || null;
-  const activeModels = (matterportResult.results || [])
-    .filter((model) => String(model.state || '').toLowerCase() === 'active');
-  const linkedSpaceIds = new Set(
-    linkedResult.rows
-      .map((row) => String(row.space_id || '').trim())
-      .filter(Boolean)
-  );
-  const allOpenSpaces = activeModels.filter((model) => !linkedSpaceIds.has(String(model.id || '').trim()));
-  const autoOpenSpace = openSpaceId
-    ? (allOpenSpaces.find((model) => String(model.id || '').trim() === openSpaceId) || null)
-    : null;
-
-  let openSpaces = allOpenSpaces;
-  if (qLower) {
-    openSpaces = allOpenSpaces.filter((model) => {
-      const createdLabel = model.created
-        ? new Date(model.created).toLocaleDateString('de-CH', { day: '2-digit', month: 'short', year: 'numeric' })
-        : '';
-      const haystack = [
-        model.name || '',
-        model.id || '',
-        createdLabel,
-      ].join(' ').toLowerCase();
-      return haystack.includes(qLower);
-    });
-  }
-
-  const compareString = (a, b) => String(a || '').localeCompare(String(b || ''), 'de', { sensitivity: 'base' });
-  const compareDate = (a, b) => {
-    const ta = a ? new Date(a).getTime() : 0;
-    const tb = b ? new Date(b).getTime() : 0;
-    return ta - tb;
-  };
-  openSpaces.sort((a, b) => {
-    let cmp = 0;
-    if (sort === 'created') cmp = compareDate(a.created, b.created);
-    else cmp = compareString(a.name || a.id, b.name || b.id);
-    return order === 'desc' ? -cmp : cmp;
-  });
-
-  const totalItems = openSpaces.length;
-  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-  const safePage = Math.min(page, totalPages);
-  const offset = (safePage - 1) * pageSize;
-  const pagedOpenSpaces = openSpaces.slice(offset, offset + pageSize);
-
-  res.render('admin/link-matterport', {
-    openSpaces: pagedOpenSpaces,
-    mpError,
-    linked: req.query.linked === '1',
-    error: req.query.error || null,
-    duplicateTourId: parseInt(req.query.duplicateTourId, 10) || null,
-    matterportOpenCount: allOpenSpaces.length,
-    filteredOpenCount: totalItems,
-    pagination: {
-      page: safePage,
-      pageSize,
-      totalItems,
-      totalPages,
-      hasPrev: safePage > 1,
-      hasNext: safePage < totalPages,
-    },
-    filters: { q },
-    sort,
-    order,
-    autoOpenSpace,
-    activePage: 'matterport',
-  });
+router.get('/link-matterport', (req, res) => {
+  const qs = new URLSearchParams(req.query).toString();
+  res.redirect(reactUrl(req, '/admin/tours/link-matterport' + (qs ? '?' + qs : '')));
 });
 
 router.post('/link-matterport', async (req, res) => {
@@ -4126,18 +3301,8 @@ router.get('/tours/:id/link-customer/autocomplete', async (req, res) => {
 });
 
 /** Kundendaten einer Tour anpassen (direktes Formular, kein Exxas) */
-router.get('/tours/:id/link-exxas-customer', async (req, res) => {
-  const { id } = req.params;
-  const tourResult = await pool.query('SELECT * FROM tour_manager.tours WHERE id = $1', [id]);
-  if (!tourResult.rows[0]) return res.status(404).send('Tour nicht gefunden');
-  const tour = normalizeTourRow(tourResult.rows[0]);
-
-  res.render('admin/link-exxas-customer', {
-    tour,
-    saved: req.query.saved === '1',
-    error: req.query.error || null,
-    activePage: 'tours',
-  });
+router.get('/tours/:id/link-exxas-customer', (req, res) => {
+  res.redirect(reactUrl(req, '/admin/tours/' + req.params.id + '/link-exxas-customer'));
 });
 
 router.post('/tours/:id/link-exxas-customer', async (req, res) => {
@@ -4366,118 +3531,14 @@ router.post('/profile/email', async (req, res) => {
 // ─── Kunden-Verwaltung (core.customers) ──────────────────────────────────────
 
 // GET /admin/customers – Kundenliste mit Suche, Filter & Pagination
-router.get('/customers', async (req, res) => {
-  const q      = String(req.query.q      || '').trim();
-  const source = String(req.query.source || '').trim();
-  const status = String(req.query.status || '').trim();
-  const sortBy = ['name', 'email', 'address', 'created_at', 'tour_count'].includes(req.query.sort) ? req.query.sort : 'name';
-  const sortDir = req.query.dir === 'desc' ? 'DESC' : 'ASC';
-  const page   = Math.max(1, parseInt(req.query.page) || 1);
-  const limit  = 30;
-  const offset = (page - 1) * limit;
-
-  try {
-    let whereClause = 'WHERE 1=1';
-    const params = [];
-    let pIdx = 1;
-
-    if (q) {
-      whereClause += ` AND (
-        LOWER(c.name)    LIKE $${pIdx}
-        OR LOWER(c.email)   LIKE $${pIdx}
-        OR LOWER(c.company) LIKE $${pIdx}
-        OR LOWER(c.phone)   LIKE $${pIdx}
-        OR LOWER(coalesce(c.street,''))   LIKE $${pIdx}
-        OR LOWER(coalesce(c.city,''))     LIKE $${pIdx}
-        OR LOWER(coalesce(c.customer_number,'')) LIKE $${pIdx}
-      )`;
-      params.push(`%${q.toLowerCase()}%`);
-      pIdx++;
-    }
-
-    if (source === 'tours') {
-      whereClause += ` AND EXISTS (SELECT 1 FROM tour_manager.tours t WHERE LOWER(t.customer_email) = LOWER(c.email))`;
-    } else if (source === 'contacts') {
-      whereClause += ` AND EXISTS (SELECT 1 FROM core.customer_contacts cc WHERE cc.customer_id = c.id)`;
-    }
-
-    if (status === 'aktiv') {
-      whereClause += ` AND (c.blocked IS NULL OR c.blocked = FALSE)`;
-    } else if (status === 'gesperrt') {
-      whereClause += ` AND c.blocked = TRUE`;
-    }
-
-    const orderExpr = {
-      name: `LOWER(COALESCE(NULLIF(trim(c.name),''), c.company, c.email))`,
-      email: `LOWER(c.email)`,
-      address: `LOWER(coalesce(c.city,''))`,
-      created_at: `c.created_at`,
-      tour_count: `tour_count`,
-    }[sortBy] || `LOWER(COALESCE(NULLIF(trim(c.name),''), c.company, c.email))`;
-
-    const countResult = await pool.query(
-      `SELECT COUNT(*) AS cnt FROM core.customers c ${whereClause}`,
-      params
-    );
-    const totalCount = parseInt(countResult.rows[0].cnt);
-    const totalPages = Math.ceil(totalCount / limit);
-
-    const dataResult = await pool.query(
-      `SELECT
-         c.id,
-         CASE WHEN trim(coalesce(c.name,''))='' THEN coalesce(c.company, c.email, '') ELSE c.name END AS name,
-         c.email, c.company, c.phone,
-         coalesce(c.street,'') AS street,
-         coalesce(c.zip,'') AS zip,
-         coalesce(c.city,'') AS city,
-         c.exxas_contact_id, c.blocked, c.created_at,
-         c.customer_number,
-         (SELECT COUNT(*) FROM tour_manager.tours t WHERE LOWER(t.customer_email) = LOWER(c.email)) AS tour_count,
-         (SELECT COUNT(*) FROM core.customer_contacts cc WHERE cc.customer_id = c.id) AS contact_count
-       FROM core.customers c
-       ${whereClause}
-       ORDER BY ${orderExpr} ${sortDir}
-       LIMIT $${pIdx} OFFSET $${pIdx + 1}`,
-      [...params, limit, offset]
-    );
-
-    const admin = req.session?.admin || {};
-    res.render('admin/customers-list', {
-      activePage: 'customers',
-      adminName: admin.email || '',
-      adminSidebarDisplayName: admin.displayName || admin.email || '',
-      adminSidebarOrganization: admin.organization || 'Propus GmbH',
-      adminSidebarHasProfilePhoto: admin.hasProfilePhoto || false,
-      adminSidebarPhotoVersion: admin.photoVersion || 0,
-      customers: dataResult.rows,
-      totalCount,
-      totalPages,
-      page,
-      q,
-      source,
-      status,
-      sortBy,
-      sortDir,
-    });
-  } catch (err) {
-    console.error('[customers list]', err);
-    res.status(500).send('Fehler beim Laden der Kundenliste: ' + err.message);
-  }
+router.get('/customers', (req, res) => {
+  const qs = new URLSearchParams(req.query).toString();
+  res.redirect(reactUrl(req, '/admin/tours/customers' + (qs ? '?' + qs : '')));
 });
 
 // GET /admin/customers/new – Neuen Kunden anlegen (Formular)
-router.get('/customers/new', async (req, res) => {
-  const admin = req.session?.admin || {};
-  res.render('admin/customer-new', {
-    activePage: 'customers',
-    adminName: admin.email || '',
-    adminSidebarDisplayName: admin.displayName || admin.email || '',
-    adminSidebarOrganization: admin.organization || 'Propus GmbH',
-    adminSidebarHasProfilePhoto: admin.hasProfilePhoto || false,
-    adminSidebarPhotoVersion: admin.photoVersion || 0,
-    prefill: {},
-    error: req.query.error || null,
-  });
+router.get('/customers/new', (req, res) => {
+  res.redirect(reactUrl(req, '/admin/tours/customers/new'));
 });
 
 // GET /admin/customers/exxas-search?q=... – Exxas-Suche für Import
@@ -4538,67 +3599,8 @@ router.post('/customers/new', async (req, res) => {
 });
 
 // GET /admin/customers/:id – Kunden-Detail / Bearbeiten
-router.get('/customers/:id', async (req, res) => {
-  const id = parseInt(req.params.id);
-  if (!id) return res.status(400).send('Ungültige ID');
-
-  try {
-    await portalTeam.ensurePortalTeamSchema();
-    const [custR, contactsR, toursR] = await Promise.all([
-      pool.query('SELECT * FROM core.customers WHERE id=$1', [id]),
-      pool.query(
-        `SELECT * FROM core.customer_contacts WHERE customer_id=$1 ORDER BY name ASC`,
-        [id]
-      ),
-      pool.query(
-        `SELECT id, bezeichnung, object_label, status, term_end_date
-         FROM tour_manager.tours
-         WHERE LOWER(customer_email) = (SELECT LOWER(email) FROM core.customers WHERE id=$1)
-         ORDER BY created_at DESC LIMIT 10`,
-        [id]
-      ),
-    ]);
-
-    if (!custR.rows.length) return res.status(404).send('Kunde nicht gefunden');
-
-    const customer = custR.rows[0];
-    const ownerEmail = String(customer.email || '').trim().toLowerCase();
-
-    // Portal-Rollen der Kontakte laden (member_email → role im Workspace des Kunden)
-    let contactPortalRoles = {};
-    if (ownerEmail) {
-      try {
-        const prR = await pool.query(
-          `SELECT LOWER(TRIM(member_email)) AS email, role, status
-           FROM tour_manager.portal_team_members
-           WHERE LOWER(owner_email) = $1`,
-          [ownerEmail]
-        );
-        for (const row of prR.rows) {
-          contactPortalRoles[row.email] = { role: row.role, status: row.status };
-        }
-      } catch (_) {}
-    }
-
-    const admin = req.session?.admin || {};
-    res.render('admin/customer-detail', {
-      activePage: 'customers',
-      adminName: admin.email || '',
-      adminSidebarDisplayName: admin.displayName || admin.email || '',
-      adminSidebarOrganization: admin.organization || 'Propus GmbH',
-      adminSidebarHasProfilePhoto: admin.hasProfilePhoto || false,
-      adminSidebarPhotoVersion: admin.photoVersion || 0,
-      customer,
-      contacts:  contactsR.rows,
-      tours:     toursR.rows,
-      contactPortalRoles,
-      flash:     req.query.flash || null,
-      error:     req.query.error || null,
-    });
-  } catch (err) {
-    console.error('[customers/:id GET]', err);
-    res.status(500).send('Fehler: ' + err.message);
-  }
+router.get('/customers/:id', (req, res) => {
+  res.redirect(reactUrl(req, '/admin/tours/customers/' + req.params.id));
 });
 
 // POST /admin/customers/:id – Kunden-Stammdaten aktualisieren

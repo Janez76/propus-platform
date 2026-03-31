@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
-import { AlertCircle, ArrowLeft, ExternalLink } from "lucide-react";
+import { AlertCircle, ArrowLeft } from "lucide-react";
 import {
   getToursAdminLinkCustomerAutocomplete,
   getToursAdminLinkExxasCustomer,
@@ -9,7 +9,6 @@ import {
 import { useQuery } from "../../../hooks/useQuery";
 import { toursAdminLinkExxasCustomerQueryKey } from "../../../lib/queryKeys";
 
-const LEGACY_BASE = "/tour-manager/admin";
 
 type AcContact = { id?: unknown; name?: string; email?: string; role?: string };
 type AcCustomer = {
@@ -158,16 +157,9 @@ export function ToursAdminLinkExxasCustomerPage() {
           </Link>
           <h1 className="text-2xl font-bold text-[var(--text-main)]">Kunde anpassen</h1>
           <p className="text-sm text-[var(--text-subtle)] mt-1">
-            core.customers zuordnen (wie EJS „link-exxas-customer“).
+            core.customers zuordnen.
           </p>
         </div>
-        <a
-          href={`${LEGACY_BASE}/tours/${okId}/link-exxas-customer`}
-          className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm font-medium text-[var(--text-main)] hover:bg-[var(--surface-raised)]"
-        >
-          <ExternalLink className="h-4 w-4" />
-          EJS
-        </a>
       </div>
 
       {error ? (

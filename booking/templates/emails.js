@@ -232,6 +232,51 @@ function getC(lang) {
   return CRED_I18N[lang] || CRED_I18N.de;
 }
 
+// ─── Welcome-Mail i18n ────────────────────────────────────────────────────────
+
+const WELCOME_I18N = {
+  de: {
+    subject:    "Willkommen bei Propus – dein Zugang ist bereit",
+    greeting:   (name) => `Willkommen, ${name}!`,
+    intro:      "Dein Mitarbeiter-Zugang für das Propus Admin-Panel wurde eingerichtet. Du kannst dich ab sofort einloggen.",
+    loginBtn:   "Jetzt einloggen",
+    loginTitle: "Anmelden",
+    teamNote:   "Wir freuen uns, dich im Propus-Team zu begrüssen. Bei Fragen steht dir das Team jederzeit zur Verfügung.",
+    footer:     "&copy; 2026 Propus GmbH",
+  },
+  en: {
+    subject:    "Welcome to Propus – your access is ready",
+    greeting:   (name) => `Welcome, ${name}!`,
+    intro:      "Your employee access for the Propus Admin Panel has been set up. You can now log in.",
+    loginBtn:   "Log in now",
+    loginTitle: "Sign in",
+    teamNote:   "We are happy to have you on the Propus team. If you have any questions, the team is always available.",
+    footer:     "&copy; 2026 Propus GmbH",
+  },
+  fr: {
+    subject:    "Bienvenue chez Propus – votre accès est prêt",
+    greeting:   (name) => `Bienvenue, ${name} !`,
+    intro:      "Votre accès employé au panneau d'administration Propus a été configuré. Vous pouvez vous connecter dès maintenant.",
+    loginBtn:   "Se connecter maintenant",
+    loginTitle: "Connexion",
+    teamNote:   "Nous sommes ravis de vous accueillir dans l'équipe Propus. Pour toute question, l'équipe est toujours disponible.",
+    footer:     "&copy; 2026 Propus GmbH",
+  },
+  it: {
+    subject:    "Benvenuto in Propus – il tuo accesso è pronto",
+    greeting:   (name) => `Benvenuto, ${name}!`,
+    intro:      "Il tuo accesso dipendente al pannello di amministrazione Propus è stato configurato. Puoi effettuare l'accesso ora.",
+    loginBtn:   "Accedi ora",
+    loginTitle: "Accedi",
+    teamNote:   "Siamo lieti di averti nel team Propus. Per qualsiasi domanda, il team è sempre disponibile.",
+    footer:     "&copy; 2026 Propus GmbH",
+  },
+};
+
+function getW(lang) {
+  return WELCOME_I18N[normalizeLang(lang)] || WELCOME_I18N.de;
+}
+
 function getT(lang) {
   return PHOTOG_I18N[lang] || PHOTOG_I18N.de;
 }
@@ -1491,6 +1536,28 @@ function buildReassignCustomerEmail(order, newPhotog, lang = "de"){
   return out(t.reassignCustomer.subject(order.orderNo), html);
 }
 
+// ─── Willkommens-Mail (Mitarbeiter) ──────────────────────────────────────────
+
+function buildWelcomeEmail({ name, adminUrl }, lang) {
+  const t = getW(lang);
+  const html = buildMailHtml({
+    heading: t.greeting(name || ""),
+    intro: t.intro,
+    sections: [
+      `<div style="text-align:center;margin:32px 0">
+        <a href="${adminUrl}" style="display:inline-block;background:linear-gradient(135deg,#9e8649,#bfa25a);color:#fff;padding:16px 32px;border-radius:12px;text-decoration:none;font-weight:700;font-size:15px;box-shadow:0 4px 16px rgba(158,134,73,0.3);letter-spacing:0.3px">
+          ${t.loginBtn}
+        </a>
+      </div>`,
+      `<div style="background:#f9f7f2;border:1px solid #e8e3d6;border-radius:10px;padding:20px;margin:24px 0;text-align:center">
+        <p style="font-size:14px;color:#555;margin:0;line-height:1.6">${t.teamNote}</p>
+      </div>`,
+    ],
+    footer: t.footer,
+  });
+  return out(t.subject, html);
+}
+
 // ─── Zugangsdaten-Mail (Mitarbeiter) ─────────────────────────────────────────
 
 function buildCredentialsEmail({ name, key, email, tempPw, adminUrl, resetUrl }, lang) {
@@ -1592,6 +1659,7 @@ module.exports = {
   buildReassignOfficeEmail,
   buildReassignPhotographerEmail,
   buildReassignCustomerEmail,
+  buildWelcomeEmail,
   buildCredentialsEmail,
   buildResetPasswordEmail,
   fmtDate

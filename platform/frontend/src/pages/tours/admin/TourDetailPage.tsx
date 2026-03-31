@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
-import { AlertCircle, ArrowLeft, ExternalLink } from "lucide-react";
+import { AlertCircle, ArrowLeft } from "lucide-react";
 import { getToursAdminTourDetail } from "../../../api/toursAdmin";
 import { useQuery } from "../../../hooks/useQuery";
 import { toursAdminTourDetailQueryKey } from "../../../lib/queryKeys";
@@ -11,7 +11,6 @@ import { TourExxasSection } from "./components/TourExxasSection";
 import { TourInvoicesSection } from "./components/TourInvoicesSection";
 import { TourMatterportSection } from "./components/TourMatterportSection";
 
-const LEGACY_BASE = "/tour-manager/admin";
 
 function tourTitle(t: ToursAdminTourRow) {
   return (
@@ -63,13 +62,6 @@ export function TourDetailPage() {
             <h1 className="text-2xl font-bold text-[var(--text-main)]">Tour #{okId}</h1>
           )}
         </div>
-        <a
-          href={`${LEGACY_BASE}/tours/${okId}`}
-          className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm font-medium text-[var(--text-main)] hover:bg-[var(--surface-raised)]"
-        >
-          <ExternalLink className="h-4 w-4" />
-          Klassische Ansicht
-        </a>
       </div>
 
       {error ? (

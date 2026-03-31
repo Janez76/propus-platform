@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ExternalLink } from "lucide-react";
 import {
   getLinkMatterportCustomerDetail,
   getLinkMatterportCustomerSearch,
@@ -11,7 +10,6 @@ import {
 import { useQuery } from "../../../hooks/useQuery";
 import { toursAdminLinkMatterportQueryKey } from "../../../lib/queryKeys";
 
-const LEGACY = "/tour-manager/admin/link-matterport";
 
 function buildQs(sp: URLSearchParams) {
   const n = new URLSearchParams();
@@ -267,10 +265,6 @@ export function ToursAdminLinkMatterportPage() {
           <h1 className="text-2xl font-bold text-[var(--text-main)]">Matterport verknüpfen</h1>
           <p className="text-sm text-[var(--text-subtle)] mt-1">Offene Spaces und Batch-Aktionen.</p>
         </div>
-        <a href={LEGACY} className="inline-flex items-center gap-2 text-sm border rounded-lg px-3 py-2 border-[var(--border-soft)]">
-          <ExternalLink className="h-4 w-4" />
-          EJS
-        </a>
       </div>
 
       {mpError ? <p className="text-sm text-amber-700 dark:text-amber-400">Matterport API: {mpError}</p> : null}
@@ -476,7 +470,7 @@ export function ToursAdminLinkMatterportPage() {
                       <button
                         type="button"
                         className="text-xs rounded border border-[var(--border-soft)] px-2 py-1 text-[var(--text-subtle)] hover:bg-[var(--surface-raised)]"
-                        title="Seite mit openSpaceId laden (wie EJS Deep-Link)"
+                        title="Seite mit openSpaceId laden (Deep-Link)"
                         onClick={() => {
                           setSearchParams(
                             (prev) => {

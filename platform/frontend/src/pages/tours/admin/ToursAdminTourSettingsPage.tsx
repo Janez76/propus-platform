@@ -4,7 +4,6 @@ import { getToursAdminTourSettings, putToursAdminTourSettings } from "../../../a
 import { useQuery } from "../../../hooks/useQuery";
 import { toursAdminTourSettingsQueryKey } from "../../../lib/queryKeys";
 
-const LEGACY = "/tour-manager/admin/settings";
 
 export function ToursAdminTourSettingsPage() {
   const qk = toursAdminTourSettingsQueryKey();
@@ -75,11 +74,7 @@ export function ToursAdminTourSettingsPage() {
       <div>
         <h1 className="text-2xl font-semibold text-[var(--text-main)]">Tour-Manager Einstellungen</h1>
         <p className="text-sm text-[var(--text-subtle)] mt-1">
-          Widgets, Matterport-API, KI-Mail-Prompt.{" "}
-          <a href={LEGACY} className="text-[var(--accent)] hover:underline">
-            Vollständige klassische Ansicht
-          </a>{" "}
-          (inkl. Aktions-Schema-Liste).
+          Widgets, Matterport-API, KI-Mail-Prompt.
         </p>
       </div>
 

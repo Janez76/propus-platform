@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowUpDown, Building2, ChevronDown, ChevronUp, Mail, Phone, Plus, Search, User, UserPlus, X } from "lucide-react";
+import { ArrowUpDown, Building2, ChevronDown, ChevronUp, Mail, Monitor, Phone, Plus, Search, User, UserPlus, X } from "lucide-react";
 import { createContact, createCustomer, createCustomerContact, deleteCustomer, getContacts, getCustomers, getCustomerImpersonateUrl, patchCustomerNasFolderBases, updateContact, updateCustomer, updateCustomerAdmin, updateCustomerBlocked, type Contact, type Customer } from "../api/customers";
 import { CustomerList, type CustomerSortKey } from "../components/customers/CustomerList";
 import { ContactModal } from "../components/customers/ContactModal";
@@ -7,6 +7,7 @@ import { formatPhoneCH } from "../lib/format";
 import { PhoneLink } from "../components/ui/PhoneLink";
 import { CustomerViewModal } from "../components/customers/CustomerViewModal";
 import { CustomerMergeModal } from "../components/customers/CustomerMergeModal";
+import { CustomerPreviewDialog } from "../components/customers/CustomerPreviewDialog";
 import { CreateContactDialog } from "../components/customers/CreateContactDialog";
 import { CreateOrderWizard } from "../components/orders/CreateOrderWizard";
 import { useMutation } from "../hooks/useMutation";
@@ -46,6 +47,7 @@ export function CustomersPage() {
   const lang = useAuthStore((s) => s.language);
   const [selectedContactRecord, setSelectedContactRecord] = useState<Customer | null>(null);
   const [viewCustomer, setViewCustomer] = useState<Customer | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [orderWizardCustomer, setOrderWizardCustomer] = useState<Customer | null>(null);
   const [contactCustomer, setContactCustomer] = useState<Customer | null>(null);
   const [createContactDialogOpen, setCreateContactDialogOpen] = useState(false);
@@ -467,13 +469,24 @@ export function CustomersPage() {
             {viewMode === "contacts" ? t(lang, "customers.descriptionContacts") : t(lang, "customers.description")}
           </p>
         </div>
-        <button
-          onClick={() => setCreateContactDialogOpen(true)}
-          className="btn-primary px-4 py-2.5 text-sm shadow-sm"
-        >
-          <Plus className="h-5 w-5" />
-          <span className="hidden sm:inline">{viewMode === "contacts" ? t(lang, "customers.button.newContact") : t(lang, "customers.button.newCustomer")}</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setPreviewOpen(true)}
+            className="btn-secondary inline-flex items-center gap-2 px-3 py-2.5 text-sm"
+            title="Kundenvorschau – Portal aus Kundensicht öffnen"
+          >
+            <Monitor className="h-4 w-4" />
+            <span className="hidden sm:inline">Vorschau</span>
+          </button>
+          <button
+            onClick={() => setCreateContactDialogOpen(true)}
+            className="btn-primary px-4 py-2.5 text-sm shadow-sm"
+          >
+            <Plus className="h-5 w-5" />
+            <span className="hidden sm:inline">{viewMode === "contacts" ? t(lang, "customers.button.newContact") : t(lang, "customers.button.newCustomer")}</span>
+          </button>
+        </div>
       </div>
 
       {/* View Toggle */}
@@ -670,6 +683,13 @@ export function CustomersPage() {
           )}
         </div>
       )}
+
+      <CustomerPreviewDialog
+        open={previewOpen}
+        token={token}
+        customers={items}
+        onClose={() => setPreviewOpen(false)}
+      />
 
       {/* Modals */}
       <CreateContactDialog

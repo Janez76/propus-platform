@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   UserRound, Plus, RefreshCw, X, Crown, Camera, Eye, EyeOff,
-  Lock, Shield, Check, Users, KeyRound,
+  Lock, Shield, Check, Users, KeyRound, MoreVertical, Mail,
+  RotateCcw, Send, Star, ChevronDown, LayoutDashboard, ShoppingBag,
+  Contact, Settings, Package, UserCog, HardDrive,
 } from "lucide-react";
 import { useAuthStore } from "../store/authStore";
 import { apiRequest } from "../api/client";
@@ -31,46 +33,63 @@ function detectLogtoAdminUrl() {
   if (configured) return configured;
   if (typeof window !== "undefined") {
     const { hostname } = window.location;
-    if (hostname === "localhost" || hostname === "127.0.0.1") {
-      return "http://localhost:3002";
-    }
+    if (hostname === "localhost" || hostname === "127.0.0.1") return "http://localhost:3002";
   }
   return "https://auth-admin.propus.ch/console";
 }
-
 const LOGTO_ADMIN_URL = detectLogtoAdminUrl();
+
+type PermGroup = { label: string; icon: React.ReactNode; keys: string[] };
 
 const ROLE_CFG: Record<RoleKey, {
   label: string;
   description: string;
   icon: React.ReactNode;
   pill: string;
-  card: string;
-  permissions: string[];
+  accentColor: string;
+  permGroups: PermGroup[];
 }> = {
   super_admin: {
     label: "Super-Admin",
     description: "Voller Systemzugriff inkl. Benutzerverwaltung und Einstellungen",
     icon: <Crown className="h-4 w-4" />,
     pill: "cust-badge cust-badge--gold",
-    card: "border-[color-mix(in_srgb,var(--propus-gold)_20%,transparent)] bg-[color-mix(in_srgb,var(--propus-gold)_5%,transparent)]",
-    permissions: ["dashboard.view", "users.manage", "roles.manage", "settings.manage", "orders.*", "customers.*", "photographers.*", "products.*", "backups.manage"],
+    accentColor: "var(--propus-gold)",
+    permGroups: [
+      { label: "System", icon: <LayoutDashboard className="h-3 w-3" />, keys: ["dashboard.view", "settings.manage", "backups.manage"] },
+      { label: "Benutzerverwaltung", icon: <UserCog className="h-3 w-3" />, keys: ["users.manage", "roles.manage"] },
+      { label: "Aufträge", icon: <ShoppingBag className="h-3 w-3" />, keys: ["orders.*"] },
+      { label: "Kunden", icon: <Contact className="h-3 w-3" />, keys: ["customers.*"] },
+      { label: "Mitarbeiter", icon: <Camera className="h-3 w-3" />, keys: ["photographers.*"] },
+      { label: "Produkte", icon: <Package className="h-3 w-3" />, keys: ["products.*"] },
+    ],
   },
   admin: {
     label: "Admin",
     description: "Zugriff auf Aufträge, Kunden, Mitarbeiter, Produkte und Einstellungen",
     icon: <Shield className="h-4 w-4" />,
     pill: "cust-badge cust-badge--info",
-    card: "border-[color-mix(in_srgb,#3498db_20%,transparent)] bg-[color-mix(in_srgb,#3498db_5%,transparent)]",
-    permissions: ["orders.read", "orders.create", "orders.update", "orders.delete", "customers.manage", "photographers.manage", "products.manage", "settings.manage"],
+    accentColor: "#3498db",
+    permGroups: [
+      { label: "System", icon: <Settings className="h-3 w-3" />, keys: ["settings.manage"] },
+      { label: "Aufträge", icon: <ShoppingBag className="h-3 w-3" />, keys: ["orders.read", "orders.create", "orders.update", "orders.delete"] },
+      { label: "Kunden", icon: <Contact className="h-3 w-3" />, keys: ["customers.manage"] },
+      { label: "Mitarbeiter", icon: <Camera className="h-3 w-3" />, keys: ["photographers.manage"] },
+      { label: "Produkte", icon: <Package className="h-3 w-3" />, keys: ["products.manage"] },
+    ],
   },
   photographer: {
     label: "Mitarbeiter",
     description: "Zugriff auf eigene Aufträge und Kalender",
     icon: <Camera className="h-4 w-4" />,
     pill: "cust-badge cust-badge--neutral",
-    card: "border-[var(--border-soft)] bg-[var(--surface-raised)]",
-    permissions: ["dashboard.view", "orders.read", "orders.update", "calendar.view", "photographers.read"],
+    accentColor: "var(--text-subtle)",
+    permGroups: [
+      { label: "System", icon: <LayoutDashboard className="h-3 w-3" />, keys: ["dashboard.view"] },
+      { label: "Aufträge", icon: <ShoppingBag className="h-3 w-3" />, keys: ["orders.read", "orders.update"] },
+      { label: "Kalender", icon: <Star className="h-3 w-3" />, keys: ["calendar.view"] },
+      { label: "Mitarbeiter", icon: <Camera className="h-3 w-3" />, keys: ["photographers.read"] },
+    ],
   },
 };
 
@@ -118,6 +137,15 @@ async function createInternalUser(token: string, data: {
 }) {
   return apiRequest<{ ok: boolean; user: LogtoUser }>("/api/admin/internal-users", "POST", token, data);
 }
+async function resetUserPassword(token: string, id: string, password: string, sendMail: boolean) {
+  return apiRequest("/api/admin/internal-users/" + id + "/reset-password", "POST", token, { password, sendMail });
+}
+async function sendWelcomeMail(token: string, id: string) {
+  return apiRequest("/api/admin/internal-users/" + id + "/send-welcome", "POST", token, {});
+}
+async function sendCredentialsMail(token: string, id: string) {
+  return apiRequest("/api/admin/internal-users/" + id + "/send-credentials", "POST", token, {});
+}
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
@@ -153,6 +181,166 @@ function UserAvatar({ user, size = "md" }: { user: LogtoUser; size?: "sm" | "md"
   );
 }
 
+// ─── User Action Menu ─────────────────────────────────────────────────────────
+
+function UserActionMenu({ user, token, onError, onSuccess }: {
+  user: LogtoUser;
+  token: string;
+  onError: (msg: string) => void;
+  onSuccess: (msg: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [showPwForm, setShowPwForm] = useState(false);
+  const [pw, setPw] = useState("");
+  const [showPw, setShowPw] = useState(false);
+  const [sendWithMail, setSendWithMail] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handler(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  async function handleResetPw(e: React.FormEvent) {
+    e.preventDefault();
+    if (!pw || pw.length < 8) { onError("Passwort muss mindestens 8 Zeichen haben"); return; }
+    setBusy(true);
+    try {
+      await resetUserPassword(token, user.id, pw, sendWithMail);
+      setPw(""); setShowPwForm(false); setOpen(false);
+      onSuccess(`Passwort für ${user.name || user.email} gesetzt${sendWithMail ? " und per E-Mail gesendet" : ""}.`);
+    } catch (e) { onError(e instanceof Error ? e.message : "Fehler"); }
+    finally { setBusy(false); }
+  }
+
+  async function handleSendWelcome() {
+    setOpen(false); setBusy(true);
+    try {
+      await sendWelcomeMail(token, user.id);
+      onSuccess(`Begrüssungsmail an ${user.email} gesendet.`);
+    } catch (e) { onError(e instanceof Error ? e.message : "Fehler"); }
+    finally { setBusy(false); }
+  }
+
+  async function handleSendCredentials() {
+    setOpen(false); setBusy(true);
+    try {
+      await sendCredentialsMail(token, user.id);
+      onSuccess(`Zugangsdaten-Mail an ${user.email} gesendet.`);
+    } catch (e) { onError(e instanceof Error ? e.message : "Fehler"); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <div className="relative" ref={menuRef}>
+      <button
+        onClick={() => { setOpen((v) => !v); setShowPwForm(false); }}
+        disabled={busy}
+        title="Aktionen"
+        className={`flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--border-soft)] text-[var(--text-subtle)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-main)] transition-colors ${busy ? "opacity-40 cursor-wait" : ""}`}
+      >
+        <MoreVertical className="h-4 w-4" />
+      </button>
+
+      {open && !showPwForm && (
+        <div className="absolute right-0 top-full z-40 mt-1.5 w-52 rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] shadow-xl">
+          <div className="p-1">
+            <button
+              onClick={() => { setShowPwForm(true); setOpen(false); }}
+              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-[var(--text-muted)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-main)] transition-colors"
+            >
+              <RotateCcw className="h-3.5 w-3.5 shrink-0" />
+              Passwort zurücksetzen
+            </button>
+            <button
+              onClick={handleSendWelcome}
+              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-[var(--text-muted)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-main)] transition-colors"
+            >
+              <Star className="h-3.5 w-3.5 shrink-0" />
+              Begrüssungsmail senden
+            </button>
+            <button
+              onClick={handleSendCredentials}
+              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-[var(--text-muted)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-main)] transition-colors"
+            >
+              <Send className="h-3.5 w-3.5 shrink-0" />
+              Zugangsdaten senden
+            </button>
+            <button
+              onClick={() => { /* future: Logto reset link */ onError("Passwort-Recovery-Link: wird über Logto verwaltet."); setOpen(false); }}
+              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-[var(--text-subtle)] hover:bg-[var(--surface-raised)] transition-colors"
+            >
+              <Mail className="h-3.5 w-3.5 shrink-0" />
+              Recovery-Mail (via Logto)
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showPwForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <form onSubmit={handleResetPw}
+            className="w-full max-w-sm rounded-2xl border border-[var(--border-soft)] bg-[var(--surface)] p-6 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-bold text-[var(--text-main)]">Passwort zurücksetzen</h2>
+                <p className="text-xs text-[var(--text-muted)] mt-0.5">{user.name || user.email}</p>
+              </div>
+              <button type="button" onClick={() => setShowPwForm(false)}
+                className="flex h-7 w-7 items-center justify-center rounded-full border border-[var(--border-soft)] text-[var(--text-subtle)] hover:bg-[var(--surface-raised)]">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-[var(--text-muted)]">Neues Passwort *</label>
+                <div className="relative">
+                  <input
+                    type={showPw ? "text" : "password"}
+                    className="ui-input pr-9"
+                    value={pw}
+                    onChange={(e) => setPw(e.target.value)}
+                    placeholder="Mindestens 8 Zeichen"
+                    autoFocus
+                  />
+                  <button type="button" onClick={() => setShowPw((v) => !v)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-subtle)] hover:text-[var(--text-muted)]">
+                    {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+              <label className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-[var(--border-soft)] px-3 py-2.5 hover:bg-[var(--surface-raised)] transition-colors">
+                <input
+                  type="checkbox"
+                  checked={sendWithMail}
+                  onChange={(e) => setSendWithMail(e.target.checked)}
+                  className="h-4 w-4 rounded accent-[var(--accent)]"
+                />
+                <span className="text-xs text-[var(--text-muted)]">Neues Passwort per E-Mail senden</span>
+              </label>
+            </div>
+            <div className="mt-4 flex gap-2">
+              <button type="button" onClick={() => setShowPwForm(false)}
+                className="flex-1 rounded-lg border border-[var(--border-soft)] py-2 text-sm text-[var(--text-muted)] hover:bg-[var(--surface-raised)] transition-colors">
+                Abbrechen
+              </button>
+              <button type="submit" disabled={busy}
+                className="flex-1 rounded-lg bg-[var(--accent)] py-2 text-sm font-semibold text-black hover:bg-[var(--accent)]/90 disabled:opacity-50 transition-colors">
+                {busy ? "Setzen…" : "Passwort setzen"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Tab: Benutzerverwaltung ──────────────────────────────────────────────────
 
 type NewUserForm = { name: string; email: string; username: string; password: string; roles: string[] };
@@ -173,17 +361,35 @@ function UsersTab({ users, loading, saving, onToggleRole, onToggleSuspend, onRel
   const [showPw, setShowPw] = useState(false);
   const [formErr, setFormErr] = useState("");
   const [formSaving, setFormSaving] = useState(false);
+  const [sendWelcome, setSendWelcome] = useState(true);
+  const [sendCreds, setSendCreds] = useState(true);
+  const [toast, setToast] = useState("");
+
+  function showToast(msg: string) {
+    setToast(msg);
+    setTimeout(() => setToast(""), 4000);
+  }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setFormErr("");
-    if (!form.email || !form.password || !form.name) { setFormErr("Name, E-Mail und Passwort sind erforderlich."); return; }
+    if (!form.email || !form.password || !form.name) {
+      setFormErr("Name, E-Mail und Passwort sind erforderlich.");
+      return;
+    }
     setFormSaving(true);
     try {
       const { user } = await createInternalUser(token, form);
+      if (sendWelcome) {
+        await sendWelcomeMail(token, user.id).catch(() => null);
+      }
+      if (sendCreds) {
+        await sendCredentialsMail(token, user.id).catch(() => null);
+      }
       setUsers((prev) => [...prev, user]);
       setShowNew(false);
       setForm({ ...EMPTY_FORM });
+      showToast(`Benutzer ${user.name || user.email} angelegt${(sendWelcome || sendCreds) ? " und E-Mail gesendet" : ""}.`);
     } catch (e) {
       setFormErr(e instanceof Error ? e.message : "Fehler");
     } finally {
@@ -197,9 +403,17 @@ function UsersTab({ users, loading, saving, onToggleRole, onToggleSuspend, onRel
 
   return (
     <>
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] px-4 py-3 text-sm text-[var(--text-main)] shadow-xl">
+          <Check className="h-4 w-4 text-emerald-500 shrink-0" />
+          {toast}
+        </div>
+      )}
+
       {/* Actions row */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <StatChip label="Gesamt" value={users.length} />
           <StatChip label="Aktiv" value={activeCount} color="#2ecc71" />
           <StatChip label="Admins" value={adminCount} color="var(--propus-gold)" />
@@ -267,11 +481,26 @@ function UsersTab({ users, loading, saving, onToggleRole, onToggleSuspend, onRel
                   {user.isSuspended ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
                   {user.isSuspended ? "Aktivieren" : "Sperren"}
                 </button>
+                {/* Action menu */}
+                <UserActionMenu
+                  user={user}
+                  token={token}
+                  onError={(msg) => setFormErr(msg)}
+                  onSuccess={showToast}
+                />
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* Error inline */}
+      {formErr && (
+        <div className="cust-alert cust-alert--error rounded-lg text-sm flex items-center gap-2">
+          <span className="flex-1">{formErr}</span>
+          <button onClick={() => setFormErr("")}><X className="h-4 w-4 opacity-60" /></button>
+        </div>
+      )}
 
       {/* Hint */}
       <div className="flex items-start gap-2 rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-4 py-3 text-xs text-[var(--text-subtle)]">
@@ -329,6 +558,22 @@ function UsersTab({ users, loading, saving, onToggleRole, onToggleSuspend, onRel
                   })}
                 </div>
               </Field>
+              {/* E-Mail-Optionen */}
+              <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] p-3 space-y-2">
+                <div className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-subtle)] mb-1 flex items-center gap-1.5">
+                  <Mail className="h-3 w-3" /> E-Mail nach Erstellung
+                </div>
+                <label className="flex cursor-pointer items-center gap-2.5">
+                  <input type="checkbox" checked={sendWelcome} onChange={(e) => setSendWelcome(e.target.checked)}
+                    className="h-4 w-4 rounded accent-[var(--accent)]" />
+                  <span className="text-xs text-[var(--text-muted)]">Begrüssungsmail senden</span>
+                </label>
+                <label className="flex cursor-pointer items-center gap-2.5">
+                  <input type="checkbox" checked={sendCreds} onChange={(e) => setSendCreds(e.target.checked)}
+                    className="h-4 w-4 rounded accent-[var(--accent)]" />
+                  <span className="text-xs text-[var(--text-muted)]">Zugangsdaten per E-Mail senden</span>
+                </label>
+              </div>
             </div>
             {formErr && <p className="mt-3 text-sm" style={{ color: "#e74c3c" }}>{formErr}</p>}
             <div className="mt-5 flex gap-2.5">
@@ -357,6 +602,10 @@ function RolesTab({ users, loading, saving, onToggleRole, onReload }: {
   onToggleRole: (user: LogtoUser, role: RoleKey) => void;
   onReload: () => void;
 }) {
+  const [expanded, setExpanded] = useState<Record<RoleKey, boolean>>({
+    super_admin: true, admin: true, photographer: true,
+  });
+
   return (
     <>
       <div className="flex justify-end">
@@ -371,69 +620,123 @@ function RolesTab({ users, loading, saving, onToggleRole, onReload }: {
         {ALL_ROLES.map((roleKey) => {
           const cfg = ROLE_CFG[roleKey];
           const count = users.filter((u) => u.roles.includes(roleKey)).length;
+          const isExpanded = expanded[roleKey];
+
           return (
-            <div key={roleKey} className={`rounded-xl border p-5 ${cfg.card}`}>
-              {/* Role header */}
-              <div className="mb-4 flex items-start gap-3">
-                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${cfg.pill}`}>
-                  {cfg.icon}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-sm font-bold text-[var(--text-main)]">{cfg.label}</h3>
-                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${cfg.pill}`}>
-                      {count} {count === 1 ? "Benutzer" : "Benutzer"}
-                    </span>
+            <div key={roleKey} className={`role-card role-card--${roleKey.replace("_", "-")}`}>
+              {/* Colored left border bar */}
+              <div
+                className="role-card__accent"
+                style={{ background: cfg.accentColor }}
+              />
+
+              <div className="role-card__body">
+                {/* Role header */}
+                <button
+                  type="button"
+                  onClick={() => setExpanded((p) => ({ ...p, [roleKey]: !p[roleKey] }))}
+                  className="flex w-full items-start gap-3 text-left"
+                >
+                  <div
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+                    style={{
+                      background: `color-mix(in srgb, ${cfg.accentColor} 12%, transparent)`,
+                      color: cfg.accentColor,
+                      border: `1.5px solid color-mix(in srgb, ${cfg.accentColor} 25%, transparent)`,
+                    }}
+                  >
+                    {cfg.icon}
                   </div>
-                  <p className="mt-0.5 text-xs text-[var(--text-muted)]">{cfg.description}</p>
-                </div>
-              </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-sm font-bold text-[var(--text-main)]">{cfg.label}</h3>
+                      <span
+                        className="rounded-full px-2 py-0.5 text-[10px] font-bold"
+                        style={{
+                          background: `color-mix(in srgb, ${cfg.accentColor} 15%, transparent)`,
+                          color: cfg.accentColor,
+                        }}
+                      >
+                        {count} {count === 1 ? "Benutzer" : "Benutzer"}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-xs text-[var(--text-muted)]">{cfg.description}</p>
+                  </div>
+                  <ChevronDown
+                    className={`mt-1 h-4 w-4 shrink-0 text-[var(--text-subtle)] transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                  />
+                </button>
 
-              {/* Permissions */}
-              <div className="mb-4 flex flex-wrap gap-1.5">
-                {cfg.permissions.map((perm) => (
-                  <span key={perm} className="inline-flex items-center gap-1 rounded-md border border-[var(--border-soft)] bg-[var(--surface)] px-2 py-0.5 text-[10px] text-[var(--text-subtle)]">
-                    <Check className="h-2.5 w-2.5 text-emerald-400" />{perm}
-                  </span>
-                ))}
-              </div>
-
-              {/* Separator */}
-              <div className="border-t border-[var(--border-soft)] pt-4">
-                <div className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-[var(--text-subtle)]">
-                  Zugewiesene Benutzer
-                </div>
-                {loading ? (
-                  <p className="text-sm text-[var(--text-subtle)]">Wird geladen…</p>
-                ) : users.length === 0 ? (
-                  <p className="text-sm text-[var(--text-subtle)]">Keine Benutzer</p>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {users.map((user) => {
-                      const has = user.roles.includes(roleKey);
-                      const busy = saving === user.id + ":" + roleKey;
-                      return (
-                        <button key={user.id}
-                          onClick={() => onToggleRole(user, roleKey)}
-                          disabled={busy}
-                          title={has ? `${cfg.label} entfernen` : `${cfg.label} zuweisen`}
-                          className={[
-                            "inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs transition-all",
-                            has ? `${cfg.card} border-current text-[var(--text-main)]` : "border-[var(--border-soft)] bg-[var(--surface)] text-[var(--text-subtle)] hover:border-[var(--accent)]/30",
-                            busy ? "opacity-40 cursor-wait" : "cursor-pointer",
-                          ].join(" ")}>
-                          <div
-                            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold"
-                            style={{ background: avatarColor(user.id).bg, color: avatarColor(user.id).color }}
-                          >
-                            {initials(user.name, user.email)}
+                {isExpanded && (
+                  <>
+                    {/* Permissions grouped */}
+                    <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                      {cfg.permGroups.map((group) => (
+                        <div key={group.label} className="perm-group">
+                          <div className="perm-group__label">
+                            {group.icon}
+                            {group.label}
                           </div>
-                          <span>{user.name || user.email}</span>
-                          {has && <Check className="h-3 w-3 text-emerald-400" />}
-                        </button>
-                      );
-                    })}
-                  </div>
+                          <div className="flex flex-wrap gap-1">
+                            {group.keys.map((perm) => (
+                              <span key={perm} className="perm-tag">
+                                <Check className="h-2.5 w-2.5" style={{ color: cfg.accentColor }} />
+                                {perm}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Separator + user assignment */}
+                    <div className="mt-4 border-t border-[var(--border-soft)] pt-4">
+                      <div className="mb-2.5 text-[10px] font-semibold uppercase tracking-widest text-[var(--text-subtle)]">
+                        Zugewiesene Benutzer
+                      </div>
+                      {loading ? (
+                        <p className="text-sm text-[var(--text-subtle)]">Wird geladen…</p>
+                      ) : users.length === 0 ? (
+                        <p className="text-sm text-[var(--text-subtle)]">Keine Benutzer</p>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          {users.map((user) => {
+                            const has = user.roles.includes(roleKey);
+                            const busy = saving === user.id + ":" + roleKey;
+                            return (
+                              <button
+                                key={user.id}
+                                onClick={() => onToggleRole(user, roleKey)}
+                                disabled={busy}
+                                title={has
+                                  ? `${cfg.label} entfernen\n${user.email}${user.lastSignInAt ? `\nLetzter Login: ${new Date(user.lastSignInAt).toLocaleDateString("de-CH")}` : ""}`
+                                  : `${cfg.label} zuweisen\n${user.email}`}
+                                className={[
+                                  "inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-medium transition-all",
+                                  has
+                                    ? "border-current bg-[var(--surface)] text-[var(--text-main)] shadow-sm"
+                                    : "border-[var(--border-soft)] bg-[var(--surface)] text-[var(--text-subtle)] hover:border-[var(--accent)]/30 hover:text-[var(--text-muted)]",
+                                  busy ? "opacity-40 cursor-wait" : "cursor-pointer hover:shadow-sm",
+                                ].join(" ")}
+                                style={has ? { borderColor: `color-mix(in srgb, ${cfg.accentColor} 40%, transparent)` } : {}}
+                              >
+                                <div
+                                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold"
+                                  style={{ background: avatarColor(user.id).bg, color: avatarColor(user.id).color }}
+                                >
+                                  {initials(user.name, user.email)}
+                                </div>
+                                <span>{user.name || user.email}</span>
+                                {has && (
+                                  <Check className="h-3 w-3" style={{ color: cfg.accentColor }} />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </>
                 )}
               </div>
             </div>
@@ -580,4 +883,3 @@ export function AdminUsersPage() {
     </div>
   );
 }
-

@@ -1,12 +1,11 @@
 import { useCallback, useMemo } from "react";
 import { Link, NavLink, useSearchParams } from "react-router-dom";
-import { AlertCircle, ExternalLink, Link2, Search } from "lucide-react";
+import { AlertCircle, Link2, Search } from "lucide-react";
 import { getToursAdminToursList } from "../../../api/toursAdmin";
 import { useQuery } from "../../../hooks/useQuery";
 import { toursAdminToursListQueryKey } from "../../../lib/queryKeys";
 import type { ToursAdminTourRow } from "../../../types/toursAdmin";
 
-const LEGACY_BASE = "/tour-manager/admin";
 
 const SORT_OPTIONS = [
   { value: "ablaufdatum", label: "Ablaufdatum" },
@@ -102,7 +101,7 @@ export function ToursAdminListPage() {
         <div>
           <h1 className="text-2xl font-bold text-[var(--text-main)]">Touren</h1>
           <p className="text-sm text-[var(--text-subtle)] mt-1">
-            Gefilterte Liste – identische Logik wie die EJS-Admin-Seite.
+            Gefilterte Tour-Liste mit Status, Suche und Sortierung.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -112,13 +111,6 @@ export function ToursAdminListPage() {
           >
             Dashboard
           </Link>
-          <a
-            href={`${LEGACY_BASE}/tours?${listQuery}`}
-            className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm font-medium text-[var(--text-main)] hover:bg-[var(--surface-raised)]"
-          >
-            <ExternalLink className="h-4 w-4" />
-            Klassische Ansicht
-          </a>
         </div>
       </div>
 
@@ -308,12 +300,6 @@ export function ToursAdminListPage() {
                               MP-Space
                             </NavLink>
                           ) : null}
-                          <a
-                            href={`${LEGACY_BASE}/tours/${t.id}`}
-                            className="text-[var(--text-subtle)] font-medium hover:underline text-[10px] sm:text-xs"
-                          >
-                            EJS
-                          </a>
                         </div>
                       </td>
                     </tr>

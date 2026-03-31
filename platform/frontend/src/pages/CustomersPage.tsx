@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ArrowUpDown, Building2, CheckCircle2, ChevronDown, ChevronUp, Mail, PackageX, Phone, Plus, Search, ShoppingBag, User, UserPlus, Users, X } from "lucide-react";
+import { ArrowUpDown, Building2, CheckCircle2, ChevronDown, ChevronUp, Mail, Monitor, PackageX, Phone, Plus, Search, ShoppingBag, User, UserPlus, Users, X } from "lucide-react";
 import { createContact, createCustomer, createCustomerContact, deleteCustomer, getContacts, getCustomers, getCustomerImpersonateUrl, patchCustomerNasFolderBases, updateContact, updateCustomer, updateCustomerAdmin, updateCustomerBlocked, type Contact, type Customer } from "../api/customers";
 import { CustomerList, type CustomerSortKey } from "../components/customers/CustomerList";
 import { ContactModal } from "../components/customers/ContactModal";
@@ -9,6 +9,7 @@ import { PhoneLink } from "../components/ui/PhoneLink";
 import { CustomerViewModal } from "../components/customers/CustomerViewModal";
 import { CustomerMergeModal } from "../components/customers/CustomerMergeModal";
 import { CreateContactDialog } from "../components/customers/CreateContactDialog";
+import { CustomerPreviewDialog } from "../components/customers/CustomerPreviewDialog";
 import { CreateOrderWizard } from "../components/orders/CreateOrderWizard";
 import { useMutation } from "../hooks/useMutation";
 import { useQuery } from "../hooks/useQuery";
@@ -75,6 +76,7 @@ export function CustomersPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedContactRecord, setSelectedContactRecord] = useState<Customer | null>(null);
   const [viewCustomer, setViewCustomer] = useState<Customer | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [orderWizardCustomer, setOrderWizardCustomer] = useState<Customer | null>(null);
   const [contactCustomer, setContactCustomer] = useState<Customer | null>(null);
   const [createContactDialogOpen, setCreateContactDialogOpen] = useState(false);
@@ -537,17 +539,28 @@ export function CustomersPage() {
             {viewMode === "contacts" ? t(lang, "customers.descriptionContacts") : t(lang, "customers.description")}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setCreateContactDialogOpen(true)}
-          className="cust-btn-new shrink-0 self-start"
-        >
-          <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
-          <span className="hidden sm:inline">
-            {viewMode === "contacts" ? t(lang, "customers.button.newContact") : t(lang, "customers.button.newCustomer")}
-          </span>
-          <span className="sm:hidden">+</span>
-        </button>
+        <div className="flex items-center gap-2 shrink-0 self-start">
+          <button
+            type="button"
+            onClick={() => setPreviewOpen(true)}
+            className="btn-secondary inline-flex items-center gap-2 px-3 py-2.5 text-sm"
+            title="Kundenvorschau – Portal aus Kundensicht öffnen"
+          >
+            <Monitor className="h-4 w-4" />
+            <span className="hidden sm:inline">Vorschau</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setCreateContactDialogOpen(true)}
+            className="cust-btn-new"
+          >
+            <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
+            <span className="hidden sm:inline">
+              {viewMode === "contacts" ? t(lang, "customers.button.newContact") : t(lang, "customers.button.newCustomer")}
+            </span>
+            <span className="sm:hidden">+</span>
+          </button>
+        </div>
       </div>
 
       {viewMode === "customers" ? (
@@ -870,6 +883,13 @@ export function CustomersPage() {
           )}
         </div>
       )}
+
+      <CustomerPreviewDialog
+        open={previewOpen}
+        token={token}
+        customers={items}
+        onClose={() => setPreviewOpen(false)}
+      />
 
       {/* Modals */}
       <CreateContactDialog

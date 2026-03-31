@@ -94,18 +94,6 @@ function PriceLabel({ addon, lang }: { addon: CatalogAddon; lang: Lang }) {
   return <>{formatCHF(addon.price)}</>;
 }
 
-const CATEGORY_DESC_KEYS: Record<string, string> = {
-  camera:      "landing.catdesc.camera",
-  dronePhoto:  "landing.catdesc.dronePhoto",
-  tour:        "landing.catdesc.tour",
-  floorplans:  "landing.catdesc.floorplans",
-  groundVideo: "landing.catdesc.groundVideo",
-  droneVideo:  "landing.catdesc.droneVideo",
-  staging:     "landing.catdesc.staging",
-  express:     "landing.catdesc.express",
-  keyPickup:   "landing.catdesc.keyPickup",
-};
-
 function PriceListCategory({ category, addons, defaultOpen, lang }: { category: CatalogCategory; addons: CatalogAddon[]; defaultOpen?: boolean; lang: Lang }) {
   const [open, setOpen] = useState(defaultOpen ?? false);
   const items = addons
@@ -114,9 +102,8 @@ function PriceListCategory({ category, addons, defaultOpen, lang }: { category: 
 
   if (items.length === 0) return null;
 
-  const descKey = CATEGORY_DESC_KEYS[category.key];
-  const desc = descKey ? t(lang, descKey) : "";
-  const showDesc = desc && desc !== descKey;
+  const desc = (category.description ?? "").trim();
+  const showDesc = Boolean(desc);
 
   const sharedNotes = items.filter((a) => a.pricingNote).map((a) => a.pricingNote!);
   const allSameNote = sharedNotes.length > 0 && sharedNotes.every((n) => n === sharedNotes[0]);

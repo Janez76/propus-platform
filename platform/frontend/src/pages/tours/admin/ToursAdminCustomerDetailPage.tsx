@@ -12,7 +12,6 @@ import {
 import { useQuery } from "../../../hooks/useQuery";
 import { toursAdminCustomerDetailQueryKey } from "../../../lib/queryKeys";
 
-const LEGACY_BASE = "/tour-manager/admin/customers";
 
 export function ToursAdminCustomerDetailPage() {
   const { customerId } = useParams<{ customerId: string }>();
@@ -173,11 +172,6 @@ export function ToursAdminCustomerDetailPage() {
           <h1 className="text-2xl font-semibold text-[var(--text-main)]">
             {String(customer.company || customer.name || `Kunde #${okId}`)}
           </h1>
-          <p className="text-sm text-[var(--text-subtle)] mt-1">
-            <a href={`${LEGACY_BASE}/${okId}`} className="text-[var(--accent)] hover:underline">
-              Klassische Ansicht
-            </a>
-          </p>
         </div>
         <button
           type="button"

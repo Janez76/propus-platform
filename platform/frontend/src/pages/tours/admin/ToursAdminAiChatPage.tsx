@@ -4,7 +4,6 @@ import { getToursAdminAiChatConfig, postToursAdminAiChat } from "../../../api/to
 import { useQuery } from "../../../hooks/useQuery";
 import { toursAdminAiChatConfigQueryKey } from "../../../lib/queryKeys";
 
-const LEGACY = "/tour-manager/admin/ai-chat";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -59,11 +58,7 @@ export function ToursAdminAiChatPage() {
       <div>
         <h1 className="text-2xl font-semibold text-[var(--text-main)]">KI-Chat</h1>
         <p className="text-sm text-[var(--text-subtle)] mt-1">
-          Vereinfachte Chat-Antworten (ohne Bestätigungs-Aktionen wie im{" "}
-          <a href={LEGACY} className="text-[var(--accent)] hover:underline">
-            klassischen Admin
-          </a>
-          ).
+          KI-gestützte Chat-Antworten für den Tour-Manager.
         </p>
       </div>
 

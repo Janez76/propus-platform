@@ -54,6 +54,7 @@ const {
   buildReassignOfficeEmail,
   buildReassignPhotographerEmail,
   buildReassignCustomerEmail,
+  buildWelcomeEmail,
   buildCredentialsEmail,
   buildResetPasswordEmail
 } = require("./templates/emails");
@@ -10413,6 +10414,79 @@ app.patch("/api/admin/internal-users/:id/suspend", requireAdmin, async (req, res
     await logtoClient.mgmtApi('PATCH', `/users/${userId}/is-suspended`, { isSuspended: Boolean(isSuspended) });
     res.json({ ok: true });
   } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/admin/internal-users/:id/reset-password – Passwort in Logto setzen
+app.post("/api/admin/internal-users/:id/reset-password", requireAdmin, async (req, res) => {
+  if (!logtoClient.isConfigured()) return res.status(503).json({ error: 'Logto nicht konfiguriert' });
+  const userId = req.params.id;
+  const { password, sendMail = false } = req.body || {};
+  if (!password || String(password).length < 8) {
+    return res.status(400).json({ error: 'Passwort muss mindestens 8 Zeichen haben' });
+  }
+  try {
+    await logtoClient.updateUserPassword(userId, password);
+    if (sendMail) {
+      const user = await logtoClient.getUserById(userId);
+      const email = user?.primaryEmail;
+      const name = user?.name || email || 'Mitarbeiter';
+      if (email) {
+        const adminUrl = String(process.env.ADMIN_PANEL_URL || process.env.ADMIN_FRONTEND_URL || 'https://admin-booking.propus.ch').trim();
+        const mail = buildCredentialsEmail({ name, key: user?.username || '', email, tempPw: password, adminUrl, resetUrl: null }, 'de');
+        await sendMailWithFallback({ to: email, subject: mail.subject, html: mail.html, text: mail.text, context: 'internal-reset-password' }).catch(e => console.warn('[internal-users] reset-password mail error:', e.message));
+      }
+    }
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[internal-users] reset-password error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/admin/internal-users/:id/send-welcome – Begrüssungsmail senden
+app.post("/api/admin/internal-users/:id/send-welcome", requireAdmin, async (req, res) => {
+  if (!logtoClient.isConfigured()) return res.status(503).json({ error: 'Logto nicht konfiguriert' });
+  const userId = req.params.id;
+  try {
+    const user = await logtoClient.getUserById(userId);
+    const email = user?.primaryEmail;
+    if (!email) return res.status(400).json({ error: 'Benutzer hat keine E-Mail-Adresse' });
+    const name = user?.name || email;
+    const adminUrl = String(process.env.ADMIN_PANEL_URL || process.env.ADMIN_FRONTEND_URL || 'https://admin-booking.propus.ch').trim();
+    const mail = buildWelcomeEmail({ name, adminUrl }, 'de');
+    const result = await sendMailWithFallback({ to: email, subject: mail.subject, html: mail.html, text: mail.text, context: 'internal-welcome' });
+    res.json({ ok: true, sent: result?.sent ?? true });
+  } catch (e) {
+    console.error('[internal-users] send-welcome error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/admin/internal-users/:id/send-credentials – Zugangsdaten-Mail senden
+app.post("/api/admin/internal-users/:id/send-credentials", requireAdmin, async (req, res) => {
+  if (!logtoClient.isConfigured()) return res.status(503).json({ error: 'Logto nicht konfiguriert' });
+  const userId = req.params.id;
+  const { password } = req.body || {};
+  try {
+    const user = await logtoClient.getUserById(userId);
+    const email = user?.primaryEmail;
+    if (!email) return res.status(400).json({ error: 'Benutzer hat keine E-Mail-Adresse' });
+    const name = user?.name || email;
+    const adminUrl = String(process.env.ADMIN_PANEL_URL || process.env.ADMIN_FRONTEND_URL || 'https://admin-booking.propus.ch').trim();
+    const mail = buildCredentialsEmail({
+      name,
+      key: user?.username || '',
+      email,
+      tempPw: password || null,
+      adminUrl,
+      resetUrl: null,
+    }, 'de');
+    const result = await sendMailWithFallback({ to: email, subject: mail.subject, html: mail.html, text: mail.text, context: 'internal-credentials' });
+    res.json({ ok: true, sent: result?.sent ?? true });
+  } catch (e) {
+    console.error('[internal-users] send-credentials error:', e.message);
     res.status(500).json({ error: e.message });
   }
 });

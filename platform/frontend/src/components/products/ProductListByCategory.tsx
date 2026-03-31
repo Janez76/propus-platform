@@ -297,6 +297,10 @@ type SortableCategorySectionProps = {
   nameDraft: string;
   onNameChange: (key: string, val: string) => void;
   onNameSave: (cat: ServiceCategory, val: string) => Promise<void>;
+  descDraft: string;
+  onDescChange: (key: string, val: string) => void;
+  onDescSave: (cat: ServiceCategory, val: string) => Promise<void>;
+  onFrontpanelToggle: (cat: ServiceCategory) => Promise<void>;
   categoryBusy: boolean;
   onProductReorder: (groupKey: string, oldIndex: number, newIndex: number) => void;
 };
@@ -317,6 +321,10 @@ function SortableCategorySection({
   nameDraft,
   onNameChange,
   onNameSave,
+  descDraft,
+  onDescChange,
+  onDescSave,
+  onFrontpanelToggle,
   categoryBusy,
   onProductReorder,
 }: SortableCategorySectionProps) {
@@ -390,6 +398,37 @@ function SortableCategorySection({
                 await onNameSave(category, e.target.value);
               }}
             />
+            <input
+              className="ui-input h-8 min-w-[160px] flex-[2] text-xs text-[var(--text-subtle)]"
+              value={descDraft}
+              disabled={categoryBusy}
+              placeholder={t(lang, "catalog.categoryManager.descriptionPlaceholder")}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onChange={(e) => onDescChange(category.key, e.target.value)}
+              onBlur={async (e) => {
+                await onDescSave(category, e.target.value);
+              }}
+            />
+            <label
+              className="inline-flex shrink-0 cursor-pointer items-center gap-1 text-xs text-[var(--text-subtle)]"
+              onClick={(e) => e.stopPropagation()}
+              title={t(lang, "catalog.categoryManager.showInFrontpanel")}
+            >
+              <input
+                type="checkbox"
+                className="rounded"
+                checked={category.show_in_frontpanel ?? false}
+                disabled={categoryBusy}
+                onChange={async (e) => {
+                  e.stopPropagation();
+                  await onFrontpanelToggle(category);
+                }}
+              />
+              <span className="hidden sm:inline">{t(lang, "catalog.categoryManager.frontpanelShort")}</span>
+            </label>
             <span className="text-xs text-[var(--text-subtle)]">({category.key})</span>
             <button
               type="button"
@@ -537,9 +576,11 @@ export function ProductListByCategory({
   const [categoryBusy, setCategoryBusy] = useState(false);
   const [categoryError, setCategoryError] = useState("");
   const [nameDrafts, setNameDrafts] = useState<Record<string, string>>({});
+  const [descDrafts, setDescDrafts] = useState<Record<string, string>>({});
 
   useEffect(() => {
     setNameDrafts(Object.fromEntries(categories.map((c) => [c.key, c.name])));
+    setDescDrafts(Object.fromEntries(categories.map((c) => [c.key, c.description ?? ""])));
   }, [categories]);
 
   const btnSmallClass =
@@ -765,6 +806,33 @@ export function ProductListByCategory({
     [updateCategory],
   );
 
+  const handleDescSave = useCallback(
+    async (category: ServiceCategory, rawDesc: string) => {
+      const next = rawDesc.trim();
+      if (next === (category.description ?? "")) {
+        setDescDrafts((d) => ({ ...d, [category.key]: category.description ?? "" }));
+        return;
+      }
+      try {
+        await updateCategory(category.key, { description: next });
+      } catch (_err) {
+        setDescDrafts((d) => ({ ...d, [category.key]: category.description ?? "" }));
+      }
+    },
+    [updateCategory],
+  );
+
+  const handleFrontpanelToggle = useCallback(
+    async (category: ServiceCategory) => {
+      try {
+        await updateCategory(category.key, { show_in_frontpanel: !category.show_in_frontpanel });
+      } catch (_err) {
+        // revert handled inside updateCategory via error state
+      }
+    },
+    [updateCategory],
+  );
+
   // ---- Render ----
 
   return (
@@ -826,6 +894,10 @@ export function ProductListByCategory({
                   nameDraft={nameDrafts[group.key] ?? category.name}
                   onNameChange={(key, value) => setNameDrafts((d) => ({ ...d, [key]: value }))}
                   onNameSave={handleNameSave}
+                  descDraft={descDrafts[group.key] ?? (category.description ?? "")}
+                  onDescChange={(key, value) => setDescDrafts((d) => ({ ...d, [key]: value }))}
+                  onDescSave={handleDescSave}
+                  onFrontpanelToggle={handleFrontpanelToggle}
                   categoryBusy={categoryBusy}
                   onProductReorder={handleProductReorder}
                 />

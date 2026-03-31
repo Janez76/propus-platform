@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { getToursAdminLinkInvoice, postLinkInvoiceToTour } from "../../../api/toursAdmin";
 import { useQuery } from "../../../hooks/useQuery";
 import { toursAdminLinkInvoiceQueryKey } from "../../../lib/queryKeys";
 import type { ToursAdminTourRow } from "../../../types/toursAdmin";
 
-const LEGACY_BASE = "/tour-manager/admin";
 
 function tourTitle(t: ToursAdminTourRow) {
   return (
@@ -105,13 +104,6 @@ export function ToursAdminLinkInvoicePage() {
             )}
           </p>
         </div>
-        <a
-          href={`${LEGACY_BASE}/tours/${okId}/link-invoice`}
-          className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm font-medium text-[var(--text-main)] hover:bg-[var(--surface-raised)]"
-        >
-          <ExternalLink className="h-4 w-4" />
-          EJS
-        </a>
       </div>
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}

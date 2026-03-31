@@ -15,6 +15,7 @@ export type BookingConfig = {
 export type CatalogCategory = {
   key: string;
   name: string;
+  description?: string;
   active: boolean;
   sort_order: number;
   kind_scope?: "addon" | "both" | "package";

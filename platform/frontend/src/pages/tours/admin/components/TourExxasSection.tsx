@@ -62,7 +62,7 @@ export function TourExxasSection({ tourId, tour, declineWorkflow, onSuccess }: P
         </div>
       </dl>
       <div className="flex flex-col gap-2 pt-2 border-t border-[var(--border-soft)]">
-        <p className="text-xs text-[var(--text-subtle)]">API-Aktionen (wie EJS „Ablehnung“-Workflow)</p>
+        <p className="text-xs text-[var(--text-subtle)]">API-Aktionen (Ablehnung-Workflow)</p>
         <div className="flex flex-wrap gap-2">
           {declineWorkflow.hasContract ? (
             <button

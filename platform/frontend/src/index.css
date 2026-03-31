@@ -1557,3 +1557,90 @@ html:not(.dark) .cust-btn-new {
 .dark .cust-alert--error {
   color: #e74c3c;
 }
+
+/* ─── Interne Verwaltung: Rollenkarten ──────────────────────────────────────── */
+
+.role-card {
+  position: relative;
+  display: flex;
+  gap: 0;
+  border-radius: 14px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface);
+  overflow: hidden;
+  transition: box-shadow 0.2s ease, transform 0.15s ease;
+}
+.role-card:hover {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.07);
+  transform: translateY(-1px);
+}
+.dark .role-card:hover {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.role-card__accent {
+  width: 4px;
+  flex-shrink: 0;
+  border-radius: 0;
+  opacity: 0.8;
+}
+
+.role-card__body {
+  flex: 1;
+  padding: 20px 20px 20px 18px;
+  min-width: 0;
+}
+
+.role-card--super_admin {
+  border-color: color-mix(in srgb, var(--propus-gold) 25%, transparent);
+  background: color-mix(in srgb, var(--propus-gold) 4%, var(--surface));
+}
+.role-card--admin {
+  border-color: color-mix(in srgb, #3498db 20%, transparent);
+  background: color-mix(in srgb, #3498db 4%, var(--surface));
+}
+.role-card--photographer {
+  border-color: var(--border-soft);
+  background: var(--surface-raised);
+}
+
+/* ─── Permission Groups ──────────────────────────────────────────────────────── */
+
+.perm-group {
+  border-radius: 8px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface);
+  padding: 8px 10px;
+}
+.dark .perm-group {
+  background: color-mix(in srgb, var(--surface-raised) 80%, transparent);
+}
+
+.perm-group__label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-subtle);
+  margin-bottom: 6px;
+}
+
+.perm-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border-radius: 5px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-raised);
+  padding: 1px 6px;
+  font-size: 10px;
+  color: var(--text-subtle);
+  font-family: ui-monospace, monospace;
+  line-height: 1.6;
+}
+.dark .perm-tag {
+  background: color-mix(in srgb, var(--surface) 60%, transparent);
+}

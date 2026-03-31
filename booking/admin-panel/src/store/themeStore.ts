@@ -73,6 +73,13 @@ function setupSystemThemeListener() {
 const initialTheme = readStoredTheme();
 const initialResolvedTheme = resolveTheme(initialTheme);
 
+if (isBrowser && !window.localStorage.getItem(STORAGE_KEY)) {
+  persistTheme(initialTheme);
+}
+
+applyThemeToDom(initialResolvedTheme);
+if (initialTheme === "system") setupSystemThemeListener();
+
 export const useThemeStore = create<ThemeState>((set) => ({
   theme: initialTheme,
   resolvedTheme: initialResolvedTheme,

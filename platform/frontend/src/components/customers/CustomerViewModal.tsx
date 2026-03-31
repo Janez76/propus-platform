@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { ShoppingBag } from "lucide-react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { Monitor, ShoppingBag } from "lucide-react";
 import { getCustomerImpersonateUrl, getCustomerOrders, type Customer, type CustomerOrder } from "../../api/customers";
 import { t } from "../../i18n";
 import { PhoneLink } from "../ui/PhoneLink";
@@ -7,7 +7,7 @@ import { toDisplayString } from "../../lib/utils";
 import { useAuthStore } from "../../store/authStore";
 import { CustomerContactsSection } from "./CustomerContactsSection";
 
-function OpenPortalButton({ token, customerId, disabled, label }: { token: string; customerId: number; disabled: boolean; label: string }) {
+function OpenPortalButton({ token, customerId, disabled, label }: { token: string; customerId: number; disabled: boolean; label: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const handleClick = useCallback(async () => {
@@ -108,6 +108,12 @@ export function CustomerViewModal({ open, token, customer, onClose, onCreateOrde
                 Neue Bestellung
               </button>
             )}
+            <OpenPortalButton
+              token={token}
+              customerId={customer.id}
+              disabled={!!customer.blocked || isSyntheticCompanyEmail}
+              label={<><Monitor className="h-3.5 w-3.5" /> Vorschau als Kunde</>}
+            />
             <button
               type="button"
               onClick={onClose}
