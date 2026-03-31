@@ -15,6 +15,25 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.336",
+    date: "2026-03-31",
+    title: "Portal-Team & DnD-Fixes",
+    changes: [
+      {
+        type: "improvement",
+        text: "Portal: Lokale Firmenkontakte sehen jetzt alle Touren derselben customer_id.",
+      },
+      {
+        type: "improvement",
+        text: "Portal: Standard-Zuständiger wird automatisch aus Kandidatenliste gesetzt.",
+      },
+      {
+        type: "fix",
+        text: "Products: DnD Snap-Back und Dark-Mode-Korrekturen (v2.3.335).",
+      },
+    ],
+  },
+  {
     version: "2.3.333",
     date: "2026-03-31",
     title: "Deploy",

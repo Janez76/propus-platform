@@ -286,7 +286,8 @@ async function removePortalStaffRole(emailRaw, roleRaw) {
 
 /**
  * Alle Touren-Inhaber-E-Mails, für die der Nutzer das Portal sehen darf:
- * eigene Kunden-E-Mail, Team-Mitgliedschaft, oder Exxas-Kontakt der Organisation (kunde_ref).
+ * eigene Kunden-E-Mail, lokaler Firmenkontakt, Team-Mitgliedschaft,
+ * oder Exxas-Kontakt der Organisation (kunde_ref).
  */
 async function listTourOwnerEmailsForPortalUser(userEmail) {
   await ensurePortalTeamSchema();
@@ -307,6 +308,23 @@ async function listTourOwnerEmailsForPortalUser(userEmail) {
     [norm]
   );
   if (direct.rows[0]) owners.add(norm);
+
+  // Lokaler Firmenkontakt: sieht alle Touren derselben customer_id,
+  // auch wenn diese Touren unter anderen owner_email-Adressen laufen.
+  const localContactCustomers = await pool.query(
+    `SELECT DISTINCT t.customer_email AS e
+     FROM core.customer_contacts cc
+     JOIN tour_manager.tours t ON t.customer_id = cc.customer_id
+     WHERE LOWER(TRIM(cc.email)) = $1
+       AND t.customer_id IS NOT NULL
+       AND t.customer_email IS NOT NULL
+       AND TRIM(t.customer_email) <> ''`,
+    [norm]
+  );
+  localContactCustomers.rows.forEach((r) => {
+    const e = normalizeEmail(r.e);
+    if (e) owners.add(e);
+  });
 
   // Über customer_id: alle owner_emails der zugehörigen Firma
   const memberOfCustomers = await pool.query(
@@ -703,9 +721,14 @@ async function getPortalTourAssigneeBundle(sessionEmail, tours) {
   );
 
   const candidatesByWorkspace = {};
+  const defaultAssigneeByWorkspace = {};
   for (const w of workspaces) {
+    const candidates = await listAssignableCandidatesForWorkspace(w);
+    if (candidates.length > 0) {
+      defaultAssigneeByWorkspace[w] = candidates[0];
+    }
     if (canByWs.get(w)) {
-      candidatesByWorkspace[w] = await listAssignableCandidatesForWorkspace(w);
+      candidatesByWorkspace[w] = candidates;
     }
   }
 
@@ -717,7 +740,12 @@ async function getPortalTourAssigneeBundle(sessionEmail, tours) {
     const a = assigneeMap.get(t.id);
     assigneeByTourId[t.id] = a
       ? { email: a.assigneeEmail, label: labelMap.get(a.assigneeEmail) || a.assigneeEmail }
-      : null;
+      : (defaultAssigneeByWorkspace[w]
+          ? {
+              email: defaultAssigneeByWorkspace[w].email,
+              label: defaultAssigneeByWorkspace[w].label,
+            }
+          : null);
   }
 
   return { assigneeByTourId, canManageByTourId, candidatesByWorkspace };
