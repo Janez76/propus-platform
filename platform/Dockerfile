@@ -83,5 +83,4 @@ ENV PLATFORM_INTERNAL_URL=http://localhost:3100
 
 EXPOSE 3001 3100
 
-# Start both processes
-CMD ["sh", "-c", "node /app/nextjs/server.js & node /app/platform/server.js"]
+CMD ["./start.sh"]
