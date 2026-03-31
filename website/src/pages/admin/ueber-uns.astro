@@ -1,0 +1,6 @@
+---
+export const prerender = false;
+
+/* SEO nur unter „SEO / Einstellungen“; alte URL leitet weiter. */
+return Astro.redirect('/admin/seo?focus=ueber-uns', 302);
+---

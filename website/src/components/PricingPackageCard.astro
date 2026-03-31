@@ -1,0 +1,70 @@
+---
+import type { PricingPackage } from '../content/pricing-packages';
+import { bookingAppHref } from '../content/site';
+
+interface Props {
+	pkg: PricingPackage;
+	/** Anzeige 1–3 für die Highlight-Karte */
+	index: number;
+}
+
+const { pkg, index } = Astro.props;
+const indexLabel = String(index).padStart(2, '0');
+---
+
+<article class:list={['preise-highlight', pkg.featured && 'preise-highlight--featured']}>
+	<div class="preise-highlight__accent" aria-hidden="true"></div>
+	{pkg.featured && <span class="preise-highlight__badge">Beliebt</span>}
+
+	<div class="preise-highlight__meta">
+		<span class="preise-highlight__index" aria-hidden="true">{indexLabel}</span>
+		<span class="preise-highlight__eyebrow">Paket</span>
+	</div>
+
+	<header class="preise-highlight__header">
+		<h2 class="preise-highlight__name">{pkg.name}</h2>
+		<p class="preise-highlight__desc">{pkg.description}</p>
+		<div class="preise-highlight__price-block">
+			<span class="preise-highlight__price-label">Investition</span>
+			<p class="preise-highlight__price" aria-label="Basispreis">{pkg.basePrice}</p>
+		</div>
+	</header>
+
+	<div class="preise-highlight__body">
+		{
+			pkg.categories.map((cat) => (
+				<details class="preise-highlight__cat">
+					<summary class="preise-highlight__summary">
+						<span class="preise-highlight__cat-label">{cat.name}</span>
+						<span class="preise-highlight__toggle" aria-hidden="true" />
+					</summary>
+					<div class="preise-highlight__panel">
+						<div class="preise-highlight__panel-inner">
+							<ul class="preise-highlight__list">
+								{cat.items.map((item) => (
+									<li class="preise-highlight__row">
+										<div class="preise-highlight__row-main">
+											<span class="preise-highlight__item-title">{item.title}</span>
+											<span class="preise-highlight__item-desc">{item.description}</span>
+										</div>
+									</li>
+								))}
+							</ul>
+						</div>
+					</div>
+				</details>
+			))
+		}
+	</div>
+
+	<div class="preise-highlight__foot">
+		<a
+			class:list={['preise-highlight__cta', pkg.featured ? 'preise-highlight__cta--primary' : '']}
+			href={bookingAppHref}
+			target="_blank"
+			rel="noopener noreferrer"
+		>
+			Jetzt buchen
+		</a>
+	</div>
+</article>

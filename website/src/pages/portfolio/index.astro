@@ -1,0 +1,68 @@
+---
+export const prerender = false;
+
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import SectionHeading from '../../components/SectionHeading.astro';
+import PortfolioGrid from '../../components/PortfolioGrid.astro';
+import { site } from '../../content/site';
+import { loadSitePortfolio } from '../../lib/cms/resolve';
+import { loadSeoPage } from '../../lib/seo';
+
+const portfolioItems = await loadSitePortfolio();
+const seoPage = await loadSeoPage('portfolio');
+
+const title = seoPage.title;
+const description = seoPage.description;
+---
+
+<BaseLayout
+	{title}
+	{description}
+	ogImage={seoPage.ogImage}
+	ogTitle={seoPage.ogTitle}
+	ogDescription={seoPage.ogDescription}
+	keywords={seoPage.keywords}
+	noIndex={!seoPage.index}
+>
+	<section class="portfolio-page-intro u-container">
+		<div class="portfolio-page-intro__inner u-animate" style="--delay: 40ms">
+			<SectionHeading
+				eyebrow="Unsere Arbeit"
+				title="Referenzen, die Vertrauen schaffen."
+				subtitle="Ein Überblick über Stills, Perspektiven und Details – von der Bodenaufnahme bis zur Retusche. Ruhig inszeniert, technisch präzise, für den Moment, in dem sich Interessenten ein Bild von Ihrem Objekt machen."
+				align="center"
+				titleAs="h1"
+				titleSize="display"
+			/>
+		</div>
+	</section>
+	<section class="u-section portfolio-page-body">
+		<div class="u-container portfolio-page-body__inner">
+			<PortfolioGrid items={portfolioItems} showFilters={true} />
+		</div>
+	</section>
+</BaseLayout>
+
+<style>
+	.portfolio-page-intro {
+		/* Mehr Luft unter dem Sticky-Header bis zur Eyebrow „Unsere Arbeit“ */
+		padding-top: calc(var(--space-xl) + var(--space-md));
+		padding-bottom: clamp(1.5rem, 3vw, 2.25rem);
+	}
+
+	.portfolio-page-intro :global(.section-heading) {
+		margin-bottom: 0;
+	}
+
+	.portfolio-page-intro :global(.section-heading__inner) {
+		max-width: 44rem;
+	}
+
+	.portfolio-page-intro :global(.section-heading--center .section-heading__inner) {
+		max-width: 46rem;
+	}
+
+	.portfolio-page-body {
+		padding-top: 0;
+	}
+</style>

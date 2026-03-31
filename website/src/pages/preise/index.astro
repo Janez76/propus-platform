@@ -1,0 +1,341 @@
+---
+export const prerender = false;
+
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import SectionHeading from '../../components/SectionHeading.astro';
+import PricingTierCard from '../../components/PricingTierCard.astro';
+import PricingCatalogAccordions from '../../components/PricingCatalogAccordions.astro';
+import { loadBookingCatalog } from '../../lib/booking/catalog';
+import { loadSeoPage } from '../../lib/seo';
+
+const seoPage = await loadSeoPage('preise');
+const title = seoPage.title;
+const description = seoPage.description;
+
+const catalog = await loadBookingCatalog();
+---
+
+<BaseLayout
+	{title}
+	{description}
+	ogImage={seoPage.ogImage}
+	ogTitle={seoPage.ogTitle}
+	ogDescription={seoPage.ogDescription}
+	keywords={seoPage.keywords}
+	noIndex={!seoPage.index}
+>
+	<section class="preise-page-intro">
+		<div class="preise-page-intro__band">
+			<div class="u-container preise-page-intro__container">
+				<div class="preise-page-intro__inner u-animate" style="--delay: 40ms">
+					<SectionHeading
+						eyebrow="Preise & Leistungen"
+						title="So erhalten Sie den Überblick"
+						subtitle="Wählen Sie ein Paket oder stellen Sie sich Ihr Setup aus Einzelleistungen zusammen – Preise und Umfang sind klar benannt. Passt es? Dann direkt online buchen."
+						align="center"
+						titleAs="h1"
+						titleSize="display"
+					/>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<section class="u-section preise-page-body">
+		<div class="u-container">
+			{
+				catalog.ok && catalog.data.packages.length > 0 && (
+					<div class="preise-packages u-animate" style="--delay: 90ms">
+						<div class="preise-packages__intro">
+							<h2 class="preise-packages__heading">Unsere Pakete</h2>
+							<p class="preise-packages__lead">
+								Schnell entscheiden, zügig live gehen – unsere beliebtesten Kombinationen, abgestimmt auf
+								typische Immobilien-Setups.
+							</p>
+						</div>
+						<div class="preise-tier-grid">
+							{catalog.data.packages.map((pkg, index) => (
+								<div class="preise-tier-grid__cell u-animate" style={`--delay: ${120 + index * 70}ms`}>
+									<PricingTierCard {pkg} />
+								</div>
+							))}
+						</div>
+					</div>
+				)
+			}
+
+			{
+				catalog.ok && catalog.data.packages.length === 0 && (
+					<div class="preise-state preise-state--empty u-animate" style="--delay: 80ms" role="status">
+						<p class="preise-state__title">Keine Pakete verfügbar</p>
+						<p class="preise-state__text">
+							Der Katalog enthält aktuell keine Pakete. Bitte versuchen Sie es später erneut oder kontaktieren Sie uns direkt.
+						</p>
+					</div>
+				)
+			}
+
+			{
+				!catalog.ok && (
+					<div class="preise-state preise-state--error u-animate" style="--delay: 80ms" role="alert">
+						<p class="preise-state__title">Preise konnten nicht geladen werden</p>
+						<p class="preise-state__text">{catalog.error}</p>
+						<p class="preise-state__hint">
+							<a class="preise-state__retry" href="/preise/">Erneut versuchen</a>
+							<span class="preise-state__dot" aria-hidden="true">·</span>
+							<a class="preise-state__retry" href="/kontakt/">Kontakt</a>
+						</p>
+					</div>
+				)
+			}
+
+			{catalog.ok && <PricingCatalogAccordions sections={catalog.data.sections} />}
+		</div>
+	</section>
+
+	<section class="preise-page-cta" aria-labelledby="preise-cta-title">
+		<div class="u-container preise-page-cta__shell">
+			<div class="preise-page-cta__inner u-animate" style="--delay: 80ms">
+				<p class="preise-page-cta__eyebrow">Individuelle Anfrage</p>
+				<h2 id="preise-cta-title" class="preise-page-cta__title">Brauchen Sie etwas Spezielles?</h2>
+				<span class="preise-page-cta__rule" aria-hidden="true"></span>
+				<p class="preise-page-cta__text">
+					Andere Umfänge, besondere Locations oder ein massgeschneidertes Paket – wir beraten Sie gern persönlich.
+					Fragen Sie unverbindlich an, wir melden uns zeitnah.
+				</p>
+				<div class="preise-page-cta__action">
+					<a class="btn btn--inverse btn--xl" href="/kontakt/">Zum Kontaktformular</a>
+				</div>
+			</div>
+		</div>
+	</section>
+</BaseLayout>
+
+<style>
+	.preise-page-intro {
+		padding-top: calc(var(--space-xl) + var(--space-md));
+	}
+
+	.preise-page-intro__band {
+		padding-bottom: clamp(1rem, 2.5vw, 1.65rem);
+		background: var(--color-bg);
+	}
+
+	.preise-page-intro__container {
+		max-width: var(--content-max);
+		margin-inline: auto;
+	}
+
+	.preise-page-intro__inner :global(.section-heading) {
+		margin-bottom: 0;
+	}
+
+	.preise-page-intro__inner :global(.section-heading__inner) {
+		max-width: 42rem;
+	}
+
+	.preise-page-intro__inner :global(.section-heading--center .section-heading__inner) {
+		max-width: 40rem;
+	}
+
+	.preise-page-intro__inner :global(.u-eyebrow) {
+		margin-bottom: 0.85rem;
+		opacity: 0.92;
+	}
+
+	.preise-page-intro__inner :global(h1.section-heading__title--display) {
+		font-weight: 650;
+		letter-spacing: -0.038em;
+		line-height: 1.05;
+		margin-bottom: 0.75rem;
+	}
+
+	.preise-page-intro__inner :global(.section-heading__sub) {
+		font-size: 1.0625rem;
+		line-height: 1.68;
+		color: var(--color-text-muted);
+		max-width: 36rem;
+	}
+
+	.preise-page-intro__inner :global(.section-heading) {
+		margin-bottom: 0;
+	}
+
+	.preise-page-body {
+		/* Wie portfolio-page-body: oberen Abstand nur über Intro padding-bottom + u-section */
+		padding-top: 0;
+		background: var(--color-bg);
+	}
+
+	.preise-packages {
+		max-width: 72rem;
+		margin-inline: auto;
+	}
+
+	.preise-packages__intro {
+		margin-bottom: clamp(1.25rem, 3vw, 1.65rem);
+		text-align: center;
+		max-width: 36rem;
+		margin-inline: auto;
+	}
+
+	.preise-packages__heading {
+		margin: 0 0 0.55rem;
+		font-size: clamp(1.2rem, 2.5vw, 1.45rem);
+		font-weight: 650;
+		letter-spacing: -0.03em;
+		line-height: 1.2;
+		color: var(--color-text);
+	}
+
+	.preise-packages__lead {
+		margin: 0;
+		font-size: 0.9375rem;
+		line-height: 1.68;
+		color: var(--color-text-muted);
+	}
+
+	.preise-tier-grid {
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: clamp(1.25rem, 3vw, 1.75rem);
+		max-width: 72rem;
+		margin-inline: auto;
+		align-items: stretch;
+	}
+
+	.preise-tier-grid__cell {
+		display: flex;
+		min-width: 0;
+	}
+
+	.preise-tier-grid__cell > :global(.pricing-tier-shell) {
+		flex: 1;
+		width: 100%;
+	}
+
+	@media (min-width: 960px) {
+		.preise-tier-grid {
+			grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+			gap: clamp(1rem, 2vw, 1.5rem);
+		}
+	}
+
+	.preise-state {
+		max-width: 28rem;
+		margin-inline: auto;
+		text-align: center;
+		padding: clamp(1.75rem, 4vw, 2.25rem) clamp(1.25rem, 3vw, 1.75rem);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		background: linear-gradient(180deg, rgb(255 255 255), rgb(252 251 250));
+		box-shadow: var(--shadow-border);
+	}
+
+	.preise-state--error {
+		border-color: rgb(180 100 100 / 0.25);
+	}
+
+	.preise-state__title {
+		margin: 0 0 0.5rem;
+		font-size: 1rem;
+		font-weight: 650;
+		color: var(--color-text);
+	}
+
+	.preise-state__text {
+		margin: 0 0 1rem;
+		font-size: 0.875rem;
+		line-height: 1.6;
+		color: var(--color-text-muted);
+	}
+
+	.preise-state__hint {
+		margin: 0;
+		font-size: 0.8125rem;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: center;
+		gap: 0.35rem 0.5rem;
+	}
+
+	.preise-state__retry {
+		color: var(--color-text);
+		font-weight: 600;
+		text-underline-offset: 0.15em;
+	}
+
+	.preise-state__retry:hover {
+		color: var(--color-gold-muted);
+	}
+
+	.preise-state__dot {
+		color: var(--color-text-muted);
+		opacity: 0.6;
+	}
+
+	.preise-page-cta {
+		padding-block: calc(var(--space-2xl) + var(--space-lg));
+		/* Festes dunkles Band: im Dark Mode wäre `var(--color-text)` hell → Kontrast mit weisser Typo bricht */
+		background: linear-gradient(165deg, #1c1916 0%, #12100e 48%, #0c0a09 100%);
+		color: #fff;
+		text-align: center;
+		border-top: 1px solid rgb(255 255 255 / 0.08);
+	}
+
+	.preise-page-cta__shell {
+		max-width: var(--content-max);
+		margin-inline: auto;
+	}
+
+	.preise-page-cta__inner {
+		max-width: 38rem;
+		margin-inline: auto;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--space-md);
+	}
+
+	.preise-page-cta__eyebrow {
+		margin: 0;
+		font-size: 0.6875rem;
+		font-weight: 600;
+		letter-spacing: 0.2em;
+		text-transform: uppercase;
+		color: var(--color-gold-line);
+	}
+
+	.preise-page-cta__title {
+		margin: 0;
+		color: #fff;
+		font-size: clamp(1.65rem, 4.2vw, 2.5rem);
+		font-weight: 600;
+		letter-spacing: -0.035em;
+		line-height: 1.1;
+		text-wrap: balance;
+	}
+
+	.preise-page-cta__rule {
+		display: block;
+		width: 4.375rem;
+		height: 0;
+		border: 0;
+		border-top: 1px solid var(--color-gold-line);
+		margin: 0;
+		opacity: 0.95;
+	}
+
+	.preise-page-cta__text {
+		margin: 0;
+		max-width: 32rem;
+		font-size: 1.0625rem;
+		line-height: 1.6;
+		color: rgb(255 255 255 / 0.72);
+	}
+
+	.preise-page-cta__action {
+		margin-top: var(--space-sm);
+	}
+</style>

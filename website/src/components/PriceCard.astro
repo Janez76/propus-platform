@@ -1,0 +1,42 @@
+---
+interface Props {
+	title: string;
+	price: string;
+	hint?: string;
+	features?: string[];
+	featured?: boolean;
+	apiKey?: string;
+}
+
+const { title, price, hint = '', features = [], featured = false, apiKey } = Astro.props;
+---
+
+<article
+	class:list={['price-card', { 'price-card--featured': featured }]}
+	data-api-key={apiKey ?? null}
+>
+	<div class="price-card__head">
+		<h3>{title}</h3>
+		<p class="price-card__price">{price}</p>
+		{hint && <p class="price-card__hint">{hint}</p>}
+	</div>
+	{
+		features.length > 0 && (
+			<ul class="price-card__list">
+				{features.map((f) => (
+					<li>{f}</li>
+				))}
+			</ul>
+		)
+	}
+	<a class:list={['btn', featured ? 'btn--primary' : 'btn--outline']} href="/kontakt/">
+		Anfragen
+	</a>
+</article>
+
+<!-- Mindestens ein &lt;style&gt;: vermeidet „No Astro CSS at index 0“ bei Vite-HMR nach Entfernen der alten Styles. Layout: global.css -->
+<style>
+	.price-card {
+		box-sizing: border-box;
+	}
+</style>

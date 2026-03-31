@@ -1,0 +1,21 @@
+---
+export const prerender = false;
+
+import AdminLayout from '../../layouts/AdminLayout.astro';
+---
+
+<AdminLayout
+	title="Dienstleistungen"
+	current="dienstleistungen"
+	eyebrow="Angebot"
+	description="Einträge mit Titel, Slogan, Text und Bild bearbeiten. Reihenfolge und Sichtbarkeit lassen sich hier anpassen."
+>
+	<div id="admin-services-root"></div>
+</AdminLayout>
+
+<script>
+	import { mountServicesAdmin } from '../../admin-client/servicesMount';
+
+	const el = document.getElementById('admin-services-root');
+	if (el) mountServicesAdmin(el);
+</script>

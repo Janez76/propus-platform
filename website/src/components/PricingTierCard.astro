@@ -1,0 +1,165 @@
+---
+import type { CatalogPackageCard } from '../lib/booking/catalog';
+import { bookingAppHref } from '../content/site';
+
+interface Props {
+	pkg: CatalogPackageCard;
+}
+
+const { pkg } = Astro.props;
+const sid = `tier-${pkg.key}`;
+---
+
+<div class="pricing-tier-shell">
+	<article
+		class:list={['pricing-tier', pkg.featured && 'pricing-tier--featured']}
+		aria-labelledby={`tier-title-${sid}`}
+	>
+		{
+			pkg.badge && (
+				<span class="pricing-tier__badge" aria-hidden="true">
+					{pkg.badge}
+				</span>
+			)
+		}
+		<header class="pricing-tier__head">
+			<h2 class="pricing-tier__title" id={`tier-title-${sid}`}>
+				{pkg.label}
+			</h2>
+			<div class="pricing-tier__sub-wrap">
+				{pkg.subtitle && <p class="pricing-tier__subtitle">{pkg.subtitle}</p>}
+			</div>
+			<p class="pricing-tier__price" aria-label={`Preis ${pkg.priceDisplay}`}>{pkg.priceDisplay}</p>
+		</header>
+
+		<div class="pricing-tier__foot">
+			<a class="pricing-tier__cta btn btn--primary" href={bookingAppHref}
+				target="_blank"
+				rel="noopener noreferrer"
+			>
+				Jetzt buchen
+			</a>
+		</div>
+	</article>
+</div>
+
+<style>
+	.pricing-tier-shell {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		min-height: 0;
+		/** Obere Hälfte des Tags ragt über die Karte; min. ≈ halbe Badge-Höhe */
+		padding-top: clamp(0.85rem, 2.2vw, 1.05rem);
+	}
+
+	.pricing-tier__badge {
+		position: absolute;
+		left: 50%;
+		top: 0;
+		transform: translate(-50%, -50%);
+		z-index: 2;
+		margin: 0;
+		padding: 0.42rem 0.95rem;
+		font-size: 0.625rem;
+		font-weight: 600;
+		letter-spacing: 0.11em;
+		line-height: 1.2;
+		text-transform: uppercase;
+		color: var(--color-gold-muted);
+		background: var(--color-surface);
+		border: 1px solid var(--color-gold-line);
+		border-radius: 999px;
+		box-shadow: none;
+		white-space: nowrap;
+	}
+
+	.pricing-tier {
+		position: relative;
+		z-index: 1;
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		min-height: 0;
+		padding: clamp(1.75rem, 3.5vw, 2.15rem) clamp(1.25rem, 2.8vw, 1.5rem) clamp(1.25rem, 2.5vw, 1.45rem);
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		box-shadow: var(--shadow-border);
+	}
+
+	.pricing-tier--featured {
+		border-color: var(--color-gold-line);
+	}
+
+	.pricing-tier__head {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		align-items: stretch;
+		text-align: center;
+		min-height: 0;
+		margin-bottom: clamp(0.95rem, 2.2vw, 1.2rem);
+	}
+
+	.pricing-tier__title {
+		flex-shrink: 0;
+		margin: 0 0 0.45rem;
+		font-size: clamp(1.05rem, 2.2vw, 1.2rem);
+		font-weight: 650;
+		letter-spacing: 0.08em;
+		line-height: 1.2;
+		color: var(--color-text);
+		/** Eine Zeile typischer Paketname; verhindert vertikalen Versatz */
+		min-height: 1.2em;
+	}
+
+	.pricing-tier__sub-wrap {
+		flex: 1 1 auto;
+		display: flex;
+		flex-direction: column;
+		justify-content: flex-start;
+		align-items: center;
+		/** Bis zu drei Beschreibungszeilen: Preis + Button bündig über alle Karten */
+		min-height: 4.35rem;
+	}
+
+	.pricing-tier__subtitle {
+		margin: 0;
+		font-size: 0.8125rem;
+		font-weight: 500;
+		letter-spacing: 0.02em;
+		line-height: 1.58;
+		text-transform: none;
+		color: var(--color-text-muted);
+		white-space: pre-line;
+	}
+
+	.pricing-tier__price {
+		flex-shrink: 0;
+		margin-top: auto;
+		padding-top: 0.55rem;
+		font-size: clamp(1.65rem, 3.5vw, 2rem);
+		font-weight: 600;
+		letter-spacing: -0.03em;
+		line-height: 1.1;
+		color: var(--color-gold-muted);
+		font-variant-numeric: tabular-nums;
+		min-height: 1.1em;
+	}
+
+	.pricing-tier__foot {
+		margin-top: auto;
+		padding-top: 0.35rem;
+		flex-shrink: 0;
+	}
+
+	.pricing-tier__cta {
+		width: 100%;
+		justify-content: center;
+		text-align: center;
+		min-height: 2.75rem;
+		box-sizing: border-box;
+	}
+</style>

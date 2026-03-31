@@ -1,0 +1,135 @@
+---
+import { ClientRouter } from 'astro:transitions';
+import '../styles/global.css';
+import { site, seo } from '../content/site';
+import Header from '../components/Header.astro';
+import { loadSiteBranding, type SiteBranding } from '../lib/cms/resolve';
+import { serverEnv } from '../lib/serverEnv';
+import Footer from '../components/Footer.astro';
+import { loadSiteSeoLinks, type SeoNavLink } from '../lib/seo';
+
+type SiteLinksBundle = { navItems: SeoNavLink[]; footerLegalItems: SeoNavLink[] };
+
+interface Props {
+	title?: string;
+	description?: string;
+	ogImage?: string;
+	ogTitle?: string;
+	ogDescription?: string;
+	keywords?: string;
+	noIndex?: boolean;
+	/** Wenn gesetzt: kein zweites `readCms` (z. B. Startseite mit `loadHomePageData`). */
+	branding?: SiteBranding;
+	siteLinks?: SiteLinksBundle;
+}
+
+const {
+	title = seo.defaultTitle,
+	description = seo.defaultDescription,
+	ogImage = seo.defaultOgImage,
+	ogTitle = title,
+	ogDescription = description,
+	keywords = '',
+	noIndex = false,
+	branding: brandingProp,
+	siteLinks: siteLinksProp,
+} = Astro.props;
+
+const canonicalURL = new URL(Astro.url.pathname, Astro.site);
+const absoluteOg =
+	ogImage.startsWith('http') ? ogImage : new URL(ogImage, Astro.site).href;
+
+const branding = brandingProp ?? (await loadSiteBranding());
+const siteLinks = siteLinksProp ?? (await loadSiteSeoLinks());
+
+let supabaseOrigin = '';
+try {
+	const su = (serverEnv('SUPABASE_URL') || '').trim();
+	if (su) supabaseOrigin = new URL(su).origin;
+} catch {
+	/* ignore */
+}
+---
+
+<!doctype html>
+<html lang="de">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<script is:inline>
+			(function () {
+				try {
+					var k = 'propus-color-scheme';
+					var s = localStorage.getItem(k);
+					var dark =
+						s === 'dark' ||
+						(s !== 'light' &&
+							typeof matchMedia !== 'undefined' &&
+							matchMedia('(prefers-color-scheme: dark)').matches);
+					document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+				} catch {
+					document.documentElement.setAttribute('data-theme', 'light');
+				}
+			})();
+		</script>
+		<link rel="icon" type={branding.faviconType} href={branding.faviconHref} />
+		<meta name="generator" content={Astro.generator} />
+		<title>{title}</title>
+		<meta name="description" content={description} />
+		{keywords && <meta name="keywords" content={keywords} />}
+		{noIndex && <meta name="robots" content="noindex, nofollow" />}
+		<link rel="canonical" href={canonicalURL.href} />
+		<meta property="og:type" content="website" />
+		<meta property="og:locale" content={site.locale} />
+		<meta property="og:title" content={ogTitle} />
+		<meta property="og:description" content={ogDescription} />
+		<meta property="og:url" content={canonicalURL.href} />
+		<meta property="og:site_name" content={site.name} />
+		<meta property="og:image" content={absoluteOg} />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:title" content={ogTitle} />
+		<meta name="twitter:description" content={ogDescription} />
+		<meta name="twitter:image" content={absoluteOg} />
+		<link rel="dns-prefetch" href="https://images.unsplash.com" />
+		<link rel="dns-prefetch" href="https://www.youtube-nocookie.com" />
+		<link rel="dns-prefetch" href="https://www.youtube.com" />
+		<link rel="dns-prefetch" href="https://my.matterport.com" />
+		{
+			supabaseOrigin && (
+				<>
+					<link rel="dns-prefetch" href={supabaseOrigin} />
+					<link rel="preconnect" href={supabaseOrigin} crossorigin />
+				</>
+			)
+		}
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<!-- Fonts nicht render-blockierend: erst laden, dann media=all -->
+		<link
+			rel="stylesheet"
+			href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;1,14..32,400&display=swap"
+			media="print"
+			onload="this.media='all'"
+		/>
+		<noscript>
+			<link
+				rel="stylesheet"
+				href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;1,14..32,400&display=swap"
+			/>
+		</noscript>
+		<ClientRouter />
+	</head>
+	<body>
+		<Header logoSrc={branding.logoSrc} logoSrcDark={branding.logoSrcDark} navItems={siteLinks.navItems} />
+		<main id="main">
+			<slot />
+		</main>
+		<Footer footerLegalItems={siteLinks.footerLegalItems} />
+	</body>
+</html>
+
+<style is:global>
+	main#main {
+		min-height: calc(100vh - var(--header-h) - 10rem);
+	}
+</style>

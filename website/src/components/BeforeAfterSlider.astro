@@ -1,0 +1,279 @@
+---
+import { Image } from 'astro:assets';
+import { isNativeCmsImageSrc } from '../lib/nativeCmsImage';
+
+interface Props {
+	beforeSrc: string;
+	afterSrc: string;
+	beforeAlt: string;
+	afterAlt: string;
+	width: number;
+	height: number;
+	loading?: 'lazy' | 'eager';
+	/** Für responsive `srcset` (Astro Image / native `sizes`). */
+	sizes?: string;
+}
+
+const defaultSizes =
+	'(min-width: 1200px) 33vw, (min-width: 768px) 50vw, 100vw';
+
+const {
+	beforeSrc,
+	afterSrc,
+	beforeAlt,
+	afterAlt,
+	width,
+	height,
+	loading = 'lazy',
+	sizes = defaultSizes,
+} = Astro.props;
+
+const afterIsNative = isNativeCmsImageSrc(afterSrc);
+const beforeIsNative = isNativeCmsImageSrc(beforeSrc);
+---
+
+<div
+	class="ba"
+	data-ba
+	role="group"
+	aria-label="Vorher-Nachher-Vergleich"
+	style="--ba-pct: 50%"
+>
+	<div class="ba__media">
+		{
+			afterIsNative ? (
+				<img
+					src={afterSrc}
+					alt={afterAlt}
+					width={width}
+					height={height}
+					class="ba__img ba__img--after"
+					sizes={sizes}
+					loading={loading}
+					decoding="async"
+				/>
+			) : (
+				<Image
+					src={afterSrc}
+					alt={afterAlt}
+					{width}
+					{height}
+					class="ba__img ba__img--after"
+					sizes={sizes}
+					loading={loading}
+					decoding="async"
+				/>
+			)
+		}
+		<div class="ba__clip" data-ba-clip>
+			{
+				beforeIsNative ? (
+					<img
+						src={beforeSrc}
+						alt={beforeAlt}
+						width={width}
+						height={height}
+						class="ba__img ba__img--before"
+						sizes={sizes}
+						loading={loading}
+						decoding="async"
+					/>
+				) : (
+					<Image
+						src={beforeSrc}
+						alt={beforeAlt}
+						{width}
+						{height}
+						class="ba__img ba__img--before"
+						sizes={sizes}
+						loading={loading}
+						decoding="async"
+					/>
+				)
+			}
+		</div>
+		<span class="ba__tag ba__tag--before">Vorher</span>
+		<span class="ba__tag ba__tag--after">Nachher</span>
+		<div class="ba__line" data-ba-line aria-hidden="true"></div>
+		<button
+			type="button"
+			class="ba__handle"
+			data-ba-handle
+			aria-label="Schieberegler: Vorher und Nachher vergleichen"
+			aria-valuemin={0}
+			aria-valuemax={100}
+			aria-valuenow={50}
+		>
+			<span class="ba__knob" aria-hidden="true">
+				<span class="ba__arrows">
+					<span class="ba__arrow">‹</span>
+					<span class="ba__arrow">›</span>
+				</span>
+			</span>
+		</button>
+	</div>
+</div>
+
+<style>
+	.ba {
+		width: 100%;
+		border-radius: var(--radius-md);
+		overflow: hidden;
+		background: var(--color-bg);
+		user-select: none;
+		touch-action: none;
+	}
+
+	.ba__media {
+		position: relative;
+		aspect-ratio: 3 / 2;
+		overflow: hidden;
+		container-type: inline-size;
+	}
+
+	.ba__img {
+		display: block;
+	}
+
+	.ba__img--after {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		z-index: 0;
+	}
+
+	.ba__clip {
+		position: absolute;
+		left: 0;
+		top: 0;
+		bottom: 0;
+		width: 50%;
+		overflow: hidden;
+		z-index: 1;
+		pointer-events: none;
+	}
+
+	.ba__img--before {
+		position: absolute;
+		left: 0;
+		top: 0;
+		width: 100cqw;
+		height: 100%;
+		max-width: none;
+		object-fit: cover;
+	}
+
+	.ba__tag {
+		position: absolute;
+		bottom: var(--space-sm);
+		z-index: 2;
+		pointer-events: none;
+		font-family: var(--font-sans);
+		font-size: 0.625rem;
+		font-weight: 600;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		line-height: 1;
+		color: #fff;
+		padding: 0.45rem 0.7rem;
+		border-radius: 4px;
+		background: rgb(0 0 0 / 0.58);
+		border: 1px solid rgb(255 255 255 / 0.22);
+		backdrop-filter: blur(10px);
+		-webkit-backdrop-filter: blur(10px);
+		box-shadow:
+			0 1px 0 rgb(255 255 255 / 0.06) inset,
+			0 4px 14px rgb(0 0 0 / 0.25);
+	}
+
+	.ba__tag--before {
+		left: var(--space-sm);
+	}
+
+	.ba__tag--after {
+		right: var(--space-sm);
+	}
+
+	.ba__line {
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		width: 1px;
+		margin-left: -0.5px;
+		background: rgb(255 255 255 / 0.92);
+		box-shadow: 0 0 0 1px rgb(0 0 0 / 0.12);
+		z-index: 3;
+		pointer-events: none;
+		left: 50%;
+	}
+
+	.ba__handle {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		z-index: 4;
+		width: 3rem;
+		height: 3rem;
+		margin: 0;
+		padding: 0;
+		border: none;
+		background: transparent;
+		cursor: ew-resize;
+		display: grid;
+		place-items: center;
+		color: inherit;
+	}
+
+	.ba__handle:focus-visible {
+		outline: 2px solid var(--color-gold);
+		outline-offset: 2px;
+	}
+
+	.ba__knob {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 2.35rem;
+		height: 2.35rem;
+		border-radius: 50%;
+		background: rgb(255 255 255 / 0.22);
+		border: 1.5px solid rgb(255 255 255 / 0.95);
+		backdrop-filter: blur(8px);
+		-webkit-backdrop-filter: blur(8px);
+		box-shadow:
+			0 0 0 1px rgb(0 0 0 / 0.08),
+			0 4px 18px rgb(0 0 0 / 0.22);
+		pointer-events: none;
+	}
+
+	.ba__arrows {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.2em;
+		margin-top: -0.06em;
+		font-family: var(--font-sans);
+		font-size: 0.875rem;
+		font-weight: 600;
+		line-height: 1;
+		letter-spacing: 0;
+		color: rgb(255 255 255 / 0.98);
+		text-shadow: 0 1px 3px rgb(0 0 0 / 0.35);
+		user-select: none;
+	}
+
+	.ba__arrow {
+		display: block;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.ba__clip,
+		.ba__line,
+		.ba__handle {
+			transition: none;
+		}
+	}
+</style>

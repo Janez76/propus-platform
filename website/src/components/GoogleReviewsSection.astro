@@ -1,0 +1,202 @@
+---
+import SectionHeading from './SectionHeading.astro';
+import {
+	dedupeGoogleReviewsKeepFirst,
+	googleReviews as defaultReviews,
+	googleReviewsListingUrl,
+	googleReviewsSectionCopy,
+	type GoogleReviewEntry,
+} from '../content/google-reviews';
+
+interface Props {
+	reviews?: readonly GoogleReviewEntry[];
+}
+
+const MAX_ON_PAGE = 3;
+
+const { reviews: reviewsProp } = Astro.props;
+
+const raw = reviewsProp ?? defaultReviews;
+const displayed: readonly GoogleReviewEntry[] = dedupeGoogleReviewsKeepFirst(
+	raw.filter((r) => r.rating === 5),
+).slice(0, MAX_ON_PAGE);
+
+const hasReviews = displayed.length > 0;
+---
+
+<section class="reviews-section u-section" aria-labelledby="reviews-heading">
+	<div class="u-container">
+		<SectionHeading
+			id="reviews-heading"
+			eyebrow={googleReviewsSectionCopy.eyebrow}
+			title={googleReviewsSectionCopy.title}
+			subtitle={googleReviewsSectionCopy.intro}
+			align="center"
+		/>
+
+		{
+			hasReviews ? (
+				<ul class="reviews-grid">
+					{displayed.map((rev) => (
+						<li class="reviews-grid__cell">
+							<article class="reviews-card">
+								<div class="reviews-card__stars" aria-label="5 von 5 Sternen">
+									{Array.from({ length: 5 }, (_, i) => (
+										<svg
+											class:list={['reviews-card__star', i < rev.rating && 'is-on']}
+											width="15"
+											height="15"
+											viewBox="0 0 24 24"
+											aria-hidden="true"
+										>
+											<path
+												fill="currentColor"
+												d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+											/>
+										</svg>
+									))}
+								</div>
+								<blockquote class="reviews-card__quote">
+									<p class="reviews-card__text">{rev.text}</p>
+								</blockquote>
+								<footer class="reviews-card__meta">
+									<div class="divider-gold reviews-card__divider" aria-hidden="true"></div>
+									<cite class="reviews-card__author">{rev.authorName}</cite>
+								</footer>
+							</article>
+						</li>
+					))}
+				</ul>
+			) : null
+		}
+
+		<div class:list={['reviews-section__footer', !hasReviews && 'reviews-section__footer--solo']}>
+			<a class="link-cta" href={googleReviewsListingUrl}
+				target="_blank"
+				rel="noopener noreferrer"
+			>
+				{googleReviewsSectionCopy.linkLabel} →
+			</a>
+		</div>
+	</div>
+</section>
+
+<style>
+	.reviews-section {
+		background: var(--color-bg-muted);
+		border-top: 1px solid var(--color-border);
+	}
+
+	.reviews-section :global(.section-heading) {
+		margin-bottom: clamp(1.5rem, 3.5vw, 2.25rem);
+	}
+
+	.reviews-grid {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: grid;
+		gap: clamp(1rem, 2.5vw, 1.5rem);
+		grid-template-columns: 1fr;
+		align-items: stretch;
+	}
+
+	@media (min-width: 768px) {
+		.reviews-grid {
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+			max-width: 72rem;
+			margin-inline: auto;
+		}
+
+		/* Eine Karte: mittig in der 3-Spalten-Zeile */
+		.reviews-grid:has(> .reviews-grid__cell:only-child) .reviews-grid__cell {
+			grid-column: 2;
+		}
+	}
+
+	.reviews-grid__cell {
+		margin: 0;
+		min-width: 0;
+		display: flex;
+	}
+
+	.reviews-card {
+		display: flex;
+		flex-direction: column;
+		width: 100%;
+		min-height: 100%;
+		padding: clamp(1.15rem, 2.5vw, 1.5rem);
+		background: var(--color-surface);
+		border-radius: var(--radius-md);
+		border: 1px solid var(--color-border);
+		box-shadow: 0 1px 0 rgb(0 0 0 / 0.04);
+		box-sizing: border-box;
+	}
+
+	.reviews-card__stars {
+		display: flex;
+		gap: 0.15rem;
+		margin-bottom: 0.85rem;
+		color: rgb(0 0 0 / 0.1);
+	}
+
+	.reviews-card__star {
+		display: block;
+		flex-shrink: 0;
+	}
+
+	.reviews-card__star.is-on {
+		color: var(--color-gold-muted);
+	}
+
+	.reviews-card__quote {
+		margin: 0;
+		flex: 1 1 auto;
+		min-height: 0;
+	}
+
+	.reviews-card__text {
+		margin: 0;
+		font-size: 0.9375rem;
+		line-height: 1.65;
+		color: var(--color-text-muted);
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 6;
+		overflow: hidden;
+	}
+
+	.reviews-card__meta {
+		margin-top: auto;
+		padding-top: 1rem;
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		text-align: left;
+	}
+
+	.reviews-card__meta .reviews-card__divider {
+		margin-block: 0;
+		margin-bottom: 0.75rem;
+		align-self: flex-start;
+	}
+
+	.reviews-card__author {
+		font-size: 0.8125rem;
+		font-weight: 600;
+		font-style: normal;
+		color: var(--color-text);
+		letter-spacing: -0.02em;
+	}
+
+	.reviews-section__footer {
+		margin-top: clamp(1.5rem, 3.5vw, 2.25rem);
+		display: flex;
+		justify-content: center;
+		text-align: center;
+	}
+
+	.reviews-section__footer--solo {
+		margin-top: clamp(0.75rem, 2vw, 1rem);
+	}
+</style>

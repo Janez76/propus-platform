@@ -1,0 +1,101 @@
+---
+export const prerender = false;
+
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import SectionHeading from '../../components/SectionHeading.astro';
+import ServiceCard from '../../components/ServiceCard.astro';
+import { site } from '../../content/site';
+import { loadSiteServiceSections } from '../../lib/cms/resolve';
+import { loadSeoPage } from '../../lib/seo';
+
+const servicesDetailSections = await loadSiteServiceSections();
+const seoPage = await loadSeoPage('dienstleistungen');
+
+const title = seoPage.title;
+const description = seoPage.description;
+---
+
+<BaseLayout
+	{title}
+	{description}
+	ogImage={seoPage.ogImage}
+	ogTitle={seoPage.ogTitle}
+	ogDescription={seoPage.ogDescription}
+	keywords={seoPage.keywords}
+	noIndex={!seoPage.index}
+>
+	<section class="services-page-intro u-container">
+		<div class="services-page-intro__inner u-animate" style="--delay: 40ms">
+			<SectionHeading
+				eyebrow="Leistungen"
+				title="Unsere Leistungen"
+				subtitle="Acht Bereiche, die zusammenpassen: von der Aufnahme bis zur Aufbereitung. Klar strukturiert, ohne Schnickschnack – damit Ihre Objekte überall gleich überzeugend wirken."
+				align="center"
+				titleAs="h1"
+				titleSize="display"
+			/>
+		</div>
+	</section>
+
+	<section class="u-section services-page-body">
+		<div class="u-container">
+			<div class="services-grid">
+				{servicesDetailSections.map((section, index) => (
+					<div class="u-animate" style={`--delay: ${120 + index * 55}ms`}>
+						<ServiceCard
+							{...section}
+							loading={index === 0 ? 'eager' : 'lazy'}
+						/>
+					</div>
+				))}
+			</div>
+		</div>
+	</section>
+</BaseLayout>
+
+<style>
+	/* Wie Portfolio: Abstand unter dem Header, gleiche Heading-Breiten */
+	.services-page-intro {
+		padding-top: calc(var(--space-xl) + var(--space-md));
+		padding-bottom: clamp(1.5rem, 3vw, 2.25rem);
+	}
+
+	.services-page-intro :global(.section-heading) {
+		margin-bottom: 0;
+	}
+
+	.services-page-intro__inner :global(.section-heading__inner) {
+		max-width: 44rem;
+	}
+
+	.services-page-intro__inner :global(.section-heading--center .section-heading__inner) {
+		max-width: 46rem;
+	}
+
+	/* Wie .portfolio-page-body: kein extra Top-Padding der Section, Raster rückt näher an den Kopf – Abstand kommt über intro + Grid-Margin */
+	.services-page-body {
+		padding-top: 0;
+	}
+
+	.services-grid {
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: var(--space-md);
+		align-items: stretch;
+		/* Zusätzliche Luft zwischen Überschrift und Karten (wie Portfolio: Intro-Ende → Nav / Inhalt) */
+		margin-top: clamp(1.75rem, 4.5vw, 3rem);
+	}
+
+	@media (min-width: 640px) {
+		.services-grid {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
+
+	@media (min-width: 1024px) {
+		.services-grid {
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+			gap: var(--space-md);
+		}
+	}
+</style>

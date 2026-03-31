@@ -1,0 +1,34 @@
+---
+export const prerender = false;
+
+import AdminLayout from '../../layouts/AdminLayout.astro';
+---
+
+<AdminLayout
+	title="SEO / Einstellungen"
+	current="seo"
+	eyebrow="Sichtbarkeit"
+	description="Seiten nach Bereich aufklappen, Texte und OG-Bilder pflegen – mit Live-Vorschau. Technik (Sitemap, robots) oben im ersten Panel."
+>
+	<div class="admin-view">
+		<div id="admin-seo-root"></div>
+		<section id="branding" class="admin-section admin-section--flat">
+			<p class="admin-section-title">Branding</p>
+			<p class="admin-p-hint admin-p-hint--tight">
+				Header-Logos (Hell- und optional Dunkelmodus) sowie Favicon – jeweils URL oder Upload. Ohne Dunkelmodus-Logo nutzt die Website überall dasselbe Bild wie im Hellmodus.
+			</p>
+			<div id="admin-branding-root"></div>
+		</section>
+	</div>
+</AdminLayout>
+
+<script>
+	import { mountSeoSettingsAdmin } from '../../admin-client/seoSettingsMount';
+	import { mountSiteBrandingAdmin } from '../../admin-client/siteBrandingMount';
+
+	const seoRoot = document.getElementById('admin-seo-root');
+	if (seoRoot) mountSeoSettingsAdmin(seoRoot);
+
+	const brandingRoot = document.getElementById('admin-branding-root');
+	if (brandingRoot) mountSiteBrandingAdmin(brandingRoot);
+</script>

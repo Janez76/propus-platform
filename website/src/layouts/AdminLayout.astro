@@ -1,0 +1,140 @@
+---
+import '../styles/admin.css';
+import { loadSiteBranding } from '../lib/cms/resolve';
+
+interface Props {
+	title: string;
+	current?:
+		| 'portfolio'
+		| 'dienstleistungen'
+		| 'team'
+		| 'kundenlogos'
+		| 'seo';
+	eyebrow?: string;
+	description?: string;
+}
+
+const branding = await loadSiteBranding();
+const {
+	title,
+	current,
+	eyebrow = 'Backpanel',
+	description = 'Strukturiert arbeiten, Inhalte pflegen und die Website gezielt für Sichtbarkeit optimieren.',
+} = Astro.props;
+
+const pathname = Astro.url.pathname;
+
+const navItems = [
+	{ id: 'portfolio' as const, href: '/admin/portfolio', label: 'Portfolio' },
+	{ id: 'dienstleistungen' as const, href: '/admin/dienstleistungen', label: 'Dienstleistungen' },
+	{ id: 'seo' as const, href: '/admin/seo', label: 'SEO / Einstellungen' },
+	{ id: 'team' as const, href: '/admin/team', label: 'Team' },
+	{ id: 'kundenlogos' as const, href: '/admin/kundenlogos', label: 'Kundenlogos' },
+];
+
+const pathNorm = pathname.replace(/\/$/, '') || '/';
+
+function navLinkActive(href: string): boolean {
+	const h = href.replace(/\/$/, '') || '/';
+	if (pathNorm === h) return true;
+	if (h === '/admin/portfolio') return false;
+	return pathNorm.startsWith(`${h}/`);
+}
+---
+
+<!doctype html>
+<html lang="de">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="robots" content="noindex, nofollow" />
+		<title>{title} · Verwaltung</title>
+		<link rel="icon" href={branding.faviconHref} type={branding.faviconType} />
+	</head>
+	<body class="admin-body">
+		<div class="admin-shell">
+			<aside class="admin-side" aria-label="Admin-Navigation">
+				<div class="admin-side__brand">
+					<a href="/admin/portfolio" class="admin-brandmark">
+						<img
+							src={branding.logoSrc}
+							alt=""
+							class="admin-brandmark__logo"
+							loading="lazy"
+							decoding="async"
+							fetchpriority="low"
+						/>
+					</a>
+					<p class="admin-side-title">Backpanel</p>
+				</div>
+
+				<nav class="admin-app-nav" aria-label="Backpanel-Bereiche">
+					<ul class="admin-app-nav__list">
+						{
+							navItems.map((item) => (
+								<li>
+									<a
+										href={item.href}
+										class:list={['admin-app-nav__link', { 'is-active': navLinkActive(item.href) || item.id === current }]}
+									>
+										{item.label}
+									</a>
+								</li>
+							))
+						}
+					</ul>
+				</nav>
+
+				<div class="admin-side-footer">
+					<button type="button" class="admin-side-footer__logout" id="admin-logout-btn">
+						Abmelden
+					</button>
+					<a
+						class="admin-side-footer__site"
+						href="/"
+						target="_blank"
+						rel="noreferrer"
+						aria-label="Website in neuem Tab öffnen"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="18"
+							height="18"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							aria-hidden="true"
+						>
+							<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+							<polyline points="15 3 21 3 21 9" />
+							<line x1="10" y1="14" x2="21" y2="3" />
+						</svg>
+					</a>
+				</div>
+			</aside>
+			<main class="admin-main">
+				<div class="admin-main__inner">
+					<header class="admin-header">
+						<div class="admin-header__content">
+							<p class="admin-section-title admin-section-title--accent">{eyebrow}</p>
+							<h1>{title}</h1>
+							<p class="admin-lead">{description}</p>
+						</div>
+					</header>
+					<div class="admin-content">
+						<slot />
+					</div>
+				</div>
+			</main>
+		</div>
+		<script>
+			document.getElementById('admin-logout-btn')?.addEventListener('click', async () => {
+				await fetch('/api/admin/logout', { method: 'POST', credentials: 'same-origin' });
+				window.location.href = '/admin/login';
+			});
+		</script>
+	</body>
+</html>

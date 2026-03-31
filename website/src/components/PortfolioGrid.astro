@@ -1,0 +1,787 @@
+---
+import { Image } from 'astro:assets';
+import type { PortfolioItem } from '../content/portfolio';
+import { portfolioCategoryTabs, portfolioDefaultCategory } from '../content/portfolio';
+import { isNativeCmsImageSrc } from '../lib/nativeCmsImage';
+import BeforeAfterSlider from './BeforeAfterSlider.astro';
+
+interface Props {
+	items: PortfolioItem[];
+	showFilters?: boolean;
+	/** Startseite: weniger gleichzeitige LCP-Kandidaten, kleinere Bildvarianten, Embeds/Slider lazy. */
+	compact?: boolean;
+	/** Erst nach Kategorieklick Bilder laden/anzeigen – spart Daten beim ersten Besuch. */
+	pickCategoryFirst?: boolean;
+}
+
+const { items, showFilters = true, compact = false, pickCategoryFirst = false } = Astro.props;
+const defaultCat = portfolioDefaultCategory;
+const hasCompareItems = items.some((i) => i.kind === 'compare');
+
+const showFilterUi = showFilters || pickCategoryFirst;
+const filterTabs = pickCategoryFirst
+	? portfolioCategoryTabs.filter((t) => items.some((i) => i.categories.includes(t.id)))
+	: portfolioCategoryTabs;
+
+const pickFirstIntro =
+	'Wähle eine Kategorie. Die Beispiele erscheinen erst nach deinem Klick – so startet die Seite leichter und du siehst nur, was du auswählst.';
+
+/** Sichtbare Reihenfolge für Priorität (bei pickCategoryFirst zunächst nichts sichtbar). */
+const visibleOrdered = pickCategoryFirst
+	? []
+	: items.filter((i) => !showFilters || i.categories.includes(defaultCat));
+
+const PRIORITY_TILE_COUNT = pickCategoryFirst
+	? 0
+	: compact
+		? Math.min(visibleOrdered.length, 2)
+		: Math.min(visibleOrdered.length, 48);
+const priorityTileIds = new Set(visibleOrdered.slice(0, PRIORITY_TILE_COUNT).map((i) => i.id));
+
+const priorityImageIds = new Set(
+	visibleOrdered.filter((i) => i.kind === 'image').slice(0, compact ? 1 : 6).map((i) => i.id),
+);
+
+const defaultCategoryCopy = portfolioCategoryTabs.find((t) => t.id === defaultCat);
+
+/** Kleine Kacheln auf der Startseite; pickCategoryFirst = noch kleinere `sizes`. */
+const portfolioImgSizes = pickCategoryFirst
+	? '(min-width: 1200px) 200px, (min-width: 768px) 22vw, 42vw'
+	: compact
+		? '(min-width: 1280px) 320px, (min-width: 768px) 38vw, 86vw'
+		: '(min-width: 1280px) min(34vw, 480px), (min-width: 768px) min(50vw, 720px), 92vw';
+
+const visibleOnServer = (item: (typeof items)[0]) => {
+	if (pickCategoryFirst) return false;
+	return !showFilters || item.categories.includes(defaultCat);
+};
+---
+
+<div
+	class:list={['portfolio-wrap', pickCategoryFirst && 'portfolio-wrap--pick-first']}
+	data-portfolio-wrap
+	data-pick-category-first={pickCategoryFirst ? '1' : undefined}
+>
+	{
+		pickCategoryFirst && items.length === 0 ? (
+			<p class="portfolio-home-fallback">Für die Startseite sind noch keine Referenzbilder hinterlegt.</p>
+		) : (
+			<div class="portfolio-wrap__body">
+				{
+					showFilterUi && filterTabs.length > 0 && (
+			<div class:list={['portfolio-filters-block', pickCategoryFirst && 'portfolio-filters-block--flat']}>
+				<nav class="portfolio-nav" aria-label="Arbeiten nach Kategorie">
+					{!pickCategoryFirst && <div class="u-page-rule" aria-hidden="true" />}
+					<div class="portfolio-nav__scroll" role="tablist">
+						{filterTabs.map(({ id, label, description }) => (
+							<button
+								type="button"
+								class:list={[
+									'portfolio-nav__btn',
+									!pickCategoryFirst && id === defaultCat && 'is-active',
+								]}
+								role="tab"
+								aria-selected={
+									pickCategoryFirst ? 'false' : id === defaultCat ? 'true' : 'false'
+								}
+								data-filter={id}
+								data-description={description}
+								id={`tab-${id}`}
+							>
+								<span class="portfolio-nav__label">{label}</span>
+							</button>
+						))}
+					</div>
+				</nav>
+				<p class="portfolio-cat-desc" data-portfolio-cat-desc aria-live="polite" aria-atomic="true">
+					{pickCategoryFirst ? pickFirstIntro : defaultCategoryCopy?.description}
+				</p>
+			</div>
+					)
+				}
+				{
+					pickCategoryFirst && (
+						<p class="portfolio-pick" data-portfolio-pick>
+							<span class="portfolio-pick__lead">Wähle eine Kategorie.</span>
+							<span class="portfolio-pick__sub">
+								Erst danach werden die zugehörigen Bilder geladen und eingeblendet.
+							</span>
+						</p>
+					)
+				}
+				<div
+					class:list={['portfolio-grid', pickCategoryFirst && 'portfolio-grid--home-flat']}
+					data-portfolio-grid
+				>
+		{
+			items.map((item) => {
+				const cats = item.categories.join(',');
+				const visible = visibleOnServer(item);
+				const priorityRow = visible && priorityTileIds.has(item.id);
+				const imgEager =
+					item.kind === 'image' &&
+					priorityRow &&
+					(!compact || priorityImageIds.has(item.id));
+				const imgLoading = imgEager ? 'eager' : 'lazy';
+				const imgFetchPriority =
+					item.kind === 'image' && priorityRow && priorityImageIds.has(item.id)
+						? 'high'
+						: undefined;
+				const imgDecoding =
+					item.kind === 'image' && priorityRow && priorityImageIds.has(item.id)
+						? 'sync'
+						: 'async';
+				const embedLoading =
+					pickCategoryFirst || compact ? 'lazy' : priorityRow ? 'eager' : 'lazy';
+				const compareLoading =
+					pickCategoryFirst || compact ? 'lazy' : priorityRow ? 'eager' : 'lazy';
+				const embedTitle =
+					item.kind === 'matterport'
+						? 'Matterport 360° Rundgang'
+						: item.kind === 'youtube'
+							? 'YouTube Video'
+							: '';
+				return (
+					<figure
+						class="portfolio-item"
+						data-id={item.id}
+						data-categories={cats}
+						hidden={!visible}
+						style={!visible ? 'display: none' : undefined}
+					>
+						<div class="portfolio-item__inner">
+							{item.kind === 'compare' ? (
+								<BeforeAfterSlider
+									beforeSrc={item.compare.beforeSrc}
+									afterSrc={item.compare.afterSrc}
+									beforeAlt={item.compare.beforeAlt}
+									afterAlt={item.compare.afterAlt}
+									width={item.width}
+									height={item.height}
+									sizes={portfolioImgSizes}
+									loading={compareLoading}
+								/>
+							) : item.kind === 'matterport' || item.kind === 'youtube' ? (
+								<div class="portfolio-item__embed">
+									<iframe
+										src={item.embedUrl}
+										title={embedTitle}
+										width={item.width}
+										height={item.height}
+										loading={embedLoading}
+										referrerpolicy="strict-origin-when-cross-origin"
+										allowfullscreen
+										allow={
+											item.kind === 'matterport'
+												? 'fullscreen; xr-spatial-tracking'
+												: 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share'
+										}
+									/>
+								</div>
+							) : (
+								<div class="portfolio-item__frame">
+									{isNativeCmsImageSrc(item.src) ? (
+										<img
+											src={item.src}
+											alt={item.alt}
+											width={item.width}
+											height={item.height}
+											class=""
+											sizes={portfolioImgSizes}
+											loading={imgLoading}
+											decoding={imgDecoding}
+											{...(imgFetchPriority ? { fetchpriority: imgFetchPriority } : {})}
+										/>
+									) : (
+										<Image
+											src={item.src}
+											alt={item.alt}
+											width={item.width}
+											height={item.height}
+											sizes={portfolioImgSizes}
+											loading={imgLoading}
+											decoding={imgDecoding}
+											{...(imgFetchPriority
+												? { fetchpriority: imgFetchPriority }
+												: {})}
+										/>
+									)}
+								</div>
+							)}
+						</div>
+						<figcaption class="visually-hidden">
+							{item.kind === 'compare'
+								? `${item.compare.beforeAlt} / ${item.compare.afterAlt}`
+								: item.kind === 'matterport' || item.kind === 'youtube'
+									? embedTitle
+									: item.alt}
+						</figcaption>
+					</figure>
+				);
+			})
+		}
+				</div>
+				<p class="portfolio-empty" data-portfolio-empty hidden>
+					Für diese Kategorie sind derzeit keine Beispiele hinterlegt.
+				</p>
+			</div>
+		)
+	}
+</div>
+
+{
+	(showFilters || pickCategoryFirst) && (
+		<script is:inline>
+			function initPortfolioFilter() {
+				const wrap = document.querySelector('[data-portfolio-wrap]');
+				if (!wrap) return;
+				const pickFirst = wrap.dataset.pickCategoryFirst === '1';
+				const buttons = wrap.querySelectorAll('.portfolio-nav__btn');
+				const figures = wrap.querySelectorAll('.portfolio-item');
+				const emptyEl = wrap.querySelector('[data-portfolio-empty]');
+				const pickEl = wrap.querySelector('[data-portfolio-pick]');
+				const descEl = wrap.querySelector('[data-portfolio-cat-desc]');
+				const grid = wrap.querySelector('[data-portfolio-grid]');
+				if (!buttons.length) return;
+				if (!figures.length) return;
+
+				const syncCategoryGridLayout = (filter) => {
+					if (!grid) return;
+					grid.classList.toggle('portfolio-grid--tours-two', filter === 'tour360');
+					grid.classList.toggle('portfolio-grid--video-two', filter === 'video');
+					grid.classList.toggle('portfolio-grid--grundrisse-two', filter === 'grundrisse');
+					grid.classList.toggle('portfolio-grid--staging-two', filter === 'staging');
+					grid.classList.toggle('portfolio-grid--retusche-two', filter === 'retusche');
+				};
+
+				const setActive = (active) => {
+					buttons.forEach((b) => {
+						const on = b === active;
+						b.classList.toggle('is-active', on);
+						b.setAttribute('aria-selected', on ? 'true' : 'false');
+					});
+				};
+
+				const setCategoryDescription = (btn) => {
+					if (!descEl || !btn) return;
+					const t = btn.dataset.description;
+					if (t) descEl.textContent = t;
+				};
+
+				const STAGGER_MS = 52;
+
+				const clearPortfolioItemAnimation = () => {
+					figures.forEach((fig) => {
+						fig.classList.remove('u-animate');
+						fig.style.removeProperty('--delay');
+					});
+				};
+
+				/** Wie Startseite: Fade-up gestaffelt – nur nach Kategoriewechsel (nicht beim ersten Paint). */
+				const staggerRevealPortfolioItems = () => {
+					clearPortfolioItemAnimation();
+					if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+					if (grid) void grid.offsetHeight;
+					let i = 0;
+					figures.forEach((fig) => {
+						if (fig.hidden || fig.style.display === 'none') return;
+						fig.style.setProperty('--delay', i * STAGGER_MS + 'ms');
+						fig.classList.add('u-animate');
+						i++;
+					});
+				};
+
+				const apply = (filter, opts) => {
+					if (pickEl) {
+						pickEl.hidden = true;
+						pickEl.style.display = 'none';
+					}
+					const animate = opts?.animate !== false;
+					let n = 0;
+					figures.forEach((fig) => {
+						const cats = (fig.dataset.categories || '').split(',');
+						const show = cats.includes(filter);
+						fig.hidden = !show;
+						fig.style.display = show ? '' : 'none';
+						if (show) n++;
+					});
+					if (emptyEl) {
+						emptyEl.hidden = n > 0;
+						emptyEl.style.display = n > 0 ? 'none' : '';
+						emptyEl.classList.remove('u-animate');
+						emptyEl.style.removeProperty('--delay');
+					}
+					syncCategoryGridLayout(filter);
+					if (n > 0) {
+						if (animate) staggerRevealPortfolioItems();
+						else clearPortfolioItemAnimation();
+					} else {
+						clearPortfolioItemAnimation();
+					}
+					if (
+						emptyEl &&
+						n === 0 &&
+						!window.matchMedia('(prefers-reduced-motion: reduce)').matches
+					) {
+						if (grid) void grid.offsetHeight;
+						emptyEl.style.setProperty('--delay', '80ms');
+						emptyEl.classList.add('u-animate');
+					}
+				};
+
+				if (pickFirst) {
+					figures.forEach((fig) => {
+						fig.hidden = true;
+						fig.style.display = 'none';
+					});
+					if (emptyEl) {
+						emptyEl.hidden = true;
+						emptyEl.style.display = 'none';
+					}
+					if (pickEl) {
+						pickEl.hidden = false;
+						pickEl.style.display = '';
+					}
+				} else {
+					const initialBtn = wrap.querySelector('.portfolio-nav__btn.is-active');
+					const initialFilter = initialBtn?.dataset?.filter;
+					if (initialFilter) apply(initialFilter, { animate: false });
+				}
+
+				buttons.forEach((btn) => {
+					btn.addEventListener('click', () => {
+						const f = btn.dataset.filter;
+						if (!f) return;
+						setActive(btn);
+						setCategoryDescription(btn);
+						apply(f, { animate: true });
+					});
+				});
+			}
+
+			initPortfolioFilter();
+			if (!window.__propusPortfolioFilterBound) {
+				window.__propusPortfolioFilterBound = true;
+				document.addEventListener('astro:after-swap', initPortfolioFilter);
+			}
+		</script>
+	)
+}
+
+{
+	hasCompareItems && (
+		<script is:inline>
+			function initBeforeAfterSliders() {
+				document.querySelectorAll('[data-ba]').forEach((root) => {
+					if (root.dataset.baReady === '1') return;
+					root.dataset.baReady = '1';
+
+					const clip = root.querySelector('[data-ba-clip]');
+					const line = root.querySelector('[data-ba-line]');
+					const handle = root.querySelector('[data-ba-handle]');
+					if (!clip || !line || !handle) return;
+
+					const setPct = (pct) => {
+						const p = Math.min(100, Math.max(0, pct));
+						root.style.setProperty('--ba-pct', p + '%');
+						clip.style.width = p + '%';
+						line.style.left = p + '%';
+						handle.style.left = p + '%';
+						handle.setAttribute('aria-valuenow', String(Math.round(p)));
+					};
+
+					let dragging = false;
+
+					const fromClientX = (clientX) => {
+						const rect = root.getBoundingClientRect();
+						if (rect.width <= 0) return;
+						const x = clientX - rect.left;
+						setPct((x / rect.width) * 100);
+					};
+
+					const onPointerMove = (e) => {
+						if (!dragging) return;
+						fromClientX(e.clientX);
+					};
+
+					const endDrag = () => {
+						dragging = false;
+						window.removeEventListener('pointermove', onPointerMove);
+						window.removeEventListener('pointerup', endDrag);
+						window.removeEventListener('pointercancel', endDrag);
+					};
+
+					handle.addEventListener('pointerdown', (e) => {
+						e.preventDefault();
+						dragging = true;
+						handle.setPointerCapture(e.pointerId);
+						window.addEventListener('pointermove', onPointerMove);
+						window.addEventListener('pointerup', endDrag);
+						window.addEventListener('pointercancel', endDrag);
+					});
+
+					root.addEventListener('pointerdown', (e) => {
+						if (e.target === handle || handle.contains(e.target)) return;
+						fromClientX(e.clientX);
+					});
+
+					handle.addEventListener('keydown', (e) => {
+						const step = e.shiftKey ? 10 : 4;
+						const raw = getComputedStyle(root).getPropertyValue('--ba-pct').trim();
+						const current = parseFloat(raw) || 50;
+						if (e.key === 'ArrowLeft') {
+							e.preventDefault();
+							setPct(current - step);
+						}
+						if (e.key === 'ArrowRight') {
+							e.preventDefault();
+							setPct(current + step);
+						}
+						if (e.key === 'Home') {
+							e.preventDefault();
+							setPct(0);
+						}
+						if (e.key === 'End') {
+							e.preventDefault();
+							setPct(100);
+						}
+					});
+
+					setPct(50);
+				});
+			}
+
+			initBeforeAfterSliders();
+			if (!window.__propusBeforeAfterBound) {
+				window.__propusBeforeAfterBound = true;
+				document.addEventListener('astro:after-swap', initBeforeAfterSliders);
+			}
+		</script>
+	)
+}
+
+<style>
+	.portfolio-wrap {
+		width: 100%;
+	}
+
+	.portfolio-filters-block {
+		margin-bottom: clamp(2.25rem, 5vw, 3.5rem);
+	}
+
+	.portfolio-filters-block--flat {
+		margin-bottom: 1rem;
+	}
+
+	.portfolio-wrap--pick-first .portfolio-item__inner {
+		border-radius: 0;
+		box-shadow: none;
+		background: transparent;
+		transition: none;
+	}
+
+	@media (prefers-reduced-motion: no-preference) {
+		.portfolio-wrap--pick-first .portfolio-item:hover .portfolio-item__inner {
+			box-shadow: none;
+		}
+	}
+
+	.portfolio-wrap--pick-first .portfolio-item__frame img {
+		transition: none;
+	}
+
+	@media (prefers-reduced-motion: no-preference) {
+		.portfolio-wrap--pick-first .portfolio-item:hover .portfolio-item__frame img {
+			transform: none;
+			opacity: 1;
+		}
+	}
+
+	.portfolio-grid--home-flat {
+		gap: 0.65rem 0.85rem;
+		grid-template-columns: 1fr;
+	}
+
+	@media (min-width: 520px) {
+		.portfolio-grid--home-flat {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
+
+	@media (min-width: 768px) {
+		.portfolio-grid--home-flat {
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+			gap: 0.75rem 1rem;
+		}
+	}
+
+	@media (min-width: 1100px) {
+		.portfolio-grid--home-flat {
+			grid-template-columns: repeat(4, minmax(0, 1fr));
+		}
+	}
+
+	@media (min-width: 640px) {
+		.portfolio-grid--home-flat.portfolio-grid--tours-two,
+		.portfolio-grid--home-flat.portfolio-grid--video-two,
+		.portfolio-grid--home-flat.portfolio-grid--grundrisse-two,
+		.portfolio-grid--home-flat.portfolio-grid--staging-two,
+		.portfolio-grid--home-flat.portfolio-grid--retusche-two {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 0.85rem 1rem;
+		}
+	}
+
+	.portfolio-wrap__body {
+		width: 100%;
+	}
+
+	.portfolio-home-fallback {
+		margin: 0;
+		text-align: center;
+		color: var(--color-text-muted);
+		font-size: 0.9375rem;
+		padding: 0.5rem 0;
+	}
+
+	.portfolio-pick {
+		text-align: center;
+		margin: 0 auto 1rem;
+		max-width: 34rem;
+		padding: 0 0.5rem;
+		font-size: 0.9375rem;
+		line-height: 1.55;
+		color: var(--color-text-muted);
+	}
+
+	.portfolio-pick__lead {
+		display: block;
+		margin-bottom: 0.35rem;
+		font-size: 1rem;
+		font-weight: 600;
+		color: var(--color-text);
+	}
+
+	.portfolio-pick__sub {
+		display: block;
+		font-weight: 400;
+	}
+
+	.portfolio-nav {
+		margin-bottom: 0;
+	}
+
+	.portfolio-cat-desc {
+		margin: clamp(1.25rem, 3vw, 1.75rem) auto 0;
+		max-width: 40rem;
+		text-align: center;
+		font-family: var(--font-sans);
+		font-size: clamp(0.875rem, 1.35vw, 0.9375rem);
+		line-height: 1.65;
+		color: var(--color-text-muted);
+	}
+
+	/* Gleicher Rhythmus wie .site-header__list / .site-header__link */
+	.portfolio-nav__scroll {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		align-items: center;
+		gap: var(--space-sm) var(--space-lg);
+		/* Luft zwischen Trennlinie und Labels – vorher fast am Rand */
+		padding-top: clamp(1.125rem, 3.2vw, 1.75rem);
+		padding-bottom: 0.25rem;
+	}
+
+	@media (min-width: 900px) {
+		.portfolio-nav__scroll {
+			flex-wrap: nowrap;
+			gap: clamp(1.125rem, 2.2vw, 1.875rem);
+		}
+	}
+
+	@media (max-width: 899px) {
+		.portfolio-nav__scroll {
+			flex-wrap: nowrap;
+			justify-content: flex-start;
+			overflow-x: auto;
+			overflow-y: hidden;
+			-webkit-overflow-scrolling: touch;
+			scroll-padding-inline: clamp(1rem, 4vw, 2rem);
+			margin-inline: calc(-1 * clamp(1rem, 4vw, 2rem));
+			padding-inline: clamp(1rem, 4vw, 2rem);
+			gap: clamp(1rem, 2.5vw, 1.5rem);
+			scrollbar-width: none;
+			mask-image: linear-gradient(
+				to right,
+				transparent,
+				#000 10px,
+				#000 calc(100% - 10px),
+				transparent
+			);
+		}
+
+		.portfolio-nav__scroll::-webkit-scrollbar {
+			display: none;
+		}
+
+		.portfolio-nav__btn {
+			flex-shrink: 0;
+		}
+	}
+
+	.portfolio-nav__btn {
+		font-family: var(--font-sans);
+		font-size: 0.8125rem;
+		font-weight: 500;
+		letter-spacing: 0.02em;
+		line-height: 1.3;
+		margin: 0;
+		padding: 0.45rem 0 0.5rem;
+		border: none;
+		/* Einheitlich 2px, damit aktiv nicht springt */
+		border-bottom: 2px solid transparent;
+		background: transparent;
+		color: var(--color-text-muted);
+		cursor: pointer;
+		transition:
+			color var(--transition-fast),
+			border-color var(--transition-fast);
+		white-space: nowrap;
+		box-sizing: border-box;
+		text-decoration: none;
+	}
+
+	.portfolio-nav__label {
+		display: block;
+	}
+
+	.portfolio-nav__btn:hover {
+		color: var(--color-text);
+	}
+
+	.portfolio-nav__btn.is-active {
+		color: var(--color-text);
+		font-weight: 600;
+		border-bottom-color: var(--color-text);
+	}
+
+	.portfolio-grid {
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: clamp(1.25rem, 3vw, 1.75rem);
+		align-items: start;
+	}
+
+	@media (min-width: 640px) {
+		.portfolio-grid {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
+
+	@media (min-width: 1024px) {
+		.portfolio-grid {
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+		}
+	}
+
+	/* 360°, Video, Grundrisse, Staging & Retusche: zwei Blöcke pro Reihe (ab Tablet), großzügigeres Raster */
+	@media (min-width: 640px) {
+		.portfolio-grid.portfolio-grid--tours-two,
+		.portfolio-grid.portfolio-grid--video-two,
+		.portfolio-grid.portfolio-grid--grundrisse-two,
+		.portfolio-grid.portfolio-grid--staging-two,
+		.portfolio-grid.portfolio-grid--retusche-two {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: clamp(1.5rem, 4vw, 2.25rem);
+		}
+	}
+
+	@media (min-width: 1024px) {
+		.portfolio-grid.portfolio-grid--tours-two,
+		.portfolio-grid.portfolio-grid--video-two,
+		.portfolio-grid.portfolio-grid--grundrisse-two,
+		.portfolio-grid.portfolio-grid--staging-two,
+		.portfolio-grid.portfolio-grid--retusche-two {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: clamp(1.75rem, 4.5vw, 2.75rem);
+		}
+	}
+
+	.portfolio-item {
+		margin: 0;
+		position: relative;
+	}
+
+	.portfolio-item__inner {
+		border-radius: var(--radius-md);
+		overflow: hidden;
+		/* Seitenhintergrund: vermeidet grauen Lazy-Flash vor dem Bild */
+		background: var(--color-bg);
+		box-shadow: var(--shadow-border);
+		transition: box-shadow var(--transition-med);
+	}
+
+	@media (prefers-reduced-motion: no-preference) {
+		.portfolio-item:hover .portfolio-item__inner {
+			box-shadow: var(--shadow-hover);
+		}
+	}
+
+	.portfolio-item__frame {
+		aspect-ratio: 3 / 2;
+		overflow: hidden;
+	}
+
+	.portfolio-item__embed {
+		position: relative;
+		aspect-ratio: 16 / 9;
+		overflow: hidden;
+		background: rgb(20 20 20 / 0.06);
+	}
+
+	.portfolio-item__embed iframe {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		border: 0;
+	}
+
+	.portfolio-item__frame img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		transition:
+			transform var(--transition-med),
+			opacity var(--transition-med);
+	}
+
+	@media (prefers-reduced-motion: no-preference) {
+		.portfolio-item:hover .portfolio-item__frame img {
+			transform: scale(1.025);
+			opacity: 0.96;
+		}
+	}
+
+	.portfolio-empty {
+		text-align: center;
+		color: var(--color-text-muted);
+		font-size: 0.9375rem;
+		margin: var(--space-lg) 0 0;
+		max-width: 28rem;
+		margin-inline: auto;
+	}
+
+	.visually-hidden {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
+	}
+</style>

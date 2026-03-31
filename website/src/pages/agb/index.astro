@@ -1,0 +1,390 @@
+---
+/** SSR wie Hauptseiten – `ClientRouter` + prerender würde Footer-Links zu leeren Seiten führen. */
+export const prerender = false;
+
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { site, impressum } from '../../content/site';
+import { loadSeoPage } from '../../lib/seo';
+
+const seoPage = await loadSeoPage('agb');
+const title = seoPage.title;
+const siteWebDisplay = site.url.replace(/^https?:\/\//, '').replace(/\/$/, '');
+---
+
+<BaseLayout
+	{title}
+	description={seoPage.description}
+	ogImage={seoPage.ogImage}
+	ogTitle={seoPage.ogTitle}
+	ogDescription={seoPage.ogDescription}
+	keywords={seoPage.keywords}
+	noIndex={!seoPage.index}
+>
+	<article class="agb u-container u-section" aria-labelledby="agb-title">
+		<header class="agb__intro">
+			<h1 id="agb-title">Allgemeine Geschäftsbedingungen (AGB) der {site.legalName}</h1>
+			<p class="agb__updated">Letzte Aktualisierung: 25.05.2025</p>
+		</header>
+
+		<p class="agb__lead">
+			Diese Allgemeinen Geschäftsbedingungen («AGB») regeln die Nutzung der Dienstleistungen und Produkte
+			der {site.legalName}, einer in der Schweiz eingetragenen Gesellschaft mit Sitz in Zug, Schweiz („Propus“,
+			„wir“, „uns“ oder „unser“). Durch den Zugriff auf unsere Website {siteWebDisplay}, die Nutzung unserer Dienstleistungen oder das
+			Eingehen eines Vertragsverhältnisses mit uns stimmen Sie diesen AGB zu.
+		</p>
+
+		<div class="agb__body">
+			<section class="agb__section" aria-labelledby="agb-s1">
+				<h2 id="agb-s1">1. Geltungsbereich</h2>
+				<p>
+					Diese AGB gelten für alle Verträge, Dienstleistungen und Geschäftsbeziehungen zwischen der
+					{site.legalName} und ihren Kunden, sofern keine abweichenden schriftlichen Vereinbarungen getroffen
+					wurden.
+				</p>
+			</section>
+
+			<section class="agb__section" aria-labelledby="agb-s2">
+				<h2 id="agb-s2">2. Dienstleistungen</h2>
+				<p>
+					{site.legalName} bietet professionelle Fotografie- und Visualisierungsdienstleistungen im
+					Immobilienbereich an, darunter:
+				</p>
+				<ul class="agb__list">
+					<li>Immobilienfotografie</li>
+					<li>3D-Visualisierungen und Renderings</li>
+					<li>Virtuelle Rundgänge</li>
+					<li>Drohnenaufnahmen</li>
+					<li>Grundrisspläne</li>
+				</ul>
+				<p>Die genauen Leistungsbeschreibungen werden individuell im Angebot oder Vertrag festgelegt.</p>
+			</section>
+
+			<section class="agb__section" aria-labelledby="agb-s3">
+				<h2 id="agb-s3">3. Mindestbestellung und Preiskatalog</h2>
+				<p>
+					Die auf unserer Website unter <a href="/preise/">Preise</a> veröffentlichten Angaben zu Paketen,
+					Mindestbestellungen und Richtpreisen sind Bestandteil unseres Angebots. Der vertraglich vereinbarte
+					Umfang (z.&nbsp;B. Anzahl Bilder, Leistungspaket, Zusatzoptionen) gilt unabhängig davon, ob Sie die
+					Leistung tatsächlich vollständig in Anspruch nehmen.
+				</p>
+				<p>
+					Eine nachträgliche Reduktion der genutzten Menge (z.&nbsp;B. Buchung eines Pakets mit zehn Fotos,
+					Verwendung nur von fünf Bildern) begründet <strong>keinen Anspruch</strong> auf Herabsetzung des
+					Preises, Teilrabatt oder Erstattung der Differenz zum günstigsten Einzelpaket. Die vereinbarte
+					Vergütung richtet sich nach dem gebuchten Paket bzw. der vereinbarten Mindestbestellung, nicht nach
+					dem nachträglich gewünschten geringeren Umfang.
+				</p>
+			</section>
+
+			<section class="agb__section" aria-labelledby="agb-s4">
+				<h2 id="agb-s4">4. Vertragsschluss und Zahlung</h2>
+
+				<h3>4.1 Vertragsabschluss</h3>
+				<p>Ein Vertrag kommt zustande durch:</p>
+				<ul class="agb__list">
+					<li>Schriftliche Bestätigung per E-Mail oder Brief</li>
+					<li>Telefonische Zustimmung</li>
+					<li>Persönliche Vereinbarung</li>
+					<li>Buchung über ein Online-Tool</li>
+				</ul>
+
+				<h3>4.2 Preise und Zahlungsbedingungen</h3>
+				<ul class="agb__list">
+					<li>Alle Preise verstehen sich in Schweizer Franken (CHF), exklusive Mehrwertsteuer (sofern anwendbar).</li>
+					<li>Die in der Preisliste angegebenen Preise sind Richtpreise und können jederzeit angepasst werden.</li>
+					<li>
+						Die Zahlung erfolgt bei Erhalt der Rechnung und ist spätestens innerhalb von 14 Tagen fällig,
+						sofern keine andere Vereinbarung getroffen wurde.
+					</li>
+					<li>Bei Zahlungsverzug gelten die in Abschnitt 4.4 genannten Bedingungen.</li>
+				</ul>
+
+				<h3>4.3 Zahlungsmethoden</h3>
+				<p>{site.legalName} akzeptiert folgende Zahlungsmethoden:</p>
+				<ul class="agb__list">
+					<li>Banküberweisung (die Kontodaten werden in der Rechnung angegeben)</li>
+					<li>Payrexx (Kreditkarten, TWINT, PostFinance, Apple Pay, Google Pay)</li>
+				</ul>
+
+				<h3>4.4 Zahlungsverzug</h3>
+				<p>Falls eine Rechnung nach 14 Tagen nicht beglichen wird, gelten folgende Verzugsregelungen:</p>
+				<ul class="agb__list">
+					<li><strong>Erste Mahnung:</strong> Zahlungserinnerung ohne zusätzliche Kosten.</li>
+					<li><strong>Zweite Mahnung:</strong> CHF 20 Mahngebühr.</li>
+					<li><strong>Dritte Mahnung:</strong> CHF 50 Mahngebühr.</li>
+					<li>
+						Nach der dritten Mahnung behalten wir uns das Recht vor, das Inkassoverfahren einzuleiten und
+						Verzugszinsen in Höhe von 5% pro Jahr zu verrechnen.
+					</li>
+				</ul>
+			</section>
+
+			<section class="agb__section" aria-labelledby="agb-s5">
+				<h2 id="agb-s5">5. Stornierung und Vertragsrücktritt</h2>
+
+				<h3>5.1 Stornierungsbedingungen durch den Kunden</h3>
+				<p>Stornierungen müssen schriftlich per E-Mail oder Brief erfolgen. Es gelten folgende Stornierungsgebühren:</p>
+				<ul class="agb__list">
+					<li>Bis 7 Tage vor dem vereinbarten Termin: keine Stornierungsgebühren.</li>
+					<li>6 bis 3 Tage vor dem Termin: 30% des vereinbarten Honorars.</li>
+					<li>Weniger als 48 Stunden vor dem Termin: 50% des vereinbarten Honorars.</li>
+					<li>Am Tag des Termins oder Nichterscheinen: 100% des vereinbarten Honorars.</li>
+				</ul>
+
+				<h3>5.2 Stornierung durch {site.legalName}</h3>
+				<p>
+					Falls {site.legalName} einen Auftrag aus Gründen, die nicht in ihrer Kontrolle liegen (z.&nbsp;B.
+					extreme Wetterbedingungen für Drohnenaufnahmen, Krankheit), absagen muss, wird ein Ersatztermin
+					angeboten. Falls kein Ersatztermin möglich ist, wird dem Kunden der volle Betrag zurückerstattet.
+				</p>
+				<p>
+					Falls {site.legalName} eine Stornierung aufgrund von Zahlungsverzug oder Vertragsbruch des Kunden
+					vornimmt, gelten die oben genannten Stornierungsgebühren.
+				</p>
+			</section>
+
+			<section class="agb__section" aria-labelledby="agb-s6">
+				<h2 id="agb-s6">6. Nutzungsrechte, Archivierung und Datenschutz</h2>
+
+				<h3>6.1 Nutzungsrechte an Bildern und Inhalten</h3>
+				<ul class="agb__list">
+					<li>
+						Alle erstellten Fotos, Visualisierungen und sonstigen Medien bleiben bis zur vollständigen
+						Bezahlung Eigentum der {site.legalName}.
+					</li>
+					<li>
+						Nach vollständiger Bezahlung erhält der Kunde das nicht-exklusive, zeitlich und örtlich
+						unbegrenzte Nutzungsrecht an den erstellten Werken.
+					</li>
+					<li>
+						{site.legalName} ist berechtigt, alle erstellten Bilder und Inhalte für eigene Werbezwecke zu
+						nutzen, einschliesslich Veröffentlichung auf sozialen Medien, der Unternehmenswebsite oder
+						anderen Online-Plattformen. Falls der Kunde dies nicht wünscht, muss eine schriftliche
+						Vereinbarung getroffen werden.
+					</li>
+				</ul>
+
+				<h3>6.2 Archivierung der Bilder</h3>
+				<p>
+					Der Kunde ist selbst verantwortlich für die Archivierung und Sicherung der gelieferten Bilder.
+					{site.legalName} übernimmt keine Verantwortung für den späteren Zugriff oder die Wiederherstellung
+					der Bilder nach Auslieferung.
+				</p>
+
+				<h3>6.3 Datenschutz und Haftung des Kunden</h3>
+				<p>
+					Falls auf den Bildern persönliche Gegenstände wie Fotos, Dokumente oder andere private Inhalte
+					erkennbar sind, liegt es in der Verantwortung des Kunden, diese vor der Aufnahme zu entfernen.
+					{site.legalName} übernimmt keine Haftung für mögliche Datenschutzverstösse durch solche Inhalte.
+				</p>
+				<p>
+					Falls in den Bildern Personen erkennbar sind, ist der Auftraggeber dafür verantwortlich, vor der
+					Nutzung der Bilder deren Einwilligung einzuholen.
+				</p>
+			</section>
+
+			<section class="agb__section" aria-labelledby="agb-s7">
+				<h2 id="agb-s7">7. Virtuelle Rundgänge und Laufzeit</h2>
+				<ul class="agb__list">
+					<li>Virtuelle Rundgänge werden für einen Zeitraum von 6 Monaten gehostet.</li>
+					<li>Falls keine Verlängerung erfolgt, wird der virtuelle Rundgang automatisch archiviert.</li>
+					<li>
+						Eine Reaktivierung oder Übertragung des Rundgangs auf einen anderen Server oder Kundenaccount
+						ist gegen eine Gebühr möglich.
+					</li>
+					<li>
+						Nach Ablauf von 12 Monaten im Archiv kann der Rundgang endgültig gelöscht werden, falls keine
+						Verlängerung oder Übertragung beantragt wurde.
+					</li>
+				</ul>
+			</section>
+
+			<section class="agb__section" aria-labelledby="agb-s8">
+				<h2 id="agb-s8">8. Haftung und Gewährleistung</h2>
+				<p>
+					{site.legalName} haftet nicht für die Richtigkeit und Genauigkeit von Flächenangaben, m² oder
+					anderen Massen in Grundrissplänen. Die Daten basieren auf Drittanbietern wie Matterport.com und
+					CubiCasa.
+				</p>
+			</section>
+
+			<section class="agb__section" aria-labelledby="agb-s9">
+				<h2 id="agb-s9">9. Schlussbestimmungen</h2>
+				<ul class="agb__list agb__list--plain">
+					<li>Diese AGB unterliegen dem Schweizer Recht.</li>
+					<li>
+						Gerichtsstand ist Zug, Schweiz, sofern keine zwingenden gesetzlichen Vorschriften entgegenstehen.
+					</li>
+				</ul>
+			</section>
+
+			<section class="agb__section agb__section--contact" aria-labelledby="agb-s10">
+				<h2 id="agb-s10">10. Kontakt</h2>
+				<div class="agb__card">
+					<p class="agb__card-text">
+						<strong>{site.legalName}</strong><br />
+						{site.addressLines[0]}<br />
+						{impressum.addressLine2}<br />
+						<a href={`mailto:${site.email}`}>{site.email}</a><br />
+						<a href={`tel:${site.phone}`}>{site.phoneDisplay}</a>
+					</p>
+				</div>
+			</section>
+		</div>
+	</article>
+</BaseLayout>
+
+<style is:global>
+	.agb {
+		max-width: min(100%, 48rem);
+		margin-inline: auto;
+	}
+
+	.agb__intro {
+		margin-bottom: clamp(1.25rem, 3vw, 1.75rem);
+		padding-bottom: clamp(1.25rem, 3vw, 1.75rem);
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.agb h1 {
+		margin-bottom: 0.5rem;
+		letter-spacing: -0.035em;
+		line-height: 1.15;
+		font-size: clamp(1.5rem, 3.2vw, 2.1rem);
+		color: var(--color-text);
+	}
+
+	.agb__updated {
+		margin: 0;
+		font-size: 0.8125rem;
+		font-weight: 600;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--color-gold-muted);
+	}
+
+	.agb__lead {
+		margin: 0 0 clamp(1.25rem, 3vw, 1.75rem);
+		font-size: 0.9375rem;
+		line-height: 1.72;
+		color: var(--color-text-muted);
+	}
+
+	.agb__body {
+		display: flex;
+		flex-direction: column;
+		gap: 0;
+	}
+
+	.agb__section {
+		padding-block: clamp(1.35rem, 3vw, 1.85rem);
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.agb__section:last-child {
+		border-bottom: none;
+		padding-bottom: 0;
+	}
+
+	.agb__section h2 {
+		margin: 0 0 0.75rem;
+		font-size: 1.0625rem;
+		font-weight: 650;
+		letter-spacing: -0.02em;
+		color: var(--color-text);
+	}
+
+	.agb__section h3 {
+		margin: 1.25rem 0 0.5rem;
+		font-size: 0.9375rem;
+		font-weight: 650;
+		color: var(--color-text);
+	}
+
+	.agb__section h3:first-of-type {
+		margin-top: 0;
+	}
+
+	.agb__section p {
+		margin: 0 0 0.85rem;
+		font-size: 0.9375rem;
+		line-height: 1.72;
+		color: var(--color-text-muted);
+	}
+
+	.agb__section p:last-child {
+		margin-bottom: 0;
+	}
+
+	.agb__list {
+		margin: 0 0 1rem;
+		padding-left: 1.15rem;
+		font-size: 0.9375rem;
+		line-height: 1.65;
+		color: var(--color-text-muted);
+	}
+
+	.agb__list li {
+		margin-bottom: 0.4rem;
+	}
+
+	.agb__list li:last-child {
+		margin-bottom: 0;
+	}
+
+	.agb__list--plain {
+		list-style: disc;
+	}
+
+	.agb__list a {
+		color: var(--color-text);
+		font-weight: 500;
+	}
+
+	.agb__list a:hover {
+		color: var(--color-gold-muted);
+	}
+
+	.agb__lead a {
+		color: var(--color-text);
+		font-weight: 500;
+		text-decoration: underline;
+		text-underline-offset: 0.15em;
+	}
+
+	.agb__lead a:hover {
+		color: var(--color-gold-muted);
+	}
+
+	.agb__card {
+		margin: 0.85rem 0 0;
+		padding: clamp(1.1rem, 2.5vw, 1.35rem) clamp(1.2rem, 2.8vw, 1.5rem);
+		border-radius: 0.875rem;
+		background: linear-gradient(165deg, rgb(252 252 252), rgb(247 246 244));
+		border: 1px solid rgb(0 0 0 / 0.06);
+		box-shadow: var(--shadow-border), 0 1px 0 rgb(255 255 255 / 0.9) inset;
+	}
+
+	.agb__card-text {
+		margin: 0 !important;
+		font-size: 0.9375rem;
+		line-height: 1.65;
+		color: var(--color-text-muted);
+	}
+
+	.agb__card-text strong {
+		color: var(--color-text);
+		font-weight: 650;
+	}
+
+	.agb__card a {
+		color: var(--color-text);
+		font-weight: 500;
+		text-decoration: underline;
+		text-underline-offset: 0.15em;
+	}
+
+	.agb__card a:hover {
+		color: var(--color-gold-muted);
+	}
+</style>

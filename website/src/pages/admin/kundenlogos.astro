@@ -1,0 +1,21 @@
+---
+export const prerender = false;
+
+import AdminLayout from '../../layouts/AdminLayout.astro';
+---
+
+<AdminLayout
+	title="Kundenlogos"
+	current="kundenlogos"
+	eyebrow="Vertrauen"
+	description="Wie Team und Leistungen: Karten mit Vorschau, URL oder Upload, Reihenfolge per Griff. Mehrere Logos auf einmal per URL-Liste anlegen."
+>
+	<div id="admin-clientlogos-root"></div>
+</AdminLayout>
+
+<script>
+	import { mountClientLogosAdmin } from '../../admin-client/clientLogosMount';
+
+	const el = document.getElementById('admin-clientlogos-root');
+	if (el) mountClientLogosAdmin(el);
+</script>

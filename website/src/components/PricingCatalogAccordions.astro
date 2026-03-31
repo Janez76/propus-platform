@@ -1,0 +1,307 @@
+---
+import type { CatalogAccordionSection } from '../lib/booking/catalog';
+
+interface Props {
+	sections: CatalogAccordionSection[];
+}
+
+const { sections } = Astro.props;
+---
+
+{
+	sections.length > 0 && (
+		<div class="preise-catalog-acc">
+			<div class="preise-catalog-acc__intro">
+				<h2 class="preise-catalog-acc__heading">Alles, was wir für Sie anbieten</h2>
+				<p class="preise-catalog-acc__lead">
+					Von Boden- und Luftaufnahmen über die virtuelle Tour bis zu Video und Staging – hier sehen Sie unser volles
+					Sortiment, nach Themen sortiert. Wählen Sie, was zu Ihrem Objekt passt, und buchen Sie es genau so.
+				</p>
+			</div>
+			<div class="preise-catalog-acc__list">
+				{sections.map((sec) => (
+					<details class="preise-cat" id={`preise-kat-${sec.key}`}>
+						<summary class="preise-cat__summary">
+							<span class="preise-cat__name">{sec.name}</span>
+							<span class="preise-cat__chev" aria-hidden="true" />
+						</summary>
+						<div class="preise-cat__collapse">
+							<div class="preise-cat__panel">
+								<div class="preise-cat__gold-row" aria-hidden="true">
+									<span class="preise-cat__gold-line" />
+								</div>
+								{sec.description && <p class="preise-cat__desc">{sec.description}</p>}
+								<ul class="preise-cat__products">
+									{sec.products.map((row) => (
+										<li class="preise-prod">
+											<div class="preise-prod__main">
+												<span class="preise-prod__name">{row.name}</span>
+											</div>
+											<div class="preise-prod__price-col">
+												<span class="preise-prod__price">{row.priceDisplay}</span>
+											</div>
+										</li>
+									))}
+								</ul>
+							</div>
+						</div>
+					</details>
+				))}
+			</div>
+		</div>
+	)
+}
+
+<style>
+	.preise-catalog-acc {
+		margin-top: clamp(2.5rem, 6vw, 3.5rem);
+		padding: 0;
+		border: none;
+		background: transparent;
+		box-shadow: none;
+		max-width: 48rem;
+		margin-inline: auto;
+	}
+
+	.preise-catalog-acc__intro {
+		margin-bottom: clamp(1.25rem, 3vw, 1.65rem);
+		text-align: center;
+		max-width: 36rem;
+		margin-inline: auto;
+	}
+
+	.preise-catalog-acc__heading {
+		margin: 0 0 0.6rem;
+		font-size: clamp(1.2rem, 2.5vw, 1.45rem);
+		font-weight: 650;
+		letter-spacing: -0.03em;
+		line-height: 1.2;
+		color: var(--color-text);
+	}
+
+	.preise-catalog-acc__lead {
+		margin: 0;
+		font-size: 0.9375rem;
+		line-height: 1.68;
+		color: var(--color-text-muted);
+	}
+
+	.preise-catalog-acc__list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.65rem;
+	}
+
+	.preise-cat {
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		background: var(--color-surface);
+		box-shadow: var(--shadow-border);
+		overflow: hidden;
+		transition: border-color var(--transition-med);
+	}
+
+	.preise-cat:hover {
+		border-color: color-mix(in srgb, var(--color-border), var(--color-text) 18%);
+	}
+
+	.preise-cat[open] {
+		border-color: rgb(184 149 106 / 0.22);
+	}
+
+	/** Fallback (z. B. Firefox): Grid 0fr → 1fr */
+	@supports not (interpolate-size: allow-keywords) {
+		.preise-cat__collapse {
+			display: grid;
+			grid-template-rows: 0fr;
+			transition: grid-template-rows 0.42s cubic-bezier(0.4, 0, 0.2, 1);
+		}
+
+		.preise-cat[open] .preise-cat__collapse {
+			grid-template-rows: 1fr;
+		}
+
+		.preise-cat__panel {
+			min-height: 0;
+			overflow: hidden;
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			.preise-cat__collapse {
+				transition: none;
+			}
+		}
+	}
+
+	/** Chromium / Safari: animiertes ::details-content */
+	@supports (interpolate-size: allow-keywords) {
+		.preise-cat__collapse {
+			display: contents;
+		}
+
+		.preise-cat::details-content {
+			block-size: 0;
+			overflow-y: clip;
+		}
+
+		.preise-cat[open]::details-content {
+			block-size: auto;
+		}
+
+		@media (prefers-reduced-motion: no-preference) {
+			.preise-cat {
+				interpolate-size: allow-keywords;
+			}
+
+			.preise-cat::details-content {
+				transition:
+					content-visibility 0.42s allow-discrete,
+					block-size 0.42s cubic-bezier(0.4, 0, 0.2, 1);
+			}
+		}
+	}
+
+	.preise-cat__summary {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		padding: 1.05rem 1.25rem;
+		cursor: pointer;
+		list-style: none;
+		font-weight: 600;
+		color: var(--color-text);
+		user-select: none;
+	}
+
+	.preise-cat__summary::-webkit-details-marker {
+		display: none;
+	}
+
+	.preise-cat__name {
+		font-size: 0.9375rem;
+		letter-spacing: -0.02em;
+		min-width: 0;
+	}
+
+	.preise-cat__panel {
+		padding: 0 1.25rem 1.2rem;
+	}
+
+	.preise-cat__gold-row {
+		display: flex;
+		justify-content: flex-start;
+		padding-top: 0.05rem;
+		padding-bottom: 1.05rem;
+		margin-bottom: 0.25rem;
+	}
+
+	.preise-cat__gold-line {
+		display: block;
+		width: 2.75rem;
+		height: 0;
+		border: 0;
+		border-top: 1px solid var(--color-gold-line);
+		margin: 0;
+		flex-shrink: 0;
+	}
+
+	.preise-cat__chev {
+		flex-shrink: 0;
+		width: 1.75rem;
+		height: 1.75rem;
+		border-radius: 999px;
+		border: 1px solid var(--color-border);
+		position: relative;
+		transition:
+			transform var(--transition-med),
+			border-color var(--transition-med);
+	}
+
+	.preise-cat__chev::before {
+		content: '';
+		position: absolute;
+		left: 50%;
+		top: 50%;
+		width: 0.45rem;
+		height: 0.45rem;
+		border-right: 1.5px solid var(--color-text-muted);
+		border-bottom: 1.5px solid var(--color-text-muted);
+		translate: -50% -60%;
+		rotate: 45deg;
+		transition: border-color var(--transition-fast);
+	}
+
+	.preise-cat[open] .preise-cat__chev {
+		transform: rotate(180deg);
+		border-color: rgb(184 149 106 / 0.35);
+	}
+
+	.preise-cat__desc {
+		margin: 0 0 1rem;
+		font-size: 0.8125rem;
+		line-height: 1.55;
+		color: var(--color-text-muted);
+	}
+
+	.preise-cat__products {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0;
+	}
+
+	.preise-prod {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 1.25rem;
+		padding: 0.95rem 0;
+		border-top: 1px solid var(--color-border);
+	}
+
+	.preise-prod:first-child {
+		border-top: none;
+		padding-top: 0.15rem;
+	}
+
+	.preise-prod:last-child {
+		padding-bottom: 0.15rem;
+	}
+
+	.preise-prod__main {
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
+	}
+
+	.preise-prod__name {
+		font-size: 0.875rem;
+		font-weight: 600;
+		color: var(--color-text);
+		letter-spacing: -0.015em;
+	}
+
+	.preise-prod__price-col {
+		flex-shrink: 0;
+		min-width: min-content;
+		max-width: 100%;
+	}
+
+	.preise-prod__price {
+		display: block;
+		font-size: 0.875rem;
+		font-weight: 650;
+		font-variant-numeric: tabular-nums;
+		color: var(--color-gold-muted);
+		text-align: right;
+		line-height: 1.35;
+		white-space: normal;
+		word-break: normal;
+		overflow-wrap: anywhere;
+	}
+
+</style>

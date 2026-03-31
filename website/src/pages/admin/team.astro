@@ -1,0 +1,21 @@
+---
+export const prerender = false;
+
+import AdminLayout from '../../layouts/AdminLayout.astro';
+---
+
+<AdminLayout
+	title="Team"
+	current="team"
+	eyebrow="Menschen"
+	description="Gleiche Oberfläche wie bei Leistungen: Karten mit Kurzinfo, Profil und Porträt-Upload. Reihenfolge per Griff, Sichtbarkeit per Schalter."
+>
+	<div id="admin-team-root"></div>
+</AdminLayout>
+
+<script>
+	import { mountTeamAdmin } from '../../admin-client/teamMount';
+
+	const el = document.getElementById('admin-team-root');
+	if (el) mountTeamAdmin(el);
+</script>

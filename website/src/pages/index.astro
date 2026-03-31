@@ -1,0 +1,422 @@
+---
+export const prerender = false;
+
+import { Image } from 'astro:assets';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import SectionHeading from '../components/SectionHeading.astro';
+import HomeFeaturedPreview from '../components/HomeFeaturedPreview.astro';
+import ClientMarquee from '../components/ClientMarquee.astro';
+import GoogleReviewsSection from '../components/GoogleReviewsSection.astro';
+import { googleReviews } from '../content/google-reviews';
+import { resolveHomeReviews } from '../lib/googlePlacesReviews';
+import {
+	ctaBookHref,
+	ctaBookLabel,
+	ctaPortfolioLabel,
+} from '../content/site';
+import { loadHomePageData } from '../lib/cms/resolve';
+
+const placesKey = import.meta.env.GOOGLE_PLACES_API_KEY ?? process.env.GOOGLE_PLACES_API_KEY ?? '';
+
+const [home, reviewsForHome] = await Promise.all([
+	loadHomePageData(),
+	resolveHomeReviews(placesKey, googleReviews).then((r) => r.slice(0, 3)),
+]);
+
+const {
+	seoStart: seoPage,
+	seoPortfolio,
+	featuredPortfolio,
+	clientLogos,
+	branding: homeBranding,
+	siteLinks: homeSiteLinks,
+} = home;
+
+const title = seoPage.title;
+const description = seoPage.description;
+
+/* LCP: moderates Format – scharf genug auf Retina, weniger Bytes als 1920px. */
+const heroImage =
+	'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1400&q=78';
+---
+
+<BaseLayout
+	branding={homeBranding}
+	siteLinks={homeSiteLinks}
+	{title}
+	{description}
+	ogImage={seoPage.ogImage}
+	ogTitle={seoPage.ogTitle}
+	ogDescription={seoPage.ogDescription}
+	keywords={seoPage.keywords}
+	noIndex={!seoPage.index}
+>
+	<section class="hero hero--welcome">
+		<div class="hero__media">
+			<Image
+				src={heroImage}
+				alt="Architektonisch hochwertige Immobilie in stimmungsvollem Licht"
+				width={1400}
+				height={933}
+				sizes="100vw"
+				loading="eager"
+				fetchpriority="high"
+				decoding="async"
+				class="hero__img"
+			/>
+			<div class="hero__overlay" aria-hidden="true"></div>
+		</div>
+
+		<div class="hero__shell">
+			<div class="hero__content">
+				<p class="hero__welcome u-animate" style="--delay: 0ms">Real estate photography</p>
+				<h1 class="hero__headline u-animate" style="--delay: 70ms">
+					<span class="hero__hl">Ihre Immobilie hat eine Geschichte – wir setzen sie ins Licht.</span>
+					<span class="hero__hl hero__hl--sub">
+						Ruhig, warm und klar: Aufnahmen, die einladen, sich vorzustellen, hier anzukommen.
+					</span>
+				</h1>
+				<div class="hero__cta u-animate" style="--delay: 200ms">
+					<a
+						class="btn btn--inverse btn--xl hero__btn"
+						href={ctaBookHref}
+						target="_blank"
+						rel="noopener noreferrer"
+					>
+						{ctaBookLabel}
+					</a>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<section class="u-section value">
+		<div class="u-container value__wrap">
+			<div class="value__grid">
+				<div class="value__text u-animate" style="--delay: 40ms">
+					<p class="u-eyebrow">Gemeinsam</p>
+					<h2>Qualität, die man spürt – nicht nur sieht.</h2>
+					<div class="divider-gold" aria-hidden="true"></div>
+					<p>
+						Ihre Kundinnen und Kunden entscheiden oft innerhalb von Sekunden. Wir sorgen dafür, dass
+						Räume einladend wirken, Linien ruhig bleiben und Ihr Auftritt insgesamt stimmig wirkt.
+					</p>
+					<p>
+						Ob Portal, Exposé oder Social Media: ein roter Faden, auf den Sie sich verlassen können –
+						ohne laute Effekte, mit viel Sorgfalt im Detail.
+					</p>
+					<a class="link-cta link-cta--spaced" href="/dienstleistungen/">Unsere Leistungen entdecken →</a>
+				</div>
+				<figure class="value__figure u-animate" style="--delay: 120ms">
+					<Image
+						src="https://images.unsplash.com/photo-1600585154526-990dced4db0d?w=960&q=76"
+						alt="Architektonisch anspruchvolles Einfamilienhaus in warmem Licht"
+						width={960}
+						height={720}
+						sizes="(min-width: 960px) 38vw, 88vw"
+						loading="lazy"
+						decoding="async"
+						class="value__img"
+					/>
+				</figure>
+			</div>
+		</div>
+	</section>
+
+	<ClientMarquee clients={clientLogos} />
+
+	<section class="home-ref u-section">
+		<div class="home-ref__intro u-animate" style="--delay: 40ms">
+			<SectionHeading
+				eyebrow="Referenzen"
+				title="Ein Blick auf unsere Arbeit"
+				subtitle="Jedes Objekt trägt eine Stimmung – wir fangen sie ein, damit sich Menschen vorstellen können, hier anzukommen, noch bevor das erste Wort fällt."
+				align="center"
+			/>
+		</div>
+		<div class="home-ref__grid u-animate" style="--delay: 90ms">
+			<HomeFeaturedPreview items={featuredPortfolio} />
+		</div>
+		<p class="home-ref__more u-animate" style="--delay: 140ms">
+			<a class="link-cta" href={seoPortfolio.path}>{ctaPortfolioLabel} →</a>
+		</p>
+	</section>
+
+	<div class="u-animate" style="--delay: 40ms">
+		<GoogleReviewsSection reviews={reviewsForHome} />
+	</div>
+
+	<section class="cta-final">
+		<div class="u-container cta-final__inner">
+			<h2 class="cta-final__title u-animate" style="--delay: 0ms">Wir freuen uns auf Ihr Objekt</h2>
+			<p class="cta-final__text u-animate" style="--delay: 60ms">
+				Termin direkt online wählen – unkompliziert, transparent und ohne Druck.
+			</p>
+			<div class="cta-final__action u-animate" style="--delay: 120ms">
+				<a
+					class="btn btn--inverse btn--xl"
+					href={ctaBookHref}
+					target="_blank"
+					rel="noopener noreferrer"
+				>
+					{ctaBookLabel}
+				</a>
+			</div>
+		</div>
+	</section>
+</BaseLayout>
+
+<style>
+	.hero {
+		position: relative;
+		min-height: 100svh;
+		min-height: 100vh;
+		display: flex;
+		flex-direction: column;
+		color: #fff;
+	}
+
+	.hero--welcome .hero__media {
+		position: absolute;
+		inset: 0;
+		overflow: hidden;
+		background: #0f0e0c;
+	}
+
+	.hero__img {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		transform: scale(1.02);
+		transform-origin: 50% 42%;
+	}
+
+	/* Etwas wärmeres, weicheres Overlay – weniger „kalt“, mehr Einladung */
+	.hero--welcome .hero__overlay {
+		position: absolute;
+		inset: 0;
+		z-index: 2;
+		background:
+			radial-gradient(
+				ellipse 95% 85% at 50% 40%,
+				rgb(45 38 32 / 0.22) 0%,
+				rgb(0 0 0 / 0.45) 55%,
+				rgb(0 0 0 / 0.72) 100%
+			),
+			linear-gradient(
+				185deg,
+				rgb(28 24 20 / 0.5) 0%,
+				rgb(12 10 8 / 0.42) 45%,
+				rgb(6 5 4 / 0.82) 100%
+			);
+	}
+
+	.hero__welcome {
+		margin: 0;
+		font-size: 0.6875rem;
+		font-weight: 700;
+		letter-spacing: 0.2em;
+		text-transform: uppercase;
+		color: rgb(255 248 240 / 0.72);
+	}
+
+	.hero__shell {
+		position: relative;
+		z-index: 3;
+		flex: 1;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
+		box-sizing: border-box;
+		padding-inline: clamp(1.5rem, 5vw, 3rem);
+		padding-block: calc(var(--header-h) + clamp(2.25rem, 9vh, 4.5rem)) clamp(3rem, 10vh, 5rem);
+	}
+
+	.hero__content {
+		width: 100%;
+		max-width: 32rem;
+		margin-inline: auto;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		text-align: center;
+		gap: clamp(1.35rem, 4vw, 2rem);
+	}
+
+	.hero__headline {
+		margin: 0;
+		padding: 0;
+		border: 0;
+		font: inherit;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.35rem;
+		text-wrap: balance;
+	}
+
+	.hero__hl {
+		display: block;
+		color: #fff;
+		font-size: clamp(1.85rem, 4.8vw, 3.15rem);
+		font-weight: 650;
+		line-height: 1.12;
+		letter-spacing: -0.032em;
+		max-width: min(100%, 42ch);
+	}
+
+	.hero__hl--sub {
+		font-size: clamp(1.05rem, 2.4vw, 1.35rem);
+		font-weight: 500;
+		line-height: 1.4;
+		letter-spacing: -0.015em;
+		color: rgb(255 252 248 / 0.88);
+		margin-top: 0.5rem;
+		max-width: min(100%, 44ch);
+	}
+
+	.hero__cta {
+		display: flex;
+		justify-content: center;
+		width: 100%;
+		padding-top: 0.25rem;
+	}
+
+	/** Nur Hero-Typo/Maße; Schatten & Hover kommen von global `.btn` / `.btn--inverse`. */
+	.hero__btn {
+		min-width: min(100%, 15.75rem);
+		font-size: 0.75rem;
+		letter-spacing: 0.11em;
+	}
+
+	.value {
+		padding-block: calc(var(--space-2xl) + var(--space-sm));
+		background: var(--color-bg-muted);
+		border-block: 1px solid var(--color-border);
+	}
+
+	.value__wrap {
+		max-width: calc(var(--content-max) + 2rem);
+	}
+
+	.value__grid {
+		display: grid;
+		gap: var(--space-2xl);
+		align-items: center;
+	}
+
+	@media (min-width: 960px) {
+		.value__grid {
+			grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+			gap: clamp(3rem, 6vw, 5rem);
+		}
+	}
+
+	.value__text h2 {
+		color: var(--color-text);
+		max-width: 20ch;
+	}
+
+	.value__text p {
+		font-size: 1.0625rem;
+		line-height: 1.65;
+		max-width: 38rem;
+	}
+
+	.value__figure {
+		margin: 0;
+		border-radius: var(--radius-md);
+		overflow: hidden;
+		box-shadow: var(--shadow-soft);
+		border: 1px solid var(--color-border);
+	}
+
+	.value__img {
+		width: 100%;
+		height: auto;
+		display: block;
+		aspect-ratio: 4 / 3;
+		object-fit: cover;
+		transition: transform var(--transition-med);
+	}
+
+	@media (prefers-reduced-motion: no-preference) {
+		.value__figure:hover .value__img {
+			transform: scale(1.02);
+		}
+	}
+
+	.home-ref {
+		padding-block: calc(var(--space-2xl) + var(--space-xs));
+		padding-inline: clamp(1.25rem, 5vw, 2.75rem);
+		background: var(--color-bg-muted);
+		border-block: 1px solid var(--color-border);
+	}
+
+	.home-ref__intro {
+		max-width: 36rem;
+		margin-inline: auto;
+		margin-bottom: var(--space-lg);
+	}
+
+	.home-ref__intro :global(.section-heading) {
+		margin-bottom: 0;
+	}
+
+	.home-ref__grid {
+		width: 100%;
+		max-width: min(100%, 88rem);
+		margin-inline: auto;
+	}
+
+	.home-ref__more {
+		margin: var(--space-lg) 0 0;
+		text-align: center;
+	}
+
+	.cta-final {
+		padding-block: calc(var(--space-2xl) + var(--space-lg));
+		background: linear-gradient(165deg, #1c1916 0%, #12100e 48%, #0c0a09 100%);
+		color: #fff;
+		text-align: center;
+		border-top: 1px solid rgb(255 255 255 / 0.06);
+	}
+
+	.cta-final__inner {
+		max-width: 36rem;
+		margin-inline: auto;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--space-md);
+	}
+
+	.cta-final__title {
+		color: #fff;
+		font-size: clamp(1.5rem, 3.5vw, 2.25rem);
+		font-weight: 600;
+		letter-spacing: -0.03em;
+		margin: 0;
+	}
+
+	.cta-final__text {
+		color: rgb(255 255 255 / 0.72);
+		font-size: 1.0625rem;
+		line-height: 1.6;
+		margin: 0;
+		max-width: 32rem;
+	}
+
+	.cta-final__action {
+		margin-top: var(--space-sm);
+	}
+
+	/* Dark Mode: gleicher flacher Seitenhintergrund wie „Partner, die mit uns arbeiten“ */
+	:global(html[data-theme='dark']) .cta-final {
+		background: var(--color-bg);
+		border-top: 1px solid var(--color-border);
+	}
+</style>

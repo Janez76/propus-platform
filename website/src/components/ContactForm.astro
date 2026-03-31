@@ -1,0 +1,1030 @@
+---
+/** FormSubmit: erste Anfrage löst Bestätigungs-Mail an diese Adresse aus; danach Zustellung an Postfach. */
+const formSubmitEmail = 'office@propus.ch';
+const formActionFallback = `https://formsubmit.co/${formSubmitEmail}`;
+const formActionAjax = `https://formsubmit.co/ajax/${formSubmitEmail}`;
+---
+
+<div class="contact-form-page">
+	<div class="contact-form-page__main" id="contact-form-main">
+		<form
+			class="contact-form"
+			id="contact-form"
+			action={formActionFallback}
+			method="POST"
+			novalidate
+		>
+			<input type="hidden" name="_subject" value="Kontaktanfrage Propus Website" />
+			<input type="hidden" name="_captcha" value="false" />
+			<input
+				type="text"
+				name="_gotcha"
+				class="contact-form__hp"
+				tabindex="-1"
+				autocomplete="off"
+				aria-hidden="true"
+			/>
+
+			<div class="contact-form__fields" id="contact-form-fields">
+				<p
+					class="contact-form__validation-summary"
+					id="contact-form-validation-summary"
+					role="alert"
+					aria-live="polite"
+					hidden
+				></p>
+
+				<div class="contact-form__field" data-field="name">
+					<label class="contact-form__label" for="cf-name">
+						Name <abbr class="contact-form__star" title="Pflichtfeld">*</abbr>
+					</label>
+					<input
+						id="cf-name"
+						type="text"
+						name="name"
+						autocomplete="name"
+						placeholder="Vor- und Nachname"
+						aria-required="true"
+						aria-describedby="cf-name-err"
+					/>
+					<p class="contact-form__error" id="cf-name-err" role="alert" hidden></p>
+				</div>
+
+				<div class="contact-form__field" data-field="email">
+					<label class="contact-form__label" for="cf-email">
+						E-Mail <abbr class="contact-form__star" title="Pflichtfeld">*</abbr>
+					</label>
+					<input
+						id="cf-email"
+						type="email"
+						name="email"
+						inputmode="email"
+						autocomplete="email"
+						placeholder="name@beispiel.ch"
+						aria-required="true"
+						aria-describedby="cf-email-err"
+					/>
+					<p class="contact-form__error" id="cf-email-err" role="alert" hidden></p>
+				</div>
+
+				<div class="contact-form__field" data-field="phone">
+					<label class="contact-form__label" for="cf-phone">Telefon</label>
+					<input
+						id="cf-phone"
+						type="tel"
+						name="phone"
+						autocomplete="tel"
+						placeholder="+41 …"
+					/>
+				</div>
+
+				<div class="contact-form__field contact-form__field--reason" data-field="reason">
+					<p class="contact-form__label" id="cf-reason-label">
+						Anfragegrund <abbr class="contact-form__star" title="Pflichtfeld">*</abbr>
+					</p>
+					<div class="contact-form__reason-shell" id="cf-reason-shell">
+						<button
+							type="button"
+							class="contact-form__reason-toggle"
+							id="cf-reason-toggle"
+							aria-expanded="false"
+							aria-controls="cf-reason-panel"
+							aria-labelledby="cf-reason-label"
+						>
+							<span class="contact-form__reason-toggle-value" data-reason-summary>Bitte auswählen</span>
+							<span class="contact-form__reason-chevron-box" aria-hidden="true">
+								<span class="contact-form__reason-chevron"></span>
+							</span>
+						</button>
+						<div
+							class="contact-form__reason-panel"
+							id="cf-reason-panel"
+							role="radiogroup"
+							aria-labelledby="cf-reason-label"
+							hidden
+						>
+							<ul class="contact-form__reason-list" id="cf-reason-list" aria-describedby="cf-reason-err">
+								<li class="contact-form__reason-li">
+									<label class="contact-form__reason-item">
+										<input type="radio" name="anfragegrund" value="Offerte" />
+										<span class="contact-form__reason-text">Offerte</span>
+									</label>
+								</li>
+								<li class="contact-form__reason-li">
+									<label class="contact-form__reason-item">
+										<input type="radio" name="anfragegrund" value="Support" />
+										<span class="contact-form__reason-text">Support</span>
+									</label>
+								</li>
+								<li class="contact-form__reason-li">
+									<label class="contact-form__reason-item">
+										<input type="radio" name="anfragegrund" value="Sonstiges" />
+										<span class="contact-form__reason-text">Sonstiges</span>
+									</label>
+								</li>
+							</ul>
+						</div>
+					</div>
+					<p class="contact-form__error" id="cf-reason-err" role="alert" hidden></p>
+				</div>
+
+				<div class="contact-form__field contact-form__field--message" data-field="message">
+					<label class="contact-form__label" for="cf-message">
+						Nachricht <abbr class="contact-form__star" title="Pflichtfeld">*</abbr>
+					</label>
+					<textarea
+						id="cf-message"
+						name="message"
+						rows="6"
+						placeholder="Ihr Anliegen …"
+						aria-required="true"
+						aria-describedby="cf-message-err"
+					></textarea>
+					<p class="contact-form__error" id="cf-message-err" role="alert" hidden></p>
+				</div>
+
+				<div class="contact-form__footer">
+					<p class="contact-form__form-error" id="contact-form-global-err" role="alert" hidden></p>
+					<button class="btn btn--primary contact-form__submit" type="submit">Anfrage senden</button>
+					<div
+						class="contact-form__sending"
+						id="contact-form-sending"
+						role="status"
+						aria-live="polite"
+						aria-atomic="true"
+						hidden
+					>
+						<div class="contact-form__sending-track">
+							<div class="contact-form__sending-bar"></div>
+						</div>
+						<p class="contact-form__sending-text">Wird gesendet …</p>
+					</div>
+					<p class="contact-form__note contact-form__note--below-btn">
+						Mit dem Absenden werden Ihre Angaben zur Bearbeitung der Anfrage verarbeitet.
+						<a href="/datenschutz/">Datenschutz</a>
+					</p>
+				</div>
+			</div>
+		</form>
+	</div>
+
+	<div
+		class="contact-form-page__success"
+		id="contact-form-success"
+		role="status"
+		aria-live="polite"
+		hidden
+		tabindex="-1"
+	>
+		<p class="contact-form-page__success-title">Danke für Ihre Nachricht</p>
+		<p class="contact-form-page__success-text">
+			Wir haben Ihre Anfrage erhalten und melden uns bald bei Ihnen. Ihre Nachricht wurde an
+			<a href="mailto:office@propus.ch">office@propus.ch</a> übermittelt.
+		</p>
+	</div>
+</div>
+
+<script define:vars={{ formActionAjax }}>
+	function qs(sel, root = document) {
+		return root.querySelector(sel);
+	}
+
+	const emailOk = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+
+	function closeReasonPanel(form) {
+		const shell = form.querySelector('.contact-form__reason-shell');
+		const btn = qs('#cf-reason-toggle', form);
+		const panel = qs('#cf-reason-panel', form);
+		if (!shell || !btn || !panel) return;
+		panel.setAttribute('hidden', '');
+		btn.setAttribute('aria-expanded', 'false');
+		shell.classList.remove('is-open');
+	}
+
+	function openReasonPanel(form, opts) {
+		const shell = form.querySelector('.contact-form__reason-shell');
+		const btn = qs('#cf-reason-toggle', form);
+		const panel = qs('#cf-reason-panel', form);
+		if (!shell || !btn || !panel) return;
+		panel.removeAttribute('hidden');
+		btn.setAttribute('aria-expanded', 'true');
+		shell.classList.add('is-open');
+		if (opts?.focusFirst) {
+			queueMicrotask(() => panel.querySelector('input[name="anfragegrund"]')?.focus());
+		}
+	}
+
+	function toggleReasonPanel(form) {
+		const btn = qs('#cf-reason-toggle', form);
+		if (btn?.getAttribute('aria-expanded') === 'true') closeReasonPanel(form);
+		else openReasonPanel(form, { focusFirst: true });
+	}
+
+	function updateReasonSummary(form) {
+		const checked = form.querySelector('input[name="anfragegrund"]:checked');
+		const el = form.querySelector('[data-reason-summary]');
+		if (!el) return;
+		el.textContent =
+			checked instanceof HTMLInputElement && checked.value ? checked.value : 'Bitte auswählen';
+	}
+
+	function clearErrors(form) {
+		form.querySelectorAll('.contact-form__field--invalid').forEach((el) => {
+			el.classList.remove('contact-form__field--invalid');
+		});
+		form.querySelectorAll('.contact-form__error[role="alert"]').forEach((el) => {
+			el.hidden = true;
+			el.textContent = '';
+		});
+		const g = qs('#contact-form-global-err', form);
+		if (g) {
+			g.hidden = true;
+			g.textContent = '';
+		}
+		const sum = qs('#contact-form-validation-summary', form);
+		if (sum) {
+			sum.hidden = true;
+			sum.textContent = '';
+		}
+		form.querySelectorAll('[aria-invalid="true"]').forEach((el) => el.removeAttribute('aria-invalid'));
+		form.querySelector('.contact-form__reason-shell')?.classList.remove('contact-form__reason-shell--invalid');
+	}
+
+	function setFieldError(fieldName, message, form) {
+		const wrap = form.querySelector(`[data-field="${fieldName}"]`);
+		if (!wrap) return;
+		wrap.classList.add('contact-form__field--invalid');
+		const err = wrap.querySelector('.contact-form__error');
+		if (err) {
+			err.textContent = message;
+			err.hidden = false;
+		}
+		if (fieldName === 'reason') {
+			wrap.querySelector('.contact-form__reason-shell')?.classList.add('contact-form__reason-shell--invalid');
+			wrap.querySelector('#cf-reason-toggle')?.setAttribute('aria-invalid', 'true');
+			openReasonPanel(form);
+		} else {
+			const control = wrap.querySelector('input:not([type="radio"]), textarea');
+			control?.setAttribute('aria-invalid', 'true');
+		}
+	}
+
+	function validate(form) {
+		clearErrors(form);
+		let ok = true;
+		const name = (qs('#cf-name', form)?.value ?? '').trim();
+		const email = (qs('#cf-email', form)?.value ?? '').trim();
+		const reasonEl = form.querySelector('input[name="anfragegrund"]:checked');
+		const reason = reasonEl instanceof HTMLInputElement ? reasonEl.value.trim() : '';
+		const message = (qs('#cf-message', form)?.value ?? '').trim();
+
+		if (!name) {
+			setFieldError('name', 'Bitte geben Sie Ihren Namen an.', form);
+			ok = false;
+		}
+		if (!email) {
+			setFieldError('email', 'Bitte geben Sie Ihre E-Mail-Adresse an.', form);
+			ok = false;
+		} else if (!emailOk(email)) {
+			setFieldError('email', 'Bitte geben Sie eine gültige E-Mail-Adresse ein.', form);
+			ok = false;
+		}
+		if (!reason) {
+			setFieldError('reason', 'Bitte wählen Sie einen Anfragegrund.', form);
+			ok = false;
+		}
+		if (!message) {
+			setFieldError('message', 'Bitte schreiben Sie eine Nachricht.', form);
+			ok = false;
+		}
+
+		const summary = qs('#contact-form-validation-summary', form);
+		if (summary) {
+			if (!ok) {
+				summary.textContent =
+					'Mindestens ein Pflichtfeld (*) ist noch leer oder ungültig. Bitte prüfen Sie die rot markierten Felder oben im Formular.';
+				summary.hidden = false;
+				if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+					summary.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+				} else {
+					summary.scrollIntoView({ block: 'nearest' });
+				}
+			} else {
+				summary.hidden = true;
+				summary.textContent = '';
+			}
+		}
+
+		return ok;
+	}
+
+	function showSuccess() {
+		const main = qs('#contact-form-main');
+		const successEl = qs('#contact-form-success');
+		if (main) main.hidden = true;
+		if (successEl) {
+			successEl.hidden = false;
+			successEl.focus();
+		}
+	}
+
+	function showGlobalError(form, text) {
+		const g = qs('#contact-form-global-err', form);
+		if (g) {
+			g.textContent = text;
+			g.hidden = false;
+		}
+	}
+
+	function sendingEl(form) {
+		return form.closest('.contact-form-page')?.querySelector('#contact-form-sending');
+	}
+
+	function setSending(form, on) {
+		const box = sendingEl(form);
+		const btn = qs('.contact-form__submit', form);
+		if (on) {
+			box?.removeAttribute('hidden');
+			form.setAttribute('aria-busy', 'true');
+			btn?.setAttribute('disabled', '');
+		} else {
+			box?.setAttribute('hidden', '');
+			form.removeAttribute('aria-busy');
+			btn?.removeAttribute('disabled');
+		}
+	}
+
+	function minVisible(ms, promise) {
+		const started = Date.now();
+		return promise.then((value) => {
+			const left = ms - (Date.now() - started);
+			if (left <= 0) return value;
+			return new Promise((resolve) => setTimeout(() => resolve(value), left));
+		});
+	}
+
+	function bindForm() {
+		const form = qs('#contact-form');
+		if (!form) return;
+		/* Nur einmal binden: sonst doppelt bei DOMContentLoaded + astro:page-load → Toggle feuert zweimal = Panel bleibt zu. */
+		if (form.dataset.contactFormBound === '1') return;
+		form.dataset.contactFormBound = '1';
+
+		if (!document.documentElement.dataset.propusContactReasonUi) {
+			document.documentElement.dataset.propusContactReasonUi = '1';
+			document.addEventListener('click', (e) => {
+				const t = e.target;
+				if (!(t instanceof Node)) return;
+				const f = qs('#contact-form');
+				if (!f) return;
+				const shell = f.querySelector('.contact-form__reason-shell');
+				if (!shell?.classList.contains('is-open')) return;
+				if (shell.contains(t)) return;
+				closeReasonPanel(f);
+			});
+			document.addEventListener('keydown', (e) => {
+				if (e.key !== 'Escape') return;
+				const f = qs('#contact-form');
+				if (!f) return;
+				const shell = f.querySelector('.contact-form__reason-shell');
+				if (!shell?.classList.contains('is-open')) return;
+				closeReasonPanel(f);
+				qs('#cf-reason-toggle', f)?.focus();
+			});
+		}
+
+		const reasonToggle = qs('#cf-reason-toggle', form);
+		reasonToggle?.addEventListener('click', (e) => {
+			e.stopPropagation();
+			toggleReasonPanel(form);
+		});
+
+		form.addEventListener('reset', () => {
+			queueMicrotask(() => {
+				updateReasonSummary(form);
+				closeReasonPanel(form);
+			});
+		});
+
+		form.addEventListener('submit', async (e) => {
+			if (!validate(form)) {
+				e.preventDefault();
+				const firstInvalid =
+					form.querySelector(
+						'.contact-form__field--invalid input:not([type="radio"]), .contact-form__field--invalid textarea',
+					) ||
+					form.querySelector(
+						'.contact-form__field--reason.contact-form__field--invalid #cf-reason-toggle',
+					);
+				firstInvalid?.focus();
+				return;
+			}
+
+			e.preventDefault();
+			setSending(form, true);
+
+			try {
+				const res = await minVisible(
+					550,
+					fetch(formActionAjax, {
+						method: 'POST',
+						body: new FormData(form),
+						headers: { Accept: 'application/json' },
+					}),
+				);
+				const data = await res.json().catch(() => ({}));
+				if (res.ok) {
+					form.reset();
+					showSuccess();
+				} else {
+					const errRaw =
+						data && typeof data === 'object' && data.error != null ? String(data.error) : '';
+					showGlobalError(
+						form,
+						errRaw.trim() || 'Senden fehlgeschlagen. Bitte versuchen Sie es später erneut.',
+					);
+				}
+			} catch {
+				showGlobalError(form, 'Keine Verbindung. Bitte versuchen Sie es später erneut.');
+			} finally {
+				setSending(form, false);
+			}
+		});
+
+		form.addEventListener(
+			'input',
+			(ev) => {
+				const t = ev.target;
+				if (!(t instanceof HTMLElement)) return;
+				const wrap = t.closest('[data-field]');
+				if (!wrap || !wrap.classList.contains('contact-form__field--invalid')) return;
+				wrap.classList.remove('contact-form__field--invalid');
+				wrap.querySelector('.contact-form__reason-shell')?.classList.remove('contact-form__reason-shell--invalid');
+				wrap.querySelector('#cf-reason-toggle')?.removeAttribute('aria-invalid');
+				const err = wrap.querySelector('.contact-form__error');
+				if (err) {
+					err.hidden = true;
+					err.textContent = '';
+				}
+				t.removeAttribute('aria-invalid');
+				if (!form.querySelector('.contact-form__field--invalid')) {
+					const sum = qs('#contact-form-validation-summary', form);
+					if (sum) {
+						sum.hidden = true;
+						sum.textContent = '';
+					}
+				}
+			},
+			true,
+		);
+
+		form.addEventListener(
+			'change',
+			(ev) => {
+				const t = ev.target;
+				if (t instanceof HTMLInputElement && t.name === 'anfragegrund' && t.type === 'radio') {
+					updateReasonSummary(form);
+					closeReasonPanel(form);
+					const wrap = t.closest('[data-field]');
+					if (wrap?.classList.contains('contact-form__field--invalid')) {
+						wrap.classList.remove('contact-form__field--invalid');
+						wrap.querySelector('.contact-form__reason-shell')?.classList.remove('contact-form__reason-shell--invalid');
+						wrap.querySelector('#cf-reason-toggle')?.removeAttribute('aria-invalid');
+						wrap.querySelectorAll('input[name="anfragegrund"]').forEach((r) => r.removeAttribute('aria-invalid'));
+						const err = wrap.querySelector('.contact-form__error');
+						if (err) {
+							err.hidden = true;
+							err.textContent = '';
+						}
+					}
+					if (!form.querySelector('.contact-form__field--invalid')) {
+						const sum = qs('#contact-form-validation-summary', form);
+						if (sum) {
+							sum.hidden = true;
+							sum.textContent = '';
+						}
+					}
+				}
+			},
+			true,
+		);
+	}
+
+	function init() {
+		bindForm();
+	}
+
+	document.addEventListener('astro:page-load', init);
+	if (document.readyState === 'loading') {
+		document.addEventListener('DOMContentLoaded', init, { once: true });
+	} else {
+		queueMicrotask(init);
+	}
+</script>
+
+<style>
+	.contact-form-page {
+		width: 100%;
+	}
+
+	.contact-form-page__main {
+		padding: 0;
+	}
+
+	.contact-form {
+		position: relative;
+		margin: 0;
+		width: 100%;
+		max-width: none;
+	}
+
+	.contact-form__hp {
+		position: absolute;
+		left: -9999px;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		opacity: 0;
+		pointer-events: none;
+	}
+
+	.contact-form__fields {
+		display: flex;
+		flex-direction: column;
+		gap: 1.35rem;
+	}
+
+	.contact-form__validation-summary {
+		margin: 0;
+		padding: 0.75rem 1rem;
+		font-size: 0.875rem;
+		line-height: 1.5;
+		color: #b42318;
+		background: rgb(180 35 24 / 0.06);
+		border: 1px solid rgb(180 35 24 / 0.22);
+		border-radius: var(--radius-sm);
+	}
+
+	.contact-form__field {
+		display: flex;
+		flex-direction: column;
+		gap: 0.4rem;
+	}
+
+	.contact-form__label {
+		margin: 0;
+		font-size: 0.75rem;
+		font-weight: 500;
+		letter-spacing: 0.03em;
+		color: var(--color-text-muted);
+	}
+
+	.contact-form__star {
+		margin-left: 0.1em;
+		font-weight: 700;
+		color: #b42318;
+		text-decoration: none;
+	}
+
+	.contact-form__field input:not([type='hidden']):not([type='radio']),
+	.contact-form__field textarea {
+		font-family: var(--font-sans);
+		font-size: 1rem;
+		line-height: 1.45;
+		width: 100%;
+		padding: 0.72rem 0.95rem;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		background: var(--color-bg);
+		color: var(--color-text);
+		transition:
+			border-color var(--transition-fast),
+			box-shadow var(--transition-fast);
+	}
+
+	.contact-form__field input:not([type='radio'])::placeholder,
+	.contact-form__field textarea::placeholder {
+		color: rgb(90 90 90 / 0.5);
+	}
+
+	.contact-form__field input:not([type='radio']):hover,
+	.contact-form__field textarea:hover {
+		border-color: rgb(0 0 0 / 0.14);
+	}
+
+	.contact-form__field input:not([type='radio']):focus-visible,
+	.contact-form__field textarea:focus-visible {
+		outline: none;
+		border-color: rgb(0 0 0 / 0.22);
+		box-shadow: 0 0 0 1px rgb(0 0 0 / 0.06);
+	}
+
+	.contact-form__field--invalid input:not([type='radio']),
+	.contact-form__field--invalid textarea {
+		border-color: #b42318;
+	}
+
+	/* Anfragegrund: aufklappbare Liste (Trigger + Panel) */
+	.contact-form__reason-shell {
+		position: relative;
+		z-index: 1;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		background: var(--color-bg);
+		overflow: visible;
+		transition:
+			border-color var(--transition-fast),
+			box-shadow var(--transition-fast);
+	}
+
+	.contact-form__reason-shell.is-open {
+		z-index: 6;
+		border-bottom-left-radius: 0;
+		border-bottom-right-radius: 0;
+	}
+
+	.contact-form__reason-shell--invalid {
+		border-color: #b42318;
+		box-shadow: 0 0 0 1px rgb(180 35 24 / 0.2);
+	}
+
+	.contact-form__reason-toggle {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+		width: 100%;
+		margin: 0;
+		padding: 0.72rem 0.95rem;
+		min-height: calc(0.72rem * 2 + 1rem * 1.45);
+		border: none;
+		border-radius: var(--radius-sm);
+		background: transparent;
+		font-family: var(--font-sans);
+		font-size: 1rem;
+		line-height: 1.45;
+		font-weight: 500;
+		color: var(--color-text);
+		text-align: left;
+		cursor: pointer;
+		transition: background var(--transition-fast);
+	}
+
+	.contact-form__reason-shell.is-open .contact-form__reason-toggle {
+		border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+	}
+
+	.contact-form__reason-toggle:hover {
+		background: var(--color-bg-muted);
+	}
+
+	.contact-form__reason-toggle:focus-visible {
+		outline: none;
+		box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.12);
+	}
+
+	.contact-form__reason-toggle-value {
+		min-width: 0;
+		flex: 1;
+		min-height: 1.45em;
+	}
+
+	.contact-form__reason-chevron-box {
+		flex-shrink: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 1.35rem;
+		height: 1.35rem;
+	}
+
+	.contact-form__reason-chevron {
+		width: 0.5rem;
+		height: 0.5rem;
+		margin: 0;
+		border-right: 2px solid rgb(90 90 90 / 0.65);
+		border-bottom: 2px solid rgb(90 90 90 / 0.65);
+		transform: rotate(45deg);
+		transform-origin: 50% 50%;
+		transition: transform var(--transition-fast);
+	}
+
+	.contact-form__reason-toggle[aria-expanded='true'] .contact-form__reason-chevron {
+		transform: rotate(225deg);
+	}
+
+	/* Overlay: Inhalt darunter springt nicht nach unten */
+	.contact-form__reason-panel {
+		position: absolute;
+		left: 0;
+		right: 0;
+		top: 100%;
+		margin-top: -1px;
+		border: 1px solid var(--color-border);
+		border-top: 1px solid var(--color-border);
+		border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+		background: var(--color-bg-muted);
+		box-shadow: 0 10px 28px -10px rgb(0 0 0 / 0.14);
+	}
+
+	.contact-form__reason-list {
+		list-style: none;
+		margin: 0;
+		padding: 0.2rem 0;
+	}
+
+	.contact-form__reason-li {
+		margin: 0;
+		padding: 0;
+	}
+
+	.contact-form__reason-li:last-child .contact-form__reason-item {
+		border-bottom: none;
+	}
+
+	/* Textliste ohne sichtbare Radio-Punkte: ganze Zeile klickbar, feste Zeilenhöhe */
+	.contact-form__reason-item {
+		display: flex;
+		align-items: center;
+		position: relative;
+		margin: 0;
+		padding: 0.65rem 0.95rem;
+		min-height: calc(0.65rem * 2 + 0.9375rem * 1.4);
+		border: none;
+		border-bottom: 1px solid var(--color-border);
+		background: transparent;
+		cursor: pointer;
+		transition: background var(--transition-fast);
+		box-shadow: none;
+	}
+
+	.contact-form__reason-item:hover {
+		background: rgb(0 0 0 / 0.03);
+	}
+
+	.contact-form__reason-item:has(input:focus-visible) {
+		background: rgb(0 0 0 / 0.04);
+		box-shadow: inset 0 0 0 2px var(--color-gold);
+	}
+
+	.contact-form__reason-item:has(input:checked) {
+		background: rgb(184 149 106 / 0.1);
+		box-shadow: inset 3px 0 0 0 var(--color-gold-line);
+	}
+
+	.contact-form__reason-item:has(input:checked):has(input:focus-visible) {
+		box-shadow:
+			inset 3px 0 0 0 var(--color-gold-line),
+			inset 0 0 0 2px var(--color-gold);
+	}
+
+	.contact-form__reason-item input {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		margin: 0;
+		opacity: 0;
+		cursor: pointer;
+		z-index: 1;
+		appearance: none;
+		-webkit-appearance: none;
+	}
+
+	.contact-form__reason-item input:focus,
+	.contact-form__reason-item input:focus-visible {
+		outline: none;
+	}
+
+	.contact-form__reason-text {
+		display: block;
+		position: relative;
+		z-index: 0;
+		flex: 1;
+		min-width: 0;
+		pointer-events: none;
+		font-size: 0.9375rem;
+		line-height: 1.4;
+		font-weight: 500;
+		color: var(--color-text);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.contact-form__reason-chevron {
+			transition: none;
+		}
+	}
+
+	.contact-form__field--message textarea {
+		min-height: 10rem;
+		max-height: 16rem;
+		resize: none;
+		overflow-y: auto;
+	}
+
+	.contact-form__error {
+		margin: 0;
+		font-size: 0.8125rem;
+		line-height: 1.4;
+		color: #b42318;
+	}
+
+	.contact-form__footer {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 0.75rem;
+		margin-top: 0.5rem;
+		text-align: left;
+		width: 100%;
+	}
+
+	.contact-form__form-error {
+		margin: 0;
+		width: 100%;
+		padding: 0.65rem 0.85rem;
+		font-size: 0.875rem;
+		line-height: 1.45;
+		color: #b42318;
+		background: rgb(180 35 24 / 0.05);
+		border-radius: var(--radius-sm);
+		border: 1px solid rgb(180 35 24 / 0.16);
+		text-align: left;
+	}
+
+	.contact-form__submit {
+		align-self: flex-start;
+		padding: 0.6rem 1.65rem;
+		font-size: 0.75rem;
+		letter-spacing: 0.07em;
+	}
+
+	.contact-form__sending {
+		width: 100%;
+		max-width: 22rem;
+	}
+
+	.contact-form__sending-track {
+		height: 3px;
+		border-radius: 3px;
+		background: var(--color-border);
+		overflow: hidden;
+	}
+
+	.contact-form__sending-bar {
+		width: 36%;
+		height: 100%;
+		border-radius: 3px;
+		background: linear-gradient(90deg, var(--color-gold-muted), var(--color-gold));
+		animation: contactFormSendBar 0.85s ease-in-out infinite alternate;
+	}
+
+	@keyframes contactFormSendBar {
+		from {
+			transform: translateX(-25%);
+		}
+
+		to {
+			transform: translateX(230%);
+		}
+	}
+
+	.contact-form__sending-text {
+		margin: 0.4rem 0 0;
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.contact-form__sending-bar {
+			animation: none;
+			width: 100%;
+			opacity: 0.5;
+		}
+	}
+
+	.contact-form__note {
+		font-size: 0.75rem;
+		line-height: 1.45;
+		color: var(--color-text-muted);
+		margin: 0;
+		max-width: none;
+		width: 100%;
+	}
+
+	.contact-form__note a {
+		color: var(--color-text);
+		font-weight: 500;
+		text-decoration: none;
+		border-bottom: 1px solid var(--color-border);
+		padding-bottom: 0.04em;
+		transition: border-color var(--transition-fast);
+	}
+
+	.contact-form__note a:hover {
+		border-bottom-color: rgb(0 0 0 / 0.3);
+	}
+
+	/* Dark Mode: Felder vom Seitenhintergrund absetzen, Ränder/Placeholder lesbar */
+	:global(html[data-theme='dark']) .contact-form__label {
+		color: rgb(255 255 255 / 0.78);
+	}
+
+	:global(html[data-theme='dark']) .contact-form__field input:not([type='hidden']):not([type='radio']),
+	:global(html[data-theme='dark']) .contact-form__field textarea {
+		background: var(--color-surface);
+		border-color: rgb(255 255 255 / 0.14);
+	}
+
+	:global(html[data-theme='dark']) .contact-form__field input:not([type='radio'])::placeholder,
+	:global(html[data-theme='dark']) .contact-form__field textarea::placeholder {
+		color: rgb(255 255 255 / 0.42);
+	}
+
+	:global(html[data-theme='dark']) .contact-form__field input:not([type='radio']):hover,
+	:global(html[data-theme='dark']) .contact-form__field textarea:hover {
+		border-color: rgb(255 255 255 / 0.24);
+	}
+
+	:global(html[data-theme='dark']) .contact-form__field input:not([type='radio']):focus-visible,
+	:global(html[data-theme='dark']) .contact-form__field textarea:focus-visible {
+		border-color: rgb(255 255 255 / 0.38);
+		box-shadow: 0 0 0 1px rgb(255 255 255 / 0.1);
+	}
+
+	:global(html[data-theme='dark']) .contact-form__reason-shell {
+		background: var(--color-surface);
+		border-color: rgb(255 255 255 / 0.14);
+	}
+
+	:global(html[data-theme='dark']) .contact-form__reason-toggle:hover {
+		background: rgb(255 255 255 / 0.06);
+	}
+
+	:global(html[data-theme='dark']) .contact-form__reason-toggle:focus-visible {
+		box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.22);
+	}
+
+	:global(html[data-theme='dark']) .contact-form__reason-chevron {
+		border-right-color: rgb(255 255 255 / 0.5);
+		border-bottom-color: rgb(255 255 255 / 0.5);
+	}
+
+	:global(html[data-theme='dark']) .contact-form__reason-panel {
+		background: var(--color-surface);
+		border-color: rgb(255 255 255 / 0.14);
+		box-shadow: 0 14px 36px rgb(0 0 0 / 0.55);
+	}
+
+	:global(html[data-theme='dark']) .contact-form__reason-item:hover {
+		background: rgb(255 255 255 / 0.05);
+	}
+
+	:global(html[data-theme='dark']) .contact-form__reason-item:has(input:focus-visible) {
+		background: rgb(255 255 255 / 0.07);
+	}
+
+	:global(html[data-theme='dark']) .contact-form__note a:hover {
+		border-bottom-color: rgb(255 255 255 / 0.35);
+	}
+
+	.contact-form-page__success {
+		padding: clamp(2rem, 5vw, 3rem) 0;
+		text-align: center;
+		outline: none;
+	}
+
+	.contact-form-page__success:focus-visible {
+		outline: 2px solid rgb(0 0 0 / 0.1);
+		outline-offset: 4px;
+	}
+
+	.contact-form-page__success-title {
+		margin: 0 0 0.6rem;
+		font-size: 1.125rem;
+		font-weight: 600;
+		letter-spacing: -0.02em;
+		color: var(--color-text);
+	}
+
+	.contact-form-page__success-text {
+		margin: 0 auto;
+		max-width: 26rem;
+		font-size: 0.9375rem;
+		line-height: 1.6;
+		color: var(--color-text-muted);
+	}
+
+	.contact-form-page__success-text a {
+		color: var(--color-text);
+		font-weight: 500;
+		text-decoration: none;
+		border-bottom: 1px solid var(--color-border);
+		padding-bottom: 0.04em;
+		transition: border-color var(--transition-fast);
+	}
+
+	.contact-form-page__success-text a:hover {
+		border-bottom-color: rgb(0 0 0 / 0.3);
+	}
+</style>

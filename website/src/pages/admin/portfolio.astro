@@ -1,0 +1,21 @@
+---
+export const prerender = false;
+
+import AdminLayout from '../../layouts/AdminLayout.astro';
+---
+
+<AdminLayout
+	title="Portfolio"
+	current="portfolio"
+	eyebrow="Referenzen"
+	description="Kategorien, Einträge, Upload und Schalter für Sichtbarkeit sowie Hervorhebung auf der Einstiegsseite."
+>
+	<div id="admin-portfolio-root"></div>
+</AdminLayout>
+
+<script>
+	import { mountPortfolioAdmin } from '../../admin-client/portfolioMount';
+
+	const el = document.getElementById('admin-portfolio-root');
+	if (el) mountPortfolioAdmin(el);
+</script>

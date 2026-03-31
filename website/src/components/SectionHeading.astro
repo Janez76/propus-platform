@@ -1,0 +1,126 @@
+---
+interface Props {
+	eyebrow?: string;
+	title: string;
+	subtitle?: string;
+	align?: 'left' | 'center';
+	/** z. B. für aria-labelledby */
+	id?: string;
+	/** Für Seitenkopf (z. B. Portfolio): semantisch h1 */
+	titleAs?: 'h1' | 'h2';
+	/** Größere, ruhige Display-Typo (nur sinnvoll mit titleAs="h1") */
+	titleSize?: 'default' | 'display';
+	/** Linie unter dem Block: Gold (Standard) oder schwarze Seitenregel wie `.u-page-rule` */
+	rule?: 'gold' | 'dark' | 'none';
+}
+
+const {
+	eyebrow,
+	title,
+	subtitle,
+	align = 'left',
+	id,
+	titleAs = 'h2',
+	titleSize = 'default',
+	rule = 'gold',
+} = Astro.props;
+
+const titleClass =
+	titleSize === 'display' ? 'section-heading__title section-heading__title--display' : undefined;
+---
+
+<div class:list={['section-heading', align === 'center' && 'section-heading--center']}>
+	<div class="section-heading__inner">
+		{eyebrow && <p class="u-eyebrow">{eyebrow}</p>}
+		{
+			titleAs === 'h1' ? (
+				<h1 id={id} class={titleClass}>
+					{title}
+				</h1>
+			) : (
+				<h2 id={id} class={titleClass}>
+					{title}
+				</h2>
+			)
+		}
+		{subtitle && <p class="section-heading__sub">{subtitle}</p>}
+		{
+			rule !== 'none' && (
+				<div
+					class:list={[
+						'section-heading__rule-row',
+						align === 'center' && 'section-heading__rule-row--center',
+					]}
+					aria-hidden="true"
+				>
+					{rule === 'gold' && <div class="divider-gold" />}
+					{rule === 'dark' && <div class="section-heading__dark-rule" />}
+				</div>
+			)
+		}
+	</div>
+</div>
+
+<style>
+	.section-heading {
+		width: 100%;
+		margin-bottom: var(--space-lg);
+	}
+
+	.section-heading__inner {
+		max-width: 40rem;
+	}
+
+	.section-heading--center .section-heading__inner {
+		margin-inline: auto;
+		text-align: center;
+		max-width: 48rem;
+	}
+
+	.section-heading__rule-row {
+		display: flex;
+		justify-content: flex-start;
+		width: 100%;
+	}
+
+	/* Eigener Modifier statt Parent-Selektor: Astro-Scoped-CSS trifft die Zeile zuverlässig. */
+	.section-heading__rule-row--center {
+		justify-content: center;
+	}
+
+	.section-heading__rule-row .divider-gold {
+		margin-block: 0;
+		margin-top: var(--space-md);
+	}
+
+	.section-heading__dark-rule {
+		width: 100%;
+		height: 0;
+		margin: 0;
+		margin-top: var(--space-md);
+		border: 0;
+		border-top: 1px solid rgb(15 15 15 / 0.14);
+		box-sizing: border-box;
+	}
+
+	.section-heading__sub {
+		font-size: 0.9375rem;
+		line-height: 1.55;
+		font-weight: 500;
+		margin-bottom: 0;
+		max-width: 36rem;
+	}
+
+	.section-heading--center .section-heading__sub {
+		margin-inline: auto;
+	}
+
+	.section-heading__title--display {
+		font-size: clamp(2.125rem, 5vw, 3.35rem);
+		font-weight: 600;
+		letter-spacing: -0.042em;
+		line-height: 1.06;
+		margin: 0 0 var(--space-sm);
+		color: var(--color-text);
+	}
+</style>

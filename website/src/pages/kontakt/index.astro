@@ -1,0 +1,88 @@
+---
+export const prerender = false;
+
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import SectionHeading from '../../components/SectionHeading.astro';
+import ContactForm from '../../components/ContactForm.astro';
+import { site } from '../../content/site';
+import { loadSeoPage } from '../../lib/seo';
+
+const seoPage = await loadSeoPage('kontakt');
+const title = seoPage.title;
+const description = seoPage.description;
+---
+
+<BaseLayout
+	{title}
+	{description}
+	ogImage={seoPage.ogImage}
+	ogTitle={seoPage.ogTitle}
+	ogDescription={seoPage.ogDescription}
+	keywords={seoPage.keywords}
+	noIndex={!seoPage.index}
+>
+	<section class="contact-page-intro u-container">
+		<div class="contact-page-intro__inner u-animate" style="--delay: 40ms">
+			<SectionHeading
+				eyebrow="Kontakt"
+				title="Lassen Sie uns reden."
+				subtitle="Auf der Website nicht das Richtige gefunden? Schreiben Sie uns – wir helfen gern weiter. Sie haben ein Projekt oder eine Anfrage? Wir freuen uns auf Ihre Nachricht."
+				align="center"
+				titleAs="h1"
+				titleSize="display"
+			/>
+		</div>
+	</section>
+
+	<section class="u-section contact-page-body">
+		<div class="u-container portfolio-page-body__inner u-animate" style="--delay: 120ms">
+			<div class="contact-page__rail">
+				<ContactForm />
+			</div>
+		</div>
+	</section>
+</BaseLayout>
+
+<style>
+	/* Wie Portfolio / Dienstleistungen */
+	.contact-page-intro {
+		padding-top: calc(var(--space-xl) + var(--space-md));
+		padding-bottom: clamp(1.5rem, 3vw, 2.25rem);
+	}
+
+	.contact-page-intro :global(.section-heading) {
+		margin-bottom: 0;
+	}
+
+	.contact-page-intro :global(.section-heading__inner) {
+		max-width: 44rem;
+	}
+
+	.contact-page-intro :global(.section-heading--center .section-heading__inner) {
+		max-width: 46rem;
+	}
+
+	/* Kräftiger als Standard-Fliesstext: höherer Kontrast zum Display-Titel */
+	.contact-page-intro :global(.section-heading__sub) {
+		color: #000000;
+		font-size: 1.0625rem;
+		line-height: 1.65;
+		font-weight: 500;
+		max-width: 38rem;
+	}
+
+	:global(html[data-theme='dark']) .contact-page-intro :global(.section-heading__sub) {
+		color: rgb(255 255 255 / 0.96);
+	}
+
+	.contact-page-body {
+		padding-top: 0;
+	}
+
+	/* Wie .portfolio-wrap: volle Breite der .u-container = gleiche Linie & Formularbreite wie Portfolio */
+	.contact-page__rail {
+		width: 100%;
+		min-width: 0;
+		padding-top: clamp(1.125rem, 3.2vw, 1.75rem);
+	}
+</style>

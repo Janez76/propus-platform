@@ -1,0 +1,1033 @@
+---
+export const prerender = false;
+
+import { Image } from 'astro:assets';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import SectionHeading from '../../components/SectionHeading.astro';
+import { site } from '../../content/site';
+import { companyStory, behindTheScenesImage, type TeamMember } from '../../content/team';
+import { loadSiteTeam } from '../../lib/cms/resolve';
+import { loadSeoPage } from '../../lib/seo';
+
+const seoPage = await loadSeoPage('ueber-uns');
+const title = seoPage.title;
+const description = seoPage.description;
+
+const teamMembers = await loadSiteTeam();
+
+const teamForScript = teamMembers.map((m) => ({
+	id: m.id,
+	name: m.name,
+	role: m.role,
+	email: m.email,
+	bio: [...m.bio],
+	imageSrc: m.imageSrc ?? null,
+	imageAlt: m.imageAlt ?? m.name,
+}));
+
+const companyForScript = {
+	eyebrow: companyStory.eyebrow,
+	title: companyStory.title,
+	paragraphs: [...companyStory.paragraphs],
+};
+---
+
+<BaseLayout
+	{title}
+	{description}
+	ogImage={seoPage.ogImage}
+	ogTitle={seoPage.ogTitle}
+	ogDescription={seoPage.ogDescription}
+	keywords={seoPage.keywords}
+	noIndex={!seoPage.index}
+>
+	<section class="about-page-intro u-container">
+		<div class="about-page-intro__inner u-animate" style="--delay: 40ms">
+			<SectionHeading
+				eyebrow="Unternehmen"
+				title="Über uns"
+				subtitle="Familiengeführt, mit Sitz in Zug – für die visuelle Vermarktung Ihrer Immobilien schweizweit im Einsatz."
+				align="center"
+				titleAs="h1"
+				titleSize="display"
+			/>
+		</div>
+	</section>
+
+	<section class="about-signature" aria-labelledby="about-signature-heading">
+		<div class="about-signature__glow" aria-hidden="true"></div>
+		<div class="u-container about-signature__wrap">
+			<div class="about-signature__grid">
+				<div class="about-signature__text u-animate" style="--delay: 100ms">
+					<p class="u-eyebrow about-signature__eyebrow">Was uns ausmacht</p>
+					<h2 id="about-signature-heading" class="about-signature__title">Klar. Ruhig. Überzeugend.</h2>
+					<div class="divider-gold about-signature__divider" aria-hidden="true"></div>
+					<p class="about-signature__lead">
+						Die {site.legalName} widmet sich ausschliesslich hochwertiger, visueller Immobilienvermarktung. Wir
+						kombinieren bewährte Methoden mit aktueller Technik – von Fotografie und Drohnenaufnahmen über 360°-Touren
+						bis zu fotorealistischen Visualisierungen.
+					</p>
+					<p class="about-signature__body">
+						Zuverlässigkeit, Qualität und persönliche Betreuung stehen bei uns im Mittelpunkt. Unser Anspruch: jede
+						Immobilie klar, ruhig und überzeugend zu zeigen – damit sie zum Blickfang wird, ohne aufdringlich zu wirken.
+					</p>
+					<button
+						type="button"
+						class="about-link-cta about-link-cta--on-dark about-signature__cta"
+						data-about-open="company"
+						aria-haspopup="dialog"
+					>
+						<span>Unternehmensgeschichte</span>
+						<span class="about-link-cta__arrow" aria-hidden="true">→</span>
+					</button>
+				</div>
+				<button
+					type="button"
+					class="about-signature__visual u-animate"
+					style="--delay: 160ms"
+					data-about-open="company"
+					aria-haspopup="dialog"
+					aria-label="Unternehmensgeschichte öffnen"
+				>
+					<span class="about-signature__frame">
+						<Image
+							src={behindTheScenesImage.src}
+							alt=""
+							role="presentation"
+							width={behindTheScenesImage.width}
+							height={behindTheScenesImage.height}
+							loading="lazy"
+							class="about-signature__img"
+						/>
+						<span class="about-signature__shine" aria-hidden="true"></span>
+						<span class="about-signature__vignette" aria-hidden="true"></span>
+					</span>
+				</button>
+			</div>
+		</div>
+	</section>
+
+	<section class="u-section about-page-team">
+		<div class="u-container">
+			<header class="about-page-team__head u-animate" style="--delay: 200ms">
+				<h2 class="about-page-team__title">Unser Team</h2>
+				<div class="divider-gold about-page-team__divider" aria-hidden="true"></div>
+				<p class="about-page-team__lede">
+					Lernen Sie unser Team besser kennen – mit Hintergrund und Rollen hinter Propus.
+				</p>
+			</header>
+			<div class="team-grid">
+				{
+					teamMembers.map((member: TeamMember, index: number) => (
+						<article class:list={['team-card', 'u-animate']} style={`--delay: ${220 + index * 40}ms`}>
+							<div
+								class:list={[
+									'team-card__frame',
+									!member.imageSrc && 'team-card__frame--placeholder',
+								]}
+							>
+								{member.imageSrc ? (
+									<Image
+										src={member.imageSrc}
+										alt=""
+										role="presentation"
+										width={member.width ?? 640}
+										height={member.height ?? 800}
+										loading="lazy"
+										class="team-card__img"
+									/>
+								) : (
+									<span class="team-card__initials" aria-hidden="true">
+										{member.name
+											.split(' ')
+											.map((p) => p[0])
+											.join('')}
+									</span>
+								)}
+								<div class="team-card__overlay">
+									<div class="team-card__caption">
+										<span class="team-card__name">{member.name}</span>
+										<span class="team-card__role">{member.role}</span>
+										<a
+											class="team-card__email"
+											href={`mailto:${member.email}`}
+											aria-label={`E-Mail an ${member.name}, ${member.email}`}
+										>
+											<svg
+												class="team-card__email-icon"
+												width="16"
+												height="16"
+												viewBox="0 0 24 24"
+												fill="none"
+												stroke="currentColor"
+												stroke-width="1.75"
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												aria-hidden="true"
+											>
+												<rect width="20" height="14" x="2" y="5" rx="2"></rect>
+												<path d="m2 5 10 7 10-7"></path>
+											</svg>
+											<span>E-Mail</span>
+										</a>
+									</div>
+								</div>
+							</div>
+							<button
+								type="button"
+								class="about-link-cta about-link-cta--on-light team-card__cta"
+								data-about-open="member"
+								data-member-id={member.id}
+								aria-haspopup="dialog"
+							>
+								<span>Mehr über mich</span>
+								<span class="about-link-cta__arrow" aria-hidden="true">→</span>
+							</button>
+						</article>
+					))
+				}
+			</div>
+		</div>
+	</section>
+
+	<dialog id="about-dialog" class="about-dialog" aria-labelledby="about-dialog-title">
+		<div class="about-dialog__panel">
+			<button type="button" class="about-dialog__close" data-about-close aria-label="Schliessen">
+				<span aria-hidden="true">×</span>
+			</button>
+			<div class="about-dialog__layout">
+				<div class="about-dialog__visual" data-about-dialog-visual hidden>
+					<img class="about-dialog__photo" src="" alt="" width="640" height="800" loading="lazy" />
+				</div>
+				<div class="about-dialog__copy">
+					<p class="u-eyebrow about-dialog__eyebrow" data-about-dialog-eyebrow></p>
+					<h2 id="about-dialog-title" class="about-dialog__title" data-about-dialog-title></h2>
+					<p class="about-dialog__role" data-about-dialog-role hidden></p>
+					<div class="about-dialog__rule" aria-hidden="true"></div>
+					<div class="about-dialog__bio" data-about-dialog-bio></div>
+				</div>
+			</div>
+		</div>
+	</dialog>
+</BaseLayout>
+
+<script
+	define:vars={{
+		teamForScript,
+		companyForScript,
+	}}
+>
+	const teamById = Object.fromEntries(teamForScript.map((m) => [m.id, m]));
+
+	function qs(sel, root = document) {
+		return root.querySelector(sel);
+	}
+
+	function openAboutDialog() {
+		const dialog = qs('#about-dialog');
+		if (dialog && typeof dialog.showModal === 'function') {
+			dialog.showModal();
+			queueMicrotask(() => qs('[data-about-close]', dialog)?.focus());
+		}
+	}
+
+	function setBio(container, paragraphs) {
+		container.textContent = '';
+		for (const text of paragraphs) {
+			const p = document.createElement('p');
+			p.textContent = text;
+			container.appendChild(p);
+		}
+	}
+
+	function showMember(id) {
+		const m = teamById[id];
+		if (!m) return;
+		const dialog = qs('#about-dialog');
+		dialog?.classList.remove('about-dialog--company');
+		dialog?.classList.add('about-dialog--member');
+		const visual = qs('[data-about-dialog-visual]', dialog);
+		const img = qs('.about-dialog__photo', dialog);
+		const eyebrow = qs('[data-about-dialog-eyebrow]', dialog);
+		const titleEl = qs('[data-about-dialog-title]', dialog);
+		const roleEl = qs('[data-about-dialog-role]', dialog);
+		const bio = qs('[data-about-dialog-bio]', dialog);
+
+		eyebrow.textContent = 'Team';
+		titleEl.textContent = m.name;
+		roleEl.textContent = m.role;
+		roleEl.hidden = false;
+		setBio(bio, m.bio);
+
+		if (visual) visual.hidden = true;
+		if (img) {
+			img.removeAttribute('src');
+			img.alt = '';
+		}
+
+		openAboutDialog();
+	}
+
+	function showCompany() {
+		const dialog = qs('#about-dialog');
+		dialog?.classList.add('about-dialog--company');
+		dialog?.classList.remove('about-dialog--member');
+		const visual = qs('[data-about-dialog-visual]', dialog);
+		const img = qs('.about-dialog__photo', dialog);
+		const eyebrow = qs('[data-about-dialog-eyebrow]', dialog);
+		const titleEl = qs('[data-about-dialog-title]', dialog);
+		const roleEl = qs('[data-about-dialog-role]', dialog);
+		const bio = qs('[data-about-dialog-bio]', dialog);
+
+		eyebrow.textContent = companyForScript.eyebrow;
+		titleEl.textContent = companyForScript.title;
+		roleEl.hidden = true;
+		setBio(bio, companyForScript.paragraphs);
+
+		if (visual) visual.hidden = true;
+		if (img) {
+			img.removeAttribute('src');
+			img.alt = '';
+		}
+
+		openAboutDialog();
+	}
+
+	function onDocClick(e) {
+		/* Ohne Dialog (andere Seite oder noch nicht im DOM): ignorieren – verhindert auch Leaks bei View Transitions */
+		if (!document.getElementById('about-dialog')) return;
+		const t = e.target;
+		if (!(t instanceof Element)) return;
+		const closeBtn = t.closest('[data-about-close]');
+		if (closeBtn) {
+			const dialog = qs('#about-dialog');
+			dialog?.close();
+			return;
+		}
+		const openEl = t.closest('[data-about-open]');
+		if (!openEl) return;
+		const mode = openEl.getAttribute('data-about-open');
+		if (mode === 'company') {
+			e.preventDefault();
+			showCompany();
+			return;
+		}
+		if (mode === 'member') {
+			const id = openEl.getAttribute('data-member-id');
+			if (id) {
+				e.preventDefault();
+				showMember(id);
+			}
+		}
+	}
+
+	function onDialogClick(e) {
+		const dialog = qs('#about-dialog');
+		if (e.target === dialog) dialog?.close();
+	}
+
+	function bindDialog() {
+		const dialog = qs('#about-dialog');
+		if (!dialog) return;
+		dialog.removeEventListener('click', onDialogClick);
+		dialog.addEventListener('click', onDialogClick);
+	}
+
+	function initAboutPage() {
+		document.removeEventListener('click', onDocClick);
+		document.addEventListener('click', onDocClick);
+		bindDialog();
+	}
+
+	function teardownAboutPage() {
+		document.removeEventListener('click', onDocClick);
+		const dialog = qs('#about-dialog');
+		dialog?.removeEventListener('click', onDialogClick);
+	}
+
+	function setupAboutModals() {
+		teardownAboutPage();
+		if (!document.getElementById('about-dialog')) return;
+		initAboutPage();
+	}
+
+	document.addEventListener('astro:page-load', setupAboutModals);
+	if (document.readyState === 'loading') {
+		document.addEventListener('DOMContentLoaded', setupAboutModals, { once: true });
+	} else {
+		queueMicrotask(setupAboutModals);
+	}
+</script>
+
+<style>
+	/* Wie Portfolio / Dienstleistungen */
+	.about-page-intro {
+		padding-top: calc(var(--space-xl) + var(--space-md));
+		padding-bottom: clamp(1.5rem, 3vw, 2.25rem);
+	}
+
+	.about-page-intro :global(.section-heading) {
+		margin-bottom: 0;
+	}
+
+	.about-page-intro :global(.section-heading__inner) {
+		max-width: 44rem;
+	}
+
+	.about-page-intro :global(.section-heading--center .section-heading__inner) {
+		max-width: 46rem;
+	}
+
+	/* Editorial-Block im Duktus von Hero + Schluss-CTA: dunkel, Gold, grosses Bild */
+	.about-signature {
+		position: relative;
+		padding-block: clamp(3.25rem, 9vw, 5.75rem);
+		background: linear-gradient(168deg, #161616 0%, #0a0a0a 45%, #111 100%);
+		color: #fff;
+		overflow: hidden;
+		border-block: 1px solid rgb(255 255 255 / 0.06);
+	}
+
+	.about-signature__glow {
+		position: absolute;
+		inset: auto;
+		pointer-events: none;
+		width: min(52rem, 90vw);
+		height: min(28rem, 55vh);
+		top: -18%;
+		right: -12%;
+		background: radial-gradient(ellipse at 45% 45%, rgb(184 149 106 / 0.16) 0%, transparent 62%);
+		filter: blur(36px);
+		opacity: 0.9;
+	}
+
+	.about-signature__wrap {
+		position: relative;
+		z-index: 1;
+	}
+
+	.about-signature__grid {
+		display: grid;
+		gap: clamp(2.25rem, 5vw, 3.25rem);
+		align-items: center;
+	}
+
+	@media (min-width: 960px) {
+		.about-signature__grid {
+			grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.12fr);
+			gap: clamp(2.5rem, 6vw, 5rem);
+		}
+	}
+
+	.about-signature__eyebrow {
+		color: var(--color-gold-line);
+		margin-bottom: var(--space-sm);
+	}
+
+	.about-signature__title {
+		margin: 0 0 var(--space-sm);
+		font-size: clamp(1.85rem, 4.2vw, 2.75rem);
+		font-weight: 600;
+		letter-spacing: -0.038em;
+		line-height: 1.07;
+		color: #fff;
+		max-width: 15ch;
+	}
+
+	.about-signature__divider {
+		margin-block: var(--space-md) var(--space-lg);
+	}
+
+	.about-signature__lead,
+	.about-signature__body {
+		font-size: 1.0625rem;
+		line-height: 1.68;
+		margin: 0 0 var(--space-md);
+		max-width: 38rem;
+		color: rgb(255 255 255 / 0.74);
+	}
+
+	.about-signature__lead {
+		color: rgb(255 255 255 / 0.92);
+		font-weight: 500;
+	}
+
+	.about-signature__body {
+		margin-bottom: 0;
+	}
+
+	/**
+	 * Text-CTA mit Pfeil (wie Link-CTA der Site, ohne Button-Fläche).
+	 * --on-dark: Signatur-Sektion | --on-light: Team unter hellem Grund
+	 */
+	/* Wie globale `.link-cta` (Startseite „Leistungen ansehen →“): keine Kapitälchen */
+	.about-link-cta {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35rem;
+		padding: 0;
+		border: none;
+		background: none;
+		font-family: var(--font-sans);
+		font-size: 0.875rem;
+		font-weight: 600;
+		letter-spacing: 0.02em;
+		cursor: pointer;
+		text-decoration: none;
+		border-bottom: 1px solid currentColor;
+		padding-bottom: 0.2rem;
+		transition:
+			color var(--transition-fast),
+			border-color var(--transition-fast);
+	}
+
+	.about-link-cta--on-dark {
+		color: var(--color-gold-line);
+		border-bottom-color: rgb(197 160 115 / 0.5);
+	}
+
+	.about-link-cta--on-dark:hover,
+	.about-link-cta--on-dark:focus-visible {
+		color: rgb(232 210 170);
+		border-bottom-color: rgb(232 210 170 / 0.85);
+	}
+
+	.about-link-cta--on-light {
+		color: var(--color-text);
+		border-bottom-color: var(--color-border);
+	}
+
+	.about-link-cta--on-light:hover,
+	.about-link-cta--on-light:focus-visible {
+		color: var(--color-gold-muted);
+		border-bottom-color: var(--color-gold);
+	}
+
+	.about-link-cta:focus-visible {
+		outline: 2px solid var(--color-gold);
+		outline-offset: 4px;
+		border-radius: 1px;
+	}
+
+	.about-signature__cta {
+		margin-top: var(--space-lg);
+	}
+
+	.about-link-cta__arrow {
+		transition: transform 0.35s var(--btn-motion-ease);
+	}
+
+	@media (prefers-reduced-motion: no-preference) {
+		.about-link-cta:hover .about-link-cta__arrow,
+		.about-link-cta:focus-visible .about-link-cta__arrow {
+			transform: translateX(4px);
+		}
+	}
+
+	.about-signature__visual {
+		display: block;
+		width: 100%;
+		padding: 0;
+		margin: 0;
+		border: none;
+		background: none;
+		cursor: pointer;
+		text-align: left;
+		border-radius: calc(var(--radius-md) + 1px);
+	}
+
+	.about-signature__visual:focus-visible {
+		outline: 2px solid var(--color-gold-line);
+		outline-offset: 5px;
+	}
+
+	.about-signature__frame {
+		position: relative;
+		display: block;
+		border-radius: var(--radius-md);
+		overflow: hidden;
+		aspect-ratio: 16 / 10;
+		box-shadow:
+			0 0 0 1px rgb(255 255 255 / 0.1),
+			0 32px 100px -28px rgb(0 0 0 / 0.92),
+			inset 0 1px 0 rgb(255 255 255 / 0.07);
+	}
+
+	.about-signature__img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		display: block;
+		transform: scale(1.06);
+		transform-origin: 50% 42%;
+		transition: transform 0.85s var(--btn-motion-ease);
+	}
+
+	.about-signature__shine {
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
+		background: linear-gradient(
+			118deg,
+			transparent 38%,
+			rgb(255 255 255 / 0.055) 48%,
+			transparent 58%
+		);
+	}
+
+	.about-signature__vignette {
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
+		background: radial-gradient(ellipse 90% 88% at 50% 48%, transparent 35%, rgb(0 0 0 / 0.42) 100%);
+	}
+
+	@media (prefers-reduced-motion: no-preference) {
+		.about-signature__visual:hover .about-signature__img,
+		.about-signature__visual:focus-visible .about-signature__img {
+			transform: scale(1.1);
+		}
+	}
+
+	@media (max-width: 959px) {
+		.about-signature__visual {
+			order: -1;
+		}
+	}
+
+	.about-page-team {
+		padding-top: clamp(2rem, 4vw, var(--space-xl));
+	}
+
+	.about-page-team__head {
+		text-align: center;
+		max-width: 32rem;
+		margin-inline: auto;
+		margin-bottom: clamp(2rem, 4vw, var(--space-lg));
+	}
+
+	.about-page-team__title {
+		font-size: clamp(1.5rem, 2.8vw, 2.125rem);
+		margin-bottom: var(--space-sm);
+		color: var(--color-text);
+	}
+
+	.about-page-team__divider {
+		margin-inline: auto;
+		margin-bottom: var(--space-sm);
+	}
+
+	.about-page-team__lede {
+		font-size: 0.9375rem;
+		margin: 0;
+		color: var(--color-text-muted);
+	}
+
+	.team-grid {
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: clamp(1.75rem, 4vw, 2.5rem);
+		max-width: 58rem;
+		margin-inline: auto;
+	}
+
+	@media (min-width: 520px) {
+		.team-grid {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
+
+	@media (min-width: 900px) {
+		.team-grid {
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+			gap: clamp(2rem, 4vw, 2.75rem);
+			max-width: 72rem;
+		}
+	}
+
+	.team-card {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+		margin: 0;
+	}
+
+	/* Flach, nur feine Linie: ein Border, kein Schatten → keine Ecken-Artefakte. */
+	.team-card__frame {
+		position: relative;
+		width: 100%;
+		aspect-ratio: 4 / 5;
+		border-radius: var(--radius-md);
+		overflow: hidden;
+		background: var(--color-bg-muted);
+		border: 1px solid var(--color-border);
+		box-shadow: none;
+	}
+
+	/* Neutrales Grau statt Token-Mischung an den Rundungen (wirkt sonst leicht warm/goldig). */
+	:global(html[data-theme='dark']) .team-card__frame {
+		border-color: rgb(255 255 255 / 0.1);
+	}
+
+	.team-card__frame--placeholder {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.team-card__img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		display: block;
+		transition: transform 0.55s var(--btn-motion-ease);
+	}
+
+	@media (prefers-reduced-motion: no-preference) {
+		.team-card:hover .team-card__img {
+			transform: scale(1.02);
+		}
+	}
+
+	.team-card__initials {
+		font-size: 1.5rem;
+		font-weight: 600;
+		letter-spacing: 0.05em;
+		color: var(--color-text-muted);
+	}
+
+	.team-card__overlay {
+		position: absolute;
+		inset: 0;
+		display: flex;
+		flex-direction: column;
+		justify-content: flex-end;
+		pointer-events: none;
+	}
+
+	.team-card__caption {
+		width: 100%;
+		padding: 0.75rem 1rem 0.8rem;
+		background: var(--color-surface);
+		/* Kein border-top: trifft den linken Kartenrand → in der Ecke oft gold/warm wirkender Miter. */
+		border-radius: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
+		text-align: left;
+		pointer-events: auto;
+	}
+
+	.team-card__email {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+		margin-top: 0.35rem;
+		font-size: 0.75rem;
+		font-weight: 500;
+		line-height: 1.2;
+		color: var(--color-text-muted);
+		text-decoration: none;
+		width: fit-content;
+		max-width: 100%;
+		transition: color var(--transition-fast);
+	}
+
+	.team-card__email-icon {
+		flex-shrink: 0;
+		opacity: 0.9;
+	}
+
+	.team-card__email:hover,
+	.team-card__email:focus-visible {
+		color: var(--color-gold-line);
+		text-decoration: underline;
+		text-decoration-color: rgb(197 160 115 / 0.65);
+		text-underline-offset: 0.2em;
+		text-decoration-thickness: 1px;
+	}
+
+	.team-card__name {
+		font-weight: 600;
+		font-size: 0.9375rem;
+		line-height: 1.2;
+		color: var(--color-text);
+		letter-spacing: -0.02em;
+	}
+
+	.team-card__role {
+		font-size: 0.75rem;
+		font-weight: 500;
+		line-height: 1.45;
+		color: var(--color-text-muted);
+		letter-spacing: 0.02em;
+	}
+
+	.team-card__cta {
+		margin-top: 0.1rem;
+		align-self: flex-start;
+	}
+
+	/* Modal */
+	.about-dialog {
+		width: min(calc(100% - 2rem), 52rem);
+		max-height: min(90vh, 48rem);
+		padding: 0;
+		border: none;
+		background: transparent;
+		overflow: visible;
+	}
+
+	/* Unternehmensgeschichte: nur Text, schmaleres Modal */
+	.about-dialog.about-dialog--company {
+		width: min(calc(100% - 2rem), 38rem);
+		max-height: min(88vh, 46rem);
+	}
+
+	/* Team-Profil: kein Foto im Dialog, gleiche Breite wie Firmen-Modal */
+	.about-dialog.about-dialog--member {
+		width: min(calc(100% - 2rem), 38rem);
+		max-height: min(88vh, 46rem);
+	}
+
+	@keyframes about-modal-backdrop-in {
+		from {
+			opacity: 0;
+		}
+		to {
+			opacity: 1;
+		}
+	}
+
+	.about-dialog::backdrop {
+		background: rgb(15 15 15 / 0.45);
+		opacity: 0;
+	}
+
+	.about-dialog[open]::backdrop {
+		animation: about-modal-backdrop-in 340ms ease forwards;
+	}
+
+	@keyframes about-modal-panel-in {
+		from {
+			opacity: 0;
+			transform: scale(0.94) translateY(1.25rem);
+			clip-path: inset(6% 6% 8% 6% round var(--radius-md));
+		}
+		to {
+			opacity: 1;
+			transform: scale(1) translateY(0);
+			clip-path: inset(0 0 0 0 round var(--radius-md));
+		}
+	}
+
+	@keyframes about-modal-inner-in {
+		from {
+			opacity: 0;
+			transform: translateY(0.65rem);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+
+	.about-dialog__panel {
+		position: relative;
+		background: var(--color-bg);
+		border-radius: var(--radius-md);
+		box-shadow: var(--shadow-hover);
+		border: 1px solid var(--color-border);
+		padding: clamp(1.25rem, 3vw, 2rem);
+		transform-origin: 50% 45%;
+		will-change: transform, opacity, clip-path;
+	}
+
+	.about-dialog[open] .about-dialog__panel {
+		animation: about-modal-panel-in 480ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+	}
+
+	.about-dialog[open] .about-dialog__layout {
+		animation: about-modal-inner-in 420ms cubic-bezier(0.16, 1, 0.3, 1) 70ms backwards;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.about-dialog[open]::backdrop {
+			animation: none;
+			opacity: 1;
+		}
+
+		.about-dialog__panel {
+			will-change: auto;
+		}
+
+		.about-dialog[open] .about-dialog__panel {
+			animation: none;
+			opacity: 1;
+			transform: none;
+			clip-path: none;
+		}
+
+		.about-dialog[open] .about-dialog__layout {
+			animation: none;
+			opacity: 1;
+			transform: none;
+		}
+	}
+
+	.about-dialog__close {
+		position: absolute;
+		top: 0.75rem;
+		right: 0.75rem;
+		z-index: 2;
+		width: 2.25rem;
+		height: 2.25rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border: none;
+		border-radius: var(--radius-sm);
+		background: var(--color-bg-muted);
+		color: var(--color-text);
+		font-size: 1.35rem;
+		line-height: 1;
+		cursor: pointer;
+		transition:
+			background var(--transition-fast),
+			color var(--transition-fast);
+	}
+
+	.about-dialog__close:hover,
+	.about-dialog__close:focus-visible {
+		background: var(--color-border);
+	}
+
+	.about-dialog__layout {
+		display: grid;
+		gap: var(--space-lg);
+		align-items: start;
+		padding-top: 0.5rem;
+	}
+
+	@media (min-width: 720px) {
+		.about-dialog__layout {
+			grid-template-columns: minmax(0, 0.42fr) minmax(0, 1fr);
+			gap: var(--space-xl);
+		}
+
+		.about-dialog.about-dialog--company .about-dialog__layout,
+		.about-dialog.about-dialog--member .about-dialog__layout {
+			grid-template-columns: 1fr;
+			gap: var(--space-md);
+		}
+	}
+
+	.about-dialog.about-dialog--company .about-dialog__layout,
+	.about-dialog.about-dialog--member .about-dialog__layout {
+		grid-template-columns: 1fr;
+		padding-top: 0.35rem;
+	}
+
+	.about-dialog.about-dialog--company .about-dialog__copy {
+		text-align: center;
+	}
+
+	.about-dialog.about-dialog--company .about-dialog__bio {
+		text-align: left;
+		margin-top: var(--space-sm);
+	}
+
+	.about-dialog.about-dialog--company .about-dialog__title {
+		margin-bottom: var(--space-sm);
+	}
+
+	/* Trennung Kopfzeile → Fliesstext (Team + Unternehmensgeschichte) */
+	.about-dialog__rule {
+		display: flex;
+		flex-direction: column;
+		gap: 0.65rem;
+		margin: 0 0 var(--space-md);
+		pointer-events: none;
+	}
+
+	.about-dialog__rule::before {
+		content: '';
+		width: 4.375rem;
+		height: 0;
+		border: 0;
+		border-top: 1px solid var(--color-gold-line);
+		box-sizing: border-box;
+	}
+
+	.about-dialog__rule::after {
+		content: '';
+		height: 0;
+		border: 0;
+		border-top: 1px solid var(--color-border);
+		width: 100%;
+		box-sizing: border-box;
+	}
+
+	.about-dialog--member .about-dialog__rule {
+		margin-top: var(--space-xs);
+	}
+
+	.about-dialog--member .about-dialog__title {
+		letter-spacing: -0.02em;
+		line-height: 1.2;
+	}
+
+	.about-dialog--member .about-dialog__role {
+		margin-bottom: 0;
+	}
+
+	.about-dialog__visual {
+		margin: 0;
+		border-radius: var(--radius-sm);
+		overflow: hidden;
+		background: var(--color-bg-muted);
+	}
+
+	.about-dialog__visual[hidden] {
+		display: none !important;
+	}
+
+	.about-dialog__photo {
+		width: 100%;
+		height: auto;
+		display: block;
+		object-fit: cover;
+		max-height: min(52vh, 28rem);
+	}
+
+	.about-dialog__copy {
+		min-width: 0;
+	}
+
+	.about-dialog__copy .u-eyebrow {
+		margin-bottom: var(--space-xs);
+	}
+
+	.about-dialog__title {
+		margin-bottom: var(--space-xs);
+		font-size: clamp(1.35rem, 2.5vw, 1.75rem);
+		color: var(--color-text);
+	}
+
+	.about-dialog__role {
+		font-size: 0.9375rem;
+		color: var(--color-text-muted);
+		margin: 0 0 var(--space-md);
+	}
+
+	.about-dialog__bio p {
+		font-size: 0.9375rem;
+		line-height: 1.6;
+		margin-bottom: var(--space-sm);
+		color: var(--color-text-muted);
+	}
+
+	.about-dialog__bio p:last-child {
+		margin-bottom: 0;
+	}
+</style>

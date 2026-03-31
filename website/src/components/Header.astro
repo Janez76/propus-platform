@@ -1,0 +1,750 @@
+---
+import { site, ctaBookHref, ctaBookLabel } from '../content/site';
+import type { SeoNavLink } from '../lib/seo';
+
+interface Props {
+	logoSrc: string;
+	/** Optionales zweites Logo für `data-theme="dark"` (CMS). */
+	logoSrcDark?: string;
+	navItems: SeoNavLink[];
+}
+
+const { logoSrc, logoSrcDark, navItems } = Astro.props;
+const pathname = Astro.url.pathname;
+---
+
+<header class="site-header">
+	<div class="site-header__inner">
+		<a class="site-header__brand" href="/" transition:animate="fade">
+			{
+				logoSrcDark ? (
+					<>
+						<img
+							class="site-header__logo site-header__logo--theme-light"
+							src={logoSrc}
+							alt={`${site.name} – ${site.headerLine}`}
+							loading="eager"
+							fetchpriority="high"
+							decoding="async"
+						/>
+						<img
+							class="site-header__logo site-header__logo--theme-dark"
+							src={logoSrcDark}
+							alt=""
+							loading="eager"
+							fetchpriority="high"
+							decoding="async"
+							aria-hidden="true"
+						/>
+					</>
+				) : (
+					<img
+						class="site-header__logo"
+						src={logoSrc}
+						alt={`${site.name} – ${site.headerLine}`}
+						loading="eager"
+						fetchpriority="high"
+						decoding="async"
+					/>
+				)
+			}
+		</a>
+
+		<nav class="site-header__nav" id="site-nav" aria-label="Hauptnavigation" data-nav>
+			<div class="site-header__nav-sheet">
+				<div class="site-header__nav-cluster">
+					<ul class="site-header__list">
+						{
+							navItems.map((item) => (
+								<li>
+									<a
+										href={item.href}
+										class:list={[
+											'site-header__link',
+											{
+												'is-active':
+													pathname === item.href ||
+													(item.href !== '/' && pathname.startsWith(item.href)),
+											},
+										]}
+									>
+										{item.label}
+									</a>
+								</li>
+							))
+						}
+					</ul>
+					<a
+						class="btn btn--primary btn--header site-header__cta site-header__cta--drawer"
+						href={ctaBookHref}
+						target="_blank"
+						rel="noopener noreferrer"
+					>
+						{ctaBookLabel}
+					</a>
+				</div>
+			</div>
+		</nav>
+
+		<div class="site-header__actions">
+			<button
+				type="button"
+				class="site-header__theme"
+				data-theme-toggle
+				aria-label="Dunkelmodus aktivieren"
+			>
+				<span class="site-header__theme-icon site-header__theme-icon--moon" aria-hidden="true">
+					<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+					</svg>
+				</span>
+				<span class="site-header__theme-icon site-header__theme-icon--sun" aria-hidden="true">
+					<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+						<circle cx="12" cy="12" r="4" />
+						<path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+					</svg>
+				</span>
+			</button>
+			<a
+				class="btn btn--primary btn--header site-header__cta site-header__cta--bar"
+				href={ctaBookHref}
+				target="_blank"
+				rel="noopener noreferrer"
+			>
+				{ctaBookLabel}
+			</a>
+			<button
+				type="button"
+				class="site-header__toggle"
+				aria-expanded="false"
+				aria-controls="site-nav"
+				data-nav-toggle
+			>
+				<span class="visually-hidden">Menü</span>
+				<span class="site-header__burger" aria-hidden="true"></span>
+			</button>
+		</div>
+	</div>
+</header>
+
+<script>
+	/**
+	 * View Transitions ersetzen DOM-Teile: Listener direkt am Menü-Button wären danach „tot“.
+	 * Delegation auf `document` + Reset nach Navigation hält Mobile-Menü zuverlässig.
+	 */
+	function resetNavState() {
+		document.body.classList.remove('nav-drawer-open');
+		document.querySelector('.site-header')?.classList.remove('is-menu-open');
+		document.querySelector('[data-nav]')?.classList.remove('is-open');
+		document.querySelector('[data-nav-toggle]')?.setAttribute('aria-expanded', 'false');
+	}
+
+	function setNavOpen(open: boolean) {
+		const navEl = document.querySelector('[data-nav]');
+		const toggle = document.querySelector('[data-nav-toggle]') as HTMLButtonElement | null;
+		const headerEl = document.querySelector('.site-header');
+		if (!navEl || !toggle) return;
+		navEl.classList.toggle('is-open', open);
+		toggle.setAttribute('aria-expanded', String(open));
+		document.body.classList.toggle('nav-drawer-open', open);
+		headerEl?.classList.toggle('is-menu-open', open);
+	}
+
+	document.addEventListener('click', (e) => {
+		const t = e.target;
+		if (!(t instanceof Element)) return;
+
+		if (t.closest('[data-nav-toggle]')) {
+			const navEl = document.querySelector('[data-nav]');
+			if (!navEl) return;
+			const open = !navEl.classList.contains('is-open');
+			setNavOpen(open);
+			return;
+		}
+
+		const navEl = document.querySelector('[data-nav]');
+		if (navEl?.classList.contains('is-open') && t.closest('[data-nav] a[href]')) {
+			setNavOpen(false);
+		}
+	});
+
+	document.addEventListener('keydown', (e) => {
+		if (e.key !== 'Escape') return;
+		if (!document.querySelector('[data-nav]')?.classList.contains('is-open')) return;
+		setNavOpen(false);
+	});
+
+	const THEME_KEY = 'propus-color-scheme';
+
+	function syncThemeToggleLabel() {
+		const btn = document.querySelector('[data-theme-toggle]') as HTMLButtonElement | null;
+		if (!btn) return;
+		const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+		btn.setAttribute('aria-label', dark ? 'Hellmodus aktivieren' : 'Dunkelmodus aktivieren');
+	}
+
+	/** Nach View-Transition: `data-theme` kann fehlen – immer aus localStorage / System syncen. */
+	function applyThemeFromStorage() {
+		try {
+			const s = localStorage.getItem(THEME_KEY);
+			if (s === 'dark' || s === 'light') {
+				document.documentElement.setAttribute('data-theme', s);
+			} else {
+				const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+				document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+			}
+		} catch {
+			document.documentElement.setAttribute('data-theme', 'light');
+		}
+		syncThemeToggleLabel();
+	}
+
+	function fallbackThemeCurtain(apply: () => void) {
+		const c = document.createElement('div');
+		c.className = 'theme-switch-curtain';
+		c.setAttribute('aria-hidden', 'true');
+		document.body.appendChild(c);
+		requestAnimationFrame(() => {
+			c.classList.add('theme-switch-curtain--show');
+		});
+		window.setTimeout(() => {
+			apply();
+			requestAnimationFrame(() => {
+				c.classList.remove('theme-switch-curtain--show');
+			});
+			window.setTimeout(() => c.remove(), 320);
+		}, 240);
+	}
+
+	function toggleColorScheme() {
+		const nextDark = document.documentElement.getAttribute('data-theme') !== 'dark';
+		const apply = () => {
+			document.documentElement.setAttribute('data-theme', nextDark ? 'dark' : 'light');
+			try {
+				localStorage.setItem(THEME_KEY, nextDark ? 'dark' : 'light');
+			} catch {
+				/* ignore */
+			}
+			syncThemeToggleLabel();
+		};
+
+		if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+			apply();
+			return;
+		}
+
+		const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown };
+		if (typeof doc.startViewTransition === 'function') {
+			doc.startViewTransition(apply);
+		} else {
+			fallbackThemeCurtain(apply);
+		}
+	}
+
+	if (!document.documentElement.dataset.propusThemeToggleBound) {
+		document.documentElement.dataset.propusThemeToggleBound = '1';
+		document.addEventListener('click', (e) => {
+			if (!(e.target instanceof Element) || !e.target.closest('[data-theme-toggle]')) return;
+			e.preventDefault();
+			toggleColorScheme();
+		});
+	}
+
+	function afterNavigation() {
+		resetNavState();
+		applyThemeFromStorage();
+	}
+
+	if (!document.documentElement.dataset.propusHeaderAstroBound) {
+		document.documentElement.dataset.propusHeaderAstroBound = '1';
+		document.addEventListener('astro:after-swap', afterNavigation);
+		document.addEventListener('astro:page-load', afterNavigation);
+	}
+
+	if (!document.documentElement.dataset.propusThemeMicrotaskQueued) {
+		document.documentElement.dataset.propusThemeMicrotaskQueued = '1';
+		queueMicrotask(() => applyThemeFromStorage());
+	}
+</script>
+
+<style>
+	.site-header {
+		position: sticky;
+		top: 0;
+		z-index: 50;
+		background: var(--color-header-bg);
+		backdrop-filter: blur(14px);
+		-webkit-backdrop-filter: blur(14px);
+		border-bottom: 1px solid var(--color-border);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding-block: clamp(0.75rem, 1.8vw, 1rem);
+		min-height: var(--header-h);
+		box-sizing: border-box;
+	}
+
+	/**
+	 * Eigener Content-Rail: schmaler als volle Content-Breite der Seite,
+	 * zentriert, mit symmetrischen Seitenrändern (Premium statt „edge to edge“).
+	 */
+	.site-header__inner {
+		--header-rail-max: 87.5rem; /* ~1400px */
+		--header-rail-gutter: clamp(1.5rem, 5vw, 3.25rem);
+		width: min(100% - 2 * var(--header-rail-gutter), var(--header-rail-max));
+		max-width: var(--header-rail-max);
+		margin-inline: auto;
+		box-sizing: border-box;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: clamp(1rem, 3vw, 2.5rem);
+		min-height: 3.25rem;
+	}
+
+	.site-header__brand {
+		text-decoration: none;
+		display: flex;
+		align-items: center;
+		flex-shrink: 0;
+		line-height: 0;
+	}
+
+	.site-header__brand:hover {
+		color: inherit;
+		opacity: 0.92;
+	}
+
+	.site-header__logo {
+		display: block;
+		height: clamp(1.75rem, 4.2vw, 2.5rem);
+		width: auto;
+		max-width: min(100%, 12rem);
+		object-fit: contain;
+	}
+
+	.site-header__logo--theme-dark {
+		display: none;
+	}
+
+	html[data-theme='dark'] .site-header__logo--theme-light {
+		display: none;
+	}
+
+	html[data-theme='dark'] .site-header__logo--theme-dark {
+		display: block;
+	}
+
+	.site-header__actions {
+		display: flex;
+		align-items: center;
+		gap: 0.45rem;
+		flex-shrink: 0;
+		/**
+		 * Kantenlänge wie Außenmaß `.btn.btn--header` (Buchen): 2× 0.5rem Padding +
+		 * line-height × 0.6875rem Schrift + 1px Rahmen oben/unten.
+		 * Muss zu `global.css` `.btn--header` (--btn-header-lh) passen.
+		 */
+		--site-header-icon-box: calc(2px + 1rem + 0.6875rem * var(--btn-header-lh));
+	}
+
+	.site-header__theme {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		box-sizing: border-box;
+		width: var(--site-header-icon-box);
+		height: var(--site-header-icon-box);
+		padding: 0;
+		border: 1px solid var(--color-border);
+		background: var(--color-surface);
+		border-radius: 10px;
+		cursor: pointer;
+		flex-shrink: 0;
+		color: var(--color-text);
+		transition:
+			border-color var(--transition-fast),
+			box-shadow var(--transition-fast),
+			background var(--transition-fast);
+	}
+
+	.site-header__theme:hover {
+		border-color: color-mix(in srgb, var(--color-text) 18%, transparent);
+		box-shadow: var(--shadow-border);
+		background: var(--color-bg-muted);
+	}
+
+	.site-header__theme:active {
+		opacity: 0.9;
+	}
+
+	.site-header__theme-icon {
+		display: none;
+		line-height: 0;
+	}
+
+	.site-header__theme-icon svg {
+		display: block;
+	}
+
+	:root .site-header__theme-icon--moon,
+	html[data-theme='light'] .site-header__theme-icon--moon {
+		display: flex;
+	}
+
+	:root .site-header__theme-icon--sun,
+	html[data-theme='light'] .site-header__theme-icon--sun {
+		display: none;
+	}
+
+	html[data-theme='dark'] .site-header__theme-icon--moon {
+		display: none;
+	}
+
+	html[data-theme='dark'] .site-header__theme-icon--sun {
+		display: flex;
+	}
+
+	.site-header__toggle {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		box-sizing: border-box;
+		width: var(--site-header-icon-box);
+		height: var(--site-header-icon-box);
+		border: 1px solid var(--color-border);
+		background: var(--color-surface);
+		border-radius: 10px;
+		cursor: pointer;
+		flex-shrink: 0;
+		transition:
+			border-color var(--transition-fast),
+			box-shadow var(--transition-fast);
+	}
+
+	.site-header__toggle:hover {
+		border-color: color-mix(in srgb, var(--color-text) 18%, transparent);
+		box-shadow: var(--shadow-border);
+	}
+
+	.site-header__toggle:active {
+		opacity: 0.88;
+	}
+
+	.visually-hidden {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
+	}
+
+	.site-header__burger {
+		display: block;
+		width: 1.25rem;
+		height: 2px;
+		background: var(--color-text);
+		position: relative;
+	}
+
+	.site-header__burger::before,
+	.site-header__burger::after {
+		content: '';
+		position: absolute;
+		left: 0;
+		width: 100%;
+		height: 2px;
+		background: var(--color-text);
+		transition:
+			transform 320ms cubic-bezier(0.22, 1, 0.36, 1),
+			top 320ms cubic-bezier(0.22, 1, 0.36, 1);
+	}
+
+	.site-header__burger::before {
+		top: -6px;
+	}
+
+	.site-header__burger::after {
+		top: 6px;
+	}
+
+	.site-header__toggle[aria-expanded='true'] .site-header__burger {
+		background: transparent;
+	}
+
+	.site-header__toggle[aria-expanded='true'] .site-header__burger::before {
+		top: 0;
+		transform: rotate(45deg);
+	}
+
+	.site-header__toggle[aria-expanded='true'] .site-header__burger::after {
+		top: 0;
+		transform: rotate(-45deg);
+	}
+
+	.site-header__nav {
+		display: flex;
+		flex-direction: column;
+		align-items: stretch;
+		gap: var(--space-lg);
+	}
+
+	.site-header__nav-sheet {
+		display: contents;
+	}
+
+	.site-header__nav-cluster {
+		display: contents;
+	}
+
+	.site-header__cta--bar {
+		display: none;
+	}
+
+	.site-header__cta--drawer {
+		width: 100%;
+		justify-content: center;
+	}
+
+	@media (max-width: 899px) {
+		.site-header.is-menu-open {
+			background: var(--color-bg);
+			backdrop-filter: none;
+			-webkit-backdrop-filter: none;
+		}
+
+		/* Logo + Theme + Menü-Button (X) über dem Vollbild-Menü */
+		.site-header__brand,
+		.site-header__actions {
+			position: relative;
+			z-index: 70;
+		}
+
+		.site-header__nav {
+			--site-nav-ease: cubic-bezier(0.22, 1, 0.36, 1);
+			--site-nav-dur: 380ms;
+			position: fixed;
+			inset: 0;
+			z-index: 60;
+			flex-direction: column;
+			gap: 0;
+			padding: 0;
+			margin: 0;
+			background: var(--color-bg);
+			visibility: hidden;
+			opacity: 0;
+			pointer-events: none;
+			transition:
+				opacity var(--site-nav-dur) var(--site-nav-ease),
+				visibility 0s linear var(--site-nav-dur);
+		}
+
+		.site-header__nav.is-open {
+			visibility: visible;
+			opacity: 1;
+			pointer-events: auto;
+			transition:
+				opacity var(--site-nav-dur) var(--site-nav-ease),
+				visibility 0s linear 0s;
+		}
+
+		.site-header__nav-sheet {
+			display: flex;
+			flex-direction: column;
+			flex: 1;
+			min-height: 100dvh;
+			padding-inline: var(--header-rail-gutter, 1.25rem);
+			padding-top: calc(var(--header-h) + env(safe-area-inset-top, 0px) + var(--space-sm));
+			padding-bottom: calc(var(--space-xl) + env(safe-area-inset-bottom, 0px));
+			background: transparent;
+			overflow-x: hidden;
+			overflow-y: auto;
+			-webkit-overflow-scrolling: touch;
+		}
+
+		.site-header__nav-cluster {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			flex: 1 1 auto;
+			width: 100%;
+			max-width: 22rem;
+			margin-inline: auto;
+			text-align: center;
+			transform: translateY(0.85rem);
+			opacity: 0;
+			transition:
+				opacity var(--site-nav-dur) var(--site-nav-ease),
+				transform var(--site-nav-dur) var(--site-nav-ease);
+		}
+
+		.site-header__nav.is-open .site-header__nav-cluster {
+			transform: translateY(-3vh);
+			opacity: 1;
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			.site-header__nav {
+				--site-nav-dur: 1ms;
+			}
+
+			.site-header__nav-cluster {
+				transform: none;
+			}
+
+			.site-header__nav.is-open .site-header__nav-cluster {
+				transform: none;
+			}
+		}
+	}
+
+	.site-header__list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-sm) var(--space-lg);
+		align-items: center;
+	}
+
+	@media (max-width: 899px) {
+		.site-header__list {
+			flex-direction: column;
+			align-items: center;
+			flex-wrap: nowrap;
+			gap: clamp(1.35rem, 4.5vw, 2.35rem);
+			width: 100%;
+		}
+	}
+
+	.site-header__link {
+		font-size: 0.8125rem;
+		font-weight: 500;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		text-decoration: none;
+		color: var(--color-text-muted);
+		padding: 0.35rem 0;
+		border-bottom: 1px solid transparent;
+		transition:
+			color var(--transition-fast),
+			border-color var(--transition-fast);
+	}
+
+	.site-header__link:hover {
+		color: var(--color-text);
+	}
+
+	.site-header__link.is-active {
+		color: var(--color-text);
+		border-color: var(--color-text);
+	}
+
+	@media (max-width: 899px) {
+		/* Gleiche Typo wie Desktop; grosszügige Tap-Fläche */
+		.site-header__link {
+			display: inline-block;
+			font-size: 0.8125rem;
+			font-weight: 500;
+			letter-spacing: 0.06em;
+			text-transform: uppercase;
+			padding: 0.65rem 0.5rem;
+			min-height: 2.75rem;
+			line-height: 1.35;
+			box-sizing: border-box;
+			border-bottom: 1px solid transparent;
+			-webkit-tap-highlight-color: transparent;
+			transition:
+				color var(--transition-fast),
+				border-color var(--transition-fast),
+				opacity var(--transition-fast);
+		}
+
+		.site-header__link:active {
+			opacity: 0.55;
+		}
+
+		.site-header__link.is-active {
+			color: var(--color-text);
+			border-bottom-color: var(--color-text);
+		}
+
+		.site-header__cta--drawer {
+			margin-top: clamp(2rem, 7vw, 3.25rem);
+			flex-shrink: 0;
+			width: 100%;
+			max-width: 17.5rem;
+			justify-content: center;
+		}
+	}
+
+	@media (min-width: 900px) {
+		.site-header__toggle {
+			display: none;
+		}
+
+		.site-header__inner {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+			align-items: center;
+			column-gap: clamp(1.5rem, 4vw, 3rem);
+		}
+
+		.site-header__brand {
+			grid-column: 1;
+			justify-self: start;
+		}
+
+		.site-header__nav {
+			grid-column: 2;
+			justify-self: center;
+			flex-direction: row;
+			align-items: center;
+			gap: clamp(1.25rem, 2.5vw, 2.25rem);
+			position: static;
+			transform: none;
+			opacity: 1;
+			visibility: visible;
+			pointer-events: auto;
+			padding: 0;
+			background: transparent;
+			border: 0;
+			overflow: visible;
+			min-height: 0;
+		}
+
+		.site-header__nav-sheet {
+			display: contents;
+		}
+
+		.site-header__nav-cluster {
+			display: contents;
+		}
+
+		.site-header__list {
+			flex-wrap: nowrap;
+			gap: clamp(1.125rem, 2.2vw, 1.875rem);
+		}
+
+		.site-header__cta--drawer {
+			display: none;
+		}
+
+		.site-header__actions {
+			grid-column: 3;
+			justify-self: end;
+			gap: 0.65rem;
+		}
+
+		.site-header__cta--bar {
+			display: inline-flex;
+			white-space: nowrap;
+		}
+	}
+</style>

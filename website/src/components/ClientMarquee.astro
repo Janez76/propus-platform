@@ -1,0 +1,283 @@
+---
+import SectionHeading from './SectionHeading.astro';
+import type { ClientLogo } from '../content/clients';
+
+interface Props {
+	clients: ClientLogo[];
+}
+
+const { clients } = Astro.props;
+---
+
+<section class="clients" aria-labelledby="clients-heading">
+	<div class="u-container clients__head u-animate" style="--delay: 40ms">
+		<SectionHeading
+			id="clients-heading"
+			eyebrow="Vertrauen"
+			title="Partner, die mit uns arbeiten"
+			subtitle="Maklerinnen, Entwickler und Architekten – vielen Dank für die langjährige Zusammenarbeit."
+			align="center"
+		/>
+	</div>
+
+	<div class="clients__marquee" role="presentation">
+		<div class="clients__track">
+			<ul class="clients__row">
+				{
+					clients.map((c) => (
+						<li class="clients__item">
+							<span class="clients__logo" title={c.name}>
+								{c.imageSrc ? (
+									<img
+										class="clients__logo-img"
+										src={c.imageSrc}
+										alt={c.name}
+										loading="lazy"
+										decoding="async"
+										fetchpriority="low"
+									/>
+								) : (
+									<span class="clients__wordmark">{c.wordmark}</span>
+								)}
+							</span>
+						</li>
+					))
+				}
+			</ul>
+			<ul class="clients__row" aria-hidden="true">
+				{
+					clients.map((c) => (
+						<li class="clients__item">
+							<span class="clients__logo">
+								{c.imageSrc ? (
+									<img
+										class="clients__logo-img"
+										src={c.imageSrc}
+										alt={c.name}
+										loading="lazy"
+										decoding="async"
+										fetchpriority="low"
+									/>
+								) : (
+									<span class="clients__wordmark">{c.wordmark}</span>
+								)}
+							</span>
+						</li>
+					))
+				}
+			</ul>
+		</div>
+	</div>
+</section>
+
+<script is:inline>
+	(function () {
+		function supabaseRenderToObjectUrl(src) {
+			try {
+				var u = new URL(src, window.location.origin);
+				var sub = '/storage/v1/render/image/public/';
+				var ix = u.pathname.indexOf(sub);
+				if (ix === -1) return null;
+				var rest = u.pathname.slice(ix + sub.length);
+				u.pathname = '/storage/v1/object/public/' + rest;
+				u.search = '';
+				return u.toString();
+			} catch (e) {
+				return null;
+			}
+		}
+		function wire(img) {
+			if (img.dataset.logoFallbackWired) return;
+			img.dataset.logoFallbackWired = '1';
+			img.addEventListener('error', function onErr() {
+				img.removeEventListener('error', onErr);
+				if (img.dataset.logoFallbackDone) return;
+				var next = supabaseRenderToObjectUrl(img.src);
+				if (!next || next === img.src) return;
+				img.dataset.logoFallbackDone = '1';
+				img.src = next;
+			});
+		}
+		function run() {
+			document.querySelectorAll('.clients__logo-img').forEach(wire);
+		}
+		if (document.readyState === 'loading') {
+			document.addEventListener('DOMContentLoaded', run);
+		} else {
+			run();
+		}
+	})();
+</script>
+
+<style>
+	.clients {
+		padding-block: var(--space-xl) var(--space-2xl);
+		background: var(--color-bg);
+		border-block: 1px solid var(--color-border);
+		overflow: hidden;
+	}
+
+	.clients__head {
+		margin-bottom: var(--space-xl);
+	}
+
+	.clients__head :global(.section-heading) {
+		margin-bottom: 0;
+	}
+
+	.clients__marquee {
+		position: relative;
+		margin-inline: calc(-1 * min(5vw, 3rem));
+		/* Eigenes Compositing: weniger Kantenflackern mit Maske + bewegtem Inhalt */
+		isolation: isolate;
+		mask-image: linear-gradient(
+			to right,
+			transparent,
+			black 8%,
+			black 92%,
+			transparent
+		);
+		-webkit-mask-image: linear-gradient(
+			to right,
+			transparent,
+			black 8%,
+			black 92%,
+			transparent
+		);
+	}
+
+	.clients__fade {
+		display: none;
+	}
+
+	.clients__track {
+		display: flex;
+		width: max-content;
+		/* Etwas langsamer; GPU-Layer reduziert Ruckeln beim Loop */
+		will-change: transform;
+		backface-visibility: hidden;
+		-webkit-backface-visibility: hidden;
+		animation: clients-marquee 85s linear infinite;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.clients__track {
+			animation: none;
+			flex-wrap: wrap;
+			justify-content: center;
+			width: 100%;
+			max-width: var(--content-max);
+			margin-inline: auto;
+			gap: var(--space-md);
+		}
+
+		.clients__track .clients__row:nth-child(2) {
+			display: none;
+		}
+	}
+
+	@keyframes clients-marquee {
+		from {
+			transform: translate3d(0, 0, 0);
+		}
+		to {
+			transform: translate3d(-50%, 0, 0);
+		}
+	}
+
+	.clients__row {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		align-items: center;
+		gap: clamp(2rem, 5vw, 4rem);
+		flex-shrink: 0;
+		padding-inline: clamp(1rem, 3vw, 2rem);
+	}
+
+	.clients__item {
+		flex-shrink: 0;
+	}
+
+	.clients__logo {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		box-sizing: border-box;
+		width: 9rem;
+		height: 4rem;
+		min-width: 9rem;
+		max-width: 9rem;
+		min-height: 4rem;
+		max-height: 4rem;
+		padding: 0.65rem 0.85rem;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		background: var(--color-surface);
+		box-shadow: var(--shadow-border);
+		transition:
+			border-color var(--transition-fast),
+			box-shadow var(--transition-fast),
+			filter var(--transition-fast),
+			opacity var(--transition-fast);
+		filter: grayscale(1) contrast(1.05);
+		opacity: 0.72;
+	}
+
+	.clients__logo-img {
+		display: block;
+		max-width: 100%;
+		max-height: 100%;
+		width: auto;
+		height: auto;
+		object-fit: contain;
+	}
+
+	@media (prefers-reduced-motion: no-preference) {
+		.clients__logo:hover {
+			filter: grayscale(1) contrast(1.08);
+			opacity: 1;
+			border-color: rgb(0 0 0 / 0.12);
+			box-shadow: var(--shadow-soft);
+		}
+	}
+
+	.clients__wordmark {
+		font-size: 0.65rem;
+		font-weight: 600;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--color-text);
+		text-align: center;
+		line-height: 1.25;
+		max-width: 100%;
+		overflow: hidden;
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+	}
+</style>
+
+<style is:global>
+	/* Dark Mode: Logo-Kacheln optisch wie Light Mode (weiße Kachel, gleiche Ränder/Schatten). */
+	html[data-theme='dark'] .clients__logo {
+		background: #ffffff;
+		border-color: #e5e5e5;
+		box-shadow: 0 0 0 1px rgb(0 0 0 / 0.06);
+	}
+
+	@media (prefers-reduced-motion: no-preference) {
+		html[data-theme='dark'] .clients__logo:hover {
+			border-color: rgb(0 0 0 / 0.12);
+			box-shadow:
+				0 1px 2px rgb(0 0 0 / 0.04),
+				0 8px 24px -8px rgb(0 0 0 / 0.08);
+		}
+	}
+
+	html[data-theme='dark'] .clients__wordmark {
+		color: #0f0f0f;
+	}
+</style>
