@@ -130,24 +130,64 @@ function Normalize-SshRemoteScript {
     return (($Text -replace "`r`n", "`n") -replace "`r", "`n").Trim()
 }
 
-function Invoke-Ssh {
-    param([Parameter(Mandatory = $true)][string]$Command)
-    $Command = Normalize-SshRemoteScript $Command
+# Lange docker compose build/run: Verbindung offen halten (NAT/CI-Timeouts).
+$script:SshAliveOpts = @("-o", "ServerAliveInterval=30", "-o", "ServerAliveCountMax=12")
 
+function Invoke-SshDeployFailureDiagnostics {
+    param([Parameter(Mandatory = $true)][int]$SshExitCode)
+    $platformCtn = "${RemoteComposeProject}-platform-1"
+    $diag = Normalize-SshRemoteScript @"
+set +e
+cd '$RemoteProjectRoot' || true
+echo '===== [deploy-diagnose] docker compose ps -a ====='
+docker compose -p '$RemoteComposeProject' -f '$RemoteComposeFile' --env-file '$RemoteEnvFile' ps -a
+echo '===== [deploy-diagnose] platform logs (tail 200, container $platformCtn) ====='
+docker logs --tail 200 '$platformCtn' 2>&1
+echo '===== [deploy-diagnose] letzte migrate-Container (Name pattern migrate) ====='
+docker ps -a --filter 'name=migrate' --format 'table {{.Names}}	{{.Status}}	{{.Image}}' 2>&1 | tail -n 15
+"@
+    Write-Host ""
+    Write-Host "--- Deploy-Fehlerdiagnose (vorheriger ssh-Exit: $SshExitCode) ---" -ForegroundColor Yellow
     if ($script:UseSshMux) {
-        & ssh -S $script:SshControlPath "${User}@${VpsHost}" $Command
+        & ssh @script:SshAliveOpts -S $script:SshControlPath "${User}@${VpsHost}" $diag
     }
     else {
         & ssh `
             -i $KeyPath `
             -o IdentitiesOnly=yes `
             -o StrictHostKeyChecking=accept-new `
+            @script:SshAliveOpts `
+            "${User}@${VpsHost}" `
+            $diag
+    }
+}
+
+function Invoke-Ssh {
+    param([Parameter(Mandatory = $true)][string]$Command)
+    $Command = Normalize-SshRemoteScript $Command
+
+    if ($script:UseSshMux) {
+        & ssh @script:SshAliveOpts -S $script:SshControlPath "${User}@${VpsHost}" $Command
+    }
+    else {
+        & ssh `
+            -i $KeyPath `
+            -o IdentitiesOnly=yes `
+            -o StrictHostKeyChecking=accept-new `
+            @script:SshAliveOpts `
             "${User}@${VpsHost}" `
             $Command
     }
 
-    if ($LASTEXITCODE -ne 0) {
-        throw "SSH command failed: $Command"
+    $sshExit = $LASTEXITCODE
+    if ($sshExit -ne 0) {
+        try {
+            Invoke-SshDeployFailureDiagnostics -SshExitCode $sshExit
+        }
+        catch {
+            Write-Warning "Zusaetzliche Diagnose konnte nicht abgerufen werden: $($_.Exception.Message)"
+        }
+        throw "SSH command failed (remote exit $sshExit). Kurzfassung in den letzten Logzeilen; Diagnoseblock darueber zeigt compose ps und platform-Logs."
     }
 }
 
@@ -156,13 +196,22 @@ function Invoke-SshOutput {
     $Command = Normalize-SshRemoteScript $Command
 
     if ($script:UseSshMux) {
-        $out = & ssh -S $script:SshControlPath "${User}@${VpsHost}" $Command 2>&1
+        $out = & ssh @script:SshAliveOpts -S $script:SshControlPath "${User}@${VpsHost}" $Command 2>&1
     }
     else {
-        $out = & ssh -i $KeyPath -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new "${User}@${VpsHost}" $Command 2>&1
+        $out = & ssh -i $KeyPath -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new @script:SshAliveOpts "${User}@${VpsHost}" $Command 2>&1
     }
-    if ($LASTEXITCODE -ne 0) {
-        throw "SSH command failed: $Command"
+    $sshExit = $LASTEXITCODE
+    if ($sshExit -ne 0) {
+        try {
+            Invoke-SshDeployFailureDiagnostics -SshExitCode $sshExit
+        }
+        catch {
+            Write-Warning "Zusaetzliche Diagnose konnte nicht abgerufen werden: $($_.Exception.Message)"
+        }
+        $tail = ($out | Out-String).Trim()
+        if ($tail.Length -gt 3500) { $tail = $tail.Substring($tail.Length - 3500) }
+        throw "SSH command failed (remote exit $sshExit). Output (tail): $tail"
     }
     return ($out | Out-String).Trim()
 }
@@ -445,16 +494,19 @@ $buildLine
 echo '[deploy] platform Container (alten gestoppten Container entfernen falls vorhanden)...'
 docker rm -f "$RemoteComposeProject-platform-1" 2>/dev/null || true
 docker compose -p "$RemoteComposeProject" -f "$RemoteComposeFile" --env-file "$RemoteEnvFile" up -d platform
-echo '[deploy] warte auf /api/health (max ~90s, Schritt 3s)...'
+echo '[deploy] warte auf /api/health (max ~120s, Schritt 3s)...'
 i=0
-while [ `$i -lt 30 ]; do
+while [ `$i -lt 40 ]; do
   i=`$((i+1))
+  echo "[deploy] health Versuch `$i/40..."
   if curl -fsS http://127.0.0.1:3100/api/health >/dev/null 2>&1; then
     echo '[deploy] health ok'
     exit 0
   fi
   sleep 3
 done
+echo '[deploy] health: letzter curl-Versuch (Ausgabe fuer Log):' >&2
+curl -sS http://127.0.0.1:3100/api/health >&2 || true
 echo 'platform health check failed' >&2
 exit 1
 "@

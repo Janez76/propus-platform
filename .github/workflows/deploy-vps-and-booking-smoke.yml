@@ -97,6 +97,8 @@ jobs:
             -i "$keyPath" `
             -o IdentitiesOnly=yes `
             -o StrictHostKeyChecking=accept-new `
+            -o ServerAliveInterval=30 `
+            -o ServerAliveCountMax=12 `
             root@87.106.24.107 `
             "curl -fsS http://127.0.0.1:3100/api/health"
 
