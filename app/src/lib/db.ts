@@ -8,6 +8,15 @@ declare global {
 }
 
 function createPool(): Pool {
+  const searchPath =
+    process.env.DB_SEARCH_PATH || "booking,tour_manager,core,public";
+
+  const sslEnv = process.env.DATABASE_URL || "";
+  const needsSsl =
+    sslEnv.includes("sslmode=require") ||
+    sslEnv.includes("sslmode=verify") ||
+    sslEnv.includes("ssl=true");
+
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     host: process.env.POSTGRES_HOST,
@@ -15,29 +24,15 @@ function createPool(): Pool {
     user: process.env.POSTGRES_USER,
     password: process.env.POSTGRES_PASSWORD,
     database: process.env.POSTGRES_DB,
-    // If DATABASE_URL is set, it takes precedence over individual fields
-    ssl:
-      process.env.DATABASE_URL?.includes("sslmode=require")
-        ? { rejectUnauthorized: false }
-        : undefined,
-    max: 20,
+    options: `-c search_path=${searchPath}`,
+    ssl: needsSsl ? { rejectUnauthorized: false } : undefined,
+    max: 10,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 5000,
   });
 
   pool.on("error", (err) => {
     logger.error("Unexpected PostgreSQL pool error", { error: err.message });
-  });
-
-  pool.on("connect", () => {
-    // Set default search path for every new connection
-    const searchPath =
-      process.env.DB_SEARCH_PATH || "booking,tour_manager,core,public";
-    pool
-      .query(`SET search_path TO ${searchPath}`)
-      .catch((e) =>
-        logger.warn("Failed to set search_path", { error: e.message }),
-      );
   });
 
   return pool;

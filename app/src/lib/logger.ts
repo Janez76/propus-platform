@@ -1,18 +1,29 @@
 import winston from "winston";
 import path from "path";
+import fs from "fs";
 
 const isDev = process.env.NODE_ENV !== "production";
 
+const redactFields = winston.format((info) => {
+  if (info.password) info.password = "[REDACTED]";
+  if (info.token) info.token = "[REDACTED]";
+  if (info.secret) info.secret = "[REDACTED]";
+  return info;
+});
+
 const consoleFormat = winston.format.combine(
+  redactFields(),
   winston.format.colorize(),
   winston.format.timestamp({ format: "HH:mm:ss" }),
   winston.format.printf(({ timestamp, level, message, ...meta }) => {
-    const metaStr = Object.keys(meta).length ? " " + JSON.stringify(meta) : "";
+    const { service: _s, ...rest } = meta;
+    const metaStr = Object.keys(rest).length ? " " + JSON.stringify(rest) : "";
     return `${timestamp} ${level}: ${message}${metaStr}`;
   }),
 );
 
 const jsonFormat = winston.format.combine(
+  redactFields(),
   winston.format.timestamp(),
   winston.format.errors({ stack: true }),
   winston.format.json(),
@@ -27,18 +38,23 @@ const transports: winston.transport[] = [
 
 if (!isDev) {
   const logDir = process.env.LOG_DIR || "/app/logs";
+  try {
+    fs.mkdirSync(logDir, { recursive: true });
+  } catch {
+    /* directory may already exist or be read-only */
+  }
   transports.push(
     new winston.transports.File({
       filename: path.join(logDir, "error.log"),
       level: "error",
       format: jsonFormat,
-      maxsize: 10 * 1024 * 1024, // 10MB
+      maxsize: 10 * 1024 * 1024,
       maxFiles: 5,
     }),
     new winston.transports.File({
       filename: path.join(logDir, "combined.log"),
       format: jsonFormat,
-      maxsize: 20 * 1024 * 1024, // 20MB
+      maxsize: 20 * 1024 * 1024,
       maxFiles: 10,
     }),
   );
@@ -46,6 +62,7 @@ if (!isDev) {
 
 export const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || (isDev ? "debug" : "info"),
+  defaultMeta: { service: "propus-nextjs" },
   transports,
   exitOnError: false,
 });

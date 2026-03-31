@@ -122,7 +122,7 @@ h1, h2, h3, h4, h5, h6 {
   min-height: 100vh;
   min-height: 100dvh;
   background: var(--bg-classic);
-  color: #18181b;
+  color: var(--text-main);
   padding-bottom: env(safe-area-inset-bottom, 0);
 }
 .app-modern {
@@ -131,6 +131,9 @@ h1, h2, h3, h4, h5, h6 {
   background: radial-gradient(circle at top right, #eef2ff 0%, #f5f7fb 30%, #f8fafc 100%);
   color: var(--text-main);
   padding-bottom: env(safe-area-inset-bottom, 0);
+}
+.dark .app-modern {
+  background: radial-gradient(circle at top right, #111827 0%, #0f1012 30%, #0a0c10 100%);
 }
 
 .surface-card {
@@ -189,7 +192,7 @@ h1, h2, h3, h4, h5, h6 {
   background: linear-gradient(
     90deg,
     transparent,
-    color-mix(in srgb, #ffffff 60%, transparent),
+    color-mix(in srgb, var(--surface) 60%, transparent),
     transparent
   );
   animation: skeleton-shimmer 1.3s ease-in-out infinite;
@@ -364,7 +367,22 @@ h1, h2, h3, h4, h5, h6 {
   opacity: 0.45;
   cursor: not-allowed;
 }
-
+.dark .btn-danger {
+  background: var(--surface-raised);
+  color: #fca5a5;
+  border-color: #7f1d1d;
+}
+.dark .btn-danger:hover:not(:disabled) {
+  background: #1c1215;
+  border-color: #991b1b;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.2);
+}
+.dark .btn-danger:active:not(:disabled) {
+  background: #1a1012;
+}
+.dark .btn-danger:focus-visible {
+  outline-color: #ef4444;
+}
 
 .backdrop-soft {
   backdrop-filter: blur(6px);

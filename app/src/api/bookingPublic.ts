@@ -115,7 +115,7 @@ export type BookingPayload = {
   };
   services: {
     package: { key: string; price: number; label: string; labelKey?: string } | null;
-    addons: Array<{ id: string; group: string; label: string; labelKey?: string; price: number }>;
+    addons: Array<{ id: string; group: string; label: string; labelKey?: string; price: number; qty: number }>;
   };
   schedule: {
     photographer: { key: string; name: string };

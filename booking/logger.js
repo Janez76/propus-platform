@@ -149,9 +149,8 @@ function createModuleConsole(targetLogger) {
 }
 
 /**
- * httpLoggerOptions – Express middleware compatible with previous pino-http contract.
- * Used in booking/server.js as: app.use(pinoHttp(httpLoggerOptions))
- * Now returns a Winston-based middleware instead.
+ * httpLoggerOptions – Express HTTP request logging middleware (Winston).
+ * Used in booking/server.js as: app.use(logger.httpLoggerOptions.middleware)
  */
 const httpLoggerOptions = {
   // Kept for API compatibility – booking/server.js destructures this

@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { pool, withTransaction } from "./db";
 import { logger } from "./logger";
+import { getTokenFromRequest } from "./auth";
 import type { PoolClient } from "pg";
 
 export type ApiContext = {
@@ -17,12 +18,8 @@ export function apiError(message: string, status = 400): NextResponse {
   return NextResponse.json({ error: message }, { status });
 }
 
-/** Extract Bearer token from request */
-export function getToken(req: NextRequest): string | null {
-  const auth = req.headers.get("authorization");
-  if (auth?.startsWith("Bearer ")) return auth.slice(7);
-  return null;
-}
+/** Extract Bearer token from request (delegates to auth.ts) */
+export const getToken = getTokenFromRequest;
 
 /** Require a Bearer token; returns 401 if missing */
 export function requireToken(req: NextRequest): string | NextResponse {

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
+import { logger } from "@/lib/logger";
 
 export async function GET() {
   try {
@@ -10,12 +11,11 @@ export async function GET() {
       timestamp: new Date().toISOString(),
     });
   } catch (e) {
+    logger.error("Health check failed", {
+      error: e instanceof Error ? e.message : String(e),
+    });
     return NextResponse.json(
-      {
-        ok: false,
-        db: "error",
-        error: e instanceof Error ? e.message : String(e),
-      },
+      { ok: false, db: "error" },
       { status: 503 },
     );
   }

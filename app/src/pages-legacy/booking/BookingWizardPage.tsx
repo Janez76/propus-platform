@@ -34,7 +34,7 @@ export function BookingWizardPage() {
     step, setStep, config, configLoading, setConfig, setCatalog, setPhotographers, setConfigLoading,
     submitted, submitting, setSubmitting, setSubmitted,
     selectedPackage, addons, photographer, date, time, billing, altBilling, agbAccepted,
-    address, coords, object, discount, provisional,
+    address, coords, object, discount, provisional, keyPickup,
   } = store;
 
   const [showLanding, setShowLanding] = useState(true);
@@ -140,7 +140,7 @@ export function BookingWizardPage() {
       },
       services: {
         package: selectedPackage ? { key: selectedPackage.key, price: selectedPackage.price, label: selectedPackage.label, labelKey: selectedPackage.labelKey } : null,
-        addons: addons.map((a) => ({ id: a.id, group: a.group, label: a.label, labelKey: a.labelKey, price: a.price })),
+        addons: addons.map((a) => ({ id: a.id, group: a.group, label: a.label, labelKey: a.labelKey, price: a.price, qty: a.qty })),
       },
       schedule: {
         photographer: bookingPhotographerForPayload(lang, photographer),
@@ -154,6 +154,7 @@ export function BookingWizardPage() {
       },
       pricing,
       discountCode: discount.code || undefined,
+      keyPickup: keyPickup.enabled ? { enabled: true, address: keyPickup.address, info: keyPickup.info || undefined } : undefined,
     };
 
     try {
