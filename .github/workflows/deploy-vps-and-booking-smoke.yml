@@ -114,6 +114,27 @@ jobs:
             echo "==> Deploy complete"
           ENDSSH
 
+      - name: Purge Cloudflare cache
+        if: success()
+        env:
+          CF_ZONE: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+          CF_EMAIL: ${{ secrets.CLOUDFLARE_AUTH_EMAIL }}
+          CF_KEY: ${{ secrets.CLOUDFLARE_AUTH_KEY }}
+        run: |
+          set -e
+          if [ -z "${CF_ZONE:-}" ] || [ -z "${CF_EMAIL:-}" ] || [ -z "${CF_KEY:-}" ]; then
+            echo "::warning::Cloudflare-Secrets (CLOUDFLARE_ZONE_ID / CLOUDFLARE_AUTH_EMAIL / CLOUDFLARE_AUTH_KEY) fehlen — Cache-Purge uebersprungen."
+            exit 0
+          fi
+          echo "==> Cloudflare purge_everything"
+          body=$(curl -fsS -X POST "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/purge_cache" \
+            -H "X-Auth-Email: ${CF_EMAIL}" \
+            -H "X-Auth-Key: ${CF_KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{"purge_everything":true}')
+          echo "$body"
+          echo "$body" | jq -e '.success == true' >/dev/null
+
       - name: Notify deploy status
         if: always()
         run: |

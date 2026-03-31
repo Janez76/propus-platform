@@ -3,6 +3,8 @@ import path from "path";
 import fs from "fs";
 
 const isDev = process.env.NODE_ENV !== "production";
+const enableFileLogging =
+  !isDev && /^(1|true|yes)$/i.test(process.env.LOG_FILE_ENABLED ?? "");
 
 const redactFields = winston.format((info) => {
   if (info.password) info.password = "[REDACTED]";
@@ -36,7 +38,7 @@ const transports: winston.transport[] = [
   }),
 ];
 
-if (!isDev) {
+if (enableFileLogging) {
   const logDir = process.env.LOG_DIR || "/app/logs";
   try {
     fs.mkdirSync(logDir, { recursive: true });

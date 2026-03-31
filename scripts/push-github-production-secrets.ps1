@@ -88,6 +88,7 @@ function Import-DotEnvStyleFile {
 }
 
 $allowedFromExtra = @(
+  "VPS_HOST",
   "CLOUDFLARE_ZONE_ID",
   "CLOUDFLARE_AUTH_EMAIL",
   "CLOUDFLARE_AUTH_KEY",

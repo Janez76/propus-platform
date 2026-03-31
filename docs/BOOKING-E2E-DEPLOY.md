@@ -16,6 +16,7 @@ Diese Notiz beschreibt das Zusammenspiel von VPS-Deploy und Playwright-Smoke-Tes
   - deployt den aktuellen Stand auf den VPS
   - baut das `platform`-Image neu
   - prueft `/api/health`
+  - leert bei gesetzten Cloudflare-Secrets den Zone-Cache (`purge_everything`)
   - den echten Buchungs-Smoke-Test startet **nur** bei manuellem Lauf mit `run_smoke=true` (nicht bei jedem Push)
   - bei `workflow_dispatch` kann man `deploy`, `smoke` oder beides auswaehlen
 
@@ -44,9 +45,13 @@ Der Workflow kann auf zwei Arten laufen:
 - `VPS_ENV_FILE`
   - kompletter Inhalt der produktiven `.env.vps`
 
+- `VPS_HOST`
+  - Hostname oder IP des VPS (fuer `ssh` und `ssh-keyscan` im Workflow)
+
 - `CLOUDFLARE_ZONE_ID`
 - `CLOUDFLARE_AUTH_EMAIL`
 - `CLOUDFLARE_AUTH_KEY`
+  - fuer automatischen **Cache-Purge nach jedem Deploy** (Schritt im Workflow); gleiche API-Zugangsdaten wie lokal in `booking/.env` unter `CF_ZONE` / `CF_EMAIL` / `CF_KEY`
 
 ### Playwright-Secrets
 
