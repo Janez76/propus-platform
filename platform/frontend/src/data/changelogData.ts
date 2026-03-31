@@ -15,6 +15,17 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.340",
+    date: "2026-03-31",
+    title: "Deploy",
+    changes: [
+      {
+        type: "improvement",
+        text: "Neuer Next.js-Stack liefert wieder eine pruefbare Build-ID ueber /api/health, /api/core/health und /VERSION; Deploy-Version auf v2.3.340 erhoeht.",
+      },
+    ],
+  },
+  {
     version: "2.3.338",
     date: "2026-03-31",
     title: "Produkte: DnD komplett ueberarbeitet",
