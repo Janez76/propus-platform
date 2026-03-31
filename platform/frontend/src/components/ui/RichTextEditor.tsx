@@ -4,6 +4,7 @@ import Underline from "@tiptap/extension-underline";
 import Link from "@tiptap/extension-link";
 import TextAlign from "@tiptap/extension-text-align";
 import { useEffect, useCallback } from "react";
+import type { ReactNode } from "react";
 import {
   Bold,
   Italic,
@@ -35,7 +36,7 @@ function ToolbarButton({
   active?: boolean;
   onClick: () => void;
   disabled?: boolean;
-  children: React.ReactNode;
+  children: ReactNode;
   title?: string;
 }) {
   return (
@@ -89,7 +90,7 @@ export function RichTextEditor({ value, onChange, placeholder, className }: Prop
     const currentHtml = editor.getHTML();
     if (currentHtml === "<p></p>" && !value) return;
     if (value !== currentHtml) {
-      editor.commands.setContent(value || "", false);
+      editor.commands.setContent(value || "", { emitUpdate: false });
     }
   }, [value, editor]);
 
@@ -110,7 +111,7 @@ export function RichTextEditor({ value, onChange, placeholder, className }: Prop
   return (
     <div
       className={cn(
-        "rounded-[10px] border border-[var(--border-strong)] bg-[var(--surface-raised)] transition-all focus-within:border-[var(--accent)] focus-within:shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent)_22%,transparent)] focus-within:bg-[var(--surface)]",
+        "relative rounded-[10px] border border-[var(--border-strong)] bg-[var(--surface-raised)] transition-all focus-within:border-[var(--accent)] focus-within:shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent)_22%,transparent)] focus-within:bg-[var(--surface)]",
         className,
       )}
     >
