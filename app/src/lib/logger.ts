@@ -40,24 +40,24 @@ if (!isDev) {
   const logDir = process.env.LOG_DIR || "/app/logs";
   try {
     fs.mkdirSync(logDir, { recursive: true });
+    transports.push(
+      new winston.transports.File({
+        filename: path.join(logDir, "error.log"),
+        level: "error",
+        format: jsonFormat,
+        maxsize: 10 * 1024 * 1024,
+        maxFiles: 5,
+      }),
+      new winston.transports.File({
+        filename: path.join(logDir, "combined.log"),
+        format: jsonFormat,
+        maxsize: 20 * 1024 * 1024,
+        maxFiles: 10,
+      }),
+    );
   } catch {
-    /* directory may already exist or be read-only */
+    /* log dir not accessible, file logging disabled */
   }
-  transports.push(
-    new winston.transports.File({
-      filename: path.join(logDir, "error.log"),
-      level: "error",
-      format: jsonFormat,
-      maxsize: 10 * 1024 * 1024,
-      maxFiles: 5,
-    }),
-    new winston.transports.File({
-      filename: path.join(logDir, "combined.log"),
-      format: jsonFormat,
-      maxsize: 20 * 1024 * 1024,
-      maxFiles: 10,
-    }),
-  );
 }
 
 export const logger = winston.createLogger({
