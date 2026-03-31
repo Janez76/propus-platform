@@ -1,11 +1,9 @@
-import { AlertCircle, ExternalLink, LogOut, Menu, Monitor, Moon, Sun, User } from "lucide-react";
+import { ExternalLink, LogOut, Menu, Monitor, Moon, Sun, User } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuthStore } from "../../store/authStore";
 import { useThemeStore } from "../../store/themeStore";
 import { t } from "../../i18n";
 import { ProfileModal } from "../profile/ProfileModal";
-import { useDbFieldHints } from "../../hooks/useDbFieldHints";
-import { useDbHintsStore } from "../../store/dbHintsStore";
 import { API_BASE } from "../../api/client";
 
 interface TopbarProps {
@@ -72,9 +70,6 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
   const setLanguage = useAuthStore((s) => s.setLanguage);
   const theme = useThemeStore((s) => s.theme);
   const setTheme = useThemeStore((s) => s.setTheme);
-  const dbHintsEnabled = useDbFieldHints();
-  const toggleDbHints = useDbHintsStore((s) => s.toggle);
-  const token = useAuthStore((s) => s.token);
 
   useEffect(() => {
     const configuredRaw = String(process.env.NEXT_PUBLIC_CUSTOMER_PORTAL_URL || "").trim();
@@ -174,22 +169,6 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
             <ThemeIcon className="h-4 w-4" />
             <span className="hidden md:inline">{themeLabel}</span>
           </button>
-
-          {/* DB-Feldhinweise Toggle */}
-          {token ? (
-            <button
-              onClick={() => toggleDbHints(dbHintsEnabled)}
-              className="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-lg border transition-colors text-xs font-semibold focus:outline-none"
-              style={dbHintsEnabled
-                ? { background: "var(--accent-subtle)", borderColor: "var(--accent)", color: "var(--accent)" }
-                : { background: "var(--surface)", borderColor: "var(--border-soft)", color: "var(--text-muted)" }}
-              aria-label={t(language, "topbar.dbHintsToggle")}
-              title={t(language, "topbar.dbHintsToggle")}
-            >
-              <AlertCircle className="h-3.5 w-3.5" />
-              <span>(DB)</span>
-            </button>
-          ) : null}
 
           {/* Customer Panel Switch */}
           <button

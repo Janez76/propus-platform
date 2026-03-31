@@ -38,7 +38,7 @@ services:
       - propus
 
   logto:
-    image: svhd/logto:latest
+    image: svhd/logto:1.38.0
     entrypoint:
       [
         "sh",

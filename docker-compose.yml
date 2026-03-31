@@ -41,7 +41,7 @@ services:
 
   # ─── Logto Auth Server ─────────────────────────────────────────────────────
   logto:
-    image: svhd/logto:latest
+    image: svhd/logto:1.38.0
     entrypoint: ["sh", "-c", "npm run cli db seed -- --swe && npm run cli db alteration deploy latest && npm start"]
     ports:
       - "${LOGTO_PORT:-3301}:3001"
