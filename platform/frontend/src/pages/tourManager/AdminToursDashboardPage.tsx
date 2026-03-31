@@ -11,7 +11,6 @@ import { List, Boxes, FileText, Settings, AlertCircle } from 'lucide-react';
 import { getAdminDashboard, type AdminDashboardData } from '../../api/tourAdmin';
 import { TourStatusBadge } from './TourStatusBadge';
 import type { AdminTourListItem, MatterportSpace } from '../../types/tourManager';
-import { TOUR_STATUS_LABELS } from '../../types/tourManager';
 
 function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return '-';

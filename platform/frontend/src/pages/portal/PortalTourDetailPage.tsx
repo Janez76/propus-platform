@@ -20,7 +20,6 @@ import {
   extendPortalTour,
   setPortalTourVisibility,
   archivePortalTour,
-  setPortalTourAssignee,
   type PortalTour,
   type PortalInvoice,
 } from '../../api/portalTours';

@@ -5,7 +5,7 @@
  * Feature-Parität: Filter (alle / offen / bezahlt), Tabelle mit Rechnungsdetails,
  * Manuelles Bezahlen, Rechnung löschen.
  */
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { getAdminInvoices, markInvoicePaidManual, deleteInvoice } from '../../api/tourAdmin';
 import type { RenewalInvoice } from '../../types/tourManager';
@@ -67,16 +67,18 @@ export function AdminTourInvoicesPage() {
     open: boolean; invoiceId: number | null; loading: boolean;
   }>({ open: false, invoiceId: null, loading: false });
 
-  const load = useCallback((status: string) => {
+  const loadRef = useRef((status: string) => {
     setLoading(true);
     setError(null);
     getAdminInvoices(status || undefined)
       .then((d) => setInvoices(d.invoices))
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, []);
+  });
 
-  useEffect(() => { load(statusFilter); }, [statusFilter, load]);
+  useEffect(() => {
+    loadRef.current(statusFilter);
+  }, [statusFilter]);
 
   function showSuccess(msg: string) {
     setSuccess(msg);
@@ -93,7 +95,7 @@ export function AdminTourInvoicesPage() {
       });
       showSuccess('Rechnung als bezahlt markiert.');
       setMarkPaidModal((m) => ({ ...m, open: false }));
-      load(statusFilter);
+      loadRef.current(statusFilter);
     } catch (e) {
       setError((e as Error).message);
       setMarkPaidModal((m) => ({ ...m, loading: false }));
@@ -107,7 +109,7 @@ export function AdminTourInvoicesPage() {
       await deleteInvoice(deleteModal.invoiceId);
       showSuccess('Rechnung gelöscht.');
       setDeleteModal((m) => ({ ...m, open: false }));
-      load(statusFilter);
+      loadRef.current(statusFilter);
     } catch (e) {
       setError((e as Error).message);
       setDeleteModal((m) => ({ ...m, loading: false }));

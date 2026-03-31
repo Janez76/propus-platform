@@ -29,7 +29,6 @@ import {
 import { TourStatusBadge } from './TourStatusBadge';
 import {
   MATTERPORT_STATE_LABELS,
-  TOUR_STATUS_LABELS,
 } from '../../types/tourManager';
 
 function formatDate(s: string | null | undefined): string {
@@ -157,7 +156,7 @@ export function AdminTourDetailPage() {
           <h1 className="text-xl font-bold text-[var(--text-main)]">
             {t.canonical_object_label || t.object_label || t.bezeichnung || `Tour #${t.id}`}
           </h1>
-          <TourStatusBadge status={t.status} archiv={t.archiv ?? false} />
+          <TourStatusBadge status={t.archiv ? 'ARCHIVED' : t.status} />
         </div>
         <p className="text-sm text-[var(--text-subtle)] mt-0.5">
           Kunde: {t.canonical_customer_name || t.customer_name || t.kunde_ref || '-'}
@@ -174,7 +173,7 @@ export function AdminTourDetailPage() {
         <Section title="Stammdaten">
           <FieldRow label="Tour-ID"><span className="font-mono">{t.id}</span></FieldRow>
           <FieldRow label="Status">
-            <TourStatusBadge status={t.status} archiv={t.archiv ?? false} />
+            <TourStatusBadge status={t.archiv ? 'ARCHIVED' : t.status} />
           </FieldRow>
           <FieldRow label="Ablaufdatum">{formatDate(t.canonical_term_end_date ?? t.term_end_date ?? t.ablaufdatum)}</FieldRow>
           <FieldRow label="Matterport-ID">

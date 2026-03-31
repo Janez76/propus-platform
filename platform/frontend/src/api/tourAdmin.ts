@@ -6,7 +6,6 @@
 
 import type {
   AdminTourListItem,
-  Tour,
   RenewalInvoice,
   ExxasInvoice,
   ActionLogEntry,
@@ -16,7 +15,6 @@ import type {
   AdminUser,
   AdminInvite,
   DashboardWidgets,
-  EmailTemplate,
   EmailTemplateKey,
   EmailTemplates,
   AiPromptSettings,

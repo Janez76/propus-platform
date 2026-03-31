@@ -12,8 +12,7 @@ import { Link } from 'react-router-dom';
 import { Search, Mail, CreditCard, RefreshCw } from 'lucide-react';
 import { getAdminTours, type AdminToursListData } from '../../api/tourAdmin';
 import { TourStatusBadge, InvoiceStatusTag } from './TourStatusBadge';
-import type { AdminTourListItem, TourListFilters, TourStatus } from '../../types/tourManager';
-import { TOUR_STATUS_LABELS } from '../../types/tourManager';
+import type { AdminTourListItem, TourListFilters } from '../../types/tourManager';
 
 const FILTER_TABS: { label: string; params: Partial<TourListFilters> }[] = [
   { label: 'Alle', params: {} },

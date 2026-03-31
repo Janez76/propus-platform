@@ -44,6 +44,7 @@ export type PortalInvoice = {
   sent_at?: string | null;
   paid_at?: string | null;
   due_at?: string | null;
+  created_at?: string | null;
   payrexx_payment_url?: string | null;
   tourLabel?: string;
 };
