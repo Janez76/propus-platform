@@ -195,6 +195,39 @@ services:
     networks:
       - propus
 
+  website:
+    build:
+      context: ./website
+      dockerfile: Dockerfile
+      args:
+        SUPABASE_URL: ${WEBSITE_SUPABASE_URL}
+    ports:
+      - "127.0.0.1:${WEBSITE_PORT:-4343}:4343"
+    environment:
+      NODE_ENV: production
+      HOST: "0.0.0.0"
+      PORT: "4343"
+      SUPABASE_URL: ${WEBSITE_SUPABASE_URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${WEBSITE_SUPABASE_SERVICE_ROLE_KEY}
+      PROPUS_ADMIN_USER: ${WEBSITE_ADMIN_USER:-admin}
+      PROPUS_ADMIN_PASSWORD: ${WEBSITE_ADMIN_PASSWORD}
+      PROPUS_ADMIN_SECRET: ${WEBSITE_ADMIN_SECRET}
+      GOOGLE_PLACES_API_KEY: ${GOOGLE_PLACES_API_KEY:-}
+      GOOGLE_REVIEWS_PLACE_ID: ${GOOGLE_REVIEWS_PLACE_ID:-}
+      PUBLIC_SITE_LOGO_URL: ${PUBLIC_SITE_LOGO_URL:-}
+      PUBLIC_SITE_FAVICON_URL: ${PUBLIC_SITE_FAVICON_URL:-}
+      PUBLIC_BOOKING_CATALOG_URL: ${PUBLIC_BOOKING_CATALOG_URL:-}
+      PUBLIC_SUPABASE_IMG_TRANSFORM: ${PUBLIC_SUPABASE_IMG_TRANSFORM:-}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:4343/ >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - propus
+
 volumes:
   postgres-data:
   logto-pgdata:

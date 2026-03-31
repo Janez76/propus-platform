@@ -118,8 +118,8 @@ jobs:
             cd "$PROJECT_ROOT"
 
             echo "==> Docker Build & Restart"
-            docker compose -f docker-compose.vps.yml --env-file .env.vps build migrate platform
-            docker compose -f docker-compose.vps.yml --env-file .env.vps up -d --force-recreate platform
+            docker compose -f docker-compose.vps.yml --env-file .env.vps build migrate platform website
+            docker compose -f docker-compose.vps.yml --env-file .env.vps up -d --force-recreate platform website
 
             echo "==> DB Migrations"
             docker compose -f docker-compose.vps.yml --env-file .env.vps --profile migrate run --rm migrate
