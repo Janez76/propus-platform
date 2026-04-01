@@ -2,6 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { logger } from "./logger";
 
 const PLATFORM_INTERNAL_URL = process.env.PLATFORM_INTERNAL_URL;
+const REQUEST_HEADERS_TO_SKIP = new Set([
+  "accept-encoding",
+  "connection",
+  "content-length",
+  "host",
+  "keep-alive",
+  "proxy-authenticate",
+  "proxy-authorization",
+  "te",
+  "trailer",
+  "transfer-encoding",
+  "upgrade",
+]);
 
 function getTarget(): string {
   if (!PLATFORM_INTERNAL_URL) {
@@ -31,8 +44,10 @@ export async function proxyToExpress(
   try {
     const headers = new Headers();
     req.headers.forEach((v, k) => {
-      if (!["host", "connection"].includes(k.toLowerCase())) headers.set(k, v);
+      if (!REQUEST_HEADERS_TO_SKIP.has(k.toLowerCase())) headers.set(k, v);
     });
+    headers.set("x-forwarded-host", req.headers.get("host") ?? new URL(req.url).host);
+    headers.set("x-forwarded-proto", new URL(req.url).protocol.replace(":", ""));
 
     const body =
       req.method !== "GET" && req.method !== "HEAD"
