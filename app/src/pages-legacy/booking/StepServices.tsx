@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { Package, ChevronDown, ChevronUp, Star, X } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { Package, ChevronDown, ChevronUp, Star, X, Key } from "lucide-react";
 import { useBookingWizardStore } from "../../store/bookingWizardStore";
 import { computeTourPrice, formatCHF } from "../../lib/bookingPricing";
 import type { CatalogAddon, CatalogCategory } from "../../api/bookingPublic";
@@ -89,7 +89,15 @@ const HIGHLIGHT_ICONS: Record<string, string> = {
 };
 
 export function StepServices({ lang }: { lang: Lang }) {
-  const { catalog, selectedPackage, setPackage, addons } = useBookingWizardStore();
+  const { catalog, selectedPackage, setPackage, addons, keyPickup, setKeyPickup } = useBookingWizardStore();
+
+  const hasKeyPickup = addons.some((a) => a.group === "keypickup");
+
+  useEffect(() => {
+    if (hasKeyPickup !== keyPickup.enabled) {
+      setKeyPickup({ enabled: hasKeyPickup });
+    }
+  }, [hasKeyPickup, keyPickup.enabled, setKeyPickup]);
 
   const packages = useMemo(() =>
     (catalog?.packages ?? []).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
@@ -172,6 +180,49 @@ export function StepServices({ lang }: { lang: Lang }) {
               <CategoryAccordion key={cat.key} category={cat} addons={addonList} />
             ))}
           </div>
+
+          {hasKeyPickup && (
+            <div className="mt-3 space-y-3 rounded-lg border border-[var(--accent)]/30 bg-[var(--accent)]/5 p-4">
+              <div className="flex items-center gap-2 text-sm font-medium text-[var(--accent)]">
+                <Key className="h-4 w-4" />
+                {t(lang, "booking.step4.keyPickup")}
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-[var(--text-muted)]">
+                  {t(lang, "booking.step4.keyPickupAddress")}
+                </label>
+                <input
+                  type="text"
+                  value={keyPickup.address}
+                  onChange={(e) => setKeyPickup({ address: e.target.value })}
+                  placeholder={t(lang, "wizard.placeholder.keyPickupAddress")}
+                  className={cn(
+                    "w-full rounded-lg border px-3 py-2 text-sm text-[var(--text-main)]",
+                    "border-[var(--border-soft)] bg-[var(--surface)]",
+                    "focus:outline-none focus:ring-1 focus:ring-[var(--accent)]/30",
+                    "placeholder:text-[var(--text-subtle)]",
+                  )}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-[var(--text-muted)]">
+                  {t(lang, "booking.step4.keyPickupInfo")}
+                </label>
+                <textarea
+                  value={keyPickup.info}
+                  onChange={(e) => setKeyPickup({ info: e.target.value })}
+                  placeholder={t(lang, "wizard.placeholder.keyPickupInfo")}
+                  rows={2}
+                  className={cn(
+                    "w-full resize-y rounded-lg border px-3 py-2 text-sm text-[var(--text-main)]",
+                    "border-[var(--border-soft)] bg-[var(--surface)]",
+                    "focus:outline-none focus:ring-1 focus:ring-[var(--accent)]/30",
+                    "placeholder:text-[var(--text-subtle)]",
+                  )}
+                />
+              </div>
+            </div>
+          )}
         </section>
       )}
 

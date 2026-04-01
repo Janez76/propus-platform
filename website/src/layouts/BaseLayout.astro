@@ -1,5 +1,4 @@
 ---
-import { ClientRouter } from 'astro:transitions';
 import '../styles/global.css';
 import { site, seo } from '../content/site';
 import Header from '../components/Header.astro';
@@ -189,6 +188,7 @@ try {
 		<link rel="dns-prefetch" href="https://www.googletagmanager.com" />
 		<link rel="dns-prefetch" href="https://www.google-analytics.com" />
 		<link rel="dns-prefetch" href="https://images.unsplash.com" />
+		<link rel="preconnect" href="https://images.unsplash.com" crossorigin />
 		<link rel="dns-prefetch" href="https://www.youtube-nocookie.com" />
 		<link rel="dns-prefetch" href="https://www.youtube.com" />
 		<link rel="dns-prefetch" href="https://my.matterport.com" />
@@ -215,7 +215,6 @@ try {
 				href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;1,14..32,400&display=swap"
 			/>
 		</noscript>
-		<ClientRouter />
 		<!-- Google Analytics 4 -->
 		<script is:inline async src="https://www.googletagmanager.com/gtag/js?id=G-VTBSQMZ3CK"></script>
 		<script is:inline>

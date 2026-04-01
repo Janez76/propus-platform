@@ -15,7 +15,7 @@ const pathname = Astro.url.pathname;
 
 <header class="site-header">
 	<div class="site-header__inner">
-		<a class="site-header__brand" href="/" transition:animate="fade">
+		<a class="site-header__brand" href="/">
 			{
 				logoSrcDark ? (
 					<>
@@ -24,15 +24,15 @@ const pathname = Astro.url.pathname;
 							src={logoSrc}
 							alt={`${site.name} – ${site.headerLine}`}
 							loading="eager"
-							fetchpriority="high"
+							fetchpriority="auto"
 							decoding="async"
 						/>
 						<img
 							class="site-header__logo site-header__logo--theme-dark"
 							src={logoSrcDark}
 							alt=""
-							loading="eager"
-							fetchpriority="high"
+							loading="lazy"
+							fetchpriority="low"
 							decoding="async"
 							aria-hidden="true"
 						/>
@@ -43,7 +43,7 @@ const pathname = Astro.url.pathname;
 						src={logoSrc}
 						alt={`${site.name} – ${site.headerLine}`}
 						loading="eager"
-						fetchpriority="high"
+						fetchpriority="auto"
 						decoding="async"
 					/>
 				)

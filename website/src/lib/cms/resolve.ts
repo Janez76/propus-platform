@@ -285,40 +285,67 @@ export type HomePageData = {
 	siteLinks: ReturnType<typeof resolveSiteSeoLinks>;
 };
 
+const HOME_PAGE_CACHE_MS = 60 * 1000;
+let cachedHomePageData:
+	| {
+			expiresAt: number;
+			value: HomePageData;
+	  }
+	| null = null;
+let homePageDataInFlight: Promise<HomePageData> | null = null;
+
 /**
  * Einmal CMS lesen für die Startseite (SEO, Header/Footer, Featured, Logos) – vermeidet mehrere Supabase-Roundtrips.
  */
 export async function loadHomePageData(): Promise<HomePageData> {
-	const state = await loadSiteCmsState();
-	const seoStart = resolveSeoPage(state, 'startseite');
-	const seoPortfolio = resolveSeoPage(state, 'portfolio');
-	let items = cmsStateToPortfolioItems(state);
-	if (items.length === 0) {
-		items = portfolioItems.map((item) => optimizePortfolioItem(item, imageOptimizationEnabled(state)));
+	const now = Date.now();
+	if (cachedHomePageData && cachedHomePageData.expiresAt > now) {
+		return cachedHomePageData.value;
 	}
-	const featuredPortfolio = resolveFeaturedPortfolio(state, items);
-	const fromCms = cmsStateToClientLogos(state);
-	const clientLogos =
-		fromCms.length > 0
-			? fromCms
-			: staticClientLogos.map((c) =>
-					c.imageSrc
-						? {
-								...c,
-								imageSrc: cmsImageUrlForDisplay(c.imageSrc, 'logo', imageOptimizationEnabled(state)),
-							}
-						: c,
+	if (!homePageDataInFlight) {
+		homePageDataInFlight = (async () => {
+			const state = await loadSiteCmsState();
+			const seoStart = resolveSeoPage(state, 'startseite');
+			const seoPortfolio = resolveSeoPage(state, 'portfolio');
+			let items = cmsStateToPortfolioItems(state);
+			if (items.length === 0) {
+				items = portfolioItems.map((item) =>
+					optimizePortfolioItem(item, imageOptimizationEnabled(state)),
 				);
-	const branding = siteBrandingFromState(state);
-	const siteLinks = resolveSiteSeoLinks(state);
-	return {
-		seoStart,
-		seoPortfolio,
-		featuredPortfolio,
-		clientLogos,
-		branding,
-		siteLinks,
-	};
+			}
+			const featuredPortfolio = resolveFeaturedPortfolio(state, items);
+			const fromCms = cmsStateToClientLogos(state);
+			const clientLogos =
+				fromCms.length > 0
+					? fromCms
+					: staticClientLogos.map((c) =>
+							c.imageSrc
+								? {
+										...c,
+										imageSrc: cmsImageUrlForDisplay(c.imageSrc, 'logo', imageOptimizationEnabled(state)),
+									}
+								: c,
+						);
+			const branding = siteBrandingFromState(state);
+			const siteLinks = resolveSiteSeoLinks(state);
+			const value = {
+				seoStart,
+				seoPortfolio,
+				featuredPortfolio,
+				clientLogos,
+				branding,
+				siteLinks,
+			};
+			cachedHomePageData = {
+				expiresAt: Date.now() + HOME_PAGE_CACHE_MS,
+				value,
+			};
+			return value;
+		})().finally(() => {
+			homePageDataInFlight = null;
+		});
+	}
+	return homePageDataInFlight;
 }
 
 export function cmsStateToServiceSections(state: CmsState): ServiceDetailSection[] {

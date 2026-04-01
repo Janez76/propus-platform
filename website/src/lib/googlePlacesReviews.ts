@@ -75,6 +75,15 @@ const MAX_REVIEWS = 7;
 
 /** Pro Request: zwei sequenzielle Places-Calls ohne die Startseite ewig warten zu lassen. */
 const PLACES_FETCH_MS = 2400;
+const REVIEWS_CACHE_MS = 15 * 60 * 1000;
+
+let cachedLiveReviews:
+	| {
+			expiresAt: number;
+			value: readonly GoogleReviewEntry[];
+	  }
+	| null = null;
+let liveReviewsInFlight: Promise<readonly GoogleReviewEntry[]> | null = null;
 
 /**
  * Lädt Reviews von Google Places (New), nur **5 Sterne**, bis zu {@link MAX_REVIEWS}.
@@ -180,7 +189,24 @@ export async function resolveHomeReviews(
 	}
 
 	try {
-		const live = await fetchGoogleReviewsFromPlaces(apiKey);
+		const now = Date.now();
+		let live = cachedLiveReviews && cachedLiveReviews.expiresAt > now ? cachedLiveReviews.value : null;
+		if (!live) {
+			if (!liveReviewsInFlight) {
+				liveReviewsInFlight = fetchGoogleReviewsFromPlaces(apiKey)
+					.then((reviews) => {
+						cachedLiveReviews = {
+							expiresAt: Date.now() + REVIEWS_CACHE_MS,
+							value: reviews,
+						};
+						return reviews;
+					})
+					.finally(() => {
+						liveReviewsInFlight = null;
+					});
+			}
+			live = await liveReviewsInFlight;
+		}
 		const keys = new Set(live.map((r) => reviewDedupeKey(r)));
 		const out: GoogleReviewEntry[] = [...live];
 		for (const m of manualFive) {

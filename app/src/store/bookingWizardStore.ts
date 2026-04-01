@@ -334,6 +334,7 @@ export const useBookingWizardStore = create<BookingWizardState>()(
         billing: s.billing,
         altBilling: s.altBilling,
         discount: s.discount,
+        keyPickup: s.keyPickup,
         slotPeriod: s.slotPeriod,
       }),
     },
