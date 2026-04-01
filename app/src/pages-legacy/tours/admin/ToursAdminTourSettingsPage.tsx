@@ -11,8 +11,6 @@ export function ToursAdminTourSettingsPage() {
   const queryFn = useCallback(() => getToursAdminTourSettings(), []);
   const { data, loading, error, refetch } = useQuery(qk, queryFn, { staleTime: 30_000 });
 
-  const widgets = (data?.widgets as Record<string, boolean>) || {};
-  const aiPrompt = (data?.aiPromptSettings as { mailSystemPrompt?: string }) || {};
   const matterport = (data?.matterportStored as { tokenId?: string; hasSecret?: boolean }) || {};
 
   const [mailPrompt, setMailPrompt] = useState("");
@@ -23,14 +21,19 @@ export function ToursAdminTourSettingsPage() {
   const [saveErr, setSaveErr] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // Nur auf `data` hören – abgeleitete Objekte (widgets, aiPrompt, …) erzeugen
+  // bei jedem Render neue Referenzen und würden sonst einen Endlos-Loop auslösen.
   useEffect(() => {
     if (!data) return;
-    setMailPrompt(String(aiPrompt.mailSystemPrompt || ""));
-    setTokenId(String(matterport.tokenId || ""));
+    const w = (data.widgets as Record<string, boolean>) || {};
+    const ap = (data.aiPromptSettings as { mailSystemPrompt?: string }) || {};
+    const mp = (data.matterportStored as { tokenId?: string }) || {};
+    setMailPrompt(String(ap.mailSystemPrompt || ""));
+    setTokenId(String(mp.tokenId || ""));
     setTokenSecret("");
     setClearMp(false);
-    setLocalWidgets({ ...widgets });
-  }, [data, aiPrompt.mailSystemPrompt, matterport.tokenId, widgets]);
+    setLocalWidgets({ ...w });
+  }, [data]);
 
   async function onSave(e: React.FormEvent) {
     e.preventDefault();

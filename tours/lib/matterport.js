@@ -23,9 +23,11 @@ const { getMatterportApiCredentials } = require('./settings');
 
 const MATTERPORT_BASE = 'https://api.matterport.com/api/models';
 
+// Primärer GraphQL-Endpunkt; als Fallback der neuere /api/graphiql/-Proxy.
+// https://api.matterport.com/model/graphiql ist die Browser-UI (kein API-Endpunkt).
 const GRAPH_URLS = [
   `${MATTERPORT_BASE}/graph`,
-  'https://api.matterport.com/model/graphiql',
+  'https://api.matterport.com/api/graphiql/',
 ];
 
 /** Kurz, wenn gar kein Authorization-Header gebaut werden kann */
@@ -94,22 +96,40 @@ async function graphRequest(query, variables = {}) {
     'Authorization': auth,
     'Content-Type': 'application/json',
   };
+  let lastStatus = null;
+  let lastBody = null;
   for (const url of GRAPH_URLS) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15_000);
     try {
-      const res = await fetch(url, { method: 'POST', headers, body });
-      const data = await res.json().catch(() => ({}));
+      const res = await fetch(url, { method: 'POST', headers, body, signal: controller.signal });
+      clearTimeout(timeout);
+      const raw = await res.text().catch(() => '');
+      let data = {};
+      try { data = JSON.parse(raw); } catch (_) { /* HTML oder leere Antwort */ }
+
       if (res.ok && !data.errors) return data;
+
       if (data.errors) {
         return { data: data.data, errors: data.errors };
       }
-      if (!res.ok && (res.status === 401 || res.status === 403)) {
+
+      if (res.status === 401 || res.status === 403) {
         return { data: null, errors: [{ message: MSG_AUTH_REJECTED }] };
       }
+
+      // Andere HTTP-Fehler: merken und nächsten URL versuchen
+      lastStatus = res.status;
+      lastBody = raw.slice(0, 300);
+      console.warn(`Matterport graphRequest ${url} → HTTP ${res.status}`, lastBody);
     } catch (e) {
-      console.warn('Matterport graphRequest', url, e.message);
+      clearTimeout(timeout);
+      lastBody = e.name === 'AbortError' ? 'Timeout nach 15 s' : e.message;
+      console.warn('Matterport graphRequest', url, lastBody);
     }
   }
-  return { data: null, errors: [{ message: 'GraphQL request failed for all endpoints' }] };
+  const detail = lastStatus ? ` (HTTP ${lastStatus}: ${lastBody})` : (lastBody ? ` (${lastBody})` : '');
+  return { data: null, errors: [{ message: `GraphQL request failed for all endpoints${detail}` }] };
 }
 
 async function listModels() {
