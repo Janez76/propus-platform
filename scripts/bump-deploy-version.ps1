@@ -36,7 +36,6 @@ $verTag = "v$verStr"
 
 $versionRelPaths = @(
     @( "booking", "admin-panel", "public", "VERSION" ),
-    @( "platform", "frontend", "public", "VERSION" ),
     @( "booking", "public", "VERSION" )
 )
 foreach ($segments in $versionRelPaths) {
@@ -64,8 +63,7 @@ $changelogBlock = @"
 "@
 
 $changelogRelPaths = @(
-    @( "booking", "admin-panel", "src", "data", "changelogData.ts" ),
-    @( "platform", "frontend", "src", "data", "changelogData.ts" )
+    @( "booking", "admin-panel", "src", "data", "changelogData.ts" )
 )
 
 foreach ($segments in $changelogRelPaths) {

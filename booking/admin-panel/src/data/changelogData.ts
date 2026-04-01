@@ -15,6 +15,17 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.347",
+    date: "2026-04-01",
+    title: "Deploy",
+    changes: [
+      {
+        type: "improvement",
+        text: "Versionsnummer fuer VPS-Deploy auf v2.3.347 erhoeht; platform/frontend (alte Vite SPA) entfernt; Key-Pickup-Feature, Dark-Mode-Styles, Favicon-Assets.",
+      },
+    ],
+  },
+  {
     version: "2.3.340",
     date: "2026-03-31",
     title: "Deploy",

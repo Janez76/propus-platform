@@ -185,6 +185,22 @@ jobs:
           echo "$body"
           echo "$body" | jq -e '.success == true' >/dev/null
 
+      - name: Verify deployed version
+        run: |
+          EXPECTED_VERSION=$(cat booking/public/VERSION)
+          echo "Expected version: $EXPECTED_VERSION"
+          HEALTH=$(ssh -i ~/.ssh/id_ed25519_propus_vps root@${{ secrets.VPS_HOST }} \
+            "curl -sf http://127.0.0.1:3100/api/health")
+          echo "Health response: $HEALTH"
+          DEPLOYED=$(echo "$HEALTH" | python3 -c "import sys,json; print(json.load(sys.stdin).get('buildId','UNKNOWN'))")
+          echo "Deployed version: $DEPLOYED"
+          if [ "$DEPLOYED" = "$EXPECTED_VERSION" ]; then
+            echo "Version check passed: $DEPLOYED"
+          else
+            echo "Version check FAILED: expected=$EXPECTED_VERSION deployed=$DEPLOYED"
+            exit 1
+          fi
+
       - name: Notify deploy status
         if: always()
         run: |
@@ -196,7 +212,7 @@ jobs:
     name: Booking Smoke Tests
     runs-on: ubuntu-latest
     needs: deploy
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_smoke }}
+    if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.run_smoke) }}
 
     steps:
       - name: Checkout
