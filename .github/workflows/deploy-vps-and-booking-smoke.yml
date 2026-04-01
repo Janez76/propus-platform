@@ -22,7 +22,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   # ─── Build Next.js (Type-Check + Build) ────────────────────────────────────
@@ -71,6 +71,38 @@ jobs:
           echo "${{ secrets.VPS_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519_propus_vps
           chmod 600 ~/.ssh/id_ed25519_propus_vps
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Bump version
+        id: bump
+        run: |
+          set -e
+          RAW=$(cat booking/public/VERSION)
+          # Parse vX.Y.Z
+          MAJOR=$(echo "$RAW" | sed 's/v\([0-9]*\)\..*/\1/')
+          MINOR=$(echo "$RAW" | sed 's/v[0-9]*\.\([0-9]*\)\..*/\1/')
+          PATCH=$(echo "$RAW" | sed 's/v[0-9]*\.[0-9]*\.\([0-9]*\)/\1/')
+          NEW_PATCH=$((PATCH + 1))
+          NEW_VER="v${MAJOR}.${MINOR}.${NEW_PATCH}"
+          echo "new_version=$NEW_VER" >> "$GITHUB_OUTPUT"
+          echo "Bumping $RAW -> $NEW_VER"
+          # Alle VERSION-Dateien aktualisieren
+          echo -n "$NEW_VER" > booking/public/VERSION
+          echo -n "$NEW_VER" > booking/admin-panel/public/VERSION
+          echo -n "$NEW_VER" > app/public/VERSION
+          echo -n "$NEW_VER" > website/public/VERSION
+          # website/package.json version aktualisieren
+          node -e "
+            const fs = require('fs');
+            const p = JSON.parse(fs.readFileSync('website/package.json','utf8'));
+            p.version = '${MAJOR}.${MINOR}.${NEW_PATCH}';
+            fs.writeFileSync('website/package.json', JSON.stringify(p, null, 2) + '\n');
+          "
+          # Commit & Push
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add booking/public/VERSION booking/admin-panel/public/VERSION app/public/VERSION website/public/VERSION website/package.json
+          git commit -m "chore(version): Deploy-Version auf $NEW_VER erhoehen [skip ci]"
+          git push origin master
 
       - name: Create deploy archive
         run: |
@@ -187,7 +219,7 @@ jobs:
 
       - name: Verify deployed version
         run: |
-          EXPECTED_VERSION=$(cat booking/public/VERSION)
+          EXPECTED_VERSION="${{ steps.bump.outputs.new_version }}"
           echo "Expected version: $EXPECTED_VERSION"
           HEALTH=$(ssh -i ~/.ssh/id_ed25519_propus_vps root@${{ secrets.VPS_HOST }} \
             "curl -sf http://127.0.0.1:3100/api/core/health")

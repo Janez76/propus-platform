@@ -37,7 +37,8 @@ $verTag = "v$verStr"
 $versionRelPaths = @(
     @( "booking", "admin-panel", "public", "VERSION" ),
     @( "booking", "public", "VERSION" ),
-    @( "app", "public", "VERSION" )
+    @( "app", "public", "VERSION" ),
+    @( "website", "public", "VERSION" )
 )
 foreach ($segments in $versionRelPaths) {
     $p = $WorkspaceRoot
@@ -46,6 +47,16 @@ foreach ($segments in $versionRelPaths) {
         throw "VERSION-Pfad fehlt: $p"
     }
     Write-Utf8NoBom -Path $p -Content $verTag
+}
+
+# website/package.json version aktualisieren
+$websitePkgPath = Join-Path $WorkspaceRoot (Join-Path "website" "package.json")
+if (Test-Path -LiteralPath $websitePkgPath) {
+    $pkg = Get-Content -LiteralPath $websitePkgPath -Raw | ConvertFrom-Json
+    $pkg.version = $verStr
+    $pkgJson = $pkg | ConvertTo-Json -Depth 10
+    # Einrueckung normalisieren (ConvertTo-Json nutzt 4 Spaces)
+    Write-Utf8NoBom -Path $websitePkgPath -Content ($pkgJson + "`n")
 }
 
 $dateStr = Get-Date -Format "yyyy-MM-dd"
