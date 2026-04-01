@@ -1,7 +1,7 @@
 {
   "name": "propus-website",
   "type": "module",
-  "version": "2.3.356",
+  "version": "2.3.357",
   "engines": {
     "node": ">=22.12.0"
   },
