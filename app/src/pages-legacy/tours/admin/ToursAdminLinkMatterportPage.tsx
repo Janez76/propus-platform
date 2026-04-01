@@ -463,7 +463,7 @@ export function ToursAdminLinkMatterportPage() {
                 <tr key={String(m.id)} className="border-b border-[var(--border-soft)]/40">
                   <td className="px-4 py-2">{String(m.name || "—")}</td>
                   <td className="px-4 py-2 font-mono text-xs">{String(m.id)}</td>
-                  <td className="px-4 py-2 text-xs text-[var(--text-subtle)]">{m.created ? new Date(m.created).toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—"}</td>
+                  <td className="px-4 py-2 text-xs text-[var(--text-subtle)]">{m.created ? new Date(m.created as string).toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—"}</td>
                   <td className="px-4 py-2">
                     <div className="flex flex-wrap gap-1">
                       <button
