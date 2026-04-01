@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { Pool } from 'pg';
+
 export const dynamic = 'force-dynamic';
+
 let _pool: Pool | null = null;
 function getPool() {
   if (!_pool)
@@ -11,7 +13,11 @@ function getPool() {
     });
   return _pool;
 }
+
 export async function GET(req: NextRequest) {
+  // Only active on Vercel – on the VPS the next.config.ts rewrite proxies to the booking server
+  if (!process.env.VERCEL) return new NextResponse(null, { status: 404 });
+
   const sessionToken = req.cookies.get('admin_session')?.value;
   if (sessionToken)
     await getPool()
@@ -19,10 +25,12 @@ export async function GET(req: NextRequest) {
         crypto.createHash('sha256').update(sessionToken).digest('hex'),
       ])
       .catch(() => null);
+
   const logtoEndpoint = (process.env.LOGTO_ENDPOINT || 'https://logto.propus.ch').replace(/\/$/, '');
   const host = req.headers.get('host') || '';
   const proto = req.headers.get('x-forwarded-proto') || 'https';
   const baseUrl = (process.env.BOOKING_LOGTO_REDIRECT_BASE_URL || proto + '://' + host).replace(/\/$/, '');
+
   const response = NextResponse.redirect(
     logtoEndpoint + '/oidc/session/end?post_logout_redirect_uri=' + encodeURIComponent(baseUrl)
   );
