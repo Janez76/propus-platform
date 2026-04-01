@@ -3,11 +3,9 @@ import path from "path";
 
 const BUILD_ID_FILE_CANDIDATES = [
   process.env.BUILD_ID_FILE,
-  // Runtime-Datei aus dem Platform-Container bevorzugen, damit reine Versionsbump-Deploys
-  // nicht den kompletten Next.js-Build invalidieren muessen.
-  path.join(process.cwd(), "platform", "frontend", "public", "VERSION"),
-  path.join(process.cwd(), "public", "VERSION"),
+  // Im Docker-Container (cwd=/app): nextjs/public/VERSION stammt aus app/public/VERSION
   path.join(process.cwd(), "nextjs", "public", "VERSION"),
+  path.join(process.cwd(), "public", "VERSION"),
   path.join(process.cwd(), "app", "public", "VERSION"),
   "/opt/buchungstool/VERSION",
 ].filter(Boolean) as string[];

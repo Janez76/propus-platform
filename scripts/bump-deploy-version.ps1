@@ -36,7 +36,8 @@ $verTag = "v$verStr"
 
 $versionRelPaths = @(
     @( "booking", "admin-panel", "public", "VERSION" ),
-    @( "booking", "public", "VERSION" )
+    @( "booking", "public", "VERSION" ),
+    @( "app", "public", "VERSION" )
 )
 foreach ($segments in $versionRelPaths) {
     $p = $WorkspaceRoot
