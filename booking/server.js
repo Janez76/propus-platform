@@ -10,7 +10,6 @@ const dotenv = require("dotenv");
 // dann Legacy-Pfad /opt/... — sonst gewinnt dort eine alte Datei und Footer/health bleiben auf z. B. v2.3.281.
 const BUILD_ID_FILE_CANDIDATES = [
   process.env.BUILD_ID_FILE,
-  path.join(__dirname, "..", "platform", "frontend", "public", "VERSION"),
   "/opt/buchungstool/VERSION",
   path.join(__dirname, "..", "VERSION"),
   path.join(__dirname, "admin-panel", "public", "VERSION"),

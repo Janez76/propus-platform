@@ -406,7 +406,6 @@ if (-not $SkipUpload) {
         $tarArgs = @(
             '--exclude=.git',
             '--exclude=node_modules',
-            '--exclude=platform/frontend/node_modules',
             '--exclude=platform/node_modules',
             '--exclude=booking/node_modules',
             '--exclude=booking/admin-panel/node_modules',
@@ -416,7 +415,6 @@ if (-not $SkipUpload) {
             '--exclude=data',
             '--exclude=.cursor',
             '--exclude=.vscode',
-            '--exclude=platform/frontend/dist',
             '--exclude=booking/admin-panel/dist',
             '--exclude=.turbo',
             '-czf', $TempTar,

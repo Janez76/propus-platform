@@ -39,7 +39,6 @@ Alle Module nutzen dieselbe Datenbank (`propus`) und setzen `search_path`, damit
 | Paket                  | Tech-Stack                          | Zweck                                                             |
 |------------------------|-------------------------------------|-------------------------------------------------------------------|
 | `app/`                 | Next.js 16, React 19, Tailwind v4   | Primäres Admin-Frontend (Kunden, Aufträge, Kalender, Exxas, …)   |
-| `platform/frontend/`   | Vite, React, TypeScript             | Buchungs-Wizard + Admin-SPA, ausgeliefert von `platform/`         |
 | `booking/admin-panel/` | Vite, React, TypeScript             | Separates Booking-Admin-Panel                                     |
 | `website/`             | Astro + Supabase                    | Öffentliche Firmenhomepage mit Produkt-Katalog-API               |
 

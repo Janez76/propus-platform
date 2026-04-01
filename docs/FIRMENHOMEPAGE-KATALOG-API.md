@@ -224,7 +224,7 @@ curl -sS "https://api-booking.propus.ch/api/catalog/products"
 
 Als Orientierung für die erwartete Form (kann um zusätzliche DB-Felder erweitert sein):
 
-- Datei: `platform/frontend/src/api/bookingPublic.ts`
+- Datei: `app/src/api/bookingPublic.ts`
 - Typen: `CatalogData`, `CatalogProduct`, `CatalogCategory`, `CatalogPackage`, `CatalogAddon`
 
 ---

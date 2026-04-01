@@ -44,10 +44,10 @@ Datenbank **eine Instanz**, logisch getrennte Schemas (u. a. `core`, `booking`, 
 | Priorität | Bereich | Pfad(e) |
 |-----------|---------|---------|
 | 1 | Repo-Einstieg, Setup, Architektur | [README.md](../README.md) |
-| 2 | Admin- und Portal-UI (Übersetzungs-Keys) | [platform/frontend/src/i18n/de.json](../platform/frontend/src/i18n/de.json) |
-| 3 | In-App-Changelog / Release-Notizen | [platform/frontend/src/data/changelogData.ts](../platform/frontend/src/data/changelogData.ts) |
-| 4 | Statische Shell (Seitentitel etc.) | [platform/frontend/index.html](../platform/frontend/index.html) |
-| 5 | Sichtbare Build-Version | [platform/frontend/public/VERSION](../platform/frontend/public/VERSION) |
+| 2 | Admin- und Portal-UI (Übersetzungs-Keys) | [app/src/i18n/de.json](../app/src/i18n/de.json) |
+| 3 | In-App-Changelog / Release-Notizen | [app/src/data/changelogData.ts](../app/src/data/changelogData.ts) |
+| 4 | Statische Shell (Seitentitel etc.) | [app/src/app/layout.tsx](../app/src/app/layout.tsx) |
+| 5 | Sichtbare Build-Version | `app/public/VERSION` |
 | 6 | E-Mails und ähnliche Vorlagen | `booking/templates/` (u. a. E-Mail-Texte) |
 | 7 | Legacy-Duplikat (bei Parität) | `booking/admin-panel/src/i18n/de.json` – nur nötig, wenn dieser Baum noch parallel gepflegt wird |
 
@@ -55,7 +55,7 @@ Datenbank **eine Instanz**, logisch getrennte Schemas (u. a. `core`, `booking`, 
 
 ## Routen-Landkarte (Frontend)
 
-Die sichtbaren Bereiche der React-App sind in [platform/frontend/src/App.tsx](../platform/frontend/src/App.tsx) an den Routen erkennbar (Dashboard, Bestellungen, Kunden, Einstellungen, Buchungs-Wizard, Portal usw.). Änderungen an Menü- oder Seitentiteln hängen typischerweise an denselben i18n-Keys wie die Navigation.
+Die sichtbaren Bereiche der React-App sind in [app/src/components/ClientShell.tsx](../app/src/components/ClientShell.tsx) an den Routen erkennbar (Dashboard, Bestellungen, Kunden, Einstellungen, Buchungs-Wizard, Portal usw.). Änderungen an Menü- oder Seitentiteln hängen typischerweise an denselben i18n-Keys wie die Navigation.
 
 ## Pflegeempfehlung
 

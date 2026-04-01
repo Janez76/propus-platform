@@ -9,7 +9,7 @@ const steps = [
 
 /**
  * Platzhalter-Seite für den Buchungs-Wizard im alten admin-panel-Tree.
- * Produktiv: Wizard in `platform/frontend` unter `/` (öffentlicher Host) bzw. `/book`.
+ * Produktiv: Wizard in `app/` (Next.js) unter `/` (öffentlicher Host) bzw. `/book`.
  */
 export function BookingWizardPage() {
   const [step, setStep] = useState(1);
@@ -42,7 +42,7 @@ export function BookingWizardPage() {
           <h2 className="text-lg font-semibold text-[var(--text-main)]">{steps[step - 1].title}</h2>
           <p className="mt-1 text-sm text-[var(--text-subtle)]">{steps[step - 1].desc}</p>
           <p className="mt-6 text-sm text-zinc-500">
-            Die Buchung läuft über die React-SPA im <code className="rounded bg-zinc-100 px-1 bg-[var(--surface)]">platform/frontend</code>
+            Die Buchung läuft über die Next.js-App im <code className="rounded bg-zinc-100 px-1 bg-[var(--surface)]">app/</code>
             -Projekt (öffentlich <code className="rounded bg-zinc-100 px-1 bg-[var(--surface)]">/</code>, Admin-Host{" "}
             <code className="rounded bg-zinc-100 px-1 bg-[var(--surface)]">/book</code>).
           </p>

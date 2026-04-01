@@ -754,8 +754,7 @@ html.dark .auth-error {
 
 /* ═══════════════════════════════════════════════════════
    PROPUS SHARED cust-* DESIGN SYSTEM
-   Synchronized with platform/frontend/src/index.css
-   DO NOT edit manually – update both files together
+   Source of Truth: app/src/index.css
 ══════════════════════════════════════════════════════ */
 
 .cust-stats-row {

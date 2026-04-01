@@ -18,7 +18,5 @@ Thumbs.db
 .vscode/
 AGENTS.md
 dist/
-platform/frontend/dist.tar.gz
-platform/frontend/test-results/
 .next/
 coverage/

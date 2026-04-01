@@ -14,11 +14,11 @@ Das gilt fuer:
 
 ## Source Of Truth
 
-- Layout- und Design-Tokens: `platform/frontend/src/index.css`
+- Layout- und Design-Tokens: `app/src/index.css`
 - Zweites internes Frontend: `booking/admin-panel/src/index.css`
-- Referenzseite: `platform/frontend/src/pages/CustomersPage.tsx`
-- Referenzliste: `platform/frontend/src/components/customers/CustomerList.tsx`
-- Weitere interne Referenzseiten koennen aus `platform/frontend/src/pages/` und `booking/admin-panel/src/pages/` herangezogen werden, muessen sich aber in dieselbe visuelle Sprache einfuegen
+- Referenzseite: `app/src/pages-legacy/CustomersPage.tsx`
+- Referenzliste: `app/src/components/customers/CustomerList.tsx`
+- Weitere interne Referenzseiten koennen aus `app/src/pages-legacy/` und `booking/admin-panel/src/pages/` herangezogen werden, muessen sich aber in dieselbe visuelle Sprache einfuegen
 
 ## Verbindliche Bausteine
 

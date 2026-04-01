@@ -4,13 +4,11 @@ Diese Notiz beschreibt das Zusammenspiel von VPS-Deploy und Playwright-Smoke-Tes
 
 ## Bestandteile
 
-- `platform/frontend/e2e/booking-happy-path.spec.ts`
-  - schneller lokaler Smoke-Test mit API-Mocks
-  - geeignet fuer Entwicklung und stabile UI-Regressionen
+- `platform/frontend/e2e/booking-happy-path.spec.ts` *(entfernt – Vite-SPA wurde durch Next.js-App unter `app/` ersetzt)*
+  - war: schneller lokaler Smoke-Test mit API-Mocks
 
-- `platform/frontend/e2e/booking-staging.spec.ts`
-  - echter End-to-End-Test ohne `page.route(...)`
-  - laeuft nur mit gesetzter Remote-URL und `PLAYWRIGHT_LIVE_BOOKING=1`
+- `platform/frontend/e2e/booking-staging.spec.ts` *(entfernt)*
+  - war: echter End-to-End-Test ohne `page.route(...)`
 
 - `.github/workflows/deploy-vps-and-booking-smoke.yml`
   - deployt den aktuellen Commit-Stand als Archiv auf den VPS (ohne `git pull` auf dem Server)
@@ -104,14 +102,14 @@ Der Live-Spec ist nur dann stabil, wenn folgende Daten bewusst fix gehalten werd
 Mock-basierter UI-Smoke-Test:
 
 ```powershell
-cd platform\frontend
+cd app
 npm run test:e2e
 ```
 
 Remote-Staging-Test:
 
 ```powershell
-cd platform\frontend
+cd app
 $env:PLAYWRIGHT_BASE_URL="https://staging-booking.propus.ch"
 $env:PLAYWRIGHT_LIVE_BOOKING="1"
 npm run test:e2e:staging

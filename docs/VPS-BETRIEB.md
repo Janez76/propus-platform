@@ -242,7 +242,7 @@ Admin-Console: https://auth-admin.propus.ch/console
 
 Die Login-Oberfläche wird von **Logto** ausgeliefert (nicht vom React-Frontend). Anpassungen erfolgen in der **Logto Console** unter **Sign-in & account → Branding**. Siehe auch [Match your brand](https://docs.logto.io/customization/match-your-brand) und [Custom CSS](https://docs.logto.io/customization/custom-css).
 
-| Einstellung | Wert (Propus, siehe `platform/frontend/src/index.css`) |
+| Einstellung | Wert (Propus, siehe `app/src/index.css`) |
 |-------------|--------------------------------------------------------|
 | Brandfarbe (Light) | `#B68E20` (`--propus-gold`) |
 | Brandfarbe (Dark, falls aktiv) | `#d4b860` (`--propus-gold-dark`) |
