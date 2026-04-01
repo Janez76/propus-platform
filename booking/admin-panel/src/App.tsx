@@ -27,7 +27,6 @@ const CalendarTemplatesPage = lazy(() =>
 const ReviewsPage = lazy(() => import("./pages/ReviewsPage").then((m) => ({ default: m.ReviewsPage })));
 const ChangelogPage = lazy(() => import("./pages/ChangelogPage").then((m) => ({ default: m.ChangelogPage })));
 const ExxasReconcilePage = lazy(() => import("./pages/ExxasReconcilePage").then((m) => ({ default: m.ExxasReconcilePage })));
-const RolesPermissionsPage = lazy(() => import("./pages/RolesPermissionsPage").then((m) => ({ default: m.RolesPermissionsPage })));
 const AdminUsersPage = lazy(() => import("./pages/AdminUsersPage").then((m) => ({ default: m.AdminUsersPage })));
 const RolesPage = lazy(() => import("./pages/RolesPage").then((m) => ({ default: m.RolesPage })));
 const PortalFirmaPage = lazy(() => import("./pages/PortalFirmaPage").then((m) => ({ default: m.PortalFirmaPage })));
@@ -41,10 +40,6 @@ const AccountDashboardPage = lazy(() =>
 const CompanyDashboardPage = lazy(() =>
   import("./pages/CompanyDashboardPage").then((m) => ({ default: m.CompanyDashboardPage }))
 );
-const ToursAdminHomePage = lazy(() =>
-  import("./pages/ToursAdminHomePage").then((m) => ({ default: m.ToursAdminHomePage }))
-);
-
 function PageSkeleton() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-[var(--surface-raised)]">
@@ -127,12 +122,12 @@ function PrivateRoutes() {
           path="/settings/assignment-explorer"
           element={guardedElement(adminOnlyRoles, <Navigate to="/settings/access" replace />)}
         />
-        <Route path="/settings/access" element={guardedElement(adminOnlyRoles, <RolesPermissionsPage />)} />
+        <Route path="/settings/access" element={<Navigate to="/settings/users" replace />} />
         <Route path="/reviews" element={guardedElement(adminOnlyRoles, <ReviewsPage />)} />
         <Route path="/bugs" element={guardedElement(adminOnlyRoles, <BugsPage />)} />
         <Route path="/backups" element={guardedElement(adminOnlyRoles, <BackupsPage />)} />
         <Route path="/changelog" element={guardedElement(adminOnlyRoles, <ChangelogPage />)} />
-        <Route path="/admin/tours" element={guardedElement(adminOnlyRoles, <ToursAdminHomePage />)} />
+        <Route path="/admin/tours" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </AppShell>
   );
