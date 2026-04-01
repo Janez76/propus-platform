@@ -190,7 +190,7 @@ jobs:
           EXPECTED_VERSION=$(cat booking/public/VERSION)
           echo "Expected version: $EXPECTED_VERSION"
           HEALTH=$(ssh -i ~/.ssh/id_ed25519_propus_vps root@${{ secrets.VPS_HOST }} \
-            "curl -sf http://127.0.0.1:3100/api/health")
+            "curl -sf http://127.0.0.1:3100/api/core/health")
           echo "Health response: $HEALTH"
           DEPLOYED=$(echo "$HEALTH" | python3 -c "import sys,json; print(json.load(sys.stdin).get('buildId','UNKNOWN'))")
           echo "Deployed version: $DEPLOYED"
