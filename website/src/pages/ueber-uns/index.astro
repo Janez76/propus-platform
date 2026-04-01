@@ -388,6 +388,25 @@ const companyForScript = {
 		border-block: 1px solid rgb(255 255 255 / 0.06);
 	}
 
+	/* Dark Mode: gleicher Hintergrund wie Footer (`--color-bg-muted` in global.css) */
+	:global(html[data-theme='dark']) .about-signature {
+		background: var(--color-bg-muted);
+		color: var(--color-text);
+		border-block-color: var(--color-border);
+	}
+
+	:global(html[data-theme='dark']) .about-signature__title {
+		color: var(--color-text);
+	}
+
+	:global(html[data-theme='dark']) .about-signature__lead {
+		color: var(--color-text);
+	}
+
+	:global(html[data-theme='dark']) .about-signature__body {
+		color: var(--color-text-muted);
+	}
+
 	.about-signature__glow {
 		position: absolute;
 		inset: auto;
