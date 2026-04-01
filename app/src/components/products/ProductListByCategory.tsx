@@ -342,7 +342,7 @@ function SortableCategorySection({
     [group.key, onProductReorder],
   );
 
-  const descSaveTimer = useRef<ReturnType<typeof setTimeout>>();
+  const descSaveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const debouncedDescSave = useCallback(
     (html: string) => {
       onDescriptionChange(category.key, html);
