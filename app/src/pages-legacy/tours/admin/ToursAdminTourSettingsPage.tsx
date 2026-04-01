@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { getToursAdminTourSettings, putToursAdminTourSettings } from "../../../api/toursAdmin";
 import { useQuery } from "../../../hooks/useQuery";
 import { toursAdminTourSettingsQueryKey } from "../../../lib/queryKeys";
@@ -19,6 +19,7 @@ export function ToursAdminTourSettingsPage() {
   const [clearMp, setClearMp] = useState(false);
   const [localWidgets, setLocalWidgets] = useState<Record<string, boolean>>({});
   const [saveErr, setSaveErr] = useState<string | null>(null);
+  const [saveOk, setSaveOk] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   // Nur auf `data` hören – abgeleitete Objekte (widgets, aiPrompt, …) erzeugen
@@ -33,11 +34,13 @@ export function ToursAdminTourSettingsPage() {
     setTokenSecret("");
     setClearMp(false);
     setLocalWidgets({ ...w });
+    setSaveOk(null);
   }, [data]);
 
   async function onSave(e: React.FormEvent) {
     e.preventDefault();
     setSaveErr(null);
+    setSaveOk(null);
     setSaving(true);
     try {
       await putToursAdminTourSettings({
@@ -49,6 +52,7 @@ export function ToursAdminTourSettingsPage() {
           clearStored: clearMp,
         },
       });
+      setSaveOk("Einstellungen gespeichert.");
       void refetch();
     } catch (err) {
       setSaveErr(err instanceof Error ? err.message : "Speichern fehlgeschlagen");
@@ -93,6 +97,12 @@ export function ToursAdminTourSettingsPage() {
           {saveErr}
         </div>
       ) : null}
+      {saveOk ? (
+        <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200">
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          {saveOk}
+        </div>
+      ) : null}
 
       <form onSubmit={onSave} className="space-y-6">
         <section className="surface-card-strong p-6 space-y-3">
@@ -103,7 +113,10 @@ export function ToursAdminTourSettingsPage() {
                 <input
                   type="checkbox"
                   checked={!!localWidgets[k]}
-                  onChange={(e) => setLocalWidgets((w) => ({ ...w, [k]: e.target.checked }))}
+                  onChange={(e) => {
+                    setSaveOk(null);
+                    setLocalWidgets((w) => ({ ...w, [k]: e.target.checked }));
+                  }}
                 />
                 {label}
               </label>
@@ -121,7 +134,10 @@ export function ToursAdminTourSettingsPage() {
             <input
               className="mt-1 w-full rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm"
               value={tokenId}
-              onChange={(e) => setTokenId(e.target.value)}
+              onChange={(e) => {
+                setSaveOk(null);
+                setTokenId(e.target.value);
+              }}
             />
           </label>
           <label className="block text-sm">
@@ -130,12 +146,22 @@ export function ToursAdminTourSettingsPage() {
               type="password"
               className="mt-1 w-full rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm"
               value={tokenSecret}
-              onChange={(e) => setTokenSecret(e.target.value)}
+              onChange={(e) => {
+                setSaveOk(null);
+                setTokenSecret(e.target.value);
+              }}
               placeholder="Neu setzen …"
             />
           </label>
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={clearMp} onChange={(e) => setClearMp(e.target.checked)} />
+            <input
+              type="checkbox"
+              checked={clearMp}
+              onChange={(e) => {
+                setSaveOk(null);
+                setClearMp(e.target.checked);
+              }}
+            />
             Gespeicherte Zugangsdaten löschen (.env greift)
           </label>
         </section>
@@ -145,7 +171,10 @@ export function ToursAdminTourSettingsPage() {
           <textarea
             className="w-full min-h-[120px] rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm font-mono"
             value={mailPrompt}
-            onChange={(e) => setMailPrompt(e.target.value)}
+            onChange={(e) => {
+              setSaveOk(null);
+              setMailPrompt(e.target.value);
+            }}
           />
         </section>
 
