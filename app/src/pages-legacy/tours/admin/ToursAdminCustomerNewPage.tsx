@@ -3,8 +3,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { AlertCircle, ArrowLeft } from "lucide-react";
 import { getToursAdminExxasCustomerSearch, postToursAdminCustomerNew } from "../../../api/toursAdmin";
 
-const LEGACY = "/tour-manager/admin/customers/new";
-
 export function ToursAdminCustomerNewPage() {
   const navigate = useNavigate();
   const [name, setName] = useState("");
@@ -85,11 +83,6 @@ export function ToursAdminCustomerNewPage() {
           Zur Liste
         </Link>
         <h1 className="text-2xl font-semibold text-[var(--text-main)]">Neuer Kunde</h1>
-        <p className="text-sm text-[var(--text-subtle)] mt-1">
-          <a href={LEGACY} className="text-[var(--accent)] hover:underline">
-            Klassische Ansicht
-          </a>
-        </p>
       </div>
 
       {err ? (

@@ -1,5 +1,4 @@
 import { useCallback, useState } from "react";
-import { ExternalLink } from "lucide-react";
 import {
   confirmBankImportTransaction,
   getToursAdminBankImport,
@@ -8,8 +7,6 @@ import {
 } from "../../../api/toursAdmin";
 import { useQuery } from "../../../hooks/useQuery";
 import { toursAdminBankImportQueryKey } from "../../../lib/queryKeys";
-
-const LEGACY = "/tour-manager/admin/bank-import";
 
 export function ToursAdminBankImportPage() {
   const qk = toursAdminBankImportQueryKey();
@@ -44,12 +41,8 @@ export function ToursAdminBankImportPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-start">
         <div>
           <h1 className="text-2xl font-bold text-[var(--text-main)]">Bank-Import</h1>
-          <p className="text-sm text-[var(--text-subtle)] mt-1">CAMT054 / CSV – gleiche Logik wie EJS.</p>
+          <p className="text-sm text-[var(--text-subtle)] mt-1">CAMT054 / CSV Upload.</p>
         </div>
-        <a href={LEGACY} className="inline-flex items-center gap-2 text-sm border rounded-lg px-3 py-2 border-[var(--border-soft)]">
-          <ExternalLink className="h-4 w-4" />
-          EJS
-        </a>
       </div>
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}

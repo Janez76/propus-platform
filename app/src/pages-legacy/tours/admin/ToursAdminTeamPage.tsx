@@ -11,8 +11,6 @@ import {
 import { useQuery } from "../../../hooks/useQuery";
 import { toursAdminTeamQueryKey } from "../../../lib/queryKeys";
 
-const LEGACY = "/tour-manager/admin/team";
-
 type UserRow = {
   id: number | null;
   email: string;
@@ -118,10 +116,7 @@ export function ToursAdminTeamPage() {
       <div>
         <h1 className="text-2xl font-semibold text-[var(--text-main)]">Admin-Team</h1>
         <p className="text-sm text-[var(--text-subtle)] mt-1">
-          Zugänge für den Tour-Manager-Login.{" "}
-          <a href={LEGACY} className="text-[var(--accent)] hover:underline">
-            Klassische Ansicht
-          </a>
+          Zugänge für den Tour-Manager-Login.
         </p>
       </div>
 

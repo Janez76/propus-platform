@@ -5,8 +5,6 @@ import { getToursAdminCustomersList } from "../../../api/toursAdmin";
 import { useQuery } from "../../../hooks/useQuery";
 import { toursAdminCustomersListQueryKey } from "../../../lib/queryKeys";
 
-const LEGACY = "/tour-manager/admin/customers";
-
 function buildQs(sp: URLSearchParams): string {
   const keys = ["q", "page", "sort", "dir", "source", "status"];
   const n = new URLSearchParams();
@@ -47,10 +45,7 @@ export function ToursAdminCustomersListPage() {
         <div>
           <h1 className="text-2xl font-semibold text-[var(--text-main)]">Kunden</h1>
           <p className="text-sm text-[var(--text-subtle)] mt-1">
-            Verwaltung der Tour-Kunden (core.customers).{" "}
-            <a href={LEGACY} className="text-[var(--accent)] hover:underline">
-              Klassische Ansicht
-            </a>
+            Verwaltung der Tour-Kunden (core.customers).
           </p>
         </div>
         <Link

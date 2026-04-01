@@ -4,8 +4,6 @@ import { getToursAdminEmailTemplatesBundle, putToursAdminEmailTemplates } from "
 import { useQuery } from "../../../hooks/useQuery";
 import { toursAdminEmailTemplatesQueryKey } from "../../../lib/queryKeys";
 
-const LEGACY = "/tour-manager/admin/email-templates";
-
 type Template = { subject?: string; html?: string; text?: string; name?: string; description?: string };
 
 export function ToursAdminEmailTemplatesPage() {
@@ -64,11 +62,6 @@ export function ToursAdminEmailTemplatesPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold text-[var(--text-main)]">E-Mail-Templates</h1>
-        <p className="text-sm text-[var(--text-subtle)] mt-1">
-          <a href={LEGACY} className="text-[var(--accent)] hover:underline">
-            Klassische Ansicht
-          </a>
-        </p>
       </div>
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}

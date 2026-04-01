@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { AlertCircle, ExternalLink, Globe, LayoutDashboard } from "lucide-react";
+import { AlertCircle, Globe, LayoutDashboard } from "lucide-react";
 import { getToursAdminDashboard } from "../../../api/toursAdmin";
 import { useQuery } from "../../../hooks/useQuery";
 import { toursAdminDashboardQueryKey } from "../../../lib/queryKeys";
@@ -25,8 +25,6 @@ export function ToursAdminDashboardPage() {
   const qk = toursAdminDashboardQueryKey();
   const queryFn = useCallback(() => getToursAdminDashboard(), []);
   const { data, loading, error, refetch } = useQuery(qk, queryFn, { staleTime: 60_000 });
-
-  const legacyBase = "/tour-manager/admin";
 
   const matterportErr = data?.matterportError;
 
@@ -114,7 +112,7 @@ export function ToursAdminDashboardPage() {
           </div>
           <h1 className="text-2xl font-bold text-[var(--text-main)]">Dashboard</h1>
           <p className="text-sm text-[var(--text-subtle)] mt-1">
-            Übersicht aus dem Tour-Manager – dieselben Daten wie in der klassischen Admin-Oberfläche.
+            Übersicht aus dem Tour-Manager.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -125,13 +123,6 @@ export function ToursAdminDashboardPage() {
             <Globe className="h-4 w-4" />
             Tourenliste
           </Link>
-          <a
-            href={`${legacyBase}/dashboard`}
-            className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm font-medium text-[var(--text-main)] hover:bg-[var(--surface-raised)]"
-          >
-            <ExternalLink className="h-4 w-4" />
-            Klassische Ansicht
-          </a>
         </div>
       </div>
 
@@ -142,8 +133,8 @@ export function ToursAdminDashboardPage() {
             <p>{error}</p>
             <p className="mt-1 text-xs opacity-90">
               Hinweis: Der Tour-Manager nutzt eine eigene Anmeldung. Bitte unter{" "}
-              <a className="underline font-medium" href={legacyBase}>
-                {legacyBase}
+              <a className="underline font-medium" href="/tour-manager/admin">
+                /tour-manager/admin
               </a>{" "}
               anmelden, dann diese Seite neu laden.
             </p>

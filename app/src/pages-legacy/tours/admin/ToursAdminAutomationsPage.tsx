@@ -4,8 +4,6 @@ import { getToursAdminAutomations, putToursAdminAutomations } from "../../../api
 import { useQuery } from "../../../hooks/useQuery";
 import { toursAdminAutomationsQueryKey } from "../../../lib/queryKeys";
 
-const LEGACY = "/tour-manager/admin/automations";
-
 export function ToursAdminAutomationsPage() {
   const qk = toursAdminAutomationsQueryKey();
   const queryFn = useCallback(() => getToursAdminAutomations(), []);
@@ -68,10 +66,7 @@ export function ToursAdminAutomationsPage() {
       <div>
         <h1 className="text-2xl font-semibold text-[var(--text-main)]">Automationen</h1>
         <p className="text-sm text-[var(--text-subtle)] mt-1">
-          Cron / Hintergrundjobs für den Tour-Manager.{" "}
-          <a href={LEGACY} className="text-[var(--accent)] hover:underline">
-            Klassische Ansicht
-          </a>
+          Cron / Hintergrundjobs für den Tour-Manager.
         </p>
       </div>
 
