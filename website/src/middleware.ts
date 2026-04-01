@@ -29,7 +29,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
 	if (path.startsWith('/admin') && !isAdminLoginPath(path)) {
 		const token = context.cookies.get(ADMIN_COOKIE)?.value;
 		if (!verifySessionToken(token)) {
-			return context.redirect(new URL('/admin/login', context.url));
+			return context.redirect('/admin/login', 302);
 		}
 	}
 
@@ -53,7 +53,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
 					normalizeSeoPath(entry.defaultPath) !== normalizedPath,
 			);
 			if (customMatch) {
-				return context.rewrite(new URL(customMatch.defaultPath, context.url));
+				return context.rewrite(customMatch.defaultPath);
 			}
 
 			const defaultMatch = routeMap.find(
@@ -62,7 +62,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
 					normalizeSeoPath(entry.path) !== normalizedPath,
 			);
 			if (defaultMatch) {
-				return context.redirect(new URL(defaultMatch.path, context.url), 302);
+				return context.redirect(defaultMatch.path, 302);
 			}
 		} catch (e) {
 			console.error('[middleware] SEO-Umleitung übersprungen:', e);
