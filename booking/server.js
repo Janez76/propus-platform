@@ -4499,7 +4499,10 @@ app.post("/api/booking", async (req, res) => {
       officeCalendarCreated: officeEventCreated,
       photographerEventId,
       officeEventId,
-      icsUid: icsUid || null
+      icsUid: icsUid || null,
+      confirmationToken: crypto.randomBytes(32).toString("base64url"),
+      confirmationTokenExpiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+      confirmationPendingSince: new Date().toISOString(),
     };
     try {
       await saveOrder(orderRecord);
@@ -4601,6 +4604,21 @@ app.post("/api/booking", async (req, res) => {
       });
     }
 
+    // Bestätigungsanfrage per Template-Mail senden
+    try {
+      const confirmPool = db.getPool ? db.getPool() : null;
+      if (confirmPool && customerEmail && orderRecord.confirmationToken) {
+        const confirmVars = templateRenderer.buildTemplateVars(orderRecord, {});
+        const confirmSendFn = function (to, subj, htm, txt) {
+          return sendMailWithFallback({ to, subject: subj, html: htm, text: txt, context: `booking:${orderNo}:confirmation_request` });
+        };
+        await templateRenderer.sendMailIdempotent(confirmPool, "booking_confirmation_request", customerEmail, orderNo, confirmVars, confirmSendFn);
+      }
+    } catch (confirmErr) {
+      console.warn("[booking] confirmation_request mail failed:", { requestId, orderNo, error: confirmErr?.message });
+      bookingWarnings.push({ stage: "confirmation_request", code: "MAIL_SEND_FAILED", message: String(confirmErr?.message || "") });
+    }
+
     for (const c of onsiteContactsList) {
       if (!c.calendarInvite) continue;
       const em = String(c.email || "").trim();
@@ -4665,6 +4683,115 @@ app.post("/api/booking", async (req, res) => {
       message,
       requestId
     });
+  }
+});
+
+// Public: Kunden-Bestätigung via Token-Link (GET /api/booking/confirm/:token)
+app.get("/api/booking/confirm/:token", async (req, res) => {
+  const token = String(req.params.token || "").trim();
+  if (!token || token.length < 32) {
+    return res.status(400).json({ ok: false, error: "Ungültiger Bestätigungslink." });
+  }
+
+  const pool = db.getPool ? db.getPool() : null;
+  if (!pool) return res.status(503).json({ ok: false, error: "Service nicht verfügbar." });
+
+  try {
+    const { rows } = await pool.query(
+      `SELECT order_no, status, confirmation_token_expires_at,
+              photographer, schedule, billing, address, services, pricing,
+              photographer_event_id, office_event_id, object
+       FROM orders
+       WHERE confirmation_token = $1
+       LIMIT 1`,
+      [token]
+    );
+
+    if (!rows[0]) {
+      return res.status(404).json({ ok: false, error: "Bestätigungslink ungültig oder bereits verwendet." });
+    }
+
+    const row = rows[0];
+    const orderNo = row.order_no;
+    const currentStatus = String(row.status || "").toLowerCase();
+
+    if (currentStatus === "confirmed") {
+      return res.json({ ok: true, already: true, status: "confirmed", orderNo });
+    }
+
+    if (currentStatus !== "pending" && currentStatus !== "provisional") {
+      return res.json({ ok: true, already: true, status: currentStatus, orderNo });
+    }
+
+    if (row.confirmation_token_expires_at && new Date(row.confirmation_token_expires_at) < new Date()) {
+      return res.status(410).json({ ok: false, error: "Dieser Bestätigungslink ist abgelaufen. Bitte kontaktieren Sie uns." });
+    }
+
+    const loadOrder = async function () {
+      return {
+        orderNo,
+        status: currentStatus,
+        photographer: row.photographer || {},
+        photographerEventId: row.photographer_event_id,
+        officeEventId: row.office_event_id,
+        schedule: row.schedule || {},
+        billing: row.billing || {},
+        address: row.address || "",
+        services: row.services || {},
+        pricing: row.pricing || {},
+        object: row.object || {},
+      };
+    };
+
+    const result = await changeOrderStatus(orderNo, "confirmed", {
+      source: "customer_confirmation",
+      actorId: "customer:" + (row.billing?.email || "unknown"),
+      loadOrder,
+    }, { db, getSetting, graphClient, OFFICE_EMAIL, PHOTOG_PHONES: PHOTOG_PHONES || {} });
+
+    if (!result.success) {
+      console.error("[confirm] changeOrderStatus failed:", { orderNo, error: result.error, code: result.code });
+      return res.status(500).json({ ok: false, error: result.error || "Bestätigung fehlgeschlagen." });
+    }
+
+    await pool.query(
+      `UPDATE orders SET confirmation_token = NULL, confirmation_token_expires_at = NULL, confirmation_pending_since = NULL, updated_at = NOW() WHERE order_no = $1`,
+      [orderNo]
+    ).catch(function (e) { console.error("[confirm] token cleanup failed:", orderNo, e?.message); });
+
+    const mailEnabled = await getSetting("feature.emailTemplatesOnStatusChange");
+    if (mailEnabled && mailEnabled.value && sendMailWithFallback) {
+      const orderObj = await db.getOrderByNo(orderNo);
+      if (orderObj) {
+        const vars = templateRenderer.buildTemplateVars(orderObj, {});
+        const sendFn = function (to, subj, html, text) {
+          return sendMailWithFallback({ to, subject: subj, html, text, context: "confirm:" + orderNo });
+        };
+        if (orderObj.billing?.email) {
+          templateRenderer.sendMailIdempotent(pool, "confirmed_customer", orderObj.billing.email, orderNo, vars, sendFn)
+            .catch(function (e) { console.error("[confirm] confirmed_customer mail failed:", e?.message); });
+        }
+        if (OFFICE_EMAIL) {
+          templateRenderer.sendMailIdempotent(pool, "confirmed_office", OFFICE_EMAIL, orderNo, vars, sendFn)
+            .catch(function (e) { console.error("[confirm] confirmed_office mail failed:", e?.message); });
+        }
+        const photogEmail = orderObj.photographer?.email;
+        if (photogEmail) {
+          templateRenderer.sendMailIdempotent(pool, "confirmed_photographer", photogEmail, orderNo, vars, sendFn)
+            .catch(function (e) { console.error("[confirm] confirmed_photographer mail failed:", e?.message); });
+        }
+        if (orderObj.attendeeEmails || orderObj.attendee_emails) {
+          templateRenderer.sendAttendeeNotifications(pool, orderObj, "confirmed", sendFn)
+            .catch(function (e) { console.error("[confirm] attendee mail failed:", e?.message); });
+        }
+      }
+    }
+
+    console.log("[confirm] order confirmed via token:", { orderNo });
+    return res.json({ ok: true, confirmed: true, status: "confirmed", orderNo });
+  } catch (err) {
+    console.error("[confirm] unexpected error:", err?.message || err);
+    return res.status(500).json({ ok: false, error: "Ein Fehler ist aufgetreten." });
   }
 });
 
@@ -4781,7 +4908,7 @@ app.post("/api/admin/orders/:orderNo/resend-email", requireAdmin, async (req, re
     if (emailType === "confirmation_request") {
       const confToken = order.confirmationToken;
       if (!confToken) return res.status(400).json({ error: "No confirmation token available for this order" });
-      const confirmUrl = `${frontendBase}/confirm?token=${confToken}`;
+      const confirmUrl = `${frontendBase}/confirm/${confToken}`;
       const pool = db.getPool ? db.getPool() : null;
       if (!pool) return res.status(503).json({ error: "No database connection available" });
       const sendFn = (to, subj, htm, txt) => sendMailWithFallback({
@@ -8255,6 +8382,7 @@ function formatCatalogProducts(products) {
         categoryKey: p.category_key || p.group_key || "",
         sortOrder: Number(p.sort_order || 0),
         label: p.name,
+        description: p.description || "",
         ...pricingMeta,
       });
     }

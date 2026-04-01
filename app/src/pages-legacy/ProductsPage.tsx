@@ -16,6 +16,7 @@ import { useQueryStore } from "../store/queryStore";
 import { ProductEditModal } from "../components/products/ProductEditModal";
 import { ProductListByCategory } from "../components/products/ProductListByCategory";
 import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
+import { RichTextEditor } from "../components/ui/RichTextEditor";
 
 type ModalMode = "create" | "edit" | "duplicate";
 
@@ -1616,10 +1617,14 @@ export function ProductsPage() {
                   <span className={fieldLabelClass}>{t(language, "catalog.groupKey")}</span>
                   <input className="ui-input" placeholder="z.B. floorplans" value={form.group_key} onChange={(e) => setForm((f) => ({ ...f, group_key: e.target.value }))} />
                 </label>
-                <label className="col-span-2 block">
+                <div className="col-span-2 block">
                   <span className={fieldLabelClass}>{t(language, "catalog.description")}</span>
-                  <input className="ui-input" placeholder="Kurze Beschreibung" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
-                </label>
+                  <RichTextEditor
+                    value={form.description}
+                    onChange={(html) => setForm((f) => ({ ...f, description: html }))}
+                    placeholder="Kurze Beschreibung (wird im Buchungsformular, Preisliste & Webseite angezeigt)"
+                  />
+                </div>
                 <label className="col-span-2 block">
                   <span className={fieldLabelClass}>{t(language, "catalog.categories")}</span>
                   <details className="rounded-lg border border-[var(--border-soft)] bg-[var(--surface)]">

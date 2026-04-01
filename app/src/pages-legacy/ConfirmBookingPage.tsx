@@ -9,6 +9,7 @@ type ConfirmResponse = {
   status?: string;
   orderNo?: number;
   message?: string;
+  error?: string;
 };
 
 export function ConfirmBookingPage() {

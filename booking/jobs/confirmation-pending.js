@@ -15,6 +15,7 @@
 "use strict";
 
 const cron = require("node-cron");
+const crypto = require("crypto");
 const { buildTemplateVars, sendMailIdempotent, sendAttendeeNotifications } = require("../template-renderer");
 const { changeOrderStatus } = require("../order-status-workflow");
 const { calcProvisionalExpiresAt } = require("../state-machine");
@@ -80,6 +81,8 @@ function scheduleConfirmationPending(deps) {
           // damit der Kalender-Effect die richtigen Daten hat
           const provisionalBooked = new Date();
           const provisionalExpires = calcProvisionalExpiresAt(provisionalBooked);
+          const freshToken = crypto.randomBytes(32).toString("base64url");
+          const tokenExpires = new Date(provisionalExpires.getTime());
           try {
             await pool.query(
               `UPDATE orders
@@ -88,10 +91,10 @@ function scheduleConfirmationPending(deps) {
                    provisional_reminder_1_sent_at = NULL,
                    provisional_reminder_2_sent_at = NULL,
                    provisional_reminder_3_sent_at = NULL,
-                   confirmation_token = NULL,
-                   confirmation_token_expires_at = NULL
+                   confirmation_token = $3,
+                   confirmation_token_expires_at = $4
                WHERE order_no = $2 AND status = 'pending'`,
-              [provisionalExpires.toISOString(), orderNo]
+              [provisionalExpires.toISOString(), orderNo, freshToken, tokenExpires.toISOString()]
             );
           } catch (preErr) {
             console.error("[job:confirmation-pending] Provisorium-Felder konnten nicht gesetzt werden:", orderNo, preErr && preErr.message);
@@ -123,6 +126,7 @@ function scheduleConfirmationPending(deps) {
               schedule: row.schedule,
               status: "provisional",
               provisionalExpiresAt: provisionalExpires.toISOString(),
+              confirmationToken: freshToken,
               attendeeEmails: row.attendee_emails,
             };
             const vars = buildTemplateVars(orderObj, {});

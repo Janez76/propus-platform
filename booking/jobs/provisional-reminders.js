@@ -78,7 +78,7 @@ function scheduleProvisionalReminders(deps) {
       // Reminder 1: >= 24h nach Buchung, noch nicht gesendet
       const r1Threshold = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
       const { rows: r1Rows } = await pool.query(
-        `SELECT order_no, provisional_booked_at, provisional_expires_at, billing, address, services, pricing, photographer, schedule
+        `SELECT order_no, provisional_booked_at, provisional_expires_at, billing, address, services, pricing, photographer, schedule, confirmation_token
          FROM orders
          WHERE status='provisional'
            AND provisional_reminder_1_sent_at IS NULL
@@ -97,7 +97,7 @@ function scheduleProvisionalReminders(deps) {
       // Reminder 2: >= 48h nach Buchung, Reminder-1 bereits gesendet, Reminder-2 noch nicht
       const r2Threshold = new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString();
       const { rows: r2Rows } = await pool.query(
-        `SELECT order_no, provisional_booked_at, provisional_expires_at, billing, address, services, pricing, photographer, schedule
+        `SELECT order_no, provisional_booked_at, provisional_expires_at, billing, address, services, pricing, photographer, schedule, confirmation_token
          FROM orders
          WHERE status='provisional'
            AND provisional_reminder_2_sent_at IS NULL
@@ -117,7 +117,7 @@ function scheduleProvisionalReminders(deps) {
       // Reminder 3: >= 72h nach Buchung (letzter Tag), Reminder-2 bereits gesendet, Reminder-3 noch nicht
       const r3Threshold = new Date(now.getTime() - 72 * 60 * 60 * 1000).toISOString();
       const { rows: r3Rows } = await pool.query(
-        `SELECT order_no, provisional_booked_at, provisional_expires_at, billing, address, services, pricing, photographer, schedule
+        `SELECT order_no, provisional_booked_at, provisional_expires_at, billing, address, services, pricing, photographer, schedule, confirmation_token
          FROM orders
          WHERE status='provisional'
            AND provisional_reminder_3_sent_at IS NULL
