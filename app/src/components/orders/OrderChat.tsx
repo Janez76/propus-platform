@@ -135,9 +135,9 @@ export function OrderChat({ token, orderNo, order, actorRole = "admin" }: Props)
   }
 
   return (
-    <div data-testid="order-chat" className="mt-4 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm border-[var(--border-soft)] bg-[var(--surface)]">
+    <div data-testid="order-chat" className="mt-4 rounded-2xl border border-[var(--border-soft)] bg-[var(--surface)] p-4 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-zinc-600 text-[var(--text-muted)]">{t(language, "chat.title")}</h3>
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-muted)]">{t(language, "chat.title")}</h3>
         {effectiveAvailability.feedbackUntil && (
           <span className="text-xs text-amber-600 dark:text-amber-400">
             {t(language, "chat.feedbackUntil").replace("{{date}}", formatDateTime(effectiveAvailability.feedbackUntil))}
@@ -153,12 +153,12 @@ export function OrderChat({ token, orderNo, order, actorRole = "admin" }: Props)
       </p>
 
       {!effectiveAvailability.readable ? (
-        <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-600 border-[var(--border-soft)] bg-[var(--surface)]/50 text-[var(--text-subtle)]">
+        <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)]/50 px-3 py-2 text-sm text-[var(--text-subtle)]">
           {t(language, "chat.closed")}
         </div>
       ) : (
         <>
-          <div data-testid="chat-messages" className="max-h-72 space-y-2 overflow-y-auto rounded-xl border border-zinc-200 bg-zinc-50 p-3 border-[var(--border-soft)] bg-[var(--surface)]/40">
+          <div data-testid="chat-messages" className="max-h-72 space-y-2 overflow-y-auto rounded-xl border border-[var(--border-soft)] bg-[var(--surface)]/40 p-3">
             {!items.length && <p className="text-sm text-[var(--text-subtle)]">{t(language, "chat.empty")}</p>}
             {items.map((item) => {
               const fromCustomer = String(item.senderRole || "").toLowerCase() === "customer";
@@ -167,7 +167,7 @@ export function OrderChat({ token, orderNo, order, actorRole = "admin" }: Props)
                   <div
                     className={`max-w-[85%] rounded-xl px-3 py-2 text-sm shadow-sm ${
                       fromCustomer
-                        ? "border border-zinc-200 bg-white text-zinc-800 border-[var(--border-soft)] bg-[var(--surface)] text-[var(--text-main)]"
+                        ? "border border-[var(--border-soft)] bg-[var(--surface)] text-[var(--text-main)]"
                         : "bg-[var(--accent)] text-white"
                     }`}
                   >
