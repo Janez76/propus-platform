@@ -212,7 +212,7 @@ jobs:
     name: Booking Smoke Tests
     runs-on: ubuntu-latest
     needs: deploy
-    if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.run_smoke) }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_smoke }}
 
     steps:
       - name: Checkout
