@@ -74,6 +74,7 @@ export type CatalogProductRow = {
 	code: string;
 	name: string;
 	priceDisplay: string;
+	description?: string;
 };
 
 export type CatalogAccordionSection = {
@@ -158,11 +159,13 @@ function rowsForProduct(p: ApiProduct, addons: ApiAddon[]): CatalogProductRow[] 
 		if (expanded.length > 0) return expanded;
 	}
 
+	const desc = typeof p.description === 'string' ? sanitizeDescriptionHtml(p.description) : '';
 	return [
 		{
 			code: p.code,
 			name: p.name || p.code,
 			priceDisplay: formatProductPrice(p, addons),
+			...(desc ? { description: desc } : {}),
 		},
 	];
 }
@@ -262,29 +265,16 @@ function parsePayload(raw: unknown): ApiPayload | null {
 }
 
 /**
- * Paket-Beschreibungen aus der API können HTML enthalten (`<p>`, `<br>`).
- * Für die Website: reiner Text mit Zeilenumbrüchen je Zeile/Listeneintrag.
+ * Sanitizes product description HTML for safe rendering on the website.
+ * Allows only safe inline/block tags from the Tiptap RichTextEditor.
  */
-function packageDescriptionToPlainLines(raw: string): string {
+function sanitizeDescriptionHtml(raw: string): string {
 	const s = raw.trim();
 	if (!s) return '';
-	let t = s
-		.replace(/<\s*br\s*\/?>/gi, '\n')
-		.replace(/<\s*\/\s*p\s*>/gi, '\n')
-		.replace(/<\s*p\b[^>]*>/gi, '\n');
-	t = t.replace(/<[^>]+>/g, '');
-	t = t
-		.replace(/&nbsp;/gi, ' ')
-		.replace(/&amp;/g, '&')
-		.replace(/&lt;/g, '<')
-		.replace(/&gt;/g, '>')
-		.replace(/&quot;/g, '"')
-		.replace(/&#39;/g, "'");
-	return t
-		.split(/\n+/)
-		.map((line) => line.trim())
-		.filter(Boolean)
-		.join('\n');
+	return s
+		.replace(/<script[\s\S]*?<\/script>/gi, '')
+		.replace(/on\w+\s*=\s*"[^"]*"/gi, '')
+		.replace(/on\w+\s*=\s*'[^']*'/gi, '');
 }
 
 export function normalizeCatalogPayload(raw: unknown): NormalizedCatalog | null {
@@ -316,7 +306,7 @@ export function normalizeCatalogPayload(raw: unknown): NormalizedCatalog | null 
 			(typeof pkg.description === 'string' && pkg.description.trim()) ||
 			(typeof prod?.description === 'string' && prod.description.trim()) ||
 			'';
-		const subtitle = packageDescriptionToPlainLines(desc);
+		const subtitle = sanitizeDescriptionHtml(desc);
 		const featured = pkg.key === FEATURED_PACKAGE_KEY;
 		return {
 			key: pkg.key,
@@ -361,7 +351,7 @@ export function normalizeCatalogPayload(raw: unknown): NormalizedCatalog | null 
 		sections.push({
 			key: cat.key,
 			name: categoryDisplayTitleDe(cat.key, cat.name || cat.key),
-			description: typeof cat.description === 'string' ? cat.description.trim() : '',
+			description: typeof cat.description === 'string' ? sanitizeDescriptionHtml(cat.description) : '',
 			sortOrder: cat.sort_order ?? 0,
 			products: rows,
 		});

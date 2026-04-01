@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const path = require('path');
 const multer = require('multer');
 const router = express.Router();
@@ -196,7 +196,7 @@ function formatDate(value) {
   if (!value) return '-';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleDateString('de-CH');
+  return date.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
 function formatDateTime(value) {
@@ -1214,7 +1214,7 @@ async function buildSidebarChatContext({ activePage, path, userMessage }) {
       contextParts.push(`Kontakt: ${tour.customer_email || tour.customer_contact}`);
     }
     if (tour.status) contextParts.push(`Tourstatus: ${tour.status}`);
-    if (tour.canonical_term_end_date) contextParts.push(`Vertragsende: ${new Date(tour.canonical_term_end_date).toLocaleDateString('de-CH')}`);
+    if (tour.canonical_term_end_date) contextParts.push(`Vertragsende: ${new Date(tour.canonical_term_end_date).toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })}`);
     if (tour.canonical_matterport_space_id) contextParts.push(`Matterport-ID: ${tour.canonical_matterport_space_id}`);
     if (tour.canonical_exxas_contract_id) contextParts.push(`Exxas-Vertrag/Abo: ${tour.canonical_exxas_contract_id}`);
 
@@ -1265,7 +1265,7 @@ async function buildSidebarChatContext({ activePage, path, userMessage }) {
         const number = row.nummer || row.exxas_document_id || '?';
         const amount = row.preis_brutto ? `CHF ${parseFloat(row.preis_brutto).toFixed(2)}` : '';
         const status = row.exxas_status === 'bz' ? 'bezahlt' : (row.sv_status || row.exxas_status || 'offen');
-        const due = row.zahlungstermin ? `, faellig ${new Date(row.zahlungstermin).toLocaleDateString('de-CH')}` : '';
+        const due = row.zahlungstermin ? `, faellig ${new Date(row.zahlungstermin).toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })}` : '';
         return `${number} ${amount}`.trim() + ` (${status}${due})`;
       }).join(' | ');
       contextParts.push(`Lokale Exxas-Rechnungen zur Tour: ${invoiceSummary}`);
@@ -1290,7 +1290,7 @@ async function buildSidebarChatContext({ activePage, path, userMessage }) {
       const matterportLive = await matterport.getModel(tour.canonical_matterport_space_id).catch(() => ({ model: null, error: 'Matterport Fehler' }));
       if (matterportLive?.model) {
         contextParts.push(
-          `Matterport live: ${matterportLive.model.name || tour.canonical_matterport_space_id}, Status ${matterportLive.model.state || '-'}, erstellt ${matterportLive.model.created ? new Date(matterportLive.model.created).toLocaleDateString('de-CH') : '-'}`
+          `Matterport live: ${matterportLive.model.name || tour.canonical_matterport_space_id}, Status ${matterportLive.model.state || '-'}, erstellt ${matterportLive.model.created ? new Date(matterportLive.model.created).toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-'}`
         );
         if (matterportLive.model.publication?.address) {
           contextParts.push(`Matterport Adresse live: ${compactText(matterportLive.model.publication.address)}`);
@@ -2717,9 +2717,9 @@ router.get('/tours/:id/invoices/:invoiceId/pdf', async (req, res) => {
   const periodStart = invoice.subscription_start_at ? new Date(invoice.subscription_start_at) : null;
   const periodEnd = invoice.subscription_end_at ? new Date(invoice.subscription_end_at) : null;
   const billingPeriodLabel = periodStart && periodEnd
-    ? `${periodStart.toLocaleDateString('de-CH')} bis ${periodEnd.toLocaleDateString('de-CH')}`
+    ? `${periodStart.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })} bis ${periodEnd.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })}`
     : periodEnd
-      ? `Bis ${periodEnd.toLocaleDateString('de-CH')}`
+      ? `Bis ${periodEnd.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })}`
       : '-';
 
   const paymentContext = qrBill.buildInvoicePaymentContext({ ...invoice, amount_chf: amount }, tour);
@@ -2870,8 +2870,8 @@ router.get('/tours/:id/panel', async (req, res) => {
     let statusText = isPaid
       ? 'Bezahlt'
       : (isOverdue
-        ? `Überfällig seit ${faellig.toLocaleDateString('de-CH')}`
-        : (faellig ? `Offen · fällig ${faellig.toLocaleDateString('de-CH')}` : (inv.invoice_status || 'Offen')));
+        ? `Überfällig seit ${faellig.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })}`
+        : (faellig ? `Offen · fällig ${faellig.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })}` : (inv.invoice_status || 'Offen')));
     return {
       nummer: inv.invoice_number || `Rechnung #${inv.id}`,
       betrag: inv.amount_chf ? parseFloat(inv.amount_chf).toFixed(2) : null,

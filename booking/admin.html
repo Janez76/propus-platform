@@ -3350,7 +3350,7 @@
             ${last3.map(m => {
               const at = m.createdAt ? new Date(m.createdAt) : null;
               const when = at && !Number.isNaN(at.getTime())
-                ? at.toLocaleDateString("de-CH") + " " + at.toLocaleTimeString("de-CH",{hour:"2-digit",minute:"2-digit"})
+                ? at.toLocaleDateString("de-CH",{day:"2-digit",month:"2-digit",year:"numeric"}) + " " + at.toLocaleTimeString("de-CH",{hour:"2-digit",minute:"2-digit"})
                 : "";
               const roleLabel = {"admin":"Admin","photographer":"Fotograf","customer":"Kunde"}[m.senderRole] || m.senderRole || "—";
               const msgText = escHtml(String(m.message||"").substring(0,120)) + (String(m.message||"").length>120?"…":"");
@@ -3439,7 +3439,7 @@
       box.innerHTML = messages.map(m => {
         const at = m.createdAt ? new Date(m.createdAt) : null;
         const atLabel = at && !Number.isNaN(at.getTime())
-          ? at.toLocaleDateString("de-CH") + " " + at.toLocaleTimeString("de-CH", { hour:"2-digit", minute:"2-digit" })
+          ? at.toLocaleDateString("de-CH",{day:"2-digit",month:"2-digit",year:"numeric"}) + " " + at.toLocaleTimeString("de-CH", { hour:"2-digit", minute:"2-digit" })
           : "";
         const sender = escHtml(m.senderName || m.senderRole || "—");
         const role = escHtml(String(m.senderRole || "").toUpperCase());
@@ -4018,7 +4018,7 @@
         cancelled:"Storniert",
         archived:"Archiviert"
       };
-      const dateStr = o.createdAt ? new Date(o.createdAt).toLocaleDateString("de-CH") : "";
+      const dateStr = o.createdAt ? new Date(o.createdAt).toLocaleDateString("de-CH",{day:"2-digit",month:"2-digit",year:"numeric"}) : "";
       const schedDate = o.schedule?.date ? new Date(o.schedule.date+"T12:00:00").toLocaleDateString("de-CH",{day:"2-digit",month:"2-digit",year:"numeric"}) : "\u2014";
 
       const printCss = `@page{size:A4 portrait;margin:18mm 16mm 18mm 16mm}
@@ -4769,7 +4769,7 @@ ${o.keyPickup?`<h3>Schl\u00fcsselabholung</h3><table class="d"><tr><td>Adresse</
         }
         list.innerHTML = rows.map(b => {
           const d = new Date(b.created_at);
-          const dateStr = d.toLocaleDateString("de-CH") + " " + d.toLocaleTimeString("de-CH", {hour:"2-digit",minute:"2-digit"});
+          const dateStr = d.toLocaleDateString("de-CH",{day:"2-digit",month:"2-digit",year:"numeric"}) + " " + d.toLocaleTimeString("de-CH", {hour:"2-digit",minute:"2-digit"});
           const statusLabel = { new:"Neu", in_progress:"In Bearbeitung", done:"Erledigt" }[b.status] || b.status;
           const statusIcon = { new:"fa-circle-exclamation", in_progress:"fa-circle-half-stroke", done:"fa-circle-check" }[b.status] || "fa-circle";
           return `<div class="bug-card status-${b.status}" id="bugCard${b.id}">
@@ -4807,7 +4807,7 @@ ${o.keyPickup?`<h3>Schl\u00fcsselabholung</h3><table class="d"><tr><td>Adresse</
         const b = rows.find(x => x.id === id);
         if (!b) { showToast("Fehlerbericht nicht gefunden", "error"); return; }
         const d = new Date(b.created_at);
-        const dateStr = d.toLocaleDateString("de-CH") + " " + d.toLocaleTimeString("de-CH", {hour:"2-digit",minute:"2-digit"});
+        const dateStr = d.toLocaleDateString("de-CH",{day:"2-digit",month:"2-digit",year:"numeric"}) + " " + d.toLocaleTimeString("de-CH", {hour:"2-digit",minute:"2-digit"});
         const statusLabel = { new:"Neu", in_progress:"In Bearbeitung", done:"Erledigt" }[b.status] || b.status;
         const win = window.open("", "_blank", "width=700,height=600");
         win.document.write(`<!DOCTYPE html><html lang="de"><head><meta charset="utf-8">
@@ -5058,7 +5058,7 @@ ${o.keyPickup?`<h3>Schl\u00fcsselabholung</h3><table class="d"><tr><td>Adresse</
       }
       tbody.innerHTML = list.map(c => {
         const d = new Date(c.created_at);
-        const dateStr = d.toLocaleDateString("de-CH");
+        const dateStr = d.toLocaleDateString("de-CH",{day:"2-digit",month:"2-digit",year:"numeric"});
         const addr = [c.street, c.zipcity].filter(Boolean).join(", ");
         const cnt = parseInt(c.order_count) || 0;
         const isBlocked = !!c.blocked;
@@ -5185,7 +5185,7 @@ ${o.keyPickup?`<h3>Schl\u00fcsselabholung</h3><table class="d"><tr><td>Adresse</
         const statusLabels = { pending:"Ausstehend", paused:"Pausiert", completed:"Erledigt", cancelled:"Abgesagt" };
         list.innerHTML = orders.map(o => {
           const addr = o.object?.address || o.object?.street || "–";
-          const date = o.appointmentDate ? new Date(o.appointmentDate).toLocaleDateString("de-CH") : (o.date || "–");
+          const date = o.appointmentDate ? new Date(o.appointmentDate).toLocaleDateString("de-CH",{day:"2-digit",month:"2-digit",year:"numeric"}) : (o.date || "–");
           const total = o.pricing?.total ? `CHF ${Number(o.pricing.total).toFixed(2)}` : "–";
           const st = o.status || "pending";
           return `<div class="cust-order-card">

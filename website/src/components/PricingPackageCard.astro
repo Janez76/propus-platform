@@ -23,7 +23,7 @@ const indexLabel = String(index).padStart(2, '0');
 
 	<header class="preise-highlight__header">
 		<h2 class="preise-highlight__name">{pkg.name}</h2>
-		<p class="preise-highlight__desc">{pkg.description}</p>
+		<div class="preise-highlight__desc" set:html={pkg.description} />
 		<div class="preise-highlight__price-block">
 			<span class="preise-highlight__price-label">Investition</span>
 			<p class="preise-highlight__price" aria-label="Basispreis">{pkg.basePrice}</p>

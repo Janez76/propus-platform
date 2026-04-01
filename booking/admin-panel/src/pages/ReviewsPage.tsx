@@ -264,7 +264,7 @@ export function ReviewsPage() {
                       <div className="text-xs text-[var(--text-subtle)]">{customerEmail}</div>
                     </td>
                     <td className="px-4 py-3 text-[var(--text-subtle)]">
-                      {row.done_at ? new Date(row.done_at).toLocaleDateString("de-CH") : "—"}
+                      {row.done_at ? new Date(row.done_at).toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—"}
                     </td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${sc.bg}`}>
@@ -286,7 +286,7 @@ export function ReviewsPage() {
                             </div>
                           )}
                           {row.submitted_at && (
-                            <div className="text-xs text-[var(--text-subtle)]">{new Date(row.submitted_at).toLocaleDateString("de-CH")}</div>
+                            <div className="text-xs text-[var(--text-subtle)]">{new Date(row.submitted_at).toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" })}</div>
                           )}
                         </div>
                       ) : (

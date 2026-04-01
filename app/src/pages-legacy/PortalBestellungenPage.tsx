@@ -72,7 +72,7 @@ export function PortalBestellungenPage() {
                   <td className="px-4 py-3 text-[var(--text-muted)]">{o.status ?? "–"}</td>
                   <td className="px-4 py-3 text-[var(--text-subtle)]">{o.address ?? "–"}</td>
                   <td className="px-4 py-3 text-[var(--text-subtle)]">
-                    {o.createdAt ? new Date(o.createdAt).toLocaleDateString("de-CH") : "–"}
+                    {o.createdAt ? new Date(o.createdAt).toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" }) : "–"}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-2">

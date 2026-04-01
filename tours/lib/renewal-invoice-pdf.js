@@ -49,9 +49,9 @@ async function streamRenewalInvoicePdf(res, tourId, invoiceId) {
   const periodStart = invoice.subscription_start_at ? new Date(invoice.subscription_start_at) : null;
   const periodEnd = invoice.subscription_end_at ? new Date(invoice.subscription_end_at) : null;
   const billingPeriodLabel = periodStart && periodEnd
-    ? `${periodStart.toLocaleDateString('de-CH')} bis ${periodEnd.toLocaleDateString('de-CH')}`
+    ? `${periodStart.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })} bis ${periodEnd.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })}`
     : periodEnd
-      ? `Bis ${periodEnd.toLocaleDateString('de-CH')}`
+      ? `Bis ${periodEnd.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })}`
       : '-';
 
   const paymentContext = qrBill.buildInvoicePaymentContext({ ...invoice, amount_chf: amount }, tour);

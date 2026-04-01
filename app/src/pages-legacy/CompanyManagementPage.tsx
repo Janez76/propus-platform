@@ -628,7 +628,7 @@ export function CompanyManagementPage() {
                           {isInvitationExpired(inv) ? (
                             <span className="text-red-400">Abgelaufen</span>
                           ) : (
-                            `Gültig bis ${new Date(inv.expires_at).toLocaleDateString("de-CH")}`
+                            `Gültig bis ${new Date(inv.expires_at).toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" })}`
                           )}
                         </div>
                       </div>

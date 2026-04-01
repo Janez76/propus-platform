@@ -273,7 +273,7 @@ export function ReviewsPage() {
                       <div className="text-xs" style={{ color: "var(--text-subtle)" }}>{customerEmail}</div>
                     </td>
                     <td style={{ color: "var(--text-muted)", fontSize: "13px" }}>
-                      {row.done_at ? new Date(row.done_at).toLocaleDateString("de-CH") : "—"}
+                      {row.done_at ? new Date(row.done_at).toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—"}
                     </td>
                     <td>
                       <span className={sc.cls}>
@@ -297,7 +297,7 @@ export function ReviewsPage() {
                             </div>
                           )}
                           {row.submitted_at && (
-                            <div className="text-xs" style={{ color: "var(--text-subtle)" }}>{new Date(row.submitted_at).toLocaleDateString("de-CH")}</div>
+                            <div className="text-xs" style={{ color: "var(--text-subtle)" }}>{new Date(row.submitted_at).toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" })}</div>
                           )}
                         </div>
                       ) : (

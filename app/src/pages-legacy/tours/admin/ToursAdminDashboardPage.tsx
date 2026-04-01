@@ -9,7 +9,7 @@ import type { ToursAdminTourRow } from "../../../types/toursAdmin";
 function formatDate(value: unknown) {
   if (value == null || value === "") return "—";
   const d = new Date(String(value));
-  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("de-CH");
+  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 function tourTitle(t: ToursAdminTourRow) {

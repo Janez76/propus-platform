@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   DndContext,
   type DragEndEvent,
@@ -342,6 +342,17 @@ function SortableCategorySection({
     [group.key, onProductReorder],
   );
 
+  const descSaveTimer = useRef<ReturnType<typeof setTimeout>>();
+  const debouncedDescSave = useCallback(
+    (html: string) => {
+      onDescriptionChange(category.key, html);
+      clearTimeout(descSaveTimer.current);
+      descSaveTimer.current = setTimeout(() => onDescriptionSave(category, html), 600);
+    },
+    [category, onDescriptionChange, onDescriptionSave],
+  );
+  useEffect(() => () => clearTimeout(descSaveTimer.current), []);
+
   return (
     <div
       ref={setNodeRef}
@@ -435,10 +446,7 @@ function SortableCategorySection({
         <div className="space-y-2 border-t p-2 border-[var(--border-soft)]">
           <RichTextEditor
             value={descriptionDraft}
-            onChange={(html) => {
-              onDescriptionChange(category.key, html);
-              onDescriptionSave(category, html);
-            }}
+            onChange={debouncedDescSave}
             placeholder={t(lang, "catalog.categoryManager.descriptionPlaceholder")}
             className="text-xs"
           />

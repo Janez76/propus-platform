@@ -420,7 +420,7 @@ function OrdersTab({
                 <td className="px-4 py-3 text-[var(--text-muted)]">{o.status || "–"}</td>
                 <td className="px-4 py-3 text-[var(--text-muted)]">{o.customerName || o.customerEmail || "–"}</td>
                 <td className="px-4 py-3 text-[var(--text-subtle)]">{o.address || "–"}</td>
-                <td className="px-4 py-3 text-[var(--text-subtle)]">{orderDate(o) ? orderDate(o)?.toLocaleDateString("de-CH") : "–"}</td>
+                <td className="px-4 py-3 text-[var(--text-subtle)]">{orderDate(o) ? orderDate(o)?.toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" }) : "–"}</td>
               </tr>
             ))}
           </tbody>
@@ -438,7 +438,7 @@ function OrdersTab({
                   <div className="text-xs text-[var(--text-subtle)]">{item.ordersCount} Aufträge</div>
                 </div>
                 <div className="text-xs text-[var(--text-subtle)]">
-                  Letzte Bestellung: {item.lastOrder ? `${String(item.lastOrder.orderNo ?? "–")} (${orderDate(item.lastOrder)?.toLocaleDateString("de-CH") || "–"})` : "keine"}
+                  Letzte Bestellung: {item.lastOrder ? `${String(item.lastOrder.orderNo ?? "–")} (${orderDate(item.lastOrder)?.toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" }) || "–"})` : "keine"}
                 </div>
               </div>
             ))}

@@ -245,7 +245,7 @@ function UsersTab({ users, loading, saving, onToggleRole, onToggleSuspend, onRel
                   <div className="text-xs text-[var(--text-muted)] mt-0.5">{user.email}</div>
                   {user.lastSignInAt && (
                     <div className="text-[11px] text-[var(--text-subtle)] mt-0.5">
-                      Letzter Login: {new Date(user.lastSignInAt).toLocaleDateString("de-CH")}
+                      Letzter Login: {new Date(user.lastSignInAt).toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" })}
                     </div>
                   )}
                 </div>

@@ -71,7 +71,7 @@ async function ensureOutgoingEmailSchema() {
 function formatDate(value) {
   if (!value) return '-';
   try {
-    return new Date(value).toLocaleDateString('de-CH');
+    return new Date(value).toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' });
   } catch (err) {
     return String(value);
   }
@@ -618,7 +618,7 @@ async function sendInvoiceWithQrEmail(tourId, invoiceId) {
   const tourLinkHtml = tourLink ? `<strong>Virtueller Rundgang:</strong> <a href="${escapeHtml(tourLink)}">${escapeHtml(tourLink)}</a><br>` : '';
   const portalUrl = getPortalUrl();
   const amountCHF = Number(invoice.amount_chf || 0).toFixed(2);
-  const dueDateFormatted = invoice.due_at ? new Date(invoice.due_at).toLocaleDateString('de-CH') : '-';
+  const dueDateFormatted = invoice.due_at ? new Date(invoice.due_at).toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
 
   const content = await resolveTemplateContent('portal_invoice_sent', {
     objectLabel,

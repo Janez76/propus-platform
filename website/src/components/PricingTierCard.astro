@@ -27,7 +27,7 @@ const sid = `tier-${pkg.key}`;
 				{pkg.label}
 			</h2>
 			<div class="pricing-tier__sub-wrap">
-				{pkg.subtitle && <p class="pricing-tier__subtitle">{pkg.subtitle}</p>}
+				{pkg.subtitle && <div class="pricing-tier__subtitle" set:html={pkg.subtitle} />}
 			</div>
 			<p class="pricing-tier__price" aria-label={`Preis ${pkg.priceDisplay}`}>{pkg.priceDisplay}</p>
 		</header>
@@ -133,7 +133,21 @@ const sid = `tier-${pkg.key}`;
 		line-height: 1.58;
 		text-transform: none;
 		color: var(--color-text-muted);
-		white-space: pre-line;
+	}
+	.pricing-tier__subtitle :global(p) {
+		margin: 0 0 0.25rem;
+	}
+	.pricing-tier__subtitle :global(p:last-child) {
+		margin-bottom: 0;
+	}
+	.pricing-tier__subtitle :global(ul),
+	.pricing-tier__subtitle :global(ol) {
+		margin: 0.25rem 0;
+		padding-left: 1.25rem;
+	}
+	.pricing-tier__subtitle :global(a) {
+		color: var(--color-gold-muted);
+		text-decoration: underline;
 	}
 
 	.pricing-tier__price {

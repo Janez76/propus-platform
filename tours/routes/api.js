@@ -145,7 +145,7 @@ router.post('/tours/:id/check-payment', async (req, res) => {
     ).catch(() => ({ rows: [] }));
     const nextInvoice = invoices.rows[0] || null;
     const dueDateRaw = nextInvoice?.due_at ? new Date(nextInvoice.due_at) : null;
-    const dueDate = dueDateRaw ? dueDateRaw.toLocaleDateString('de-CH') : null;
+    const dueDate = dueDateRaw ? dueDateRaw.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' }) : null;
     const invoiceNo = nextInvoice?.invoice_number || `Rechnung #${nextInvoice?.id || '?'}`;
     const isPaid = nextInvoice?.invoice_status === 'paid';
     const isOverdue = !isPaid && dueDateRaw && dueDateRaw < new Date();

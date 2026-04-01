@@ -56,7 +56,12 @@ export function formatDateTime(value: string | null | undefined | unknown): stri
       hour12: false,
     }).format(d);
   } catch {
-    return d.toISOString().replace("T", " ").slice(0, 16);
+    const day = String(d.getDate()).padStart(2, "0");
+    const mon = String(d.getMonth() + 1).padStart(2, "0");
+    const yr = d.getFullYear();
+    const hr = String(d.getHours()).padStart(2, "0");
+    const mi = String(d.getMinutes()).padStart(2, "0");
+    return `${day}.${mon}.${yr} ${hr}:${mi}`;
   }
 }
 

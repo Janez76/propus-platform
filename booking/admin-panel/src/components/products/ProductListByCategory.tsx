@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   DndContext,
   type DragEndEvent,
@@ -23,6 +23,7 @@ import type { ServiceCategory } from "../../api/serviceCategories";
 import { updateServiceCategory } from "../../api/serviceCategories";
 import { t, type Lang } from "../../i18n";
 import { useAuthStore } from "../../store/authStore";
+import { RichTextEditor } from "../ui/RichTextEditor";
 import { useQueryStore } from "../../store/queryStore";
 
 type Props = {
@@ -341,6 +342,17 @@ function SortableCategorySection({
     [group.key, onProductReorder],
   );
 
+  const descSaveTimer = useRef<ReturnType<typeof setTimeout>>();
+  const debouncedDescSave = useCallback(
+    (html: string) => {
+      onDescriptionChange(category.key, html);
+      clearTimeout(descSaveTimer.current);
+      descSaveTimer.current = setTimeout(() => onDescriptionSave(category, html), 600);
+    },
+    [category, onDescriptionChange, onDescriptionSave],
+  );
+  useEffect(() => () => clearTimeout(descSaveTimer.current), []);
+
   return (
     <div
       ref={setNodeRef}
@@ -432,19 +444,11 @@ function SortableCategorySection({
           </div>
         </summary>
         <div className="space-y-2 border-t p-2 border-[var(--border-soft)]">
-          <input
-            className="ui-input w-full text-xs text-[var(--text-subtle)] placeholder:text-[var(--text-subtle)]/60"
-            placeholder={t(lang, "catalog.categoryManager.descriptionPlaceholder")}
+          <RichTextEditor
             value={descriptionDraft}
-            disabled={categoryBusy}
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
-            onChange={(e) => onDescriptionChange(category.key, e.target.value)}
-            onBlur={async (e) => {
-              await onDescriptionSave(category, e.target.value);
-            }}
+            onChange={debouncedDescSave}
+            placeholder={t(lang, "catalog.categoryManager.descriptionPlaceholder")}
+            className="text-xs"
           />
           <ProductDndList
             items={group.items}

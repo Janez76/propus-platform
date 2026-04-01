@@ -296,7 +296,13 @@ function buildTemplateVars(order, extra) {
   const addonList = (services.addons || []).map(function(a) { return a.label || ""; }).filter(Boolean);
   const servicesSummary = [packageName, ...addonList].filter(Boolean).join(", ") || "—";
 
-  const appointmentDate = schedule.date || "";
+  const rawDate = schedule.date || "";
+  const appointmentDate = (function(d) {
+    if (!d) return "";
+    var parts = String(d).split("-");
+    if (parts.length === 3) return parts[2] + "." + parts[1] + "." + parts[0];
+    return d;
+  })(rawDate);
   const appointmentTime = schedule.time || "";
 
   const vars = {
@@ -502,7 +508,7 @@ const AVAILABLE_PLACEHOLDERS = [
   { key: "address",             desc: "Objektadresse" },
   { key: "zipCity",             desc: "PLZ/Ort" },
   { key: "addressLine",         desc: "PLZ/Ort + Objektadresse kombiniert (leer wenn beide fehlen)" },
-  { key: "appointmentDate",     desc: "Termin Datum (YYYY-MM-DD)" },
+  { key: "appointmentDate",     desc: "Termin Datum (DD.MM.YYYY)" },
   { key: "appointmentTime",     desc: "Termin Uhrzeit (HH:MM)" },
   { key: "photographerKey",     desc: "Key des Fotografen" },
   { key: "photographerName",    desc: "Name des Fotografen" },

@@ -30,18 +30,19 @@ const { sections } = Astro.props;
 								<div class="preise-cat__gold-row" aria-hidden="true">
 									<span class="preise-cat__gold-line" />
 								</div>
-								{sec.description && <p class="preise-cat__desc">{sec.description}</p>}
+								{sec.description && <div class="preise-cat__desc" set:html={sec.description} />}
 								<ul class="preise-cat__products">
-									{sec.products.map((row) => (
-										<li class="preise-prod">
-											<div class="preise-prod__main">
-												<span class="preise-prod__name">{row.name}</span>
-											</div>
-											<div class="preise-prod__price-col">
-												<span class="preise-prod__price">{row.priceDisplay}</span>
-											</div>
-										</li>
-									))}
+								{sec.products.map((row) => (
+									<li class="preise-prod">
+										<div class="preise-prod__main">
+											<span class="preise-prod__name">{row.name}</span>
+											{row.description && <div class="preise-prod__desc" set:html={row.description} />}
+										</div>
+										<div class="preise-prod__price-col">
+											<span class="preise-prod__price">{row.priceDisplay}</span>
+										</div>
+									</li>
+								))}
 								</ul>
 							</div>
 						</div>
@@ -243,6 +244,21 @@ const { sections } = Astro.props;
 		line-height: 1.55;
 		color: var(--color-text-muted);
 	}
+	.preise-cat__desc :global(p) {
+		margin: 0 0 0.35rem;
+	}
+	.preise-cat__desc :global(p:last-child) {
+		margin-bottom: 0;
+	}
+	.preise-cat__desc :global(ul),
+	.preise-cat__desc :global(ol) {
+		margin: 0.35rem 0;
+		padding-left: 1.25rem;
+	}
+	.preise-cat__desc :global(a) {
+		color: var(--color-gold-muted);
+		text-decoration: underline;
+	}
 
 	.preise-cat__products {
 		list-style: none;
@@ -283,6 +299,20 @@ const { sections } = Astro.props;
 		font-weight: 600;
 		color: var(--color-text);
 		letter-spacing: -0.015em;
+	}
+
+	.preise-prod__desc {
+		font-size: 0.75rem;
+		line-height: 1.5;
+		color: var(--color-text-muted);
+		margin-top: 0.15rem;
+	}
+	.preise-prod__desc :global(p) {
+		margin: 0;
+	}
+	.preise-prod__desc :global(a) {
+		color: var(--color-gold-muted);
+		text-decoration: underline;
 	}
 
 	.preise-prod__price-col {

@@ -5,7 +5,7 @@ import type { ToursAdminTourDetailResponse } from "../../../../types/toursAdmin"
 function formatDate(v: unknown) {
   if (v == null || v === "") return "—";
   const d = new Date(String(v));
-  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("de-CH");
+  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 function formatMoney(v: unknown) {

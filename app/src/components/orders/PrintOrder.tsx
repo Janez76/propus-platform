@@ -78,7 +78,7 @@ export function PrintOrder({ data }: Props) {
   const addressLine = data.address || data.billing?.street || "";
   const zipCityLine = deriveZipCity(data.billing?.zipcity, addressLine);
   const dateFormatted = data.appointmentDate
-    ? new Date(data.appointmentDate).toLocaleDateString("de-CH")
+    ? new Date(data.appointmentDate).toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" })
     : data.schedule?.date || "–";
   const timeFormatted = data.appointmentDate
     ? new Date(data.appointmentDate).toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" }) + " " + t(language, "printOrder.clockSuffix")
