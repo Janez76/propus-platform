@@ -45,6 +45,12 @@ function CategoryAccordion({ category, addons }: { category: CatalogCategory; ad
       </button>
       {open && (
         <div className="space-y-1 bg-[var(--surface)] p-3">
+          {category.description && (
+            <p
+              className="mb-2 px-1 text-xs text-[var(--text-subtle)]"
+              dangerouslySetInnerHTML={{ __html: category.description }}
+            />
+          )}
           {groupAddons.map((addon) => {
             const selected = selectedAddons.find((s) => s.id === addon.id);
             const price = addonPrice(addon, area, floors);

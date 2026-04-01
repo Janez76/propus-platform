@@ -115,8 +115,9 @@ function PriceListCategory({ category, addons, defaultOpen, lang }: { category: 
   if (items.length === 0) return null;
 
   const descKey = CATEGORY_DESC_KEYS[category.key];
-  const desc = descKey ? t(lang, descKey) : "";
-  const showDesc = desc && desc !== descKey;
+  const i18nDesc = descKey ? t(lang, descKey) : "";
+  const desc = category.description || (i18nDesc !== descKey ? i18nDesc : "");
+  const showDesc = Boolean(desc);
 
   const sharedNotes = items.filter((a) => a.pricingNote).map((a) => a.pricingNote!);
   const allSameNote = sharedNotes.length > 0 && sharedNotes.every((n) => n === sharedNotes[0]);
@@ -132,7 +133,10 @@ function PriceListCategory({ category, addons, defaultOpen, lang }: { category: 
         <div className="min-w-0 flex-1">
           <span className="text-sm font-bold text-[var(--text-main)]">{category.name}</span>
           {showDesc && (
-            <span className="ml-2 text-xs font-normal text-[var(--text-subtle)]">{desc}</span>
+            <span
+              className="ml-2 text-xs font-normal text-[var(--text-subtle)]"
+              dangerouslySetInnerHTML={{ __html: desc }}
+            />
           )}
         </div>
         <ChevronDown className={`h-4 w-4 shrink-0 text-[var(--text-subtle)] transition-transform ${open ? "rotate-180" : ""}`} />
