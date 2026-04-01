@@ -159,7 +159,10 @@ export function StepServices({ lang }: { lang: Lang }) {
                   <div className="mb-2 text-2xl">{HIGHLIGHT_ICONS[pkg.key] ?? "📦"}</div>
                   <div className="text-sm font-bold text-[var(--text-main)]">{pkg.label}</div>
                   {pkg.description && (
-                    <p className="mt-1 text-xs text-[var(--text-subtle)] line-clamp-3">{pkg.description}</p>
+                    <p
+                      className="mt-1 text-xs text-[var(--text-subtle)] line-clamp-3"
+                      dangerouslySetInnerHTML={{ __html: pkg.description }}
+                    />
                   )}
                   <div className="mt-3 text-lg font-bold text-[var(--accent)]">{formatCHF(pkg.price)}</div>
                 </button>

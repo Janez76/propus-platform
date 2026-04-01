@@ -54,6 +54,7 @@ export function ProductsPage() {
   const [newCategory, setNewCategory] = useState({
     key: "",
     name: "",
+    description: "",
     kind_scope: "addon" as ServiceCategory["kind_scope"],
   });
 
@@ -197,6 +198,12 @@ export function ProductsPage() {
               <option value="extra">extra</option>
               <option value="both">both</option>
             </select>
+            <input
+              className="ui-input md:col-span-4"
+              placeholder={t(language, "catalog.categoryManager.descriptionPlaceholder")}
+              value={newCategory.description}
+              onChange={(e) => setNewCategory((p) => ({ ...p, description: e.target.value }))}
+            />
           </div>
           <div className="mb-4">
             <button
@@ -210,12 +217,13 @@ export function ProductsPage() {
                   await createServiceCategory(token, {
                     key: newCategory.key.trim(),
                     name: newCategory.name.trim(),
+                    description: newCategory.description.trim(),
                     kind_scope: newCategory.kind_scope,
                     active: true,
                     show_in_frontpanel: newCategory.kind_scope === "addon" || newCategory.kind_scope === "both",
                     sort_order: (categories?.length || 0) * 10 + 10,
                   });
-                  setNewCategory({ key: "", name: "", kind_scope: "addon" });
+                  setNewCategory({ key: "", name: "", description: "", kind_scope: "addon" });
                   await refetchCategories({ force: true });
                   await refetch({ force: true });
                 } catch (err) {

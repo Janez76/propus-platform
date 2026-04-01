@@ -471,7 +471,10 @@ export function LandingPage({ lang, onLangChange, onStart }: LandingPageProps) {
                       <div className="flex-1 pr-4">
                         <div className="text-sm font-bold text-[var(--text-main)]">{pkg.label}</div>
                         {pkg.description && (
-                          <div className="mt-0.5 line-clamp-1 text-xs text-[var(--text-subtle)]">{pkg.description}</div>
+                          <div
+                            className="mt-0.5 line-clamp-1 text-xs text-[var(--text-subtle)]"
+                            dangerouslySetInnerHTML={{ __html: pkg.description }}
+                          />
                         )}
                       </div>
                       <div className="text-base font-extrabold text-[var(--accent)] whitespace-nowrap">

@@ -297,6 +297,9 @@ type SortableCategorySectionProps = {
   nameDraft: string;
   onNameChange: (key: string, val: string) => void;
   onNameSave: (cat: ServiceCategory, val: string) => Promise<void>;
+  descriptionDraft: string;
+  onDescriptionChange: (key: string, val: string) => void;
+  onDescriptionSave: (cat: ServiceCategory, val: string) => Promise<void>;
   categoryBusy: boolean;
   onProductReorder: (groupKey: string, oldIndex: number, newIndex: number) => void;
 };
@@ -317,6 +320,9 @@ function SortableCategorySection({
   nameDraft,
   onNameChange,
   onNameSave,
+  descriptionDraft,
+  onDescriptionChange,
+  onDescriptionSave,
   categoryBusy,
   onProductReorder,
 }: SortableCategorySectionProps) {
@@ -426,6 +432,20 @@ function SortableCategorySection({
           </div>
         </summary>
         <div className="space-y-2 border-t p-2 border-[var(--border-soft)]">
+          <input
+            className="ui-input w-full text-xs text-[var(--text-subtle)] placeholder:text-[var(--text-subtle)]/60"
+            placeholder={t(lang, "catalog.categoryManager.descriptionPlaceholder")}
+            value={descriptionDraft}
+            disabled={categoryBusy}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onChange={(e) => onDescriptionChange(category.key, e.target.value)}
+            onBlur={async (e) => {
+              await onDescriptionSave(category, e.target.value);
+            }}
+          />
           <ProductDndList
             items={group.items}
             lang={lang}
@@ -537,9 +557,11 @@ export function ProductListByCategory({
   const [categoryBusy, setCategoryBusy] = useState(false);
   const [categoryError, setCategoryError] = useState("");
   const [nameDrafts, setNameDrafts] = useState<Record<string, string>>({});
+  const [descriptionDrafts, setDescriptionDrafts] = useState<Record<string, string>>({});
 
   useEffect(() => {
     setNameDrafts(Object.fromEntries(categories.map((c) => [c.key, c.name])));
+    setDescriptionDrafts(Object.fromEntries(categories.map((c) => [c.key, c.description ?? ""])));
   }, [categories]);
 
   const btnSmallClass =
@@ -765,6 +787,22 @@ export function ProductListByCategory({
     [updateCategory],
   );
 
+  const handleDescriptionSave = useCallback(
+    async (category: ServiceCategory, rawDescription: string) => {
+      const next = rawDescription.trim();
+      if (next === (category.description ?? "")) {
+        setDescriptionDrafts((d) => ({ ...d, [category.key]: category.description ?? "" }));
+        return;
+      }
+      try {
+        await updateCategory(category.key, { description: next });
+      } catch (_err) {
+        setDescriptionDrafts((d) => ({ ...d, [category.key]: category.description ?? "" }));
+      }
+    },
+    [updateCategory],
+  );
+
   // ---- Render ----
 
   return (
@@ -826,6 +864,9 @@ export function ProductListByCategory({
                   nameDraft={nameDrafts[group.key] ?? category.name}
                   onNameChange={(key, value) => setNameDrafts((d) => ({ ...d, [key]: value }))}
                   onNameSave={handleNameSave}
+                  descriptionDraft={descriptionDrafts[group.key] ?? (category.description ?? "")}
+                  onDescriptionChange={(key, value) => setDescriptionDrafts((d) => ({ ...d, [key]: value }))}
+                  onDescriptionSave={handleDescriptionSave}
                   categoryBusy={categoryBusy}
                   onProductReorder={handleProductReorder}
                 />

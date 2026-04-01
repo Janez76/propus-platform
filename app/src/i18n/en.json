@@ -59,6 +59,7 @@
   "catalog.categoryManager.title": "Categories",
   "catalog.categoryManager.keyPlaceholder": "Internal key (e.g. premiumVideo)",
   "catalog.categoryManager.namePlaceholder": "Display name",
+  "catalog.categoryManager.descriptionPlaceholder": "Short description (optional, shown in the booking form)",
   "catalog.categoryManager.add": "Add category",
   "catalog.categoryManager.frontpanel": "Show in booking wizard",
   "catalog.categoryManager.frontpanelShort": "Booking wizard",

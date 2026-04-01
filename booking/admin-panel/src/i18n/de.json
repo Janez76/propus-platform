@@ -62,6 +62,7 @@
   "catalog.categoryManager.title": "Kategorien",
   "catalog.categoryManager.keyPlaceholder": "Interner Schlüssel (z. B. premiumVideo)",
   "catalog.categoryManager.namePlaceholder": "Anzeigename",
+  "catalog.categoryManager.descriptionPlaceholder": "Kurze Beschreibung (optional, wird im Buchungsformular angezeigt)",
   "catalog.categoryManager.add": "Kategorie hinzufügen",
   "catalog.categoryManager.frontpanel": "Im Buchungsassistenten anzeigen",
   "catalog.categoryManager.frontpanelShort": "Buchungsassistent",

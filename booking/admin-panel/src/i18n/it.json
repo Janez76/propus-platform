@@ -59,6 +59,7 @@
   "catalog.categoryManager.title": "Categorie",
   "catalog.categoryManager.keyPlaceholder": "chiave (es. premiumVideo)",
   "catalog.categoryManager.namePlaceholder": "Nome visualizzato",
+  "catalog.categoryManager.descriptionPlaceholder": "Breve descrizione (facoltativa, mostrata nel modulo di prenotazione)",
   "catalog.categoryManager.add": "Aggiungi categoria",
   "catalog.categoryManager.frontpanel": "Mostra nel front office",
   "catalog.categoryManager.frontpanelShort": "Front office",
