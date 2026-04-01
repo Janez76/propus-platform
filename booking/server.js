@@ -10567,6 +10567,7 @@ app.post("/api/admin/photographers", requireAdmin, async (req, res) => {
 // Porträt-Bibliothek (Dateien unter PHOTOGRAPHER_PORTRAIT_DIR, öffentlich unter /assets/photographers/)
 app.get("/api/admin/photographers/portraits/library", requirePhotographerOrAdmin, async (req, res) => {
   try {
+    try { fs.mkdirSync(PHOTOGRAPHER_PORTRAIT_DIR, { recursive: true }); } catch (_) {}
     const entries = fs.readdirSync(PHOTOGRAPHER_PORTRAIT_DIR, { withFileTypes: true });
     const files = entries
       .filter((d) => d.isFile())
@@ -10583,6 +10584,7 @@ app.get("/api/admin/photographers/portraits/library", requirePhotographerOrAdmin
 
 app.post("/api/admin/photographers/portraits/upload", requireAdmin, async (req, res, next) => {
   try {
+    try { fs.mkdirSync(PHOTOGRAPHER_PORTRAIT_DIR, { recursive: true }); } catch (_) {}
     await runPhotographerPortraitUpload(req, res);
     if (!req.file) return res.status(400).json({ error: "Keine Datei" });
     const mime = String(req.file.mimetype || "");

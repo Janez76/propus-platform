@@ -530,7 +530,7 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-[var(--border-soft)] bg-white p-4 border-[var(--border-soft)] bg-[var(--surface)]">
+      <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-4">
         <h2 className="text-lg font-bold text-[var(--text-main)]">{t(lang, "settings.title")}</h2>
         <p className="mt-1 text-sm text-[var(--text-subtle)]">{t(lang, "settings.subtitle")}</p>
         <div className="mt-4 flex flex-wrap gap-2">
@@ -538,7 +538,7 @@ export function SettingsPage() {
             type="button"
             onClick={() => setActiveTab("pricing")}
             className={`rounded-lg px-3 py-1.5 text-sm ${
-              activeTab === "pricing" ? "bg-[var(--accent)] text-white" : "border border-[var(--border-soft)]"
+              activeTab === "pricing" ? "bg-[var(--accent)] text-white" : "border border-[var(--border-soft)] bg-[var(--surface)] text-[var(--text-main)]"
             }`}
           >
             {t(lang, "settings.tabs.pricing")}
@@ -547,7 +547,7 @@ export function SettingsPage() {
             type="button"
             onClick={() => setActiveTab("scheduling")}
             className={`rounded-lg px-3 py-1.5 text-sm ${
-              activeTab === "scheduling" ? "bg-[var(--accent)] text-white" : "border border-[var(--border-soft)]"
+              activeTab === "scheduling" ? "bg-[var(--accent)] text-white" : "border border-[var(--border-soft)] bg-[var(--surface)] text-[var(--text-main)]"
             }`}
           >
             {t(lang, "settings.tabs.scheduling")}
@@ -556,7 +556,7 @@ export function SettingsPage() {
             type="button"
             onClick={() => setActiveTab("assignment")}
             className={`rounded-lg px-3 py-1.5 text-sm ${
-              activeTab === "assignment" ? "bg-[var(--accent)] text-white" : "border border-[var(--border-soft)]"
+              activeTab === "assignment" ? "bg-[var(--accent)] text-white" : "border border-[var(--border-soft)] bg-[var(--surface)] text-[var(--text-main)]"
             }`}
           >
             {t(lang, "settings.tabs.assignment")}
@@ -565,7 +565,7 @@ export function SettingsPage() {
             type="button"
             onClick={() => setActiveTab("discounts")}
             className={`rounded-lg px-3 py-1.5 text-sm ${
-              activeTab === "discounts" ? "bg-[var(--accent)] text-white" : "border border-[var(--border-soft)]"
+              activeTab === "discounts" ? "bg-[var(--accent)] text-white" : "border border-[var(--border-soft)] bg-[var(--surface)] text-[var(--text-main)]"
             }`}
           >
             {t(lang, "settings.tabs.discounts")}
@@ -574,7 +574,7 @@ export function SettingsPage() {
             type="button"
             onClick={() => setActiveTab("reviews")}
             className={`rounded-lg px-3 py-1.5 text-sm ${
-              activeTab === "reviews" ? "bg-[var(--accent)] text-white" : "border border-[var(--border-soft)]"
+              activeTab === "reviews" ? "bg-[var(--accent)] text-white" : "border border-[var(--border-soft)] bg-[var(--surface)] text-[var(--text-main)]"
             }`}
           >
             Reviews
@@ -582,7 +582,7 @@ export function SettingsPage() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-[var(--border-soft)] bg-white p-4 border-[var(--border-soft)] bg-[var(--surface)]">
+      <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-4">
         <h3 className="text-sm font-semibold text-[var(--text-main)]">{t(lang, "settings.presets.title")}</h3>
         <p className="mt-1 text-xs text-[var(--text-subtle)]">{t(lang, "settings.presets.help")}</p>
         <div className="mt-3 grid gap-2 md:grid-cols-3">
