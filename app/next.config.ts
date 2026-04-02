@@ -1,7 +1,6 @@
 import type { NextConfig } from "next";
 
-const PLATFORM_INTERNAL_URL =
-  process.env.PLATFORM_INTERNAL_URL || "http://localhost:3100";
+const PLATFORM_INTERNAL_URL = process.env.PLATFORM_INTERNAL_URL || "";
 
 const nextConfig: NextConfig = {
   output: "standalone",
@@ -14,12 +13,22 @@ const nextConfig: NextConfig = {
     "winston",
   ],
   async rewrites() {
-    return [
-      {
-        source: "/auth/:path*",
-        destination: `${PLATFORM_INTERNAL_URL}/auth/:path*`,
-      },
-    ];
+    // On VPS: PLATFORM_INTERNAL_URL is set → proxy /auth/* to Express (beforeFiles
+    // so it takes precedence over the Next.js App Router route handlers).
+    // On Vercel: PLATFORM_INTERNAL_URL is empty → no rewrite; the App Router
+    // route handlers at /auth/logto/* handle OIDC directly.
+    if (!PLATFORM_INTERNAL_URL) return [];
+
+    return {
+      beforeFiles: [
+        {
+          source: "/auth/:path*",
+          destination: `${PLATFORM_INTERNAL_URL}/auth/:path*`,
+        },
+      ],
+      afterFiles: [],
+      fallback: [],
+    };
   },
 };
 

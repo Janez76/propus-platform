@@ -1,98 +1,224 @@
-import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
-import { Pool } from 'pg';
+/**
+ * GET /auth/logto/callback — Logto OIDC callback handler.
+ *
+ * Exchanges the authorization code for tokens, upserts admin_users,
+ * creates an admin_session, and redirects the SPA to /login?logto_token=…
+ *
+ * On VPS this route is never hit (Next.js rewrites /auth/* to Express).
+ * On Vercel the rewrite is skipped so this handler runs directly.
+ */
+import { NextRequest, NextResponse } from "next/server";
+import { createHash, randomBytes } from "crypto";
+import { cookies } from "next/headers";
+import { pool } from "@/lib/db";
 
-export const dynamic = 'force-dynamic';
+const LOGTO_APP_ID = process.env.PROPUS_BOOKING_LOGTO_APP_ID || "";
+const LOGTO_APP_SECRET = process.env.PROPUS_BOOKING_LOGTO_APP_SECRET || "";
+const LOGTO_ENDPOINT = process.env.LOGTO_ENDPOINT || "http://localhost:3301";
+const LOGTO_INTERNAL_ENDPOINT =
+  process.env.LOGTO_INTERNAL_ENDPOINT || LOGTO_ENDPOINT;
 
-let _pool: Pool | null = null;
-function getPool(): Pool {
-  if (!_pool) {
-    _pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      ssl: process.env.DATABASE_URL?.includes('sslmode=require') ? { rejectUnauthorized: false } : undefined,
-      options: `-c search_path=${process.env.DB_SEARCH_PATH || 'booking,core,public'}`,
-    });
-  }
-  return _pool;
+const MGMT_APP_ID = process.env.PROPUS_MANAGEMENT_LOGTO_APP_ID || "";
+const MGMT_APP_SECRET = process.env.PROPUS_MANAGEMENT_LOGTO_APP_SECRET || "";
+
+let oidcConfigCache: Record<string, string> | null = null;
+
+async function getOidcConfig() {
+  if (oidcConfigCache) return oidcConfigCache;
+  const res = await fetch(
+    `${LOGTO_INTERNAL_ENDPOINT}/oidc/.well-known/openid-configuration`,
+  );
+  oidcConfigCache = (await res.json()) as Record<string, string>;
+  return oidcConfigCache;
 }
 
+function getBaseUrl(req: NextRequest) {
+  const explicit = (
+    process.env.BOOKING_LOGTO_REDIRECT_BASE_URL ||
+    process.env.ADMIN_PANEL_URL ||
+    process.env.ADMIN_FRONTEND_URL ||
+    ""
+  ).trim().replace(/\/$/, "");
+  if (explicit) return explicit;
+  const url = new URL(req.url);
+  return `${url.protocol}//${url.host}`;
+}
+
+function sha256hex(value: string) {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+async function getM2mToken(): Promise<string | null> {
+  if (!MGMT_APP_ID || !MGMT_APP_SECRET) return null;
+  const res = await fetch(`${LOGTO_INTERNAL_ENDPOINT}/oidc/token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "client_credentials",
+      client_id: MGMT_APP_ID,
+      client_secret: MGMT_APP_SECRET,
+      resource: "https://default.logto.app/api",
+      scope: "all",
+    }),
+  });
+  if (!res.ok) return null;
+  const data = (await res.json()) as { access_token?: string };
+  return data.access_token || null;
+}
+
+async function getUserRoles(logtoUserId: string): Promise<string[]> {
+  const token = await getM2mToken();
+  if (!token) return [];
+  const res = await fetch(
+    `${LOGTO_INTERNAL_ENDPOINT}/api/users/${logtoUserId}/roles`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (!res.ok) return [];
+  const roles = (await res.json()) as { name: string }[];
+  return roles.map((r) => r.name);
+}
+
+const ROLE_PRIORITY = ["super_admin", "admin", "photographer", "customer"];
+
 export async function GET(req: NextRequest) {
-  // Only active on Vercel – on the VPS the next.config.ts rewrite proxies to the booking server
-  if (!process.env.VERCEL) return new NextResponse(null, { status: 404 });
+  if (!LOGTO_APP_ID || !LOGTO_APP_SECRET) {
+    return new NextResponse("Logto not configured", { status: 503 });
+  }
 
-  const { searchParams } = req.nextUrl;
-  const code = searchParams.get('code');
-  const state = searchParams.get('state');
-  const savedState = req.cookies.get('oidc_state')?.value;
-  const codeVerifier = req.cookies.get('oidc_verifier')?.value;
-  const returnTo = req.cookies.get('oidc_return_to')?.value || '/';
+  const url = new URL(req.url);
+  const code = url.searchParams.get("code");
+  const state = url.searchParams.get("state");
 
-  if (!code || !state || state !== savedState)
-    return new NextResponse('Invalid callback: state mismatch', { status: 400 });
+  const jar = await cookies();
+  const savedState = jar.get("logto_state")?.value;
+  const verifier = jar.get("logto_verifier")?.value || "";
+  const returnTo = jar.get("logto_return_to")?.value || "/";
 
-  const logtoEndpoint = (process.env.LOGTO_ENDPOINT || 'https://logto.propus.ch').replace(/\/$/, '');
-  const appId = process.env.PROPUS_BOOKING_LOGTO_APP_ID || '';
-  const appSecret = process.env.PROPUS_BOOKING_LOGTO_APP_SECRET || '';
-  const host = req.headers.get('host') || '';
-  const proto = req.headers.get('x-forwarded-proto') || 'https';
-  const baseUrl = (process.env.BOOKING_LOGTO_REDIRECT_BASE_URL || proto + '://' + host).replace(/\/$/, '');
-  const callbackUrl = baseUrl + '/auth/logto/callback';
+  if (!code || !state || state !== savedState) {
+    return new NextResponse("Invalid callback (state mismatch)", {
+      status: 400,
+    });
+  }
+
+  // Clean up OIDC cookies
+  jar.delete("logto_state");
+  jar.delete("logto_verifier");
+  jar.delete("logto_return_to");
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const config: any = await fetch(logtoEndpoint + '/oidc/.well-known/openid-configuration').then(r => r.json());
+    const config = await getOidcConfig();
+    const baseUrl = getBaseUrl(req);
+
+    // Exchange code for tokens
     const tokenRes = await fetch(config.token_endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
-        grant_type: 'authorization_code',
+        grant_type: "authorization_code",
         code,
-        client_id: appId,
-        client_secret: appSecret,
-        redirect_uri: callbackUrl,
-        code_verifier: codeVerifier || '',
+        client_id: LOGTO_APP_ID,
+        client_secret: LOGTO_APP_SECRET,
+        redirect_uri: `${baseUrl}/auth/logto/callback`,
+        code_verifier: verifier,
       }),
     });
-    if (!tokenRes.ok)
-      return new NextResponse('Token exchange failed: ' + (await tokenRes.text()), { status: 500 });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const tokens: any = await tokenRes.json();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const userInfo: any = await fetch(config.userinfo_endpoint, {
-      headers: { Authorization: 'Bearer ' + tokens.access_token },
-    }).then(r => (r.ok ? r.json() : {}));
 
-    const email = String(userInfo.email || '').trim().toLowerCase();
-    const name = String(userInfo.name || userInfo.username || email || '');
-    if (!email) return new NextResponse('No email in Logto profile', { status: 400 });
+    if (!tokenRes.ok) {
+      const err = await tokenRes.text();
+      console.error("[logto] token exchange failed:", err);
+      return new NextResponse("Auth token exchange failed", { status: 500 });
+    }
 
-    const db = getPool();
-    const sessionToken = crypto.randomBytes(32).toString('hex');
-    const tokenHash = crypto.createHash('sha256').update(sessionToken).digest('hex');
+    const tokens = (await tokenRes.json()) as {
+      access_token: string;
+      id_token?: string;
+    };
 
-    await db.query(
-      `INSERT INTO booking.admin_users (username,email,name,active,created_at,updated_at)
-       VALUES ($1,$2,$3,TRUE,NOW(),NOW())
-       ON CONFLICT (username) DO UPDATE
-       SET email=EXCLUDED.email,name=EXCLUDED.name,active=TRUE,updated_at=NOW()`,
-      [email, email, name]
-    ).catch(() => null);
-
-    await db.query(
-      `INSERT INTO booking.admin_sessions (token_hash,user_key,user_name,role,expires_at,created_at)
-       VALUES ($1,$2,$3,$4,NOW()+INTERVAL '30 days',NOW())`,
-      [tokenHash, email, name, 'admin']
-    );
-
-    const response = NextResponse.redirect(new URL(returnTo, req.url));
-    response.cookies.set('admin_session', sessionToken, {
-      httpOnly: true, secure: true, sameSite: 'lax', maxAge: 30 * 24 * 60 * 60, path: '/',
+    // Fetch user info
+    const userRes = await fetch(config.userinfo_endpoint, {
+      headers: { Authorization: `Bearer ${tokens.access_token}` },
     });
-    response.cookies.delete('oidc_state');
-    response.cookies.delete('oidc_verifier');
-    response.cookies.delete('oidc_return_to');
-    return response;
-  } catch (err: unknown) {
-    return new NextResponse('Auth error: ' + (err instanceof Error ? err.message : String(err)), { status: 500 });
+    const userInfo = userRes.ok
+      ? ((await userRes.json()) as Record<string, unknown>)
+      : {};
+
+    const email = String(userInfo.email || "").trim().toLowerCase();
+    const name = String(
+      userInfo.name || userInfo.username || email || "",
+    );
+    const logtoUserId = String(userInfo.sub || "");
+
+    if (!email) {
+      return new NextResponse("Kein E-Mail-Konto in Logto hinterlegt.", {
+        status: 400,
+      });
+    }
+
+    // Determine roles
+    let logtoRoles: string[] = [];
+    if (Array.isArray(userInfo.roles)) {
+      logtoRoles = userInfo.roles as string[];
+    } else if (logtoUserId) {
+      logtoRoles = await getUserRoles(logtoUserId);
+    }
+
+    let sessionRole = "photographer";
+    for (const rp of ROLE_PRIORITY) {
+      if (logtoRoles.includes(rp)) {
+        sessionRole = rp === "super_admin" ? "admin" : rp;
+        break;
+      }
+    }
+
+    const dbRole = logtoRoles.includes("super_admin")
+      ? "super_admin"
+      : logtoRoles.includes("admin")
+        ? "admin"
+        : sessionRole;
+
+    // Upsert admin_users
+    await pool
+      .query(
+        `INSERT INTO booking.admin_users (username, email, name, logto_user_id, role, active, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, TRUE, NOW(), NOW())
+         ON CONFLICT (username) DO UPDATE
+           SET email=EXCLUDED.email,
+               name=EXCLUDED.name,
+               logto_user_id=COALESCE(EXCLUDED.logto_user_id, booking.admin_users.logto_user_id),
+               role=$5,
+               active=TRUE,
+               updated_at=NOW()`,
+        [email, email, name, logtoUserId || null, dbRole],
+      )
+      .catch(() => null);
+
+    // Create admin_session
+    const sessionToken = randomBytes(32).toString("hex");
+    const tokenHash = sha256hex(sessionToken);
+    await pool
+      .query(
+        `INSERT INTO booking.admin_sessions (token_hash, user_key, user_name, role, expires_at, created_at)
+         VALUES ($1, $2, $3, $4, NOW() + INTERVAL '30 days', NOW())`,
+        [tokenHash, email, name, sessionRole],
+      )
+      .catch((e: Error) => {
+        console.error("[logto] create admin session failed:", e.message);
+      });
+
+    // Redirect SPA to /login with the token
+    const loginUrl = new URL("/login", `${baseUrl}/`);
+    loginUrl.searchParams.set("logto_token", sessionToken);
+    loginUrl.searchParams.set("returnTo", returnTo);
+
+    return NextResponse.redirect(loginUrl.toString());
+  } catch (err) {
+    console.error(
+      "[logto] callback error:",
+      err instanceof Error ? err.message : err,
+    );
+    return new NextResponse(
+      `Login fehlgeschlagen: ${err instanceof Error ? err.message : "Unknown error"}`,
+      { status: 500 },
+    );
   }
 }

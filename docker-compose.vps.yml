@@ -84,6 +84,8 @@ services:
     build:
       context: .
       dockerfile: platform/Dockerfile
+      args:
+        PLATFORM_INTERNAL_URL: http://127.0.0.1:3100
     ports:
       - "127.0.0.1:${PLATFORM_PORT:-3100}:3000"
     environment:

@@ -1,39 +1,66 @@
-import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
-import { Pool } from 'pg';
+/**
+ * GET /auth/logto/logout — Ends the session and redirects to Logto end-session.
+ *
+ * On VPS this route is never hit (Next.js rewrites /auth/* to Express).
+ * On Vercel the rewrite is skipped so this handler runs directly.
+ */
+import { NextRequest, NextResponse } from "next/server";
+import { createHash } from "crypto";
+import { pool } from "@/lib/db";
 
-export const dynamic = 'force-dynamic';
+const LOGTO_ENDPOINT = process.env.LOGTO_ENDPOINT || "http://localhost:3301";
 
-let _pool: Pool | null = null;
-function getPool() {
-  if (!_pool)
-    _pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      ssl: process.env.DATABASE_URL?.includes('sslmode=require') ? { rejectUnauthorized: false } : undefined,
-    });
-  return _pool;
+function getBaseUrl(req: NextRequest) {
+  const explicit = (
+    process.env.BOOKING_LOGTO_REDIRECT_BASE_URL ||
+    process.env.ADMIN_PANEL_URL ||
+    process.env.ADMIN_FRONTEND_URL ||
+    ""
+  ).trim().replace(/\/$/, "");
+  if (explicit) return explicit;
+  const url = new URL(req.url);
+  return `${url.protocol}//${url.host}`;
+}
+
+function getTokenFromRequest(req: NextRequest): string | null {
+  const auth = req.headers.get("authorization");
+  if (auth?.startsWith("Bearer ")) return auth.slice(7);
+  return req.cookies.get("admin_session")?.value || null;
 }
 
 export async function GET(req: NextRequest) {
-  // Only active on Vercel – on the VPS the next.config.ts rewrite proxies to the booking server
-  if (!process.env.VERCEL) return new NextResponse(null, { status: 404 });
+  const token = getTokenFromRequest(req);
 
-  const sessionToken = req.cookies.get('admin_session')?.value;
-  if (sessionToken)
-    await getPool()
-      .query('DELETE FROM booking.admin_sessions WHERE token_hash=$1', [
-        crypto.createHash('sha256').update(sessionToken).digest('hex'),
+  // Delete admin_session from DB
+  if (token) {
+    const tokenHash = createHash("sha256").update(token).digest("hex");
+    await pool
+      .query("DELETE FROM booking.admin_sessions WHERE token_hash = $1", [
+        tokenHash,
       ])
       .catch(() => null);
+  }
 
-  const logtoEndpoint = (process.env.LOGTO_ENDPOINT || 'https://logto.propus.ch').replace(/\/$/, '');
-  const host = req.headers.get('host') || '';
-  const proto = req.headers.get('x-forwarded-proto') || 'https';
-  const baseUrl = (process.env.BOOKING_LOGTO_REDIRECT_BASE_URL || proto + '://' + host).replace(/\/$/, '');
+  const baseUrl = getBaseUrl(req);
+  const postLogoutUri = `${baseUrl}/`;
 
-  const response = NextResponse.redirect(
-    logtoEndpoint + '/oidc/session/end?post_logout_redirect_uri=' + encodeURIComponent(baseUrl)
+  const redirect = new URL(req.url).searchParams.get("redirect");
+
+  // If there's a specific redirect requested (non-Logto), just go there
+  if (redirect) {
+    const res = NextResponse.redirect(redirect);
+    res.cookies.delete("admin_session");
+    return res;
+  }
+
+  // Redirect to Logto end-session
+  const params = new URLSearchParams({
+    post_logout_redirect_uri: postLogoutUri,
+  });
+
+  const res = NextResponse.redirect(
+    `${LOGTO_ENDPOINT}/oidc/session/end?${params}`,
   );
-  response.cookies.delete('admin_session');
-  return response;
+  res.cookies.delete("admin_session");
+  return res;
 }
