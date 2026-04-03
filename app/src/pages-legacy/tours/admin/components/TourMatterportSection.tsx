@@ -845,9 +845,9 @@ export function TourMatterportSection({ tourId, tour, mpVisibility, onSuccess }:
               <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 space-y-1 dark:border-amber-800 dark:bg-amber-950/30">
                 <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">⚠️ Hinweis</p>
                 <p className="text-xs text-amber-700 dark:text-amber-400">
-                  Der Matterport-Space wird <strong>sofort aktiviert</strong>. Die QR-Rechnung
-                  wird per E-Mail an den Kunden gesendet und ist{" "}
+                  Die QR-Rechnung wird per E-Mail an den Kunden gesendet und ist{" "}
                   <strong>innerhalb von 14 Tagen</strong> zu bezahlen.
+                  Der Matterport-Space wird erst nach <strong>verbuchter Zahlung</strong> aktiviert.
                 </p>
                 <p className="text-xs text-amber-700 dark:text-amber-400">
                   Diese Aktion kann <strong>nicht rückgängig</strong> gemacht werden.
@@ -856,7 +856,7 @@ export function TourMatterportSection({ tourId, tour, mpVisibility, onSuccess }:
             ) : (
               <div className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 dark:border-blue-900 dark:bg-blue-950/30">
                 <p className="text-xs text-blue-700 dark:text-blue-300">
-                  Der Space wird sofort aktiviert. Anschließend werden Sie zur Payrexx-Zahlungsseite weitergeleitet.
+                  Sie werden zur Payrexx-Zahlungsseite weitergeleitet. Der Space wird erst nach erfolgreicher Zahlung aktiviert.
                 </p>
               </div>
             )}

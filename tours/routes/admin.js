@@ -2624,7 +2624,7 @@ router.post('/tours/:id/invoices/:invoiceId/mark-paid-manual', async (req, res) 
   }
 
   const invoiceResult = await pool.query(
-    `SELECT id, tour_id, invoice_number
+    `SELECT id, tour_id, invoice_number, invoice_kind
      FROM tour_manager.renewal_invoices
      WHERE id = $1 AND tour_id = $2
      LIMIT 1`,
@@ -2661,6 +2661,29 @@ router.post('/tours/:id/invoices/:invoiceId/mark-paid-manual', async (req, res) 
       amountChf,
     ]
   );
+
+  // Reaktivierung: Matterport-Space bei Zahlungseingang aktivieren
+  if (invoice.invoice_kind === 'portal_reactivation') {
+    const tourMpRes = await pool.query(
+      `SELECT canonical_matterport_space_id, matterport_space_id
+       FROM tour_manager.tours WHERE id = $1 LIMIT 1`,
+      [tourId]
+    );
+    const spaceId = tourMpRes.rows[0]?.canonical_matterport_space_id
+      || tourMpRes.rows[0]?.matterport_space_id;
+    if (spaceId) {
+      matterport.unarchiveSpace(spaceId).then((mpResult) => {
+        if (mpResult?.success) {
+          pool.query(
+            `UPDATE tour_manager.tours SET matterport_state = 'active', updated_at = NOW() WHERE id = $1`,
+            [tourId]
+          ).catch(() => null);
+        }
+      }).catch((err) => {
+        console.warn('mark-paid-manual: unarchiveSpace failed', tourId, err.message);
+      });
+    }
+  }
 
   await pool.query(
     `UPDATE tour_manager.tours

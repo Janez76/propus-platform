@@ -865,22 +865,15 @@ router.post('/tours/:id/reactivate', async (req, res) => {
 
     const paymentMethod = req.body?.paymentMethod === 'qr_invoice' ? 'qr_invoice' : 'payrexx';
 
-    // Space bei Matterport reaktivieren
-    const mpResult = await matterport.unarchiveSpace(spaceId);
-    if (!mpResult.success) {
-      return res.status(400).json({ ok: false, error: mpResult.error || 'Matterport-Reaktivierung fehlgeschlagen' });
-    }
-
-    // Tour in DB aktivieren
-    await pool.query(
-      `UPDATE tour_manager.tours SET status = 'ACTIVE', matterport_state = 'active', updated_at = NOW() WHERE id = $1`,
-      [tour.id],
-    );
-
-    // Rechnung erstellen
-    const pricing = getPortalPricingForTour({ ...tour, status: 'ARCHIVED' });
+    // Rechnung + Subscription-Fenster vorbereiten
     const subscriptionWindow = getSubscriptionWindowFromStart(new Date());
     const dueAt = new Date();
+
+    // Tour auf "wartet auf Zahlung" setzen — Space wird erst nach Zahlungseingang aktiviert
+    await pool.query(
+      `UPDATE tour_manager.tours SET status = 'CUSTOMER_ACCEPTED_AWAITING_PAYMENT', updated_at = NOW() WHERE id = $1`,
+      [tour.id],
+    );
 
     if (paymentMethod === 'qr_invoice') {
       const dbInv = await pool.query(
@@ -894,7 +887,7 @@ router.post('/tours/:id/reactivate', async (req, res) => {
       );
       const internalInvId = dbInv.rows[0]?.id;
 
-      await logAction(tour.id, 'admin', adminEmail(req), 'REACTIVATE_SPACE', {
+      await logAction(tour.id, 'admin', adminEmail(req), 'REACTIVATE_REQUESTED', {
         source: 'admin_api', matterport_space_id: spaceId, via: 'qr_invoice',
         internal_inv_id: internalInvId, amount_chf: REACTIVATION_PRICE_CHF,
       });
@@ -908,6 +901,11 @@ router.post('/tours/:id/reactivate', async (req, res) => {
 
     // Payrexx-Pfad
     if (!payrexx.isConfigured()) {
+      // Payrexx nicht konfiguriert: Status zurücksetzen und Fehler melden
+      await pool.query(
+        `UPDATE tour_manager.tours SET status = 'ARCHIVED', updated_at = NOW() WHERE id = $1`,
+        [tour.id],
+      );
       return res.status(400).json({ ok: false, error: 'Payrexx nicht konfiguriert – bitte QR-Rechnung wählen' });
     }
 
@@ -922,7 +920,7 @@ router.post('/tours/:id/reactivate', async (req, res) => {
     );
     const internalInvId = dbInv.rows[0]?.id;
 
-    await logAction(tour.id, 'admin', adminEmail(req), 'REACTIVATE_SPACE', {
+    await logAction(tour.id, 'admin', adminEmail(req), 'REACTIVATE_REQUESTED', {
       source: 'admin_api', matterport_space_id: spaceId, via: 'payrexx',
       internal_inv_id: internalInvId, amount_chf: REACTIVATION_PRICE_CHF,
     });
@@ -948,6 +946,11 @@ router.post('/tours/:id/reactivate', async (req, res) => {
     }
 
     if (payErr) console.warn('[admin-api] Payrexx createCheckout:', payErr);
+    // Checkout fehlgeschlagen: Status zurücksetzen
+    await pool.query(
+      `UPDATE tour_manager.tours SET status = 'ARCHIVED', updated_at = NOW() WHERE id = $1`,
+      [tour.id],
+    );
     return res.status(502).json({ ok: false, error: 'Payrexx-Checkout konnte nicht erstellt werden' });
   } catch (err) {
     console.error('[admin-api] /tours/:id/reactivate error:', err.message);
