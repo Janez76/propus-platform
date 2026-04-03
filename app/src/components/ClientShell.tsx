@@ -130,7 +130,11 @@ function PrivateRoutes() {
   }
 
   // Embed-Modus: kein AppShell (Header/Sidebar/Footer), nur Content
-  const embedPaths = ["/embed/tours/link-matterport", "/embed/portal"];
+  const embedPaths = [
+    "/embed/tours/link-matterport",
+    "/embed/tours/",
+    "/embed/portal",
+  ];
   const currentPath = window.location.pathname;
   if (embedPaths.some((p) => currentPath.startsWith(p))) {
     return (
@@ -138,6 +142,11 @@ function PrivateRoutes() {
         <Suspense fallback={<div className="flex justify-center py-12"><div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--accent)]/25 border-t-[var(--accent)]" /></div>}>
           <Routes>
             <Route path="/embed/tours/link-matterport" element={guardedElement(toursAdminRoles, <ToursAdminLinkMatterportPage />)} />
+            <Route path="/embed/tours/:id/link-invoice" element={guardedElement(toursAdminRoles, <ToursAdminLinkInvoicePage />)} />
+            <Route
+              path="/embed/tours/:id/link-exxas-customer"
+              element={guardedElement(toursAdminRoles, <ToursAdminLinkExxasCustomerPage />)}
+            />
             <Route path="/embed/portal/dashboard" element={<PortalDashboardPage />} />
             <Route path="/embed/portal/tours/:tourId/invoices/:invoiceId/print" element={<PortalInvoicePrintPage />} />
             <Route path="/embed/portal/tours/:tourId" element={<PortalTourDetailPage />} />

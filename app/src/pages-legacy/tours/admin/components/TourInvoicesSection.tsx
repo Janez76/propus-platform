@@ -1,4 +1,3 @@
-import { Link } from "react-router-dom";
 import { renewalInvoicePdfUrl } from "../../../../api/toursAdmin";
 import type { ToursAdminTourDetailResponse } from "../../../../types/toursAdmin";
 
@@ -20,6 +19,7 @@ type Props = Pick<
 > & {
   paymentTimeline?: ToursAdminTourDetailResponse["paymentTimeline"];
   tourId?: string;
+  onOpenInvoiceLink?: () => void;
 };
 
 export function TourInvoicesSection({
@@ -29,6 +29,7 @@ export function TourInvoicesSection({
   paymentTimeline = [],
   suggestedManualDueAt,
   tourId,
+  onOpenInvoiceLink,
 }: Props) {
   const ps = paymentSummary as Record<string, unknown>;
 
@@ -88,13 +89,14 @@ export function TourInvoicesSection({
       <div>
         <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
           <h3 className="text-sm font-medium text-[var(--text-main)]">Verlängerungsrechnungen (intern)</h3>
-          {tourId ? (
-            <Link
-              to={`/admin/tours/${tourId}/link-invoice`}
+          {tourId && onOpenInvoiceLink ? (
+            <button
+              type="button"
+              onClick={onOpenInvoiceLink}
               className="text-xs text-[var(--accent)] hover:underline font-medium"
             >
               Exxas-Rechnung verknüpfen
-            </Link>
+            </button>
           ) : null}
         </div>
         {renewalInvoices.length === 0 ? (

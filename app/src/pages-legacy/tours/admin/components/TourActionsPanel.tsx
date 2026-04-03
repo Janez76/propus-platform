@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { NavLink } from "react-router-dom";
 import { toursAdminPost } from "../../../../api/toursAdmin";
 import type { ToursAdminTourRow } from "../../../../types/toursAdmin";
 
@@ -10,9 +9,10 @@ type Props = {
   tour: ToursAdminTourRow;
   mpVisibility: string | null;
   onSuccess: () => void;
+  onOpenCustomerLink?: () => void;
 };
 
-export function TourActionsPanel({ tourId, tour, mpVisibility, onSuccess }: Props) {
+export function TourActionsPanel({ tourId, tour, mpVisibility, onSuccess, onOpenCustomerLink }: Props) {
   const [tourUrl, setTourUrl] = useState(String(tour.tour_url ?? ""));
   const [name, setName] = useState(
     String(tour.canonical_object_label ?? tour.object_label ?? tour.bezeichnung ?? "")
@@ -56,12 +56,15 @@ export function TourActionsPanel({ tourId, tour, mpVisibility, onSuccess }: Prop
     <section className="surface-card-strong p-5 space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <h2 className="text-lg font-semibold text-[var(--text-main)]">Stammdaten &amp; Matterport</h2>
-        <NavLink
-          to={`/admin/tours/${tourId}/link-exxas-customer`}
-          className="text-xs font-medium text-[var(--accent)] hover:underline shrink-0"
-        >
-          Kunde anpassen (core)
-        </NavLink>
+        {onOpenCustomerLink ? (
+          <button
+            type="button"
+            onClick={onOpenCustomerLink}
+            className="text-xs font-medium text-[var(--accent)] hover:underline shrink-0"
+          >
+            Kunde anpassen (core)
+          </button>
+        ) : null}
       </div>
       {msg ? <p className="text-sm text-emerald-700 dark:text-emerald-400">{msg}</p> : null}
       {err ? <p className="text-sm text-red-600 dark:text-red-400">{err}</p> : null}

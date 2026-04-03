@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import { AlertCircle, ArrowLeft } from "lucide-react";
 import { getToursAdminTourDetail } from "../../../api/toursAdmin";
@@ -7,7 +7,6 @@ import { toursAdminTourDetailQueryKey } from "../../../lib/queryKeys";
 import type { ToursAdminTourRow } from "../../../types/toursAdmin";
 import { TourActionLog } from "./components/TourActionLog";
 import { TourActionsPanel } from "./components/TourActionsPanel";
-import { TourExxasSection } from "./components/TourExxasSection";
 import { TourInvoicesSection } from "./components/TourInvoicesSection";
 import { TourMatterportSection } from "./components/TourMatterportSection";
 
@@ -23,6 +22,7 @@ function tourTitle(t: ToursAdminTourRow) {
 export function TourDetailPage() {
   const { id } = useParams<{ id: string }>();
   const okId = id != null && id !== "" && /^\d+$/.test(id) ? id : null;
+  const [embedView, setEmbedView] = useState<"customer" | "invoice" | null>(null);
   const qk = okId ? toursAdminTourDetailQueryKey(okId) : "toursAdmin:tour:invalid";
   const queryFn = useCallback(() => {
     if (!okId) throw new Error("Ungültige Tour-ID");
@@ -86,16 +86,9 @@ export function TourDetailPage() {
             tour={data.tour}
             mpVisibility={data.mpVisibility}
             onSuccess={refetchDetail}
+            onOpenCustomerLink={() => setEmbedView("customer")}
           />
-          <div className="grid gap-6 lg:grid-cols-2">
-            <TourMatterportSection tourId={okId} tour={data.tour} onSuccess={refetchDetail} />
-            <TourExxasSection
-              tourId={okId}
-              tour={data.tour}
-              declineWorkflow={data.declineWorkflow}
-              onSuccess={refetchDetail}
-            />
-          </div>
+          <TourMatterportSection tourId={okId} tour={data.tour} onSuccess={refetchDetail} />
           <TourInvoicesSection
             tourId={okId}
             renewalInvoices={data.renewalInvoices}
@@ -103,9 +96,43 @@ export function TourDetailPage() {
             paymentSummary={data.paymentSummary}
             paymentTimeline={data.paymentTimeline}
             suggestedManualDueAt={data.suggestedManualDueAt}
+            onOpenInvoiceLink={() => setEmbedView("invoice")}
           />
           <TourActionLog rows={data.actionsLog} />
         </>
+      ) : null}
+
+      {embedView ? (
+        <div className="fixed inset-0 z-[60] grid place-items-center bg-black/60 p-2">
+          <div className="surface-card w-full max-w-6xl max-h-[92vh] overflow-hidden flex flex-col rounded-xl shadow-2xl">
+            <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[var(--border-soft)]">
+              <span className="font-semibold text-[var(--text-main)]">
+                {embedView === "customer" ? "Kunde anpassen" : "Exxas-Rechnung verknüpfen"} - Tour #{okId}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmbedView(null);
+                  refetchDetail();
+                }}
+                className="text-[var(--text-subtle)] hover:text-[var(--text-main)] text-xl leading-none px-1"
+                aria-label="Schliessen"
+              >
+                ×
+              </button>
+            </div>
+            <iframe
+              src={
+                embedView === "customer"
+                  ? `/embed/tours/${encodeURIComponent(okId)}/link-exxas-customer`
+                  : `/embed/tours/${encodeURIComponent(okId)}/link-invoice`
+              }
+              className="flex-1 w-full border-0"
+              style={{ minHeight: "70vh" }}
+              title={embedView === "customer" ? "Kunde anpassen" : "Exxas-Rechnung verknüpfen"}
+            />
+          </div>
+        </div>
       ) : null}
     </div>
   );
