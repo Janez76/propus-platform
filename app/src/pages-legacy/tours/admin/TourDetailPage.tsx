@@ -128,15 +128,6 @@ export function TourDetailPage() {
               onOpenBookingLink={() => setEmbedView("booking")}
             />
           </section>
-          <TourInvoicesSection
-            tourId={okId}
-            tour={data.tour}
-            renewalInvoices={data.renewalInvoices}
-            exxasInvoices={data.exxasInvoices}
-            paymentSummary={data.paymentSummary}
-            paymentTimeline={data.paymentTimeline}
-            onOpenInvoiceLink={() => setEmbedView("invoice")}
-          />
           <TourActionLog rows={data.actionsLog} />
           <section className="surface-card-strong p-5 space-y-4">
             <TourActionsPanel
@@ -152,6 +143,15 @@ export function TourDetailPage() {
               onSuccess={refetchDetail}
             />
           </section>
+          <TourInvoicesSection
+            tourId={okId}
+            tour={data.tour}
+            renewalInvoices={data.renewalInvoices}
+            exxasInvoices={data.exxasInvoices}
+            paymentSummary={data.paymentSummary}
+            paymentTimeline={data.paymentTimeline}
+            onOpenInvoiceLink={() => setEmbedView("invoice")}
+          />
         </>
       ) : null}
 
