@@ -7,6 +7,48 @@ function formatDt(v: unknown) {
   return Number.isNaN(d.getTime()) ? "—" : d.toLocaleString("de-CH", { dateStyle: "short", timeStyle: "short" });
 }
 
+/** Matterport-Sichtbarkeit wie im Admin-Panel (LINK_ONLY ≙ „Nur Link“). */
+const VISIBILITY_LABELS: Record<string, string> = {
+  PRIVATE: "Privat",
+  LINK_ONLY: "Nur Link",
+  UNLISTED: "Nur Link",
+  PUBLIC: "Öffentlich",
+  PASSWORD: "Passwort",
+};
+
+function parseDetailsJson(details: unknown): unknown {
+  if (typeof details === "string") {
+    try {
+      return JSON.parse(details) as unknown;
+    } catch {
+      return details;
+    }
+  }
+  return details;
+}
+
+/** Klartext für bekannte Aktionen; sonst JSON wie bisher. */
+function formatDetailsCell(action: string, details: unknown): { text: string; plain: boolean } {
+  const d = parseDetailsJson(details);
+  if (d == null) return { text: "—", plain: true };
+
+  if (action === "ADMIN_VISIBILITY" && typeof d === "object" && d !== null && !Array.isArray(d)) {
+    const o = d as Record<string, unknown>;
+    const spaceId = String(o.spaceId ?? "").trim() || "—";
+    const visKey = String(o.visibility ?? "").trim().toUpperCase();
+    const visLabel = VISIBILITY_LABELS[visKey] || visKey || "—";
+    const hasPwd = Boolean(o.hasPassword);
+    const pwdPart = hasPwd
+      ? "Zusätzliches Viewer-Passwort wurde mitgesetzt."
+      : "Kein zusätzliches Viewer-Passwort.";
+    const text = `Matterport-Space ${spaceId}: Sichtbarkeit „${visLabel}“ (${visKey}). ${pwdPart}`;
+    return { text, plain: true };
+  }
+
+  if (typeof d === "string") return { text: d, plain: true };
+  return { text: JSON.stringify(d), plain: false };
+}
+
 type Props = {
   rows: Record<string, unknown>[];
 };
@@ -49,19 +91,28 @@ export function TourActionLog({ rows }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r, i) => (
+                {rows.map((r, i) => {
+                  const actionStr = String(r.action ?? "");
+                  const { text, plain } = formatDetailsCell(actionStr, r.details_json);
+                  return (
                   <tr
                     key={r.id != null ? String(r.id) : `log-${i}`}
                     className="border-b border-[var(--border-soft)]/40 align-top"
                   >
                     <td className="py-2 pr-3 whitespace-nowrap text-[var(--text-subtle)]">{formatDt(r.created_at)}</td>
-                    <td className="py-2 pr-3 text-[var(--text-main)]">{String(r.action ?? "")}</td>
+                    <td className="py-2 pr-3 text-[var(--text-main)]">{actionStr}</td>
                     <td className="py-2 pr-3 text-[var(--text-subtle)]">{String(r.actor_ref ?? r.actor_type ?? "")}</td>
-                    <td className="py-2 text-[var(--text-subtle)] font-mono text-[10px] sm:text-xs break-all max-w-xs">
-                      {r.details_json != null ? JSON.stringify(r.details_json) : "—"}
+                    <td
+                      className={[
+                        "py-2 text-[var(--text-subtle)] text-[10px] sm:text-xs break-words max-w-md",
+                        plain ? "text-[var(--text-main)] leading-snug" : "font-mono break-all",
+                      ].join(" ")}
+                    >
+                      {text}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
