@@ -19,6 +19,12 @@ function tourTitle(t: ToursAdminTourRow) {
   );
 }
 
+function bookingLinkOpenSpaceId(t: ToursAdminTourRow): string | null {
+  const canonical = String(t.canonical_matterport_space_id ?? "").trim();
+  const persisted = String(t.matterport_space_id ?? "").trim();
+  return canonical || persisted || null;
+}
+
 export function TourDetailPage() {
   const { id } = useParams<{ id: string }>();
   const okId = id != null && id !== "" && /^\d+$/.test(id) ? id : null;
@@ -31,6 +37,7 @@ export function TourDetailPage() {
 
   const { data, loading, error, refetch } = useQuery(qk, queryFn, { enabled: !!okId, staleTime: 20_000 });
   const refetchDetail = useCallback(() => void refetch({ force: true }), [refetch]);
+  const bookingOpenSpaceId = data ? bookingLinkOpenSpaceId(data.tour) : null;
 
   if (!okId) {
     return <Navigate to="/admin/tours/list" replace />;
@@ -137,10 +144,8 @@ export function TourDetailPage() {
                   : embedView === "invoice"
                     ? `/embed/tours/${encodeURIComponent(okId)}/link-invoice`
                     : `/embed/tours/link-matterport${
-                        data.tour.canonical_matterport_space_id || data.tour.matterport_space_id
-                          ? `?openSpaceId=${encodeURIComponent(
-                              String(data.tour.canonical_matterport_space_id ?? data.tour.matterport_space_id ?? "")
-                            )}`
+                        bookingOpenSpaceId
+                          ? `?openSpaceId=${encodeURIComponent(bookingOpenSpaceId)}`
                           : ""
                       }`
               }
