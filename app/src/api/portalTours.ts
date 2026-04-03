@@ -204,3 +204,29 @@ export const setPortalTourAssignee = (id: number, assigneeEmail: string) =>
 
 export const payPortalInvoice = (tourId: number, invoiceId: number) =>
   portalFetch<{ ok: true; paymentUrl: string }>(`/tours/${tourId}/pay/${invoiceId}`);
+
+export type InvoicePrintData = {
+  ok: true;
+  invLabel: string;
+  invoiceDate: string;
+  statusLabel: string;
+  status: string;
+  paymentDueLabel: string;
+  customerName: string;
+  customerEmail: string;
+  bezeichnung: string;
+  amount: string;
+  tourLabel: string;
+  tourLink: string | null;
+  tourAddress: string | null;
+  billingPeriodLabel: string;
+  creditor: { name: string; email: string; website: string };
+  creditorLines: string[];
+  creditorIbanFormatted: string;
+  qrReferenceFormatted: string;
+  tourId: number;
+  invoiceId: number;
+};
+
+export const getInvoicePrintData = (tourId: number, invoiceId: number) =>
+  portalFetch<InvoicePrintData>(`/tours/${tourId}/invoices/${invoiceId}/print-data`);

@@ -179,6 +179,73 @@ async function assertTourAccess(tourId, email) {
   return raw;
 }
 
+// ─── Rechnungsdruck-Daten (JSON) ─────────────────────────────────────────────
+
+router.get('/tours/:id/invoices/:invoiceId/print-data', async (req, res) => {
+  try {
+    const email = req.session.portalCustomerEmail;
+    const id = parseInt(req.params.id, 10);
+    const invoiceId = parseInt(req.params.invoiceId, 10);
+    if (!Number.isFinite(id) || !Number.isFinite(invoiceId)) return res.status(400).json({ error: 'Ungültige ID' });
+    const raw = await assertTourAccess(id, email);
+    if (!raw) return res.status(403).json({ error: 'Nicht erlaubt' });
+    const tour = normalizeTourRow(raw);
+    if (tour.canonical_matterport_space_id) {
+      const { getModel: mpGet } = require('../lib/matterport');
+      const { model } = await mpGet(tour.canonical_matterport_space_id).catch(() => ({ model: null }));
+      if (model?.publication?.url && !tour.tour_url) tour.tour_url = model.publication.url;
+      if (model?.publication?.address) tour.object_address = model.publication.address;
+    }
+    const invResult = await pool.query('SELECT * FROM tour_manager.renewal_invoices WHERE id = $1 AND tour_id = $2', [invoiceId, id]);
+    const invoice = invResult.rows[0];
+    if (!invoice) return res.status(404).json({ error: 'Rechnung nicht gefunden' });
+    let amount = Number(invoice.amount_chf || invoice.betrag || invoice.preis_brutto || 0);
+    if (!amount || isNaN(amount)) amount = EXTENSION_PRICE_CHF;
+    const amountStr = Number(amount).toFixed(2);
+    const invLabel = invoice.invoice_number || `Rechnung #${invoice.id}`;
+    const dateRaw = invoice.sent_at || invoice.invoice_date || invoice.created_at;
+    const invoiceDate = dateRaw ? new Date(dateRaw).toLocaleDateString('de-CH', { day: '2-digit', month: 'long', year: 'numeric' }) : '-';
+    const statusLabels = { paid: 'Bezahlt', sent: 'Ausstehend', overdue: 'Überfällig', draft: 'Entwurf', cancelled: 'Storniert' };
+    const statusLabel = statusLabels[invoice.invoice_status] || invoice.invoice_status || '-';
+    const dueDate = invoice.due_at ? new Date(invoice.due_at) : null;
+    const paymentDueLabel = dueDate ? `30 Tage (${dueDate.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })})` : '-';
+    const periodStart = invoice.subscription_start_at ? new Date(invoice.subscription_start_at) : null;
+    const periodEnd = invoice.subscription_end_at ? new Date(invoice.subscription_end_at) : null;
+    const periodLabel = periodStart && periodEnd
+      ? `${periodStart.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })} bis ${periodEnd.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })}`
+      : periodEnd ? `Bis ${periodEnd.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })}` : '-';
+
+    const qrBill = require('../lib/qr-bill');
+    const paymentContext = qrBill.buildInvoicePaymentContext({ ...invoice, amount_chf: amount }, tour);
+
+    return res.json({
+      ok: true,
+      invLabel,
+      invoiceDate,
+      statusLabel,
+      status: invoice.invoice_status,
+      paymentDueLabel,
+      customerName: [tour.customer_name, tour.customer_contact].filter(Boolean).join(' – ') || '-',
+      customerEmail: tour.customer_email || '',
+      bezeichnung: 'Virtueller Rundgang – Hosting / Verlängerung',
+      amount: amountStr,
+      tourLabel: tour.canonical_object_label || tour.object_label || tour.bezeichnung || `Tour #${tour.id}`,
+      tourLink: tour.tour_url || null,
+      tourAddress: tour.object_address || null,
+      billingPeriodLabel: periodLabel,
+      creditor: paymentContext.creditor,
+      creditorLines: paymentContext.creditorLines,
+      creditorIbanFormatted: paymentContext.creditorIbanFormatted,
+      qrReferenceFormatted: paymentContext.qrReferenceFormatted,
+      tourId: id,
+      invoiceId,
+    });
+  } catch (err) {
+    console.error('[portal-api-mutations] /tours/:id/invoices/:invoiceId/print-data error:', err);
+    return res.status(500).json({ error: 'Interner Fehler' });
+  }
+});
+
 // ─── GET /portal/api/tours/:id (erweitert mit Rechnungen + Matterport) ───────
 // Überschreibt/ergänzt den lesenden Endpunkt in portal-api.js um mutierende Daten
 

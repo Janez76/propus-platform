@@ -75,6 +75,7 @@ const PortalLoginPage = lazy(() => import("../pages-legacy/portal/PortalLoginPag
 const PortalForgotPasswordPage = lazy(() => import("../pages-legacy/portal/PortalForgotPasswordPage").then((m) => ({ default: m.PortalForgotPasswordPage })));
 const PortalResetPasswordPage = lazy(() => import("../pages-legacy/portal/PortalResetPasswordPage").then((m) => ({ default: m.PortalResetPasswordPage })));
 const PortalTourDetailPage = lazy(() => import("../pages-legacy/portal/PortalTourDetailPage").then((m) => ({ default: m.PortalTourDetailPage })));
+const PortalInvoicePrintPage = lazy(() => import("../pages-legacy/portal/PortalInvoicePrintPage").then((m) => ({ default: m.PortalInvoicePrintPage })));
 const PortalDashboardPage = lazy(() => import("../pages-legacy/portal/PortalDashboardPage").then((m) => ({ default: m.PortalDashboardPage })));
 const PortalToursPage = lazy(() => import("../pages-legacy/portal/PortalToursPage").then((m) => ({ default: m.PortalToursPage })));
 const PortalInvoicesPage = lazy(() => import("../pages-legacy/portal/PortalInvoicesPage").then((m) => ({ default: m.PortalInvoicesPage })));
@@ -113,6 +114,7 @@ function PrivateRoutes() {
           <Route path="/" element={<Navigate to="/portal/dashboard" replace />} />
           <Route path="/account" element={<AccountDashboardPage />} />
           <Route path="/portal/dashboard" element={<PortalDashboardPage />} />
+          <Route path="/portal/tours/:tourId/invoices/:invoiceId/print" element={<PortalInvoicePrintPage />} />
           <Route path="/portal/tours/:tourId" element={<PortalTourDetailPage />} />
           <Route path="/portal/tours" element={<PortalToursPage />} />
           <Route path="/portal/invoices" element={<PortalInvoicesPage />} />
@@ -146,6 +148,7 @@ function PrivateRoutes() {
       <Routes>
         <Route path="/" element={<Navigate to={isCompanyRole ? companyHome : "/dashboard"} replace />} />
         <Route path="/portal/dashboard" element={<PortalDashboardPage />} />
+        <Route path="/portal/tours/:tourId/invoices/:invoiceId/print" element={<PortalInvoicePrintPage />} />
         <Route path="/portal/tours/:tourId" element={<PortalTourDetailPage />} />
         <Route path="/portal/tours" element={<PortalToursPage />} />
         <Route path="/portal/invoices" element={<PortalInvoicesPage />} />
