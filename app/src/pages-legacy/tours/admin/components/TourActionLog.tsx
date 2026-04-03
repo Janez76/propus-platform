@@ -1,1 +1,1 @@
-export { TourActionLog } from "../../../../../components/tours/TourActionLog";
+export { TourActionLog } from "../../../../components/tours/TourActionLog";
