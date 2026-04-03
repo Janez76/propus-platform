@@ -157,7 +157,7 @@ export function TicketCreateDialog({ tourId, tourLabel, onClose, onSuccess }: Pr
                 </span>
               </label>
               <input
-                type="url"
+                type="text"
                 value={linkUrl}
                 onChange={(e) => setLinkUrl(e.target.value)}
                 placeholder="https://my.matterport.com/show/?m=…&play=1&qs=1&…"
