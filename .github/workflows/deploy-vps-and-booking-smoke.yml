@@ -175,85 +175,31 @@ jobs:
             fi
           ENDSSH
 
+      # ── Deploy-Script auf VPS hochladen ───────────────────────────────────
+      - name: Upload deploy scripts
+        run: |
+          scp -i ~/.ssh/id_ed25519_propus_vps \
+            scripts/deploy-remote.sh \
+            scripts/rollback-vps.sh \
+            root@${{ secrets.VPS_HOST }}:/tmp/propus-deploy-scripts/
+          ssh -i ~/.ssh/id_ed25519_propus_vps root@${{ secrets.VPS_HOST }} \
+            "chmod +x /tmp/propus-deploy-scripts/*.sh && mkdir -p /opt/propus-platform/scripts && cp /tmp/propus-deploy-scripts/rollback-vps.sh /opt/propus-platform/scripts/rollback-vps.sh || true"
+
       # ── Deploy (mit automatischem Retry bei Fehler) ────────────────────────
       - name: Deploy to VPS
         id: deploy_step
         continue-on-error: true
         run: |
-          deploy_once() {
+          run_deploy() {
             ssh -i ~/.ssh/id_ed25519_propus_vps \
               -o ServerAliveInterval=30 \
               -o ServerAliveCountMax=12 \
-              root@${{ secrets.VPS_HOST }} "GITHUB_SHA='${GITHUB_SHA}' bash -se" << 'ENDSSH'
-            set -e
-            PROJECT_ROOT=/opt/propus-platform
-            ARCHIVE_PATH=/tmp/propus-platform-${GITHUB_SHA}.tar.gz
-            STAGING_DIR=/tmp/propus-platform-${GITHUB_SHA}
-
-            mkdir -p "$PROJECT_ROOT"
-            rm -rf "$STAGING_DIR"
-            mkdir -p "$STAGING_DIR"
-
-            echo "==> Extract deploy archive"
-            tar -xzf "$ARCHIVE_PATH" -C "$STAGING_DIR"
-            tar -C "$STAGING_DIR" -cf - . | tar -C "$PROJECT_ROOT" -xf -
-            rm -rf "$STAGING_DIR" "$ARCHIVE_PATH"
-
-            cd "$PROJECT_ROOT"
-
-            echo "==> Docker Build"
-            export DOCKER_BUILDKIT=1
-            docker compose -f docker-compose.vps.yml --env-file .env.vps build migrate platform website
-
-            echo "==> Platform Restart"
-            docker compose -f docker-compose.vps.yml --env-file .env.vps up -d --force-recreate platform
-
-            echo "==> DB Migrations"
-            docker compose -f docker-compose.vps.yml --env-file .env.vps --profile migrate run --rm migrate
-
-            echo "==> Website Handover"
-            docker compose -f docker-compose.vps.yml --env-file .env.vps rm -sf website || true
-            if command -v fuser >/dev/null 2>&1; then
-              fuser -k 4343/tcp || true
-            else
-              pids=$(ss -ltnp '( sport = :4343 )' 2>/dev/null | awk -F 'pid=' 'NR>1 && NF>1 {split($2,a,","); print a[1]}' | sort -u)
-              if [ -n "$pids" ]; then kill $pids || true; fi
-            fi
-            docker compose -f docker-compose.vps.yml --env-file .env.vps up -d --force-recreate website
-
-            echo "==> Health Check"
-            for attempt in $(seq 1 30); do
-              if curl -sf http://127.0.0.1:3100/api/core/health >/dev/null; then
-                echo "Health check passed on attempt $attempt"
-                break
-              fi
-              if [ "$attempt" -eq 30 ]; then
-                echo "Health check failed after 30 attempts"
-                exit 1
-              fi
-              sleep 2
-            done
-
-            echo "==> Website Health Check"
-            for attempt in $(seq 1 30); do
-              if curl -sf http://127.0.0.1:4343/ >/dev/null; then
-                echo "Website health check passed on attempt $attempt"
-                break
-              fi
-              if [ "$attempt" -eq 30 ]; then
-                echo "Website health check failed after 30 attempts"
-                exit 1
-              fi
-              sleep 2
-            done
-
-            echo "==> Deploy complete"
-            ENDSSH
+              root@${{ secrets.VPS_HOST }} \
+              "GITHUB_SHA='${GITHUB_SHA}' bash /tmp/propus-deploy-scripts/deploy-remote.sh"
           }
 
-          # Versuch 1
           echo "==> Deploy Versuch 1/2..."
-          if deploy_once; then
+          if run_deploy; then
             echo "deploy_result=success" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -261,9 +207,8 @@ jobs:
           echo "::warning::Versuch 1 fehlgeschlagen. Warte 30s, dann Versuch 2..."
           sleep 30
 
-          # Versuch 2 (Retry)
           echo "==> Deploy Versuch 2/2 (Retry)..."
-          if deploy_once; then
+          if run_deploy; then
             echo "deploy_result=success" >> "$GITHUB_OUTPUT"
             echo "::notice::Deploy nach Retry erfolgreich."
             exit 0
@@ -282,7 +227,7 @@ jobs:
             -o ServerAliveInterval=30 \
             -o ServerAliveCountMax=6 \
             root@${{ secrets.VPS_HOST }} \
-            "bash /opt/propus-platform/scripts/rollback-vps.sh"
+            "bash /tmp/propus-deploy-scripts/rollback-vps.sh || bash /opt/propus-platform/scripts/rollback-vps.sh"
           echo "::warning::Rollback abgeschlossen. Produktionssystem laeuft auf letzter stabiler Version."
 
       - name: Fail after rollback
