@@ -213,6 +213,10 @@ async function getModel(modelId) {
         tourAutoplayOverride
         roomBoundsEnabled
       }
+      floors {
+        id
+        label
+      }
       panoLocations {
         id
         label

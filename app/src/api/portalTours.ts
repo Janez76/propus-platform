@@ -259,3 +259,17 @@ export type InvoicePrintData = {
 
 export const getInvoicePrintData = (tourId: number, invoiceId: number) =>
   portalFetch<InvoicePrintData>(`/tours/${tourId}/invoices/${invoiceId}/print-data`);
+
+// ─── Grundriss bestellen ──────────────────────────────────────────────────────
+
+export const getPortalFloorplanPricing = (id: number) =>
+  portalFetch<import("./toursAdmin").FloorplanPricingResponse>(`/tours/${id}/floorplan-pricing`);
+
+export const portalOrderFloorplan = (
+  id: number,
+  payload: { paymentMethod: "payrexx" | "qr_invoice"; comment?: string; floorCount: number },
+) =>
+  portalFetch<{ ok: true; via: string; redirectUrl?: string }>(`/tours/${id}/order-floorplan`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });

@@ -958,6 +958,179 @@ router.post('/tours/:id/reactivate', async (req, res) => {
   }
 });
 
+/**
+ * Hilfsfunktion: Grundriss-Preis aus booking.pricing_rules + MwSt aus booking.app_settings
+ */
+async function getFloorplanPricingData() {
+  const priceResult = await pool.query(`
+    SELECT (r.config_json->>'unitPrice')::numeric AS unit_price_chf
+    FROM booking.pricing_rules r
+    JOIN booking.products p ON p.id = r.product_id
+    WHERE p.code = 'floorplans:tour'
+      AND r.rule_type = 'per_floor'
+      AND r.active = TRUE
+    ORDER BY r.priority ASC, r.id ASC
+    LIMIT 1
+  `);
+  const unitPrice = Number(priceResult.rows[0]?.unit_price_chf ?? 49);
+
+  const vatResult = await pool.query(`
+    SELECT (value_json)::numeric AS vat_rate
+    FROM booking.app_settings
+    WHERE key = 'vat_rate'
+  `);
+  const vatRate = Number(vatResult.rows[0]?.vat_rate ?? 0);
+
+  return { unitPrice, vatRate };
+}
+
+/**
+ * GET /tours/:id/floorplan-pricing
+ * Gibt Preisinfo + Etagen-Anzahl aus Matterport zurück.
+ */
+router.get('/tours/:id/floorplan-pricing', async (req, res) => {
+  try {
+    const tour = await loadTourById(req.params.id);
+    if (!tour) return res.status(404).json({ ok: false, error: 'Tour nicht gefunden' });
+    const spaceId = tour.canonical_matterport_space_id || tour.matterport_space_id;
+
+    let floors = [];
+    if (spaceId) {
+      const { model } = await matterport.getModel(spaceId).catch(() => ({ model: null }));
+      floors = model?.floors ?? [];
+    }
+
+    const { unitPrice, vatRate } = await getFloorplanPricingData();
+    const floorCount = floors.length || 1;
+    const totalNet = Math.round(floorCount * unitPrice * 100) / 100;
+    const totalGross = Math.round(totalNet * (1 + vatRate) * 100) / 100;
+
+    return res.json({
+      ok: true,
+      unitPrice,
+      vatRate,
+      vatPercent: Math.round(vatRate * 100 * 10) / 10,
+      floors,
+      floorCount,
+      totalNet,
+      totalGross,
+    });
+  } catch (err) {
+    console.error('[admin-api] /tours/:id/floorplan-pricing error:', err.message);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+/**
+ * POST /tours/:id/order-floorplan
+ * Erstellt Grundriss-Bestellung: Rechnung, Zahlung (Payrexx/QR), Ticket.
+ * Body: { paymentMethod: "payrexx" | "qr_invoice", comment: string, floorCount: number }
+ */
+router.post('/tours/:id/order-floorplan', async (req, res) => {
+  try {
+    await ensureAdminRenewalSchema();
+    const tour = await loadTourById(req.params.id);
+    if (!tour) return res.status(404).json({ ok: false, error: 'Tour nicht gefunden' });
+
+    const paymentMethod = req.body?.paymentMethod === 'qr_invoice' ? 'qr_invoice' : 'payrexx';
+    const comment = String(req.body?.comment || '').trim();
+    const floorCount = Math.max(1, parseInt(req.body?.floorCount, 10) || 1);
+
+    const { unitPrice, vatRate } = await getFloorplanPricingData();
+    const totalGross = Math.round(floorCount * unitPrice * (1 + vatRate) * 100) / 100;
+
+    const tourLabel = String(tour.canonical_object_label || tour.bezeichnung || `Tour #${tour.id}`);
+    const dueAt = new Date();
+
+    const ticketDescription = [
+      `Etagen: ${floorCount}`,
+      `Preis pro Etage: CHF ${unitPrice.toFixed(2)} zzgl. MwSt`,
+      `Gesamtbetrag: CHF ${totalGross.toFixed(2)} inkl. ${Math.round(vatRate * 100 * 10) / 10}% MwSt`,
+      comment ? `Kommentar: ${comment}` : '',
+    ].filter(Boolean).join('\n');
+
+    if (paymentMethod === 'qr_invoice') {
+      const dbInv = await pool.query(
+        `INSERT INTO tour_manager.renewal_invoices
+           (tour_id, invoice_status, sent_at, amount_chf, due_at, invoice_kind, payment_source, payment_note)
+         VALUES ($1, 'sent', NOW(), $2, $3, 'floorplan_order', 'qr_pending', $4)
+         RETURNING id`,
+        [tour.id, totalGross, dueAt, comment || null],
+      );
+      const internalInvId = dbInv.rows[0]?.id;
+
+      await pool.query(
+        `INSERT INTO tour_manager.tickets
+           (module, reference_id, reference_type, category, subject, description, priority, created_by, created_by_role)
+         VALUES ('tours', $1, 'tour', 'sonstiges', $2, $3, 'normal', $4, 'admin')`,
+        [String(tour.id), `Grundriss bestellt — ${floorCount} Etage${floorCount !== 1 ? 'n' : ''}`, ticketDescription, adminEmail(req)],
+      );
+
+      await logAction(tour.id, 'admin', adminEmail(req), 'FLOORPLAN_ORDER', {
+        source: 'admin_api', via: 'qr_invoice',
+        internal_inv_id: internalInvId, amount_chf: totalGross, floor_count: floorCount,
+      });
+
+      tourActions.sendInvoiceWithQrEmail(String(tour.id), internalInvId).catch((err) => {
+        console.error('[admin-api] sendInvoiceWithQrEmail (floorplan) failed:', tour.id, err.message);
+      });
+
+      return res.json({ ok: true, via: 'qr_invoice' });
+    }
+
+    // Payrexx-Pfad
+    if (!payrexx.isConfigured()) {
+      return res.status(400).json({ ok: false, error: 'Payrexx nicht konfiguriert – bitte QR-Rechnung wählen' });
+    }
+
+    const dbInv = await pool.query(
+      `INSERT INTO tour_manager.renewal_invoices
+         (tour_id, invoice_status, sent_at, amount_chf, due_at, invoice_kind, payment_source, payment_note)
+       VALUES ($1, 'sent', NOW(), $2, $3, 'floorplan_order', 'payrexx_pending', $4)
+       RETURNING id`,
+      [tour.id, totalGross, dueAt, comment || null],
+    );
+    const internalInvId = dbInv.rows[0]?.id;
+
+    await pool.query(
+      `INSERT INTO tour_manager.tickets
+         (module, reference_id, reference_type, category, subject, description, priority, created_by, created_by_role)
+       VALUES ('tours', $1, 'tour', 'sonstiges', $2, $3, 'normal', $4, 'admin')`,
+      [String(tour.id), `Grundriss bestellt — ${floorCount} Etage${floorCount !== 1 ? 'n' : ''}`, ticketDescription, adminEmail(req)],
+    );
+
+    await logAction(tour.id, 'admin', adminEmail(req), 'FLOORPLAN_ORDER', {
+      source: 'admin_api', via: 'payrexx',
+      internal_inv_id: internalInvId, amount_chf: totalGross, floor_count: floorCount,
+    });
+
+    const successUrl = `${ADMIN_PORTAL_BASE_URL}/admin/tours/${tour.id}?success=floorplan_ordered`;
+    const cancelUrl  = `${ADMIN_PORTAL_BASE_URL}/admin/tours/${tour.id}?error=cancelled`;
+    const { paymentUrl, error: payErr } = await payrexx.createCheckout({
+      referenceId: `tour-${tour.id}-internal-${internalInvId}`,
+      amountCHF: totalGross,
+      purpose: `${tourLabel} – Grundriss (${floorCount} Etage${floorCount !== 1 ? 'n' : ''})`,
+      successUrl,
+      cancelUrl,
+      email: String(tour.canonical_customer_email || tour.customer_email || ''),
+    });
+
+    if (paymentUrl) {
+      await pool.query(
+        `UPDATE tour_manager.renewal_invoices SET payrexx_payment_url = $1 WHERE id = $2`,
+        [paymentUrl, internalInvId],
+      );
+      return res.json({ ok: true, via: 'payrexx', redirectUrl: paymentUrl });
+    }
+
+    if (payErr) console.warn('[admin-api] Payrexx createCheckout (floorplan):', payErr);
+    return res.status(502).json({ ok: false, error: 'Payrexx-Checkout konnte nicht erstellt werden' });
+  } catch (err) {
+    console.error('[admin-api] /tours/:id/order-floorplan error:', err.message);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 router.delete('/tours/:id', async (req, res) => {
   try {
     const tour = await loadTourById(req.params.id);

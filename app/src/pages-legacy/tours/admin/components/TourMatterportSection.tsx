@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Link2, ArchiveRestore, Trash2, Send, RefreshCw, X, SlidersHorizontal, Copy, Check } from "lucide-react";
-import { toursAdminPost, deleteToursAdminTour, postUnarchiveMatterportTour, postReactivateTour, postTransferMatterportSpace, getToursAdminMatterportModel, postToursAdminMatterportOptions } from "../../../../api/toursAdmin";
+import { Link2, ArchiveRestore, Trash2, Send, RefreshCw, X, SlidersHorizontal, Copy, Check, FileText } from "lucide-react";
+import { toursAdminPost, deleteToursAdminTour, postUnarchiveMatterportTour, postReactivateTour, postTransferMatterportSpace, getToursAdminMatterportModel, postToursAdminMatterportOptions, getFloorplanPricing, postOrderFloorplan } from "../../../../api/toursAdmin";
 import type { MatterportModelMeta, MatterportModelOptions, MatterportSettingOverride, MatterportOptionsPatch } from "../../../../api/toursAdmin";
 import type { ToursAdminTourRow } from "../../../../types/toursAdmin";
 import { TicketCreateDialog } from "./TicketCreateDialog";
 import { MatterportVisibilityPanel } from "./MatterportVisibilityPanel";
+import { FloorplanOrderDialog } from "./FloorplanOrderDialog";
 
 type Props = {
   tourId: string;
@@ -503,6 +504,9 @@ export function TourMatterportSection({ tourId, tour, mpVisibility, onSuccess, p
   const [transferBusy, setTransferBusy] = useState(false);
   const [transferErr, setTransferErr] = useState<string | null>(null);
 
+  // Grundriss-Bestellung-Dialog
+  const [floorplanOrderOpen, setFloorplanOrderOpen] = useState(false);
+
   async function archive() {
     if (!window.confirm("Matterport-Space wirklich archivieren und Tour als archiviert markieren?")) return;
     setBusy(true);
@@ -699,6 +703,16 @@ export function TourMatterportSection({ tourId, tour, mpVisibility, onSuccess, p
             <SlidersHorizontal className="h-3.5 w-3.5 shrink-0" />
             Änderung anfragen
           </button>
+          {spaceId ? (
+            <button
+              type="button"
+              onClick={() => setFloorplanOrderOpen(true)}
+              className={MP_ACTION_BTN}
+            >
+              <FileText className="h-3.5 w-3.5 shrink-0" />
+              Grundriss bestellen
+            </button>
+          ) : null}
           <button
             type="button"
             disabled={busy}
@@ -710,6 +724,19 @@ export function TourMatterportSection({ tourId, tour, mpVisibility, onSuccess, p
           </button>
         </div>
       </div>
+
+      {floorplanOrderOpen ? (
+        <FloorplanOrderDialog
+          tourId={parseInt(tourId, 10)}
+          payrexxConfigured={payrexxConfigured ?? false}
+          onFetchPricing={(id) => getFloorplanPricing(id)}
+          onSubmit={(id, payload) =>
+            postOrderFloorplan(id, payload) as Promise<{ ok: boolean; via?: string; redirectUrl?: string }>
+          }
+          onClose={() => setFloorplanOrderOpen(false)}
+          onSuccess={() => { setFloorplanOrderOpen(false); onSuccess(); }}
+        />
+      ) : null}
 
       {ticketOpen ? (
         <TicketCreateDialog

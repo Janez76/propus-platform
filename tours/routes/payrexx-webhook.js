@@ -1,13 +1,16 @@
 /**
- * Payrexx Webhook — muss VOR express.json() registriert werden,
- * damit express.raw() den unveränderten Body für die HMAC-Signatur-Verifizierung lesen kann.
+ * Payrexx Webhook — registriert VOR express.json() damit express.raw() den Body liest.
  *
- * Eingebunden in tours/server.js als:
- *   app.use('/webhook', require('./routes/payrexx-webhook'));
- * vor app.use(express.json())
+ * Payrexx sendet:
+ *   Header:       X-Webhook-Signature: <hmac-sha256-hex>
+ *   Content-Type: application/x-www-form-urlencoded
+ *   Body:         PHP-Array-Syntax (transaction%5Bid%5D=1&...)
+ *
+ * HMAC: SHA256(rawBody, PAYREXX_WEBHOOK_SECRET)
  */
 
 const express = require('express');
+const crypto = require('crypto');
 const router = express.Router();
 const { pool } = require('../lib/db');
 const { logAction } = require('../lib/actions');
@@ -23,25 +26,70 @@ async function ensureRenewalInvoiceSchema() {
   await pool.query(`ALTER TABLE tour_manager.renewal_invoices ADD COLUMN IF NOT EXISTS subscription_end_at DATE`).catch(() => {});
 }
 
+/**
+ * Parst PHP-style URL-encoded Nested Arrays:
+ *   transaction[id]=1 → { transaction: { id: '1' } }
+ */
+function parsePhpNestedForm(urlencoded) {
+  const flat = new URLSearchParams(urlencoded);
+  const result = {};
+  for (const [key, value] of flat.entries()) {
+    // Wandelt "transaction[invoice][referenceId]" in verschachteltes Objekt um
+    const parts = key.replace(/\]/g, '').split('[');
+    let cur = result;
+    for (let i = 0; i < parts.length - 1; i++) {
+      const part = parts[i];
+      if (cur[part] === undefined || typeof cur[part] !== 'object') cur[part] = {};
+      cur = cur[part];
+    }
+    const last = parts[parts.length - 1];
+    cur[last] = value;
+  }
+  return result;
+}
+
 router.post('/payrexx', express.raw({ type: '*/*' }), async (req, res) => {
   await ensureRenewalInvoiceSchema();
-  const rawBody = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : String(req.body || '');
-  const signature = req.headers['payrexx-signature'] || '';
 
-  if (!payrexx.verifyWebhook(rawBody, signature)) {
+  const rawBody = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : String(req.body || '');
+  // Payrexx sendet X-Webhook-Signature (nicht payrexx-signature)
+  const signature = req.headers['x-webhook-signature'] || req.headers['payrexx-signature'] || '';
+
+  const webhookSecret = process.env.PAYREXX_WEBHOOK_SECRET || process.env.PAYREXX_API_SECRET || '';
+
+  if (!webhookSecret || !signature) {
+    console.warn('[payrexx-webhook] Kein Secret oder keine Signatur');
     return res.status(401).json({ error: 'Invalid signature' });
   }
 
-  let data;
-  try {
-    data = JSON.parse(rawBody);
-  } catch {
-    return res.status(400).json({ error: 'Invalid JSON' });
+  const expected = crypto.createHmac('sha256', webhookSecret).update(rawBody, 'utf8').digest('hex');
+  const sigBuf = Buffer.from(signature, 'hex');
+  const expBuf = Buffer.from(expected, 'hex');
+  const valid = sigBuf.length === expBuf.length && crypto.timingSafeEqual(sigBuf, expBuf);
+
+  if (!valid) {
+    console.warn('[payrexx-webhook] Signatur ungültig. Erwartet:', expected, 'Erhalten:', signature);
+    return res.status(401).json({ error: 'Invalid signature' });
   }
 
-  const transaction = data?.transaction || data?.payment;
+  // Body parsen: URL-encoded PHP-Array-Format
+  let parsed;
+  try {
+    parsed = parsePhpNestedForm(rawBody);
+  } catch (e) {
+    return res.status(400).json({ error: 'Invalid body' });
+  }
+
+  const transaction = parsed?.transaction || {};
   const status = String(transaction?.status || '').toLowerCase();
-  const referenceId = String(transaction?.referenceId || data?.referenceId || '');
+  // referenceId kann direkt auf transaction oder in transaction.invoice stehen
+  const referenceId = String(
+    transaction?.referenceId
+    || transaction?.invoice?.referenceId
+    || ''
+  );
+
+  console.log('[payrexx-webhook] OK – status:', status, 'referenceId:', referenceId);
 
   if (status === 'confirmed' || status === 'paid') {
     const match = referenceId.match(/tour-(\d+)-(?:inv|internal)-(.+)/);
@@ -62,15 +110,7 @@ router.post('/payrexx', express.raw({ type: '*/*' }), async (req, res) => {
       const isReactivation = invoice?.invoice_kind === 'portal_reactivation';
       let matterportState = tour?.matterport_state || null;
 
-      const paidAtRaw =
-        transaction?.confirmedAt
-        || transaction?.confirmed_at
-        || transaction?.createdAt
-        || transaction?.created_at
-        || transaction?.date
-        || data?.createdAt
-        || data?.date
-        || new Date().toISOString();
+      const paidAtRaw = transaction?.time || new Date().toISOString();
 
       let subscriptionWindow;
       if (isReactivation) {
@@ -125,6 +165,8 @@ router.post('/payrexx', express.raw({ type: '*/*' }), async (req, res) => {
           console.error('[payrexx-webhook] sendPaymentConfirmedEmail failed', tourId, err.message);
         });
       }
+    } else {
+      console.log('[payrexx-webhook] referenceId passt nicht zu Tour-Format:', referenceId);
     }
   }
 

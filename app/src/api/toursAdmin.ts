@@ -131,6 +131,30 @@ export function renewalInvoicePdfUrl(tourId: string | number, invoiceId: string 
   return `${BASE}/tours/${tourId}/invoices/${invoiceId}/pdf`;
 }
 
+// ─── Grundriss bestellen ──────────────────────────────────────────────────────
+
+export interface FloorplanPricingResponse {
+  ok: true;
+  unitPrice: number;
+  vatRate: number;
+  vatPercent: number;
+  floors: { id: string; label: string | null }[];
+  floorCount: number;
+  totalNet: number;
+  totalGross: number;
+}
+
+export function getFloorplanPricing(tourId: string | number) {
+  return toursAdminFetch<FloorplanPricingResponse>(`/tours/${tourId}/floorplan-pricing`);
+}
+
+export function postOrderFloorplan(
+  tourId: string | number,
+  payload: { paymentMethod: "payrexx" | "qr_invoice"; comment?: string; floorCount: number },
+) {
+  return toursAdminPost(`/tours/${tourId}/order-floorplan`, payload as unknown as Record<string, unknown>);
+}
+
 export function getLinkMatterportCustomerSearch(q: string) {
   return toursAdminFetch<Record<string, unknown>>(`/link-matterport/customer-search?q=${encodeURIComponent(q)}`);
 }

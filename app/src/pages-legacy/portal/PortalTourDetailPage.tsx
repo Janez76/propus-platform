@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { AlertCircle, ArrowLeft, Copy, Check, RefreshCw, X } from "lucide-react";
+import { AlertCircle, ArrowLeft, Copy, Check, RefreshCw, X, FileText } from "lucide-react";
 import {
   getPortalTourDetail,
   getPortalMatterportModel,
@@ -12,10 +12,13 @@ import {
   payPortalInvoice,
   setPortalMatterportOptions,
   setPortalStartSweep,
+  getPortalFloorplanPricing,
+  portalOrderFloorplan,
   type PortalTourDetail,
 } from "../../api/portalTours";
 import type { MatterportModelMeta, MatterportModelOptions, MatterportOptionsPatch, MatterportSettingOverride } from "../../api/toursAdmin";
 import { usePortalNav } from "../../hooks/usePortalNav";
+import { FloorplanOrderDialog } from "../tours/admin/components/FloorplanOrderDialog";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -588,6 +591,7 @@ export function PortalTourDetailPage() {
   const [extendMethod, setExtendMethod] = useState<"payrexx" | "qr_invoice">("payrexx");
   const [extendErr, setExtendErr] = useState<string | null>(null);
   const [archiveErr, setArchiveErr] = useState<string | null>(null);
+  const [showFloorplanOrder, setShowFloorplanOrder] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -924,6 +928,16 @@ export function PortalTourDetailPage() {
                     {pricing.isReactivation ? "Tour reaktivieren" : "Tour verlängern"}
                   </button>
                 ) : null}
+                {spaceId ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowFloorplanOrder(true)}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm font-medium text-[var(--text-main)] shadow-sm transition-colors duration-150 hover:border-[var(--accent)]/50 hover:bg-[var(--accent)]/10 hover:text-[var(--accent)] disabled:pointer-events-none disabled:opacity-50"
+                  >
+                    <FileText className="h-3.5 w-3.5 shrink-0" />
+                    Grundriss bestellen
+                  </button>
+                ) : null}
                 {!isArchived ? (
                   <button
                     type="button"
@@ -1227,6 +1241,20 @@ export function PortalTourDetailPage() {
             </div>
           </div>
         </div>
+      ) : null}
+
+      {/* ── Grundriss-Bestellungs-Dialog ── */}
+      {showFloorplanOrder ? (
+        <FloorplanOrderDialog
+          tourId={tourId}
+          payrexxConfigured={data?.payrexxConfigured ?? false}
+          onFetchPricing={(id) => getPortalFloorplanPricing(id)}
+          onSubmit={(id, payload) =>
+            portalOrderFloorplan(id, payload) as Promise<{ ok: boolean; via?: string; redirectUrl?: string }>
+          }
+          onClose={() => setShowFloorplanOrder(false)}
+          onSuccess={() => { setShowFloorplanOrder(false); void loadData(); }}
+        />
       ) : null}
     </div>
   );
