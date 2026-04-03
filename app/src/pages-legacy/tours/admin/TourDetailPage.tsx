@@ -33,6 +33,17 @@ function matterportShowUrl(t: ToursAdminTourRow): string | null {
   return spaceId ? `https://my.matterport.com/show/?m=${encodeURIComponent(spaceId)}` : null;
 }
 
+/** Anzeigename für Intern-Bereich: Core-Kunde, Tour-Felder oder Kundennummer */
+function internLinkedCustomerLabel(t: ToursAdminTourRow): string | null {
+  const a = String(t.canonical_customer_name ?? "").trim();
+  if (a) return a;
+  const b = String(t.customer_name ?? "").trim();
+  if (b) return b;
+  const c = String(t.kunde_ref ?? "").trim();
+  if (c) return c;
+  return null;
+}
+
 export function TourDetailPage() {
   const { id } = useParams<{ id: string }>();
   const okId = id != null && id !== "" && /^\d+$/.test(id) ? id : null;
@@ -100,8 +111,8 @@ export function TourDetailPage() {
             <h2 className="text-lg font-semibold text-[var(--text-main)]">Intern</h2>
             <TourInternSection
               matterportShowUrl={matterportShowUrl(data.tour)}
+              linkedCustomerLabel={internLinkedCustomerLabel(data.tour)}
               bookingOrderNo={data.tour.booking_order_no as number | null}
-              customerName={data.tour.canonical_customer_name as string | null}
               onOpenBookingLink={() => setEmbedView("booking")}
             />
           </section>
