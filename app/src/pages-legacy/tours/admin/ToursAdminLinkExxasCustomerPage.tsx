@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, Navigate, useParams } from "react-router-dom";
+import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
 import { AlertCircle, ArrowLeft } from "lucide-react";
 import {
   getToursAdminLinkCustomerAutocomplete,
@@ -30,6 +30,8 @@ function formatTourTitle(tour: Record<string, unknown>) {
 
 export function ToursAdminLinkExxasCustomerPage() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  const embedded = searchParams.get("embed") === "1";
   // Reine boolean-Bedingung: `id && regex.test(id)` wäre für TS `string | boolean | …` und vergiftet okId.
   const okId = id != null && id !== "" && /^\d+$/.test(id) ? id : null;
 
@@ -163,19 +165,27 @@ export function ToursAdminLinkExxasCustomerPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 ${embedded ? "pt-0" : ""}`}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <Link
-            to={`/admin/tours/${okId}`}
-            className="inline-flex items-center gap-1 text-sm text-[var(--accent)] hover:underline mb-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Zurück zur Tour
-          </Link>
-          <h1 className="text-2xl font-bold text-[var(--text-main)]">Kunde anpassen</h1>
-          <p className="text-sm text-[var(--text-subtle)] mt-1">
-            core.customers zuordnen (wie EJS „link-exxas-customer“).
+          {!embedded ? (
+            <Link
+              to={`/admin/tours/${okId}`}
+              className="inline-flex items-center gap-1 text-sm text-[var(--accent)] hover:underline mb-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Zurück zur Tour
+            </Link>
+          ) : null}
+          {!embedded ? (
+            <h1 className="text-2xl font-bold text-[var(--text-main)]">Kunde anpassen</h1>
+          ) : (
+            <p className="sr-only">Kunde anpassen</p>
+          )}
+          <p className={`text-sm text-[var(--text-subtle)] ${embedded ? "" : "mt-1"}`}>
+            {embedded
+              ? "Wähle den Kunden, der dieser Tour zugeordnet werden soll."
+              : "Kunden aus der Datenbank zuordnen und Ansprechpartner wählen."}
           </p>
         </div>
       </div>

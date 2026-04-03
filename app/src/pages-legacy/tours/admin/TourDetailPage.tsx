@@ -142,7 +142,7 @@ export function TourDetailPage() {
             <iframe
               src={
                 embedView === "customer"
-                  ? `/embed/tours/${encodeURIComponent(okId)}/link-exxas-customer`
+                  ? `/embed/tours/${encodeURIComponent(okId)}/link-exxas-customer?embed=1`
                   : embedView === "invoice"
                     ? `/embed/tours/${encodeURIComponent(okId)}/link-invoice`
                     : `/embed/tours/link-matterport${
