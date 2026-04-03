@@ -15,6 +15,14 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.389",
+    date: "2026-04-03",
+    title: "Deploy-Script als separate Datei (kein Heredoc in Funktion) + Rollback robuster",
+    changes: [
+      { type: "fix", text: "Deploy-Script als separate Datei (kein Heredoc in Funktion) + Rollback robuster" },
+    ],
+  },
+  {
     version: "2.3.388",
     date: "2026-04-03",
     title: "Automatischer Changelog + Retry/Rollback bei Deploy",
