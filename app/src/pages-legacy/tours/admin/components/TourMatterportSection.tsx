@@ -13,7 +13,6 @@ type Props = {
   /** API-Sichtbarkeit (Tour-Detail), für Matterport-Sichtbarkeit-Editor */
   mpVisibility: string | null;
   onSuccess: () => void;
-  onOpenBookingLink?: () => void;
 };
 
 const STATE_META: Record<string, { label: string; color: string }> = {
@@ -167,15 +166,12 @@ function OverrideToggle({
   );
 }
 
-function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId, bookingOrderNo, customerName, onOpenBookingLink, tourShowUrl, mpVisibility, onVisibilitySaved }: {
+function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId, tourShowUrl, mpVisibility, onVisibilitySaved }: {
   meta: MatterportModelMeta;
   onRefresh: () => void;
   loading: boolean;
   spaceId: string;
   tourId: string;
-  bookingOrderNo?: number | null;
-  customerName?: string | null;
-  onOpenBookingLink?: () => void;
   /** my.matterport.com/show/?m=… zum Kopieren */
   tourShowUrl: string | null;
   mpVisibility: string | null;
@@ -217,41 +213,6 @@ function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId, bookin
       </div>
 
       <MatterportVisibilityPanel tourId={tourId} mpVisibility={mpVisibility} onSuccess={onVisibilitySaved} />
-
-      {/* Bestellungs-Verknüpfung */}
-      {bookingOrderNo ? (
-        <div className="flex items-center justify-between gap-2 rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2">
-          <div className="flex items-center gap-2 text-sm text-[var(--text-main)]">
-            <Link2 className="h-3.5 w-3.5 shrink-0 text-[var(--accent)]" />
-            <span>
-              Bestellung <span className="font-medium">#{bookingOrderNo}</span>
-              {customerName ? <span className="text-[var(--text-subtle)]"> · {customerName}</span> : null}
-            </span>
-          </div>
-          {onOpenBookingLink ? (
-            <button
-              type="button"
-              onClick={onOpenBookingLink}
-              className="shrink-0 text-xs text-[var(--accent)] hover:underline"
-            >
-              Kunde anpassen
-            </button>
-          ) : null}
-        </div>
-      ) : (
-        onOpenBookingLink ? (
-          <div className="flex items-center justify-between gap-2 rounded-lg border border-dashed border-[var(--border-soft)] px-3 py-2">
-            <span className="text-sm text-[var(--text-subtle)]">Keine Bestellung verknüpft</span>
-            <button
-              type="button"
-              onClick={onOpenBookingLink}
-              className="shrink-0 text-xs text-[var(--accent)] hover:underline"
-            >
-              Kunde anpassen
-            </button>
-          </div>
-        ) : null
-      )}
 
       <div className="flex flex-wrap gap-2">
         {stateMeta ? (
@@ -332,7 +293,7 @@ function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId, bookin
   );
 }
 
-export function TourMatterportSection({ tourId, tour, mpVisibility, onSuccess, onOpenBookingLink }: Props) {
+export function TourMatterportSection({ tourId, tour, mpVisibility, onSuccess }: Props) {
   const persistedMpId = String(tour.matterport_space_id ?? "").trim() || null;
   const canonicalMpId = String(tour.canonical_matterport_space_id ?? "").trim() || null;
   const spaceId = canonicalMpId || persistedMpId;
@@ -480,9 +441,6 @@ export function TourMatterportSection({ tourId, tour, mpVisibility, onSuccess, o
                 loading={metaLoading}
                 spaceId={spaceId}
                 tourId={tourId}
-                bookingOrderNo={tour.booking_order_no as number | null}
-                customerName={tour.canonical_customer_name as string | null}
-                onOpenBookingLink={onOpenBookingLink}
                 tourShowUrl={mpUrl}
                 mpVisibility={mpVisibility}
                 onVisibilitySaved={() => {

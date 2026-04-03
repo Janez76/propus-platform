@@ -8,6 +8,7 @@ import type { ToursAdminTourRow } from "../../../types/toursAdmin";
 import { TourActionLog } from "./components/TourActionLog";
 import { TourActionsPanel } from "./components/TourActionsPanel";
 import { TourInvoicesSection } from "./components/TourInvoicesSection";
+import { TourInternSection } from "./components/TourInternSection";
 import { TourMatterportSection } from "./components/TourMatterportSection";
 
 function tourTitle(t: ToursAdminTourRow) {
@@ -88,6 +89,14 @@ export function TourDetailPage() {
 
       {data ? (
         <>
+          <section className="surface-card-strong p-5 space-y-3">
+            <h2 className="text-lg font-semibold text-[var(--text-main)]">Intern</h2>
+            <TourInternSection
+              bookingOrderNo={data.tour.booking_order_no as number | null}
+              customerName={data.tour.canonical_customer_name as string | null}
+              onOpenBookingLink={() => setEmbedView("booking")}
+            />
+          </section>
           <section className="surface-card-strong p-5 space-y-4">
             <TourActionsPanel
               tourId={okId}
@@ -100,7 +109,6 @@ export function TourDetailPage() {
               tour={data.tour}
               mpVisibility={data.mpVisibility}
               onSuccess={refetchDetail}
-              onOpenBookingLink={() => setEmbedView("booking")}
             />
           </section>
           <TourInvoicesSection
