@@ -84,15 +84,6 @@ export function TourActionsPanel({ tourId, tour, mpVisibility, onSuccess, onOpen
       </div>
       {msg ? <p className="text-sm text-emerald-700 dark:text-emerald-400">{msg}</p> : null}
       {err ? <p className="text-sm text-red-600 dark:text-red-400">{err}</p> : null}
-      {normalizedMpVisibility ? (
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="text-[var(--text-subtle)]">Matterport-Sichtbarkeit (API):</span>
-          <span className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--accent)] bg-[var(--accent)]/10 px-2.5 py-1 font-medium text-[var(--accent)]">
-            <span>{VISIBILITY_META[normalizedMpVisibility].icon}</span>
-            {VISIBILITY_META[normalizedMpVisibility].label}
-          </span>
-        </div>
-      ) : null}
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
