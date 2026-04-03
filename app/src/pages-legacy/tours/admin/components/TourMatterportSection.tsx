@@ -519,7 +519,7 @@ export function TourMatterportSection({ tourId, tour, onSuccess, onOpenBookingLi
             className="inline-flex items-center gap-1 rounded-lg border border-[var(--accent)]/40 bg-[var(--accent)]/10 px-3 py-2 text-sm font-medium text-[var(--accent)]"
           >
             <SlidersHorizontal className="h-3.5 w-3.5" />
-            Tour anpassen
+            Änderung anfragen
           </button>
           <button
             type="button"
