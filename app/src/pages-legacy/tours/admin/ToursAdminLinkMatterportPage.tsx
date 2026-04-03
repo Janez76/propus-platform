@@ -5,13 +5,10 @@ import {
   getLinkMatterportCustomerSearch,
   getToursAdminLinkMatterport,
   postLinkMatterport,
-  postLinkMatterportBatch,
 } from "../../../api/toursAdmin";
 import { useQuery } from "../../../hooks/useQuery";
 import { toursAdminLinkMatterportQueryKey } from "../../../lib/queryKeys";
 import { Tooltip } from "../../../components/ui/tooltip";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "../../../components/ui/dialog";
-
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function buildQs(sp: URLSearchParams) {
@@ -69,32 +66,6 @@ interface ToastState {
 
 // ── Batch action definitions ──────────────────────────────────────────────────
 
-const BATCH_ACTIONS: {
-  action: "auto" | "refresh-created" | "check-ownership";
-  label: string;
-  tooltip: string;
-  confirmRequired: boolean;
-}[] = [
-  {
-    action: "auto",
-    label: "Auto-Link URLs",
-    tooltip: "URLs automatisch mit Spaces abgleichen",
-    confirmRequired: false,
-  },
-  {
-    action: "refresh-created",
-    label: "MP created nachziehen",
-    tooltip: "Erstellungsdatum von Matterport synchronisieren",
-    confirmRequired: false,
-  },
-  {
-    action: "check-ownership",
-    label: "Ownership prüfen",
-    tooltip: "Prüfen ob Spaces deinem Account gehören",
-    confirmRequired: false,
-  },
-];
-
 // ── Toast component ───────────────────────────────────────────────────────────
 
 function Toast({ toast, onClose }: { toast: ToastState; onClose: () => void }) {
@@ -124,45 +95,6 @@ function Toast({ toast, onClose }: { toast: ToastState; onClose: () => void }) {
 
 // ── Confirm dialog ────────────────────────────────────────────────────────────
 
-function ConfirmBatchDialog({
-  label,
-  tooltip,
-  onConfirm,
-  onCancel,
-}: {
-  label: string;
-  tooltip: string;
-  onConfirm: () => void;
-  onCancel: () => void;
-}) {
-  return (
-    <Dialog open onOpenChange={(open) => { if (!open) onCancel(); }}>
-      <DialogContent className="max-w-md">
-        <DialogClose onClose={onCancel} />
-        <DialogHeader>
-          <DialogTitle className="text-base">{label}</DialogTitle>
-        </DialogHeader>
-        <p className="text-sm text-[var(--text-subtle)] mb-5">{tooltip}</p>
-        <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded border border-[var(--border-soft)] px-3 py-1.5 text-sm text-[var(--text-subtle)] hover:bg-[var(--surface-raised)] transition-colors"
-          >
-            Abbrechen
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            className="rounded bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-700 transition-colors"
-          >
-            Bestätigen
-          </button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 // ── Tab navigation ────────────────────────────────────────────────────────────
 
@@ -218,7 +150,6 @@ export function ToursAdminLinkMatterportPage() {
 
   // Busy / UI state
   const [busy, setBusy] = useState<string | null>(null);
-  const [confirmBatch, setConfirmBatch] = useState<(typeof BATCH_ACTIONS)[number] | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [hoveredRow, setHoveredRow] = useState<string | null>(null);
@@ -438,18 +369,6 @@ export function ToursAdminLinkMatterportPage() {
     setShowContactDropdown(false);
   }
 
-  async function runBatch(action: "auto" | "refresh-created" | "check-ownership") {
-    setBusy(action);
-    try {
-      await postLinkMatterportBatch(action);
-      void refetch({ force: true });
-      showToast(`«${BATCH_ACTIONS.find((b) => b.action === action)?.label ?? action}» abgeschlossen`);
-    } catch (e) {
-      showToast(e instanceof Error ? e.message : "Fehler bei Batch-Aktion", "error");
-    } finally {
-      setBusy(null);
-    }
-  }
 
   async function submitLink(e: React.FormEvent) {
     e.preventDefault();
@@ -562,51 +481,26 @@ export function ToursAdminLinkMatterportPage() {
         <p className="text-sm text-red-600 rounded border border-red-300/30 bg-red-50/10 px-3 py-2">{error}</p>
       ) : null}
 
-      {/* Batch Actions */}
-      <div className="flex flex-wrap gap-2 items-center">
-        {BATCH_ACTIONS.map((ba) => (
-          <Tooltip key={ba.action} content={ba.tooltip}>
-            <button
-              type="button"
-              disabled={!!busy}
-              onClick={() => {
-                if (ba.confirmRequired) {
-                  setConfirmBatch(ba);
-                } else {
-                  void runBatch(ba.action);
-                }
-              }}
-              className={`text-xs rounded border px-3 py-1.5 transition-colors disabled:opacity-50 ${
-                ba.confirmRequired
-                  ? "border-red-400/30 text-red-600 dark:text-red-400 hover:bg-red-50/10 dark:hover:bg-red-900/10"
-                  : "border-[var(--border-soft)] text-[var(--text-subtle)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-main)]"
-              }`}
-            >
-              {busy === ba.action ? "…" : ba.label}
-            </button>
-          </Tooltip>
-        ))}
-
-        {selectedIds.size > 0 && (
-          <div className="ml-auto flex items-center gap-2">
-            <span className="text-xs text-[var(--propus-gold)]">{selectedIds.size} ausgewählt</span>
-            <button
-              type="button"
-              onClick={handleBulkTake}
-              className="text-xs rounded bg-[var(--accent)] px-3 py-1.5 text-white hover:opacity-90 transition-opacity"
-            >
-              Übernehmen
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedIds(new Set())}
-              className="text-xs text-[var(--text-subtle)] underline hover:text-[var(--text-main)]"
-            >
-              Auswahl leeren
-            </button>
-          </div>
-        )}
-      </div>
+      {/* Selection toolbar */}
+      {selectedIds.size > 0 && (
+        <div className="flex flex-wrap gap-2 items-center">
+          <span className="text-xs text-[var(--propus-gold)]">{selectedIds.size} ausgewählt</span>
+          <button
+            type="button"
+            onClick={handleBulkTake}
+            className="text-xs rounded bg-[var(--accent)] px-3 py-1.5 text-white hover:opacity-90 transition-opacity"
+          >
+            Übernehmen
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedIds(new Set())}
+            className="text-xs text-[var(--text-subtle)] underline hover:text-[var(--text-main)]"
+          >
+            Auswahl leeren
+          </button>
+        </div>
+      )}
 
       {/* Form anchor */}
       <div ref={formAnchorRef} className="scroll-mt-4" />
@@ -1191,20 +1085,6 @@ export function ToursAdminLinkMatterportPage() {
             </div>
           ) : null}
         </div>
-      )}
-
-      {/* Confirm dialog for destructive batch actions */}
-      {confirmBatch && (
-        <ConfirmBatchDialog
-          label={confirmBatch.label}
-          tooltip={confirmBatch.tooltip}
-          onConfirm={() => {
-            const action = confirmBatch.action;
-            setConfirmBatch(null);
-            void runBatch(action);
-          }}
-          onCancel={() => setConfirmBatch(null)}
-        />
       )}
 
       {/* Toast */}
