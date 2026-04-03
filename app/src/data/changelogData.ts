@@ -15,6 +15,14 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.391",
+    date: "2026-04-03",
+    title: "Migration 063 - Duplikat-Kontakte vor Merge loeschen (uq_customer_contacts_email_per_customer)",
+    changes: [
+      { type: "fix", text: "Migration 063 - Duplikat-Kontakte vor Merge loeschen (uq_customer_contacts_email_per_customer)" },
+    ],
+  },
+  {
     version: "2.3.390",
     date: "2026-04-03",
     title: "NEXTJS_PORT 3001 - behebt Internal Server Error auf /auth/logto/login",
