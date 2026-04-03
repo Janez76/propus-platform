@@ -115,7 +115,20 @@ export function TourActionsPanel({ tourId, tour, onSuccess, onOpenCustomerLink }
             placeholder="Matterport Sweep ID"
           />
           <p className="text-sm text-[var(--text-subtle)]">
-            Gewünschten Startpunkt in Matterport öffnen → im Browser die URL kopieren → den Wert nach <code className="rounded bg-[var(--surface)] px-1 font-mono text-xs">sid=</code> herauskopieren und hier einfügen. Alternativ: in der 3D-Ansicht auf den Sweep klicken → Sweep-ID aus den Eigenschaften ablesen.
+            Gewünschten Startpunkt in Matterport öffnen und dort navigieren. Dann die Adressleiste nutzen:{" "}
+            <kbd className="rounded border border-[var(--border-soft)] bg-[var(--surface)] px-1 font-mono text-xs">Strg+L</kbd>{" "}
+            (Fokus Adressleiste),{" "}
+            <kbd className="rounded border border-[var(--border-soft)] bg-[var(--surface)] px-1 font-mono text-xs">Strg+C</kbd>{" "}
+            zum Kopieren — aus der URL den Wert nach{" "}
+            <code className="rounded bg-[var(--surface)] px-1 font-mono text-xs">sid=</code> hier einfügen.{" "}
+            <strong className="font-medium text-[var(--text-main)]">Nicht</strong> den Seitenquelltext (
+            <kbd className="rounded border border-[var(--border-soft)] bg-[var(--surface)] px-1 font-mono text-xs">Strg+U</kbd>
+            ): Matterport lädt die Position per Skript; die aktuelle Sweep-ID steht in der sichtbaren URL, nicht im statischen HTML.{" "}
+            Alternativ: in der 3D-Ansicht auf den Sweep klicken → Sweep-ID in den Eigenschaften ablesen. Auf dem Mac:{" "}
+            <kbd className="rounded border border-[var(--border-soft)] bg-[var(--surface)] px-1 font-mono text-xs">Cmd+L</kbd>
+            {" / "}
+            <kbd className="rounded border border-[var(--border-soft)] bg-[var(--surface)] px-1 font-mono text-xs">Cmd+C</kbd>
+            .
           </p>
           <button
             type="button"

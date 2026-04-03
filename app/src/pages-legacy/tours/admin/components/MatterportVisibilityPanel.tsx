@@ -10,6 +10,18 @@ const VISIBILITY_META: Record<string, { icon: string; label: string }> = {
   PRIVATE: { icon: "🔒", label: "Privat" },
 };
 
+/** Kurzerklärung pro Stufe (Matterport-Zugriff) */
+const VISIBILITY_HINTS: Record<(typeof VISIBILITY_OPTIONS)[number], string> = {
+  PRIVATE:
+    "Nur für berechtigte Nutzer im Matterport-Konto sichtbar — nicht öffentlich auffindbar und kein freies Teilen wie bei einem öffentlichen Link.",
+  LINK_ONLY:
+    "Wer den direkten Link zur Tour hat, kann sie öffnen; sie erscheint nicht in öffentlichen Listen oder der Suche.",
+  PUBLIC:
+    "Tour ist öffentlich zugänglich — gut für breites Teilen und Einbindung auf Websites (sofern eure Matterport-Einstellungen das erlauben).",
+  PASSWORD:
+    "Zusätzlicher Schutz: Zugang erst nach Eingabe des hier gesetzten Passworts (neben der gewählten Sichtbarkeitsstufe).",
+};
+
 function normalizeVisibility(value: string | null | undefined): string | null {
   const raw = String(value ?? "").trim().toUpperCase();
   if (!raw) return null;
@@ -54,9 +66,17 @@ export function MatterportVisibilityPanel({ tourId, mpVisibility, onSuccess }: P
     }
   }
 
+  const selectedKey = (VISIBILITY_OPTIONS.includes(visibility as (typeof VISIBILITY_OPTIONS)[number])
+    ? visibility
+    : "LINK_ONLY") as (typeof VISIBILITY_OPTIONS)[number];
+
   return (
     <div className="border-b border-[var(--border-soft)] pb-4 space-y-2">
       <h3 className="text-sm font-medium text-[var(--text-main)]">Matterport-Sichtbarkeit</h3>
+      <p className="text-xs text-[var(--text-subtle)] leading-relaxed">
+        Legt fest, wer die Tour im Matterport-Viewer erreichen kann. Option wählen und auf{" "}
+        <strong className="font-medium text-[var(--text-main)]">Anwenden</strong> klicken — die Änderung wird an Matterport übermittelt.
+      </p>
       <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
         {(VISIBILITY_OPTIONS.map((value) => ({ value, ...VISIBILITY_META[value] })) as Array<{
           value: (typeof VISIBILITY_OPTIONS)[number];
@@ -79,6 +99,10 @@ export function MatterportVisibilityPanel({ tourId, mpVisibility, onSuccess }: P
           </button>
         ))}
       </div>
+      <p className="text-xs text-[var(--text-subtle)] leading-relaxed rounded-lg border border-[var(--border-soft)]/80 bg-[var(--surface)] px-2.5 py-2">
+        <span className="font-medium text-[var(--text-main)]">{VISIBILITY_META[selectedKey]?.label}: </span>
+        {VISIBILITY_HINTS[selectedKey]}
+      </p>
       {visibility === "PASSWORD" && (
         <input
           type="password"
