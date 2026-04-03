@@ -202,7 +202,7 @@ export function ToursAdminLinkExxasCustomerPage() {
           <div className="surface-card-strong p-4 text-sm space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold text-[var(--text-main)]">Tour-Kontext</h2>
-              {(tour.customer_id || tour.kunde_ref) && (
+              {!!(tour.customer_id || tour.kunde_ref) && (
                 <div className="flex items-center gap-2">
                   {!unlinkConfirm ? (
                     <button
