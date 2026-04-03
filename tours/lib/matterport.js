@@ -396,12 +396,37 @@ function deriveTourDisplayLabelFromModel(model, formBezeichnung) {
   return name || null;
 }
 
+/**
+ * Überträgt einen Matterport-Space per E-Mail-Einladung an einen anderen Account.
+ * Nutzt den REST-Endpunkt POST /api/models/:id/transfer (Model Transfer API).
+ * Die Übertragung muss vom Empfänger angenommen werden.
+ */
+async function transferSpace(spaceId, toEmail) {
+  const auth = await getAuthHeader();
+  if (!auth) return { success: false, error: 'Matterport-API-Credentials nicht konfiguriert' };
+  try {
+    const res = await fetch(`${MATTERPORT_BASE}/${spaceId}/transfer`, {
+      method: 'POST',
+      headers: { 'Authorization': auth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: toEmail }),
+    });
+    if (res.ok) return { success: true };
+    let errText = '';
+    try { const j = await res.json(); errText = j?.message || j?.error || JSON.stringify(j); } catch { /* ignore */ }
+    return { success: false, error: errText || `HTTP ${res.status}` };
+  } catch (e) {
+    console.warn('Matterport transferSpace', spaceId, e.message);
+    return { success: false, error: e.message };
+  }
+}
+
 module.exports = {
   listModels,
   getModel,
   getOwnModelIds,
   archiveSpace,
   unarchiveSpace,
+  transferSpace,
   allowsLinkWithoutVerify,
   setVisibility,
   patchModelName,

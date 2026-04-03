@@ -761,6 +761,64 @@ router.post('/tours/:id/archive-matterport', async (req, res) => {
   }
 });
 
+router.post('/tours/:id/unarchive-matterport', async (req, res) => {
+  try {
+    const tour = await loadTourById(req.params.id);
+    if (!tour) return res.status(404).json({ ok: false, error: 'Tour nicht gefunden' });
+    const spaceId = tour.canonical_matterport_space_id || tour.matterport_space_id;
+    if (!spaceId) return res.status(400).json({ ok: false, error: 'Tour hat keine Matterport-Verknüpfung' });
+    const result = await matterport.unarchiveSpace(spaceId);
+    if (!result.success) return res.status(400).json({ ok: false, error: result.error || 'Reaktivierung fehlgeschlagen' });
+    await pool.query(
+      `UPDATE tour_manager.tours SET status = 'ACTIVE', matterport_state = 'active', updated_at = NOW() WHERE id = $1`,
+      [tour.id]
+    );
+    await logAction(tour.id, 'admin', adminEmail(req), 'UNARCHIVE_SPACE', { source: 'admin_api', matterport_space_id: spaceId });
+    return res.json({ ok: true, message: 'Matterport-Tour wurde reaktiviert.' });
+  } catch (err) {
+    return res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+router.delete('/tours/:id', async (req, res) => {
+  try {
+    const tour = await loadTourById(req.params.id);
+    if (!tour) return res.status(404).json({ ok: false, error: 'Tour nicht gefunden' });
+    await logAction(tour.id, 'admin', adminEmail(req), 'DELETE_TOUR', {
+      source: 'admin_api',
+      bezeichnung: tour.canonical_object_label || tour.bezeichnung,
+      matterport_space_id: tour.canonical_matterport_space_id || tour.matterport_space_id || null,
+    });
+    await pool.query('DELETE FROM tour_manager.tours WHERE id = $1', [tour.id]);
+    return res.json({ ok: true, message: 'Tour wurde gelöscht.' });
+  } catch (err) {
+    return res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+router.post('/tours/:id/transfer-matterport', async (req, res) => {
+  try {
+    const tour = await loadTourById(req.params.id);
+    if (!tour) return res.status(404).json({ ok: false, error: 'Tour nicht gefunden' });
+    const spaceId = tour.canonical_matterport_space_id || tour.matterport_space_id;
+    if (!spaceId) return res.status(400).json({ ok: false, error: 'Tour hat keine Matterport-Verknüpfung' });
+    const toEmail = String(req.body?.toEmail || '').trim();
+    if (!toEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(toEmail)) {
+      return res.status(400).json({ ok: false, error: 'Ungültige Empfänger-E-Mail-Adresse' });
+    }
+    const result = await matterport.transferSpace(spaceId, toEmail);
+    if (!result.success) return res.status(400).json({ ok: false, error: result.error || 'Übertragung fehlgeschlagen' });
+    await logAction(tour.id, 'admin', adminEmail(req), 'TRANSFER_SPACE', {
+      source: 'admin_api',
+      matterport_space_id: spaceId,
+      to_email: toEmail,
+    });
+    return res.json({ ok: true, message: `Matterport-Space wurde an ${toEmail} übertragen.` });
+  } catch (err) {
+    return res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
 router.post('/tours/:id/exxas-cancel-subscription', async (req, res) => {
   try {
     const tour = await loadTourById(req.params.id);

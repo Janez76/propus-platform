@@ -186,6 +186,18 @@ async function toursAdminDelete<T>(path: string): Promise<T> {
   return data as T;
 }
 
+export function postUnarchiveMatterportTour(tourId: string) {
+  return toursAdminPost(`/tours/${tourId}/unarchive-matterport`);
+}
+
+export function deleteToursAdminTour(tourId: string) {
+  return toursAdminDelete<{ ok: boolean; message?: string }>(`/tours/${tourId}`);
+}
+
+export function postTransferMatterportSpace(tourId: string, toEmail: string) {
+  return toursAdminPost(`/tours/${tourId}/transfer-matterport`, { toEmail });
+}
+
 export function postAdminImpersonate(email: string) {
   return toursAdminPost("/impersonate", { email });
 }
