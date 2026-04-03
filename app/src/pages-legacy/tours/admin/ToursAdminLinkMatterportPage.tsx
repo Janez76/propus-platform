@@ -141,7 +141,7 @@ export function ToursAdminLinkMatterportPage() {
   const [bookingOrderNo, setBookingOrderNo] = useState<number | null>(null);
   const [bookingLabel, setBookingLabel] = useState("");
   const [bookingSuggestions, setBookingSuggestions] = useState<
-    { id: number; order_no: number; status: string; address: string; company: string; email: string; contactName: string; date: string | null; created_at: string; coreCustomerId: string | null; coreCompany: string; coreEmail: string; contacts: { name: string; email: string; tel: string }[] }[]
+    { id: number; order_no: number; status: string; address: string; company: string; email: string; contactSalutation: string; contactFirstName: string; contactName: string; contactEmail: string; contactPhone: string; date: string | null; created_at: string; coreCustomerId: string | null; coreCompany: string; coreEmail: string; contacts: { name: string; email: string; tel: string }[] }[]
   >([]);
   const [bookingSuggestLoading, setBookingSuggestLoading] = useState(false);
 
@@ -682,9 +682,14 @@ export function ToursAdminLinkMatterportPage() {
                                 if (!customerEmail.trim() && o.contacts[0].email) setCustomerEmail(o.contacts[0].email);
                               }
                             } else {
+                              // Kein core.customers Eintrag – direkt aus billing befüllen
                               if (!customerName.trim() && o.company) setCustomerName(o.company);
                               if (!customerEmail.trim() && o.email) setCustomerEmail(o.email);
-                              if (!customerContact.trim() && o.contactName) setCustomerContact(o.contactName);
+                              // Kontaktname aus Vor- + Nachname zusammensetzen
+                              if (!customerContact.trim()) {
+                                const fullName = [o.contactFirstName, o.contactName].filter(Boolean).join(" ").trim();
+                                if (fullName) setCustomerContact(fullName);
+                              }
                             }
                           }
                         }}
