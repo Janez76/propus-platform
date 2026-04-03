@@ -267,7 +267,7 @@ function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId, bookin
           <p className="text-xs font-semibold text-[var(--text-subtle)] uppercase tracking-wide">
             Einstellungen anzeigen
           </p>
-          <div className="divide-y divide-[var(--border-soft)]">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-0 sm:grid-cols-3 lg:grid-cols-4 divide-y-0 [&>*]:border-b [&>*]:border-[var(--border-soft)]">
             {OPTIONS_CONFIG.map(({ key, label, hint, icon, overrideKey }) => (
               <OverrideToggle
                 key={key}
