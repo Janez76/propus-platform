@@ -31,7 +31,6 @@ export function TourDetailPage() {
 
   const { data, loading, error, refetch } = useQuery(qk, queryFn, { enabled: !!okId, staleTime: 20_000 });
   const refetchDetail = useCallback(() => void refetch({ force: true }), [refetch]);
-  const embedMatterportSpaceId = data?.tour.canonical_matterport_space_id ?? data?.tour.matterport_space_id ?? null;
 
   if (!okId) {
     return <Navigate to="/admin/tours/list" replace />;
@@ -138,9 +137,9 @@ export function TourDetailPage() {
                   : embedView === "invoice"
                     ? `/embed/tours/${encodeURIComponent(okId)}/link-invoice`
                     : `/embed/tours/link-matterport${
-                        embedMatterportSpaceId
+                        data.tour.canonical_matterport_space_id || data.tour.matterport_space_id
                           ? `?openSpaceId=${encodeURIComponent(
-                              String(embedMatterportSpaceId)
+                              String(data.tour.canonical_matterport_space_id ?? data.tour.matterport_space_id ?? "")
                             )}`
                           : ""
                       }`

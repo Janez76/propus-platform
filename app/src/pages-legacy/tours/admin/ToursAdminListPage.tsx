@@ -349,6 +349,7 @@ export function ToursAdminListPage() {
                     </button>
                   </th>
                   <th className="px-4 py-3 font-medium hidden lg:table-cell">Rechnung</th>
+                  <th className="px-4 py-3 font-medium hidden xl:table-cell">Tour erstellt am</th>
                   <th className="px-4 py-3 font-medium hidden sm:table-cell">
                     <button
                       type="button"
@@ -366,7 +367,7 @@ export function ToursAdminListPage() {
               <tbody>
                 {data.tours.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-10 text-center text-[var(--text-subtle)]">
+                    <td colSpan={6} className="px-4 py-10 text-center text-[var(--text-subtle)]">
                       Keine Touren für diese Filter.
                     </td>
                   </tr>
@@ -401,6 +402,9 @@ export function ToursAdminListPage() {
                         >
                           {String(t.invoice_status_label || "—")}
                         </span>
+                      </td>
+                      <td className="px-4 py-3 hidden xl:table-cell text-[var(--text-subtle)]">
+                        {formatDate(t.created_at)}
                       </td>
                       <td className="px-4 py-3 hidden sm:table-cell text-[var(--text-subtle)]">
                         {formatDate(t.canonical_term_end_date ?? t.term_end_date ?? t.ablaufdatum)}
