@@ -320,8 +320,8 @@ router.get('/tours', async (req, res) => {
     const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
     const page = Math.min(requestedPage, totalPages);
     const offset = (page - 1) * pageSize;
-    const sortCol = SORT_COLUMNS[String(sort)] ? String(sort) : 'ablaufdatum';
-    const sortDir = order === 'desc' ? 'DESC' : 'ASC';
+    const sortCol = SORT_COLUMNS[String(sort)] ? String(sort) : 'matterport_created';
+    const sortDir = order === 'asc' ? 'ASC' : 'DESC';
     const orderExpr = SORT_COLUMNS[sortCol] || SORT_COLUMNS.ablaufdatum;
     const verifiedLast = (unverifiedOnly !== '1' && verifiedOnly !== '1') ? 'CASE WHEN t.customer_verified = TRUE THEN 1 ELSE 0 END ASC, ' : '';
     let q = `SELECT t.*,

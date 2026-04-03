@@ -73,6 +73,9 @@ function buildListQueryString(sp: URLSearchParams): string {
     const v = sp.get(k);
     if (v != null && v !== "") next.set(k, v);
   }
+  // Default-Sortierung sicherstellen: neueste zuerst
+  if (!next.has("sort")) next.set("sort", "matterport_created");
+  if (!next.has("order")) next.set("order", "desc");
   return next.toString();
 }
 
