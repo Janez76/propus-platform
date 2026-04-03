@@ -15,6 +15,14 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.393",
+    date: "2026-04-03",
+    title: "Enhance tour management with new embed links and UI updates",
+    changes: [
+      { type: "feature", text: "Enhance tour management with new embed links and UI updates" },
+    ],
+  },
+  {
     version: "2.3.392",
     date: "2026-04-03",
     title: "YAML-Syntaxfehler in Notify-Schritt (Heredoc entfernt, env-Variablen)",
