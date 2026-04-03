@@ -15,6 +15,14 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.390",
+    date: "2026-04-03",
+    title: "NEXTJS_PORT 3001 - behebt Internal Server Error auf /auth/logto/login",
+    changes: [
+      { type: "fix", text: "NEXTJS_PORT 3001 - behebt Internal Server Error auf /auth/logto/login" },
+    ],
+  },
+  {
     version: "2.3.389",
     date: "2026-04-03",
     title: "Deploy-Script als separate Datei (kein Heredoc in Funktion) + Rollback robuster",
