@@ -5,6 +5,8 @@ import { useThemeStore } from "../../store/themeStore";
 import { t } from "../../i18n";
 import { ProfileModal } from "../profile/ProfileModal";
 import { API_BASE } from "../../api/client";
+import { isKundenRole } from "../../lib/permissions";
+import { portalLogout } from "../../api/portalTours";
 
 interface TopbarProps {
   onMenuToggle?: () => void;
@@ -80,8 +82,16 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
     return () => window.clearTimeout(timer);
   }, [language]);
 
-  const handleLogout = () => {
+  const role = useAuthStore((s) => s.role);
+  const isKunden = isKundenRole(role);
+
+  const handleLogout = async () => {
     clearAuth();
+    if (isKunden) {
+      await portalLogout().catch(() => null);
+      window.location.href = "/portal/login";
+      return;
+    }
     const redirect = encodeURIComponent(new URL(process.env.NEXT_PUBLIC_BASE_URL || "/", window.location.origin).toString());
     window.location.href = `${API_BASE}/auth/logout?redirect=${redirect}`;
   };
