@@ -5,10 +5,13 @@ import { toursAdminPost, deleteToursAdminTour, postUnarchiveMatterportTour, post
 import type { MatterportModelMeta, MatterportModelOptions, MatterportSettingOverride, MatterportOptionsPatch } from "../../../../api/toursAdmin";
 import type { ToursAdminTourRow } from "../../../../types/toursAdmin";
 import { TicketCreateDialog } from "./TicketCreateDialog";
+import { MatterportVisibilityPanel } from "./MatterportVisibilityPanel";
 
 type Props = {
   tourId: string;
   tour: ToursAdminTourRow;
+  /** API-Sichtbarkeit (Tour-Detail), für Matterport-Sichtbarkeit-Editor */
+  mpVisibility: string | null;
   onSuccess: () => void;
   onOpenBookingLink?: () => void;
 };
@@ -164,7 +167,7 @@ function OverrideToggle({
   );
 }
 
-function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId, bookingOrderNo, customerName, onOpenBookingLink, tourShowUrl }: {
+function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId, bookingOrderNo, customerName, onOpenBookingLink, tourShowUrl, mpVisibility, onVisibilitySaved }: {
   meta: MatterportModelMeta;
   onRefresh: () => void;
   loading: boolean;
@@ -175,6 +178,8 @@ function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId, bookin
   onOpenBookingLink?: () => void;
   /** my.matterport.com/show/?m=… zum Kopieren */
   tourShowUrl: string | null;
+  mpVisibility: string | null;
+  onVisibilitySaved: () => void;
 }) {
   const [linkCopied, setLinkCopied] = useState(false);
 
@@ -210,6 +215,8 @@ function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId, bookin
           Aktualisieren
         </button>
       </div>
+
+      <MatterportVisibilityPanel tourId={tourId} mpVisibility={mpVisibility} onSuccess={onVisibilitySaved} />
 
       {/* Bestellungs-Verknüpfung */}
       {bookingOrderNo ? (
@@ -325,7 +332,7 @@ function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId, bookin
   );
 }
 
-export function TourMatterportSection({ tourId, tour, onSuccess, onOpenBookingLink }: Props) {
+export function TourMatterportSection({ tourId, tour, mpVisibility, onSuccess, onOpenBookingLink }: Props) {
   const persistedMpId = String(tour.matterport_space_id ?? "").trim() || null;
   const canonicalMpId = String(tour.canonical_matterport_space_id ?? "").trim() || null;
   const spaceId = canonicalMpId || persistedMpId;
@@ -477,6 +484,11 @@ export function TourMatterportSection({ tourId, tour, onSuccess, onOpenBookingLi
                 customerName={tour.canonical_customer_name as string | null}
                 onOpenBookingLink={onOpenBookingLink}
                 tourShowUrl={mpUrl}
+                mpVisibility={mpVisibility}
+                onVisibilitySaved={() => {
+                  onSuccess();
+                  void loadMeta();
+                }}
               />
             ) : null}
           </div>

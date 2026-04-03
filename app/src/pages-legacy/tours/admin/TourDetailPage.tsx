@@ -92,13 +92,13 @@ export function TourDetailPage() {
             <TourActionsPanel
               tourId={okId}
               tour={data.tour}
-              mpVisibility={data.mpVisibility}
               onSuccess={refetchDetail}
               onOpenCustomerLink={() => setEmbedView("customer")}
             />
             <TourMatterportSection
               tourId={okId}
               tour={data.tour}
+              mpVisibility={data.mpVisibility}
               onSuccess={refetchDetail}
               onOpenBookingLink={() => setEmbedView("booking")}
             />
