@@ -82,7 +82,7 @@ const ROLE_PRESETS = {
     "team.manage",
     "calendar.view",
   ],
-  company_employee: ["customers.read", "orders.read", "calendar.view"],
+  company_employee: ["customers.read", "orders.read", "orders.create", "calendar.view", "calendar.manage"],
   customer_admin: ["customers.read", "contacts.read", "contacts.manage", "orders.read", "orders.update", "orders.create"],
   customer_user: ["orders.read"],
 };

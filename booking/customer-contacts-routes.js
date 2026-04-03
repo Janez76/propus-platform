@@ -57,7 +57,12 @@ function registerCustomerContactsRoutes(app, db, requireAdmin, ensureCustomerInR
     if (!Number.isFinite(cid)) return null;
     const company = await ensureCompanyForContactSync(p, cid);
     if (!company?.id) return null;
-    const role = db.mapCustomerContactRoleToCompanyMemberRole(contactRow?.role);
+    // portal_role hat Vorrang; Fallback auf heuristische Ableitung aus dem Freitext-role-Feld
+    const VALID_COMPANY_ROLES = new Set(["company_owner", "company_admin", "company_employee"]);
+    const portalRole = String(contactRow?.portal_role || "").trim();
+    const role = VALID_COMPANY_ROLES.has(portalRole)
+      ? portalRole
+      : db.mapCustomerContactRoleToCompanyMemberRole(contactRow?.role);
     let member;
     try {
       member = await db.upsertCompanyMember({
@@ -85,18 +90,24 @@ function registerCustomerContactsRoutes(app, db, requireAdmin, ensureCustomerInR
       const p = db.getPool ? db.getPool() : null;
       if (!p) return res.status(503).json({ error: "DB nicht verf\u00fcgbar" });
       const q = String(req.query.q || "").trim();
-      const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 40));
+      // limit=0 oder limit=all → keine Begrenzung (für Admin-Übersichten)
+      const rawLimit = req.query.limit;
+      const limit = rawLimit === "0" || rawLimit === "all"
+        ? null
+        : Math.min(5000, Math.max(1, Number(rawLimit) || 5000));
       const like = q ? `%${q.replace(/%/g, "").replace(/_/g, "")}%` : "%";
       const { rows } = await p.query(
         `SELECT cc.id, cc.customer_id, cc.name, cc.role, cc.phone, cc.email, cc.sort_order,
-                cc.phone AS phone_direct, cc.salutation, cc.first_name, cc.last_name, cc.phone_mobile, cc.department, cc.exxas_contact_id,
+                cc.phone_direct, cc.salutation, cc.first_name, cc.last_name, cc.phone_mobile, cc.department, cc.exxas_contact_id,
+                cc.created_at,
                 c.name AS customer_name, c.company AS customer_company
-         FROM customer_contacts cc
-         JOIN customers c ON c.id = cc.customer_id
-         WHERE ($1::text = '%' OR cc.name ILIKE $1 OR cc.email ILIKE $1 OR c.name ILIKE $1 OR c.company ILIKE $1)
-         ORDER BY cc.name ASC NULLS LAST
-         LIMIT $2`,
-        [like, limit]
+         FROM core.customer_contacts cc
+         JOIN core.customers c ON c.id = cc.customer_id
+         WHERE ($1::text = '%' OR cc.name ILIKE $1 OR cc.first_name ILIKE $1 OR cc.last_name ILIKE $1
+                OR cc.email ILIKE $1 OR c.name ILIKE $1 OR c.company ILIKE $1)
+         ORDER BY COALESCE(NULLIF(TRIM(cc.last_name), ''), cc.name) ASC NULLS LAST, cc.first_name ASC NULLS LAST
+         ${limit !== null ? `LIMIT ${limit}` : ""}`,
+        [like]
       );
       res.json(rows);
     } catch (err) {
@@ -187,9 +198,11 @@ function registerCustomerContactsRoutes(app, db, requireAdmin, ensureCustomerInR
         }
         throw e;
       }
+      const VALID_PORTAL_ROLES = ["company_owner", "company_admin", "company_employee", "customer_admin", "customer_user"];
+      const portalRoleIn = VALID_PORTAL_ROLES.includes(v("portal_role", "")) ? v("portal_role", "") : "company_employee";
       const { rows } = await p.query(
-        `INSERT INTO customer_contacts (customer_id, name, role, phone, email, sort_order, salutation, first_name, last_name, phone_mobile, department)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id, customer_id, name, role, phone, phone AS phone_direct, email, sort_order, created_at, salutation, first_name, last_name, phone_mobile, department, exxas_contact_id`,
+        `INSERT INTO customer_contacts (customer_id, name, role, phone, email, sort_order, salutation, first_name, last_name, phone_mobile, department, portal_role)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id, customer_id, name, role, portal_role, phone, phone AS phone_direct, email, sort_order, created_at, salutation, first_name, last_name, phone_mobile, department, exxas_contact_id`,
         [
           customerId,
           v("name", ""),
@@ -202,6 +215,7 @@ function registerCustomerContactsRoutes(app, db, requireAdmin, ensureCustomerInR
           v("last_name", ""),
           v("phone_mobile", ""),
           v("department", ""),
+          portalRoleIn,
         ]
       );
       const created = rows[0];
@@ -286,10 +300,14 @@ function registerCustomerContactsRoutes(app, db, requireAdmin, ensureCustomerInR
           await disableCustomerContactCompanyMember(p, prevCust, { email: cur.email });
         } catch (_e) {}
       }
+      const VALID_PORTAL_ROLES_UPD = ["company_owner", "company_admin", "company_employee", "customer_admin", "customer_user"];
+      const portalRoleUpd = Object.prototype.hasOwnProperty.call(b, "portal_role") && VALID_PORTAL_ROLES_UPD.includes(b.portal_role)
+        ? b.portal_role
+        : (cur.portal_role || "company_employee");
       const { rowCount, rows } = await p.query(
         `UPDATE customer_contacts SET customer_id=$1, name=$2, role=$3, phone=$4, email=$5, sort_order=$6,
-            salutation=$7, first_name=$8, last_name=$9, phone_mobile=$10, department=$11
-         WHERE id = $12 RETURNING id, customer_id, name, role, phone, phone AS phone_direct, email, sort_order, created_at, salutation, first_name, last_name, phone_mobile, department, exxas_contact_id`,
+            salutation=$7, first_name=$8, last_name=$9, phone_mobile=$10, department=$11, portal_role=$12
+         WHERE id = $13 RETURNING id, customer_id, name, role, portal_role, phone, phone AS phone_direct, email, sort_order, created_at, salutation, first_name, last_name, phone_mobile, department, exxas_contact_id`,
         [
           targetCustomerId,
           displayName || name,
@@ -302,6 +320,7 @@ function registerCustomerContactsRoutes(app, db, requireAdmin, ensureCustomerInR
           lastName,
           phoneMobile,
           department,
+          portalRoleUpd,
           contactId,
         ]
       );
@@ -348,7 +367,7 @@ function registerCustomerContactsRoutes(app, db, requireAdmin, ensureCustomerInR
       const customerId = Number(req.params.id);
       if (!Number.isFinite(customerId)) return res.status(400).json({ error: "Ungueltige Kunden-ID" });
       const { rows } = await p.query(
-        `SELECT id, customer_id, name, role, phone, email, sort_order, created_at,
+        `SELECT id, customer_id, name, role, portal_role, phone, email, sort_order, created_at,
                 phone AS phone_direct, salutation, first_name, last_name, phone_mobile, department, exxas_contact_id
          FROM customer_contacts WHERE customer_id = $1 ORDER BY sort_order ASC, id ASC`,
         [customerId]
@@ -391,9 +410,11 @@ function registerCustomerContactsRoutes(app, db, requireAdmin, ensureCustomerInR
         }
         throw e;
       }
+      const VALID_PR2 = ["company_owner", "company_admin", "company_employee", "customer_admin", "customer_user"];
+      const portalRole2 = VALID_PR2.includes(v("portal_role", "")) ? v("portal_role", "") : "company_employee";
       const { rows } = await p.query(
-        `INSERT INTO customer_contacts (customer_id, name, role, phone, email, sort_order, salutation, first_name, last_name, phone_mobile, department)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id, customer_id, name, role, phone, phone AS phone_direct, email, sort_order, created_at, salutation, first_name, last_name, phone_mobile, department, exxas_contact_id`,
+        `INSERT INTO customer_contacts (customer_id, name, role, phone, email, sort_order, salutation, first_name, last_name, phone_mobile, department, portal_role)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id, customer_id, name, role, portal_role, phone, phone AS phone_direct, email, sort_order, created_at, salutation, first_name, last_name, phone_mobile, department, exxas_contact_id`,
         [
           customerId,
           v("name", ""),
@@ -406,6 +427,7 @@ function registerCustomerContactsRoutes(app, db, requireAdmin, ensureCustomerInR
           v("last_name", ""),
           v("phone_mobile", ""),
           v("department", ""),
+          portalRole2,
         ]
       );
       const created = rows[0];
@@ -477,9 +499,13 @@ function registerCustomerContactsRoutes(app, db, requireAdmin, ensureCustomerInR
           await disableCustomerContactCompanyMember(p, customerId, { email: cur.email });
         } catch (_e) {}
       }
+      const VALID_PR3 = ["company_owner", "company_admin", "company_employee", "customer_admin", "customer_user"];
+      const portalRole3 = Object.prototype.hasOwnProperty.call(b, "portal_role") && VALID_PR3.includes(b.portal_role)
+        ? b.portal_role
+        : (cur.portal_role || "company_employee");
       const { rowCount, rows } = await p.query(
-        `UPDATE customer_contacts SET name=$1, role=$2, phone=$3, email=$4, sort_order=$5, salutation=$6, first_name=$7, last_name=$8, phone_mobile=$9, department=$10
-         WHERE id = $11 AND customer_id = $12 RETURNING id, customer_id, name, role, phone, phone AS phone_direct, email, sort_order, created_at, salutation, first_name, last_name, phone_mobile, department, exxas_contact_id`,
+        `UPDATE customer_contacts SET name=$1, role=$2, phone=$3, email=$4, sort_order=$5, salutation=$6, first_name=$7, last_name=$8, phone_mobile=$9, department=$10, portal_role=$11
+         WHERE id = $12 AND customer_id = $13 RETURNING id, customer_id, name, role, portal_role, phone, phone AS phone_direct, email, sort_order, created_at, salutation, first_name, last_name, phone_mobile, department, exxas_contact_id`,
         [
           displayName || name,
           role,
@@ -491,6 +517,7 @@ function registerCustomerContactsRoutes(app, db, requireAdmin, ensureCustomerInR
           lastName,
           phoneMobile,
           department,
+          portalRole3,
           contactId,
           customerId,
         ]

@@ -228,7 +228,9 @@ export function CustomerViewModal({ open, token, customer, onClose, onCreateOrde
             <div><span className="font-medium">Land:</span> {toDisplayString(customer.country)}</div>
             <div className="sm:col-span-2"><span className="font-medium">{t(lang, "customerView.label.notes")}</span> {toDisplayString(customer.notes)}</div>
             <div><span className="font-medium">{t(lang, "customerView.label.status")}</span> {customer.blocked ? <span className="text-red-600">{t(lang, "customerView.status.blocked")}</span> : <span className="text-emerald-600">{t(lang, "customerView.status.active")}</span>}</div>
-            <div><span className="font-medium">Portalrolle:</span> {customer.is_admin ? t(lang, "customerView.role.admin") : t(lang, "customerView.role.customer")}</div>
+            <div className="sm:col-span-2 text-xs text-[var(--text-subtle)] border border-[var(--border-soft)] rounded-lg px-3 py-2 bg-[var(--surface-raised)]">
+              <span className="font-semibold text-[var(--text-muted)]">Portal-Rolle:</span> Die Portalrolle wird pro Kontaktperson vergeben (Abschnitt &ldquo;Weitere Kontakte&rdquo; unten).
+            </div>
             <div><span className="font-medium">EXXAS Kunden-ID:</span> {toDisplayString(customer.exxas_customer_id, "-")}</div>
             <div><span className="font-medium">EXXAS Adress-ID:</span> {toDisplayString(customer.exxas_address_id, "-")}</div>
           </div>

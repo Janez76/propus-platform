@@ -12,6 +12,7 @@ import {
   UserPlus,
   X,
   ClipboardList,
+  Users,
 } from "lucide-react";
 import type { CompanyMemberRole } from "../api/company";
 import {
@@ -32,13 +33,21 @@ import { cn } from "../lib/utils";
 import { CustomerAutocompleteInput } from "../components/ui/CustomerAutocompleteInput";
 import type { Customer } from "../api/customers";
 import { CustomerContactsSection } from "../components/customers/CustomerContactsSection";
+import {
+  getContacts,
+  createContact,
+  updateContact,
+  deleteContact,
+  type Contact,
+  type ContactPayload,
+} from "../api/customers";
 
 function isSynthCustomerEmail(e?: string) {
   const lower = String(e || "").toLowerCase();
   return lower.endsWith("@company.local") || lower.endsWith("@invite.buchungstool.invalid");
 }
 
-type PageTab = "firms" | "invitations";
+type PageTab = "firms" | "contacts" | "invitations";
 type StatusFilter = "alle" | "aktiv" | "ausstehend" | "inaktiv";
 
 function roleLabel(r: CompanyMemberRole): string {
@@ -94,6 +103,17 @@ export function CompanyManagementPage() {
   const [inviteSaving, setInviteSaving] = useState(false);
   const [inviteErr, setInviteErr] = useState("");
 
+  // Kontakte-Tab State
+  const [allContacts, setAllContacts] = useState<Contact[]>([]);
+  const [contactsLoading, setContactsLoading] = useState(false);
+  const [contactSearch, setContactSearch] = useState("");
+  const [contactNewForm, setContactNewForm] = useState<ContactPayload>({});
+  const [contactShowCreate, setContactShowCreate] = useState(false);
+  const [contactEditId, setContactEditId] = useState<number | null>(null);
+  const [contactEditForm, setContactEditForm] = useState<ContactPayload>({});
+  const [contactBusy, setContactBusy] = useState<string | null>(null);
+  const [contactErr, setContactErr] = useState("");
+
   const load = useCallback(async () => {
     if (!token || !canManage) {
       setLoading(false);
@@ -116,6 +136,24 @@ export function CompanyManagementPage() {
     void load();
   }, [load]);
 
+  const loadAllContacts = useCallback(async () => {
+    if (!token) return;
+    setContactsLoading(true);
+    setContactErr("");
+    try {
+      const rows = await getContacts(token);
+      setAllContacts(Array.isArray(rows) ? rows : []);
+    } catch (e) {
+      setContactErr(e instanceof Error ? e.message : "Laden fehlgeschlagen");
+    } finally {
+      setContactsLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (tab === "contacts") void loadAllContacts();
+  }, [tab, loadAllContacts]);
+
   const filteredCompanies = useMemo(() => {
     const q = search.trim().toLowerCase();
     return companies.filter((c) => {
@@ -127,6 +165,80 @@ export function CompanyManagementPage() {
       return (c.members || []).some((m) => m.email.toLowerCase().includes(q));
     });
   }, [companies, search, filter]);
+
+  const filteredContacts = useMemo(() => {
+    const q = contactSearch.trim().toLowerCase();
+    if (!q) return allContacts;
+    return allContacts.filter((c) => {
+      const fullName = [c.first_name, c.last_name].filter(Boolean).join(" ") || c.name || "";
+      return (
+        fullName.toLowerCase().includes(q) ||
+        (c.email || "").toLowerCase().includes(q) ||
+        (c.role || "").toLowerCase().includes(q) ||
+        (c.customer_company || "").toLowerCase().includes(q) ||
+        (c.customer_name || "").toLowerCase().includes(q) ||
+        (c.department || "").toLowerCase().includes(q)
+      );
+    });
+  }, [allContacts, contactSearch]);
+
+  async function handleCreateContact() {
+    if (!token) return;
+    const lastName = String(contactNewForm.last_name || "").trim();
+    const firstName = String(contactNewForm.first_name || "").trim();
+    if (!lastName && !firstName) {
+      setContactErr("Name erforderlich.");
+      return;
+    }
+    setContactBusy("create");
+    setContactErr("");
+    try {
+      await createContact(token, {
+        ...contactNewForm,
+        name: [firstName, lastName].filter(Boolean).join(" "),
+      });
+      setContactNewForm({});
+      setContactShowCreate(false);
+      await loadAllContacts();
+    } catch (e) {
+      setContactErr(e instanceof Error ? e.message : "Fehler beim Erstellen");
+    } finally {
+      setContactBusy(null);
+    }
+  }
+
+  async function handleSaveContactEdit(contactId: number) {
+    if (!token) return;
+    setContactBusy(`edit:${contactId}`);
+    setContactErr("");
+    try {
+      await updateContact(token, contactId, {
+        ...contactEditForm,
+        name: [contactEditForm.first_name, contactEditForm.last_name].filter(Boolean).join(" ") || contactEditForm.name,
+      });
+      setContactEditId(null);
+      setContactEditForm({});
+      await loadAllContacts();
+    } catch (e) {
+      setContactErr(e instanceof Error ? e.message : "Fehler beim Speichern");
+    } finally {
+      setContactBusy(null);
+    }
+  }
+
+  async function handleDeleteContact(contactId: number) {
+    if (!token || !window.confirm("Kontakt wirklich löschen?")) return;
+    setContactBusy(`del:${contactId}`);
+    setContactErr("");
+    try {
+      await deleteContact(token, contactId);
+      await loadAllContacts();
+    } catch (e) {
+      setContactErr(e instanceof Error ? e.message : "Fehler beim Löschen");
+    } finally {
+      setContactBusy(null);
+    }
+  }
 
   const allPendingInvitations = useMemo(() => {
     const rows: { company: AdminCompanyRow; inv: AdminInvitationRow }[] = [];
@@ -280,6 +392,7 @@ export function CompanyManagementPage() {
 
   const TABS: { id: PageTab; label: string; icon: React.ReactNode }[] = [
     { id: "firms", label: "Firmen", icon: <Building2 className="h-4 w-4" /> },
+    { id: "contacts", label: "Kontakte", icon: <Users className="h-4 w-4" /> },
     { id: "invitations", label: "Einladungen", icon: <Mail className="h-4 w-4" /> },
   ];
 
@@ -614,6 +727,203 @@ export function CompanyManagementPage() {
                 automatisch übernommen (Logto-Organisationsname folgt).
               </span>
             </div>
+          </>
+        ) : tab === "contacts" ? (
+          <>
+            {/* Kontakte-Tab Header */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-[var(--text-muted)]">
+                Alle Kontaktpersonen ({filteredContacts.length})
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => void loadAllContacts()}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 py-1.5 text-sm text-[var(--text-muted)] hover:text-[var(--text-main)]"
+                >
+                  <RefreshCw className={cn("h-3.5 w-3.5", contactsLoading && "animate-spin")} />
+                  Aktualisieren
+                </button>
+                {canManage && (
+                  <button
+                    type="button"
+                    onClick={() => { setContactShowCreate(true); setContactErr(""); setContactNewForm({}); }}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--accent)] px-4 py-1.5 text-sm font-semibold text-black hover:bg-[var(--accent)]/90"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Neuer Kontakt
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Suchfeld */}
+            <input
+              type="search"
+              placeholder="Name, E-Mail, Firma, Abteilung…"
+              value={contactSearch}
+              onChange={(e) => setContactSearch(e.target.value)}
+              className="ui-input w-full"
+            />
+
+            {contactErr && (
+              <div className="flex items-center gap-2 rounded-lg border border-red-800/50 bg-red-950/30 px-4 py-3 text-sm text-red-400">
+                <span className="flex-1">{contactErr}</span>
+                <button type="button" onClick={() => setContactErr("")} className="opacity-70 hover:opacity-100">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+
+            {/* Neuer Kontakt Formular */}
+            {contactShowCreate && canManage && (
+              <div className="rounded-xl border border-dashed border-[var(--border-soft)] bg-[var(--surface)] p-4">
+                <h3 className="mb-3 text-sm font-semibold text-[var(--text-main)]">Neuer Kontakt</h3>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  <select
+                    className="ui-input"
+                    value={String(contactNewForm.salutation || "")}
+                    onChange={(e) => setContactNewForm((p) => ({ ...p, salutation: e.target.value }))}
+                  >
+                    <option value="">Anrede —</option>
+                    <option value="Herr">Herr</option>
+                    <option value="Frau">Frau</option>
+                  </select>
+                  <input className="ui-input" placeholder="Vorname" value={String(contactNewForm.first_name || "")} onChange={(e) => setContactNewForm((p) => ({ ...p, first_name: e.target.value }))} />
+                  <input className="ui-input" placeholder="Nachname *" value={String(contactNewForm.last_name || "")} onChange={(e) => setContactNewForm((p) => ({ ...p, last_name: e.target.value }))} />
+                  <input className="ui-input" placeholder="Funktion / Rolle" value={String(contactNewForm.role || "")} onChange={(e) => setContactNewForm((p) => ({ ...p, role: e.target.value }))} />
+                  <input className="ui-input" placeholder="Abteilung" value={String(contactNewForm.department || "")} onChange={(e) => setContactNewForm((p) => ({ ...p, department: e.target.value }))} />
+                  <input className="ui-input" type="email" placeholder="E-Mail" value={String(contactNewForm.email || "")} onChange={(e) => setContactNewForm((p) => ({ ...p, email: e.target.value }))} />
+                  <input className="ui-input" placeholder="Telefon direkt" value={String(contactNewForm.phone_direct || "")} onChange={(e) => setContactNewForm((p) => ({ ...p, phone_direct: e.target.value }))} />
+                  <input className="ui-input" placeholder="Mobile" value={String(contactNewForm.phone_mobile || "")} onChange={(e) => setContactNewForm((p) => ({ ...p, phone_mobile: e.target.value }))} />
+                </div>
+                <div className="mt-3 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setContactShowCreate(false); setContactNewForm({}); setContactErr(""); }}
+                    className="rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-sm text-[var(--text-muted)]"
+                  >
+                    Abbrechen
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleCreateContact()}
+                    disabled={contactBusy === "create"}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--accent)] px-4 py-1.5 text-sm font-semibold text-black disabled:opacity-50"
+                  >
+                    Speichern
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Kontaktliste */}
+            {contactsLoading ? (
+              <div className="py-12 text-center text-sm text-[var(--text-muted)]">Laden…</div>
+            ) : filteredContacts.length === 0 ? (
+              <div className="py-16 text-center text-sm text-[var(--text-muted)]">
+                {contactSearch ? "Keine Kontakte gefunden." : "Noch keine Kontakte vorhanden."}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] overflow-hidden">
+                <ul className="divide-y divide-[var(--border-soft)]">
+                  {filteredContacts.map((contact) => {
+                    const isEditing = contactEditId === contact.id;
+                    const displayName = [contact.salutation, contact.first_name, contact.last_name].filter(Boolean).join(" ") || contact.name || `#${contact.id}`;
+                    return (
+                      <li key={contact.id} className="px-4 py-3">
+                        {isEditing && canManage ? (
+                          <div className="space-y-2">
+                            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                              <select className="ui-input" value={String(contactEditForm.salutation || "")} onChange={(e) => setContactEditForm((p) => ({ ...p, salutation: e.target.value }))}>
+                                <option value="">Anrede —</option>
+                                <option value="Herr">Herr</option>
+                                <option value="Frau">Frau</option>
+                              </select>
+                              <input className="ui-input" placeholder="Vorname" value={String(contactEditForm.first_name || "")} onChange={(e) => setContactEditForm((p) => ({ ...p, first_name: e.target.value }))} />
+                              <input className="ui-input" placeholder="Nachname *" value={String(contactEditForm.last_name || "")} onChange={(e) => setContactEditForm((p) => ({ ...p, last_name: e.target.value }))} />
+                              <input className="ui-input" placeholder="Funktion / Rolle" value={String(contactEditForm.role || "")} onChange={(e) => setContactEditForm((p) => ({ ...p, role: e.target.value }))} />
+                              <input className="ui-input" placeholder="Abteilung" value={String(contactEditForm.department || "")} onChange={(e) => setContactEditForm((p) => ({ ...p, department: e.target.value }))} />
+                              <input className="ui-input" type="email" placeholder="E-Mail" value={String(contactEditForm.email || "")} onChange={(e) => setContactEditForm((p) => ({ ...p, email: e.target.value }))} />
+                              <input className="ui-input" placeholder="Telefon direkt" value={String(contactEditForm.phone_direct || "")} onChange={(e) => setContactEditForm((p) => ({ ...p, phone_direct: e.target.value }))} />
+                              <input className="ui-input" placeholder="Mobile" value={String(contactEditForm.phone_mobile || "")} onChange={(e) => setContactEditForm((p) => ({ ...p, phone_mobile: e.target.value }))} />
+                            </div>
+                            <div className="flex justify-end gap-2">
+                              <button type="button" onClick={() => { setContactEditId(null); setContactEditForm({}); }} className="rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-xs text-[var(--text-muted)]">
+                                Abbrechen
+                              </button>
+                              <button type="button" onClick={() => void handleSaveContactEdit(contact.id)} disabled={contactBusy === `edit:${contact.id}`} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60">
+                                Speichern
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-baseline gap-2">
+                                <span className="text-sm font-medium text-[var(--text-main)]">{displayName}</span>
+                                {contact.role && (
+                                  <span className="rounded-full border border-[var(--border-soft)] px-2 py-0.5 text-[10px] text-[var(--text-subtle)]">
+                                    {contact.role}
+                                  </span>
+                                )}
+                                {contact.department && (
+                                  <span className="text-[11px] text-[var(--text-subtle)]">{contact.department}</span>
+                                )}
+                              </div>
+                              <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-[var(--text-muted)]">
+                                {contact.email && <span>{contact.email}</span>}
+                                {(contact.phone_direct || contact.phone) && <span>{contact.phone_direct || contact.phone}</span>}
+                                {contact.phone_mobile && <span>{contact.phone_mobile}</span>}
+                              </div>
+                              {(contact.customer_company || contact.customer_name) && (
+                                <div className="mt-1 flex items-center gap-1 text-[11px] text-[var(--text-subtle)]">
+                                  <Link2 className="h-3 w-3 shrink-0" />
+                                  {contact.customer_company || contact.customer_name}
+                                </div>
+                              )}
+                            </div>
+                            {canManage && (
+                              <div className="flex shrink-0 items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setContactEditId(contact.id);
+                                    setContactEditForm({
+                                      salutation: contact.salutation || "",
+                                      first_name: contact.first_name || "",
+                                      last_name: contact.last_name || "",
+                                      role: contact.role || "",
+                                      department: contact.department || "",
+                                      email: contact.email || "",
+                                      phone_direct: contact.phone_direct || contact.phone || "",
+                                      phone_mobile: contact.phone_mobile || "",
+                                    });
+                                  }}
+                                  className="rounded-lg p-1.5 text-[var(--text-subtle)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-main)]"
+                                  title="Bearbeiten"
+                                >
+                                  <ClipboardList className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => void handleDeleteContact(contact.id)}
+                                  disabled={contactBusy === `del:${contact.id}`}
+                                  className="rounded-lg p-1.5 text-red-400 hover:bg-red-950/30 disabled:opacity-60"
+                                  title="Löschen"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
           </>
         ) : (
           <>

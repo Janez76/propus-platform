@@ -40,11 +40,22 @@ export type Customer = {
   email_aliases?: string[];
 };
 
+export type PortalRole = "company_owner" | "company_admin" | "company_employee" | "customer_admin" | "customer_user";
+
+export const PORTAL_ROLE_OPTIONS: { value: PortalRole; label: string; description: string }[] = [
+  { value: "company_owner",    label: "Firmen-Hauptkontakt", description: "Vollzugriff auf die Firma inkl. Mitglieder einladen/entfernen" },
+  { value: "company_admin",    label: "Firmen-Admin",        description: "Firma und Mitglieder verwalten, Bestellungen erstellen/aktualisieren" },
+  { value: "company_employee", label: "Firmen-Mitarbeiter",  description: "Eigene Bestellungen lesen und erstellen, Kalender" },
+  { value: "customer_admin",   label: "Kunden-Admin",        description: "Bestellungen erstellen, Kontakte verwalten (ohne Firmenzugehörigkeit)" },
+  { value: "customer_user",    label: "Kunden-Benutzer",     description: "Nur eigene Bestellungen lesen (minimaler Zugriff)" },
+];
+
 export type CustomerContact = {
   id: number;
   customer_id: number;
   name: string;
   role: string;
+  portal_role?: PortalRole;
   phone: string;
   email: string;
   sort_order?: number;
@@ -66,6 +77,7 @@ export type Contact = {
   customer_company?: string;
   name: string;
   role: string;
+  portal_role?: PortalRole;
   phone: string;
   email: string;
   sort_order?: number;
@@ -82,6 +94,7 @@ export type Contact = {
 export type CustomerContactPayload = {
   name?: string;
   role?: string;
+  portal_role?: PortalRole;
   phone?: string;
   email?: string;
   sort_order?: number;
@@ -219,8 +232,12 @@ export const updateCustomerContact = (token: string, customerId: number, contact
 export const deleteCustomerContact = (token: string, customerId: number, contactId: number) =>
   apiRequest<{ ok: true }>(`/api/admin/customers/${customerId}/contacts/${contactId}`, "DELETE", token);
 
-export const getContacts = (token: string) =>
-  apiRequest<Contact[]>("/api/admin/contacts", "GET", token);
+export const getContacts = (token: string, q?: string) =>
+  apiRequest<Contact[]>(
+    `/api/admin/contacts?limit=all${q ? `&q=${encodeURIComponent(q)}` : ""}`,
+    "GET",
+    token,
+  );
 
 export const createContact = (token: string, payload: ContactPayload) =>
   apiRequest<{ ok: true; contact: Contact }>("/api/admin/contacts", "POST", token, payload);
