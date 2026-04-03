@@ -108,12 +108,12 @@ export function postLinkMatterportBatch(action: "auto" | "refresh-created" | "sy
   return toursAdminPost(`/link-matterport/${action}`, {});
 }
 
-export function getTourByOrderNo(orderNo: number | string) {
+export function getToursByOrderNo(orderNo: number | string) {
   return toursAdminFetch<{
-    tour: {
+    tours: {
       id: number; bezeichnung: string; tourUrl: string;
       matterportSpaceId: string; status: string; bookingOrderNo: number;
-    } | null;
+    }[];
   }>(`/tours/by-order/${encodeURIComponent(String(orderNo))}`);
 }
 
@@ -180,6 +180,14 @@ async function toursAdminDelete<T>(path: string): Promise<T> {
   const data = (await res.json().catch(() => ({}))) as Record<string, unknown> & { error?: string };
   if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
   return data as T;
+}
+
+export function postAdminImpersonate(email: string) {
+  return toursAdminPost("/impersonate", { email });
+}
+
+export function postAdminImpersonateStop() {
+  return toursAdminPost("/impersonate/stop");
 }
 
 export function getToursAdminCustomersList(queryString: string) {

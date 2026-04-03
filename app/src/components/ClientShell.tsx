@@ -70,6 +70,7 @@ const ToursAdminEmailTemplatesPage = lazy(() => import("../pages-legacy/tours/ad
 const ToursAdminAutomationsPage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminAutomationsPage").then((m) => ({ default: m.ToursAdminAutomationsPage })));
 const ToursAdminTeamPage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminTeamPage").then((m) => ({ default: m.ToursAdminTeamPage })));
 const ToursAdminAiChatPage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminAiChatPage").then((m) => ({ default: m.ToursAdminAiChatPage })));
+const PortalPreviewPage = lazy(() => import("../pages-legacy/tours/admin/PortalPreviewPage").then((m) => ({ default: m.PortalPreviewPage })));
 
 // Portal pages
 const PortalLoginPage = lazy(() => import("../pages-legacy/portal/PortalLoginPage").then((m) => ({ default: m.PortalLoginPage })));
@@ -129,7 +130,7 @@ function PrivateRoutes() {
   }
 
   // Embed-Modus: kein AppShell (Header/Sidebar/Footer), nur Content
-  const embedPaths = ["/embed/tours/link-matterport"];
+  const embedPaths = ["/embed/tours/link-matterport", "/embed/portal"];
   const currentPath = window.location.pathname;
   if (embedPaths.some((p) => currentPath.startsWith(p))) {
     return (
@@ -137,6 +138,13 @@ function PrivateRoutes() {
         <Suspense fallback={<div className="flex justify-center py-12"><div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--accent)]/25 border-t-[var(--accent)]" /></div>}>
           <Routes>
             <Route path="/embed/tours/link-matterport" element={guardedElement(toursAdminRoles, <ToursAdminLinkMatterportPage />)} />
+            <Route path="/embed/portal/dashboard" element={<PortalDashboardPage />} />
+            <Route path="/embed/portal/tours/:tourId/invoices/:invoiceId/print" element={<PortalInvoicePrintPage />} />
+            <Route path="/embed/portal/tours/:tourId" element={<PortalTourDetailPage />} />
+            <Route path="/embed/portal/tours" element={<PortalToursPage />} />
+            <Route path="/embed/portal/invoices" element={<PortalInvoicesPage />} />
+            <Route path="/embed/portal/team" element={<PortalTeamPage />} />
+            <Route path="/embed/portal" element={<Navigate to="/embed/portal/dashboard" replace />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </Suspense>
@@ -199,6 +207,7 @@ function PrivateRoutes() {
         <Route path="/admin/tours/automations" element={guardedElement(toursAdminRoles, <ToursAdminAutomationsPage />)} />
         <Route path="/admin/tours/team" element={guardedElement(toursAdminRoles, <ToursAdminTeamPage />)} />
         <Route path="/admin/tours/ai-chat" element={guardedElement(toursAdminRoles, <ToursAdminAiChatPage />)} />
+        <Route path="/admin/tours/portal-vorschau" element={guardedElement(toursAdminRoles, <PortalPreviewPage />)} />
         <Route path="/admin/tours/:id" element={guardedElement(toursAdminRoles, <TourDetailPage />)} />
         <Route path="/admin/tours" element={guardedElement(toursAdminRoles, <ToursAdminDashboardPage />)} />
       </Routes>

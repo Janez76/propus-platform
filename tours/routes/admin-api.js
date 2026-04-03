@@ -611,6 +611,7 @@ router.post('/tours/:id/set-tour-url', async (req, res) => {
       `UPDATE tour_manager.tours SET tour_url = $1, matterport_is_own = NULL, updated_at = NOW() WHERE id = $2`,
       [tour_url, id]
     );
+    await logAction(id, 'admin', null, 'ADMIN_SET_TOUR_URL', { tour_url });
     return res.json({ ok: true, tour_url: tour_url });
   } catch (err) {
     return res.status(400).json({ ok: false, error: err.message });
@@ -642,6 +643,7 @@ router.post('/tours/:id/set-name', async (req, res) => {
         nameSyncFailed = true;
       }
     }
+    await logAction(id, 'admin', null, 'ADMIN_SET_NAME', { bezeichnung: bezeichnungVal, syncMatterport, nameSyncFailed });
     return res.json({ ok: true, nameSyncFailed });
   } catch (err) {
     return res.status(400).json({ ok: false, error: err.message });
@@ -660,6 +662,7 @@ router.post('/tours/:id/set-start-sweep', async (req, res) => {
       `UPDATE tour_manager.tours SET matterport_start_sweep = $1, updated_at = NOW() WHERE id = $2`,
       [sweep, id]
     );
+    await logAction(id, 'admin', null, 'ADMIN_SET_SWEEP', { start_sweep: sweep });
     return res.json({ ok: true, start_sweep: sweep });
   } catch (err) {
     return res.status(400).json({ ok: false, error: err.message });
@@ -674,6 +677,7 @@ router.post('/tours/:id/set-verified', async (req, res) => {
       `UPDATE tour_manager.tours SET customer_verified = $1, updated_at = NOW() WHERE id = $2`,
       [verified, id]
     );
+    await logAction(id, 'admin', null, 'ADMIN_SET_VERIFIED', { verified });
     return res.json({ ok: true, verified });
   } catch (err) {
     return res.status(400).json({ ok: false, error: err.message });
@@ -1184,6 +1188,7 @@ router.post('/tours/:id/link-invoice', async (req, res) => {
       const st = result.error === 'notfound' ? 404 : result.error === 'alreadylinked' ? 409 : 400;
       return res.status(st).json(result);
     }
+    await logAction(req.params.id, 'admin', null, 'ADMIN_LINK_INVOICE', { invoice_id: invoiceId });
     return res.json(result);
   } catch (err) {
     return res.status(400).json({ ok: false, error: err.message });
@@ -1730,35 +1735,58 @@ router.post('/ai-chat', async (req, res) => {
   return res.json({ ok: true, answer, model: chosenModel });
 });
 
-// Tour by booking order number
+// Tours by booking order number (returns all linked tours)
 router.get('/tours/by-order/:orderNo', async (req, res) => {
   try {
     const orderNo = parseInt(String(req.params.orderNo || ''), 10);
-    if (!Number.isFinite(orderNo) || orderNo < 1) return res.json({ tour: null });
+    if (!Number.isFinite(orderNo) || orderNo < 1) return res.json({ tours: [] });
     const result = await pool.query(
       `SELECT id, bezeichnung, tour_url, matterport_space_id, status, booking_order_no
        FROM tour_manager.tours
        WHERE booking_order_no = $1
-       ORDER BY id DESC
-       LIMIT 1`,
+       ORDER BY id DESC`,
       [orderNo]
     );
-    if (!result.rows[0]) return res.json({ tour: null });
-    const t = result.rows[0];
     return res.json({
-      tour: {
+      tours: result.rows.map((t) => ({
         id: t.id,
         bezeichnung: t.bezeichnung || '',
         tourUrl: t.tour_url || '',
         matterportSpaceId: t.matterport_space_id || '',
         status: t.status || '',
         bookingOrderNo: t.booking_order_no,
-      },
+      })),
     });
   } catch (err) {
     console.error('[admin-api] GET /tours/by-order/:orderNo', err);
     return res.status(500).json({ ok: false, error: err.message });
   }
+});
+
+// ─── Admin Impersonation (Kunden-Vorschau) ──────────────────────────────────
+
+router.post('/impersonate', (req, res) => {
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  if (!email || !email.includes('@')) {
+    return res.status(400).json({ ok: false, error: 'Ungültige E-Mail' });
+  }
+  req.session.portalCustomerEmail = email;
+  req.session.portalCustomerName  = email;
+  req.session.isAdminImpersonating = true;
+  req.session.save((err) => {
+    if (err) return res.status(500).json({ ok: false, error: 'Session-Fehler' });
+    res.json({ ok: true, email });
+  });
+});
+
+router.post('/impersonate/stop', (req, res) => {
+  delete req.session.portalCustomerEmail;
+  delete req.session.portalCustomerName;
+  delete req.session.isAdminImpersonating;
+  req.session.save((err) => {
+    if (err) return res.status(500).json({ ok: false, error: 'Session-Fehler' });
+    res.json({ ok: true });
+  });
 });
 
 module.exports = router;

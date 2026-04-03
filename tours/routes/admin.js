@@ -3441,6 +3441,7 @@ router.get('/impersonate', async (req, res) => {
   res.redirect('/portal/tours');
 });
 
+
 // ─── Profil (Sidebar): Anzeigename + Foto ─────────────────────────────────────
 
 router.get('/profile/me', async (req, res) => {

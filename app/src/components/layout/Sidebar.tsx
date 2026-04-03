@@ -32,6 +32,7 @@ import {
   Settings2,
   Zap,
   MessageSquare,
+  Eye,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -232,6 +233,10 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                           <Link2 className="h-4 w-4 flex-shrink-0" />
                           {t(lang, "nav.tours.matterport")}
                         </NavLink>
+                        <NavLink to="/admin/tours/portal-vorschau" onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <Eye className="h-4 w-4 flex-shrink-0" />
+                          {t(lang, "nav.tours.portalPreview")}
+                        </NavLink>
                       </div>
                     )}
                   </div>
@@ -393,6 +398,10 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                         <NavLink to="/admin/tours/ai-chat" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
                           <MessageSquare className="h-4 w-4 flex-shrink-0" />
                           {t(lang, "nav.tours.aiChat")}
+                        </NavLink>
+                        <NavLink to="/admin/tours/portal-vorschau" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <Eye className="h-4 w-4 flex-shrink-0" />
+                          {t(lang, "nav.tours.portalPreview")}
                         </NavLink>
                       </div>
                     )}
