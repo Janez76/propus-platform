@@ -21,6 +21,7 @@ export type ToursAdminTourRow = Record<string, unknown> & {
   customer_email?: string | null;
   invoice_status_label?: string;
   invoice_status_tone?: string;
+  booking_order_no?: number | null;
 };
 
 export type ToursAdminDashboardResponse = {

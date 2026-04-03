@@ -377,8 +377,11 @@ export function ToursAdminListPage() {
                     <tr key={t.id} className="border-b border-[var(--border-soft)]/50 hover:bg-[var(--surface-raised)]/30">
                       <td className="px-4 py-3">
                         <div className="font-medium text-[var(--text-main)]">{tourTitle(t)}</div>
-                        <div className="text-xs text-[var(--text-subtle)] mt-0.5">
-                          {(t.canonical_customer_name as string) || (t.customer_email as string) || "—"}
+                        <div className="text-xs text-[var(--text-subtle)] mt-0.5 flex items-center gap-1.5 flex-wrap">
+                          <span>{(t.canonical_customer_name as string) || (t.customer_email as string) || "—"}</span>
+                          {t.booking_order_no ? (
+                            <span className="text-[var(--propus-gold)]/80">#{t.booking_order_no}</span>
+                          ) : null}
                         </div>
                       </td>
                       <td className="px-4 py-3 hidden md:table-cell text-[var(--text-main)]">
