@@ -75,6 +75,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 50
 
       - name: Setup SSH
         run: |
@@ -83,7 +85,7 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519_propus_vps
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Bump version
+      - name: Bump version + Changelog
         id: bump
         run: |
           set -e
@@ -96,11 +98,13 @@ jobs:
           NEW_VER="v${MAJOR}.${MINOR}.${NEW_PATCH}"
           echo "new_version=$NEW_VER" >> "$GITHUB_OUTPUT"
           echo "Bumping $RAW -> $NEW_VER"
+
           # Alle VERSION-Dateien aktualisieren
           echo -n "$NEW_VER" > booking/public/VERSION
           echo -n "$NEW_VER" > booking/admin-panel/public/VERSION
           echo -n "$NEW_VER" > app/public/VERSION
           echo -n "$NEW_VER" > website/public/VERSION
+
           # website/package.json version aktualisieren
           node -e "
             const fs = require('fs');
@@ -108,11 +112,22 @@ jobs:
             p.version = '${MAJOR}.${MINOR}.${NEW_PATCH}';
             fs.writeFileSync('website/package.json', JSON.stringify(p, null, 2) + '\n');
           "
-          # Commit & Push
+
+          # Changelog automatisch aus Commits generieren
+          node scripts/update-changelog.js --version "$NEW_VER" --date "$(date +%Y-%m-%d)"
+
+          # Commit & Push (Version + Changelog in einem Commit)
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add booking/public/VERSION booking/admin-panel/public/VERSION app/public/VERSION website/public/VERSION website/package.json
-          git commit -m "chore(version): Deploy-Version auf $NEW_VER erhoehen [skip ci]"
+          git add \
+            booking/public/VERSION \
+            booking/admin-panel/public/VERSION \
+            app/public/VERSION \
+            website/public/VERSION \
+            website/package.json \
+            app/src/data/changelogData.ts \
+            booking/admin-panel/src/data/changelogData.ts
+          git commit -m "chore: Deploy $NEW_VER [skip ci]"
           git push origin master
 
       - name: Create deploy archive
@@ -138,9 +153,38 @@ jobs:
           scp -i ~/.ssh/id_ed25519_propus_vps /tmp/propus-platform.env.vps \
             root@${{ secrets.VPS_HOST }}:/opt/propus-platform/.env.vps
 
-      - name: Deploy to VPS
+      # ── Rollback-Snapshot vor dem Deploy sichern ───────────────────────────
+      - name: Save rollback snapshot
         run: |
-          ssh -i ~/.ssh/id_ed25519_propus_vps root@${{ secrets.VPS_HOST }} "GITHUB_SHA='${GITHUB_SHA}' bash -se" << 'ENDSSH'
+          ssh -i ~/.ssh/id_ed25519_propus_vps root@${{ secrets.VPS_HOST }} bash << 'ENDSSH'
+            set -e
+            PROJECT_ROOT=/opt/propus-platform
+            ROLLBACK_DIR=/opt/propus-platform-rollback
+            mkdir -p "$ROLLBACK_DIR"
+
+            # Aktuell laufende Version als Rollback-Archiv sichern (nur wenn vorhanden)
+            if [ -d "$PROJECT_ROOT" ] && [ "$(ls -A "$PROJECT_ROOT" 2>/dev/null)" ]; then
+              echo "==> Sichere aktuellen Stand fuer moeglichen Rollback..."
+              tar -czf "${ROLLBACK_DIR}/last-good.tar.gz" -C "$PROJECT_ROOT" . 2>/dev/null || true
+              if [ -f "${PROJECT_ROOT}/.env.vps" ]; then
+                cp "${PROJECT_ROOT}/.env.vps" "${ROLLBACK_DIR}/last-good.env.vps"
+              fi
+              echo "Rollback-Snapshot gespeichert: ${ROLLBACK_DIR}/last-good.tar.gz"
+            else
+              echo "Kein bestehender Stand gefunden – kein Rollback-Snapshot."
+            fi
+          ENDSSH
+
+      # ── Deploy (mit automatischem Retry bei Fehler) ────────────────────────
+      - name: Deploy to VPS
+        id: deploy_step
+        continue-on-error: true
+        run: |
+          deploy_once() {
+            ssh -i ~/.ssh/id_ed25519_propus_vps \
+              -o ServerAliveInterval=30 \
+              -o ServerAliveCountMax=12 \
+              root@${{ secrets.VPS_HOST }} "GITHUB_SHA='${GITHUB_SHA}' bash -se" << 'ENDSSH'
             set -e
             PROJECT_ROOT=/opt/propus-platform
             ARCHIVE_PATH=/tmp/propus-platform-${GITHUB_SHA}.tar.gz
@@ -158,6 +202,7 @@ jobs:
             cd "$PROJECT_ROOT"
 
             echo "==> Docker Build"
+            export DOCKER_BUILDKIT=1
             docker compose -f docker-compose.vps.yml --env-file .env.vps build migrate platform website
 
             echo "==> Platform Restart"
@@ -172,9 +217,7 @@ jobs:
               fuser -k 4343/tcp || true
             else
               pids=$(ss -ltnp '( sport = :4343 )' 2>/dev/null | awk -F 'pid=' 'NR>1 && NF>1 {split($2,a,","); print a[1]}' | sort -u)
-              if [ -n "$pids" ]; then
-                kill $pids || true
-              fi
+              if [ -n "$pids" ]; then kill $pids || true; fi
             fi
             docker compose -f docker-compose.vps.yml --env-file .env.vps up -d --force-recreate website
 
@@ -205,7 +248,48 @@ jobs:
             done
 
             echo "==> Deploy complete"
-          ENDSSH
+            ENDSSH
+          }
+
+          # Versuch 1
+          echo "==> Deploy Versuch 1/2..."
+          if deploy_once; then
+            echo "deploy_result=success" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "::warning::Versuch 1 fehlgeschlagen. Warte 30s, dann Versuch 2..."
+          sleep 30
+
+          # Versuch 2 (Retry)
+          echo "==> Deploy Versuch 2/2 (Retry)..."
+          if deploy_once; then
+            echo "deploy_result=success" >> "$GITHUB_OUTPUT"
+            echo "::notice::Deploy nach Retry erfolgreich."
+            exit 0
+          fi
+
+          echo "deploy_result=failed" >> "$GITHUB_OUTPUT"
+          echo "::error::Deploy nach 2 Versuchen fehlgeschlagen."
+          exit 1
+
+      # ── Automatischer Rollback wenn Deploy fehlschlaegt ────────────────────
+      - name: Automatic rollback on deploy failure
+        if: steps.deploy_step.outcome == 'failure'
+        run: |
+          echo "::error::Deploy fehlgeschlagen – starte automatischen Rollback..."
+          ssh -i ~/.ssh/id_ed25519_propus_vps \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=6 \
+            root@${{ secrets.VPS_HOST }} \
+            "bash /opt/propus-platform/scripts/rollback-vps.sh"
+          echo "::warning::Rollback abgeschlossen. Produktionssystem laeuft auf letzter stabiler Version."
+
+      - name: Fail after rollback
+        if: steps.deploy_step.outcome == 'failure'
+        run: |
+          echo "::error::Deploy fehlgeschlagen (Rollback wurde ausgefuehrt). Bitte Fehler beheben und erneut pushen."
+          exit 1
 
       - name: Container status check
         run: |
@@ -233,7 +317,6 @@ jobs:
               fi
             }
 
-            # Alle erwarteten Container pruefen
             for ctn in \
               propus-platform-postgres-1 \
               propus-platform-logto-db-1 \
@@ -276,7 +359,7 @@ jobs:
         run: |
           set -e
           if [ -z "${CF_ZONE:-}" ] || [ -z "${CF_EMAIL:-}" ] || [ -z "${CF_KEY:-}" ]; then
-            echo "::warning::Cloudflare-Secrets (CLOUDFLARE_ZONE_ID / CLOUDFLARE_AUTH_EMAIL / CLOUDFLARE_AUTH_KEY) fehlen — Cache-Purge uebersprungen."
+            echo "::warning::Cloudflare-Secrets fehlen — Cache-Purge uebersprungen."
             exit 0
           fi
           echo "==> Cloudflare purge_everything"
@@ -307,8 +390,11 @@ jobs:
       - name: Notify deploy status
         if: always()
         run: |
-          STATUS=${{ job.status == 'success' && 'SUCCESS' || 'FAILED' }}
-          echo "Deploy status: $STATUS"
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "::notice::Deploy erfolgreich: ${{ steps.bump.outputs.new_version }}"
+          else
+            echo "::error::Deploy fehlgeschlagen fuer Version ${{ steps.bump.outputs.new_version }}"
+          fi
 
   # ─── Smoke Tests ────────────────────────────────────────────────────────────
   smoke:

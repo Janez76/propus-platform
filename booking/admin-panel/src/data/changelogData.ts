@@ -15,25 +15,108 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
-    version: "2.3.347",
-    date: "2026-04-01",
-    title: "Deploy",
+    version: "2.3.387",
+    date: "2026-04-03",
+    title: "CI: Automatischer Changelog + Retry & Rollback bei Deploy",
     changes: [
-      {
-        type: "improvement",
-        text: "Versionsnummer fuer VPS-Deploy auf v2.3.347 erhoeht; platform/frontend (alte Vite SPA) entfernt; Key-Pickup-Feature, Dark-Mode-Styles, Favicon-Assets.",
-      },
+      { type: "improvement", text: "GitHub Actions: Changelog wird bei jedem Deploy automatisch aus Commit-Messages generiert." },
+      { type: "improvement", text: "Deploy: Automatischer Retry (2 Versuche) bei flaky Fehlern wie Netzwerk-Timeouts." },
+      { type: "improvement", text: "Deploy: Automatischer Rollback auf letzte stabile Version wenn Deploy nach Retry fehlschlaegt." },
+      { type: "improvement", text: "CI: Container-Status-Check nach Deploy prueft alle 5 Container (postgres, logto-db, logto, platform, website)." },
+    ],
+  },
+  {
+    version: "2.3.386",
+    date: "2026-04-03",
+    title: "CI: Container-Status-Check nach Deploy",
+    changes: [
+      { type: "improvement", text: "GitHub Actions prueft nach jedem Deploy ob alle Container (postgres, logto-db, logto, platform, website) laufen." },
+      { type: "improvement", text: "Bei fehlerhaften Containern werden automatisch die letzten 50 Log-Zeilen ausgegeben." },
+    ],
+  },
+  {
+    version: "2.3.385",
+    date: "2026-04-03",
+    title: "fix: TypeScript-Fehler in Verknuepfung-aufheben-Seite",
+    changes: [
+      { type: "fix", text: "ToursAdminLinkExxasCustomerPage: TypeScript ReactNode-Fehler behoben (unknown-Typ in JSX-Bedingung)." },
+    ],
+  },
+  {
+    version: "2.3.384",
+    date: "2026-04-03",
+    title: "Verknuepfung aufheben auf Kunde-anpassen-Seite",
+    changes: [
+      { type: "feature", text: "Neue Schaltflaeche 'Verknuepfung aufheben' auf der Seite 'Kunde anpassen' – loest die Verbindung zwischen Tour und core.customers-Eintrag." },
+      { type: "improvement", text: "Sicherheitsabfrage vor dem Aufheben der Verknuepfung (Bestaetigung noetig)." },
+      { type: "improvement", text: "Neuer DELETE-Endpunkt /api/tours/:id/link-exxas-customer im Backend." },
+    ],
+  },
+  {
+    version: "2.3.383",
+    date: "2026-04-03",
+    title: "Email-Alias-System fuer Kunden (Nextkey / CSL)",
+    changes: [
+      { type: "feature", text: "Kunden koennen mehrere E-Mail-Domains haben (email_aliases[]): automatische Zuordnung bei Tours, Bestellungen, Login und RBAC." },
+      { type: "feature", text: "Admin-UI: E-Mail-Aliases als editierbare Tags in der Kunden-Detailansicht." },
+      { type: "feature", text: "SQL-Funktion core.customer_email_matches() fuer einheitliche Email-Suche in allen Abfragen." },
+      { type: "improvement", text: "Portal-Navigation in Impersonation-Modus (embed/portal) korrigiert: usePortalNav-Hook." },
+      { type: "improvement", text: "Portal: Detailseite einer Tour laedt korrekt (useParams-Fix fuer tourId)." },
+      { type: "fix", text: "Kundensuche in Impersonation-Vorschau filterte nicht: Query-Parameter von search= auf q= korrigiert." },
+    ],
+  },
+  {
+    version: "2.3.382",
+    date: "2026-04-03",
+    title: "Bestellnummer in Touren-Liste beim Kunden",
+    changes: [
+      { type: "feature", text: "Touren-Liste im Admin zeigt jetzt die verknuepfte Bestellnummer pro Tour an." },
+    ],
+  },
+  {
+    version: "2.3.381",
+    date: "2026-04-03",
+    title: "Touren-Liste: Sortierung neueste zuerst",
+    changes: [
+      { type: "fix", text: "Touren-Liste sortiert standardmaessig nach Erstellungsdatum absteigend (neueste zuerst)." },
+    ],
+  },
+  {
+    version: "2.3.380",
+    date: "2026-04-03",
+    title: "Neuer Kunde: CreateContactDialog + Kunden-Vorschau Autocomplete",
+    changes: [
+      { type: "improvement", text: "Neuer Kunde verwendet CreateContactDialog fuer konsistente Kontakt-Erstellung." },
+      { type: "fix", text: "Kunden-Vorschau Autocomplete gibt korrekte Ergebnisse zurueck." },
+    ],
+  },
+  {
+    version: "2.3.378",
+    date: "2026-04-03",
+    title: "Kunden-Vorschau im Tour Manager (Impersonation)",
+    changes: [
+      { type: "feature", text: "Tour Manager: Neuer Tab 'Portal-Vorschau' zeigt das Kundenportal eingebettet als iFrame (Impersonation-Modus)." },
+      { type: "improvement", text: "Admin kann Kundenportal aus Kundensicht direkt im Tour Manager sehen." },
+    ],
+  },
+  {
+    version: "2.3.376",
+    date: "2026-04-03",
+    title: "Architektur: EJS vollstaendig durch React ersetzt",
+    changes: [
+      { type: "breaking", text: "Alle Portal- und Admin-EJS-Templates entfernt. UI laeuft vollstaendig ueber React SPA (Next.js)." },
+      { type: "improvement", text: "CI-Guard blockiert neue EJS-Dateien automatisch (scripts/guard-no-ejs.sh)." },
+      { type: "improvement", text: "Pre-Commit-Hook und Cursor-Regeln verhindern EJS-Rueckfall." },
+      { type: "feature", text: "Portal: Login, Passwort vergessen/Reset, Profil-Modal, Tour-Detail, Rechnung-Druck als React-Komponenten." },
+      { type: "feature", text: "Admin: Accept-Invite als React-Seite." },
     ],
   },
   {
     version: "2.3.340",
     date: "2026-03-31",
-    title: "Deploy",
+    title: "Next.js SPA: Build-ID und Health-Check",
     changes: [
-      {
-        type: "improvement",
-        text: "Next.js-Stack liefert wieder eine pruefbare Build-ID ueber /api/health, /api/core/health und /VERSION; Deploy-Version auf v2.3.340 erhoeht.",
-      },
+      { type: "improvement", text: "Next.js-Stack liefert pruefbare Build-ID ueber /api/health, /api/core/health und /VERSION." },
     ],
   },
   {
@@ -56,28 +139,6 @@ export const CHANGELOG: ChangelogVersion[] = [
     ],
   },
   {
-    version: "2.3.333",
-    date: "2026-03-31",
-    title: "Deploy",
-    changes: [
-      {
-        type: "improvement",
-        text: "Versionsnummer fuer VPS-Deploy auf v2.3.333 erhoeht.",
-      },
-    ],
-  },
-  {
-    version: "2.3.332",
-    date: "2026-03-31",
-    title: "Deploy",
-    changes: [
-      {
-        type: "improvement",
-        text: "Versionsnummer fuer VPS-Deploy auf v2.3.332 erhoeht.",
-      },
-    ],
-  },
-  {
     version: "2.3.331",
     date: "2026-03-30",
     title: "Tour-Manager: Theme Hell/Dunkel/System",
@@ -89,39 +150,6 @@ export const CHANGELOG: ChangelogVersion[] = [
       {
         type: "improvement",
         text: "Dark-Mode-CSS-Tokens an platform/frontend index.css (html.dark) angeglichen; Portal- und Tour-Detail-Flächen auf var(--surface)/var(--bg) umgestellt.",
-      },
-    ],
-  },
-  {
-    version: "2.3.330",
-    date: "2026-03-30",
-    title: "Deploy",
-    changes: [
-      {
-        type: "improvement",
-        text: "Versionsnummer fuer VPS-Deploy auf v2.3.330 erhoeht.",
-      },
-    ],
-  },
-  {
-    version: "2.3.329",
-    date: "2026-03-30",
-    title: "Deploy",
-    changes: [
-      {
-        type: "improvement",
-        text: "Versionsnummer fuer VPS-Deploy auf v2.3.329 erhoeht.",
-      },
-    ],
-  },
-  {
-    version: "2.3.328",
-    date: "2026-03-30",
-    title: "Deploy",
-    changes: [
-      {
-        type: "improvement",
-        text: "Versionsnummer fuer VPS-Deploy auf v2.3.328 erhoeht.",
       },
     ],
   },
@@ -160,50 +188,6 @@ export const CHANGELOG: ChangelogVersion[] = [
     ],
   },
   {
-    version: "2.3.325",
-    date: "2026-03-30",
-    title: "Deploy",
-    changes: [
-      {
-        type: "improvement",
-        text: "Versionsnummer fuer VPS-Deploy auf v2.3.325 erhoeht.",
-      },
-    ],
-  },
-  {
-    version: "2.3.324",
-    date: "2026-03-30",
-    title: "Deploy",
-    changes: [
-      {
-        type: "improvement",
-        text: "Versionsnummer fuer VPS-Deploy auf v2.3.324 erhoeht.",
-      },
-    ],
-  },
-  {
-    version: "2.3.323",
-    date: "2026-03-30",
-    title: "Deploy",
-    changes: [
-      {
-        type: "improvement",
-        text: "Versionsnummer fuer VPS-Deploy auf v2.3.323 erhoeht.",
-      },
-    ],
-  },
-  {
-    version: "2.3.322",
-    date: "2026-03-30",
-    title: "Deploy",
-    changes: [
-      {
-        type: "improvement",
-        text: "Versionsnummer fuer VPS-Deploy auf v2.3.322 erhoeht.",
-      },
-    ],
-  },
-  {
     version: "2.3.321",
     date: "2026-03-30",
     title: "Portal RBAC Phase 4 + Deploy",
@@ -238,226 +222,6 @@ export const CHANGELOG: ChangelogVersion[] = [
     ],
   },
   {
-    version: "2.3.319",
-    date: "2026-03-30",
-    title: "Deploy",
-    changes: [
-      {
-        type: "improvement",
-        text: "Versionsnummer fuer VPS-Deploy auf v2.3.319 erhoeht.",
-      },
-    ],
-  },
-  {
-    version: "2.3.317",
-    date: "2026-03-30",
-    title: "Deploy",
-    changes: [
-      {
-        type: "improvement",
-        text: "Versionsnummer fuer VPS-Deploy auf v2.3.317 erhoeht.",
-      },
-    ],
-  },
-  {
-    version: "2.3.316",
-    date: "2026-03-30",
-    title: "Deploy",
-    changes: [
-      {
-        type: "improvement",
-        text: "Versionsnummer fuer VPS-Deploy auf v2.3.316 erhoeht.",
-      },
-    ],
-  },
-  {
-    version: "2.3.314",
-    date: "2026-03-30",
-    title: "Deploy",
-    changes: [
-      {
-        type: "improvement",
-        text: "Versionsnummer fuer VPS-Deploy auf v2.3.314 erhoeht.",
-      },
-    ],
-  },
-  {
-    version: "2.3.313",
-    date: "2026-03-30",
-    title: "Deploy",
-    changes: [
-      {
-        type: "improvement",
-        text: "Versionsnummer fuer VPS-Deploy auf v2.3.313 erhoeht.",
-      },
-    ],
-  },
-  {
-    version: "2.3.310",
-    date: "2026-03-30",
-    title: "Deploy",
-    changes: [
-      {
-        type: "improvement",
-        text: "Versionsnummer fuer VPS-Deploy auf v2.3.310 erhoeht.",
-      },
-    ],
-  },
-  {
-    version: "2.3.308",
-    date: "2026-03-30",
-    title: "Deploy",
-    changes: [
-      {
-        type: "improvement",
-        text: "Versionsnummer fuer VPS-Deploy auf v2.3.308 erhoeht.",
-      },
-    ],
-  },
-  {
-    version: "2.3.306",
-    date: "2026-03-30",
-    title: "Deploy",
-    changes: [
-      {
-        type: "improvement",
-        text: "Versionsnummer fuer VPS-Deploy auf v2.3.306 erhoeht.",
-      },
-    ],
-  },
-  {
-    version: "2.3.305",
-    date: "2026-03-30",
-    title: "Deploy",
-    changes: [
-      {
-        type: "improvement",
-        text: "Versionsnummer fuer VPS-Deploy auf v2.3.305 erhoeht.",
-      },
-    ],
-  },
-  {
-    version: "2.3.304",
-    date: "2026-03-30",
-    title: "Deploy",
-    changes: [
-      {
-        type: "improvement",
-        text: "Versionsnummer fuer VPS-Deploy auf v2.3.304 erhoeht.",
-      },
-    ],
-  },
-  {
-    version: "2.3.303",
-    date: "2026-03-30",
-    title: "Deploy",
-    changes: [
-      {
-        type: "improvement",
-        text: "Versionsnummer fuer VPS-Deploy auf v2.3.303 erhoeht.",
-      },
-    ],
-  },
-  {
-    version: "2.3.302",
-    date: "2026-03-30",
-    title: "Deploy",
-    changes: [
-      {
-        type: "improvement",
-        text: "Versionsnummer fuer VPS-Deploy auf v2.3.302 erhoeht.",
-      },
-    ],
-  },
-  {
-    version: "2.3.301",
-    date: "2026-03-30",
-    title: "Deploy",
-    changes: [
-      {
-        type: "improvement",
-        text: "Versionsnummer fuer VPS-Deploy auf v2.3.301 erhoeht.",
-      },
-    ],
-  },
-  {
-    version: "2.3.300",
-    date: "2026-03-30",
-    title: "Deploy",
-    changes: [
-      {
-        type: "improvement",
-        text: "Versionsnummer fuer VPS-Deploy auf v2.3.300 erhoeht.",
-      },
-    ],
-  },
-  {
-    version: "2.3.298",
-    date: "2026-03-30",
-    title: "Deploy",
-    changes: [
-      {
-        type: "improvement",
-        text: "Versionsnummer fuer VPS-Deploy auf v2.3.298 erhoeht.",
-      },
-    ],
-  },
-  {
-    version: "2.3.297",
-    date: "2026-03-30",
-    title: "Deploy",
-    changes: [
-      {
-        type: "improvement",
-        text: "Versionsnummer fuer VPS-Deploy auf v2.3.297 erhoeht.",
-      },
-    ],
-  },
-  {
-    version: "2.3.296",
-    date: "2026-03-30",
-    title: "Deploy",
-    changes: [
-      {
-        type: "improvement",
-        text: "Versionsnummer fuer VPS-Deploy auf v2.3.296 erhoeht.",
-      },
-    ],
-  },
-  {
-    version: "2.3.295",
-    date: "2026-03-30",
-    title: "Deploy",
-    changes: [
-      {
-        type: "improvement",
-        text: "Versionsnummer fuer VPS-Deploy auf v2.3.295 erhoeht.",
-      },
-    ],
-  },
-  {
-    version: "2.3.294",
-    date: "2026-03-30",
-    title: "Deploy",
-    changes: [
-      {
-        type: "improvement",
-        text: "Versionsnummer fuer VPS-Deploy auf v2.3.294 erhoeht.",
-      },
-    ],
-  },
-  {
-    version: "2.3.293",
-    date: "2026-03-30",
-    title: "Deploy",
-    changes: [
-      {
-        type: "improvement",
-        text: "Versionsnummer fuer VPS-Deploy auf v2.3.293 erhoeht.",
-      },
-    ],
-  },
-  {
     version: "2.3.293",
     date: "2026-03-30",
     title: "Kunden-Portal Phase 6 & 7",
@@ -473,39 +237,6 @@ export const CHANGELOG: ChangelogVersion[] = [
     ],
   },
   {
-    version: "2.3.292",
-    date: "2026-03-30",
-    title: "Deploy",
-    changes: [
-      {
-        type: "improvement",
-        text: "Versionsnummer fuer VPS-Deploy auf v2.3.292 erhoeht.",
-      },
-    ],
-  },
-  {
-    version: "2.3.291",
-    date: "2026-03-30",
-    title: "Deploy",
-    changes: [
-      {
-        type: "improvement",
-        text: "Versionsnummer fuer VPS-Deploy auf v2.3.291 erhoeht.",
-      },
-    ],
-  },
-  {
-    version: "2.3.290",
-    date: "2026-03-30",
-    title: "Deploy",
-    changes: [
-      {
-        type: "improvement",
-        text: "Versionsnummer fuer VPS-Deploy auf v2.3.290 erhoeht.",
-      },
-    ],
-  },
-  {
     version: "2.3.289",
     date: "2026-03-30",
     title: "Firmenverwaltung in Hauptnavigation",
@@ -513,17 +244,6 @@ export const CHANGELOG: ChangelogVersion[] = [
       {
         type: "improvement",
         text: "Firmenverwaltung aus dem Einstellungen-Untermenü in die Hauptnavigation verschoben – direkt nach «Kunden» für schnelleren Zugriff.",
-      },
-    ],
-  },
-  {
-    version: "2.3.288",
-    date: "2026-03-30",
-    title: "Deploy",
-    changes: [
-      {
-        type: "improvement",
-        text: "Versionsnummer fuer VPS-Deploy auf v2.3.288 erhoeht.",
       },
     ],
   },
