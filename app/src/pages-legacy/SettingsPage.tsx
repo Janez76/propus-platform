@@ -530,7 +530,7 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-[var(--border-soft)] bg-white p-4 border-[var(--border-soft)] bg-[var(--surface)]">
+      <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-4">
         <h2 className="text-lg font-bold text-[var(--text-main)]">{t(lang, "settings.title")}</h2>
         <p className="mt-1 text-sm text-[var(--text-subtle)]">{t(lang, "settings.subtitle")}</p>
         <div className="mt-4 flex flex-wrap gap-2">
@@ -582,7 +582,7 @@ export function SettingsPage() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-[var(--border-soft)] bg-white p-4 border-[var(--border-soft)] bg-[var(--surface)]">
+      <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-4">
         <h3 className="text-sm font-semibold text-[var(--text-main)]">{t(lang, "settings.presets.title")}</h3>
         <p className="mt-1 text-xs text-[var(--text-subtle)]">{t(lang, "settings.presets.help")}</p>
         <div className="mt-3 grid gap-2 md:grid-cols-3">
@@ -591,7 +591,7 @@ export function SettingsPage() {
               key={preset.key}
               type="button"
               onClick={() => applyPreset(preset.key)}
-              className="rounded-lg border border-[var(--border-soft)] px-3 py-2 text-left hover:bg-slate-50 border-[var(--border-soft)] hover:bg-[var(--surface-raised)]"
+              className="rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 py-2 text-left hover:bg-[var(--surface-raised)] hover:border-[var(--accent)]/40"
             >
               <div className="text-sm font-medium text-[var(--text-main)]">{t(lang, preset.labelKey)}</div>
               <div className="mt-0.5 text-xs text-[var(--text-subtle)]">{t(lang, preset.hintKey)}</div>
@@ -604,7 +604,7 @@ export function SettingsPage() {
       {loading ? <p className="text-sm text-slate-500">{t(lang, "settings.loading")}</p> : null}
 
       {activeTab === "pricing" ? (
-        <div className="space-y-3 rounded-xl border border-[var(--border-soft)] bg-white p-4 border-[var(--border-soft)] bg-[var(--surface)]">
+        <div className="space-y-3 rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-4">
           <p className="text-sm text-[var(--text-subtle)]">{t(lang, "settings.pricing.help")}</p>
           <div className="grid gap-3 md:grid-cols-3">
             <label className="text-sm">
@@ -652,7 +652,7 @@ export function SettingsPage() {
       ) : null}
 
       {activeTab === "scheduling" ? (
-        <div className="space-y-3 rounded-xl border border-[var(--border-soft)] bg-white p-4 border-[var(--border-soft)] bg-[var(--surface)]">
+        <div className="space-y-3 rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-4">
           <p className="text-sm text-[var(--text-subtle)]">{t(lang, "settings.scheduling.help")}</p>
           <div className="grid gap-3 md:grid-cols-3">
             <label className="text-sm">
@@ -793,7 +793,7 @@ export function SettingsPage() {
               <button
                 type="button"
                 onClick={addHoliday}
-                className="rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm hover:bg-slate-100 border-[var(--border-soft)] hover:bg-[var(--surface-raised)]"
+                className="rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm hover:bg-[var(--surface-raised)]"
               >
                 {t(lang, "settings.scheduling.addHoliday")}
               </button>
@@ -822,7 +822,7 @@ export function SettingsPage() {
       {activeTab === "assignment" ? (
         <div className="space-y-4">
           {/* Policy & Relaxation */}
-          <div className="rounded-xl border border-[var(--border-soft)] bg-white p-4 border-[var(--border-soft)] bg-[var(--surface)]">
+          <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-4">
             <p className="mb-3 text-sm text-[var(--text-subtle)]">{t(lang, "settings.assignment.help")}</p>
             <div className="grid gap-3 md:grid-cols-2">
               <label className="text-sm">
@@ -856,7 +856,7 @@ export function SettingsPage() {
           </div>
 
           {/* Skill-Anforderungen mit Slider + Pool-Stats */}
-          <div className="rounded-xl border border-[var(--border-soft)] bg-white p-4 border-[var(--border-soft)] bg-[var(--surface)]">
+          <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-4">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div>
                 <h3 className="text-sm font-semibold text-[var(--text-main)]">{t(lang, "settings.assignment.skillSectionTitle")}</h3>
@@ -886,7 +886,7 @@ export function SettingsPage() {
           </div>
 
           {/* Matterport Große Flächen */}
-          <div className="rounded-xl border border-[var(--border-soft)] bg-white p-4 border-[var(--border-soft)] bg-[var(--surface)]">
+          <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-4">
             <h3 className="mb-1 text-sm font-semibold text-[var(--text-main)]">{t(lang, "settings.assignment.matterportSection")}</h3>
             <p className="mb-3 text-xs text-[var(--text-subtle)]">
               Radius kommt aus den Mitarbeiter-Einstellungen. Ab dem Schwellwert wird Matterport priorisiert, darunter abgestuft. Skill 0 bleibt immer ausgeschlossen.
@@ -961,13 +961,13 @@ export function SettingsPage() {
 
           {/* Fotografen-Qualifikationsmatrix */}
           {activePhotographers.length > 0 && (
-            <div className="rounded-xl border border-[var(--border-soft)] bg-white p-4 border-[var(--border-soft)] bg-[var(--surface)]">
+            <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-4">
               <h3 className="mb-1 text-sm font-semibold text-[var(--text-main)]">{t(lang, "settings.assignment.poolSection")}</h3>
               <p className="mb-3 text-xs text-[var(--text-subtle)]">{t(lang, "settings.assignment.poolSectionHint")}</p>
               <div className="overflow-auto rounded-xl border border-[var(--border-soft)]">
                 <table className="min-w-full text-xs">
                   <thead>
-                    <tr className="border-b border-[var(--border-soft)] bg-slate-50 border-[var(--border-soft)] bg-[var(--surface-raised)]/60">
+                    <tr className="border-b border-[var(--border-soft)] bg-[var(--surface-raised)]/60">
                       <th className="px-3 py-2 text-left font-semibold text-[var(--text-subtle)]">Fotograf</th>
                       {SKILL_OPTIONS.map((skill) => (
                         <th key={skill.key} className="px-3 py-2 text-center font-semibold text-[var(--text-subtle)]">
@@ -978,7 +978,7 @@ export function SettingsPage() {
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
                     {activePhotographers.map((p) => (
-                      <tr key={p.key} className="hover:bg-slate-50/50 hover:bg-[var(--surface-raised)]/30">
+                      <tr key={p.key} className="hover:bg-[var(--surface-raised)]/30">
                         <td className="px-3 py-2 font-medium text-[var(--text-muted)]">{p.name || p.key}</td>
                         {SKILL_OPTIONS.map((skill) => {
                           const skillVal = getPhotographerSkillValue(p, skill.key);
@@ -1002,7 +1002,7 @@ export function SettingsPage() {
                     ))}
                   </tbody>
                   <tfoot>
-                    <tr className="border-t border-[var(--border-soft)] bg-slate-50 border-[var(--border-soft)] bg-[var(--surface-raised)]/40">
+                    <tr className="border-t border-[var(--border-soft)] bg-[var(--surface-raised)]/40">
                       <td className="px-3 py-2 text-xs font-semibold text-[var(--text-subtle)]">Erfüllen Mindest</td>
                       {SKILL_OPTIONS.map((skill) => {
                         const { meetsRequired } = poolStats[skill.key] ?? { meetsRequired: 0 };
@@ -1026,7 +1026,7 @@ export function SettingsPage() {
       {activeTab === "discounts" ? <DiscountCodesPage /> : null}
 
       {activeTab === "reviews" ? (
-        <div className="space-y-4 rounded-xl border border-[var(--border-soft)] bg-white p-4 border-[var(--border-soft)] bg-[var(--surface)]">
+        <div className="space-y-4 rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-4">
           <div>
             <h3 className="text-sm font-semibold text-[var(--text-main)]">Google-Bewertungs-Link</h3>
             <p className="mt-1 text-xs text-[var(--text-subtle)]">

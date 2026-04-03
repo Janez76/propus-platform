@@ -212,6 +212,42 @@ Lokales Backup der Vor-Migration-Daten liegt unter:
 
 ---
 
+## Externe Integrationen
+
+### Payrexx (Online-Zahlung für Tour-Reaktivierungen)
+
+Payrexx ist optional. Ohne Konfiguration steht nur "QR-Rechnung" zur Verfügung — der Dialog zeigt die Payrexx-Option dann ausgegraut an.
+
+**Env-Variablen in `.env.vps`:**
+
+```env
+PAYREXX_INSTANCE=propus          # Instanzname aus der URL: https://propus.payrexx.com
+PAYREXX_API_SECRET=xxx           # Dashboard → Einstellungen → API → Key erstellen
+PAYREXX_PAYMENT_METHODS=curated  # Optional: curated | all | visa,mastercard,twint,...
+```
+
+**Webhook in Payrexx konfigurieren:**
+
+Dashboard → **Einstellungen → Webhooks** → neue URL eintragen:
+
+```
+https://admin-booking.propus.ch/webhook/payrexx
+```
+
+- Methode: `POST`
+- Event: `gateway.confirmed` (mindestens)
+- Die Signatur-Verifizierung läuft über `PAYREXX_API_SECRET` (HMAC-SHA256)
+
+**Nach Änderung der Env-Variablen:**
+
+```bash
+docker compose -p propus-platform -f docker-compose.vps.yml --env-file .env.vps up -d platform
+```
+
+> Die `payrexx_configured`-Info wird bei jedem Tour-Detail-Aufruf live aus den Env-Vars gelesen — kein Neustart nötig um den Status im UI zu sehen, aber die Variablen selbst brauchen einen Neustart.
+
+---
+
 ## Cloudflare
 
 ### Tunnel-Konfiguration

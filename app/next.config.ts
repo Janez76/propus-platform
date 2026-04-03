@@ -30,6 +30,10 @@ const nextConfig: NextConfig = {
           destination: `${PLATFORM_INTERNAL_URL}/tour-manager/portal/api/:path*`,
         },
         {
+          source: "/webhook/:path*",
+          destination: `${PLATFORM_INTERNAL_URL}/tour-manager/webhook/:path*`,
+        },
+        {
           source: "/tour-manager/api/invite/:path*",
           destination: `${PLATFORM_INTERNAL_URL}/tour-manager/api/invite/:path*`,
         },

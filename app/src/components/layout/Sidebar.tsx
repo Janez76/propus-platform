@@ -450,10 +450,6 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                           <Users className="h-4 w-4 flex-shrink-0" />
                           {t(lang, "nav.tours.customers")}
                         </NavLink>
-                        <NavLink to="/admin/tours/portal-roles" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
-                          <Shield className="h-4 w-4 flex-shrink-0" />
-                          {t(lang, "nav.tours.portalRoles")}
-                        </NavLink>
                         <NavLink to="/admin/tours/settings" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
                           <Settings2 className="h-4 w-4 flex-shrink-0" />
                           {t(lang, "nav.tours.settings")}

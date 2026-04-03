@@ -112,6 +112,9 @@ function attachAdminSidebarLocals(req, res, next) {
     .catch(() => fallback());
 }
 
+// Payrexx Webhook MUSS vor express.json() stehen damit express.raw() den Body lesen kann
+app.use('/webhook', require('./routes/payrexx-webhook'));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

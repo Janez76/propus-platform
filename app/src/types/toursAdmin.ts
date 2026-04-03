@@ -81,4 +81,5 @@ export type ToursAdminTourDetailResponse = {
   apiBase: string;
   mpVisibility: string | null;
   declineWorkflow: ToursAdminDeclineWorkflow;
+  payrexxConfigured: boolean;
 };

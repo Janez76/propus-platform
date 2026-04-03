@@ -13,6 +13,8 @@ type Props = {
   /** API-Sichtbarkeit (Tour-Detail), für Matterport-Sichtbarkeit-Editor */
   mpVisibility: string | null;
   onSuccess: () => void;
+  /** Ob Payrexx-API konfiguriert ist (PAYREXX_INSTANCE + PAYREXX_API_SECRET gesetzt) */
+  payrexxConfigured?: boolean;
 };
 
 const STATE_META: Record<string, { label: string; color: string }> = {
@@ -443,7 +445,7 @@ function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId, tourSh
   );
 }
 
-export function TourMatterportSection({ tourId, tour, mpVisibility, onSuccess }: Props) {
+export function TourMatterportSection({ tourId, tour, mpVisibility, onSuccess, payrexxConfigured = false }: Props) {
   const persistedMpId = String(tour.matterport_space_id ?? "").trim() || null;
   const canonicalMpId = String(tour.canonical_matterport_space_id ?? "").trim() || null;
   const spaceId = canonicalMpId || persistedMpId;
@@ -487,7 +489,9 @@ export function TourMatterportSection({ tourId, tour, mpVisibility, onSuccess }:
 
   // Reaktivierungs-Dialog
   const [reactivateOpen, setReactivateOpen] = useState(false);
-  const [reactivateMethod, setReactivateMethod] = useState<"payrexx" | "qr_invoice">("payrexx");
+  const [reactivateMethod, setReactivateMethod] = useState<"payrexx" | "qr_invoice">(
+    payrexxConfigured ? "payrexx" : "qr_invoice",
+  );
 
   // Löschen-Dialog
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -826,16 +830,20 @@ export function TourMatterportSection({ tourId, tour, mpVisibility, onSuccess }:
 
             {/* Zahlungsart-Auswahl */}
             <div className="flex flex-col gap-2">
-              <label className="flex items-center gap-2 text-sm text-[var(--text-main)] cursor-pointer">
+              <label className={`flex items-center gap-2 text-sm cursor-pointer ${payrexxConfigured ? "text-[var(--text-main)]" : "cursor-not-allowed text-[var(--text-subtle)] opacity-50"}`}>
                 <input
                   type="radio"
                   name="reactivateMethod"
                   value="payrexx"
                   checked={reactivateMethod === "payrexx"}
                   onChange={() => setReactivateMethod("payrexx")}
-                  className="accent-[var(--accent)] w-4 h-4"
+                  disabled={!payrexxConfigured}
+                  className="accent-[var(--accent)] w-4 h-4 disabled:opacity-50"
                 />
                 Online bezahlen (Payrexx)
+                {!payrexxConfigured && (
+                  <span className="ml-1 text-xs text-[var(--text-subtle)]">(nicht verfügbar)</span>
+                )}
               </label>
               <label className="flex items-center gap-2 text-sm text-[var(--text-main)] cursor-pointer">
                 <input

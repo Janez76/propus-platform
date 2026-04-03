@@ -500,7 +500,19 @@ export function AdminUsersPage() {
   async function toggleRole(user: LogtoUser, role: RoleKey) {
     if (!token) return;
     const has = user.roles.includes(role);
-    const next = has ? user.roles.filter((r) => r !== role) : [...user.roles, role];
+    let next: string[];
+    if (has) {
+      next = user.roles.filter((r) => r !== role);
+    } else {
+      // Super-Admin und Admin schließen sich gegenseitig aus
+      if (role === "super_admin") {
+        next = [...user.roles.filter((r) => r !== "admin"), "super_admin"];
+      } else if (role === "admin") {
+        next = [...user.roles.filter((r) => r !== "super_admin"), "admin"];
+      } else {
+        next = [...user.roles, role];
+      }
+    }
     setSaving(user.id + ":" + role);
     try {
       await patchUserRoles(token, user.id, next);

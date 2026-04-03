@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import { Link } from "react-router-dom";
 import type { FormEvent } from "react";
 import {
   getEmployeeLog,
@@ -840,21 +841,27 @@ export function EmployeeModal({ token, employeeKey, onClose, onSaved, isActive =
             </button>
           </div>
 
-          {/* Admin Toggle */}
-          <div className="mt-2 flex items-center justify-between rounded-xl bg-[var(--accent-subtle)] border border-[var(--border-soft)] px-4 py-3">
-            <div>
-              <div className="font-semibold text-[var(--text-main)]">{t(lang, "employeeModal.label.adminAccess")}</div>
-              <div className="text-xs text-[var(--text-muted)]">{t(lang, "employeeModal.hint.adminAccess")}</div>
+          {/* Admin-Hinweis → Interne Verwaltung */}
+          <div className="mt-2 flex items-center justify-between rounded-xl border border-[var(--border-soft)] bg-[var(--surface-raised)] px-4 py-3 gap-3">
+            <div className="min-w-0">
+              <div className="text-xs font-medium text-[var(--text-main)]">Admin-Zugriff</div>
+              <div className="text-xs text-[var(--text-muted)]">
+                Wird zentral über{" "}
+                <Link
+                  to="/settings/users"
+                  className="text-[var(--accent)] underline hover:no-underline"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Interne Verwaltung
+                </Link>{" "}
+                vergeben.
+                {isAdmin && (
+                  <span className="ml-1.5 inline-flex items-center rounded-full border border-[var(--accent)]/30 bg-[var(--accent)]/10 px-2 py-0.5 text-[10px] font-medium text-[var(--accent)]">
+                    Admin aktiv
+                  </span>
+                )}
+              </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setIsAdmin((v) => !v)}
-              className={`relative h-6 w-11 rounded-full transition-colors ${isAdmin ? "bg-[var(--accent)]" : "bg-[var(--border-strong)]"}`}
-            >
-              <span
-                className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${isAdmin ? "translate-x-5" : "translate-x-0"}`}
-              />
-            </button>
           </div>
         </div>
 

@@ -141,6 +141,7 @@ export function TourDetailPage() {
               tour={data.tour}
               mpVisibility={data.mpVisibility}
               onSuccess={refetchDetail}
+              payrexxConfigured={data.payrexxConfigured}
             />
           </section>
           <TourInvoicesSection

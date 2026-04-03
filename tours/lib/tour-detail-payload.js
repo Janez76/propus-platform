@@ -5,6 +5,7 @@
 const { pool } = require('./db');
 const matterport = require('./matterport');
 const exxas = require('./exxas');
+const payrexx = require('./payrexx');
 const { normalizeTourRow } = require('./normalize');
 const { toIsoDate, getSubscriptionWindowFromStart } = require('./subscriptions');
 
@@ -282,6 +283,7 @@ async function buildTourDetailApiPayload(tourId) {
     apiBase: process.env.APP_BASE_URL || '',
     mpVisibility,
     declineWorkflow,
+    payrexxConfigured: payrexx.isConfigured(),
   };
 }
 

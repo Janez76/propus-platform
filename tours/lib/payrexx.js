@@ -17,6 +17,9 @@ const crypto = require('crypto');
 
 const PAYREXX_INSTANCE = process.env.PAYREXX_INSTANCE || '';
 const PAYREXX_API_SECRET = process.env.PAYREXX_API_SECRET || '';
+// Separater Webhook-Signing-Key (im Payrexx-Dashboard unter Webhooks generiert)
+// Unterschiedlich vom API-Secret! Falls nicht gesetzt → Fallback auf API-Secret.
+const PAYREXX_WEBHOOK_SECRET = process.env.PAYREXX_WEBHOOK_SECRET || PAYREXX_API_SECRET;
 const PAYREXX_BASE = `https://api.payrexx.com/v1.0`;
 
 function getAuthHeader() {
@@ -122,9 +125,9 @@ async function getGateway(gatewayId) {
  * @returns {boolean}
  */
 function verifyWebhook(rawBody, signature) {
-  if (!PAYREXX_API_SECRET || !signature) return false;
+  if (!PAYREXX_WEBHOOK_SECRET || !signature) return false;
   const expected = crypto
-    .createHmac('sha256', PAYREXX_API_SECRET)
+    .createHmac('sha256', PAYREXX_WEBHOOK_SECRET)
     .update(rawBody, 'utf8')
     .digest('hex');
   try {

@@ -1262,10 +1262,13 @@ router.post('/tours/:id/delete', requirePortalAuth, async (req, res) => {
 });
 
 // ─── Payrexx Webhook ──────────────────────────────────────────────────────────
+// Webhook-Handler wurde nach tours/routes/payrexx-webhook.js ausgelagert und wird
+// in server.js VOR express.json() als /webhook/payrexx registriert.
+// Diese Route bleibt als Fallback für alte Payrexx-Webhook-Konfigurationen.
 
-router.post('/webhook/payrexx', express.raw({ type: '*/*' }), async (req, res) => {
-  await ensureRenewalInvoiceSchema();
-  const rawBody = req.body?.toString('utf8') || '';
+router.post('/webhook/payrexx', async (req, res) => {
+  const rawBody = Buffer.isBuffer(req.body) ? req.body.toString('utf8')
+    : (typeof req.body === 'string' ? req.body : JSON.stringify(req.body ?? ''));
   const signature = req.headers['payrexx-signature'] || '';
 
   if (!payrexx.verifyWebhook(rawBody, signature)) {

@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei neuen Rollen, geänderten Permission-Zuweisungen oder Logto-Org-Änderungen dieses Dokument aktualisieren.
 
-*Zuletzt aktualisiert: April 2026*
+*Zuletzt aktualisiert: April 2026 (überarbeitet: Admin-Verwaltung zentralisiert, Portal-Rollen UI konsolidiert)*
 
 ---
 
@@ -149,7 +149,7 @@ syncAdminUserRolesFromDb(adminUserId)
   → sonst (admin/employee) → Rolle: internal_admin
 
 syncPhotographerRolesFromDb(key)
-  → photographers.is_admin = TRUE → Rolle: internal_admin
+  → photographers.is_admin = TRUE → Rolle: internal_admin  [Legacy-Feld, read-only im UI]
   → FALSE → Rolle: photographer
 
 syncCompanyMemberRolesFromDb(memberId)
@@ -175,6 +175,10 @@ Logto-Rollen-Array wird von links nach rechts geprüft (erste Übereinstimmung g
 8. `customer_admin`
 9. `customer`
 10. (Fallback: `photographer`)
+
+**Exklusivitäts-Regel (UI-Enforcement):**
+`super_admin` und `admin` schließen sich gegenseitig aus.
+Das UI (`/settings/users`, `AdminUsersPage.tsx`) entfernt die jeweils andere Rolle automatisch beim Zuweisen.
 
 ---
 
@@ -239,6 +243,22 @@ customData: {
 ---
 
 ## 7. Portal-Rollen (Tour-Manager)
+
+### 7.0 UI — Zentrale Verwaltung
+
+**Alle Rollen werden an einer einzigen Stelle verwaltet:**
+
+| Was | Wo im UI | Pfad |
+|---|---|---|
+| Admin-Panel-Zugriff (Logto) | **Einstellungen → Benutzer** | `/settings/users` |
+| Portal-Zugang (intern + extern) | **Einstellungen → Rollen & Rechte → Tab "Portal-Zugang"** | `/settings/roles?view=portal` |
+| Rollen-Matrix (Referenz) | **Einstellungen → Rollen & Rechte → Tab "Rollen-Matrix"** | `/settings/roles` |
+
+> **Deprecated:** Die alte Route `/admin/tours/portal-roles` leitet automatisch auf `/settings/roles?view=portal` weiter.
+>
+> **Deprecated:** Der "Admin-Zugriff"-Toggle im Mitarbeiter-Modal (`EmployeeModal.tsx`) wurde durch einen Info-Hinweis + Link auf `/settings/users` ersetzt. Das `photographers.is_admin`-Feld ist read-only im UI (wird nur noch für Legacy-Session-Auth benötigt).
+
+---
 
 ### 7.1 `tour_manager.portal_staff_roles` — Interne Portal-Zugriffsrechte
 

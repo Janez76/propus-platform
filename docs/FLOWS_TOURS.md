@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei jeder Änderung an Tour-Status, Matterport-Integration, Verlängerungs- oder Archivierungs-Logik dieses Dokument aktualisieren.
 
-*Zuletzt aktualisiert: April 2026*
+*Zuletzt aktualisiert: April 2026 (Admin-Reaktivierungsflow + payrexxConfigured-UI-Logik dokumentiert)*
 
 ---
 
@@ -136,6 +136,13 @@ ACTIVE
 - `vrOverride`, `highlightReelOverride`, `labelsOverride`, `tourAutoplayOverride`, `roomBoundsOverride`
 - Werte: `'enabled'` | `'disabled'` | `'default'`
 
+**Override-Toggle UI (Admin + Portal):**
+- Nur 2 Buttons pro Funktion: **An** / **Aus** (kein "Standard"-Button mehr)
+- **Kräftig hervorgehoben** = manuell gesetzt (Override aktiv, `'enabled'` oder `'disabled'`)
+- **Gedimmt hervorgehoben** = aktueller Matterport-Standard-Wert (kein Override, `'default'`)
+- Aktiven Override erneut anklicken → setzt zurück auf `'default'`
+- Komponenten: `OverrideToggle` (`TourMatterportSection.tsx`), `PortalOverrideToggle` (`PortalTourDetailPage.tsx`)
+
 ### Admin-Endpunkte (zusätzlich)
 
 | Endpunkt | Beschreibung |
@@ -216,7 +223,38 @@ Body: { paymentMethod: "qr_invoice" | "payrexx" }
         └── Response: { ok: true, redirectUrl: paymentUrl }
 ```
 
+### Admin-Reaktivierung (POST /tours/:id/reactivate via admin-api.js)
+
+Gleicher Flow wie Portal-Reaktivierung, aber durch Admin ausgelöst (nicht Kunde).
+
+```
+Body: { paymentMethod: "qr_invoice" | "payrexx" }
+  │
+  ├── UPDATE tours.status = 'CUSTOMER_ACCEPTED_AWAITING_PAYMENT'
+  │
+  ├── [QR-Rechnung]:
+  │     ├── INSERT renewal_invoices (payment_source='qr_pending', invoice_kind='portal_reactivation')
+  │     ├── Loggt REACTIVATE_REQUESTED (via: qr_invoice)
+  │     └── sendInvoiceWithQrEmail() async
+  │
+  └── [Payrexx]:
+        ├── payrexx.isConfigured()? → NEIN → 400 { error: 'Payrexx nicht konfiguriert – bitte QR-Rechnung wählen' }
+        ├── INSERT renewal_invoices (payment_source='payrexx_pending', invoice_kind='portal_reactivation')
+        ├── payrexx.createCheckout()
+        ├── paymentUrl in renewal_invoices speichern
+        └── Response: { ok: true, via: 'payrexx', redirectUrl: paymentUrl }
+```
+
+**UI-Verhalten (TourMatterportSection.tsx):**
+- `payrexxConfigured` wird vom Backend im Tour-Detail-Payload mitgeliefert (`tour-detail-payload.js`)
+- Ist Payrexx nicht konfiguriert: "Online bezahlen (Payrexx)" ist ausgegraut + deaktiviert, "QR-Rechnung" ist vorgewählt
+- Ist Payrexx konfiguriert: "Payrexx" ist Standard-Auswahl
+
 ### Payrexx-Webhook nach Zahlung
+
+**Webhook-URL:** `https://admin-booking.propus.ch/webhook/payrexx`
+(Next.js-Rewrite: `/webhook/*` → Express `http://localhost:3100/tour-manager/webhook/*`)
+(Handler: `tours/routes/payrexx-webhook.js`, registriert VOR express.json() für korrektes express.raw())
 
 → Siehe [FLOWS_BOOKING.md — Payrexx-Webhook](./FLOWS_BOOKING.md#9-payrexx-webhook)
 

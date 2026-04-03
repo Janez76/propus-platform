@@ -213,7 +213,7 @@ function PrivateRoutes() {
         <Route path="/admin/tours/customers/new" element={guardedElement(toursAdminRoles, <ToursAdminCustomerNewPage />)} />
         <Route path="/admin/tours/customers/:customerId" element={guardedElement(toursAdminRoles, <ToursAdminCustomerDetailPage />)} />
         <Route path="/admin/tours/customers" element={guardedElement(toursAdminRoles, <ToursAdminCustomersListPage />)} />
-        <Route path="/admin/tours/portal-roles" element={guardedElement(toursAdminRoles, <ToursAdminPortalRolesPage />)} />
+        <Route path="/admin/tours/portal-roles" element={<Navigate to="/settings/roles?view=portal" replace />} />
         <Route path="/admin/tours/settings" element={guardedElement(toursAdminRoles, <ToursAdminTourSettingsPage />)} />
         <Route path="/admin/tours/email-templates" element={guardedElement(toursAdminRoles, <ToursAdminEmailTemplatesPage />)} />
         <Route path="/admin/tours/automations" element={guardedElement(toursAdminRoles, <ToursAdminAutomationsPage />)} />
