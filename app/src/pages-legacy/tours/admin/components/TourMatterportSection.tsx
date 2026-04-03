@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ExternalLink, Link2, ArchiveRestore, Trash2, Send, ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
+import { ExternalLink, Link2, ArchiveRestore, Trash2, Send, ChevronDown, ChevronUp, RefreshCw, X } from "lucide-react";
 import { toursAdminPost, deleteToursAdminTour, postUnarchiveMatterportTour, postTransferMatterportSpace, getToursAdminMatterportModel } from "../../../../api/toursAdmin";
 import type { MatterportModelMeta } from "../../../../api/toursAdmin";
 import type { ToursAdminTourRow } from "../../../../types/toursAdmin";
@@ -375,10 +375,10 @@ export function TourMatterportSection({ tourId, tour, onSuccess, onOpenBookingLi
         </div>
       </section>
 
-      {/* Transfer-Dialog */}
+      {/* Transfer-Dialog – z-[80] damit er über allem anderen liegt */}
       {transferOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-[var(--bg-card)] p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-[var(--bg-card)] p-6 shadow-[0_24px_60px_rgba(0,0,0,0.35)] space-y-4 relative">
             <div className="flex items-start justify-between gap-3">
               <h3 className="text-base font-semibold text-[var(--text-main)]">
                 Diesen Space übertragen?
@@ -386,10 +386,10 @@ export function TourMatterportSection({ tourId, tour, onSuccess, onOpenBookingLi
               <button
                 type="button"
                 onClick={() => setTransferOpen(false)}
-                className="rounded-md border border-[var(--border-soft)] p-1 text-[var(--text-subtle)] hover:text-[var(--text-main)]"
+                className="rounded-md border border-[var(--border-soft)] p-1 text-[var(--text-subtle)] hover:text-[var(--text-main)] transition-colors"
                 aria-label="Schließen"
               >
-                ✕
+                <X className="h-4 w-4" />
               </button>
             </div>
             <p className="text-sm text-[var(--text-subtle)]">
