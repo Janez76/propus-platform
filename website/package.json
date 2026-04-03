@@ -1,25 +1,25 @@
 {
-  "name": "propus-website",
-  "type": "module",
-  "version": "2.3.382",
-  "engines": {
-    "node": ">=22.12.0"
-  },
-  "scripts": {
-    "dev": "astro dev",
-    "dev:clean": "npx --yes kill-port 4343 && astro dev",
-    "build": "astro build",
-    "preview": "astro preview",
-    "start": "node ./server.mjs",
-    "astro": "astro",
-    "migrate:uploads": "node --env-file=.env scripts/migrate-uploads-to-supabase.mjs",
-    "import:cms": "node --env-file=.env scripts/import-local-cms-to-supabase.mjs"
-  },
-  "dependencies": {
-    "@astrojs/node": "^10.0.4",
-    "@supabase/supabase-js": "^2.101.0",
-    "@types/compression": "^1.8.1",
-    "astro": "^6.1.1",
-    "compression": "^1.8.1"
-  }
+    "name":  "propus-website",
+    "type":  "module",
+    "version":  "2.3.366",
+    "engines":  {
+                    "node":  "\u003e=22.12.0"
+                },
+    "scripts":  {
+                    "dev":  "astro dev",
+                    "dev:clean":  "npx --yes kill-port 4343 \u0026\u0026 astro dev",
+                    "build":  "astro build",
+                    "preview":  "astro preview",
+                    "start":  "node ./server.mjs",
+                    "astro":  "astro",
+                    "migrate:uploads":  "node --env-file=.env scripts/migrate-uploads-to-supabase.mjs",
+                    "import:cms":  "node --env-file=.env scripts/import-local-cms-to-supabase.mjs"
+                },
+    "dependencies":  {
+                         "@astrojs/node":  "^10.0.4",
+                         "@supabase/supabase-js":  "^2.101.0",
+                         "@types/compression":  "^1.8.1",
+                         "astro":  "^6.1.1",
+                         "compression":  "^1.8.1"
+                     }
 }
