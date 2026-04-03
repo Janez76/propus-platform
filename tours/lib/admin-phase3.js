@@ -472,11 +472,41 @@ async function getLinkMatterportJson(query) {
   if (orderNosToLookup.length > 0) {
     try {
       const orderRows = await pool.query(
-        `SELECT o.order_no, o.status, o.address, o.billing, o.schedule
+        `SELECT o.order_no, o.status, o.address, o.billing, o.schedule,
+                c.id AS core_customer_id,
+                c.company AS core_company,
+                c.name AS core_name,
+                c.email AS core_email,
+                c.customer_number
          FROM booking.orders o
+         LEFT JOIN core.customers c
+           ON LOWER(c.email) = LOWER(COALESCE(o.billing->>'email',''))
+           AND c.email IS NOT NULL AND c.email != ''
          WHERE o.order_no = ANY($1::int[])`,
         [orderNosToLookup]
       );
+      // Für gefundene Kunden auch deren Kontakte laden
+      const customerIdsForContacts = [...new Set(
+        orderRows.rows.filter(r => r.core_customer_id).map(r => r.core_customer_id)
+      )];
+      const contactsByCustomerId = new Map();
+      if (customerIdsForContacts.length > 0) {
+        try {
+          const contactRows = await pool.query(
+            `SELECT customer_id, id, name, email, phone
+             FROM core.customer_contacts
+             WHERE customer_id = ANY($1::int[])
+             ORDER BY sort_order, id`,
+            [customerIdsForContacts]
+          );
+          for (const ct of contactRows.rows) {
+            if (!contactsByCustomerId.has(ct.customer_id)) contactsByCustomerId.set(ct.customer_id, []);
+            contactsByCustomerId.get(ct.customer_id).push({ name: ct.name, email: ct.email, tel: ct.phone });
+          }
+        } catch (e) {
+          console.warn('[admin-phase3] contacts lookup:', e.message);
+        }
+      }
       for (const r of orderRows.rows) {
         orderByNo.set(r.order_no, {
           order_no: r.order_no,
@@ -485,6 +515,11 @@ async function getLinkMatterportJson(query) {
           company: r.billing?.company || r.billing?.name || '',
           email: r.billing?.email || '',
           date: r.schedule?.date || null,
+          coreCustomerId: r.core_customer_id ? String(r.core_customer_id) : null,
+          coreCompany: r.core_company || r.core_name || r.billing?.company || r.billing?.name || '',
+          coreEmail: r.core_email || r.billing?.email || '',
+          coreCustomerNumber: r.customer_number || '',
+          contacts: r.core_customer_id ? (contactsByCustomerId.get(r.core_customer_id) || []) : [],
         });
       }
     } catch (e) {

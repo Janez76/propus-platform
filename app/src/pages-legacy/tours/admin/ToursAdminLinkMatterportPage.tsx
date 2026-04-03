@@ -297,7 +297,11 @@ export function ToursAdminLinkMatterportPage() {
     setArchiveIt(true);
 
     // Bestellvorschlag aus internalId vorausfüllen
-    const suggested = (autoOpenSpace as Record<string, unknown>).suggestedOrder as { order_no: number; status: string; address: string; company: string; email?: string } | null | undefined;
+    const suggested = (autoOpenSpace as Record<string, unknown>).suggestedOrder as {
+      order_no: number; status: string; address: string; company: string; email?: string;
+      coreCustomerId?: string; coreCompany?: string; coreEmail?: string; coreCustomerNumber?: string;
+      contacts?: { name: string; email: string; tel: string }[];
+    } | null | undefined;
     if (suggested?.order_no) {
       setBookingOrderNo(suggested.order_no);
       const label = `#${suggested.order_no} – ${suggested.address || suggested.company || ""}`.trim();
@@ -305,8 +309,22 @@ export function ToursAdminLinkMatterportPage() {
       setBookingSearchDraft(label);
       setBookingSuggestions([]);
       if (suggested.address) setBezeichnung(suggested.address);
-      if (suggested.company) setCustomerName(suggested.company);
-      if (suggested.email) setCustomerEmail(suggested.email);
+      if (suggested.coreCustomerId) {
+        setCoreCustomerId(suggested.coreCustomerId);
+        const firmenname = suggested.coreCompany || suggested.company || "";
+        setCustomerName(firmenname);
+        setCustomerEmail(suggested.coreEmail || suggested.email || "");
+        selectedLabelRef.current = firmenname;
+        setCustomerSearchDraft(firmenname);
+        setSuggestions({ companies: [], contacts: [] });
+        const cts = Array.isArray(suggested.contacts) ? suggested.contacts : [];
+        setContactSuggestions(cts);
+        setContactSearchDraft("");
+        setShowContactDropdown(false);
+      } else {
+        if (suggested.company) setCustomerName(suggested.company);
+        if (suggested.email) setCustomerEmail(suggested.email);
+      }
     }
     setSearchParams(
       (prev) => {
@@ -337,7 +355,11 @@ export function ToursAdminLinkMatterportPage() {
     setArchiveIt(true);
 
     // Bestellvorschlag aus internalId automatisch vorausfüllen
-    const suggested = m.suggestedOrder as { order_no: number; status: string; address: string; company: string; email?: string } | null | undefined;
+    const suggested = m.suggestedOrder as {
+      order_no: number; status: string; address: string; company: string; email?: string;
+      coreCustomerId?: string; coreCompany?: string; coreEmail?: string; coreCustomerNumber?: string;
+      contacts?: { name: string; email: string; tel: string }[];
+    } | null | undefined;
     if (suggested?.order_no) {
       setBookingOrderNo(suggested.order_no);
       const label = `#${suggested.order_no} – ${suggested.address || suggested.company || ""}`.trim();
@@ -345,8 +367,23 @@ export function ToursAdminLinkMatterportPage() {
       setBookingSearchDraft(label);
       setBookingSuggestions([]);
       if (suggested.address) setBezeichnung(suggested.address);
-      if (suggested.company) setCustomerName(suggested.company);
-      if (suggested.email) setCustomerEmail(suggested.email);
+      // Kunde aus core.customers vorausfüllen wenn bekannt
+      if (suggested.coreCustomerId) {
+        setCoreCustomerId(suggested.coreCustomerId);
+        const firmenname = suggested.coreCompany || suggested.company || "";
+        setCustomerName(firmenname);
+        setCustomerEmail(suggested.coreEmail || suggested.email || "");
+        selectedLabelRef.current = firmenname;
+        setCustomerSearchDraft(firmenname);
+        setSuggestions({ companies: [], contacts: [] });
+        const cts = Array.isArray(suggested.contacts) ? suggested.contacts : [];
+        setContactSuggestions(cts);
+        setContactSearchDraft("");
+        setShowContactDropdown(false);
+      } else {
+        if (suggested.company) setCustomerName(suggested.company);
+        if (suggested.email) setCustomerEmail(suggested.email);
+      }
     }
 
     queueMicrotask(() => formAnchorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
