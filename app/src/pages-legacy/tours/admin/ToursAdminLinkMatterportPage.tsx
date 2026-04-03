@@ -9,6 +9,9 @@ import {
 import { useQuery } from "../../../hooks/useQuery";
 import { toursAdminLinkMatterportQueryKey } from "../../../lib/queryKeys";
 import { Tooltip } from "../../../components/ui/tooltip";
+import { CreateContactDialog } from "../../../components/customers/CreateContactDialog";
+import { createCustomer, updateCustomer, type Customer } from "../../../api/customers";
+import { useAuthStore } from "../../../store/authStore";
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function buildQs(sp: URLSearchParams) {
@@ -107,6 +110,7 @@ const TAB_LABELS: Record<TabId, string> = {
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export function ToursAdminLinkMatterportPage() {
+  const token = useAuthStore((s) => s.token) ?? "";
   const [searchParams, setSearchParams] = useSearchParams();
   const listQuery = useMemo(() => buildQs(searchParams), [searchParams]);
   const qk = toursAdminLinkMatterportQueryKey(listQuery);
@@ -134,6 +138,9 @@ export function ToursAdminLinkMatterportPage() {
   const [contactSuggestions, setContactSuggestions] = useState<{ name: string; email: string; tel: string }[]>([]);
   const [showContactDropdown, setShowContactDropdown] = useState(false);
   const [archiveIt, setArchiveIt] = useState(true);
+
+  // "Neuer Kunde" Dialog (wiederverwendet die Admin-Maske)
+  const [showCreateCustomerDialog, setShowCreateCustomerDialog] = useState(false);
 
   // Booking search state
   const [bookingSearchDraft, setBookingSearchDraft] = useState("");
@@ -476,8 +483,8 @@ export function ToursAdminLinkMatterportPage() {
       showToast("Tour-Link fehlt (oder Tab «Ohne Zuordnung» wählen).", "error");
       return;
     }
-    if (activeTab === 1 && !customerName.trim()) {
-      showToast("Kundenname ist bei «Neuer Kunde» Pflichtfeld.", "error");
+    if (activeTab === 1 && !coreCustomerId.trim()) {
+      showToast("Bitte zuerst einen Kunden erstellen.", "error");
       return;
     }
     setBusy("link");
@@ -916,43 +923,42 @@ export function ToursAdminLinkMatterportPage() {
           </div>
         )}
 
-        {/* Tab 1: Neuer Kunde */}
+        {/* Tab 1: Neuer Kunde – öffnet die gleiche Maske wie im Admin-Panel */}
         {activeTab === 1 && (
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="space-y-1">
-              <label className="block text-xs uppercase tracking-wide text-[var(--text-subtle)]">
-                Firma <span className="text-[var(--propus-gold)]">*</span>
-              </label>
-              <input
-                className="w-full rounded border border-[var(--border-soft)] bg-[var(--surface)] px-2 py-1.5 focus:outline-none focus:border-[var(--propus-gold)]"
-                placeholder="Firmenname"
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="block text-xs uppercase tracking-wide text-[var(--text-subtle)]">
-                E-Mail <span className="text-[var(--propus-gold)]">*</span>
-              </label>
-              <input
-                type="email"
-                className="w-full rounded border border-[var(--border-soft)] bg-[var(--surface)] px-2 py-1.5 focus:outline-none focus:border-[var(--propus-gold)]"
-                placeholder="email@firma.ch"
-                value={customerEmail}
-                onChange={(e) => setCustomerEmail(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="block text-xs uppercase tracking-wide text-[var(--text-subtle)]">
-                Ansprechpartner
-              </label>
-              <input
-                className="w-full rounded border border-[var(--border-soft)] bg-[var(--surface)] px-2 py-1.5 focus:outline-none focus:border-[var(--propus-gold)]"
-                placeholder="Vor- und Nachname"
-                value={customerContact}
-                onChange={(e) => setCustomerContact(e.target.value)}
-              />
-            </div>
+          <div className="space-y-3">
+            {coreCustomerId ? (
+              <div className="flex items-center gap-3 rounded-lg border border-green-500/30 bg-green-500/5 p-3">
+                <div className="flex-1">
+                  <div className="text-sm font-medium text-[var(--text-main)]">{customerName}</div>
+                  <div className="text-xs text-[var(--text-subtle)]">{customerEmail}</div>
+                </div>
+                <button
+                  type="button"
+                  className="text-xs text-[var(--text-subtle)] hover:text-[var(--propus-gold)] transition-colors"
+                  onClick={() => {
+                    setCoreCustomerId("");
+                    setCustomerName("");
+                    setCustomerEmail("");
+                    setCustomerContact("");
+                  }}
+                >
+                  Ändern
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="w-full rounded-lg border-2 border-dashed border-[var(--border-soft)] hover:border-[var(--propus-gold)] bg-[var(--surface)]/50 px-4 py-6 text-center transition-colors group"
+                onClick={() => setShowCreateCustomerDialog(true)}
+              >
+                <span className="text-sm font-medium text-[var(--text-subtle)] group-hover:text-[var(--propus-gold)] transition-colors">
+                  + Neuen Kunden erstellen
+                </span>
+                <span className="block text-xs text-[var(--text-subtle)] mt-1">
+                  Öffnet das Kunden-Erstellungsformular
+                </span>
+              </button>
+            )}
           </div>
         )}
 
@@ -1194,6 +1200,34 @@ export function ToursAdminLinkMatterportPage() {
 
       {/* Toast */}
       {toast && <Toast toast={toast} onClose={() => setToast(null)} />}
+
+      {/* Kunden-Erstellungsdialog (gleiche Maske wie im Admin-Panel) */}
+      <CreateContactDialog
+        open={showCreateCustomerDialog}
+        onOpenChange={setShowCreateCustomerDialog}
+        onSubmit={async (payload, mergeWithId) => {
+          if (mergeWithId) {
+            await updateCustomer(token, mergeWithId, payload);
+            setCoreCustomerId(String(mergeWithId));
+            const label = payload.name || payload.first_name || "";
+            setCustomerName(label);
+            setCustomerEmail(payload.email);
+            setCustomerSearchDraft(label);
+            selectedLabelRef.current = label;
+          } else {
+            const created = await createCustomer(token, payload);
+            setCoreCustomerId(String(created.id));
+            const label = created.name || created.company || payload.name;
+            setCustomerName(label);
+            setCustomerEmail(created.email || payload.email);
+            setCustomerSearchDraft(label);
+            selectedLabelRef.current = label;
+          }
+          showToast("Kunde erstellt und zugewiesen");
+        }}
+        onCreateContact={async () => {}}
+        existingCustomers={[]}
+      />
     </div>
   );
 }

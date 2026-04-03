@@ -8,8 +8,9 @@ import {
 
 type Customer = {
   id: number;
-  firmenname: string;
+  name: string;
   email: string;
+  company?: string;
   customer_number?: string;
 };
 
@@ -109,25 +110,32 @@ export function PortalPreviewPage() {
                   {loading && (
                     <div className="px-3 py-2 text-xs text-[var(--text-subtle)]">Suche…</div>
                   )}
-                  {results.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      className="w-full text-left px-3 py-2 hover:bg-[var(--propus-gold)]/10 transition-colors flex items-center gap-3 border-b border-[var(--border-soft)] last:border-b-0"
-                      onClick={() => startImpersonation(c)}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-[var(--text-main)] truncate">
-                          {c.firmenname || "—"}
+                  {results.map((c) => {
+                    const displayName = c.company || c.name || "—";
+                    const secondary = c.company && c.name && c.company !== c.name ? c.name : null;
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        className="w-full text-left px-3 py-2 hover:bg-[var(--propus-gold)]/10 transition-colors flex items-center gap-3 border-b border-[var(--border-soft)] last:border-b-0"
+                        onClick={() => startImpersonation(c)}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-[var(--text-main)] truncate">
+                            {displayName}
+                            {secondary && (
+                              <span className="ml-2 font-normal text-[var(--text-subtle)]">({secondary})</span>
+                            )}
+                          </div>
+                          <div className="text-xs text-[var(--text-subtle)] truncate">
+                            {c.email}
+                            {c.customer_number ? ` · #${c.customer_number}` : ""}
+                          </div>
                         </div>
-                        <div className="text-xs text-[var(--text-subtle)] truncate">
-                          {c.email}
-                          {c.customer_number ? ` · #${c.customer_number}` : ""}
-                        </div>
-                      </div>
-                      <Eye className="h-4 w-4 text-[var(--text-subtle)] shrink-0" />
-                    </button>
-                  ))}
+                        <Eye className="h-4 w-4 text-[var(--text-subtle)] shrink-0" />
+                      </button>
+                    );
+                  })}
                   {!loading && results.length === 0 && search.length >= 2 && (
                     <div className="px-3 py-2 text-xs text-[var(--text-subtle)]">Kein Kunde gefunden.</div>
                   )}
@@ -139,7 +147,7 @@ export function PortalPreviewPage() {
               <div className="flex items-center gap-2 rounded bg-[var(--propus-gold)]/10 border border-[var(--propus-gold)]/30 px-3 py-1.5">
                 <Eye className="h-4 w-4 text-[var(--propus-gold)]" />
                 <span className="text-sm font-medium text-[var(--text-main)]">
-                  {selected?.firmenname || selected?.email}
+                  {selected?.company || selected?.name || selected?.email}
                 </span>
                 <span className="text-xs text-[var(--text-subtle)]">{selected?.email}</span>
               </div>
