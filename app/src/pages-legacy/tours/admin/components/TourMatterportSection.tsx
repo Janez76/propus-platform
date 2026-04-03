@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { ExternalLink, Link2, ArchiveRestore, Trash2, Send, ChevronDown, ChevronUp, RefreshCw, X, Pencil } from "lucide-react";
+import { ExternalLink, Link2, ArchiveRestore, Trash2, Send, RefreshCw, X, Pencil } from "lucide-react";
 import { toursAdminPost, deleteToursAdminTour, postUnarchiveMatterportTour, postTransferMatterportSpace, getToursAdminMatterportModel, postToursAdminMatterportOptions } from "../../../../api/toursAdmin";
 import type { MatterportModelMeta, MatterportModelOptions, MatterportSettingOverride, MatterportOptionsPatch } from "../../../../api/toursAdmin";
 import type { ToursAdminTourRow } from "../../../../types/toursAdmin";
@@ -279,7 +279,6 @@ export function TourMatterportSection({ tourId, tour, onSuccess, onOpenBookingLi
   const [err, setErr] = useState<string | null>(null);
 
   // Matterport-Metadaten
-  const [metaOpen, setMetaOpen] = useState(false);
   const [meta, setMeta] = useState<MatterportModelMeta | null>(null);
   const [metaLoading, setMetaLoading] = useState(false);
   const [metaErr, setMetaErr] = useState<string | null>(null);
@@ -297,10 +296,10 @@ export function TourMatterportSection({ tourId, tour, onSuccess, onOpenBookingLi
     }
   }
 
-  function toggleMeta() {
-    if (!metaOpen && !meta && !metaLoading) void loadMeta();
-    setMetaOpen((v) => !v);
-  }
+  useEffect(() => {
+    if (spaceId) void loadMeta();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [spaceId]);
 
   // Reaktivierungs-Dialog
   const [reactivateOpen, setReactivateOpen] = useState(false);
@@ -400,39 +399,24 @@ export function TourMatterportSection({ tourId, tour, onSuccess, onOpenBookingLi
           </div>
         </dl>
 
-        {/* Matterport-Metadaten (lazy) */}
+        {/* Matterport-Metadaten (immer sichtbar) */}
         {spaceId ? (
-          <div className="border-t border-[var(--border-soft)] pt-3">
-            <button
-              type="button"
-              onClick={toggleMeta}
-              className="flex w-full items-center justify-between text-xs font-medium text-[var(--text-subtle)] hover:text-[var(--text-main)] transition-colors"
-            >
-              <span>Informationen aus Matterport</span>
-              <span className="flex items-center gap-1">
-                {metaLoading ? <RefreshCw className="h-3 w-3 animate-spin" /> : null}
-                {metaOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-              </span>
-            </button>
-            {metaOpen ? (
-              <div className="mt-3 space-y-2">
-                {metaErr ? (
-                  <div className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-3 py-2 dark:border-red-900 dark:bg-red-950/40">
-                    <p className="text-xs text-red-700 dark:text-red-300">{metaErr}</p>
-                    <button
-                      type="button"
-                      onClick={() => void loadMeta()}
-                      className="ml-2 shrink-0 text-xs text-red-600 underline hover:no-underline dark:text-red-400"
-                    >
-                      Erneut laden
-                    </button>
-                  </div>
-                ) : meta ? (
-                  <MatterportMetaPanel meta={meta} onRefresh={() => void loadMeta()} loading={metaLoading} spaceId={spaceId} tourId={tourId} />
-                ) : metaLoading ? (
-                  <p className="text-xs text-[var(--text-subtle)]">Wird geladen…</p>
-                ) : null}
+          <div className="border-t border-[var(--border-soft)] pt-3 space-y-2">
+            {metaLoading && !meta ? (
+              <p className="text-xs text-[var(--text-subtle)]">Wird geladen…</p>
+            ) : metaErr ? (
+              <div className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-3 py-2 dark:border-red-900 dark:bg-red-950/40">
+                <p className="text-xs text-red-700 dark:text-red-300">{metaErr}</p>
+                <button
+                  type="button"
+                  onClick={() => void loadMeta()}
+                  className="ml-2 shrink-0 text-xs text-red-600 underline hover:no-underline dark:text-red-400"
+                >
+                  Erneut laden
+                </button>
               </div>
+            ) : meta ? (
+              <MatterportMetaPanel meta={meta} onRefresh={() => void loadMeta()} loading={metaLoading} spaceId={spaceId} tourId={tourId} />
             ) : null}
           </div>
         ) : null}
