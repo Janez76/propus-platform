@@ -25,6 +25,7 @@ import type { Role } from "../types";
 
 // Lazy-load all pages from the legacy pages directory
 const LoginPage = lazy(() => import("../pages-legacy/LoginPage").then((m) => ({ default: m.LoginPage })));
+const AcceptInvitePage = lazy(() => import("../pages-legacy/AcceptInvitePage").then((m) => ({ default: m.AcceptInvitePage })));
 const DashboardPage = lazy(() => import("../pages-legacy/DashboardPage").then((m) => ({ default: m.DashboardPage })));
 const OrdersPage = lazy(() => import("../pages-legacy/OrdersPage").then((m) => ({ default: m.OrdersPage })));
 const UploadsPage = lazy(() => import("../pages-legacy/UploadsPage").then((m) => ({ default: m.UploadsPage })));
@@ -219,6 +220,7 @@ export default function ClientShell() {
           <Route path="/" element={<PublicBookingIndex />} />
           <Route path="/book" element={<BookingWizardPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/accept-invite" element={<AcceptInvitePage />} />
           <Route path="/portal/login" element={<PortalLoginPage />} />
           <Route path="/portal/forgot-password" element={<PortalForgotPasswordPage />} />
           <Route path="/portal/reset-password" element={<PortalResetPasswordPage />} />

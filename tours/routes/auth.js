@@ -125,6 +125,36 @@ router.post('/login', async (req, res) => {
   res.render('admin/login', { error: 'E-Mail oder Passwort falsch.' });
 });
 
+// JSON-API für Einladungslinks (React SPA)
+router.get('/api/invite/check', async (req, res) => {
+  const token = String(req.query.token || '').trim();
+  if (!token) return res.json({ ok: true, valid: false, error: 'Einladung fehlt.' });
+  const { invite, error } = await getInviteByToken(token);
+  if (!invite) return res.json({ ok: true, valid: false, error: error || 'Einladung ungültig oder abgelaufen.' });
+  return res.json({ ok: true, valid: true, email: invite.email, expiresAt: invite.expiresAt || null });
+});
+
+router.post('/api/invite/accept', express.json(), async (req, res) => {
+  const token = String(req.body?.token || '').trim();
+  const password = String(req.body?.password || '');
+  const passwordRepeat = String(req.body?.passwordRepeat || '');
+  if (!token) return res.status(400).json({ ok: false, error: 'Token fehlt.' });
+  const checked = await getInviteByToken(token);
+  if (!checked.invite) return res.status(400).json({ ok: false, error: checked.error || 'Einladung ungültig.' });
+  if (!password || password.length < 8) return res.status(400).json({ ok: false, error: 'Passwort muss mindestens 8 Zeichen haben.' });
+  if (password !== passwordRepeat) return res.status(400).json({ ok: false, error: 'Passwörter stimmen nicht überein.' });
+  const accepted = await acceptInvite(token, password);
+  if (!accepted.ok) return res.status(400).json({ ok: false, error: accepted.error || 'Einladung konnte nicht angenommen werden.' });
+  req.session.regenerate(async (regenErr) => {
+    if (regenErr) return res.status(500).json({ ok: false, error: 'Session konnte nicht erstellt werden.' });
+    req.session.isAdmin = true;
+    req.session.admin = { email: accepted.email };
+    req.session.adminEmail = accepted.email;
+    await touchAdminLastLogin(accepted.email).catch(() => null);
+    req.session.save(() => res.json({ ok: true }));
+  });
+});
+
 router.get('/accept-invite', async (req, res) => {
   const token = String(req.query.token || '').trim();
   if (!token) {
