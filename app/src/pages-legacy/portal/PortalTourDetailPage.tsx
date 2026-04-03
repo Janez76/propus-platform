@@ -10,9 +10,11 @@ import {
   archivePortalTour,
   setPortalTourAssignee,
   payPortalInvoice,
+  setPortalMatterportOptions,
+  setPortalStartSweep,
   type PortalTourDetail,
 } from "../../api/portalTours";
-import type { MatterportModelMeta } from "../../api/toursAdmin";
+import type { MatterportModelMeta, MatterportModelOptions, MatterportOptionsPatch, MatterportSettingOverride } from "../../api/toursAdmin";
 import { usePortalNav } from "../../hooks/usePortalNav";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -197,6 +199,179 @@ function MetaRow({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
+const OPTIONS_CONFIG: Array<{
+  key: keyof MatterportModelOptions;
+  label: string;
+  hint: string;
+  icon: string;
+  overrideKey: keyof MatterportModelOptions;
+}> = [
+  { key: "defurnishViewEnabled",  label: "Mobiliar entfernen",   hint: "Zeigt den Raum möbellos – ideal für leere Übergaben.",           icon: "🛋️", overrideKey: "defurnishViewOverride" },
+  { key: "dollhouseEnabled",      label: "Dollhouse-Modus",      hint: "3D-Gesamtansicht des Gebäudes von aussen.",                      icon: "🏠", overrideKey: "dollhouseOverride" },
+  { key: "floorplanEnabled",      label: "Grundriss",            hint: "Zeigt den 2D-Grundriss des Stockwerks an.",                      icon: "📐", overrideKey: "floorplanOverride" },
+  { key: "socialSharingEnabled",  label: "Social Sharing",       hint: "Schaltfläche zum Teilen auf sozialen Netzwerken einblenden.",     icon: "🔗", overrideKey: "socialSharingOverride" },
+  { key: "vrEnabled",             label: "VR-Modus",             hint: "Ermöglicht den Besuch mit VR-Brille.",                           icon: "🥽", overrideKey: "vrOverride" },
+  { key: "highlightReelEnabled",  label: "Highlight Reel",       hint: "Automatische Kurzpräsentation der Highlights beim Start.",        icon: "🎬", overrideKey: "highlightReelOverride" },
+  { key: "labelsEnabled",         label: "Raumbeschriftungen",   hint: "Blendet die Raumnamen direkt im 3D-Rundgang ein.",               icon: "🏷️", overrideKey: "labelsOverride" },
+  { key: "tourAutoplayEnabled",   label: "Tour Autoplay",        hint: "Startet die Tour automatisch ohne Nutzeraktion.",                icon: "▶️", overrideKey: "tourAutoplayOverride" },
+  { key: "roomBoundsEnabled",     label: "Raumgrenzen",          hint: "Zeigt die Raumgrenzen als transparente Flächen.",                icon: "📦", overrideKey: "roomBoundsOverride" },
+];
+
+function PortalOverrideToggle({
+  icon, label, hint, overrideKey, override, tourId, onSuccess,
+}: {
+  icon: string; label: string; hint: string;
+  overrideKey: keyof MatterportOptionsPatch;
+  enabled: boolean | null; override: string | null;
+  tourId: number; onSuccess: () => void;
+}) {
+  const [busy, setBusy] = useState<MatterportSettingOverride | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const current = (String(override ?? "default").toLowerCase()) as MatterportSettingOverride | "default";
+
+  async function set(next: MatterportSettingOverride) {
+    if (busy) return;
+    setBusy(next);
+    setErr(null);
+    try {
+      await setPortalMatterportOptions(tourId, { [overrideKey]: next });
+      onSuccess();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Fehler");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const OPTS: { value: MatterportSettingOverride; label: string; active: string; inactive: string }[] = [
+    { value: "default",  label: "Standard", active: "border-[var(--accent)]/60 bg-[var(--accent)]/8 text-[var(--accent)]",                                                               inactive: "border-[var(--border-soft)] text-[var(--text-subtle)] hover:border-[var(--accent)]/30 hover:text-[var(--text-main)]" },
+    { value: "enabled",  label: "An",       active: "border-emerald-400/70 bg-emerald-500/10 text-emerald-600 dark:border-emerald-600 dark:text-emerald-400",                              inactive: "border-[var(--border-soft)] text-[var(--text-subtle)] hover:border-emerald-400/40 hover:text-emerald-600 dark:hover:text-emerald-400" },
+    { value: "disabled", label: "Aus",      active: "border-red-400/70 bg-red-500/10 text-red-600 dark:border-red-600 dark:text-red-400",                                                  inactive: "border-[var(--border-soft)] text-[var(--text-subtle)] hover:border-red-400/40 hover:text-red-600 dark:hover:text-red-400" },
+  ];
+
+  return (
+    <div className="flex items-center gap-3 py-1.5">
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5 text-xs font-medium text-[var(--text-main)]">
+          <span className="text-sm leading-none">{icon}</span>
+          <span>{label}</span>
+          {err ? <span className="ml-1 text-xs text-red-500 font-normal">{err}</span> : null}
+        </div>
+        <p className="mt-0.5 text-xs leading-snug text-[var(--text-subtle)]">{hint}</p>
+      </div>
+      <div className="flex shrink-0 gap-1">
+        {OPTS.map((opt) => {
+          const isActive = current === opt.value;
+          const isBusy = busy === opt.value;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              disabled={!!busy}
+              onClick={() => void set(opt.value)}
+              className={[
+                "rounded border px-2 py-0.5 text-xs leading-none transition-colors disabled:cursor-wait",
+                isActive ? opt.active : opt.inactive,
+                isBusy ? "opacity-50" : "",
+              ].join(" ")}
+            >
+              {isBusy ? "…" : opt.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function extractSweepFromInput(raw: string): string {
+  const t = raw.trim();
+  if (!t) return "";
+  const fromParam = t.match(/[?&#]sid=([^&\s#]+)/i);
+  if (fromParam) {
+    try { return decodeURIComponent(fromParam[1]); } catch { return fromParam[1]; }
+  }
+  try {
+    const u = new URL(t);
+    const sid = u.searchParams.get("sid");
+    if (sid) return sid.trim();
+  } catch { /* kein URL */ }
+  return t;
+}
+
+function PortalSweepIdTile({
+  tourId, matterportStartSweep, onSaved,
+}: {
+  tourId: number; matterportStartSweep: string; onSaved: () => void;
+}) {
+  const [draft, setDraft] = useState(matterportStartSweep);
+  const [saving, setSaving] = useState(false);
+  const [ok, setOk] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => { setDraft(matterportStartSweep); }, [matterportStartSweep]);
+
+  async function save() {
+    setSaving(true); setOk(false); setErr(null);
+    const resolved = extractSweepFromInput(draft);
+    try {
+      await setPortalStartSweep(tourId, resolved || null);
+      setDraft(resolved);
+      setOk(true);
+      window.setTimeout(() => setOk(false), 2500);
+      onSaved();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Fehler");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2 py-1.5 sm:flex-row sm:items-start sm:gap-3">
+      <div className="flex min-w-0 flex-1 items-start gap-2">
+        <Copy className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--text-subtle)]" aria-hidden />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs font-medium text-[var(--text-main)]">
+            <span>Startpunkt setzen</span>
+            {err ? <span className="text-xs font-normal text-red-500">{err}</span> : null}
+          </div>
+          <p className="mt-0.5 text-xs leading-snug text-[var(--text-subtle)]">
+            In Matterport auf den gewünschten Standort navigieren, dann{" "}
+            <kbd className="rounded border border-[var(--border-soft)] bg-[var(--surface)] px-1 font-mono text-[10px]">Strg</kbd>
+            +
+            <kbd className="rounded border border-[var(--border-soft)] bg-[var(--surface)] px-1 font-mono text-[10px]">Shift</kbd>
+            +
+            <kbd className="rounded border border-[var(--border-soft)] bg-[var(--surface)] px-1 font-mono text-[10px]">L</kbd>{" "}
+            drücken — es öffnet sich das Fenster <em>„Link to location"</em> mit der URL inkl.{" "}
+            <code className="rounded bg-[var(--surface)] px-1 font-mono text-[10px]">sid=</code>. Dort „Copy to clipboard"
+            klicken und die URL hier einfügen —{" "}
+            <code className="rounded bg-[var(--surface)] px-1 font-mono text-[10px]">sid=</code> wird beim Speichern
+            automatisch übernommen. Alternativ nur die Sweep-ID direkt eintragen.
+          </p>
+        </div>
+      </div>
+      <div className="flex min-w-0 w-full shrink-0 flex-col gap-1.5 sm:w-auto sm:max-w-xl sm:flex-row sm:items-center">
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="Show-URL oder Sweep-ID einfügen…"
+          spellCheck={false}
+          className="min-w-0 w-full rounded border border-[var(--border-soft)] bg-[var(--surface)] px-2 py-1 font-mono text-xs text-[var(--text-main)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]/40 sm:min-w-[14rem]"
+        />
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => void save()}
+          className="shrink-0 rounded border border-[var(--border-soft)] bg-[var(--surface)] px-2.5 py-1 text-xs font-medium text-[var(--text-main)] transition-colors hover:border-[var(--accent)]/50 hover:bg-[var(--accent)]/10 hover:text-[var(--accent)] disabled:opacity-50"
+        >
+          {saving ? "…" : ok ? "✓" : "Setzen"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function PortalMatterportMetaPanel({
   meta,
   onRefresh,
@@ -205,6 +380,7 @@ function PortalMatterportMetaPanel({
   tourShowUrl,
   mpVisibility,
   onVisibilitySaved,
+  matterportStartSweep,
 }: {
   meta: MatterportModelMeta;
   onRefresh: () => void;
@@ -213,6 +389,7 @@ function PortalMatterportMetaPanel({
   tourShowUrl: string | null;
   mpVisibility: string | null;
   onVisibilitySaved: () => void;
+  matterportStartSweep: string;
 }) {
   const [linkCopied, setLinkCopied] = useState(false);
 
@@ -300,6 +477,46 @@ function PortalMatterportMetaPanel({
           />
         ) : null}
       </dl>
+
+      {meta.options ? (
+        <div className="border-t border-[var(--border-soft)] pt-3 space-y-2">
+          <p className="text-xs font-semibold text-[var(--text-subtle)] uppercase tracking-wide">
+            Einstellungen anzeigen
+          </p>
+          <p className="text-xs text-[var(--text-subtle)] leading-relaxed">
+            Steuert, welche Viewer-Funktionen Besucher in der Matterport-Tour sehen (Grundriss, VR, Teilen usw.). Änderungen
+            werden direkt am Modell gespeichert — kurz warten und bei Bedarf{" "}
+            <strong className="font-medium text-[var(--text-main)]">Aktualisieren</strong> nutzen.
+          </p>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-0 sm:grid-cols-3 lg:grid-cols-4 divide-y-0 [&>*]:border-b [&>*]:border-[var(--border-soft)]">
+            {OPTIONS_CONFIG.map(({ key, label, hint, icon, overrideKey }) => (
+              <PortalOverrideToggle
+                key={key}
+                icon={icon}
+                label={label}
+                hint={hint}
+                overrideKey={overrideKey as keyof MatterportOptionsPatch}
+                enabled={meta.options![key] as boolean | null}
+                override={meta.options![overrideKey] as string | null}
+                tourId={tourId}
+                onSuccess={onRefresh}
+              />
+            ))}
+            <div className="col-span-2 sm:col-span-3 lg:col-span-4">
+              <PortalSweepIdTile
+                tourId={tourId}
+                matterportStartSweep={matterportStartSweep}
+                onSaved={onRefresh}
+              />
+            </div>
+          </div>
+          <p className="text-xs text-[var(--text-subtle)] leading-relaxed pt-1">
+            <strong className="text-[var(--text-main)]">Standard</strong> = wie im Matterport-Konto voreingestellt (kein eigener Eintrag für diese Tour).{" "}
+            <strong className="text-[var(--text-main)]">An</strong> = Funktion für diese Tour erzwingen ein.{" "}
+            <strong className="text-[var(--text-main)]">Aus</strong> = Funktion für diese Tour erzwingen aus. Pro Zeile unabhängig wählbar.
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -633,6 +850,7 @@ export function PortalTourDetailPage() {
                         refetch();
                         void loadMeta(spaceId);
                       }}
+                      matterportStartSweep={String(tour.matterport_start_sweep ?? "")}
                     />
                   ) : null}
                 </div>

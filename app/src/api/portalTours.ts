@@ -210,6 +210,12 @@ export const getPortalTourDetail = (id: number) =>
 export const getPortalMatterportModel = (id: number) =>
   portalFetch<{ ok: true; model: import("./toursAdmin").MatterportModelMeta }>(`/tours/${id}/matterport-model`);
 
+export const setPortalMatterportOptions = (id: number, patch: import("./toursAdmin").MatterportOptionsPatch) =>
+  portalFetch<{ ok: true }>(`/tours/${id}/matterport-options`, { method: "POST", body: JSON.stringify(patch) });
+
+export const setPortalStartSweep = (id: number, startSweep: string | null) =>
+  portalFetch<{ ok: true; start_sweep: string | null }>(`/tours/${id}/set-start-sweep`, { method: "POST", body: JSON.stringify({ start_sweep: startSweep }) });
+
 export const editPortalTour = (id: number, data: { object_label?: string; customer_contact?: string; customer_name?: string; start_sweep?: string }) =>
   portalFetch<{ ok: true; matterportNameOk?: boolean }>(`/tours/${id}/edit`, { method: "POST", body: JSON.stringify(data) });
 

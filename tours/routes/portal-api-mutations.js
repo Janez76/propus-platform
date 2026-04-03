@@ -638,6 +638,63 @@ router.get('/tours/:id/matterport-model', async (req, res) => {
   }
 });
 
+router.post('/tours/:id/matterport-options', async (req, res) => {
+  try {
+    const email = req.session.portalCustomerEmail;
+    const { id } = req.params;
+    const raw = await assertTourAccess(id, email);
+    if (!raw) return res.status(403).json({ error: 'Nicht erlaubt' });
+    const tourNorm = normalizeTourRow(raw);
+    const spaceId = tourNorm.canonical_matterport_space_id;
+    if (!spaceId) return res.status(400).json({ error: 'no_matterport' });
+
+    const ALLOWED = [
+      'defurnishViewOverride', 'dollhouseOverride', 'floorplanOverride',
+      'socialSharingOverride', 'vrOverride', 'highlightReelOverride',
+      'labelsOverride', 'tourAutoplayOverride', 'roomBoundsOverride',
+    ];
+    const VALID_VALUES = ['enabled', 'disabled', 'default'];
+    const patch = {};
+    for (const key of ALLOWED) {
+      if (req.body[key] !== undefined) {
+        const val = String(req.body[key]);
+        if (!VALID_VALUES.includes(val)) return res.status(400).json({ error: `Ungültiger Wert für ${key}` });
+        patch[key] = val;
+      }
+    }
+    if (Object.keys(patch).length === 0) return res.status(400).json({ error: 'Keine Felder zum Aktualisieren' });
+
+    const { patchModelOptions } = require('../lib/matterport');
+    const result = await patchModelOptions(spaceId, patch);
+    if (!result.success) return res.status(502).json({ error: result.error || 'Matterport API Fehler' });
+
+    await logAction(id, 'customer', email, 'PORTAL_MP_OPTIONS', { patch });
+    return res.json({ ok: true, options: result.options });
+  } catch (err) {
+    console.error('[portal-api-mutations] /tours/:id/matterport-options error:', err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/tours/:id/set-start-sweep', async (req, res) => {
+  try {
+    const email = req.session.portalCustomerEmail;
+    const { id } = req.params;
+    const raw = await assertTourAccess(id, email);
+    if (!raw) return res.status(403).json({ error: 'Nicht erlaubt' });
+    const sweep = String(req.body?.start_sweep ?? '').trim() || null;
+    await pool.query(
+      `UPDATE tour_manager.tours SET matterport_start_sweep = $1, updated_at = NOW() WHERE id = $2`,
+      [sweep, id]
+    );
+    await logAction(id, 'customer', email, 'PORTAL_SET_SWEEP', { start_sweep: sweep });
+    return res.json({ ok: true, start_sweep: sweep });
+  } catch (err) {
+    console.error('[portal-api-mutations] /tours/:id/set-start-sweep error:', err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 router.post('/tours/:id/visibility', async (req, res) => {
   try {
     const email = req.session.portalCustomerEmail;
