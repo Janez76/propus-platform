@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { ExternalLink, Link2, ArchiveRestore, Trash2, Send, RefreshCw, X, SlidersHorizontal, Copy, Check } from "lucide-react";
+import { Link2, ArchiveRestore, Trash2, Send, RefreshCw, X, SlidersHorizontal, Copy, Check } from "lucide-react";
 import { toursAdminPost, deleteToursAdminTour, postUnarchiveMatterportTour, postTransferMatterportSpace, getToursAdminMatterportModel, postToursAdminMatterportOptions } from "../../../../api/toursAdmin";
 import type { MatterportModelMeta, MatterportModelOptions, MatterportSettingOverride, MatterportOptionsPatch } from "../../../../api/toursAdmin";
 import type { ToursAdminTourRow } from "../../../../types/toursAdmin";
@@ -453,17 +453,6 @@ export function TourMatterportSection({ tourId, tour, mpVisibility, onSuccess }:
         ) : null}
 
         <div className="flex flex-wrap gap-2">
-          {mpUrl ? (
-            <a
-              href={mpUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={MP_ACTION_BTN}
-            >
-              <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-              Matterport öffnen
-            </a>
-          ) : null}
           {linkMatterportOpenHref ? (
             <Link
               to={linkMatterportOpenHref}

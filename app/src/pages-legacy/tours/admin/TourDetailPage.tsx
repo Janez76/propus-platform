@@ -26,6 +26,13 @@ function bookingLinkOpenSpaceId(t: ToursAdminTourRow): string | null {
   return canonical || persisted || null;
 }
 
+function matterportShowUrl(t: ToursAdminTourRow): string | null {
+  const canonical = String(t.canonical_matterport_space_id ?? "").trim();
+  const persisted = String(t.matterport_space_id ?? "").trim();
+  const spaceId = canonical || persisted;
+  return spaceId ? `https://my.matterport.com/show/?m=${encodeURIComponent(spaceId)}` : null;
+}
+
 export function TourDetailPage() {
   const { id } = useParams<{ id: string }>();
   const okId = id != null && id !== "" && /^\d+$/.test(id) ? id : null;
@@ -92,6 +99,7 @@ export function TourDetailPage() {
           <section className="surface-card-strong p-5 space-y-3">
             <h2 className="text-lg font-semibold text-[var(--text-main)]">Intern</h2>
             <TourInternSection
+              matterportShowUrl={matterportShowUrl(data.tour)}
               bookingOrderNo={data.tour.booking_order_no as number | null}
               customerName={data.tour.canonical_customer_name as string | null}
               onOpenBookingLink={() => setEmbedView("booking")}
