@@ -18,6 +18,36 @@ rm -rf "$STAGING_DIR" "$ARCHIVE_PATH"
 
 cd "$PROJECT_ROOT"
 
+echo "==> Port-Konflikt-Check"
+# Alle Host-Ports die vom propus-platform Stack benoetigt werden
+REQUIRED_PORTS="3100 3301 3302 5435 5436 4343"
+FAILED_PORTS=""
+
+for port in $REQUIRED_PORTS; do
+  listeners=$(ss -tlnp "sport = :${port}" 2>/dev/null | tail -n +2)
+  if [ -n "$listeners" ]; then
+    # Ignoriere Prozesse die zu Docker gehoeren (docker-proxy = unser eigener Stack)
+    non_docker=$(echo "$listeners" | grep -v "docker-proxy" || true)
+    if [ -n "$non_docker" ]; then
+      echo "  KONFLIKT Port $port wird von einem anderen Prozess belegt:"
+      echo "  $non_docker"
+      FAILED_PORTS="$FAILED_PORTS $port"
+    else
+      echo "  OK       Port $port (Docker-Stack propus-platform)"
+    fi
+  else
+    echo "  FREI     Port $port"
+  fi
+done
+
+if [ -n "$FAILED_PORTS" ]; then
+  echo ""
+  echo "FEHLER: Port-Konflikte auf:$FAILED_PORTS"
+  echo "Bitte die konfliktierenden Prozesse stoppen und erneut deployen."
+  exit 1
+fi
+echo "Alle Ports verfuegbar."
+
 echo "==> Docker Build"
 export DOCKER_BUILDKIT=1
 docker compose -f docker-compose.vps.yml --env-file .env.vps build migrate platform website

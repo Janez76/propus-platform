@@ -87,7 +87,7 @@ services:
       args:
         PLATFORM_INTERNAL_URL: http://127.0.0.1:3100
     ports:
-      - "127.0.0.1:${PLATFORM_PORT:-3100}:3000"
+      - "127.0.0.1:${PLATFORM_PORT:-3100}:3001"
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       DB_SEARCH_PATH: booking,tour_manager,core,public
@@ -97,7 +97,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
       PORT: "3100"
-      NEXTJS_PORT: "3000"
+      NEXTJS_PORT: "3001"
       NODE_ENV: production
       TIMEZONE: ${TIMEZONE:-Europe/Zurich}
       WORK_START: ${WORK_START:-08:00}
@@ -180,7 +180,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "node -e \"require('http').get('http://127.0.0.1:3000/api/core/health',r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>process.exit(r.statusCode===200&&d.includes('ok')?0:1));}).on('error',()=>process.exit(1))\"",
+          "node -e \"require('http').get('http://127.0.0.1:3001/api/core/health',r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>process.exit(r.statusCode===200&&d.includes('ok')?0:1));}).on('error',()=>process.exit(1))\"",
         ]
       interval: 10s
       timeout: 8s

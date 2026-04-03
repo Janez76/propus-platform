@@ -90,6 +90,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV LOG_DIR=/app/logs
 ENV PLATFORM_INTERNAL_URL=http://localhost:3100
 
+# 3001 = Next.js (external entrypoint), 3100 = Express (internal only)
 EXPOSE 3001 3100
 
 CMD ["./start.sh"]
