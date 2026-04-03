@@ -88,14 +88,19 @@ export function MatterportVisibilityPanel({ tourId, mpVisibility, onSuccess }: P
             type="button"
             onClick={() => setVisibility(value)}
             className={[
-              "flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-sm font-medium transition-colors",
+              "flex w-full min-w-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-sm font-medium transition-colors",
               visibility === value
                 ? "border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]"
                 : "border-[var(--border-soft)] bg-[var(--surface)] text-[var(--text-muted)] hover:border-[var(--accent)]/50",
             ].join(" ")}
           >
-            <span>{icon}</span>
-            {label}
+            <span className="shrink-0">{icon}</span>
+            <span className="min-w-0 truncate">{label}</span>
+            {value === "LINK_ONLY" ? (
+              <span className="ml-auto shrink-0 rounded-full border border-current px-1 py-0 text-[9px] font-semibold uppercase tracking-wide opacity-70">
+                Standard
+              </span>
+            ) : null}
           </button>
         ))}
       </div>

@@ -236,13 +236,23 @@ function SweepIdTile({
             {err ? <span className="text-xs font-normal text-red-500">{err}</span> : null}
           </div>
           <p className="mt-0.5 text-xs leading-snug text-[var(--text-subtle)]">
-            Volle Matterport-Show-URL aus dem Browser einfügen (Strg+V) —{" "}
+            In Matterport auf den gewünschten Standort navigieren, dann{" "}
+            <kbd className="rounded border border-[var(--border-soft)] bg-[var(--surface)] px-1 font-mono text-[10px]">
+              Strg
+            </kbd>
+            +
+            <kbd className="rounded border border-[var(--border-soft)] bg-[var(--surface)] px-1 font-mono text-[10px]">
+              Shift
+            </kbd>
+            +
+            <kbd className="rounded border border-[var(--border-soft)] bg-[var(--surface)] px-1 font-mono text-[10px]">
+              L
+            </kbd>{" "}
+            drücken — es öffnet sich das Fenster <em>„Link to location“</em> mit der URL inkl.{" "}
+            <code className="rounded bg-[var(--surface)] px-1 font-mono text-[10px]">sid=</code>. Dort „Copy to clipboard“
+            klicken und die URL hier einfügen —{" "}
             <code className="rounded bg-[var(--surface)] px-1 font-mono text-[10px]">sid=</code> wird beim Speichern
-            übernommen. Oder nur die Sweep-ID eintragen; Auswahl auch in der{" "}
-            <a href="#matterport-sweep-ids" className="text-[var(--accent)] underline-offset-1 hover:underline">
-              Sweep-Liste
-            </a>
-            .
+            automatisch übernommen. Alternativ nur die Sweep-ID direkt eintragen.
           </p>
         </div>
       </div>
@@ -267,57 +277,7 @@ function SweepIdTile({
   );
 }
 
-function PanoSweepRow({
-  pl,
-  isActiveStart,
-  busy,
-  onPick,
-  onCopyId,
-}: {
-  pl: { id: string; label: string | null; variant?: string | null };
-  isActiveStart: boolean;
-  busy: boolean;
-  onPick: () => void | Promise<void>;
-  onCopyId: () => void;
-}) {
-  const [copied, setCopied] = useState(false);
-  const label = pl.label?.trim() || "—";
-  const variant = pl.variant ? ` · ${pl.variant}` : "";
-  return (
-    <tr className={isActiveStart ? "bg-[var(--accent)]/8" : undefined}>
-      <td className="px-2 py-1.5 align-top text-xs text-[var(--text-main)]">
-        <span className="font-medium">{label}</span>
-        <span className="text-[var(--text-subtle)]">{variant}</span>
-      </td>
-      <td className="px-2 py-1.5 align-top font-mono text-[11px] text-[var(--text-main)] break-all">{pl.id}</td>
-      <td className="px-2 py-1.5 align-top whitespace-nowrap">
-        <div className="flex flex-wrap gap-1">
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void onPick()}
-            className="rounded border border-[var(--border-soft)] bg-[var(--surface)] px-2 py-0.5 text-xs font-medium text-[var(--text-main)] disabled:opacity-50"
-          >
-            {busy ? "…" : "Als Startpunkt"}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              void onCopyId();
-              setCopied(true);
-              window.setTimeout(() => setCopied(false), 2000);
-            }}
-            className="rounded border border-[var(--border-soft)] bg-[var(--surface)] px-2 py-0.5 text-xs font-medium text-[var(--text-main)]"
-          >
-            {copied ? "Kopiert" : "ID kopieren"}
-          </button>
-        </div>
-      </td>
-    </tr>
-  );
-}
-
-function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId, tourShowUrl, mpVisibility, onVisibilitySaved, matterportStartSweep, onPickSweepAsStart }: {
+function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId, tourShowUrl, mpVisibility, onVisibilitySaved, matterportStartSweep }: {
   meta: MatterportModelMeta;
   onRefresh: () => void;
   loading: boolean;
@@ -328,10 +288,8 @@ function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId, tourSh
   mpVisibility: string | null;
   onVisibilitySaved: () => void;
   matterportStartSweep: string;
-  onPickSweepAsStart: (sweepId: string) => Promise<void>;
 }) {
   const [linkCopied, setLinkCopied] = useState(false);
-  const [sweepPickBusy, setSweepPickBusy] = useState<string | null>(null);
 
   async function copyTourLink() {
     if (!tourShowUrl) return;
@@ -425,9 +383,7 @@ function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId, tourSh
           </p>
           <p className="text-xs text-[var(--text-subtle)] leading-relaxed">
             Steuert, welche Viewer-Funktionen Besucher in der Matterport-Tour sehen (Grundriss, VR, Teilen usw.). Änderungen
-            werden direkt am Modell gespeichert — kurz warten und bei Bedarf <strong className="font-medium text-[var(--text-main)]">Aktualisieren</strong> nutzen.{" "}
-            Zugehörige <strong className="font-medium text-[var(--text-main)]">Sweep-IDs</strong> (Startpunkte) siehe den Block{" "}
-            <strong className="font-medium text-[var(--text-main)]">Panorama-Standorte</strong> direkt darunter.
+            werden direkt am Modell gespeichert — kurz warten und bei Bedarf <strong className="font-medium text-[var(--text-main)]">Aktualisieren</strong> nutzen.
           </p>
           <div className="grid grid-cols-2 gap-x-4 gap-y-0 sm:grid-cols-3 lg:grid-cols-4 divide-y-0 [&>*]:border-b [&>*]:border-[var(--border-soft)]">
             {OPTIONS_CONFIG.map(({ key, label, hint, icon, overrideKey }) => (
@@ -459,66 +415,6 @@ function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId, tourSh
         </div>
       ) : null}
 
-      <div id="matterport-sweep-ids" className="border-t border-[var(--border-soft)] pt-3 scroll-mt-24 space-y-2">
-        <p className="text-xs font-semibold text-[var(--text-subtle)] uppercase tracking-wide">
-          Panorama-Standorte (Sweep-IDs, Model API)
-        </p>
-        <p className="text-xs text-[var(--text-subtle)] leading-relaxed">
-          Liste aus der Matterport Model API (<code className="rounded bg-[var(--surface)] px-1 font-mono text-[11px]">panoLocations</code>
-          ). Die <strong className="font-medium text-[var(--text-main)]">Sweep-ID</strong> entspricht dem Startpunkt (
-          <code className="rounded bg-[var(--surface)] px-1 font-mono text-[11px]">sid=</code> in der Show-URL).{" "}
-          <strong className="font-medium text-[var(--text-main)]">Als Startpunkt</strong> speichert direkt in Propus — alternativ oben unter{" "}
-          <a href="#admin-stammdaten-startpunkt" className="font-medium text-[var(--accent)] underline-offset-2 hover:underline">
-            Stammdaten
-          </a>{" "}
-          manuell eintragen.
-        </p>
-        {matterportStartSweep.trim() ? (
-          <p className="text-xs text-[var(--text-main)]">
-            Aktuell gespeichert:{" "}
-            <code className="rounded bg-[var(--surface)] px-1.5 py-0.5 font-mono text-[11px]">{matterportStartSweep.trim()}</code>
-          </p>
-        ) : (
-          <p className="text-xs text-[var(--text-subtle)]">Noch kein Startpunkt in Propus gespeichert.</p>
-        )}
-        {meta.panoLocations && meta.panoLocations.length > 0 ? (
-          <div className="overflow-x-auto rounded-lg border border-[var(--border-soft)]">
-            <table className="w-full min-w-[280px] text-left">
-              <thead>
-                <tr className="border-b border-[var(--border-soft)] bg-[var(--surface)]/80">
-                  <th className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--text-subtle)]">Bezeichnung</th>
-                  <th className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--text-subtle)]">Sweep-ID</th>
-                  <th className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--text-subtle)]">Aktion</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--border-soft)]">
-                {meta.panoLocations.map((pl) => (
-                  <PanoSweepRow
-                    key={pl.id}
-                    pl={pl}
-                    isActiveStart={matterportStartSweep.trim() === pl.id}
-                    busy={sweepPickBusy === pl.id}
-                    onPick={async () => {
-                      if (sweepPickBusy) return;
-                      setSweepPickBusy(pl.id);
-                      try {
-                        await onPickSweepAsStart(pl.id);
-                      } finally {
-                        setSweepPickBusy(null);
-                      }
-                    }}
-                    onCopyId={() => navigator.clipboard.writeText(pl.id)}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="text-xs text-[var(--text-subtle)]">
-            Keine Einträge geladen — sehr kleines Modell, eingeschränktes API-Token oder Daten noch nicht verfügbar.
-          </p>
-        )}
-      </div>
     </div>
   );
 }
@@ -637,15 +533,6 @@ export function TourMatterportSection({ tourId, tour, mpVisibility, onSuccess }:
     String(tour.matterport_state ?? "").toLowerCase() === "inactive" ||
     String(tour.status ?? "").toUpperCase() === "ARCHIVED";
 
-  async function pickSweepAsStart(sweepId: string) {
-    try {
-      await toursAdminPost(`/tours/${tourId}/set-start-sweep`, { start_sweep: sweepId });
-      onSuccess();
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "Fehler beim Speichern des Startpunkts");
-    }
-  }
-
   return (
     <>
       <div className="border-t border-[var(--border-soft)] pt-4 space-y-3">
@@ -687,7 +574,6 @@ export function TourMatterportSection({ tourId, tour, mpVisibility, onSuccess }:
                   void loadMeta();
                 }}
                 matterportStartSweep={String(tour.matterport_start_sweep ?? "")}
-                onPickSweepAsStart={pickSweepAsStart}
               />
             ) : null}
           </div>
