@@ -93,6 +93,7 @@ const {
   DEFAULT_EMAIL_TEMPLATES,
 } = require('../lib/settings');
 const { extractMatterportId, getMatterportId, normalizeTourRow } = require('../lib/normalize');
+const { validatePropusMatterportTourUrl } = require('../lib/matterport-tour-url');
 const {
   getActionDefinition,
   getRiskDefinition,
@@ -2186,16 +2187,17 @@ router.get('/tours', (req, res) => {
 
 router.post('/tours/:id/set-tour-url', async (req, res) => {
   const { id } = req.params;
-  let tour_url = (req.body.tour_url || '').trim() || null;
-  if (tour_url && !tour_url.toLowerCase().includes('my.matterport.com')) {
-    tour_url = null;
+  const v = validatePropusMatterportTourUrl(req.body?.tour_url);
+  if (!v.ok) {
+    return res.redirect(reactUrl(req, `/admin/tours/${id}?tourUrlSaved=0`));
   }
+  const tour_url = v.tour_url;
   await pool.query('ALTER TABLE tour_manager.tours ADD COLUMN IF NOT EXISTS matterport_is_own BOOLEAN');
   await pool.query(
     `UPDATE tour_manager.tours SET tour_url = $1, matterport_is_own = NULL, updated_at = NOW() WHERE id = $2`,
     [tour_url, id]
   );
-  res.redirect(`/admin/tours/${id}?tourUrlSaved=1`);
+  res.redirect(reactUrl(req, `/admin/tours/${id}?tourUrlSaved=1`));
 });
 
 router.post('/tours/:id/set-name', async (req, res) => {

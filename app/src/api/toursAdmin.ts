@@ -222,8 +222,9 @@ export interface MatterportModelLabel {
 
 export interface MatterportPanoLocation {
   id: string;
-  label: string;
-  position: { x: number; y: number; z: number } | null;
+  label: string | null;
+  variant?: string | null;
+  position?: { x: number; y: number; z: number } | null;
 }
 
 export interface MatterportModelMeta {

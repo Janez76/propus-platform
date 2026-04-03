@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { X, Upload, Link2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { postCreateTicket, postTicketUpload } from "../../../../api/toursAdmin";
 import type { TicketCategory } from "../../../../api/toursAdmin";
@@ -32,6 +33,7 @@ interface Props {
 }
 
 export function TicketCreateDialog({ tourId, tourLabel, onClose, onSuccess }: Props) {
+  const [mounted, setMounted] = useState(false);
   const [category, setCategory] = useState<TicketCategory>("sonstiges");
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
@@ -43,6 +45,18 @@ export function TicketCreateDialog({ tourId, tourLabel, onClose, onSuccess }: Pr
   const [err, setErr] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -98,14 +112,14 @@ export function TicketCreateDialog({ tourId, tourLabel, onClose, onSuccess }: Pr
     }
   }
 
-  return (
+  const modal = (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4"
+      className="fixed inset-0 z-[500] flex items-center justify-center bg-black/70 p-4 backdrop-blur-[2px]"
       onClick={onClose}
       role="presentation"
     >
       <div
-        className="w-full max-w-lg min-h-0 rounded-2xl bg-[var(--bg-card)] shadow-[0_24px_60px_rgba(0,0,0,0.35)] flex flex-col max-h-[90vh]"
+        className="relative z-[1] w-full max-w-lg min-h-0 rounded-2xl bg-[var(--surface-raised)] shadow-[0_24px_60px_rgba(0,0,0,0.35)] flex flex-col max-h-[90vh] ring-1 ring-black/10 dark:ring-white/10"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -276,4 +290,7 @@ export function TicketCreateDialog({ tourId, tourLabel, onClose, onSuccess }: Pr
       </div>
     </div>
   );
+
+  if (!mounted) return null;
+  return createPortal(modal, document.body);
 }

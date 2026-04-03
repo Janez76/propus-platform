@@ -1,7 +1,7 @@
+const { extractSpaceIdFromTourUrl } = require('./matterport-tour-url');
+
 function extractMatterportId(url) {
-  if (!url || typeof url !== 'string') return null;
-  const match = url.match(/[?&]m=([a-zA-Z0-9_-]+)/);
-  return match ? match[1] : null;
+  return extractSpaceIdFromTourUrl(url);
 }
 
 function getMatterportId(row) {

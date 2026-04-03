@@ -33,6 +33,13 @@ function matterportShowUrl(t: ToursAdminTourRow): string | null {
   return spaceId ? `https://my.matterport.com/show/?m=${encodeURIComponent(spaceId)}` : null;
 }
 
+function matterportEditUrl(t: ToursAdminTourRow): string | null {
+  const canonical = String(t.canonical_matterport_space_id ?? "").trim();
+  const persisted = String(t.matterport_space_id ?? "").trim();
+  const spaceId = canonical || persisted;
+  return spaceId ? `https://my.matterport.com/models/${encodeURIComponent(spaceId)}` : null;
+}
+
 /** Anzeigename für Intern-Bereich: Core-Kunde, Tour-Felder oder Kundennummer */
 function internLinkedCustomerLabel(t: ToursAdminTourRow): string | null {
   const a = String(t.canonical_customer_name ?? "").trim();
@@ -114,8 +121,10 @@ export function TourDetailPage() {
               customerVerified={Boolean(data.tour.customer_verified)}
               onVerifiedSaved={refetchDetail}
               matterportShowUrl={matterportShowUrl(data.tour)}
+              matterportEditUrl={matterportEditUrl(data.tour)}
               linkedCustomerLabel={internLinkedCustomerLabel(data.tour)}
               bookingOrderNo={data.tour.booking_order_no as number | null}
+              onOpenCustomerLink={() => setEmbedView("customer")}
               onOpenBookingLink={() => setEmbedView("booking")}
             />
           </section>

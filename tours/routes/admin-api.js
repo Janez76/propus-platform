@@ -12,6 +12,7 @@ const phase3 = require('../lib/admin-phase3');
 const matterport = require('../lib/matterport');
 const exxas = require('../lib/exxas');
 const { normalizeTourRow } = require('../lib/normalize');
+const { validatePropusMatterportTourUrl } = require('../lib/matterport-tour-url');
 const {
   getDashboardWidgets,
   saveDashboardWidgets,
@@ -615,10 +616,11 @@ function getAllowedChatModels() {
 router.post('/tours/:id/set-tour-url', async (req, res) => {
   try {
     const { id } = req.params;
-    let tour_url = String(req.body?.tour_url ?? '').trim() || null;
-    if (tour_url && !tour_url.toLowerCase().includes('my.matterport.com')) {
-      tour_url = null;
+    const v = validatePropusMatterportTourUrl(req.body?.tour_url);
+    if (!v.ok) {
+      return res.status(400).json({ ok: false, error: v.error });
     }
+    const tour_url = v.tour_url;
     await pool.query('ALTER TABLE tour_manager.tours ADD COLUMN IF NOT EXISTS matterport_is_own BOOLEAN');
     await pool.query(
       `UPDATE tour_manager.tours SET tour_url = $1, matterport_is_own = NULL, updated_at = NOW() WHERE id = $2`,

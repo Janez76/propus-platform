@@ -214,6 +214,12 @@ async function getModel(modelId) {
         roomBoundsEnabled
         roomBoundsOverride
       }
+      panoLocations {
+        id
+        label
+        variant
+        position { x y z }
+      }
     }
   }`;
   const { data, errors } = await graphRequest(gql, { modelId });

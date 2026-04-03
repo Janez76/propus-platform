@@ -15,10 +15,14 @@ type Props = {
   onVerifiedSaved: () => void;
   /** my.matterport.com/show/?m=… wenn Space-ID bekannt */
   matterportShowUrl?: string | null;
+  /** my.matterport.com/models/{spaceId} — direkter Workspace-Link zum Bearbeiten */
+  matterportEditUrl?: string | null;
   /** Verknüpfter Kunde (canonical, customer_name oder kunde_ref) */
   linkedCustomerLabel?: string | null;
   bookingOrderNo?: number | null;
   onOpenBookingLink?: () => void;
+  /** Öffnet den Kunde-anpassen-Dialog (link-exxas-customer) */
+  onOpenCustomerLink?: () => void;
 };
 
 /**
@@ -29,9 +33,11 @@ export function TourInternSection({
   customerVerified,
   onVerifiedSaved,
   matterportShowUrl,
+  matterportEditUrl,
   linkedCustomerLabel,
   bookingOrderNo,
   onOpenBookingLink,
+  onOpenCustomerLink,
 }: Props) {
   const [verified, setVerified] = useState(customerVerified);
   const [verBusy, setVerBusy] = useState(false);
@@ -63,7 +69,24 @@ export function TourInternSection({
 
   return (
     <div className="space-y-3">
-      {matterportShowUrl ? (
+      {matterportEditUrl ? (
+        <div className="space-y-2">
+          <div className="flex flex-wrap gap-2">
+            <a
+              href={matterportEditUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={MP_OPEN_BTN}
+            >
+              <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+              Direkt in Matterport bearbeiten
+            </a>
+          </div>
+          <p className="text-xs text-[var(--text-subtle)] leading-relaxed">
+            Öffnet den Matterport-Workspace direkt im neuen Tab — zum Bearbeiten, Einstellungen ändern und Space verwalten.
+          </p>
+        </div>
+      ) : matterportShowUrl ? (
         <div className="space-y-2">
           <div className="flex flex-wrap gap-2">
             <a
@@ -121,13 +144,22 @@ export function TourInternSection({
               </p>
             </div>
           </div>
+          {onOpenCustomerLink ? (
+            <button
+              type="button"
+              onClick={onOpenCustomerLink}
+              className="shrink-0 self-start text-sm font-medium text-[var(--accent)] hover:underline lg:self-center"
+            >
+              Kunde anpassen
+            </button>
+          ) : null}
           {onOpenBookingLink ? (
             <button
               type="button"
               onClick={onOpenBookingLink}
-              className="shrink-0 self-start text-sm font-medium text-[var(--accent)] hover:underline lg:self-center"
+              className="shrink-0 self-start text-sm font-medium text-[var(--text-subtle)] hover:underline hover:text-[var(--accent)] lg:self-center"
             >
-              Kunde anpassen
+              Bestellung verknüpfen
             </button>
           ) : null}
         </div>
