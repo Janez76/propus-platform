@@ -71,7 +71,7 @@ interface ToastState {
 // ── Batch action definitions ──────────────────────────────────────────────────
 
 const BATCH_ACTIONS: {
-  action: "auto" | "refresh-created" | "sync-status" | "check-ownership";
+  action: "auto" | "refresh-created" | "check-ownership";
   label: string;
   tooltip: string;
   confirmRequired: boolean;
@@ -87,12 +87,6 @@ const BATCH_ACTIONS: {
     label: "MP created nachziehen",
     tooltip: "Erstellungsdatum von Matterport synchronisieren",
     confirmRequired: false,
-  },
-  {
-    action: "sync-status",
-    label: "Status sync",
-    tooltip: "Achtung: Überschreibt lokale Status-Werte",
-    confirmRequired: true,
   },
   {
     action: "check-ownership",
@@ -452,7 +446,7 @@ export function ToursAdminLinkMatterportPage() {
     }
   }
 
-  async function runBatch(action: "auto" | "refresh-created" | "sync-status" | "check-ownership") {
+  async function runBatch(action: "auto" | "refresh-created" | "check-ownership") {
     setBusy(action);
     try {
       await postLinkMatterportBatch(action);
