@@ -123,12 +123,12 @@ function OverrideToggle({
   return (
     <div className="flex items-center gap-3 py-1.5">
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 text-[11px] font-medium text-[var(--text-main)]">
-          <span className="text-[13px] leading-none">{icon}</span>
+        <div className="flex items-center gap-1.5 text-xs font-medium text-[var(--text-main)]">
+          <span className="text-sm leading-none">{icon}</span>
           <span>{label}</span>
-          {err ? <span className="ml-1 text-[10px] text-red-500 font-normal">{err}</span> : null}
+          {err ? <span className="ml-1 text-xs text-red-500 font-normal">{err}</span> : null}
         </div>
-        <p className="mt-0.5 text-[10px] leading-snug text-[var(--text-subtle)]">{hint}</p>
+        <p className="mt-0.5 text-xs leading-snug text-[var(--text-subtle)]">{hint}</p>
       </div>
       <div className="flex shrink-0 gap-1">
         {OPTIONS.map((opt) => {
@@ -141,7 +141,7 @@ function OverrideToggle({
               disabled={!!busy}
               onClick={() => void set(opt.value)}
               className={[
-                "rounded border px-2 py-0.5 text-[10px] leading-none transition-colors disabled:cursor-wait",
+                "rounded border px-2 py-0.5 text-xs leading-none transition-colors disabled:cursor-wait",
                 isActive ? opt.active : opt.inactive,
                 isBusy ? "opacity-50" : "",
               ].join(" ")}
@@ -171,7 +171,7 @@ function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId }: {
   return (
     <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-4 space-y-4">
       <div className="flex items-center justify-between gap-2">
-        <h4 className="text-xs font-semibold text-[var(--text-main)] uppercase tracking-wide">
+        <h4 className="text-sm font-semibold text-[var(--text-main)] uppercase tracking-wide">
           Matterport Model
         </h4>
         <div className="flex items-center gap-2">
@@ -179,7 +179,7 @@ function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId }: {
             href={editUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1 text-[10px] text-[var(--accent)] hover:underline"
+            className="flex items-center gap-1 text-xs text-[var(--accent)] hover:underline"
           >
             <Pencil className="h-3 w-3" />
             In Matterport bearbeiten
@@ -188,7 +188,7 @@ function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId }: {
             type="button"
             onClick={onRefresh}
             disabled={loading}
-            className="flex items-center gap-1 text-[10px] text-[var(--text-subtle)] hover:text-[var(--text-main)] disabled:opacity-40"
+            className="flex items-center gap-1 text-xs text-[var(--text-subtle)] hover:text-[var(--text-main)] disabled:opacity-40"
           >
             <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
             Aktualisieren
@@ -198,23 +198,23 @@ function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId }: {
 
       <div className="flex flex-wrap gap-2">
         {stateMeta ? (
-          <span className={`inline-flex items-center rounded-lg border px-2.5 py-0.5 text-xs font-medium ${stateMeta.color}`}>
+          <span className={`inline-flex items-center rounded-lg border px-2.5 py-0.5 text-sm font-medium ${stateMeta.color}`}>
             {stateMeta.label}
           </span>
         ) : meta.state ? (
-          <span className="inline-flex items-center rounded-lg border border-[var(--border-soft)] px-2.5 py-0.5 text-xs font-medium text-[var(--text-subtle)]">
+          <span className="inline-flex items-center rounded-lg border border-[var(--border-soft)] px-2.5 py-0.5 text-sm font-medium text-[var(--text-subtle)]">
             {meta.state}
           </span>
         ) : null}
         {visMeta ? (
-          <span className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-2.5 py-0.5 text-xs font-medium text-[var(--text-main)]">
+          <span className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-2.5 py-0.5 text-sm font-medium text-[var(--text-main)]">
             <span>{visMeta.icon}</span>
             {visMeta.label}
           </span>
         ) : null}
       </div>
 
-      <dl className="grid gap-1.5 text-xs">
+      <dl className="grid gap-1.5 text-sm">
         <MetaRow label="Name" value={meta.name} />
         <MetaRow label="Erstellt" value={fmtDate(meta.created)} />
         <MetaRow label="Geändert" value={fmtDate(meta.modified)} />
@@ -238,7 +238,7 @@ function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId }: {
       {/* Showcase-Einstellungen — klickbare Toggles via API */}
       {meta.options ? (
         <div className="border-t border-[var(--border-soft)] pt-3 space-y-2">
-          <p className="text-[10px] font-semibold text-[var(--text-subtle)] uppercase tracking-wide">
+          <p className="text-xs font-semibold text-[var(--text-subtle)] uppercase tracking-wide">
             Einstellungen anzeigen
           </p>
           <div className="divide-y divide-[var(--border-soft)]">
@@ -256,7 +256,7 @@ function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId }: {
               />
             ))}
           </div>
-          <p className="text-[10px] text-[var(--text-subtle)] pt-1">
+          <p className="text-xs text-[var(--text-subtle)] pt-1">
             <strong>Standard</strong> = Konto-Default · <strong>An / Aus</strong> = explizit überschreiben
           </p>
         </div>
@@ -383,18 +383,18 @@ export function TourMatterportSection({ tourId, tour, onSuccess, onOpenBookingLi
         {err ? <p className="text-sm text-red-600">{err}</p> : null}
         <dl className="grid gap-2 text-sm">
           <div>
-            <dt className="text-[var(--text-subtle)] text-xs">Space-ID</dt>
-            <dd className="text-[var(--text-main)] font-mono text-xs break-all">
+            <dt className="text-[var(--text-subtle)] text-sm">Space-ID</dt>
+            <dd className="text-[var(--text-main)] font-mono text-sm break-all">
               {spaceId || "—"}
               {linkMatterportOpenHref ? (
-                <span className="block mt-1 font-sans text-[11px] text-amber-800 dark:text-amber-300">
+                <span className="block mt-1 font-sans text-xs text-amber-800 dark:text-amber-300">
                   Nur aus Tour-URL erkannt – noch nicht als DB-Verknüpfung gespeichert.
                 </span>
               ) : null}
             </dd>
           </div>
           <div>
-            <dt className="text-[var(--text-subtle)] text-xs">State (DB)</dt>
+            <dt className="text-[var(--text-subtle)] text-sm">State (DB)</dt>
             <dd className="text-[var(--text-main)]">{String(tour.matterport_state ?? "—")}</dd>
           </div>
         </dl>
@@ -403,14 +403,14 @@ export function TourMatterportSection({ tourId, tour, onSuccess, onOpenBookingLi
         {spaceId ? (
           <div className="border-t border-[var(--border-soft)] pt-3 space-y-2">
             {metaLoading && !meta ? (
-              <p className="text-xs text-[var(--text-subtle)]">Wird geladen…</p>
+              <p className="text-sm text-[var(--text-subtle)]">Wird geladen…</p>
             ) : metaErr ? (
               <div className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-3 py-2 dark:border-red-900 dark:bg-red-950/40">
-                <p className="text-xs text-red-700 dark:text-red-300">{metaErr}</p>
+                <p className="text-sm text-red-700 dark:text-red-300">{metaErr}</p>
                 <button
                   type="button"
                   onClick={() => void loadMeta()}
-                  className="ml-2 shrink-0 text-xs text-red-600 underline hover:no-underline dark:text-red-400"
+                  className="ml-2 shrink-0 text-sm text-red-600 underline hover:no-underline dark:text-red-400"
                 >
                   Erneut laden
                 </button>
@@ -427,7 +427,7 @@ export function TourMatterportSection({ tourId, tour, onSuccess, onOpenBookingLi
               href={mpUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-xs font-medium text-[var(--accent)]"
+              className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm font-medium text-[var(--accent)]"
             >
               <ExternalLink className="h-3.5 w-3.5" />
               Matterport öffnen
@@ -436,7 +436,7 @@ export function TourMatterportSection({ tourId, tour, onSuccess, onOpenBookingLi
           {linkMatterportOpenHref ? (
             <Link
               to={linkMatterportOpenHref}
-              className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-xs font-medium text-emerald-700 dark:text-emerald-400"
+              className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm font-medium text-emerald-700 dark:text-emerald-400"
             >
               <Link2 className="h-3.5 w-3.5" />
               Space verknüpfen
@@ -446,7 +446,7 @@ export function TourMatterportSection({ tourId, tour, onSuccess, onOpenBookingLi
             <button
               type="button"
               onClick={onOpenBookingLink}
-              className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-xs font-medium text-[var(--accent)]"
+              className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm font-medium text-[var(--accent)]"
             >
               <Link2 className="h-3.5 w-3.5" />
               Bestellung verknüpfen
@@ -457,7 +457,7 @@ export function TourMatterportSection({ tourId, tour, onSuccess, onOpenBookingLi
               type="button"
               disabled={busy}
               onClick={() => void archive()}
-              className="inline-flex items-center gap-1 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs font-medium text-orange-800 dark:border-orange-900 dark:bg-orange-950/40 dark:text-orange-300 disabled:opacity-50"
+              className="inline-flex items-center gap-1 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-medium text-orange-800 dark:border-orange-900 dark:bg-orange-950/40 dark:text-orange-300 disabled:opacity-50"
             >
               {busy ? "…" : "Space archivieren"}
             </button>
@@ -467,7 +467,7 @@ export function TourMatterportSection({ tourId, tour, onSuccess, onOpenBookingLi
               type="button"
               disabled={busy}
               onClick={() => setReactivateOpen(true)}
-              className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300 disabled:opacity-50"
+              className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300 disabled:opacity-50"
             >
               <ArchiveRestore className="h-3.5 w-3.5" />
               {busy ? "…" : "Space reaktivieren"}
@@ -478,7 +478,7 @@ export function TourMatterportSection({ tourId, tour, onSuccess, onOpenBookingLi
               type="button"
               disabled={busy}
               onClick={() => { setTransferErr(null); setTransferOpen(true); }}
-              className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-xs font-medium text-[var(--text-main)] disabled:opacity-50"
+              className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm font-medium text-[var(--text-main)] disabled:opacity-50"
             >
               <Send className="h-3.5 w-3.5" />
               Space übertragen
@@ -488,7 +488,7 @@ export function TourMatterportSection({ tourId, tour, onSuccess, onOpenBookingLi
             type="button"
             disabled={busy}
             onClick={() => { setDeleteConfirmText(""); setDeleteOpen(true); }}
-            className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300 disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300 disabled:opacity-50"
           >
             <Trash2 className="h-3.5 w-3.5" />
             {busy ? "…" : "Tour löschen"}

@@ -76,7 +76,7 @@ export function TourActionsPanel({ tourId, tour, mpVisibility, onSuccess, onOpen
           <button
             type="button"
             onClick={onOpenCustomerLink}
-            className="text-xs font-medium text-[var(--accent)] hover:underline shrink-0"
+            className="text-sm font-medium text-[var(--accent)] hover:underline shrink-0"
           >
             Kunde anpassen (core)
           </button>
@@ -85,7 +85,7 @@ export function TourActionsPanel({ tourId, tour, mpVisibility, onSuccess, onOpen
       {msg ? <p className="text-sm text-emerald-700 dark:text-emerald-400">{msg}</p> : null}
       {err ? <p className="text-sm text-red-600 dark:text-red-400">{err}</p> : null}
       {normalizedMpVisibility ? (
-        <div className="flex flex-wrap items-center gap-2 text-xs">
+        <div className="flex flex-wrap items-center gap-2 text-sm">
           <span className="text-[var(--text-subtle)]">Matterport-Sichtbarkeit (API):</span>
           <span className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--accent)] bg-[var(--accent)]/10 px-2.5 py-1 font-medium text-[var(--accent)]">
             <span>{VISIBILITY_META[normalizedMpVisibility].icon}</span>
@@ -96,7 +96,7 @@ export function TourActionsPanel({ tourId, tour, mpVisibility, onSuccess, onOpen
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
-          <label className="text-xs font-medium text-[var(--text-subtle)]">Tour-URL (my.matterport.com)</label>
+          <label className="text-sm font-medium text-[var(--text-subtle)]">Tour-URL (my.matterport.com)</label>
           <input
             value={tourUrl}
             onChange={(e) => setTourUrl(e.target.value)}
@@ -109,20 +109,20 @@ export function TourActionsPanel({ tourId, tour, mpVisibility, onSuccess, onOpen
             onClick={() =>
               run("url", () => toursAdminPost(`/tours/${tourId}/set-tour-url`, { tour_url: tourUrl.trim() || null }))
             }
-            className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+            className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
           >
             {busy === "url" ? "…" : "URL speichern"}
           </button>
         </div>
 
         <div className="space-y-2">
-          <label className="text-xs font-medium text-[var(--text-subtle)]">Objektbezeichnung</label>
+          <label className="text-sm font-medium text-[var(--text-subtle)]">Objektbezeichnung</label>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)]"
           />
-          <label className="flex items-center gap-2 text-xs text-[var(--text-subtle)]">
+          <label className="flex items-center gap-2 text-sm text-[var(--text-subtle)]">
             <input type="checkbox" checked={syncMp} onChange={(e) => setSyncMp(e.target.checked)} />
             Name zu Matterport synchronisieren
           </label>
@@ -134,21 +134,21 @@ export function TourActionsPanel({ tourId, tour, mpVisibility, onSuccess, onOpen
                 toursAdminPost(`/tours/${tourId}/set-name`, { name: name.trim(), syncMatterport: syncMp ? "1" : "" })
               )
             }
-            className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+            className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
           >
             {busy === "name" ? "…" : "Name speichern"}
           </button>
         </div>
 
         <div className="space-y-2">
-          <label className="text-xs font-medium text-[var(--text-subtle)]">Start-Sweep-ID</label>
+          <label className="text-sm font-medium text-[var(--text-subtle)]">Start-Sweep-ID</label>
           <input
             value={sweep}
             onChange={(e) => setSweep(e.target.value)}
             className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)]"
             placeholder="Matterport Sweep ID"
           />
-          <p className="text-xs text-[var(--text-subtle)]">
+          <p className="text-sm text-[var(--text-subtle)]">
             Gewuenschten Startpunkt in Matterport oeffnen, die Sweep-ID aus Link oder Ansicht kopieren und hier einfuegen.
           </p>
           <button
@@ -157,7 +157,7 @@ export function TourActionsPanel({ tourId, tour, mpVisibility, onSuccess, onOpen
             onClick={() =>
               run("sweep", () => toursAdminPost(`/tours/${tourId}/set-start-sweep`, { start_sweep: sweep.trim() }))
             }
-            className="rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-xs font-medium disabled:opacity-50"
+            className="rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-sm font-medium disabled:opacity-50"
           >
             {busy === "sweep" ? "…" : "Startpunkt setzen"}
           </button>
@@ -176,7 +176,7 @@ export function TourActionsPanel({ tourId, tour, mpVisibility, onSuccess, onOpen
             type="button"
             disabled={!!busy}
             onClick={() => run("ver", () => toursAdminPost(`/tours/${tourId}/set-verified`, { verified: verified }))}
-            className="rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-xs font-medium disabled:opacity-50"
+            className="rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-sm font-medium disabled:opacity-50"
           >
             {busy === "ver" ? "…" : "Verifizierung speichern"}
           </button>
@@ -196,7 +196,7 @@ export function TourActionsPanel({ tourId, tour, mpVisibility, onSuccess, onOpen
               type="button"
               onClick={() => setVisibility(value)}
               className={[
-                "flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors",
+                "flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-sm font-medium transition-colors",
                 visibility === value
                   ? "border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]"
                   : "border-[var(--border-soft)] bg-[var(--surface)] text-[var(--text-muted)] hover:border-[var(--accent)]/50",
@@ -227,9 +227,9 @@ export function TourActionsPanel({ tourId, tour, mpVisibility, onSuccess, onOpen
               })
             )
           }
-          className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
-        >
-          {busy === "vis" ? "…" : "Anwenden"}
+            className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+          >
+            {busy === "vis" ? "…" : "Anwenden"}
         </button>
       </div>
     </div>
