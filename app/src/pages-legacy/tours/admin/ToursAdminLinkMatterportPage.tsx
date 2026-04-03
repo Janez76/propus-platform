@@ -784,30 +784,6 @@ export function ToursAdminLinkMatterportPage() {
               </div>
             )}
 
-            {/* E-Mail (immer sichtbar wenn Firma gewählt) */}
-            {coreCustomerId && (
-              <div className="grid gap-2 sm:grid-cols-2">
-                <div className="space-y-1">
-                  <label className="block text-xs uppercase tracking-wide text-[var(--text-subtle)]">Firma</label>
-                  <input
-                    className="w-full rounded border border-[var(--border-soft)] bg-[var(--surface)] px-2 py-1.5 focus:outline-none focus:border-[var(--propus-gold)]"
-                    placeholder="Firmenname"
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="block text-xs uppercase tracking-wide text-[var(--text-subtle)]">E-Mail</label>
-                  <input
-                    type="email"
-                    className="w-full rounded border border-[var(--border-soft)] bg-[var(--surface)] px-2 py-1.5 focus:outline-none focus:border-[var(--propus-gold)]"
-                    placeholder="E-Mail"
-                    value={customerEmail}
-                    onChange={(e) => setCustomerEmail(e.target.value)}
-                  />
-                </div>
-              </div>
-            )}
           </div>
         )}
 
