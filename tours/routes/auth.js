@@ -68,7 +68,7 @@ router.get('/login', (req, res) => {
     return res.redirect('/auth/login?returnTo=' + encodeURIComponent(returnTo));
   }
 
-  res.render('admin/login', { error: null });
+  return res.redirect('/login');
 });
 
 // Login-Formular
@@ -155,23 +155,9 @@ router.post('/api/invite/accept', express.json(), async (req, res) => {
   });
 });
 
-router.get('/accept-invite', async (req, res) => {
+router.get('/accept-invite', (req, res) => {
   const token = String(req.query.token || '').trim();
-  if (!token) {
-    return res.render('admin/accept-invite', {
-      invite: null,
-      token: '',
-      error: 'Einladung fehlt.',
-      success: false,
-    });
-  }
-  const { invite, error } = await getInviteByToken(token);
-  return res.render('admin/accept-invite', {
-    invite,
-    token,
-    error,
-    success: false,
-  });
+  return res.redirect(`/accept-invite${token ? '?token=' + encodeURIComponent(token) : ''}`);
 });
 
 router.post('/accept-invite', async (req, res) => {

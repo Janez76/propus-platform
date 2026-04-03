@@ -351,13 +351,12 @@ function renderPortalLogin(req, res, options = {}) {
 }
 
 router.get('/login', async (req, res) => {
-  const bp = typeof res.locals.basePath === 'string' ? res.locals.basePath : '';
-  if (req.session?.portalCustomerEmail) return res.redirect(`${bp}/portal/dashboard`);
-  return renderPortalLogin(req, res, {
-    success: req.query.success || null,
-    nextPath: getPortalNextPath(req),
-    email: typeof req.query?.email === 'string' ? String(req.query.email).trim() : '',
-  });
+  if (req.session?.portalCustomerEmail) return res.redirect('/portal/dashboard');
+  const qs = new URLSearchParams();
+  if (req.query.success) qs.set('success', String(req.query.success));
+  if (req.query.email) qs.set('email', String(req.query.email));
+  if (req.query.next) qs.set('next', String(req.query.next));
+  return res.redirect(`/portal/login${qs.toString() ? '?' + qs.toString() : ''}`);
 });
 
 router.post('/login', async (req, res) => {
@@ -407,11 +406,8 @@ router.post('/login', async (req, res) => {
 
 router.get('/forgot-password', (req, res) => {
   if (req.session?.portalCustomerEmail) return res.redirect('/portal/dashboard');
-  res.render('portal/forgot-password', {
-    error: null,
-    success: null,
-    email: typeof req.query?.email === 'string' ? String(req.query.email).trim() : '',
-  });
+  const qs = req.query.email ? `?email=${encodeURIComponent(String(req.query.email))}` : '';
+  return res.redirect(`/portal/forgot-password${qs}`);
 });
 
 router.post('/forgot-password', async (req, res) => {
@@ -452,16 +448,7 @@ router.post('/forgot-password', async (req, res) => {
 
 router.get('/reset-password', async (req, res) => {
   const token = String(req.query?.token || '').trim();
-  const row = token ? await portalAuth.getResetTokenRow(token).catch(() => null) : null;
-  const isValid =
-    !!(row && !row.used_at && row.expires_at && new Date(row.expires_at).getTime() > Date.now());
-  res.render('portal/reset-password', {
-    error: null,
-    success: null,
-    token,
-    email: row?.email || '',
-    isValid,
-  });
+  return res.redirect(`/portal/reset-password${token ? '?token=' + encodeURIComponent(token) : ''}`);
 });
 
 router.post('/reset-password', async (req, res) => {
@@ -603,124 +590,26 @@ router.get('/logout', async (req, res) => {
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
-router.get('/dashboard', requirePortalAuth, async (req, res) => {
-  const email = req.session.portalCustomerEmail;
-  const { tours, invoices } = await loadPortalData(email);
-  const openInvoices = invoices.filter((inv) => inv.invoice_status === 'sent' || inv.invoice_status === 'overdue');
-  const activeTours = tours.filter((tour) => tour.status === 'ACTIVE' || tour.status === 'EXPIRING_SOON');
-  const nextExpiryTours = [...tours]
-    .filter((tour) => !!(tour.canonical_term_end_date || tour.ablaufdatum))
-    .sort((a, b) => new Date(a.canonical_term_end_date || a.ablaufdatum) - new Date(b.canonical_term_end_date || b.ablaufdatum))
-    .slice(0, 5);
-  res.render('portal/dashboard', {
-    ...(await portalBrandingForRequest(req, tours)),
-    tours,
-    invoices,
-    openInvoices,
-    activeTours,
-    nextExpiryTours,
-    email,
-    success: req.query.success || null,
-    error: req.query.error || null,
-    isAdminView: !!req.session.isAdminImpersonating,
-    payrexxConfigured: payrexx.isConfigured(),
-  });
+router.get('/dashboard', requirePortalAuth, (req, res) => {
+  return res.redirect('/portal/dashboard');
 });
 
 // ─── Tour-Übersicht ───────────────────────────────────────────────────────────
 
-router.get('/tours', requirePortalAuth, async (req, res) => {
-  const email = req.session.portalCustomerEmail;
-  const { tours, invoices } = await loadPortalData(email);
-  const assigneeBundle = await portalTeam.getPortalTourAssigneeBundle(email, tours);
-
-  res.render('portal/tours', {
-    ...(await portalBrandingForRequest(req, tours)),
-    tours,
-    invoices,
-    assigneeBundle,
-    email,
-    selfEmail: email,
-    linked: req.query.linked === '1',
-    error: req.query.error || null,
-    success: req.query.success || null,
-    isAdminView: !!req.session.isAdminImpersonating,
-    payrexxConfigured: payrexx.isConfigured(),
-  });
+router.get('/tours', requirePortalAuth, (req, res) => {
+  return res.redirect('/portal/tours');
 });
 
 // ─── Rechnungen ───────────────────────────────────────────────────────────────
 
-router.get('/invoices', requirePortalAuth, async (req, res) => {
-  const email = req.session.portalCustomerEmail;
-  const { tours, invoices } = await loadPortalData(email);
-  const indexedTours = new Map(tours.map((tour) => [tour.id, tour]));
-  const decoratedInvoices = invoices.map((inv) => {
-    const tour = indexedTours.get(inv.tour_id);
-    return {
-      ...inv,
-      tourLabel: tour?.canonical_object_label || tour?.bezeichnung || `Tour #${inv.tour_id}`,
-    };
-  });
-  res.render('portal/invoices', {
-    ...(await portalBrandingForRequest(req, tours)),
-    invoices: decoratedInvoices,
-    email,
-    success: req.query.success || null,
-    error: req.query.error || null,
-    isAdminView: !!req.session.isAdminImpersonating,
-    payrexxConfigured: payrexx.isConfigured(),
-  });
+router.get('/invoices', requirePortalAuth, (req, res) => {
+  return res.redirect('/portal/invoices');
 });
 
 // ─── Team ─────────────────────────────────────────────────────────────────────
 
-router.get('/team', requirePortalAuth, async (req, res) => {
-  const email = req.session.portalCustomerEmail;
-  const norm = portalTeam.normalizeEmail(email);
-  const { tours } = await loadPortalData(email);
-  const ownerEmail = tours.length ? portalTeam.normalizeEmail(tours[0].customer_email) : norm;
-  const ownerTour = tours.find((t) => portalTeam.normalizeEmail(t.customer_email) === ownerEmail);
-  const billingContactName = ownerTour ? String(ownerTour.customer_contact || '').trim() : '';
-  const billingDisplayName =
-    billingContactName
-    || (norm === ownerEmail ? String(req.session.portalCustomerName || '').trim() : '')
-    || ownerEmail.split('@')[0];
-  const teamCtx = await portalTeam.getPortalTeamManageContext(norm, ownerEmail);
-  const canManageInvites = teamCtx.canManage;
-  const members = await portalTeam.listTeamMembers(ownerEmail);
-  const teamActive = members.filter((m) => m.status === 'active');
-  const teamPending = members.filter((m) => m.status === 'pending');
-  const exxasPeers = await portalTeam.listExxasOrgPeersForOwner(ownerEmail);
-  const teamAccessRows = buildTeamAccessRows({
-    sessionEmail: email,
-    ownerEmail,
-    billingDisplayName,
-    teamActive,
-    teamPending,
-    exxasPeers,
-    canManageInvites,
-  });
-
-  res.render('portal/team', {
-    ...(await portalBrandingForRequest(req, tours)),
-    members,
-    teamActive,
-    teamPending,
-    teamAccessRows,
-    exxasPeersCount: exxasPeers.length,
-    toursCount: tours.length,
-    email,
-    ownerEmail,
-    billingDisplayName,
-    isBillingOwner: teamCtx.isWorkspaceOwner,
-    canManageTeam: canManageInvites,
-    showTeamActionsColumn: canManageInvites,
-    success: req.query.success || null,
-    error: req.query.error || null,
-    mailError: req.query.mailError === '1',
-    isAdminView: !!req.session.isAdminImpersonating,
-  });
+router.get('/team', requirePortalAuth, (req, res) => {
+  return res.redirect('/portal/team');
 });
 
 router.post('/team/invite', requirePortalAuth, async (req, res) => {
@@ -879,46 +768,11 @@ router.get('/team/einladung/:token', async (req, res) => {
 
 // ─── Tour-Detail ──────────────────────────────────────────────────────────────
 
-router.get('/tours/:id', requirePortalAuth, async (req, res) => {
-  const email = req.session.portalCustomerEmail;
-  const tourResult = await pool.query('SELECT * FROM tour_manager.tours WHERE id = $1', [req.params.id]);
-  const raw = tourResult.rows[0];
-  if (!raw || !(await portalTeam.ensurePortalTourAccess(raw, email))) return res.status(404).render('portal/error', { message: 'Tour nicht gefunden.' });
-  const tour = normalizeTourRow(raw);
-  const { tours: allTours } = await loadPortalData(email);
-
-  const invoicesResult = await pool.query(
-    `SELECT *,
-            invoice_status AS invoice_status,
-            COALESCE(sent_at, created_at) AS invoice_date,
-            amount_chf AS betrag
-     FROM tour_manager.renewal_invoices
-     WHERE tour_id = $1
-     ORDER BY COALESCE(paid_at, sent_at, created_at) DESC NULLS LAST`,
-    [tour.id]
-  );
-
-  // Aktuelle Matterport-Sichtbarkeit live abfragen (accessVisibility = private/unlisted/public/password)
-  let mpVisibility = null;
-  if (tour.matterport_space_id) {
-    const { model } = await mpGetModel(tour.matterport_space_id).catch(() => ({ model: null }));
-    mpVisibility = model?.accessVisibility || model?.visibility || null;
-  }
-
-  const assigneeBundle = await portalTeam.getPortalTourAssigneeBundle(email, [tour]);
-
-  res.render('portal/tour-detail', {
-    ...(await portalBrandingForRequest(req, allTours)),
-    tour,
-    invoices: invoicesResult.rows,
-    email,
-    assigneeBundle,
-    success: req.query.success || null,
-    error: req.query.error || null,
-    payrexxConfigured: payrexx.isConfigured(),
-    isAdminView: !!req.session.isAdminImpersonating,
-    mpVisibility,
-  });
+router.get('/tours/:id', requirePortalAuth, (req, res) => {
+  const qs = new URLSearchParams();
+  if (req.query.success) qs.set('success', String(req.query.success));
+  if (req.query.error) qs.set('error', String(req.query.error));
+  return res.redirect(`/portal/tours/${req.params.id}${qs.toString() ? '?' + qs.toString() : ''}`);
 });
 
 router.post('/tours/:id/assignee', requirePortalAuth, async (req, res) => {
@@ -1236,31 +1090,8 @@ function getInvoiceContext(invoice, tour) {
   };
 }
 
-router.get('/tours/:id/invoices/:invoiceId/print', requirePortalAuth, async (req, res) => {
-  await ensureRenewalInvoiceSchema();
-  const email = req.session.portalCustomerEmail;
-  const { id, invoiceId } = req.params;
-  const tourResult = await pool.query('SELECT * FROM tour_manager.tours WHERE id = $1', [id]);
-  const raw = tourResult.rows[0];
-  if (!raw || !(await portalTeam.ensurePortalTourAccess(raw, email))) return res.status(403).send('Nicht erlaubt.');
-  const tour = normalizeTourRow(raw);
-  if (tour.canonical_matterport_space_id) {
-    const { model } = await mpGetModel(tour.canonical_matterport_space_id).catch(() => ({ model: null }));
-    if (model?.publication?.url && !tour.tour_url) tour.tour_url = model.publication.url;
-    if (model?.publication?.address) tour.object_address = model.publication.address;
-  }
-  const invResult = await pool.query(
-    'SELECT * FROM tour_manager.renewal_invoices WHERE id = $1 AND tour_id = $2',
-    [invoiceId, id]
-  );
-  const invoice = invResult.rows[0];
-  if (!invoice) return res.status(404).render('portal/error', { message: 'Rechnung nicht gefunden.' });
-  const ctx = getInvoiceContext(invoice, tour);
-  res.render('portal/invoice-premium', {
-    tour: { id: tour.id },
-    ...ctx,
-    pdfUrl: `/portal/tours/${id}/invoices/${invoiceId}/pdf`,
-  });
+router.get('/tours/:id/invoices/:invoiceId/print', requirePortalAuth, (req, res) => {
+  return res.redirect(`/portal/tours/${req.params.id}/invoices/${req.params.invoiceId}/print`);
 });
 
 router.get('/tours/:id/invoices/:invoiceId/pdf', requirePortalAuth, async (req, res) => {
