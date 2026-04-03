@@ -41,7 +41,6 @@ export function TourActionsPanel({ tourId, tour, onSuccess, onOpenCustomerLink }
   const [name, setName] = useState(
     String(tour.canonical_object_label ?? tour.object_label ?? tour.bezeichnung ?? "")
   );
-  const [startSweep, setStartSweep] = useState(String(tour.matterport_start_sweep ?? ""));
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -53,7 +52,6 @@ export function TourActionsPanel({ tourId, tour, onSuccess, onOpenCustomerLink }
   useEffect(() => {
     setTourUrl(String(tour.tour_url ?? "").trim());
     setName(String(tour.canonical_object_label ?? tour.object_label ?? tour.bezeichnung ?? ""));
-    setStartSweep(String(tour.matterport_start_sweep ?? ""));
   }, [tour]);
 
   async function run(label: string, fn: () => Promise<unknown>) {
@@ -181,41 +179,6 @@ export function TourActionsPanel({ tourId, tour, onSuccess, onOpenCustomerLink }
             </div>
           </div>
 
-          <div id="admin-stammdaten-startpunkt" className="border-t border-[var(--border-soft)] pt-3 space-y-2 scroll-mt-24">
-            <label className="text-sm font-medium text-[var(--text-subtle)]">Startpunkt setzen (Matterport Sweep-ID)</label>
-            <p className="text-xs text-[var(--text-subtle)] leading-relaxed">
-              Entspricht dem <code className="rounded bg-[var(--surface)] px-1 font-mono text-[11px]">sid=</code>-Wert in der Show-URL oder einer Zeile aus der{" "}
-              <a
-                href="#matterport-sweep-ids"
-                className="font-medium text-[var(--accent)] underline-offset-2 hover:underline"
-              >
-                Sweep-Liste (Model API)
-              </a>{" "}
-              im Abschnitt Matterport unten — dort per <strong className="font-medium text-[var(--text-main)]">Als Startpunkt</strong>{" "}
-              direkt speichern. Feld leeren und speichern entfernt den Startpunkt.
-            </p>
-            <input
-              value={startSweep}
-              onChange={(e) => setStartSweep(e.target.value)}
-              className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)] font-mono"
-              placeholder="z. B. aus sid=… in der Browser-URL"
-              spellCheck={false}
-            />
-            <button
-              type="button"
-              disabled={!!busy}
-              onClick={() =>
-                run("sweep", () =>
-                  toursAdminPost(`/tours/${tourId}/set-start-sweep`, {
-                    start_sweep: startSweep.trim() || null,
-                  })
-                )
-              }
-              className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-            >
-              {busy === "sweep" ? "…" : "Startpunkt speichern"}
-            </button>
-          </div>
         </div>
 
         <div className="space-y-2">
