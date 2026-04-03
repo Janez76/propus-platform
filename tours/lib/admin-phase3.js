@@ -669,7 +669,7 @@ async function postLinkMatterport(body) {
   const effectiveKundeRef = cannotAssign ? null : kundeRef;
 
   try {
-    await pool.query(
+    const insertResult = await pool.query(
       `INSERT INTO tour_manager.tours (
         exxas_abo_id,
         matterport_space_id,
@@ -690,7 +690,7 @@ async function postLinkMatterport(body) {
         booking_order_no
       ) VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::timestamptz, $12::date, $12::date, $13, $14, $15, $16
-      )`,
+      ) RETURNING id`,
       [
         exxasAboId,
         mpId,
@@ -710,6 +710,14 @@ async function postLinkMatterport(body) {
         Number.isFinite(bookingOrderNo) && bookingOrderNo > 0 ? bookingOrderNo : null,
       ]
     );
+    const newTourId = insertResult.rows[0]?.id;
+    if (newTourId) {
+      await logAction(newTourId, 'admin', null, 'ADMIN_TOUR_CREATED', {
+        matterport_space_id: mpId,
+        booking_order_no: Number.isFinite(bookingOrderNo) && bookingOrderNo > 0 ? bookingOrderNo : null,
+        bezeichnung: derivedName,
+      });
+    }
   } catch (e) {
     return { ok: false, error: 'insert', message: e.message };
   }

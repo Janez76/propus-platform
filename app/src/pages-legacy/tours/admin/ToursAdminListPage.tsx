@@ -7,11 +7,11 @@ import { toursAdminToursListQueryKey } from "../../../lib/queryKeys";
 import type { ToursAdminTourRow } from "../../../types/toursAdmin";
 
 const SORT_OPTIONS = [
+  { value: "matterport_created", label: "Neueste zuerst" },
   { value: "ablaufdatum", label: "Ablaufdatum" },
   { value: "customer", label: "Kunde / Objekt" },
   { value: "status", label: "Status" },
   { value: "days", label: "Tage bis Ablauf" },
-  { value: "matterport_created", label: "Matterport erstellt" },
 ] as const;
 
 type ListSortKey = (typeof SORT_OPTIONS)[number]["value"];
@@ -104,8 +104,8 @@ export function ToursAdminListPage() {
 
   const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10) || 1);
   const q = searchParams.get("q") || "";
-  const sort = searchParams.get("sort") || "ablaufdatum";
-  const order = searchParams.get("order") === "desc" ? "desc" : "asc";
+  const sort = searchParams.get("sort") || "matterport_created";
+  const order = (searchParams.get("order") as "asc" | "desc" | null) ?? (sort === "matterport_created" ? "desc" : "asc");
 
   const [searchDraft, setSearchDraft] = useState(q);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);

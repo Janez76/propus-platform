@@ -20,7 +20,7 @@ export function TourActionsPanel({ tourId, tour, mpVisibility, onSuccess }: Prop
   const [syncMp, setSyncMp] = useState(false);
   const [sweep, setSweep] = useState(String(tour.matterport_start_sweep ?? ""));
   const [verified, setVerified] = useState(Boolean(tour.customer_verified));
-  const [visibility, setVisibility] = useState<string>("PUBLIC");
+  const [visibility, setVisibility] = useState<string>(mpVisibility ?? "LINK_ONLY");
   const [visPassword, setVisPassword] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -32,6 +32,10 @@ export function TourActionsPanel({ tourId, tour, mpVisibility, onSuccess }: Prop
     setSweep(String(tour.matterport_start_sweep ?? ""));
     setVerified(Boolean(tour.customer_verified));
   }, [tour]);
+
+  useEffect(() => {
+    if (mpVisibility) setVisibility(mpVisibility);
+  }, [mpVisibility]);
 
   async function run(label: string, fn: () => Promise<unknown>) {
     setBusy(label);
@@ -153,44 +157,56 @@ export function TourActionsPanel({ tourId, tour, mpVisibility, onSuccess }: Prop
       </div>
 
       <div className="border-t border-[var(--border-soft)] pt-4 space-y-2">
-        <h3 className="text-sm font-medium text-[var(--text-main)]">Matterport-Sichtbarkeit setzen</h3>
-        <div className="flex flex-wrap gap-2 items-end">
-          <select
-            value={visibility}
-            onChange={(e) => setVisibility(e.target.value)}
-            className="rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)]"
-          >
-            {VISIBILITY_OPTIONS.map((v) => (
-              <option key={v} value={v}>
-                {v}
-              </option>
-            ))}
-          </select>
-          {visibility === "PASSWORD" ? (
-            <input
-              type="password"
-              value={visPassword}
-              onChange={(e) => setVisPassword(e.target.value)}
-              placeholder="Passwort"
-              className="rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)]"
-            />
-          ) : null}
-          <button
-            type="button"
-            disabled={!!busy}
-            onClick={() =>
-              run("vis", () =>
-                toursAdminPost(`/tours/${tourId}/visibility`, {
-                  visibility,
-                  ...(visibility === "PASSWORD" ? { password: visPassword } : {}),
-                })
-              )
-            }
-            className="rounded-lg bg-[var(--accent)] px-3 py-2 text-xs font-medium text-white disabled:opacity-50"
-          >
-            {busy === "vis" ? "…" : "Sichtbarkeit anwenden"}
-          </button>
+        <h3 className="text-sm font-medium text-[var(--text-main)]">Matterport-Sichtbarkeit</h3>
+        <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+          {(
+            [
+              { value: "LINK_ONLY", icon: "🔗", label: "Nur Link" },
+              { value: "PUBLIC",    icon: "🌐", label: "Öffentlich" },
+              { value: "PASSWORD",  icon: "🔑", label: "Passwort" },
+              { value: "PRIVATE",   icon: "🔒", label: "Privat" },
+            ] as const
+          ).map(({ value, icon, label }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setVisibility(value)}
+              className={[
+                "flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors",
+                visibility === value
+                  ? "border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]"
+                  : "border-[var(--border-soft)] bg-[var(--surface)] text-[var(--text-muted)] hover:border-[var(--accent)]/50",
+              ].join(" ")}
+            >
+              <span>{icon}</span>
+              {label}
+            </button>
+          ))}
         </div>
+        {visibility === "PASSWORD" && (
+          <input
+            type="password"
+            value={visPassword}
+            onChange={(e) => setVisPassword(e.target.value)}
+            placeholder="Passwort eingeben"
+            className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-1.5 text-sm text-[var(--text-main)]"
+          />
+        )}
+        <button
+          type="button"
+          disabled={!!busy}
+          onClick={() =>
+            run("vis", () =>
+              toursAdminPost(`/tours/${tourId}/visibility`, {
+                visibility,
+                ...(visibility === "PASSWORD" ? { password: visPassword } : {}),
+              })
+            )
+          }
+          className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+        >
+          {busy === "vis" ? "…" : "Anwenden"}
+        </button>
       </div>
     </section>
   );
