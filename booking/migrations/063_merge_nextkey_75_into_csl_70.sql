@@ -30,7 +30,14 @@ BEGIN
   -- Bestellungen
   UPDATE orders SET customer_id = 70 WHERE customer_id = 75;
 
-  -- Kontakte
+  -- Kontakte: Duplikate (gleiche E-Mail bei Kunde 70 bereits vorhanden) zuerst loeschen
+  DELETE FROM customer_contacts cc75
+  USING customer_contacts cc70
+  WHERE cc75.customer_id = 75
+    AND cc70.customer_id = 70
+    AND LOWER(TRIM(cc75.email)) = LOWER(TRIM(cc70.email));
+
+  -- Verbleibende Kontakte umhaengen
   UPDATE customer_contacts SET customer_id = 70 WHERE customer_id = 75;
 
   -- Companies
