@@ -133,6 +133,22 @@ function requirePortalSession(req, res, next) {
 
 router.use(requirePortalSession);
 
+// ─── Profil (GET) ────────────────────────────────────────────────────────────
+
+router.get('/profile/me', async (req, res) => {
+  const email = req.session.portalCustomerEmail;
+  try {
+    const editor = await userProfiles.getPortalProfileForEditor(
+      email,
+      req.session.portalCustomerName || email,
+      ''
+    );
+    return res.json({ ok: true, ...editor, canChangePassword: true });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message || 'Fehler' });
+  }
+});
+
 // ─── Schema-Guard für renewal_invoices ───────────────────────────────────────
 
 let renewalSchemaEnsured = false;

@@ -99,6 +99,28 @@ export async function portalCheckResetToken(token: string) {
 export const getPortalMe = () =>
   portalFetch<{ ok: true } & PortalMe>("/me");
 
+export async function getPortalProfile() {
+  return portalFetch<{ ok: true; email: string; displayName: string; hasProfilePhoto?: boolean }>("/profile/me");
+}
+
+export async function updatePortalProfile(data: FormData) {
+  const res = await fetch(`${BASE}/profile/me`, {
+    method: "POST",
+    credentials: "same-origin",
+    body: data,
+  });
+  const body = await res.json() as { ok: boolean; error?: string };
+  if (!res.ok || !body.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
+  return body;
+}
+
+export async function changePortalPassword(currentPassword: string, newPassword: string) {
+  return portalFetch<{ ok: true }>("/profile/password", {
+    method: "POST",
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+}
+
 export const getPortalTours = () =>
   portalFetch<{ ok: true; tours: PortalTour[] }>("/tours");
 
