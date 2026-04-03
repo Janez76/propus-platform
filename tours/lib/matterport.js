@@ -212,7 +212,6 @@ async function getModel(modelId) {
         tourAutoplayEnabled
         tourAutoplayOverride
         roomBoundsEnabled
-        roomBoundsOverride
       }
       panoLocations {
         id
@@ -443,6 +442,10 @@ async function patchModelOptions(spaceId, options) {
   if (!(await getAuthHeader())) return { success: false, error: 'Kein Matterport-Token' };
   if (!spaceId) return { success: false, error: 'Modell-ID fehlt' };
 
+  // roomBoundsOverride ist kein gültiges Feld in ModelOptionsPatch der Matterport-API
+  // und wird daher aus dem Patch entfernt, bevor er gesendet wird.
+  const { roomBoundsOverride: _drop, ...safeOptions } = options;
+
   const mutation = `
     mutation($id: ID!, $patch: ModelPatch!) {
       patchModel(id: $id, patch: $patch) {
@@ -456,17 +459,22 @@ async function patchModelOptions(spaceId, options) {
           highlightReelEnabled highlightReelOverride
           labelsEnabled labelsOverride
           tourAutoplayEnabled tourAutoplayOverride
-          roomBoundsEnabled roomBoundsOverride
+          roomBoundsEnabled
         }
       }
     }`;
 
   try {
-    const { data, errors } = await graphRequest(mutation, { id: spaceId, patch: { options } });
+    const { data, errors } = await graphRequest(mutation, { id: spaceId, patch: { options: safeOptions } });
     if (data?.patchModel?.id) {
       return { success: true, options: data.patchModel.options };
     }
-    return { success: false, error: errors?.[0]?.message || 'Unknown error' };
+    const msg = errors?.[0]?.message || 'Unknown error';
+    const code = (errors?.[0]?.extensions?.code || '').toString();
+    if (code === 'model.inactive' || /model\.inactive/i.test(msg)) {
+      return { success: false, error: 'Archivierter Space – Einstellungen können nur bei aktivem Space geändert werden.' };
+    }
+    return { success: false, error: msg };
   } catch (e) {
     return { success: false, error: e.message };
   }

@@ -82,6 +82,7 @@ function OverrideToggle({
   override,
   tourId,
   onSuccess,
+  disabled: disabledProp = false,
 }: {
   icon: string;
   label: string;
@@ -91,6 +92,7 @@ function OverrideToggle({
   override: string | null;
   tourId: string;
   onSuccess: () => void;
+  disabled?: boolean;
 }) {
   const [busy, setBusy] = useState<MatterportSettingOverride | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -99,7 +101,7 @@ function OverrideToggle({
   const isOverrideSet = currentOverride !== "default";
 
   async function handleClick(value: "enabled" | "disabled") {
-    if (busy) return;
+    if (busy || disabledProp) return;
     // Bereits aktiven Override anklicken → zurück auf Standard (default)
     const next: MatterportSettingOverride = (isOverrideSet && currentOverride === value) ? "default" : value;
     setBusy(next);
@@ -162,11 +164,17 @@ function OverrideToggle({
             <button
               key={btn.value}
               type="button"
-              disabled={!!busy}
+              disabled={!!busy || disabledProp}
               onClick={() => void handleClick(btn.value)}
-              title={isActiveOverride ? "Klicken zum Zurücksetzen auf Matterport-Standard" : undefined}
+              title={
+                disabledProp
+                  ? "Nur bei aktivem Space änderbar"
+                  : isActiveOverride
+                    ? "Klicken zum Zurücksetzen auf Matterport-Standard"
+                    : undefined
+              }
               className={[
-                "rounded border px-2 py-0.5 text-xs leading-none transition-colors disabled:cursor-wait",
+                "rounded border px-2 py-0.5 text-xs leading-none transition-colors disabled:cursor-not-allowed disabled:opacity-40",
                 btnClass,
                 isBusy ? "opacity-50" : "",
               ].join(" ")}
@@ -318,6 +326,7 @@ function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId, tourSh
 
   const stateKey = String(meta.state ?? "").toLowerCase();
   const stateMeta = STATE_META[stateKey];
+  const isSpaceInactive = stateKey === "inactive";
   const visKey = String(meta.accessVisibility ?? meta.visibility ?? "").toUpperCase();
   const visMeta = VIS_META[visKey];
 
@@ -411,6 +420,7 @@ function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId, tourSh
                 override={meta.options![overrideKey] as string | null}
                 tourId={tourId}
                 onSuccess={onRefresh}
+                disabled={isSpaceInactive}
               />
             ))}
             <div className="col-span-2 sm:col-span-3 lg:col-span-4">

@@ -218,12 +218,12 @@ const OPTIONS_CONFIG: Array<{
 ];
 
 function PortalOverrideToggle({
-  icon, label, hint, overrideKey, enabled, override, tourId, onSuccess,
+  icon, label, hint, overrideKey, enabled, override, tourId, onSuccess, disabled: disabledProp = false,
 }: {
   icon: string; label: string; hint: string;
   overrideKey: keyof MatterportOptionsPatch;
   enabled: boolean | null; override: string | null;
-  tourId: number; onSuccess: () => void;
+  tourId: number; onSuccess: () => void; disabled?: boolean;
 }) {
   const [busy, setBusy] = useState<MatterportSettingOverride | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -231,7 +231,7 @@ function PortalOverrideToggle({
   const isOverrideSet = currentOverride !== "default";
 
   async function handleClick(value: "enabled" | "disabled") {
-    if (busy) return;
+    if (busy || disabledProp) return;
     const next: MatterportSettingOverride = (isOverrideSet && currentOverride === value) ? "default" : value;
     setBusy(next);
     setErr(null);
@@ -292,11 +292,17 @@ function PortalOverrideToggle({
             <button
               key={btn.value}
               type="button"
-              disabled={!!busy}
+              disabled={!!busy || disabledProp}
               onClick={() => void handleClick(btn.value)}
-              title={isActiveOverride ? "Klicken zum Zurücksetzen auf Matterport-Standard" : undefined}
+              title={
+                disabledProp
+                  ? "Nur bei aktivem Space änderbar"
+                  : isActiveOverride
+                    ? "Klicken zum Zurücksetzen auf Matterport-Standard"
+                    : undefined
+              }
               className={[
-                "rounded border px-2 py-0.5 text-xs leading-none transition-colors disabled:cursor-wait",
+                "rounded border px-2 py-0.5 text-xs leading-none transition-colors disabled:cursor-not-allowed disabled:opacity-40",
                 btnClass,
                 isBusy ? "opacity-50" : "",
               ].join(" ")}
@@ -430,6 +436,7 @@ function PortalMatterportMetaPanel({
 
   const stateKey = String(meta.state ?? "").toLowerCase();
   const stateMeta = STATE_META[stateKey];
+  const isSpaceInactive = stateKey === "inactive";
   const visKey = String(meta.accessVisibility ?? meta.visibility ?? "").toUpperCase();
   const visMeta = VIS_META[visKey];
 
@@ -526,6 +533,7 @@ function PortalMatterportMetaPanel({
                 override={meta.options![overrideKey] as string | null}
                 tourId={tourId}
                 onSuccess={onRefresh}
+                disabled={isSpaceInactive}
               />
             ))}
             <div className="col-span-2 sm:col-span-3 lg:col-span-4">
