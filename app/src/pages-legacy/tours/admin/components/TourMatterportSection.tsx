@@ -47,23 +47,25 @@ function MetaRow({ label, value }: { label: string; value: React.ReactNode }) {
 const OPTIONS_CONFIG: Array<{
   key: keyof MatterportModelOptions;
   label: string;
+  hint: string;
   icon: string;
   overrideKey: keyof MatterportModelOptions;
 }> = [
-  { key: "defurnishViewEnabled",  label: "Mobiliar entfernen",          icon: "🛋️", overrideKey: "defurnishViewOverride" },
-  { key: "dollhouseEnabled",      label: "Dollhouse-Modus",             icon: "🏠", overrideKey: "dollhouseOverride" },
-  { key: "floorplanEnabled",      label: "Grundriss (Floorplan)",        icon: "📐", overrideKey: "floorplanOverride" },
-  { key: "socialSharingEnabled",  label: "Teilen (Social)",             icon: "🔗", overrideKey: "socialSharingOverride" },
-  { key: "vrEnabled",             label: "VR-Modus",                    icon: "🥽", overrideKey: "vrOverride" },
-  { key: "highlightReelEnabled",  label: "Highlight Reel",              icon: "🎬", overrideKey: "highlightReelOverride" },
-  { key: "labelsEnabled",         label: "Raumbeschriftungen",           icon: "🏷️", overrideKey: "labelsOverride" },
-  { key: "tourAutoplayEnabled",   label: "Tour Autoplay",               icon: "▶️", overrideKey: "tourAutoplayOverride" },
-  { key: "roomBoundsEnabled",     label: "Raumgrenzen",                 icon: "📦", overrideKey: "roomBoundsOverride" },
+  { key: "defurnishViewEnabled",  label: "Mobiliar entfernen",    hint: "Zeigt den Raum möbellos – ideal für leere Übergaben.",           icon: "🛋️", overrideKey: "defurnishViewOverride" },
+  { key: "dollhouseEnabled",      label: "Dollhouse-Modus",       hint: "3D-Gesamtansicht des Gebäudes von aussen.",                      icon: "🏠", overrideKey: "dollhouseOverride" },
+  { key: "floorplanEnabled",      label: "Grundriss",             hint: "Zeigt den 2D-Grundriss des Stockwerks an.",                      icon: "📐", overrideKey: "floorplanOverride" },
+  { key: "socialSharingEnabled",  label: "Social Sharing",        hint: "Schaltfläche zum Teilen auf sozialen Netzwerken einblenden.",     icon: "🔗", overrideKey: "socialSharingOverride" },
+  { key: "vrEnabled",             label: "VR-Modus",              hint: "Ermöglicht den Besuch mit VR-Brille.",                           icon: "🥽", overrideKey: "vrOverride" },
+  { key: "highlightReelEnabled",  label: "Highlight Reel",        hint: "Automatische Kurzpräsentation der Highlights beim Start.",        icon: "🎬", overrideKey: "highlightReelOverride" },
+  { key: "labelsEnabled",         label: "Raumbeschriftungen",    hint: "Blendet die Raumnamen direkt im 3D-Rundgang ein.",                icon: "🏷️", overrideKey: "labelsOverride" },
+  { key: "tourAutoplayEnabled",   label: "Tour Autoplay",         hint: "Startet die Tour automatisch ohne Nutzeraktion.",                 icon: "▶️", overrideKey: "tourAutoplayOverride" },
+  { key: "roomBoundsEnabled",     label: "Raumgrenzen",           hint: "Zeigt die Raumgrenzen als transparente Flächen.",                 icon: "📦", overrideKey: "roomBoundsOverride" },
 ];
 
 function OverrideToggle({
   icon,
   label,
+  hint,
   overrideKey,
   override,
   tourId,
@@ -71,6 +73,7 @@ function OverrideToggle({
 }: {
   icon: string;
   label: string;
+  hint: string;
   overrideKey: keyof MatterportOptionsPatch;
   enabled: boolean | null;
   override: string | null;
@@ -100,31 +103,34 @@ function OverrideToggle({
     {
       value: "default",
       label: "Standard",
-      active:   "border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)] font-semibold",
-      inactive: "border-[var(--border-soft)] text-[var(--text-subtle)] hover:border-[var(--accent)]/40 hover:text-[var(--text-main)]",
+      active:   "border-[var(--accent)]/60 bg-[var(--accent)]/8 text-[var(--accent)]",
+      inactive: "border-[var(--border-soft)] text-[var(--text-subtle)] hover:border-[var(--accent)]/30 hover:text-[var(--text-main)]",
     },
     {
       value: "enabled",
       label: "An",
-      active:   "border-emerald-400 bg-emerald-50 text-emerald-700 font-semibold dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300",
-      inactive: "border-[var(--border-soft)] text-[var(--text-subtle)] hover:border-emerald-400/60 hover:text-emerald-700 dark:hover:text-emerald-400",
+      active:   "border-emerald-400/70 bg-emerald-500/10 text-emerald-600 dark:border-emerald-600 dark:text-emerald-400",
+      inactive: "border-[var(--border-soft)] text-[var(--text-subtle)] hover:border-emerald-400/40 hover:text-emerald-600 dark:hover:text-emerald-400",
     },
     {
       value: "disabled",
       label: "Aus",
-      active:   "border-red-400 bg-red-50 text-red-700 font-semibold dark:border-red-700 dark:bg-red-950/40 dark:text-red-300",
-      inactive: "border-[var(--border-soft)] text-[var(--text-subtle)] hover:border-red-400/60 hover:text-red-600 dark:hover:text-red-400",
+      active:   "border-red-400/70 bg-red-500/10 text-red-600 dark:border-red-600 dark:text-red-400",
+      inactive: "border-[var(--border-soft)] text-[var(--text-subtle)] hover:border-red-400/40 hover:text-red-600 dark:hover:text-red-400",
     },
   ];
 
   return (
-    <div className="rounded-lg border border-[var(--border-soft)] px-3 py-2 space-y-1.5">
-      <div className="flex items-center gap-1.5 text-xs text-[var(--text-main)]">
-        <span>{icon}</span>
-        <span>{label}</span>
-        {err ? <span className="ml-auto text-[10px] text-red-500">{err}</span> : null}
+    <div className="flex items-center gap-3 py-1.5">
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5 text-[11px] font-medium text-[var(--text-main)]">
+          <span className="text-[13px] leading-none">{icon}</span>
+          <span>{label}</span>
+          {err ? <span className="ml-1 text-[10px] text-red-500 font-normal">{err}</span> : null}
+        </div>
+        <p className="mt-0.5 text-[10px] leading-snug text-[var(--text-subtle)]">{hint}</p>
       </div>
-      <div className="flex gap-1">
+      <div className="flex shrink-0 gap-1">
         {OPTIONS.map((opt) => {
           const isActive = current === opt.value;
           const isBusy = busy === opt.value;
@@ -135,9 +141,9 @@ function OverrideToggle({
               disabled={!!busy}
               onClick={() => void set(opt.value)}
               className={[
-                "flex-1 rounded-md border px-2 py-1 text-[11px] transition-colors disabled:cursor-wait",
+                "rounded border px-2 py-0.5 text-[10px] leading-none transition-colors disabled:cursor-wait",
                 isActive ? opt.active : opt.inactive,
-                isBusy ? "opacity-60" : "",
+                isBusy ? "opacity-50" : "",
               ].join(" ")}
             >
               {isBusy ? "…" : opt.label}
@@ -235,12 +241,13 @@ function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId }: {
           <p className="text-[10px] font-semibold text-[var(--text-subtle)] uppercase tracking-wide">
             Einstellungen anzeigen
           </p>
-          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-            {OPTIONS_CONFIG.map(({ key, label, icon, overrideKey }) => (
+          <div className="divide-y divide-[var(--border-soft)]">
+            {OPTIONS_CONFIG.map(({ key, label, hint, icon, overrideKey }) => (
               <OverrideToggle
                 key={key}
                 icon={icon}
                 label={label}
+                hint={hint}
                 overrideKey={overrideKey as keyof MatterportOptionsPatch}
                 enabled={meta.options![key] as boolean | null}
                 override={meta.options![overrideKey] as string | null}
@@ -249,8 +256,8 @@ function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId }: {
               />
             ))}
           </div>
-          <p className="text-[10px] text-[var(--text-subtle)]">
-            <strong>Standard</strong> = Konto-Einstellung übernehmen · <strong>An</strong> / <strong>Aus</strong> = explizit überschreiben. Änderungen werden sofort an Matterport gesendet.
+          <p className="text-[10px] text-[var(--text-subtle)] pt-1">
+            <strong>Standard</strong> = Konto-Default · <strong>An / Aus</strong> = explizit überschreiben
           </p>
         </div>
       ) : null}
