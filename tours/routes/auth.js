@@ -85,7 +85,7 @@ router.post('/login', async (req, res) => {
       await ensureRememberSchema();
     } catch (e) {}
     return req.session.regenerate(async (regenErr) => {
-      if (regenErr) return res.render('admin/login', { error: 'Session konnte nicht erstellt werden.' });
+      if (regenErr) return res.redirect('/login?auth_error=' + encodeURIComponent('Session konnte nicht erstellt werden.'));
       if (keepSignedIn) {
         // Persistente Session für "Angemeldet bleiben"
         req.session.cookie.maxAge = 30 * 24 * 60 * 60 * 1000;
@@ -122,7 +122,7 @@ router.post('/login', async (req, res) => {
       });
     });
   }
-  res.render('admin/login', { error: 'E-Mail oder Passwort falsch.' });
+  return res.redirect('/login?auth_error=' + encodeURIComponent('E-Mail oder Passwort falsch.'));
 });
 
 // JSON-API für Einladungslinks (React SPA)
@@ -164,57 +164,16 @@ router.post('/accept-invite', async (req, res) => {
   const token = String(req.body?.token || '').trim();
   const password = String(req.body?.password || '');
   const passwordRepeat = String(req.body?.passwordRepeat || '');
-  if (!token) {
-    return res.render('admin/accept-invite', {
-      invite: null,
-      token: '',
-      error: 'Einladung fehlt.',
-      success: false,
-    });
-  }
+  const errRedirect = (msg) => res.redirect(`/accept-invite?token=${encodeURIComponent(token)}&error=${encodeURIComponent(msg)}`);
+  if (!token) return errRedirect('Einladung fehlt.');
   const checked = await getInviteByToken(token);
-  if (!checked.invite) {
-    return res.render('admin/accept-invite', {
-      invite: null,
-      token,
-      error: checked.error || 'Einladung ist ungültig.',
-      success: false,
-    });
-  }
-  if (!password || password.length < 8) {
-    return res.render('admin/accept-invite', {
-      invite: checked.invite,
-      token,
-      error: 'Passwort muss mindestens 8 Zeichen haben.',
-      success: false,
-    });
-  }
-  if (password !== passwordRepeat) {
-    return res.render('admin/accept-invite', {
-      invite: checked.invite,
-      token,
-      error: 'Passwörter stimmen nicht überein.',
-      success: false,
-    });
-  }
+  if (!checked.invite) return errRedirect(checked.error || 'Einladung ist ungültig.');
+  if (!password || password.length < 8) return errRedirect('Passwort muss mindestens 8 Zeichen haben.');
+  if (password !== passwordRepeat) return errRedirect('Passwörter stimmen nicht überein.');
   const accepted = await acceptInvite(token, password);
-  if (!accepted.ok) {
-    return res.render('admin/accept-invite', {
-      invite: checked.invite,
-      token,
-      error: accepted.error || 'Einladung konnte nicht angenommen werden.',
-      success: false,
-    });
-  }
+  if (!accepted.ok) return errRedirect(accepted.error || 'Einladung konnte nicht angenommen werden.');
   return req.session.regenerate(async (regenErr) => {
-    if (regenErr) {
-      return res.render('admin/accept-invite', {
-        invite: checked.invite,
-        token,
-        error: 'Session konnte nicht erstellt werden.',
-        success: false,
-      });
-    }
+    if (regenErr) return errRedirect('Session konnte nicht erstellt werden.');
     req.session.isAdmin = true;
     req.session.admin = { email: accepted.email };
     req.session.adminEmail = accepted.email;

@@ -339,15 +339,12 @@ function getPortalNextPath(req) {
 }
 
 function renderPortalLogin(req, res, options = {}) {
-  const bp = typeof res.locals.basePath === 'string' ? res.locals.basePath : '';
-  return res.render('portal/login', {
-    error: options.error || null,
-    success: options.success || null,
-    nextPath: options.nextPath || '/portal/dashboard',
-    email: options.email || '',
-    bp,
-    logtoPortalEnabled: isLogtoEnabled('PROPUS_TOURS_PORTAL'),
-  });
+  const qs = new URLSearchParams();
+  if (options.error) qs.set('error', options.error);
+  if (options.success) qs.set('success', options.success);
+  if (options.email) qs.set('email', options.email);
+  if (options.nextPath) qs.set('next', options.nextPath);
+  return res.redirect(`/portal/login${qs.toString() ? '?' + qs.toString() : ''}`);
 }
 
 router.get('/login', async (req, res) => {
@@ -432,17 +429,13 @@ router.post('/forgot-password', async (req, res) => {
           `Der Link ist 2 Stunden gültig.`,
       });
     }
-    return res.render('portal/forgot-password', {
-      error: null,
-      success: genericSuccess,
-      email,
-    });
+    const qs = new URLSearchParams({ success: genericSuccess });
+    if (email) qs.set('email', email);
+    return res.redirect(`/portal/forgot-password?${qs.toString()}`);
   } catch (err) {
-    return res.render('portal/forgot-password', {
-      error: 'Anfrage konnte nicht verarbeitet werden. Bitte später erneut versuchen.',
-      success: null,
-      email,
-    });
+    const qs = new URLSearchParams({ error: 'Anfrage konnte nicht verarbeitet werden. Bitte später erneut versuchen.' });
+    if (email) qs.set('email', email);
+    return res.redirect(`/portal/forgot-password?${qs.toString()}`);
   }
 });
 
@@ -460,22 +453,14 @@ router.post('/reset-password', async (req, res) => {
     !!(row && !row.used_at && row.expires_at && new Date(row.expires_at).getTime() > Date.now());
 
   if (!isValid) {
-    return res.render('portal/reset-password', {
-      error: 'Link ungültig oder abgelaufen.',
-      success: null,
-      token,
-      email: row?.email || '',
-      isValid: false,
-    });
+    const qs = new URLSearchParams({ error: 'Link ungültig oder abgelaufen.' });
+    if (token) qs.set('token', token);
+    return res.redirect(`/portal/reset-password?${qs.toString()}`);
   }
   if (password !== passwordRepeat) {
-    return res.render('portal/reset-password', {
-      error: 'Die Passwörter stimmen nicht überein.',
-      success: null,
-      token,
-      email: row?.email || '',
-      isValid: true,
-    });
+    const qs = new URLSearchParams({ error: 'Die Passwörter stimmen nicht überein.' });
+    if (token) qs.set('token', token);
+    return res.redirect(`/portal/reset-password?${qs.toString()}`);
   }
   try {
     await portalAuth.consumePasswordReset(token, password);
@@ -486,13 +471,9 @@ router.post('/reset-password', async (req, res) => {
         encodeURIComponent(row.email || '')
     );
   } catch (err) {
-    return res.render('portal/reset-password', {
-      error: err.message || 'Passwort konnte nicht gesetzt werden.',
-      success: null,
-      token,
-      email: row?.email || '',
-      isValid: true,
-    });
+    const qs = new URLSearchParams({ error: err.message || 'Passwort konnte nicht gesetzt werden.' });
+    if (token) qs.set('token', token);
+    return res.redirect(`/portal/reset-password?${qs.toString()}`);
   }
 });
 
@@ -746,7 +727,7 @@ router.get('/team/einladung/:token', async (req, res) => {
   const token = String(req.params.token || '').trim();
   const row = await portalTeam.getInviteByToken(token);
   if (!row) {
-    return res.status(404).render('portal/error', { message: 'Einladung ungültig oder abgelaufen.' });
+    return res.redirect('/portal/team?error=' + encodeURIComponent('Einladung ungültig oder abgelaufen.'));
   }
   if (!req.session?.portalCustomerEmail) {
     return res.redirect('/portal/login?next=' + encodeURIComponent(req.originalUrl));
@@ -754,15 +735,13 @@ router.get('/team/einladung/:token', async (req, res) => {
   const inviteEmail = portalTeam.normalizeEmail(row.member_email);
   const sessionEmail = portalTeam.normalizeEmail(req.session.portalCustomerEmail);
   if (inviteEmail !== sessionEmail) {
-    return res.status(403).render('portal/error', {
-      message: 'Bitte mit der eingeladenen E-Mail-Adresse anmelden.',
-    });
+    return res.redirect('/portal/team?error=' + encodeURIComponent('Bitte mit der eingeladenen E-Mail-Adresse anmelden.'));
   }
   try {
     await portalTeam.acceptTeamInvite(token, req.session.portalCustomerEmail);
     return res.redirect('/portal/team?success=eingeladen_angenommen');
   } catch (err) {
-    return res.status(400).render('portal/error', { message: err.message || 'Fehler' });
+    return res.redirect('/portal/team?error=' + encodeURIComponent(err.message || 'Fehler'));
   }
 });
 
@@ -995,7 +974,7 @@ router.get('/tours/:id/pay/:invoiceId', requirePortalAuth, async (req, res) => {
     [invoiceId, id]
   );
   const invoice = invResult.rows[0];
-  if (!invoice) return res.status(404).render('portal/error', { message: 'Rechnung nicht gefunden.' });
+  if (!invoice) return res.redirect(`/portal/tours/${id}?error=` + encodeURIComponent('Rechnung nicht gefunden.'));
   const invoiceAmountCHF =
     Number(invoice.amount_chf || invoice.betrag || invoice.amount || 0)
     || (invoice.invoice_kind === 'portal_reactivation' ? REACTIVATION_PRICE_CHF : EXTENSION_PRICE_CHF);
