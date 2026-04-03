@@ -613,7 +613,7 @@ export function ToursAdminLinkMatterportPage() {
 
       {/* Form card */}
       <form onSubmit={submitLink} className="surface-card-strong p-4 text-sm space-y-4">
-        <h2 className="font-semibold text-[var(--text-main)]">Neue Tour anlegen</h2>
+        <h2 className="font-semibold text-[var(--text-main)]">Verknüpfen mit Kunde</h2>
 
         {/* Tab navigation */}
         <div className="flex border-b border-[var(--border-soft)] -mb-1">
