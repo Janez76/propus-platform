@@ -629,9 +629,9 @@ router.get('/tours/:id/matterport-model', async (req, res) => {
     const spaceId = tourNorm.canonical_matterport_space_id;
     if (!spaceId) return res.status(404).json({ error: 'Kein Matterport-Space verknüpft' });
     const { getModel: mpGet } = require('../lib/matterport');
-    const { model } = await mpGet(spaceId).catch(() => ({ model: null }));
+    const { model, inactiveWarning } = await mpGet(spaceId).catch(() => ({ model: null }));
     if (!model) return res.status(502).json({ error: 'Matterport-Modell konnte nicht geladen werden' });
-    return res.json({ ok: true, model });
+    return res.json({ ok: true, model, inactiveWarning: inactiveWarning || false });
   } catch (err) {
     console.error('[portal-api-mutations] /tours/:id/matterport-model error:', err);
     return res.status(500).json({ error: err.message });

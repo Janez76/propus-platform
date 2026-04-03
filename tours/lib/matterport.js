@@ -226,6 +226,18 @@ async function getModel(modelId) {
   if (errors?.length) {
     const msg = errors[0]?.message || 'Unknown error';
     const code = (errors[0]?.extensions?.code || '').toString();
+
+    // model.inactive: Matterport liefert keine publication-Felder für archivierte
+    // Modelle, gibt aber die übrigen Modelldaten (state, options, …) zurück.
+    // Wenn data.model vorhanden ist, geben wir es trotzdem zurück – publication
+    // bleibt null, was im Frontend sauber behandelt wird.
+    if (
+      (code === 'model.inactive' || /model\.inactive/i.test(msg)) &&
+      data?.model
+    ) {
+      return { model: data.model, error: null, inactiveWarning: true };
+    }
+
     const lockedHint = /model\.locked|Unlock the developer license/i.test(msg) || code === 'model.locked'
       ? ' (Model durch Matterport Developer-Lizenz gesperrt – in my.matterport.com prüfen)'
       : '';

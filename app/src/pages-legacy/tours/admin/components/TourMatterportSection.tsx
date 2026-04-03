@@ -436,13 +436,16 @@ export function TourMatterportSection({ tourId, tour, mpVisibility, onSuccess }:
   const [meta, setMeta] = useState<MatterportModelMeta | null>(null);
   const [metaLoading, setMetaLoading] = useState(false);
   const [metaErr, setMetaErr] = useState<string | null>(null);
+  const [metaInactive, setMetaInactive] = useState(false);
 
   async function loadMeta() {
     setMetaLoading(true);
     setMetaErr(null);
+    setMetaInactive(false);
     try {
       const r = await getToursAdminMatterportModel(tourId);
       setMeta(r.model);
+      setMetaInactive(r.inactiveWarning === true);
     } catch (e) {
       setMetaErr(e instanceof Error ? e.message : "Fehler");
     } finally {
@@ -560,6 +563,26 @@ export function TourMatterportSection({ tourId, tour, mpVisibility, onSuccess }:
                   Erneut laden
                 </button>
               </div>
+            ) : meta && metaInactive ? (
+              <>
+                <p className="text-xs text-[var(--text-subtle)] rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 py-2">
+                  Archivierter Space – Publikationsdetails bei Matterport nicht verfügbar (State: inactive).
+                </p>
+                <MatterportMetaPanel
+                  meta={meta}
+                  onRefresh={() => void loadMeta()}
+                  loading={metaLoading}
+                  spaceId={spaceId}
+                  tourId={tourId}
+                  tourShowUrl={mpUrl}
+                  mpVisibility={mpVisibility}
+                  onVisibilitySaved={() => {
+                    onSuccess();
+                    void loadMeta();
+                  }}
+                  matterportStartSweep={String(tour.matterport_start_sweep ?? "")}
+                />
+              </>
             ) : meta ? (
               <MatterportMetaPanel
                 meta={meta}

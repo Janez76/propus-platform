@@ -208,7 +208,7 @@ export const getPortalTourDetail = (id: number) =>
   portalFetch<PortalTourDetail>(`/tours/${id}/detail`);
 
 export const getPortalMatterportModel = (id: number) =>
-  portalFetch<{ ok: true; model: import("./toursAdmin").MatterportModelMeta }>(`/tours/${id}/matterport-model`);
+  portalFetch<{ ok: true; model: import("./toursAdmin").MatterportModelMeta; inactiveWarning?: boolean }>(`/tours/${id}/matterport-model`);
 
 export const setPortalMatterportOptions = (id: number, patch: import("./toursAdmin").MatterportOptionsPatch) =>
   portalFetch<{ ok: true }>(`/tours/${id}/matterport-options`, { method: "POST", body: JSON.stringify(patch) });

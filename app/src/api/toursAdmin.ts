@@ -270,7 +270,7 @@ export function postToursAdminMatterportOptions(tourId: string, patch: Matterpor
 }
 
 export function getToursAdminMatterportModel(tourId: string) {
-  return toursAdminFetch<{ ok: true; model: MatterportModelMeta }>(`/tours/${tourId}/matterport-model`);
+  return toursAdminFetch<{ ok: true; model: MatterportModelMeta; inactiveWarning?: boolean }>(`/tours/${tourId}/matterport-model`);
 }
 
 export function postUnarchiveMatterportTour(tourId: string) {

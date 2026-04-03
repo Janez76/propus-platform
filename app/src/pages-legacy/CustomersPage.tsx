@@ -813,7 +813,7 @@ export function CustomersPage() {
                         <a
                           href={`mailto:${ct.email}`}
                           onClick={(e) => e.stopPropagation()}
-                          className="flex items-center gap-1.5 text-[length:12px] text-[var(--text-muted)] p-hover-accent transition-colors w-fit max-w-full"
+                          className="flex items-center gap-1.5 text-[length:13px] text-[var(--text-muted)] p-hover-accent transition-colors w-fit max-w-full"
                         >
                           <Mail className="h-3.5 w-3.5 shrink-0 text-[var(--text-subtle)]" />
                           <span className="truncate">{ct.email}</span>

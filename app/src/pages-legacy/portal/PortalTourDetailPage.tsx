@@ -546,6 +546,7 @@ export function PortalTourDetailPage() {
   const [meta, setMeta] = useState<MatterportModelMeta | null>(null);
   const [metaLoading, setMetaLoading] = useState(false);
   const [metaErr, setMetaErr] = useState<string | null>(null);
+  const [metaInactive, setMetaInactive] = useState(false);
 
   // Modals
   const [showExtendModal, setShowExtendModal] = useState(false);
@@ -572,9 +573,11 @@ export function PortalTourDetailPage() {
   const loadMeta = useCallback(async (spaceId: string) => {
     setMetaLoading(true);
     setMetaErr(null);
+    setMetaInactive(false);
     try {
       const r = await getPortalMatterportModel(tourId);
       setMeta(r.model);
+      setMetaInactive(r.inactiveWarning === true);
     } catch (e) {
       setMetaErr(e instanceof Error ? e.message : "Fehler");
     } finally {
@@ -838,6 +841,25 @@ export function PortalTourDetailPage() {
                         Erneut laden
                       </button>
                     </div>
+                  ) : meta && metaInactive ? (
+                    <>
+                      <p className="text-xs text-[var(--text-subtle)] rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 py-2">
+                        Archivierter Space – Publikationsdetails bei Matterport nicht verfügbar.
+                      </p>
+                      <PortalMatterportMetaPanel
+                        meta={meta}
+                        onRefresh={() => void loadMeta(spaceId)}
+                        loading={metaLoading}
+                        tourId={tourId}
+                        tourShowUrl={mpUrl}
+                        mpVisibility={data.mpVisibility}
+                        onVisibilitySaved={() => {
+                          refetch();
+                          void loadMeta(spaceId);
+                        }}
+                        matterportStartSweep={String(tour.matterport_start_sweep ?? "")}
+                      />
+                    </>
                   ) : meta ? (
                     <PortalMatterportMetaPanel
                       meta={meta}

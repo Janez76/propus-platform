@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { ThemeRoot } from "@/components/ThemeRoot";
 
 export const metadata: Metadata = {
   title: "Propus Admin",
@@ -25,7 +26,9 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <ThemeRoot>{children}</ThemeRoot>
+      </body>
     </html>
   );
 }
