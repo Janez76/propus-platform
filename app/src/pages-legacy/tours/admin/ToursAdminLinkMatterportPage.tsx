@@ -272,6 +272,47 @@ export function ToursAdminLinkMatterportPage() {
     return () => { cancelled = true; };
   }, [debouncedBookingQ]);
 
+  // URL-Parameter bookingOrderNo beim ersten Laden auswerten
+  const appliedBookingOrderNoRef = useRef<string | null>(null);
+  const bookingOrderNoInUrl = searchParams.get("bookingOrderNo") || "";
+  useEffect(() => {
+    if (!bookingOrderNoInUrl) return;
+    if (appliedBookingOrderNoRef.current === bookingOrderNoInUrl) return;
+    appliedBookingOrderNoRef.current = bookingOrderNoInUrl;
+    void getLinkMatterportBookingSearch(bookingOrderNoInUrl).then((r) => {
+      const o = r.orders?.[0];
+      if (!o) return;
+      const label = `#${o.order_no} – ${o.address || o.company || ""}`.trim();
+      setBookingOrderNo(o.order_no);
+      setBookingLabel(label);
+      setBookingSearchDraft(label);
+      setBookingSuggestions([]);
+      if (o.address) setBezeichnung(o.address);
+      if (o.coreCustomerId) {
+        const firmenname = o.coreCompany || o.company || "";
+        setCoreCustomerId(o.coreCustomerId);
+        setCustomerName(firmenname);
+        setCustomerEmail(o.coreEmail || o.email || "");
+        selectedLabelRef.current = firmenname;
+        setCustomerSearchDraft(firmenname);
+        setSuggestions({ companies: [], contacts: [] });
+        setContactSuggestions(o.contacts || []);
+        setContactSearchDraft("");
+        setShowContactDropdown(false);
+        if (o.contacts?.length > 0) {
+          setCustomerContact(o.contacts[0].name);
+          setContactSearchDraft(o.contacts[0].name);
+        }
+      } else {
+        if (o.company) setCustomerName(o.company);
+        if (o.email) setCustomerEmail(o.email);
+        const fullName = [o.contactFirstName, o.contactName].filter(Boolean).join(" ").trim();
+        if (fullName) setCustomerContact(fullName);
+      }
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookingOrderNoInUrl]);
+
   // Clear customer state whenever we switch away from "Bestehender Kunde"
   useEffect(() => {
     if (cannotAssign) {
