@@ -97,6 +97,7 @@ export function TourDetailPage() {
               onOpenBookingLink={() => setEmbedView("booking")}
             />
           </section>
+          <TourActionLog rows={data.actionsLog} />
           <section className="surface-card-strong p-5 space-y-4">
             <TourActionsPanel
               tourId={okId}
@@ -120,7 +121,6 @@ export function TourDetailPage() {
             suggestedManualDueAt={data.suggestedManualDueAt}
             onOpenInvoiceLink={() => setEmbedView("invoice")}
           />
-          <TourActionLog rows={data.actionsLog} />
         </>
       ) : null}
 
