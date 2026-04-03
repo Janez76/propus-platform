@@ -88,8 +88,13 @@ async function deleteUnlinkCustomerJson(tourIdRaw) {
   if (!Number.isFinite(tourId) || tourId < 1) {
     return { ok: false, error: 'not_found' };
   }
-  const tourResult = await pool.query('SELECT id FROM tour_manager.tours WHERE id = $1', [tourId]);
+  const tourResult = await pool.query(
+    'SELECT id, customer_id, customer_name FROM tour_manager.tours WHERE id = $1',
+    [tourId]
+  );
   if (!tourResult.rows[0]) return { ok: false, error: 'not_found' };
+
+  const { customer_id: prevCustomerId, customer_name: prevCustomerName } = tourResult.rows[0];
 
   await pool.query(
     `UPDATE tour_manager.tours
@@ -98,7 +103,11 @@ async function deleteUnlinkCustomerJson(tourIdRaw) {
      WHERE id = $1`,
     [tourId]
   );
-  return { ok: true };
+  return {
+    ok: true,
+    previous_customer_id: prevCustomerId || null,
+    previous_customer_name: prevCustomerName || null,
+  };
 }
 
 module.exports = {

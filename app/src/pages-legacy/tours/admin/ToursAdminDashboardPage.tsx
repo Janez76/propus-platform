@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { AlertCircle, Globe, LayoutDashboard } from "lucide-react";
+import { AlertCircle, Globe, LayoutDashboard, UserX } from "lucide-react";
 import { getToursAdminDashboard } from "../../../api/toursAdmin";
 import { useQuery } from "../../../hooks/useQuery";
 import { toursAdminDashboardQueryKey } from "../../../lib/queryKeys";
@@ -31,7 +31,7 @@ export function ToursAdminDashboardPage() {
   const content = useMemo(() => {
     if (!data) return null;
     return (
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-3">
         <section className="surface-card-strong p-5 space-y-3">
           <div className="flex items-center justify-between gap-2">
             <Link to="/admin/tours/link-matterport" className="text-lg font-semibold text-[var(--text-main)] hover:text-[var(--accent)] transition-colors">
@@ -54,6 +54,36 @@ export function ToursAdminDashboardPage() {
                   >
                     <span className="text-[var(--text-main)] truncate">{String(m.name || m.id || "—")}</span>
                     <span className="text-[var(--text-subtle)] shrink-0">{String(m.id || "")}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="surface-card-strong p-5 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <Link
+              to="/admin/tours/list?noCustomerOnly=1&status=ACTIVE"
+              className="flex items-center gap-2 text-lg font-semibold text-[var(--text-main)] hover:text-[var(--accent)] transition-colors"
+            >
+              <UserX className="h-4 w-4 shrink-0 text-amber-500" />
+              Ohne Kundenzuordnung
+            </Link>
+            <span className="text-xs text-[var(--text-subtle)]">{data.toursWithoutCustomer.length}</span>
+          </div>
+          {data.toursWithoutCustomer.length === 0 ? (
+            <p className="text-sm text-[var(--text-subtle)]">Alle aktiven Touren sind einem Kunden zugeordnet.</p>
+          ) : (
+            <ul className="space-y-2 text-sm">
+              {data.toursWithoutCustomer.map((t) => (
+                <li key={t.id}>
+                  <Link
+                    to={`/admin/tours/${t.id}/link-exxas-customer`}
+                    className="flex justify-between gap-2 border-b border-[var(--border-soft)]/60 pb-2 last:border-0 rounded-md -mx-1 px-1 py-0.5 hover:bg-[var(--surface-raised)]/50 transition-colors"
+                  >
+                    <span className="text-[var(--text-main)] truncate">{tourTitle(t)}</span>
+                    <span className="text-xs text-amber-500 shrink-0">Kunde fehlt</span>
                   </Link>
                 </li>
               ))}
@@ -90,7 +120,7 @@ export function ToursAdminDashboardPage() {
           )}
         </section>
 
-        <section className="surface-card-strong p-5 space-y-3 lg:col-span-2">
+        <section className="surface-card-strong p-5 space-y-3 lg:col-span-3">
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-lg font-semibold text-[var(--text-main)]">Läuft bald ab</h2>
           </div>

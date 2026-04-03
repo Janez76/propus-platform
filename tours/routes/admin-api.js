@@ -124,6 +124,7 @@ router.get('/dashboard', async (req, res) => {
       linkedResult,
       recentToursRaw,
       expiringSoonRowsRaw,
+      noCustomerRaw,
       widgets,
     ] = await Promise.all([
       matterport.listModels(),
@@ -149,6 +150,15 @@ router.get('/dashboard', async (req, res) => {
       ORDER BY COALESCE(t.term_end_date, t.ablaufdatum) ASC
       LIMIT 5
     `),
+      pool.query(`
+      SELECT t.*
+      FROM tour_manager.tours t
+      WHERE t.status IN ('ACTIVE','EXPIRING_SOON')
+        AND (t.customer_id IS NULL OR t.customer_id = 0)
+        AND (t.kunde_ref IS NULL OR TRIM(t.kunde_ref) = '')
+      ORDER BY t.created_at DESC NULLS LAST, t.id DESC
+      LIMIT 10
+    `),
       getDashboardWidgets(),
     ]);
 
@@ -170,6 +180,7 @@ router.get('/dashboard', async (req, res) => {
     return res.json({
       ok: true,
       openMatterportSpaces,
+      toursWithoutCustomer: noCustomerRaw.rows.map(normalizeTourRow),
       recentTours: recentToursRaw.rows.map(normalizeTourRow),
       expiringSoonTours: expiringSoonRowsRaw.rows.map(normalizeTourRow),
       widgets,
@@ -1163,6 +1174,11 @@ router.delete('/tours/:id/link-exxas-customer', async (req, res) => {
       const st = result.error === 'not_found' ? 404 : 400;
       return res.status(st).json({ ok: false, error: result.error || 'failed' });
     }
+    await logAction(req.params.id, 'admin', adminEmail(req), 'ADMIN_UNLINK_CUSTOMER', {
+      source: 'admin_api',
+      previous_customer_id: result.previous_customer_id || null,
+      previous_customer_name: result.previous_customer_name || null,
+    });
     return res.json({ ok: true });
   } catch (err) {
     console.error('[admin-api] link-exxas-customer DELETE', err);
@@ -1177,6 +1193,12 @@ router.post('/tours/:id/link-exxas-customer', async (req, res) => {
       const st = result.error === 'not_found' ? 404 : 400;
       return res.status(st).json({ ok: false, error: result.error || 'failed' });
     }
+    await logAction(req.params.id, 'admin', adminEmail(req), 'ADMIN_LINK_CUSTOMER', {
+      source: 'admin_api',
+      customer_id: req.body?.customer_id || null,
+      customer_name: req.body?.customer_name || null,
+      customer_email: req.body?.customer_email || null,
+    });
     return res.json({ ok: true });
   } catch (err) {
     return res.status(400).json({ ok: false, error: err.message });

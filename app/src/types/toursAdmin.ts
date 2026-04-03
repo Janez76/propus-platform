@@ -27,6 +27,7 @@ export type ToursAdminTourRow = Record<string, unknown> & {
 export type ToursAdminDashboardResponse = {
   ok: true;
   openMatterportSpaces: ToursAdminMatterportSpace[];
+  toursWithoutCustomer: ToursAdminTourRow[];
   recentTours: ToursAdminTourRow[];
   expiringSoonTours: ToursAdminTourRow[];
   widgets: Record<string, boolean>;
