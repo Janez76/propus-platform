@@ -203,7 +203,7 @@ function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId, bookin
               onClick={onOpenBookingLink}
               className="shrink-0 text-xs text-[var(--accent)] hover:underline"
             >
-              Verknüpfung ändern
+              Kunde anpassen
             </button>
           ) : null}
         </div>
@@ -216,7 +216,7 @@ function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId, bookin
               onClick={onOpenBookingLink}
               className="shrink-0 text-xs text-[var(--accent)] hover:underline"
             >
-              Verknüpfen
+              Kunde anpassen
             </button>
           </div>
         ) : null

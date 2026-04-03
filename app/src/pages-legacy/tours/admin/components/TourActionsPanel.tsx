@@ -78,7 +78,7 @@ export function TourActionsPanel({ tourId, tour, mpVisibility, onSuccess, onOpen
             onClick={onOpenCustomerLink}
             className="text-sm font-medium text-[var(--accent)] hover:underline shrink-0"
           >
-            Kunde anpassen (core)
+            Kunde anpassen
           </button>
         ) : null}
       </div>
@@ -141,7 +141,7 @@ export function TourActionsPanel({ tourId, tour, mpVisibility, onSuccess, onOpen
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium text-[var(--text-subtle)]">Start-Sweep-ID</label>
+          <label className="text-sm font-medium text-[var(--text-subtle)]">Startpunkt setzen</label>
           <input
             value={sweep}
             onChange={(e) => setSweep(e.target.value)}
@@ -149,7 +149,7 @@ export function TourActionsPanel({ tourId, tour, mpVisibility, onSuccess, onOpen
             placeholder="Matterport Sweep ID"
           />
           <p className="text-sm text-[var(--text-subtle)]">
-            Gewuenschten Startpunkt in Matterport oeffnen, die Sweep-ID aus Link oder Ansicht kopieren und hier einfuegen.
+            Gewünschten Startpunkt in Matterport öffnen → im Browser die URL kopieren → den Wert nach <code className="rounded bg-[var(--surface)] px-1 font-mono text-xs">sid=</code> herauskopieren und hier einfügen. Alternativ: in der 3D-Ansicht auf den Sweep klicken → Sweep-ID aus den Eigenschaften ablesen.
           </p>
           <button
             type="button"
