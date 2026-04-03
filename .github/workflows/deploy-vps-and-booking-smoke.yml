@@ -174,45 +174,53 @@ jobs:
         id: deploy_step
         continue-on-error: true
         run: |
+          DEPLOY_LOG="${RUNNER_TEMP}/deploy-vps.log"
+          : > "$DEPLOY_LOG"
+
           run_deploy() {
             ssh -i ~/.ssh/id_ed25519_propus_vps \
               -o ServerAliveInterval=30 \
               -o ServerAliveCountMax=12 \
               root@${{ secrets.VPS_HOST }} \
-              "GITHUB_SHA='${GITHUB_SHA}' bash /tmp/propus-deploy-scripts/deploy-remote.sh"
+              "GITHUB_SHA='${GITHUB_SHA}' bash /tmp/propus-deploy-scripts/deploy-remote.sh" \
+              2>&1 | tee -a "$DEPLOY_LOG"
+            return ${PIPESTATUS[0]}
           }
 
-          echo "==> Deploy Versuch 1/2..."
+          echo "==> Deploy Versuch 1/2..." | tee -a "$DEPLOY_LOG"
           if run_deploy; then
             echo "deploy_result=success" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          echo "::warning::Versuch 1 fehlgeschlagen. Warte 30s, dann Versuch 2..."
+          echo "::warning::Versuch 1 fehlgeschlagen. Warte 30s, dann Versuch 2..." | tee -a "$DEPLOY_LOG"
           sleep 30
 
-          echo "==> Deploy Versuch 2/2 (Retry)..."
+          echo "==> Deploy Versuch 2/2 (Retry)..." | tee -a "$DEPLOY_LOG"
           if run_deploy; then
             echo "deploy_result=success" >> "$GITHUB_OUTPUT"
-            echo "::notice::Deploy nach Retry erfolgreich."
+            echo "::notice::Deploy nach Retry erfolgreich." | tee -a "$DEPLOY_LOG"
             exit 0
           fi
 
           echo "deploy_result=failed" >> "$GITHUB_OUTPUT"
-          echo "::error::Deploy nach 2 Versuchen fehlgeschlagen."
+          echo "::error::Deploy nach 2 Versuchen fehlgeschlagen." | tee -a "$DEPLOY_LOG"
           exit 1
 
       # ── Automatischer Rollback wenn Deploy fehlschlaegt ────────────────────
       - name: Automatic rollback on deploy failure
         if: steps.deploy_step.outcome == 'failure'
         run: |
-          echo "::error::Deploy fehlgeschlagen – starte automatischen Rollback..."
+          ROLLBACK_LOG="${RUNNER_TEMP}/rollback-vps.log"
+          : > "$ROLLBACK_LOG"
+          echo "::error::Deploy fehlgeschlagen – starte automatischen Rollback..." | tee -a "$ROLLBACK_LOG"
           ssh -i ~/.ssh/id_ed25519_propus_vps \
             -o ServerAliveInterval=30 \
             -o ServerAliveCountMax=6 \
             root@${{ secrets.VPS_HOST }} \
-            "bash /tmp/propus-deploy-scripts/rollback-vps.sh || bash /opt/propus-platform/scripts/rollback-vps.sh"
-          echo "::warning::Rollback abgeschlossen. Produktionssystem laeuft auf letzter stabiler Version."
+            "bash /tmp/propus-deploy-scripts/rollback-vps.sh || bash /opt/propus-platform/scripts/rollback-vps.sh" \
+            2>&1 | tee -a "$ROLLBACK_LOG"
+          echo "::warning::Rollback abgeschlossen. Produktionssystem laeuft auf letzter stabiler Version." | tee -a "$ROLLBACK_LOG"
 
       - name: Fail after rollback
         if: steps.deploy_step.outcome == 'failure'
@@ -222,7 +230,9 @@ jobs:
 
       - name: Container status check
         run: |
-          ssh -i ~/.ssh/id_ed25519_propus_vps root@${{ secrets.VPS_HOST }} bash << 'ENDSSH'
+          CONTAINER_LOG="${RUNNER_TEMP}/container-status.log"
+          : > "$CONTAINER_LOG"
+          ssh -i ~/.ssh/id_ed25519_propus_vps root@${{ secrets.VPS_HOST }} bash << 'ENDSSH' 2>&1 | tee -a "$CONTAINER_LOG"
             set -e
             PROJECT_ROOT=/opt/propus-platform
             cd "$PROJECT_ROOT"
@@ -278,6 +288,7 @@ jobs:
             echo ""
             echo "Alle Container laufen korrekt."
           ENDSSH
+          exit ${PIPESTATUS[0]}
 
       - name: Purge Cloudflare cache
         if: success()
@@ -329,9 +340,26 @@ jobs:
         run: |
           VERSION="${NEW_VERSION}"
           RUN_URL="https://github.com/${REPO}/actions/runs/${RUN_ID}"
+          COMMIT_URL="https://github.com/${REPO}/commit/${COMMIT_SHA}"
           COMMIT_MSG=$(git log -1 --pretty=format:"%s" "${COMMIT_SHA}" 2>/dev/null || echo "unbekannt")
           SHORT_SHA="${COMMIT_SHA:0:7}"
           TIMESTAMP=$(date -u '+%Y-%m-%d %H:%M UTC')
+
+          append_log_block() {
+            local title="$1"
+            local file="$2"
+            local target="$3"
+            if [ -f "$file" ] && [ -s "$file" ]; then
+              {
+                echo ""
+                echo "### ${title}"
+                echo ""
+                echo '```text'
+                tail -n 60 "$file"
+                echo '```'
+              } >> "$target"
+            fi
+          }
 
           gh label create "deploy-failure" --color "d73a4a" \
             --description "Automatisch bei fehlgeschlagenem Deploy erstellt" 2>/dev/null || true
@@ -351,15 +379,47 @@ jobs:
             EXISTING=$(gh issue list --label "deploy-failure" --state open --limit 1 \
               --json number --jq '.[0].number' 2>/dev/null || true)
             if [ -n "$EXISTING" ]; then
+              printf '%s\n' \
+                "## Erneuter Deploy-Fehler" \
+                "" \
+                "- Version: \`${VERSION}\`" \
+                "- Commit: [\`${SHORT_SHA}\`](${COMMIT_URL})" \
+                "- Nachricht: ${COMMIT_MSG}" \
+                "- Branch: \`${REF_NAME}\`" \
+                "- Workflow: [Run #${RUN_ID}](${RUN_URL})" \
+                "- Zeitpunkt: ${TIMESTAMP}" \
+                > deploy-failure-comment.md
+              append_log_block "Deploy-Log (letzte 60 Zeilen)" "${RUNNER_TEMP}/deploy-vps.log" deploy-failure-comment.md
+              append_log_block "Rollback-Log (letzte 60 Zeilen)" "${RUNNER_TEMP}/rollback-vps.log" deploy-failure-comment.md
+              append_log_block "Container-Status-Log (letzte 60 Zeilen)" "${RUNNER_TEMP}/container-status.log" deploy-failure-comment.md
               gh issue comment "$EXISTING" \
-                --body "Erneuter Fehler ${VERSION} | Commit: ${SHORT_SHA} (${COMMIT_MSG}) | ${RUN_URL} | ${TIMESTAMP}" \
+                --body-file deploy-failure-comment.md \
                 2>/dev/null || true
               echo "::notice::Kommentar zu Issue #${EXISTING} hinzugefuegt"
             else
+              printf '%s\n' \
+                "## Deploy fehlgeschlagen" \
+                "" \
+                "- Version: \`${VERSION}\`" \
+                "- Commit: [\`${SHORT_SHA}\`](${COMMIT_URL})" \
+                "- Nachricht: ${COMMIT_MSG}" \
+                "- Branch: \`${REF_NAME}\`" \
+                "- Workflow: [Run #${RUN_ID}](${RUN_URL})" \
+                "- Zeitpunkt: ${TIMESTAMP}" \
+                "" \
+                "### Naechste Schritte" \
+                "" \
+                "1. [Workflow-Logs oeffnen](${RUN_URL})" \
+                "2. Fehler beheben und erneut pushen" \
+                "3. Das Issue wird beim naechsten erfolgreichen Deploy automatisch geschlossen" \
+                > deploy-failure-issue.md
+              append_log_block "Deploy-Log (letzte 60 Zeilen)" "${RUNNER_TEMP}/deploy-vps.log" deploy-failure-issue.md
+              append_log_block "Rollback-Log (letzte 60 Zeilen)" "${RUNNER_TEMP}/rollback-vps.log" deploy-failure-issue.md
+              append_log_block "Container-Status-Log (letzte 60 Zeilen)" "${RUNNER_TEMP}/container-status.log" deploy-failure-issue.md
               gh issue create \
                 --title "Deploy fehlgeschlagen: ${VERSION}" \
                 --label "deploy-failure" \
-                --body "Deploy fehlgeschlagen: ${VERSION} | Commit: ${SHORT_SHA} - ${COMMIT_MSG} | Branch: ${REF_NAME} | ${RUN_URL} | ${TIMESTAMP} | Naechster erfolgreicher Deploy schliesst dieses Issue automatisch." \
+                --body-file deploy-failure-issue.md \
                 2>/dev/null || true
               echo "::notice::Issue erstellt fuer ${VERSION}"
             fi
