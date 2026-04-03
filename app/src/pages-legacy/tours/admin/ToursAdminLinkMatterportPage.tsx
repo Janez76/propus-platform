@@ -141,7 +141,7 @@ export function ToursAdminLinkMatterportPage() {
   const [bookingOrderNo, setBookingOrderNo] = useState<number | null>(null);
   const [bookingLabel, setBookingLabel] = useState("");
   const [bookingSuggestions, setBookingSuggestions] = useState<
-    { id: number; order_no: number; status: string; address: string; company: string; email: string; date: string | null; created_at: string }[]
+    { id: number; order_no: number; status: string; address: string; company: string; email: string; contactName: string; date: string | null; created_at: string; coreCustomerId: string | null; coreCompany: string; coreEmail: string; contacts: { name: string; email: string; tel: string }[] }[]
   >([]);
   const [bookingSuggestLoading, setBookingSuggestLoading] = useState(false);
 
@@ -660,11 +660,32 @@ export function ToursAdminLinkMatterportPage() {
                           setBookingLabel(label);
                           setBookingSearchDraft(label);
                           setBookingSuggestions([]);
-                          // Felder autofüllen wenn noch leer
+                          // Bezeichnung aus Adresse
                           if (!bezeichnung.trim() && o.address) setBezeichnung(o.address);
+                          // Kunde aus core.customers (per E-Mail gefunden)
                           if (activeTab === 0 || activeTab === 1) {
-                            if (!customerName.trim() && o.company) setCustomerName(o.company);
-                            if (!customerEmail.trim() && o.email) setCustomerEmail(o.email);
+                            if (o.coreCustomerId) {
+                              const firmenname = o.coreCompany || o.company || "";
+                              setCoreCustomerId(o.coreCustomerId);
+                              setCustomerName(firmenname);
+                              setCustomerEmail(o.coreEmail || o.email || "");
+                              selectedLabelRef.current = firmenname;
+                              setCustomerSearchDraft(firmenname);
+                              setSuggestions({ companies: [], contacts: [] });
+                              setContactSuggestions(o.contacts || []);
+                              setContactSearchDraft("");
+                              setShowContactDropdown(false);
+                              // Ersten Kontakt als Ansprechpartner vorausfüllen
+                              if (!customerContact.trim() && o.contacts?.length > 0) {
+                                setCustomerContact(o.contacts[0].name);
+                                setContactSearchDraft(o.contacts[0].name);
+                                if (!customerEmail.trim() && o.contacts[0].email) setCustomerEmail(o.contacts[0].email);
+                              }
+                            } else {
+                              if (!customerName.trim() && o.company) setCustomerName(o.company);
+                              if (!customerEmail.trim() && o.email) setCustomerEmail(o.email);
+                              if (!customerContact.trim() && o.contactName) setCustomerContact(o.contactName);
+                            }
                           }
                         }}
                       >

@@ -1013,16 +1013,63 @@ router.get('/link-matterport/booking-search', async (req, res) => {
       );
       rows = r.rows;
     }
-    const orders = rows.map((r) => ({
-      id: r.id,
-      order_no: r.order_no,
-      status: r.status,
-      address: r.address,
-      company: r.billing?.company || r.billing?.name || '',
-      email: r.billing?.email || '',
-      date: r.schedule?.date || null,
-      created_at: r.created_at,
-    }));
+    // Kunden aus core.customers per E-Mail nachschlagen
+    const emails = [...new Set(rows.map(r => (r.billing?.email || '')).filter(Boolean))];
+    const coreCustomerByEmail = new Map();
+    if (emails.length > 0) {
+      try {
+        const custRows = await pool.query(
+          `SELECT c.id, c.company, c.name, c.email, c.customer_number
+           FROM core.customers c
+           WHERE LOWER(c.email) = ANY($1::text[])`,
+          [emails.map(e => e.toLowerCase())]
+        );
+        for (const c of custRows.rows) {
+          coreCustomerByEmail.set((c.email || '').toLowerCase(), c);
+        }
+        // Kontakte für gefundene Kunden laden
+        const custIds = [...new Set(custRows.rows.map(c => c.id))];
+        if (custIds.length > 0) {
+          const ctRows = await pool.query(
+            `SELECT customer_id, id, name, email, phone
+             FROM core.customer_contacts
+             WHERE customer_id = ANY($1::int[])
+             ORDER BY sort_order NULLS LAST, id`,
+            [custIds]
+          );
+          const contactsByCustId = new Map();
+          for (const ct of ctRows.rows) {
+            if (!contactsByCustId.has(ct.customer_id)) contactsByCustId.set(ct.customer_id, []);
+            contactsByCustId.get(ct.customer_id).push({ name: ct.name, email: ct.email, tel: ct.phone });
+          }
+          for (const c of custRows.rows) {
+            const existing = coreCustomerByEmail.get((c.email || '').toLowerCase());
+            if (existing) existing.contacts = contactsByCustId.get(c.id) || [];
+          }
+        }
+      } catch (e) {
+        console.warn('[admin-api] booking-search customer lookup:', e.message);
+      }
+    }
+    const orders = rows.map((r) => {
+      const billingEmail = (r.billing?.email || '').toLowerCase();
+      const cust = coreCustomerByEmail.get(billingEmail) || null;
+      return {
+        id: r.id,
+        order_no: r.order_no,
+        status: r.status,
+        address: r.address,
+        company: r.billing?.company || r.billing?.name || '',
+        email: r.billing?.email || '',
+        contactName: r.billing?.name || '',
+        date: r.schedule?.date || null,
+        created_at: r.created_at,
+        coreCustomerId: cust ? String(cust.id) : null,
+        coreCompany: cust ? (cust.company || cust.name || '') : '',
+        coreEmail: cust ? (cust.email || '') : '',
+        contacts: cust ? (cust.contacts || []) : [],
+      };
+    });
     return res.json({ orders });
   } catch (err) {
     console.error('[admin-api] GET /link-matterport/booking-search', err);
