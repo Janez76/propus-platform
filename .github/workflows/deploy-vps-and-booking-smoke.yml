@@ -337,86 +337,48 @@ jobs:
         if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JOB_STATUS: ${{ job.status }}
+          NEW_VERSION: ${{ steps.bump.outputs.new_version }}
+          RUN_ID: ${{ github.run_id }}
+          REPO: ${{ github.repository }}
+          COMMIT_SHA: ${{ github.sha }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
-          VERSION="${{ steps.bump.outputs.new_version }}"
-          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          COMMIT_SHA="${{ github.sha }}"
-          COMMIT_URL="https://github.com/${{ github.repository }}/commit/${COMMIT_SHA}"
-          COMMIT_MSG=$(git log -1 --pretty=format:"%s" "${COMMIT_SHA}" 2>/dev/null || echo "(unbekannt)")
+          VERSION="${NEW_VERSION}"
+          RUN_URL="https://github.com/${REPO}/actions/runs/${RUN_ID}"
+          COMMIT_MSG=$(git log -1 --pretty=format:"%s" "${COMMIT_SHA}" 2>/dev/null || echo "unbekannt")
+          SHORT_SHA="${COMMIT_SHA:0:7}"
+          TIMESTAMP=$(date -u '+%Y-%m-%d %H:%M UTC')
 
-          # Label sicherstellen
-          gh label create "deploy-failure" \
-            --color "d73a4a" \
-            --description "Automatisch erstelltes Issue bei fehlgeschlagenem Deploy" \
-            2>/dev/null || true
+          gh label create "deploy-failure" --color "d73a4a" \
+            --description "Automatisch bei fehlgeschlagenem Deploy erstellt" 2>/dev/null || true
 
-          if [ "${{ job.status }}" = "success" ]; then
+          if [ "$JOB_STATUS" = "success" ]; then
             echo "::notice::Deploy erfolgreich: ${VERSION}"
-
-            # Offene deploy-failure Issues schliessen
-            OPEN_ISSUES=$(gh issue list \
-              --label "deploy-failure" \
-              --state open \
-              --limit 10 \
-              --json number \
-              --jq '.[].number' 2>/dev/null || echo "")
-
+            OPEN_ISSUES=$(gh issue list --label "deploy-failure" --state open --limit 10 \
+              --json number --jq '.[].number' 2>/dev/null || true)
             for issue_num in $OPEN_ISSUES; do
               gh issue close "$issue_num" \
-                --comment "Deploy **${VERSION}** war erfolgreich – Issue wird automatisch geschlossen. [Workflow-Run](${RUN_URL})"
-              echo "::notice::Issue #${issue_num} automatisch geschlossen (Deploy erfolgreich)"
+                --comment "Deploy ${VERSION} war erfolgreich. Issue automatisch geschlossen. ${RUN_URL}" \
+                2>/dev/null || true
+              echo "::notice::Issue #${issue_num} geschlossen"
             done
           else
-            echo "::error::Deploy fehlgeschlagen fuer Version ${VERSION}"
-
-            # Prüfen ob bereits ein offenes Issue für diesen Fehler existiert
-            EXISTING=$(gh issue list \
-              --label "deploy-failure" \
-              --state open \
-              --limit 1 \
-              --json number \
-              --jq '.[0].number' 2>/dev/null || echo "")
-
+            echo "::error::Deploy fehlgeschlagen: ${VERSION}"
+            EXISTING=$(gh issue list --label "deploy-failure" --state open --limit 1 \
+              --json number --jq '.[0].number' 2>/dev/null || true)
             if [ -n "$EXISTING" ]; then
-              # Kommentar an bestehendes Issue anhängen
-              gh issue comment "$EXISTING" --body "$(cat <<EOF
-**Erneuter Deploy-Fehler** – ${VERSION}
-
-| | |
-|---|---|
-| Version | \`${VERSION}\` |
-| Commit | [\`${COMMIT_SHA:0:7}\`](${COMMIT_URL}) – ${COMMIT_MSG} |
-| Workflow | [Run #${{ github.run_id }}](${RUN_URL}) |
-| Zeitpunkt | $(date -u '+%Y-%m-%d %H:%M UTC') |
-EOF
-)"
-              echo "::notice::Kommentar zu Issue #${EXISTING} hinzugefügt"
+              gh issue comment "$EXISTING" \
+                --body "Erneuter Fehler ${VERSION} | Commit: ${SHORT_SHA} (${COMMIT_MSG}) | ${RUN_URL} | ${TIMESTAMP}" \
+                2>/dev/null || true
+              echo "::notice::Kommentar zu Issue #${EXISTING} hinzugefuegt"
             else
-              # Neues Issue erstellen
               gh issue create \
                 --title "Deploy fehlgeschlagen: ${VERSION}" \
                 --label "deploy-failure" \
-                --body "$(cat <<EOF
-## Deploy fehlgeschlagen
-
-| | |
-|---|---|
-| Version | \`${VERSION}\` |
-| Commit | [\`${COMMIT_SHA:0:7}\`](${COMMIT_URL}) – ${COMMIT_MSG} |
-| Branch | \`${{ github.ref_name }}\` |
-| Workflow | [Run #${{ github.run_id }}](${RUN_URL}) |
-| Zeitpunkt | $(date -u '+%Y-%m-%d %H:%M UTC') |
-
-### Was ist zu tun?
-
-1. [Workflow-Logs prüfen](${RUN_URL})
-2. Fehler beheben und erneut pushen
-3. Dieses Issue schliessen sobald der nächste Deploy erfolgreich ist
-
-> Das Rollback wurde automatisch ausgeführt (falls Containerstart fehlschlug).
-EOF
-)"
-              echo "::notice::Neues GitHub Issue erstellt für fehlgeschlagenen Deploy ${VERSION}"
+                --body "Deploy fehlgeschlagen: ${VERSION} | Commit: ${SHORT_SHA} - ${COMMIT_MSG} | Branch: ${REF_NAME} | ${RUN_URL} | ${TIMESTAMP} | Naechster erfolgreicher Deploy schliesst dieses Issue automatisch." \
+                2>/dev/null || true
+              echo "::notice::Issue erstellt fuer ${VERSION}"
             fi
           fi
 
