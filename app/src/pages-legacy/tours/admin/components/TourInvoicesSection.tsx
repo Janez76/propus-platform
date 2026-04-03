@@ -1,5 +1,5 @@
 import { renewalInvoicePdfUrl } from "../../../../api/toursAdmin";
-import type { ToursAdminTourDetailResponse } from "../../../../types/toursAdmin";
+import type { ToursAdminTourDetailResponse, ToursAdminTourRow } from "../../../../types/toursAdmin";
 
 function formatDate(v: unknown) {
   if (v == null || v === "") return "—";
@@ -13,10 +13,29 @@ function formatMoney(v: unknown) {
   return `CHF ${n.toFixed(2)}`;
 }
 
+function formatRestzeit(days: unknown) {
+  const n = typeof days === "number" ? days : parseInt(String(days ?? ""), 10);
+  if (!Number.isFinite(n)) return "—";
+  if (n < 0) return `Seit ${Math.abs(n)} ${Math.abs(n) === 1 ? "Tag" : "Tagen"} abgelaufen`;
+  if (n === 0) return "Läuft heute ab";
+  return `${n} ${n === 1 ? "Tag" : "Tage"}`;
+}
+
+function latestRenewalDate(rows: Record<string, unknown>[]): unknown {
+  const candidates = rows
+    .map((row) => row.paid_at ?? row.sent_at ?? row.created_at ?? null)
+    .filter((v) => v != null)
+    .map((v) => ({ raw: v, ts: new Date(String(v)).getTime() }))
+    .filter((v) => Number.isFinite(v.ts))
+    .sort((a, b) => b.ts - a.ts);
+  return candidates[0]?.raw ?? null;
+}
+
 type Props = Pick<
   ToursAdminTourDetailResponse,
-  "renewalInvoices" | "exxasInvoices" | "paymentSummary" | "suggestedManualDueAt"
+  "renewalInvoices" | "exxasInvoices" | "paymentSummary"
 > & {
+  tour: ToursAdminTourRow;
   paymentTimeline?: ToursAdminTourDetailResponse["paymentTimeline"];
   tourId?: string;
   onOpenInvoiceLink?: () => void;
@@ -26,16 +45,38 @@ export function TourInvoicesSection({
   renewalInvoices,
   exxasInvoices,
   paymentSummary,
+  tour,
   paymentTimeline = [],
-  suggestedManualDueAt,
   tourId,
   onOpenInvoiceLink,
 }: Props) {
   const ps = paymentSummary as Record<string, unknown>;
+  const createdAt = tour.matterport_created_at ?? tour.created_at ?? null;
+  const expiresAt = tour.canonical_term_end_date ?? tour.term_end_date ?? tour.ablaufdatum ?? null;
+  const lastRenewalAt = latestRenewalDate(renewalInvoices);
+  const restzeit = formatRestzeit(tour.days_until_expiry);
 
   return (
     <section className="surface-card-strong p-5 space-y-4">
       <h2 className="text-lg font-semibold text-[var(--text-main)]">Rechnungen &amp; Zahlungen</h2>
+      <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+        <div className="rounded-lg border border-[var(--border-soft)] p-3">
+          <div className="text-[var(--text-subtle)] text-xs">Tour erstellt am</div>
+          <div className="mt-1 font-semibold text-[var(--text-main)]">{formatDate(createdAt)}</div>
+        </div>
+        <div className="rounded-lg border border-[var(--border-soft)] p-3">
+          <div className="text-[var(--text-subtle)] text-xs">Tour läuft am ab</div>
+          <div className="mt-1 font-semibold text-[var(--text-main)]">{formatDate(expiresAt)}</div>
+        </div>
+        <div className="rounded-lg border border-[var(--border-soft)] p-3">
+          <div className="text-[var(--text-subtle)] text-xs">Letzte Verlängerung</div>
+          <div className="mt-1 font-semibold text-[var(--text-main)]">{formatDate(lastRenewalAt)}</div>
+        </div>
+        <div className="rounded-lg border border-[var(--border-soft)] p-3">
+          <div className="text-[var(--text-subtle)] text-xs">Restzeit</div>
+          <div className="mt-1 font-semibold text-[var(--text-main)]">{restzeit}</div>
+        </div>
+      </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
         <div className="rounded-lg border border-[var(--border-soft)] p-3">
           <div className="text-[var(--text-subtle)] text-xs">Bezahlt</div>
@@ -61,12 +102,6 @@ export function TourInvoicesSection({
           )}
         </div>
       </div>
-      {suggestedManualDueAt ? (
-        <p className="text-xs text-[var(--text-subtle)]">
-          Vorschlag Fälligkeit manuelle Rechnung: <strong className="text-[var(--text-main)]">{suggestedManualDueAt}</strong>
-        </p>
-      ) : null}
-
       {paymentTimeline.length > 0 ? (
         <div>
           <h3 className="text-sm font-medium text-[var(--text-main)] mb-2">Zeitleiste</h3>
