@@ -88,19 +88,21 @@ export function TourDetailPage() {
 
       {data ? (
         <>
-          <TourActionsPanel
-            tourId={okId}
-            tour={data.tour}
-            mpVisibility={data.mpVisibility}
-            onSuccess={refetchDetail}
-            onOpenCustomerLink={() => setEmbedView("customer")}
-          />
-          <TourMatterportSection
-            tourId={okId}
-            tour={data.tour}
-            onSuccess={refetchDetail}
-            onOpenBookingLink={() => setEmbedView("booking")}
-          />
+          <section className="surface-card-strong p-5 space-y-4">
+            <TourActionsPanel
+              tourId={okId}
+              tour={data.tour}
+              mpVisibility={data.mpVisibility}
+              onSuccess={refetchDetail}
+              onOpenCustomerLink={() => setEmbedView("customer")}
+            />
+            <TourMatterportSection
+              tourId={okId}
+              tour={data.tour}
+              onSuccess={refetchDetail}
+              onOpenBookingLink={() => setEmbedView("booking")}
+            />
+          </section>
           <TourInvoicesSection
             tourId={okId}
             renewalInvoices={data.renewalInvoices}

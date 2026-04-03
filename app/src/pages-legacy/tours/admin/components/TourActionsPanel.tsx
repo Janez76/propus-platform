@@ -69,7 +69,7 @@ export function TourActionsPanel({ tourId, tour, mpVisibility, onSuccess, onOpen
   }
 
   return (
-    <section className="surface-card-strong p-5 space-y-4">
+    <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <h2 className="text-lg font-semibold text-[var(--text-main)]">Stammdaten &amp; Matterport</h2>
         {onOpenCustomerLink ? (
@@ -232,6 +232,6 @@ export function TourActionsPanel({ tourId, tour, mpVisibility, onSuccess, onOpen
           {busy === "vis" ? "…" : "Anwenden"}
         </button>
       </div>
-    </section>
+    </div>
   );
 }

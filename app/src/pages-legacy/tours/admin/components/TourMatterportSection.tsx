@@ -372,8 +372,8 @@ export function TourMatterportSection({ tourId, tour, onSuccess, onOpenBookingLi
 
   return (
     <>
-      <section className="surface-card-strong p-5 space-y-3">
-        <h2 className="text-lg font-semibold text-[var(--text-main)]">Matterport</h2>
+      <div className="border-t border-[var(--border-soft)] pt-4 space-y-3">
+        <h2 className="text-base font-semibold text-[var(--text-main)]">Matterport</h2>
         {err ? <p className="text-sm text-red-600">{err}</p> : null}
         <dl className="grid gap-2 text-sm">
           <div>
@@ -503,7 +503,7 @@ export function TourMatterportSection({ tourId, tour, onSuccess, onOpenBookingLi
             {busy ? "…" : "Tour löschen"}
           </button>
         </div>
-      </section>
+      </div>
 
       {/* Löschen-Bestätigung */}
       {deleteOpen ? (() => {
