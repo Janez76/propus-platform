@@ -15,6 +15,14 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.388",
+    date: "2026-04-03",
+    title: "Automatischer Changelog + Retry/Rollback bei Deploy",
+    changes: [
+      { type: "feature", text: "Automatischer Changelog + Retry/Rollback bei Deploy" },
+    ],
+  },
+  {
     version: "2.3.387",
     date: "2026-04-03",
     title: "CI: Automatischer Changelog + Retry & Rollback bei Deploy",
