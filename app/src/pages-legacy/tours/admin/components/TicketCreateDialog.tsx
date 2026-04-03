@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X, Upload, Link2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { postCreateTicket, postTicketUpload } from "../../../../api/toursAdmin";
 import type { TicketCategory } from "../../../../api/toursAdmin";
@@ -30,6 +30,14 @@ export function TicketCreateDialog({ tourId, tourLabel, onClose, onSuccess }: Pr
   const [err, setErr] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
   function handleFile(f: File | null) {
     if (!f) return;
@@ -78,12 +86,24 @@ export function TicketCreateDialog({ tourId, tourLabel, onClose, onSuccess }: Pr
   }
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-lg rounded-2xl bg-[var(--bg-card)] shadow-[0_24px_60px_rgba(0,0,0,0.35)] flex flex-col max-h-[90vh]">
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4"
+      onClick={onClose}
+      role="presentation"
+    >
+      <div
+        className="w-full max-w-lg min-h-0 rounded-2xl bg-[var(--bg-card)] shadow-[0_24px_60px_rgba(0,0,0,0.35)] flex flex-col max-h-[90vh]"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="ticket-dialog-title"
+      >
         {/* Header */}
-        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[var(--border-soft)]">
+        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[var(--border-soft)] shrink-0">
           <div>
-            <h3 className="text-base font-semibold text-[var(--text-main)]">Tour anpassen</h3>
+            <h3 id="ticket-dialog-title" className="text-base font-semibold text-[var(--text-main)]">
+              Änderung anfragen
+            </h3>
             {tourLabel ? <p className="text-sm text-[var(--text-subtle)] mt-0.5">{tourLabel}</p> : null}
           </div>
           <button
@@ -109,7 +129,7 @@ export function TicketCreateDialog({ tourId, tourLabel, onClose, onSuccess }: Pr
             </button>
           </div>
         ) : (
-          <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
+          <div className="min-h-0 overflow-y-auto flex-1 px-5 py-4 space-y-4">
             {/* Kategorie */}
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-[var(--text-subtle)]">Art der Änderung</label>
@@ -164,7 +184,7 @@ export function TicketCreateDialog({ tourId, tourLabel, onClose, onSuccess }: Pr
                 className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40"
               />
               <p className="text-xs text-[var(--text-subtle)]">
-                Öffne die Tour in Matterport, navigiere zur gewünschten Stelle und kopiere die URL aus dem Browser-Adresszeile — sie enthält die genaue Position.
+                Öffne die Tour in Matterport, navigiere zur gewünschten Stelle und kopiere die URL aus der Browser-Adressleiste — sie enthält die genaue Position.
               </p>
             </div>
 
@@ -218,12 +238,12 @@ export function TicketCreateDialog({ tourId, tourLabel, onClose, onSuccess }: Pr
         )}
 
         {!done ? (
-          <div className="flex justify-end gap-2 px-5 py-4 border-t border-[var(--border-soft)]">
+          <div className="flex shrink-0 justify-end gap-2 px-5 py-4 border-t border-[var(--border-soft)]">
             <button
               type="button"
               onClick={onClose}
               disabled={busy}
-              className="rounded-lg border border-[var(--border-soft)] px-4 py-2 text-sm font-medium text-[var(--text-main)] disabled:opacity-50"
+              className="rounded-lg border border-[var(--border-soft)] px-4 py-2 text-sm font-medium text-[var(--text-main)] transition-opacity disabled:opacity-50"
             >
               Abbrechen
             </button>
@@ -231,7 +251,7 @@ export function TicketCreateDialog({ tourId, tourLabel, onClose, onSuccess }: Pr
               type="button"
               onClick={() => void submit()}
               disabled={busy || !subject.trim()}
-              className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white shadow-sm transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
             >
               {uploading ? "Wird hochgeladen…" : busy ? "Wird gesendet…" : "Anfrage senden"}
             </button>
