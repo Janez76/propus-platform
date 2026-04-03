@@ -190,7 +190,8 @@ export function FloorplanOrderDialog({
                 </p>
                 <div className="flex justify-between text-sm text-[var(--text-main)]">
                   <span>
-                    {floorCount} × CHF {unitPrice.toFixed(2)} (Netto)
+                    {floorCount} × CHF {unitPrice.toFixed(2)}
+                    {vatPercent > 0 ? " (Netto)" : ""}
                   </span>
                   <span>CHF {totalNet.toFixed(2)}</span>
                 </div>
@@ -201,7 +202,7 @@ export function FloorplanOrderDialog({
                   </div>
                 )}
                 <div className="flex justify-between text-sm font-semibold text-[var(--text-main)] border-t border-[var(--border-soft)] pt-1.5 mt-1">
-                  <span>Gesamtbetrag inkl. MwSt</span>
+                  <span>{vatPercent > 0 ? "Gesamtbetrag inkl. MwSt" : "Gesamtbetrag"}</span>
                   <span>CHF {totalGross.toFixed(2)}</span>
                 </div>
               </div>
@@ -225,27 +226,19 @@ export function FloorplanOrderDialog({
             <div className="space-y-2">
               <p className="text-sm font-medium text-[var(--text-main)]">Zahlungsart</p>
               <div className="flex flex-col gap-2">
-                <label
-                  className={`flex items-center gap-2 text-sm cursor-pointer ${
-                    payrexxConfigured
-                      ? "text-[var(--text-main)]"
-                      : "cursor-not-allowed text-[var(--text-subtle)] opacity-50"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="floorplanPayMethod"
-                    value="payrexx"
-                    checked={paymentMethod === "payrexx"}
-                    onChange={() => setPaymentMethod("payrexx")}
-                    disabled={!payrexxConfigured}
-                    className="accent-[var(--accent)] w-4 h-4 disabled:opacity-50"
-                  />
-                  Online bezahlen (Payrexx)
-                  {!payrexxConfigured && (
-                    <span className="ml-1 text-xs text-[var(--text-subtle)]">(nicht verfügbar)</span>
-                  )}
-                </label>
+                {payrexxConfigured && (
+                  <label className="flex items-center gap-2 text-sm cursor-pointer text-[var(--text-main)]">
+                    <input
+                      type="radio"
+                      name="floorplanPayMethod"
+                      value="payrexx"
+                      checked={paymentMethod === "payrexx"}
+                      onChange={() => setPaymentMethod("payrexx")}
+                      className="accent-[var(--accent)] w-4 h-4"
+                    />
+                    Online bezahlen (Payrexx)
+                  </label>
+                )}
                 <label className="flex items-center gap-2 text-sm text-[var(--text-main)] cursor-pointer">
                   <input
                     type="radio"
