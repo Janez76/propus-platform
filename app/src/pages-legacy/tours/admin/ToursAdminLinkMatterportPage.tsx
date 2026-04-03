@@ -820,8 +820,8 @@ export function ToursAdminLinkMatterportPage() {
                           <span className="font-medium text-[var(--text-main)]">
                             {String(c.firmenname ?? c.id ?? "—")}
                           </span>
-                          {c.nummer != null ? (
-                            <span className="text-[var(--text-subtle)] ml-1">· Ref. {String(c.nummer)}</span>
+                          {c.nummer != null && String(c.nummer).trim() !== "" ? (
+                            <span className="text-[var(--text-subtle)] ml-1">· Nr. {String(c.nummer)}</span>
                           ) : null}
                         </button>
                       </li>

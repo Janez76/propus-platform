@@ -245,7 +245,7 @@ function toLinkModalCustomer(customerRow, contactRows) {
   const contacts = Array.isArray(contactRows) ? contactRows : [];
   return {
     id: String(customerRow.id),
-    nummer: customerRow.customer_number || customerRow.exxas_contact_id || '',
+    nummer: customerRow.customer_number || '',
     firmenname: customerRow.company || customerRow.name || '',
     email: customerRow.email || null,
     label: `${customerRow.company || customerRow.name || customerRow.id}${
