@@ -108,6 +108,15 @@ export function postLinkMatterportBatch(action: "auto" | "refresh-created" | "sy
   return toursAdminPost(`/link-matterport/${action}`, {});
 }
 
+export function getTourByOrderNo(orderNo: number | string) {
+  return toursAdminFetch<{
+    tour: {
+      id: number; bezeichnung: string; tourUrl: string;
+      matterportSpaceId: string; status: string; bookingOrderNo: number;
+    } | null;
+  }>(`/tours/by-order/${encodeURIComponent(String(orderNo))}`);
+}
+
 export function getLinkMatterportBookingSearch(q: string) {
   return toursAdminFetch<{ orders: { id: number; order_no: number; status: string; address: string; company: string; email: string; date: string | null; created_at: string }[] }>(
     `/link-matterport/booking-search?q=${encodeURIComponent(q)}`,

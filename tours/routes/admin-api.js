@@ -1679,4 +1679,35 @@ router.post('/ai-chat', async (req, res) => {
   return res.json({ ok: true, answer, model: chosenModel });
 });
 
+// Tour by booking order number
+router.get('/tours/by-order/:orderNo', async (req, res) => {
+  try {
+    const orderNo = parseInt(String(req.params.orderNo || ''), 10);
+    if (!Number.isFinite(orderNo) || orderNo < 1) return res.json({ tour: null });
+    const result = await pool.query(
+      `SELECT id, bezeichnung, tour_url, matterport_space_id, status, booking_order_no
+       FROM tour_manager.tours
+       WHERE booking_order_no = $1
+       ORDER BY id DESC
+       LIMIT 1`,
+      [orderNo]
+    );
+    if (!result.rows[0]) return res.json({ tour: null });
+    const t = result.rows[0];
+    return res.json({
+      tour: {
+        id: t.id,
+        bezeichnung: t.bezeichnung || '',
+        tourUrl: t.tour_url || '',
+        matterportSpaceId: t.matterport_space_id || '',
+        status: t.status || '',
+        bookingOrderNo: t.booking_order_no,
+      },
+    });
+  } catch (err) {
+    console.error('[admin-api] GET /tours/by-order/:orderNo', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 module.exports = router;

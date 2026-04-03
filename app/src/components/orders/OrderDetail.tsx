@@ -4,6 +4,7 @@ import { getAdminConfig, type AdminConfig } from "../../api/adminConfig";
 import { apiRequest } from "../../api/client";
 import { getPhotographers, type Photographer } from "../../api/photographers";
 import { getCustomerContacts, type Customer, type CustomerContact } from "../../api/customers";
+import { getTourByOrderNo } from "../../api/toursAdmin";
 import { useMutation } from "../../hooks/useMutation";
 import { formatPhoneDisplay } from "../../lib/format";
 import { PhoneLink } from "../ui/PhoneLink";
@@ -121,6 +122,8 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
   const [newCustomLabel, setNewCustomLabel] = useState("");
   const [newCustomPrice, setNewCustomPrice] = useState("");
   const [companyContacts, setCompanyContacts] = useState<Customer[]>([]);
+  const [linkedTour, setLinkedTour] = useState<{ id: number; bezeichnung: string; tourUrl: string; matterportSpaceId: string; status: string } | null | undefined>(undefined);
+  const [showLinkTourPopup, setShowLinkTourPopup] = useState(false);
   const emailsDirty = sendStatusEmails && (statusEmailTargets.customer || statusEmailTargets.office || statusEmailTargets.photographer || statusEmailTargets.cc);
   const statusDirty = status !== originalStatus || scheduleLocal !== originalSchedule || scheduleDurationMin !== originalScheduleDurationMin || pendingPhotographerKey !== originalPhotographerKey || emailsDirty;
 
@@ -255,6 +258,15 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
     setEditPricing({ subtotal: Number(order.pricing?.subtotal) || 0, discount: Number(order.pricing?.discount) || 0, vat: Number(order.pricing?.vat) || 0, total: Number(order.total || order.pricing?.total) || 0 });
     setEditKeyPickupActive(!!order.keyPickup?.address);
     setEditKeyPickupAddress(order.keyPickup?.address || "");
+    // Tour-Verknüpfung laden
+    const parsedNo = parseInt(String(order.orderNo || orderNo), 10);
+    if (Number.isFinite(parsedNo) && parsedNo > 0) {
+      getTourByOrderNo(parsedNo)
+        .then((r) => setLinkedTour(r.tour))
+        .catch(() => setLinkedTour(null));
+    } else {
+      setLinkedTour(null);
+    }
   }, [canManageOrder, token, orderNo]);
 
   useEffect(() => {
@@ -1067,6 +1079,43 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                 </div>
               )}
 
+              {/* Tour-Verknüpfung */}
+              {canManageOrder && linkedTour !== undefined && (
+                <div className="surface-card p-3 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <svg className="h-4 w-4 shrink-0 text-[var(--propus-gold)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.069A1 1 0 0121 8.82V15a1 1 0 01-1.447.894L15 13.8M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" /></svg>
+                    <span className="text-sm font-semibold text-[var(--text-main)]">360° Tour</span>
+                    {linkedTour ? (
+                      <span className="text-xs text-[var(--text-subtle)] truncate max-w-[200px]">{linkedTour.bezeichnung || `Tour #${linkedTour.id}`}</span>
+                    ) : (
+                      <span className="text-xs text-[var(--text-subtle)]">Keine Tour verknüpft</span>
+                    )}
+                  </div>
+                  {linkedTour ? (
+                    <div className="flex items-center gap-2 shrink-0">
+                      {linkedTour.tourUrl && (
+                        <a
+                          href={linkedTour.tourUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs rounded border border-[var(--border-soft)] px-2.5 py-1 text-[var(--accent)] hover:underline transition-colors"
+                        >
+                          Tour öffnen ↗
+                        </a>
+                      )}
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setShowLinkTourPopup(true)}
+                      className="text-xs rounded border border-[var(--propus-gold)]/40 px-2.5 py-1 text-[var(--propus-gold)] hover:bg-[var(--propus-gold)]/10 transition-colors shrink-0"
+                    >
+                      Verknüpfen
+                    </button>
+                  )}
+                </div>
+              )}
+
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="surface-card p-3">
                   <h4 className="mb-2 font-semibold">{t(lang, "orderDetail.section.status")}</h4>
@@ -1296,6 +1345,37 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
           onConfirm={runDelete}
           onCancel={() => setShowDeleteConfirm(false)}
         />
+      )}
+
+      {/* Matterport-Verknüpfungs-Popup */}
+      {showLinkTourPopup && (
+        <div className="fixed inset-0 z-[60] grid place-items-center bg-black/60 p-2">
+          <div className="surface-card w-full max-w-5xl max-h-[92vh] overflow-hidden flex flex-col rounded-xl shadow-2xl">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-soft)]">
+              <span className="font-semibold text-[var(--text-main)]">Matterport verknüpfen – Bestellung #{orderNo}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLinkTourPopup(false);
+                  // Tour neu laden nach Popup-Schliessen
+                  getTourByOrderNo(parseInt(orderNo, 10))
+                    .then((r) => setLinkedTour(r.tour))
+                    .catch(() => {});
+                }}
+                className="text-[var(--text-subtle)] hover:text-[var(--text-main)] text-xl leading-none px-1"
+                aria-label="Schliessen"
+              >
+                ×
+              </button>
+            </div>
+            <iframe
+              src={`/admin/link-matterport?bookingOrderNo=${encodeURIComponent(orderNo)}`}
+              className="flex-1 w-full border-0"
+              style={{ minHeight: "70vh" }}
+              title="Matterport verknüpfen"
+            />
+          </div>
+        </div>
       )}
 
     </>
