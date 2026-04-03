@@ -163,6 +163,10 @@ export function postLinkExxasCustomerToTour(
   return toursAdminPost(`/tours/${tourId}/link-exxas-customer`, body as Record<string, unknown>);
 }
 
+export function deleteUnlinkCustomerFromTour(tourId: string) {
+  return toursAdminDelete<{ ok: boolean }>(`/tours/${tourId}/link-exxas-customer`);
+}
+
 async function toursAdminPut<T>(path: string, body?: Record<string, unknown>): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     method: "PUT",

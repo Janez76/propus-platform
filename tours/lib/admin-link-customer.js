@@ -83,8 +83,27 @@ async function postLinkExxasCustomerJson(tourIdRaw, body) {
   return { ok: true };
 }
 
+async function deleteUnlinkCustomerJson(tourIdRaw) {
+  const tourId = parseInt(String(tourIdRaw || '').trim(), 10);
+  if (!Number.isFinite(tourId) || tourId < 1) {
+    return { ok: false, error: 'not_found' };
+  }
+  const tourResult = await pool.query('SELECT id FROM tour_manager.tours WHERE id = $1', [tourId]);
+  if (!tourResult.rows[0]) return { ok: false, error: 'not_found' };
+
+  await pool.query(
+    `UPDATE tour_manager.tours
+     SET kunde_ref = NULL, customer_name = NULL, customer_email = NULL,
+         customer_contact = NULL, customer_id = NULL, updated_at = NOW()
+     WHERE id = $1`,
+    [tourId]
+  );
+  return { ok: true };
+}
+
 module.exports = {
   getLinkExxasCustomerPageJson,
   getLinkCustomerAutocompleteJson,
   postLinkExxasCustomerJson,
+  deleteUnlinkCustomerJson,
 };

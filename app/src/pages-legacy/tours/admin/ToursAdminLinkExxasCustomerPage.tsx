@@ -5,6 +5,7 @@ import {
   getToursAdminLinkCustomerAutocomplete,
   getToursAdminLinkExxasCustomer,
   postLinkExxasCustomerToTour,
+  deleteUnlinkCustomerFromTour,
 } from "../../../api/toursAdmin";
 import { useQuery } from "../../../hooks/useQuery";
 import { toursAdminLinkExxasCustomerQueryKey } from "../../../lib/queryKeys";
@@ -52,6 +53,8 @@ export function ToursAdminLinkExxasCustomerPage() {
   const [saveBusy, setSaveBusy] = useState(false);
   const [saveErr, setSaveErr] = useState<string | null>(null);
   const [savedOk, setSavedOk] = useState(false);
+  const [unlinkBusy, setUnlinkBusy] = useState(false);
+  const [unlinkConfirm, setUnlinkConfirm] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQ(searchDraft.trim()), 240);
@@ -109,6 +112,22 @@ export function ToursAdminLinkExxasCustomerPage() {
     : selectedCustomer
       ? String(selectedCustomer.email || "")
       : "";
+
+  async function unlink() {
+    if (!okId) return;
+    setUnlinkBusy(true);
+    setSaveErr(null);
+    try {
+      await deleteUnlinkCustomerFromTour(okId);
+      setSavedOk(false);
+      setUnlinkConfirm(false);
+      void refetch({ force: true });
+    } catch (e) {
+      setSaveErr(e instanceof Error ? e.message : "Aufheben fehlgeschlagen");
+    } finally {
+      setUnlinkBusy(false);
+    }
+  }
 
   async function save() {
     if (!okId || !selectedCustomer) return;
@@ -181,7 +200,41 @@ export function ToursAdminLinkExxasCustomerPage() {
           ) : null}
 
           <div className="surface-card-strong p-4 text-sm space-y-3">
-            <h2 className="text-sm font-semibold text-[var(--text-main)]">Tour-Kontext</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-[var(--text-main)]">Tour-Kontext</h2>
+              {(tour.customer_id || tour.kunde_ref) && (
+                <div className="flex items-center gap-2">
+                  {!unlinkConfirm ? (
+                    <button
+                      type="button"
+                      onClick={() => setUnlinkConfirm(true)}
+                      className="text-xs text-red-500 hover:text-red-600 hover:underline"
+                    >
+                      Verknüpfung aufheben
+                    </button>
+                  ) : (
+                    <span className="flex items-center gap-2 text-xs">
+                      <span className="text-[var(--text-subtle)]">Sicher?</span>
+                      <button
+                        type="button"
+                        disabled={unlinkBusy}
+                        onClick={() => void unlink()}
+                        className="font-medium text-red-600 hover:underline disabled:opacity-50"
+                      >
+                        {unlinkBusy ? "…" : "Ja, aufheben"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setUnlinkConfirm(false)}
+                        className="text-[var(--text-subtle)] hover:underline"
+                      >
+                        Abbrechen
+                      </button>
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 text-xs">
               <div className="rounded border border-[var(--border-soft)] p-2">
                 <div className="text-[var(--text-subtle)] uppercase tracking-wide">Objekt</div>

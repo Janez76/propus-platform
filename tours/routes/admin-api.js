@@ -1156,6 +1156,20 @@ router.get('/tours/:id/link-customer/autocomplete', async (req, res) => {
   }
 });
 
+router.delete('/tours/:id/link-exxas-customer', async (req, res) => {
+  try {
+    const result = await adminLinkCustomer.deleteUnlinkCustomerJson(req.params.id);
+    if (!result.ok) {
+      const st = result.error === 'not_found' ? 404 : 400;
+      return res.status(st).json({ ok: false, error: result.error || 'failed' });
+    }
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('[admin-api] link-exxas-customer DELETE', err);
+    return res.status(500).json({ ok: false, error: 'Interner Fehler' });
+  }
+});
+
 router.post('/tours/:id/link-exxas-customer', async (req, res) => {
   try {
     const result = await adminLinkCustomer.postLinkExxasCustomerJson(req.params.id, req.body || {});
