@@ -34,6 +34,7 @@ import {
   MessageSquare,
   Eye,
   Inbox,
+  CreditCard,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -94,6 +95,7 @@ const settingsSubItems = [
   { path: "/settings/roles", icon: Shield, labelKey: "sidebar.nav.roleMatrix" },
   { path: "/settings/workflow", icon: GitBranch, labelKey: "sidebar.nav.workflow" },
   { path: "/settings/team", icon: UserCircle, labelKey: "nav.employees" },
+  { path: "/settings/payment", icon: CreditCard, labelKey: "sidebar.nav.paymentSettings" },
   { path: "/settings/email-templates", icon: Mail, labelKey: "sidebar.nav.emailTemplates" },
   { path: "/settings/calendar-templates", icon: CalendarDays, labelKey: "sidebar.nav.calendarIcs" },
   { path: "/settings/exxas", icon: Plug, labelKey: "sidebar.nav.exxas" },

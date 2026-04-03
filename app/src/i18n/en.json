@@ -1131,6 +1131,7 @@
   "sidebar.nav.emailTemplates": "Email Templates",
   "sidebar.nav.calendarIcs": "Calendar / ICS",
   "sidebar.nav.exxas": "EXXAS Integration",
+  "sidebar.nav.paymentSettings": "Payment Settings",
   "sidebar.nav.userManagement": "User management",
   "sidebar.nav.roleMatrix": "Roles & Permissions",
   "sidebar.nav.companies": "Company management",

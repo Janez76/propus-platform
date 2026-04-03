@@ -958,6 +958,123 @@ router.post('/tours/:id/reactivate', async (req, res) => {
   }
 });
 
+// ─── Zahlungseinstellungen ────────────────────────────────────────────────────
+
+/**
+ * GET /payment-settings
+ * Gibt Payrexx-Konfigurationsstatus + MwSt-Rate zurück.
+ */
+router.get('/payment-settings', async (req, res) => {
+  try {
+    const vatResult = await pool.query(`
+      SELECT (value_json)::numeric AS vat_rate
+      FROM booking.app_settings
+      WHERE key = 'vat_rate'
+    `);
+    const floorplanResult = await pool.query(`
+      SELECT (r.config_json->>'unitPrice')::numeric AS unit_price
+      FROM booking.pricing_rules r
+      JOIN booking.products p ON p.id = r.product_id
+      WHERE p.code = 'floorplans:tour'
+        AND r.rule_type = 'per_floor'
+        AND r.active = TRUE
+      ORDER BY r.priority ASC, r.id ASC
+      LIMIT 1
+    `);
+    const hostingResult = await pool.query(`
+      SELECT (r.config_json->>'unitPrice')::numeric AS unit_price
+      FROM booking.pricing_rules r
+      JOIN booking.products p ON p.id = r.product_id
+      WHERE p.code = 'matterport:hosting'
+        AND r.rule_type = 'fixed'
+        AND r.active = TRUE
+      ORDER BY r.priority ASC, r.id ASC
+      LIMIT 1
+    `);
+    return res.json({
+      ok: true,
+      vatRate: Number(vatResult.rows[0]?.vat_rate ?? 0),
+      vatPercent: Math.round(Number(vatResult.rows[0]?.vat_rate ?? 0) * 1000) / 10,
+      payrexxConfigured: !!(process.env.PAYREXX_INSTANCE && process.env.PAYREXX_API_SECRET),
+      payrexxInstance: process.env.PAYREXX_INSTANCE || '',
+      floorplanUnitPrice: Number(floorplanResult.rows[0]?.unit_price ?? 49),
+      hostingUnitPrice: Number(hostingResult.rows[0]?.unit_price ?? 59),
+    });
+  } catch (err) {
+    console.error('[admin-api] GET /payment-settings error:', err.message);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+/**
+ * PATCH /payment-settings
+ * Speichert MwSt-Rate + Preise in booking.app_settings / pricing_rules.
+ * Body: { vatPercent?: number, floorplanUnitPrice?: number }
+ */
+router.patch('/payment-settings', async (req, res) => {
+  try {
+    const { vatPercent, floorplanUnitPrice } = req.body || {};
+
+    if (vatPercent !== undefined) {
+      const vatRate = Number(vatPercent) / 100;
+      if (!Number.isFinite(vatRate) || vatRate < 0 || vatRate > 1) {
+        return res.status(400).json({ ok: false, error: 'Ungültiger MwSt-Satz (0–100%)' });
+      }
+      await pool.query(`
+        INSERT INTO booking.app_settings (key, value_json, updated_at)
+        VALUES ('vat_rate', $1::jsonb, NOW())
+        ON CONFLICT (key) DO UPDATE SET value_json = $1::jsonb, updated_at = NOW()
+      `, [String(vatRate)]);
+    }
+
+    if (floorplanUnitPrice !== undefined) {
+      const price = Number(floorplanUnitPrice);
+      if (!Number.isFinite(price) || price < 0) {
+        return res.status(400).json({ ok: false, error: 'Ungültiger Preis' });
+      }
+      const productRes = await pool.query(`SELECT id FROM booking.products WHERE code = 'floorplans:tour' LIMIT 1`);
+      if (productRes.rows[0]) {
+        const productId = productRes.rows[0].id;
+        const existing = await pool.query(`
+          SELECT id FROM booking.pricing_rules
+          WHERE product_id = $1 AND rule_type = 'per_floor' AND active = TRUE
+          ORDER BY priority ASC, id ASC LIMIT 1
+        `, [productId]);
+        if (existing.rows[0]) {
+          await pool.query(`
+            UPDATE booking.pricing_rules SET config_json = $1, updated_at = NOW() WHERE id = $2
+          `, [JSON.stringify({ unitPrice: price }), existing.rows[0].id]);
+        } else {
+          await pool.query(`
+            INSERT INTO booking.pricing_rules (product_id, rule_type, config_json, active, priority)
+            VALUES ($1, 'per_floor', $2, TRUE, 10)
+          `, [productId, JSON.stringify({ unitPrice: price })]);
+        }
+      }
+    }
+
+    // Aktuellen Stand zurückgeben
+    const vatResult = await pool.query(`SELECT (value_json)::numeric AS vat_rate FROM booking.app_settings WHERE key = 'vat_rate'`);
+    const floorplanResult = await pool.query(`
+      SELECT (r.config_json->>'unitPrice')::numeric AS unit_price
+      FROM booking.pricing_rules r JOIN booking.products p ON p.id = r.product_id
+      WHERE p.code = 'floorplans:tour' AND r.rule_type = 'per_floor' AND r.active = TRUE
+      ORDER BY r.priority ASC, r.id ASC LIMIT 1
+    `);
+    return res.json({
+      ok: true,
+      vatRate: Number(vatResult.rows[0]?.vat_rate ?? 0),
+      vatPercent: Math.round(Number(vatResult.rows[0]?.vat_rate ?? 0) * 1000) / 10,
+      payrexxConfigured: !!(process.env.PAYREXX_INSTANCE && process.env.PAYREXX_API_SECRET),
+      payrexxInstance: process.env.PAYREXX_INSTANCE || '',
+      floorplanUnitPrice: Number(floorplanResult.rows[0]?.unit_price ?? 49),
+    });
+  } catch (err) {
+    console.error('[admin-api] PATCH /payment-settings error:', err.message);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 /**
  * Hilfsfunktion: Grundriss-Preis aus booking.pricing_rules + MwSt aus booking.app_settings
  */
