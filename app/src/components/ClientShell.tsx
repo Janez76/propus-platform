@@ -72,6 +72,8 @@ const ToursAdminAiChatPage = lazy(() => import("../pages-legacy/tours/admin/Tour
 
 // Portal pages
 const PortalLoginPage = lazy(() => import("../pages-legacy/portal/PortalLoginPage").then((m) => ({ default: m.PortalLoginPage })));
+const PortalForgotPasswordPage = lazy(() => import("../pages-legacy/portal/PortalForgotPasswordPage").then((m) => ({ default: m.PortalForgotPasswordPage })));
+const PortalResetPasswordPage = lazy(() => import("../pages-legacy/portal/PortalResetPasswordPage").then((m) => ({ default: m.PortalResetPasswordPage })));
 const PortalDashboardPage = lazy(() => import("../pages-legacy/portal/PortalDashboardPage").then((m) => ({ default: m.PortalDashboardPage })));
 const PortalToursPage = lazy(() => import("../pages-legacy/portal/PortalToursPage").then((m) => ({ default: m.PortalToursPage })));
 const PortalInvoicesPage = lazy(() => import("../pages-legacy/portal/PortalInvoicesPage").then((m) => ({ default: m.PortalInvoicesPage })));
@@ -212,6 +214,8 @@ export default function ClientShell() {
           <Route path="/book" element={<BookingWizardPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/portal/login" element={<PortalLoginPage />} />
+          <Route path="/portal/forgot-password" element={<PortalForgotPasswordPage />} />
+          <Route path="/portal/reset-password" element={<PortalResetPasswordPage />} />
           <Route path="/confirm/:token" element={<ConfirmBookingPage />} />
           <Route path="/print/orders/:orderNo" element={<PrintOrderPage />} />
           <Route path="/print/order/:orderNo" element={<PrintOrderPage />} />
