@@ -33,8 +33,24 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 50
       - name: Run EJS architecture guard
         run: bash scripts/guard-no-ejs.sh
+
+  # ─── Documentation Guard: docs/ mitgepflegt? ───────────────────────────────
+  documentation-guard:
+    name: Documentation Guard (docs/ aktuell?)
+    runs-on: ubuntu-latest
+    # Läuft parallel zum Architecture Guard, blockiert NICHT den Deploy
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 50
+      - name: Run documentation guard
+        run: bash scripts/guard-docs.sh --ci
 
   # ─── Build Next.js (Type-Check + Build) ────────────────────────────────────
   build-nextjs:

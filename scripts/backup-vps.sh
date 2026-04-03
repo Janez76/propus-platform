@@ -4,6 +4,9 @@ set -eu
 timestamp="$(date +%Y%m%d-%H%M%S)"
 backup_root="${BACKUP_ROOT:-/data/backups}"
 backup_dir="${backup_root}/backup-${timestamp}"
+if [ -e "${backup_dir}" ]; then
+  backup_dir="${backup_root}/backup-${timestamp}-$$"
+fi
 
 pg_host="${POSTGRES_HOST:-postgres}"
 pg_port="${POSTGRES_PORT:-5432}"
@@ -20,10 +23,10 @@ logto_db="${LOGTO_DB_NAME:-logto}"
 logto_user="${LOGTO_DB_USER:-logto}"
 logto_password="${LOGTO_DB_PASSWORD:-}"
 
-# Set BACKUP_INCLUDE_VOLUMES=1 to archive all mounted data volumes.
-# Default on because the user wants complete backups, not just SQL dumps.
-include_volumes="${BACKUP_INCLUDE_VOLUMES:-1}"
-volume_paths="${BACKUP_VOLUME_PATHS:-/data/state:/app/logs:/upload_staging:/booking_upload_customer:/booking_upload_raw}"
+# Volume archives stay opt-in because the NAS-backed upload mounts can get very large.
+# Daily NAS backups should remain fast and reliable even when upload shares grow.
+include_volumes="${BACKUP_INCLUDE_VOLUMES:-0}"
+volume_paths="${BACKUP_VOLUME_PATHS:-/data/state:/app/logs:/upload_staging}"
 
 mkdir -p "${backup_dir}"
 

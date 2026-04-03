@@ -158,8 +158,8 @@ services:
       BACKUP_ROOT: /data/backups
       BACKUP_SCRIPT_PATH: /app/scripts/backup-vps.sh
       BACKUP_RESTORE_TARGET: ${BACKUP_RESTORE_TARGET:-/opt/propus-platform}
-      BACKUP_INCLUDE_VOLUMES: ${BACKUP_INCLUDE_VOLUMES:-1}
-      BACKUP_VOLUME_PATHS: ${BACKUP_VOLUME_PATHS:-/data/state:/app/logs:/upload_staging:/booking_upload_customer:/booking_upload_raw}
+      BACKUP_INCLUDE_VOLUMES: ${BACKUP_INCLUDE_VOLUMES:-0}
+      BACKUP_VOLUME_PATHS: ${BACKUP_VOLUME_PATHS:-/data/state:/app/logs:/upload_staging}
       LOGTO_DB_HOST: logto-db
       LOGTO_DB_PORT: "5432"
       LOGTO_DB_NAME: ${LOGTO_DB:-logto}

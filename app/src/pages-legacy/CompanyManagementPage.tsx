@@ -31,9 +31,11 @@ import { useAuthStore } from "../store/authStore";
 import { cn } from "../lib/utils";
 import { CustomerAutocompleteInput } from "../components/ui/CustomerAutocompleteInput";
 import type { Customer } from "../api/customers";
+import { CustomerContactsSection } from "../components/customers/CustomerContactsSection";
 
 function isSynthCustomerEmail(e?: string) {
-  return String(e || "").toLowerCase().endsWith("@company.local");
+  const lower = String(e || "").toLowerCase();
+  return lower.endsWith("@company.local") || lower.endsWith("@invite.buchungstool.invalid");
 }
 
 type PageTab = "firms" | "invitations";
@@ -484,9 +486,21 @@ export function CompanyManagementPage() {
                                 </button>
                               )}
                             </div>
+                            {c.billing_customer_id != null && Number(c.billing_customer_id) > 0 && token && (
+                              <div>
+                                <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-subtle)]">
+                                  Kontaktpersonen
+                                </div>
+                                <CustomerContactsSection
+                                  token={token}
+                                  customerId={Number(c.billing_customer_id)}
+                                  readonly={!canManage}
+                                />
+                              </div>
+                            )}
                             <div>
                               <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-subtle)]">
-                                Mitglieder
+                                Portal-Zugänge (Mitglieder)
                               </div>
                               <div className="space-y-2">
                                 {(c.members || []).map((m) => (

@@ -1,0 +1,79 @@
+---
+description: docs/-Dokumentation bei jeder Felderweiterung, neuem Flow oder neuer Rolle aktualisieren
+globs:
+  - "booking/server.js"
+  - "booking/db.js"
+  - "booking/migrations/**/*.sql"
+  - "booking/customer-contacts-routes.js"
+  - "booking/admin-users-routes.js"
+  - "booking/access-rbac.js"
+  - "booking/logto-org-sync.js"
+  - "booking/logto-portal-workspace-sync.js"
+  - "tours/routes/**/*.js"
+  - "tours/lib/**/*.js"
+  - "core/migrations/**/*.sql"
+  - "app/src/pages-legacy/**/*.tsx"
+  - "app/src/components/**/*.tsx"
+  - "app/src/api/**/*.ts"
+alwaysApply: false
+---
+
+# Pflege der Plattform-Dokumentation (docs/)
+
+Die Dokumentation liegt im Ordner `docs/` im Repo-Root. `DATA_FIELDS.md` ist der Index.
+
+## Modulare Struktur
+
+| Datei | Inhalt |
+|---|---|
+| `DATA_FIELDS.md` | Hauptindex mit Links auf alle Module |
+| `docs/FLOWS_BOOKING.md` | Buchungs-Flows (Provisional, Reschedule, Kalender, Payrexx, Storno) |
+| `docs/FLOWS_TOURS.md` | Tour-Manager Flows (Matterport, Verlängerung, Archiv, KI, Incoming Emails) |
+| `docs/FLOWS_UPLOAD.md` | Upload-System (Chunked-Upload, NAS-Pfade, Kategorien, Konflikt-Modi) |
+| `docs/FLOWS_EXXAS.md` | Exxas-Integration (Reconcile, Order-Sync, Rechnungs-Sync) |
+| `docs/SCHEMA_FULL.md` | Vollständiges DB-Schema (core.*, booking.*, tour_manager.*) |
+| `docs/ROLES_PERMISSIONS.md` | Rollen, Permissions, Logto-Mapping, Portal-Rollen |
+| `docs/EMAIL_TEMPLATES.md` | Alle Templates mit Platzhaltern und Auslösern |
+
+## Wann welche Datei aktualisieren?
+
+| Änderung | Datei |
+|---|---|
+| Neue Spalte in SQL-Migration | `docs/SCHEMA_FULL.md` + ggf. Flow-Datei |
+| Neues Buchungsformularfeld | `docs/FLOWS_BOOKING.md` |
+| Neues Formularfeld im Tour-Manager | `docs/FLOWS_TOURS.md` |
+| Neuer Upload-Mechanismus | `docs/FLOWS_UPLOAD.md` |
+| Exxas-API-Änderung | `docs/FLOWS_EXXAS.md` |
+| Neue Rolle oder Permission | `docs/ROLES_PERMISSIONS.md` |
+| Neues E-Mail-Template oder Platzhalter | `docs/EMAIL_TEMPLATES.md` |
+| Neuer Sync-Flow | Passende Flow-Datei |
+| Neue bekannte Lücke | `DATA_FIELDS.md` Abschnitt "Bekannte Lücken" |
+| Behobene Lücke | `DATA_FIELDS.md` aktualisieren |
+
+## Neue FLOWS_*.md-Datei erstellen
+
+Wenn ein neues Feature/Modul dokumentiert werden soll:
+
+1. `docs/FLOWS_TEMPLATE.md` als Vorlage kopieren → umbenennen nach `docs/FLOWS_[MODUL].md`
+2. Alle Abschnitte ausfüllen (Endpunkte, DB-Tabellen, Flow-Diagramm)
+3. `DATA_FIELDS.md` → neue Zeile in der Dokumentations-Tabelle eintragen
+4. Diese Cursor-Regel (`data-fields.mdc`) → Mapping-Tabelle erweitern
+5. `git add docs/FLOWS_[MODUL].md DATA_FIELDS.md .cursor/rules/data-fields.mdc`
+
+Der `scripts/guard-docs.sh --hook` (Pre-Commit) erinnert automatisch daran,
+wenn eine neue FLOWS-Datei ohne Index-Update gestaged wird.
+
+## Format-Regeln
+
+- Tabellen für Felder und Endpunkte — prägnant und maschinenlesbar
+- Fließtext für Flows mit ASCII-Baumstruktur (`│`, `├`, `└`)
+- Datum "Zuletzt aktualisiert" in der Datei anpassen
+- Keine langen Erklärungen — nur was der Code selbst nicht kommuniziert
+
+## Wichtige Regeln für neuen Code
+
+- **E-Mail-Suche:** Immer `core.customer_email_matches()` oder `getCustomerByEmail()` — niemals `WHERE email = $1`
+- **Synthetische E-Mails:** Neue manuelle Einladungen verwenden `@invite.buchungstool.invalid` (nicht `@company.local`)
+- **Kein serverseitiges HTML:** Express-Routen geben JSON zurück, kein `res.render()`
+- **Portal spiegelt Admin:** Änderungen an `TourDetailPage.tsx` → identisch in `PortalTourDetailPage.tsx` umsetzen
+- **Kanonische Felder:** In Tour-Manager immer `canonical_*`-Felder nutzen, nicht Legacy-Duplikate direkt lesen

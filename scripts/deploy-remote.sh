@@ -16,6 +16,10 @@ tar -xzf "$ARCHIVE_PATH" -C "$STAGING_DIR"
 tar -C "$STAGING_DIR" -cf - . | tar -C "$PROJECT_ROOT" -xf -
 rm -rf "$STAGING_DIR" "$ARCHIVE_PATH"
 
+mkdir -p "$PROJECT_ROOT/backups"
+chown -R 1001:65533 "$PROJECT_ROOT/backups" || true
+chmod 775 "$PROJECT_ROOT/backups" || true
+
 cd "$PROJECT_ROOT"
 
 echo "==> Port-Konflikt-Check"

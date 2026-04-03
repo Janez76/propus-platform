@@ -2803,6 +2803,7 @@ async function createCustomerPortalMagicLink(billing = {}, { sessionDays = 14 } 
   if (!email) return null;
 
   let customer = await db.getCustomerByEmail(email);
+  const isNewCustomer = !customer;
   if (!customer) {
     const profile = buildBookingCustomerProfile(billing);
     await db.createCustomer({
@@ -2818,6 +2819,41 @@ async function createCustomerPortalMagicLink(billing = {}, { sessionDays = 14 } 
   }
 
   if (!customer?.id || customer?.blocked) return null;
+
+  // Firma + Mitgliedschaft + Logto-Sync sicherstellen
+  // Gilt für Neukunden immer, für Bestandskunden wenn noch kein company_member-Eintrag existiert
+  const companyName = String(billing?.company || customer?.company || "").trim();
+  if (companyName) {
+    try {
+      const company = await db.ensureCompanyByName(companyName, { billingCustomerId: Number(customer.id) });
+      if (company?.id) {
+        const existingMember = await db.findCompanyMemberByCompanyAndEmail(Number(company.id), email).catch(() => null);
+        if (isNewCustomer || !existingMember) {
+          const member = await db.upsertCompanyMember({
+            companyId: Number(company.id),
+            customerId: Number(customer.id),
+            email,
+            role: "company_owner",
+            status: "active",
+          });
+          try {
+            await logtoOrgSync.ensureOrganizationForCompany(company);
+            if (member) await logtoOrgSync.addCompanyMemberToLogtoOrg(Number(company.id), member);
+          } catch (_e) {
+            console.warn("[booking] logto org sync failed for customer", email, _e?.message);
+          }
+          try {
+            if (member?.id) await rbac.syncCompanyMemberRolesFromDb(Number(member.id));
+          } catch (_e) {
+            console.warn("[booking] rbac sync failed for customer", email, _e?.message);
+          }
+        }
+      }
+    } catch (syncErr) {
+      // Sync-Fehler dürfen den Magic-Link nicht blockieren
+      console.warn("[booking] company sync failed for customer", email, syncErr?.message);
+    }
+  }
 
   const token = customerAuth.createSessionToken();
   const tokenHash = customerAuth.hashSha256Hex(token);
@@ -11894,6 +11930,8 @@ const BACKUP_RESTORE_TARGET = process.env.BACKUP_RESTORE_TARGET || "/opt";
 
 app.get("/api/admin/backup-config", requireAdmin, (req, res) => {
   const nasLogPath = process.env.BACKUP_NAS_LOG_PATH || "/data/backups/.nas-sync.log";
+  const nasTarget = process.env.BACKUP_NAS_TARGET || "/volume1/backup/propus-platform/data";
+  const nasSchedule = process.env.BACKUP_NAS_SCHEDULE || "0 2 * * *";
   const fs = require("fs");
   let lastSync = null;
   let lastSyncStatus = null;
@@ -11912,15 +11950,15 @@ app.get("/api/admin/backup-config", requireAdmin, (req, res) => {
     config: {
       backupRoot: process.env.BACKUP_ROOT || "/data/backups",
       retentionDays: Number(process.env.BACKUP_RETENTION_DAYS || 30),
-      includeVolumes: (process.env.BACKUP_INCLUDE_VOLUMES || "1") === "1",
-      volumePaths: (process.env.BACKUP_VOLUME_PATHS || "/data/state:/app/logs:/upload_staging:/booking_upload_customer:/booking_upload_raw")
+      includeVolumes: (process.env.BACKUP_INCLUDE_VOLUMES || "0") === "1",
+      volumePaths: (process.env.BACKUP_VOLUME_PATHS || "/data/state:/app/logs:/upload_staging")
         .split(":")
         .filter(Boolean),
       logtoEnabled: Boolean(process.env.LOGTO_DB_HOST && process.env.LOGTO_DB_PASSWORD),
-      schedule: "0 2 * * *",
+      schedule: nasSchedule,
       nasSync: {
         enabled: true,
-        target: "/volume1/backup/propus-platform/data",
+        target: nasTarget,
         lastSync,
         lastSyncStatus,
       },
@@ -12026,7 +12064,7 @@ app.post("/api/admin/backups/create", requireAdmin, async (req, res) => {
 
     const includeVolumes = req.body && typeof req.body.includeVolumes === "boolean"
       ? (req.body.includeVolumes ? "1" : "0")
-      : (process.env.BACKUP_INCLUDE_VOLUMES || "1");
+      : (process.env.BACKUP_INCLUDE_VOLUMES || "0");
 
     const env = {
       ...process.env,
@@ -12042,7 +12080,7 @@ app.post("/api/admin/backups/create", requireAdmin, async (req, res) => {
       LOGTO_DB_PASSWORD: process.env.LOGTO_DB_PASSWORD || "",
       BACKUP_ROOT: process.env.BACKUP_ROOT || "/data/backups",
       BACKUP_INCLUDE_VOLUMES: includeVolumes,
-      BACKUP_VOLUME_PATHS: process.env.BACKUP_VOLUME_PATHS || "/data/state:/app/logs:/upload_staging:/booking_upload_customer:/booking_upload_raw",
+      BACKUP_VOLUME_PATHS: process.env.BACKUP_VOLUME_PATHS || "/data/state:/app/logs:/upload_staging",
       BACKUP_RETENTION_DAYS: process.env.BACKUP_RETENTION_DAYS || "30",
     };
 

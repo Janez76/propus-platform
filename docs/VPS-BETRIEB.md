@@ -77,6 +77,8 @@ curl -s http://127.0.0.1:3100/api/health | python3 -m json.tool
 
 ## Backup
 
+Siehe fuer den aktuellen Soll-Zustand auch `docs/BACKUPS.md`.
+
 ### Manuelles Backup auf dem VPS
 
 ```bash
@@ -89,6 +91,24 @@ Erzeugt unter `/opt/propus-platform/backups/` ein Verzeichnis mit:
 - `orders.json` (Auftragsdaten)
 - `.env.vps` (Konfiguration)
 - `checksums.sha256`
+
+### NAS-Cronjobs
+
+Täglicher NAS-Sync ohne grosse Volume-Archive:
+
+```bash
+0 2 * * * /volume1/backup/propus-platform/scripts/backup-nas-pull.sh >> /volume1/backup/propus-platform/logs/backup.log 2>&1
+```
+
+Wöchentlicher Voll-Backup-Lauf inklusive Volumes:
+
+```bash
+0 3 * * 0 /volume1/backup/propus-platform/scripts/backup-nas-full-pull.sh >> /volume1/backup/propus-platform/logs/backup-full.log 2>&1
+```
+
+Der tägliche Job sichert standardmässig `db.sql`, `logto.sql`, `metadata.txt` und `SHA256SUMS.txt`.
+Der Wochenjob setzt `BACKUP_NAS_INCLUDE_VOLUMES=1` und nimmt zusätzlich nur die VPS-lokalen Restore-Pfade `state`, `logs` und `upload_staging` als `.tar.gz` mit.
+Externe NAS-Mounts wie Kunden- und Raw-Uploads werden dabei bewusst nicht archiviert.
 
 ### Backup lokal herunterladen (Windows PowerShell)
 

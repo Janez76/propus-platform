@@ -1,0 +1,251 @@
+# Propus Platform — Upload-System
+
+> **Automatisch mitpflegen:** Bei Änderungen an Upload-Kategorien, NAS-Pfad-Logik, Chunked-Upload oder Konflikt-Modi dieses Dokument aktualisieren.
+
+*Zuletzt aktualisiert: April 2026*
+
+---
+
+## Inhaltsverzeichnis
+
+1. [Endpunkte](#1-endpunkte)
+2. [Tabellen](#2-tabellen)
+3. [NAS-Pfad-Logik](#3-nas-pfad-logik)
+4. [Kategorien](#4-kategorien)
+5. [Chunked-Upload-Flow](#5-chunked-upload-flow)
+6. [Konflikt-Modi](#6-konflikt-modi)
+7. [Upload-Gruppen](#7-upload-gruppen)
+8. [Was nach erfolgreichem Upload passiert](#8-was-nach-erfolgreichem-upload-passiert)
+
+---
+
+## 1. Endpunkte
+
+| Methode | Pfad | Auth | Beschreibung |
+|---|---|---|---|
+| `POST` | `/api/admin/orders/:orderNo/upload-chunked/init` | Fotograf/Admin | Chunked-Upload initialisieren → gibt `uploadId`, `sessionId` zurück |
+| `POST` | `/api/admin/orders/:orderNo/upload-chunked/status` | Fotograf/Admin | Chunk-Status abrufen (welche Teile vorhanden) |
+| `POST` | `/api/admin/orders/:orderNo/upload-chunked/part` | Fotograf/Admin | Einzelnen Chunk hochladen (Index + Datei) |
+| `POST` | `/api/admin/orders/:orderNo/upload-chunked/complete` | Fotograf/Admin | Chunks zusammenfügen → merged file in Session |
+| `POST` | `/api/admin/orders/:orderNo/upload-chunked/finalize` | Fotograf/Admin | Session in Batch überführen → Transfer starten |
+| `POST` | `/api/admin/orders/:orderNo/upload` | Fotograf/Admin | Direkter (nicht-chunked) Upload |
+| `GET` | `/api/admin/orders/:orderNo/upload-batches` | Fotograf/Admin | Alle Batches eines Auftrags |
+| `GET` | `/api/admin/orders/:orderNo/upload-batches/:batchId` | Fotograf/Admin | Einzelnen Batch abrufen |
+| `POST` | `/api/admin/orders/:orderNo/upload-batches/:batchId/retry` | Admin | Fehlgeschlagenen Batch neu starten |
+| `GET` | `/api/admin/orders/:orderNo/uploads` | Fotograf/Admin | Dateien im NAS-Ordner auflisten |
+| `GET` | `/api/admin/orders/:orderNo/uploads/file` | Fotograf/Admin | Datei herunterladen |
+| `DELETE` | `/api/admin/orders/:orderNo/uploads/file` | Fotograf/Admin | Datei löschen |
+| `DELETE` | `/api/admin/orders/:orderNo/uploads/folder` | Fotograf/Admin | Unterordner löschen |
+| `POST` | `/api/admin/orders/:orderNo/uploads/websize-sync` | Fotograf/Admin | Websize-Sync manuell auslösen |
+
+---
+
+## 2. Tabellen
+
+### `booking.upload_batches`
+
+| Spalte | Typ | Beschreibung |
+|---|---|---|
+| `id` | TEXT PK | Format: `upl_{orderNo}_{timestamp}_{random4hex}` |
+| `order_no` | INT FK → orders | |
+| `folder_type` | TEXT | `raw_material` oder `customer_folder` |
+| `category` | TEXT | Kategorie-Schlüssel (s. Kategorie-Map) |
+| `upload_mode` | TEXT | `existing`, `new_batch`, `new_named` |
+| `status` | TEXT | s. Status-Werte |
+| `local_path` | TEXT | Absoluter Staging-Pfad |
+| `target_relative_path` | TEXT | Relativer Zielpfad (nach Transfer) |
+| `target_absolute_path` | TEXT | Absoluter Zielpfad (nach Transfer) |
+| `batch_folder` | TEXT | Unterordner-Name (bei `new_batch`) |
+| `comment` | TEXT | Optionaler Kommentar (wird als .txt geschrieben) |
+| `file_count` | INT | Anzahl Dateien im Batch |
+| `total_bytes` | BIGINT | Gesamtgrösse |
+| `uploaded_by` | TEXT | Wer den Upload angestossen hat |
+| `error_message` | TEXT | Fehlermeldung bei `failed` |
+| `conflict_mode` | TEXT | `skip` (default) oder `replace` |
+| `custom_folder_name` | TEXT | Benutzerdefinierter Ordnername (`new_named`) |
+| `upload_group_id` | TEXT | Gruppen-ID für mehrteilige Uploads |
+| `upload_group_total_parts` | INT | Gesamtanzahl Teile in der Gruppe |
+| `upload_group_part_index` | INT | Index dieses Teils (1-basiert) |
+| `created_at` / `updated_at` | TIMESTAMPTZ | |
+| `started_at` | TIMESTAMPTZ | Beginn des Transfers |
+| `completed_at` | TIMESTAMPTZ | Abschluss des Transfers |
+
+**Status-Werte (`upload_batches.status`):**
+
+| Wert | Bedeutung |
+|---|---|
+| `staged` | Dateien im Staging, Transfer noch nicht gestartet |
+| `transferring` | Transfer läuft |
+| `retrying` | Wiederholung nach Fehler |
+| `completed` | Alle Dateien erfolgreich übertragen |
+| `failed` | Mindestens eine Datei fehlgeschlagen |
+| `cancelled` | Manuell abgebrochen |
+
+---
+
+### `booking.upload_batch_files`
+
+| Spalte | Typ | Beschreibung |
+|---|---|---|
+| `id` | SERIAL PK | |
+| `batch_id` | TEXT FK → upload_batches | |
+| `original_name` | TEXT | Originaler Dateiname vom Client |
+| `stored_name` | TEXT | Sanitierter Dateiname im Staging |
+| `staging_path` | TEXT | Absoluter Pfad im Staging |
+| `size_bytes` | BIGINT | Dateigrösse |
+| `sha256` | TEXT | SHA-256 Hash |
+| `status` | TEXT | s. Status-Werte |
+| `duplicate_of` | TEXT | Dateiname der Duplikat-Quelle |
+| `error_message` | TEXT | Fehlertext oder `content_identical` |
+| `created_at` / `updated_at` | TIMESTAMPTZ | |
+
+**Status-Werte (`upload_batch_files.status`):**
+
+| Wert | Bedeutung |
+|---|---|
+| `staged` | Im Staging, noch nicht übertragen |
+| `stored` | Erfolgreich ins NAS kopiert |
+| `skipped_duplicate` | Duplikat (Name oder Hash) → übersprungen |
+| `skipped_invalid_type` | Dateierweiterung für Kategorie nicht erlaubt |
+| `failed` | Transfer fehlgeschlagen |
+
+---
+
+## 3. NAS-Pfad-Logik
+
+### Umgebungsvariablen
+
+| Variable | Zweck |
+|---|---|
+| `BOOKING_UPLOAD_CUSTOMER_ROOT` | Root für Kundenordner (NAS-Mount) |
+| `BOOKING_UPLOAD_RAW_ROOT` | Root für Rohmaterial (NAS-Mount) |
+| `BOOKING_UPLOAD_STAGING_ROOT` | Lokales Staging-Verzeichnis |
+| `BOOKING_UPLOAD_CUSTOMER_ARCHIVE_ROOT` | Archiv-Root für Kundenordner |
+| `BOOKING_UPLOAD_RAW_ARCHIVE_ROOT` | Archiv-Root für Rohmaterial |
+
+### Pfad-Aufbau
+
+```
+customer_folder:
+  customerNasCustomerFolderBase gesetzt →
+    {CUSTOMER_ROOT}/{customerNasCustomerFolderBase}/{displayName}/
+  sonst:
+    {CUSTOMER_ROOT}/{companyName}/{displayName}/
+
+raw_material:
+  customerNasRawFolderBase gesetzt →
+    {RAW_ROOT}/{customerNasRawFolderBase}/{displayName}/
+  sonst:
+    {RAW_ROOT}/{displayName}/
+```
+
+Die Felder `customerNasCustomerFolderBase` und `customerNasRawFolderBase` kommen aus den Kundenstammdaten (`customers`-Tabelle) und ermöglichen kundenspezifische Unterordner-Strukturen auf dem NAS.
+
+---
+
+## 4. Kategorien
+
+(`UPLOAD_CATEGORY_MAP`)
+
+| Schlüssel | NAS-Unterordner | folder_type |
+|---|---|---|
+| `raw_bilder` | `Unbearbeitete/Bilder` | raw_material |
+| `raw_grundrisse` | `Unbearbeitete/Grundrisse` | raw_material |
+| `raw_video` | `Unbearbeitete/Video` | raw_material |
+| `raw_sonstiges` | `Unbearbeitete/Sonstiges` | raw_material |
+| `zur_auswahl` | `Zur Auswahl` | customer_folder |
+| `final_websize` | `Finale/Bilder/WEB SIZE` | customer_folder |
+| `final_fullsize` | `Finale/Bilder/FULLSIZE` | customer_folder |
+| `final_grundrisse` | `Finale/Grundrisse` | customer_folder |
+| `final_video` | `Finale/Video` | customer_folder |
+
+---
+
+## 5. Chunked-Upload-Flow
+
+```
+1. init (POST .../upload-chunked/init):
+   → Staging-Verzeichnis erstellen
+   → Gibt uploadId (= Batch-ID), sessionId zurück
+
+2. status (POST .../upload-chunked/status):
+   → Welche Chunk-Teile sind bereits vorhanden?
+   → Für Wiederaufnahme bei Unterbrechung
+
+3. part (POST .../upload-chunked/part):
+   → Chunk schreiben: staging/{uploadId}/chunk_{index}
+   → Ein oder mehrere Chunks pro Datei
+
+4. complete (POST .../upload-chunked/complete):
+   → Alle Chunks zu einer Datei zusammenfügen
+   → SHA-256 und Grösse prüfen
+   → Merged file in Session ablegen
+
+5. finalize (POST .../upload-chunked/finalize):
+   → Session → Upload-Batch überführen
+   → Transfer zum NAS starten
+   → Batch-Record in DB anlegen
+   → Status: staged → transferring → completed/failed
+```
+
+---
+
+## 6. Konflikt-Modi
+
+| Wert | Verhalten |
+|---|---|
+| `skip` (default) | Datei mit gleichem Namen oder Hash vorhanden → `skipped_duplicate` |
+| `replace` | Datei mit gleichem Namen: SHA-256 prüfen. Inhalt abweichend → alte löschen, neue schreiben. Gleicher Hash → `skipped_duplicate` |
+
+---
+
+## 7. Upload-Gruppen
+
+Ermöglichen das Zusammenfassen mehrerer Batches zu einer logischen Einheit (z.B. grosser Upload in mehreren Durchgängen):
+
+| Feld | Bedeutung |
+|---|---|
+| `upload_group_id` | Gemeinsame Gruppen-ID aller Teile |
+| `upload_group_total_parts` | Gesamtanzahl Teile |
+| `upload_group_part_index` | Dieser Batch ist Teil Nr. X (1-basiert) |
+
+---
+
+## 8. Was nach erfolgreichem Upload passiert
+
+```
+1. Dateien via copyFileSync Staging → NAS
+2. SHA-256 + Dateigrösse nach Kopieren nochmals prüfen
+3. Timestamps (atime/mtime) von Quelldatei übernehmen
+4. Kommentar-Datei in Zielordner schreiben (falls comment gesetzt)
+5. Staging-Verzeichnis löschen (fs.rmSync)
+6. notifyCompleted-Callback: ggf. E-Mail, ggf. Websize-Sync auslösen
+7. Batch: status='completed', completed_at=NOW()
+
+Bei Fehler:
+   → status='failed', Staging bleibt erhalten
+   → Retry via POST .../retry
+```
+
+### NAS-Archivierung
+
+Wenn ein Auftrag archiviert wird, werden die Ordner-Links in `booking.order_folder_links` auf `status='archived'`, `archived_at=NOW()` gesetzt. Die physischen Dateien werden in die Archive-Root verschoben.
+
+### Tabelle `booking.order_folder_links`
+
+| Feld | Typ | Beschreibung |
+|---|---|---|
+| `id` | SERIAL PK | |
+| `order_no` | INT FK → orders | |
+| `folder_type` | TEXT | `raw_material` oder `customer_folder` |
+| `root_kind` | TEXT | `raw` oder `customer` |
+| `relative_path` | TEXT | Relativer Pfad im NAS |
+| `absolute_path` | TEXT | Vollständiger Pfad |
+| `display_name` | TEXT | Anzeigename |
+| `company_name` | TEXT | Firmenname |
+| `status` | TEXT | `pending`, `ready`, `linked`, `archived`, `failed` |
+| `last_error` | TEXT | Fehlermeldung |
+| `created_at` / `updated_at` | TIMESTAMPTZ | |
+| `archived_at` | TIMESTAMPTZ | |
+
+Unique Index auf `(order_no, folder_type)` WHERE `archived_at IS NULL`.

@@ -495,8 +495,11 @@ $composeBase = "docker compose -p `"$RemoteComposeProject`" -f `"$RemoteComposeF
 
 $tRemote = [Diagnostics.Stopwatch]::StartNew()
 
-Invoke-Ssh -DeployStep "5a/6 cd + .env.vps vorhanden" @"
+Invoke-Ssh -DeployStep "5a/6 Backup-Ordner + .env.vps vorhanden" @"
 set -eu
+mkdir -p '$RemoteProjectRoot/backups'
+chown -R 1001:65533 '$RemoteProjectRoot/backups' || true
+chmod 775 '$RemoteProjectRoot/backups' || true
 cd '$RemoteProjectRoot'
 test -f '$RemoteEnvFile'
 "@

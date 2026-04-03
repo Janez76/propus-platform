@@ -55,6 +55,7 @@ type SidebarNavItem = {
   icon: LucideIcon;
   labelKey: string;
   toursNav?: boolean;
+  customersNav?: boolean;
 };
 
 const navigationItems: SidebarNavItem[] = [
@@ -63,8 +64,7 @@ const navigationItems: SidebarNavItem[] = [
   { path: "/orders", icon: ShoppingCart, labelKey: "nav.orders" },
   { path: "/upload", icon: Upload, labelKey: "nav.upload" },
   { path: "/calendar", icon: Calendar, labelKey: "nav.calendar" },
-  { path: "/customers", icon: Users, labelKey: "nav.customers" },
-  { path: "/settings/companies", icon: Building2, labelKey: "sidebar.nav.companies" },
+  { path: "/customers", icon: Users, labelKey: "nav.customersAndFirms", customersNav: true },
   { path: "/products", icon: Boxes, labelKey: "nav.catalog" },
   { path: "/discount-codes", icon: Tag, labelKey: "nav.discountCodes" },
   { path: "/reviews", icon: Star, labelKey: "nav.reviews" },
@@ -103,15 +103,18 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [toursNavOpen, setToursNavOpen] = useState(false);
+  const [customersNavOpen, setCustomersNavOpen] = useState(false);
   const lang = useAuthStore((s) => s.language);
   const role = useAuthStore((s) => s.role);
   const { canAccessPath } = usePermissions();
   const location = useLocation();
   const showDevLoggerButton = process.env.NODE_ENV === "development";
   const isSettingsActive =
-    (location.pathname.startsWith("/settings") && !location.pathname.startsWith("/settings/companies")) ||
+    location.pathname.startsWith("/settings") ||
     location.pathname.startsWith("/exxas-reconcile");
   const isToursNavActive = location.pathname.startsWith("/admin/tours");
+  const isCustomersNavActive =
+    location.pathname.startsWith("/customers") || location.pathname.startsWith("/settings/companies");
   const isCompanyRole = isCompanyWorkspaceRole(role);
   const isKunden = isKundenRole(role);
   const visibleNavigationItems = useMemo(() => {
@@ -170,7 +173,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
         <nav className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 py-4 [-webkit-overflow-scrolling:touch]">
           <div className="space-y-0.5">
             {visibleNavigationItems.map((item) => {
-              const { path, icon: Icon, labelKey, toursNav } = item;
+              const { path, icon: Icon, labelKey, toursNav, customersNav } = item;
               if (path === "/settings") {
                 return (
                   <div key={path}>
@@ -195,6 +198,33 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                             {t(lang, labelKey)}
                           </NavLink>
                         ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+              if (customersNav) {
+                return (
+                  <div key={path}>
+                    <button
+                      type="button"
+                      onClick={() => setCustomersNavOpen((v) => !v)}
+                      className={cn("propus-nav-item w-full", isCustomersNavActive && "active")}
+                    >
+                      <Icon className="h-5 w-5 flex-shrink-0" />
+                      <span className="truncate flex-1 text-left">{t(lang, labelKey)}</span>
+                      <ChevronDown className={cn("h-4 w-4 flex-shrink-0 transition-transform opacity-60", (customersNavOpen || isCustomersNavActive) ? "rotate-180" : "")} />
+                    </button>
+                    {(customersNavOpen || isCustomersNavActive) && (
+                      <div className="ml-4 mt-0.5 space-y-0.5 pl-3" style={{ borderLeft: "2px solid var(--border-soft)" }}>
+                        <NavLink to="/customers" onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <Users className="h-4 w-4 flex-shrink-0" />
+                          {t(lang, "nav.customers")}
+                        </NavLink>
+                        <NavLink to="/settings/companies" onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <Building2 className="h-4 w-4 flex-shrink-0" />
+                          {t(lang, "sidebar.nav.companies")}
+                        </NavLink>
                       </div>
                     )}
                   </div>
@@ -296,7 +326,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
         <nav className="flex-1 overflow-y-auto py-4 px-3">
           <div className="space-y-0.5">
             {visibleNavigationItems.map((item) => {
-              const { path, icon: Icon, labelKey, toursNav } = item;
+              const { path, icon: Icon, labelKey, toursNav, customersNav } = item;
               if (path === "/settings") {
                 return (
                   <div key={path}>
@@ -325,6 +355,45 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                             {t(lang, labelKey)}
                           </NavLink>
                         ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+              if (customersNav) {
+                if (isCollapsed) {
+                  return (
+                    <NavLink
+                      key={path}
+                      to={path}
+                      title={t(lang, labelKey)}
+                      className={cn("propus-nav-item", isCustomersNavActive ? "active" : "")}
+                    >
+                      <Icon className={cn("h-5 w-5 flex-shrink-0", isCustomersNavActive ? "text-white" : "")} />
+                    </NavLink>
+                  );
+                }
+                return (
+                  <div key={path}>
+                    <button
+                      type="button"
+                      onClick={() => setCustomersNavOpen((v) => !v)}
+                      className={cn("propus-nav-item w-full", isCustomersNavActive && "active")}
+                    >
+                      <Icon className="h-5 w-5 flex-shrink-0" />
+                      <span className="truncate flex-1 text-left">{t(lang, labelKey)}</span>
+                      <ChevronDown className={cn("h-4 w-4 flex-shrink-0 transition-transform opacity-60", (customersNavOpen || isCustomersNavActive) ? "rotate-180" : "")} />
+                    </button>
+                    {(customersNavOpen || isCustomersNavActive) && (
+                      <div className="ml-4 mt-0.5 space-y-0.5 pl-3" style={{ borderLeft: "2px solid var(--border-soft)" }}>
+                        <NavLink to="/customers" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <Users className="h-4 w-4 flex-shrink-0" />
+                          {t(lang, "nav.customers")}
+                        </NavLink>
+                        <NavLink to="/settings/companies" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <Building2 className="h-4 w-4 flex-shrink-0" />
+                          {t(lang, "sidebar.nav.companies")}
+                        </NavLink>
                       </div>
                     )}
                   </div>

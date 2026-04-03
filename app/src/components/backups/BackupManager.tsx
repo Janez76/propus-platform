@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -90,7 +90,7 @@ export function BackupManager({ items, config, onCreate, onDelete, onRestore }: 
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [error, setError] = useState("");
 
-  const [createIncludeVolumes, setCreateIncludeVolumes] = useState(config?.includeVolumes ?? true);
+  const [createIncludeVolumes, setCreateIncludeVolumes] = useState(false);
   const [restoreSkipLogto, setRestoreSkipLogto] = useState(false);
   const [restoreVolumes, setRestoreVolumes] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -104,6 +104,10 @@ export function BackupManager({ items, config, onCreate, onDelete, onRestore }: 
       }),
     [items]
   );
+
+  useEffect(() => {
+    setCreateIncludeVolumes(config?.includeVolumes ?? false);
+  }, [config?.includeVolumes]);
 
   async function handleCreate() {
     setBusyAction("create");
@@ -195,18 +199,18 @@ export function BackupManager({ items, config, onCreate, onDelete, onRestore }: 
               </div>
             </div>
             <div>
-              <div style={{ color: "var(--text-subtle)" }}>Voll-Volume-Backup</div>
+              <div style={{ color: "var(--text-subtle)" }}>Manuelles Voll-Backup</div>
               <div className="mt-0.5">
                 {config.includeVolumes
                   ? <span className="cust-status-badge cust-status-completed"><CheckCircle2 className="h-3 w-3" /> Ja</span>
-                  : <span style={{ color: "var(--text-subtle)", fontWeight: 500, fontSize: "12px" }}>Nein (Standard)</span>
+                  : <span style={{ color: "var(--text-subtle)", fontWeight: 500, fontSize: "12px" }}>Aus (Standard)</span>
                 }
               </div>
             </div>
           </div>
           {config.volumePaths.length > 0 && (
             <div className="rounded-lg px-3 py-2 text-xs" style={{ background: "var(--surface-raised)" }}>
-              <div className="mb-1 font-semibold" style={{ color: "var(--text-muted)" }}>Gesicherte Volume-Pfade</div>
+              <div className="mb-1 font-semibold" style={{ color: "var(--text-muted)" }}>Lokale Restore-Volume-Pfade</div>
               <div className="flex flex-wrap gap-1.5">
                 {config.volumePaths.map((volumePath) => (
                   <span key={volumePath} className="cust-badge cust-badge--neutral font-mono">
@@ -214,6 +218,9 @@ export function BackupManager({ items, config, onCreate, onDelete, onRestore }: 
                   </span>
                 ))}
               </div>
+              <p className="mt-2" style={{ color: "var(--text-subtle)" }}>
+                Diese Pfade werden nur bei aktiviertem Voll-Volume-Backup archiviert.
+              </p>
             </div>
           )}
 
@@ -232,6 +239,9 @@ export function BackupManager({ items, config, onCreate, onDelete, onRestore }: 
               Letzter Sync: {config.nasSync.lastSync}
             </p>
           )}
+          <p className="text-xs" style={{ color: "var(--text-subtle)" }}>
+            Der tägliche NAS-Sync sichert standardmässig Datenbank, Logto und Metadaten. Volume-Archive nur manuell bei Bedarf.
+          </p>
         </div>
       )}
 
@@ -377,7 +387,7 @@ export function BackupManager({ items, config, onCreate, onDelete, onRestore }: 
                 hasLogto ? "Auth-Datenbank (logto)" : null,
                 "Bestellungen (orders.json)",
                 "Umgebungskonfiguration (.env.vps)",
-                "Komplettes Daten-Volume (State, Logs, Staging, NAS-Ordner)",
+                "Volume-Archive der lokalen VPS-Restore-Daten (optional)",
               ].filter(Boolean).map((item) => (
                 <li key={item as string} className="flex items-center gap-2">
                   <CheckCircle2 className="h-3.5 w-3.5 shrink-0" style={{ color: "#2ecc71" }} />
@@ -399,14 +409,14 @@ export function BackupManager({ items, config, onCreate, onDelete, onRestore }: 
                   Komplettes Volume mitsichern
                 </div>
                 <div className="text-xs mt-0.5" style={{ color: "var(--text-subtle)" }}>
-                  Alle gemounteten Datenpfade werden als .tar.gz archiviert. Kann sehr gross sein.
+                  Archiviert nur die lokalen VPS-Pfade fuer Restore: State, Logs und Upload-Staging. Externe NAS-Mounts sind ausgeschlossen.
                 </div>
               </div>
             </label>
 
             <div className="cust-alert cust-alert--warning text-xs">
               <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-              <span>Das Backup wird automatisch täglich um 02:00 Uhr auf der NAS gespeichert (30 Tage Aufbewahrung).</span>
+              <span>Der tägliche NAS-Sync speichert standardmässig nur DB, Logto und Metadaten. Voll-Volume-Backups bitte gezielt manuell starten.</span>
             </div>
           </div>
           <div className="mt-4 flex items-center justify-end gap-2">
@@ -444,7 +454,7 @@ export function BackupManager({ items, config, onCreate, onDelete, onRestore }: 
               <span>Die aktuellen Datenbankdaten werden überschrieben. Erstelle zuerst ein neues Backup.</span>
             </div>
             {[
-              { checked: restoreVolumes, onChange: (v: boolean) => setRestoreVolumes(v), title: "Volume-Archive wiederherstellen", hint: "Stellt State, Logs, Staging und NAS-Ordner aus dem Backup wieder her." },
+              { checked: restoreVolumes, onChange: (v: boolean) => setRestoreVolumes(v), title: "Volume-Archive wiederherstellen", hint: "Stellt die lokalen VPS-Pfade State, Logs und Upload-Staging aus dem Backup wieder her." },
               hasLogto ? { checked: restoreSkipLogto, onChange: (v: boolean) => setRestoreSkipLogto(v), title: "Logto-Datenbank überspringen", hint: "Nur Haupt-DB wiederherstellen. Logto-Auth-Daten bleiben unverändert." } : null,
             ].filter(Boolean).map((opt) => opt && (
               <label key={opt.title} className="flex items-start gap-3 cursor-pointer select-none rounded-lg border p-3 transition-colors" style={{ borderColor: "var(--border-soft)" }}>
