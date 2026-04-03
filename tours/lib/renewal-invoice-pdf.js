@@ -10,6 +10,8 @@ const {
   REACTIVATION_PRICE_CHF,
 } = require('./subscriptions');
 const qrBill = require('./qr-bill');
+const payrexx = require('./payrexx');
+const { appendPayrexxOnlineSection } = require('./invoice-pdf-payrexx-hint');
 
 async function streamRenewalInvoicePdf(res, tourId, invoiceId) {
   const tourResult = await pool.query('SELECT * FROM tour_manager.tours WHERE id = $1 LIMIT 1', [tourId]);
@@ -54,7 +56,7 @@ async function streamRenewalInvoicePdf(res, tourId, invoiceId) {
       ? `Bis ${periodEnd.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })}`
       : '-';
 
-  const paymentContext = qrBill.buildInvoicePaymentContext({ ...invoice, amount_chf: amount }, tour);
+  const paymentContext = await qrBill.buildInvoicePaymentContext({ ...invoice, amount_chf: amount }, tour);
 
   // Beschreibung + MwSt-Aufschlüsselung je nach invoice_kind
   let bezeichnung;
@@ -86,6 +88,13 @@ async function streamRenewalInvoicePdf(res, tourId, invoiceId) {
     }
   } else {
     bezeichnung = 'Virtueller Rundgang – Hosting / Verlängerung';
+  }
+
+  let payrexxUrl = null;
+  try {
+    payrexxUrl = await payrexx.ensureRenewalInvoiceCheckoutUrl(pool, invoice, tour);
+  } catch (e) {
+    console.warn('ensureRenewalInvoiceCheckoutUrl (streamRenewalInvoicePdf):', e.message);
   }
 
   const ctx = {
@@ -175,6 +184,7 @@ async function streamRenewalInvoicePdf(res, tourId, invoiceId) {
   doc.fontSize(9).fillColor('#666').text(`Vielen Dank für Ihr Vertrauen. Bei Fragen: ${ctx.creditor.email}`, 50, y);
   y += 16;
   doc.text(`Freundliche Grüsse, ${ctx.creditor.name}`, 50, y);
+  y = appendPayrexxOnlineSection(doc, y, { payrexxUrl, invLabel: ctx.invLabel });
   try {
     const bill = new SwissQRBill(ctx.qrBillPayload, {
       language: 'DE',

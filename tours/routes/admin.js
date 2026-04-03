@@ -141,6 +141,8 @@ const {
   getSubscriptionWindowFromStart,
 } = require('../lib/subscriptions');
 const qrBill = require('../lib/qr-bill');
+const payrexx = require('../lib/payrexx');
+const { appendPayrexxOnlineSection } = require('../lib/invoice-pdf-payrexx-hint');
 const {
   changeOwnAdminEmail,
   changeOwnAdminPassword,
@@ -2751,7 +2753,7 @@ router.get('/tours/:id/invoices/:invoiceId/pdf', async (req, res) => {
       ? `Bis ${periodEnd.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })}`
       : '-';
 
-  const paymentContext = qrBill.buildInvoicePaymentContext({ ...invoice, amount_chf: amount }, tour);
+  const paymentContext = await qrBill.buildInvoicePaymentContext({ ...invoice, amount_chf: amount }, tour);
   const ctx = {
     ...paymentContext,
     invLabel,
@@ -2770,6 +2772,13 @@ router.get('/tours/:id/invoices/:invoiceId/pdf', async (req, res) => {
     tourAddress: tour.object_address || null,
     billingPeriodLabel,
   };
+
+  let payrexxUrl = null;
+  try {
+    payrexxUrl = await payrexx.ensureRenewalInvoiceCheckoutUrl(pool, invoice, tour);
+  } catch (e) {
+    console.warn('ensureRenewalInvoiceCheckoutUrl (admin PDF):', e.message);
+  }
 
   const PDFDocument = require('pdfkit');
   const { SwissQRBill } = require('swissqrbill/pdf');
@@ -2825,6 +2834,7 @@ router.get('/tours/:id/invoices/:invoiceId/pdf', async (req, res) => {
   doc.fontSize(9).fillColor('#666').text(`Vielen Dank für Ihr Vertrauen. Bei Fragen: ${ctx.creditor.email}`, 50, y);
   y += 16;
   doc.text(`Freundliche Grüsse, ${ctx.creditor.name}`, 50, y);
+  y = appendPayrexxOnlineSection(doc, y, { payrexxUrl, invLabel: ctx.invLabel });
   try {
     const bill = new SwissQRBill(ctx.qrBillPayload, {
       language: 'DE',

@@ -988,8 +988,101 @@ async function postLinkMatterportCheckOwnership() {
   return { ok: true, own, fremde, skipped };
 }
 
+async function getRenewalInvoicesCentral(status, search) {
+  let q = `
+    SELECT i.*,
+      COALESCE(t.object_label, t.bezeichnung) AS tour_object_label,
+      COALESCE(t.customer_name, t.kunde_ref) AS tour_customer_name,
+      COALESCE(t.exxas_subscription_id, t.exxas_abo_id) AS tour_contract_id,
+      t.last_email_sent_at
+    FROM tour_manager.renewal_invoices i
+    JOIN tour_manager.tours t ON t.id = i.tour_id
+    WHERE 1=1
+  `;
+  const params = [];
+  if (status === 'offen') {
+    q += ` AND i.invoice_status IN ('sent','overdue')`;
+  } else if (status === 'bezahlt') {
+    q += ` AND i.invoice_status = 'paid'`;
+  } else if (status === 'ueberfaellig') {
+    q += ` AND i.invoice_status = 'overdue'`;
+  } else if (status === 'entwurf') {
+    q += ` AND i.invoice_status = 'draft'`;
+  }
+  if (search) {
+    params.push(`%${search.toLowerCase()}%`);
+    const idx = params.length;
+    q += ` AND (LOWER(COALESCE(t.object_label, t.bezeichnung)) LIKE $${idx}
+              OR LOWER(COALESCE(t.customer_name, t.kunde_ref)) LIKE $${idx}
+              OR LOWER(i.invoice_number) LIKE $${idx})`;
+  }
+  q += ` ORDER BY COALESCE(i.paid_at, i.sent_at, i.created_at) DESC NULLS LAST, i.created_at DESC`;
+  const invoices = await pool.query(q, params);
+  const stats = await pool.query(`
+    SELECT invoice_status, COUNT(*)::int as cnt FROM tour_manager.renewal_invoices GROUP BY invoice_status
+  `);
+  const statusCounts = Object.fromEntries(stats.rows.map((r) => [r.invoice_status, r.cnt]));
+  return {
+    ok: true,
+    invoices: invoices.rows,
+    stats: {
+      offen: (statusCounts.sent || 0) + (statusCounts.overdue || 0),
+      ueberfaellig: statusCounts.overdue || 0,
+      bezahlt: statusCounts.paid || 0,
+      entwurf: statusCounts.draft || 0,
+    },
+    source: 'renewal',
+  };
+}
+
+async function getExxasInvoicesCentral(status, search) {
+  let q = `
+    SELECT ei.*,
+      COALESCE(t.object_label, t.bezeichnung) AS tour_object_label,
+      COALESCE(t.customer_name, t.kunde_ref) AS tour_customer_name
+    FROM tour_manager.exxas_invoices ei
+    LEFT JOIN tour_manager.tours t ON t.id = ei.tour_id
+    WHERE 1=1
+  `;
+  const params = [];
+  if (status === 'offen') {
+    q += ` AND ei.exxas_status != 'bz'`;
+  } else if (status === 'bezahlt') {
+    q += ` AND ei.exxas_status = 'bz'`;
+  }
+  if (search) {
+    params.push(`%${search.toLowerCase()}%`);
+    const idx = params.length;
+    q += ` AND (LOWER(ei.kunde_name) LIKE $${idx}
+              OR LOWER(ei.nummer) LIKE $${idx}
+              OR LOWER(ei.bezeichnung) LIKE $${idx})`;
+  }
+  q += ` ORDER BY COALESCE(ei.zahlungstermin, ei.dok_datum) DESC NULLS LAST, ei.created_at DESC`;
+  const invoices = await pool.query(q, params);
+  const statsRes = await pool.query(`
+    SELECT
+      COUNT(*)::int                                              AS total,
+      COUNT(*) FILTER (WHERE exxas_status = 'bz')::int          AS bezahlt,
+      COUNT(*) FILTER (WHERE exxas_status != 'bz')::int         AS offen
+    FROM tour_manager.exxas_invoices
+  `);
+  const s = statsRes.rows[0] || {};
+  return {
+    ok: true,
+    invoices: invoices.rows,
+    stats: {
+      offen: s.offen || 0,
+      bezahlt: s.bezahlt || 0,
+      total: s.total || 0,
+    },
+    source: 'exxas',
+  };
+}
+
 module.exports = {
   getRenewalInvoicesJson,
+  getRenewalInvoicesCentral,
+  getExxasInvoicesCentral,
   getBankImportJson,
   runBankImportUpload,
   confirmBankTransaction,

@@ -144,4 +144,70 @@ function isConfigured() {
   return !!(PAYREXX_INSTANCE && PAYREXX_API_SECRET);
 }
 
-module.exports = { createCheckout, getGateway, verifyWebhook, isConfigured };
+function portalBaseUrl() {
+  return String(process.env.PORTAL_BASE_URL || 'https://tour.propus.ch').replace(/\/$/, '');
+}
+
+function renewalInvoiceSuccessQuery(invoiceKind) {
+  if (invoiceKind === 'floorplan_order') return 'success=floorplan_ordered';
+  return 'success=paid';
+}
+
+/**
+ * Stellt sicher, dass für eine ausstehende Verlängerungsrechnung ein Payrexx-Gateway-Link existiert
+ * (wie ein Paylink: fester Betrag, Zweck mit Rechnungsbezug). Wird für QR-PDFs genutzt, damit Kunden
+ * parallel auch online zahlen können.
+ *
+ * @param {import('pg').Pool} pool
+ * @param {object} invoice – Zeile tour_manager.renewal_invoices
+ * @param {object} tour – normalisierte Tour (id, customer_email, Bezeichnung …)
+ * @returns {Promise<string|null>} paymentUrl oder null
+ */
+async function ensureRenewalInvoiceCheckoutUrl(pool, invoice, tour) {
+  if (!isConfigured() || !pool || !invoice?.id || !tour?.id) return null;
+  const status = String(invoice.invoice_status || '');
+  if (status === 'paid' || status === 'cancelled') return null;
+  if (invoice.payrexx_payment_url) return String(invoice.payrexx_payment_url);
+
+  const amount = Number(invoice.amount_chf || invoice.betrag || invoice.preis_brutto || 0);
+  if (!amount || Number.isNaN(amount) || amount <= 0) return null;
+
+  const tourId = tour.id;
+  const base = portalBaseUrl();
+  const q = renewalInvoiceSuccessQuery(invoice.invoice_kind);
+  const successUrl = `${base}/portal/tours/${tourId}?${q}`;
+  const cancelUrl = `${base}/portal/tours/${tourId}?error=cancelled`;
+  const tourLabel = String(
+    tour.canonical_object_label || tour.object_label || tour.bezeichnung || `Tour #${tourId}`,
+  );
+  const invLabel = invoice.invoice_number ? String(invoice.invoice_number) : String(invoice.id);
+  const purpose = `${tourLabel} – Rechnung ${invLabel}`;
+  const emailRaw = String(tour.customer_email || tour.canonical_customer_email || '').trim();
+  const email = emailRaw || undefined;
+
+  const { paymentUrl, error: payErr } = await createCheckout({
+    referenceId: `tour-${tourId}-inv-${invoice.id}`,
+    amountCHF: amount,
+    purpose,
+    successUrl,
+    cancelUrl,
+    email,
+  });
+
+  if (payErr) console.warn('[payrexx] ensureRenewalInvoiceCheckoutUrl:', payErr);
+  if (!paymentUrl) return null;
+
+  await pool.query(`UPDATE tour_manager.renewal_invoices SET payrexx_payment_url = $1 WHERE id = $2`, [
+    paymentUrl,
+    invoice.id,
+  ]);
+  return paymentUrl;
+}
+
+module.exports = {
+  createCheckout,
+  getGateway,
+  verifyWebhook,
+  isConfigured,
+  ensureRenewalInvoiceCheckoutUrl,
+};

@@ -10,8 +10,8 @@ test('buildQrReference erzeugt stabile 27-stellige QR-Referenzen', () => {
   assert.equal(reference.length, 27);
 });
 
-test('buildInvoicePaymentContext nutzt Propus GmbH Defaults', () => {
-  const context = qrBill.buildInvoicePaymentContext(
+test('buildInvoicePaymentContext nutzt Propus GmbH Defaults', async () => {
+  const context = await qrBill.buildInvoicePaymentContext(
     { id: 500828, invoice_number: '500828', amount_chf: 123.75 },
     { customer_name: 'home2be Immobilien Consulting' }
   );

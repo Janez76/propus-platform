@@ -217,7 +217,7 @@ router.get('/tours/:id/invoices/:invoiceId/print-data', async (req, res) => {
       : periodEnd ? `Bis ${periodEnd.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })}` : '-';
 
     const qrBill = require('../lib/qr-bill');
-    const paymentContext = qrBill.buildInvoicePaymentContext({ ...invoice, amount_chf: amount }, tour);
+    const paymentContext = await qrBill.buildInvoicePaymentContext({ ...invoice, amount_chf: amount }, tour);
 
     // Beschreibung + MwSt-Aufschlüsselung je nach invoice_kind
     let bezeichnung = 'Virtueller Rundgang – Hosting / Verlängerung';

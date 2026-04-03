@@ -61,6 +61,7 @@ type SidebarNavItem = {
 
 const navigationItems: SidebarNavItem[] = [
   { path: "/dashboard", icon: LayoutDashboard, labelKey: "nav.dashboard" },
+  { path: "/admin/invoices", icon: FileText, labelKey: "nav.invoices" },
   { path: "/admin/tours", icon: Globe, labelKey: "nav.tourManager", toursNav: true },
   { path: "/orders", icon: ShoppingCart, labelKey: "nav.orders" },
   { path: "/upload", icon: Upload, labelKey: "nav.upload" },
@@ -256,10 +257,6 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                           <List className="h-4 w-4 flex-shrink-0" />
                           {t(lang, "nav.tours.tours")}
                         </NavLink>
-                        <NavLink to="/admin/tours/invoices" onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
-                          <FileText className="h-4 w-4 flex-shrink-0" />
-                          {t(lang, "nav.tours.invoices")}
-                        </NavLink>
                         <NavLink to="/admin/tours/bank-import" onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
                           <Upload className="h-4 w-4 flex-shrink-0" />
                           {t(lang, "nav.tours.bankImport")}
@@ -436,10 +433,6 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                         <NavLink to="/admin/tours/list" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
                           <List className="h-4 w-4 flex-shrink-0" />
                           {t(lang, "nav.tours.tours")}
-                        </NavLink>
-                        <NavLink to="/admin/tours/invoices" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
-                          <FileText className="h-4 w-4 flex-shrink-0" />
-                          {t(lang, "nav.tours.invoices")}
                         </NavLink>
                         <NavLink to="/admin/tours/bank-import" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
                           <Upload className="h-4 w-4 flex-shrink-0" />

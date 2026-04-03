@@ -136,6 +136,7 @@
   "nav.tours.dashboard": "Dashboard",
   "nav.tours.tours": "Tours",
   "nav.tours.invoices": "Invoices",
+  "nav.invoices": "Invoices",
   "nav.tours.bankImport": "Bank Import",
   "nav.tours.matterport": "Matterport",
   "nav.tours.customers": "Customers",

@@ -145,6 +145,7 @@
   "nav.tours.dashboard": "Tableau de bord",
   "nav.tours.tours": "Visites",
   "nav.tours.invoices": "Factures",
+  "nav.invoices": "Factures",
   "nav.tours.bankImport": "Import bancaire",
   "nav.tours.matterport": "Matterport",
   "nav.tours.customers": "Clients",

@@ -31,6 +31,10 @@ export function toursAdminRenewalInvoicesQueryKey(status: string) {
   return `toursAdmin:renewalInvoices:${status || "all"}`;
 }
 
+export function adminInvoicesCentralQueryKey(type: string, status: string, search: string) {
+  return `admin:invoicesCentral:${type}:${status || "all"}:${search || ""}`;
+}
+
 export function toursAdminBankImportQueryKey() {
   return "toursAdmin:bankImport";
 }

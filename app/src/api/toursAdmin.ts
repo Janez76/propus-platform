@@ -69,6 +69,18 @@ export function getToursAdminRenewalInvoices(status?: string) {
   return toursAdminFetch<Record<string, unknown>>(`/invoices${qs}`);
 }
 
+export function getAdminInvoicesCentral(type: "renewal" | "exxas", status?: string, search?: string) {
+  const p = new URLSearchParams({ type });
+  if (status) p.set("status", status);
+  if (search) p.set("search", search);
+  return toursAdminFetch<{
+    ok: true;
+    invoices: Record<string, unknown>[];
+    stats: Record<string, number>;
+    source: string;
+  }>(`/invoices-central?${p.toString()}`);
+}
+
 export function getToursAdminBankImport() {
   return toursAdminFetch<Record<string, unknown>>("/bank-import");
 }

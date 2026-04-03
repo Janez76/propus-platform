@@ -20,6 +20,7 @@ const {
 const payrexx = require('../lib/payrexx');
 const portalAuth = require('../lib/portal-auth');
 const qrBill = require('../lib/qr-bill');
+const { appendPayrexxOnlineSection } = require('../lib/invoice-pdf-payrexx-hint');
 const { isLogtoEnabled } = require('../../auth/logto-config');
 const {
   EXTENSION_PRICE_CHF,
@@ -1013,7 +1014,7 @@ router.get('/tours/:id/pay/:invoiceId', requirePortalAuth, async (req, res) => {
 
 // ─── Rechnung drucken / PDF ───────────────────────────────────────────────────
 
-function getInvoiceContext(invoice, tour) {
+async function getInvoiceContext(invoice, tour) {
   let amount = Number(invoice.amount_chf || invoice.betrag || invoice.preis_brutto || 0);
   if (!amount || isNaN(amount)) {
     amount = invoice.invoice_kind === 'portal_reactivation' ? REACTIVATION_PRICE_CHF : EXTENSION_PRICE_CHF;
@@ -1032,7 +1033,7 @@ function getInvoiceContext(invoice, tour) {
   const itemSub = invoice.invoice_kind === 'portal_extension' || invoice.invoice_kind === 'portal_reactivation'
     ? 'Hosting-Verlängerung für Ihren interaktiven 3D-Rundgang (Matterport). Inkl. digitaler Archivierung und Zugriff via Link/Embed.'
     : '';
-  const paymentContext = qrBill.buildInvoicePaymentContext(
+  const paymentContext = await qrBill.buildInvoicePaymentContext(
     { ...invoice, amount_chf: amount },
     tour
   );
@@ -1092,7 +1093,14 @@ router.get('/tours/:id/invoices/:invoiceId/pdf', requirePortalAuth, async (req, 
   );
   const invoice = invResult.rows[0];
   if (!invoice) return res.status(404).send('Rechnung nicht gefunden.');
-  const ctx = getInvoiceContext(invoice, tour);
+  const ctx = await getInvoiceContext(invoice, tour);
+
+  let payrexxUrl = null;
+  try {
+    payrexxUrl = await payrexx.ensureRenewalInvoiceCheckoutUrl(pool, invoice, tour);
+  } catch (e) {
+    console.warn('ensureRenewalInvoiceCheckoutUrl (portal PDF):', e.message);
+  }
 
   const PDFDocument = require('pdfkit');
   const { SwissQRBill } = require('swissqrbill/pdf');
@@ -1156,6 +1164,8 @@ router.get('/tours/:id/invoices/:invoiceId/pdf', requirePortalAuth, async (req, 
   doc.fontSize(9).fillColor('#666').text(`Vielen Dank für Ihr Vertrauen. Bei Fragen: ${ctx.creditor.email}`, 50, y);
   y += 16;
   doc.text(`Freundliche Grüsse, ${ctx.creditor.name}`, 50, y);
+
+  y = appendPayrexxOnlineSection(doc, y, { payrexxUrl, invLabel: ctx.invLabel });
 
   try {
     const bill = new SwissQRBill(ctx.qrBillPayload, {

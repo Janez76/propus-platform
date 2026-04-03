@@ -1428,6 +1428,23 @@ router.get('/invoices', async (req, res) => {
   }
 });
 
+router.get('/invoices-central', async (req, res) => {
+  try {
+    const type = String(req.query.type || 'renewal');
+    const status = String(req.query.status || '');
+    const search = String(req.query.search || '').trim();
+    if (type === 'exxas') {
+      const data = await phase3.getExxasInvoicesCentral(status, search);
+      return res.json(data);
+    }
+    const data = await phase3.getRenewalInvoicesCentral(status, search);
+    return res.json(data);
+  } catch (err) {
+    console.error('[admin-api] GET /invoices-central', err);
+    return res.status(500).json({ error: 'Interner Fehler' });
+  }
+});
+
 router.get('/bank-import', async (req, res) => {
   try {
     const data = await phase3.getBankImportJson();

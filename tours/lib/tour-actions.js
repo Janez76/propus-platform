@@ -7,6 +7,8 @@ const { getMatterportId } = require('./normalize');
 const nodemailer = require('nodemailer');
 const { createDraftMessage, getGraphConfig, sendDraftMessage, sendMailDirect, stripHtml } = require('./microsoft-graph');
 const qrBill = require('./qr-bill');
+const payrexxLib = require('./payrexx');
+const { appendPayrexxOnlineSection } = require('./invoice-pdf-payrexx-hint');
 const { getEmailTemplates, DEFAULT_EMAIL_TEMPLATES } = require('./settings');
 
 function getSmtpTransporter() {
@@ -517,7 +519,13 @@ async function sendArchiveNoticeEmail(tourId, actorType = 'system', actorRef = n
 async function generateInvoicePdfBuffer(invoice, tour) {
   const PDFDocument = require('pdfkit');
   const { SwissQRBill } = require('swissqrbill/pdf');
-  const ctx = qrBill.buildInvoicePaymentContext(invoice, tour);
+  const ctx = await qrBill.buildInvoicePaymentContext(invoice, tour);
+  let payrexxUrl = null;
+  try {
+    payrexxUrl = await payrexxLib.ensureRenewalInvoiceCheckoutUrl(pool, invoice, tour);
+  } catch (e) {
+    console.warn('ensureRenewalInvoiceCheckoutUrl (PDF buffer):', e.message);
+  }
   const amount = Number(invoice.amount_chf || invoice.betrag || 0) || 0;
   const amountStr = Number(amount).toFixed(2);
   const creditor = ctx.creditor;
@@ -616,6 +624,8 @@ async function generateInvoicePdfBuffer(invoice, tour) {
     doc.fontSize(9).fillColor('#666').text(`Vielen Dank für Ihr Vertrauen. Bei Fragen: ${creditor.email}`, 50, y);
     y += 14;
     doc.text(`Freundliche Grüsse, ${creditor.name}`, 50, y);
+
+    y = appendPayrexxOnlineSection(doc, y, { payrexxUrl, invLabel });
 
     try {
       const bill = new SwissQRBill(ctx.qrBillPayload, { language: 'DE', separate: false, scissors: true, fontName: 'Helvetica' });

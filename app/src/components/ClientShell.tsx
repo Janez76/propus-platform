@@ -55,6 +55,9 @@ const BookingWizardPage = lazy(() => import("../pages-legacy/BookingWizardPage")
 const AccountDashboardPage = lazy(() => import("../pages-legacy/AccountDashboardPage").then((m) => ({ default: m.AccountDashboardPage })));
 const CompanyDashboardPage = lazy(() => import("../pages-legacy/CompanyDashboardPage").then((m) => ({ default: m.CompanyDashboardPage })));
 
+// Admin central pages
+const AdminInvoicesPage = lazy(() => import("../pages-legacy/admin/invoices/AdminInvoicesPage").then((m) => ({ default: m.AdminInvoicesPage })));
+
 // Tours Admin pages
 const ToursAdminDashboardPage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminDashboardPage").then((m) => ({ default: m.ToursAdminDashboardPage })));
 const ToursAdminListPage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminListPage").then((m) => ({ default: m.ToursAdminListPage })));
@@ -207,9 +210,11 @@ function PrivateRoutes() {
         <Route path="/bugs" element={guardedElement(adminOnlyRoles, <BugsPage />)} />
         <Route path="/backups" element={guardedElement(adminOnlyRoles, <BackupsPage />)} />
         <Route path="/changelog" element={guardedElement(adminOnlyRoles, <ChangelogPage />)} />
+        {/* Central admin modules */}
+        <Route path="/admin/invoices" element={guardedElement(toursAdminRoles, <AdminInvoicesPage />)} />
         {/* Tours Admin */}
         <Route path="/admin/tours/list" element={guardedElement(toursAdminRoles, <ToursAdminListPage />)} />
-        <Route path="/admin/tours/invoices" element={guardedElement(toursAdminRoles, <ToursAdminInvoicesPage />)} />
+        <Route path="/admin/tours/invoices" element={<Navigate to="/admin/invoices" replace />} />
         <Route path="/admin/tours/bank-import" element={guardedElement(toursAdminRoles, <ToursAdminBankImportPage />)} />
         <Route path="/admin/tours/link-matterport" element={guardedElement(toursAdminRoles, <ToursAdminLinkMatterportPage />)} />
         <Route path="/admin/tours/:id/link-invoice" element={guardedElement(toursAdminRoles, <ToursAdminLinkInvoicePage />)} />

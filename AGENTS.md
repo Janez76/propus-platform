@@ -115,6 +115,46 @@ Jede **Design- oder Funktionsänderung** am Admin-Tour-Panel muss **identisch au
 - **Aktionsprotokoll** (`TourActionLog`)
 - Admin-only Aktionen: Tour löschen, Space übertragen, Ticket, Matterport-Options-Overrides
 
+## Zentrales Rechnungsmodul (seit April 2026)
+
+Verlängerungsrechnungen und Exxas-Rechnungen werden in einem **eigenständigen Admin-Modul** verwaltet — losgelöst vom Tours-Submenü.
+
+### Routing
+
+| URL | Komponente | Hinweis |
+|-----|-----------|---------|
+| `/admin/invoices` | `app/src/pages-legacy/admin/invoices/AdminInvoicesPage.tsx` | Zentrales Modul (neu) |
+| `/admin/tours/invoices` | — | Redirect → `/admin/invoices` (Bookmarks) |
+
+### API-Endpunkte
+
+| Methode | Pfad | Beschreibung |
+|---------|------|-------------|
+| `GET` | `/api/tours/admin/invoices-central?type=renewal\|exxas&status=&search=` | Kombinierte Rechnungsliste (neu) |
+| `GET` | `/api/tours/admin/invoices` | Nur Verlängerungsrechnungen (Legacy, bleibt für Tour-Detail) |
+
+### Backend-Logik
+
+| Funktion | Datei |
+|----------|-------|
+| `getRenewalInvoicesCentral(status, search)` | `tours/lib/admin-phase3.js` |
+| `getExxasInvoicesCentral(status, search)` | `tours/lib/admin-phase3.js` |
+
+### DB
+
+| Was | Wo |
+|-----|----|
+| View (beide Tabellen kombiniert) | `tour_manager.invoices_central_v` |
+| Migration | `core/migrations/026_invoices_central_view.sql` |
+| Verlängerungsrechnungen | `tour_manager.renewal_invoices` |
+| Exxas-Rechnungen | `tour_manager.exxas_invoices` |
+
+### Wichtig
+
+- `TourInvoicesSection.tsx` in Tour-Detail bleibt **unverändert** — zeigt beide Rechnungstypen pro Tour
+- Das zentrale Modul zeigt **alle** Rechnungen systemweit (mit Suche + Status-Filter)
+- Exxas-Status `'bz'` = bezahlt; alle anderen Werte = offen
+
 ## Technologie-Stack
 
 - **Frontend**: React 19, Next.js, TypeScript, Tailwind CSS
