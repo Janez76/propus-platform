@@ -1,0 +1,32 @@
+---
+description: Architektur-Richtlinie — Kein EJS, alles in React
+alwaysApply: true
+---
+
+# Architektur: Einheitliches React-System (Kein EJS)
+
+Die gesamte Plattform wurde im April 2026 von EJS auf React (Next.js SPA) migriert.
+
+## Verboten
+
+- **Keine neuen `.ejs`-Dateien erstellen** — weder im Portal, Admin noch anderswo
+- **Kein `res.render()` für Portal- oder Admin-Seiten** — alle UI wird über React geliefert
+- **Kein serverseitiges HTML-Rendering** für neue Features — alles läuft über die React-SPA
+- **Keine neuen Express-View-Engines** (Pug, Handlebars, etc.)
+
+## Erlaubt (einzige Ausnahmen)
+
+- `tours/views/customer/thank-you-yes.ejs` — triviale Dankeseite, kein Login nötig
+- `tours/views/customer/thank-you-no.ejs` — triviale Dankeseite, kein Login nötig
+- `tours/views/customer/error.ejs` — triviale Fehlerseite, kein Login nötig
+
+## Neue Features korrekt umsetzen
+
+1. React-Komponente in `app/src/` erstellen
+2. Route in `app/src/components/ClientShell.tsx` registrieren
+3. Bei Bedarf JSON-API-Endpunkt in `tours/routes/` erstellen (kein HTML zurückgeben)
+4. Falls nötig: Next.js Rewrite in `app/next.config.ts` für API-Proxy hinzufügen
+
+## CI-Guard
+
+Ein automatischer CI-Check (`scripts/guard-no-ejs.sh`) blockiert Builds, wenn neue EJS-Dateien oder `res.render('portal/…')` / `res.render('admin/…')` erkannt werden.

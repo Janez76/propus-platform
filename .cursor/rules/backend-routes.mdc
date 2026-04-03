@@ -1,0 +1,29 @@
+---
+description: Backend-Routen-Richtlinien für Express-Endpunkte
+globs: tours/routes/**/*.js
+alwaysApply: false
+---
+
+# Backend-Routen: Nur JSON-APIs
+
+## Regeln
+
+- Express-Routen dürfen **kein HTML rendern** (`res.render()` ist verboten für Portal/Admin)
+- Neue Endpunkte geben **JSON** zurück: `res.json({ ok: true, data: ... })`
+- GET-Routen für Portal/Admin-Seiten leiten auf die React-SPA weiter: `res.redirect('/portal/...')`
+- POST-Routen für Formulare nutzen Redirects bei Erfolg/Fehler, nie `res.render()`
+
+## Beispiel: Neuer API-Endpunkt
+
+```javascript
+// ✅ RICHTIG — JSON-API
+router.get('/api/tours/:id/details', requirePortalAuth, async (req, res) => {
+  const data = await getTourDetails(req.params.id);
+  res.json({ ok: true, ...data });
+});
+
+// ❌ FALSCH — EJS-Rendering
+router.get('/tours/:id', requirePortalAuth, async (req, res) => {
+  res.render('portal/tour-detail', { tour });
+});
+```

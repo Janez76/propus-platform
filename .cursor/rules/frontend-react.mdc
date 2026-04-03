@@ -1,0 +1,26 @@
+---
+description: Frontend React/Next.js Konventionen
+globs: app/src/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Frontend: React-Konventionen
+
+## Seitenstruktur
+
+- Neue Seiten: `app/src/pages-legacy/` (funktionale Komponenten)
+- Neue Portal-Seiten: `app/src/pages-legacy/portal/`
+- Gemeinsame Komponenten: `app/src/components/`
+- API-Client: `app/src/api/` (zentrale `portalFetch` / `apiFetch` nutzen)
+
+## Routing
+
+- Alle Routen werden in `app/src/components/ClientShell.tsx` registriert
+- Portal-Routen unter `/portal/...`
+- Admin-Routen unter `/admin/...` oder Hauptpfade (`/dashboard`, `/login`)
+
+## API-Kommunikation
+
+- Portal-API über `portalFetch('/portal/api/...')` (nutzt Session-Cookies)
+- Admin-API über `apiFetch('/api/...')` (nutzt Bearer-Token)
+- API-Typen und Funktionen in `app/src/api/portalTours.ts` bzw. `app/src/api/toursAdmin.ts`

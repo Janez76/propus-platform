@@ -14,9 +14,9 @@ booking/data/
 .tmp*/
 .DS_Store
 Thumbs.db
-.cursor/
+.cursor/mcp.json
+.cursor/prompts/
 .vscode/
-AGENTS.md
 dist/
 .next/
 coverage/
