@@ -311,9 +311,9 @@ const title = seoPage.title;
 		margin: 0.85rem 0 1rem;
 		padding: clamp(1.1rem, 2.5vw, 1.35rem) clamp(1.2rem, 2.8vw, 1.5rem);
 		border-radius: 0.875rem;
-		background: linear-gradient(165deg, rgb(252 252 252), rgb(247 246 244));
-		border: 1px solid rgb(0 0 0 / 0.06);
-		box-shadow: var(--shadow-border), 0 1px 0 rgb(255 255 255 / 0.9) inset;
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		box-shadow: var(--shadow-border);
 	}
 
 	.privacy__card-text {
@@ -329,14 +329,14 @@ const title = seoPage.title;
 	}
 
 	.privacy__card a {
-		color: var(--color-text);
+		color: var(--color-gold-muted);
 		font-weight: 500;
 		text-decoration: underline;
 		text-underline-offset: 0.15em;
 	}
 
 	.privacy__card a:hover {
-		color: var(--color-gold-muted);
+		color: var(--color-gold);
 	}
 
 	.privacy__list {

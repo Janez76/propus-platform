@@ -265,9 +265,9 @@ const websiteHref = site.url.replace(/\/$/, '') || site.url;
 	.impressum__card {
 		padding: clamp(1.25rem, 3vw, 1.65rem) clamp(1.35rem, 3.2vw, 1.85rem);
 		border-radius: 1rem;
-		background: linear-gradient(165deg, rgb(252 252 252), rgb(247 246 244));
-		border: 1px solid rgb(0 0 0 / 0.06);
-		box-shadow: var(--shadow-border), 0 1px 0 rgb(255 255 255 / 0.9) inset;
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		box-shadow: var(--shadow-border);
 	}
 
 	.impressum__card--wide {
@@ -277,7 +277,7 @@ const websiteHref = site.url.replace(/\/$/, '') || site.url;
 	.impressum__card-title {
 		margin: 0 0 1.1rem;
 		padding-bottom: 0.75rem;
-		border-bottom: 1px solid rgb(0 0 0 / 0.07);
+		border-bottom: 1px solid var(--color-border);
 		font-size: 0.6875rem;
 		font-weight: 700;
 		letter-spacing: 0.14em;
