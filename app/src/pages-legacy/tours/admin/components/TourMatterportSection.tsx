@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { ExternalLink, Link2, ArchiveRestore, Trash2, Send, RefreshCw, X, Pencil } from "lucide-react";
+import { ExternalLink, Link2, ArchiveRestore, Trash2, Send, RefreshCw, X } from "lucide-react";
 import { toursAdminPost, deleteToursAdminTour, postUnarchiveMatterportTour, postTransferMatterportSpace, getToursAdminMatterportModel, postToursAdminMatterportOptions } from "../../../../api/toursAdmin";
 import type { MatterportModelMeta, MatterportModelOptions, MatterportSettingOverride, MatterportOptionsPatch } from "../../../../api/toursAdmin";
 import type { ToursAdminTourRow } from "../../../../types/toursAdmin";
@@ -155,18 +155,20 @@ function OverrideToggle({
   );
 }
 
-function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId }: {
+function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId, bookingOrderNo, customerName, onOpenBookingLink }: {
   meta: MatterportModelMeta;
   onRefresh: () => void;
   loading: boolean;
   spaceId: string;
   tourId: string;
+  bookingOrderNo?: number | null;
+  customerName?: string | null;
+  onOpenBookingLink?: () => void;
 }) {
   const stateKey = String(meta.state ?? "").toLowerCase();
   const stateMeta = STATE_META[stateKey];
   const visKey = String(meta.accessVisibility ?? meta.visibility ?? "").toUpperCase();
   const visMeta = VIS_META[visKey];
-  const editUrl = `https://my.matterport.com/models/${spaceId}/space`;
 
   return (
     <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-4 space-y-4">
@@ -174,27 +176,51 @@ function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId }: {
         <h4 className="text-sm font-semibold text-[var(--text-main)] uppercase tracking-wide">
           Matterport Model
         </h4>
-        <div className="flex items-center gap-2">
-          <a
-            href={editUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 text-xs text-[var(--accent)] hover:underline"
-          >
-            <Pencil className="h-3 w-3" />
-            In Matterport bearbeiten
-          </a>
-          <button
-            type="button"
-            onClick={onRefresh}
-            disabled={loading}
-            className="flex items-center gap-1 text-xs text-[var(--text-subtle)] hover:text-[var(--text-main)] disabled:opacity-40"
-          >
-            <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
-            Aktualisieren
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={onRefresh}
+          disabled={loading}
+          className="flex items-center gap-1 text-xs text-[var(--text-subtle)] hover:text-[var(--text-main)] disabled:opacity-40"
+        >
+          <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
+          Aktualisieren
+        </button>
       </div>
+
+      {/* Bestellungs-Verknüpfung */}
+      {bookingOrderNo ? (
+        <div className="flex items-center justify-between gap-2 rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2">
+          <div className="flex items-center gap-2 text-sm text-[var(--text-main)]">
+            <Link2 className="h-3.5 w-3.5 shrink-0 text-[var(--accent)]" />
+            <span>
+              Bestellung <span className="font-medium">#{bookingOrderNo}</span>
+              {customerName ? <span className="text-[var(--text-subtle)]"> · {customerName}</span> : null}
+            </span>
+          </div>
+          {onOpenBookingLink ? (
+            <button
+              type="button"
+              onClick={onOpenBookingLink}
+              className="shrink-0 text-xs text-[var(--accent)] hover:underline"
+            >
+              Verknüpfung ändern
+            </button>
+          ) : null}
+        </div>
+      ) : (
+        onOpenBookingLink ? (
+          <div className="flex items-center justify-between gap-2 rounded-lg border border-dashed border-[var(--border-soft)] px-3 py-2">
+            <span className="text-sm text-[var(--text-subtle)]">Keine Bestellung verknüpft</span>
+            <button
+              type="button"
+              onClick={onOpenBookingLink}
+              className="shrink-0 text-xs text-[var(--accent)] hover:underline"
+            >
+              Verknüpfen
+            </button>
+          </div>
+        ) : null
+      )}
 
       <div className="flex flex-wrap gap-2">
         {stateMeta ? (
@@ -416,7 +442,16 @@ export function TourMatterportSection({ tourId, tour, onSuccess, onOpenBookingLi
                 </button>
               </div>
             ) : meta ? (
-              <MatterportMetaPanel meta={meta} onRefresh={() => void loadMeta()} loading={metaLoading} spaceId={spaceId} tourId={tourId} />
+              <MatterportMetaPanel
+                meta={meta}
+                onRefresh={() => void loadMeta()}
+                loading={metaLoading}
+                spaceId={spaceId}
+                tourId={tourId}
+                bookingOrderNo={tour.booking_order_no as number | null}
+                customerName={tour.canonical_customer_name as string | null}
+                onOpenBookingLink={onOpenBookingLink}
+              />
             ) : null}
           </div>
         ) : null}
@@ -441,16 +476,6 @@ export function TourMatterportSection({ tourId, tour, onSuccess, onOpenBookingLi
               <Link2 className="h-3.5 w-3.5" />
               Space verknüpfen
             </Link>
-          ) : null}
-          {onOpenBookingLink ? (
-            <button
-              type="button"
-              onClick={onOpenBookingLink}
-              className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm font-medium text-[var(--accent)]"
-            >
-              <Link2 className="h-3.5 w-3.5" />
-              Bestellung verknüpfen
-            </button>
           ) : null}
           {spaceId && !isArchived ? (
             <button
