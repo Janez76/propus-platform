@@ -93,12 +93,8 @@ function RaumstrukturPanel({
   panoLocations: MatterportPanoLocation[];
   editUrl: string;
 }) {
-  // Sweeps pro Geschoss gruppieren
+  // Sweeps können ohne floorIndex nicht pro Geschoss zugeordnet werden
   const sweepsByFloor = new Map<number, number>();
-  for (const p of panoLocations) {
-    const fi = p.placement?.floorIndex ?? -1;
-    sweepsByFloor.set(fi, (sweepsByFloor.get(fi) ?? 0) + 1);
-  }
 
   // Labels pro Geschoss gruppieren
   const labelsByFloor = new Map<string | null, MatterportModelLabel[]>();

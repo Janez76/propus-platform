@@ -224,7 +224,6 @@ export interface MatterportPanoLocation {
   id: string;
   label: string;
   position: { x: number; y: number; z: number } | null;
-  placement: { floorIndex: number | null } | null;
 }
 
 export interface MatterportModelMeta {

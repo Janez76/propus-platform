@@ -229,7 +229,6 @@ async function getModel(modelId) {
         id
         label
         position { x y z }
-        placement { floorIndex }
       }
     }
   }`;
