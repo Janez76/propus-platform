@@ -186,6 +186,30 @@ async function toursAdminDelete<T>(path: string): Promise<T> {
   return data as T;
 }
 
+export interface MatterportModelMeta {
+  id: string;
+  name: string | null;
+  state: string | null;
+  visibility: string | null;
+  accessVisibility: string | null;
+  description: string | null;
+  created: string | null;
+  modified: string | null;
+  publication: {
+    address: string | null;
+    summary: string | null;
+    description: string | null;
+    externalUrl: string | null;
+    presentedBy: string | null;
+    published: boolean | null;
+    url: string | null;
+  } | null;
+}
+
+export function getToursAdminMatterportModel(tourId: string) {
+  return toursAdminFetch<{ ok: true; model: MatterportModelMeta }>(`/tours/${tourId}/matterport-model`);
+}
+
 export function postUnarchiveMatterportTour(tourId: string) {
   return toursAdminPost(`/tours/${tourId}/unarchive-matterport`);
 }

@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ExternalLink, Link2, ArchiveRestore, Trash2, Send } from "lucide-react";
-import { toursAdminPost, deleteToursAdminTour, postUnarchiveMatterportTour, postTransferMatterportSpace } from "../../../../api/toursAdmin";
+import { ExternalLink, Link2, ArchiveRestore, Trash2, Send, ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
+import { toursAdminPost, deleteToursAdminTour, postUnarchiveMatterportTour, postTransferMatterportSpace, getToursAdminMatterportModel } from "../../../../api/toursAdmin";
+import type { MatterportModelMeta } from "../../../../api/toursAdmin";
 import type { ToursAdminTourRow } from "../../../../types/toursAdmin";
 
 type Props = {
@@ -10,6 +11,118 @@ type Props = {
   onSuccess: () => void;
   onOpenBookingLink?: () => void;
 };
+
+const STATE_META: Record<string, { label: string; color: string }> = {
+  active:     { label: "Aktiv",         color: "text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-900" },
+  inactive:   { label: "Archiviert",    color: "text-orange-700 bg-orange-50 border-orange-200 dark:text-orange-300 dark:bg-orange-950/40 dark:border-orange-900" },
+  processing: { label: "In Bearbeitung",color: "text-blue-700 bg-blue-50 border-blue-200 dark:text-blue-300 dark:bg-blue-950/40 dark:border-blue-900" },
+  staging:    { label: "Staging",       color: "text-purple-700 bg-purple-50 border-purple-200 dark:text-purple-300 dark:bg-purple-950/40 dark:border-purple-900" },
+  failed:     { label: "Fehler",        color: "text-red-700 bg-red-50 border-red-200 dark:text-red-300 dark:bg-red-950/40 dark:border-red-900" },
+  pending:    { label: "Ausstehend",    color: "text-yellow-700 bg-yellow-50 border-yellow-200 dark:text-yellow-300 dark:bg-yellow-950/40 dark:border-yellow-900" },
+};
+
+const VIS_META: Record<string, { icon: string; label: string }> = {
+  PUBLIC:    { icon: "🌐", label: "Öffentlich" },
+  UNLISTED:  { icon: "🔗", label: "Nur Link" },
+  LINK_ONLY: { icon: "🔗", label: "Nur Link" },
+  PRIVATE:   { icon: "🔒", label: "Privat" },
+  PASSWORD:  { icon: "🔑", label: "Passwort" },
+};
+
+function fmtDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? iso : d.toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+function MetaRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex gap-2">
+      <dt className="w-36 shrink-0 text-[var(--text-subtle)]">{label}</dt>
+      <dd className="text-[var(--text-main)] break-all">{value || "—"}</dd>
+    </div>
+  );
+}
+
+function MatterportMetaPanel({ meta, onRefresh, loading }: { meta: MatterportModelMeta; onRefresh: () => void; loading: boolean }) {
+  const stateKey = String(meta.state ?? "").toLowerCase();
+  const stateMeta = STATE_META[stateKey];
+  const visKey = String(meta.accessVisibility ?? meta.visibility ?? "").toUpperCase();
+  const visMeta = VIS_META[visKey];
+
+  return (
+    <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-4 space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <h4 className="text-xs font-semibold text-[var(--text-main)] uppercase tracking-wide">
+          Matterport Model
+        </h4>
+        <button
+          type="button"
+          onClick={onRefresh}
+          disabled={loading}
+          className="flex items-center gap-1 text-[10px] text-[var(--text-subtle)] hover:text-[var(--text-main)] disabled:opacity-40"
+        >
+          <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
+          Aktualisieren
+        </button>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {stateMeta ? (
+          <span className={`inline-flex items-center rounded-lg border px-2.5 py-0.5 text-xs font-medium ${stateMeta.color}`}>
+            {stateMeta.label}
+          </span>
+        ) : meta.state ? (
+          <span className="inline-flex items-center rounded-lg border border-[var(--border-soft)] px-2.5 py-0.5 text-xs font-medium text-[var(--text-subtle)]">
+            {meta.state}
+          </span>
+        ) : null}
+        {visMeta ? (
+          <span className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-2.5 py-0.5 text-xs font-medium text-[var(--text-main)]">
+            <span>{visMeta.icon}</span>
+            {visMeta.label}
+          </span>
+        ) : null}
+      </div>
+
+      <dl className="grid gap-1.5 text-xs">
+        <MetaRow label="Name" value={meta.name} />
+        <MetaRow label="Erstellt" value={fmtDate(meta.created)} />
+        <MetaRow label="Geändert" value={fmtDate(meta.modified)} />
+        {meta.publication?.address ? (
+          <MetaRow label="Adresse" value={meta.publication.address} />
+        ) : null}
+        {meta.publication?.presentedBy ? (
+          <MetaRow label="Präsentiert von" value={meta.publication.presentedBy} />
+        ) : null}
+        {meta.description ? (
+          <MetaRow label="Beschreibung" value={meta.description} />
+        ) : null}
+        {meta.publication?.summary ? (
+          <MetaRow label="Zusammenfassung" value={meta.publication.summary} />
+        ) : null}
+        {meta.publication?.externalUrl ? (
+          <MetaRow
+            label="Externe URL"
+            value={
+              <a
+                href={meta.publication.externalUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[var(--accent)] underline hover:no-underline break-all"
+              >
+                {meta.publication.externalUrl}
+              </a>
+            }
+          />
+        ) : null}
+        {meta.publication?.published != null ? (
+          <MetaRow label="Veröffentlicht" value={meta.publication.published ? "Ja" : "Nein"} />
+        ) : null}
+      </dl>
+    </div>
+  );
+}
 
 export function TourMatterportSection({ tourId, tour, onSuccess, onOpenBookingLink }: Props) {
   const persistedMpId = String(tour.matterport_space_id ?? "").trim() || null;
@@ -23,6 +136,30 @@ export function TourMatterportSection({ tourId, tour, onSuccess, onOpenBookingLi
 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  // Matterport-Metadaten
+  const [metaOpen, setMetaOpen] = useState(false);
+  const [meta, setMeta] = useState<MatterportModelMeta | null>(null);
+  const [metaLoading, setMetaLoading] = useState(false);
+  const [metaErr, setMetaErr] = useState<string | null>(null);
+
+  async function loadMeta() {
+    setMetaLoading(true);
+    setMetaErr(null);
+    try {
+      const r = await getToursAdminMatterportModel(tourId);
+      setMeta(r.model);
+    } catch (e) {
+      setMetaErr(e instanceof Error ? e.message : "Fehler");
+    } finally {
+      setMetaLoading(false);
+    }
+  }
+
+  function toggleMeta() {
+    if (!metaOpen && !meta && !metaLoading) void loadMeta();
+    setMetaOpen((v) => !v);
+  }
 
   // Transfer-Dialog
   const [transferOpen, setTransferOpen] = useState(false);
@@ -125,6 +262,44 @@ export function TourMatterportSection({ tourId, tour, onSuccess, onOpenBookingLi
             <dd className="text-[var(--text-main)]">{String(tour.matterport_state ?? "—")}</dd>
           </div>
         </dl>
+
+        {/* Matterport-Metadaten (lazy) */}
+        {spaceId ? (
+          <div className="border-t border-[var(--border-soft)] pt-3">
+            <button
+              type="button"
+              onClick={toggleMeta}
+              className="flex w-full items-center justify-between text-xs font-medium text-[var(--text-subtle)] hover:text-[var(--text-main)] transition-colors"
+            >
+              <span>Informationen aus Matterport</span>
+              <span className="flex items-center gap-1">
+                {metaLoading ? <RefreshCw className="h-3 w-3 animate-spin" /> : null}
+                {metaOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+              </span>
+            </button>
+            {metaOpen ? (
+              <div className="mt-3 space-y-2">
+                {metaErr ? (
+                  <div className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-3 py-2 dark:border-red-900 dark:bg-red-950/40">
+                    <p className="text-xs text-red-700 dark:text-red-300">{metaErr}</p>
+                    <button
+                      type="button"
+                      onClick={() => void loadMeta()}
+                      className="ml-2 shrink-0 text-xs text-red-600 underline hover:no-underline dark:text-red-400"
+                    >
+                      Erneut laden
+                    </button>
+                  </div>
+                ) : meta ? (
+                  <MatterportMetaPanel meta={meta} onRefresh={() => void loadMeta()} loading={metaLoading} />
+                ) : metaLoading ? (
+                  <p className="text-xs text-[var(--text-subtle)]">Wird geladen…</p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
         <div className="flex flex-wrap gap-2">
           {mpUrl ? (
             <a

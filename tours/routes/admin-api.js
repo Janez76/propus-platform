@@ -761,6 +761,20 @@ router.post('/tours/:id/archive-matterport', async (req, res) => {
   }
 });
 
+router.get('/tours/:id/matterport-model', async (req, res) => {
+  try {
+    const tour = await loadTourById(req.params.id);
+    if (!tour) return res.status(404).json({ ok: false, error: 'Tour nicht gefunden' });
+    const spaceId = tour.canonical_matterport_space_id || tour.matterport_space_id;
+    if (!spaceId) return res.status(400).json({ ok: false, error: 'Tour hat keine Matterport-Verknüpfung' });
+    const { model, error } = await matterport.getModel(spaceId);
+    if (error) return res.status(400).json({ ok: false, error });
+    return res.json({ ok: true, model });
+  } catch (err) {
+    return res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
 router.post('/tours/:id/unarchive-matterport', async (req, res) => {
   try {
     const tour = await loadTourById(req.params.id);
