@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   getLinkMatterportBookingSearch,
-  getLinkMatterportCustomerDetail,
   getLinkMatterportCustomerSearch,
   getToursAdminLinkMatterport,
   postLinkMatterport,
@@ -198,6 +197,10 @@ export function ToursAdminLinkMatterportPage() {
     contacts: Record<string, unknown>[];
   }>({ companies: [], contacts: [] });
   const [suggestLoading, setSuggestLoading] = useState(false);
+  // Ansprechpartner-Dropdown aus Firma
+  const [contactSearchDraft, setContactSearchDraft] = useState("");
+  const [contactSuggestions, setContactSuggestions] = useState<{ name: string; email: string; tel: string }[]>([]);
+  const [showContactDropdown, setShowContactDropdown] = useState(false);
   const [archiveIt, setArchiveIt] = useState(true);
 
   // Booking search state
@@ -246,6 +249,9 @@ export function ToursAdminLinkMatterportPage() {
     setCustomerContact("");
     setCustomerSearchDraft("");
     setSuggestions({ companies: [], contacts: [] });
+    setContactSearchDraft("");
+    setContactSuggestions([]);
+    setShowContactDropdown(false);
   }
 
   function clearBookingSelection() {
@@ -425,31 +431,11 @@ export function ToursAdminLinkMatterportPage() {
     selectedLabelRef.current = label;
     setCustomerSearchDraft(label);
     setSuggestions({ companies: [], contacts: [] });
-  }
-
-  async function pickContact(hit: Record<string, unknown>) {
-    setCoreCustomerId(String(hit.customerId ?? ""));
-    setCustomerName(String(hit.firmenname ?? ""));
-    setCustomerEmail(String(hit.contactEmail ?? hit.customerEmail ?? ""));
-    setCustomerContact(String(hit.contactName ?? ""));
-    const label =
-      `${String(hit.contactName || "").trim()} · ${String(hit.firmenname || "").trim()}`.trim() ||
-      String(hit.firmenname ?? "");
-    selectedLabelRef.current = label;
-    setCustomerSearchDraft(label);
-    setSuggestions({ companies: [], contacts: [] });
-    const cid = parseInt(String(hit.customerId ?? ""), 10);
-    if (!Number.isFinite(cid) || cid < 1) return;
-    try {
-      const d = await getLinkMatterportCustomerDetail(cid);
-      const cust = d.customer as Record<string, unknown> | null | undefined;
-      if (cust) {
-        setCustomerName(String(cust.firmenname ?? hit.firmenname ?? ""));
-        setCustomerEmail(String(cust.email ?? hit.customerEmail ?? ""));
-      }
-    } catch {
-      /* optional detail, non-critical */
-    }
+    // Kontakte aus dem companies-Objekt für Ansprechpartner-Dropdown laden
+    const cts = Array.isArray(c.contacts) ? (c.contacts as { name: string; email: string; tel: string }[]) : [];
+    setContactSuggestions(cts);
+    setContactSearchDraft("");
+    setShowContactDropdown(false);
   }
 
   async function runBatch(action: "auto" | "refresh-created" | "check-ownership") {
@@ -551,7 +537,7 @@ export function ToursAdminLinkMatterportPage() {
   const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10) || 1);
   const showSuggestPanel =
     debouncedCustomerQ.length >= 2 &&
-    (suggestLoading || suggestions.companies.length > 0 || suggestions.contacts.length > 0);
+    (suggestLoading || suggestions.companies.length > 0);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -774,102 +760,160 @@ export function ToursAdminLinkMatterportPage() {
 
         {/* Tab 0: Bestehender Kunde */}
         {activeTab === 0 && (
-          <div className="relative space-y-1">
-            <label className="block text-xs uppercase tracking-wide text-[var(--text-subtle)]">
-              Kunde suchen (min. 2 Zeichen)
-            </label>
-            <div className="flex flex-wrap gap-2">
-              <input
-                className="flex-1 min-w-[200px] rounded border border-[var(--border-soft)] bg-[var(--surface)] px-2 py-1.5 focus:outline-none focus:border-[var(--propus-gold)]"
-                placeholder="Firma, E-Mail, Kontakt…"
-                value={customerSearchDraft}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setCustomerSearchDraft(v);
-                  if (selectedLabelRef.current != null && v.trim() !== selectedLabelRef.current) {
-                    selectedLabelRef.current = null;
-                    setCoreCustomerId("");
-                  }
-                }}
-                autoComplete="off"
-              />
-              {(coreCustomerId || customerName) && (
-                <button
-                  type="button"
-                  className="text-xs underline text-[var(--text-subtle)] hover:text-[var(--text-main)]"
-                  onClick={clearCustomerSelection}
-                >
-                  Kunde leeren
-                </button>
-              )}
-            </div>
-            {coreCustomerId ? (
-              <p className="text-xs text-[var(--text-subtle)] flex items-center gap-1.5">
-                <span className="rounded bg-green-500/15 text-green-600 dark:text-green-400 px-1.5 py-0.5 text-[10px] font-medium">Kunde verknüpft</span>
-                <span>Kunden-ID</span>
-                <span className="font-mono text-[var(--text-main)]">{coreCustomerId}</span>
-              </p>
-            ) : null}
-            {showSuggestPanel ? (
-              <div className="absolute z-20 mt-1 w-full max-w-lg rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] shadow-lg max-h-64 overflow-y-auto">
-                {suggestLoading ? (
-                  <p className="p-2 text-xs text-[var(--text-subtle)]">Suche…</p>
-                ) : (
-                  <ul className="py-1 text-xs">
-                    {suggestions.companies.map((c, idx) => (
-                      <li key={`c-${String(c.id ?? idx)}`}>
-                        <button
-                          type="button"
-                          className="w-full text-left px-3 py-2 hover:bg-[var(--surface-raised)]"
-                          onClick={() => pickCompany(c)}
-                        >
-                          <span className="font-medium text-[var(--text-main)]">
-                            {String(c.firmenname ?? c.id ?? "—")}
-                          </span>
-                          {c.nummer != null && String(c.nummer).trim() !== "" ? (
-                            <span className="text-[var(--text-subtle)] ml-1">· Nr. {String(c.nummer)}</span>
-                          ) : null}
-                        </button>
-                      </li>
-                    ))}
-                    {suggestions.contacts.map((hit, idx) => (
-                      <li key={`k-${String(hit.contactId ?? idx)}`}>
-                        <button
-                          type="button"
-                          className="w-full text-left px-3 py-2 hover:bg-[var(--surface-raised)]"
-                          onClick={() => void pickContact(hit)}
-                        >
-                          <span className="text-[var(--text-main)]">{String(hit.contactName || "—")}</span>
-                          <span className="text-[var(--text-subtle)]"> · {String(hit.firmenname ?? "—")}</span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
+          <div className="space-y-3">
+            {/* Firmensuche */}
+            <div className="relative space-y-1">
+              <label className="block text-xs uppercase tracking-wide text-[var(--text-subtle)]">
+                Kunde suchen (min. 2 Zeichen)
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <input
+                  className="flex-1 min-w-[200px] rounded border border-[var(--border-soft)] bg-[var(--surface)] px-2 py-1.5 focus:outline-none focus:border-[var(--propus-gold)]"
+                  placeholder="Firma, E-Mail…"
+                  value={customerSearchDraft}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setCustomerSearchDraft(v);
+                    if (selectedLabelRef.current != null && v.trim() !== selectedLabelRef.current) {
+                      selectedLabelRef.current = null;
+                      setCoreCustomerId("");
+                      setContactSuggestions([]);
+                      setContactSearchDraft("");
+                    }
+                  }}
+                  autoComplete="off"
+                />
+                {(coreCustomerId || customerName) && (
+                  <button
+                    type="button"
+                    className="text-xs underline text-[var(--text-subtle)] hover:text-[var(--text-main)]"
+                    onClick={clearCustomerSelection}
+                  >
+                    Kunde leeren
+                  </button>
                 )}
               </div>
-            ) : null}
-
-            <div className="grid gap-2 sm:grid-cols-3 pt-1">
-              <input
-                className="rounded border border-[var(--border-soft)] bg-[var(--surface)] px-2 py-1.5 focus:outline-none focus:border-[var(--propus-gold)]"
-                placeholder="Kundenname (Anzeige)"
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-              />
-              <input
-                type="email"
-                className="rounded border border-[var(--border-soft)] bg-[var(--surface)] px-2 py-1.5 focus:outline-none focus:border-[var(--propus-gold)]"
-                placeholder="E-Mail"
-                value={customerEmail}
-                onChange={(e) => setCustomerEmail(e.target.value)}
-              />
-              <input
-                className="rounded border border-[var(--border-soft)] bg-[var(--surface)] px-2 py-1.5 focus:outline-none focus:border-[var(--propus-gold)]"
-                placeholder="Ansprechpartner"
-                value={customerContact}
-                onChange={(e) => setCustomerContact(e.target.value)}
-              />
+              {coreCustomerId ? (
+                <p className="text-xs text-[var(--text-subtle)] flex items-center gap-1.5">
+                  <span className="rounded bg-green-500/15 text-green-600 dark:text-green-400 px-1.5 py-0.5 text-[10px] font-medium">Kunde verknüpft</span>
+                  <span>Kunden-ID</span>
+                  <span className="font-mono text-[var(--text-main)]">{coreCustomerId}</span>
+                </p>
+              ) : null}
+              {showSuggestPanel ? (
+                <div className="absolute z-20 mt-1 w-full max-w-lg rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] shadow-lg max-h-64 overflow-y-auto">
+                  {suggestLoading ? (
+                    <p className="p-2 text-xs text-[var(--text-subtle)]">Suche…</p>
+                  ) : (
+                    <ul className="py-1 text-xs">
+                      {suggestions.companies.map((c, idx) => (
+                        <li key={`c-${String(c.id ?? idx)}`}>
+                          <button
+                            type="button"
+                            className="w-full text-left px-3 py-2 hover:bg-[var(--surface-raised)]"
+                            onClick={() => pickCompany(c)}
+                          >
+                            <span className="font-medium text-[var(--text-main)]">
+                              {String(c.firmenname ?? c.id ?? "—")}
+                            </span>
+                            {c.nummer != null && String(c.nummer).trim() !== "" ? (
+                              <span className="text-[var(--text-subtle)] ml-1">· Nr. {String(c.nummer)}</span>
+                            ) : null}
+                            {Array.isArray(c.contacts) && (c.contacts as unknown[]).length > 0 ? (
+                              <span className="text-[var(--text-subtle)] ml-1 text-[10px]">
+                                · {(c.contacts as unknown[]).length} Kontakt{(c.contacts as unknown[]).length !== 1 ? "e" : ""}
+                              </span>
+                            ) : null}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ) : null}
             </div>
+
+            {/* Ansprechpartner – erscheint nach Firmen-Auswahl */}
+            {coreCustomerId && (
+              <div className="relative space-y-1">
+                <label className="block text-xs uppercase tracking-wide text-[var(--text-subtle)]">
+                  Ansprechpartner
+                  {contactSuggestions.length > 0 && (
+                    <span className="ml-1 font-normal normal-case text-[var(--text-subtle)]">
+                      ({contactSuggestions.length} verfügbar)
+                    </span>
+                  )}
+                </label>
+                <input
+                  className="w-full rounded border border-[var(--border-soft)] bg-[var(--surface)] px-2 py-1.5 focus:outline-none focus:border-[var(--propus-gold)]"
+                  placeholder={contactSuggestions.length > 0 ? "Mitarbeiter wählen oder tippen…" : "Name des Ansprechpartners"}
+                  value={contactSearchDraft || customerContact}
+                  onFocus={() => { if (contactSuggestions.length > 0) setShowContactDropdown(true); }}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setContactSearchDraft(v);
+                    setCustomerContact(v);
+                    setShowContactDropdown(contactSuggestions.length > 0);
+                  }}
+                  autoComplete="off"
+                />
+                {showContactDropdown && contactSuggestions.length > 0 && (
+                  <div className="absolute z-20 mt-1 w-full max-w-lg rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] shadow-lg max-h-48 overflow-y-auto">
+                    <ul className="py-1 text-xs">
+                      {contactSuggestions
+                        .filter((ct) => {
+                          const q = (contactSearchDraft || "").toLowerCase();
+                          if (!q) return true;
+                          return ct.name.toLowerCase().includes(q) || (ct.email || "").toLowerCase().includes(q);
+                        })
+                        .map((ct, idx) => (
+                          <li key={idx}>
+                            <button
+                              type="button"
+                              className="w-full text-left px-3 py-2 hover:bg-[var(--surface-raised)]"
+                              onClick={() => {
+                                setCustomerContact(ct.name);
+                                setContactSearchDraft(ct.name);
+                                if (ct.email && !customerEmail.trim()) setCustomerEmail(ct.email);
+                                setShowContactDropdown(false);
+                              }}
+                            >
+                              <span className="font-medium text-[var(--text-main)]">{ct.name || "—"}</span>
+                              {ct.email ? <span className="text-[var(--text-subtle)] ml-2">{ct.email}</span> : null}
+                              {ct.tel ? <span className="text-[var(--text-subtle)] ml-2">{ct.tel}</span> : null}
+                            </button>
+                          </li>
+                        ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* E-Mail (immer sichtbar wenn Firma gewählt) */}
+            {coreCustomerId && (
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <label className="block text-xs uppercase tracking-wide text-[var(--text-subtle)]">Kundenname (Anzeige)</label>
+                  <input
+                    className="w-full rounded border border-[var(--border-soft)] bg-[var(--surface)] px-2 py-1.5 focus:outline-none focus:border-[var(--propus-gold)]"
+                    placeholder="Kundenname (Anzeige)"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="block text-xs uppercase tracking-wide text-[var(--text-subtle)]">E-Mail</label>
+                  <input
+                    type="email"
+                    className="w-full rounded border border-[var(--border-soft)] bg-[var(--surface)] px-2 py-1.5 focus:outline-none focus:border-[var(--propus-gold)]"
+                    placeholder="E-Mail"
+                    value={customerEmail}
+                    onChange={(e) => setCustomerEmail(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         )}
 
