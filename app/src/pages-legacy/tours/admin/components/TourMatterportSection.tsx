@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ExternalLink, Link2, ArchiveRestore, Trash2, Send, ChevronDown, ChevronUp, RefreshCw, X, Pencil } from "lucide-react";
-import { toursAdminPost, deleteToursAdminTour, postUnarchiveMatterportTour, postTransferMatterportSpace, getToursAdminMatterportModel } from "../../../../api/toursAdmin";
-import type { MatterportModelMeta, MatterportModelOptions, MatterportModelLabel, MatterportPanoLocation } from "../../../../api/toursAdmin";
+import { toursAdminPost, deleteToursAdminTour, postUnarchiveMatterportTour, postTransferMatterportSpace, getToursAdminMatterportModel, postToursAdminMatterportOptions } from "../../../../api/toursAdmin";
+import type { MatterportModelMeta, MatterportModelOptions, MatterportSettingOverride, MatterportOptionsPatch } from "../../../../api/toursAdmin";
 import type { ToursAdminTourRow } from "../../../../types/toursAdmin";
 
 type Props = {
@@ -61,151 +61,93 @@ const OPTIONS_CONFIG: Array<{
   { key: "roomBoundsEnabled",     label: "Raumgrenzen",                 icon: "📦", overrideKey: "roomBoundsOverride" },
 ];
 
-function OptionBadge({ enabled, override }: { enabled: boolean | null; override: string | null }) {
-  const isOverridden = override != null && String(override).toLowerCase() !== "account_default";
-  if (enabled === true) {
-    return (
-      <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md font-medium ${isOverridden ? "bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800" : "bg-[var(--surface)] text-[var(--text-subtle)] border border-[var(--border-soft)]"}`}>
-        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 inline-block" />
-        An{isOverridden ? " (Override)" : ""}
-      </span>
-    );
-  }
-  if (enabled === false) {
-    return (
-      <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md font-medium ${isOverridden ? "bg-red-50 text-red-600 border border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800" : "bg-[var(--surface)] text-[var(--text-subtle)] border border-[var(--border-soft)]"}`}>
-        <span className="h-1.5 w-1.5 rounded-full bg-red-400 inline-block" />
-        Aus{isOverridden ? " (Override)" : ""}
-      </span>
-    );
-  }
-  return <span className="text-[10px] text-[var(--text-subtle)]">—</span>;
-}
-
-function RaumstrukturPanel({
-  floors,
-  labels,
-  panoLocations,
-  editUrl,
+function OverrideToggle({
+  icon,
+  label,
+  overrideKey,
+  enabled,
+  override,
+  tourId,
+  onSuccess,
 }: {
-  floors: MatterportModelMeta["floors"] & object[];
-  labels: MatterportModelLabel[];
-  panoLocations: MatterportPanoLocation[];
-  editUrl: string;
+  icon: string;
+  label: string;
+  overrideKey: keyof MatterportOptionsPatch;
+  enabled: boolean | null;
+  override: string | null;
+  tourId: string;
+  onSuccess: () => void;
 }) {
-  // Sweeps können ohne floorIndex nicht pro Geschoss zugeordnet werden
-  const sweepsByFloor = new Map<number, number>();
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
-  // Labels pro Geschoss gruppieren
-  const labelsByFloor = new Map<string | null, MatterportModelLabel[]>();
-  for (const l of labels) {
-    const key = l.floor?.id ?? null;
-    if (!labelsByFloor.has(key)) labelsByFloor.set(key, []);
-    labelsByFloor.get(key)!.push(l);
+  const currentOverride = String(override ?? "default").toLowerCase();
+  // Wenn kein Override gesetzt: Konto-Standard anzeigen
+  const isEnabled = currentOverride === "enabled" ? true : currentOverride === "disabled" ? false : enabled;
+
+  async function toggle() {
+    // Zyklus: default → enabled → disabled → default
+    let next: MatterportSettingOverride;
+    if (currentOverride === "enabled") next = "disabled";
+    else if (currentOverride === "disabled") next = "default";
+    else next = "enabled";
+
+    setBusy(true);
+    setErr(null);
+    try {
+      await postToursAdminMatterportOptions(tourId, { [overrideKey]: next });
+      onSuccess();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Fehler");
+    } finally {
+      setBusy(false);
+    }
   }
 
-  const unassignedLabels = labelsByFloor.get(null) ?? [];
-  const unassignedSweeps = sweepsByFloor.get(-1) ?? 0;
+  const isExplicit = currentOverride === "enabled" || currentOverride === "disabled";
 
   return (
-    <div className="border-t border-[var(--border-soft)] pt-3 space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-[10px] font-semibold text-[var(--text-subtle)] uppercase tracking-wide">
-          Raumstruktur
-        </p>
-        <a
-          href={`${editUrl.replace("/space", "")}/details`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-[10px] text-[var(--text-subtle)] hover:text-[var(--accent)] hover:underline"
-        >
-          In Matterport bearbeiten →
-        </a>
-      </div>
-
-      {/* Zusammenfassung */}
-      <div className="flex flex-wrap gap-2">
-        <span className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-2.5 py-1 text-xs text-[var(--text-main)]">
-          🏢 <strong>{floors.length}</strong> Geschoss{floors.length !== 1 ? "e" : ""}
-        </span>
-        <span className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-2.5 py-1 text-xs text-[var(--text-main)]">
-          🏷️ <strong>{labels.length}</strong> Raumbezeichnung{labels.length !== 1 ? "en" : ""}
-        </span>
-        <span className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-2.5 py-1 text-xs text-[var(--text-main)]">
-          📷 <strong>{panoLocations.length}</strong> 360°-Punkte
-        </span>
-      </div>
-
-      {/* Pro Geschoss */}
-      {floors.length > 0 ? (
-        <div className="space-y-2">
-          {floors.map((floor, fi) => {
-            const floorLabels = labelsByFloor.get(floor.id) ?? [];
-            const floorSweeps = sweepsByFloor.get(fi) ?? 0;
-            return (
-              <div key={floor.id} className="rounded-lg border border-[var(--border-soft)] bg-[var(--bg-card)] overflow-hidden">
-                <div className="flex items-center justify-between gap-2 px-3 py-2 bg-[var(--surface)]">
-                  <span className="text-xs font-semibold text-[var(--text-main)]">
-                    🏢 {floor.label ?? `Geschoss ${fi + 1}`}
-                  </span>
-                  <div className="flex gap-2 text-[10px] text-[var(--text-subtle)]">
-                    <span>📷 {floorSweeps} Punkte</span>
-                    <span>🏷️ {floorLabels.length} Räume</span>
-                  </div>
-                </div>
-                {floorLabels.length > 0 ? (
-                  <div className="px-3 py-2 grid gap-1">
-                    {floorLabels.map((lbl) => (
-                      <div key={lbl.id} className="flex items-center justify-between gap-2">
-                        <span className={`text-xs ${lbl.enabled ? "text-[var(--text-main)]" : "text-[var(--text-subtle)] line-through"}`}>
-                          {lbl.label}
-                        </span>
-                        {!lbl.enabled ? (
-                          <span className="text-[10px] text-[var(--text-subtle)] border border-[var(--border-soft)] rounded px-1">ausgeblendet</span>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            );
-          })}
-
-          {/* Nicht zugeordnet */}
-          {(unassignedLabels.length > 0 || unassignedSweeps > 0) ? (
-            <div className="rounded-lg border border-dashed border-[var(--border-soft)] px-3 py-2">
-              <p className="text-[10px] text-[var(--text-subtle)] mb-1">Ohne Geschoss-Zuordnung</p>
-              <div className="flex gap-3 text-[10px] text-[var(--text-subtle)]">
-                {unassignedSweeps > 0 ? <span>📷 {unassignedSweeps} Punkte</span> : null}
-                {unassignedLabels.length > 0 ? <span>🏷️ {unassignedLabels.map(l => l.label).join(", ")}</span> : null}
-              </div>
-            </div>
-          ) : null}
-        </div>
-      ) : labels.length > 0 ? (
-        /* Keine Floors, aber Labels */
-        <div className="rounded-lg border border-[var(--border-soft)] px-3 py-2 grid gap-1">
-          {labels.map((lbl) => (
-            <div key={lbl.id} className="flex items-center justify-between gap-2">
-              <span className={`text-xs ${lbl.enabled ? "text-[var(--text-main)]" : "text-[var(--text-subtle)] line-through"}`}>
-                {lbl.label}
-              </span>
-              {!lbl.enabled ? (
-                <span className="text-[10px] text-[var(--text-subtle)] border border-[var(--border-soft)] rounded px-1">ausgeblendet</span>
-              ) : null}
-            </div>
-          ))}
-        </div>
-      ) : null}
-
-      <p className="text-[10px] text-[var(--text-subtle)]">
-        Raumbezeichnungen und 360°-Punkte sind read-only — Änderungen nur in der Matterport Workshop-UI möglich.
-      </p>
-    </div>
+    <button
+      type="button"
+      disabled={busy}
+      onClick={() => void toggle()}
+      title={err ?? (isExplicit ? `Override: ${currentOverride} — klicken zum Ändern` : "Konto-Standard — klicken zum Überschreiben")}
+      className={[
+        "flex items-center justify-between gap-2 w-full rounded-lg border px-2.5 py-2 text-left transition-colors",
+        busy ? "opacity-50 cursor-wait" : "cursor-pointer hover:border-[var(--accent)]/50",
+        isExplicit && isEnabled
+          ? "border-emerald-200 bg-emerald-50/50 dark:border-emerald-900 dark:bg-emerald-950/20"
+          : isExplicit && !isEnabled
+            ? "border-red-200 bg-red-50/50 dark:border-red-900 dark:bg-red-950/20"
+            : "border-[var(--border-soft)]",
+      ].join(" ")}
+    >
+      <span className="flex items-center gap-1.5 text-xs text-[var(--text-main)] min-w-0">
+        <span>{icon}</span>
+        <span className="truncate">{label}</span>
+      </span>
+      <span className={[
+        "shrink-0 inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md font-medium border",
+        isExplicit && isEnabled
+          ? "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
+          : isExplicit && !isEnabled
+            ? "bg-red-50 text-red-600 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800"
+            : "bg-[var(--surface)] text-[var(--text-subtle)] border-[var(--border-soft)]",
+      ].join(" ")}>
+        <span className={`h-1.5 w-1.5 rounded-full inline-block ${isEnabled ? "bg-emerald-500" : "bg-red-400"}`} />
+        {isExplicit ? (isEnabled ? "An" : "Aus") : "Standard"}
+      </span>
+    </button>
   );
 }
 
-function MatterportMetaPanel({ meta, onRefresh, loading, spaceId }: { meta: MatterportModelMeta; onRefresh: () => void; loading: boolean; spaceId: string }) {
+function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId }: {
+  meta: MatterportModelMeta;
+  onRefresh: () => void;
+  loading: boolean;
+  spaceId: string;
+  tourId: string;
+}) {
   const stateKey = String(meta.state ?? "").toLowerCase();
   const stateMeta = STATE_META[stateKey];
   const visKey = String(meta.accessVisibility ?? meta.visibility ?? "").toUpperCase();
@@ -262,80 +204,45 @@ function MatterportMetaPanel({ meta, onRefresh, loading, spaceId }: { meta: Matt
         <MetaRow label="Name" value={meta.name} />
         <MetaRow label="Erstellt" value={fmtDate(meta.created)} />
         <MetaRow label="Geändert" value={fmtDate(meta.modified)} />
-        {meta.publication?.address ? (
-          <MetaRow label="Adresse" value={meta.publication.address} />
-        ) : null}
-        {meta.publication?.presentedBy ? (
-          <MetaRow label="Präsentiert von" value={meta.publication.presentedBy} />
-        ) : null}
-        {meta.description ? (
-          <MetaRow label="Beschreibung" value={meta.description} />
-        ) : null}
-        {meta.publication?.summary ? (
-          <MetaRow label="Zusammenfassung" value={meta.publication.summary} />
-        ) : null}
+        {meta.publication?.address ? <MetaRow label="Adresse" value={meta.publication.address} /> : null}
+        {meta.publication?.presentedBy ? <MetaRow label="Präsentiert von" value={meta.publication.presentedBy} /> : null}
+        {meta.description ? <MetaRow label="Beschreibung" value={meta.description} /> : null}
+        {meta.publication?.summary ? <MetaRow label="Zusammenfassung" value={meta.publication.summary} /> : null}
         {meta.publication?.externalUrl ? (
-          <MetaRow
-            label="Externe URL"
-            value={
-              <a
-                href={meta.publication.externalUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[var(--accent)] underline hover:no-underline break-all"
-              >
-                {meta.publication.externalUrl}
-              </a>
-            }
-          />
+          <MetaRow label="Externe URL" value={
+            <a href={meta.publication.externalUrl} target="_blank" rel="noopener noreferrer"
+              className="text-[var(--accent)] underline hover:no-underline break-all">
+              {meta.publication.externalUrl}
+            </a>
+          } />
         ) : null}
         {meta.publication?.published != null ? (
           <MetaRow label="Veröffentlicht" value={meta.publication.published ? "Ja" : "Nein"} />
         ) : null}
       </dl>
 
-      {/* Raumstruktur */}
-      {((meta.floors && meta.floors.length > 0) || (meta.labels && meta.labels.length > 0) || (meta.panoLocations && meta.panoLocations.length > 0)) ? (
-        <RaumstrukturPanel
-          floors={meta.floors ?? []}
-          labels={meta.labels ?? []}
-          panoLocations={meta.panoLocations ?? []}
-          editUrl={editUrl}
-        />
-      ) : null}
-
-      {/* Showcase-Einstellungen */}
+      {/* Showcase-Einstellungen — klickbare Toggles via API */}
       {meta.options ? (
         <div className="border-t border-[var(--border-soft)] pt-3 space-y-2">
-          <div className="flex items-center justify-between">
-            <p className="text-[10px] font-semibold text-[var(--text-subtle)] uppercase tracking-wide">
-              Einstellungen anzeigen
-            </p>
-            <a
-              href={editUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[10px] text-[var(--text-subtle)] hover:text-[var(--accent)] hover:underline"
-            >
-              Ändern in Matterport →
-            </a>
-          </div>
+          <p className="text-[10px] font-semibold text-[var(--text-subtle)] uppercase tracking-wide">
+            Einstellungen anzeigen
+          </p>
           <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
             {OPTIONS_CONFIG.map(({ key, label, icon, overrideKey }) => (
-              <div key={key} className="flex items-center justify-between gap-2 rounded-lg border border-[var(--border-soft)] px-2.5 py-1.5">
-                <span className="flex items-center gap-1.5 text-xs text-[var(--text-main)] min-w-0">
-                  <span>{icon}</span>
-                  <span className="truncate">{label}</span>
-                </span>
-                <OptionBadge
-                  enabled={meta.options![key] as boolean | null}
-                  override={meta.options![overrideKey] as string | null}
-                />
-              </div>
+              <OverrideToggle
+                key={key}
+                icon={icon}
+                label={label}
+                overrideKey={overrideKey as keyof MatterportOptionsPatch}
+                enabled={meta.options![key] as boolean | null}
+                override={meta.options![overrideKey] as string | null}
+                tourId={tourId}
+                onSuccess={onRefresh}
+              />
             ))}
           </div>
           <p className="text-[10px] text-[var(--text-subtle)]">
-            Grün = explizit aktiviert (Override). Rot = explizit deaktiviert. Grau = Konto-Standard.
+            Klicken zum Umschalten: <strong>Standard</strong> → <strong>An</strong> → <strong>Aus</strong> → Standard. Änderungen werden direkt an Matterport gesendet.
           </p>
         </div>
       ) : null}
@@ -506,7 +413,7 @@ export function TourMatterportSection({ tourId, tour, onSuccess, onOpenBookingLi
                     </button>
                   </div>
                 ) : meta ? (
-                  <MatterportMetaPanel meta={meta} onRefresh={() => void loadMeta()} loading={metaLoading} spaceId={spaceId} />
+                  <MatterportMetaPanel meta={meta} onRefresh={() => void loadMeta()} loading={metaLoading} spaceId={spaceId} tourId={tourId} />
                 ) : metaLoading ? (
                   <p className="text-xs text-[var(--text-subtle)]">Wird geladen…</p>
                 ) : null}

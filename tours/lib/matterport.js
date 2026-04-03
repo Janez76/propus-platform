@@ -214,22 +214,6 @@ async function getModel(modelId) {
         roomBoundsEnabled
         roomBoundsOverride
       }
-      floors {
-        id
-        label
-      }
-      labels(includeDisabled: true) {
-        id
-        label
-        enabled
-        floor { id label }
-        position { x y z }
-      }
-      panoLocations {
-        id
-        label
-        position { x y z }
-      }
     }
   }`;
   const { data, errors } = await graphRequest(gql, { modelId });
@@ -433,6 +417,44 @@ function deriveTourDisplayLabelFromModel(model, formBezeichnung) {
 }
 
 /**
+ * Setzt Showcase-Einstellungen (Options) eines Models via patchModel.
+ * options: Teilmenge von ModelOptionsPatch (nur geänderte Felder nötig).
+ * Gültige SettingOverride-Werte: 'enabled' | 'disabled' | 'default'
+ */
+async function patchModelOptions(spaceId, options) {
+  if (!(await getAuthHeader())) return { success: false, error: 'Kein Matterport-Token' };
+  if (!spaceId) return { success: false, error: 'Modell-ID fehlt' };
+
+  const mutation = `
+    mutation($id: ID!, $patch: ModelPatch!) {
+      patchModel(id: $id, patch: $patch) {
+        id
+        options {
+          defurnishViewEnabled defurnishViewOverride
+          dollhouseEnabled dollhouseOverride
+          floorplanEnabled floorplanOverride
+          socialSharingEnabled socialSharingOverride
+          vrEnabled vrOverride
+          highlightReelEnabled highlightReelOverride
+          labelsEnabled labelsOverride
+          tourAutoplayEnabled tourAutoplayOverride
+          roomBoundsEnabled roomBoundsOverride
+        }
+      }
+    }`;
+
+  try {
+    const { data, errors } = await graphRequest(mutation, { id: spaceId, patch: { options } });
+    if (data?.patchModel?.id) {
+      return { success: true, options: data.patchModel.options };
+    }
+    return { success: false, error: errors?.[0]?.message || 'Unknown error' };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+/**
  * Überträgt einen Matterport-Space per E-Mail-Einladung an einen anderen Account.
  * Nutzt den REST-Endpunkt POST /api/models/:id/transfer (Model Transfer API).
  * Die Übertragung muss vom Empfänger angenommen werden.
@@ -463,6 +485,7 @@ module.exports = {
   archiveSpace,
   unarchiveSpace,
   transferSpace,
+  patchModelOptions,
   allowsLinkWithoutVerify,
   setVisibility,
   patchModelName,

@@ -250,6 +250,24 @@ export interface MatterportModelMeta {
   panoLocations: MatterportPanoLocation[] | null;
 }
 
+export type MatterportSettingOverride = "enabled" | "disabled" | "default";
+
+export type MatterportOptionsPatch = Partial<{
+  defurnishViewOverride: MatterportSettingOverride;
+  dollhouseOverride: MatterportSettingOverride;
+  floorplanOverride: MatterportSettingOverride;
+  socialSharingOverride: MatterportSettingOverride;
+  vrOverride: MatterportSettingOverride;
+  highlightReelOverride: MatterportSettingOverride;
+  labelsOverride: MatterportSettingOverride;
+  tourAutoplayOverride: MatterportSettingOverride;
+  roomBoundsOverride: MatterportSettingOverride;
+}>;
+
+export function postToursAdminMatterportOptions(tourId: string, patch: MatterportOptionsPatch) {
+  return toursAdminPost(`/tours/${tourId}/matterport-options`, patch as Record<string, unknown>);
+}
+
 export function getToursAdminMatterportModel(tourId: string) {
   return toursAdminFetch<{ ok: true; model: MatterportModelMeta }>(`/tours/${tourId}/matterport-model`);
 }

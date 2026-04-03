@@ -761,6 +761,40 @@ router.post('/tours/:id/archive-matterport', async (req, res) => {
   }
 });
 
+router.post('/tours/:id/matterport-options', async (req, res) => {
+  try {
+    const tour = await loadTourById(req.params.id);
+    if (!tour) return res.status(404).json({ ok: false, error: 'Tour nicht gefunden' });
+    const spaceId = tour.canonical_matterport_space_id || tour.matterport_space_id;
+    if (!spaceId) return res.status(400).json({ ok: false, error: 'Tour hat keine Matterport-Verknüpfung' });
+
+    // Nur erlaubte Override-Felder durchlassen
+    const ALLOWED = [
+      'defurnishViewOverride', 'dollhouseOverride', 'floorplanOverride',
+      'socialSharingOverride', 'vrOverride', 'highlightReelOverride',
+      'labelsOverride', 'tourAutoplayOverride', 'roomBoundsOverride', 'dollhouseLabelsOverride',
+    ];
+    const VALID_VALUES = ['enabled', 'disabled', 'default'];
+    const patch = {};
+    for (const key of ALLOWED) {
+      if (req.body[key] !== undefined) {
+        const val = String(req.body[key]);
+        if (!VALID_VALUES.includes(val)) return res.status(400).json({ ok: false, error: `Ungültiger Wert für ${key}: ${val}` });
+        patch[key] = val;
+      }
+    }
+    if (Object.keys(patch).length === 0) return res.status(400).json({ ok: false, error: 'Keine Felder zum Aktualisieren' });
+
+    const result = await matterport.patchModelOptions(spaceId, patch);
+    if (!result.success) return res.status(400).json({ ok: false, error: result.error });
+
+    await logAction(tour.id, 'admin', adminEmail(req), 'PATCH_MATTERPORT_OPTIONS', { source: 'admin_api', patch });
+    return res.json({ ok: true, options: result.options });
+  } catch (err) {
+    return res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
 router.get('/tours/:id/matterport-model', async (req, res) => {
   try {
     const tour = await loadTourById(req.params.id);
