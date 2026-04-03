@@ -308,6 +308,8 @@ router.get('/tours', async (req, res) => {
       OR LOWER(COALESCE(t.bezeichnung, '')) LIKE $${i}
       OR LOWER(COALESCE(t.exxas_subscription_id::text, t.exxas_abo_id::text, '')) LIKE $${i}
       OR LOWER(COALESCE(t.matterport_space_id, '')) LIKE $${i}
+      OR LOWER(COALESCE(t.tour_url, '')) LIKE $${i}
+      OR CAST(t.id AS text) LIKE $${i}
     )`;
       filterParams.push(needle);
       i += 1;

@@ -1,6 +1,6 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, NavLink, useSearchParams } from "react-router-dom";
-import { AlertCircle, Link2, Search } from "lucide-react";
+import { AlertCircle, ArrowDown, ArrowUp, ChevronsUpDown, Link2, Search } from "lucide-react";
 import { getToursAdminToursList } from "../../../api/toursAdmin";
 import { useQuery } from "../../../hooks/useQuery";
 import { toursAdminToursListQueryKey } from "../../../lib/queryKeys";
@@ -14,10 +14,23 @@ const SORT_OPTIONS = [
   { value: "matterport_created", label: "Matterport erstellt" },
 ] as const;
 
+type ListSortKey = (typeof SORT_OPTIONS)[number]["value"];
+
+
 function formatDate(value: unknown) {
   if (value == null || value === "") return "—";
   const d = new Date(String(value));
   return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+function sortHeaderIcon(sort: string, order: "asc" | "desc", col: ListSortKey) {
+  const active = sort === col;
+  if (!active) return <ChevronsUpDown className="ml-1 h-3.5 w-3.5 opacity-40 shrink-0" aria-hidden />;
+  return order === "asc" ? (
+    <ArrowUp className="ml-1 h-3.5 w-3.5 text-[var(--accent)] shrink-0" aria-hidden />
+  ) : (
+    <ArrowDown className="ml-1 h-3.5 w-3.5 text-[var(--accent)] shrink-0" aria-hidden />
+  );
 }
 
 function tourTitle(t: ToursAdminTourRow) {
@@ -94,6 +107,78 @@ export function ToursAdminListPage() {
   const sort = searchParams.get("sort") || "ablaufdatum";
   const order = searchParams.get("order") === "desc" ? "desc" : "asc";
 
+  const [searchDraft, setSearchDraft] = useState(q);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setSearchDraft(q);
+  }, [q]);
+
+  const applySearchToUrlNow = useCallback(
+    (value: string) => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+        searchDebounceRef.current = null;
+      }
+      const trimmed = value.trim();
+      setSearchParams(
+        (prev) => {
+          const urlQ = (prev.get("q") || "").trim();
+          if (trimmed === urlQ) return prev;
+          const n = new URLSearchParams(prev);
+          if (!trimmed) n.delete("q");
+          else n.set("q", trimmed);
+          n.delete("page");
+          return n;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
+  useEffect(() => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      searchDebounceRef.current = null;
+      const trimmed = searchDraft.trim();
+      setSearchParams(
+        (prev) => {
+          const urlQ = (prev.get("q") || "").trim();
+          if (trimmed === urlQ) return prev;
+          const n = new URLSearchParams(prev);
+          if (!trimmed) n.delete("q");
+          else n.set("q", trimmed);
+          n.delete("page");
+          return n;
+        },
+        { replace: true },
+      );
+    }, 400);
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, [searchDraft, setSearchParams]);
+
+  function setSortFromTableHeader(col: ListSortKey) {
+    setSearchParams(
+      (prev) => {
+        const n = new URLSearchParams(prev);
+        const cur = n.get("sort") || "ablaufdatum";
+        const curOrder = n.get("order") === "desc" ? "desc" : "asc";
+        if (cur === col) {
+          n.set("order", curOrder === "asc" ? "desc" : "asc");
+        } else {
+          n.set("sort", col);
+          n.set("order", "asc");
+        }
+        n.delete("page");
+        return n;
+      },
+      { replace: true },
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -129,15 +214,18 @@ export function ToursAdminListPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--text-subtle)]" />
             <input
               type="search"
-              defaultValue={q}
-              key={q}
-              placeholder="Suche Kunde, E-Mail, Objekt, Matterport-ID …"
-              className="w-full pl-9 pr-3 py-2 rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] text-sm text-[var(--text-main)]"
+              value={searchDraft}
+              onChange={(e) => setSearchDraft(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
-                  setParam("q", (e.target as HTMLInputElement).value.trim() || null);
+                  e.preventDefault();
+                  applySearchToUrlNow(searchDraft);
                 }
               }}
+              onBlur={() => applySearchToUrlNow(searchDraft)}
+              placeholder="Suche Kunde, E-Mail, Objekt, Tour-ID, Matterport-ID …"
+              className="w-full pl-9 pr-3 py-2 rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] text-sm text-[var(--text-main)]"
+              aria-label="Touren durchsuchen"
             />
           </div>
           <select
@@ -235,10 +323,40 @@ export function ToursAdminListPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[var(--border-soft)] text-left text-[var(--text-subtle)]">
-                  <th className="px-4 py-3 font-medium">Objekt / Kunde</th>
-                  <th className="px-4 py-3 font-medium hidden md:table-cell">Status</th>
+                  <th className="px-4 py-3 font-medium">
+                    <button
+                      type="button"
+                      onClick={() => setSortFromTableHeader("customer")}
+                      className="inline-flex items-center gap-0.5 rounded-md -mx-1 px-1 py-0.5 text-left hover:text-[var(--text-main)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
+                      aria-sort={sort === "customer" ? (order === "asc" ? "ascending" : "descending") : "none"}
+                    >
+                      <span>Objekt / Kunde</span>
+                      {sortHeaderIcon(sort, order, "customer")}
+                    </button>
+                  </th>
+                  <th className="px-4 py-3 font-medium hidden md:table-cell">
+                    <button
+                      type="button"
+                      onClick={() => setSortFromTableHeader("status")}
+                      className="inline-flex items-center gap-0.5 rounded-md -mx-1 px-1 py-0.5 text-left hover:text-[var(--text-main)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
+                      aria-sort={sort === "status" ? (order === "asc" ? "ascending" : "descending") : "none"}
+                    >
+                      <span>Status</span>
+                      {sortHeaderIcon(sort, order, "status")}
+                    </button>
+                  </th>
                   <th className="px-4 py-3 font-medium hidden lg:table-cell">Rechnung</th>
-                  <th className="px-4 py-3 font-medium hidden sm:table-cell">Ablauf</th>
+                  <th className="px-4 py-3 font-medium hidden sm:table-cell">
+                    <button
+                      type="button"
+                      onClick={() => setSortFromTableHeader("ablaufdatum")}
+                      className="inline-flex items-center gap-0.5 rounded-md -mx-1 px-1 py-0.5 text-left hover:text-[var(--text-main)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
+                      aria-sort={sort === "ablaufdatum" ? (order === "asc" ? "ascending" : "descending") : "none"}
+                    >
+                      <span>Ablauf</span>
+                      {sortHeaderIcon(sort, order, "ablaufdatum")}
+                    </button>
+                  </th>
                   <th className="px-4 py-3 font-medium text-right">Aktion</th>
                 </tr>
               </thead>
