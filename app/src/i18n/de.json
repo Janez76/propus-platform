@@ -1132,6 +1132,7 @@
   "sidebar.nav.calendarIcs": "Kalender / ICS",
   "sidebar.nav.exxas": "EXXAS Integration",
   "sidebar.nav.userManagement": "Interne Verwaltung",
+  "sidebar.nav.roleMatrix": "Rollen & Rechte",
   "sidebar.nav.companies": "Firmenverwaltung",
   "sidebar.nav.access": "Rechte & Rollen",
   "sidebar.button.collapse": "Minimieren",

@@ -1100,6 +1100,7 @@
   "sidebar.nav.calendarIcs": "Calendario / ICS",
   "sidebar.nav.exxas": "Integrazione EXXAS",
   "sidebar.nav.userManagement": "Gestione utenti",
+  "sidebar.nav.roleMatrix": "Ruoli & Permessi",
   "sidebar.nav.companies": "Gestione aziende",
   "sidebar.nav.access": "Diritti e ruoli",
   "sidebar.button.collapse": "Riduci",

@@ -91,6 +91,7 @@ const kundenNavigationItems: SidebarNavItem[] = [
 
 const settingsSubItems = [
   { path: "/settings/users", icon: UserCog, labelKey: "sidebar.nav.userManagement" },
+  { path: "/settings/roles", icon: Shield, labelKey: "sidebar.nav.roleMatrix" },
   { path: "/settings/workflow", icon: GitBranch, labelKey: "sidebar.nav.workflow" },
   { path: "/settings/team", icon: UserCircle, labelKey: "nav.employees" },
   { path: "/settings/email-templates", icon: Mail, labelKey: "sidebar.nav.emailTemplates" },

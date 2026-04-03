@@ -1132,6 +1132,7 @@
   "sidebar.nav.calendarIcs": "Calendar / ICS",
   "sidebar.nav.exxas": "EXXAS Integration",
   "sidebar.nav.userManagement": "User management",
+  "sidebar.nav.roleMatrix": "Roles & Permissions",
   "sidebar.nav.companies": "Company management",
   "sidebar.nav.access": "Access & Roles",
   "sidebar.button.collapse": "Collapse",

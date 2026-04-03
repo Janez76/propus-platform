@@ -46,6 +46,7 @@ const ExxasReconcilePage = lazy(() => import("../pages-legacy/ExxasReconcilePage
 const AdminUsersPage = lazy(() => import("../pages-legacy/AdminUsersPage").then((m) => ({ default: m.AdminUsersPage })));
 const CompanyManagementPage = lazy(() => import("../pages-legacy/CompanyManagementPage").then((m) => ({ default: m.CompanyManagementPage })));
 const RolesPage = lazy(() => import("../pages-legacy/RolesPage").then((m) => ({ default: m.RolesPage })));
+const RoleMatrixPage = lazy(() => import("../pages-legacy/RoleMatrixPage").then((m) => ({ default: m.RoleMatrixPage })));
 const PortalFirmaPage = lazy(() => import("../pages-legacy/PortalFirmaPage").then((m) => ({ default: m.PortalFirmaPage })));
 const PortalBestellungenPage = lazy(() => import("../pages-legacy/PortalBestellungenPage").then((m) => ({ default: m.PortalBestellungenPage })));
 const BookingWizardPage = lazy(() => import("../pages-legacy/BookingWizardPage").then((m) => ({ default: m.BookingWizardPage })));
@@ -176,6 +177,7 @@ function PrivateRoutes() {
         <Route path="/portal/bestellungen" element={guardedElement(["company_employee"], <PortalBestellungenPage />)} />
         <Route path="/settings/users" element={guardedElement(adminOnlyRoles, <AdminUsersPage />)} />
         <Route path="/settings/companies" element={guardedElement(adminOnlyRoles, <CompanyManagementPage />)} />
+        <Route path="/settings/roles" element={guardedElement(adminOnlyRoles, <RoleMatrixPage />)} />
         <Route path="/admin/users" element={guardedElement(adminOnlyRoles, <AdminUsersPage />)} />
         <Route path="/admin/roles" element={guardedElement(adminOnlyRoles, <RolesPage />)} />
         <Route path="/company" element={<Navigate to={companyHome} replace />} />

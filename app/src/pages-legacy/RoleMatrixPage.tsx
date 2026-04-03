@@ -1,0 +1,578 @@
+import { useState } from "react";
+import { Check, Info, Lock, Shield, Users, Building2, User, Camera } from "lucide-react";
+import { cn } from "../lib/utils";
+import { useAuthStore } from "../store/authStore";
+
+// ─── Datenstruktur ────────────────────────────────────────────────────────────
+
+type RoleKey =
+  | "super_admin"
+  | "internal_admin"
+  | "tour_manager"
+  | "photographer"
+  | "company_owner"
+  | "company_admin"
+  | "company_employee"
+  | "customer_admin"
+  | "customer_user";
+
+type PermKey = string;
+
+interface RoleDef {
+  key: RoleKey;
+  label: string;
+  description: string;
+  group: "intern" | "fotograf" | "portal";
+  color: string;        // Tailwind / CSS-Variable Token
+  headerBg: string;
+  fixed?: boolean;      // true = immer alle Rechte, Checkboxen gesperrt
+}
+
+interface PermDef {
+  key: PermKey;
+  label: string;
+  description: string;
+  section: string;
+}
+
+// ─── Rollendefinitionen ───────────────────────────────────────────────────────
+
+const ROLES: RoleDef[] = [
+  // ─ Intern ──────────────────────────────────────────────────────────────────
+  {
+    key: "super_admin",
+    label: "Super-Admin",
+    description: "Voller Zugriff auf alles, inkl. Systemkonfiguration und Rollenverwaltung.",
+    group: "intern",
+    color: "text-amber-400",
+    headerBg: "bg-amber-500/10 border-amber-500/20",
+    fixed: true,
+  },
+  {
+    key: "internal_admin",
+    label: "Admin",
+    description: "Interner Admin mit nahezu vollem Zugriff. Verwaltet Aufträge, Kunden, Fotografen.",
+    group: "intern",
+    color: "text-amber-300",
+    headerBg: "bg-amber-400/10 border-amber-400/20",
+    fixed: true,
+  },
+  {
+    key: "tour_manager",
+    label: "Tour-Manager",
+    description: "Verwaltet Matterport-Touren firmenübergreifend. Kein Zugriff auf Aufträge/Kunden.",
+    group: "intern",
+    color: "text-sky-400",
+    headerBg: "bg-sky-500/10 border-sky-500/20",
+  },
+  // ─ Fotografen ──────────────────────────────────────────────────────────────
+  {
+    key: "photographer",
+    label: "Fotograf",
+    description: "Sieht eigene Aufträge und Kalender. Kann Aufträge aktualisieren und zuweisen.",
+    group: "fotograf",
+    color: "text-violet-400",
+    headerBg: "bg-violet-500/10 border-violet-500/20",
+  },
+  // ─ Kunden-Portal ───────────────────────────────────────────────────────────
+  {
+    key: "company_owner",
+    label: "Firmen-Hauptkontakt",
+    description: "Vollzugriff auf den Firmen-Workspace, inklusive Mitglieder einladen/entfernen.",
+    group: "portal",
+    color: "text-emerald-400",
+    headerBg: "bg-emerald-500/10 border-emerald-500/20",
+  },
+  {
+    key: "company_admin",
+    label: "Firmen-Admin",
+    description: "Verwaltet die Firma und erstellt Bestellungen. Kann Team verwalten.",
+    group: "portal",
+    color: "text-emerald-300",
+    headerBg: "bg-emerald-400/10 border-emerald-400/20",
+  },
+  {
+    key: "company_employee",
+    label: "Firmen-Mitarbeiter",
+    description: "Kann eigene Bestellungen lesen und erstellen, Kalender einsehen.",
+    group: "portal",
+    color: "text-teal-400",
+    headerBg: "bg-teal-500/10 border-teal-500/20",
+  },
+  {
+    key: "customer_admin",
+    label: "Kunden-Admin",
+    description: "Kunden-Portal erweitert: Bestellungen erstellen, Kontaktpersonen verwalten.",
+    group: "portal",
+    color: "text-blue-400",
+    headerBg: "bg-blue-500/10 border-blue-500/20",
+  },
+  {
+    key: "customer_user",
+    label: "Kunden-Benutzer",
+    description: "Minimaler Zugriff: Nur eigene Bestellungen lesen.",
+    group: "portal",
+    color: "text-blue-300",
+    headerBg: "bg-blue-400/10 border-blue-400/20",
+  },
+];
+
+// ─── Berechtigungs-Definitionen ───────────────────────────────────────────────
+
+const PERMISSIONS: PermDef[] = [
+  // Dashboard
+  { key: "dashboard.view",           label: "Dashboard anzeigen",                section: "Dashboard",              description: "Zugriff auf das Haupt-Dashboard mit Statistiken." },
+  // Touren
+  { key: "tours.read",               label: "Touren ansehen",                    section: "Touren",                 description: "Matterport-Touren und deren Details einsehen." },
+  { key: "tours.manage",             label: "Touren verwalten",                  section: "Touren",                 description: "Touren erstellen, bearbeiten, Status ändern." },
+  { key: "tours.assign",             label: "Touren zuweisen",                   section: "Touren",                 description: "Touren einem Fotografen oder Kunden zuweisen." },
+  { key: "tours.cross_company",      label: "Touren (firmenübergreifend)",       section: "Touren",                 description: "Touren über Firmengrenzen hinweg einsehen und verwalten." },
+  { key: "tours.archive",            label: "Touren archivieren",                section: "Touren",                 description: "Abgeschlossene Touren archivieren." },
+  { key: "tours.link_matterport",    label: "Matterport verknüpfen",             section: "Touren",                 description: "Matterport-Spaces mit Touren verknüpfen und Space-IDs setzen." },
+  { key: "portal_team.manage",       label: "Portal-Team verwalten",             section: "Touren",                 description: "Team-Mitglieder im Kunden-Portal-Workspace hinzufügen/entfernen." },
+  // Aufträge
+  { key: "orders.read",              label: "Aufträge ansehen",                  section: "Aufträge",               description: "Bestellungen und Aufträge einsehen." },
+  { key: "orders.create",            label: "Auftrag erstellen",                 section: "Aufträge",               description: "Neue Bestellungen anlegen." },
+  { key: "orders.update",            label: "Auftrag bearbeiten",                section: "Aufträge",               description: "Bestehende Aufträge bearbeiten (Status, Daten)." },
+  { key: "orders.delete",            label: "Auftrag löschen",                   section: "Aufträge",               description: "Aufträge unwiderruflich löschen." },
+  { key: "orders.assign",            label: "Auftrag zuweisen",                  section: "Aufträge",               description: "Fotografen einem Auftrag zuweisen oder austauschen." },
+  { key: "orders.export",            label: "Aufträge exportieren",              section: "Aufträge",               description: "Auftragslisten als CSV/Excel exportieren." },
+  // Kunden & Kontakte
+  { key: "customers.read",           label: "Kunden ansehen",                    section: "Kunden & Kontakte",      description: "Kundenstammdaten einsehen." },
+  { key: "customers.manage",         label: "Kunden verwalten",                  section: "Kunden & Kontakte",      description: "Kunden anlegen, bearbeiten, sperren/entsperren." },
+  { key: "contacts.read",            label: "Kontakte ansehen",                  section: "Kunden & Kontakte",      description: "Kontaktpersonen eines Kunden einsehen." },
+  { key: "contacts.manage",          label: "Kontakte verwalten",                section: "Kunden & Kontakte",      description: "Kontaktpersonen anlegen, bearbeiten und löschen." },
+  // Firmen & Team
+  { key: "company.manage",           label: "Firma verwalten",                   section: "Firmen & Team",          description: "Firmendaten im Kunden-Portal-Workspace bearbeiten." },
+  { key: "team.manage",              label: "Team verwalten",                    section: "Firmen & Team",          description: "Firmen-Mitglieder einladen und verwalten." },
+  // Fotografen
+  { key: "photographers.read",       label: "Fotografen ansehen",               section: "Fotografen",             description: "Fotografenprofile und Verfügbarkeiten einsehen." },
+  { key: "photographers.manage",     label: "Fotografen verwalten",             section: "Fotografen",             description: "Fotografen anlegen, bearbeiten, Verfügbarkeiten setzen." },
+  // Produkte & Preise
+  { key: "products.manage",          label: "Produkte verwalten",               section: "Produkte & Preise",      description: "Produkte, Pakete und Leistungen anlegen und bearbeiten." },
+  { key: "discount_codes.manage",    label: "Gutscheine verwalten",             section: "Produkte & Preise",      description: "Rabatt- und Gutscheincodes erstellen und verwalten." },
+  // Kalender
+  { key: "calendar.view",            label: "Kalender ansehen",                 section: "Kalender",               description: "Terminkalender und geplante Aufträge einsehen." },
+  { key: "calendar.manage",          label: "Kalender bearbeiten",              section: "Kalender",               description: "Termine erstellen, verschieben und löschen." },
+  // Einstellungen & System
+  { key: "settings.manage",          label: "Einstellungen verwalten",          section: "Einstellungen & System", description: "Systemkonfiguration, Workflow und allgemeine Einstellungen." },
+  { key: "emails.manage",            label: "E-Mail-Templates verwalten",       section: "Einstellungen & System", description: "E-Mail-Vorlagen erstellen und bearbeiten." },
+  { key: "billing.read",             label: "Abrechnung einsehen",              section: "Einstellungen & System", description: "Rechnungen und Abrechnungsdaten einsehen." },
+  { key: "backups.manage",           label: "Backups verwalten",                section: "Einstellungen & System", description: "Datenbank-Backups erstellen und herunterladen." },
+  { key: "bugs.read",                label: "Fehlerberichte ansehen",           section: "Einstellungen & System", description: "Fehlerberichte und Bug-Tickets einsehen." },
+  { key: "bugs.manage",              label: "Fehlerberichte verwalten",         section: "Einstellungen & System", description: "Fehlerberichte bearbeiten, schliessen und löschen." },
+  { key: "reviews.manage",           label: "Bewertungen verwalten",            section: "Einstellungen & System", description: "Kundenbewertungen einsehen und moderieren." },
+  { key: "roles.manage",             label: "Rollen verwalten",                 section: "Einstellungen & System", description: "Systemrollen und Berechtigungen bearbeiten. Nur Super-Admin." },
+  { key: "users.manage",             label: "Benutzer verwalten",               section: "Einstellungen & System", description: "Admin-Benutzer anlegen, sperren und löschen." },
+];
+
+// ─── Preset-Zuordnungen (Spiegelbild von access-rbac.js) ─────────────────────
+
+const ALL_PERM_KEYS = PERMISSIONS.map((p) => p.key);
+
+const ROLE_PRESETS: Record<RoleKey, Set<PermKey>> = {
+  super_admin:      new Set(ALL_PERM_KEYS),
+  internal_admin:   new Set(ALL_PERM_KEYS),
+  tour_manager:     new Set([
+    "tours.read", "tours.manage", "tours.assign", "tours.cross_company",
+    "tours.archive", "tours.link_matterport", "portal_team.manage",
+  ]),
+  photographer: new Set([
+    "dashboard.view", "orders.read", "orders.update", "orders.assign",
+    "calendar.view", "photographers.read",
+  ]),
+  company_owner: new Set([
+    "customers.read", "orders.read", "orders.update", "orders.create",
+    "company.manage", "team.manage", "calendar.view",
+  ]),
+  company_admin: new Set([
+    "customers.read", "orders.read", "orders.update", "orders.create",
+    "company.manage", "team.manage", "calendar.view",
+  ]),
+  company_employee: new Set([
+    "customers.read", "orders.read", "orders.create",
+    "calendar.view", "calendar.manage",
+  ]),
+  customer_admin: new Set([
+    "customers.read", "contacts.read", "contacts.manage",
+    "orders.read", "orders.update", "orders.create",
+  ]),
+  customer_user: new Set(["orders.read"]),
+};
+
+// ─── Hilfsfunktionen ──────────────────────────────────────────────────────────
+
+function getSections(): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const p of PERMISSIONS) {
+    if (!seen.has(p.section)) { seen.add(p.section); out.push(p.section); }
+  }
+  return out;
+}
+
+function countPerms(roleKey: RoleKey): number {
+  return ROLE_PRESETS[roleKey].size;
+}
+
+// ─── Gruppen-Render-Helfer ────────────────────────────────────────────────────
+
+const GROUP_META = {
+  intern:   { label: "Intern",        Icon: Shield,    border: "border-amber-500/30", bg: "bg-amber-500/5"  },
+  fotograf: { label: "Fotograf",      Icon: Camera,    border: "border-violet-500/30", bg: "bg-violet-500/5" },
+  portal:   { label: "Kunden-Portal", Icon: Building2, border: "border-emerald-500/30", bg: "bg-emerald-500/5" },
+};
+
+// ─── Tooltip ─────────────────────────────────────────────────────────────────
+
+function Tooltip({ text, children }: { text: string; children: React.ReactNode }) {
+  return (
+    <span className="group relative inline-flex">
+      {children}
+      <span className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-2.5 py-1.5 text-xs text-[var(--text-main)] opacity-0 shadow-lg transition-opacity group-hover:opacity-100 max-w-xs whitespace-normal text-center leading-snug">
+        {text}
+      </span>
+    </span>
+  );
+}
+
+// ─── Checkbox-Zelle ───────────────────────────────────────────────────────────
+
+function MatrixCell({
+  has,
+  fixed,
+  roleColor,
+  permDesc,
+}: {
+  has: boolean;
+  fixed?: boolean;
+  roleColor: string;
+  permDesc: string;
+}) {
+  return (
+    <td className="border-b border-[var(--border-soft)] px-0 py-0 text-center align-middle">
+      <Tooltip text={permDesc}>
+        <span className="flex h-full w-full items-center justify-center py-3">
+          {has ? (
+            <span
+              className={cn(
+                "flex h-5 w-5 items-center justify-center rounded-md border transition-all",
+                fixed
+                  ? cn("border-amber-500/40 bg-amber-500/15", roleColor)
+                  : cn("border-current/30 bg-current/10", roleColor),
+              )}
+            >
+              <Check className="h-3 w-3" strokeWidth={2.5} />
+            </span>
+          ) : (
+            <span className="flex h-5 w-5 items-center justify-center rounded-md border border-[var(--border-soft)] bg-transparent opacity-25">
+              {fixed && <Lock className="h-2.5 w-2.5 text-[var(--text-subtle)]" />}
+            </span>
+          )}
+        </span>
+      </Tooltip>
+    </td>
+  );
+}
+
+// ─── Haupt-Komponente ─────────────────────────────────────────────────────────
+
+export function RoleMatrixPage() {
+  const role = useAuthStore((s) => s.role);
+  const isSuperAdmin = role === "super_admin" || role === "admin";
+
+  const [hoveredPerm, setHoveredPerm] = useState<string | null>(null);
+  const [hoveredRole, setHoveredRole] = useState<RoleKey | null>(null);
+  const [filterGroup, setFilterGroup] = useState<"all" | "intern" | "fotograf" | "portal">("all");
+
+  const sections = getSections();
+  const visibleRoles = filterGroup === "all" ? ROLES : ROLES.filter((r) => r.group === filterGroup);
+
+  return (
+    <div className="min-h-screen bg-[var(--bg)] px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1600px]">
+
+        {/* ─── Header ─────────────────────────────────────────────────────── */}
+        <div className="mb-8">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-semibold text-[var(--text-main)]">Rollen & Berechtigungen</h1>
+              <p className="mt-1 text-sm text-[var(--text-subtle)]">
+                Übersicht aller Systemrollen und deren Zugriffsrechte. Änderungen gelten sofort für alle Benutzer dieser Rolle.
+              </p>
+            </div>
+            {isSuperAdmin && (
+              <div className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/8 px-4 py-2.5 text-sm text-amber-400">
+                <Shield className="h-4 w-4 shrink-0" />
+                <span>Nur Super-Admins können Rollen-Presets anpassen (über <code className="rounded bg-amber-500/15 px-1 text-xs">access-rbac.js</code>)</span>
+              </div>
+            )}
+          </div>
+
+          {/* Gruppen-Filter */}
+          <div className="mt-5 flex flex-wrap gap-2">
+            {(["all", "intern", "fotograf", "portal"] as const).map((g) => (
+              <button
+                key={g}
+                type="button"
+                onClick={() => setFilterGroup(g)}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-lg border px-3.5 py-1.5 text-sm font-medium transition-colors",
+                  filterGroup === g
+                    ? "border-[var(--accent)]/40 bg-[var(--accent)]/12 text-[var(--accent)]"
+                    : "border-[var(--border-soft)] text-[var(--text-muted)] hover:border-[var(--border-strong)] hover:text-[var(--text-main)]",
+                )}
+              >
+                {g === "all" && <><Users className="h-3.5 w-3.5" /> Alle Rollen ({ROLES.length})</>}
+                {g === "intern" && <><Shield className="h-3.5 w-3.5" /> Intern</>}
+                {g === "fotograf" && <><Camera className="h-3.5 w-3.5" /> Fotografen</>}
+                {g === "portal" && <><Building2 className="h-3.5 w-3.5" /> Kunden-Portal</>}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* ─── Rollen-Karten oben ──────────────────────────────────────────── */}
+        <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+          {visibleRoles.map((r) => {
+            const count = countPerms(r.key);
+            const total = ALL_PERM_KEYS.length;
+            const pct = Math.round((count / total) * 100);
+            const { label: groupLabel, Icon: GroupIcon } = GROUP_META[r.group];
+            return (
+              <div
+                key={r.key}
+                className={cn(
+                  "cursor-pointer rounded-xl border p-4 transition-all",
+                  r.headerBg,
+                  hoveredRole === r.key
+                    ? "shadow-lg scale-[1.02]"
+                    : "hover:shadow-md hover:scale-[1.01]",
+                )}
+                onMouseEnter={() => setHoveredRole(r.key)}
+                onMouseLeave={() => setHoveredRole(null)}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <span className={cn("text-sm font-semibold", r.color)}>{r.label}</span>
+                  <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-bold tabular-nums", r.headerBg, r.color)}>
+                    {count}/{total}
+                  </span>
+                </div>
+                <p className="mt-1.5 text-[11px] leading-snug text-[var(--text-subtle)]">{r.description}</p>
+                <div className="mt-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="flex items-center gap-1 text-[10px] text-[var(--text-subtle)]">
+                      <GroupIcon className="h-3 w-3" /> {groupLabel}
+                    </span>
+                    <span className={cn("text-[11px] font-semibold tabular-nums", r.color)}>{pct}%</span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-[var(--surface-raised)] overflow-hidden">
+                    <div
+                      className={cn("h-full rounded-full transition-all", r.fixed ? "bg-amber-500/60" : "bg-current/40 " + r.color)}
+                      style={{ width: `${pct}%`, backgroundColor: "currentColor", opacity: 0.5 }}
+                    />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* ─── Matrix-Tabelle ─────────────────────────────────────────────── */}
+        <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] overflow-x-auto shadow-sm">
+          <table className="w-full border-collapse text-sm" style={{ minWidth: `${200 + visibleRoles.length * 110}px` }}>
+            <colgroup>
+              <col style={{ width: "220px", minWidth: "180px" }} />
+              {visibleRoles.map((r) => (
+                <col key={r.key} style={{ width: "110px" }} />
+              ))}
+            </colgroup>
+
+            {/* Thead mit Gruppen + Rollen */}
+            <thead>
+              {/* Gruppen-Zeile */}
+              <tr className="border-b border-[var(--border-soft)] bg-[var(--surface-raised)]">
+                <th className="px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-widest text-[var(--text-subtle)]">
+                  Berechtigung
+                </th>
+                {(["intern", "fotograf", "portal"] as const)
+                  .filter((g) => filterGroup === "all" || filterGroup === g)
+                  .map((g) => {
+                    const rolesInGroup = visibleRoles.filter((r) => r.group === g);
+                    if (rolesInGroup.length === 0) return null;
+                    const { label, Icon, bg, border } = GROUP_META[g];
+                    return (
+                      <th
+                        key={g}
+                        colSpan={rolesInGroup.length}
+                        className={cn("border-l border-[var(--border-soft)] px-3 py-2 text-center text-[10px] font-semibold uppercase tracking-widest", bg)}
+                      >
+                        <span className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5", border, {
+                          "text-amber-400": g === "intern",
+                          "text-violet-400": g === "fotograf",
+                          "text-emerald-400": g === "portal",
+                        })}>
+                          <Icon className="h-3 w-3" />
+                          {label}
+                        </span>
+                      </th>
+                    );
+                  })}
+              </tr>
+
+              {/* Rollen-Header */}
+              <tr className="border-b-2 border-[var(--border-soft)] bg-[var(--surface-raised)]">
+                <th className="px-4 py-3 text-left text-[11px] font-medium text-[var(--text-muted)]">
+                  <span className="text-[var(--text-subtle)]">{PERMISSIONS.length} Berechtigungen</span>
+                </th>
+                {visibleRoles.map((r, i) => (
+                  <th
+                    key={r.key}
+                    className={cn(
+                      "border-l border-[var(--border-soft)] px-3 py-3 text-center",
+                      i === 0 && "border-l-2",
+                      hoveredRole === r.key && "bg-[var(--surface)]",
+                    )}
+                    onMouseEnter={() => setHoveredRole(r.key)}
+                    onMouseLeave={() => setHoveredRole(null)}
+                  >
+                    <Tooltip text={r.description}>
+                      <div className="flex flex-col items-center gap-1">
+                        <span className={cn("text-xs font-semibold leading-tight", r.color)}>
+                          {r.label}
+                        </span>
+                        <span className={cn(
+                          "rounded-full border px-2 py-0.5 text-[10px] font-bold tabular-nums",
+                          r.headerBg, r.color,
+                        )}>
+                          {countPerms(r.key)}
+                        </span>
+                        {r.fixed && (
+                          <span className="flex items-center gap-0.5 rounded bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-medium text-amber-400">
+                            <Lock className="h-2.5 w-2.5" /> Alle
+                          </span>
+                        )}
+                      </div>
+                    </Tooltip>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+
+            {/* Tbody mit Sektionen */}
+            <tbody>
+              {sections.map((section) => {
+                const permsInSection = PERMISSIONS.filter((p) => p.section === section);
+                return (
+                  <>
+                    {/* Sektion-Header */}
+                    <tr key={`section-${section}`} className="border-b border-[var(--border-soft)] bg-[var(--surface-raised)]/60">
+                      <td
+                        colSpan={1 + visibleRoles.length}
+                        className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-[var(--text-subtle)]"
+                      >
+                        {section}
+                      </td>
+                    </tr>
+
+                    {/* Berechtigungs-Zeilen */}
+                    {permsInSection.map((perm) => {
+                      const isHovered = hoveredPerm === perm.key;
+                      return (
+                        <tr
+                          key={perm.key}
+                          onMouseEnter={() => setHoveredPerm(perm.key)}
+                          onMouseLeave={() => setHoveredPerm(null)}
+                          className={cn(
+                            "transition-colors",
+                            isHovered
+                              ? "bg-[var(--surface-raised)]"
+                              : "hover:bg-[var(--surface-raised)]/50",
+                          )}
+                        >
+                          {/* Label-Spalte */}
+                          <td className="border-b border-[var(--border-soft)] px-4 py-0">
+                            <div className="flex items-center gap-2 py-3">
+                              <span className="text-[13px] font-medium text-[var(--text-main)]">
+                                {perm.label}
+                              </span>
+                              <Tooltip text={perm.description}>
+                                <Info className="h-3.5 w-3.5 shrink-0 text-[var(--text-subtle)] opacity-50 hover:opacity-100 transition-opacity cursor-help" />
+                              </Tooltip>
+                            </div>
+                            {isHovered && (
+                              <div className="pb-2 -mt-1 text-[11px] text-[var(--text-subtle)] leading-snug max-w-xs">
+                                {perm.description}
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Checkbox-Spalten */}
+                          {visibleRoles.map((r) => (
+                            <MatrixCell
+                              key={r.key}
+                              has={ROLE_PRESETS[r.key].has(perm.key)}
+                              fixed={r.fixed}
+                              roleColor={r.color}
+                              permDesc={`${r.label}: ${perm.label}`}
+                            />
+                          ))}
+                        </tr>
+                      );
+                    })}
+                  </>
+                );
+              })}
+            </tbody>
+
+            {/* Footer */}
+            <tfoot>
+              <tr className="border-t-2 border-[var(--border-soft)] bg-[var(--surface-raised)]">
+                <td className="px-4 py-3 text-[11px] font-semibold text-[var(--text-muted)]">
+                  Gesamt
+                </td>
+                {visibleRoles.map((r) => (
+                  <td key={r.key} className="border-l border-[var(--border-soft)] px-3 py-3 text-center">
+                    <span className={cn("text-sm font-bold tabular-nums", r.color)}>
+                      {countPerms(r.key)}
+                    </span>
+                    <span className="text-[10px] text-[var(--text-subtle)]">/{ALL_PERM_KEYS.length}</span>
+                  </td>
+                ))}
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        {/* ─── Legende ─────────────────────────────────────────────────────── */}
+        <div className="mt-6 flex flex-wrap items-center gap-6 text-xs text-[var(--text-subtle)]">
+          <div className="flex items-center gap-2">
+            <span className="flex h-5 w-5 items-center justify-center rounded-md border border-amber-500/40 bg-amber-500/15 text-amber-400">
+              <Check className="h-3 w-3" strokeWidth={2.5} />
+            </span>
+            <span>Recht vergeben (System-Rolle, immer aktiv)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="flex h-5 w-5 items-center justify-center rounded-md border border-emerald-400/30 bg-emerald-400/10 text-emerald-400">
+              <Check className="h-3 w-3" strokeWidth={2.5} />
+            </span>
+            <span>Recht vergeben</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="flex h-5 w-5 items-center justify-center rounded-md border border-[var(--border-soft)] opacity-25">
+            </span>
+            <span>Kein Zugriff</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Lock className="h-3.5 w-3.5" />
+            <span>Fixe System-Rolle — immer alle Rechte</span>
+          </div>
+          <span className="ml-auto text-[var(--text-subtle)]">
+            Quelle: <code className="rounded bg-[var(--surface-raised)] px-1">booking/access-rbac.js</code> → ROLE_PRESETS
+          </span>
+        </div>
+
+      </div>
+    </div>
+  );
+}
