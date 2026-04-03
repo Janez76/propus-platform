@@ -35,7 +35,6 @@ import {
   Eye,
   Inbox,
   CreditCard,
-  FileText,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useMemo, useState } from "react";
