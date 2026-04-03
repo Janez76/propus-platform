@@ -311,6 +311,9 @@ export function TourMatterportSection({ tourId, tour, mpVisibility, onSuccess }:
 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [startSweep, setStartSweep] = useState(String(tour.matterport_start_sweep ?? ""));
+  const [sweepBusy, setSweepBusy] = useState(false);
+  const [sweepErr, setSweepErr] = useState<string | null>(null);
 
   // Matterport-Metadaten
   const [meta, setMeta] = useState<MatterportModelMeta | null>(null);
@@ -334,6 +337,10 @@ export function TourMatterportSection({ tourId, tour, mpVisibility, onSuccess }:
     if (spaceId) void loadMeta();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spaceId]);
+
+  useEffect(() => {
+    setStartSweep(String(tour.matterport_start_sweep ?? ""));
+  }, [tour]);
 
   // Ticket-Dialog
   const [ticketOpen, setTicketOpen] = useState(false);
@@ -413,6 +420,19 @@ export function TourMatterportSection({ tourId, tour, mpVisibility, onSuccess }:
     String(tour.matterport_state ?? "").toLowerCase() === "inactive" ||
     String(tour.status ?? "").toUpperCase() === "ARCHIVED";
 
+  async function saveStartSweep() {
+    setSweepBusy(true);
+    setSweepErr(null);
+    try {
+      await toursAdminPost(`/tours/${tourId}/set-start-sweep`, { start_sweep: startSweep.trim() });
+      onSuccess();
+    } catch (e) {
+      setSweepErr(e instanceof Error ? e.message : "Fehler");
+    } finally {
+      setSweepBusy(false);
+    }
+  }
+
   return (
     <>
       <div className="border-t border-[var(--border-soft)] pt-4 space-y-3">
@@ -455,6 +475,43 @@ export function TourMatterportSection({ tourId, tour, mpVisibility, onSuccess }:
                 }}
               />
             ) : null}
+          </div>
+        ) : null}
+
+        {spaceId ? (
+          <div className="border-t border-[var(--border-soft)] pt-3 space-y-2">
+            <label className="text-sm font-medium text-[var(--text-subtle)]">Startpunkt setzen</label>
+            <input
+              value={startSweep}
+              onChange={(e) => setStartSweep(e.target.value)}
+              className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)]"
+              placeholder="Matterport Sweep ID"
+            />
+            <p className="text-sm text-[var(--text-subtle)] leading-relaxed">
+              Gewünschten Startpunkt in Matterport öffnen und dort navigieren. Dann die Adressleiste nutzen:{" "}
+              <kbd className="rounded border border-[var(--border-soft)] bg-[var(--surface)] px-1 font-mono text-xs">Strg+L</kbd>{" "}
+              (Fokus Adressleiste),{" "}
+              <kbd className="rounded border border-[var(--border-soft)] bg-[var(--surface)] px-1 font-mono text-xs">Strg+C</kbd>{" "}
+              zum Kopieren — aus der URL den Wert nach{" "}
+              <code className="rounded bg-[var(--surface)] px-1 font-mono text-xs">sid=</code> hier einfügen.{" "}
+              <strong className="font-medium text-[var(--text-main)]">Nicht</strong> den Seitenquelltext (
+              <kbd className="rounded border border-[var(--border-soft)] bg-[var(--surface)] px-1 font-mono text-xs">Strg+U</kbd>
+              ): Matterport lädt die Position per Skript; die aktuelle Sweep-ID steht in der sichtbaren URL, nicht im statischen HTML.{" "}
+              Alternativ: in der 3D-Ansicht auf den Sweep klicken → Sweep-ID in den Eigenschaften ablesen. Auf dem Mac:{" "}
+              <kbd className="rounded border border-[var(--border-soft)] bg-[var(--surface)] px-1 font-mono text-xs">Cmd+L</kbd>
+              {" / "}
+              <kbd className="rounded border border-[var(--border-soft)] bg-[var(--surface)] px-1 font-mono text-xs">Cmd+C</kbd>
+              .
+            </p>
+            {sweepErr ? <p className="text-sm text-red-600 dark:text-red-400">{sweepErr}</p> : null}
+            <button
+              type="button"
+              disabled={sweepBusy}
+              onClick={() => void saveStartSweep()}
+              className="rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-sm font-medium text-[var(--text-main)] disabled:opacity-50"
+            >
+              {sweepBusy ? "…" : "Startpunkt setzen"}
+            </button>
           </div>
         ) : null}
 

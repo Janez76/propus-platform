@@ -15,7 +15,6 @@ export function TourActionsPanel({ tourId, tour, onSuccess, onOpenCustomerLink }
     String(tour.canonical_object_label ?? tour.object_label ?? tour.bezeichnung ?? "")
   );
   const [syncMp, setSyncMp] = useState(false);
-  const [sweep, setSweep] = useState(String(tour.matterport_start_sweep ?? ""));
   const [verified, setVerified] = useState(Boolean(tour.customer_verified));
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -24,7 +23,6 @@ export function TourActionsPanel({ tourId, tour, onSuccess, onOpenCustomerLink }
   useEffect(() => {
     setTourUrl(String(tour.tour_url ?? ""));
     setName(String(tour.canonical_object_label ?? tour.object_label ?? tour.bezeichnung ?? ""));
-    setSweep(String(tour.matterport_start_sweep ?? ""));
     setVerified(Boolean(tour.customer_verified));
   }, [tour]);
 
@@ -117,42 +115,6 @@ export function TourActionsPanel({ tourId, tour, onSuccess, onOpenCustomerLink }
             className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
           >
             {busy === "name" ? "…" : "Name speichern"}
-          </button>
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-[var(--text-subtle)]">Startpunkt setzen</label>
-          <input
-            value={sweep}
-            onChange={(e) => setSweep(e.target.value)}
-            className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)]"
-            placeholder="Matterport Sweep ID"
-          />
-          <p className="text-sm text-[var(--text-subtle)]">
-            Gewünschten Startpunkt in Matterport öffnen und dort navigieren. Dann die Adressleiste nutzen:{" "}
-            <kbd className="rounded border border-[var(--border-soft)] bg-[var(--surface)] px-1 font-mono text-xs">Strg+L</kbd>{" "}
-            (Fokus Adressleiste),{" "}
-            <kbd className="rounded border border-[var(--border-soft)] bg-[var(--surface)] px-1 font-mono text-xs">Strg+C</kbd>{" "}
-            zum Kopieren — aus der URL den Wert nach{" "}
-            <code className="rounded bg-[var(--surface)] px-1 font-mono text-xs">sid=</code> hier einfügen.{" "}
-            <strong className="font-medium text-[var(--text-main)]">Nicht</strong> den Seitenquelltext (
-            <kbd className="rounded border border-[var(--border-soft)] bg-[var(--surface)] px-1 font-mono text-xs">Strg+U</kbd>
-            ): Matterport lädt die Position per Skript; die aktuelle Sweep-ID steht in der sichtbaren URL, nicht im statischen HTML.{" "}
-            Alternativ: in der 3D-Ansicht auf den Sweep klicken → Sweep-ID in den Eigenschaften ablesen. Auf dem Mac:{" "}
-            <kbd className="rounded border border-[var(--border-soft)] bg-[var(--surface)] px-1 font-mono text-xs">Cmd+L</kbd>
-            {" / "}
-            <kbd className="rounded border border-[var(--border-soft)] bg-[var(--surface)] px-1 font-mono text-xs">Cmd+C</kbd>
-            .
-          </p>
-          <button
-            type="button"
-            disabled={!!busy}
-            onClick={() =>
-              run("sweep", () => toursAdminPost(`/tours/${tourId}/set-start-sweep`, { start_sweep: sweep.trim() }))
-            }
-            className="rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-sm font-medium disabled:opacity-50"
-          >
-            {busy === "sweep" ? "…" : "Startpunkt setzen"}
           </button>
         </div>
 
