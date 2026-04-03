@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
+  getLinkMatterportBookingSearch,
   getLinkMatterportCustomerDetail,
   getLinkMatterportCustomerSearch,
   getToursAdminLinkMatterport,
@@ -205,6 +206,16 @@ export function ToursAdminLinkMatterportPage() {
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [archiveIt, setArchiveIt] = useState(true);
 
+  // Booking search state
+  const [bookingSearchDraft, setBookingSearchDraft] = useState("");
+  const [debouncedBookingQ, setDebouncedBookingQ] = useState("");
+  const [bookingOrderNo, setBookingOrderNo] = useState<number | null>(null);
+  const [bookingLabel, setBookingLabel] = useState("");
+  const [bookingSuggestions, setBookingSuggestions] = useState<
+    { id: number; order_no: number; status: string; address: string; company: string; email: string; date: string | null; created_at: string }[]
+  >([]);
+  const [bookingSuggestLoading, setBookingSuggestLoading] = useState(false);
+
   // cannotAssign is derived from the active tab
   const cannotAssign = activeTab === 2;
 
@@ -243,12 +254,20 @@ export function ToursAdminLinkMatterportPage() {
     setSuggestions({ companies: [], contacts: [] });
   }
 
+  function clearBookingSelection() {
+    setBookingOrderNo(null);
+    setBookingLabel("");
+    setBookingSearchDraft("");
+    setBookingSuggestions([]);
+  }
+
   function resetForm() {
     setMpId("");
     setTourUrl("");
     setBezeichnung("");
     setArchiveIt(true);
     clearCustomerSelection();
+    clearBookingSelection();
     appliedOpenSpaceIdRef.current = null;
   }
 
@@ -295,6 +314,32 @@ export function ToursAdminLinkMatterportPage() {
       });
     return () => { cancelled = true; };
   }, [debouncedCustomerQ]);
+
+  // Booking search debounce + fetch
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedBookingQ(bookingSearchDraft.trim()), 250);
+    return () => clearTimeout(t);
+  }, [bookingSearchDraft]);
+
+  useEffect(() => {
+    if (debouncedBookingQ.length < 1) {
+      setBookingSuggestions([]);
+      return;
+    }
+    let cancelled = false;
+    setBookingSuggestLoading(true);
+    void getLinkMatterportBookingSearch(debouncedBookingQ)
+      .then((r) => {
+        if (!cancelled) setBookingSuggestions(r.orders);
+      })
+      .catch(() => {
+        if (!cancelled) setBookingSuggestions([]);
+      })
+      .finally(() => {
+        if (!cancelled) setBookingSuggestLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [debouncedBookingQ]);
 
   // Clear customer state whenever we switch away from "Bestehender Kunde"
   useEffect(() => {
@@ -428,6 +473,7 @@ export function ToursAdminLinkMatterportPage() {
       if (!cannotAssign && customerName.trim()) body.customerName = customerName.trim();
       if (!cannotAssign && customerEmail.trim()) body.customerEmail = customerEmail.trim();
       if (!cannotAssign && customerContact.trim()) body.customerContact = customerContact.trim();
+      if (bookingOrderNo) body.bookingOrderNo = bookingOrderNo;
 
       const r = await postLinkMatterport(body);
       if ((r as { ok?: boolean }).ok === false) {
@@ -618,6 +664,85 @@ export function ToursAdminLinkMatterportPage() {
             value={bezeichnung}
             onChange={(e) => setBezeichnung(e.target.value)}
           />
+        </div>
+
+        {/* Bestellung verknüpfen */}
+        <div className="relative space-y-1">
+          <label className="block text-xs uppercase tracking-wide text-[var(--text-subtle)]">
+            Bestellung verknüpfen
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <input
+              className="flex-1 min-w-[200px] rounded border border-[var(--border-soft)] bg-[var(--surface)] px-2 py-1.5 focus:outline-none focus:border-[var(--propus-gold)]"
+              placeholder="Bestellnr., Adresse, Firma, E-Mail…"
+              value={bookingSearchDraft}
+              onChange={(e) => {
+                const v = e.target.value;
+                setBookingSearchDraft(v);
+                if (bookingOrderNo != null && v.trim() !== bookingLabel) {
+                  setBookingOrderNo(null);
+                  setBookingLabel("");
+                }
+              }}
+              autoComplete="off"
+            />
+            {bookingOrderNo != null && (
+              <button
+                type="button"
+                className="text-xs underline text-[var(--text-subtle)] hover:text-[var(--text-main)]"
+                onClick={clearBookingSelection}
+              >
+                Bestellung lösen
+              </button>
+            )}
+          </div>
+          {bookingOrderNo != null ? (
+            <p className="text-xs text-[var(--text-subtle)] flex items-center gap-1.5">
+              <span className="rounded bg-blue-500/15 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 text-[10px] font-medium">Bestellung verknüpft</span>
+              <span>Nr.</span>
+              <span className="font-mono text-[var(--text-main)]">{bookingOrderNo}</span>
+            </p>
+          ) : null}
+          {bookingOrderNo == null && debouncedBookingQ.length >= 1 && (bookingSuggestLoading || bookingSuggestions.length > 0) ? (
+            <div className="absolute z-20 mt-1 w-full max-w-lg rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] shadow-lg max-h-64 overflow-y-auto">
+              {bookingSuggestLoading ? (
+                <p className="p-2 text-xs text-[var(--text-subtle)]">Suche…</p>
+              ) : bookingSuggestions.length === 0 ? (
+                <p className="p-2 text-xs text-[var(--text-subtle)]">Keine Bestellungen gefunden.</p>
+              ) : (
+                <ul className="py-1 text-xs">
+                  {bookingSuggestions.map((o) => (
+                    <li key={o.id}>
+                      <button
+                        type="button"
+                        className="w-full text-left px-3 py-2 hover:bg-[var(--surface-raised)]"
+                        onClick={() => {
+                          setBookingOrderNo(o.order_no);
+                          const label = `#${o.order_no} – ${o.address || o.company || ""}`.trim();
+                          setBookingLabel(label);
+                          setBookingSearchDraft(label);
+                          setBookingSuggestions([]);
+                        }}
+                      >
+                        <span className="font-medium text-[var(--text-main)]">#{o.order_no}</span>
+                        <span className="text-[var(--text-subtle)] ml-2">{o.address || "—"}</span>
+                        {o.company ? <span className="text-[var(--text-subtle)] ml-1">· {o.company}</span> : null}
+                        <span className={`ml-2 rounded px-1 py-0.5 text-[10px] font-medium ${
+                          o.status === "completed" || o.status === "done"
+                            ? "bg-green-500/15 text-green-600 dark:text-green-400"
+                            : o.status === "cancelled"
+                              ? "bg-red-500/15 text-red-600 dark:text-red-400"
+                              : "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                        }`}>
+                          {o.status}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ) : null}
         </div>
 
         {/* Tab 0: Bestehender Kunde */}

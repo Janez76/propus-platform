@@ -529,6 +529,7 @@ async function postLinkMatterport(body) {
   const customerEmail = String(body?.customerEmail || '').trim();
   const customerContact = String(body?.customerContact || '').trim();
   const bezeichnung = String(body?.bezeichnung || '').trim();
+  const bookingOrderNo = body?.bookingOrderNo != null && body.bookingOrderNo !== '' ? parseInt(String(body.bookingOrderNo), 10) : null;
 
   if (!mpId || (!tourUrl && !cannotAssign)) {
     return { ok: false, error: 'missing' };
@@ -606,9 +607,10 @@ async function postLinkMatterport(body) {
         ablaufdatum,
         matterport_state,
         matterport_is_own,
-        status
+        status,
+        booking_order_no
       ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::timestamptz, $12::date, $12::date, $13, $14, $15
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::timestamptz, $12::date, $12::date, $13, $14, $15, $16
       )`,
       [
         exxasAboId,
@@ -626,6 +628,7 @@ async function postLinkMatterport(body) {
         matterportState,
         matterportIsOwn,
         initialStatus,
+        Number.isFinite(bookingOrderNo) && bookingOrderNo > 0 ? bookingOrderNo : null,
       ]
     );
   } catch (e) {

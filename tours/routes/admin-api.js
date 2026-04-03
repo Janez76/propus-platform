@@ -982,6 +982,54 @@ router.get('/link-matterport', async (req, res) => {
   }
 });
 
+router.get('/link-matterport/booking-search', async (req, res) => {
+  try {
+    const q = String(req.query.q || '').trim();
+    if (q.length < 1) return res.json({ orders: [] });
+    const isNumeric = /^\d+$/.test(q);
+    let rows;
+    if (isNumeric) {
+      const r = await pool.query(
+        `SELECT o.id, o.order_no, o.status, o.address, o.billing, o.services, o.schedule, o.created_at
+         FROM booking.orders o
+         WHERE o.order_no = $1
+         ORDER BY o.created_at DESC
+         LIMIT 10`,
+        [parseInt(q, 10)]
+      );
+      rows = r.rows;
+    } else {
+      const like = `%${q.toLowerCase()}%`;
+      const r = await pool.query(
+        `SELECT o.id, o.order_no, o.status, o.address, o.billing, o.services, o.schedule, o.created_at
+         FROM booking.orders o
+         WHERE LOWER(o.address) LIKE $1
+           OR LOWER(COALESCE(o.billing->>'company', '')) LIKE $1
+           OR LOWER(COALESCE(o.billing->>'name', '')) LIKE $1
+           OR LOWER(COALESCE(o.billing->>'email', '')) LIKE $1
+         ORDER BY o.created_at DESC
+         LIMIT 10`,
+        [like]
+      );
+      rows = r.rows;
+    }
+    const orders = rows.map((r) => ({
+      id: r.id,
+      order_no: r.order_no,
+      status: r.status,
+      address: r.address,
+      company: r.billing?.company || r.billing?.name || '',
+      email: r.billing?.email || '',
+      date: r.schedule?.date || null,
+      created_at: r.created_at,
+    }));
+    return res.json({ orders });
+  } catch (err) {
+    console.error('[admin-api] GET /link-matterport/booking-search', err);
+    return res.status(500).json({ error: 'Interner Fehler' });
+  }
+});
+
 router.post('/link-matterport', async (req, res) => {
   try {
     const result = await phase3.postLinkMatterport(req.body || {});

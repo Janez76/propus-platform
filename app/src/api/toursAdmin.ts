@@ -108,6 +108,12 @@ export function postLinkMatterportBatch(action: "auto" | "refresh-created" | "sy
   return toursAdminPost(`/link-matterport/${action}`, {});
 }
 
+export function getLinkMatterportBookingSearch(q: string) {
+  return toursAdminFetch<{ orders: { id: number; order_no: number; status: string; address: string; company: string; email: string; date: string | null; created_at: string }[] }>(
+    `/link-matterport/booking-search?q=${encodeURIComponent(q)}`,
+  );
+}
+
 export function postLinkInvoiceToTour(tourId: string, invoiceId: string | number) {
   return toursAdminPost(`/tours/${tourId}/link-invoice`, { invoice_id: String(invoiceId) });
 }
