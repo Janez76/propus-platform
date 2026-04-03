@@ -12,7 +12,6 @@ export interface PaymentSettingsData {
 
 export interface PaymentSettingsPatch {
   vatPercent?: number;
-  floorplanUnitPrice?: number;
 }
 
 const BASE = "/api/tours/admin";

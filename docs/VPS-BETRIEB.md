@@ -223,6 +223,7 @@ Payrexx ist optional. Ohne Konfiguration steht nur "QR-Rechnung" zur Verfügung 
 ```env
 PAYREXX_INSTANCE=propus          # Instanzname aus der URL: https://propus.payrexx.com
 PAYREXX_API_SECRET=xxx           # Dashboard → Einstellungen → API → Key erstellen
+PAYREXX_WEBHOOK_SECRET=xxx       # Webhook-Signing-Key (optional, Fallback auf API-Secret)
 PAYREXX_PAYMENT_METHODS=curated  # Optional: curated | all | visa,mastercard,twint,...
 ```
 

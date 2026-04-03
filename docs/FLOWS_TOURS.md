@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei jeder Änderung an Tour-Status, Matterport-Integration, Verlängerungs- oder Archivierungs-Logik dieses Dokument aktualisieren.
 
-*Zuletzt aktualisiert: April 2026 (Admin-Reaktivierungsflow + payrexxConfigured-UI-Logik dokumentiert)*
+*Zuletzt aktualisiert: April 2026 (Grundriss-Bestellen-Flow, Rechnungsvorlagen-Editor, Zahlungseinstellungen, payrexxConfigured-UI-Logik)*
 
 ---
 
@@ -12,12 +12,14 @@
 2. [Status-Maschine](#2-status-maschine)
 3. [Matterport-Integration](#3-matterport-integration)
 4. [Verlängerungs-Flow (Portal)](#4-verlängerungs-flow-portal)
-5. [Archivierungs-Flow](#5-archivierungs-flow)
-6. [Bank-Import](#6-bank-import)
-7. [KI / AI-Suggestions](#7-ki--ai-suggestions)
-8. [Incoming-Emails](#8-incoming-emails)
-9. [Cron-Jobs Übersicht](#9-cron-jobs-übersicht)
-10. [Kanonische Felder (normalizeTourRow)](#10-kanonische-felder)
+5. [Grundriss-Bestellen-Flow](#5-grundriss-bestellen-flow)
+6. [Archivierungs-Flow](#6-archivierungs-flow)
+7. [Bank-Import](#7-bank-import)
+8. [KI / AI-Suggestions](#8-ki--ai-suggestions)
+9. [Incoming-Emails](#9-incoming-emails)
+10. [Cron-Jobs Übersicht](#10-cron-jobs-übersicht)
+11. [Admin-Einstellungen](#11-admin-einstellungen)
+12. [Kanonische Felder (normalizeTourRow)](#12-kanonische-felder)
 
 ---
 
@@ -260,7 +262,92 @@ Body: { paymentMethod: "qr_invoice" | "payrexx" }
 
 ---
 
-## 5. Archivierungs-Flow
+## 5. Grundriss-Bestellen-Flow
+
+### Produkt & Preis
+
+| Parameter | Wert / Quelle |
+|---|---|
+| Produktcode | `floorplans:tour` |
+| Preisregel | `booking.pricing_rules` (rule_type=`per_floor`, aktiv) |
+| Standardpreis | 49 CHF / Etage (Netto) |
+| MwSt | aus `booking.app_settings` (key=`vat_rate`) |
+| Etagen-Anzahl | Live von Matterport GraphQL (`floors { id label }`) |
+
+### Tabelle `tour_manager.renewal_invoices` (invoice_kind = `floorplan_order`)
+
+Zusätzlich zu den Standardfeldern wird in `payment_note` gespeichert:
+```
+Etagen: N, Preis pro Etage: CHF XX.XX, inkl. X.X% MwSt
+```
+
+### GET /api/tours/admin/tours/:id/floorplan-pricing
+
+```
+→ Lädt unitPrice + vatRate aus DB
+→ Lädt floors[] von Matterport GraphQL (falls space_id vorhanden)
+→ Berechnet totalNet, totalGross
+→ Response: { unitPrice, vatRate, vatPercent, floors, floorCount, totalNet, totalGross }
+```
+
+### POST /api/tours/admin/tours/:id/order-floorplan (Admin)
+
+```
+Body: { paymentMethod: "qr_invoice" | "payrexx", comment?: string, floorCount: number }
+  │
+  ├── Preisberechnung aus DB (unitPrice × floorCount + MwSt)
+  ├── Fälligkeitsdatum: +14 Tage
+  │
+  ├── [QR-Rechnung]:
+  │     ├── INSERT renewal_invoices (invoice_kind='floorplan_order', payment_source='qr_pending')
+  │     ├── Loggt FLOORPLAN_ORDER (source: admin_api, via: qr_invoice)
+  │     └── sendInvoiceWithQrEmail() async → Portal-E-Mail mit PDF-Anhang + QR-Bill
+  │
+  └── [Payrexx]:
+        ├── payrexx.isConfigured()? → NEIN → 400 { error: 'Payrexx nicht konfiguriert' }
+        ├── INSERT renewal_invoices (invoice_kind='floorplan_order', payment_source='payrexx_pending')
+        ├── Loggt FLOORPLAN_ORDER (source: admin_api, via: payrexx)
+        ├── payrexx.createCheckout()
+        │     referenceId: "tour-{id}-internal-{invoiceId}"
+        │     purpose: "{tourLabel} – Grundriss ({N} Etagen)"
+        ├── payrexx_payment_url speichern
+        └── Response: { ok: true, via: 'payrexx', redirectUrl: paymentUrl }
+```
+
+### POST /portal/api/tours/:id/order-floorplan (Portal)
+
+Identischer Flow wie Admin, jedoch mit Portal-Session-Auth.
+
+### Payrexx-Webhook nach Zahlung
+
+Identisch mit Verlängerungs-Flow — der Webhook-Handler (`payrexx-webhook.js`) erkennt `invoice_kind='floorplan_order'` und verarbeitet entsprechend.
+
+### PDF-Rechnung (invoice_kind = floorplan_order)
+
+Bezeichnet die Position als:
+```
+"2D Grundriss von Tour (N Etage(n) × CHF XX.XX)"
+```
+Zeigt MwSt-Aufschlüsselung:
+```
+Pos. 1   2D Grundriss von Tour (2 Etagen × CHF 49.00)   CHF 98.00 (Netto)
+         Zwischensumme                                    CHF 98.00
+         MwSt 8.1%                                        CHF  7.94
+         ─────────────────────────────────────────────────────────
+         Total                                            CHF 105.94
+```
+
+### UI-Verhalten (FloorplanOrderDialog)
+
+- `payrexxConfigured` kommt aus `data.payrexxConfigured` (Tour-Detail-Payload)
+- Payrexx **nicht konfiguriert**: Option wird vollständig ausgeblendet, "QR-Rechnung" vorgewählt
+- Payrexx **konfiguriert**: "Online bezahlen (Payrexx)" sichtbar und vorgewählt
+- Etagen werden automatisch von Matterport ermittelt; manuelle Eingabe als Fallback
+- Hinweis bei QR-Rechnung: "innerhalb von 14 Tagen zu bezahlen"
+
+---
+
+## 6. Archivierungs-Flow
 
 ### Portal-Archivierung (POST /portal/api/tours/:id/archive)
 
@@ -299,7 +386,7 @@ archiveTourNow(tourId, actorRef)  [in tour-actions.js]
 
 ---
 
-## 6. Bank-Import
+## 7. Bank-Import
 
 **Tabellen:** `tour_manager.bank_import_runs`, `tour_manager.bank_import_transactions`
 
@@ -342,7 +429,7 @@ applyImportedPayment(invoiceId, actorEmail, details)
 
 ---
 
-## 7. KI / AI-Suggestions
+## 8. KI / AI-Suggestions
 
 **Tabellen:** `tour_manager.ai_suggestions`, `tour_manager.incoming_emails`
 
@@ -395,7 +482,7 @@ Regelbasiert (immer zuerst)
 
 ---
 
-## 8. Incoming-Emails
+## 9. Incoming-Emails
 
 **Polling:** `syncMailboxSuggestions()` — Cron oder manuell via Admin
 
@@ -436,7 +523,7 @@ M365_SENT_TOP   (default 200)
 
 ---
 
-## 9. Cron-Jobs Übersicht
+## 10. Cron-Jobs Übersicht
 
 | Endpunkt | Zweck |
 |---|---|
@@ -461,7 +548,50 @@ M365_SENT_TOP   (default 200)
 
 ---
 
-## 10. Kanonische Felder
+## 11. Admin-Einstellungen
+
+### Seiten unter `/settings/` (Admin-Panel)
+
+| Route | Seite | Beschreibung |
+|---|---|---|
+| `/settings/email-templates` | E-Mail-Vorlagen | Alle 8+ Kunden-E-Mail-Templates editierbar |
+| `/settings/payment` | Zahlungseinstellungen | Payrexx-Status, MwSt-Satz |
+| `/settings/invoice-template` | Rechnungsvorlage | Absender (Creditor), PDF-Footer, E-Mail für QR-Rechnung, Vorschau |
+| `/settings/exxas` | Exxas-Konfiguration | Exxas-API-Integration |
+| `/settings/calendar-templates` | Kalender-Vorlagen | — |
+| `/settings/team` | Team | Admin-Einladungen |
+
+### Zahlungseinstellungen (`GET/PATCH /api/tours/admin/payment-settings`)
+
+| Feld | Quelle | Editierbar |
+|---|---|---|
+| `payrexxConfigured` | `process.env.PAYREXX_INSTANCE` + `PAYREXX_API_SECRET` | Nur via `.env.vps` |
+| `payrexxInstance` | `process.env.PAYREXX_INSTANCE` | Nur via `.env.vps` |
+| `vatRate` / `vatPercent` | `booking.app_settings` (key=`vat_rate`) | Ja |
+| `floorplanUnitPrice` | `booking.pricing_rules` (floorplans:tour, per_floor) | Via Rechnungsvorlage |
+| `hostingUnitPrice` | `booking.pricing_rules` (hosting, per_period) | Read-only |
+
+### Rechnungsvorlage (`GET/PATCH /api/tours/admin/invoice-template`)
+
+**Creditor-Daten** — gespeichert in `tour_manager.settings` (key=`invoice_creditor`):
+
+| Feld | Verwendung |
+|---|---|
+| `name` | PDF-Header, Grusszeile |
+| `street` + `buildingNumber` + `zip` + `city` + `country` | Swiss QR-Bill Creditor-Adresse |
+| `iban` | Swiss QR-Bill IBAN |
+| `email` | PDF-Kontaktzeile, Grusszeile |
+| `phone` / `website` | PDF-Kontaktzeile |
+| `vatId` | PDF-Absenderblock |
+| `footerNote` | PDF-Fusszeile (Dankestext) |
+
+**Fallback-Hierarchie:** DB → Env-Variablen (`QR_BILL_*`) → Hardcoded Defaults (Propus GmbH)
+
+**E-Mail-Vorlage** (`portal_invoice_sent`) — Betreff + HTML + Plaintext editierbar
+
+---
+
+## 12. Kanonische Felder
 
 `normalizeTourRow()` in `normalize.js` berechnet kanonische Felder aus Legacy-Duplikaten:
 

@@ -48,7 +48,6 @@ export function PaymentSettingsPage() {
 
   // Formular-State
   const [vatPercent, setVatPercent] = useState<string>("8.1");
-  const [floorplanPrice, setFloorplanPrice] = useState<string>("49");
 
   async function load() {
     setLoading(true);
@@ -57,7 +56,6 @@ export function PaymentSettingsPage() {
       const res = await getPaymentSettings(token);
       setData(res);
       setVatPercent(String(res.vatPercent));
-      setFloorplanPrice(String(res.floorplanUnitPrice));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Einstellungen konnten nicht geladen werden");
     } finally {
@@ -73,24 +71,17 @@ export function PaymentSettingsPage() {
     setError(null);
     setSuccess(null);
     const vat = Number(vatPercent);
-    const price = Number(floorplanPrice);
     if (!Number.isFinite(vat) || vat <= 0 || vat > 100) {
       setError("MwSt-Satz muss zwischen 0 und 100% liegen");
-      return;
-    }
-    if (!Number.isFinite(price) || price < 0) {
-      setError("Preis pro Etage muss eine positive Zahl sein");
       return;
     }
     setSaving(true);
     try {
       const res = await patchPaymentSettings(token, {
         vatPercent: vat,
-        floorplanUnitPrice: price,
       });
       setData(res);
       setVatPercent(String(res.vatPercent));
-      setFloorplanPrice(String(res.floorplanUnitPrice));
       setSuccess("Einstellungen erfolgreich gespeichert.");
       setTimeout(() => setSuccess(null), 4000);
     } catch (e) {
@@ -102,8 +93,7 @@ export function PaymentSettingsPage() {
 
   const isDirty =
     data !== null &&
-    (String(vatPercent) !== String(data.vatPercent) ||
-      String(floorplanPrice) !== String(data.floorplanUnitPrice));
+    String(vatPercent) !== String(data.vatPercent);
 
   return (
     <div className="space-y-5 max-w-3xl">
@@ -115,7 +105,7 @@ export function PaymentSettingsPage() {
           </div>
           <div>
             <h1 className="text-lg font-bold text-[var(--text-main)]">Zahlungseinstellungen</h1>
-            <p className="text-xs text-[var(--text-subtle)]">Payrexx-Integration, MwSt-Satz und Produktpreise</p>
+            <p className="text-xs text-[var(--text-subtle)]">Payrexx-Integration und MwSt-Satz</p>
           </div>
         </div>
         <button
@@ -249,7 +239,8 @@ export function PaymentSettingsPage() {
                 <div className="space-y-1 text-sm">
                   {[49, 98, 147].map((net) => {
                     const vat = Number(vatPercent);
-                    const gross = Number.isFinite(vat) ? Math.round(net * (1 + vat / 100) * 100) / 100 : net;
+                    const raw = Number.isFinite(vat) ? net * (1 + vat / 100) : net;
+                    const gross = Math.round(raw / 0.05) * 0.05;
                     return (
                       <div key={net} className="flex justify-between text-[var(--text-main)]">
                         <span className="text-[var(--text-subtle)]">CHF {net}.00 netto</span>
@@ -258,43 +249,6 @@ export function PaymentSettingsPage() {
                     );
                   })}
                 </div>
-              </div>
-            </div>
-          </SettingCard>
-
-          {/* ── Preise ── */}
-          <SettingCard
-            title="Produkt-Preise"
-            description="Preise für kostenpflichtige Dienste im Kunden-Portal. Änderungen wirken sich auf neue Bestellungen aus, nicht auf bereits erstellte Rechnungen."
-          >
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="space-y-1.5">
-                <span className="text-sm font-medium text-[var(--text-main)]">2D Grundriss von Tour</span>
-                <p className="text-xs text-[var(--text-subtle)]">Preis pro Etage (Netto, ohne MwSt)</p>
-                <div className="relative">
-                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-medium text-[var(--text-subtle)]">CHF</span>
-                  <input
-                    type="number"
-                    min={0}
-                    step={1}
-                    value={floorplanPrice}
-                    onChange={(e) => setFloorplanPrice(e.target.value)}
-                    className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 py-2 pl-10 text-sm text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
-                  />
-                </div>
-                <p className="text-xs text-[var(--text-subtle)]">
-                  Brutto: CHF {(Number(floorplanPrice) * (1 + Number(vatPercent) / 100)).toFixed(2)} / Etage
-                </p>
-              </label>
-
-              <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-4 py-3 space-y-2">
-                <p className="text-xs font-semibold text-[var(--text-subtle)] uppercase tracking-wide">Matterport Hosting</p>
-                <p className="text-sm font-medium text-[var(--text-main)]">
-                  CHF {data?.hostingUnitPrice?.toFixed(2) ?? "—"}
-                </p>
-                <p className="text-xs text-[var(--text-subtle)]">
-                  Preis pro 6 Monate (Verlängerung/Reaktivierung). Konfigurierbar über Produktverwaltung.
-                </p>
               </div>
             </div>
           </SettingCard>
