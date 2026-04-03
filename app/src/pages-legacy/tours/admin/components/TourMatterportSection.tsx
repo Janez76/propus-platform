@@ -166,6 +166,28 @@ function OverrideToggle({
   );
 }
 
+/** Aus eingefügter Show-URL den Startpunkt (sid=…) lesen; sonst den Text als Sweep-ID übernehmen. */
+function extractMatterportSweepFromInput(raw: string): string {
+  const t = raw.trim();
+  if (!t) return "";
+  const fromParam = t.match(/[?&#]sid=([^&\s#]+)/i);
+  if (fromParam) {
+    try {
+      return decodeURIComponent(fromParam[1]);
+    } catch {
+      return fromParam[1];
+    }
+  }
+  try {
+    const u = new URL(t);
+    const sid = u.searchParams.get("sid");
+    if (sid) return sid.trim();
+  } catch {
+    /* kein vollständiger URL-String */
+  }
+  return t;
+}
+
 function SweepIdTile({
   tourId,
   matterportStartSweep,
@@ -188,10 +210,12 @@ function SweepIdTile({
     setSaving(true);
     setOk(false);
     setErr(null);
+    const resolved = extractMatterportSweepFromInput(draft);
     try {
       await toursAdminPost(`/tours/${tourId}/set-start-sweep`, {
-        start_sweep: draft.trim() || null,
+        start_sweep: resolved || null,
       });
+      setDraft(resolved);
       setOk(true);
       window.setTimeout(() => setOk(false), 2500);
       onSaved();
@@ -203,35 +227,38 @@ function SweepIdTile({
   }
 
   return (
-    <div className="flex items-start gap-3 py-1.5">
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 text-xs font-medium text-[var(--text-main)]">
-          <span className="text-sm leading-none">📍</span>
-          <span>Startpunkt (Sweep-ID)</span>
-          {err ? <span className="ml-1 text-xs text-red-500 font-normal">{err}</span> : null}
+    <div className="flex flex-col gap-2 py-1.5 sm:flex-row sm:items-start sm:gap-3">
+      <div className="flex min-w-0 flex-1 items-start gap-2">
+        <Link2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--text-subtle)]" aria-hidden />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs font-medium text-[var(--text-main)]">
+            <span>Startpunkt setzen</span>
+            {err ? <span className="text-xs font-normal text-red-500">{err}</span> : null}
+          </div>
+          <p className="mt-0.5 text-xs leading-snug text-[var(--text-subtle)]">
+            Volle Matterport-Show-URL aus dem Browser einfügen (Strg+V) —{" "}
+            <code className="rounded bg-[var(--surface)] px-1 font-mono text-[10px]">sid=</code> wird beim Speichern
+            übernommen. Oder nur die Sweep-ID eintragen; Auswahl auch in der{" "}
+            <a href="#matterport-sweep-ids" className="text-[var(--accent)] underline-offset-1 hover:underline">
+              Sweep-Liste
+            </a>
+            .
+          </p>
         </div>
-        <p className="mt-0.5 text-xs leading-snug text-[var(--text-subtle)]">
-          Einstiegspunkt beim Öffnen der Tour.{" "}
-          <code className="rounded bg-[var(--surface)] px-1 font-mono text-[10px]">sid=</code>-Wert aus der Show-URL oder{" "}
-          <a href="#matterport-sweep-ids" className="text-[var(--accent)] underline-offset-1 hover:underline">
-            Sweep-Liste
-          </a>{" "}
-          unten.
-        </p>
       </div>
-      <div className="flex shrink-0 items-center gap-1">
+      <div className="flex min-w-0 w-full shrink-0 flex-col gap-1.5 sm:w-auto sm:max-w-xl sm:flex-row sm:items-center">
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder="Sweep-ID…"
+          placeholder="Show-URL oder Sweep-ID einfügen…"
           spellCheck={false}
-          className="w-28 rounded border border-[var(--border-soft)] bg-[var(--surface)] px-2 py-0.5 font-mono text-xs text-[var(--text-main)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]/40"
+          className="min-w-0 w-full rounded border border-[var(--border-soft)] bg-[var(--surface)] px-2 py-1 font-mono text-xs text-[var(--text-main)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]/40 sm:min-w-[14rem]"
         />
         <button
           type="button"
           disabled={saving}
           onClick={() => void save()}
-          className="rounded border border-[var(--border-soft)] bg-[var(--surface)] px-2 py-0.5 text-xs font-medium text-[var(--text-main)] transition-colors hover:border-[var(--accent)]/50 hover:bg-[var(--accent)]/10 hover:text-[var(--accent)] disabled:opacity-50"
+          className="shrink-0 rounded border border-[var(--border-soft)] bg-[var(--surface)] px-2.5 py-1 text-xs font-medium text-[var(--text-main)] transition-colors hover:border-[var(--accent)]/50 hover:bg-[var(--accent)]/10 hover:text-[var(--accent)] disabled:opacity-50"
         >
           {saving ? "…" : ok ? "✓" : "Setzen"}
         </button>

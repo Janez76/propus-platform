@@ -135,13 +135,22 @@ export function TourInternSection({
               <div className="text-xs font-semibold uppercase tracking-wide text-[var(--text-subtle)]">
                 Bestellnummer
               </div>
-              <p className="mt-1 text-sm font-medium text-[var(--text-main)]">
-                {orderOk ? (
-                  <>#{bookingOrderNo}</>
-                ) : (
-                  <span className="font-normal text-[var(--text-subtle)]">Keine verknüpft</span>
-                )}
-              </p>
+              {orderOk ? (
+                <p className="mt-1 text-sm font-medium text-[var(--text-main)]">#{bookingOrderNo}</p>
+              ) : (
+                <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
+                  <span className="text-sm font-normal text-[var(--text-subtle)]">Keine verknüpft</span>
+                  {onOpenBookingLink ? (
+                    <button
+                      type="button"
+                      onClick={onOpenBookingLink}
+                      className="w-fit rounded-lg border border-[var(--accent)]/45 bg-[var(--accent)]/10 px-2.5 py-1 text-xs font-semibold text-[var(--accent)] transition-colors hover:bg-[var(--accent)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
+                    >
+                      Jetzt verknüpfen
+                    </button>
+                  ) : null}
+                </div>
+              )}
             </div>
           </div>
           {onOpenCustomerLink ? (
@@ -153,7 +162,7 @@ export function TourInternSection({
               Kunde anpassen
             </button>
           ) : null}
-          {onOpenBookingLink ? (
+          {onOpenBookingLink && orderOk ? (
             <button
               type="button"
               onClick={onOpenBookingLink}
