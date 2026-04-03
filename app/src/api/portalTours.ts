@@ -141,3 +141,66 @@ export const invitePortalTeamMember = (inviteEmail: string, role?: string) =>
 
 export const removePortalTeamMember = (memberId: number) =>
   portalFetch<{ ok: true }>(`/team/${memberId}`, { method: "DELETE" });
+
+export type PortalTourDetail = {
+  ok: true;
+  tour: PortalTour & {
+    canonical_object_label?: string;
+    canonical_matterport_space_id?: string;
+    canonical_term_end_date?: string;
+    tour_url?: string;
+    matterport_start_sweep?: string;
+    matterport_created_at?: string;
+    customer_name?: string;
+    customer_contact?: string;
+  };
+  invoices: {
+    id: number;
+    invoice_status?: string;
+    invoice_date?: string;
+    amount_chf?: number;
+    betrag?: number;
+    exxas_document_id?: string;
+    invoice_number?: string;
+    sent_at?: string;
+    paid_at?: string;
+    created_at?: string;
+    payrexx_payment_url?: string;
+  }[];
+  actions_log: unknown[];
+  mpVisibility: string | null;
+  pricing: {
+    extensionPriceCHF: number;
+    reactivationPriceCHF: number;
+    isExtension: boolean;
+    isReactivation: boolean;
+    label: string;
+  } | null;
+  payrexxConfigured: boolean;
+  assigneeBundle: {
+    assigneeByTourId: Record<string, string>;
+    canManageByTourId: Record<string, boolean>;
+    candidatesByWorkspace: Record<string, { email: string; name: string }[]>;
+  } | null;
+};
+
+export const getPortalTourDetail = (id: number) =>
+  portalFetch<PortalTourDetail>(`/tours/${id}/detail`);
+
+export const editPortalTour = (id: number, data: { object_label?: string; customer_contact?: string; customer_name?: string; start_sweep?: string }) =>
+  portalFetch<{ ok: true; matterportNameOk?: boolean }>(`/tours/${id}/edit`, { method: "POST", body: JSON.stringify(data) });
+
+export const extendPortalTour = (id: number, paymentMethod: "payrexx" | "qr_invoice") =>
+  portalFetch<{ ok: true; redirectUrl?: string; successKey?: string }>(`/tours/${id}/extend`, { method: "POST", body: JSON.stringify({ paymentMethod }) });
+
+export const changePortalTourVisibility = (id: number, visibility: string, password?: string) =>
+  portalFetch<{ ok: true }>(`/tours/${id}/visibility`, { method: "POST", body: JSON.stringify({ visibility, password }) });
+
+export const archivePortalTour = (id: number) =>
+  portalFetch<{ ok: true }>(`/tours/${id}/archive`, { method: "POST" });
+
+export const setPortalTourAssignee = (id: number, assigneeEmail: string) =>
+  portalFetch<{ ok: true }>(`/tours/${id}/assignee`, { method: "POST", body: JSON.stringify({ assigneeEmail }) });
+
+export const payPortalInvoice = (tourId: number, invoiceId: number) =>
+  portalFetch<{ ok: true; paymentUrl: string }>(`/tours/${tourId}/pay/${invoiceId}`);

@@ -74,6 +74,7 @@ const ToursAdminAiChatPage = lazy(() => import("../pages-legacy/tours/admin/Tour
 const PortalLoginPage = lazy(() => import("../pages-legacy/portal/PortalLoginPage").then((m) => ({ default: m.PortalLoginPage })));
 const PortalForgotPasswordPage = lazy(() => import("../pages-legacy/portal/PortalForgotPasswordPage").then((m) => ({ default: m.PortalForgotPasswordPage })));
 const PortalResetPasswordPage = lazy(() => import("../pages-legacy/portal/PortalResetPasswordPage").then((m) => ({ default: m.PortalResetPasswordPage })));
+const PortalTourDetailPage = lazy(() => import("../pages-legacy/portal/PortalTourDetailPage").then((m) => ({ default: m.PortalTourDetailPage })));
 const PortalDashboardPage = lazy(() => import("../pages-legacy/portal/PortalDashboardPage").then((m) => ({ default: m.PortalDashboardPage })));
 const PortalToursPage = lazy(() => import("../pages-legacy/portal/PortalToursPage").then((m) => ({ default: m.PortalToursPage })));
 const PortalInvoicesPage = lazy(() => import("../pages-legacy/portal/PortalInvoicesPage").then((m) => ({ default: m.PortalInvoicesPage })));
@@ -112,6 +113,7 @@ function PrivateRoutes() {
           <Route path="/" element={<Navigate to="/portal/dashboard" replace />} />
           <Route path="/account" element={<AccountDashboardPage />} />
           <Route path="/portal/dashboard" element={<PortalDashboardPage />} />
+          <Route path="/portal/tours/:tourId" element={<PortalTourDetailPage />} />
           <Route path="/portal/tours" element={<PortalToursPage />} />
           <Route path="/portal/invoices" element={<PortalInvoicesPage />} />
           {role === "customer_admin" && (
@@ -144,6 +146,7 @@ function PrivateRoutes() {
       <Routes>
         <Route path="/" element={<Navigate to={isCompanyRole ? companyHome : "/dashboard"} replace />} />
         <Route path="/portal/dashboard" element={<PortalDashboardPage />} />
+        <Route path="/portal/tours/:tourId" element={<PortalTourDetailPage />} />
         <Route path="/portal/tours" element={<PortalToursPage />} />
         <Route path="/portal/invoices" element={<PortalInvoicesPage />} />
         <Route path="/portal/team" element={<PortalTeamPage />} />
