@@ -29,10 +29,9 @@ const nextConfig: NextConfig = {
           source: "/portal/api/:path*",
           destination: `${PLATFORM_INTERNAL_URL}/tour-manager/portal/api/:path*`,
         },
-        {
-          source: "/webhook/:path*",
-          destination: `${PLATFORM_INTERNAL_URL}/tour-manager/webhook/:path*`,
-        },
+        // /webhook/* wird als Next.js-Route (app/webhook/payrexx/route.ts) gehandelt,
+        // KEIN Rewrite — sonst verändert Next.js die Body-Byte-Reihenfolge und
+        // die HMAC-Signatur von Payrexx schlägt fehl.
         {
           source: "/tour-manager/api/invite/:path*",
           destination: `${PLATFORM_INTERNAL_URL}/tour-manager/api/invite/:path*`,
