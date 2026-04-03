@@ -788,10 +788,10 @@ export function ToursAdminLinkMatterportPage() {
             {coreCustomerId && (
               <div className="grid gap-2 sm:grid-cols-2">
                 <div className="space-y-1">
-                  <label className="block text-xs uppercase tracking-wide text-[var(--text-subtle)]">Kundenname (Anzeige)</label>
+                  <label className="block text-xs uppercase tracking-wide text-[var(--text-subtle)]">Firma</label>
                   <input
                     className="w-full rounded border border-[var(--border-soft)] bg-[var(--surface)] px-2 py-1.5 focus:outline-none focus:border-[var(--propus-gold)]"
-                    placeholder="Kundenname (Anzeige)"
+                    placeholder="Firmenname"
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
                   />
@@ -816,7 +816,7 @@ export function ToursAdminLinkMatterportPage() {
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="space-y-1">
               <label className="block text-xs uppercase tracking-wide text-[var(--text-subtle)]">
-                Kundenname <span className="text-[var(--propus-gold)]">*</span>
+                Firma <span className="text-[var(--propus-gold)]">*</span>
               </label>
               <input
                 className="w-full rounded border border-[var(--border-soft)] bg-[var(--surface)] px-2 py-1.5 focus:outline-none focus:border-[var(--propus-gold)]"
