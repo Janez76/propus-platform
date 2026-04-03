@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Link2, ArchiveRestore, Trash2, Send, RefreshCw, X, SlidersHorizontal, Copy, Check } from "lucide-react";
-import { toursAdminPost, deleteToursAdminTour, postUnarchiveMatterportTour, postTransferMatterportSpace, getToursAdminMatterportModel, postToursAdminMatterportOptions } from "../../../../api/toursAdmin";
+import { toursAdminPost, deleteToursAdminTour, postUnarchiveMatterportTour, postReactivateTour, postTransferMatterportSpace, getToursAdminMatterportModel, postToursAdminMatterportOptions } from "../../../../api/toursAdmin";
 import type { MatterportModelMeta, MatterportModelOptions, MatterportSettingOverride, MatterportOptionsPatch } from "../../../../api/toursAdmin";
 import type { ToursAdminTourRow } from "../../../../types/toursAdmin";
 import { TicketCreateDialog } from "./TicketCreateDialog";
@@ -78,6 +78,7 @@ function OverrideToggle({
   label,
   hint,
   overrideKey,
+  enabled,
   override,
   tourId,
   onSuccess,
@@ -94,10 +95,13 @@ function OverrideToggle({
   const [busy, setBusy] = useState<MatterportSettingOverride | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  const current = (String(override ?? "default").toLowerCase()) as MatterportSettingOverride | "default";
+  const currentOverride = (String(override ?? "default").toLowerCase()) as MatterportSettingOverride | "default";
+  const isOverrideSet = currentOverride !== "default";
 
-  async function set(next: MatterportSettingOverride) {
+  async function handleClick(value: "enabled" | "disabled") {
     if (busy) return;
+    // Bereits aktiven Override anklicken → zurück auf Standard (default)
+    const next: MatterportSettingOverride = (isOverrideSet && currentOverride === value) ? "default" : value;
     setBusy(next);
     setErr(null);
     try {
@@ -110,24 +114,26 @@ function OverrideToggle({
     }
   }
 
-  const OPTIONS: { value: MatterportSettingOverride; label: string; active: string; inactive: string }[] = [
-    {
-      value: "default",
-      label: "Standard",
-      active:   "border-[var(--accent)]/60 bg-[var(--accent)]/8 text-[var(--accent)]",
-      inactive: "border-[var(--border-soft)] text-[var(--text-subtle)] hover:border-[var(--accent)]/30 hover:text-[var(--text-main)]",
-    },
+  const BTNS: {
+    value: "enabled" | "disabled";
+    label: string;
+    activeOverride: string;
+    activeDefault: string;
+    inactive: string;
+  }[] = [
     {
       value: "enabled",
       label: "An",
-      active:   "border-emerald-400/70 bg-emerald-500/10 text-emerald-600 dark:border-emerald-600 dark:text-emerald-400",
-      inactive: "border-[var(--border-soft)] text-[var(--text-subtle)] hover:border-emerald-400/40 hover:text-emerald-600 dark:hover:text-emerald-400",
+      activeOverride: "border-emerald-400/70 bg-emerald-500/10 text-emerald-600 dark:border-emerald-600 dark:text-emerald-400",
+      activeDefault:  "border-emerald-300/40 bg-emerald-500/5 text-emerald-600/60 dark:border-emerald-800 dark:text-emerald-500/60",
+      inactive:       "border-[var(--border-soft)] text-[var(--text-subtle)] hover:border-emerald-400/40 hover:text-emerald-600 dark:hover:text-emerald-400",
     },
     {
       value: "disabled",
       label: "Aus",
-      active:   "border-red-400/70 bg-red-500/10 text-red-600 dark:border-red-600 dark:text-red-400",
-      inactive: "border-[var(--border-soft)] text-[var(--text-subtle)] hover:border-red-400/40 hover:text-red-600 dark:hover:text-red-400",
+      activeOverride: "border-red-400/70 bg-red-500/10 text-red-600 dark:border-red-600 dark:text-red-400",
+      activeDefault:  "border-red-300/40 bg-red-500/5 text-red-600/60 dark:border-red-800 dark:text-red-500/60",
+      inactive:       "border-[var(--border-soft)] text-[var(--text-subtle)] hover:border-red-400/40 hover:text-red-600 dark:hover:text-red-400",
     },
   ];
 
@@ -141,23 +147,31 @@ function OverrideToggle({
         </div>
         <p className="mt-0.5 text-xs leading-snug text-[var(--text-subtle)]">{hint}</p>
       </div>
-      <div className="flex shrink-0 gap-1">
-        {OPTIONS.map((opt) => {
-          const isActive = current === opt.value;
-          const isBusy = busy === opt.value;
+      <div className="flex shrink-0 items-center gap-1">
+        {BTNS.map((btn) => {
+          const isBusy = busy === btn.value || (busy === "default" && isOverrideSet && currentOverride === btn.value);
+          // Ist dieser Knopf der effektiv aktive?
+          const isActiveOverride = isOverrideSet && currentOverride === btn.value;
+          const isActiveDefault  = !isOverrideSet && enabled !== null && (btn.value === "enabled" ? enabled === true : enabled === false);
+          const btnClass = isActiveOverride
+            ? btn.activeOverride
+            : isActiveDefault
+              ? btn.activeDefault
+              : btn.inactive;
           return (
             <button
-              key={opt.value}
+              key={btn.value}
               type="button"
               disabled={!!busy}
-              onClick={() => void set(opt.value)}
+              onClick={() => void handleClick(btn.value)}
+              title={isActiveOverride ? "Klicken zum Zurücksetzen auf Matterport-Standard" : undefined}
               className={[
                 "rounded border px-2 py-0.5 text-xs leading-none transition-colors disabled:cursor-wait",
-                isActive ? opt.active : opt.inactive,
+                btnClass,
                 isBusy ? "opacity-50" : "",
               ].join(" ")}
             >
-              {isBusy ? "…" : opt.label}
+              {isBusy ? "…" : btn.label}
             </button>
           );
         })}
@@ -408,9 +422,9 @@ function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId, tourSh
             </div>
           </div>
           <p className="text-xs text-[var(--text-subtle)] leading-relaxed pt-1">
-            <strong className="text-[var(--text-main)]">Standard</strong> = wie im Matterport-Konto voreingestellt (kein eigener Eintrag für diese Tour).{" "}
-            <strong className="text-[var(--text-main)]">An</strong> = Funktion für diese Tour erzwingen ein.{" "}
-            <strong className="text-[var(--text-main)]">Aus</strong> = Funktion für diese Tour erzwingen aus. Pro Zeile unabhängig wählbar.
+            <strong className="text-[var(--text-main)]">Kräftig hervorgehoben</strong> = manuell für diese Tour gesetzt.{" "}
+            <strong className="text-[var(--text-main)]">Gedimmt hervorgehoben</strong> = Matterport-Standard (kein Override).{" "}
+            Aktiven Override erneut anklicken, um ihn zurückzusetzen.
           </p>
         </div>
       ) : null}
@@ -463,6 +477,7 @@ export function TourMatterportSection({ tourId, tour, mpVisibility, onSuccess }:
 
   // Reaktivierungs-Dialog
   const [reactivateOpen, setReactivateOpen] = useState(false);
+  const [reactivateMethod, setReactivateMethod] = useState<"payrexx" | "qr_invoice">("payrexx");
 
   // Löschen-Dialog
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -494,6 +509,24 @@ export function TourMatterportSection({ tourId, tour, mpVisibility, onSuccess }:
     setReactivateOpen(false);
     try {
       await postUnarchiveMatterportTour(tourId);
+      onSuccess();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Fehler");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleReactivate() {
+    setBusy(true);
+    setErr(null);
+    setReactivateOpen(false);
+    try {
+      const r = await postReactivateTour(tourId, reactivateMethod);
+      if (r.redirectUrl) {
+        window.location.href = r.redirectUrl;
+        return;
+      }
       onSuccess();
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Fehler");
@@ -756,14 +789,14 @@ export function TourMatterportSection({ tourId, tour, mpVisibility, onSuccess }:
         );
       })() : null}
 
-      {/* Reaktivierungs-Bestätigung */}
+      {/* Reaktivierungs-Dialog mit Zahlungsart-Auswahl */}
       {reactivateOpen ? (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-[var(--bg-card)] p-6 shadow-[0_24px_60px_rgba(0,0,0,0.35)] space-y-4 relative">
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4 backdrop-blur-[2px]">
+          <div className="w-full max-w-sm rounded-2xl bg-[var(--bg-card)] ring-1 ring-[var(--border-strong)] p-6 shadow-[0_24px_60px_rgba(0,0,0,0.35)] space-y-4 relative">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-2">
                 <ArchiveRestore className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                <h3 className="text-base font-semibold text-[var(--text-main)]">Space reaktivieren?</h3>
+                <h3 className="text-base font-semibold text-[var(--text-main)]">Space reaktivieren</h3>
               </div>
               <button
                 type="button"
@@ -776,23 +809,57 @@ export function TourMatterportSection({ tourId, tour, mpVisibility, onSuccess }:
             </div>
 
             <p className="text-sm text-[var(--text-subtle)]">
-              Der Matterport-Space wird wieder aktiviert und die Tour auf <strong className="text-[var(--text-main)]">ACTIVE</strong> gesetzt.
+              Wählen Sie die Zahlungsart für die Reaktivierungsrechnung.
+              Kosten: <strong className="text-[var(--text-main)]">CHF 74.–</strong>{" "}
+              (CHF 59.– Abo + CHF 15.– Reaktivierungsgebühr) für 6 Monate.
             </p>
 
-            {/* Kostenhinweis */}
-            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 space-y-1 dark:border-amber-800 dark:bg-amber-950/30">
-              <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">
-                ⚠️ Hinweis: Kundenrechnung
-              </p>
-              <p className="text-xs text-amber-700 dark:text-amber-400">
-                Für den Kunden entstehen bei einer Reaktivierung Kosten von{" "}
-                <strong>CHF 74.–</strong> (CHF 59.– Abo + CHF 15.– Reaktivierungsgebühr)
-                für <strong>6 Monate</strong>.
-              </p>
-              <p className="text-xs text-amber-700 dark:text-amber-400">
-                Diese Aktion reaktiviert nur den Matterport-Space — die Kundenrechnung wird separat über das Kundenportal ausgelöst.
-              </p>
+            {/* Zahlungsart-Auswahl */}
+            <div className="flex flex-col gap-2">
+              <label className="flex items-center gap-2 text-sm text-[var(--text-main)] cursor-pointer">
+                <input
+                  type="radio"
+                  name="reactivateMethod"
+                  value="payrexx"
+                  checked={reactivateMethod === "payrexx"}
+                  onChange={() => setReactivateMethod("payrexx")}
+                  className="accent-[var(--accent)] w-4 h-4"
+                />
+                Online bezahlen (Payrexx)
+              </label>
+              <label className="flex items-center gap-2 text-sm text-[var(--text-main)] cursor-pointer">
+                <input
+                  type="radio"
+                  name="reactivateMethod"
+                  value="qr_invoice"
+                  checked={reactivateMethod === "qr_invoice"}
+                  onChange={() => setReactivateMethod("qr_invoice")}
+                  className="accent-[var(--accent)] w-4 h-4"
+                />
+                QR-Rechnung per E-Mail
+              </label>
             </div>
+
+            {/* Kontextueller Hinweis je nach Methode */}
+            {reactivateMethod === "qr_invoice" ? (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 space-y-1 dark:border-amber-800 dark:bg-amber-950/30">
+                <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">⚠️ Hinweis</p>
+                <p className="text-xs text-amber-700 dark:text-amber-400">
+                  Der Matterport-Space wird <strong>sofort aktiviert</strong>. Die QR-Rechnung
+                  wird per E-Mail an den Kunden gesendet und ist{" "}
+                  <strong>innerhalb von 14 Tagen</strong> zu bezahlen.
+                </p>
+                <p className="text-xs text-amber-700 dark:text-amber-400">
+                  Diese Aktion kann <strong>nicht rückgängig</strong> gemacht werden.
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 dark:border-blue-900 dark:bg-blue-950/30">
+                <p className="text-xs text-blue-700 dark:text-blue-300">
+                  Der Space wird sofort aktiviert. Anschließend werden Sie zur Payrexx-Zahlungsseite weitergeleitet.
+                </p>
+              </div>
+            )}
 
             <div className="flex justify-end gap-2 pt-1">
               <button
@@ -805,7 +872,7 @@ export function TourMatterportSection({ tourId, tour, mpVisibility, onSuccess }:
               </button>
               <button
                 type="button"
-                onClick={() => void unarchive()}
+                onClick={() => void handleReactivate()}
                 disabled={busy}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
               >

@@ -31,6 +31,9 @@
   --accent:        var(--propus-gold);
   --accent-hover:  var(--propus-gold-hover);
   --accent-subtle: color-mix(in srgb, var(--propus-gold) 12%, transparent);
+  /* Aliase für Modale/Formulare (bg-[var(--bg-card)] etc.) */
+  --bg-card:  var(--surface);
+  --bg-input: var(--surface-raised);
 
   /* --- Auth Page Tokens --- */
   --auth-bg:            var(--propus-beige);
@@ -60,6 +63,8 @@ html.dark {
   --accent:        var(--propus-gold-dark);
   --accent-hover:  #c9a22a;
   --accent-subtle: color-mix(in srgb, var(--propus-gold-dark) 14%, transparent);
+  --bg-card:  var(--surface);
+  --bg-input: var(--surface-raised);
 
   /* --- Auth Page Tokens (dark) --- */
   --auth-bg:            #0f1012;

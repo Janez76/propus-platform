@@ -277,6 +277,16 @@ export function postUnarchiveMatterportTour(tourId: string) {
   return toursAdminPost(`/tours/${tourId}/unarchive-matterport`);
 }
 
+export function postReactivateTour(
+  tourId: string,
+  paymentMethod: "payrexx" | "qr_invoice",
+): Promise<{ ok: true; via: "payrexx" | "qr_invoice"; redirectUrl?: string }> {
+  return toursAdminPost(
+    `/tours/${tourId}/reactivate`,
+    { paymentMethod },
+  ) as Promise<{ ok: true; via: "payrexx" | "qr_invoice"; redirectUrl?: string }>;
+}
+
 export function deleteToursAdminTour(tourId: string) {
   return toursAdminDelete<{ ok: boolean; message?: string }>(`/tours/${tourId}`);
 }

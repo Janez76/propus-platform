@@ -218,7 +218,7 @@ const OPTIONS_CONFIG: Array<{
 ];
 
 function PortalOverrideToggle({
-  icon, label, hint, overrideKey, override, tourId, onSuccess,
+  icon, label, hint, overrideKey, enabled, override, tourId, onSuccess,
 }: {
   icon: string; label: string; hint: string;
   overrideKey: keyof MatterportOptionsPatch;
@@ -227,10 +227,12 @@ function PortalOverrideToggle({
 }) {
   const [busy, setBusy] = useState<MatterportSettingOverride | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const current = (String(override ?? "default").toLowerCase()) as MatterportSettingOverride | "default";
+  const currentOverride = (String(override ?? "default").toLowerCase()) as MatterportSettingOverride | "default";
+  const isOverrideSet = currentOverride !== "default";
 
-  async function set(next: MatterportSettingOverride) {
+  async function handleClick(value: "enabled" | "disabled") {
     if (busy) return;
+    const next: MatterportSettingOverride = (isOverrideSet && currentOverride === value) ? "default" : value;
     setBusy(next);
     setErr(null);
     try {
@@ -243,10 +245,27 @@ function PortalOverrideToggle({
     }
   }
 
-  const OPTS: { value: MatterportSettingOverride; label: string; active: string; inactive: string }[] = [
-    { value: "default",  label: "Standard", active: "border-[var(--accent)]/60 bg-[var(--accent)]/8 text-[var(--accent)]",                                                               inactive: "border-[var(--border-soft)] text-[var(--text-subtle)] hover:border-[var(--accent)]/30 hover:text-[var(--text-main)]" },
-    { value: "enabled",  label: "An",       active: "border-emerald-400/70 bg-emerald-500/10 text-emerald-600 dark:border-emerald-600 dark:text-emerald-400",                              inactive: "border-[var(--border-soft)] text-[var(--text-subtle)] hover:border-emerald-400/40 hover:text-emerald-600 dark:hover:text-emerald-400" },
-    { value: "disabled", label: "Aus",      active: "border-red-400/70 bg-red-500/10 text-red-600 dark:border-red-600 dark:text-red-400",                                                  inactive: "border-[var(--border-soft)] text-[var(--text-subtle)] hover:border-red-400/40 hover:text-red-600 dark:hover:text-red-400" },
+  const BTNS: {
+    value: "enabled" | "disabled";
+    label: string;
+    activeOverride: string;
+    activeDefault: string;
+    inactive: string;
+  }[] = [
+    {
+      value: "enabled",
+      label: "An",
+      activeOverride: "border-emerald-400/70 bg-emerald-500/10 text-emerald-600 dark:border-emerald-600 dark:text-emerald-400",
+      activeDefault:  "border-emerald-300/40 bg-emerald-500/5 text-emerald-600/60 dark:border-emerald-800 dark:text-emerald-500/60",
+      inactive:       "border-[var(--border-soft)] text-[var(--text-subtle)] hover:border-emerald-400/40 hover:text-emerald-600 dark:hover:text-emerald-400",
+    },
+    {
+      value: "disabled",
+      label: "Aus",
+      activeOverride: "border-red-400/70 bg-red-500/10 text-red-600 dark:border-red-600 dark:text-red-400",
+      activeDefault:  "border-red-300/40 bg-red-500/5 text-red-600/60 dark:border-red-800 dark:text-red-500/60",
+      inactive:       "border-[var(--border-soft)] text-[var(--text-subtle)] hover:border-red-400/40 hover:text-red-600 dark:hover:text-red-400",
+    },
   ];
 
   return (
@@ -259,23 +278,30 @@ function PortalOverrideToggle({
         </div>
         <p className="mt-0.5 text-xs leading-snug text-[var(--text-subtle)]">{hint}</p>
       </div>
-      <div className="flex shrink-0 gap-1">
-        {OPTS.map((opt) => {
-          const isActive = current === opt.value;
-          const isBusy = busy === opt.value;
+      <div className="flex shrink-0 items-center gap-1">
+        {BTNS.map((btn) => {
+          const isBusy = busy === btn.value || (busy === "default" && isOverrideSet && currentOverride === btn.value);
+          const isActiveOverride = isOverrideSet && currentOverride === btn.value;
+          const isActiveDefault  = !isOverrideSet && enabled !== null && (btn.value === "enabled" ? enabled === true : enabled === false);
+          const btnClass = isActiveOverride
+            ? btn.activeOverride
+            : isActiveDefault
+              ? btn.activeDefault
+              : btn.inactive;
           return (
             <button
-              key={opt.value}
+              key={btn.value}
               type="button"
               disabled={!!busy}
-              onClick={() => void set(opt.value)}
+              onClick={() => void handleClick(btn.value)}
+              title={isActiveOverride ? "Klicken zum Zurücksetzen auf Matterport-Standard" : undefined}
               className={[
                 "rounded border px-2 py-0.5 text-xs leading-none transition-colors disabled:cursor-wait",
-                isActive ? opt.active : opt.inactive,
+                btnClass,
                 isBusy ? "opacity-50" : "",
               ].join(" ")}
             >
-              {isBusy ? "…" : opt.label}
+              {isBusy ? "…" : btn.label}
             </button>
           );
         })}
@@ -511,9 +537,9 @@ function PortalMatterportMetaPanel({
             </div>
           </div>
           <p className="text-xs text-[var(--text-subtle)] leading-relaxed pt-1">
-            <strong className="text-[var(--text-main)]">Standard</strong> = wie im Matterport-Konto voreingestellt (kein eigener Eintrag für diese Tour).{" "}
-            <strong className="text-[var(--text-main)]">An</strong> = Funktion für diese Tour erzwingen ein.{" "}
-            <strong className="text-[var(--text-main)]">Aus</strong> = Funktion für diese Tour erzwingen aus. Pro Zeile unabhängig wählbar.
+            <strong className="text-[var(--text-main)]">Kräftig hervorgehoben</strong> = manuell für diese Tour gesetzt.{" "}
+            <strong className="text-[var(--text-main)]">Gedimmt hervorgehoben</strong> = Matterport-Standard (kein Override).{" "}
+            Aktiven Override erneut anklicken, um ihn zurückzusetzen.
           </p>
         </div>
       ) : null}
