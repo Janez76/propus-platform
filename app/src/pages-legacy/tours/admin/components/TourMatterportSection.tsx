@@ -65,7 +65,6 @@ function OverrideToggle({
   icon,
   label,
   overrideKey,
-  enabled,
   override,
   tourId,
   onSuccess,
@@ -78,21 +77,14 @@ function OverrideToggle({
   tourId: string;
   onSuccess: () => void;
 }) {
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<MatterportSettingOverride | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  const currentOverride = String(override ?? "default").toLowerCase();
-  // Wenn kein Override gesetzt: Konto-Standard anzeigen
-  const isEnabled = currentOverride === "enabled" ? true : currentOverride === "disabled" ? false : enabled;
+  const current = (String(override ?? "default").toLowerCase()) as MatterportSettingOverride | "default";
 
-  async function toggle() {
-    // Zyklus: default → enabled → disabled → default
-    let next: MatterportSettingOverride;
-    if (currentOverride === "enabled") next = "disabled";
-    else if (currentOverride === "disabled") next = "default";
-    else next = "enabled";
-
-    setBusy(true);
+  async function set(next: MatterportSettingOverride) {
+    if (busy) return;
+    setBusy(next);
     setErr(null);
     try {
       await postToursAdminMatterportOptions(tourId, { [overrideKey]: next });
@@ -100,44 +92,60 @@ function OverrideToggle({
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Fehler");
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
-  const isExplicit = currentOverride === "enabled" || currentOverride === "disabled";
+  const OPTIONS: { value: MatterportSettingOverride; label: string; active: string; inactive: string }[] = [
+    {
+      value: "default",
+      label: "Standard",
+      active:   "border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)] font-semibold",
+      inactive: "border-[var(--border-soft)] text-[var(--text-subtle)] hover:border-[var(--accent)]/40 hover:text-[var(--text-main)]",
+    },
+    {
+      value: "enabled",
+      label: "An",
+      active:   "border-emerald-400 bg-emerald-50 text-emerald-700 font-semibold dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300",
+      inactive: "border-[var(--border-soft)] text-[var(--text-subtle)] hover:border-emerald-400/60 hover:text-emerald-700 dark:hover:text-emerald-400",
+    },
+    {
+      value: "disabled",
+      label: "Aus",
+      active:   "border-red-400 bg-red-50 text-red-700 font-semibold dark:border-red-700 dark:bg-red-950/40 dark:text-red-300",
+      inactive: "border-[var(--border-soft)] text-[var(--text-subtle)] hover:border-red-400/60 hover:text-red-600 dark:hover:text-red-400",
+    },
+  ];
 
   return (
-    <button
-      type="button"
-      disabled={busy}
-      onClick={() => void toggle()}
-      title={err ?? (isExplicit ? `Override: ${currentOverride} — klicken zum Ändern` : "Konto-Standard — klicken zum Überschreiben")}
-      className={[
-        "flex items-center justify-between gap-2 w-full rounded-lg border px-2.5 py-2 text-left transition-colors",
-        busy ? "opacity-50 cursor-wait" : "cursor-pointer hover:border-[var(--accent)]/50",
-        isExplicit && isEnabled
-          ? "border-emerald-200 bg-emerald-50/50 dark:border-emerald-900 dark:bg-emerald-950/20"
-          : isExplicit && !isEnabled
-            ? "border-red-200 bg-red-50/50 dark:border-red-900 dark:bg-red-950/20"
-            : "border-[var(--border-soft)]",
-      ].join(" ")}
-    >
-      <span className="flex items-center gap-1.5 text-xs text-[var(--text-main)] min-w-0">
+    <div className="rounded-lg border border-[var(--border-soft)] px-3 py-2 space-y-1.5">
+      <div className="flex items-center gap-1.5 text-xs text-[var(--text-main)]">
         <span>{icon}</span>
-        <span className="truncate">{label}</span>
-      </span>
-      <span className={[
-        "shrink-0 inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md font-medium border",
-        isExplicit && isEnabled
-          ? "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
-          : isExplicit && !isEnabled
-            ? "bg-red-50 text-red-600 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800"
-            : "bg-[var(--surface)] text-[var(--text-subtle)] border-[var(--border-soft)]",
-      ].join(" ")}>
-        <span className={`h-1.5 w-1.5 rounded-full inline-block ${isEnabled ? "bg-emerald-500" : "bg-red-400"}`} />
-        {isExplicit ? (isEnabled ? "An" : "Aus") : "Standard"}
-      </span>
-    </button>
+        <span>{label}</span>
+        {err ? <span className="ml-auto text-[10px] text-red-500">{err}</span> : null}
+      </div>
+      <div className="flex gap-1">
+        {OPTIONS.map((opt) => {
+          const isActive = current === opt.value;
+          const isBusy = busy === opt.value;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              disabled={!!busy}
+              onClick={() => void set(opt.value)}
+              className={[
+                "flex-1 rounded-md border px-2 py-1 text-[11px] transition-colors disabled:cursor-wait",
+                isActive ? opt.active : opt.inactive,
+                isBusy ? "opacity-60" : "",
+              ].join(" ")}
+            >
+              {isBusy ? "…" : opt.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -242,7 +250,7 @@ function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId }: {
             ))}
           </div>
           <p className="text-[10px] text-[var(--text-subtle)]">
-            Klicken zum Umschalten: <strong>Standard</strong> → <strong>An</strong> → <strong>Aus</strong> → Standard. Änderungen werden direkt an Matterport gesendet.
+            <strong>Standard</strong> = Konto-Einstellung übernehmen · <strong>An</strong> / <strong>Aus</strong> = explizit überschreiben. Änderungen werden sofort an Matterport gesendet.
           </p>
         </div>
       ) : null}
