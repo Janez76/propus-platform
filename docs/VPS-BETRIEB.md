@@ -48,11 +48,14 @@ cd /opt/propus-platform
 docker compose -p propus-platform -f docker-compose.vps.yml --env-file .env.vps down
 ```
 
-### Einzelnen Container neu starten
+### Platform-Container neu erstellen
 
 ```bash
-docker compose -p propus-platform -f docker-compose.vps.yml --env-file .env.vps restart platform
+docker compose -p propus-platform -f docker-compose.vps.yml --env-file .env.vps up -d --force-recreate platform
 ```
+
+Verwende fuer Env-Aenderungen bewusst `--force-recreate`, damit neue Werte aus `.env.vps`
+wirklich in den laufenden Container uebernommen werden.
 
 ### Logs ansehen
 
@@ -144,7 +147,7 @@ docker exec -i propus-platform-postgres-1 \
   psql -U propus -d propus < /opt/propus-platform/backups/<BACKUP_DIR>/propus-db.sql
 
 # Platform starten
-docker compose -p propus-platform -f docker-compose.vps.yml --env-file .env.vps up -d platform
+docker compose -p propus-platform -f docker-compose.vps.yml --env-file .env.vps up -d --force-recreate platform
 ```
 
 ### orders.json wiederherstellen
@@ -185,7 +188,7 @@ cd /opt/propus-platform
 docker compose -p propus-platform -f docker-compose.vps.yml --env-file .env.vps \
   build --no-cache platform
 docker compose -p propus-platform -f docker-compose.vps.yml --env-file .env.vps \
-  up -d platform
+  up -d --force-recreate platform
 ```
 
 ---
@@ -242,7 +245,7 @@ https://admin-booking.propus.ch/webhook/payrexx
 **Nach Änderung der Env-Variablen:**
 
 ```bash
-docker compose -p propus-platform -f docker-compose.vps.yml --env-file .env.vps up -d platform
+docker compose -p propus-platform -f docker-compose.vps.yml --env-file .env.vps up -d --force-recreate platform
 ```
 
 > Die `payrexx_configured`-Info wird bei jedem Tour-Detail-Aufruf live aus den Env-Vars gelesen — kein Neustart nötig um den Status im UI zu sehen, aber die Variablen selbst brauchen einen Neustart.

@@ -94,6 +94,13 @@ export function PaymentSettingsPage() {
   const isDirty =
     data !== null &&
     String(vatPercent) !== String(data.vatPercent);
+  const missingPayrexxVars = data?.payrexxMissingVars ?? [];
+  const webhookReady = (data?.payrexxWebhookSecretConfigured ?? false) || (data?.payrexxApiSecretConfigured ?? false);
+  const payrexxStatusText = data?.payrexxConfigured
+    ? `Konfiguriert als ${data.payrexxInstance}`
+    : missingPayrexxVars.length > 0
+      ? `Fehlt: ${missingPayrexxVars.join(", ")}`
+      : "Payrexx ist noch nicht vollständig konfiguriert";
 
   return (
     <div className="space-y-5 max-w-3xl">
@@ -153,10 +160,10 @@ export function PaymentSettingsPage() {
                 <div>
                   <p className="text-sm font-medium text-[var(--text-main)]">Payrexx-Instanz</p>
                   <p className="text-xs text-[var(--text-subtle)] mt-0.5">
-                    {data?.payrexxInstance ? (
+                    {data?.payrexxConfigured && data.payrexxInstance ? (
                       <>Konfiguriert als <code className="rounded bg-[var(--surface)] px-1 font-mono text-xs">{data.payrexxInstance}</code></>
                     ) : (
-                      "Noch nicht konfiguriert (PAYREXX_INSTANCE fehlt)"
+                      payrexxStatusText
                     )}
                   </p>
                 </div>
@@ -172,13 +179,18 @@ export function PaymentSettingsPage() {
               <div className="flex items-start gap-2 text-xs text-[var(--text-subtle)]">
                 <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                 <div className="space-y-1">
-                  <p>Folgende Umgebungsvariablen müssen auf dem VPS in der <code className="rounded bg-[var(--surface)] px-1 font-mono">.env</code>-Datei gesetzt sein:</p>
+                  <p>Folgende Umgebungsvariablen müssen auf dem VPS in der <code className="rounded bg-[var(--surface)] px-1 font-mono">.env.vps</code>-Datei gesetzt sein:</p>
                   <ul className="space-y-0.5 pl-2">
                     <li><code className="rounded bg-[var(--surface)] px-1 font-mono">PAYREXX_INSTANCE</code> — Instanzname (z.B. <code className="font-mono">propus</code>)</li>
                     <li><code className="rounded bg-[var(--surface)] px-1 font-mono">PAYREXX_API_SECRET</code> — API-Secret aus dem Payrexx-Dashboard</li>
                     <li><code className="rounded bg-[var(--surface)] px-1 font-mono">PAYREXX_WEBHOOK_SECRET</code> — Webhook-Signing-Key (optional, Fallback auf API-Secret)</li>
                   </ul>
-                  <p className="mt-1">Nach einer Änderung muss der Container neu gestartet werden.</p>
+                  {missingPayrexxVars.length > 0 && (
+                    <p className="mt-1 text-amber-600 dark:text-amber-400">
+                      Aktuell fehlen im laufenden Container: <code className="rounded bg-[var(--surface)] px-1 font-mono">{missingPayrexxVars.join(", ")}</code>
+                    </p>
+                  )}
+                  <p className="mt-1">Nach einer Änderung den `platform`-Container mit `docker compose ... up -d --force-recreate platform` neu erstellen.</p>
                 </div>
               </div>
             </div>
@@ -186,8 +198,8 @@ export function PaymentSettingsPage() {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 text-xs">
               {[
                 { label: "Online-Zahlung", ok: data?.payrexxConfigured ?? false, hint: "Aktiviert Payrexx-Checkout für Kunden" },
-                { label: "Webhook empfangen", ok: data?.payrexxConfigured ?? false, hint: "Zahlungsbestätigungen werden verarbeitet" },
-                { label: "Automatische Aktivierung", ok: data?.payrexxConfigured ?? false, hint: "Tour wird nach Zahlung automatisch aktiviert" },
+                { label: "API-Secret", ok: data?.payrexxApiSecretConfigured ?? false, hint: "Authentifiziert Requests gegen die Payrexx-API" },
+                { label: "Webhook empfangen", ok: webhookReady, hint: "Zahlungsbestätigungen werden verarbeitet" },
               ].map(({ label, ok, hint }) => (
                 <div
                   key={label}

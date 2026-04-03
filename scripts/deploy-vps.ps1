@@ -531,9 +531,9 @@ cd '$RemoteProjectRoot'
 $buildLine
 echo '[deploy] platform Container (alten gestoppten Container entfernen falls vorhanden)...'
 docker rm -f "${RemoteComposeProject}-platform-1" 2>/dev/null || true
-$composeBase up -d platform
+$composeBase up -d --force-recreate platform
 "@
-Invoke-Ssh -DeployStep "5e/6 platform (build ggf.) + up -d" $platformUpBlock
+Invoke-Ssh -DeployStep "5e/6 platform (build ggf.) + force-recreate" $platformUpBlock
 
 $healthBlock = @"
 set -eu
@@ -586,7 +586,7 @@ Write-Step "Fertig" "Green"
 Write-Host "Gesamtdauer: $([math]::Round($total.TotalMinutes, 2)) Min ($([math]::Round($total.TotalSeconds, 1))s)" -ForegroundColor Green
 Write-Host ""
 Write-Host "Hinweis: Booking-DB-Migrationen laufen beim Start des platform-Containers (booking/server.js -> db.runMigrations)." -ForegroundColor DarkGray
-Write-Host "Ohne Code-Deploy nur schnell neu starten: -SkipUpload -SkipBuild und auf dem Host: docker compose ... up -d platform" -ForegroundColor DarkGray
+Write-Host "Ohne Code-Deploy nur schnell neu erstellen: -SkipUpload -SkipBuild und auf dem Host: docker compose ... up -d --force-recreate platform" -ForegroundColor DarkGray
 
 }
 finally {

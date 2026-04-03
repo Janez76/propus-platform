@@ -963,6 +963,24 @@ router.post('/tours/:id/reactivate', async (req, res) => {
 
 // ─── Zahlungseinstellungen ────────────────────────────────────────────────────
 
+function getPayrexxEnvStatus() {
+  const instance = String(process.env.PAYREXX_INSTANCE || '').trim();
+  const apiSecret = String(process.env.PAYREXX_API_SECRET || '').trim();
+  const webhookSecret = String(process.env.PAYREXX_WEBHOOK_SECRET || '').trim();
+  const missingVars = [];
+
+  if (!instance) missingVars.push('PAYREXX_INSTANCE');
+  if (!apiSecret) missingVars.push('PAYREXX_API_SECRET');
+
+  return {
+    payrexxConfigured: !!(instance && apiSecret),
+    payrexxInstance: instance,
+    payrexxApiSecretConfigured: !!apiSecret,
+    payrexxWebhookSecretConfigured: !!(webhookSecret || apiSecret),
+    payrexxMissingVars: missingVars,
+  };
+}
+
 /**
  * GET /payment-settings
  * Gibt Payrexx-Konfigurationsstatus + MwSt-Rate zurück.
@@ -998,8 +1016,7 @@ router.get('/payment-settings', async (req, res) => {
       ok: true,
       vatRate: Number(vatResult.rows[0]?.vat_rate ?? 0),
       vatPercent: Math.round(Number(vatResult.rows[0]?.vat_rate ?? 0) * 1000) / 10,
-      payrexxConfigured: !!(process.env.PAYREXX_INSTANCE && process.env.PAYREXX_API_SECRET),
-      payrexxInstance: process.env.PAYREXX_INSTANCE || '',
+      ...getPayrexxEnvStatus(),
       floorplanUnitPrice: Number(floorplanResult.rows[0]?.unit_price ?? 49),
       hostingUnitPrice: Number(hostingResult.rows[0]?.unit_price ?? 59),
     });
@@ -1068,8 +1085,7 @@ router.patch('/payment-settings', async (req, res) => {
       ok: true,
       vatRate: Number(vatResult.rows[0]?.vat_rate ?? 0),
       vatPercent: Math.round(Number(vatResult.rows[0]?.vat_rate ?? 0) * 1000) / 10,
-      payrexxConfigured: !!(process.env.PAYREXX_INSTANCE && process.env.PAYREXX_API_SECRET),
-      payrexxInstance: process.env.PAYREXX_INSTANCE || '',
+      ...getPayrexxEnvStatus(),
       floorplanUnitPrice: Number(floorplanResult.rows[0]?.unit_price ?? 49),
     });
   } catch (err) {

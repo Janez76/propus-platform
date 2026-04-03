@@ -6,6 +6,9 @@ export interface PaymentSettingsData {
   vatPercent: number;
   payrexxConfigured: boolean;
   payrexxInstance: string;
+  payrexxApiSecretConfigured: boolean;
+  payrexxWebhookSecretConfigured: boolean;
+  payrexxMissingVars: string[];
   floorplanUnitPrice: number;
   hostingUnitPrice: number;
 }
