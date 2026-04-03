@@ -28,6 +28,7 @@ export function useQuery<TData>(
   const staleTime = options?.staleTime ?? DEFAULT_STALE_TIME;
   const refetchOnMount = options?.refetchOnMount ?? true;
   const didInitialFetchRef = useRef(false);
+  const prevQueryKeyRef = useRef<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
 
   const entry = useQueryStore((s) => s.queries[queryKey]);
@@ -89,10 +90,12 @@ export function useQuery<TData>(
 
   useEffect(() => {
     if (!enabled || !refetchOnMount) return;
-    if (didInitialFetchRef.current) return;
+    const keyChanged = prevQueryKeyRef.current !== queryKey;
+    if (didInitialFetchRef.current && !keyChanged) return;
     didInitialFetchRef.current = true;
+    prevQueryKeyRef.current = queryKey;
     void refetch();
-  }, [enabled, refetch, refetchOnMount]);
+  }, [enabled, refetch, refetchOnMount, queryKey]);
 
   const error = entry?.error ?? localError;
   const isFetching = Boolean(entry?.isFetching);
