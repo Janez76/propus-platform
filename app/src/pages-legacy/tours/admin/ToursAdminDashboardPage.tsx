@@ -34,7 +34,9 @@ export function ToursAdminDashboardPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="surface-card-strong p-5 space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="text-lg font-semibold text-[var(--text-main)]">Offene Matterport-Spaces</h2>
+            <Link to="/admin/tours/link-matterport" className="text-lg font-semibold text-[var(--text-main)] hover:text-[var(--accent)] transition-colors">
+              Noch nicht zugewiesen
+            </Link>
             <span className="text-xs text-[var(--text-subtle)]">{data.openMatterportSpaces.length}</span>
           </div>
           {matterportErr ? (
@@ -45,9 +47,14 @@ export function ToursAdminDashboardPage() {
           ) : (
             <ul className="space-y-2 text-sm">
               {data.openMatterportSpaces.map((m) => (
-                <li key={String(m.id)} className="flex justify-between gap-2 border-b border-[var(--border-soft)]/60 pb-2 last:border-0">
-                  <span className="text-[var(--text-main)] truncate">{String(m.name || m.id || "—")}</span>
-                  <span className="text-[var(--text-subtle)] shrink-0">{String(m.id || "")}</span>
+                <li key={String(m.id)}>
+                  <Link
+                    to={`/admin/tours/link-matterport?openSpaceId=${encodeURIComponent(String(m.id || ""))}`}
+                    className="flex justify-between gap-2 border-b border-[var(--border-soft)]/60 pb-2 last:border-0 rounded-md -mx-1 px-1 py-0.5 hover:bg-[var(--surface-raised)]/50 transition-colors"
+                  >
+                    <span className="text-[var(--text-main)] truncate">{String(m.name || m.id || "—")}</span>
+                    <span className="text-[var(--text-subtle)] shrink-0">{String(m.id || "")}</span>
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -66,12 +73,17 @@ export function ToursAdminDashboardPage() {
           ) : (
             <ul className="space-y-2 text-sm">
               {data.recentTours.map((t) => (
-                <li key={t.id} className="border-b border-[var(--border-soft)]/60 pb-2 last:border-0">
-                  <div className="font-medium text-[var(--text-main)]">{tourTitle(t)}</div>
-                  <div className="text-[var(--text-subtle)] text-xs mt-0.5">
-                    {formatDate(t.canonical_term_end_date ?? t.term_end_date ?? t.ablaufdatum)} ·{" "}
-                    {String(t.displayed_status_label || t.status || "—")}
-                  </div>
+                <li key={t.id}>
+                  <Link
+                    to={`/admin/tours/${t.id}`}
+                    className="block border-b border-[var(--border-soft)]/60 pb-2 last:border-0 rounded-md -mx-1 px-1 py-0.5 hover:bg-[var(--surface-raised)]/50 transition-colors"
+                  >
+                    <div className="font-medium text-[var(--text-main)]">{tourTitle(t)}</div>
+                    <div className="text-[var(--text-subtle)] text-xs mt-0.5">
+                      {formatDate(t.canonical_term_end_date ?? t.term_end_date ?? t.ablaufdatum)} ·{" "}
+                      {String(t.displayed_status_label || t.status || "—")}
+                    </div>
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -87,12 +99,17 @@ export function ToursAdminDashboardPage() {
           ) : (
             <ul className="grid gap-3 sm:grid-cols-2">
               {data.expiringSoonTours.map((t) => (
-                <li key={t.id} className="rounded-lg border border-[var(--border-soft)] p-3">
-                  <div className="font-medium text-[var(--text-main)]">{tourTitle(t)}</div>
-                  <div className="text-xs text-[var(--text-subtle)] mt-1">
-                    {formatDate(t.canonical_term_end_date ?? t.term_end_date ?? t.ablaufdatum)}
-                    {typeof t.days_until_expiry === "number" ? ` · noch ${t.days_until_expiry} Tage` : ""}
-                  </div>
+                <li key={t.id}>
+                  <Link
+                    to={`/admin/tours/${t.id}`}
+                    className="block rounded-lg border border-[var(--border-soft)] p-3 hover:bg-[var(--surface-raised)]/50 hover:border-[var(--accent)]/40 transition-colors"
+                  >
+                    <div className="font-medium text-[var(--text-main)]">{tourTitle(t)}</div>
+                    <div className="text-xs text-[var(--text-subtle)] mt-1">
+                      {formatDate(t.canonical_term_end_date ?? t.term_end_date ?? t.ablaufdatum)}
+                      {typeof t.days_until_expiry === "number" ? ` · noch ${t.days_until_expiry} Tage` : ""}
+                    </div>
+                  </Link>
                 </li>
               ))}
             </ul>
