@@ -11,6 +11,19 @@ const CATEGORIES: { value: TicketCategory; label: string }[] = [
   { value: "sonstiges",        label: "Sonstiges" },
 ];
 
+const CATEGORY_HINTS: Record<TicketCategory, string> = {
+  startpunkt:
+    "Beschreibe, wo der Einstieg in die Tour liegen soll (z. B. Eingang, Wohnzimmer). Ein Matterport-Link mit exakter Ansicht hilft uns am meisten.",
+  name_aendern:
+    "Wunschname oder Korrektur für Objektbezeichnung / Anzeige — wie er später überall erscheinen soll.",
+  blur_request:
+    "Welche Bereiche unkenntlich gemacht werden sollen (Fenster, Nachbargrundstück, persönliche Gegenstände). Screenshots und Link zur Stelle erleichtern die Umsetzung.",
+  sweep_verschieben:
+    "Wenn ein 360°-Aufnahmepunkt verschoben oder neu positioniert werden soll — bitte genaue Stelle und ggf. Grund nennen.",
+  sonstiges:
+    "Freie Änderungswünsche an der Tour oder den Einstellungen. Je konkreter Betreff und Beschreibung, desto schneller können wir zuordnen.",
+};
+
 interface Props {
   tourId: string;
   tourLabel?: string | null;
@@ -142,6 +155,9 @@ export function TicketCreateDialog({ tourId, tourLabel, onClose, onSuccess }: Pr
                   <option key={c.value} value={c.value}>{c.label}</option>
                 ))}
               </select>
+              <p className="text-xs text-[var(--text-subtle)] leading-relaxed rounded-lg border border-[var(--border-soft)]/80 bg-[var(--surface)] px-2.5 py-2">
+                {CATEGORY_HINTS[category]}
+              </p>
             </div>
 
             {/* Betreff */}

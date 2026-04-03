@@ -21,18 +21,27 @@ export function TourInternSection({ matterportShowUrl, bookingOrderNo, customerN
   return (
     <div className="space-y-3">
       {matterportShowUrl ? (
-        <div className="flex flex-wrap gap-2">
-          <a
-            href={matterportShowUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={MP_OPEN_BTN}
-          >
-            <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-            Matterport öffnen
-          </a>
+        <div className="space-y-2">
+          <div className="flex flex-wrap gap-2">
+            <a
+              href={matterportShowUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={MP_OPEN_BTN}
+            >
+              <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+              Matterport öffnen
+            </a>
+          </div>
+          <p className="text-xs text-[var(--text-subtle)] leading-relaxed">
+            Öffnet die Tour im offiziellen Matterport-Viewer im neuen Tab — gleiche Space-ID wie in Propus verknüpft.
+          </p>
         </div>
       ) : null}
+      <p className="text-xs text-[var(--text-subtle)] leading-relaxed">
+        Buchungsbezug und Schnellzugriff: Bestellung aus dem Booking-System mit dieser Tour verknüpfen oder Kundenstamm
+        anpassen — unabhängig von Matterport-Einstellungen darunter.
+      </p>
       {bookingOrderNo ? (
         <div className="flex items-center justify-between gap-2 rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2">
           <div className="flex items-center gap-2 text-sm text-[var(--text-main)]">

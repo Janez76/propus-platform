@@ -63,6 +63,13 @@ export function TourActionsPanel({ tourId, tour, onSuccess, onOpenCustomerLink }
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
           <label className="text-sm font-medium text-[var(--text-subtle)]">Tour-URL (my.matterport.com)</label>
+          <p className="text-xs text-[var(--text-subtle)] leading-relaxed">
+            Vollständige Adresse der Matterport-Tour aus dem Browser kopieren (meist{" "}
+            <code className="rounded bg-[var(--surface)] px-1 font-mono text-[11px]">my.matterport.com/show/?m=…</code>
+            ). Die Space-ID im Parameter <code className="rounded bg-[var(--surface)] px-1 font-mono text-[11px]">m=</code>{" "}
+            verknüpft diese Tour in Propus mit dem richtigen Modell. Nach Änderung{" "}
+            <strong className="font-medium text-[var(--text-main)]">URL speichern</strong> nicht vergessen.
+          </p>
           <input
             value={tourUrl}
             onChange={(e) => setTourUrl(e.target.value)}
@@ -83,6 +90,10 @@ export function TourActionsPanel({ tourId, tour, onSuccess, onOpenCustomerLink }
 
         <div className="space-y-2">
           <label className="text-sm font-medium text-[var(--text-subtle)]">Objektbezeichnung</label>
+          <p className="text-xs text-[var(--text-subtle)] leading-relaxed">
+            Anzeigename der Immobilie in Propus (Listen, Tour-Detail, E-Mails). Soll mit dem Titel im Matterport-Modell
+            übereinstimmen, Häkchen bei „Matterport synchronisieren“ setzen — dann wird der Name dort mitgeschrieben.
+          </p>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -92,6 +103,9 @@ export function TourActionsPanel({ tourId, tour, onSuccess, onOpenCustomerLink }
             <input type="checkbox" checked={syncMp} onChange={(e) => setSyncMp(e.target.checked)} />
             Name zu Matterport synchronisieren
           </label>
+          <p className="text-xs text-[var(--text-subtle)] leading-relaxed -mt-1">
+            Nur wirksam beim Speichern mit <strong className="font-medium text-[var(--text-main)]">Name speichern</strong>.
+          </p>
           <button
             type="button"
             disabled={!!busy}
@@ -151,6 +165,10 @@ export function TourActionsPanel({ tourId, tour, onSuccess, onOpenCustomerLink }
             />
             Kunde verifiziert
           </label>
+          <p className="text-xs text-[var(--text-subtle)] leading-relaxed">
+            Internes Kennzeichen, z. B. wenn Identität oder Auftrag schriftlich bestätigt wurde — steuert keine
+            Matterport-Funktion, hilft im Team bei der Einordnung der Tour.
+          </p>
           <button
             type="button"
             disabled={!!busy}
