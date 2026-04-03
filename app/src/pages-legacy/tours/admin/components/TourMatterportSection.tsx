@@ -30,6 +30,14 @@ const VIS_META: Record<string, { icon: string; label: string }> = {
   PASSWORD:  { icon: "🔑", label: "Passwort" },
 };
 
+/** Einheitliche Matterport-Aktionsbuttons (Farbe + Hover) */
+const MP_ACTION_BTN =
+  "inline-flex items-center justify-center gap-1.5 rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm font-medium text-[var(--text-main)] shadow-sm " +
+  "transition-colors duration-150 " +
+  "hover:border-[var(--accent)]/50 hover:bg-[var(--accent)]/10 hover:text-[var(--accent)] " +
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 " +
+  "disabled:pointer-events-none disabled:opacity-50";
+
 function fmtDate(iso: string | null | undefined): string {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -461,18 +469,18 @@ export function TourMatterportSection({ tourId, tour, onSuccess, onOpenBookingLi
               href={mpUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm font-medium text-[var(--accent)]"
+              className={MP_ACTION_BTN}
             >
-              <ExternalLink className="h-3.5 w-3.5" />
+              <ExternalLink className="h-3.5 w-3.5 shrink-0" />
               Matterport öffnen
             </a>
           ) : null}
           {linkMatterportOpenHref ? (
             <Link
               to={linkMatterportOpenHref}
-              className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm font-medium text-emerald-700 dark:text-emerald-400"
+              className={MP_ACTION_BTN}
             >
-              <Link2 className="h-3.5 w-3.5" />
+              <Link2 className="h-3.5 w-3.5 shrink-0" />
               Space verknüpfen
             </Link>
           ) : null}
@@ -481,7 +489,7 @@ export function TourMatterportSection({ tourId, tour, onSuccess, onOpenBookingLi
               type="button"
               disabled={busy}
               onClick={() => void archive()}
-              className="inline-flex items-center gap-1 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-medium text-orange-800 dark:border-orange-900 dark:bg-orange-950/40 dark:text-orange-300 disabled:opacity-50"
+              className={MP_ACTION_BTN}
             >
               {busy ? "…" : "Space archivieren"}
             </button>
@@ -491,9 +499,9 @@ export function TourMatterportSection({ tourId, tour, onSuccess, onOpenBookingLi
               type="button"
               disabled={busy}
               onClick={() => setReactivateOpen(true)}
-              className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300 disabled:opacity-50"
+              className={MP_ACTION_BTN}
             >
-              <ArchiveRestore className="h-3.5 w-3.5" />
+              <ArchiveRestore className="h-3.5 w-3.5 shrink-0" />
               {busy ? "…" : "Space reaktivieren"}
             </button>
           ) : null}
@@ -502,27 +510,27 @@ export function TourMatterportSection({ tourId, tour, onSuccess, onOpenBookingLi
               type="button"
               disabled={busy}
               onClick={() => { setTransferErr(null); setTransferOpen(true); }}
-              className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm font-medium text-[var(--text-main)] disabled:opacity-50"
+              className={MP_ACTION_BTN}
             >
-              <Send className="h-3.5 w-3.5" />
+              <Send className="h-3.5 w-3.5 shrink-0" />
               Space übertragen
             </button>
           ) : null}
           <button
             type="button"
             onClick={() => setTicketOpen(true)}
-            className="inline-flex items-center gap-1 rounded-lg border border-[var(--accent)]/40 bg-[var(--accent)]/10 px-3 py-2 text-sm font-medium text-[var(--accent)]"
+            className={MP_ACTION_BTN}
           >
-            <SlidersHorizontal className="h-3.5 w-3.5" />
+            <SlidersHorizontal className="h-3.5 w-3.5 shrink-0" />
             Änderung anfragen
           </button>
           <button
             type="button"
             disabled={busy}
             onClick={() => { setDeleteConfirmText(""); setDeleteOpen(true); }}
-            className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300 disabled:opacity-50"
+            className={MP_ACTION_BTN}
           >
-            <Trash2 className="h-3.5 w-3.5" />
+            <Trash2 className="h-3.5 w-3.5 shrink-0" />
             {busy ? "…" : "Tour löschen"}
           </button>
         </div>
