@@ -25,6 +25,9 @@ const {
   getEmailTemplates,
   saveEmailTemplates,
   DEFAULT_EMAIL_TEMPLATES,
+  getInvoiceCreditor,
+  saveInvoiceCreditor,
+  DEFAULT_INVOICE_CREDITOR,
 } = require('../lib/settings');
 const { logAction } = require('../lib/actions');
 const { getAiConfig, chatWithAi } = require('../lib/ai');
@@ -2048,6 +2051,61 @@ router.put('/tour-settings', async (req, res) => {
     return res.json({ ok: true });
   } catch (err) {
     return res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+// ─── Rechnungsvorlage / Creditor ─────────────────────────────────────────────
+
+router.get('/invoice-template', async (req, res) => {
+  try {
+    const [creditor, emailTemplates] = await Promise.all([
+      getInvoiceCreditor(),
+      getEmailTemplates(),
+    ]);
+    return res.json({
+      ok: true,
+      creditor,
+      defaultCreditor: DEFAULT_INVOICE_CREDITOR,
+      invoiceEmailTemplate: emailTemplates.portal_invoice_sent || {},
+      defaultInvoiceEmailTemplate: DEFAULT_EMAIL_TEMPLATES.portal_invoice_sent || {},
+    });
+  } catch (err) {
+    console.error('[admin-api] GET /invoice-template error:', err.message);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+router.patch('/invoice-template', async (req, res) => {
+  try {
+    const { creditor, emailTemplate } = req.body || {};
+    const results = {};
+
+    if (creditor && typeof creditor === 'object') {
+      results.creditor = await saveInvoiceCreditor(creditor);
+    } else {
+      results.creditor = await getInvoiceCreditor();
+    }
+
+    if (emailTemplate && typeof emailTemplate === 'object') {
+      const current = await getEmailTemplates();
+      await saveEmailTemplates({
+        ...current,
+        portal_invoice_sent: {
+          ...current.portal_invoice_sent,
+          ...emailTemplate,
+        },
+      });
+      const updated = await getEmailTemplates();
+      results.invoiceEmailTemplate = updated.portal_invoice_sent;
+    } else {
+      const templates = await getEmailTemplates();
+      results.invoiceEmailTemplate = templates.portal_invoice_sent;
+    }
+
+    return res.json({ ok: true, ...results });
+  } catch (err) {
+    console.error('[admin-api] PATCH /invoice-template error:', err.message);
+    return res.status(500).json({ ok: false, error: err.message });
   }
 });
 

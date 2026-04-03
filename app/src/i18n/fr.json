@@ -1099,6 +1099,7 @@
   "sidebar.nav.calendarIcs": "Calendrier / ICS",
   "sidebar.nav.exxas": "Intégration EXXAS",
   "sidebar.nav.paymentSettings": "Paramètres de paiement",
+  "sidebar.nav.invoiceTemplate": "Modèle de facture",
   "sidebar.nav.userManagement": "Gestion des utilisateurs",
   "sidebar.nav.roleMatrix": "Rôles & Permissions",
   "sidebar.nav.companies": "Gestion des entreprises",

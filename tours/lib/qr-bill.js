@@ -86,21 +86,38 @@ function parseAddressCandidate(street, buildingNumber, zip, city, country) {
   };
 }
 
-function buildCreditor() {
+function buildCreditor(dbCreditor) {
+  const db = dbCreditor || {};
   return {
-    name: cleanString(process.env.QR_BILL_CREDITOR_NAME) || DEFAULT_CREDITOR.name,
-    address: cleanString(process.env.QR_BILL_CREDITOR_STREET) || DEFAULT_CREDITOR.address,
-    buildingNumber: cleanString(process.env.QR_BILL_CREDITOR_HOUSE_NUMBER) || DEFAULT_CREDITOR.buildingNumber,
-    zip: cleanString(process.env.QR_BILL_CREDITOR_POSTCODE) || DEFAULT_CREDITOR.zip,
-    city: cleanString(process.env.QR_BILL_CREDITOR_CITY) || DEFAULT_CREDITOR.city,
-    country: cleanString(process.env.QR_BILL_CREDITOR_COUNTRY) || DEFAULT_CREDITOR.country,
-    account: compactIban(process.env.QR_BILL_IBAN) || DEFAULT_CREDITOR.account,
-    currency: cleanString(process.env.QR_BILL_CURRENCY).toUpperCase() || DEFAULT_CREDITOR.currency,
-    email: cleanString(process.env.QR_BILL_CONTACT_EMAIL) || DEFAULT_CREDITOR.email,
-    phone: cleanString(process.env.QR_BILL_CONTACT_PHONE) || DEFAULT_CREDITOR.phone,
-    website: cleanString(process.env.QR_BILL_WEBSITE) || DEFAULT_CREDITOR.website,
-    vatId: cleanString(process.env.QR_BILL_VAT_ID) || DEFAULT_CREDITOR.vatId,
+    name: cleanString(db.name) || cleanString(process.env.QR_BILL_CREDITOR_NAME) || DEFAULT_CREDITOR.name,
+    address: cleanString(db.street) || cleanString(process.env.QR_BILL_CREDITOR_STREET) || DEFAULT_CREDITOR.address,
+    buildingNumber: cleanString(db.buildingNumber) || cleanString(process.env.QR_BILL_CREDITOR_HOUSE_NUMBER) || DEFAULT_CREDITOR.buildingNumber,
+    zip: cleanString(db.zip) || cleanString(process.env.QR_BILL_CREDITOR_POSTCODE) || DEFAULT_CREDITOR.zip,
+    city: cleanString(db.city) || cleanString(process.env.QR_BILL_CREDITOR_CITY) || DEFAULT_CREDITOR.city,
+    country: cleanString(db.country || 'CH').toUpperCase() || cleanString(process.env.QR_BILL_CREDITOR_COUNTRY) || DEFAULT_CREDITOR.country,
+    account: compactIban(db.iban) || compactIban(process.env.QR_BILL_IBAN) || DEFAULT_CREDITOR.account,
+    currency: 'CHF',
+    email: cleanString(db.email) || cleanString(process.env.QR_BILL_CONTACT_EMAIL) || DEFAULT_CREDITOR.email,
+    phone: cleanString(db.phone) || cleanString(process.env.QR_BILL_CONTACT_PHONE) || DEFAULT_CREDITOR.phone,
+    website: cleanString(db.website) || cleanString(process.env.QR_BILL_WEBSITE) || DEFAULT_CREDITOR.website,
+    vatId: cleanString(db.vatId) || cleanString(process.env.QR_BILL_VAT_ID) || DEFAULT_CREDITOR.vatId,
+    footerNote: cleanString(db.footerNote) || '',
   };
+}
+
+async function buildCreditorFromDb() {
+  try {
+    const { getInvoiceCreditor } = require('./settings');
+    const db = await getInvoiceCreditor();
+    return buildCreditor(db);
+  } catch {
+    return buildCreditor({});
+  }
+}
+
+function buildInvoicePaymentContextSync(invoice, tour, dbCreditor) {
+  const creditor = buildCreditor(dbCreditor || {});
+  return _buildContext(invoice, tour, creditor);
 }
 
 function buildDebtor(invoice, tour) {
@@ -147,8 +164,7 @@ function formatAmount(value) {
   return Number.isFinite(amount) ? amount.toFixed(2) : '0.00';
 }
 
-function buildInvoicePaymentContext(invoice, tour) {
-  const creditor = buildCreditor();
+function _buildContext(invoice, tour, creditor) {
   const amount = Number(invoice?.amount_chf || invoice?.betrag || invoice?.preis_brutto || 0);
   const normalizedAmount = Number.isFinite(amount) ? Number(amount.toFixed(2)) : 0;
   const reference = buildQrReference(invoice);
@@ -205,8 +221,16 @@ function buildInvoicePaymentContext(invoice, tour) {
   };
 }
 
+async function buildInvoicePaymentContext(invoice, tour) {
+  const creditor = await buildCreditorFromDb();
+  return _buildContext(invoice, tour, creditor);
+}
+
 module.exports = {
   buildInvoicePaymentContext,
+  buildInvoicePaymentContextSync,
+  buildCreditorFromDb,
+  buildCreditor,
   buildQrReference,
   formatIban,
   formatQrReference,

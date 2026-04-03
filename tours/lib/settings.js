@@ -633,6 +633,60 @@ Ihr Propus Team`,
   },
 };
 
+// ─── Rechnungsvorlage / Creditor-Einstellungen ────────────────────────────────
+
+const DEFAULT_INVOICE_CREDITOR = {
+  name: 'Propus GmbH',
+  street: 'Untere Roostmatt',
+  buildingNumber: '8',
+  zip: '6300',
+  city: 'Zug',
+  country: 'CH',
+  iban: 'CH13 3000 5204 1906 0401 W',
+  email: 'office@propus.ch',
+  phone: '+41 44 589 63 63',
+  website: 'propus.ch',
+  vatId: 'CHE-424.310.597',
+  footerNote: 'Vielen Dank für Ihr Vertrauen. Bei Fragen stehen wir gerne zur Verfügung.',
+};
+
+async function getInvoiceCreditor() {
+  try {
+    await ensureSettingsTable();
+    const r = await pool.query(
+      `SELECT value FROM tour_manager.settings WHERE key = 'invoice_creditor'`
+    );
+    if (r.rows[0]?.value && typeof r.rows[0].value === 'object') {
+      return { ...DEFAULT_INVOICE_CREDITOR, ...r.rows[0].value };
+    }
+  } catch (e) {
+    console.warn('getInvoiceCreditor:', e.message);
+  }
+  return { ...DEFAULT_INVOICE_CREDITOR };
+}
+
+async function saveInvoiceCreditor(data) {
+  try {
+    await ensureSettingsTable();
+    const current = await getInvoiceCreditor();
+    const value = { ...current };
+    const allowed = ['name','street','buildingNumber','zip','city','country','iban','email','phone','website','vatId','footerNote'];
+    for (const key of allowed) {
+      if (data[key] !== undefined) value[key] = String(data[key] ?? '').trim();
+    }
+    await pool.query(
+      `INSERT INTO tour_manager.settings (key, value, updated_at)
+       VALUES ('invoice_creditor', $1::jsonb, NOW())
+       ON CONFLICT (key) DO UPDATE SET value = $1::jsonb, updated_at = NOW()`,
+      [JSON.stringify(value)]
+    );
+    return value;
+  } catch (e) {
+    console.warn('saveInvoiceCreditor:', e.message);
+    throw e;
+  }
+}
+
 async function getEmailTemplates() {
   try {
     await ensureSettingsTable();
@@ -687,6 +741,9 @@ module.exports = {
   getDashboardWidgets,
   saveDashboardWidgets,
   getAiPromptSettings,
+  getInvoiceCreditor,
+  saveInvoiceCreditor,
+  DEFAULT_INVOICE_CREDITOR,
   saveAiPromptSettings,
   getMatterportApiCredentials,
   saveMatterportApiCredentials,
