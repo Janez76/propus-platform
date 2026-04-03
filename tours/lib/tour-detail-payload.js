@@ -292,4 +292,5 @@ module.exports = {
   computeManualInvoiceDueDateIso,
   paymentMethodLabel,
   ALLOWED_PAYMENT_METHODS,
+  getDisplayedTourStatus,
 };

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { ArrowLeft, AlertCircle, Copy, Check, X } from "lucide-react";
 import {
   getPortalTourDetail,
   editPortalTour,
@@ -11,14 +12,19 @@ import {
   type PortalTourDetail,
 } from "../../api/portalTours";
 import { usePortalNav } from "../../hooks/usePortalNav";
+import { TourActionLog } from "../../components/tours/TourActionLog";
 
 function formatDate(dateStr?: string | null): string {
   if (!dateStr) return "–";
-  return new Date(dateStr).toLocaleDateString("de-CH", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
+  const d = new Date(dateStr);
+  return Number.isNaN(d.getTime())
+    ? "–"
+    : d.toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+function formatMoney(v: number | null | undefined): string {
+  if (v == null || !Number.isFinite(v)) return "–";
+  return `CHF ${v.toFixed(2)}`;
 }
 
 function daysRemaining(endDate?: string | null): number {
@@ -27,40 +33,51 @@ function daysRemaining(endDate?: string | null): number {
   return Math.max(0, Math.ceil(diff / 86_400_000));
 }
 
-function TourStatusBadge({ status }: { status: string }) {
-  const map: Record<string, { label: string; bg: string; color: string }> = {
-    ACTIVE: { label: "Aktiv", bg: "#ecfdf3", color: "#027a48" },
-    ARCHIVED: { label: "Archiviert", bg: "#f3f2ef", color: "#706b63" },
-    PENDING: { label: "Ausstehend", bg: "#fffaeb", color: "#b68e20" },
-    AWAITING_DECISION: { label: "Entscheidung ausstehend", bg: "#f0e6ff", color: "#6b21a8" },
-    CUSTOMER_ACCEPTED_AWAITING_PAYMENT: { label: "Zahlung ausstehend", bg: "#fffaeb", color: "#b68e20" },
-  };
-  const s = map[status] ?? { label: status.replace(/_/g, " "), bg: "#f3f2ef", color: "#706b63" };
+function formatRestzeit(remaining: number, endDate?: string | null): string {
+  if (!endDate) return "–";
+  if (remaining === 0) return "Läuft heute ab";
+  return `${remaining} ${remaining === 1 ? "Tag" : "Tage"}`;
+}
+
+function latestRenewalDate(invoices: PortalTourDetail["invoices"]): string | null {
+  const candidates = invoices
+    .map((inv) => inv.paid_at ?? inv.sent_at ?? inv.created_at ?? null)
+    .filter((v): v is string => v != null)
+    .map((v) => ({ raw: v, ts: new Date(v).getTime() }))
+    .filter((v) => Number.isFinite(v.ts))
+    .sort((a, b) => b.ts - a.ts);
+  return candidates[0]?.raw ?? null;
+}
+
+const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
+  ACTIVE:                              { label: "Aktiv",                  cls: "text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-900" },
+  EXPIRING_SOON:                       { label: "Läuft bald ab",          cls: "text-yellow-700 bg-yellow-50 border-yellow-200 dark:text-yellow-300 dark:bg-yellow-950/40 dark:border-yellow-900" },
+  ARCHIVED:                            { label: "Archiviert",             cls: "text-[var(--text-subtle)] bg-[var(--surface)] border-[var(--border-soft)]" },
+  AWAITING_CUSTOMER_DECISION:          { label: "Wartet auf Entscheid",   cls: "text-purple-700 bg-purple-50 border-purple-200 dark:text-purple-300 dark:bg-purple-950/40 dark:border-purple-900" },
+  CUSTOMER_ACCEPTED_AWAITING_PAYMENT:  { label: "Zahlung ausstehend",     cls: "text-yellow-700 bg-yellow-50 border-yellow-200 dark:text-yellow-300 dark:bg-yellow-950/40 dark:border-yellow-900" },
+  CUSTOMER_DECLINED:                   { label: "Keine Verlängerung",     cls: "text-red-700 bg-red-50 border-red-200 dark:text-red-300 dark:bg-red-950/40 dark:border-red-900" },
+};
+
+function StatusBadge({ code }: { code: string }) {
+  const meta = STATUS_BADGE[code] ?? { label: code.replace(/_/g, " "), cls: "text-[var(--text-subtle)] bg-[var(--surface)] border-[var(--border-soft)]" };
   return (
-    <span
-      className="ptd-badge"
-      style={{ background: s.bg, color: s.color }}
-    >
-      {s.label}
+    <span className={`inline-flex items-center rounded-lg border px-2.5 py-0.5 text-sm font-medium ${meta.cls}`}>
+      {meta.label}
     </span>
   );
 }
 
 function InvoiceStatusBadge({ status }: { status?: string }) {
-  const map: Record<string, { label: string; bg: string; color: string }> = {
-    PAID: { label: "Bezahlt", bg: "#ecfdf3", color: "#027a48" },
-    OPEN: { label: "Offen", bg: "#fffaeb", color: "#b68e20" },
-    SENT: { label: "Versendet", bg: "#eff8ff", color: "#175cd3" },
-    OVERDUE: { label: "Überfällig", bg: "#fef3f2", color: "#b42318" },
-    CANCELLED: { label: "Storniert", bg: "#f3f2ef", color: "#706b63" },
-    DRAFT: { label: "Entwurf", bg: "#f3f2ef", color: "#706b63" },
+  const map: Record<string, { label: string; cls: string }> = {
+    paid:      { label: "Bezahlt",    cls: "text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-900" },
+    sent:      { label: "Versendet",  cls: "text-blue-700 bg-blue-50 border-blue-200 dark:text-blue-300 dark:bg-blue-950/40 dark:border-blue-900" },
+    overdue:   { label: "Überfällig", cls: "text-red-700 bg-red-50 border-red-200 dark:text-red-300 dark:bg-red-950/40 dark:border-red-900" },
+    draft:     { label: "Entwurf",    cls: "text-[var(--text-subtle)] bg-[var(--surface)] border-[var(--border-soft)]" },
+    cancelled: { label: "Storniert",  cls: "text-[var(--text-subtle)] bg-[var(--surface)] border-[var(--border-soft)]" },
   };
-  const s = map[status ?? ""] ?? { label: status ?? "–", bg: "#f3f2ef", color: "#706b63" };
+  const s = map[status ?? ""] ?? { label: status ?? "–", cls: "text-[var(--text-subtle)] bg-[var(--surface)] border-[var(--border-soft)]" };
   return (
-    <span
-      className="ptd-badge"
-      style={{ background: s.bg, color: s.color }}
-    >
+    <span className={`inline-flex items-center rounded-lg border px-2 py-0.5 text-xs font-medium ${s.cls}`}>
       {s.label}
     </span>
   );
@@ -74,18 +91,27 @@ export function PortalTourDetailPage() {
   const [data, setData] = useState<PortalTourDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  // Edit-State
   const [editMode, setEditMode] = useState(false);
   const [editLabel, setEditLabel] = useState("");
   const [editContact, setEditContact] = useState("");
   const [editName, setEditName] = useState("");
   const [editSweep, setEditSweep] = useState("");
+
+  // Visibility
+  const [visibility, setVisibility] = useState("");
+  const [visibilityPassword, setVisibilityPassword] = useState("");
+
+  // Modals
   const [showExtendModal, setShowExtendModal] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [extendMethod, setExtendMethod] = useState<"payrexx" | "qr_invoice">("payrexx");
-  const [visibility, setVisibility] = useState("");
-  const [visibilityPassword, setVisibilityPassword] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [success, setSuccess] = useState<string | null>(null);
+
+  // URL copy
+  const [urlCopied, setUrlCopied] = useState(false);
 
   const tourId = Number(id);
 
@@ -108,7 +134,7 @@ export function PortalTourDetailPage() {
   }, [tourId]);
 
   useEffect(() => {
-    if (id) loadData();
+    if (id) void loadData();
   }, [id, loadData]);
 
   const flashSuccess = (msg: string) => {
@@ -207,10 +233,21 @@ export function PortalTourDetailPage() {
     }
   };
 
+  const copyTourUrl = async (url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setUrlCopied(true);
+      setTimeout(() => setUrlCopied(false), 2000);
+    } catch { /* ignore */ }
+  };
+
   const tour = data?.tour;
   const invoices = data?.invoices ?? [];
   const pricing = data?.pricing;
   const assigneeBundle = data?.assigneeBundle;
+  const paymentSummary = data?.paymentSummary;
+  const paymentTimeline = data?.paymentTimeline ?? [];
+  const displayedTourStatus = data?.displayedTourStatus;
   const canManage = assigneeBundle?.canManageByTourId?.[String(tourId)] ?? false;
   const currentAssignee = assigneeBundle?.assigneeByTourId?.[String(tourId)] ?? "";
   const candidates = Object.values(assigneeBundle?.candidatesByWorkspace ?? {}).flat();
@@ -219,888 +256,676 @@ export function PortalTourDetailPage() {
   const maxDays = 365;
   const progressPct = Math.min(100, Math.max(0, (remaining / maxDays) * 100));
   const spaceId = tour?.canonical_matterport_space_id ?? tour?.matterport_model_id;
+  const tourShowUrl = spaceId ? `https://my.matterport.com/show/?m=${encodeURIComponent(spaceId)}` : null;
   const isArchived = tour?.archiv || tour?.status === "ARCHIVED";
+  const lastRenewalAt = latestRenewalDate(invoices);
 
-  if (loading) {
+  const tourTitle =
+    tour?.canonical_object_label || tour?.object_label || tour?.bezeichnung || `Tour #${tourId}`;
+
+  if (!loading && error && !data) {
     return (
-      <div className="ptd-page">
-        <style>{ptdStyles}</style>
-        <div className="ptd-loading">
-          <div className="ptd-spinner" />
-          <p>Tour wird geladen…</p>
+      <div className="space-y-6">
+        <div>
+          <button
+            type="button"
+            onClick={() => navigate(portalPath("tours"))}
+            className="inline-flex items-center gap-1 text-sm text-[var(--accent)] hover:underline mb-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Meine Touren
+          </button>
         </div>
-      </div>
-    );
-  }
-
-  if (error && !data) {
-    return (
-      <div className="ptd-page">
-        <style>{ptdStyles}</style>
-        <div className="ptd-error-full">
-          <p>{error}</p>
-          <button className="ptd-btn ptd-btn-secondary" onClick={() => navigate(portalPath("tours"))}>
-            Zurück zur Übersicht
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span className="text-sm flex-1">{error}</span>
+          <button type="button" onClick={() => void loadData()} className="text-sm underline font-medium">
+            Erneut laden
           </button>
         </div>
       </div>
     );
   }
 
-  if (!tour) return null;
-
   return (
-    <div className="ptd-page">
-      <style>{ptdStyles}</style>
-
-      {/* Breadcrumb */}
-      <div className="ptd-breadcrumb">
-        <button className="ptd-breadcrumb-link" onClick={() => navigate(portalPath("tours"))}>
-          ← Meine Touren
-        </button>
-      </div>
-
-      {/* Alerts */}
-      {error && <div className="ptd-alert ptd-alert-error">{error}</div>}
-      {success && <div className="ptd-alert ptd-alert-success">{success}</div>}
-
-      {/* Hero Header */}
-      <div className="ptd-hero">
-        <div className="ptd-hero-text">
-          <h1 className="ptd-hero-title">
-            {tour.canonical_object_label || tour.object_label || tour.bezeichnung || `Tour #${tourId}`}
-          </h1>
-          <div className="ptd-hero-meta">
-            <TourStatusBadge status={tour.status} />
-            {spaceId && <span className="ptd-hero-id">Matterport: {spaceId}</span>}
-          </div>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <button
+            type="button"
+            onClick={() => navigate(portalPath("tours"))}
+            className="inline-flex items-center gap-1 text-sm text-[var(--accent)] hover:underline mb-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Meine Touren
+          </button>
+          {loading && !data ? (
+            <div className="skeleton-line h-8 w-64 max-w-full" />
+          ) : data ? (
+            <>
+              <h1 className="text-2xl font-bold text-[var(--text-main)]">{tourTitle}</h1>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                {displayedTourStatus ? (
+                  <StatusBadge code={displayedTourStatus.code} />
+                ) : null}
+                {displayedTourStatus?.note ? (
+                  <span className="text-sm text-[var(--text-subtle)]">{displayedTourStatus.note}</span>
+                ) : null}
+                <span className="text-sm text-[var(--text-subtle)]">#{tourId}</span>
+              </div>
+            </>
+          ) : (
+            <h1 className="text-2xl font-bold text-[var(--text-main)]">Tour #{tourId}</h1>
+          )}
         </div>
       </div>
 
-      <div className="ptd-grid">
-        {/* Main Column */}
-        <div className="ptd-main">
+      {/* Error Banner */}
+      {error ? (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span className="text-sm flex-1">{error}</span>
+          <button type="button" onClick={() => setError(null)} className="text-sm underline font-medium">
+            Schliessen
+          </button>
+        </div>
+      ) : null}
 
-          {/* Matterport Preview */}
-          <div className="ptd-card">
-            <h2 className="ptd-card-title">3D-Vorschau</h2>
-            {spaceId ? (
-              <div className="ptd-iframe-wrap">
-                <iframe
-                  src={`https://my.matterport.com/show?m=${spaceId}`}
-                  title="Matterport Tour"
-                  className="ptd-iframe"
-                  allowFullScreen
-                />
-              </div>
-            ) : tour.tour_url ? (
-              <a href={tour.tour_url} target="_blank" rel="noopener noreferrer" className="ptd-link">
-                Tour öffnen ↗
-              </a>
-            ) : (
-              <p className="ptd-muted">Keine Vorschau verfügbar.</p>
-            )}
-          </div>
+      {/* Success Banner */}
+      {success ? (
+        <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
+          <span className="text-sm flex-1">{success}</span>
+          <button type="button" onClick={() => setSuccess(null)} className="text-sm underline font-medium">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      ) : null}
 
-          {/* Edit Form */}
-          <div className="ptd-card">
-            <div className="ptd-card-header">
-              <h2 className="ptd-card-title">Tour-Details</h2>
+      {/* Loading Spinner */}
+      {loading && !data ? (
+        <div className="flex justify-center py-20">
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-[var(--accent)]/25 border-t-[var(--accent)]" />
+        </div>
+      ) : null}
+
+      {data && tour ? (
+        <>
+          {/* Aktionsprotokoll */}
+          <TourActionLog rows={data.actions_log} />
+
+          {/* Stammdaten & Matterport */}
+          <section className="surface-card-strong p-5 space-y-4">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <h2 className="text-lg font-semibold text-[var(--text-main)]">Stammdaten &amp; Matterport</h2>
               {!editMode && (
-                <button className="ptd-btn ptd-btn-secondary ptd-btn-sm" onClick={() => setEditMode(true)}>
+                <button
+                  type="button"
+                  onClick={() => setEditMode(true)}
+                  className="text-sm font-medium text-[var(--accent)] hover:underline shrink-0"
+                >
                   Bearbeiten
                 </button>
               )}
             </div>
-            {editMode ? (
-              <div className="ptd-form">
-                <div className="ptd-form-group">
-                  <label className="ptd-label">Tour-Titel</label>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              {/* Tour-URL */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-[var(--text-subtle)]">Tour-URL (Matterport)</label>
+                <input
+                  value={tourShowUrl ?? ""}
+                  readOnly
+                  className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)]"
+                  placeholder="–"
+                  spellCheck={false}
+                />
+                {tourShowUrl ? (
+                  <button
+                    type="button"
+                    onClick={() => void copyTourUrl(tourShowUrl)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-1.5 text-sm font-medium text-[var(--text-main)]"
+                  >
+                    {urlCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                    {urlCopied ? "Kopiert" : "URL kopieren"}
+                  </button>
+                ) : null}
+              </div>
+
+              {/* Objektbezeichnung */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-[var(--text-subtle)]">Objektbezeichnung</label>
+                {editMode ? (
                   <input
-                    className="ptd-input"
+                    className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)]"
                     value={editLabel}
                     onChange={(e) => setEditLabel(e.target.value)}
                     placeholder="z.B. Musterhausweg 12, Zürich"
                   />
-                </div>
-                <div className="ptd-form-group">
-                  <label className="ptd-label">Firma / Kundenname</label>
+                ) : (
+                  <p className="text-sm text-[var(--text-main)] py-2">
+                    {tour.canonical_object_label || tour.object_label || tour.bezeichnung || "–"}
+                  </p>
+                )}
+              </div>
+
+              {/* Firma / Kundenname */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-[var(--text-subtle)]">Firma / Kundenname</label>
+                {editMode ? (
                   <input
-                    className="ptd-input"
+                    className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)]"
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
                   />
-                </div>
-                <div className="ptd-form-group">
-                  <label className="ptd-label">Kontaktperson</label>
+                ) : (
+                  <p className="text-sm text-[var(--text-main)] py-2">{tour.customer_name || "–"}</p>
+                )}
+              </div>
+
+              {/* Kontaktperson */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-[var(--text-subtle)]">Kontaktperson</label>
+                {editMode ? (
                   <input
-                    className="ptd-input"
+                    className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)]"
                     value={editContact}
                     onChange={(e) => setEditContact(e.target.value)}
                   />
-                </div>
-                <div className="ptd-form-group">
-                  <label className="ptd-label">Start-Sweep-ID</label>
+                ) : (
+                  <p className="text-sm text-[var(--text-main)] py-2">{tour.customer_contact || "–"}</p>
+                )}
+              </div>
+
+              {/* Start-Sweep */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-[var(--text-subtle)]">Start-Sweep-ID</label>
+                {editMode ? (
                   <input
-                    className="ptd-input"
+                    className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm font-mono text-[var(--text-main)]"
                     value={editSweep}
                     onChange={(e) => setEditSweep(e.target.value)}
                     placeholder="Matterport Sweep ID"
+                    spellCheck={false}
+                  />
+                ) : (
+                  <p className="text-sm font-mono text-[var(--text-main)] py-2">
+                    {tour.matterport_start_sweep || "–"}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {editMode ? (
+              <div className="flex gap-2 flex-wrap pt-2">
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => void handleEditSave()}
+                  className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                >
+                  {saving ? "Speichern…" : "Speichern"}
+                </button>
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => {
+                    setEditMode(false);
+                    setEditLabel(tour.canonical_object_label ?? tour.object_label ?? tour.bezeichnung ?? "");
+                    setEditContact(tour.customer_contact ?? "");
+                    setEditName(tour.customer_name ?? "");
+                    setEditSweep(tour.matterport_start_sweep ?? "");
+                  }}
+                  className="rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--text-main)] disabled:opacity-50"
+                >
+                  Abbrechen
+                </button>
+              </div>
+            ) : null}
+
+            {/* Sichtbarkeit */}
+            <div className="border-t border-[var(--border-soft)] pt-4 space-y-3">
+              <h3 className="text-base font-semibold text-[var(--text-main)]">Sichtbarkeit</h3>
+              <div className="flex flex-col gap-2">
+                {(["PRIVATE", "LINK_ONLY", "PUBLIC", "PASSWORD"] as const).map((v) => {
+                  const labels: Record<string, string> = {
+                    PRIVATE:   "Privat – nur eingeloggte Nutzer",
+                    LINK_ONLY: "Nur mit Link zugänglich",
+                    PUBLIC:    "Öffentlich sichtbar",
+                    PASSWORD:  "Passwortgeschützt",
+                  };
+                  return (
+                    <label
+                      key={v}
+                      className="flex items-center gap-2 text-sm text-[var(--text-main)] cursor-pointer"
+                    >
+                      <input
+                        type="radio"
+                        name="visibility"
+                        value={v}
+                        checked={visibility === v}
+                        onChange={() => setVisibility(v)}
+                        className="accent-[var(--accent)] w-4 h-4 cursor-pointer"
+                      />
+                      {labels[v]}
+                    </label>
+                  );
+                })}
+              </div>
+              {visibility === "PASSWORD" && (
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-[var(--text-subtle)]">Passwort</label>
+                  <input
+                    type="text"
+                    className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)]"
+                    value={visibilityPassword}
+                    onChange={(e) => setVisibilityPassword(e.target.value)}
+                    placeholder="Passwort für den Zugriff"
                   />
                 </div>
-                <div className="ptd-form-actions">
-                  <button className="ptd-btn ptd-btn-primary" onClick={handleEditSave} disabled={saving}>
-                    {saving ? "Speichern…" : "Speichern"}
-                  </button>
-                  <button
-                    className="ptd-btn ptd-btn-secondary"
-                    onClick={() => {
-                      setEditMode(false);
-                      setEditLabel(tour.canonical_object_label ?? tour.object_label ?? tour.bezeichnung ?? "");
-                      setEditContact(tour.customer_contact ?? "");
-                      setEditName(tour.customer_name ?? "");
-                      setEditSweep(tour.matterport_start_sweep ?? "");
-                    }}
-                  >
-                    Abbrechen
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="ptd-detail-grid">
-                <div className="ptd-detail-item">
-                  <span className="ptd-detail-label">Tour-Titel</span>
-                  <span className="ptd-detail-value">
-                    {tour.canonical_object_label || tour.object_label || tour.bezeichnung || "–"}
-                  </span>
-                </div>
-                <div className="ptd-detail-item">
-                  <span className="ptd-detail-label">Firma / Kundenname</span>
-                  <span className="ptd-detail-value">{tour.customer_name || "–"}</span>
-                </div>
-                <div className="ptd-detail-item">
-                  <span className="ptd-detail-label">Kontaktperson</span>
-                  <span className="ptd-detail-value">{tour.customer_contact || "–"}</span>
-                </div>
-                <div className="ptd-detail-item">
-                  <span className="ptd-detail-label">Start-Sweep-ID</span>
-                  <span className="ptd-detail-value">{tour.matterport_start_sweep || "–"}</span>
-                </div>
-                <div className="ptd-detail-item">
-                  <span className="ptd-detail-label">Erstellt am</span>
-                  <span className="ptd-detail-value">{formatDate(tour.matterport_created_at ?? tour.created_at)}</span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Privacy / Visibility */}
-          <div className="ptd-card">
-            <h2 className="ptd-card-title">Sichtbarkeit</h2>
-            <div className="ptd-radio-group">
-              {(["PRIVATE", "LINK_ONLY", "PUBLIC", "PASSWORD"] as const).map((v) => {
-                const labels: Record<string, string> = {
-                  PRIVATE: "Privat – nur eingeloggte Nutzer",
-                  LINK_ONLY: "Nur mit Link zugänglich",
-                  PUBLIC: "Öffentlich sichtbar",
-                  PASSWORD: "Passwortgeschützt",
-                };
-                return (
-                  <label className="ptd-radio-label" key={v}>
-                    <input
-                      type="radio"
-                      name="visibility"
-                      value={v}
-                      checked={visibility === v}
-                      onChange={() => setVisibility(v)}
-                      className="ptd-radio"
-                    />
-                    <span>{labels[v]}</span>
-                  </label>
-                );
-              })}
-            </div>
-            {visibility === "PASSWORD" && (
-              <div className="ptd-form-group" style={{ marginTop: 12 }}>
-                <label className="ptd-label">Passwort</label>
-                <input
-                  type="text"
-                  className="ptd-input"
-                  value={visibilityPassword}
-                  onChange={(e) => setVisibilityPassword(e.target.value)}
-                  placeholder="Passwort für den Zugriff"
-                />
-              </div>
-            )}
-            <div className="ptd-form-actions" style={{ marginTop: 16 }}>
-              <button className="ptd-btn ptd-btn-primary" onClick={handleVisibilitySave} disabled={saving}>
+              )}
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => void handleVisibilitySave()}
+                className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              >
                 {saving ? "Speichern…" : "Sichtbarkeit speichern"}
               </button>
             </div>
-          </div>
 
-          {/* Invoices */}
-          <div className="ptd-card">
-            <h2 className="ptd-card-title">Rechnungen</h2>
-            {invoices.length === 0 ? (
-              <p className="ptd-muted">Keine Rechnungen vorhanden.</p>
-            ) : (
-              <div className="ptd-table-wrap">
-                <table className="ptd-table">
-                  <thead>
-                    <tr>
-                      <th>Nr. / ID</th>
-                      <th>Datum</th>
-                      <th>Betrag</th>
-                      <th>Status</th>
-                      <th>Aktionen</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {invoices.map((inv) => (
-                      <tr key={inv.id}>
-                        <td>{inv.invoice_number ?? inv.exxas_document_id ?? `#${inv.id}`}</td>
-                        <td>{formatDate(inv.invoice_date ?? inv.created_at)}</td>
-                        <td>{((inv.amount_chf ?? inv.betrag) != null) ? `CHF ${(inv.amount_chf ?? inv.betrag)!.toFixed(2)}` : "–"}</td>
-                        <td><InvoiceStatusBadge status={inv.invoice_status} /></td>
-                        <td>
-                          <div className="ptd-table-actions">
-                            <a
-                              href={portalPath(`tours/${tourId}/invoices/${inv.id}/print`)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="ptd-table-link"
-                            >
-                              Drucken
-                            </a>
-                            <a
-                              href={`/tour-manager/portal/tours/${tourId}/invoices/${inv.id}/pdf`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="ptd-table-link"
-                            >
-                              PDF
-                            </a>
-                            {inv.invoice_status !== "PAID" && inv.invoice_status !== "CANCELLED" && (
-                              <button
-                                className="ptd-btn ptd-btn-primary ptd-btn-sm"
-                                onClick={() => handlePay(inv.id)}
-                                disabled={saving}
-                              >
-                                Bezahlen
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            {/* 3D-Vorschau */}
+            {spaceId ? (
+              <div className="border-t border-[var(--border-soft)] pt-4 space-y-3">
+                <h3 className="text-base font-semibold text-[var(--text-main)]">3D-Vorschau</h3>
+                <div className="relative w-full rounded-xl overflow-hidden bg-[var(--surface)]" style={{ paddingBottom: "56.25%" }}>
+                  <iframe
+                    src={`https://my.matterport.com/show?m=${spaceId}`}
+                    title="Matterport Tour"
+                    className="absolute inset-0 w-full h-full border-0"
+                    allowFullScreen
+                  />
+                </div>
               </div>
-            )}
-          </div>
-        </div>
-
-        {/* Sidebar */}
-        <div className="ptd-sidebar">
-
-          {/* Subscription */}
-          <div className="ptd-card">
-            <h3 className="ptd-card-title">Abo-Status</h3>
-            <div className="ptd-sub-info">
-              <div className="ptd-sub-row">
-                <span className="ptd-detail-label">Gültig bis</span>
-                <span className="ptd-detail-value">{formatDate(endDate)}</span>
-              </div>
-              <div className="ptd-sub-row">
-                <span className="ptd-detail-label">Verbleibend</span>
-                <span className="ptd-detail-value">{remaining} Tage</span>
-              </div>
-              <div className="ptd-progress-bar">
-                <div
-                  className="ptd-progress-fill"
-                  style={{
-                    width: `${progressPct}%`,
-                    background: remaining <= 30 ? "#b42318" : remaining <= 90 ? "#b68e20" : "#027a48",
-                  }}
-                />
-              </div>
-            </div>
-            {pricing && (
-              <div className="ptd-pricing-info">
-                <span className="ptd-detail-label">{pricing.label}</span>
-                <span className="ptd-pricing-amount">
-                  CHF {(pricing.isExtension ? pricing.extensionPriceCHF : pricing.reactivationPriceCHF).toFixed(2)}
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Assignee */}
-          {canManage && candidates.length > 0 && (
-            <div className="ptd-card">
-              <h3 className="ptd-card-title">Zuständig</h3>
-              <select
-                className="ptd-input"
-                value={currentAssignee}
-                onChange={(e) => handleAssignee(e.target.value)}
-                disabled={saving}
-              >
-                <option value="">– Nicht zugewiesen –</option>
-                {candidates.map((c) => (
-                  <option key={c.email} value={c.email}>
-                    {c.name || c.email}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {/* Actions */}
-          <div className="ptd-card">
-            <h3 className="ptd-card-title">Aktionen</h3>
-            <div className="ptd-action-stack">
-              {!isArchived && pricing && (
-                <button
-                  className="ptd-btn ptd-btn-primary ptd-btn-full"
-                  onClick={() => setShowExtendModal(true)}
-                >
-                  {pricing.isReactivation ? "Reaktivieren" : "Verlängern"}
-                </button>
-              )}
-              {!isArchived && (
-                <button
-                  className="ptd-btn ptd-btn-danger ptd-btn-full"
-                  onClick={() => setShowArchiveModal(true)}
-                >
-                  Archivieren
-                </button>
-              )}
-              {tour.tour_url && (
+            ) : tour.tour_url ? (
+              <div className="border-t border-[var(--border-soft)] pt-4">
                 <a
                   href={tour.tour_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="ptd-btn ptd-btn-secondary ptd-btn-full"
-                  style={{ textAlign: "center" }}
+                  className="text-sm text-[var(--accent)] hover:underline font-medium"
                 >
                   Tour öffnen ↗
                 </a>
+              </div>
+            ) : null}
+          </section>
+
+          {/* Rechnungen & Zahlungen */}
+          <section className="surface-card-strong p-5 space-y-4">
+            <h2 className="text-lg font-semibold text-[var(--text-main)]">Rechnungen &amp; Zahlungen</h2>
+
+            {/* Stat-Grid */}
+            <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+              <div className="rounded-lg border border-[var(--border-soft)] p-3">
+                <div className="text-[var(--text-subtle)] text-xs">Tour erstellt am</div>
+                <div className="mt-1 font-semibold text-[var(--text-main)]">
+                  {formatDate(tour.matterport_created_at ?? tour.created_at)}
+                </div>
+              </div>
+              <div className="rounded-lg border border-[var(--border-soft)] p-3">
+                <div className="text-[var(--text-subtle)] text-xs">Tour läuft am ab</div>
+                <div className="mt-1 font-semibold text-[var(--text-main)]">{formatDate(endDate)}</div>
+              </div>
+              <div className="rounded-lg border border-[var(--border-soft)] p-3">
+                <div className="text-[var(--text-subtle)] text-xs">Letzte Verlängerung</div>
+                <div className="mt-1 font-semibold text-[var(--text-main)]">{formatDate(lastRenewalAt)}</div>
+              </div>
+              <div className="rounded-lg border border-[var(--border-soft)] p-3">
+                <div className="text-[var(--text-subtle)] text-xs">Restzeit</div>
+                <div className="mt-1 font-semibold text-[var(--text-main)]">
+                  {formatRestzeit(remaining, endDate)}
+                </div>
+              </div>
+            </div>
+
+            {/* Payment Summary */}
+            {paymentSummary ? (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                <div className="rounded-lg border border-[var(--border-soft)] p-3">
+                  <div className="text-[var(--text-subtle)] text-xs">Bezahlt</div>
+                  <div className="font-semibold text-[var(--text-main)]">{paymentSummary.paidCount}</div>
+                  <div className="text-xs text-[var(--text-subtle)]">{formatMoney(paymentSummary.paidAmount)}</div>
+                </div>
+                <div className="rounded-lg border border-[var(--border-soft)] p-3">
+                  <div className="text-[var(--text-subtle)] text-xs">Offen</div>
+                  <div className="font-semibold text-[var(--text-main)]">{paymentSummary.openCount}</div>
+                  <div className="text-xs text-[var(--text-subtle)]">{formatMoney(paymentSummary.openAmount)}</div>
+                </div>
+                <div className="rounded-lg border border-[var(--border-soft)] p-3 sm:col-span-2">
+                  <div className="text-[var(--text-subtle)] text-xs">Letzte Zahlung</div>
+                  {paymentSummary.lastPayment ? (
+                    <div className="text-sm text-[var(--text-main)] mt-1">
+                      {paymentSummary.lastPayment.label}{" "}
+                      <span className="text-[var(--text-subtle)]">
+                        {formatDate(paymentSummary.lastPayment.at)}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-[var(--text-subtle)]">–</div>
+                  )}
+                </div>
+              </div>
+            ) : null}
+
+            {/* Payment Timeline */}
+            {paymentTimeline.length > 0 ? (
+              <div>
+                <h3 className="text-sm font-medium text-[var(--text-main)] mb-2">Zeitleiste</h3>
+                <ul className="space-y-2 text-sm">
+                  {paymentTimeline.slice(0, 8).map((row, i) => (
+                    <li
+                      key={i}
+                      className="flex flex-wrap justify-between gap-2 border-b border-[var(--border-soft)]/50 pb-2"
+                    >
+                      <span className="text-[var(--text-main)]">{row.title}</span>
+                      <span className="text-[var(--text-subtle)]">{row.statusLabel}</span>
+                      <span className="text-[var(--text-subtle)]">{formatDate(row.primaryDate)}</span>
+                      <span>{formatMoney(row.amount)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {/* Rechnungstabelle */}
+            <div>
+              <h3 className="text-sm font-medium text-[var(--text-main)] mb-2">Verlängerungsrechnungen</h3>
+              {invoices.length === 0 ? (
+                <p className="text-sm text-[var(--text-subtle)]">Keine Rechnungen vorhanden.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs sm:text-sm">
+                    <thead>
+                      <tr className="text-left text-[var(--text-subtle)] border-b border-[var(--border-soft)]">
+                        <th className="py-2 pr-2">Nr.</th>
+                        <th className="py-2 pr-2">Datum</th>
+                        <th className="py-2 pr-2">Betrag</th>
+                        <th className="py-2 pr-2">Fällig</th>
+                        <th className="py-2 pr-2">Status</th>
+                        <th className="py-2">Aktionen</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {invoices.map((inv) => (
+                        <tr key={inv.id} className="border-b border-[var(--border-soft)]/40">
+                          <td className="py-2 pr-2">
+                            {inv.invoice_number ?? inv.exxas_document_id ?? `#${inv.id}`}
+                          </td>
+                          <td className="py-2 pr-2">{formatDate(inv.invoice_date ?? inv.created_at)}</td>
+                          <td className="py-2 pr-2">{formatMoney(inv.amount_chf ?? inv.betrag)}</td>
+                          <td className="py-2 pr-2">{formatDate(inv.due_at)}</td>
+                          <td className="py-2 pr-2">
+                            <InvoiceStatusBadge status={inv.invoice_status} />
+                          </td>
+                          <td className="py-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <a
+                                href={portalPath(`tours/${tourId}/invoices/${inv.id}/print`)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-[var(--accent)] hover:underline font-medium"
+                              >
+                                Drucken
+                              </a>
+                              <a
+                                href={`/tour-manager/portal/tours/${tourId}/invoices/${inv.id}/pdf`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-[var(--accent)] hover:underline font-medium"
+                              >
+                                PDF
+                              </a>
+                              {inv.invoice_status !== "paid" && inv.invoice_status !== "cancelled" ? (
+                                <button
+                                  type="button"
+                                  onClick={() => void handlePay(inv.id)}
+                                  disabled={saving}
+                                  className="rounded-lg bg-[var(--accent)] px-2.5 py-0.5 text-xs font-medium text-white disabled:opacity-50"
+                                >
+                                  Bezahlen
+                                </button>
+                              ) : null}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
-          </div>
-        </div>
-      </div>
+          </section>
 
-      {/* Extend Modal */}
-      {showExtendModal && (
-        <div className="ptd-modal-overlay" onClick={() => !saving && setShowExtendModal(false)}>
-          <div className="ptd-modal" onClick={(e) => e.stopPropagation()}>
-            <h2 className="ptd-modal-title">
-              {pricing?.isReactivation ? "Tour reaktivieren" : "Tour verlängern"}
-            </h2>
-            <p className="ptd-modal-desc">
+          {/* Abo-Status & Aktionen */}
+          <section className="surface-card-strong p-5 space-y-4">
+            <h2 className="text-lg font-semibold text-[var(--text-main)]">Abo-Status &amp; Aktionen</h2>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              {/* Abo-Info */}
+              <div className="space-y-3">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-[var(--text-subtle)]">Gültig bis</span>
+                  <span className="font-medium text-[var(--text-main)]">{formatDate(endDate)}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-[var(--text-subtle)]">Verbleibend</span>
+                  <span className="font-medium text-[var(--text-main)]">{remaining} Tage</span>
+                </div>
+                <div className="w-full h-1.5 bg-[var(--border-soft)] rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: `${progressPct}%`,
+                      background: remaining <= 30 ? "#b42318" : remaining <= 90 ? "#b68e20" : "#027a48",
+                    }}
+                  />
+                </div>
+                {pricing ? (
+                  <div className="flex justify-between items-center pt-1 border-t border-[var(--border-soft)] text-sm">
+                    <span className="text-[var(--text-subtle)]">{pricing.label}</span>
+                    <span className="font-bold text-[var(--accent)]">
+                      {formatMoney(pricing.isExtension ? pricing.extensionPriceCHF : pricing.reactivationPriceCHF)}
+                    </span>
+                  </div>
+                ) : null}
+              </div>
+
+              {/* Zuständigkeit */}
+              {canManage && candidates.length > 0 ? (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-[var(--text-subtle)]">Zuständig</label>
+                  <select
+                    className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)]"
+                    value={currentAssignee}
+                    onChange={(e) => void handleAssignee(e.target.value)}
+                    disabled={saving}
+                  >
+                    <option value="">– Nicht zugewiesen –</option>
+                    {candidates.map((c) => (
+                      <option key={c.email} value={c.email}>
+                        {c.name || c.email}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+            </div>
+
+            {/* Aktionen */}
+            <div className="flex flex-wrap gap-2 pt-2 border-t border-[var(--border-soft)]">
+              {!isArchived && pricing ? (
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => setShowExtendModal(true)}
+                  className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                >
+                  {pricing.isReactivation ? "Reaktivieren" : "Verlängern"}
+                </button>
+              ) : null}
+              {!isArchived ? (
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => setShowArchiveModal(true)}
+                  className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 disabled:opacity-50 hover:bg-red-100 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
+                >
+                  Archivieren
+                </button>
+              ) : null}
+              {tour.tour_url ? (
+                <a
+                  href={tour.tour_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--text-main)] hover:bg-[var(--surface-raised)] transition-colors"
+                >
+                  Tour öffnen ↗
+                </a>
+              ) : null}
+            </div>
+          </section>
+        </>
+      ) : null}
+
+      {/* Verlängerungs-Modal */}
+      {showExtendModal ? (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4"
+          onClick={() => !saving && setShowExtendModal(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-[var(--bg-card)] p-6 shadow-[0_24px_60px_rgba(0,0,0,0.35)] space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <h3 className="text-base font-semibold text-[var(--text-main)]">
+                {pricing?.isReactivation ? "Tour reaktivieren" : "Tour verlängern"}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowExtendModal(false)}
+                className="rounded-md border border-[var(--border-soft)] p-1 text-[var(--text-subtle)] hover:text-[var(--text-main)]"
+                aria-label="Schliessen"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="text-sm text-[var(--text-subtle)]">
               Wählen Sie die gewünschte Zahlungsart.
-              {pricing && (
-                <> Kosten: <strong>CHF {(pricing.isExtension ? pricing.extensionPriceCHF : pricing.reactivationPriceCHF).toFixed(2)}</strong></>
-              )}
+              {pricing ? (
+                <>
+                  {" "}Kosten:{" "}
+                  <strong className="text-[var(--text-main)]">
+                    {formatMoney(pricing.isExtension ? pricing.extensionPriceCHF : pricing.reactivationPriceCHF)}
+                  </strong>
+                </>
+              ) : null}
             </p>
-            <div className="ptd-radio-group">
-              {data?.payrexxConfigured && (
-                <label className="ptd-radio-label">
+            <div className="flex flex-col gap-2">
+              {data?.payrexxConfigured ? (
+                <label className="flex items-center gap-2 text-sm text-[var(--text-main)] cursor-pointer">
                   <input
                     type="radio"
                     name="extendMethod"
                     value="payrexx"
                     checked={extendMethod === "payrexx"}
                     onChange={() => setExtendMethod("payrexx")}
-                    className="ptd-radio"
+                    className="accent-[var(--accent)] w-4 h-4"
                   />
-                  <span>Online bezahlen (Payrexx)</span>
+                  Online bezahlen (Payrexx)
                 </label>
-              )}
-              <label className="ptd-radio-label">
+              ) : null}
+              <label className="flex items-center gap-2 text-sm text-[var(--text-main)] cursor-pointer">
                 <input
                   type="radio"
                   name="extendMethod"
                   value="qr_invoice"
                   checked={extendMethod === "qr_invoice"}
                   onChange={() => setExtendMethod("qr_invoice")}
-                  className="ptd-radio"
+                  className="accent-[var(--accent)] w-4 h-4"
                 />
-                <span>QR-Rechnung per E-Mail</span>
+                QR-Rechnung per E-Mail
               </label>
             </div>
-            <div className="ptd-modal-actions">
-              <button className="ptd-btn ptd-btn-primary" onClick={handleExtend} disabled={saving}>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowExtendModal(false)}
+                disabled={saving}
+                className="rounded-lg border border-[var(--border-soft)] px-4 py-2 text-sm font-medium text-[var(--text-main)] disabled:opacity-50"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleExtend()}
+                disabled={saving}
+                className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              >
                 {saving ? "Wird verarbeitet…" : "Bestätigen"}
               </button>
-              <button className="ptd-btn ptd-btn-secondary" onClick={() => setShowExtendModal(false)} disabled={saving}>
-                Abbrechen
-              </button>
             </div>
           </div>
         </div>
-      )}
+      ) : null}
 
-      {/* Archive Modal */}
-      {showArchiveModal && (
-        <div className="ptd-modal-overlay" onClick={() => !saving && setShowArchiveModal(false)}>
-          <div className="ptd-modal" onClick={(e) => e.stopPropagation()}>
-            <h2 className="ptd-modal-title">Tour archivieren</h2>
-            <p className="ptd-modal-desc">
-              Sind Sie sicher, dass Sie diese Tour archivieren möchten? Die Tour wird deaktiviert und ist nicht mehr öffentlich zugänglich.
+      {/* Archivierungs-Modal */}
+      {showArchiveModal ? (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4"
+          onClick={() => !saving && setShowArchiveModal(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl bg-[var(--bg-card)] p-6 shadow-[0_24px_60px_rgba(0,0,0,0.35)] space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <h3 className="text-base font-semibold text-[var(--text-main)]">Tour archivieren?</h3>
+              <button
+                type="button"
+                onClick={() => setShowArchiveModal(false)}
+                className="rounded-md border border-[var(--border-soft)] p-1 text-[var(--text-subtle)] hover:text-[var(--text-main)]"
+                aria-label="Schliessen"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="text-sm text-[var(--text-subtle)]">
+              Sind Sie sicher? Die Tour wird deaktiviert und ist nicht mehr öffentlich zugänglich.
             </p>
-            <div className="ptd-modal-actions">
-              <button className="ptd-btn ptd-btn-danger" onClick={handleArchive} disabled={saving}>
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowArchiveModal(false)}
+                disabled={saving}
+                className="rounded-lg border border-[var(--border-soft)] px-4 py-2 text-sm font-medium text-[var(--text-main)] disabled:opacity-50"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleArchive()}
+                disabled={saving}
+                className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 disabled:opacity-50 hover:bg-red-100 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
+              >
                 {saving ? "Wird archiviert…" : "Ja, archivieren"}
               </button>
-              <button className="ptd-btn ptd-btn-secondary" onClick={() => setShowArchiveModal(false)} disabled={saving}>
-                Abbrechen
-              </button>
             </div>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
-
-const ptdStyles = `
-  .ptd-page {
-    font-family: system-ui, -apple-system, sans-serif;
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 24px 24px 64px;
-    color: #111;
-  }
-  .ptd-loading {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 40vh;
-    gap: 16px;
-    color: #706b63;
-  }
-  .ptd-spinner {
-    width: 36px;
-    height: 36px;
-    border: 3px solid #e8e6e2;
-    border-top-color: #B68E20;
-    border-radius: 50%;
-    animation: ptd-spin 0.7s linear infinite;
-  }
-  @keyframes ptd-spin {
-    to { transform: rotate(360deg); }
-  }
-  .ptd-error-full {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 40vh;
-    gap: 16px;
-    color: #b42318;
-    text-align: center;
-  }
-  .ptd-breadcrumb {
-    margin-bottom: 20px;
-  }
-  .ptd-breadcrumb-link {
-    background: none;
-    border: none;
-    color: #B68E20;
-    font-size: 0.88rem;
-    font-weight: 500;
-    cursor: pointer;
-    padding: 0;
-    font-family: inherit;
-  }
-  .ptd-breadcrumb-link:hover {
-    color: #9a7619;
-    text-decoration: underline;
-  }
-  .ptd-alert {
-    padding: 12px 16px;
-    border-radius: 10px;
-    font-size: 0.875rem;
-    margin-bottom: 16px;
-  }
-  .ptd-alert-error {
-    background: #fef3f2;
-    border: 1px solid #fee4e2;
-    color: #b42318;
-  }
-  .ptd-alert-success {
-    background: #ecfdf3;
-    border: 1px solid #abefc6;
-    color: #027a48;
-  }
-  .ptd-hero {
-    margin-bottom: 24px;
-  }
-  .ptd-hero-title {
-    font-size: 1.6rem;
-    font-weight: 700;
-    color: #111;
-    margin: 0 0 8px;
-    letter-spacing: -0.01em;
-  }
-  .ptd-hero-meta {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
-  }
-  .ptd-hero-id {
-    font-size: 0.82rem;
-    color: #706b63;
-    background: #f3f2ef;
-    padding: 3px 10px;
-    border-radius: 6px;
-    font-family: ui-monospace, 'SF Mono', monospace;
-  }
-  .ptd-badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 3px 10px;
-    border-radius: 20px;
-    font-size: 0.78rem;
-    font-weight: 600;
-    white-space: nowrap;
-  }
-  .ptd-grid {
-    display: grid;
-    grid-template-columns: 1fr 340px;
-    gap: 24px;
-    align-items: start;
-  }
-  @media (max-width: 960px) {
-    .ptd-grid {
-      grid-template-columns: 1fr;
-    }
-  }
-  .ptd-main {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    min-width: 0;
-  }
-  .ptd-sidebar {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-  }
-  .ptd-card {
-    background: #fff;
-    border: 1px solid #e8e6e2;
-    border-radius: 12px;
-    padding: 24px;
-  }
-  .ptd-card-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 16px;
-  }
-  .ptd-card-title {
-    font-size: 1.05rem;
-    font-weight: 600;
-    color: #3b3833;
-    margin: 0 0 16px;
-  }
-  .ptd-card-header .ptd-card-title {
-    margin-bottom: 0;
-  }
-  .ptd-iframe-wrap {
-    position: relative;
-    width: 100%;
-    padding-bottom: 56.25%;
-    border-radius: 8px;
-    overflow: hidden;
-    background: #f3f2ef;
-  }
-  .ptd-iframe {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    border: none;
-  }
-  .ptd-link {
-    color: #B68E20;
-    font-weight: 500;
-    text-decoration: none;
-  }
-  .ptd-link:hover {
-    text-decoration: underline;
-  }
-  .ptd-muted {
-    color: #706b63;
-    font-size: 0.9rem;
-    margin: 0;
-  }
-  .ptd-form {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-  .ptd-form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-  .ptd-label {
-    font-size: 0.84rem;
-    font-weight: 500;
-    color: #706b63;
-  }
-  .ptd-input {
-    width: 100%;
-    padding: 0.6rem 0.85rem;
-    background: #fff;
-    border: 1px solid #e8e6e2;
-    border-radius: 8px;
-    color: #111;
-    font-size: 0.92rem;
-    font-family: inherit;
-    box-sizing: border-box;
-    transition: border-color 0.15s, box-shadow 0.15s;
-  }
-  .ptd-input:focus {
-    outline: none;
-    border-color: #B68E20;
-    box-shadow: 0 0 0 3px rgba(182, 142, 32, 0.15);
-  }
-  .ptd-form-actions {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-  .ptd-detail-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-  }
-  @media (max-width: 600px) {
-    .ptd-detail-grid {
-      grid-template-columns: 1fr;
-    }
-  }
-  .ptd-detail-item {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-  .ptd-detail-label {
-    font-size: 0.8rem;
-    color: #706b63;
-    font-weight: 500;
-  }
-  .ptd-detail-value {
-    font-size: 0.94rem;
-    color: #111;
-  }
-  .ptd-radio-group {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-  .ptd-radio-label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.9rem;
-    color: #3b3833;
-    cursor: pointer;
-  }
-  .ptd-radio {
-    accent-color: #B68E20;
-    width: 16px;
-    height: 16px;
-    cursor: pointer;
-  }
-  .ptd-table-wrap {
-    overflow-x: auto;
-    margin: 0 -24px;
-    padding: 0 24px;
-  }
-  .ptd-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.88rem;
-  }
-  .ptd-table th {
-    text-align: left;
-    font-weight: 500;
-    color: #706b63;
-    padding: 10px 12px;
-    border-bottom: 1px solid #e8e6e2;
-    white-space: nowrap;
-  }
-  .ptd-table td {
-    padding: 12px;
-    border-bottom: 1px solid #f3f2ef;
-    color: #111;
-    vertical-align: middle;
-  }
-  .ptd-table tr:last-child td {
-    border-bottom: none;
-  }
-  .ptd-table-actions {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-  .ptd-table-link {
-    color: #B68E20;
-    font-size: 0.82rem;
-    font-weight: 500;
-    text-decoration: none;
-    white-space: nowrap;
-  }
-  .ptd-table-link:hover {
-    text-decoration: underline;
-  }
-  .ptd-sub-info {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-  .ptd-sub-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .ptd-progress-bar {
-    width: 100%;
-    height: 6px;
-    background: #e8e6e2;
-    border-radius: 3px;
-    overflow: hidden;
-    margin-top: 4px;
-  }
-  .ptd-progress-fill {
-    height: 100%;
-    border-radius: 3px;
-    transition: width 0.4s ease;
-  }
-  .ptd-pricing-info {
-    margin-top: 16px;
-    padding-top: 16px;
-    border-top: 1px solid #e8e6e2;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .ptd-pricing-amount {
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: #B68E20;
-  }
-  .ptd-action-stack {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-  .ptd-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.62rem 1.1rem;
-    border-radius: 8px;
-    font-size: 0.9rem;
-    font-weight: 600;
-    font-family: inherit;
-    border: none;
-    cursor: pointer;
-    text-decoration: none;
-    transition: background 0.15s, transform 0.1s;
-    white-space: nowrap;
-  }
-  .ptd-btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-  .ptd-btn:active:not(:disabled) {
-    transform: scale(0.97);
-  }
-  .ptd-btn-primary {
-    background: #B68E20;
-    color: #fff;
-  }
-  .ptd-btn-primary:hover:not(:disabled) {
-    background: #9a7619;
-  }
-  .ptd-btn-secondary {
-    background: #f3f2ef;
-    color: #3b3833;
-    border: 1px solid #e8e6e2;
-  }
-  .ptd-btn-secondary:hover:not(:disabled) {
-    background: #e8e6e2;
-  }
-  .ptd-btn-danger {
-    background: #fef3f2;
-    color: #b42318;
-    border: 1px solid #fee4e2;
-  }
-  .ptd-btn-danger:hover:not(:disabled) {
-    background: #fee4e2;
-  }
-  .ptd-btn-sm {
-    padding: 0.38rem 0.75rem;
-    font-size: 0.82rem;
-  }
-  .ptd-btn-full {
-    width: 100%;
-  }
-  .ptd-modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.45);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-    padding: 24px;
-    animation: ptd-fade-in 0.15s ease;
-  }
-  @keyframes ptd-fade-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-  .ptd-modal {
-    background: #fff;
-    border-radius: 14px;
-    padding: 32px;
-    max-width: 460px;
-    width: 100%;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
-    animation: ptd-slide-up 0.2s ease;
-  }
-  @keyframes ptd-slide-up {
-    from { transform: translateY(12px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
-  }
-  .ptd-modal-title {
-    font-size: 1.15rem;
-    font-weight: 700;
-    margin: 0 0 8px;
-    color: #111;
-  }
-  .ptd-modal-desc {
-    font-size: 0.9rem;
-    color: #706b63;
-    margin: 0 0 20px;
-    line-height: 1.55;
-  }
-  .ptd-modal-actions {
-    display: flex;
-    gap: 10px;
-    margin-top: 24px;
-    flex-wrap: wrap;
-  }
-`;

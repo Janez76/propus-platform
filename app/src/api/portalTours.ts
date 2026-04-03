@@ -164,10 +164,11 @@ export type PortalTourDetail = {
     invoice_number?: string;
     sent_at?: string;
     paid_at?: string;
+    due_at?: string;
     created_at?: string;
     payrexx_payment_url?: string;
   }[];
-  actions_log: unknown[];
+  actions_log: Record<string, unknown>[];
   mpVisibility: string | null;
   pricing: {
     extensionPriceCHF: number;
@@ -181,6 +182,25 @@ export type PortalTourDetail = {
     assigneeByTourId: Record<string, string>;
     canManageByTourId: Record<string, boolean>;
     candidatesByWorkspace: Record<string, { email: string; name: string }[]>;
+  } | null;
+  paymentSummary: {
+    paidCount: number;
+    openCount: number;
+    paidAmount: number;
+    openAmount: number;
+    lastPayment: { label: string; at: string; amount: number | null } | null;
+  } | null;
+  paymentTimeline: {
+    title: string;
+    status: string;
+    statusLabel: string;
+    amount: number | null;
+    primaryDate: string | null;
+  }[];
+  displayedTourStatus: {
+    code: string;
+    label: string;
+    note: string | null;
   } | null;
 };
 

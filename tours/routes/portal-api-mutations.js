@@ -31,6 +31,7 @@ const {
   getPortalPricingForTour,
   getSubscriptionWindowFromStart,
 } = require('../lib/subscriptions');
+const { getDisplayedTourStatus } = require('../lib/tour-detail-payload');
 
 const PORTAL_BASE_URL = process.env.PORTAL_BASE_URL || 'https://tour.propus.ch';
 
@@ -267,10 +268,41 @@ router.get('/tours/:id/detail', async (req, res) => {
         [id],
       ).catch(() => ({ rows: [] })),
       pool.query(
-        `SELECT * FROM tour_manager.actions_log WHERE tour_id = $1 ORDER BY created_at DESC LIMIT 20`,
+        `SELECT * FROM tour_manager.actions_log WHERE tour_id = $1 ORDER BY created_at DESC LIMIT 50`,
         [id],
       ).catch(() => ({ rows: [] })),
     ]);
+
+    const renewalRows = invoicesResult.rows;
+    const renewalPaid = renewalRows.filter((row) => row.invoice_status === 'paid');
+    const renewalOpen = renewalRows.filter((row) => ['sent', 'overdue', 'draft'].includes(row.invoice_status));
+    const sumAmount = (rows) => rows.reduce((sum, row) => sum + (parseFloat(row.amount_chf) || parseFloat(row.preis_brutto) || 0), 0);
+    const paymentEvents = [
+      ...renewalPaid
+        .filter((row) => row.paid_at)
+        .map((row) => ({
+          at: row.paid_at,
+          label: row.invoice_number || row.exxas_invoice_id || 'Verlängerungsrechnung',
+          amount: parseFloat(row.amount_chf) || parseFloat(row.preis_brutto) || null,
+        })),
+    ].sort((a, b) => new Date(b.at) - new Date(a.at));
+    const paymentSummary = {
+      paidCount: renewalPaid.length,
+      openCount: renewalOpen.length,
+      paidAmount: sumAmount(renewalPaid),
+      openAmount: sumAmount(renewalOpen),
+      lastPayment: paymentEvents[0] || null,
+    };
+    const paymentTimeline = renewalRows.map((row) => ({
+      source: 'renewal',
+      title: row.invoice_number || row.exxas_invoice_id || 'Verlängerungsrechnung',
+      status: row.invoice_status,
+      statusLabel: ({ draft: 'Entwurf', sent: 'Gesendet', paid: 'Bezahlt', overdue: 'Überfällig', cancelled: 'Storniert' })[row.invoice_status] || row.invoice_status,
+      amount: parseFloat(row.amount_chf) || parseFloat(row.preis_brutto) || null,
+      primaryDate: row.paid_at || row.sent_at || row.created_at,
+    })).sort((a, b) => new Date(b.primaryDate || 0) - new Date(a.primaryDate || 0));
+
+    const displayedTourStatus = getDisplayedTourStatus(tour);
 
     const { getModel: mpGetModel } = require('../lib/matterport');
     let mpVisibility = null;
@@ -284,12 +316,15 @@ router.get('/tours/:id/detail', async (req, res) => {
     return res.json({
       ok: true,
       tour,
-      invoices: invoicesResult.rows,
+      invoices: renewalRows,
       actions_log: logsResult.rows,
       mpVisibility,
       pricing,
       payrexxConfigured: payrexx.isConfigured(),
       assigneeBundle,
+      paymentSummary,
+      paymentTimeline,
+      displayedTourStatus,
     });
   } catch (err) {
     console.error('[portal-api-mutations] /tours/:id/detail error:', err);
