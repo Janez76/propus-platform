@@ -360,13 +360,16 @@ export function ToursAdminLinkMatterportPage() {
     setArchiveIt(true);
 
     // Bestellvorschlag aus internalId vorausfüllen
-    const suggested = (autoOpenSpace as Record<string, unknown>).suggestedOrder as { order_no: number; status: string; address: string; company: string } | null | undefined;
+    const suggested = (autoOpenSpace as Record<string, unknown>).suggestedOrder as { order_no: number; status: string; address: string; company: string; email?: string } | null | undefined;
     if (suggested?.order_no) {
       setBookingOrderNo(suggested.order_no);
       const label = `#${suggested.order_no} – ${suggested.address || suggested.company || ""}`.trim();
       setBookingLabel(label);
       setBookingSearchDraft(label);
       setBookingSuggestions([]);
+      if (suggested.address) setBezeichnung(suggested.address);
+      if (suggested.company) setCustomerName(suggested.company);
+      if (suggested.email) setCustomerEmail(suggested.email);
     }
     setSearchParams(
       (prev) => {
@@ -397,13 +400,16 @@ export function ToursAdminLinkMatterportPage() {
     setArchiveIt(true);
 
     // Bestellvorschlag aus internalId automatisch vorausfüllen
-    const suggested = m.suggestedOrder as { order_no: number; status: string; address: string; company: string } | null | undefined;
+    const suggested = m.suggestedOrder as { order_no: number; status: string; address: string; company: string; email?: string } | null | undefined;
     if (suggested?.order_no) {
       setBookingOrderNo(suggested.order_no);
       const label = `#${suggested.order_no} – ${suggested.address || suggested.company || ""}`.trim();
       setBookingLabel(label);
       setBookingSearchDraft(label);
       setBookingSuggestions([]);
+      if (suggested.address) setBezeichnung(suggested.address);
+      if (suggested.company) setCustomerName(suggested.company);
+      if (suggested.email) setCustomerEmail(suggested.email);
     }
 
     queueMicrotask(() => formAnchorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
@@ -737,6 +743,12 @@ export function ToursAdminLinkMatterportPage() {
                           setBookingLabel(label);
                           setBookingSearchDraft(label);
                           setBookingSuggestions([]);
+                          // Felder autofüllen wenn noch leer
+                          if (!bezeichnung.trim() && o.address) setBezeichnung(o.address);
+                          if (activeTab === 0 || activeTab === 1) {
+                            if (!customerName.trim() && o.company) setCustomerName(o.company);
+                            if (!customerEmail.trim() && o.email) setCustomerEmail(o.email);
+                          }
                         }}
                       >
                         <span className="font-medium text-[var(--text-main)]">#{o.order_no}</span>
