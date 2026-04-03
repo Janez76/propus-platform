@@ -242,11 +242,9 @@ function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId, bookin
       </div>
 
       <dl className="grid gap-1.5 text-sm">
-        <MetaRow label="Name" value={meta.name} />
+        <MetaRow label="Objektbezeichnung" value={meta.name} />
         <MetaRow label="Erstellt" value={fmtDate(meta.created)} />
-        <MetaRow label="Geändert" value={fmtDate(meta.modified)} />
         {meta.publication?.address ? <MetaRow label="Adresse" value={meta.publication.address} /> : null}
-        {meta.publication?.presentedBy ? <MetaRow label="Präsentiert von" value={meta.publication.presentedBy} /> : null}
         {meta.description ? <MetaRow label="Beschreibung" value={meta.description} /> : null}
         {meta.publication?.summary ? <MetaRow label="Zusammenfassung" value={meta.publication.summary} /> : null}
         {meta.publication?.externalUrl ? (
@@ -256,9 +254,6 @@ function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId, bookin
               {meta.publication.externalUrl}
             </a>
           } />
-        ) : null}
-        {meta.publication?.published != null ? (
-          <MetaRow label="Veröffentlicht" value={meta.publication.published ? "Ja" : "Nein"} />
         ) : null}
       </dl>
 
