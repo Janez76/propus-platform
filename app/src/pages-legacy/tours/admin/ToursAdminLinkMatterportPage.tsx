@@ -364,6 +364,16 @@ export function ToursAdminLinkMatterportPage() {
     setBezeichnung(String(autoOpenSpace.name || ""));
     setActiveTab(0);
     setArchiveIt(true);
+
+    // Bestellvorschlag aus internalId vorausfüllen
+    const suggested = (autoOpenSpace as Record<string, unknown>).suggestedOrder as { order_no: number; status: string; address: string; company: string } | null | undefined;
+    if (suggested?.order_no) {
+      setBookingOrderNo(suggested.order_no);
+      const label = `#${suggested.order_no} – ${suggested.address || suggested.company || ""}`.trim();
+      setBookingLabel(label);
+      setBookingSearchDraft(label);
+      setBookingSuggestions([]);
+    }
     setSearchParams(
       (prev) => {
         const n = new URLSearchParams(prev);
@@ -391,6 +401,17 @@ export function ToursAdminLinkMatterportPage() {
     setBezeichnung(String(m.name || ""));
     setActiveTab(0);
     setArchiveIt(true);
+
+    // Bestellvorschlag aus internalId automatisch vorausfüllen
+    const suggested = m.suggestedOrder as { order_no: number; status: string; address: string; company: string } | null | undefined;
+    if (suggested?.order_no) {
+      setBookingOrderNo(suggested.order_no);
+      const label = `#${suggested.order_no} – ${suggested.address || suggested.company || ""}`.trim();
+      setBookingLabel(label);
+      setBookingSearchDraft(label);
+      setBookingSuggestions([]);
+    }
+
     queueMicrotask(() => formAnchorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }
 
@@ -1009,12 +1030,31 @@ export function ToursAdminLinkMatterportPage() {
                       />
                     </td>
                     <td className="px-4 py-3 text-[var(--text-main)]">
-                      {String(m.name || "—")}
-                      {isRecentSpace(m.created) && (
-                        <span className="ml-2 inline-block rounded px-1.5 py-0.5 text-[10px] font-medium bg-green-500/15 text-green-600 dark:text-green-400">
-                          Neu
-                        </span>
-                      )}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span>{String(m.name || "—")}</span>
+                        {String(m.internalId || "") && (
+                          <span className="font-mono text-[10px] text-[var(--text-subtle)] bg-[var(--surface-raised)] rounded px-1 py-0.5">
+                            {String(m.internalId)}
+                          </span>
+                        )}
+                        {isRecentSpace(m.created) && (
+                          <span className="rounded px-1.5 py-0.5 text-[10px] font-medium bg-green-500/15 text-green-600 dark:text-green-400">
+                            Neu
+                          </span>
+                        )}
+                      </div>
+                      {(() => {
+                        const s = (m as Record<string, unknown>).suggestedOrder as { order_no: number; address: string; company: string; status: string } | null | undefined;
+                        if (!s) return null;
+                        return (
+                          <div className="mt-1 flex items-center gap-1 text-[10px]">
+                            <span className="rounded bg-blue-500/15 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 font-medium">
+                              Bestellung #{s.order_no}
+                            </span>
+                            <span className="text-[var(--text-subtle)] truncate max-w-[160px]">{s.address || s.company || ""}</span>
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="px-4 py-3 font-mono text-xs text-[var(--text-subtle)]">{id}</td>
                     <td className="px-4 py-3 text-xs">

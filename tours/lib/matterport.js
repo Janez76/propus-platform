@@ -143,7 +143,7 @@ async function listModels() {
   try {
     do {
       const offsetArg = offset != null ? `, offset: "${offset}"` : '';
-      const gql = `query { models(query: "*", pageSize: 100${offsetArg}, include: [inactive], sortBy: [{field: created, order: desc}]) { totalResults results { id name description state created } nextOffset } }`;
+      const gql = `query { models(query: "*", pageSize: 100${offsetArg}, include: [inactive], sortBy: [{field: created, order: desc}]) { totalResults results { id name description internalId state created } nextOffset } }`;
       const { data, errors } = await graphRequest(gql);
       if (errors?.length) {
         result.results = all;
@@ -352,13 +352,14 @@ async function patchModelName(spaceId, name) {
 }
 
 /**
- * Interne ID eines Models setzen (erscheint unter "Interne Informationen" in Matterport).
+ * Interne ID in Matterport setzen (Feld "Interne ID" in der Matterport-UI).
+ * Format: "#12345" für Bestellnummern, "" zum Leeren.
  * GraphQL: patchModel(id, patch: { internalId }).
  */
 async function patchModelInternalId(spaceId, internalId) {
   if (!(await getAuthHeader())) return { success: false, error: 'Kein Matterport-Token' };
-  const value = internalId != null ? String(internalId).trim() : '';
   if (!spaceId) return { success: false, error: 'Modell-ID fehlt' };
+  const value = internalId != null ? String(internalId) : '';
 
   const mutation = `
     mutation($id: ID!, $patch: ModelPatch!) {
@@ -369,7 +370,10 @@ async function patchModelInternalId(spaceId, internalId) {
     }`;
 
   try {
-    const { data, errors } = await graphRequest(mutation, { id: spaceId, patch: { internalId: value } });
+    const { data, errors } = await graphRequest(mutation, {
+      id: spaceId,
+      patch: { internalId: value },
+    });
     if (data?.patchModel?.id) {
       return { success: true, internalId: data.patchModel.internalId };
     }

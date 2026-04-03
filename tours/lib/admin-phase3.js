@@ -460,19 +460,63 @@ async function getLinkMatterportJson(query) {
       .filter(Boolean)
   );
   const allOpenSpaces = activeModels.filter((model) => !linkedSpaceIds.has(String(model.id || '').trim()));
+
+  // internalId wie "#12345" → Bestellvorschlag nachschlagen
+  const orderNosToLookup = [];
+  for (const model of allOpenSpaces) {
+    const internalId = String(model.internalId || '').trim();
+    const match = internalId.match(/^#?(\d+)$/);
+    if (match) orderNosToLookup.push(parseInt(match[1], 10));
+  }
+  const orderByNo = new Map();
+  if (orderNosToLookup.length > 0) {
+    try {
+      const orderRows = await pool.query(
+        `SELECT o.order_no, o.status, o.address, o.billing, o.schedule
+         FROM booking.orders o
+         WHERE o.order_no = ANY($1::int[])`,
+        [orderNosToLookup]
+      );
+      for (const r of orderRows.rows) {
+        orderByNo.set(r.order_no, {
+          order_no: r.order_no,
+          status: r.status,
+          address: r.address,
+          company: r.billing?.company || r.billing?.name || '',
+          email: r.billing?.email || '',
+          date: r.schedule?.date || null,
+        });
+      }
+    } catch (e) {
+      console.warn('[admin-phase3] booking order lookup:', e.message);
+    }
+  }
+
+  // Spaces mit suggestedOrder anreichern
+  const enrichedOpenSpaces = allOpenSpaces.map((model) => {
+    const internalId = String(model.internalId || '').trim();
+    const match = internalId.match(/^#?(\d+)$/);
+    const orderNo = match ? parseInt(match[1], 10) : null;
+    return {
+      ...model,
+      suggestedOrder: orderNo != null ? (orderByNo.get(orderNo) || null) : null,
+    };
+  });
+
   const autoOpenSpace = openSpaceId
-    ? (allOpenSpaces.find((model) => String(model.id || '').trim() === openSpaceId) || null)
+    ? (enrichedOpenSpaces.find((model) => String(model.id || '').trim() === openSpaceId) || null)
     : null;
 
-  let openSpaces = allOpenSpaces;
+  let openSpaces = enrichedOpenSpaces;
   if (qLower) {
-    openSpaces = allOpenSpaces.filter((model) => {
+    openSpaces = enrichedOpenSpaces.filter((model) => {
       const createdLabel = model.created
         ? new Date(model.created).toLocaleDateString('de-CH', { day: '2-digit', month: 'short', year: 'numeric' })
         : '';
       const haystack = [
         model.name || '',
         model.id || '',
+        model.internalId || '',
         createdLabel,
       ].join(' ').toLowerCase();
       return haystack.includes(qLower);
@@ -643,7 +687,8 @@ async function postLinkMatterport(body) {
     }
   }
 
-  if (Number.isFinite(bookingOrderNo) && bookingOrderNo > 0 && mpId) {
+  // Bestellnummer als interne ID in Matterport schreiben
+  if (!cannotAssign && Number.isFinite(bookingOrderNo) && bookingOrderNo > 0 && mpId) {
     try {
       await matterport.patchModelInternalId(mpId, `#${bookingOrderNo}`);
     } catch (e) {
