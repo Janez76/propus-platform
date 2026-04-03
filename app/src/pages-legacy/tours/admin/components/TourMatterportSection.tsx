@@ -444,23 +444,11 @@ export function TourMatterportSection({ tourId, tour, onSuccess, onOpenBookingLi
       <div className="border-t border-[var(--border-soft)] pt-4 space-y-3">
         <h2 className="text-base font-semibold text-[var(--text-main)]">Matterport</h2>
         {err ? <p className="text-sm text-red-600">{err}</p> : null}
-        <dl className="grid gap-2 text-sm">
-          <div>
-            <dt className="text-[var(--text-subtle)] text-sm">Space-ID</dt>
-            <dd className="text-[var(--text-main)] font-mono text-sm break-all">
-              {spaceId || "—"}
-              {linkMatterportOpenHref ? (
-                <span className="block mt-1 font-sans text-xs text-amber-800 dark:text-amber-300">
-                  Nur aus Tour-URL erkannt – noch nicht als DB-Verknüpfung gespeichert.
-                </span>
-              ) : null}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-[var(--text-subtle)] text-sm">State (DB)</dt>
-            <dd className="text-[var(--text-main)]">{String(tour.matterport_state ?? "—")}</dd>
-          </div>
-        </dl>
+        {linkMatterportOpenHref ? (
+          <p className="text-xs text-amber-800 dark:text-amber-300 rounded-lg border border-amber-200/60 bg-amber-50/40 dark:border-amber-900/50 dark:bg-amber-950/25 px-3 py-2">
+            Matterport-Space nur aus Tour-URL erkannt – noch nicht als DB-Verknüpfung gespeichert.
+          </p>
+        ) : null}
 
         {/* Matterport-Metadaten (immer sichtbar) */}
         {spaceId ? (
