@@ -473,7 +473,7 @@ export interface TicketCreatePayload {
 }
 
 export function postCreateTicket(payload: TicketCreatePayload) {
-  return toursAdminPost("/tickets", payload as Record<string, unknown>) as Promise<{ ok: true; ticket: TicketRow }>;
+  return toursAdminPost("/tickets", payload as unknown as Record<string, unknown>) as Promise<{ ok: true; ticket: TicketRow }>;
 }
 
 export function getTicketsList(filters?: {
