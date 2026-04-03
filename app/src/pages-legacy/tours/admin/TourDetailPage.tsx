@@ -22,7 +22,7 @@ function tourTitle(t: ToursAdminTourRow) {
 export function TourDetailPage() {
   const { id } = useParams<{ id: string }>();
   const okId = id != null && id !== "" && /^\d+$/.test(id) ? id : null;
-  const [embedView, setEmbedView] = useState<"customer" | "invoice" | null>(null);
+  const [embedView, setEmbedView] = useState<"customer" | "invoice" | "booking" | null>(null);
   const qk = okId ? toursAdminTourDetailQueryKey(okId) : "toursAdmin:tour:invalid";
   const queryFn = useCallback(() => {
     if (!okId) throw new Error("Ungültige Tour-ID");
@@ -88,7 +88,12 @@ export function TourDetailPage() {
             onSuccess={refetchDetail}
             onOpenCustomerLink={() => setEmbedView("customer")}
           />
-          <TourMatterportSection tourId={okId} tour={data.tour} onSuccess={refetchDetail} />
+          <TourMatterportSection
+            tourId={okId}
+            tour={data.tour}
+            onSuccess={refetchDetail}
+            onOpenBookingLink={() => setEmbedView("booking")}
+          />
           <TourInvoicesSection
             tourId={okId}
             renewalInvoices={data.renewalInvoices}
@@ -107,7 +112,11 @@ export function TourDetailPage() {
           <div className="surface-card w-full max-w-6xl max-h-[92vh] overflow-hidden flex flex-col rounded-xl shadow-2xl">
             <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[var(--border-soft)]">
               <span className="font-semibold text-[var(--text-main)]">
-                {embedView === "customer" ? "Kunde anpassen" : "Exxas-Rechnung verknüpfen"} - Tour #{okId}
+                {embedView === "customer"
+                  ? "Kunde anpassen"
+                  : embedView === "invoice"
+                    ? "Exxas-Rechnung verknüpfen"
+                    : "Bestellung verknüpfen"} - Tour #{okId}
               </span>
               <button
                 type="button"
@@ -125,11 +134,25 @@ export function TourDetailPage() {
               src={
                 embedView === "customer"
                   ? `/embed/tours/${encodeURIComponent(okId)}/link-exxas-customer`
-                  : `/embed/tours/${encodeURIComponent(okId)}/link-invoice`
+                  : embedView === "invoice"
+                    ? `/embed/tours/${encodeURIComponent(okId)}/link-invoice`
+                    : `/embed/tours/link-matterport${
+                        data.tour.canonical_matterport_space_id || data.tour.matterport_space_id
+                          ? `?openSpaceId=${encodeURIComponent(
+                              String(data.tour.canonical_matterport_space_id ?? data.tour.matterport_space_id ?? "")
+                            )}`
+                          : ""
+                      }`
               }
               className="flex-1 w-full border-0"
               style={{ minHeight: "70vh" }}
-              title={embedView === "customer" ? "Kunde anpassen" : "Exxas-Rechnung verknüpfen"}
+              title={
+                embedView === "customer"
+                  ? "Kunde anpassen"
+                  : embedView === "invoice"
+                    ? "Exxas-Rechnung verknüpfen"
+                    : "Bestellung verknüpfen"
+              }
             />
           </div>
         </div>

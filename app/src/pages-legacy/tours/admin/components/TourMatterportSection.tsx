@@ -8,9 +8,10 @@ type Props = {
   tourId: string;
   tour: ToursAdminTourRow;
   onSuccess: () => void;
+  onOpenBookingLink?: () => void;
 };
 
-export function TourMatterportSection({ tourId, tour, onSuccess }: Props) {
+export function TourMatterportSection({ tourId, tour, onSuccess, onOpenBookingLink }: Props) {
   const persistedMpId = String(tour.matterport_space_id ?? "").trim() || null;
   const canonicalMpId = String(tour.canonical_matterport_space_id ?? "").trim() || null;
   const spaceId = canonicalMpId || persistedMpId;
@@ -77,6 +78,16 @@ export function TourMatterportSection({ tourId, tour, onSuccess }: Props) {
             <Link2 className="h-3.5 w-3.5" />
             Space verknüpfen
           </Link>
+        ) : null}
+        {onOpenBookingLink ? (
+          <button
+            type="button"
+            onClick={onOpenBookingLink}
+            className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-xs font-medium text-[var(--accent)]"
+          >
+            <Link2 className="h-3.5 w-3.5" />
+            Bestellung verknüpfen
+          </button>
         ) : null}
         {spaceId ? (
           <button

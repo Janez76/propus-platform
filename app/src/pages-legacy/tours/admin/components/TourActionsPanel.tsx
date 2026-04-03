@@ -4,6 +4,21 @@ import type { ToursAdminTourRow } from "../../../../types/toursAdmin";
 
 const VISIBILITY_OPTIONS = ["PRIVATE", "LINK_ONLY", "PUBLIC", "PASSWORD"] as const;
 
+const VISIBILITY_META: Record<string, { icon: string; label: string }> = {
+  LINK_ONLY: { icon: "🔗", label: "Nur Link" },
+  PUBLIC: { icon: "🌐", label: "Öffentlich" },
+  PASSWORD: { icon: "🔑", label: "Passwort" },
+  PRIVATE: { icon: "🔒", label: "Privat" },
+};
+
+function normalizeVisibility(value: string | null | undefined): string | null {
+  const raw = String(value ?? "").trim().toUpperCase();
+  if (!raw) return null;
+  if (raw === "UNLISTED") return "LINK_ONLY";
+  if (raw === "PRIVATE" || raw === "LINK_ONLY" || raw === "PUBLIC" || raw === "PASSWORD") return raw;
+  return null;
+}
+
 type Props = {
   tourId: string;
   tour: ToursAdminTourRow;
@@ -13,6 +28,7 @@ type Props = {
 };
 
 export function TourActionsPanel({ tourId, tour, mpVisibility, onSuccess, onOpenCustomerLink }: Props) {
+  const normalizedMpVisibility = normalizeVisibility(mpVisibility);
   const [tourUrl, setTourUrl] = useState(String(tour.tour_url ?? ""));
   const [name, setName] = useState(
     String(tour.canonical_object_label ?? tour.object_label ?? tour.bezeichnung ?? "")
@@ -20,7 +36,7 @@ export function TourActionsPanel({ tourId, tour, mpVisibility, onSuccess, onOpen
   const [syncMp, setSyncMp] = useState(false);
   const [sweep, setSweep] = useState(String(tour.matterport_start_sweep ?? ""));
   const [verified, setVerified] = useState(Boolean(tour.customer_verified));
-  const [visibility, setVisibility] = useState<string>(mpVisibility ?? "LINK_ONLY");
+  const [visibility, setVisibility] = useState<string>(normalizedMpVisibility ?? "LINK_ONLY");
   const [visPassword, setVisPassword] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -34,8 +50,8 @@ export function TourActionsPanel({ tourId, tour, mpVisibility, onSuccess, onOpen
   }, [tour]);
 
   useEffect(() => {
-    if (mpVisibility) setVisibility(mpVisibility);
-  }, [mpVisibility]);
+    if (normalizedMpVisibility) setVisibility(normalizedMpVisibility);
+  }, [normalizedMpVisibility]);
 
   async function run(label: string, fn: () => Promise<unknown>) {
     setBusy(label);
@@ -68,10 +84,14 @@ export function TourActionsPanel({ tourId, tour, mpVisibility, onSuccess, onOpen
       </div>
       {msg ? <p className="text-sm text-emerald-700 dark:text-emerald-400">{msg}</p> : null}
       {err ? <p className="text-sm text-red-600 dark:text-red-400">{err}</p> : null}
-      {mpVisibility ? (
-        <p className="text-xs text-[var(--text-subtle)]">
-          Matterport-Sichtbarkeit (API): <strong className="text-[var(--text-main)]">{mpVisibility}</strong>
-        </p>
+      {normalizedMpVisibility ? (
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="text-[var(--text-subtle)]">Matterport-Sichtbarkeit (API):</span>
+          <span className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--accent)] bg-[var(--accent)]/10 px-2.5 py-1 font-medium text-[var(--accent)]">
+            <span>{VISIBILITY_META[normalizedMpVisibility].icon}</span>
+            {VISIBILITY_META[normalizedMpVisibility].label}
+          </span>
+        </div>
       ) : null}
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -121,12 +141,16 @@ export function TourActionsPanel({ tourId, tour, mpVisibility, onSuccess, onOpen
         </div>
 
         <div className="space-y-2">
-          <label className="text-xs font-medium text-[var(--text-subtle)]">Start-Sweep</label>
+          <label className="text-xs font-medium text-[var(--text-subtle)]">Start-Sweep-ID</label>
           <input
             value={sweep}
             onChange={(e) => setSweep(e.target.value)}
             className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)]"
+            placeholder="Matterport Sweep ID"
           />
+          <p className="text-xs text-[var(--text-subtle)]">
+            Gewuenschten Startpunkt in Matterport oeffnen, die Sweep-ID aus Link oder Ansicht kopieren und hier einfuegen.
+          </p>
           <button
             type="button"
             disabled={!!busy}
@@ -135,7 +159,7 @@ export function TourActionsPanel({ tourId, tour, mpVisibility, onSuccess, onOpen
             }
             className="rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-xs font-medium disabled:opacity-50"
           >
-            {busy === "sweep" ? "…" : "Sweep speichern"}
+            {busy === "sweep" ? "…" : "Startpunkt setzen"}
           </button>
         </div>
 
@@ -162,14 +186,11 @@ export function TourActionsPanel({ tourId, tour, mpVisibility, onSuccess, onOpen
       <div className="border-t border-[var(--border-soft)] pt-4 space-y-2">
         <h3 className="text-sm font-medium text-[var(--text-main)]">Matterport-Sichtbarkeit</h3>
         <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-          {(
-            [
-              { value: "LINK_ONLY", icon: "🔗", label: "Nur Link" },
-              { value: "PUBLIC",    icon: "🌐", label: "Öffentlich" },
-              { value: "PASSWORD",  icon: "🔑", label: "Passwort" },
-              { value: "PRIVATE",   icon: "🔒", label: "Privat" },
-            ] as const
-          ).map(({ value, icon, label }) => (
+          {(VISIBILITY_OPTIONS.map((value) => ({ value, ...VISIBILITY_META[value] })) as Array<{
+            value: (typeof VISIBILITY_OPTIONS)[number];
+            icon: string;
+            label: string;
+          }>).map(({ value, icon, label }) => (
             <button
               key={value}
               type="button"

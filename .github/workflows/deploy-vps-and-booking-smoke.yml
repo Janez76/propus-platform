@@ -22,7 +22,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: read
   issues: write
 
 jobs:
@@ -86,50 +86,33 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519_propus_vps
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Bump version + Changelog
+      - name: Prepare deploy version
         id: bump
         run: |
           set -e
-          RAW=$(cat booking/public/VERSION)
-          # Parse vX.Y.Z
-          MAJOR=$(echo "$RAW" | sed 's/v\([0-9]*\)\..*/\1/')
-          MINOR=$(echo "$RAW" | sed 's/v[0-9]*\.\([0-9]*\)\..*/\1/')
-          PATCH=$(echo "$RAW" | sed 's/v[0-9]*\.[0-9]*\.\([0-9]*\)/\1/')
-          NEW_PATCH=$((PATCH + 1))
-          NEW_VER="v${MAJOR}.${MINOR}.${NEW_PATCH}"
+          RAW=$(tr -d '\r\n' < booking/public/VERSION)
+          BASE_VER="${RAW#v}"
+          SHORT_SHA=$(printf '%s' "${GITHUB_SHA}" | cut -c1-7)
+          DEPLOY_SUFFIX="deploy.${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}.${SHORT_SHA}"
+          NEW_VER="v${BASE_VER}-${DEPLOY_SUFFIX}"
+          WEBSITE_VER="${BASE_VER}-${DEPLOY_SUFFIX}"
           echo "new_version=$NEW_VER" >> "$GITHUB_OUTPUT"
-          echo "Bumping $RAW -> $NEW_VER"
+          echo "Preparing ephemeral deploy version $RAW -> $NEW_VER"
 
-          # Alle VERSION-Dateien aktualisieren
+          # Alle VERSION-Dateien nur fuer dieses Deploy aktualisieren.
+          # Der Workflow schreibt bewusst nicht mehr nach master zurueck.
           echo -n "$NEW_VER" > booking/public/VERSION
           echo -n "$NEW_VER" > booking/admin-panel/public/VERSION
           echo -n "$NEW_VER" > app/public/VERSION
           echo -n "$NEW_VER" > website/public/VERSION
 
-          # website/package.json version aktualisieren
+          # website/package.json version fuer den Build aktualisieren
           node -e "
             const fs = require('fs');
             const p = JSON.parse(fs.readFileSync('website/package.json','utf8'));
-            p.version = '${MAJOR}.${MINOR}.${NEW_PATCH}';
+            p.version = '${WEBSITE_VER}';
             fs.writeFileSync('website/package.json', JSON.stringify(p, null, 2) + '\n');
           "
-
-          # Changelog automatisch aus Commits generieren
-          node scripts/update-changelog.js --version "$NEW_VER" --date "$(date +%Y-%m-%d)"
-
-          # Commit & Push (Version + Changelog in einem Commit)
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add \
-            booking/public/VERSION \
-            booking/admin-panel/public/VERSION \
-            app/public/VERSION \
-            website/public/VERSION \
-            website/package.json \
-            app/src/data/changelogData.ts \
-            booking/admin-panel/src/data/changelogData.ts
-          git commit -m "chore: Deploy $NEW_VER [skip ci]"
-          git push origin master
 
       - name: Create deploy archive
         run: |
