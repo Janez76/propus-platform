@@ -9175,17 +9175,31 @@ app.put("/api/admin/customers/:id", requireAdmin, async (req, res) => {
       return res.status(409).json({ error: "Diese E-Mail-Adresse wird bereits von einem anderen Kunden verwendet." });
     }
 
+    // email_aliases: aus Body übernehmen falls vorhanden, sonst unverändert lassen
+    let emailAliasesClause = "";
+    const emailAliasValues = [];
+    if (Object.prototype.hasOwnProperty.call(body, "email_aliases")) {
+      const rawAliases = Array.isArray(body.email_aliases) ? body.email_aliases : [];
+      const normalizedAliases = rawAliases
+        .map((a) => String(a || "").trim().toLowerCase())
+        .filter((a) => a && a !== email);
+      emailAliasesClause = ", email_aliases=$24";
+      emailAliasValues.push(normalizedAliases);
+    }
+
     const { rows } = await pool.query(
       `UPDATE customers
        SET name=$1, company=$2, email=$3, phone=$4, onsite_name=$5, onsite_phone=$6, street=$7, zipcity=$8, notes=$9,
            salutation=$10, first_name=$11, address_addon_1=$12, address_addon_2=$13, address_addon_3=$14, po_box=$15, zip=$16, city=$17, country=$18,
-           phone_2=$19, phone_mobile=$20, phone_fax=$21, website=$22, updated_at=NOW()
-       WHERE id=$23
+           phone_2=$19, phone_mobile=$20, phone_fax=$21, website=$22, updated_at=NOW()${emailAliasesClause}
+       WHERE id=${emailAliasValues.length > 0 ? "$25" : "$23"}
        RETURNING *`,
       [
         v("name"), v("company"), email, v("phone"), v("onsite_name"), v("onsite_phone"), v("street"), zipcity, v("notes"),
         v("salutation"), v("first_name"), v("address_addon_1"), v("address_addon_2"), v("address_addon_3"), v("po_box"), zip, city, v("country", "Schweiz"),
-        v("phone_2"), v("phone_mobile"), v("phone_fax"), v("website"), customerId,
+        v("phone_2"), v("phone_mobile"), v("phone_fax"), v("website"),
+        ...emailAliasValues,
+        customerId,
       ],
     );
     if (!rows[0]) return res.status(404).json({ error: "Nicht gefunden" });
@@ -9228,6 +9242,33 @@ app.patch("/api/admin/customers/:id/email", requireAdmin, async (req, res) => {
     res.json({ ok: true, email: rows[0].email });
   } catch (err) {
     res.status(500).json({ error: err.message || "E-Mail konnte nicht gespeichert werden" });
+  }
+});
+
+app.patch("/api/admin/customers/:id/email-aliases", requireAdmin, async (req, res) => {
+  try {
+    const customerId = Number(req.params.id);
+    if (!Number.isFinite(customerId)) return res.status(400).json({ error: "Ungueltige Kunden-ID" });
+    if (!(await ensureCustomerInRequestCompany(req, customerId))) {
+      return res.status(404).json({ error: "Nicht gefunden" });
+    }
+    const pool = db.getPool ? db.getPool() : null;
+    if (!pool) return res.status(503).json({ error: "DB nicht verfuegbar" });
+    const rawAliases = Array.isArray(req.body?.email_aliases) ? req.body.email_aliases : [];
+    // Primäre E-Mail nicht als Alias zulassen
+    const { rows: custRows } = await pool.query("SELECT email FROM customers WHERE id=$1 LIMIT 1", [customerId]);
+    const primaryEmail = String(custRows[0]?.email || "").trim().toLowerCase();
+    const aliases = rawAliases
+      .map((a) => String(a || "").trim().toLowerCase())
+      .filter((a) => a && a.includes("@") && a !== primaryEmail);
+    const { rows } = await pool.query(
+      "UPDATE customers SET email_aliases=$1, updated_at=NOW() WHERE id=$2 RETURNING id, email_aliases",
+      [aliases, customerId],
+    );
+    if (!rows[0]) return res.status(404).json({ error: "Nicht gefunden" });
+    res.json({ ok: true, email_aliases: rows[0].email_aliases });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Fehler beim Speichern der E-Mail-Aliase" });
   }
 });
 

@@ -951,11 +951,21 @@ async function upsertCustomer(billing) {
 async function getCustomerByEmail(email) {
   const normEmail = (email || "").toLowerCase().trim();
   if (!normEmail) return null;
-  const { rows } = await query(
-    "SELECT * FROM customers WHERE email = $1",
-    [normEmail]
-  );
-  return rows[0] || null;
+  try {
+    const { rows } = await query(
+      `SELECT * FROM customers
+       WHERE core.customer_email_matches($1, email, email_aliases)
+       LIMIT 1`,
+      [normEmail]
+    );
+    return rows[0] || null;
+  } catch (_aliasErr) {
+    const { rows } = await query(
+      `SELECT * FROM customers WHERE LOWER(TRIM(email)) = $1 LIMIT 1`,
+      [normEmail]
+    );
+    return rows[0] || null;
+  }
 }
 
 async function createCustomer({ email, passwordHash, name = "", company = "", phone = "", street = "", zipcity = "", authSub = null }) {
@@ -1967,38 +1977,89 @@ async function deleteCustomerSessionByTokenHash(tokenHash) {
 async function getOrdersForCustomerEmail(email, { limit = 200, offset = 0 } = {}) {
   const normEmail = (email || "").toLowerCase().trim();
   if (!normEmail) return [];
-  const { rows } = await query(
-    `SELECT o.*, c.email AS customer_email, c.exxas_contact_id
-     FROM orders o
-     LEFT JOIN customers c ON c.id = o.customer_id
-     WHERE (c.email = $1) OR (LOWER(COALESCE(o.billing->>'email','')) = $1)
-     ORDER BY o.order_no DESC
-     LIMIT $2 OFFSET $3`,
-    [normEmail, limit, offset]
-  );
-  return rows.map(dbRowToRecord);
+  try {
+    const { rows } = await query(
+      `SELECT o.*, c.email AS customer_email, c.exxas_contact_id
+       FROM orders o
+       LEFT JOIN customers c ON c.id = o.customer_id
+       WHERE core.customer_email_matches($1, COALESCE(c.email,''), COALESCE(c.email_aliases,'{}'))
+          OR core.customer_email_matches($1, COALESCE(o.billing->>'email',''), '{}')
+       ORDER BY o.order_no DESC
+       LIMIT $2 OFFSET $3`,
+      [normEmail, limit, offset]
+    );
+    return rows.map(dbRowToRecord);
+  } catch (_aliasErr) {
+    const { rows } = await query(
+      `SELECT o.*, c.email AS customer_email, c.exxas_contact_id
+       FROM orders o
+       LEFT JOIN customers c ON c.id = o.customer_id
+       WHERE LOWER(TRIM(COALESCE(c.email,''))) = $1
+          OR LOWER(TRIM(COALESCE(o.billing->>'email',''))) = $1
+       ORDER BY o.order_no DESC
+       LIMIT $2 OFFSET $3`,
+      [normEmail, limit, offset]
+    );
+    return rows.map(dbRowToRecord);
+  }
 }
 
 /** Auftraege eines Kunden: customer_id ODER gleiche E-Mail in billing/object (wie order_count in Kundenliste). */
 async function getOrdersForCustomerId(customerId, { limit = 200 } = {}) {
   const id = Number(customerId);
   if (!Number.isFinite(id)) return [];
-  const { rows: cr } = await query("SELECT LOWER(TRIM(email)) AS em FROM customers WHERE id = $1", [id]);
+  let cr;
+  try {
+    const result = await query(
+      "SELECT LOWER(TRIM(email)) AS em, email_aliases AS aliases FROM customers WHERE id = $1",
+      [id]
+    );
+    cr = result.rows;
+  } catch (_aliasErr) {
+    const result = await query(
+      "SELECT LOWER(TRIM(email)) AS em FROM customers WHERE id = $1",
+      [id]
+    );
+    cr = result.rows.map((r) => ({ ...r, aliases: [] }));
+  }
   if (!cr[0]) return [];
   const em = String(cr[0].em || "").trim();
+  const aliases = Array.isArray(cr[0].aliases) ? cr[0].aliases : [];
   const lim = Math.min(500, Math.max(1, Number(limit) || 200));
-  const { rows } = await query(
-    `SELECT order_no, status, address, schedule
-     FROM orders o
-     WHERE o.customer_id = $1
-        OR ($2 <> '' AND (
-             LOWER(TRIM(COALESCE(o.billing->>'email',''))) = $2
-          OR LOWER(TRIM(COALESCE(o.object->>'email',''))) = $2
-        ))
-     ORDER BY order_no DESC
-     LIMIT $3`,
-    [id, em, lim]
-  );
+  let rows;
+  try {
+    const result = await query(
+      `SELECT order_no, status, address, schedule
+       FROM orders o
+       WHERE o.customer_id = $1
+          OR ($2 <> '' AND (
+               core.customer_email_matches($2, COALESCE(o.billing->>'email',''), '{}')
+            OR core.customer_email_matches($2, COALESCE(o.object->>'email',''), '{}')
+            OR ($3::text[] <> '{}' AND (
+                 core.customer_email_matches(COALESCE(o.billing->>'email',''), $2, $3::text[])
+              OR core.customer_email_matches(COALESCE(o.object->>'email',''), $2, $3::text[])
+            ))
+          ))
+       ORDER BY order_no DESC
+       LIMIT $4`,
+      [id, em, aliases, lim]
+    );
+    rows = result.rows;
+  } catch (_aliasErr) {
+    const result = await query(
+      `SELECT order_no, status, address, schedule
+       FROM orders o
+       WHERE o.customer_id = $1
+          OR ($2 <> '' AND (
+               LOWER(TRIM(COALESCE(o.billing->>'email',''))) = $2
+            OR LOWER(TRIM(COALESCE(o.object->>'email',''))) = $2
+          ))
+       ORDER BY order_no DESC
+       LIMIT $3`,
+      [id, em, lim]
+    );
+    rows = result.rows;
+  }
   return rows.map((r) => {
     let sch = r.schedule;
     if (sch && typeof sch === "string") {

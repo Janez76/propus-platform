@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { ShoppingBag } from "lucide-react";
-import { getCustomerImpersonateUrl, getCustomerOrders, type Customer, type CustomerOrder } from "../../api/customers";
+import { ShoppingBag, X, Plus } from "lucide-react";
+import { getCustomerImpersonateUrl, getCustomerOrders, updateCustomerEmailAliases, type Customer, type CustomerOrder } from "../../api/customers";
 import { t } from "../../i18n";
 import { PhoneLink } from "../ui/PhoneLink";
 import { toDisplayString } from "../../lib/utils";
@@ -74,6 +74,44 @@ export function CustomerViewModal({ open, token, customer, onClose, onCreateOrde
   const [orders, setOrders] = useState<CustomerOrder[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
 
+  // E-Mail-Aliases
+  const [aliases, setAliases] = useState<string[]>(customer?.email_aliases ?? []);
+  const [newAlias, setNewAlias] = useState("");
+  const [aliasesBusy, setAliasesBusy] = useState(false);
+  const [aliasesError, setAliasesError] = useState("");
+
+  useEffect(() => {
+    if (customer) setAliases(customer.email_aliases ?? []);
+  }, [customer]);
+
+  const saveAliases = useCallback(async (updated: string[]) => {
+    if (!customer) return;
+    setAliasesBusy(true);
+    setAliasesError("");
+    try {
+      await updateCustomerEmailAliases(token, customer.id, updated);
+      setAliases(updated);
+    } catch (e) {
+      setAliasesError(e instanceof Error ? e.message : "Fehler beim Speichern");
+    } finally {
+      setAliasesBusy(false);
+    }
+  }, [token, customer]);
+
+  const removeAlias = useCallback((alias: string) => {
+    const updated = aliases.filter((a) => a !== alias);
+    void saveAliases(updated);
+  }, [aliases, saveAliases]);
+
+  const addAlias = useCallback(() => {
+    const norm = newAlias.trim().toLowerCase();
+    if (!norm || !norm.includes("@")) return;
+    if (aliases.includes(norm)) { setNewAlias(""); return; }
+    const updated = [...aliases, norm];
+    setNewAlias("");
+    void saveAliases(updated);
+  }, [newAlias, aliases, saveAliases]);
+
   useEffect(() => {
     if (!open || !customer) return;
     setOrdersLoading(true);
@@ -126,6 +164,50 @@ export function CustomerViewModal({ open, token, customer, onClose, onCreateOrde
               <div><span className="font-medium">{t(lang, "common.name") + ":"}</span> {toDisplayString(customer.name)}</div>
             ) : null}
             <div><span className="font-medium">{t(lang, "common.email") + ":"}</span> {isSyntheticCompanyEmail ? "-" : toDisplayString(customer.email)}</div>
+            {/* E-Mail-Aliases */}
+            <div className="sm:col-span-2">
+              <span className="font-medium">E-Mail-Aliase:</span>
+              <span className="ml-1 text-xs text-[var(--text-muted)]">(Touren &amp; Bestellungen unter diesen Adressen werden diesem Kunden zugeordnet)</span>
+              <div className="mt-1.5 flex flex-wrap gap-1.5 items-center">
+                {aliases.map((alias) => (
+                  <span
+                    key={alias}
+                    className="inline-flex items-center gap-1 rounded-full bg-[var(--accent-subtle)] px-2.5 py-0.5 text-xs font-medium text-[var(--text-main)]"
+                  >
+                    {alias}
+                    <button
+                      type="button"
+                      disabled={aliasesBusy}
+                      onClick={() => removeAlias(alias)}
+                      className="ml-0.5 rounded-full p-0.5 hover:bg-[var(--surface-raised)] disabled:opacity-50"
+                      title="Alias entfernen"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+                <div className="flex items-center gap-1">
+                  <input
+                    type="email"
+                    value={newAlias}
+                    onChange={(e) => setNewAlias(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addAlias(); } }}
+                    placeholder="alias@domain.ch"
+                    disabled={aliasesBusy}
+                    className="ui-input h-6 rounded-full px-2.5 py-0 text-xs w-40 disabled:opacity-50"
+                  />
+                  <button
+                    type="button"
+                    onClick={addAlias}
+                    disabled={aliasesBusy || !newAlias.trim().includes("@")}
+                    className="inline-flex items-center gap-0.5 rounded-full bg-[var(--accent)] px-2 py-0.5 text-xs text-white hover:opacity-90 disabled:opacity-40"
+                  >
+                    <Plus className="h-3 w-3" /> Hinzufügen
+                  </button>
+                </div>
+                {aliasesError && <span className="text-xs text-red-600">{aliasesError}</span>}
+              </div>
+            </div>
             <div><span className="font-medium">{t(lang, "common.company") + ":"}</span> {toDisplayString(customer.company)}</div>
             <div><span className="font-medium">{t(lang, "common.phone") + ":"}</span> {phoneOrDash(customer.phone)}</div>
             <div><span className="font-medium">Telefon 2:</span> {phoneOrDash(customer.phone_2)}</div>

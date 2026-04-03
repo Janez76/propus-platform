@@ -114,9 +114,11 @@ async function syncPortalTeamMemberAdminRbac(ownerEmail, memberEmail) {
   const member = normEmail(memberEmail);
   if (!owner || !member) return;
 
-  // Bevorzuge customer_id-Lookup wenn vorhanden
+  // Bevorzuge customer_id-Lookup wenn vorhanden (Alias-aware)
   const cidRes = await db.query(
-    `SELECT id FROM core.customers WHERE LOWER(TRIM(email)) = $1 LIMIT 1`,
+    `SELECT id FROM core.customers
+     WHERE core.customer_email_matches($1, email, email_aliases)
+     LIMIT 1`,
     [owner]
   );
   const ownerCustomerId = cidRes.rows[0]?.id ? Number(cidRes.rows[0].id) : null;

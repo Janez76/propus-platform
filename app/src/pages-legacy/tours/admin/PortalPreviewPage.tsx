@@ -32,7 +32,7 @@ export function PortalPreviewPage() {
     }
     setLoading(true);
     try {
-      const data = await getToursAdminCustomersList(`search=${encodeURIComponent(q)}&limit=15`);
+      const data = await getToursAdminCustomersList(`q=${encodeURIComponent(q)}&limit=15`);
       const rows = (data as { customers?: Customer[] }).customers ?? [];
       setResults(rows);
     } catch {

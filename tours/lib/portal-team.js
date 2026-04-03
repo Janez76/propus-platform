@@ -207,10 +207,22 @@ async function ensurePortalTeamSchema() {
 async function resolveCustomerIdForOwnerEmail(ownerEmail) {
   const norm = normalizeEmail(ownerEmail);
   if (!norm) return null;
-  const direct = await pool.query(
-    `SELECT id FROM core.customers WHERE LOWER(TRIM(email)) = $1 LIMIT 1`,
-    [norm]
-  );
+  let directResult;
+  try {
+    directResult = await pool.query(
+      `SELECT id FROM core.customers
+       WHERE core.customer_email_matches($1, email, email_aliases)
+       LIMIT 1`,
+      [norm]
+    );
+  } catch (_aliasErr) {
+    // Fallback falls Migration noch nicht ausgeführt
+    directResult = await pool.query(
+      `SELECT id FROM core.customers WHERE LOWER(TRIM(email)) = $1 LIMIT 1`,
+      [norm]
+    );
+  }
+  const direct = directResult;
   if (direct.rows[0]?.id) return Number(direct.rows[0].id);
 
   const viaRef = await pool.query(
@@ -303,11 +315,27 @@ async function listTourOwnerEmailsForPortalUser(userEmail) {
 
   const owners = new Set();
 
-  const direct = await pool.query(
-    `SELECT 1 FROM tour_manager.tours WHERE LOWER(TRIM(customer_email)) = $1 LIMIT 1`,
-    [norm]
-  );
-  if (direct.rows[0]) owners.add(norm);
+  let directCheckResult;
+  try {
+    directCheckResult = await pool.query(
+      `SELECT 1 FROM tour_manager.tours t
+       WHERE LOWER(TRIM(t.customer_email)) = $1
+          OR EXISTS (
+            SELECT 1 FROM core.customers c
+            WHERE core.customer_email_matches($1, c.email, c.email_aliases)
+              AND core.customer_email_matches(t.customer_email, c.email, c.email_aliases)
+          )
+       LIMIT 1`,
+      [norm]
+    );
+  } catch (_aliasErr) {
+    // Fallback falls Migration noch nicht ausgeführt
+    directCheckResult = await pool.query(
+      `SELECT 1 FROM tour_manager.tours t WHERE LOWER(TRIM(t.customer_email)) = $1 LIMIT 1`,
+      [norm]
+    );
+  }
+  if (directCheckResult.rows[0]) owners.add(norm);
 
   // Lokaler Firmenkontakt: sieht alle Touren derselben customer_id,
   // auch wenn diese Touren unter anderen owner_email-Adressen laufen.
@@ -482,14 +510,33 @@ async function listTeamMembers(ownerEmail) {
 async function listExxasOrgPeersForOwner(ownerEmail) {
   await ensurePortalTeamSchema();
   const owner = normalizeEmail(ownerEmail);
-  const refsRes = await pool.query(
-    `SELECT DISTINCT TRIM(CAST(kunde_ref AS TEXT)) AS ref
-     FROM tour_manager.tours
-     WHERE LOWER(TRIM(customer_email)) = $1
-       AND kunde_ref IS NOT NULL
-       AND TRIM(CAST(kunde_ref AS TEXT)) <> ''`,
-    [owner]
-  );
+  let refsRes;
+  try {
+    refsRes = await pool.query(
+      `SELECT DISTINCT TRIM(CAST(kunde_ref AS TEXT)) AS ref
+       FROM tour_manager.tours t
+       WHERE (
+         LOWER(TRIM(t.customer_email)) = $1
+         OR EXISTS (
+           SELECT 1 FROM core.customers c
+           WHERE core.customer_email_matches($1, c.email, c.email_aliases)
+             AND core.customer_email_matches(t.customer_email, c.email, c.email_aliases)
+         )
+       )
+         AND kunde_ref IS NOT NULL
+         AND TRIM(CAST(kunde_ref AS TEXT)) <> ''`,
+      [owner]
+    );
+  } catch (_aliasErr) {
+    refsRes = await pool.query(
+      `SELECT DISTINCT TRIM(CAST(kunde_ref AS TEXT)) AS ref
+       FROM tour_manager.tours t
+       WHERE LOWER(TRIM(t.customer_email)) = $1
+         AND kunde_ref IS NOT NULL
+         AND TRIM(CAST(kunde_ref AS TEXT)) <> ''`,
+      [owner]
+    );
+  }
 
   const peers = new Map();
 

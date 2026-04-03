@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getInvoicePrintData, type InvoicePrintData } from "../../api/portalTours";
+import { usePortalNav } from "../../hooks/usePortalNav";
 
 const LOGO_URL = "https://propus.ch/wp-content/uploads/2024/06/Asset-2-2.png";
 
 export function PortalInvoicePrintPage() {
   const { tourId, invoiceId } = useParams();
   const navigate = useNavigate();
+  const { portalPath } = usePortalNav();
   const [data, setData] = useState<InvoicePrintData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -163,8 +165,8 @@ export function PortalInvoicePrintPage() {
         <button type="button" onClick={() => window.print()}>Drucken</button>
         <a href={`/portal/api/tours/${data.tourId}/invoices/${data.invoiceId}/pdf`} download>PDF herunterladen</a>
         <a
-          href={`/portal/tours/${data.tourId}`}
-          onClick={(e) => { e.preventDefault(); navigate(`/portal/tours/${data.tourId}`); }}
+          href={portalPath(`tours/${data.tourId}`)}
+          onClick={(e) => { e.preventDefault(); navigate(portalPath(`tours/${data.tourId}`)); }}
         >
           ← Zurück zur Tour
         </a>

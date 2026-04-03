@@ -48,6 +48,55 @@ booking/          → Buchungsportal
 platform/         → Docker-Container (Express + Next.js)
 ```
 
+## Kunden-E-Mail-Zuordnung (Email Aliases)
+
+Kunden können mehrere E-Mail-Adressen haben: eine primäre (`customers.email`) und beliebig viele Aliase (`customers.email_aliases TEXT[]`).
+
+**Hintergrund**: Firmen mit mehreren Marken/Domains (z.B. CSL Immobilien `@csl.ch` + Nextkey `@nextkey.ch`) sollen nach einem Merge unter **beiden** Domains gefunden werden.
+
+### Regeln für neuen Code
+
+#### Kunden per E-Mail suchen (JavaScript/TypeScript)
+
+IMMER die zentralen Hilfsfunktionen nutzen, niemals selbst `WHERE email = $1` schreiben:
+
+- **`booking/db.js`**: `getCustomerByEmail(email)` — für Booking-Modul
+- **`tours/lib/customer-lookup.js`**: `getCustomerByEmail(email)` — für Tour-Manager
+
+#### SQL-Queries mit Kunden-E-Mail-Vergleich
+
+IMMER die DB-Funktion `core.customer_email_matches()` verwenden:
+
+```sql
+-- ✅ RICHTIG
+WHERE core.customer_email_matches($1, c.email, c.email_aliases)
+
+-- ✅ RICHTIG (Tour ↔ Kunde)
+WHERE core.customer_email_matches(t.customer_email, c.email, c.email_aliases)
+
+-- ❌ FALSCH — erkennt Aliase nicht
+WHERE LOWER(c.email) = $1
+WHERE LOWER(c.email) = LOWER(t.customer_email)
+```
+
+#### Neuer API-Endpunkt zum Lesen/Setzen von Aliases
+
+- `GET /api/admin/customers/:id` → gibt `email_aliases` im Response zurück
+- `PATCH /api/admin/customers/:id/email-aliases` → setzt die Aliases
+- Beim Merge: `email_aliases` werden automatisch aus `booking/customer-merge.js` übernommen
+
+### Wo was liegt
+
+| Was | Wo |
+|-----|----|
+| DB-Funktion | `core/migrations/022_customer_email_aliases.sql` |
+| Merge-Logik | `booking/customer-merge.js` |
+| Booking-Lookup | `booking/db.js` → `getCustomerByEmail()` |
+| Tour-Manager-Lookup | `tours/lib/customer-lookup.js` → `getCustomerByEmail()` |
+| API-Endpunkt | `booking/server.js` → `PATCH /api/admin/customers/:id/email-aliases` |
+| UI | `app/src/components/customers/CustomerViewModal.tsx` |
+| API-Client | `app/src/api/customers.ts` → `updateCustomerEmailAliases()` |
+
 ## Technologie-Stack
 
 - **Frontend**: React 19, Next.js, TypeScript, Tailwind CSS

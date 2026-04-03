@@ -50,7 +50,7 @@ async function getCustomersListJson(query) {
   }
 
   if (source === 'tours') {
-    whereClause += ` AND EXISTS (SELECT 1 FROM tour_manager.tours t WHERE LOWER(t.customer_email) = LOWER(c.email))`;
+    whereClause += ` AND EXISTS (SELECT 1 FROM tour_manager.tours t WHERE core.customer_email_matches(t.customer_email, c.email, c.email_aliases))`;
   } else if (source === 'contacts') {
     whereClause += ` AND EXISTS (SELECT 1 FROM core.customer_contacts cc WHERE cc.customer_id = c.id)`;
   }
@@ -83,7 +83,7 @@ async function getCustomersListJson(query) {
        coalesce(c.city,'') AS city,
        c.exxas_contact_id, c.blocked, c.created_at,
        c.customer_number,
-       (SELECT COUNT(*) FROM tour_manager.tours t WHERE LOWER(t.customer_email) = LOWER(c.email)) AS tour_count,
+       (SELECT COUNT(*) FROM tour_manager.tours t WHERE core.customer_email_matches(t.customer_email, c.email, c.email_aliases)) AS tour_count,
        (SELECT COUNT(*) FROM core.customer_contacts cc WHERE cc.customer_id = c.id) AS contact_count
      FROM core.customers c
      ${whereClause}
@@ -160,8 +160,12 @@ async function getCustomerDetailJson(idRaw) {
     pool.query(`SELECT * FROM core.customer_contacts WHERE customer_id=$1 ORDER BY name ASC`, [id]),
     pool.query(
       `SELECT id, bezeichnung, object_label, status, term_end_date
-       FROM tour_manager.tours
-       WHERE LOWER(customer_email) = (SELECT LOWER(email) FROM core.customers WHERE id=$1)
+       FROM tour_manager.tours t
+       WHERE EXISTS (
+         SELECT 1 FROM core.customers c
+         WHERE c.id = $1
+           AND core.customer_email_matches(t.customer_email, c.email, c.email_aliases)
+       )
        ORDER BY created_at DESC LIMIT 10`,
       [id]
     ),

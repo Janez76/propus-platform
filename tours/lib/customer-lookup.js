@@ -121,11 +121,22 @@ async function getCustomerById(customerId) {
 
 async function getCustomerByEmail(email) {
   if (!email) return null;
-  const { rows } = await pool.query(
-    `SELECT * FROM core.customers WHERE LOWER(email) = LOWER($1) LIMIT 1`,
-    [email.trim()]
-  );
-  return rows[0] || null;
+  const norm = email.trim().toLowerCase();
+  try {
+    const { rows } = await pool.query(
+      `SELECT * FROM core.customers
+       WHERE core.customer_email_matches($1, email, email_aliases)
+       LIMIT 1`,
+      [norm]
+    );
+    return rows[0] || null;
+  } catch (_aliasErr) {
+    const { rows } = await pool.query(
+      `SELECT * FROM core.customers WHERE LOWER(TRIM(email)) = $1 LIMIT 1`,
+      [norm]
+    );
+    return rows[0] || null;
+  }
 }
 
 async function getCustomerByExxasRef(exxasRef) {

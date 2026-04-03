@@ -185,7 +185,9 @@ async function loadPortalMembers(ownerEmailNorm, customerIdOverride) {
       customerIdOverride ||
       (await (async () => {
         const r = await pool.query(
-          `SELECT id FROM core.customers WHERE LOWER(TRIM(email)) = $1 LIMIT 1`,
+          `SELECT id FROM core.customers
+           WHERE core.customer_email_matches($1, email, email_aliases)
+           LIMIT 1`,
           [ownerEmailNorm]
         );
         return r.rows[0]?.id ? Number(r.rows[0].id) : null;
@@ -251,9 +253,12 @@ async function getPortalExternContactsJson(ownerEmailRaw, customerIdRaw) {
       customer = r.rows[0] || null;
     }
     if (!customer && ownerEmail) {
-      const r = await pool.query(`SELECT id, name, company, email FROM core.customers WHERE LOWER(email) = $1`, [
-        ownerEmail,
-      ]);
+      const r = await pool.query(
+        `SELECT id, name, company, email FROM core.customers
+         WHERE core.customer_email_matches($1, email, email_aliases)
+         LIMIT 1`,
+        [ownerEmail]
+      );
       customer = r.rows[0] || null;
     }
 

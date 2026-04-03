@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Globe, Search, AlertCircle, ExternalLink, ChevronRight } from "lucide-react";
 import { getPortalTours, type PortalTour } from "../../api/portalTours";
+import { usePortalNav } from "../../hooks/usePortalNav";
 
 export function PortalToursPage() {
   const navigate = useNavigate();
+  const { portalPath } = usePortalNav();
   const [tours, setTours] = useState<PortalTour[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -133,7 +135,7 @@ export function PortalToursPage() {
                         </a>
                       )}
                       <button
-                        onClick={() => navigate(`/portal/tours/${t.id}`)}
+                        onClick={() => navigate(portalPath(`tours/${t.id}`))}
                         className="inline-flex items-center gap-1 text-xs font-medium text-[var(--accent)] hover:underline"
                       >
                         Details

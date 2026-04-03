@@ -106,6 +106,19 @@ async function mergeCustomerRecords(client, keepId, mergeId) {
   const nextBlocked = Boolean(keep.blocked) || Boolean(merge.blocked);
   const nextEmailVerified = Boolean(keep.email_verified) || Boolean(merge.email_verified);
 
+  // E-Mail-Aliases: Aliase beider Kunden vereinigen.
+  // Die frühere Haupt-E-Mail des aufgelösten Kunden wird als Alias übernommen,
+  // damit zukünftige Lookups (Touren, Bestellungen, Portal-Login) unter beiden
+  // Domains funktionieren.
+  const keepAliases = Array.isArray(keep.email_aliases) ? keep.email_aliases : [];
+  const mergeAliases = Array.isArray(merge.email_aliases) ? merge.email_aliases : [];
+  const aliasSet = new Set(
+    [...keepAliases, ...mergeAliases, mergeEmail]
+      .map((e) => trimText(e).toLowerCase())
+      .filter((e) => e && e !== nextEmail)
+  );
+  const nextEmailAliases = Array.from(aliasSet);
+
   const merged = {
     email: nextEmail,
     name: coalesceField(keep.name, merge.name),
@@ -139,6 +152,7 @@ async function mergeCustomerRecords(client, keepId, mergeId) {
     is_admin: nextIsAdmin,
     blocked: nextBlocked,
     email_verified: nextEmailVerified,
+    email_aliases: nextEmailAliases,
   };
 
   const cols = Object.keys(merged);

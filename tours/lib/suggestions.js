@@ -1285,11 +1285,18 @@ async function syncSentMailboxAnchors(options = {}) {
 
       const tourResult = await pool.query(
         `SELECT *
-         FROM tour_manager.tours
+         FROM tour_manager.tours t
          WHERE (
            ($1 != '' AND matterport_space_id = $1)
            OR ($1 != '' AND tour_url ILIKE $2)
-           OR ($3 != '' AND LOWER(COALESCE(customer_email, '')) = LOWER($3))
+           OR ($3 != '' AND (
+             LOWER(COALESCE(t.customer_email, '')) = LOWER($3)
+             OR EXISTS (
+               SELECT 1 FROM core.customers c
+               WHERE core.customer_email_matches($3, c.email, c.email_aliases)
+                 AND core.customer_email_matches(t.customer_email, c.email, c.email_aliases)
+             )
+           ))
          )
          ORDER BY
            CASE WHEN ($1 != '' AND matterport_space_id = $1) THEN 0 ELSE 1 END,
@@ -1363,10 +1370,15 @@ async function findEmailCandidates(email) {
   const anchoredTourIds = [...directTourScores.keys()];
   const results = await pool.query(
     `SELECT *
-     FROM tour_manager.tours
+     FROM tour_manager.tours t
      WHERE (
        id = ANY($2::int[])
-       OR LOWER(COALESCE(customer_email, '')) = LOWER($1)
+       OR LOWER(COALESCE(t.customer_email, '')) = LOWER($1)
+       OR EXISTS (
+         SELECT 1 FROM core.customers c
+         WHERE core.customer_email_matches($1, c.email, c.email_aliases)
+           AND core.customer_email_matches(t.customer_email, c.email, c.email_aliases)
+       )
      )
      ORDER BY last_email_sent_at DESC NULLS LAST, updated_at DESC NULLS LAST
      LIMIT 120`,

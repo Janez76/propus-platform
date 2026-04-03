@@ -64,7 +64,7 @@ async function loadCustomerMetaForOwner(ownerEmail) {
     `SELECT id,
             COALESCE(NULLIF(trim(company),''), NULLIF(trim(name),''), email) AS label
      FROM core.customers
-     WHERE LOWER(TRIM(email)) = $1
+     WHERE core.customer_email_matches($1, email, email_aliases)
      LIMIT 1`,
     [norm]
   );

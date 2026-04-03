@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Globe, FileText, Users, AlertCircle } from "lucide-react";
 import { getPortalTours, getPortalInvoices, type PortalTour, type PortalInvoice } from "../../api/portalTours";
+import { usePortalNav } from "../../hooks/usePortalNav";
 
 export function PortalDashboardPage() {
+  const { portalPath } = usePortalNav();
   const [tours, setTours] = useState<PortalTour[]>([]);
   const [invoices, setInvoices] = useState<PortalInvoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,7 +52,7 @@ export function PortalDashboardPage() {
       {/* KPI-Kacheln */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Link
-          to="/portal/tours"
+          to={portalPath("tours")}
           className="group cust-form-section p-5 hover:border-[var(--accent)]/60 hover:shadow-sm transition-all"
         >
           <div className="flex items-center gap-3 mb-2">
@@ -63,7 +65,7 @@ export function PortalDashboardPage() {
         </Link>
 
         <Link
-          to="/portal/invoices"
+          to={portalPath("invoices")}
           className="group cust-form-section p-5 hover:border-[var(--accent)]/60 hover:shadow-sm transition-all"
         >
           <div className="flex items-center gap-3 mb-2">
@@ -118,7 +120,7 @@ export function PortalDashboardPage() {
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-semibold text-[var(--text-main)]">Letzte Touren</h2>
-          <Link to="/portal/tours" className="text-sm text-[var(--accent)] hover:underline">
+          <Link to={portalPath("tours")} className="text-sm text-[var(--accent)] hover:underline">
             Alle anzeigen →
           </Link>
         </div>

@@ -60,15 +60,33 @@ async function lookupPortalIdentity(email) {
     return { email: norm, fullName: null };
   }
 
-  const directTour = await pool.query(
-    `SELECT LOWER(TRIM(customer_email)) AS email,
-            NULLIF(TRIM(customer_name), '') AS full_name
-     FROM tour_manager.tours
-     WHERE LOWER(TRIM(customer_email)) = $1
-     ORDER BY updated_at DESC NULLS LAST, created_at DESC NULLS LAST
-     LIMIT 1`,
-    [norm]
-  );
+  let directTour;
+  try {
+    directTour = await pool.query(
+      `SELECT LOWER(TRIM(customer_email)) AS email,
+              NULLIF(TRIM(customer_name), '') AS full_name
+       FROM tour_manager.tours t
+       WHERE LOWER(TRIM(t.customer_email)) = $1
+          OR EXISTS (
+            SELECT 1 FROM core.customers c
+            WHERE core.customer_email_matches($1, c.email, c.email_aliases)
+              AND core.customer_email_matches(t.customer_email, c.email, c.email_aliases)
+          )
+       ORDER BY updated_at DESC NULLS LAST, created_at DESC NULLS LAST
+       LIMIT 1`,
+      [norm]
+    );
+  } catch (_aliasErr) {
+    directTour = await pool.query(
+      `SELECT LOWER(TRIM(customer_email)) AS email,
+              NULLIF(TRIM(customer_name), '') AS full_name
+       FROM tour_manager.tours t
+       WHERE LOWER(TRIM(t.customer_email)) = $1
+       ORDER BY updated_at DESC NULLS LAST, created_at DESC NULLS LAST
+       LIMIT 1`,
+      [norm]
+    );
+  }
   if (directTour.rows[0]?.email) {
     return {
       email: directTour.rows[0].email,

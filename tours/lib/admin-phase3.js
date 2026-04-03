@@ -480,7 +480,7 @@ async function getLinkMatterportJson(query) {
                 c.customer_number
          FROM booking.orders o
          LEFT JOIN core.customers c
-           ON LOWER(c.email) = LOWER(COALESCE(o.billing->>'email',''))
+           ON core.customer_email_matches(COALESCE(o.billing->>'email',''), c.email, c.email_aliases)
            AND c.email IS NOT NULL AND c.email != ''
          WHERE o.order_no = ANY($1::int[])`,
         [orderNosToLookup]

@@ -30,21 +30,53 @@ async function loadTours(email) {
   const { ownerEmails, orgKundeRefs } = await getPortalScope(email);
   if (ownerEmails.length === 0) return [];
 
-  const toursResult =
-    orgKundeRefs.length > 0
-      ? await pool.query(
-          `SELECT * FROM tour_manager.tours
-           WHERE LOWER(TRIM(customer_email)) = ANY($1::text[])
-              OR TRIM(CAST(kunde_ref AS TEXT)) = ANY($2::text[])
-           ORDER BY created_at DESC`,
-          [ownerEmails, orgKundeRefs]
-        )
-      : await pool.query(
-          `SELECT * FROM tour_manager.tours
-           WHERE LOWER(TRIM(customer_email)) = ANY($1::text[])
-           ORDER BY created_at DESC`,
-          [ownerEmails]
-        );
+  let toursResult;
+  try {
+    toursResult =
+      orgKundeRefs.length > 0
+        ? await pool.query(
+            `SELECT * FROM tour_manager.tours t
+             WHERE LOWER(TRIM(t.customer_email)) = ANY($1::text[])
+                OR TRIM(CAST(t.kunde_ref AS TEXT)) = ANY($2::text[])
+                OR EXISTS (
+                  SELECT 1 FROM core.customers c
+                  WHERE c.email_aliases && $1::text[]
+                    AND core.customer_email_matches(t.customer_email, c.email, c.email_aliases)
+                )
+             ORDER BY created_at DESC`,
+            [ownerEmails, orgKundeRefs]
+          )
+        : await pool.query(
+            `SELECT * FROM tour_manager.tours t
+             WHERE LOWER(TRIM(t.customer_email)) = ANY($1::text[])
+                OR EXISTS (
+                  SELECT 1 FROM core.customers c
+                  WHERE c.email_aliases && $1::text[]
+                    AND core.customer_email_matches(t.customer_email, c.email, c.email_aliases)
+                )
+             ORDER BY created_at DESC`,
+            [ownerEmails]
+          );
+  } catch (aliasErr) {
+    // Fallback: falls email_aliases-Spalte oder customer_email_matches()-Funktion
+    // noch nicht migriert wurden, einfaches E-Mail-Matching verwenden
+    console.warn('[portal-api] loadTours alias-query failed, using fallback:', aliasErr.message);
+    toursResult =
+      orgKundeRefs.length > 0
+        ? await pool.query(
+            `SELECT * FROM tour_manager.tours t
+             WHERE LOWER(TRIM(t.customer_email)) = ANY($1::text[])
+                OR TRIM(CAST(t.kunde_ref AS TEXT)) = ANY($2::text[])
+             ORDER BY created_at DESC`,
+            [ownerEmails, orgKundeRefs]
+          )
+        : await pool.query(
+            `SELECT * FROM tour_manager.tours t
+             WHERE LOWER(TRIM(t.customer_email)) = ANY($1::text[])
+             ORDER BY created_at DESC`,
+            [ownerEmails]
+          );
+  }
 
   let tours = toursResult.rows.map(normalizeTourRow);
   tours = await portalTeam.filterToursForMitarbeiterAssignee(email, tours);

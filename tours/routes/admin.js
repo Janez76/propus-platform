@@ -1556,7 +1556,9 @@ router.get('/portal-roles/extern-contacts', async (req, res) => {
     try {
       const cid = customerIdOverride || await (async () => {
         const r = await pool.query(
-          `SELECT id FROM core.customers WHERE LOWER(TRIM(email)) = $1 LIMIT 1`,
+          `SELECT id FROM core.customers
+           WHERE core.customer_email_matches($1, email, email_aliases)
+           LIMIT 1`,
           [ownerEmailNorm]
         );
         return r.rows[0]?.id ? Number(r.rows[0].id) : null;
@@ -1622,7 +1624,9 @@ router.get('/portal-roles/extern-contacts', async (req, res) => {
     }
     if (!customer && ownerEmail) {
       const r = await pool.query(
-        `SELECT id, name, company, email FROM core.customers WHERE LOWER(email) = $1`,
+        `SELECT id, name, company, email FROM core.customers
+         WHERE core.customer_email_matches($1, email, email_aliases)
+         LIMIT 1`,
         [ownerEmail]
       );
       customer = r.rows[0] || null;

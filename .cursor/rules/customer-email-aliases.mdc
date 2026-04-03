@@ -1,0 +1,53 @@
+# Kunden-E-Mail-Aliases: Pflichtregeln für Lookups
+
+Kunden haben eine primäre E-Mail (`customers.email`) und optionale Aliase (`customers.email_aliases TEXT[]`).
+Aliase entstehen automatisch beim Kunden-Merge und können manuell hinzugefügt werden.
+
+## Verboten
+
+- `WHERE LOWER(email) = $1` auf der customers-Tabelle schreiben
+- `WHERE LOWER(c.email) = LOWER(t.customer_email)` ohne Alias-Check
+- Direkt `SELECT * FROM customers WHERE email = $1` ohne Alias-Fallback
+
+## Pflicht: Zentrale Lookup-Funktionen nutzen
+
+### JavaScript/TypeScript
+
+```javascript
+// Booking-Modul (booking/db.js)
+const customer = await db.getCustomerByEmail(email);
+
+// Tour-Manager (tours/lib/customer-lookup.js)
+const customer = await customerLookup.getCustomerByEmail(email);
+```
+
+### SQL (wenn direktes SQL nötig)
+
+```sql
+-- Kunden per E-Mail suchen (Alias-aware)
+SELECT * FROM core.customers
+WHERE core.customer_email_matches($1, email, email_aliases)
+LIMIT 1
+
+-- Tour ↔ Kunde matchen (z.B. tour_count)
+WHERE core.customer_email_matches(t.customer_email, c.email, c.email_aliases)
+
+-- Booking-Schema (ohne core.-Prefix, via search_path)
+WHERE customer_email_matches($1, email, email_aliases)
+```
+
+## API-Endpunkt für Aliases
+
+```
+PATCH /api/admin/customers/:id/email-aliases
+Body: { email_aliases: ["alias@domain.ch", ...] }
+```
+
+## Wichtige Dateien
+
+- DB-Funktion: `core/migrations/022_customer_email_aliases.sql`
+- Booking-Lookup: `booking/db.js` → `getCustomerByEmail()`
+- Tour-Lookup: `tours/lib/customer-lookup.js` → `getCustomerByEmail()`
+- Merge-Logik: `booking/customer-merge.js`
+- API: `booking/server.js` → `PATCH .../email-aliases`
+- Frontend-API: `app/src/api/customers.ts` → `updateCustomerEmailAliases()`

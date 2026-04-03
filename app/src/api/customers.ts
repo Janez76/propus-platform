@@ -35,6 +35,9 @@ export type Customer = {
   nas_customer_folder_base?: string | null;
   /** Relativ zu Rohmaterial-NAS-Root */
   nas_raw_folder_base?: string | null;
+  /** Frühere/alternative E-Mail-Domains (z.B. nach Firmenzusammenführung). Touren, Bestellungen und Portal-Login
+   *  funktionieren unter diesen Adressen genauso wie unter der primären E-Mail. */
+  email_aliases?: string[];
 };
 
 export type CustomerContact = {
@@ -145,6 +148,9 @@ function normalizeCustomer(raw: unknown): Customer {
       r.nas_raw_folder_base != null && String(r.nas_raw_folder_base).trim()
         ? String(r.nas_raw_folder_base).trim()
         : "",
+    email_aliases: Array.isArray(r.email_aliases)
+      ? (r.email_aliases as string[]).filter(Boolean)
+      : [],
   };
 }
 
@@ -177,6 +183,14 @@ export const patchCustomerNasFolderBases = (
 
 export const updateCustomerEmail = (token: string, id: number, email: string) =>
   apiRequest(`/api/admin/customers/${id}/email`, "PATCH", token, { email });
+
+export const updateCustomerEmailAliases = (token: string, id: number, emailAliases: string[]) =>
+  apiRequest<{ ok: boolean; email_aliases: string[] }>(
+    `/api/admin/customers/${id}/email-aliases`,
+    "PATCH",
+    token,
+    { email_aliases: emailAliases },
+  );
 
 export const updateCustomerBlocked = (token: string, id: number, blocked: boolean) =>
   apiRequest(`/api/admin/customers/${id}/blocked`, "PATCH", token, { blocked });

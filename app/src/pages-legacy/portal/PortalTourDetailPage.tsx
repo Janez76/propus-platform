@@ -10,6 +10,7 @@ import {
   payPortalInvoice,
   type PortalTourDetail,
 } from "../../api/portalTours";
+import { usePortalNav } from "../../hooks/usePortalNav";
 
 function formatDate(dateStr?: string | null): string {
   if (!dateStr) return "–";
@@ -66,8 +67,9 @@ function InvoiceStatusBadge({ status }: { status?: string }) {
 }
 
 export function PortalTourDetailPage() {
-  const { id } = useParams<{ id: string }>();
+  const { tourId: id } = useParams<{ tourId: string }>();
   const navigate = useNavigate();
+  const { portalPath } = usePortalNav();
 
   const [data, setData] = useState<PortalTourDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -237,7 +239,7 @@ export function PortalTourDetailPage() {
         <style>{ptdStyles}</style>
         <div className="ptd-error-full">
           <p>{error}</p>
-          <button className="ptd-btn ptd-btn-secondary" onClick={() => navigate("/portal/tours")}>
+          <button className="ptd-btn ptd-btn-secondary" onClick={() => navigate(portalPath("tours"))}>
             Zurück zur Übersicht
           </button>
         </div>
@@ -253,7 +255,7 @@ export function PortalTourDetailPage() {
 
       {/* Breadcrumb */}
       <div className="ptd-breadcrumb">
-        <button className="ptd-breadcrumb-link" onClick={() => navigate("/portal/tours")}>
+        <button className="ptd-breadcrumb-link" onClick={() => navigate(portalPath("tours"))}>
           ← Meine Touren
         </button>
       </div>
@@ -464,7 +466,7 @@ export function PortalTourDetailPage() {
                         <td>
                           <div className="ptd-table-actions">
                             <a
-                              href={`/portal/tours/${tourId}/invoices/${inv.id}/print`}
+                              href={portalPath(`tours/${tourId}/invoices/${inv.id}/print`)}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="ptd-table-link"
