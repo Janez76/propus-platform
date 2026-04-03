@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, AlertCircle, Copy, Check, X } from "lucide-react";
+import { AlertCircle, ArrowLeft, Copy, Check, RefreshCw, X } from "lucide-react";
 import {
   getPortalTourDetail,
+  getPortalMatterportModel,
   editPortalTour,
   extendPortalTour,
   changePortalTourVisibility,
@@ -11,37 +12,34 @@ import {
   payPortalInvoice,
   type PortalTourDetail,
 } from "../../api/portalTours";
+import type { MatterportModelMeta } from "../../api/toursAdmin";
 import { usePortalNav } from "../../hooks/usePortalNav";
-import { TourActionLog } from "../../components/tours/TourActionLog";
 
-function formatDate(dateStr?: string | null): string {
-  if (!dateStr) return "–";
-  const d = new Date(dateStr);
-  return Number.isNaN(d.getTime())
-    ? "–"
-    : d.toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" });
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function fmtDate(v: unknown): string {
+  if (v == null || v === "") return "—";
+  const d = new Date(String(v));
+  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
-function formatMoney(v: number | null | undefined): string {
-  if (v == null || !Number.isFinite(v)) return "–";
-  return `CHF ${v.toFixed(2)}`;
+function fmtMoney(v: unknown): string {
+  const n = typeof v === "number" ? v : parseFloat(String(v ?? ""));
+  if (!Number.isFinite(n)) return "—";
+  return `CHF ${n.toFixed(2)}`;
 }
 
-function daysRemaining(endDate?: string | null): number {
-  if (!endDate) return 0;
-  const diff = new Date(endDate).getTime() - Date.now();
-  return Math.max(0, Math.ceil(diff / 86_400_000));
+function fmtRestzeit(days: unknown): string {
+  const n = typeof days === "number" ? days : parseInt(String(days ?? ""), 10);
+  if (!Number.isFinite(n)) return "—";
+  if (n < 0) return `Seit ${Math.abs(n)} ${Math.abs(n) === 1 ? "Tag" : "Tagen"} abgelaufen`;
+  if (n === 0) return "Läuft heute ab";
+  return `${n} ${n === 1 ? "Tag" : "Tage"}`;
 }
 
-function formatRestzeit(remaining: number, endDate?: string | null): string {
-  if (!endDate) return "–";
-  if (remaining === 0) return "Läuft heute ab";
-  return `${remaining} ${remaining === 1 ? "Tag" : "Tage"}`;
-}
-
-function latestRenewalDate(invoices: PortalTourDetail["invoices"]): string | null {
-  const candidates = invoices
-    .map((inv) => inv.paid_at ?? inv.sent_at ?? inv.created_at ?? null)
+function latestRenewalDate(rows: PortalTourDetail["invoices"]): unknown {
+  const candidates = rows
+    .map((r) => r.paid_at ?? r.sent_at ?? r.created_at ?? null)
     .filter((v): v is string => v != null)
     .map((v) => ({ raw: v, ts: new Date(v).getTime() }))
     .filter((v) => Number.isFinite(v.ts))
@@ -49,71 +47,295 @@ function latestRenewalDate(invoices: PortalTourDetail["invoices"]): string | nul
   return candidates[0]?.raw ?? null;
 }
 
-const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
-  ACTIVE:                              { label: "Aktiv",                  cls: "text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-900" },
-  EXPIRING_SOON:                       { label: "Läuft bald ab",          cls: "text-yellow-700 bg-yellow-50 border-yellow-200 dark:text-yellow-300 dark:bg-yellow-950/40 dark:border-yellow-900" },
-  ARCHIVED:                            { label: "Archiviert",             cls: "text-[var(--text-subtle)] bg-[var(--surface)] border-[var(--border-soft)]" },
-  AWAITING_CUSTOMER_DECISION:          { label: "Wartet auf Entscheid",   cls: "text-purple-700 bg-purple-50 border-purple-200 dark:text-purple-300 dark:bg-purple-950/40 dark:border-purple-900" },
-  CUSTOMER_ACCEPTED_AWAITING_PAYMENT:  { label: "Zahlung ausstehend",     cls: "text-yellow-700 bg-yellow-50 border-yellow-200 dark:text-yellow-300 dark:bg-yellow-950/40 dark:border-yellow-900" },
-  CUSTOMER_DECLINED:                   { label: "Keine Verlängerung",     cls: "text-red-700 bg-red-50 border-red-200 dark:text-red-300 dark:bg-red-950/40 dark:border-red-900" },
+// ─── Visibility Panel (portal-version) ───────────────────────────────────────
+
+const VISIBILITY_OPTIONS = ["PRIVATE", "LINK_ONLY", "PUBLIC", "PASSWORD"] as const;
+const VISIBILITY_META: Record<string, { icon: string; label: string }> = {
+  LINK_ONLY: { icon: "🔗", label: "Nur Link" },
+  PUBLIC:    { icon: "🌐", label: "Öffentlich" },
+  PASSWORD:  { icon: "🔑", label: "Passwort" },
+  PRIVATE:   { icon: "🔒", label: "Privat" },
+};
+const VISIBILITY_HINTS: Record<(typeof VISIBILITY_OPTIONS)[number], string> = {
+  PRIVATE:   "Nur für berechtigte Nutzer im Matterport-Konto sichtbar — nicht öffentlich auffindbar und kein freies Teilen.",
+  LINK_ONLY: "Wer den direkten Link zur Tour hat, kann sie öffnen; sie erscheint nicht in öffentlichen Listen oder der Suche.",
+  PUBLIC:    "Tour ist öffentlich zugänglich — gut für breites Teilen und Einbindung auf Websites.",
+  PASSWORD:  "Zusätzlicher Schutz: Zugang erst nach Eingabe des hier gesetzten Passworts.",
 };
 
-function StatusBadge({ code }: { code: string }) {
-  const meta = STATUS_BADGE[code] ?? { label: code.replace(/_/g, " "), cls: "text-[var(--text-subtle)] bg-[var(--surface)] border-[var(--border-soft)]" };
+function normalizeVisibility(value: string | null | undefined): string | null {
+  const raw = String(value ?? "").trim().toUpperCase();
+  if (!raw) return null;
+  if (raw === "UNLISTED") return "LINK_ONLY";
+  if (VISIBILITY_OPTIONS.includes(raw as (typeof VISIBILITY_OPTIONS)[number])) return raw;
+  return null;
+}
+
+function PortalVisibilityPanel({
+  tourId,
+  mpVisibility,
+  onSuccess,
+}: {
+  tourId: number;
+  mpVisibility: string | null;
+  onSuccess: () => void;
+}) {
+  const normalizedMpVisibility = normalizeVisibility(mpVisibility);
+  const [visibility, setVisibility] = useState<string>(normalizedMpVisibility ?? "LINK_ONLY");
+  const [visPassword, setVisPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (normalizedMpVisibility) setVisibility(normalizedMpVisibility);
+  }, [normalizedMpVisibility]);
+
+  async function apply() {
+    setBusy(true);
+    setErr(null);
+    setMsg(null);
+    try {
+      await changePortalTourVisibility(tourId, visibility, visibility === "PASSWORD" ? visPassword : undefined);
+      setMsg("Gespeichert.");
+      onSuccess();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Fehler");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const selectedKey = (VISIBILITY_OPTIONS.includes(visibility as (typeof VISIBILITY_OPTIONS)[number])
+    ? visibility
+    : "LINK_ONLY") as (typeof VISIBILITY_OPTIONS)[number];
+
   return (
-    <span className={`inline-flex items-center rounded-lg border px-2.5 py-0.5 text-sm font-medium ${meta.cls}`}>
-      {meta.label}
-    </span>
+    <div className="border-b border-[var(--border-soft)] pb-4 space-y-2">
+      <h3 className="text-sm font-medium text-[var(--text-main)]">Matterport-Sichtbarkeit</h3>
+      <p className="text-xs text-[var(--text-subtle)] leading-relaxed">
+        Legt fest, wer die Tour im Matterport-Viewer erreichen kann. Option wählen und auf{" "}
+        <strong className="font-medium text-[var(--text-main)]">Anwenden</strong> klicken — die Änderung wird an Matterport übermittelt.
+      </p>
+      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+        {VISIBILITY_OPTIONS.map((value) => {
+          const { icon, label } = VISIBILITY_META[value];
+          return (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setVisibility(value)}
+              className={[
+                "flex w-full min-w-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-sm font-medium transition-colors",
+                visibility === value
+                  ? "border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]"
+                  : "border-[var(--border-soft)] bg-[var(--surface)] text-[var(--text-muted)] hover:border-[var(--accent)]/50",
+              ].join(" ")}
+            >
+              <span className="shrink-0">{icon}</span>
+              <span className="min-w-0 truncate">{label}</span>
+              {value === "LINK_ONLY" ? (
+                <span className="ml-auto shrink-0 rounded-full border border-current px-1 py-0 text-[9px] font-semibold uppercase tracking-wide opacity-70">
+                  Standard
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-xs text-[var(--text-subtle)] leading-relaxed rounded-lg border border-[var(--border-soft)]/80 bg-[var(--surface)] px-2.5 py-2">
+        <span className="font-medium text-[var(--text-main)]">{VISIBILITY_META[selectedKey]?.label}: </span>
+        {VISIBILITY_HINTS[selectedKey]}
+      </p>
+      {visibility === "PASSWORD" && (
+        <input
+          type="password"
+          value={visPassword}
+          onChange={(e) => setVisPassword(e.target.value)}
+          placeholder="Passwort eingeben"
+          className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-1.5 text-sm text-[var(--text-main)]"
+        />
+      )}
+      {msg ? <p className="text-sm text-emerald-700 dark:text-emerald-400">{msg}</p> : null}
+      {err ? <p className="text-sm text-red-600 dark:text-red-400">{err}</p> : null}
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => void apply()}
+        className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+      >
+        {busy ? "…" : "Anwenden"}
+      </button>
+    </div>
   );
 }
 
-function InvoiceStatusBadge({ status }: { status?: string }) {
-  const map: Record<string, { label: string; cls: string }> = {
-    paid:      { label: "Bezahlt",    cls: "text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-900" },
-    sent:      { label: "Versendet",  cls: "text-blue-700 bg-blue-50 border-blue-200 dark:text-blue-300 dark:bg-blue-950/40 dark:border-blue-900" },
-    overdue:   { label: "Überfällig", cls: "text-red-700 bg-red-50 border-red-200 dark:text-red-300 dark:bg-red-950/40 dark:border-red-900" },
-    draft:     { label: "Entwurf",    cls: "text-[var(--text-subtle)] bg-[var(--surface)] border-[var(--border-soft)]" },
-    cancelled: { label: "Storniert",  cls: "text-[var(--text-subtle)] bg-[var(--surface)] border-[var(--border-soft)]" },
-  };
-  const s = map[status ?? ""] ?? { label: status ?? "–", cls: "text-[var(--text-subtle)] bg-[var(--surface)] border-[var(--border-soft)]" };
+// ─── Matterport Meta Panel (portal-version, ohne Admin-Aktionen) ──────────────
+
+const STATE_META: Record<string, { label: string; color: string }> = {
+  active:     { label: "Aktiv",          color: "text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-900" },
+  inactive:   { label: "Archiviert",     color: "text-orange-700 bg-orange-50 border-orange-200 dark:text-orange-300 dark:bg-orange-950/40 dark:border-orange-900" },
+  processing: { label: "In Bearbeitung", color: "text-blue-700 bg-blue-50 border-blue-200 dark:text-blue-300 dark:bg-blue-950/40 dark:border-blue-900" },
+  staging:    { label: "Staging",        color: "text-purple-700 bg-purple-50 border-purple-200 dark:text-purple-300 dark:bg-purple-950/40 dark:border-purple-900" },
+  failed:     { label: "Fehler",         color: "text-red-700 bg-red-50 border-red-200 dark:text-red-300 dark:bg-red-950/40 dark:border-red-900" },
+  pending:    { label: "Ausstehend",     color: "text-yellow-700 bg-yellow-50 border-yellow-200 dark:text-yellow-300 dark:bg-yellow-950/40 dark:border-yellow-900" },
+};
+const VIS_META: Record<string, { icon: string; label: string }> = {
+  PUBLIC:    { icon: "🌐", label: "Öffentlich" },
+  UNLISTED:  { icon: "🔗", label: "Nur Link" },
+  LINK_ONLY: { icon: "🔗", label: "Nur Link" },
+  PRIVATE:   { icon: "🔒", label: "Privat" },
+  PASSWORD:  { icon: "🔑", label: "Passwort" },
+};
+
+function MetaRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <span className={`inline-flex items-center rounded-lg border px-2 py-0.5 text-xs font-medium ${s.cls}`}>
-      {s.label}
-    </span>
+    <div className="flex gap-2">
+      <dt className="w-36 shrink-0 text-[var(--text-subtle)]">{label}</dt>
+      <dd className="text-[var(--text-main)] break-all">{value || "—"}</dd>
+    </div>
   );
 }
+
+function PortalMatterportMetaPanel({
+  meta,
+  onRefresh,
+  loading,
+  tourId,
+  tourShowUrl,
+  mpVisibility,
+  onVisibilitySaved,
+}: {
+  meta: MatterportModelMeta;
+  onRefresh: () => void;
+  loading: boolean;
+  tourId: number;
+  tourShowUrl: string | null;
+  mpVisibility: string | null;
+  onVisibilitySaved: () => void;
+}) {
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  async function copyTourLink() {
+    if (!tourShowUrl) return;
+    try {
+      await navigator.clipboard.writeText(tourShowUrl);
+      setLinkCopied(true);
+      window.setTimeout(() => setLinkCopied(false), 2000);
+    } catch { /* ignore */ }
+  }
+
+  const stateKey = String(meta.state ?? "").toLowerCase();
+  const stateMeta = STATE_META[stateKey];
+  const visKey = String(meta.accessVisibility ?? meta.visibility ?? "").toUpperCase();
+  const visMeta = VIS_META[visKey];
+
+  return (
+    <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-4 space-y-4">
+      <div className="flex items-center justify-between gap-2">
+        <h4 className="text-sm font-semibold text-[var(--text-main)] uppercase tracking-wide">
+          Matterport Model
+        </h4>
+        <button
+          type="button"
+          onClick={onRefresh}
+          disabled={loading}
+          className="flex items-center gap-1 text-xs text-[var(--text-subtle)] hover:text-[var(--text-main)] disabled:opacity-40"
+        >
+          <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
+          Aktualisieren
+        </button>
+      </div>
+
+      <PortalVisibilityPanel tourId={tourId} mpVisibility={mpVisibility} onSuccess={onVisibilitySaved} />
+
+      <div className="flex flex-wrap gap-2">
+        {stateMeta ? (
+          <span className={`inline-flex items-center rounded-lg border px-2.5 py-0.5 text-sm font-medium ${stateMeta.color}`}>
+            {stateMeta.label}
+          </span>
+        ) : meta.state ? (
+          <span className="inline-flex items-center rounded-lg border border-[var(--border-soft)] px-2.5 py-0.5 text-sm font-medium text-[var(--text-subtle)]">
+            {meta.state}
+          </span>
+        ) : null}
+        {visMeta ? (
+          <span className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-2.5 py-0.5 text-sm font-medium text-[var(--text-main)]">
+            <span>{visMeta.icon}</span>
+            {visMeta.label}
+          </span>
+        ) : null}
+        {tourShowUrl ? (
+          <button
+            type="button"
+            onClick={() => void copyTourLink()}
+            className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-2.5 py-0.5 text-sm font-medium text-[var(--text-main)] transition-colors duration-150 hover:border-[var(--accent)]/50 hover:bg-[var(--accent)]/10 hover:text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
+            title={tourShowUrl}
+          >
+            {linkCopied ? (
+              <Check className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+            ) : (
+              <Copy className="h-3.5 w-3.5 shrink-0" />
+            )}
+            {linkCopied ? "Kopiert" : "Link kopieren"}
+          </button>
+        ) : null}
+      </div>
+
+      <dl className="grid gap-1.5 text-sm">
+        <MetaRow label="Objektbezeichnung" value={meta.name} />
+        <MetaRow label="Erstellt" value={fmtDate(meta.created)} />
+        {meta.publication?.address ? <MetaRow label="Adresse" value={meta.publication.address} /> : null}
+        {meta.description ? <MetaRow label="Beschreibung" value={meta.description} /> : null}
+        {meta.publication?.summary ? <MetaRow label="Zusammenfassung" value={meta.publication.summary} /> : null}
+        {meta.publication?.externalUrl ? (
+          <MetaRow
+            label="Externe URL"
+            value={
+              <a href={meta.publication.externalUrl} target="_blank" rel="noopener noreferrer"
+                className="text-[var(--accent)] underline hover:no-underline break-all">
+                {meta.publication.externalUrl}
+              </a>
+            }
+          />
+        ) : null}
+      </dl>
+    </div>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
 
 export function PortalTourDetailPage() {
   const { tourId: id } = useParams<{ tourId: string }>();
   const navigate = useNavigate();
   const { portalPath } = usePortalNav();
 
+  const tourId = Number(id);
+
   const [data, setData] = useState<PortalTourDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [saving, setSaving] = useState<string | null>(null);
 
-  // Edit-State
-  const [editMode, setEditMode] = useState(false);
-  const [editLabel, setEditLabel] = useState("");
-  const [editContact, setEditContact] = useState("");
-  const [editName, setEditName] = useState("");
-  const [editSweep, setEditSweep] = useState("");
+  // Stammdaten edit
+  const [tourUrl, setTourUrl] = useState("");
+  const [name, setName] = useState("");
+  const [urlCopied, setUrlCopied] = useState(false);
+  const [nameMsg, setNameMsg] = useState<string | null>(null);
+  const [nameErr, setNameErr] = useState<string | null>(null);
 
-  // Visibility
-  const [visibility, setVisibility] = useState("");
-  const [visibilityPassword, setVisibilityPassword] = useState("");
+  // Matterport Meta
+  const [meta, setMeta] = useState<MatterportModelMeta | null>(null);
+  const [metaLoading, setMetaLoading] = useState(false);
+  const [metaErr, setMetaErr] = useState<string | null>(null);
 
   // Modals
   const [showExtendModal, setShowExtendModal] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [extendMethod, setExtendMethod] = useState<"payrexx" | "qr_invoice">("payrexx");
-
-  // URL copy
-  const [urlCopied, setUrlCopied] = useState(false);
-
-  const tourId = Number(id);
+  const [extendErr, setExtendErr] = useState<string | null>(null);
+  const [archiveErr, setArchiveErr] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -121,11 +343,8 @@ export function PortalTourDetailPage() {
       setError(null);
       const res = await getPortalTourDetail(tourId);
       setData(res);
-      setVisibility(res.mpVisibility ?? "PRIVATE");
-      setEditLabel(res.tour.canonical_object_label ?? res.tour.object_label ?? res.tour.bezeichnung ?? "");
-      setEditContact(res.tour.customer_contact ?? "");
-      setEditName(res.tour.customer_name ?? "");
-      setEditSweep(res.tour.matterport_start_sweep ?? "");
+      setTourUrl(String(res.tour.tour_url ?? "").trim());
+      setName(String(res.tour.canonical_object_label ?? res.tour.object_label ?? res.tour.bezeichnung ?? ""));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Laden fehlgeschlagen.");
     } finally {
@@ -133,113 +352,96 @@ export function PortalTourDetailPage() {
     }
   }, [tourId]);
 
+  const loadMeta = useCallback(async (spaceId: string) => {
+    setMetaLoading(true);
+    setMetaErr(null);
+    try {
+      const r = await getPortalMatterportModel(tourId);
+      setMeta(r.model);
+    } catch (e) {
+      setMetaErr(e instanceof Error ? e.message : "Fehler");
+    } finally {
+      setMetaLoading(false);
+    }
+    void spaceId; // used only for call site clarity
+  }, [tourId]);
+
   useEffect(() => {
     if (id) void loadData();
   }, [id, loadData]);
 
-  const flashSuccess = (msg: string) => {
-    setSuccess(msg);
-    setTimeout(() => setSuccess(null), 4000);
-  };
+  useEffect(() => {
+    const spaceId = data?.tour.canonical_matterport_space_id;
+    if (spaceId) void loadMeta(spaceId);
+  }, [data?.tour.canonical_matterport_space_id, loadMeta]);
 
-  const handleEditSave = async () => {
-    setSaving(true);
+  const refetch = useCallback(() => {
+    void loadData();
+  }, [loadData]);
+
+  async function saveName() {
+    setSaving("name");
+    setNameErr(null);
+    setNameMsg(null);
     try {
-      await editPortalTour(tourId, {
-        object_label: editLabel,
-        customer_contact: editContact,
-        customer_name: editName,
-        start_sweep: editSweep,
-      });
-      flashSuccess("Tour erfolgreich aktualisiert.");
-      setEditMode(false);
-      await loadData();
+      await editPortalTour(tourId, { object_label: name });
+      setNameMsg("Gespeichert.");
+      refetch();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Speichern fehlgeschlagen.");
+      setNameErr(e instanceof Error ? e.message : "Fehler");
     } finally {
-      setSaving(false);
+      setSaving(null);
     }
-  };
+  }
 
-  const handleVisibilitySave = async () => {
-    setSaving(true);
-    try {
-      await changePortalTourVisibility(tourId, visibility, visibility === "PASSWORD" ? visibilityPassword : undefined);
-      flashSuccess("Sichtbarkeit aktualisiert.");
-      await loadData();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Sichtbarkeit konnte nicht geändert werden.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleExtend = async () => {
-    setSaving(true);
+  async function handleExtend() {
+    setSaving("extend");
+    setExtendErr(null);
     try {
       const res = await extendPortalTour(tourId, extendMethod);
-      if (res.redirectUrl) {
-        window.location.href = res.redirectUrl;
-        return;
-      }
-      flashSuccess("Verlängerung erfolgreich beantragt. Sie erhalten eine QR-Rechnung.");
+      if (res.redirectUrl) { window.location.href = res.redirectUrl; return; }
       setShowExtendModal(false);
-      await loadData();
+      refetch();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Verlängerung fehlgeschlagen.");
+      setExtendErr(e instanceof Error ? e.message : "Fehler");
     } finally {
-      setSaving(false);
+      setSaving(null);
     }
-  };
+  }
 
-  const handleArchive = async () => {
-    setSaving(true);
+  async function handleArchive() {
+    setSaving("archive");
+    setArchiveErr(null);
     try {
       await archivePortalTour(tourId);
-      flashSuccess("Tour wurde archiviert.");
       setShowArchiveModal(false);
-      await loadData();
+      refetch();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Archivierung fehlgeschlagen.");
+      setArchiveErr(e instanceof Error ? e.message : "Fehler");
     } finally {
-      setSaving(false);
+      setSaving(null);
     }
-  };
+  }
 
-  const handleAssignee = async (email: string) => {
-    setSaving(true);
+  async function handleAssignee(email: string) {
+    setSaving("assignee");
     try {
       await setPortalTourAssignee(tourId, email);
-      flashSuccess("Zuständigkeit aktualisiert.");
-      await loadData();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Zuständigkeit konnte nicht geändert werden.");
-    } finally {
-      setSaving(false);
+      refetch();
+    } catch { /* ignore */ } finally {
+      setSaving(null);
     }
-  };
+  }
 
-  const handlePay = async (invoiceId: number) => {
-    setSaving(true);
+  async function handlePay(invoiceId: number) {
+    setSaving(`pay-${invoiceId}`);
     try {
       const res = await payPortalInvoice(tourId, invoiceId);
-      if (res.paymentUrl) {
-        window.location.href = res.paymentUrl;
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Zahlung konnte nicht gestartet werden.");
-    } finally {
-      setSaving(false);
+      if (res.paymentUrl) window.location.href = res.paymentUrl;
+    } catch { /* ignore */ } finally {
+      setSaving(null);
     }
-  };
-
-  const copyTourUrl = async (url: string) => {
-    try {
-      await navigator.clipboard.writeText(url);
-      setUrlCopied(true);
-      setTimeout(() => setUrlCopied(false), 2000);
-    } catch { /* ignore */ }
-  };
+  }
 
   const tour = data?.tour;
   const invoices = data?.invoices ?? [];
@@ -251,14 +453,11 @@ export function PortalTourDetailPage() {
   const canManage = assigneeBundle?.canManageByTourId?.[String(tourId)] ?? false;
   const currentAssignee = assigneeBundle?.assigneeByTourId?.[String(tourId)] ?? "";
   const candidates = Object.values(assigneeBundle?.candidatesByWorkspace ?? {}).flat();
-  const endDate = tour?.canonical_term_end_date ?? tour?.term_end_date ?? tour?.ablaufdatum;
-  const remaining = daysRemaining(endDate);
-  const maxDays = 365;
-  const progressPct = Math.min(100, Math.max(0, (remaining / maxDays) * 100));
-  const spaceId = tour?.canonical_matterport_space_id ?? tour?.matterport_model_id;
-  const tourShowUrl = spaceId ? `https://my.matterport.com/show/?m=${encodeURIComponent(spaceId)}` : null;
-  const isArchived = tour?.archiv || tour?.status === "ARCHIVED";
+  const spaceId = tour?.canonical_matterport_space_id ?? (tour?.matterport_model_id as string | undefined);
+  const mpUrl = spaceId ? `https://my.matterport.com/show/?m=${encodeURIComponent(spaceId)}` : null;
+  const isArchived = tour?.archiv || String(tour?.status ?? "").toUpperCase() === "ARCHIVED";
   const lastRenewalAt = latestRenewalDate(invoices);
+  const ps = paymentSummary as Record<string, unknown> | null | undefined;
 
   const tourTitle =
     tour?.canonical_object_label || tour?.object_label || tour?.bezeichnung || `Tour #${tourId}`;
@@ -273,7 +472,7 @@ export function PortalTourDetailPage() {
             className="inline-flex items-center gap-1 text-sm text-[var(--accent)] hover:underline mb-2"
           >
             <ArrowLeft className="h-4 w-4" />
-            Meine Touren
+            Zurück zur Liste
           </button>
         </div>
         <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
@@ -289,7 +488,7 @@ export function PortalTourDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* ── Header ── */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <button
@@ -298,22 +497,18 @@ export function PortalTourDetailPage() {
             className="inline-flex items-center gap-1 text-sm text-[var(--accent)] hover:underline mb-2"
           >
             <ArrowLeft className="h-4 w-4" />
-            Meine Touren
+            Zurück zur Liste
           </button>
           {loading && !data ? (
             <div className="skeleton-line h-8 w-64 max-w-full" />
           ) : data ? (
             <>
               <h1 className="text-2xl font-bold text-[var(--text-main)]">{tourTitle}</h1>
-              <div className="flex items-center gap-2 mt-1 flex-wrap">
-                {displayedTourStatus ? (
-                  <StatusBadge code={displayedTourStatus.code} />
-                ) : null}
-                {displayedTourStatus?.note ? (
-                  <span className="text-sm text-[var(--text-subtle)]">{displayedTourStatus.note}</span>
-                ) : null}
-                <span className="text-sm text-[var(--text-subtle)]">#{tourId}</span>
-              </div>
+              <p className="text-sm text-[var(--text-subtle)] mt-1">
+                #{tourId}
+                {displayedTourStatus ? ` · ${displayedTourStatus.label}` : ""}
+                {displayedTourStatus?.note ? ` · ${displayedTourStatus.note}` : ""}
+              </p>
             </>
           ) : (
             <h1 className="text-2xl font-bold text-[var(--text-main)]">Tour #{tourId}</h1>
@@ -321,28 +516,16 @@ export function PortalTourDetailPage() {
         </div>
       </div>
 
-      {/* Error Banner */}
       {error ? (
         <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
           <AlertCircle className="h-4 w-4 shrink-0" />
           <span className="text-sm flex-1">{error}</span>
-          <button type="button" onClick={() => setError(null)} className="text-sm underline font-medium">
-            Schliessen
+          <button type="button" onClick={() => void loadData()} className="text-sm underline font-medium">
+            Erneut laden
           </button>
         </div>
       ) : null}
 
-      {/* Success Banner */}
-      {success ? (
-        <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
-          <span className="text-sm flex-1">{success}</span>
-          <button type="button" onClick={() => setSuccess(null)} className="text-sm underline font-medium">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      ) : null}
-
-      {/* Loading Spinner */}
       {loading && !data ? (
         <div className="flex justify-center py-20">
           <div className="h-10 w-10 animate-spin rounded-full border-2 border-[var(--accent)]/25 border-t-[var(--accent)]" />
@@ -351,268 +534,209 @@ export function PortalTourDetailPage() {
 
       {data && tour ? (
         <>
-          {/* Aktionsprotokoll */}
-          <TourActionLog rows={data.actions_log} />
-
-          {/* Stammdaten & Matterport */}
+          {/* ── Stammdaten & Matterport (= TourActionsPanel + TourMatterportSection) ── */}
           <section className="surface-card-strong p-5 space-y-4">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <h2 className="text-lg font-semibold text-[var(--text-main)]">Stammdaten &amp; Matterport</h2>
-              {!editMode && (
-                <button
-                  type="button"
-                  onClick={() => setEditMode(true)}
-                  className="text-sm font-medium text-[var(--accent)] hover:underline shrink-0"
-                >
-                  Bearbeiten
-                </button>
-              )}
             </div>
 
+            {nameMsg ? <p className="text-sm text-emerald-700 dark:text-emerald-400">{nameMsg}</p> : null}
+            {nameErr ? <p className="text-sm text-red-600 dark:text-red-400">{nameErr}</p> : null}
+
             <div className="grid gap-4 md:grid-cols-2">
-              {/* Tour-URL */}
+              {/* Tour-URL (readonly + copy) */}
               <div className="space-y-2">
-                <label className="text-sm font-medium text-[var(--text-subtle)]">Tour-URL (Matterport)</label>
+                <label className="text-sm font-medium text-[var(--text-subtle)]">Tour-URL (Matterport Show)</label>
+                <p className="text-xs text-[var(--text-subtle)] leading-relaxed">
+                  HTTPS-Link zu{" "}
+                  <code className="rounded bg-[var(--surface)] px-1 font-mono text-[11px]">my.matterport.com</code>.
+                  Das Feld ist nur zur Anzeige da; über den Button unten wird die aktuell gespeicherte URL kopiert.
+                </p>
                 <input
-                  value={tourShowUrl ?? ""}
+                  value={tourUrl}
                   readOnly
                   className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)]"
-                  placeholder="–"
+                  placeholder="https://my.matterport.com/show/?m=…"
                   spellCheck={false}
                 />
-                {tourShowUrl ? (
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => void copyTourUrl(tourShowUrl)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-1.5 text-sm font-medium text-[var(--text-main)]"
+                    disabled={!tourUrl.trim()}
+                    onClick={() => {
+                      const t = tourUrl.trim();
+                      if (!t) return;
+                      void navigator.clipboard.writeText(t).then(() => {
+                        setUrlCopied(true);
+                        window.setTimeout(() => setUrlCopied(false), 2000);
+                      });
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-1.5 text-sm font-medium text-[var(--text-main)] disabled:opacity-50"
                   >
                     {urlCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                     {urlCopied ? "Kopiert" : "URL kopieren"}
                   </button>
-                ) : null}
+                </div>
               </div>
 
-              {/* Objektbezeichnung */}
+              {/* Objektbezeichnung (editierbar) */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-[var(--text-subtle)]">Objektbezeichnung</label>
-                {editMode ? (
-                  <input
-                    className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)]"
-                    value={editLabel}
-                    onChange={(e) => setEditLabel(e.target.value)}
-                    placeholder="z.B. Musterhausweg 12, Zürich"
-                  />
-                ) : (
-                  <p className="text-sm text-[var(--text-main)] py-2">
-                    {tour.canonical_object_label || tour.object_label || tour.bezeichnung || "–"}
-                  </p>
-                )}
-              </div>
-
-              {/* Firma / Kundenname */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-[var(--text-subtle)]">Firma / Kundenname</label>
-                {editMode ? (
-                  <input
-                    className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)]"
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                  />
-                ) : (
-                  <p className="text-sm text-[var(--text-main)] py-2">{tour.customer_name || "–"}</p>
-                )}
-              </div>
-
-              {/* Kontaktperson */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-[var(--text-subtle)]">Kontaktperson</label>
-                {editMode ? (
-                  <input
-                    className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)]"
-                    value={editContact}
-                    onChange={(e) => setEditContact(e.target.value)}
-                  />
-                ) : (
-                  <p className="text-sm text-[var(--text-main)] py-2">{tour.customer_contact || "–"}</p>
-                )}
-              </div>
-
-              {/* Start-Sweep */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-[var(--text-subtle)]">Start-Sweep-ID</label>
-                {editMode ? (
-                  <input
-                    className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm font-mono text-[var(--text-main)]"
-                    value={editSweep}
-                    onChange={(e) => setEditSweep(e.target.value)}
-                    placeholder="Matterport Sweep ID"
-                    spellCheck={false}
-                  />
-                ) : (
-                  <p className="text-sm font-mono text-[var(--text-main)] py-2">
-                    {tour.matterport_start_sweep || "–"}
-                  </p>
-                )}
+                <p className="text-xs text-[var(--text-subtle)] leading-relaxed">
+                  Anzeigename der Immobilie in Propus (Listen, Tour-Detail, E-Mails). Beim Speichern wird der Name
+                  zusätzlich ins verknüpfte Matterport-Modell übernommen (sofern technisch möglich).
+                </p>
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)]"
+                />
+                <button
+                  type="button"
+                  disabled={saving === "name"}
+                  onClick={() => void saveName()}
+                  className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                >
+                  {saving === "name" ? "…" : "Name speichern"}
+                </button>
               </div>
             </div>
 
-            {editMode ? (
-              <div className="flex gap-2 flex-wrap pt-2">
-                <button
-                  type="button"
-                  disabled={saving}
-                  onClick={() => void handleEditSave()}
-                  className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-                >
-                  {saving ? "Speichern…" : "Speichern"}
-                </button>
-                <button
-                  type="button"
-                  disabled={saving}
-                  onClick={() => {
-                    setEditMode(false);
-                    setEditLabel(tour.canonical_object_label ?? tour.object_label ?? tour.bezeichnung ?? "");
-                    setEditContact(tour.customer_contact ?? "");
-                    setEditName(tour.customer_name ?? "");
-                    setEditSweep(tour.matterport_start_sweep ?? "");
-                  }}
-                  className="rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--text-main)] disabled:opacity-50"
-                >
-                  Abbrechen
-                </button>
-              </div>
-            ) : null}
-
-            {/* Sichtbarkeit */}
+            {/* Matterport-Sektion */}
             <div className="border-t border-[var(--border-soft)] pt-4 space-y-3">
-              <h3 className="text-base font-semibold text-[var(--text-main)]">Sichtbarkeit</h3>
-              <div className="flex flex-col gap-2">
-                {(["PRIVATE", "LINK_ONLY", "PUBLIC", "PASSWORD"] as const).map((v) => {
-                  const labels: Record<string, string> = {
-                    PRIVATE:   "Privat – nur eingeloggte Nutzer",
-                    LINK_ONLY: "Nur mit Link zugänglich",
-                    PUBLIC:    "Öffentlich sichtbar",
-                    PASSWORD:  "Passwortgeschützt",
-                  };
-                  return (
-                    <label
-                      key={v}
-                      className="flex items-center gap-2 text-sm text-[var(--text-main)] cursor-pointer"
-                    >
-                      <input
-                        type="radio"
-                        name="visibility"
-                        value={v}
-                        checked={visibility === v}
-                        onChange={() => setVisibility(v)}
-                        className="accent-[var(--accent)] w-4 h-4 cursor-pointer"
-                      />
-                      {labels[v]}
-                    </label>
-                  );
-                })}
-              </div>
-              {visibility === "PASSWORD" && (
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-[var(--text-subtle)]">Passwort</label>
-                  <input
-                    type="text"
-                    className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)]"
-                    value={visibilityPassword}
-                    onChange={(e) => setVisibilityPassword(e.target.value)}
-                    placeholder="Passwort für den Zugriff"
-                  />
-                </div>
-              )}
-              <button
-                type="button"
-                disabled={saving}
-                onClick={() => void handleVisibilitySave()}
-                className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-              >
-                {saving ? "Speichern…" : "Sichtbarkeit speichern"}
-              </button>
-            </div>
+              <h2 className="text-base font-semibold text-[var(--text-main)]">Matterport</h2>
 
-            {/* 3D-Vorschau */}
-            {spaceId ? (
-              <div className="border-t border-[var(--border-soft)] pt-4 space-y-3">
-                <h3 className="text-base font-semibold text-[var(--text-main)]">3D-Vorschau</h3>
-                <div className="relative w-full rounded-xl overflow-hidden bg-[var(--surface)]" style={{ paddingBottom: "56.25%" }}>
-                  <iframe
-                    src={`https://my.matterport.com/show?m=${spaceId}`}
-                    title="Matterport Tour"
-                    className="absolute inset-0 w-full h-full border-0"
-                    allowFullScreen
-                  />
+              {spaceId ? (
+                <div className="border-t border-[var(--border-soft)] pt-3 space-y-2">
+                  {metaLoading && !meta ? (
+                    <p className="text-sm text-[var(--text-subtle)]">Wird geladen…</p>
+                  ) : metaErr ? (
+                    <div className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-3 py-2 dark:border-red-900 dark:bg-red-950/40">
+                      <p className="text-sm text-red-700 dark:text-red-300">{metaErr}</p>
+                      <button
+                        type="button"
+                        onClick={() => void loadMeta(spaceId)}
+                        className="ml-2 shrink-0 text-sm text-red-600 underline hover:no-underline dark:text-red-400"
+                      >
+                        Erneut laden
+                      </button>
+                    </div>
+                  ) : meta ? (
+                    <PortalMatterportMetaPanel
+                      meta={meta}
+                      onRefresh={() => void loadMeta(spaceId)}
+                      loading={metaLoading}
+                      tourId={tourId}
+                      tourShowUrl={mpUrl}
+                      mpVisibility={data.mpVisibility}
+                      onVisibilitySaved={() => {
+                        refetch();
+                        void loadMeta(spaceId);
+                      }}
+                    />
+                  ) : null}
                 </div>
+              ) : null}
+
+              {/* Portal-Aktionen: Verlängern, Archivieren, Zuständigkeit */}
+              <div className="flex flex-wrap gap-2">
+                {!isArchived && pricing ? (
+                  <button
+                    type="button"
+                    disabled={saving === "extend"}
+                    onClick={() => { setExtendErr(null); setShowExtendModal(true); }}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm font-medium text-[var(--text-main)] shadow-sm transition-colors duration-150 hover:border-[var(--accent)]/50 hover:bg-[var(--accent)]/10 hover:text-[var(--accent)] disabled:pointer-events-none disabled:opacity-50"
+                  >
+                    {pricing.isReactivation ? "Tour reaktivieren" : "Tour verlängern"}
+                  </button>
+                ) : null}
+                {!isArchived ? (
+                  <button
+                    type="button"
+                    disabled={saving === "archive"}
+                    onClick={() => { setArchiveErr(null); setShowArchiveModal(true); }}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm font-medium text-[var(--text-main)] shadow-sm transition-colors duration-150 hover:border-[var(--accent)]/50 hover:bg-[var(--accent)]/10 hover:text-[var(--accent)] disabled:pointer-events-none disabled:opacity-50"
+                  >
+                    Tour archivieren
+                  </button>
+                ) : null}
+                {canManage && candidates.length > 0 ? (
+                  <select
+                    className="rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)] shadow-sm"
+                    value={currentAssignee}
+                    onChange={(e) => void handleAssignee(e.target.value)}
+                    disabled={saving === "assignee"}
+                  >
+                    <option value="">– Zuständigkeit –</option>
+                    {candidates.map((c) => (
+                      <option key={c.email} value={c.email}>{c.name || c.email}</option>
+                    ))}
+                  </select>
+                ) : null}
               </div>
-            ) : tour.tour_url ? (
-              <div className="border-t border-[var(--border-soft)] pt-4">
-                <a
-                  href={tour.tour_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-[var(--accent)] hover:underline font-medium"
-                >
-                  Tour öffnen ↗
-                </a>
-              </div>
-            ) : null}
+            </div>
           </section>
 
-          {/* Rechnungen & Zahlungen */}
+          {/* ── Rechnungen & Zahlungen (= TourInvoicesSection) ── */}
           <section className="surface-card-strong p-5 space-y-4">
             <h2 className="text-lg font-semibold text-[var(--text-main)]">Rechnungen &amp; Zahlungen</h2>
 
-            {/* Stat-Grid */}
+            {/* 4er-Grid Datumsinfos */}
             <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
               <div className="rounded-lg border border-[var(--border-soft)] p-3">
                 <div className="text-[var(--text-subtle)] text-xs">Tour erstellt am</div>
                 <div className="mt-1 font-semibold text-[var(--text-main)]">
-                  {formatDate(tour.matterport_created_at ?? tour.created_at)}
+                  {fmtDate(tour.matterport_created_at ?? tour.created_at)}
                 </div>
               </div>
               <div className="rounded-lg border border-[var(--border-soft)] p-3">
                 <div className="text-[var(--text-subtle)] text-xs">Tour läuft am ab</div>
-                <div className="mt-1 font-semibold text-[var(--text-main)]">{formatDate(endDate)}</div>
+                <div className="mt-1 font-semibold text-[var(--text-main)]">
+                  {fmtDate(tour.canonical_term_end_date ?? tour.term_end_date ?? tour.ablaufdatum)}
+                </div>
               </div>
               <div className="rounded-lg border border-[var(--border-soft)] p-3">
                 <div className="text-[var(--text-subtle)] text-xs">Letzte Verlängerung</div>
-                <div className="mt-1 font-semibold text-[var(--text-main)]">{formatDate(lastRenewalAt)}</div>
+                <div className="mt-1 font-semibold text-[var(--text-main)]">{fmtDate(lastRenewalAt)}</div>
               </div>
               <div className="rounded-lg border border-[var(--border-soft)] p-3">
                 <div className="text-[var(--text-subtle)] text-xs">Restzeit</div>
                 <div className="mt-1 font-semibold text-[var(--text-main)]">
-                  {formatRestzeit(remaining, endDate)}
+                  {fmtRestzeit(
+                    (() => {
+                      const end = tour.canonical_term_end_date ?? tour.term_end_date ?? tour.ablaufdatum;
+                      if (!end) return null;
+                      return Math.ceil((new Date(String(end)).getTime() - Date.now()) / 86_400_000);
+                    })()
+                  )}
                 </div>
               </div>
             </div>
 
             {/* Payment Summary */}
-            {paymentSummary ? (
+            {ps ? (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
                 <div className="rounded-lg border border-[var(--border-soft)] p-3">
                   <div className="text-[var(--text-subtle)] text-xs">Bezahlt</div>
-                  <div className="font-semibold text-[var(--text-main)]">{paymentSummary.paidCount}</div>
-                  <div className="text-xs text-[var(--text-subtle)]">{formatMoney(paymentSummary.paidAmount)}</div>
+                  <div className="font-semibold text-[var(--text-main)]">{String(ps.paidCount ?? "0")}</div>
+                  <div className="text-xs text-[var(--text-subtle)]">{fmtMoney(ps.paidAmount)}</div>
                 </div>
                 <div className="rounded-lg border border-[var(--border-soft)] p-3">
                   <div className="text-[var(--text-subtle)] text-xs">Offen</div>
-                  <div className="font-semibold text-[var(--text-main)]">{paymentSummary.openCount}</div>
-                  <div className="text-xs text-[var(--text-subtle)]">{formatMoney(paymentSummary.openAmount)}</div>
+                  <div className="font-semibold text-[var(--text-main)]">{String(ps.openCount ?? "0")}</div>
+                  <div className="text-xs text-[var(--text-subtle)]">{fmtMoney(ps.openAmount)}</div>
                 </div>
                 <div className="rounded-lg border border-[var(--border-soft)] p-3 sm:col-span-2">
                   <div className="text-[var(--text-subtle)] text-xs">Letzte Zahlung</div>
-                  {paymentSummary.lastPayment ? (
+                  {ps.lastPayment && typeof ps.lastPayment === "object" ? (
                     <div className="text-sm text-[var(--text-main)] mt-1">
-                      {paymentSummary.lastPayment.label}{" "}
+                      {String((ps.lastPayment as Record<string, unknown>).label ?? "")}{" "}
                       <span className="text-[var(--text-subtle)]">
-                        {formatDate(paymentSummary.lastPayment.at)}
+                        {fmtDate((ps.lastPayment as Record<string, unknown>).at)}
                       </span>
                     </div>
                   ) : (
-                    <div className="text-sm text-[var(--text-subtle)]">–</div>
+                    <div className="text-sm text-[var(--text-subtle)]">—</div>
                   )}
                 </div>
               </div>
@@ -624,14 +748,11 @@ export function PortalTourDetailPage() {
                 <h3 className="text-sm font-medium text-[var(--text-main)] mb-2">Zeitleiste</h3>
                 <ul className="space-y-2 text-sm">
                   {paymentTimeline.slice(0, 8).map((row, i) => (
-                    <li
-                      key={i}
-                      className="flex flex-wrap justify-between gap-2 border-b border-[var(--border-soft)]/50 pb-2"
-                    >
+                    <li key={i} className="flex flex-wrap justify-between gap-2 border-b border-[var(--border-soft)]/50 pb-2">
                       <span className="text-[var(--text-main)]">{row.title}</span>
                       <span className="text-[var(--text-subtle)]">{row.statusLabel}</span>
-                      <span className="text-[var(--text-subtle)]">{formatDate(row.primaryDate)}</span>
-                      <span>{formatMoney(row.amount)}</span>
+                      <span className="text-[var(--text-subtle)]">{fmtDate(row.primaryDate)}</span>
+                      <span>{fmtMoney(row.amount)}</span>
                     </li>
                   ))}
                 </ul>
@@ -640,41 +761,37 @@ export function PortalTourDetailPage() {
 
             {/* Rechnungstabelle */}
             <div>
-              <h3 className="text-sm font-medium text-[var(--text-main)] mb-2">Verlängerungsrechnungen</h3>
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <h3 className="text-sm font-medium text-[var(--text-main)]">Verlängerungsrechnungen</h3>
+              </div>
               {invoices.length === 0 ? (
-                <p className="text-sm text-[var(--text-subtle)]">Keine Rechnungen vorhanden.</p>
+                <p className="text-sm text-[var(--text-subtle)]">Keine Einträge.</p>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs sm:text-sm">
                     <thead>
                       <tr className="text-left text-[var(--text-subtle)] border-b border-[var(--border-soft)]">
                         <th className="py-2 pr-2">Nr.</th>
-                        <th className="py-2 pr-2">Datum</th>
+                        <th className="py-2 pr-2">Status</th>
                         <th className="py-2 pr-2">Betrag</th>
                         <th className="py-2 pr-2">Fällig</th>
-                        <th className="py-2 pr-2">Status</th>
                         <th className="py-2">Aktionen</th>
                       </tr>
                     </thead>
                     <tbody>
                       {invoices.map((inv) => (
                         <tr key={inv.id} className="border-b border-[var(--border-soft)]/40">
-                          <td className="py-2 pr-2">
-                            {inv.invoice_number ?? inv.exxas_document_id ?? `#${inv.id}`}
-                          </td>
-                          <td className="py-2 pr-2">{formatDate(inv.invoice_date ?? inv.created_at)}</td>
-                          <td className="py-2 pr-2">{formatMoney(inv.amount_chf ?? inv.betrag)}</td>
-                          <td className="py-2 pr-2">{formatDate(inv.due_at)}</td>
-                          <td className="py-2 pr-2">
-                            <InvoiceStatusBadge status={inv.invoice_status} />
-                          </td>
+                          <td className="py-2 pr-2">{String(inv.invoice_number ?? inv.exxas_document_id ?? inv.id)}</td>
+                          <td className="py-2 pr-2">{String(inv.invoice_status ?? "")}</td>
+                          <td className="py-2 pr-2">{fmtMoney(inv.amount_chf ?? inv.betrag)}</td>
+                          <td className="py-2 pr-2">{fmtDate(inv.due_at)}</td>
                           <td className="py-2">
-                            <div className="flex items-center gap-2 flex-wrap">
+                            <div className="flex items-center gap-3 flex-wrap">
                               <a
                                 href={portalPath(`tours/${tourId}/invoices/${inv.id}/print`)}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-xs text-[var(--accent)] hover:underline font-medium"
+                                className="text-[var(--accent)] hover:underline text-xs"
                               >
                                 Drucken
                               </a>
@@ -682,15 +799,15 @@ export function PortalTourDetailPage() {
                                 href={`/tour-manager/portal/tours/${tourId}/invoices/${inv.id}/pdf`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-xs text-[var(--accent)] hover:underline font-medium"
+                                className="text-[var(--accent)] hover:underline text-xs"
                               >
                                 PDF
                               </a>
                               {inv.invoice_status !== "paid" && inv.invoice_status !== "cancelled" ? (
                                 <button
                                   type="button"
+                                  disabled={saving === `pay-${inv.id}`}
                                   onClick={() => void handlePay(inv.id)}
-                                  disabled={saving}
                                   className="rounded-lg bg-[var(--accent)] px-2.5 py-0.5 text-xs font-medium text-white disabled:opacity-50"
                                 >
                                   Bezahlen
@@ -706,104 +823,14 @@ export function PortalTourDetailPage() {
               )}
             </div>
           </section>
-
-          {/* Abo-Status & Aktionen */}
-          <section className="surface-card-strong p-5 space-y-4">
-            <h2 className="text-lg font-semibold text-[var(--text-main)]">Abo-Status &amp; Aktionen</h2>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              {/* Abo-Info */}
-              <div className="space-y-3">
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-[var(--text-subtle)]">Gültig bis</span>
-                  <span className="font-medium text-[var(--text-main)]">{formatDate(endDate)}</span>
-                </div>
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-[var(--text-subtle)]">Verbleibend</span>
-                  <span className="font-medium text-[var(--text-main)]">{remaining} Tage</span>
-                </div>
-                <div className="w-full h-1.5 bg-[var(--border-soft)] rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{
-                      width: `${progressPct}%`,
-                      background: remaining <= 30 ? "#b42318" : remaining <= 90 ? "#b68e20" : "#027a48",
-                    }}
-                  />
-                </div>
-                {pricing ? (
-                  <div className="flex justify-between items-center pt-1 border-t border-[var(--border-soft)] text-sm">
-                    <span className="text-[var(--text-subtle)]">{pricing.label}</span>
-                    <span className="font-bold text-[var(--accent)]">
-                      {formatMoney(pricing.isExtension ? pricing.extensionPriceCHF : pricing.reactivationPriceCHF)}
-                    </span>
-                  </div>
-                ) : null}
-              </div>
-
-              {/* Zuständigkeit */}
-              {canManage && candidates.length > 0 ? (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-[var(--text-subtle)]">Zuständig</label>
-                  <select
-                    className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)]"
-                    value={currentAssignee}
-                    onChange={(e) => void handleAssignee(e.target.value)}
-                    disabled={saving}
-                  >
-                    <option value="">– Nicht zugewiesen –</option>
-                    {candidates.map((c) => (
-                      <option key={c.email} value={c.email}>
-                        {c.name || c.email}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : null}
-            </div>
-
-            {/* Aktionen */}
-            <div className="flex flex-wrap gap-2 pt-2 border-t border-[var(--border-soft)]">
-              {!isArchived && pricing ? (
-                <button
-                  type="button"
-                  disabled={saving}
-                  onClick={() => setShowExtendModal(true)}
-                  className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-                >
-                  {pricing.isReactivation ? "Reaktivieren" : "Verlängern"}
-                </button>
-              ) : null}
-              {!isArchived ? (
-                <button
-                  type="button"
-                  disabled={saving}
-                  onClick={() => setShowArchiveModal(true)}
-                  className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 disabled:opacity-50 hover:bg-red-100 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
-                >
-                  Archivieren
-                </button>
-              ) : null}
-              {tour.tour_url ? (
-                <a
-                  href={tour.tour_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--text-main)] hover:bg-[var(--surface-raised)] transition-colors"
-                >
-                  Tour öffnen ↗
-                </a>
-              ) : null}
-            </div>
-          </section>
         </>
       ) : null}
 
-      {/* Verlängerungs-Modal */}
+      {/* ── Verlängerungs-Modal ── */}
       {showExtendModal ? (
         <div
           className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4"
-          onClick={() => !saving && setShowExtendModal(false)}
+          onClick={() => saving !== "extend" && setShowExtendModal(false)}
         >
           <div
             className="w-full max-w-md rounded-2xl bg-[var(--bg-card)] p-6 shadow-[0_24px_60px_rgba(0,0,0,0.35)] space-y-4"
@@ -825,10 +852,9 @@ export function PortalTourDetailPage() {
             <p className="text-sm text-[var(--text-subtle)]">
               Wählen Sie die gewünschte Zahlungsart.
               {pricing ? (
-                <>
-                  {" "}Kosten:{" "}
+                <> Kosten:{" "}
                   <strong className="text-[var(--text-main)]">
-                    {formatMoney(pricing.isExtension ? pricing.extensionPriceCHF : pricing.reactivationPriceCHF)}
+                    CHF {(pricing.isExtension ? pricing.extensionPriceCHF : pricing.reactivationPriceCHF).toFixed(2)}
                   </strong>
                 </>
               ) : null}
@@ -859,11 +885,12 @@ export function PortalTourDetailPage() {
                 QR-Rechnung per E-Mail
               </label>
             </div>
-            <div className="flex justify-end gap-2 pt-2">
+            {extendErr ? <p className="text-sm text-red-600 dark:text-red-400">{extendErr}</p> : null}
+            <div className="flex justify-end gap-2 pt-1">
               <button
                 type="button"
                 onClick={() => setShowExtendModal(false)}
-                disabled={saving}
+                disabled={saving === "extend"}
                 className="rounded-lg border border-[var(--border-soft)] px-4 py-2 text-sm font-medium text-[var(--text-main)] disabled:opacity-50"
               >
                 Abbrechen
@@ -871,21 +898,21 @@ export function PortalTourDetailPage() {
               <button
                 type="button"
                 onClick={() => void handleExtend()}
-                disabled={saving}
+                disabled={saving === "extend"}
                 className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
               >
-                {saving ? "Wird verarbeitet…" : "Bestätigen"}
+                {saving === "extend" ? "Wird verarbeitet…" : "Bestätigen"}
               </button>
             </div>
           </div>
         </div>
       ) : null}
 
-      {/* Archivierungs-Modal */}
+      {/* ── Archivierungs-Modal ── */}
       {showArchiveModal ? (
         <div
           className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4"
-          onClick={() => !saving && setShowArchiveModal(false)}
+          onClick={() => saving !== "archive" && setShowArchiveModal(false)}
         >
           <div
             className="w-full max-w-sm rounded-2xl bg-[var(--bg-card)] p-6 shadow-[0_24px_60px_rgba(0,0,0,0.35)] space-y-4"
@@ -903,13 +930,14 @@ export function PortalTourDetailPage() {
               </button>
             </div>
             <p className="text-sm text-[var(--text-subtle)]">
-              Sind Sie sicher? Die Tour wird deaktiviert und ist nicht mehr öffentlich zugänglich.
+              Sind Sie sicher, dass Sie diese Tour archivieren möchten? Die Tour wird deaktiviert und ist nicht mehr öffentlich zugänglich.
             </p>
+            {archiveErr ? <p className="text-sm text-red-600 dark:text-red-400">{archiveErr}</p> : null}
             <div className="flex justify-end gap-2 pt-1">
               <button
                 type="button"
                 onClick={() => setShowArchiveModal(false)}
-                disabled={saving}
+                disabled={saving === "archive"}
                 className="rounded-lg border border-[var(--border-soft)] px-4 py-2 text-sm font-medium text-[var(--text-main)] disabled:opacity-50"
               >
                 Abbrechen
@@ -917,10 +945,10 @@ export function PortalTourDetailPage() {
               <button
                 type="button"
                 onClick={() => void handleArchive()}
-                disabled={saving}
-                className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 disabled:opacity-50 hover:bg-red-100 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
+                disabled={saving === "archive"}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
               >
-                {saving ? "Wird archiviert…" : "Ja, archivieren"}
+                {saving === "archive" ? "Wird archiviert…" : "Ja, archivieren"}
               </button>
             </div>
           </div>

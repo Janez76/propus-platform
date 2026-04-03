@@ -619,6 +619,25 @@ router.get('/tours/:id/pay/:invoiceId', async (req, res) => {
   }
 });
 
+router.get('/tours/:id/matterport-model', async (req, res) => {
+  try {
+    const email = req.session.portalCustomerEmail;
+    const { id } = req.params;
+    const raw = await assertTourAccess(id, email);
+    if (!raw) return res.status(403).json({ error: 'Nicht erlaubt' });
+    const tourNorm = normalizeTourRow(raw);
+    const spaceId = tourNorm.canonical_matterport_space_id;
+    if (!spaceId) return res.status(404).json({ error: 'Kein Matterport-Space verknüpft' });
+    const { getModel: mpGet } = require('../lib/matterport');
+    const { model } = await mpGet(spaceId).catch(() => ({ model: null }));
+    if (!model) return res.status(502).json({ error: 'Matterport-Modell konnte nicht geladen werden' });
+    return res.json({ ok: true, model });
+  } catch (err) {
+    console.error('[portal-api-mutations] /tours/:id/matterport-model error:', err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 router.post('/tours/:id/visibility', async (req, res) => {
   try {
     const email = req.session.portalCustomerEmail;
