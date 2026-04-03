@@ -1,37 +1,32 @@
 ---
-description: Kunden-Portal spiegelt Admin-Tour-Panel
+description: Kunden-Portal spiegelt Admin-Tour-Panel (Design & Funktionen)
 alwaysApply: true
 ---
 
 # Portal Tour-Detail spiegelt Admin Tour-Detail
 
-Alles was in der Admin-Tour-Detailansicht geändert, hinzugefügt oder angepasst wird, muss **identisch auch im Kunden-Portal** umgesetzt werden.
+Jede **Design- oder Funktionsänderung** am Admin-Tour-Panel muss **identisch auch im Kunden-Portal** umgesetzt werden. API-Endpunkte und DB-Schema sind separat und nicht betroffen.
 
-## Betroffene Dateien
+## Was synchron gehalten werden muss
 
-| Was | Admin | Portal |
-|-----|-------|--------|
-| Seiten-Komponente | `app/src/pages-legacy/tours/admin/TourDetailPage.tsx` | `app/src/pages-legacy/portal/PortalTourDetailPage.tsx` |
-| Stammdaten-Panel | `TourActionsPanel.tsx` | Inline in `PortalTourDetailPage` |
-| Matterport-Sektion | `TourMatterportSection.tsx` | Inline in `PortalTourDetailPage` |
-| Sichtbarkeit | `MatterportVisibilityPanel.tsx` | `PortalVisibilityPanel` (inline) |
-| Rechnungen | `TourInvoicesSection.tsx` | Inline in `PortalTourDetailPage` |
-| Backend API | `tours/routes/admin-api.js` | `tours/routes/portal-api-mutations.js` |
-| API-Client | `app/src/api/toursAdmin.ts` | `app/src/api/portalTours.ts` |
+- Layout-Änderungen (Abstände, Grid, Karten-Struktur)
+- Neue oder geänderte Felder, Labels, Beschreibungstexte
+- Neue Buttons, Aktionen, Modals
+- Styling-Anpassungen (Farben, Badges, Tabellen, Formulare)
+- Neue Sektionen oder Untersektionen
 
-## Sektionen die es im Portal NICHT gibt
+## Betroffene Frontend-Dateien
 
-Diese Admin-Sektionen werden im Portal weggelassen:
+| Admin | Portal |
+|-------|--------|
+| `app/src/pages-legacy/tours/admin/TourDetailPage.tsx` | `app/src/pages-legacy/portal/PortalTourDetailPage.tsx` |
+| `TourActionsPanel.tsx` | Inline in `PortalTourDetailPage` |
+| `TourMatterportSection.tsx` | Inline in `PortalTourDetailPage` |
+| `MatterportVisibilityPanel.tsx` | `PortalVisibilityPanel` (inline) |
+| `TourInvoicesSection.tsx` | Inline in `PortalTourDetailPage` |
 
-- **Intern** (`TourInternSection`) — nur intern
-- **Aktionsprotokoll** (`TourActionLog`) — nur admin
-- **Admin-Aktionen**: Tour löschen, Space übertragen, Ticket erstellen, Matterport-Options-Overrides (Toggle-Einstellungen)
+## Sektionen die im Portal NICHT existieren (weglassen)
 
-## Regel
-
-Wenn du eine der Admin-Dateien oben änderst:
-1. Prüfe ob die Änderung inhaltlich auch ins Portal gehört
-2. Falls ja → Portal-Pendant ebenfalls anpassen
-3. Falls die Sektion im Portal nicht existiert → überspringen
-
-Neue Backend-Endpunkte die der Admin für Tour-Daten nutzt, brauchen in der Regel ein Portal-Äquivalent in `portal-api-mutations.js`.
+- **Intern** (`TourInternSection`)
+- **Aktionsprotokoll** (`TourActionLog`)
+- Admin-only Aktionen: Tour löschen, Space übertragen, Ticket erstellen, Matterport-Options-Overrides

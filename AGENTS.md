@@ -97,23 +97,23 @@ WHERE LOWER(c.email) = LOWER(t.customer_email)
 | UI | `app/src/components/customers/CustomerViewModal.tsx` |
 | API-Client | `app/src/api/customers.ts` → `updateCustomerEmailAliases()` |
 
-## Portal spiegelt Admin-Tour-Panel
+## Portal spiegelt Admin-Tour-Panel (Design & Funktionen)
 
-Alles was in der Admin-Tour-Detailansicht geändert oder hinzugefügt wird, muss **identisch auch im Kunden-Portal** umgesetzt werden.
+Jede **Design- oder Funktionsänderung** am Admin-Tour-Panel muss **identisch auch im Kunden-Portal** umgesetzt werden. API-Endpunkte und DB-Schema sind separat.
 
-| Was | Admin | Portal |
-|-----|-------|--------|
-| Seiten-Komponente | `app/src/pages-legacy/tours/admin/TourDetailPage.tsx` | `app/src/pages-legacy/portal/PortalTourDetailPage.tsx` |
-| Stammdaten-Panel | `TourActionsPanel.tsx` | Inline in `PortalTourDetailPage` |
-| Matterport-Sektion | `TourMatterportSection.tsx` | Inline in `PortalTourDetailPage` |
-| Rechnungen | `TourInvoicesSection.tsx` | Inline in `PortalTourDetailPage` |
-| Backend API | `tours/routes/admin-api.js` | `tours/routes/portal-api-mutations.js` |
+| Admin | Portal |
+|-------|--------|
+| `TourDetailPage.tsx` | `PortalTourDetailPage.tsx` |
+| `TourActionsPanel.tsx` | Inline in `PortalTourDetailPage` |
+| `TourMatterportSection.tsx` | Inline in `PortalTourDetailPage` |
+| `MatterportVisibilityPanel.tsx` | `PortalVisibilityPanel` (inline) |
+| `TourInvoicesSection.tsx` | Inline in `PortalTourDetailPage` |
 
 ### Sektionen die im Portal NICHT existieren (weglassen)
 
 - **Intern** (`TourInternSection`)
 - **Aktionsprotokoll** (`TourActionLog`)
-- Admin-Aktionen: Tour löschen, Space übertragen, Ticket, Matterport-Options-Overrides
+- Admin-only Aktionen: Tour löschen, Space übertragen, Ticket, Matterport-Options-Overrides
 
 ## Technologie-Stack
 
