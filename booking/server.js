@@ -10995,6 +10995,8 @@ app.put("/api/admin/photographers/:key/settings", requireAdmin, async (req, res)
       try { await rbac.syncPhotographerRolesFromDb(key); } catch (_e) {}
 
       // Logto-Rollen synchronisieren
+      // Wichtig: super_admin wird NUR über Interne Verwaltung vergeben/entfernt,
+      // nie automatisch durch den Mitarbeiter-is_admin-Flag überschrieben.
       const logtoClient = require('./logto-client');
       if (logtoClient.isConfigured()) {
         try {
@@ -11003,10 +11005,16 @@ app.put("/api/admin/photographers/:key/settings", requireAdmin, async (req, res)
           if (email) {
             const logtoUser = await logtoClient.findUserByEmail(email);
             if (logtoUser) {
+              const currentRoles = await logtoClient.getUserRoles(logtoUser.id);
+              const isSuperAdmin = currentRoles.includes('super_admin');
               if (isAdmin) {
-                await logtoClient.assignRolesToUser(logtoUser.id, ['admin']);
+                // super_admin-Benutzer brauchen keine zusätzliche admin-Rolle
+                if (!isSuperAdmin) {
+                  await logtoClient.assignRolesToUser(logtoUser.id, ['admin']);
+                }
               } else {
-                await logtoClient.removeRolesFromUser(logtoUser.id, ['admin', 'super_admin']);
+                // Nur 'admin' entfernen — 'super_admin' bleibt unberührt (nur über Interne Verwaltung)
+                await logtoClient.removeRolesFromUser(logtoUser.id, ['admin']);
               }
             }
           }
