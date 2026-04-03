@@ -43,6 +43,87 @@ const profileUpload = multer({
   },
 });
 
+// ─── Öffentliche Endpunkte (kein Session-Guard) ─────────────────────────────
+
+router.post('/login', async (req, res) => {
+  try {
+    if (req.session?.portalCustomerEmail) return res.json({ ok: true });
+    const email = portalAuth.normalizeEmail(req.body?.email);
+    const password = String(req.body?.password || '');
+    const rememberMe = req.body?.rememberMe;
+
+    const matchedEmail = await portalAuth.verifyDbPortalPassword(email, password).catch(() => null);
+    if (!matchedEmail) return res.status(401).json({ ok: false, error: 'E-Mail oder Passwort falsch.' });
+
+    const portalUser = await portalAuth.getPortalUser(matchedEmail).catch(() => null);
+    const keepSignedIn = rememberMe === true || rememberMe === 'true' || rememberMe === '1' || rememberMe === 'on';
+
+    req.session.regenerate(async (regenErr) => {
+      if (regenErr) return res.status(500).json({ ok: false, error: 'Session konnte nicht erstellt werden.' });
+      if (keepSignedIn) {
+        req.session.cookie.maxAge = 30 * 24 * 60 * 60 * 1000;
+      } else {
+        req.session.cookie.expires = false;
+        req.session.cookie.maxAge = null;
+      }
+      req.session.portalCustomerEmail = matchedEmail;
+      req.session.portalCustomerName = String(portalUser?.full_name || '').trim() || matchedEmail;
+      req.session.portalCustomerGivenName = '';
+      req.session.portalCustomerFamilyName = '';
+      await portalAuth.touchPortalLastLogin(matchedEmail).catch(() => null);
+      req.session.save(() => res.json({ ok: true }));
+    });
+  } catch (err) {
+    console.error('[portal-api] login error', err);
+    res.status(500).json({ ok: false, error: 'Interner Fehler' });
+  }
+});
+
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const email = portalAuth.normalizeEmail(req.body?.email);
+    if (!email) return res.status(400).json({ ok: false, error: 'E-Mail ist erforderlich.' });
+    await portalAuth.issuePasswordReset(email).catch(() => null);
+    return res.json({ ok: true, message: 'Falls ein Konto existiert, wurde eine E-Mail gesendet.' });
+  } catch (err) {
+    console.error('[portal-api] forgot-password error', err);
+    res.status(500).json({ ok: false, error: 'Interner Fehler' });
+  }
+});
+
+router.post('/reset-password', async (req, res) => {
+  try {
+    const token = String(req.body?.token || '').trim();
+    const password = String(req.body?.password || '');
+    if (!token) return res.status(400).json({ ok: false, error: 'Token fehlt.' });
+    if (password.length < 8) return res.status(400).json({ ok: false, error: 'Passwort muss mindestens 8 Zeichen lang sein.' });
+    const result = await portalAuth.consumePasswordReset(token, password).catch(() => null);
+    if (!result) return res.status(400).json({ ok: false, error: 'Token ungültig oder abgelaufen.' });
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('[portal-api] reset-password error', err);
+    res.status(500).json({ ok: false, error: 'Interner Fehler' });
+  }
+});
+
+router.get('/check-reset-token', async (req, res) => {
+  try {
+    const token = String(req.query?.token || '').trim();
+    if (!token) return res.json({ ok: true, valid: false });
+    const row = await portalAuth.getResetTokenRow(token).catch(() => null);
+    return res.json({ ok: true, valid: !!row, email: row?.email || null });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: 'Interner Fehler' });
+  }
+});
+
+router.post('/logout', (req, res) => {
+  req.session.destroy(() => {
+    res.clearCookie('propus_tours.sid');
+    res.json({ ok: true });
+  });
+});
+
 // ─── Auth-Guard ──────────────────────────────────────────────────────────────
 
 function requirePortalSession(req, res, next) {

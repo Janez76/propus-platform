@@ -62,6 +62,40 @@ async function portalFetch<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+export async function portalLogin(email: string, password: string, rememberMe: boolean) {
+  const res = await fetch(`${BASE}/login`, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password, rememberMe }),
+  });
+  const body = await res.json() as { ok: boolean; error?: string };
+  if (!res.ok || !body.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
+  return body;
+}
+
+export async function portalLogout() {
+  await fetch(`${BASE}/logout`, { method: "POST", credentials: "same-origin" });
+}
+
+export async function portalForgotPassword(email: string) {
+  return portalFetch<{ ok: true; message: string }>("/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function portalResetPassword(token: string, password: string) {
+  return portalFetch<{ ok: true }>("/reset-password", {
+    method: "POST",
+    body: JSON.stringify({ token, password }),
+  });
+}
+
+export async function portalCheckResetToken(token: string) {
+  return portalFetch<{ ok: true; valid: boolean; email: string | null }>(`/check-reset-token?token=${encodeURIComponent(token)}`);
+}
+
 export const getPortalMe = () =>
   portalFetch<{ ok: true } & PortalMe>("/me");
 

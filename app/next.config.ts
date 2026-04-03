@@ -25,6 +25,10 @@ const nextConfig: NextConfig = {
           source: "/auth/:path*",
           destination: `${PLATFORM_INTERNAL_URL}/auth/:path*`,
         },
+        {
+          source: "/portal/api/:path*",
+          destination: `${PLATFORM_INTERNAL_URL}/tour-manager/portal/api/:path*`,
+        },
       ],
       afterFiles: [],
       fallback: [],
