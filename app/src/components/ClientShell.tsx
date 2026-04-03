@@ -120,6 +120,22 @@ function PrivateRoutes() {
     );
   }
 
+  // Embed-Modus: kein AppShell (Header/Sidebar/Footer), nur Content
+  const embedPaths = ["/embed/tours/link-matterport"];
+  const currentPath = window.location.pathname;
+  if (embedPaths.some((p) => currentPath.startsWith(p))) {
+    return (
+      <div className="min-h-screen p-4" style={{ background: "var(--bg-classic)" }}>
+        <Suspense fallback={<div className="flex justify-center py-12"><div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--accent)]/25 border-t-[var(--accent)]" /></div>}>
+          <Routes>
+            <Route path="/embed/tours/link-matterport" element={guardedElement(toursAdminRoles, <ToursAdminLinkMatterportPage />)} />
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </Suspense>
+      </div>
+    );
+  }
+
   return (
     <AppShell>
       <Routes>

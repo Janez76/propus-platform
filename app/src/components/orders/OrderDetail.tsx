@@ -1369,7 +1369,7 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
               </button>
             </div>
             <iframe
-              src={`/admin/link-matterport?bookingOrderNo=${encodeURIComponent(orderNo)}`}
+              src={`/embed/tours/link-matterport?bookingOrderNo=${encodeURIComponent(orderNo)}`}
               className="flex-1 w-full border-0"
               style={{ minHeight: "70vh" }}
               title="Matterport verknüpfen"
