@@ -877,7 +877,7 @@ export function ToursAdminLinkMatterportPage() {
             disabled={!!busy}
             className="rounded bg-[var(--accent)] px-4 py-1.5 text-xs font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50"
           >
-            {busy === "link" ? "…" : "Tour anlegen"}
+            {busy === "link" ? "…" : "Tour verknüpfen"}
           </button>
           <button
             type="button"
