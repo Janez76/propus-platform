@@ -352,6 +352,35 @@ async function patchModelName(spaceId, name) {
 }
 
 /**
+ * Interne ID eines Models setzen (erscheint unter "Interne Informationen" in Matterport).
+ * GraphQL: patchModel(id, patch: { internalId }).
+ */
+async function patchModelInternalId(spaceId, internalId) {
+  if (!(await getAuthHeader())) return { success: false, error: 'Kein Matterport-Token' };
+  const value = internalId != null ? String(internalId).trim() : '';
+  if (!spaceId) return { success: false, error: 'Modell-ID fehlt' };
+
+  const mutation = `
+    mutation($id: ID!, $patch: ModelPatch!) {
+      patchModel(id: $id, patch: $patch) {
+        id
+        internalId
+      }
+    }`;
+
+  try {
+    const { data, errors } = await graphRequest(mutation, { id: spaceId, patch: { internalId: value } });
+    if (data?.patchModel?.id) {
+      return { success: true, internalId: data.patchModel.internalId };
+    }
+    const errMsg = errors?.[0]?.message || 'Unknown error';
+    return { success: false, error: errMsg };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+/**
  * Anzeige-Titel für Portal/DB: manuelle Bezeichnung, sonst Matterport-Adresse, sonst Modellname.
  */
 function deriveTourDisplayLabelFromModel(model, formBezeichnung) {
@@ -372,6 +401,7 @@ module.exports = {
   allowsLinkWithoutVerify,
   setVisibility,
   patchModelName,
+  patchModelInternalId,
   deriveTourDisplayLabelFromModel,
   invalidateMatterportCredentialsCache,
 };

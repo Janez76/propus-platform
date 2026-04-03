@@ -643,6 +643,14 @@ async function postLinkMatterport(body) {
     }
   }
 
+  if (Number.isFinite(bookingOrderNo) && bookingOrderNo > 0 && mpId) {
+    try {
+      await matterport.patchModelInternalId(mpId, `#${bookingOrderNo}`);
+    } catch (e) {
+      console.warn('[admin-phase3] patchModelInternalId:', e.message);
+    }
+  }
+
   return { ok: true };
 }
 
