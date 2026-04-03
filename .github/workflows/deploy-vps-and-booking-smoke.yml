@@ -207,6 +207,66 @@ jobs:
             echo "==> Deploy complete"
           ENDSSH
 
+      - name: Container status check
+        run: |
+          ssh -i ~/.ssh/id_ed25519_propus_vps root@${{ secrets.VPS_HOST }} bash << 'ENDSSH'
+            set -e
+            PROJECT_ROOT=/opt/propus-platform
+            cd "$PROJECT_ROOT"
+
+            echo "==> docker compose ps"
+            docker compose -f docker-compose.vps.yml --env-file .env.vps ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
+
+            echo ""
+            echo "==> Container-Status-Pruefung"
+            FAILED=0
+
+            check_container() {
+              local name="$1"
+              local status
+              status=$(docker inspect --format='{{.State.Status}}' "$name" 2>/dev/null || echo "missing")
+              if [ "$status" = "running" ]; then
+                echo "  OK       $name ($status)"
+              else
+                echo "  FEHLER   $name ($status)"
+                FAILED=$((FAILED + 1))
+              fi
+            }
+
+            # Alle erwarteten Container pruefen
+            for ctn in \
+              propus-platform-postgres-1 \
+              propus-platform-logto-db-1 \
+              propus-platform-logto-1 \
+              propus-platform-platform-1 \
+              propus-platform-website-1; do
+              check_container "$ctn"
+            done
+
+            if [ "$FAILED" -gt 0 ]; then
+              echo ""
+              echo "FEHLER: $FAILED Container laufen nicht!"
+              echo ""
+              echo "==> Letzte Logs der fehlerhaften Container:"
+              for ctn in \
+                propus-platform-postgres-1 \
+                propus-platform-logto-db-1 \
+                propus-platform-logto-1 \
+                propus-platform-platform-1 \
+                propus-platform-website-1; do
+                status=$(docker inspect --format='{{.State.Status}}' "$ctn" 2>/dev/null || echo "missing")
+                if [ "$status" != "running" ]; then
+                  echo "--- Logs: $ctn ---"
+                  docker logs --tail 50 "$ctn" 2>&1 || true
+                fi
+              done
+              exit 1
+            fi
+
+            echo ""
+            echo "Alle Container laufen korrekt."
+          ENDSSH
+
       - name: Purge Cloudflare cache
         if: success()
         env:
