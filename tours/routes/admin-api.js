@@ -5,6 +5,8 @@
 
 const express = require('express');
 const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const { pool } = require('../lib/db');
 const phase3 = require('../lib/admin-phase3');
 const matterport = require('../lib/matterport');
@@ -1929,6 +1931,161 @@ router.post('/impersonate/stop', (req, res) => {
     if (err) return res.status(500).json({ ok: false, error: 'Session-Fehler' });
     res.json({ ok: true });
   });
+});
+
+// ─── Tickets ────────────────────────────────────────────────────────────────
+
+const ticketUploadDir = path.join(__dirname, '..', 'uploads', 'tickets');
+
+const ticketUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 4 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const mt = String(file.mimetype || '').toLowerCase();
+    const ok = mt.startsWith('image/jpeg') || mt.startsWith('image/png') || mt.startsWith('image/webp');
+    cb(null, ok);
+  },
+});
+
+const TICKET_CATEGORIES = [
+  'startpunkt', 'name_aendern', 'blur_request', 'sweep_verschieben', 'sonstiges',
+];
+const TICKET_STATUSES = ['open', 'in_progress', 'done', 'rejected'];
+
+// Attachment ausliefern
+router.get('/tickets/attachment/:filename', (req, res) => {
+  const filename = path.basename(String(req.params.filename || ''));
+  if (!filename || filename.includes('..')) return res.status(400).end();
+  const filePath = path.join(ticketUploadDir, filename);
+  if (!fs.existsSync(filePath)) return res.status(404).end();
+  res.sendFile(filePath);
+});
+
+// Upload Screenshot
+router.post('/tickets/upload', ticketUpload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ ok: false, error: 'Keine Datei' });
+    if (!fs.existsSync(ticketUploadDir)) fs.mkdirSync(ticketUploadDir, { recursive: true });
+    const ext = req.file.mimetype.includes('png') ? '.png' : req.file.mimetype.includes('webp') ? '.webp' : '.jpg';
+    const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
+    const dest = path.join(ticketUploadDir, filename);
+    fs.writeFileSync(dest, req.file.buffer);
+    return res.json({ ok: true, path: `tickets/${filename}`, filename });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Ticket erstellen
+router.post('/tickets', async (req, res) => {
+  try {
+    const {
+      module: mod = 'tours',
+      reference_id,
+      reference_type = 'tour',
+      category = 'sonstiges',
+      subject,
+      description,
+      link_url,
+      attachment_path,
+      priority = 'normal',
+    } = req.body || {};
+    if (!subject || !String(subject).trim()) {
+      return res.status(400).json({ ok: false, error: 'Betreff fehlt' });
+    }
+    if (!TICKET_CATEGORIES.includes(category)) {
+      return res.status(400).json({ ok: false, error: `Ungültige Kategorie: ${category}` });
+    }
+    const creator = adminEmail(req);
+    const result = await pool.query(
+      `INSERT INTO tour_manager.tickets
+        (module, reference_id, reference_type, category, subject, description, link_url, attachment_path, priority, created_by, created_by_role)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'admin')
+       RETURNING *`,
+      [mod, reference_id ?? null, reference_type, category, String(subject).trim(), description ?? null, link_url ?? null, attachment_path ?? null, priority, creator]
+    );
+    return res.json({ ok: true, ticket: result.rows[0] });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Tickets auflisten
+router.get('/tickets', async (req, res) => {
+  try {
+    const { status, module: mod, reference_id, reference_type } = req.query;
+    const conditions = [];
+    const params = [];
+    let i = 1;
+    if (status && TICKET_STATUSES.includes(status)) { conditions.push(`tk.status = $${i++}`); params.push(status); }
+    if (mod) { conditions.push(`tk.module = $${i++}`); params.push(mod); }
+    if (reference_id) { conditions.push(`tk.reference_id = $${i++}`); params.push(String(reference_id)); }
+    if (reference_type) { conditions.push(`tk.reference_type = $${i++}`); params.push(reference_type); }
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    const result = await pool.query(
+      `SELECT tk.*,
+              t.object_label   AS tour_label,
+              t.bezeichnung    AS tour_bezeichnung,
+              t.matterport_space_id AS tour_space_id
+       FROM tour_manager.tickets tk
+       LEFT JOIN tour_manager.tours t
+         ON tk.reference_type = 'tour' AND tk.reference_id = t.id::TEXT
+       ${where}
+       ORDER BY tk.created_at DESC
+       LIMIT 500`,
+      params
+    );
+    return res.json({ ok: true, tickets: result.rows });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Einzelnes Ticket
+router.get('/tickets/:id', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT tk.*,
+              t.object_label   AS tour_label,
+              t.bezeichnung    AS tour_bezeichnung,
+              t.matterport_space_id AS tour_space_id
+       FROM tour_manager.tickets tk
+       LEFT JOIN tour_manager.tours t
+         ON tk.reference_type = 'tour' AND tk.reference_id = t.id::TEXT
+       WHERE tk.id = $1`,
+      [req.params.id]
+    );
+    if (!result.rows[0]) return res.status(404).json({ ok: false, error: 'Nicht gefunden' });
+    return res.json({ ok: true, ticket: result.rows[0] });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Status / Zuweisung updaten
+router.patch('/tickets/:id', async (req, res) => {
+  try {
+    const { status, assigned_to } = req.body || {};
+    if (status && !TICKET_STATUSES.includes(status)) {
+      return res.status(400).json({ ok: false, error: `Ungültiger Status: ${status}` });
+    }
+    const setClauses = [];
+    const params = [];
+    let i = 1;
+    if (status) { setClauses.push(`status = $${i++}`); params.push(status); }
+    if (assigned_to !== undefined) { setClauses.push(`assigned_to = $${i++}`); params.push(assigned_to || null); }
+    setClauses.push(`updated_at = NOW()`);
+    if (!setClauses.length) return res.status(400).json({ ok: false, error: 'Keine Felder' });
+    params.push(req.params.id);
+    const result = await pool.query(
+      `UPDATE tour_manager.tickets SET ${setClauses.join(', ')} WHERE id = $${i} RETURNING *`,
+      params
+    );
+    if (!result.rows[0]) return res.status(404).json({ ok: false, error: 'Nicht gefunden' });
+    return res.json({ ok: true, ticket: result.rows[0] });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
 });
 
 module.exports = router;

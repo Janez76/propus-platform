@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { ExternalLink, Link2, ArchiveRestore, Trash2, Send, RefreshCw, X } from "lucide-react";
+import { ExternalLink, Link2, ArchiveRestore, Trash2, Send, RefreshCw, X, SlidersHorizontal } from "lucide-react";
 import { toursAdminPost, deleteToursAdminTour, postUnarchiveMatterportTour, postTransferMatterportSpace, getToursAdminMatterportModel, postToursAdminMatterportOptions } from "../../../../api/toursAdmin";
 import type { MatterportModelMeta, MatterportModelOptions, MatterportSettingOverride, MatterportOptionsPatch } from "../../../../api/toursAdmin";
 import type { ToursAdminTourRow } from "../../../../types/toursAdmin";
+import { TicketCreateDialog } from "./TicketCreateDialog";
 
 type Props = {
   tourId: string;
@@ -327,6 +328,9 @@ export function TourMatterportSection({ tourId, tour, onSuccess, onOpenBookingLi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spaceId]);
 
+  // Ticket-Dialog
+  const [ticketOpen, setTicketOpen] = useState(false);
+
   // Reaktivierungs-Dialog
   const [reactivateOpen, setReactivateOpen] = useState(false);
 
@@ -511,6 +515,14 @@ export function TourMatterportSection({ tourId, tour, onSuccess, onOpenBookingLi
           ) : null}
           <button
             type="button"
+            onClick={() => setTicketOpen(true)}
+            className="inline-flex items-center gap-1 rounded-lg border border-[var(--accent)]/40 bg-[var(--accent)]/10 px-3 py-2 text-sm font-medium text-[var(--accent)]"
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            Tour anpassen
+          </button>
+          <button
+            type="button"
             disabled={busy}
             onClick={() => { setDeleteConfirmText(""); setDeleteOpen(true); }}
             className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300 disabled:opacity-50"
@@ -520,6 +532,14 @@ export function TourMatterportSection({ tourId, tour, onSuccess, onOpenBookingLi
           </button>
         </div>
       </div>
+
+      {ticketOpen ? (
+        <TicketCreateDialog
+          tourId={tourId}
+          tourLabel={String(tour.canonical_object_label ?? tour.bezeichnung ?? `Tour #${tourId}`)}
+          onClose={() => setTicketOpen(false)}
+        />
+      ) : null}
 
       {/* Löschen-Bestätigung */}
       {deleteOpen ? (() => {

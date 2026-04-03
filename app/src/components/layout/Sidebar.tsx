@@ -33,6 +33,7 @@ import {
   Zap,
   MessageSquare,
   Eye,
+  Inbox,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -237,6 +238,10 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                           <Eye className="h-4 w-4 flex-shrink-0" />
                           {t(lang, "nav.tours.portalPreview")}
                         </NavLink>
+                        <NavLink to="/admin/tickets" onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <Inbox className="h-4 w-4 flex-shrink-0" />
+                          Tickets
+                        </NavLink>
                       </div>
                     )}
                   </div>
@@ -402,6 +407,10 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                         <NavLink to="/admin/tours/portal-vorschau" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
                           <Eye className="h-4 w-4 flex-shrink-0" />
                           {t(lang, "nav.tours.portalPreview")}
+                        </NavLink>
+                        <NavLink to="/admin/tickets" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <Inbox className="h-4 w-4 flex-shrink-0" />
+                          Tickets
                         </NavLink>
                       </div>
                     )}

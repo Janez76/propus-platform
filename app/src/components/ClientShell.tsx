@@ -71,6 +71,7 @@ const ToursAdminAutomationsPage = lazy(() => import("../pages-legacy/tours/admin
 const ToursAdminTeamPage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminTeamPage").then((m) => ({ default: m.ToursAdminTeamPage })));
 const ToursAdminAiChatPage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminAiChatPage").then((m) => ({ default: m.ToursAdminAiChatPage })));
 const PortalPreviewPage = lazy(() => import("../pages-legacy/tours/admin/PortalPreviewPage").then((m) => ({ default: m.PortalPreviewPage })));
+const AdminTicketsPage = lazy(() => import("../pages-legacy/tours/admin/AdminTicketsPage").then((m) => ({ default: m.AdminTicketsPage })));
 
 // Portal pages
 const PortalLoginPage = lazy(() => import("../pages-legacy/portal/PortalLoginPage").then((m) => ({ default: m.PortalLoginPage })));
@@ -217,6 +218,7 @@ function PrivateRoutes() {
         <Route path="/admin/tours/team" element={guardedElement(toursAdminRoles, <ToursAdminTeamPage />)} />
         <Route path="/admin/tours/ai-chat" element={guardedElement(toursAdminRoles, <ToursAdminAiChatPage />)} />
         <Route path="/admin/tours/portal-vorschau" element={guardedElement(toursAdminRoles, <PortalPreviewPage />)} />
+        <Route path="/admin/tickets" element={guardedElement(toursAdminRoles, <AdminTicketsPage />)} />
         <Route path="/admin/tours/:id" element={guardedElement(toursAdminRoles, <TourDetailPage />)} />
         <Route path="/admin/tours" element={guardedElement(toursAdminRoles, <ToursAdminDashboardPage />)} />
       </Routes>

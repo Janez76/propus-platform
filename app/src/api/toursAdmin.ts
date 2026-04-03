@@ -425,3 +425,94 @@ export function postToursAdminAiChat(body: {
 }) {
   return toursAdminPost("/ai-chat", body as Record<string, unknown>);
 }
+
+// ─── Tickets ──────────────────────────────────────────────────────────────────
+
+export type TicketCategory =
+  | "startpunkt"
+  | "name_aendern"
+  | "blur_request"
+  | "sweep_verschieben"
+  | "sonstiges";
+
+export type TicketStatus = "open" | "in_progress" | "done" | "rejected";
+
+export interface TicketRow {
+  id: number;
+  module: string;
+  reference_id: string | null;
+  reference_type: string | null;
+  category: TicketCategory;
+  subject: string;
+  description: string | null;
+  link_url: string | null;
+  attachment_path: string | null;
+  status: TicketStatus;
+  priority: string;
+  created_by: string | null;
+  created_by_role: string | null;
+  assigned_to: string | null;
+  created_at: string;
+  updated_at: string;
+  // JOIN fields
+  tour_label?: string | null;
+  tour_bezeichnung?: string | null;
+  tour_space_id?: string | null;
+}
+
+export interface TicketCreatePayload {
+  module?: string;
+  reference_id?: string | null;
+  reference_type?: string;
+  category: TicketCategory;
+  subject: string;
+  description?: string;
+  link_url?: string;
+  attachment_path?: string;
+  priority?: string;
+}
+
+export function postCreateTicket(payload: TicketCreatePayload) {
+  return toursAdminPost("/tickets", payload as Record<string, unknown>) as Promise<{ ok: true; ticket: TicketRow }>;
+}
+
+export function getTicketsList(filters?: {
+  status?: TicketStatus;
+  module?: string;
+  reference_id?: string;
+  reference_type?: string;
+}) {
+  const params = new URLSearchParams();
+  if (filters?.status) params.set("status", filters.status);
+  if (filters?.module) params.set("module", filters.module);
+  if (filters?.reference_id) params.set("reference_id", filters.reference_id);
+  if (filters?.reference_type) params.set("reference_type", filters.reference_type);
+  const qs = params.toString();
+  return toursAdminFetch<{ ok: true; tickets: TicketRow[] }>(`/tickets${qs ? `?${qs}` : ""}`);
+}
+
+export function getTicketDetail(id: number | string) {
+  return toursAdminFetch<{ ok: true; ticket: TicketRow }>(`/tickets/${id}`);
+}
+
+export function patchTicketStatus(id: number | string, status: TicketStatus, assigned_to?: string) {
+  return toursAdminFetch<{ ok: true; ticket: TicketRow }>(`/tickets/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status, ...(assigned_to !== undefined ? { assigned_to } : {}) }),
+  });
+}
+
+export async function postTicketUpload(file: File): Promise<{ ok: true; path: string; filename: string }> {
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await fetch(`${BASE}/tickets/upload`, {
+    method: "POST",
+    credentials: "include",
+    body: fd,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error((body as { error?: string }).error ?? `HTTP ${res.status}`);
+  }
+  return res.json();
+}
