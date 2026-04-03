@@ -110,6 +110,9 @@ export function TourDetailPage() {
           <section className="surface-card-strong p-5 space-y-3">
             <h2 className="text-lg font-semibold text-[var(--text-main)]">Intern</h2>
             <TourInternSection
+              tourId={okId}
+              customerVerified={Boolean(data.tour.customer_verified)}
+              onVerifiedSaved={refetchDetail}
               matterportShowUrl={matterportShowUrl(data.tour)}
               linkedCustomerLabel={internLinkedCustomerLabel(data.tour)}
               bookingOrderNo={data.tour.booking_order_no as number | null}

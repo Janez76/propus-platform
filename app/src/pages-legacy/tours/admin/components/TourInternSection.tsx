@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import { ExternalLink } from "lucide-react";
+import { toursAdminPost } from "../../../../api/toursAdmin";
 
 const MP_OPEN_BTN =
   "inline-flex items-center justify-center gap-1.5 rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm font-medium text-[var(--text-main)] shadow-sm " +
@@ -7,6 +9,10 @@ const MP_OPEN_BTN =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35";
 
 type Props = {
+  tourId: string;
+  customerVerified: boolean;
+  /** Nach erfolgreichem Speichern der Verifizierung (z. B. Tour neu laden) */
+  onVerifiedSaved: () => void;
   /** my.matterport.com/show/?m=… wenn Space-ID bekannt */
   matterportShowUrl?: string | null;
   /** Verknüpfter Kunde (canonical, customer_name oder kunde_ref) */
@@ -18,7 +24,39 @@ type Props = {
 /**
  * Bestellungs-Verknüpfung und Kurzaktion (z. B. Kunde/Bestellung anpassen).
  */
-export function TourInternSection({ matterportShowUrl, linkedCustomerLabel, bookingOrderNo, onOpenBookingLink }: Props) {
+export function TourInternSection({
+  tourId,
+  customerVerified,
+  onVerifiedSaved,
+  matterportShowUrl,
+  linkedCustomerLabel,
+  bookingOrderNo,
+  onOpenBookingLink,
+}: Props) {
+  const [verified, setVerified] = useState(customerVerified);
+  const [verBusy, setVerBusy] = useState(false);
+  const [verErr, setVerErr] = useState<string | null>(null);
+  const [verOk, setVerOk] = useState<string | null>(null);
+
+  useEffect(() => {
+    setVerified(customerVerified);
+  }, [customerVerified]);
+
+  async function saveVerified() {
+    setVerBusy(true);
+    setVerErr(null);
+    setVerOk(null);
+    try {
+      await toursAdminPost(`/tours/${tourId}/set-verified`, { verified });
+      setVerOk("Gespeichert.");
+      onVerifiedSaved();
+    } catch (e) {
+      setVerErr(e instanceof Error ? e.message : "Fehler");
+    } finally {
+      setVerBusy(false);
+    }
+  }
+
   const customerOk = Boolean(linkedCustomerLabel?.trim());
   const orderOk = bookingOrderNo != null;
   const summaryDashed = !customerOk && !orderOk;
@@ -93,6 +131,35 @@ export function TourInternSection({ matterportShowUrl, linkedCustomerLabel, book
             </button>
           ) : null}
         </div>
+      </div>
+
+      <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-3 space-y-2">
+        <div className="text-xs font-semibold uppercase tracking-wide text-[var(--text-subtle)]">
+          Kundenverifizierung
+        </div>
+        <label className="flex items-center gap-2 text-sm text-[var(--text-main)]">
+          <input
+            type="checkbox"
+            checked={verified}
+            onChange={(e) => setVerified(e.target.checked)}
+            disabled={verBusy}
+          />
+          Kunde verifiziert
+        </label>
+        <p className="text-xs text-[var(--text-subtle)] leading-relaxed">
+          Internes Kennzeichen, z. B. wenn Identität oder Auftrag schriftlich bestätigt wurde — steuert keine
+          Matterport-Funktion, hilft im Team bei der Einordnung der Tour.
+        </p>
+        {verOk ? <p className="text-sm text-emerald-700 dark:text-emerald-400">{verOk}</p> : null}
+        {verErr ? <p className="text-sm text-red-600 dark:text-red-400">{verErr}</p> : null}
+        <button
+          type="button"
+          disabled={verBusy}
+          onClick={() => void saveVerified()}
+          className="rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-sm font-medium text-[var(--text-main)] disabled:opacity-50"
+        >
+          {verBusy ? "…" : "Verifizierung speichern"}
+        </button>
       </div>
     </div>
   );

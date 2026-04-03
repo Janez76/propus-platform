@@ -15,7 +15,6 @@ export function TourActionsPanel({ tourId, tour, onSuccess, onOpenCustomerLink }
     String(tour.canonical_object_label ?? tour.object_label ?? tour.bezeichnung ?? "")
   );
   const [syncMp, setSyncMp] = useState(false);
-  const [verified, setVerified] = useState(Boolean(tour.customer_verified));
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -23,7 +22,6 @@ export function TourActionsPanel({ tourId, tour, onSuccess, onOpenCustomerLink }
   useEffect(() => {
     setTourUrl(String(tour.tour_url ?? ""));
     setName(String(tour.canonical_object_label ?? tour.object_label ?? tour.bezeichnung ?? ""));
-    setVerified(Boolean(tour.customer_verified));
   }, [tour]);
 
   async function run(label: string, fn: () => Promise<unknown>) {
@@ -115,29 +113,6 @@ export function TourActionsPanel({ tourId, tour, onSuccess, onOpenCustomerLink }
             className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
           >
             {busy === "name" ? "…" : "Name speichern"}
-          </button>
-        </div>
-
-        <div className="space-y-2">
-          <label className="flex items-center gap-2 text-sm text-[var(--text-main)]">
-            <input
-              type="checkbox"
-              checked={verified}
-              onChange={(e) => setVerified(e.target.checked)}
-            />
-            Kunde verifiziert
-          </label>
-          <p className="text-xs text-[var(--text-subtle)] leading-relaxed">
-            Internes Kennzeichen, z. B. wenn Identität oder Auftrag schriftlich bestätigt wurde — steuert keine
-            Matterport-Funktion, hilft im Team bei der Einordnung der Tour.
-          </p>
-          <button
-            type="button"
-            disabled={!!busy}
-            onClick={() => run("ver", () => toursAdminPost(`/tours/${tourId}/set-verified`, { verified: verified }))}
-            className="rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-sm font-medium disabled:opacity-50"
-          >
-            {busy === "ver" ? "…" : "Verifizierung speichern"}
           </button>
         </div>
       </div>
