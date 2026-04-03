@@ -304,10 +304,18 @@ export function ToursAdminLinkMatterportPage() {
           setContactSearchDraft(o.contacts[0].name);
         }
       } else {
-        if (o.company) setCustomerName(o.company);
+        const fallbackName = o.company || "";
+        if (fallbackName) {
+          setCustomerName(fallbackName);
+          setCustomerSearchDraft(fallbackName);
+          selectedLabelRef.current = fallbackName;
+        }
         if (o.email) setCustomerEmail(o.email);
         const fullName = [o.contactFirstName, o.contactName].filter(Boolean).join(" ").trim();
-        if (fullName) setCustomerContact(fullName);
+        if (fullName) {
+          setCustomerContact(fullName);
+          setContactSearchDraft(fullName);
+        }
       }
     }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -421,8 +429,18 @@ export function ToursAdminLinkMatterportPage() {
         setContactSuggestions(cts);
         setContactSearchDraft("");
         setShowContactDropdown(false);
+        if (cts.length > 0) {
+          setCustomerContact(cts[0].name);
+          setContactSearchDraft(cts[0].name);
+          if (!suggested.coreEmail && cts[0].email) setCustomerEmail(cts[0].email);
+        }
       } else {
-        if (suggested.company) setCustomerName(suggested.company);
+        const fallbackName = suggested.company || "";
+        if (fallbackName) {
+          setCustomerName(fallbackName);
+          setCustomerSearchDraft(fallbackName);
+          selectedLabelRef.current = fallbackName;
+        }
         if (suggested.email) setCustomerEmail(suggested.email);
       }
     }
@@ -724,12 +742,19 @@ export function ToursAdminLinkMatterportPage() {
                               }
                             } else {
                               // Kein core.customers Eintrag – direkt aus billing befüllen
-                              if (!customerName.trim() && o.company) setCustomerName(o.company);
+                              const fallbackName = o.company || "";
+                              if (fallbackName) {
+                                setCustomerName(fallbackName);
+                                setCustomerSearchDraft(fallbackName);
+                                selectedLabelRef.current = fallbackName;
+                              }
                               if (!customerEmail.trim() && o.email) setCustomerEmail(o.email);
-                              // Kontaktname aus Vor- + Nachname zusammensetzen
                               if (!customerContact.trim()) {
                                 const fullName = [o.contactFirstName, o.contactName].filter(Boolean).join(" ").trim();
-                                if (fullName) setCustomerContact(fullName);
+                                if (fullName) {
+                                  setCustomerContact(fullName);
+                                  setContactSearchDraft(fullName);
+                                }
                               }
                             }
                           }
