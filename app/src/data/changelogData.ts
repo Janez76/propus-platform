@@ -15,6 +15,16 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.392",
+    date: "2026-04-03",
+    title: "YAML-Syntaxfehler in Notify-Schritt (Heredoc entfernt, env-Variablen)",
+    changes: [
+      { type: "fix", text: "YAML-Syntaxfehler in Notify-Schritt (Heredoc entfernt, env-Variablen)" },
+      { type: "feature", text: "Aktionsprotokoll bei Kunde verknuepfen/loesen + Dashboard 'Ohne Kundenzuordnung'" },
+      { type: "feature", text: "GitHub Issue automatisch erstellen/schliessen bei Deploy-Fehler/-Erfolg" },
+    ],
+  },
+  {
     version: "2.3.391",
     date: "2026-04-03",
     title: "Migration 063 - Duplikat-Kontakte vor Merge loeschen (uq_customer_contacts_email_per_customer)",
