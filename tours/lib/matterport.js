@@ -214,6 +214,23 @@ async function getModel(modelId) {
         roomBoundsEnabled
         roomBoundsOverride
       }
+      floors {
+        id
+        label
+      }
+      labels(includeDisabled: true) {
+        id
+        label
+        enabled
+        floor { id label }
+        position { x y z }
+      }
+      panoLocations {
+        id
+        label
+        position { x y z }
+        placement { floorIndex }
+      }
     }
   }`;
   const { data, errors } = await graphRequest(gql, { modelId });

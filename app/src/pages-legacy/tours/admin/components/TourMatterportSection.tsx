@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ExternalLink, Link2, ArchiveRestore, Trash2, Send, ChevronDown, ChevronUp, RefreshCw, X, Pencil } from "lucide-react";
 import { toursAdminPost, deleteToursAdminTour, postUnarchiveMatterportTour, postTransferMatterportSpace, getToursAdminMatterportModel } from "../../../../api/toursAdmin";
-import type { MatterportModelMeta, MatterportModelOptions } from "../../../../api/toursAdmin";
+import type { MatterportModelMeta, MatterportModelOptions, MatterportModelLabel, MatterportPanoLocation } from "../../../../api/toursAdmin";
 import type { ToursAdminTourRow } from "../../../../types/toursAdmin";
 
 type Props = {
@@ -80,6 +80,133 @@ function OptionBadge({ enabled, override }: { enabled: boolean | null; override:
     );
   }
   return <span className="text-[10px] text-[var(--text-subtle)]">—</span>;
+}
+
+function RaumstrukturPanel({
+  floors,
+  labels,
+  panoLocations,
+  editUrl,
+}: {
+  floors: MatterportModelMeta["floors"] & object[];
+  labels: MatterportModelLabel[];
+  panoLocations: MatterportPanoLocation[];
+  editUrl: string;
+}) {
+  // Sweeps pro Geschoss gruppieren
+  const sweepsByFloor = new Map<number, number>();
+  for (const p of panoLocations) {
+    const fi = p.placement?.floorIndex ?? -1;
+    sweepsByFloor.set(fi, (sweepsByFloor.get(fi) ?? 0) + 1);
+  }
+
+  // Labels pro Geschoss gruppieren
+  const labelsByFloor = new Map<string | null, MatterportModelLabel[]>();
+  for (const l of labels) {
+    const key = l.floor?.id ?? null;
+    if (!labelsByFloor.has(key)) labelsByFloor.set(key, []);
+    labelsByFloor.get(key)!.push(l);
+  }
+
+  const unassignedLabels = labelsByFloor.get(null) ?? [];
+  const unassignedSweeps = sweepsByFloor.get(-1) ?? 0;
+
+  return (
+    <div className="border-t border-[var(--border-soft)] pt-3 space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] font-semibold text-[var(--text-subtle)] uppercase tracking-wide">
+          Raumstruktur
+        </p>
+        <a
+          href={`${editUrl.replace("/space", "")}/details`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[10px] text-[var(--text-subtle)] hover:text-[var(--accent)] hover:underline"
+        >
+          In Matterport bearbeiten →
+        </a>
+      </div>
+
+      {/* Zusammenfassung */}
+      <div className="flex flex-wrap gap-2">
+        <span className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-2.5 py-1 text-xs text-[var(--text-main)]">
+          🏢 <strong>{floors.length}</strong> Geschoss{floors.length !== 1 ? "e" : ""}
+        </span>
+        <span className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-2.5 py-1 text-xs text-[var(--text-main)]">
+          🏷️ <strong>{labels.length}</strong> Raumbezeichnung{labels.length !== 1 ? "en" : ""}
+        </span>
+        <span className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-2.5 py-1 text-xs text-[var(--text-main)]">
+          📷 <strong>{panoLocations.length}</strong> 360°-Punkte
+        </span>
+      </div>
+
+      {/* Pro Geschoss */}
+      {floors.length > 0 ? (
+        <div className="space-y-2">
+          {floors.map((floor, fi) => {
+            const floorLabels = labelsByFloor.get(floor.id) ?? [];
+            const floorSweeps = sweepsByFloor.get(fi) ?? 0;
+            return (
+              <div key={floor.id} className="rounded-lg border border-[var(--border-soft)] bg-[var(--bg-card)] overflow-hidden">
+                <div className="flex items-center justify-between gap-2 px-3 py-2 bg-[var(--surface)]">
+                  <span className="text-xs font-semibold text-[var(--text-main)]">
+                    🏢 {floor.label ?? `Geschoss ${fi + 1}`}
+                  </span>
+                  <div className="flex gap-2 text-[10px] text-[var(--text-subtle)]">
+                    <span>📷 {floorSweeps} Punkte</span>
+                    <span>🏷️ {floorLabels.length} Räume</span>
+                  </div>
+                </div>
+                {floorLabels.length > 0 ? (
+                  <div className="px-3 py-2 grid gap-1">
+                    {floorLabels.map((lbl) => (
+                      <div key={lbl.id} className="flex items-center justify-between gap-2">
+                        <span className={`text-xs ${lbl.enabled ? "text-[var(--text-main)]" : "text-[var(--text-subtle)] line-through"}`}>
+                          {lbl.label}
+                        </span>
+                        {!lbl.enabled ? (
+                          <span className="text-[10px] text-[var(--text-subtle)] border border-[var(--border-soft)] rounded px-1">ausgeblendet</span>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+
+          {/* Nicht zugeordnet */}
+          {(unassignedLabels.length > 0 || unassignedSweeps > 0) ? (
+            <div className="rounded-lg border border-dashed border-[var(--border-soft)] px-3 py-2">
+              <p className="text-[10px] text-[var(--text-subtle)] mb-1">Ohne Geschoss-Zuordnung</p>
+              <div className="flex gap-3 text-[10px] text-[var(--text-subtle)]">
+                {unassignedSweeps > 0 ? <span>📷 {unassignedSweeps} Punkte</span> : null}
+                {unassignedLabels.length > 0 ? <span>🏷️ {unassignedLabels.map(l => l.label).join(", ")}</span> : null}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : labels.length > 0 ? (
+        /* Keine Floors, aber Labels */
+        <div className="rounded-lg border border-[var(--border-soft)] px-3 py-2 grid gap-1">
+          {labels.map((lbl) => (
+            <div key={lbl.id} className="flex items-center justify-between gap-2">
+              <span className={`text-xs ${lbl.enabled ? "text-[var(--text-main)]" : "text-[var(--text-subtle)] line-through"}`}>
+                {lbl.label}
+              </span>
+              {!lbl.enabled ? (
+                <span className="text-[10px] text-[var(--text-subtle)] border border-[var(--border-soft)] rounded px-1">ausgeblendet</span>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      <p className="text-[10px] text-[var(--text-subtle)]">
+        Raumbezeichnungen und 360°-Punkte sind read-only — Änderungen nur in der Matterport Workshop-UI möglich.
+      </p>
+    </div>
+  );
 }
 
 function MatterportMetaPanel({ meta, onRefresh, loading, spaceId }: { meta: MatterportModelMeta; onRefresh: () => void; loading: boolean; spaceId: string }) {
@@ -170,6 +297,16 @@ function MatterportMetaPanel({ meta, onRefresh, loading, spaceId }: { meta: Matt
           <MetaRow label="Veröffentlicht" value={meta.publication.published ? "Ja" : "Nein"} />
         ) : null}
       </dl>
+
+      {/* Raumstruktur */}
+      {((meta.floors && meta.floors.length > 0) || (meta.labels && meta.labels.length > 0) || (meta.panoLocations && meta.panoLocations.length > 0)) ? (
+        <RaumstrukturPanel
+          floors={meta.floors ?? []}
+          labels={meta.labels ?? []}
+          panoLocations={meta.panoLocations ?? []}
+          editUrl={editUrl}
+        />
+      ) : null}
 
       {/* Showcase-Einstellungen */}
       {meta.options ? (

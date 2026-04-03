@@ -207,6 +207,26 @@ export interface MatterportModelOptions {
   roomBoundsOverride: string | null;
 }
 
+export interface MatterportModelFloor {
+  id: string;
+  label: string | null;
+}
+
+export interface MatterportModelLabel {
+  id: string;
+  label: string;
+  enabled: boolean;
+  floor: { id: string; label: string | null } | null;
+  position: { x: number; y: number; z: number } | null;
+}
+
+export interface MatterportPanoLocation {
+  id: string;
+  label: string;
+  position: { x: number; y: number; z: number } | null;
+  placement: { floorIndex: number | null } | null;
+}
+
 export interface MatterportModelMeta {
   id: string;
   name: string | null;
@@ -226,6 +246,9 @@ export interface MatterportModelMeta {
     url: string | null;
   } | null;
   options: MatterportModelOptions | null;
+  floors: MatterportModelFloor[] | null;
+  labels: MatterportModelLabel[] | null;
+  panoLocations: MatterportPanoLocation[] | null;
 }
 
 export function getToursAdminMatterportModel(tourId: string) {
