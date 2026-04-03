@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { ExternalLink, Link2, ArchiveRestore, Trash2, Send, RefreshCw, X, SlidersHorizontal } from "lucide-react";
+import { ExternalLink, Link2, ArchiveRestore, Trash2, Send, RefreshCw, X, SlidersHorizontal, Copy, Check } from "lucide-react";
 import { toursAdminPost, deleteToursAdminTour, postUnarchiveMatterportTour, postTransferMatterportSpace, getToursAdminMatterportModel, postToursAdminMatterportOptions } from "../../../../api/toursAdmin";
 import type { MatterportModelMeta, MatterportModelOptions, MatterportSettingOverride, MatterportOptionsPatch } from "../../../../api/toursAdmin";
 import type { ToursAdminTourRow } from "../../../../types/toursAdmin";
@@ -164,7 +164,7 @@ function OverrideToggle({
   );
 }
 
-function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId, bookingOrderNo, customerName, onOpenBookingLink }: {
+function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId, bookingOrderNo, customerName, onOpenBookingLink, tourShowUrl }: {
   meta: MatterportModelMeta;
   onRefresh: () => void;
   loading: boolean;
@@ -173,7 +173,22 @@ function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId, bookin
   bookingOrderNo?: number | null;
   customerName?: string | null;
   onOpenBookingLink?: () => void;
+  /** my.matterport.com/show/?m=… zum Kopieren */
+  tourShowUrl: string | null;
 }) {
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  async function copyTourLink() {
+    if (!tourShowUrl) return;
+    try {
+      await navigator.clipboard.writeText(tourShowUrl);
+      setLinkCopied(true);
+      window.setTimeout(() => setLinkCopied(false), 2000);
+    } catch {
+      /* Clipboard nicht verfügbar */
+    }
+  }
+
   const stateKey = String(meta.state ?? "").toLowerCase();
   const stateMeta = STATE_META[stateKey];
   const visKey = String(meta.accessVisibility ?? meta.visibility ?? "").toUpperCase();
@@ -246,6 +261,21 @@ function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId, bookin
             <span>{visMeta.icon}</span>
             {visMeta.label}
           </span>
+        ) : null}
+        {tourShowUrl ? (
+          <button
+            type="button"
+            onClick={() => void copyTourLink()}
+            className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-2.5 py-0.5 text-sm font-medium text-[var(--text-main)] transition-colors duration-150 hover:border-[var(--accent)]/50 hover:bg-[var(--accent)]/10 hover:text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
+            title={tourShowUrl}
+          >
+            {linkCopied ? (
+              <Check className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+            ) : (
+              <Copy className="h-3.5 w-3.5 shrink-0" />
+            )}
+            {linkCopied ? "Kopiert" : "Link kopieren"}
+          </button>
         ) : null}
       </div>
 
@@ -458,6 +488,7 @@ export function TourMatterportSection({ tourId, tour, onSuccess, onOpenBookingLi
                 bookingOrderNo={tour.booking_order_no as number | null}
                 customerName={tour.canonical_customer_name as string | null}
                 onOpenBookingLink={onOpenBookingLink}
+                tourShowUrl={mpUrl}
               />
             ) : null}
           </div>
