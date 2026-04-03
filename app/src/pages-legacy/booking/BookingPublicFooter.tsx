@@ -33,12 +33,27 @@ export function BookingPublicFooter({ lang, className }: { lang: Lang; className
   return (
     <footer
       className={cn(
-        "border-t border-[var(--border-soft)] py-3 text-center text-[11px] text-[var(--text-subtle)]",
+        "border-t border-[var(--border-soft)] py-4 text-center text-[11px] text-[var(--text-subtle)] space-y-2",
         className,
       )}
     >
-      {t(lang, "footer.copyright")}
-      {version ? ` | ${version}` : ""}
+      <div className="flex items-center justify-center gap-3 flex-wrap">
+        <a href="https://www.propus.ch/impressum/" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--accent)] underline underline-offset-2 transition-colors">
+          {t(lang, "footer.impressum")}
+        </a>
+        <span aria-hidden>|</span>
+        <a href="https://www.propus.ch/datenschutz/" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--accent)] underline underline-offset-2 transition-colors">
+          {t(lang, "footer.datenschutz")}
+        </a>
+        <span aria-hidden>|</span>
+        <a href="https://www.propus.ch/agb/" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--accent)] underline underline-offset-2 transition-colors">
+          {t(lang, "footer.agb")}
+        </a>
+      </div>
+      <div>
+        {t(lang, "footer.copyright")}
+        {version ? ` | ${version}` : ""}
+      </div>
     </footer>
   );
 }

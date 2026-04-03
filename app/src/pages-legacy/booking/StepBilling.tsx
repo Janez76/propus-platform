@@ -175,7 +175,15 @@ export function StepBilling({ lang }: { lang: Lang }) {
       <label className="flex items-start gap-3 rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] px-5 py-4 shadow-sm dark:shadow-none">
         <input data-testid="booking-checkbox-agb" type="checkbox" checked={agbAccepted} onChange={(e) => setAgbAccepted(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-[var(--border-strong)] text-[var(--accent)]" />
         <span className="text-sm text-[var(--text-muted)]">
-          {t(lang, "booking.step4.agb")}
+          {t(lang, "booking.step4.agb.prefix")}{" "}
+          <a href="https://www.propus.ch/agb/" target="_blank" rel="noopener noreferrer" className="underline hover:text-[var(--accent)]" onClick={(e) => e.stopPropagation()}>
+            {t(lang, "booking.step4.agb.agbLink")}
+          </a>{" "}
+          {t(lang, "booking.step4.agb.and")}{" "}
+          <a href="https://www.propus.ch/datenschutz/" target="_blank" rel="noopener noreferrer" className="underline hover:text-[var(--accent)]" onClick={(e) => e.stopPropagation()}>
+            {t(lang, "booking.step4.agb.privacyLink")}
+          </a>{" "}
+          {t(lang, "booking.step4.agb.suffix")}
         </span>
       </label>
     </div>
