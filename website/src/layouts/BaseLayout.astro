@@ -1,4 +1,5 @@
 ---
+import { ClientRouter } from 'astro:transitions';
 import '../styles/global.css';
 import { site, seo } from '../content/site';
 import Header from '../components/Header.astro';
@@ -20,6 +21,8 @@ interface Props {
 	/** Wenn gesetzt: kein zweites `readCms` (z. B. Startseite mit `loadHomePageData`). */
 	branding?: SiteBranding;
 	siteLinks?: SiteLinksBundle;
+	/** LCP-Bild-URL: wird als <link rel="preload"> im <head> ausgegeben. */
+	preloadImage?: string;
 }
 
 const {
@@ -32,6 +35,7 @@ const {
 	noIndex = false,
 	branding: brandingProp,
 	siteLinks: siteLinksProp,
+	preloadImage,
 } = Astro.props;
 
 function normalizeCanonicalPath(pathname: string): string {
@@ -77,6 +81,9 @@ try {
 				}
 			})();
 		</script>
+		{preloadImage && <link rel="preload" as="image" href={preloadImage} fetchpriority="high" />}
+		<link rel="preload" href="/fonts/inter-400-latin.woff2" as="font" type="font/woff2" crossorigin />
+		<link rel="preload" href="/fonts/inter-700-latin.woff2" as="font" type="font/woff2" crossorigin />
 		<link rel="icon" type={branding.faviconType} href={branding.faviconHref} />
 		<meta name="generator" content={Astro.generator} />
 		<meta name="google-site-verification" content="ikI2qDaCeLbMKhTAvyw2WLmJPzZ7xhW2x6BVgiCcuVc" />
@@ -200,21 +207,6 @@ try {
 				</>
 			)
 		}
-		<link rel="preconnect" href="https://fonts.googleapis.com" />
-		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-		<!-- Fonts nicht render-blockierend: erst laden, dann media=all -->
-		<link
-			rel="stylesheet"
-			href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;1,14..32,400&display=swap"
-			media="print"
-			onload="this.media='all'"
-		/>
-		<noscript>
-			<link
-				rel="stylesheet"
-				href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;1,14..32,400&display=swap"
-			/>
-		</noscript>
 		<!-- Google Analytics 4 -->
 		<script is:inline async src="https://www.googletagmanager.com/gtag/js?id=G-VTBSQMZ3CK"></script>
 		<script is:inline>
@@ -223,6 +215,7 @@ try {
 			gtag('js', new Date());
 			gtag('config', 'G-VTBSQMZ3CK', { anonymize_ip: true });
 		</script>
+		<ClientRouter />
 	</head>
 	<body>
 		<Header logoSrc={branding.logoSrc} logoSrcDark={branding.logoSrcDark} navItems={siteLinks.navItems} />

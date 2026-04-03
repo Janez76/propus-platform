@@ -96,7 +96,7 @@ export function cmsImageUrlForDisplay(
 	const { width, quality, resize } = PRESETS[profile];
 
 	if (!transformsDisabled()) {
-		const rendered = supabaseObjectToRenderUrl(s, width, quality, resize);
+		const rendered = supabaseObjectToRenderUrl(s, width, quality, resize, { outputFormat: 'webp' });
 		if (rendered) return rendered;
 	}
 
