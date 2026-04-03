@@ -244,7 +244,14 @@ export type InvoicePrintData = {
   customerName: string;
   customerEmail: string;
   bezeichnung: string;
+  invoiceKindLabel: string | null;
+  invoiceKind: string | null;
   amount: string;
+  amountNet: string | null;
+  amountVat: string | null;
+  vatPercent: number | null;
+  floorCount: number | null;
+  unitPrice: number | null;
   tourLabel: string;
   tourLink: string | null;
   tourAddress: string | null;

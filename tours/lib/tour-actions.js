@@ -529,9 +529,35 @@ async function generateInvoicePdfBuffer(invoice, tour) {
   const tourLabel = tour.object_label || tour.bezeichnung || `Tour #${tour.id}`;
   const tourLink = tour.tour_url || null;
   const tourAddress = tour.object_address || null;
-  const bezeichnung = invoice.invoice_kind === 'portal_reactivation'
-    ? 'Virtueller Rundgang – Reaktivierung (6 Monate)'
-    : 'Virtueller Rundgang – Hosting-Verlängerung (6 Monate)';
+
+  let bezeichnung;
+  let amountNetPdf = null;
+  let amountVatPdf = null;
+  let vatPercentPdf = null;
+
+  if (invoice.invoice_kind === 'portal_reactivation') {
+    bezeichnung = 'Virtueller Rundgang – Reaktivierung (6 Monate)';
+  } else if (invoice.invoice_kind === 'floorplan_order') {
+    const note = invoice.payment_note || '';
+    const etagenMatch = note.match(/Etagen:\s*(\d+)/);
+    const preisMatch = note.match(/Preis pro Etage:\s*CHF\s*([\d.]+)/);
+    const vatMatch = note.match(/inkl\.\s*([\d.]+)%\s*MwSt/);
+    const floorCount = etagenMatch ? parseInt(etagenMatch[1], 10) : null;
+    const unitPriceVal = preisMatch ? parseFloat(preisMatch[1]) : null;
+    vatPercentPdf = vatMatch ? parseFloat(vatMatch[1]) : null;
+    if (floorCount && unitPriceVal) {
+      bezeichnung = `2D Grundriss von Tour (${floorCount} Etage${floorCount !== 1 ? 'n' : ''} × CHF ${Number(unitPriceVal).toFixed(2)})`;
+    } else {
+      bezeichnung = '2D Grundriss von Tour';
+    }
+    if (vatPercentPdf !== null && amount > 0) {
+      const vatRate = vatPercentPdf / 100;
+      amountNetPdf = Math.round(amount / (1 + vatRate) * 100) / 100;
+      amountVatPdf = Math.round((amount - amountNetPdf) * 100) / 100;
+    }
+  } else {
+    bezeichnung = 'Virtueller Rundgang – Hosting-Verlängerung (6 Monate)';
+  }
 
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -570,8 +596,19 @@ async function generateInvoicePdfBuffer(invoice, tour) {
     doc.moveTo(50, tableTop + 18).lineTo(530, tableTop + 18).stroke();
     doc.text('1', 50, tableTop + 25);
     doc.text(bezeichnung, 120, tableTop + 25, { width: 320 });
-    doc.text(amountStr, 450, tableTop + 25, { width: 80, align: 'right' });
+    const posAmountStr = amountNetPdf !== null ? Number(amountNetPdf).toFixed(2) : amountStr;
+    doc.text(posAmountStr, 450, tableTop + 25, { width: 80, align: 'right' });
     y = tableTop + 55;
+    if (amountNetPdf !== null && amountVatPdf !== null && vatPercentPdf !== null) {
+      doc.fontSize(9).fillColor('#555').text('Zwischensumme', 290, y, { width: 150, align: 'right' });
+      doc.text(`CHF ${Number(amountNetPdf).toFixed(2)}`, 450, y, { width: 80, align: 'right' });
+      y += 14;
+      doc.text(`MwSt ${vatPercentPdf}%`, 290, y, { width: 150, align: 'right' });
+      doc.text(`CHF ${Number(amountVatPdf).toFixed(2)}`, 450, y, { width: 80, align: 'right' });
+      y += 14;
+      doc.moveTo(290, y).lineTo(530, y).strokeColor('#ccc').stroke();
+      y += 6;
+    }
     doc.fontSize(11).fillColor('#111').text(`Total: CHF ${amountStr}`, 50, y);
     y += 16;
     doc.fontSize(10).fillColor('#888').text(`Fällig bis: ${dueDate}`, 50, y);

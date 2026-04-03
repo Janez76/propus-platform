@@ -55,19 +55,51 @@ async function streamRenewalInvoicePdf(res, tourId, invoiceId) {
       : '-';
 
   const paymentContext = qrBill.buildInvoicePaymentContext({ ...invoice, amount_chf: amount }, tour);
+
+  // Beschreibung + MwSt-Aufschlüsselung je nach invoice_kind
+  let bezeichnung;
+  let amountNet = null;
+  let amountVat = null;
+  let vatPercent = null;
+
+  if (invoice.invoice_kind === 'portal_extension') {
+    bezeichnung = 'Virtueller Rundgang – Verlängerung (6 Monate)';
+  } else if (invoice.invoice_kind === 'portal_reactivation') {
+    bezeichnung = 'Virtueller Rundgang – Reaktivierung (6 Monate)';
+  } else if (invoice.invoice_kind === 'floorplan_order') {
+    const note = invoice.payment_note || '';
+    const etagenMatch = note.match(/Etagen:\s*(\d+)/);
+    const preisMatch = note.match(/Preis pro Etage:\s*CHF\s*([\d.]+)/);
+    const vatMatch = note.match(/inkl\.\s*([\d.]+)%\s*MwSt/);
+    const floorCount = etagenMatch ? parseInt(etagenMatch[1], 10) : null;
+    const unitPriceVal = preisMatch ? parseFloat(preisMatch[1]) : null;
+    vatPercent = vatMatch ? parseFloat(vatMatch[1]) : null;
+    if (floorCount && unitPriceVal) {
+      bezeichnung = `2D Grundriss von Tour (${floorCount} Etage${floorCount !== 1 ? 'n' : ''} × CHF ${Number(unitPriceVal).toFixed(2)})`;
+    } else {
+      bezeichnung = '2D Grundriss von Tour';
+    }
+    if (vatPercent !== null && amount > 0) {
+      const vatRate = vatPercent / 100;
+      amountNet = Math.round(amount / (1 + vatRate) * 100) / 100;
+      amountVat = Math.round((amount - amountNet) * 100) / 100;
+    }
+  } else {
+    bezeichnung = 'Virtueller Rundgang – Hosting / Verlängerung';
+  }
+
   const ctx = {
     ...paymentContext,
     invLabel,
     invoiceDate,
     statusLabel,
     amount: amountStr,
+    amountNet,
+    amountVat,
+    vatPercent,
     customerName: [tour.customer_name, tour.customer_contact].filter(Boolean).join(' – ') || tour.customer_contact || '-',
     customerEmail: tour.customer_email || '',
-    bezeichnung: invoice.invoice_kind === 'portal_extension'
-      ? 'Virtueller Rundgang – Verlängerung (6 Monate)'
-      : invoice.invoice_kind === 'portal_reactivation'
-        ? 'Virtueller Rundgang – Reaktivierung (6 Monate)'
-        : 'Virtueller Rundgang – Hosting / Verlängerung',
+    bezeichnung,
     tourLabel: tour.canonical_object_label || tour.object_label || tour.bezeichnung || `Tour #${tour.id}`,
     tourLink: tour.tour_url || null,
     tourAddress: tour.object_address || null,
@@ -121,8 +153,23 @@ async function streamRenewalInvoicePdf(res, tourId, invoiceId) {
   doc.moveTo(50, tableTop + 18).lineTo(530, tableTop + 18).stroke();
   doc.text('1', 50, tableTop + 25);
   doc.text(ctx.bezeichnung, 120, tableTop + 25, { width: 320 });
-  doc.text(ctx.amount, 450, tableTop + 25, { width: 80, align: 'right' });
+  // Bei MwSt-Aufschlüsselung: Nettobetrag in der Positionszeile, sonst Brutto
+  const posAmount = ctx.amountNet !== null ? Number(ctx.amountNet).toFixed(2) : ctx.amount;
+  doc.text(posAmount, 450, tableTop + 25, { width: 80, align: 'right' });
   y = tableTop + 55;
+
+  // MwSt-Aufschlüsselung (nur bei floorplan_order)
+  if (ctx.amountNet !== null && ctx.amountVat !== null && ctx.vatPercent !== null) {
+    doc.fontSize(9).fillColor('#555').text('Zwischensumme', 290, y, { width: 150, align: 'right' });
+    doc.text(`CHF ${Number(ctx.amountNet).toFixed(2)}`, 450, y, { width: 80, align: 'right' });
+    y += 14;
+    doc.text(`MwSt ${ctx.vatPercent}%`, 290, y, { width: 150, align: 'right' });
+    doc.text(`CHF ${Number(ctx.amountVat).toFixed(2)}`, 450, y, { width: 80, align: 'right' });
+    y += 14;
+    doc.moveTo(290, y).lineTo(530, y).strokeColor('#ccc').stroke();
+    y += 6;
+  }
+
   doc.fontSize(11).fillColor('#111').text(`Total: CHF ${ctx.amount}`, 50, y);
   y += 25;
   doc.fontSize(9).fillColor('#666').text(`Vielen Dank für Ihr Vertrauen. Bei Fragen: ${ctx.creditor.email}`, 50, y);

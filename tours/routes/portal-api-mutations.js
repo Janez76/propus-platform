@@ -219,6 +219,42 @@ router.get('/tours/:id/invoices/:invoiceId/print-data', async (req, res) => {
     const qrBill = require('../lib/qr-bill');
     const paymentContext = qrBill.buildInvoicePaymentContext({ ...invoice, amount_chf: amount }, tour);
 
+    // Beschreibung + MwSt-Aufschlüsselung je nach invoice_kind
+    let bezeichnung = 'Virtueller Rundgang – Hosting / Verlängerung';
+    let invoiceKindLabel = null;
+    let floorCount = null;
+    let unitPrice = null;
+    let vatPercent = null;
+    let amountNet = null;
+    let amountVat = null;
+
+    if (invoice.invoice_kind === 'portal_extension') {
+      bezeichnung = 'Virtueller Rundgang – Verlängerung (6 Monate)';
+      invoiceKindLabel = 'Matterport Hosting · 1 Jahr';
+    } else if (invoice.invoice_kind === 'portal_reactivation') {
+      bezeichnung = 'Virtueller Rundgang – Reaktivierung (6 Monate)';
+      invoiceKindLabel = 'Matterport Hosting · Reaktivierung';
+    } else if (invoice.invoice_kind === 'floorplan_order') {
+      const note = invoice.payment_note || '';
+      const etagenMatch = note.match(/Etagen:\s*(\d+)/);
+      const preisMatch = note.match(/Preis pro Etage:\s*CHF\s*([\d.]+)/);
+      const vatMatch = note.match(/inkl\.\s*([\d.]+)%\s*MwSt/);
+      floorCount = etagenMatch ? parseInt(etagenMatch[1], 10) : null;
+      unitPrice = preisMatch ? parseFloat(preisMatch[1]) : null;
+      vatPercent = vatMatch ? parseFloat(vatMatch[1]) : null;
+      if (floorCount && unitPrice) {
+        bezeichnung = `2D Grundriss von Tour (${floorCount} Etage${floorCount !== 1 ? 'n' : ''} × CHF ${Number(unitPrice).toFixed(2)})`;
+        invoiceKindLabel = `${floorCount} Etage${floorCount !== 1 ? 'n' : ''}`;
+      } else {
+        bezeichnung = '2D Grundriss von Tour';
+      }
+      if (vatPercent !== null && amount > 0) {
+        const vatRate = vatPercent / 100;
+        amountNet = Math.round(amount / (1 + vatRate) * 100) / 100;
+        amountVat = Math.round((amount - amountNet) * 100) / 100;
+      }
+    }
+
     return res.json({
       ok: true,
       invLabel,
@@ -228,8 +264,15 @@ router.get('/tours/:id/invoices/:invoiceId/print-data', async (req, res) => {
       paymentDueLabel,
       customerName: [tour.customer_name, tour.customer_contact].filter(Boolean).join(' – ') || '-',
       customerEmail: tour.customer_email || '',
-      bezeichnung: 'Virtueller Rundgang – Hosting / Verlängerung',
+      bezeichnung,
+      invoiceKindLabel,
       amount: amountStr,
+      amountNet: amountNet !== null ? Number(amountNet).toFixed(2) : null,
+      amountVat: amountVat !== null ? Number(amountVat).toFixed(2) : null,
+      vatPercent,
+      floorCount,
+      unitPrice,
+      invoiceKind: invoice.invoice_kind || null,
       tourLabel: tour.canonical_object_label || tour.object_label || tour.bezeichnung || `Tour #${tour.id}`,
       tourLink: tour.tour_url || null,
       tourAddress: tour.object_address || null,
