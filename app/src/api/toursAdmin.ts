@@ -186,6 +186,27 @@ async function toursAdminDelete<T>(path: string): Promise<T> {
   return data as T;
 }
 
+export interface MatterportModelOptions {
+  defurnishViewEnabled: boolean | null;
+  defurnishViewOverride: string | null;
+  dollhouseEnabled: boolean | null;
+  dollhouseOverride: string | null;
+  floorplanEnabled: boolean | null;
+  floorplanOverride: string | null;
+  socialSharingEnabled: boolean | null;
+  socialSharingOverride: string | null;
+  vrEnabled: boolean | null;
+  vrOverride: string | null;
+  highlightReelEnabled: boolean | null;
+  highlightReelOverride: string | null;
+  labelsEnabled: boolean | null;
+  labelsOverride: string | null;
+  tourAutoplayEnabled: boolean | null;
+  tourAutoplayOverride: string | null;
+  roomBoundsEnabled: boolean | null;
+  roomBoundsOverride: string | null;
+}
+
 export interface MatterportModelMeta {
   id: string;
   name: string | null;
@@ -204,6 +225,7 @@ export interface MatterportModelMeta {
     published: boolean | null;
     url: string | null;
   } | null;
+  options: MatterportModelOptions | null;
 }
 
 export function getToursAdminMatterportModel(tourId: string) {

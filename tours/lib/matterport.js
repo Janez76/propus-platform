@@ -194,6 +194,26 @@ async function getModel(modelId) {
         published
         url(branding: default)
       }
+      options {
+        defurnishViewEnabled
+        defurnishViewOverride
+        dollhouseEnabled
+        dollhouseOverride
+        floorplanEnabled
+        floorplanOverride
+        socialSharingEnabled
+        socialSharingOverride
+        vrEnabled
+        vrOverride
+        highlightReelEnabled
+        highlightReelOverride
+        labelsEnabled
+        labelsOverride
+        tourAutoplayEnabled
+        tourAutoplayOverride
+        roomBoundsEnabled
+        roomBoundsOverride
+      }
     }
   }`;
   const { data, errors } = await graphRequest(gql, { modelId });

@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ExternalLink, Link2, ArchiveRestore, Trash2, Send, ChevronDown, ChevronUp, RefreshCw, X } from "lucide-react";
+import { ExternalLink, Link2, ArchiveRestore, Trash2, Send, ChevronDown, ChevronUp, RefreshCw, X, Pencil } from "lucide-react";
 import { toursAdminPost, deleteToursAdminTour, postUnarchiveMatterportTour, postTransferMatterportSpace, getToursAdminMatterportModel } from "../../../../api/toursAdmin";
-import type { MatterportModelMeta } from "../../../../api/toursAdmin";
+import type { MatterportModelMeta, MatterportModelOptions } from "../../../../api/toursAdmin";
 import type { ToursAdminTourRow } from "../../../../types/toursAdmin";
 
 type Props = {
@@ -44,27 +44,77 @@ function MetaRow({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-function MatterportMetaPanel({ meta, onRefresh, loading }: { meta: MatterportModelMeta; onRefresh: () => void; loading: boolean }) {
+const OPTIONS_CONFIG: Array<{
+  key: keyof MatterportModelOptions;
+  label: string;
+  icon: string;
+  overrideKey: keyof MatterportModelOptions;
+}> = [
+  { key: "defurnishViewEnabled",  label: "Mobiliar entfernen",          icon: "🛋️", overrideKey: "defurnishViewOverride" },
+  { key: "dollhouseEnabled",      label: "Dollhouse-Modus",             icon: "🏠", overrideKey: "dollhouseOverride" },
+  { key: "floorplanEnabled",      label: "Grundriss (Floorplan)",        icon: "📐", overrideKey: "floorplanOverride" },
+  { key: "socialSharingEnabled",  label: "Teilen (Social)",             icon: "🔗", overrideKey: "socialSharingOverride" },
+  { key: "vrEnabled",             label: "VR-Modus",                    icon: "🥽", overrideKey: "vrOverride" },
+  { key: "highlightReelEnabled",  label: "Highlight Reel",              icon: "🎬", overrideKey: "highlightReelOverride" },
+  { key: "labelsEnabled",         label: "Raumbeschriftungen",           icon: "🏷️", overrideKey: "labelsOverride" },
+  { key: "tourAutoplayEnabled",   label: "Tour Autoplay",               icon: "▶️", overrideKey: "tourAutoplayOverride" },
+  { key: "roomBoundsEnabled",     label: "Raumgrenzen",                 icon: "📦", overrideKey: "roomBoundsOverride" },
+];
+
+function OptionBadge({ enabled, override }: { enabled: boolean | null; override: string | null }) {
+  const isOverridden = override != null && String(override).toLowerCase() !== "account_default";
+  if (enabled === true) {
+    return (
+      <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md font-medium ${isOverridden ? "bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800" : "bg-[var(--surface)] text-[var(--text-subtle)] border border-[var(--border-soft)]"}`}>
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 inline-block" />
+        An{isOverridden ? " (Override)" : ""}
+      </span>
+    );
+  }
+  if (enabled === false) {
+    return (
+      <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md font-medium ${isOverridden ? "bg-red-50 text-red-600 border border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800" : "bg-[var(--surface)] text-[var(--text-subtle)] border border-[var(--border-soft)]"}`}>
+        <span className="h-1.5 w-1.5 rounded-full bg-red-400 inline-block" />
+        Aus{isOverridden ? " (Override)" : ""}
+      </span>
+    );
+  }
+  return <span className="text-[10px] text-[var(--text-subtle)]">—</span>;
+}
+
+function MatterportMetaPanel({ meta, onRefresh, loading, spaceId }: { meta: MatterportModelMeta; onRefresh: () => void; loading: boolean; spaceId: string }) {
   const stateKey = String(meta.state ?? "").toLowerCase();
   const stateMeta = STATE_META[stateKey];
   const visKey = String(meta.accessVisibility ?? meta.visibility ?? "").toUpperCase();
   const visMeta = VIS_META[visKey];
+  const editUrl = `https://my.matterport.com/models/${spaceId}/space`;
 
   return (
-    <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-4 space-y-3">
+    <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-4 space-y-4">
       <div className="flex items-center justify-between gap-2">
         <h4 className="text-xs font-semibold text-[var(--text-main)] uppercase tracking-wide">
           Matterport Model
         </h4>
-        <button
-          type="button"
-          onClick={onRefresh}
-          disabled={loading}
-          className="flex items-center gap-1 text-[10px] text-[var(--text-subtle)] hover:text-[var(--text-main)] disabled:opacity-40"
-        >
-          <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
-          Aktualisieren
-        </button>
+        <div className="flex items-center gap-2">
+          <a
+            href={editUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 text-[10px] text-[var(--accent)] hover:underline"
+          >
+            <Pencil className="h-3 w-3" />
+            In Matterport bearbeiten
+          </a>
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={loading}
+            className="flex items-center gap-1 text-[10px] text-[var(--text-subtle)] hover:text-[var(--text-main)] disabled:opacity-40"
+          >
+            <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
+            Aktualisieren
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -120,6 +170,42 @@ function MatterportMetaPanel({ meta, onRefresh, loading }: { meta: MatterportMod
           <MetaRow label="Veröffentlicht" value={meta.publication.published ? "Ja" : "Nein"} />
         ) : null}
       </dl>
+
+      {/* Showcase-Einstellungen */}
+      {meta.options ? (
+        <div className="border-t border-[var(--border-soft)] pt-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-semibold text-[var(--text-subtle)] uppercase tracking-wide">
+              Einstellungen anzeigen
+            </p>
+            <a
+              href={editUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[10px] text-[var(--text-subtle)] hover:text-[var(--accent)] hover:underline"
+            >
+              Ändern in Matterport →
+            </a>
+          </div>
+          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+            {OPTIONS_CONFIG.map(({ key, label, icon, overrideKey }) => (
+              <div key={key} className="flex items-center justify-between gap-2 rounded-lg border border-[var(--border-soft)] px-2.5 py-1.5">
+                <span className="flex items-center gap-1.5 text-xs text-[var(--text-main)] min-w-0">
+                  <span>{icon}</span>
+                  <span className="truncate">{label}</span>
+                </span>
+                <OptionBadge
+                  enabled={meta.options![key] as boolean | null}
+                  override={meta.options![overrideKey] as string | null}
+                />
+              </div>
+            ))}
+          </div>
+          <p className="text-[10px] text-[var(--text-subtle)]">
+            Grün = explizit aktiviert (Override). Rot = explizit deaktiviert. Grau = Konto-Standard.
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -287,7 +373,7 @@ export function TourMatterportSection({ tourId, tour, onSuccess, onOpenBookingLi
                     </button>
                   </div>
                 ) : meta ? (
-                  <MatterportMetaPanel meta={meta} onRefresh={() => void loadMeta()} loading={metaLoading} />
+                  <MatterportMetaPanel meta={meta} onRefresh={() => void loadMeta()} loading={metaLoading} spaceId={spaceId} />
                 ) : metaLoading ? (
                   <p className="text-xs text-[var(--text-subtle)]">Wird geladen…</p>
                 ) : null}
