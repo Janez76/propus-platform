@@ -379,7 +379,7 @@ export function RoleMatrixPage() {
         </div>
 
         {/* ─── Matrix-Tabelle ─────────────────────────────────────────────── */}
-        <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] overflow-x-auto shadow-sm">
+        <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] shadow-sm" style={{ overflowX: "auto" }}>
           <table className="w-full border-collapse text-sm" style={{ minWidth: `${200 + visibleRoles.length * 110}px` }}>
             <colgroup>
               <col style={{ width: "220px", minWidth: "180px" }} />
@@ -389,10 +389,10 @@ export function RoleMatrixPage() {
             </colgroup>
 
             {/* Thead mit Gruppen + Rollen */}
-            <thead>
+            <thead className="sticky top-0 z-20">
               {/* Gruppen-Zeile */}
               <tr className="border-b border-[var(--border-soft)] bg-[var(--surface-raised)]">
-                <th className="px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-widest text-[var(--text-subtle)]">
+                <th className="sticky left-0 z-10 bg-[var(--surface-raised)] px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-widest text-[var(--text-subtle)]">
                   Berechtigung
                 </th>
                 {(["intern", "fotograf", "portal"] as const)
@@ -422,7 +422,7 @@ export function RoleMatrixPage() {
 
               {/* Rollen-Header */}
               <tr className="border-b-2 border-[var(--border-soft)] bg-[var(--surface-raised)]">
-                <th className="px-4 py-3 text-left text-[11px] font-medium text-[var(--text-muted)]">
+                <th className="sticky left-0 z-10 bg-[var(--surface-raised)] px-4 py-3 text-left text-[11px] font-medium text-[var(--text-muted)]">
                   <span className="text-[var(--text-subtle)]">{PERMISSIONS.length} Berechtigungen</span>
                 </th>
                 {visibleRoles.map((r, i) => (
@@ -466,10 +466,10 @@ export function RoleMatrixPage() {
                 return (
                   <>
                     {/* Sektion-Header */}
-                    <tr key={`section-${section}`} className="border-b border-[var(--border-soft)] bg-[var(--surface-raised)]/60">
+                    <tr key={`section-${section}`} className="border-b border-[var(--border-soft)] bg-[var(--surface-raised)]/80">
                       <td
                         colSpan={1 + visibleRoles.length}
-                        className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-[var(--text-subtle)]"
+                        className="sticky left-0 bg-[var(--surface-raised)]/80 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-[var(--text-subtle)]"
                       >
                         {section}
                       </td>
@@ -484,14 +484,17 @@ export function RoleMatrixPage() {
                           onMouseEnter={() => setHoveredPerm(perm.key)}
                           onMouseLeave={() => setHoveredPerm(null)}
                           className={cn(
-                            "transition-colors",
+                            "group transition-colors",
                             isHovered
                               ? "bg-[var(--surface-raised)]"
                               : "hover:bg-[var(--surface-raised)]/50",
                           )}
                         >
                           {/* Label-Spalte */}
-                          <td className="border-b border-[var(--border-soft)] px-4 py-0">
+                          <td className={cn(
+                            "sticky left-0 z-10 border-b border-[var(--border-soft)] px-4 py-0 transition-colors",
+                            isHovered ? "bg-[var(--surface-raised)]" : "bg-[var(--surface)]",
+                          )}>
                             <div className="flex items-center gap-2 py-3">
                               <span className="text-[13px] font-medium text-[var(--text-main)]">
                                 {perm.label}
