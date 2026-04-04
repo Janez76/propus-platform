@@ -159,6 +159,17 @@ export function recordEmailSent(galleryId: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Send email via server (Microsoft Graph)
+// ---------------------------------------------------------------------------
+
+export function sendGalleryEmail(galleryId: string, data: { to: string; subject: string; htmlBody: string }) {
+  return galleryFetch<{ ok: boolean }>(`/${galleryId}/send-email`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Helpers (client-side, kept from original)
 // ---------------------------------------------------------------------------
 

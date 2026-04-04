@@ -5,6 +5,7 @@ import {
   listEmailTemplates,
   publicGalleryDeepLink,
   publicGalleryUrl,
+  sendGalleryEmail,
   type EmailTemplateVars,
 } from "../../../api/listingAdmin";
 import type { ClientGalleryRow, EmailTemplateRow, GalleryFeedbackRow } from "../../../components/listing/types";
@@ -71,7 +72,17 @@ export function ListingFeedbackMailModal({ gallery, feedback, templateId, title,
       setMailMsg("Keine Kunden-E-Mail hinterlegt.");
       return;
     }
-    setMailMsg("Server-Versand ist in dieser Version nicht verfügbar. Bitte «E-Mail-Programm öffnen» nutzen.");
+    setMailMsg(null);
+    try {
+      const subject = applyTemplateVars(selectedTpl.subject, vars);
+      const htmlBody = applyTemplateVars(selectedTpl.body, vars);
+      const result = await sendGalleryEmail(gallery.id, { to, subject, htmlBody });
+      if (result.ok) {
+        setMailMsg("E-Mail wurde erfolgreich gesendet.");
+      }
+    } catch (e) {
+      setMailMsg(e instanceof Error ? e.message : "Server-Versand fehlgeschlagen.");
+    }
   }
 
   const previewHtml = selectedTpl ? applyTemplateVars(selectedTpl.body, vars) : "";

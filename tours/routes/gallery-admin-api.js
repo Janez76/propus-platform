@@ -5,6 +5,7 @@
 const express = require('express');
 const router = express.Router();
 const gallery = require('../lib/gallery');
+const { sendMailDirect } = require('../lib/microsoft-graph');
 
 // GET / — Liste aller Galerien
 router.get('/', async (req, res) => {
@@ -185,6 +186,23 @@ router.patch('/:id/feedback/:fbId', async (req, res) => {
 router.delete('/:id/feedback/:fbId', async (req, res) => {
   try {
     await gallery.deleteFeedback(req.params.fbId);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// POST /:id/send-email — E-Mail via Microsoft Graph senden
+router.post('/:id/send-email', async (req, res) => {
+  try {
+    const { to, subject, htmlBody } = req.body;
+    if (!to || !subject || !htmlBody) {
+      return res.status(400).json({ ok: false, error: 'to, subject und htmlBody erforderlich.' });
+    }
+    const result = await sendMailDirect({ to, subject, htmlBody });
+    if (!result.success) {
+      return res.status(500).json({ ok: false, error: result.error || 'E-Mail konnte nicht gesendet werden.' });
+    }
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
