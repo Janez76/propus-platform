@@ -306,8 +306,8 @@ export function UploadsPage() {
                   </div>
                 ) : null}
 
-                <div className="mt-5 grid gap-4 md:grid-cols-3">
-                  {(summary?.roots || []).map((root) => {
+                <div className="mt-5 grid gap-4 md:grid-cols-2">
+                  {(summary?.roots || []).filter((r) => r.key !== "stagingRoot").map((root) => {
                     const rawErr = root.error || "";
                     const isPermission = /EACCES|permission denied/i.test(rawErr);
                     const isNotFound = /ENOENT|no such file/i.test(rawErr);
@@ -384,143 +384,162 @@ export function UploadsPage() {
 
                       {/* Ordner verknüpfen */}
                       <div className="mt-4 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <label className="text-xs font-semibold uppercase tracking-wide text-[var(--text-subtle)]">
-                            Bestehenden Ordner verknüpfen
-                          </label>
-                          {rootOk && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const nextOpen = !browser.open;
-                                setBrowserState(ft, { open: nextOpen, error: "" });
-                                if (nextOpen && browser.entries.length === 0) {
-                                  void browseFolder(ft, "");
-                                }
-                              }}
-                              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
-                                browser.open
-                                  ? "bg-[var(--accent)]/10 text-[var(--accent)]"
-                                  : "border border-[var(--border-soft)] text-[var(--text-muted)] hover:bg-[var(--surface-raised)]"
-                              }`}
-                            >
-                              <FolderOpen className="h-3.5 w-3.5" />
-                              {browser.open ? "Browser schließen" : "NAS durchsuchen"}
-                            </button>
-                          )}
-                        </div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-subtle)]">
+                          Bestehenden Ordner verknüpfen
+                        </p>
 
-                        {/* NAS-File-Browser */}
-                        {browser.open && rootOk && (
-                          <div className="overflow-hidden rounded-xl border border-[var(--border-soft)]">
-                            {/* Breadcrumb */}
-                            <div className="flex items-center gap-0 overflow-x-auto border-b border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 py-2">
-                              <button
-                                type="button"
-                                onClick={() => void browseFolder(ft, "")}
-                                className="flex shrink-0 items-center gap-1 rounded px-2 py-1 text-xs font-semibold text-[var(--accent)] hover:bg-[var(--line)]"
-                              >
-                                <House className="h-3 w-3" />
-                                {ft === "raw_material" ? "Raw-Root" : "Kunden-Root"}
-                              </button>
-                              {pathSegments.map((seg, idx) => {
-                                const segPath = pathSegments.slice(0, idx + 1).join("/");
-                                const isLast = idx === pathSegments.length - 1;
-                                return (
-                                  <span key={segPath} className="flex shrink-0 items-center">
-                                    <ChevronRight className="h-3 w-3 text-[var(--text-subtle)]" />
-                                    {isLast ? (
-                                      <span className="rounded px-2 py-1 text-xs font-semibold text-[var(--text-main)]">{seg}</span>
-                                    ) : (
-                                      <button
-                                        type="button"
-                                        className="rounded px-2 py-1 text-xs font-semibold text-[var(--accent)] hover:bg-[var(--line)]"
-                                        onClick={() => void browseFolder(ft, segPath)}
-                                      >
-                                        {seg}
-                                      </button>
-                                    )}
-                                  </span>
-                                );
-                              })}
-                            </div>
-
-                            {/* Ordner-Liste */}
-                            <div className="max-h-56 overflow-y-auto">
-                              {browser.parentPath != null && (
-                                <button
-                                  type="button"
-                                  className="flex w-full items-center gap-3 border-b border-[var(--border-soft)] px-4 py-2.5 text-left text-sm hover:bg-[var(--surface-raised)] transition"
-                                  onClick={() => void browseFolder(ft, browser.parentPath ?? "")}
-                                >
-                                  <span className="text-[var(--text-subtle)]">↩</span>
-                                  <span className="italic text-[var(--text-subtle)]">..</span>
-                                </button>
-                              )}
-                              {browser.loading ? (
-                                <div className="flex items-center gap-2 px-4 py-5 text-sm text-[var(--text-subtle)]">
-                                  <Loader2 className="h-4 w-4 animate-spin" /> Lädt …
-                                </div>
-                              ) : browser.error ? (
-                                <div className="px-4 py-4 text-xs text-red-500">{browser.error}</div>
-                              ) : browser.entries.length === 0 ? (
-                                <div className="px-4 py-5 text-sm text-[var(--text-subtle)]">
-                                  Keine Unterordner – dieser Ordner kann direkt verknüpft werden.
-                                </div>
-                              ) : (
-                                browser.entries.map((entry, idx) => (
-                                  <button
-                                    key={entry.relativePath}
-                                    type="button"
-                                    className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-[var(--surface-raised)] transition ${
-                                      idx < browser.entries.length - 1 ? "border-b border-[var(--border-soft)]" : ""
-                                    }`}
-                                    onClick={() => void browseFolder(ft, entry.relativePath)}
-                                  >
-                                    <FolderOpen className="h-4 w-4 shrink-0 text-[var(--accent)]" />
-                                    <span className="flex-1 truncate font-medium text-[var(--text-main)]">{entry.name}</span>
-                                    <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[var(--text-subtle)]" />
-                                  </button>
-                                ))
-                              )}
-                            </div>
-
-                            {/* Footer: aktuellen Ordner verknüpfen */}
-                            <div className="flex items-center justify-between border-t border-[var(--border-soft)] bg-[var(--surface-raised)] px-4 py-2.5">
-                              <span className="truncate text-xs text-[var(--text-subtle)]">
-                                {browser.relativePath || (ft === "raw_material" ? "Raw-Root" : "Kunden-Root")}
+                        {/* Option A: NAS-File-Browser (nur wenn Root erreichbar) */}
+                        {rootOk ? (
+                          <div className="rounded-xl border border-[var(--border-soft)]">
+                            <div className="flex items-center justify-between border-b border-[var(--border-soft)] px-3 py-2">
+                              <span className="text-xs font-medium text-[var(--text-muted)]">
+                                <FolderOpen className="mr-1 inline h-3.5 w-3.5" />
+                                NAS durchsuchen
                               </span>
                               <button
                                 type="button"
-                                disabled={loadingSummary}
-                                onClick={() => void handleLink(ft, browser.relativePath)}
-                                className="ml-3 shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[var(--accent-hover)] disabled:opacity-50"
+                                onClick={() => {
+                                  const nextOpen = !browser.open;
+                                  setBrowserState(ft, { open: nextOpen, error: "" });
+                                  if (nextOpen && browser.entries.length === 0) {
+                                    void browseFolder(ft, "");
+                                  }
+                                }}
+                                className={`text-xs font-semibold transition ${
+                                  browser.open ? "text-[var(--accent)]" : "text-[var(--text-subtle)] hover:text-[var(--text-main)]"
+                                }`}
                               >
-                                <HardDrive className="h-3.5 w-3.5" />
-                                Diesen Ordner verknüpfen
+                                {browser.open ? "Schließen" : "Öffnen"}
                               </button>
                             </div>
+
+                            {browser.open && (
+                              <>
+                                {/* Breadcrumb */}
+                                <div className="flex items-center gap-0 overflow-x-auto border-b border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 py-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => void browseFolder(ft, "")}
+                                    className="flex shrink-0 items-center gap-1 rounded px-2 py-1 text-xs font-semibold text-[var(--accent)] hover:bg-[var(--line)]"
+                                  >
+                                    <House className="h-3 w-3" />
+                                    {ft === "raw_material" ? "Raw-Root" : "Kunden-Root"}
+                                  </button>
+                                  {pathSegments.map((seg, idx) => {
+                                    const segPath = pathSegments.slice(0, idx + 1).join("/");
+                                    const isLast = idx === pathSegments.length - 1;
+                                    return (
+                                      <span key={segPath} className="flex shrink-0 items-center">
+                                        <ChevronRight className="h-3 w-3 text-[var(--text-subtle)]" />
+                                        {isLast ? (
+                                          <span className="rounded px-2 py-1 text-xs font-semibold text-[var(--text-main)]">{seg}</span>
+                                        ) : (
+                                          <button
+                                            type="button"
+                                            className="rounded px-2 py-1 text-xs font-semibold text-[var(--accent)] hover:bg-[var(--line)]"
+                                            onClick={() => void browseFolder(ft, segPath)}
+                                          >
+                                            {seg}
+                                          </button>
+                                        )}
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+
+                                {/* Ordner-Liste */}
+                                <div className="max-h-56 overflow-y-auto">
+                                  {browser.parentPath != null && (
+                                    <button
+                                      type="button"
+                                      className="flex w-full items-center gap-3 border-b border-[var(--border-soft)] px-4 py-2.5 text-left text-sm hover:bg-[var(--surface-raised)] transition"
+                                      onClick={() => void browseFolder(ft, browser.parentPath ?? "")}
+                                    >
+                                      <span className="text-[var(--text-subtle)]">↩</span>
+                                      <span className="italic text-[var(--text-subtle)]">..</span>
+                                    </button>
+                                  )}
+                                  {browser.loading ? (
+                                    <div className="flex items-center gap-2 px-4 py-5 text-sm text-[var(--text-subtle)]">
+                                      <Loader2 className="h-4 w-4 animate-spin" /> Lädt …
+                                    </div>
+                                  ) : browser.error ? (
+                                    <div className="px-4 py-4 text-xs text-red-500">{browser.error}</div>
+                                  ) : browser.entries.length === 0 ? (
+                                    <div className="px-4 py-5 text-sm text-[var(--text-subtle)]">
+                                      Keine Unterordner – dieser Ordner kann direkt verknüpft werden.
+                                    </div>
+                                  ) : (
+                                    browser.entries.map((entry, idx) => (
+                                      <button
+                                        key={entry.relativePath}
+                                        type="button"
+                                        className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-[var(--surface-raised)] transition ${
+                                          idx < browser.entries.length - 1 ? "border-b border-[var(--border-soft)]" : ""
+                                        }`}
+                                        onClick={() => void browseFolder(ft, entry.relativePath)}
+                                      >
+                                        <FolderOpen className="h-4 w-4 shrink-0 text-[var(--accent)]" />
+                                        <span className="flex-1 truncate font-medium text-[var(--text-main)]">{entry.name}</span>
+                                        <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[var(--text-subtle)]" />
+                                      </button>
+                                    ))
+                                  )}
+                                </div>
+
+                                {/* Footer: aktuellen Ordner verknüpfen */}
+                                <div className="flex items-center justify-between border-t border-[var(--border-soft)] bg-[var(--surface-raised)] px-4 py-2.5">
+                                  <span className="truncate text-xs text-[var(--text-subtle)]">
+                                    {browser.relativePath || (ft === "raw_material" ? "Raw-Root" : "Kunden-Root")}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    disabled={loadingSummary}
+                                    onClick={() => void handleLink(ft, browser.relativePath)}
+                                    className="ml-3 shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[var(--accent-hover)] disabled:opacity-50"
+                                  >
+                                    <HardDrive className="h-3.5 w-3.5" />
+                                    Diesen Ordner verknüpfen
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50/60 px-3 py-2.5 text-xs text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-400">
+                            <span className="mt-px shrink-0">⚠</span>
+                            <span>NAS nicht erreichbar – Ordner nur manuell per Pfad verknüpfbar (siehe unten).</span>
                           </div>
                         )}
 
-                        {/* Manuelles Textfeld als Alternative */}
-                        <div className="flex gap-2">
-                          <input
-                            value={linkInputs[ft] || ""}
-                            onChange={(event) =>
-                              setLinkInputs((current) => ({ ...current, [ft]: event.target.value }))
-                            }
-                            placeholder={ft === "raw_material" ? "PLZ Ort, Strasse Nr #Auftragsnummer" : "Firma/PLZ Ort, Strasse Nr #Auftragsnummer"}
-                            className="min-w-0 flex-1 rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => void handleLink(ft)}
-                            disabled={loadingSummary || !linkInputs[ft]?.trim()}
-                            className="shrink-0 inline-flex items-center gap-1.5 rounded-xl border border-[var(--border-soft)] px-3 py-2 text-sm font-medium text-[var(--text-main)] transition hover:bg-[var(--surface-raised)] disabled:opacity-40"
-                          >
-                            Verknüpfen
-                          </button>
+                        {/* Option B: Manuell per Pfad (immer sichtbar) */}
+                        <div className="rounded-xl border border-[var(--border-soft)] p-3">
+                          <p className="mb-2 text-xs font-medium text-[var(--text-muted)]">
+                            <HardDrive className="mr-1 inline h-3.5 w-3.5" />
+                            Pfad manuell eingeben
+                          </p>
+                          <p className="mb-2 text-[10px] text-[var(--text-subtle)]">
+                            Relativer Pfad ab {ft === "raw_material" ? "Raw-Root" : "Kunden-Root"}, z.B.{" "}
+                            <span className="font-mono">{ft === "raw_material" ? "8000 Zürich, Musterstrasse 1 #1234" : "Musterfirma/8000 Zürich, Musterstrasse 1 #1234"}</span>
+                          </p>
+                          <div className="flex gap-2">
+                            <input
+                              value={linkInputs[ft] || ""}
+                              onChange={(event) =>
+                                setLinkInputs((current) => ({ ...current, [ft]: event.target.value }))
+                              }
+                              placeholder={ft === "raw_material" ? "PLZ Ort, Strasse Nr #Auftragsnummer" : "Firma/PLZ Ort, Strasse Nr #Auftragsnummer"}
+                              className="min-w-0 flex-1 rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => void handleLink(ft)}
+                              disabled={loadingSummary || !linkInputs[ft]?.trim()}
+                              className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)] disabled:opacity-40"
+                            >
+                              Verknüpfen
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
