@@ -591,6 +591,90 @@ Read-only View: vereinheitlicht `renewal_invoices` und `exxas_invoices` für Rep
 
 ---
 
+### `tour_manager.galleries` — Listing / Kunden-Galerie (Magic-Link)
+
+**Migrationen:** `core/migrations/028_listing_galleries.sql` (Basis), `031_gallery_links.sql` (Kunde/Kontakt/Bestellung), `032_gallery_nas_sources.sql` (NAS-Quelle, lokale Video-Pfade).
+
+| Feld | Typ | Beschreibung |
+|---|---|---|
+| `id` | UUID PK | |
+| `slug` | TEXT UNIQUE | Öffentlicher Pfad-Slug (`/listing/:slug`) |
+| `title` | TEXT | Anzeigetitel |
+| `address` | TEXT | Objektadresse |
+| `client_name` | TEXT | Anzeige-Name Kunde |
+| `client_contact` | TEXT | Ansprechpartner (Freitext, Migration 031) |
+| `client_email` | TEXT | E-Mail für Versand / Magic-Link |
+| `customer_id` | INT FK → `core.customers` ON DELETE SET NULL (031) | |
+| `customer_contact_id` | INT FK → `core.customer_contacts` ON DELETE SET NULL (031) | |
+| `booking_order_no` | INT FK → `booking.orders(order_no)` ON DELETE SET NULL (031) | |
+| `client_delivery_status` | TEXT | `open`, `sent` |
+| `client_delivery_sent_at` | TIMESTAMPTZ | |
+| `client_log_email_received_at` | TIMESTAMPTZ | |
+| `client_log_gallery_opened_at` | TIMESTAMPTZ | |
+| `client_log_files_downloaded_at` | TIMESTAMPTZ | |
+| `status` | TEXT | `active`, `inactive` |
+| `matterport_input` | TEXT | URL oder Matterport-Modell-ID |
+| `cloud_share_url` | TEXT | Propus-Cloud/Nextcloud-Freigabe (Share-Import) |
+| `storage_source_type` | TEXT (032) | `share_link`, `order_folder`, `nas_browser` oder NULL |
+| `storage_root_kind` | TEXT (032) | `customer`, `raw` — welcher Booking-Upload-Root |
+| `storage_relative_path` | TEXT (032) | Relativer Pfad unter diesem Root (POSIX-Style) |
+| `video_url` | TEXT | Öffentliche Video-URL (Share-Import / extern) |
+| `video_source_type` | TEXT (032) | `url`, `nas_local` |
+| `video_source_root_kind` | TEXT (032) | Bei `nas_local`: `customer` oder `raw` |
+| `video_source_path` | TEXT (032) | Relativer Pfad zur MP4-Datei |
+| `floor_plans_json` | TEXT | JSON-Array von Grundrissen (s. `gallery_images`) |
+| `created_at` / `updated_at` | TIMESTAMPTZ | |
+
+**`floor_plans_json` — Einträge:** Jedes Element ist ein Objekt mit mindestens `title`. Für Propus-Cloud-Import: `url` (öffentliche PDF-URL). Für NAS-Import: `source_type = 'nas_local'`, `source_root_kind`, `source_path` (ohne öffentliche URL in der DB).
+
+---
+
+### `tour_manager.gallery_images`
+
+**Migrationen:** `028_listing_galleries.sql`, `032_gallery_nas_sources.sql`.
+
+| Feld | Typ | Beschreibung |
+|---|---|---|
+| `id` | UUID PK | |
+| `gallery_id` | UUID FK → `galleries` CASCADE | |
+| `sort_order` | INT | Reihenfolge |
+| `enabled` | BOOLEAN | Sichtbarkeit in Kundengalerie |
+| `category` | TEXT | optional |
+| `file_name` | TEXT | Anzeige-/Dateiname |
+| `remote_src` | TEXT | Öffentliche Bild-URL (Share-Link / Remote) |
+| `source_type` | TEXT (032) | `remote_url`, `nas_local` |
+| `source_root_kind` | TEXT (032) | Bei `nas_local`: `customer` oder `raw` |
+| `source_path` | TEXT (032) | Relativer Pfad zur Bilddatei |
+| `created_at` | TIMESTAMPTZ | |
+
+---
+
+### `tour_manager.gallery_feedback` — Kundenkommentare / Revisionen
+
+**Migration:** `028_listing_galleries.sql`.
+
+| Feld | Typ | Beschreibung |
+|---|---|---|
+| `id` | UUID PK | |
+| `gallery_id` | UUID FK → `galleries` CASCADE | |
+| `gallery_slug` | TEXT | Denormalisiert |
+| `asset_type` | TEXT | `image`, `floor_plan` |
+| `asset_key` | TEXT | z. B. Bild-ID oder `floor_plan_N` |
+| `asset_label` | TEXT | |
+| `body` | TEXT | Kommentar |
+| `author` | TEXT | `client`, `office` |
+| `revision` | INT | |
+| `resolved_at` | TIMESTAMPTZ | |
+| `created_at` | TIMESTAMPTZ | |
+
+---
+
+### `tour_manager.gallery_email_templates` — Vorlagen (Listing-E-Mails)
+
+**Migration:** `028_listing_galleries.sql` — feste IDs `propus-listing-email-v1`, `propus-email-followup-v1`, `propus-email-revision-done-v1`.
+
+---
+
 ## 4. Upload-Tabellen
 
 → Vollständige Beschreibung: [FLOWS_UPLOAD.md](./FLOWS_UPLOAD.md#2-tabellen)

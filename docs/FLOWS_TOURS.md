@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei jeder Änderung an Tour-Status, Matterport-Integration, Verlängerungs- oder Archivierungs-Logik dieses Dokument aktualisieren. **Produkt-Workflow (Regeln, Reminder-Stufen, Preise):** [WORKFLOW_TOURS.md](./WORKFLOW_TOURS.md) — bei Abweichungen beide Dateien abstimmen.
 
-*Zuletzt aktualisiert: April 2026 (Migration 027: `confirmation_*`, `subscription_start_date`; Cron `send-expiring-soon` 3-Stufen; `/admin/tours/workflow-settings`)*
+*Zuletzt aktualisiert: April 2026 (Galerie/NAS: Migrationen 031–032; Admin `/api/tours/admin/galleries` NAS-Import; öffentlich `/api/listing/...` Video/Grundriss/ZIP)*
 
 ---
 
@@ -21,6 +21,7 @@
 11. [Admin-Einstellungen](#11-admin-einstellungen)
 12. [Kanonische Felder (normalizeTourRow)](#12-kanonische-felder)
 13. [Zentrales Rechnungsmodul (Admin)](#13-zentrales-rechnungsmodul-admin)
+14. [Listing / Kunden-Galerie (Magic-Link)](#14-listing--kunden-galerie-magic-link)
 
 ---
 
@@ -655,3 +656,60 @@ Systemweite Rechnungsliste **ausserhalb** des Tour-Untermenüs. Pro-Tour-Ansicht
 | Indexes | `renewal_invoices(invoice_status)`, `exxas_invoices(exxas_status)`, u. a. siehe Migration |
 
 → Schema-Detail: [SCHEMA_FULL.md](./SCHEMA_FULL.md#tour_managerinvoices_central_v--view-admin-rechnungsübersicht)
+
+---
+
+## 14. Listing / Kunden-Galerie (Magic-Link)
+
+React-Admin unter `/admin/listing/…` (Komponenten in `app/src/pages-legacy/admin/listing/`). Öffentliche Kundenansicht: Next.js-Route `/listing/:slug` (Payload von `/api/listing/:slug`).
+
+### Datenmodell
+
+→ Tabellen `tour_manager.galleries`, `gallery_images`, `gallery_feedback`, `gallery_email_templates`: [SCHEMA_FULL.md](./SCHEMA_FULL.md#tour_managergalleries--listing--kunden-galerie-magic-link)
+
+**NAS-Import:** Relativ zu den gleichen Roots wie das Buchungs-Upload-System (`BOOKING_UPLOAD_CUSTOMER_ROOT`, `BOOKING_UPLOAD_RAW_ROOT`, …); Logik in `booking/order-storage.js`, genutzt von `tours/lib/gallery.js`. Keine freien absoluten Pfade über die API.
+
+### Admin-JSON-API (`tours/routes/gallery-admin-api.js`)
+
+Basis-Mount: **`/api/tours/admin/galleries`** (hinter `requireAdmin`, siehe `platform/server.js`).
+
+| Methode | Pfad | Beschreibung |
+|---|---|---|
+| `GET` | `/` | Liste mit `search`, `filter`, `sort` |
+| `POST` | `/` | Neue Galerie |
+| `GET` | `/:id` | Detail inkl. Bilder + Feedback |
+| `PATCH` | `/:id` | Metadaten |
+| `DELETE` | `/:id` | Galerie löschen |
+| `POST` | `/:id/duplicate` | Duplikat |
+| `GET` | `/email-templates` | E-Mail-Vorlagen |
+| `PUT` | `/email-templates/:tplId` | Vorlage speichern |
+| `GET` | `/:id/nas-context` | Storage-Health (`getStorageHealth`) + Bestellordner-Vorschläge |
+| `GET` | `/:id/nas-browse?rootKind=customer\|raw&relativePath=` | Nur Unterordner des erlaubten Roots; Medien-Zählung erst ab gewähltem Pfad |
+| `POST` | `/:id/import-nas` | Body: `rootKind`, `relativePath`, `storageSourceType` (`order_folder` \| `nas_browser`) |
+| `POST` | `/:id/import-share` | Body: `{ urls: [{ url }] }` — Nextcloud/Propus-Cloud-Freigabe rekursiv (WebDAV) |
+| `POST` | `/:id/images` | Bild anlegen |
+| `PATCH` | `/:id/images/:imgId` | Bild ändern |
+| `DELETE` | `/:id/images/:imgId` | Bild löschen |
+| `PUT` | `/:id/images/order` | Reihenfolge |
+| `GET` | `/:id/images/:imgId/file` | Thumbnail/Preview: NAS → `sendFile`, sonst Redirect auf `remote_src` |
+| `POST` | `/:id/feedback` | Büro-Rückfrage (`author: office`) |
+| `PATCH` | `/:id/feedback/:fbId` | resolved / reopen |
+| `DELETE` | `/:id/feedback/:fbId` | Feedback löschen |
+| `POST` | `/:id/send-email` | Versand via Microsoft Graph (`to`, `subject`, `htmlBody`) |
+| `POST` | `/:id/record-sent` | `client_delivery_status = sent` |
+
+### Öffentliche JSON-API (`tours/routes/gallery-public-api.js`)
+
+Mount: **`/api/listing`** (ohne Login).
+
+| Methode | Pfad | Beschreibung |
+|---|---|---|
+| `GET` | `/:slug` | Payload inkl. `download_all_url` wenn `storage_source_type` `order_folder` oder `nas_browser` |
+| `GET` | `/:slug/images/:imgId` | Bild: NAS → `sendFile`, sonst Redirect `remote_src` |
+| `GET` | `/:slug/video` | Video-Datei (NAS) oder 404 |
+| `GET` | `/:slug/floorplans/:index` | PDF (NAS) oder Redirect auf gespeicherte URL |
+| `GET` | `/:slug/download-all` | ZIP des importierten NAS-Ordners (`archiver`) |
+| `POST` | `/:slug/viewed` | Client-Log |
+| `POST` | `/:slug/downloaded` | Client-Log |
+| `POST` | `/:slug/feedback` | Kunden-Feedback |
+| `GET` | `/:slug/feedback` | Feedback-Liste / pro Asset |
