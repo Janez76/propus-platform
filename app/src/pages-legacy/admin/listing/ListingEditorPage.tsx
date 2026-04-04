@@ -716,7 +716,13 @@ export function ListingEditorPage() {
       } catch (e) {
         setNasEntries([]);
         setNasSummary({ images: 0, floorPlans: 0, hasVideo: false });
-        setNasError(e instanceof Error ? e.message : "NAS-Browser konnte nicht geladen werden.");
+        const raw = e instanceof Error ? e.message : "NAS-Browser konnte nicht geladen werden.";
+        const isPermission = /EACCES|permission denied|not found|nicht gefunden|assertRoot/i.test(raw);
+        setNasError(
+          isPermission
+            ? `NAS-Root nicht erreichbar. Bitte auf der VPS die Umgebungsvariablen BOOKING_UPLOAD_CUSTOMER_ROOT und BOOKING_UPLOAD_RAW_ROOT korrekt setzen und die NAS-Mounts prüfen.`
+            : raw,
+        );
       } finally {
         setNasLoading(false);
       }
@@ -732,7 +738,11 @@ export function ListingEditorPage() {
       setNasSuggestions(context.suggestions);
       const nextRootKind = context.currentSource.storage_root_kind ?? context.suggestions[0]?.rootKind ?? "customer";
       const nextRelativePath = context.currentSource.storage_relative_path ?? context.suggestions[0]?.relativePath ?? "";
-      await loadNasBrowser(nextRootKind, nextRelativePath);
+      const healthKey = nextRootKind === "raw" ? "rawRoot" : "customerRoot";
+      const rootOk = context.storageHealth.find((h) => h.key === healthKey)?.ok === true;
+      if (rootOk) {
+        await loadNasBrowser(nextRootKind, nextRelativePath);
+      }
     } catch (e) {
       setNasHealth([]);
       setNasSuggestions([]);
@@ -1437,73 +1447,105 @@ export function ListingEditorPage() {
             )}
           </div>
 
-          <div className="gbe-divider" />
+          {(() => {
+            const anyRootOk = nasHealth.some((h) => h.key !== "stagingRoot" && h.ok);
+            const selectedRootOk = nasHealth.find((h) => h.key === (nasRootKind === "raw" ? "rawRoot" : "customerRoot"))?.ok === true;
+            if (nasHealth.length > 0 && !anyRootOk) {
+              return (
+                <p className="mt-2 text-sm text-amber-700">
+                  Kein NAS-Root verfügbar. Bitte auf der VPS die Umgebungsvariablen{" "}
+                  <code>BOOKING_UPLOAD_CUSTOMER_ROOT</code> und <code>BOOKING_UPLOAD_RAW_ROOT</code> prüfen und
+                  sicherstellen, dass die NAS-Mounts aktiv sind.
+                </p>
+              );
+            }
 
-          <div className="gbe-two-col">
-            <div className="gbe-field">
-              <label htmlFor="gal-nas-root">NAS-Root</label>
-              <select
-                id="gal-nas-root"
-                className="gbe-input"
-                value={nasRootKind}
-                onChange={(e) => {
-                  const nextRoot = e.target.value === "raw" ? "raw" : "customer";
-                  void loadNasBrowser(nextRoot, "");
-                }}
-              >
-                <option value="customer">Kunden-Root</option>
-                <option value="raw">Raw-Root</option>
-              </select>
-            </div>
-            <div className="gbe-field">
-              <label htmlFor="gal-nas-path">Aktueller Ordner</label>
-              <input id="gal-nas-path" className="gbe-input" value={nasRelativePath} readOnly />
-            </div>
-          </div>
+            return (
+              <>
+                <div className="gbe-divider" />
 
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              className="admin-btn admin-btn--outline"
-              disabled={!nasParentPath || nasLoading}
-              onClick={() => void loadNasBrowser(nasRootKind, nasParentPath ?? "")}
-            >
-              Eine Ebene hoch
-            </button>
-            <button
-              type="button"
-              className="admin-btn admin-btn--primary"
-              disabled={nasImporting || nasLoading || !nasRelativePath.trim()}
-              onClick={() => void importNasSelection(nasRootKind, nasRelativePath, "nas_browser")}
-            >
-              {nasImporting ? "Import läuft …" : "Aktuellen Ordner importieren"}
-            </button>
-            <span className="gbe-field-hint">
-              {nasSummary.images} Bilder · {nasSummary.floorPlans} Grundrisse · {nasSummary.hasVideo ? "mit Video" : "ohne Video"}
-            </span>
-          </div>
+                <div className="gbe-two-col">
+                  <div className="gbe-field">
+                    <label htmlFor="gal-nas-root">NAS-Root</label>
+                    <select
+                      id="gal-nas-root"
+                      className="gbe-input"
+                      value={nasRootKind}
+                      onChange={(e) => {
+                        const nextRoot = e.target.value === "raw" ? "raw" : "customer";
+                        const nextRootOk = nasHealth.find((h) => h.key === (nextRoot === "raw" ? "rawRoot" : "customerRoot"))?.ok === true;
+                        if (nextRootOk) {
+                          void loadNasBrowser(nextRoot, "");
+                        } else {
+                          setNasRootKind(nextRoot);
+                          setNasEntries([]);
+                          setNasSummary({ images: 0, floorPlans: 0, hasVideo: false });
+                        }
+                      }}
+                    >
+                      <option value="customer">
+                        Kunden-Root{nasHealth.find((h) => h.key === "customerRoot")?.ok === false ? " (nicht verfügbar)" : ""}
+                      </option>
+                      <option value="raw">
+                        Raw-Root{nasHealth.find((h) => h.key === "rawRoot")?.ok === false ? " (nicht verfügbar)" : ""}
+                      </option>
+                    </select>
+                  </div>
+                  <div className="gbe-field">
+                    <label htmlFor="gal-nas-path">Aktueller Ordner</label>
+                    <input id="gal-nas-path" className="gbe-input" value={nasRelativePath} readOnly />
+                  </div>
+                </div>
 
-          <div className="mt-3 rounded-[16px] border border-[var(--line)] p-3">
-            <div className="mb-2 text-sm font-semibold text-[var(--text-main)]">Unterordner</div>
-            {nasLoading ? (
-              <p className="gbe-field-hint">NAS-Browser lädt …</p>
-            ) : nasEntries.length === 0 ? (
-              <p className="gbe-field-hint">Keine weiteren Unterordner vorhanden.</p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {nasEntries.map((entry) => (
+                <div className="mt-3 flex flex-wrap items-center gap-2">
                   <button
-                    key={entry.relativePath}
                     type="button"
                     className="admin-btn admin-btn--outline"
-                    onClick={() => void loadNasBrowser(nasRootKind, entry.relativePath)}
+                    disabled={!nasParentPath || nasLoading || !selectedRootOk}
+                    onClick={() => void loadNasBrowser(nasRootKind, nasParentPath ?? "")}
                   >
-                    {entry.name}
+                    Eine Ebene hoch
                   </button>
-                ))}
-              </div>
-            )}
-          </div>
+                  <button
+                    type="button"
+                    className="admin-btn admin-btn--primary"
+                    disabled={nasImporting || nasLoading || !nasRelativePath.trim() || !selectedRootOk}
+                    onClick={() => void importNasSelection(nasRootKind, nasRelativePath, "nas_browser")}
+                  >
+                    {nasImporting ? "Import läuft …" : "Aktuellen Ordner importieren"}
+                  </button>
+                  <span className="gbe-field-hint">
+                    {nasSummary.images} Bilder · {nasSummary.floorPlans} Grundrisse ·{" "}
+                    {nasSummary.hasVideo ? "mit Video" : "ohne Video"}
+                  </span>
+                </div>
+
+                <div className="mt-3 rounded-[16px] border border-[var(--line)] p-3">
+                  <div className="mb-2 text-sm font-semibold text-[var(--text-main)]">Unterordner</div>
+                  {!selectedRootOk ? (
+                    <p className="gbe-field-hint">Root nicht verfügbar.</p>
+                  ) : nasLoading ? (
+                    <p className="gbe-field-hint">NAS-Browser lädt …</p>
+                  ) : nasEntries.length === 0 ? (
+                    <p className="gbe-field-hint">Keine weiteren Unterordner vorhanden.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {nasEntries.map((entry) => (
+                        <button
+                          key={entry.relativePath}
+                          type="button"
+                          className="admin-btn admin-btn--outline"
+                          onClick={() => void loadNasBrowser(nasRootKind, entry.relativePath)}
+                        >
+                          {entry.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            );
+          })()}
 
           {nasMsg ? <p className="mt-3 text-sm text-emerald-700">{nasMsg}</p> : null}
           {nasError ? <p className="mt-3 text-sm text-rose-700">{nasError}</p> : null}
