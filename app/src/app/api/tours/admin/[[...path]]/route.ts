@@ -4,6 +4,9 @@
  */
 import { createCatchAllProxy } from "@/lib/proxy";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export const { GET, POST, PUT, PATCH, DELETE } = createCatchAllProxy(
   "/api/tours/admin",
   "tours-admin",
