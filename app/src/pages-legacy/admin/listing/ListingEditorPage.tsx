@@ -15,14 +15,18 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
+  adminGalleryImageUrl,
+  browseGalleryNas,
   createGallery,
   deleteFeedback,
   displayNameForGalleryImage,
   EMAIL_TEMPLATE_REVISION_DONE_ID,
   getGallery,
+  getGalleryNasContext,
+  importGalleryFromNas,
   importImagesFromShare,
   publicGalleryDeepLink,
   publicGalleryUrl,
@@ -31,6 +35,12 @@ import {
   updateGallery,
   updateImage,
 } from "../../../api/listingAdmin";
+import {
+  getLinkMatterportBookingSearch,
+  getToursByOrderNo,
+  getToursAdminCustomerDetail,
+  getToursAdminCustomersList,
+} from "../../../api/toursAdmin";
 import { pathListingAdmin } from "../../../components/listing/paths";
 import type { ClientGalleryRow, GalleryFeedbackRow, GalleryImageRow, GalleryStatus } from "../../../components/listing/types";
 import { ListingFeedbackMailModal } from "./ListingFeedbackMailModal";
@@ -110,6 +120,7 @@ function EditorDraftField({
   syncKey,
   serverValue,
   draftRef,
+  valueOverride,
   inputId,
   type = "text",
   placeholder,
@@ -118,6 +129,7 @@ function EditorDraftField({
   syncKey: string;
   serverValue: string;
   draftRef: MutableRefObject<string>;
+  valueOverride?: string;
   inputId: string;
   type?: "text" | "url" | "email";
   placeholder?: string;
@@ -128,6 +140,11 @@ function EditorDraftField({
     setV(serverValue);
     draftRef.current = serverValue;
   }, [serverValue, syncKey]);
+  useEffect(() => {
+    if (valueOverride === undefined) return;
+    setV(valueOverride);
+    draftRef.current = valueOverride;
+  }, [valueOverride, draftRef]);
   return (
     <input
       id={inputId}
@@ -141,6 +158,255 @@ function EditorDraftField({
         draftRef.current = nv;
       }}
     />
+  );
+}
+
+type GalleryCustomerOption = {
+  id: number;
+  name: string;
+  company: string;
+  email: string;
+  phone: string;
+  street: string;
+  zip: string;
+  city: string;
+};
+
+type GalleryContactOption = {
+  id: number;
+  customer_id: number;
+  name: string;
+  email: string;
+  phone: string;
+  role: string;
+};
+
+type GalleryOrderOption = {
+  id: number;
+  order_no: number;
+  status: string;
+  address: string;
+  company: string;
+  email: string;
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string;
+  coreCustomerId: string | null;
+  coreCompany: string;
+  coreEmail: string;
+  contacts: Array<{ name: string; email: string; tel: string }>;
+};
+
+function customerDisplayLabel(customer: GalleryCustomerOption) {
+  return customer.company.trim() || customer.name.trim() || customer.email.trim() || `Kunde #${customer.id}`;
+}
+
+function customerAddressLine(customer: GalleryCustomerOption) {
+  return [customer.street, [customer.zip, customer.city].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+}
+
+function contactDisplayLabel(contact: GalleryContactOption) {
+  return contact.name.trim() || contact.email.trim() || `Kontakt #${contact.id}`;
+}
+
+function orderDisplayLabel(order: GalleryOrderOption) {
+  const main = order.company.trim() || order.contactName.trim() || order.email.trim() || "Bestellung";
+  const address = order.address.trim();
+  return `#${order.order_no} · ${main}${address ? ` · ${address}` : ""}`;
+}
+
+function normalizeCustomerOption(raw: unknown): GalleryCustomerOption | null {
+  const r = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null;
+  if (!r) return null;
+  const id = Number(r.id);
+  if (!Number.isFinite(id) || id < 1) return null;
+  return {
+    id,
+    name: String(r.name || ""),
+    company: String(r.company || ""),
+    email: String(r.email || ""),
+    phone: String(r.phone || ""),
+    street: String(r.street || ""),
+    zip: String(r.zip || ""),
+    city: String(r.city || ""),
+  };
+}
+
+function normalizeContactOption(raw: unknown): GalleryContactOption | null {
+  const r = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null;
+  if (!r) return null;
+  const id = Number(r.id);
+  const customerId = Number(r.customer_id);
+  if (!Number.isFinite(id) || id < 1 || !Number.isFinite(customerId) || customerId < 1) return null;
+  return {
+    id,
+    customer_id: customerId,
+    name: String(r.name || ""),
+    email: String(r.email || ""),
+    phone: String(r.phone || ""),
+    role: String(r.role || ""),
+  };
+}
+
+function normalizeOrderOption(raw: unknown): GalleryOrderOption | null {
+  const r = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null;
+  if (!r) return null;
+  const orderNo = Number(r.order_no);
+  if (!Number.isFinite(orderNo) || orderNo < 1) return null;
+  return {
+    id: Number(r.id || 0),
+    order_no: orderNo,
+    status: String(r.status || ""),
+    address: String(r.address || ""),
+    company: String(r.company || ""),
+    email: String(r.email || ""),
+    contactName: String(r.contactName || ""),
+    contactEmail: String(r.contactEmail || ""),
+    contactPhone: String(r.contactPhone || ""),
+    coreCustomerId: r.coreCustomerId == null || String(r.coreCustomerId).trim() === "" ? null : String(r.coreCustomerId),
+    coreCompany: String(r.coreCompany || ""),
+    coreEmail: String(r.coreEmail || ""),
+    contacts: Array.isArray(r.contacts)
+      ? r.contacts
+          .map((contact) => {
+            const c = contact && typeof contact === "object" ? (contact as Record<string, unknown>) : null;
+            if (!c) return null;
+            return {
+              name: String(c.name || ""),
+              email: String(c.email || ""),
+              tel: String(c.tel || ""),
+            };
+          })
+          .filter((contact): contact is { name: string; email: string; tel: string } => Boolean(contact))
+      : [],
+  };
+}
+
+function GalleryAutocompleteField<T>({
+  inputId,
+  value,
+  onChange,
+  options,
+  loading,
+  placeholder,
+  emptyText,
+  disabled,
+  minQueryLength = 2,
+  getOptionKey,
+  renderOption,
+  onSelect,
+}: {
+  inputId: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: T[];
+  loading?: boolean;
+  placeholder?: string;
+  emptyText?: string;
+  disabled?: boolean;
+  minQueryLength?: number;
+  getOptionKey: (option: T, index: number) => string;
+  renderOption: (option: T) => ReactNode;
+  onSelect: (option: T) => void;
+}) {
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const trimmed = value.trim();
+  const hasEnoughChars = trimmed.length >= minQueryLength;
+  const showOptions = open && hasEnoughChars && options.length > 0;
+  const showEmpty = open && hasEnoughChars && !loading && options.length === 0 && Boolean(emptyText);
+
+  useEffect(() => {
+    const onPointerDown = (event: MouseEvent) => {
+      if (!wrapperRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+        setActiveIndex(-1);
+      }
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, []);
+
+  useEffect(() => {
+    setActiveIndex(-1);
+  }, [value]);
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      <input
+        id={inputId}
+        type="text"
+        className="gbe-input"
+        value={value}
+        placeholder={placeholder}
+        disabled={disabled}
+        autoComplete="off"
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded={showOptions}
+        onFocus={() => setOpen(true)}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setOpen(true);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            setOpen(false);
+            setActiveIndex(-1);
+            return;
+          }
+          if (!showOptions) return;
+          if (e.key === "ArrowDown") {
+            e.preventDefault();
+            setActiveIndex((prev) => (prev + 1) % options.length);
+          } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            setActiveIndex((prev) => (prev - 1 + options.length) % options.length);
+          } else if (e.key === "Enter" && activeIndex >= 0) {
+            e.preventDefault();
+            const next = options[activeIndex];
+            if (next) {
+              onSelect(next);
+              setOpen(false);
+              setActiveIndex(-1);
+            }
+          }
+        }}
+      />
+      {loading && hasEnoughChars ? (
+        <div className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded bg-zinc-800/90 px-2 py-1 text-[11px] text-zinc-200">
+          Suche...
+        </div>
+      ) : null}
+      {showOptions ? (
+        <ul className="absolute z-40 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] p-1 shadow-xl">
+          {options.map((option, index) => (
+            <li
+              key={getOptionKey(option, index)}
+              role="option"
+              aria-selected={activeIndex === index}
+              className={`cursor-pointer rounded-md px-3 py-2 text-sm ${
+                activeIndex === index ? "bg-[var(--surface-raised)]" : "hover:bg-[var(--surface-raised)]/70"
+              }`}
+              onMouseDown={(event) => {
+                event.preventDefault();
+                onSelect(option);
+                setOpen(false);
+                setActiveIndex(-1);
+              }}
+            >
+              {renderOption(option)}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {showEmpty ? (
+        <div className="absolute z-40 mt-1 w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-subtle)] shadow-xl">
+          {emptyText}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -244,7 +510,7 @@ const SortableImageThumb = memo(function SortableImageThumb({
     opacity: isDragging ? 0.55 : undefined,
   };
 
-  const thumbUrl = img.remote_src ?? "";
+  const thumbUrl = img.source_type === "nas_local" ? adminGalleryImageUrl(img.gallery_id, img.id) : img.remote_src ?? "";
 
   const name = displayNameForGalleryImage(img);
 
@@ -328,10 +594,49 @@ export function ListingEditorPage() {
   const [status, setStatus] = useState<GalleryStatus>("active");
   const titleDraftRef = useRef("");
   const addressDraftRef = useRef("");
-  const clientNameDraftRef = useRef("");
   const clientEmailDraftRef = useRef("");
   const cloudDraftRef = useRef("");
   const matterportDraftRef = useRef("");
+  const [addressInput, setAddressInput] = useState("");
+  const [clientEmailInput, setClientEmailInput] = useState("");
+  const [matterportInput, setMatterportInput] = useState("");
+  const [customerId, setCustomerId] = useState<number | null>(null);
+  const [customerContactId, setCustomerContactId] = useState<number | null>(null);
+  const [bookingOrderNo, setBookingOrderNo] = useState<number | null>(null);
+  const [customerInput, setCustomerInput] = useState("");
+  const [contactInput, setContactInput] = useState("");
+  const [orderInput, setOrderInput] = useState("");
+  const [customerOptions, setCustomerOptions] = useState<GalleryCustomerOption[]>([]);
+  const [contactOptions, setContactOptions] = useState<GalleryContactOption[]>([]);
+  const [orderOptions, setOrderOptions] = useState<GalleryOrderOption[]>([]);
+  const [customerSearchLoading, setCustomerSearchLoading] = useState(false);
+  const [orderSearchLoading, setOrderSearchLoading] = useState(false);
+  const [nasHealth, setNasHealth] = useState<Array<{ key: string; path: string; ok: boolean; mounted: boolean | null; error?: string }>>([]);
+  const [nasSuggestions, setNasSuggestions] = useState<
+    Array<{
+      folderType: "raw_material" | "customer_folder";
+      rootKind: "customer" | "raw";
+      relativePath: string;
+      displayName: string;
+      companyName: string;
+      status: string;
+      exists: boolean;
+      mediaSummary: { images: number; floorPlans: number; hasVideo: boolean };
+    }>
+  >([]);
+  const [nasRootKind, setNasRootKind] = useState<"customer" | "raw">("customer");
+  const [nasRelativePath, setNasRelativePath] = useState("");
+  const [nasEntries, setNasEntries] = useState<Array<{ name: string; relativePath: string }>>([]);
+  const [nasParentPath, setNasParentPath] = useState<string | null>(null);
+  const [nasSummary, setNasSummary] = useState<{ images: number; floorPlans: number; hasVideo: boolean }>({
+    images: 0,
+    floorPlans: 0,
+    hasVideo: false,
+  });
+  const [nasLoading, setNasLoading] = useState(false);
+  const [nasImporting, setNasImporting] = useState(false);
+  const [nasMsg, setNasMsg] = useState<string | null>(null);
+  const [nasError, setNasError] = useState<string | null>(null);
   const [mailOpen, setMailOpen] = useState(false);
   const [feedback, setFeedback] = useState<GalleryFeedbackRow[]>([]);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
@@ -376,6 +681,15 @@ export function ListingEditorPage() {
       }
       setG(row);
       setStatus(row.status);
+      setCustomerId(row.customer_id ?? null);
+      setCustomerContactId(row.customer_contact_id ?? null);
+      setBookingOrderNo(row.booking_order_no ?? null);
+      setAddressInput(row.address ?? "");
+      setClientEmailInput(row.client_email ?? "");
+      setMatterportInput(row.matterport_input ?? "");
+      setCustomerInput(row.client_name ?? "");
+      setContactInput(row.client_contact ?? "");
+      setOrderInput(row.booking_order_no != null ? String(row.booking_order_no) : "");
       setImages(ims);
       setFeedback(fb);
     } catch (e) {
@@ -386,6 +700,255 @@ export function ListingEditorPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const loadNasBrowser = useCallback(
+    async (rootKind: "customer" | "raw", relativePath: string) => {
+      if (!id || id === "new") return;
+      setNasLoading(true);
+      setNasError(null);
+      try {
+        const browser = await browseGalleryNas(id, { rootKind, relativePath });
+        setNasRootKind(browser.rootKind);
+        setNasRelativePath(browser.currentRelativePath);
+        setNasParentPath(browser.parentRelativePath);
+        setNasEntries(browser.entries);
+        setNasSummary(browser.mediaSummary);
+      } catch (e) {
+        setNasEntries([]);
+        setNasSummary({ images: 0, floorPlans: 0, hasVideo: false });
+        setNasError(e instanceof Error ? e.message : "NAS-Browser konnte nicht geladen werden.");
+      } finally {
+        setNasLoading(false);
+      }
+    },
+    [id],
+  );
+
+  const loadNasContext = useCallback(async () => {
+    if (!id || id === "new") return;
+    try {
+      const context = await getGalleryNasContext(id);
+      setNasHealth(context.storageHealth);
+      setNasSuggestions(context.suggestions);
+      const nextRootKind = context.currentSource.storage_root_kind ?? context.suggestions[0]?.rootKind ?? "customer";
+      const nextRelativePath = context.currentSource.storage_relative_path ?? context.suggestions[0]?.relativePath ?? "";
+      await loadNasBrowser(nextRootKind, nextRelativePath);
+    } catch (e) {
+      setNasHealth([]);
+      setNasSuggestions([]);
+      setNasError(e instanceof Error ? e.message : "NAS-Kontext konnte nicht geladen werden.");
+    }
+  }, [id, loadNasBrowser]);
+
+  useEffect(() => {
+    void loadNasContext();
+  }, [loadNasContext, g?.updated_at]);
+
+  useEffect(() => {
+    const query = customerInput.trim();
+    if (query.length < 2) {
+      setCustomerOptions([]);
+      setCustomerSearchLoading(false);
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      setCustomerSearchLoading(true);
+      try {
+        const res = await getToursAdminCustomersList(`q=${encodeURIComponent(query)}`);
+        if (cancelled) return;
+        const rawRows = Array.isArray((res as { customers?: unknown[] }).customers)
+          ? ((res as { customers?: unknown[] }).customers ?? [])
+          : [];
+        setCustomerOptions(rawRows.map(normalizeCustomerOption).filter((row): row is GalleryCustomerOption => Boolean(row)));
+      } catch {
+        if (!cancelled) setCustomerOptions([]);
+      } finally {
+        if (!cancelled) setCustomerSearchLoading(false);
+      }
+    }, 220);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [customerInput]);
+
+  useEffect(() => {
+    if (customerId == null) {
+      setContactOptions([]);
+      if (customerContactId != null) setCustomerContactId(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const detail = await getToursAdminCustomerDetail(String(customerId));
+        if (cancelled) return;
+        const customer = normalizeCustomerOption((detail as { customer?: unknown }).customer);
+        const contactsRaw = Array.isArray((detail as { contacts?: unknown[] }).contacts)
+          ? ((detail as { contacts?: unknown[] }).contacts ?? [])
+          : [];
+        const nextContacts = contactsRaw.map(normalizeContactOption).filter((row): row is GalleryContactOption => Boolean(row));
+        setContactOptions(nextContacts);
+        if (customer) {
+          setCustomerInput((prev) => (prev.trim() ? prev : customerDisplayLabel(customer)));
+          if (!clientEmailDraftRef.current.trim() && customer.email.trim()) {
+            setClientEmailInput(customer.email.trim());
+          }
+          if (!addressDraftRef.current.trim()) {
+            const nextAddress = customerAddressLine(customer);
+            if (nextAddress) setAddressInput(nextAddress);
+          }
+        }
+      } catch {
+        if (!cancelled) setContactOptions([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [customerContactId, customerId]);
+
+  useEffect(() => {
+    const query = orderInput.trim();
+    if (query.length < 1) {
+      setOrderOptions([]);
+      setOrderSearchLoading(false);
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      setOrderSearchLoading(true);
+      try {
+        const res = await getLinkMatterportBookingSearch(query);
+        if (cancelled) return;
+        const rawRows = Array.isArray(res.orders) ? res.orders : [];
+        setOrderOptions(rawRows.map(normalizeOrderOption).filter((row): row is GalleryOrderOption => Boolean(row)));
+      } catch {
+        if (!cancelled) setOrderOptions([]);
+      } finally {
+        if (!cancelled) setOrderSearchLoading(false);
+      }
+    }, 220);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [orderInput]);
+
+  const handleSelectCustomer = useCallback((customer: GalleryCustomerOption) => {
+    const label = customerDisplayLabel(customer);
+    setCustomerId(customer.id);
+    setCustomerInput(label);
+    setCustomerContactId(null);
+    setContactInput("");
+    if (customer.email.trim()) setClientEmailInput(customer.email.trim());
+    const nextAddress = customerAddressLine(customer);
+    if (nextAddress) setAddressInput(nextAddress);
+  }, []);
+
+  const handleSelectContact = useCallback((contact: GalleryContactOption) => {
+    setCustomerContactId(contact.id);
+    setContactInput(contactDisplayLabel(contact));
+    if (contact.email.trim()) setClientEmailInput(contact.email.trim());
+  }, []);
+
+  const handleSelectOrder = useCallback(
+    async (order: GalleryOrderOption) => {
+      setBookingOrderNo(order.order_no);
+      setOrderInput(orderDisplayLabel(order));
+      if (order.address.trim()) setAddressInput(order.address.trim());
+      if (order.contactEmail.trim()) setClientEmailInput(order.contactEmail.trim());
+      else if (order.email.trim()) setClientEmailInput(order.email.trim());
+
+      const nextCustomerLabel =
+        order.coreCompany.trim() || order.company.trim() || order.contactName.trim() || order.coreEmail.trim() || order.email.trim();
+      if (order.coreCustomerId) {
+        const parsedCustomerId = Number(order.coreCustomerId);
+        if (Number.isFinite(parsedCustomerId) && parsedCustomerId > 0) {
+          setCustomerId(parsedCustomerId);
+          if (nextCustomerLabel) setCustomerInput(nextCustomerLabel);
+        }
+      } else if (nextCustomerLabel) {
+        setCustomerId(null);
+        setCustomerInput(nextCustomerLabel);
+      }
+
+      const nextContactLabel = order.contactName.trim();
+      if (nextContactLabel) setContactInput(nextContactLabel);
+
+      if (order.coreCustomerId) {
+        try {
+          const detail = await getToursAdminCustomerDetail(order.coreCustomerId);
+          const contactsRaw = Array.isArray((detail as { contacts?: unknown[] }).contacts)
+            ? ((detail as { contacts?: unknown[] }).contacts ?? [])
+            : [];
+          const nextContacts = contactsRaw.map(normalizeContactOption).filter((row): row is GalleryContactOption => Boolean(row));
+          setContactOptions(nextContacts);
+          const match = nextContacts.find((contact) => {
+            const contactName = contact.name.trim().toLowerCase();
+            const orderName = order.contactName.trim().toLowerCase();
+            const contactEmail = contact.email.trim().toLowerCase();
+            const orderEmail = order.contactEmail.trim().toLowerCase();
+            return Boolean(
+              (orderName && contactName === orderName) ||
+                (orderEmail && contactEmail && contactEmail === orderEmail),
+            );
+          });
+          if (match) {
+            setCustomerContactId(match.id);
+            setContactInput(contactDisplayLabel(match));
+          } else {
+            setCustomerContactId(null);
+          }
+        } catch {
+          setCustomerContactId(null);
+        }
+      } else {
+        setCustomerContactId(null);
+      }
+
+      try {
+        const linkedTours = await getToursByOrderNo(order.order_no);
+        const tourWithMatterport = (linkedTours.tours || []).find(
+          (tour) => String(tour.tourUrl || "").trim() || String(tour.matterportSpaceId || "").trim(),
+        );
+        if (tourWithMatterport) {
+          const nextMatterport = String(tourWithMatterport.tourUrl || "").trim() || String(tourWithMatterport.matterportSpaceId || "").trim();
+          if (nextMatterport) setMatterportInput(nextMatterport);
+        }
+      } catch {
+        // Matterport-Autofill ist optional; Bestellungswahl soll trotzdem funktionieren.
+      }
+    },
+    [],
+  );
+
+  const importNasSelection = useCallback(
+    async (rootKind: "customer" | "raw", relativePath: string, storageSourceType: "order_folder" | "nas_browser") => {
+      if (!id) return;
+      setNasImporting(true);
+      setNasMsg(null);
+      setNasError(null);
+      try {
+        const result = await importGalleryFromNas(id, {
+          rootKind,
+          relativePath,
+          storageSourceType,
+        });
+        const parts = [`${result.added} Bild(er)`];
+        if (result.floorPlans > 0) parts.push(`${result.floorPlans} Grundriss(e)`);
+        if (result.hasVideo) parts.push("1 Video");
+        setNasMsg(`NAS-Import erfolgreich: ${parts.join(", ")}.`);
+        await load();
+      } catch (e) {
+        setNasError(e instanceof Error ? e.message : "NAS-Import fehlgeschlagen.");
+      } finally {
+        setNasImporting(false);
+      }
+    },
+    [id, load],
+  );
 
   /** `/admin/listing/new` → Galerie anlegen und zur echten ID weiterleiten */
   useEffect(() => {
@@ -421,7 +984,11 @@ export function ListingEditorPage() {
       await updateGallery(id, {
         title: titleDraftRef.current.trim() || "Ohne Titel",
         address: addressDraftRef.current.trim() || null,
-        client_name: clientNameDraftRef.current.trim() || null,
+        customer_id: customerId,
+        customer_contact_id: customerContactId,
+        booking_order_no: bookingOrderNo,
+        client_name: customerInput.trim() || null,
+        client_contact: contactInput.trim() || null,
         client_email: clientEmailDraftRef.current.trim() || null,
         status,
         slug: (g.slug ?? "").trim(),
@@ -433,7 +1000,10 @@ export function ListingEditorPage() {
       if (runImport) {
         try {
           const res = await importImagesFromShare(id, [{ url: nextCloud }]);
-          msg = `Gespeichert. ${res.added} Bild(er) importiert.`;
+          const parts = [`${res.added} Bild(er)`];
+          if (res.floorPlans > 0) parts.push(`${res.floorPlans} Grundriss(e)`);
+          if (res.hasVideo) parts.push("1 Video");
+          msg = `Gespeichert. ${parts.join(", ")} importiert.`;
         } catch {
           msg = "Gespeichert. Freigabe konnte nicht eingelesen werden.";
         }
@@ -636,23 +1206,118 @@ export function ListingEditorPage() {
           <div className="gbe-two-col">
             <div className="gbe-field">
               <label htmlFor="gal-edit-client">Kunde (optional)</label>
-              <EditorDraftField
-                syncKey={g.updated_at}
-                serverValue={g.client_name ?? ""}
-                draftRef={clientNameDraftRef}
+              <GalleryAutocompleteField
                 inputId="gal-edit-client"
+                value={customerInput}
+                onChange={(value) => {
+                  setCustomerInput(value);
+                  setCustomerId(null);
+                  setCustomerContactId(null);
+                  setContactInput("");
+                }}
+                options={customerOptions}
+                loading={customerSearchLoading}
+                placeholder="Firma, Kunde, E-Mail oder Telefon"
+                emptyText="Keine passenden Kunden gefunden."
+                getOptionKey={(customer) => String(customer.id)}
+                renderOption={(customer) => (
+                  <div>
+                    <div className="font-semibold text-[var(--text-main)]">{customerDisplayLabel(customer)}</div>
+                    <div className="mt-0.5 text-xs text-[var(--text-subtle)]">
+                      {customer.email || customerAddressLine(customer) || `Kunde #${customer.id}`}
+                    </div>
+                  </div>
+                )}
+                onSelect={handleSelectCustomer}
               />
+              {customerId ? (
+                <p className="gbe-field-hint">
+                  Kunde verknüpft: #{customerId}
+                </p>
+              ) : null}
             </div>
+            <div className="gbe-field">
+              <label htmlFor="gal-edit-contact">Kontakt</label>
+              <GalleryAutocompleteField
+                inputId="gal-edit-contact"
+                value={contactInput}
+                onChange={(value) => {
+                  setContactInput(value);
+                  setCustomerContactId(null);
+                }}
+                options={contactOptions.filter((contact) => {
+                  const q = contactInput.trim().toLowerCase();
+                  if (!q) return true;
+                  return (
+                    contact.name.toLowerCase().includes(q) ||
+                    contact.email.toLowerCase().includes(q) ||
+                    contact.phone.toLowerCase().includes(q)
+                  );
+                })}
+                placeholder={customerId ? "Kontakt des gewählten Kunden" : "Zuerst Kunde wählen"}
+                emptyText={customerId ? "Keine passenden Kontakte gefunden." : "Bitte zuerst einen Kunden auswählen."}
+                disabled={!customerId}
+                getOptionKey={(contact) => String(contact.id)}
+                renderOption={(contact) => (
+                  <div>
+                    <div className="font-semibold text-[var(--text-main)]">{contactDisplayLabel(contact)}</div>
+                    <div className="mt-0.5 text-xs text-[var(--text-subtle)]">
+                      {[contact.email, contact.phone, contact.role].filter(Boolean).join(" · ") || `Kontakt #${contact.id}`}
+                    </div>
+                  </div>
+                )}
+                onSelect={handleSelectContact}
+              />
+              {customerContactId ? (
+                <p className="gbe-field-hint">
+                  Kontakt verknüpft: #{customerContactId}
+                </p>
+              ) : null}
+            </div>
+          </div>
+          <div className="gbe-two-col">
             <div className="gbe-field">
               <label htmlFor="gal-edit-email">E-Mail des Kunden</label>
               <EditorDraftField
                 syncKey={g.updated_at}
                 serverValue={g.client_email ?? ""}
+                valueOverride={clientEmailInput}
                 draftRef={clientEmailDraftRef}
                 inputId="gal-edit-email"
                 type="email"
                 placeholder="kunde@beispiel.ch"
               />
+            </div>
+            <div className="gbe-field">
+              <label htmlFor="gal-edit-order">Bestellung verknüpfen</label>
+              <GalleryAutocompleteField
+                inputId="gal-edit-order"
+                value={orderInput}
+                onChange={(value) => {
+                  setOrderInput(value);
+                  setBookingOrderNo(null);
+                }}
+                options={orderOptions}
+                loading={orderSearchLoading}
+                minQueryLength={1}
+                placeholder="Bestellnummer, Kunde oder Adresse"
+                emptyText="Keine passende Bestellung gefunden."
+                getOptionKey={(order) => String(order.order_no)}
+                renderOption={(order) => (
+                  <div>
+                    <div className="font-semibold text-[var(--text-main)]">#{order.order_no}</div>
+                    <div className="mt-0.5 text-xs text-[var(--text-subtle)]">
+                      {[order.company || order.contactName, order.address, order.status].filter(Boolean).join(" · ")}
+                    </div>
+                  </div>
+                )}
+                onSelect={(order) => void handleSelectOrder(order)}
+              />
+              {bookingOrderNo ? (
+                <p className="gbe-field-hint">
+                  Bestellung verknüpft: #{bookingOrderNo}
+                </p>
+              ) : null}
             </div>
           </div>
           <div className="gbe-divider" />
@@ -661,6 +1326,7 @@ export function ListingEditorPage() {
             <EditorDraftField
               syncKey={g.updated_at}
               serverValue={g.address ?? ""}
+              valueOverride={addressInput}
               draftRef={addressDraftRef}
               inputId="gal-edit-addr"
               placeholder="z. B. Musterstrasse 1, 8000 Zürich"
@@ -692,6 +1358,7 @@ export function ListingEditorPage() {
               <EditorDraftField
                 syncKey={g.updated_at}
                 serverValue={g.matterport_input ?? ""}
+                valueOverride={matterportInput}
                 draftRef={matterportDraftRef}
                 inputId="gal-edit-mp"
                 placeholder="https://my.matterport.com/show/?m=…"
@@ -699,6 +1366,147 @@ export function ListingEditorPage() {
               <p className="gbe-field-hint">Erscheint auf der Kunden-Galerie.</p>
             </div>
           </div>
+        </section>
+
+        <section className="gbe-card">
+          <div className="gbe-section-head">
+            <h2 className="gbe-card-label">NAS-Import</h2>
+            <span className="gbe-section-meta">
+              {g?.storage_source_type === "order_folder"
+                ? "Aktive Quelle: Bestellordner"
+                : g?.storage_source_type === "nas_browser"
+                  ? "Aktive Quelle: NAS-Browser"
+                  : "Noch keine NAS-Quelle aktiv"}
+            </span>
+          </div>
+
+          <div className="gbe-field">
+            <label>VPS-Storage-Health</label>
+            <div className="flex flex-wrap gap-2">
+              {nasHealth.map((entry) => (
+                <div
+                  key={entry.key}
+                  className={`rounded-[12px] border px-3 py-2 text-xs ${
+                    entry.ok ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-rose-300 bg-rose-50 text-rose-700"
+                  }`}
+                  title={entry.error || entry.path}
+                >
+                  <div className="font-semibold">{entry.key}</div>
+                  <div>{entry.ok ? "bereit" : "fehlt"}</div>
+                  <div>{entry.mounted == null ? "Mount: n/a" : entry.mounted ? "Mount: ja" : "Mount: nein"}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="gbe-divider" />
+
+          <div className="gbe-field">
+            <label>Bestellordner-Vorschläge</label>
+            {bookingOrderNo == null ? (
+              <p className="gbe-field-hint">Nach dem Speichern einer verknüpften Bestellung erscheinen hier die vorgeschlagenen NAS-Ordner.</p>
+            ) : nasSuggestions.length === 0 ? (
+              <p className="gbe-field-hint">Für diese Bestellung wurden noch keine NAS-Vorschläge gefunden.</p>
+            ) : (
+              <div className="space-y-3">
+                {nasSuggestions.map((item) => (
+                  <div key={`${item.folderType}:${item.relativePath}`} className="rounded-[16px] border border-[var(--line)] p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <div className="font-semibold text-[var(--text-main)]">{item.displayName}</div>
+                        <div className="text-xs text-[var(--text-subtle)]">
+                          {item.folderType === "customer_folder" ? "Kundenordner" : "Raw-Material"} · {item.relativePath}
+                        </div>
+                        <div className="mt-1 text-xs text-[var(--text-subtle)]">
+                          {item.mediaSummary.images} Bilder · {item.mediaSummary.floorPlans} Grundrisse ·{" "}
+                          {item.mediaSummary.hasVideo ? "mit Video" : "ohne Video"}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="admin-btn admin-btn--outline"
+                        disabled={!item.exists || nasImporting}
+                        onClick={() => void importNasSelection(item.rootKind, item.relativePath, "order_folder")}
+                      >
+                        {nasImporting ? "Import läuft …" : "Diesen Ordner importieren"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="gbe-divider" />
+
+          <div className="gbe-two-col">
+            <div className="gbe-field">
+              <label htmlFor="gal-nas-root">NAS-Root</label>
+              <select
+                id="gal-nas-root"
+                className="gbe-input"
+                value={nasRootKind}
+                onChange={(e) => {
+                  const nextRoot = e.target.value === "raw" ? "raw" : "customer";
+                  void loadNasBrowser(nextRoot, "");
+                }}
+              >
+                <option value="customer">Kunden-Root</option>
+                <option value="raw">Raw-Root</option>
+              </select>
+            </div>
+            <div className="gbe-field">
+              <label htmlFor="gal-nas-path">Aktueller Ordner</label>
+              <input id="gal-nas-path" className="gbe-input" value={nasRelativePath} readOnly />
+            </div>
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className="admin-btn admin-btn--outline"
+              disabled={!nasParentPath || nasLoading}
+              onClick={() => void loadNasBrowser(nasRootKind, nasParentPath ?? "")}
+            >
+              Eine Ebene hoch
+            </button>
+            <button
+              type="button"
+              className="admin-btn admin-btn--primary"
+              disabled={nasImporting || nasLoading || !nasRelativePath.trim()}
+              onClick={() => void importNasSelection(nasRootKind, nasRelativePath, "nas_browser")}
+            >
+              {nasImporting ? "Import läuft …" : "Aktuellen Ordner importieren"}
+            </button>
+            <span className="gbe-field-hint">
+              {nasSummary.images} Bilder · {nasSummary.floorPlans} Grundrisse · {nasSummary.hasVideo ? "mit Video" : "ohne Video"}
+            </span>
+          </div>
+
+          <div className="mt-3 rounded-[16px] border border-[var(--line)] p-3">
+            <div className="mb-2 text-sm font-semibold text-[var(--text-main)]">Unterordner</div>
+            {nasLoading ? (
+              <p className="gbe-field-hint">NAS-Browser lädt …</p>
+            ) : nasEntries.length === 0 ? (
+              <p className="gbe-field-hint">Keine weiteren Unterordner vorhanden.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {nasEntries.map((entry) => (
+                  <button
+                    key={entry.relativePath}
+                    type="button"
+                    className="admin-btn admin-btn--outline"
+                    onClick={() => void loadNasBrowser(nasRootKind, entry.relativePath)}
+                  >
+                    {entry.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {nasMsg ? <p className="mt-3 text-sm text-emerald-700">{nasMsg}</p> : null}
+          {nasError ? <p className="mt-3 text-sm text-rose-700">{nasError}</p> : null}
         </section>
 
         <section className="gbe-card">

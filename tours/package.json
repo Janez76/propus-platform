@@ -13,6 +13,7 @@
     "test:email": "node scripts/send-test-email.js"
   },
   "dependencies": {
+    "archiver": "^7.0.1",
     "bcryptjs": "^2.4.3",
     "dotenv": "^16.3.1",
     "ejs": "^3.1.9",

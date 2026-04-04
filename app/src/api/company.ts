@@ -43,6 +43,9 @@ export type CompanyOrder = {
   appointmentDate?: string;
   createdAt?: string;
   createdByMemberId?: number | null;
+  listingSlug?: string;
+  listingTitle?: string;
+  listingStatus?: string;
 };
 
 export type CompanyCustomer = {

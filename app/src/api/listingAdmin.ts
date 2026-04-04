@@ -100,10 +100,68 @@ export function reorderImages(galleryId: string, orderedIds: string[]) {
 }
 
 export function importImagesFromShare(galleryId: string, urls: Array<{ url: string }>) {
-  return galleryFetch<{ ok: boolean; added: number }>(`/${galleryId}/import-share`, {
+  return galleryFetch<{ ok: boolean; added: number; floorPlans: number; hasVideo: boolean }>(`/${galleryId}/import-share`, {
     method: "POST",
     body: JSON.stringify({ urls }),
   });
+}
+
+export function getGalleryNasContext(galleryId: string) {
+  return galleryFetch<{
+    ok: boolean;
+    storageHealth: Array<{ key: string; path: string; ok: boolean; mounted: boolean | null; error?: string }>;
+    suggestions: Array<{
+      folderType: "raw_material" | "customer_folder";
+      rootKind: "customer" | "raw";
+      relativePath: string;
+      displayName: string;
+      companyName: string;
+      status: string;
+      exists: boolean;
+      mediaSummary: { images: number; floorPlans: number; hasVideo: boolean };
+    }>;
+    currentSource: {
+      storage_source_type: "share_link" | "order_folder" | "nas_browser" | null;
+      storage_root_kind: "customer" | "raw" | null;
+      storage_relative_path: string | null;
+    };
+  }>(`/${galleryId}/nas-context`);
+}
+
+export function browseGalleryNas(
+  galleryId: string,
+  params: { rootKind: "customer" | "raw"; relativePath?: string | null },
+) {
+  const search = new URLSearchParams();
+  search.set("rootKind", params.rootKind);
+  if (params.relativePath?.trim()) search.set("relativePath", params.relativePath.trim());
+  return galleryFetch<{
+    ok: boolean;
+    rootKind: "customer" | "raw";
+    rootPath: string;
+    currentRelativePath: string;
+    parentRelativePath: string | null;
+    entries: Array<{ name: string; relativePath: string }>;
+    mediaSummary: { images: number; floorPlans: number; hasVideo: boolean };
+  }>(`/${galleryId}/nas-browse?${search.toString()}`);
+}
+
+export function importGalleryFromNas(
+  galleryId: string,
+  body: {
+    rootKind: "customer" | "raw";
+    relativePath: string;
+    storageSourceType: "order_folder" | "nas_browser";
+  },
+) {
+  return galleryFetch<{ ok: boolean; added: number; floorPlans: number; hasVideo: boolean }>(`/${galleryId}/import-nas`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function adminGalleryImageUrl(galleryId: string, imageId: string) {
+  return `${BASE}/${galleryId}/images/${imageId}/file`;
 }
 
 // ---------------------------------------------------------------------------

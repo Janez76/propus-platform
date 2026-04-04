@@ -6,7 +6,14 @@ export type ClientGalleryRow = {
   slug: string;
   title: string;
   address: string | null;
+  storage_source_type: "share_link" | "order_folder" | "nas_browser" | null;
+  storage_root_kind: "customer" | "raw" | null;
+  storage_relative_path: string | null;
+  customer_id: number | null;
+  customer_contact_id: number | null;
+  booking_order_no: number | null;
   client_name: string | null;
+  client_contact: string | null;
   client_email: string | null;
   client_delivery_status: ClientDeliveryStatus;
   client_delivery_sent_at: string | null;
@@ -16,6 +23,9 @@ export type ClientGalleryRow = {
   status: GalleryStatus;
   matterport_input: string | null;
   cloud_share_url: string | null;
+  video_source_type: "url" | "nas_local" | null;
+  video_source_root_kind: "customer" | "raw" | null;
+  video_source_path: string | null;
   video_url: string | null;
   floor_plans_json: string | null;
   created_at: string;
@@ -29,6 +39,9 @@ export type GalleryImageRow = {
   enabled: boolean;
   category: string | null;
   file_name: string | null;
+  source_type: "remote_url" | "nas_local" | null;
+  source_root_kind: "customer" | "raw" | null;
+  source_path: string | null;
   remote_src: string | null;
   created_at: string;
 };
@@ -66,6 +79,7 @@ export type PublicGalleryPayload = {
   client_name: string | null;
   updated_at: string;
   cloud_share_url: string | null;
+  download_all_url: string | null;
   matterport_src: string;
   video_url: string;
   floor_plans: GalleryFloorPlan[];

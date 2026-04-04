@@ -2,11 +2,25 @@
  * DB-Query-Funktionen fuer das Listing/Galerie-Modul.
  * Alle Queries laufen gegen tour_manager.galleries / gallery_images / gallery_feedback / gallery_email_templates.
  */
+const fs = require('fs');
+const path = require('path');
 const { pool } = require('./db');
 const crypto = require('crypto');
+const orderStorage = require(path.join(__dirname, '..', '..', 'booking', 'order-storage'));
+const bookingDb = require(path.join(__dirname, '..', '..', 'booking', 'db'));
 
 const SLUG_ALPHABET = '0123456789abcdefghijklmnopqrstuvwxyz';
 const SLUG_LENGTH = 22;
+const WEBDAV_PREFIX = '/public.php/webdav';
+const IMG_EXT = /\.(jpe?g|png|webp|gif)$/i;
+const PDF_EXT = /\.pdf$/i;
+const MP4_EXT = /\.mp4$/i;
+const PROPFIND_BODY = `<?xml version="1.0" encoding="UTF-8"?>
+<d:propfind xmlns:d="DAV:"><d:prop><d:resourcetype/><d:getcontenttype/><d:getlastmodified/></d:prop></d:propfind>`;
+const MAX_FOLDERS = 100;
+const MAX_IMAGE_HREFS = 200;
+const MAX_PDF_HREFS = 40;
+const MAX_MP4_HREFS = 16;
 
 function generateSlug() {
   const bytes = crypto.randomBytes(SLUG_LENGTH);
@@ -15,6 +29,432 @@ function generateSlug() {
     slug += SLUG_ALPHABET[bytes[i] % SLUG_ALPHABET.length];
   }
   return slug;
+}
+
+function parseNextcloudPublicShareUrl(input) {
+  try {
+    const u = new URL(String(input || '').trim());
+    const path = u.pathname.replace(/\/+$/, '');
+    const m = path.match(/(?:^|\/)(?:index\.php\/)?s\/([A-Za-z0-9]+)$/);
+    if (!m) return null;
+    return { origin: u.origin, host: u.host, token: m[1] };
+  } catch {
+    return null;
+  }
+}
+
+function encodePathSegment(seg) {
+  try {
+    return encodeURIComponent(decodeURIComponent(seg));
+  } catch {
+    return encodeURIComponent(seg);
+  }
+}
+
+function nextcloudHrefToPublicFileUrl(href, origin, token) {
+  if (!href.startsWith(WEBDAV_PREFIX)) return null;
+  const rel = href.slice(WEBDAV_PREFIX.length).replace(/^\/+/, '');
+  const path = rel.split('/').filter(Boolean).map(encodePathSegment).join('/');
+  return `${origin}/public.php/dav/files/${token}/${path}`;
+}
+
+function parsePropfind(xml) {
+  const out = [];
+  const re = /<d:response>([\s\S]*?)<\/d:response>/gi;
+  let block;
+  while ((block = re.exec(xml)) !== null) {
+    const inner = block[1];
+    const hrefM = inner.match(/<d:href>([^<]*)<\/d:href>/i);
+    if (!hrefM) continue;
+    let href = hrefM[1].trim();
+    try {
+      href = decodeURIComponent(href);
+    } catch {
+      /* keep raw href */
+    }
+    const isCollection =
+      /<d:collection\s*\/>/i.test(inner) ||
+      /<d:resourcetype>[\s\S]*<d:collection/i.test(inner);
+    const ctM = inner.match(/<d:getcontenttype>([^<]*)<\/d:getcontenttype>/i);
+    const lmM = inner.match(/<d:getlastmodified>([^<]*)<\/d:getlastmodified>/i);
+    out.push({
+      href,
+      isCollection,
+      contentType: (ctM?.[1] || '').trim().toLowerCase(),
+      lastModified: lmM?.[1]?.trim() || null,
+    });
+  }
+  return out;
+}
+
+function pathScoreForGallery(p) {
+  const pl = String(p || '').toLowerCase();
+  if (pl.includes('/finale/bilder/web size/')) return 6;
+  if (pl.includes('/zur auswahl/')) return 5;
+  if (pl.includes('/websize/')) return 4;
+  if (pl.includes('/web/')) return 3;
+  if (pl.includes('/staging/')) return 2;
+  if (pl.includes('/fullsize/')) return 1;
+  return 2;
+}
+
+function dedupeByBasenamePreferWebsize(hrefs) {
+  const byBase = new Map();
+  for (const href of hrefs) {
+    const base = href.split('/').filter(Boolean).pop() || href;
+    const current = byBase.get(base);
+    if (!current || pathScoreForGallery(href) > pathScoreForGallery(current)) {
+      byBase.set(base, href);
+    }
+  }
+  return [...byBase.values()];
+}
+
+function pathScoreForVideo(p) {
+  const pl = String(p || '').toLowerCase();
+  if (pl.includes('/finale/video/')) return 6;
+  if (pl.includes('/video/') || pl.includes('/videos/')) return 5;
+  if (pl.includes('/filme/') || pl.includes('/film/')) return 4;
+  if (pl.includes('/media/')) return 3;
+  return 1;
+}
+
+function pathScoreForFloorPlan(p) {
+  const pl = String(p || '').toLowerCase();
+  if (pl.includes('/finale/grundrisse/')) return 6;
+  if (pl.includes('/grundrisse/')) return 5;
+  if (pl.includes('/floorplan/')) return 4;
+  return 1;
+}
+
+function dedupeByBasenameWithScore(paths, scorer) {
+  const byBase = new Map();
+  for (const currentPath of paths) {
+    const base = String(currentPath || '').split('/').filter(Boolean).pop() || currentPath;
+    const existing = byBase.get(base);
+    if (!existing || scorer(currentPath) > scorer(existing)) {
+      byBase.set(base, currentPath);
+    }
+  }
+  return [...byBase.values()];
+}
+
+function toPortableRelative(value) {
+  const normalized = path.normalize(String(value || '').trim()).replace(/\\/g, '/');
+  if (!normalized || normalized === '.') return '';
+  return normalized.replace(/^\/+/, '');
+}
+
+function getGalleryRootConfig(rootKind) {
+  const roots = orderStorage.getStorageRoots();
+  if (rootKind === 'customer') {
+    return { rootKind: 'customer', rootPath: roots.customerRoot, label: 'Kunden-Root' };
+  }
+  if (rootKind === 'raw') {
+    return { rootKind: 'raw', rootPath: roots.rawRoot, label: 'Raw-Root' };
+  }
+  throw new Error('Ungültiger Root-Typ');
+}
+
+function resolveGalleryRoot(rootKind) {
+  const config = getGalleryRootConfig(rootKind);
+  return {
+    ...config,
+    rootPath: orderStorage.assertRootReady(config.rootPath, { label: config.label, allowCreate: false }),
+  };
+}
+
+function resolveGalleryAbsolutePath(rootKind, relativePath, { expectDirectory = false } = {}) {
+  const root = resolveGalleryRoot(rootKind);
+  const normalizedRelative = toPortableRelative(relativePath);
+  const absolutePath = normalizedRelative
+    ? path.resolve(root.rootPath, normalizedRelative)
+    : root.rootPath;
+  if (!orderStorage.isPathInside(root.rootPath, absolutePath)) {
+    throw new Error('Pfad liegt ausserhalb des erlaubten Root-Verzeichnisses');
+  }
+  if (!fs.existsSync(absolutePath)) {
+    throw new Error('Pfad nicht gefunden');
+  }
+  const stat = fs.statSync(absolutePath);
+  if (expectDirectory && !stat.isDirectory()) {
+    throw new Error('Pfad ist kein Verzeichnis');
+  }
+  if (!expectDirectory && !stat.isFile()) {
+    throw new Error('Pfad ist keine Datei');
+  }
+  return {
+    ...root,
+    relativePath: normalizedRelative,
+    absolutePath,
+  };
+}
+
+function buildGalleryFloorPlanItems(items) {
+  return items.map((item) => ({
+    title: item.title,
+    url: item.url || null,
+    source_type: item.source_type || null,
+    source_root_kind: item.source_root_kind || null,
+    source_path: item.source_path || null,
+  }));
+}
+
+function parseStoredFloorPlans(raw) {
+  if (!raw || !String(raw).trim()) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((item) => item && typeof item === 'object')
+      .map((item) => ({
+        title: String(item.title || 'Grundriss').trim() || 'Grundriss',
+        url: item.url ? String(item.url).trim() : null,
+        source_type: item.source_type ? String(item.source_type).trim() : null,
+        source_root_kind: item.source_root_kind ? String(item.source_root_kind).trim() : null,
+        source_path: item.source_path ? String(item.source_path).trim() : null,
+      }));
+  } catch {
+    return [];
+  }
+}
+
+function buildNasMediaSummary(scan) {
+  return {
+    images: scan.images.length,
+    floorPlans: scan.floorPlans.length,
+    hasVideo: Boolean(scan.video),
+  };
+}
+
+function scanNasMediaFromDirectory(rootKind, absoluteDir) {
+  const root = resolveGalleryRoot(rootKind);
+  if (!orderStorage.isPathInside(root.rootPath, absoluteDir)) {
+    throw new Error('Pfad liegt ausserhalb des erlaubten Root-Verzeichnisses');
+  }
+  const allFiles = orderStorage.walkFilesRecursive(absoluteDir);
+  const imagePaths = [];
+  const pdfPaths = [];
+  const mp4Paths = [];
+
+  for (const absolutePath of allFiles) {
+    const relativePath = orderStorage.toPortablePath(path.relative(root.rootPath, absolutePath));
+    const lowered = relativePath.toLowerCase();
+    if (IMG_EXT.test(lowered)) imagePaths.push(relativePath);
+    if (PDF_EXT.test(lowered)) pdfPaths.push(relativePath);
+    if (MP4_EXT.test(lowered)) mp4Paths.push(relativePath);
+  }
+
+  const images = dedupeByBasenamePreferWebsize(imagePaths).map((relativePath) => ({
+    fileName: fileNameFromUrl(relativePath),
+    source_type: 'nas_local',
+    source_root_kind: rootKind,
+    source_path: relativePath,
+    remoteSrc: null,
+  }));
+
+  const floorPlans = dedupeByBasenameWithScore(pdfPaths, pathScoreForFloorPlan)
+    .sort((a, b) => a.localeCompare(b, 'de'))
+    .map((relativePath, index) => {
+      const rawName = fileNameFromUrl(relativePath).replace(PDF_EXT, '').replace(/_/g, ' ').trim();
+      return {
+        title: rawName || `Grundriss ${index + 1}`,
+        source_type: 'nas_local',
+        source_root_kind: rootKind,
+        source_path: relativePath,
+        url: null,
+      };
+    });
+
+  const bestVideoRelative = dedupeByBasenameWithScore(mp4Paths, pathScoreForVideo)
+    .sort((a, b) => pathScoreForVideo(b) - pathScoreForVideo(a))[0] || null;
+
+  const video = bestVideoRelative
+    ? {
+        source_type: 'nas_local',
+        source_root_kind: rootKind,
+        source_path: bestVideoRelative,
+        url: null,
+      }
+    : null;
+
+  return { images, floorPlans, video };
+}
+
+function listNasDirectoryEntries(rootKind, relativePath = '') {
+  const { rootPath, absolutePath } = resolveGalleryAbsolutePath(rootKind, relativePath, { expectDirectory: true });
+  const entries = fs.readdirSync(absolutePath, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .sort((a, b) => a.name.localeCompare(b.name, 'de'))
+    .map((entry) => {
+      const nextRelativePath = orderStorage.toPortablePath(path.join(relativePath || '', entry.name));
+      return {
+        name: entry.name,
+        relativePath: nextRelativePath,
+      };
+    });
+
+  const scan = relativePath ? scanNasMediaFromDirectory(rootKind, absolutePath) : null;
+  const parentRelativePath = relativePath
+    ? orderStorage.toPortablePath(path.dirname(relativePath)).replace(/^\.$/, '')
+    : null;
+
+  return {
+    rootKind,
+    rootPath,
+    currentRelativePath: toPortableRelative(relativePath),
+    parentRelativePath,
+    entries,
+    mediaSummary: scan ? buildNasMediaSummary(scan) : { images: 0, floorPlans: 0, hasVideo: false },
+  };
+}
+
+async function getGalleryNasContext(galleryId) {
+  const gallery = await getGallery(galleryId);
+  if (!gallery) throw new Error('Galerie nicht gefunden.');
+
+  const storageHealth = orderStorage.getStorageHealth();
+  const suggestions = [];
+  if (gallery.booking_order_no != null) {
+    const order = await bookingDb.getOrderByNo(gallery.booking_order_no);
+    if (order) {
+      const folders = await orderStorage.getOrderFolderSummary(order, bookingDb, { createMissing: false });
+      for (const folder of folders) {
+        const rootKind = folder.folderType === 'raw_material' ? 'raw' : 'customer';
+        let mediaSummary = { images: 0, floorPlans: 0, hasVideo: false };
+        if (folder.exists) {
+          try {
+            mediaSummary = buildNasMediaSummary(
+              scanNasMediaFromDirectory(rootKind, resolveGalleryAbsolutePath(rootKind, folder.relativePath, { expectDirectory: true }).absolutePath)
+            );
+          } catch {
+            /* ignore broken folder */
+          }
+        }
+        suggestions.push({
+          folderType: folder.folderType,
+          rootKind,
+          relativePath: folder.relativePath,
+          displayName: folder.displayName,
+          companyName: folder.companyName,
+          status: folder.status,
+          exists: folder.exists,
+          mediaSummary,
+        });
+      }
+    }
+  }
+
+  return {
+    storageHealth,
+    suggestions,
+    currentSource: {
+      storage_source_type: gallery.storage_source_type || null,
+      storage_root_kind: gallery.storage_root_kind || null,
+      storage_relative_path: gallery.storage_relative_path || null,
+    },
+  };
+}
+
+async function propfind(href, token, origin) {
+  const response = await fetch(`${origin}${href}`, {
+    method: 'PROPFIND',
+    headers: {
+      Depth: '1',
+      'Content-Type': 'application/xml; charset=utf-8',
+      Authorization: `Basic ${Buffer.from(`${token}:`).toString('base64')}`,
+    },
+    body: PROPFIND_BODY,
+  });
+  if (response.status === 401 || response.status === 403) {
+    throw new Error('Nextcloud hat den Zugriff abgelehnt.');
+  }
+  if (!response.ok) {
+    throw new Error(`WebDAV ${response.status}`);
+  }
+  return response.text();
+}
+
+async function listMediaFromNextcloudPublicShare(sharePageUrl) {
+  const parsed = parseNextcloudPublicShareUrl(sharePageUrl);
+  if (!parsed) {
+    throw new Error('Keine gültige Propus-Cloud/Nextcloud-Freigabe-URL.');
+  }
+
+  const folderQueue = [`${WEBDAV_PREFIX}/`];
+  const seenFolders = new Set();
+  const imageHrefs = [];
+  const pdfHrefs = [];
+  const mp4Hrefs = [];
+
+  while (folderQueue.length > 0 && seenFolders.size < MAX_FOLDERS) {
+    const href = folderQueue.shift();
+    if (!href || seenFolders.has(href)) continue;
+    seenFolders.add(href);
+
+    const xml = await propfind(href, parsed.token, parsed.origin);
+    const entries = parsePropfind(xml);
+
+    for (const entry of entries) {
+      if (entry.href === href || !entry.href.startsWith(WEBDAV_PREFIX)) continue;
+      if (entry.isCollection) {
+        const nested = entry.href.endsWith('/') ? entry.href : `${entry.href}/`;
+        if (!seenFolders.has(nested)) folderQueue.push(nested);
+        continue;
+      }
+
+      const isImg =
+        IMG_EXT.test(entry.href) ||
+        entry.contentType.startsWith('image/') ||
+        entry.contentType === 'image/jpeg';
+      if (isImg && imageHrefs.length < MAX_IMAGE_HREFS) imageHrefs.push(entry.href);
+
+      const isPdf =
+        PDF_EXT.test(entry.href) ||
+        entry.contentType === 'application/pdf' ||
+        entry.contentType.includes('pdf');
+      if (isPdf && pdfHrefs.length < MAX_PDF_HREFS) pdfHrefs.push(entry.href);
+
+      const isMp4 =
+        MP4_EXT.test(entry.href) ||
+        entry.contentType === 'video/mp4' ||
+        entry.contentType.includes('video/mp4');
+      if (isMp4 && mp4Hrefs.length < MAX_MP4_HREFS) mp4Hrefs.push(entry.href);
+    }
+  }
+
+  const pickedImages = dedupeByBasenamePreferWebsize(imageHrefs)
+    .map((href) => {
+      const remoteSrc = nextcloudHrefToPublicFileUrl(href, parsed.origin, parsed.token);
+      if (!remoteSrc) return null;
+      return {
+        remoteSrc,
+        fileName: fileNameFromUrl(href),
+      };
+    })
+    .filter(Boolean);
+
+  const floorPlans = [...new Set(pdfHrefs)]
+    .sort()
+    .map((href, index) => {
+      const publicUrl = nextcloudHrefToPublicFileUrl(href, parsed.origin, parsed.token);
+      if (!publicUrl) return null;
+      const rawName = fileNameFromUrl(href).replace(PDF_EXT, '').replace(/_/g, ' ').trim();
+      return {
+        url: publicUrl,
+        title: rawName || `Grundriss ${index + 1}`,
+      };
+    })
+    .filter(Boolean);
+
+  const bestVideoHref = [...new Set(mp4Hrefs)].sort((a, b) => pathScoreForVideo(b) - pathScoreForVideo(a))[0] || null;
+  const videoUrl = bestVideoHref ? nextcloudHrefToPublicFileUrl(bestVideoHref, parsed.origin, parsed.token) : null;
+
+  return {
+    images: pickedImages,
+    floorPlans,
+    videoUrl: videoUrl || null,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -33,7 +473,9 @@ async function listGalleries({ search, filter, sort } = {}) {
       LOWER(g.title) LIKE $${idx} OR
       LOWER(g.address) LIKE $${idx} OR
       LOWER(g.client_name) LIKE $${idx} OR
+      LOWER(COALESCE(g.client_contact, '')) LIKE $${idx} OR
       LOWER(g.client_email) LIKE $${idx} OR
+      COALESCE(g.booking_order_no::text, '') LIKE $${idx} OR
       LOWER(g.slug) LIKE $${idx}
     )`;
     idx++;
@@ -100,18 +542,33 @@ async function getGalleryBySlugAny(slug) {
 async function createGallery(data = {}) {
   const slug = generateSlug();
   const { rows } = await pool.query(
-    `INSERT INTO tour_manager.galleries (slug, title, address, client_name, client_email, status, matterport_input, cloud_share_url, video_url, floor_plans_json)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    `INSERT INTO tour_manager.galleries (
+       slug, title, address, customer_id, customer_contact_id, booking_order_no,
+       client_name, client_contact, client_email, status, matterport_input, cloud_share_url,
+       storage_source_type, storage_root_kind, storage_relative_path,
+       video_source_type, video_source_root_kind, video_source_path, video_url, floor_plans_json
+     )
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
      RETURNING *`,
     [
       slug,
       data.title || '',
       data.address || null,
+      data.customer_id || null,
+      data.customer_contact_id || null,
+      data.booking_order_no || null,
       data.client_name || null,
+      data.client_contact || null,
       data.client_email || null,
       data.status || 'inactive',
       data.matterport_input || null,
       data.cloud_share_url || null,
+      data.storage_source_type || null,
+      data.storage_root_kind || null,
+      data.storage_relative_path || null,
+      data.video_source_type || null,
+      data.video_source_root_kind || null,
+      data.video_source_path || null,
       data.video_url || null,
       data.floor_plans_json || null,
     ]
@@ -121,11 +578,14 @@ async function createGallery(data = {}) {
 
 async function updateGallery(id, patch) {
   const allowed = [
-    'title', 'address', 'client_name', 'client_email',
+    'title', 'address', 'customer_id', 'customer_contact_id', 'booking_order_no',
+    'client_name', 'client_contact', 'client_email',
     'client_delivery_status', 'client_delivery_sent_at',
     'client_log_email_received_at', 'client_log_gallery_opened_at',
     'client_log_files_downloaded_at',
-    'status', 'matterport_input', 'cloud_share_url', 'video_url', 'floor_plans_json',
+    'status', 'matterport_input', 'cloud_share_url',
+    'storage_source_type', 'storage_root_kind', 'storage_relative_path',
+    'video_source_type', 'video_source_root_kind', 'video_source_path', 'video_url', 'floor_plans_json',
   ];
   const sets = [];
   const params = [];
@@ -158,18 +618,29 @@ async function duplicateGallery(id) {
   const newSlug = generateSlug();
   const { rows } = await pool.query(
     `INSERT INTO tour_manager.galleries
-       (slug, title, address, client_name, client_email, status,
-        matterport_input, cloud_share_url, video_url, floor_plans_json)
-     VALUES ($1, $2, $3, $4, $5, 'inactive', $6, $7, $8, $9)
+       (slug, title, address, customer_id, customer_contact_id, booking_order_no, client_name, client_contact, client_email, status,
+        matterport_input, cloud_share_url, storage_source_type, storage_root_kind, storage_relative_path,
+        video_source_type, video_source_root_kind, video_source_path, video_url, floor_plans_json)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'inactive', $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
      RETURNING *`,
     [
       newSlug,
       `${src.title} (Kopie)`,
       src.address,
+      src.customer_id,
+      src.customer_contact_id,
+      src.booking_order_no,
       src.client_name,
+      src.client_contact,
       src.client_email,
       src.matterport_input,
       src.cloud_share_url,
+      src.storage_source_type,
+      src.storage_root_kind,
+      src.storage_relative_path,
+      src.video_source_type,
+      src.video_source_root_kind,
+      src.video_source_path,
       src.video_url,
       src.floor_plans_json,
     ]
@@ -179,9 +650,21 @@ async function duplicateGallery(id) {
   const imgs = await listGalleryImages(id);
   for (const img of imgs) {
     await pool.query(
-      `INSERT INTO tour_manager.gallery_images (gallery_id, sort_order, enabled, category, file_name, remote_src)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [newGallery.id, img.sort_order, img.enabled, img.category, img.file_name, img.remote_src]
+      `INSERT INTO tour_manager.gallery_images (
+         gallery_id, sort_order, enabled, category, file_name, source_type, source_root_kind, source_path, remote_src
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [
+        newGallery.id,
+        img.sort_order,
+        img.enabled,
+        img.category,
+        img.file_name,
+        img.source_type || null,
+        img.source_root_kind || null,
+        img.source_path || null,
+        img.remote_src,
+      ]
     );
   }
 
@@ -208,16 +691,26 @@ async function addGalleryImage(galleryId, data) {
   const sortOrder = data.sort_order ?? maxRes.rows[0].next;
 
   const { rows } = await pool.query(
-    `INSERT INTO tour_manager.gallery_images (gallery_id, sort_order, enabled, category, file_name, remote_src)
-     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-    [galleryId, sortOrder, data.enabled !== false, data.category || null, data.file_name || null, data.remote_src || null]
+    `INSERT INTO tour_manager.gallery_images (gallery_id, sort_order, enabled, category, file_name, source_type, source_root_kind, source_path, remote_src)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+    [
+      galleryId,
+      sortOrder,
+      data.enabled !== false,
+      data.category || null,
+      data.file_name || null,
+      data.source_type || null,
+      data.source_root_kind || null,
+      data.source_path || null,
+      data.remote_src || null,
+    ]
   );
   await touchGallery(galleryId);
   return rows[0];
 }
 
 async function updateImage(imageId, patch) {
-  const allowed = ['enabled', 'category', 'sort_order', 'file_name', 'remote_src'];
+  const allowed = ['enabled', 'category', 'sort_order', 'file_name', 'source_type', 'source_root_kind', 'source_path', 'remote_src'];
   const sets = [];
   const params = [];
   let idx = 1;
@@ -268,12 +761,120 @@ async function reorderImages(galleryId, orderedIds) {
   }
 }
 
+async function replaceGalleryMedia(client, galleryId, payload) {
+  const images = Array.isArray(payload.images) ? payload.images : [];
+  const floorPlans = Array.isArray(payload.floorPlans) ? payload.floorPlans : [];
+  const video = payload.video || null;
+  const storageSourceType = payload.storage_source_type || null;
+  const storageRootKind = payload.storage_root_kind || null;
+  const storageRelativePath = payload.storage_relative_path || null;
+
+  await client.query('DELETE FROM tour_manager.gallery_images WHERE gallery_id = $1', [galleryId]);
+
+  for (let i = 0; i < images.length; i++) {
+    const image = images[i];
+    await client.query(
+      `INSERT INTO tour_manager.gallery_images (
+         gallery_id, sort_order, enabled, category, file_name, source_type, source_root_kind, source_path, remote_src
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [
+        galleryId,
+        i,
+        true,
+        null,
+        image.fileName || null,
+        image.source_type || null,
+        image.source_root_kind || null,
+        image.source_path || null,
+        image.remoteSrc || null,
+      ]
+    );
+  }
+
+  await client.query(
+    `UPDATE tour_manager.galleries
+     SET storage_source_type = $1,
+         storage_root_kind = $2,
+         storage_relative_path = $3,
+         video_source_type = $4,
+         video_source_root_kind = $5,
+         video_source_path = $6,
+         video_url = $7,
+         floor_plans_json = $8,
+         updated_at = NOW()
+     WHERE id = $9`,
+    [
+      storageSourceType,
+      storageRootKind,
+      storageRelativePath,
+      video?.source_type || null,
+      video?.source_root_kind || null,
+      video?.source_path || null,
+      video?.url || null,
+      floorPlans.length ? JSON.stringify(buildGalleryFloorPlanItems(floorPlans)) : null,
+      galleryId,
+    ]
+  );
+}
+
 async function importImagesFromShare(galleryId, urls) {
+  const rawUrls = Array.isArray(urls) ? urls : [];
+  const values = rawUrls.map((entry) => String(entry?.url || entry || '').trim()).filter(Boolean);
+  if (values.length === 0) {
+    return { added: 0, floorPlans: 0, hasVideo: false };
+  }
+
+  if (values.length === 1 && parseNextcloudPublicShareUrl(values[0])) {
+    const media = await listMediaFromNextcloudPublicShare(values[0]);
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await replaceGalleryMedia(client, galleryId, {
+        images: media.images.map((image) => ({
+          fileName: image.fileName,
+          source_type: 'remote_url',
+          source_root_kind: null,
+          source_path: null,
+          remoteSrc: image.remoteSrc,
+        })),
+        floorPlans: media.floorPlans.map((floorPlan) => ({
+          title: floorPlan.title,
+          url: floorPlan.url,
+          source_type: null,
+          source_root_kind: null,
+          source_path: null,
+        })),
+        video: media.videoUrl
+          ? {
+              source_type: 'url',
+              source_root_kind: null,
+              source_path: null,
+              url: media.videoUrl,
+            }
+          : null,
+        storage_source_type: 'share_link',
+        storage_root_kind: null,
+        storage_relative_path: null,
+      });
+      await client.query('COMMIT');
+      return {
+        added: media.images.length,
+        floorPlans: media.floorPlans.length,
+        hasVideo: Boolean(media.videoUrl),
+      };
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
+  }
+
   const added = [];
-  for (let i = 0; i < urls.length; i++) {
-    const url = urls[i];
-    const fileName = fileNameFromUrl(url.url || url);
-    const remoteSrc = url.url || url;
+  for (let i = 0; i < values.length; i++) {
+    const remoteSrc = values[i];
+    const fileName = fileNameFromUrl(remoteSrc);
     const img = await addGalleryImage(galleryId, {
       remote_src: remoteSrc,
       file_name: fileName,
@@ -282,7 +883,46 @@ async function importImagesFromShare(galleryId, urls) {
     });
     added.push(img);
   }
-  return added;
+  return { added: added.length, floorPlans: 0, hasVideo: false };
+}
+
+async function importGalleryFromNas(galleryId, source) {
+  const rootKind = String(source?.rootKind || '').trim();
+  const storageSourceType = String(source?.storageSourceType || 'nas_browser').trim();
+  const relativePath = toPortableRelative(source?.relativePath || '');
+  const allowedSourceTypes = new Set(['order_folder', 'nas_browser']);
+  if (!allowedSourceTypes.has(storageSourceType)) {
+    throw new Error('Ungültiger NAS-Quelltyp');
+  }
+  if (!relativePath) {
+    throw new Error('NAS-Pfad fehlt');
+  }
+
+  const { absolutePath } = resolveGalleryAbsolutePath(rootKind, relativePath, { expectDirectory: true });
+  const media = scanNasMediaFromDirectory(rootKind, absolutePath);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await replaceGalleryMedia(client, galleryId, {
+      images: media.images,
+      floorPlans: media.floorPlans,
+      video: media.video,
+      storage_source_type: storageSourceType,
+      storage_root_kind: rootKind,
+      storage_relative_path: relativePath,
+    });
+    await client.query('COMMIT');
+    return {
+      added: media.images.length,
+      floorPlans: media.floorPlans.length,
+      hasVideo: Boolean(media.video),
+    };
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
 }
 
 function fileNameFromUrl(url) {
@@ -297,6 +937,35 @@ function fileNameFromUrl(url) {
     const seg = i >= 0 ? q.slice(i + 1) : q;
     try { return decodeURIComponent(seg) || 'Bild'; } catch { return seg || 'Bild'; }
   }
+}
+
+function resolveGalleryImageFile(image) {
+  if (!image || image.source_type !== 'nas_local' || !image.source_root_kind || !image.source_path) {
+    return null;
+  }
+  return resolveGalleryAbsolutePath(image.source_root_kind, image.source_path, { expectDirectory: false }).absolutePath;
+}
+
+function resolveGalleryVideoFile(gallery) {
+  if (!gallery || gallery.video_source_type !== 'nas_local' || !gallery.video_source_root_kind || !gallery.video_source_path) {
+    return null;
+  }
+  return resolveGalleryAbsolutePath(gallery.video_source_root_kind, gallery.video_source_path, { expectDirectory: false }).absolutePath;
+}
+
+function resolveGalleryFloorPlanFile(gallery, index) {
+  const items = parseStoredFloorPlans(gallery?.floor_plans_json);
+  const item = items[index];
+  if (!item || item.source_type !== 'nas_local' || !item.source_root_kind || !item.source_path) {
+    return null;
+  }
+  return resolveGalleryAbsolutePath(item.source_root_kind, item.source_path, { expectDirectory: false }).absolutePath;
+}
+
+function getGalleryDownloadSource(gallery) {
+  if (!gallery || !gallery.storage_root_kind || !gallery.storage_relative_path) return null;
+  if (!['order_folder', 'nas_browser'].includes(String(gallery.storage_source_type || ''))) return null;
+  return resolveGalleryAbsolutePath(gallery.storage_root_kind, gallery.storage_relative_path, { expectDirectory: true });
 }
 
 // ---------------------------------------------------------------------------
@@ -439,7 +1108,15 @@ module.exports = {
   updateImage,
   deleteImage,
   reorderImages,
+  getGalleryNasContext,
+  listNasDirectoryEntries,
   importImagesFromShare,
+  importGalleryFromNas,
+  parseStoredFloorPlans,
+  resolveGalleryImageFile,
+  resolveGalleryVideoFile,
+  resolveGalleryFloorPlanFile,
+  getGalleryDownloadSource,
   listGalleryFeedback,
   listFeedbackForAsset,
   submitFeedback,

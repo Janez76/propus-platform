@@ -146,6 +146,7 @@ export function ClientListingPage() {
       floorPlans={data.floor_plans}
       showBackpanel={false}
       cloudShareUrl={data.cloud_share_url}
+      downloadAllUrl={data.download_all_url}
       onClientZipDownloadStarted={onZipDownloadStarted}
       listingFeedback={slug ? { galleryId: data.id, gallerySlug: slug } : null}
       clientDeepLinkImageId={deepLinkBild}

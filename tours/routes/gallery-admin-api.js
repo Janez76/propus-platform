@@ -40,6 +40,28 @@ router.get('/email-templates', async (_req, res) => {
   }
 });
 
+// GET /:id/nas-context — Storage-Health + Bestellordner-Vorschläge
+router.get('/:id/nas-context', async (req, res) => {
+  try {
+    const context = await gallery.getGalleryNasContext(req.params.id);
+    res.json({ ok: true, ...context });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// GET /:id/nas-browse — erlaubte NAS-Roots durchsuchen
+router.get('/:id/nas-browse', async (req, res) => {
+  try {
+    const rootKind = String(req.query.rootKind || '').trim();
+    const relativePath = String(req.query.relativePath || '').trim();
+    const browser = gallery.listNasDirectoryEntries(rootKind, relativePath);
+    res.json({ ok: true, ...browser });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: e.message });
+  }
+});
+
 // PUT /email-templates/:tplId — Vorlage speichern
 router.put('/email-templates/:tplId', async (req, res) => {
   try {
@@ -117,6 +139,26 @@ router.patch('/:id/images/:imgId', async (req, res) => {
   }
 });
 
+// GET /:id/images/:imgId/file — Admin-Vorschau fuer lokale NAS-Bilder
+router.get('/:id/images/:imgId/file', async (req, res) => {
+  try {
+    const g = await gallery.getGallery(req.params.id);
+    if (!g) return res.status(404).json({ ok: false, error: 'Galerie nicht gefunden.' });
+    const images = await gallery.listGalleryImages(g.id);
+    const img = images.find((row) => row.id === req.params.imgId);
+    if (!img) return res.status(404).json({ ok: false, error: 'Bild nicht gefunden.' });
+    if (img.source_type === 'nas_local') {
+      const filePath = gallery.resolveGalleryImageFile(img);
+      if (!filePath) return res.status(404).json({ ok: false, error: 'Bildpfad nicht gefunden.' });
+      return res.sendFile(filePath);
+    }
+    if (!img.remote_src) return res.status(404).json({ ok: false, error: 'Bild nicht gefunden.' });
+    return res.redirect(img.remote_src);
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 // DELETE /:id/images/:imgId — Bild loeschen
 router.delete('/:id/images/:imgId', async (req, res) => {
   try {
@@ -143,10 +185,20 @@ router.post('/:id/import-share', async (req, res) => {
   try {
     const { urls } = req.body;
     if (!Array.isArray(urls)) return res.status(400).json({ ok: false, error: 'urls Array erwartet.' });
-    const added = await gallery.importImagesFromShare(req.params.id, urls);
-    res.json({ ok: true, added: added.length });
+    const result = await gallery.importImagesFromShare(req.params.id, urls);
+    res.json({ ok: true, ...result });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// POST /:id/import-nas — Medien aus NAS-Ordner importieren
+router.post('/:id/import-nas', async (req, res) => {
+  try {
+    const result = await gallery.importGalleryFromNas(req.params.id, req.body || {});
+    res.json({ ok: true, ...result });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: e.message });
   }
 });
 

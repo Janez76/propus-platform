@@ -1674,9 +1674,17 @@ async function listCompanyOrders(companyId, { limit = 200, offset = 0, member = 
   const limIdx = params.length - 1;
   const offIdx = params.length;
   const { rows } = await query(
-    `SELECT o.*, c.name AS customer_name, c.company AS customer_company, c.email AS customer_email
+    `SELECT o.*, c.name AS customer_name, c.company AS customer_company, c.email AS customer_email,
+            g.slug AS listing_slug, g.title AS listing_title, g.status AS listing_status
      FROM orders o
      LEFT JOIN customers c ON c.id = o.customer_id
+     LEFT JOIN LATERAL (
+       SELECT gg.slug, gg.title, gg.status
+       FROM tour_manager.galleries gg
+       WHERE gg.booking_order_no = o.order_no
+       ORDER BY CASE WHEN gg.status = 'active' THEN 0 ELSE 1 END, gg.updated_at DESC, gg.created_at DESC
+       LIMIT 1
+     ) g ON TRUE
      WHERE c.id IN (
        SELECT customer_id
        FROM core.company_members
@@ -2191,7 +2199,8 @@ async function getOrderByNo(orderNo) {
             c.phone AS customer_phone,
             (to_jsonb(c)->>'nas_customer_folder_base') AS customer_nas_customer_folder_base,
             (to_jsonb(c)->>'nas_raw_folder_base') AS customer_nas_raw_folder_base,
-            cc.name AS customer_contact_name, cc.email AS customer_contact_email, cc.phone AS customer_contact_phone
+            cc.name AS customer_contact_name, cc.email AS customer_contact_email, cc.phone AS customer_contact_phone,
+            g.slug AS listing_slug, g.title AS listing_title, g.status AS listing_status
      FROM orders o
      LEFT JOIN customers c ON c.id = o.customer_id
      LEFT JOIN LATERAL (
@@ -2201,6 +2210,13 @@ async function getOrderByNo(orderNo) {
        ORDER BY x.id ASC
        LIMIT 1
      ) cc ON TRUE
+     LEFT JOIN LATERAL (
+       SELECT gg.slug, gg.title, gg.status
+       FROM tour_manager.galleries gg
+       WHERE gg.booking_order_no = o.order_no
+       ORDER BY CASE WHEN gg.status = 'active' THEN 0 ELSE 1 END, gg.updated_at DESC, gg.created_at DESC
+       LIMIT 1
+     ) g ON TRUE
       WHERE o.order_no = $1`,
     [Number(orderNo)]
   );
@@ -2955,6 +2971,9 @@ function dbRowToRecord(row) {
     customerContactName: row.customer_contact_name,
     customerContactEmail: row.customer_contact_email,
     customerContactPhone: row.customer_contact_phone,
+    listingSlug: row.listing_slug || "",
+    listingTitle: row.listing_title || "",
+    listingStatus: row.listing_status || "",
     exxasContactId: row.exxas_contact_id,
     customerNasCustomerFolderBase: row.customer_nas_customer_folder_base || null,
     customerNasRawFolderBase: row.customer_nas_raw_folder_base || null,

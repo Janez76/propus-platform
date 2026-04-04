@@ -76,6 +76,17 @@ export function PortalBestellungenPage() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-2">
+                      {o.listingSlug ? (
+                        <a
+                          href={`/listing/${encodeURIComponent(String(o.listingSlug))}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="cust-action-icon text-xs px-2.5 py-1"
+                          title={o.listingTitle ? `Zu Ihrem Listing: ${o.listingTitle}` : "Zu Ihrem Listing"}
+                        >
+                          Zu Ihrem Listing
+                        </a>
+                      ) : null}
                       <button
                         type="button"
                         className="cust-action-icon text-xs px-2.5 py-1"

@@ -59,7 +59,9 @@ export function resolvePlayableMp4Url(input: string): string {
 /** True, wenn der Link eindeutig auf eine MP4 verweist (Pfad, Query files=, Nextcloud-Download, …). */
 export function isMp4VideoUrl(input: string): boolean {
   const t = input.trim();
-  if (!t || !/^https?:\/\//i.test(t)) return false;
+  if (!t) return false;
+  if (/^\/api\/listing\/.+\/video(?:[?#]|$)/i.test(t)) return true;
+  if (!/^https?:\/\//i.test(t)) return /\.mp4([?#]|$)/i.test(t);
   if (nextcloudDownloadLinkToDavUrl(t)) return true;
   try {
     const u = new URL(t);

@@ -86,6 +86,9 @@ export type Order = {
   customerContactName?: string;
   customerContactEmail?: string;
   customerContactPhone?: string;
+  listingSlug?: string;
+  listingTitle?: string;
+  listingStatus?: string;
   appointmentDate?: string;
   total?: number;
   address?: string;
@@ -338,6 +341,9 @@ function normalizeOrder(raw: unknown): Order {
     customerContactName: String((r.customerContactName as string) || ""),
     customerContactEmail: String((r.customerContactEmail as string) || ""),
     customerContactPhone: String((r.customerContactPhone as string) || ""),
+    listingSlug: String((r.listingSlug as string) || (r.listing_slug as string) || ""),
+    listingTitle: String((r.listingTitle as string) || (r.listing_title as string) || ""),
+    listingStatus: String((r.listingStatus as string) || (r.listing_status as string) || ""),
     appointmentDate: String((r.appointmentDate as string) || toIsoFromSchedule(schedule) || ""),
     total: Number(r.total ?? pricing.total ?? 0),
     address: String(addressRaw || ""),

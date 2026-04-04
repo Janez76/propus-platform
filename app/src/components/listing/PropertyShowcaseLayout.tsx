@@ -31,6 +31,7 @@ export type PropertyShowcaseLayoutProps = {
    * Weglassen = Demo-Modus (nur Toast).
    */
   cloudShareUrl?: string | null;
+  downloadAllUrl?: string | null;
   /** Magic-Link: Kunden-Feedback zu Bildern (Lightbox) und Grundrissen */
   listingFeedback?: { galleryId: string; gallerySlug: string } | null;
   /** Query `?bild=` – öffnet Lightbox auf diesem Bild */
@@ -59,6 +60,7 @@ export function PropertyShowcaseLayout({
   floorPlans,
   showBackpanel = true,
   cloudShareUrl,
+  downloadAllUrl,
   listingFeedback = null,
   clientDeepLinkImageId = null,
   clientDeepLinkFloorIndex = null,
@@ -84,6 +86,20 @@ export function PropertyShowcaseLayout({
   }, [gallery.length]);
 
   const handleDownloadAll = useCallback(() => {
+    const directDownload = (downloadAllUrl ?? "").trim();
+    if (directDownload) {
+      setToast("ZIP-Download startet …");
+      const a = document.createElement("a");
+      a.href = directDownload;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      onClientZipDownloadStarted?.();
+      window.setTimeout(() => setToast(null), 3500);
+      return;
+    }
     if (cloudShareUrl === undefined) {
       setToast("Ihr Download wird vorbereitet.");
       window.setTimeout(() => setToast(null), 3200);
@@ -111,7 +127,7 @@ export function PropertyShowcaseLayout({
     a.remove();
     onClientZipDownloadStarted?.();
     window.setTimeout(() => setToast(null), 3500);
-  }, [cloudShareUrl, onClientZipDownloadStarted]);
+  }, [cloudShareUrl, downloadAllUrl, onClientZipDownloadStarted]);
 
   const openLightbox = useCallback((index: number) => {
     setFloorLightboxOpen(false);

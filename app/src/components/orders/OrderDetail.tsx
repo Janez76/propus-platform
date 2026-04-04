@@ -124,6 +124,7 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
   const [companyContacts, setCompanyContacts] = useState<Customer[]>([]);
   const [linkedTours, setLinkedTours] = useState<{ id: number; bezeichnung: string; tourUrl: string; matterportSpaceId: string; status: string }[] | undefined>(undefined);
   const [showLinkTourPopup, setShowLinkTourPopup] = useState(false);
+  const listingHref = data?.listingSlug ? `/listing/${encodeURIComponent(data.listingSlug)}` : "";
   const emailsDirty = sendStatusEmails && (statusEmailTargets.customer || statusEmailTargets.office || statusEmailTargets.photographer || statusEmailTargets.cc);
   const statusDirty = status !== originalStatus || scheduleLocal !== originalSchedule || scheduleDurationMin !== originalScheduleDurationMin || pendingPhotographerKey !== originalPhotographerKey || emailsDirty;
 
@@ -1128,6 +1129,40 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                   )}
                 </div>
               )}
+
+              {data?.listingSlug ? (
+                <div className="surface-card p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <svg className="h-4 w-4 shrink-0 text-[var(--propus-gold)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 5a2 2 0 012-2h12a2 2 0 012 2v14l-4-2-4 2-4-2-4 2V5z" />
+                      </svg>
+                      <span className="text-sm font-semibold text-[var(--text-main)] truncate">
+                        {data.listingTitle?.trim() || "Kunden-Link"}
+                      </span>
+                      {data.listingStatus ? (
+                        <span className={[
+                          "shrink-0 text-[10px] rounded-full px-1.5 py-0.5 font-medium",
+                          data.listingStatus === "active" ? "bg-green-500/15 text-green-600" :
+                          data.listingStatus === "inactive" ? "bg-zinc-500/15 text-zinc-500" :
+                          "bg-[var(--accent)]/10 text-[var(--accent)]",
+                        ].join(" ")}>
+                          {data.listingStatus}
+                        </span>
+                      ) : null}
+                    </div>
+                    <a
+                      href={listingHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shrink-0 text-xs rounded border border-[var(--border-soft)] px-2 py-0.5 text-[var(--accent)] hover:underline transition-colors"
+                    >
+                      Kunden-Link öffnen ↗
+                    </a>
+                  </div>
+                  <div className="text-xs text-[var(--text-subtle)] break-all">{listingHref}</div>
+                </div>
+              ) : null}
 
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="surface-card p-3">

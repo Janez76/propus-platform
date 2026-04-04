@@ -4,6 +4,7 @@
  */
 const express = require('express');
 const router = express.Router();
+const archiver = require('archiver');
 const gallery = require('../lib/gallery');
 
 function normalizeMatterportSrc(raw) {
@@ -23,14 +24,13 @@ function normalizeMatterportSrc(raw) {
 }
 
 function parseFloorPlansJson(raw) {
-  if (!raw || !raw.trim()) return [];
-  try {
-    const v = JSON.parse(raw);
-    if (!Array.isArray(v)) return [];
-    return v
-      .filter(x => x && typeof x === 'object' && typeof x.url === 'string')
-      .map(x => ({ url: x.url, title: (x.title && String(x.title).trim()) || 'Grundriss' }));
-  } catch { return []; }
+  const items = gallery.parseStoredFloorPlans(raw);
+  return items.map((item, index) => ({
+    url: item.source_type === 'nas_local'
+      ? `/api/listing/__SLUG__/floorplans/${index}`
+      : (item.url || ''),
+    title: item.title || 'Grundriss',
+  }));
 }
 
 // GET /:slug — Public Gallery Payload
@@ -50,9 +50,17 @@ router.get('/:slug', async (req, res) => {
       client_name: g.client_name || null,
       updated_at: g.updated_at,
       cloud_share_url: g.cloud_share_url || null,
+      download_all_url: ['order_folder', 'nas_browser'].includes(String(g.storage_source_type || ''))
+        ? `/api/listing/${encodeURIComponent(g.slug)}/download-all`
+        : null,
       matterport_src: normalizeMatterportSrc(g.matterport_input),
-      video_url: (g.video_url || '').trim(),
-      floor_plans: parseFloorPlansJson(g.floor_plans_json),
+      video_url: g.video_source_type === 'nas_local'
+        ? `/api/listing/${encodeURIComponent(g.slug)}/video`
+        : (g.video_url || '').trim(),
+      floor_plans: parseFloorPlansJson(g.floor_plans_json).map((item) => ({
+        ...item,
+        url: item.url.replace('__SLUG__', encodeURIComponent(g.slug)),
+      })),
       images: enabled.map(i => ({
         id: i.id,
         category: i.category,
@@ -73,9 +81,79 @@ router.get('/:slug/images/:imgId', async (req, res) => {
 
     const imgs = await gallery.listGalleryImages(g.id);
     const img = imgs.find(i => i.id === req.params.imgId);
-    if (!img || !img.remote_src) return res.status(404).json({ ok: false, error: 'Bild nicht gefunden.' });
-
+    if (!img) return res.status(404).json({ ok: false, error: 'Bild nicht gefunden.' });
+    if (img.source_type === 'nas_local') {
+      const filePath = gallery.resolveGalleryImageFile(img);
+      if (!filePath) return res.status(404).json({ ok: false, error: 'Bild nicht gefunden.' });
+      return res.sendFile(filePath);
+    }
+    if (!img.remote_src) return res.status(404).json({ ok: false, error: 'Bild nicht gefunden.' });
     res.redirect(img.remote_src);
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// GET /:slug/video — Video aus NAS oder gespeicherter URL
+router.get('/:slug/video', async (req, res) => {
+  try {
+    const g = await gallery.getGalleryBySlug(req.params.slug);
+    if (!g) return res.status(404).json({ ok: false, error: 'Galerie nicht verfügbar.' });
+    const filePath = gallery.resolveGalleryVideoFile(g);
+    if (!filePath) return res.status(404).json({ ok: false, error: 'Video nicht gefunden.' });
+    return res.sendFile(filePath);
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// GET /:slug/floorplans/:index — Grundriss-Datei ausliefern
+router.get('/:slug/floorplans/:index', async (req, res) => {
+  try {
+    const g = await gallery.getGalleryBySlug(req.params.slug);
+    if (!g) return res.status(404).json({ ok: false, error: 'Galerie nicht verfügbar.' });
+    const index = Number.parseInt(String(req.params.index || ''), 10);
+    if (!Number.isFinite(index) || index < 0) {
+      return res.status(400).json({ ok: false, error: 'Ungültiger Grundriss-Index.' });
+    }
+    const items = gallery.parseStoredFloorPlans(g.floor_plans_json);
+    const item = items[index];
+    if (!item) return res.status(404).json({ ok: false, error: 'Grundriss nicht gefunden.' });
+    if (item.source_type === 'nas_local') {
+      const filePath = gallery.resolveGalleryFloorPlanFile(g, index);
+      if (!filePath) return res.status(404).json({ ok: false, error: 'Grundriss nicht gefunden.' });
+      return res.sendFile(filePath);
+    }
+    if (!item.url) return res.status(404).json({ ok: false, error: 'Grundriss nicht gefunden.' });
+    return res.redirect(item.url);
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// GET /:slug/download-all — ZIP aus NAS-Quelle erzeugen
+router.get('/:slug/download-all', async (req, res) => {
+  try {
+    const g = await gallery.getGalleryBySlug(req.params.slug);
+    if (!g) return res.status(404).json({ ok: false, error: 'Galerie nicht verfügbar.' });
+    const source = gallery.getGalleryDownloadSource(g);
+    if (!source) return res.status(404).json({ ok: false, error: 'Kein NAS-Download für diese Galerie verfügbar.' });
+
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(g.slug)}.zip"`);
+
+    const archive = archiver('zip', { zlib: { level: 9 } });
+    archive.on('error', (error) => {
+      if (!res.headersSent) {
+        res.status(500).json({ ok: false, error: error.message });
+      } else {
+        res.destroy(error);
+      }
+    });
+    archive.pipe(res);
+    archive.directory(source.absolutePath, false);
+    void gallery.recordClientFilesDownloaded(g.id).catch(() => {});
+    await archive.finalize();
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }
