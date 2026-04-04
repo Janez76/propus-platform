@@ -18,6 +18,7 @@ Das gilt fuer:
 - Zweites internes Frontend: `booking/admin-panel/src/index.css`
 - Referenzseite: `app/src/pages-legacy/CustomersPage.tsx`
 - Referenzliste: `app/src/components/customers/CustomerList.tsx`
+- Zentrale Listen mit Tabs/Stats/Filter (Tour-Manager): `app/src/pages-legacy/admin/invoices/AdminInvoicesPage.tsx` (`/admin/invoices`)
 - Weitere interne Referenzseiten koennen aus `app/src/pages-legacy/` und `booking/admin-panel/src/pages/` herangezogen werden, muessen sich aber in dieselbe visuelle Sprache einfuegen
 
 ## Verbindliche Bausteine

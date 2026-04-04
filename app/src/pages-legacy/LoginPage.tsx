@@ -6,6 +6,7 @@ import { isCompanyWorkspaceRole } from "../lib/companyRoles";
 import { t } from "../i18n";
 import { Footer } from "../components/layout/Footer";
 import { AuthLogoHeader, AuthCard } from "../components/auth/AuthPageLayout";
+import { getAdminProfile } from "../api/profile";
 import { API_BASE } from "../api/client";
 
 export function LoginPage() {
@@ -20,13 +21,20 @@ export function LoginPage() {
     const params = new URLSearchParams(window.location.search);
     const logtoToken = params.get("logto_token");
     if (logtoToken) {
-      params.delete("logto_token");
       const returnTo = params.get("returnTo") || "/dashboard";
+      params.delete("logto_token");
       params.delete("returnTo");
       const newSearch = params.toString();
       window.history.replaceState({}, "", newSearch ? `?${newSearch}` : window.location.pathname);
-      setAuth(logtoToken, "admin", true);
-      navigate(returnTo.startsWith("/") ? returnTo : "/dashboard", { replace: true });
+      void (async () => {
+        try {
+          const me = await getAdminProfile(logtoToken);
+          setAuth(logtoToken, me.role || "admin", true, Array.isArray(me.permissions) ? me.permissions : []);
+        } catch {
+          setAuth(logtoToken, "admin", true);
+        }
+        navigate(returnTo.startsWith("/") ? returnTo : "/dashboard", { replace: true });
+      })();
       return;
     }
     const errParam = params.get("auth_error");

@@ -8,17 +8,21 @@ export function usePermissions() {
   const token = useAuthStore((s) => s.token);
   const role = useAuthStore((s) => s.role);
   const permissions = useAuthStore((s) => s.permissions);
+  const setRole = useAuthStore((s) => s.setRole);
   const setPermissions = useAuthStore((s) => s.setPermissions);
   const loadingRef = useRef(false);
 
   useEffect(() => {
     if (!token) return;
-    if (permissions.length > 0) return;
+    if (permissions.length > 0 && role !== "admin") return;
     if (loadingRef.current) return;
     loadingRef.current = true;
     void (async () => {
       try {
         const data = await getAdminProfile(token);
+        if (data.role && data.role !== role) {
+          setRole(data.role);
+        }
         if (Array.isArray(data.permissions)) {
           setPermissions(data.permissions);
         }
@@ -28,7 +32,7 @@ export function usePermissions() {
         loadingRef.current = false;
       }
     })();
-  }, [token, permissions.length, setPermissions]);
+  }, [token, permissions.length, role, setPermissions, setRole]);
 
   const can = useCallback(
     (permissionKey: string) => {

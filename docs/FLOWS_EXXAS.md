@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei Änderungen an Exxas-API-Calls, Scoring-Logik, Reconcile-Flow oder DB-Feldern dieses Dokument aktualisieren.
 
-*Zuletzt aktualisiert: April 2026*
+*Zuletzt aktualisiert: April 2026 (Verweis zentrales Rechnungsmodul)*
 
 ---
 
@@ -22,7 +22,8 @@
 Exxas ist das Buchhaltungssystem der Propus GmbH. Die Propus Platform integriert Exxas für:
 
 - **Kundendaten-Abgleich** (`/reconcile`): Exxas-Kunden ↔ lokale `customers`
-- **Rechnungs-Sync** (`exxas_invoices`): Exxas-Rechnungen im Tour-Manager sichtbar
+- **Rechnungs-Sync** (`exxas_invoices`): Exxas-Rechnungen im Tour-Manager sichtbar (Tour-Detail + systemweite Liste)
+- **Zentrale Admin-Liste:** Tab „Exxas-Rechnungen“ unter `/admin/invoices` — siehe [FLOWS_TOURS.md §13](./FLOWS_TOURS.md#13-zentrales-rechnungsmodul-admin)
 - **Vertrags-Referenzen** (`exxas_abo_id` / `exxas_subscription_id`): Touren mit Exxas-Verträgen verknüpfen
 - **Auftrags-Export** (`exxas_order_id`): Buchungen an Exxas übertragen
 

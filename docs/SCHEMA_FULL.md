@@ -435,6 +435,31 @@ Wichtige Keys: `enable_confirmation_mails`, `enable_calendar_sync`, `calendar_pr
 
 ---
 
+### `tour_manager.invoices_central_v` — View (Admin-Rechnungsübersicht)
+
+**Migration:** `core/migrations/026_invoices_central_view.sql`
+
+Read-only View: vereinheitlicht `renewal_invoices` und `exxas_invoices` für Reporting / zukünftige Abfragen. Die React-Seite `/admin/invoices` nutzt primär die JSON-API `GET /api/tours/admin/invoices-central` (Queries direkt auf die Basistabellen in `tours/lib/admin-phase3.js`).
+
+| Spalte | Typ / Hinweis |
+|---|---|
+| `invoice_source` | `renewal` \| `exxas` |
+| `id` | PK der jeweiligen Quelltabelle (nicht global eindeutig über beide Quellen) |
+| `invoice_number` | Verlängerung: `invoice_number`; Exxas: `nummer` |
+| `invoice_status` | Verlängerung: wie Tabelle; Exxas: bei `exxas_status = 'bz'` → `paid`, sonst Rohstatus |
+| `invoice_kind` | Nur Verlängerung; Exxas: `NULL` |
+| `amount_chf` | Verlängerung: `amount_chf`; Exxas: `preis_brutto` |
+| `due_at` | Verlängerung: `due_at`; Exxas: `zahlungstermin` (als TIMESTAMPTZ) |
+| `paid_at` | Verlängerung: `paid_at`; Exxas: nur bei `bz` gesetzt (aus `zahlungstermin`) |
+| `tour_id` | FK zu `tours` (kann bei Exxas NULL sein) |
+| `tour_object_label` | `COALESCE(object_label, bezeichnung)` |
+| `tour_customer_name` | `COALESCE(customer_name, kunde_ref)` |
+| `created_at` | Zeitstempel aus Quellzeile |
+
+**Indexes (Migration 026):** u.a. `idx_renewal_invoices_status`, `idx_exxas_invoices_exxas_status`, `idx_exxas_invoices_zahlungstermin`.
+
+---
+
 ### `tour_manager.bank_import_runs` & `tour_manager.bank_import_transactions`
 
 → Vollständige Beschreibung: [FLOWS_TOURS.md](./FLOWS_TOURS.md#6-bank-import)

@@ -13,7 +13,7 @@
 | Datei | Inhalt |
 |---|---|
 | [docs/FLOWS_BOOKING.md](docs/FLOWS_BOOKING.md) | Buchungs-Flows: Haupt-Buchung, Provisional, Kalender-Sync, Reschedule, Storno, Fotograf-Wechsel, Bestätigung, Payrexx-Webhook, Exxas-Order-Sync |
-| [docs/FLOWS_TOURS.md](docs/FLOWS_TOURS.md) | Tour-Manager: tours-Tabelle, Status-Maschine, Matterport-Integration, Verlängerungs-Flow, Bank-Import, KI/AI-Suggestions, Incoming-Emails, Cron-Jobs |
+| [docs/FLOWS_TOURS.md](docs/FLOWS_TOURS.md) | Tour-Manager: tours-Tabelle, Status-Maschine, Matterport-Integration, Verlängerungs-Flow, zentrales Rechnungsmodul (`/admin/invoices`), Bank-Import, KI/AI-Suggestions, Incoming-Emails, Cron-Jobs |
 | [docs/FLOWS_UPLOAD.md](docs/FLOWS_UPLOAD.md) | Upload-System: Endpunkte, upload_batches/files-Tabellen, NAS-Pfad-Logik, Kategorien, Chunked-Upload, Konflikt-Modi, Upload-Gruppen |
 | [docs/FLOWS_EXXAS.md](docs/FLOWS_EXXAS.md) | Exxas-Integration: Gespeicherte Felder, exxas_invoices-Tabelle, Reconcile-Flow, Scoring, API-Funktionen, Order-Sync |
 | [docs/SCHEMA_FULL.md](docs/SCHEMA_FULL.md) | Vollständiges DB-Schema: core.*, booking.*, tour_manager.* — alle Tabellen mit allen Feldern |
@@ -28,7 +28,7 @@
 |---|---|
 | `core` | `customers`, `customer_contacts`, `companies`, `company_members`, `admin_users`, `sessions` |
 | `booking` | `orders`, `photographers`, `products`, `discount_codes`, `upload_batches`, `access_subjects`, `app_settings` |
-| `tour_manager` | `tours`, `renewal_invoices`, `exxas_invoices`, `incoming_emails`, `outgoing_emails`, `ai_suggestions`, `settings` |
+| `tour_manager` | `tours`, `renewal_invoices`, `exxas_invoices`, `invoices_central_v` (View), `incoming_emails`, `outgoing_emails`, `ai_suggestions`, `settings` |
 
 ---
 

@@ -2419,7 +2419,7 @@ app.use((err, req, res, next) => {
       const ROLE_PRIORITY = ['super_admin', 'admin', 'photographer', 'customer'];
       let sessionRole = 'photographer';
       for (const rp of ROLE_PRIORITY) {
-        if (logtoRoles.includes(rp)) { sessionRole = (rp === 'super_admin') ? 'admin' : rp; break; }
+        if (logtoRoles.includes(rp)) { sessionRole = rp; break; }
       }
 
       const pool = db.getPool ? db.getPool() : null;
@@ -2557,8 +2557,7 @@ app.post("/api/admin/login", async (req, res) => {
     const ok = await customerAuth.verifyPassword(String(password || ""), user.password_hash);
     if (!ok) return res.status(401).json({ error: "Ungueltige Zugangsdaten" });
     const rawRole = String(user.role || "admin");
-    let sessionRole = rawRole;
-    if (SUPER_ADMIN_ROLES.has(rawRole)) sessionRole = "admin";
+    const sessionRole = rawRole;
     const { token } = await issueAdminSession(res, {
       role: sessionRole,
       rememberMe: !!rememberMe,

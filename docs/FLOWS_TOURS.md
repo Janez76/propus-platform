@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei jeder Änderung an Tour-Status, Matterport-Integration, Verlängerungs- oder Archivierungs-Logik dieses Dokument aktualisieren.
 
-*Zuletzt aktualisiert: April 2026 (Grundriss-Bestellen-Flow, Rechnungsvorlagen-Editor, Zahlungseinstellungen, payrexxConfigured-UI-Logik)*
+*Zuletzt aktualisiert: April 2026 (zentrales Admin-Rechnungsmodul `/admin/invoices`, Grundriss-Bestellen-Flow, Rechnungsvorlagen-Editor, Zahlungseinstellungen, payrexxConfigured-UI-Logik)*
 
 ---
 
@@ -20,6 +20,7 @@
 10. [Cron-Jobs Übersicht](#10-cron-jobs-übersicht)
 11. [Admin-Einstellungen](#11-admin-einstellungen)
 12. [Kanonische Felder (normalizeTourRow)](#12-kanonische-felder)
+13. [Zentrales Rechnungsmodul (Admin)](#13-zentrales-rechnungsmodul-admin)
 
 ---
 
@@ -604,3 +605,38 @@ canonical_exxas_contract_id   = exxas_abo_id || exxas_subscription_id
 ```
 
 **Im gesamten Code immer die `canonical_*`-Felder verwenden**, nicht die Legacy-Felder direkt.
+
+---
+
+## 13. Zentrales Rechnungsmodul (Admin)
+
+Systemweite Rechnungsliste **ausserhalb** des Tour-Untermenüs. Pro-Tour-Ansicht bleibt in `TourInvoicesSection` (Tour-Detail).
+
+### UI
+
+| Route | Komponente | Beschreibung |
+|---|---|---|
+| `/admin/invoices` | `app/src/pages-legacy/admin/invoices/AdminInvoicesPage.tsx` | Tabs: Verlängerungsrechnungen / Exxas; Status-Filter; Suche; Stats; Links zur Tour |
+| `/admin/tours/invoices` | — | Redirect → `/admin/invoices` (Bookmarks / alte URLs, z. B. [admin-booking.propus.ch/admin/tours/invoices](https://admin-booking.propus.ch/admin/tours/invoices)) |
+
+**Navigation:** Sidebar Top-Level `nav.invoices` → `/admin/invoices` (nicht mehr unter Tours eingenestet).
+
+**Berechtigung:** `ROUTE_PERMISSIONS["/admin/invoices"]` = `dashboard.view` (wie Tour-Manager-Bereich), siehe `app/src/lib/permissions.ts`.
+
+### Admin-JSON-API
+
+| Methode | Pfad | Beschreibung |
+|---|---|---|
+| `GET` | `/api/tours/admin/invoices-central?type=renewal\|exxas&status=&search=` | Listen + Stats; `status` wie bisher Verlängerung (`offen`, `ueberfaellig`, `bezahlt`, `entwurf`) bzw. Exxas (`offen` = `exxas_status != 'bz'`, `bezahlt` = `bz`) |
+| `GET` | `/api/tours/admin/invoices` | Unverändert: nur Verlängerungen (Legacy / andere Clients) |
+
+**Backend:** `tours/lib/admin-phase3.js` — `getRenewalInvoicesCentral()`, `getExxasInvoicesCentral()`; Route `tours/routes/admin-api.js` → `GET /invoices-central`.
+
+### Datenbank
+
+| Objekt | Zweck |
+|---|---|
+| `tour_manager.invoices_central_v` | View über `renewal_invoices` ∪ `exxas_invoices` (Migration `026_invoices_central_view.sql`) |
+| Indexes | `renewal_invoices(invoice_status)`, `exxas_invoices(exxas_status)`, u. a. siehe Migration |
+
+→ Schema-Detail: [SCHEMA_FULL.md](./SCHEMA_FULL.md#tour_managerinvoices_central_v--view-admin-rechnungsübersicht)

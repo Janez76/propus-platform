@@ -258,6 +258,15 @@ customData: {
 >
 > **Deprecated:** Der "Admin-Zugriff"-Toggle im Mitarbeiter-Modal (`EmployeeModal.tsx`) wurde durch einen Info-Hinweis + Link auf `/settings/users` ersetzt. Das `photographers.is_admin`-Feld ist read-only im UI (wird nur noch für Legacy-Session-Auth benötigt).
 
+**Tour-Manager — Rechnungen (zentrales Modul):**
+
+| Route | Sidebar | Permission (`ROUTE_PERMISSIONS`) |
+|---|---|---|
+| `/admin/invoices` | Top-Level „Rechnungen“ | `dashboard.view` (wie `/admin/tours`) |
+| `/admin/tours/invoices` | — | Redirect → `/admin/invoices` |
+
+Quelle: `app/src/lib/permissions.ts`, `ClientShell.tsx`.
+
 ---
 
 ### 7.1 `tour_manager.portal_staff_roles` — Interne Portal-Zugriffsrechte

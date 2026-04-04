@@ -1,4 +1,5 @@
 import { apiRequest } from "./client";
+import type { Role } from "../types";
 
 export type AdminProfile = {
   user: string;
@@ -9,7 +10,7 @@ export type AdminProfile = {
 };
 
 export const getAdminProfile = (token: string) =>
-  apiRequest<{ ok: true; profile: AdminProfile; permissions?: string[] }>("/api/admin/me", "GET", token);
+  apiRequest<{ ok: true; role: Role; profile: AdminProfile; permissions?: string[] }>("/api/admin/me", "GET", token);
 
 export const updateAdminProfile = (token: string, profile: Partial<AdminProfile>) =>
   apiRequest<{ ok: true; profile: AdminProfile }>("/api/admin/me", "PUT", token, profile);

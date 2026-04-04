@@ -35,6 +35,8 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   "/backups": "backups.manage",
   "/changelog": "dashboard.view",
   "/admin/tours": "dashboard.view",
+  /** Zentrales Rechnungsmodul (gleiche Zielgruppe wie Tour-Manager) */
+  "/admin/invoices": "dashboard.view",
 };
 
 /** Rollen die als interne Admins behandelt werden (nicht Kunden-Panel). */
