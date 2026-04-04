@@ -1460,86 +1460,153 @@ export function ListingEditorPage() {
               );
             }
 
+            // Breadcrumb-Segmente aus dem aktuellen Pfad
+            const pathSegments = nasRelativePath
+              ? nasRelativePath.split("/").filter(Boolean)
+              : [];
+
             return (
               <>
                 <div className="gbe-divider" />
 
-                <div className="gbe-two-col">
-                  <div className="gbe-field">
-                    <label htmlFor="gal-nas-root">NAS-Root</label>
-                    <select
-                      id="gal-nas-root"
-                      className="gbe-input"
-                      value={nasRootKind}
-                      onChange={(e) => {
-                        const nextRoot = e.target.value === "raw" ? "raw" : "customer";
-                        const nextRootOk = nasHealth.find((h) => h.key === (nextRoot === "raw" ? "rawRoot" : "customerRoot"))?.ok === true;
-                        if (nextRootOk) {
-                          void loadNasBrowser(nextRoot, "");
-                        } else {
-                          setNasRootKind(nextRoot);
-                          setNasEntries([]);
-                          setNasSummary({ images: 0, floorPlans: 0, hasVideo: false });
-                        }
-                      }}
+                {/* File-Browser Header */}
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  {/* Root-Auswahl */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-[var(--text-subtle)] uppercase tracking-wide">Root:</span>
+                    <div className="flex gap-1">
+                      {(["customer", "raw"] as const).map((kind) => {
+                        const hKey = kind === "raw" ? "rawRoot" : "customerRoot";
+                        const ok = nasHealth.find((h) => h.key === hKey)?.ok === true;
+                        return (
+                          <button
+                            key={kind}
+                            type="button"
+                            disabled={!ok}
+                            onClick={() => {
+                              if (ok) void loadNasBrowser(kind, "");
+                              else { setNasRootKind(kind); setNasEntries([]); }
+                            }}
+                            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                              nasRootKind === kind
+                                ? "bg-[var(--accent)] text-white"
+                                : ok
+                                  ? "bg-[var(--surface-raised)] text-[var(--text-muted)] hover:bg-[var(--line)]"
+                                  : "cursor-not-allowed opacity-40 bg-[var(--surface-raised)] text-[var(--text-subtle)]"
+                            }`}
+                          >
+                            {kind === "customer" ? "📁 Kunden" : "📂 Raw"}{!ok ? " ✗" : ""}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Import-Button + Summary */}
+                  {nasRelativePath && selectedRootOk && (
+                    <button
+                      type="button"
+                      className="admin-btn admin-btn--primary"
+                      disabled={nasImporting || nasLoading}
+                      onClick={() => void importNasSelection(nasRootKind, nasRelativePath, "nas_browser")}
                     >
-                      <option value="customer">
-                        Kunden-Root{nasHealth.find((h) => h.key === "customerRoot")?.ok === false ? " (nicht verfügbar)" : ""}
-                      </option>
-                      <option value="raw">
-                        Raw-Root{nasHealth.find((h) => h.key === "rawRoot")?.ok === false ? " (nicht verfügbar)" : ""}
-                      </option>
-                    </select>
-                  </div>
-                  <div className="gbe-field">
-                    <label htmlFor="gal-nas-path">Aktueller Ordner</label>
-                    <input id="gal-nas-path" className="gbe-input" value={nasRelativePath} readOnly />
-                  </div>
+                      {nasImporting ? (
+                        <><i className="fa-solid fa-spinner fa-spin mr-1.5" />Import läuft …</>
+                      ) : (
+                        <><i className="fa-solid fa-file-import mr-1.5" />Diesen Ordner importieren</>
+                      )}
+                    </button>
+                  )}
                 </div>
 
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    className="admin-btn admin-btn--outline"
-                    disabled={!nasParentPath || nasLoading || !selectedRootOk}
-                    onClick={() => void loadNasBrowser(nasRootKind, nasParentPath ?? "")}
-                  >
-                    Eine Ebene hoch
-                  </button>
-                  <button
-                    type="button"
-                    className="admin-btn admin-btn--primary"
-                    disabled={nasImporting || nasLoading || !nasRelativePath.trim() || !selectedRootOk}
-                    onClick={() => void importNasSelection(nasRootKind, nasRelativePath, "nas_browser")}
-                  >
-                    {nasImporting ? "Import läuft …" : "Aktuellen Ordner importieren"}
-                  </button>
-                  <span className="gbe-field-hint">
-                    {nasSummary.images} Bilder · {nasSummary.floorPlans} Grundrisse ·{" "}
-                    {nasSummary.hasVideo ? "mit Video" : "ohne Video"}
-                  </span>
-                </div>
+                {/* File-Browser Box */}
+                <div className="mt-3 overflow-hidden rounded-[16px] border border-[var(--line)]">
+                  {/* Breadcrumb-Leiste */}
+                  <div className="flex items-center gap-0 border-b border-[var(--line)] bg-[var(--surface-raised)] px-3 py-2 text-sm overflow-x-auto">
+                    <button
+                      type="button"
+                      className="flex items-center gap-1 rounded px-2 py-1 text-xs font-semibold text-[var(--accent)] hover:bg-[var(--line)] shrink-0"
+                      onClick={() => void loadNasBrowser(nasRootKind, "")}
+                    >
+                      <i className="fa-solid fa-house text-[10px]" />
+                      {nasRootKind === "customer" ? "Kunden-Root" : "Raw-Root"}
+                    </button>
+                    {pathSegments.map((seg, idx) => {
+                      const segPath = pathSegments.slice(0, idx + 1).join("/");
+                      const isLast = idx === pathSegments.length - 1;
+                      return (
+                        <span key={segPath} className="flex items-center shrink-0">
+                          <span className="mx-1 text-[var(--text-subtle)]">/</span>
+                          {isLast ? (
+                            <span className="rounded px-2 py-1 text-xs font-semibold text-[var(--text-main)]">{seg}</span>
+                          ) : (
+                            <button
+                              type="button"
+                              className="rounded px-2 py-1 text-xs font-semibold text-[var(--accent)] hover:bg-[var(--line)]"
+                              onClick={() => void loadNasBrowser(nasRootKind, segPath)}
+                            >
+                              {seg}
+                            </button>
+                          )}
+                        </span>
+                      );
+                    })}
+                  </div>
 
-                <div className="mt-3 rounded-[16px] border border-[var(--line)] p-3">
-                  <div className="mb-2 text-sm font-semibold text-[var(--text-main)]">Unterordner</div>
-                  {!selectedRootOk ? (
-                    <p className="gbe-field-hint">Root nicht verfügbar.</p>
-                  ) : nasLoading ? (
-                    <p className="gbe-field-hint">NAS-Browser lädt …</p>
-                  ) : nasEntries.length === 0 ? (
-                    <p className="gbe-field-hint">Keine weiteren Unterordner vorhanden.</p>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {nasEntries.map((entry) => (
+                  {/* Ordner-Inhalt */}
+                  <div className="max-h-72 overflow-y-auto">
+                    {/* Zurück-Zeile */}
+                    {nasParentPath != null && selectedRootOk && (
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-3 border-b border-[var(--line)] px-4 py-2.5 text-left text-sm hover:bg-[var(--surface-raised)] transition"
+                        onClick={() => void loadNasBrowser(nasRootKind, nasParentPath)}
+                      >
+                        <span className="text-base">↩</span>
+                        <span className="text-[var(--text-subtle)] italic">..</span>
+                      </button>
+                    )}
+
+                    {!selectedRootOk ? (
+                      <div className="px-4 py-6 text-sm text-[var(--text-subtle)]">Root nicht verfügbar.</div>
+                    ) : nasLoading ? (
+                      <div className="flex items-center gap-2 px-4 py-6 text-sm text-[var(--text-subtle)]">
+                        <i className="fa-solid fa-spinner fa-spin" /> Lädt …
+                      </div>
+                    ) : nasEntries.length === 0 ? (
+                      <div className="px-4 py-6 text-sm text-[var(--text-subtle)]">
+                        Keine Unterordner — dieser Ordner kann direkt importiert werden.
+                      </div>
+                    ) : (
+                      nasEntries.map((entry, idx) => (
                         <button
                           key={entry.relativePath}
                           type="button"
-                          className="admin-btn admin-btn--outline"
+                          className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-[var(--surface-raised)] transition ${
+                            idx < nasEntries.length - 1 ? "border-b border-[var(--line)]" : ""
+                          }`}
                           onClick={() => void loadNasBrowser(nasRootKind, entry.relativePath)}
                         >
-                          {entry.name}
+                          <i className="fa-solid fa-folder text-[var(--accent)] w-4 shrink-0" />
+                          <span className="flex-1 truncate font-medium text-[var(--text-main)]">{entry.name}</span>
+                          <i className="fa-solid fa-chevron-right text-[10px] text-[var(--text-subtle)] shrink-0" />
                         </button>
-                      ))}
+                      ))
+                    )}
+                  </div>
+
+                  {/* Footer mit Medien-Summary */}
+                  {nasRelativePath && selectedRootOk && (
+                    <div className="flex items-center justify-between border-t border-[var(--line)] bg-[var(--surface-raised)] px-4 py-2">
+                      <span className="text-xs text-[var(--text-subtle)]">
+                        <i className="fa-regular fa-image mr-1" />{nasSummary.images} Bilder
+                        <span className="mx-2">·</span>
+                        <i className="fa-regular fa-file-pdf mr-1" />{nasSummary.floorPlans} Grundrisse
+                        {nasSummary.hasVideo && (
+                          <><span className="mx-2">·</span><i className="fa-solid fa-video mr-1" />Video</>
+                        )}
+                      </span>
+                      <span className="text-xs text-[var(--text-subtle)]">{nasRelativePath}</span>
                     </div>
                   )}
                 </div>
