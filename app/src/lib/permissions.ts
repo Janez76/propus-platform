@@ -12,6 +12,7 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   "/portal/team": "portal_team.manage",
   "/admin/users": "users.manage",
   "/admin/roles": "roles.manage",
+  "/settings/roles": "portal_team.manage",
   "/dashboard": "dashboard.view",
   "/orders": "orders.read",
   "/upload": "orders.update",

@@ -182,7 +182,7 @@ function PrivateRoutes() {
         <Route path="/portal/bestellungen" element={guardedElement(["company_employee"], <PortalBestellungenPage />)} />
         <Route path="/settings/users" element={guardedElement(adminOnlyRoles, <AdminUsersPage />)} />
         <Route path="/settings/companies" element={guardedElement(adminOnlyRoles, <CompanyManagementPage />)} />
-        <Route path="/settings/roles" element={guardedElement(adminOnlyRoles, <RoleMatrixPage />)} />
+        <Route path="/settings/roles" element={guardedElement(toursAdminRoles, <RoleMatrixPage />)} />
         <Route path="/admin/users" element={guardedElement(adminOnlyRoles, <AdminUsersPage />)} />
         <Route path="/admin/roles" element={guardedElement(adminOnlyRoles, <RolesPage />)} />
         <Route path="/company" element={<Navigate to={companyHome} replace />} />
