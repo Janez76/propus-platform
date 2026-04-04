@@ -1,6 +1,201 @@
 /* Galerie-Backpanel: Ergänzungen zu propus-admin.css (Tabellen, Modals, Editor-Zeilen) */
 @import "./gallery-bildauswahl-editor.css";
 
+/* ─── Admin-Basis-Klassen (fehlte noch propus-admin.css) ─────────────── */
+
+/* Seitencontainer */
+.admin-content {
+	padding: 1.5rem 1.5rem 2rem;
+}
+
+/* Status-Meldungen */
+.admin-msg {
+	margin: 0 0 0.85rem;
+	padding: 0.6rem 0.85rem;
+	border-radius: var(--adm-radius-sm, 8px);
+	font-size: 0.8125rem;
+	line-height: 1.5;
+	border: 1px solid transparent;
+}
+.admin-msg--err {
+	color: #b91c1c;
+	background: rgb(254 242 242 / 0.95);
+	border-color: rgb(252 165 165 / 0.55);
+}
+.admin-msg--ok {
+	color: #15803d;
+	background: rgb(240 253 244 / 0.95);
+	border-color: rgb(134 239 172 / 0.55);
+}
+body.theme-dark .admin-msg--err {
+	color: #f87171;
+	background: rgb(127 29 29 / 0.22);
+	border-color: rgb(252 165 165 / 0.25);
+}
+body.theme-dark .admin-msg--ok {
+	color: rgb(167 243 208);
+	background: rgb(20 83 45 / 0.22);
+	border-color: rgb(134 239 172 / 0.25);
+}
+
+/* Gedimmter Text */
+.admin-muted {
+	color: var(--adm-muted);
+	font-size: 0.875rem;
+}
+
+/* Lead-Text (Seite, Abschnitte) */
+.admin-lead {
+	margin: 0;
+	font-size: 0.875rem;
+	line-height: 1.55;
+	color: var(--adm-muted);
+	max-width: 42rem;
+}
+
+/* Sektionsüberschrift (Akkzent, klein, uppercase) */
+.admin-section-title {
+	margin: 0;
+	font-size: 0.6875rem;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--adm-muted);
+}
+.admin-section-title--accent {
+	color: var(--adm-accent-text, #9a7b52);
+}
+
+/* Modale Unterüberschrift */
+.admin-subheading {
+	margin: 0 0 0.75rem;
+	font-size: 1rem;
+	font-weight: 650;
+	line-height: 1.35;
+	letter-spacing: -0.02em;
+	color: var(--adm-text);
+}
+
+/* Formularfeld-Container */
+.admin-field {
+	margin-bottom: 0.85rem;
+}
+.admin-field:last-child {
+	margin-bottom: 0;
+}
+.admin-field label {
+	display: block;
+	font-size: 0.75rem;
+	font-weight: 600;
+	color: var(--adm-muted);
+	margin-bottom: 0.35rem;
+}
+.admin-field input,
+.admin-field textarea,
+.admin-field select {
+	width: 100%;
+	box-sizing: border-box;
+	padding: 0.5rem 0.65rem;
+	border: 1px solid var(--adm-border);
+	border-radius: var(--adm-radius-sm, 8px);
+	background: var(--adm-surface, #fff);
+	color: var(--adm-text);
+	font-size: 0.8125rem;
+	font-family: inherit;
+}
+.admin-field input:focus,
+.admin-field textarea:focus,
+.admin-field select:focus {
+	outline: none;
+	border-color: rgb(184 149 106 / 0.55);
+}
+body.theme-dark .admin-field input,
+body.theme-dark .admin-field textarea,
+body.theme-dark .admin-field select {
+	background: #1a1a1e;
+	color: #f0f0ee;
+	border-color: #2e2e34;
+}
+
+/* Admin-Button Basisstyle */
+.admin-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.4rem;
+	padding: 0.45rem 0.85rem;
+	border-radius: var(--adm-radius-sm, 8px);
+	font-size: 0.8125rem;
+	font-weight: 600;
+	font-family: inherit;
+	line-height: 1.3;
+	cursor: pointer;
+	border: 1px solid transparent;
+	text-decoration: none;
+	white-space: nowrap;
+	transition:
+		background 0.14s ease,
+		border-color 0.14s ease,
+		color 0.14s ease;
+}
+.admin-btn:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+.admin-btn--primary {
+	background: var(--adm-accent-bg, rgb(184 149 106 / 0.16));
+	border-color: rgb(184 149 106 / 0.5);
+	color: var(--adm-accent-text, #7a5c32);
+	font-weight: 650;
+}
+.admin-btn--primary:hover:not(:disabled) {
+	background: rgb(184 149 106 / 0.26);
+	border-color: rgb(184 149 106 / 0.7);
+	color: var(--adm-text);
+}
+.admin-btn--ghost {
+	background: transparent;
+	border-color: transparent;
+	color: var(--adm-muted);
+}
+.admin-btn--ghost:hover:not(:disabled) {
+	background: var(--adm-bg-muted);
+	color: var(--adm-text);
+}
+.admin-btn--danger {
+	background: rgb(254 242 242 / 0.9);
+	border-color: rgb(252 165 165 / 0.7);
+	color: #b91c1c;
+}
+.admin-btn--danger:hover:not(:disabled) {
+	background: rgb(254 226 226 / 0.95);
+	border-color: rgb(248 113 113 / 0.8);
+}
+body.theme-dark .admin-btn--primary {
+	background: rgb(184 149 106 / 0.22);
+	border-color: rgb(184 149 106 / 0.38);
+	color: rgb(253 230 180);
+}
+body.theme-dark .admin-btn--primary:hover:not(:disabled) {
+	background: rgb(184 149 106 / 0.32);
+	color: #f0f0ee;
+}
+body.theme-dark .admin-btn--ghost {
+	color: #8a8680;
+}
+body.theme-dark .admin-btn--ghost:hover:not(:disabled) {
+	background: #1c1c20;
+	color: #f0f0ee;
+}
+body.theme-dark .admin-btn--danger {
+	background: rgb(127 29 29 / 0.22);
+	border-color: rgb(252 165 165 / 0.28);
+	color: #f87171;
+}
+body.theme-dark .admin-btn--danger:hover:not(:disabled) {
+	background: rgb(127 29 29 / 0.38);
+}
+
 /* Sidebar: Propus-Logo (LOGO_LIGHT aus brandAssets) zentriert */
 .admin-side__brand {
 	text-align: center;
