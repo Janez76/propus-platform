@@ -2297,229 +2297,19 @@ app.use((err, req, res, next) => {
   next();
 });
 
-// ─── Logto OIDC Login (entfernt – Stub-Routen für Rückwärtskompatibilität) ────
-(function registerLogtoRoutes() {
-  // Logto wurde aus der Plattform entfernt. Die Routen leiten auf /login weiter.
-  app.get('/auth/logto/login', (req, res) => {
-    const returnTo = encodeURIComponent(req.query.returnTo || '/dashboard');
-    res.redirect(`/login?returnTo=${returnTo}`);
-  });
-  app.get('/auth/logto/callback', (_req, res) => {
-    res.status(410).send('Logto SSO wurde entfernt. Bitte melde dich über /login an.');
-  });
-  app.get('/auth/logto/logout', (req, res) => {
-    req.session?.destroy?.(() => res.redirect('/login'));
-  });
-  return;
-  /* eslint-disable no-unreachable */
-  const LOGTO_APP_ID          = process.env.PROPUS_BOOKING_LOGTO_APP_ID || '';
-  const LOGTO_APP_SECRET      = process.env.PROPUS_BOOKING_LOGTO_APP_SECRET || '';
-  const LOGTO_PUBLIC_ENDPOINT = process.env.LOGTO_ENDPOINT || 'http://localhost:3301';
-  const LOGTO_INTERNAL_ENDPOINT = process.env.LOGTO_INTERNAL_ENDPOINT || LOGTO_PUBLIC_ENDPOINT;
-  const LOGTO_REDIRECT_BASE_URL = String(
-    process.env.BOOKING_LOGTO_REDIRECT_BASE_URL ||
-    process.env.ADMIN_PANEL_URL ||
-    process.env.ADMIN_FRONTEND_URL ||
-    ''
-  ).trim().replace(/\/$/, '');
-  if (!LOGTO_APP_ID || !LOGTO_APP_SECRET) return;
-
-  const crypto = require('crypto');
-  const logtoClient = require('./logto-client');
-  let oidcConfigCache = null;
-
-  async function getOidcConfig() {
-    if (oidcConfigCache) return oidcConfigCache;
-    const r = await fetch(`${LOGTO_INTERNAL_ENDPOINT}/oidc/.well-known/openid-configuration`);
-    oidcConfigCache = await r.json();
-    return oidcConfigCache;
-  }
-
-  function getLogtoBaseUrl(req) {
-    return LOGTO_REDIRECT_BASE_URL || `${req.protocol}://${req.get('host')}`;
-  }
-
-  function getLogtoCallbackUrl(req) {
-    return `${getLogtoBaseUrl(req)}/auth/logto/callback`;
-  }
-
-  function getLogtoPostLogoutUrl(req) {
-    return `${getLogtoBaseUrl(req)}/`;
-  }
-
-  function getLogtoLoginRedirectUrl(req, token, returnTo) {
-    const loginUrl = new URL('/login', `${getLogtoBaseUrl(req)}/`);
-    loginUrl.searchParams.set('logto_token', token);
-    loginUrl.searchParams.set('returnTo', returnTo);
-    return loginUrl.toString();
-  }
-
-  // GET /auth/logto/login → startet OIDC-Flow
-  app.get('/auth/logto/login', async (req, res) => {
-    try {
-      const config = await getOidcConfig();
-      const state        = crypto.randomBytes(16).toString('hex');
-      const verifier     = crypto.randomBytes(32).toString('base64url');
-      const challenge    = crypto.createHash('sha256').update(verifier).digest('base64url');
-      req.session.logtoState    = state;
-      req.session.logtoVerifier = verifier;
-      req.session.logtoReturnTo = req.query.returnTo || '/';
-      const params = new URLSearchParams({
-        client_id: LOGTO_APP_ID,
-        redirect_uri: getLogtoCallbackUrl(req),
-        response_type: 'code',
-        scope: 'openid profile email urn:logto:scope:roles',
-        state,
-        code_challenge: challenge,
-        code_challenge_method: 'S256',
-      });
-      await req.session.save(() => res.redirect(`${LOGTO_PUBLIC_ENDPOINT}/oidc/auth?${params}`));
-    } catch (err) {
-      console.error('[logto] login init error:', err.message);
-      res.status(503).send('Auth service unavailable');
-    }
-  });
-
-  // GET /auth/logto/callback → tauscht Code gegen Token, erstellt admin_session
-  app.get('/auth/logto/callback', async (req, res) => {
-    try {
-      const { code, state } = req.query;
-      if (!code || state !== req.session.logtoState) {
-        return res.status(400).send('Invalid callback (state mismatch)');
-      }
-      const config  = await getOidcConfig();
-
-      // Code gegen Tokens tauschen
-      const tokenRes = await fetch(config.token_endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          grant_type:    'authorization_code',
-          code,
-          client_id:     LOGTO_APP_ID,
-          client_secret: LOGTO_APP_SECRET,
-          redirect_uri:  getLogtoCallbackUrl(req),
-          code_verifier: req.session.logtoVerifier || '',
-        }),
-      });
-      if (!tokenRes.ok) {
-        const err = await tokenRes.text();
-        console.error('[logto] token exchange failed:', err);
-        return res.status(500).send('Auth token exchange failed');
-      }
-      const tokens = await tokenRes.json();
-
-      // User-Info laden
-      const userRes = await fetch(config.userinfo_endpoint, {
-        headers: { Authorization: `Bearer ${tokens.access_token}` },
-      });
-      const userInfo = userRes.ok ? await userRes.json() : {};
-      const email    = String(userInfo.email || '').trim().toLowerCase();
-      const name     = String(userInfo.name || userInfo.username || email || '');
-      const logtoUserId = userInfo.sub || '';
-
-      if (!email) return res.status(400).send('Kein E-Mail-Konto in Logto hinterlegt.');
-
-      // Logto-Rollen bestimmen (aus userinfo oder via Management API)
-      let logtoRoles = [];
-      if (Array.isArray(userInfo.roles)) {
-        logtoRoles = userInfo.roles;
-      } else if (logtoClient.isConfigured() && logtoUserId) {
-        try {
-          logtoRoles = await logtoClient.getUserRoles(logtoUserId);
-        } catch (e) {
-          console.warn('[logto] Rollen konnten nicht geladen werden:', e.message);
-        }
-      }
-
-      // Logto-Rollen auf interne Rolle mappen
-      const ROLE_PRIORITY = ['super_admin', 'admin', 'photographer', 'customer'];
-      let sessionRole = 'photographer';
-      for (const rp of ROLE_PRIORITY) {
-        if (logtoRoles.includes(rp)) { sessionRole = rp; break; }
-      }
-
-      const pool = db.getPool ? db.getPool() : null;
-      if (!pool) return res.status(503).send('DB nicht verfügbar');
-
-      // admin_users Eintrag mit der tatsächlichen Rolle anlegen/aktualisieren
-      const dbRole = logtoRoles.includes('super_admin') ? 'super_admin' :
-                     logtoRoles.includes('admin') ? 'admin' : sessionRole;
-      await pool.query(`
-        INSERT INTO booking.admin_users (username, email, name, logto_user_id, role, active, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, TRUE, NOW(), NOW())
-        ON CONFLICT (username) DO UPDATE
-          SET email=EXCLUDED.email,
-              name=EXCLUDED.name,
-              logto_user_id=COALESCE(EXCLUDED.logto_user_id, booking.admin_users.logto_user_id),
-              role=$5,
-              active=TRUE,
-              updated_at=NOW()
-      `, [email, email, name, logtoUserId || null, dbRole]).catch(() => null);
-
-      // RBAC sync (Logto → internes System)
-      try {
-        const rbac = require('./access-rbac');
-        await rbac.syncAdminUserRolesFromDb(email);
-      } catch (_) {}
-
-      // admin_session Token ausgeben
-      const sessionToken = crypto.randomBytes(32).toString('hex');
-      let token = sessionToken;
-      try {
-        const issued = await issueAdminSession(res, {
-          role: sessionRole,
-          rememberMe: true,
-          userKey: email,
-          userName: name,
-        });
-        token = issued?.token || sessionToken;
-      } catch (e) {
-        const tokenHash = crypto.createHash('sha256').update(sessionToken).digest('hex');
-        await pool.query(`
-          INSERT INTO booking.admin_sessions (token_hash, user_key, user_name, role, expires_at, created_at)
-          VALUES ($1, $2, $3, $4, NOW() + INTERVAL '30 days', NOW())
-        `, [tokenHash, email, name, sessionRole]).catch(() => null);
-        token = sessionToken;
-      }
-
-      // Logto-Tokens in Session merken (für Logout)
-      req.session.logtoIdToken   = tokens.id_token;
-      req.session.logtoLogout    = true;
-      delete req.session.logtoState;
-      delete req.session.logtoVerifier;
-      const returnTo = req.session.logtoReturnTo || '/';
-      delete req.session.logtoReturnTo;
-
-      // SPA erhält Token über URL-Parameter, speichert ihn in localStorage
-      await req.session.save(() =>
-        res.redirect(getLogtoLoginRedirectUrl(req, token, returnTo))
-      );
-    } catch (err) {
-      console.error('[logto] callback error:', err.message);
-      res.status(500).send('Login fehlgeschlagen: ' + err.message);
-    }
-  });
-
-  // GET /auth/logto/logout → Logto End-Session
-  app.get('/auth/logto/logout', async (req, res) => {
-    const idToken  = req.session?.logtoIdToken;
-    const wasLogto = req.session?.logtoLogout;
-    req.session.destroy(() => {
-      if (wasLogto && idToken) {
-        const params  = new URLSearchParams({
-          id_token_hint:            idToken,
-          post_logout_redirect_uri: getLogtoPostLogoutUrl(req),
-        });
-        return res.redirect(`${LOGTO_PUBLIC_ENDPOINT}/oidc/session/end?${params}`);
-      }
-      res.redirect(getLogtoPostLogoutUrl(req));
-    });
-  });
-
-  console.log('[booking] Logto OIDC auth enabled, app_id:', LOGTO_APP_ID.slice(0, 8) + '…');
-  /* eslint-enable no-unreachable */
-})();
+// ─── Logto OIDC Stub-Routen (Rückwärtskompatibilität für gespeicherte Links) ─
+// Logto wurde vollständig entfernt. Diese Routen leiten auf /login weiter.
+app.get('/auth/logto/login', (req, res) => {
+  const returnTo = encodeURIComponent(req.query.returnTo || '/dashboard');
+  res.redirect(`/login?returnTo=${returnTo}`);
+});
+app.get('/auth/logto/callback', (_req, res) => {
+  res.status(410).send('Logto SSO wurde entfernt. Bitte melde dich über /login an.');
+});
+app.get('/auth/logto/logout', (req, res) => {
+  req.session?.destroy?.(() => res.redirect('/login'));
+});
+// ─── Logto vollständig entfernt (April 2026) ─────────────────────────────────
 
 // SPA/Topbar nutzt /auth/logout
 app.get("/auth/logout", async (req, res) => {
@@ -8261,48 +8051,9 @@ async function resolveCurrentAdminUserRecord(req) {
   return null;
 }
 
-async function resolveCurrentAdminLogtoUser(req, adminUser) {
-  if (!runtimeLogtoClient.isConfigured()) return null;
-
-  const logtoUserId = String(adminUser?.logto_user_id || req.user?.logtoUserId || "").trim();
-  if (logtoUserId) {
-    try {
-      return await runtimeLogtoClient.getUserById(logtoUserId);
-    } catch (err) {
-      console.warn("[admin-profile] Logto user lookup by id failed:", err?.message || err);
-    }
-  }
-
+function buildAdminProfilePayload(req, adminUser) {
   const email = String(adminUser?.email || req.user?.email || "").trim().toLowerCase();
-  if (!isEmailLike(email)) return null;
-
-  try {
-    const logtoUser = await runtimeLogtoClient.findUserByEmail(email);
-    if (logtoUser?.id && adminUser?.id && logtoUser.id !== adminUser.logto_user_id) {
-      await db.query(
-        "UPDATE admin_users SET logto_user_id = $1, updated_at = NOW() WHERE id = $2",
-        [logtoUser.id, adminUser.id]
-      ).catch(() => null);
-    }
-    return logtoUser || null;
-  } catch (err) {
-    console.warn("[admin-profile] Logto user lookup by email failed:", err?.message || err);
-    return null;
-  }
-}
-
-function buildAdminProfilePayload(req, adminUser, logtoUser) {
-  const customData = logtoUser?.customData && typeof logtoUser.customData === "object"
-    ? logtoUser.customData
-    : {};
-  const email = String(
-    logtoUser?.primaryEmail ||
-    adminUser?.email ||
-    req.user?.email ||
-    ""
-  ).trim().toLowerCase();
   const name = String(
-    logtoUser?.name ||
     adminUser?.name ||
     req.user?.name ||
     email ||
@@ -8310,8 +8061,8 @@ function buildAdminProfilePayload(req, adminUser, logtoUser) {
     req.user?.id ||
     ""
   ).trim();
-  const phone = String(logtoUser?.primaryPhone || adminUser?.phone || "").trim();
-  const language = normalizeAdminProfileLanguage(customData.language || adminUser?.language || "de");
+  const phone = String(adminUser?.phone || "").trim();
+  const language = normalizeAdminProfileLanguage(adminUser?.language || "de");
 
   return {
     user: String(adminUser?.username || req.user?.userKey || email || req.user?.id || "").trim(),
@@ -8339,7 +8090,6 @@ app.get("/api/admin/me", requireAdmin, async (req, res) => {
   try {
     const companyMember = await resolveCompanyScope(req);
     const adminUser = await resolveCurrentAdminUserRecord(req);
-    const logtoUser = await resolveCurrentAdminLogtoUser(req, adminUser);
     const permissions = req.effectivePermissions ? Array.from(req.effectivePermissions) : [];
     return res.json({
       ok: true,
@@ -8349,7 +8099,7 @@ app.get("/api/admin/me", requireAdmin, async (req, res) => {
         name: companyMember.company_name || "",
         slug: companyMember.company_slug || "",
       } : null,
-      profile: buildAdminProfilePayload(req, adminUser, logtoUser),
+      profile: buildAdminProfilePayload(req, adminUser),
       permissions,
     });
   } catch (e) {
@@ -8360,8 +8110,7 @@ app.get("/api/admin/me", requireAdmin, async (req, res) => {
 app.put("/api/admin/me", requireAdmin, async (req, res) => {
   try {
     const adminUser = await resolveCurrentAdminUserRecord(req);
-    const currentLogtoUser = await resolveCurrentAdminLogtoUser(req, adminUser);
-    const currentProfile = buildAdminProfilePayload(req, adminUser, currentLogtoUser);
+    const currentProfile = buildAdminProfilePayload(req, adminUser);
 
     const name = String(req.body?.name || "").trim();
     const email = String(req.body?.email || "").trim().toLowerCase();
@@ -8372,27 +8121,6 @@ app.put("/api/admin/me", requireAdmin, async (req, res) => {
     if (!isEmailLike(email)) return res.status(400).json({ error: "Gueltige E-Mail erforderlich." });
     if (phone.length > 64) return res.status(400).json({ error: "Telefonnummer ist zu lang." });
 
-    let nextLogtoUser = currentLogtoUser;
-    if (currentLogtoUser?.id) {
-      const customData = currentLogtoUser.customData && typeof currentLogtoUser.customData === "object"
-        ? currentLogtoUser.customData
-        : {};
-      const nextCustomData = { ...customData, language };
-      const logtoPatch = {};
-
-      if (String(currentLogtoUser.name || "").trim() !== name) logtoPatch.name = name;
-      if (String(currentLogtoUser.primaryEmail || "").trim().toLowerCase() !== email) logtoPatch.primaryEmail = email;
-      if (String(currentLogtoUser.primaryPhone || "").trim() !== phone) logtoPatch.primaryPhone = phone || null;
-
-      if (Object.keys(logtoPatch).length > 0) {
-        nextLogtoUser = await runtimeLogtoClient.updateUser(currentLogtoUser.id, logtoPatch);
-      }
-      if (JSON.stringify(customData) !== JSON.stringify(nextCustomData)) {
-        nextLogtoUser = await runtimeLogtoClient.updateUserCustomData(currentLogtoUser.id, nextCustomData);
-      }
-    }
-
-    const resolvedLogtoUserId = String(nextLogtoUser?.id || adminUser?.logto_user_id || "").trim() || null;
     if (adminUser?.id) {
       await db.query(
         `UPDATE admin_users
@@ -8400,23 +8128,21 @@ app.put("/api/admin/me", requireAdmin, async (req, res) => {
                 name = $2,
                 phone = $3,
                 language = $4,
-                logto_user_id = COALESCE($5, logto_user_id),
                 updated_at = NOW()
-          WHERE id = $6`,
-        [email, name, phone || null, language, resolvedLogtoUserId, adminUser.id]
+          WHERE id = $5`,
+        [email, name, phone || null, language, adminUser.id]
       );
     } else if (String(req.user?.role || "").trim()) {
       const placeholderHash = await customerAuth.hashPassword(generateToken());
       const username = String(req.user?.userKey || email).trim().toLowerCase() || email;
       await db.query(
-        `INSERT INTO admin_users (username, email, name, phone, language, logto_user_id, role, password_hash, active, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE, NOW(), NOW())
+        `INSERT INTO admin_users (username, email, name, phone, language, role, password_hash, active, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE, NOW(), NOW())
          ON CONFLICT (username) DO UPDATE
            SET email = EXCLUDED.email,
                name = EXCLUDED.name,
                phone = EXCLUDED.phone,
                language = EXCLUDED.language,
-               logto_user_id = COALESCE(EXCLUDED.logto_user_id, admin_users.logto_user_id),
                updated_at = NOW()`,
         [
           username,
@@ -8424,7 +8150,6 @@ app.put("/api/admin/me", requireAdmin, async (req, res) => {
           name,
           phone || null,
           language,
-          resolvedLogtoUserId,
           SUPER_ADMIN_ROLES.has(String(req.user.role || "")) ? "super_admin" : "admin",
           placeholderHash,
         ]
@@ -8449,10 +8174,9 @@ app.put("/api/admin/me", requireAdmin, async (req, res) => {
     };
 
     const updatedAdminUser = await resolveCurrentAdminUserRecord(req);
-    const updatedLogtoUser = nextLogtoUser || await resolveCurrentAdminLogtoUser(req, updatedAdminUser);
     return res.json({
       ok: true,
-      profile: buildAdminProfilePayload(req, updatedAdminUser, updatedLogtoUser),
+      profile: buildAdminProfilePayload(req, updatedAdminUser),
     });
   } catch (err) {
     res.status(500).json({ error: err?.message || "Profil konnte nicht gespeichert werden" });
@@ -11094,34 +10818,7 @@ app.put("/api/admin/photographers/:key/settings", requireAdmin, async (req, res)
       await db.setPhotographerAdminFlag(key, isAdmin);
       try { await rbac.syncPhotographerRolesFromDb(key); } catch (_e) {}
 
-      // Logto-Rollen synchronisieren
-      // Wichtig: super_admin wird NUR über Interne Verwaltung vergeben/entfernt,
-      // nie automatisch durch den Mitarbeiter-is_admin-Flag überschrieben.
-      const logtoClient = require('./logto-client');
-      if (logtoClient.isConfigured()) {
-        try {
-          const { rows } = await pool.query(`SELECT email FROM photographers WHERE key = $1`, [key]);
-          const email = rows[0]?.email;
-          if (email) {
-            const logtoUser = await logtoClient.findUserByEmail(email);
-            if (logtoUser) {
-              const currentRoles = await logtoClient.getUserRoles(logtoUser.id);
-              const isSuperAdmin = currentRoles.includes('super_admin');
-              if (isAdmin) {
-                // super_admin-Benutzer brauchen keine zusätzliche admin-Rolle
-                if (!isSuperAdmin) {
-                  await logtoClient.assignRolesToUser(logtoUser.id, ['admin']);
-                }
-              } else {
-                // Nur 'admin' entfernen — 'super_admin' bleibt unberührt (nur über Interne Verwaltung)
-                await logtoClient.removeRolesFromUser(logtoUser.id, ['admin']);
-              }
-            }
-          }
-        } catch (e) {
-          console.warn('[logto] Rollen-Sync für', key, 'fehlgeschlagen:', e.message);
-        }
-      }
+      // Rollen werden ausschließlich in admin_users / RBAC verwaltet (Logto entfernt)
     }
 
     const jsonCols = new Set(["workdays", "work_hours_by_day", "languages", "blocked_dates", "skills", "depart_times"]);

@@ -22,7 +22,6 @@ export function ToursAdminPortalRolesPage() {
   const staffRows = (data?.staffRows as Record<string, unknown>[]) ?? [];
   const externRows = (data?.externRows as Record<string, unknown>[]) ?? [];
   const ownerList = (data?.ownerList as Record<string, unknown>[]) ?? [];
-  const logtoPortalEnabled = Boolean(data?.logtoPortalEnabled);
 
   const [staffEmail, setStaffEmail] = useState("");
   const [extOwner, setExtOwner] = useState("");
@@ -105,11 +104,6 @@ export function ToursAdminPortalRolesPage() {
         <h1 className="text-2xl font-semibold text-[var(--text-main)]">Portal-Rollen</h1>
         <p className="text-sm text-[var(--text-subtle)] mt-1">
           Intern (Tour-Manager) und extern (Kunden-Admins).
-          {logtoPortalEnabled ? (
-            <span className="ml-2 text-xs rounded bg-emerald-100 text-emerald-800 px-2 py-0.5 dark:bg-emerald-900/40 dark:text-emerald-200">
-              Logto Portal aktiv
-            </span>
-          ) : null}
         </p>
       </div>
 

@@ -14,21 +14,13 @@ export function LoginPage() {
   const role = useAuthStore((s) => s.role);
   const lang = useAuthStore((s) => s.language) || "de";
   const setAuth = useAuthStore((s) => s.setAuth);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const logtoToken = params.get("logto_token");
-    if (logtoToken) {
-      params.delete("logto_token");
-      const returnTo = params.get("returnTo") || "/dashboard";
-      params.delete("returnTo");
-      const newSearch = params.toString();
-      window.history.replaceState({}, "", newSearch ? `?${newSearch}` : window.location.pathname);
-      setAuth(logtoToken, "admin", true);
-      navigate(returnTo.startsWith("/") ? returnTo : "/dashboard", { replace: true });
-      return;
-    }
     const errParam = params.get("auth_error");
     if (errParam) {
       setError(decodeURIComponent(errParam));
@@ -36,7 +28,7 @@ export function LoginPage() {
       const newSearch = params.toString();
       window.history.replaceState({}, "", newSearch ? `?${newSearch}` : window.location.pathname);
     }
-  }, [navigate, setAuth]);
+  }, []);
 
   useEffect(() => {
     if (token) {
@@ -45,7 +37,33 @@ export function LoginPage() {
     }
   }, [navigate, role, token]);
 
-  const ssoUrl = `${API_BASE}/auth/logto/login`;
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!username.trim() || !password) return;
+    setError("");
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: username.trim(), password }),
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setError(data.error || "Login fehlgeschlagen");
+        return;
+      }
+      setAuth(data.token, data.role || "admin", true);
+      const params = new URLSearchParams(window.location.search);
+      const returnTo = params.get("returnTo") || "/dashboard";
+      navigate(returnTo.startsWith("/") ? returnTo : "/dashboard", { replace: true });
+    } catch {
+      setError("Verbindung zum Server fehlgeschlagen");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <div className="auth-page" style={{ display: "flex", flexDirection: "column" }}>
@@ -61,18 +79,44 @@ export function LoginPage() {
           <AuthCard>
             {error && <div className="auth-error mb-4">{error}</div>}
 
-            <a
-              href={ssoUrl}
-              className="auth-btn w-full flex items-center justify-center gap-2"
-              style={{ textDecoration: "none" }}
-            >
-              <LogIn className="h-4 w-4" />
-              Mit Propus-Konto anmelden
-            </a>
-
-            <p className="text-center text-xs p-text-muted mt-4">
-              Du wirst zum zentralen Login weitergeleitet.
-            </p>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wide mb-1 text-[var(--text-subtle)]">
+                  Benutzername oder E-Mail
+                </label>
+                <input
+                  type="text"
+                  autoComplete="username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="auth-input w-full"
+                  placeholder="janez oder js@propus.ch"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wide mb-1 text-[var(--text-subtle)]">
+                  Passwort
+                </label>
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="auth-input w-full"
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="auth-btn w-full flex items-center justify-center gap-2"
+              >
+                <LogIn className="h-4 w-4" />
+                {loading ? "Anmelden…" : "Anmelden"}
+              </button>
+            </form>
           </AuthCard>
         </div>
       </div>
@@ -81,5 +125,3 @@ export function LoginPage() {
     </div>
   );
 }
-
-

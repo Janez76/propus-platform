@@ -406,7 +406,7 @@ export function CompanyManagementPage() {
           <div>
             <h1 className="text-xl font-bold text-[var(--text-main)]">Firmenverwaltung</h1>
             <p className="text-sm text-[var(--text-muted)]">
-              Externe Firmen und Kundenzugänge verwalten – synchron mit Logto Organisationen
+              Externe Firmen und Kundenzugänge verwalten
             </p>
           </div>
         </div>
@@ -720,11 +720,10 @@ export function CompanyManagementPage() {
             <div className="flex items-start gap-2 rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-4 py-3 text-xs text-[var(--text-subtle)]">
               <ClipboardList className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--accent)]" />
               <span>
-                Neue und geänderte Firmen werden als <strong className="text-[var(--text-muted)]">Organisationen in Logto</strong>{" "}
-                gepflegt. Aktive Firmenmitglieder mit Logto-Konto werden der Organisation zugeordnet. Ist eine Firma mit einem
+                Firmen und Mitglieder werden zentral in dieser Übersicht verwaltet. Ist eine Firma mit einem
                 Kundenstamm-Eintrag verknüpft (Rechnungskontext), werden{" "}
                 <strong className="text-[var(--text-muted)]">Rechnungsname und Standort</strong> beim Speichern des Kunden
-                automatisch übernommen (Logto-Organisationsname folgt).
+                automatisch übernommen.
               </span>
             </div>
           </>

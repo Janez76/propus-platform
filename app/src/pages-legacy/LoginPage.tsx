@@ -4,10 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
 import { isCompanyWorkspaceRole } from "../lib/companyRoles";
 import { t } from "../i18n";
-import type { Role } from "../types";
 import { Footer } from "../components/layout/Footer";
 import { AuthLogoHeader, AuthCard } from "../components/auth/AuthPageLayout";
-import { getAdminProfile } from "../api/profile";
 import { API_BASE } from "../api/client";
 
 export function LoginPage() {
@@ -29,27 +27,8 @@ export function LoginPage() {
     usernameRef.current?.focus();
   }, []);
 
-  // Logto-Token aus URL-Parameter verarbeiten (Fallback für laufende SSO-Sessions)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const logtoToken = params.get("logto_token");
-    if (logtoToken) {
-      const returnTo = params.get("returnTo") || "/dashboard";
-      params.delete("logto_token");
-      params.delete("returnTo");
-      const newSearch = params.toString();
-      window.history.replaceState({}, "", newSearch ? `?${newSearch}` : window.location.pathname);
-      void (async () => {
-        try {
-          const me = await getAdminProfile(logtoToken);
-          setAuth(logtoToken, me.role || "admin", true, Array.isArray(me.permissions) ? me.permissions : []);
-        } catch {
-          setAuth(logtoToken, "admin", true);
-        }
-        navigate(returnTo.startsWith("/") ? returnTo : "/dashboard", { replace: true });
-      })();
-      return;
-    }
     const errParam = params.get("auth_error");
     if (errParam) {
       setError(decodeURIComponent(errParam));
@@ -57,7 +36,7 @@ export function LoginPage() {
       const newSearch = params.toString();
       window.history.replaceState({}, "", newSearch ? `?${newSearch}` : window.location.pathname);
     }
-  }, [navigate, setAuth]);
+  }, []);
 
   useEffect(() => {
     if (token) {
@@ -83,7 +62,7 @@ export function LoginPage() {
         setError(data?.error || "Login fehlgeschlagen");
         return;
       }
-      const { token: tok, role: r, permissions } = data as { token: string; role: Role; permissions?: string[] };
+      const { token: tok, role: r, permissions } = data as { token: string; role: string; permissions?: string[] };
       setAuth(tok, r || "admin", true, Array.isArray(permissions) ? permissions : []);
       const params = new URLSearchParams(window.location.search);
       const returnTo = params.get("returnTo") || "/dashboard";

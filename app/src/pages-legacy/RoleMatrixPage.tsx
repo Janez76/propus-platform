@@ -313,7 +313,6 @@ function PortalRolesPanel() {
   const staffRows = (data?.staffRows as Record<string, unknown>[]) ?? [];
   const externRows = (data?.externRows as Record<string, unknown>[]) ?? [];
   const ownerList = (data?.ownerList as Record<string, unknown>[]) ?? [];
-  const logtoPortalEnabled = Boolean(data?.logtoPortalEnabled);
 
   const [staffEmail, setStaffEmail] = useState("");
   const [extOwner, setExtOwner] = useState("");
@@ -393,11 +392,6 @@ function PortalRolesPanel() {
           <h2 className="text-lg font-semibold text-[var(--text-main)]">Portal-Zugang verwalten</h2>
           <p className="text-sm text-[var(--text-subtle)] mt-0.5">
             Interne Tour-Manager und externe Kunden-Admins.
-            {logtoPortalEnabled ? (
-              <span className="ml-2 text-xs rounded bg-emerald-100 text-emerald-800 px-2 py-0.5 dark:bg-emerald-900/40 dark:text-emerald-200">
-                Logto Portal aktiv
-              </span>
-            ) : null}
           </p>
         </div>
       </div>
