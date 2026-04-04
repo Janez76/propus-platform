@@ -18,6 +18,9 @@
 8. [Bestätigungs-Flow](#8-bestätigungs-flow)
 9. [Payrexx-Webhook](#9-payrexx-webhook)
 10. [Exxas-Order-Sync](#10-exxas-order-sync)
+11. [Fotograf-Vergabe (resolveAnyPhotographer)](#11-fotograf-vergabe)
+12. [Slot-Generierung (fahrzeit-bewusst)](#12-slot-generierung)
+13. [Routing-Service](#13-routing-service)
 
 ---
 
@@ -33,7 +36,7 @@ POST /api/booking
   ├── 2. onsiteContacts normalisieren (normalizeOnsiteContactsFromObject)
   │        → object.onsiteName/Phone/Email → onsite_contacts[0]
   │        → object.additionalOnsiteContacts[] → onsite_contacts[1..n]
-  ├── 3. "any"-Fotograf auflösen (resolveAnyPhotographer)
+  ├── 3. "any"-Fotograf auflösen (resolveAnyPhotographer) → siehe §11
   ├── 4. Preise berechnen & validieren (computePricing)
   ├── 5. Kalender-Verfügbarkeit prüfen (checkPhotographerAvailability)
   ├── 6. orderNo vergeben (nextOrderNumber)
@@ -308,3 +311,311 @@ Payrexx-Webhook (transaction.status = "confirmed"|"paid")
 | `exxas_error` | Fehlermeldung bei `error` |
 
 **Sync-Logik:** Wird manuell oder via Cron ausgelöst. Überträgt Auftragsdaten an Exxas-API (`POST /api/v2/orders`). Bei Erfolg: `exxas_status = "sent"`, `exxas_order_id` gesetzt.
+
+---
+
+## 11. Fotograf-Vergabe
+
+**Datei:** `photographer-resolver.js`  
+**Aufruf:** Schritt 3 im Haupt-Buchungsfluss (`resolveAnyPhotographer`)
+
+### Zwei Modi
+
+| | Modus A — `photographer = "any"` | Modus B — `photographer = "ivan"` (explizit) |
+|---|---|---|
+| Skill-Check | ✓ Pflicht | ✗ entfällt |
+| Radius-Check | ✓ Pflicht | ✗ entfällt |
+| Kalender-Verfügbarkeit | ✓ | ✓ |
+| Feiertag / Abwesenheit | ✓ | ✓ |
+| Fahrzeit | Ausschluss-Kriterium + Sortierung | Nur informativ im `decisionTrace` |
+| Skill = 0 | Ausschluss (`skill_zero`) | Warning im Response |
+| Kein Match | `null` → needs_admin | Fehler mit Grund |
+
+**Skill-Warning bei expliziter Wahl (Modus B):**
+```json
+{
+  "ok": true,
+  "warnings": ["ivan: skill drohne_foto = 0 — manuelle Überprüfung empfohlen"]
+}
+```
+Kein Block — Admin hat bewusst gewählt. Warnung ist rein informativ.
+
+Wird nur ausgelöst wenn `photographer = "any"` im Payload. Gibt `{ key, name }` oder `null` (→ Admin muss manuell vergeben) zurück.
+
+### Modus A: `photographer = "any"` — automatische Vergabe
+
+
+
+Zwei Quellen werden parallel ausgewertet und mit `mergeNeededSkills()` zusammengeführt (je Skill das höhere Minimum):
+
+**Legacy-Flags** (`services.*`):
+- `services.matterport / grundriss / floorplan / tour` → Skill `matterport`
+- `services.drohne / drone` → Skill `drohne_foto`
+- `services.video` → Skill `video`
+- `foto` ist immer gesetzt (Minimum aus `assignment.requiredSkillLevels.foto`, Default 5)
+
+**DB-Produkte** (`required_skills`, `skill_key`, `group_key`):
+- `skill_key = "drohne"` / `"dronephoto"` → `drohne_foto`
+- `skill_key = "dronevideo"` → `drohne_foto` + `drohne_video` + `video`
+- `group_key = "groundvideo"` → `video`
+- `group_key = "tour"` oder `code = "floorplans:tour"` → `matterport`
+
+**Matterport-Sonderregel:**
+- `sqm ≥ matterportLargeSqmThreshold` (Default 300) → Mindest-Level `matterportLargeSqmMinLevel` (Default 7)
+- `sqm < 300` → `max(1, baseLevel - matterportSmallSqmReduction)` (Default Reduktion 2)
+
+Alle Schwellenwerte kommen aus DB-Settings (`assignment.*`).
+
+### Phase 2: Fotografen filtern
+
+Ausschlüsse in dieser Reihenfolge (früher Ausschluss verhindert weitere Prüfungen):
+
+| Grund | Bedingung | Code |
+|---|---|---|
+| `not_available` | Kein freier Kalenderslot zur gebuchten Zeit | `availabilityMap[key].includes(time)` |
+| `holiday_blocked` | Nationaler Feiertag (`scheduling.nationalHolidaysEnabled = true`) | `isHoliday(date)` |
+| `blocked_date` | Admin-Abwesenheit (Einzeltag oder Von–Bis-Bereich) | `isDateBlocked(blocked_dates, date)` |
+
+Danach Fahrzeit berechnen (wird für Radius-Check und Sortierung verwendet):
+- Primär: OSRM-Routing → `travelMinutes`
+- Fallback: Haversine-Luftlinie → `estimatedKm = travelMinutes / 0.8`
+
+### Phase 3: Stage-Loop (Skill-Relaxation)
+
+```
+Stage 0: skillReduction = 0  (exakte Anforderungen)
+Stage 1: skillReduction = 1  (Anforderungen -1)
+Stage 2: skillReduction = 2  ...
+...
+Stage N: skillReduction = min(maxGap, 5)
+
+maxGap = max über alle Skills von (minLevel - absoluteMinimum)
+```
+
+Nur aktiv wenn `assignment.allowSkillRelaxation = true` oder `fallbackPolicy = "allow_skill_relax"`.
+
+Pro Stage wird `selectStageCandidates()` aufgerufen:
+
+1. **Skill-Check:** `level >= (minLevel - skillReduction)` für jeden benötigten Skill
+   - Skill-Level 0 → immer ausgeschlossen (`skill_zero`), auch bei maximaler Relaxation
+   - `absoluteSkillMinimums` setzt eine Untergrenze die nicht relaxiert werden kann
+2. **Radius-Check:** `estimatedKm <= max_radius_km` (pro Mitarbeiter konfiguriert)
+   - Überschreitung → `radius_employee`
+
+Sobald eine Stage Kandidaten liefert, wird nicht weiter relaxiert.
+
+### Phase 4: Auswahl
+
+Kandidaten werden sortiert nach:
+1. `travelMinutes` aufsteigend (kürzeste Fahrzeit gewinnt)
+2. `skillScore` absteigend bei Gleichstand (Summe der relevanten Skill-Level)
+
+`matches[0]` wird zurückgegeben.
+
+Keine Matches in allen Stages → `null` → `reason: "needs_admin"`
+
+### DB-Settings (assignment.*)
+
+| Setting | Default | Bedeutung |
+|---|---|---|
+| `assignment.requiredSkillLevels` | `{}` | Mindest-Level je Skill |
+| `assignment.matterportLargeSqmThreshold` | `300` | Ab dieser Fläche erhöhtes Matterport-Level |
+| `assignment.matterportLargeSqmMinLevel` | `7` | Mindest-Level für grosse Flächen |
+| `assignment.matterportSmallSqmReduction` | `2` | Level-Reduktion für kleine Flächen |
+| `assignment.fallbackPolicy` | `radius_expand_then_no_auto_assign` | Verhalten wenn kein Match |
+| `assignment.allowSkillRelaxation` | `false` | Skill-Anforderungen stufenweise lockern |
+| `assignment.absoluteSkillMinimums` | `{}` | Untergrenze die nie relaxiert wird |
+| `scheduling.nationalHolidaysEnabled` | `true` | Feiertage blockieren alle Fotografen |
+
+### Bekannte Schwachstellen / offene TODOs
+
+> Diese Punkte sind dokumentiert, aber noch nicht behoben.
+
+**`anySlotMode` ignoriert Uhrzeit** — bei `anySlotMode=true` gilt ein Fotograf als verfügbar sobald er *irgendeinen* freien Slot hat, unabhängig von der gebuchten Uhrzeit. Kann zu falschen Zuweisungen führen.
+
+**Radius-Check auf km, nicht auf Minuten** — `estimatedKm` wird aus `travelMinutes / 0.8` berechnet (1 km ≈ 0.8 Fahrminuten, Stadtnäherung). Der Radius-Grenzwert `max_radius_km` bezieht sich aber auf km. Bei Stau oder Umwegen kann ein Fotograf innerhalb des km-Radius aber weit ausserhalb der realistischen Fahrzeit liegen.
+
+**Kein Workload-Ausgleich** — Anzahl bestehender Buchungen pro Fotograf wird nicht berücksichtigt. Bei Gleichstand in Fahrzeit und Score entscheidet die Reihenfolge in `PHOTOGRAPHERS_CONFIG`.
+
+**Feiertags-Check ist global** — kein per-Fotograf-Override. Entweder alle sind blockiert oder keiner.
+
+**`foto`-Skill immer Pflicht** — `needed.foto` wird immer gesetzt (Zeile 129), auch wenn das gebuchte Paket kein Foto enthält. Prüfen ob das für reine Matterport/Drohnen-Buchungen korrekt ist.
+
+**Hardcoded Fallback-Werte** — `matterportLargeSqmThreshold = 300` und `matterportLargeSqmMinLevel = 7` sind an mehreren Stellen im Code hardcoded (Zeilen 81–83 und 125–127), obwohl sie aus DB-Settings kommen sollten. Eine Änderung in der DB ohne Code-Anpassung hat keinen Effekt.
+
+**`decisionTrace` wird nicht persistiert** — die Vergabe-Begründung (welche Stage, warum welcher Fotograf) ist nur im Response-Objekt verfügbar wenn `withDecisionTrace=true`. Im normalen Flow geht sie verloren. Empfehlung: `booking.orders.assignment_trace jsonb` Spalte anlegen und bei jeder automatischen Vergabe befüllen.
+
+### Modus B: `photographer = "ivan"` — explizite Wahl
+
+```
+resolveExplicitPhotographer({ key, photographersConfig, availabilityMap, date, time, services, needed })
+  │
+  ├── 1. Fotograf in PHOTOGRAPHERS_CONFIG suchen → nicht gefunden: Fehler
+  ├── 2. Kalender-Verfügbarkeit prüfen → nicht verfügbar: { ok: false, reason: "not_available" }
+  ├── 3. Feiertag prüfen              → blockiert:       { ok: false, reason: "holiday_blocked" }
+  ├── 4. Abwesenheit prüfen           → blockiert:       { ok: false, reason: "blocked_date" }
+  ├── 5. Skill-Check (nur Warning, kein Ausschluss):
+  │        → für jeden Skill in needed: wenn level = 0 → warning sammeln
+  ├── 6. Fahrzeit berechnen (informativ, siehe §13)
+  │        → travelMinutes + estimatedKm in decisionTrace
+  └── Response: { ok: true, key, name, warnings[], decisionTrace }
+```
+
+Fehler-Response wenn nicht verfügbar:
+```json
+{ "ok": false, "reason": "not_available", "photographer": "ivan" }
+```
+Kein stiller Fallback auf anderen Fotografen — Admin muss explizit neu wählen.
+
+---
+
+## 12. Slot-Generierung
+
+**Datei:** `slot-generator.js` (neu)  
+**Aufruf:** `GET /api/availability?date=...&coords=...&duration=...`
+
+Ersetzt die bisherige reine Kalender-Lücken-Logik durch fahrzeit-bewusste Slot-Berechnung.
+
+### Ablauf
+
+```
+generateAvailableSlots({ photographer, date, bookingCoords, durationMinutes })
+  │
+  ├── 1. Tagesbuchungen laden (confirmed + provisional, sortiert nach schedule_time)
+  │        → nur Buchungen mit address_lat/address_lon werden für Fahrzeit genutzt
+  │
+  ├── 2. Arbeitsfenster bestimmen (Mitarbeiter-Settings):
+  │        work_start_time        z.B. 08:00
+  │        work_end_time          z.B. 18:00
+  │        earliest_departure     z.B. 07:00
+  │
+  ├── 3. Für jede Lücke zwischen Buchungen (inkl. vor erster / nach letzter):
+  │
+  │     a) startCoord bestimmen (same-day proximity):
+  │          → vorherige Buchung vorhanden: address_coords der letzten Buchung
+  │          → keine vorherige Buchung:     home_coord des Fotografen
+  │
+  │     b) Fahrzeit berechnen (§13 Routing-Service):
+  │          travelToSlot   = routeMinutes(startCoord → bookingCoords, departure_time)
+  │          travelFromSlot = routeMinutes(bookingCoords → nextBooking.coords, departure_time)
+  │                           (nur wenn nächste Buchung vorhanden)
+  │
+  │     c) Frühester Slot-Beginn:
+  │          earliestArrival = max(
+  │            work_start_time,
+  │            previousBooking.end + minBufferMinutes + travelToSlot
+  │          )
+  │          → beim allerersten Slot zusätzlich:
+  │            earliestArrival = max(earliestArrival, earliest_departure + travelToSlot)
+  │
+  │     d) Spätester Slot-Beginn:
+  │          latestStart = min(
+  │            work_end_time - durationMinutes,
+  │            nextBooking.start - minBufferMinutes - travelFromSlot - durationMinutes
+  │          )
+  │
+  │     e) Slot verfügbar wenn earliestArrival ≤ latestStart
+  │          → Slots in Intervallen (z.B. 30-Min-Raster) zwischen earliestArrival und latestStart
+  │
+  └── Response: [{ time, travelMinutes, fromCoords }]
+```
+
+### Same-day Proximity
+
+```
+Beispiel:
+  Ivan hat 09:00–11:00 in St. Gallen (Koordinaten gespeichert)
+  Neue Buchung: 12:00 in Rorschach, ~20 Min von St. Gallen
+
+  Ohne same-day proximity: Fahrzeit von Zuhause (Zürich) ~90 Min → Slot 12:00 nicht anbietbar
+  Mit same-day proximity:  Fahrzeit von St. Gallen ~20 Min + Buffer 30 Min → Slot 11:30 / 12:00 anbietbar
+```
+
+Voraussetzung: `address_lat` und `address_lon` werden bei jeder Buchung in `booking.orders` gespeichert.
+
+### Neue Mitarbeiter-Settings
+
+| Setting | Beispiel | Bedeutung |
+|---|---|---|
+| `work_start_time` | `08:00` | Früheste On-site-Arbeitszeit |
+| `work_end_time` | `18:00` | Spätestes Arbeitsende |
+| `earliest_departure` | `07:00` | Ab wann darf losgefahren werden |
+| `min_buffer_between_jobs` | `30` | Mindestpuffer zwischen zwei Einsätzen (Min) |
+
+### Neue Felder in `booking.orders`
+
+| Feld | Typ | Bedeutung |
+|---|---|---|
+| `address_lat` | `float` | Breitengrad der Buchungsadresse |
+| `address_lon` | `float` | Längengrad der Buchungsadresse |
+| `assignment_trace` | `jsonb` | Vergabe-Begründung (decisionTrace) |
+
+---
+
+## 13. Routing-Service
+
+**Datei:** `travel.js` (erweitert)
+
+Zentraler Service für alle Fahrzeit-Berechnungen im System (Slot-Generierung, Vergabe-Resolver, Radius-Check).
+
+### Fallback-Kette
+
+```
+1. Google Maps Distance Matrix API  (departure_time → traffic-aware)
+2. Google Maps Distance Matrix API  (ohne departure_time → historischer Durchschnitt)
+3. OSRM lokal                       (kein Traffic)
+4. Haversine × 1.4 Faktor           (Luftlinie, letzter Ausweg)
+```
+
+Timeout pro Stufe: 2000ms. Bei Überschreitung sofort nächste Stufe.
+
+### Google Maps Distance Matrix
+
+```
+GET https://maps.googleapis.com/maps/api/distancematrix/json
+  ?origins={lat},{lon}
+  &destinations={lat},{lon}
+  &mode=driving
+  &departure_time={unix_timestamp}   ← geplanter Abfahrtszeitpunkt
+  &traffic_model=pessimistic         ← für Puffer-Berechnung (intern)
+  &traffic_model=best_guess          ← für Slot-Anzeige (Kunde)
+  &key={GOOGLE_API_KEY}
+
+Antwort: duration_in_traffic.value (Sekunden, stauberücksichtigt)
+```
+
+**`traffic_model`-Empfehlung:**
+- `pessimistic` — interne Puffer-Berechnung, lieber einen Slot weniger anbieten
+- `best_guess` — Slot-Anzeige im Buchungsformular
+
+### Caching
+
+```
+cache_key = "{origin_geohash6}:{dest_geohash6}:{weekday}:{hour}"
+ttl       = 6 Stunden
+```
+
+Geohash Precision 6 ≈ ~1km Genauigkeit. Feinere Auflösung bringt kaum Mehrwert bei exponentiell mehr Cache-Einträgen.
+
+### Puffer-Berechnung
+
+```javascript
+buffer = Math.max(
+  minBufferBetweenJobs,                    // fixer Mindestpuffer (Setting)
+  duration_in_traffic_minutes + minBuffer  // Fahrzeit + Puffer
+)
+```
+
+`duration_in_traffic` allein ist nicht der Buffer — Fotograf braucht Zeit für Equipment, Übergabe, kurze Pause.
+
+### Settings
+
+| Setting | Beispiel | Bedeutung |
+|---|---|---|
+| `routing.provider` | `google` | `google` / `osrm` / `haversine` |
+| `routing.googleApiKey` | `AIza...` | Google Maps API-Key |
+| `routing.trafficModel` | `pessimistic` | Modell für interne Berechnung |
+| `routing.trafficModelDisplay` | `best_guess` | Modell für Kunden-Anzeige |
+| `routing.cacheHours` | `6` | Cache-TTL |
+| `routing.timeoutMs` | `2000` | Fallback-Trigger pro Stufe |
+| `scheduling.minBufferMinutes` | `30` | Mindestpuffer zwischen Einsätzen |
