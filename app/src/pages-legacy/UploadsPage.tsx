@@ -251,15 +251,33 @@ export function UploadsPage() {
                 ) : null}
 
                 <div className="mt-5 grid gap-4 md:grid-cols-3">
-                  {(summary?.roots || []).map((root) => (
-                    <div key={root.key} className="rounded-xl border border-slate-200 bg-slate-50 p-3 border-[var(--border-soft)] bg-[var(--surface)]">
-                      <div className="text-sm font-semibold text-[var(--text-main)]">{root.key}</div>
-                      <div className="mt-1 text-xs text-[var(--text-subtle)] break-all">{root.path}</div>
-                      <div className={`mt-2 text-xs font-semibold ${root.ok ? "text-emerald-600" : "text-red-500"}`}>
-                        {root.ok ? "OK" : root.error || "Fehler"}
+                  {(summary?.roots || []).map((root) => {
+                    const rawErr = root.error || "";
+                    const isPermission = /EACCES|permission denied/i.test(rawErr);
+                    const isNotFound = /ENOENT|no such file/i.test(rawErr);
+                    const friendlyError = isPermission
+                      ? "Kein Zugriff – NAS-Mount aktiv?"
+                      : isNotFound
+                        ? "Ordner nicht gefunden – NAS-Mount prüfen"
+                        : rawErr || "Fehler";
+                    return (
+                      <div
+                        key={root.key}
+                        className={`rounded-xl border p-3 border-[var(--border-soft)] ${root.ok ? "bg-[var(--surface)]" : "bg-red-50/60 dark:bg-red-950/20"}`}
+                      >
+                        <div className="text-sm font-semibold text-[var(--text-main)]">{root.key}</div>
+                        <div className="mt-1 text-xs text-[var(--text-subtle)] break-all">{root.path}</div>
+                        <div className={`mt-1.5 text-xs font-semibold ${root.ok ? "text-emerald-600" : "text-red-500"}`}>
+                          {root.ok ? "✓ OK" : `✗ ${friendlyError}`}
+                        </div>
+                        {!root.ok && (isPermission || isNotFound) && (
+                          <div className="mt-1 text-[10px] text-[var(--text-subtle)]">
+                            Umgebungsvariable und NAS-Mount auf der VPS prüfen
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
@@ -283,7 +301,15 @@ export function UploadsPage() {
                     <div className="mt-3 space-y-1 text-sm">
                       <div className="text-[var(--text-muted)]">{folder.displayName}</div>
                       <div className="text-xs text-[var(--text-subtle)] break-all">{folder.relativePath}</div>
-                      {folder.lastError ? <div className="text-xs text-red-500">{folder.lastError}</div> : null}
+                      {folder.lastError ? (
+                        <div className="text-xs text-red-500">
+                          {/EACCES|permission denied/i.test(folder.lastError)
+                            ? "Kein Zugriff auf den NAS-Ordner – Mount prüfen"
+                            : /ENOENT|no such file/i.test(folder.lastError)
+                              ? "Ordner nicht gefunden – NAS-Mount prüfen"
+                              : folder.lastError}
+                        </div>
+                      ) : null}
                     </div>
                     <div className="mt-4 space-y-2">
                       <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--text-subtle)]">
