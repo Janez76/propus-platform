@@ -35,8 +35,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const resBody = await upstream.arrayBuffer();
     const resHeaders = new Headers();
+    const STRIP = new Set(["transfer-encoding", "content-encoding", "content-length"]);
     upstream.headers.forEach((v, k) => {
-      if (k.toLowerCase() !== "transfer-encoding") resHeaders.set(k, v);
+      if (!STRIP.has(k.toLowerCase())) resHeaders.set(k, v);
     });
 
     return new NextResponse(resBody, { status: upstream.status, headers: resHeaders });

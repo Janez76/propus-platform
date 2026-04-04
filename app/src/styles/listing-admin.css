@@ -1037,6 +1037,16 @@ body.theme-dark .gal-admin-listing-num--revision {
 	color: var(--adm-muted);
 }
 
+/* Hover-Zeile: Aktions-Buttons bleiben sichtbar (kein blend-in mit Zeilenhintergrund) */
+.gal-admin-listings-table--flat .gal-admin-listings-tbl.admin-table tbody tr:hover .gal-admin-listing-icon-btn {
+	background: var(--adm-surface);
+	border-color: rgb(0 0 0 / 0.18);
+}
+
+body.theme-dark .gal-admin-listings-table--flat .gal-admin-listings-tbl.admin-table tbody tr:hover .gal-admin-listing-icon-btn {
+	border-color: rgb(255 255 255 / 0.18);
+}
+
 /* Icon-Zeile rechts (2.3rem wie frühere admin-btn--sm) */
 .gal-admin-listings-actions {
 	display: flex;

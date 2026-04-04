@@ -63,8 +63,15 @@ export async function proxyToExpress(
 
     const resBody = await res.arrayBuffer();
     const resHeaders = new Headers();
+    // Node's fetch auto-decompresses gzip/brotli → strip encoding/length headers
+    // so the browser doesn't try to decompress already-decoded bytes.
+    const STRIP_RES_HEADERS = new Set([
+      "transfer-encoding",
+      "content-encoding",
+      "content-length",
+    ]);
     res.headers.forEach((v, k) => {
-      if (k.toLowerCase() !== "transfer-encoding") resHeaders.set(k, v);
+      if (!STRIP_RES_HEADERS.has(k.toLowerCase())) resHeaders.set(k, v);
     });
 
     return new NextResponse(resBody, {
