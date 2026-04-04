@@ -67,24 +67,6 @@ function fmtClientLogStepTime(iso: string) {
   }
 }
 
-function IconLink() {
-  return (
-    <svg
-      className="gal-edit-link-icon"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-    </svg>
-  );
-}
-
 function IconEyeOff() {
   return (
     <svg
@@ -120,56 +102,6 @@ function IconEye() {
   );
 }
 
-function IconMail() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <rect x="3" y="5" width="18" height="14" rx="2" />
-      <path d="m3 7 9 6 9-6" />
-    </svg>
-  );
-}
-
-function IconSave() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-      <path d="M17 21v-8H7v8M7 3v5h8" />
-    </svg>
-  );
-}
-
-function IconCheck() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M20 6 9 17l-5-5" />
-    </svg>
-  );
-}
-
 /**
  * Lokaler State fürs Tippen: verhindert Parent-Re-Renders (DnD-Grid bleibt ruhig).
  * `syncKey` (z. B. updated_at nach load) setzt das Feld zurück, wenn der Serverstand neu geladen wurde.
@@ -181,6 +113,7 @@ function EditorDraftField({
   inputId,
   type = "text",
   placeholder,
+  className = "gbe-input",
 }: {
   syncKey: string;
   serverValue: string;
@@ -188,6 +121,7 @@ function EditorDraftField({
   inputId: string;
   type?: "text" | "url" | "email";
   placeholder?: string;
+  className?: string;
 }) {
   const [v, setV] = useState(serverValue);
   useEffect(() => {
@@ -198,6 +132,7 @@ function EditorDraftField({
     <input
       id={inputId}
       type={type}
+      className={className}
       placeholder={placeholder}
       value={v}
       onChange={(e) => {
@@ -209,7 +144,8 @@ function EditorDraftField({
   );
 }
 
-function GalleryListingStatusDropdown({
+/** Status-Dropdown im Stil bildauswahl-backpanel.html */
+function GalleryBildauswahlStatusDropdown({
   status,
   onStatusChange,
 }: {
@@ -238,108 +174,57 @@ function GalleryListingStatusDropdown({
     };
   }, [menuOpen]);
 
+  const label = LISTING_STATUS_FILTER_OPTIONS.find((o) => o.value === status)?.label ?? status;
+
   return (
-    <div className="gal-edit-field gal-edit-field--full">
-      <label id="gal-edit-status-label" htmlFor="gal-edit-status-trigger">
-        Listing öffentlich
+    <div className="gbe-field" style={{ marginBottom: 0 }}>
+      <label id="gbe-status-label" htmlFor="gbe-status-trigger">
+        Status
       </label>
-      <div className="gal-admin-filter-dropdown gal-admin-filter-dropdown--full-width" ref={dropdownRef}>
+      <div className="gbe-dd-wrap" ref={dropdownRef}>
         <button
           type="button"
-          id="gal-edit-status-trigger"
-          className="gal-admin-filter-dropdown__trigger"
+          id="gbe-status-trigger"
+          className="gbe-dd-trigger"
           aria-expanded={menuOpen}
-          aria-haspopup="dialog"
-          aria-controls="gal-edit-status-panel"
+          aria-haspopup="listbox"
+          aria-controls="gbe-status-menu"
           onClick={() => setMenuOpen((o) => !o)}
         >
-          <svg
-            className="gal-admin-filter-dropdown__filter-icon"
-            width={14}
-            height={14}
-            viewBox="0 0 14 14"
-            fill="none"
-            aria-hidden={true}
-          >
-            <path
-              d="M2 3.5h10M4 7h6M6 10.5h2"
-              stroke="currentColor"
-              strokeWidth={1.3}
-              strokeLinecap="round"
-            />
-          </svg>
-          <span>{LISTING_STATUS_FILTER_OPTIONS.find((o) => o.value === status)?.label ?? status}</span>
-          <svg
-            className={
-              "gal-admin-filter-dropdown__chevron" +
-              (menuOpen ? " gal-admin-filter-dropdown__chevron--open" : "")
-            }
-            width={12}
-            height={12}
-            viewBox="0 0 12 12"
-            fill="none"
-            aria-hidden={true}
-          >
-            <path
-              d="M2.5 4.5l3.5 3 3.5-3"
-              stroke="currentColor"
-              strokeWidth={1.3}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
-        {menuOpen ? (
-          <div
-            className="gal-admin-filter-dropdown__panel"
-            id="gal-edit-status-panel"
-            role="dialog"
-            aria-label="Listing öffentlich"
-          >
-            <div className="gal-admin-filter-dropdown__section gal-admin-filter-dropdown__section--sort">
-              <div
-                className="gal-admin-filter-dropdown__options"
-                role="radiogroup"
-                aria-labelledby="gal-edit-status-label"
-              >
-                {LISTING_STATUS_FILTER_OPTIONS.map(({ value: v, label }) => (
-                  <button
-                    key={v}
-                    type="button"
-                    role="radio"
-                    aria-checked={status === v}
-                    className={
-                      "gal-admin-filter-dropdown__option" +
-                      (status === v ? " gal-admin-filter-dropdown__option--active" : "")
-                    }
-                    onClick={() => {
-                      onStatusChange(v);
-                      setMenuOpen(false);
-                    }}
-                  >
-                    <span>{label}</span>
-                    <svg
-                      className="gal-admin-filter-dropdown__check"
-                      width={14}
-                      height={14}
-                      viewBox="0 0 14 14"
-                      fill="none"
-                      aria-hidden={true}
-                    >
-                      <path
-                        d="M2.5 7l3.5 3.5 5.5-6"
-                        stroke="currentColor"
-                        strokeWidth={1.5}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </button>
-                ))}
-              </div>
+          <div className="gbe-dd-trigger-left">
+            <div className="gbe-dd-filter-icon" aria-hidden={true}>
+              <i className="fa-solid fa-sliders" />
             </div>
+            <div className="gbe-dd-sep-v" />
+            <span className="gbe-dd-selected">{label}</span>
           </div>
-        ) : null}
+          <i className={"fa-solid fa-chevron-down gbe-dd-chevron" + (menuOpen ? " gbe-open" : "")} />
+        </button>
+        <div
+          id="gbe-status-menu"
+          className={"gbe-dd-menu" + (menuOpen ? " gbe-show" : "")}
+          role="listbox"
+          aria-labelledby="gbe-status-label"
+        >
+          {LISTING_STATUS_FILTER_OPTIONS.map(({ value: v, label: lbl }) => (
+            <button
+              key={v}
+              type="button"
+              role="option"
+              aria-selected={status === v}
+              className={"gbe-dd-item" + (status === v ? " gbe-active" : "")}
+              onClick={() => {
+                onStatusChange(v);
+                setMenuOpen(false);
+              }}
+            >
+              <span>{lbl}</span>
+              {status === v ? (
+                <i className="fa-solid fa-check" style={{ fontSize: 12, color: "#185fa5" }} aria-hidden={true} />
+              ) : null}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -660,18 +545,22 @@ export function ListingEditorPage() {
   if (!id) return null;
   if (err && !g) {
     return (
-      <div className="admin-content">
-        <p className="admin-msg admin-msg--err">{err}</p>
-        <Link to={pathListingAdmin()} className="admin-link">
-          Zur Übersicht
-        </Link>
+      <div className="admin-content gbe-editor-outer">
+        <div className="gbe-page">
+          <p className="admin-msg admin-msg--err">{err}</p>
+          <Link to={pathListingAdmin()} className="admin-link">
+            Zur Übersicht
+          </Link>
+        </div>
       </div>
     );
   }
   if (!g) {
     return (
-      <div className="admin-content">
-        <p className="admin-muted">Laden…</p>
+      <div className="admin-content gbe-editor-outer">
+        <div className="gbe-page">
+          <p className="admin-muted">Laden…</p>
+        </div>
       </div>
     );
   }
@@ -686,58 +575,89 @@ export function ListingEditorPage() {
   const logDoneCount = [logEmailDone, logGalleryDone, logFilesDone].filter(Boolean).length;
   const logProgressPct = (logDoneCount / 3) * 100;
 
+  const isNewListing = !g.title.trim() || g.title.trim() === "Ohne Titel";
+  const pageHeading = isNewListing ? "Bildauswahl erstellen" : "Galerie bearbeiten";
+  const crumbCurrent = isNewListing ? "Neues Listing" : g.title;
+
   return (
-    <div className="admin-content gal-admin-editor gal-edit-page">
-      <p className="gal-admin-breadcrumb gal-edit-breadcrumb">
-        <Link to={pathListingAdmin()}>Listings</Link>
-        <span aria-hidden="true"> / </span>
-        <span>{g.title}</span>
-      </p>
+    <div className="admin-content gbe-editor-outer">
+      <div className="gbe-page">
+        <p className="gbe-breadcrumb">
+          <Link to={pathListingAdmin()}>Bildauswahl</Link>
+          <span aria-hidden="true"> / </span>
+          <span>{crumbCurrent}</span>
+        </p>
 
-      <div className="gal-edit-page-header">
-        <h1 className="gal-edit-page-title">Galerie bearbeiten</h1>
-        <span
-          className={
-            status === "active" ? "gal-edit-badge gal-edit-badge--active" : "gal-edit-badge gal-edit-badge--inactive"
-          }
-        >
-          {status === "active" ? "aktiv" : "deaktiviert"}
-        </span>
-      </div>
+        <header className="gbe-page-header">
+          <h1 className="gbe-page-title">{pageHeading}</h1>
+          <div className="gbe-header-actions">
+            <button type="button" className="gbe-btn gbe-btn-outline" onClick={() => setMailOpen(true)}>
+              <i className="fa-regular fa-envelope" aria-hidden={true} />
+              E-Mail an Kunden
+            </button>
+            <button type="button" className="gbe-btn gbe-btn-primary" disabled={saving} onClick={() => void saveAll()}>
+              <i className="fa-solid fa-floppy-disk" aria-hidden={true} />
+              {saving ? "Speichern…" : "Speichern"}
+            </button>
+          </div>
+        </header>
 
-      <article className="admin-card gal-edit-card">
-        <p className="gal-edit-card-label">Kunden-link</p>
-        <div className="gal-edit-link-box">
-          <IconLink />
-          <span className="gal-edit-link-url">{magicUrl}</span>
-        </div>
-        <div className="gal-edit-link-actions">
-          <button type="button" className="gal-edit-link-action" onClick={() => void navigator.clipboard.writeText(magicUrl)}>
-            Link kopieren
-          </button>
-          <span className="gal-edit-link-sep" aria-hidden="true">
-            ·
-          </span>
-          <a className="gal-edit-link-action" href={magicUrl} target="_blank" rel="noreferrer">
-            Galerie öffnen
-          </a>
-        </div>
-      </article>
+        <section className="gbe-card">
+          <h2 className="gbe-card-label">Kunden-Link</h2>
+          <div className="gbe-link-box">
+            <i className="fa-solid fa-link" aria-hidden={true} />
+            <span className="gbe-link-url">{magicUrl}</span>
+          </div>
+          <div className="gbe-link-text-actions">
+            <button type="button" onClick={() => void navigator.clipboard.writeText(magicUrl)}>
+              Link kopieren
+            </button>
+            <span className="gbe-link-sep" aria-hidden="true">
+              ·
+            </span>
+            <a href={magicUrl} target="_blank" rel="noreferrer">
+              Galerie öffnen
+            </a>
+          </div>
+        </section>
 
-      <article className="admin-card gal-edit-card">
-        <p className="gal-edit-card-label">Stammdaten</p>
-        <div className="gal-edit-two-col">
-          <div className="gal-edit-field">
+        <section className="gbe-card">
+          <h2 className="gbe-card-label">Stammdaten</h2>
+          <div className="gbe-field">
             <label htmlFor="gal-edit-title">Titel</label>
             <EditorDraftField
               syncKey={g.updated_at}
               serverValue={g.title}
               draftRef={titleDraftRef}
               inputId="gal-edit-title"
+              placeholder="z. B. EFH mit Ausblick"
             />
           </div>
-          <div className="gal-edit-field">
-            <label htmlFor="gal-edit-addr">Adresse / Unterzeile</label>
+          <div className="gbe-two-col">
+            <div className="gbe-field">
+              <label htmlFor="gal-edit-client">Kunde (optional)</label>
+              <EditorDraftField
+                syncKey={g.updated_at}
+                serverValue={g.client_name ?? ""}
+                draftRef={clientNameDraftRef}
+                inputId="gal-edit-client"
+              />
+            </div>
+            <div className="gbe-field">
+              <label htmlFor="gal-edit-email">E-Mail des Kunden</label>
+              <EditorDraftField
+                syncKey={g.updated_at}
+                serverValue={g.client_email ?? ""}
+                draftRef={clientEmailDraftRef}
+                inputId="gal-edit-email"
+                type="email"
+                placeholder="kunde@beispiel.ch"
+              />
+            </div>
+          </div>
+          <div className="gbe-divider" />
+          <div className="gbe-field">
+            <label htmlFor="gal-edit-addr">Adresse</label>
             <EditorDraftField
               syncKey={g.updated_at}
               serverValue={g.address ?? ""}
@@ -746,87 +666,82 @@ export function ListingEditorPage() {
               placeholder="z. B. Musterstrasse 1, 8000 Zürich"
             />
           </div>
-          <div className="gal-edit-field">
-            <label htmlFor="gal-edit-client">Kunde (optional)</label>
-            <EditorDraftField
-              syncKey={g.updated_at}
-              serverValue={g.client_name ?? ""}
-              draftRef={clientNameDraftRef}
-              inputId="gal-edit-client"
-            />
-          </div>
-          <div className="gal-edit-field">
-            <label htmlFor="gal-edit-email">E-Mail des Kunden</label>
-            <EditorDraftField
-              syncKey={g.updated_at}
-              serverValue={g.client_email ?? ""}
-              draftRef={clientEmailDraftRef}
-              inputId="gal-edit-email"
-              type="email"
-              placeholder="kunde@beispiel.ch"
-            />
-          </div>
-        </div>
-        <GalleryListingStatusDropdown status={status} onStatusChange={setStatus} />
-      </article>
+          <div className="gbe-divider" />
+          <GalleryBildauswahlStatusDropdown status={status} onStatusChange={setStatus} />
+        </section>
 
-      <article className="admin-card gal-edit-card">
-        <p className="gal-edit-card-label">Freigabe &amp; 3D-Rundgang</p>
-        <div className="gal-edit-two-col">
-          <div className="gal-edit-field">
-            <label htmlFor="gal-edit-cloud">Freigabe-Link (Propus Cloud)</label>
-            <EditorDraftField
-              syncKey={g.updated_at}
-              serverValue={g.cloud_share_url ?? ""}
-              draftRef={cloudDraftRef}
-              inputId="gal-edit-cloud"
-              type="url"
-              placeholder="https://…/s/…"
-            />
-            <p className="gal-edit-field-hint">Bilder, PDF-Grundrisse und MP4-Video werden beim Speichern automatisch eingelesen.</p>
+        <section className="gbe-card">
+          <h2 className="gbe-card-label">Freigabe &amp; 3D-Rundgang</h2>
+          <div className="gbe-two-col">
+            <div className="gbe-field">
+              <label htmlFor="gal-edit-cloud">Freigabe-Link (Propus Cloud)</label>
+              <EditorDraftField
+                syncKey={g.updated_at}
+                serverValue={g.cloud_share_url ?? ""}
+                draftRef={cloudDraftRef}
+                inputId="gal-edit-cloud"
+                type="url"
+                placeholder="https://…/s/…"
+              />
+              <p className="gbe-field-hint">
+                Bilder, PDF-Grundrisse und MP4-Video werden beim Speichern automatisch eingelesen.
+              </p>
+            </div>
+            <div className="gbe-field">
+              <label htmlFor="gal-edit-mp">Matterport (URL oder Modell-ID)</label>
+              <EditorDraftField
+                syncKey={g.updated_at}
+                serverValue={g.matterport_input ?? ""}
+                draftRef={matterportDraftRef}
+                inputId="gal-edit-mp"
+                placeholder="https://my.matterport.com/show/?m=…"
+              />
+              <p className="gbe-field-hint">Erscheint auf der Kunden-Galerie.</p>
+            </div>
           </div>
-          <div className="gal-edit-field">
-            <label htmlFor="gal-edit-mp">Matterport (URL oder Modell-ID)</label>
-            <EditorDraftField
-              syncKey={g.updated_at}
-              serverValue={g.matterport_input ?? ""}
-              draftRef={matterportDraftRef}
-              inputId="gal-edit-mp"
-              placeholder="https://my.matterport.com/show/?m=…"
-            />
-            <p className="gal-edit-field-hint">Erscheint auf der Kunden-Galerie.</p>
-          </div>
-        </div>
-      </article>
+        </section>
 
-      <article className="admin-card gal-edit-card">
-        <div className="gal-edit-section-header">
-          <span className="gal-edit-section-title">Bilder in dieser Galerie</span>
-          <span className="gal-edit-section-meta">
-            {imgVisible} sichtbar · {imgHidden} versteckt
-          </span>
-        </div>
-        {images.length > 0 ? (
-          <GalleryImagesDndGrid images={images} onToggle={onToggle} onDragEnd={onDragEnd} />
-        ) : (
-          <p className="gal-edit-empty">Noch keine Bilder in dieser Galerie.</p>
-        )}
-        {images.length > 0 ? (
-          <div className="gal-edit-stats">
-            <span className="gal-edit-stat">
-              <strong>{imgVisible}</strong> sichtbar
-            </span>
-            <span className="gal-edit-stat">
-              <strong>{imgHidden}</strong> versteckt
-            </span>
-            <span className="gal-edit-stat">
-              <strong>{images.length}</strong> total
+        <section className="gbe-card">
+          <div className="gbe-section-head">
+            <h2 className="gbe-card-label">Bilder in der Galerie</h2>
+            <span className="gbe-section-meta">
+              {imgVisible} sichtbar · {imgHidden} versteckt
             </span>
           </div>
-        ) : null}
-      </article>
+          <div className="gbe-upload-zone" aria-hidden={true}>
+            <i className="fa-solid fa-cloud-arrow-up" />
+            <div className="gbe-upload-title">Bilder über Propus Cloud</div>
+            <div className="gbe-upload-sub">
+              Trage den <span className="gbe-gold">Freigabe-Link</span> oben ein und speichere — die Medien erscheinen dann
+              in der Galerie. Reihenfolge und Sichtbarkeit unten anpassen.
+            </div>
+          </div>
+          {images.length > 0 ? (
+            <GalleryImagesDndGrid images={images} onToggle={onToggle} onDragEnd={onDragEnd} />
+          ) : (
+            <p className="gal-edit-empty">Noch keine Bilder in dieser Galerie.</p>
+          )}
+          <div className="gbe-stats-row">
+            <div className="gbe-stat-box">
+              <div className="gbe-stat-num">{images.length}</div>
+              <div className="gbe-stat-lbl">Bilder total</div>
+            </div>
+            <div className="gbe-stat-box gbe-stat-b">
+              <div className="gbe-stat-num">{imgVisible}</div>
+              <div className="gbe-stat-lbl">Sichtbar</div>
+            </div>
+            <div className="gbe-stat-box gbe-stat-s">
+              <div className="gbe-stat-num">{imgHidden}</div>
+              <div className="gbe-stat-lbl">Versteckt</div>
+            </div>
+            <div className="gbe-stat-box gbe-stat-r">
+              <div className="gbe-stat-num">{feedbackOpenCount}</div>
+              <div className="gbe-stat-lbl">Feedback offen</div>
+            </div>
+          </div>
+        </section>
 
-      <article className="admin-card gal-edit-card gal-edit-fb-card">
+        <section className="gbe-card gbe-fb-card gal-edit-fb-card">
         <div className="gal-edit-fb-meta">
           <h2 className="gal-edit-fb-title">Kundenfeedback</h2>
           <span className="gal-edit-fb-count">
@@ -956,113 +871,120 @@ export function ListingEditorPage() {
             ))}
           </div>
         )}
-      </article>
+      </section>
 
-      <article className="admin-card gal-edit-card gal-edit-kl">
-        <div className="gal-kl-card-header">
-          <span className="gal-kl-card-title">Kunden Log</span>
-          <span className="gal-kl-card-count" aria-live="polite">
-            <span className="gal-kl-card-count-num">{logDoneCount}</span>/3
-          </span>
-        </div>
+        <section className="gbe-card">
+          <div className="gbe-log-header">
+            <span className="gbe-log-title">Kunden Log</span>
+            <span className="gbe-log-count" aria-live="polite">
+              <span>{logDoneCount}</span>/3
+            </span>
+          </div>
 
-        <div className={`gal-kl-step${logEmailDone ? " gal-kl-step--done" : ""} gal-kl-step--readonly`}>
-          <div className={`gal-kl-status${logEmailDone ? " gal-kl-status--done" : " gal-kl-status--pending"}`}>
-            <i className={logEmailDone ? "fa-solid fa-check" : "fa-solid fa-hourglass-half"} aria-hidden={true} />
+          <div
+            className={`gbe-step${logEmailDone ? " gbe-done-state" : ""}`}
+            role="group"
+            aria-label="E-Mail erhalten"
+          >
+            <div className={`gbe-status${logEmailDone ? " gbe-done" : " gbe-pending"}`}>
+              <i className={logEmailDone ? "fa-solid fa-check" : "fa-solid fa-hourglass-half"} aria-hidden={true} />
+            </div>
+            <div className={`gbe-step-icon${logEmailDone ? " gbe-done" : " gbe-pending"}`}>
+              <i className="fa-solid fa-envelope" aria-hidden={true} />
+            </div>
+            <div className="gbe-step-body">
+              <div className="gbe-step-label">Kunde hat E-Mail erhalten</div>
+              {logEmailDone && g.client_log_email_received_at ? (
+                <div className="gbe-step-time">{fmtClientLogStepTime(g.client_log_email_received_at)}</div>
+              ) : null}
+            </div>
           </div>
-          <div className="gal-kl-step-icon">
-            <i className="fa-solid fa-envelope" aria-hidden={true} />
+
+          <div
+            className={`gbe-step${logGalleryDone ? " gbe-done-state" : ""}${!logEmailDone ? " gbe-step--locked" : ""}`}
+            role="group"
+            aria-label="Galerie geöffnet"
+          >
+            <div className={`gbe-status${logGalleryDone ? " gbe-done" : " gbe-pending"}`}>
+              <i className={logGalleryDone ? "fa-solid fa-check" : "fa-solid fa-hourglass-half"} aria-hidden={true} />
+            </div>
+            <div className={`gbe-step-icon${logGalleryDone ? " gbe-done" : " gbe-pending"}`}>
+              <i className="fa-solid fa-images" aria-hidden={true} />
+            </div>
+            <div className="gbe-step-body">
+              <div className="gbe-step-label">Kunde hat Galerie geöffnet</div>
+              {logGalleryDone && g.client_log_gallery_opened_at ? (
+                <div className="gbe-step-time">{fmtClientLogStepTime(g.client_log_gallery_opened_at)}</div>
+              ) : null}
+            </div>
           </div>
-          <div className="gal-kl-step-body">
-            <div className="gal-kl-step-label">Hat Kunde E-Mail erhalten</div>
-            {logEmailDone && g.client_log_email_received_at ? (
-              <div className="gal-kl-step-time">{fmtClientLogStepTime(g.client_log_email_received_at)}</div>
+
+          <button
+            type="button"
+            className={`gbe-step${logFilesDone ? " gbe-done-state" : ""}${!logGalleryDone ? " gbe-step--locked" : ""}`}
+            disabled={!logGalleryDone}
+            aria-pressed={logFilesDone}
+            onClick={() => void onClientLogStep3()}
+          >
+            <div className={`gbe-status${logFilesDone ? " gbe-done" : " gbe-pending"}`}>
+              <i className={logFilesDone ? "fa-solid fa-check" : "fa-solid fa-hourglass-half"} aria-hidden={true} />
+            </div>
+            <div className={`gbe-step-icon${logFilesDone ? " gbe-done" : " gbe-pending"}`}>
+              <i className="fa-solid fa-download" aria-hidden={true} />
+            </div>
+            <div className="gbe-step-body">
+              <div className="gbe-step-label">Kunde hat die Dateien runtergeladen</div>
+              {logFilesDone && g.client_log_files_downloaded_at ? (
+                <div className="gbe-step-time">{fmtClientLogStepTime(g.client_log_files_downloaded_at)}</div>
+              ) : null}
+            </div>
+          </button>
+
+          <div className="gbe-progress-wrap" aria-hidden={true}>
+            <div className="gbe-progress-fill" style={{ width: `${logProgressPct}%` }} />
+          </div>
+        </section>
+
+        <div className="gbe-save-bar">
+          <div className={`gbe-toast${savedMsg ? " gbe-toast--show" : ""}`} role="status" aria-live="polite">
+            {savedMsg ? (
+              <>
+                <i className="fa-solid fa-check" aria-hidden={true} />
+                <span>{savedMsg}</span>
+              </>
             ) : null}
           </div>
+          <button type="button" className="gbe-btn gbe-btn-outline" onClick={() => setMailOpen(true)}>
+            <i className="fa-regular fa-envelope" aria-hidden={true} />
+            E-Mail an Kunden
+          </button>
+          <button type="button" className="gbe-btn gbe-btn-primary" disabled={saving} onClick={() => void saveAll()}>
+            <i className="fa-solid fa-floppy-disk" aria-hidden={true} />
+            {saving ? "Speichern…" : "Speichern"}
+          </button>
         </div>
 
-        <div
-          className={`gal-kl-step gal-kl-step--readonly${logGalleryDone ? " gal-kl-step--done" : ""}${!logEmailDone ? " gal-kl-step--locked" : ""}`}
-        >
-          <div className={`gal-kl-status${logGalleryDone ? " gal-kl-status--done" : " gal-kl-status--pending"}`}>
-            <i className={logGalleryDone ? "fa-solid fa-check" : "fa-solid fa-hourglass-half"} aria-hidden={true} />
-          </div>
-          <div className="gal-kl-step-icon">
-            <i className="fa-solid fa-images" aria-hidden={true} />
-          </div>
-          <div className="gal-kl-step-body">
-            <div className="gal-kl-step-label">Hat Kunde Galerie geöffnet</div>
-            {logGalleryDone && g.client_log_gallery_opened_at ? (
-              <div className="gal-kl-step-time">{fmtClientLogStepTime(g.client_log_gallery_opened_at)}</div>
-            ) : null}
-          </div>
-        </div>
-
-        <button
-          type="button"
-          className={`gal-kl-step gal-kl-step--last${logFilesDone ? " gal-kl-step--done" : ""}${!logGalleryDone ? " gal-kl-step--locked" : ""}`}
-          disabled={!logGalleryDone}
-          aria-pressed={logFilesDone}
-          onClick={() => void onClientLogStep3()}
-        >
-          <div className={`gal-kl-status${logFilesDone ? " gal-kl-status--done" : " gal-kl-status--pending"}`}>
-            <i className={logFilesDone ? "fa-solid fa-check" : "fa-solid fa-hourglass-half"} aria-hidden={true} />
-          </div>
-          <div className="gal-kl-step-icon">
-            <i className="fa-solid fa-download" aria-hidden={true} />
-          </div>
-          <div className="gal-kl-step-body">
-            <div className="gal-kl-step-label">Hat Kunde die Dateien runtergeladen</div>
-            {logFilesDone && g.client_log_files_downloaded_at ? (
-              <div className="gal-kl-step-time">{fmtClientLogStepTime(g.client_log_files_downloaded_at)}</div>
-            ) : null}
-          </div>
-        </button>
-
-        <div className="gal-kl-progress-bar" aria-hidden={true}>
-          <div className="gal-kl-progress-fill" style={{ width: `${logProgressPct}%` }} />
-        </div>
-      </article>
-
-      <div className="gal-edit-save-bar">
-        <div className={`gal-edit-toast${savedMsg ? " gal-edit-toast--show" : ""}`} role="status" aria-live="polite">
-          {savedMsg ? (
-            <>
-              <IconCheck />
-              <span>{savedMsg}</span>
-            </>
-          ) : null}
-        </div>
-        <button type="button" className="admin-btn admin-btn--outline gal-edit-save-bar__btn" onClick={() => setMailOpen(true)}>
-          <IconMail />
-          E-Mail an Kunden
-        </button>
-        <button type="button" className="admin-btn admin-btn--primary gal-edit-save-bar__btn" disabled={saving} onClick={() => void saveAll()}>
-          <IconSave />
-          {saving ? "Speichern…" : "Alles speichern"}
-        </button>
+        {mailOpen && g ? (
+          <ListingSendMailModal gallery={g} onClose={() => setMailOpen(false)} onRecordedSent={() => void load()} />
+        ) : null}
+        {revisionMailFeedback && g ? (
+          <ListingFeedbackMailModal
+            gallery={g}
+            feedback={revisionMailFeedback}
+            templateId={EMAIL_TEMPLATE_REVISION_DONE_ID}
+            title="Revision behoben – E-Mail"
+            onClose={() => setRevisionMailFeedback(null)}
+          />
+        ) : null}
+        {rueckfrageFor && g ? (
+          <ListingRueckfrageModal
+            gallery={g}
+            customerComment={rueckfrageFor}
+            onClose={() => setRueckfrageFor(null)}
+            onSaved={() => void load()}
+          />
+        ) : null}
       </div>
-
-      {mailOpen && g ? (
-        <ListingSendMailModal gallery={g} onClose={() => setMailOpen(false)} onRecordedSent={() => void load()} />
-      ) : null}
-      {revisionMailFeedback && g ? (
-        <ListingFeedbackMailModal
-          gallery={g}
-          feedback={revisionMailFeedback}
-          templateId={EMAIL_TEMPLATE_REVISION_DONE_ID}
-          title="Revision behoben – E-Mail"
-          onClose={() => setRevisionMailFeedback(null)}
-        />
-      ) : null}
-      {rueckfrageFor && g ? (
-        <ListingRueckfrageModal
-          gallery={g}
-          customerComment={rueckfrageFor}
-          onClose={() => setRueckfrageFor(null)}
-          onSaved={() => void load()}
-        />
-      ) : null}
     </div>
   );
 }

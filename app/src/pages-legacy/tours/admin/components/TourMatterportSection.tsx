@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Link2, ArchiveRestore, Trash2, Send, RefreshCw, X, SlidersHorizontal, Copy, Check, FileText } from "lucide-react";
+import { Link2, ArchiveRestore, Trash2, Send, RefreshCw, X, SlidersHorizontal, FileText } from "lucide-react";
 import { toursAdminPost, deleteToursAdminTour, postUnarchiveMatterportTour, postReactivateTour, postTransferMatterportSpace, getToursAdminMatterportModel, postToursAdminMatterportOptions, getFloorplanPricing, postOrderFloorplan } from "../../../../api/toursAdmin";
 import type { MatterportModelMeta, MatterportModelOptions, MatterportSettingOverride, MatterportOptionsPatch } from "../../../../api/toursAdmin";
 import type { ToursAdminTourRow } from "../../../../types/toursAdmin";
@@ -16,23 +16,6 @@ type Props = {
   onSuccess: () => void;
   /** Ob Payrexx-API konfiguriert ist (PAYREXX_INSTANCE + PAYREXX_API_SECRET gesetzt) */
   payrexxConfigured?: boolean;
-};
-
-const STATE_META: Record<string, { label: string; color: string }> = {
-  active:     { label: "Aktiv",         color: "text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-900" },
-  inactive:   { label: "Archiviert",    color: "text-orange-700 bg-orange-50 border-orange-200 dark:text-orange-300 dark:bg-orange-950/40 dark:border-orange-900" },
-  processing: { label: "In Bearbeitung",color: "text-blue-700 bg-blue-50 border-blue-200 dark:text-blue-300 dark:bg-blue-950/40 dark:border-blue-900" },
-  staging:    { label: "Staging",       color: "text-purple-700 bg-purple-50 border-purple-200 dark:text-purple-300 dark:bg-purple-950/40 dark:border-purple-900" },
-  failed:     { label: "Fehler",        color: "text-red-700 bg-red-50 border-red-200 dark:text-red-300 dark:bg-red-950/40 dark:border-red-900" },
-  pending:    { label: "Ausstehend",    color: "text-yellow-700 bg-yellow-50 border-yellow-200 dark:text-yellow-300 dark:bg-yellow-950/40 dark:border-yellow-900" },
-};
-
-const VIS_META: Record<string, { icon: string; label: string }> = {
-  PUBLIC:    { icon: "🌐", label: "Öffentlich" },
-  UNLISTED:  { icon: "🔗", label: "Nur Link" },
-  LINK_ONLY: { icon: "🔗", label: "Nur Link" },
-  PRIVATE:   { icon: "🔒", label: "Privat" },
-  PASSWORD:  { icon: "🔑", label: "Passwort" },
 };
 
 /** Einheitliche Matterport-Aktionsbuttons (Farbe + Hover) */
@@ -302,36 +285,17 @@ function SweepIdTile({
   );
 }
 
-function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId, tourShowUrl, mpVisibility, onVisibilitySaved, matterportStartSweep }: {
+function MatterportMetaPanel({ meta, onRefresh, loading, tourId, mpVisibility, onVisibilitySaved, matterportStartSweep }: {
   meta: MatterportModelMeta;
   onRefresh: () => void;
   loading: boolean;
-  spaceId: string;
   tourId: string;
-  /** my.matterport.com/show/?m=… zum Kopieren */
-  tourShowUrl: string | null;
   mpVisibility: string | null;
   onVisibilitySaved: () => void;
   matterportStartSweep: string;
 }) {
-  const [linkCopied, setLinkCopied] = useState(false);
-
-  async function copyTourLink() {
-    if (!tourShowUrl) return;
-    try {
-      await navigator.clipboard.writeText(tourShowUrl);
-      setLinkCopied(true);
-      window.setTimeout(() => setLinkCopied(false), 2000);
-    } catch {
-      /* Clipboard nicht verfügbar */
-    }
-  }
-
   const stateKey = String(meta.state ?? "").toLowerCase();
-  const stateMeta = STATE_META[stateKey];
   const isSpaceInactive = stateKey === "inactive";
-  const visKey = String(meta.accessVisibility ?? meta.visibility ?? "").toUpperCase();
-  const visMeta = VIS_META[visKey];
 
   return (
     <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-4 space-y-4">
@@ -351,39 +315,6 @@ function MatterportMetaPanel({ meta, onRefresh, loading, spaceId, tourId, tourSh
       </div>
 
       <MatterportVisibilityPanel tourId={tourId} mpVisibility={mpVisibility} onSuccess={onVisibilitySaved} />
-
-      <div className="flex flex-wrap gap-2">
-        {stateMeta ? (
-          <span className={`inline-flex items-center rounded-lg border px-2.5 py-0.5 text-sm font-medium ${stateMeta.color}`}>
-            {stateMeta.label}
-          </span>
-        ) : meta.state ? (
-          <span className="inline-flex items-center rounded-lg border border-[var(--border-soft)] px-2.5 py-0.5 text-sm font-medium text-[var(--text-subtle)]">
-            {meta.state}
-          </span>
-        ) : null}
-        {visMeta ? (
-          <span className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-2.5 py-0.5 text-sm font-medium text-[var(--text-main)]">
-            <span>{visMeta.icon}</span>
-            {visMeta.label}
-          </span>
-        ) : null}
-        {tourShowUrl ? (
-          <button
-            type="button"
-            onClick={() => void copyTourLink()}
-            className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-2.5 py-0.5 text-sm font-medium text-[var(--text-main)] transition-colors duration-150 hover:border-[var(--accent)]/50 hover:bg-[var(--accent)]/10 hover:text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
-            title={tourShowUrl}
-          >
-            {linkCopied ? (
-              <Check className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-            ) : (
-              <Copy className="h-3.5 w-3.5 shrink-0" />
-            )}
-            {linkCopied ? "Kopiert" : "Link kopieren"}
-          </button>
-        ) : null}
-      </div>
 
       <dl className="grid gap-1.5 text-sm">
         <MetaRow label="Objektbezeichnung" value={meta.name} />
@@ -450,7 +381,6 @@ export function TourMatterportSection({ tourId, tour, mpVisibility, onSuccess, p
   const persistedMpId = String(tour.matterport_space_id ?? "").trim() || null;
   const canonicalMpId = String(tour.canonical_matterport_space_id ?? "").trim() || null;
   const spaceId = canonicalMpId || persistedMpId;
-  const mpUrl = spaceId ? `https://my.matterport.com/show/?m=${encodeURIComponent(spaceId)}` : null;
   const linkMatterportOpenHref =
     canonicalMpId && !persistedMpId
       ? `/admin/tours/link-matterport?openSpaceId=${encodeURIComponent(canonicalMpId)}`
@@ -623,9 +553,7 @@ export function TourMatterportSection({ tourId, tour, mpVisibility, onSuccess, p
                   meta={meta}
                   onRefresh={() => void loadMeta()}
                   loading={metaLoading}
-                  spaceId={spaceId}
                   tourId={tourId}
-                  tourShowUrl={mpUrl}
                   mpVisibility={mpVisibility}
                   onVisibilitySaved={() => {
                     onSuccess();
@@ -639,9 +567,7 @@ export function TourMatterportSection({ tourId, tour, mpVisibility, onSuccess, p
                 meta={meta}
                 onRefresh={() => void loadMeta()}
                 loading={metaLoading}
-                spaceId={spaceId}
                 tourId={tourId}
-                tourShowUrl={mpUrl}
                 mpVisibility={mpVisibility}
                 onVisibilitySaved={() => {
                   onSuccess();

@@ -61,7 +61,7 @@ export function ClientListingPage() {
     metaRobots.content = "noindex, nofollow, noarchive";
     document.head.appendChild(metaRobots);
     const prevTitle = document.title;
-    document.title = data?.title ? `${data.title} – Propus` : "Galerie – Propus";
+    document.title = data?.title ? `${data.title} · Propus` : "Galerie · Propus";
     return () => {
       metaRobots.remove();
       document.title = prevTitle;
