@@ -68,7 +68,7 @@ export function LightboxFloorPlanCanvas({ remotePdfUrl, label }: Props) {
       ctx.fillRect(0, 0, bw, bh);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      await page.render({ canvasContext: ctx, viewport }).promise;
+      await page.render({ canvas: null, canvasContext: ctx, viewport }).promise;
     };
 
     const boot = async () => {
