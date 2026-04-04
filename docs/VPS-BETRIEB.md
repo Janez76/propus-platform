@@ -221,7 +221,14 @@ Lokales Backup der Vor-Migration-Daten liegt unter:
 
 Payrexx ist optional. Ohne Konfiguration steht nur "QR-Rechnung" zur Verfügung — der Dialog zeigt die Payrexx-Option dann ausgegraut an.
 
-**Env-Variablen in `.env.vps`:**
+**Env-Variablen:** Entweder in `.env.vps` oder — empfohlen für feste VPS-Verankerung — in **`.env.vps.secrets`** (gleiche Keys). Die Datei `.env.vps.secrets` liegt nur auf dem Server, wird vom GitHub-Deploy **nicht** überschrieben und von Docker Compose nach `.env.vps` geladen (spätere Datei gewinnt). Vorlage: `.env.vps.secrets.example`.
+
+**Einmalig auf dem VPS** (nach einem Deploy liegt das Skript unter `/opt/propus-platform/scripts/`):
+
+```bash
+cd /opt/propus-platform && bash scripts/vps-bootstrap-env-secrets.sh
+# Werte in .env.vps.secrets eintragen, dann platform neu erstellen (siehe unten)
+```
 
 ```env
 PAYREXX_INSTANCE=propus          # Instanzname aus der URL: https://propus.payrexx.com

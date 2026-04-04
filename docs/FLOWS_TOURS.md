@@ -581,8 +581,8 @@ Zielbild Reminder (30 / 10 / 3 Tage) und Kulanzfristen: **[WORKFLOW_TOURS.md](./
 
 | Feld | Quelle | Editierbar |
 |---|---|---|
-| `payrexxConfigured` | `process.env.PAYREXX_INSTANCE` + `PAYREXX_API_SECRET` | Nur via `.env.vps` |
-| `payrexxInstance` | `process.env.PAYREXX_INSTANCE` | Nur via `.env.vps` |
+| `payrexxConfigured` | `process.env.PAYREXX_INSTANCE` + `PAYREXX_API_SECRET` | `.env.vps` und/oder `.env.vps.secrets` (Compose `env_file`) |
+| `payrexxInstance` | `process.env.PAYREXX_INSTANCE` | wie oben |
 | `vatRate` / `vatPercent` | `booking.app_settings` (key=`vat_rate`) | Ja |
 | `floorplanUnitPrice` | `booking.pricing_rules` (floorplans:tour, per_floor) | Via Rechnungsvorlage |
 | `hostingUnitPrice` | `booking.pricing_rules` (hosting, per_period) | Read-only |

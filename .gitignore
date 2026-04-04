@@ -1,6 +1,7 @@
 node_modules/
 .env
 .env.vps
+.env.vps.secrets
 .env.local
 .env.*.local
 .env.logto

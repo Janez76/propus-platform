@@ -67,6 +67,11 @@ if [ -f "${ROLLBACK_DIR}/last-good.env.vps" ]; then
   log "Stelle .env.vps aus Rollback-Sicherung wieder her..."
   cp "${ROLLBACK_DIR}/last-good.env.vps" "${ENV_FILE}"
 fi
+SECRETS_FILE="${PROJECT_ROOT}/.env.vps.secrets"
+if [ -f "${ROLLBACK_DIR}/last-good.env.vps.secrets" ]; then
+  log "Stelle .env.vps.secrets aus Rollback-Sicherung wieder her..."
+  cp "${ROLLBACK_DIR}/last-good.env.vps.secrets" "${SECRETS_FILE}"
+fi
 
 # Container neu starten (kein Rebuild – bestehendes Image nutzen)
 log "Starte Container aus bestehendem Image (kein Rebuild)..."

@@ -86,6 +86,12 @@ services:
       dockerfile: platform/Dockerfile
       args:
         PLATFORM_INTERNAL_URL: http://127.0.0.1:3100
+    # .env.vps wird bei CI-Deploy überschrieben; .env.vps.secrets nur auf dem VPS,
+    # niemals aus dem Archiv — letztere überschreibt gleiche Keys (z. B. Payrexx).
+    env_file:
+      - .env.vps
+      - path: .env.vps.secrets
+        required: false
     ports:
       - "127.0.0.1:${PLATFORM_PORT:-3100}:3001"
     environment:
@@ -169,10 +175,7 @@ services:
       EXXAS_BASE_URL: ${EXXAS_BASE_URL:-https://api.exxas.net}
       MATTERPORT_TOKEN_ID: ${MATTERPORT_TOKEN_ID:-}
       MATTERPORT_TOKEN_SECRET: ${MATTERPORT_TOKEN_SECRET:-}
-      PAYREXX_INSTANCE: ${PAYREXX_INSTANCE:-}
-      PAYREXX_API_SECRET: ${PAYREXX_API_SECRET:-}
-      PAYREXX_WEBHOOK_SECRET: ${PAYREXX_WEBHOOK_SECRET:-}
-      PAYREXX_PAYMENT_METHODS: ${PAYREXX_PAYMENT_METHODS:-curated}
+      # PAYREXX_* / PAYREXX_PAYMENT_METHODS nur über env_file (.env.vps + optional .env.vps.secrets)
       GOOGLE_PLACES_API_KEY: ${GOOGLE_PLACES_API_KEY:-}
       GOOGLE_REVIEWS_PLACE_ID: ${GOOGLE_REVIEWS_PLACE_ID:-}
     depends_on:

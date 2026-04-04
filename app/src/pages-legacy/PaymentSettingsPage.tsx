@@ -179,7 +179,7 @@ export function PaymentSettingsPage() {
               <div className="flex items-start gap-2 text-xs text-[var(--text-subtle)]">
                 <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                 <div className="space-y-1">
-                  <p>Folgende Umgebungsvariablen müssen auf dem VPS in der <code className="rounded bg-[var(--surface)] px-1 font-mono">.env.vps</code>-Datei gesetzt sein:</p>
+                  <p>Folgende Umgebungsvariablen müssen auf dem VPS in der <code className="rounded bg-[var(--surface)] px-1 font-mono">.env.vps</code> oder optional in <code className="rounded bg-[var(--surface)] px-1 font-mono">.env.vps.secrets</code> (nur Server, wird bei Deploy nicht überschrieben) gesetzt sein:</p>
                   <ul className="space-y-0.5 pl-2">
                     <li><code className="rounded bg-[var(--surface)] px-1 font-mono">PAYREXX_INSTANCE</code> — Instanzname (z.B. <code className="font-mono">propus</code>)</li>
                     <li><code className="rounded bg-[var(--surface)] px-1 font-mono">PAYREXX_API_SECRET</code> — API-Secret aus dem Payrexx-Dashboard</li>

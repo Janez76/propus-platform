@@ -57,6 +57,12 @@ if [ -d "${backup_path}" ]; then
     exit 1
   fi
 
+  if [ -f "${backup_path}/.env.vps.secrets" ]; then
+    echo "[restore] Stelle .env.vps.secrets aus Backup wieder her"
+    cp "${backup_path}/.env.vps.secrets" "${project_root}/.env.vps.secrets"
+    chmod 600 "${project_root}/.env.vps.secrets" 2>/dev/null || true
+  fi
+
   if [ -f "${backup_path}/logto.sql" ] && [ "${skip_logto}" = false ]; then
     logto_sql_path="${backup_path}/logto.sql"
   fi

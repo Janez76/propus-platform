@@ -22,6 +22,9 @@ chmod 775 "$PROJECT_ROOT/backups" || true
 
 cd "$PROJECT_ROOT"
 
+# Optionale VPS-only Env (z. B. Payrexx); wird nicht aus dem Deploy-Archiv geliefert.
+touch .env.vps.secrets
+
 echo "==> Port-Konflikt-Check"
 # Alle Host-Ports die vom propus-platform Stack benoetigt werden
 REQUIRED_PORTS="3100 3301 3302 5435 5436 4343"

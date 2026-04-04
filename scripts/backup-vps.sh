@@ -80,6 +80,11 @@ if [ -f "${env_file}" ]; then
   printf '[backup] Sichere Env-Datei\n'
   cp "${env_file}" "${backup_dir}/.env.vps"
 fi
+env_secrets="$(dirname "${env_file}")/.env.vps.secrets"
+if [ -f "${env_secrets}" ]; then
+  printf '[backup] Sichere VPS-only Env (.env.vps.secrets)\n'
+  cp "${env_secrets}" "${backup_dir}/.env.vps.secrets"
+fi
 
 if [ "${include_volumes}" = "1" ]; then
   printf '[backup] Sichere komplette Daten-Volumes...\n'
