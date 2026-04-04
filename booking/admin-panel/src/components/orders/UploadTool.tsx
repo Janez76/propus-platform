@@ -109,30 +109,39 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): 
   });
 }
 
+// Reads only the first N bytes of the file – embedded JPEG previews in RAW files
+// are always stored near the beginning (in the IFD), so 25 MB is more than enough.
+// Reading the full file (potentially 50-100 MB for modern cameras) would exceed the 4s timeout.
+const RAW_PREVIEW_READ_BYTES = 25 * 1024 * 1024;
+
 function extractLargestEmbeddedJpeg(bytes: Uint8Array): Uint8Array | null {
   let bestStart = -1;
   let bestEnd = -1;
-  let currentStart = -1;
 
-  for (let i = 0; i < bytes.length - 1; i += 1) {
-    const a = bytes[i];
-    const b = bytes[i + 1];
+  for (let i = 0; i < bytes.length - 3; i += 1) {
+    if (bytes[i] !== 0xff || bytes[i + 1] !== 0xd8 || bytes[i + 2] !== 0xff) continue;
 
-    if (currentStart < 0 && a === 0xff && b === 0xd8) {
-      currentStart = i;
+    const soi = i;
+    // Scan backwards from end of slice for EOI – faster than scanning forward
+    let eoi = -1;
+    for (let j = bytes.length - 2; j > soi + 1000; j--) {
+      if (bytes[j] === 0xff && bytes[j + 1] === 0xd9) {
+        eoi = j + 2;
+        break;
+      }
+    }
+    if (eoi <= soi + 1000) {
       i += 1;
       continue;
     }
 
-    if (currentStart >= 0 && a === 0xff && b === 0xd9) {
-      const currentEnd = i + 2;
-      if (currentEnd - currentStart > bestEnd - bestStart) {
-        bestStart = currentStart;
-        bestEnd = currentEnd;
-      }
-      currentStart = -1;
-      i += 1;
+    const len = eoi - soi;
+    if (len > bestEnd - bestStart) {
+      bestStart = soi;
+      bestEnd = eoi;
     }
+    // Skip past this JPEG – the largest embedded preview is usually the first big one
+    i = eoi - 1;
   }
 
   if (bestStart < 0 || bestEnd <= bestStart) return null;
@@ -141,7 +150,8 @@ function extractLargestEmbeddedJpeg(bytes: Uint8Array): Uint8Array | null {
 }
 
 async function extractEmbeddedRawPreviewUrl(file: File): Promise<string | null> {
-  const bytes = new Uint8Array(await file.arrayBuffer());
+  const readSize = Math.min(file.size, RAW_PREVIEW_READ_BYTES);
+  const bytes = new Uint8Array(await file.slice(0, readSize).arrayBuffer());
   const jpegBytes = extractLargestEmbeddedJpeg(bytes);
   if (!jpegBytes) return null;
   const buffer = jpegBytes.buffer.slice(
@@ -241,7 +251,7 @@ async function generateRawPreviewUrl(file: File): Promise<string | null> {
 
   const task = (async () => {
     try {
-      const embeddedPreview = await withTimeout(extractEmbeddedRawPreviewUrl(file), 4000, "embedded-preview");
+      const embeddedPreview = await withTimeout(extractEmbeddedRawPreviewUrl(file), 8000, "embedded-preview");
       if (embeddedPreview) {
         rawPreviewUrlCache.set(cacheKey, embeddedPreview);
         return embeddedPreview;

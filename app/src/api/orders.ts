@@ -706,6 +706,30 @@ export const archiveOrderStorageFolder = (
     token,
   );
 
+export interface StorageBrowseEntry {
+  name: string;
+  relativePath: string;
+}
+
+export interface StorageBrowseResult {
+  ok: boolean;
+  rootKind: string;
+  currentRelativePath: string;
+  parentRelativePath: string | null;
+  entries: StorageBrowseEntry[];
+}
+
+export const browseAdminStorage = (
+  token: string,
+  rootKind: "customer" | "raw",
+  relativePath: string,
+) =>
+  apiRequest<StorageBrowseResult>(
+    `/api/admin/storage/browse?rootKind=${encodeURIComponent(rootKind)}&relativePath=${encodeURIComponent(relativePath)}`,
+    "GET",
+    token,
+  );
+
 export const getUploadBatch = (token: string, orderNo: string, batchId: string) =>
   apiRequest<{ ok: boolean; batch: OrderUploadBatch }>(
     `/api/admin/orders/${encodeURIComponent(orderNo)}/upload-batches/${encodeURIComponent(batchId)}`,

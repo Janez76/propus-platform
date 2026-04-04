@@ -73,6 +73,9 @@ const logtoOrgSync = require("./logto-org-sync");
 const { createPostgresSessionStore } = require("../auth/postgres-session-store");
 const {
   UPLOAD_CATEGORY_MAP,
+  CUSTOMER_UPLOAD_ROOT,
+  RAW_MATERIAL_ROOT,
+  assertRootReady,
   provisionOrderFolders,
   getOrderFolderSummary,
   linkExistingOrderFolder,
@@ -2294,8 +2297,21 @@ app.use((err, req, res, next) => {
   next();
 });
 
-// ─── Logto OIDC Login (Browser-Flow → admin_session Token Bridge) ────────────
+// ─── Logto OIDC Login (entfernt – Stub-Routen für Rückwärtskompatibilität) ────
 (function registerLogtoRoutes() {
+  // Logto wurde aus der Plattform entfernt. Die Routen leiten auf /login weiter.
+  app.get('/auth/logto/login', (req, res) => {
+    const returnTo = encodeURIComponent(req.query.returnTo || '/dashboard');
+    res.redirect(`/login?returnTo=${returnTo}`);
+  });
+  app.get('/auth/logto/callback', (_req, res) => {
+    res.status(410).send('Logto SSO wurde entfernt. Bitte melde dich über /login an.');
+  });
+  app.get('/auth/logto/logout', (req, res) => {
+    req.session?.destroy?.(() => res.redirect('/login'));
+  });
+  return;
+  /* eslint-disable no-unreachable */
   const LOGTO_APP_ID          = process.env.PROPUS_BOOKING_LOGTO_APP_ID || '';
   const LOGTO_APP_SECRET      = process.env.PROPUS_BOOKING_LOGTO_APP_SECRET || '';
   const LOGTO_PUBLIC_ENDPOINT = process.env.LOGTO_ENDPOINT || 'http://localhost:3301';
@@ -2502,13 +2518,11 @@ app.use((err, req, res, next) => {
   });
 
   console.log('[booking] Logto OIDC auth enabled, app_id:', LOGTO_APP_ID.slice(0, 8) + '…');
+  /* eslint-enable no-unreachable */
 })();
 
-// SPA/Topbar nutzt /auth/logout; Logto-Routen liegen nur unter /auth/logto/* (siehe IIFE oben).
+// SPA/Topbar nutzt /auth/logout
 app.get("/auth/logout", async (req, res) => {
-  const idToken = req.session?.logtoIdToken;
-  const wasLogto = req.session?.logtoLogout;
-
   try {
     const token = getRequestToken(req);
     if (token && db.deleteAdminSessionByTokenHash) {
@@ -2516,33 +2530,7 @@ app.get("/auth/logout", async (req, res) => {
     }
   } catch (_e) {}
   res.clearCookie("admin_session");
-
-  const LOGTO_APP_ID = process.env.PROPUS_BOOKING_LOGTO_APP_ID || "";
-  const LOGTO_APP_SECRET = process.env.PROPUS_BOOKING_LOGTO_APP_SECRET || "";
-  const logtoConfigured = !!(LOGTO_APP_ID && LOGTO_APP_SECRET);
-  const LOGTO_PUBLIC_ENDPOINT = process.env.LOGTO_ENDPOINT || "http://localhost:3301";
-  const LOGTO_REDIRECT_BASE_URL = String(
-    process.env.BOOKING_LOGTO_REDIRECT_BASE_URL ||
-      process.env.ADMIN_PANEL_URL ||
-      process.env.ADMIN_FRONTEND_URL ||
-      "",
-  )
-    .trim()
-    .replace(/\/$/, "");
-
-  function postLogoutRedirectUri(r) {
-    const base = LOGTO_REDIRECT_BASE_URL || `${r.protocol}://${r.get("host")}`;
-    return `${base}/`;
-  }
-
   req.session.destroy(() => {
-    if (logtoConfigured && wasLogto && idToken) {
-      const params = new URLSearchParams({
-        id_token_hint: idToken,
-        post_logout_redirect_uri: postLogoutRedirectUri(req),
-      });
-      return res.redirect(`${LOGTO_PUBLIC_ENDPOINT}/oidc/session/end?${params}`);
-    }
     res.redirect(resolveAdminFrontendUrl(req));
   });
 });
@@ -2596,6 +2584,58 @@ const mailer = ensureSmtpConfigured()
     })
   : null;
 app.locals.mailer = mailer;
+
+// ─── Einmaliger Admin-Setup-Endpunkt ─────────────────────────────────────────
+// Nur aktiv wenn ADMIN_SETUP_TOKEN Env-Variable gesetzt ist.
+// Nach dem Setup den Token aus der .env entfernen (Sicherheit).
+// Aufruf: POST /api/admin/first-setup mit { token, username, email, name, password, role }
+app.post("/api/admin/first-setup", async (req, res) => {
+  const setupToken = String(process.env.ADMIN_SETUP_TOKEN || "").trim();
+  if (!setupToken) {
+    return res.status(410).json({ error: "Setup-Endpunkt ist deaktiviert (ADMIN_SETUP_TOKEN nicht gesetzt)" });
+  }
+  const { token, username, email, name, password, role } = req.body || {};
+  if (!token || token !== setupToken) {
+    return res.status(403).json({ error: "Ungültiger Setup-Token" });
+  }
+  try {
+    const u = String(username || process.env.ADMIN_USER || "admin").trim().toLowerCase();
+    const em = String(email || process.env.ADMIN_EMAIL || `${u}@local.dev`).trim().toLowerCase();
+    const nm = String(name || process.env.ADMIN_NAME || u).trim();
+    const pw = String(password || process.env.ADMIN_PASS || "").trim();
+    const rl = String(role || process.env.ADMIN_ROLE || "super_admin").trim();
+
+    if (!pw || pw.length < 8) {
+      return res.status(400).json({ error: "Passwort muss mindestens 8 Zeichen haben" });
+    }
+
+    const hash = await customerAuth.hashPassword(pw);
+
+    // Prüfe ob User schon existiert (per Username oder E-Mail)
+    const existing = (await db.getAdminUserByUsername(u)) || (await db.getAdminUserByUsername(em));
+    if (existing) {
+      await db.updateAdminUserPassword(existing.id, hash);
+      await db.updateAdminUserRole(existing.id, rl);
+      // Auch E-Mail und Name aktualisieren
+      const _pool = db.getPool ? db.getPool() : null;
+      if (_pool) {
+        await _pool.query(
+          `UPDATE admin_users SET username=$1, email=$2, name=$3, active=TRUE, updated_at=NOW() WHERE id=$4`,
+          [u, em, nm, existing.id]
+        );
+      }
+      console.log(`[first-setup] Admin-Benutzer aktualisiert: ${em} (Rolle: ${rl})`);
+      return res.json({ ok: true, action: "updated", username: u, email: em, role: rl });
+    } else {
+      await db.createAdminUser({ username: u, email: em, name: nm, role: rl, passwordHash: hash });
+      console.log(`[first-setup] Admin-Benutzer angelegt: ${em} (Rolle: ${rl})`);
+      return res.json({ ok: true, action: "created", username: u, email: em, role: rl });
+    }
+  } catch (err) {
+    console.error("[first-setup] Fehler:", err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
 
 app.get("/api/health", (_req, res) => {
   res.json({
@@ -5305,6 +5345,54 @@ app.get("/api/admin/storage/health", requireAdmin, (_req, res) => {
     res.json({ ok: true, roots });
   } catch (err) {
     res.status(500).json({ error: err.message || "Storage-Health konnte nicht geladen werden" });
+  }
+});
+
+app.get("/api/admin/storage/browse", requireAdmin, (req, res) => {
+  try {
+    const rootKind = String(req.query.rootKind || "customer");
+    const relativePath = String(req.query.relativePath || "").replace(/\\/g, "/").replace(/^\/+/, "");
+
+    const rootPath = rootKind === "raw" ? RAW_MATERIAL_ROOT : CUSTOMER_UPLOAD_ROOT;
+    assertRootReady(rootPath, { label: rootKind === "raw" ? "Raw-Root" : "Kunden-Root", allowCreate: false });
+
+    const absRoot = path.resolve(rootPath);
+    const absCurrent = relativePath ? path.resolve(absRoot, relativePath) : absRoot;
+
+    if (!absCurrent.startsWith(absRoot + path.sep) && absCurrent !== absRoot) {
+      return res.status(400).json({ ok: false, error: "Pfad außerhalb des erlaubten Bereichs" });
+    }
+
+    const entries = fs.readdirSync(absCurrent, { withFileTypes: true })
+      .filter((d) => d.isDirectory() && !d.name.startsWith(".") && d.name !== "_ARCHIV")
+      .map((d) => {
+        const entryRelative = relativePath ? `${relativePath}/${d.name}` : d.name;
+        return { name: d.name, relativePath: entryRelative };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name, "de"));
+
+    const parentRelativePath = relativePath.includes("/")
+      ? relativePath.split("/").slice(0, -1).join("/")
+      : relativePath
+        ? ""
+        : null;
+
+    res.json({
+      ok: true,
+      rootKind,
+      currentRelativePath: relativePath,
+      parentRelativePath,
+      entries,
+    });
+  } catch (err) {
+    const isPermission = /EACCES|permission denied/i.test(err.message || "");
+    const isNotFound = /ENOENT|no such file/i.test(err.message || "");
+    const friendly = isPermission
+      ? "NAS-Root nicht zugreifbar – Mounts auf der VPS prüfen"
+      : isNotFound
+        ? "Ordner nicht gefunden"
+        : (err.message || "Browser-Fehler");
+    res.status(400).json({ ok: false, error: friendly });
   }
 });
 
@@ -10552,97 +10640,81 @@ const logtoClient = require('./logto-client');
 
 const INTERNAL_ROLES = ['admin', 'super_admin', 'photographer'];
 
-// GET /api/admin/internal-users – alle internen Logto-User mit ihren Rollen
+// GET /api/admin/internal-users – alle internen Benutzer aus der lokalen DB
 app.get("/api/admin/internal-users", requireAdmin, async (req, res) => {
-  if (!logtoClient.isConfigured()) return res.json({ users: [] });
   try {
-    const users = await logtoClient.mgmtApi('GET', '/users?pageSize=100');
-    const result = await Promise.all((users || []).map(async (u) => {
-      let roles = [];
-      try { roles = await logtoClient.getUserRoles(u.id); } catch (_) {}
-      return {
-        id: u.id,
-        name: u.name || '',
-        email: u.primaryEmail || '',
-        username: u.username || '',
-        roles,
-        createdAt: u.createdAt,
-        lastSignInAt: u.lastSignInAt,
-        isSuspended: u.isSuspended || false,
-      };
+    const rows = await db.listAdminUsers();
+    const users = rows.map((u) => ({
+      id: String(u.id),
+      name: String(u.name || u.username || u.email || ''),
+      email: String(u.email || ''),
+      username: String(u.username || ''),
+      roles: [String(u.role || 'photographer')],
+      createdAt: u.created_at,
+      lastSignInAt: u.last_login_at || null,
+      isSuspended: !u.active,
     }));
-    // Nur interne Benutzer zurückgeben (mind. eine interne Rolle)
-    const internal = result.filter(u => u.roles.some(r => INTERNAL_ROLES.includes(r)));
-    res.json({ users: internal });
+    res.json({ users });
   } catch (e) {
     console.error('[internal-users] GET error:', e.message);
     res.status(500).json({ error: e.message });
   }
 });
 
-// PATCH /api/admin/internal-users/:id/roles – Rollen eines Benutzers setzen
+// PATCH /api/admin/internal-users/:id/roles – Rolle eines Benutzers setzen (lokal)
 app.patch("/api/admin/internal-users/:id/roles", requireAdmin, async (req, res) => {
-  if (!logtoClient.isConfigured()) return res.status(503).json({ error: 'Logto nicht konfiguriert' });
-  const userId = req.params.id;
+  const id = Number(req.params.id);
   const { roles } = req.body || {};
   if (!Array.isArray(roles)) return res.status(400).json({ error: 'roles muss ein Array sein' });
-
-  // Nur interne Rollen erlaubt
   const allowed = roles.filter(r => INTERNAL_ROLES.includes(r));
+  const role = allowed[0] || 'photographer';
   try {
-    // Bestehende Rollen holen
-    const current = await logtoClient.getUserRoles(userId);
-    const toRemove = current.filter(r => INTERNAL_ROLES.includes(r) && !allowed.includes(r));
-    const toAdd = allowed.filter(r => !current.includes(r));
-    if (toRemove.length) await logtoClient.removeRolesFromUser(userId, toRemove);
-    if (toAdd.length) await logtoClient.assignRolesToUser(userId, toAdd);
-
-    // DB sync
-    const newRoles = [...current.filter(r => !INTERNAL_ROLES.includes(r)), ...allowed];
-    if (newRoles.includes('super_admin') || newRoles.includes('admin')) {
-      await db.query(
-        `INSERT INTO booking.admin_users (username, email, role, active, created_at, updated_at)
-         SELECT u.username, u.primary_email, $2, TRUE, NOW(), NOW()
-         FROM (SELECT $1::text AS username, (SELECT primary_email FROM booking.admin_users WHERE username = $1 LIMIT 1) AS primary_email) u
-         ON CONFLICT (username) DO UPDATE SET role=$2, active=TRUE, updated_at=NOW()`,
-        [userId, newRoles.includes('super_admin') ? 'super_admin' : 'admin']
-      ).catch(() => null);
-    }
-
-    res.json({ ok: true, userId, roles: allowed });
+    const updated = await db.updateAdminUserRole(id, role);
+    if (!updated) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
+    try {
+      await rbac.syncAdminUserRolesFromDb(id);
+    } catch (_) {}
+    res.json({ ok: true, userId: String(id), roles: [role] });
   } catch (e) {
     console.error('[internal-users] PATCH roles error:', e.message);
     res.status(500).json({ error: e.message });
   }
 });
 
-// POST /api/admin/internal-users – neuen internen User in Logto anlegen
+// POST /api/admin/internal-users – neuen internen Benutzer in lokaler DB anlegen
 app.post("/api/admin/internal-users", requireAdmin, async (req, res) => {
-  if (!logtoClient.isConfigured()) return res.status(503).json({ error: 'Logto nicht konfiguriert' });
   const { name, email, username, password, roles = ['photographer'] } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: 'E-Mail und Passwort erforderlich' });
+  if (String(password).length < 8) return res.status(400).json({ error: 'Passwort muss mindestens 8 Zeichen haben' });
   try {
-    const user = await logtoClient.mgmtApi('POST', '/users', {
-      name: name || email,
-      primaryEmail: email.toLowerCase(),
-      username: username || email.toLowerCase().split('@')[0].replace(/[^a-z0-9]/g, ''),
-      password,
-    });
+    const passwordHash = await customerAuth.hashPassword(String(password));
     const allowed = (roles || []).filter(r => INTERNAL_ROLES.includes(r));
-    if (allowed.length) await logtoClient.assignRolesToUser(user.id, allowed);
-    res.json({ ok: true, user: { id: user.id, name: user.name, email: user.primaryEmail, roles: allowed } });
+    const role = allowed[0] || 'photographer';
+    const uname = String(username || email).toLowerCase().split('@')[0].replace(/[^a-z0-9._-]/g, '').slice(0, 64) || 'user';
+    const user = await db.createAdminUser({
+      username: uname,
+      email: String(email).toLowerCase().trim(),
+      name: String(name || email),
+      role,
+      passwordHash,
+    });
+    if (!user) return res.status(500).json({ error: 'Benutzer konnte nicht angelegt werden' });
+    try {
+      await rbac.syncAdminUserRolesFromDb(user.id);
+    } catch (_) {}
+    res.json({ ok: true, user: { id: String(user.id), name: user.name, email: user.email, username: user.username, roles: [role], createdAt: user.created_at, lastSignInAt: null, isSuspended: false } });
   } catch (e) {
     console.error('[internal-users] POST error:', e.message);
+    if (String(e?.code) === '23505') return res.status(409).json({ error: 'E-Mail oder Benutzername bereits vergeben' });
     res.status(500).json({ error: e.message });
   }
 });
 
-// DELETE /api/admin/internal-users/:id – User in Logto deaktivieren (nicht löschen)
+// DELETE /api/admin/internal-users/:id – Benutzer deaktivieren
 app.delete("/api/admin/internal-users/:id", requireAdmin, async (req, res) => {
-  if (!logtoClient.isConfigured()) return res.status(503).json({ error: 'Logto nicht konfiguriert' });
-  const userId = req.params.id;
+  const id = Number(req.params.id);
   try {
-    await logtoClient.mgmtApi('PATCH', `/users/${userId}/is-suspended`, { isSuspended: true });
+    await db.updateAdminUserActive(id, false);
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -10651,31 +10723,31 @@ app.delete("/api/admin/internal-users/:id", requireAdmin, async (req, res) => {
 
 // PATCH /api/admin/internal-users/:id/suspend – aktivieren/deaktivieren
 app.patch("/api/admin/internal-users/:id/suspend", requireAdmin, async (req, res) => {
-  if (!logtoClient.isConfigured()) return res.status(503).json({ error: 'Logto nicht konfiguriert' });
-  const userId = req.params.id;
+  const id = Number(req.params.id);
   const { isSuspended } = req.body || {};
   try {
-    await logtoClient.mgmtApi('PATCH', `/users/${userId}/is-suspended`, { isSuspended: Boolean(isSuspended) });
+    const updated = await db.updateAdminUserActive(id, !isSuspended);
+    if (!updated) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
-// POST /api/admin/internal-users/:id/reset-password – Passwort in Logto setzen
+// POST /api/admin/internal-users/:id/reset-password – Passwort lokal setzen
 app.post("/api/admin/internal-users/:id/reset-password", requireAdmin, async (req, res) => {
-  if (!logtoClient.isConfigured()) return res.status(503).json({ error: 'Logto nicht konfiguriert' });
-  const userId = req.params.id;
+  const id = Number(req.params.id);
   const { password, sendMail = false } = req.body || {};
   if (!password || String(password).length < 8) {
     return res.status(400).json({ error: 'Passwort muss mindestens 8 Zeichen haben' });
   }
   try {
-    await logtoClient.updateUserPassword(userId, password);
+    const passwordHash = await customerAuth.hashPassword(String(password));
+    await db.updateAdminUserPassword(id, passwordHash);
     if (sendMail) {
-      const user = await logtoClient.getUserById(userId);
-      const email = user?.primaryEmail;
-      const name = user?.name || email || 'Mitarbeiter';
+      const user = await db.getAdminUserById(id);
+      const email = user?.email;
+      const name = user?.name || user?.username || email || 'Mitarbeiter';
       if (email) {
         const adminUrl = String(process.env.ADMIN_PANEL_URL || process.env.ADMIN_FRONTEND_URL || 'https://admin-booking.propus.ch').trim();
         const mail = buildCredentialsEmail({ name, key: user?.username || '', email, tempPw: password, adminUrl, resetUrl: null }, 'de');
@@ -10691,13 +10763,13 @@ app.post("/api/admin/internal-users/:id/reset-password", requireAdmin, async (re
 
 // POST /api/admin/internal-users/:id/send-welcome – Begrüssungsmail senden
 app.post("/api/admin/internal-users/:id/send-welcome", requireAdmin, async (req, res) => {
-  if (!logtoClient.isConfigured()) return res.status(503).json({ error: 'Logto nicht konfiguriert' });
-  const userId = req.params.id;
+  const id = Number(req.params.id);
   try {
-    const user = await logtoClient.getUserById(userId);
-    const email = user?.primaryEmail;
+    const user = await db.getAdminUserById(id);
+    if (!user) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
+    const email = user.email;
     if (!email) return res.status(400).json({ error: 'Benutzer hat keine E-Mail-Adresse' });
-    const name = user?.name || email;
+    const name = user.name || user.username || email;
     const adminUrl = String(process.env.ADMIN_PANEL_URL || process.env.ADMIN_FRONTEND_URL || 'https://admin-booking.propus.ch').trim();
     const mail = buildWelcomeEmail({ name, adminUrl }, 'de');
     const result = await sendMailWithFallback({ to: email, subject: mail.subject, html: mail.html, text: mail.text, context: 'internal-welcome' });
@@ -10710,23 +10782,16 @@ app.post("/api/admin/internal-users/:id/send-welcome", requireAdmin, async (req,
 
 // POST /api/admin/internal-users/:id/send-credentials – Zugangsdaten-Mail senden
 app.post("/api/admin/internal-users/:id/send-credentials", requireAdmin, async (req, res) => {
-  if (!logtoClient.isConfigured()) return res.status(503).json({ error: 'Logto nicht konfiguriert' });
-  const userId = req.params.id;
+  const id = Number(req.params.id);
   const { password } = req.body || {};
   try {
-    const user = await logtoClient.getUserById(userId);
-    const email = user?.primaryEmail;
+    const user = await db.getAdminUserById(id);
+    if (!user) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
+    const email = user.email;
     if (!email) return res.status(400).json({ error: 'Benutzer hat keine E-Mail-Adresse' });
-    const name = user?.name || email;
+    const name = user.name || user.username || email;
     const adminUrl = String(process.env.ADMIN_PANEL_URL || process.env.ADMIN_FRONTEND_URL || 'https://admin-booking.propus.ch').trim();
-    const mail = buildCredentialsEmail({
-      name,
-      key: user?.username || '',
-      email,
-      tempPw: password || null,
-      adminUrl,
-      resetUrl: null,
-    }, 'de');
+    const mail = buildCredentialsEmail({ name, key: user.username || '', email, tempPw: password || null, adminUrl, resetUrl: null }, 'de');
     const result = await sendMailWithFallback({ to: email, subject: mail.subject, html: mail.html, text: mail.text, context: 'internal-credentials' });
     res.json({ ok: true, sent: result?.sent ?? true });
   } catch (e) {
@@ -10735,16 +10800,10 @@ app.post("/api/admin/internal-users/:id/send-credentials", requireAdmin, async (
   }
 });
 
-// GET /api/admin/logto-roles – alle Logto-Rollen
+// GET /api/admin/logto-roles – Rollenkatalog (jetzt lokal)
 app.get("/api/admin/logto-roles", requireAdmin, async (req, res) => {
-  if (!logtoClient.isConfigured()) return res.json({ roles: [] });
-  try {
-    const roles = await logtoClient.mgmtApi('GET', '/roles?pageSize=100');
-    const internal = (roles || []).filter(r => INTERNAL_ROLES.includes(r.name));
-    res.json({ roles: internal });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
+  const roles = INTERNAL_ROLES.map(name => ({ name, id: name }));
+  res.json({ roles });
 });
 
 // ==============================
