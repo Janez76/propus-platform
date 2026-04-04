@@ -143,6 +143,21 @@ jobs:
         run: |
           printf '%s\n' "${{ secrets.VPS_ENV_FILE }}" > /tmp/propus-platform.env.vps
 
+      - name: Download current VPS env file
+        run: |
+          rm -f /tmp/propus-platform.current.env.vps
+          if ssh -i ~/.ssh/id_ed25519_propus_vps root@${{ secrets.VPS_HOST }} "test -f /opt/propus-platform/.env.vps"; then
+            scp -i ~/.ssh/id_ed25519_propus_vps \
+              root@${{ secrets.VPS_HOST }}:/opt/propus-platform/.env.vps \
+              /tmp/propus-platform.current.env.vps
+          fi
+
+      - name: Guard Payrexx env overwrite
+        run: |
+          bash scripts/guard-vps-env.sh \
+            /tmp/propus-platform.current.env.vps \
+            /tmp/propus-platform.env.vps
+
       - name: Upload deploy archive
         run: |
           scp -i ~/.ssh/id_ed25519_propus_vps "/tmp/propus-platform-${GITHUB_SHA}.tar.gz" \

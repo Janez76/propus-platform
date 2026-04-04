@@ -26,6 +26,8 @@ const { pool } = require("../tours/lib/db");
 const { createPostgresSessionStore } = require("../auth/postgres-session-store");
 const { requireAdmin } = require("../tours/middleware/auth");
 const toursAdminApi = require("../tours/routes/admin-api");
+const galleryAdminApi = require("../tours/routes/gallery-admin-api");
+const galleryPublicApi = require("../tours/routes/gallery-public-api");
 
 const main = express();
 main.set("trust proxy", true);
@@ -115,6 +117,8 @@ async function bridgeBookingAdminSession(req, _res, next) {
 }
 
 main.use("/api/tours/admin", express.json(), toursSessionMiddleware, bridgeBookingAdminSession, requireAdmin, toursAdminApi);
+main.use("/api/tours/admin/galleries", express.json(), toursSessionMiddleware, bridgeBookingAdminSession, requireAdmin, galleryAdminApi);
+main.use("/api/listing", express.json(), galleryPublicApi);
 
 main.use(mount, tours.app);
 

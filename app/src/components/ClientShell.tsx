@@ -80,6 +80,12 @@ const ToursAdminAiChatPage = lazy(() => import("../pages-legacy/tours/admin/Tour
 const PortalPreviewPage = lazy(() => import("../pages-legacy/tours/admin/PortalPreviewPage").then((m) => ({ default: m.PortalPreviewPage })));
 const AdminTicketsPage = lazy(() => import("../pages-legacy/tours/admin/AdminTicketsPage").then((m) => ({ default: m.AdminTicketsPage })));
 
+// Listing (Galerie) pages
+const ListingListPage = lazy(() => import("../pages-legacy/admin/listing/ListingListPage").then((m) => ({ default: m.ListingListPage })));
+const ListingEditorPage = lazy(() => import("../pages-legacy/admin/listing/ListingEditorPage").then((m) => ({ default: m.ListingEditorPage })));
+const ListingEmailTemplatesPage = lazy(() => import("../pages-legacy/admin/listing/ListingEmailTemplatesPage").then((m) => ({ default: m.ListingEmailTemplatesPage })));
+const ClientListingPage = lazy(() => import("../pages-legacy/listing/ClientListingPage").then((m) => ({ default: m.ClientListingPage })));
+
 // Portal pages
 const PortalLoginPage = lazy(() => import("../pages-legacy/portal/PortalLoginPage").then((m) => ({ default: m.PortalLoginPage })));
 const PortalForgotPasswordPage = lazy(() => import("../pages-legacy/portal/PortalForgotPasswordPage").then((m) => ({ default: m.PortalForgotPasswordPage })));
@@ -234,6 +240,10 @@ function PrivateRoutes() {
         <Route path="/admin/tickets" element={guardedElement(toursAdminRoles, <AdminTicketsPage />)} />
         <Route path="/admin/tours/:id" element={guardedElement(toursAdminRoles, <TourDetailPage />)} />
         <Route path="/admin/tours" element={guardedElement(toursAdminRoles, <ToursAdminDashboardPage />)} />
+        {/* Listing (Galerie) Admin */}
+        <Route path="/admin/listing/templates" element={guardedElement(toursAdminRoles, <ListingEmailTemplatesPage />)} />
+        <Route path="/admin/listing/:id" element={guardedElement(toursAdminRoles, <ListingEditorPage />)} />
+        <Route path="/admin/listing" element={guardedElement(toursAdminRoles, <ListingListPage />)} />
       </Routes>
     </AppShell>
   );
@@ -260,6 +270,7 @@ export default function ClientShell() {
           <Route path="/confirm/:token" element={<ConfirmBookingPage />} />
           <Route path="/print/orders/:orderNo" element={<PrintOrderPage />} />
           <Route path="/print/order/:orderNo" element={<PrintOrderPage />} />
+          <Route path="/listing/:slug" element={<ClientListingPage />} />
           <Route path="*" element={<PrivateRoutes />} />
         </Routes>
       </Suspense>

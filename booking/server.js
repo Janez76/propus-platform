@@ -98,7 +98,8 @@ const {
 const { syncWebsizeForAllCustomerFolders, syncWebsizeForOrderFolder } = require("./websize-sync-service");
 const customerAuth = require("./customer-auth");
 const travel = require("./travel");
-const { resolveAnyPhotographer, buildNeededSkills } = require("./photographer-resolver");
+const { resolveAnyPhotographer, resolveExplicitPhotographer, buildNeededSkills } = require("./photographer-resolver");
+const geocoder = require("./geocoder");
 const { isHoliday } = require("./holidays");
 const { shadowPricing, shadowAssignment, getShadowLog } = require("./shadow-mode");
 const { getTransitionError, getSideEffects, VALID_STATUSES, calcProvisionalExpiresAt } = require("./state-machine");
@@ -4076,9 +4077,17 @@ app.post("/api/booking", async (req, res) => {
 
     const area = parseAreaToNumber(object.area);
     const durationMin = await getShootDurationMinutes(area, services);
-    const bookingCoords = payload?.address?.coords
+    let bookingCoords = payload?.address?.coords
       ? { lat: Number(payload.address.coords.lat), lon: Number(payload.address.coords.lng ?? payload.address.coords.lon) }
       : null;
+
+    // Schritt 2b: Koordinaten geocoden wenn nicht im Frontend-Payload (nicht buchungskritisch)
+    if (!bookingCoords) {
+      try {
+        const geocoded = await geocoder.geocodeBookingObject(object);
+        if (geocoded) bookingCoords = geocoded;
+      } catch { /* Geocoding-Fehler ist nicht buchungskritisch */ }
+    }
 
     // "any" aufl-sen: intelligente Zuteilung via photographer-resolver
     if (photographerKey === "any") {
@@ -4120,8 +4129,9 @@ app.post("/api/booking", async (req, res) => {
       }
 
       let resolved = null;
+      let anyDecisionTrace = null;
       try {
-        resolved = await resolveAnyPhotographer({
+        const resolveResult = await resolveAnyPhotographer({
           photographersConfig: PHOTOGRAPHERS_CONFIG,
           availabilityMap,
           date,
@@ -4129,7 +4139,10 @@ app.post("/api/booking", async (req, res) => {
           services,
           sqm: parseAreaToNumber(object.area),
           bookingCoords: bookingCoords && Number.isFinite(bookingCoords.lat) ? bookingCoords : null,
+          withDecisionTrace: true,
         });
+        resolved = resolveResult?.selected ?? resolveResult ?? null;
+        anyDecisionTrace = resolveResult?.decisionTrace ?? null;
       } catch (err) {
         console.error("[booking] resolveAnyPhotographer error:", err?.message);
       }
@@ -4150,6 +4163,7 @@ app.post("/api/booking", async (req, res) => {
       if (resolved) {
         photographerKey = resolved.key;
         photographerName = resolved.name;
+        payload._assignmentTrace = anyDecisionTrace;
         console.log("[booking] resolved 'any' to", { key: resolved.key, name: resolved.name });
       } else {
         return res.status(409).json({
@@ -4157,6 +4171,30 @@ app.post("/api/booking", async (req, res) => {
           reason: "needs_admin_selection",
         });
       }
+    } else if (photographerKey && photographerKey !== "any") {
+      // Schritt 3 Modus B: Explizite Fotografen-Wahl → Warnings + decisionTrace (kein Block)
+      try {
+        const allSettings = await db.getAllPhotographerSettings({ includeInactive: false });
+        const settingsMap = {};
+        for (const s of allSettings) settingsMap[s.key] = s;
+        const pSettings = settingsMap[photographerKey] || {};
+        const skills = pSettings.skills || {};
+        const needed = buildNeededSkills(services, parseAreaToNumber(object.area), {
+          requiredSkillLevels: {},
+          matterportLargeSqmThreshold: 300,
+          matterportLargeSqmMinLevel: 7,
+          matterportSmallSqmReduction: 2,
+        }, new Map());
+        for (const [skill, minLevel] of Object.entries(needed)) {
+          const level = Number(skills[skill] ?? 0);
+          if (level <= 0) {
+            bookingWarnings.push(`${photographerKey}: skill ${skill} = 0 — manuelle Überprüfung empfohlen`);
+          } else if (level < Number(minLevel)) {
+            bookingWarnings.push(`${photographerKey}: skill ${skill} = ${level} (Mindest-Level ${minLevel}) — manuelle Überprüfung empfohlen`);
+          }
+        }
+        payload._assignmentTrace = { mode: "explicit", key: photographerKey, needed };
+      } catch { /* Skill-Check für Modus B ist nicht buchungskritisch */ }
     }
 
     console.log("[booking] handler start", {
@@ -4538,6 +4576,9 @@ app.post("/api/booking", async (req, res) => {
       confirmationToken: crypto.randomBytes(32).toString("base64url"),
       confirmationTokenExpiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
       confirmationPendingSince: new Date().toISOString(),
+      address_lat: bookingCoords?.lat ?? null,
+      address_lon: bookingCoords?.lon ?? null,
+      assignment_trace: payload._assignmentTrace ?? null,
     };
     try {
       await saveOrder(orderRecord);

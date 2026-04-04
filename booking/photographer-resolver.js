@@ -371,8 +371,9 @@ async function resolveAnyPhotographer({
   for (const p of photographersConfig) {
     const key = p.key;
     const free = availabilityMap[key] || [];
-    // anySlotMode: Fotograf gilt als verfügbar wenn er irgendeinen freien Slot hat (kein Zeitfilter)
-    const isAvailable = anySlotMode ? free.length > 0 : free.includes(time);
+    // anySlotMode: Fotograf gilt als verfügbar wenn er irgendeinen freien Slot hat.
+    // Fix: Wenn eine Zeit angegeben ist, muss diese trotzdem verfügbar sein.
+    const isAvailable = (anySlotMode && !time) ? free.length > 0 : free.includes(time);
     if (!isAvailable) {
       excluded.push({ key, reasons: ["not_available"] });
       pushExcludedReason(key, "not_available");
@@ -495,8 +496,101 @@ async function resolveAnyPhotographer({
   return withDecisionTrace ? { selected: null, decisionTrace } : null;
 }
 
+
+/**
+ * Modus B: Explizite Fotografen-Wahl.
+ * Skill-Check und Radius-Check entfallen.
+ * Skill = 0 erzeugt Warning, kein Ausschluss.
+ * Kein Fallback auf anderen Fotografen.
+ *
+ * @param {object} params
+ * @param {string} params.key                    Fotografen-Key (z.B. "ivan")
+ * @param {Array}  params.photographersConfig
+ * @param {object} params.availabilityMap        { key: [freeSlots] }
+ * @param {string} params.date                   YYYY-MM-DD
+ * @param {string} params.time                   HH:MM
+ * @param {object} params.needed                 Skill-Anforderungen (nur für Warnings)
+ * @param {object|null} params.bookingCoords     { lat, lon } (informativ)
+ * @returns {Promise<{ ok: boolean, key?: string, name?: string, warnings?: string[], reason?: string, decisionTrace?: object }>}
+ */
+async function resolveExplicitPhotographer({
+  key,
+  photographersConfig,
+  availabilityMap,
+  date,
+  time,
+  needed = {},
+  bookingCoords = null,
+}) {
+  const p = (photographersConfig || []).find((ph) => ph.key === key);
+  if (!p) {
+    return { ok: false, reason: "photographer_not_found", key };
+  }
+
+  const allSettings = await db.getAllPhotographerSettings();
+  const settingsMap = {};
+  for (const s of allSettings) settingsMap[s.key] = s;
+  const settings = settingsMap[key] || {};
+  const skills = settings.skills || {};
+  const blockedDates = Array.isArray(settings.blocked_dates) ? settings.blocked_dates : [];
+
+  // Kalender-Verfügbarkeit (Pflicht)
+  const free = availabilityMap[key] || [];
+  if (!free.includes(time)) {
+    return { ok: false, reason: "not_available", key };
+  }
+
+  // Feiertag (Pflicht)
+  const nationalHolidayBlock = (await getSetting("scheduling.nationalHolidaysEnabled")).value !== false;
+  if (nationalHolidayBlock && isHoliday(date)) {
+    return { ok: false, reason: "holiday_blocked", key };
+  }
+
+  // Abwesenheit (Pflicht)
+  if (isDateBlocked(blockedDates, date)) {
+    return { ok: false, reason: "blocked_date", key };
+  }
+
+  // Skill-Check: nur Warnings, kein Ausschluss
+  const warnings = [];
+  for (const [skill, minLevel] of Object.entries(needed)) {
+    const level = resolveSkillLevel(skills, skill);
+    if (level <= 0) {
+      warnings.push(`${key}: skill ${skill} = 0 — manuelle Überprüfung empfohlen`);
+    } else if (level < Number(minLevel)) {
+      warnings.push(`${key}: skill ${skill} = ${level} (Mindest-Level ${minLevel}) — manuelle Überprüfung empfohlen`);
+    }
+  }
+
+  // Fahrzeit (informativ)
+  let travelMinutes = null;
+  let estimatedKm = null;
+  if (bookingCoords) {
+    const homeCoord = settings.home_lat && settings.home_lon
+      ? { lat: Number(settings.home_lat), lon: Number(settings.home_lon) }
+      : null;
+    if (homeCoord) {
+      travelMinutes = await travel.routeMinutes(homeCoord, bookingCoords);
+      estimatedKm = travelMinutes != null ? travelMinutes / 0.8 : null;
+    }
+  }
+
+  const decisionTrace = {
+    mode: "explicit",
+    key,
+    name: p.name,
+    warnings,
+    travelMinutes,
+    estimatedKm,
+    needed,
+  };
+
+  return { ok: true, key, name: p.name, warnings, decisionTrace };
+}
+
 module.exports = {
   resolveAnyPhotographer,
+  resolveExplicitPhotographer,
   requiredSkills,
   buildNeededSkills,
   collectBookedProductCodes,

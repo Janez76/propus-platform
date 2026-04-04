@@ -36,6 +36,14 @@ const nextConfig: NextConfig = {
           source: "/tour-manager/api/invite/:path*",
           destination: `${PLATFORM_INTERNAL_URL}/tour-manager/api/invite/:path*`,
         },
+        {
+          source: "/api/tours/admin/galleries/:path*",
+          destination: `${PLATFORM_INTERNAL_URL}/api/tours/admin/galleries/:path*`,
+        },
+        {
+          source: "/api/listing/:path*",
+          destination: `${PLATFORM_INTERNAL_URL}/api/listing/:path*`,
+        },
       ],
       afterFiles: [],
       fallback: [],

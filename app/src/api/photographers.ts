@@ -39,6 +39,7 @@ export type PhotographerSettings = {
   event_color?: string;
   work_start?: string;
   work_end?: string;
+  earliest_departure?: string;
   workdays?: string[];
   buffer_minutes?: number;
   slot_minutes?: number;

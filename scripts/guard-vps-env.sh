@@ -19,55 +19,51 @@ if [ ! -f "$current_file" ]; then
   exit 0
 fi
 
-python3 - "$current_file" "$incoming_file" <<'PY'
-import sys
-from pathlib import Path
+node - "$current_file" "$incoming_file" <<'NODE'
+const fs = require('fs');
 
+function parseEnv(filePath) {
+  const values = {};
+  const text = fs.readFileSync(filePath, 'utf8');
+  for (const rawLine of text.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) continue;
+    const eqIndex = line.indexOf('=');
+    if (eqIndex < 1) continue;
+    const key = line.slice(0, eqIndex).trim();
+    const value = line.slice(eqIndex + 1).trim().replace(/^['"]|['"]$/g, '');
+    values[key] = value;
+  }
+  return values;
+}
 
-def parse_env(path_str: str) -> dict[str, str]:
-    values: dict[str, str] = {}
-    for raw_line in Path(path_str).read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        values[key.strip()] = value.strip().strip("'\"")
-    return values
+const current = parseEnv(process.argv[2]);
+const incoming = parseEnv(process.argv[3]);
+const protectedKeys = [
+  'PAYREXX_INSTANCE',
+  'PAYREXX_API_SECRET',
+  'PAYREXX_WEBHOOK_SECRET',
+];
 
+const missing = protectedKeys.filter((key) => {
+  const currentValue = String(current[key] || '').trim();
+  const incomingValue = String(incoming[key] || '').trim();
+  return currentValue && !incomingValue;
+});
 
-current = parse_env(sys.argv[1])
-incoming = parse_env(sys.argv[2])
-protected = (
-    "PAYREXX_INSTANCE",
-    "PAYREXX_API_SECRET",
-    "PAYREXX_WEBHOOK_SECRET",
-)
+if (missing.length > 0) {
+  const keys = missing.join(', ');
+  console.error(
+    `[guard-vps-env] Refusing deploy: incoming VPS_ENV_FILE would clear live Payrexx config: ${keys}.`,
+  );
+  console.error(
+    '[guard-vps-env] Sync the full production .env.vps into the GitHub secret VPS_ENV_FILE before deploying again.',
+  );
+  console.error(
+    '[guard-vps-env] Recommended command: powershell -File scripts/push-github-production-secrets.ps1',
+  );
+  process.exit(1);
+}
 
-missing = []
-for key in protected:
-    current_value = current.get(key, "").strip()
-    incoming_value = incoming.get(key, "").strip()
-    if current_value and not incoming_value:
-        missing.append(key)
-
-if missing:
-    keys = ", ".join(missing)
-    print(
-        "[guard-vps-env] Refusing deploy: incoming VPS_ENV_FILE would clear "
-        f"live Payrexx config: {keys}.",
-        file=sys.stderr,
-    )
-    print(
-        "[guard-vps-env] Sync the full production .env.vps into the "
-        "GitHub secret VPS_ENV_FILE before deploying again.",
-        file=sys.stderr,
-    )
-    print(
-        "[guard-vps-env] Recommended command: "
-        "powershell -File scripts/push-github-production-secrets.ps1",
-        file=sys.stderr,
-    )
-    sys.exit(1)
-
-print("[guard-vps-env] OK: incoming VPS_ENV_FILE keeps current Payrexx values.")
-PY
+console.log('[guard-vps-env] OK: incoming VPS_ENV_FILE keeps current Payrexx values.');
+NODE

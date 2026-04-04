@@ -379,6 +379,7 @@ export function EmployeeModal({ token, employeeKey, onClose, onSaved, isActive =
   );
   const [bufferMinutes, setBufferMinutes] = useState("");
   const [slotMinutes, setSlotMinutes] = useState("");
+  const [earliestDeparture, setEarliestDeparture] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [logFilter, setLogFilter] = useState("all");
   const [logs, setLogs] = useState<EmployeeLog[]>([]);
@@ -436,6 +437,7 @@ export function EmployeeModal({ token, employeeKey, onClose, onSaved, isActive =
         setWorkHoursByDay(normalizeWorkHoursByDay(s));
         setBufferMinutes(s.buffer_minutes != null ? String(s.buffer_minutes) : "");
         setSlotMinutes(s.slot_minutes != null ? String(s.slot_minutes) : "");
+        setEarliestDeparture(s.earliest_departure || "");
         setSkillFoto(String(s.skills?.foto ?? 10));
         setSkillMatterport(String(s.skills?.matterport ?? 0));
         setSkillDrohneFoto(String(s.skills?.drohne_foto ?? s.skills?.drohne ?? 0));
@@ -546,6 +548,7 @@ export function EmployeeModal({ token, employeeKey, onClose, onSaved, isActive =
         work_hours_by_day: workHoursByDay,
         buffer_minutes: bufferMinutes ? Number(bufferMinutes) : null,
         slot_minutes: slotMinutes ? Number(slotMinutes) : null,
+        earliest_departure: isValidTimeValue(earliestDeparture) ? earliestDeparture : null,
         depart_times: cleanDepartTimes,
         skills: {
           foto: Number(skillFoto),
@@ -898,6 +901,21 @@ export function EmployeeModal({ token, employeeKey, onClose, onSaved, isActive =
               <p className="text-xs text-[var(--text-subtle)]">
                 Diese Zeiten bestimmen den fruehestmoeglichen ersten Slot des Tages ueber Abfahrtszeit + Wegberechnung.
               </p>
+              <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-raised)] px-4 py-3">
+                <label className="mb-1 block text-sm font-medium text-[var(--text-main)]">
+                  Früheste Abfahrt (global)
+                </label>
+                <input
+                  type="time"
+                  className="ui-input"
+                  value={earliestDeparture}
+                  onChange={(e) => setEarliestDeparture(e.target.value)}
+                  placeholder="07:00"
+                />
+                <p className="mt-1 text-xs text-[var(--text-subtle)]">
+                  Gilt als Fallback wenn keine tagesspezifische Abfahrtszeit gesetzt ist. Basis für die fahrzeit-bewusste Slot-Generierung.
+                </p>
+              </div>
               <div className="grid gap-2">
                 {WEEKDAY_OPTIONS.map((day) => (
                   <div

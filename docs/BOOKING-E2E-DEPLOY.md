@@ -43,6 +43,8 @@ Der Workflow kann auf zwei Arten laufen:
 - `VPS_ENV_FILE`
   - kompletter Inhalt der produktiven `.env.vps`
   - wird bei jedem Deploy nach `/opt/propus-platform/.env.vps` geschrieben
+  - Guard: Wenn das eingehende Secret live gesetzte `PAYREXX_*`-Werte leeren wuerde, bricht der Workflow den Deploy vor dem Upload bewusst ab
+  - nach manuellen Aenderungen auf dem VPS daher immer auch das GitHub-Secret `VPS_ENV_FILE` nachziehen, z. B. mit `scripts/push-github-production-secrets.ps1`
 
 - `VPS_HOST`
   - Hostname oder IP des VPS (fuer `ssh` und `ssh-keyscan` im Workflow)

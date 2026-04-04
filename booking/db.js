@@ -2232,6 +2232,18 @@ async function getOrderByNo(orderNo) {
   return record;
 }
 
+async function getOrdersByPhotographerAndDate(photographerKey, date, statuses) {
+  const { rows } = await query(
+    `SELECT * FROM orders
+     WHERE photographer_key = $1
+       AND schedule_date = $2
+       AND status = ANY($3)
+     ORDER BY schedule_time`,
+    [String(photographerKey || ""), String(date || ""), statuses]
+  );
+  return rows;
+}
+
 async function updateCustomerNasStorageBases(customerId, patch = {}) {
   const id = Number(customerId);
   const hasColumnsResult = await query(
@@ -2750,31 +2762,33 @@ async function upsertPhotographerSettings(key, settings) {
     languages = [],
     native_language = "de",
     event_color = "#3b82f6",
+    earliest_departure = null,
   } = settings;
 
   await query(
     `INSERT INTO photographer_settings
-       (photographer_key, home_address, home_lat, home_lon, max_radius_km, skills, blocked_dates, depart_times, work_start, work_end, workdays, work_hours_by_day, buffer_minutes, slot_minutes, national_holidays, languages, native_language, event_color)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+       (photographer_key, home_address, home_lat, home_lon, max_radius_km, skills, blocked_dates, depart_times, work_start, work_end, workdays, work_hours_by_day, buffer_minutes, slot_minutes, national_holidays, languages, native_language, event_color, earliest_departure)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
      ON CONFLICT (photographer_key) DO UPDATE SET
-       home_address      = EXCLUDED.home_address,
-       home_lat          = EXCLUDED.home_lat,
-       home_lon          = EXCLUDED.home_lon,
-       max_radius_km     = EXCLUDED.max_radius_km,
-       skills            = EXCLUDED.skills,
-       blocked_dates     = EXCLUDED.blocked_dates,
-       depart_times      = EXCLUDED.depart_times,
-       work_start        = EXCLUDED.work_start,
-       work_end          = EXCLUDED.work_end,
-       workdays          = EXCLUDED.workdays,
-       work_hours_by_day = EXCLUDED.work_hours_by_day,
-       buffer_minutes    = EXCLUDED.buffer_minutes,
-       slot_minutes      = EXCLUDED.slot_minutes,
-       national_holidays = EXCLUDED.national_holidays,
-       languages         = EXCLUDED.languages,
-       native_language   = EXCLUDED.native_language,
-       event_color       = EXCLUDED.event_color,
-       updated_at        = NOW()`,
+       home_address        = EXCLUDED.home_address,
+       home_lat            = EXCLUDED.home_lat,
+       home_lon            = EXCLUDED.home_lon,
+       max_radius_km       = EXCLUDED.max_radius_km,
+       skills              = EXCLUDED.skills,
+       blocked_dates       = EXCLUDED.blocked_dates,
+       depart_times        = EXCLUDED.depart_times,
+       work_start          = EXCLUDED.work_start,
+       work_end            = EXCLUDED.work_end,
+       workdays            = EXCLUDED.workdays,
+       work_hours_by_day   = EXCLUDED.work_hours_by_day,
+       buffer_minutes      = EXCLUDED.buffer_minutes,
+       slot_minutes        = EXCLUDED.slot_minutes,
+       national_holidays   = EXCLUDED.national_holidays,
+       languages           = EXCLUDED.languages,
+       native_language     = EXCLUDED.native_language,
+       event_color         = EXCLUDED.event_color,
+       earliest_departure  = EXCLUDED.earliest_departure,
+       updated_at          = NOW()`,
     [
       normKey,
       home_address,
@@ -2794,6 +2808,7 @@ async function upsertPhotographerSettings(key, settings) {
       JSON.stringify(languages),
       native_language,
       String(event_color || "#3b82f6"),
+      earliest_departure || null,
     ]
   );
 }
@@ -3026,6 +3041,7 @@ module.exports = {
   insertOrder,
   getOrders,
   getOrderByNo,
+  getOrdersByPhotographerAndDate,
   updateCustomerNasStorageBases,
   updateOrderFields,
   listOrderFolderLinks,
