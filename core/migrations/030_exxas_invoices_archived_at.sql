@@ -1,4 +1,4 @@
-﻿-- Exxas-Rechnungen: Archivieren ohne Sync-Daten zu loeschen
+-- Exxas-Rechnungen: Archivieren ohne Sync-Daten zu löschen
 ALTER TABLE tour_manager.exxas_invoices
   ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
 
