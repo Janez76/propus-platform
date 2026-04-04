@@ -9,8 +9,9 @@ export function pdfJsDocumentUrl(remotePdfUrl: string): string {
   return pathOrUrl;
 }
 
-/** Dev-Proxy oder VITE_PDF_INLINE_PROXY – sonst CORS auf Remote-PDFs. */
+/** Next.js-kompatibel: kein Vite-import.meta.env. Remote-PDFs können via CORS geladen werden. */
 export function canLoadRemotePdfWithPdfJs(): boolean {
-  if (import.meta.env.DEV) return true;
-  return Boolean((import.meta.env.VITE_PDF_INLINE_PROXY as string | undefined)?.trim());
+  if (typeof process !== "undefined" && process.env.NODE_ENV === "development") return true;
+  const proxyEnv = typeof process !== "undefined" ? (process.env.NEXT_PUBLIC_PDF_INLINE_PROXY ?? "") : "";
+  return Boolean(proxyEnv.trim());
 }

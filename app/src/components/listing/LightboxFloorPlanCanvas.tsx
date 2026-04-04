@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import * as pdfjsLib from "pdfjs-dist";
-import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { canLoadRemotePdfWithPdfJs, pdfJsDocumentUrl } from "./utils/pdfJsRemote";
 import { pdfLightboxEmbedUrl } from "./utils/pdfPreviewUrl";
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
+// Next.js/webpack-kompatibel: kein Vite-?url-Import, stattdessen CDN-URL
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
 type Props = {
   remotePdfUrl: string;

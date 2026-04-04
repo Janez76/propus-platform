@@ -7,11 +7,11 @@ export function pdfPreviewEmbedUrl(remotePdfUrl: string): string {
   const u = remotePdfUrl.trim();
   if (!u) return u;
 
-  if (import.meta.env.DEV) {
+  if (process.env.NODE_ENV === "development") {
     return `/__propus-pdf-inline?url=${encodeURIComponent(u)}`;
   }
 
-  const proxy = (import.meta.env.VITE_PDF_INLINE_PROXY as string | undefined)?.trim();
+  const proxy = (process.env.NEXT_PUBLIC_PDF_INLINE_PROXY ?? "").trim() || undefined;
   if (proxy) {
     const base = proxy.replace(/\/$/, "");
     return `${base}?url=${encodeURIComponent(u)}`;

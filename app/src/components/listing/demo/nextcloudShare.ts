@@ -47,12 +47,12 @@ export function nextcloudPublicShareFolderZipUrl(sharePageUrl: string): string |
   }
 }
 
-/** Basis-URL für WebDAV-Requests (Vite-Proxy in Dev, optional gleicher Ursprung in Prod). */
+/** Basis-URL für WebDAV-Requests (Next.js-kompatibel, kein Vite-Proxy). */
 function requestOriginForWebdav(): string {
-  if (import.meta.env.DEV) {
+  if (process.env.NODE_ENV === "development") {
     return "/__propus-nextcloud";
   }
-  const proxy = (import.meta.env.VITE_NEXTCLOUD_PROXY as string | undefined)?.trim();
+  const proxy = (process.env.NEXT_PUBLIC_NEXTCLOUD_PROXY ?? "").trim();
   if (proxy) {
     return proxy.replace(/\/$/, "");
   }
@@ -147,7 +147,7 @@ async function propfind(href: string, token: string, shareHost: string): Promise
     "Content-Type": "application/xml; charset=utf-8",
     Authorization: `Basic ${auth}`,
   };
-  if (import.meta.env.DEV) {
+  if (process.env.NODE_ENV === "development") {
     headers["x-prop-nc-host"] = shareHost;
   }
   const res = await fetch(url, {
@@ -287,9 +287,9 @@ export async function listMediaFromNextcloudPublicShare(
         ok: false,
         code: "cors",
         message:
-          import.meta.env.DEV
-            ? "WebDAV konnte nicht erreicht werden (Netzwerk). Prüfen Sie den Vite-Proxy."
-            : "Der Browser blockiert WebDAV (CORS). Nutzen Sie lokal «npm run dev», setzen Sie VITE_NEXTCLOUD_PROXY auf einen gleichlautenden Reverse-Proxy, oder legen Sie eine gallery.json auf die Freigabe.",
+          process.env.NODE_ENV === "development"
+            ? "WebDAV konnte nicht erreicht werden (Netzwerk). Prüfen Sie den Dev-Proxy."
+            : "Der Browser blockiert WebDAV (CORS). Nutzen Sie lokal den Dev-Server, setzen Sie NEXT_PUBLIC_NEXTCLOUD_PROXY auf einen gleichlautenden Reverse-Proxy, oder legen Sie eine gallery.json auf die Freigabe.",
       };
     }
     return {
