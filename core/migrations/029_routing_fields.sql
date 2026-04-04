@@ -10,6 +10,16 @@ ALTER TABLE booking.orders
 ALTER TABLE booking.orders
   ADD COLUMN IF NOT EXISTS assignment_trace jsonb;
 
+-- Generierte Spalten aus JSONB (werden von booking/db.js als echte Spalten erwartet)
+ALTER TABLE booking.orders
+  ADD COLUMN IF NOT EXISTS photographer_key TEXT GENERATED ALWAYS AS (photographer->>'key') STORED;
+
+ALTER TABLE booking.orders
+  ADD COLUMN IF NOT EXISTS schedule_date TEXT GENERATED ALWAYS AS (schedule->>'date') STORED;
+
+ALTER TABLE booking.orders
+  ADD COLUMN IF NOT EXISTS schedule_time TEXT GENERATED ALWAYS AS (schedule->>'time') STORED;
+
 -- Index für same-day proximity Abfragen
 CREATE INDEX IF NOT EXISTS idx_orders_photographer_date
   ON booking.orders (photographer_key, schedule_date)
@@ -52,5 +62,8 @@ ON CONFLICT (key) DO NOTHING;
 -- ALTER TABLE booking.orders DROP COLUMN IF EXISTS address_lat;
 -- ALTER TABLE booking.orders DROP COLUMN IF EXISTS address_lon;
 -- ALTER TABLE booking.orders DROP COLUMN IF EXISTS assignment_trace;
+-- ALTER TABLE booking.orders DROP COLUMN IF EXISTS photographer_key;
+-- ALTER TABLE booking.orders DROP COLUMN IF EXISTS schedule_date;
+-- ALTER TABLE booking.orders DROP COLUMN IF EXISTS schedule_time;
 -- ALTER TABLE booking.photographer_settings DROP COLUMN IF EXISTS earliest_departure;
 -- DROP INDEX IF EXISTS idx_orders_photographer_date;
