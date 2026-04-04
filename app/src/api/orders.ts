@@ -686,9 +686,9 @@ export const provisionOrderStorage = (token: string, orderNo: string) =>
 export const linkOrderStorageFolder = (
   token: string,
   orderNo: string,
-  input: { folderType: "raw_material" | "customer_folder"; relativePath: string },
+  input: { folderType: "raw_material" | "customer_folder"; relativePath: string; rename?: boolean },
 ) =>
-  apiRequest<{ ok: boolean; folders: OrderStorageFolderSummary[] }>(
+  apiRequest<{ ok: boolean; folders: OrderStorageFolderSummary[]; renameWarning: string | null }>(
     `/api/admin/orders/${encodeURIComponent(orderNo)}/storage/link`,
     "POST",
     token,

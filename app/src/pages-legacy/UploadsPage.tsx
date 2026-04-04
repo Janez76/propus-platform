@@ -60,6 +60,11 @@ export function UploadsPage() {
     raw_material: "",
     customer_folder: "",
   });
+  const [renameOn, setRenameOn] = useState<Record<string, boolean>>({
+    raw_material: false,
+    customer_folder: false,
+  });
+  const [renameWarnings, setRenameWarnings] = useState<Record<string, string>>({});
 
   // NAS-Browser State pro Ordner-Karte
   const [browsers, setBrowsers] = useState<Record<string, NasBrowserState>>({
@@ -149,11 +154,19 @@ export function UploadsPage() {
 
   async function handleLink(folderType: "raw_material" | "customer_folder", relativePath?: string) {
     if (!selectedOrderNo) return;
-    const path = relativePath ?? String(linkInputs[folderType] || "").trim();
-    if (!path) return;
+    const linkPath = relativePath ?? String(linkInputs[folderType] || "").trim();
+    if (!linkPath) return;
     setLoadingSummary(true);
+    setRenameWarnings((cur) => ({ ...cur, [folderType]: "" }));
     try {
-      await linkOrderStorageFolder(token, selectedOrderNo, { folderType, relativePath: path });
+      const result = await linkOrderStorageFolder(token, selectedOrderNo, {
+        folderType,
+        relativePath: linkPath,
+        rename: renameOn[folderType] ?? false,
+      });
+      if (result.renameWarning) {
+        setRenameWarnings((cur) => ({ ...cur, [folderType]: result.renameWarning ?? "" }));
+      }
       await loadSummary(selectedOrderNo);
       // Browser schließen und Input leeren
       setBrowserState(folderType, { open: false, relativePath: "", entries: [], parentPath: null });
@@ -384,9 +397,39 @@ export function UploadsPage() {
 
                       {/* Ordner verknüpfen */}
                       <div className="mt-4 space-y-3">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-subtle)]">
-                          Bestehenden Ordner verknüpfen
-                        </p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-subtle)]">
+                            Bestehenden Ordner verknüpfen
+                          </p>
+                          <label className="flex cursor-pointer items-center gap-1.5 text-xs text-[var(--text-muted)]">
+                            <input
+                              type="checkbox"
+                              checked={renameOn[ft] ?? false}
+                              onChange={(e) =>
+                                setRenameOn((cur) => ({ ...cur, [ft]: e.target.checked }))
+                              }
+                              className="h-3.5 w-3.5 accent-[var(--accent)]"
+                            />
+                            Ordner umbenennen
+                          </label>
+                        </div>
+
+                        {/* Vorschau Zielname wenn Umbenennung aktiv */}
+                        {renameOn[ft] && (
+                          <div className="rounded-lg border border-[var(--accent)]/30 bg-[var(--accent)]/5 px-3 py-2 text-xs text-[var(--text-muted)]">
+                            Ordner wird umbenannt zu:{" "}
+                            <span className="font-mono font-semibold text-[var(--text-main)]">
+                              {folder.displayName}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Warnung nach Umbenennung (z.B. Ziel existiert bereits) */}
+                        {renameWarnings[ft] && (
+                          <div className="rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2 text-xs text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-400">
+                            ⚠ {renameWarnings[ft]}
+                          </div>
+                        )}
 
                         {/* Option A: NAS-File-Browser (nur wenn Root erreichbar) */}
                         {rootOk ? (

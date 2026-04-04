@@ -352,31 +352,54 @@ async function getOrderFolderSummary(order, db, { createMissing = false } = {}) 
   });
 }
 
-async function linkExistingOrderFolder(order, db, { folderType, relativePath }) {
+async function linkExistingOrderFolder(order, db, { folderType, relativePath, rename = false }) {
   const defs = buildFolderDefinitions(order);
   const def = defs[folderType];
   if (!def) throw new Error("Ungültiger Ordnertyp");
   const rootPath = assertRootReady(def.rootPath, { label: folderType === "raw_material" ? "Raw-Root" : "Kunden-Root" });
   const normalizedRelative = path.normalize(String(relativePath || "")).replace(/^([/\\])+/, "");
   if (!normalizedRelative) throw new Error("Pfad fehlt");
-  const absolutePath = path.resolve(rootPath, normalizedRelative);
+  let absolutePath = path.resolve(rootPath, normalizedRelative);
   if (!(absolutePath === rootPath || absolutePath.startsWith(rootPath + path.sep))) {
     throw new Error("Pfad liegt ausserhalb des erlaubten Root-Verzeichnisses");
   }
   if (!fs.existsSync(absolutePath) || !fs.statSync(absolutePath).isDirectory()) {
     throw new Error("Zielordner nicht gefunden");
   }
-  return db.upsertOrderFolderLink({
+
+  // Optional: Ordner auf NAS nach Benennungskonvention umbenennen
+  let renameWarning = null;
+  if (rename) {
+    const expectedAbs = def.absolutePath;
+    if (absolutePath !== expectedAbs) {
+      if (fs.existsSync(expectedAbs)) {
+        renameWarning = `Zielordner existiert bereits: ${expectedAbs} – Ordner nicht umbenannt.`;
+      } else {
+        try {
+          const expectedParent = path.dirname(expectedAbs);
+          fs.mkdirSync(expectedParent, { recursive: true });
+          fs.renameSync(absolutePath, expectedAbs);
+          absolutePath = expectedAbs;
+        } catch (err) {
+          renameWarning = `Umbenennung fehlgeschlagen: ${err.message} – Ordner unter originalem Pfad verknüpft.`;
+        }
+      }
+    }
+  }
+
+  const finalRelative = toPortablePath(path.relative(rootPath, absolutePath));
+  const result = await db.upsertOrderFolderLink({
     orderNo: order.orderNo,
     folderType,
     rootKind: folderType === "raw_material" ? "raw" : "customer",
-    relativePath: toPortablePath(normalizedRelative),
+    relativePath: finalRelative,
     absolutePath,
-    displayName: defs[folderType].displayName,
-    companyName: defs[folderType].companyName,
+    displayName: def.displayName,
+    companyName: def.companyName,
     status: "linked",
     lastError: null,
   });
+  return { ...result, renameWarning };
 }
 
 async function archiveOrderFolder(order, db, folderType) {

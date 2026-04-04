@@ -5437,12 +5437,13 @@ app.post("/api/admin/orders/:orderNo/storage/link", requireAdmin, async (req, re
     const orderNo = Number(req.params.orderNo);
     const order = await db.getOrderByNo(orderNo);
     if (!order) return res.status(404).json({ error: "Order not found" });
-    await linkExistingOrderFolder(order, db, {
+    const linkResult = await linkExistingOrderFolder(order, db, {
       folderType: req.body?.folderType,
       relativePath: req.body?.relativePath,
+      rename: req.body?.rename === true,
     });
     const folders = await getOrderFolderSummary(order, db, { createMissing: false });
-    res.json({ ok: true, folders });
+    res.json({ ok: true, folders, renameWarning: linkResult?.renameWarning || null });
   } catch (err) {
     res.status(400).json({ error: err.message || "Ordner konnte nicht verknuepft werden" });
   }
