@@ -489,7 +489,7 @@ export interface TicketRow {
   module: string;
   reference_id: string | null;
   reference_type: string | null;
-  category: TicketCategory;
+  category: TicketCategory | string;
   subject: string;
   description: string | null;
   link_url: string | null;
@@ -505,6 +505,8 @@ export interface TicketRow {
   tour_label?: string | null;
   tour_bezeichnung?: string | null;
   tour_space_id?: string | null;
+  /** JOIN booking.orders bei reference_type = order */
+  reference_order_no?: number | null;
 }
 
 export interface TicketCreatePayload {

@@ -2535,10 +2535,13 @@ router.get('/tickets', async (req, res) => {
       `SELECT tk.*,
               t.object_label   AS tour_label,
               t.bezeichnung    AS tour_bezeichnung,
-              t.matterport_space_id AS tour_space_id
+              t.matterport_space_id AS tour_space_id,
+              o.order_no         AS reference_order_no
        FROM tour_manager.tickets tk
        LEFT JOIN tour_manager.tours t
          ON tk.reference_type = 'tour' AND tk.reference_id = t.id::TEXT
+       LEFT JOIN booking.orders o
+         ON tk.reference_type = 'order' AND tk.reference_id = o.id::TEXT
        ${where}
        ORDER BY tk.created_at DESC
        LIMIT 500`,
@@ -2557,10 +2560,13 @@ router.get('/tickets/:id', async (req, res) => {
       `SELECT tk.*,
               t.object_label   AS tour_label,
               t.bezeichnung    AS tour_bezeichnung,
-              t.matterport_space_id AS tour_space_id
+              t.matterport_space_id AS tour_space_id,
+              o.order_no         AS reference_order_no
        FROM tour_manager.tickets tk
        LEFT JOIN tour_manager.tours t
          ON tk.reference_type = 'tour' AND tk.reference_id = t.id::TEXT
+       LEFT JOIN booking.orders o
+         ON tk.reference_type = 'order' AND tk.reference_id = o.id::TEXT
        WHERE tk.id = $1`,
       [req.params.id]
     );

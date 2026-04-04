@@ -177,6 +177,72 @@ function registerAccessRoutes(app, deps) {
     }
   });
 
+  // ─── Role-Presets (Berechtigungen pro Systemrolle) ────────────────────────
+
+  const EDITABLE_ROLE_KEYS = new Set([
+    "tour_manager", "photographer",
+    "company_owner", "company_admin", "company_employee",
+    "customer_admin", "customer_user",
+  ]);
+
+  /** GET /api/admin/access/role-presets – alle Rollen-Permissions aus DB */
+  app.get("/api/admin/access/role-presets", requireAdmin, requireRolesManage, async (_req, res) => {
+    try {
+      const { rows } = await deps.db.query(
+        `SELECT role_key, array_agg(permission_key ORDER BY permission_key) AS permissions
+         FROM system_role_permissions
+         GROUP BY role_key`
+      );
+      const presets = {};
+      for (const row of rows) {
+        presets[row.role_key] = row.permissions ?? [];
+      }
+      // Fallback aus ROLE_PRESETS fuer Rollen ohne DB-Eintraege
+      for (const [rk, perms] of Object.entries(rbac.ROLE_PRESETS)) {
+        if (!presets[rk]) presets[rk] = Array.isArray(perms) ? [...perms] : [];
+      }
+      res.json({ ok: true, presets });
+    } catch (err) {
+      if (String(err?.code) === "42P01") {
+        const presets = {};
+        for (const [rk, perms] of Object.entries(rbac.ROLE_PRESETS)) {
+          presets[rk] = Array.isArray(perms) ? [...perms] : [];
+        }
+        return res.json({ ok: true, presets, fallback: true });
+      }
+      res.status(500).json({ error: err?.message || "Fehler" });
+    }
+  });
+
+  /** PATCH /api/admin/access/role-presets/:roleKey – Permissions fuer eine editierbare Rolle speichern */
+  app.patch("/api/admin/access/role-presets/:roleKey", requireAdmin, requireRolesManage, async (req, res) => {
+    try {
+      const roleKey = String(req.params.roleKey || "").trim();
+      if (!EDITABLE_ROLE_KEYS.has(roleKey)) {
+        return res.status(400).json({ error: `Rolle '${roleKey}' ist nicht editierbar (super_admin und internal_admin sind fixe System-Rollen).` });
+      }
+      const permissions = req.body?.permissions;
+      if (!Array.isArray(permissions)) {
+        return res.status(400).json({ error: "permissions muss ein Array von Permission-Keys sein." });
+      }
+      const validPerms = permissions.map((p) => String(p).trim()).filter((p) => rbac.ALL_PERMISSION_KEYS.includes(p));
+
+      // Sicherstellen dass DB-Tabellen existieren
+      await rbac.seedRbacIfNeeded();
+
+      await deps.db.query(`DELETE FROM system_role_permissions WHERE role_key = $1`, [roleKey]);
+      for (const pk of validPerms) {
+        await deps.db.query(
+          `INSERT INTO system_role_permissions (role_key, permission_key) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+          [roleKey, pk]
+        );
+      }
+      res.json({ ok: true, roleKey, permissions: validPerms });
+    } catch (err) {
+      res.status(500).json({ error: err?.message || "Fehler" });
+    }
+  });
+
   app.get("/api/admin/customers/:id/access", requireAdmin, async (req, res) => {
     try {
       const customerId = Number(req.params.id);

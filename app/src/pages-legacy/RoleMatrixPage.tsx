@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
-import { AlertCircle, Check, Info, Lock, Shield, Users, Building2, User, Camera } from "lucide-react";
+import { AlertCircle, Check, Info, Lock, RotateCcw, Save, Shield, Users, Building2, User, Camera } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useAuthStore } from "../store/authStore";
 import {
@@ -11,6 +11,7 @@ import {
   postPortalStaffAdd,
   postPortalStaffRemove,
 } from "../api/toursAdmin";
+import { getRolePresets, patchRolePreset } from "../api/access";
 import { useQuery } from "../hooks/useQuery";
 import { toursAdminPortalRolesQueryKey } from "../lib/queryKeys";
 
@@ -222,10 +223,6 @@ function getSections(): string[] {
   return out;
 }
 
-function countPerms(roleKey: RoleKey): number {
-  return ROLE_PRESETS[roleKey].size;
-}
-
 // ─── Gruppen-Render-Helfer ────────────────────────────────────────────────────
 
 const GROUP_META = {
@@ -254,15 +251,27 @@ function MatrixCell({
   fixed,
   roleColor,
   permDesc,
+  editable,
+  onClick,
 }: {
   has: boolean;
   fixed?: boolean;
   roleColor: string;
   permDesc: string;
+  editable?: boolean;
+  onClick?: () => void;
 }) {
+  const interactive = editable && !fixed;
   return (
-    <td className="border-b border-[var(--border-soft)] px-0 py-0 text-center align-middle">
-      <Tooltip text={permDesc}>
+    <td
+      className={cn(
+        "border-b border-[var(--border-soft)] px-0 py-0 text-center align-middle transition-colors",
+        interactive && "cursor-pointer hover:bg-[var(--surface-raised)]",
+      )}
+      onClick={interactive ? onClick : undefined}
+      title={interactive ? (has ? "Berechtigung entfernen" : "Berechtigung hinzufügen") : undefined}
+    >
+      <Tooltip text={interactive ? "" : permDesc}>
         <span className="flex h-full w-full items-center justify-center py-3">
           {has ? (
             <span
@@ -271,12 +280,19 @@ function MatrixCell({
                 fixed
                   ? cn("border-amber-500/40 bg-amber-500/15", roleColor)
                   : cn("border-current/30 bg-current/10", roleColor),
+                interactive && "group-hover:scale-110",
               )}
             >
               <Check className="h-3 w-3" strokeWidth={2.5} />
             </span>
           ) : (
-            <span className="flex h-5 w-5 items-center justify-center rounded-md border border-[var(--border-soft)] bg-transparent opacity-25">
+            <span
+              className={cn(
+                "flex h-5 w-5 items-center justify-center rounded-md border border-[var(--border-soft)] bg-transparent opacity-25 transition-all",
+                interactive && "hover:opacity-60 hover:border-current/40",
+                roleColor,
+              )}
+            >
               {fixed && <Lock className="h-2.5 w-2.5 text-[var(--text-subtle)]" />}
             </span>
           )}
@@ -582,6 +598,7 @@ function PortalRolesPanel() {
 
 export function RoleMatrixPage() {
   const role = useAuthStore((s) => s.role);
+  const token = useAuthStore((s) => s.token);
   const isSuperAdmin = role === "super_admin" || role === "admin";
   const canManagePortalRoles = role === "super_admin" || role === "admin" || role === "tour_manager";
 
@@ -595,6 +612,83 @@ export function RoleMatrixPage() {
   const [hoveredPerm, setHoveredPerm] = useState<string | null>(null);
   const [hoveredRole, setHoveredRole] = useState<RoleKey | null>(null);
   const [filterGroup, setFilterGroup] = useState<"all" | "intern" | "fotograf" | "portal">("all");
+
+  // ─── Editier-State (nur Super-Admin) ────────────────────────────────────────
+  const [loadedPresets, setLoadedPresets] = useState<Record<string, Set<string>> | null>(null);
+  const [editedPresets, setEditedPresets] = useState<Record<string, Set<string>> | null>(null);
+  const [savingRole, setSavingRole] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
+  const [saveErr, setSaveErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isSuperAdmin || !token) return;
+    getRolePresets(token)
+      .then((r) => {
+        const loaded: Record<string, Set<string>> = {};
+        for (const [rk, perms] of Object.entries(r.presets)) {
+          loaded[rk] = new Set(perms);
+        }
+        const edited: Record<string, Set<string>> = {};
+        for (const [rk, s] of Object.entries(loaded)) {
+          edited[rk] = new Set(s);
+        }
+        setLoadedPresets(loaded);
+        setEditedPresets(edited);
+      })
+      .catch(() => { /* fallback: hartkodierte ROLE_PRESETS bleiben */ });
+  }, [isSuperAdmin, token]);
+
+  function getPresets(): Record<RoleKey, Set<PermKey>> {
+    return (editedPresets ?? ROLE_PRESETS) as Record<RoleKey, Set<PermKey>>;
+  }
+
+  function isDirty(roleKey: RoleKey): boolean {
+    if (!loadedPresets || !editedPresets) return false;
+    const orig = loadedPresets[roleKey] ?? new Set<string>();
+    const edit = editedPresets[roleKey] ?? new Set<string>();
+    if (orig.size !== edit.size) return true;
+    for (const k of orig) if (!edit.has(k)) return true;
+    return false;
+  }
+
+  function handleToggle(roleKey: RoleKey, permKey: PermKey) {
+    setEditedPresets((prev) => {
+      if (!prev) return prev;
+      const set = new Set(prev[roleKey] ?? []);
+      if (set.has(permKey)) set.delete(permKey); else set.add(permKey);
+      return { ...prev, [roleKey]: set };
+    });
+    setSaveErr(null);
+    setSaveSuccess(null);
+  }
+
+  async function handleSave(roleKey: RoleKey) {
+    if (!editedPresets) return;
+    setSavingRole(roleKey);
+    setSaveErr(null);
+    setSaveSuccess(null);
+    try {
+      const perms = [...(editedPresets[roleKey] ?? [])];
+      await patchRolePreset(token, roleKey, perms);
+      setLoadedPresets((prev) => ({ ...prev, [roleKey]: new Set(perms) }));
+      setSaveSuccess(roleKey);
+      setTimeout(() => setSaveSuccess((v) => v === roleKey ? null : v), 2500);
+    } catch (e) {
+      setSaveErr(e instanceof Error ? e.message : "Speichern fehlgeschlagen");
+    } finally {
+      setSavingRole(null);
+    }
+  }
+
+  function handleDiscard(roleKey: RoleKey) {
+    if (!loadedPresets) return;
+    setEditedPresets((prev) => ({ ...prev, [roleKey]: new Set(loadedPresets[roleKey] ?? []) }));
+    setSaveErr(null);
+  }
+
+  function countPerms(roleKey: RoleKey): number {
+    return getPresets()[roleKey]?.size ?? 0;
+  }
 
   const sections = getSections();
   const visibleRoles = filterGroup === "all" ? ROLES : ROLES.filter((r) => r.group === filterGroup);
@@ -615,7 +709,7 @@ export function RoleMatrixPage() {
             {isSuperAdmin && view === "matrix" && (
               <div className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/8 px-4 py-2.5 text-sm text-amber-400">
                 <Shield className="h-4 w-4 shrink-0" />
-                <span>Nur Super-Admins können Rollen-Presets anpassen (über <code className="rounded bg-amber-500/15 px-1 text-xs">access-rbac.js</code>)</span>
+                <span>Klick auf eine Checkbox zum Bearbeiten — Änderungen werden pro Rolle gespeichert. Fixe Rollen (Super-Admin, Admin) sind immer unveränderlich.</span>
               </div>
             )}
           </div>
@@ -775,38 +869,74 @@ export function RoleMatrixPage() {
               <tr className="border-b-2 border-[var(--border-soft)] bg-[var(--surface-raised)]">
                 <th className="sticky left-0 z-10 bg-[var(--surface-raised)] px-4 py-3 text-left text-[11px] font-medium text-[var(--text-muted)]">
                   <span className="text-[var(--text-subtle)]">{PERMISSIONS.length} Berechtigungen</span>
+                  {saveErr && (
+                    <p className="mt-1 text-[10px] text-red-500">{saveErr}</p>
+                  )}
                 </th>
-                {visibleRoles.map((r, i) => (
-                  <th
-                    key={r.key}
-                    className={cn(
-                      "border-l border-[var(--border-soft)] px-2 py-2 text-center",
-                      i === 0 && "border-l-2",
-                      hoveredRole === r.key && "bg-[var(--surface)]",
-                    )}
-                    onMouseEnter={() => setHoveredRole(r.key)}
-                    onMouseLeave={() => setHoveredRole(null)}
-                  >
-                    <Tooltip text={r.description}>
-                      <div className="flex flex-col items-center gap-0.5">
-                        <span className={cn("text-[10px] font-semibold leading-tight text-center break-words max-w-[80px]", r.color)}>
-                          {r.label}
-                        </span>
-                        <span className={cn(
-                          "rounded-full border px-1.5 py-0 text-[9px] font-bold tabular-nums",
-                          r.headerBg, r.color,
-                        )}>
-                          {countPerms(r.key)}
-                        </span>
-                        {r.fixed && (
-                          <span className="flex items-center gap-0.5 rounded bg-amber-500/15 px-1 py-0 text-[8px] font-medium text-amber-400">
-                            <Lock className="h-2 w-2" /> Alle
+                {visibleRoles.map((r, i) => {
+                  const dirty = isDirty(r.key);
+                  const isSaving = savingRole === r.key;
+                  const isOk = saveSuccess === r.key;
+                  return (
+                    <th
+                      key={r.key}
+                      className={cn(
+                        "border-l border-[var(--border-soft)] px-2 py-2 text-center",
+                        i === 0 && "border-l-2",
+                        hoveredRole === r.key && "bg-[var(--surface)]",
+                        dirty && "bg-amber-500/5",
+                      )}
+                      onMouseEnter={() => setHoveredRole(r.key)}
+                      onMouseLeave={() => setHoveredRole(null)}
+                    >
+                      <Tooltip text={r.description}>
+                        <div className="flex flex-col items-center gap-0.5">
+                          <span className={cn("text-[10px] font-semibold leading-tight text-center break-words max-w-[80px]", r.color)}>
+                            {r.label}
                           </span>
-                        )}
-                      </div>
-                    </Tooltip>
-                  </th>
-                ))}
+                          <span className={cn(
+                            "rounded-full border px-1.5 py-0 text-[9px] font-bold tabular-nums",
+                            r.headerBg, r.color,
+                          )}>
+                            {countPerms(r.key)}
+                          </span>
+                          {r.fixed && (
+                            <span className="flex items-center gap-0.5 rounded bg-amber-500/15 px-1 py-0 text-[8px] font-medium text-amber-400">
+                              <Lock className="h-2 w-2" /> Alle
+                            </span>
+                          )}
+                          {/* Speichern / Zurücksetzen pro Rolle (nur Super-Admin, nicht fixe Rollen) */}
+                          {isSuperAdmin && !r.fixed && dirty && (
+                            <div className="flex items-center gap-1 mt-1">
+                              <button
+                                type="button"
+                                disabled={isSaving}
+                                onClick={() => void handleSave(r.key)}
+                                className="flex items-center gap-0.5 rounded bg-emerald-500 px-1.5 py-0.5 text-[8px] font-bold text-white hover:bg-emerald-600 disabled:opacity-50 transition-colors"
+                                title="Änderungen speichern"
+                              >
+                                <Save className="h-2 w-2" />
+                                {isSaving ? "…" : "OK"}
+                              </button>
+                              <button
+                                type="button"
+                                disabled={isSaving}
+                                onClick={() => handleDiscard(r.key)}
+                                className="flex items-center gap-0.5 rounded bg-[var(--surface)] border border-[var(--border-soft)] px-1.5 py-0.5 text-[8px] text-[var(--text-subtle)] hover:text-[var(--text-main)] disabled:opacity-50 transition-colors"
+                                title="Änderungen verwerfen"
+                              >
+                                <RotateCcw className="h-2 w-2" />
+                              </button>
+                            </div>
+                          )}
+                          {isOk && !dirty && (
+                            <span className="mt-1 text-[8px] text-emerald-500 font-semibold">✓ Gespeichert</span>
+                          )}
+                        </div>
+                      </Tooltip>
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
 
@@ -865,10 +995,12 @@ export function RoleMatrixPage() {
                           {visibleRoles.map((r) => (
                             <MatrixCell
                               key={r.key}
-                              has={ROLE_PRESETS[r.key].has(perm.key)}
+                              has={getPresets()[r.key]?.has(perm.key) ?? false}
                               fixed={r.fixed}
                               roleColor={r.color}
                               permDesc={`${r.label}: ${perm.label}`}
+                              editable={isSuperAdmin}
+                              onClick={() => handleToggle(r.key, perm.key)}
                             />
                           ))}
                         </tr>
@@ -921,8 +1053,16 @@ export function RoleMatrixPage() {
             <Lock className="h-3.5 w-3.5" />
             <span>Fixe System-Rolle — immer alle Rechte</span>
           </div>
+          {isSuperAdmin && (
+            <div className="flex items-center gap-2">
+              <span className="flex h-5 w-5 items-center justify-center rounded-md border border-[var(--border-soft)] bg-amber-500/5 opacity-60 cursor-pointer">
+                <Check className="h-3 w-3 text-emerald-400" strokeWidth={2.5} />
+              </span>
+              <span>Klickbar = Berechtigung an/aus (nicht-fixe Rollen)</span>
+            </div>
+          )}
           <span className="ml-auto text-[var(--text-subtle)]">
-            Quelle: <code className="rounded bg-[var(--surface-raised)] px-1">booking/access-rbac.js</code> → ROLE_PRESETS
+            Gespeichert in: <code className="rounded bg-[var(--surface-raised)] px-1">system_role_permissions</code> (DB)
           </span>
         </div>
 

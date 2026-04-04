@@ -95,3 +95,22 @@ export async function ensureContactSubject(token: string, customerId: number, co
     {},
   );
 }
+
+/** Alle Rollen-Permissions aus der DB laden (nur Super-Admin). */
+export async function getRolePresets(token: string) {
+  return apiRequest<{ ok: true; presets: Record<string, string[]>; fallback?: boolean }>(
+    "/api/admin/access/role-presets",
+    "GET",
+    token,
+  );
+}
+
+/** Permissions für eine editierbare Rolle speichern (nur Super-Admin, fixe Rollen werden abgewiesen). */
+export async function patchRolePreset(token: string, roleKey: string, permissions: string[]) {
+  return apiRequest<{ ok: true; roleKey: string; permissions: string[] }>(
+    `/api/admin/access/role-presets/${encodeURIComponent(roleKey)}`,
+    "PATCH",
+    token,
+    { permissions },
+  );
+}
