@@ -429,6 +429,16 @@ body.admin-body--login #root {
 	color: #ccc;
 }
 
+body.theme-dark .gal-login-flat__field input {
+	background: #1a1a1e;
+	border-color: #2e2e32;
+	color: #f0f0ee;
+}
+
+body.theme-dark .gal-login-flat__field input::placeholder {
+	color: #444;
+}
+
 .gal-login-flat__error {
 	display: none;
 	margin: 0.75rem 0 0;
@@ -439,6 +449,12 @@ body.admin-body--login #root {
 	background: #fef0f0;
 	border-radius: 8px;
 	border: 0.5px solid #f5c6c6;
+}
+
+body.theme-dark .gal-login-flat__error {
+	color: #f87171;
+	background: rgb(127 29 29 / 0.2);
+	border-color: rgb(252 165 165 / 0.25);
 }
 
 .gal-login-flat__error--show {
@@ -603,6 +619,26 @@ body.admin-body--login #root {
 	outline: none;
 	border-color: rgb(184 149 106 / 0.6);
 	box-shadow: none;
+}
+
+body.theme-dark .gal-admin-listings-search {
+	background: #1a1a1e;
+	border-color: #2e2e32;
+	color: #f0f0ee;
+}
+
+body.theme-dark .gal-admin-listings-search::placeholder {
+	color: #555;
+}
+
+body.theme-dark .gal-admin-listings-search:focus {
+	border-color: rgba(182, 142, 32, 0.5);
+}
+
+body.theme-dark .gal-admin-table-select {
+	background: #1a1a1e;
+	border-color: #2e2e32;
+	color: #f0f0ee;
 }
 
 .gal-admin-listings-filters {
@@ -781,9 +817,33 @@ body.admin-body--login #root {
 }
 
 body.theme-dark .gal-admin-filter-dropdown {
-	--gal-filter-check: #60a5fa;
-	--gal-filter-active-bg: rgb(37 99 235 / 0.18);
+	--gal-filter-check: #7a9fd4;
+	--gal-filter-active-bg: rgb(80 120 200 / 0.15);
 	--gal-filter-active-text: #93c5fd;
+}
+
+body.theme-dark .gal-admin-filter-dropdown__trigger {
+	background: #1a1a1e;
+	border-color: #2e2e32;
+}
+
+body.theme-dark .gal-admin-filter-dropdown__trigger:hover {
+	background: #222228;
+	border-color: #3a3a3e;
+}
+
+body.theme-dark .gal-admin-filter-dropdown__panel {
+	background: #1a1a1e;
+	border-color: #2e2e32;
+	box-shadow: 0 8px 28px rgb(0 0 0 / 0.45);
+}
+
+body.theme-dark .gal-admin-filter-dropdown__option:hover {
+	background: #222228;
+}
+
+body.theme-dark .gal-admin-filter-dropdown__section {
+	border-color: #2e2e32;
 }
 
 .gal-admin-table-select {
@@ -997,9 +1057,9 @@ body.theme-dark .gal-admin-listings-table--flat .gal-admin-listings-tbl.admin-ta
 }
 
 body.theme-dark .gal-admin-badge--delivery-sent {
-	background: rgb(80 120 200 / 0.14);
-	color: #7a9fd4;
-	border: 1px solid rgb(80 120 200 / 0.25);
+	background: rgb(30 58 138 / 0.28);
+	color: rgb(147 197 253);
+	border: 1px solid rgb(59 130 246 / 0.25);
 }
 
 /* Zahlen-Badges (wie vorher visuell kräftiger) */
@@ -1023,7 +1083,7 @@ body.theme-dark .gal-admin-badge--delivery-sent {
 }
 
 body.theme-dark .gal-admin-listing-num--bilder {
-	background: rgb(80 120 200 / 0.14);
+	background: rgb(80 120 200 / 0.15);
 	color: #7a9fd4;
 }
 
@@ -1033,19 +1093,13 @@ body.theme-dark .gal-admin-listing-num--bilder {
 }
 
 body.theme-dark .gal-admin-listing-num--revision {
-	background: rgb(127 29 29 / 0.42);
-	color: rgb(254 202 202);
+	background: rgb(127 29 29 / 0.25);
+	color: rgb(252 165 165);
 }
 
 .gal-admin-listing-num--muted {
 	background: var(--adm-bg-muted);
 	color: var(--adm-muted);
-}
-
-body.theme-dark .gal-admin-listing-num--muted {
-	background: transparent;
-	border: 1px solid #3a3a3a;
-	color: #666;
 }
 
 /* Hover-Zeile: Aktions-Buttons bleiben sichtbar (kein blend-in mit Zeilenhintergrund) */
@@ -1422,8 +1476,9 @@ body.theme-dark .gal-admin-feedback-entry__resolved-pill {
 }
 
 body.theme-dark .gal-admin-badge--ok {
-	background: rgb(34 197 94 / 0.22);
-	color: rgb(187 247 208);
+	background: rgb(34 197 94 / 0.12);
+	color: rgb(134 239 172);
+	border: 1px solid rgb(34 197 94 / 0.2);
 }
 
 .gal-admin-badge--off {
@@ -1433,8 +1488,8 @@ body.theme-dark .gal-admin-badge--ok {
 
 body.theme-dark .gal-admin-badge--off {
 	background: transparent;
-	border: 1px solid #3a3a3a;
-	color: #888;
+	border: 1px solid #3a3a3e;
+	color: #666;
 }
 
 /* Versand «offen» */
@@ -1444,9 +1499,9 @@ body.theme-dark .gal-admin-badge--off {
 }
 
 body.theme-dark .gal-admin-badge--delivery-open {
-	background: rgba(182 142 32 / 0.15);
+	background: rgba(182, 142, 32, 0.15);
 	color: #c49a28;
-	border: 1px solid rgba(182 142 32 / 0.3);
+	border: 1px solid rgba(182, 142, 32, 0.3);
 }
 
 /* Listings: Spalte Bilder */
@@ -1457,8 +1512,9 @@ body.theme-dark .gal-admin-badge--delivery-open {
 }
 
 body.theme-dark .gal-admin-badge--bilder {
-	background: rgb(80 120 200 / 0.14);
+	background: rgb(80 120 200 / 0.15);
 	color: #7a9fd4;
+	border: 1px solid rgb(80 120 200 / 0.2);
 }
 
 /* Listings: Spalte Revisionen */
@@ -1469,8 +1525,9 @@ body.theme-dark .gal-admin-badge--bilder {
 }
 
 body.theme-dark .gal-admin-badge--revision {
-	background: rgb(127 29 29 / 0.42);
-	color: rgb(254 202 202);
+	background: rgb(127 29 29 / 0.25);
+	color: rgb(252 165 165);
+	border: 1px solid rgb(127 29 29 / 0.35);
 }
 
 .gal-admin-field-hint {
@@ -1812,6 +1869,12 @@ body.theme-dark .gal-admin-mail-send-modal__err {
 	line-height: 1.45;
 }
 
+body.theme-dark .gal-admin-email-html-textarea {
+	background: #1a1a1e;
+	border-color: #2e2e32;
+	color: #f0f0ee;
+}
+
 .gal-admin-email-preview-col {
 	min-width: 0;
 }
@@ -1846,6 +1909,10 @@ body.theme-dark .gal-admin-mail-send-modal__err {
 	height: 480px;
 	border: 0;
 	background: #fff;
+}
+
+body.theme-dark .gal-admin-email-preview-frame {
+	background: #1a1a1e;
 }
 
 .gal-admin-email-preview-shell--modal .gal-admin-email-preview-frame {
@@ -1884,6 +1951,16 @@ body.theme-dark .gal-admin-mail-send-modal__err {
 .gal-et-save--flash.admin-btn--outline.gal-admin-btn-new-listing:hover:not(:disabled) {
 	border-color: rgb(46 125 50 / 0.7);
 	background: rgb(46 125 50 / 0.12);
+}
+
+body.theme-dark .gal-et-save--flash.admin-btn--outline.gal-admin-btn-new-listing {
+	border-color: rgb(74 222 128 / 0.3);
+	color: rgb(134 239 172);
+	background: rgb(34 197 94 / 0.1);
+}
+
+body.theme-dark .gal-et-save--flash.admin-btn--outline.gal-admin-btn-new-listing:hover:not(:disabled) {
+	background: rgb(34 197 94 / 0.15);
 }
 
 .gal-et-msg {
@@ -2087,6 +2164,71 @@ body.theme-dark .gal-admin-mail-send-modal__err {
 	background: rgb(0 0 0 / 0.07);
 }
 
+/* gal-et-dd Dark Mode */
+body.theme-dark .gal-et-dd-trigger {
+	background: #1a1a1e;
+	border-color: #2e2e32;
+	color: #f0f0ee;
+}
+
+body.theme-dark .gal-et-dd-trigger:hover:not(:disabled) {
+	border-color: #3a3a3e;
+}
+
+body.theme-dark .gal-et-dd-trigger--open {
+	border-color: rgba(182, 142, 32, 0.6);
+}
+
+body.theme-dark .gal-et-dd-selected-label {
+	color: #f0f0ee;
+}
+
+body.theme-dark .gal-et-dd-icon-svg {
+	stroke: #666;
+}
+
+body.theme-dark .gal-et-dd-sep {
+	background: rgb(255 255 255 / 0.08);
+}
+
+body.theme-dark .gal-et-dd-menu {
+	background: #1a1a1e;
+	border-color: #2e2e32;
+	box-shadow: 0 8px 28px rgb(0 0 0 / 0.5);
+}
+
+body.theme-dark .gal-et-dd-section-label {
+	color: #555;
+}
+
+body.theme-dark .gal-et-dd-item:hover {
+	background: #222228;
+}
+
+body.theme-dark .gal-et-dd-item--active {
+	background: rgb(80 120 200 / 0.12);
+}
+
+body.theme-dark .gal-et-dd-item--active .gal-et-dd-item-name {
+	color: #7a9fd4;
+}
+
+body.theme-dark .gal-et-dd-item-name {
+	color: #c8c8c4;
+}
+
+body.theme-dark .gal-et-dd-check-svg {
+	stroke: #7a9fd4;
+}
+
+body.theme-dark .gal-et-dd-divider {
+	background: rgb(255 255 255 / 0.06);
+}
+
+body.theme-dark .gal-et-dd-chevron-svg {
+	stroke: #555;
+}
+
 .gal-et-main {
 	display: grid;
 	grid-template-columns: 1fr 1fr;
@@ -2253,6 +2395,50 @@ body.theme-dark .gal-admin-mail-send-modal__err {
 	display: block;
 	border-radius: 8px;
 	box-shadow: 0 1px 3px rgb(0 0 0 / 0.08);
+}
+
+/* gal-et Editor + Preview Dark Mode */
+body.theme-dark .gal-et-panel-card {
+	background: #1a1a1e;
+	border-color: #2e2e32;
+}
+
+body.theme-dark .gal-et-subject-input {
+	color: #f0f0ee;
+	background: transparent;
+}
+
+body.theme-dark .gal-et-html-editor {
+	color: #c8c8c4;
+	background: #111113;
+}
+
+body.theme-dark .gal-et-ph-tag {
+	background: #222228;
+	color: #9a9a96;
+	border-color: rgb(255 255 255 / 0.06);
+}
+
+body.theme-dark .gal-et-ph-tag:hover {
+	background: #2a2a30;
+}
+
+body.theme-dark .gal-et-ph-sub {
+	color: #444;
+}
+
+body.theme-dark .gal-et-preview-col {
+	background: #1a1a1e;
+	border-color: #2e2e32;
+}
+
+body.theme-dark .gal-et-preview-body {
+	background: #111113;
+}
+
+body.theme-dark .gal-et-preview-iframe {
+	background: #1a1a1e;
+	box-shadow: none;
 }
 
 /* Galerie-Editor */
