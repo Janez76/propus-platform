@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
 import { isCompanyWorkspaceRole } from "../lib/companyRoles";
 import { t } from "../i18n";
+import type { Role } from "../types";
 import { Footer } from "../components/layout/Footer";
 import { AuthLogoHeader, AuthCard } from "../components/auth/AuthPageLayout";
 import { getAdminProfile } from "../api/profile";
@@ -82,7 +83,7 @@ export function LoginPage() {
         setError(data?.error || "Login fehlgeschlagen");
         return;
       }
-      const { token: tok, role: r, permissions } = data as { token: string; role: string; permissions?: string[] };
+      const { token: tok, role: r, permissions } = data as { token: string; role: Role; permissions?: string[] };
       setAuth(tok, r || "admin", true, Array.isArray(permissions) ? permissions : []);
       const params = new URLSearchParams(window.location.search);
       const returnTo = params.get("returnTo") || "/dashboard";
