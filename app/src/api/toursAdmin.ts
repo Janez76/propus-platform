@@ -81,6 +81,35 @@ export function getAdminInvoicesCentral(type: "renewal" | "exxas", status?: stri
   }>(`/invoices-central?${p.toString()}`);
 }
 
+export function deleteAdminInvoice(type: "renewal" | "exxas", invoiceId: string | number) {
+  return toursAdminFetch<{ ok: true }>(`/invoices/${type}/${invoiceId}`, {
+    method: "DELETE",
+  });
+}
+
+export function archiveAdminInvoice(type: "renewal" | "exxas", invoiceId: string | number) {
+  return toursAdminFetch<{ ok: true }>(`/invoices/${type}/${invoiceId}/archive`, {
+    method: "PATCH",
+  });
+}
+
+export function updateAdminInvoice(
+  type: "renewal" | "exxas",
+  invoiceId: string | number,
+  body: Record<string, unknown>,
+) {
+  return toursAdminFetch<{ ok: true; invoice: Record<string, unknown> }>(`/invoices/${type}/${invoiceId}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export function resendAdminInvoice(type: "renewal" | "exxas", invoiceId: string | number) {
+  return toursAdminFetch<{ ok: true }>(`/invoices/${type}/${invoiceId}/resend`, {
+    method: "POST",
+  });
+}
+
 export function getToursAdminBankImport() {
   return toursAdminFetch<Record<string, unknown>>("/bank-import");
 }

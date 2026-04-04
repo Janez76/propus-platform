@@ -1507,6 +1507,59 @@ router.get('/invoices-central', async (req, res) => {
   }
 });
 
+router.delete('/invoices/:type/:id', async (req, res) => {
+  try {
+    const type = String(req.params.type || '');
+    const invoiceId = String(req.params.id || '');
+    const result = type === 'exxas'
+      ? await phase3.deleteExxasInvoice(invoiceId)
+      : await phase3.deleteRenewalInvoice(invoiceId);
+    return res.json(result);
+  } catch (err) {
+    return res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+router.patch('/invoices/:type/:id/archive', async (req, res) => {
+  try {
+    const type = String(req.params.type || '');
+    const invoiceId = String(req.params.id || '');
+    const result = type === 'exxas'
+      ? await phase3.archiveExxasInvoice(invoiceId)
+      : await phase3.archiveRenewalInvoice(invoiceId);
+    return res.json(result);
+  } catch (err) {
+    return res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+router.patch('/invoices/:type/:id', async (req, res) => {
+  try {
+    const type = String(req.params.type || '');
+    const invoiceId = String(req.params.id || '');
+    const result = type === 'exxas'
+      ? await phase3.updateExxasInvoice(invoiceId, req.body || {})
+      : await phase3.updateRenewalInvoice(invoiceId, req.body || {});
+    return res.json(result);
+  } catch (err) {
+    return res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+router.post('/invoices/:type/:id/resend', async (req, res) => {
+  try {
+    const type = String(req.params.type || '');
+    if (type !== 'renewal') {
+      return res.status(400).json({ ok: false, error: 'Erneut senden ist nur für Verlängerungsrechnungen verfügbar.' });
+    }
+    const invoiceId = String(req.params.id || '');
+    const result = await phase3.resendRenewalInvoice(invoiceId);
+    return res.json(result);
+  } catch (err) {
+    return res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
 router.get('/bank-import', async (req, res) => {
   try {
     const data = await phase3.getBankImportJson();
