@@ -1,27 +1,28 @@
 -- Migration 033: Logto Big-Bang Cutover Vorbereitung
--- Erweitert admin_users um last_login_at (für AdminUsersPage)
+-- Erweitert core.admin_users um last_login_at (für AdminUsersPage)
 -- und stellt sicher dass alle benötigten lokalen Credentials vorhanden sind.
+-- HINWEIS: core.admin_users + last_login_at + Indexes wurden bereits in Migration 018 erstellt.
+-- Diese Migration ist daher eine sichere No-Op mit korrekten Schema-Prefixen.
 
--- 1. last_login_at Spalte hinzufügen falls nicht vorhanden
-ALTER TABLE admin_users
+-- 1. last_login_at Spalte hinzufügen falls nicht vorhanden (018 hat das bereits)
+ALTER TABLE core.admin_users
   ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;
 
--- 2. Index auf email für schnelle Lookups
-CREATE INDEX IF NOT EXISTS idx_admin_users_email ON admin_users (LOWER(email));
-CREATE INDEX IF NOT EXISTS idx_admin_users_username ON admin_users (LOWER(username));
+-- 2. Index auf email für schnelle Lookups (IF NOT EXISTS, da 018 diese bereits erstellt)
+CREATE INDEX IF NOT EXISTS idx_core_admin_users_email_033 ON core.admin_users (LOWER(email));
+CREATE INDEX IF NOT EXISTS idx_core_admin_users_username_033 ON core.admin_users (LOWER(username));
 
 -- 3. Sicherstellen dass username eindeutig ist (falls noch nicht)
--- Prüfe ob UNIQUE Constraint existiert, sonst erstellen
 DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint
-    WHERE conrelid = 'admin_users'::regclass
+    WHERE conrelid = 'core.admin_users'::regclass
       AND contype = 'u'
       AND conname = 'admin_users_username_key'
   ) THEN
     BEGIN
-      ALTER TABLE admin_users ADD CONSTRAINT admin_users_username_key UNIQUE (username);
+      ALTER TABLE core.admin_users ADD CONSTRAINT admin_users_username_key UNIQUE (username);
     EXCEPTION WHEN duplicate_table THEN NULL;
     END;
   END IF;
