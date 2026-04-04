@@ -433,6 +433,10 @@ export function putToursAdminAutomations(body: Record<string, unknown>) {
   return toursAdminPut<Record<string, unknown>>("/automations", body);
 }
 
+export function getToursAdminConfirmationPending() {
+  return toursAdminFetch<{ ok: true; tours: Record<string, unknown>[] }>("/confirmation-pending");
+}
+
 export function getToursAdminTeam() {
   return toursAdminFetch<Record<string, unknown>>("/team");
 }

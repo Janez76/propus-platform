@@ -22,7 +22,7 @@ const DEFAULT_AI_PROMPT_SETTINGS = {
 };
 
 const DEFAULT_AUTOMATION_SETTINGS = {
-  expiringMailEnabled: true,
+  expiringMailEnabled: false,
   expiringMailLeadDays: 30,
   expiringMailTemplateKey: 'renewal_request',
   expiringMailCooldownDays: 14,
@@ -391,6 +391,68 @@ Bei weiteren Fragen stehen wir Ihnen selbstverständlich jederzeit zur Verfügun
 
 Freundliche Grüsse
 Ihr Propus Team`,
+  },
+  renewal_request_final: {
+    name: 'Verlängerungs-Anfrage (letzte Erinnerung)',
+    description: 'Dritte Reminder-Stufe (ca. 3 Tage vor Ablauf). Hinweis auf Reaktivierungsgebühr.',
+    category: 'aktiv',
+    subject: 'Letzte Erinnerung: Verlängerung – {{objectLabel}}',
+    html: buildEmailFrame({
+      preheader: 'Letzte Erinnerung vor Ablauf',
+      title: 'Letzte Erinnerung',
+      introHtml: `<p style="margin:0 0 14px;">{{customerGreeting}}</p><p style="margin:0;">Ihr virtuelles Rundgang-Hosting läuft in wenigen Tagen aus. Bitte entscheiden Sie sich für eine Verlängerung oder teilen Sie uns mit, wenn wir nicht mehr benötigt werden.</p>`,
+      summaryHtml: buildSummaryCard(
+        [
+          { label: 'Objekt', value: '{{objectLabel}}' },
+          { label: 'Ablauf', value: '{{termEndFormatted}}' },
+          { label: 'Hinweis', value: 'Nach Ablauf kostet eine Reaktivierung CHF 15 zusätzlich zum regulären Hosting.' },
+        ],
+        `<div style="padding-top:2px;color:#4b5563;font-size:14px;line-height:1.7;">{{tourLinkHtml}}</div>`
+      ),
+      bodyHtml: `<p style="margin:0 0 14px;">Sie können verlängern, ablehnen oder eine Übertragung auf Ihr Matterport-Konto anfragen.</p>`,
+      ctaHtml: buildActionButtons([
+        { href: '{{yesUrl}}', label: 'Verlängern', icon: '✓', primary: true },
+        { href: '{{noUrl}}', label: 'Nicht mehr verlängern', icon: '–', primary: false },
+      ]),
+      noteHtml: buildInfoCallout('i', 'Portal', `Ihre Touren: {{portalLinkHtml}}`),
+    }),
+    text: `{{customerGreeting}}
+
+letzte Erinnerung: Ihr Rundgang läuft am {{termEndFormatted}} aus.
+Nach Ablauf kostet eine Reaktivierung CHF 15 zusätzlich.
+
+Objekt: {{objectLabel}}
+{{tourLinkText}}
+
+Verlängern: {{yesUrl}}
+Nicht verlängern: {{noUrl}}
+
+{{portalLinkText}}`,
+  },
+  tour_confirmation_request: {
+    name: 'Tour-Bestätigung (Bereinigungslauf)',
+    description: 'Manueller Bereinigungslauf: Kunde soll Tour und Verlängerungswunsch bestätigen. Versand folgt später.',
+    category: 'vorbereitet',
+    subject: 'Bitte bestätigen: Ihre Tour {{objectLabel}}',
+    html: buildEmailFrame({
+      preheader: 'Bitte bestätigen Sie Ihre Tour',
+      title: 'Ist das Ihre Tour?',
+      introHtml: `<p style="margin:0 0 14px;">{{customerGreeting}}</p><p style="margin:0;">Wir möchten sicherstellen, dass diese Tour noch zu Ihnen gehört und ob Sie eine Verlängerung wünschen.</p>`,
+      summaryHtml: buildSummaryCard([{ label: 'Objekt', value: '{{objectLabel}}' }], `{{tourLinkHtml}}`),
+      ctaHtml: buildActionButtons([
+        { href: '{{yesUrl}}', label: 'Ja, verlängern', icon: '✓', primary: true },
+        { href: '{{noUrl}}', label: 'Nein', icon: '–', primary: false },
+      ]),
+    }),
+    text: `{{customerGreeting}}
+
+Bitte bestätigen Sie, ob diese Tour Ihnen gehört und ob Sie verlängern möchten.
+
+Objekt: {{objectLabel}}
+{{tourLinkText}}
+
+Ja: {{yesUrl}}
+Nein: {{noUrl}}`,
   },
   payment_confirmed: {
     name: 'Zahlungsbestätigung',

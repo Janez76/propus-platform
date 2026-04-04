@@ -72,8 +72,9 @@ const ToursAdminCustomerNewPage = lazy(() => import("../pages-legacy/tours/admin
 const ToursAdminCustomerDetailPage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminCustomerDetailPage").then((m) => ({ default: m.ToursAdminCustomerDetailPage })));
 const ToursAdminPortalRolesPage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminPortalRolesPage").then((m) => ({ default: m.ToursAdminPortalRolesPage })));
 const ToursAdminTourSettingsPage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminTourSettingsPage").then((m) => ({ default: m.ToursAdminTourSettingsPage })));
-const ToursAdminEmailTemplatesPage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminEmailTemplatesPage").then((m) => ({ default: m.ToursAdminEmailTemplatesPage })));
-const ToursAdminAutomationsPage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminAutomationsPage").then((m) => ({ default: m.ToursAdminAutomationsPage })));
+const ToursAdminWorkflowSettingsPage = lazy(() =>
+  import("../pages-legacy/tours/admin/ToursAdminWorkflowSettingsPage").then((m) => ({ default: m.ToursAdminWorkflowSettingsPage })),
+);
 const ToursAdminTeamPage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminTeamPage").then((m) => ({ default: m.ToursAdminTeamPage })));
 const ToursAdminAiChatPage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminAiChatPage").then((m) => ({ default: m.ToursAdminAiChatPage })));
 const PortalPreviewPage = lazy(() => import("../pages-legacy/tours/admin/PortalPreviewPage").then((m) => ({ default: m.PortalPreviewPage })));
@@ -224,8 +225,9 @@ function PrivateRoutes() {
         <Route path="/admin/tours/customers" element={guardedElement(toursAdminRoles, <ToursAdminCustomersListPage />)} />
         <Route path="/admin/tours/portal-roles" element={<Navigate to="/settings/roles?view=portal" replace />} />
         <Route path="/admin/tours/settings" element={guardedElement(toursAdminRoles, <ToursAdminTourSettingsPage />)} />
-        <Route path="/admin/tours/email-templates" element={guardedElement(toursAdminRoles, <ToursAdminEmailTemplatesPage />)} />
-        <Route path="/admin/tours/automations" element={guardedElement(toursAdminRoles, <ToursAdminAutomationsPage />)} />
+        <Route path="/admin/tours/workflow-settings" element={guardedElement(toursAdminRoles, <ToursAdminWorkflowSettingsPage />)} />
+        <Route path="/admin/tours/email-templates" element={<Navigate to="/admin/tours/workflow-settings?tab=templates" replace />} />
+        <Route path="/admin/tours/automations" element={<Navigate to="/admin/tours/workflow-settings?tab=workflow" replace />} />
         <Route path="/admin/tours/team" element={guardedElement(toursAdminRoles, <ToursAdminTeamPage />)} />
         <Route path="/admin/tours/ai-chat" element={guardedElement(toursAdminRoles, <ToursAdminAiChatPage />)} />
         <Route path="/admin/tours/portal-vorschau" element={guardedElement(toursAdminRoles, <PortalPreviewPage />)} />

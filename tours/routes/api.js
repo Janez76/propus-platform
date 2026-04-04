@@ -213,34 +213,58 @@ router.post('/cron/send-expiring-soon', async (req, res) => {
   if (!automation.expiringMailEnabled) {
     return res.json({ processed: 0, errors: 0, skipped: true, reason: 'expiringMailEnabled=false' });
   }
-  const leadDays = Math.max(0, parseInt(automation.expiringMailLeadDays || 30, 10));
-  const cooldownDays = Math.max(0, parseInt(automation.expiringMailCooldownDays || 14, 10));
   const batchLimit = Math.max(1, parseInt(automation.expiringMailBatchLimit || 50, 10));
-  const r = await pool.query(
-    `SELECT id FROM tour_manager.tours
-     WHERE status IN ('ACTIVE','EXPIRING_SOON')
-     AND (term_end_date BETWEEN CURRENT_DATE AND CURRENT_DATE + ($1::int * INTERVAL '1 day')
-          OR ablaufdatum BETWEEN CURRENT_DATE AND CURRENT_DATE + ($1::int * INTERVAL '1 day'))
-     AND (last_email_sent_at IS NULL OR last_email_sent_at < NOW() - ($2::int * INTERVAL '1 day'))
-     LIMIT $3`,
-    [leadDays, cooldownDays, batchLimit]
-  );
-  let ok = 0, err = 0;
-  for (const row of r.rows) {
-    try {
-      await tourActions.sendRenewalEmail(String(row.id), 'system', null, {
-        templateKey: automation.expiringMailTemplateKey || 'renewal_request',
-        minHoursBetweenSends: cooldownDays * 24,
-        createActionLinks: !!automation.expiringMailCreateActionLinks,
-        setAwaitingDecision: !!automation.expiringMailCreateActionLinks,
-      });
-      ok++;
-    } catch (e) {
-      err++;
-      console.error('send-renewal-email', row.id, e.message);
+  const createLinks = !!automation.expiringMailCreateActionLinks;
+  /** 3 Stufen: 30 / 10 / 3 Tage vor Ablauf (Regelwerk WORKFLOW_TOURS.md) */
+  const tiers = [
+    { stage: 1, min: 29, max: 31, templateKey: 'renewal_request' },
+    { stage: 2, min: 9, max: 11, templateKey: 'renewal_request' },
+    { stage: 3, min: 2, max: 4, templateKey: 'renewal_request_final' },
+  ];
+  let ok = 0;
+  let err = 0;
+  let matched = 0;
+  const perTierStages = {};
+  for (const tier of tiers) {
+    const r = await pool.query(
+      `SELECT t.id, COALESCE(t.term_end_date, t.ablaufdatum)::text AS term_anchor
+       FROM tour_manager.tours t
+       WHERE t.status = 'ACTIVE'
+         AND COALESCE(t.term_end_date, t.ablaufdatum) IS NOT NULL
+         AND (COALESCE(t.term_end_date, t.ablaufdatum) - CURRENT_DATE) BETWEEN $1 AND $2
+         AND NOT EXISTS (
+           SELECT 1 FROM tour_manager.outgoing_emails oe
+           WHERE oe.tour_id = t.id
+             AND (oe.details_json->>'reminderStage') = $3
+             AND oe.details_json->>'termEndAnchor' = COALESCE(t.term_end_date, t.ablaufdatum)::text
+         )
+       LIMIT $4`,
+      [tier.min, tier.max, String(tier.stage), batchLimit]
+    );
+    matched += r.rows.length;
+    perTierStages[`stage${tier.stage}`] = r.rows.length;
+    for (const row of r.rows) {
+      try {
+        await tourActions.sendRenewalEmail(String(row.id), 'system', null, {
+          templateKey: tier.templateKey,
+          minHoursBetweenSends: 0,
+          createActionLinks: createLinks,
+          outgoingDetails: { reminderStage: tier.stage, termEndAnchor: row.term_anchor },
+        });
+        ok += 1;
+      } catch (e) {
+        err += 1;
+        console.error('send-renewal-email', row.id, e.message);
+      }
     }
   }
-  res.json({ processed: ok, errors: err, matched: r.rows.length, leadDays, cooldownDays, batchLimit });
+  res.json({
+    processed: ok,
+    errors: err,
+    matched,
+    perTierStages,
+    batchLimit,
+  });
 });
 
 router.post('/cron/check-payments', async (req, res) => {

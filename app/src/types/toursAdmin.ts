@@ -22,6 +22,9 @@ export type ToursAdminTourRow = Record<string, unknown> & {
   invoice_status_label?: string;
   invoice_status_tone?: string;
   booking_order_no?: number | null;
+  confirmation_required?: boolean;
+  confirmation_sent_at?: string | null;
+  subscription_start_date?: string | null;
 };
 
 export type ToursAdminDashboardResponse = {

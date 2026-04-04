@@ -1,8 +1,8 @@
 # Propus Platform — Tour-Manager Flows
 
-> **Automatisch mitpflegen:** Bei jeder Änderung an Tour-Status, Matterport-Integration, Verlängerungs- oder Archivierungs-Logik dieses Dokument aktualisieren.
+> **Automatisch mitpflegen:** Bei jeder Änderung an Tour-Status, Matterport-Integration, Verlängerungs- oder Archivierungs-Logik dieses Dokument aktualisieren. **Produkt-Workflow (Regeln, Reminder-Stufen, Preise):** [WORKFLOW_TOURS.md](./WORKFLOW_TOURS.md) — bei Abweichungen beide Dateien abstimmen.
 
-*Zuletzt aktualisiert: April 2026 (zentrales Admin-Rechnungsmodul `/admin/invoices`, Grundriss-Bestellen-Flow, Rechnungsvorlagen-Editor, Zahlungseinstellungen, payrexxConfigured-UI-Logik)*
+*Zuletzt aktualisiert: April 2026 (Migration 027: `confirmation_*`, `subscription_start_date`; Cron `send-expiring-soon` 3-Stufen; `/admin/tours/workflow-settings`)*
 
 ---
 
@@ -59,6 +59,9 @@
 | `customer_intent_updated_at` | TIMESTAMPTZ | Letztes Update |
 | `customer_transfer_requested` | BOOLEAN DEFAULT FALSE | Übertragung angefragt |
 | `customer_billing_attention` | BOOLEAN DEFAULT FALSE | Billing-Attention-Flag |
+| `confirmation_required` | BOOLEAN DEFAULT FALSE | Bereinigungslauf: manuelle Markierung (Migration 027) |
+| `confirmation_sent_at` | TIMESTAMPTZ | Letzter Versand Bestätigungs-Mail (geplant; Migration 027) |
+| `subscription_start_date` | DATE | Start der aktuellen Abo-Periode: i. d. R. `created_at` bzw. Zahlungsdatum bei Reaktivierung/Verlängerung (Migration 027) |
 | `created_at` | TIMESTAMPTZ | Erstellzeitpunkt |
 | `updated_at` | TIMESTAMPTZ | Letzter Update |
 
@@ -75,6 +78,10 @@
 ---
 
 ## 2. Status-Maschine
+
+**Kanonische Geschäftsregeln** (Übergänge, Nein-/Keine-Antwort, Transfer, Reaktivierung, Preise, Cron-Ziele, E-Mail-Keys): **[WORKFLOW_TOURS.md](./WORKFLOW_TOURS.md)**.
+
+**Implementierung im Code (Legacy-Zwischenstände):** Die Codebasis setzt und filtert zusätzliche `tours.status`-Werte (`EXPIRING_SOON`, `AWAITING_CUSTOMER_DECISION`, `CUSTOMER_ACCEPTED_AWAITING_PAYMENT`, `CUSTOMER_DECLINED`, …). Logik: `tours/lib/status-machine.js`, Übergänge u. a. `tours/lib/tour-actions.js`, `tours/routes/customer.js`, Cron `tours/routes/api.js` (`archive-expired`, `send-expiring-soon`). Bei Vereinfachung auf das Regelwerk müssen diese Stellen und Admin-/Portal-Filter migriert werden.
 
 ```
 ACTIVE
@@ -526,9 +533,11 @@ M365_SENT_TOP   (default 200)
 
 ## 10. Cron-Jobs Übersicht
 
+Zielbild Reminder (30 / 10 / 3 Tage) und Kulanzfristen: **[WORKFLOW_TOURS.md](./WORKFLOW_TOURS.md).** `send-expiring-soon` wählt Touren mit `status = ACTIVE` und Tagen bis Ablauf in den Fenstern **29–31**, **9–11**, **2–4**; Dedup über `outgoing_emails.details_json` (`reminderStage`, `termEndAnchor`). Stufe 3 nutzt Template `renewal_request_final`. Schalter: `expiringMailEnabled` (Default in Code: **false**).
+
 | Endpunkt | Zweck |
 |---|---|
-| `POST /cron/send-expiring-soon` | Batch-Versand Ablauf-E-Mails |
+| `POST /cron/send-expiring-soon` | Drei Reminder-Stufen (30/10/3 Tage), siehe oben |
 | `POST /cron/check-payments` | Offene Rechnungen prüfen, überfällige → `overdue` |
 | `POST /cron/archive-expired` | Archiviert EXPIRED_PENDING_ARCHIVE Touren |
 | `POST /cron/auto-link-matterport` | Auto-Verknüpfung via tour_url |
@@ -540,9 +549,9 @@ M365_SENT_TOP   (default 200)
 
 | Setting | Default | Beschreibung |
 |---|---|---|
-| `expiringMailEnabled` | true | Ablauf-E-Mails aktiv |
-| `expiringMailLeadDays` | 30 | Tage vor Ablauf |
-| `expiringMailCooldownDays` | 14 | Mindestabstand zwischen Mails |
+| `expiringMailEnabled` | false | Ablauf-E-Mails aktiv (neuer Default) |
+| `expiringMailLeadDays` | 30 | Legacy (alter Ein-Treffer-Cron); aktueller Cron ignoriert |
+| `expiringMailCooldownDays` | 14 | Legacy; aktueller Cron nutzt Stufen-Dedup |
 | `expiringMailBatchLimit` | 50 | Max. pro Cron-Lauf |
 | `expiryArchiveAfterDays` | — | Tage nach Ablauf → Archiv |
 | `matterportAutoLinkEnabled` | — | Auto-Linking aktiv |
@@ -550,6 +559,12 @@ M365_SENT_TOP   (default 200)
 ---
 
 ## 11. Admin-Einstellungen
+
+### Tour-Workflow (React)
+
+| Route | Beschreibung |
+|---|---|
+| `/admin/tours/workflow-settings` | Tabs: Workflow/Cron- und Policy-Einstellungen, E-Mail-Templates, Bereinigungslauf (`confirmation_required`) |
 
 ### Seiten unter `/settings/` (Admin-Panel)
 

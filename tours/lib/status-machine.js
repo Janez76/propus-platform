@@ -20,15 +20,15 @@ function isValid(status) {
 }
 
 function canSendRenewalEmail(status) {
-  return ['ACTIVE', 'EXPIRING_SOON'].includes(status);
+  return ['ACTIVE'].includes(status);
 }
 
 function canAcceptCustomerYes(status) {
-  return ['AWAITING_CUSTOMER_DECISION'].includes(status);
+  return ['ACTIVE', 'AWAITING_CUSTOMER_DECISION'].includes(status);
 }
 
 function canAcceptCustomerNo(status) {
-  return ['AWAITING_CUSTOMER_DECISION'].includes(status);
+  return ['ACTIVE', 'AWAITING_CUSTOMER_DECISION'].includes(status);
 }
 
 function canMarkPaid(status) {

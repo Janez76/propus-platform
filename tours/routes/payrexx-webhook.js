@@ -145,10 +145,11 @@ router.post('/payrexx', express.raw({ type: '*/*' }), async (req, res) => {
          SET status = 'ACTIVE',
              term_end_date = $2,
              ablaufdatum = $2,
+             subscription_start_date = $4::date,
              matterport_state = COALESCE($3, matterport_state),
              updated_at = NOW()
          WHERE id = $1 AND status = 'CUSTOMER_ACCEPTED_AWAITING_PAYMENT'`,
-        [tourId, newTermEndDate, matterportState]
+        [tourId, newTermEndDate, matterportState, subscriptionWindow.startIso]
       );
 
       await logAction(tourId, 'system', 'payrexx', 'PAYMENT_CONFIRMED', {

@@ -11,6 +11,7 @@ const MP_OPEN_BTN =
 type Props = {
   tourId: string;
   customerVerified: boolean;
+  confirmationRequired?: boolean;
   /** Nach erfolgreichem Speichern der Verifizierung (z. B. Tour neu laden) */
   onVerifiedSaved: () => void;
   /** my.matterport.com/show/?m=… wenn Space-ID bekannt */
@@ -31,6 +32,7 @@ type Props = {
 export function TourInternSection({
   tourId,
   customerVerified,
+  confirmationRequired = false,
   onVerifiedSaved,
   matterportShowUrl,
   matterportEditUrl,
@@ -43,10 +45,18 @@ export function TourInternSection({
   const [verBusy, setVerBusy] = useState(false);
   const [verErr, setVerErr] = useState<string | null>(null);
   const [verOk, setVerOk] = useState<string | null>(null);
+  const [confReq, setConfReq] = useState(confirmationRequired);
+  const [confBusy, setConfBusy] = useState(false);
+  const [confErr, setConfErr] = useState<string | null>(null);
+  const [confOk, setConfOk] = useState<string | null>(null);
 
   useEffect(() => {
     setVerified(customerVerified);
   }, [customerVerified]);
+
+  useEffect(() => {
+    setConfReq(confirmationRequired);
+  }, [confirmationRequired]);
 
   async function saveVerified() {
     setVerBusy(true);
@@ -60,6 +70,21 @@ export function TourInternSection({
       setVerErr(e instanceof Error ? e.message : "Fehler");
     } finally {
       setVerBusy(false);
+    }
+  }
+
+  async function saveConfirmationRequired() {
+    setConfBusy(true);
+    setConfErr(null);
+    setConfOk(null);
+    try {
+      await toursAdminPost(`/tours/${tourId}/set-confirmation-required`, { required: confReq });
+      setConfOk("Gespeichert.");
+      onVerifiedSaved();
+    } catch (e) {
+      setConfErr(e instanceof Error ? e.message : "Fehler");
+    } finally {
+      setConfBusy(false);
     }
   }
 
@@ -200,6 +225,35 @@ export function TourInternSection({
           className="rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-sm font-medium text-[var(--text-main)] disabled:opacity-50"
         >
           {verBusy ? "…" : "Verifizierung speichern"}
+        </button>
+      </div>
+
+      <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-3 space-y-2">
+        <div className="text-xs font-semibold uppercase tracking-wide text-[var(--text-subtle)]">
+          Bereinigungslauf
+        </div>
+        <label className="flex items-center gap-2 text-sm text-[var(--text-main)]">
+          <input
+            type="checkbox"
+            checked={confReq}
+            onChange={(e) => setConfReq(e.target.checked)}
+            disabled={confBusy}
+          />
+          Bestätigung erforderlich
+        </label>
+        <p className="text-xs text-[var(--text-subtle)] leading-relaxed">
+          Markiert die Tour für den manuellen Bestätigungs-Dry-Run unter{" "}
+          <span className="font-medium text-[var(--text-main)]">Workflow-Einstellungen → Bereinigungslauf</span>.
+        </p>
+        {confOk ? <p className="text-sm text-emerald-700 dark:text-emerald-400">{confOk}</p> : null}
+        {confErr ? <p className="text-sm text-red-600 dark:text-red-400">{confErr}</p> : null}
+        <button
+          type="button"
+          disabled={confBusy}
+          onClick={() => void saveConfirmationRequired()}
+          className="rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-sm font-medium text-[var(--text-main)] disabled:opacity-50"
+        >
+          {confBusy ? "…" : "Speichern"}
         </button>
       </div>
     </div>

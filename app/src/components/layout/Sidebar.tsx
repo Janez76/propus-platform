@@ -30,7 +30,6 @@ import {
   Link2,
   Shield,
   Settings2,
-  Zap,
   MessageSquare,
   Eye,
   Inbox,
@@ -447,13 +446,9 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                           <Settings2 className="h-4 w-4 flex-shrink-0" />
                           {t(lang, "nav.tours.settings")}
                         </NavLink>
-                        <NavLink to="/admin/tours/email-templates" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
-                          <Mail className="h-4 w-4 flex-shrink-0" />
-                          {t(lang, "nav.tours.emailTemplates")}
-                        </NavLink>
-                        <NavLink to="/admin/tours/automations" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
-                          <Zap className="h-4 w-4 flex-shrink-0" />
-                          {t(lang, "nav.tours.automations")}
+                        <NavLink to="/admin/tours/workflow-settings" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <GitBranch className="h-4 w-4 flex-shrink-0" />
+                          {t(lang, "nav.tours.workflowSettings")}
                         </NavLink>
                         <NavLink to="/admin/tours/team" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
                           <UserCog className="h-4 w-4 flex-shrink-0" />

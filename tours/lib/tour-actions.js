@@ -261,9 +261,7 @@ async function sendRenewalEmail(tourId, actorType = 'system', actorRef = null, o
   const createActionLinks = options.createActionLinks !== undefined
     ? !!options.createActionLinks
     : templateKey === 'renewal_request';
-  const setAwaitingDecision = options.setAwaitingDecision !== undefined
-    ? !!options.setAwaitingDecision
-    : createActionLinks;
+  const setAwaitingDecision = false;
   const minHoursBetweenSends = Number.isFinite(Number(options.minHoursBetweenSends))
     ? Math.max(0, Number(options.minHoursBetweenSends))
     : 12;
@@ -316,17 +314,10 @@ async function sendRenewalEmail(tourId, actorType = 'system', actorRef = null, o
       [tourId, yesHash, expiresAt, noHash]
     );
   }
-  if (setAwaitingDecision) {
-    await pool.query(
-      "UPDATE tour_manager.tours SET status = 'AWAITING_CUSTOMER_DECISION', last_email_sent_at = NOW(), updated_at = NOW() WHERE id = $1",
-      [tourId]
-    );
-  } else {
-    await pool.query(
-      "UPDATE tour_manager.tours SET last_email_sent_at = NOW(), updated_at = NOW() WHERE id = $1",
-      [tourId]
-    );
-  }
+  await pool.query(
+    "UPDATE tour_manager.tours SET last_email_sent_at = NOW(), updated_at = NOW() WHERE id = $1",
+    [tourId]
+  );
   await pool.query(
     `INSERT INTO tour_manager.outgoing_emails (
       tour_id, mailbox_upn, graph_message_id, internet_message_id, conversation_id,
@@ -341,7 +332,13 @@ async function sendRenewalEmail(tourId, actorType = 'system', actorRef = null, o
       mailResult.recipientEmail,
       mailResult.subject,
       templateKey,
-      JSON.stringify({ yesUrl, noUrl, createActionLinks, setAwaitingDecision }),
+      JSON.stringify({
+        yesUrl,
+        noUrl,
+        createActionLinks,
+        setAwaitingDecision,
+        ...(options.outgoingDetails && typeof options.outgoingDetails === 'object' ? options.outgoingDetails : {}),
+      }),
     ]
   );
   if (createActionLinks) {

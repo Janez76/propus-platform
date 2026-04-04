@@ -51,7 +51,7 @@ router.get('/yes', async (req, res) => {
 
   if (!statusMachine.canAcceptCustomerYes(row.status)) {
     return res.render('customer/thank-you-yes', {
-      message: 'Sie haben bereits reagiert. Vielen Dank.',
+      message: 'Für diese Tour ist keine Verlängerung über diesen Link möglich. Bitte nutzen Sie das Kundenportal.',
     });
   }
 
@@ -125,15 +125,13 @@ router.get('/no', async (req, res) => {
   await logAction(row.tour_id, 'customer', 'token', 'CUSTOMER_NO', { token_id: row.id });
 
   if (statusMachine.canAcceptCustomerNo(row.status)) {
-    await pool.query(
-      "UPDATE tour_manager.tours SET status = 'CUSTOMER_DECLINED', updated_at = NOW() WHERE id = $1",
-      [row.tour_id]
-    );
-    await logAction(row.tour_id, 'system', null, 'STATUS_CHANGE', { to: 'CUSTOMER_DECLINED' });
+    await logAction(row.tour_id, 'customer', 'token', 'CUSTOMER_NO_DECLINE_INTENT', {
+      note: 'Tour bleibt ACTIVE bis term_end_date; kein CUSTOMER_DECLINED mehr',
+    });
   }
 
   res.render('customer/thank-you-no', {
-    message: 'Besten Dank. Wir archivieren nach Ablauf.',
+    message: 'Besten Dank. Die Tour bleibt bis zum Ablaufdatum aktiv; danach wird sie archiviert.',
   });
 });
 

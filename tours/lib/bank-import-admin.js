@@ -72,7 +72,7 @@ function toImportIso(value) {
 
 async function applyImportedPayment(invoiceId, actorEmail, details = {}) {
   const invoiceRes = await pool.query(
-    `SELECT id, tour_id, invoice_number, invoice_kind, subscription_end_at
+    `SELECT id, tour_id, invoice_number, invoice_kind, subscription_end_at, subscription_start_at
      FROM tour_manager.renewal_invoices
      WHERE id = $1
      LIMIT 1`,
@@ -100,15 +100,18 @@ async function applyImportedPayment(invoiceId, actorEmail, details = {}) {
 
   if (inv.subscription_end_at) {
     const endIso = toImportIso(inv.subscription_end_at);
+    const startFromInv = toImportIso(inv.subscription_start_at);
+    const subStartIso = startFromInv || paidAtIso;
     if (endIso) {
       await pool.query(
         `UPDATE tour_manager.tours
          SET status = 'ACTIVE',
              term_end_date = $2::date,
              ablaufdatum = $2::date,
+             subscription_start_date = $3::date,
              updated_at = NOW()
          WHERE id = $1`,
-        [inv.tour_id, endIso]
+        [inv.tour_id, endIso, subStartIso]
       );
 
       if (inv.invoice_kind === 'portal_reactivation') {

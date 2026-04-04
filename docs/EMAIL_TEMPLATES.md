@@ -160,7 +160,9 @@ Wie `buildCustomerEmail`, zusätzlich:
 
 | Template-Key | Name | Auslöser | Kategorie |
 |---|---|---|---|
-| `renewal_request` | Verlängerungs-Anfrage | Cron / manuell: Tour läuft ab | aktiv |
+| `renewal_request` | Verlängerungs-Anfrage | Cron Stufe 1+2 (30 / 10 Tage) | aktiv |
+| `renewal_request_final` | Letzte Reminder | Cron Stufe 3 (ca. 3 Tage) | aktiv |
+| `tour_confirmation_request` | Tour-Bestätigung | Bereinigungslauf (geplant) | vorbereitet |
 | `payment_confirmed` | Zahlungsbestätigung | Payrexx-Webhook `confirmed` | aktiv |
 | `extension_confirmed` | Verlängerung bestätigt | Manuelle Verlängerungsbestätigung | aktiv |
 | `reactivation_confirmed` | Reaktivierung bestätigt | Zahlung für archivierte Tour | aktiv |

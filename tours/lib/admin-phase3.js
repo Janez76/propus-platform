@@ -316,9 +316,10 @@ async function createManualInvoice(tourId, body, actorEmail) {
        SET status = 'ACTIVE',
            term_end_date = $2::date,
            ablaufdatum = $2::date,
+           subscription_start_date = $3::date,
            updated_at = NOW()
        WHERE id = $1`,
-      [tourId, subscriptionEndIso]
+      [tourId, subscriptionEndIso, subscriptionStartIso]
     );
   }
 
@@ -435,9 +436,10 @@ async function markPaidManualInvoice(tourId, invoiceId, body, actorEmail) {
      SET status = 'ACTIVE',
          term_end_date = $2::date,
          ablaufdatum = $2::date,
+         subscription_start_date = $3::date,
          updated_at = NOW()
      WHERE id = $1`,
-    [tourId, subWindow.endIso]
+    [tourId, subWindow.endIso, subWindow.startIso]
   );
 
   await logAction(tourId, 'admin', actorEmail, 'INVOICE_MARK_PAID_MANUAL', {
@@ -735,6 +737,12 @@ async function postLinkMatterport(body) {
     );
     const newTourId = insertResult.rows[0]?.id;
     if (newTourId) {
+      await pool.query(
+        `UPDATE tour_manager.tours
+         SET subscription_start_date = (created_at AT TIME ZONE 'UTC')::date
+         WHERE id = $1 AND subscription_start_date IS NULL`,
+        [newTourId]
+      );
       await logAction(newTourId, 'admin', null, 'ADMIN_TOUR_CREATED', {
         matterport_space_id: mpId,
         booking_order_no: Number.isFinite(bookingOrderNo) && bookingOrderNo > 0 ? bookingOrderNo : null,

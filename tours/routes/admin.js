@@ -305,7 +305,7 @@ function toImportIso(value) {
 
 async function applyImportedPayment(invoiceId, actorEmail, details = {}) {
   const invoiceRes = await pool.query(
-    `SELECT id, tour_id, invoice_number, invoice_kind, subscription_end_at
+    `SELECT id, tour_id, invoice_number, invoice_kind, subscription_end_at, subscription_start_at
      FROM tour_manager.renewal_invoices
      WHERE id = $1
      LIMIT 1`,
@@ -333,15 +333,18 @@ async function applyImportedPayment(invoiceId, actorEmail, details = {}) {
 
   if (inv.subscription_end_at) {
     const endIso = toImportIso(inv.subscription_end_at);
+    const startFromInv = toImportIso(inv.subscription_start_at);
+    const subStartIso = startFromInv || paidAtIso;
     if (endIso) {
       await pool.query(
         `UPDATE tour_manager.tours
          SET status = 'ACTIVE',
              term_end_date = $2::date,
              ablaufdatum = $2::date,
+             subscription_start_date = $3::date,
              updated_at = NOW()
          WHERE id = $1`,
-        [inv.tour_id, endIso]
+        [inv.tour_id, endIso, subStartIso]
       );
 
       if (inv.invoice_kind === 'portal_reactivation') {
@@ -2568,9 +2571,10 @@ router.post('/tours/:id/invoices/create-manual', async (req, res) => {
        SET status = 'ACTIVE',
            term_end_date = $2::date,
            ablaufdatum = $2::date,
+           subscription_start_date = $3::date,
            updated_at = NOW()
        WHERE id = $1`,
-      [tourId, subscriptionEndIso]
+      [tourId, subscriptionEndIso, subscriptionStartIso]
     );
   }
 
@@ -2692,9 +2696,10 @@ router.post('/tours/:id/invoices/:invoiceId/mark-paid-manual', async (req, res) 
      SET status = 'ACTIVE',
          term_end_date = $2::date,
          ablaufdatum = $2::date,
+         subscription_start_date = $3::date,
          updated_at = NOW()
      WHERE id = $1`,
-    [tourId, subWindow.endIso]
+    [tourId, subWindow.endIso, subWindow.startIso]
   );
 
   await logAction(tourId, 'admin', req.session?.admin?.email || 'admin', 'INVOICE_MARK_PAID_MANUAL', {
@@ -3062,7 +3067,7 @@ router.post('/link-matterport', async (req, res) => {
   const effectiveKundeRef = cannotAssign ? null : kundeRef;
 
   try {
-    await pool.query(
+    const insTour = await pool.query(
       `INSERT INTO tour_manager.tours (
         exxas_abo_id,
         matterport_space_id,
@@ -3082,7 +3087,7 @@ router.post('/link-matterport', async (req, res) => {
         status
       ) VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::timestamptz, $12::date, $12::date, $13, $14, $15
-      )`,
+      ) RETURNING id`,
       [
         exxasAboId,
         mpId,
@@ -3101,6 +3106,15 @@ router.post('/link-matterport', async (req, res) => {
         initialStatus,
       ]
     );
+    const newId = insTour.rows[0]?.id;
+    if (newId) {
+      await pool.query(
+        `UPDATE tour_manager.tours
+         SET subscription_start_date = (created_at AT TIME ZONE 'UTC')::date
+         WHERE id = $1 AND subscription_start_date IS NULL`,
+        [newId]
+      );
+    }
   } catch (e) {
     return res.redirect('/admin/link-matterport?error=insert');
   }

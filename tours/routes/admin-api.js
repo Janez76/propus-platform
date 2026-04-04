@@ -323,9 +323,9 @@ router.get('/tours', async (req, res) => {
       baseQ += ` AND t.customer_verified = TRUE`;
     }
     if (noCustomerOnly === '1') {
-      baseQ += ` AND (t.customer_email IS NULL OR TRIM(t.customer_email) = '')
-               AND (t.customer_name IS NULL OR TRIM(t.customer_name) = '')
-               AND (t.customer_contact IS NULL OR TRIM(t.customer_contact) = '')
+      // Gleiche Definition wie Dashboard «Ohne Kundenzuordnung»: kein core.customers-FK und keine Exxas-Ref.
+      // Freier Anzeigename (customer_name) allein zählt nicht als Zuordnung.
+      baseQ += ` AND (t.customer_id IS NULL OR t.customer_id = 0)
                AND (t.kunde_ref IS NULL OR TRIM(t.kunde_ref) = '')`;
     }
 
@@ -398,9 +398,7 @@ router.get('/tours', async (req, res) => {
     `),
       pool.query(`
       SELECT COUNT(*)::int as cnt FROM tour_manager.tours t
-      WHERE (t.customer_email IS NULL OR TRIM(t.customer_email) = '')
-        AND (t.customer_name IS NULL OR TRIM(t.customer_name) = '')
-        AND (t.customer_contact IS NULL OR TRIM(t.customer_contact) = '')
+      WHERE (t.customer_id IS NULL OR t.customer_id = 0)
         AND (t.kunde_ref IS NULL OR TRIM(t.kunde_ref) = '')
     `),
       pool.query(`
@@ -496,7 +494,12 @@ router.get('/tours', async (req, res) => {
       const exxasPaid = relatedInvoices.filter((row) => row.exxas_status === 'bz');
       const exxasOpen = relatedInvoices.filter((row) => row.exxas_status !== 'bz');
       const exxasOverdue = exxasOpen.filter((row) => row.zahlungstermin && new Date(row.zahlungstermin) < today);
-      const hasCustomerConnection = !!(tour.kunde_ref || tour.customer_name || tour.customer_email || tour.customer_contact);
+      const hasFormalCustomerLink =
+        (Number(tour.customer_id) > 0 && Number.isFinite(Number(tour.customer_id))) ||
+        !!(tour.kunde_ref && String(tour.kunde_ref).trim());
+      const hasCustomerConnection =
+        hasFormalCustomerLink ||
+        !!(tour.customer_name || tour.customer_email || tour.customer_contact);
       const hasRenewalMail = !!(outgoingRenewalCountByTourId.get(tour.id) || tour.last_email_sent_at);
       const hasCustomerReply = !!((incomingMailCountByTourId.get(tour.id) || 0) > 0 || tour.customer_intent || tour.customer_transfer_requested || tour.customer_billing_attention);
       const expiryDate = tour.canonical_term_end_date || tour.term_end_date || tour.ablaufdatum;
@@ -715,6 +718,65 @@ router.post('/tours/:id/set-verified', async (req, res) => {
     return res.json({ ok: true, verified });
   } catch (err) {
     return res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+router.post('/tours/:id/set-confirmation-required', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const required = req.body?.required === true || req.body?.required === '1' || req.body?.required === 1;
+    await pool.query(
+      `UPDATE tour_manager.tours SET confirmation_required = $1, updated_at = NOW() WHERE id = $2`,
+      [required, id]
+    );
+    await logAction(id, 'admin', adminEmail(req), 'ADMIN_SET_CONFIRMATION_REQUIRED', { required });
+    return res.json({ ok: true, confirmation_required: required });
+  } catch (err) {
+    return res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+router.get('/confirmation-pending', async (req, res) => {
+  try {
+    await pool.query('ALTER TABLE tour_manager.tours ADD COLUMN IF NOT EXISTS confirmation_required BOOLEAN DEFAULT FALSE');
+    await pool.query('ALTER TABLE tour_manager.tours ADD COLUMN IF NOT EXISTS confirmation_sent_at TIMESTAMPTZ');
+    const r = await pool.query(
+      `SELECT id, status, object_label, bezeichnung, term_end_date, ablaufdatum, confirmation_sent_at, customer_email
+       FROM tour_manager.tours
+       WHERE confirmation_required = TRUE
+       ORDER BY id ASC`
+    );
+    return res.json({ ok: true, tours: r.rows.map(normalizeTourRow) });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+router.post('/run-confirmation-batch', async (req, res) => {
+  try {
+    await pool.query('ALTER TABLE tour_manager.tours ADD COLUMN IF NOT EXISTS confirmation_required BOOLEAN DEFAULT FALSE');
+    const r = await pool.query(
+      `SELECT id, status, object_label, bezeichnung, term_end_date, ablaufdatum, customer_email, confirmation_sent_at
+       FROM tour_manager.tours
+       WHERE confirmation_required = TRUE
+       ORDER BY id ASC`
+    );
+    const tours = r.rows.map(normalizeTourRow);
+    for (const t of tours) {
+      await logAction(t.id, 'admin', adminEmail(req), 'CONFIRMATION_BATCH_PLANNED', {
+        dryRun: true,
+        templateKey: 'tour_confirmation_request',
+      });
+    }
+    return res.json({
+      ok: true,
+      dryRun: true,
+      count: tours.length,
+      tours,
+      message: 'Kein E-Mail-Versand — nur protokolliert (Dry-Run).',
+    });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
   }
 });
 
@@ -2153,6 +2215,13 @@ router.get('/email-templates', async (req, res) => {
         renewal_request: [
           'objectLabel', 'customerGreeting', 'tourLinkHtml', 'tourLinkText', 'termEndFormatted',
           'portalUrl', 'portalLinkHtml', 'portalLinkText', 'createdAt', 'amount', 'yesUrl', 'noUrl',
+        ],
+        renewal_request_final: [
+          'objectLabel', 'customerGreeting', 'tourLinkHtml', 'tourLinkText', 'termEndFormatted',
+          'portalUrl', 'portalLinkHtml', 'portalLinkText', 'yesUrl', 'noUrl',
+        ],
+        tour_confirmation_request: [
+          'objectLabel', 'customerGreeting', 'tourLinkHtml', 'tourLinkText', 'yesUrl', 'noUrl',
         ],
         payment_confirmed: ['objectLabel', 'customerGreeting', 'tourLinkHtml', 'tourLinkText', 'termEndFormatted', 'portalUrl', 'portalLinkHtml', 'portalLinkText'],
         expiry_reminder: ['objectLabel', 'customerGreeting', 'tourLinkHtml', 'tourLinkText', 'termEndFormatted', 'portalUrl', 'portalLinkHtml', 'portalLinkText'],

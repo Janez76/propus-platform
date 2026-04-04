@@ -89,6 +89,15 @@ export function TourDetailPage() {
                 #{data.tour.id} · {data.displayedTourStatus.label}
                 {data.displayedTourStatus.note ? ` · ${data.displayedTourStatus.note}` : ""}
               </p>
+              {data.tour.subscription_start_date || data.tour.canonical_term_end_date ? (
+                <p className="text-xs text-[var(--text-subtle)] mt-1">
+                  Abo-Periode:{" "}
+                  <span className="font-medium text-[var(--text-main)]">
+                    {String(data.tour.subscription_start_date ?? "—")} –{" "}
+                    {String(data.tour.canonical_term_end_date ?? data.tour.term_end_date ?? "—")}
+                  </span>
+                </p>
+              ) : null}
             </>
           ) : (
             <h1 className="text-2xl font-bold text-[var(--text-main)]">Tour #{okId}</h1>
@@ -119,6 +128,7 @@ export function TourDetailPage() {
             <TourInternSection
               tourId={okId}
               customerVerified={Boolean(data.tour.customer_verified)}
+              confirmationRequired={Boolean(data.tour.confirmation_required)}
               onVerifiedSaved={refetchDetail}
               matterportShowUrl={matterportShowUrl(data.tour)}
               matterportEditUrl={matterportEditUrl(data.tour)}

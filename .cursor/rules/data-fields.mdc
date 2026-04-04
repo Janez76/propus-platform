@@ -29,6 +29,7 @@ Die Dokumentation liegt im Ordner `docs/` im Repo-Root. `DATA_FIELDS.md` ist der
 | `DATA_FIELDS.md` | Hauptindex mit Links auf alle Module |
 | `docs/FLOWS_BOOKING.md` | Buchungs-Flows (Provisional, Reschedule, Kalender, Payrexx, Storno) |
 | `docs/FLOWS_TOURS.md` | Tour-Manager Flows (Matterport, Verlängerung, zentrales Rechnungsmodul, Archiv, KI, Incoming Emails) |
+| `docs/WORKFLOW_TOURS.md` | Tour-Workflow Produkt-Regelwerk (Status, Reminder, Preise, Admin `/admin/tours/workflow-settings`); bei Workflow-Änderungen mit `FLOWS_TOURS.md` synchron halten |
 | `docs/FLOWS_UPLOAD.md` | Upload-System (Chunked-Upload, NAS-Pfade, Kategorien, Konflikt-Modi) |
 | `docs/FLOWS_EXXAS.md` | Exxas-Integration (Reconcile, Order-Sync, Rechnungs-Sync) |
 | `docs/SCHEMA_FULL.md` | Vollständiges DB-Schema (core.*, booking.*, tour_manager.*) |
