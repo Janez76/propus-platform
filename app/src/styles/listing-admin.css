@@ -1102,6 +1102,12 @@ body.theme-dark .gal-admin-listing-num--revision {
 	color: var(--adm-muted);
 }
 
+body.theme-dark .gal-admin-listing-num--muted {
+	background: transparent;
+	color: #444;
+	border: 1px solid #2e2e32;
+}
+
 /* Hover-Zeile: Aktions-Buttons bleiben sichtbar (kein blend-in mit Zeilenhintergrund) */
 .gal-admin-listings-table--flat .gal-admin-listings-tbl.admin-table tbody tr:hover .gal-admin-listing-icon-btn {
 	background: var(--adm-surface);
