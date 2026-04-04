@@ -152,6 +152,9 @@ jobs:
               /tmp/propus-platform.current.env.vps
           fi
 
+      - name: Merge Payrexx keys from live env (when secret incomplete)
+        run: node scripts/merge-vps-env-protected.js /tmp/propus-platform.env.vps /tmp/propus-platform.current.env.vps
+
       - name: Guard Payrexx env overwrite
         run: |
           bash scripts/guard-vps-env.sh \
