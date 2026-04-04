@@ -11,7 +11,7 @@
  * The shell is mounted at the (admin), (portal) and other layout pages.
  */
 
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
 import { Suspense, lazy } from "react";
 import { CustomerMagicSessionRedirect } from "./auth/CustomerMagicSessionRedirect";
 import { OfflineIndicator } from "./layout/OfflineIndicator";
@@ -103,6 +103,12 @@ function PageSkeleton() {
       <div className="h-10 w-10 animate-spin rounded-full border-2 border-[var(--accent,#B68E20)]/25 border-t-[var(--accent,#B68E20)]" />
     </div>
   );
+}
+
+/** Frühere Pfade `/admin/listing/galleries/:id` → kanonisch `/admin/listing/:id` */
+function RedirectListingLegacyGalleriesSegment() {
+  const { legacyId } = useParams<{ legacyId: string }>();
+  return <Navigate to={`/admin/listing/${legacyId}`} replace />;
 }
 
 function PrivateRoutes() {
@@ -241,6 +247,8 @@ function PrivateRoutes() {
         <Route path="/admin/tours/:id" element={guardedElement(toursAdminRoles, <TourDetailPage />)} />
         <Route path="/admin/tours" element={guardedElement(toursAdminRoles, <ToursAdminDashboardPage />)} />
         {/* Listing (Galerie) Admin */}
+        <Route path="/admin/listing/galleries/new" element={<Navigate to="/admin/listing/new" replace />} />
+        <Route path="/admin/listing/galleries/:legacyId" element={<RedirectListingLegacyGalleriesSegment />} />
         <Route path="/admin/listing/templates" element={guardedElement(toursAdminRoles, <ListingEmailTemplatesPage />)} />
         <Route path="/admin/listing/:id" element={guardedElement(toursAdminRoles, <ListingEditorPage />)} />
         <Route path="/admin/listing" element={guardedElement(toursAdminRoles, <ListingListPage />)} />
