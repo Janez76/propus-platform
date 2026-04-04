@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Archive, ChevronRight, FolderOpen, HardDrive, House, ImageIcon, Loader2, RefreshCw, Search } from "lucide-react";
+import { Archive, ChevronRight, File, Folder, FolderOpen, HardDrive, House, ImageIcon, Loader2, RefreshCw, Search, X } from "lucide-react";
 import {
   archiveOrderStorageFolder,
   browseAdminStorage,
   getOrderStorageSummary,
+  getOrderUploads,
   getOrders,
   linkOrderStorageFolder,
   provisionOrderStorage,
   type Order,
   type OrderFolderType,
   type OrderStorageSummaryResponse,
+  type OrderUploadTreeNode,
   type StorageBrowseEntry,
 } from "../api/orders";
 import { UploadTool } from "../components/orders/UploadTool";
@@ -24,6 +26,53 @@ function formatFolderLabel(folderType: "raw_material" | "customer_folder") {
 
 function folderTypeToRootKind(folderType: "raw_material" | "customer_folder"): "customer" | "raw" {
   return folderType === "raw_material" ? "raw" : "customer";
+}
+
+function formatBytes(n: number) {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+type StatusMeta = { label: string; className: string };
+function getFolderStatusMeta(status: string, exists: boolean): StatusMeta {
+  if (status === "ready" && exists)  return { label: "Automatisch erstellt", className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400" };
+  if (status === "ready" && !exists) return { label: "Ordner fehlt",         className: "bg-red-100 text-red-600 dark:bg-red-950/40 dark:text-red-400" };
+  if (status === "linked")           return { label: "Manuell verknüpft",    className: "bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400" };
+  if (status === "failed")           return { label: "Fehler",               className: "bg-red-100 text-red-600 dark:bg-red-950/40 dark:text-red-400" };
+  if (status === "archived")         return { label: "Archiviert",           className: "bg-[var(--surface-raised)] text-[var(--text-subtle)]" };
+  return { label: "Keine Verknüpfung", className: "bg-red-100 text-red-600 dark:bg-red-950/40 dark:text-red-400" };
+}
+
+function TreeNode({ node, depth = 0 }: { node: OrderUploadTreeNode; depth?: number }) {
+  const [open, setOpen] = useState(depth < 1);
+  if (node.type === "file") {
+    return (
+      <div style={{ paddingLeft: `${depth * 14 + 4}px` }} className="flex items-center gap-2 py-0.5 text-xs text-[var(--text-muted)]">
+        <File className="h-3 w-3 shrink-0 text-[var(--text-subtle)]" />
+        <span className="truncate">{node.name}</span>
+        <span className="ml-auto shrink-0 text-[10px] text-[var(--text-subtle)]">{formatBytes(node.size ?? 0)}</span>
+      </div>
+    );
+  }
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        style={{ paddingLeft: `${depth * 14 + 4}px` }}
+        className="flex w-full items-center gap-2 py-0.5 text-left text-xs font-medium text-[var(--text-main)] hover:text-[var(--accent)]"
+      >
+        {open ? <FolderOpen className="h-3 w-3 shrink-0 text-[var(--accent)]" /> : <Folder className="h-3 w-3 shrink-0 text-[var(--text-subtle)]" />}
+        <span className="truncate">{node.name}</span>
+        <span className="ml-auto shrink-0 text-[10px] text-[var(--text-subtle)]">{node.children?.length ?? 0}</span>
+      </button>
+      {open && node.children?.map((child) => (
+        <TreeNode key={child.relativePath} node={child} depth={depth + 1} />
+      ))}
+    </div>
+  );
 }
 
 interface NasBrowserState {
@@ -65,6 +114,25 @@ export function UploadsPage() {
     customer_folder: false,
   });
   const [renameWarnings, setRenameWarnings] = useState<Record<string, string>>({});
+
+  // Ordner-Inhalt Modal
+  const [contentModal, setContentModal] = useState<{
+    folderType: "raw_material" | "customer_folder";
+    displayName: string;
+    loading: boolean;
+    tree: OrderUploadTreeNode[];
+    error: string;
+  } | null>(null);
+
+  async function openContentModal(folderType: "raw_material" | "customer_folder", displayName: string) {
+    setContentModal({ folderType, displayName, loading: true, tree: [], error: "" });
+    try {
+      const result = await getOrderUploads(token, selectedOrderNo, folderType);
+      setContentModal({ folderType, displayName, loading: false, tree: result.tree ?? [], error: "" });
+    } catch (err) {
+      setContentModal({ folderType, displayName, loading: false, tree: [], error: err instanceof Error ? err.message : "Fehler beim Laden" });
+    }
+  }
 
   // NAS-Browser State pro Ordner-Karte
   const [browsers, setBrowsers] = useState<Record<string, NasBrowserState>>({
@@ -364,21 +432,37 @@ export function UploadsPage() {
                     ? browser.relativePath.split("/").filter(Boolean)
                     : [];
 
+                  const statusMeta = getFolderStatusMeta(folder.status, folder.exists);
+
                   return (
                     <div key={ft} className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface)] p-5 shadow-sm">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <h3 className="text-lg font-semibold text-[var(--text-main)]">{formatFolderLabel(ft)}</h3>
-                          <p className="mt-1 text-xs uppercase tracking-wide text-[var(--text-subtle)]">{folder.status}</p>
+                          <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusMeta.className}`}>
+                            {statusMeta.label}
+                          </span>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => handleArchive(ft)}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-xs font-semibold text-[var(--text-main)] transition hover:bg-[var(--surface-raised)]"
-                        >
-                          <Archive className="h-3.5 w-3.5" />
-                          Archiviert löschen
-                        </button>
+                        <div className="flex items-center gap-2">
+                          {folder.exists && (
+                            <button
+                              type="button"
+                              onClick={() => void openContentModal(ft, folder.displayName)}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-xs font-semibold text-[var(--text-main)] transition hover:bg-[var(--surface-raised)]"
+                            >
+                              <FolderOpen className="h-3.5 w-3.5" />
+                              Inhalt anzeigen
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleArchive(ft)}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-xs font-semibold text-[var(--text-main)] transition hover:bg-[var(--surface-raised)]"
+                          >
+                            <Archive className="h-3.5 w-3.5" />
+                            Archiviert löschen
+                          </button>
+                        </div>
                       </div>
 
                       <div className="mt-3 space-y-1 text-sm">
@@ -650,6 +734,58 @@ export function UploadsPage() {
           )}
         </section>
       </div>
+
+      {/* Ordner-Inhalt Modal */}
+      {contentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="flex max-h-[80vh] w-full max-w-lg flex-col rounded-2xl border border-[var(--border-soft)] bg-[var(--surface)] shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-[var(--border-soft)] px-5 py-4">
+              <div>
+                <p className="text-xs text-[var(--text-subtle)]">Ordner-Inhalt</p>
+                <h3 className="text-sm font-semibold text-[var(--text-main)]">{contentModal.displayName}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setContentModal(null)}
+                className="rounded-lg p-1.5 text-[var(--text-subtle)] transition hover:bg-[var(--surface-raised)] hover:text-[var(--text-main)]"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto px-4 py-3">
+              {contentModal.loading ? (
+                <div className="flex items-center gap-2 py-8 text-sm text-[var(--text-subtle)]">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Ordner wird geladen …
+                </div>
+              ) : contentModal.error ? (
+                <div className="py-6 text-sm text-red-500">{contentModal.error}</div>
+              ) : contentModal.tree.length === 0 ? (
+                <div className="py-8 text-center text-sm text-[var(--text-subtle)]">Ordner ist leer.</div>
+              ) : (
+                <div className="space-y-0.5">
+                  {contentModal.tree.map((node) => (
+                    <TreeNode key={node.relativePath} node={node} depth={0} />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="border-t border-[var(--border-soft)] px-5 py-3 text-right">
+              <button
+                type="button"
+                onClick={() => setContentModal(null)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-soft)] px-4 py-2 text-sm font-medium text-[var(--text-main)] transition hover:bg-[var(--surface-raised)]"
+              >
+                Schließen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
