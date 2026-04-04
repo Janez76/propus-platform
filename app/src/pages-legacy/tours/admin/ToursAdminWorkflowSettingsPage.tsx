@@ -323,6 +323,20 @@ export function ToursAdminWorkflowSettingsPage() {
                 </label>
               </section>
 
+              <section className="surface-card-strong p-6 space-y-2">
+                <h2 className="font-semibold text-[var(--text-main)]">Preise (nur Anzeige)</h2>
+                <p className="text-sm text-[var(--text-subtle)] leading-relaxed">
+                  Verlängerung (6 Monate): <strong className="text-[var(--text-main)]">CHF 59</strong>
+                  {" · "}
+                  Reaktivierung: <strong className="text-[var(--text-main)]">CHF 74</strong>
+                  . Änderungen erfolgen in den Hosting-/QR-Einstellungen unter{" "}
+                  <Link to="/settings/invoice-template" className="text-[var(--accent)] hover:underline">
+                    Rechnungsvorlage &amp; Zahlung
+                  </Link>
+                  .
+                </p>
+              </section>
+
               <section className="surface-card-strong p-6 space-y-4">
                 <h2 className="font-semibold text-[var(--text-main)]">Zahlungsprüfung &amp; Matterport</h2>
                 <label className="flex items-center gap-2 text-sm">
