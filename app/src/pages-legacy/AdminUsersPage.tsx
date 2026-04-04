@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   UserRound, Plus, RefreshCw, X, Crown, Camera, Eye, EyeOff,
-  Lock, Shield, Check, Users, KeyRound,
+  Lock, Shield, Check, Users, KeyRound, RotateCcw, Send,
 } from "lucide-react";
 import { useAuthStore } from "../store/authStore";
 import { apiRequest } from "../api/client";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type LogtoUser = {
+type AdminUser = {
   id: string;
   name: string;
   email: string;
@@ -25,20 +25,6 @@ type Tab = "users" | "roles";
 
 const ALL_ROLES = ["super_admin", "admin", "photographer"] as const;
 type RoleKey = (typeof ALL_ROLES)[number];
-
-function detectLogtoAdminUrl() {
-  const configured = String(process.env.NEXT_PUBLIC_LOGTO_ADMIN_URL || "").trim();
-  if (configured) return configured;
-  if (typeof window !== "undefined") {
-    const { hostname } = window.location;
-    if (hostname === "localhost" || hostname === "127.0.0.1") {
-      return "http://localhost:3002";
-    }
-  }
-  return "https://auth-admin.propus.ch/console";
-}
-
-const LOGTO_ADMIN_URL = detectLogtoAdminUrl();
 
 const ROLE_CFG: Record<RoleKey, {
   label: string;
@@ -103,8 +89,8 @@ function avatarColor(id: string) {
 
 // ─── API ─────────────────────────────────────────────────────────────────────
 
-async function fetchInternalUsers(token: string): Promise<LogtoUser[]> {
-  const res = await apiRequest<{ users: LogtoUser[] }>("/api/admin/internal-users", "GET", token);
+async function fetchInternalUsers(token: string): Promise<AdminUser[]> {
+  const res = await apiRequest<{ users: AdminUser[] }>("/api/admin/internal-users", "GET", token);
   return res.users || [];
 }
 async function patchUserRoles(token: string, id: string, roles: string[]) {
@@ -116,7 +102,13 @@ async function patchUserSuspend(token: string, id: string, isSuspended: boolean)
 async function createInternalUser(token: string, data: {
   name: string; email: string; username: string; password: string; roles: string[];
 }) {
-  return apiRequest<{ ok: boolean; user: LogtoUser }>("/api/admin/internal-users", "POST", token, data);
+  return apiRequest<{ ok: boolean; user: AdminUser }>("/api/admin/internal-users", "POST", token, data);
+}
+async function resetUserPassword(token: string, id: string, password: string, sendMail: boolean) {
+  return apiRequest("/api/admin/internal-users/" + id + "/reset-password", "POST", token, { password, sendMail });
+}
+async function sendCredentialsMail(token: string, id: string, password?: string) {
+  return apiRequest("/api/admin/internal-users/" + id + "/send-credentials", "POST", token, { password });
 }
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
@@ -141,7 +133,7 @@ function RolePill({ role, active, busy, onClick }: {
   );
 }
 
-function UserAvatar({ user, size = "md" }: { user: LogtoUser; size?: "sm" | "md" }) {
+function UserAvatar({ user, size = "md" }: { user: AdminUser; size?: "sm" | "md" }) {
   const sz = size === "sm" ? "h-7 w-7 text-[10px]" : "h-9 w-9 text-[11px]";
   return (
     <div
@@ -153,31 +145,104 @@ function UserAvatar({ user, size = "md" }: { user: LogtoUser; size?: "sm" | "md"
   );
 }
 
+// ─── Password Reset Modal ─────────────────────────────────────────────────────
+
+function PasswordResetModal({ user, token, onClose }: {
+  user: AdminUser; token: string; onClose: () => void;
+}) {
+  const [pw, setPw] = useState("");
+  const [showPw, setShowPw] = useState(false);
+  const [sendMail, setSendMail] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+  const [done, setDone] = useState(false);
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    if (pw.length < 8) { setErr("Passwort muss mindestens 8 Zeichen haben"); return; }
+    setSaving(true);
+    setErr("");
+    try {
+      await resetUserPassword(token, user.id, pw, sendMail);
+      setDone(true);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Fehler");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-sm rounded-2xl border border-[var(--border-soft)] bg-[var(--surface)] p-6 shadow-2xl">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-base font-bold text-[var(--text-main)]">Passwort zurücksetzen</h2>
+          <button onClick={onClose} className="flex h-7 w-7 items-center justify-center rounded-full border border-[var(--border-soft)] text-[var(--text-subtle)] hover:bg-[var(--surface-raised)]">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+        {done ? (
+          <div className="space-y-3">
+            <p className="text-sm text-emerald-500">Passwort wurde erfolgreich gesetzt.</p>
+            <button onClick={onClose} className="w-full rounded-lg bg-[var(--accent)] py-2 text-sm font-semibold text-black">Schliessen</button>
+          </div>
+        ) : (
+          <form onSubmit={handleSave} className="space-y-3">
+            <p className="text-xs text-[var(--text-muted)]">Neues Passwort für <strong>{user.name || user.email}</strong></p>
+            <div className="relative">
+              <input type={showPw ? "text" : "password"} className="ui-input w-full pr-9"
+                value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Mindestens 8 Zeichen" />
+              <button type="button" onClick={() => setShowPw(v => !v)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-subtle)] hover:text-[var(--text-muted)]">
+                {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+            <label className="flex items-center gap-2 text-xs text-[var(--text-muted)] cursor-pointer">
+              <input type="checkbox" checked={sendMail} onChange={e => setSendMail(e.target.checked)} className="h-3.5 w-3.5" />
+              Zugangsdaten per E-Mail senden
+            </label>
+            {err && <p className="text-sm" style={{ color: "#e74c3c" }}>{err}</p>}
+            <div className="flex gap-2">
+              <button type="button" onClick={onClose} className="flex-1 rounded-lg border border-[var(--border-soft)] py-2 text-sm text-[var(--text-muted)] hover:bg-[var(--surface-raised)]">Abbrechen</button>
+              <button type="submit" disabled={saving || pw.length < 8} className="flex-1 rounded-lg bg-[var(--accent)] py-2 text-sm font-semibold text-black disabled:opacity-50">
+                {saving ? "Speichern…" : "Speichern"}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Tab: Benutzerverwaltung ──────────────────────────────────────────────────
 
 type NewUserForm = { name: string; email: string; username: string; password: string; roles: string[] };
 const EMPTY_FORM: NewUserForm = { name: "", email: "", username: "", password: "", roles: ["photographer"] };
 
 function UsersTab({ users, loading, saving, onToggleRole, onToggleSuspend, onReload, token, setUsers }: {
-  users: LogtoUser[];
+  users: AdminUser[];
   loading: boolean;
   saving: string | null;
-  onToggleRole: (user: LogtoUser, role: RoleKey) => void;
-  onToggleSuspend: (user: LogtoUser) => void;
+  onToggleRole: (user: AdminUser, role: RoleKey) => void;
+  onToggleSuspend: (user: AdminUser) => void;
   onReload: () => void;
   token: string;
-  setUsers: React.Dispatch<React.SetStateAction<LogtoUser[]>>;
+  setUsers: React.Dispatch<React.SetStateAction<AdminUser[]>>;
 }) {
   const [showNew, setShowNew] = useState(false);
   const [form, setForm] = useState<NewUserForm>({ ...EMPTY_FORM });
   const [showPw, setShowPw] = useState(false);
   const [formErr, setFormErr] = useState("");
   const [formSaving, setFormSaving] = useState(false);
+  const [resetUser, setResetUser] = useState<AdminUser | null>(null);
+  const [sendingMail, setSendingMail] = useState<string | null>(null);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setFormErr("");
     if (!form.email || !form.password || !form.name) { setFormErr("Name, E-Mail und Passwort sind erforderlich."); return; }
+    if (form.password.length < 8) { setFormErr("Passwort muss mindestens 8 Zeichen haben."); return; }
     setFormSaving(true);
     try {
       const { user } = await createInternalUser(token, form);
@@ -191,13 +256,20 @@ function UsersTab({ users, loading, saving, onToggleRole, onToggleSuspend, onRel
     }
   }
 
+  async function handleSendCredentials(user: AdminUser) {
+    setSendingMail(user.id);
+    try {
+      await sendCredentialsMail(token, user.id);
+    } catch (_) {}
+    finally { setSendingMail(null); }
+  }
+
   const adminCount = users.filter((u) => u.roles.some((r) => ["admin", "super_admin"].includes(r))).length;
   const staffCount = users.filter((u) => u.roles.includes("photographer")).length;
   const activeCount = users.filter((u) => !u.isSuspended).length;
 
   return (
     <>
-      {/* Actions row */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex gap-2">
           <StatChip label="Gesamt" value={users.length} />
@@ -217,7 +289,6 @@ function UsersTab({ users, loading, saving, onToggleRole, onToggleSuspend, onRel
         </div>
       </div>
 
-      {/* User list */}
       <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center gap-2 py-16 text-[var(--text-muted)]">
@@ -234,7 +305,6 @@ function UsersTab({ users, loading, saving, onToggleRole, onToggleSuspend, onRel
               <div key={user.id}
                 className={`flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center transition-opacity ${user.isSuspended ? "opacity-40" : ""}`}>
                 <UserAvatar user={user} />
-                {/* Info */}
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-semibold text-[var(--text-main)] text-sm">{user.name || user.email}</span>
@@ -249,7 +319,6 @@ function UsersTab({ users, loading, saving, onToggleRole, onToggleSuspend, onRel
                     </div>
                   )}
                 </div>
-                {/* Role pills */}
                 <div className="flex flex-wrap items-center gap-1.5">
                   {ALL_ROLES.map((role) => (
                     <RolePill key={role} role={role}
@@ -258,28 +327,38 @@ function UsersTab({ users, loading, saving, onToggleRole, onToggleSuspend, onRel
                       onClick={() => onToggleRole(user, role)} />
                   ))}
                 </div>
-                {/* Suspend */}
-                <button onClick={() => onToggleSuspend(user)} disabled={saving === user.id + ":suspend"}
-                  className={`shrink-0 inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${saving === user.id + ":suspend" ? "opacity-40 cursor-wait" : ""}`}
-                  style={user.isSuspended
-                    ? { borderColor: "color-mix(in srgb, #2ecc71 30%, transparent)", color: "#1d9e56" }
-                    : { borderColor: "var(--border-soft)", color: "var(--text-subtle)" }}>
-                  {user.isSuspended ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-                  {user.isSuspended ? "Aktivieren" : "Sperren"}
-                </button>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button onClick={() => setResetUser(user)}
+                    title="Passwort zurücksetzen"
+                    className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-2 py-1.5 text-xs text-[var(--text-subtle)] hover:text-[var(--text-muted)] transition-colors">
+                    <RotateCcw className="h-3.5 w-3.5" />
+                  </button>
+                  <button onClick={() => handleSendCredentials(user)}
+                    disabled={sendingMail === user.id}
+                    title="Zugangsdaten-Mail senden"
+                    className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-2 py-1.5 text-xs text-[var(--text-subtle)] hover:text-[var(--text-muted)] transition-colors disabled:opacity-40">
+                    <Send className="h-3.5 w-3.5" />
+                  </button>
+                  <button onClick={() => onToggleSuspend(user)} disabled={saving === user.id + ":suspend"}
+                    className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${saving === user.id + ":suspend" ? "opacity-40 cursor-wait" : ""}`}
+                    style={user.isSuspended
+                      ? { borderColor: "color-mix(in srgb, #2ecc71 30%, transparent)", color: "#1d9e56" }
+                      : { borderColor: "var(--border-soft)", color: "var(--text-subtle)" }}>
+                    {user.isSuspended ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                    {user.isSuspended ? "Aktivieren" : "Sperren"}
+                  </button>
+                </div>
               </div>
             ))}
           </div>
         )}
       </div>
 
-      {/* Hint */}
       <div className="flex items-start gap-2 rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-4 py-3 text-xs text-[var(--text-subtle)]">
         <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--accent)]" />
-        <span>Rollenänderungen werden sofort in <strong className="text-[var(--text-muted)]">Logto</strong> gespeichert und gelten beim nächsten Login.</span>
+        <span>Rollenänderungen gelten ab dem nächsten Login. Passwörter werden sicher als Hash gespeichert.</span>
       </div>
 
-      {/* New user modal */}
       {showNew && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <form onSubmit={handleCreate}
@@ -287,7 +366,7 @@ function UsersTab({ users, loading, saving, onToggleRole, onToggleSuspend, onRel
             <div className="mb-5 flex items-center justify-between">
               <div>
                 <h2 className="text-base font-bold text-[var(--text-main)]">Neuer Benutzer</h2>
-                <p className="text-xs text-[var(--text-muted)] mt-0.5">Wird direkt in Logto angelegt</p>
+                <p className="text-xs text-[var(--text-muted)] mt-0.5">Wird in der lokalen Datenbank angelegt</p>
               </div>
               <button type="button" onClick={() => { setShowNew(false); setForm({ ...EMPTY_FORM }); setFormErr(""); }}
                 className="flex h-7 w-7 items-center justify-center rounded-full border border-[var(--border-soft)] text-[var(--text-subtle)] hover:bg-[var(--surface-raised)]">
@@ -321,7 +400,7 @@ function UsersTab({ users, loading, saving, onToggleRole, onToggleSuspend, onRel
                     const has = form.roles.includes(role);
                     return (
                       <button key={role} type="button"
-                        onClick={() => setForm((f) => ({ ...f, roles: has ? f.roles.filter((r) => r !== role) : [...f.roles, role] }))}
+                        onClick={() => setForm((f) => ({ ...f, roles: [role] }))}
                         className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${has ? cfg.pill : "border-[var(--border-soft)] text-[var(--text-subtle)] hover:border-[var(--accent)]/30"}`}>
                         {cfg.icon}{cfg.label}
                       </button>
@@ -344,6 +423,10 @@ function UsersTab({ users, loading, saving, onToggleRole, onToggleSuspend, onRel
           </form>
         </div>
       )}
+
+      {resetUser && (
+        <PasswordResetModal user={resetUser} token={token} onClose={() => setResetUser(null)} />
+      )}
     </>
   );
 }
@@ -351,10 +434,10 @@ function UsersTab({ users, loading, saving, onToggleRole, onToggleSuspend, onRel
 // ─── Tab: Rechte & Rollen ────────────────────────────────────────────────────
 
 function RolesTab({ users, loading, saving, onToggleRole, onReload }: {
-  users: LogtoUser[];
+  users: AdminUser[];
   loading: boolean;
   saving: string | null;
-  onToggleRole: (user: LogtoUser, role: RoleKey) => void;
+  onToggleRole: (user: AdminUser, role: RoleKey) => void;
   onReload: () => void;
 }) {
   return (
@@ -366,14 +449,12 @@ function RolesTab({ users, loading, saving, onToggleRole, onReload }: {
         </button>
       </div>
 
-      {/* Role cards */}
       <div className="space-y-4">
         {ALL_ROLES.map((roleKey) => {
           const cfg = ROLE_CFG[roleKey];
           const count = users.filter((u) => u.roles.includes(roleKey)).length;
           return (
             <div key={roleKey} className={`rounded-xl border p-5 ${cfg.card}`}>
-              {/* Role header */}
               <div className="mb-4 flex items-start gap-3">
                 <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${cfg.pill}`}>
                   {cfg.icon}
@@ -389,7 +470,6 @@ function RolesTab({ users, loading, saving, onToggleRole, onReload }: {
                 </div>
               </div>
 
-              {/* Permissions */}
               <div className="mb-4 flex flex-wrap gap-1.5">
                 {cfg.permissions.map((perm) => (
                   <span key={perm} className="inline-flex items-center gap-1 rounded-md border border-[var(--border-soft)] bg-[var(--surface)] px-2 py-0.5 text-[10px] text-[var(--text-subtle)]">
@@ -398,7 +478,6 @@ function RolesTab({ users, loading, saving, onToggleRole, onReload }: {
                 ))}
               </div>
 
-              {/* Separator */}
               <div className="border-t border-[var(--border-soft)] pt-4">
                 <div className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-[var(--text-subtle)]">
                   Zugewiesene Benutzer
@@ -441,16 +520,9 @@ function RolesTab({ users, loading, saving, onToggleRole, onReload }: {
         })}
       </div>
 
-      {/* Info + Logto link */}
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <div className="flex flex-1 items-start gap-2 rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-4 py-3 text-xs text-[var(--text-subtle)]">
-          <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--accent)]" />
-          <span>Rollen werden direkt in <strong className="text-[var(--text-muted)]">Logto</strong> gespeichert. Neue Rollen können nur in der Logto Admin Console erstellt werden.</span>
-        </div>
-        <a href={LOGTO_ADMIN_URL} target="_blank" rel="noopener noreferrer"
-          className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--accent)]/30 bg-[var(--accent)]/5 px-4 py-3 text-sm font-medium text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors whitespace-nowrap">
-          Logto Admin öffnen →
-        </a>
+      <div className="flex items-start gap-2 rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-4 py-3 text-xs text-[var(--text-subtle)]">
+        <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--accent)]" />
+        <span>Rollen werden in der lokalen Datenbank gespeichert und gelten ab dem nächsten Login.</span>
       </div>
     </>
   );
@@ -481,7 +553,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 export function AdminUsersPage() {
   const token = useAuthStore((s) => s.token);
   const [tab, setTab] = useState<Tab>("users");
-  const [users, setUsers] = useState<LogtoUser[]>([]);
+  const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState<string | null>(null);
@@ -497,10 +569,9 @@ export function AdminUsersPage() {
 
   useEffect(() => { void load(); }, [load]);
 
-  async function toggleRole(user: LogtoUser, role: RoleKey) {
+  async function toggleRole(user: AdminUser, role: RoleKey) {
     if (!token) return;
     const has = user.roles.includes(role);
-    // Jeder Benutzer kann nur eine Rolle haben – alle anderen werden entfernt
     const next: string[] = has ? [] : [role];
     setSaving(user.id + ":" + role);
     try {
@@ -510,7 +581,7 @@ export function AdminUsersPage() {
     finally { setSaving(null); }
   }
 
-  async function toggleSuspend(user: LogtoUser) {
+  async function toggleSuspend(user: AdminUser) {
     if (!token) return;
     setSaving(user.id + ":suspend");
     try {
@@ -529,7 +600,6 @@ export function AdminUsersPage() {
     <div className="min-h-screen bg-[var(--bg)] p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-4xl space-y-5">
 
-        {/* Page header */}
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--accent)]/10">
             <UserRound className="h-5 w-5 text-[var(--accent)]" />
@@ -540,7 +610,6 @@ export function AdminUsersPage() {
           </div>
         </div>
 
-        {/* Tab selector */}
         <div className="flex w-full rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-1 gap-1">
           {TABS.map((t) => (
             <button key={t.id} onClick={() => setTab(t.id)}
@@ -556,7 +625,6 @@ export function AdminUsersPage() {
           ))}
         </div>
 
-        {/* Error */}
         {error && (
           <div className="cust-alert cust-alert--error rounded-lg text-sm">
             <span className="flex-1">{error}</span>
@@ -564,7 +632,6 @@ export function AdminUsersPage() {
           </div>
         )}
 
-        {/* Tab content */}
         {tab === "users" ? (
           <UsersTab
             users={users} loading={loading} saving={saving}
@@ -581,4 +648,3 @@ export function AdminUsersPage() {
     </div>
   );
 }
-

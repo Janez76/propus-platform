@@ -307,8 +307,6 @@ jobs:
 
             for ctn in \
               propus-platform-postgres-1 \
-              propus-platform-logto-db-1 \
-              propus-platform-logto-1 \
               propus-platform-platform-1 \
               propus-platform-website-1; do
               check_container "$ctn"
@@ -321,8 +319,6 @@ jobs:
               echo "==> Letzte Logs der fehlerhaften Container:"
               for ctn in \
                 propus-platform-postgres-1 \
-                propus-platform-logto-db-1 \
-                propus-platform-logto-1 \
                 propus-platform-platform-1 \
                 propus-platform-website-1; do
                 status=$(docker inspect --format='{{.State.Status}}' "$ctn" 2>/dev/null || echo "missing")
@@ -338,6 +334,39 @@ jobs:
             echo "Alle Container laufen korrekt."
           ENDSSH
           exit ${PIPESTATUS[0]}
+
+      # ── Admin-Benutzer Bootstrap nach Deploy ────────────────────────────────
+      - name: Bootstrap admin user (janez)
+        continue-on-error: true
+        env:
+          ADMIN_USER: ${{ secrets.ADMIN_USER }}
+          ADMIN_PASS: ${{ secrets.ADMIN_PASS }}
+          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+          ADMIN_NAME: ${{ secrets.ADMIN_NAME }}
+          ADMIN_ROLE: ${{ secrets.ADMIN_ROLE }}
+        run: |
+          if [ -z "${ADMIN_PASS:-}" ] || [ "${#ADMIN_PASS}" -lt 8 ]; then
+            echo "::notice::ADMIN_PASS nicht gesetzt oder zu kurz – Admin-Bootstrap übersprungen."
+            echo "Setze GitHub Secrets: ADMIN_USER, ADMIN_PASS, ADMIN_EMAIL, ADMIN_NAME, ADMIN_ROLE"
+            exit 0
+          fi
+          echo "==> Bootstrap Admin-Benutzer: ${ADMIN_EMAIL:-${ADMIN_USER}}"
+          ssh -i ~/.ssh/id_ed25519_propus_vps root@${{ secrets.VPS_HOST }} \
+            "docker exec \
+              -e ADMIN_USER='${ADMIN_USER}' \
+              -e ADMIN_PASS='${ADMIN_PASS}' \
+              -e ADMIN_EMAIL='${ADMIN_EMAIL}' \
+              -e ADMIN_NAME='${ADMIN_NAME}' \
+              -e ADMIN_ROLE='${ADMIN_ROLE:-super_admin}' \
+              -e ADMIN_BOOTSTRAP_SYNC_PASSWORD='true' \
+              propus-platform-platform-1 \
+              node -e \"
+                const db = require('./booking/db');
+                db.bootstrapAdminUserFromEnvIfMissing()
+                  .then(r => { console.log('[admin-bootstrap]', JSON.stringify(r)); process.exit(0); })
+                  .catch(e => { console.error('[admin-bootstrap] Fehler:', e.message); process.exit(1); });
+              \""
+          echo "::notice::Admin-Bootstrap abgeschlossen."
 
       - name: Purge Cloudflare cache
         if: success()

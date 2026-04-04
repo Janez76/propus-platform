@@ -1898,6 +1898,9 @@ async function bootstrapAdminUserFromEnvIfMissing() {
 
   const username = String(process.env.ADMIN_USER || "admin").trim().toLowerCase();
   const passwordPlain = String(process.env.ADMIN_PASS || "");
+  const email = String(process.env.ADMIN_EMAIL || `${username}@local.dev`).trim().toLowerCase();
+  const name = String(process.env.ADMIN_NAME || username).trim();
+  const role = String(process.env.ADMIN_ROLE || "admin").trim();
 
   if (!username) return { skipped: true, reason: "empty ADMIN_USER" };
   if (passwordPlain.length < 8) {
@@ -1909,10 +1912,16 @@ async function bootstrapAdminUserFromEnvIfMissing() {
 
   let existing;
   try {
-    existing = await getAdminUserByUsername(username);
+    // Suche sowohl per Username als auch per E-Mail
+    const { rows } = await query(
+      `SELECT * FROM admin_users WHERE LOWER(username) = $1 OR LOWER(email) = $2 LIMIT 1`,
+      [username, email]
+    );
+    existing = rows[0] || null;
   } catch (e) {
     return { skipped: true, reason: e?.message || "getAdminUser failed" };
   }
+
   const customerAuth = require("./customer-auth");
   let hash;
   try {
@@ -1929,18 +1938,22 @@ async function bootstrapAdminUserFromEnvIfMissing() {
     if (!syncPw) {
       return { skipped: true, reason: "admin_users Eintrag existiert bereits", username };
     }
+    // Vollständiges Update inkl. E-Mail, Name, Rolle und Passwort
     await query(
-      `UPDATE admin_users SET password_hash = $1, updated_at = NOW() WHERE LOWER(username) = $2`,
-      [hash, username]
+      `UPDATE admin_users
+       SET username = $1, email = $2, name = $3, role = $4,
+           password_hash = $5, active = TRUE, updated_at = NOW()
+       WHERE id = $6`,
+      [username, email, name, role, hash, existing.id]
     );
-    return { updated: true, username };
+    return { updated: true, username, email, role };
   }
 
   try {
     await query(
-      `INSERT INTO admin_users (username, email, name, role, password_hash, active)
-       VALUES ($1, $2, $3, 'admin', $4, TRUE)`,
-      [username, `${username}@local.dev`, username, hash]
+      `INSERT INTO admin_users (username, email, name, role, password_hash, active, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, TRUE, NOW(), NOW())`,
+      [username, email, name, role, hash]
     );
   } catch (e) {
     if (String(e?.code) === "42P01") {
@@ -1949,7 +1962,72 @@ async function bootstrapAdminUserFromEnvIfMissing() {
     throw e;
   }
 
-  return { created: true, username };
+  return { created: true, username, email, role };
+}
+
+// ─── Admin User Management ───────────────────────────────────────────────────
+
+async function listAdminUsers() {
+  const { rows } = await query(
+    `SELECT id, username, email, name, phone, language, role, active, created_at, updated_at,
+            last_login_at
+     FROM admin_users
+     ORDER BY LOWER(COALESCE(name, email, username)) ASC`
+  );
+  return rows;
+}
+
+async function createAdminUser({ username, email, name, role, passwordHash }) {
+  const u = String(username || "").trim().toLowerCase();
+  const em = String(email || "").trim().toLowerCase();
+  const nm = String(name || u || em || "");
+  const r = String(role || "photographer");
+  if (!u || !em) throw new Error("Benutzername und E-Mail sind erforderlich");
+  const { rows } = await query(
+    `INSERT INTO admin_users (username, email, name, role, password_hash, active, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5, TRUE, NOW(), NOW())
+     RETURNING id, username, email, name, role, active, created_at`,
+    [u, em, nm, r, passwordHash || null]
+  );
+  return rows[0] || null;
+}
+
+async function updateAdminUserRole(adminUserId, role) {
+  const id = Number(adminUserId);
+  if (!Number.isFinite(id) || id <= 0) return null;
+  const r = String(role || "photographer");
+  const { rows } = await query(
+    `UPDATE admin_users SET role = $1, updated_at = NOW() WHERE id = $2
+     RETURNING id, username, email, name, role, active`,
+    [r, id]
+  );
+  return rows[0] || null;
+}
+
+async function updateAdminUserActive(adminUserId, active) {
+  const id = Number(adminUserId);
+  if (!Number.isFinite(id) || id <= 0) return null;
+  const { rows } = await query(
+    `UPDATE admin_users SET active = $1, updated_at = NOW() WHERE id = $2
+     RETURNING id, username, email, name, role, active`,
+    [Boolean(active), id]
+  );
+  return rows[0] || null;
+}
+
+async function updateAdminUserPassword(adminUserId, passwordHash) {
+  const id = Number(adminUserId);
+  if (!Number.isFinite(id) || id <= 0) return null;
+  await query(
+    `UPDATE admin_users SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
+    [passwordHash, id]
+  );
+}
+
+async function deleteAdminUser(adminUserId) {
+  const id = Number(adminUserId);
+  if (!Number.isFinite(id) || id <= 0) return null;
+  await query(`DELETE FROM admin_users WHERE id = $1`, [id]);
 }
 
 // ─── Customer Sessions ───────────────────────────────────────────────────────
@@ -3035,6 +3113,12 @@ module.exports = {
   deleteAdminSessionByTokenHash,
   getAdminUserByUsername,
   getAdminUserById,
+  listAdminUsers,
+  createAdminUser,
+  updateAdminUserRole,
+  updateAdminUserActive,
+  updateAdminUserPassword,
+  deleteAdminUser,
   bootstrapAdminUserFromEnvIfMissing,
   createCustomerSession,
   getCustomerBySessionTokenHash,

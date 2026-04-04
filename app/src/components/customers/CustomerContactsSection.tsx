@@ -330,17 +330,14 @@ export function CustomerContactsSection({ token, customerId, readonly = false }:
                       <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--text-subtle)]">
                         Portal-Rolle
                       </label>
-                      <select
-                        className={inputClass}
-                        value={editForm.portal_role}
-                        onChange={(e) => setEditForm((prev) => ({ ...prev, portal_role: e.target.value as PortalRole }))}
-                      >
-                        {PORTAL_ROLE_OPTIONS.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                            {opt.label} — {opt.description}
-                          </option>
-                        ))}
-                      </select>
+                      <div className="flex items-center gap-2">
+                        <span className="rounded border border-[var(--border-soft)] bg-[var(--surface-raised)] px-2 py-1 text-xs text-[var(--text-muted)]">
+                          {PORTAL_ROLE_OPTIONS.find((o) => o.value === editForm.portal_role)?.label ?? "—"}
+                        </span>
+                        <a href="/settings/access?tab=portal" className="text-xs text-[var(--accent)] hover:underline">
+                          Zentral verwalten →
+                        </a>
+                      </div>
                     </div>
                     <div className="md:col-span-2 lg:col-span-4">
                       <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--text-subtle)]">
@@ -486,17 +483,13 @@ export function CustomerContactsSection({ token, customerId, readonly = false }:
               <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--text-subtle)]">
                 Portal-Rolle
               </label>
-              <select
-                className={inputClass}
-                value={createForm.portal_role}
-                onChange={(e) => setCreateForm((prev) => ({ ...prev, portal_role: e.target.value as PortalRole }))}
-              >
-                {PORTAL_ROLE_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label} — {opt.description}
-                  </option>
-                ))}
-              </select>
+              <p className="text-xs text-[var(--text-muted)]">
+                Wird nach dem Anlegen über{" "}
+                <a href="/settings/access?tab=portal" className="text-[var(--accent)] hover:underline">
+                  Rechteverwaltung → Portal & Team
+                </a>{" "}
+                gesetzt.
+              </p>
             </div>
           </div>
           <div className="mt-2 flex items-center justify-end gap-2">

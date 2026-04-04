@@ -285,16 +285,14 @@ export function ToursAdminCustomerDetailPage() {
                     <td className="p-2">{String(ct.name || "—")}</td>
                     <td className="p-2">{String(ct.email || "—")}</td>
                     <td className="p-2">
-                      <select
-                        className="rounded border border-[var(--border-soft)] bg-[var(--surface)] px-2 py-1 text-xs"
-                        value={currentRole}
-                        onChange={(e) => void setPortalRole(Number(ct.id), e.target.value)}
-                        disabled={!ct.email}
+                      <a
+                        href={`/settings/access?tab=portal`}
+                        className="inline-flex items-center gap-1 rounded border border-[var(--border-soft)] bg-[var(--surface-raised)] px-2 py-0.5 text-xs text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors"
+                        title="Portalrollen zentral verwalten"
                       >
-                        <option value="">—</option>
-                        <option value="mitarbeiter">Mitarbeiter</option>
-                        <option value="admin">Kunden-Admin</option>
-                      </select>
+                        {currentRole === "admin" ? "Kunden-Admin" : currentRole === "mitarbeiter" ? "Mitarbeiter" : "—"}
+                        {" "}→
+                      </a>
                     </td>
                     <td className="p-2 text-right">
                       <button type="button" className="text-red-600 text-xs hover:underline" onClick={() => void removeContact(Number(ct.id))}>

@@ -18,48 +18,6 @@ services:
     networks:
       - propus
 
-  logto-db:
-    image: postgres:16-alpine
-    ports:
-      - "127.0.0.1:${LOGTO_PG_PORT:-5436}:5432"
-    environment:
-      POSTGRES_USER: ${LOGTO_DB_USER:-logto}
-      POSTGRES_PASSWORD: ${LOGTO_DB_PASSWORD}
-      POSTGRES_DB: ${LOGTO_DB:-logto}
-    volumes:
-      - logto-pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${LOGTO_DB_USER:-logto} -d ${LOGTO_DB:-logto}"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-    restart: unless-stopped
-    networks:
-      - propus
-
-  logto:
-    image: svhd/logto:1.38.0
-    entrypoint:
-      [
-        "sh",
-        "-c",
-        "npm run cli db seed -- --swe && npm run cli db alteration deploy latest && npm start",
-      ]
-    ports:
-      - "127.0.0.1:${LOGTO_PORT:-3301}:3001"
-      - "127.0.0.1:${LOGTO_ADMIN_PORT:-3302}:3002"
-    environment:
-      TRUST_PROXY_HEADER: "1"
-      DB_URL: postgres://${LOGTO_DB_USER:-logto}:${LOGTO_DB_PASSWORD}@logto-db:5432/${LOGTO_DB:-logto}
-      ENDPOINT: ${LOGTO_ENDPOINT:-http://127.0.0.1:3301}
-      ADMIN_ENDPOINT: ${LOGTO_ADMIN_ENDPOINT:-http://127.0.0.1:3302}
-    depends_on:
-      logto-db:
-        condition: service_healthy
-    restart: unless-stopped
-    networks:
-      - propus
-
   migrate:
     build:
       context: ./core
@@ -123,23 +81,16 @@ services:
       SESSION_COOKIE_DOMAIN: ${SESSION_COOKIE_DOMAIN:-}
       TOURS_MOUNT_PATH: /tour-manager
       PROPUS_ENABLE_LEGACY_CUSTOMER_LOGIN: ${PROPUS_ENABLE_LEGACY_CUSTOMER_LOGIN:-0}
-      ADMIN_USER: ${ADMIN_USER}
-      ADMIN_PASS: ${ADMIN_PASS}
-      ADMIN_BOOTSTRAP_SYNC_PASSWORD: ${ADMIN_BOOTSTRAP_SYNC_PASSWORD:-true}
-      ADMIN_EMAIL: ${ADMIN_EMAIL}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
-      LOGTO_ENDPOINT: ${LOGTO_ENDPOINT:-http://127.0.0.1:3301}
-      LOGTO_ADMIN_ENDPOINT: ${LOGTO_ADMIN_ENDPOINT:-http://127.0.0.1:3302}
-      LOGTO_INTERNAL_ENDPOINT: http://logto:3001
+      # ─── Admin-Hauptbenutzer (Bootstrap beim Start) ──────────────────────────
+      ADMIN_USER: ${ADMIN_USER:-}
+      ADMIN_PASS: ${ADMIN_PASS:-}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_NAME: ${ADMIN_NAME:-}
+      ADMIN_ROLE: ${ADMIN_ROLE:-super_admin}
+      ADMIN_BOOTSTRAP_SYNC_PASSWORD: ${ADMIN_BOOTSTRAP_SYNC_PASSWORD:-false}
+      # ─── Einmaliger Setup-Endpunkt (nach Setup auf "" setzen) ────────────────
+      ADMIN_SETUP_TOKEN: ${ADMIN_SETUP_TOKEN:-}
       PLATFORM_INTERNAL_URL: http://127.0.0.1:3100
-      PROPUS_BOOKING_LOGTO_APP_ID: ${PROPUS_BOOKING_LOGTO_APP_ID:-}
-      PROPUS_BOOKING_LOGTO_APP_SECRET: ${PROPUS_BOOKING_LOGTO_APP_SECRET:-}
-      PROPUS_TOURS_ADMIN_LOGTO_APP_ID: ${PROPUS_TOURS_ADMIN_LOGTO_APP_ID:-}
-      PROPUS_TOURS_ADMIN_LOGTO_APP_SECRET: ${PROPUS_TOURS_ADMIN_LOGTO_APP_SECRET:-}
-      PROPUS_TOURS_PORTAL_LOGTO_APP_ID: ${PROPUS_TOURS_PORTAL_LOGTO_APP_ID:-}
-      PROPUS_TOURS_PORTAL_LOGTO_APP_SECRET: ${PROPUS_TOURS_PORTAL_LOGTO_APP_SECRET:-}
-      PROPUS_MANAGEMENT_LOGTO_APP_ID: ${PROPUS_MANAGEMENT_LOGTO_APP_ID:-}
-      PROPUS_MANAGEMENT_LOGTO_APP_SECRET: ${PROPUS_MANAGEMENT_LOGTO_APP_SECRET:-}
       MAIL_FROM: ${MAIL_FROM}
       OFFICE_EMAIL: ${OFFICE_EMAIL}
       SMTP_HOST: ${SMTP_HOST}
@@ -166,11 +117,6 @@ services:
       BACKUP_RESTORE_TARGET: ${BACKUP_RESTORE_TARGET:-/opt/propus-platform}
       BACKUP_INCLUDE_VOLUMES: ${BACKUP_INCLUDE_VOLUMES:-0}
       BACKUP_VOLUME_PATHS: ${BACKUP_VOLUME_PATHS:-/data/state:/app/logs:/upload_staging}
-      LOGTO_DB_HOST: logto-db
-      LOGTO_DB_PORT: "5432"
-      LOGTO_DB_NAME: ${LOGTO_DB:-logto}
-      LOGTO_DB_USER: ${LOGTO_DB_USER:-logto}
-      LOGTO_DB_PASSWORD: ${LOGTO_DB_PASSWORD}
       EXXAS_API_TOKEN: ${EXXAS_API_TOKEN:-}
       EXXAS_BASE_URL: ${EXXAS_BASE_URL:-https://api.exxas.net}
       MATTERPORT_TOKEN_ID: ${MATTERPORT_TOKEN_ID:-}
@@ -181,8 +127,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      logto:
-        condition: service_started
     healthcheck:
       test:
         [
@@ -239,7 +183,6 @@ services:
 
 volumes:
   postgres-data:
-  logto-pgdata:
   platform-state:
   platform-logs:
 

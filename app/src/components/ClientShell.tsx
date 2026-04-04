@@ -49,6 +49,7 @@ const AdminUsersPage = lazy(() => import("../pages-legacy/AdminUsersPage").then(
 const CompanyManagementPage = lazy(() => import("../pages-legacy/CompanyManagementPage").then((m) => ({ default: m.CompanyManagementPage })));
 const RolesPage = lazy(() => import("../pages-legacy/RolesPage").then((m) => ({ default: m.RolesPage })));
 const RoleMatrixPage = lazy(() => import("../pages-legacy/RoleMatrixPage").then((m) => ({ default: m.RoleMatrixPage })));
+const AccessControlPage = lazy(() => import("../pages-legacy/AccessControlPage").then((m) => ({ default: m.AccessControlPage })));
 const PortalFirmaPage = lazy(() => import("../pages-legacy/PortalFirmaPage").then((m) => ({ default: m.PortalFirmaPage })));
 const PortalBestellungenPage = lazy(() => import("../pages-legacy/PortalBestellungenPage").then((m) => ({ default: m.PortalBestellungenPage })));
 const BookingWizardPage = lazy(() => import("../pages-legacy/BookingWizardPage").then((m) => ({ default: m.BookingWizardPage })));
@@ -193,10 +194,11 @@ function PrivateRoutes() {
         <Route path="/portal/team" element={<PortalTeamPage />} />
         <Route path="/portal/firma" element={guardedElement(["company_owner", "company_admin"], <PortalFirmaPage />)} />
         <Route path="/portal/bestellungen" element={guardedElement(["company_employee"], <PortalBestellungenPage />)} />
-        <Route path="/settings/users" element={guardedElement(adminOnlyRoles, <AdminUsersPage />)} />
+        <Route path="/settings/access" element={guardedElement(adminOnlyRoles, <AccessControlPage />)} />
+        <Route path="/settings/users" element={<Navigate to="/settings/access?tab=intern" replace />} />
         <Route path="/settings/companies" element={guardedElement(adminOnlyRoles, <CompanyManagementPage />)} />
         <Route path="/settings/roles" element={guardedElement(toursAdminRoles, <RoleMatrixPage />)} />
-        <Route path="/admin/users" element={guardedElement(adminOnlyRoles, <AdminUsersPage />)} />
+        <Route path="/admin/users" element={<Navigate to="/settings/access?tab=intern" replace />} />
         <Route path="/admin/roles" element={guardedElement(adminOnlyRoles, <RolesPage />)} />
         <Route path="/company" element={<Navigate to={companyHome} replace />} />
         <Route path="/company/dashboard" element={guardedElement(["company_owner", "company_admin", "company_employee"], <CompanyDashboardPage />)} />
@@ -218,7 +220,6 @@ function PrivateRoutes() {
         <Route path="/exxas-reconcile" element={guardedElement(adminOnlyRoles, <ExxasReconcilePage />)} />
         <Route path="/settings/team" element={guardedElement(adminOnlyRoles, <ConfigurationPage initialTab="employees" />)} />
         <Route path="/settings/assignment-explorer" element={guardedElement(adminOnlyRoles, <Navigate to="/settings/access" replace />)} />
-        <Route path="/settings/access" element={<Navigate to="/settings/users" replace />} />
         <Route path="/reviews" element={guardedElement(adminOnlyRoles, <ReviewsPage />)} />
         <Route path="/bugs" element={guardedElement(adminOnlyRoles, <BugsPage />)} />
         <Route path="/backups" element={guardedElement(adminOnlyRoles, <BackupsPage />)} />
@@ -235,7 +236,7 @@ function PrivateRoutes() {
         <Route path="/admin/tours/customers/new" element={guardedElement(toursAdminRoles, <ToursAdminCustomerNewPage />)} />
         <Route path="/admin/tours/customers/:customerId" element={guardedElement(toursAdminRoles, <ToursAdminCustomerDetailPage />)} />
         <Route path="/admin/tours/customers" element={guardedElement(toursAdminRoles, <ToursAdminCustomersListPage />)} />
-        <Route path="/admin/tours/portal-roles" element={<Navigate to="/settings/roles?view=portal" replace />} />
+        <Route path="/admin/tours/portal-roles" element={<Navigate to="/settings/access?tab=portal" replace />} />
         <Route path="/admin/tours/settings" element={guardedElement(toursAdminRoles, <ToursAdminTourSettingsPage />)} />
         <Route path="/admin/tours/workflow-settings" element={guardedElement(toursAdminRoles, <ToursAdminWorkflowSettingsPage />)} />
         <Route path="/admin/tours/email-templates" element={<Navigate to="/admin/tours/workflow-settings?tab=templates" replace />} />
