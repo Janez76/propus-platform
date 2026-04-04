@@ -39,8 +39,11 @@ function resolveTheme(theme: Theme): ResolvedTheme {
 function applyThemeToDom(resolvedTheme: ResolvedTheme) {
   if (!isBrowser) return;
   const html = document.documentElement;
-  html.classList.toggle("dark", resolvedTheme === "dark");
+  const dark = resolvedTheme === "dark";
+  html.classList.toggle("dark", dark);
   html.style.colorScheme = resolvedTheme;
+  /* listing.css + listing-admin: Dark-Tokens & Komponenten-Overrides hängen an body.theme-dark */
+  document.body.classList.toggle("theme-dark", dark);
 }
 
 function persistTheme(theme: Theme) {

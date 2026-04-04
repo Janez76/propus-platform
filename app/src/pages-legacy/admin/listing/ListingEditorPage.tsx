@@ -18,6 +18,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
+  createGallery,
   deleteFeedback,
   displayNameForGalleryImage,
   EMAIL_TEMPLATE_REVISION_DONE_ID,
@@ -480,12 +481,12 @@ export function ListingEditorPage() {
   );
 
   const load = useCallback(async () => {
-    if (!id) return;
+    if (!id || id === "new") return;
     setErr(null);
     try {
       const { gallery: row, images: ims, feedback: fb } = await getGallery(id);
       if (!row) {
-        navigate(pathListingAdmin("galleries"), { replace: true });
+        navigate(pathListingAdmin(), { replace: true });
         return;
       }
       setG(row);
@@ -500,6 +501,27 @@ export function ListingEditorPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  /** `/admin/listing/new` → Galerie anlegen und zur echten ID weiterleiten */
+  useEffect(() => {
+    if (id !== "new") return;
+    let cancelled = false;
+    setErr(null);
+    (async () => {
+      try {
+        const { gallery } = await createGallery();
+        if (cancelled) return;
+        navigate(pathListingAdmin(gallery.id), { replace: true });
+      } catch (e) {
+        if (!cancelled) {
+          setErr(e instanceof Error ? e.message : "Neue Galerie konnte nicht angelegt werden");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, navigate]);
 
   /** Einmal speichern: Stammdaten, Freigabe-Link, Matterport; bei neuer/geänderter Freigabe-URL Bilder einlesen. */
   async function saveAll() {
@@ -640,7 +662,7 @@ export function ListingEditorPage() {
     return (
       <div className="admin-content">
         <p className="admin-msg admin-msg--err">{err}</p>
-        <Link to={pathListingAdmin("galleries")} className="admin-link">
+        <Link to={pathListingAdmin()} className="admin-link">
           Zur Übersicht
         </Link>
       </div>
@@ -667,7 +689,7 @@ export function ListingEditorPage() {
   return (
     <div className="admin-content gal-admin-editor gal-edit-page">
       <p className="gal-admin-breadcrumb gal-edit-breadcrumb">
-        <Link to={pathListingAdmin("galleries")}>Listings</Link>
+        <Link to={pathListingAdmin()}>Listings</Link>
         <span aria-hidden="true"> / </span>
         <span>{g.title}</span>
       </p>

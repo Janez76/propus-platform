@@ -307,8 +307,8 @@ body.admin-body--login #root {
 }
 
 .gal-admin-btn-new-listing.admin-btn--outline {
-	background: #ffffff;
-	border-color: rgb(20 20 20 / 0.22);
+	background: var(--adm-surface, #fff);
+	border-color: var(--adm-border);
 	color: var(--adm-text, #0f0f0f);
 	font-weight: 600;
 	text-decoration: none;
@@ -317,8 +317,8 @@ body.admin-body--login #root {
 .gal-admin-btn-new-listing.admin-btn--outline:hover,
 .gal-admin-btn-new-listing.admin-btn--outline:focus,
 .gal-admin-btn-new-listing.admin-btn--outline:focus-visible {
-	background: #fafafa;
-	border-color: rgb(20 20 20 / 0.35);
+	background: var(--adm-bg-muted);
+	border-color: var(--adm-border);
 	text-decoration: none;
 }
 

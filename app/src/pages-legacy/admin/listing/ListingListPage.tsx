@@ -185,7 +185,7 @@ export function ListingListPage() {
                 Rückmeldungen im Griff behalten.
               </p>
             </div>
-            <Link to={pathListingAdmin("galleries/new")} className="admin-btn admin-btn--outline gal-admin-btn-new-listing">
+            <Link to={pathListingAdmin("new")} className="admin-btn admin-btn--outline gal-admin-btn-new-listing">
               + Neue Galerie
             </Link>
           </div>
@@ -389,7 +389,7 @@ export function ListingListPage() {
                 <tr key={g.id}>
                   <td>
                     <p className="gal-admin-listings-title-line">
-                      <Link to={pathListingAdmin(`galleries/${g.id}`)} className="gal-admin-listings-title-link">
+                      <Link to={pathListingAdmin(g.id)} className="gal-admin-listings-title-link">
                         {g.title}
                       </Link>
                     </p>
@@ -465,7 +465,7 @@ export function ListingListPage() {
                         className="gal-admin-listing-icon-btn"
                         title="Bearbeiten"
                         aria-label="Bearbeiten"
-                        onClick={() => navigate(pathListingAdmin(`galleries/${g.id}`))}
+                        onClick={() => navigate(pathListingAdmin(g.id))}
                       >
                         <i className="fa-solid fa-pen-to-square gal-admin-listing-icon-btn__fa" aria-hidden={true} />
                       </button>
