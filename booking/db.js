@@ -2461,6 +2461,20 @@ async function upsertOrderFolderLink({
   return rows[0] || null;
 }
 
+async function setOrderFolderNextcloudShare(orderNo, folderType, nextcloudShareUrl) {
+  const { rows } = await query(
+    `UPDATE order_folder_links
+     SET nextcloud_share_url = $3,
+         updated_at = NOW()
+     WHERE order_no = $1
+       AND folder_type = $2
+       AND archived_at IS NULL
+     RETURNING *`,
+    [Number(orderNo), String(folderType || ""), nextcloudShareUrl ? String(nextcloudShareUrl) : null]
+  );
+  return rows[0] || null;
+}
+
 async function archiveOrderFolderLink(orderNo, folderType, archivedPath, status = "archived") {
   const { rows } = await query(
     `UPDATE order_folder_links
@@ -3150,6 +3164,7 @@ module.exports = {
   listOrderFolderLinks,
   getOrderFolderLink,
   upsertOrderFolderLink,
+  setOrderFolderNextcloudShare,
   archiveOrderFolderLink,
   createUploadBatch,
   updateUploadBatch,

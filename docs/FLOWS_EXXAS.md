@@ -83,6 +83,7 @@ Sync-Tabelle: Rechnungsdaten aus Exxas, im Tour-Manager sichtbar und KI-matchbar
 | `dok_datum` | DATE | Rechnungsdatum |
 | `preis_brutto` | NUMERIC(10,2) | Bruttobetrag CHF |
 | `tour_id` | INT FK → tours | Nach KI-Matching zugeordnet |
+| `archived_at` | TIMESTAMPTZ | Archivierungszeitpunkt; archivierte Exxas-Rechnungen bleiben erhalten, werden aber in zentralen Listen ausgefiltert |
 | `synced_at` | TIMESTAMPTZ | Letzter Sync |
 | `created_at` | TIMESTAMPTZ | |
 
@@ -136,12 +137,20 @@ POST /api/admin/integrations/exxas/reconcile/preview
 
 ```
 POST /api/admin/integrations/exxas/reconcile/confirm
-  Body: { decisions: [{ exasCustomerId, customerAction, contactDecisions }] }
+  Body: {
+    decisions: [{
+      exxasCustomer,
+      customerAction,
+      localCustomerId?,
+      overwriteCustomerFields?,
+      contactDecisions?: [{ exxasContact, action, localContactId?, overwriteFields? }]
+    }]
+  }
   │
   ├── Pro Exxas-Kunde (in Transaktion):
   │     ├── "skip" → nichts
   │     ├── "link_existing":
-  │     │     → fillMissingCustomerFields() (überschreibt nur leere Felder)
+  │     │     → fillMissingCustomerFields() (standardmässig nur leere Felder, gezielte Overwrites via `overwriteCustomerFields`)
   │     │     → exxas_customer_id + exxas_address_id setzen
   │     └── "create_customer":
   │           → INSERT customers (mit Fallback bei Unique-Violation)
@@ -195,4 +204,4 @@ POST /api/admin/integrations/exxas/reconcile/confirm
 | `sent` | Erfolgreich übertragen, `exxas_order_id` gesetzt |
 | `error` | Fehler, `exxas_error` gesetzt |
 
-**Sync-Trigger:** Manuell über Admin oder via Cron. Überträgt Auftragsdaten an Exxas-API (`POST /api/v2/orders`). Bei Erfolg: `exxas_status = "sent"`, `exxas_order_id` gesetzt.
+**Hinweis:** Die Statusfelder und Hilfsfunktionen sind vorhanden, aber ein aktiv verdrahteter Order-Sync-Trigger für Buchungen ist im aktuellen Repo-Stand nicht klar nachweisbar. Diesen Abschnitt daher nur als Feld-/Zielbeschreibung verstehen, nicht als gesicherten Live-Flow.

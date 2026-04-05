@@ -50,7 +50,7 @@
 | `order_no` | INT FK → orders | |
 | `folder_type` | TEXT | `raw_material` oder `customer_folder` |
 | `category` | TEXT | Kategorie-Schlüssel (s. Kategorie-Map) |
-| `upload_mode` | TEXT | `existing`, `new_batch`, `new_named` |
+| `upload_mode` | TEXT | `existing` oder `new_batch` |
 | `status` | TEXT | s. Status-Werte |
 | `local_path` | TEXT | Absoluter Staging-Pfad |
 | `target_relative_path` | TEXT | Relativer Zielpfad (nach Transfer) |
@@ -62,7 +62,7 @@
 | `uploaded_by` | TEXT | Wer den Upload angestossen hat |
 | `error_message` | TEXT | Fehlermeldung bei `failed` |
 | `conflict_mode` | TEXT | `skip` (default) oder `replace` |
-| `custom_folder_name` | TEXT | Benutzerdefinierter Ordnername (`new_named`) |
+| `custom_folder_name` | TEXT | Reserviert; im aktuellen API-Flow nicht als eigener `upload_mode` aktiv |
 | `upload_group_id` | TEXT | Gruppen-ID für mehrteilige Uploads |
 | `upload_group_total_parts` | INT | Gesamtanzahl Teile in der Gruppe |
 | `upload_group_part_index` | INT | Index dieses Teils (1-basiert) |
@@ -120,8 +120,12 @@
 | `BOOKING_UPLOAD_CUSTOMER_ROOT` | Root für Kundenordner (NAS-Mount) |
 | `BOOKING_UPLOAD_RAW_ROOT` | Root für Rohmaterial (NAS-Mount) |
 | `BOOKING_UPLOAD_STAGING_ROOT` | Lokales Staging-Verzeichnis |
+| `BOOKING_UPLOAD_CHUNK_TMP_ROOT` | Temporäres Root für Chunk-Dateien |
+| `BOOKING_UPLOAD_CHUNK_SESSION_ROOT` | Root für zusammengeführte Session-Dateien vor dem finalen Batch |
+| `BOOKING_UPLOAD_CHUNK_TTL_HOURS` | TTL für Cleanup alter Chunk-/Session-Verzeichnisse |
 | `BOOKING_UPLOAD_CUSTOMER_ARCHIVE_ROOT` | Archiv-Root für Kundenordner |
 | `BOOKING_UPLOAD_RAW_ARCHIVE_ROOT` | Archiv-Root für Rohmaterial |
+| `BOOKING_UPLOAD_REQUIRE_MOUNT` | Optionaler Guard: verlangt gemountete Zielpfade vor NAS-Transfers |
 
 ### Pfad-Aufbau
 
@@ -165,26 +169,26 @@ Die Felder `customerNasCustomerFolderBase` und `customerNasRawFolderBase` kommen
 
 ```
 1. init (POST .../upload-chunked/init):
-   → Staging-Verzeichnis erstellen
-   → Gibt uploadId (= Batch-ID), sessionId zurück
+   → Chunk-Verzeichnis unter `BOOKING_UPLOAD_CHUNK_TMP_ROOT` erstellen
+   → Gibt `uploadId` (`chu_...`) und `sessionId` (`chs_...`) zurück
 
 2. status (POST .../upload-chunked/status):
    → Welche Chunk-Teile sind bereits vorhanden?
    → Für Wiederaufnahme bei Unterbrechung
 
 3. part (POST .../upload-chunked/part):
-   → Chunk schreiben: staging/{uploadId}/chunk_{index}
+   → Chunk schreiben: `{BOOKING_UPLOAD_CHUNK_TMP_ROOT}/{uploadId}/{index}.part`
    → Ein oder mehrere Chunks pro Datei
 
 4. complete (POST .../upload-chunked/complete):
    → Alle Chunks zu einer Datei zusammenfügen
    → SHA-256 und Grösse prüfen
-   → Merged file in Session ablegen
+   → Merged file in Session unter `BOOKING_UPLOAD_CHUNK_SESSION_ROOT/{sessionId}` ablegen
 
 5. finalize (POST .../upload-chunked/finalize):
    → Session → Upload-Batch überführen
    → Transfer zum NAS starten
-   → Batch-Record in DB anlegen
+   → Batch-Record in DB anlegen (`id = upl_...`)
    → Status: staged → transferring → completed/failed
 ```
 

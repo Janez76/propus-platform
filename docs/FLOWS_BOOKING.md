@@ -132,11 +132,19 @@ Cron-Jobs:
 **Mögliche Status-Werte:**
 
 ```
-pending → provisional → confirmed → completed → done
-        ↘              ↗
-         → cancelled
-                     → archived
-         → paused
+pending     → provisional → confirmed → completed → done → archived
+   │              │            │            │
+   ├→ paused      ├→ paused    ├→ paused    └→ archived
+   ├→ cancelled   └→ cancelled └→ cancelled
+   ├→ archived
+   └→ confirmed / completed / done
+
+paused    → pending / provisional / cancelled
+cancelled → archived
+archived  → pending
+
+Sonderfall:
+provisional → pending nur automatisch via expiry_job
 ```
 
 | Status | Bedeutung | Kalender |
@@ -194,7 +202,7 @@ PATCH /api/admin/orders/:orderNo/reschedule
   │
   ├── Felder aktualisieren:
   │     → schedule.date, schedule.time (neu)
-  │     → last_reschedule_old_date, last_reschedule_old_time (alt, für E-Mails)
+  │     → bestehende Reschedule-Hilfsfelder werden hier nicht separat gesetzt
   │
   ├── Kalender-Events aktualisieren (PATCH auf bestehende IDs)
   │
@@ -209,7 +217,7 @@ PATCH /api/admin/orders/:orderNo/reschedule
 ## 6. Storno-Flow
 
 ```
-PATCH /api/admin/orders/:orderNo/cancel  (oder via Status-Änderung)
+PATCH /api/admin/orders/:orderNo/status  (mit `status = "cancelled"`)
   │
   ├── status = "cancelled"
   ├── cancel_reason gesetzt
@@ -222,6 +230,9 @@ PATCH /api/admin/orders/:orderNo/cancel  (oder via Status-Änderung)
         ├── Büro (buildCancellationOfficeEmail)
         ├── Fotograf (buildCancellationPhotographerEmail)
         └── Kunde (buildCancellationCustomerEmail)
+
+Separater Kunden-Endpunkt:
+  POST /api/customer/orders/:orderNo/cancel
 ```
 
 ---
@@ -229,7 +240,7 @@ PATCH /api/admin/orders/:orderNo/cancel  (oder via Status-Änderung)
 ## 7. Fotograf-Wechsel
 
 ```
-PATCH /api/admin/orders/:orderNo/reassign
+PATCH /api/admin/orders/:orderNo/photographer
   │
   ├── photographer-Feld aktualisieren (neuer Key/Name/Email)
   │
@@ -250,9 +261,9 @@ PATCH /api/admin/orders/:orderNo/reassign
 
 ```
 Kunde erhält E-Mail mit Bestätigungs-Link:
-  → /api/orders/:orderNo/confirm?token=XXX
+  → /api/booking/confirm/:token
 
-GET /api/orders/:orderNo/confirm
+GET /api/booking/confirm/:token
   │
   ├── Token prüfen: confirmation_token + confirmation_token_expires_at
   ├── Status: pending/provisional → confirmed
@@ -271,7 +282,8 @@ GET /api/orders/:orderNo/confirm
 
 ## 9. Payrexx-Webhook
 
-**Endpunkt:** `POST /portal/webhook/payrexx`  
+**Öffentlicher Endpunkt:** `POST /webhook/payrexx`  
+**Proxy:** Next.js-Route `app/src/app/webhook/payrexx/route.ts` leitet den Raw-Body unverändert an Express `/tour-manager/webhook/payrexx` weiter.  
 **Kontext:** Nur für Tour-Verlängerungen (nicht normale Buchungen)
 
 ```
@@ -310,7 +322,7 @@ Payrexx-Webhook (transaction.status = "confirmed"|"paid")
 | `exxas_status` | `not_sent` / `sent` / `error` |
 | `exxas_error` | Fehlermeldung bei `error` |
 
-**Sync-Logik:** Wird manuell oder via Cron ausgelöst. Überträgt Auftragsdaten an Exxas-API (`POST /api/v2/orders`). Bei Erfolg: `exxas_status = "sent"`, `exxas_order_id` gesetzt.
+**Hinweis:** Die Statusfelder sind im Schema vorhanden. Ein aktiver manueller/Cron-Sync-Pfad für Booking-Aufträge an Exxas ist im aktuellen Repo-Stand jedoch nicht klar nachweisbar. Diesen Abschnitt nur wieder konkretisieren, wenn der echte Trigger/Job im Code vorhanden ist.
 
 ---
 
@@ -537,10 +549,10 @@ Voraussetzung: `address_lat` und `address_lon` werden bei jeder Buchung in `book
 
 | Setting | Beispiel | Bedeutung |
 |---|---|---|
-| `work_start_time` | `08:00` | Früheste On-site-Arbeitszeit |
-| `work_end_time` | `18:00` | Spätestes Arbeitsende |
+| `work_start` | `08:00` | Früheste On-site-Arbeitszeit |
+| `work_end` | `18:00` | Spätestes Arbeitsende |
 | `earliest_departure` | `07:00` | Ab wann darf losgefahren werden |
-| `min_buffer_between_jobs` | `30` | Mindestpuffer zwischen zwei Einsätzen (Min) |
+| `scheduling.minBufferMinutes` | `30` | Globaler Mindestpuffer zwischen zwei Einsätzen (Min) |
 
 ### Neue Felder in `booking.orders`
 

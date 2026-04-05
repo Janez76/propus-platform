@@ -194,6 +194,7 @@ export type OrderStorageFolderSummary = {
   exists: boolean;
   archivedAt?: string | null;
   lastError?: string | null;
+  nextcloudShareUrl?: string | null;
 };
 
 export type OrderStorageHealthRoot = {
@@ -704,6 +705,18 @@ export const archiveOrderStorageFolder = (
     `/api/admin/orders/${encodeURIComponent(orderNo)}/storage/folder?folderType=${encodeURIComponent(folderType)}`,
     "DELETE",
     token,
+  );
+
+export const generateNextcloudShare = (
+  token: string,
+  orderNo: string,
+  folderType: "customer_folder" = "customer_folder",
+) =>
+  apiRequest<{ ok: boolean; shareUrl: string; folders: OrderStorageFolderSummary[] }>(
+    `/api/admin/orders/${encodeURIComponent(orderNo)}/storage/nextcloud-share`,
+    "POST",
+    token,
+    { folderType },
   );
 
 export interface StorageBrowseEntry {

@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Archive, ChevronRight, File, Folder, FolderOpen, HardDrive, House, ImageIcon, Loader2, RefreshCw, Search, X } from "lucide-react";
+import { Archive, ChevronRight, Check, Copy, ExternalLink, File, Folder, FolderOpen, HardDrive, House, ImageIcon, Link2, Loader2, RefreshCw, Search, X } from "lucide-react";
 import {
   archiveOrderStorageFolder,
   browseAdminStorage,
+  generateNextcloudShare,
   getOrderStorageSummary,
   getOrderUploads,
   getOrders,
@@ -114,6 +115,33 @@ export function UploadsPage() {
     customer_folder: false,
   });
   const [renameWarnings, setRenameWarnings] = useState<Record<string, string>>({});
+
+  const [generatingShare, setGeneratingShare] = useState(false);
+  const [shareError, setShareError] = useState("");
+  const [copiedShare, setCopiedShare] = useState(false);
+
+  async function handleGenerateShare() {
+    if (!selectedOrderNo) return;
+    setGeneratingShare(true);
+    setShareError("");
+    try {
+      const result = await generateNextcloudShare(token, selectedOrderNo);
+      setSummary((prev) =>
+        prev ? { ...prev, folders: result.folders } : prev,
+      );
+    } catch (err) {
+      setShareError(err instanceof Error ? err.message : "Nextcloud-Link konnte nicht erstellt werden");
+    } finally {
+      setGeneratingShare(false);
+    }
+  }
+
+  function handleCopyShare(url: string) {
+    void navigator.clipboard.writeText(url).then(() => {
+      setCopiedShare(true);
+      setTimeout(() => setCopiedShare(false), 2000);
+    });
+  }
 
   // Ordner-Inhalt Modal
   const [contentModal, setContentModal] = useState<{
@@ -478,6 +506,72 @@ export function UploadsPage() {
                           </div>
                         ) : null}
                       </div>
+
+                      {/* Nextcloud-Freigabelink (nur für Kundenordner) */}
+                      {ft === "customer_folder" && (
+                        <div className="mt-4 rounded-xl border border-[var(--border-soft)] p-3">
+                          <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--text-subtle)]">
+                            <Link2 className="h-3.5 w-3.5" />
+                            Nextcloud-Freigabelink
+                          </p>
+                          {folder.nextcloudShareUrl ? (
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2 rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 py-2">
+                                <span className="min-w-0 flex-1 truncate text-xs text-[var(--text-muted)] font-mono">
+                                  {folder.nextcloudShareUrl}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyShare(folder.nextcloudShareUrl!)}
+                                  title="Link kopieren"
+                                  className="shrink-0 rounded p-1 text-[var(--text-subtle)] transition hover:text-[var(--text-main)]"
+                                >
+                                  {copiedShare ? (
+                                    <Check className="h-3.5 w-3.5 text-emerald-500" />
+                                  ) : (
+                                    <Copy className="h-3.5 w-3.5" />
+                                  )}
+                                </button>
+                                <a
+                                  href={folder.nextcloudShareUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title="Link öffnen"
+                                  className="shrink-0 rounded p-1 text-[var(--text-subtle)] transition hover:text-[var(--text-main)]"
+                                >
+                                  <ExternalLink className="h-3.5 w-3.5" />
+                                </a>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => void handleGenerateShare()}
+                                disabled={generatingShare}
+                                className="text-xs text-[var(--text-subtle)] underline-offset-2 hover:underline disabled:opacity-50"
+                              >
+                                {generatingShare ? "Erneuern..." : "Link erneuern"}
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              <p className="text-xs text-[var(--text-subtle)]">
+                                Noch kein Freigabelink vorhanden.
+                              </p>
+                              {shareError && (
+                                <p className="text-xs text-red-500">{shareError}</p>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => void handleGenerateShare()}
+                                disabled={generatingShare || !folder.exists}
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-xs font-semibold text-[var(--text-main)] transition hover:bg-[var(--surface-raised)] disabled:opacity-50"
+                              >
+                                <Link2 className="h-3.5 w-3.5" />
+                                {generatingShare ? "Wird erstellt..." : "Nextcloud-Link generieren"}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       {/* Ordner verknüpfen */}
                       <div className="mt-4 space-y-3">

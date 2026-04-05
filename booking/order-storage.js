@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const ncShare = require("./nextcloud-share");
 
 const CUSTOMER_UPLOAD_ROOT = process.env.BOOKING_UPLOAD_CUSTOMER_ROOT || process.env.BOOKING_UPLOAD_ROOT || path.join(__dirname, "uploads");
 const RAW_MATERIAL_ROOT = process.env.BOOKING_UPLOAD_RAW_ROOT || path.join(__dirname, "uploads-raw");
@@ -298,6 +299,29 @@ function buildFolderDefinitions(order) {
   };
 }
 
+/**
+ * Versucht einen Nextcloud-Freigabelink zu erstellen und in der DB zu speichern.
+ * Schlägt lautlos fehl wenn Nextcloud nicht konfiguriert oder der API-Call scheitert.
+ *
+ * @param {number} orderNo
+ * @param {string} relativePath - relativer Pfad ab Customer-Root
+ * @param {object} db
+ * @returns {Promise<string|null>} share URL oder null
+ */
+async function tryCreateNextcloudShare(orderNo, relativePath, db) {
+  if (!ncShare.isNextcloudConfigured()) return null;
+  try {
+    const ncPath = ncShare.buildNextcloudPath(relativePath);
+    const { shareUrl } = await ncShare.createNextcloudShare(ncPath);
+    await db.setOrderFolderNextcloudShare(orderNo, "customer_folder", shareUrl);
+    return shareUrl;
+  } catch (err) {
+    // Kein harter Fehler — Ordner ist trotzdem angelegt
+    console.warn("[nextcloud-share] Share konnte nicht erstellt werden:", err.message);
+    return null;
+  }
+}
+
 async function provisionOrderFolders(order, db, { folderTypes = ["raw_material", "customer_folder"], createMissing = true } = {}) {
   const defs = buildFolderDefinitions(order);
   const links = {};
@@ -318,6 +342,9 @@ async function provisionOrderFolders(order, db, { folderTypes = ["raw_material",
       lastError: null,
     });
     links[folderType] = link;
+    if (folderType === "customer_folder") {
+      await tryCreateNextcloudShare(order.orderNo, toPortablePath(def.relativePath), db);
+    }
   }
   return links;
 }
@@ -348,6 +375,7 @@ async function getOrderFolderSummary(order, db, { createMissing = false } = {}) 
       exists,
       archivedAt: row?.archived_at || null,
       lastError: row?.last_error || null,
+      nextcloudShareUrl: row?.nextcloud_share_url || null,
     };
   });
 }
@@ -397,6 +425,9 @@ async function linkExistingOrderFolder(order, db, { folderType, relativePath, re
     status: "linked",
     lastError: null,
   });
+  if (folderType === "customer_folder") {
+    await tryCreateNextcloudShare(order.orderNo, finalRelative, db);
+  }
   return { ...result, renameWarning };
 }
 

@@ -161,3 +161,88 @@ Verlängerungsrechnungen und Exxas-Rechnungen werden in einem **eigenständigen 
 - **Backend**: Express.js, PostgreSQL
 - **Auth**: Logto OIDC (Admin), Session-basiert (Portal)
 - **Deploy**: Docker Compose auf VPS, GitHub Actions CI/CD
+
+## NAS / Infrastruktur (UGREEN 192.168.1.5)
+
+### Netzlaufwerke (lokal gemountet)
+
+| Laufwerk | UNC-Pfad | Inhalt |
+|----------|----------|--------|
+| `Z:` | `\\192.168.1.5\code` | Code-Ablage, Projekte |
+| `Y:` | `\\192.168.1.5\PROPUS DRIVE` | Allgemeine Dateien |
+| `N:` | `\\192.168.1.5\backup\HA ZH` | Home-Assistant-Backup |
+
+### SSH-Zugang
+
+| | |
+|---|---|
+| **Host** | `192.168.1.5` |
+| **Benutzername** | `Janez` |
+| **Port** | 22 |
+| **Auth** | Nur `publickey` (kein Passwort-Login standardmässig) |
+| **Host-Key Fingerprint** | `SHA256:wnXkTVoRvz2OCS2jUfY76XCkgG/B0YegQo3psPamHOA` |
+| **SSH-Server** | OpenSSH_9.2p1 Debian-2+deb12u6 |
+
+```powershell
+# Bevorzugt (Alias):
+ssh nas-propus
+
+# Fallback (explizit):
+ssh -i "C:\Users\svajc\.ssh\id_ed25519" Janez@192.168.1.5
+
+# Connectivity-Check:
+ssh -o BatchMode=yes nas-propus "pwd && hostname"
+# Erwartete Ausgabe: /home/Janez / Propus
+```
+
+**SSH-Keys auf Z:\.ssh\ (NAS-Ablage)**
+
+| Datei | Verwendung |
+|-------|-----------|
+| `Z:\.ssh\id_ed25519` | **NAS-Login** (Janez@192.168.1.5) — lokal nach `C:\Users\svajc\.ssh\` kopieren |
+| `Z:\.ssh\id_ed25519.pub` | Dazugehöriger Public Key |
+| `Z:\.ssh\config` | SSH-Config mit allen Aliases → lokal nach `C:\Users\svajc\.ssh\config` kopieren |
+| `Z:\.ssh\ugreen_nas_ed25519` | Login als `admin`@192.168.1.5 |
+| `Z:\.ssh\buchungstool_deploy` | Deploy-Key Buchungstool |
+| `Z:\.ssh\id_ed25519_propus_vps` | Propus VPS |
+
+**authorized_keys auf dem NAS** enthält: `svajc@cursor` (= `Z:\.ssh\id_ed25519.pub`)
+
+**Lokaler SSH-Alias auf diesem Rechner:** `nas-propus`
+
+```powershell
+ssh nas-propus
+```
+
+Der Alias nutzt:
+- Host `192.168.1.5`
+- User `Janez`
+- Key `C:\Users\svajc\.ssh\id_ed25519`
+
+### Web-Interface & externe URLs
+
+| Dienst | URL |
+|--------|-----|
+| NAS lokal | `https://192.168.1.5` |
+| NAS extern | `https://ugreen.propus.ch` |
+| vcard | `https://vcard-pcs.ch` → `192.168.1.5:9500` |
+
+### NAS-Dokumentation
+
+Alle NAS-Skripte und Anleitungen liegen in `Z:\NAS Ugreen\`:
+- `ZUGANGSDATEN.md` — vollständige Zugangsinfos
+- `SSH-PASSWORT-AKTIVIEREN.md` — Anleitung Passwort-Auth
+- `nas-tunnel-repair.ps1` — Cloudflare-Tunnel reparieren
+- `update-cloudflare-tunnel.ps1` — Tunnel-Config aktualisieren
+
+### Docker auf dem NAS
+
+| Dienst | Pfad / Port |
+|--------|------------|
+| vcard | `/volume1/docker/vcard/` · Port 9500 |
+| Cloudflare Tunnel | Container Manager → `cloudflared` |
+
+### Zweites NAS (Dev – 192.168.1.4)
+
+- Benutzer: `Janez`
+- Dienste: Ollama (Port 11434), Buchungstool-Dev, Propusdrop, Spoolman

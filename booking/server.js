@@ -5255,6 +5255,32 @@ app.delete("/api/admin/orders/:orderNo/storage/folder", requireAdmin, async (req
   }
 });
 
+app.post("/api/admin/orders/:orderNo/storage/nextcloud-share", requireAdmin, async (req, res) => {
+  try {
+    if (!process.env.DATABASE_URL) return res.status(503).json({ error: "DB nicht verfuegbar" });
+    const orderNo = Number(req.params.orderNo);
+    const folderType = String(req.body?.folderType || "customer_folder");
+    if (folderType !== "customer_folder") {
+      return res.status(400).json({ error: "Nextcloud-Share nur fuer customer_folder unterstuetzt" });
+    }
+    const order = await db.getOrderByNo(orderNo);
+    if (!order) return res.status(404).json({ error: "Order not found" });
+    const folderLink = await db.getOrderFolderLink(orderNo, folderType);
+    if (!folderLink) return res.status(404).json({ error: "Kein Kundenordner verknuepft" });
+    const { isNextcloudConfigured, createNextcloudShare, buildNextcloudPath } = require("./nextcloud-share");
+    if (!isNextcloudConfigured()) {
+      return res.status(503).json({ error: "Nextcloud nicht konfiguriert (NEXTCLOUD_URL, NEXTCLOUD_USER, NEXTCLOUD_PASS fehlen)" });
+    }
+    const ncPath = buildNextcloudPath(folderLink.relative_path);
+    const { shareUrl } = await createNextcloudShare(ncPath);
+    await db.setOrderFolderNextcloudShare(orderNo, folderType, shareUrl);
+    const folders = await getOrderFolderSummary(order, db, { createMissing: false });
+    res.json({ ok: true, shareUrl, folders });
+  } catch (err) {
+    res.status(400).json({ error: err.message || "Nextcloud-Share konnte nicht erstellt werden" });
+  }
+});
+
 app.post("/api/admin/orders/:orderNo/upload-chunked/init", requirePhotographerOrAdmin, async (req, res) => {
   try {
     if (!process.env.DATABASE_URL) {

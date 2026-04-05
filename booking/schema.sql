@@ -532,6 +532,7 @@ CREATE TABLE IF NOT EXISTS order_folder_links (
   status        TEXT NOT NULL DEFAULT 'ready'
                  CHECK (status IN ('pending','ready','linked','archived','failed')),
   last_error    TEXT,
+  nextcloud_share_url TEXT,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   archived_at   TIMESTAMPTZ

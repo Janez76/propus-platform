@@ -66,7 +66,7 @@
 | `created_at` | TIMESTAMPTZ | Erstellzeitpunkt |
 | `updated_at` | TIMESTAMPTZ | Letzter Update |
 
-**Kanonische (berechnete) Felder — kein DB-Persist, via `normalizeTourRow()`:**
+**Kanonische Felder:** Die folgenden Werte existieren als Spalten in `tour_manager.tours` und werden zusätzlich in der Anwendung über `normalizeTourRow()` aus Legacy-Feldern konsistent bereitgestellt.
 
 | Feld | Berechnung |
 |---|---|
@@ -264,8 +264,8 @@ Body: { paymentMethod: "qr_invoice" | "payrexx" }
 ### Payrexx-Webhook nach Zahlung
 
 **Webhook-URL:** `https://admin-booking.propus.ch/webhook/payrexx`
-(Next.js-Rewrite: `/webhook/*` → Express `http://localhost:3100/tour-manager/webhook/*`)
-(Handler: `tours/routes/payrexx-webhook.js`, registriert VOR express.json() für korrektes express.raw())
+(Kein `next.config.ts`-Rewrite: `/webhook/payrexx` wird bewusst als Next.js-Route `app/src/app/webhook/payrexx/route.ts` umgesetzt, damit der Raw-Body bytegenau an Express `/tour-manager/webhook/payrexx` weitergeleitet wird und die HMAC-Signatur gültig bleibt.)
+(Express-Handler: `tours/routes/payrexx-webhook.js`, registriert VOR `express.json()` für korrektes `express.raw()`.)
 
 → Siehe [FLOWS_BOOKING.md — Payrexx-Webhook](./FLOWS_BOOKING.md#9-payrexx-webhook)
 
