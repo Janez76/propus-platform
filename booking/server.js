@@ -5230,28 +5230,17 @@ app.post("/api/admin/orders/:orderNo/storage/link", requireAdmin, async (req, re
     const linkResult = await linkExistingOrderFolder(order, db, {
       folderType: req.body?.folderType,
       relativePath: req.body?.relativePath,
-      rename: req.body?.rename === true,
+      rename: req.body?.rename !== false,
     });
     const folders = await getOrderFolderSummary(order, db, { createMissing: false });
-    res.json({ ok: true, folders, renameWarning: linkResult?.renameWarning || null });
+    res.json({
+      ok: true,
+      folders,
+      renameInfo: linkResult?.renameInfo || null,
+      renameWarning: linkResult?.renameWarning || null,
+    });
   } catch (err) {
     res.status(400).json({ error: err.message || "Ordner konnte nicht verknuepft werden" });
-  }
-});
-
-app.delete("/api/admin/orders/:orderNo/storage/folder", requireAdmin, async (req, res) => {
-  try {
-    if (!process.env.DATABASE_URL) return res.status(503).json({ error: "DB nicht verfuegbar" });
-    const orderNo = Number(req.params.orderNo);
-    const order = await db.getOrderByNo(orderNo);
-    if (!order) return res.status(404).json({ error: "Order not found" });
-    const folderType = String(req.query.folderType || "");
-    if (!folderType) return res.status(400).json({ error: "folderType fehlt" });
-    await archiveOrderFolder(order, db, folderType);
-    const folders = await getOrderFolderSummary(order, db, { createMissing: false });
-    res.json({ ok: true, folders });
-  } catch (err) {
-    res.status(400).json({ error: err.message || "Ordner konnte nicht archiviert werden" });
   }
 });
 
@@ -5278,6 +5267,22 @@ app.post("/api/admin/orders/:orderNo/storage/nextcloud-share", requireAdmin, asy
     res.json({ ok: true, shareUrl, folders });
   } catch (err) {
     res.status(400).json({ error: err.message || "Nextcloud-Share konnte nicht erstellt werden" });
+  }
+});
+
+app.delete("/api/admin/orders/:orderNo/storage/folder", requireAdmin, async (req, res) => {
+  try {
+    if (!process.env.DATABASE_URL) return res.status(503).json({ error: "DB nicht verfuegbar" });
+    const orderNo = Number(req.params.orderNo);
+    const order = await db.getOrderByNo(orderNo);
+    if (!order) return res.status(404).json({ error: "Order not found" });
+    const folderType = String(req.query.folderType || "");
+    if (!folderType) return res.status(400).json({ error: "folderType fehlt" });
+    await archiveOrderFolder(order, db, folderType);
+    const folders = await getOrderFolderSummary(order, db, { createMissing: false });
+    res.json({ ok: true, folders });
+  } catch (err) {
+    res.status(400).json({ error: err.message || "Ordner konnte nicht archiviert werden" });
   }
 });
 

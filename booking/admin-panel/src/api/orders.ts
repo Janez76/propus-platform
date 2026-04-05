@@ -188,6 +188,7 @@ export type OrderStorageFolderSummary = {
   companyName?: string;
   relativePath: string;
   absolutePath: string;
+  nextcloudShareUrl?: string | null;
   exists: boolean;
   archivedAt?: string | null;
   lastError?: string | null;
@@ -239,6 +240,11 @@ export type OrderStorageSummaryResponse = {
   roots: OrderStorageHealthRoot[];
   folders: OrderStorageFolderSummary[];
   batches: OrderUploadBatch[];
+};
+
+export type OrderStorageRenameInfo = {
+  fromRelativePath: string;
+  toRelativePath: string;
 };
 
 export type OrderFolderType = "raw_material" | "customer_folder";
@@ -680,9 +686,9 @@ export const provisionOrderStorage = (token: string, orderNo: string) =>
 export const linkOrderStorageFolder = (
   token: string,
   orderNo: string,
-  input: { folderType: "raw_material" | "customer_folder"; relativePath: string },
+  input: { folderType: "raw_material" | "customer_folder"; relativePath: string; rename?: boolean },
 ) =>
-  apiRequest<{ ok: boolean; folders: OrderStorageFolderSummary[] }>(
+  apiRequest<{ ok: boolean; folders: OrderStorageFolderSummary[]; renameInfo?: OrderStorageRenameInfo | null }>(
     `/api/admin/orders/${encodeURIComponent(orderNo)}/storage/link`,
     "POST",
     token,

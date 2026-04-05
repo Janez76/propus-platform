@@ -148,6 +148,14 @@ function joinPortableRelative(...segments) {
     .replace(/\/{2,}/g, "/");
 }
 
+function normalizeFolderId(value, fallback = "") {
+  const num = Number(value);
+  if (Number.isFinite(num) && num > 0) return String(Math.trunc(num));
+  const text = String(value || "").trim();
+  if (!text) return fallback;
+  return sanitizePathSegment(text, fallback || "", 40);
+}
+
 function deriveOrderNaming(order) {
   const parsedAddress = parseAddressLine(order?.address || "");
   const billing = order?.billing || {};
@@ -159,18 +167,23 @@ function deriveOrderNaming(order) {
   const zip = sanitizePathSegment(parsedAddress.zip || fallbackZipCity.zip, "", 10);
   const city = sanitizePathSegment(parsedAddress.city || fallbackZipCity.city, "Ort", 80);
   const zipCity = [zip, city].filter(Boolean).join(" ").trim() || city || "Ort";
-  const orderNo = sanitizePathSegment(order?.orderNo, "Buchung", 40);
-  const displayName = `${zipCity}, ${street} #${orderNo}`;
+  const orderNo = normalizeFolderId(order?.orderNo, "Buchung");
+  const customerId = normalizeFolderId(order?.customerId, orderNo);
+  const rawDisplayName = `${zipCity}, ${street} #${orderNo}`;
   const companyName = sanitizePathSegment(
     billing.company || order?.customerName || order?.billing?.name || `Auftrag ${orderNo}`,
     `Auftrag ${orderNo}`,
   );
+  const customerCompanyName = sanitizePathSegment(`${companyName} #${customerId}`, companyName, 200);
   return {
     orderNo,
+    customerId,
     companyName,
+    customerCompanyName,
     street,
     zipCity,
-    displayName: sanitizePathSegment(displayName, `Auftrag ${orderNo}`, 200),
+    rawDisplayName: sanitizePathSegment(rawDisplayName, `Auftrag ${orderNo}`, 200),
+    customerDisplayName: sanitizePathSegment(rawDisplayName, `Auftrag ${orderNo}`, 200),
   };
 }
 
@@ -270,9 +283,9 @@ function buildFolderDefinitions(order) {
   const custBase = sanitizeNasFolderBase(order?.customerNasCustomerFolderBase);
   const rawBase = sanitizeNasFolderBase(order?.customerNasRawFolderBase);
   const customerRel = custBase
-    ? joinPortableRelative(custBase, naming.displayName)
-    : joinPortableRelative(naming.companyName, naming.displayName);
-  const rawRel = rawBase ? joinPortableRelative(rawBase, naming.displayName) : naming.displayName;
+    ? joinPortableRelative(custBase, naming.customerCompanyName, naming.customerDisplayName)
+    : joinPortableRelative(naming.customerCompanyName, naming.customerDisplayName);
+  const rawRel = rawBase ? joinPortableRelative(rawBase, naming.rawDisplayName) : naming.rawDisplayName;
   const customerAbs = path.join(CUSTOMER_UPLOAD_ROOT, ...customerRel.split("/").filter(Boolean));
   const rawAbs = path.join(RAW_MATERIAL_ROOT, ...rawRel.split("/").filter(Boolean));
   return {
@@ -282,7 +295,7 @@ function buildFolderDefinitions(order) {
       rootPath: RAW_MATERIAL_ROOT,
       relativePath: rawRel,
       absolutePath: rawAbs,
-      displayName: naming.displayName,
+      displayName: naming.rawDisplayName,
       companyName: naming.companyName,
       structure: RAW_MATERIAL_STRUCTURE,
     },
@@ -292,7 +305,7 @@ function buildFolderDefinitions(order) {
       rootPath: CUSTOMER_UPLOAD_ROOT,
       relativePath: customerRel,
       absolutePath: customerAbs,
-      displayName: naming.displayName,
+      displayName: naming.customerDisplayName,
       companyName: naming.companyName,
       structure: CUSTOMER_UPLOAD_STRUCTURE,
     },
@@ -372,15 +385,15 @@ async function getOrderFolderSummary(order, db, { createMissing = false } = {}) 
       companyName: row?.company_name || expected.companyName,
       relativePath: row?.relative_path || toPortablePath(expected.relativePath),
       absolutePath,
+      nextcloudShareUrl: row?.nextcloud_share_url || null,
       exists,
       archivedAt: row?.archived_at || null,
       lastError: row?.last_error || null,
-      nextcloudShareUrl: row?.nextcloud_share_url || null,
     };
   });
 }
 
-async function linkExistingOrderFolder(order, db, { folderType, relativePath, rename = false }) {
+async function linkExistingOrderFolder(order, db, { folderType, relativePath, rename = true }) {
   const defs = buildFolderDefinitions(order);
   const def = defs[folderType];
   if (!def) throw new Error("Ungültiger Ordnertyp");
@@ -394,18 +407,28 @@ async function linkExistingOrderFolder(order, db, { folderType, relativePath, re
   if (!fs.existsSync(absolutePath) || !fs.statSync(absolutePath).isDirectory()) {
     throw new Error("Zielordner nicht gefunden");
   }
-
-  // Optional: Ordner auf NAS nach Benennungskonvention umbenennen
+  let nextAbsolutePath = absolutePath;
+  let nextRelativePath = toPortablePath(path.relative(rootPath, absolutePath));
+  let renameInfo = null;
   let renameWarning = null;
-  if (rename) {
-    const expectedAbs = def.absolutePath;
-    if (absolutePath !== expectedAbs) {
-      if (fs.existsSync(expectedAbs)) {
-        renameWarning = `Zielordner existiert bereits: ${expectedAbs} – Ordner nicht umbenannt.`;
+
+  if (folderType === "customer_folder" && rename !== false) {
+    const expectedRelativePath = toPortablePath(def.relativePath);
+    const expectedAbsolutePath = path.resolve(def.absolutePath);
+    const currentAbsolutePath = path.resolve(absolutePath);
+    if (currentAbsolutePath !== expectedAbsolutePath) {
+      if (fs.existsSync(expectedAbsolutePath)) {
+        renameWarning = `Zielordner existiert bereits: ${expectedAbsolutePath} – Ordner nicht umbenannt.`;
       } else {
         try {
-          renameWarning = moveDirectoryWithFallback(absolutePath, expectedAbs, rootPath);
-          absolutePath = expectedAbs;
+          renameWarning = moveDirectoryWithFallback(currentAbsolutePath, expectedAbsolutePath, rootPath);
+          nextAbsolutePath = expectedAbsolutePath;
+          nextRelativePath = expectedRelativePath;
+          removeEmptyParentsUntil(path.dirname(currentAbsolutePath), rootPath);
+          renameInfo = {
+            fromRelativePath: toPortablePath(normalizedRelative),
+            toRelativePath: expectedRelativePath,
+          };
         } catch (err) {
           renameWarning = `Umbenennung fehlgeschlagen: ${err.message} – Ordner unter originalem Pfad verknüpft.`;
         }
@@ -413,22 +436,21 @@ async function linkExistingOrderFolder(order, db, { folderType, relativePath, re
     }
   }
 
-  const finalRelative = toPortablePath(path.relative(rootPath, absolutePath));
-  const result = await db.upsertOrderFolderLink({
+  const link = await db.upsertOrderFolderLink({
     orderNo: order.orderNo,
     folderType,
     rootKind: folderType === "raw_material" ? "raw" : "customer",
-    relativePath: finalRelative,
-    absolutePath,
+    relativePath: nextRelativePath,
+    absolutePath: nextAbsolutePath,
     displayName: def.displayName,
     companyName: def.companyName,
     status: "linked",
     lastError: null,
   });
   if (folderType === "customer_folder") {
-    await tryCreateNextcloudShare(order.orderNo, finalRelative, db);
+    await tryCreateNextcloudShare(order.orderNo, nextRelativePath, db);
   }
-  return { ...result, renameWarning };
+  return { link, renameInfo, renameWarning };
 }
 
 async function archiveOrderFolder(order, db, folderType) {
@@ -477,6 +499,21 @@ function removeEmptyDirsRecursive(baseDir, { keepRoot = true } = {}) {
   }
   if (!keepRoot && fs.readdirSync(baseDir).length === 0) {
     try { fs.rmdirSync(baseDir); } catch (_) {}
+  }
+}
+
+function removeEmptyParentsUntil(startDir, stopDir) {
+  let current = path.resolve(startDir);
+  const stop = path.resolve(stopDir);
+  while (current.startsWith(stop + path.sep)) {
+    if (!fs.existsSync(current) || !fs.statSync(current).isDirectory()) break;
+    if (fs.readdirSync(current).length > 0) break;
+    try {
+      fs.rmdirSync(current);
+    } catch (_) {
+      break;
+    }
+    current = path.dirname(current);
   }
 }
 

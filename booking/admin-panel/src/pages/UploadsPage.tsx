@@ -9,6 +9,7 @@ import {
   provisionOrderStorage,
   type Order,
   type OrderFolderType,
+  type OrderStorageRenameInfo,
   type OrderStorageSummaryResponse,
 } from "../api/orders";
 import { UploadTool } from "../components/orders/UploadTool";
@@ -32,6 +33,7 @@ export function UploadsPage() {
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [error, setError] = useState("");
+  const [renameInfo, setRenameInfo] = useState<OrderStorageRenameInfo | null>(null);
   const [linkInputs, setLinkInputs] = useState<Record<string, string>>({
     raw_material: "",
     customer_folder: "",
@@ -124,8 +126,10 @@ export function UploadsPage() {
     const relativePath = String(linkInputs[folderType] || "").trim();
     if (!relativePath) return;
     setLoadingSummary(true);
+    setRenameInfo(null);
     try {
-      await linkOrderStorageFolder(token, selectedOrderNo, { folderType, relativePath });
+      const result = await linkOrderStorageFolder(token, selectedOrderNo, { folderType, relativePath, rename: true });
+      setRenameInfo(result.renameInfo || null);
       await loadSummary(selectedOrderNo);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ordner konnte nicht verknüpft werden");
@@ -247,6 +251,11 @@ export function UploadsPage() {
                 {error ? (
                   <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
                     {error}
+                  </div>
+                ) : null}
+                {renameInfo ? (
+                  <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+                    Ordner wurde automatisch umbenannt zu: <span className="font-semibold">{renameInfo.toRelativePath}</span>
                   </div>
                 ) : null}
 
