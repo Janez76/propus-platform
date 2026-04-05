@@ -507,8 +507,17 @@ test -f '$RemoteEnvFile'
 Invoke-Ssh -DeployStep "5b/6 postgres + logto-db + logto (up -d)" @"
 set -eu
 cd '$RemoteProjectRoot'
-echo '[deploy] postgres + logto...'
-$composeBase up -d postgres logto-db logto
+echo '[deploy] starte vorhandene Basis-Services...'
+services=`$($composeBase config --services)
+if printf '%s\n' "`$services" | grep -qx 'postgres'; then
+  $composeBase up -d postgres
+fi
+if printf '%s\n' "`$services" | grep -qx 'logto-db'; then
+  $composeBase up -d logto-db
+fi
+if printf '%s\n' "`$services" | grep -qx 'logto'; then
+  $composeBase up -d logto
+fi
 "@
 
 Invoke-Ssh -DeployStep "5c/6 migrate-Image bauen" @"

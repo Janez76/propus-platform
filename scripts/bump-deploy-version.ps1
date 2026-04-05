@@ -18,6 +18,28 @@ function Write-Utf8NoBom {
     [System.IO.File]::WriteAllText($Path, $Content, $enc)
 }
 
+function Update-PackageJsonVersionPreserveFormatting {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$Version
+    )
+
+    $content = [System.IO.File]::ReadAllText($Path)
+    $updated = [regex]::Replace(
+        $content,
+        '("version"\s*:\s*")([^"]+)(")',
+        {
+            param($match)
+            return $match.Groups[1].Value + $Version + $match.Groups[3].Value
+        },
+        1
+    )
+    if ($updated -eq $content) {
+        throw "version-Feld nicht gefunden in $Path"
+    }
+    Write-Utf8NoBom -Path $Path -Content $updated
+}
+
 $versionFile = Join-Path $WorkspaceRoot (Join-Path "booking" (Join-Path "admin-panel" (Join-Path "public" "VERSION")))
 if (-not (Test-Path -LiteralPath $versionFile)) {
     throw "VERSION nicht gefunden: $versionFile"
@@ -52,11 +74,7 @@ foreach ($segments in $versionRelPaths) {
 # website/package.json version aktualisieren
 $websitePkgPath = Join-Path $WorkspaceRoot (Join-Path "website" "package.json")
 if (Test-Path -LiteralPath $websitePkgPath) {
-    $pkg = Get-Content -LiteralPath $websitePkgPath -Raw | ConvertFrom-Json
-    $pkg.version = $verStr
-    $pkgJson = $pkg | ConvertTo-Json -Depth 10
-    # Einrueckung normalisieren (ConvertTo-Json nutzt 4 Spaces)
-    Write-Utf8NoBom -Path $websitePkgPath -Content ($pkgJson + "`n")
+    Update-PackageJsonVersionPreserveFormatting -Path $websitePkgPath -Version $verStr
 }
 
 $dateStr = Get-Date -Format "yyyy-MM-dd"
@@ -75,7 +93,7 @@ $changelogBlock = @"
 "@
 
 $changelogRelPaths = @(
-    @( "booking", "admin-panel", "src", "data", "changelogData.ts" )
+    ,@( "booking", "admin-panel", "src", "data", "changelogData.ts" )
 )
 
 foreach ($segments in $changelogRelPaths) {
