@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Eye, EyeOff, LogIn } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useAuthStore } from "../store/authStore";
+import { normalizeStoredRole, useAuthStore } from "../store/authStore";
 import { isCompanyWorkspaceRole } from "../lib/companyRoles";
 import { t } from "../i18n";
 import { Footer } from "../components/layout/Footer";
@@ -63,7 +63,7 @@ export function LoginPage() {
         return;
       }
       const { token: tok, role: r, permissions } = data as { token: string; role: string; permissions?: string[] };
-      setAuth(tok, r || "admin", true, Array.isArray(permissions) ? permissions : []);
+      setAuth(tok, normalizeStoredRole(r), true, Array.isArray(permissions) ? permissions : []);
       const params = new URLSearchParams(window.location.search);
       const returnTo = params.get("returnTo") || "/dashboard";
       navigate(returnTo.startsWith("/") ? returnTo : "/dashboard", { replace: true });

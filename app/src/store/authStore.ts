@@ -84,7 +84,7 @@ function writeStoredPermissions(perms: string[]) {
   }
 }
 
-function normalizeStoredRole(input: string): Role {
+export function normalizeStoredRole(input: string): Role {
   const role = String(input || "").trim();
   const allowed: Role[] = [
     "admin",
