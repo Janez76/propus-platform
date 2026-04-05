@@ -376,9 +376,7 @@ async function linkExistingOrderFolder(order, db, { folderType, relativePath, re
         renameWarning = `Zielordner existiert bereits: ${expectedAbs} – Ordner nicht umbenannt.`;
       } else {
         try {
-          const expectedParent = path.dirname(expectedAbs);
-          fs.mkdirSync(expectedParent, { recursive: true });
-          fs.renameSync(absolutePath, expectedAbs);
+          renameWarning = moveDirectoryWithFallback(absolutePath, expectedAbs, rootPath);
           absolutePath = expectedAbs;
         } catch (err) {
           renameWarning = `Umbenennung fehlgeschlagen: ${err.message} – Ordner unter originalem Pfad verknüpft.`;
@@ -468,6 +466,34 @@ function copyFileVerified(sourcePath, targetPath) {
     throw new Error("Dateiinhalt nach Kopie stimmt nicht ueberein");
   }
   return sourceHash;
+}
+
+function moveDirectoryWithFallback(sourceDir, targetDir, rootPath) {
+  const resolvedSource = path.resolve(sourceDir);
+  const resolvedTarget = path.resolve(targetDir);
+  if (resolvedSource === resolvedTarget) return null;
+
+  fs.mkdirSync(path.dirname(resolvedTarget), { recursive: true });
+  try {
+    fs.renameSync(resolvedSource, resolvedTarget);
+    return null;
+  } catch (renameErr) {
+    fs.cpSync(resolvedSource, resolvedTarget, {
+      recursive: true,
+      errorOnExist: true,
+      force: false,
+    });
+    fs.rmSync(resolvedSource, { recursive: true, force: false });
+
+    const resolvedRoot = path.resolve(rootPath);
+    const sourceParent = path.dirname(resolvedSource);
+    if (sourceParent === resolvedRoot || sourceParent.startsWith(resolvedRoot + path.sep)) {
+      removeEmptyDirsRecursive(sourceParent, { keepRoot: false });
+    }
+
+    const suffix = renameErr?.message ? ` (${renameErr.message})` : "";
+    return `Direkte Umbenennung fehlgeschlagen${suffix} – Ordner wurde per Kopie auf den Zielpfad verschoben.`;
+  }
 }
 
 async function moveRawMaterialToCustomerFolder(order, db) {
