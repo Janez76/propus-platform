@@ -13,6 +13,7 @@ const {
   ensureBankImportSchema,
   applyImportedPayment,
   importExxasInvoiceToRenewal,
+  syncRenewalInvoiceFromExxas,
 } = require('./bank-import-admin');
 const {
   ensureSchema: ensureSuggestionSchema,
@@ -1053,23 +1054,6 @@ async function getLinkInvoiceJson(tourId, search) {
   };
 }
 
-async function postLinkInvoice(tourId, invoiceId) {
-  if (!invoiceId) return { ok: false, error: 'missing' };
-  const tour = await pool.query('SELECT id FROM tour_manager.tours WHERE id = $1', [tourId]);
-  if (!tour.rows[0]) return { ok: false, error: 'Tour nicht gefunden' };
-  const rawInvoiceId = String(invoiceId || '').trim();
-  if (!rawInvoiceId) return { ok: false, error: 'missing' };
-  if (rawInvoiceId.startsWith('live:')) {
-    return linkLiveExxasInvoiceToTour(tourId, rawInvoiceId.slice(5));
-  }
-  const localInvoiceId = rawInvoiceId.startsWith('local:') ? rawInvoiceId.slice(6) : rawInvoiceId;
-  const inv = await pool.query('SELECT id, tour_id FROM tour_manager.exxas_invoices WHERE id = $1', [localInvoiceId]);
-  if (!inv.rows[0]) return { ok: false, error: 'notfound' };
-  if (inv.rows[0].tour_id != null) return { ok: false, error: 'alreadylinked' };
-  await pool.query('UPDATE tour_manager.exxas_invoices SET tour_id = $1, synced_at = NOW() WHERE id = $2', [tourId, localInvoiceId]);
-  return { ok: true, invoiceId: inv.rows[0].id };
-}
-
 function getExternalInvoiceRef(row) {
   const value = row?.exxas_document_id ?? row?.nummer ?? row?.id ?? null;
   const normalized = String(value || '').trim();
@@ -1134,28 +1118,93 @@ async function getLiveLinkInvoiceCandidates(tour, search) {
       merged.set(externalRef, row);
     }
   }
+  // Bei gezielter Suche zusätzlich den Detail-Endpoint direkt abfragen,
+  // da /api/v2/documents oft nur eine begrenzte Anzahl Dokumente zurückgibt
+  // und ältere Rechnungen im List-Endpoint fehlen können.
+  if (search && merged.size === 0) {
+    const directResult = await exxas.getInvoiceDetails(search.trim()).catch(() => null);
+    if (directResult?.success && directResult?.invoice) {
+      const row = directResult.invoice;
+      const externalRef = getExternalInvoiceRef(row);
+      if (externalRef && !merged.has(externalRef)) {
+        merged.set(externalRef, row);
+      }
+    }
+  }
   return {
     invoices: [...merged.values()].sort(compareLinkInvoiceRows),
     error: merged.size > 0 ? null : lastError,
   };
 }
 
-async function linkLiveExxasInvoiceToTour(tourId, externalInvoiceId) {
-  await ensureExxasArchivedColumn();
-  const invoiceRef = String(externalInvoiceId || '').trim();
-  if (!invoiceRef) return { ok: false, error: 'missing' };
-  const existing = await pool.query(
-    `SELECT id, tour_id
-     FROM tour_manager.exxas_invoices
-     WHERE exxas_document_id = $1
-        OR nummer = $1
-     ORDER BY CASE WHEN exxas_document_id = $1 THEN 0 ELSE 1 END, id DESC
-     LIMIT 1`,
-    [invoiceRef]
+async function fetchLiveInvoiceForLink(invoiceRef) {
+  const liveInvoice = await exxas.getInvoiceDetails(invoiceRef);
+  const invoice = liveInvoice?.invoice || null;
+  if (!liveInvoice?.success || !invoice) return null;
+  const canonicalRef = getExternalInvoiceRef(invoice);
+  if (!canonicalRef) return null;
+  return { liveInvoice, invoice, canonicalRef };
+}
+
+async function updateLinkedExxasInvoiceRow(rowId, tourId, invoice, fallbackInvoiceRef) {
+  const canonicalRef = getExternalInvoiceRef(invoice) || String(fallbackInvoiceRef || '').trim() || null;
+  const updated = await pool.query(
+    `UPDATE tour_manager.exxas_invoices
+     SET tour_id = $1,
+         exxas_document_id = $2,
+         nummer = $3,
+         kunde_name = $4,
+         bezeichnung = $5,
+         ref_kunde = $6,
+         ref_vertrag = $7,
+         exxas_status = $8,
+         sv_status = $9,
+         zahlungstermin = $10::date,
+         dok_datum = $11::date,
+         preis_brutto = $12::numeric,
+         archived_at = NULL,
+         synced_at = NOW()
+     WHERE id = $13
+     RETURNING id`,
+    [
+      tourId,
+      canonicalRef,
+      invoice?.nummer || null,
+      invoice?.kunde_name || null,
+      invoice?.bezeichnung || null,
+      invoice?.ref_kunde || null,
+      invoice?.ref_vertrag || null,
+      invoice?.exxas_status || null,
+      invoice?.sv_status || null,
+      invoice?.zahlungstermin || null,
+      invoice?.dok_datum || null,
+      invoice?.preis_brutto ?? null,
+      rowId,
+    ]
   );
-  const existingRow = existing.rows[0] || null;
-  if (existingRow?.tour_id != null) return { ok: false, error: 'alreadylinked' };
-  if (existingRow) {
+  return updated.rows[0] || null;
+}
+
+async function syncLinkedRenewalInvoice(exxasInvoiceRowId, actorEmail = null) {
+  if (!Number.isFinite(Number(exxasInvoiceRowId))) return null;
+  return syncRenewalInvoiceFromExxas(exxasInvoiceRowId, actorEmail, { createIfMissing: true }).catch(() => null);
+}
+
+async function linkLocalExxasInvoiceToTour(tourId, localInvoiceId, actorEmail = null) {
+  const inv = await pool.query(
+    `SELECT id, tour_id, exxas_document_id, nummer
+     FROM tour_manager.exxas_invoices
+     WHERE id = $1`,
+    [localInvoiceId]
+  );
+  const existingRow = inv.rows[0] || null;
+  if (!existingRow) return { ok: false, error: 'notfound' };
+  if (existingRow.tour_id != null) return { ok: false, error: 'alreadylinked' };
+  const invoiceRef = getExternalInvoiceRef(existingRow);
+  const liveBundle = invoiceRef ? await fetchLiveInvoiceForLink(invoiceRef).catch(() => null) : null;
+  if (liveBundle?.invoice) {
+    await updateLinkedExxasInvoiceRow(existingRow.id, tourId, liveBundle.invoice, invoiceRef);
+  } else {
     await pool.query(
       `UPDATE tour_manager.exxas_invoices
        SET tour_id = $1,
@@ -1164,18 +1213,52 @@ async function linkLiveExxasInvoiceToTour(tourId, externalInvoiceId) {
        WHERE id = $2`,
       [tourId, existingRow.id]
     );
-    return { ok: true, invoiceId: existingRow.id, created: false };
+  }
+  const renewalSync = await syncLinkedRenewalInvoice(existingRow.id, actorEmail);
+  return {
+    ok: true,
+    invoiceId: existingRow.id,
+    renewalInvoiceId: renewalSync?.invoiceId || null,
+  };
+}
+
+async function linkLiveExxasInvoiceToTour(tourId, externalInvoiceId, actorEmail = null) {
+  await ensureExxasArchivedColumn();
+  const invoiceRef = String(externalInvoiceId || '').trim();
+  if (!invoiceRef) return { ok: false, error: 'missing' };
+  const liveBundle = await fetchLiveInvoiceForLink(invoiceRef);
+  if (!liveBundle?.invoice) {
+    return { ok: false, error: 'notfound' };
+  }
+  const { invoice, canonicalRef } = liveBundle;
+  const existing = await pool.query(
+    `SELECT id, tour_id
+     FROM tour_manager.exxas_invoices
+     WHERE exxas_document_id IN ($1, $2)
+        OR nummer IN ($1, $2)
+     ORDER BY CASE
+       WHEN exxas_document_id = $1 THEN 0
+       WHEN exxas_document_id = $2 THEN 1
+       WHEN nummer = $1 THEN 2
+       WHEN nummer = $2 THEN 3
+       ELSE 4
+     END, id DESC
+     LIMIT 1`,
+    [canonicalRef, invoiceRef]
+  );
+  const existingRow = existing.rows[0] || null;
+  if (existingRow?.tour_id != null) return { ok: false, error: 'alreadylinked' };
+  if (existingRow) {
+    await updateLinkedExxasInvoiceRow(existingRow.id, tourId, invoice, canonicalRef);
+    const renewalSync = await syncLinkedRenewalInvoice(existingRow.id, actorEmail);
+    return {
+      ok: true,
+      invoiceId: existingRow.id,
+      created: false,
+      renewalInvoiceId: renewalSync?.invoiceId || null,
+    };
   }
 
-  const liveInvoice = await exxas.getInvoiceDetails(invoiceRef);
-  const invoice = liveInvoice?.invoice || null;
-  if (!liveInvoice?.success || !invoice) {
-    return { ok: false, error: 'notfound' };
-  }
-  const canonicalRef = getExternalInvoiceRef(invoice);
-  if (!canonicalRef) {
-    return { ok: false, error: 'notfound' };
-  }
   const duplicate = await pool.query(
     `SELECT id, tour_id
      FROM tour_manager.exxas_invoices
@@ -1188,15 +1271,14 @@ async function linkLiveExxasInvoiceToTour(tourId, externalInvoiceId) {
   const duplicateRow = duplicate.rows[0] || null;
   if (duplicateRow?.tour_id != null) return { ok: false, error: 'alreadylinked' };
   if (duplicateRow) {
-    await pool.query(
-      `UPDATE tour_manager.exxas_invoices
-       SET tour_id = $1,
-           archived_at = NULL,
-           synced_at = NOW()
-       WHERE id = $2`,
-      [tourId, duplicateRow.id]
-    );
-    return { ok: true, invoiceId: duplicateRow.id, created: false };
+    await updateLinkedExxasInvoiceRow(duplicateRow.id, tourId, invoice, canonicalRef);
+    const renewalSync = await syncLinkedRenewalInvoice(duplicateRow.id, actorEmail);
+    return {
+      ok: true,
+      invoiceId: duplicateRow.id,
+      created: false,
+      renewalInvoiceId: renewalSync?.invoiceId || null,
+    };
   }
 
   const inserted = await pool.query(
@@ -1245,7 +1327,27 @@ async function linkLiveExxasInvoiceToTour(tourId, externalInvoiceId) {
       invoice.preis_brutto ?? null,
     ]
   );
-  return { ok: true, invoiceId: inserted.rows[0]?.id || null, created: true };
+  const insertedId = inserted.rows[0]?.id || null;
+  const renewalSync = insertedId ? await syncLinkedRenewalInvoice(insertedId, actorEmail) : null;
+  return {
+    ok: true,
+    invoiceId: insertedId,
+    created: true,
+    renewalInvoiceId: renewalSync?.invoiceId || null,
+  };
+}
+
+async function postLinkInvoice(tourId, invoiceId, actorEmail = null) {
+  if (!invoiceId) return { ok: false, error: 'missing' };
+  const tour = await pool.query('SELECT id FROM tour_manager.tours WHERE id = $1', [tourId]);
+  if (!tour.rows[0]) return { ok: false, error: 'Tour nicht gefunden' };
+  const rawInvoiceId = String(invoiceId || '').trim();
+  if (!rawInvoiceId) return { ok: false, error: 'missing' };
+  if (rawInvoiceId.startsWith('live:')) {
+    return linkLiveExxasInvoiceToTour(tourId, rawInvoiceId.slice(5), actorEmail);
+  }
+  const localInvoiceId = rawInvoiceId.startsWith('local:') ? rawInvoiceId.slice(6) : rawInvoiceId;
+  return linkLocalExxasInvoiceToTour(tourId, localInvoiceId, actorEmail);
 }
 
 async function postLinkMatterportAuto() {
