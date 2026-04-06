@@ -578,11 +578,44 @@ export function ToursAdminBankImportPage() {
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
       {msg ? <p className="text-sm text-[var(--text-main)]">{msg}</p> : null}
 
-      <div className="surface-card-strong p-4">
-        <label className="text-sm font-medium text-[var(--text-main)] block mb-2">Datei hochladen</label>
-        <input type="file" accept=".xml,.csv,text/xml,text/csv" disabled={previewing || uploading} onChange={(e) => void onFileSelect(e)} />
-        {previewing ? <p className="text-xs text-[var(--text-subtle)] mt-2">Datei wird analysiert…</p> : null}
-        {uploading ? <p className="text-xs text-[var(--text-subtle)] mt-2">Wird importiert…</p> : null}
+      <div className="surface-card-strong p-5">
+        <label className="text-sm font-medium text-[var(--text-main)] block mb-3">Datei hochladen</label>
+        <label
+          className={`flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-8 cursor-pointer transition-colors ${
+            previewing || uploading
+              ? "border-[var(--border-soft)] opacity-50 cursor-not-allowed"
+              : "border-[var(--accent)]/30 hover:border-[var(--accent)] hover:bg-[var(--accent)]/5"
+          }`}
+        >
+          <input
+            type="file"
+            accept=".xml,.csv,text/xml,text/csv"
+            disabled={previewing || uploading}
+            className="sr-only"
+            onChange={(e) => void onFileSelect(e)}
+          />
+          {previewing ? (
+            <>
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--accent)]/25 border-t-[var(--accent)]" />
+              <p className="text-sm text-[var(--text-subtle)]">Datei wird analysiert…</p>
+            </>
+          ) : uploading ? (
+            <>
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--accent)]/25 border-t-[var(--accent)]" />
+              <p className="text-sm text-[var(--text-subtle)]">Wird importiert…</p>
+            </>
+          ) : (
+            <>
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--accent)]/10">
+                <Upload className="h-6 w-6 text-[var(--accent)]" />
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-medium text-[var(--text-main)]">CAMT054 oder CSV hochladen</p>
+                <p className="text-xs text-[var(--text-subtle)] mt-0.5">Klicken zum Auswählen · .xml oder .csv</p>
+              </div>
+            </>
+          )}
+        </label>
       </div>
 
       {data ? (
