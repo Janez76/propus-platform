@@ -256,6 +256,8 @@ function mapInvoicePayload(raw) {
     payload.kundeName,
     payload.customer_name,
     payload.customerName,
+    payload.ad_firmenname,
+    payload.ad_vorname,
     payload.firmenname,
     payload.suchname,
     customer?.name,
@@ -312,7 +314,7 @@ function mapInvoicePayload(raw) {
       firstFilled(payload.dok_datum, payload.rechnungsdatum, payload.invoiceDate, payload.created_at, payload.datum)
     ),
     preis_brutto: normalizeExxasAmount(
-      firstFilled(payload.preis_brutto, payload.brutto, payload.betrag, payload.totalGross, payload.amount)
+      firstFilled(payload.preis_brutto, payload.preisBrutto, payload.brutto, payload.betrag, payload.totalGross, payload.amount)
     ),
     raw: payload,
   };
