@@ -56,6 +56,7 @@ export function ToursAdminLinkInvoicePage() {
   const tour = data?.tour as ToursAdminTourRow | undefined;
   const invoices = (data?.invoices as Record<string, unknown>[]) || [];
   const suggestions = (data?.suggestions as Record<string, unknown>[]) || [];
+  const liveError = typeof data?.liveError === "string" ? data.liveError : null;
 
   async function linkInvoice(invoiceId: string | number) {
     setLinkingId(invoiceId);
@@ -106,6 +107,11 @@ export function ToursAdminLinkInvoicePage() {
       </div>
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      {liveError ? (
+        <p className="text-sm text-amber-700 dark:text-amber-400">
+          Exxas-Livedaten konnten nicht geladen werden: {liveError}
+        </p>
+      ) : null}
 
       <form onSubmit={applySearch} className="flex flex-wrap gap-2 items-end">
         <div className="flex-1 min-w-[200px]">
@@ -140,11 +146,11 @@ export function ToursAdminLinkInvoicePage() {
           <h2 className="text-sm font-semibold text-[var(--text-main)]">Vorschläge</h2>
           <ul className="space-y-2 text-sm">
             {suggestions.map((row) => {
-              const invId = row.id;
+              const invId = String(row.link_id ?? row.id ?? "");
               const busy = linkingId === invId;
               return (
                 <li
-                  key={String(invId)}
+                  key={invId}
                   className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-soft)]/50 pb-2"
                 >
                   <div>
@@ -160,7 +166,7 @@ export function ToursAdminLinkInvoicePage() {
                   <button
                     type="button"
                     disabled={busy}
-                    onClick={() => void linkInvoice(String(invId))}
+                    onClick={() => void linkInvoice(invId)}
                     className="text-xs rounded border border-[var(--border-soft)] px-2 py-1 hover:bg-[var(--surface-raised)] disabled:opacity-50"
                   >
                     {busy ? "…" : "Verknüpfen"}
@@ -197,22 +203,32 @@ export function ToursAdminLinkInvoicePage() {
                 </tr>
               ) : (
                 invoices.map((row) => {
-                  const invId = row.id;
+                  const invId = String(row.link_id ?? row.id ?? "");
                   const busy = linkingId === invId;
+                  const isLive = row.source === "live";
                   return (
-                    <tr key={String(invId)} className="border-b border-[var(--border-soft)]/40">
-                      <td className="px-4 py-2 font-mono text-xs">{String(row.nummer ?? invId ?? "")}</td>
+                    <tr key={invId} className="border-b border-[var(--border-soft)]/40">
+                      <td className="px-4 py-2 font-mono text-xs">
+                        <div className="flex items-center gap-2">
+                          <span>{String(row.nummer ?? row.exxas_document_id ?? invId ?? "")}</span>
+                          {isLive ? (
+                            <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
+                              Live
+                            </span>
+                          ) : null}
+                        </div>
+                      </td>
                       <td className="px-4 py-2">
                         <div className="text-[var(--text-main)]">{String(row.kunde_name ?? "—")}</div>
                         <div className="text-xs text-[var(--text-subtle)]">{String(row.bezeichnung ?? "")}</div>
                       </td>
-                      <td className="px-4 py-2">{formatMoney(row.betrag)}</td>
+                      <td className="px-4 py-2">{formatMoney(row.betrag ?? row.preis_brutto)}</td>
                       <td className="px-4 py-2 text-xs text-[var(--text-subtle)]">{formatDate(row.zahlungstermin)}</td>
                       <td className="px-4 py-2">
                         <button
                           type="button"
                           disabled={busy}
-                          onClick={() => void linkInvoice(String(invId))}
+                          onClick={() => void linkInvoice(invId)}
                           className="text-xs rounded bg-[var(--accent)] text-white px-2 py-1 disabled:opacity-50"
                         >
                           {busy ? "…" : "Verknüpfen"}

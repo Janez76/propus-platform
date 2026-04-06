@@ -79,6 +79,137 @@ function extractInvoiceReference(data, fallbackId = null) {
   };
 }
 
+function firstFilled(...values) {
+  for (const value of values) {
+    if (value == null) continue;
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed) return trimmed;
+      continue;
+    }
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'boolean') return value;
+  }
+  return null;
+}
+
+function normalizeExxasDate(value) {
+  if (value == null) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const swissMatch = raw.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if (swissMatch) {
+    const [, day, month, year] = swissMatch;
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  }
+  const dt = new Date(raw);
+  if (Number.isNaN(dt.getTime())) return null;
+  return dt.toISOString().slice(0, 10);
+}
+
+function normalizeExxasAmount(value) {
+  if (value == null || value === '') return null;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+  let normalized = raw.replace(/\s+/g, '').replace(/CHF/ig, '');
+  const hasComma = normalized.includes(',');
+  const hasDot = normalized.includes('.');
+  if (hasComma && hasDot) {
+    normalized = normalized.lastIndexOf(',') > normalized.lastIndexOf('.')
+      ? normalized.replace(/\./g, '').replace(',', '.')
+      : normalized.replace(/,/g, '');
+  } else if (hasComma) {
+    normalized = normalized.replace(',', '.');
+  }
+  const amount = Number.parseFloat(normalized);
+  return Number.isFinite(amount) ? amount : null;
+}
+
+function extractArrayPayload(data) {
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.message)) return data.message;
+  if (Array.isArray(data?.data)) return data.data;
+  if (Array.isArray(data?.items)) return data.items;
+  if (Array.isArray(data?.results)) return data.results;
+  return [];
+}
+
+function mapInvoicePayload(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const payload = (raw.message && typeof raw.message === 'object' && !Array.isArray(raw.message))
+    ? raw.message
+    : raw;
+  const invoiceRef = extractInvoiceReference(payload, payload?.id ?? raw?.id ?? null);
+  const customer = payload.customer && typeof payload.customer === 'object' ? payload.customer : null;
+  const debtor = payload.debtor && typeof payload.debtor === 'object' ? payload.debtor : null;
+  const customerName = firstFilled(
+    payload.kunde_name,
+    payload.kundeName,
+    payload.customer_name,
+    payload.customerName,
+    payload.firmenname,
+    payload.suchname,
+    customer?.name,
+    customer?.firmenname,
+    debtor?.name,
+    [payload.vorname, payload.nachname].filter(Boolean).join(' ').trim(),
+    [customer?.vorname, customer?.nachname].filter(Boolean).join(' ').trim(),
+  );
+  const invoiceNumber = firstFilled(
+    invoiceRef.number,
+    payload.nummer,
+    payload.rechnungsnummer,
+    payload.invoiceNumber,
+    payload.invoice_no,
+  );
+  const externalId = firstFilled(invoiceRef.id, payload.exxas_document_id, payload.documentId, invoiceNumber);
+  return {
+    id: externalId != null ? String(externalId) : null,
+    exxas_document_id: externalId != null ? String(externalId) : null,
+    nummer: invoiceNumber != null ? String(invoiceNumber) : null,
+    kunde_name: customerName != null ? String(customerName) : null,
+    bezeichnung: firstFilled(
+      payload.bezeichnung,
+      payload.betreff,
+      payload.description,
+      payload.beschreibung,
+      payload.title,
+      payload.name,
+    ),
+    ref_kunde: firstFilled(
+      payload.ref_kunde,
+      payload.kunde_id,
+      payload.customer_id,
+      payload.customerId,
+      payload.debtor_id,
+      customer?.id,
+      customer?.nummer,
+    ),
+    ref_vertrag: firstFilled(
+      payload.ref_vertrag,
+      payload.ref_abo,
+      payload.aboId,
+      payload.subscriptionId,
+      payload.contractId,
+      payload.contract_id,
+    ),
+    exxas_status: firstFilled(payload.status, payload.exxas_status, payload.invoiceStatus, payload.invoice_status),
+    sv_status: firstFilled(payload.sv_status, payload.svStatus),
+    zahlungstermin: normalizeExxasDate(
+      firstFilled(payload.zahlungstermin, payload.faelligkeit, payload.faellig_am, payload.dueDate, payload.due_at)
+    ),
+    dok_datum: normalizeExxasDate(
+      firstFilled(payload.dok_datum, payload.rechnungsdatum, payload.invoiceDate, payload.created_at, payload.datum)
+    ),
+    preis_brutto: normalizeExxasAmount(
+      firstFilled(payload.preis_brutto, payload.brutto, payload.betrag, payload.totalGross, payload.amount)
+    ),
+    raw: payload,
+  };
+}
+
 async function createInvoice(tour, amount, periodStart, periodEnd) {
   try {
     const body = {
@@ -132,19 +263,27 @@ async function getInvoiceDetails(exxasInvoiceId) {
     const payload = (data && typeof data === 'object' && data.message && typeof data.message === 'object')
       ? data.message
       : data;
+    const invoice = mapInvoicePayload(data);
     if (ok) {
       return {
         success: true,
         id: invoiceRef.id,
         number: invoiceRef.number,
         status: payload?.status || (payload?.bezahlt ? 'paid' : 'open') || 'unknown',
+        invoice,
         raw: data,
       };
     }
   } catch (e) {
     console.warn('Exxas getInvoiceDetails:', e.message);
   }
-  return { success: false, id: exxasInvoiceId ? String(exxasInvoiceId) : null, number: null, status: 'unknown' };
+  return {
+    success: false,
+    id: exxasInvoiceId ? String(exxasInvoiceId) : null,
+    number: null,
+    status: 'unknown',
+    invoice: null,
+  };
 }
 
 async function extendSubscription(exxasSubscriptionId, months = 6) {
@@ -245,6 +384,76 @@ async function searchCustomers(query) {
     console.warn('Exxas searchCustomers:', e.message);
     return { customers: [], error: e.message };
   }
+}
+
+const EXXAS_INVOICE_CACHE_MS = 60 * 1000;
+let exxasInvoiceListCache = { at: 0, rows: null, error: null };
+
+async function fetchExxasInvoicesRawList() {
+  const now = Date.now();
+  if (exxasInvoiceListCache.rows && now - exxasInvoiceListCache.at < EXXAS_INVOICE_CACHE_MS) {
+    return { ok: true, rows: exxasInvoiceListCache.rows, error: exxasInvoiceListCache.error };
+  }
+  if (!EXXAS_TOKEN) {
+    exxasInvoiceListCache = { at: now, rows: [], error: 'EXXAS_API_TOKEN nicht gesetzt' };
+    return { ok: false, rows: [], error: exxasInvoiceListCache.error };
+  }
+  try {
+    const res = await fetch(`${EXXAS_BASE}/api/v2/rechnungen`, {
+      headers: { Authorization: `ApiKey ${EXXAS_TOKEN}`, Accept: 'application/json' },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) {
+      const err = `Exxas API: HTTP ${res.status}`;
+      exxasInvoiceListCache = { at: now, rows: [], error: err };
+      return { ok: false, rows: [], error: err };
+    }
+    const data = await res.json().catch(() => ({}));
+    const rows = extractArrayPayload(data);
+    exxasInvoiceListCache = { at: now, rows, error: null };
+    return { ok: true, rows, error: null };
+  } catch (e) {
+    const err = e.name === 'TimeoutError' ? 'Exxas API Timeout' : e.message;
+    console.warn('Exxas fetchExxasInvoicesRawList:', err);
+    exxasInvoiceListCache = { at: now, rows: [], error: err };
+    return { ok: false, rows: [], error: err };
+  }
+}
+
+async function searchInvoices(query, options = {}) {
+  const { limit = 30, openOnly = false } = options;
+  const { rows, error } = await fetchExxasInvoicesRawList();
+  if (error && !rows?.length) return { invoices: [], error };
+  const q = String(query || '').trim().toLowerCase();
+  let invoices = (rows || [])
+    .map((row) => mapInvoicePayload(row))
+    .filter((row) => row?.id || row?.nummer);
+  if (openOnly) {
+    invoices = invoices.filter((row) => {
+      const status = String(row.exxas_status || '').trim().toLowerCase();
+      return !['bz', 'bezahlt', 'paid'].includes(status);
+    });
+  }
+  if (q) {
+    invoices = invoices.filter((row) => ([
+      row.id,
+      row.exxas_document_id,
+      row.nummer,
+      row.kunde_name,
+      row.bezeichnung,
+      row.ref_kunde,
+      row.ref_vertrag,
+    ].some((value) => String(value || '').toLowerCase().includes(q))));
+  }
+  invoices = invoices
+    .sort((a, b) => {
+      const aDate = new Date(a.zahlungstermin || a.dok_datum || '1970-01-01').getTime();
+      const bDate = new Date(b.zahlungstermin || b.dok_datum || '1970-01-01').getTime();
+      if (aDate !== bDate) return bDate - aDate;
+      return String(b.nummer || b.id || '').localeCompare(String(a.nummer || a.id || ''));
+    })
+    .slice(0, Math.max(1, limit));
+  return { invoices, error: error || null };
 }
 
 /** API liefert die gesamte Kontaktliste; zwischengespeichert, damit Portal-Zugriff nicht bei jedem Request neu lädt. */
@@ -406,6 +615,7 @@ module.exports = {
   cancelSubscription,
   cancelInvoice,
   deactivateCustomer,
+  searchInvoices,
   searchCustomers,
   getCustomer,
   resolveCustomerIdentity,
