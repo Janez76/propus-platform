@@ -75,29 +75,48 @@ else
 fi
 docker compose -f docker-compose.vps.yml --env-file .env.vps up -d --force-recreate website
 
-echo "==> Health Check"
-for attempt in $(seq 1 30); do
-  if curl -sf http://127.0.0.1:3100/api/core/health >/dev/null; then
-    echo "Health check passed on attempt $attempt"
+# ── Health-Check: wartet bis Platform wirklich antwortet, bevor Cloudflare-
+#    Tunnel wieder Traffic bekommt. Ohne diesen Wait serviert Cloudflare 403
+#    ("origin not reachable") waehrend des Container-Neustarts.
+echo "==> Platform Health Check (max 120s)"
+HEALTH_OK=0
+for attempt in $(seq 1 60); do
+  STATUS=$(curl -so /dev/null -w "%{http_code}" http://127.0.0.1:3100/api/core/health 2>/dev/null || echo "000")
+  if [ "$STATUS" = "200" ]; then
+    echo "  Platform bereit nach ${attempt}x2s (HTTP $STATUS)"
+    HEALTH_OK=1
     break
   fi
-  if [ "$attempt" -eq 30 ]; then
-    echo "Health check failed after 30 attempts"
+  if [ "$attempt" -eq 60 ]; then
+    echo "  Platform NICHT bereit nach 120s (letzter HTTP-Status: $STATUS)"
     exit 1
   fi
+  echo "  Versuch $attempt/60 – warte (HTTP $STATUS) ..."
   sleep 2
 done
 
-echo "==> Website Health Check"
+# Cloudflare-Tunnel neu verbinden, sobald Origin wieder oben ist.
+# Das schliesst bestehende haengende Verbindungen und baut frische auf.
+if [ "$HEALTH_OK" -eq 1 ] && systemctl is-active --quiet cloudflared; then
+  echo "==> Cloudflare-Tunnel: Verbindungen erneuern nach Container-Restart"
+  # SIGHUP statt restart: erneuert Connections ohne Tunnel-Token-Neustart (kein Downtime-Risiko)
+  systemctl kill -s HUP cloudflared 2>/dev/null || systemctl restart cloudflared 2>/dev/null || true
+  sleep 2
+  echo "  cloudflared status: $(systemctl is-active cloudflared)"
+fi
+
+echo "==> Website Health Check (max 60s)"
 for attempt in $(seq 1 30); do
-  if curl -sf http://127.0.0.1:4343/ >/dev/null; then
-    echo "Website health check passed on attempt $attempt"
+  STATUS=$(curl -so /dev/null -w "%{http_code}" http://127.0.0.1:4343/ 2>/dev/null || echo "000")
+  if [ "$STATUS" = "200" ] || [ "$STATUS" = "301" ] || [ "$STATUS" = "302" ]; then
+    echo "  Website bereit nach ${attempt}x2s (HTTP $STATUS)"
     break
   fi
   if [ "$attempt" -eq 30 ]; then
-    echo "Website health check failed after 30 attempts"
+    echo "  Website NICHT bereit nach 60s (letzter HTTP-Status: $STATUS)"
     exit 1
   fi
+  echo "  Versuch $attempt/30 – warte (HTTP $STATUS) ..."
   sleep 2
 done
 
