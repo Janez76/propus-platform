@@ -697,8 +697,12 @@ Systemweite Rechnungsliste **ausserhalb** des Tour-Untermenüs. Pro-Tour-Ansicht
 |---|---|---|
 | `GET` | `/api/tours/admin/invoices-central?type=renewal\|exxas&status=&search=` | Listen + Stats; `status` wie bisher Verlängerung (`offen`, `ueberfaellig`, `bezahlt`, `entwurf`) bzw. Exxas (`offen` = `exxas_status != 'bz'`, `bezahlt` = `bz`) |
 | `GET` | `/api/tours/admin/invoices` | Unverändert: nur Verlängerungen (Legacy / andere Clients) |
+| `GET` | `/api/tours/admin/tours/:id/link-invoice?search=` | Link-Dialog für Exxas-Rechnungen; kombiniert lokale `exxas_invoices` mit Live-Treffern aus Exxas |
+| `POST` | `/api/tours/admin/tours/:id/link-invoice` | Verknüpft lokale Exxas-Rechnung oder legt bei `live:<referenz>` zuerst einen lokalen Datensatz an |
 
 **Backend:** `tours/lib/admin-phase3.js` — `getRenewalInvoicesCentral()`, `getExxasInvoicesCentral()`; Route `tours/routes/admin-api.js` → `GET /invoices-central`.
+
+**Tour-Detail Nebenflow:** Der Dialog **„Exxas-Rechnung verknüpfen“** (`ToursAdminLinkInvoicePage.tsx`) zeigt lokale wie auch Live-Kandidaten. Live-Treffer werden im UI markiert und können direkt zugeordnet werden, auch wenn der reguläre Exxas-Sync die Rechnung lokal noch nicht geschrieben hat.
 
 ### Datenbank
 
