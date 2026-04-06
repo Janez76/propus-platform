@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { type FormEvent, type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Archive,
@@ -12,7 +12,18 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { createFreeformInvoice, createTourManualInvoice, renewalInvoicePdfUrl, updateAdminInvoice } from "../../../api/toursAdmin";
+import {
+  createFreeformInvoice,
+  createTourManualInvoice,
+  getInvoiceFormSuggestions,
+  getLinkMatterportBookingSearch,
+  getLinkMatterportCustomerDetail,
+  getLinkMatterportCustomerSearch,
+  getToursAdminToursList,
+  renewalInvoicePdfUrl,
+  updateAdminInvoice,
+} from "../../../api/toursAdmin";
+import type { ToursAdminTourRow } from "../../../types/toursAdmin";
 
 export type InvoiceType = "renewal" | "exxas";
 export type InvoiceRow = Record<string, unknown>;
@@ -431,7 +442,7 @@ export function EditInvoiceModal({
     return `Exxas-Rechnung ${String(invoice.nummer || invoice.id || "")} bearbeiten`;
   }, [invoice.id, invoice.invoice_number, invoice.nummer, type]);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setSaving(true);
     setError(null);
@@ -664,6 +675,94 @@ export function EditInvoiceModal({
 
 type CreateMode = "freeform" | "tour";
 
+const INVOICE_DESCRIPTION_PRESETS = [
+  "Virtueller Rundgang – Verlängerung (6 Monate)",
+  "Virtueller Rundgang – Verlängerung (12 Monate)",
+  "2D-Grundriss",
+  "Matterport Hosting / Abo",
+];
+
+function useDebouncedValue<T>(value: T, ms: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), ms);
+    return () => clearTimeout(t);
+  }, [value, ms]);
+  return debounced;
+}
+
+function dedupeStrings(list: string[], limit: number) {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const s of list) {
+    const t = s.trim();
+    if (!t || seen.has(t)) continue;
+    seen.add(t);
+    out.push(t);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+type CustomerPick =
+  | { kind: "company"; key: string; id: string; primary: string; secondary: string; email?: string | null; address?: string | null }
+  | { kind: "contact"; key: string; customerId: string; primary: string; secondary: string; email?: string | null }
+  | { kind: "order"; key: string; orderNo: number; primary: string; secondary: string; email?: string | null; address?: string | null };
+
+function buildCustomerSuggestions(cust: Record<string, unknown>, orders: Record<string, unknown>[]): CustomerPick[] {
+  const companies = (cust.companies as Record<string, unknown>[]) ?? [];
+  const contacts = (cust.contacts as Record<string, unknown>[]) ?? [];
+  const rows: CustomerPick[] = [];
+  for (const c of companies) {
+    const id = c.id != null ? String(c.id) : "";
+    if (!id) continue;
+    const firm = String(c.firmenname || c.label || "");
+    const num = c.nummer != null ? String(c.nummer) : "";
+    const em = c.email != null ? String(c.email) : "";
+    rows.push({
+      kind: "company",
+      key: `c-${id}`,
+      id,
+      primary: firm,
+      secondary: [num && `Nr. ${num}`, em].filter(Boolean).join(" · "),
+      email: em || null,
+      address: c.addressLine != null ? String(c.addressLine) : null,
+    });
+  }
+  for (const ct of contacts) {
+    const cid = ct.customerId != null ? String(ct.customerId) : "";
+    const contactId = ct.contactId != null ? String(ct.contactId) : "";
+    if (!cid) continue;
+    const firm = String(ct.firmenname || "");
+    const cn = String(ct.contactName || "");
+    rows.push({
+      kind: "contact",
+      key: `ct-${contactId || cn}-${cid}`,
+      customerId: cid,
+      primary: cn ? `${firm} – ${cn}` : firm,
+      secondary: String(ct.contactEmail || ct.customerEmail || ""),
+      email: (ct.contactEmail || ct.customerEmail) as string | null | undefined,
+    });
+  }
+  for (const o of orders.slice(0, 8)) {
+    const oid = o.id != null ? Number(o.id) : NaN;
+    const orderNo = o.order_no != null ? Number(o.order_no) : NaN;
+    if (!Number.isFinite(oid) || !Number.isFinite(orderNo)) continue;
+    const company = String(o.company ?? "").trim();
+    const address = String(o.address ?? "").trim();
+    rows.push({
+      kind: "order",
+      key: `o-${oid}`,
+      orderNo,
+      primary: company ? company : `Bestellung #${orderNo}`,
+      secondary: [`#${orderNo}`, address].filter(Boolean).join(" · "),
+      email: String(o.coreEmail ?? o.email ?? o.contactEmail ?? "") || null,
+      address: address || null,
+    });
+  }
+  return rows;
+}
+
 export function CreateInvoiceModal({
   onClose,
   onCreated,
@@ -690,11 +789,378 @@ export function CreateInvoiceModal({
   const [paymentNote, setPaymentNote] = useState("");
   const [skontoChf, setSkontoChfCreate] = useState("");
   const [tourId, setTourId] = useState(presetTourId ? String(presetTourId) : "");
+  /** Optionale Tour-Verknüpfung nur im Freitext-Modus */
+  const [freeformTourLink, setFreeformTourLink] = useState("");
   const [markPaidNow, setMarkPaidNow] = useState(false);
   const [paidAt, setPaidAt] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
 
-  async function handleSubmit(e: React.FormEvent) {
+  const customerWrapRef = useRef<HTMLDivElement>(null);
+  const tourWrapRef = useRef<HTMLDivElement>(null);
+  const freeformTourWrapRef = useRef<HTMLDivElement>(null);
+
+  const [customerMenuOpen, setCustomerMenuOpen] = useState(false);
+  const [customerLoading, setCustomerLoading] = useState(false);
+  const [customerRows, setCustomerRows] = useState<CustomerPick[]>([]);
+
+  const [tourMenuOpen, setTourMenuOpen] = useState(false);
+  const [tourLoading, setTourLoading] = useState(false);
+  const [tourRows, setTourRows] = useState<ToursAdminTourRow[]>([]);
+
+  const [ffTourMenuOpen, setFfTourMenuOpen] = useState(false);
+  const [ffTourLoading, setFfTourLoading] = useState(false);
+  const [ffTourRows, setFfTourRows] = useState<ToursAdminTourRow[]>([]);
+
+  const [customerHighlightIdx, setCustomerHighlightIdx] = useState(-1);
+  const [tourHighlightIdx, setTourHighlightIdx] = useState(-1);
+  const [ffTourHighlightIdx, setFfTourHighlightIdx] = useState(-1);
+  const customerHiRef = useRef(-1);
+  const tourHiRef = useRef(-1);
+  const ffTourHiRef = useRef(-1);
+
+  const [formSuggestions, setFormSuggestions] = useState<{ descriptions: string[]; invoiceNumbers: string[]; notes: string[] }>({
+    descriptions: [],
+    invoiceNumbers: [],
+    notes: [],
+  });
+
+  const debouncedCustomerQ = useDebouncedValue(customerName.trim(), 280);
+  const debouncedTourQ = useDebouncedValue(tourId.trim(), 280);
+  const debouncedFfTourQ = useDebouncedValue(freeformTourLink.trim(), 280);
+  const debouncedFormSuggestQ = useDebouncedValue(description.trim().slice(0, 80), 400);
+
+  const descDatalistOptions = useMemo(
+    () => dedupeStrings([...INVOICE_DESCRIPTION_PRESETS, ...formSuggestions.descriptions], 40),
+    [formSuggestions.descriptions],
+  );
+  const invNoDatalistOptions = useMemo(() => dedupeStrings([...formSuggestions.invoiceNumbers], 20), [formSuggestions.invoiceNumbers]);
+  const noteDatalistOptions = useMemo(() => dedupeStrings([...formSuggestions.notes], 24), [formSuggestions.notes]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getInvoiceFormSuggestions()
+      .then((r) => {
+        if (cancelled || !r.ok) return;
+        setFormSuggestions((prev) => ({
+          descriptions: r.descriptions.length ? r.descriptions : prev.descriptions,
+          invoiceNumbers: r.invoiceNumbers.length ? r.invoiceNumbers : prev.invoiceNumbers,
+          notes: r.notes.length ? r.notes : prev.notes,
+        }));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (debouncedFormSuggestQ.length < 2) return;
+    let cancelled = false;
+    void getInvoiceFormSuggestions(debouncedFormSuggestQ)
+      .then((r) => {
+        if (cancelled || !r.ok) return;
+        setFormSuggestions((prev) => ({
+          descriptions: r.descriptions.length ? r.descriptions : prev.descriptions,
+          invoiceNumbers: prev.invoiceNumbers,
+          notes: r.notes.length ? r.notes : prev.notes,
+        }));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedFormSuggestQ]);
+
+  useEffect(() => {
+    customerHiRef.current = customerHighlightIdx;
+  }, [customerHighlightIdx]);
+  useEffect(() => {
+    tourHiRef.current = tourHighlightIdx;
+  }, [tourHighlightIdx]);
+  useEffect(() => {
+    ffTourHiRef.current = ffTourHighlightIdx;
+  }, [ffTourHighlightIdx]);
+
+  useEffect(() => {
+    setCustomerHighlightIdx(-1);
+  }, [customerRows, customerLoading]);
+  useEffect(() => {
+    setTourHighlightIdx(-1);
+  }, [tourRows, tourLoading]);
+  useEffect(() => {
+    setFfTourHighlightIdx(-1);
+  }, [ffTourRows, ffTourLoading]);
+
+  useEffect(() => {
+    if (customerHighlightIdx < 0) return;
+    document.getElementById(`create-inv-cust-opt-${customerHighlightIdx}`)?.scrollIntoView({ block: "nearest" });
+  }, [customerHighlightIdx]);
+  useEffect(() => {
+    if (tourHighlightIdx < 0) return;
+    document.getElementById(`create-inv-tour-opt-${tourHighlightIdx}`)?.scrollIntoView({ block: "nearest" });
+  }, [tourHighlightIdx]);
+  useEffect(() => {
+    if (ffTourHighlightIdx < 0) return;
+    document.getElementById(`create-inv-fftour-opt-${ffTourHighlightIdx}`)?.scrollIntoView({ block: "nearest" });
+  }, [ffTourHighlightIdx]);
+
+  useEffect(() => {
+    if (!customerMenuOpen || debouncedCustomerQ.length < 2) {
+      setCustomerRows([]);
+      setCustomerLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setCustomerLoading(true);
+    void Promise.all([getLinkMatterportCustomerSearch(debouncedCustomerQ), getLinkMatterportBookingSearch(debouncedCustomerQ)])
+      .then(([cust, book]) => {
+        if (cancelled) return;
+        setCustomerRows(buildCustomerSuggestions(cust as Record<string, unknown>, (book.orders as Record<string, unknown>[]) ?? []));
+      })
+      .catch(() => {
+        if (!cancelled) setCustomerRows([]);
+      })
+      .finally(() => {
+        if (!cancelled) setCustomerLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedCustomerQ, customerMenuOpen]);
+
+  useEffect(() => {
+    if (!tourMenuOpen || presetTourId || mode !== "tour") {
+      setTourRows([]);
+      setTourLoading(false);
+      return;
+    }
+    if (/^\d+$/.test(debouncedTourQ) && debouncedTourQ.length <= 9) {
+      setTourRows([]);
+      setTourLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setTourLoading(true);
+    void getToursAdminToursList(`?q=${encodeURIComponent(debouncedTourQ)}&page=1`)
+      .then((res) => {
+        if (cancelled) return;
+        if (res.ok && Array.isArray(res.tours)) setTourRows(res.tours);
+        else setTourRows([]);
+      })
+      .catch(() => {
+        if (!cancelled) setTourRows([]);
+      })
+      .finally(() => {
+        if (!cancelled) setTourLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedTourQ, tourMenuOpen, mode, presetTourId]);
+
+  useEffect(() => {
+    if (!ffTourMenuOpen || mode !== "freeform") {
+      setFfTourRows([]);
+      setFfTourLoading(false);
+      return;
+    }
+    if (/^\d+$/.test(debouncedFfTourQ) && debouncedFfTourQ.length <= 9) {
+      setFfTourRows([]);
+      setFfTourLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setFfTourLoading(true);
+    void getToursAdminToursList(`?q=${encodeURIComponent(debouncedFfTourQ)}&page=1`)
+      .then((res) => {
+        if (cancelled) return;
+        if (res.ok && Array.isArray(res.tours)) setFfTourRows(res.tours);
+        else setFfTourRows([]);
+      })
+      .catch(() => {
+        if (!cancelled) setFfTourRows([]);
+      })
+      .finally(() => {
+        if (!cancelled) setFfTourLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedFfTourQ, ffTourMenuOpen, mode]);
+
+  useEffect(() => {
+    function onDoc(e: MouseEvent) {
+      const t = e.target;
+      if (!(t instanceof Node)) return;
+      if (customerWrapRef.current?.contains(t)) return;
+      if (tourWrapRef.current?.contains(t)) return;
+      if (freeformTourWrapRef.current?.contains(t)) return;
+      setCustomerMenuOpen(false);
+      setTourMenuOpen(false);
+      setFfTourMenuOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
+
+  function pickTourRow(t: ToursAdminTourRow, slot: "tour" | "ff") {
+    if (slot === "tour") {
+      setTourId(String(t.id));
+      setTourMenuOpen(false);
+      setTourHighlightIdx(-1);
+    } else {
+      setFreeformTourLink(String(t.id));
+      setFfTourMenuOpen(false);
+      setFfTourHighlightIdx(-1);
+    }
+  }
+
+  function onCustomerKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    const navigable = customerMenuOpen && debouncedCustomerQ.length >= 2 && !customerLoading && customerRows.length > 0;
+    if (e.key === "Escape") {
+      if (customerMenuOpen) {
+        e.preventDefault();
+        setCustomerMenuOpen(false);
+        setCustomerHighlightIdx(-1);
+      }
+      return;
+    }
+    if (!navigable) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setCustomerHighlightIdx((i) => {
+        if (i < customerRows.length - 1) return i + 1;
+        return i === -1 ? 0 : i;
+      });
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setCustomerHighlightIdx((i) => (i > 0 ? i - 1 : -1));
+    } else if (e.key === "Enter") {
+      const hi = customerHiRef.current;
+      const row = customerRows[hi];
+      if (hi >= 0 && row) {
+        e.preventDefault();
+        void applyCustomerPick(row);
+      }
+    } else if (e.key === "Tab") {
+      setCustomerMenuOpen(false);
+      setCustomerHighlightIdx(-1);
+    }
+  }
+
+  function onTourKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (presetTourId) return;
+    const navigable =
+      tourMenuOpen && debouncedTourQ.length >= 2 && !/^\d+$/.test(debouncedTourQ) && !tourLoading && tourRows.length > 0;
+    if (e.key === "Escape") {
+      if (tourMenuOpen) {
+        e.preventDefault();
+        setTourMenuOpen(false);
+        setTourHighlightIdx(-1);
+      }
+      return;
+    }
+    if (!navigable) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setTourHighlightIdx((i) => {
+        if (i < tourRows.length - 1) return i + 1;
+        return i === -1 ? 0 : i;
+      });
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setTourHighlightIdx((i) => (i > 0 ? i - 1 : -1));
+    } else if (e.key === "Enter") {
+      const hi = tourHiRef.current;
+      const row = tourRows[hi];
+      if (hi >= 0 && row) {
+        e.preventDefault();
+        pickTourRow(row, "tour");
+      }
+    } else if (e.key === "Tab") {
+      setTourMenuOpen(false);
+      setTourHighlightIdx(-1);
+    }
+  }
+
+  function onFfTourKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    const navigable =
+      ffTourMenuOpen && debouncedFfTourQ.length >= 2 && !/^\d+$/.test(debouncedFfTourQ) && !ffTourLoading && ffTourRows.length > 0;
+    if (e.key === "Escape") {
+      if (ffTourMenuOpen) {
+        e.preventDefault();
+        setFfTourMenuOpen(false);
+        setFfTourHighlightIdx(-1);
+      }
+      return;
+    }
+    if (!navigable) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setFfTourHighlightIdx((i) => {
+        if (i < ffTourRows.length - 1) return i + 1;
+        return i === -1 ? 0 : i;
+      });
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setFfTourHighlightIdx((i) => (i > 0 ? i - 1 : -1));
+    } else if (e.key === "Enter") {
+      const hi = ffTourHiRef.current;
+      const row = ffTourRows[hi];
+      if (hi >= 0 && row) {
+        e.preventDefault();
+        pickTourRow(row, "ff");
+      }
+    } else if (e.key === "Tab") {
+      setFfTourMenuOpen(false);
+      setFfTourHighlightIdx(-1);
+    }
+  }
+
+  async function applyCustomerPick(row: CustomerPick) {
+    setCustomerHighlightIdx(-1);
+    setCustomerMenuOpen(false);
+    if (row.kind === "company") {
+      setCustomerName(row.primary);
+      setCustomerEmail(row.email?.trim() || "");
+      setCustomerAddress(row.address?.trim() || "");
+      try {
+        const detail = await getLinkMatterportCustomerDetail(parseInt(row.id, 10));
+        const cust = detail.customer as Record<string, unknown> | null | undefined;
+        if (cust && detail.ok) {
+          const line = cust.addressLine != null ? String(cust.addressLine).trim() : "";
+          const em = cust.email != null ? String(cust.email).trim() : "";
+          if (line) setCustomerAddress(line);
+          if (em && !row.email) setCustomerEmail(em);
+        }
+      } catch {
+        /* Adresse bleibt aus Suche */
+      }
+      return;
+    }
+    if (row.kind === "contact") {
+      setCustomerName(row.primary);
+      setCustomerEmail(row.email?.trim() || "");
+      try {
+        const detail = await getLinkMatterportCustomerDetail(parseInt(row.customerId, 10));
+        const cust = detail.customer as Record<string, unknown> | null | undefined;
+        if (cust && detail.ok) {
+          const line = cust.addressLine != null ? String(cust.addressLine).trim() : "";
+          if (line) setCustomerAddress(line);
+          const em = cust.email != null ? String(cust.email).trim() : "";
+          if (em) setCustomerEmail((prev) => prev || em);
+        }
+      } catch {
+        setCustomerAddress("");
+      }
+      return;
+    }
+    setCustomerName(row.primary);
+    setCustomerEmail(row.email?.trim() || "");
+    setCustomerAddress(row.address?.trim() || "");
+  }
+
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setSaving(true);
     setError(null);
@@ -711,7 +1177,7 @@ export function CreateInvoiceModal({
           invoiceDate: invoiceDate || null,
           paymentNote: paymentNote || null,
           skontoChf: skontoChf || null,
-          tourId: tourId || null,
+          tourId: freeformTourLink.trim() || null,
           markPaidNow,
           paidAt: paidAt || null,
           paymentMethod: paymentMethod || null,
@@ -721,11 +1187,12 @@ export function CreateInvoiceModal({
           return;
         }
       } else {
-        if (!tourId) {
-          setError("Bitte Tour-ID eingeben.");
+        const tid = tourId.trim();
+        if (!tid || !/^\d+$/.test(tid)) {
+          setError("Bitte gültige Tour-ID eingeben oder aus der Liste wählen.");
           return;
         }
-        const result = await createTourManualInvoice(tourId, {
+        const result = await createTourManualInvoice(tid, {
           invoiceNumber: invoiceNumber || undefined,
           amountChf,
           dueAt: dueAt || null,
@@ -746,9 +1213,31 @@ export function CreateInvoiceModal({
   }
 
   const inputCls = "w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)] placeholder:text-[var(--text-subtle)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]";
+  const suggestPanelCls =
+    "absolute left-0 right-0 top-full z-30 mt-1 max-h-56 overflow-auto rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] py-1 text-sm shadow-lg";
+
+  function chipCls(active: boolean) {
+    return `rounded-md border px-2 py-0.5 text-xs transition-colors ${
+      active
+        ? "border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--text-main)]"
+        : "border-[var(--border-soft)] text-[var(--text-subtle)] hover:border-[var(--accent)]/40 hover:text-[var(--text-main)]"
+    }`;
+  }
+
+  function suggestOptionCls(active: boolean) {
+    return `flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left ${
+      active ? "bg-[var(--accent)]/15 ring-1 ring-inset ring-[var(--accent)]/30" : "hover:bg-[var(--surface-raised)]"
+    }`;
+  }
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4">
+      <datalist id="create-inv-invno-suggestions">
+        {invNoDatalistOptions.map((d) => (
+          <option key={d} value={d} />
+        ))}
+      </datalist>
+
       <div className="w-full max-w-lg rounded-2xl border border-[var(--border-soft)] bg-[var(--surface)] shadow-xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between border-b border-[var(--border-soft)] px-5 py-4 sticky top-0 bg-[var(--surface)] z-10">
           <h2 className="text-lg font-semibold text-[var(--text-main)]">Neue Rechnung erstellen</h2>
@@ -760,10 +1249,24 @@ export function CreateInvoiceModal({
         <form onSubmit={handleSubmit} className="space-y-4 px-5 py-4">
           {!presetTourId && (
             <div className="flex gap-1 rounded-lg border border-[var(--border-soft)] p-1">
-              <button type="button" onClick={() => setMode("freeform")} className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${mode === "freeform" ? "bg-[var(--accent)] text-white" : "text-[var(--text-subtle)] hover:text-[var(--text-main)]"}`}>
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("freeform");
+                  setError(null);
+                }}
+                className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${mode === "freeform" ? "bg-[var(--accent)] text-white" : "text-[var(--text-subtle)] hover:text-[var(--text-main)]"}`}
+              >
                 Freitext
               </button>
-              <button type="button" onClick={() => setMode("tour")} className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${mode === "tour" ? "bg-[var(--accent)] text-white" : "text-[var(--text-subtle)] hover:text-[var(--text-main)]"}`}>
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("tour");
+                  setError(null);
+                }}
+                className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${mode === "tour" ? "bg-[var(--accent)] text-white" : "text-[var(--text-subtle)] hover:text-[var(--text-main)]"}`}
+              >
                 Tour-gebunden
               </button>
             </div>
@@ -771,33 +1274,193 @@ export function CreateInvoiceModal({
 
           {mode === "freeform" && (
             <>
-              <label className="block space-y-1">
-                <span className="text-sm font-medium text-[var(--text-main)]">Kundenname *</span>
-                <input type="text" required value={customerName} onChange={(e) => setCustomerName(e.target.value)} className={inputCls} placeholder="Firma / Name" />
-              </label>
+              <div className="relative" ref={customerWrapRef}>
+                <label className="block space-y-1">
+                  <span className="text-sm font-medium text-[var(--text-main)]">Kundenname *</span>
+                  <input
+                    type="text"
+                    required
+                    autoComplete="off"
+                    role="combobox"
+                    aria-expanded={customerMenuOpen && debouncedCustomerQ.length >= 2}
+                    aria-controls="create-inv-cust-listbox"
+                    aria-activedescendant={
+                      customerHighlightIdx >= 0 ? `create-inv-cust-opt-${customerHighlightIdx}` : undefined
+                    }
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    onFocus={() => setCustomerMenuOpen(true)}
+                    onKeyDown={onCustomerKeyDown}
+                    className={inputCls}
+                    placeholder="Firma / Name (Tippen für Vorschläge)"
+                  />
+                </label>
+                {customerMenuOpen && debouncedCustomerQ.length >= 2 ? (
+                  <div id="create-inv-cust-listbox" className={suggestPanelCls} role="listbox">
+                    {customerLoading ? (
+                      <p className="px-3 py-2 text-xs text-[var(--text-subtle)]">Suche…</p>
+                    ) : customerRows.length > 0 ? (
+                      customerRows.map((row, idx) => (
+                        <button
+                          key={row.key}
+                          id={`create-inv-cust-opt-${idx}`}
+                          type="button"
+                          role="option"
+                          aria-selected={customerHighlightIdx === idx}
+                          className={suggestOptionCls(customerHighlightIdx === idx)}
+                          onMouseEnter={() => setCustomerHighlightIdx(idx)}
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => void applyCustomerPick(row)}
+                        >
+                          <span className="font-medium text-[var(--text-main)]">
+                            {row.kind === "company" && "Firma · "}
+                            {row.kind === "contact" && "Kontakt · "}
+                            {row.kind === "order" && "Bestellung · "}
+                            {row.primary}
+                          </span>
+                          {row.secondary ? <span className="text-xs text-[var(--text-subtle)]">{row.secondary}</span> : null}
+                        </button>
+                      ))
+                    ) : (
+                      <p className="px-3 py-2 text-xs text-[var(--text-subtle)]">Keine Treffer – Name manuell eintragen.</p>
+                    )}
+                  </div>
+                ) : null}
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <label className="block space-y-1">
                   <span className="text-sm font-medium text-[var(--text-main)]">E-Mail</span>
-                  <input type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} className={inputCls} placeholder="kunde@beispiel.ch" />
+                  <input type="email" autoComplete="off" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} className={inputCls} placeholder="kunde@beispiel.ch" />
                 </label>
                 <label className="block space-y-1">
                   <span className="text-sm font-medium text-[var(--text-main)]">Adresse</span>
-                  <input type="text" value={customerAddress} onChange={(e) => setCustomerAddress(e.target.value)} className={inputCls} placeholder="Strasse, PLZ Ort" />
+                  <input type="text" autoComplete="off" value={customerAddress} onChange={(e) => setCustomerAddress(e.target.value)} className={inputCls} placeholder="Strasse, PLZ Ort" />
                 </label>
+              </div>
+              <div className="relative" ref={freeformTourWrapRef}>
+                <label className="block space-y-1">
+                  <span className="text-sm font-medium text-[var(--text-main)]">Tour verknüpfen (optional)</span>
+                  <input
+                    type="text"
+                    autoComplete="off"
+                    role="combobox"
+                    aria-expanded={ffTourMenuOpen && debouncedFfTourQ.length >= 2 && !/^\d+$/.test(debouncedFfTourQ)}
+                    aria-controls="create-inv-fftour-listbox"
+                    aria-activedescendant={ffTourHighlightIdx >= 0 ? `create-inv-fftour-opt-${ffTourHighlightIdx}` : undefined}
+                    value={freeformTourLink}
+                    onChange={(e) => setFreeformTourLink(e.target.value)}
+                    onFocus={() => setFfTourMenuOpen(true)}
+                    onKeyDown={onFfTourKeyDown}
+                    className={inputCls}
+                    placeholder="Tour-ID oder Suche nach Kunde / Objekt"
+                  />
+                </label>
+                {ffTourMenuOpen && debouncedFfTourQ.length >= 2 && !/^\d+$/.test(debouncedFfTourQ) ? (
+                  <div id="create-inv-fftour-listbox" className={suggestPanelCls} role="listbox">
+                    {ffTourLoading ? (
+                      <p className="px-3 py-2 text-xs text-[var(--text-subtle)]">Suche…</p>
+                    ) : ffTourRows.length > 0 ? (
+                      ffTourRows.map((t, idx) => (
+                        <button
+                          key={t.id}
+                          id={`create-inv-fftour-opt-${idx}`}
+                          type="button"
+                          role="option"
+                          aria-selected={ffTourHighlightIdx === idx}
+                          className={suggestOptionCls(ffTourHighlightIdx === idx)}
+                          onMouseEnter={() => setFfTourHighlightIdx(idx)}
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => pickTourRow(t, "ff")}
+                        >
+                          <span className="font-medium text-[var(--text-main)]">#{t.id}</span>
+                          <span className="text-xs text-[var(--text-subtle)]">
+                            {[String(t.bezeichnung ?? ""), String(t.canonical_customer_name ?? t.customer_email ?? "")].filter(Boolean).join(" · ")}
+                          </span>
+                        </button>
+                      ))
+                    ) : (
+                      <p className="px-3 py-2 text-xs text-[var(--text-subtle)]">Keine Tour gefunden.</p>
+                    )}
+                  </div>
+                ) : null}
               </div>
               <label className="block space-y-1">
                 <span className="text-sm font-medium text-[var(--text-main)]">Beschreibung *</span>
-                <textarea required value={description} onChange={(e) => setDescription(e.target.value)} rows={2} className={inputCls} placeholder="Leistungsbeschreibung" />
+                <textarea
+                  required
+                  autoComplete="off"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={2}
+                  className={inputCls}
+                  placeholder="Leistungsbeschreibung"
+                />
+                <div className="mt-1.5 flex flex-wrap gap-1">
+                  {descDatalistOptions.slice(0, 10).map((d) => (
+                    <button key={d} type="button" className={chipCls(description.trim() === d)} onClick={() => setDescription(d)}>
+                      {d.length > 48 ? `${d.slice(0, 45)}…` : d}
+                    </button>
+                  ))}
+                </div>
               </label>
             </>
           )}
 
           {mode === "tour" && (
-            <label className="block space-y-1">
-              <span className="text-sm font-medium text-[var(--text-main)]">Tour-ID *</span>
-              <input type="number" required value={tourId} onChange={(e) => setTourId(e.target.value)} className={inputCls} placeholder="z. B. 123" />
-              {presetTourLabel && <p className="text-xs text-[var(--text-subtle)]">{presetTourLabel}</p>}
-            </label>
+            <div className="relative" ref={tourWrapRef}>
+              <label className="block space-y-1">
+                <span className="text-sm font-medium text-[var(--text-main)]">Tour *</span>
+                <input
+                  type="text"
+                  required
+                  autoComplete="off"
+                  role="combobox"
+                  disabled={!!presetTourId}
+                  aria-expanded={
+                    presetTourId ? false : tourMenuOpen && debouncedTourQ.length >= 2 && !/^\d+$/.test(debouncedTourQ)
+                  }
+                  aria-controls={presetTourId ? undefined : "create-inv-tour-listbox"}
+                  aria-activedescendant={
+                    presetTourId || tourHighlightIdx < 0 ? undefined : `create-inv-tour-opt-${tourHighlightIdx}`
+                  }
+                  value={tourId}
+                  onChange={(e) => setTourId(e.target.value)}
+                  onFocus={() => setTourMenuOpen(true)}
+                  onKeyDown={onTourKeyDown}
+                  className={inputCls}
+                  placeholder="Numerische ID oder Suche (Kunde, Objekt)"
+                />
+                {presetTourLabel ? <p className="text-xs text-[var(--text-subtle)]">{presetTourLabel}</p> : null}
+              </label>
+              {tourMenuOpen && !presetTourId && debouncedTourQ.length >= 2 && !/^\d+$/.test(debouncedTourQ) ? (
+                <div id="create-inv-tour-listbox" className={suggestPanelCls} role="listbox">
+                  {tourLoading ? (
+                    <p className="px-3 py-2 text-xs text-[var(--text-subtle)]">Suche…</p>
+                  ) : tourRows.length > 0 ? (
+                    tourRows.map((t, idx) => (
+                      <button
+                        key={t.id}
+                        id={`create-inv-tour-opt-${idx}`}
+                        type="button"
+                        role="option"
+                        aria-selected={tourHighlightIdx === idx}
+                        className={suggestOptionCls(tourHighlightIdx === idx)}
+                        onMouseEnter={() => setTourHighlightIdx(idx)}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => pickTourRow(t, "tour")}
+                      >
+                        <span className="font-medium text-[var(--text-main)]">#{t.id}</span>
+                        <span className="text-xs text-[var(--text-subtle)]">
+                          {[String(t.bezeichnung ?? ""), String(t.canonical_customer_name ?? t.customer_email ?? "")].filter(Boolean).join(" · ")}
+                        </span>
+                      </button>
+                    ))
+                  ) : (
+                    <p className="px-3 py-2 text-xs text-[var(--text-subtle)]">Keine Tour gefunden.</p>
+                  )}
+                </div>
+              ) : null}
+            </div>
           )}
 
           <div className="grid grid-cols-2 gap-3">
@@ -807,7 +1470,24 @@ export function CreateInvoiceModal({
             </label>
             <label className="block space-y-1">
               <span className="text-sm font-medium text-[var(--text-main)]">Rechnungsnummer</span>
-              <input type="text" value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} className={inputCls} placeholder="Automatisch" />
+              <input
+                type="text"
+                autoComplete="off"
+                list="create-inv-invno-suggestions"
+                value={invoiceNumber}
+                onChange={(e) => setInvoiceNumber(e.target.value)}
+                className={inputCls}
+                placeholder="Automatisch"
+              />
+              {invNoDatalistOptions.length > 0 ? (
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {invNoDatalistOptions.slice(0, 6).map((n) => (
+                    <button key={n} type="button" className={chipCls(invoiceNumber === n)} onClick={() => setInvoiceNumber(n)}>
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </label>
           </div>
 
@@ -830,7 +1510,22 @@ export function CreateInvoiceModal({
 
           <label className="block space-y-1">
             <span className="text-sm font-medium text-[var(--text-main)]">Notiz</span>
-            <textarea value={paymentNote} onChange={(e) => setPaymentNote(e.target.value)} rows={2} className={inputCls} />
+            <textarea
+              autoComplete="off"
+              value={paymentNote}
+              onChange={(e) => setPaymentNote(e.target.value)}
+              rows={2}
+              className={inputCls}
+            />
+            {noteDatalistOptions.length > 0 ? (
+              <div className="mt-1 flex flex-wrap gap-1">
+                {noteDatalistOptions.slice(0, 8).map((n) => (
+                  <button key={n} type="button" className={chipCls(paymentNote.trim() === n)} onClick={() => setPaymentNote(n)}>
+                    {n.length > 40 ? `${n.slice(0, 37)}…` : n}
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </label>
 
           <div className="rounded-lg border border-[var(--border-soft)] px-4 py-3 space-y-3">

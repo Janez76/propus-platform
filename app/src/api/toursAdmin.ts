@@ -302,6 +302,18 @@ export function createFreeformInvoice(body: {
   return toursAdminPost("/invoices/create-freeform", body as Record<string, unknown>);
 }
 
+export type InvoiceFormSuggestionsResponse = {
+  ok: true;
+  descriptions: string[];
+  invoiceNumbers: string[];
+  notes: string[];
+};
+
+export function getInvoiceFormSuggestions(q?: string) {
+  const qs = q != null && String(q).trim() !== "" ? `?q=${encodeURIComponent(String(q).trim())}` : "";
+  return toursAdminFetch<InvoiceFormSuggestionsResponse>(`/invoices/form-suggestions${qs}`);
+}
+
 export function freeformInvoicePdfUrl(invoiceId: string | number) {
   return `${BASE}/invoices/${invoiceId}/pdf`;
 }

@@ -1746,6 +1746,63 @@ router.post('/invoices/create-freeform', async (req, res) => {
   }
 });
 
+router.get('/invoices/form-suggestions', async (req, res) => {
+  try {
+    const q = String(req.query.q || '').trim();
+    const like = q.length >= 1 ? `%${q}%` : null;
+    const descPromise = like
+      ? pool.query(
+        `SELECT DISTINCT TRIM(description) AS d
+         FROM tour_manager.renewal_invoices
+         WHERE description IS NOT NULL AND TRIM(description) != '' AND description ILIKE $1
+         ORDER BY d ASC NULLS LAST LIMIT 18`,
+        [like],
+      )
+      : pool.query(
+        `SELECT TRIM(description) AS d FROM tour_manager.renewal_invoices
+         WHERE description IS NOT NULL AND TRIM(description) != ''
+         ORDER BY id DESC LIMIT 80`,
+      );
+    const [descRes, numRes, noteRes] = await Promise.all([
+      descPromise,
+      pool.query(
+        `SELECT invoice_number FROM tour_manager.renewal_invoices
+         WHERE invoice_number IS NOT NULL AND TRIM(invoice_number) != ''
+         ORDER BY id DESC LIMIT 15`,
+      ),
+      like
+        ? pool.query(
+          `SELECT DISTINCT LEFT(TRIM(payment_note), 160) AS n
+           FROM tour_manager.renewal_invoices
+           WHERE payment_note IS NOT NULL AND TRIM(payment_note) != '' AND payment_note ILIKE $1
+           ORDER BY n ASC NULLS LAST LIMIT 12`,
+          [like],
+        )
+        : pool.query(
+          `SELECT LEFT(TRIM(payment_note), 160) AS n
+           FROM tour_manager.renewal_invoices
+           WHERE payment_note IS NOT NULL AND TRIM(payment_note) != ''
+           ORDER BY id DESC LIMIT 40`,
+        ),
+    ]);
+    const seenD = new Set();
+    const descriptions = [];
+    for (const row of descRes.rows) {
+      const d = row.d;
+      if (!d || seenD.has(d)) continue;
+      seenD.add(d);
+      descriptions.push(d);
+      if (descriptions.length >= 15) break;
+    }
+    const invoiceNumbers = [...new Set(numRes.rows.map((r) => r.invoice_number).filter(Boolean))].slice(0, 12);
+    const notes = [...new Set(noteRes.rows.map((r) => r.n).filter(Boolean))].slice(0, 10);
+    return res.json({ ok: true, descriptions, invoiceNumbers, notes });
+  } catch (err) {
+    console.error('[admin-api] GET /invoices/form-suggestions', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 router.post('/tours/:id/invoices/:invoiceId/mark-paid-manual', async (req, res) => {
   try {
     const tourId = parseInt(req.params.id, 10);

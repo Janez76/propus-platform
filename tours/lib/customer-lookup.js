@@ -254,11 +254,15 @@ async function searchCustomersWithExxasFallback(needle, opts = {}) {
 function toLinkModalCustomer(customerRow, contactRows) {
   if (!customerRow?.id) return null;
   const contacts = Array.isArray(contactRows) ? contactRows : [];
+  const street = customerRow.street || '';
+  const zipcity = customerRow.zipcity || '';
+  const addressLine = [street, zipcity].filter((s) => String(s).trim()).join(', ') || null;
   return {
     id: String(customerRow.id),
     nummer: customerRow.customer_number || '',
     firmenname: customerRow.company || customerRow.name || '',
     email: customerRow.email || null,
+    addressLine,
     label: `${customerRow.company || customerRow.name || customerRow.id}${
       customerRow.customer_number || customerRow.exxas_contact_id
         ? ` (Nr. ${customerRow.customer_number || customerRow.exxas_contact_id})`
