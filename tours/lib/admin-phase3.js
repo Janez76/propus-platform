@@ -1382,21 +1382,12 @@ async function updateRenewalInvoice(invoiceId, body = {}) {
     const wo = body.writeoff === true || body.writeoff === 'true' || body.writeoff === 1;
     patches.push(`writeoff = $${n++}`);
     vals.push(wo);
-    if (wo) {
-      // Abschreibung setzt Status auf cancelled
-      patches.push(`invoice_status = $${n++}`);
-      vals.push('cancelled');
-    }
+    // Hinweis: writeoff = «Betreibung eingeleitet» — Rechnungsstatus bleibt durch Dropdown / andere Felder steuerbar
   }
   if (body.writeoff_reason !== undefined) {
     const reason = body.writeoff_reason == null ? null : String(body.writeoff_reason);
     patches.push(`writeoff_reason = $${n++}`);
     vals.push(reason);
-    // Grund auch in payment_note spiegeln (falls leer)
-    if (reason) {
-      patches.push(`payment_note = COALESCE(payment_note, $${n++})`);
-      vals.push(reason);
-    }
   }
   if (!patches.length) return { ok: true, invoice: row.rows[0] };
   vals.push(id);

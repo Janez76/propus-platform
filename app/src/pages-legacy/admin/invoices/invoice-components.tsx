@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Archive,
@@ -405,8 +405,25 @@ export function EditInvoiceModal({
   const [paidAtDate, setPaidAtDate] = useState(dateToDisplayDDMMYYYY(invoice.paid_at_date ?? invoice.paid_at));
   const [paymentChannel, setPaymentChannel] = useState(String(invoice.payment_channel || ""));
   const [skontoChf, setSkontoChf] = useState(invoice.skonto_chf != null ? String(invoice.skonto_chf) : "");
+  const [paidReceivedChf, setPaidReceivedChf] = useState("");
   const [writeoff, setWriteoff] = useState(invoice.writeoff === true || invoice.writeoff === "true");
   const [writeoffReason, setWriteoffReason] = useState(String(invoice.writeoff_reason || ""));
+
+  const skontoFromDifference = useMemo(() => {
+    const inv = parseFloat(String(amountCHF).replace(",", ".")) || 0;
+    const raw = paidReceivedChf.trim().replace(",", ".");
+    if (raw === "") return null;
+    const rec = parseFloat(raw);
+    if (!Number.isFinite(rec) || inv <= 0) return null;
+    const diff = Math.max(0, Math.round((inv - rec) * 100) / 100);
+    const pct = Math.round((diff / inv) * 10000) / 100;
+    return { chf: diff, pct };
+  }, [amountCHF, paidReceivedChf]);
+
+  useEffect(() => {
+    if (skontoFromDifference === null) return;
+    setSkontoChf(skontoFromDifference.chf.toFixed(2));
+  }, [skontoFromDifference]);
 
   const title = useMemo(() => {
     if (type === "renewal") return `Rechnung ${String(invoice.invoice_number || invoice.id || "")} bearbeiten`;
@@ -532,17 +549,45 @@ export function EditInvoiceModal({
               </div>
 
               <label className="block space-y-1">
-                <span className="text-sm font-medium text-[var(--text-main)]">Skonto (CHF, optional)</span>
+                <span className="text-sm font-medium text-[var(--text-main)]">Eingegangene Zahlung (CHF, optional)</span>
                 <input
                   type="number"
                   step="0.01"
                   min="0"
-                  placeholder="0.00"
-                  value={skontoChf}
-                  onChange={(e) => setSkontoChf(e.target.value)}
+                  placeholder="z. B. bei Teilzahlung"
+                  value={paidReceivedChf}
+                  onChange={(e) => setPaidReceivedChf(e.target.value)}
                   className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)] placeholder:text-[var(--text-subtle)]"
                 />
+                <p className="text-[11px] text-[var(--text-subtle)]">
+                  Wenn ausgefüllt: Skonto = Differenz zum Rechnungsbetrag (automatisch in CHF und %).
+                </p>
               </label>
+
+              {skontoFromDifference !== null ? (
+                <div className="rounded-lg border border-[var(--accent)]/25 bg-[var(--accent)]/5 px-3 py-2 text-sm space-y-0.5">
+                  <span className="font-medium text-[var(--text-main)]">Skonto aus Differenz</span>
+                  <p className="text-[var(--text-main)] tabular-nums">
+                    CHF {skontoFromDifference.chf.toFixed(2)}
+                    <span className="text-[var(--text-subtle)] font-normal ml-2">
+                      ({skontoFromDifference.pct.toFixed(2)} % vom Rechnungsbetrag)
+                    </span>
+                  </p>
+                </div>
+              ) : (
+                <label className="block space-y-1">
+                  <span className="text-sm font-medium text-[var(--text-main)]">Skonto (CHF, optional)</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    value={skontoChf}
+                    onChange={(e) => setSkontoChf(e.target.value)}
+                    className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)] placeholder:text-[var(--text-subtle)]"
+                  />
+                </label>
+              )}
 
               <label className="block space-y-1">
                 <span className="text-sm font-medium text-[var(--text-main)]">Notiz</span>
@@ -554,25 +599,25 @@ export function EditInvoiceModal({
                 />
               </label>
 
-              <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-4 py-3 space-y-3">
+              <div className="rounded-lg border border-amber-500/25 bg-amber-500/5 px-4 py-3 space-y-3">
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={writeoff}
                     onChange={(e) => setWriteoff(e.target.checked)}
-                    className="h-4 w-4 rounded border-[var(--border-soft)] accent-red-600"
+                    className="h-4 w-4 rounded border-[var(--border-soft)] accent-amber-600"
                   />
-                  <span className="text-sm font-medium text-red-700">Abschreibung (setzt Status auf Storniert)</span>
+                  <span className="text-sm font-medium text-amber-900">Betreibung eingeleitet</span>
                 </label>
                 {writeoff ? (
                   <label className="block space-y-1">
-                    <span className="text-xs font-medium text-[var(--text-subtle)]">Grund der Abschreibung</span>
+                    <span className="text-xs font-medium text-[var(--text-subtle)]">Bemerkung / Aktenzeichen (optional)</span>
                     <input
                       type="text"
-                      placeholder="z.B. Zahlungsunfähigkeit, Kulanz..."
+                      placeholder="z. B. Referenz Betreibungsamt"
                       value={writeoffReason}
                       onChange={(e) => setWriteoffReason(e.target.value)}
-                      className="w-full rounded-lg border border-red-200 bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)] placeholder:text-[var(--text-subtle)]"
+                      className="w-full rounded-lg border border-amber-200 bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)] placeholder:text-[var(--text-subtle)]"
                     />
                   </label>
                 ) : null}
