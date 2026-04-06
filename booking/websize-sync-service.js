@@ -103,6 +103,51 @@ function createPipelineStats() {
   return { created: 0, updated: 0, deleted: 0, scanned: 0 };
 }
 
+function moveFileWithFallback(sourcePath, targetPath) {
+  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+  try {
+    fs.renameSync(sourcePath, targetPath);
+  } catch (_) {
+    fs.copyFileSync(sourcePath, targetPath);
+    fs.unlinkSync(sourcePath);
+  }
+}
+
+function getLegacyFloorplanJpgCandidates(sourcePath, targetPath) {
+  const sourceDir = path.dirname(sourcePath);
+  const sourceDirName = path.basename(sourceDir);
+  const siblingJpgDirName = sourceDirName.toLowerCase().startsWith("pdf-")
+    ? `jpg-${sourceDirName.slice(4)}`
+    : null;
+  const siblingJpgDir = siblingJpgDirName ? path.join(path.dirname(sourceDir), siblingJpgDirName) : null;
+  const sourceStem = path.basename(sourcePath, path.extname(sourcePath));
+  return [sourceDir, siblingJpgDir]
+    .filter(Boolean)
+    .flatMap((candidateDir) => [".jpg", ".jpeg"].map((ext) => path.join(candidateDir, `${sourceStem}${ext}`)))
+    .filter((candidate) => path.resolve(candidate).toLowerCase() !== path.resolve(targetPath).toLowerCase());
+}
+
+function adoptLegacyFloorplanJpg(sourcePath, targetPath) {
+  for (const candidatePath of getLegacyFloorplanJpgCandidates(sourcePath, targetPath)) {
+    if (!fs.existsSync(candidatePath) || !fs.statSync(candidatePath).isFile()) continue;
+    moveFileWithFallback(candidatePath, targetPath);
+    return { adopted: true, legacyPath: candidatePath };
+  }
+  return { adopted: false, legacyPath: null };
+}
+
+function removeLegacyFloorplanJpgCandidates(sourcePath, targetPath) {
+  let deleted = 0;
+  for (const candidatePath of getLegacyFloorplanJpgCandidates(sourcePath, targetPath)) {
+    if (!fs.existsSync(candidatePath) || !fs.statSync(candidatePath).isFile()) continue;
+    try {
+      fs.unlinkSync(candidatePath);
+      deleted += 1;
+    } catch (_) {}
+  }
+  return deleted;
+}
+
 async function syncWebsizeForFile({ order, fullsizeRoot, websizeRoot, fullsizeFilePath, forceRebuild = false }) {
   const relativePath = path.relative(fullsizeRoot, fullsizeFilePath);
   if (!relativePath || relativePath.startsWith("..")) {
@@ -134,13 +179,14 @@ async function syncWebsizeForFile({ order, fullsizeRoot, websizeRoot, fullsizeFi
 async function syncFloorplanJpgForOrderFolder(orderFolderAbsolutePath, order, logger = console, { forceRebuild = false } = {}) {
   const floorplanRoot = resolveCategoryPath(orderFolderAbsolutePath, "final_grundrisse", { createMissing: true });
   if (!fs.existsSync(floorplanRoot) || !fs.statSync(floorplanRoot).isDirectory()) {
-    return { created: 0, updated: 0, deleted: 0, scanned: 0 };
+    return { created: 0, updated: 0, deleted: 0, scanned: 0, adoptedLegacy: 0 };
   }
   const sourceFiles = walkFilesRecursive(floorplanRoot);
   const expected = new Set();
   let created = 0;
   let updated = 0;
   let scanned = 0;
+  let adoptedLegacy = 0;
 
   for (const sourcePath of sourceFiles) {
     const rel = path.relative(floorplanRoot, sourcePath);
@@ -152,6 +198,14 @@ async function syncFloorplanJpgForOrderFolder(orderFolderAbsolutePath, order, lo
     try {
       const sourceStat = fs.statSync(sourcePath);
       const targetExists = fs.existsSync(targetPath);
+      if (!targetExists) {
+        const adopted = adoptLegacyFloorplanJpg(sourcePath, targetPath);
+        if (adopted.adopted) {
+          adoptedLegacy += 1;
+          removeLegacyFloorplanJpgCandidates(sourcePath, targetPath);
+          continue;
+        }
+      }
       let shouldRegenerate = forceRebuild || !targetExists;
       if (targetExists) {
         const targetStat = fs.statSync(targetPath);
@@ -159,6 +213,7 @@ async function syncFloorplanJpgForOrderFolder(orderFolderAbsolutePath, order, lo
       }
       if (!shouldRegenerate) continue;
       await writeFloorplanJpgVariant(sourcePath, targetPath);
+      removeLegacyFloorplanJpgCandidates(sourcePath, targetPath);
       if (targetExists) updated += 1;
       else created += 1;
     } catch (error) {
@@ -185,7 +240,7 @@ async function syncFloorplanJpgForOrderFolder(orderFolderAbsolutePath, order, lo
     } catch (_) {}
   }
   removeEmptyDirsRecursive(floorplanRoot);
-  return { created, updated, deleted, scanned };
+  return { created, updated, deleted, scanned, adoptedLegacy };
 }
 
 async function syncWebsizePipelineForOrderFolder(
