@@ -98,6 +98,15 @@ export function getAdminInvoicesCentral(type: "renewal" | "exxas", status?: stri
   }>(`/invoices-central?${p.toString()}`);
 }
 
+export function syncAllExxasInvoices() {
+  return toursAdminFetch<{
+    ok: true;
+    imported: number;
+    updated: number;
+    total: number;
+  }>("/invoices/exxas/sync-all", { method: "POST" });
+}
+
 export function importExxasAdminInvoice(invoiceId: string | number) {
   return toursAdminFetch<{
     ok: true;

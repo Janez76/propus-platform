@@ -261,6 +261,10 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                           <AlertTriangle className="h-4 w-4 flex-shrink-0" />
                           {t(lang, "nav.finance.reminders")}
                         </NavLink>
+                        <NavLink to="/admin/finance/exxas-sync" onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <FolderSync className="h-4 w-4 flex-shrink-0" />
+                          {t(lang, "nav.finance.exxasSync")}
+                        </NavLink>
                       </div>
                     )}
                   </div>
@@ -483,6 +487,10 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                         <NavLink to="/admin/finance/reminders" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
                           <AlertTriangle className="h-4 w-4 flex-shrink-0" />
                           {t(lang, "nav.finance.reminders")}
+                        </NavLink>
+                        <NavLink to="/admin/finance/exxas-sync" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <FolderSync className="h-4 w-4 flex-shrink-0" />
+                          {t(lang, "nav.finance.exxasSync")}
                         </NavLink>
                       </div>
                     )}

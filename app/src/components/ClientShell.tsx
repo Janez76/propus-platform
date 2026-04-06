@@ -61,6 +61,7 @@ const AdminInvoicesPage = lazy(() => import("../pages-legacy/admin/invoices/Admi
 const AdminOpenInvoicesPage = lazy(() => import("../pages-legacy/admin/invoices/AdminOpenInvoicesPage").then((m) => ({ default: m.AdminOpenInvoicesPage })));
 const AdminPaidInvoicesPage = lazy(() => import("../pages-legacy/admin/invoices/AdminPaidInvoicesPage").then((m) => ({ default: m.AdminPaidInvoicesPage })));
 const AdminRemindersPage = lazy(() => import("../pages-legacy/admin/invoices/AdminRemindersPage").then((m) => ({ default: m.AdminRemindersPage })));
+const AdminExxasSyncPage = lazy(() => import("../pages-legacy/admin/invoices/AdminExxasSyncPage").then((m) => ({ default: m.AdminExxasSyncPage })));
 
 // Tours Admin pages
 const ToursAdminDashboardPage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminDashboardPage").then((m) => ({ default: m.ToursAdminDashboardPage })));
@@ -231,6 +232,7 @@ function PrivateRoutes() {
         <Route path="/admin/finance/invoices/paid" element={guardedElement(toursAdminRoles, <AdminPaidInvoicesPage />)} />
         <Route path="/admin/finance/bank-import" element={guardedElement(toursAdminRoles, <ToursAdminBankImportPage />)} />
         <Route path="/admin/finance/reminders" element={guardedElement(toursAdminRoles, <AdminRemindersPage />)} />
+        <Route path="/admin/finance/exxas-sync" element={guardedElement(toursAdminRoles, <AdminExxasSyncPage />)} />
         <Route path="/admin/invoices" element={<Navigate to="/admin/finance/invoices" replace />} />
         {/* Tours Admin */}
         <Route path="/admin/tours/list" element={guardedElement(toursAdminRoles, <ToursAdminListPage />)} />

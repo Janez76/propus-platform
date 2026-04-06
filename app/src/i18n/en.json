@@ -145,6 +145,7 @@
   "nav.finance.paidInvoices": "Paid Invoices",
   "nav.finance.bankImport": "Bank Import",
   "nav.finance.reminders": "Reminders",
+  "nav.finance.exxasSync": "Exxas Invoices",
   "nav.invoices": "Invoices",
   "nav.ticketsMailbox": "Tickets & mailbox",
   "ticketsMailbox.subtitle": "Central inbox across modules (tours, booking, and future channels)",

@@ -1604,6 +1604,8 @@ async function getExxasInvoicesCentral(status, search) {
     q += ` AND ei.exxas_status != 'bz'`;
   } else if (status === 'bezahlt') {
     q += ` AND ei.exxas_status = 'bz'`;
+  } else if (status === 'verbucht') {
+    q += ` AND ri.id IS NOT NULL`;
   }
   if (search) {
     params.push(`%${search.toLowerCase()}%`);
@@ -1618,11 +1620,23 @@ async function getExxasInvoicesCentral(status, search) {
     SELECT
       COUNT(*)::int                                              AS total,
       COUNT(*) FILTER (WHERE exxas_status = 'bz')::int          AS bezahlt,
-      COUNT(*) FILTER (WHERE exxas_status != 'bz')::int         AS offen
+      COUNT(*) FILTER (WHERE exxas_status != 'bz')::int         AS offen,
+      COALESCE(SUM(preis_brutto) FILTER (WHERE exxas_status = 'bz'), 0)::numeric  AS bezahlt_sum,
+      COALESCE(SUM(preis_brutto), 0)::numeric                                      AS total_sum
     FROM tour_manager.exxas_invoices
     WHERE archived_at IS NULL
   `);
+  const verbuchtRes = await pool.query(`
+    SELECT COUNT(DISTINCT ei.id)::int AS verbucht
+    FROM tour_manager.exxas_invoices ei
+    LEFT JOIN tour_manager.renewal_invoices ri
+      ON ri.tour_id = ei.tour_id
+     AND ri.exxas_invoice_id = COALESCE(NULLIF(ei.exxas_document_id, ''), NULLIF(ei.nummer, ''))
+    WHERE ei.archived_at IS NULL
+      AND ri.id IS NOT NULL
+  `);
   const s = statsRes.rows[0] || {};
+  const sv = verbuchtRes.rows[0] || {};
   return {
     ok: true,
     invoices: invoices.rows,
@@ -1630,6 +1644,9 @@ async function getExxasInvoicesCentral(status, search) {
       offen: s.offen || 0,
       bezahlt: s.bezahlt || 0,
       total: s.total || 0,
+      verbucht: sv.verbucht || 0,
+      bezahlt_sum: parseFloat(s.bezahlt_sum) || 0,
+      total_sum: parseFloat(s.total_sum) || 0,
     },
     source: 'exxas',
   };
@@ -2070,10 +2087,91 @@ async function createFreeformInvoice(body, actorEmail) {
   return { ok: true, invoiceId: inserted.rows[0]?.id, paymentSaved: markPaidNow };
 }
 
+async function syncAllExxasInvoicesFromApi() {
+  await ensureExxasArchivedColumn();
+  const { rows, ok, error } = await exxas.fetchExxasInvoicesRawList();
+  if (!ok && (!rows || rows.length === 0)) {
+    return { ok: false, error: error || 'Exxas API nicht erreichbar', imported: 0, updated: 0, total: 0 };
+  }
+  const invoices = (rows || [])
+    .map((row) => exxas.mapInvoicePayload(row))
+    .filter((inv) => inv && (inv.id || inv.nummer) && String(inv.typ || '').trim().toLowerCase() === 'r');
+
+  let imported = 0;
+  let updated = 0;
+  for (const inv of invoices) {
+    const docId = inv.exxas_document_id || inv.id || null;
+    if (!docId) continue;
+    const existing = await pool.query(
+      `SELECT id FROM tour_manager.exxas_invoices WHERE exxas_document_id = $1 LIMIT 1`,
+      [String(docId)]
+    );
+    if (existing.rows[0]) {
+      await pool.query(
+        `UPDATE tour_manager.exxas_invoices
+         SET exxas_status   = $2,
+             preis_brutto   = $3,
+             zahlungstermin = $4::date,
+             dok_datum      = COALESCE($5::date, dok_datum),
+             nummer         = COALESCE($6, nummer),
+             kunde_name     = COALESCE($7, kunde_name),
+             bezeichnung    = COALESCE($8, bezeichnung),
+             ref_kunde      = COALESCE($9, ref_kunde),
+             ref_vertrag    = COALESCE($10, ref_vertrag),
+             sv_status      = COALESCE($11, sv_status),
+             synced_at      = NOW()
+         WHERE id = $1`,
+        [
+          existing.rows[0].id,
+          inv.exxas_status || null,
+          inv.preis_brutto ?? null,
+          inv.zahlungstermin || null,
+          inv.dok_datum || null,
+          inv.nummer || null,
+          inv.kunde_name || null,
+          inv.bezeichnung || null,
+          inv.ref_kunde || null,
+          inv.ref_vertrag || null,
+          inv.sv_status || null,
+        ]
+      );
+      updated++;
+    } else {
+      try {
+        await pool.query(
+          `INSERT INTO tour_manager.exxas_invoices (
+             exxas_document_id, nummer, kunde_name, bezeichnung,
+             ref_kunde, ref_vertrag, exxas_status, sv_status,
+             zahlungstermin, dok_datum, preis_brutto, synced_at
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::date, $10::date, $11::numeric, NOW())`,
+          [
+            String(docId),
+            inv.nummer || null,
+            inv.kunde_name || null,
+            inv.bezeichnung || null,
+            inv.ref_kunde || null,
+            inv.ref_vertrag || null,
+            inv.exxas_status || null,
+            inv.sv_status || null,
+            inv.zahlungstermin || null,
+            inv.dok_datum || null,
+            inv.preis_brutto ?? null,
+          ]
+        );
+        imported++;
+      } catch (_e) {
+        // Duplikat durch Race-Condition – überspringen
+      }
+    }
+  }
+  return { ok: true, imported, updated, total: invoices.length };
+}
+
 module.exports = {
   getRenewalInvoicesJson,
   getRenewalInvoicesCentral,
   getExxasInvoicesCentral,
+  syncAllExxasInvoicesFromApi,
   deleteRenewalInvoice,
   archiveRenewalInvoice,
   updateRenewalInvoice,

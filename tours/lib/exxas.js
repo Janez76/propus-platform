@@ -756,4 +756,6 @@ module.exports = {
   resolveCustomerIdentity,
   getContactsForCustomer,
   invalidateRuntimeConfigCache,
+  fetchExxasInvoicesRawList,
+  mapInvoicePayload,
 };

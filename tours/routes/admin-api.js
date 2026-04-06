@@ -324,10 +324,10 @@ router.get('/tours', async (req, res) => {
       baseQ += ` AND t.customer_verified = TRUE`;
     }
     if (noCustomerOnly === '1') {
-      // Gleiche Definition wie Dashboard «Ohne Kundenzuordnung»: kein core.customers-FK und keine Exxas-Ref.
-      // Freier Anzeigename (customer_name) allein zählt nicht als Zuordnung.
       baseQ += ` AND (t.customer_id IS NULL OR t.customer_id = 0)
-               AND (t.kunde_ref IS NULL OR TRIM(t.kunde_ref) = '')`;
+               AND (t.kunde_ref IS NULL OR TRIM(t.kunde_ref) = '')
+               AND (t.customer_name IS NULL OR TRIM(t.customer_name) = '')
+               AND (t.customer_email IS NULL OR TRIM(t.customer_email) = '')`;
     }
 
     const searchQuery = String(search || '').trim();
@@ -994,15 +994,18 @@ router.post('/tours/:id/reactivate', async (req, res) => {
 
     // Rechnung + Subscription-Fenster vorbereiten
     const subscriptionWindow = getSubscriptionWindowFromStart(new Date());
-    const dueAt = new Date();
-
-    // Tour auf "wartet auf Zahlung" setzen — Space wird erst nach Zahlungseingang aktiviert
-    await pool.query(
-      `UPDATE tour_manager.tours SET status = 'CUSTOMER_ACCEPTED_AWAITING_PAYMENT', updated_at = NOW() WHERE id = $1`,
-      [tour.id],
-    );
 
     if (paymentMethod === 'qr_invoice') {
+      // Zahlungsfrist: 14 Tage ab heute
+      const dueAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+
+      // Space sofort aktivieren — Archivierung erfolgt automatisch nach 30 Tagen bei offener Rechnung
+      const mpResult = await matterport.unarchiveSpace(spaceId);
+      await pool.query(
+        `UPDATE tour_manager.tours SET status = 'ACTIVE', matterport_state = $2, updated_at = NOW() WHERE id = $1`,
+        [tour.id, mpResult?.success ? 'active' : 'unknown'],
+      );
+
       const dbInv = await pool.query(
         `INSERT INTO tour_manager.renewal_invoices
            (tour_id, invoice_status, sent_at, amount_chf, due_at, invoice_kind, payment_source,
@@ -1017,6 +1020,7 @@ router.post('/tours/:id/reactivate', async (req, res) => {
       await logAction(tour.id, 'admin', adminEmail(req), 'REACTIVATE_REQUESTED', {
         source: 'admin_api', matterport_space_id: spaceId, via: 'qr_invoice',
         internal_inv_id: internalInvId, amount_chf: REACTIVATION_PRICE_CHF,
+        immediate_activation: true,
       });
 
       tourActions.sendInvoiceWithQrEmail(String(tour.id), internalInvId).catch((err) => {
@@ -1025,6 +1029,13 @@ router.post('/tours/:id/reactivate', async (req, res) => {
 
       return res.json({ ok: true, via: 'qr_invoice' });
     }
+
+    // Payrexx-Pfad: Tour auf "wartet auf Zahlung" setzen — Space wird erst nach Zahlungseingang aktiviert
+    const dueAt = new Date();
+    await pool.query(
+      `UPDATE tour_manager.tours SET status = 'CUSTOMER_ACCEPTED_AWAITING_PAYMENT', updated_at = NOW() WHERE id = $1`,
+      [tour.id],
+    );
 
     // Payrexx-Pfad
     if (!payrexx.isConfigured()) {
@@ -1608,6 +1619,17 @@ router.patch('/invoices/:type/:id', async (req, res) => {
   }
 });
 
+router.post('/invoices/exxas/sync-all', async (req, res) => {
+  try {
+    const result = await phase3.syncAllExxasInvoicesFromApi();
+    if (!result.ok) return res.status(400).json(result);
+    return res.json(result);
+  } catch (err) {
+    console.error('/invoices/exxas/sync-all:', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 router.post('/invoices/exxas/:id/import', async (req, res) => {
   try {
     const result = await phase3.importExxasInvoiceToInternalInvoice(req.params.id, adminEmail(req));
@@ -2091,12 +2113,16 @@ router.get('/tours/:id/link-invoice', async (req, res) => {
 router.post('/tours/:id/link-invoice', async (req, res) => {
   try {
     const invoiceId = req.body?.invoice_id ?? req.body?.invoiceId;
-    const result = await phase3.postLinkInvoice(req.params.id, invoiceId);
+    const actorEmail = adminEmail(req);
+    const result = await phase3.postLinkInvoice(req.params.id, invoiceId, actorEmail);
     if (!result.ok) {
       const st = result.error === 'notfound' ? 404 : result.error === 'alreadylinked' ? 409 : 400;
       return res.status(st).json(result);
     }
-    await logAction(req.params.id, 'admin', null, 'ADMIN_LINK_INVOICE', { invoice_id: invoiceId });
+    await logAction(req.params.id, 'admin', actorEmail, 'ADMIN_LINK_INVOICE', {
+      invoice_id: invoiceId,
+      renewal_invoice_id: result.renewalInvoiceId || null,
+    });
     return res.json(result);
   } catch (err) {
     return res.status(400).json({ ok: false, error: err.message });

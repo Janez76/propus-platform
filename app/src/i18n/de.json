@@ -148,6 +148,7 @@
   "nav.finance.paidInvoices": "Bezahlte Rechnungen",
   "nav.finance.bankImport": "Bank-Import",
   "nav.finance.reminders": "Mahnungen",
+  "nav.finance.exxasSync": "Exxas Rechnungen",
   "nav.invoices": "Rechnungen",
   "nav.ticketsMailbox": "Tickets & Postfach",
   "ticketsMailbox.subtitle": "Zentrale Übersicht über alle Module (Touren, Buchung und künftige Kanäle)",

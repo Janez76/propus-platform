@@ -154,6 +154,7 @@
   "nav.finance.paidInvoices": "Factures payées",
   "nav.finance.bankImport": "Import bancaire",
   "nav.finance.reminders": "Rappels",
+  "nav.finance.exxasSync": "Factures Exxas",
   "nav.invoices": "Factures",
   "nav.ticketsMailbox": "Tickets & messagerie",
   "ticketsMailbox.subtitle": "Boîte centrale pour tous les modules (visites, réservations et canaux futurs)",
