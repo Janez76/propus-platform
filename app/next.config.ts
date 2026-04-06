@@ -44,6 +44,11 @@ const nextConfig: NextConfig = {
           source: "/api/listing/:path*",
           destination: `${PLATFORM_INTERNAL_URL}/api/listing/:path*`,
         },
+        // Kunden-Auth (Register, Login, Logout) → Express Backend
+        {
+          source: "/api/customer/:path*",
+          destination: `${PLATFORM_INTERNAL_URL}/api/customer/:path*`,
+        },
       ],
       afterFiles: [],
       fallback: [],

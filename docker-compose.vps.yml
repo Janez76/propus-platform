@@ -80,14 +80,13 @@ services:
       SESSION_COOKIE_SECURE: "true"
       SESSION_COOKIE_DOMAIN: ${SESSION_COOKIE_DOMAIN:-}
       TOURS_MOUNT_PATH: /tour-manager
-      PROPUS_ENABLE_LEGACY_CUSTOMER_LOGIN: ${PROPUS_ENABLE_LEGACY_CUSTOMER_LOGIN:-0}
+      PROPUS_ENABLE_LEGACY_CUSTOMER_LOGIN: ${PROPUS_ENABLE_LEGACY_CUSTOMER_LOGIN:-1}
       # ─── Admin-Hauptbenutzer (Bootstrap beim Start) ──────────────────────────
       ADMIN_USER: ${ADMIN_USER:-}
       ADMIN_PASS: ${ADMIN_PASS:-}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_NAME: ${ADMIN_NAME:-}
       ADMIN_ROLE: ${ADMIN_ROLE:-super_admin}
-      ADMIN_BOOTSTRAP_SYNC_PASSWORD: ${ADMIN_BOOTSTRAP_SYNC_PASSWORD:-false}
       # ─── Einmaliger Setup-Endpunkt (nach Setup auf "" setzen) ────────────────
       ADMIN_SETUP_TOKEN: ${ADMIN_SETUP_TOKEN:-}
       PLATFORM_INTERNAL_URL: http://127.0.0.1:3100
