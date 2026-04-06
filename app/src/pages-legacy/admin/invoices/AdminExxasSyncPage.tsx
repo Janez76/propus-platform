@@ -276,6 +276,7 @@ export function AdminExxasSyncPage() {
                 <th className="px-4 py-3">Nr.</th>
                 <th className="px-4 py-3">Bezeichnung</th>
                 <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Zahlungsstatus</th>
                 <th className="px-4 py-3">Brutto</th>
                 <th className="px-4 py-3">Zahlungstermin</th>
                 <th className="px-4 py-3">Tour</th>
@@ -285,7 +286,7 @@ export function AdminExxasSyncPage() {
             <tbody>
               {invoices.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-[var(--text-subtle)]">
+                  <td colSpan={9} className="px-4 py-8 text-center text-[var(--text-subtle)]">
                     Keine Exxas-Rechnungen gefunden.
                   </td>
                 </tr>
@@ -309,6 +310,9 @@ export function AdminExxasSyncPage() {
                       </td>
                       <td className="px-4 py-3">
                         <StatusBadge status={String(row.exxas_status || "")} source="exxas" />
+                      </td>
+                      <td className="px-4 py-3 text-xs text-[var(--text-subtle)]">
+                        {String(row.sv_status || "—")}
                       </td>
                       <td className="px-4 py-3 font-medium tabular-nums">{formatMoney(row.preis_brutto)}</td>
                       <td className="px-4 py-3">{formatDate(row.zahlungstermin)}</td>
@@ -372,7 +376,7 @@ export function AdminExxasSyncPage() {
             {invoices.length > 0 && (
               <tfoot>
                 <tr className="border-t-2 border-[var(--border-soft)] bg-[var(--surface-raised)]/50">
-                  <td colSpan={4} className="px-4 py-3 text-xs font-semibold text-[var(--text-subtle)] uppercase tracking-wide">
+                  <td colSpan={5} className="px-4 py-3 text-xs font-semibold text-[var(--text-subtle)] uppercase tracking-wide">
                     Total ({invoices.length} Rechnungen)
                   </td>
                   <td className="px-4 py-3 font-bold tabular-nums text-[var(--text-main)]">
