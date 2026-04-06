@@ -16,6 +16,7 @@ import {
 import { useAuthStore } from "../store/authStore";
 import { t, type Lang } from "../i18n";
 import { formatSwissDateTime } from "../lib/format";
+import { putToursAdminTourSettings } from "../api/toursAdmin";
 import {
   loadExxasConfig,
   loadExxasConfigMerged,
@@ -39,11 +40,29 @@ export function ExxasSettingsPage() {
   const [saved, setSaved] = useState(false);
   const [dirty, setDirty] = useState(false);
 
+  const syncToursRuntimeConfig = useCallback(async (next: ExxasMappingConfig) => {
+    if (!String(next.apiKey || "").trim()) return;
+    await putToursAdminTourSettings({
+      exxasRuntimeConfig: {
+        enabled: next.enabled,
+        apiKey: next.apiKey,
+        appPassword: next.appPassword,
+        endpoint: next.endpoint,
+        authMode: next.authMode,
+      },
+    });
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const merged = await loadExxasConfigMerged(token);
+        try {
+          await syncToursRuntimeConfig(merged);
+        } catch (syncError) {
+          console.warn("Exxas runtime sync failed:", syncError);
+        }
         if (!cancelled) setConfig(merged);
       } finally {
         if (!cancelled) setConfigReady(true);
@@ -52,7 +71,7 @@ export function ExxasSettingsPage() {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, syncToursRuntimeConfig]);
 
   const handleFieldChange = useCallback(
     (field: "apiKey" | "appPassword" | "endpoint", value: string) => {
@@ -90,6 +109,7 @@ export function ExxasSettingsPage() {
     };
     try {
       await saveExxasConfigMerged(toSave, token);
+      await syncToursRuntimeConfig(toSave);
       setConfig(toSave);
       setDirty(false);
       setSaved(true);
@@ -97,7 +117,7 @@ export function ExxasSettingsPage() {
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : "Speichern fehlgeschlagen");
     }
-  }, [config, token]);
+  }, [config, token, syncToursRuntimeConfig]);
 
   const handleReset = useCallback(async () => {
     setSaveError("");

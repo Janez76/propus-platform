@@ -38,22 +38,38 @@ function buildExxasUrl(baseUrl, endpoint) {
 }
 
 async function loadStoredExxasConfig() {
-  try {
-    const result = await pool.query(
-      `SELECT value_json
-       FROM booking.app_settings
-       WHERE key = $1
-       LIMIT 1`,
-      [EXXAS_SETTINGS_KEY]
-    );
-    return result.rows[0]?.value_json || null;
-  } catch (e) {
-    console.warn('Exxas loadStoredExxasConfig:', e.message);
-    return null;
+  const sources = [
+    {
+      label: 'tour_manager.settings',
+      query: `SELECT value FROM tour_manager.settings WHERE key = 'exxas_runtime_config' LIMIT 1`,
+      valueField: 'value',
+      params: [],
+    },
+    {
+      label: 'booking.app_settings',
+      query: `SELECT value_json FROM booking.app_settings WHERE key = $1 LIMIT 1`,
+      valueField: 'value_json',
+      params: [EXXAS_SETTINGS_KEY],
+    },
+  ];
+  for (const source of sources) {
+    try {
+      const result = await pool.query(source.query, source.params);
+      const value = result.rows[0]?.[source.valueField];
+      if (value && typeof value === 'object') return value;
+    } catch (e) {
+      console.warn(`Exxas loadStoredExxasConfig (${source.label}):`, e.message);
+    }
   }
+  return null;
+}
+
+function invalidateRuntimeConfigCache() {
+  exxasRuntimeConfigCache = { at: 0, config: null };
 }
 
 async function getExxasRuntimeConfig(force = false) {
+  if (force) invalidateRuntimeConfigCache();
   const now = Date.now();
   if (!force && exxasRuntimeConfigCache.config && now - exxasRuntimeConfigCache.at < EXXAS_RUNTIME_CACHE_MS) {
     return exxasRuntimeConfigCache.config;
@@ -718,4 +734,5 @@ module.exports = {
   getCustomer,
   resolveCustomerIdentity,
   getContactsForCustomer,
+  invalidateRuntimeConfigCache,
 };

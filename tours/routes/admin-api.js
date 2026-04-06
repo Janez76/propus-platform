@@ -20,6 +20,7 @@ const {
   saveAiPromptSettings,
   getMatterportApiCredentials,
   saveMatterportApiCredentials,
+  saveExxasRuntimeConfig,
   getAutomationSettings,
   saveAutomationSettings,
   getEmailTemplates,
@@ -2382,6 +2383,17 @@ router.put('/tour-settings', async (req, res) => {
         tokenSecret: mp.tokenSecret,
       });
       matterport.invalidateMatterportCredentialsCache();
+    }
+
+    if (body.exxasRuntimeConfig && typeof body.exxasRuntimeConfig === 'object') {
+      await saveExxasRuntimeConfig({
+        enabled: body.exxasRuntimeConfig.enabled,
+        apiKey: body.exxasRuntimeConfig.apiKey,
+        appPassword: body.exxasRuntimeConfig.appPassword,
+        endpoint: body.exxasRuntimeConfig.endpoint,
+        authMode: body.exxasRuntimeConfig.authMode,
+      });
+      exxas.invalidateRuntimeConfigCache();
     }
 
     if (body.aiPrompt && typeof body.aiPrompt === 'object') {

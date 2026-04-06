@@ -40,6 +40,14 @@ const DEFAULT_AUTOMATION_SETTINGS = {
   matterportStatusSyncBatchLimit: 500,
 };
 
+const DEFAULT_EXXAS_RUNTIME_CONFIG = {
+  enabled: false,
+  apiKey: '',
+  appPassword: '',
+  endpoint: '',
+  authMode: 'apiKey',
+};
+
 async function ensureSettingsTable() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS tour_manager.settings (
@@ -166,6 +174,53 @@ async function saveMatterportApiCredentials(payload) {
     return true;
   } catch (e) {
     console.warn('saveMatterportApiCredentials:', e.message);
+    return false;
+  }
+}
+
+function normalizeExxasRuntimeConfig(value) {
+  const raw = value && typeof value === 'object' ? value : {};
+  return {
+    enabled: raw.enabled !== false,
+    apiKey: String(raw.apiKey || '').trim(),
+    appPassword: String(raw.appPassword || '').trim(),
+    endpoint: String(raw.endpoint || '').trim(),
+    authMode: String(raw.authMode || '').trim().toLowerCase() === 'bearer' ? 'bearer' : 'apiKey',
+  };
+}
+
+async function getExxasRuntimeConfig() {
+  try {
+    await ensureSettingsTable();
+    const r = await pool.query(
+      `SELECT value FROM tour_manager.settings WHERE key = 'exxas_runtime_config'`
+    );
+    if (r.rows[0]?.value && typeof r.rows[0].value === 'object') {
+      return { ...DEFAULT_EXXAS_RUNTIME_CONFIG, ...normalizeExxasRuntimeConfig(r.rows[0].value) };
+    }
+  } catch (e) {
+    console.warn('getExxasRuntimeConfig:', e.message);
+  }
+  return { ...DEFAULT_EXXAS_RUNTIME_CONFIG };
+}
+
+async function saveExxasRuntimeConfig(payload) {
+  try {
+    await ensureSettingsTable();
+    const normalized = normalizeExxasRuntimeConfig(payload);
+    if (!normalized.apiKey && !normalized.appPassword && !normalized.endpoint) {
+      await pool.query(`DELETE FROM tour_manager.settings WHERE key = 'exxas_runtime_config'`);
+      return true;
+    }
+    await pool.query(
+      `INSERT INTO tour_manager.settings (key, value, updated_at)
+       VALUES ('exxas_runtime_config', $1::jsonb, NOW())
+       ON CONFLICT (key) DO UPDATE SET value = $1::jsonb, updated_at = NOW()`,
+      [JSON.stringify(normalized)]
+    );
+    return true;
+  } catch (e) {
+    console.warn('saveExxasRuntimeConfig:', e.message);
     return false;
   }
 }
@@ -809,6 +864,8 @@ module.exports = {
   saveAiPromptSettings,
   getMatterportApiCredentials,
   saveMatterportApiCredentials,
+  getExxasRuntimeConfig,
+  saveExxasRuntimeConfig,
   getAutomationSettings,
   saveAutomationSettings,
   getEmailTemplates,
