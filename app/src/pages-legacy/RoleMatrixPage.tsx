@@ -98,7 +98,7 @@ const ROLES: RoleDef[] = [
   {
     key: "company_admin",
     label: "Firmen-Admin",
-    description: "Verwaltet die Firma und erstellt Bestellungen. Kann Team verwalten.",
+    description: "[Deprecated] Wird nicht mehr vergeben — bestehende Einträge gelten als Mitarbeiter.",
     group: "portal",
     color: "text-emerald-300",
     headerBg: "bg-emerald-400/10 border-emerald-400/20",

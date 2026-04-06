@@ -50,7 +50,7 @@ Das RBAC-System (`booking/access-rbac.js`) verwaltet alle Zugriffsrechte der Pla
 | `tour_manager` | Tour-Manager (intern) | `portal_staff_roles.role = 'tour_manager'` |
 | `photographer` | Fotograf | `photographers.is_admin = FALSE` |
 | `company_owner` | Firmen-Hauptkontakt | `company_members.role = 'company_owner'` |
-| `company_admin` | Firmen-Admin | `company_members.role = 'company_admin'` |
+| `company_admin` | Firmen-Admin (**deprecated**) | Nicht mehr vergeben — Migration 066 migriert Altdaten zu `company_employee` |
 | `company_employee` | Firmen-Mitarbeiter | `company_members.role = 'company_employee'` |
 | `customer_admin` | Kunden-Admin | `customers.is_admin = TRUE` oder `portal_team_members.role = 'admin'` |
 | `customer_user` | Kunden-Benutzer | `customers.is_admin = FALSE` |
@@ -154,7 +154,7 @@ syncPhotographerRolesFromDb(key)
 
 syncCompanyMemberRolesFromDb(memberId)
   → company_members.role = 'company_owner' → Rolle: company_owner
-  → company_members.role = 'company_admin' → Rolle: company_admin
+  → company_members.role = 'company_admin' → Rolle: company_employee (deprecated, wird wie company_employee behandelt)
   → sonst → Rolle: company_employee
 
 syncCustomerRolesFromDb(customerId)
@@ -170,7 +170,7 @@ Logto-Rollen-Array wird von links nach rechts geprüft (erste Übereinstimmung g
 3. `admin`
 4. `photographer`
 5. `company_owner`
-6. `company_admin`
+6. `company_admin` (deprecated → wird als `company_employee` behandelt)
 7. `company_employee`
 8. `customer_admin`
 9. `customer`

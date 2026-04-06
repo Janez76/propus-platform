@@ -95,7 +95,11 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
     location.pathname.startsWith("/exxas-reconcile");
   const isCompanyRole = isCompanyWorkspaceRole(role);
   const visibleNavigationItems = useMemo(() => {
-    if (!isCompanyRole) return navigationItems.filter((item) => canAccessPath(item.path));
+    if (!isCompanyRole) return navigationItems.filter((item) => {
+      if (!canAccessPath(item.path)) return false;
+      if (role === "tour_manager" && item.path === "/customers") return false;
+      return true;
+    });
     const base = role === "company_employee" ? companyNavigationEmployee : companyNavigationOwner;
     return base.filter((item) => canAccessPath(item.path));
   }, [isCompanyRole, role, canAccessPath]);

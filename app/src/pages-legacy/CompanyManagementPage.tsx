@@ -56,6 +56,15 @@ function roleLabel(r: CompanyMemberRole): string {
   return "Mitarbeiter";
 }
 
+const PORTAL_ROLE_OPTIONS: { value: string; label: string }[] = [
+  { value: "company_owner", label: "Firmen-Hauptkontakt" },
+  { value: "company_employee", label: "Firmen-Mitarbeiter" },
+];
+
+function portalRoleLabel(r?: string): string {
+  return PORTAL_ROLE_OPTIONS.find((o) => o.value === r)?.label ?? "Firmen-Mitarbeiter";
+}
+
 function memberStatusLabel(s: string): string {
   if (s === "active") return "Aktiv";
   if (s === "disabled") return "Deaktiviert";
@@ -107,7 +116,7 @@ export function CompanyManagementPage() {
   const [allContacts, setAllContacts] = useState<Contact[]>([]);
   const [contactsLoading, setContactsLoading] = useState(false);
   const [contactSearch, setContactSearch] = useState("");
-  const [contactNewForm, setContactNewForm] = useState<ContactPayload>({});
+  const [contactNewForm, setContactNewForm] = useState<ContactPayload>({ portal_role: "company_employee" });
   const [contactShowCreate, setContactShowCreate] = useState(false);
   const [contactEditId, setContactEditId] = useState<number | null>(null);
   const [contactEditForm, setContactEditForm] = useState<ContactPayload>({});
@@ -197,7 +206,7 @@ export function CompanyManagementPage() {
         ...contactNewForm,
         name: [firstName, lastName].filter(Boolean).join(" "),
       });
-      setContactNewForm({});
+      setContactNewForm({ portal_role: "company_employee" });
       setContactShowCreate(false);
       await loadAllContacts();
     } catch (e) {
@@ -795,11 +804,20 @@ export function CompanyManagementPage() {
                   <input className="ui-input" type="email" placeholder="E-Mail" value={String(contactNewForm.email || "")} onChange={(e) => setContactNewForm((p) => ({ ...p, email: e.target.value }))} />
                   <input className="ui-input" placeholder="Telefon direkt" value={String(contactNewForm.phone_direct || "")} onChange={(e) => setContactNewForm((p) => ({ ...p, phone_direct: e.target.value }))} />
                   <input className="ui-input" placeholder="Mobile" value={String(contactNewForm.phone_mobile || "")} onChange={(e) => setContactNewForm((p) => ({ ...p, phone_mobile: e.target.value }))} />
+                  <select
+                    className="ui-input sm:col-span-2 lg:col-span-1"
+                    value={String(contactNewForm.portal_role || "company_employee")}
+                    onChange={(e) => setContactNewForm((p) => ({ ...p, portal_role: e.target.value as ContactPayload["portal_role"] }))}
+                  >
+                    {PORTAL_ROLE_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="mt-3 flex justify-end gap-2">
                   <button
                     type="button"
-                    onClick={() => { setContactShowCreate(false); setContactNewForm({}); setContactErr(""); }}
+                    onClick={() => { setContactShowCreate(false); setContactNewForm({ portal_role: "company_employee" }); setContactErr(""); }}
                     className="rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-sm text-[var(--text-muted)]"
                   >
                     Abbrechen
@@ -846,6 +864,15 @@ export function CompanyManagementPage() {
                               <input className="ui-input" type="email" placeholder="E-Mail" value={String(contactEditForm.email || "")} onChange={(e) => setContactEditForm((p) => ({ ...p, email: e.target.value }))} />
                               <input className="ui-input" placeholder="Telefon direkt" value={String(contactEditForm.phone_direct || "")} onChange={(e) => setContactEditForm((p) => ({ ...p, phone_direct: e.target.value }))} />
                               <input className="ui-input" placeholder="Mobile" value={String(contactEditForm.phone_mobile || "")} onChange={(e) => setContactEditForm((p) => ({ ...p, phone_mobile: e.target.value }))} />
+                              <select
+                                className="ui-input sm:col-span-2 lg:col-span-1"
+                                value={String(contactEditForm.portal_role || "company_employee")}
+                                onChange={(e) => setContactEditForm((p) => ({ ...p, portal_role: e.target.value as ContactPayload["portal_role"] }))}
+                              >
+                                {PORTAL_ROLE_OPTIONS.map((o) => (
+                                  <option key={o.value} value={o.value}>{o.label}</option>
+                                ))}
+                              </select>
                             </div>
                             <div className="flex justify-end gap-2">
                               <button type="button" onClick={() => { setContactEditId(null); setContactEditForm({}); }} className="rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-xs text-[var(--text-muted)]">
@@ -861,6 +888,15 @@ export function CompanyManagementPage() {
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-baseline gap-2">
                                 <span className="text-sm font-medium text-[var(--text-main)]">{displayName}</span>
+                                {contact.portal_role === "company_owner" ? (
+                                  <span className="rounded-full bg-[var(--accent)]/10 px-2 py-0.5 text-[10px] font-semibold text-[var(--accent)]">
+                                    Firmen-Hauptkontakt
+                                  </span>
+                                ) : (
+                                  <span className="rounded-full bg-[var(--surface-raised)] px-2 py-0.5 text-[10px] text-[var(--text-subtle)]">
+                                    {portalRoleLabel(contact.portal_role)}
+                                  </span>
+                                )}
                                 {contact.role && (
                                   <span className="rounded-full border border-[var(--border-soft)] px-2 py-0.5 text-[10px] text-[var(--text-subtle)]">
                                     {contact.role}
@@ -897,6 +933,7 @@ export function CompanyManagementPage() {
                                       email: contact.email || "",
                                       phone_direct: contact.phone_direct || contact.phone || "",
                                       phone_mobile: contact.phone_mobile || "",
+                                      portal_role: (contact.portal_role as ContactPayload["portal_role"]) || "company_employee",
                                     });
                                   }}
                                   className="rounded-lg p-1.5 text-[var(--text-subtle)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-main)]"

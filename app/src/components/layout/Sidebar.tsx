@@ -35,6 +35,9 @@ import {
   Inbox,
   CreditCard,
   Image,
+  Clock,
+  CheckCircle,
+  AlertTriangle,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -55,6 +58,7 @@ type SidebarNavItem = {
   path: string;
   icon: LucideIcon;
   labelKey: string;
+  financeNav?: boolean;
   toursNav?: boolean;
   customersNav?: boolean;
   listingNav?: boolean;
@@ -62,7 +66,7 @@ type SidebarNavItem = {
 
 const navigationItems: SidebarNavItem[] = [
   { path: "/dashboard", icon: LayoutDashboard, labelKey: "nav.dashboard" },
-  { path: "/admin/invoices", icon: FileText, labelKey: "nav.invoices" },
+  { path: "/admin/finance", icon: CreditCard, labelKey: "nav.finance", financeNav: true },
   { path: "/admin/tickets", icon: Inbox, labelKey: "nav.ticketsMailbox" },
   { path: "/admin/tours", icon: Globe, labelKey: "nav.tourManager", toursNav: true },
   { path: "/admin/listing", icon: Image, labelKey: "nav.listingPage", listingNav: true },
@@ -110,10 +114,10 @@ const settingsSubItems = [
 export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [financeNavOpen, setFinanceNavOpen] = useState(false);
   const [toursNavOpen, setToursNavOpen] = useState(false);
   const [customersNavOpen, setCustomersNavOpen] = useState(false);
   const [listingNavOpen, setListingNavOpen] = useState(false);
-  const [toursCustomersNavOpen, setToursCustomersNavOpen] = useState(false);
   const lang = useAuthStore((s) => s.language);
   const role = useAuthStore((s) => s.role);
   const { canAccessPath } = usePermissions();
@@ -122,12 +126,13 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const isSettingsActive =
     location.pathname.startsWith("/settings") ||
     location.pathname.startsWith("/exxas-reconcile");
+  const isFinanceNavActive =
+    location.pathname.startsWith("/admin/finance") ||
+    location.pathname.startsWith("/admin/invoices");
   const isToursNavActive = location.pathname.startsWith("/admin/tours");
   const isListingNavActive = location.pathname.startsWith("/admin/listing");
   const isCustomersNavActive =
     location.pathname.startsWith("/customers") || location.pathname.startsWith("/settings/companies");
-  const isToursCustomersNavActive =
-    location.pathname === "/customers" || location.pathname.startsWith("/customers") || location.pathname.startsWith("/settings/companies");
   const isCompanyRole = isCompanyWorkspaceRole(role);
   const isKunden = isKundenRole(role);
   const visibleNavigationItems = useMemo(() => {
@@ -142,7 +147,13 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
       }
       return kundenNavigationItems.filter((item) => canAccessPath(item.path));
     }
-    return navigationItems.filter((item) => canAccessPath(item.path));
+    return navigationItems.filter((item) => {
+      if (!canAccessPath(item.path)) return false;
+      // tour_manager sieht keine globale Kundenliste — Kunden werden zentral über /customers verwaltet,
+      // aber der Nav-Eintrag ist für tour_manager nicht relevant
+      if (role === "tour_manager" && (item.customersNav || item.path === "/customers")) return false;
+      return true;
+    });
   }, [isCompanyRole, isKunden, role, canAccessPath]);
 
   const visibleSettingsSubItems = useMemo(
@@ -186,7 +197,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
         <nav className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 py-4 [-webkit-overflow-scrolling:touch]">
           <div className="space-y-0.5">
             {visibleNavigationItems.map((item) => {
-              const { path, icon: Icon, labelKey, toursNav, customersNav, listingNav } = item;
+              const { path, icon: Icon, labelKey, financeNav, toursNav, customersNav, listingNav } = item;
               if (path === "/settings") {
                 return (
                   <div key={path}>
@@ -211,6 +222,45 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                             {t(lang, labelKey)}
                           </NavLink>
                         ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+              if (financeNav) {
+                return (
+                  <div key={path}>
+                    <button
+                      type="button"
+                      onClick={() => setFinanceNavOpen((v) => !v)}
+                      className={cn("propus-nav-item w-full", isFinanceNavActive && "active")}
+                    >
+                      <Icon className="h-5 w-5 flex-shrink-0" />
+                      <span className="truncate flex-1 text-left">{t(lang, labelKey)}</span>
+                      <ChevronDown className={cn("h-4 w-4 flex-shrink-0 transition-transform opacity-60", (financeNavOpen || isFinanceNavActive) ? "rotate-180" : "")} />
+                    </button>
+                    {(financeNavOpen || isFinanceNavActive) && (
+                      <div className="ml-4 mt-0.5 space-y-0.5 pl-3" style={{ borderLeft: "2px solid var(--border-soft)" }}>
+                        <NavLink to="/admin/finance/invoices" end onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <FileText className="h-4 w-4 flex-shrink-0" />
+                          {t(lang, "nav.finance.invoices")}
+                        </NavLink>
+                        <NavLink to="/admin/finance/invoices/open" onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <Clock className="h-4 w-4 flex-shrink-0" />
+                          {t(lang, "nav.finance.openInvoices")}
+                        </NavLink>
+                        <NavLink to="/admin/finance/invoices/paid" onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <CheckCircle className="h-4 w-4 flex-shrink-0" />
+                          {t(lang, "nav.finance.paidInvoices")}
+                        </NavLink>
+                        <NavLink to="/admin/finance/bank-import" onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <Upload className="h-4 w-4 flex-shrink-0" />
+                          {t(lang, "nav.finance.bankImport")}
+                        </NavLink>
+                        <NavLink to="/admin/finance/reminders" onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                          {t(lang, "nav.finance.reminders")}
+                        </NavLink>
                       </div>
                     )}
                   </div>
@@ -292,37 +342,10 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                           <List className="h-4 w-4 flex-shrink-0" />
                           {t(lang, "nav.tours.tours")}
                         </NavLink>
-                        <NavLink to="/admin/tours/bank-import" onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
-                          <Upload className="h-4 w-4 flex-shrink-0" />
-                          {t(lang, "nav.tours.bankImport")}
-                        </NavLink>
                         <NavLink to="/admin/tours/link-matterport" onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
                           <Link2 className="h-4 w-4 flex-shrink-0" />
                           {t(lang, "nav.tours.matterport")}
                         </NavLink>
-                        <div>
-                          <button
-                            type="button"
-                            onClick={() => setToursCustomersNavOpen((v) => !v)}
-                            className={cn("propus-nav-item w-full text-sm", isToursCustomersNavActive && "active-sub")}
-                          >
-                            <Users className="h-4 w-4 flex-shrink-0" />
-                            <span className="truncate flex-1 text-left">{t(lang, "nav.tours.customers")}</span>
-                            <ChevronDown className={cn("h-3 w-3 flex-shrink-0 transition-transform opacity-60", (toursCustomersNavOpen || isToursCustomersNavActive) ? "rotate-180" : "")} />
-                          </button>
-                          {(toursCustomersNavOpen || isToursCustomersNavActive) && (
-                            <div className="ml-4 mt-0.5 space-y-0.5 pl-3" style={{ borderLeft: "2px solid var(--border-soft)" }}>
-                              <NavLink to="/customers" onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
-                                <Users className="h-3.5 w-3.5 flex-shrink-0" />
-                                {t(lang, "nav.customers")}
-                              </NavLink>
-                              <NavLink to="/settings/companies" onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
-                                <Building2 className="h-3.5 w-3.5 flex-shrink-0" />
-                                {t(lang, "sidebar.nav.companies")}
-                              </NavLink>
-                            </div>
-                          )}
-                        </div>
                         <NavLink to="/admin/tours/portal-vorschau" onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
                           <Eye className="h-4 w-4 flex-shrink-0" />
                           {t(lang, "nav.tours.portalPreview")}
@@ -381,7 +404,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
         <nav className="flex-1 overflow-y-auto py-4 px-3">
           <div className="space-y-0.5">
             {visibleNavigationItems.map((item) => {
-              const { path, icon: Icon, labelKey, toursNav, customersNav, listingNav } = item;
+              const { path, icon: Icon, labelKey, financeNav, toursNav, customersNav, listingNav } = item;
               if (path === "/settings") {
                 return (
                   <div key={path}>
@@ -410,6 +433,57 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                             {t(lang, labelKey)}
                           </NavLink>
                         ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+              if (financeNav) {
+                if (isCollapsed) {
+                  return (
+                    <NavLink
+                      key={path}
+                      to="/admin/finance/invoices"
+                      title={t(lang, labelKey)}
+                      className={cn("propus-nav-item", isFinanceNavActive ? "active" : "")}
+                    >
+                      <Icon className={cn("h-5 w-5 flex-shrink-0", isFinanceNavActive ? "text-white" : "")} />
+                    </NavLink>
+                  );
+                }
+                return (
+                  <div key={path}>
+                    <button
+                      type="button"
+                      onClick={() => setFinanceNavOpen((v) => !v)}
+                      className={cn("propus-nav-item w-full", isFinanceNavActive && "active")}
+                    >
+                      <Icon className="h-5 w-5 flex-shrink-0" />
+                      <span className="truncate flex-1 text-left">{t(lang, labelKey)}</span>
+                      <ChevronDown className={cn("h-4 w-4 flex-shrink-0 transition-transform opacity-60", (financeNavOpen || isFinanceNavActive) ? "rotate-180" : "")} />
+                    </button>
+                    {(financeNavOpen || isFinanceNavActive) && (
+                      <div className="ml-4 mt-0.5 space-y-0.5 pl-3" style={{ borderLeft: "2px solid var(--border-soft)" }}>
+                        <NavLink to="/admin/finance/invoices" end className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <FileText className="h-4 w-4 flex-shrink-0" />
+                          {t(lang, "nav.finance.invoices")}
+                        </NavLink>
+                        <NavLink to="/admin/finance/invoices/open" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <Clock className="h-4 w-4 flex-shrink-0" />
+                          {t(lang, "nav.finance.openInvoices")}
+                        </NavLink>
+                        <NavLink to="/admin/finance/invoices/paid" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <CheckCircle className="h-4 w-4 flex-shrink-0" />
+                          {t(lang, "nav.finance.paidInvoices")}
+                        </NavLink>
+                        <NavLink to="/admin/finance/bank-import" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <Upload className="h-4 w-4 flex-shrink-0" />
+                          {t(lang, "nav.finance.bankImport")}
+                        </NavLink>
+                        <NavLink to="/admin/finance/reminders" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                          {t(lang, "nav.finance.reminders")}
+                        </NavLink>
                       </div>
                     )}
                   </div>
@@ -527,37 +601,10 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                           <List className="h-4 w-4 flex-shrink-0" />
                           {t(lang, "nav.tours.tours")}
                         </NavLink>
-                        <NavLink to="/admin/tours/bank-import" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
-                          <Upload className="h-4 w-4 flex-shrink-0" />
-                          {t(lang, "nav.tours.bankImport")}
-                        </NavLink>
                         <NavLink to="/admin/tours/link-matterport" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
                           <Link2 className="h-4 w-4 flex-shrink-0" />
                           {t(lang, "nav.tours.matterport")}
                         </NavLink>
-                        <div>
-                          <button
-                            type="button"
-                            onClick={() => setToursCustomersNavOpen((v) => !v)}
-                            className={cn("propus-nav-item w-full text-sm", isToursCustomersNavActive && "active-sub")}
-                          >
-                            <Users className="h-4 w-4 flex-shrink-0" />
-                            <span className="truncate flex-1 text-left">{t(lang, "nav.tours.customers")}</span>
-                            <ChevronDown className={cn("h-3 w-3 flex-shrink-0 transition-transform opacity-60", (toursCustomersNavOpen || isToursCustomersNavActive) ? "rotate-180" : "")} />
-                          </button>
-                          {(toursCustomersNavOpen || isToursCustomersNavActive) && (
-                            <div className="ml-4 mt-0.5 space-y-0.5 pl-3" style={{ borderLeft: "2px solid var(--border-soft)" }}>
-                              <NavLink to="/customers" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
-                                <Users className="h-3.5 w-3.5 flex-shrink-0" />
-                                {t(lang, "nav.customers")}
-                              </NavLink>
-                              <NavLink to="/settings/companies" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
-                                <Building2 className="h-3.5 w-3.5 flex-shrink-0" />
-                                {t(lang, "sidebar.nav.companies")}
-                              </NavLink>
-                            </div>
-                          )}
-                        </div>
                         <NavLink to="/admin/tours/settings" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
                           <Settings2 className="h-4 w-4 flex-shrink-0" />
                           {t(lang, "nav.tours.settings")}

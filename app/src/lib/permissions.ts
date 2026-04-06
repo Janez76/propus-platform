@@ -37,6 +37,12 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   "/changelog": "dashboard.view",
   "/admin/tours": "dashboard.view",
   /** Zentrales Rechnungsmodul (gleiche Zielgruppe wie Tour-Manager) */
+  "/admin/finance": "dashboard.view",
+  "/admin/finance/invoices": "dashboard.view",
+  "/admin/finance/invoices/open": "dashboard.view",
+  "/admin/finance/invoices/paid": "dashboard.view",
+  "/admin/finance/bank-import": "dashboard.view",
+  "/admin/finance/reminders": "dashboard.view",
   "/admin/invoices": "dashboard.view",
   /** Zentrale Ticket- / Postfach-Ansicht (gleiche Zielgruppe wie Tour-Manager) */
   "/admin/tickets": "dashboard.view",

@@ -97,7 +97,7 @@ function registerCustomerContactsRoutes(app, db, requireAdmin, ensureCustomerInR
         : Math.min(5000, Math.max(1, Number(rawLimit) || 5000));
       const like = q ? `%${q.replace(/%/g, "").replace(/_/g, "")}%` : "%";
       const { rows } = await p.query(
-        `SELECT cc.id, cc.customer_id, cc.name, cc.role, cc.phone, cc.email, cc.sort_order,
+        `SELECT cc.id, cc.customer_id, cc.name, cc.role, cc.portal_role, cc.phone, cc.email, cc.sort_order,
                 cc.phone_direct, cc.salutation, cc.first_name, cc.last_name, cc.phone_mobile, cc.department, cc.exxas_contact_id,
                 cc.created_at,
                 c.name AS customer_name, c.company AS customer_company
@@ -118,7 +118,7 @@ function registerCustomerContactsRoutes(app, db, requireAdmin, ensureCustomerInR
   /** Hilfsfunktion: Kontaktzeile per ID (für globale Routen) */
   async function loadContactRow(p, contactId) {
     const { rows } = await p.query(
-      `SELECT id, customer_id, name, role, phone, email, sort_order, created_at,
+      `SELECT id, customer_id, name, role, portal_role, phone, email, sort_order, created_at,
               phone AS phone_direct, salutation, first_name, last_name, phone_mobile, department, exxas_contact_id
        FROM customer_contacts WHERE id = $1 LIMIT 1`,
       [contactId]

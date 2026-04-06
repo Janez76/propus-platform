@@ -49,13 +49,13 @@ function orderDate(order: CompanyOrder) {
 
 const ROLE_LABELS: Record<CompanyMemberRole, string> = {
   company_owner: "Hauptkontakt",
-  company_admin: "Admin",
+  company_admin: "Mitarbeiter", // @deprecated - wird nicht mehr vergeben
   company_employee: "Mitarbeiter",
 };
 
 const ROLE_PERMISSIONS: Record<CompanyMemberRole, string[]> = {
   company_owner: ["Aufträge lesen", "Aufträge erstellen", "Aufträge bearbeiten", "Kunden einsehen", "Firma verwalten", "Team verwalten", "Kalender"],
-  company_admin: ["Aufträge lesen", "Aufträge erstellen", "Aufträge bearbeiten", "Kunden einsehen", "Firma verwalten", "Team verwalten", "Kalender"],
+  company_admin: ["Aufträge lesen", "Kunden einsehen", "Kalender"], // @deprecated - wird nicht mehr vergeben
   company_employee: ["Aufträge lesen", "Kunden einsehen", "Kalender"],
 };
 
@@ -456,7 +456,7 @@ function TeamTab({
 }) {
   const [showMatrix, setShowMatrix] = useState(false);
   const sortedMembers = useMemo(() => {
-    const order: Record<string, number> = { company_owner: 0, company_admin: 1, company_employee: 2 };
+    const order: Record<string, number> = { company_owner: 0, company_employee: 1 };
     return [...members].sort((a, b) => (order[a.role] ?? 9) - (order[b.role] ?? 9) || a.email.localeCompare(b.email));
   }, [members]);
 
@@ -471,7 +471,7 @@ function TeamTab({
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-3">
         <StatCard label="Aktive Mitglieder" value={members.filter((m) => m.status === "active").length} />
-        <StatCard label="Admins" value={members.filter((m) => m.status === "active" && (m.role === "company_owner" || m.role === "company_admin")).length} />
+        <StatCard label="Hauptkontakte" value={members.filter((m) => m.status === "active" && m.role === "company_owner").length} />
         <StatCard label="Mitarbeiter" value={members.filter((m) => m.status === "active" && m.role === "company_employee").length} />
       </div>
 
@@ -485,7 +485,7 @@ function TeamTab({
             <div key={m.id} className={`rounded-xl border p-4 transition-all ${isDisabled ? "border-[var(--border-soft)] bg-[var(--surface-raised)] opacity-60" : "border-[var(--border-soft)] bg-[var(--surface)]"}`}>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold ${m.role === "company_owner" ? "bg-[var(--accent)]/15 text-[var(--accent)]" : m.role === "company_admin" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : "cust-status-badge cust-status-draft"}`}>
+                  <div className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold ${m.role === "company_owner" ? "bg-[var(--accent)]/15 text-[var(--accent)]" : "cust-status-badge cust-status-draft"}`}>
                     {(m.email || "?")[0].toUpperCase()}
                   </div>
                   <div>
@@ -511,11 +511,10 @@ function TeamTab({
                       className="cust-form-input rounded-lg px-2 py-1.5 text-xs font-medium disabled:opacity-50 "
                     >
                       {role === "company_owner" && <option value="company_owner">Hauptkontakt</option>}
-                      <option value="company_admin">Admin</option>
                       <option value="company_employee">Mitarbeiter</option>
                     </select>
                   ) : (
-                    <span className={`rounded-lg px-2 py-1.5 text-xs font-medium ${m.role === "company_owner" ? "bg-[var(--accent)]/10 text-[var(--accent)]" : m.role === "company_admin" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300" : "cust-status-badge cust-status-draft"}`}>
+                    <span className={`rounded-lg px-2 py-1.5 text-xs font-medium ${m.role === "company_owner" ? "bg-[var(--accent)]/10 text-[var(--accent)]" : "cust-status-badge cust-status-draft"}`}>
                       {ROLE_LABELS[m.role as CompanyMemberRole] || m.role}
                     </span>
                   )}
@@ -561,7 +560,6 @@ function TeamTab({
                   <tr>
                     <th className="py-2 pr-4 text-left font-medium text-[var(--text-subtle)]">Recht</th>
                     <th className="px-3 py-2 text-center font-medium text-[var(--accent)]">Hauptkontakt</th>
-                    <th className="px-3 py-2 text-center font-medium text-blue-600 dark:text-blue-400">Admin</th>
                     <th className="px-3 py-2 text-center font-medium text-[var(--text-subtle)]">Mitarbeiter</th>
                   </tr>
                 </thead>
@@ -569,7 +567,7 @@ function TeamTab({
                   {ALL_PERMISSIONS.map((p) => (
                     <tr key={p} className="border-t border-[var(--border-soft)]">
                       <td className="py-2 pr-4 text-[var(--text-muted)]">{p}</td>
-                      {(["company_owner", "company_admin", "company_employee"] as CompanyMemberRole[]).map((r) => (
+                      {(["company_owner", "company_employee"] as CompanyMemberRole[]).map((r) => (
                         <td key={r} className="px-3 py-2 text-center">
                           {ROLE_PERMISSIONS[r].includes(p) ? (
                             <Check className="mx-auto h-4 w-4 text-emerald-500" />
@@ -629,7 +627,6 @@ function InvitationsTab({
             className="cust-form-input rounded-lg text-sm disabled:opacity-50 "
           >
             <option value="company_employee">Mitarbeiter</option>
-            <option value="company_admin">Admin</option>
             {role === "company_owner" && <option value="company_owner">Hauptkontakt</option>}
           </select>
           <button

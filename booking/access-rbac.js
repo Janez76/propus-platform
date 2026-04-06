@@ -73,6 +73,7 @@ const ROLE_PRESETS = {
     "team.manage",
     "calendar.view",
   ],
+  // @deprecated - Rolle wird nicht mehr vergeben. Bestehende Einträge wurden per Migration 066 zu company_employee migriert.
   company_admin: [
     "customers.read",
     "orders.read",
@@ -101,7 +102,7 @@ function mapLogtoRolesToSystemRole(logtoRoles) {
   if (roles.includes("admin")) return "internal_admin";
   if (roles.includes("photographer")) return "photographer";
   if (roles.includes("company_owner")) return "company_owner";
-  if (roles.includes("company_admin")) return "company_admin";
+  if (roles.includes("company_admin")) return "company_employee"; // @deprecated - company_admin wird als company_employee behandelt
   if (roles.includes("company_employee")) return "company_employee";
   if (roles.includes("customer_admin")) return "customer_admin";
   if (roles.includes("customer")) return "customer_user";
@@ -111,7 +112,7 @@ function mapLogtoRolesToSystemRole(logtoRoles) {
 function mapCompanyMemberRoleToSystemRole(role) {
   const r = String(role || "").trim();
   if (r === "company_owner") return "company_owner";
-  if (r === "company_admin") return "company_admin";
+  if (r === "company_admin") return "company_employee"; // @deprecated - company_admin wird als company_employee behandelt
   return "company_employee";
 }
 
@@ -147,7 +148,7 @@ async function seedRbacIfNeeded() {
     ["tour_manager", "Tour-Manager (intern)", "Alle Touren firmenuebergreifend"],
     ["photographer", "Fotograf", "Auftraege und Kalender"],
     ["company_owner", "Firmen-Hauptkontakt", "Company Workspace volle Firmensicht"],
-    ["company_admin", "Firmen-Admin", "Company Workspace"],
+    ["company_admin", "Firmen-Admin (deprecated)", "Nicht mehr vergeben – Altdaten werden als company_employee behandelt"],
     ["company_employee", "Firmen-Mitarbeiter", "Company Workspace eingeschraenkt"],
     ["customer_admin", "Kunden-Admin", "Portal / Kunde erweitert"],
     ["customer_user", "Kunden-Benutzer", "Portal eingeschraenkt"],
@@ -386,7 +387,7 @@ function legacyFallbackPermissions(sessionRole) {
   if (r === "tour_manager") return new Set(ROLE_PRESETS.tour_manager);
   if (r === "photographer") return new Set(ROLE_PRESETS.photographer);
   if (r === "company_owner") return new Set(ROLE_PRESETS.company_owner);
-  if (r === "company_admin") return new Set(ROLE_PRESETS.company_admin);
+  if (r === "company_admin") return new Set(ROLE_PRESETS.company_employee); // @deprecated - fallback auf company_employee
   if (r === "company_employee") return new Set(ROLE_PRESETS.company_employee);
   return new Set();
 }
