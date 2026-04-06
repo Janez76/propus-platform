@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const sharp = require("sharp");
+const { pdfToPng } = require("pdf-to-png-converter");
 const {
   getCanonicalCategoryAbsolutePath,
   buildDerivedFloorplanJpgName,
@@ -52,15 +53,40 @@ async function writeWebsizeVariant(sourcePath, targetPath) {
 async function writeFloorplanJpgVariant(sourcePath, targetPath) {
   fs.mkdirSync(path.dirname(targetPath), { recursive: true });
   const sourceStat = fs.statSync(sourcePath);
-  await sharp(sourcePath, { density: 200, page: 0 })
-    .rotate()
-    .flatten({ background: "#ffffff" })
-    .toColorspace("srgb")
-    .jpeg({
-      quality: WEBSIZE_QUALITY,
-      mozjpeg: true,
-    })
-    .toFile(targetPath);
+  try {
+    await sharp(sourcePath, { density: 200, page: 0 })
+      .rotate()
+      .flatten({ background: "#ffffff" })
+      .toColorspace("srgb")
+      .jpeg({
+        quality: WEBSIZE_QUALITY,
+        mozjpeg: true,
+      })
+      .toFile(targetPath);
+  } catch (sharpError) {
+    const pngPages = await pdfToPng(sourcePath, {
+      disableFontFace: true,
+      useSystemFonts: true,
+      viewportScale: 2.5,
+      pagesToProcess: [1],
+      outputFolder: undefined,
+      outputFileMaskFunc: () => "page",
+    });
+    const firstPage = Array.isArray(pngPages) ? pngPages[0] : null;
+    const pngContent = firstPage?.content;
+    if (!pngContent) {
+      throw sharpError;
+    }
+    await sharp(Buffer.from(pngContent))
+      .rotate()
+      .flatten({ background: "#ffffff" })
+      .toColorspace("srgb")
+      .jpeg({
+        quality: WEBSIZE_QUALITY,
+        mozjpeg: true,
+      })
+      .toFile(targetPath);
+  }
   if (sourceStat.atime && sourceStat.mtime) {
     try { fs.utimesSync(targetPath, sourceStat.atime, sourceStat.mtime); } catch (_) {}
   }

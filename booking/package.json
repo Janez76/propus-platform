@@ -26,6 +26,7 @@
     "nodemailer": "^6.9.16",
     "passport": "^0.7.0",
     "passport-openidconnect": "^0.1.2",
+    "pdf-to-png-converter": "^3.14.0",
     "pg": "^8.13.3",
     "sharp": "^0.34.5",
     "winston": "^3.19.0"
