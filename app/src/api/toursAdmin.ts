@@ -802,6 +802,7 @@ export interface ExxasInventorySyncResult {
   inventoryTitel?: string;
   inventoryStatus?: string;
   archived?: boolean;
+  archiveNote?: string | null;
   invoiceLinked?: boolean;
   invoiceId?: string | null;
   invoiceNummer?: string | null;

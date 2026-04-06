@@ -1567,6 +1567,8 @@ router.post('/tours/:id/sync-exxas-inventory', async (req, res) => {
       return res.json({ ok: true, synced: false, message: 'Keine passende Exxas-Kundenanlage gefunden.' });
     }
 
+    const inventoryActive = String(inventory.status || '').trim() === 'ak';
+
     await logAction(tour.id, 'admin', adminEmail(req), 'EXXAS_INVENTORY_SYNC', {
       inventory_id: inventory.id,
       inventory_titel: inventory.titel,
@@ -1574,32 +1576,19 @@ router.post('/tours/:id/sync-exxas-inventory', async (req, res) => {
       optional1: inventory.optional1,
     });
 
-    // Inaktive Anlage → Tour automatisch archivieren
-    if (String(inventory.status || '').trim() !== 'ak') {
+    // Archivierung bei inaktiver Anlage versuchen (nicht blockierend – weiter auch bei Fehler)
+    let archived = false;
+    let archiveNote = null;
+    if (!inventoryActive) {
       try {
         await tourActions.archiveTourNow(tour.id, adminEmail(req) || 'system');
+        archived = true;
       } catch (archiveErr) {
-        return res.status(400).json({
-          ok: false,
-          synced: true,
-          inventoryId: inventory.id,
-          inventoryStatus: inventory.status,
-          archived: false,
-          error: `Anlage inaktiv, aber Archivierung fehlgeschlagen: ${archiveErr.message}`,
-        });
+        archiveNote = archiveErr.message;
       }
-      return res.json({
-        ok: true,
-        synced: true,
-        inventoryId: inventory.id,
-        inventoryStatus: inventory.status,
-        archived: true,
-        invoiceLinked: false,
-        message: 'Kundenanlage ist inaktiv – Tour wurde archiviert.',
-      });
     }
 
-    // Rechnung suchen: erst lokal in exxas_invoices, dann live
+    // Rechnung suchen: erst lokal in exxas_invoices, dann live (immer, unabhängig vom Anlagen-Status)
     const contractId = tour.canonical_exxas_contract_id || null;
     let invoice = null;
 
@@ -1666,14 +1655,24 @@ router.post('/tours/:id/sync-exxas-inventory', async (req, res) => {
       inventoryId: inventory.id,
       inventoryTitel: inventory.titel,
       inventoryStatus: inventory.status,
-      archived: false,
+      archived,
+      archiveNote,
       invoiceLinked: !!invoice,
       invoiceId: invoice?.exxas_document_id || invoice?.id || null,
       invoiceNummer: invoice?.nummer || null,
       bezahlt,
-      message: invoice
-        ? `Rechnung ${invoice.nummer || invoice.exxas_document_id} verknüpft (${bezahlt ? 'bezahlt' : 'offen'}).`
-        : 'Kundenanlage aktiv, aber keine passende Rechnung gefunden.',
+      message: (() => {
+        const parts = [];
+        if (!inventoryActive) {
+          parts.push(archived ? 'Kundenanlage inaktiv – Tour archiviert.' : `Kundenanlage inaktiv (Archivierung nicht möglich: ${archiveNote}).`);
+        }
+        if (invoice) {
+          parts.push(`Rechnung ${invoice.nummer || invoice.exxas_document_id} verknüpft (${bezahlt ? 'bezahlt' : 'offen'}).`);
+        } else {
+          parts.push('Keine passende Rechnung gefunden.');
+        }
+        return parts.join(' ');
+      })(),
     });
   } catch (err) {
     console.error('[admin-api] sync-exxas-inventory:', err);

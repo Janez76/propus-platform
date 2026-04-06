@@ -301,7 +301,7 @@ export function TourInvoicesSection({
             className={`mb-3 rounded-lg border px-3 py-2.5 text-xs space-y-1 ${
               !syncResult.ok || syncResult.error
                 ? "border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
-                : syncResult.archived
+                : (syncResult.archived || syncResult.archiveNote)
                 ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
                 : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"
             }`}
