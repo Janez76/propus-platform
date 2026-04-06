@@ -736,6 +736,67 @@ router.post('/tours/:id/set-confirmation-required', async (req, res) => {
   }
 });
 
+router.get('/tours/:id/customer-orders', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const tourResult = await pool.query('SELECT customer_id FROM tour_manager.tours WHERE id = $1 LIMIT 1', [id]);
+    if (!tourResult.rows[0]) return res.status(404).json({ ok: false, error: 'Tour nicht gefunden' });
+    const customerId = Number(tourResult.rows[0].customer_id);
+    if (!Number.isFinite(customerId) || customerId <= 0) {
+      return res.json({ ok: true, orders: [], needsCustomer: true });
+    }
+    const bookingDb = require('../../booking/db');
+    const orders = await bookingDb.getOrdersForCustomerId(customerId);
+    return res.json({ ok: true, orders, needsCustomer: false });
+  } catch (err) {
+    console.error('[admin-api] GET /tours/:id/customer-orders', err);
+    return res.status(500).json({ ok: false, error: 'Interner Fehler' });
+  }
+});
+
+router.post('/tours/:id/set-booking-order', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const orderNo = parseInt(String(req.body?.orderNo ?? ''), 10);
+    if (!Number.isFinite(orderNo) || orderNo <= 0) {
+      return res.status(400).json({ ok: false, error: 'Ungültige Bestellnummer' });
+    }
+    const tourResult = await pool.query('SELECT * FROM tour_manager.tours WHERE id = $1 LIMIT 1', [id]);
+    if (!tourResult.rows[0]) return res.status(404).json({ ok: false, error: 'Tour nicht gefunden' });
+    const tour = normalizeTourRow(tourResult.rows[0]);
+    const customerId = Number(tour.customer_id);
+    if (!Number.isFinite(customerId) || customerId <= 0) {
+      return res.status(400).json({ ok: false, error: 'Tour hat keinen verknüpften Kunden' });
+    }
+    const bookingDb = require('../../booking/db');
+    const orders = await bookingDb.getOrdersForCustomerId(customerId);
+    const valid = orders.some((o) => Number(o.orderNo) === orderNo);
+    if (!valid) {
+      return res.status(400).json({ ok: false, error: 'Bestellung gehört nicht zum verknüpften Kunden' });
+    }
+    await pool.query(
+      'UPDATE tour_manager.tours SET booking_order_no = $1, updated_at = NOW() WHERE id = $2',
+      [orderNo, id]
+    );
+    await logAction(id, 'admin', adminEmail(req), 'ADMIN_SET_BOOKING_ORDER', {
+      source: 'admin_api',
+      booking_order_no: orderNo,
+    });
+    const mpId = String(tour.canonical_matterport_space_id || '').trim();
+    if (mpId) {
+      try {
+        await matterport.patchModelInternalId(mpId, `#${orderNo}`);
+      } catch (e) {
+        console.warn('[admin-api] set-booking-order patchModelInternalId:', e.message);
+      }
+    }
+    return res.json({ ok: true, booking_order_no: orderNo });
+  } catch (err) {
+    console.error('[admin-api] POST /tours/:id/set-booking-order', err);
+    return res.status(500).json({ ok: false, error: 'Interner Fehler' });
+  }
+});
+
 router.get('/confirmation-pending', async (req, res) => {
   try {
     await pool.query('ALTER TABLE tour_manager.tours ADD COLUMN IF NOT EXISTS confirmation_required BOOLEAN DEFAULT FALSE');
@@ -1546,6 +1607,16 @@ router.patch('/invoices/:type/:id', async (req, res) => {
   }
 });
 
+router.post('/invoices/exxas/:id/import', async (req, res) => {
+  try {
+    const result = await phase3.importExxasInvoiceToInternalInvoice(req.params.id, adminEmail(req));
+    if (!result.ok) return res.status(400).json(result);
+    return res.json(result);
+  } catch (err) {
+    return res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
 router.post('/invoices/:type/:id/resend', async (req, res) => {
   try {
     const type = String(req.params.type || '');
@@ -1570,6 +1641,16 @@ router.get('/bank-import', async (req, res) => {
   }
 });
 
+router.get('/bank-import/invoice-search', async (req, res) => {
+  try {
+    const data = await phase3.searchBankImportInvoices(req.query.q, req.query.amount);
+    return res.json(data);
+  } catch (err) {
+    console.error('[admin-api] GET /bank-import/invoice-search', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 router.post('/bank-import/upload', bankDataUpload.single('bankFile'), async (req, res) => {
   try {
     const actorEmail = adminEmail(req);
@@ -1590,7 +1671,8 @@ router.post('/bank-import/transactions/:id/confirm', async (req, res) => {
   try {
     const txId = parseInt(String(req.params.id || ''), 10);
     const invoiceId = String(req.body?.invoiceId || '').trim();
-    const result = await phase3.confirmBankTransaction(txId, invoiceId, adminEmail(req));
+    const invoiceSource = String(req.body?.invoiceSource || 'renewal').trim() || 'renewal';
+    const result = await phase3.confirmBankTransaction(txId, invoiceId, invoiceSource, adminEmail(req));
     if (!result.ok) return res.status(400).json(result);
     return res.json(result);
   } catch (err) {

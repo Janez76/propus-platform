@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei jeder Änderung an Tour-Status, Matterport-Integration, Verlängerungs- oder Archivierungs-Logik dieses Dokument aktualisieren. **Produkt-Workflow (Regeln, Reminder-Stufen, Preise):** [WORKFLOW_TOURS.md](./WORKFLOW_TOURS.md) — bei Abweichungen beide Dateien abstimmen.
 
-*Zuletzt aktualisiert: April 2026 (Galerie/NAS: Migrationen 031–032; Admin `/api/tours/admin/galleries` NAS-Import; öffentlich `/api/listing/...` Video/Grundriss/ZIP)*
+*Zuletzt aktualisiert: April 2026 (Galerie/NAS: Migrationen 031–032; Admin `/api/tours/admin/galleries` NAS-Import; öffentlich `/api/listing/...` Video/Grundriss/ZIP; Bestellung nachträglich verknüpfen via Tour-Detail Intern-Sektion)*
 
 ---
 
@@ -167,6 +167,35 @@ ACTIVE
 | `GET .../link-matterport` | Unverknüpfte Spaces auflisten |
 | `POST .../link-matterport` | Space manuell verknüpfen |
 | `POST .../link-matterport/auto` | Automatisches Linking via URL-Pattern |
+| `GET .../tours/:id/customer-orders` | Alle Bestellungen des verknüpften Kunden (via `getOrdersForCustomerId`); `needsCustomer: true` wenn kein Kunde gesetzt |
+| `POST .../tours/:id/set-booking-order` | `booking_order_no` nachträglich setzen (Body: `{ orderNo }`); Validierung dass Bestellung zum Kunden gehört; loggt `ADMIN_SET_BOOKING_ORDER`; patcht Matterport Internal-ID best-effort |
+
+### Flow: Bestellung nachträglich verknüpfen (Admin Tour-Detail → Intern)
+
+Ab April 2026 ist die Bestellverknüpfung direkt im Admin-Tour-Detail unter **Intern** möglich — ohne das Matterport-Anlage-iframe.
+
+```
+Admin öffnet Tour-Detail → Abschnitt «Intern»
+  │
+  ├── [customer_id gesetzt]
+  │     → Button «Bestellung Verknüpfen» (Dropdown)
+  │           GET /tours/:id/customer-orders
+  │           → Liste aller Bestellungen des Kunden (booking/db.getOrdersForCustomerId)
+  │           Suchfeld clientseitig filtert nach Nr., Adresse, Datum
+  │           Klick auf Bestellung:
+  │             POST /tours/:id/set-booking-order { orderNo }
+  │             → Validierung (Bestellung muss zum Kunden gehören)
+  │             → UPDATE tour_manager.tours SET booking_order_no = ?
+  │             → logAction ADMIN_SET_BOOKING_ORDER
+  │             → matterport.patchModelInternalId(mpId, "#<orderNo>") [best effort]
+  │             → UI schließt Dropdown, löst Refetch aus
+  │
+  └── [kein customer_id]
+        → Hinweistext: «Kunden verknüpfen um Bestellung auszuwählen»
+        → «Kunde anpassen» führt zum bestehenden Kunden-Verknüpfungs-Flow
+```
+
+**Komponenten:** `TourInternSection.tsx` (Dropdown `BookingDropdown`), `TourDetailPage.tsx` (Props `linkedCoreCustomerId`, `onBookingLinked`).
 
 ---
 

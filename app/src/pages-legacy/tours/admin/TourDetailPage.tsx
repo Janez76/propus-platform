@@ -20,11 +20,6 @@ function tourTitle(t: ToursAdminTourRow) {
   );
 }
 
-function bookingLinkOpenSpaceId(t: ToursAdminTourRow): string | null {
-  const canonical = String(t.canonical_matterport_space_id ?? "").trim();
-  const persisted = String(t.matterport_space_id ?? "").trim();
-  return canonical || persisted || null;
-}
 
 function matterportShowUrl(t: ToursAdminTourRow): string | null {
   const canonical = String(t.canonical_matterport_space_id ?? "").trim();
@@ -54,7 +49,7 @@ function internLinkedCustomerLabel(t: ToursAdminTourRow): string | null {
 export function TourDetailPage() {
   const { id } = useParams<{ id: string }>();
   const okId = id != null && id !== "" && /^\d+$/.test(id) ? id : null;
-  const [embedView, setEmbedView] = useState<"customer" | "invoice" | "booking" | null>(null);
+  const [embedView, setEmbedView] = useState<"customer" | "invoice" | null>(null);
   const qk = okId ? toursAdminTourDetailQueryKey(okId) : "toursAdmin:tour:invalid";
   const queryFn = useCallback(() => {
     if (!okId) throw new Error("Ungültige Tour-ID");
@@ -63,7 +58,6 @@ export function TourDetailPage() {
 
   const { data, loading, error, refetch } = useQuery(qk, queryFn, { enabled: !!okId, staleTime: 20_000 });
   const refetchDetail = useCallback(() => void refetch({ force: true }), [refetch]);
-  const bookingOpenSpaceId = data ? bookingLinkOpenSpaceId(data.tour) : null;
 
   if (!okId) {
     return <Navigate to="/admin/tours/list" replace />;
@@ -133,9 +127,12 @@ export function TourDetailPage() {
               matterportShowUrl={matterportShowUrl(data.tour)}
               matterportEditUrl={matterportEditUrl(data.tour)}
               linkedCustomerLabel={internLinkedCustomerLabel(data.tour)}
+              linkedCoreCustomerId={
+                data.tour.customer_id != null ? Number(data.tour.customer_id) : null
+              }
               bookingOrderNo={data.tour.booking_order_no as number | null}
+              onBookingLinked={refetchDetail}
               onOpenCustomerLink={() => setEmbedView("customer")}
-              onOpenBookingLink={() => setEmbedView("booking")}
             />
           </section>
           <TourActionLog rows={data.actionsLog} />
@@ -173,9 +170,7 @@ export function TourDetailPage() {
               <span className="font-semibold text-[var(--text-main)]">
                 {embedView === "customer"
                   ? "Kunde anpassen"
-                  : embedView === "invoice"
-                    ? "Exxas-Rechnung verknüpfen"
-                    : "Bestellung verknüpfen"} - Tour #{okId}
+                  : "Exxas-Rechnung verknüpfen"} - Tour #{okId}
               </span>
               <button
                 type="button"
@@ -193,22 +188,14 @@ export function TourDetailPage() {
               src={
                 embedView === "customer"
                   ? `/embed/tours/${encodeURIComponent(okId)}/link-exxas-customer?embed=1`
-                  : embedView === "invoice"
-                    ? `/embed/tours/${encodeURIComponent(okId)}/link-invoice`
-                    : `/embed/tours/link-matterport${
-                        bookingOpenSpaceId
-                          ? `?openSpaceId=${encodeURIComponent(bookingOpenSpaceId)}`
-                          : ""
-                      }`
+                  : `/embed/tours/${encodeURIComponent(okId)}/link-invoice`
               }
               className="flex-1 w-full border-0"
               style={{ minHeight: "70vh" }}
               title={
                 embedView === "customer"
                   ? "Kunde anpassen"
-                  : embedView === "invoice"
-                    ? "Exxas-Rechnung verknüpfen"
-                    : "Bestellung verknüpfen"
+                  : "Exxas-Rechnung verknüpfen"
               }
             />
           </div>

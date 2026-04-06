@@ -64,6 +64,23 @@ export async function toursAdminPost(path: string, body?: Record<string, unknown
   return data;
 }
 
+export type TourCustomerOrder = {
+  orderNo: number | string;
+  status?: string;
+  address?: string;
+  appointmentDate?: string;
+};
+
+export function getToursAdminTourCustomerOrders(tourId: string | number) {
+  return toursAdminFetch<{ ok: true; orders: TourCustomerOrder[]; needsCustomer: boolean }>(
+    `/tours/${tourId}/customer-orders`
+  );
+}
+
+export function postToursAdminTourSetBookingOrder(tourId: string | number, orderNo: number) {
+  return toursAdminPost(`/tours/${tourId}/set-booking-order`, { orderNo });
+}
+
 export function getToursAdminRenewalInvoices(status?: string) {
   const qs = status ? `?status=${encodeURIComponent(status)}` : "";
   return toursAdminFetch<Record<string, unknown>>(`/invoices${qs}`);
@@ -79,6 +96,17 @@ export function getAdminInvoicesCentral(type: "renewal" | "exxas", status?: stri
     stats: Record<string, number>;
     source: string;
   }>(`/invoices-central?${p.toString()}`);
+}
+
+export function importExxasAdminInvoice(invoiceId: string | number) {
+  return toursAdminFetch<{
+    ok: true;
+    created: boolean;
+    invoiceId: number | string;
+    tourId: number | null;
+  }>(`/invoices/exxas/${invoiceId}/import`, {
+    method: "POST",
+  });
 }
 
 export function deleteAdminInvoice(type: "renewal" | "exxas", invoiceId: string | number) {
@@ -114,6 +142,16 @@ export function getToursAdminBankImport() {
   return toursAdminFetch<Record<string, unknown>>("/bank-import");
 }
 
+export function getBankImportInvoiceSearch(q: string, amount?: string | number | null) {
+  const p = new URLSearchParams();
+  if (q) p.set("q", q);
+  if (amount != null && String(amount).trim() !== "") p.set("amount", String(amount));
+  return toursAdminFetch<{
+    ok: true;
+    invoices: Record<string, unknown>[];
+  }>(`/bank-import/invoice-search?${p.toString()}`);
+}
+
 export async function uploadToursAdminBankFile(file: File) {
   const fd = new FormData();
   fd.append("bankFile", file);
@@ -123,12 +161,27 @@ export async function uploadToursAdminBankFile(file: File) {
   return data;
 }
 
-export function confirmBankImportTransaction(txId: number, invoiceId: string) {
-  return toursAdminPost(`/bank-import/transactions/${txId}/confirm`, { invoiceId });
+export function confirmBankImportTransaction(
+  txId: number,
+  body: { invoiceId: string; invoiceSource: "renewal" | "exxas" },
+) {
+  return toursAdminPost(`/bank-import/transactions/${txId}/confirm`, body as Record<string, unknown>);
 }
 
 export function ignoreBankImportTransaction(txId: number) {
   return toursAdminPost(`/bank-import/transactions/${txId}/ignore`, {});
+}
+
+export function createTourManualInvoice(
+  tourId: string | number,
+  body: {
+    invoiceNumber?: string;
+    amountChf: string;
+    dueAt?: string | null;
+    paymentNote?: string | null;
+  },
+) {
+  return toursAdminPost(`/tours/${tourId}/invoices/create-manual`, body as Record<string, unknown>);
 }
 
 export function getToursAdminLinkMatterport(queryString: string) {
