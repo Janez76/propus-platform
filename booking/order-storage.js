@@ -16,8 +16,11 @@ const CUSTOMER_UPLOAD_STRUCTURE = [
   "Unbearbeitete/Video",
   "Unbearbeitete/Sonstiges",
   "Zur Auswahl",
-  "Finale/Bilder/WEB SIZE",
-  "Finale/Bilder/FULLSIZE",
+  "Finale/Staging/fullsize",
+  "Finale/Staging/websize",
+  "Finale/Bilder/websize",
+  "Finale/Bilder/fullsize",
+  "Finale/Bilder/edits",
   "Finale/Grundrisse",
   "Finale/Video",
 ];
@@ -28,8 +31,11 @@ const RAW_MATERIAL_STRUCTURE = [
 ];
 
 const UPLOAD_CATEGORY_MAP = {
-  final_websize: "Finale/Bilder/WEB SIZE",
-  final_fullsize: "Finale/Bilder/FULLSIZE",
+  staging_websize: "Finale/Staging/websize",
+  staging_fullsize: "Finale/Staging/fullsize",
+  final_websize: "Finale/Bilder/websize",
+  final_fullsize: "Finale/Bilder/fullsize",
+  final_edits: "Finale/Bilder/edits",
   final_video: "Finale/Video",
   final_grundrisse: "Finale/Grundrisse",
   raw_bilder: "Unbearbeitete/Bilder",
@@ -39,10 +45,73 @@ const UPLOAD_CATEGORY_MAP = {
   zur_auswahl: "Zur Auswahl",
 };
 
+const CATEGORY_PATH_SEGMENT_ALIASES = {
+  staging_websize: [
+    "Finale/Staging/websize",
+    "Finale/Staging/Web Size",
+    "Finale/Staging/Websize",
+    "Finale/Staging/Bilder/websize",
+    "Finale/Staging/Bilder/Web Size",
+    "Finale/Staging/Bilder/Websize",
+  ],
+  staging_fullsize: [
+    "Finale/Staging/fullsize",
+    "Finale/Staging/Full Size",
+    "Finale/Staging/Fullsize",
+    "Finale/Staging/Bilder/fullsize",
+    "Finale/Staging/Bilder/Full Size",
+    "Finale/Staging/Bilder/Fullsize",
+  ],
+  final_websize: [
+    "Finale/Bilder/websize",
+    "Finale/Web Size",
+    "Finale/Websize",
+    "Finale/websize",
+  ],
+  final_fullsize: [
+    "Finale/Bilder/fullsize",
+    "Finale/Full Size",
+    "Finale/Fullsize",
+    "Finale/fullsize",
+  ],
+  final_edits: [
+    "Finale/Bilder/edits",
+    "Finale/Bilder/Edits",
+    "Finale/Edits",
+    "Finale/edits",
+    "Edits",
+  ],
+  final_video: [
+    "Finale/Video",
+  ],
+  final_grundrisse: [
+    "Finale/Grundrisse",
+  ],
+  raw_bilder: [
+    "Unbearbeitete/Bilder",
+  ],
+  raw_grundrisse: [
+    "Unbearbeitete/Grundrisse",
+  ],
+  raw_video: [
+    "Unbearbeitete/Video",
+  ],
+  raw_sonstiges: [
+    "Unbearbeitete/Sonstiges",
+  ],
+  zur_auswahl: [
+    "Zur Auswahl",
+    "Zur auswahl",
+  ],
+};
+
 const UPLOAD_ALLOWED_EXT = {
   raw_bilder: new Set([".jpg", ".jpeg", ".png", ".tif", ".tiff", ".heic", ".heif", ".dng", ".raw", ".cr2", ".cr3", ".nef", ".arw", ".orf", ".rw2", ".psd", ".psb", ".bmp", ".webp", ".gif"]),
+  staging_websize: new Set([".jpg", ".jpeg", ".png", ".webp", ".tif", ".tiff", ".heic", ".heif"]),
+  staging_fullsize: new Set([".jpg", ".jpeg", ".png", ".tif", ".tiff", ".heic", ".heif", ".psd", ".psb"]),
   final_websize: new Set([".jpg", ".jpeg", ".png", ".webp", ".tif", ".tiff", ".heic", ".heif"]),
   final_fullsize: new Set([".jpg", ".jpeg", ".png", ".tif", ".tiff", ".heic", ".heif", ".psd", ".psb"]),
+  final_edits: new Set([".jpg", ".jpeg", ".png", ".tif", ".tiff", ".heic", ".heif", ".psd", ".psb"]),
   raw_grundrisse: new Set([".pdf", ".jpg", ".jpeg", ".png", ".svg", ".tif", ".tiff", ".dwg", ".dxf"]),
   final_grundrisse: new Set([".pdf", ".jpg", ".jpeg", ".png", ".svg", ".tif", ".tiff"]),
   raw_video: new Set([".mp4", ".mov", ".avi", ".mxf", ".mts", ".m2ts", ".mkv", ".wmv", ".webm", ".r3d", ".braw", ".dng", ".mpg", ".mpeg", ".m4v", ".3gp"]),
@@ -68,6 +137,328 @@ function sanitizeUploadFilename(value) {
     .replace(/\s+/g, " ")
     .trim();
   return cleaned || `datei_${Date.now()}`;
+}
+
+function normalizeLooseFolderName(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[\s_-]+/g, "");
+}
+
+function normalizeCategoryAliasGroup(aliases) {
+  return Array.from(
+    new Set(
+      (Array.isArray(aliases) ? aliases : [aliases])
+        .map((entry) => String(entry || "").trim())
+        .filter(Boolean)
+        .map((entry) => normalizeLooseFolderName(entry))
+    )
+  );
+}
+
+function replaceGermanChars(value) {
+  return String(value || "")
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/Ä/g, "Ae")
+    .replace(/Ö/g, "Oe")
+    .replace(/Ü/g, "Ue")
+    .replace(/ß/g, "ss");
+}
+
+function slugifyFilenameStem(fileName, fallback = "datei") {
+  const ext = path.extname(String(fileName || ""));
+  const base = path.basename(String(fileName || ""), ext);
+  const normalized = replaceGermanChars(base)
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/-{2,}/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase();
+  return normalized || fallback;
+}
+
+function stripKnownPrefixes(stem, prefixes = []) {
+  let current = String(stem || "");
+  for (const prefix of prefixes) {
+    const normalizedPrefix = slugifyFilenameStem(prefix, "").replace(/^-+|-+$/g, "");
+    if (!normalizedPrefix) continue;
+    if (current === normalizedPrefix) {
+      current = "";
+      continue;
+    }
+    if (current.startsWith(`${normalizedPrefix}-`)) {
+      current = current.slice(normalizedPrefix.length + 1);
+    }
+  }
+  return current.replace(/^-+|-+$/g, "");
+}
+
+function extractNormalizedZip(value) {
+  const digits = String(value || "").replace(/\D+/g, "");
+  return digits || "";
+}
+
+function buildPrefixedUploadName({ prefix, originalName, zip, extOverride = null, fallbackStem = "datei" }) {
+  const stem = slugifyFilenameStem(originalName, fallbackStem);
+  const suffixZip = extractNormalizedZip(zip);
+  const parts = [String(prefix || "").trim(), stem].filter(Boolean);
+  if (suffixZip) parts.push(suffixZip);
+  let ext = extOverride == null ? path.extname(String(originalName || "")).toLowerCase() : String(extOverride || "");
+  if (ext && !ext.startsWith(".")) ext = `.${ext}`;
+  return `${parts.join("-")}${ext}`;
+}
+
+function normalizeDerivedStem(originalName, zip, prefixesToStrip = []) {
+  let stem = slugifyFilenameStem(originalName, "datei");
+  stem = stripKnownPrefixes(stem, prefixesToStrip);
+  const normalizedZip = extractNormalizedZip(zip);
+  if (normalizedZip && stem.endsWith(`-${normalizedZip}`)) {
+    stem = stem.slice(0, -(`-${normalizedZip}`).length);
+  }
+  return stem || "datei";
+}
+
+function buildCanonicalFullsizeName(order, originalName) {
+  const naming = deriveOrderNaming(order);
+  const originalExt = path.extname(String(originalName || "")).toLowerCase();
+  return buildPrefixedUploadName({
+    prefix: "hd-datei",
+    originalName: normalizeDerivedStem(originalName, naming.zip, ["hd-datei", "web-datei", "web"]),
+    zip: naming.zip,
+    extOverride: originalExt || null,
+  });
+}
+
+function buildStoredUploadName(order, categoryKey, originalName) {
+  if (categoryKey === "staging_fullsize" || categoryKey === "final_fullsize") {
+    return buildCanonicalFullsizeName(order, originalName);
+  }
+  if (categoryKey === "staging_websize" || categoryKey === "final_websize") {
+    return buildDerivedWebsizeName(order, originalName);
+  }
+  return sanitizeUploadFilename(originalName);
+}
+
+function buildDerivedWebsizeName(order, originalName) {
+  const naming = deriveOrderNaming(order);
+  return buildPrefixedUploadName({
+    prefix: "web-datei",
+    originalName: normalizeDerivedStem(originalName, naming.zip, ["hd-datei", "web-datei", "web"]),
+    zip: naming.zip,
+    extOverride: ".jpg",
+  });
+}
+
+function buildDerivedFloorplanJpgName(order, originalName) {
+  const naming = deriveOrderNaming(order);
+  return buildPrefixedUploadName({
+    prefix: "web",
+    originalName: normalizeDerivedStem(originalName, naming.zip, ["web-datei", "hd-datei", "web"]),
+    zip: naming.zip,
+    extOverride: ".jpg",
+  });
+}
+
+function normalizeCategoryAliasPath(aliasPath) {
+  return String(aliasPath || "")
+    .split("/")
+    .filter(Boolean)
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+}
+
+function tryResolveCategoryPath(orderFolderAbsolutePath, aliasPath) {
+  let currentDir = path.resolve(orderFolderAbsolutePath);
+  const segments = normalizeCategoryAliasPath(aliasPath);
+  for (const segment of segments) {
+    const entries = fs.existsSync(currentDir) && fs.statSync(currentDir).isDirectory()
+      ? fs.readdirSync(currentDir, { withFileTypes: true })
+      : [];
+    const normalizedAliases = normalizeCategoryAliasGroup(segment);
+    const match = entries.find((entry) => entry.isDirectory() && normalizedAliases.includes(normalizeLooseFolderName(entry.name)));
+    if (!match) return null;
+    currentDir = path.join(currentDir, match.name);
+  }
+  return currentDir;
+}
+
+function resolveCategoryPath(orderFolderAbsolutePath, categoryKey, { createMissing = false } = {}) {
+  const aliases = CATEGORY_PATH_SEGMENT_ALIASES[String(categoryKey || "")] || [];
+  for (const aliasPath of aliases) {
+    const resolved = tryResolveCategoryPath(orderFolderAbsolutePath, aliasPath);
+    if (resolved) return resolved;
+  }
+  const canonicalPath = String(UPLOAD_CATEGORY_MAP[String(categoryKey || "")] || "");
+  let currentDir = path.resolve(orderFolderAbsolutePath);
+  for (const segment of normalizeCategoryAliasPath(canonicalPath)) {
+    currentDir = path.join(currentDir, segment);
+    if (createMissing) fs.mkdirSync(currentDir, { recursive: true });
+  }
+  return currentDir;
+}
+
+function getCanonicalCategoryAbsolutePath(orderFolderAbsolutePath, categoryKey) {
+  const canonicalPath = String(UPLOAD_CATEGORY_MAP[String(categoryKey || "")] || "");
+  return path.resolve(orderFolderAbsolutePath, ...normalizeCategoryAliasPath(canonicalPath));
+}
+
+function resolveExistingCategoryPaths(orderFolderAbsolutePath, categoryKey) {
+  const aliases = [
+    String(UPLOAD_CATEGORY_MAP[String(categoryKey || "")] || ""),
+    ...(CATEGORY_PATH_SEGMENT_ALIASES[String(categoryKey || "")] || []),
+  ].filter(Boolean);
+  const seen = new Set();
+  const results = [];
+  for (const aliasPath of aliases) {
+    const resolved = tryResolveCategoryPath(orderFolderAbsolutePath, aliasPath);
+    if (!resolved) continue;
+    const key = path.resolve(resolved).toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    results.push(path.resolve(resolved));
+  }
+  return results;
+}
+
+function buildUniqueFilenameInDirectory(targetDir, desiredName) {
+  const ext = path.extname(String(desiredName || ""));
+  const base = path.basename(String(desiredName || ""), ext);
+  let candidate = desiredName;
+  let index = 2;
+  while (fs.existsSync(path.join(targetDir, candidate))) {
+    candidate = `${base}-${index}${ext}`;
+    index += 1;
+  }
+  return candidate;
+}
+
+function moveFileWithFallback(sourcePath, targetPath) {
+  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+  try {
+    fs.renameSync(sourcePath, targetPath);
+  } catch (_) {
+    copyFileVerified(sourcePath, targetPath);
+    fs.unlinkSync(sourcePath);
+  }
+}
+
+function mergeDirectoryIntoTarget(sourceDir, targetDir, logger = console) {
+  const stats = { movedFiles: 0, skippedIdentical: 0, renamedConflicts: 0 };
+  if (!fs.existsSync(sourceDir) || !fs.statSync(sourceDir).isDirectory()) return stats;
+  fs.mkdirSync(targetDir, { recursive: true });
+  const files = walkFilesRecursive(sourceDir);
+  for (const sourcePath of files) {
+    const relativePath = path.relative(sourceDir, sourcePath);
+    if (!relativePath || relativePath.startsWith("..")) continue;
+    const destinationDir = path.join(targetDir, path.dirname(relativePath));
+    fs.mkdirSync(destinationDir, { recursive: true });
+    let destinationPath = path.join(destinationDir, path.basename(relativePath));
+    if (fs.existsSync(destinationPath) && fs.statSync(destinationPath).isFile()) {
+      const sourceHash = sha256File(sourcePath);
+      const destinationHash = sha256File(destinationPath);
+      if (sourceHash === destinationHash) {
+        try { fs.unlinkSync(sourcePath); } catch (_) {}
+        stats.skippedIdentical += 1;
+        continue;
+      }
+      const uniqueName = buildUniqueFilenameInDirectory(destinationDir, path.basename(relativePath));
+      destinationPath = path.join(destinationDir, uniqueName);
+      stats.renamedConflicts += 1;
+      logger.warn?.("[order-storage] Dateikonflikt bei Migration - verwende Suffix", {
+        sourcePath,
+        destinationPath,
+      });
+    }
+    moveFileWithFallback(sourcePath, destinationPath);
+    stats.movedFiles += 1;
+  }
+  removeEmptyDirsRecursive(sourceDir, { keepRoot: false });
+  if (fs.existsSync(sourceDir) && fs.statSync(sourceDir).isDirectory() && fs.readdirSync(sourceDir).length === 0) {
+    try { fs.rmdirSync(sourceDir); } catch (_) {}
+  }
+  return stats;
+}
+
+function migrateLegacyFinaleImageStructure(orderFolderAbsolutePath, logger = console) {
+  const resolvedOrderRoot = path.resolve(orderFolderAbsolutePath);
+  const stats = {
+    migratedDirs: 0,
+    movedFiles: 0,
+    skippedIdentical: 0,
+    renamedConflicts: 0,
+  };
+  for (const categoryKey of ["staging_fullsize", "staging_websize", "final_fullsize", "final_websize", "final_edits"]) {
+    const canonicalPath = getCanonicalCategoryAbsolutePath(resolvedOrderRoot, categoryKey);
+    const existingPaths = resolveExistingCategoryPaths(resolvedOrderRoot, categoryKey);
+    for (const sourcePath of existingPaths) {
+      const resolvedSource = path.resolve(sourcePath);
+      if (resolvedSource.toLowerCase() === canonicalPath.toLowerCase()) continue;
+      fs.mkdirSync(canonicalPath, { recursive: true });
+      const mergeStats = mergeDirectoryIntoTarget(resolvedSource, canonicalPath, logger);
+      stats.migratedDirs += 1;
+      stats.movedFiles += mergeStats.movedFiles;
+      stats.skippedIdentical += mergeStats.skippedIdentical;
+      stats.renamedConflicts += mergeStats.renamedConflicts;
+      removeEmptyParentsUntil(path.dirname(resolvedSource), resolvedOrderRoot);
+    }
+  }
+  return stats;
+}
+
+function renameExistingFilesForCategory(orderFolderAbsolutePath, order, categoryKey, logger = console) {
+  const fullsizeRoot = getCanonicalCategoryAbsolutePath(orderFolderAbsolutePath, categoryKey);
+  const stats = {
+    scanned: 0,
+    renamed: 0,
+    removedIdentical: 0,
+    renamedConflicts: 0,
+  };
+  if (!fs.existsSync(fullsizeRoot) || !fs.statSync(fullsizeRoot).isDirectory()) {
+    return stats;
+  }
+  const files = walkFilesRecursive(fullsizeRoot);
+  for (const sourcePath of files) {
+    const fileName = path.basename(sourcePath);
+    if (fileName.toLowerCase() === "thumbs.db") continue;
+    const extCheck = checkUploadExtension(categoryKey, fileName);
+    if (!extCheck.ok) continue;
+    stats.scanned += 1;
+    const desiredName = buildCanonicalFullsizeName(order, fileName);
+    if (fileName === desiredName) continue;
+    const targetDir = path.dirname(sourcePath);
+    let targetPath = path.join(targetDir, desiredName);
+    if (path.resolve(targetPath).toLowerCase() === path.resolve(sourcePath).toLowerCase()) continue;
+    if (fs.existsSync(targetPath) && fs.statSync(targetPath).isFile()) {
+      const sourceHash = sha256File(sourcePath);
+      const targetHash = sha256File(targetPath);
+      if (sourceHash === targetHash) {
+        try { fs.unlinkSync(sourcePath); } catch (_) {}
+        stats.removedIdentical += 1;
+        continue;
+      }
+      const uniqueName = buildUniqueFilenameInDirectory(targetDir, desiredName);
+      targetPath = path.join(targetDir, uniqueName);
+      stats.renamedConflicts += 1;
+      logger.warn?.("[order-storage] Dateikonflikt bei Fullsize-Umbenennung - verwende Suffix", {
+        sourcePath,
+        targetPath,
+      });
+    }
+    moveFileWithFallback(sourcePath, targetPath);
+    stats.renamed += 1;
+  }
+  return stats;
+}
+
+function renameExistingFullsizeFiles(orderFolderAbsolutePath, order, logger = console) {
+  return renameExistingFilesForCategory(orderFolderAbsolutePath, order, "final_fullsize", logger);
+}
+
+function renameExistingStagingFiles(orderFolderAbsolutePath, order, logger = console) {
+  return renameExistingFilesForCategory(orderFolderAbsolutePath, order, "staging_fullsize", logger);
 }
 
 function normalizeUploadMode(value) {
@@ -181,6 +572,7 @@ function deriveOrderNaming(order) {
     companyName,
     customerCompanyName,
     street,
+    zip,
     zipCity,
     rawDisplayName: sanitizePathSegment(rawDisplayName, `Auftrag ${orderNo}`, 200),
     customerDisplayName: sanitizePathSegment(rawDisplayName, `Auftrag ${orderNo}`, 200),
@@ -750,10 +1142,23 @@ module.exports = {
   sanitizeUploadFilename,
   normalizeUploadMode,
   sanitizeUploadComment,
+  normalizeLooseFolderName,
+  slugifyFilenameStem,
+  buildPrefixedUploadName,
+  buildCanonicalFullsizeName,
+  buildStoredUploadName,
+  buildDerivedWebsizeName,
+  buildDerivedFloorplanJpgName,
   toPortablePath,
   sha256Buffer,
   sha256File,
   checkUploadExtension,
+  getCanonicalCategoryAbsolutePath,
+  resolveCategoryPath,
+  resolveExistingCategoryPaths,
+  migrateLegacyFinaleImageStructure,
+  renameExistingFullsizeFiles,
+  renameExistingStagingFiles,
   sanitizeNasFolderBase,
   readMountInfo,
   isMountedPath,

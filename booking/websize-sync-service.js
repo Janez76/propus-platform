@@ -1,15 +1,30 @@
 const fs = require("fs");
 const path = require("path");
 const sharp = require("sharp");
-const { UPLOAD_CATEGORY_MAP } = require("./order-storage");
+const {
+  getCanonicalCategoryAbsolutePath,
+  buildDerivedFloorplanJpgName,
+  buildDerivedWebsizeName,
+  migrateLegacyFinaleImageStructure,
+  renameExistingFullsizeFiles,
+  renameExistingStagingFiles,
+  resolveCategoryPath,
+} = require("./order-storage");
 
-const WEBSIZE_MAX_EDGE = Math.max(320, Number(process.env.BOOKING_WEB_SIZE_MAX_EDGE || 1920));
-const WEBSIZE_QUALITY = Math.max(50, Math.min(95, Number(process.env.BOOKING_WEB_SIZE_QUALITY || 84)));
+const WEBSIZE_MAX_EDGE = Math.max(320, Number(process.env.BOOKING_WEB_SIZE_MAX_EDGE || 2400));
+const WEBSIZE_QUALITY = Math.max(50, Math.min(95, Number(process.env.BOOKING_WEB_SIZE_QUALITY || 85)));
 const ELIGIBLE_EXTENSIONS = new Set([".jpg", ".jpeg"]);
+const FLOORPLAN_PDF_EXTENSIONS = new Set([".pdf"]);
+const GENERATED_WEB_PREFIX = "web-";
 
 function isEligibleForWebsize(fileName) {
   const ext = path.extname(String(fileName || "")).toLowerCase();
   return ELIGIBLE_EXTENSIONS.has(ext);
+}
+
+function isEligibleFloorplanPdf(fileName) {
+  const ext = path.extname(String(fileName || "")).toLowerCase();
+  return FLOORPLAN_PDF_EXTENSIONS.has(ext);
 }
 
 async function writeWebsizeVariant(sourcePath, targetPath) {
@@ -17,12 +32,30 @@ async function writeWebsizeVariant(sourcePath, targetPath) {
   const sourceStat = fs.statSync(sourcePath);
   await sharp(sourcePath)
     .rotate()
+    .toColorspace("srgb")
     .resize({
       width: WEBSIZE_MAX_EDGE,
       height: WEBSIZE_MAX_EDGE,
       fit: "inside",
       withoutEnlargement: true,
     })
+    .jpeg({
+      quality: WEBSIZE_QUALITY,
+      mozjpeg: true,
+    })
+    .toFile(targetPath);
+  if (sourceStat.atime && sourceStat.mtime) {
+    try { fs.utimesSync(targetPath, sourceStat.atime, sourceStat.mtime); } catch (_) {}
+  }
+}
+
+async function writeFloorplanJpgVariant(sourcePath, targetPath) {
+  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+  const sourceStat = fs.statSync(sourcePath);
+  await sharp(sourcePath, { density: 200, page: 0 })
+    .rotate()
+    .flatten({ background: "#ffffff" })
+    .toColorspace("srgb")
     .jpeg({
       quality: WEBSIZE_QUALITY,
       mozjpeg: true,
@@ -66,7 +99,11 @@ function removeEmptyDirsRecursive(baseDir) {
   }
 }
 
-async function syncWebsizeForFile({ fullsizeRoot, websizeRoot, fullsizeFilePath }) {
+function createPipelineStats() {
+  return { created: 0, updated: 0, deleted: 0, scanned: 0 };
+}
+
+async function syncWebsizeForFile({ order, fullsizeRoot, websizeRoot, fullsizeFilePath, forceRebuild = false }) {
   const relativePath = path.relative(fullsizeRoot, fullsizeFilePath);
   if (!relativePath || relativePath.startsWith("..")) {
     return { action: "skipped", reason: "outside_fullsize" };
@@ -74,26 +111,95 @@ async function syncWebsizeForFile({ fullsizeRoot, websizeRoot, fullsizeFilePath 
   if (!isEligibleForWebsize(relativePath)) {
     return { action: "skipped", reason: "unsupported_ext", relativePath };
   }
-  const websizeFilePath = path.join(websizeRoot, relativePath);
+  const websizeFileName = buildDerivedWebsizeName(order, path.basename(relativePath));
+  const websizeFilePath = path.join(path.dirname(path.join(websizeRoot, relativePath)), websizeFileName);
   const sourceStat = fs.statSync(fullsizeFilePath);
   const targetExists = fs.existsSync(websizeFilePath);
-  let shouldRegenerate = !targetExists;
+  let shouldRegenerate = forceRebuild || !targetExists;
   if (targetExists) {
     const targetStat = fs.statSync(websizeFilePath);
-    shouldRegenerate = sourceStat.mtimeMs - targetStat.mtimeMs > 1000;
+    shouldRegenerate = forceRebuild || sourceStat.mtimeMs - targetStat.mtimeMs > 1000;
   }
   if (!shouldRegenerate) {
-    return { action: "skipped", reason: "up_to_date", relativePath };
+    return { action: "skipped", reason: "up_to_date", relativePath, targetRelativePath: path.relative(websizeRoot, websizeFilePath) };
   }
   await writeWebsizeVariant(fullsizeFilePath, websizeFilePath);
-  return { action: targetExists ? "updated" : "created", relativePath };
+  return {
+    action: targetExists ? "updated" : "created",
+    relativePath,
+    targetRelativePath: path.relative(websizeRoot, websizeFilePath),
+  };
 }
 
-async function syncWebsizeForOrderFolder(orderFolderAbsolutePath, logger = console) {
-  const fullsizeRoot = path.join(orderFolderAbsolutePath, UPLOAD_CATEGORY_MAP.final_fullsize);
-  const websizeRoot = path.join(orderFolderAbsolutePath, UPLOAD_CATEGORY_MAP.final_websize);
-  if (!fs.existsSync(fullsizeRoot) || !fs.statSync(fullsizeRoot).isDirectory()) {
+async function syncFloorplanJpgForOrderFolder(orderFolderAbsolutePath, order, logger = console, { forceRebuild = false } = {}) {
+  const floorplanRoot = resolveCategoryPath(orderFolderAbsolutePath, "final_grundrisse", { createMissing: true });
+  if (!fs.existsSync(floorplanRoot) || !fs.statSync(floorplanRoot).isDirectory()) {
     return { created: 0, updated: 0, deleted: 0, scanned: 0 };
+  }
+  const sourceFiles = walkFilesRecursive(floorplanRoot);
+  const expected = new Set();
+  let created = 0;
+  let updated = 0;
+  let scanned = 0;
+
+  for (const sourcePath of sourceFiles) {
+    const rel = path.relative(floorplanRoot, sourcePath);
+    if (!isEligibleFloorplanPdf(rel)) continue;
+    const targetName = buildDerivedFloorplanJpgName(order, path.basename(rel));
+    const targetPath = path.join(path.dirname(path.join(floorplanRoot, rel)), targetName);
+    expected.add(path.normalize(path.relative(floorplanRoot, targetPath)).toLowerCase());
+    scanned += 1;
+    try {
+      const sourceStat = fs.statSync(sourcePath);
+      const targetExists = fs.existsSync(targetPath);
+      let shouldRegenerate = forceRebuild || !targetExists;
+      if (targetExists) {
+        const targetStat = fs.statSync(targetPath);
+        shouldRegenerate = forceRebuild || sourceStat.mtimeMs - targetStat.mtimeMs > 1000;
+      }
+      if (!shouldRegenerate) continue;
+      await writeFloorplanJpgVariant(sourcePath, targetPath);
+      if (targetExists) updated += 1;
+      else created += 1;
+    } catch (error) {
+      logger.warn("[websize-sync] Grundriss-PDF konnte nicht verarbeitet werden", {
+        sourcePath,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  let deleted = 0;
+  const floorplanFiles = walkFilesRecursive(floorplanRoot);
+  for (const targetPath of floorplanFiles) {
+    const rel = path.relative(floorplanRoot, targetPath);
+    const ext = path.extname(rel).toLowerCase();
+    const baseName = path.basename(rel).toLowerCase();
+    if (ext !== ".jpg" && ext !== ".jpeg") continue;
+    if (!baseName.startsWith(GENERATED_WEB_PREFIX)) continue;
+    const key = path.normalize(rel).toLowerCase();
+    if (expected.has(key)) continue;
+    try {
+      fs.unlinkSync(targetPath);
+      deleted += 1;
+    } catch (_) {}
+  }
+  removeEmptyDirsRecursive(floorplanRoot);
+  return { created, updated, deleted, scanned };
+}
+
+async function syncWebsizePipelineForOrderFolder(
+  orderFolderAbsolutePath,
+  order,
+  sourceCategoryKey,
+  targetCategoryKey,
+  logger = console,
+  { forceRebuild = false } = {}
+) {
+  const fullsizeRoot = getCanonicalCategoryAbsolutePath(orderFolderAbsolutePath, sourceCategoryKey);
+  const websizeRoot = getCanonicalCategoryAbsolutePath(orderFolderAbsolutePath, targetCategoryKey);
+  if (!fs.existsSync(fullsizeRoot) || !fs.statSync(fullsizeRoot).isDirectory()) {
+    return createPipelineStats();
   }
   fs.mkdirSync(websizeRoot, { recursive: true });
 
@@ -106,13 +212,17 @@ async function syncWebsizeForOrderFolder(orderFolderAbsolutePath, logger = conso
   for (const sourcePath of sourceFiles) {
     const rel = path.relative(fullsizeRoot, sourcePath);
     if (!isEligibleForWebsize(rel)) continue;
-    expected.add(path.normalize(rel).toLowerCase());
+    const generatedName = buildDerivedWebsizeName(order, path.basename(rel));
+    const generatedRel = path.join(path.dirname(rel), generatedName);
+    expected.add(path.normalize(generatedRel).toLowerCase());
     scanned += 1;
     try {
       const result = await syncWebsizeForFile({
+        order,
         fullsizeRoot,
         websizeRoot,
         fullsizeFilePath: sourcePath,
+        forceRebuild,
       });
       if (result.action === "created") created += 1;
       if (result.action === "updated") updated += 1;
@@ -140,28 +250,127 @@ async function syncWebsizeForOrderFolder(orderFolderAbsolutePath, logger = conso
   return { created, updated, deleted, scanned };
 }
 
-async function syncWebsizeForAllCustomerFolders(db, logger = console) {
+async function syncWebsizeForOrderFolder(orderFolderAbsolutePath, order, logger = console, { forceRebuild = false } = {}) {
+  const migration = migrateLegacyFinaleImageStructure(orderFolderAbsolutePath, logger);
+  const renamedStagingFullsize = renameExistingStagingFiles(orderFolderAbsolutePath, order, logger);
+  const renamedFinalFullsize = renameExistingFullsizeFiles(orderFolderAbsolutePath, order, logger);
+  const staging = await syncWebsizePipelineForOrderFolder(
+    orderFolderAbsolutePath,
+    order,
+    "staging_fullsize",
+    "staging_websize",
+    logger,
+    { forceRebuild }
+  );
+  const final = await syncWebsizePipelineForOrderFolder(
+    orderFolderAbsolutePath,
+    order,
+    "final_fullsize",
+    "final_websize",
+    logger,
+    { forceRebuild }
+  );
+  const floorplanStats = await syncFloorplanJpgForOrderFolder(orderFolderAbsolutePath, order, logger, { forceRebuild });
+  return {
+    created: staging.created + final.created,
+    updated: staging.updated + final.updated,
+    deleted: staging.deleted + final.deleted,
+    scanned: staging.scanned + final.scanned,
+    staging,
+    final,
+    floorplans: floorplanStats,
+    migration,
+    renamedStagingFullsize,
+    renamedFinalFullsize,
+  };
+}
+
+async function processCustomerFolderSyncJob({ db, folderPath, orderNo, logger, forceRebuild = false }) {
+  if (!fs.existsSync(folderPath) || !fs.statSync(folderPath).isDirectory()) return null;
+  let order = null;
+  if (typeof db.getOrderByNo === "function") {
+    order = await db.getOrderByNo(orderNo);
+  }
+  if (!order) return null;
+  return syncWebsizeForOrderFolder(folderPath, order, logger, { forceRebuild });
+}
+
+async function syncWebsizeForAllCustomerFolders(
+  db,
+  logger = console,
+  { forceRebuild = false, onlyOrderNo = null, maxConcurrentJobs = Number(process.env.BOOKING_SYNC_MAX_CONCURRENT_JOBS || 3) } = {}
+) {
   if (!db || typeof db.listOrderFolderLinksByType !== "function") {
-    return { folders: 0, created: 0, updated: 0, deleted: 0, scanned: 0 };
+    return {
+      folders: 0,
+      created: 0,
+      updated: 0,
+      deleted: 0,
+      scanned: 0,
+      maxConcurrentJobs: Math.max(1, Number(maxConcurrentJobs) || 3),
+      staging: createPipelineStats(),
+      final: createPipelineStats(),
+      floorplans: createPipelineStats(),
+    };
   }
   const rows = await db.listOrderFolderLinksByType("customer_folder");
-  const uniquePaths = Array.from(
-    new Set(
-      rows
-        .map((row) => String(row.absolute_path || "").trim())
-        .filter(Boolean)
-    )
-  );
-  const totals = { folders: 0, created: 0, updated: 0, deleted: 0, scanned: 0 };
-  for (const folderPath of uniquePaths) {
-    if (!fs.existsSync(folderPath) || !fs.statSync(folderPath).isDirectory()) continue;
-    const stats = await syncWebsizeForOrderFolder(folderPath, logger);
-    totals.folders += 1;
-    totals.created += stats.created;
-    totals.updated += stats.updated;
-    totals.deleted += stats.deleted;
-    totals.scanned += stats.scanned;
+  const deduped = new Map();
+  for (const row of rows) {
+    const orderNo = Number(row.order_no);
+    if (onlyOrderNo != null && Number(onlyOrderNo) !== orderNo) continue;
+    const folderPath = String(row.absolute_path || "").trim();
+    if (!folderPath) continue;
+    if (!deduped.has(folderPath)) {
+      deduped.set(folderPath, { folderPath, orderNo });
+    }
   }
+  const totals = {
+    folders: 0,
+    created: 0,
+    updated: 0,
+    deleted: 0,
+    scanned: 0,
+    maxConcurrentJobs: Math.max(1, Number(maxConcurrentJobs) || 3),
+    staging: createPipelineStats(),
+    final: createPipelineStats(),
+    floorplans: createPipelineStats(),
+  };
+
+  const queue = Array.from(deduped.values());
+  const workerCount = Math.min(totals.maxConcurrentJobs, queue.length || 1);
+  const workers = Array.from({ length: workerCount }, async () => {
+    while (queue.length > 0) {
+      const job = queue.shift();
+      if (!job) return;
+      const stats = await processCustomerFolderSyncJob({
+        db,
+        folderPath: job.folderPath,
+        orderNo: job.orderNo,
+        logger,
+        forceRebuild,
+      });
+      if (!stats) continue;
+      totals.folders += 1;
+      totals.created += stats.created;
+      totals.updated += stats.updated;
+      totals.deleted += stats.deleted;
+      totals.scanned += stats.scanned;
+      totals.staging.created += Number(stats.staging?.created || 0);
+      totals.staging.updated += Number(stats.staging?.updated || 0);
+      totals.staging.deleted += Number(stats.staging?.deleted || 0);
+      totals.staging.scanned += Number(stats.staging?.scanned || 0);
+      totals.final.created += Number(stats.final?.created || 0);
+      totals.final.updated += Number(stats.final?.updated || 0);
+      totals.final.deleted += Number(stats.final?.deleted || 0);
+      totals.final.scanned += Number(stats.final?.scanned || 0);
+      totals.floorplans.created += Number(stats.floorplans?.created || 0);
+      totals.floorplans.updated += Number(stats.floorplans?.updated || 0);
+      totals.floorplans.deleted += Number(stats.floorplans?.deleted || 0);
+      totals.floorplans.scanned += Number(stats.floorplans?.scanned || 0);
+    }
+  });
+  await Promise.all(workers);
+
   return totals;
 }
 
@@ -169,5 +378,6 @@ module.exports = {
   syncWebsizeForFile,
   syncWebsizeForOrderFolder,
   syncWebsizeForAllCustomerFolders,
+  syncWebsizePipelineForOrderFolder,
   isEligibleForWebsize,
 };
