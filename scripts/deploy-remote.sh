@@ -95,14 +95,18 @@ for attempt in $(seq 1 60); do
   sleep 2
 done
 
-# Cloudflare-Tunnel neu verbinden, sobald Origin wieder oben ist.
-# Das schliesst bestehende haengende Verbindungen und baut frische auf.
-if [ "$HEALTH_OK" -eq 1 ] && systemctl is-active --quiet cloudflared; then
-  echo "==> Cloudflare-Tunnel: Verbindungen erneuern nach Container-Restart"
-  # SIGHUP statt restart: erneuert Connections ohne Tunnel-Token-Neustart (kein Downtime-Risiko)
-  systemctl kill -s HUP cloudflared 2>/dev/null || systemctl restart cloudflared 2>/dev/null || true
-  sleep 2
-  echo "  cloudflared status: $(systemctl is-active cloudflared)"
+# Cloudflare-Tunnel sicherstellen: laeuft er nicht mehr (z. B. nach vorherigem
+# Deploy-Fehler), starten wir ihn explizit neu. Ein Reconnect per Signal wird
+# NICHT gemacht – cloudflared beendet sich bei SIGHUP statt neu zu verbinden.
+if [ "$HEALTH_OK" -eq 1 ]; then
+  if systemctl is-active --quiet cloudflared; then
+    echo "==> Cloudflare-Tunnel laeuft bereits (kein Eingriff noetig)"
+  else
+    echo "==> Cloudflare-Tunnel war nicht aktiv – starte neu"
+    systemctl start cloudflared 2>/dev/null || true
+    sleep 3
+    echo "  cloudflared status: $(systemctl is-active cloudflared)"
+  fi
 fi
 
 echo "==> Website Health Check (max 60s)"
