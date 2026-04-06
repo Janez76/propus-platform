@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Plus, RefreshCw } from "lucide-react";
 import { createTourManualInvoice, renewalInvoicePdfUrl, postSyncExxasInventory } from "../../../../api/toursAdmin";
-import type { ExxasInventorySyncResult, ToursAdminTourDetailResponse, ToursAdminTourRow } from "../../../../types/toursAdmin";
+import type { ExxasInventorySyncResult } from "../../../../api/toursAdmin";
+import type { ToursAdminTourDetailResponse, ToursAdminTourRow } from "../../../../types/toursAdmin";
 
 function formatDate(v: unknown) {
   if (v == null || v === "") return "—";
