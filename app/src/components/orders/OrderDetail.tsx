@@ -4,7 +4,7 @@ import { getAdminConfig, type AdminConfig } from "../../api/adminConfig";
 import { apiRequest } from "../../api/client";
 import { getPhotographers, type Photographer } from "../../api/photographers";
 import { getCustomerContacts, type Customer, type CustomerContact } from "../../api/customers";
-import { getToursByOrderNo } from "../../api/toursAdmin";
+import { createTourManualInvoice, getToursByOrderNo } from "../../api/toursAdmin";
 import { useMutation } from "../../hooks/useMutation";
 import { formatPhoneDisplay } from "../../lib/format";
 import { PhoneLink } from "../ui/PhoneLink";
@@ -42,6 +42,15 @@ type Props = {
   onDelete: (orderNo: string) => void;
   onRefresh?: () => Promise<void> | void;
   onOpenUpload?: (orderNo: string) => void;
+};
+
+type ManualInvoiceDraft = {
+  tourId: number;
+  tourLabel: string;
+  amountChf: string;
+  dueAt: string;
+  invoiceNumber: string;
+  paymentNote: string;
 };
 
 function toDateTimeLocalValue(date?: string, time?: string, fallbackIso?: string): string {
@@ -124,6 +133,10 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
   const [companyContacts, setCompanyContacts] = useState<Customer[]>([]);
   const [linkedTours, setLinkedTours] = useState<{ id: number; bezeichnung: string; tourUrl: string; matterportSpaceId: string; status: string }[] | undefined>(undefined);
   const [showLinkTourPopup, setShowLinkTourPopup] = useState(false);
+  const [manualInvoiceDraft, setManualInvoiceDraft] = useState<ManualInvoiceDraft | null>(null);
+  const [manualInvoiceBusy, setManualInvoiceBusy] = useState(false);
+  const [manualInvoiceError, setManualInvoiceError] = useState("");
+  const [manualInvoiceFeedback, setManualInvoiceFeedback] = useState("");
   const listingHref = data?.listingSlug ? `/listing/${encodeURIComponent(data.listingSlug)}` : "";
   const emailsDirty = sendStatusEmails && (statusEmailTargets.customer || statusEmailTargets.office || statusEmailTargets.photographer || statusEmailTargets.cc);
   const statusDirty = status !== originalStatus || scheduleLocal !== originalSchedule || scheduleDurationMin !== originalScheduleDurationMin || pendingPhotographerKey !== originalPhotographerKey || emailsDirty;
@@ -364,6 +377,46 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
     } catch (e) {
       setErr((e as Error).message || t(lang, "orderDetail.error.emailFailed"));
     } finally { setBusy(""); }
+  }
+
+  function openManualInvoiceModal(tourId: number, tourLabel: string) {
+    if (!data) return;
+    const suggestedAmount = Number(data.total || data.pricing?.total || 0);
+    setManualInvoiceError("");
+    setManualInvoiceDraft({
+      tourId,
+      tourLabel,
+      amountChf: Number.isFinite(suggestedAmount) && suggestedAmount > 0 ? suggestedAmount.toFixed(2) : "",
+      dueAt: "",
+      invoiceNumber: "",
+      paymentNote: `Bestellung #${orderNo}`,
+    });
+  }
+
+  async function runCreateManualInvoice() {
+    if (!manualInvoiceDraft) return;
+    if (!manualInvoiceDraft.amountChf.trim()) {
+      setManualInvoiceError("Betrag fehlt.");
+      return;
+    }
+    setManualInvoiceBusy(true);
+    setManualInvoiceError("");
+    setManualInvoiceFeedback("");
+    try {
+      await createTourManualInvoice(manualInvoiceDraft.tourId, {
+        invoiceNumber: manualInvoiceDraft.invoiceNumber || undefined,
+        amountChf: manualInvoiceDraft.amountChf,
+        dueAt: manualInvoiceDraft.dueAt || null,
+        paymentNote: manualInvoiceDraft.paymentNote || null,
+      });
+      setManualInvoiceDraft(null);
+      setManualInvoiceFeedback(`Interne Rechnung für ${manualInvoiceDraft.tourLabel} wurde erstellt.`);
+      await onRefresh?.();
+    } catch (e) {
+      setManualInvoiceError(e instanceof Error ? e.message : "Rechnung konnte nicht erstellt werden.");
+    } finally {
+      setManualInvoiceBusy(false);
+    }
   }
 
   function openEditMode() {
@@ -1098,6 +1151,11 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                       + Tour verknüpfen
                     </button>
                   </div>
+                  {manualInvoiceFeedback && (
+                    <div className="rounded-lg border border-green-500/20 bg-green-500/5 px-3 py-2 text-xs text-green-700">
+                      {manualInvoiceFeedback}
+                    </div>
+                  )}
                   {linkedTours.length === 0 ? (
                     <p className="text-xs text-[var(--text-subtle)]">Keine Tour verknüpft</p>
                   ) : (
@@ -1113,16 +1171,27 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                               "bg-[var(--accent)]/10 text-[var(--accent)]",
                             ].join(" ")}>{tour.status}</span>
                           </div>
-                          {tour.tourUrl && (
-                            <a
-                              href={tour.tourUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="shrink-0 text-xs rounded border border-[var(--border-soft)] px-2 py-0.5 text-[var(--accent)] hover:underline transition-colors"
-                            >
-                              Öffnen ↗
-                            </a>
-                          )}
+                          <div className="flex items-center gap-2 shrink-0">
+                            {canManageOrder && (
+                              <button
+                                type="button"
+                                onClick={() => openManualInvoiceModal(tour.id, tour.bezeichnung || `Tour #${tour.id}`)}
+                                className="text-xs rounded border border-[var(--accent)]/30 px-2 py-0.5 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors"
+                              >
+                                Rechnung erstellen
+                              </button>
+                            )}
+                            {tour.tourUrl && (
+                              <a
+                                href={tour.tourUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs rounded border border-[var(--border-soft)] px-2 py-0.5 text-[var(--accent)] hover:underline transition-colors"
+                              >
+                                Öffnen ↗
+                              </a>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -1385,6 +1454,100 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
           )}
         </div>
       </div>
+
+      {canManageOrder && manualInvoiceDraft && (
+        <div className="fixed inset-0 z-[70] grid place-items-center bg-black/60 p-4">
+          <div className="surface-card w-full max-w-lg rounded-xl border border-[var(--border-soft)] p-5 shadow-2xl">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-semibold text-[var(--text-main)]">Interne Rechnung erstellen</h3>
+                <p className="text-sm text-[var(--text-subtle)] mt-1">
+                  Tour: {manualInvoiceDraft.tourLabel}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setManualInvoiceDraft(null);
+                  setManualInvoiceError("");
+                }}
+                className="text-[var(--text-subtle)] hover:text-[var(--text-main)] text-xl leading-none px-1"
+                aria-label="Schliessen"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium text-[var(--text-main)]">Betrag (CHF)</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={manualInvoiceDraft.amountChf}
+                  onChange={(e) => setManualInvoiceDraft((prev) => prev ? { ...prev, amountChf: e.target.value } : prev)}
+                  className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)]"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium text-[var(--text-main)]">Rechnungsnummer (optional)</span>
+                <input
+                  type="text"
+                  value={manualInvoiceDraft.invoiceNumber}
+                  onChange={(e) => setManualInvoiceDraft((prev) => prev ? { ...prev, invoiceNumber: e.target.value } : prev)}
+                  className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)]"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium text-[var(--text-main)]">Fällig am (optional)</span>
+                <input
+                  type="date"
+                  value={manualInvoiceDraft.dueAt}
+                  onChange={(e) => setManualInvoiceDraft((prev) => prev ? { ...prev, dueAt: e.target.value } : prev)}
+                  className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)]"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium text-[var(--text-main)]">Notiz</span>
+                <textarea
+                  rows={3}
+                  value={manualInvoiceDraft.paymentNote}
+                  onChange={(e) => setManualInvoiceDraft((prev) => prev ? { ...prev, paymentNote: e.target.value } : prev)}
+                  className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)]"
+                />
+              </label>
+
+              {manualInvoiceError ? (
+                <p className="text-sm text-red-600">{manualInvoiceError}</p>
+              ) : null}
+
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setManualInvoiceDraft(null);
+                    setManualInvoiceError("");
+                  }}
+                  className="rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm text-[var(--text-subtle)] hover:text-[var(--text-main)]"
+                >
+                  Abbrechen
+                </button>
+                <button
+                  type="button"
+                  disabled={manualInvoiceBusy}
+                  onClick={() => void runCreateManualInvoice()}
+                  className="rounded-lg bg-[var(--accent)] px-3 py-2 text-sm font-medium text-white hover:bg-[var(--accent)]/90 disabled:opacity-50"
+                >
+                  {manualInvoiceBusy ? "Erstelle..." : "Rechnung erstellen"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {canManageOrder && showDeleteConfirm && (
         <ConfirmDeleteDialog

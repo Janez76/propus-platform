@@ -103,6 +103,7 @@ const {
 const exxas = require('../lib/exxas');
 const customerLookup = require('../lib/customer-lookup');
 const bankImport = require('../lib/bank-import');
+const { importExxasInvoiceToRenewal } = require('../lib/bank-import-admin');
 const {
   createDraftMessage,
   createReplyDraft,
@@ -293,6 +294,24 @@ async function ensureBankImportSchema() {
       raw_json JSONB
     )
   `);
+  await pool.query(`
+    ALTER TABLE tour_manager.bank_import_transactions
+      ADD COLUMN IF NOT EXISTS matched_invoice_source VARCHAR(16)
+  `);
+  const col = await pool.query(`
+    SELECT data_type, udt_name
+    FROM information_schema.columns
+    WHERE table_schema = 'tour_manager'
+      AND table_name = 'bank_import_transactions'
+      AND column_name = 'matched_invoice_id'
+  `);
+  const dt = col.rows[0];
+  if (dt && (dt.data_type === 'uuid' || dt.udt_name === 'uuid')) {
+    await pool.query(`
+      ALTER TABLE tour_manager.bank_import_transactions
+        ALTER COLUMN matched_invoice_id TYPE BIGINT USING NULL
+    `);
+  }
   bankImportSchemaEnsured = true;
 }
 
@@ -2439,6 +2458,10 @@ router.post('/bank-import/transactions/:id/confirm', async (req, res) => {
   if (!Number.isFinite(txId)) return res.redirect('/admin/bank-import?error=' + encodeURIComponent('Ungültige Transaktion.'));
   const invoiceId = String(req.body?.invoiceId || '').trim();
   if (!invoiceId) return res.redirect('/admin/bank-import?error=' + encodeURIComponent('Rechnung fehlt.'));
+  const invoiceSource = String(req.body?.invoiceSource || 'renewal').trim() || 'renewal';
+  if (!['renewal', 'exxas'].includes(invoiceSource)) {
+    return res.redirect('/admin/bank-import?error=' + encodeURIComponent('Rechnungsquelle ist ungültig.'));
+  }
 
   const actorEmail = req.session?.admin?.email || req.session?.admin?.username || 'admin';
   const txRes = await pool.query(
@@ -2447,18 +2470,34 @@ router.post('/bank-import/transactions/:id/confirm', async (req, res) => {
   );
   const tx = txRes.rows[0];
   if (!tx) return res.redirect('/admin/bank-import?error=' + encodeURIComponent('Transaktion nicht gefunden.'));
-  await applyImportedPayment(invoiceId, actorEmail, {
+  let finalInvoiceId = invoiceId;
+  if (invoiceSource === 'exxas') {
+    const imported = await importExxasInvoiceToRenewal(invoiceId, actorEmail);
+    if (!imported.ok) {
+      return res.redirect('/admin/bank-import?error=' + encodeURIComponent(imported.error || 'Exxas-Import fehlgeschlagen.'));
+    }
+    finalInvoiceId = String(imported.invoiceId || '');
+    if (!finalInvoiceId) {
+      return res.redirect('/admin/bank-import?error=' + encodeURIComponent('Exxas-Rechnung konnte nicht importiert werden.'));
+    }
+  }
+  await applyImportedPayment(finalInvoiceId, actorEmail, {
     bookingDate: tx.booking_date,
     note: `Bankimport #${tx.run_id}: ${tx.reference_raw || '-'}`,
   });
+  const nextReason = [
+    String(tx.match_reason || '').trim(),
+    invoiceSource === 'exxas' ? 'manuell bestätigt | Exxas importiert' : 'manuell bestätigt',
+  ].filter(Boolean).join(' | ');
   await pool.query(
     `UPDATE tour_manager.bank_import_transactions
      SET match_status = 'exact',
-         matched_invoice_id = $2::uuid,
-         match_reason = COALESCE(match_reason, '') || ' | manuell bestätigt',
+         matched_invoice_id = $2::bigint,
+         matched_invoice_source = $3,
+         match_reason = $4,
          confidence = GREATEST(confidence, 95)
      WHERE id = $1`,
-    [txId, invoiceId]
+    [txId, finalInvoiceId, 'renewal', nextReason]
   );
   return res.redirect('/admin/bank-import');
 });

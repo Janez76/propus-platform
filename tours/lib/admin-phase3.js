@@ -8,7 +8,11 @@ const bankImport = require('./bank-import');
 const { normalizeTourRow, getMatterportId } = require('./normalize');
 const { logAction } = require('./actions');
 const customerLookup = require('./customer-lookup');
-const { ensureBankImportSchema, applyImportedPayment } = require('./bank-import-admin');
+const {
+  ensureBankImportSchema,
+  applyImportedPayment,
+  importExxasInvoiceToRenewal,
+} = require('./bank-import-admin');
 const {
   ensureSchema: ensureSuggestionSchema,
   getInvoiceLinkSuggestionsForTour,
@@ -76,25 +80,50 @@ async function getBankImportJson() {
      ORDER BY created_at DESC
      LIMIT 30`
   );
-  const reviewRes = await pool.query(
+  const pendingRes = await pool.query(
     `SELECT t.*,
-            i.invoice_number,
-            i.amount_chf AS invoice_amount_chf,
-            i.invoice_status,
+            ri.invoice_number AS renewal_invoice_number,
+            ri.amount_chf AS renewal_amount_chf,
+            ri.invoice_status AS renewal_invoice_status,
+            ei.nummer AS exxas_invoice_number,
+            ei.preis_brutto AS exxas_amount_chf,
+            ei.exxas_status AS exxas_invoice_status,
             tr.customer_email,
             COALESCE(tr.object_label, tr.bezeichnung) AS tour_label
      FROM tour_manager.bank_import_transactions t
-     LEFT JOIN tour_manager.renewal_invoices i ON i.id = t.matched_invoice_id
-     LEFT JOIN tour_manager.tours tr ON tr.id = COALESCE(t.matched_tour_id, i.tour_id)
-     WHERE t.match_status = 'review'
+     LEFT JOIN tour_manager.renewal_invoices ri
+       ON COALESCE(t.matched_invoice_source, 'renewal') = 'renewal'
+      AND ri.id = t.matched_invoice_id
+     LEFT JOIN tour_manager.exxas_invoices ei
+       ON t.matched_invoice_source = 'exxas'
+      AND ei.id = t.matched_invoice_id
+     LEFT JOIN tour_manager.tours tr ON tr.id = COALESCE(t.matched_tour_id, ri.tour_id, ei.tour_id)
+     WHERE t.match_status IN ('review', 'none')
      ORDER BY t.created_at DESC
      LIMIT 120`
   );
-  return { ok: true, runs: runsRes.rows, reviewRows: reviewRes.rows };
+  const pendingRows = pendingRes.rows.map((row) => {
+    const source = String(row.matched_invoice_source || '').trim() || (row.matched_invoice_id ? 'renewal' : null);
+    return {
+      ...row,
+      matched_invoice_number: source === 'exxas' ? row.exxas_invoice_number || null : row.renewal_invoice_number || null,
+      matched_invoice_amount_chf: source === 'exxas' ? row.exxas_amount_chf ?? null : row.renewal_amount_chf ?? null,
+      matched_invoice_status: source === 'exxas' ? row.exxas_invoice_status || null : row.renewal_invoice_status || null,
+      requires_import: source === 'exxas',
+    };
+  });
+  return {
+    ok: true,
+    runs: runsRes.rows,
+    pendingRows,
+    reviewRows: pendingRows.filter((row) => row.match_status === 'review'),
+    unmatchedRows: pendingRows.filter((row) => row.match_status === 'none'),
+  };
 }
 
 async function runBankImportUpload({ buffer, originalname, actorEmail }) {
   await ensureBankImportSchema();
+  await ensureExxasArchivedColumn();
   if (!buffer?.length) {
     return { ok: false, error: 'Keine Datei hochgeladen.' };
   }
@@ -118,42 +147,70 @@ async function runBankImportUpload({ buffer, originalname, actorEmail }) {
   );
   const runId = runInsert.rows[0].id;
 
-  const invoiceRows = await pool.query(
-    `SELECT id, tour_id, invoice_number, amount_chf, invoice_status, subscription_end_at
-     FROM tour_manager.renewal_invoices
-     WHERE invoice_status IN ('sent','overdue','draft','paid')
-     ORDER BY created_at DESC`
-  );
-  const invoiceIndex = bankImport.buildOpenInvoiceIndex(invoiceRows.rows);
+  const [renewalInvoiceRows, exxasInvoiceRows] = await Promise.all([
+    pool.query(
+      `SELECT 'renewal' AS source,
+              id,
+              tour_id,
+              invoice_number,
+              amount_chf,
+              invoice_status,
+              subscription_end_at
+       FROM tour_manager.renewal_invoices
+       WHERE invoice_status IN ('sent', 'overdue', 'draft')
+       ORDER BY created_at DESC`
+    ),
+    pool.query(
+      `SELECT 'exxas' AS source,
+              ei.id,
+              ei.tour_id,
+              ei.nummer,
+              ei.preis_brutto,
+              ei.exxas_status,
+              ei.ref_vertrag,
+              ei.exxas_document_id
+       FROM tour_manager.exxas_invoices ei
+       LEFT JOIN tour_manager.renewal_invoices ri
+         ON ri.tour_id = ei.tour_id
+        AND ri.exxas_invoice_id = COALESCE(NULLIF(ei.exxas_document_id, ''), NULLIF(ei.nummer, ''))
+       WHERE ei.archived_at IS NULL
+         AND ei.exxas_status != 'bz'
+         AND ri.id IS NULL
+       ORDER BY ei.created_at DESC`
+    ),
+  ]);
+  const invoiceIndex = bankImport.buildOpenInvoiceIndex([
+    ...renewalInvoiceRows.rows,
+    ...exxasInvoiceRows.rows,
+  ]);
 
   let exactRows = 0;
   let reviewRows = 0;
   let noneRows = 0;
   for (const tx of transactions) {
     const match = bankImport.matchTransaction(tx, invoiceIndex);
-    if (match.matchStatus === 'exact') exactRows += 1;
-    else if (match.matchStatus === 'review') reviewRows += 1;
-    else noneRows += 1;
-
     const note = `Bankimport #${runId}: ${tx.referenceRaw || '-'} / ${tx.amount ?? '-'}`;
     let finalStatus = match.matchStatus;
-    if (match.matchStatus === 'exact' && match.invoice?.id) {
+    if (match.matchStatus === 'exact' && match.invoice?.id && match.invoice?.source === 'renewal') {
       const ok = await applyImportedPayment(match.invoice.id, actorEmail, {
         bookingDate: tx.bookingDate,
         note,
       });
       if (!ok) finalStatus = 'review';
     }
+    if (finalStatus === 'exact') exactRows += 1;
+    else if (finalStatus === 'review') reviewRows += 1;
+    else noneRows += 1;
 
     await pool.query(
       `INSERT INTO tour_manager.bank_import_transactions (
         run_id, booking_date, value_date, amount_chf, currency,
         reference_raw, reference_digits, debtor_name, purpose,
-        match_status, confidence, match_reason, matched_invoice_id, matched_tour_id, raw_json
+        match_status, confidence, match_reason, matched_invoice_id, matched_invoice_source, matched_tour_id, raw_json
       ) VALUES (
         $1, $2::date, $3::date, $4::numeric, $5,
         $6, $7, $8, $9,
-        $10, $11, $12, $13, $14, $15::jsonb
+        $10, $11, $12, $13, $14, $15, $16::jsonb
       )`,
       [
         runId,
@@ -169,6 +226,7 @@ async function runBankImportUpload({ buffer, originalname, actorEmail }) {
         match.confidence,
         match.reason,
         match.invoice?.id || null,
+        match.invoice?.source || null,
         match.invoice?.tourId || null,
         JSON.stringify(tx.raw || {}),
       ]
@@ -188,30 +246,162 @@ async function runBankImportUpload({ buffer, originalname, actorEmail }) {
   return { ok: true, runId, totalRows: transactions.length, exactRows, reviewRows, noneRows };
 }
 
-async function confirmBankTransaction(txId, invoiceId, actorEmail) {
+async function searchBankImportInvoices(query, amountRaw) {
+  await ensureBankImportSchema();
+  await ensureExxasArchivedColumn();
+  const search = String(query || '').trim();
+  const searchLike = search ? `%${search.toLowerCase()}%` : null;
+  const searchExact = search || null;
+  const amount = (() => {
+    if (amountRaw == null || String(amountRaw).trim() === '') return null;
+    const parsed = Number.parseFloat(String(amountRaw).replace(',', '.'));
+    return Number.isFinite(parsed) ? parsed : null;
+  })();
+  const [renewalRows, exxasRows] = await Promise.all([
+    pool.query(
+      `SELECT 'renewal' AS invoice_source,
+              i.id,
+              i.invoice_number,
+              i.amount_chf,
+              i.invoice_status,
+              i.tour_id,
+              COALESCE(t.object_label, t.bezeichnung) AS tour_object_label,
+              COALESCE(t.customer_name, t.kunde_ref) AS tour_customer_name
+       FROM tour_manager.renewal_invoices i
+       JOIN tour_manager.tours t ON t.id = i.tour_id
+       WHERE i.invoice_status IN ('sent', 'overdue', 'draft')
+         AND (
+           $1::text IS NULL
+           OR LOWER(COALESCE(t.object_label, t.bezeichnung)) LIKE $1
+           OR LOWER(COALESCE(t.customer_name, t.kunde_ref)) LIKE $1
+           OR LOWER(COALESCE(i.invoice_number, '')) LIKE $1
+           OR CAST(i.id AS text) = $2
+           OR CAST(i.tour_id AS text) = $2
+         )
+       ORDER BY COALESCE(i.due_at, i.created_at) DESC NULLS LAST, i.created_at DESC
+       LIMIT 25`,
+      [searchLike, searchExact]
+    ),
+    pool.query(
+      `SELECT 'exxas' AS invoice_source,
+              ei.id,
+              ei.nummer AS invoice_number,
+              ei.preis_brutto AS amount_chf,
+              ei.exxas_status AS invoice_status,
+              ei.tour_id,
+              COALESCE(t.object_label, t.bezeichnung) AS tour_object_label,
+              COALESCE(t.customer_name, t.kunde_ref) AS tour_customer_name
+       FROM tour_manager.exxas_invoices ei
+       LEFT JOIN tour_manager.tours t ON t.id = ei.tour_id
+       LEFT JOIN tour_manager.renewal_invoices ri
+         ON ri.tour_id = ei.tour_id
+        AND ri.exxas_invoice_id = COALESCE(NULLIF(ei.exxas_document_id, ''), NULLIF(ei.nummer, ''))
+       WHERE ei.archived_at IS NULL
+         AND ei.exxas_status != 'bz'
+         AND ri.id IS NULL
+         AND (
+           $1::text IS NULL
+           OR LOWER(COALESCE(ei.kunde_name, '')) LIKE $1
+           OR LOWER(COALESCE(ei.nummer, '')) LIKE $1
+           OR LOWER(COALESCE(ei.bezeichnung, '')) LIKE $1
+           OR LOWER(COALESCE(ei.ref_vertrag, '')) LIKE $1
+           OR LOWER(COALESCE(ei.exxas_document_id, '')) LIKE $1
+           OR CAST(ei.id AS text) = $2
+           OR CAST(ei.tour_id AS text) = $2
+         )
+       ORDER BY COALESCE(ei.zahlungstermin, ei.created_at) DESC NULLS LAST, ei.created_at DESC
+       LIMIT 25`,
+      [searchLike, searchExact]
+    ),
+  ]);
+  const invoices = [...renewalRows.rows, ...exxasRows.rows]
+    .map((row) => {
+      const numericAmount = Number.parseFloat(String(row.amount_chf ?? ''));
+      const amountDiff = amount != null && Number.isFinite(numericAmount)
+        ? Math.abs(numericAmount - amount)
+        : Number.POSITIVE_INFINITY;
+      return {
+        ...row,
+        canConfirmDirectly: row.invoice_source === 'renewal',
+        requiresImport: row.invoice_source === 'exxas',
+        amountDiff,
+      };
+    })
+    .sort((a, b) => {
+      if (a.invoice_source !== b.invoice_source) return a.invoice_source === 'renewal' ? -1 : 1;
+      if (a.amountDiff !== b.amountDiff) return a.amountDiff - b.amountDiff;
+      return String(a.invoice_number || '').localeCompare(String(b.invoice_number || ''));
+    })
+    .slice(0, 20)
+    .map(({ amountDiff, ...row }) => row);
+  return { ok: true, invoices };
+}
+
+async function importExxasInvoiceToInternalInvoice(invoiceId, actorEmail) {
+  await ensureBankImportSchema();
+  return importExxasInvoiceToRenewal(invoiceId, actorEmail);
+}
+
+async function confirmBankTransaction(txId, invoiceId, invoiceSource, actorEmail) {
   await ensureBankImportSchema();
   if (!Number.isFinite(txId)) return { ok: false, error: 'Ungültige Transaktion.' };
-  if (!String(invoiceId || '').trim()) return { ok: false, error: 'Rechnung fehlt.' };
+  const normalizedInvoiceId = String(invoiceId || '').trim();
+  if (!normalizedInvoiceId) return { ok: false, error: 'Rechnung fehlt.' };
+  const normalizedSource = String(invoiceSource || 'renewal').trim() || 'renewal';
+  if (!['renewal', 'exxas'].includes(normalizedSource)) {
+    return { ok: false, error: 'Rechnungsquelle ist ungültig.' };
+  }
   const txRes = await pool.query(
     `SELECT * FROM tour_manager.bank_import_transactions WHERE id = $1 LIMIT 1`,
     [txId]
   );
   const tx = txRes.rows[0];
   if (!tx) return { ok: false, error: 'Transaktion nicht gefunden.' };
-  await applyImportedPayment(invoiceId, actorEmail, {
+  let finalInvoiceId = normalizedInvoiceId;
+  let finalTourId = Number.isFinite(Number(tx.matched_tour_id)) ? Number(tx.matched_tour_id) : null;
+  let reasonSuffix = 'manuell bestätigt';
+
+  if (normalizedSource === 'exxas') {
+    const imported = await importExxasInvoiceToInternalInvoice(normalizedInvoiceId, actorEmail);
+    if (!imported.ok) return imported;
+    if (!imported.invoiceId) {
+      return { ok: false, error: 'Exxas-Rechnung konnte nicht importiert werden.' };
+    }
+    finalInvoiceId = String(imported.invoiceId);
+    finalTourId = imported.tourId || finalTourId;
+    reasonSuffix += ' | Exxas importiert';
+  }
+
+  const applied = await applyImportedPayment(finalInvoiceId, actorEmail, {
     bookingDate: tx.booking_date,
     note: `Bankimport #${tx.run_id}: ${tx.reference_raw || '-'}`,
   });
+  if (!applied) {
+    return { ok: false, error: 'Rechnung konnte nicht verbucht werden.' };
+  }
+  if (!finalTourId) {
+    const invoiceRes = await pool.query(
+      `SELECT tour_id
+       FROM tour_manager.renewal_invoices
+       WHERE id = $1
+       LIMIT 1`,
+      [finalInvoiceId]
+    );
+    finalTourId = invoiceRes.rows[0]?.tour_id || null;
+  }
+  const nextReason = [String(tx.match_reason || '').trim(), reasonSuffix].filter(Boolean).join(' | ');
   await pool.query(
     `UPDATE tour_manager.bank_import_transactions
      SET match_status = 'exact',
          matched_invoice_id = $2::bigint,
-         match_reason = COALESCE(match_reason, '') || ' | manuell bestätigt',
+         matched_invoice_source = $3,
+         matched_tour_id = COALESCE($4, matched_tour_id),
+         match_reason = $5,
          confidence = GREATEST(confidence, 95)
      WHERE id = $1`,
-    [txId, invoiceId]
+    [txId, finalInvoiceId, 'renewal', finalTourId, nextReason]
   );
-  return { ok: true };
+  return { ok: true, invoiceId: finalInvoiceId, invoiceSource: 'renewal' };
 }
 
 async function ignoreBankTransaction(txId) {
@@ -1048,12 +1238,19 @@ async function getRenewalInvoicesCentral(status, search) {
 }
 
 async function getExxasInvoicesCentral(status, search) {
+  await ensureExxasArchivedColumn();
   let q = `
     SELECT ei.*,
       COALESCE(t.object_label, t.bezeichnung) AS tour_object_label,
-      COALESCE(t.customer_name, t.kunde_ref) AS tour_customer_name
+      COALESCE(t.customer_name, t.kunde_ref) AS tour_customer_name,
+      ri.id AS imported_renewal_invoice_id,
+      ri.invoice_number AS imported_renewal_invoice_number,
+      ri.invoice_status AS imported_renewal_invoice_status
     FROM tour_manager.exxas_invoices ei
     LEFT JOIN tour_manager.tours t ON t.id = ei.tour_id
+    LEFT JOIN tour_manager.renewal_invoices ri
+      ON ri.tour_id = ei.tour_id
+     AND ri.exxas_invoice_id = COALESCE(NULLIF(ei.exxas_document_id, ''), NULLIF(ei.nummer, ''))
     WHERE 1=1
     AND (ei.archived_at IS NULL)
   `;
@@ -1229,6 +1426,8 @@ module.exports = {
   updateExxasInvoice,
   getBankImportJson,
   runBankImportUpload,
+  searchBankImportInvoices,
+  importExxasInvoiceToInternalInvoice,
   confirmBankTransaction,
   ignoreBankTransaction,
   createManualInvoice,

@@ -10,8 +10,21 @@ const { toIsoDate } = require('./subscriptions');
 
 let bankImportSchemaEnsured = false;
 
+async function ensureRenewalInvoiceImportSchema() {
+  await pool.query(`
+    ALTER TABLE tour_manager.renewal_invoices
+      ADD COLUMN IF NOT EXISTS exxas_invoice_id TEXT
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_renewal_invoices_exxas_invoice_id
+      ON tour_manager.renewal_invoices (exxas_invoice_id)
+      WHERE exxas_invoice_id IS NOT NULL
+  `);
+}
+
 async function ensureBankImportSchema() {
   if (bankImportSchemaEnsured) return;
+  await ensureRenewalInvoiceImportSchema();
   await pool.query(`
     CREATE TABLE IF NOT EXISTS tour_manager.bank_import_runs (
       id BIGSERIAL PRIMARY KEY,
@@ -46,6 +59,10 @@ async function ensureBankImportSchema() {
       raw_json JSONB
     )
   `);
+  await pool.query(`
+    ALTER TABLE tour_manager.bank_import_transactions
+      ADD COLUMN IF NOT EXISTS matched_invoice_source VARCHAR(16)
+  `);
   const col = await pool.query(`
     SELECT data_type, udt_name
     FROM information_schema.columns
@@ -68,6 +85,13 @@ function toImportIso(value) {
   const dt = new Date(value);
   if (Number.isNaN(dt.getTime())) return null;
   return dt.toISOString().slice(0, 10);
+}
+
+function classifyExxasInvoiceStatus(invoice) {
+  if (invoice?.exxas_status === 'bz') return 'paid';
+  const due = invoice?.zahlungstermin ? new Date(invoice.zahlungstermin) : null;
+  if (due && !Number.isNaN(due.getTime()) && due < new Date()) return 'overdue';
+  return 'sent';
 }
 
 async function applyImportedPayment(invoiceId, actorEmail, details = {}) {
@@ -150,7 +174,119 @@ async function applyImportedPayment(invoiceId, actorEmail, details = {}) {
   return true;
 }
 
+async function importExxasInvoiceToRenewal(exxasInvoiceId, actorEmail) {
+  await ensureRenewalInvoiceImportSchema();
+  const id = parseInt(String(exxasInvoiceId || ''), 10);
+  if (!Number.isFinite(id)) {
+    return { ok: false, error: 'Ungültige Exxas-Rechnungs-ID.' };
+  }
+  const invoiceRes = await pool.query(
+    `SELECT *
+     FROM tour_manager.exxas_invoices
+     WHERE id = $1
+     LIMIT 1`,
+    [id]
+  );
+  const invoice = invoiceRes.rows[0];
+  if (!invoice) {
+    return { ok: false, error: 'Exxas-Rechnung nicht gefunden.' };
+  }
+  const tourId = Number(invoice.tour_id);
+  if (!Number.isFinite(tourId) || tourId <= 0) {
+    return { ok: false, error: 'Exxas-Rechnung ist keiner Tour zugeordnet.' };
+  }
+  const externalInvoiceId = String(invoice.exxas_document_id || invoice.nummer || '').trim();
+  if (!externalInvoiceId) {
+    return { ok: false, error: 'Exxas-Rechnung hat keine importierbare Referenz.' };
+  }
+
+  const existingRes = await pool.query(
+    `SELECT id
+     FROM tour_manager.renewal_invoices
+     WHERE tour_id = $1
+       AND exxas_invoice_id = $2
+     LIMIT 1`,
+    [tourId, externalInvoiceId]
+  );
+  const existing = existingRes.rows[0];
+  if (existing) {
+    return {
+      ok: true,
+      created: false,
+      invoiceId: existing.id,
+      tourId,
+      exxasInvoiceId: externalInvoiceId,
+    };
+  }
+
+  const status = classifyExxasInvoiceStatus(invoice);
+  const note = `Importiert aus Exxas (${invoice.nummer || invoice.exxas_document_id || id})`;
+  const paidAtIso = status === 'paid'
+    ? toImportIso(invoice.zahlungstermin) || toImportIso(invoice.dok_datum)
+    : null;
+  const createdRes = await pool.query(
+    `INSERT INTO tour_manager.renewal_invoices (
+      tour_id,
+      exxas_invoice_id,
+      invoice_number,
+      invoice_status,
+      amount_chf,
+      due_at,
+      sent_at,
+      paid_at,
+      payment_source,
+      payment_note,
+      recorded_by,
+      recorded_at
+    ) VALUES (
+      $1,
+      $2,
+      $3,
+      $4,
+      $5::numeric,
+      $6::timestamptz,
+      $7::timestamptz,
+      $8::timestamptz,
+      $9,
+      $10,
+      $11,
+      NOW()
+    )
+    RETURNING id`,
+    [
+      tourId,
+      externalInvoiceId,
+      invoice.nummer || null,
+      status,
+      invoice.preis_brutto ?? null,
+      invoice.zahlungstermin || null,
+      invoice.dok_datum || null,
+      paidAtIso,
+      'exxas_import',
+      note,
+      actorEmail || 'admin',
+    ]
+  );
+  const createdId = createdRes.rows[0]?.id || null;
+  if (createdId) {
+    await logAction(tourId, 'admin', actorEmail || 'admin', 'EXXAS_INVOICE_IMPORTED_TO_INTERNAL', {
+      exxas_row_id: id,
+      exxas_invoice_id: externalInvoiceId,
+      invoice_number: invoice.nummer || null,
+      imported_invoice_id: createdId,
+    });
+  }
+  return {
+    ok: true,
+    created: true,
+    invoiceId: createdId,
+    tourId,
+    exxasInvoiceId: externalInvoiceId,
+  };
+}
+
 module.exports = {
   ensureBankImportSchema,
   applyImportedPayment,
+  importExxasInvoiceToRenewal,
 };

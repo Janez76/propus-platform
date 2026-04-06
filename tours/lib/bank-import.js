@@ -156,51 +156,112 @@ function parseCsv(text) {
 
 function buildOpenInvoiceIndex(invoiceRows) {
   return invoiceRows.map((row) => {
-    const qrReference = qrBill.buildQrReference(row);
+    const source = normalizeText(row.source || 'renewal') || 'renewal';
+    const invoiceNumber = normalizeText(source === 'exxas' ? row.nummer : row.invoice_number);
+    const amount = toNumber(source === 'exxas' ? row.preis_brutto : row.amount_chf);
+    const status = normalizeText(source === 'exxas' ? row.exxas_status : row.invoice_status);
+    const qrReference = source === 'renewal' ? qrBill.buildQrReference(row) : '';
+    const exxasDocumentId = normalizeText(row.exxas_document_id || '');
+    const contractReference = normalizeText(row.ref_vertrag || '');
     return {
+      source,
       id: String(row.id),
       tourId: row.tour_id,
-      invoiceNumber: normalizeText(row.invoice_number),
-      invoiceNumberDigits: digitsOnly(row.invoice_number),
-      amount: toNumber(row.amount_chf),
-      status: normalizeText(row.invoice_status),
+      invoiceNumber,
+      invoiceNumberDigits: digitsOnly(invoiceNumber),
+      amount,
+      status,
       qrReference,
       qrReferenceDigits: digitsOnly(qrReference),
+      exxasDocumentId,
+      exxasDocumentIdDigits: digitsOnly(exxasDocumentId),
+      contractReference,
+      contractReferenceDigits: digitsOnly(contractReference),
+      requiresImport: source === 'exxas',
       subscriptionEndAt: row.subscription_end_at ? toIsoDate(row.subscription_end_at) : null,
     };
   });
 }
 
+function matchesAmount(inv, txAmount) {
+  return txAmount !== null &&
+    inv.amount !== null &&
+    Math.abs(inv.amount - txAmount) < 0.01;
+}
+
+function matchesExxasReference(inv, txReferenceDigits) {
+  if (!txReferenceDigits) return false;
+  return inv.invoiceNumberDigits === txReferenceDigits ||
+    inv.exxasDocumentIdDigits === txReferenceDigits ||
+    inv.contractReferenceDigits === txReferenceDigits;
+}
+
 function matchTransaction(transaction, invoiceIndex) {
   const txReferenceDigits = digitsOnly(transaction.referenceRaw);
   const txAmount = toNumber(transaction.amount);
-  const candidates = invoiceIndex.filter((inv) => ['sent', 'overdue', 'draft'].includes(inv.status));
-  const exact = candidates.filter((inv) =>
+  const candidates = invoiceIndex.filter((inv) =>
+    inv.source === 'exxas'
+      ? inv.status !== 'bz'
+      : ['sent', 'overdue', 'draft'].includes(inv.status)
+  );
+  const renewalCandidates = candidates.filter((inv) => inv.source === 'renewal');
+  const exxasCandidates = candidates.filter((inv) => inv.source === 'exxas');
+
+  const exactRenewal = renewalCandidates.filter((inv) =>
     txReferenceDigits &&
     inv.qrReferenceDigits === txReferenceDigits &&
-    txAmount !== null &&
-    inv.amount !== null &&
-    Math.abs(inv.amount - txAmount) < 0.01
+    matchesAmount(inv, txAmount)
   );
-  if (exact.length === 1) {
-    return { matchStatus: 'exact', confidence: 100, invoice: exact[0], reason: 'QR-Referenz und Betrag stimmen' };
+  if (exactRenewal.length === 1) {
+    return { matchStatus: 'exact', confidence: 100, invoice: exactRenewal[0], reason: 'QR-Referenz und Betrag stimmen' };
   }
 
-  const refOnly = candidates.filter((inv) =>
+  const exactExxas = exxasCandidates.filter((inv) =>
+    matchesExxasReference(inv, txReferenceDigits) &&
+    matchesAmount(inv, txAmount)
+  );
+  if (exactExxas.length === 1) {
+    return {
+      matchStatus: 'review',
+      confidence: 90,
+      invoice: exactExxas[0],
+      reason: 'Exxas-Rechnung passt exakt, muss aber zuerst importiert werden',
+    };
+  }
+
+  const refRenewal = renewalCandidates.filter((inv) =>
     txReferenceDigits &&
     (inv.qrReferenceDigits === txReferenceDigits || inv.invoiceNumberDigits === txReferenceDigits)
   );
-  if (refOnly.length === 1) {
-    return { matchStatus: 'review', confidence: 80, invoice: refOnly[0], reason: 'Referenz passt, Betrag prüfen' };
+  if (refRenewal.length === 1) {
+    return { matchStatus: 'review', confidence: 80, invoice: refRenewal[0], reason: 'Referenz passt, Betrag prüfen' };
   }
 
-  const amountOnly = candidates.filter((inv) =>
-    txAmount !== null &&
-    inv.amount !== null &&
-    Math.abs(inv.amount - txAmount) < 0.01
+  const refExxas = exxasCandidates.filter((inv) =>
+    matchesExxasReference(inv, txReferenceDigits)
   );
-  if (amountOnly.length === 1) {
-    return { matchStatus: 'review', confidence: 60, invoice: amountOnly[0], reason: 'Betrag passt, Referenz unklar' };
+  if (refExxas.length === 1) {
+    return {
+      matchStatus: 'review',
+      confidence: 75,
+      invoice: refExxas[0],
+      reason: 'Exxas-Referenz passt, Import und Betrag prüfen',
+    };
+  }
+
+  const amountRenewal = renewalCandidates.filter((inv) => matchesAmount(inv, txAmount));
+  if (amountRenewal.length === 1) {
+    return { matchStatus: 'review', confidence: 60, invoice: amountRenewal[0], reason: 'Betrag passt, Referenz unklar' };
+  }
+
+  const amountExxas = exxasCandidates.filter((inv) => matchesAmount(inv, txAmount));
+  if (amountExxas.length === 1) {
+    return {
+      matchStatus: 'review',
+      confidence: 55,
+      invoice: amountExxas[0],
+      reason: 'Exxas-Betrag passt, Import und Referenz prüfen',
+    };
   }
 
   return { matchStatus: 'none', confidence: 0, invoice: null, reason: 'Kein eindeutiger Treffer' };
