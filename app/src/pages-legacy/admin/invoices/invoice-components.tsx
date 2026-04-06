@@ -6,12 +6,13 @@ import {
   FileText,
   MoreHorizontal,
   Pencil,
+  Plus,
   Send,
   Trash2,
   X,
   type LucideIcon,
 } from "lucide-react";
-import { renewalInvoicePdfUrl, updateAdminInvoice } from "../../../api/toursAdmin";
+import { createFreeformInvoice, createTourManualInvoice, renewalInvoicePdfUrl, updateAdminInvoice } from "../../../api/toursAdmin";
 
 export type InvoiceType = "renewal" | "exxas";
 export type InvoiceRow = Record<string, unknown>;
@@ -651,6 +652,221 @@ export function EditInvoiceModal({
               className="rounded-lg bg-[var(--accent)] px-3 py-2 text-sm font-medium text-white hover:bg-[var(--accent)]/90 disabled:opacity-50"
             >
               {saving ? "Speichert..." : "Speichern"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ─── Neue Rechnung erstellen (Freitext oder Tour-gebunden) ──────────────────
+
+type CreateMode = "freeform" | "tour";
+
+export function CreateInvoiceModal({
+  onClose,
+  onCreated,
+  presetTourId,
+  presetTourLabel,
+}: {
+  onClose: () => void;
+  onCreated: (message: string) => void;
+  presetTourId?: number | string;
+  presetTourLabel?: string;
+}) {
+  const [mode, setMode] = useState<CreateMode>(presetTourId ? "tour" : "freeform");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [customerName, setCustomerName] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
+  const [customerAddress, setCustomerAddress] = useState("");
+  const [description, setDescription] = useState("");
+  const [amountChf, setAmountChf] = useState("");
+  const [invoiceNumber, setInvoiceNumber] = useState("");
+  const [dueAt, setDueAt] = useState("");
+  const [invoiceDate, setInvoiceDate] = useState("");
+  const [paymentNote, setPaymentNote] = useState("");
+  const [skontoChf, setSkontoChfCreate] = useState("");
+  const [tourId, setTourId] = useState(presetTourId ? String(presetTourId) : "");
+  const [markPaidNow, setMarkPaidNow] = useState(false);
+  const [paidAt, setPaidAt] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    try {
+      if (mode === "freeform") {
+        const result = await createFreeformInvoice({
+          customerName,
+          customerEmail: customerEmail || undefined,
+          customerAddress: customerAddress || undefined,
+          description,
+          amountChf,
+          invoiceNumber: invoiceNumber || undefined,
+          dueAt: dueAt || null,
+          invoiceDate: invoiceDate || null,
+          paymentNote: paymentNote || null,
+          skontoChf: skontoChf || null,
+          tourId: tourId || null,
+          markPaidNow,
+          paidAt: paidAt || null,
+          paymentMethod: paymentMethod || null,
+        });
+        if (!(result as Record<string, unknown>).ok) {
+          setError(String((result as Record<string, unknown>).error || "Erstellen fehlgeschlagen."));
+          return;
+        }
+      } else {
+        if (!tourId) {
+          setError("Bitte Tour-ID eingeben.");
+          return;
+        }
+        const result = await createTourManualInvoice(tourId, {
+          invoiceNumber: invoiceNumber || undefined,
+          amountChf,
+          dueAt: dueAt || null,
+          paymentNote: paymentNote || null,
+          skontoChf: skontoChf || null,
+        });
+        if (!(result as Record<string, unknown>).ok) {
+          setError(String((result as Record<string, unknown>).error || "Erstellen fehlgeschlagen."));
+          return;
+        }
+      }
+      onCreated("Rechnung wurde erstellt.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erstellen fehlgeschlagen.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const inputCls = "w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)] placeholder:text-[var(--text-subtle)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]";
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-lg rounded-2xl border border-[var(--border-soft)] bg-[var(--surface)] shadow-xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between border-b border-[var(--border-soft)] px-5 py-4 sticky top-0 bg-[var(--surface)] z-10">
+          <h2 className="text-lg font-semibold text-[var(--text-main)]">Neue Rechnung erstellen</h2>
+          <button type="button" onClick={onClose} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--text-subtle)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-main)]" aria-label="Schliessen">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4 px-5 py-4">
+          {!presetTourId && (
+            <div className="flex gap-1 rounded-lg border border-[var(--border-soft)] p-1">
+              <button type="button" onClick={() => setMode("freeform")} className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${mode === "freeform" ? "bg-[var(--accent)] text-white" : "text-[var(--text-subtle)] hover:text-[var(--text-main)]"}`}>
+                Freitext
+              </button>
+              <button type="button" onClick={() => setMode("tour")} className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${mode === "tour" ? "bg-[var(--accent)] text-white" : "text-[var(--text-subtle)] hover:text-[var(--text-main)]"}`}>
+                Tour-gebunden
+              </button>
+            </div>
+          )}
+
+          {mode === "freeform" && (
+            <>
+              <label className="block space-y-1">
+                <span className="text-sm font-medium text-[var(--text-main)]">Kundenname *</span>
+                <input type="text" required value={customerName} onChange={(e) => setCustomerName(e.target.value)} className={inputCls} placeholder="Firma / Name" />
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block space-y-1">
+                  <span className="text-sm font-medium text-[var(--text-main)]">E-Mail</span>
+                  <input type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} className={inputCls} placeholder="kunde@beispiel.ch" />
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-sm font-medium text-[var(--text-main)]">Adresse</span>
+                  <input type="text" value={customerAddress} onChange={(e) => setCustomerAddress(e.target.value)} className={inputCls} placeholder="Strasse, PLZ Ort" />
+                </label>
+              </div>
+              <label className="block space-y-1">
+                <span className="text-sm font-medium text-[var(--text-main)]">Beschreibung *</span>
+                <textarea required value={description} onChange={(e) => setDescription(e.target.value)} rows={2} className={inputCls} placeholder="Leistungsbeschreibung" />
+              </label>
+            </>
+          )}
+
+          {mode === "tour" && (
+            <label className="block space-y-1">
+              <span className="text-sm font-medium text-[var(--text-main)]">Tour-ID *</span>
+              <input type="number" required value={tourId} onChange={(e) => setTourId(e.target.value)} className={inputCls} placeholder="z. B. 123" />
+              {presetTourLabel && <p className="text-xs text-[var(--text-subtle)]">{presetTourLabel}</p>}
+            </label>
+          )}
+
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block space-y-1">
+              <span className="text-sm font-medium text-[var(--text-main)]">Betrag (CHF) *</span>
+              <input type="number" step="0.01" required value={amountChf} onChange={(e) => setAmountChf(e.target.value)} className={inputCls} placeholder="0.00" />
+            </label>
+            <label className="block space-y-1">
+              <span className="text-sm font-medium text-[var(--text-main)]">Rechnungsnummer</span>
+              <input type="text" value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} className={inputCls} placeholder="Automatisch" />
+            </label>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block space-y-1">
+              <span className="text-sm font-medium text-[var(--text-main)]">Fällig am</span>
+              <input type="date" value={dueAt} onChange={(e) => setDueAt(e.target.value)} className={inputCls} />
+            </label>
+            {mode === "freeform" && (
+              <label className="block space-y-1">
+                <span className="text-sm font-medium text-[var(--text-main)]">Rechnungsdatum</span>
+                <input type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} className={inputCls} />
+              </label>
+            )}
+            <label className="block space-y-1">
+              <span className="text-sm font-medium text-[var(--text-main)]">Skonto (CHF)</span>
+              <input type="number" step="0.01" min="0" value={skontoChf} onChange={(e) => setSkontoChfCreate(e.target.value)} className={inputCls} placeholder="0.00" />
+            </label>
+          </div>
+
+          <label className="block space-y-1">
+            <span className="text-sm font-medium text-[var(--text-main)]">Notiz</span>
+            <textarea value={paymentNote} onChange={(e) => setPaymentNote(e.target.value)} rows={2} className={inputCls} />
+          </label>
+
+          <div className="rounded-lg border border-[var(--border-soft)] px-4 py-3 space-y-3">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" checked={markPaidNow} onChange={(e) => setMarkPaidNow(e.target.checked)} className="h-4 w-4 rounded border-[var(--border-soft)] accent-[var(--accent)]" />
+              <span className="text-sm font-medium text-[var(--text-main)]">Sofort als bezahlt markieren</span>
+            </label>
+            {markPaidNow && (
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block space-y-1">
+                  <span className="text-xs font-medium text-[var(--text-subtle)]">Bezahlt am</span>
+                  <input type="date" value={paidAt} onChange={(e) => setPaidAt(e.target.value)} className={inputCls} />
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-xs font-medium text-[var(--text-subtle)]">Zahlungsart</span>
+                  <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} className={inputCls}>
+                    <option value="">—</option>
+                    <option value="qr">QR / Bank</option>
+                    <option value="payrexx">Payrexx</option>
+                    <option value="manual">Manuell</option>
+                    <option value="bar">Bar</option>
+                  </select>
+                </label>
+              </div>
+            )}
+          </div>
+
+          {error ? <p className="text-sm text-red-600">{error}</p> : null}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={onClose} className="rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm text-[var(--text-subtle)] hover:text-[var(--text-main)]">
+              Abbrechen
+            </button>
+            <button type="submit" disabled={saving} className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--accent)] px-3 py-2 text-sm font-medium text-white hover:bg-[var(--accent)]/90 disabled:opacity-50">
+              <Plus className="h-4 w-4" />
+              {saving ? "Erstellt..." : "Rechnung erstellen"}
             </button>
           </div>
         </form>

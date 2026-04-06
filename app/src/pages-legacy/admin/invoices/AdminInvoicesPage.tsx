@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import {
   archiveAdminInvoice,
   deleteAdminInvoice,
@@ -13,6 +13,7 @@ import {
   type EditingInvoice,
   type InvoiceRow,
   type InvoiceType,
+  CreateInvoiceModal,
   EXXAS_FILTERS,
   RENEWAL_FILTERS,
   EditInvoiceModal,
@@ -30,6 +31,7 @@ export function AdminInvoicesPage() {
   const [renewalSearchInput, setRenewalSearchInput] = useState("");
   const [exxasSearchInput, setExxasSearchInput] = useState("");
   const [editingInvoice, setEditingInvoice] = useState<EditingInvoice>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [busyActionKey, setBusyActionKey] = useState<string | null>(null);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
   const [actionErr, setActionErr] = useState<string | null>(null);
@@ -168,9 +170,19 @@ export function AdminInvoicesPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-[var(--text-main)]">Rechnungen</h1>
-        <p className="text-sm text-[var(--text-subtle)] mt-1">Zentrale Rechnungsübersicht — interne Rechnungen als Zielsystem, Exxas als Übergangsquelle.</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-[var(--text-main)]">Rechnungen</h1>
+          <p className="text-sm text-[var(--text-subtle)] mt-1">Zentrale Rechnungsübersicht — interne Rechnungen als Zielsystem, Exxas als Übergangsquelle.</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowCreateModal(true)}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--accent)]/90 shrink-0"
+        >
+          <Plus className="h-4 w-4" />
+          Neue Rechnung
+        </button>
       </div>
 
       {/* Stats */}
@@ -316,6 +328,17 @@ export function AdminInvoicesPage() {
           invoice={editingInvoice.invoice}
           onClose={() => setEditingInvoice(null)}
           onSaved={(message) => void handleEditSaved(message)}
+        />
+      ) : null}
+
+      {showCreateModal ? (
+        <CreateInvoiceModal
+          onClose={() => setShowCreateModal(false)}
+          onCreated={(message) => {
+            setShowCreateModal(false);
+            setActionMsg(message);
+            void refreshInvoices();
+          }}
         />
       ) : null}
     </div>

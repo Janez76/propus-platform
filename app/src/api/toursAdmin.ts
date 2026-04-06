@@ -283,6 +283,29 @@ export function createTourManualInvoice(
   return toursAdminPost(`/tours/${tourId}/invoices/create-manual`, body as Record<string, unknown>);
 }
 
+export function createFreeformInvoice(body: {
+  customerName: string;
+  customerEmail?: string;
+  customerAddress?: string;
+  description: string;
+  amountChf: string;
+  invoiceNumber?: string;
+  dueAt?: string | null;
+  invoiceDate?: string | null;
+  paymentNote?: string | null;
+  skontoChf?: string | null;
+  tourId?: string | number | null;
+  markPaidNow?: boolean;
+  paidAt?: string | null;
+  paymentMethod?: string | null;
+}) {
+  return toursAdminPost("/invoices/create-freeform", body as Record<string, unknown>);
+}
+
+export function freeformInvoicePdfUrl(invoiceId: string | number) {
+  return `${BASE}/invoices/${invoiceId}/pdf`;
+}
+
 export function getToursAdminLinkMatterport(queryString: string) {
   const q = queryString.startsWith("?") ? queryString : queryString ? `?${queryString}` : "";
   return toursAdminFetch<Record<string, unknown>>(`/link-matterport${q}`);

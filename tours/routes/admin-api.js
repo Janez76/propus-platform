@@ -1736,6 +1736,16 @@ router.post('/tours/:id/invoices/create-manual', async (req, res) => {
   }
 });
 
+router.post('/invoices/create-freeform', async (req, res) => {
+  try {
+    const result = await phase3.createFreeformInvoice(req.body || {}, adminEmail(req));
+    if (!result.ok) return res.status(400).json(result);
+    return res.json(result);
+  } catch (err) {
+    return res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
 router.post('/tours/:id/invoices/:invoiceId/mark-paid-manual', async (req, res) => {
   try {
     const tourId = parseInt(req.params.id, 10);
@@ -1758,6 +1768,17 @@ router.get('/tours/:id/invoices/:invoiceId/pdf', async (req, res) => {
     await phase3.streamRenewalInvoicePdf(res, tourId, invoiceId);
   } catch (err) {
     console.error('[admin-api] pdf', err);
+    if (!res.headersSent) res.status(500).send('PDF-Fehler');
+  }
+});
+
+router.get('/invoices/:invoiceId/pdf', async (req, res) => {
+  try {
+    const invoiceId = String(req.params.invoiceId || '').trim();
+    if (!invoiceId) return res.status(400).send('Ungültige Parameter');
+    await phase3.streamRenewalInvoicePdf(res, null, invoiceId);
+  } catch (err) {
+    console.error('[admin-api] freeform pdf', err);
     if (!res.headersSent) res.status(500).send('PDF-Fehler');
   }
 });

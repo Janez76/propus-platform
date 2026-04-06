@@ -52,6 +52,8 @@ type ManualInvoiceDraft = {
   invoiceNumber: string;
   paymentNote: string;
   skontoChf: string;
+  paymentChannel: string;
+  paidAtDate: string;
 };
 
 function toDateTimeLocalValue(date?: string, time?: string, fallbackIso?: string): string {
@@ -397,6 +399,8 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
       invoiceNumber: "",
       paymentNote: `Bestellung #${orderNo}`,
       skontoChf: "",
+      paymentChannel: "",
+      paidAtDate: "",
     });
   }
 
@@ -1600,6 +1604,33 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                   className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)]"
                 />
               </label>
+
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-[var(--text-main)]">Bezahlt am (optional)</span>
+                  <input
+                    type="text"
+                    placeholder="TT.MM.JJJJ"
+                    value={manualInvoiceDraft.paidAtDate}
+                    onChange={(e) => setManualInvoiceDraft((prev) => prev ? { ...prev, paidAtDate: e.target.value } : prev)}
+                    className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)] placeholder:text-[var(--text-subtle)]"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-[var(--text-main)]">Zahlungskanal</span>
+                  <select
+                    value={manualInvoiceDraft.paymentChannel}
+                    onChange={(e) => setManualInvoiceDraft((prev) => prev ? { ...prev, paymentChannel: e.target.value } : prev)}
+                    className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)]"
+                  >
+                    <option value="">—</option>
+                    <option value="ubs">UBS</option>
+                    <option value="online">Online</option>
+                    <option value="bar">Bar</option>
+                    <option value="sonstige">Sonstige</option>
+                  </select>
+                </label>
+              </div>
 
               <label className="block">
                 <span className="mb-1 block text-sm font-medium text-[var(--text-main)]">Notiz</span>

@@ -1,4 +1,6 @@
-import { renewalInvoicePdfUrl } from "../../../../api/toursAdmin";
+import { useState } from "react";
+import { Plus } from "lucide-react";
+import { createTourManualInvoice, renewalInvoicePdfUrl } from "../../../../api/toursAdmin";
 import type { ToursAdminTourDetailResponse, ToursAdminTourRow } from "../../../../types/toursAdmin";
 
 function formatDate(v: unknown) {
@@ -39,6 +41,7 @@ type Props = Pick<
   paymentTimeline?: ToursAdminTourDetailResponse["paymentTimeline"];
   tourId?: string;
   onOpenInvoiceLink?: () => void;
+  onRefresh?: () => void;
 };
 
 export function TourInvoicesSection({
@@ -49,8 +52,14 @@ export function TourInvoicesSection({
   paymentTimeline = [],
   tourId,
   onOpenInvoiceLink,
+  onRefresh,
 }: Props) {
   const ps = paymentSummary as Record<string, unknown>;
+  const [showCreate, setShowCreate] = useState(false);
+  const [createBusy, setCreateBusy] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [createAmount, setCreateAmount] = useState("");
+  const [createNote, setCreateNote] = useState("");
   const createdAt = tour.matterport_created_at ?? tour.created_at ?? null;
   const expiresAt = tour.canonical_term_end_date ?? tour.term_end_date ?? tour.ablaufdatum ?? null;
   const lastRenewalAt = latestRenewalDate(renewalInvoices);
@@ -124,16 +133,89 @@ export function TourInvoicesSection({
       <div>
         <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
           <h3 className="text-sm font-medium text-[var(--text-main)]">Verlängerungsrechnungen (intern)</h3>
-          {tourId && onOpenInvoiceLink ? (
-            <button
-              type="button"
-              onClick={onOpenInvoiceLink}
-              className="text-xs text-[var(--accent)] hover:underline font-medium"
-            >
-              Exxas-Rechnung verknüpfen
-            </button>
-          ) : null}
+          <div className="flex gap-2">
+            {tourId ? (
+              <button
+                type="button"
+                onClick={() => setShowCreate(true)}
+                className="inline-flex items-center gap-1 text-xs rounded border border-[var(--accent)]/30 px-2 py-0.5 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors"
+              >
+                <Plus className="h-3 w-3" />
+                Rechnung erstellen
+              </button>
+            ) : null}
+            {tourId && onOpenInvoiceLink ? (
+              <button
+                type="button"
+                onClick={onOpenInvoiceLink}
+                className="text-xs text-[var(--accent)] hover:underline font-medium"
+              >
+                Exxas-Rechnung verknüpfen
+              </button>
+            ) : null}
+          </div>
         </div>
+        {showCreate && tourId ? (
+          <div className="rounded-lg border border-[var(--accent)]/20 bg-[var(--accent)]/5 p-3 mb-3 space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="number"
+                step="0.01"
+                placeholder="Betrag CHF *"
+                value={createAmount}
+                onChange={(e) => setCreateAmount(e.target.value)}
+                className="rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-1.5 text-sm text-[var(--text-main)] placeholder:text-[var(--text-subtle)]"
+              />
+              <input
+                type="text"
+                placeholder="Notiz (optional)"
+                value={createNote}
+                onChange={(e) => setCreateNote(e.target.value)}
+                className="rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-1.5 text-sm text-[var(--text-main)] placeholder:text-[var(--text-subtle)]"
+              />
+            </div>
+            {createError ? <p className="text-xs text-red-600">{createError}</p> : null}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={createBusy}
+                onClick={async () => {
+                  if (!createAmount.trim()) { setCreateError("Betrag erforderlich"); return; }
+                  setCreateBusy(true);
+                  setCreateError(null);
+                  try {
+                    const res = await createTourManualInvoice(tourId, {
+                      amountChf: createAmount,
+                      paymentNote: createNote || undefined,
+                    });
+                    if (!(res as Record<string, unknown>).ok) {
+                      setCreateError(String((res as Record<string, unknown>).error || "Fehler"));
+                    } else {
+                      setShowCreate(false);
+                      setCreateAmount("");
+                      setCreateNote("");
+                      onRefresh?.();
+                    }
+                  } catch (err) {
+                    setCreateError(err instanceof Error ? err.message : "Fehler");
+                  } finally {
+                    setCreateBusy(false);
+                  }
+                }}
+                className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-white hover:bg-[var(--accent)]/90 disabled:opacity-50"
+              >
+                {createBusy ? "Erstellt..." : "Erstellen"}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowCreate(false); setCreateError(null); }}
+                className="rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-xs text-[var(--text-subtle)] hover:text-[var(--text-main)]"
+              >
+                Abbrechen
+              </button>
+            </div>
+          </div>
+        ) : null}
         {renewalInvoices.length === 0 ? (
           <p className="text-sm text-[var(--text-subtle)]">Keine Einträge.</p>
         ) : (

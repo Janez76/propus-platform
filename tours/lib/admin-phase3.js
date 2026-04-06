@@ -1643,6 +1643,94 @@ async function getInvoicesByOrderNo(orderNo) {
   return { ok: true, invoices: res.rows };
 }
 
+async function createFreeformInvoice(body, actorEmail) {
+  const customerName = String(body?.customerName || '').trim();
+  const customerEmail = String(body?.customerEmail || '').trim() || null;
+  const customerAddress = String(body?.customerAddress || '').trim() || null;
+  const description = String(body?.description || '').trim();
+  const amountRaw = String(body?.amountChf || '').trim();
+  const amountChf = Number.parseFloat(amountRaw.replace(',', '.'));
+  const invoiceNumber = String(body?.invoiceNumber || '').trim() || null;
+  const dueAtRaw = String(body?.dueAt || '').trim();
+  const invoiceDateRaw = String(body?.invoiceDate || '').trim();
+  const note = String(body?.paymentNote || '').trim() || null;
+  const skontoRaw = String(body?.skontoChf || '').trim();
+  const skontoChf = skontoRaw ? Number.parseFloat(skontoRaw.replace(',', '.')) : null;
+  const tourIdRaw = body?.tourId ? parseInt(body.tourId, 10) : null;
+  const markPaidNow =
+    body?.markPaidNow === true || body?.markPaidNow === '1' || body?.markPaidNow === 'on' || body?.markPaidNow === 'true';
+
+  if (!customerName) return { ok: false, error: 'Kundenname ist erforderlich.' };
+  if (!description) return { ok: false, error: 'Beschreibung ist erforderlich.' };
+  if (!Number.isFinite(amountChf) || amountChf <= 0) return { ok: false, error: 'Betrag ist ungültig.' };
+  if (skontoRaw && (!Number.isFinite(skontoChf) || skontoChf < 0)) {
+    return { ok: false, error: 'Skonto-Betrag ist ungültig.' };
+  }
+
+  const dueAtIso = dueAtRaw ? toIsoDate(dueAtRaw) : null;
+  if (dueAtRaw && !dueAtIso) return { ok: false, error: 'Fälligkeitsdatum ist ungültig.' };
+
+  const invoiceDateIso = invoiceDateRaw ? toIsoDate(invoiceDateRaw) : null;
+
+  let status = 'sent';
+  let paidAtIso = null;
+  let paymentMethod = null;
+  if (markPaidNow) {
+    status = 'paid';
+    const paidAtRaw2 = String(body?.paidAt || '').trim();
+    paidAtIso = paidAtRaw2 ? toIsoDate(paidAtRaw2) : new Date().toISOString().slice(0, 10);
+    const methodRaw = String(body?.paymentMethod || '').trim().toLowerCase();
+    if (methodRaw && !ALLOWED_PAYMENT_METHODS.has(methodRaw)) {
+      return { ok: false, error: 'Zahlungsart ist ungültig.' };
+    }
+    paymentMethod = methodRaw || 'manual';
+  }
+
+  const inserted = await pool.query(
+    `INSERT INTO tour_manager.renewal_invoices (
+       tour_id, invoice_number, invoice_status, amount_chf, due_at,
+       sent_at, paid_at, paid_at_date, payment_method, payment_source, payment_note,
+       skonto_chf, recorded_by, recorded_at, invoice_kind,
+       customer_name, customer_email, customer_address, description, invoice_date
+     ) VALUES (
+       $1, $2, $3, $4::numeric, $5::date,
+       CASE WHEN $3 IN ('sent','paid') THEN NOW() ELSE NULL END,
+       $6::date, $6::date, $7, 'manual', $8,
+       $9::numeric, $10, NOW(), 'freeform',
+       $11, $12, $13, $14, $15::date
+     )
+     RETURNING id`,
+    [
+      tourIdRaw,
+      invoiceNumber,
+      status,
+      amountChf,
+      dueAtIso,
+      paidAtIso,
+      paymentMethod,
+      note,
+      skontoChf,
+      actorEmail,
+      customerName,
+      customerEmail,
+      customerAddress,
+      description,
+      invoiceDateIso,
+    ]
+  );
+
+  await logAction(tourIdRaw, 'admin', actorEmail, 'INVOICE_CREATE_FREEFORM', {
+    invoice_id: inserted.rows[0]?.id || null,
+    invoice_number: invoiceNumber,
+    amount_chf: amountChf,
+    customer_name: customerName,
+    description,
+    mark_paid_now: markPaidNow,
+  });
+
+  return { ok: true, invoiceId: inserted.rows[0]?.id, paymentSaved: markPaidNow };
+}
+
 module.exports = {
   getRenewalInvoicesJson,
   getRenewalInvoicesCentral,
@@ -1662,6 +1750,7 @@ module.exports = {
   confirmBankTransaction,
   ignoreBankTransaction,
   createManualInvoice,
+  createFreeformInvoice,
   markPaidManualInvoice,
   streamRenewalInvoicePdf,
   getLinkMatterportJson,
