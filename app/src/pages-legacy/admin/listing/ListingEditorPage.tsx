@@ -756,7 +756,7 @@ export function ListingEditorPage() {
 
   useEffect(() => {
     const query = customerInput.trim();
-    if (query.length < 2) {
+    if (query.length < 1) {
       setCustomerOptions([]);
       setCustomerSearchLoading(false);
       return;
@@ -1229,6 +1229,7 @@ export function ListingEditorPage() {
                 loading={customerSearchLoading}
                 placeholder="Firma, Kunde, E-Mail oder Telefon"
                 emptyText="Keine passenden Kunden gefunden."
+                minQueryLength={1}
                 getOptionKey={(customer) => String(customer.id)}
                 renderOption={(customer) => (
                   <div>
@@ -1243,6 +1244,21 @@ export function ListingEditorPage() {
               {customerId ? (
                 <p className="gbe-field-hint">
                   Kunde verknüpft: #{customerId}
+                </p>
+              ) : customerInput.trim() ? (
+                <p className="gbe-field-hint text-amber-600">
+                  Kein Kunde verknüpft — bitte aus der Liste wählen.{" "}
+                  <button
+                    type="button"
+                    className="underline"
+                    onClick={() => {
+                      setCustomerInput("");
+                      setCustomerContactId(null);
+                      setContactInput("");
+                    }}
+                  >
+                    Leeren
+                  </button>
                 </p>
               ) : null}
             </div>
