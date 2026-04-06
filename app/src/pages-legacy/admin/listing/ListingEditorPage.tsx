@@ -984,6 +984,10 @@ export function ListingEditorPage() {
   /** Einmal speichern: Stammdaten, Freigabe-Link, Matterport; bei neuer/geänderter Freigabe-URL Bilder einlesen. */
   async function saveAll() {
     if (!id || !g) return;
+    if (!customerId) {
+      alert("Bitte zuerst einen Kunden aus der Liste auswählen und verknüpfen.");
+      return;
+    }
     setSavedMsg(null);
     const prevCloud = (g.cloud_share_url ?? "").trim();
     const nextCloud = cloudDraftRef.current.trim();
@@ -1215,7 +1219,7 @@ export function ListingEditorPage() {
           </div>
           <div className="gbe-two-col">
             <div className="gbe-field">
-              <label htmlFor="gal-edit-client">Kunde (optional)</label>
+              <label htmlFor="gal-edit-client">Kunde <span className="text-rose-500">*</span></label>
               <GalleryAutocompleteField
                 inputId="gal-edit-client"
                 value={customerInput}
@@ -1246,8 +1250,8 @@ export function ListingEditorPage() {
                   Kunde verknüpft: #{customerId}
                 </p>
               ) : customerInput.trim() ? (
-                <p className="gbe-field-hint text-amber-600">
-                  Kein Kunde verknüpft — bitte aus der Liste wählen.{" "}
+                <p className="gbe-field-hint text-rose-600">
+                  Kein Kunde verknüpft — bitte aus der Vorschlagsliste wählen.{" "}
                   <button
                     type="button"
                     className="underline"
@@ -1260,7 +1264,9 @@ export function ListingEditorPage() {
                     Leeren
                   </button>
                 </p>
-              ) : null}
+              ) : (
+                <p className="gbe-field-hint text-rose-500">Pflichtfeld — Kunde muss verknüpft sein.</p>
+              )}
             </div>
             <div className="gbe-field">
               <label htmlFor="gal-edit-contact">Kontakt</label>
