@@ -295,6 +295,15 @@ function PendingTransactionCard({
   );
 }
 
+function InfoRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-[10px] uppercase tracking-wide text-[var(--text-subtle)] font-medium">{label}</span>
+      <span className={`text-xs text-[var(--text-main)] break-all ${mono ? "font-mono" : ""}`}>{value}</span>
+    </div>
+  );
+}
+
 function matchStatusIcon(status: string) {
   if (status === "exact") return <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />;
   if (status === "review") return <AlertTriangle className="h-4 w-4 text-yellow-600 flex-shrink-0" />;
@@ -356,59 +365,106 @@ function BankImportPreviewModal({
         </div>
 
         {/* Transaktionsliste */}
-        <div className="overflow-y-auto flex-1 px-5 py-3 space-y-2">
+        <div className="overflow-y-auto flex-1 px-5 py-3 space-y-3">
           {preview.transactions.map((tx, i) => (
             <div
               key={i}
-              className={`rounded-xl border px-4 py-3 text-sm ${
+              className={`rounded-xl border text-sm overflow-hidden ${
                 tx.match_status === "exact"
-                  ? "border-green-500/20 bg-green-500/5"
+                  ? "border-green-500/20"
                   : tx.match_status === "review"
-                    ? "border-yellow-500/20 bg-yellow-500/5"
-                    : "border-[var(--border-soft)] bg-[var(--surface)]"
+                    ? "border-yellow-500/20"
+                    : "border-[var(--border-soft)]"
               }`}
             >
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5">{matchStatusIcon(tx.match_status)}</div>
-                <div className="flex-1 min-w-0 space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-semibold text-[var(--text-main)]">
-                      CHF {typeof tx.amount_chf === "number" ? tx.amount_chf.toFixed(2) : "—"}
-                    </span>
-                    {tx.booking_date ? (
-                      <span className="text-xs text-[var(--text-subtle)]">{tx.booking_date}</span>
-                    ) : null}
-                    <span className={`text-xs font-medium ${
-                      tx.match_status === "exact" ? "text-green-700" :
-                      tx.match_status === "review" ? "text-yellow-700" : "text-zinc-500"
-                    }`}>
-                      {matchStatusText(tx.match_status)}
-                    </span>
-                    {tx.requires_import ? (
-                      <span className="text-[11px] rounded-full border border-yellow-500/30 bg-yellow-500/10 text-yellow-700 px-2 py-0.5">
-                        Exxas → Import nötig
-                      </span>
-                    ) : null}
-                  </div>
-                  <div className="text-xs text-[var(--text-subtle)] truncate">
-                    {tx.debtor_name || tx.purpose || tx.reference_raw || "—"}
-                  </div>
-                  {tx.matched_invoice_number || tx.matched_invoice_id ? (
-                    <div className="text-xs text-[var(--text-subtle)]">
-                      <span className="font-medium text-[var(--text-main)]">Rechnung:</span>{" "}
-                      {tx.matched_invoice_number || `#${tx.matched_invoice_id}`}
-                      {tx.matched_invoice_amount != null
-                        ? ` · CHF ${Number(tx.matched_invoice_amount).toFixed(2)}`
-                        : ""}
-                      {tx.matched_customer_name ? ` · ${tx.matched_customer_name}` : ""}
-                      {tx.matched_tour_label ? ` · ${tx.matched_tour_label}` : ""}
-                    </div>
-                  ) : null}
-                  {tx.match_reason ? (
-                    <div className="text-[11px] text-[var(--text-subtle)] italic">{tx.match_reason}</div>
-                  ) : null}
-                </div>
+              {/* Kopfzeile */}
+              <div className={`flex flex-wrap items-center gap-2 px-4 py-2.5 ${
+                tx.match_status === "exact"
+                  ? "bg-green-500/8"
+                  : tx.match_status === "review"
+                    ? "bg-yellow-500/8"
+                    : "bg-[var(--surface-raised)]"
+              }`}>
+                {matchStatusIcon(tx.match_status)}
+                <span className="font-semibold text-[var(--text-main)] text-base">
+                  {tx.currency} {typeof tx.amount_chf === "number" ? tx.amount_chf.toFixed(2) : "—"}
+                </span>
+                <span className={`text-xs font-medium ${
+                  tx.match_status === "exact" ? "text-green-700" :
+                  tx.match_status === "review" ? "text-yellow-700" : "text-zinc-500"
+                }`}>
+                  {matchStatusText(tx.match_status)}
+                </span>
+                {tx.requires_import ? (
+                  <span className="text-[11px] rounded-full border border-yellow-500/30 bg-yellow-500/10 text-yellow-700 px-2 py-0.5 ml-auto">
+                    Exxas → Import nötig
+                  </span>
+                ) : null}
               </div>
+
+              {/* Details Grid */}
+              <div className="px-4 py-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 bg-[var(--surface)]">
+                {tx.booking_date ? (
+                  <InfoRow label="Buchungsdatum" value={tx.booking_date} />
+                ) : null}
+                {tx.value_date && tx.value_date !== tx.booking_date ? (
+                  <InfoRow label="Valuta" value={tx.value_date} />
+                ) : null}
+                {tx.debtor_name ? (
+                  <InfoRow label="Zahler" value={tx.debtor_name} />
+                ) : null}
+                {tx.debtor_iban ? (
+                  <InfoRow label="Zahler IBAN" value={tx.debtor_iban} mono />
+                ) : null}
+                {tx.creditor_name ? (
+                  <InfoRow label="Empfänger" value={tx.creditor_name} />
+                ) : null}
+                {tx.creditor_iban ? (
+                  <InfoRow label="Empfänger IBAN" value={tx.creditor_iban} mono />
+                ) : null}
+                {tx.reference_structured ? (
+                  <InfoRow label="QR-/Referenz" value={tx.reference_structured} mono />
+                ) : tx.reference_raw ? (
+                  <InfoRow label="Referenz" value={tx.reference_raw} mono />
+                ) : null}
+                {tx.reference_unstructured && tx.reference_unstructured !== tx.reference_structured ? (
+                  <InfoRow label="Mitteilung" value={tx.reference_unstructured} />
+                ) : null}
+                {tx.purpose && tx.purpose !== tx.reference_raw && tx.purpose !== tx.reference_unstructured ? (
+                  <InfoRow label="Zweck" value={tx.purpose} />
+                ) : null}
+                {tx.additional_info ? (
+                  <InfoRow label="Zusatzinfo" value={tx.additional_info} />
+                ) : null}
+              </div>
+
+              {/* Zuordnung */}
+              {(tx.matched_invoice_number || tx.matched_invoice_id) ? (
+                <div className={`px-4 py-2.5 border-t text-xs ${
+                  tx.match_status === "exact"
+                    ? "border-green-500/15 bg-green-500/5"
+                    : "border-yellow-500/15 bg-yellow-500/5"
+                }`}>
+                  <span className="font-medium text-[var(--text-main)]">Rechnung:</span>{" "}
+                  <span className="font-mono">{tx.matched_invoice_number || `#${tx.matched_invoice_id}`}</span>
+                  {tx.matched_invoice_amount != null
+                    ? <span className="text-[var(--text-subtle)]"> · CHF {Number(tx.matched_invoice_amount).toFixed(2)}</span>
+                    : null}
+                  {tx.matched_customer_name
+                    ? <span className="text-[var(--text-subtle)]"> · {tx.matched_customer_name}</span>
+                    : null}
+                  {tx.matched_tour_label
+                    ? <span className="text-[var(--text-subtle)]"> · {tx.matched_tour_label}</span>
+                    : null}
+                  {tx.match_reason
+                    ? <div className="text-[11px] text-[var(--text-subtle)] italic mt-0.5">{tx.match_reason}</div>
+                    : null}
+                </div>
+              ) : tx.match_reason ? (
+                <div className="px-4 py-2 border-t border-[var(--border-soft)] text-[11px] text-[var(--text-subtle)] italic bg-[var(--surface)]">
+                  {tx.match_reason}
+                </div>
+              ) : null}
             </div>
           ))}
         </div>

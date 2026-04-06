@@ -1460,14 +1460,35 @@ async function previewBankImportUpload({ buffer, originalname }) {
 
   const preview = transactions.map((tx) => {
     const match = bankImport.matchTransaction(tx, invoiceIndex);
+    // Zusätzliche Felder aus raw-Objekt extrahieren
+    const raw = tx.raw || {};
+    const creditorIban = raw?.RltdPties?.CdtrAcct?.Id?.IBAN || null;
+    const debtorIban = raw?.RltdPties?.DbtrAcct?.Id?.IBAN || null;
+    const creditorName = raw?.RltdPties?.Cdtr?.Nm
+      ? String(raw.RltdPties.Cdtr.Nm).trim() || null
+      : null;
+    // Strukturierte Referenz (QR / ISO)
+    const structuredRef = raw?.RmtInf?.Strd?.CdtrRefInf?.Ref || null;
+    const unstructuredRef = (() => {
+      const u = raw?.RmtInf?.Ustrd;
+      if (!u) return null;
+      return Array.isArray(u) ? u.join(' ') : String(u);
+    })();
+    const additionalInfo = raw?.AddtlTxInf || null;
     return {
       amount_chf: tx.amount ?? null,
       currency: tx.currency || 'CHF',
       booking_date: bankImport.toIsoDate(tx.bookingDate) || null,
       value_date: bankImport.toIsoDate(tx.valueDate) || null,
       reference_raw: tx.referenceRaw || null,
+      reference_structured: structuredRef || null,
+      reference_unstructured: unstructuredRef || null,
       debtor_name: tx.debtorName || null,
+      debtor_iban: debtorIban || null,
+      creditor_name: creditorName || null,
+      creditor_iban: creditorIban || null,
       purpose: tx.purpose || null,
+      additional_info: additionalInfo ? String(additionalInfo) : null,
       match_status: match.matchStatus,
       confidence: match.confidence,
       match_reason: match.reason || null,

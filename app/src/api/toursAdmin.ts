@@ -158,8 +158,14 @@ export type BankImportPreviewTx = {
   booking_date: string | null;
   value_date: string | null;
   reference_raw: string | null;
+  reference_structured: string | null;
+  reference_unstructured: string | null;
   debtor_name: string | null;
+  debtor_iban: string | null;
+  creditor_name: string | null;
+  creditor_iban: string | null;
   purpose: string | null;
+  additional_info: string | null;
   match_status: "exact" | "review" | "none";
   confidence: number;
   match_reason: string | null;
