@@ -3,23 +3,114 @@
  * Pfade: /api/v2/contracts (bekannt), Rechnungen/Invoices – Exxas-Doku erforderlich.
  */
 
-const EXXAS_BASE = (process.env.EXXAS_BASE_URL || 'https://api.exxas.net').replace(/\/$/, '');
-const EXXAS_TOKEN = process.env.EXXAS_API_TOKEN || '';
+const { pool } = require('./db');
+const DEFAULT_EXXAS_BASE = 'https://api.exxas.net';
+const EXXAS_SETTINGS_KEY = 'integration.exxas.config';
+const EXXAS_RUNTIME_CACHE_MS = 60 * 1000;
+let exxasRuntimeConfigCache = { at: 0, config: null };
 const { getExxasContractId, getTourObjectLabel } = require('./normalize');
 
-function getHeaders() {
-  return {
-    'Authorization': `ApiKey ${EXXAS_TOKEN}`,
-    'Accept': 'application/json',
-    'Content-Type': 'application/json',
+function normalizeExxasBaseUrl(value) {
+  return String(value || '').trim().replace(/\/$/, '');
+}
+
+function deriveBaseUrlFromEndpoint(endpoint) {
+  const raw = String(endpoint || '').trim();
+  if (!raw) return '';
+  const withoutQuery = raw.split('?')[0];
+  const marker = withoutQuery.indexOf('/api/v2/');
+  if (marker >= 0) {
+    return withoutQuery.slice(0, marker + '/api/v2'.length);
+  }
+  return withoutQuery.replace(/\/$/, '');
+}
+
+function buildExxasUrl(baseUrl, endpoint) {
+  const base = normalizeExxasBaseUrl(baseUrl || DEFAULT_EXXAS_BASE);
+  const path = String(endpoint || '').trim();
+  if (!path) return base;
+  if (base.endsWith('/api/v2') && path === '/api/v2') return base;
+  if (base.endsWith('/api/v2') && path.startsWith('/api/v2/')) {
+    return `${base}${path.slice('/api/v2'.length)}`;
+  }
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${base}${path.startsWith('/') ? path : `/${path}`}`;
+}
+
+async function loadStoredExxasConfig() {
+  try {
+    const result = await pool.query(
+      `SELECT value_json
+       FROM booking.app_settings
+       WHERE key = $1
+       LIMIT 1`,
+      [EXXAS_SETTINGS_KEY]
+    );
+    return result.rows[0]?.value_json || null;
+  } catch (e) {
+    console.warn('Exxas loadStoredExxasConfig:', e.message);
+    return null;
+  }
+}
+
+async function getExxasRuntimeConfig(force = false) {
+  const now = Date.now();
+  if (!force && exxasRuntimeConfigCache.config && now - exxasRuntimeConfigCache.at < EXXAS_RUNTIME_CACHE_MS) {
+    return exxasRuntimeConfigCache.config;
+  }
+  const stored = await loadStoredExxasConfig();
+  const envApiKey = String(process.env.EXXAS_API_TOKEN || process.env.EXXAS_API_KEY || process.env.EXXAS_JWT || '').trim();
+  const envBaseUrl = String(process.env.EXXAS_BASE_URL || '').trim();
+  const envAppPassword = String(process.env.EXXAS_APP_PASSWORD || '').trim();
+  const envAuthMode = String(process.env.EXXAS_AUTH_MODE || '').trim().toLowerCase() === 'bearer' ? 'bearer' : 'apiKey';
+  const config = {
+    apiKey: envApiKey || String(stored?.apiKey || '').trim(),
+    appPassword: envAppPassword || String(stored?.appPassword || '').trim(),
+    authMode: envApiKey || envAppPassword || envBaseUrl
+      ? envAuthMode
+      : (String(stored?.authMode || '').trim().toLowerCase() === 'bearer' ? 'bearer' : 'apiKey'),
+    baseUrl: normalizeExxasBaseUrl(
+      envBaseUrl
+      || deriveBaseUrlFromEndpoint(stored?.endpoint)
+      || DEFAULT_EXXAS_BASE
+    ),
   };
+  exxasRuntimeConfigCache = { at: now, config };
+  return config;
+}
+
+function hasExxasApiKey(config) {
+  return !!String(config?.apiKey || '').trim();
+}
+
+function getMissingExxasTokenError() {
+  return 'EXXAS_API_TOKEN nicht gesetzt';
+}
+
+function getHeaders(config, options = {}) {
+  const { includeContentType = true } = options;
+  const headers = {
+    'Accept': 'application/json',
+  };
+  if (includeContentType) headers['Content-Type'] = 'application/json';
+  if (hasExxasApiKey(config)) {
+    headers.Authorization = config.authMode === 'bearer'
+      ? `Bearer ${config.apiKey}`
+      : `ApiKey ${config.apiKey}`;
+  }
+  if (config?.appPassword) headers['X-App-Password'] = config.appPassword;
+  return headers;
 }
 
 async function exxasRequest(endpoint, options = {}) {
   const { method = 'GET', body = null, timeoutMs = 10000 } = options;
-  const res = await fetch(`${EXXAS_BASE}${endpoint}`, {
+  const config = await getExxasRuntimeConfig();
+  if (!hasExxasApiKey(config)) {
+    return { ok: false, status: 0, data: { error: getMissingExxasTokenError() } };
+  }
+  const res = await fetch(buildExxasUrl(config.baseUrl, endpoint), {
     method,
-    headers: getHeaders(),
+    headers: getHeaders(config),
     body: body == null ? undefined : JSON.stringify(body),
     signal: AbortSignal.timeout(timeoutMs),
   });
@@ -300,8 +391,9 @@ async function extendSubscription(exxasSubscriptionId, months = 6) {
 }
 
 async function cancelSubscription(exxasSubscriptionId) {
-  if (!EXXAS_TOKEN) {
-    return { success: false, error: 'EXXAS_API_TOKEN nicht gesetzt' };
+  const config = await getExxasRuntimeConfig();
+  if (!hasExxasApiKey(config)) {
+    return { success: false, error: getMissingExxasTokenError() };
   }
   if (!exxasSubscriptionId) {
     return { success: false, error: 'Exxas-Abo/Vertrag fehlt' };
@@ -316,8 +408,9 @@ async function cancelSubscription(exxasSubscriptionId) {
 }
 
 async function cancelInvoice(exxasInvoiceId) {
-  if (!EXXAS_TOKEN) {
-    return { success: false, error: 'EXXAS_API_TOKEN nicht gesetzt' };
+  const config = await getExxasRuntimeConfig();
+  if (!hasExxasApiKey(config)) {
+    return { success: false, error: getMissingExxasTokenError() };
   }
   if (!exxasInvoiceId) {
     return { success: false, error: 'Exxas-Rechnung fehlt' };
@@ -331,8 +424,9 @@ async function cancelInvoice(exxasInvoiceId) {
 }
 
 async function deactivateCustomer(exxasCustomerId) {
-  if (!EXXAS_TOKEN) {
-    return { success: false, error: 'EXXAS_API_TOKEN nicht gesetzt' };
+  const config = await getExxasRuntimeConfig();
+  if (!hasExxasApiKey(config)) {
+    return { success: false, error: getMissingExxasTokenError() };
   }
   if (!exxasCustomerId) {
     return { success: false, error: 'Exxas-Kunde fehlt' };
@@ -351,13 +445,14 @@ async function deactivateCustomer(exxasCustomerId) {
  * Mindestlänge der Suchanfrage: 2 Zeichen.
  */
 async function searchCustomers(query) {
-  if (!EXXAS_TOKEN) return { customers: [], error: 'EXXAS_API_TOKEN nicht gesetzt' };
+  const config = await getExxasRuntimeConfig();
+  if (!hasExxasApiKey(config)) return { customers: [], error: getMissingExxasTokenError() };
   const q = (query || '').trim();
   if (q.length < 2) return { customers: [], error: 'Suchanfrage zu kurz (min. 2 Zeichen)' };
 
   try {
-    const res = await fetch(`${EXXAS_BASE}/api/v2/customers`, {
-      headers: { Authorization: `ApiKey ${EXXAS_TOKEN}`, Accept: 'application/json' },
+    const res = await fetch(buildExxasUrl(config.baseUrl, '/api/v2/customers'), {
+      headers: getHeaders(config, { includeContentType: false }),
       signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) return { customers: [], error: `Exxas API: HTTP ${res.status}` };
@@ -394,13 +489,14 @@ async function fetchExxasInvoicesRawList() {
   if (exxasInvoiceListCache.rows && now - exxasInvoiceListCache.at < EXXAS_INVOICE_CACHE_MS) {
     return { ok: true, rows: exxasInvoiceListCache.rows, error: exxasInvoiceListCache.error };
   }
-  if (!EXXAS_TOKEN) {
-    exxasInvoiceListCache = { at: now, rows: [], error: 'EXXAS_API_TOKEN nicht gesetzt' };
+  const config = await getExxasRuntimeConfig();
+  if (!hasExxasApiKey(config)) {
+    exxasInvoiceListCache = { at: now, rows: [], error: getMissingExxasTokenError() };
     return { ok: false, rows: [], error: exxasInvoiceListCache.error };
   }
   try {
-    const res = await fetch(`${EXXAS_BASE}/api/v2/rechnungen`, {
-      headers: { Authorization: `ApiKey ${EXXAS_TOKEN}`, Accept: 'application/json' },
+    const res = await fetch(buildExxasUrl(config.baseUrl, '/api/v2/rechnungen'), {
+      headers: getHeaders(config, { includeContentType: false }),
       signal: AbortSignal.timeout(15000),
     });
     if (!res.ok) {
@@ -465,13 +561,14 @@ async function fetchExxasContactsRawList() {
   if (exxasContactsListCache.rows && now - exxasContactsListCache.at < EXXAS_CONTACTS_CACHE_MS) {
     return { ok: true, rows: exxasContactsListCache.rows, error: exxasContactsListCache.error };
   }
-  if (!EXXAS_TOKEN) {
-    exxasContactsListCache = { at: now, rows: [], error: 'EXXAS_API_TOKEN nicht gesetzt' };
+  const config = await getExxasRuntimeConfig();
+  if (!hasExxasApiKey(config)) {
+    exxasContactsListCache = { at: now, rows: [], error: getMissingExxasTokenError() };
     return { ok: false, rows: [], error: exxasContactsListCache.error };
   }
   try {
-    const res = await fetch(`${EXXAS_BASE}/api/v2/contacts`, {
-      headers: { Authorization: `ApiKey ${EXXAS_TOKEN}`, Accept: 'application/json' },
+    const res = await fetch(buildExxasUrl(config.baseUrl, '/api/v2/contacts'), {
+      headers: getHeaders(config, { includeContentType: false }),
       signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) {
@@ -518,7 +615,8 @@ const exxasCustomerCache = new Map();
  * Gibt { customer, error } zurück.
  */
 async function getCustomer(customerId) {
-  if (!EXXAS_TOKEN) return { customer: null, error: 'EXXAS_API_TOKEN nicht gesetzt' };
+  const config = await getExxasRuntimeConfig();
+  if (!hasExxasApiKey(config)) return { customer: null, error: getMissingExxasTokenError() };
   const key = String(customerId || '').trim();
   if (!key) return { customer: null, error: 'Keine Kunden-ID' };
   const hit = exxasCustomerCache.get(key);
@@ -527,8 +625,8 @@ async function getCustomer(customerId) {
     return { customer: hit.customer, error: hit.error };
   }
   try {
-    const res = await fetch(`${EXXAS_BASE}/api/v2/customers/${encodeURIComponent(key)}`, {
-      headers: { Authorization: `ApiKey ${EXXAS_TOKEN}`, Accept: 'application/json' },
+    const res = await fetch(buildExxasUrl(config.baseUrl, `/api/v2/customers/${encodeURIComponent(key)}`), {
+      headers: getHeaders(config, { includeContentType: false }),
       signal: AbortSignal.timeout(8000),
     });
     if (!res.ok) {
