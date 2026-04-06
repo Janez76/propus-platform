@@ -141,7 +141,7 @@ export function ThankYouScreen({ lang }: { lang: Lang }) {
   const displayName = [billing.first_name, billing.name].filter(Boolean).join(" ") || billing.company || email;
 
   return (
-    <div data-testid="booking-thank-you" className="mx-auto max-w-lg py-16 text-center">
+    <div id="print-root" data-testid="booking-thank-you" className="mx-auto max-w-lg py-16 text-center">
       <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-900/20">
         <CheckCircle className="h-10 w-10 text-emerald-500" />
       </div>
@@ -187,9 +187,9 @@ export function ThankYouScreen({ lang }: { lang: Lang }) {
         </div>
       </div>
 
-      {hasValidEmail && <AccountCard lang={lang} email={email} name={displayName} />}
+      <div className="no-print">{hasValidEmail && <AccountCard lang={lang} email={email} name={displayName} />}</div>
 
-      <div className="mt-8 flex justify-center gap-3">
+      <div className="no-print mt-8 flex justify-center gap-3">
         <button
           type="button"
           onClick={() => window.print()}

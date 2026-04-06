@@ -769,6 +769,9 @@ html.dark .auth-error {
     width: 100%;
   }
 
+  /* Elemente die nie gedruckt werden sollen */
+  .no-print, .no-print * { visibility: hidden !important; }
+
   /* Nur Shell-Teile ausblenden, nicht wild mit sticky/fixed matchen */
   [data-sidebar], [data-topbar], [data-bottomnav],
   .app-shell, .sidebar, .topbar, .bottom-nav {
