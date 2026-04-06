@@ -1,6 +1,6 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { RefreshCw, Search, Download, Archive, Pencil, Trash2 } from "lucide-react";
+import { RefreshCw, Search, Download, Archive, Pencil, Trash2, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import {
   getAdminInvoicesCentral,
   importExxasAdminInvoice,
@@ -27,6 +27,26 @@ const SYNC_FILTERS = [
   { val: "bezahlt", label: "Bezahlt" },
 ];
 
+type SortKey = "kunde_name" | "nummer" | "bezeichnung" | "exxas_status" | "sv_status" | "preis_brutto" | "zahlungstermin";
+type SortDir = "asc" | "desc";
+
+function getSortValue(row: InvoiceRow, key: SortKey): string | number {
+  if (key === "preis_brutto") {
+    const v = parseFloat(String(row.preis_brutto ?? ""));
+    return Number.isFinite(v) ? v : 0;
+  }
+  if (key === "zahlungstermin") {
+    const d = row.zahlungstermin ? new Date(String(row.zahlungstermin)).getTime() : 0;
+    return Number.isFinite(d) ? d : 0;
+  }
+  return String(row[key] ?? "").toLowerCase();
+}
+
+function SortIcon({ colKey, sortKey, sortDir }: { colKey: SortKey; sortKey: SortKey | null; sortDir: SortDir }) {
+  if (sortKey !== colKey) return <ChevronsUpDown className="h-3 w-3 opacity-30" />;
+  return sortDir === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />;
+}
+
 export function AdminExxasSyncPage() {
   const [status, setStatus] = useState("");
   const [search, setSearch] = useState("");
@@ -38,6 +58,8 @@ export function AdminExxasSyncPage() {
   const [actionErr, setActionErr] = useState<string | null>(null);
   const [busyActionKey, setBusyActionKey] = useState<string | null>(null);
   const [editingInvoice, setEditingInvoice] = useState<EditingInvoice>(null);
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   const qk = adminInvoicesCentralQueryKey("exxas", status, search);
   const queryFn = useCallback(
@@ -46,8 +68,28 @@ export function AdminExxasSyncPage() {
   );
   const { data, loading, error, refetch } = useQuery(qk, queryFn, { staleTime: 30_000 });
 
-  const invoices = (data?.invoices ?? []) as InvoiceRow[];
+  const rawInvoices = (data?.invoices ?? []) as InvoiceRow[];
   const stats = (data?.stats as Record<string, number>) ?? {};
+
+  const invoices = useMemo(() => {
+    if (!sortKey) return rawInvoices;
+    return [...rawInvoices].sort((a, b) => {
+      const av = getSortValue(a, sortKey);
+      const bv = getSortValue(b, sortKey);
+      if (av < bv) return sortDir === "asc" ? -1 : 1;
+      if (av > bv) return sortDir === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [rawInvoices, sortKey, sortDir]);
+
+  function handleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }
 
   const totalBrutto = invoices.reduce((sum, row) => {
     const v = typeof row.preis_brutto === "number" ? row.preis_brutto : parseFloat(String(row.preis_brutto ?? ""));
@@ -272,13 +314,29 @@ export function AdminExxasSyncPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-[var(--text-subtle)] border-b border-[var(--border-soft)]">
-                <th className="px-4 py-3">Kunde</th>
-                <th className="px-4 py-3">Nr.</th>
-                <th className="px-4 py-3">Bezeichnung</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Zahlungsstatus</th>
-                <th className="px-4 py-3">Brutto</th>
-                <th className="px-4 py-3">Zahlungstermin</th>
+                {(["kunde_name", "nummer", "bezeichnung", "exxas_status", "sv_status", "preis_brutto", "zahlungstermin"] as SortKey[]).map((col, i) => {
+                  const labels: Record<SortKey, string> = {
+                    kunde_name: "Kunde",
+                    nummer: "Nr.",
+                    bezeichnung: "Bezeichnung",
+                    exxas_status: "Status",
+                    sv_status: "Zahlungsstatus",
+                    preis_brutto: "Brutto",
+                    zahlungstermin: "Zahlungstermin",
+                  };
+                  return (
+                    <th key={col} className={`px-4 py-3 ${i === 0 ? "" : ""}`}>
+                      <button
+                        type="button"
+                        onClick={() => handleSort(col)}
+                        className="inline-flex items-center gap-1 hover:text-[var(--text-main)] transition-colors select-none"
+                      >
+                        {labels[col]}
+                        <SortIcon colKey={col} sortKey={sortKey} sortDir={sortDir} />
+                      </button>
+                    </th>
+                  );
+                })}
                 <th className="px-4 py-3">Tour</th>
                 <th className="px-4 py-3 text-right">Aktionen</th>
               </tr>
