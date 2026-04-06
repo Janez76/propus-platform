@@ -161,10 +161,7 @@ jobs:
             /tmp/propus-platform.current.env.vps \
             /tmp/propus-platform.env.vps
 
-      - name: Upload deploy archive
-        run: |
-          scp -i ~/.ssh/id_ed25519_propus_vps "/tmp/propus-platform-${GITHUB_SHA}.tar.gz" \
-            root@${{ secrets.VPS_HOST }}:"/tmp/propus-platform-${GITHUB_SHA}.tar.gz"
+      # Deploy-Archiv: Upload nur im Schritt „Deploy to VPS“ (upload_archive vor jedem Versuch inkl. Retry)
 
       - name: Upload VPS env file
         run: |
