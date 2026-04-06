@@ -47,6 +47,7 @@ function formatSentAt(value: unknown): string {
       day: "2-digit",
       hour: "2-digit",
       minute: "2-digit",
+      second: "2-digit",
       hour12: false,
     }).format(d);
   } catch {
@@ -55,7 +56,8 @@ function formatSentAt(value: unknown): string {
     const yr = d.getFullYear();
     const hr = String(d.getHours()).padStart(2, "0");
     const mi = String(d.getMinutes()).padStart(2, "0");
-    return `${day}.${mon}.${yr} ${hr}:${mi}`;
+    const sec = String(d.getSeconds()).padStart(2, "0");
+    return `${day}.${mon}.${yr} ${hr}:${mi}:${sec}`;
   }
 }
 
@@ -91,70 +93,70 @@ export function OrderEmailLog({ token, orderNo }: Props) {
   }, [load]);
 
   return (
-    <div className="rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-        <div className="flex items-center gap-2 text-sm font-medium text-white/90">
-          <Mail size={15} className="text-white/50" />
+    <div className="surface-card overflow-hidden">
+      <div className="flex items-center justify-between border-b border-[var(--border-soft)] px-4 py-3">
+        <div className="flex items-center gap-2 text-sm font-medium p-text-main">
+          <Mail size={15} className="shrink-0 p-text-muted" aria-hidden />
           {t(language, "emailLog.title")}
           {entries.length > 0 && (
-            <span className="text-xs text-white/40 font-normal">({entries.length})</span>
+            <span className="p-text-subtle text-xs font-normal">({entries.length})</span>
           )}
         </div>
         <button
           type="button"
           onClick={load}
           disabled={loading}
-          className="p-1 rounded hover:bg-white/10 transition-colors text-white/50 hover:text-white/80 disabled:opacity-40"
+          className="rounded p-1 transition-colors p-text-muted hover:bg-[var(--accent-subtle)] hover:text-[var(--text-main)] disabled:opacity-40"
           title="Aktualisieren"
         >
           <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
         </button>
       </div>
 
-      <div className="divide-y divide-white/5">
+      <div className="divide-y divide-[var(--border-soft)]">
         {loading && entries.length === 0 && (
-          <div className="px-4 py-6 text-center text-sm text-white/40">
-            <RefreshCw size={14} className="animate-spin inline-block mr-2" />
+          <div className="px-4 py-6 text-center text-sm p-text-muted">
+            <RefreshCw size={14} className="mr-2 inline-block animate-spin" />
             Wird geladen…
           </div>
         )}
 
         {error && (
-          <div className="px-4 py-3 text-sm text-red-400">{error}</div>
+          <div className="px-4 py-3 text-sm text-red-700 dark:text-red-400">{error}</div>
         )}
 
         {!loading && !error && entries.length === 0 && (
-          <div className="px-4 py-6 text-center text-sm text-white/40">
+          <div className="px-4 py-6 text-center text-sm p-text-muted">
             {availability === "no_db" ? t(language, "emailLog.empty.noDb") : t(language, "emailLog.empty")}
           </div>
         )}
 
         {entries.map((entry) => (
           <div key={entry.id} className="flex items-start gap-3 px-4 py-3">
-            <div className="mt-0.5 shrink-0 w-7 h-7 rounded-full bg-white/8 flex items-center justify-center">
-              <Mail size={12} className="text-white/50" />
+            <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--accent-subtle)]">
+              <Mail size={12} className="text-[var(--accent)]" aria-hidden />
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-baseline gap-2 flex-wrap">
-                <span className="text-sm font-medium text-white/85">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-baseline gap-2">
+                <span className="text-sm font-medium p-text-main">
                   {templateLabel(entry.template_key)}
                 </span>
                 {entry.template_language && (
-                  <span className="text-xs text-white/35 uppercase tracking-wide">
+                  <span className="p-text-subtle text-xs uppercase tracking-wide">
                     {entry.template_language}
                   </span>
                 )}
               </div>
-              <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
-                <span className="text-xs text-white/45 truncate max-w-[220px]">
+              <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                <span className="max-w-[220px] truncate text-xs p-text-muted">
                   {entry.recipient}
                 </span>
               </div>
-              <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
-                <span className="text-xs text-white/45">
+              <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                <span className="text-xs p-text-muted">
                   {t(language, "emailLog.label.sentAt")}:
                 </span>
-                <span className="text-xs font-medium text-[var(--accent)] shrink-0">
+                <span className="shrink-0 text-xs font-semibold tabular-nums text-[var(--accent)]">
                   {formatSentAt((entry as OrderEmailLogEntry & { sentAt?: unknown }).sent_at ?? (entry as OrderEmailLogEntry & { sentAt?: unknown }).sentAt)}
                 </span>
               </div>

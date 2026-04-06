@@ -449,7 +449,7 @@ async function sendAttendeeNotifications(pool, order, statusForKey, sendMail) {
     try {
       const insertResult = await pool.query(
         `INSERT INTO email_send_log (idempotency_key, template_key, recipient, order_no, sent_at)
-         VALUES ($1,$2,$3,$4,NOW())
+         VALUES ($1,$2,$3,$4,clock_timestamp())
          ON CONFLICT (idempotency_key) DO NOTHING
          RETURNING idempotency_key`,
         [idempKey, "attendee_notification", email, order.orderNo || order.order_no]
@@ -599,8 +599,8 @@ async function sendMailIdempotent(pool, templateKey, recipient, orderNo, vars, s
   // Log-Eintrag VOR Versand (atomar via RETURNING fuer Race-Condition-Schutz)
   try {
     const insertResult = await pool.query(
-      `INSERT INTO email_send_log (idempotency_key, order_no, template_key, recipient, template_language)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO email_send_log (idempotency_key, order_no, template_key, recipient, template_language, sent_at)
+       VALUES ($1, $2, $3, $4, $5, clock_timestamp())
        ON CONFLICT (idempotency_key) DO NOTHING
        RETURNING idempotency_key`,
       [idempotencyKey, orderNo || null, templateKey, recipient, usedLanguage]

@@ -417,9 +417,23 @@ async function linkExistingOrderFolder(order, db, { folderType, relativePath, re
     const expectedAbsolutePath = path.resolve(def.absolutePath);
     const currentAbsolutePath = path.resolve(absolutePath);
     if (currentAbsolutePath !== expectedAbsolutePath) {
+      // Nach Provisioning existiert der kanonische Pfad oft schon (nur leere Unterordner).
+      // Dann waere rename blockiert — leeren Platzhalter entfernen, damit der gewaehlte Ordner umbenannt werden kann.
       if (fs.existsSync(expectedAbsolutePath)) {
-        renameWarning = `Zielordner existiert bereits: ${expectedAbsolutePath} – Ordner nicht umbenannt.`;
-      } else {
+        const hasFiles = walkFilesRecursive(expectedAbsolutePath).length > 0;
+        if (!hasFiles) {
+          try {
+            fs.rmSync(expectedAbsolutePath, { recursive: true, force: true });
+          } catch (err) {
+            renameWarning = `Leerer Zielordner (Provisioning) konnte nicht entfernt werden: ${err.message}`;
+          }
+        }
+      }
+      if (fs.existsSync(expectedAbsolutePath)) {
+        if (!renameWarning) {
+          renameWarning = `Zielordner existiert bereits: ${expectedAbsolutePath} – Ordner nicht umbenannt.`;
+        }
+      } else if (!renameWarning) {
         try {
           renameWarning = moveDirectoryWithFallback(currentAbsolutePath, expectedAbsolutePath, rootPath);
           nextAbsolutePath = expectedAbsolutePath;
