@@ -818,10 +818,11 @@ export function TourMatterportSection({ tourId, tour, mpVisibility, onSuccess, p
                 <p className="text-xs text-amber-700 dark:text-amber-400">
                   Die QR-Rechnung wird per E-Mail an den Kunden gesendet und ist{" "}
                   <strong>innerhalb von 14 Tagen</strong> zu bezahlen.
-                  Der Matterport-Space wird erst nach <strong>verbuchter Zahlung</strong> aktiviert.
+                  Der Matterport-Space wird <strong>sofort aktiviert</strong>.
                 </p>
                 <p className="text-xs text-amber-700 dark:text-amber-400">
                   Diese Aktion kann <strong>nicht rückgängig</strong> gemacht werden.
+                  Bei offener Rechnung nach <strong>30 Tagen</strong> wird die Tour automatisch archiviert.
                 </p>
               </div>
             ) : (

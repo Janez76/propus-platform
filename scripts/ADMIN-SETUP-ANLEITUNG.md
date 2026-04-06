@@ -28,7 +28,6 @@ ADMIN_PASS=Zuerich8038!
 ADMIN_EMAIL=js@propus.ch
 ADMIN_NAME=Janez
 ADMIN_ROLE=super_admin
-ADMIN_BOOTSTRAP_SYNC_PASSWORD=true
 ```
 
 ### Schritt 2: Platform neu starten
@@ -40,14 +39,11 @@ docker compose restart platform
 ```bash
 docker compose logs platform --tail=30 | grep -i "admin_users\|boot"
 ```
-Erwartet: `[boot] admin_users angelegt: janez` oder `Passwort synchronisiert: janez`
+Erwartet: `[boot] admin_users angelegt: janez` oder `Stammdaten aktualisiert: janez`
 
-### Schritt 4: Sync-Passwort deaktivieren (Sicherheit)
-Nach erfolgreichem Setup in `.env.vps`:
-```env
-ADMIN_BOOTSTRAP_SYNC_PASSWORD=false
-```
-Dann: `docker compose restart platform`
+### Schritt 4: Hinweis zu Passwort-Aenderungen
+Fuer bestehende Eintraege wird das Passwort **nicht** aus `ADMIN_PASS` ueberschrieben.
+Passwort-Aenderungen bitte direkt in `admin_users` oder ueber das interne Admin-Tool ausfuehren.
 
 ---
 
@@ -107,4 +103,4 @@ bash scripts/vps-setup-admin.sh
 
 1. Passwort ändern unter: Einstellungen → Benutzerkonto
 2. Weitere Admin-Benutzer anlegen unter: /settings/access → Intern → Neuer Benutzer
-3. `ADMIN_SETUP_TOKEN` und `ADMIN_BOOTSTRAP_SYNC_PASSWORD` aus `.env.vps` entfernen
+3. `ADMIN_SETUP_TOKEN` nach dem Setup aus `.env.vps` entfernen

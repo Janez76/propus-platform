@@ -6,6 +6,7 @@ const {
   sanitizeUploadFilename,
   sanitizePathSegment,
   checkUploadExtension,
+  buildStoredUploadName,
   normalizeUploadMode,
   sanitizeUploadComment,
   sha256File,
@@ -14,6 +15,7 @@ const {
   provisionOrderFolders,
   createUniqueBatchDir,
   findDuplicateInTarget,
+  resolveCategoryPath,
   writeCommentFile,
 } = require("./order-storage");
 
@@ -31,6 +33,19 @@ const logWarn = (msg, err) => console.warn("[upload-batch]", msg, err?.message |
 function buildBatchId(orderNo) {
   const random = crypto.randomBytes(4).toString("hex");
   return `upl_${String(orderNo)}_${Date.now()}_${random}`;
+}
+
+function makeUniqueFileName(fileName, usedNames) {
+  const ext = path.extname(String(fileName || ""));
+  const base = path.basename(String(fileName || ""), ext);
+  let candidate = fileName;
+  let index = 2;
+  while (usedNames.has(candidate.toLowerCase())) {
+    candidate = `${base}-${index}${ext}`;
+    index += 1;
+  }
+  usedNames.add(candidate.toLowerCase());
+  return candidate;
 }
 
 function normalizeBatchInput({
@@ -199,9 +214,11 @@ async function stageUploadBatch({
   const batchDir = createStagingBatchDir(batchId);
   const stagedFiles = [];
   let totalBytes = 0;
+  const usedStoredNames = new Set();
 
   for (const file of safeFiles) {
-    const safeName = sanitizeUploadFilename(file?.originalname);
+    const desiredName = buildStoredUploadName(order, normalized.categoryKey, file?.originalname);
+    const safeName = makeUniqueFileName(sanitizeUploadFilename(desiredName), usedStoredNames);
     const sourcePath = file?.path || null;
     const targetPath = path.join(batchDir, safeName);
     if (sourcePath && fs.existsSync(sourcePath)) {
@@ -272,13 +289,15 @@ async function stageUploadBatchFromPaths({
   const batchDir = createStagingBatchDir(batchId);
   const stagedFiles = [];
   let totalBytes = 0;
+  const usedStoredNames = new Set();
 
   for (const file of safeFiles) {
     const sourcePath = String(file?.path || "").trim();
     if (!sourcePath || !fs.existsSync(sourcePath)) {
       throw new Error(`Staging-Datei fehlt: ${sourcePath || "(leer)"}`);
     }
-    const safeName = sanitizeUploadFilename(file?.originalName || path.basename(sourcePath));
+    const desiredName = buildStoredUploadName(order, normalized.categoryKey, file?.originalName || path.basename(sourcePath));
+    const safeName = makeUniqueFileName(sanitizeUploadFilename(desiredName), usedStoredNames);
     const targetPath = path.join(batchDir, safeName);
     fs.copyFileSync(sourcePath, targetPath);
     try {
@@ -340,7 +359,7 @@ async function transferBatch(db, batchId, deps) {
 
     const categoryPath = UPLOAD_CATEGORY_MAP[String(batch.category || "")];
     if (!categoryPath) throw new Error("Ungültige Upload-Kategorie");
-    const categoryDir = path.join(folderLink.absolute_path, categoryPath);
+    const categoryDir = resolveCategoryPath(folderLink.absolute_path, String(batch.category || ""), { createMissing: true });
     fs.mkdirSync(categoryDir, { recursive: true });
 
     let targetDir = categoryDir;

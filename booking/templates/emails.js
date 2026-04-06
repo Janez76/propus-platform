@@ -1054,6 +1054,43 @@ function buildCustomerEmail(data, lang = "de"){
   const t = getMailT(lang);
   const langKey = normalizeLang(lang);
   const isProvisional = !!data.isProvisional;
+  const isConfirmationPending = !!data.confirmationPending;
+  const confirmationPendingCopy = {
+    de: {
+      heading: (no) => `Buchungseingang${no ? " #" + no : ""}`,
+      subject: (no) => `Propus \u2013 Buchungseingang${no ? " #" + no : ""}`,
+      intro: "Vielen Dank fuer Ihre Buchung bei Propus. Bitte bestaetigen Sie den Termin ueber den Link in der separaten Mail.",
+      badge: "Bestätigung ausstehend",
+      badgeColor: "linear-gradient(135deg,#f59e0b,#d97706)",
+    },
+    en: {
+      heading: (no) => `Booking Received${no ? " #" + no : ""}`,
+      subject: (no) => `Propus \u2013 Booking Received${no ? " #" + no : ""}`,
+      intro: "Thank you for your booking with Propus. Please confirm your appointment via the link in the separate email.",
+      badge: "Confirmation pending",
+      badgeColor: "linear-gradient(135deg,#f59e0b,#d97706)",
+    },
+    fr: {
+      heading: (no) => `Demande de reservation${no ? " #" + no : ""}`,
+      subject: (no) => `Propus \u2013 Demande de reservation${no ? " #" + no : ""}`,
+      intro: "Merci pour votre reservation chez Propus. Veuillez confirmer votre rendez-vous via le lien dans l'e-mail separe.",
+      badge: "Confirmation en attente",
+      badgeColor: "linear-gradient(135deg,#f59e0b,#d97706)",
+    },
+    it: {
+      heading: (no) => `Prenotazione ricevuta${no ? " #" + no : ""}`,
+      subject: (no) => `Propus \u2013 Prenotazione ricevuta${no ? " #" + no : ""}`,
+      intro: "Grazie per la sua prenotazione con Propus. Confermi l'appuntamento tramite il link nell'e-mail separata.",
+      badge: "Conferma in attesa",
+      badgeColor: "linear-gradient(135deg,#f59e0b,#d97706)",
+    },
+  }[langKey] || {
+    heading: (no) => `Buchungseingang${no ? " #" + no : ""}`,
+    subject: (no) => `Propus \u2013 Buchungseingang${no ? " #" + no : ""}`,
+    intro: "Vielen Dank fuer Ihre Buchung bei Propus. Bitte bestaetigen Sie den Termin ueber den Link in der separaten Mail.",
+    badge: "Bestätigung ausstehend",
+    badgeColor: "linear-gradient(135deg,#f59e0b,#d97706)",
+  };
   const provisionalCustomerCopy = {
     de: {
       heading: (no) => `Provisorische Buchung${no ? " #" + no : ""}`,
@@ -1086,8 +1123,10 @@ function buildCustomerEmail(data, lang = "de"){
     badge: "Provisorisch reserviert",
   };
   const price = pricingBlock(data, lang);
-  const confirmationBadgeLabel = isProvisional ? provisionalCustomerCopy.badge : t.customerBooking.confirmedBadge;
-  const confirmationBadge = `<div style="display:inline-block;background:linear-gradient(135deg,#10b981,#059669);color:#fff;padding:6px 14px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:0.5px;margin-bottom:24px;text-transform:uppercase">${confirmationBadgeLabel}</div>`;
+  const activeCopy = isConfirmationPending ? confirmationPendingCopy : (isProvisional ? provisionalCustomerCopy : null);
+  const confirmationBadgeLabel = activeCopy ? activeCopy.badge : t.customerBooking.confirmedBadge;
+  const badgeBg = activeCopy?.badgeColor || "linear-gradient(135deg,#10b981,#059669)";
+  const confirmationBadge = `<div style="display:inline-block;background:${badgeBg};color:#fff;padding:6px 14px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:0.5px;margin-bottom:24px;text-transform:uppercase">${confirmationBadgeLabel}</div>`;
 
   const addressStr = data.billing?.street
     ? [data.billing.street, data.billing.zipcity].filter(Boolean).join(", ")
@@ -1114,10 +1153,12 @@ function buildCustomerEmail(data, lang = "de"){
   </table>
 </div>`;
 
+  const emailHeading = activeCopy ? activeCopy.heading(data.orderNo) : t.customerBooking.heading(data.orderNo);
+  const emailIntro = activeCopy ? activeCopy.intro : t.customerBooking.intro;
   const html = buildMailHtml({
     lang,
-    heading: isProvisional ? provisionalCustomerCopy.heading(data.orderNo) : t.customerBooking.heading(data.orderNo),
-    intro:   confirmationBadge + `<p style="margin:16px 0 0;font-size:15px;color:#6b7280;line-height:1.65">${isProvisional ? provisionalCustomerCopy.intro : t.customerBooking.intro}</p>`,
+    heading: emailHeading,
+    intro:   confirmationBadge + `<p style="margin:16px 0 0;font-size:15px;color:#6b7280;line-height:1.65">${emailIntro}</p>`,
     sections: [
       keyBlock,
       ctaButtons.length ? `<div style="margin:20px 0">${ctaButtons.join("")}</div>` : null,
@@ -1137,7 +1178,8 @@ function buildCustomerEmail(data, lang = "de"){
     ],
     footer: t.customerBooking.footer
   });
-  return out(isProvisional ? provisionalCustomerCopy.subject(data.orderNo) : t.customerBooking.subject(data.orderNo), html);
+  const emailSubject = activeCopy ? activeCopy.subject(data.orderNo) : t.customerBooking.subject(data.orderNo);
+  return out(emailSubject, html);
 }
 
 // ─── Buchungsbestätigung Fotograf ─────────────────────────────────────────────

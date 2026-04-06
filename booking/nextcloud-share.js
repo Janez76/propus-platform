@@ -5,27 +5,47 @@
  * Voraussetzung: NEXTCLOUD_URL, NEXTCLOUD_USER, NEXTCLOUD_PASS sind gesetzt.
  */
 
-const NC_URL = (process.env.NEXTCLOUD_URL || "").replace(/\/$/, "");
-const NC_USER = process.env.NEXTCLOUD_USER || "";
-const NC_PASS = process.env.NEXTCLOUD_PASS || "";
+const NEXTCLOUD_CONFIG_ERROR = "Nextcloud nicht konfiguriert (NEXTCLOUD_URL, NEXTCLOUD_USER, NEXTCLOUD_PASS fehlen)";
+
+function readEnv(name) {
+  const value = String(process.env[name] || "").trim();
+  if (!value) return "";
+  if (value === "-" || /^null$/i.test(value) || /^undefined$/i.test(value)) return "";
+  return value;
+}
+
+function getNextcloudConfig() {
+  return {
+    url: readEnv("NEXTCLOUD_URL").replace(/\/$/, ""),
+    user: readEnv("NEXTCLOUD_USER"),
+    pass: readEnv("NEXTCLOUD_PASS"),
+    customerFolderPath: readEnv("NEXTCLOUD_CUSTOMER_FOLDER_PATH").replace(/\/$/, ""),
+  };
+}
 
 function isNextcloudConfigured() {
-  return Boolean(NC_URL && NC_USER && NC_PASS);
+  const { url, user, pass } = getNextcloudConfig();
+  return Boolean(url && user && pass);
+}
+
+function getNextcloudConfigError() {
+  return NEXTCLOUD_CONFIG_ERROR;
 }
 
 async function createNextcloudShare(ncPath) {
+  const { url, user, pass } = getNextcloudConfig();
   if (!isNextcloudConfigured()) {
-    throw new Error("Nextcloud nicht konfiguriert (NEXTCLOUD_URL, NEXTCLOUD_USER, NEXTCLOUD_PASS fehlen)");
+    throw new Error(getNextcloudConfigError());
   }
 
-  const endpoint = `${NC_URL}/ocs/v2.php/apps/files_sharing/api/v1/shares`;
+  const endpoint = `${url}/ocs/v2.php/apps/files_sharing/api/v1/shares`;
   const body = new URLSearchParams({
     path: ncPath,
     shareType: "3",
     permissions: "1",
   });
 
-  const auth = Buffer.from(`${NC_USER}:${NC_PASS}`).toString("base64");
+  const auth = Buffer.from(`${user}:${pass}`).toString("base64");
   const response = await fetch(endpoint, {
     method: "POST",
     headers: {
@@ -58,9 +78,10 @@ async function createNextcloudShare(ncPath) {
 
 async function deleteNextcloudShare(shareId) {
   if (!isNextcloudConfigured()) return;
+  const { url, user, pass } = getNextcloudConfig();
 
-  const endpoint = `${NC_URL}/ocs/v2.php/apps/files_sharing/api/v1/shares/${shareId}`;
-  const auth = Buffer.from(`${NC_USER}:${NC_PASS}`).toString("base64");
+  const endpoint = `${url}/ocs/v2.php/apps/files_sharing/api/v1/shares/${shareId}`;
+  const auth = Buffer.from(`${user}:${pass}`).toString("base64");
   const response = await fetch(endpoint, {
     method: "DELETE",
     headers: {
@@ -78,14 +99,16 @@ async function deleteNextcloudShare(shareId) {
 }
 
 function buildNextcloudPath(relativePath) {
-  const base = (process.env.NEXTCLOUD_CUSTOMER_FOLDER_PATH || "").replace(/\/$/, "");
+  const { customerFolderPath } = getNextcloudConfig();
   const rel = String(relativePath || "")
     .replace(/\\/g, "/")
     .replace(/^\//, "");
-  return base ? `${base}/${rel}` : `/${rel}`;
+  return customerFolderPath ? `${customerFolderPath}/${rel}` : `/${rel}`;
 }
 
 module.exports = {
+  getNextcloudConfig,
+  getNextcloudConfigError,
   isNextcloudConfigured,
   createNextcloudShare,
   deleteNextcloudShare,

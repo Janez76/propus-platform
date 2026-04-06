@@ -291,6 +291,70 @@ router.post('/cron/check-payments', async (req, res) => {
   res.json({ processed: r.rows.length, changed: ok, batchLimit });
 });
 
+router.post('/cron/remind-unpaid-qr', async (req, res) => {
+  const automation = await getAutomationSettings();
+  if (!automation.paymentCheckEnabled) {
+    return res.json({ processed: 0, sent: 0, errors: 0, skipped: true, reason: 'paymentCheckEnabled=false' });
+  }
+  // Findet überfällige QR-Rechnungen (due_at überschritten, noch nicht bezahlt),
+  // für die noch keine Zahlungserinnerung versendet wurde und die Tour noch aktiv ist
+  const r = await pool.query(
+    `SELECT DISTINCT ON (t.id) t.id, ri.id AS invoice_id
+     FROM tour_manager.tours t
+     JOIN tour_manager.renewal_invoices ri ON ri.tour_id = t.id
+     WHERE ri.payment_source = 'qr_pending'
+       AND ri.invoice_status IN ('sent', 'overdue')
+       AND ri.due_at < NOW()
+       AND ri.sent_at >= NOW() - INTERVAL '30 days'
+       AND t.status NOT IN ('ARCHIVED', 'CUSTOMER_DECLINED')
+       AND NOT EXISTS (
+         SELECT 1 FROM tour_manager.outgoing_emails oe
+         WHERE oe.tour_id = t.id
+           AND oe.template_key = 'invoice_overdue_reminder'
+       )`
+  );
+  let sent = 0;
+  let err = 0;
+  for (const row of r.rows) {
+    try {
+      await tourActions.sendInvoiceOverdueReminderEmail(String(row.id), row.invoice_id);
+      sent++;
+    } catch (e) {
+      err++;
+      console.error('remind-unpaid-qr', row.id, e.message);
+    }
+  }
+  res.json({ processed: r.rows.length, sent, errors: err });
+});
+
+router.post('/cron/archive-unpaid-qr', async (req, res) => {
+  const automation = await getAutomationSettings();
+  if (!automation.paymentCheckEnabled) {
+    return res.json({ processed: 0, archived: 0, errors: 0, skipped: true, reason: 'paymentCheckEnabled=false' });
+  }
+  const r = await pool.query(
+    `SELECT DISTINCT ON (t.id) t.id
+     FROM tour_manager.tours t
+     JOIN tour_manager.renewal_invoices ri ON ri.tour_id = t.id
+     WHERE ri.payment_source = 'qr_pending'
+       AND ri.invoice_status IN ('sent', 'overdue')
+       AND ri.sent_at < NOW() - INTERVAL '30 days'
+       AND t.status NOT IN ('ARCHIVED', 'CUSTOMER_DECLINED')`
+  );
+  let archived = 0;
+  let err = 0;
+  for (const row of r.rows) {
+    try {
+      await tourActions.archiveTourNow(String(row.id), 'system');
+      archived++;
+    } catch (e) {
+      err++;
+      console.error('archive-unpaid-qr', row.id, e.message);
+    }
+  }
+  res.json({ processed: r.rows.length, archived, errors: err });
+});
+
 router.post('/cron/archive-expired', async (req, res) => {
   const automation = await getAutomationSettings();
   if (!automation.expiryPolicyEnabled) {

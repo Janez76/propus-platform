@@ -169,6 +169,7 @@ Wie `buildCustomerEmail`, zusätzlich:
 | `archive_notice` | Archivierungs-Mitteilung | Tour archiviert | aktiv |
 | `expiry_reminder` | Ablauf-Erinnerung | Kurzfristig vor Ablauf | aktiv |
 | `portal_invoice_sent` | Rechnung (QR) | Kunde wählt QR-Zahlung | aktiv |
+| `invoice_overdue_reminder` | Zahlungserinnerung | QR-Rechnung überfällig, Tour noch aktiv | vorbereitet |
 | `payment_failed` | Zahlung fehlgeschlagen | Payrexx abgebrochen/Fehler | vorbereitet |
 | `team_invite` | Team-Einladung | Neues Portal-Team-Mitglied | aktiv |
 

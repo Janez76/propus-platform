@@ -706,6 +706,18 @@ export const archiveOrderStorageFolder = (
     token,
   );
 
+export const createOrderNextcloudShare = (
+  token: string,
+  orderNo: string,
+  input: { folderType: "customer_folder" } = { folderType: "customer_folder" },
+) =>
+  apiRequest<{ ok: boolean; shareUrl: string; folders: OrderStorageFolderSummary[] }>(
+    `/api/admin/orders/${encodeURIComponent(orderNo)}/storage/nextcloud-share`,
+    "POST",
+    token,
+    input,
+  );
+
 export const getUploadBatch = (token: string, orderNo: string, batchId: string) =>
   apiRequest<{ ok: boolean; batch: OrderUploadBatch }>(
     `/api/admin/orders/${encodeURIComponent(orderNo)}/upload-batches/${encodeURIComponent(batchId)}`,

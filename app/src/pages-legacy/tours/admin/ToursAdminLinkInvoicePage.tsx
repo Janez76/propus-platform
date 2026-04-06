@@ -27,6 +27,34 @@ function formatMoney(v: unknown) {
   return `CHF ${n.toFixed(2)}`;
 }
 
+function exxasStatusMeta(row: Record<string, unknown>) {
+  const status = String(row.exxas_status ?? "").trim().toLowerCase();
+  const svStatus = String(row.sv_status ?? "").trim();
+  const labelMap: Record<string, string> = {
+    bz: "Bezahlt",
+    op: "Offen",
+    ex: "Exportiert",
+    ar: "Archiviert",
+    ab: "Abgeschlossen",
+  };
+  const label = svStatus || labelMap[status] || String(row.exxas_status ?? "—");
+  const dueRaw = String(row.zahlungstermin ?? "").trim();
+  const dueDate = dueRaw ? new Date(dueRaw) : null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const isPaid = status === "bz";
+  const isArchived = status === "ar" || status === "ab";
+  const isOverdue = !isPaid && !!dueDate && !Number.isNaN(dueDate.getTime()) && dueDate < today;
+  const cls = isPaid
+    ? "bg-green-500/10 text-green-700 border-green-500/20"
+    : isArchived
+      ? "bg-slate-500/10 text-slate-700 border-slate-500/20"
+      : isOverdue
+        ? "bg-red-500/10 text-red-700 border-red-500/20"
+        : "bg-yellow-500/10 text-yellow-700 border-yellow-500/20";
+  return { label: label || "—", cls };
+}
+
 export function ToursAdminLinkInvoicePage() {
   const { id } = useParams<{ id: string }>();
   const okId = id != null && id !== "" && /^\d+$/.test(id) ? id : null;
@@ -188,6 +216,7 @@ export function ToursAdminLinkInvoicePage() {
             <thead>
               <tr className="text-left text-[var(--text-subtle)] border-b border-[var(--border-soft)]">
                 <th className="px-4 py-2">Nummer</th>
+                <th className="px-4 py-2">Status</th>
                 <th className="px-4 py-2">Kunde / Bez.</th>
                 <th className="px-4 py-2">Betrag</th>
                 <th className="px-4 py-2">Zahlungstermin</th>
@@ -197,7 +226,7 @@ export function ToursAdminLinkInvoicePage() {
             <tbody>
               {invoices.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-6 text-[var(--text-subtle)]">
+                  <td colSpan={6} className="px-4 py-6 text-[var(--text-subtle)]">
                     Keine passenden, noch nicht verknüpften Rechnungen.
                   </td>
                 </tr>
@@ -206,6 +235,7 @@ export function ToursAdminLinkInvoicePage() {
                   const invId = String(row.link_id ?? row.id ?? "");
                   const busy = linkingId === invId;
                   const isLive = row.source === "live";
+                  const statusMeta = exxasStatusMeta(row);
                   return (
                     <tr key={invId} className="border-b border-[var(--border-soft)]/40">
                       <td className="px-4 py-2 font-mono text-xs">
@@ -219,8 +249,16 @@ export function ToursAdminLinkInvoicePage() {
                         </div>
                       </td>
                       <td className="px-4 py-2">
+                        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${statusMeta.cls}`}>
+                          {statusMeta.label}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2">
                         <div className="text-[var(--text-main)]">{String(row.kunde_name ?? "—")}</div>
                         <div className="text-xs text-[var(--text-subtle)]">{String(row.bezeichnung ?? "")}</div>
+                        <div className="text-[10px] text-[var(--text-subtle)] mt-0.5">
+                          Dok.-Datum: {formatDate(row.dok_datum)}
+                        </div>
                       </td>
                       <td className="px-4 py-2">{formatMoney(row.betrag ?? row.preis_brutto)}</td>
                       <td className="px-4 py-2 text-xs text-[var(--text-subtle)]">{formatDate(row.zahlungstermin)}</td>

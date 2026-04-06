@@ -49,7 +49,6 @@ docker exec -e "ADMIN_USER=$ADMIN_USER" \
             -e "ADMIN_EMAIL=$ADMIN_EMAIL" \
             -e "ADMIN_NAME=$ADMIN_NAME" \
             -e "ADMIN_ROLE=$ADMIN_ROLE" \
-            -e "ADMIN_BOOTSTRAP_SYNC_PASSWORD=true" \
             "$CONTAINER" \
             node -e "
 const db = require('./booking/db');

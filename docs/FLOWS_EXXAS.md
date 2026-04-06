@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei Änderungen an Exxas-API-Calls, Scoring-Logik, Reconcile-Flow oder DB-Feldern dieses Dokument aktualisieren.
 
-*Zuletzt aktualisiert: April 2026 (Verweis zentrales Rechnungsmodul)*
+*Zuletzt aktualisiert: April 2026 (Verweis zentrales Rechnungsmodul + Inventory/Kundenanlagen-Entdeckung)*
 
 ---
 
@@ -15,6 +15,7 @@
 5. [Exxas-API-Funktionen](#5-exxas-api-funktionen)
 6. [Live-Linking von Rechnungen](#6-live-linking-von-rechnungen)
 7. [Exxas-Order-Sync (Buchungen)](#7-exxas-order-sync-buchungen)
+8. [Inventory / Kundenanlagen (Tour-Links)](#8-inventory--kundenanlagen-tour-links)
 
 ---
 
@@ -248,6 +249,84 @@ Body: { invoice_id }
 - Live-Treffer erhalten ein **`Live`**-Badge.
 - Bei Fehlern der Exxas-Liveabfrage wird `liveError` oberhalb der Tabelle angezeigt.
 - Verknüpft wird immer über `link_id`, nicht mehr nur über die lokale numerische DB-ID.
+
+---
+
+## 8. Inventory / Kundenanlagen (Tour-Links)
+
+**Entdeckt:** April 2026 durch direkte API-Erkundung
+
+### Was ist das?
+
+In Exxas heissen die **Kundenanlagen** (physische Objekte/Liegenschaften) intern **Inventory**. Jede Anlage entspricht einem Datensatz unter `/api/v2/inventory`. Über die Exxas-Oberfläche sind diese unter dem Kunden im Tab „Anlagen" (👑-Symbol, Tabs: Tourinformationen, Einstellungen, Aktivitäten, Abos, Historie) sichtbar.
+
+### API-Endpunkt
+
+```
+GET /cloud/{systemId}/api/v2/inventory
+GET /cloud/{systemId}/api/v2/inventory?limit=100&offset=0
+```
+
+> **Wichtig:** Dieser Endpunkt braucht die **System-ID** im Pfad (nicht nur den API-Key).  
+> System-ID Propus: `AEB09398B50466ED58A95AF1730D1C2D`  
+> Vollständige Base-URL: `https://api.exxas.net/cloud/AEB09398B50466ED58A95AF1730D1C2D/api/v2`
+
+Der Standard-`/api/v2/`-Pfad (ohne System-ID) reicht für diesen Endpunkt **nicht** aus.
+
+### Feld-Mapping (Inventory → Propus Tour)
+
+| Exxas-Feld | Bedeutung | Beispielwert |
+|---|---|---|
+| `id` | Exxas-Inventory-ID | `"124"` |
+| `titel` | Objektadresse (= Bezeichnung der Anlage) | `"Rautistrasse 6, 8804 Au ZH"` |
+| `optional1` | **Tour-Link / Matterport-URL** | `"https://my.matterport.com/show/?m=yiiMa5cb4F6"` |
+| `optional3` | Startdatum der Tour | `"19.08.2025."` |
+| `ref_kunde` | Exxas-Kunden-ID | `"1"` |
+| `ref_adresse` | Exxas-Adress-ID | `"1"` |
+| `status` | `ak` = aktiv | `"ak"` |
+| `lieferdatum` | Lieferdatum (Tour-Erstellungsdatum) | `"2025-08-27"` |
+
+> **Feld-Konvention:** `optional1` = Matterport/Tour-Link, `optional3` = Startdatum.  
+> Verträge (`/contracts`) verwenden ebenfalls `optional1` für Tour-Links im Format `https://tour.propusimmo.ch/tour/...`.
+
+### Authentifizierung
+
+Gleich wie überall: `Authorization: ApiKey {EXXAS_API_TOKEN}`
+
+Das Token (JWT) wird via `POST https://api.exxas.net/get-webToken` mit `{ user, password }` geholt oder als fester API-Key konfiguriert.
+
+### Konkretes Beispiel (Inventory-ID 124)
+
+```json
+{
+  "id": "124",
+  "titel": "Rautistrasse 6, 8804 Au ZH",
+  "optional1": "https://my.matterport.com/show/?m=yiiMa5cb4F6",
+  "optional3": "19.08.2025.",
+  "ref_kunde": "1",
+  "ref_adresse": "1",
+  "status": "ak",
+  "lieferdatum": "2025-08-27",
+  "rechnungsdatum": "2025-08-27"
+}
+```
+
+### Geplante Propus-Funktion (noch nicht implementiert)
+
+```js
+// tours/lib/exxas.js
+async function getInventoryByCustomer(exxasCustomerId) {
+  // GET /cloud/{systemId}/api/v2/inventory?ref_kunde={id}
+  // Gibt alle Anlagen eines Kunden zurück
+  // optional1 = Tour-Link, optional3 = Startdatum, titel = Objektadresse
+}
+
+async function getInventoryItem(inventoryId) {
+  // GET /cloud/{systemId}/api/v2/inventory/{id}
+}
+```
+
+> **Nächster Schritt:** Diese Funktion implementieren und den Tour-Link aus Exxas beim Sync in `tour_manager.tours.tour_link` (oder ähnlichem Feld) speichern.
 
 ---
 

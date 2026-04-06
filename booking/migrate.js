@@ -36,7 +36,7 @@ async function run() {
   if (boot?.created) {
     console.log("[migrate] admin_users Bootstrap:", boot.username, "(ADMIN_USER/ADMIN_PASS)");
   } else if (boot?.updated) {
-    console.log("[migrate] admin_users Passwort sync:", boot.username, "(ADMIN_BOOTSTRAP_SYNC_PASSWORD)");
+    console.log("[migrate] admin_users Stammdaten aktualisiert:", boot.username, "(ADMIN_USER/ADMIN_EMAIL/ADMIN_NAME/ADMIN_ROLE)");
   } else if (boot?.skipped && boot.reason) {
     console.log("[migrate] admin_users Bootstrap uebersprungen:", boot.reason, boot.username || "");
   }

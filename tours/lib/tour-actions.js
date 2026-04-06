@@ -620,6 +620,79 @@ async function sendInvoiceWithQrEmail(tourId, invoiceId) {
   return mailResult;
 }
 
+async function sendInvoiceOverdueReminderEmail(tourId, invoiceId) {
+  await ensureOutgoingEmailSchema();
+  const tourResult = await pool.query('SELECT * FROM tour_manager.tours WHERE id = $1', [tourId]);
+  const t = tourResult.rows[0];
+  if (!t) return { success: false, error: 'Tour nicht gefunden' };
+  const recipientEmail = (t.customer_email || '').trim().toLowerCase();
+  if (!recipientEmail) return { success: false, error: 'Tour hat keine Kunden-E-Mail' };
+
+  const invResult = await pool.query(
+    'SELECT * FROM tour_manager.renewal_invoices WHERE id = $1 AND tour_id = $2',
+    [invoiceId, tourId]
+  );
+  const inv = invResult.rows[0];
+  if (!inv) return { success: false, error: 'Rechnung nicht gefunden' };
+
+  const { REACTIVATION_PRICE_CHF } = require('./subscriptions');
+
+  const objectLabel = t.object_label || t.bezeichnung || `Tour ${t.id}`;
+  const customerGreeting = t.customer_contact ? `Guten Tag ${t.customer_contact},` : 'Guten Tag,';
+  const amountCHF = inv.amount_chf ? String(Number(inv.amount_chf).toFixed(2)) : '–';
+  const reactivationPriceCHF = String(Number(REACTIVATION_PRICE_CHF).toFixed(2));
+  const dueDate = inv.due_at ? new Date(inv.due_at) : null;
+  const dueDateFormatted = dueDate
+    ? dueDate.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    : '–';
+  const portalUrl = process.env.PORTAL_BASE_URL || process.env.ADMIN_PORTAL_BASE_URL || '';
+  const portalLinkHtml = portalUrl ? `<a href="${portalUrl}" style="color:#8c6d2b;font-weight:700;">${portalUrl}</a>` : '';
+  const portalLinkText = portalUrl || '';
+  const tourUrl = t.tour_url || (portalUrl ? `${portalUrl}/portal/tours/${t.id}` : '');
+  const tourLinkHtml = tourUrl ? `<a href="${tourUrl}" style="color:#4b5563;">${objectLabel}</a>` : objectLabel;
+  const tourLinkText = tourUrl ? `${objectLabel}: ${tourUrl}` : objectLabel;
+
+  const content = await resolveTemplateContent('invoice_overdue_reminder', {
+    objectLabel, customerGreeting, amountCHF, reactivationPriceCHF, dueDateFormatted,
+    tourLinkHtml, tourLinkText, portalLinkHtml, portalLinkText,
+  });
+
+  let mailResult = await sendGraphMailToCustomer(t, content);
+  if (!mailResult.success && getSmtpTransporter()) {
+    mailResult = await sendMailViaSmtp(recipientEmail, content.subject, content.html, content.text);
+    if (mailResult.success) {
+      mailResult.recipientEmail = recipientEmail;
+      mailResult.subject = content.subject;
+      mailResult.graphMessageId = null;
+      mailResult.conversationId = null;
+      mailResult.internetMessageId = null;
+    }
+  }
+
+  if (!mailResult.success) {
+    await logAction(parseInt(tourId, 10), 'system', 'cron', 'SEND_INVOICE_OVERDUE_REMINDER_FAILED', {
+      error: mailResult.error, invoiceId,
+    }).catch(() => null);
+    return mailResult;
+  }
+
+  await pool.query(
+    `INSERT INTO tour_manager.outgoing_emails (
+      tour_id, mailbox_upn, graph_message_id, internet_message_id, conversation_id,
+      recipient_email, subject, template_key, sent_at, details_json
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,'invoice_overdue_reminder',NOW(),$8::jsonb)`,
+    [
+      tourId, mailResult.mailboxUpn, mailResult.graphMessageId, mailResult.internetMessageId,
+      mailResult.conversationId, mailResult.recipientEmail, mailResult.subject,
+      JSON.stringify({ invoiceId }),
+    ]
+  );
+  await logAction(parseInt(tourId, 10), 'system', 'cron', 'SEND_INVOICE_OVERDUE_REMINDER', {
+    recipientEmail: mailResult.recipientEmail, invoiceId,
+  }).catch(() => null);
+  return { success: true, ...mailResult, templateKey: 'invoice_overdue_reminder' };
+}
+
 module.exports = {
   buildRenewalEmailContent,
   buildPaymentConfirmedEmailContent,
@@ -627,6 +700,7 @@ module.exports = {
   sendPaymentConfirmedEmail,
   sendArchiveNoticeEmail,
   sendInvoiceWithQrEmail,
+  sendInvoiceOverdueReminderEmail,
   checkPayment,
   declineTour,
   archiveTourNow,

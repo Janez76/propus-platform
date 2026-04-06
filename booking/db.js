@@ -1891,7 +1891,8 @@ async function getAdminUserById(adminUserId) {
 
 /**
  * Legt genau einen Admin an, wenn admin_users leer ist fuer diesen Usernamen (Docker/lokaler Erststart).
- * ADMIN_PASS muss mindestens 8 Zeichen haben (gleiche Policy wie customer-auth).
+ * Bei bestehenden Eintraegen werden nur Stammdaten gepflegt; Passwortaenderungen
+ * erfolgen bewusst nicht ueber Env-Sync.
  */
 async function bootstrapAdminUserFromEnvIfMissing() {
   if (!DATABASE_URL) return { skipped: true, reason: "no DATABASE_URL" };
@@ -1903,12 +1904,6 @@ async function bootstrapAdminUserFromEnvIfMissing() {
   const role = String(process.env.ADMIN_ROLE || "admin").trim();
 
   if (!username) return { skipped: true, reason: "empty ADMIN_USER" };
-  if (passwordPlain.length < 8) {
-    return {
-      skipped: true,
-      reason: "ADMIN_PASS zu kurz (mindestens 8 Zeichen, siehe customer-auth)",
-    };
-  }
 
   let existing;
   try {
@@ -1922,31 +1917,31 @@ async function bootstrapAdminUserFromEnvIfMissing() {
     return { skipped: true, reason: e?.message || "getAdminUser failed" };
   }
 
+  if (existing) {
+    // Bestehende Konten werden nur in ihren Stammdaten gepflegt.
+    await query(
+      `UPDATE admin_users
+       SET username = $1, email = $2, name = $3, role = $4,
+           active = TRUE, updated_at = NOW()
+       WHERE id = $5`,
+      [username, email, name, role, existing.id]
+    );
+    return { updated: true, username, email, role };
+  }
+
+  if (passwordPlain.length < 8) {
+    return {
+      skipped: true,
+      reason: "ADMIN_PASS zu kurz (mindestens 8 Zeichen, siehe customer-auth)",
+    };
+  }
+
   const customerAuth = require("./customer-auth");
   let hash;
   try {
     hash = await customerAuth.hashPassword(passwordPlain);
   } catch (e) {
     return { skipped: true, reason: e?.message || "hashPassword failed" };
-  }
-
-  const syncPw =
-    String(process.env.ADMIN_BOOTSTRAP_SYNC_PASSWORD || "").toLowerCase() === "true" ||
-    String(process.env.ADMIN_BOOTSTRAP_SYNC_PASSWORD || "") === "1";
-
-  if (existing) {
-    if (!syncPw) {
-      return { skipped: true, reason: "admin_users Eintrag existiert bereits", username };
-    }
-    // Vollständiges Update inkl. E-Mail, Name, Rolle und Passwort
-    await query(
-      `UPDATE admin_users
-       SET username = $1, email = $2, name = $3, role = $4,
-           password_hash = $5, active = TRUE, updated_at = NOW()
-       WHERE id = $6`,
-      [username, email, name, role, hash, existing.id]
-    );
-    return { updated: true, username, email, role };
   }
 
   try {

@@ -270,14 +270,16 @@ Gleicher Flow wie Portal-Reaktivierung, aber durch Admin ausgelöst (nicht Kunde
 ```
 Body: { paymentMethod: "qr_invoice" | "payrexx" }
   │
-  ├── UPDATE tours.status = 'CUSTOMER_ACCEPTED_AWAITING_PAYMENT'
-  │
   ├── [QR-Rechnung]:
-  │     ├── INSERT renewal_invoices (payment_source='qr_pending', invoice_kind='portal_reactivation')
-  │     ├── Loggt REACTIVATE_REQUESTED (via: qr_invoice)
+  │     ├── matterport.unarchiveSpace() → sofort aktivieren
+  │     ├── UPDATE tours.status = 'ACTIVE', matterport_state = 'active'
+  │     ├── INSERT renewal_invoices (payment_source='qr_pending', invoice_kind='portal_reactivation', due_at=+14 Tage)
+  │     ├── Loggt REACTIVATE_REQUESTED (via: qr_invoice, immediate_activation: true)
   │     └── sendInvoiceWithQrEmail() async
+  │           Offene Rechnung nach 30 Tagen → cron/archive-unpaid-qr archiviert Tour
   │
   └── [Payrexx]:
+        ├── UPDATE tours.status = 'CUSTOMER_ACCEPTED_AWAITING_PAYMENT'
         ├── payrexx.isConfigured()? → NEIN → 400 { error: 'Payrexx nicht konfiguriert – bitte QR-Rechnung wählen' }
         ├── INSERT renewal_invoices (payment_source='payrexx_pending', invoice_kind='portal_reactivation')
         ├── payrexx.createCheckout()
@@ -592,6 +594,8 @@ Zielbild Reminder (30 / 10 / 3 Tage) und Kulanzfristen: **[WORKFLOW_TOURS.md](./
 |---|---|
 | `POST /cron/send-expiring-soon` | Drei Reminder-Stufen (30/10/3 Tage), siehe oben |
 | `POST /cron/check-payments` | Offene Rechnungen prüfen, überfällige → `overdue` |
+| `POST /cron/remind-unpaid-qr` | Zahlungserinnerung bei überfälliger QR-Rechnung (einmalig, Template `invoice_overdue_reminder`) |
+| `POST /cron/archive-unpaid-qr` | QR-Rechnungen mit `payment_source='qr_pending'` älter als 30 Tage → Tour archivieren |
 | `POST /cron/archive-expired` | Archiviert EXPIRED_PENDING_ARCHIVE Touren |
 | `POST /cron/auto-link-matterport` | Auto-Verknüpfung via tour_url |
 | `POST /cron/refresh-matterport-created` | `matterport_created_at` nachtragen |

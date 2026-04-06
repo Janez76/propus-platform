@@ -28,11 +28,17 @@ function getBuildId() {
   }
   return process.env.BUILD_ID || "dev";
 }
-const envLocalPath = path.join(__dirname, ".env.local");
-if (fs.existsSync(envLocalPath)) {
-  dotenv.config({ path: envLocalPath });
+function loadOptionalEnvFile(envPath) {
+  if (!fs.existsSync(envPath)) return;
+  dotenv.config({ path: envPath });
 }
-dotenv.config();
+[
+  path.join(__dirname, ".env.local"),
+  path.join(__dirname, "..", ".env.local"),
+  path.join(__dirname, "..", ".env"),
+  path.join(__dirname, "..", ".env.vps.secrets"),
+  path.join(__dirname, "..", ".env.vps"),
+].forEach(loadOptionalEnvFile);
 const logger = require("./logger");
 const console = logger.createModuleConsole();
 require("isomorphic-fetch");
@@ -82,6 +88,7 @@ const {
   archiveOrderFolder,
   getStorageHealth,
   moveRawMaterialToCustomerFolder,
+  resolveCategoryPath,
 } = require("./order-storage");
 const {
   stageUploadBatch,
@@ -180,8 +187,8 @@ const BOOKING_UPLOAD_ROOT = process.env.BOOKING_UPLOAD_ROOT || path.join(__dirna
 const BOOKING_UPLOAD_MAX_FILE_MB = Math.max(1, Number(process.env.BOOKING_UPLOAD_MAX_FILE_MB || 10240));
 const BOOKING_UPLOAD_MAX_FILES = Math.max(1, Number(process.env.BOOKING_UPLOAD_MAX_FILES || 120));
 const BOOKING_UPLOAD_STRUCTURE = [
-  "Finale/Bilder/Websize",
-  "Finale/Bilder/Fullsize",
+  "Finale/Bilder/websize",
+  "Finale/Bilder/fullsize",
   "Finale/Video",
   "Finale/Grundrisse",
   "Unbearbeitete/Bilder",
@@ -191,8 +198,8 @@ const BOOKING_UPLOAD_STRUCTURE = [
   "Zur auswahl"
 ];
 const BOOKING_UPLOAD_CATEGORY_MAP = {
-  final_websize: "Finale/Bilder/Websize",
-  final_fullsize: "Finale/Bilder/Fullsize",
+  final_websize: "Finale/Bilder/websize",
+  final_fullsize: "Finale/Bilder/fullsize",
   final_video: "Finale/Video",
   final_grundrisse: "Finale/Grundrisse",
   raw_bilder: "Unbearbeitete/Bilder",
@@ -358,21 +365,24 @@ function isPathInside(parentDir, childPath) {
 }
 
 function deleteMatchingWebsizeDerivative(orderRootPath, sourcePath) {
-  const fullsizeRoot = path.join(orderRootPath, UPLOAD_CATEGORY_MAP.final_fullsize);
-  const websizeRoot = path.join(orderRootPath, UPLOAD_CATEGORY_MAP.final_websize);
+  const fullsizeRoot = resolveCategoryPath(orderRootPath, "final_fullsize", { createMissing: false });
+  const websizeRoot = resolveCategoryPath(orderRootPath, "final_websize", { createMissing: false });
   if (!isPathInside(fullsizeRoot, sourcePath)) return;
-  const relativeToFullsize = path.relative(fullsizeRoot, sourcePath);
-  const websizePath = path.join(websizeRoot, relativeToFullsize);
-  if (fs.existsSync(websizePath) && fs.statSync(websizePath).isFile()) {
-    try {
-      fs.unlinkSync(websizePath);
-    } catch (_) {}
+  if (!fs.existsSync(websizeRoot) || !fs.statSync(websizeRoot).isDirectory()) return;
+  const sourceStem = path.basename(sourcePath, path.extname(sourcePath)).toLowerCase();
+  const websizeEntries = fs.readdirSync(websizeRoot, { withFileTypes: true });
+  for (const entry of websizeEntries) {
+    if (!entry.isFile()) continue;
+    const targetPath = path.join(websizeRoot, entry.name);
+    const targetStem = path.basename(entry.name, path.extname(entry.name)).toLowerCase();
+    if (!targetStem.includes(sourceStem) && !sourceStem.includes(targetStem.replace(/^web-datei-/, ""))) continue;
+    try { fs.unlinkSync(targetPath); } catch (_) {}
   }
 }
 
 function deleteMatchingWebsizeFolder(orderRootPath, sourceDir) {
-  const fullsizeRoot = path.join(orderRootPath, UPLOAD_CATEGORY_MAP.final_fullsize);
-  const websizeRoot = path.join(orderRootPath, UPLOAD_CATEGORY_MAP.final_websize);
+  const fullsizeRoot = resolveCategoryPath(orderRootPath, "final_fullsize", { createMissing: false });
+  const websizeRoot = resolveCategoryPath(orderRootPath, "final_websize", { createMissing: false });
   if (!isPathInside(fullsizeRoot, sourceDir)) return;
   const relativeToFullsize = path.relative(fullsizeRoot, sourceDir);
   const websizeDir = path.join(websizeRoot, relativeToFullsize);
@@ -4278,6 +4288,7 @@ app.post("/api/booking", async (req, res) => {
       icsUrl: `${frontendBase}/api/orders/${orderNo}/ics`,
       portalMagicLink,
       onsiteContacts: onsiteContactsList,
+      confirmationPending: true,
     }, customerLang);
     const customerMail = {
       from: MAIL_FROM,
@@ -4649,21 +4660,17 @@ app.get("/api/booking/confirm/:token", async (req, res) => {
       };
     };
 
-    const result = await changeOrderStatus(orderNo, "confirmed", {
-      source: "customer_confirmation",
-      actorId: "customer:" + (row.billing?.email || "unknown"),
-      loadOrder,
-    }, { db, getSetting, graphClient, OFFICE_EMAIL, PHOTOG_PHONES: PHOTOG_PHONES || {} });
-
-    if (!result.success) {
-      console.error("[confirm] changeOrderStatus failed:", { orderNo, error: result.error, code: result.code });
-      return res.status(500).json({ ok: false, error: result.error || "Bestätigung fehlgeschlagen." });
-    }
-
+    // Status auf confirmed setzen + Confirmation-Token löschen
     await pool.query(
-      `UPDATE orders SET confirmation_token = NULL, confirmation_token_expires_at = NULL, confirmation_pending_since = NULL, updated_at = NOW() WHERE order_no = $1`,
+      `UPDATE orders
+       SET status = 'confirmed',
+           confirmation_token = NULL,
+           confirmation_token_expires_at = NULL,
+           confirmation_pending_since = NULL,
+           updated_at = NOW()
+       WHERE order_no = $1`,
       [orderNo]
-    ).catch(function (e) { console.error("[confirm] token cleanup failed:", orderNo, e?.message); });
+    );
 
     const mailEnabled = await getSetting("feature.emailTemplatesOnStatusChange");
     if (mailEnabled && mailEnabled.value && sendMailWithFallback) {
@@ -5039,6 +5046,18 @@ app.get("/api/admin/orders/:orderNo/ics", requirePhotographerOrAdmin, async (req
 });
 
 async function notifyCompletedUploadBatch({ order, batch, storedCount, skippedCount, invalidCount }) {
+  try {
+    const categoryKey = String(batch?.category || "");
+    if (categoryKey === "final_fullsize" || categoryKey === "final_grundrisse") {
+      const link = await db.getOrderFolderLink(order.orderNo, "customer_folder");
+      if (link?.absolute_path && fs.existsSync(link.absolute_path) && fs.statSync(link.absolute_path).isDirectory()) {
+        await syncWebsizeForOrderFolder(link.absolute_path, order, console, { forceRebuild: false });
+      }
+    }
+  } catch (syncErr) {
+    console.warn("[websize-sync] post-upload sync failed:", syncErr?.message || syncErr);
+  }
+
   let effectiveBatch = batch;
   let effectiveStoredCount = storedCount;
   let effectiveSkippedCount = skippedCount;
@@ -5256,9 +5275,16 @@ app.post("/api/admin/orders/:orderNo/storage/nextcloud-share", requireAdmin, asy
     if (!order) return res.status(404).json({ error: "Order not found" });
     const folderLink = await db.getOrderFolderLink(orderNo, folderType);
     if (!folderLink) return res.status(404).json({ error: "Kein Kundenordner verknuepft" });
-    const { isNextcloudConfigured, createNextcloudShare, buildNextcloudPath } = require("./nextcloud-share");
+    const {
+      isNextcloudConfigured,
+      createNextcloudShare,
+      buildNextcloudPath,
+      getNextcloudConfigError,
+    } = require("./nextcloud-share");
     if (!isNextcloudConfigured()) {
-      return res.status(503).json({ error: "Nextcloud nicht konfiguriert (NEXTCLOUD_URL, NEXTCLOUD_USER, NEXTCLOUD_PASS fehlen)" });
+      return res.status(503).json({
+        error: `${getNextcloudConfigError()}. Nextcloud läuft neu auf der VPS; bei lokalem Start bitte NEXTCLOUD_URL, NEXTCLOUD_USER und NEXTCLOUD_PASS in .env, .env.local, .env.vps oder .env.vps.secrets setzen.`,
+      });
     }
     const ncPath = buildNextcloudPath(folderLink.relative_path);
     const { shareUrl } = await createNextcloudShare(ncPath);
@@ -5615,10 +5641,28 @@ app.post("/api/admin/orders/:orderNo/uploads/websize-sync", requirePhotographerO
     if (!fs.existsSync(link.absolute_path) || !fs.statSync(link.absolute_path).isDirectory()) {
       return res.status(404).json({ error: "Kundenordner nicht gefunden" });
     }
-    const stats = await syncWebsizeForOrderFolder(link.absolute_path, console);
+    const forceRebuild = String(req.query.forceRebuild || req.body?.forceRebuild || "").toLowerCase() === "true";
+    const stats = await syncWebsizeForOrderFolder(link.absolute_path, orderAccess.order, console, { forceRebuild });
     res.json({ ok: true, stats });
   } catch (err) {
     res.status(500).json({ error: err.message || "Websize-Sync fehlgeschlagen" });
+  }
+});
+
+app.post("/api/admin/orders/:orderNo/uploads/websize-rebuild", requirePhotographerOrAdmin, async (req, res) => {
+  try {
+    if (!process.env.DATABASE_URL) return res.status(503).json({ error: "DB nicht verfuegbar" });
+    const orderAccess = await getOrderForUploadAccess(req.params.orderNo, req);
+    if (orderAccess.error) return res.status(orderAccess.error.status).json({ error: orderAccess.error.message });
+    const link = await db.getOrderFolderLink(orderAccess.orderNo, "customer_folder");
+    if (!link) return res.status(404).json({ error: "Kundenordner nicht verknuepft" });
+    if (!fs.existsSync(link.absolute_path) || !fs.statSync(link.absolute_path).isDirectory()) {
+      return res.status(404).json({ error: "Kundenordner nicht gefunden" });
+    }
+    const stats = await syncWebsizeForOrderFolder(link.absolute_path, orderAccess.order, console, { forceRebuild: true });
+    res.json({ ok: true, stats, forced: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Websize-Rebuild fehlgeschlagen" });
   }
 });
 
@@ -12692,7 +12736,7 @@ async function startServer() {
     try {
       const boot = await db.bootstrapAdminUserFromEnvIfMissing();
       if (boot?.created || boot?.updated) {
-        console.log("[boot] admin_users", boot.created ? "angelegt:" : "Passwort synchronisiert:", boot.username);
+        console.log("[boot] admin_users", boot.created ? "angelegt:" : "Stammdaten aktualisiert:", boot.username);
       }
     } catch (e) {
       console.warn("[boot] admin_users Bootstrap:", e?.message || e);

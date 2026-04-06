@@ -588,7 +588,7 @@ Ihr Propus Team`,
         ],
         `<div style="padding-top:2px;color:#4b5563;font-size:14px;line-height:1.7;">{{tourLinkHtml}}</div>`
       ),
-      noteHtml: buildInfoCallout('ℹ', 'Freischaltung', 'Die Tour wird nach Eingang Ihrer Zahlung aktiviert. Ihre Rechnungen und Touren können Sie jederzeit im Kundenportal einsehen: {{portalLinkHtml}}'),
+      noteHtml: buildInfoCallout('✓', 'Freischaltung', 'Ihre Tour ist bereits aktiv. Bitte begleichen Sie die Rechnung innerhalb der Zahlungsfrist. Rechnungen und Touren finden Sie jederzeit im Kundenportal: {{portalLinkHtml}}'),
     }),
     text: `{{customerGreeting}}
 
@@ -714,6 +714,44 @@ Objekt: {{objectLabel}}
 Bitte versuchen Sie es erneut oder kontaktieren Sie uns, falls Sie Unterstützung benötigen.
 
 Sie können Ihre Touren jederzeit in unserem Kundenportal verwalten: {{portalLinkText}}
+
+Freundliche Grüsse
+Ihr Propus Team`,
+  },
+  invoice_overdue_reminder: {
+    name: 'Zahlungserinnerung (offene Rechnung)',
+    description: 'Erinnerung bei überfälliger QR-Rechnung. Wird einmal automatisch versendet, wenn die Zahlungsfrist abgelaufen ist. Bei weiterhin offener Rechnung nach 30 Tagen wird die Tour archiviert. Eine spätere Reaktivierung kostet CHF {{reactivationPriceCHF}}.',
+    category: 'vorbereitet',
+    subject: 'Zahlungserinnerung – {{objectLabel}}',
+    html: buildEmailFrame({
+      preheader: 'Ihre Rechnung ist noch offen',
+      title: 'Zahlungserinnerung',
+      introHtml: `<p style="margin:0 0 14px;">{{customerGreeting}}</p><p style="margin:0;">wir möchten Sie freundlich daran erinnern, dass die Rechnung für Ihren virtuellen Rundgang noch offen ist. Bitte begleichen Sie den ausstehenden Betrag so bald wie möglich — Ihre Tour ist weiterhin aktiv.</p>`,
+      summaryHtml: buildSummaryCard(
+        [
+          { label: 'Objekt', value: '{{objectLabel}}' },
+          { label: 'Offener Betrag', value: 'CHF {{amountCHF}}' },
+          { label: 'Fällig am', value: '{{dueDateFormatted}}' },
+        ],
+        `<div style="padding-top:2px;color:#4b5563;font-size:14px;line-height:1.7;">{{tourLinkHtml}}</div>`
+      ),
+      noteHtml: buildInfoCallout('⚠', 'Wichtiger Hinweis', 'Falls die Zahlung ausbleibt, wird Ihre Tour nach 30 Tagen automatisch archiviert. Eine erneute Reaktivierung ist jederzeit möglich, kostet jedoch CHF {{reactivationPriceCHF}} (inkl. Reaktivierungsgebühr). Ihre Rechnungen und Touren: {{portalLinkHtml}}'),
+    }),
+    text: `{{customerGreeting}}
+
+wir möchten Sie freundlich daran erinnern, dass die Rechnung für Ihren virtuellen Rundgang noch offen ist. Ihre Tour ist weiterhin aktiv.
+
+Objekt: {{objectLabel}}
+Offener Betrag: CHF {{amountCHF}}
+Fällig am: {{dueDateFormatted}}
+
+{{tourLinkText}}
+
+Bitte begleichen Sie den ausstehenden Betrag so bald wie möglich.
+
+Wichtiger Hinweis: Falls die Zahlung ausbleibt, wird Ihre Tour nach 30 Tagen automatisch archiviert. Eine erneute Reaktivierung ist jederzeit möglich, kostet jedoch CHF {{reactivationPriceCHF}} (inkl. Reaktivierungsgebühr).
+
+Ihre Rechnungen und Touren: {{portalLinkText}}
 
 Freundliche Grüsse
 Ihr Propus Team`,

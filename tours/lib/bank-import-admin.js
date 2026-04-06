@@ -109,6 +109,46 @@ function classifyExxasInvoiceStatus(invoice) {
   return 'sent';
 }
 
+function getExxasExternalInvoiceId(invoice) {
+  return String(invoice?.exxas_document_id || invoice?.nummer || '').trim() || null;
+}
+
+async function applySafeTourSyncFromRenewalInvoice(invoice) {
+  const tourId = Number(invoice?.tour_id);
+  if (!Number.isFinite(tourId) || tourId <= 0) return false;
+  const status = String(invoice?.invoice_status || '').trim().toLowerCase();
+  const subEndIso = toImportIso(invoice?.subscription_end_at);
+  if (status !== 'paid') return false;
+  if (!subEndIso) {
+    const fallback = await pool.query(
+      `UPDATE tour_manager.tours
+       SET status = 'ACTIVE',
+           updated_at = NOW()
+       WHERE id = $1
+         AND status = 'CUSTOMER_ACCEPTED_AWAITING_PAYMENT'`,
+      [tourId]
+    );
+    return fallback.rowCount > 0;
+  }
+  const subEndDate = new Date(subEndIso);
+  if (Number.isNaN(subEndDate.getTime())) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (subEndDate < today) return false;
+  const subStartIso = toImportIso(invoice?.subscription_start_at) || toImportIso(invoice?.paid_at) || subEndIso;
+  await pool.query(
+    `UPDATE tour_manager.tours
+     SET status = 'ACTIVE',
+         term_end_date = $2::date,
+         ablaufdatum = $2::date,
+         subscription_start_date = $3::date,
+         updated_at = NOW()
+     WHERE id = $1`,
+    [tourId, subEndIso, subStartIso]
+  );
+  return true;
+}
+
 async function applyImportedPayment(invoiceId, actorEmail, details = {}) {
   const invoiceRes = await pool.query(
     `SELECT id, tour_id, invoice_number, invoice_kind, subscription_end_at, subscription_start_at
@@ -300,8 +340,128 @@ async function importExxasInvoiceToRenewal(exxasInvoiceId, actorEmail) {
   };
 }
 
+async function syncRenewalInvoiceFromExxas(exxasInvoiceId, actorEmail, options = {}) {
+  await ensureRenewalInvoiceImportSchema();
+  const createIfMissing = options.createIfMissing !== false;
+  const id = parseInt(String(exxasInvoiceId || ''), 10);
+  if (!Number.isFinite(id)) {
+    return { ok: false, error: 'Ungültige Exxas-Rechnungs-ID.' };
+  }
+  const invoiceRes = await pool.query(
+    `SELECT *
+     FROM tour_manager.exxas_invoices
+     WHERE id = $1
+     LIMIT 1`,
+    [id]
+  );
+  const invoice = invoiceRes.rows[0];
+  if (!invoice) {
+    return { ok: false, error: 'Exxas-Rechnung nicht gefunden.' };
+  }
+  const tourId = Number(invoice.tour_id);
+  if (!Number.isFinite(tourId) || tourId <= 0) {
+    return { ok: false, error: 'Exxas-Rechnung ist keiner Tour zugeordnet.' };
+  }
+  const externalInvoiceId = getExxasExternalInvoiceId(invoice);
+  if (!externalInvoiceId) {
+    return { ok: false, error: 'Exxas-Rechnung hat keine importierbare Referenz.' };
+  }
+
+  const status = classifyExxasInvoiceStatus(invoice);
+  const paidAtIso = status === 'paid'
+    ? toImportIso(invoice.zahlungstermin) || toImportIso(invoice.dok_datum)
+    : null;
+  const dueAtIso = toImportIso(invoice.zahlungstermin);
+  const sentAtIso = toImportIso(invoice.dok_datum);
+  const note = `Mit Exxas abgeglichen (${invoice.nummer || invoice.exxas_document_id || id})`;
+
+  const existingRes = await pool.query(
+    `SELECT id, tour_id, invoice_status, invoice_kind, subscription_start_at, subscription_end_at, paid_at
+     FROM tour_manager.renewal_invoices
+     WHERE tour_id = $1
+       AND exxas_invoice_id = $2
+     LIMIT 1`,
+    [tourId, externalInvoiceId]
+  );
+  const existing = existingRes.rows[0] || null;
+
+  if (!existing) {
+    if (!createIfMissing) {
+      return {
+        ok: true,
+        created: false,
+        updated: false,
+        invoiceId: null,
+        tourId,
+        exxasInvoiceId: externalInvoiceId,
+      };
+    }
+    return importExxasInvoiceToRenewal(id, actorEmail);
+  }
+
+  const updatedRes = await pool.query(
+    `UPDATE tour_manager.renewal_invoices
+     SET invoice_number = COALESCE($3, invoice_number),
+         invoice_status = $4,
+         amount_chf = COALESCE($5::numeric, amount_chf),
+         due_at = COALESCE($6::timestamptz, due_at),
+         sent_at = COALESCE($7::timestamptz, sent_at),
+         paid_at = CASE
+           WHEN $4 = 'paid' THEN COALESCE($8::timestamptz, paid_at, $7::timestamptz, $6::timestamptz)
+           ELSE NULL
+         END,
+         payment_source = CASE
+           WHEN $4 = 'paid' AND COALESCE(payment_source, '') = '' THEN 'exxas_sync'
+           ELSE payment_source
+         END,
+         payment_note = CASE
+           WHEN COALESCE(payment_note, '') = '' THEN $9
+           WHEN payment_note LIKE '%' || $9 || '%' THEN payment_note
+           ELSE payment_note || E'\\n' || $9
+         END,
+         recorded_by = $10,
+         recorded_at = NOW()
+     WHERE id = $1
+       AND tour_id = $2
+     RETURNING id, tour_id, invoice_number, invoice_status, invoice_kind, subscription_start_at, subscription_end_at, paid_at`,
+    [
+      existing.id,
+      tourId,
+      invoice.nummer || null,
+      status,
+      invoice.preis_brutto ?? null,
+      dueAtIso,
+      sentAtIso,
+      paidAtIso,
+      note,
+      actorEmail || 'admin',
+    ]
+  );
+  const updated = updatedRes.rows[0] || null;
+  if (updated) {
+    await applySafeTourSyncFromRenewalInvoice(updated);
+    await logAction(tourId, 'admin', actorEmail || 'admin', 'RENEWAL_INVOICE_SYNCED_FROM_EXXAS', {
+      exxas_row_id: id,
+      exxas_invoice_id: externalInvoiceId,
+      renewal_invoice_id: updated.id,
+      invoice_status: updated.invoice_status,
+      amount_chf: invoice.preis_brutto ?? null,
+      due_at: dueAtIso,
+    });
+  }
+  return {
+    ok: true,
+    created: false,
+    updated: !!updated,
+    invoiceId: updated?.id || existing.id,
+    tourId,
+    exxasInvoiceId: externalInvoiceId,
+  };
+}
+
 module.exports = {
   ensureBankImportSchema,
   applyImportedPayment,
   importExxasInvoiceToRenewal,
+  syncRenewalInvoiceFromExxas,
 };

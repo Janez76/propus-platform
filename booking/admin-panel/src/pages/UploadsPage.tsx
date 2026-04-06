@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { Archive, FolderOpen, HardDrive, ImageIcon, RefreshCw, Search } from "lucide-react";
 import {
   archiveOrderStorageFolder,
+  createOrderNextcloudShare,
   getOrderStorageSummary,
   getOrders,
   linkOrderStorageFolder,
@@ -34,6 +35,7 @@ export function UploadsPage() {
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [error, setError] = useState("");
   const [renameInfo, setRenameInfo] = useState<OrderStorageRenameInfo | null>(null);
+  const [nextcloudBusyFor, setNextcloudBusyFor] = useState<OrderFolderType | null>(null);
   const [linkInputs, setLinkInputs] = useState<Record<string, string>>({
     raw_material: "",
     customer_folder: "",
@@ -147,6 +149,20 @@ export function UploadsPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ordner konnte nicht archiviert werden");
       setLoadingSummary(false);
+    }
+  }
+
+  async function handleCreateNextcloudShare(folderType: "customer_folder") {
+    if (!selectedOrderNo) return;
+    setError("");
+    setNextcloudBusyFor(folderType);
+    try {
+      await createOrderNextcloudShare(token, selectedOrderNo, { folderType });
+      await loadSummary(selectedOrderNo);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nextcloud-Freigabelink konnte nicht erstellt werden");
+    } finally {
+      setNextcloudBusyFor(null);
     }
   }
 
@@ -294,6 +310,39 @@ export function UploadsPage() {
                       <div className="text-xs text-[var(--text-subtle)] break-all">{folder.relativePath}</div>
                       {folder.lastError ? <div className="text-xs text-red-500">{folder.lastError}</div> : null}
                     </div>
+                    {folder.folderType === "customer_folder" ? (
+                      <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3 border-[var(--border-soft)] bg-[var(--surface-raised)]">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-subtle)]">
+                          Nextcloud-Freigabelink
+                        </p>
+                        {folder.nextcloudShareUrl ? (
+                          <a
+                            href={folder.nextcloudShareUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-2 block break-all text-sm text-[var(--accent)] underline underline-offset-2 hover:no-underline"
+                          >
+                            {folder.nextcloudShareUrl}
+                          </a>
+                        ) : (
+                          <>
+                            <p className="mt-2 text-sm text-[var(--text-main)]">Noch kein Freigabelink vorhanden.</p>
+                            <p className="mt-1 text-xs leading-relaxed text-[var(--text-subtle)]">
+                              Hinweis: Nextcloud läuft neu auf der VPS. Lokal gestartete Instanzen benötigen
+                              {" "}`NEXTCLOUD_URL`, `NEXTCLOUD_USER` und `NEXTCLOUD_PASS`.
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => void handleCreateNextcloudShare("customer_folder")}
+                              disabled={loadingSummary || nextcloudBusyFor === "customer_folder"}
+                              className="mt-3 inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-[var(--border-soft)] text-[var(--text-main)] disabled:opacity-50"
+                            >
+                              {nextcloudBusyFor === "customer_folder" ? "Wird erstellt..." : "Freigabelink erstellen"}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    ) : null}
                     <div className="mt-4 space-y-2">
                       <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--text-subtle)]">
                         Bestehenden Ordner verknüpfen

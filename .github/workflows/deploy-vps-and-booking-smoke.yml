@@ -355,7 +355,6 @@ jobs:
               -e ADMIN_EMAIL='${ADMIN_EMAIL}' \
               -e ADMIN_NAME='${ADMIN_NAME}' \
               -e ADMIN_ROLE='${ADMIN_ROLE:-super_admin}' \
-              -e ADMIN_BOOTSTRAP_SYNC_PASSWORD='true' \
               propus-platform-platform-1 \
               node -e \"
                 const db = require('./booking/db');

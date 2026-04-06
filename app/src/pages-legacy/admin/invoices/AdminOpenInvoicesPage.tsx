@@ -212,7 +212,7 @@ export function AdminOpenInvoicesPage() {
           <div className="h-10 w-10 animate-spin rounded-full border-2 border-[var(--accent)]/25 border-t-[var(--accent)]" />
         </div>
       ) : (
-        <div className="surface-card-strong overflow-x-auto">
+        <div className="surface-card-strong">
           {tab === "renewal" ? (
             <RenewalTable
               invoices={invoices as InvoiceRow[]}

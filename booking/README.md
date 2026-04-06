@@ -29,7 +29,7 @@ Kurzanleitung zum parallelen Start von API und Admin-UI (inkl. Proxy `/api` → 
 
   Optional: `SESSION_SECRET`, `BUCHUNGSTOOL_DESKTOP_ADMIN_USER`, `BUCHUNGSTOOL_DESKTOP_ADMIN_PASS` (siehe `docker-compose.desktop.yml`) oder `docker compose --env-file .env.docker ...` mit Vorlage `.env.docker.example`. **Nicht** die allgemeine Windows-Variable `ADMIN_PASS` verwenden — Docker Compose wuerde sie sonst statt `localdev12` einsetzen. Ohne eigene Graph-App sind `MS_GRAPH_*` als **lokale Platzhalter** gesetzt (`MAIL_PREFER_GRAPH=false`).
 
-  **Admin-Login (lokal):** Benutzer **`admin`**, Passwort **`localdev12`** (wird per Bootstrap in `admin_users` angelegt bzw. bei `ADMIN_BOOTSTRAP_SYNC_PASSWORD` angepasst). Eigenes Passwort: `BUCHUNGSTOOL_DESKTOP_ADMIN_PASS` setzen und Backend-Container neu starten.
+  **Admin-Login (lokal):** Benutzer **`admin`**, Passwort **`localdev12`** bei frischer lokaler DB. `BUCHUNGSTOOL_DESKTOP_ADMIN_PASS` wird nur fuer die erstmalige Anlage in `admin_users` verwendet. Bestehende Passwoerter bitte direkt in `admin_users` oder ueber das interne Admin-Tool aendern.
 
   Unter Windows kannst du auch `powershell -File scripts/docker-desktop-up.ps1` ausführen (sucht `docker.exe` typischer Installationspfade). Der Compose-Projektname ist **`buchungstool-desktop`** (Volumes/Container sind darunter gruppiert).
 
@@ -45,7 +45,7 @@ Voraussetzungen: `.env` im Repo-Root mit `VPS_IP`, `VPS_USER`, ggf. `VPS_SSH_PW`
 .\scripts\import-vps-to-desktop.ps1 -Confirm -IncludeCode -IncludeOrders -IncludeBookingFiles
 ```
 
-Hinweise: NAS-Upload-Pfade der VPS existieren lokal nicht; der Desktop-Stack nutzt bereits `BOOKING_UPLOAD_REQUIRE_MOUNT=false`. **Admin-Passwort:** Standard ist `ADMIN_BOOTSTRAP_SYNC_PASSWORD=true` — dann wird beim Start auf `BUCHUNGSTOOL_DESKTOP_ADMIN_PASS` (Default `localdev12`) gesetzt. Soll das Passwort aus dem VPS-Import gelten: in `docker-compose.desktop.yml` `ADMIN_BOOTSTRAP_SYNC_PASSWORD` auf `false` setzen und Stack neu starten.
+Hinweise: NAS-Upload-Pfade der VPS existieren lokal nicht; der Desktop-Stack nutzt bereits `BOOKING_UPLOAD_REQUIRE_MOUNT=false`. **Admin-Passwort:** `BUCHUNGSTOOL_DESKTOP_ADMIN_PASS` greift nur bei der erstmaligen Anlage des Kontos. Bei importierter oder bestehender DB bleibt das Passwort unveraendert und muss direkt in `admin_users` oder ueber das interne Admin-Tool geaendert werden.
 
 - **Nur PostgreSQL:** `docker compose -f docker-compose.local.yml up -d postgres` startet Postgres auf **Port 5432**. Backend und Admin startest du danach auf dem Host; im Ordner `backend` in der `.env` z. B. `DATABASE_URL=postgresql://propus:propus@127.0.0.1:5432/buchungstool` setzen.
 

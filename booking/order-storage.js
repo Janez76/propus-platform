@@ -70,6 +70,9 @@ const CATEGORY_PATH_SEGMENT_ALIASES = {
   ],
   final_fullsize: [
     "Finale/Bilder/fullsize",
+    "Finale/Bilder/JPEG",
+    "Finale/Bilder/jpeg",
+    "Finale Bilder",
     "Finale/Full Size",
     "Finale/Fullsize",
     "Finale/fullsize",
@@ -382,6 +385,50 @@ function mergeDirectoryIntoTarget(sourceDir, targetDir, logger = console) {
   return stats;
 }
 
+function mergeLooseFinalImagesFromOrderRoot(orderFolderAbsolutePath, logger = console) {
+  const stats = { movedFiles: 0, skippedIdentical: 0, renamedConflicts: 0 };
+  const resolvedOrderRoot = path.resolve(orderFolderAbsolutePath);
+  const fullsizeRoot = getCanonicalCategoryAbsolutePath(resolvedOrderRoot, "final_fullsize");
+  if (!fs.existsSync(resolvedOrderRoot) || !fs.statSync(resolvedOrderRoot).isDirectory()) return stats;
+  const entries = fs.readdirSync(resolvedOrderRoot, { withFileTypes: true });
+  const toMove = [];
+  for (const ent of entries) {
+    if (!ent.isFile()) continue;
+    const name = ent.name;
+    if (name.toLowerCase() === "thumbs.db") continue;
+    const extCheck = checkUploadExtension("final_fullsize", name);
+    if (!extCheck.ok) continue;
+    toMove.push(path.join(resolvedOrderRoot, name));
+  }
+  if (!toMove.length) return stats;
+  fs.mkdirSync(fullsizeRoot, { recursive: true });
+  for (const sourcePath of toMove) {
+    const baseName = path.basename(sourcePath);
+    let destinationPath = path.join(fullsizeRoot, baseName);
+    if (fs.existsSync(destinationPath) && fs.statSync(destinationPath).isFile()) {
+      const sourceHash = sha256File(sourcePath);
+      const destinationHash = sha256File(destinationPath);
+      if (sourceHash === destinationHash) {
+        try {
+          fs.unlinkSync(sourcePath);
+        } catch (_) {}
+        stats.skippedIdentical += 1;
+        continue;
+      }
+      const uniqueName = buildUniqueFilenameInDirectory(fullsizeRoot, baseName);
+      destinationPath = path.join(fullsizeRoot, uniqueName);
+      stats.renamedConflicts += 1;
+      logger.warn?.("[order-storage] Dateikonflikt Root-Bild nach fullsize - verwende Suffix", {
+        sourcePath,
+        destinationPath,
+      });
+    }
+    moveFileWithFallback(sourcePath, destinationPath);
+    stats.movedFiles += 1;
+  }
+  return stats;
+}
+
 function migrateLegacyFinaleImageStructure(orderFolderAbsolutePath, logger = console) {
   const resolvedOrderRoot = path.resolve(orderFolderAbsolutePath);
   const stats = {
@@ -405,6 +452,10 @@ function migrateLegacyFinaleImageStructure(orderFolderAbsolutePath, logger = con
       removeEmptyParentsUntil(path.dirname(resolvedSource), resolvedOrderRoot);
     }
   }
+  const rootLoose = mergeLooseFinalImagesFromOrderRoot(resolvedOrderRoot, logger);
+  stats.movedFiles += rootLoose.movedFiles;
+  stats.skippedIdentical += rootLoose.skippedIdentical;
+  stats.renamedConflicts += rootLoose.renamedConflicts;
   return stats;
 }
 

@@ -149,7 +149,7 @@ export function AdminRemindersPage() {
         </div>
       ) : (
         <>
-          <div className="surface-card-strong overflow-x-auto">
+          <div className="surface-card-strong">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-[var(--text-subtle)] border-b border-[var(--border-soft)]">
