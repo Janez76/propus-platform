@@ -77,6 +77,21 @@ async function ensureBankImportSchema() {
         ALTER COLUMN matched_invoice_id TYPE BIGINT USING NULL
     `);
   }
+  // Sequenzen synchronisieren (verhindert duplicate key bei wiederverwendeten IDs)
+  await pool.query(`
+    SELECT setval(
+      pg_get_serial_sequence('tour_manager.bank_import_runs', 'id'),
+      COALESCE((SELECT MAX(id) FROM tour_manager.bank_import_runs), 0) + 1,
+      false
+    )
+  `);
+  await pool.query(`
+    SELECT setval(
+      pg_get_serial_sequence('tour_manager.bank_import_transactions', 'id'),
+      COALESCE((SELECT MAX(id) FROM tour_manager.bank_import_transactions), 0) + 1,
+      false
+    )
+  `);
   bankImportSchemaEnsured = true;
 }
 
