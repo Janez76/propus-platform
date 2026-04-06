@@ -426,6 +426,11 @@ async function createManualInvoice(tourId, body, actorEmail) {
   const amountChf = Number.parseFloat(amountRaw.replace(',', '.'));
   const dueAtRaw = String(body?.dueAt || '').trim();
   const note = String(body?.paymentNote || '').trim() || null;
+  const skontoRaw = String(body?.skontoChf || '').trim();
+  const skontoChf = skontoRaw ? Number.parseFloat(skontoRaw.replace(',', '.')) : null;
+  if (skontoRaw && (!Number.isFinite(skontoChf) || skontoChf < 0)) {
+    return { ok: false, error: 'Skonto-Betrag ist ungültig.' };
+  }
   const markPaidNow =
     body?.markPaidNow === true || body?.markPaidNow === '1' || body?.markPaidNow === 'on' || body?.markPaidNow === 'true';
 
@@ -478,13 +483,13 @@ async function createManualInvoice(tourId, body, actorEmail) {
   const inserted = await pool.query(
     `INSERT INTO tour_manager.renewal_invoices (
        tour_id, invoice_number, invoice_status, amount_chf, due_at,
-       sent_at, paid_at, payment_method, payment_source, payment_note,
-       recorded_by, recorded_at, subscription_start_at, subscription_end_at, invoice_kind
+       sent_at, paid_at, paid_at_date, payment_method, payment_source, payment_note,
+       skonto_chf, recorded_by, recorded_at, subscription_start_at, subscription_end_at, invoice_kind
      ) VALUES (
        $1, $2, $3, $4::numeric, $5::date,
        CASE WHEN $3 IN ('sent','paid') THEN NOW() ELSE NULL END,
-       $6::date, $7, 'manual', $8,
-       $9, NOW(), $10::date, $11::date, 'manual_extension'
+       $6::date, $6::date, $7, 'manual', $8,
+       $9::numeric, $10, NOW(), $11::date, $12::date, 'manual_extension'
      )
      RETURNING id`,
     [
@@ -496,6 +501,7 @@ async function createManualInvoice(tourId, body, actorEmail) {
       paidAtIso,
       paymentMethod,
       note,
+      skontoChf,
       actorEmail,
       subscriptionStartIso,
       subscriptionEndIso,
@@ -1349,6 +1355,49 @@ async function updateRenewalInvoice(invoiceId, body = {}) {
     patches.push(`payment_note = $${n++}`);
     vals.push(body.payment_note == null ? null : String(body.payment_note));
   }
+  // Neue Felder: Bezahlt am, Zahlungskanal, Skonto, Abschreibung
+  if (body.paid_at_date !== undefined) {
+    const d = body.paid_at_date;
+    const iso = d == null || d === '' ? null : toIsoDate(String(d));
+    patches.push(`paid_at_date = $${n++}`);
+    vals.push(iso);
+    // paid_at synchron halten
+    patches.push(`paid_at = $${n++}`);
+    vals.push(iso ? new Date(iso) : null);
+  }
+  const ALLOWED_CHANNELS = new Set(['ubs', 'online', 'bar', 'sonstige']);
+  if (body.payment_channel !== undefined) {
+    const ch = body.payment_channel == null || body.payment_channel === '' ? null : String(body.payment_channel).toLowerCase();
+    if (ch && !ALLOWED_CHANNELS.has(ch)) throw new Error('Ungültiger Zahlungskanal');
+    patches.push(`payment_channel = $${n++}`);
+    vals.push(ch);
+  }
+  if (body.skonto_chf !== undefined) {
+    const sk = body.skonto_chf == null || body.skonto_chf === '' ? null : parseFloat(String(body.skonto_chf));
+    if (sk !== null && (!Number.isFinite(sk) || sk < 0)) throw new Error('Ungültiger Skonto-Betrag');
+    patches.push(`skonto_chf = $${n++}`);
+    vals.push(sk);
+  }
+  if (body.writeoff !== undefined) {
+    const wo = body.writeoff === true || body.writeoff === 'true' || body.writeoff === 1;
+    patches.push(`writeoff = $${n++}`);
+    vals.push(wo);
+    if (wo) {
+      // Abschreibung setzt Status auf cancelled
+      patches.push(`invoice_status = $${n++}`);
+      vals.push('cancelled');
+    }
+  }
+  if (body.writeoff_reason !== undefined) {
+    const reason = body.writeoff_reason == null ? null : String(body.writeoff_reason);
+    patches.push(`writeoff_reason = $${n++}`);
+    vals.push(reason);
+    // Grund auch in payment_note spiegeln (falls leer)
+    if (reason) {
+      patches.push(`payment_note = COALESCE(payment_note, $${n++})`);
+      vals.push(reason);
+    }
+  }
   if (!patches.length) return { ok: true, invoice: row.rows[0] };
   vals.push(id);
   const q = `UPDATE tour_manager.renewal_invoices SET ${patches.join(', ')} WHERE id = $${n} RETURNING *`;
@@ -1519,6 +1568,90 @@ async function previewBankImportUpload({ buffer, originalname }) {
   };
 }
 
+async function searchByOrderNo(q) {
+  const query = String(q || '').trim();
+  if (!query || query.length < 1) return { ok: true, orders: [] };
+  const pattern = `%${query}%`;
+  const res = await pool.query(
+    `SELECT o.order_no,
+            COALESCE(NULLIF(o.billing->>'company',''), o.billing->>'name', '') AS customer_name,
+            o.billing->>'email' AS customer_email,
+            ri.id                AS invoice_id,
+            ri.invoice_number,
+            ri.invoice_status,
+            ri.amount_chf,
+            ri.due_at,
+            ri.paid_at_date,
+            ri.invoice_kind,
+            t.id                 AS tour_id,
+            COALESCE(t.object_label, t.bezeichnung) AS tour_label
+     FROM booking.orders o
+     JOIN tour_manager.tours t ON t.booking_order_no = o.order_no
+     JOIN tour_manager.renewal_invoices ri ON ri.tour_id = t.id
+     WHERE o.order_no::text ILIKE $1
+        OR o.billing->>'company' ILIKE $1
+        OR o.billing->>'name'    ILIKE $1
+        OR o.billing->>'email'   ILIKE $1
+     ORDER BY o.order_no DESC, ri.id DESC
+     LIMIT 40`,
+    [pattern]
+  );
+  // Gruppiere Rechnungen nach Bestellung
+  const orderMap = new Map();
+  for (const row of res.rows) {
+    const key = row.order_no;
+    if (!orderMap.has(key)) {
+      orderMap.set(key, {
+        order_no: row.order_no,
+        customer_name: row.customer_name,
+        customer_email: row.customer_email,
+        invoices: [],
+      });
+    }
+    orderMap.get(key).invoices.push({
+      invoice_source: 'renewal',
+      id: row.invoice_id,
+      invoice_number: row.invoice_number,
+      invoice_status: row.invoice_status,
+      amount_chf: row.amount_chf,
+      due_at: row.due_at,
+      paid_at_date: row.paid_at_date,
+      invoice_kind: row.invoice_kind,
+      tour_id: row.tour_id,
+      tour_object_label: row.tour_label,
+      canConfirmDirectly: true,
+      requiresImport: false,
+    });
+  }
+  return { ok: true, orders: Array.from(orderMap.values()) };
+}
+
+async function getInvoicesByOrderNo(orderNo) {
+  const no = parseInt(String(orderNo), 10);
+  if (!Number.isFinite(no)) return { ok: false, error: 'Ungültige Bestellnummer' };
+  const res = await pool.query(
+    `SELECT ri.id,
+            ri.invoice_number,
+            ri.invoice_status,
+            ri.invoice_kind,
+            ri.amount_chf,
+            ri.due_at,
+            ri.paid_at_date,
+            ri.payment_channel,
+            ri.skonto_chf,
+            ri.writeoff,
+            ri.created_at,
+            t.id   AS tour_id,
+            COALESCE(t.object_label, t.bezeichnung) AS tour_label
+     FROM tour_manager.tours t
+     JOIN tour_manager.renewal_invoices ri ON ri.tour_id = t.id
+     WHERE t.booking_order_no = $1
+     ORDER BY ri.created_at DESC`,
+    [no]
+  );
+  return { ok: true, invoices: res.rows };
+}
+
 module.exports = {
   getRenewalInvoicesJson,
   getRenewalInvoicesCentral,
@@ -1550,4 +1683,6 @@ module.exports = {
   postLinkMatterportCheckOwnership,
   getLinkMatterportCustomerSearchJson,
   getLinkMatterportCustomerDetailJson,
+  searchByOrderNo,
+  getInvoicesByOrderNo,
 };

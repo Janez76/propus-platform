@@ -152,6 +152,57 @@ export function getBankImportInvoiceSearch(q: string, amount?: string | number |
   }>(`/bank-import/invoice-search?${p.toString()}`);
 }
 
+export type OrderSearchInvoice = {
+  invoice_source: "renewal";
+  id: string | number;
+  invoice_number?: string | null;
+  invoice_status?: string | null;
+  amount_chf?: number | string | null;
+  due_at?: string | null;
+  paid_at_date?: string | null;
+  invoice_kind?: string | null;
+  tour_id?: number | null;
+  tour_object_label?: string | null;
+  canConfirmDirectly: boolean;
+  requiresImport: boolean;
+};
+
+export type OrderSearchResult = {
+  order_no: number;
+  customer_name: string;
+  customer_email?: string | null;
+  invoices: OrderSearchInvoice[];
+};
+
+export function getBankImportOrderSearch(q: string) {
+  const p = new URLSearchParams();
+  if (q) p.set("q", q);
+  return toursAdminFetch<{ ok: true; orders: OrderSearchResult[] }>(
+    `/bank-import/order-search?${p.toString()}`
+  );
+}
+
+export type OrderInvoiceRow = {
+  id: number;
+  invoice_number?: string | null;
+  invoice_status: string;
+  invoice_kind?: string | null;
+  amount_chf?: number | string | null;
+  due_at?: string | null;
+  paid_at_date?: string | null;
+  payment_channel?: string | null;
+  skonto_chf?: number | string | null;
+  writeoff?: boolean;
+  tour_id: number;
+  tour_label?: string | null;
+};
+
+export function getInvoicesByOrderNo(orderNo: string | number) {
+  return toursAdminFetch<{ ok: true; invoices: OrderInvoiceRow[] }>(
+    `/tours/invoices-by-order/${orderNo}`
+  );
+}
+
 export type BankImportPreviewTx = {
   amount_chf: number | null;
   currency: string;
@@ -226,6 +277,7 @@ export function createTourManualInvoice(
     amountChf: string;
     dueAt?: string | null;
     paymentNote?: string | null;
+    skontoChf?: string | null;
   },
 ) {
   return toursAdminPost(`/tours/${tourId}/invoices/create-manual`, body as Record<string, unknown>);

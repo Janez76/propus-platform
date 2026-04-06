@@ -4,8 +4,10 @@ import { AlertTriangle, CheckCircle, HelpCircle, Upload, X } from "lucide-react"
 import {
   type BankImportPreviewResult,
   type BankImportPreviewTx,
+  type OrderSearchResult,
   confirmBankImportTransaction,
   getBankImportInvoiceSearch,
+  getBankImportOrderSearch,
   getToursAdminBankImport,
   ignoreBankImportTransaction,
   previewToursAdminBankFile,
@@ -84,14 +86,18 @@ function PendingTransactionCard({
 }) {
   const id = Number(tx.id);
   const initialSelection = useMemo(() => buildInitialSelection(tx), [tx]);
+  const [searchMode, setSearchMode] = useState<"invoice" | "order">("invoice");
   const [searchInput, setSearchInput] = useState("");
   const [selected, setSelected] = useState<InvoiceSearchResult | null>(initialSelection);
   const [results, setResults] = useState<InvoiceSearchResult[]>([]);
+  const [orderResults, setOrderResults] = useState<OrderSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [busy, setBusy] = useState<"confirm" | "ignore" | "">("");
 
+  // Rechnungssuche
   useEffect(() => {
+    if (searchMode !== "invoice") return;
     const q = searchInput.trim();
     if (q.length < 2) {
       setResults([]);
@@ -120,7 +126,40 @@ function PendingTransactionCard({
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [searchInput, tx.amount_chf]);
+  }, [searchInput, tx.amount_chf, searchMode]);
+
+  // Bestellungssuche
+  useEffect(() => {
+    if (searchMode !== "order") return;
+    const q = searchInput.trim();
+    if (q.length < 1) {
+      setOrderResults([]);
+      setSearchError(null);
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      setSearching(true);
+      setSearchError(null);
+      getBankImportOrderSearch(q)
+        .then((response) => {
+          if (cancelled) return;
+          setOrderResults(response.orders || []);
+        })
+        .catch((err) => {
+          if (cancelled) return;
+          setSearchError(err instanceof Error ? err.message : "Suche fehlgeschlagen.");
+          setOrderResults([]);
+        })
+        .finally(() => {
+          if (!cancelled) setSearching(false);
+        });
+    }, 300);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [searchInput, searchMode]);
 
   async function handleConfirm() {
     if (!selected) return;
@@ -218,17 +257,42 @@ function PendingTransactionCard({
       ) : null}
 
       <div className="space-y-2">
-        <label className="block text-xs font-medium text-[var(--text-main)]">
-          Rechnung suchen
-        </label>
+        {/* Tab-Umschalter */}
+        <div className="flex gap-1 rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] p-0.5 w-fit">
+          <button
+            type="button"
+            onClick={() => { setSearchMode("invoice"); setSearchInput(""); setResults([]); setOrderResults([]); setSearchError(null); }}
+            className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+              searchMode === "invoice"
+                ? "bg-[var(--surface)] text-[var(--text-main)] shadow-sm"
+                : "text-[var(--text-subtle)] hover:text-[var(--text-main)]"
+            }`}
+          >
+            Rechnung
+          </button>
+          <button
+            type="button"
+            onClick={() => { setSearchMode("order"); setSearchInput(""); setResults([]); setOrderResults([]); setSearchError(null); }}
+            className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+              searchMode === "order"
+                ? "bg-[var(--surface)] text-[var(--text-main)] shadow-sm"
+                : "text-[var(--text-subtle)] hover:text-[var(--text-main)]"
+            }`}
+          >
+            Bestellung
+          </button>
+        </div>
+
         <input
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
-          placeholder="Nr., ID, Tour, Kunde, Objekt"
+          placeholder={searchMode === "invoice" ? "Nr., ID, Tour, Kunde, Objekt" : "Bestellnr., Firmenname, Kundenname"}
           className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)]"
         />
         {searching ? <p className="text-xs text-[var(--text-subtle)]">Suche läuft…</p> : null}
-        {results.length > 0 ? (
+
+        {/* Rechnungs-Ergebnisse */}
+        {searchMode === "invoice" && results.length > 0 ? (
           <div className="space-y-2">
             {results.map((result) => {
               const source = asInvoiceSource(result.invoice_source) || "renewal";
@@ -262,8 +326,72 @@ function PendingTransactionCard({
             })}
           </div>
         ) : null}
-        {!searching && searchInput.trim().length >= 2 && results.length === 0 && !searchError ? (
+        {searchMode === "invoice" && !searching && searchInput.trim().length >= 2 && results.length === 0 && !searchError ? (
           <p className="text-xs text-[var(--text-subtle)]">Keine offenen Rechnungen gefunden.</p>
+        ) : null}
+
+        {/* Bestellungs-Ergebnisse */}
+        {searchMode === "order" && orderResults.length > 0 ? (
+          <div className="space-y-3">
+            {orderResults.map((order) => (
+              <div key={order.order_no} className="rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] overflow-hidden">
+                <div className="px-3 py-2 bg-[var(--surface-raised)] border-b border-[var(--border-soft)]">
+                  <span className="text-xs font-semibold text-[var(--text-main)]">Bestellung #{order.order_no}</span>
+                  {order.customer_name ? (
+                    <span className="text-xs text-[var(--text-subtle)] ml-2">{order.customer_name}</span>
+                  ) : null}
+                </div>
+                <div className="p-2 space-y-1.5">
+                  {order.invoices.length === 0 ? (
+                    <p className="text-xs text-[var(--text-subtle)] px-1">Keine Rechnungen zu dieser Bestellung.</p>
+                  ) : (
+                    order.invoices.map((inv) => {
+                      const isSelected = selected?.invoice_source === "renewal" && String(selected.id) === String(inv.id);
+                      return (
+                        <button
+                          key={String(inv.id)}
+                          type="button"
+                          onClick={() => setSelected({
+                            invoice_source: "renewal",
+                            id: inv.id,
+                            invoice_number: inv.invoice_number ?? undefined,
+                            amount_chf: inv.amount_chf,
+                            invoice_status: inv.invoice_status ?? undefined,
+                            tour_id: inv.tour_id ?? undefined,
+                            tour_object_label: inv.tour_object_label ?? undefined,
+                            canConfirmDirectly: true,
+                            requiresImport: false,
+                          })}
+                          className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
+                            isSelected
+                              ? "border-[var(--accent)] bg-[var(--accent)]/10"
+                              : "border-[var(--border-soft)] hover:border-[var(--accent)]/40"
+                          }`}
+                        >
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium bg-green-500/10 text-green-700 border-green-500/20">
+                              Intern
+                            </span>
+                            <span className="font-medium text-[var(--text-main)] text-xs">
+                              {inv.invoice_number || `#${inv.id}`}
+                            </span>
+                            <span className="text-xs text-[var(--text-subtle)]">{formatMoney(inv.amount_chf)}</span>
+                            <span className="text-xs text-[var(--text-subtle)]">{String(inv.invoice_status || "")}</span>
+                          </div>
+                          {inv.tour_object_label ? (
+                            <div className="mt-0.5 text-[11px] text-[var(--text-subtle)]">{inv.tour_object_label}</div>
+                          ) : null}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
+        {searchMode === "order" && !searching && searchInput.trim().length >= 1 && orderResults.length === 0 && !searchError ? (
+          <p className="text-xs text-[var(--text-subtle)]">Keine Bestellungen mit Rechnungen gefunden.</p>
         ) : null}
       </div>
 
@@ -316,24 +444,134 @@ function matchStatusText(status: string) {
   return "Kein Treffer";
 }
 
+function PreviewTransactionList({ transactions }: { transactions: BankImportPreviewTx[] }) {
+  return (
+    <div className="space-y-3">
+      {transactions.map((tx, i) => (
+        <div
+          key={i}
+          className={`rounded-xl border text-sm overflow-hidden ${
+            tx.match_status === "exact"
+              ? "border-green-500/20"
+              : tx.match_status === "review"
+                ? "border-yellow-500/20"
+                : "border-[var(--border-soft)]"
+          }`}
+        >
+          <div className={`flex flex-wrap items-center gap-2 px-4 py-2.5 ${
+            tx.match_status === "exact"
+              ? "bg-green-500/8"
+              : tx.match_status === "review"
+                ? "bg-yellow-500/8"
+                : "bg-[var(--surface-raised)]"
+          }`}>
+            {matchStatusIcon(tx.match_status)}
+            <span className="font-semibold text-[var(--text-main)] text-base">
+              {tx.currency} {typeof tx.amount_chf === "number" ? tx.amount_chf.toFixed(2) : "—"}
+            </span>
+            <span className={`text-xs font-medium ${
+              tx.match_status === "exact" ? "text-green-700" :
+              tx.match_status === "review" ? "text-yellow-700" : "text-zinc-500"
+            }`}>
+              {matchStatusText(tx.match_status)}
+            </span>
+            {tx.requires_import ? (
+              <span className="text-[11px] rounded-full border border-yellow-500/30 bg-yellow-500/10 text-yellow-700 px-2 py-0.5 ml-auto">
+                Exxas → Import nötig
+              </span>
+            ) : null}
+          </div>
+          <div className="px-4 py-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 bg-[var(--surface)]">
+            {tx.booking_date ? <InfoRow label="Buchungsdatum" value={tx.booking_date} /> : null}
+            {tx.value_date && tx.value_date !== tx.booking_date ? <InfoRow label="Valuta" value={tx.value_date} /> : null}
+            {tx.debtor_name ? <InfoRow label="Zahler" value={tx.debtor_name} /> : null}
+            {tx.debtor_iban ? <InfoRow label="Zahler IBAN" value={tx.debtor_iban} mono /> : null}
+            {tx.creditor_name ? <InfoRow label="Empfänger" value={tx.creditor_name} /> : null}
+            {tx.creditor_iban ? <InfoRow label="Empfänger IBAN" value={tx.creditor_iban} mono /> : null}
+            {tx.reference_structured ? (
+              <InfoRow label="QR-/Referenz" value={tx.reference_structured} mono />
+            ) : tx.reference_raw ? (
+              <InfoRow label="Referenz" value={tx.reference_raw} mono />
+            ) : null}
+            {tx.reference_unstructured && tx.reference_unstructured !== tx.reference_structured ? (
+              <InfoRow label="Mitteilung" value={tx.reference_unstructured} />
+            ) : null}
+            {tx.purpose && tx.purpose !== tx.reference_raw && tx.purpose !== tx.reference_unstructured ? (
+              <InfoRow label="Zweck" value={tx.purpose} />
+            ) : null}
+            {tx.additional_info ? <InfoRow label="Zusatzinfo" value={tx.additional_info} /> : null}
+          </div>
+          {(tx.matched_invoice_number || tx.matched_invoice_id) ? (
+            <div className={`px-4 py-2.5 border-t text-xs ${
+              tx.match_status === "exact"
+                ? "border-green-500/15 bg-green-500/5"
+                : "border-yellow-500/15 bg-yellow-500/5"
+            }`}>
+              <span className="font-medium text-[var(--text-main)]">Rechnung:</span>{" "}
+              <span className="font-mono">{tx.matched_invoice_number || `#${tx.matched_invoice_id}`}</span>
+              {tx.matched_invoice_amount != null
+                ? <span className="text-[var(--text-subtle)]"> · CHF {Number(tx.matched_invoice_amount).toFixed(2)}</span>
+                : null}
+              {tx.matched_customer_name
+                ? <span className="text-[var(--text-subtle)]"> · {tx.matched_customer_name}</span>
+                : null}
+              {tx.matched_tour_label
+                ? <span className="text-[var(--text-subtle)]"> · {tx.matched_tour_label}</span>
+                : null}
+              {tx.match_reason
+                ? <div className="text-[11px] text-[var(--text-subtle)] italic mt-0.5">{tx.match_reason}</div>
+                : null}
+            </div>
+          ) : tx.match_reason ? (
+            <div className="px-4 py-2 border-t border-[var(--border-soft)] text-[11px] text-[var(--text-subtle)] italic bg-[var(--surface)]">
+              {tx.match_reason}
+            </div>
+          ) : null}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+type MultiPreviewEntry = { file: File; preview: BankImportPreviewResult };
+
 function BankImportPreviewModal({
-  preview,
-  onConfirm,
+  entries,
+  currentIndex,
+  onConfirmOne,
+  onSkipOne,
   onClose,
   confirming,
 }: {
-  preview: BankImportPreviewResult;
-  onConfirm: () => void;
+  entries: MultiPreviewEntry[];
+  currentIndex: number;
+  onConfirmOne: () => void;
+  onSkipOne: () => void;
   onClose: () => void;
   confirming: boolean;
 }) {
+  const entry = entries[currentIndex];
+  if (!entry) return null;
+  const { preview } = entry;
+  const isLast = currentIndex === entries.length - 1;
+  const totalFiles = entries.length;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
       <div className="w-full max-w-3xl max-h-[90vh] flex flex-col rounded-2xl border border-[var(--border-soft)] bg-[var(--surface)] shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[var(--border-soft)] px-5 py-4 flex-shrink-0">
           <div>
-            <h2 className="text-lg font-semibold text-[var(--text-main)]">Vorschau: {preview.fileName || "Bank-Import"}</h2>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-lg font-semibold text-[var(--text-main)]">
+                Vorschau: {preview.fileName || "Bank-Import"}
+              </h2>
+              {totalFiles > 1 ? (
+                <span className="text-xs rounded-full bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20 px-2 py-0.5 font-medium">
+                  {currentIndex + 1} / {totalFiles}
+                </span>
+              ) : null}
+            </div>
             <p className="text-xs text-[var(--text-subtle)] mt-0.5">
               {preview.totalRows} {preview.totalRows === 1 ? "Transaktion" : "Transaktionen"} · Format: {preview.sourceFormat.toUpperCase()}
             </p>
@@ -348,8 +586,30 @@ function BankImportPreviewModal({
           </button>
         </div>
 
+        {/* Datei-Tabs bei mehreren Dateien */}
+        {totalFiles > 1 ? (
+          <div className="px-5 pt-3 flex-shrink-0">
+            <div className="flex gap-1 flex-wrap">
+              {entries.map((e, idx) => (
+                <span
+                  key={idx}
+                  className={`text-xs rounded-full px-2.5 py-1 border font-medium ${
+                    idx === currentIndex
+                      ? "bg-[var(--accent)] text-white border-[var(--accent)]"
+                      : idx < currentIndex
+                        ? "bg-green-500/10 text-green-700 border-green-500/20"
+                        : "bg-[var(--surface-raised)] text-[var(--text-subtle)] border-[var(--border-soft)]"
+                  }`}
+                >
+                  {idx < currentIndex ? "✓ " : ""}{e.preview.fileName || `Datei ${idx + 1}`}
+                </span>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
         {/* Statistik */}
-        <div className="grid grid-cols-3 gap-3 px-5 py-3 border-b border-[var(--border-soft)] flex-shrink-0">
+        <div className="grid grid-cols-3 gap-3 px-5 py-3 border-b border-[var(--border-soft)] flex-shrink-0 mt-3">
           <div className="rounded-lg bg-green-500/8 border border-green-500/20 px-3 py-2 text-center">
             <p className="text-xl font-bold text-green-700">{preview.exactCount}</p>
             <p className="text-xs text-green-600 mt-0.5">Automatisch</p>
@@ -365,108 +625,8 @@ function BankImportPreviewModal({
         </div>
 
         {/* Transaktionsliste */}
-        <div className="overflow-y-auto flex-1 px-5 py-3 space-y-3">
-          {preview.transactions.map((tx, i) => (
-            <div
-              key={i}
-              className={`rounded-xl border text-sm overflow-hidden ${
-                tx.match_status === "exact"
-                  ? "border-green-500/20"
-                  : tx.match_status === "review"
-                    ? "border-yellow-500/20"
-                    : "border-[var(--border-soft)]"
-              }`}
-            >
-              {/* Kopfzeile */}
-              <div className={`flex flex-wrap items-center gap-2 px-4 py-2.5 ${
-                tx.match_status === "exact"
-                  ? "bg-green-500/8"
-                  : tx.match_status === "review"
-                    ? "bg-yellow-500/8"
-                    : "bg-[var(--surface-raised)]"
-              }`}>
-                {matchStatusIcon(tx.match_status)}
-                <span className="font-semibold text-[var(--text-main)] text-base">
-                  {tx.currency} {typeof tx.amount_chf === "number" ? tx.amount_chf.toFixed(2) : "—"}
-                </span>
-                <span className={`text-xs font-medium ${
-                  tx.match_status === "exact" ? "text-green-700" :
-                  tx.match_status === "review" ? "text-yellow-700" : "text-zinc-500"
-                }`}>
-                  {matchStatusText(tx.match_status)}
-                </span>
-                {tx.requires_import ? (
-                  <span className="text-[11px] rounded-full border border-yellow-500/30 bg-yellow-500/10 text-yellow-700 px-2 py-0.5 ml-auto">
-                    Exxas → Import nötig
-                  </span>
-                ) : null}
-              </div>
-
-              {/* Details Grid */}
-              <div className="px-4 py-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 bg-[var(--surface)]">
-                {tx.booking_date ? (
-                  <InfoRow label="Buchungsdatum" value={tx.booking_date} />
-                ) : null}
-                {tx.value_date && tx.value_date !== tx.booking_date ? (
-                  <InfoRow label="Valuta" value={tx.value_date} />
-                ) : null}
-                {tx.debtor_name ? (
-                  <InfoRow label="Zahler" value={tx.debtor_name} />
-                ) : null}
-                {tx.debtor_iban ? (
-                  <InfoRow label="Zahler IBAN" value={tx.debtor_iban} mono />
-                ) : null}
-                {tx.creditor_name ? (
-                  <InfoRow label="Empfänger" value={tx.creditor_name} />
-                ) : null}
-                {tx.creditor_iban ? (
-                  <InfoRow label="Empfänger IBAN" value={tx.creditor_iban} mono />
-                ) : null}
-                {tx.reference_structured ? (
-                  <InfoRow label="QR-/Referenz" value={tx.reference_structured} mono />
-                ) : tx.reference_raw ? (
-                  <InfoRow label="Referenz" value={tx.reference_raw} mono />
-                ) : null}
-                {tx.reference_unstructured && tx.reference_unstructured !== tx.reference_structured ? (
-                  <InfoRow label="Mitteilung" value={tx.reference_unstructured} />
-                ) : null}
-                {tx.purpose && tx.purpose !== tx.reference_raw && tx.purpose !== tx.reference_unstructured ? (
-                  <InfoRow label="Zweck" value={tx.purpose} />
-                ) : null}
-                {tx.additional_info ? (
-                  <InfoRow label="Zusatzinfo" value={tx.additional_info} />
-                ) : null}
-              </div>
-
-              {/* Zuordnung */}
-              {(tx.matched_invoice_number || tx.matched_invoice_id) ? (
-                <div className={`px-4 py-2.5 border-t text-xs ${
-                  tx.match_status === "exact"
-                    ? "border-green-500/15 bg-green-500/5"
-                    : "border-yellow-500/15 bg-yellow-500/5"
-                }`}>
-                  <span className="font-medium text-[var(--text-main)]">Rechnung:</span>{" "}
-                  <span className="font-mono">{tx.matched_invoice_number || `#${tx.matched_invoice_id}`}</span>
-                  {tx.matched_invoice_amount != null
-                    ? <span className="text-[var(--text-subtle)]"> · CHF {Number(tx.matched_invoice_amount).toFixed(2)}</span>
-                    : null}
-                  {tx.matched_customer_name
-                    ? <span className="text-[var(--text-subtle)]"> · {tx.matched_customer_name}</span>
-                    : null}
-                  {tx.matched_tour_label
-                    ? <span className="text-[var(--text-subtle)]"> · {tx.matched_tour_label}</span>
-                    : null}
-                  {tx.match_reason
-                    ? <div className="text-[11px] text-[var(--text-subtle)] italic mt-0.5">{tx.match_reason}</div>
-                    : null}
-                </div>
-              ) : tx.match_reason ? (
-                <div className="px-4 py-2 border-t border-[var(--border-soft)] text-[11px] text-[var(--text-subtle)] italic bg-[var(--surface)]">
-                  {tx.match_reason}
-                </div>
-              ) : null}
-            </div>
-          ))}
+        <div className="overflow-y-auto flex-1 px-5 py-3">
+          <PreviewTransactionList transactions={preview.transactions} />
         </div>
 
         {/* Footer */}
@@ -479,7 +639,7 @@ function BankImportPreviewModal({
               ? ` ${preview.reviewCount} müssen manuell zugeordnet werden.`
               : ""}
           </p>
-          <div className="flex gap-2 flex-shrink-0">
+          <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end">
             <button
               type="button"
               onClick={onClose}
@@ -488,14 +648,28 @@ function BankImportPreviewModal({
             >
               Abbrechen
             </button>
+            {totalFiles > 1 && !isLast ? (
+              <button
+                type="button"
+                onClick={onSkipOne}
+                disabled={confirming}
+                className="rounded-lg border border-[var(--border-soft)] px-4 py-2 text-sm text-[var(--text-subtle)] hover:text-[var(--text-main)] disabled:opacity-50"
+              >
+                Überspringen
+              </button>
+            ) : null}
             <button
               type="button"
-              onClick={onConfirm}
+              onClick={onConfirmOne}
               disabled={confirming}
               className="rounded-lg bg-[var(--accent)] text-white px-4 py-2 text-sm font-medium hover:bg-[var(--accent)]/90 disabled:opacity-50 flex items-center gap-2"
             >
               <Upload className="h-4 w-4" />
-              {confirming ? "Wird importiert…" : "Import bestätigen"}
+              {confirming
+                ? "Wird importiert…"
+                : isLast || totalFiles === 1
+                  ? "Import bestätigen"
+                  : `Importieren & weiter (${currentIndex + 1}/${totalFiles})`}
             </button>
           </div>
         </div>
@@ -509,8 +683,9 @@ export function ToursAdminBankImportPage() {
   const queryFn = useCallback(() => getToursAdminBankImport(), []);
   const { data, loading, error, refetch } = useQuery(qk, queryFn, { staleTime: 15_000 });
   const [previewing, setPreviewing] = useState(false);
-  const [preview, setPreview] = useState<BankImportPreviewResult | null>(null);
-  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  // Multi-file: Liste von {file, preview}, aktueller Index
+  const [previewEntries, setPreviewEntries] = useState<MultiPreviewEntry[]>([]);
+  const [previewIndex, setPreviewIndex] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -524,15 +699,19 @@ export function ToursAdminBankImportPage() {
   const unmatchedRows = (data?.unmatchedRows as BankImportTx[]) || [];
 
   async function onFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
+    const files = Array.from(e.target.files || []);
     e.target.value = "";
-    if (!f) return;
+    if (files.length === 0) return;
     setPreviewing(true);
     setMsg(null);
     try {
-      const result = await previewToursAdminBankFile(f);
-      setPendingFile(f);
-      setPreview(result);
+      const entries: MultiPreviewEntry[] = [];
+      for (const f of files) {
+        const result = await previewToursAdminBankFile(f);
+        entries.push({ file: f, preview: result });
+      }
+      setPreviewEntries(entries);
+      setPreviewIndex(0);
     } catch (err) {
       setMsg(err instanceof Error ? err.message : "Vorschau fehlgeschlagen");
     } finally {
@@ -540,38 +719,62 @@ export function ToursAdminBankImportPage() {
     }
   }
 
-  async function onConfirmImport() {
-    if (!pendingFile) return;
+  async function onConfirmOne() {
+    const entry = previewEntries[previewIndex];
+    if (!entry) return;
     setUploading(true);
-    setPreview(null);
     setMsg(null);
     try {
-      const r = await uploadToursAdminBankFile(pendingFile);
-      setMsg(`Import OK: Run #${(r as { runId?: number }).runId}, Zeilen ${(r as { totalRows?: number }).totalRows}`);
-      void refetch({ force: true });
+      const r = await uploadToursAdminBankFile(entry.file);
+      const nextMsg = `Import OK: Run #${(r as { runId?: number }).runId}, ${(r as { totalRows?: number }).totalRows} Zeilen (${entry.preview.fileName || entry.file.name})`;
+      const isLast = previewIndex >= previewEntries.length - 1;
+      if (isLast) {
+        setPreviewEntries([]);
+        setMsg(nextMsg);
+        void refetch({ force: true });
+      } else {
+        setMsg(nextMsg);
+        setPreviewIndex((idx) => idx + 1);
+        void refetch({ force: true });
+      }
     } catch (err) {
       setMsg(err instanceof Error ? err.message : "Upload fehlgeschlagen");
     } finally {
       setUploading(false);
-      setPendingFile(null);
     }
+  }
+
+  function onSkipOne() {
+    const isLast = previewIndex >= previewEntries.length - 1;
+    if (isLast) {
+      setPreviewEntries([]);
+    } else {
+      setPreviewIndex((idx) => idx + 1);
+    }
+  }
+
+  function onClosePreview() {
+    setPreviewEntries([]);
+    setPreviewIndex(0);
   }
 
   return (
     <div className="space-y-6">
-      {preview ? (
+      {previewEntries.length > 0 ? (
         <BankImportPreviewModal
-          preview={preview}
+          entries={previewEntries}
+          currentIndex={previewIndex}
           confirming={uploading}
-          onClose={() => { setPreview(null); setPendingFile(null); }}
-          onConfirm={() => void onConfirmImport()}
+          onClose={onClosePreview}
+          onConfirmOne={() => void onConfirmOne()}
+          onSkipOne={onSkipOne}
         />
       ) : null}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-start">
         <div>
           <h1 className="text-2xl font-bold text-[var(--text-main)]">Bank-Import</h1>
-          <p className="text-sm text-[var(--text-subtle)] mt-1">CAMT054 / CSV Upload.</p>
+          <p className="text-sm text-[var(--text-subtle)] mt-1">CAMT054 / CSV Upload — auch mehrere Dateien gleichzeitig.</p>
         </div>
       </div>
 
@@ -579,7 +782,7 @@ export function ToursAdminBankImportPage() {
       {msg ? <p className="text-sm text-[var(--text-main)]">{msg}</p> : null}
 
       <div className="surface-card-strong p-5">
-        <label className="text-sm font-medium text-[var(--text-main)] block mb-3">Datei hochladen</label>
+        <label className="text-sm font-medium text-[var(--text-main)] block mb-3">Dateien hochladen</label>
         <label
           className={`flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-8 cursor-pointer transition-colors ${
             previewing || uploading
@@ -590,6 +793,7 @@ export function ToursAdminBankImportPage() {
           <input
             type="file"
             accept=".xml,.csv,text/xml,text/csv"
+            multiple
             disabled={previewing || uploading}
             className="sr-only"
             onChange={(e) => void onFileSelect(e)}
@@ -597,7 +801,7 @@ export function ToursAdminBankImportPage() {
           {previewing ? (
             <>
               <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--accent)]/25 border-t-[var(--accent)]" />
-              <p className="text-sm text-[var(--text-subtle)]">Datei wird analysiert…</p>
+              <p className="text-sm text-[var(--text-subtle)]">Dateien werden analysiert…</p>
             </>
           ) : uploading ? (
             <>
@@ -611,7 +815,7 @@ export function ToursAdminBankImportPage() {
               </div>
               <div className="text-center">
                 <p className="text-sm font-medium text-[var(--text-main)]">CAMT054 oder CSV hochladen</p>
-                <p className="text-xs text-[var(--text-subtle)] mt-0.5">Klicken zum Auswählen · .xml oder .csv</p>
+                <p className="text-xs text-[var(--text-subtle)] mt-0.5">Klicken zum Auswählen · .xml oder .csv · Mehrere Dateien möglich</p>
               </div>
             </>
           )}

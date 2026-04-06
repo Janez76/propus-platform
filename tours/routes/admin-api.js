@@ -1651,6 +1651,16 @@ router.get('/bank-import/invoice-search', async (req, res) => {
   }
 });
 
+router.get('/bank-import/order-search', async (req, res) => {
+  try {
+    const data = await phase3.searchByOrderNo(req.query.q);
+    return res.json(data);
+  } catch (err) {
+    console.error('[admin-api] GET /bank-import/order-search', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 router.post('/bank-import/preview', bankDataUpload.single('bankFile'), async (req, res) => {
   try {
     const result = await phase3.previewBankImportUpload({
@@ -1702,6 +1712,16 @@ router.post('/bank-import/transactions/:id/ignore', async (req, res) => {
     return res.json(result);
   } catch (err) {
     return res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+router.get('/tours/invoices-by-order/:orderNo', async (req, res) => {
+  try {
+    const data = await phase3.getInvoicesByOrderNo(req.params.orderNo);
+    return res.json(data);
+  } catch (err) {
+    console.error('[admin-api] GET /tours/invoices-by-order', err);
+    return res.status(500).json({ ok: false, error: err.message });
   }
 });
 

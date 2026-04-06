@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei jeder Änderung an Tour-Status, Matterport-Integration, Verlängerungs- oder Archivierungs-Logik dieses Dokument aktualisieren. **Produkt-Workflow (Regeln, Reminder-Stufen, Preise):** [WORKFLOW_TOURS.md](./WORKFLOW_TOURS.md) — bei Abweichungen beide Dateien abstimmen.
 
-*Zuletzt aktualisiert: April 2026 (Galerie/NAS: Migrationen 031–032; Admin `/api/tours/admin/galleries` NAS-Import; öffentlich `/api/listing/...` Video/Grundriss/ZIP; Bestellung nachträglich verknüpfen via Tour-Detail Intern-Sektion)*
+*Zuletzt aktualisiert: April 2026 (Galerie/NAS: Migrationen 031–032; Admin `/api/tours/admin/galleries` NAS-Import; öffentlich `/api/listing/...` Video/Grundriss/ZIP; Bestellung nachträglich verknüpfen via Tour-Detail Intern-Sektion; Bank-Import: Vorschau/Multi-Upload, Bestellungssuche zur Rechnungszuordnung; Bestellungs-Admin: Finanzblock «Rechnungen & Zahlungen»)*
 
 ---
 
@@ -443,6 +443,29 @@ archiveTourNow(tourId, actorRef)  [in tour-actions.js]
 | NONE | kein Match | `none` | 0 |
 
 Nur Rechnungen mit Status `sent`, `overdue`, `draft` sind matchbar.
+
+### Upload & Vorschau (Admin Finanzen → Bank-Import)
+
+- **Mehrere Dateien:** Im Dateidialog können mehrere `.xml`/`.csv` gewählt werden; pro Datei nacheinander Vorschau → optional «Überspringen» → «Import bestätigen».
+- **Endpunkte:** `POST /bank-import/preview` (multipart `bankFile`, keine DB-Persistenz) → `POST /bank-import/upload` (speichert Run + Transaktionen).
+
+### Manuelle Zuordnung: Rechnung vs. Bestellung
+
+Offene Importzeilen (`match_status` `review` / `none`) erscheinen unter **Prüfen & zuordnen**. Pro Zeile:
+
+| Modus | UI | Backend |
+|---|---|---|
+| **Rechnung** | Freitextsuche (Nr., Tour, Kunde …) | `GET /bank-import/invoice-search?q=&amount=` |
+| **Bestellung** | Suche nach Bestellnr., Firmenname, Kundenname oder E-Mail | `GET /bank-import/order-search?q=` |
+
+**`order-search`:** Join `booking.orders` → `tour_manager.tours` (`booking_order_no`) → `tour_manager.renewal_invoices`. Antwort gruppiert nach `order_no` mit Liste der Rechnungen; Auswahl einer Rechnung nutzt denselben Confirm-Flow wie die Rechnungssuche (`POST /bank-import/transactions/:id/confirm` mit `invoiceId`, `invoiceSource: renewal`).
+
+Gilt für **Portal-Buchungen** und **manuell erstellte Bestellungen**, sobald eine Tour mit `booking_order_no` verknüpft ist und Rechnungen existieren.
+
+### Bestellungs-Admin: Finanzstatus (OrderDetail)
+
+- **Endpunkt:** `GET /tours/invoices-by-order/:orderNo` — alle `renewal_invoices` zu Touren mit `tours.booking_order_no = orderNo` (neueste zuerst).
+- **UI:** In der Bestellungs-Detailansicht erscheint der Block **«Rechnungen & Zahlungen»** (nur wenn mindestens eine Rechnung existiert): Status-Badge, Betrag, Nr., Tour-Label, Fälligkeit bzw. Bezahlt-Datum und Zahlungskanal, Skonto; Kopfzeile mit Kurzstatistik (z. B. bezahlt/offen, Summe CHF). Nach **«Rechnung erstellen»** wird die Liste neu geladen.
 
 ### Nach erfolgreichem Match
 

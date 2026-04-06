@@ -377,6 +377,19 @@ export function ExxasTable({
   );
 }
 
+function parseDDMMYYYY(val: string): string | null {
+  const m = val.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if (!m) return null;
+  return `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+}
+
+function dateToDisplayDDMMYYYY(v: unknown): string {
+  if (v == null || v === "") return "";
+  const d = new Date(String(v));
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
 export function EditInvoiceModal({
   type,
   invoice,
@@ -395,6 +408,12 @@ export function EditInvoiceModal({
   const [dueAt, setDueAt] = useState(dateInputValue(invoice.due_at));
   const [paymentNote, setPaymentNote] = useState(String(invoice.payment_note || ""));
   const [exxasStatus, setExxasStatus] = useState(String(invoice.exxas_status || ""));
+  // Neue Felder
+  const [paidAtDate, setPaidAtDate] = useState(dateToDisplayDDMMYYYY(invoice.paid_at_date ?? invoice.paid_at));
+  const [paymentChannel, setPaymentChannel] = useState(String(invoice.payment_channel || ""));
+  const [skontoChf, setSkontoChf] = useState(invoice.skonto_chf != null ? String(invoice.skonto_chf) : "");
+  const [writeoff, setWriteoff] = useState(invoice.writeoff === true || invoice.writeoff === "true");
+  const [writeoffReason, setWriteoffReason] = useState(String(invoice.writeoff_reason || ""));
 
   const title = useMemo(() => {
     if (type === "renewal") return `Rechnung ${String(invoice.invoice_number || invoice.id || "")} bearbeiten`;
@@ -406,17 +425,28 @@ export function EditInvoiceModal({
     setSaving(true);
     setError(null);
     try {
-      const payload =
-        type === "renewal"
-          ? {
-              invoice_status: invoiceStatus,
-              amount_chf: amountCHF,
-              due_at: dueAt || null,
-              payment_note: paymentNote,
-            }
-          : {
-              exxas_status: exxasStatus,
-            };
+      let payload: Record<string, unknown>;
+      if (type === "renewal") {
+        const paidAtIso = paidAtDate.trim() ? parseDDMMYYYY(paidAtDate.trim()) : null;
+        if (paidAtDate.trim() && !paidAtIso) {
+          setError("Bezahlt am: Bitte TT.MM.JJJJ eingeben.");
+          setSaving(false);
+          return;
+        }
+        payload = {
+          invoice_status: invoiceStatus,
+          amount_chf: amountCHF,
+          due_at: dueAt || null,
+          payment_note: paymentNote,
+          paid_at_date: paidAtIso,
+          payment_channel: paymentChannel || null,
+          skonto_chf: skontoChf !== "" ? skontoChf : null,
+          writeoff,
+          writeoff_reason: writeoff ? writeoffReason : null,
+        };
+      } else {
+        payload = { exxas_status: exxasStatus };
+      }
       await updateAdminInvoice(type, String(invoice.id || ""), payload);
       onSaved("Rechnung wurde aktualisiert.");
     } catch (err) {
@@ -428,8 +458,8 @@ export function EditInvoiceModal({
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-lg rounded-2xl border border-[var(--border-soft)] bg-[var(--surface)] shadow-xl">
-        <div className="flex items-center justify-between border-b border-[var(--border-soft)] px-5 py-4">
+      <div className="w-full max-w-lg rounded-2xl border border-[var(--border-soft)] bg-[var(--surface)] shadow-xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between border-b border-[var(--border-soft)] px-5 py-4 sticky top-0 bg-[var(--surface)] z-10">
           <h2 className="text-lg font-semibold text-[var(--text-main)]">{title}</h2>
           <button
             type="button"
@@ -480,15 +510,80 @@ export function EditInvoiceModal({
                 />
               </label>
 
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block space-y-1">
+                  <span className="text-sm font-medium text-[var(--text-main)]">Bezahlt am</span>
+                  <input
+                    type="text"
+                    placeholder="TT.MM.JJJJ"
+                    value={paidAtDate}
+                    onChange={(e) => setPaidAtDate(e.target.value)}
+                    className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)] placeholder:text-[var(--text-subtle)]"
+                  />
+                </label>
+
+                <label className="block space-y-1">
+                  <span className="text-sm font-medium text-[var(--text-main)]">Zahlungskanal</span>
+                  <select
+                    value={paymentChannel}
+                    onChange={(e) => setPaymentChannel(e.target.value)}
+                    className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)]"
+                  >
+                    <option value="">—</option>
+                    <option value="ubs">UBS</option>
+                    <option value="online">Online</option>
+                    <option value="bar">Bar</option>
+                    <option value="sonstige">Sonstige</option>
+                  </select>
+                </label>
+              </div>
+
+              <label className="block space-y-1">
+                <span className="text-sm font-medium text-[var(--text-main)]">Skonto (CHF, optional)</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  value={skontoChf}
+                  onChange={(e) => setSkontoChf(e.target.value)}
+                  className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)] placeholder:text-[var(--text-subtle)]"
+                />
+              </label>
+
               <label className="block space-y-1">
                 <span className="text-sm font-medium text-[var(--text-main)]">Notiz</span>
                 <textarea
                   value={paymentNote}
                   onChange={(e) => setPaymentNote(e.target.value)}
-                  rows={4}
+                  rows={3}
                   className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)]"
                 />
               </label>
+
+              <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-4 py-3 space-y-3">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={writeoff}
+                    onChange={(e) => setWriteoff(e.target.checked)}
+                    className="h-4 w-4 rounded border-[var(--border-soft)] accent-red-600"
+                  />
+                  <span className="text-sm font-medium text-red-700">Abschreibung (setzt Status auf Storniert)</span>
+                </label>
+                {writeoff ? (
+                  <label className="block space-y-1">
+                    <span className="text-xs font-medium text-[var(--text-subtle)]">Grund der Abschreibung</span>
+                    <input
+                      type="text"
+                      placeholder="z.B. Zahlungsunfähigkeit, Kulanz..."
+                      value={writeoffReason}
+                      onChange={(e) => setWriteoffReason(e.target.value)}
+                      className="w-full rounded-lg border border-red-200 bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)] placeholder:text-[var(--text-subtle)]"
+                    />
+                  </label>
+                ) : null}
+              </div>
             </>
           ) : (
             <label className="block space-y-1">

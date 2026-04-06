@@ -4,7 +4,7 @@ import { getAdminConfig, type AdminConfig } from "../../api/adminConfig";
 import { apiRequest } from "../../api/client";
 import { getPhotographers, type Photographer } from "../../api/photographers";
 import { getCustomerContacts, type Customer, type CustomerContact } from "../../api/customers";
-import { createTourManualInvoice, getToursByOrderNo } from "../../api/toursAdmin";
+import { createTourManualInvoice, getInvoicesByOrderNo, getToursByOrderNo, type OrderInvoiceRow } from "../../api/toursAdmin";
 import { useMutation } from "../../hooks/useMutation";
 import { formatPhoneDisplay } from "../../lib/format";
 import { PhoneLink } from "../ui/PhoneLink";
@@ -51,6 +51,7 @@ type ManualInvoiceDraft = {
   dueAt: string;
   invoiceNumber: string;
   paymentNote: string;
+  skontoChf: string;
 };
 
 function toDateTimeLocalValue(date?: string, time?: string, fallbackIso?: string): string {
@@ -137,6 +138,7 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
   const [manualInvoiceBusy, setManualInvoiceBusy] = useState(false);
   const [manualInvoiceError, setManualInvoiceError] = useState("");
   const [manualInvoiceFeedback, setManualInvoiceFeedback] = useState("");
+  const [orderInvoices, setOrderInvoices] = useState<OrderInvoiceRow[] | null>(null);
   const listingHref = data?.listingSlug ? `/listing/${encodeURIComponent(data.listingSlug)}` : "";
   const emailsDirty = sendStatusEmails && (statusEmailTargets.customer || statusEmailTargets.office || statusEmailTargets.photographer || statusEmailTargets.cc);
   const statusDirty = status !== originalStatus || scheduleLocal !== originalSchedule || scheduleDurationMin !== originalScheduleDurationMin || pendingPhotographerKey !== originalPhotographerKey || emailsDirty;
@@ -278,8 +280,12 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
       getToursByOrderNo(parsedNo)
         .then((r) => setLinkedTours(r.tours))
         .catch(() => setLinkedTours([]));
+      getInvoicesByOrderNo(parsedNo)
+        .then((r) => setOrderInvoices(r.invoices))
+        .catch(() => setOrderInvoices([]));
     } else {
       setLinkedTours([]);
+      setOrderInvoices([]);
     }
   }, [canManageOrder, token, orderNo]);
 
@@ -390,6 +396,7 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
       dueAt: "",
       invoiceNumber: "",
       paymentNote: `Bestellung #${orderNo}`,
+      skontoChf: "",
     });
   }
 
@@ -408,10 +415,16 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
         amountChf: manualInvoiceDraft.amountChf,
         dueAt: manualInvoiceDraft.dueAt || null,
         paymentNote: manualInvoiceDraft.paymentNote || null,
+        skontoChf: manualInvoiceDraft.skontoChf || null,
       });
       setManualInvoiceDraft(null);
       setManualInvoiceFeedback(`Interne Rechnung für ${manualInvoiceDraft.tourLabel} wurde erstellt.`);
       await onRefresh?.();
+      // Rechnungsliste aktualisieren
+      const parsedNo = parseInt(String(orderNo), 10);
+      if (Number.isFinite(parsedNo) && parsedNo > 0) {
+        getInvoicesByOrderNo(parsedNo).then((r) => setOrderInvoices(r.invoices)).catch(() => undefined);
+      }
     } catch (e) {
       setManualInvoiceError(e instanceof Error ? e.message : "Rechnung konnte nicht erstellt werden.");
     } finally {
@@ -1199,6 +1212,71 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                 </div>
               )}
 
+              {orderInvoices !== null && orderInvoices.length > 0 ? (() => {
+                const totalChf = orderInvoices.reduce((sum, inv) => sum + (parseFloat(String(inv.amount_chf ?? 0)) || 0), 0);
+                const paid = orderInvoices.filter((i) => i.invoice_status === "paid");
+                const open = orderInvoices.filter((i) => i.invoice_status === "sent" || i.invoice_status === "overdue");
+                const overdue = orderInvoices.filter((i) => i.invoice_status === "overdue");
+                const statusMap: Record<string, { label: string; cls: string }> = {
+                  paid:      { label: "Bezahlt",    cls: "bg-green-500/10 text-green-700 border-green-500/20" },
+                  sent:      { label: "Offen",      cls: "bg-yellow-500/10 text-yellow-700 border-yellow-500/20" },
+                  overdue:   { label: "Überfällig", cls: "bg-red-500/10 text-red-700 border-red-500/20" },
+                  draft:     { label: "Entwurf",    cls: "bg-[var(--border-soft)]/50 text-[var(--text-subtle)] border-[var(--border-soft)]" },
+                  cancelled: { label: "Storniert",  cls: "bg-gray-500/10 text-gray-600 border-gray-400/20" },
+                };
+                const channelLabel: Record<string, string> = { ubs: "UBS", online: "Online", bar: "Bar", sonstige: "Sonstige" };
+                return (
+                  <div className="surface-card p-3 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-[var(--text-main)]">Rechnungen &amp; Zahlungen</span>
+                      <span className="text-xs text-[var(--text-subtle)]">
+                        {[
+                          paid.length > 0 ? `${paid.length} bezahlt` : "",
+                          open.length > 0 ? `${open.length} offen` : "",
+                          overdue.length > 0 ? `${overdue.length} überfällig` : "",
+                          `CHF ${totalChf.toFixed(2)}`,
+                        ].filter(Boolean).join(" · ")}
+                      </span>
+                    </div>
+                    <div className="space-y-1.5">
+                      {orderInvoices.map((inv) => {
+                        const st = statusMap[inv.invoice_status] ?? { label: inv.invoice_status, cls: "bg-[var(--border-soft)]/50 text-[var(--text-subtle)] border-[var(--border-soft)]" };
+                        const ch = inv.payment_channel ? channelLabel[inv.payment_channel] ?? inv.payment_channel : null;
+                        return (
+                          <div key={inv.id} className="flex flex-wrap items-start gap-2 rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-xs">
+                            <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium shrink-0 ${st.cls}`}>
+                              {st.label}
+                            </span>
+                            <span className="font-medium text-[var(--text-main)]">
+                              CHF {parseFloat(String(inv.amount_chf ?? 0)).toFixed(2)}
+                            </span>
+                            {inv.invoice_number ? (
+                              <span className="font-mono text-[var(--text-subtle)]">{inv.invoice_number}</span>
+                            ) : null}
+                            {inv.tour_label ? (
+                              <span className="text-[var(--text-subtle)] truncate max-w-[140px]">{inv.tour_label}</span>
+                            ) : null}
+                            {inv.paid_at_date ? (
+                              <span className="text-[var(--text-subtle)]">
+                                {new Date(inv.paid_at_date).toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                                {ch ? ` · ${ch}` : ""}
+                              </span>
+                            ) : inv.due_at ? (
+                              <span className="text-[var(--text-subtle)]">
+                                Fällig: {new Date(inv.due_at).toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                              </span>
+                            ) : null}
+                            {inv.skonto_chf ? (
+                              <span className="text-[var(--text-subtle)]">Skonto: CHF {parseFloat(String(inv.skonto_chf)).toFixed(2)}</span>
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })() : null}
+
               {data?.listingSlug ? (
                 <div className="surface-card p-3 space-y-2">
                   <div className="flex items-center justify-between gap-2">
@@ -1487,6 +1565,19 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                   value={manualInvoiceDraft.amountChf}
                   onChange={(e) => setManualInvoiceDraft((prev) => prev ? { ...prev, amountChf: e.target.value } : prev)}
                   className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)]"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium text-[var(--text-main)]">Skonto (CHF, optional)</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  value={manualInvoiceDraft.skontoChf}
+                  onChange={(e) => setManualInvoiceDraft((prev) => prev ? { ...prev, skontoChf: e.target.value } : prev)}
+                  className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)] placeholder:text-[var(--text-subtle)]"
                 />
               </label>
 
