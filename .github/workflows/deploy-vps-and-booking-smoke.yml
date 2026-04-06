@@ -390,15 +390,33 @@ jobs:
         run: |
           EXPECTED_VERSION="${{ steps.bump.outputs.new_version }}"
           echo "Expected version: $EXPECTED_VERSION"
-          HEALTH=$(ssh -i ~/.ssh/id_ed25519_propus_vps root@${{ secrets.VPS_HOST }} \
-            "curl -sf http://127.0.0.1:3100/api/core/health")
-          echo "Health response: $HEALTH"
-          DEPLOYED=$(echo "$HEALTH" | python3 -c "import sys,json; print(json.load(sys.stdin).get('buildId','UNKNOWN'))")
-          echo "Deployed version: $DEPLOYED"
-          if [ "$DEPLOYED" = "$EXPECTED_VERSION" ]; then
+          VERIFY_OK=0
+          DEPLOYED="UNKNOWN"
+          LAST_HTTP="000"
+          LAST_BODY=""
+          for attempt in 1 2 3 4 5; do
+            echo "Version check attempt ${attempt}/5 ..."
+            RESPONSE=$(ssh -i ~/.ssh/id_ed25519_propus_vps root@${{ secrets.VPS_HOST }} \
+              "curl -sS -w '__HTTP_STATUS__:%{http_code}' http://127.0.0.1:3100/api/core/health" || true)
+            LAST_HTTP="${RESPONSE##*__HTTP_STATUS__:}"
+            LAST_BODY="${RESPONSE%__HTTP_STATUS__:*}"
+            echo "Health HTTP status: $LAST_HTTP"
+            echo "Health response: $LAST_BODY"
+            if [ "$LAST_HTTP" = "200" ]; then
+              DEPLOYED=$(printf '%s' "$LAST_BODY" | python3 -c "import sys,json; print(json.load(sys.stdin).get('buildId','UNKNOWN'))" 2>/dev/null || echo "UNKNOWN")
+              echo "Deployed version: $DEPLOYED"
+              if [ "$DEPLOYED" = "$EXPECTED_VERSION" ]; then
+                VERIFY_OK=1
+                break
+              fi
+            fi
+            sleep 5
+          done
+
+          if [ "$VERIFY_OK" = "1" ]; then
             echo "Version check passed: $DEPLOYED"
           else
-            echo "Version check FAILED: expected=$EXPECTED_VERSION deployed=$DEPLOYED"
+            echo "Version check FAILED: expected=$EXPECTED_VERSION deployed=$DEPLOYED http=$LAST_HTTP"
             exit 1
           fi
 
