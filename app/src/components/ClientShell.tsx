@@ -68,9 +68,6 @@ const ToursAdminBankImportPage = lazy(() => import("../pages-legacy/tours/admin/
 const ToursAdminLinkMatterportPage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminLinkMatterportPage").then((m) => ({ default: m.ToursAdminLinkMatterportPage })));
 const ToursAdminLinkInvoicePage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminLinkInvoicePage").then((m) => ({ default: m.ToursAdminLinkInvoicePage })));
 const ToursAdminLinkExxasCustomerPage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminLinkExxasCustomerPage").then((m) => ({ default: m.ToursAdminLinkExxasCustomerPage })));
-const ToursAdminCustomersListPage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminCustomersListPage").then((m) => ({ default: m.ToursAdminCustomersListPage })));
-const ToursAdminCustomerNewPage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminCustomerNewPage").then((m) => ({ default: m.ToursAdminCustomerNewPage })));
-const ToursAdminCustomerDetailPage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminCustomerDetailPage").then((m) => ({ default: m.ToursAdminCustomerDetailPage })));
 const ToursAdminPortalRolesPage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminPortalRolesPage").then((m) => ({ default: m.ToursAdminPortalRolesPage })));
 const ToursAdminTourSettingsPage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminTourSettingsPage").then((m) => ({ default: m.ToursAdminTourSettingsPage })));
 const ToursAdminWorkflowSettingsPage = lazy(() =>
@@ -233,9 +230,9 @@ function PrivateRoutes() {
         <Route path="/admin/tours/link-matterport" element={guardedElement(toursAdminRoles, <ToursAdminLinkMatterportPage />)} />
         <Route path="/admin/tours/:id/link-invoice" element={guardedElement(toursAdminRoles, <ToursAdminLinkInvoicePage />)} />
         <Route path="/admin/tours/:id/link-exxas-customer" element={guardedElement(toursAdminRoles, <ToursAdminLinkExxasCustomerPage />)} />
-        <Route path="/admin/tours/customers/new" element={guardedElement(toursAdminRoles, <ToursAdminCustomerNewPage />)} />
-        <Route path="/admin/tours/customers/:customerId" element={guardedElement(toursAdminRoles, <ToursAdminCustomerDetailPage />)} />
-        <Route path="/admin/tours/customers" element={guardedElement(toursAdminRoles, <ToursAdminCustomersListPage />)} />
+        <Route path="/admin/tours/customers/new" element={<Navigate to="/customers" replace />} />
+        <Route path="/admin/tours/customers/:customerId" element={<Navigate to="/customers" replace />} />
+        <Route path="/admin/tours/customers" element={<Navigate to="/customers" replace />} />
         <Route path="/admin/tours/portal-roles" element={<Navigate to="/settings/access?tab=portal" replace />} />
         <Route path="/admin/tours/settings" element={guardedElement(toursAdminRoles, <ToursAdminTourSettingsPage />)} />
         <Route path="/admin/tours/workflow-settings" element={guardedElement(toursAdminRoles, <ToursAdminWorkflowSettingsPage />)} />

@@ -1,0 +1,37 @@
+---
+description: Zentrale Navigation – alle Kunden- und Firmendaten laufen über die zentralen Admin-Seiten
+alwaysApply: true
+---
+
+# Zentrale Kunden- & Firmenverwaltung
+
+Dieses Projekt arbeitet **zentral**. Kunden- und Firmendaten werden **nie** modul-spezifisch dupliziert.
+
+## Regeln
+
+- `/customers` ist die **einzige** Kundenliste. Keine modul-eigenen Kundenseiten erstellen.
+- `/settings/companies` ist die **einzige** Firmenverwaltung.
+- Modul-spezifische Routen (z. B. `/admin/tours/customers`) **immer** via `<Navigate to="/customers" replace />` auf die zentrale Seite umleiten.
+- In der Sidebar verlinken Tour-/Matterport-Untermenüs für "Kunden" auf `/customers` und `/settings/companies`, nicht auf eigene Subpfade.
+
+## Beispiel – Routing
+
+```tsx
+// ✅ RICHTIG – zentraler Redirect
+<Route path="/admin/tours/customers" element={<Navigate to="/customers" replace />} />
+<Route path="/admin/tours/customers/:id" element={<Navigate to="/customers" replace />} />
+
+// ❌ FALSCH – eigene modul-spezifische Kundenseite
+<Route path="/admin/tours/customers" element={<ToursAdminCustomersListPage />} />
+```
+
+## Beispiel – Sidebar-Untermenü
+
+```tsx
+// ✅ RICHTIG – Links zeigen auf zentrale Seiten
+<NavLink to="/customers">Kunden</NavLink>
+<NavLink to="/settings/companies">Firmenverwaltung</NavLink>
+
+// ❌ FALSCH – modul-eigene Links
+<NavLink to="/admin/tours/customers">Kunden</NavLink>
+```

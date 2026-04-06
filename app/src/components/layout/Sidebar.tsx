@@ -113,6 +113,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const [toursNavOpen, setToursNavOpen] = useState(false);
   const [customersNavOpen, setCustomersNavOpen] = useState(false);
   const [listingNavOpen, setListingNavOpen] = useState(false);
+  const [toursCustomersNavOpen, setToursCustomersNavOpen] = useState(false);
   const lang = useAuthStore((s) => s.language);
   const role = useAuthStore((s) => s.role);
   const { canAccessPath } = usePermissions();
@@ -125,6 +126,8 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const isListingNavActive = location.pathname.startsWith("/admin/listing");
   const isCustomersNavActive =
     location.pathname.startsWith("/customers") || location.pathname.startsWith("/settings/companies");
+  const isToursCustomersNavActive =
+    location.pathname === "/customers" || location.pathname.startsWith("/customers") || location.pathname.startsWith("/settings/companies");
   const isCompanyRole = isCompanyWorkspaceRole(role);
   const isKunden = isKundenRole(role);
   const visibleNavigationItems = useMemo(() => {
@@ -297,6 +300,29 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                           <Link2 className="h-4 w-4 flex-shrink-0" />
                           {t(lang, "nav.tours.matterport")}
                         </NavLink>
+                        <div>
+                          <button
+                            type="button"
+                            onClick={() => setToursCustomersNavOpen((v) => !v)}
+                            className={cn("propus-nav-item w-full text-sm", isToursCustomersNavActive && "active-sub")}
+                          >
+                            <Users className="h-4 w-4 flex-shrink-0" />
+                            <span className="truncate flex-1 text-left">{t(lang, "nav.tours.customers")}</span>
+                            <ChevronDown className={cn("h-3 w-3 flex-shrink-0 transition-transform opacity-60", (toursCustomersNavOpen || isToursCustomersNavActive) ? "rotate-180" : "")} />
+                          </button>
+                          {(toursCustomersNavOpen || isToursCustomersNavActive) && (
+                            <div className="ml-4 mt-0.5 space-y-0.5 pl-3" style={{ borderLeft: "2px solid var(--border-soft)" }}>
+                              <NavLink to="/customers" onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                                <Users className="h-3.5 w-3.5 flex-shrink-0" />
+                                {t(lang, "nav.customers")}
+                              </NavLink>
+                              <NavLink to="/settings/companies" onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                                <Building2 className="h-3.5 w-3.5 flex-shrink-0" />
+                                {t(lang, "sidebar.nav.companies")}
+                              </NavLink>
+                            </div>
+                          )}
+                        </div>
                         <NavLink to="/admin/tours/portal-vorschau" onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
                           <Eye className="h-4 w-4 flex-shrink-0" />
                           {t(lang, "nav.tours.portalPreview")}
@@ -509,10 +535,29 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                           <Link2 className="h-4 w-4 flex-shrink-0" />
                           {t(lang, "nav.tours.matterport")}
                         </NavLink>
-                        <NavLink to="/admin/tours/customers" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
-                          <Users className="h-4 w-4 flex-shrink-0" />
-                          {t(lang, "nav.tours.customers")}
-                        </NavLink>
+                        <div>
+                          <button
+                            type="button"
+                            onClick={() => setToursCustomersNavOpen((v) => !v)}
+                            className={cn("propus-nav-item w-full text-sm", isToursCustomersNavActive && "active-sub")}
+                          >
+                            <Users className="h-4 w-4 flex-shrink-0" />
+                            <span className="truncate flex-1 text-left">{t(lang, "nav.tours.customers")}</span>
+                            <ChevronDown className={cn("h-3 w-3 flex-shrink-0 transition-transform opacity-60", (toursCustomersNavOpen || isToursCustomersNavActive) ? "rotate-180" : "")} />
+                          </button>
+                          {(toursCustomersNavOpen || isToursCustomersNavActive) && (
+                            <div className="ml-4 mt-0.5 space-y-0.5 pl-3" style={{ borderLeft: "2px solid var(--border-soft)" }}>
+                              <NavLink to="/customers" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                                <Users className="h-3.5 w-3.5 flex-shrink-0" />
+                                {t(lang, "nav.customers")}
+                              </NavLink>
+                              <NavLink to="/settings/companies" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                                <Building2 className="h-3.5 w-3.5 flex-shrink-0" />
+                                {t(lang, "sidebar.nav.companies")}
+                              </NavLink>
+                            </div>
+                          )}
+                        </div>
                         <NavLink to="/admin/tours/settings" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
                           <Settings2 className="h-4 w-4 flex-shrink-0" />
                           {t(lang, "nav.tours.settings")}
