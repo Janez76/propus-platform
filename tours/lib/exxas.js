@@ -501,6 +501,7 @@ async function searchCustomers(query) {
 }
 
 const EXXAS_INVOICE_CACHE_MS = 60 * 1000;
+const EXXAS_INVOICE_PAGE_SIZE = 1000;
 let exxasInvoiceListCache = { at: 0, rows: null, error: null };
 
 async function fetchExxasInvoicesRawList() {
@@ -514,19 +515,35 @@ async function fetchExxasInvoicesRawList() {
     return { ok: false, rows: [], error: exxasInvoiceListCache.error };
   }
   try {
-    const res = await fetch(buildExxasUrl(config.baseUrl, '/api/v2/documents'), {
-      headers: getHeaders(config, { includeContentType: false }),
-      signal: AbortSignal.timeout(15000),
-    });
-    if (!res.ok) {
-      const err = `Exxas API: HTTP ${res.status}`;
-      exxasInvoiceListCache = { at: now, rows: [], error: err };
-      return { ok: false, rows: [], error: err };
+    const allRows = [];
+    let offset = 0;
+    let lastError = null;
+    // Alle Seiten laden (API gibt max. 1000 Dokumente pro Request zurück)
+    for (let page = 0; page < 10; page++) {
+      const url = buildExxasUrl(config.baseUrl, `/api/v2/documents?limit=${EXXAS_INVOICE_PAGE_SIZE}&offset=${offset}`);
+      // eslint-disable-next-line no-await-in-loop
+      const res = await fetch(url, {
+        headers: getHeaders(config, { includeContentType: false }),
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!res.ok) {
+        lastError = `Exxas API: HTTP ${res.status}`;
+        break;
+      }
+      // eslint-disable-next-line no-await-in-loop
+      const data = await res.json().catch(() => ({}));
+      const rows = extractArrayPayload(data);
+      if (!rows || rows.length === 0) break;
+      allRows.push(...rows);
+      if (rows.length < EXXAS_INVOICE_PAGE_SIZE) break;
+      offset += EXXAS_INVOICE_PAGE_SIZE;
     }
-    const data = await res.json().catch(() => ({}));
-    const rows = extractArrayPayload(data);
-    exxasInvoiceListCache = { at: now, rows, error: null };
-    return { ok: true, rows, error: null };
+    if (allRows.length === 0 && lastError) {
+      exxasInvoiceListCache = { at: now, rows: [], error: lastError };
+      return { ok: false, rows: [], error: lastError };
+    }
+    exxasInvoiceListCache = { at: now, rows: allRows, error: null };
+    return { ok: true, rows: allRows, error: null };
   } catch (e) {
     const err = e.name === 'TimeoutError' ? 'Exxas API Timeout' : e.message;
     console.warn('Exxas fetchExxasInvoicesRawList:', err);
