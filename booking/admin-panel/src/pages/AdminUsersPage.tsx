@@ -32,6 +32,8 @@ import {
 import {
   createInternalAdminUser,
   getInternalAdminUsers,
+  patchInternalAdminUserRoles,
+  patchInternalAdminUserSuspend,
   resetInternalAdminUserPassword,
   sendInternalAdminUserCredentials,
   type InternalAdminUser,
@@ -178,6 +180,7 @@ export function AdminUsersPage() {
   const [createInternalOpen, setCreateInternalOpen] = useState(false);
   const [resetUser, setResetUser] = useState<InternalAdminUser | null>(null);
   const [sendingCredentialsId, setSendingCredentialsId] = useState<string | null>(null);
+  const [internalActionId, setInternalActionId] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
   const [newStandort, setNewStandort] = useState("");
   const [newNotiz, setNewNotiz] = useState("");
@@ -357,6 +360,34 @@ export function AdminUsersPage() {
       setError(e instanceof Error ? e.message : "Zugangsdaten-Mail konnte nicht gesendet werden");
     } finally {
       setSendingCredentialsId(null);
+    }
+  }
+
+  async function changeInternalRole(user: InternalAdminUser, role: string) {
+    if (!token) return;
+    setInternalActionId(`${user.id}:role`);
+    setError("");
+    try {
+      await patchInternalAdminUserRoles(token, user.id, [role]);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Rolle konnte nicht geändert werden");
+    } finally {
+      setInternalActionId(null);
+    }
+  }
+
+  async function toggleInternalSuspend(user: InternalAdminUser) {
+    if (!token) return;
+    setInternalActionId(`${user.id}:suspend`);
+    setError("");
+    try {
+      await patchInternalAdminUserSuspend(token, user.id, !user.isSuspended);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Status konnte nicht geändert werden");
+    } finally {
+      setInternalActionId(null);
     }
   }
 
@@ -927,8 +958,11 @@ export function AdminUsersPage() {
           <InternalUsersPanel
             users={filteredInternalUsers}
             sendingCredentialsId={sendingCredentialsId}
+            internalActionId={internalActionId}
             onResetPassword={setResetUser}
             onSendCredentials={sendCredentials}
+            onRoleChange={changeInternalRole}
+            onToggleSuspend={toggleInternalSuspend}
           />
         )}
       </div>
@@ -1260,19 +1294,27 @@ function CreateInternalUserModal({
 function InternalUsersPanel({
   users,
   sendingCredentialsId,
+  internalActionId,
   onResetPassword,
   onSendCredentials,
+  onRoleChange,
+  onToggleSuspend,
 }: {
   users: InternalAdminUser[];
   sendingCredentialsId: string | null;
+  internalActionId: string | null;
   onResetPassword: (user: InternalAdminUser) => void;
   onSendCredentials: (user: InternalAdminUser) => void | Promise<void>;
+  onRoleChange: (user: InternalAdminUser, role: string) => void | Promise<void>;
+  onToggleSuspend: (user: InternalAdminUser) => void | Promise<void>;
 }) {
   return (
     <div className="rounded-[14px] border" style={{ backgroundColor: S1, borderColor: BORDER }}>
       <div className="divide-y" style={{ borderColor: BORDER }}>
         {users.map((user, idx) => {
           const primaryRole = user.roles[0] || "photographer";
+          const roleBusy = internalActionId === `${user.id}:role`;
+          const suspendBusy = internalActionId === `${user.id}:suspend`;
           const roleText = internalRoleLabel(primaryRole);
           const roleStyle =
             primaryRole === "super_admin"
@@ -1336,7 +1378,18 @@ function InternalUsersPanel({
                   Letzter Login: {formatDate(user.lastSignInAt)}
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={primaryRole}
+                  disabled={roleBusy}
+                  onChange={(e) => void onRoleChange(user, e.target.value)}
+                  className="h-[34px] rounded-lg border px-2.5 text-xs outline-none disabled:opacity-50"
+                  style={{ backgroundColor: S2, borderColor: BORDER, color: TEXT }}
+                >
+                  <option value="photographer">Mitarbeiter</option>
+                  <option value="admin">Admin</option>
+                  <option value="super_admin">Super-Admin</option>
+                </select>
                 <button
                   type="button"
                   onClick={() => onResetPassword(user)}
@@ -1355,6 +1408,24 @@ function InternalUsersPanel({
                 >
                   <Send className="h-3.5 w-3.5" strokeWidth={2} />
                   Zugangsdaten
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void onToggleSuspend(user)}
+                  disabled={suspendBusy}
+                  className="inline-flex h-[34px] items-center gap-1.5 rounded-lg border px-3 text-xs font-medium transition disabled:opacity-40"
+                  style={
+                    user.isSuspended
+                      ? {
+                          borderColor: "rgba(39,174,96,.25)",
+                          color: "#85d6a0",
+                          backgroundColor: "rgba(39,174,96,.08)",
+                        }
+                      : { borderColor: BORDER, color: MUTED, backgroundColor: S2 }
+                  }
+                >
+                  {user.isSuspended ? <Eye className="h-3.5 w-3.5" strokeWidth={2} /> : <EyeOff className="h-3.5 w-3.5" strokeWidth={2} />}
+                  {user.isSuspended ? "Aktivieren" : "Sperren"}
                 </button>
               </div>
             </div>

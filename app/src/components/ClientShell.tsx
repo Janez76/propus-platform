@@ -45,7 +45,6 @@ const ChangelogPage = lazy(() => import("../pages-legacy/ChangelogPage").then((m
 const ExxasReconcilePage = lazy(() => import("../pages-legacy/ExxasReconcilePage").then((m) => ({ default: m.ExxasReconcilePage })));
 const PaymentSettingsPage = lazy(() => import("../pages-legacy/PaymentSettingsPage").then((m) => ({ default: m.PaymentSettingsPage })));
 const InvoiceTemplatePage = lazy(() => import("../pages-legacy/InvoiceTemplatePage").then((m) => ({ default: m.InvoiceTemplatePage })));
-const AdminUsersPage = lazy(() => import("../pages-legacy/AdminUsersPage").then((m) => ({ default: m.AdminUsersPage })));
 const CompanyManagementPage = lazy(() => import("../pages-legacy/CompanyManagementPage").then((m) => ({ default: m.CompanyManagementPage })));
 const RolesPage = lazy(() => import("../pages-legacy/RolesPage").then((m) => ({ default: m.RolesPage })));
 const RoleMatrixPage = lazy(() => import("../pages-legacy/RoleMatrixPage").then((m) => ({ default: m.RoleMatrixPage })));
@@ -196,10 +195,10 @@ function PrivateRoutes() {
         <Route path="/portal/firma" element={guardedElement(["company_owner", "company_admin"], <PortalFirmaPage />)} />
         <Route path="/portal/bestellungen" element={guardedElement(["company_employee"], <PortalBestellungenPage />)} />
         <Route path="/settings/access" element={guardedElement(adminOnlyRoles, <AccessControlPage />)} />
-        <Route path="/settings/users" element={<Navigate to="/settings/access?tab=intern" replace />} />
+        <Route path="/settings/users" element={<Navigate to="/settings/access?tab=workspaces" replace />} />
         <Route path="/settings/companies" element={guardedElement(adminOnlyRoles, <CompanyManagementPage />)} />
         <Route path="/settings/roles" element={guardedElement(toursAdminRoles, <RoleMatrixPage />)} />
-        <Route path="/admin/users" element={<Navigate to="/settings/access?tab=intern" replace />} />
+        <Route path="/admin/users" element={<Navigate to="/settings/access?tab=workspaces" replace />} />
         <Route path="/admin/roles" element={guardedElement(adminOnlyRoles, <RolesPage />)} />
         <Route path="/company" element={<Navigate to={companyHome} replace />} />
         <Route path="/company/dashboard" element={guardedElement(["company_owner", "company_admin", "company_employee"], <CompanyDashboardPage />)} />

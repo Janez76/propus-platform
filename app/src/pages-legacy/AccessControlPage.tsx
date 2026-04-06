@@ -1,14 +1,10 @@
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense } from "react";
 import { useSearchParams, Link, Navigate } from "react-router-dom";
 import {
-  Shield, Users, Building2, UserRound, Globe, BookOpen, RefreshCw,
+  Shield, Users, Building2, Globe, BookOpen, RefreshCw,
 } from "lucide-react";
 import { useAuthStore } from "../store/authStore";
 
-// Lazy-load der Unter-Komponenten
-const AdminUsersPage = lazy(() =>
-  import("./AdminUsersPage").then((m) => ({ default: m.AdminUsersPage }))
-);
 const CompanyManagementPage = lazy(() =>
   import("./CompanyManagementPage").then((m) => ({ default: m.CompanyManagementPage }))
 );
@@ -18,15 +14,9 @@ const RoleMatrixPage = lazy(() =>
 
 // ─── Tab Definitionen ─────────────────────────────────────────────────────────
 
-type TabId = "intern" | "workspaces" | "portal" | "rollenkatalog";
+type TabId = "workspaces" | "portal" | "rollenkatalog";
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode; description: string }[] = [
-  {
-    id: "intern",
-    label: "Intern",
-    icon: <UserRound className="h-4 w-4" />,
-    description: "Interne Benutzer, Systemrollen und Zugangsdaten",
-  },
   {
     id: "workspaces",
     label: "Firmen & Workspaces",
@@ -56,8 +46,9 @@ export function AccessControlPage() {
 
   const isSuperAdmin = role === "super_admin" || role === "admin";
 
-  const rawTab = searchParams.get("tab") as TabId | null;
-  const activeTab: TabId = TABS.find((t) => t.id === rawTab)?.id ?? "intern";
+  const rawTab = searchParams.get("tab");
+  const normalizedTab = rawTab === "intern" ? "workspaces" : rawTab;
+  const activeTab: TabId = TABS.find((t) => t.id === normalizedTab)?.id ?? "workspaces";
 
   function setTab(id: TabId) {
     const next = new URLSearchParams(searchParams);
@@ -116,7 +107,6 @@ export function AccessControlPage() {
           </div>
         }
       >
-        {activeTab === "intern" && <AdminUsersPage />}
         {activeTab === "workspaces" && <CompanyManagementPage />}
         {activeTab === "portal" && <PortalRolesSection token={token} />}
         {activeTab === "rollenkatalog" && <RoleMatrixPage />}

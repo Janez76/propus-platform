@@ -23,6 +23,14 @@ function formatDate(value: unknown) {
   return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
+function formatRestzeit(days: unknown) {
+  const n = typeof days === "number" ? days : parseInt(String(days ?? ""), 10);
+  if (!Number.isFinite(n)) return null;
+  if (n < 0) return `Seit ${Math.abs(n)} ${Math.abs(n) === 1 ? "Tag" : "Tagen"} abgelaufen`;
+  if (n === 0) return "Läuft heute ab";
+  return `${n} ${n === 1 ? "Tag" : "Tage"}`;
+}
+
 function sortHeaderIcon(sort: string, order: "asc" | "desc", col: ListSortKey) {
   const active = sort === col;
   if (!active) return <ChevronsUpDown className="ml-1 h-3.5 w-3.5 opacity-40 shrink-0" aria-hidden />;
@@ -404,10 +412,13 @@ export function ToursAdminListPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 hidden xl:table-cell text-[var(--text-subtle)]">
-                        {formatDate(t.created_at)}
+                        {formatDate((t.matterport_created_at as string | null) ?? t.created_at)}
                       </td>
                       <td className="px-4 py-3 hidden sm:table-cell text-[var(--text-subtle)]">
                         {formatDate(t.canonical_term_end_date ?? t.term_end_date ?? t.ablaufdatum)}
+                        {formatRestzeit(t.days_until_expiry) ? (
+                          <div className="text-xs mt-0.5">{formatRestzeit(t.days_until_expiry)}</div>
+                        ) : null}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex flex-col items-end gap-1 sm:flex-row sm:justify-end sm:gap-2">
