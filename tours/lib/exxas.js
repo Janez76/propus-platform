@@ -275,6 +275,7 @@ function mapInvoicePayload(raw) {
   return {
     id: externalId != null ? String(externalId) : null,
     exxas_document_id: externalId != null ? String(externalId) : null,
+    typ: firstFilled(payload.typ, payload.type),
     nummer: invoiceNumber != null ? String(invoiceNumber) : null,
     kunde_name: customerName != null ? String(customerName) : null,
     bezeichnung: firstFilled(
@@ -354,7 +355,7 @@ async function sendInvoice(exxasInvoiceId) {
 
 async function getInvoiceStatus(exxasInvoiceId) {
   try {
-    const { ok, data } = await exxasRequest(`/api/v2/rechnungen/${exxasInvoiceId}`);
+    const { ok, data } = await exxasRequest(`/api/v2/documents/${exxasInvoiceId}`);
     if (ok && data?.status) return { status: data.status };
     if (ok && data?.bezahlt) return { status: data.bezahlt ? 'paid' : 'open' };
   } catch (e) {
@@ -365,7 +366,7 @@ async function getInvoiceStatus(exxasInvoiceId) {
 
 async function getInvoiceDetails(exxasInvoiceId) {
   try {
-    const { ok, data } = await exxasRequest(`/api/v2/rechnungen/${exxasInvoiceId}`);
+    const { ok, data } = await exxasRequest(`/api/v2/documents/${exxasInvoiceId}`);
     const invoiceRef = extractInvoiceReference(data, exxasInvoiceId);
     const payload = (data && typeof data === 'object' && data.message && typeof data.message === 'object')
       ? data.message
@@ -511,7 +512,7 @@ async function fetchExxasInvoicesRawList() {
     return { ok: false, rows: [], error: exxasInvoiceListCache.error };
   }
   try {
-    const res = await fetch(buildExxasUrl(config.baseUrl, '/api/v2/rechnungen'), {
+    const res = await fetch(buildExxasUrl(config.baseUrl, '/api/v2/documents'), {
       headers: getHeaders(config, { includeContentType: false }),
       signal: AbortSignal.timeout(15000),
     });
@@ -539,7 +540,8 @@ async function searchInvoices(query, options = {}) {
   const q = String(query || '').trim().toLowerCase();
   let invoices = (rows || [])
     .map((row) => mapInvoicePayload(row))
-    .filter((row) => row?.id || row?.nummer);
+    .filter((row) => row?.id || row?.nummer)
+    .filter((row) => String(row?.typ || '').trim().toLowerCase() === 'r');
   if (openOnly) {
     invoices = invoices.filter((row) => {
       const status = String(row.exxas_status || '').trim().toLowerCase();
