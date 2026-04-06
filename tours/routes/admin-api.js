@@ -1551,6 +1551,136 @@ router.post('/tours/:id/exxas-cancel-invoice', async (req, res) => {
   }
 });
 
+router.post('/tours/:id/sync-exxas-inventory', async (req, res) => {
+  try {
+    const tour = await loadTourById(req.params.id);
+    if (!tour) return res.status(404).json({ ok: false, error: 'Tour nicht gefunden' });
+
+    const spaceId = tour.canonical_matterport_space_id || tour.matterport_space_id;
+    if (!spaceId) {
+      return res.status(400).json({ ok: false, error: 'Tour hat keine Matterport-Verknüpfung' });
+    }
+
+    const { inventory, error: invError } = await exxas.getInventoryByMatterportId(spaceId);
+    if (invError) return res.status(502).json({ ok: false, error: invError });
+    if (!inventory) {
+      return res.json({ ok: true, synced: false, message: 'Keine passende Exxas-Kundenanlage gefunden.' });
+    }
+
+    await logAction(tour.id, 'admin', adminEmail(req), 'EXXAS_INVENTORY_SYNC', {
+      inventory_id: inventory.id,
+      inventory_titel: inventory.titel,
+      inventory_status: inventory.status,
+      optional1: inventory.optional1,
+    });
+
+    // Inaktive Anlage → Tour automatisch archivieren
+    if (String(inventory.status || '').trim() !== 'ak') {
+      try {
+        await tourActions.archiveTourNow(tour.id, adminEmail(req) || 'system');
+      } catch (archiveErr) {
+        return res.status(400).json({
+          ok: false,
+          synced: true,
+          inventoryId: inventory.id,
+          inventoryStatus: inventory.status,
+          archived: false,
+          error: `Anlage inaktiv, aber Archivierung fehlgeschlagen: ${archiveErr.message}`,
+        });
+      }
+      return res.json({
+        ok: true,
+        synced: true,
+        inventoryId: inventory.id,
+        inventoryStatus: inventory.status,
+        archived: true,
+        invoiceLinked: false,
+        message: 'Kundenanlage ist inaktiv – Tour wurde archiviert.',
+      });
+    }
+
+    // Rechnung suchen: erst lokal in exxas_invoices, dann live
+    const contractId = tour.canonical_exxas_contract_id || null;
+    let invoice = null;
+
+    if (contractId) {
+      const localResult = await pool.query(
+        `SELECT * FROM tour_manager.exxas_invoices
+         WHERE (tour_id = $1 OR ref_vertrag = $2)
+           AND archived_at IS NULL
+         ORDER BY CASE WHEN exxas_status = 'bz' THEN 0 ELSE 1 END ASC,
+                  COALESCE(dok_datum, zahlungstermin) DESC NULLS LAST
+         LIMIT 1`,
+        [tour.id, contractId]
+      );
+      if (localResult.rows[0]) invoice = localResult.rows[0];
+    }
+
+    // Live-Suche falls lokal nichts gefunden
+    if (!invoice) {
+      const searchTerm = contractId || tour.object_label || tour.bezeichnung || '';
+      const { invoices: liveInvoices } = await exxas.searchInvoices(searchTerm, { limit: 5 });
+      const live = (liveInvoices || []).find((inv) => (
+        (contractId && String(inv.ref_vertrag || '') === String(contractId)) ||
+        (spaceId && String(inv.bezeichnung || '').includes(spaceId))
+      ));
+      if (live) {
+        // Live-Rechnung in exxas_invoices upserten und mit Tour verknüpfen
+        const upsert = await pool.query(
+          `INSERT INTO tour_manager.exxas_invoices
+             (exxas_document_id, nummer, kunde_name, bezeichnung, ref_kunde, ref_vertrag,
+              exxas_status, zahlungstermin, dok_datum, preis_brutto, tour_id, synced_at, created_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NOW(),NOW())
+           ON CONFLICT (exxas_document_id) DO UPDATE
+             SET tour_id = EXCLUDED.tour_id, synced_at = NOW()
+           RETURNING *`,
+          [
+            live.exxas_document_id,
+            live.nummer || null,
+            live.kunde_name || null,
+            live.bezeichnung || null,
+            live.ref_kunde || null,
+            live.ref_vertrag || null,
+            live.exxas_status || null,
+            live.zahlungstermin || null,
+            live.dok_datum || null,
+            live.preis_brutto || null,
+            tour.id,
+          ]
+        );
+        if (upsert.rows[0]) invoice = upsert.rows[0];
+      }
+    } else if (!invoice.tour_id) {
+      // Lokale Rechnung existiert, aber noch nicht mit dieser Tour verknüpft
+      await pool.query(
+        'UPDATE tour_manager.exxas_invoices SET tour_id = $1, synced_at = NOW() WHERE id = $2',
+        [tour.id, invoice.id]
+      );
+    }
+
+    const bezahlt = invoice ? String(invoice.exxas_status || '').toLowerCase() === 'bz' : null;
+
+    return res.json({
+      ok: true,
+      synced: true,
+      inventoryId: inventory.id,
+      inventoryTitel: inventory.titel,
+      inventoryStatus: inventory.status,
+      archived: false,
+      invoiceLinked: !!invoice,
+      invoiceId: invoice?.exxas_document_id || invoice?.id || null,
+      invoiceNummer: invoice?.nummer || null,
+      bezahlt,
+      message: invoice
+        ? `Rechnung ${invoice.nummer || invoice.exxas_document_id} verknüpft (${bezahlt ? 'bezahlt' : 'offen'}).`
+        : 'Kundenanlage aktiv, aber keine passende Rechnung gefunden.',
+    });
+  } catch (err) {
+    console.error('[admin-api] sync-exxas-inventory:', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // ─── Phase 3: Rechnungen, Bank-Import, Matterport, Rechnung linken ───────────
 
 router.get('/invoices', async (req, res) => {

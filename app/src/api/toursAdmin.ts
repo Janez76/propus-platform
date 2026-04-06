@@ -794,3 +794,25 @@ export async function postTicketUpload(file: File): Promise<{ ok: true; path: st
   }
   return res.json();
 }
+
+export interface ExxasInventorySyncResult {
+  ok: boolean;
+  synced: boolean;
+  inventoryId?: string;
+  inventoryTitel?: string;
+  inventoryStatus?: string;
+  archived?: boolean;
+  invoiceLinked?: boolean;
+  invoiceId?: string | null;
+  invoiceNummer?: string | null;
+  bezahlt?: boolean | null;
+  message?: string;
+  error?: string;
+}
+
+export function postSyncExxasInventory(tourId: number) {
+  return toursAdminFetch<ExxasInventorySyncResult>(`/tours/${tourId}/sync-exxas-inventory`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}

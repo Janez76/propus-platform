@@ -7,6 +7,8 @@ const { pool } = require('./db');
 const DEFAULT_EXXAS_BASE = 'https://api.exxas.net';
 const EXXAS_SETTINGS_KEY = 'integration.exxas.config';
 const EXXAS_RUNTIME_CACHE_MS = 60 * 1000;
+const EXXAS_SYSTEM_ID = process.env.EXXAS_SYSTEM_ID || 'AEB09398B50466ED58A95AF1730D1C2D';
+const EXXAS_INVENTORY_PAGE_SIZE = 100;
 let exxasRuntimeConfigCache = { at: 0, config: null };
 const { getExxasContractId, getTourObjectLabel } = require('./normalize');
 
@@ -23,6 +25,12 @@ function deriveBaseUrlFromEndpoint(endpoint) {
     return withoutQuery.slice(0, marker + '/api/v2'.length);
   }
   return withoutQuery.replace(/\/$/, '');
+}
+
+function buildExxasCloudUrl(config, endpoint) {
+  const systemId = EXXAS_SYSTEM_ID;
+  const path = String(endpoint || '').trim();
+  return `https://api.exxas.net/cloud/${systemId}/api/v2${path.startsWith('/') ? path : `/${path}`}`;
 }
 
 function buildExxasUrl(baseUrl, endpoint) {
@@ -741,6 +749,91 @@ async function resolveCustomerIdentity(customerRef, options = {}) {
   return { customer: null, error: 'Exxas-Kunde konnte nicht sicher aufgelöst werden' };
 }
 
+/**
+ * Lädt alle Exxas-Kundenanlagen (Inventory) paginiert und sucht jene,
+ * deren optional1 die gegebene Matterport Space-ID enthält.
+ * Gibt { inventory, error } zurück; inventory ist null falls nicht gefunden.
+ */
+async function getInventoryByMatterportId(spaceId) {
+  const config = await getExxasRuntimeConfig();
+  if (!hasExxasApiKey(config)) {
+    return { inventory: null, error: getMissingExxasTokenError() };
+  }
+  if (!spaceId) return { inventory: null, error: 'Keine Matterport Space-ID angegeben' };
+  try {
+    let offset = 0;
+    for (let page = 0; page < 20; page++) {
+      const url = buildExxasCloudUrl(config, `/inventory?limit=${EXXAS_INVENTORY_PAGE_SIZE}&offset=${offset}`);
+      // eslint-disable-next-line no-await-in-loop
+      const res = await fetch(url, {
+        headers: getHeaders(config, { includeContentType: false }),
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!res.ok) {
+        return { inventory: null, error: `Exxas Inventory API: HTTP ${res.status}` };
+      }
+      // eslint-disable-next-line no-await-in-loop
+      const data = await res.json().catch(() => ({}));
+      const rows = extractArrayPayload(data);
+      if (!rows || rows.length === 0) break;
+      const match = rows.find((row) => {
+        const link = String(row.optional1 || '').trim();
+        return link && link.includes(spaceId);
+      });
+      if (match) return { inventory: match, error: null };
+      if (rows.length < EXXAS_INVENTORY_PAGE_SIZE) break;
+      offset += EXXAS_INVENTORY_PAGE_SIZE;
+    }
+    return { inventory: null, error: null };
+  } catch (e) {
+    const err = e.name === 'TimeoutError' ? 'Exxas Inventory API Timeout' : e.message;
+    console.warn('Exxas getInventoryByMatterportId:', err);
+    return { inventory: null, error: err };
+  }
+}
+
+/**
+ * Lädt alle Exxas-Kundenanlagen (Inventory) eines Kunden per ref_kunde.
+ * Gibt { inventories, error } zurück.
+ */
+async function getInventoryByCustomer(exxasCustomerId) {
+  const config = await getExxasRuntimeConfig();
+  if (!hasExxasApiKey(config)) {
+    return { inventories: [], error: getMissingExxasTokenError() };
+  }
+  if (!exxasCustomerId) return { inventories: [], error: 'Keine Exxas-Kunden-ID angegeben' };
+  try {
+    const all = [];
+    let offset = 0;
+    for (let page = 0; page < 20; page++) {
+      const url = buildExxasCloudUrl(
+        config,
+        `/inventory?limit=${EXXAS_INVENTORY_PAGE_SIZE}&offset=${offset}&ref_kunde=${encodeURIComponent(exxasCustomerId)}`
+      );
+      // eslint-disable-next-line no-await-in-loop
+      const res = await fetch(url, {
+        headers: getHeaders(config, { includeContentType: false }),
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!res.ok) {
+        return { inventories: all, error: `Exxas Inventory API: HTTP ${res.status}` };
+      }
+      // eslint-disable-next-line no-await-in-loop
+      const data = await res.json().catch(() => ({}));
+      const rows = extractArrayPayload(data);
+      if (!rows || rows.length === 0) break;
+      all.push(...rows);
+      if (rows.length < EXXAS_INVENTORY_PAGE_SIZE) break;
+      offset += EXXAS_INVENTORY_PAGE_SIZE;
+    }
+    return { inventories: all, error: null };
+  } catch (e) {
+    const err = e.name === 'TimeoutError' ? 'Exxas Inventory API Timeout' : e.message;
+    console.warn('Exxas getInventoryByCustomer:', err);
+    return { inventories: [], error: err };
+  }
+}
+
 module.exports = {
   createInvoice,
   sendInvoice,
@@ -758,4 +851,6 @@ module.exports = {
   invalidateRuntimeConfigCache,
   fetchExxasInvoicesRawList,
   mapInvoicePayload,
+  getInventoryByMatterportId,
+  getInventoryByCustomer,
 };

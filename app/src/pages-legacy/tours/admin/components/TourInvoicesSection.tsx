@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Plus } from "lucide-react";
-import { createTourManualInvoice, renewalInvoicePdfUrl } from "../../../../api/toursAdmin";
-import type { ToursAdminTourDetailResponse, ToursAdminTourRow } from "../../../../types/toursAdmin";
+import { Plus, RefreshCw } from "lucide-react";
+import { createTourManualInvoice, renewalInvoicePdfUrl, postSyncExxasInventory } from "../../../../api/toursAdmin";
+import type { ExxasInventorySyncResult, ToursAdminTourDetailResponse, ToursAdminTourRow } from "../../../../types/toursAdmin";
 
 function formatDate(v: unknown) {
   if (v == null || v === "") return "—";
@@ -60,6 +60,23 @@ export function TourInvoicesSection({
   const [createError, setCreateError] = useState<string | null>(null);
   const [createAmount, setCreateAmount] = useState("");
   const [createNote, setCreateNote] = useState("");
+  const [syncBusy, setSyncBusy] = useState(false);
+  const [syncResult, setSyncResult] = useState<ExxasInventorySyncResult | null>(null);
+
+  async function handleExxasSync() {
+    if (!tourId) return;
+    setSyncBusy(true);
+    setSyncResult(null);
+    try {
+      const result = await postSyncExxasInventory(Number(tourId));
+      setSyncResult(result);
+      if (result.ok && result.synced) onRefresh?.();
+    } catch (e) {
+      setSyncResult({ ok: false, synced: false, error: e instanceof Error ? e.message : "Fehler" });
+    } finally {
+      setSyncBusy(false);
+    }
+  }
   const createdAt = tour.matterport_created_at ?? tour.created_at ?? null;
   const expiresAt = tour.canonical_term_end_date ?? tour.term_end_date ?? tour.ablaufdatum ?? null;
   const lastRenewalAt = latestRenewalDate(renewalInvoices);
@@ -264,7 +281,59 @@ export function TourInvoicesSection({
       </div>
 
       <div>
-        <h3 className="text-sm font-medium text-[var(--text-main)] mb-2">Exxas-Rechnungen</h3>
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+          <h3 className="text-sm font-medium text-[var(--text-main)]">Exxas-Rechnungen</h3>
+          {tourId ? (
+            <button
+              type="button"
+              disabled={syncBusy}
+              onClick={() => void handleExxasSync()}
+              className="inline-flex items-center gap-1.5 text-xs rounded border border-[var(--accent)]/30 px-2.5 py-1 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3 w-3 ${syncBusy ? "animate-spin" : ""}`} />
+              {syncBusy ? "Sync läuft…" : "Exxas-Anlage sync"}
+            </button>
+          ) : null}
+        </div>
+        {syncResult ? (
+          <div
+            className={`mb-3 rounded-lg border px-3 py-2.5 text-xs space-y-1 ${
+              !syncResult.ok || syncResult.error
+                ? "border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
+                : syncResult.archived
+                ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
+                : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"
+            }`}
+          >
+            {syncResult.error ? (
+              <p className="font-medium">{syncResult.error}</p>
+            ) : (
+              <>
+                <p className="font-medium">{syncResult.message ?? (syncResult.synced ? "Sync erfolgreich." : "Keine Exxas-Anlage gefunden.")}</p>
+                {syncResult.inventoryTitel ? (
+                  <p>Anlage: <span className="font-medium">{syncResult.inventoryTitel}</span> · Status: <span className="font-medium">{syncResult.inventoryStatus === "ak" ? "aktiv" : syncResult.inventoryStatus ?? "—"}</span></p>
+                ) : null}
+                {syncResult.invoiceLinked != null ? (
+                  <p>
+                    Rechnung:{" "}
+                    {syncResult.invoiceLinked ? (
+                      <>
+                        <span className="font-medium">{syncResult.invoiceNummer ?? syncResult.invoiceId ?? "verknüpft"}</span>
+                        {" · "}
+                        <span className={syncResult.bezahlt ? "text-emerald-700 dark:text-emerald-400 font-medium" : "font-medium"}>
+                          {syncResult.bezahlt === true ? "bezahlt" : syncResult.bezahlt === false ? "offen" : "—"}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-[var(--text-subtle)]">keine gefunden</span>
+                    )}
+                  </p>
+                ) : null}
+                {syncResult.archived ? <p className="font-semibold">Tour wurde archiviert.</p> : null}
+              </>
+            )}
+          </div>
+        ) : null}
         {exxasInvoices.length === 0 ? (
           <p className="text-sm text-[var(--text-subtle)]">Keine Einträge.</p>
         ) : (
