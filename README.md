@@ -98,7 +98,9 @@ Alle SQL-Migrationen liegen unter `core/migrations/` (gemeinsame Schemas) und `b
 docker compose --profile migrate run --rm migrate
 ```
 
-Aktuelle Migrations-Stände: `core` bis `019_*`, `booking` bis `061_*`.
+Der Runner wendet nur noch nicht in `core.applied_migrations` eingetragene `*.sql`-Dateien an (alphabetische Reihenfolge). **Booking**-Migrationen laufen separat über `booking/migrations/` (siehe Booking-Doku).
+
+**Hinweis Finanzen / Rechnungen (2026):** `036_renewal_invoices_payment_fields.sql` ergänzt `tour_manager.renewal_invoices` um `paid_at_date`, `payment_channel`, `skonto_chf`, `writeoff`, `writeoff_reason`. Nach Deploy läuft die Migration automatisch mit, sofern der VPS-Deploy den Schritt `docker compose … --profile migrate run --rm migrate` ausführt (siehe `scripts/deploy-remote.sh`). Manuell auf dem Server dasselbe Kommando mit gültiger `DATABASE_URL` in `.env.vps`.
 
 ---
 

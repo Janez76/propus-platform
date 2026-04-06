@@ -11,14 +11,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import {
-  archiveAdminInvoice,
-  deleteAdminInvoice,
-  importExxasAdminInvoice,
-  renewalInvoicePdfUrl,
-  resendAdminInvoice,
-  updateAdminInvoice,
-} from "../../../api/toursAdmin";
+import { renewalInvoicePdfUrl, updateAdminInvoice } from "../../../api/toursAdmin";
 
 export type InvoiceType = "renewal" | "exxas";
 export type InvoiceRow = Record<string, unknown>;
