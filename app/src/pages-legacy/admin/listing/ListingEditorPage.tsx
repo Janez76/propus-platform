@@ -1248,36 +1248,31 @@ export function ListingEditorPage() {
             </div>
             <div className="gbe-field">
               <label htmlFor="gal-edit-contact">Kontakt</label>
-              <GalleryAutocompleteField
-                inputId="gal-edit-contact"
-                value={contactInput}
-                onChange={(value) => {
-                  setContactInput(value);
-                  setCustomerContactId(null);
-                }}
-                options={contactOptions.filter((contact) => {
-                  const q = contactInput.trim().toLowerCase();
-                  if (!q) return true;
-                  return (
-                    contact.name.toLowerCase().includes(q) ||
-                    contact.email.toLowerCase().includes(q) ||
-                    contact.phone.toLowerCase().includes(q)
-                  );
-                })}
-                placeholder={customerId ? "Kontakt des gewählten Kunden" : "Zuerst Kunde wählen"}
-                emptyText={customerId ? "Keine passenden Kontakte gefunden." : "Bitte zuerst einen Kunden auswählen."}
+              <select
+                id="gal-edit-contact"
+                className="gbe-input"
                 disabled={!customerId}
-                getOptionKey={(contact) => String(contact.id)}
-                renderOption={(contact) => (
-                  <div>
-                    <div className="font-semibold text-[var(--text-main)]">{contactDisplayLabel(contact)}</div>
-                    <div className="mt-0.5 text-xs text-[var(--text-subtle)]">
-                      {[contact.email, contact.phone, contact.role].filter(Boolean).join(" · ") || `Kontakt #${contact.id}`}
-                    </div>
-                  </div>
-                )}
-                onSelect={handleSelectContact}
-              />
+                value={customerContactId ?? ""}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (!val) {
+                    setCustomerContactId(null);
+                    setContactInput("");
+                    return;
+                  }
+                  const contact = contactOptions.find((c) => String(c.id) === val);
+                  if (contact) handleSelectContact(contact);
+                }}
+              >
+                <option value="">{customerId ? "— Kontakt wählen —" : "Zuerst Kunde wählen"}</option>
+                {contactOptions.map((contact) => (
+                  <option key={contact.id} value={contact.id}>
+                    {contactDisplayLabel(contact)}
+                    {contact.email ? ` · ${contact.email}` : ""}
+                    {contact.role ? ` · ${contact.role}` : ""}
+                  </option>
+                ))}
+              </select>
               {customerContactId ? (
                 <p className="gbe-field-hint">
                   Kontakt verknüpft: #{customerContactId}
@@ -1393,7 +1388,7 @@ export function ListingEditorPage() {
           <div className="gbe-field">
             <label>VPS-Storage-Health</label>
             <div className="flex flex-wrap gap-2">
-              {nasHealth.map((entry) => (
+              {nasHealth.filter((entry) => entry.key !== "stagingRoot").map((entry) => (
                 <div
                   key={entry.key}
                   className={`rounded-[12px] border px-3 py-2 text-xs ${
