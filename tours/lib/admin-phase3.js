@@ -1413,6 +1413,91 @@ async function updateExxasInvoice(invoiceId, body = {}) {
   return { ok: true, invoice: r.rows[0] };
 }
 
+async function previewBankImportUpload({ buffer, originalname }) {
+  await ensureBankImportSchema();
+  await ensureExxasArchivedColumn();
+  if (!buffer?.length) {
+    return { ok: false, error: 'Keine Datei hochgeladen.' };
+  }
+  const sourceFormat = String(originalname || '').toLowerCase().endsWith('.csv') ? 'csv' : 'camt054';
+  let transactions = [];
+  try {
+    const text = buffer.toString('utf8');
+    transactions = sourceFormat === 'csv' ? bankImport.parseCsv(text) : bankImport.parseCamt054(text);
+  } catch (err) {
+    return { ok: false, error: `Datei konnte nicht gelesen werden: ${err.message}` };
+  }
+  if (!transactions.length) {
+    return { ok: false, error: 'Keine Buchungen in der Datei gefunden.' };
+  }
+
+  const [renewalInvoiceRows, exxasInvoiceRows] = await Promise.all([
+    pool.query(
+      `SELECT 'renewal' AS source,
+              id, tour_id, invoice_number, amount_chf, invoice_status, subscription_end_at
+       FROM tour_manager.renewal_invoices
+       WHERE invoice_status IN ('sent', 'overdue', 'draft')
+       ORDER BY created_at DESC`
+    ),
+    pool.query(
+      `SELECT 'exxas' AS source,
+              ei.id, ei.tour_id, ei.nummer, ei.preis_brutto, ei.exxas_status,
+              ei.ref_vertrag, ei.exxas_document_id
+       FROM tour_manager.exxas_invoices ei
+       LEFT JOIN tour_manager.renewal_invoices ri
+         ON ri.tour_id = ei.tour_id
+        AND ri.exxas_invoice_id = COALESCE(NULLIF(ei.exxas_document_id, ''), NULLIF(ei.nummer, ''))
+       WHERE ei.archived_at IS NULL
+         AND ei.exxas_status != 'bz'
+         AND ri.id IS NULL
+       ORDER BY ei.created_at DESC`
+    ),
+  ]);
+  const invoiceIndex = bankImport.buildOpenInvoiceIndex([
+    ...renewalInvoiceRows.rows,
+    ...exxasInvoiceRows.rows,
+  ]);
+
+  const preview = transactions.map((tx) => {
+    const match = bankImport.matchTransaction(tx, invoiceIndex);
+    return {
+      amount_chf: tx.amount ?? null,
+      currency: tx.currency || 'CHF',
+      booking_date: bankImport.toIsoDate(tx.bookingDate) || null,
+      value_date: bankImport.toIsoDate(tx.valueDate) || null,
+      reference_raw: tx.referenceRaw || null,
+      debtor_name: tx.debtorName || null,
+      purpose: tx.purpose || null,
+      match_status: match.matchStatus,
+      confidence: match.confidence,
+      match_reason: match.reason || null,
+      matched_invoice_id: match.invoice?.id || null,
+      matched_invoice_source: match.invoice?.source || null,
+      matched_invoice_number: match.invoice?.invoiceNumber || null,
+      matched_invoice_amount: match.invoice?.amountChf || null,
+      matched_tour_id: match.invoice?.tourId || null,
+      matched_tour_label: match.invoice?.tourLabel || null,
+      matched_customer_name: match.invoice?.customerName || null,
+      requires_import: match.invoice?.source === 'exxas',
+    };
+  });
+
+  const exactCount = preview.filter(t => t.match_status === 'exact').length;
+  const reviewCount = preview.filter(t => t.match_status === 'review').length;
+  const noneCount = preview.filter(t => t.match_status === 'none').length;
+
+  return {
+    ok: true,
+    sourceFormat,
+    fileName: originalname || null,
+    totalRows: transactions.length,
+    exactCount,
+    reviewCount,
+    noneCount,
+    transactions: preview,
+  };
+}
+
 module.exports = {
   getRenewalInvoicesJson,
   getRenewalInvoicesCentral,
@@ -1425,6 +1510,7 @@ module.exports = {
   archiveExxasInvoice,
   updateExxasInvoice,
   getBankImportJson,
+  previewBankImportUpload,
   runBankImportUpload,
   searchBankImportInvoices,
   importExxasInvoiceToInternalInvoice,

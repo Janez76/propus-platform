@@ -1651,6 +1651,20 @@ router.get('/bank-import/invoice-search', async (req, res) => {
   }
 });
 
+router.post('/bank-import/preview', bankDataUpload.single('bankFile'), async (req, res) => {
+  try {
+    const result = await phase3.previewBankImportUpload({
+      buffer: req.file?.buffer,
+      originalname: req.file?.originalname,
+    });
+    if (!result.ok) return res.status(400).json(result);
+    return res.json(result);
+  } catch (err) {
+    console.error('[admin-api] bank-import/preview', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 router.post('/bank-import/upload', bankDataUpload.single('bankFile'), async (req, res) => {
   try {
     const actorEmail = adminEmail(req);

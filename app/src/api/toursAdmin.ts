@@ -152,6 +152,47 @@ export function getBankImportInvoiceSearch(q: string, amount?: string | number |
   }>(`/bank-import/invoice-search?${p.toString()}`);
 }
 
+export type BankImportPreviewTx = {
+  amount_chf: number | null;
+  currency: string;
+  booking_date: string | null;
+  value_date: string | null;
+  reference_raw: string | null;
+  debtor_name: string | null;
+  purpose: string | null;
+  match_status: "exact" | "review" | "none";
+  confidence: number;
+  match_reason: string | null;
+  matched_invoice_id: string | number | null;
+  matched_invoice_source: "renewal" | "exxas" | null;
+  matched_invoice_number: string | null;
+  matched_invoice_amount: number | null;
+  matched_tour_id: number | null;
+  matched_tour_label: string | null;
+  matched_customer_name: string | null;
+  requires_import: boolean;
+};
+
+export type BankImportPreviewResult = {
+  ok: true;
+  sourceFormat: string;
+  fileName: string | null;
+  totalRows: number;
+  exactCount: number;
+  reviewCount: number;
+  noneCount: number;
+  transactions: BankImportPreviewTx[];
+};
+
+export async function previewToursAdminBankFile(file: File): Promise<BankImportPreviewResult> {
+  const fd = new FormData();
+  fd.append("bankFile", file);
+  const res = await fetch(`${BASE}/bank-import/preview`, { method: "POST", credentials: "include", body: fd });
+  const data = (await res.json().catch(() => ({}))) as { error?: string } & Partial<BankImportPreviewResult>;
+  if (!res.ok || !data.ok) throw new Error((data as { error?: string }).error || `HTTP ${res.status}`);
+  return data as BankImportPreviewResult;
+}
+
 export async function uploadToursAdminBankFile(file: File) {
   const fd = new FormData();
   fd.append("bankFile", file);

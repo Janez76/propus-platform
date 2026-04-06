@@ -1,10 +1,14 @@
 import { Link } from "react-router-dom";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { AlertTriangle, CheckCircle, HelpCircle, Upload, X } from "lucide-react";
 import {
+  type BankImportPreviewResult,
+  type BankImportPreviewTx,
   confirmBankImportTransaction,
   getBankImportInvoiceSearch,
   getToursAdminBankImport,
   ignoreBankImportTransaction,
+  previewToursAdminBankFile,
   uploadToursAdminBankFile,
 } from "../../../api/toursAdmin";
 import { useQuery } from "../../../hooks/useQuery";
@@ -291,10 +295,166 @@ function PendingTransactionCard({
   );
 }
 
+function matchStatusIcon(status: string) {
+  if (status === "exact") return <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />;
+  if (status === "review") return <AlertTriangle className="h-4 w-4 text-yellow-600 flex-shrink-0" />;
+  return <HelpCircle className="h-4 w-4 text-zinc-400 flex-shrink-0" />;
+}
+
+function matchStatusText(status: string) {
+  if (status === "exact") return "Automatisch zugeordnet";
+  if (status === "review") return "Vorschlag vorhanden";
+  return "Kein Treffer";
+}
+
+function BankImportPreviewModal({
+  preview,
+  onConfirm,
+  onClose,
+  confirming,
+}: {
+  preview: BankImportPreviewResult;
+  onConfirm: () => void;
+  onClose: () => void;
+  confirming: boolean;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+      <div className="w-full max-w-3xl max-h-[90vh] flex flex-col rounded-2xl border border-[var(--border-soft)] bg-[var(--surface)] shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-[var(--border-soft)] px-5 py-4 flex-shrink-0">
+          <div>
+            <h2 className="text-lg font-semibold text-[var(--text-main)]">Vorschau: {preview.fileName || "Bank-Import"}</h2>
+            <p className="text-xs text-[var(--text-subtle)] mt-0.5">
+              {preview.totalRows} {preview.totalRows === 1 ? "Transaktion" : "Transaktionen"} · Format: {preview.sourceFormat.toUpperCase()}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={confirming}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--text-subtle)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-main)]"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Statistik */}
+        <div className="grid grid-cols-3 gap-3 px-5 py-3 border-b border-[var(--border-soft)] flex-shrink-0">
+          <div className="rounded-lg bg-green-500/8 border border-green-500/20 px-3 py-2 text-center">
+            <p className="text-xl font-bold text-green-700">{preview.exactCount}</p>
+            <p className="text-xs text-green-600 mt-0.5">Automatisch</p>
+          </div>
+          <div className="rounded-lg bg-yellow-500/8 border border-yellow-500/20 px-3 py-2 text-center">
+            <p className="text-xl font-bold text-yellow-700">{preview.reviewCount}</p>
+            <p className="text-xs text-yellow-600 mt-0.5">Zu prüfen</p>
+          </div>
+          <div className="rounded-lg bg-zinc-500/8 border border-zinc-500/20 px-3 py-2 text-center">
+            <p className="text-xl font-bold text-zinc-600">{preview.noneCount}</p>
+            <p className="text-xs text-zinc-500 mt-0.5">Kein Treffer</p>
+          </div>
+        </div>
+
+        {/* Transaktionsliste */}
+        <div className="overflow-y-auto flex-1 px-5 py-3 space-y-2">
+          {preview.transactions.map((tx, i) => (
+            <div
+              key={i}
+              className={`rounded-xl border px-4 py-3 text-sm ${
+                tx.match_status === "exact"
+                  ? "border-green-500/20 bg-green-500/5"
+                  : tx.match_status === "review"
+                    ? "border-yellow-500/20 bg-yellow-500/5"
+                    : "border-[var(--border-soft)] bg-[var(--surface)]"
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5">{matchStatusIcon(tx.match_status)}</div>
+                <div className="flex-1 min-w-0 space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-semibold text-[var(--text-main)]">
+                      CHF {typeof tx.amount_chf === "number" ? tx.amount_chf.toFixed(2) : "—"}
+                    </span>
+                    {tx.booking_date ? (
+                      <span className="text-xs text-[var(--text-subtle)]">{tx.booking_date}</span>
+                    ) : null}
+                    <span className={`text-xs font-medium ${
+                      tx.match_status === "exact" ? "text-green-700" :
+                      tx.match_status === "review" ? "text-yellow-700" : "text-zinc-500"
+                    }`}>
+                      {matchStatusText(tx.match_status)}
+                    </span>
+                    {tx.requires_import ? (
+                      <span className="text-[11px] rounded-full border border-yellow-500/30 bg-yellow-500/10 text-yellow-700 px-2 py-0.5">
+                        Exxas → Import nötig
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="text-xs text-[var(--text-subtle)] truncate">
+                    {tx.debtor_name || tx.purpose || tx.reference_raw || "—"}
+                  </div>
+                  {tx.matched_invoice_number || tx.matched_invoice_id ? (
+                    <div className="text-xs text-[var(--text-subtle)]">
+                      <span className="font-medium text-[var(--text-main)]">Rechnung:</span>{" "}
+                      {tx.matched_invoice_number || `#${tx.matched_invoice_id}`}
+                      {tx.matched_invoice_amount != null
+                        ? ` · CHF ${Number(tx.matched_invoice_amount).toFixed(2)}`
+                        : ""}
+                      {tx.matched_customer_name ? ` · ${tx.matched_customer_name}` : ""}
+                      {tx.matched_tour_label ? ` · ${tx.matched_tour_label}` : ""}
+                    </div>
+                  ) : null}
+                  {tx.match_reason ? (
+                    <div className="text-[11px] text-[var(--text-subtle)] italic">{tx.match_reason}</div>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div className="border-t border-[var(--border-soft)] px-5 py-4 flex items-center justify-between gap-3 flex-shrink-0">
+          <p className="text-xs text-[var(--text-subtle)]">
+            {preview.exactCount > 0
+              ? `${preview.exactCount} Zahlungen werden automatisch verbucht.`
+              : "Keine automatischen Verbuchungen."}
+            {preview.reviewCount > 0
+              ? ` ${preview.reviewCount} müssen manuell zugeordnet werden.`
+              : ""}
+          </p>
+          <div className="flex gap-2 flex-shrink-0">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={confirming}
+              className="rounded-lg border border-[var(--border-soft)] px-4 py-2 text-sm text-[var(--text-subtle)] hover:text-[var(--text-main)] disabled:opacity-50"
+            >
+              Abbrechen
+            </button>
+            <button
+              type="button"
+              onClick={onConfirm}
+              disabled={confirming}
+              className="rounded-lg bg-[var(--accent)] text-white px-4 py-2 text-sm font-medium hover:bg-[var(--accent)]/90 disabled:opacity-50 flex items-center gap-2"
+            >
+              <Upload className="h-4 w-4" />
+              {confirming ? "Wird importiert…" : "Import bestätigen"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ToursAdminBankImportPage() {
   const qk = toursAdminBankImportQueryKey();
   const queryFn = useCallback(() => getToursAdminBankImport(), []);
   const { data, loading, error, refetch } = useQuery(qk, queryFn, { staleTime: 15_000 });
+  const [previewing, setPreviewing] = useState(false);
+  const [preview, setPreview] = useState<BankImportPreviewResult | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -307,25 +467,51 @@ export function ToursAdminBankImportPage() {
   const reviewRows = (data?.reviewRows as BankImportTx[]) || [];
   const unmatchedRows = (data?.unmatchedRows as BankImportTx[]) || [];
 
-  async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  async function onFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     e.target.value = "";
     if (!f) return;
-    setUploading(true);
+    setPreviewing(true);
     setMsg(null);
     try {
-      const r = await uploadToursAdminBankFile(f);
+      const result = await previewToursAdminBankFile(f);
+      setPendingFile(f);
+      setPreview(result);
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : "Vorschau fehlgeschlagen");
+    } finally {
+      setPreviewing(false);
+    }
+  }
+
+  async function onConfirmImport() {
+    if (!pendingFile) return;
+    setUploading(true);
+    setPreview(null);
+    setMsg(null);
+    try {
+      const r = await uploadToursAdminBankFile(pendingFile);
       setMsg(`Import OK: Run #${(r as { runId?: number }).runId}, Zeilen ${(r as { totalRows?: number }).totalRows}`);
       void refetch({ force: true });
     } catch (err) {
       setMsg(err instanceof Error ? err.message : "Upload fehlgeschlagen");
     } finally {
       setUploading(false);
+      setPendingFile(null);
     }
   }
 
   return (
     <div className="space-y-6">
+      {preview ? (
+        <BankImportPreviewModal
+          preview={preview}
+          confirming={uploading}
+          onClose={() => { setPreview(null); setPendingFile(null); }}
+          onConfirm={() => void onConfirmImport()}
+        />
+      ) : null}
+
       <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-start">
         <div>
           <h1 className="text-2xl font-bold text-[var(--text-main)]">Bank-Import</h1>
@@ -338,8 +524,9 @@ export function ToursAdminBankImportPage() {
 
       <div className="surface-card-strong p-4">
         <label className="text-sm font-medium text-[var(--text-main)] block mb-2">Datei hochladen</label>
-        <input type="file" accept=".xml,.csv,text/xml,text/csv" disabled={uploading} onChange={(e) => void onUpload(e)} />
-        {uploading ? <p className="text-xs text-[var(--text-subtle)] mt-2">Wird verarbeitet…</p> : null}
+        <input type="file" accept=".xml,.csv,text/xml,text/csv" disabled={previewing || uploading} onChange={(e) => void onFileSelect(e)} />
+        {previewing ? <p className="text-xs text-[var(--text-subtle)] mt-2">Datei wird analysiert…</p> : null}
+        {uploading ? <p className="text-xs text-[var(--text-subtle)] mt-2">Wird importiert…</p> : null}
       </div>
 
       {data ? (
