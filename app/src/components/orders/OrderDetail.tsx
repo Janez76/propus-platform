@@ -291,7 +291,7 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
 
   useEffect(() => {
     load().catch((e) => setErr(e instanceof Error ? e.message : t(lang, "common.error")));
-  }, [load, orderNo]);
+  }, [load, orderNo, lang]);
 
   async function saveStatusWithOverride(orderNoToSave: string, nextStatus: string) {
     try {
@@ -595,7 +595,7 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
     } catch (e) {
       setErr(e instanceof Error ? e.message : t(lang, "orderDetail.error.pricingFailed"));
     } finally { setBusy(""); }
-  }, [editAddons, editPackageKey, editObject.area, editObject.floors, editKeyPickupActive, token]);
+  }, [editAddons, editPackageKey, editObject.area, editObject.floors, editKeyPickupActive, token, lang]);
 
   useEffect(() => {
     if (!effectiveEditMode) return;
