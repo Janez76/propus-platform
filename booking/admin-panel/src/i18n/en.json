@@ -1362,5 +1362,8 @@
   "userManagement.title": "User Management",
   "userManagement.description": "Manage companies, main contacts and employee access centrally.",
   "roles.title": "Roles & Permissions",
-  "roles.description": "Create system-wide permission groups and assign rights by category."
+  "roles.description": "Create system-wide permission groups and assign rights by category.",
+  "wizard.travelZone.label": "Travel zone",
+  "wizard.travelZone.included": "Included",
+  "wizard.travelZone.auto": "(auto-detected)"
 }

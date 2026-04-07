@@ -83,6 +83,12 @@ type OrderFormData = {
   notes: string;
   keyPickupActive: boolean;
   keyPickupAddress: string;
+  // Anfahrtszone
+  objectCanton: string;
+  travelZone: string;
+  travelZoneProduct: string;
+  travelZonePrice: number;
+  travelZoneLabel: string;
 };
 
 const EMPTY_FORM: OrderFormData = {
@@ -124,6 +130,11 @@ const EMPTY_FORM: OrderFormData = {
   notes: "",
   keyPickupActive: false,
   keyPickupAddress: "",
+  objectCanton: "",
+  travelZone: "",
+  travelZoneProduct: "",
+  travelZonePrice: 0,
+  travelZoneLabel: "",
 };
 
 // Availability response from /api/admin/availability
@@ -227,6 +238,19 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
         .catch(() => {});
     }
   }, [open, initialCustomer, token]);
+
+  // ── Auto-Lookup Anfahrtszone wenn ZIP/Kanton sich aendert ─────────────────
+  const prevZipRef = useRef("");
+  useEffect(() => {
+    if (!open) return;
+    const zip = formData.zip || extractSwissZip(formData.address) || extractSwissZip(formData.zipcity);
+    if (!zip) return;
+    if (zip === prevZipRef.current && formData.travelZone) return;
+    prevZipRef.current = zip;
+    const canton = formData.objectCanton || "";
+    lookupTravelZone(canton, zip);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.zip, formData.objectCanton, formData.zipcity, open]);
 
   // ── Reset on close ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -361,6 +385,43 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
     return hasHouseNumber && hasZipCity;
   }
 
+  function extractSwissZip(address: string): string {
+    const m = address.match(/\b(\d{4})\b/);
+    return m ? m[1] : "";
+  }
+
+  async function lookupTravelZone(canton: string, zip: string) {
+    if (!canton && !zip) return;
+    try {
+      const base = API_BASE || "";
+      const url = new URL(`/api/travel-zone?canton=${encodeURIComponent(canton)}&zip=${encodeURIComponent(zip)}`, base || window.location.origin);
+      const r = await fetch(url.toString(), { headers: { Accept: "application/json" } });
+      if (!r.ok) return;
+      const data = await r.json() as { ok?: boolean; zone?: string; productCode?: string; price?: number; label?: string };
+      if (!data.ok) return;
+      setFormData((prev) => {
+        const newZonePrice = Number(data.price ?? 0);
+        const oldZonePrice = prev.travelZonePrice;
+        const sub = Math.max(0, Number(prev.subtotal || 0) - oldZonePrice + newZonePrice);
+        const dis = Number(prev.discount || 0);
+        const vatBase = Math.max(0, sub - dis);
+        const vat = Math.round(vatBase * 0.081 * 100) / 100;
+        const total = Math.round((vatBase + vat) * 100) / 100;
+        return {
+          ...prev,
+          objectCanton: canton,
+          travelZone: data.zone || "",
+          travelZoneProduct: data.productCode || "",
+          travelZonePrice: newZonePrice,
+          travelZoneLabel: data.label || "",
+          subtotal: String(sub),
+          vat: String(vat),
+          total: String(total),
+        };
+      });
+    } catch { /* travel zone lookup failed silently */ }
+  }
+
   function estimatePrice(product: Product): number {
     const rule = product.rules?.[0];
     const cfg = (rule?.config_json || {}) as Record<string, unknown>;
@@ -389,7 +450,8 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
     // Key-pickup adds 50 CHF if active and has text
     setFormData((prev) => {
       const keyPickupPrice = prev.keyPickupActive && prev.keyPickupAddress.trim() ? 50 : 0;
-      const subtotal = packagePrice + addonTotal + keyPickupPrice;
+      const travelZonePrice = prev.travelZonePrice || 0;
+      const subtotal = packagePrice + addonTotal + keyPickupPrice + travelZonePrice;
       const discount = Number(prev.discount || 0);
       const vatRate = 0.081; // 8.1% Swiss VAT
       const vatBase = Math.max(0, subtotal - discount);
@@ -469,7 +531,7 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
 
     try {
       const selectedCatalogAddons = catalog.filter((p) => selectedAddonCodes.includes(p.code));
-      const addons = selectedCatalogAddons.length
+      const addons: { id: string; label: string; price: number; group?: string }[] = selectedCatalogAddons.length
         ? selectedCatalogAddons.map((p) => ({ id: p.code, group: p.group_key, label: p.name, price: estimatePrice(p) }))
         : formData.addonsText
             .split("\n")
@@ -479,6 +541,14 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
               const parts = line.split(";").map((p) => p.trim());
               return { id: `manual_${idx}`, label: parts[0] || `Addon ${idx + 1}`, price: Number(parts[1] || 0) };
             });
+
+      if (formData.travelZoneProduct) {
+        addons.push({
+          id: formData.travelZoneProduct,
+          label: formData.travelZoneLabel || `Anfahrt Zone ${formData.travelZone}`,
+          price: formData.travelZonePrice,
+        });
+      }
 
       const fmtPhone = (v: string) => formatPhoneCH(v) || (v || "").trim();
       const result = await createOrder(token, {
@@ -497,6 +567,8 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
         address: formData.address,
         street: formData.street,
         zipcity: formData.zipcity,
+        canton: formData.objectCanton,
+        zip: formData.zip,
         objectType: formData.objectType,
         area: Number(formData.area || 0),
         floors: Number(formData.floors || 1),
@@ -883,6 +955,12 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                     mode="street"
                     value={formData.address}
                     onChange={(v) => updateField("address", v)}
+                    onBlur={() => {
+                      if (!formData.travelZone) {
+                        const zip = formData.zip || extractSwissZip(formData.address);
+                        if (zip) lookupTravelZone(formData.objectCanton || "", zip);
+                      }
+                    }}
                     onSelectParsed={(parsed) => {
                       setFormData((prev) => ({
                         ...prev,
@@ -892,11 +970,17 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                         zip: parsed.zip,
                         city: parsed.city,
                         zipcity: `${parsed.zip} ${parsed.city}`.trim(),
+                        objectCanton: parsed.canton || "",
                       }));
+                      if (parsed.canton || parsed.zip) {
+                        lookupTravelZone(parsed.canton || "", parsed.zip || "");
+                      }
                     }}
                     onSelectZipcity={(zipcity) => {
                       if (!zipcity) return;
                       setFormData((prev) => ({ ...prev, zipcity }));
+                      const zipFromZipcity = zipcity.match(/^(\d{4})/)?.[1] || "";
+                      if (zipFromZipcity) lookupTravelZone("", zipFromZipcity);
                     }}
                     lang={lang}
                     className={inputClass}
@@ -909,6 +993,51 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                   </p>
                   {formData.address && !isObjectAddressComplete() && (
                     <p className="mt-1 text-xs text-amber-500">{t(lang, "wizard.hint.addressNeedsHouseNumber")}</p>
+                  )}
+                  {formData.travelZone && (
+                    <div className="mt-2 flex items-center gap-2 rounded-lg bg-[var(--accent)]/5 border border-[var(--accent)]/20 px-3 py-2">
+                      <span className="text-xs font-bold text-[var(--accent)]">
+                        {t(lang, "wizard.travelZone.label")}:
+                      </span>
+                      <select
+                        value={formData.travelZoneProduct}
+                        onChange={(e) => {
+                          const code = e.target.value;
+                          if (!code) return;
+                          const zoneLetter = code.replace("travel:zone-", "").toUpperCase();
+                          const zoneProduct = catalog.find((p) => p.code === code);
+                          const zonePrice = zoneProduct ? estimatePrice(zoneProduct) : 0;
+                          setFormData((prev) => {
+                            const oldZP = prev.travelZonePrice;
+                            const sub = Math.max(0, Number(prev.subtotal || 0) - oldZP + zonePrice);
+                            const dis = Number(prev.discount || 0);
+                            const vatBase = Math.max(0, sub - dis);
+                            const vat = Math.round(vatBase * 0.081 * 100) / 100;
+                            const total = Math.round((vatBase + vat) * 100) / 100;
+                            return {
+                              ...prev,
+                              travelZone: zoneLetter,
+                              travelZoneProduct: code,
+                              travelZonePrice: zonePrice,
+                              travelZoneLabel: zoneProduct?.name || `Zone ${zoneLetter}`,
+                              subtotal: String(sub),
+                              vat: String(vat),
+                              total: String(total),
+                            };
+                          });
+                        }}
+                        className="text-xs rounded-md bg-[var(--surface)] border border-[var(--border-soft)] px-2 py-1 text-[var(--text-main)]"
+                      >
+                        {catalog.filter((p) => p.group_key === "travel_zone").map((p) => (
+                          <option key={p.code} value={p.code}>
+                            {p.name} {estimatePrice(p) > 0 ? `(CHF ${estimatePrice(p)})` : `(${t(lang, "wizard.travelZone.included")})`}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="text-xs text-[var(--text-subtle)]">
+                        {t(lang, "wizard.travelZone.auto")}
+                      </span>
+                    </div>
                   )}
                 </div>
                 {/* Vor-Ort-Kontakt – Auswahl aus Kundenkontakten oder manuell */}
@@ -1093,7 +1222,7 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
               <div className="sm:col-span-2">
                 <label className={labelClass}>{t(lang, "wizard.label.products")}</label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3 max-h-40 overflow-auto rounded-lg border border-[var(--border-soft)] p-2">
-                  {catalog.filter((p) => p.kind === "addon").map((addon) => (
+                  {catalog.filter((p) => p.kind === "addon" && p.group_key !== "travel_zone").map((addon) => (
                     <label key={addon.id} className="inline-flex items-center gap-2 text-sm cursor-pointer">
                       <input
                         type="checkbox"
@@ -1135,7 +1264,7 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                       const selectedAddons = catalog.filter((p) => selectedAddonCodes.includes(p.code));
                       const pkgPrice = pkg ? estimatePrice(pkg) : 0;
                       const addonTotal = selectedAddons.reduce((sum, a) => sum + estimatePrice(a), 0);
-                      const sub = pkgPrice + addonTotal + keyPickupPrice;
+                      const sub = pkgPrice + addonTotal + keyPickupPrice + (formData.travelZonePrice || 0);
                       const dis = Number(formData.discount || 0);
                       const base = Math.max(0, sub - dis);
                       const vat = Math.round(base * 0.081 * 100) / 100;
@@ -1163,7 +1292,7 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                       const selectedAddons = catalog.filter((p) => selectedAddonCodes.includes(p.code));
                       const pkgPrice = pkg ? estimatePrice(pkg) : 0;
                       const addonTotal = selectedAddons.reduce((sum, a) => sum + estimatePrice(a), 0);
-                      const sub = pkgPrice + addonTotal + keyPickupPrice;
+                      const sub = pkgPrice + addonTotal + keyPickupPrice + (formData.travelZonePrice || 0);
                       const dis = Number(formData.discount || 0);
                       const base = Math.max(0, sub - dis);
                       const vat = Math.round(base * 0.081 * 100) / 100;
@@ -1442,6 +1571,19 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                       <span className="text-[var(--accent)] text-xs">+</span> {t(lang, "orderDetail.label.keyPickupShort")}
                     </span>
                     <span className="tabular-nums text-[var(--text-muted)]">CHF 50.00</span>
+                  </div>
+                )}
+
+                {/* Anfahrtszone */}
+                {formData.travelZone && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-[var(--text-subtle)] pl-3 flex items-center gap-1">
+                      <span className="text-[var(--accent)] text-xs">+</span>
+                      {formData.travelZoneLabel || `${t(lang, "wizard.travelZone.label")} ${formData.travelZone}`}
+                    </span>
+                    <span className="tabular-nums text-[var(--text-muted)]">
+                      {formData.travelZonePrice > 0 ? `CHF ${formData.travelZonePrice.toFixed(2)}` : t(lang, "wizard.travelZone.included")}
+                    </span>
                   </div>
                 )}
 

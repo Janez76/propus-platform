@@ -1311,5 +1311,8 @@
   "profile.ssoManagedTitle": "Gestion du profil SSO",
   "profile.ssoManagedText": "Le profil et le mot de passe sont gérés par un SSO externe. Effectuez les modifications là-bas. La langue et l’apparence peuvent rester modifiées localement.",
   "profile.ssoManagedLink": "Ouvrir le compte externe",
-  "profile.passwordManagedExternally": "Le changement de mot de passe est désactivé avec SSO et géré en externe."
+  "profile.passwordManagedExternally": "Le changement de mot de passe est désactivé avec SSO et géré en externe.",
+  "wizard.travelZone.label": "Zone de déplacement",
+  "wizard.travelZone.included": "Inclus",
+  "wizard.travelZone.auto": "(détecté automatiquement)"
 }

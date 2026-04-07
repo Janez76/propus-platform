@@ -1378,5 +1378,8 @@
   "roles.category.customers": "Kunden",
   "roles.category.photographers": "Fotografen",
   "roles.category.products": "Produkte & Preise",
-  "roles.category.communication": "Kommunikation"
+  "roles.category.communication": "Kommunikation",
+  "wizard.travelZone.label": "Anfahrtszone",
+  "wizard.travelZone.included": "Inklusive",
+  "wizard.travelZone.auto": "(automatisch erkannt)"
 }
