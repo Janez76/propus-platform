@@ -289,6 +289,20 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
     }
   }, [open, initialCustomer, token]);
 
+  // ── Auto-Lookup Anfahrtszone wenn ZIP/Kanton sich aendert ─────────────────
+  const prevZipRef = useRef("");
+  useEffect(() => {
+    if (!open) return;
+    const zip = formData.zip || extractSwissZip(formData.address) || extractSwissZip(formData.zipcity);
+    if (!zip) return;
+    // Nur erneut nachschlagen wenn sich die PLZ tatsaechlich geaendert hat
+    if (zip === prevZipRef.current && formData.travelZone) return;
+    prevZipRef.current = zip;
+    const canton = formData.objectCanton || "";
+    lookupTravelZone(canton, zip);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.zip, formData.objectCanton, formData.zipcity, open]);
+
   // ── Reset on close ────────────────────────────────────────────────────────
   useEffect(() => {
     if (open) return;
