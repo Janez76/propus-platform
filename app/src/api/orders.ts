@@ -402,7 +402,7 @@ export const updateOrderStatus = (
     ...(options?.overrideReason !== undefined ? { overrideReason: options.overrideReason } : {}),
   });
 
-export type EditAddon = { id: string; label: string; price: number; qty?: number };
+export type EditAddon = { id: string; label: string; price: number; qty?: number; group?: string };
 export type EditServices = { package?: { key: string; label: string; price: number } | null; addons?: EditAddon[] };
 export type EditPricing = { subtotal: number; discount: number; vat: number; total: number };
 
