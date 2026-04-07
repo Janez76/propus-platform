@@ -139,6 +139,12 @@ const {
 
 const TIMEZONE = process.env.TIMEZONE || "Europe/Zurich";
 
+/** CHF-Beträge in E-Mails/Text ohne Floating-Point-Artefakte (z. B. 32.300000000000004). */
+function fmtCHF(n) {
+  const v = Number(n ?? 0);
+  return Number.isFinite(v) ? v.toFixed(2) : "0.00";
+}
+
 /** Adress-Autocomplete: EINZIGE Stelle im Projekt - nur Google Places */
 const ADDRESS_AUTOCOMPLETE_ENDPOINT = "/api/address-suggest";
 const WORK_START = process.env.WORK_START || "08:00";
@@ -4078,10 +4084,10 @@ app.post("/api/booking", async (req, res) => {
 
     console.log("[pricing] final", { subtotalFinal, discountAmountFinal, vatFinal, totalFinal });
 
-    const pricingSummaryLines = [`Zwischensumme: ${subtotalFinal} CHF`];
-    if (discountAmountFinal > 0) pricingSummaryLines.push(`Rabatt: -${discountAmountFinal} CHF`);
-    pricingSummaryLines.push(`MwSt (${(vatRateSetting * 100).toFixed(1)}%): ${vatFinal} CHF`);
-    pricingSummaryLines.push(`Total: ${totalFinal} CHF`);
+    const pricingSummaryLines = [`Zwischensumme: ${fmtCHF(subtotalFinal)} CHF`];
+    if (discountAmountFinal > 0) pricingSummaryLines.push(`Rabatt: -${fmtCHF(discountAmountFinal)} CHF`);
+    pricingSummaryLines.push(`MwSt (${(vatRateSetting * 100).toFixed(1)}%): ${fmtCHF(vatFinal)} CHF`);
+    pricingSummaryLines.push(`Total: ${fmtCHF(totalFinal)} CHF`);
     const pricingSummary = pricingSummaryLines.join("\n");
 
     // Service-Listen fuer Mails
@@ -4723,10 +4729,10 @@ app.post("/api/admin/orders/:orderNo/resend-customer-email", requirePhotographer
     // Rebuild email contents using existing templates/helpers
     const zipCity = getZipCityFromBillingSafe(order.billing);
     const objectInfo = buildObjectInfoSafe(order.object || {}, order.address || "");
-    const pricingSummaryLines = [`Zwischensumme: ${order.pricing?.subtotal||0} CHF`];
-    if (order.pricing?.discount > 0) pricingSummaryLines.push(`Rabatt: -${order.pricing.discount} CHF`);
-    pricingSummaryLines.push(`MwSt (8.1%): ${order.pricing?.vat||0} CHF`);
-    pricingSummaryLines.push(`Total: ${order.pricing?.total||0} CHF`);
+    const pricingSummaryLines = [`Zwischensumme: ${fmtCHF(order.pricing?.subtotal)} CHF`];
+    if (order.pricing?.discount > 0) pricingSummaryLines.push(`Rabatt: -${fmtCHF(order.pricing.discount)} CHF`);
+    pricingSummaryLines.push(`MwSt (8.1%): ${fmtCHF(order.pricing?.vat)} CHF`);
+    pricingSummaryLines.push(`Total: ${fmtCHF(order.pricing?.total)} CHF`);
     const pricingSummary = pricingSummaryLines.join("\n");
 
     const serviceListWithPrice = Array.isArray(order.services?.addons) ? order.services.addons.map(a => `${a.label} - ${a.price||0} CHF`).join("\n") : (order.services?.package?.label ? `${order.services.package.label} - ${order.services.package.price||0} CHF` : "-");
@@ -4852,10 +4858,10 @@ app.post("/api/admin/orders/:orderNo/resend-email", requireAdmin, async (req, re
       const serviceListWithPrice = Array.isArray(order.services?.addons)
         ? order.services.addons.map(a => `${a.label} - ${a.price || 0} CHF`).join("\n")
         : (order.services?.package?.label ? `${order.services.package.label} - ${order.services.package.price || 0} CHF` : "-");
-      const pricingSummaryLines = [`Zwischensumme: ${order.pricing?.subtotal || 0} CHF`];
-      if (order.pricing?.discount > 0) pricingSummaryLines.push(`Rabatt: -${order.pricing.discount} CHF`);
-      pricingSummaryLines.push(`MwSt (8.1%): ${order.pricing?.vat || 0} CHF`);
-      pricingSummaryLines.push(`Total: ${order.pricing?.total || 0} CHF`);
+      const pricingSummaryLines = [`Zwischensumme: ${fmtCHF(order.pricing?.subtotal)} CHF`];
+      if (order.pricing?.discount > 0) pricingSummaryLines.push(`Rabatt: -${fmtCHF(order.pricing.discount)} CHF`);
+      pricingSummaryLines.push(`MwSt (8.1%): ${fmtCHF(order.pricing?.vat)} CHF`);
+      pricingSummaryLines.push(`Total: ${fmtCHF(order.pricing?.total)} CHF`);
       const pricingSummary = pricingSummaryLines.join("\n");
       const photographerName = order.photographer?.name || "";
       const photographerKey = order.photographer?.key || "";
@@ -7102,10 +7108,10 @@ app.post("/api/admin/orders", requireAdmin, async (req, res) => {
       ].join("\n");
 
       const pricingSummary = [
-        `Zwischensumme: ${orderRecord.pricing.subtotal} CHF`,
-        orderRecord.pricing.discount > 0 ? `Rabatt: -${orderRecord.pricing.discount} CHF` : null,
-        `MwSt (8.1%): ${orderRecord.pricing.vat} CHF`,
-        `Total: ${orderRecord.pricing.total} CHF`
+        `Zwischensumme: ${fmtCHF(orderRecord.pricing.subtotal)} CHF`,
+        orderRecord.pricing.discount > 0 ? `Rabatt: -${fmtCHF(orderRecord.pricing.discount)} CHF` : null,
+        `MwSt (8.1%): ${fmtCHF(orderRecord.pricing.vat)} CHF`,
+        `Total: ${fmtCHF(orderRecord.pricing.total)} CHF`
       ].filter(Boolean).join("\n");
 
       const emailData = {
@@ -8741,13 +8747,59 @@ app.patch("/api/admin/products/:id/active", requireAdmin, async (req, res) => {
 });
 
 // ── Zonen-Anfahrtspauschale: Kanton/PLZ → Zone + Preis ──────────────────────
+
+// Schweizer PLZ → Kanton: 3-Stufen-Lookup (4-stellig, 3-stellig, 2-stellig).
+// Praezisere Sonderfaelle ueber zipOverrides in den Settings steuerbar.
+const _ZIP2 = {
+  "10":"VD","11":"VD","12":"GE","13":"VD","14":"VD","15":"FR","16":"FR","17":"FR","18":"VD","19":"VS",
+  "20":"NE","21":"NE","22":"NE","23":"JU","24":"NE","25":"BE","26":"BE","27":"JU","28":"JU","29":"JU",
+  "30":"BE","31":"BE","32":"BE","33":"BE","34":"BE","35":"BE","36":"BE","37":"BE","38":"BE","39":"VS",
+  "40":"BS","41":"BL","42":"BL","43":"BL","44":"SO","45":"SO","46":"SO","47":"SO","48":"SO","49":"AG",
+  "50":"AG","51":"AG","52":"AG","53":"AG","54":"AG","55":"AG","56":"AG","57":"AG","58":"AG","59":"AG",
+  "60":"LU","61":"LU","62":"LU","63":"ZG","64":"SZ","65":"TI","66":"TI","67":"TI","68":"TI","69":"TI",
+  "70":"GR","71":"GR","72":"GR","73":"GR","74":"GR","75":"GR","76":"GR","77":"GR",
+  "80":"ZH","81":"ZH","82":"SH","83":"ZH","84":"ZH","85":"TG","86":"ZH","87":"SG","88":"ZH","89":"ZH",
+  "90":"SG","91":"AR","92":"SG","93":"SG","94":"SG","95":"SG","96":"TG","97":"SG","98":"TG",
+};
+const _ZIP3 = {
+  // 63xx: Zug/Luzern/Nidwalden/Obwalden/Uri
+  "630":"ZG","631":"ZG","632":"ZG","633":"ZG","634":"ZG",
+  "635":"LU","636":"NW","637":"NW","638":"NW","639":"OW",
+  // 64xx: Schwyz/Uri
+  "640":"SZ","641":"SZ","642":"SZ","643":"SZ","644":"SZ",
+  "645":"UR","646":"UR","647":"UR","648":"UR","649":"UR",
+  // 88xx: Zuerich/Schwyz/Glarus/St.Gallen
+  "880":"ZH","881":"ZH","882":"ZH","883":"ZH",
+  "884":"SZ","885":"SZ","886":"SZ",
+  "887":"SG","888":"SG","889":"SG",
+};
+const _ZIP4 = {
+  "6344":"LU","6353":"LU","6354":"LU","6356":"LU",
+  "6377":"UR","6388":"OW",
+  "6452":"UR",
+  "8865":"GL","8866":"GL","8867":"GL","8868":"GL",
+  "8872":"SG","8873":"SG",
+};
+
+function cantonFromZip(zipStr) {
+  if (!zipStr || zipStr.length < 2) return "";
+  if (zipStr.length >= 4 && _ZIP4[zipStr.substring(0, 4)]) return _ZIP4[zipStr.substring(0, 4)];
+  if (zipStr.length >= 3 && _ZIP3[zipStr.substring(0, 3)]) return _ZIP3[zipStr.substring(0, 3)];
+  return _ZIP2[zipStr.substring(0, 2)] || "";
+}
+
 async function resolveTravelZone(canton, zip) {
   const mapping = (await getSetting("travel.zoneMapping")).value || {};
   const cantons = mapping.cantons || {};
   const zipOverrides = Array.isArray(mapping.zipOverrides) ? mapping.zipOverrides : [];
   const defaultProduct = mapping.default || "travel:zone-a";
-  const cantonUpper = String(canton || "").toUpperCase().trim();
+  let cantonUpper = String(canton || "").toUpperCase().trim();
   const zipStr = String(zip || "").trim();
+
+  // Kanton aus PLZ ableiten wenn nicht uebergeben
+  if (!cantonUpper && zipStr) {
+    cantonUpper = cantonFromZip(zipStr);
+  }
 
   let productCode = cantons[cantonUpper] || defaultProduct;
   for (const override of zipOverrides) {
