@@ -582,7 +582,6 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
       if (formData.travelZoneProduct) {
         addons = [...addons, {
           id: formData.travelZoneProduct,
-          group: "travel_zone",
           label: formData.travelZoneLabel || `Anfahrt Zone ${formData.travelZone}`,
           price: formData.travelZonePrice,
         }];
