@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+﻿import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { motion, useInView } from "framer-motion";
 import { ArrowRight, ChevronLeft, ChevronRight, ChevronDown, Star } from "lucide-react";
 import { t, type Lang } from "../../i18n";
@@ -27,13 +27,13 @@ const PACKAGE_IMAGES: Record<string, string> = {
 };
 
 const FALLBACK_REVIEW: Review = {
-  author: "Maklerbüro Zürich · Google",
+  author: "Maklerb├╝ro Z├╝rich ┬À Google",
   rating: 5,
-  text: "Schnelle Abwicklung, professionelle Qualität. Das Inserat war innerhalb weniger Tage vergeben — wir buchen definitiv wieder über Propus.",
+  text: "Schnelle Abwicklung, professionelle Qualit├ñt. Das Inserat war innerhalb weniger Tage vergeben ÔÇö wir buchen definitiv wieder ├╝ber Propus.",
 };
 
 function formatCHF(n: number | undefined | null) {
-  if (n == null || !Number.isFinite(n)) return "CHF –";
+  if (n == null || !Number.isFinite(n)) return "CHF ÔÇô";
   return `CHF ${n.toLocaleString("de-CH")}`;
 }
 
@@ -70,7 +70,7 @@ function AnimatedCounter({ target, suffix = "", delay = 0 }: { target: number; s
 
   return (
     <span ref={ref} className="tabular-nums">
-      {isInView ? `${value.toLocaleString("de-CH")}${suffix}` : "—"}
+      {isInView ? `${value.toLocaleString("de-CH")}${suffix}` : "ÔÇö"}
     </span>
   );
 }
@@ -83,7 +83,7 @@ interface LandingPageProps {
 
 function PriceLabel({ addon, lang }: { addon: CatalogAddon; lang: Lang }) {
   if (addon.pricingType === "byArea" || addon.pricingType === "per_area") {
-    return <>{formatCHF(addon.price)}–{formatCHF((addon.price ?? 0) * 2)} <span className="text-xs font-normal text-[var(--text-subtle)]">(+{formatCHF(addon.unitPrice ?? 79)}/100 m²)</span></>;
+    return <>{formatCHF(addon.price)}ÔÇô{formatCHF((addon.price ?? 0) * 2)} <span className="text-xs font-normal text-[var(--text-subtle)]">(+{formatCHF(addon.unitPrice ?? 79)}/100 m┬▓)</span></>;
   }
   if (addon.pricingType === "per_floor" || addon.pricingType === "perFloor") {
     return <>{formatCHF(addon.unitPrice ?? addon.price)} <span className="text-xs font-normal text-[var(--text-subtle)]">/ {t(lang, "landing.pricelist.perFloor")}</span></>;
@@ -170,8 +170,11 @@ function PriceListCategory({ category, addons, defaultOpen, lang }: { category: 
   );
 }
 
+type TravelZone = { zone: string; productCode: string; price: number; label: string; description: string; cantons: string[] };
+
 export function LandingPage({ lang, onLangChange, onStart }: LandingPageProps) {
   const [catalog, setCatalog] = useState<CatalogData | null>(null);
+  const [travelZones, setTravelZones] = useState<TravelZone[]>([]);
   const [reviews, setReviews] = useState<Review[]>([FALLBACK_REVIEW]);
   const [reviewMeta, setReviewMeta] = useState<{ rating: number; total: number } | null>(null);
   const [currentReview, setCurrentReview] = useState(0);
@@ -202,6 +205,12 @@ export function LandingPage({ lang, onLangChange, onStart }: LandingPageProps) {
   useEffect(() => {
     apiRequest<CatalogData>("/api/catalog/products")
       .then(setCatalog)
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    apiRequest<{ ok: boolean; zones: TravelZone[] }>("/api/catalog/travel-zones")
+      .then((data) => { if (data?.ok && data.zones?.length) setTravelZones(data.zones); })
       .catch(() => {});
   }, []);
 
@@ -511,6 +520,49 @@ export function LandingPage({ lang, onLangChange, onStart }: LandingPageProps) {
                       defaultOpen={i === 0}
                       lang={lang}
                     />
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
+            {/* Anfahrtszonen */}
+            {travelZones.length > 0 && (
+              <motion.div
+                variants={fadeUp}
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true, margin: "-10%" }}
+                transition={{ duration: 0.6, delay: 0.25 }}
+              >
+                <h3 className="mb-1 text-xs font-bold uppercase tracking-[.16em] text-[var(--text-subtle)]">
+                  {t(lang, "landing.travelZones.title")}
+                </h3>
+                <p className="mb-4 text-xs text-[var(--text-subtle)]">{t(lang, "landing.travelZones.subtitle")}</p>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {travelZones.map((zone) => (
+                    <div
+                      key={zone.productCode}
+                      className="rounded-xl border border-[var(--border-soft)]/80 bg-[var(--surface)] p-4"
+                    >
+                      <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-[var(--accent)]">
+                        Zone {zone.zone}
+                      </div>
+                      <div className="text-xl font-extrabold text-[var(--text-main)]">
+                        {zone.price > 0
+                          ? <>{formatCHF(zone.price)} <span className="text-xs font-normal text-[var(--text-subtle)]">/ {t(lang, "landing.travelZones.perVisit")}</span></>
+                          : <span className="text-[var(--accent)]">{t(lang, "landing.travelZones.included")}</span>
+                        }
+                      </div>
+                      {zone.cantons.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {zone.cantons.map((ct) => (
+                            <span key={ct} className="rounded bg-[var(--surface-raised)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-subtle)]">
+                              {ct}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   ))}
                 </div>
               </motion.div>

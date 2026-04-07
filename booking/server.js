@@ -1557,7 +1557,7 @@ async function getSchedulingSettings(employeeKey = "") {
   const workEnd = String(workEndResolved.value || WORK_END);
   const slotMinutes = Math.max(5, Number(slotMinutesResolved.value || 15));
   const bufferMinutes = Math.max(0, Number(bufferMinutesResolved.value || 30));
-  const lookaheadDays = Math.max(0, Number(lookaheadDaysResolved.value || 14));
+  const lookaheadDays = Math.max(0, Number(lookaheadDaysResolved.value || 365));
   const minAdvanceHours = Math.max(0, Number(minAdvanceHoursResolved.value || 24));
   const workdays = normalizeWorkdays(workdaysResolved.value);
   const holidays = normalizeHolidayDates(holidaysResolved.value);
@@ -3047,7 +3047,7 @@ app.post("/api/customer/orders/:orderNo/reschedule-check", requireCustomer, asyn
     }
 
     const schedulingBase = await getSchedulingSettings(assignedKey);
-    const lookaheadDays = Number(schedulingBase.lookaheadDays || 14);
+    const lookaheadDays = Number(schedulingBase.lookaheadDays || 365);
 
     // Nicht verfuegbar - 3 Alternativvorschlaege suchen (max. lookaheadDays voraus)
     const suggestions = [];
@@ -3636,7 +3636,7 @@ app.get("/api/availability", async (req, res) => {
     }
 
     const schedulingSettings = await getSchedulingSettings(photographer);
-    const lookaheadDays = Number(schedulingSettings.lookaheadDays || 14);
+    const lookaheadDays = Number(schedulingSettings.lookaheadDays || 365);
     const requestedDate = new Date(`${date}T00:00:00`);
     const nowDate = new Date();
     nowDate.setHours(0, 0, 0, 0);
@@ -7003,7 +7003,10 @@ app.post("/api/admin/orders", requireAdmin, async (req, res) => {
       officeCalendarCreated: false,
       photographerEventId: null,
       officeEventId: null,
-      icsUid: null
+      icsUid: null,
+      confirmationToken: crypto.randomBytes(32).toString("base64url"),
+      confirmationTokenExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      confirmationPendingSince: new Date().toISOString(),
     };
 
     // Kalender-Event erstellen - identisch wie normale Buchung
@@ -7254,14 +7257,29 @@ app.post("/api/admin/orders/:orderNo/review/resend", requireAdmin, async (req, r
     const order = process.env.DATABASE_URL ? await db.getOrderByNo(orderNo) : (await loadOrders()).find(o => o.orderNo === orderNo);
     if (!order) return res.status(404).json({ error: "Auftrag nicht gefunden" });
 
-    // Cooldown pruefen (7 Tage)
+    // 60-Tage-Sperre: kein weiterer Versand wenn letzte Mail > 60 Tage alt
+    const SIXTY_DAYS_MS = 60 * 24 * 60 * 60 * 1000;
+    const COOLDOWN_MS = 14 * 24 * 60 * 60 * 1000;
+
     if (order.reviewRequestSentAt) {
       const lastSent = new Date(order.reviewRequestSentAt);
-      const cooldownMs = 7 * 24 * 60 * 60 * 1000;
-      if (Date.now() - lastSent.getTime() < cooldownMs) {
-        const daysLeft = Math.ceil((cooldownMs - (Date.now() - lastSent.getTime())) / (24 * 60 * 60 * 1000));
+      const ageMs = Date.now() - lastSent.getTime();
+
+      // 60-Tage-Sperre
+      if (ageMs >= SIXTY_DAYS_MS) {
+        return res.status(429).json({ error: "60-Tage-Sperre aktiv. Kein weiterer Versand moeglich." });
+      }
+
+      // 14-Tage-Cooldown
+      if (ageMs < COOLDOWN_MS) {
+        const daysLeft = Math.ceil((COOLDOWN_MS - ageMs) / (24 * 60 * 60 * 1000));
         return res.status(429).json({ error: `Cooldown aktiv. Erneut senden in ${daysLeft} Tag(en).` });
       }
+    }
+
+    // Maximal 2 Sendungen (1 Erstanfrage + 1 Erinnerung)
+    if ((order.reviewRequestCount || 0) >= 2) {
+      return res.status(429).json({ error: "Maximale Anzahl Sendungen (2) erreicht. Kein weiterer Versand moeglich." });
     }
 
     // Token generieren
@@ -7274,22 +7292,33 @@ app.post("/api/admin/orders/:orderNo/review/resend", requireAdmin, async (req, r
     const frontendUrl = process.env.FRONTEND_URL || "https://admin-booking.propus.ch";
     const reviewLink = `${frontendUrl}/review/${token}`;
     const googleReviewLink = "https://g.page/r/CSQ5RnWmJOumEAE/review";
+    const companyName = process.env.COMPANY_NAME || "Propus";
+    const isReminder = (order.reviewRequestCount || 0) >= 1;
 
-    // Mail versenden
+    // Mail versenden – allgemeiner Text ohne Auftragsbezug
     const customerEmail = order.billing?.email || "";
     let reviewMailSent = false;
-    if (graphClient && customerEmail) {
-      const subject = `Wie war Ihr Shooting? Auftrag #${orderNo}`;
-      const html = `<p>Guten Tag ${order.billing?.name || ""},</p>
-<p>wir hoffen, dass alles zu Ihrer Zufriedenheit war. Wir freuen uns -ber Ihr Feedback:</p>
-<p><a href="${reviewLink}">Jetzt bewerten (1-5 Sterne)</a></p>
-<p><a href="${googleReviewLink}">Auf Google bewerten</a></p>
-<p>Herzliche Gr-sse, Ihr Propus-Team</p>`;
+    if (customerEmail) {
+      const subject = isReminder
+        ? `Haben Sie uns bewertet? Wir wuerden uns freuen!`
+        : `Wie hat Ihnen Ihr Shooting bei ${companyName} gefallen?`;
+      const customerName = order.billing?.name || "";
+      const html = `<p>Guten Tag ${customerName},</p>
+<p>Ihr Feedback ist uns sehr wichtig. Wir wuerden uns freuen, wenn Sie kurz eine Bewertung hinterlassen:</p>
+<p style="margin: 20px 0;">
+  <a href="${reviewLink}" style="background:#4f46e5;color:#fff;padding:10px 22px;border-radius:6px;text-decoration:none;font-weight:600;display:inline-block;">Jetzt bewerten (1–5 Sterne)</a>
+</p>
+<p>Oder direkt auf Google:</p>
+<p style="margin: 16px 0;">
+  <a href="${googleReviewLink}" style="background:#4285F4;color:#fff;padding:10px 22px;border-radius:6px;text-decoration:none;font-weight:600;display:inline-block;">Auf Google bewerten</a>
+</p>
+<p>Herzliche Gruesse<br>Ihr ${companyName}-Team</p>`;
+      const text = `Jetzt bewerten: ${reviewLink}\nAuf Google bewerten: ${googleReviewLink}`;
       const mailResult = await sendMailWithFallback({
         to: customerEmail,
         subject,
         html,
-        text: "",
+        text,
         context: `manual-review-request:${orderNo}`,
       });
       reviewMailSent = mailResult && mailResult.sent === true;
@@ -8708,6 +8737,158 @@ app.patch("/api/admin/products/:id/active", requireAdmin, async (req, res) => {
     res.json({ ok: true, product });
   } catch (err) {
     res.status(400).json({ error: err.message || "Produktstatus konnte nicht ge-ndert werden" });
+  }
+});
+
+// ── Zonen-Anfahrtspauschale: Kanton/PLZ → Zone + Preis ──────────────────────
+async function resolveTravelZone(canton, zip) {
+  const mapping = (await getSetting("travel.zoneMapping")).value || {};
+  const cantons = mapping.cantons || {};
+  const zipOverrides = Array.isArray(mapping.zipOverrides) ? mapping.zipOverrides : [];
+  const defaultProduct = mapping.default || "travel:zone-a";
+  const cantonUpper = String(canton || "").toUpperCase().trim();
+  const zipStr = String(zip || "").trim();
+
+  let productCode = cantons[cantonUpper] || defaultProduct;
+  for (const override of zipOverrides) {
+    if (!zipStr || !override.pattern) continue;
+    if (override.canton && override.canton.toUpperCase() !== cantonUpper) continue;
+    try { if (new RegExp(override.pattern).test(zipStr)) { productCode = override.product; break; } } catch { /* skip invalid regex */ }
+  }
+
+  const products = await db.listProductsWithRules({ includeInactive: false });
+  const product = products.find((p) => p.code === productCode);
+  const rule = product?.rules?.find((r) => r?.active !== false);
+  const price = Number(rule?.config_json?.price ?? 0);
+  const zoneLetter = productCode.replace("travel:zone-", "").toUpperCase();
+
+  return {
+    zone: zoneLetter,
+    productCode,
+    price,
+    label: product?.name || `Zone ${zoneLetter}`,
+    description: product?.description || "",
+  };
+}
+
+app.get("/api/travel-zone", async (req, res) => {
+  try {
+    const result = await resolveTravelZone(req.query.canton, req.query.zip);
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Zonen-Lookup fehlgeschlagen" });
+  }
+});
+
+// Public endpoint: alle Zonen mit Preisen und zugeordneten Kantonen
+app.get("/api/catalog/travel-zones", async (req, res) => {
+  try {
+    const mapping = (await getSetting("travel.zoneMapping")).value || {};
+    const cantons = mapping.cantons || {};
+    const defaultProduct = mapping.default || "travel:zone-a";
+
+    const products = await db.listProductsWithRules({ includeInactive: false });
+    const ZONE_CODES = ["travel:zone-a", "travel:zone-b", "travel:zone-c", "travel:zone-d"];
+
+    const zones = ZONE_CODES.map((code) => {
+      const product = products.find((p) => p.code === code);
+      const rule = product?.rules?.find((r) => r?.active !== false);
+      const price = Number(rule?.config_json?.price ?? 0);
+      const letter = code.replace("travel:zone-", "").toUpperCase();
+
+      // Kantone sammeln die dieser Zone zugeordnet sind
+      const zoneCantons = Object.entries(cantons)
+        .filter(([, zoneCode]) => zoneCode === code)
+        .map(([canton]) => canton)
+        .sort();
+
+      // Auch default-Kanton beachten: alle 26 CH-Kantone die nicht explizit zugewiesen sind
+      const allCantons = ["AG","AI","AR","BE","BL","BS","FR","GE","GL","GR","JU","LU","NE","NW","OW","SG","SH","SO","SZ","TG","TI","UR","VD","VS","ZG","ZH"];
+      if (code === defaultProduct) {
+        for (const ct of allCantons) {
+          if (!cantons[ct] && !zoneCantons.includes(ct)) zoneCantons.push(ct);
+        }
+        zoneCantons.sort();
+      }
+
+      return {
+        zone: letter,
+        productCode: code,
+        price,
+        label: product?.name || `Zone ${letter}`,
+        description: product?.description || "",
+        cantons: zoneCantons,
+        active: product?.active !== false,
+      };
+    });
+
+    res.json({ ok: true, zones });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Zonen-Daten konnten nicht geladen werden" });
+  }
+});
+
+// Admin: Historische Bestellungen rückwirkend mit Zonen-Addon versehen
+app.post("/api/admin/orders/backfill-travel-zones", requireAdmin, async (req, res) => {
+  try {
+    const orders = await loadOrders();
+    let updated = 0;
+    let skipped = 0;
+    const errors = [];
+
+    for (const order of orders) {
+      try {
+        const services = order.services || {};
+        const addons = Array.isArray(services.addons) ? services.addons : [];
+
+        // Bereits eine Reisezone? Überspringen.
+        const hasTravelZone = addons.some((a) => String(a.id || a.labelKey || "").startsWith("travel:zone-"));
+        if (hasTravelZone) { skipped++; continue; }
+
+        // Adresse ermitteln: aus billing.zipcity oder zip-Felder
+        const billing = order.billing || {};
+        const zipcity = String(billing.zipcity || billing.zip_city || "").trim();
+        const zipFromBilling = zipcity ? zipcity.split(" ")[0] : String(billing.zip || "").trim();
+        const canton = String(order.canton || billing.canton || "").trim();
+        const zip = zipFromBilling || String(order.zip || "").trim();
+
+        if (!zip && !canton) { skipped++; continue; }
+
+        const tz = await resolveTravelZone(canton, zip);
+        if (!tz.productCode) { skipped++; continue; }
+
+        const updatedAddons = [...addons, { id: tz.productCode, group: "travel_zone", label: tz.label, labelKey: tz.productCode }];
+        const updatedServices = { ...services, addons: updatedAddons };
+
+        // Preis neu berechnen
+        const vatRate = Number((await getSetting("pricing.vatRate")).value || 0.081);
+        const currentSubtotal = Number(order.subtotal || order.pricing?.subtotal || 0);
+        const newSubtotal = Math.round((currentSubtotal + tz.price) * 100) / 100;
+        const discountVal = Number(order.discount || order.pricing?.discount || 0);
+        const vatBase = Math.max(0, newSubtotal - discountVal);
+        const newVat = Math.round(vatBase * vatRate * 100) / 100;
+        const newTotal = Math.round((vatBase + newVat) * 100) / 100;
+
+        const updateFields = {
+          services: updatedServices,
+          subtotal: newSubtotal,
+          vat: newVat,
+          total: newTotal,
+        };
+
+        if (process.env.DATABASE_URL) {
+          await db.updateOrderFields(order.orderNo, updateFields);
+        }
+
+        updated++;
+      } catch (err) {
+        errors.push(`#${order.orderNo}: ${err?.message || "Fehler"}`);
+      }
+    }
+
+    res.json({ ok: true, updated, skipped, errors });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Backfill fehlgeschlagen" });
   }
 });
 
@@ -11437,6 +11618,7 @@ app.post("/api/bot", async (req, res) => {
         },
         vatRate,
         currency: "CHF",
+        travelZoneMapping: (await getSetting("travel.zoneMapping")).value || {},
         steps: [
           { step: 1, name: "Objektdaten", required: ["address","objectType","area"] },
           { step: 2, name: "Dienstleistungen", required: [] },
@@ -11448,7 +11630,7 @@ app.post("/api/bot", async (req, res) => {
 
     // - ACTION: pricing -
     if (action === "pricing") {
-      const { package: pkgKey, addons: addonIds, area, floors, discountCode, customerEmail } = req.body;
+      const { package: pkgKey, addons: addonIds, area, floors, discountCode, customerEmail, canton, zip } = req.body;
       const products = await db.listProductsWithRules({ includeInactive: false });
       const productByCode = new Map(products.map((p) => [String(p.code), p]));
       const normalizedAddons = (Array.isArray(addonIds) ? addonIds : []).map((addonInput) => {
@@ -11461,6 +11643,22 @@ app.post("/api/bot", async (req, res) => {
           label: product?.name || String(id || ""),
         };
       }).filter((x) => !!x.id);
+
+      // Auto-inject travel zone addon if canton/zip provided and no zone addon already present
+      const hasTravelZone = normalizedAddons.some((a) => String(a.id || "").startsWith("travel:zone-"));
+      let travelZoneInfo = null;
+      if (!hasTravelZone && (canton || zip)) {
+        travelZoneInfo = await resolveTravelZone(canton, zip);
+        const zoneProduct = productByCode.get(travelZoneInfo.productCode);
+        if (zoneProduct) {
+          normalizedAddons.push({
+            id: travelZoneInfo.productCode,
+            qty: 1,
+            group: "travel_zone",
+            label: travelZoneInfo.label,
+          });
+        }
+      }
 
       const pkgProduct = productByCode.get(String(pkgKey || ""));
       const services = {
@@ -11491,6 +11689,7 @@ app.post("/api/bot", async (req, res) => {
         vat: Number(pricingData?.pricing?.vat || 0),
         total: Number(pricingData?.pricing?.total || 0),
         currency: "CHF",
+        travelZone: travelZoneInfo || undefined,
       });
     }
 
@@ -11603,6 +11802,15 @@ app.post("/api/bot", async (req, res) => {
         const label = qty > 1 ? `${addonLabels[id]||id} - ${qty}` : (addonLabels[id]||id);
         return { id, group, label, labelKey: id };
       }).filter(a => a.id);
+
+      // Auto-inject travel zone if canton/zip provided and not already present
+      const bookingHasTravelZone = formattedAddons.some((a) => String(a.id || "").startsWith("travel:zone-"));
+      if (!bookingHasTravelZone && (data.canton || data.zip)) {
+        try {
+          const tz = await resolveTravelZone(data.canton, data.zip);
+          if (tz.productCode) formattedAddons.push({ id: tz.productCode, group: "travel_zone", label: tz.label, labelKey: tz.productCode });
+        } catch { /* zone lookup failed, proceed without */ }
+      }
 
       const floors = Math.max(1, parseInt(data.object?.floors)||1);
       const area = parseFloat(data.object?.area)||0;
@@ -12520,6 +12728,7 @@ app.get("/api/admin/reviews", requireAdmin, async (req, res) => {
         o.order_no, o.billing->>'name' AS customer_name, o.billing->>'email' AS customer_email,
         o.done_at, o.review_request_sent_at, o.review_request_count,
         r.id AS review_id, r.rating, r.comment, r.submitted_at, r.created_at AS review_created_at,
+        r.google_review_left,
         CASE
           WHEN r.submitted_at IS NOT NULL THEN 'responded'
           WHEN o.review_request_sent_at IS NOT NULL THEN 'sent'
@@ -12548,14 +12757,29 @@ app.post("/api/admin/orders/:orderNo/review/resend", requireAdmin, async (req, r
     const order = process.env.DATABASE_URL ? await db.getOrderByNo(orderNo) : (await loadOrders()).find(o => o.orderNo === orderNo);
     if (!order) return res.status(404).json({ error: "Auftrag nicht gefunden" });
 
-    // Cooldown pr-fen (7 Tage)
+    // 60-Tage-Sperre: kein weiterer Versand wenn letzte Mail > 60 Tage alt
+    const SIXTY_DAYS_MS = 60 * 24 * 60 * 60 * 1000;
+    const COOLDOWN_MS = 14 * 24 * 60 * 60 * 1000;
+
     if (order.reviewRequestSentAt) {
       const lastSent = new Date(order.reviewRequestSentAt);
-      const cooldownMs = 7 * 24 * 60 * 60 * 1000;
-      if (Date.now() - lastSent.getTime() < cooldownMs) {
-        const daysLeft = Math.ceil((cooldownMs - (Date.now() - lastSent.getTime())) / (24 * 60 * 60 * 1000));
+      const ageMs = Date.now() - lastSent.getTime();
+
+      // 60-Tage-Sperre
+      if (ageMs >= SIXTY_DAYS_MS) {
+        return res.status(429).json({ error: "60-Tage-Sperre aktiv. Kein weiterer Versand moeglich." });
+      }
+
+      // 14-Tage-Cooldown
+      if (ageMs < COOLDOWN_MS) {
+        const daysLeft = Math.ceil((COOLDOWN_MS - ageMs) / (24 * 60 * 60 * 1000));
         return res.status(429).json({ error: `Cooldown aktiv. Erneut senden in ${daysLeft} Tag(en).` });
       }
+    }
+
+    // Maximal 2 Sendungen (1 Erstanfrage + 1 Erinnerung)
+    if ((order.reviewRequestCount || 0) >= 2) {
+      return res.status(429).json({ error: "Maximale Anzahl Sendungen (2) erreicht. Kein weiterer Versand moeglich." });
     }
 
     // Token generieren
@@ -12568,22 +12792,33 @@ app.post("/api/admin/orders/:orderNo/review/resend", requireAdmin, async (req, r
     const frontendUrl = process.env.FRONTEND_URL || "https://admin-booking.propus.ch";
     const reviewLink = `${frontendUrl}/review/${token}`;
     const googleReviewLink = "https://g.page/r/CSQ5RnWmJOumEAE/review";
+    const companyName = process.env.COMPANY_NAME || "Propus";
+    const isReminder = (order.reviewRequestCount || 0) >= 1;
 
-    // Mail versenden
+    // Mail versenden – allgemeiner Text ohne Auftragsbezug
     const customerEmail = order.billing?.email || "";
     let reviewMailSent = false;
-    if (graphClient && customerEmail) {
-      const subject = `Wie war Ihr Shooting? Auftrag #${orderNo}`;
-      const html = `<p>Guten Tag ${order.billing?.name || ""},</p>
-<p>wir hoffen, dass alles zu Ihrer Zufriedenheit war. Wir freuen uns -ber Ihr Feedback:</p>
-<p><a href="${reviewLink}">Jetzt bewerten (1-5 Sterne)</a></p>
-<p><a href="${googleReviewLink}">Auf Google bewerten</a></p>
-<p>Herzliche Gr-sse, Ihr Propus-Team</p>`;
+    if (customerEmail) {
+      const subject = isReminder
+        ? `Haben Sie uns bewertet? Wir wuerden uns freuen!`
+        : `Wie hat Ihnen Ihr Shooting bei ${companyName} gefallen?`;
+      const customerName = order.billing?.name || "";
+      const html = `<p>Guten Tag ${customerName},</p>
+<p>Ihr Feedback ist uns sehr wichtig. Wir wuerden uns freuen, wenn Sie kurz eine Bewertung hinterlassen:</p>
+<p style="margin: 20px 0;">
+  <a href="${reviewLink}" style="background:#4f46e5;color:#fff;padding:10px 22px;border-radius:6px;text-decoration:none;font-weight:600;display:inline-block;">Jetzt bewerten (1–5 Sterne)</a>
+</p>
+<p>Oder direkt auf Google:</p>
+<p style="margin: 16px 0;">
+  <a href="${googleReviewLink}" style="background:#4285F4;color:#fff;padding:10px 22px;border-radius:6px;text-decoration:none;font-weight:600;display:inline-block;">Auf Google bewerten</a>
+</p>
+<p>Herzliche Gruesse<br>Ihr ${companyName}-Team</p>`;
+      const text = `Jetzt bewerten: ${reviewLink}\nAuf Google bewerten: ${googleReviewLink}`;
       const mailResult = await sendMailWithFallback({
         to: customerEmail,
         subject,
         html,
-        text: "",
+        text,
         context: `manual-review-request:${orderNo}`,
       });
       reviewMailSent = mailResult && mailResult.sent === true;
@@ -12612,6 +12847,26 @@ app.patch("/api/admin/orders/:orderNo/review/dismiss", requireAdmin, async (req,
     const nowIso = new Date().toISOString();
     await db.updateOrderFields(orderNo, { review_request_sent_at: nowIso, review_request_count: 1 });
     res.json({ ok: true, orderNo });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin: Google-Bewertungs-Flag setzen/entfernen
+app.patch("/api/admin/orders/:orderNo/review/google-flag", requireAdmin, async (req, res) => {
+  try {
+    const pool = db.getPool ? db.getPool() : null;
+    if (!pool) return res.status(503).json({ error: "DB nicht verf-gbar" });
+    const orderNo = Number(req.params.orderNo);
+    const { google_review_left } = req.body || {};
+    const value = google_review_left === true || google_review_left === "true" ? true
+      : google_review_left === false || google_review_left === "false" ? false
+      : null;
+    await pool.query(
+      "UPDATE order_reviews SET google_review_left=$1 WHERE order_no=$2",
+      [value, orderNo]
+    );
+    res.json({ ok: true, orderNo, google_review_left: value });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

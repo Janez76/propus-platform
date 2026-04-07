@@ -85,6 +85,28 @@ const DEFAULT_APP_SETTINGS = {
   "integration.exxas.fieldCatalog": [],
   /** Volle EXXAS-UI-Konfiguration (Zugangsdaten + Mapping); null = nur Defaults / localStorage */
   "integration.exxas.config": null,
+
+  // Zonen-basierte Anfahrtspauschale: Kanton/PLZ → Produkt-Code
+  "travel.zoneMapping": {
+    default: "travel:zone-a",
+    cantons: {
+      ZH: "travel:zone-a", AG: "travel:zone-a", ZG: "travel:zone-a",
+      LU: "travel:zone-b", SZ: "travel:zone-b", SH: "travel:zone-b",
+      TG: "travel:zone-b", GL: "travel:zone-b", AR: "travel:zone-b",
+      AI: "travel:zone-b", SG: "travel:zone-b",
+      BE: "travel:zone-c", BS: "travel:zone-c", BL: "travel:zone-c",
+      SO: "travel:zone-c", FR: "travel:zone-c", NW: "travel:zone-c",
+      OW: "travel:zone-c", UR: "travel:zone-c",
+      GR: "travel:zone-c",
+      TI: "travel:zone-d", VS: "travel:zone-d", VD: "travel:zone-d",
+      NE: "travel:zone-d", JU: "travel:zone-d", GE: "travel:zone-d",
+    },
+    zipOverrides: [
+      { pattern: "^94|^95", canton: "SG", product: "travel:zone-c" },
+      { pattern: "^70", canton: "GR", product: "travel:zone-c" },
+      { pattern: "^75|^76", canton: "GR", product: "travel:zone-d" },
+    ],
+  },
 };
 
 const LEGACY_DISCOUNT_FALLBACK = {

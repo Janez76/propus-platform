@@ -26,6 +26,7 @@ export type ParsedAddress = {
   houseNumber: string;
   zip: string;
   city: string;
+  canton?: string;
   countryCode: "CH";
   display: string;
 };
@@ -257,6 +258,7 @@ export function AddressAutocompleteInput({
         houseNumber: result.houseNumber,
         zip: result.zip ?? "",
         city: result.city ?? "",
+        canton: result.canton ?? "",
         countryCode: "CH",
         display,
       });

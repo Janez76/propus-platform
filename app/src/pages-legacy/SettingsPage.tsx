@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { getSystemSettings, patchSystemSettings, type SystemSettingsMap } from "../api/settings";
 import { getPhotographers, type Photographer } from "../api/photographers";
+import { getProducts, type Product } from "../api/products";
 import { DiscountCodesPage } from "./DiscountCodesPage";
 import { t } from "../i18n";
 import { useAuthStore } from "../store/authStore";
 import { useUnsavedChangesGuard } from "../hooks/useUnsavedChangesGuard";
 
-type TabKey = "pricing" | "scheduling" | "assignment" | "discounts" | "reviews";
+type TabKey = "pricing" | "scheduling" | "assignment" | "discounts" | "reviews" | "travelZones";
 type AssignmentPolicy = "strict_then_admin" | "radius_expand_then_no_auto_assign" | "allow_skill_relax";
 type SkillKey = "foto" | "matterport" | "drohne_foto" | "drohne_video" | "video";
 type SkillGroup = "assignment.requiredSkillLevels" | "assignment.absoluteSkillMinimums";
@@ -160,7 +161,7 @@ function SkillThresholdRow({
         />
         {total > 0 && (
           <div className="text-[10px] text-[var(--text-subtle)]">
-            {meetsMinimum}/{total} über Untergrenze
+            {meetsMinimum}/{total} �??�?�ber Untergrenze
           </div>
         )}
       </div>
@@ -203,6 +204,275 @@ function buildDefaultWorkHoursByDay(workdays: string[], defaultStart: string, de
   };
 }
 
+const ALL_CANTONS = [
+  "AG","AI","AR","BE","BL","BS","FR","GE","GL","GR",
+  "JU","LU","NE","NW","OW","SG","SH","SO","SZ","TG",
+  "TI","UR","VD","VS","ZG","ZH",
+];
+
+const ZONE_CODES = ["travel:zone-a", "travel:zone-b", "travel:zone-c", "travel:zone-d"];
+
+type ZoneOverride = { pattern: string; canton: string; product: string };
+
+function getTravelZoneMapping(draft: SystemSettingsMap) {
+  const raw = draft["travel.zoneMapping"] as Record<string, unknown> | undefined;
+  return {
+    cantons: (raw?.cantons ?? {}) as Record<string, string>,
+    zipOverrides: (Array.isArray(raw?.zipOverrides) ? raw.zipOverrides : []) as ZoneOverride[],
+    default: String(raw?.default ?? "travel:zone-a"),
+  };
+}
+
+function setTravelZoneMapping(update: (key: string, v: unknown) => void, next: { cantons: Record<string, string>; zipOverrides: ZoneOverride[]; default: string }) {
+  update("travel.zoneMapping", next);
+}
+
+function getZonePrice(products: Product[], code: string): number {
+  const p = products.find((pr) => pr.code === code);
+  const rule = p?.rules?.find((r) => r.active !== false);
+  return Number(rule?.config_json?.price ?? 0);
+}
+
+function TravelZonesTab({
+  lang,
+  draft,
+  update,
+  travelZoneProducts,
+  token,
+  backfillLoading,
+  setBackfillLoading,
+  backfillResult,
+  setBackfillResult,
+}: {
+  lang: string;
+  draft: SystemSettingsMap;
+  update: (key: string, v: unknown) => void;
+  travelZoneProducts: Product[];
+  token: string | undefined;
+  backfillLoading: boolean;
+  setBackfillLoading: (v: boolean) => void;
+  backfillResult: { updated: number; skipped: number; errors: string[] } | null;
+  setBackfillResult: (v: { updated: number; skipped: number; errors: string[] } | null) => void;
+}) {
+  const mapping = getTravelZoneMapping(draft);
+
+  function updateCantonZone(canton: string, product: string) {
+    setTravelZoneMapping(update, {
+      ...mapping,
+      cantons: { ...mapping.cantons, [canton]: product },
+    });
+  }
+
+  function updateOverride(idx: number, field: keyof ZoneOverride, val: string) {
+    const next = mapping.zipOverrides.map((o, i) => (i === idx ? { ...o, [field]: val } : o));
+    setTravelZoneMapping(update, { ...mapping, zipOverrides: next });
+  }
+
+  function addOverride() {
+    setTravelZoneMapping(update, {
+      ...mapping,
+      zipOverrides: [...mapping.zipOverrides, { pattern: "", canton: "", product: "travel:zone-a" }],
+    });
+  }
+
+  function removeOverride(idx: number) {
+    setTravelZoneMapping(update, {
+      ...mapping,
+      zipOverrides: mapping.zipOverrides.filter((_, i) => i !== idx),
+    });
+  }
+
+  async function runBackfill() {
+    setBackfillLoading(true);
+    setBackfillResult(null);
+    try {
+      const res = await fetch("/api/admin/orders/backfill-travel-zones", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setBackfillResult({ updated: data.updated ?? 0, skipped: data.skipped ?? 0, errors: data.errors ?? [] });
+      } else {
+        setBackfillResult({ updated: 0, skipped: 0, errors: [data.error ?? "Unbekannter Fehler"] });
+      }
+    } catch (err) {
+      setBackfillResult({ updated: 0, skipped: 0, errors: [err instanceof Error ? err.message : "Fehler"] });
+    } finally {
+      setBackfillLoading(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Kanton-zu-Zone-Zuordnung */}
+      <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-4">
+        <h3 className="mb-1 text-sm font-semibold text-[var(--text-main)]">{t(lang, "settings.travelZones.title")}</h3>
+        <p className="mb-3 text-xs text-[var(--text-subtle)]">{t(lang, "settings.travelZones.cantonHint")}</p>
+        <div className="overflow-auto rounded-xl border border-[var(--border-soft)]">
+          <table className="min-w-full text-xs">
+            <thead>
+              <tr className="border-b border-[var(--border-soft)] bg-[var(--surface-raised)]/60">
+                <th className="px-3 py-2 text-left font-semibold text-[var(--text-subtle)]">{t(lang, "settings.travelZones.cantonColumn")}</th>
+                <th className="px-3 py-2 text-left font-semibold text-[var(--text-subtle)]">{t(lang, "settings.travelZones.zoneColumn")}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[var(--border-soft)]">
+              {ALL_CANTONS.map((ct) => {
+                const currentZone = mapping.cantons[ct] ?? mapping.default;
+                return (
+                  <tr key={ct} className="hover:bg-[var(--surface-raised)]/30">
+                    <td className="px-3 py-1.5 font-medium text-[var(--text-main)]">{ct}</td>
+                    <td className="px-3 py-1.5">
+                      <select
+                        value={currentZone}
+                        onChange={(e) => updateCantonZone(ct, e.target.value)}
+                        className="rounded border border-[var(--border-soft)] bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-main)]"
+                      >
+                        {ZONE_CODES.map((code) => {
+                          const letter = code.replace("travel:zone-", "").toUpperCase();
+                          const price = getZonePrice(travelZoneProducts, code);
+                          return (
+                            <option key={code} value={code}>
+                              Zone {letter}{price > 0 ? ` — CHF ${price}` : " — Inkl."}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* PLZ-Overrides */}
+      <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-[var(--text-main)]">{t(lang, "settings.travelZones.zipOverrides")}</h3>
+            <p className="mt-0.5 text-xs text-[var(--text-subtle)]">{t(lang, "settings.travelZones.zipOverridesHint")}</p>
+          </div>
+          <button
+            type="button"
+            onClick={addOverride}
+            className="rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-xs hover:bg-[var(--surface-raised)]"
+          >
+            + {t(lang, "settings.travelZones.addOverride")}
+          </button>
+        </div>
+        {mapping.zipOverrides.length === 0 ? (
+          <p className="text-xs text-[var(--text-subtle)]">{t(lang, "settings.travelZones.noOverrides")}</p>
+        ) : (
+          <div className="space-y-2">
+            {mapping.zipOverrides.map((ov, idx) => (
+              <div key={idx} className="grid grid-cols-12 items-center gap-2 rounded border border-[var(--border-soft)] px-3 py-2">
+                <label className="col-span-4 text-xs">
+                  <span className="block text-[var(--text-subtle)]">{t(lang, "settings.travelZones.pattern")}</span>
+                  <input
+                    className="mt-1 w-full rounded border border-[var(--border-soft)] bg-[var(--surface-raised)] px-2 py-1 text-xs"
+                    value={ov.pattern}
+                    onChange={(e) => updateOverride(idx, "pattern", e.target.value)}
+                    placeholder="^94|^95"
+                  />
+                </label>
+                <label className="col-span-3 text-xs">
+                  <span className="block text-[var(--text-subtle)]">{t(lang, "settings.travelZones.cantonColumn")}</span>
+                  <input
+                    className="mt-1 w-full rounded border border-[var(--border-soft)] bg-[var(--surface-raised)] px-2 py-1 text-xs uppercase"
+                    value={ov.canton}
+                    onChange={(e) => updateOverride(idx, "canton", e.target.value.toUpperCase())}
+                    placeholder="SG"
+                    maxLength={2}
+                  />
+                </label>
+                <label className="col-span-4 text-xs">
+                  <span className="block text-[var(--text-subtle)]">{t(lang, "settings.travelZones.targetZone")}</span>
+                  <select
+                    className="mt-1 w-full rounded border border-[var(--border-soft)] bg-[var(--surface)] px-2 py-1 text-xs"
+                    value={ov.product}
+                    onChange={(e) => updateOverride(idx, "product", e.target.value)}
+                  >
+                    {ZONE_CODES.map((code) => (
+                      <option key={code} value={code}>Zone {code.replace("travel:zone-", "").toUpperCase()}</option>
+                    ))}
+                  </select>
+                </label>
+                <div className="col-span-1 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => removeOverride(idx)}
+                    className="rounded p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
+                    title="Löschen"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Zonen-Preise (readonly) */}
+      <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-4">
+        <h3 className="mb-1 text-sm font-semibold text-[var(--text-main)]">{t(lang, "settings.travelZones.pricesTitle")}</h3>
+        <div className="mb-3 rounded-lg border border-[var(--accent)]/20 bg-[var(--accent)]/5 px-3 py-2">
+          <p className="text-xs text-[var(--text-subtle)]">
+            {t(lang, "settings.travelZones.pricesInfo")}{" "}
+            <a href="/products" className="text-[var(--accent)] hover:underline">
+              {t(lang, "settings.travelZones.pricesLink")}
+            </a>
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+          {ZONE_CODES.map((code) => {
+            const letter = code.replace("travel:zone-", "").toUpperCase();
+            const price = getZonePrice(travelZoneProducts, code);
+            const product = travelZoneProducts.find((p) => p.code === code);
+            return (
+              <div key={code} className="rounded-lg border border-[var(--border-soft)] p-3 text-center">
+                <div className="text-xs font-bold uppercase tracking-wide text-[var(--accent)]">Zone {letter}</div>
+                <div className="mt-1 text-lg font-extrabold text-[var(--text-main)]">
+                  {price > 0 ? `CHF ${price}` : t(lang, "settings.travelZones.included")}
+                </div>
+                {product?.description && (
+                  <div className="mt-1 text-[10px] text-[var(--text-subtle)] leading-tight">{product.description}</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Backfill-Button */}
+      <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-4">
+        <h3 className="mb-1 text-sm font-semibold text-[var(--text-main)]">{t(lang, "settings.travelZones.backfillTitle")}</h3>
+        <p className="mb-3 text-xs text-[var(--text-subtle)]">{t(lang, "settings.travelZones.backfillHint")}</p>
+        <button
+          type="button"
+          disabled={backfillLoading}
+          onClick={runBackfill}
+          className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {backfillLoading ? t(lang, "settings.travelZones.backfillRunning") : t(lang, "settings.travelZones.backfillButton")}
+        </button>
+        {backfillResult && (
+          <div className={`mt-3 rounded-lg px-3 py-2 text-sm ${backfillResult.errors.length > 0 ? "bg-amber-50 text-amber-800 dark:bg-amber-950/20 dark:text-amber-200" : "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-200"}`}>
+            <span className="font-semibold">{backfillResult.updated}</span> {t(lang, "settings.travelZones.backfillUpdated")},{" "}
+            <span className="font-semibold">{backfillResult.skipped}</span> {t(lang, "settings.travelZones.backfillSkipped")}
+            {backfillResult.errors.length > 0 && (
+              <div className="mt-1 text-xs opacity-80">{backfillResult.errors.slice(0, 3).join(" · ")}</div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function SettingsPage() {
   const token = useAuthStore((s) => s.token);
   const lang = useAuthStore((s) => s.language);
@@ -210,6 +480,9 @@ export function SettingsPage() {
   const [settings, setSettings] = useState<SystemSettingsMap>({});
   const [draft, setDraft] = useState<SystemSettingsMap>({});
   const [photographers, setPhotographers] = useState<Photographer[]>([]);
+  const [travelZoneProducts, setTravelZoneProducts] = useState<Product[]>([]);
+  const [backfillLoading, setBackfillLoading] = useState(false);
+  const [backfillResult, setBackfillResult] = useState<{ updated: number; skipped: number; errors: string[] } | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -223,13 +496,15 @@ export function SettingsPage() {
     setLoading(true);
     setError("");
     try {
-      const [rows, photographerList] = await Promise.all([
+      const [rows, photographerList, allProducts] = await Promise.all([
         getSystemSettings(token),
         getPhotographers(token).catch(() => [] as Photographer[]),
+        getProducts(token ?? "").catch(() => [] as Product[]),
       ]);
       setSettings(rows);
       setDraft(rows);
       setPhotographers(photographerList);
+      setTravelZoneProducts(allProducts.filter((p) => p.group_key === "travel_zone"));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Settings konnten nicht geladen werden");
     } finally {
@@ -579,6 +854,15 @@ export function SettingsPage() {
           >
             Reviews
           </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("travelZones")}
+            className={`rounded-lg px-3 py-1.5 text-sm ${
+              activeTab === "travelZones" ? "bg-[var(--accent)] text-white" : "border border-[var(--border-soft)]"
+            }`}
+          >
+            {t(lang, "settings.tabs.travelZones")}
+          </button>
         </div>
       </div>
 
@@ -885,7 +1169,7 @@ export function SettingsPage() {
             </div>
           </div>
 
-          {/* Matterport Große Flächen */}
+          {/* Matterport Gro�??�?e Fl�??ñchen */}
           <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-4">
             <h3 className="mb-1 text-sm font-semibold text-[var(--text-main)]">{t(lang, "settings.assignment.matterportSection")}</h3>
             <p className="mb-3 text-xs text-[var(--text-subtle)]">
@@ -1003,7 +1287,7 @@ export function SettingsPage() {
                   </tbody>
                   <tfoot>
                     <tr className="border-t border-[var(--border-soft)] bg-[var(--surface-raised)]/40">
-                      <td className="px-3 py-2 text-xs font-semibold text-[var(--text-subtle)]">Erfüllen Mindest</td>
+                      <td className="px-3 py-2 text-xs font-semibold text-[var(--text-subtle)]">Erf�??�?�llen Mindest</td>
                       {SKILL_OPTIONS.map((skill) => {
                         const { meetsRequired } = poolStats[skill.key] ?? { meetsRequired: 0 };
                         const pct = activePhotographers.length > 0 ? (meetsRequired / activePhotographers.length) * 100 : 0;
@@ -1025,12 +1309,26 @@ export function SettingsPage() {
 
       {activeTab === "discounts" ? <DiscountCodesPage /> : null}
 
+      {activeTab === "travelZones" ? (
+        <TravelZonesTab
+          lang={lang}
+          draft={draft}
+          update={update}
+          travelZoneProducts={travelZoneProducts}
+          token={token}
+          backfillLoading={backfillLoading}
+          setBackfillLoading={setBackfillLoading}
+          backfillResult={backfillResult}
+          setBackfillResult={setBackfillResult}
+        />
+      ) : null}
+
       {activeTab === "reviews" ? (
         <div className="space-y-4 rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-4">
           <div>
             <h3 className="text-sm font-semibold text-[var(--text-main)]">Google-Bewertungs-Link</h3>
             <p className="mt-1 text-xs text-[var(--text-subtle)]">
-              Dieser Link wird in Review-E-Mails an Kunden sowie auf der Reviews-Seite angezeigt. Über Google Business Profile abrufbar.
+              Dieser Link wird in Review-E-Mails an Kunden sowie auf der Reviews-Seite angezeigt. �??£ber Google Business Profile abrufbar.
             </p>
           </div>
           <label className="block text-sm">
@@ -1053,7 +1351,7 @@ export function SettingsPage() {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 text-xs text-[var(--accent)] hover:underline"
             >
-              Link testen ↗
+              Link testen �?åù
             </a>
           ) : null}
         </div>
