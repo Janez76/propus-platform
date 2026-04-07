@@ -1,10 +1,11 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { MapPin, Home, Ruler, Layers, DoorOpen, Plus, Trash2 } from "lucide-react";
 import { AddressAutocompleteInput, type ParsedAddress } from "../../components/ui/AddressAutocompleteInput";
 import { useBookingWizardStore, type OnsiteContactRow } from "../../store/bookingWizardStore";
 import { AddressPreviewMap } from "./AddressPreviewMap";
 import { t, type Lang } from "../../i18n";
 import { cn } from "../../lib/utils";
+import { API_BASE } from "../../api/client";
 
 const OBJECT_TYPES = [
   { value: "apartment", labelKey: "booking.objectType.apartment" },
@@ -33,7 +34,38 @@ const emptyOnsiteRow = (): OnsiteContactRow => ({
 });
 
 export function StepLocation({ lang }: { lang: Lang }) {
-  const { address, coords, setAddress, parsedAddress, setParsedAddress, setCoords, object, setObject, config } = useBookingWizardStore();
+  const { address, coords, setAddress, parsedAddress, setParsedAddress, setCoords, object, setObject, config, addons, upsertAddon, removeAddonGroup } = useBookingWizardStore();
+
+  const prevZipRef = useRef("");
+
+  async function lookupTravelZone(canton: string, zip: string) {
+    if (!canton && !zip) return;
+    try {
+      const base = API_BASE || "";
+      const url = new URL(`/api/travel-zone?canton=${encodeURIComponent(canton)}&zip=${encodeURIComponent(zip)}`, base || window.location.origin);
+      const r = await fetch(url.toString(), { headers: { Accept: "application/json" } });
+      if (!r.ok) return;
+      const data = await r.json() as { ok?: boolean; zone?: string; productCode?: string; price?: number; label?: string };
+      if (!data.ok || !data.productCode) return;
+      upsertAddon({
+        id: data.productCode,
+        group: "travel_zone",
+        label: data.label || `Anfahrt Zone ${data.zone}`,
+        labelKey: data.productCode,
+        price: Number(data.price ?? 0),
+        qty: 1,
+      });
+    } catch { /* travel zone lookup failed silently */ }
+  }
+
+  useEffect(() => {
+    const zip = parsedAddress?.zip || "";
+    if (!zip) return;
+    if (zip === prevZipRef.current) return;
+    prevZipRef.current = zip;
+    lookupTravelZone("", zip);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [parsedAddress?.zip]);
 
   function updateAdditionalAt(index: number, patch: Partial<OnsiteContactRow>) {
     const next = object.additionalOnsiteContacts.map((row, i) => (i === index ? { ...row, ...patch } : row));

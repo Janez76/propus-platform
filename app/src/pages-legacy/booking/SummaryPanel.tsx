@@ -139,7 +139,11 @@ export function SummaryPanel({
             {addons.map((a) => (
               <div key={a.id} className="flex justify-between text-[var(--text-muted)]">
                 <span>{a.label}{a.qty > 1 ? ` x${a.qty}` : ""}</span>
-                <span className="font-medium">{formatCHF(a.price * a.qty)}</span>
+                <span className="font-medium">
+                  {a.group === "travel_zone" && a.price === 0
+                    ? t(lang, "wizard.travelZone.included")
+                    : formatCHF(a.price * a.qty)}
+                </span>
               </div>
             ))}
           </div>
