@@ -47,6 +47,8 @@ export function StepLocation({ lang }: { lang: Lang }) {
       if (!r.ok) return;
       const data = await r.json() as { ok?: boolean; zone?: string; productCode?: string; price?: number; label?: string };
       if (!data.ok || !data.productCode) return;
+      // Alte Zone entfernen bevor neue gesetzt wird
+      removeAddonGroup("travel_zone");
       upsertAddon({
         id: data.productCode,
         group: "travel_zone",
@@ -61,7 +63,7 @@ export function StepLocation({ lang }: { lang: Lang }) {
   useEffect(() => {
     const zip = parsedAddress?.zip || "";
     if (!zip) return;
-    if (zip === prevZipRef.current) return;
+    // Immer neu nachschlagen wenn sich die PLZ aendert (auch bei Adresswechsel)
     prevZipRef.current = zip;
     lookupTravelZone("", zip);
     // eslint-disable-next-line react-hooks/exhaustive-deps
