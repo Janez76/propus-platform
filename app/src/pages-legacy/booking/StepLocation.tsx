@@ -37,6 +37,7 @@ export function StepLocation({ lang }: { lang: Lang }) {
   const { address, coords, setAddress, parsedAddress, setParsedAddress, setCoords, object, setObject, config, addons, upsertAddon, removeAddonGroup } = useBookingWizardStore();
 
   const prevZipRef = useRef("");
+  const cantonRef = useRef("");
 
   async function lookupTravelZone(canton: string, zip: string) {
     if (!canton && !zip) return;
@@ -63,9 +64,11 @@ export function StepLocation({ lang }: { lang: Lang }) {
   useEffect(() => {
     const zip = parsedAddress?.zip || "";
     if (!zip) return;
-    // Immer neu nachschlagen wenn sich die PLZ aendert (auch bei Adresswechsel)
+    // Fallback fuer manuelle Eingabe ohne onSelectParsed (kein Kanton bekannt)
+    // onSelectParsed loest bereits lookupTravelZone mit korrektem Kanton aus
+    if (zip === prevZipRef.current) return;
     prevZipRef.current = zip;
-    lookupTravelZone("", zip);
+    lookupTravelZone(cantonRef.current, zip);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parsedAddress?.zip]);
 
@@ -84,6 +87,10 @@ export function StepLocation({ lang }: { lang: Lang }) {
 
   const onSelectParsed = useCallback((p: ParsedAddress) => {
     setParsedAddress({ street: p.street, houseNumber: p.houseNumber, zip: p.zip, city: p.city });
+    // Kanton separat merken (Store-Typ hat kein canton-Feld)
+    cantonRef.current = p.canton || "";
+    if (p.zip) lookupTravelZone(p.canton || "", p.zip);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setParsedAddress]);
 
   const onSelectCoords = useCallback((lat: number, lon: number) => {
