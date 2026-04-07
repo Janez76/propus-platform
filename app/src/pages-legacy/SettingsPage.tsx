@@ -3,7 +3,7 @@ import { getSystemSettings, patchSystemSettings, type SystemSettingsMap } from "
 import { getPhotographers, type Photographer } from "../api/photographers";
 import { getProducts, type Product } from "../api/products";
 import { DiscountCodesPage } from "./DiscountCodesPage";
-import { t } from "../i18n";
+import { t, type Lang } from "../i18n";
 import { useAuthStore } from "../store/authStore";
 import { useUnsavedChangesGuard } from "../hooks/useUnsavedChangesGuard";
 
@@ -244,7 +244,7 @@ function TravelZonesTab({
   backfillResult,
   setBackfillResult,
 }: {
-  lang: string;
+  lang: Lang;
   draft: SystemSettingsMap;
   update: (key: string, v: unknown) => void;
   travelZoneProducts: Product[];
