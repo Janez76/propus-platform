@@ -424,6 +424,12 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
     return hasHouseNumber && hasZipCity;
   }
 
+  /** Extrahiert die erste 4-stellige Schweizer PLZ aus einem Adress-String */
+  function extractSwissZip(address: string): string {
+    const m = address.match(/\b(\d{4})\b/);
+    return m ? m[1] : "";
+  }
+
   async function lookupTravelZone(canton: string, zip: string) {
     if (!canton && !zip) return;
     try {
@@ -1099,6 +1105,13 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                     mode="street"
                     value={formData.address}
                     onChange={(v) => updateField("address", v)}
+                    onBlur={() => {
+                      // Fallback: Zone aus manuell eingetippter Adresse ableiten (kein Autocomplete-Select)
+                      if (!formData.travelZone) {
+                        const zip = formData.zip || extractSwissZip(formData.address);
+                        if (zip) lookupTravelZone(formData.objectCanton || "", zip);
+                      }
+                    }}
                     onSelectParsed={(parsed) => {
                       setFormData((prev) => ({
                         ...prev,
@@ -1117,6 +1130,8 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                     onSelectZipcity={(zipcity) => {
                       if (!zipcity) return;
                       setFormData((prev) => ({ ...prev, zipcity }));
+                      const zipFromZipcity = zipcity.match(/^(\d{4})/)?.[1] || "";
+                      if (zipFromZipcity) lookupTravelZone("", zipFromZipcity);
                     }}
                     lang={lang}
                     className={inputClass}
