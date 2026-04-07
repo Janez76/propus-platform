@@ -1,7 +1,7 @@
-import { lazy, Suspense } from "react";
+﻿import { lazy, Suspense } from "react";
 import { useSearchParams, Link, Navigate } from "react-router-dom";
 import {
-  Shield, Users, Building2, Globe, BookOpen, RefreshCw,
+  Shield, Users, Building2, Globe, BookOpen, RefreshCw, UserRound,
 } from "lucide-react";
 import { useAuthStore } from "../store/authStore";
 
@@ -12,7 +12,7 @@ const RoleMatrixPage = lazy(() =>
   import("./RoleMatrixPage").then((m) => ({ default: m.RoleMatrixPage }))
 );
 
-// ─── Tab Definitionen ─────────────────────────────────────────────────────────
+// ÔöÇÔöÇÔöÇ Tab Definitionen ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 
 type TabId = "workspaces" | "portal" | "rollenkatalog";
 
@@ -37,7 +37,7 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode; description: stri
   },
 ];
 
-// ─── Haupt-Komponente ─────────────────────────────────────────────────────────
+// ÔöÇÔöÇÔöÇ Haupt-Komponente ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 
 export function AccessControlPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -72,7 +72,7 @@ export function AccessControlPage() {
             <div>
               <h1 className="text-xl font-bold text-[var(--text-main)]">Rechteverwaltung</h1>
               <p className="text-sm text-[var(--text-muted)]">
-                Zentrale Steuerung aller Rollen, Zugänge und Berechtigungen
+                Zentrale Steuerung aller Rollen, Zug├ñnge und Berechtigungen
               </p>
             </div>
           </div>
@@ -103,7 +103,7 @@ export function AccessControlPage() {
         fallback={
           <div className="flex items-center justify-center gap-2 py-24 text-[var(--text-muted)]">
             <RefreshCw className="h-5 w-5 animate-spin" />
-            <span>Wird geladen…</span>
+            <span>Wird geladenÔÇª</span>
           </div>
         }
       >
@@ -115,7 +115,7 @@ export function AccessControlPage() {
   );
 }
 
-// ─── Portal-Rollen Sektion ────────────────────────────────────────────────────
+// ÔöÇÔöÇÔöÇ Portal-Rollen Sektion ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 
 function PortalRolesSection({ token }: { token: string }) {
   return (
@@ -143,7 +143,7 @@ function PortalRolesSection({ token }: { token: string }) {
         <QuickLinkCard
           icon={<UserRound className="h-5 w-5 text-[var(--accent)]" />}
           title="Externe Kunden-Admins"
-          description="Kontakte die als Kunden-Admin im Portal sehen können"
+          description="Kontakte die als Kunden-Admin im Portal sehen k├Ânnen"
           href="/settings/roles?view=portal&tab=extern"
         />
       </div>
@@ -153,7 +153,7 @@ function PortalRolesSection({ token }: { token: string }) {
         <p className="text-xs">
           Tour-bezogene Portalrollen (Zuweisungen pro Tour) werden direkt in der Tour-Administration unter{" "}
           <Link to="/admin/tours" className="text-[var(--accent)] hover:underline">
-            Admin → Touren
+            Admin ÔåÆ Touren
           </Link>{" "}
           verwaltet.
         </p>
