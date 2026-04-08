@@ -117,6 +117,7 @@ const { executeSideEffects } = require("./workflow-effects");
 const { startJobs } = require("./jobs/index");
 const templateRenderer = require("./template-renderer");
 const { normalizeTextDeep, repairTextEncoding } = require("./text-normalization");
+const gbpClient = require("./gbp-client");
 const { resolveAdminSendEmails, resolveAdminEmailTargets, getEmailSendListForAdminStatus, getResendEmailEffectsForStatus, shouldSendAttendeeNotifications } = require("./admin-status-email");
 const crypto = require("crypto");
 const { registerCustomerContactsRoutes } = require("./customer-contacts-routes");
@@ -8694,6 +8695,195 @@ app.get("/api/reviews", async (req, res) => {
   }
 });
 
+// ─── Google Business Profile (GBP) OAuth & Reviews ──────────────────────────
+
+// Verbindungsstatus abfragen
+app.get("/api/admin/gbp/status", requireAdmin, async (req, res) => {
+  try {
+    const pool = db.getPool ? db.getPool() : null;
+    if (!pool) return res.json({ connected: false, configured: gbpClient.isConfigured() });
+    const status = await gbpClient.getStatus(pool);
+    res.json({ ok: true, ...status, configured: gbpClient.isConfigured() });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// OAuth Consent URL liefern
+app.get("/api/admin/gbp/auth-url", requireAdmin, (req, res) => {
+  try {
+    const authUrl = gbpClient.getAuthUrl();
+    res.json({ ok: true, authUrl });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// OAuth Callback – nimmt Code entgegen, tauscht gegen Token
+// Kein requireAdmin: wird von Google direkt aufgerufen (Redirect)
+app.get("/api/admin/gbp/callback", async (req, res) => {
+  try {
+    const code = String(req.query.code || "").trim();
+    const error = String(req.query.error || "").trim();
+
+    if (error) {
+      const frontendUrl = process.env.FRONTEND_URL || "https://admin-booking.propus.ch";
+      return res.redirect(frontendUrl + "/reviews?gbp_error=" + encodeURIComponent(error));
+    }
+
+    if (!code) {
+      return res.status(400).json({ error: "Kein Code erhalten" });
+    }
+
+    const pool = db.getPool ? db.getPool() : null;
+    if (!pool) return res.status(503).json({ error: "DB nicht verfuegbar" });
+
+    await gbpClient.exchangeCode(pool, code);
+
+    const frontendUrl = process.env.FRONTEND_URL || "https://admin-booking.propus.ch";
+    res.redirect(frontendUrl + "/reviews?gbp_connected=1");
+  } catch (err) {
+    console.error("[gbp] Callback-Fehler:", err.message);
+    const frontendUrl = process.env.FRONTEND_URL || "https://admin-booking.propus.ch";
+    res.redirect(frontendUrl + "/reviews?gbp_error=" + encodeURIComponent(err.message));
+  }
+});
+
+// Alle Google Reviews laden – GBP OAuth wenn Location gesetzt, sonst Places API Fallback
+async function _loadPlacesReviews() {
+  const apiKey = String(process.env.GOOGLE_PLACES_API_KEY || "").trim();
+  const placeId = String(process.env.GOOGLE_REVIEWS_PLACE_ID || "").trim();
+  if (!apiKey || !placeId) throw new Error("Keine Google Reviews konfiguriert");
+  const placesUrl = new URL("https://maps.googleapis.com/maps/api/place/details/json");
+  placesUrl.searchParams.set("place_id", placeId);
+  placesUrl.searchParams.set("fields", "name,rating,user_ratings_total,reviews");
+  placesUrl.searchParams.set("language", "de");
+  placesUrl.searchParams.set("reviews_sort", "newest");
+  placesUrl.searchParams.set("key", apiKey);
+  const r = await fetch(placesUrl.toString(), { signal: AbortSignal.timeout(8000) });
+  const j = await r.json();
+  if (j.status !== "OK" || !j.result) throw new Error("Places API Fehler: " + (j.status || "unbekannt"));
+  const reviews = (Array.isArray(j.result.reviews) ? j.result.reviews : []).map((rv) => ({
+    name: "places/" + placeId + "/reviews/" + rv.time,
+    reviewId: String(rv.time),
+    author: rv.author_name || "Anonym",
+    profilePhoto: rv.profile_photo_url || null,
+    isAnonymous: !rv.author_name,
+    rating: rv.rating || 0,
+    comment: rv.text || "",
+    createTime: rv.time ? new Date(rv.time * 1000).toISOString() : null,
+    updateTime: rv.time ? new Date(rv.time * 1000).toISOString() : null,
+    reply: null,
+  }));
+  return { ok: true, reviews, averageRating: j.result.rating || null, totalReviewCount: j.result.user_ratings_total || null, source: "places" };
+}
+
+app.get("/api/admin/gbp/reviews", requireAdmin, async (req, res) => {
+  try {
+    const pool = db.getPool ? db.getPool() : null;
+    if (!pool) return res.status(503).json({ error: "DB nicht verfuegbar" });
+    const pageSize = Math.min(Number(req.query.pageSize || 50), 50);
+    try {
+      const result = await gbpClient.listReviews(pool, pageSize);
+      return res.json({ ok: true, ...result });
+    } catch (gbpErr) {
+      // Places Fallback wenn GBP noch nicht verfügbar
+      if (gbpErr.message === "__PLACES_FALLBACK__" || gbpErr.message.includes("Location ID nicht gesetzt")) {
+        const result = await _loadPlacesReviews();
+        return res.json(result);
+      }
+      throw gbpErr;
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Auf Review antworten (erstellt oder aktualisiert Antwort)
+app.put("/api/admin/gbp/reviews/reply", requireAdmin, async (req, res) => {
+  try {
+    const pool = db.getPool ? db.getPool() : null;
+    if (!pool) return res.status(503).json({ error: "DB nicht verfuegbar" });
+    const { reviewName, comment } = req.body || {};
+    if (!reviewName) return res.status(400).json({ error: "reviewName fehlt" });
+    if (!comment || !String(comment).trim()) return res.status(400).json({ error: "Antwort-Text fehlt" });
+    const result = await gbpClient.replyToReview(pool, reviewName, comment);
+    res.json({ ok: true, reply: result });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Antwort auf Review loeschen
+app.delete("/api/admin/gbp/reviews/reply", requireAdmin, async (req, res) => {
+  try {
+    const pool = db.getPool ? db.getPool() : null;
+    if (!pool) return res.status(503).json({ error: "DB nicht verfuegbar" });
+    const { reviewName } = req.body || {};
+    if (!reviewName) return res.status(400).json({ error: "reviewName fehlt" });
+    await gbpClient.deleteReply(pool, reviewName);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Verbindung trennen
+app.delete("/api/admin/gbp/disconnect", requireAdmin, async (req, res) => {
+  try {
+    const pool = db.getPool ? db.getPool() : null;
+    if (!pool) return res.status(503).json({ error: "DB nicht verfuegbar" });
+    await gbpClient.disconnect(pool);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Account + Location ID neu auflösen oder manuell setzen
+app.post("/api/admin/gbp/resolve", requireAdmin, async (req, res) => {
+  try {
+    const pool = db.getPool ? db.getPool() : null;
+    if (!pool) return res.status(503).json({ error: "DB nicht verfuegbar" });
+
+    // Manuelle Eingabe: locationId direkt setzen (z.B. wenn Account Management API kein Quota hat)
+    const manualLocationId = String(req.body.locationId || "").trim();
+    const manualAccountId  = String(req.body.accountId  || "").trim();
+
+    if (manualLocationId) {
+      // Vollständigen Ressourcenpfad aufbauen falls nur die numerische ID angegeben
+      // Format: accounts/{accountId}/locations/{locationId}
+      let locationName = manualLocationId;
+      let accountName  = manualAccountId || null;
+
+      // Falls nur Zahl übergeben wurde und accountId vorhanden: vollständigen Pfad aufbauen
+      if (/^\d+$/.test(manualLocationId) && accountName) {
+        locationName = accountName + "/locations/" + manualLocationId;
+      } else if (/^\d+$/.test(manualLocationId)) {
+        // Nur Location-Zahl, kein Account → als Platzhalter speichern, wird bei Review-Fetch geprüft
+        locationName = manualLocationId;
+      }
+
+      await pool.query(
+        `UPDATE booking.gbp_oauth_tokens SET
+           location_id = $1,
+           account_id  = COALESCE($2, account_id),
+           updated_at  = NOW()
+         WHERE id = 1`,
+        [locationName, accountName]
+      );
+      gbpClient.invalidateReviewsCache();
+      return res.json({ ok: true, locationId: locationName, accountId: accountName, manual: true });
+    }
+
+    // Automatisch auflösen via API
+    const result = await gbpClient.resolveAndSave(pool);
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get("/api/admin/products", requireAdmin, async (req, res) => {
   try {
     const includeInactive = String(req.query.includeInactive || "").toLowerCase() === "true" || String(req.query.includeInactive) === "1";
@@ -12977,6 +13167,318 @@ const ADMIN_PANEL_DIST = process.env.ADMIN_PANEL_DIST
 if (fs.existsSync(PHOTOGRAPHER_PORTRAIT_DIR)) {
   app.use("/assets/photographers", express.static(PHOTOGRAPHER_PORTRAIT_DIR));
 }
+// ─── Öffentlicher Bereinigungslauf-Kundenflow ─────────────────────────────────
+// Muss vor dem SPA-Catch-all stehen.
+(function mountCleanupRoutes() {
+  let cleanupMailer;
+  try {
+    cleanupMailer = require("../tours/lib/cleanup-mailer");
+  } catch (_e) {
+    console.warn("[cleanup] cleanup-mailer nicht verfügbar – Kundenrouten deaktiviert");
+    return;
+  }
+
+  const { normalizeTourRow } = require("../tours/lib/normalize");
+  const { logAction } = require("../tours/lib/actions");
+
+  // Hilfsfunktion: einfaches HTML für die Bestätigungsseite
+  function cleanupPage({ title, body, color = "#111", icon = "" }) {
+    return `<!DOCTYPE html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} – Propus</title>
+    <style>body{margin:0;padding:0;font-family:Arial,sans-serif;background:#f6f4ef;color:#1f2937}
+    .card{max-width:560px;margin:60px auto;background:#fff;border:1px solid #e8e0d0;border-radius:28px;padding:40px 36px;box-shadow:0 20px 48px rgba(20,19,17,0.07)}
+    h1{font-size:22px;margin:0 0 12px;color:${color}}p{font-size:15px;line-height:1.7;color:#4b5563;margin:0 0 18px}
+    .icon{font-size:36px;margin-bottom:16px}.label{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#9a7619;background:#fdf3d9;border-radius:999px;padding:4px 12px;display:inline-block;margin-bottom:16px}
+    .btn{display:inline-block;margin-top:8px;padding:12px 24px;border-radius:999px;background:${color};color:#fff;text-decoration:none;font-size:14px;font-weight:700}
+    .err{color:#b91c1c}</style></head><body><div class="card"><div class="label">Propus Tour Manager</div>
+    <div class="icon">${icon}</div><h1>${title}</h1>${body}</div></body></html>`;
+  }
+
+  // GET /cleanup/weiterfuehren?token=...
+  app.get("/cleanup/weiterfuehren", async (req, res) => {
+    try {
+      const { token } = req.query;
+      if (!token || String(token).startsWith("PREVIEW_")) {
+        return res.send(cleanupPage({ title: "Weiterführen", icon: "✓", color: "#7a6318",
+          body: "<p>Dies ist eine Sandbox-Vorschau. Im produktiven Modus würde Ihre Tour weitergeführt.</p>" }));
+      }
+      const result = await cleanupMailer.redeemCleanupToken(token, "weiterfuehren");
+      if (!result.ok) {
+        return res.send(cleanupPage({ title: "Link ungültig", icon: "⚠", color: "#b91c1c",
+          body: `<p class="err">${result.error || "Dieser Link ist abgelaufen oder wurde bereits verwendet."}</p>` }));
+      }
+      const { tour } = result;
+      const rule = cleanupMailer.computeCleanupRule(tour);
+
+      if (rule.needsManualReview) {
+        // Archiviert < 6 Monate: Ticket erstellen + Kunden informieren
+        await logAction(tour.id, "customer", tour.customer_email, "CLEANUP_ACTION_WEITERFUEHREN_REVIEW", { needsManualReview: true });
+        const pgPool = require("../tours/lib/db").pool;
+        await pgPool.query(
+          `UPDATE tour_manager.tours SET cleanup_action = 'weiterfuehren_review', cleanup_action_at = NOW(), updated_at = NOW() WHERE id = $1`,
+          [tour.id]
+        );
+        await pgPool.query(
+          `INSERT INTO tour_manager.tickets (module, reference_id, reference_type, category, subject, description, priority, created_by, created_by_role, status)
+           VALUES ('tours',$1,'tour','sonstiges',$2,$3,'normal',$4,'customer','open')`,
+          [String(tour.id), `Bereinigungslauf: Weiterführen-Wunsch (manueller Review)`, `Kunde hat "Weiterführen" gewählt. Tour war kürzlich archiviert (< 6 Monate). Preis bitte manuell klären.\n\nKunde: ${tour.customer_email}\nObjekt: ${tour.canonical_object_label || tour.bezeichnung}`, tour.customer_email]
+        );
+        return res.send(cleanupPage({ title: "Weiterführen – wird geprüft", icon: "📋", color: "#7a6318",
+          body: "<p>Danke! Wir haben Ihren Wunsch erhalten. Da Ihre Tour kürzlich archiviert wurde, prüfen wir den Reaktivierungspreis intern und melden uns in Kürze bei Ihnen.</p>" }));
+      }
+
+      if (rule.needsInvoice) {
+        // Tour abgelaufen/archiviert: Zahlungsartauswahl zeigen
+        const pgPool = require("../tours/lib/db").pool;
+        await pgPool.query(
+          `UPDATE tour_manager.tours SET cleanup_action = 'weiterfuehren_pending_payment', cleanup_action_at = NOW(), updated_at = NOW() WHERE id = $1`,
+          [tour.id]
+        );
+        await logAction(tour.id, "customer", tour.customer_email, "CLEANUP_ACTION_WEITERFUEHREN_PAYMENT_CHOICE", { invoiceAmount: rule.invoiceAmount });
+        const baseUrl = (process.env.PORTAL_BASE_URL || "https://tour.propus.ch").replace(/\/$/, "");
+        const onlineUrl = `${baseUrl}/cleanup/weiterfuehren/online?token=${token}`;
+        const qrUrl = `${baseUrl}/cleanup/weiterfuehren/qr?token=${token}`;
+        return res.send(cleanupPage({ title: "Wie möchten Sie bezahlen?", icon: "💳", color: "#7a6318",
+          body: `<p>Um Ihre Tour zu reaktivieren, wird eine neue Rechnung über <strong>CHF ${rule.invoiceAmount}.–</strong> erstellt.</p>
+          <p>Bitte wählen Sie Ihre Zahlungsart:</p>
+          <a href="${onlineUrl}" class="btn" style="background:linear-gradient(135deg,#B68E20,#7a6318);margin-right:12px;">Online bezahlen</a>
+          <a href="${qrUrl}" class="btn" style="background:#fff;color:#1f2937;border:1px solid #e8e0d0;">QR-Rechnung</a>` }));
+      }
+
+      // Aktive Tour: Entscheid protokollieren, fertig
+      const pgPool = require("../tours/lib/db").pool;
+      await pgPool.query(
+        `UPDATE tour_manager.tours SET cleanup_action = 'weiterfuehren', cleanup_action_at = NOW(), updated_at = NOW() WHERE id = $1`,
+        [tour.id]
+      );
+      await logAction(tour.id, "customer", tour.customer_email, "CLEANUP_ACTION_WEITERFUEHREN", {});
+      return res.send(cleanupPage({ title: "Tour wird weitergeführt", icon: "✓", color: "#059669",
+        body: "<p>Danke! Ihre Tour wird wie gewohnt weitergeführt. Wir freuen uns, Sie weiterhin als Kunden zu haben.</p>" }));
+    } catch (err) {
+      console.error("[cleanup] weiterfuehren:", err.message);
+      return res.status(500).send(cleanupPage({ title: "Fehler", icon: "⚠", color: "#b91c1c", body: "<p class=\"err\">Interner Fehler. Bitte kontaktieren Sie uns unter office@propus.ch.</p>" }));
+    }
+  });
+
+  // GET /cleanup/weiterfuehren/online?token=...
+  app.get("/cleanup/weiterfuehren/online", async (req, res) => {
+    try {
+      const { token } = req.query;
+      if (!token) return res.redirect("/");
+      const pgPool = require("../tours/lib/db").pool;
+      // Token wurde bereits beim /weiterfuehren-Aufruf eingelöst (used_at gesetzt)
+      const allRows = await pgPool.query(
+        `SELECT * FROM tour_manager.cleanup_tokens WHERE action = 'weiterfuehren' AND used_at IS NOT NULL`,
+      );
+      let matchedTourId = null;
+      for (const row of allRows.rows) {
+        const { verifyToken } = require("../tours/lib/tokens");
+        if (await verifyToken(token, row.token)) { matchedTourId = row.tour_id; break; }
+      }
+      if (!matchedTourId) return res.send(cleanupPage({ title: "Link ungültig", icon: "⚠", color: "#b91c1c", body: "<p class=\"err\">Dieser Link ist ungültig oder abgelaufen.</p>" }));
+
+      const payrexx = require("../tours/lib/payrexx");
+      const tourRes = await pgPool.query("SELECT * FROM tour_manager.tours WHERE id = $1", [matchedTourId]);
+      const tour = require("../tours/lib/normalize").normalizeTourRow(tourRes.rows[0]);
+      const rule = cleanupMailer.computeCleanupRule(tour);
+      const { REACTIVATION_PRICE_CHF, EXTENSION_PRICE_CHF, getSubscriptionWindowFromStart } = require("../tours/lib/subscriptions");
+      const amount = rule.invoiceAmount || EXTENSION_PRICE_CHF;
+      const invoiceKind = tour.status === "ARCHIVED" ? "portal_reactivation" : "portal_extension";
+      const subscriptionWindow = getSubscriptionWindowFromStart(new Date());
+      const dueAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+      // Rechnung anlegen
+      const dbInv = await pgPool.query(
+        `INSERT INTO tour_manager.renewal_invoices
+           (tour_id, invoice_status, sent_at, amount_chf, due_at, invoice_kind, payment_source, subscription_start_at, subscription_end_at)
+         VALUES ($1, 'pending', NOW(), $2, $3, $4, 'payrexx_pending', $5, $6) RETURNING id`,
+        [tour.id, amount, dueAt, invoiceKind, subscriptionWindow.startIso, subscriptionWindow.endIso]
+      );
+      const invoice = { id: dbInv.rows[0]?.id, invoice_status: "pending", amount_chf: amount, invoice_kind: invoiceKind };
+
+      const checkoutUrl = await payrexx.ensureRenewalInvoiceCheckoutUrl(pgPool, invoice, tour);
+      if (!checkoutUrl) throw new Error("Payrexx-Checkout konnte nicht erstellt werden. Bitte kontaktieren Sie uns.");
+
+      await pgPool.query(`UPDATE tour_manager.tours SET cleanup_action = 'weiterfuehren_online', cleanup_action_at = NOW(), updated_at = NOW() WHERE id = $1`, [tour.id]);
+      await logAction(matchedTourId, "customer", tour.customer_email, "CLEANUP_ACTION_ONLINE_CHECKOUT", { amount, invoiceKind });
+      return res.redirect(checkoutUrl);
+    } catch (err) {
+      console.error("[cleanup] weiterfuehren/online:", err.message);
+      return res.status(500).send(cleanupPage({ title: "Fehler", icon: "⚠", color: "#b91c1c", body: `<p class="err">${err.message}</p>` }));
+    }
+  });
+
+  // GET /cleanup/weiterfuehren/qr?token=...
+  app.get("/cleanup/weiterfuehren/qr", async (req, res) => {
+    try {
+      const { token } = req.query;
+      if (!token) return res.redirect("/");
+      const pgPool = require("../tours/lib/db").pool;
+      // Token wurde bereits beim /weiterfuehren-Aufruf eingelöst (used_at gesetzt)
+      const allRows = await pgPool.query(
+        `SELECT * FROM tour_manager.cleanup_tokens WHERE action = 'weiterfuehren' AND used_at IS NOT NULL`,
+      );
+      let matchedTourId = null;
+      for (const row of allRows.rows) {
+        const { verifyToken } = require("../tours/lib/tokens");
+        if (await verifyToken(token, row.token)) { matchedTourId = row.tour_id; break; }
+      }
+      if (!matchedTourId) return res.send(cleanupPage({ title: "Link ungültig", icon: "⚠", color: "#b91c1c", body: "<p class=\"err\">Dieser Link ist ungültig oder abgelaufen.</p>" }));
+
+      const tourRes = await pgPool.query("SELECT * FROM tour_manager.tours WHERE id = $1", [matchedTourId]);
+      const tour = require("../tours/lib/normalize").normalizeTourRow(tourRes.rows[0]);
+      const rule = cleanupMailer.computeCleanupRule(tour);
+
+      // QR-Rechnung erstellen und versenden
+      const { REACTIVATION_PRICE_CHF, EXTENSION_PRICE_CHF, getSubscriptionWindowFromStart } = require("../tours/lib/subscriptions");
+      const { sendInvoiceWithQrEmail } = require("../tours/lib/tour-actions");
+      const mp = require("../tours/lib/matterport");
+      const spaceId = tour.canonical_matterport_space_id || tour.matterport_space_id;
+
+      const subscriptionWindow = getSubscriptionWindowFromStart(new Date());
+      const dueAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+      const amount = rule.invoiceAmount || EXTENSION_PRICE_CHF;
+      const invoiceKind = tour.status === "ARCHIVED" ? "portal_reactivation" : "portal_extension";
+
+      // Space ggf. reaktivieren
+      if (spaceId) { try { await mp.unarchiveSpace(spaceId); } catch (_) { /* best-effort */ } }
+      await pgPool.query(`UPDATE tour_manager.tours SET status = 'ACTIVE', updated_at = NOW() WHERE id = $1`, [tour.id]);
+
+      const dbInv = await pgPool.query(
+        `INSERT INTO tour_manager.renewal_invoices
+           (tour_id, invoice_status, sent_at, amount_chf, due_at, invoice_kind, payment_source, subscription_start_at, subscription_end_at)
+         VALUES ($1, 'sent', NOW(), $2, $3, $4, 'qr_pending', $5, $6) RETURNING id`,
+        [tour.id, amount, dueAt, invoiceKind, subscriptionWindow.startIso, subscriptionWindow.endIso]
+      );
+      const internalInvId = dbInv.rows[0]?.id;
+
+      sendInvoiceWithQrEmail(String(tour.id), internalInvId).catch((err) => {
+        console.error("[cleanup] sendInvoiceWithQrEmail failed:", tour.id, err.message);
+      });
+
+      await pgPool.query(`UPDATE tour_manager.tours SET cleanup_action = 'weiterfuehren_qr', cleanup_action_at = NOW(), updated_at = NOW() WHERE id = $1`, [tour.id]);
+      await logAction(matchedTourId, "customer", tour.customer_email, "CLEANUP_ACTION_QR_INVOICE_SENT", { amount, invoiceKind });
+      return res.send(cleanupPage({ title: "QR-Rechnung unterwegs", icon: "📄", color: "#1d4ed8",
+        body: `<p>Ihre QR-Rechnung (CHF ${amount}.–) wurde per E-Mail verschickt. Bitte bezahlen Sie diese innerhalb von 14 Tagen, um Ihre Tour zu reaktivieren.</p>` }));
+    } catch (err) {
+      console.error("[cleanup] weiterfuehren/qr:", err.message);
+      return res.status(500).send(cleanupPage({ title: "Fehler", icon: "⚠", color: "#b91c1c", body: `<p class="err">${err.message}</p>` }));
+    }
+  });
+
+  // GET /cleanup/archivieren?token=...
+  app.get("/cleanup/archivieren", async (req, res) => {
+    try {
+      const { token, confirm } = req.query;
+      if (!token || String(token).startsWith("PREVIEW_")) {
+        return res.send(cleanupPage({ title: "Archivieren", icon: "📁", color: "#d97706",
+          body: "<p>Dies ist eine Sandbox-Vorschau. Im produktiven Modus würde Ihre Tour archiviert werden.</p>" }));
+      }
+      if (confirm !== "1") {
+        // Bestätigung einholen
+        const confirmUrl = `/cleanup/archivieren?token=${encodeURIComponent(token)}&confirm=1`;
+        return res.send(cleanupPage({ title: "Tour wirklich archivieren?", icon: "📁", color: "#d97706",
+          body: `<p>Sind Sie sicher, dass Sie Ihre Tour archivieren möchten? Der Matterport-Space wird deaktiviert.</p><p><a href="${confirmUrl}" class="btn" style="background:#d97706;">Ja, archivieren</a></p>` }));
+      }
+      const result = await cleanupMailer.redeemCleanupToken(token, "archivieren");
+      if (!result.ok) {
+        return res.send(cleanupPage({ title: "Link ungültig", icon: "⚠", color: "#b91c1c",
+          body: `<p class="err">${result.error || "Ungültiger Link."}</p>` }));
+      }
+      const { tour } = result;
+      const pgPool = require("../tours/lib/db").pool;
+      await pgPool.query(`UPDATE tour_manager.tours SET status = 'ARCHIVED', archived_at = NOW(), cleanup_action = 'archivieren', cleanup_action_at = NOW(), updated_at = NOW() WHERE id = $1`, [tour.id]);
+      await logAction(tour.id, "customer", tour.customer_email, "CLEANUP_ACTION_ARCHIVIEREN", {});
+      // Matterport archivieren wenn möglich
+      try {
+        const mp = require("../tours/lib/matterport");
+        const spaceId = tour.canonical_matterport_space_id || tour.matterport_space_id;
+        if (spaceId) await mp.archiveSpace(spaceId);
+      } catch (_) { /* best-effort */ }
+      return res.send(cleanupPage({ title: "Tour archiviert", icon: "📁", color: "#d97706",
+        body: "<p>Ihre Tour wurde erfolgreich archiviert. Falls Sie sie später reaktivieren möchten, melden Sie sich bitte bei uns.</p>" }));
+    } catch (err) {
+      console.error("[cleanup] archivieren:", err.message);
+      return res.status(500).send(cleanupPage({ title: "Fehler", icon: "⚠", color: "#b91c1c", body: "<p class=\"err\">Interner Fehler.</p>" }));
+    }
+  });
+
+  // GET /cleanup/uebertragen?token=...
+  app.get("/cleanup/uebertragen", async (req, res) => {
+    try {
+      const { token } = req.query;
+      if (!token || String(token).startsWith("PREVIEW_")) {
+        return res.send(cleanupPage({ title: "Übertragen", icon: "↗", color: "#1d4ed8",
+          body: "<p>Dies ist eine Sandbox-Vorschau. Im produktiven Modus würden Sie eine Übertragungsanfrage stellen.</p>" }));
+      }
+      const result = await cleanupMailer.redeemCleanupToken(token, "uebertragen");
+      if (!result.ok) {
+        return res.send(cleanupPage({ title: "Link ungültig", icon: "⚠", color: "#b91c1c",
+          body: `<p class="err">${result.error || "Ungültiger Link."}</p>` }));
+      }
+      const { tour } = result;
+      const pgPool = require("../tours/lib/db").pool;
+      await pgPool.query(`UPDATE tour_manager.tours SET cleanup_action = 'uebertragen', cleanup_action_at = NOW(), updated_at = NOW() WHERE id = $1`, [tour.id]);
+      await logAction(tour.id, "customer", tour.customer_email, "CLEANUP_ACTION_UEBERTRAGEN", {});
+      // Ticket für Übertragung erstellen
+      await pgPool.query(
+        `INSERT INTO tour_manager.tickets (module, reference_id, reference_type, category, subject, description, priority, created_by, created_by_role, status)
+         VALUES ('tours',$1,'tour','sonstiges',$2,$3,'normal',$4,'customer','open')`,
+        [String(tour.id), `Bereinigungslauf: Übertragung gewünscht`, `Kunde möchte die Tour auf ein eigenes Matterport-Konto übertragen.\n\nObjekt: ${tour.canonical_object_label || tour.bezeichnung}\nKunde: ${tour.customer_email}\n\nBitte Pro-Plan-Anforderungen prüfen und Transfer einleiten.`, tour.customer_email]
+      );
+      return res.send(cleanupPage({ title: "Übertragung beantragt", icon: "↗", color: "#1d4ed8",
+        body: "<p>Danke! Wir haben Ihre Übertragungsanfrage erhalten. Unser Team meldet sich in Kürze mit den weiteren Schritten bei Ihnen. (Übertragung erfordert einen Matterport Pro Plan.)</p>" }));
+    } catch (err) {
+      console.error("[cleanup] uebertragen:", err.message);
+      return res.status(500).send(cleanupPage({ title: "Fehler", icon: "⚠", color: "#b91c1c", body: "<p class=\"err\">Interner Fehler.</p>" }));
+    }
+  });
+
+  // GET /cleanup/loeschen?token=...
+  app.get("/cleanup/loeschen", async (req, res) => {
+    try {
+      const { token, confirm } = req.query;
+      if (!token || String(token).startsWith("PREVIEW_")) {
+        return res.send(cleanupPage({ title: "Löschen", icon: "✕", color: "#b91c1c",
+          body: "<p>Dies ist eine Sandbox-Vorschau. Im produktiven Modus würde Ihre Tour dauerhaft gelöscht.</p>" }));
+      }
+      if (confirm !== "1") {
+        const confirmUrl = `/cleanup/loeschen?token=${encodeURIComponent(token)}&confirm=1`;
+        return res.send(cleanupPage({ title: "Tour wirklich löschen?", icon: "⚠", color: "#b91c1c",
+          body: `<p><strong>Achtung:</strong> Das Löschen ist unwiderruflich. Der Matterport-Space und alle Tour-Daten werden dauerhaft entfernt.</p><a href="${confirmUrl}" class="btn" style="background:#dc2626;">Ja, dauerhaft löschen</a>` }));
+      }
+      const result = await cleanupMailer.redeemCleanupToken(token, "loeschen");
+      if (!result.ok) {
+        return res.send(cleanupPage({ title: "Link ungültig", icon: "⚠", color: "#b91c1c",
+          body: `<p class="err">${result.error || "Ungültiger Link."}</p>` }));
+      }
+      const { tour } = result;
+      await logAction(tour.id, "customer", tour.customer_email, "CLEANUP_ACTION_LOESCHEN_CONFIRMED", {});
+      // Matterport löschen
+      try {
+        const mp = require("../tours/lib/matterport");
+        const spaceId = tour.canonical_matterport_space_id || tour.matterport_space_id;
+        if (spaceId) await mp.deleteSpace(spaceId);
+      } catch (_) { /* best-effort */ }
+      const pgPool = require("../tours/lib/db").pool;
+      await pgPool.query(`DELETE FROM tour_manager.tours WHERE id = $1`, [tour.id]);
+      return res.send(cleanupPage({ title: "Tour gelöscht", icon: "✕", color: "#b91c1c",
+        body: "<p>Ihre Tour und der zugehörige Matterport-Space wurden dauerhaft gelöscht. Bei Fragen wenden Sie sich bitte an office@propus.ch.</p>" }));
+    } catch (err) {
+      console.error("[cleanup] loeschen:", err.message);
+      return res.status(500).send(cleanupPage({ title: "Fehler", icon: "⚠", color: "#b91c1c", body: "<p class=\"err\">Interner Fehler.</p>" }));
+    }
+  });
+
+  // GET /cleanup/preview?action=...&tour=... (Sandbox-Vorschauseiten, keine produktiven Aktionen)
+  app.get("/cleanup/preview", (req, res) => {
+    const { action, tour: tourId } = req.query;
+    const labels = { weiterfuehren: "Weiterführen", archivieren: "Archivieren", uebertragen: "Übertragen", loeschen: "Löschen" };
+    const label = labels[action] || action || "Vorschau";
+    return res.send(cleanupPage({ title: `[Sandbox] ${label}`, icon: "🔬", color: "#6d28d9",
+      body: `<p>Dies ist eine <strong>Sandbox-Vorschau</strong> für Tour #${tourId || "?"}. Im produktiven Modus würde die Aktion <em>${label}</em> ausgeführt.</p><p>Keine Daten wurden verändert.</p>` }));
+  });
+})();
+
 if (fs.existsSync(ADMIN_PANEL_DIST)) {
   app.use(express.static(ADMIN_PANEL_DIST));
   app.get(/^(?!\/api|\/auth).*$/, (_req, res) => {
