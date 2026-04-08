@@ -1,43 +1,75 @@
--- Migration 069: Review-Request-Template allgemein (kein Auftragsbezug)
--- Aktualisiert das review_request-Template: kein #orderNo im Betreff/Body,
--- allgemeiner Text mit {{customerName}}, {{reviewLink}}, {{googleReviewLink}}, {{companyName}}.
+-- Migration 069: Review-Request E-Mail-Template auf allgemeine Vorlage umstellen
+-- Das Template soll nicht mehr spezifisch auf den Auftrag eingehen.
 
-INSERT INTO email_templates (key, label, subject, body_html, body_text, placeholders, active, updated_at)
-VALUES (
-  'review_request',
-  'Review-Anfrage',
-  'Wie hat Ihnen Ihr Shooting bei {{companyName}} gefallen?',
-  '<p>Guten Tag {{customerName}},</p>
-<p>wir hoffen, dass alles zu Ihrer Zufriedenheit war. Ihr Feedback ist uns sehr wichtig – es hilft uns, unsere Dienstleistungen laufend zu verbessern.</p>
-<p>Wir würden uns sehr freuen, wenn Sie sich kurz die Zeit nehmen und uns eine Bewertung hinterlassen:</p>
-<p style="margin: 20px 0;">
-  <a href="{{reviewLink}}" style="background:#4f46e5;color:#fff;padding:10px 22px;border-radius:6px;text-decoration:none;font-weight:600;display:inline-block;">Jetzt bewerten (1–5 Sterne)</a>
-</p>
-<p>Oder direkt auf Google:</p>
-<p style="margin: 16px 0;">
-  <a href="{{googleReviewLink}}" style="background:#4285F4;color:#fff;padding:10px 22px;border-radius:6px;text-decoration:none;font-weight:600;display:inline-block;">Auf Google bewerten</a>
-</p>
-<p>Vielen Dank für Ihr Vertrauen und Ihre Zeit.</p>
-<p>Herzliche Grüsse<br>Ihr {{companyName}}-Team</p>',
-  'Guten Tag {{customerName}},
-
-wir hoffen, dass alles zu Ihrer Zufriedenheit war. Ihr Feedback ist uns sehr wichtig.
-
-Jetzt bewerten: {{reviewLink}}
-
-Auf Google bewerten: {{googleReviewLink}}
-
-Herzliche Grüsse
-Ihr {{companyName}}-Team',
-  '["customerName","reviewLink","googleReviewLink","companyName"]',
-  TRUE,
-  NOW()
-)
-ON CONFLICT (key) DO UPDATE SET
-  label       = EXCLUDED.label,
-  subject     = EXCLUDED.subject,
-  body_html   = EXCLUDED.body_html,
-  body_text   = EXCLUDED.body_text,
-  placeholders = EXCLUDED.placeholders,
-  active      = TRUE,
-  updated_at  = NOW();
+UPDATE booking.email_templates
+SET
+  subject = 'Wie hat Ihnen Ihr Shooting bei {{companyName}} gefallen?',
+  body_html = '<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ihre Meinung ist uns wichtig</title>
+</head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:30px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+          <tr>
+            <td style="background:#1a1a2e;padding:30px 40px;text-align:center;">
+              <h1 style="color:#ffffff;margin:0;font-size:22px;">{{companyName}}</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:40px;">
+              <p style="color:#333;font-size:16px;line-height:1.6;margin:0 0 20px;">Guten Tag {{customerName}},</p>
+              <p style="color:#333;font-size:16px;line-height:1.6;margin:0 0 20px;">
+                wir hoffen, Ihr Shooting bei uns hat Ihnen gefallen! Ihre Meinung ist uns sehr wichtig
+                und hilft uns, unseren Service kontinuierlich zu verbessern.
+              </p>
+              <p style="color:#333;font-size:16px;line-height:1.6;margin:0 0 30px;">
+                Wir wuerden uns sehr freuen, wenn Sie sich einen Moment Zeit nehmen und uns eine Bewertung
+                auf Google hinterlassen.
+              </p>
+              <table cellpadding="0" cellspacing="0" style="margin:0 auto 30px;">
+                <tr>
+                  <td style="background:#4285f4;border-radius:6px;padding:14px 32px;">
+                    <a href="{{reviewUrl}}" style="color:#ffffff;text-decoration:none;font-size:16px;font-weight:bold;">
+                      &#9733; Jetzt auf Google bewerten
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              <p style="color:#333;font-size:16px;line-height:1.6;margin:0 0 20px;">
+                Alternativ koennen Sie uns auch direkt hier eine kurze Rueckmeldung geben:
+              </p>
+              <table cellpadding="0" cellspacing="0" style="margin:0 auto 30px;">
+                <tr>
+                  <td style="background:#f0f0f0;border:1px solid #ddd;border-radius:6px;padding:12px 28px;">
+                    <a href="{{feedbackUrl}}" style="color:#333;text-decoration:none;font-size:15px;">
+                      Direktes Feedback geben
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              <p style="color:#666;font-size:14px;line-height:1.6;margin:0;">
+                Herzlichen Dank fuer Ihr Vertrauen!<br>
+                Ihr {{companyName}}-Team
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#f9f9f9;padding:20px 40px;text-align:center;border-top:1px solid #eee;">
+              <p style="color:#999;font-size:12px;margin:0;">
+                {{companyName}} &bull; {{companyAddress}}
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>'
+WHERE key = 'review_request';
