@@ -299,14 +299,21 @@ async function stageUploadBatchFromPaths({
     const desiredName = buildStoredUploadName(order, normalized.categoryKey, file?.originalName || path.basename(sourcePath));
     const safeName = makeUniqueFileName(sanitizeUploadFilename(desiredName), usedStoredNames);
     const targetPath = path.join(batchDir, safeName);
-    fs.copyFileSync(sourcePath, targetPath);
+    // Prefer atomic rename (same filesystem); fall back to copy+delete if cross-device.
     try {
       const srcStat = fs.statSync(sourcePath);
+      fs.renameSync(sourcePath, targetPath);
       if (srcStat.atime && srcStat.mtime) {
         try { fs.utimesSync(targetPath, srcStat.atime, srcStat.mtime); } catch (_) {}
       }
-    } catch (_) {}
-    try { fs.unlinkSync(sourcePath); } catch (_) {}
+    } catch (renameErr) {
+      if (renameErr.code === "EXDEV") {
+        fs.copyFileSync(sourcePath, targetPath);
+        try { fs.unlinkSync(sourcePath); } catch (_) {}
+      } else {
+        throw renameErr;
+      }
+    }
     const hash = sha256File(targetPath);
     const sizeBytes = Number(file?.size || fs.statSync(targetPath).size || 0);
     totalBytes += sizeBytes;
