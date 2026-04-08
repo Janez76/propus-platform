@@ -4820,7 +4820,7 @@ app.post("/api/admin/orders/:orderNo/resend-email", requireAdmin, async (req, re
     const customerEmail = String(order.billing?.email || order.customerEmail || "").trim();
     if (!customerEmail) return res.status(400).json({ error: "No customer email available for this order" });
 
-    const frontendBase = process.env.FRONTEND_URL || "https://admin-booking.propus.ch";
+    const frontendBase = process.env.FRONTEND_URL || "https://booking.propus.ch";
     const customerLang = order.billing?.language || "de";
 
     let subject, html, text;

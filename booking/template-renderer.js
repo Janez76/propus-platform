@@ -370,7 +370,7 @@ function buildTemplateVars(order, extra) {
   } catch (_) { vars.provisionalExpiresDate = ""; }
 
   if (order.confirmationToken || order.confirmation_token) {
-    const base = process.env.FRONTEND_URL || "https://admin-booking.propus.ch";
+    const base = process.env.FRONTEND_URL || "https://booking.propus.ch";
     vars.confirmationLink = `${base}/confirm/${order.confirmationToken || order.confirmation_token}`;
   }
   // Rueckwaertskompatibel fuer alte Templates/Callsites.
