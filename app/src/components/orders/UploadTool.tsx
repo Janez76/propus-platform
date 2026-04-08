@@ -1644,18 +1644,52 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
                   )}
                 </>
               ) : (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-400">
-                    <CheckCircle2 className="h-4 w-4 shrink-0" />
-                    {t(lang, "upload.confirm.sent")}
+                <div className="space-y-4">
+                  {/* Erfolgs-Banner */}
+                  <div className="flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3">
+                    <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" />
+                    <div>
+                      <p className="text-sm font-semibold text-emerald-400">{t(lang, "upload.confirm.sent")}</p>
+                      <p className="text-xs text-emerald-400/70 mt-0.5">{t(lang, "upload.confirm.doneHint")}</p>
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleDialogClose}
-                    className="btn-secondary w-full"
-                  >
-                    {t(lang, "common.close")}
-                  </button>
+
+                  {/* Frage: Weitere Dateien? */}
+                  <div className="rounded-xl border border-zinc-700 bg-zinc-800/60 px-4 py-3">
+                    <p className="text-sm font-semibold text-zinc-100 mb-0.5">{t(lang, "upload.confirm.moreFilesQuestion")}</p>
+                    <p className="text-xs text-zinc-400">{t(lang, "upload.confirm.moreFilesHint")}</p>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowConfirmDialog(false);
+                        setConfirmDone(false);
+                        setConfirmError("");
+                        setConfirmComment("");
+                        setFiles([]);
+                        setFileProgress({});
+                        setProgress(0);
+                        setUploadedCount(0);
+                        setComment("");
+                        setUploadSuccess(false);
+                        setStatus("");
+                      }}
+                      className="btn-primary inline-flex w-full items-center justify-center gap-2"
+                    >
+                      <UploadCloud className="h-4 w-4" />
+                      {t(lang, "upload.confirm.moreFilesYes")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDialogClose}
+                      className="btn-secondary inline-flex w-full items-center justify-center gap-2"
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                      {t(lang, "upload.confirm.moreFilesNo")}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
