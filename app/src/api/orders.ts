@@ -637,8 +637,11 @@ export function uploadChunkPart(
       } catch {}
       reject(new Error(message));
     };
-    xhr.onerror = () => reject(new Error("Netzwerkfehler beim Chunk-Upload"));
-    xhr.ontimeout = () => reject(new Error("Chunk-Upload Timeout"));
+    xhr.onerror = () => {
+      const online = typeof navigator !== "undefined" ? navigator.onLine : true;
+      reject(new Error(online ? "Verbindung zum Server unterbrochen (Chunk-Upload)" : "Kein Internet – Chunk-Upload pausiert"));
+    };
+    xhr.ontimeout = () => reject(new Error("Chunk-Upload Timeout (Verbindung zu langsam oder Server nicht erreichbar)"));
     xhr.send(formData);
   });
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DragEvent } from "react";
 import { X, UploadCloud, RefreshCw, AlertTriangle, CheckCircle2, Send, Trash2 } from "lucide-react";
 import {
@@ -70,7 +70,9 @@ const BROWSER_PREVIEW_EXT = /\.(jpe?g|png|gif|webp|bmp|svg)$/i;
 const RAW_EXT = /\.(raw|cr2|cr3|nef|arw|orf|rw2|dng|tif|tiff|heic|psd|psb)$/i;
 const VIDEO_EXT = /\.(mp4|mov|avi|mxf|mts|m2ts|mkv|wmv|webm|r3d|braw|m4v)$/i;
 const PDF_EXT = /\.pdf$/i;
-const CHUNK_SIZE_BYTES = 8 * 1024 * 1024;
+// 4 MB chunks stay safely under Cloudflare's proxy body limits and reduce
+// the blast radius of a single failed chunk on slow/unstable connections.
+const CHUNK_SIZE_BYTES = 4 * 1024 * 1024;
 const LIBRAW_WASM_URL = "/libraw/index.js";
 
 type FileTypeFilter = "all" | "raw" | "jpg" | "mp4" | "pdf";
@@ -482,8 +484,9 @@ function FilePreviewCard({
   );
 }
 
-const CHUNK_RETRY_ATTEMPTS = 3;
+const CHUNK_RETRY_ATTEMPTS = 5;
 const BATCH_STATUS_POLL_MS = 500;
+const UPLOAD_CONCURRENCY = 2;
 
 function sleep(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
@@ -657,11 +660,26 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadError, setUploadError] = useState(false);
   const [sequenceUploadActive, setSequenceUploadActive] = useState(false);
+  const [uploadPaused, setUploadPaused] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
+  const [uploadSpeed, setUploadSpeed] = useState<string | null>(null);
+  const pausedRef = useRef(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [confirmComment, setConfirmComment] = useState("");
   const [confirmBusy, setConfirmBusy] = useState(false);
   const [confirmDone, setConfirmDone] = useState(false);
   const [confirmError, setConfirmError] = useState("");
+
+  useEffect(() => {
+    const handleOffline = () => { setIsOffline(true); };
+    const handleOnline = () => { setIsOffline(false); };
+    window.addEventListener("offline", handleOffline);
+    window.addEventListener("online", handleOnline);
+    return () => {
+      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("online", handleOnline);
+    };
+  }, []);
 
   function addFiles(newFiles: File[]) {
     setFiles((prev) => {
@@ -746,10 +764,16 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
     }
   }
 
+  async function waitWhilePaused() {
+    while (pausedRef.current) {
+      await sleep(300);
+    }
+  }
+
   async function uploadSingleFileChunked(
     file: File,
     sessionId: string,
-    onFileProgressBytes: (uploadedBytes: number) => void,
+    onFileProgressBytes: (uploadedBytes: number, speedBytesPerSec?: number) => void,
   ) {
     const init = await initChunkedUpload(token, orderNo, {
       sessionId,
@@ -760,8 +784,8 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
     });
     const uploadId = init.uploadId;
     const totalChunks = Math.max(1, Math.ceil(Number(file.size || 0) / CHUNK_SIZE_BYTES));
-    const status = await getChunkedUploadStatus(token, orderNo, uploadId);
-    const completed = status.completed || {};
+    const chunkStatus = await getChunkedUploadStatus(token, orderNo, uploadId);
+    const completed = chunkStatus.completed || {};
 
     let uploadedBytes = 0;
     for (let idx = 0; idx < totalChunks; idx += 1) {
@@ -773,7 +797,11 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
     }
     onFileProgressBytes(uploadedBytes);
 
+    let speedWindowBytes = 0;
+    let speedWindowStart = Date.now();
+
     for (let idx = 0; idx < totalChunks; idx += 1) {
+      await waitWhilePaused();
       if (completed[idx]) continue;
       const start = idx * CHUNK_SIZE_BYTES;
       const end = Math.min(start + CHUNK_SIZE_BYTES, file.size);
@@ -782,6 +810,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
       let chunkDone = false;
 
       while (!chunkDone) {
+        await waitWhilePaused();
         let lastLoaded = 0;
         try {
           await uploadChunkPart(
@@ -796,7 +825,14 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
             (loaded) => {
               const delta = Math.max(0, Number(loaded || 0) - lastLoaded);
               lastLoaded += delta;
-              onFileProgressBytes(Math.min(file.size, uploadedBytes + lastLoaded));
+              speedWindowBytes += delta;
+              const elapsed = Date.now() - speedWindowStart;
+              const speed = elapsed > 500 ? Math.round((speedWindowBytes / elapsed) * 1000) : undefined;
+              if (elapsed > 2000) {
+                speedWindowBytes = 0;
+                speedWindowStart = Date.now();
+              }
+              onFileProgressBytes(Math.min(file.size, uploadedBytes + lastLoaded), speed);
             },
           );
           uploadedBytes += Math.max(0, end - start);
@@ -805,7 +841,8 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
         } catch (err) {
           attempt += 1;
           if (attempt >= CHUNK_RETRY_ATTEMPTS) throw err;
-          await sleep(Math.min(16000, 1000 * (2 ** (attempt - 1))));
+          const waitMs = Math.min(16000, 1000 * (2 ** (attempt - 1)));
+          await sleep(waitMs);
         }
       }
     }
@@ -839,36 +876,74 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
     setCurrentBatch(null);
     setUploadSuccess(false);
     setUploadError(false);
+    setUploadSpeed(null);
+    pausedRef.current = false;
+    setUploadPaused(false);
     const total = files.length || 1;
     const totalBytes = files.reduce((sum, file) => sum + Number(file.size || 0), 0);
     const sessionId = buildChunkSessionId(orderNo);
 
     try {
       setSequenceUploadActive(true);
-      let completedBytes = 0;
-      for (let index = 0; index < files.length; index += 1) {
-        const file = files[index];
-        setStatus(`Datei wird hochgeladen (${index + 1}/${files.length}): ${file.name}`);
-        let currentFileBytes = 0;
+
+      const completedBytesPerFile = new Array(files.length).fill(0) as number[];
+
+      const uploadOneFile = async (file: File, index: number) => {
         const fileKey = `${file.name}-${file.size}-${file.lastModified}`;
-        await uploadSingleFileChunked(file, sessionId, (bytes) => {
-          currentFileBytes = Math.max(0, Math.min(Number(file.size || 0), bytes));
-          const filePct = file.size ? Math.round((currentFileBytes / Number(file.size)) * 100) : 0;
+        setStatus(`Datei wird hochgeladen (${index + 1}/${files.length}): ${file.name}`);
+        await uploadSingleFileChunked(file, sessionId, (bytes, speedBps) => {
+          const clamped = Math.max(0, Math.min(Number(file.size || 0), bytes));
+          completedBytesPerFile[index] = clamped;
+          const filePct = file.size ? Math.round((clamped / Number(file.size)) * 100) : 0;
           setFileProgress((p) => ({ ...p, [fileKey]: Math.min(100, filePct) }));
-          const absolute = completedBytes + currentFileBytes;
+          const absoluteBytes = completedBytesPerFile.reduce((s, b) => s + b, 0);
           const pct = totalBytes > 0
-            ? Math.round((absolute / totalBytes) * 100)
-            : Math.round(((index + (currentFileBytes > 0 ? 0.5 : 0)) / Math.max(1, files.length)) * 100);
+            ? Math.round((absoluteBytes / totalBytes) * 100)
+            : Math.round(((index + (clamped > 0 ? 0.5 : 0)) / Math.max(1, files.length)) * 100);
           setProgress(Math.min(99, pct));
-          setUploadedCount(Math.min(total, index + (currentFileBytes >= Number(file.size || 0) ? 1 : 0)));
+          const doneCount = completedBytesPerFile.filter((b, i) => b >= Number(files[i]?.size || 0)).length;
+          setUploadedCount(Math.min(total, doneCount));
+          if (speedBps !== undefined && speedBps > 0) {
+            if (speedBps >= 1024 * 1024) {
+              setUploadSpeed(`${(speedBps / (1024 * 1024)).toFixed(1)} MB/s`);
+            } else if (speedBps >= 1024) {
+              setUploadSpeed(`${Math.round(speedBps / 1024)} KB/s`);
+            } else {
+              setUploadSpeed(`${speedBps} B/s`);
+            }
+          }
         });
-        completedBytes += Number(file.size || 0);
-        setUploadedCount(Math.min(total, index + 1));
-        setProgress(totalBytes > 0 ? Math.round((completedBytes / totalBytes) * 100) : Math.round(((index + 1) / Math.max(1, files.length)) * 100));
+        completedBytesPerFile[index] = Number(file.size || 0);
+        setFileProgress((p) => ({ ...p, [fileKey]: 100 }));
+        setUploadedCount((c) => Math.min(total, c + 1));
+      };
+
+      const queue = files.map((file, index) => ({ file, index }));
+      const running: Promise<void>[] = [];
+      const errors: Error[] = [];
+
+      const runNext = async (): Promise<void> => {
+        const item = queue.shift();
+        if (!item) return;
+        try {
+          await uploadOneFile(item.file, item.index);
+        } catch (err) {
+          errors.push(err instanceof Error ? err : new Error(String(err)));
+        }
+        await runNext();
+      };
+
+      const slots = Math.min(UPLOAD_CONCURRENCY, files.length);
+      for (let i = 0; i < slots; i += 1) {
+        running.push(runNext());
       }
+      await Promise.all(running);
+
+      if (errors.length > 0) throw errors[0];
 
       setBusy("transfer");
       setStatus(t(lang, "upload.status.transferring"));
+      setUploadSpeed(null);
       const finalizePayload = {
         sessionId,
         category,
@@ -912,6 +987,21 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
       setSequenceUploadActive(false);
       setConfirmBusy(false);
       setBusy("");
+      pausedRef.current = false;
+      setUploadPaused(false);
+      setUploadSpeed(null);
+    }
+  }
+
+  function handlePauseResume() {
+    if (uploadPaused) {
+      pausedRef.current = false;
+      setUploadPaused(false);
+      setStatus("");
+    } else {
+      pausedRef.current = true;
+      setUploadPaused(true);
+      setStatus("Upload pausiert – klicke Fortsetzen um weiterzumachen");
     }
   }
 
@@ -1180,16 +1270,34 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
           </div>
         </div>
 
-        <div className="mt-3 flex items-center gap-3">
+        {isOffline && (
+          <div className="mt-2 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-500">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+            Keine Internetverbindung – Upload pausiert
+          </div>
+        )}
+
+        <div className="mt-3 flex flex-wrap items-center gap-3">
           <button
             className="btn-primary inline-flex items-center gap-1.5"
             onClick={openConfirmDialog}
-            disabled={isBusy}
+            disabled={isBusy || isOffline}
           >
             {busy === "upload"
               ? <><RefreshCw className="h-4 w-4 animate-spin" />{t(lang, "upload.status.uploading")}</>
               : <><UploadCloud className="h-4 w-4" />{t(lang, "upload.button.start")}</>}
           </button>
+          {busy === "upload" && (
+            <button
+              className="btn-secondary inline-flex items-center gap-1.5"
+              onClick={handlePauseResume}
+              type="button"
+            >
+              {uploadPaused
+                ? <><RefreshCw className="h-4 w-4" />Fortsetzen</>
+                : <><AlertTriangle className="h-4 w-4" />Pause</>}
+            </button>
+          )}
           <button
             className="btn-secondary inline-flex items-center gap-1.5"
             onClick={() => loadTree()}
@@ -1214,16 +1322,20 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
         {(busy === "upload" || transferActive) && (
           <div className="mt-3">
             <div className="mb-1 flex justify-between text-xs text-zinc-400">
-              <span>
+              <span className="flex items-center gap-2">
                 {busy === "upload"
-                  ? `Datei ${uploadedCount} von ${files.length > 0 ? files.length : "?"}`
+                  ? `${uploadedCount} von ${files.length > 0 ? files.length : "?"} Datei${files.length !== 1 ? "en" : ""}`
                   : t(lang, "upload.label.transferStatus")}
+                {uploadPaused && <span className="text-amber-400 font-semibold">– Pausiert</span>}
+                {uploadSpeed && busy === "upload" && !uploadPaused && (
+                  <span className="text-zinc-500">{uploadSpeed}</span>
+                )}
               </span>
               <span>{busy === "upload" ? `${progress}%` : currentBatch?.status || "-"}</span>
             </div>
             <div className="h-2 overflow-hidden rounded bg-zinc-800">
               <div
-                className={`h-full bg-[var(--accent)] transition-all ${transferActive ? "animate-pulse" : ""}`}
+                className={`h-full transition-all ${transferActive ? "animate-pulse bg-[var(--accent)]" : uploadPaused ? "bg-amber-500" : "bg-[var(--accent)]"}`}
                 style={{ width: `${busy === "upload" ? progress : transferActive ? 100 : 0}%` }}
               />
             </div>
@@ -1382,17 +1494,33 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
                   {confirmBusy ? (
                     <div className="space-y-4">
                       <div className="flex items-center gap-3">
-                        <RefreshCw className="h-5 w-5 animate-spin text-[var(--accent)] shrink-0" />
-                        <div className="min-w-0">
+                        <RefreshCw className={`h-5 w-5 shrink-0 text-[var(--accent)] ${uploadPaused ? "" : "animate-spin"}`} />
+                        <div className="min-w-0 flex-1">
                           <p className="text-sm font-semibold text-zinc-100">
-                            {busy === "transfer"
+                            {uploadPaused
+                              ? <span className="text-amber-400">Upload pausiert</span>
+                              : busy === "transfer"
                               ? t(lang, "upload.status.transferring")
                               : `${t(lang, "upload.status.uploading")} ${uploadedCount > 0 ? `${uploadedCount} / ${files.length}` : ""}`}
                           </p>
-                          {status && (
-                            <p className="text-xs text-zinc-400 truncate mt-0.5">{status}</p>
-                          )}
+                          <div className="flex items-center gap-3 mt-0.5">
+                            {status && !uploadPaused && (
+                              <p className="text-xs text-zinc-400 truncate">{status}</p>
+                            )}
+                            {uploadSpeed && busy === "upload" && !uploadPaused && (
+                              <span className="text-xs text-zinc-500 shrink-0">{uploadSpeed}</span>
+                            )}
+                          </div>
                         </div>
+                        {busy === "upload" && (
+                          <button
+                            type="button"
+                            onClick={handlePauseResume}
+                            className="shrink-0 btn-secondary text-xs px-2 py-1"
+                          >
+                            {uploadPaused ? "Fortsetzen" : "Pause"}
+                          </button>
+                        )}
                       </div>
                       {/* Gesamtfortschritt */}
                       <div>
@@ -1400,13 +1528,13 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
                           <span>
                             {busy === "transfer"
                               ? t(lang, "upload.label.transferStatus")
-                              : `Datei ${Math.min(uploadedCount + 1, files.length)} von ${files.length}`}
+                              : `${Math.min(uploadedCount + 1, files.length)} von ${files.length} Datei${files.length !== 1 ? "en" : ""}`}
                           </span>
                           <span>{busy === "upload" ? `${progress}%` : ""}</span>
                         </div>
                         <div className="h-2 w-full rounded bg-zinc-800 overflow-hidden">
                           <div
-                            className={`h-full transition-all duration-300 ${busy === "transfer" ? "animate-pulse bg-[var(--accent)]" : "bg-[var(--accent)]"}`}
+                            className={`h-full transition-all duration-300 ${busy === "transfer" ? "animate-pulse bg-[var(--accent)]" : uploadPaused ? "bg-amber-500" : "bg-[var(--accent)]"}`}
                             style={{ width: `${busy === "transfer" ? 100 : progress}%` }}
                           />
                         </div>

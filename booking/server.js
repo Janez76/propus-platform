@@ -471,7 +471,9 @@ function listUploadTree(baseDir, baseRelative = "") {
 }
 
 const BOOKING_UPLOAD_TMP = path.join(require("os").tmpdir(), "buchungstool-uploads");
-const CHUNK_SIZE_MB = Math.max(1, Number(process.env.CHUNK_SIZE_MB || 32));
+// Frontend sends 4 MB chunks; keep server limit generous (8 MB default) to
+// tolerate overhead and allow future env-based tuning without code changes.
+const CHUNK_SIZE_MB = Math.max(1, Number(process.env.CHUNK_SIZE_MB || 8));
 const CHUNKED_UPLOAD_TIMEOUT_MS = Math.max(30000, Number(process.env.CHUNKED_UPLOAD_TIMEOUT_MS || 900000));
 fs.mkdirSync(BOOKING_UPLOAD_TMP, { recursive: true });
 const bookingMaterialUpload = multer({
