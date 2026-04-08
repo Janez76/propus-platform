@@ -751,6 +751,8 @@ export const getUploadBatch = (token: string, orderNo: string, batchId: string) 
     `/api/admin/orders/${encodeURIComponent(orderNo)}/upload-batches/${encodeURIComponent(batchId)}`,
     "GET",
     token,
+    undefined,
+    { timeoutMs: 60_000 },
   );
 
 export const listUploadBatches = (token: string, orderNo: string) =>
@@ -773,6 +775,7 @@ export const confirmUploadBatch = (token: string, orderNo: string, batchId: stri
     "POST",
     token,
     finalComment ? { finalComment } : {},
+    { timeoutMs: 120_000 },
   );
 
 export const deleteOrderUploadFile = (token: string, orderNo: string, relativePath: string, folderType?: string) => {

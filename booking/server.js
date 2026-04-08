@@ -5547,6 +5547,37 @@ app.post("/api/admin/orders/:orderNo/upload-batches/:batchId/retry", requireAdmi
   }
 });
 
+app.post("/api/admin/orders/:orderNo/upload-batches/:batchId/confirm", requirePhotographerOrAdmin, async (req, res) => {
+  try {
+    if (!process.env.DATABASE_URL) return res.status(503).json({ error: "DB nicht verfuegbar" });
+    const orderAccess = await getOrderForUploadAccess(req.params.orderNo, req);
+    if (orderAccess.error) return res.status(orderAccess.error.status).json({ error: orderAccess.error.message });
+    const batchRow = await db.getUploadBatch(req.params.batchId);
+    if (!batchRow || Number(batchRow.order_no) !== Number(orderAccess.orderNo)) {
+      return res.status(404).json({ error: "Upload-Batch nicht gefunden" });
+    }
+    const finalComment = String(req.body?.finalComment || "").trim();
+    if (finalComment) {
+      await db.updateUploadBatch(req.params.batchId, { comment: finalComment });
+    }
+    if (String(batchRow.status || "") === "completed") {
+      const order = await db.getOrderByNo(Number(batchRow.order_no));
+      if (order) {
+        const files = await db.listUploadBatchFiles(req.params.batchId);
+        const storedCount = files.filter((f) => f.status === "stored").length;
+        const skippedCount = files.filter((f) => f.status === "skipped_duplicate").length;
+        const invalidCount = files.filter((f) => f.status === "skipped_invalid_type").length;
+        notifyCompletedUploadBatch({ order, batch: batchRow, storedCount, skippedCount, invalidCount }).catch((e) => {
+          console.warn("[upload-batch/confirm] notification failed:", e?.message || e);
+        });
+      }
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Bestätigung fehlgeschlagen" });
+  }
+});
+
 app.get("/api/admin/orders/:orderNo/uploads", requirePhotographerOrAdmin, async (req, res) => {
   try {
     if (!process.env.DATABASE_URL) return res.status(503).json({ error: "DB nicht verfuegbar" });

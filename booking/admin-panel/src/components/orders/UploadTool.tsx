@@ -753,7 +753,11 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
   }, [currentBatch?.id, currentBatch?.status, lang, loadTree, onChanged, orderNo, sequenceUploadActive, token]);
 
   async function waitForBatchCompletion(batchId: string) {
+    const deadline = Date.now() + 10 * 60_000;
     while (true) {
+      if (Date.now() > deadline) {
+        throw new Error("Transfer-Timeout: Der Server hat den Batch nicht rechtzeitig abgeschlossen. Bitte Seite neu laden und Status prüfen.");
+      }
       const response = await getUploadBatch(token, orderNo, batchId);
       setCurrentBatch(response.batch);
       if (response.batch.status === "completed") return response.batch;
