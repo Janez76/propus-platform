@@ -1337,17 +1337,78 @@ async function linkLiveExxasInvoiceToTour(tourId, externalInvoiceId, actorEmail 
   };
 }
 
+/**
+ * Versucht nach dem Verknüpfen einer Exxas-Rechnung automatisch einen passenden Kunden
+ * in core.customers zu finden.
+ * Prio 1: ref_kunde → exxas_contact_id (exakter Match)
+ * Prio 2: kunde_name → name/company (LIKE, nur bei eindeutigem Treffer)
+ * Gibt { id, display_name, email, ref } oder null zurück.
+ */
+async function tryAutoMatchCustomer(refKunde, kundeName) {
+  try {
+    let matched = null;
+    if (refKunde) {
+      matched = await customerLookup.getCustomerByExxasRef(String(refKunde).trim());
+    }
+    if (!matched && kundeName && String(kundeName).trim().length >= 3) {
+      const matches = await customerLookup.searchLocalCustomers(String(kundeName).trim(), 2);
+      if (matches.length === 1) {
+        matched = matches[0];
+      }
+    }
+    if (!matched) return null;
+    const contacts = await customerLookup.getLocalContacts(matched.id);
+    return {
+      id: matched.id,
+      display_name: matched.company || matched.name || '',
+      email: matched.email || '',
+      ref: matched.customer_number || matched.exxas_contact_id || '',
+      contacts: contacts.map((ct) => ({
+        id: ct.id,
+        name: ct.name || '',
+        email: ct.email || '',
+        role: ct.role || '',
+      })),
+    };
+  } catch {
+    // Auto-Match ist nicht kritisch – bei Fehler stillschweigend ignorieren
+  }
+  return null;
+}
+
 async function postLinkInvoice(tourId, invoiceId, actorEmail = null) {
   if (!invoiceId) return { ok: false, error: 'missing' };
   const tour = await pool.query('SELECT id FROM tour_manager.tours WHERE id = $1', [tourId]);
   if (!tour.rows[0]) return { ok: false, error: 'Tour nicht gefunden' };
   const rawInvoiceId = String(invoiceId || '').trim();
   if (!rawInvoiceId) return { ok: false, error: 'missing' };
+
+  let result;
   if (rawInvoiceId.startsWith('live:')) {
-    return linkLiveExxasInvoiceToTour(tourId, rawInvoiceId.slice(5), actorEmail);
+    result = await linkLiveExxasInvoiceToTour(tourId, rawInvoiceId.slice(5), actorEmail);
+  } else {
+    const localInvoiceId = rawInvoiceId.startsWith('local:') ? rawInvoiceId.slice(6) : rawInvoiceId;
+    result = await linkLocalExxasInvoiceToTour(tourId, localInvoiceId, actorEmail);
   }
-  const localInvoiceId = rawInvoiceId.startsWith('local:') ? rawInvoiceId.slice(6) : rawInvoiceId;
-  return linkLocalExxasInvoiceToTour(tourId, localInvoiceId, actorEmail);
+
+  if (result?.ok && result.invoiceId) {
+    // Nur suchen wenn die Tour noch keinen Kunden hat
+    const tourCheck = await pool.query(
+      'SELECT customer_id FROM tour_manager.tours WHERE id = $1',
+      [tourId]
+    );
+    if (!tourCheck.rows[0]?.customer_id) {
+      const invRow = await pool.query(
+        'SELECT ref_kunde, kunde_name FROM tour_manager.exxas_invoices WHERE id = $1',
+        [result.invoiceId]
+      );
+      const { ref_kunde, kunde_name } = invRow.rows[0] || {};
+      const suggestion = await tryAutoMatchCustomer(ref_kunde, kunde_name);
+      result = { ...result, customerSuggestion: suggestion };
+    }
+  }
+
+  return result;
 }
 
 async function postLinkMatterportAuto() {

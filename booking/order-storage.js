@@ -1,11 +1,14 @@
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
 const crypto = require("crypto");
 const ncShare = require("./nextcloud-share");
 
 const CUSTOMER_UPLOAD_ROOT = process.env.BOOKING_UPLOAD_CUSTOMER_ROOT || process.env.BOOKING_UPLOAD_ROOT || path.join(__dirname, "uploads");
 const RAW_MATERIAL_ROOT = process.env.BOOKING_UPLOAD_RAW_ROOT || path.join(__dirname, "uploads-raw");
-const LOCAL_STAGING_ROOT = process.env.BOOKING_UPLOAD_STAGING_ROOT || path.join(require("os").tmpdir(), "buchungstool-upload-staging");
+const DEFAULT_LOCAL_STAGING_ROOT = path.join(os.tmpdir(), "buchungstool-upload-staging");
+const CONFIGURED_LOCAL_STAGING_ROOT = String(process.env.BOOKING_UPLOAD_STAGING_ROOT || "").trim();
+const LOCAL_STAGING_ROOT = CONFIGURED_LOCAL_STAGING_ROOT || DEFAULT_LOCAL_STAGING_ROOT;
 const CUSTOMER_ARCHIVE_ROOT = process.env.BOOKING_UPLOAD_CUSTOMER_ARCHIVE_ROOT || path.join(CUSTOMER_UPLOAD_ROOT, "_ARCHIV");
 const RAW_ARCHIVE_ROOT = process.env.BOOKING_UPLOAD_RAW_ARCHIVE_ROOT || path.join(RAW_MATERIAL_ROOT, "_ARCHIV");
 const REQUIRE_MOUNT = String(process.env.BOOKING_UPLOAD_REQUIRE_MOUNT || "false").toLowerCase() === "true";
@@ -672,11 +675,19 @@ function assertRootReady(rootPath, { label, allowCreate = false } = {}) {
   return resolved;
 }
 
+function getSafeStagingRootForDisplay() {
+  try {
+    return getEffectiveLocalStagingRoot();
+  } catch (_) {
+    return LOCAL_STAGING_ROOT;
+  }
+}
+
 function getStorageRoots() {
   return {
     customerRoot: CUSTOMER_UPLOAD_ROOT,
     rawRoot: RAW_MATERIAL_ROOT,
-    stagingRoot: LOCAL_STAGING_ROOT,
+    stagingRoot: getSafeStagingRootForDisplay(),
     customerArchiveRoot: CUSTOMER_ARCHIVE_ROOT,
     rawArchiveRoot: RAW_ARCHIVE_ROOT,
   };
@@ -686,7 +697,7 @@ function getStorageHealth() {
   const checks = [
     { key: "customerRoot", path: CUSTOMER_UPLOAD_ROOT, label: "Kunden-Root", allowCreate: false },
     { key: "rawRoot", path: RAW_MATERIAL_ROOT, label: "Raw-Root", allowCreate: false },
-    { key: "stagingRoot", path: LOCAL_STAGING_ROOT, label: "Staging-Root", allowCreate: true },
+    { key: "stagingRoot", path: getSafeStagingRootForDisplay(), label: "Staging-Root", allowCreate: true },
   ];
   return checks.map((entry) => {
     try {
@@ -1080,7 +1091,39 @@ async function moveRawMaterialToCustomerFolder(order, db) {
 }
 
 function ensureLocalStagingRoot() {
-  return assertRootReady(LOCAL_STAGING_ROOT, { label: "Staging-Root", allowCreate: true });
+  return getEffectiveLocalStagingRoot();
+}
+
+function getEffectiveLocalStagingRoot() {
+  const candidates = [];
+  if (CONFIGURED_LOCAL_STAGING_ROOT) {
+    candidates.push({
+      path: CONFIGURED_LOCAL_STAGING_ROOT,
+      source: "configured",
+    });
+  }
+  if (!candidates.some((entry) => path.resolve(entry.path) === path.resolve(DEFAULT_LOCAL_STAGING_ROOT))) {
+    candidates.push({
+      path: DEFAULT_LOCAL_STAGING_ROOT,
+      source: "default",
+    });
+  }
+
+  let lastError = null;
+  for (const candidate of candidates) {
+    try {
+      return assertRootReady(candidate.path, { label: "Staging-Root", allowCreate: true });
+    } catch (err) {
+      lastError = err;
+      if (candidate.source === "configured") {
+        console.warn(
+          `[order-storage] configured staging root unavailable (${candidate.path}), falling back to ${DEFAULT_LOCAL_STAGING_ROOT}: ${err.message || err}`
+        );
+      }
+    }
+  }
+
+  throw lastError || new Error("Staging-Root nicht verfuegbar");
 }
 
 function createStagingBatchDir(batchId) {

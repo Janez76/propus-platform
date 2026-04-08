@@ -19,6 +19,7 @@ export type ToursAdminTourRow = Record<string, unknown> & {
   canonical_term_end_date?: string | null;
   days_until_expiry?: number | null;
   customer_email?: string | null;
+  customer_contact?: string | null;
   invoice_status_label?: string;
   invoice_status_tone?: string;
   booking_order_no?: number | null;

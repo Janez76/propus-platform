@@ -701,6 +701,8 @@ module.exports = {
   sendArchiveNoticeEmail,
   sendInvoiceWithQrEmail,
   sendInvoiceOverdueReminderEmail,
+  sendGraphMailToCustomer,
+  ensureOutgoingEmailSchema,
   checkPayment,
   declineTour,
   archiveTourNow,

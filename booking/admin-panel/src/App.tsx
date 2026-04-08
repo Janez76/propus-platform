@@ -40,6 +40,7 @@ const AccountDashboardPage = lazy(() =>
 const CompanyDashboardPage = lazy(() =>
   import("./pages/CompanyDashboardPage").then((m) => ({ default: m.CompanyDashboardPage }))
 );
+const TicketsPage = lazy(() => import("./pages/TicketsPage").then((m) => ({ default: m.TicketsPage })));
 function PageSkeleton() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-[var(--surface-raised)]">
@@ -124,6 +125,7 @@ function PrivateRoutes() {
         />
         <Route path="/settings/access" element={<Navigate to="/settings/users" replace />} />
         <Route path="/reviews" element={guardedElement(adminOnlyRoles, <ReviewsPage />)} />
+        <Route path="/tickets" element={guardedElement(adminOnlyRoles, <TicketsPage />)} />
         <Route path="/bugs" element={guardedElement(adminOnlyRoles, <BugsPage />)} />
         <Route path="/backups" element={guardedElement(adminOnlyRoles, <BackupsPage />)} />
         <Route path="/changelog" element={guardedElement(adminOnlyRoles, <ChangelogPage />)} />

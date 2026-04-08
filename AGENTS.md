@@ -155,6 +155,50 @@ Verlängerungsrechnungen und Exxas-Rechnungen werden in einem **eigenständigen 
 - Das zentrale Modul zeigt **alle** Rechnungen systemweit (mit Suche + Status-Filter)
 - Exxas-Status `'bz'` = bezahlt; alle anderen Werte = offen
 
+## Ticket-System (seit April 2026)
+
+Zentrales Ticketsystem für alle Module (Touren, Buchung), erreichbar unter `/admin/tickets`.
+
+### DB-Tabelle: `tour_manager.tickets`
+
+| Spalte | Typ | Beschreibung |
+|--------|-----|-------------|
+| `id` | SERIAL PK | |
+| `module` | TEXT | `'tours'` oder `'booking'` |
+| `reference_id` | TEXT | ID der verknüpften Tour oder Bestellung |
+| `reference_type` | TEXT | `'tour'` oder `'order'` |
+| `customer_id` | INTEGER FK | → `core.customers(id)` (nullable) — direkte Kunden-Zuweisung |
+| `category` | TEXT | `startpunkt` / `name_aendern` / `blur_request` / `sweep_verschieben` / `sonstiges` |
+| `subject` | TEXT | Betreff (Pflichtfeld) |
+| `description` | TEXT | Ausführliche Beschreibung |
+| `status` | TEXT | `open` / `in_progress` / `done` / `rejected` |
+| `priority` | TEXT | `normal` / `high` / `low` |
+| `created_by` | TEXT | E-Mail des Erstellers |
+| `assigned_to` | TEXT | E-Mail des Bearbeiters |
+| `attachment_path` | TEXT | Relativer Pfad zu Datei in `tours/uploads/tickets/` |
+
+### API-Endpunkte (unter `/api/tours/admin`)
+
+| Methode | Pfad | Beschreibung |
+|---------|------|-------------|
+| `GET` | `/tickets` | Liste (Filter: status, module, reference_id, reference_type, customer_id) |
+| `GET` | `/tickets/:id` | Einzelticket mit JOINs (Tour, Bestellung, Kunde) |
+| `POST` | `/tickets` | Neues Ticket erstellen (inkl. customer_id) |
+| `POST` | `/tickets/from-email` | Ticket aus eingehender E-Mail erstellen |
+| `PATCH` | `/tickets/:id` | Status, Zuweisung, customer_id, reference ändern |
+| `POST` | `/tickets/upload` | Screenshot hochladen |
+
+### Frontend
+
+| Datei | Beschreibung |
+|-------|-------------|
+| `app/src/pages-legacy/tours/admin/AdminTicketsPage.tsx` | Hauptseite (Tab: Tickets + Postfach) |
+| `app/src/pages-legacy/tours/admin/components/TicketCreateDialog.tsx` | Dialog für neues Ticket (auch von Tour-Detail nutzbar) |
+
+### Postfach-Tab
+
+Zeigt E-Mails aus `office@propus.ch` via `GET /api/tours/admin/mail/inbox`. Automatisches Matching gegen Touren und Kunden. Pro E-Mail: "Ticket erstellen" (mit Vorausfüllung) oder "Auto" (direktes Erstellen mit erkannten Zuordnungen).
+
 ## Technologie-Stack
 
 - **Frontend**: React 19, Next.js, TypeScript, Tailwind CSS

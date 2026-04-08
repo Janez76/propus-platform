@@ -73,6 +73,7 @@ function buildListQueryString(sp: URLSearchParams): string {
     "noCustomerOnly",
     "q",
     "page",
+    "limit",
     "sort",
     "order",
   ];
@@ -114,6 +115,7 @@ export function ToursAdminListPage() {
   }
 
   const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10) || 1);
+  const limit = parseInt(searchParams.get("limit") || "25", 10) || 25;
   const q = searchParams.get("q") || "";
   const sort = searchParams.get("sort") || "matterport_created";
   const order = (searchParams.get("order") as "asc" | "desc" | null) ?? (sort === "matterport_created" ? "desc" : "asc");
@@ -448,31 +450,89 @@ export function ToursAdminListPage() {
             </table>
           </div>
 
-          {data.pagination.totalPages > 1 ? (
-            <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-[var(--border-soft)]">
-              <span className="text-xs text-[var(--text-subtle)]">
-                Seite {data.pagination.page} von {data.pagination.totalPages} ({data.pagination.totalItems} Einträge)
+          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-[var(--border-soft)]">
+            <div className="flex items-center gap-2 text-xs text-[var(--text-subtle)]">
+              <span>
+                {data.pagination.totalItems} Einträge · Seite {data.pagination.page} von {data.pagination.totalPages}
               </span>
-              <div className="flex gap-2">
+              <span className="text-[var(--border-soft)]">|</span>
+              <span>Anzeigen:</span>
+              {([25, 50, 100, 0] as const).map((val) => {
+                const label = val === 0 ? "Alle" : String(val);
+                const active = val === 0 ? limit === 0 : limit === val;
+                return (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => {
+                      setParam("limit", val === 0 ? "0" : String(val));
+                    }}
+                    className={[
+                      "rounded px-2 py-0.5 text-xs font-medium transition-colors",
+                      active
+                        ? "bg-[var(--accent)] text-white"
+                        : "border border-[var(--border-soft)] hover:border-[var(--accent)] hover:text-[var(--accent)]",
+                    ].join(" ")}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            {data.pagination.totalPages > 1 ? (
+              <div className="flex items-center gap-1">
                 <button
                   type="button"
                   disabled={!data.pagination.hasPrev}
                   onClick={() => setParam("page", String(Math.max(1, page - 1)))}
-                  className="rounded-lg border border-[var(--border-soft)] px-3 py-1 text-sm disabled:opacity-40"
+                  className="rounded-lg border border-[var(--border-soft)] px-3 py-1 text-sm disabled:opacity-40 hover:border-[var(--accent)]"
                 >
-                  Zurück
+                  ←
                 </button>
+                {(() => {
+                  const total = data.pagination.totalPages;
+                  const current = data.pagination.page;
+                  const pages: (number | "…")[] = [];
+                  if (total <= 7) {
+                    for (let p = 1; p <= total; p++) pages.push(p);
+                  } else {
+                    pages.push(1);
+                    if (current > 3) pages.push("…");
+                    for (let p = Math.max(2, current - 1); p <= Math.min(total - 1, current + 1); p++) pages.push(p);
+                    if (current < total - 2) pages.push("…");
+                    pages.push(total);
+                  }
+                  return pages.map((p, idx) =>
+                    p === "…" ? (
+                      <span key={`ellipsis-${idx}`} className="px-1 text-sm text-[var(--text-subtle)]">…</span>
+                    ) : (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setParam("page", String(p))}
+                        className={[
+                          "min-w-[2rem] rounded-lg border px-2 py-1 text-sm transition-colors",
+                          p === current
+                            ? "border-[var(--accent)] bg-[var(--accent)] text-white"
+                            : "border-[var(--border-soft)] hover:border-[var(--accent)] hover:text-[var(--accent)]",
+                        ].join(" ")}
+                      >
+                        {p}
+                      </button>
+                    )
+                  );
+                })()}
                 <button
                   type="button"
                   disabled={!data.pagination.hasNext}
                   onClick={() => setParam("page", String(page + 1))}
-                  className="rounded-lg border border-[var(--border-soft)] px-3 py-1 text-sm disabled:opacity-40"
+                  className="rounded-lg border border-[var(--border-soft)] px-3 py-1 text-sm disabled:opacity-40 hover:border-[var(--accent)]"
                 >
-                  Weiter
+                  →
                 </button>
               </div>
-            </div>
-          ) : null}
+            ) : null}
+          </div>
         </div>
       ) : null}
     </div>

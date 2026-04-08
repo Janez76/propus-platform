@@ -26,6 +26,9 @@ import {
   Shield,
   UserCog,
   Globe,
+  TrendingUp,
+  Ticket,
+  Home,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -50,12 +53,14 @@ type SidebarNavItem = {
 
 const navigationItems: SidebarNavItem[] = [
   { path: "/dashboard", icon: LayoutDashboard, labelKey: "nav.dashboard" },
-  { path: "/admin/tours", icon: Globe, label: "Tour Manager" },
+  { path: "__finanzen__", icon: TrendingUp, label: "Finanzen" },
+  { path: "/tickets", icon: Ticket, label: "Tickets & Postfach" },
+  { path: "__tour_manager__", icon: Globe, label: "Tour Manager" },
+  { path: "__listing__", icon: Home, label: "Listing Page" },
   { path: "/orders", icon: ShoppingCart, labelKey: "nav.orders" },
   { path: "/upload", icon: Upload, labelKey: "nav.upload" },
   { path: "/calendar", icon: Calendar, labelKey: "nav.calendar" },
-  { path: "/customers", icon: Users, labelKey: "nav.customers" },
-  { path: "/settings/companies", icon: Building2, labelKey: "sidebar.nav.companies" },
+  { path: "__kunden__", icon: Users, label: "Kunden & Firmen" },
   { path: "/products", icon: Boxes, labelKey: "nav.catalog" },
   { path: "/discount-codes", icon: Tag, labelKey: "nav.discountCodes" },
   { path: "/reviews", icon: Star, labelKey: "nav.reviews" },
@@ -71,6 +76,23 @@ const companyNavigationEmployee: SidebarNavItem[] = [
   { path: "/portal/bestellungen", icon: ShoppingCart, label: "Meine Bestellungen" },
 ];
 
+const finanzenSubItems = [
+  { path: "/orders", icon: ShoppingCart, label: "Aufträge & Rechnungen" },
+] as const;
+
+const tourManagerSubItems = [
+  { path: "/admin/tours", icon: Globe, label: "Übersicht" },
+] as const;
+
+const listingSubItems = [
+  { path: "/listing", icon: Home, label: "Listings" },
+] as const;
+
+const kundenSubItems = [
+  { path: "/customers", icon: Users, label: "Kunden" },
+  { path: "/settings/companies", icon: Building2, label: "Firmen" },
+] as const;
+
 const settingsSubItems = [
   { path: "/settings/users", icon: UserCog, labelKey: "sidebar.nav.userManagement" },
   { path: "/settings/access", icon: Shield, labelKey: "sidebar.nav.access" },
@@ -85,6 +107,10 @@ const settingsSubItems = [
 export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [finanzenOpen, setFinanzenOpen] = useState(false);
+  const [tourManagerOpen, setTourManagerOpen] = useState(false);
+  const [listingOpen, setListingOpen] = useState(false);
+  const [kundenOpen, setKundenOpen] = useState(false);
   const lang = useAuthStore((s) => s.language);
   const role = useAuthStore((s) => s.role);
   const { canAccessPath } = usePermissions();
@@ -93,9 +119,16 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const isSettingsActive =
     (location.pathname.startsWith("/settings") && !location.pathname.startsWith("/settings/companies")) ||
     location.pathname.startsWith("/exxas-reconcile");
+  const isFinanzenActive = location.pathname.startsWith("/finanzen");
+  const isTourManagerActive = location.pathname.startsWith("/admin/tours");
+  const isListingActive = location.pathname.startsWith("/listing");
+  const isKundenActive =
+    location.pathname.startsWith("/customers") || location.pathname.startsWith("/settings/companies");
   const isCompanyRole = isCompanyWorkspaceRole(role);
   const visibleNavigationItems = useMemo(() => {
+    const fakePaths = new Set(["__finanzen__", "__tour_manager__", "__listing__", "__kunden__"]);
     if (!isCompanyRole) return navigationItems.filter((item) => {
+      if (fakePaths.has(item.path)) return true;
       if (!canAccessPath(item.path)) return false;
       if (role === "tour_manager" && item.path === "/customers") return false;
       return true;
@@ -145,6 +178,94 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
         <nav className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 py-4 [-webkit-overflow-scrolling:touch]">
           <div className="space-y-0.5">
             {visibleNavigationItems.map(({ path, icon: Icon, labelKey, label }) => {
+              if (path === "__finanzen__") {
+                return (
+                  <div key={path}>
+                    <button type="button" onClick={() => setFinanzenOpen((v) => !v)}
+                      className={cn("propus-nav-item w-full", isFinanzenActive && "active")}>
+                      <Icon className="h-5 w-5 flex-shrink-0" />
+                      <span className="truncate flex-1 text-left">{label}</span>
+                      <ChevronDown className={cn("h-4 w-4 flex-shrink-0 transition-transform opacity-60", (finanzenOpen || isFinanzenActive) ? "rotate-180" : "")} />
+                    </button>
+                    {(finanzenOpen || isFinanzenActive) && (
+                      <div className="ml-4 mt-0.5 space-y-0.5 pl-3" style={{ borderLeft: "2px solid var(--border-soft)" }}>
+                        {finanzenSubItems.map(({ path: subPath, icon: SubIcon, label: subLabel }) => (
+                          <NavLink key={subPath} to={subPath} onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                            <SubIcon className="h-4 w-4 flex-shrink-0" />
+                            {subLabel}
+                          </NavLink>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+              if (path === "__tour_manager__") {
+                return (
+                  <div key={path}>
+                    <button type="button" onClick={() => setTourManagerOpen((v) => !v)}
+                      className={cn("propus-nav-item w-full", isTourManagerActive && "active")}>
+                      <Icon className="h-5 w-5 flex-shrink-0" />
+                      <span className="truncate flex-1 text-left">{label}</span>
+                      <ChevronDown className={cn("h-4 w-4 flex-shrink-0 transition-transform opacity-60", (tourManagerOpen || isTourManagerActive) ? "rotate-180" : "")} />
+                    </button>
+                    {(tourManagerOpen || isTourManagerActive) && (
+                      <div className="ml-4 mt-0.5 space-y-0.5 pl-3" style={{ borderLeft: "2px solid var(--border-soft)" }}>
+                        {tourManagerSubItems.map(({ path: subPath, icon: SubIcon, label: subLabel }) => (
+                          <NavLink key={subPath} to={subPath} onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                            <SubIcon className="h-4 w-4 flex-shrink-0" />
+                            {subLabel}
+                          </NavLink>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+              if (path === "__listing__") {
+                return (
+                  <div key={path}>
+                    <button type="button" onClick={() => setListingOpen((v) => !v)}
+                      className={cn("propus-nav-item w-full", isListingActive && "active")}>
+                      <Icon className="h-5 w-5 flex-shrink-0" />
+                      <span className="truncate flex-1 text-left">{label}</span>
+                      <ChevronDown className={cn("h-4 w-4 flex-shrink-0 transition-transform opacity-60", (listingOpen || isListingActive) ? "rotate-180" : "")} />
+                    </button>
+                    {(listingOpen || isListingActive) && (
+                      <div className="ml-4 mt-0.5 space-y-0.5 pl-3" style={{ borderLeft: "2px solid var(--border-soft)" }}>
+                        {listingSubItems.map(({ path: subPath, icon: SubIcon, label: subLabel }) => (
+                          <NavLink key={subPath} to={subPath} onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                            <SubIcon className="h-4 w-4 flex-shrink-0" />
+                            {subLabel}
+                          </NavLink>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+              if (path === "__kunden__") {
+                return (
+                  <div key={path}>
+                    <button type="button" onClick={() => setKundenOpen((v) => !v)}
+                      className={cn("propus-nav-item w-full", isKundenActive && "active")}>
+                      <Icon className="h-5 w-5 flex-shrink-0" />
+                      <span className="truncate flex-1 text-left">{label}</span>
+                      <ChevronDown className={cn("h-4 w-4 flex-shrink-0 transition-transform opacity-60", (kundenOpen || isKundenActive) ? "rotate-180" : "")} />
+                    </button>
+                    {(kundenOpen || isKundenActive) && (
+                      <div className="ml-4 mt-0.5 space-y-0.5 pl-3" style={{ borderLeft: "2px solid var(--border-soft)" }}>
+                        {kundenSubItems.map(({ path: subPath, icon: SubIcon, label: subLabel }) => (
+                          <NavLink key={subPath} to={subPath} onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                            <SubIcon className="h-4 w-4 flex-shrink-0" />
+                            {subLabel}
+                          </NavLink>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
               if (path === "/settings") {
                 return (
                   <div key={path}>
@@ -223,6 +344,110 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
         <nav className="flex-1 overflow-y-auto py-4 px-3">
           <div className="space-y-0.5">
             {visibleNavigationItems.map(({ path, icon: Icon, labelKey, label }) => {
+              if (path === "__finanzen__") {
+                return (
+                  <div key={path}>
+                    <button type="button" onClick={() => setFinanzenOpen((v) => !v)}
+                      className={cn("propus-nav-item w-full", isFinanzenActive && "active")}>
+                      <Icon className="h-5 w-5 flex-shrink-0" />
+                      {!isCollapsed && (
+                        <>
+                          <span className="truncate flex-1 text-left">{label}</span>
+                          <ChevronDown className={cn("h-4 w-4 flex-shrink-0 transition-transform opacity-60", (finanzenOpen || isFinanzenActive) ? "rotate-180" : "")} />
+                        </>
+                      )}
+                    </button>
+                    {!isCollapsed && (finanzenOpen || isFinanzenActive) && (
+                      <div className="ml-4 mt-0.5 space-y-0.5 pl-3" style={{ borderLeft: "2px solid var(--border-soft)" }}>
+                        {finanzenSubItems.map(({ path: subPath, icon: SubIcon, label: subLabel }) => (
+                          <NavLink key={subPath} to={subPath} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                            <SubIcon className="h-4 w-4 flex-shrink-0" />
+                            {subLabel}
+                          </NavLink>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+              if (path === "__tour_manager__") {
+                return (
+                  <div key={path}>
+                    <button type="button" onClick={() => setTourManagerOpen((v) => !v)}
+                      className={cn("propus-nav-item w-full", isTourManagerActive && "active")}>
+                      <Icon className="h-5 w-5 flex-shrink-0" />
+                      {!isCollapsed && (
+                        <>
+                          <span className="truncate flex-1 text-left">{label}</span>
+                          <ChevronDown className={cn("h-4 w-4 flex-shrink-0 transition-transform opacity-60", (tourManagerOpen || isTourManagerActive) ? "rotate-180" : "")} />
+                        </>
+                      )}
+                    </button>
+                    {!isCollapsed && (tourManagerOpen || isTourManagerActive) && (
+                      <div className="ml-4 mt-0.5 space-y-0.5 pl-3" style={{ borderLeft: "2px solid var(--border-soft)" }}>
+                        {tourManagerSubItems.map(({ path: subPath, icon: SubIcon, label: subLabel }) => (
+                          <NavLink key={subPath} to={subPath} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                            <SubIcon className="h-4 w-4 flex-shrink-0" />
+                            {subLabel}
+                          </NavLink>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+              if (path === "__listing__") {
+                return (
+                  <div key={path}>
+                    <button type="button" onClick={() => setListingOpen((v) => !v)}
+                      className={cn("propus-nav-item w-full", isListingActive && "active")}>
+                      <Icon className="h-5 w-5 flex-shrink-0" />
+                      {!isCollapsed && (
+                        <>
+                          <span className="truncate flex-1 text-left">{label}</span>
+                          <ChevronDown className={cn("h-4 w-4 flex-shrink-0 transition-transform opacity-60", (listingOpen || isListingActive) ? "rotate-180" : "")} />
+                        </>
+                      )}
+                    </button>
+                    {!isCollapsed && (listingOpen || isListingActive) && (
+                      <div className="ml-4 mt-0.5 space-y-0.5 pl-3" style={{ borderLeft: "2px solid var(--border-soft)" }}>
+                        {listingSubItems.map(({ path: subPath, icon: SubIcon, label: subLabel }) => (
+                          <NavLink key={subPath} to={subPath} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                            <SubIcon className="h-4 w-4 flex-shrink-0" />
+                            {subLabel}
+                          </NavLink>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+              if (path === "__kunden__") {
+                return (
+                  <div key={path}>
+                    <button type="button" onClick={() => setKundenOpen((v) => !v)}
+                      className={cn("propus-nav-item w-full", isKundenActive && "active")}>
+                      <Icon className="h-5 w-5 flex-shrink-0" />
+                      {!isCollapsed && (
+                        <>
+                          <span className="truncate flex-1 text-left">{label}</span>
+                          <ChevronDown className={cn("h-4 w-4 flex-shrink-0 transition-transform opacity-60", (kundenOpen || isKundenActive) ? "rotate-180" : "")} />
+                        </>
+                      )}
+                    </button>
+                    {!isCollapsed && (kundenOpen || isKundenActive) && (
+                      <div className="ml-4 mt-0.5 space-y-0.5 pl-3" style={{ borderLeft: "2px solid var(--border-soft)" }}>
+                        {kundenSubItems.map(({ path: subPath, icon: SubIcon, label: subLabel }) => (
+                          <NavLink key={subPath} to={subPath} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                            <SubIcon className="h-4 w-4 flex-shrink-0" />
+                            {subLabel}
+                          </NavLink>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
               if (path === "/settings") {
                 return (
                   <div key={path}>

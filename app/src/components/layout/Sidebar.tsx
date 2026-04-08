@@ -62,12 +62,13 @@ type SidebarNavItem = {
   toursNav?: boolean;
   customersNav?: boolean;
   listingNav?: boolean;
+  messagesNav?: boolean;
 };
 
 const navigationItems: SidebarNavItem[] = [
   { path: "/dashboard", icon: LayoutDashboard, labelKey: "nav.dashboard" },
   { path: "/admin/finance", icon: CreditCard, labelKey: "nav.finance", financeNav: true },
-  { path: "/admin/tickets", icon: Inbox, labelKey: "nav.ticketsMailbox" },
+  { path: "/admin/tickets", icon: MessageSquare, labelKey: "nav.messages", messagesNav: true },
   { path: "/admin/tours", icon: Globe, labelKey: "nav.tourManager", toursNav: true },
   { path: "/admin/listing", icon: Image, labelKey: "nav.listingPage", listingNav: true },
   { path: "/orders", icon: ShoppingCart, labelKey: "nav.orders" },
@@ -118,6 +119,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const [toursNavOpen, setToursNavOpen] = useState(false);
   const [customersNavOpen, setCustomersNavOpen] = useState(false);
   const [listingNavOpen, setListingNavOpen] = useState(false);
+  const [messagesNavOpen, setMessagesNavOpen] = useState(false);
   const lang = useAuthStore((s) => s.language);
   const role = useAuthStore((s) => s.role);
   const { canAccessPath } = usePermissions();
@@ -131,6 +133,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
     location.pathname.startsWith("/admin/invoices");
   const isToursNavActive = location.pathname.startsWith("/admin/tours");
   const isListingNavActive = location.pathname.startsWith("/admin/listing");
+  const isMessagesNavActive = location.pathname.startsWith("/admin/tickets");
   const isCustomersNavActive =
     location.pathname.startsWith("/customers") || location.pathname.startsWith("/settings/companies");
   const isCompanyRole = isCompanyWorkspaceRole(role);
@@ -197,7 +200,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
         <nav className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 py-4 [-webkit-overflow-scrolling:touch]">
           <div className="space-y-0.5">
             {visibleNavigationItems.map((item) => {
-              const { path, icon: Icon, labelKey, financeNav, toursNav, customersNav, listingNav } = item;
+              const { path, icon: Icon, labelKey, financeNav, toursNav, customersNav, listingNav, messagesNav } = item;
               if (path === "/settings") {
                 return (
                   <div key={path}>
@@ -359,6 +362,33 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                   </div>
                 );
               }
+              if (messagesNav) {
+                return (
+                  <div key={path}>
+                    <button
+                      type="button"
+                      onClick={() => setMessagesNavOpen((v) => !v)}
+                      className={cn("propus-nav-item w-full", isMessagesNavActive && "active")}
+                    >
+                      <Icon className="h-5 w-5 flex-shrink-0" />
+                      <span className="truncate flex-1 text-left">{t(lang, labelKey)}</span>
+                      <ChevronDown className={cn("h-4 w-4 flex-shrink-0 transition-transform opacity-60", (messagesNavOpen || isMessagesNavActive) ? "rotate-180" : "")} />
+                    </button>
+                    {(messagesNavOpen || isMessagesNavActive) && (
+                      <div className="ml-4 mt-0.5 space-y-0.5 pl-3" style={{ borderLeft: "2px solid var(--border-soft)" }}>
+                        <NavLink to="/admin/tickets" end onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <Inbox className="h-4 w-4 flex-shrink-0" />
+                          {t(lang, "nav.messages.tickets")}
+                        </NavLink>
+                        <NavLink to="/admin/tickets?tab=inbox" onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <Mail className="h-4 w-4 flex-shrink-0" />
+                          {t(lang, "nav.messages.email")}
+                        </NavLink>
+                      </div>
+                    )}
+                  </div>
+                );
+              }
               return (
                 <NavLink key={path} to={path} onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item", isActive ? "active" : "")}>
                   {({ isActive }) => (
@@ -408,7 +438,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
         <nav className="flex-1 overflow-y-auto py-4 px-3">
           <div className="space-y-0.5">
             {visibleNavigationItems.map((item) => {
-              const { path, icon: Icon, labelKey, financeNav, toursNav, customersNav, listingNav } = item;
+              const { path, icon: Icon, labelKey, financeNav, toursNav, customersNav, listingNav, messagesNav } = item;
               if (path === "/settings") {
                 return (
                   <div key={path}>
@@ -632,6 +662,45 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                         <NavLink to="/admin/tours/portal-vorschau" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
                           <Eye className="h-4 w-4 flex-shrink-0" />
                           {t(lang, "nav.tours.portalPreview")}
+                        </NavLink>
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+              if (messagesNav) {
+                if (isCollapsed) {
+                  return (
+                    <NavLink
+                      key={path}
+                      to="/admin/tickets"
+                      title={t(lang, labelKey)}
+                      className={cn("propus-nav-item", isMessagesNavActive ? "active" : "")}
+                    >
+                      <Icon className={cn("h-5 w-5 flex-shrink-0", isMessagesNavActive ? "text-white" : "")} />
+                    </NavLink>
+                  );
+                }
+                return (
+                  <div key={path}>
+                    <button
+                      type="button"
+                      onClick={() => setMessagesNavOpen((v) => !v)}
+                      className={cn("propus-nav-item w-full", isMessagesNavActive && "active")}
+                    >
+                      <Icon className="h-5 w-5 flex-shrink-0" />
+                      <span className="truncate flex-1 text-left">{t(lang, labelKey)}</span>
+                      <ChevronDown className={cn("h-4 w-4 flex-shrink-0 transition-transform opacity-60", (messagesNavOpen || isMessagesNavActive) ? "rotate-180" : "")} />
+                    </button>
+                    {(messagesNavOpen || isMessagesNavActive) && (
+                      <div className="ml-4 mt-0.5 space-y-0.5 pl-3" style={{ borderLeft: "2px solid var(--border-soft)" }}>
+                        <NavLink to="/admin/tickets" end className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <Inbox className="h-4 w-4 flex-shrink-0" />
+                          {t(lang, "nav.messages.tickets")}
+                        </NavLink>
+                        <NavLink to="/admin/tickets?tab=inbox" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <Mail className="h-4 w-4 flex-shrink-0" />
+                          {t(lang, "nav.messages.email")}
                         </NavLink>
                       </div>
                     )}

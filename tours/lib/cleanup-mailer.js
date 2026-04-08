@@ -1,0 +1,615 @@
+/**
+ * Bereinigungslauf Mailer
+ *
+ * Zentrale Logik für den einmaligen Bereinigungslauf:
+ *  - Kandidaten-Touren ermitteln (≤ 6 Monate alt, E-Mail vorhanden, noch kein Abschluss)
+ *  - Cleanup-Regeln pro Tour-Status berechnen (welche Aktionen sind sinnvoll, Preise etc.)
+ *  - Mail-Inhalt aus Template `cleanup_review_request` rendern
+ *  - Tokens für 4 Aktionen (weiterfuehren / archivieren / uebertragen / loeschen) generieren
+ *  - Produktiver Versand inkl. Token-Persistenz und Logging
+ *  - Sandbox-Vorschau (dryRun=true): kein Versand, keine DB-Schreiboperationen
+ *  - Ticket-Erstellung bei freien E-Mail-Antworten
+ */
+
+'use strict';
+
+const { pool } = require('./db');
+const { logAction } = require('./actions');
+const { generateToken, hashToken } = require('./tokens');
+const { normalizeTourRow } = require('./normalize');
+const { getEmailTemplates, DEFAULT_EMAIL_TEMPLATES } = require('./settings');
+const tourActions = require('./tour-actions');
+const { sendGraphMailToCustomer, ensureOutgoingEmailSchema } = tourActions;
+const { EXTENSION_PRICE_CHF, REACTIVATION_PRICE_CHF, REACTIVATION_FEE_CHF } = require('./subscriptions');
+
+// ─── Hilfsfunktionen ─────────────────────────────────────────────────────────
+
+function formatDate(value) {
+  if (!value) return null;
+  try {
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  } catch {
+    return null;
+  }
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function mergeTemplate(templateStr, placeholders, options = {}) {
+  const { htmlMode = false, safeKeys = [] } = options;
+  if (!templateStr || typeof templateStr !== 'string') return '';
+  return templateStr.replace(/\{\{(\w+)\}\}/g, (_, key) => {
+    const val = placeholders[key];
+    if (val === undefined || val === null) return '';
+    if (htmlMode && !safeKeys.includes(key)) return escapeHtml(String(val));
+    return String(val);
+  });
+}
+
+function getPortalUrl() {
+  return (process.env.PORTAL_BASE_URL || process.env.CUSTOMER_BASE_URL || 'https://tour.propus.ch').replace(/\/$/, '') + '/portal';
+}
+
+function getCleanupBaseUrl() {
+  return (process.env.PORTAL_BASE_URL || process.env.CUSTOMER_BASE_URL || 'https://tour.propus.ch').replace(/\/$/, '');
+}
+
+const CLEANUP_TOKEN_TYPES = ['weiterfuehren', 'archivieren', 'uebertragen', 'loeschen'];
+
+// ─── Schema sicherstellen ────────────────────────────────────────────────────
+
+let schemaEnsured = false;
+async function ensureCleanupSchema() {
+  if (schemaEnsured) return;
+  // cleanup_tokens Tabelle: separat von customer_tokens, damit Aktions-Typ mehrdeutig sein kann
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS tour_manager.cleanup_tokens (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      tour_id INTEGER NOT NULL REFERENCES tour_manager.tours(id) ON DELETE CASCADE,
+      token TEXT NOT NULL UNIQUE,
+      action TEXT NOT NULL,
+      expires_at TIMESTAMPTZ NOT NULL,
+      used_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_cleanup_tokens_tour ON tour_manager.cleanup_tokens(tour_id)`);
+  // archived_at Spalte auf tours, wenn noch nicht vorhanden
+  await pool.query(`ALTER TABLE tour_manager.tours ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ`);
+  // cleanup_sent_at: wann wurde der Bereinigungslauf für diese Tour verschickt
+  await pool.query(`ALTER TABLE tour_manager.tours ADD COLUMN IF NOT EXISTS cleanup_sent_at TIMESTAMPTZ`);
+  // cleanup_action: welche Aktion hat der Kunde gewählt
+  await pool.query(`ALTER TABLE tour_manager.tours ADD COLUMN IF NOT EXISTS cleanup_action TEXT`);
+  // cleanup_action_at: wann wurde die Aktion ausgeführt
+  await pool.query(`ALTER TABLE tour_manager.tours ADD COLUMN IF NOT EXISTS cleanup_action_at TIMESTAMPTZ`);
+  schemaEnsured = true;
+}
+
+// ─── Cleanup-Regel pro Status ────────────────────────────────────────────────
+
+/**
+ * Berechnet die Cleanup-Regel für eine Tour anhand ihres Status.
+ * Gibt zurück:
+ *  - statusLabel: Anzeigename
+ *  - statusContext: Text-Kontext für die Mail
+ *  - weiterfuehrenHint: Beschreibung, was beim Klick auf "Weiterführen" passiert
+ *  - needsInvoice: muss nach "Weiterführen" eine neue Rechnung erstellt werden?
+ *  - invoiceAmount: Betrag in CHF (wenn needsInvoice)
+ *  - paymentMethods: ['online','qr'] oder []
+ *  - needsManualReview: muss ein Admin vor Rechnungserstellung prüfen?
+ *  - archivedWithin6Months: ist die Tour archiviert und nicht älter als 6 Monate?
+ */
+function computeCleanupRule(tour) {
+  const status = String(tour.status || '').toUpperCase();
+  const createdAt = tour.created_at ? new Date(tour.created_at) : null;
+  const archivedAt = tour.archived_at ? new Date(tour.archived_at) : null;
+  const now = new Date();
+  const sixMonthsAgo = new Date(now);
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+  const isWithin6Months = createdAt ? createdAt >= sixMonthsAgo : false;
+  const isArchivedWithin6Months = archivedAt ? archivedAt >= sixMonthsAgo : false;
+
+  const matterportState = String(tour.matterport_state || '').toLowerCase();
+  const isDeactivated = matterportState === 'inactive' || status === 'ARCHIVED';
+
+  if (status === 'ACTIVE' || status === 'EXPIRING_SOON') {
+    return {
+      statusLabel: status === 'EXPIRING_SOON' ? 'Läuft bald ab' : 'Aktiv',
+      statusContext: '',
+      statusContextText: '',
+      weiterfuehrenHint: 'Tour bleibt aktiv – keine Änderung',
+      needsInvoice: false,
+      invoiceAmount: null,
+      paymentMethods: [],
+      needsManualReview: false,
+      archivedWithin6Months: false,
+      isWithin6Months,
+    };
+  }
+
+  if (status === 'EXPIRED_PENDING_ARCHIVE' || (isDeactivated && status !== 'ARCHIVED')) {
+    return {
+      statusLabel: 'Abgelaufen',
+      statusContext: ' (Ihre Tour ist derzeit deaktiviert.)',
+      statusContextText: '(Ihre Tour ist derzeit deaktiviert.)',
+      weiterfuehrenHint: `Tour reaktivieren – neue Rechnung CHF ${EXTENSION_PRICE_CHF}.– / 6 Monate (online oder QR)`,
+      needsInvoice: true,
+      invoiceAmount: EXTENSION_PRICE_CHF,
+      paymentMethods: ['online', 'qr'],
+      needsManualReview: false,
+      archivedWithin6Months: false,
+      isWithin6Months,
+    };
+  }
+
+  if (status === 'ARCHIVED') {
+    // Archiviert < 6 Monate: kein pauschaler Preis, manueller Review
+    if (isArchivedWithin6Months) {
+      return {
+        statusLabel: 'Archiviert',
+        statusContext: ' (Ihre Tour wurde kürzlich archiviert. Da dies möglicherweise auf einen Fehler unsererseits zurückzuführen ist, klären wir den Preis intern – wir melden uns bei Ihnen.)',
+        statusContextText: '(Ihre Tour wurde kürzlich archiviert. Wir klären den Reaktivierungspreis intern.)',
+        weiterfuehrenHint: 'Reaktivierungswunsch senden – unser Team meldet sich für die Preisklärung',
+        needsInvoice: false,
+        invoiceAmount: null,
+        paymentMethods: [],
+        needsManualReview: true,
+        archivedWithin6Months: true,
+        isWithin6Months,
+      };
+    }
+    // Archiviert > 6 Monate: Standardpreis (Abo + Reaktivierungsgebühr)
+    return {
+      statusLabel: 'Archiviert',
+      statusContext: ' (Ihre Tour ist derzeit archiviert.)',
+      statusContextText: '(Ihre Tour ist derzeit archiviert.)',
+      weiterfuehrenHint: `Tour reaktivieren – neue Rechnung CHF ${REACTIVATION_PRICE_CHF}.– / 6 Monate (CHF ${EXTENSION_PRICE_CHF}.– Abo + CHF ${REACTIVATION_FEE_CHF}.– Reaktivierungsgebühr)`,
+      needsInvoice: true,
+      invoiceAmount: REACTIVATION_PRICE_CHF,
+      paymentMethods: ['online', 'qr'],
+      needsManualReview: false,
+      archivedWithin6Months: false,
+      isWithin6Months,
+    };
+  }
+
+  // Fallback für andere Stati
+  return {
+    statusLabel: status,
+    statusContext: '',
+    statusContextText: '',
+    weiterfuehrenHint: 'Tour weiterführen',
+    needsInvoice: false,
+    invoiceAmount: null,
+    paymentMethods: [],
+    needsManualReview: false,
+    archivedWithin6Months: false,
+    isWithin6Months,
+  };
+}
+
+// ─── Mail-Inhalt aufbauen ────────────────────────────────────────────────────
+
+async function buildCleanupEmailContent(tour, tokens, options = {}) {
+  const { dryRun = false } = options;
+  const rule = computeCleanupRule(tour);
+
+  const objectLabel = tour.object_label || tour.bezeichnung || tour.canonical_object_label || `Tour ${tour.id}`;
+  const customerGreeting = tour.customer_contact ? `Guten Tag ${tour.customer_contact},` : 'Guten Tag,';
+  const tourLink = tour.tour_url || (tour.matterport_space_id ? `https://my.matterport.com/show/?m=${tour.matterport_space_id}` : null);
+  const portalUrl = getPortalUrl();
+  const baseUrl = getCleanupBaseUrl();
+
+  const createdAtFormatted = formatDate(tour.matterport_created_at || tour.created_at) || '–';
+  const termEndFormatted = formatDate(tour.canonical_term_end_date || tour.term_end_date || tour.ablaufdatum) || '–';
+  const archivedAtFormatted = formatDate(tour.archived_at);
+
+  // Aktions-URLs
+  const buildUrl = (action, token) => {
+    if (dryRun) return `${baseUrl}/cleanup/preview?action=${action}&tour=${tour.id}`;
+    return `${baseUrl}/cleanup/${action}?token=${token}`;
+  };
+
+  const weiterfuehrenUrl = buildUrl('weiterfuehren', tokens?.weiterfuehren);
+  const archivierenUrl = buildUrl('archivieren', tokens?.archivieren);
+  const uebertragungUrl = buildUrl('uebertragen', tokens?.uebertragen);
+  const loeschenUrl = buildUrl('loeschen', tokens?.loeschen);
+
+  const tourLinkHtml = tourLink
+    ? `<strong>Virtueller Rundgang:</strong> <a href="${escapeHtml(tourLink)}">${escapeHtml(tourLink)}</a><br>`
+    : '';
+
+  const placeholders = {
+    objectLabel,
+    customerGreeting,
+    tourLinkHtml,
+    tourLinkText: tourLink ? `Virtueller Rundgang: ${tourLink}` : '',
+    portalUrl,
+    portalLinkHtml: `<a href="${escapeHtml(portalUrl)}">Meine Touren verwalten</a>`,
+    portalLinkText: `Kundenportal: ${portalUrl}`,
+    createdAt: createdAtFormatted,
+    termEndFormatted,
+    archivedAt: archivedAtFormatted || '',
+    archivedAtText: archivedAtFormatted ? `Archiviert am: ${archivedAtFormatted}\n` : '',
+    statusLabel: rule.statusLabel,
+    statusContextHtml: rule.statusContext ? `<br><em style="color:#6b7280;font-size:14px;">${escapeHtml(rule.statusContext)}</em>` : '',
+    statusContextText: rule.statusContextText,
+    weiterfuehrenHint: rule.weiterfuehrenHint,
+    weiterfuehrenUrl,
+    archivierenUrl,
+    uebertragungUrl,
+    loeschenUrl,
+  };
+
+  const templates = await getEmailTemplates();
+  const tpl = templates.cleanup_review_request || DEFAULT_EMAIL_TEMPLATES.cleanup_review_request || {};
+  const subjectRaw = tpl.subject || 'Handlungsbedarf: Bitte prüfen Sie Ihre Tour – {{objectLabel}}';
+  const htmlRaw = tpl.html || '';
+  const textRaw = tpl.text || '';
+
+  const safeKeys = ['tourLinkHtml', 'portalLinkHtml', 'statusContextHtml'];
+  const subject = mergeTemplate(subjectRaw, placeholders).trim();
+  const html = mergeTemplate(htmlRaw, placeholders, { htmlMode: true, safeKeys }).trim();
+  const text = mergeTemplate(textRaw, placeholders).trim();
+
+  return { subject, html, text, rule, placeholders };
+}
+
+// ─── Kandidaten-Touren ermitteln ─────────────────────────────────────────────
+//
+// Kandidaten-Regeln (6-Monats-Grenze):
+//  - Nicht-archivierte Touren: created_at innerhalb der letzten 6 Monate
+//  - Archivierte Touren: archived_at innerhalb der letzten 6 Monate
+//    (damit auch Touren die erst kürzlich archiviert wurden, aber älter sind, erfasst werden)
+//
+// Zusätzliche Bedingungen:
+//  - confirmation_required = TRUE (manuell für Bereinigungslauf markiert)
+//  - Kunden-E-Mail vorhanden
+//  - Noch keine cleanup_action durchgeführt
+//  - Noch keine cleanup_sent_at (falls nur neue Kandidaten gewünscht, kann per skipAlreadySent=false deaktiviert werden)
+
+async function getCleanupCandidates({ maxAgeMonths = 6, includeAlreadySent = false } = {}) {
+  await ensureCleanupSchema();
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - maxAgeMonths);
+  const cutoffIso = cutoff.toISOString();
+
+  // Zwei Gruppen:
+  //  1. Nicht-archivierte Touren: created_at >= cutoff
+  //  2. Archivierte Touren: archived_at >= cutoff (frisch archiviert, auch wenn Tour älter)
+  const r = await pool.query(
+    `SELECT * FROM tour_manager.tours
+     WHERE (
+       -- Gruppe 1: aktive/abgelaufene Touren, nicht älter als 6 Monate
+       (status != 'ARCHIVED' AND created_at >= $1)
+       OR
+       -- Gruppe 2: archivierte Touren, die innerhalb der letzten 6 Monate archiviert wurden
+       (status = 'ARCHIVED' AND (archived_at >= $1 OR created_at >= $1))
+     )
+       AND (customer_email IS NOT NULL AND TRIM(customer_email) != '')
+       AND (cleanup_action IS NULL)
+       AND (cleanup_sent_at IS NULL OR $2::boolean = TRUE)
+       AND confirmation_required = TRUE
+     ORDER BY COALESCE(archived_at, created_at) DESC`,
+    [cutoffIso, includeAlreadySent]
+  );
+  return r.rows.map(normalizeTourRow);
+}
+
+// ─── Produktiver Versand für eine Tour ───────────────────────────────────────
+
+async function sendCleanupMailForTour(tourId, actorType = 'admin', actorRef = null) {
+  await ensureCleanupSchema();
+  await ensureOutgoingEmailSchema();
+  const r = await pool.query('SELECT * FROM tour_manager.tours WHERE id = $1', [tourId]);
+  const tour = normalizeTourRow(r.rows[0]);
+  if (!tour) throw new Error('Tour nicht gefunden');
+  const email = String(tour.customer_email || '').trim().toLowerCase();
+  if (!email) throw new Error('Tour hat keine Kunden-E-Mail');
+
+  // Bereits versendet?
+  if (tour.cleanup_sent_at) {
+    throw new Error(`Bereinigungsmail wurde bereits am ${formatDate(tour.cleanup_sent_at)} versendet`);
+  }
+
+  // 6-Monats-Grenze prüfen (Schutz gegen Einzelversand an alte Touren)
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  const createdAt = tour.created_at ? new Date(tour.created_at) : null;
+  const archivedAt = tour.archived_at ? new Date(tour.archived_at) : null;
+  const isArchived = String(tour.status || '').toUpperCase() === 'ARCHIVED';
+  const withinWindow = isArchived
+    ? (archivedAt ? archivedAt >= sixMonthsAgo : false) || (createdAt ? createdAt >= sixMonthsAgo : false)
+    : createdAt ? createdAt >= sixMonthsAgo : false;
+  if (!withinWindow) {
+    throw new Error(`Tour ist älter als 6 Monate (erstellt: ${formatDate(createdAt) || '?'}). Bereinigungslauf gilt nur für Touren ≤ 6 Monate.`);
+  }
+
+  // Tokens generieren
+  const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+  const rawTokens = {};
+  const hashedTokens = {};
+  for (const action of CLEANUP_TOKEN_TYPES) {
+    rawTokens[action] = generateToken();
+    hashedTokens[action] = await hashToken(rawTokens[action]);
+  }
+
+  const { subject, html, text, rule } = await buildCleanupEmailContent(tour, rawTokens, { dryRun: false });
+
+  // Pseudo-Tour-Objekt für sendGraphMailToCustomer
+  const mailResult = await sendGraphMailToCustomer({ ...tour, customer_email: email }, { subject, html, text });
+
+  if (!mailResult.success) {
+    await logAction(tour.id, actorType, actorRef, 'CLEANUP_MAIL_FAILED', { error: mailResult.error });
+    throw new Error(mailResult.error || 'Versand fehlgeschlagen');
+  }
+
+  // Tokens persistieren
+  for (const action of CLEANUP_TOKEN_TYPES) {
+    await pool.query(
+      `INSERT INTO tour_manager.cleanup_tokens (tour_id, token, action, expires_at) VALUES ($1, $2, $3, $4)`,
+      [tour.id, hashedTokens[action], action, expiresAt.toISOString()]
+    );
+  }
+
+  // E-Mail protokollieren
+  await pool.query(
+    `INSERT INTO tour_manager.outgoing_emails
+       (tour_id, mailbox_upn, graph_message_id, internet_message_id, conversation_id,
+        recipient_email, subject, template_key, sent_at, details_json)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,'cleanup_review_request',NOW(),$8::jsonb)`,
+    [
+      tour.id,
+      mailResult.mailboxUpn || 'system',
+      mailResult.graphMessageId || null,
+      mailResult.internetMessageId || null,
+      mailResult.conversationId || null,
+      mailResult.recipientEmail || email,
+      subject,
+      JSON.stringify({ rule: { statusLabel: rule.statusLabel, needsInvoice: rule.needsInvoice, needsManualReview: rule.needsManualReview } }),
+    ]
+  );
+
+  // Tour: cleanup_sent_at setzen
+  await pool.query(
+    `UPDATE tour_manager.tours SET cleanup_sent_at = NOW(), updated_at = NOW() WHERE id = $1`,
+    [tour.id]
+  );
+
+  await logAction(tour.id, actorType, actorRef, 'CLEANUP_MAIL_SENT', {
+    recipientEmail: email,
+    rule: { statusLabel: rule.statusLabel, needsInvoice: rule.needsInvoice, needsManualReview: rule.needsManualReview },
+  });
+
+  return {
+    success: true,
+    tourId: tour.id,
+    recipientEmail: email,
+    subject,
+    rule,
+  };
+}
+
+// ─── Sandbox-Vorschau (kein DB-Write, kein Versand) ──────────────────────────
+
+async function sandboxPreviewForTour(tourId) {
+  await ensureCleanupSchema();
+  const r = await pool.query('SELECT * FROM tour_manager.tours WHERE id = $1', [tourId]);
+  const tour = normalizeTourRow(r.rows[0]);
+  if (!tour) throw new Error('Tour nicht gefunden');
+
+  const rule = computeCleanupRule(tour);
+
+  // Simulierte (nicht persistierte) Tokens
+  const fakeTokens = {};
+  for (const action of CLEANUP_TOKEN_TYPES) {
+    fakeTokens[action] = 'PREVIEW_' + action.toUpperCase();
+  }
+
+  const { subject, html, text } = await buildCleanupEmailContent(tour, fakeTokens, { dryRun: true });
+
+  const objectLabel = tour.object_label || tour.bezeichnung || tour.canonical_object_label || `Tour ${tour.id}`;
+
+  const actionPlan = {
+    weiterfuehren: {
+      label: 'Weiterführen',
+      hint: rule.weiterfuehrenHint,
+      needsInvoice: rule.needsInvoice,
+      invoiceAmount: rule.invoiceAmount,
+      paymentMethods: rule.paymentMethods,
+      needsManualReview: rule.needsManualReview,
+    },
+    archivieren: {
+      label: 'Archivieren',
+      hint: 'Tour wird archiviert, Matterport-Space deaktiviert',
+      needsInvoice: false,
+    },
+    uebertragen: {
+      label: 'Übertragen',
+      hint: 'Tour wird auf anderes Matterport-Konto übertragen (Pro Plan erforderlich)',
+      needsInvoice: false,
+    },
+    loeschen: {
+      label: 'Löschen',
+      hint: 'Tour und Matterport-Space werden dauerhaft gelöscht',
+      needsInvoice: false,
+    },
+  };
+
+  // 6-Monats-Fenster berechnen (weich: nur Warnung, kein Fehler im Sandbox)
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  const createdAt = tour.created_at ? new Date(tour.created_at) : null;
+  const archivedAt = tour.archived_at ? new Date(tour.archived_at) : null;
+  const isArchived = String(tour.status || '').toUpperCase() === 'ARCHIVED';
+  const withinCleanupWindow = isArchived
+    ? (archivedAt ? archivedAt >= sixMonthsAgo : false) || (createdAt ? createdAt >= sixMonthsAgo : false)
+    : createdAt ? createdAt >= sixMonthsAgo : false;
+
+  return {
+    dryRun: true,
+    tourId: tour.id,
+    objectLabel,
+    status: tour.status,
+    statusLabel: rule.statusLabel,
+    archivedWithin6Months: rule.archivedWithin6Months,
+    needsManualReview: rule.needsManualReview,
+    withinCleanupWindow,
+    withinCleanupWindowNote: !withinCleanupWindow
+      ? `Tour ist ausserhalb des 6-Monats-Fensters (${isArchived ? 'archiviert am' : 'erstellt am'}: ${formatDate(isArchived ? archivedAt : createdAt) || '?'}). Ein Versand wäre im Produktivbetrieb nicht möglich.`
+      : null,
+    isEligible: !tour.cleanup_sent_at && !!String(tour.customer_email || '').trim() && withinCleanupWindow,
+    alreadySent: !!tour.cleanup_sent_at,
+    alreadyDone: !!tour.cleanup_action,
+    email: String(tour.customer_email || '').trim(),
+    rule,
+    actionPlan,
+    mail: { subject, html, text },
+  };
+}
+
+// ─── Kundentoken einlösen (Aktion ausführen) ─────────────────────────────────
+
+async function redeemCleanupToken(rawToken, action) {
+  await ensureCleanupSchema();
+
+  // Alle noch nicht verwendeten Tokens für diese Aktion laden (Token selbst ist gehasht)
+  const allRows = await pool.query(
+    `SELECT * FROM tour_manager.cleanup_tokens
+     WHERE action = $1 AND used_at IS NULL AND expires_at > NOW()`,
+    [action]
+  );
+
+  let matchedRow = null;
+  for (const row of allRows.rows) {
+    const { verifyToken } = require('./tokens');
+    const ok = await verifyToken(rawToken, row.token);
+    if (ok) { matchedRow = row; break; }
+  }
+
+  if (!matchedRow) {
+    return { ok: false, error: 'Token ungültig, abgelaufen oder bereits verwendet' };
+  }
+
+  const tourResult = await pool.query('SELECT * FROM tour_manager.tours WHERE id = $1', [matchedRow.tour_id]);
+  const tour = normalizeTourRow(tourResult.rows[0]);
+  if (!tour) return { ok: false, error: 'Tour nicht gefunden' };
+
+  if (tour.cleanup_action) {
+    return { ok: false, error: 'Für diese Tour wurde bereits eine Aktion gewählt', alreadyDone: true, action: tour.cleanup_action };
+  }
+
+  // Token als benutzt markieren
+  await pool.query(`UPDATE tour_manager.cleanup_tokens SET used_at = NOW() WHERE id = $1`, [matchedRow.id]);
+
+  return { ok: true, tour, action };
+}
+
+// ─── Cleanup-Ticket erstellen (freie E-Mail-Antwort) ─────────────────────────
+
+async function createCleanupTicketFromIncomingMail({ tourId, senderEmail, subject, bodyText }) {
+  const ticketSubject = subject ? `Bereinigungslauf-Antwort: ${subject}` : 'Bereinigungslauf: Freie Kunden-Antwort';
+  const description = `Eingehende Kundenantwort auf Bereinigungsmail.\n\nVon: ${senderEmail}\nBetreff: ${subject || '–'}\n\n${bodyText || ''}`;
+
+  const r = await pool.query(
+    `INSERT INTO tour_manager.tickets
+       (module, reference_id, reference_type, category, subject, description, priority, created_by, created_by_role, status)
+     VALUES ('tours', $1, 'tour', 'sonstiges', $2, $3, 'normal', $4, 'customer', 'open')
+     RETURNING id`,
+    [String(tourId), ticketSubject, description, senderEmail]
+  );
+  return r.rows[0];
+}
+
+// ─── Batch-Versand mit Dry-Run-Unterstützung ─────────────────────────────────
+
+async function runCleanupBatch({ dryRun = true, tourIds = null, actorType = 'admin', actorRef = null } = {}) {
+  await ensureCleanupSchema();
+
+  let candidates;
+  if (tourIds && Array.isArray(tourIds) && tourIds.length > 0) {
+    const r = await pool.query(
+      `SELECT * FROM tour_manager.tours WHERE id = ANY($1::int[]) ORDER BY id ASC`,
+      [tourIds]
+    );
+    candidates = r.rows.map(normalizeTourRow);
+  } else {
+    candidates = await getCleanupCandidates();
+  }
+
+  const results = [];
+
+  for (const tour of candidates) {
+    const email = String(tour.customer_email || '').trim();
+    const skipped =
+      !email ||
+      !!tour.cleanup_sent_at ||
+      !!tour.cleanup_action;
+
+    if (skipped) {
+      results.push({
+        tourId: tour.id,
+        objectLabel: tour.canonical_object_label || tour.bezeichnung || `Tour ${tour.id}`,
+        status: tour.status,
+        email,
+        skipped: true,
+        skipReason: !email ? 'Keine E-Mail' : tour.cleanup_action ? 'Bereits abgeschlossen' : 'Bereits versendet',
+      });
+      continue;
+    }
+
+    if (dryRun) {
+      const rule = computeCleanupRule(tour);
+      await logAction(tour.id, actorType, actorRef, 'CLEANUP_BATCH_DRY_RUN', { rule: { statusLabel: rule.statusLabel } });
+      results.push({
+        tourId: tour.id,
+        objectLabel: tour.canonical_object_label || tour.bezeichnung || `Tour ${tour.id}`,
+        status: tour.status,
+        statusLabel: rule.statusLabel,
+        email,
+        skipped: false,
+        dryRun: true,
+        rule,
+      });
+    } else {
+      try {
+        const r = await sendCleanupMailForTour(tour.id, actorType, actorRef);
+        results.push({ tourId: tour.id, objectLabel: tour.canonical_object_label || `Tour ${tour.id}`, status: tour.status, email, skipped: false, success: true, rule: r.rule });
+      } catch (err) {
+        results.push({ tourId: tour.id, objectLabel: tour.canonical_object_label || `Tour ${tour.id}`, status: tour.status, email, skipped: false, success: false, error: err.message });
+      }
+    }
+  }
+
+  return {
+    dryRun,
+    total: candidates.length,
+    sent: results.filter((r) => !r.skipped && !r.dryRun && r.success).length,
+    skipped: results.filter((r) => r.skipped).length,
+    failed: results.filter((r) => !r.skipped && !r.dryRun && !r.success).length,
+    results,
+  };
+}
+
+module.exports = {
+  ensureCleanupSchema,
+  computeCleanupRule,
+  buildCleanupEmailContent,
+  getCleanupCandidates,
+  sendCleanupMailForTour,
+  sandboxPreviewForTour,
+  redeemCleanupToken,
+  createCleanupTicketFromIncomingMail,
+  runCleanupBatch,
+  CLEANUP_TOKEN_TYPES,
+};

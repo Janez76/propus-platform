@@ -508,12 +508,36 @@ async function transferSpace(spaceId, toEmail) {
   }
 }
 
+/**
+ * Löscht einen Matterport-Space dauerhaft über die REST API (DELETE /api/models/:id).
+ * Dies ist unwiderruflich – der Space verschwindet aus my.matterport.com.
+ */
+async function deleteSpace(spaceId) {
+  if (!spaceId) return { success: false, error: 'Keine Space-ID angegeben' };
+  const auth = await getAuthHeader();
+  if (!auth) return { success: false, error: 'Matterport-API-Credentials nicht konfiguriert' };
+
+  // Matterport API: Löschen nur via GraphQL-Mutation deleteModel
+  // https://static.matterport.com/api-doc/2025.12.61-main-g0e75d52/reference/graphdoc/model/mutation.doc.html
+  const { data, errors } = await graphRequest(
+    `mutation DeleteModel($modelId: ID!) { deleteModel(modelId: $modelId) }`,
+    { modelId: spaceId }
+  );
+
+  if (data?.deleteModel === true) return { success: true };
+
+  const errMsg = errors?.[0]?.message || (data?.deleteModel === null ? 'Nicht gefunden oder kein Zugriff' : 'Unbekannter Fehler');
+  console.warn('Matterport deleteSpace', spaceId, errMsg);
+  return { success: false, error: errMsg };
+}
+
 module.exports = {
   listModels,
   getModel,
   getOwnModelIds,
   archiveSpace,
   unarchiveSpace,
+  deleteSpace,
   transferSpace,
   patchModelOptions,
   allowsLinkWithoutVerify,

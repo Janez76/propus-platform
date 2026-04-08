@@ -756,6 +756,118 @@ Ihre Rechnungen und Touren: {{portalLinkText}}
 Freundliche Grüsse
 Ihr Propus Team`,
   },
+  cleanup_review_request: {
+    name: 'Bereinigungslauf – Prüfanfrage',
+    description: 'Einmaliger Bereinigungslauf: Kunde wählt zwischen Weiterführen, Archivieren, Übertragen oder Löschen. Jeder Button führt auf eine signierte Bestätigungsseite.',
+    category: 'vorbereitet',
+    subject: 'Handlungsbedarf: Bitte prüfen Sie Ihre Tour – {{objectLabel}}',
+    html: buildEmailFrame({
+      preheader: 'Bitte prüfen Sie Ihre Tour und wählen Sie eine Aktion',
+      title: 'Bitte prüfen Sie Ihre Tour',
+      introHtml: `<p style="margin:0 0 14px;">{{customerGreeting}}</p><p style="margin:0;">Im Zuge einer Neuorganisation unserer Touren bitten wir Sie, die folgende Tour zu prüfen und eine Aktion zu wählen.{{statusContextHtml}}</p>`,
+      summaryHtml: buildSummaryCard(
+        [
+          { label: 'Objekt', value: '{{objectLabel}}' },
+          { label: 'Erstellt am', value: '{{createdAt}}' },
+          { label: 'Abo gültig bis', value: '{{termEndFormatted}}' },
+          { label: 'Archiviert am', value: '{{archivedAt}}' },
+          { label: 'Status', value: '{{statusLabel}}' },
+        ],
+        `<div style="padding-top:2px;color:#4b5563;font-size:14px;line-height:1.7;">{{tourLinkHtml}}</div>`
+      ),
+      bodyHtml: `
+        <div style="background:#fff;border:1px solid #ece5d7;border-radius:24px;padding:20px 24px;">
+          <div style="font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#9a7619;margin-bottom:14px;">Bitte wählen Sie eine Aktion</div>
+
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-bottom:10px;">
+            <tr style="background:#f9fafb;border-radius:14px;">
+              <td style="padding:13px 16px;border-radius:14px;border:1px solid #e5e7eb;">
+                <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:2px;">&#10003;&nbsp; Weiterführen</div>
+                <div style="font-size:11px;color:#6b7280;line-height:1.5;">{{weiterfuehrenHint}}</div>
+              </td>
+              <td style="padding:13px 16px;vertical-align:middle;white-space:nowrap;">
+                <a href="{{weiterfuehrenUrl}}" style="display:inline-block;padding:9px 18px;border-radius:999px;background:linear-gradient(135deg,#B68E20 0%,#7a6318 100%);color:#fff;text-decoration:none;font-size:12px;font-weight:700;">Weiterführen</a>
+              </td>
+            </tr>
+          </table>
+
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-bottom:10px;">
+            <tr style="background:#fffbeb;border-radius:14px;">
+              <td style="padding:13px 16px;border-radius:14px;border:1px solid #fcd34d;">
+                <div style="font-size:13px;font-weight:700;color:#92400e;margin-bottom:2px;">&#128193;&nbsp; Archivieren</div>
+                <div style="font-size:11px;color:#b45309;line-height:1.5;">Tour wird deaktiviert und archiviert<br>
+                  <span style="display:inline-block;margin-top:6px;padding:6px 10px;background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;color:#92400e;">
+                    &#9888;&#65039; <strong>Kostenhinweis:</strong> Eine Reaktivierung ist kostenpflichtig.<br>
+                    Abo-Plan: <strong>CHF 59.– / 6 Monate</strong> + Reaktivierungsgebühr: <strong>CHF 15.–</strong>
+                  </span>
+                </div>
+              </td>
+              <td style="padding:13px 16px;vertical-align:top;white-space:nowrap;padding-top:13px;">
+                <a href="{{archivierenUrl}}" style="display:inline-block;padding:9px 18px;border-radius:999px;background:#d97706;color:#fff;text-decoration:none;font-size:12px;font-weight:700;">Archivieren</a>
+              </td>
+            </tr>
+          </table>
+
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-bottom:10px;">
+            <tr style="background:#f0f7ff;border-radius:14px;">
+              <td style="padding:13px 16px;border-radius:14px;border:1px solid #bfdbfe;">
+                <div style="font-size:13px;font-weight:700;color:#1e40af;margin-bottom:2px;">&#8599;&nbsp; Übertragen</div>
+                <div style="font-size:11px;color:#3b82f6;line-height:1.5;">Tour auf anderes Matterport-Konto übertragen<br>
+                  <span style="color:#6b7280;">Nur mit Matterport Pro Plan möglich</span>
+                </div>
+              </td>
+              <td style="padding:13px 16px;vertical-align:top;white-space:nowrap;padding-top:13px;">
+                <a href="{{uebertragungUrl}}" style="display:inline-block;padding:9px 18px;border-radius:999px;background:#1d4ed8;color:#fff;text-decoration:none;font-size:12px;font-weight:700;">Übertragen</a>
+              </td>
+            </tr>
+          </table>
+
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+            <tr style="background:#fff5f5;border-radius:14px;">
+              <td style="padding:13px 16px;border-radius:14px;border:1px solid #fca5a5;">
+                <div style="font-size:13px;font-weight:700;color:#b91c1c;margin-bottom:2px;">&#10005;&nbsp; Löschen</div>
+                <div style="font-size:11px;color:#ef4444;line-height:1.5;">Permanent löschen – auch in Matterport<br>
+                  <strong style="font-size:11px;color:#b91c1c;">Nicht wiederherstellbar</strong>
+                </div>
+              </td>
+              <td style="padding:13px 16px;vertical-align:top;white-space:nowrap;padding-top:13px;">
+                <a href="{{loeschenUrl}}" style="display:inline-block;padding:9px 18px;border-radius:999px;background:#dc2626;color:#fff;text-decoration:none;font-size:12px;font-weight:700;">Löschen</a>
+              </td>
+            </tr>
+          </table>
+        </div>
+      `,
+      noteHtml: buildInfoCallout('&#9993;', 'Direktnachricht ans Propus Team', 'Haben Sie Fragen oder Anmerkungen? Antworten Sie direkt auf diese E-Mail – wir melden uns so bald wie möglich.'),
+    }),
+    text: `{{customerGreeting}}
+
+Im Zuge einer Neuorganisation unserer Touren bitten wir Sie, die folgende Tour zu prüfen und eine Aktion zu wählen.
+{{statusContextText}}
+
+Objekt: {{objectLabel}}
+Erstellt am: {{createdAt}}
+Abo gültig bis: {{termEndFormatted}}
+{{archivedAtText}}{{tourLinkText}}
+
+Bitte wählen Sie eine Aktion:
+
+✓ Weiterführen – {{weiterfuehrenHint}}
+{{weiterfuehrenUrl}}
+
+📁 Archivieren (Tour wird deaktiviert und archiviert; Reaktivierung kostet CHF 74.–)
+{{archivierenUrl}}
+
+↗ Übertragen (Tour auf anderes Matterport-Konto; nur mit Pro Plan)
+{{uebertragungUrl}}
+
+✕ Löschen (permanent, nicht wiederherstellbar)
+{{loeschenUrl}}
+
+Bei Fragen antworten Sie direkt auf diese E-Mail.
+
+Freundliche Grüsse
+Ihr Propus Team`,
+  },
   team_invite: {
     name: 'Team-Einladung Admin',
     description: 'Einladung für neue Team-Mitglieder mit Admin-Zugang.',

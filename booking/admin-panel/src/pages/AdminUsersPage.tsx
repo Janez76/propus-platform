@@ -467,7 +467,7 @@ export function AdminUsersPage() {
               <Plus className="h-4 w-4" strokeWidth={2} />
               Neuer interner Benutzer
             </button>
-          ) : null}
+          )}
         </header>
 
         <div className="mb-6 inline-flex rounded-xl border p-1" style={{ borderColor: BORDER, backgroundColor: S1 }}>

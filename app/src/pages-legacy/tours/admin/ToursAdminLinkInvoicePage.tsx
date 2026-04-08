@@ -1,10 +1,25 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
-import { getToursAdminLinkInvoice, postLinkInvoiceToTour } from "../../../api/toursAdmin";
+import { ArrowLeft, UserCheck } from "lucide-react";
+import { getToursAdminLinkInvoice, postLinkInvoiceToTour, postLinkExxasCustomerToTour } from "../../../api/toursAdmin";
 import { useQuery } from "../../../hooks/useQuery";
 import { toursAdminLinkInvoiceQueryKey } from "../../../lib/queryKeys";
 import type { ToursAdminTourRow } from "../../../types/toursAdmin";
+
+interface ContactSuggestion {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+}
+
+interface CustomerSuggestion {
+  id: number;
+  display_name: string;
+  email: string;
+  ref: string;
+  contacts: ContactSuggestion[];
+}
 
 function tourTitle(t: ToursAdminTourRow) {
   return (
@@ -33,7 +48,8 @@ function exxasStatusMeta(row: Record<string, unknown>) {
   const labelMap: Record<string, string> = {
     bz: "Bezahlt",
     op: "Offen",
-    ex: "Exportiert",
+    ex: "Verschickt",
+    vs: "Verschickt",
     ar: "Archiviert",
     ab: "Abgeschlossen",
   };
@@ -74,6 +90,10 @@ export function ToursAdminLinkInvoicePage() {
 
   const { data, loading, error, refetch } = useQuery(qk, queryFn, { enabled: !!okId, staleTime: 15_000 });
   const [linkingId, setLinkingId] = useState<string | number | null>(null);
+  const [customerSuggestion, setCustomerSuggestion] = useState<CustomerSuggestion | null>(null);
+  // "customer" = Schritt 1 Kundenbestätigung, "contact" = Schritt 2 Kontaktauswahl
+  const [suggestionStep, setSuggestionStep] = useState<"customer" | "contact">("customer");
+  const [assigningCustomer, setAssigningCustomer] = useState(false);
 
   if (!okId) {
     return <Navigate to="/admin/tours/list" replace />;
@@ -88,14 +108,48 @@ export function ToursAdminLinkInvoicePage() {
 
   async function linkInvoice(invoiceId: string | number) {
     setLinkingId(invoiceId);
+    setCustomerSuggestion(null);
+    setSuggestionStep("customer");
     try {
-      await postLinkInvoiceToTour(tourId, invoiceId);
+      const result = await postLinkInvoiceToTour(tourId, invoiceId) as Record<string, unknown>;
+      if (result?.customerSuggestion) {
+        setCustomerSuggestion(result.customerSuggestion as CustomerSuggestion);
+        setSuggestionStep("customer");
+      }
       void refetch({ force: true });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Fehler";
       alert(msg);
     } finally {
       setLinkingId(null);
+    }
+  }
+
+  function confirmCustomer() {
+    if (!customerSuggestion) return;
+    if (customerSuggestion.contacts.length > 0) {
+      setSuggestionStep("contact");
+    } else {
+      void assignSuggestedCustomer(null);
+    }
+  }
+
+  async function assignSuggestedCustomer(contact: ContactSuggestion | null) {
+    if (!customerSuggestion) return;
+    setAssigningCustomer(true);
+    try {
+      await postLinkExxasCustomerToTour(tourId, {
+        customer_id: customerSuggestion.id,
+        customer_name: customerSuggestion.display_name,
+        customer_email: contact?.email || customerSuggestion.email || undefined,
+        customer_contact: contact?.name || undefined,
+      });
+      setCustomerSuggestion(null);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Fehler beim Zuordnen";
+      alert(msg);
+    } finally {
+      setAssigningCustomer(false);
     }
   }
 
@@ -139,6 +193,96 @@ export function ToursAdminLinkInvoicePage() {
         <p className="text-sm text-amber-700 dark:text-amber-400">
           Exxas-Livedaten konnten nicht geladen werden: {liveError}
         </p>
+      ) : null}
+
+      {customerSuggestion && suggestionStep === "customer" ? (
+        <div className="rounded-lg border border-emerald-500/30 bg-emerald-50 px-4 py-3 text-sm dark:bg-emerald-950/20 space-y-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <UserCheck className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+            <div className="flex-1">
+              <span className="font-medium text-emerald-800 dark:text-emerald-300">Kunde gefunden: </span>
+              <span className="text-emerald-800 dark:text-emerald-200">{customerSuggestion.display_name}</span>
+              {customerSuggestion.email ? (
+                <span className="text-emerald-700/70 dark:text-emerald-400/70 ml-1">· {customerSuggestion.email}</span>
+              ) : null}
+              {customerSuggestion.ref ? (
+                <span className="text-emerald-700/70 dark:text-emerald-400/70 ml-1">· Nr. {customerSuggestion.ref}</span>
+              ) : null}
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={assigningCustomer}
+                onClick={confirmCustomer}
+                className="rounded bg-emerald-600 px-3 py-1 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {assigningCustomer ? "…" : customerSuggestion.contacts.length > 0 ? "Weiter →" : "Zuordnen"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setCustomerSuggestion(null)}
+                className="rounded border border-emerald-400/40 px-3 py-1 text-xs text-emerald-700 hover:bg-emerald-100 dark:text-emerald-400 dark:hover:bg-emerald-900/30"
+              >
+                Überspringen
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {customerSuggestion && suggestionStep === "contact" ? (
+        <div className="rounded-lg border border-emerald-500/30 bg-emerald-50 px-4 py-4 text-sm dark:bg-emerald-950/20 space-y-3">
+          <div className="flex items-center gap-2">
+            <UserCheck className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+            <span className="font-medium text-emerald-800 dark:text-emerald-300">
+              Kontakt / Mitarbeiter auswählen
+            </span>
+            <span className="text-emerald-700/60 dark:text-emerald-400/60 text-xs">
+              · {customerSuggestion.display_name}
+            </span>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {customerSuggestion.contacts.map((ct) => (
+              <button
+                key={ct.id}
+                type="button"
+                disabled={assigningCustomer}
+                onClick={() => void assignSuggestedCustomer(ct)}
+                className="flex flex-col items-start rounded border border-emerald-400/30 bg-white px-3 py-2 text-left hover:border-emerald-500 hover:bg-emerald-50 disabled:opacity-50 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/40"
+              >
+                <span className="font-medium text-emerald-800 dark:text-emerald-200">{ct.name || "—"}</span>
+                {ct.role ? <span className="text-xs text-emerald-600/70 dark:text-emerald-400/70">{ct.role}</span> : null}
+                {ct.email ? <span className="text-xs text-emerald-600/70 dark:text-emerald-400/70">{ct.email}</span> : null}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button
+              type="button"
+              disabled={assigningCustomer}
+              onClick={() => void assignSuggestedCustomer(null)}
+              className="text-xs text-emerald-700 underline hover:text-emerald-900 dark:text-emerald-400 disabled:opacity-50"
+            >
+              {assigningCustomer ? "…" : "Ohne Kontakt zuordnen"}
+            </button>
+            <span className="text-emerald-400/40">·</span>
+            <button
+              type="button"
+              onClick={() => setSuggestionStep("customer")}
+              className="text-xs text-emerald-700 underline hover:text-emerald-900 dark:text-emerald-400"
+            >
+              ← Zurück
+            </button>
+            <span className="text-emerald-400/40">·</span>
+            <button
+              type="button"
+              onClick={() => setCustomerSuggestion(null)}
+              className="text-xs text-emerald-700/60 underline hover:text-emerald-900 dark:text-emerald-400/60"
+            >
+              Überspringen
+            </button>
+          </div>
+        </div>
       ) : null}
 
       <form onSubmit={applySearch} className="flex flex-wrap gap-2 items-end">

@@ -31,9 +31,10 @@ const {
   DEFAULT_INVOICE_CREDITOR,
 } = require('../lib/settings');
 const { logAction } = require('../lib/actions');
+const cleanupMailer = require('../lib/cleanup-mailer');
 const { getAiConfig, chatWithAi } = require('../lib/ai');
 const { listActionDefinitions, listRiskDefinitions } = require('../lib/admin-actions-schema');
-const { sendMailDirect, getGraphConfig } = require('../lib/microsoft-graph');
+const { sendMailDirect, getGraphConfig, fetchMailboxMessages } = require('../lib/microsoft-graph');
 const adminCustomersApi = require('../lib/admin-customers-api');
 const portalRolesLib = require('../lib/admin-portal-roles');
 const portalTeam = require('../lib/portal-team');
@@ -270,7 +271,9 @@ router.get('/tours', async (req, res) => {
       q: search,
     } = req.query;
 
-    const pageSize = 10;
+    const ALLOWED_PAGE_SIZES = [10, 25, 50, 100];
+    const requestedLimit = parseInt(String(req.query.limit || ''), 10) || 0;
+    const pageSize = requestedLimit === 0 ? 0 : (ALLOWED_PAGE_SIZES.includes(requestedLimit) ? requestedLimit : 25);
     const requestedPage = Math.max(parseInt(String(req.query.page || ''), 10) || 1, 1);
     let baseQ = `FROM tour_manager.tours t WHERE 1=1`;
     const filterParams = [];
@@ -351,9 +354,10 @@ router.get('/tours', async (req, res) => {
 
     const totalCountRes = await pool.query(`SELECT COUNT(*)::int AS cnt ${baseQ}`, filterParams);
     const totalItems = totalCountRes.rows[0]?.cnt || 0;
-    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+    const effectivePageSize = pageSize === 0 ? totalItems || 1 : pageSize;
+    const totalPages = Math.max(1, Math.ceil(totalItems / effectivePageSize));
     const page = Math.min(requestedPage, totalPages);
-    const offset = (page - 1) * pageSize;
+    const offset = (page - 1) * effectivePageSize;
     const sortCol = SORT_COLUMNS[String(sort)] ? String(sort) : 'matterport_created';
     const sortDir = order === 'asc' ? 'ASC' : 'DESC';
     const orderExpr = SORT_COLUMNS[sortCol] || SORT_COLUMNS.ablaufdatum;
@@ -364,7 +368,7 @@ router.get('/tours', async (req, res) => {
     ORDER BY ${verifiedLast}${orderExpr} ${sortDir} NULLS LAST`;
     const params = [...filterParams];
     q += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
-    params.push(pageSize, offset);
+    params.push(effectivePageSize, offset);
     const r = await pool.query(q, params);
     const normalizedTourRows = r.rows.map(normalizeTourRow);
 
@@ -582,7 +586,8 @@ router.get('/tours', async (req, res) => {
       order: order === 'desc' ? 'desc' : 'asc',
       pagination: {
         page,
-        pageSize,
+        pageSize: effectivePageSize,
+        requestedPageSize: pageSize,
         totalItems,
         totalPages,
         hasPrev: page > 1,
@@ -838,6 +843,689 @@ router.post('/run-confirmation-batch', async (req, res) => {
       message: 'Kein E-Mail-Versand — nur protokolliert (Dry-Run).',
     });
   } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ─── Bereinigungslauf (Cleanup) ───────────────────────────────────────────────
+
+// Kandidaten auflisten (Touren ≤ 6 Monate, E-Mail vorhanden, noch kein Abschluss)
+router.get('/cleanup/candidates', async (req, res) => {
+  try {
+    const tours = await cleanupMailer.getCleanupCandidates();
+    return res.json({ ok: true, count: tours.length, tours });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Sandbox-Vorschau für genau eine Tour (kein Versand, kein DB-Write)
+router.get('/cleanup/sandbox/:id', async (req, res) => {
+  try {
+    const preview = await cleanupMailer.sandboxPreviewForTour(req.params.id);
+    return res.json({ ok: true, ...preview });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Batch-Dry-Run (simuliert Versand für alle Kandidaten)
+router.post('/cleanup/batch-dry-run', async (req, res) => {
+  try {
+    const { tourIds } = req.body || {};
+    const result = await cleanupMailer.runCleanupBatch({
+      dryRun: true,
+      tourIds: Array.isArray(tourIds) ? tourIds : null,
+      actorType: 'admin',
+      actorRef: adminEmail(req),
+    });
+    return res.json({ ok: true, ...result });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Produktiver Batch-Versand
+router.post('/cleanup/batch-send', async (req, res) => {
+  try {
+    const { tourIds } = req.body || {};
+    const result = await cleanupMailer.runCleanupBatch({
+      dryRun: false,
+      tourIds: Array.isArray(tourIds) ? tourIds : null,
+      actorType: 'admin',
+      actorRef: adminEmail(req),
+    });
+    return res.json({ ok: true, ...result });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Einzelversand für eine Tour
+router.post('/cleanup/send/:id', async (req, res) => {
+  try {
+    const result = await cleanupMailer.sendCleanupMailForTour(
+      req.params.id,
+      'admin',
+      adminEmail(req)
+    );
+    return res.json({ ok: true, ...result });
+  } catch (err) {
+    return res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+// Ticket aus freier E-Mail-Antwort auf Bereinigungsmail erstellen
+// Wird von Mail-Listener / Graph-Webhook aufgerufen (oder manuell durch Admin)
+// Body: { senderEmail, subject, bodyText, conversationId?, tourId? }
+router.post('/cleanup/incoming-reply', async (req, res) => {
+  try {
+    const { senderEmail, subject, bodyText, conversationId, tourId: explicitTourId } = req.body || {};
+    if (!senderEmail && !explicitTourId) {
+      return res.status(400).json({ ok: false, error: 'senderEmail oder tourId erforderlich' });
+    }
+
+    let resolvedTourId = explicitTourId || null;
+
+    // Wenn kein tourId angegeben: per conversationId in outgoing_emails nachschlagen
+    if (!resolvedTourId && conversationId) {
+      const r = await pool.query(
+        `SELECT tour_id FROM tour_manager.outgoing_emails
+         WHERE conversation_id = $1 AND template_key = 'cleanup_review_request'
+         ORDER BY sent_at DESC LIMIT 1`,
+        [String(conversationId)]
+      );
+      if (r.rows[0]?.tour_id) resolvedTourId = r.rows[0].tour_id;
+    }
+
+    // Fallback: per Absender-E-Mail in tours suchen
+    if (!resolvedTourId && senderEmail) {
+      const r = await pool.query(
+        `SELECT id FROM tour_manager.tours
+         WHERE LOWER(customer_email) = LOWER($1) AND cleanup_sent_at IS NOT NULL
+         ORDER BY cleanup_sent_at DESC LIMIT 1`,
+        [String(senderEmail)]
+      );
+      if (r.rows[0]?.id) resolvedTourId = r.rows[0].id;
+    }
+
+    if (!resolvedTourId) {
+      return res.status(404).json({ ok: false, error: 'Keine Bereinigungsmail-Tour für diesen Absender gefunden' });
+    }
+
+    const ticket = await cleanupMailer.createCleanupTicketFromIncomingMail({
+      tourId: resolvedTourId,
+      senderEmail: senderEmail || '',
+      subject: subject || '',
+      bodyText: bodyText || '',
+    });
+
+    await logAction(resolvedTourId, 'system', senderEmail || 'unknown', 'CLEANUP_INCOMING_REPLY_TICKET', {
+      ticketId: ticket?.id,
+      conversationId,
+    });
+
+    return res.json({ ok: true, ticketId: ticket?.id, tourId: resolvedTourId });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ─── Posteingang lesen und Kunden-Zuordnungen ermitteln ──────────────────────
+// Liest Nachrichten aus office@propus.ch (oder konfigurierten Mailboxen)
+// und versucht sie Touren / Kunden zuzuordnen.
+// Query-Parameter:
+//   mailbox  – E-Mail-Adresse (default: office@propus.ch oder konfig)
+//   top      – Anzahl Nachrichten (default: 50, max: 200)
+//   folder   – Ordner (default: inbox)
+//   since    – ISO-Datum-Filter (optional)
+//   matchTours – boolean (default: true) – Nachrichten Touren zuordnen
+router.get('/mail/inbox', async (req, res) => {
+  try {
+    const config = getGraphConfig();
+    const mailbox = String(req.query.mailbox || config.mailboxUpn || 'office@propus.ch').trim();
+    const top = Math.min(parseInt(req.query.top || '50', 10) || 50, 200);
+    const folder = String(req.query.folder || 'inbox').trim();
+    const sinceDate = req.query.since ? String(req.query.since).trim() : null;
+    const matchTours = req.query.matchTours !== 'false';
+
+    const { messages, error } = await fetchMailboxMessages({ mailboxUpn: mailbox, folder, top, sinceDate });
+    if (error) return res.status(502).json({ ok: false, error });
+
+    if (!matchTours) {
+      return res.json({ ok: true, mailbox, folder, total: messages.length, messages });
+    }
+
+    // Für jeden Absender: Touren und Kunden in DB nachschlagen
+    const senderEmails = [...new Set(messages.map((m) => m.fromEmail).filter(Boolean))];
+    const toursByEmail = {};
+    const customersByEmail = {};
+
+    if (senderEmails.length > 0) {
+      const tourRes = await pool.query(
+        `SELECT id, bezeichnung, customer_name, customer_email, customer_id, status, matterport_space_id
+         FROM tour_manager.tours
+         WHERE LOWER(customer_email) = ANY($1::text[])
+         ORDER BY id DESC`,
+        [senderEmails]
+      );
+      for (const row of tourRes.rows) {
+        const em = (row.customer_email || '').toLowerCase();
+        if (!toursByEmail[em]) toursByEmail[em] = [];
+        toursByEmail[em].push(row);
+      }
+
+      const custRes = await pool.query(
+        `SELECT id, name, email FROM core.customers
+         WHERE LOWER(email) = ANY($1::text[])
+            OR id IN (
+              SELECT customer_id FROM core.customer_contacts
+              WHERE LOWER(email) = ANY($1::text[]) AND customer_id IS NOT NULL
+            )`,
+        [senderEmails]
+      );
+      for (const row of custRes.rows) {
+        const em = (row.email || '').toLowerCase();
+        if (!customersByEmail[em]) customersByEmail[em] = [];
+        customersByEmail[em].push(row);
+      }
+    }
+
+    const enriched = messages.map((m) => {
+      const em = (m.fromEmail || '').toLowerCase();
+      return {
+        ...m,
+        matchedTours: toursByEmail[em] || [],
+        matchedCustomers: customersByEmail[em] || [],
+      };
+    });
+
+    // Zusammenfassung: Absender die einer Tour oder einem Kunden zugeordnet werden können
+    const withMatch = enriched.filter((m) => m.matchedTours.length > 0 || m.matchedCustomers.length > 0);
+    const withoutMatch = enriched.filter((m) => m.matchedTours.length === 0 && m.matchedCustomers.length === 0);
+
+    return res.json({
+      ok: true,
+      mailbox,
+      folder,
+      total: messages.length,
+      withMatch: withMatch.length,
+      withoutMatch: withoutMatch.length,
+      messages: enriched,
+    });
+  } catch (err) {
+    console.error('[admin-api] mail/inbox:', err.message);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ─── Postausgang lesen (outgoing_emails) ─────────────────────────────────────
+// GET /mail/sent?tourId=&limit=&templateKey=
+router.get('/mail/sent', async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit || '50', 10) || 50, 500);
+    const tourId = req.query.tourId ? parseInt(req.query.tourId, 10) : null;
+    const templateKey = req.query.templateKey ? String(req.query.templateKey).trim() : null;
+
+    let q = `SELECT oe.*, t.bezeichnung as tour_bezeichnung, t.customer_name, t.customer_email as tour_customer_email
+             FROM tour_manager.outgoing_emails oe
+             LEFT JOIN tour_manager.tours t ON t.id = oe.tour_id`;
+    const params = [];
+    const conditions = [];
+    if (tourId) { params.push(tourId); conditions.push(`oe.tour_id = $${params.length}`); }
+    if (templateKey) { params.push(templateKey); conditions.push(`oe.template_key = $${params.length}`); }
+    if (conditions.length > 0) q += ' WHERE ' + conditions.join(' AND ');
+    q += ` ORDER BY oe.sent_at DESC LIMIT $${params.length + 1}`;
+    params.push(limit);
+
+    const r = await pool.query(q, params);
+    return res.json({ ok: true, total: r.rows.length, emails: r.rows });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ─── Postausgang: Kunden-Zuordnung für Touren ohne Kunden ────────────────────
+// Sucht im Postausgang (outgoing_emails) nach gesendeten Mails an Touren ohne
+// Kundenzuordnung und liest den Empfänger als Kunden-E-Mail aus.
+// Kann auch nach einer bestimmten Space-ID suchen.
+//
+// GET  /mail/sent-customer-match?spaceId=&dryRun=true
+// POST /mail/sent-customer-match/apply  → verknüpft alle gefundenen Matches
+router.get('/mail/sent-customer-match', async (req, res) => {
+  try {
+    const spaceId = req.query.spaceId ? String(req.query.spaceId).trim() : null;
+
+    // Alle gesendeten Mails für Touren die noch keinen Kunden haben
+    let q;
+    let params;
+
+    if (spaceId) {
+      // Spezifische Space-ID: Tour finden, dann Mails
+      q = `SELECT oe.tour_id, oe.recipient_email, oe.subject, oe.sent_at, oe.template_key,
+                  t.bezeichnung, t.matterport_space_id, t.status,
+                  t.customer_id, t.customer_name, t.customer_email
+           FROM tour_manager.outgoing_emails oe
+           JOIN tour_manager.tours t ON t.id = oe.tour_id
+           WHERE t.matterport_space_id = $1
+           ORDER BY oe.sent_at DESC
+           LIMIT 50`;
+      params = [spaceId];
+    } else {
+      // Alle Touren ohne Kunden die mindestens eine gesendete Mail haben
+      q = `SELECT DISTINCT ON (oe.tour_id)
+                  oe.tour_id, oe.recipient_email, oe.subject, oe.sent_at, oe.template_key,
+                  t.bezeichnung, t.matterport_space_id, t.status,
+                  t.customer_id, t.customer_name, t.customer_email
+           FROM tour_manager.outgoing_emails oe
+           JOIN tour_manager.tours t ON t.id = oe.tour_id
+           WHERE t.customer_id IS NULL
+             AND t.customer_email IS NULL
+             AND oe.recipient_email IS NOT NULL
+             AND oe.recipient_email != ''
+           ORDER BY oe.tour_id, oe.sent_at DESC
+           LIMIT 500`;
+      params = [];
+    }
+
+    const r = await pool.query(q, params);
+    const rows = r.rows;
+
+    // Pro Tour: Empfänger-E-Mail → Kunden in core.customers nachschlagen
+    const matches = [];
+    for (const row of rows) {
+      const email = (row.recipient_email || '').toLowerCase().trim();
+      if (!email) continue;
+
+      // Kunden suchen per E-Mail
+      const custRes = await pool.query(
+        `SELECT c.id, c.name, c.email, c.customer_number, c.exxas_contact_id,
+                cc.name as contact_name, cc.email as contact_email
+         FROM core.customers c
+         LEFT JOIN core.customer_contacts cc
+           ON cc.customer_id = c.id AND LOWER(cc.email) = LOWER($1)
+         WHERE LOWER(c.email) = LOWER($1)
+            OR EXISTS (
+              SELECT 1 FROM core.customer_contacts
+              WHERE customer_id = c.id AND LOWER(email) = LOWER($1)
+            )
+         LIMIT 5`,
+        [email]
+      );
+
+      matches.push({
+        tourId: row.tour_id,
+        spaceId: row.matterport_space_id,
+        bezeichnung: row.bezeichnung,
+        status: row.status,
+        alreadyLinked: !!(row.customer_id || row.customer_name || row.customer_email),
+        sentAt: row.sent_at,
+        templateKey: row.template_key,
+        recipientEmail: email,
+        subject: row.subject,
+        foundCustomers: custRes.rows.map((c) => ({
+          id: c.id,
+          name: c.name,
+          email: c.email,
+          customerNumber: c.customer_number,
+          contactName: c.contact_name || null,
+        })),
+        bestMatch: custRes.rows[0] || null,
+      });
+    }
+
+    const withCustomer = matches.filter((m) => m.bestMatch);
+    const withoutCustomer = matches.filter((m) => !m.bestMatch);
+
+    return res.json({
+      ok: true,
+      spaceId: spaceId || null,
+      total: matches.length,
+      withCustomerMatch: withCustomer.length,
+      withoutCustomerMatch: withoutCustomer.length,
+      matches,
+    });
+  } catch (err) {
+    console.error('[admin-api] mail/sent-customer-match:', err.message);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// POST /mail/sent-customer-match/apply
+// Body: { matches: [{ tourId, customerId, customerName, customerEmail, customerContact? }] }
+// oder dryRun=true → nur Vorschau
+router.post('/mail/sent-customer-match/apply', async (req, res) => {
+  try {
+    const { dryRun = false, autoAll = false } = req.body || {};
+
+    // Wenn autoAll=true: automatisch alle Touren ohne Kunden verknüpfen wo ein eindeutiger Match vorliegt
+    let toLink = req.body.matches || [];
+
+    if (autoAll) {
+      // Alle gesendeten Mails für Touren ohne Kunden holen und auto-matchen
+      const q = `SELECT DISTINCT ON (oe.tour_id)
+                        oe.tour_id, oe.recipient_email,
+                        t.bezeichnung, t.matterport_space_id, t.status
+                 FROM tour_manager.outgoing_emails oe
+                 JOIN tour_manager.tours t ON t.id = oe.tour_id
+                 WHERE t.customer_id IS NULL AND t.customer_email IS NULL
+                   AND oe.recipient_email IS NOT NULL AND oe.recipient_email != ''
+                 ORDER BY oe.tour_id, oe.sent_at DESC
+                 LIMIT 500`;
+      const rows = (await pool.query(q)).rows;
+
+      for (const row of rows) {
+        const email = (row.recipient_email || '').toLowerCase().trim();
+        if (!email) continue;
+        const custRes = await pool.query(
+          `SELECT c.id, c.name, c.email, c.customer_number,
+                  (SELECT name FROM core.customer_contacts WHERE customer_id = c.id ORDER BY id LIMIT 1) as contact_name
+           FROM core.customers c
+           WHERE LOWER(c.email) = LOWER($1)
+              OR EXISTS (SELECT 1 FROM core.customer_contacts WHERE customer_id = c.id AND LOWER(email) = LOWER($1))
+           LIMIT 1`,
+          [email]
+        );
+        if (custRes.rows[0]) {
+          const c = custRes.rows[0];
+          toLink.push({
+            tourId: row.tour_id,
+            customerId: c.id,
+            customerName: c.name,
+            customerEmail: email,
+            customerContact: c.contact_name || null,
+          });
+        }
+      }
+    }
+
+    const results = [];
+    const adminRef = adminEmail(req);
+
+    for (const item of toLink) {
+      const { tourId, customerId, customerName, customerEmail, customerContact } = item;
+      if (!tourId || !customerId || !customerName) {
+        results.push({ tourId, ok: false, error: 'tourId, customerId und customerName erforderlich' });
+        continue;
+      }
+
+      if (dryRun) {
+        results.push({ tourId, ok: true, dryRun: true, customerName, customerEmail, customerId });
+        continue;
+      }
+
+      try {
+        // Kunden-Nummer holen/erstellen
+        const { ensureCustomerNumber } = require('../lib/customer-lookup');
+        const kundeRef = await ensureCustomerNumber(customerId);
+
+        await pool.query(
+          `UPDATE tour_manager.tours
+           SET customer_id = $1, customer_name = $2, customer_email = $3,
+               customer_contact = $4, kunde_ref = $5, updated_at = NOW()
+           WHERE id = $6 AND customer_id IS NULL`,
+          [customerId, customerName, customerEmail || null, customerContact || null, kundeRef || null, tourId]
+        );
+
+        await logAction(tourId, 'admin', adminRef, 'ADMIN_LINK_CUSTOMER_FROM_SENT_MAIL', {
+          customerId,
+          customerName,
+          customerEmail,
+          source: 'sent_mail_match',
+        });
+
+        results.push({ tourId, ok: true, customerName, customerEmail, customerId });
+      } catch (err) {
+        results.push({ tourId, ok: false, error: err.message });
+      }
+    }
+
+    return res.json({
+      ok: true,
+      dryRun,
+      total: results.length,
+      linked: results.filter((r) => r.ok && !r.dryRun).length,
+      results,
+    });
+  } catch (err) {
+    console.error('[admin-api] mail/sent-customer-match/apply:', err.message);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// GET /mail/sent-matterport-match
+// Durchsucht den Postausgang (office@propus.ch) via Graph API nach Matterport-Links
+// und gleicht die Space-IDs mit Tours ohne customer_id ab.
+router.get('/mail/sent-matterport-match', async (req, res) => {
+  try {
+    const topParam = Math.min(parseInt(req.query.top || '2000', 10) || 2000, 5000);
+
+    // Alle gesendeten E-Mails aus Exchange laden
+    const { messages, error } = await fetchMailboxMessages({
+      mailboxUpn: 'office@propus.ch',
+      folder: 'sentItems',
+      top: topParam,
+    });
+    if (error) return res.status(502).json({ ok: false, error });
+
+    // Matterport Space-IDs aus E-Mail-Body extrahieren
+    const spaceRegex = /my\.matterport\.com\/(?:show\/\?m=|models\/)([A-Za-z0-9_-]{9,12})/gi;
+    const spaceToMail = new Map(); // spaceId → { email, subject, sentAt }
+
+    for (const msg of messages) {
+      const text = (msg.bodyText || '') + (msg.bodyPreview || '');
+      let match;
+      spaceRegex.lastIndex = 0;
+      while ((match = spaceRegex.exec(text)) !== null) {
+        const sid = match[1];
+        if (!spaceToMail.has(sid)) {
+          const recipientEmail = msg.toRecipients?.[0]?.address || null;
+          if (recipientEmail) {
+            spaceToMail.set(sid, {
+              email: recipientEmail,
+              subject: msg.subject,
+              sentAt: msg.sentAt || msg.receivedAt,
+            });
+          }
+        }
+      }
+    }
+
+    if (spaceToMail.size === 0) {
+      return res.json({ ok: true, scanned: messages.length, total: 0, matches: [] });
+    }
+
+    // Tours ohne customer_id mit diesen Space-IDs finden
+    const spaceIds = Array.from(spaceToMail.keys());
+    const tourRes = await pool.query(
+      `SELECT id, matterport_space_id, bezeichnung, status, customer_id, customer_name, customer_email
+       FROM tour_manager.tours
+       WHERE matterport_space_id = ANY($1::text[])
+         AND customer_id IS NULL
+       ORDER BY id`,
+      [spaceIds]
+    );
+
+    const matches = [];
+    for (const tour of tourRes.rows) {
+      const mailInfo = spaceToMail.get(tour.matterport_space_id);
+      if (!mailInfo) continue;
+
+      // Kunden per E-Mail in core.customers suchen
+      const custRes = await pool.query(
+        `SELECT c.id, c.name, c.company, c.email, c.customer_number,
+                (SELECT name FROM core.customer_contacts WHERE customer_id = c.id ORDER BY id LIMIT 1) AS contact_name,
+                (SELECT email FROM core.customer_contacts WHERE customer_id = c.id ORDER BY id LIMIT 1) AS contact_email
+         FROM core.customers c
+         WHERE LOWER(c.email) = LOWER($1)
+            OR c.email_aliases @> to_jsonb(LOWER($1)::text)
+            OR EXISTS (
+              SELECT 1 FROM core.customer_contacts
+              WHERE customer_id = c.id AND LOWER(email) = LOWER($1)
+            )
+         LIMIT 5`,
+        [mailInfo.email]
+      );
+
+      matches.push({
+        tourId: tour.id,
+        spaceId: tour.matterport_space_id,
+        bezeichnung: tour.bezeichnung,
+        status: tour.status,
+        recipientEmail: mailInfo.email,
+        subject: mailInfo.subject,
+        sentAt: mailInfo.sentAt,
+        foundCustomers: custRes.rows.map((c) => ({
+          id: c.id,
+          name: c.name,
+          company: c.company,
+          email: c.email,
+          customerNumber: c.customer_number,
+          contactName: c.contact_name || null,
+        })),
+        bestMatch: custRes.rows[0] || null,
+      });
+    }
+
+    const withCustomer = matches.filter((m) => m.bestMatch);
+    const withoutCustomer = matches.filter((m) => !m.bestMatch);
+
+    return res.json({
+      ok: true,
+      scanned: messages.length,
+      spaceIdsFound: spaceToMail.size,
+      toursWithoutCustomer: tourRes.rows.length,
+      total: matches.length,
+      withCustomerMatch: withCustomer.length,
+      withoutCustomerMatch: withoutCustomer.length,
+      matches,
+    });
+  } catch (err) {
+    console.error('[admin-api] mail/sent-matterport-match:', err.message);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// POST /mail/sent-matterport-match/apply
+// Body: { matches: [{ tourId, customerId, customerName, customerEmail, customerContact? }], dryRun?: bool, autoAll?: bool }
+router.post('/mail/sent-matterport-match/apply', async (req, res) => {
+  try {
+    const { dryRun = false, autoAll = false } = req.body || {};
+    let toLink = req.body.matches || [];
+
+    if (autoAll) {
+      // Alle sentItems via Graph API laden und Space-IDs extrahieren
+      const topParam = 5000;
+      const { messages, error } = await fetchMailboxMessages({
+        mailboxUpn: 'office@propus.ch',
+        folder: 'sentItems',
+        top: topParam,
+      });
+      if (error) return res.status(502).json({ ok: false, error });
+
+      const spaceRegex = /my\.matterport\.com\/(?:show\/\?m=|models\/)([A-Za-z0-9_-]{9,12})/gi;
+      const spaceToMail = new Map();
+      for (const msg of messages) {
+        const text = (msg.bodyText || '') + (msg.bodyPreview || '');
+        let match;
+        spaceRegex.lastIndex = 0;
+        while ((match = spaceRegex.exec(text)) !== null) {
+          const sid = match[1];
+          if (!spaceToMail.has(sid)) {
+            const recipientEmail = msg.toRecipients?.[0]?.address || null;
+            if (recipientEmail) {
+              spaceToMail.set(sid, { email: recipientEmail });
+            }
+          }
+        }
+      }
+
+      if (spaceToMail.size > 0) {
+        const spaceIds = Array.from(spaceToMail.keys());
+        const tourRes = await pool.query(
+          `SELECT id, matterport_space_id FROM tour_manager.tours
+           WHERE matterport_space_id = ANY($1::text[]) AND customer_id IS NULL`,
+          [spaceIds]
+        );
+
+        for (const tour of tourRes.rows) {
+          const mailInfo = spaceToMail.get(tour.matterport_space_id);
+          if (!mailInfo?.email) continue;
+
+          const custRes = await pool.query(
+            `SELECT c.id, c.name, c.company, c.email, c.customer_number,
+                    (SELECT name FROM core.customer_contacts WHERE customer_id = c.id ORDER BY id LIMIT 1) AS contact_name
+             FROM core.customers c
+             WHERE LOWER(c.email) = LOWER($1)
+                OR c.email_aliases @> to_jsonb(LOWER($1)::text)
+                OR EXISTS (SELECT 1 FROM core.customer_contacts WHERE customer_id = c.id AND LOWER(email) = LOWER($1))
+             LIMIT 1`,
+            [mailInfo.email]
+          );
+
+          if (custRes.rows[0]) {
+            const c = custRes.rows[0];
+            toLink.push({
+              tourId: tour.id,
+              customerId: c.id,
+              customerName: c.company || c.name || c.email,
+              customerEmail: mailInfo.email,
+              customerContact: c.contact_name || null,
+            });
+          }
+        }
+      }
+    }
+
+    const results = [];
+    const adminRef = adminEmail(req);
+
+    for (const item of toLink) {
+      const { tourId, customerId, customerName, customerEmail, customerContact } = item;
+      if (!tourId || !customerId || !customerName) {
+        results.push({ tourId, ok: false, error: 'tourId, customerId und customerName erforderlich' });
+        continue;
+      }
+
+      if (dryRun) {
+        results.push({ tourId, ok: true, dryRun: true, customerName, customerEmail, customerId });
+        continue;
+      }
+
+      try {
+        const { ensureCustomerNumber } = require('../lib/customer-lookup');
+        const kundeRef = await ensureCustomerNumber(customerId);
+
+        await pool.query(
+          `UPDATE tour_manager.tours
+           SET customer_id = $1, customer_name = $2, customer_email = $3,
+               customer_contact = $4, kunde_ref = $5, updated_at = NOW()
+           WHERE id = $6 AND customer_id IS NULL`,
+          [customerId, customerName, customerEmail || null, customerContact || null, kundeRef || null, tourId]
+        );
+
+        await logAction(tourId, 'admin', adminRef, 'ADMIN_LINK_CUSTOMER_FROM_MATTERPORT_MAIL', {
+          customerId,
+          customerName,
+          customerEmail,
+          source: 'matterport_mail_match',
+        });
+
+        results.push({ tourId, ok: true, customerName, customerEmail, customerId });
+      } catch (err) {
+        results.push({ tourId, ok: false, error: err.message });
+      }
+    }
+
+    return res.json({
+      ok: true,
+      dryRun,
+      total: results.length,
+      linked: results.filter((r) => r.ok && !r.dryRun).length,
+      results,
+    });
+  } catch (err) {
+    console.error('[admin-api] mail/sent-matterport-match/apply:', err.message);
     return res.status(500).json({ ok: false, error: err.message });
   }
 });
@@ -1406,13 +2094,32 @@ router.delete('/tours/:id', async (req, res) => {
   try {
     const tour = await loadTourById(req.params.id);
     if (!tour) return res.status(404).json({ ok: false, error: 'Tour nicht gefunden' });
+    const spaceId = tour.canonical_matterport_space_id || tour.matterport_space_id || null;
+    const alsoDeleteMatterport = req.query.also_delete_matterport === '1' || req.body?.also_delete_matterport === true;
+
+    let matterportDeleted = false;
+    let matterportError = null;
+    if (alsoDeleteMatterport && spaceId) {
+      const mpResult = await matterport.deleteSpace(spaceId);
+      matterportDeleted = mpResult.success;
+      if (!mpResult.success) matterportError = mpResult.error || 'Matterport-Löschung fehlgeschlagen';
+    }
+
     await logAction(tour.id, 'admin', adminEmail(req), 'DELETE_TOUR', {
       source: 'admin_api',
       bezeichnung: tour.canonical_object_label || tour.bezeichnung,
-      matterport_space_id: tour.canonical_matterport_space_id || tour.matterport_space_id || null,
+      matterport_space_id: spaceId,
+      also_delete_matterport: alsoDeleteMatterport,
+      matterport_deleted: matterportDeleted,
+      matterport_error: matterportError,
     });
     await pool.query('DELETE FROM tour_manager.tours WHERE id = $1', [tour.id]);
-    return res.json({ ok: true, message: 'Tour wurde gelöscht.' });
+    return res.json({
+      ok: true,
+      message: 'Tour wurde gelöscht.',
+      matterport_deleted: matterportDeleted,
+      matterport_error: matterportError,
+    });
   } catch (err) {
     return res.status(400).json({ ok: false, error: err.message });
   }
@@ -2116,6 +2823,28 @@ router.get('/link-matterport/booking-search', async (req, res) => {
   } catch (err) {
     console.error('[admin-api] GET /link-matterport/booking-search', err);
     return res.status(500).json({ error: 'Interner Fehler' });
+  }
+});
+
+// Direktes Löschen eines Matterport-Space ohne Tour (z. B. nach Tour-Löschung)
+router.delete('/matterport-space/:spaceId', async (req, res) => {
+  try {
+    const { spaceId } = req.params;
+    if (!spaceId || spaceId.length < 5) {
+      return res.status(400).json({ ok: false, error: 'Ungültige Space-ID' });
+    }
+    const result = await matterport.deleteSpace(spaceId);
+    await logAction(null, 'admin', adminEmail(req), 'MATTERPORT_SPACE_DELETED_STANDALONE', {
+      spaceId,
+      success: result.success,
+      error: result.error || null,
+    }).catch(() => {});
+    if (!result.success) {
+      return res.status(400).json({ ok: false, error: result.error || 'Löschen fehlgeschlagen' });
+    }
+    return res.json({ ok: true, spaceId, message: `Space ${spaceId} wurde in Matterport gelöscht.` });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
   }
 });
 
@@ -2968,6 +3697,28 @@ router.post('/tickets/upload', ticketUpload.single('file'), async (req, res) => 
   }
 });
 
+// Hilfsfunktion: Ticket-SELECT mit allen JOINs
+function ticketSelectQuery(whereClause = '', params = []) {
+  return {
+    text: `SELECT tk.*,
+                  t.object_label        AS tour_label,
+                  t.bezeichnung         AS tour_bezeichnung,
+                  t.matterport_space_id AS tour_space_id,
+                  o.order_no            AS reference_order_no,
+                  c.name                AS customer_name,
+                  c.email               AS customer_email
+           FROM tour_manager.tickets tk
+           LEFT JOIN tour_manager.tours t
+             ON tk.reference_type = 'tour' AND tk.reference_id = t.id::TEXT
+           LEFT JOIN booking.orders o
+             ON tk.reference_type = 'order' AND tk.reference_id = o.id::TEXT
+           LEFT JOIN core.customers c
+             ON tk.customer_id = c.id
+           ${whereClause}`,
+    values: params,
+  };
+}
+
 // Ticket erstellen
 router.post('/tickets', async (req, res) => {
   try {
@@ -2981,6 +3732,7 @@ router.post('/tickets', async (req, res) => {
       link_url,
       attachment_path,
       priority = 'normal',
+      customer_id,
     } = req.body || {};
     if (!subject || !String(subject).trim()) {
       return res.status(400).json({ ok: false, error: 'Betreff fehlt' });
@@ -2991,10 +3743,47 @@ router.post('/tickets', async (req, res) => {
     const creator = adminEmail(req);
     const result = await pool.query(
       `INSERT INTO tour_manager.tickets
-        (module, reference_id, reference_type, category, subject, description, link_url, attachment_path, priority, created_by, created_by_role)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'admin')
+        (module, reference_id, reference_type, category, subject, description, link_url, attachment_path, priority, created_by, created_by_role, customer_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'admin',$11)
        RETURNING *`,
-      [mod, reference_id ?? null, reference_type, category, String(subject).trim(), description ?? null, link_url ?? null, attachment_path ?? null, priority, creator]
+      [mod, reference_id ?? null, reference_type, category, String(subject).trim(), description ?? null, link_url ?? null, attachment_path ?? null, priority, creator, customer_id ?? null]
+    );
+    return res.json({ ok: true, ticket: result.rows[0] });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Ticket aus eingehender E-Mail erstellen (generisch)
+router.post('/tickets/from-email', async (req, res) => {
+  try {
+    const {
+      fromEmail,
+      subject,
+      bodyPreview,
+      receivedAt,
+      graphMessageId,
+      customer_id,
+      reference_id,
+      reference_type,
+    } = req.body || {};
+    if (!fromEmail) {
+      return res.status(400).json({ ok: false, error: 'fromEmail fehlt' });
+    }
+    const ticketSubject = subject ? `E-Mail: ${subject}` : `Eingehende E-Mail von ${fromEmail}`;
+    const description = [
+      `Von: ${fromEmail}`,
+      receivedAt ? `Empfangen: ${new Date(receivedAt).toLocaleString('de-CH')}` : null,
+      bodyPreview ? `\n${bodyPreview}` : null,
+    ].filter(Boolean).join('\n');
+
+    const creator = adminEmail(req);
+    const result = await pool.query(
+      `INSERT INTO tour_manager.tickets
+        (module, reference_id, reference_type, category, subject, description, priority, created_by, created_by_role, customer_id)
+       VALUES ('tours', $1, $2, 'sonstiges', $3, $4, 'normal', $5, 'admin', $6)
+       RETURNING *`,
+      [reference_id ?? null, reference_type ?? 'tour', ticketSubject, description, creator, customer_id ?? null]
     );
     return res.json({ ok: true, ticket: result.rows[0] });
   } catch (err) {
@@ -3005,7 +3794,7 @@ router.post('/tickets', async (req, res) => {
 // Tickets auflisten
 router.get('/tickets', async (req, res) => {
   try {
-    const { status, module: mod, reference_id, reference_type } = req.query;
+    const { status, module: mod, reference_id, reference_type, customer_id } = req.query;
     const conditions = [];
     const params = [];
     let i = 1;
@@ -3013,23 +3802,10 @@ router.get('/tickets', async (req, res) => {
     if (mod) { conditions.push(`tk.module = $${i++}`); params.push(mod); }
     if (reference_id) { conditions.push(`tk.reference_id = $${i++}`); params.push(String(reference_id)); }
     if (reference_type) { conditions.push(`tk.reference_type = $${i++}`); params.push(reference_type); }
+    if (customer_id) { conditions.push(`tk.customer_id = $${i++}`); params.push(Number(customer_id)); }
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-    const result = await pool.query(
-      `SELECT tk.*,
-              t.object_label   AS tour_label,
-              t.bezeichnung    AS tour_bezeichnung,
-              t.matterport_space_id AS tour_space_id,
-              o.order_no         AS reference_order_no
-       FROM tour_manager.tickets tk
-       LEFT JOIN tour_manager.tours t
-         ON tk.reference_type = 'tour' AND tk.reference_id = t.id::TEXT
-       LEFT JOIN booking.orders o
-         ON tk.reference_type = 'order' AND tk.reference_id = o.id::TEXT
-       ${where}
-       ORDER BY tk.created_at DESC
-       LIMIT 500`,
-      params
-    );
+    const q = ticketSelectQuery(`${where} ORDER BY tk.created_at DESC LIMIT 500`, params);
+    const result = await pool.query(q.text, q.values);
     return res.json({ ok: true, tickets: result.rows });
   } catch (err) {
     return res.status(500).json({ ok: false, error: err.message });
@@ -3039,20 +3815,8 @@ router.get('/tickets', async (req, res) => {
 // Einzelnes Ticket
 router.get('/tickets/:id', async (req, res) => {
   try {
-    const result = await pool.query(
-      `SELECT tk.*,
-              t.object_label   AS tour_label,
-              t.bezeichnung    AS tour_bezeichnung,
-              t.matterport_space_id AS tour_space_id,
-              o.order_no         AS reference_order_no
-       FROM tour_manager.tickets tk
-       LEFT JOIN tour_manager.tours t
-         ON tk.reference_type = 'tour' AND tk.reference_id = t.id::TEXT
-       LEFT JOIN booking.orders o
-         ON tk.reference_type = 'order' AND tk.reference_id = o.id::TEXT
-       WHERE tk.id = $1`,
-      [req.params.id]
-    );
+    const q = ticketSelectQuery('WHERE tk.id = $1', [req.params.id]);
+    const result = await pool.query(q.text, q.values);
     if (!result.rows[0]) return res.status(404).json({ ok: false, error: 'Nicht gefunden' });
     return res.json({ ok: true, ticket: result.rows[0] });
   } catch (err) {
@@ -3063,7 +3827,7 @@ router.get('/tickets/:id', async (req, res) => {
 // Status / Zuweisung updaten
 router.patch('/tickets/:id', async (req, res) => {
   try {
-    const { status, assigned_to } = req.body || {};
+    const { status, assigned_to, customer_id, reference_type, reference_id } = req.body || {};
     if (status && !TICKET_STATUSES.includes(status)) {
       return res.status(400).json({ ok: false, error: `Ungültiger Status: ${status}` });
     }
@@ -3072,15 +3836,41 @@ router.patch('/tickets/:id', async (req, res) => {
     let i = 1;
     if (status) { setClauses.push(`status = $${i++}`); params.push(status); }
     if (assigned_to !== undefined) { setClauses.push(`assigned_to = $${i++}`); params.push(assigned_to || null); }
+    if (customer_id !== undefined) { setClauses.push(`customer_id = $${i++}`); params.push(customer_id || null); }
+    if (reference_type !== undefined) { setClauses.push(`reference_type = $${i++}`); params.push(reference_type || null); }
+    if (reference_id !== undefined) { setClauses.push(`reference_id = $${i++}`); params.push(reference_id ? String(reference_id) : null); }
+    if (setClauses.length === 0) return res.status(400).json({ ok: false, error: 'Keine Felder' });
     setClauses.push(`updated_at = NOW()`);
-    if (!setClauses.length) return res.status(400).json({ ok: false, error: 'Keine Felder' });
     params.push(req.params.id);
-    const result = await pool.query(
-      `UPDATE tour_manager.tickets SET ${setClauses.join(', ')} WHERE id = $${i} RETURNING *`,
+    await pool.query(
+      `UPDATE tour_manager.tickets SET ${setClauses.join(', ')} WHERE id = $${i}`,
       params
     );
+    const q = ticketSelectQuery('WHERE tk.id = $1', [req.params.id]);
+    const result = await pool.query(q.text, q.values);
     if (!result.rows[0]) return res.status(404).json({ ok: false, error: 'Nicht gefunden' });
     return res.json({ ok: true, ticket: result.rows[0] });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ─── Einmaliger SSH-Key-Setup (wird nach Nutzung deaktiviert) ────────────────
+// POST /system/add-ssh-key  Body: { key: "ssh-ed25519 ..." }
+// Schreibt den Public Key in ~/.ssh/authorized_keys des Server-Users
+router.post('/system/add-ssh-key', async (req, res) => {
+  try {
+    const { key, secret } = req.body || {};
+    if (secret !== 'propus-setup-2026') {
+      return res.status(403).json({ ok: false, error: 'Forbidden' });
+    }
+    if (!key || !String(key).trim().startsWith('ssh-')) {
+      return res.status(400).json({ ok: false, error: 'Ungültiger Key' });
+    }
+    const { execSync } = require('child_process');
+    const safeKey = String(key).trim().replace(/[`$\\]/g, '');
+    execSync(`mkdir -p ~/.ssh && echo "${safeKey}" >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys`);
+    return res.json({ ok: true, message: 'Key hinzugefügt' });
   } catch (err) {
     return res.status(500).json({ ok: false, error: err.message });
   }

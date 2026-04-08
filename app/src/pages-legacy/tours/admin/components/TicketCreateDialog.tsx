@@ -1,296 +1,268 @@
-import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { X, Upload, Link2, AlertCircle, CheckCircle2 } from "lucide-react";
-import { postCreateTicket, postTicketUpload } from "../../../../api/toursAdmin";
-import type { TicketCategory } from "../../../../api/toursAdmin";
+import { useState, useRef } from "react";
+import { X, Upload, Loader2, AlertCircle } from "lucide-react";
+import {
+  postCreateTicket,
+  postTicketUpload,
+  type TicketCategory,
+  type InboxMessage,
+} from "../../../../api/toursAdmin";
 
 const CATEGORIES: { value: TicketCategory; label: string }[] = [
-  { value: "startpunkt",       label: "Startpunkt ändern" },
-  { value: "name_aendern",     label: "Name / Bezeichnung anpassen" },
-  { value: "blur_request",     label: "Bereich blurren" },
-  { value: "sweep_verschieben",label: "360°-Punkt verschieben" },
-  { value: "sonstiges",        label: "Sonstiges" },
+  { value: "sonstiges", label: "Sonstiges" },
+  { value: "startpunkt", label: "Startpunkt" },
+  { value: "name_aendern", label: "Name ändern" },
+  { value: "blur_request", label: "Blur-Anfrage" },
+  { value: "sweep_verschieben", label: "Sweep verschieben" },
 ];
 
-const CATEGORY_HINTS: Record<TicketCategory, string> = {
-  startpunkt:
-    "Beschreibe, wo der Einstieg in die Tour liegen soll (z. B. Eingang, Wohnzimmer). Ein Matterport-Link mit exakter Ansicht hilft uns am meisten.",
-  name_aendern:
-    "Wunschname oder Korrektur für Objektbezeichnung / Anzeige — wie er später überall erscheinen soll.",
-  blur_request:
-    "Welche Bereiche unkenntlich gemacht werden sollen (Fenster, Nachbargrundstück, persönliche Gegenstände). Screenshots und Link zur Stelle erleichtern die Umsetzung.",
-  sweep_verschieben:
-    "Wenn ein 360°-Aufnahmepunkt verschoben oder neu positioniert werden soll — bitte genaue Stelle und ggf. Grund nennen.",
-  sonstiges:
-    "Freie Änderungswünsche an der Tour oder den Einstellungen. Je konkreter Betreff und Beschreibung, desto schneller können wir zuordnen.",
+const PRIORITIES = [
+  { value: "normal", label: "Normal" },
+  { value: "high", label: "Hoch" },
+  { value: "low", label: "Niedrig" },
+];
+
+type Props = {
+  /** Tour-ID wenn direkt von Tour-Detail aufgerufen */
+  tourId?: string | number;
+  tourLabel?: string;
+  /** Wenn aus E-Mail-Postfach aufgerufen: E-Mail-Daten vorab befüllen */
+  emailData?: Pick<InboxMessage, "subject" | "bodyPreview" | "fromEmail" | "receivedAt"> & {
+    customer_id?: number | null;
+    reference_id?: string | null;
+    reference_type?: string;
+  };
+  onClose: () => void;
+  onCreated?: () => void;
 };
 
-interface Props {
-  tourId: string;
-  tourLabel?: string | null;
-  onClose: () => void;
-  onSuccess?: () => void;
-}
-
-export function TicketCreateDialog({ tourId, tourLabel, onClose, onSuccess }: Props) {
-  const [mounted, setMounted] = useState(false);
+export function TicketCreateDialog({ tourId, tourLabel, emailData, onClose, onCreated }: Props) {
   const [category, setCategory] = useState<TicketCategory>("sonstiges");
-  const [subject, setSubject] = useState("");
-  const [description, setDescription] = useState("");
-  const [linkUrl, setLinkUrl] = useState("");
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
+  const [subject, setSubject] = useState(
+    emailData?.subject ? `E-Mail: ${emailData.subject}` : ""
+  );
+  const [description, setDescription] = useState(() => {
+    if (!emailData) return "";
+    const parts: string[] = [];
+    if (emailData.fromEmail) parts.push(`Von: ${emailData.fromEmail}`);
+    if (emailData.receivedAt) {
+      parts.push(`Empfangen: ${new Date(emailData.receivedAt).toLocaleString("de-CH")}`);
+    }
+    if (emailData.bodyPreview) parts.push(`\n${emailData.bodyPreview}`);
+    return parts.join("\n");
+  });
+  const [priority, setPriority] = useState("normal");
   const [uploading, setUploading] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
+  const [attachmentPath, setAttachmentPath] = useState<string | null>(null);
+  const [attachmentName, setAttachmentName] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const referenceId = emailData?.reference_id ?? (tourId ? String(tourId) : null);
+  const referenceType = emailData?.reference_type ?? (tourId ? "tour" : undefined);
+  const customerId = emailData?.customer_id ?? null;
 
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, []);
-
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  function handleFile(f: File | null) {
-    if (!f) return;
-    setFile(f);
-    const reader = new FileReader();
-    reader.onload = (e) => setPreview(e.target?.result as string);
-    reader.readAsDataURL(f);
-  }
-
-  function handleDrop(e: React.DragEvent) {
-    e.preventDefault();
-    const f = e.dataTransfer.files[0];
-    if (f && f.type.startsWith("image/")) handleFile(f);
-  }
-
-  async function submit() {
-    if (!subject.trim()) { setErr("Bitte einen Betreff eingeben."); return; }
-    setBusy(true);
-    setErr(null);
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setError(null);
     try {
-      let attachmentPath: string | undefined;
-      if (file) {
-        setUploading(true);
-        const up = await postTicketUpload(file);
-        attachmentPath = up.path;
-        setUploading(false);
-      }
-      await postCreateTicket({
-        module: "tours",
-        reference_id: tourId,
-        reference_type: "tour",
-        category,
-        subject: subject.trim(),
-        description: description.trim() || undefined,
-        link_url: linkUrl.trim() || undefined,
-        attachment_path: attachmentPath,
-      });
-      setDone(true);
-      onSuccess?.();
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "Fehler beim Erstellen");
+      const res = await postTicketUpload(file);
+      setAttachmentPath(res.path);
+      setAttachmentName(res.filename);
+    } catch (err) {
+      setError((err as Error).message ?? "Upload fehlgeschlagen");
     } finally {
-      setBusy(false);
       setUploading(false);
     }
   }
 
-  const modal = (
-    <div
-      className="fixed inset-0 z-[500] flex items-center justify-center bg-black/70 p-4 backdrop-blur-[2px]"
-      onClick={onClose}
-      role="presentation"
-    >
-      <div
-        className="relative z-[1] w-full max-w-lg min-h-0 rounded-2xl bg-[var(--surface-raised)] shadow-[0_24px_60px_rgba(0,0,0,0.35)] flex flex-col max-h-[90vh] ring-1 ring-black/10 dark:ring-white/10"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="ticket-dialog-title"
-      >
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!subject.trim()) {
+      setError("Bitte gib einen Betreff ein.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      await postCreateTicket({
+        category,
+        subject: subject.trim(),
+        description: description.trim() || undefined,
+        priority,
+        reference_id: referenceId,
+        reference_type: referenceType,
+        attachment_path: attachmentPath ?? undefined,
+        customer_id: customerId,
+      });
+      onCreated?.();
+      onClose();
+    } catch (err) {
+      setError((err as Error).message ?? "Fehler beim Erstellen");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4 backdrop-blur-[2px]">
+      <div className="w-full max-w-lg rounded-2xl bg-[var(--bg-card)] p-6 shadow-[0_24px_64px_rgba(0,0,0,0.4)] space-y-4 relative">
         {/* Header */}
-        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[var(--border-soft)] shrink-0">
+        <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 id="ticket-dialog-title" className="text-base font-semibold text-[var(--text-main)]">
-              Änderung anfragen
-            </h3>
-            {tourLabel ? <p className="text-sm text-[var(--text-subtle)] mt-0.5">{tourLabel}</p> : null}
+            <h2 className="text-base font-semibold text-[var(--text-main)]">Neues Ticket</h2>
+            {(tourLabel || emailData?.fromEmail) && (
+              <p className="text-xs text-[var(--text-subtle)] mt-0.5">
+                {tourLabel ?? emailData?.fromEmail}
+              </p>
+            )}
           </div>
           <button
-            type="button"
             onClick={onClose}
-            className="rounded-md border border-[var(--border-soft)] p-1 text-[var(--text-subtle)] hover:text-[var(--text-main)] transition-colors"
+            className="rounded-lg border border-[var(--border-soft)] p-1.5 text-[var(--text-subtle)] hover:text-[var(--text-main)] transition-colors"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        {done ? (
-          <div className="flex flex-col items-center justify-center gap-3 px-5 py-10 text-center">
-            <CheckCircle2 className="h-10 w-10 text-emerald-500" />
-            <p className="text-base font-semibold text-[var(--text-main)]">Anfrage eingegangen</p>
-            <p className="text-sm text-[var(--text-subtle)]">Deine Änderungsanfrage wurde gespeichert.</p>
-            <button
-              type="button"
-              onClick={onClose}
-              className="mt-2 rounded-lg bg-[var(--accent)] px-5 py-2 text-sm font-medium text-white"
-            >
-              Schliessen
-            </button>
+        {error && (
+          <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            {error}
           </div>
-        ) : (
-          <div className="min-h-0 overflow-y-auto flex-1 px-5 py-4 space-y-4">
-            {/* Kategorie */}
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--text-subtle)]">Art der Änderung</label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value as TicketCategory)}
-                className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40"
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Kategorie */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-[var(--text-subtle)] uppercase tracking-wide">
+              Kategorie
+            </label>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value as TicketCategory)}
+              className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--bg-input)] px-3 py-2 text-sm text-[var(--text-main)] focus:outline-none focus:border-[var(--accent)]"
+            >
+              {CATEGORIES.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Betreff */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-[var(--text-subtle)] uppercase tracking-wide">
+              Betreff <span className="text-red-400">*</span>
+            </label>
+            <input
+              type="text"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="Kurze Beschreibung des Anliegens"
+              className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--bg-input)] px-3 py-2 text-sm text-[var(--text-main)] placeholder:text-[var(--text-subtle)] focus:outline-none focus:border-[var(--accent)]"
+              required
+            />
+          </div>
+
+          {/* Beschreibung */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-[var(--text-subtle)] uppercase tracking-wide">
+              Beschreibung
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={4}
+              placeholder="Optionale Details…"
+              className="w-full resize-none rounded-lg border border-[var(--border-soft)] bg-[var(--bg-input)] px-3 py-2 text-sm text-[var(--text-main)] placeholder:text-[var(--text-subtle)] focus:outline-none focus:border-[var(--accent)]"
+            />
+          </div>
+
+          {/* Priorität */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-[var(--text-subtle)] uppercase tracking-wide">
+              Priorität
+            </label>
+            <select
+              value={priority}
+              onChange={(e) => setPriority(e.target.value)}
+              className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--bg-input)] px-3 py-2 text-sm text-[var(--text-main)] focus:outline-none focus:border-[var(--accent)]"
+            >
+              {PRIORITIES.map((p) => (
+                <option key={p.value} value={p.value}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Screenshot Upload */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-[var(--text-subtle)] uppercase tracking-wide">
+              Screenshot (optional)
+            </label>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                disabled={uploading}
+                className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)] hover:border-[var(--accent)]/50 hover:text-[var(--accent)] transition-colors disabled:opacity-50"
               >
-                {CATEGORIES.map((c) => (
-                  <option key={c.value} value={c.value}>{c.label}</option>
-                ))}
-              </select>
-              <p className="text-xs text-[var(--text-subtle)] leading-relaxed rounded-lg border border-[var(--border-soft)]/80 bg-[var(--surface)] px-2.5 py-2">
-                {CATEGORY_HINTS[category]}
-              </p>
-            </div>
-
-            {/* Betreff */}
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--text-subtle)]">Betreff <span className="text-red-500">*</span></label>
-              <input
-                type="text"
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                placeholder="z.B. Startpunkt auf Eingang setzen"
-                className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40"
-              />
-            </div>
-
-            {/* Beschreibung */}
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--text-subtle)]">Beschreibung</label>
-              <textarea
-                rows={3}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Was genau soll geändert werden? Je mehr Details, desto besser."
-                className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40 resize-none"
-              />
-            </div>
-
-            {/* Matterport-Link */}
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--text-subtle)]">
-                <span className="flex items-center gap-1.5">
-                  <Link2 className="h-3.5 w-3.5" />
-                  Matterport-Link zur genauen Position (optional)
-                </span>
-              </label>
-              <input
-                type="text"
-                value={linkUrl}
-                onChange={(e) => setLinkUrl(e.target.value)}
-                placeholder="https://my.matterport.com/show/?m=…&play=1&qs=1&…"
-                className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40"
-              />
-              <p className="text-xs text-[var(--text-subtle)]">
-                Öffne die Tour in Matterport, navigiere zur gewünschten Stelle und kopiere die URL aus der Browser-Adressleiste — sie enthält die genaue Position.
-              </p>
-            </div>
-
-            {/* Screenshot */}
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-[var(--text-subtle)]">
-                <span className="flex items-center gap-1.5">
-                  <Upload className="h-3.5 w-3.5" />
-                  Screenshot (optional, max. 4 MB)
-                </span>
-              </label>
-              {preview ? (
-                <div className="relative">
-                  <img src={preview} alt="Vorschau" className="w-full max-h-40 object-contain rounded-lg border border-[var(--border-soft)]" />
+                {uploading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4" />
+                )}
+                {uploading ? "Wird hochgeladen…" : "Datei wählen"}
+              </button>
+              {attachmentName && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-[var(--text-subtle)] truncate max-w-[160px]">
+                    {attachmentName}
+                  </span>
                   <button
                     type="button"
-                    onClick={() => { setFile(null); setPreview(null); }}
-                    className="absolute top-1 right-1 rounded-full bg-black/60 p-0.5 text-white hover:bg-black/80"
+                    onClick={() => { setAttachmentPath(null); setAttachmentName(null); }}
+                    className="text-[var(--text-subtle)] hover:text-red-400 transition-colors"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
                 </div>
-              ) : (
-                <div
-                  onClick={() => fileRef.current?.click()}
-                  onDrop={handleDrop}
-                  onDragOver={(e) => e.preventDefault()}
-                  className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-[var(--border-soft)] bg-[var(--surface)] px-4 py-6 text-sm text-[var(--text-subtle)] cursor-pointer hover:border-[var(--accent)]/50 hover:text-[var(--text-main)] transition-colors"
-                >
-                  <Upload className="h-5 w-5" />
-                  <span>Datei ablegen oder klicken zum Auswählen</span>
-                  <span className="text-xs">JPG, PNG, WebP</span>
-                </div>
               )}
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="hidden"
-                onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
-              />
             </div>
-
-            {err ? (
-              <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 dark:border-red-900 dark:bg-red-950/40">
-                <AlertCircle className="h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
-                <p className="text-sm text-red-700 dark:text-red-300">{err}</p>
-              </div>
-            ) : null}
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={handleUpload}
+            />
           </div>
-        )}
 
-        {!done ? (
-          <div className="flex shrink-0 justify-end gap-2 px-5 py-4 border-t border-[var(--border-soft)]">
+          {/* Footer */}
+          <div className="flex justify-end gap-2 pt-2">
             <button
               type="button"
               onClick={onClose}
-              disabled={busy}
-              className="rounded-lg border border-[var(--border-soft)] px-4 py-2 text-sm font-medium text-[var(--text-main)] transition-opacity disabled:opacity-50"
+              className="rounded-lg border border-[var(--border-soft)] px-4 py-2 text-sm font-medium text-[var(--text-subtle)] hover:text-[var(--text-main)] transition-colors"
             >
               Abbrechen
             </button>
             <button
-              type="button"
-              onClick={() => void submit()}
-              disabled={busy || !subject.trim()}
-              className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white shadow-sm transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
+              type="submit"
+              disabled={saving || uploading}
+              className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50"
             >
-              {uploading ? "Wird hochgeladen…" : busy ? "Wird gesendet…" : "Anfrage senden"}
+              {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {saving ? "Wird erstellt…" : "Ticket erstellen"}
             </button>
           </div>
-        ) : null}
+        </form>
       </div>
     </div>
   );
-
-  if (!mounted) return null;
-  return createPortal(modal, document.body);
 }

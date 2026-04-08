@@ -127,6 +127,7 @@ export function TourDetailPage() {
               matterportShowUrl={matterportShowUrl(data.tour)}
               matterportEditUrl={matterportEditUrl(data.tour)}
               linkedCustomerLabel={internLinkedCustomerLabel(data.tour)}
+              linkedCustomerContact={String(data.tour.customer_contact ?? "").trim() || null}
               linkedCoreCustomerId={
                 data.tour.customer_id != null ? Number(data.tour.customer_id) : null
               }

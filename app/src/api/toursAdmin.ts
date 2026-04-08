@@ -548,8 +548,9 @@ export function postReactivateTour(
   ) as Promise<{ ok: true; via: "payrexx" | "qr_invoice"; redirectUrl?: string }>;
 }
 
-export function deleteToursAdminTour(tourId: string) {
-  return toursAdminDelete<{ ok: boolean; message?: string }>(`/tours/${tourId}`);
+export function deleteToursAdminTour(tourId: string, alsoDeleteMatterport?: boolean) {
+  const qs = alsoDeleteMatterport ? "?also_delete_matterport=1" : "";
+  return toursAdminDelete<{ ok: boolean; message?: string; matterport_deleted?: boolean; matterport_error?: string | null }>(`/tours/${tourId}${qs}`);
 }
 
 export function postTransferMatterportSpace(tourId: string, toEmail: string) {
@@ -730,12 +731,16 @@ export interface TicketRow {
   assigned_to: string | null;
   created_at: string;
   updated_at: string;
+  customer_id?: number | null;
   // JOIN fields
   tour_label?: string | null;
   tour_bezeichnung?: string | null;
   tour_space_id?: string | null;
   /** JOIN booking.orders bei reference_type = order */
   reference_order_no?: number | null;
+  /** JOIN core.customers */
+  customer_name?: string | null;
+  customer_email?: string | null;
 }
 
 export interface TicketCreatePayload {
@@ -748,6 +753,50 @@ export interface TicketCreatePayload {
   link_url?: string;
   attachment_path?: string;
   priority?: string;
+  customer_id?: number | null;
+}
+
+export interface TicketPatchPayload {
+  status?: TicketStatus;
+  assigned_to?: string | null;
+  customer_id?: number | null;
+  reference_type?: string | null;
+  reference_id?: string | null;
+}
+
+export interface InboxMessage {
+  id?: string;
+  graphMessageId?: string;
+  subject: string;
+  fromEmail: string;
+  fromName?: string;
+  receivedAt?: string;
+  bodyPreview?: string;
+  isRead?: boolean;
+  matchedTours: Array<{
+    id: number;
+    bezeichnung: string | null;
+    customer_name: string | null;
+    customer_email: string | null;
+    customer_id: number | null;
+    status: string;
+    matterport_space_id: string | null;
+  }>;
+  matchedCustomers: Array<{
+    id: number;
+    name: string;
+    email: string;
+  }>;
+}
+
+export interface InboxResponse {
+  ok: true;
+  mailbox: string;
+  folder: string;
+  total: number;
+  withMatch?: number;
+  withoutMatch?: number;
+  messages: InboxMessage[];
 }
 
 export function postCreateTicket(payload: TicketCreatePayload) {
@@ -759,12 +808,14 @@ export function getTicketsList(filters?: {
   module?: string;
   reference_id?: string;
   reference_type?: string;
+  customer_id?: number;
 }) {
   const params = new URLSearchParams();
   if (filters?.status) params.set("status", filters.status);
   if (filters?.module) params.set("module", filters.module);
   if (filters?.reference_id) params.set("reference_id", filters.reference_id);
   if (filters?.reference_type) params.set("reference_type", filters.reference_type);
+  if (filters?.customer_id) params.set("customer_id", String(filters.customer_id));
   const qs = params.toString();
   return toursAdminFetch<{ ok: true; tickets: TicketRow[] }>(`/tickets${qs ? `?${qs}` : ""}`);
 }
@@ -777,6 +828,13 @@ export function patchTicketStatus(id: number | string, status: TicketStatus, ass
   return toursAdminFetch<{ ok: true; ticket: TicketRow }>(`/tickets/${id}`, {
     method: "PATCH",
     body: JSON.stringify({ status, ...(assigned_to !== undefined ? { assigned_to } : {}) }),
+  });
+}
+
+export function patchTicketAssignment(id: number | string, payload: TicketPatchPayload) {
+  return toursAdminFetch<{ ok: true; ticket: TicketRow }>(`/tickets/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
   });
 }
 
@@ -795,6 +853,34 @@ export async function postTicketUpload(file: File): Promise<{ ok: true; path: st
   return res.json();
 }
 
+export function getMailInbox(params?: {
+  top?: number;
+  folder?: string;
+  since?: string;
+  matchTours?: boolean;
+}) {
+  const p = new URLSearchParams();
+  if (params?.top) p.set("top", String(params.top));
+  if (params?.folder) p.set("folder", params.folder);
+  if (params?.since) p.set("since", params.since);
+  if (params?.matchTours === false) p.set("matchTours", "false");
+  const qs = p.toString();
+  return toursAdminFetch<InboxResponse>(`/mail/inbox${qs ? `?${qs}` : ""}`);
+}
+
+export function postTicketFromEmail(payload: {
+  fromEmail: string;
+  subject?: string;
+  bodyPreview?: string;
+  receivedAt?: string;
+  graphMessageId?: string;
+  customer_id?: number | null;
+  reference_id?: string | null;
+  reference_type?: string;
+}) {
+  return toursAdminPost("/tickets/from-email", payload as unknown as Record<string, unknown>) as Promise<{ ok: true; ticket: TicketRow }>;
+}
+
 export interface ExxasInventorySyncResult {
   ok: boolean;
   synced: boolean;
@@ -809,6 +895,77 @@ export interface ExxasInventorySyncResult {
   bezahlt?: boolean | null;
   message?: string;
   error?: string;
+}
+
+// ─── Bereinigungslauf (Cleanup) ───────────────────────────────────────────────
+
+export interface CleanupRule {
+  statusLabel: string;
+  statusContext: string;
+  weiterfuehrenHint: string;
+  needsInvoice: boolean;
+  invoiceAmount: number | null;
+  paymentMethods: string[];
+  needsManualReview: boolean;
+  archivedWithin6Months: boolean;
+  isWithin6Months: boolean;
+}
+
+export interface CleanupActionPlan {
+  label: string;
+  hint: string;
+  needsInvoice?: boolean;
+  invoiceAmount?: number | null;
+  paymentMethods?: string[];
+  needsManualReview?: boolean;
+}
+
+export interface CleanupSandboxPreview {
+  dryRun: true;
+  tourId: number;
+  objectLabel: string;
+  status: string;
+  statusLabel: string;
+  archivedWithin6Months: boolean;
+  needsManualReview: boolean;
+  withinCleanupWindow: boolean;
+  withinCleanupWindowNote: string | null;
+  isEligible: boolean;
+  alreadySent: boolean;
+  alreadyDone: boolean;
+  email: string;
+  rule: CleanupRule;
+  actionPlan: Record<string, CleanupActionPlan>;
+  mail: { subject: string; html: string; text: string };
+}
+
+export function getCleanupSandboxPreview(tourId: string | number) {
+  return toursAdminFetch<{ ok: true } & CleanupSandboxPreview>(`/cleanup/sandbox/${tourId}`);
+}
+
+export function postCleanupBatchDryRun(tourIds?: number[]) {
+  return toursAdminFetch<{ ok: true; dryRun: boolean; total: number; sent: number; skipped: number; failed: number; results: unknown[] }>(
+    "/cleanup/batch-dry-run",
+    { method: "POST", body: JSON.stringify(tourIds ? { tourIds } : {}) }
+  );
+}
+
+export function postCleanupBatchSend(tourIds?: number[]) {
+  return toursAdminFetch<{ ok: true; dryRun: boolean; total: number; sent: number; skipped: number; failed: number; results: unknown[] }>(
+    "/cleanup/batch-send",
+    { method: "POST", body: JSON.stringify(tourIds ? { tourIds } : {}) }
+  );
+}
+
+export function postCleanupSendSingle(tourId: string | number) {
+  return toursAdminFetch<{ ok: true; recipientEmail: string; subject: string; rule: CleanupRule }>(
+    `/cleanup/send/${tourId}`,
+    { method: "POST", body: JSON.stringify({}) }
+  );
+}
+
+export function getCleanupCandidates() {
+  return toursAdminFetch<{ ok: true; count: number; tours: unknown[] }>("/cleanup/candidates");
 }
 
 export function postSyncExxasInventory(tourId: number) {

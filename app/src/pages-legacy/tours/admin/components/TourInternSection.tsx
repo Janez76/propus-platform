@@ -4,7 +4,10 @@ import { toursAdminPost } from "../../../../api/toursAdmin";
 import {
   getToursAdminTourCustomerOrders,
   postToursAdminTourSetBookingOrder,
+  getCleanupSandboxPreview,
+  postCleanupSendSingle,
   type TourCustomerOrder,
+  type CleanupSandboxPreview,
 } from "../../../../api/toursAdmin";
 
 const MP_OPEN_BTN =
@@ -21,6 +24,7 @@ type Props = {
   matterportShowUrl?: string | null;
   matterportEditUrl?: string | null;
   linkedCustomerLabel?: string | null;
+  linkedCustomerContact?: string | null;
   linkedCoreCustomerId?: number | null;
   bookingOrderNo?: number | null;
   /** Callback nach erfolgreichem Bestellverknüpfen (löst Refetch aus) */
@@ -254,6 +258,7 @@ export function TourInternSection({
   matterportShowUrl,
   matterportEditUrl,
   linkedCustomerLabel,
+  linkedCustomerContact,
   linkedCoreCustomerId,
   bookingOrderNo,
   onBookingLinked,
@@ -267,6 +272,15 @@ export function TourInternSection({
   const [confBusy, setConfBusy] = useState(false);
   const [confErr, setConfErr] = useState<string | null>(null);
   const [confOk, setConfOk] = useState<string | null>(null);
+
+  // Bereinigungslauf Sandbox
+  const [sandboxLoading, setSandboxLoading] = useState(false);
+  const [sandboxPreview, setSandboxPreview] = useState<CleanupSandboxPreview | null>(null);
+  const [sandboxErr, setSandboxErr] = useState<string | null>(null);
+  const [sandboxMailOpen, setSandboxMailOpen] = useState(false);
+  const [sendBusy, setSendBusy] = useState(false);
+  const [sendResult, setSendResult] = useState<string | null>(null);
+  const [sendErr, setSendErr] = useState<string | null>(null);
 
   useEffect(() => {
     setVerified(customerVerified);
@@ -303,6 +317,37 @@ export function TourInternSection({
       setConfErr(e instanceof Error ? e.message : "Fehler");
     } finally {
       setConfBusy(false);
+    }
+  }
+
+  async function loadSandboxPreview() {
+    setSandboxLoading(true);
+    setSandboxErr(null);
+    setSandboxPreview(null);
+    setSandboxMailOpen(false);
+    setSendResult(null);
+    setSendErr(null);
+    try {
+      const res = await getCleanupSandboxPreview(tourId);
+      setSandboxPreview(res as CleanupSandboxPreview);
+    } catch (e) {
+      setSandboxErr(e instanceof Error ? e.message : "Fehler beim Laden");
+    } finally {
+      setSandboxLoading(false);
+    }
+  }
+
+  async function sendCleanupMail() {
+    setSendBusy(true);
+    setSendErr(null);
+    setSendResult(null);
+    try {
+      const r = await postCleanupSendSingle(tourId);
+      setSendResult(`Mail gesendet an ${r.recipientEmail} (Betreff: ${r.subject})`);
+    } catch (e) {
+      setSendErr(e instanceof Error ? e.message : "Versand fehlgeschlagen");
+    } finally {
+      setSendBusy(false);
     }
   }
 
@@ -374,6 +419,11 @@ export function TourInternSection({
                   <span className="font-normal text-[var(--text-subtle)]">Noch keiner zugeordnet</span>
                 )}
               </p>
+              {customerOk && linkedCustomerContact ? (
+                <p className="mt-0.5 text-xs text-[var(--text-subtle)] break-words">
+                  {linkedCustomerContact}
+                </p>
+              ) : null}
             </div>
             <div>
               <div className="text-xs font-semibold uppercase tracking-wide text-[var(--text-subtle)]">
@@ -467,6 +517,130 @@ export function TourInternSection({
         >
           {confBusy ? "…" : "Speichern"}
         </button>
+      </div>
+
+      {/* ── Sandbox-Testlauf ───────────────────────────────────── */}
+      <div className="rounded-lg border border-violet-200 dark:border-violet-800/60 bg-violet-50/60 dark:bg-violet-950/20 px-3 py-3 space-y-3">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-400">
+            Bereinigungslauf · Sandbox-Testlauf
+          </span>
+          <span className="rounded-full bg-violet-100 dark:bg-violet-900/40 px-2 py-0.5 text-[10px] font-bold text-violet-600 dark:text-violet-300 uppercase">
+            kein produktiver Effekt
+          </span>
+        </div>
+        <p className="text-xs text-[var(--text-subtle)] leading-relaxed">
+          Vorschau des Bereinigungsmail-Inhalts, erkannter Status und simulierter Folgeaktionen — ohne Versand,
+          ohne Token-Erstellung und ohne Datenbankänderungen.
+        </p>
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={sandboxLoading}
+            onClick={() => void loadSandboxPreview()}
+            className="rounded-lg border border-violet-300 dark:border-violet-700 bg-white dark:bg-violet-950/40 px-3 py-1.5 text-sm font-medium text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-900/30 disabled:opacity-50 transition-colors"
+          >
+            {sandboxLoading ? "Lade Vorschau…" : "🔬 Sandbox-Vorschau laden"}
+          </button>
+          {sandboxPreview && !sandboxPreview.alreadySent && sandboxPreview.isEligible && !sendResult && (
+            <button
+              type="button"
+              disabled={sendBusy}
+              onClick={() => {
+                if (window.confirm(`Bereinigungsmail JETZT an ${sandboxPreview.email} versenden? Dies ist der produktive Versand.`)) {
+                  void sendCleanupMail();
+                }
+              }}
+              className="rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 px-3 py-1.5 text-sm font-semibold text-amber-700 dark:text-amber-300 hover:bg-amber-100 disabled:opacity-50 transition-colors"
+            >
+              {sendBusy ? "Sende…" : "📧 Mail jetzt senden (produktiv)"}
+            </button>
+          )}
+        </div>
+
+        {sandboxErr && <p className="text-sm text-red-600 dark:text-red-400">{sandboxErr}</p>}
+        {sendResult && <p className="text-sm text-emerald-700 dark:text-emerald-400">✓ {sendResult}</p>}
+        {sendErr && <p className="text-sm text-red-600 dark:text-red-400">{sendErr}</p>}
+
+        {sandboxPreview && (
+          <div className="space-y-2">
+            {!sandboxPreview.withinCleanupWindow && (
+              <div className="rounded-md bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 px-3 py-2 text-xs text-red-700 dark:text-red-300">
+                <strong>Ausserhalb des 6-Monats-Fensters</strong>
+                {sandboxPreview.withinCleanupWindowNote ? (
+                  <span className="block mt-0.5">{sandboxPreview.withinCleanupWindowNote}</span>
+                ) : null}
+              </div>
+            )}
+            {sandboxPreview.alreadySent && (
+              <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+                ⚠ Bereinigungsmail wurde bereits versendet.
+              </div>
+            )}
+            {sandboxPreview.alreadyDone && (
+              <div className="rounded-md bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-300">
+                ✓ Kunde hat bereits eine Aktion gewählt.
+              </div>
+            )}
+
+            <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] p-3 space-y-1.5">
+              <p className="text-xs font-semibold text-[var(--text-subtle)] uppercase tracking-wide">Status-Erkennung</p>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                <span className="text-[var(--text-subtle)]">Status:</span>
+                <span className="font-medium">{sandboxPreview.statusLabel}</span>
+                <span className="text-[var(--text-subtle)]">E-Mail:</span>
+                <span className="font-medium">{sandboxPreview.email || "–"}</span>
+                <span className="text-[var(--text-subtle)]">Im 6-Monats-Fenster:</span>
+                <span className={`font-medium ${sandboxPreview.withinCleanupWindow ? "text-emerald-700 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                  {sandboxPreview.withinCleanupWindow ? "Ja" : "Nein – kein Versand möglich"}
+                </span>
+                <span className="text-[var(--text-subtle)]">Neue Rechnung nötig:</span>
+                <span className="font-medium">{sandboxPreview.rule.needsInvoice ? `Ja (CHF ${sandboxPreview.rule.invoiceAmount ?? "?"}.--)` : "Nein"}</span>
+                <span className="text-[var(--text-subtle)]">Manueller Review:</span>
+                <span className="font-medium">{sandboxPreview.needsManualReview ? "Ja (Archiviert < 6 Mo.)" : "Nein"}</span>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] p-3 space-y-1.5">
+              <p className="text-xs font-semibold text-[var(--text-subtle)] uppercase tracking-wide">Aktions-Simulation</p>
+              {Object.entries(sandboxPreview.actionPlan).map(([key, action]) => (
+                <div key={key} className="flex items-start gap-2 text-xs">
+                  <span className="shrink-0 w-24 text-[var(--text-subtle)] capitalize">{action.label}:</span>
+                  <span className="text-[var(--text-main)]">{action.hint}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] p-3 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-[var(--text-subtle)] uppercase tracking-wide">E-Mail-Vorschau</p>
+                <button
+                  type="button"
+                  onClick={() => setSandboxMailOpen((v) => !v)}
+                  className="text-xs text-[var(--accent)] hover:underline"
+                >
+                  {sandboxMailOpen ? "Ausblenden" : "Anzeigen"}
+                </button>
+              </div>
+              <p className="text-xs text-[var(--text-subtle)]">
+                <strong>Betreff:</strong> {sandboxPreview.mail.subject}
+              </p>
+              {sandboxMailOpen && (
+                <div
+                  className="mt-2 rounded border border-[var(--border-soft)] bg-white dark:bg-zinc-900 overflow-auto max-h-[480px]"
+                >
+                  <iframe
+                    srcDoc={sandboxPreview.mail.html}
+                    title="E-Mail-Vorschau"
+                    className="w-full min-h-[400px] border-0"
+                    sandbox="allow-same-origin"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

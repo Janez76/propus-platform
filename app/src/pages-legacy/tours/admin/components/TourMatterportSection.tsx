@@ -427,6 +427,7 @@ export function TourMatterportSection({ tourId, tour, mpVisibility, onSuccess, p
   // Löschen-Dialog
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleteAlsoMatterport, setDeleteAlsoMatterport] = useState(false);
 
   // Transfer-Dialog
   const [transferOpen, setTransferOpen] = useState(false);
@@ -488,8 +489,10 @@ export function TourMatterportSection({ tourId, tour, mpVisibility, onSuccess, p
     setErr(null);
     setDeleteOpen(false);
     setDeleteConfirmText("");
+    const alsoMp = deleteAlsoMatterport;
+    setDeleteAlsoMatterport(false);
     try {
-      await deleteToursAdminTour(tourId);
+      await deleteToursAdminTour(tourId, alsoMp);
       window.location.href = "/admin/tours";
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Fehler");
@@ -546,9 +549,13 @@ export function TourMatterportSection({ tourId, tour, mpVisibility, onSuccess, p
               </div>
             ) : meta && metaInactive ? (
               <>
-                <p className="text-xs text-[var(--text-subtle)] rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 py-2">
-                  Archivierter Space – Publikationsdetails bei Matterport nicht verfügbar (State: inactive).
-                </p>
+                <div className="flex items-start gap-2.5 rounded-lg border border-amber-300/60 bg-amber-50 px-3 py-2.5 dark:border-amber-700/50 dark:bg-amber-950/30">
+                  <span className="mt-0.5 shrink-0 text-base leading-none">⚠️</span>
+                  <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
+                    Archivierter Space – Publikationsdetails bei Matterport nicht verfügbar{" "}
+                    <span className="font-mono font-normal opacity-70">(State: inactive)</span>
+                  </p>
+                </div>
                 <MatterportMetaPanel
                   meta={meta}
                   onRefresh={() => void loadMeta()}
@@ -713,10 +720,27 @@ export function TourMatterportSection({ tourId, tour, mpVisibility, onSuccess, p
                   ⚠️ Diese Aktion kann nicht rückgängig gemacht werden!
                 </p>
                 <p className="text-xs text-red-700 dark:text-red-400">
-                  Der Matterport-Space wird <strong>NICHT</strong> gelöscht – er bleibt in Matterport erhalten.
-                  Nur der Tour-Eintrag in der Datenbank wird entfernt.
+                  Der Tour-Eintrag wird unwiderruflich aus der Datenbank entfernt.
                 </p>
               </div>
+
+              {spaceId ? (
+                <label className="flex items-start gap-3 cursor-pointer select-none group">
+                  <input
+                    type="checkbox"
+                    checked={deleteAlsoMatterport}
+                    onChange={(e) => setDeleteAlsoMatterport(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 accent-red-600 shrink-0"
+                  />
+                  <span className="text-xs text-[var(--text-main)] leading-relaxed">
+                    <strong className="text-red-700 dark:text-red-400">Auch in Matterport löschen</strong>
+                    <span className="block text-[var(--text-subtle)] mt-0.5">
+                      Der Space <span className="font-mono">{spaceId}</span> wird dauerhaft aus my.matterport.com gelöscht.
+                      Dies ist unwiderruflich.
+                    </span>
+                  </span>
+                </label>
+              ) : null}
 
               <div className="space-y-1.5">
                 <label className="text-xs text-[var(--text-subtle)]">
