@@ -40,7 +40,7 @@ function loadGoogleMapsScript(apiKey: string): Promise<void> {
     const s = document.createElement("script");
     s.id = MAPS_SCRIPT_ID;
     s.async = true;
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}`;
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&loading=async&libraries=marker`;
     s.onload = () => resolve();
     s.onerror = () => {
       mapsScriptPromise = null;
@@ -61,7 +61,7 @@ type AddressPreviewMapProps = {
 export function AddressPreviewMap({ apiKey, address, coords, className }: AddressPreviewMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
-  const markerRef = useRef<google.maps.Marker | null>(null);
+  const markerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
   const geocodeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resolvedTheme = useThemeStore((s) => s.resolvedTheme);
 
@@ -80,6 +80,7 @@ export function AddressPreviewMap({ apiKey, address, coords, className }: Addres
           mapTypeControl: false,
           streetViewControl: false,
           fullscreenControl: false,
+          mapId: "propus_booking_map",
           styles: dark ? GMAPS_DARK_STYLES : [],
         });
         setMap(m);
@@ -91,7 +92,10 @@ export function AddressPreviewMap({ apiKey, address, coords, className }: Addres
     return () => {
       cancelled = true;
       setMap(null);
-      markerRef.current = null;
+      if (markerRef.current) {
+        markerRef.current.map = null;
+        markerRef.current = null;
+      }
     };
   }, [apiKey]);
 
@@ -107,10 +111,10 @@ export function AddressPreviewMap({ apiKey, address, coords, className }: Addres
 
     const placeMarker = (pos: google.maps.LatLngLiteral) => {
       if (!markerRef.current) {
-        markerRef.current = new google.maps.Marker({ map, position: pos });
+        markerRef.current = new google.maps.marker.AdvancedMarkerElement({ map, position: pos });
       } else {
-        markerRef.current.setPosition(pos);
-        markerRef.current.setMap(map);
+        markerRef.current.position = pos;
+        markerRef.current.map = map;
       }
       map.panTo(pos);
       map.setZoom(FOCUS_ZOOM);
@@ -118,7 +122,7 @@ export function AddressPreviewMap({ apiKey, address, coords, className }: Addres
 
     const clearMarker = () => {
       if (markerRef.current) {
-        markerRef.current.setMap(null);
+        markerRef.current.map = null;
       }
     };
 
