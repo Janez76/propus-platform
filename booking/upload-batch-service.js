@@ -1,6 +1,17 @@
 const fs = require("fs");
+const fsPromises = require("fs").promises;
 const path = require("path");
 const crypto = require("crypto");
+
+function sha256FileAsync(filePath) {
+  return new Promise((resolve, reject) => {
+    const hash = crypto.createHash("sha256");
+    const stream = fs.createReadStream(filePath);
+    stream.on("data", (chunk) => hash.update(chunk));
+    stream.on("end", () => resolve(hash.digest("hex")));
+    stream.on("error", reject);
+  });
+}
 const {
   UPLOAD_CATEGORY_MAP,
   sanitizeUploadFilename,
@@ -430,12 +441,12 @@ async function transferBatch(db, batchId, deps) {
         continue;
       }
 
-      const incomingHash = file.sha256 || sha256File(file.staging_path);
+      const incomingHash = file.sha256 || await sha256FileAsync(file.staging_path);
       const duplicateInfo = findDuplicateInTarget(targetDir, safeName, incomingHash);
       if (duplicateInfo.duplicate) {
         if (conflictMode === "replace" && duplicateInfo.reason === "name") {
           const existingPath = path.join(targetDir, duplicateInfo.existingFile || safeName);
-          const existingHash = fs.existsSync(existingPath) ? sha256File(existingPath) : null;
+          const existingHash = fs.existsSync(existingPath) ? await sha256FileAsync(existingPath) : null;
           if (existingHash === incomingHash) {
             await db.updateUploadBatchFile(file.id, {
               status: "skipped_duplicate",
@@ -458,19 +469,19 @@ async function transferBatch(db, batchId, deps) {
       const destination = path.join(targetDir, safeName);
       const fileStart = Date.now();
       try {
-        fs.copyFileSync(file.staging_path, destination);
+        await fsPromises.copyFile(file.staging_path, destination);
         try {
-          const srcStat = fs.statSync(file.staging_path);
+          const srcStat = await fsPromises.stat(file.staging_path);
           if (srcStat.atime && srcStat.mtime) {
-            fs.utimesSync(destination, srcStat.atime, srcStat.mtime);
+            await fsPromises.utimes(destination, srcStat.atime, srcStat.mtime);
           }
         } catch (_) {}
-        const sourceSize = Number(file.size_bytes || fs.statSync(file.staging_path).size || 0);
-        const targetSize = Number(fs.statSync(destination).size || 0);
+        const sourceSize = Number(file.size_bytes || (await fsPromises.stat(file.staging_path)).size || 0);
+        const targetSize = Number((await fsPromises.stat(destination)).size || 0);
         if (sourceSize !== targetSize) {
           throw new Error("Dateigrösse nach Kopie stimmt nicht überein");
         }
-        const targetHash = sha256File(destination);
+        const targetHash = await sha256FileAsync(destination);
         if (file.sha256 && targetHash !== file.sha256) {
           throw new Error("SHA-256 nach Kopie stimmt nicht überein");
         }
