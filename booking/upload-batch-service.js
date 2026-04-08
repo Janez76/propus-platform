@@ -25,7 +25,6 @@ const {
   createStagingBatchDir,
   provisionOrderFolders,
   createUniqueBatchDir,
-  findDuplicateInTarget,
   resolveCategoryPath,
   writeCommentFile,
 } = require("./order-storage");
@@ -441,50 +440,56 @@ async function transferBatch(db, batchId, deps) {
         continue;
       }
 
-      const incomingHash = file.sha256 || await sha256FileAsync(file.staging_path);
-      const duplicateInfo = findDuplicateInTarget(targetDir, safeName, incomingHash);
-      if (duplicateInfo.duplicate) {
-        if (conflictMode === "replace" && duplicateInfo.reason === "name") {
-          const existingPath = path.join(targetDir, duplicateInfo.existingFile || safeName);
-          const existingHash = fs.existsSync(existingPath) ? await sha256FileAsync(existingPath) : null;
-          if (existingHash === incomingHash) {
-            await db.updateUploadBatchFile(file.id, {
-              status: "skipped_duplicate",
-              duplicate_of: duplicateInfo.existingFile || null,
-              error_message: "content_identical",
-            });
-            continue;
-          }
-          try { fs.unlinkSync(existingPath); } catch (_) {}
-        } else {
-          await db.updateUploadBatchFile(file.id, {
-            status: "skipped_duplicate",
-            duplicate_of: duplicateInfo.existingFile || null,
-            error_message: duplicateInfo.reason || null,
-          });
-          continue;
-        }
-      }
-
       const destination = path.join(targetDir, safeName);
       const fileStart = Date.now();
       try {
+        // Prüfe ob identische Datei bereits auf NAS liegt (Content-Hash-Vergleich).
+        // Gleichnamige Dateien werden immer überschrieben – kein name-based skip.
+        const incomingHash = file.sha256 || await sha256FileAsync(file.staging_path);
+        if (fs.existsSync(destination)) {
+          const existingHash = await sha256FileAsync(destination);
+          if (existingHash === incomingHash) {
+            // Inhalt 1:1 identisch – Staging-File sicher löschen, als stored markieren
+            try { await fsPromises.unlink(file.staging_path); } catch (_) {}
+            await db.updateUploadBatchFile(file.id, {
+              status: "stored",
+              error_message: null,
+            });
+            const fileMs = Date.now() - fileStart;
+            log("file already on NAS (identical)", { batchId, fileIndex, total: files.length, lastFileMs: fileMs, lastFile: safeName });
+            continue;
+          }
+          // Anderer Inhalt – überschreiben
+        }
+
+        // Kopie auf NAS (fsPromises.copyFile = non-blocking)
         await fsPromises.copyFile(file.staging_path, destination);
+
+        // Original-Metadaten (mtime/atime) vom Staging-File übernehmen –
+        // completeChunkedUpload hat bereits das originale lastModified gesetzt.
         try {
           const srcStat = await fsPromises.stat(file.staging_path);
-          if (srcStat.atime && srcStat.mtime) {
-            await fsPromises.utimes(destination, srcStat.atime, srcStat.mtime);
+          if (srcStat.mtime) {
+            await fsPromises.utimes(destination, srcStat.atime || srcStat.mtime, srcStat.mtime);
           }
         } catch (_) {}
+
+        // Grössen-Check
         const sourceSize = Number(file.size_bytes || (await fsPromises.stat(file.staging_path)).size || 0);
         const targetSize = Number((await fsPromises.stat(destination)).size || 0);
-        if (sourceSize !== targetSize) {
-          throw new Error("Dateigrösse nach Kopie stimmt nicht überein");
+        if (sourceSize > 0 && sourceSize !== targetSize) {
+          throw new Error(`Dateigrösse nach Kopie stimmt nicht überein (${sourceSize} vs ${targetSize})`);
         }
+
+        // SHA-256-Verifikation: erst danach Staging-File löschen
         const targetHash = await sha256FileAsync(destination);
-        if (file.sha256 && targetHash !== file.sha256) {
-          throw new Error("SHA-256 nach Kopie stimmt nicht überein");
+        if (incomingHash && targetHash !== incomingHash) {
+          throw new Error(`SHA-256 nach Kopie stimmt nicht überein (NAS-Fehler?)`);
         }
+
+        // Erst jetzt – nach erfolgreicher Verifikation – Staging-File entfernen
+        try { await fsPromises.unlink(file.staging_path); } catch (_) {}
+
         await db.updateUploadBatchFile(file.id, {
           status: "stored",
           error_message: null,
@@ -497,8 +502,9 @@ async function transferBatch(db, batchId, deps) {
         failed += 1;
         const fileMs = Date.now() - fileStart;
         logWarn(`file failed: ${safeName} (${(Number(file.size_bytes) / (1024 * 1024)).toFixed(2)} MB, ${fileMs}ms)`, error);
+        // Unvollständige Zieldatei entfernen; Staging-File bleibt für Wiederholung erhalten
         try {
-          if (fs.existsSync(destination)) fs.unlinkSync(destination);
+          if (fs.existsSync(destination)) await fsPromises.unlink(destination);
         } catch (_) {}
         await db.updateUploadBatchFile(file.id, {
           status: "failed",
@@ -597,6 +603,24 @@ async function retryBatchTransfer(db, batchId, deps) {
 async function resumePendingTransfers(db, deps) {
   const pending = await db.listPendingUploadBatches();
   for (const batch of pending) {
+    // Bei failed-Batches: nur Dateien mit status=failed zurücksetzen,
+    // stored-Dateien bleiben unberührt → Transfer setzt ab dem letzten
+    // erfolgreichen File fort. Staging-Files bleiben erhalten (werden erst
+    // nach SHA-256-Verifikation auf NAS gelöscht).
+    if (String(batch.status) === "failed") {
+      try {
+        const files = await db.listUploadBatchFiles(batch.id);
+        for (const f of files) {
+          if (String(f.status) === "failed") {
+            await db.updateUploadBatchFile(f.id, { status: "staged", error_message: null });
+          }
+        }
+        await db.updateUploadBatch(batch.id, { status: "retrying", error_message: null });
+      } catch (resetErr) {
+        logWarn(`resumePendingTransfers: reset failed for batch ${batch.id}`, resetErr);
+        continue;
+      }
+    }
     enqueueBatchTransfer(db, batch.id, deps);
   }
   return pending.length;

@@ -2629,7 +2629,7 @@ async function listPendingUploadBatches() {
   const { rows } = await query(
     `SELECT *
      FROM upload_batches
-     WHERE status IN ('staged','transferring','retrying')
+     WHERE status IN ('staged','transferring','retrying','failed')
      ORDER BY created_at ASC`
   );
   return rows;
