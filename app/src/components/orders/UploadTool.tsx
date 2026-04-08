@@ -721,6 +721,8 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
   }, [anyFile]);
 
   useEffect(() => {
+    // Stilles Hintergrund-Polling: NAS-Transfer-Status updaten ohne den User zu stören.
+    // sequenceUploadActive-Pfad hat sein eigenes waitForBatchCompletion im Hintergrund.
     if (sequenceUploadActive) return;
     if (!currentBatch?.id) return;
     if (!["staged", "transferring", "retrying"].includes(currentBatch.status)) return;
@@ -729,28 +731,16 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
         .then(async (response) => {
           setCurrentBatch(response.batch);
           if (response.batch.status === "completed") {
-            setBusy("");
-            setUploadSuccess(true);
-            setUploadError(false);
-            setStatus(t(lang, "upload.success.completed"));
-            await loadTree();
+            await loadTree().catch(() => {});
             await onChanged?.();
           }
-          if (response.batch.status === "failed") {
-            setBusy("");
-            setUploadSuccess(false);
-            setUploadError(true);
-            setStatus(response.batch.errorMessage || t(lang, "upload.error.uploadFailed"));
-          }
         })
-        .catch((error) => {
-          setBusy("");
-          setUploadError(true);
-          setStatus(error instanceof Error ? error.message : t(lang, "upload.error.uploadFailed"));
+        .catch(() => {
+          // Stiller Fehler – Polling wird beim nächsten Intervall erneut versucht
         });
     }, BATCH_STATUS_POLL_MS);
     return () => window.clearInterval(intervalId);
-  }, [currentBatch?.id, currentBatch?.status, lang, loadTree, onChanged, orderNo, sequenceUploadActive, token]);
+  }, [currentBatch?.id, currentBatch?.status, loadTree, onChanged, orderNo, sequenceUploadActive, token]);
 
   async function waitForBatchCompletion(batchId: string) {
     const deadline = Date.now() + 10 * 60_000;
@@ -949,8 +939,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
 
       if (errors.length > 0) throw errors[0];
 
-      setBusy("transfer");
-      setStatus(t(lang, "upload.status.transferring"));
+      // Finalize: Dateien ins Staging verschieben + Batch anlegen (schnell, kein NAS-Transfer)
       setUploadSpeed(null);
       const finalizePayload = {
         sessionId,
@@ -971,22 +960,24 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
               comment: uploadComment || undefined,
               files: [],
             });
-      const finished = await waitForBatchCompletion(result.batch.id);
-      setCurrentBatch(finished);
-      setUploadedCount(total);
-      setUploadSuccess(false);
-      setUploadError(false);
-      setStatus("");
-      await loadTree();
-      await onChanged?.();
-      setFiles([]);
-      setFileProgress({});
-      setComment("");
 
-      await confirmUploadBatch(token, orderNo, finished.id, uploadComment || undefined);
-      setConfirmDone(true);
+      // Sofort Erfolg zeigen – NAS-Transfer läuft im Hintergrund
+      setCurrentBatch(result.batch);
+      setUploadedCount(total);
       setUploadSuccess(true);
+      setUploadError(false);
+      setConfirmDone(true);
       setStatus(t(lang, "upload.confirm.sent"));
+
+      // Hintergrund: auf NAS-Transfer warten, dann Mail + Dateibaum aktualisieren
+      waitForBatchCompletion(result.batch.id).then(async (finished) => {
+        setCurrentBatch(finished);
+        await confirmUploadBatch(token, orderNo, finished.id, uploadComment || undefined).catch(() => {});
+        await loadTree().catch(() => {});
+        await onChanged?.();
+      }).catch(() => {
+        // Stiller Fehler im Hintergrund – User hat bereits weitergarbeitet
+      });
     } catch (e) {
       setUploadError(true);
       setConfirmError(e instanceof Error ? e.message : t(lang, "upload.error.uploadFailed"));
@@ -1507,8 +1498,6 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
                           <p className="text-sm font-semibold text-zinc-100">
                             {uploadPaused
                               ? <span className="text-amber-400">Upload pausiert</span>
-                              : busy === "transfer"
-                              ? t(lang, "upload.status.transferring")
                               : `${t(lang, "upload.status.uploading")} ${uploadedCount > 0 ? `${uploadedCount} / ${files.length}` : ""}`}
                           </p>
                           <div className="flex items-center gap-3 mt-0.5">
@@ -1533,17 +1522,13 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
                       {/* Gesamtfortschritt */}
                       <div>
                         <div className="flex justify-between text-xs text-zinc-400 mb-1">
-                          <span>
-                            {busy === "transfer"
-                              ? t(lang, "upload.label.transferStatus")
-                              : `Datei ${Math.min(uploadedCount + 1, files.length)} von ${files.length}`}
-                          </span>
-                          <span>{busy === "upload" ? `${progress}%` : ""}</span>
+                          <span>{`Datei ${Math.min(uploadedCount + 1, files.length)} von ${files.length}`}</span>
+                          <span>{`${progress}%`}</span>
                         </div>
                         <div className="h-2 w-full rounded bg-zinc-800 overflow-hidden">
                           <div
-                            className={`h-full transition-all duration-300 ${busy === "transfer" ? "animate-pulse bg-[var(--accent)]" : "bg-[var(--accent)]"}`}
-                            style={{ width: `${busy === "transfer" ? 100 : progress}%` }}
+                            className="h-full transition-all duration-300 bg-[var(--accent)]"
+                            style={{ width: `${progress}%` }}
                           />
                         </div>
                       </div>
