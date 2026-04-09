@@ -92,9 +92,9 @@ async function getCleanupCandidatesGrouped({ maxAgeMonths = 6 } = {}) {
     if (!grouped.has(key)) {
       grouped.set(key, {
         groupKey: key,
-        customerName: tour.customer_name || tour.customer_contact || null,
-        customerEmail: email, // primäre E-Mail (erste die auftaucht)
-        customerEmails: [],   // alle E-Mails der Gruppe
+        customerNameCounts: new Map(), // name -> Anzahl Touren
+        customerEmail: email,
+        customerEmails: [],
         tours: [],
         allSent: true,
         someWithoutAction: false,
@@ -105,19 +105,41 @@ async function getCleanupCandidatesGrouped({ maxAgeMonths = 6 } = {}) {
     if (!group.customerEmails.includes(email)) group.customerEmails.push(email);
     if (!tour.cleanup_sent_at) group.allSent = false;
     if (!tour.cleanup_action) group.someWithoutAction = true;
+    // Häufigkeit der Namen zählen (GmbH-Namen bevorzugen)
+    const rawName = String(tour.customer_name || tour.customer_contact || '').trim();
+    if (rawName) {
+      group.customerNameCounts.set(rawName, (group.customerNameCounts.get(rawName) || 0) + 1);
+    }
   }
 
-  return [...grouped.values()].map((g) => ({
-    groupKey: g.groupKey,
-    customerEmail: g.customerEmail,
-    customerEmails: g.customerEmails,
-    customerName: g.customerName,
-    tours: g.tours,
-    allSent: g.allSent,
-    tourCount: g.tours.length,
-    pendingCount: g.tours.filter((t) => !t.cleanup_action).length,
-    doneCount: g.tours.filter((t) => !!t.cleanup_action).length,
-  }));
+  return [...grouped.values()].map((g) => {
+    // Besten Namen wählen: höchste Häufigkeit; bei Gleichstand: GmbH/AG/Firma bevorzugen, dann alphabetisch
+    let bestName = null;
+    if (g.customerNameCounts.size > 0) {
+      const entries = [...g.customerNameCounts.entries()];
+      entries.sort((a, b) => {
+        if (b[1] !== a[1]) return b[1] - a[1]; // häufigster zuerst
+        // Bei Gleichstand: Firmennamen (GmbH, AG, SA, Ltd) bevorzugen
+        const aIsFirm = /\b(gmbh|ag|sa|ltd|llc|inc|kg|ohg|gmbh & co|immobilien|holding)\b/i.test(a[0]);
+        const bIsFirm = /\b(gmbh|ag|sa|ltd|llc|inc|kg|ohg|gmbh & co|immobilien|holding)\b/i.test(b[0]);
+        if (aIsFirm !== bIsFirm) return bIsFirm ? 1 : -1;
+        return a[0].localeCompare(b[0], 'de');
+      });
+      bestName = entries[0][0];
+    }
+
+    return {
+      groupKey: g.groupKey,
+      customerEmail: g.customerEmail,
+      customerEmails: g.customerEmails,
+      customerName: bestName,
+      tours: g.tours,
+      allSent: g.allSent,
+      tourCount: g.tours.length,
+      pendingCount: g.tours.filter((t) => !t.cleanup_action).length,
+      doneCount: g.tours.filter((t) => !!t.cleanup_action).length,
+    };
+  });
 }
 
 // ─── Session erstellen (Token für einen Kunden) ──────────────────────────────
