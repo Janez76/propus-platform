@@ -38,6 +38,7 @@ import {
   Clock,
   CheckCircle,
   AlertTriangle,
+  Trash2,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -650,6 +651,10 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                         <NavLink to="/admin/tours/workflow-settings" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
                           <GitBranch className="h-4 w-4 flex-shrink-0" />
                           {t(lang, "nav.tours.workflowSettings")}
+                        </NavLink>
+                        <NavLink to="/admin/tours/bereinigung" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <Trash2 className="h-4 w-4 flex-shrink-0" />
+                          {t(lang, "nav.tours.cleanup")}
                         </NavLink>
                         <NavLink to="/admin/tours/team" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
                           <UserCog className="h-4 w-4 flex-shrink-0" />
