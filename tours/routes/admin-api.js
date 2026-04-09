@@ -1015,9 +1015,15 @@ router.post('/cleanup/dashboard/batch-send', async (req, res) => {
 
 router.post('/cleanup/dashboard/send-single', async (req, res) => {
   try {
-    const { customerEmail } = req.body || {};
-    if (!customerEmail) return res.status(400).json({ ok: false, error: 'customerEmail fehlt' });
-    const result = await cleanupDashboard.sendDashboardInvite(customerEmail, {
+    const { customerEmail, customerEmails } = req.body || {};
+    // customerEmails (Array) hat Vorrang — für firmenweisen Versand
+    const target = customerEmails && Array.isArray(customerEmails) && customerEmails.length > 0
+      ? customerEmails
+      : customerEmail;
+    if (!target || (Array.isArray(target) && target.length === 0)) {
+      return res.status(400).json({ ok: false, error: 'customerEmail oder customerEmails fehlt' });
+    }
+    const result = await cleanupDashboard.sendDashboardInvite(target, {
       actorType: 'admin',
       actorRef: adminEmail(req),
     });

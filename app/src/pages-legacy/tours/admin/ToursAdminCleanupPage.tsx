@@ -288,14 +288,16 @@ function CustomerCard({
   isSelected: boolean;
   onToggleSelect: () => void;
   busyAction: string | null;
-  onSendSingle: (email: string) => void;
+  onSendSingle: (emails: string[]) => void;
   onSendSingleTour: (tourId: number) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [previewTourId, setPreviewTourId] = useState<number | null>(null);
 
-  const isBusy = busyAction === `single:${group.customerEmail}`;
+  const isBusy = busyAction === `single:${group.groupKey}`;
   const allDone = group.pendingCount === 0;
+  const displayName = group.customerName || group.customerEmail;
+  const emails = group.customerEmails ?? [group.customerEmail];
 
   return (
     <div className={`surface-card-strong rounded-lg border border-[var(--border-soft)] overflow-hidden ${allDone ? "opacity-50" : ""}`}>
@@ -315,10 +317,15 @@ function CustomerCard({
         >
           {expanded ? <ChevronDown className="h-4 w-4 text-[var(--text-subtle)] flex-shrink-0" /> : <ChevronRight className="h-4 w-4 text-[var(--text-subtle)] flex-shrink-0" />}
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-[var(--text-main)] truncate">{group.customerEmail}</span>
-              {group.customerName && (
-                <span className="text-xs text-[var(--text-subtle)] truncate hidden sm:inline">({group.customerName})</span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-medium text-[var(--text-main)] truncate">{displayName}</span>
+              {emails.length > 1 && (
+                <span className="text-xs text-[var(--text-subtle)] hidden sm:inline">
+                  {emails.join(", ")}
+                </span>
+              )}
+              {emails.length === 1 && group.customerName && (
+                <span className="text-xs text-[var(--text-subtle)] truncate hidden sm:inline">{emails[0]}</span>
               )}
             </div>
             <div className="flex items-center gap-3 mt-0.5">
@@ -326,6 +333,9 @@ function CustomerCard({
                 <Package className="h-3 w-3" />
                 {group.tourCount} Tour{group.tourCount > 1 ? "en" : ""}
               </span>
+              {emails.length > 1 && (
+                <span className="text-xs text-[var(--text-subtle)]">{emails.length} E-Mails</span>
+              )}
               {group.pendingCount > 0 && (
                 <span className="text-xs font-medium text-orange-600">{group.pendingCount} offen</span>
               )}
@@ -345,8 +355,8 @@ function CustomerCard({
             <button
               type="button"
               disabled={!!busyAction}
-              onClick={() => onSendSingle(group.customerEmail)}
-              title="Dashboard-Link senden"
+              onClick={() => onSendSingle(emails)}
+              title={`Dashboard-Link senden an: ${emails.join(", ")}`}
               className="flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-2.5 py-1.5 text-xs font-medium text-[var(--text-subtle)] hover:text-[var(--accent)] hover:bg-[var(--surface-card-strong)] disabled:opacity-40"
             >
               {isBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
@@ -456,10 +466,10 @@ export function ToursAdminCleanupPage() {
   const [confirmSend, setConfirmSend] = useState(false);
   const [showSent, setShowSent] = useState(false);
 
-  function toggleSelect(email: string) {
+  function toggleSelect(groupKey: string) {
     setSelected((prev) => {
       const next = new Set(prev);
-      next.has(email) ? next.delete(email) : next.add(email);
+      next.has(groupKey) ? next.delete(groupKey) : next.add(groupKey);
       return next;
     });
   }
@@ -469,8 +479,14 @@ export function ToursAdminCleanupPage() {
     if (selected.size === eligible.length) {
       setSelected(new Set());
     } else {
-      setSelected(new Set(eligible.map((c) => c.customerEmail)));
+      setSelected(new Set(eligible.map((c) => c.groupKey)));
     }
+  }
+
+  // Alle E-Mails der ausgewählten Gruppen sammeln für Batch-Versand
+  function getSelectedEmails(): string[] {
+    const selectedGroups = customers.filter((c) => selected.has(c.groupKey));
+    return selectedGroups.flatMap((c) => c.customerEmails ?? [c.customerEmail]);
   }
 
   async function handleDryRun() {
@@ -479,7 +495,7 @@ export function ToursAdminCleanupPage() {
     setActionMsg(null);
     setBatchResult(null);
     try {
-      const emails = selected.size > 0 ? [...selected] : undefined;
+      const emails = selected.size > 0 ? getSelectedEmails() : undefined;
       const r = await postCleanupDashboardBatchDryRun(emails);
       setBatchResult(r as BatchResult);
       setActionMsg(`Dry-Run abgeschlossen: ${r.totalCustomers} Kunden, ${r.totalTours} Touren geprüft.`);
@@ -497,7 +513,7 @@ export function ToursAdminCleanupPage() {
     setActionMsg(null);
     setBatchResult(null);
     try {
-      const emails = selected.size > 0 ? [...selected] : undefined;
+      const emails = selected.size > 0 ? getSelectedEmails() : undefined;
       const r = await postCleanupDashboardBatchSend(emails);
       setBatchResult(r as BatchResult);
       setActionMsg(`Versand abgeschlossen: ${r.sent} versendet, ${r.skipped} übersprungen, ${r.failed} fehlgeschlagen.`);
@@ -509,13 +525,15 @@ export function ToursAdminCleanupPage() {
     }
   }
 
-  async function handleSendSingle(email: string) {
-    setBusyAction(`single:${email}`);
+  async function handleSendSingle(emails: string[]) {
+    const groupKey = customers.find((c) => (c.customerEmails ?? [c.customerEmail]).some((e) => emails.includes(e)))?.groupKey ?? emails[0];
+    setBusyAction(`single:${groupKey}`);
     setActionErr(null);
     setActionMsg(null);
     try {
-      const r = await postCleanupDashboardSendSingle(email);
-      setActionMsg(`Dashboard-Link gesendet an ${r.recipientEmail} (${r.tourCount} Touren).`);
+      const r = await postCleanupDashboardSendSingle(emails);
+      const recipientList = r.recipientEmails?.join(", ") ?? r.recipientEmail;
+      setActionMsg(`Dashboard-Link gesendet an ${recipientList} (${r.tourCount} Touren).`);
       void refetch({ force: true });
     } catch (e) {
       setActionErr(e instanceof Error ? e.message : "Fehler beim Einzelversand");
@@ -615,7 +633,7 @@ export function ToursAdminCleanupPage() {
       {/* Aktionsleiste */}
       <div className="flex flex-wrap items-center gap-3">
         <label className="flex items-center gap-1.5 text-sm text-[var(--text-subtle)] cursor-pointer">
-          <input type="checkbox" checked={selected.size > 0 && selected.size === customers.filter((c) => !c.allSent && c.pendingCount > 0).length} onChange={toggleAll} className="rounded" />
+          <input type="checkbox" checked={selected.size > 0 && selected.size === pendingCustomers.length} onChange={toggleAll} className="rounded" />
           Alle
         </label>
         <span className="text-sm text-[var(--text-subtle)]">
@@ -682,10 +700,10 @@ export function ToursAdminCleanupPage() {
             <div className="space-y-3">
               {pendingCustomers.map((group) => (
                 <CustomerCard
-                  key={group.customerEmail}
+                  key={group.groupKey}
                   group={group}
-                  isSelected={selected.has(group.customerEmail)}
-                  onToggleSelect={() => toggleSelect(group.customerEmail)}
+                  isSelected={selected.has(group.groupKey)}
+                  onToggleSelect={() => toggleSelect(group.groupKey)}
                   busyAction={busyAction}
                   onSendSingle={handleSendSingle}
                   onSendSingleTour={handleSendSingleTour}
@@ -717,10 +735,10 @@ export function ToursAdminCleanupPage() {
                 <div className="space-y-2 p-3 bg-[var(--surface)]">
                   {sentCustomers.map((group) => (
                     <CustomerCard
-                      key={group.customerEmail}
+                      key={group.groupKey}
                       group={group}
-                      isSelected={selected.has(group.customerEmail)}
-                      onToggleSelect={() => toggleSelect(group.customerEmail)}
+                      isSelected={selected.has(group.groupKey)}
+                      onToggleSelect={() => toggleSelect(group.groupKey)}
                       busyAction={busyAction}
                       onSendSingle={handleSendSingle}
                       onSendSingleTour={handleSendSingleTour}

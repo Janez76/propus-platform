@@ -65,33 +65,55 @@ async function getCleanupCandidatesGrouped({ maxAgeMonths = 6 } = {}) {
      )
        AND (customer_email IS NOT NULL AND TRIM(customer_email) != '')
        AND confirmation_required = TRUE
-     ORDER BY LOWER(customer_email), COALESCE(archived_at, created_at) DESC`,
+     ORDER BY
+       COALESCE(customer_id::TEXT, ''),
+       LOWER(COALESCE(customer_name, '')),
+       LOWER(customer_email),
+       COALESCE(archived_at, created_at) DESC`,
     [cutoff.toISOString()]
   );
 
   const tours = r.rows.map(normalizeTourRow);
 
+  // Gruppierungsschlüssel: customer_id > customer_name (normalisiert) > customer_email
+  function getGroupKey(tour) {
+    if (tour.customer_id) return `id:${tour.customer_id}`;
+    const name = String(tour.customer_name || '').trim().toLowerCase();
+    if (name) return `name:${name}`;
+    return `email:${String(tour.customer_email || '').trim().toLowerCase()}`;
+  }
+
   const grouped = new Map();
   for (const tour of tours) {
     const email = String(tour.customer_email || '').trim().toLowerCase();
     if (!email) continue;
-    if (!grouped.has(email)) {
-      grouped.set(email, {
-        customerEmail: email,
+    const key = getGroupKey(tour);
+
+    if (!grouped.has(key)) {
+      grouped.set(key, {
+        groupKey: key,
         customerName: tour.customer_name || tour.customer_contact || null,
+        customerEmail: email, // primäre E-Mail (erste die auftaucht)
+        customerEmails: [],   // alle E-Mails der Gruppe
         tours: [],
         allSent: true,
         someWithoutAction: false,
       });
     }
-    const group = grouped.get(email);
+    const group = grouped.get(key);
     group.tours.push(tour);
+    if (!group.customerEmails.includes(email)) group.customerEmails.push(email);
     if (!tour.cleanup_sent_at) group.allSent = false;
     if (!tour.cleanup_action) group.someWithoutAction = true;
   }
 
   return [...grouped.values()].map((g) => ({
-    ...g,
+    groupKey: g.groupKey,
+    customerEmail: g.customerEmail,
+    customerEmails: g.customerEmails,
+    customerName: g.customerName,
+    tours: g.tours,
+    allSent: g.allSent,
     tourCount: g.tours.length,
     pendingCount: g.tours.filter((t) => !t.cleanup_action).length,
     doneCount: g.tours.filter((t) => !!t.cleanup_action).length,
@@ -144,16 +166,19 @@ async function validateDashboardSession(rawToken) {
 
 async function getDashboardTours(customerEmail) {
   await ensureSessionSchema();
-  const email = String(customerEmail).trim().toLowerCase();
+  // customerEmail kann ein String oder Array von Strings sein
+  const emails = Array.isArray(customerEmail)
+    ? customerEmail.map((e) => String(e).trim().toLowerCase()).filter(Boolean)
+    : [String(customerEmail).trim().toLowerCase()];
 
   const r = await pool.query(
     `SELECT * FROM tour_manager.tours
-     WHERE LOWER(TRIM(customer_email)) = $1
+     WHERE LOWER(TRIM(customer_email)) = ANY($1::text[])
        AND confirmation_required = TRUE
      ORDER BY
        CASE WHEN cleanup_action IS NULL THEN 0 ELSE 1 END,
        COALESCE(archived_at, created_at) DESC`,
-    [email]
+    [emails]
   );
 
   return r.rows.map(normalizeTourRow).map((tour) => {
@@ -373,14 +398,21 @@ async function sendDashboardInvite(customerEmail, options = {}) {
   await ensureSessionSchema();
   await ensureOutgoingEmailSchema();
   const { actorType = 'admin', actorRef = null } = options;
-  const email = String(customerEmail).trim().toLowerCase();
-  if (!email) throw new Error('Keine E-Mail-Adresse');
 
-  const tours = await getDashboardTours(email);
+  // customerEmail kann ein String oder Array sein (bei firmenweiser Gruppierung)
+  const emailList = Array.isArray(customerEmail)
+    ? customerEmail.map((e) => String(e).trim().toLowerCase()).filter(Boolean)
+    : [String(customerEmail).trim().toLowerCase()];
+  const primaryEmail = emailList[0];
+  if (!primaryEmail) throw new Error('Keine E-Mail-Adresse');
+
+  const tours = await getDashboardTours(emailList);
   const pendingTours = tours.filter((t) => !t.cleanupAction);
   if (pendingTours.length === 0) throw new Error('Keine offenen Touren für diesen Kunden');
 
-  const { token, expiresAt } = await createDashboardSession(email);
+  // Session pro E-Mail erstellen (jede E-Mail bekommt eigenen Token)
+  const sessions = await Promise.all(emailList.map((e) => createDashboardSession(e)));
+  const { token } = sessions[0]; // primärer Token für primäre E-Mail
 
   const baseUrl = (process.env.PORTAL_BASE_URL || process.env.CUSTOMER_BASE_URL || 'https://portal.propus.ch').replace(/\/$/, '');
   const dashboardUrl = `${baseUrl}/cleanup/dashboard?token=${encodeURIComponent(token)}`;
@@ -452,11 +484,47 @@ Bei Fragen antworten Sie direkt auf diese E-Mail.
 Freundliche Grüsse
 Ihr Propus Team`;
 
-  const fakeTour = { customer_email: email, id: pendingTours[0]?.id };
-  const mailResult = await sendGraphMailToCustomer(fakeTour, { subject, html, text });
+  // An alle E-Mails der Gruppe senden (jede bekommt ihren eigenen Token/Link)
+  const mailResults = [];
+  for (let i = 0; i < emailList.length; i++) {
+    const recipientEmail = emailList[i];
+    const recipientToken = sessions[i].token;
+    const recipientDashboardUrl = `${baseUrl}/cleanup/dashboard?token=${encodeURIComponent(recipientToken)}`;
 
-  if (!mailResult.success) {
-    throw new Error(mailResult.error || 'Versand fehlgeschlagen');
+    // Bei mehreren E-Mails: HTML/CTA-Link anpassen
+    const recipientHtml = i === 0 ? html : html.replace(
+      encodeURIComponent(token),
+      encodeURIComponent(recipientToken)
+    );
+    const recipientText = text.replace(dashboardUrl, recipientDashboardUrl);
+
+    const fakeTour = { customer_email: recipientEmail, id: pendingTours[0]?.id };
+    const mailResult = await sendGraphMailToCustomer(fakeTour, { subject, html: recipientHtml, text: recipientText });
+    mailResults.push({ email: recipientEmail, result: mailResult });
+
+    if (mailResult.success) {
+      await pool.query(
+        `INSERT INTO tour_manager.outgoing_emails
+           (tour_id, mailbox_upn, graph_message_id, internet_message_id, conversation_id,
+            recipient_email, subject, template_key, sent_at, details_json)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,'cleanup_dashboard_invite',NOW(),$8::jsonb)`,
+        [
+          pendingTours[0]?.id,
+          mailResult.mailboxUpn || 'system',
+          mailResult.graphMessageId || null,
+          mailResult.internetMessageId || null,
+          mailResult.conversationId || null,
+          mailResult.recipientEmail || recipientEmail,
+          subject,
+          JSON.stringify({ tourCount: pendingTours.length, tourIds: pendingTours.map((t) => t.id), allRecipients: emailList }),
+        ]
+      );
+    }
+  }
+
+  const anySuccess = mailResults.some((m) => m.result.success);
+  if (!anySuccess) {
+    throw new Error(mailResults[0]?.result?.error || 'Versand fehlgeschlagen');
   }
 
   for (const t of pendingTours) {
@@ -466,26 +534,9 @@ Ihr Propus Team`;
     );
   }
 
-  await pool.query(
-    `INSERT INTO tour_manager.outgoing_emails
-       (tour_id, mailbox_upn, graph_message_id, internet_message_id, conversation_id,
-        recipient_email, subject, template_key, sent_at, details_json)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,'cleanup_dashboard_invite',NOW(),$8::jsonb)`,
-    [
-      pendingTours[0]?.id,
-      mailResult.mailboxUpn || 'system',
-      mailResult.graphMessageId || null,
-      mailResult.internetMessageId || null,
-      mailResult.conversationId || null,
-      mailResult.recipientEmail || email,
-      subject,
-      JSON.stringify({ tourCount: pendingTours.length, tourIds: pendingTours.map((t) => t.id) }),
-    ]
-  );
-
   for (const t of pendingTours) {
     await logAction(t.id, actorType, actorRef, 'CLEANUP_DASHBOARD_INVITE_SENT', {
-      recipientEmail: email,
+      recipientEmails: emailList,
       dashboardUrl,
       tourCount: pendingTours.length,
     });
@@ -493,7 +544,8 @@ Ihr Propus Team`;
 
   return {
     success: true,
-    recipientEmail: email,
+    recipientEmail: primaryEmail,
+    recipientEmails: emailList,
     tourCount: pendingTours.length,
     tourIds: pendingTours.map((t) => t.id),
     subject,
@@ -506,9 +558,12 @@ async function sendDashboardBatch({ dryRun = true, customerEmails = null, actorT
   const groups = await getCleanupCandidatesGrouped();
 
   let targets = groups.filter((g) => g.pendingCount > 0);
+  // Filterung nach E-Mail (eine aus der Gruppe reicht zur Identifikation)
   if (customerEmails && Array.isArray(customerEmails) && customerEmails.length > 0) {
     const normalized = customerEmails.map((e) => String(e).trim().toLowerCase());
-    targets = targets.filter((g) => normalized.includes(g.customerEmail));
+    targets = targets.filter((g) =>
+      g.customerEmails.some((e) => normalized.includes(e))
+    );
   }
 
   const results = [];
@@ -518,7 +573,10 @@ async function sendDashboardBatch({ dryRun = true, customerEmails = null, actorT
 
     if (alreadySent) {
       results.push({
+        groupKey: group.groupKey,
         customerEmail: group.customerEmail,
+        customerEmails: group.customerEmails,
+        customerName: group.customerName,
         tourCount: group.tourCount,
         pendingCount: group.pendingCount,
         skipped: true,
@@ -529,7 +587,9 @@ async function sendDashboardBatch({ dryRun = true, customerEmails = null, actorT
 
     if (dryRun) {
       results.push({
+        groupKey: group.groupKey,
         customerEmail: group.customerEmail,
+        customerEmails: group.customerEmails,
         customerName: group.customerName,
         tourCount: group.tourCount,
         pendingCount: group.pendingCount,
@@ -544,9 +604,11 @@ async function sendDashboardBatch({ dryRun = true, customerEmails = null, actorT
       });
     } else {
       try {
-        const r = await sendDashboardInvite(group.customerEmail, { actorType, actorRef });
+        const r = await sendDashboardInvite(group.customerEmails, { actorType, actorRef });
         results.push({
+          groupKey: group.groupKey,
           customerEmail: group.customerEmail,
+          customerEmails: group.customerEmails,
           customerName: group.customerName,
           tourCount: r.tourCount,
           pendingCount: group.pendingCount,
@@ -555,7 +617,9 @@ async function sendDashboardBatch({ dryRun = true, customerEmails = null, actorT
         });
       } catch (err) {
         results.push({
+          groupKey: group.groupKey,
           customerEmail: group.customerEmail,
+          customerEmails: group.customerEmails,
           customerName: group.customerName,
           tourCount: group.tourCount,
           pendingCount: group.pendingCount,

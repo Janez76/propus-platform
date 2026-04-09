@@ -971,7 +971,9 @@ export function getCleanupCandidates() {
 // ─── Bereinigungslauf v2: Dashboard (Kunden-gruppiert) ───────────────────────
 
 export interface CleanupCustomerGroup {
+  groupKey: string;
   customerEmail: string;
+  customerEmails: string[];
   customerName: string | null;
   tourCount: number;
   pendingCount: number;
@@ -1011,10 +1013,11 @@ export function postCleanupDashboardBatchSend(customerEmails?: string[]) {
   });
 }
 
-export function postCleanupDashboardSendSingle(customerEmail: string) {
-  return toursAdminFetch<{ ok: true; recipientEmail: string; tourCount: number }>("/cleanup/dashboard/send-single", {
+export function postCleanupDashboardSendSingle(customerEmails: string | string[]) {
+  const emails = Array.isArray(customerEmails) ? customerEmails : [customerEmails];
+  return toursAdminFetch<{ ok: true; recipientEmail: string; recipientEmails: string[]; tourCount: number }>("/cleanup/dashboard/send-single", {
     method: "POST",
-    body: JSON.stringify({ customerEmail }),
+    body: JSON.stringify({ customerEmails: emails }),
   });
 }
 
