@@ -269,7 +269,7 @@ function PrivateRoutes() {
 }
 
 function PublicBookingIndex() {
-  return isPublicBookingHost() ? <BookingWizardPage /> : <Navigate to="/dashboard" replace />;
+  return isPublicBookingHost() ? <BookingWizardPage /> : <Navigate to="/login" replace />;
 }
 
 export default function ClientShell() {

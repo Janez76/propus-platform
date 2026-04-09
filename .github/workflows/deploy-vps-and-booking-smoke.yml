@@ -419,6 +419,65 @@ jobs:
             exit 1
           fi
 
+      - name: Verify public routes
+        run: |
+          set -euo pipefail
+
+          check_url() {
+            local name="$1"
+            local url="$2"
+            local expect="$3"
+            local tmp_body
+            tmp_body="$(mktemp)"
+            local tmp_headers
+            tmp_headers="$(mktemp)"
+            local status="000"
+            local ok=0
+
+            for attempt in 1 2 3 4 5; do
+              status=$(curl -sS -L \
+                -D "$tmp_headers" \
+                -o "$tmp_body" \
+                -w "%{http_code}" \
+                "$url" || echo "000")
+
+              case "$expect" in
+                html)
+                  if [ "$status" = "200" ] && grep -qi '^content-type: text/html' "$tmp_headers"; then
+                    ok=1
+                  fi
+                  ;;
+                json_health)
+                  if [ "$status" = "200" ] && grep -q '"ok"[[:space:]]*:[[:space:]]*true' "$tmp_body"; then
+                    ok=1
+                  fi
+                  ;;
+              esac
+
+              if [ "$ok" = "1" ]; then
+                echo "OK: $name ($status)"
+                rm -f "$tmp_body" "$tmp_headers"
+                return 0
+              fi
+
+              echo "Warte auf $name (Versuch ${attempt}/5, HTTP $status) ..."
+              sleep 5
+            done
+
+            echo "FEHLER: $name nicht erreichbar oder falsche Antwort (HTTP $status)"
+            echo "--- Header ---"
+            cat "$tmp_headers" || true
+            echo "--- Body ---"
+            head -n 40 "$tmp_body" || true
+            rm -f "$tmp_body" "$tmp_headers"
+            return 1
+          }
+
+          check_url "booking.propus.ch" "https://booking.propus.ch/" html
+          check_url "admin-booking.propus.ch" "https://admin-booking.propus.ch/" html
+          check_url "api-booking.propus.ch health" "https://api-booking.propus.ch/api/core/health" json_health
+          check_url "api.propus.ch health" "https://api.propus.ch/api/core/health" json_health
+
       - name: Notify deploy status
         if: always()
         env:

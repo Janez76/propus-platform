@@ -6,6 +6,73 @@ set -euo pipefail
 PROJECT_ROOT=/opt/propus-platform
 ARCHIVE_PATH="/tmp/propus-platform-${GITHUB_SHA}.tar.gz"
 STAGING_DIR="/tmp/propus-platform-${GITHUB_SHA}"
+EXPECTED_PLATFORM_PORT_BINDINGS='{"3001/tcp":[{"HostIp":"127.0.0.1","HostPort":"3100"}]}'
+
+check_platform_port_bindings() {
+  local actual
+  actual=$(docker inspect propus-platform-platform-1 --format '{{json .HostConfig.PortBindings}}' 2>/dev/null || echo "")
+  if [ "$actual" != "$EXPECTED_PLATFORM_PORT_BINDINGS" ]; then
+    echo "  FEHLER   Unerwartetes Platform-Port-Mapping"
+    echo "           erwartet: $EXPECTED_PLATFORM_PORT_BINDINGS"
+    echo "           aktuell : ${actual:-<leer>}"
+    return 1
+  fi
+  echo "  OK       Platform-Port-Mapping: $actual"
+}
+
+check_local_route() {
+  local name="$1"
+  local host="$2"
+  local path="$3"
+  local mode="$4"
+  local body_file
+  body_file=$(mktemp)
+  local header_file
+  header_file=$(mktemp)
+  local status="000"
+  local ok=0
+
+  for attempt in $(seq 1 20); do
+    status=$(curl -sS -L \
+      -H "Host: $host" \
+      -D "$header_file" \
+      -o "$body_file" \
+      -w "%{http_code}" \
+      "http://127.0.0.1:3100${path}" 2>/dev/null || echo "000")
+
+    case "$mode" in
+      html)
+        if [ "$status" = "200" ] && grep -qi '^content-type: text/html' "$header_file"; then
+          ok=1
+        fi
+        ;;
+      json_health)
+        if [ "$status" = "200" ] && grep -q '"ok"[[:space:]]*:[[:space:]]*true' "$body_file"; then
+          ok=1
+        fi
+        ;;
+    esac
+
+    if [ "$ok" -eq 1 ]; then
+      echo "  OK       $name ($status)"
+      rm -f "$body_file" "$header_file"
+      return 0
+    fi
+
+    if [ "$attempt" -lt 20 ]; then
+      echo "  Versuch  $attempt/20 $name (HTTP $status) ..."
+      sleep 3
+    fi
+  done
+
+  echo "  FEHLER   $name (HTTP $status)"
+  echo "  Header:"
+  sed 's/^/    /' "$header_file" || true
+  echo "  Body:"
+  sed 's/^/    /' "$body_file" | head -40 || true
+  rm -f "$body_file" "$header_file"
+  return 1
+}
 
 mkdir -p "$PROJECT_ROOT"
 rm -rf "$STAGING_DIR"
@@ -24,6 +91,15 @@ cd "$PROJECT_ROOT"
 
 # Optionale VPS-only Env (z. B. Payrexx); wird nicht aus dem Deploy-Archiv geliefert.
 touch .env.vps.secrets
+
+echo "==> Installiere VPS-sichere Compose-Defaults"
+# Auf dem VPS soll auch ein plain `docker compose up` dieselbe Konfiguration wie
+# der produktive Deploy verwenden. Dazu bevorzugen Default-Kommandos `compose.yaml`
+# und `.env` -> `.env.vps`.
+rm -f compose.yaml
+ln -s docker-compose.vps.yml compose.yaml
+rm -f .env
+ln -s .env.vps .env
 
 echo "==> Port-Konflikt-Check"
 # Alle Host-Ports die vom propus-platform Stack benoetigt werden
@@ -61,6 +137,9 @@ docker compose -f docker-compose.vps.yml --env-file .env.vps build migrate platf
 
 echo "==> Platform Restart"
 docker compose -f docker-compose.vps.yml --env-file .env.vps up -d --force-recreate platform
+
+echo "==> Platform Port-Binding Check"
+check_platform_port_bindings
 
 echo "==> DB Migrations"
 docker compose -f docker-compose.vps.yml --env-file .env.vps --profile migrate run --rm migrate
@@ -108,6 +187,12 @@ if [ "$HEALTH_OK" -eq 1 ]; then
     echo "  cloudflared status: $(systemctl is-active cloudflared)"
   fi
 fi
+
+echo "==> Platform Host Routing Smoke Check (local)"
+check_local_route "booking.propus.ch /" "booking.propus.ch" "/" "html"
+check_local_route "admin-booking.propus.ch /" "admin-booking.propus.ch" "/" "html"
+check_local_route "api-booking.propus.ch /api/core/health" "api-booking.propus.ch" "/api/core/health" "json_health"
+check_local_route "api.propus.ch /api/core/health" "api.propus.ch" "/api/core/health" "json_health"
 
 echo "==> Website Health Check (max 60s)"
 for attempt in $(seq 1 30); do
