@@ -170,7 +170,7 @@ function TourCard({ tour, token, onActionComplete }: { tour: DashboardTour; toke
   }
 
   return (
-    <div className="rounded-2xl border border-[#ece5d7] bg-white p-5 shadow-sm">
+    <div className="rounded-2xl border border-[#d8cdb8] bg-white p-5 shadow-md">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex-1 min-w-0">
           <h3 className="text-lg font-semibold text-gray-900 truncate">{tour.objectLabel}</h3>
@@ -272,7 +272,7 @@ function TourCard({ tour, token, onActionComplete }: { tour: DashboardTour; toke
             type="button"
             disabled={busy}
             onClick={() => void handleAction("weiterfuehren")}
-            className="flex items-center justify-center gap-1.5 rounded-xl border border-green-200 bg-green-50 px-3 py-2.5 text-xs font-bold text-green-800 hover:bg-green-100 disabled:opacity-50 transition-colors"
+            className="flex items-center justify-center gap-1.5 rounded-xl border-2 border-green-600 bg-green-600 px-3 py-2.5 text-xs font-bold text-white hover:bg-green-700 hover:border-green-700 disabled:opacity-50 transition-colors shadow-sm"
           >
             {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
             Weiterführen
@@ -281,7 +281,7 @@ function TourCard({ tour, token, onActionComplete }: { tour: DashboardTour; toke
             type="button"
             disabled={busy}
             onClick={() => void handleAction("archivieren")}
-            className="flex items-center justify-center gap-1.5 rounded-xl border border-orange-200 bg-orange-50 px-3 py-2.5 text-xs font-bold text-orange-800 hover:bg-orange-100 disabled:opacity-50 transition-colors"
+            className="flex items-center justify-center gap-1.5 rounded-xl border-2 border-orange-500 bg-orange-500 px-3 py-2.5 text-xs font-bold text-white hover:bg-orange-600 hover:border-orange-600 disabled:opacity-50 transition-colors shadow-sm"
           >
             <Archive className="h-3.5 w-3.5" />
             Archivieren
@@ -290,7 +290,7 @@ function TourCard({ tour, token, onActionComplete }: { tour: DashboardTour; toke
             type="button"
             disabled={busy}
             onClick={() => void handleAction("uebertragen")}
-            className="flex items-center justify-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-xs font-bold text-blue-800 hover:bg-blue-100 disabled:opacity-50 transition-colors"
+            className="flex items-center justify-center gap-1.5 rounded-xl border-2 border-blue-600 bg-blue-600 px-3 py-2.5 text-xs font-bold text-white hover:bg-blue-700 hover:border-blue-700 disabled:opacity-50 transition-colors shadow-sm"
           >
             <ArrowUpRight className="h-3.5 w-3.5" />
             Übertragen
@@ -299,7 +299,7 @@ function TourCard({ tour, token, onActionComplete }: { tour: DashboardTour; toke
             type="button"
             disabled={busy}
             onClick={() => void handleAction("loeschen")}
-            className="flex items-center justify-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-xs font-bold text-red-800 hover:bg-red-100 disabled:opacity-50 transition-colors"
+            className="flex items-center justify-center gap-1.5 rounded-xl border-2 border-red-600 bg-red-600 px-3 py-2.5 text-xs font-bold text-white hover:bg-red-700 hover:border-red-700 disabled:opacity-50 transition-colors shadow-sm"
           >
             <Trash2 className="h-3.5 w-3.5" />
             Löschen
