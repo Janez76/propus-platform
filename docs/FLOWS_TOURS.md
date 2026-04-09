@@ -901,3 +901,52 @@ Einmaliger Lauf: Kunden werden per Mail gefragt, was mit ihrer Tour passieren so
 ### Matterport Live-Check (Sandbox-Vorschau)
 
 In der Sandbox-Vorschau kann der Admin den aktuellen Zustand des Spaces direkt bei Matterport abfragen (`GET /api/tours/admin/tours/:id/matterport-model`). Zeigt: Space-ID, Name, Zustand (active/inactive/…), Sichtbarkeit, Adresse, Link, Erstell-/Änderungsdatum.
+
+---
+
+## 16. VPS-Betrieb: Port-Mapping und Cloudflare-Tunnel
+
+### Port-Mapping (WICHTIG)
+
+Der VPS-Betrieb läuft ausschliesslich mit `docker-compose.vps.yml` (nicht `docker-compose.yml`).
+
+| Container-intern | Host (extern) | Beschreibung |
+|---|---|---|
+| `3001` | `127.0.0.1:3100` | Next.js Admin-Panel (alle Hosts) |
+| `3100` | — | Express-API (nur intern, kein eigener Host-Port) |
+
+**Compose-Datei für Deploy und manuellen Neustart:**
+```bash
+cd /opt/propus-platform
+docker compose -f docker-compose.vps.yml --env-file .env.vps up -d --force-recreate platform
+```
+
+**NIEMALS** `docker compose up` ohne `-f docker-compose.vps.yml` ausführen — sonst wird `docker-compose.yml` verwendet, die Port 3001 und 3100 separat exposed, und der Tunnel zeigt auf den falschen Port.
+
+### Cloudflare Tunnel (Server Propus Code)
+
+Alle Hosts zeigen auf `http://127.0.0.1:3100` (= Next.js via Port-Mapping):
+
+| Hostname | Tunnel-Ziel |
+|---|---|
+| `booking.propus.ch` | `http://127.0.0.1:3100` |
+| `admin-booking.propus.ch` | `http://127.0.0.1:3100` |
+| `api-booking.propus.ch` | `http://127.0.0.1:3100` |
+| `api.propus.ch` | `http://127.0.0.1:3100` |
+| `upload.propus.ch` | `http://127.0.0.1:4455` |
+| `api-booking-dev.propus.ch` | `http://127.0.0.1:3200` |
+
+### Cloudflare CSP (Zaraz)
+
+Cloudflare Zaraz injiziert einen `Content-Security-Policy: default-src 'none'` Header, der seine eigenen `cdn-cgi/zaraz/s.js`-Scripts blockiert. Daher wird der CSP-Header für `admin-booking.propus.ch` via Cloudflare Ruleset `Auth hosts CSP fix` entfernt.
+
+### Env-Dateien Lade-Reihenfolge
+
+`docker-compose.vps.yml` lädt:
+1. `.env.vps` (wird bei jedem Deploy überschrieben)
+2. `.env.vps.secrets` (nur manuell auf dem VPS, nie überschrieben — enthält `PAYREXX_INSTANCE`, `PAYREXX_API_SECRET`)
+
+Nach Änderungen an Env-Dateien Container neu erstellen:
+```bash
+docker compose -f docker-compose.vps.yml --env-file .env.vps up -d --force-recreate platform
+```
