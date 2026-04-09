@@ -45,6 +45,11 @@ const nextConfig: NextConfig = {
           source: "/tour-manager/api/invite/:path*",
           destination: `${PLATFORM_INTERNAL_URL}/tour-manager/api/invite/:path*`,
         },
+        // Bereinigungslauf-Aktionsseiten: Token-Links in E-Mails zeigen auf /cleanup/...
+        {
+          source: "/cleanup/:path*",
+          destination: `${PLATFORM_INTERNAL_URL}/cleanup/:path*`,
+        },
       ],
       afterFiles: [],
       fallback: [],
