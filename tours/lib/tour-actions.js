@@ -221,33 +221,75 @@ async function sendGraphMailToCustomer(tour, content) {
   }
   let lastError = null;
   for (const mailboxUpn of senderCandidates) {
-    const { message, error } = await createDraftMessage({
+    // Primär: Draft erstellen + senden (Mail.ReadWrite + Mail.Send)
+    const { message, error: draftError } = await createDraftMessage({
       mailboxUpn,
       to: recipientEmail,
       subject: content.subject,
       htmlBody: content.html,
       textBody: content.text,
     });
-    if (error || !message?.id) {
-      lastError = error || 'Draft konnte nicht erstellt werden';
+    if (!draftError && message?.id) {
+      const sendResult = await sendDraftMessage({ mailboxUpn, messageId: message.id });
+      if (sendResult.success) {
+        return {
+          success: true,
+          mailboxUpn,
+          graphMessageId: message.id,
+          conversationId: message.conversationId || null,
+          internetMessageId: message.internetMessageId || null,
+          recipientEmail,
+          subject: content.subject,
+          html: content.html,
+          text: content.text || null,
+        };
+      }
+      // Draft-Send fehlgeschlagen (z.B. fehlende Mail.Send-Permission) → Fallback auf sendMailDirect
+      const fallbackResult = await sendMailDirect({
+        mailboxUpn,
+        to: recipientEmail,
+        subject: content.subject,
+        htmlBody: content.html,
+        textBody: content.text,
+      });
+      if (fallbackResult.success) {
+        return {
+          success: true,
+          mailboxUpn,
+          graphMessageId: null,
+          conversationId: null,
+          internetMessageId: null,
+          recipientEmail,
+          subject: content.subject,
+          html: content.html,
+          text: content.text || null,
+        };
+      }
+      lastError = sendResult.error || fallbackResult.error || 'Senden fehlgeschlagen';
       continue;
     }
-    const sendResult = await sendDraftMessage({ mailboxUpn, messageId: message.id });
-    if (!sendResult.success) {
-      lastError = sendResult.error || 'Senden fehlgeschlagen';
-      continue;
-    }
-    return {
-      success: true,
+    // Draft-Erstellung fehlgeschlagen → direkt sendMailDirect versuchen
+    const fallbackResult = await sendMailDirect({
       mailboxUpn,
-      graphMessageId: message.id,
-      conversationId: message.conversationId || null,
-      internetMessageId: message.internetMessageId || null,
-      recipientEmail,
+      to: recipientEmail,
       subject: content.subject,
-      html: content.html,
-      text: content.text || null,
-    };
+      htmlBody: content.html,
+      textBody: content.text,
+    });
+    if (fallbackResult.success) {
+      return {
+        success: true,
+        mailboxUpn,
+        graphMessageId: null,
+        conversationId: null,
+        internetMessageId: null,
+        recipientEmail,
+        subject: content.subject,
+        html: content.html,
+        text: content.text || null,
+      };
+    }
+    lastError = draftError || fallbackResult.error || 'Senden fehlgeschlagen';
   }
   return { success: false, error: lastError || 'Keine Mailbox konnte die E-Mail senden' };
 }
