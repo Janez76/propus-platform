@@ -64,7 +64,7 @@ async function getCleanupCandidatesGrouped({ maxAgeMonths = 6 } = {}) {
        (status = 'ARCHIVED' AND (archived_at >= $1 OR created_at >= $1))
      )
        AND (customer_email IS NOT NULL AND TRIM(customer_email) != '')
-       AND confirmation_required = TRUE
+       AND status NOT IN ('DELETED', 'TRANSFERRED')
      ORDER BY
        COALESCE(customer_id::TEXT, ''),
        LOWER(COALESCE(customer_name, '')),
@@ -174,9 +174,10 @@ async function getDashboardTours(customerEmail) {
   const r = await pool.query(
     `SELECT * FROM tour_manager.tours
      WHERE LOWER(TRIM(customer_email)) = ANY($1::text[])
-       AND confirmation_required = TRUE
+       AND status NOT IN ('DELETED', 'TRANSFERRED')
      ORDER BY
        CASE WHEN cleanup_action IS NULL THEN 0 ELSE 1 END,
+       CASE WHEN status = 'ACTIVE' THEN 1 ELSE 0 END,
        COALESCE(archived_at, created_at) DESC`,
     [emails]
   );
