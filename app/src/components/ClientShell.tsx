@@ -80,6 +80,7 @@ const ToursAdminTeamPage = lazy(() => import("../pages-legacy/tours/admin/ToursA
 const ToursAdminAiChatPage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminAiChatPage").then((m) => ({ default: m.ToursAdminAiChatPage })));
 const PortalPreviewPage = lazy(() => import("../pages-legacy/tours/admin/PortalPreviewPage").then((m) => ({ default: m.PortalPreviewPage })));
 const AdminTicketsPage = lazy(() => import("../pages-legacy/tours/admin/AdminTicketsPage").then((m) => ({ default: m.AdminTicketsPage })));
+const ToursAdminCleanupPage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminCleanupPage").then((m) => ({ default: m.ToursAdminCleanupPage })));
 
 // Listing (Galerie) pages
 const ListingListPage = lazy(() => import("../pages-legacy/admin/listing/ListingListPage").then((m) => ({ default: m.ListingListPage })));
@@ -248,6 +249,7 @@ function PrivateRoutes() {
         <Route path="/admin/tours/workflow-settings" element={guardedElement(toursAdminRoles, <ToursAdminWorkflowSettingsPage />)} />
         <Route path="/admin/tours/email-templates" element={<Navigate to="/admin/tours/workflow-settings?tab=templates" replace />} />
         <Route path="/admin/tours/automations" element={<Navigate to="/admin/tours/workflow-settings?tab=workflow" replace />} />
+        <Route path="/admin/tours/bereinigung" element={guardedElement(toursAdminRoles, <ToursAdminCleanupPage />)} />
         <Route path="/admin/tours/team" element={guardedElement(toursAdminRoles, <ToursAdminTeamPage />)} />
         <Route path="/admin/tours/ai-chat" element={guardedElement(toursAdminRoles, <ToursAdminAiChatPage />)} />
         <Route path="/admin/tours/portal-vorschau" element={guardedElement(toursAdminRoles, <PortalPreviewPage />)} />

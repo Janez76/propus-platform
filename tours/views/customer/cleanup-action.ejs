@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bereinigungslauf – Propus</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f5f4f0;
+      color: #1a1a1a;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+    .card {
+      max-width: 560px;
+      margin: 0 auto;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.06);
+      overflow: hidden;
+    }
+    .card-header {
+      background: #f8f7f4;
+      border-bottom: 1px solid #e8e6e0;
+      padding: 1.5rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+    }
+    .card-header .logo {
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: #2a2a2a;
+      letter-spacing: -.01em;
+    }
+    .card-body { padding: 2rem; }
+    .confirmation-icon {
+      width: 52px; height: 52px;
+      border-radius: 50%;
+      background: #ecfdf5;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 1.25rem;
+      font-size: 1.5rem;
+    }
+    .confirmation-icon.warning { background: #fffbeb; }
+    h1 { font-size: 1.25rem; font-weight: 700; margin-bottom: .5rem; color: #111; }
+    .action-badge {
+      display: inline-block;
+      font-size: .75rem;
+      font-weight: 600;
+      padding: .2rem .6rem;
+      border-radius: 99px;
+      background: #e8f5e9;
+      color: #2e7d32;
+      margin-bottom: 1rem;
+      letter-spacing: .02em;
+      text-transform: uppercase;
+    }
+    .action-badge.delete { background: #fdecea; color: #c62828; }
+    .action-badge.neutral { background: #e3f2fd; color: #1565c0; }
+    p.message {
+      color: #555;
+      line-height: 1.6;
+      margin-bottom: 1.5rem;
+      font-size: .95rem;
+    }
+    .visibility-note {
+      background: #ecfdf5;
+      border: 1px solid #bbf7d0;
+      border-radius: 8px;
+      padding: .875rem 1rem;
+      font-size: .875rem;
+      color: #166534;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: flex-start;
+      gap: .5rem;
+    }
+    .visibility-note svg { flex-shrink: 0; margin-top: .1rem; }
+    hr { border: none; border-top: 1px solid #eee; margin: 1.75rem 0; }
+    .reply-section h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: .25rem;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+    .reply-section .subtitle {
+      font-size: .85rem;
+      color: #777;
+      margin-bottom: 1.25rem;
+    }
+    label {
+      display: block;
+      font-size: .8rem;
+      font-weight: 600;
+      color: #444;
+      margin-bottom: .35rem;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    input[type="text"],
+    input[type="email"],
+    textarea {
+      width: 100%;
+      border: 1px solid #d8d6d0;
+      border-radius: 8px;
+      padding: .65rem .875rem;
+      font-size: .9rem;
+      font-family: inherit;
+      color: #1a1a1a;
+      background: #fafaf9;
+      transition: border-color .15s, box-shadow .15s;
+      outline: none;
+    }
+    input:focus, textarea:focus {
+      border-color: #999;
+      box-shadow: 0 0 0 3px rgba(0,0,0,.06);
+    }
+    textarea { resize: vertical; min-height: 120px; }
+    .field { margin-bottom: 1rem; }
+    .send-btn {
+      width: 100%;
+      padding: .75rem 1rem;
+      background: #1a1a1a;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: .95rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: .25rem;
+      transition: background .15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: .5rem;
+    }
+    .send-btn:hover:not(:disabled) { background: #333; }
+    .send-btn:disabled { opacity: .55; cursor: not-allowed; }
+    .send-result {
+      display: none;
+      margin-top: 1rem;
+      padding: .875rem 1rem;
+      border-radius: 8px;
+      font-size: .875rem;
+    }
+    .send-result.success {
+      background: #ecfdf5;
+      border: 1px solid #bbf7d0;
+      color: #166534;
+    }
+    .send-result.error {
+      background: #fdecea;
+      border: 1px solid #fca5a5;
+      color: #c62828;
+    }
+    .footer {
+      padding: 1.5rem 2rem;
+      border-top: 1px solid #f0ede8;
+      font-size: .8rem;
+      color: #888;
+    }
+    .footer strong { color: #444; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="card-header">
+      <span class="logo">Propus Team</span>
+    </div>
+    <div class="card-body">
+
+      <!-- Bestätigung -->
+      <div class="confirmation-icon <%= action === 'loeschen' ? 'warning' : '' %>">
+        <% if (action === 'weiterfuehren') { %>✅<% } %>
+        <% if (action === 'archivieren') { %>📦<% } %>
+        <% if (action === 'uebertragen') { %>📤<% } %>
+        <% if (action === 'loeschen') { %>🗑️<% } %>
+      </div>
+
+      <span class="action-badge <%= action === 'loeschen' ? 'delete' : (action === 'uebertragen' ? 'neutral' : '') %>">
+        <%= actionLabel %>
+      </span>
+
+      <h1>Ihre Wahl wurde registriert</h1>
+      <p class="message"><%= actionMessage %></p>
+
+      <% if (action === 'weiterfuehren' && visibilitySet) { %>
+      <div class="visibility-note">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+        </svg>
+        <span>Ihr Matterport-Space ist jetzt wieder <strong>über den Link erreichbar</strong> (Sichtbarkeit: Nur Link / Standard).</span>
+      </div>
+      <% } %>
+
+      <hr>
+
+      <!-- Direktnachricht-Formular -->
+      <div class="reply-section">
+        <h2>
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+          Direktnachricht ans Propus Team
+        </h2>
+        <p class="subtitle">Haben Sie Fragen oder Anmerkungen? Schreiben Sie uns direkt – wir melden uns so bald wie möglich.</p>
+
+        <form id="replyForm">
+          <input type="hidden" name="tourId" value="<%= tourId %>">
+
+          <div class="field">
+            <label for="replySubject">Betreff</label>
+            <input type="text" id="replySubject" name="subject" value="<%= subjectPrefill %>" maxlength="200">
+          </div>
+
+          <div class="field">
+            <label for="replyBody">Ihre Nachricht</label>
+            <textarea id="replyBody" name="bodyText" placeholder="Schreiben Sie Ihre Frage oder Anmerkung hier…" rows="5"></textarea>
+          </div>
+
+          <div class="field">
+            <label for="replyEmail">Ihre E-Mail-Adresse (für Rückfragen)</label>
+            <input type="email" id="replyEmail" name="senderEmail" value="<%= customerEmail %>" placeholder="ihre@email.ch">
+          </div>
+
+          <button type="submit" class="send-btn" id="sendBtn">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+            </svg>
+            Nachricht senden
+          </button>
+
+          <div id="sendResult" class="send-result"></div>
+        </form>
+      </div>
+
+    </div>
+    <div class="footer">
+      <strong>Freundliche Grüsse</strong><br>
+      Ihr Propus Team
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('replyForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const btn = document.getElementById('sendBtn');
+      const result = document.getElementById('sendResult');
+      const bodyText = document.getElementById('replyBody').value.trim();
+
+      if (!bodyText) {
+        result.className = 'send-result error';
+        result.style.display = 'block';
+        result.textContent = 'Bitte geben Sie eine Nachricht ein.';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Wird gesendet…';
+      result.style.display = 'none';
+
+      try {
+        const formData = new FormData(this);
+        const payload = Object.fromEntries(formData.entries());
+
+        const res = await fetch('<%= basePath %>/cleanup/reply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+
+        if (data.ok) {
+          result.className = 'send-result success';
+          result.innerHTML = data.ticketId
+            ? '&#10003; Nachricht gesendet – Ticket #' + data.ticketId + ' wurde erstellt. Wir melden uns bei Ihnen.'
+            : '&#10003; Nachricht gesendet. Wir melden uns bei Ihnen.';
+          result.style.display = 'block';
+          document.getElementById('replyForm').innerHTML = result.outerHTML;
+        } else {
+          throw new Error(data.error || 'Unbekannter Fehler');
+        }
+      } catch (err) {
+        result.className = 'send-result error';
+        result.textContent = 'Fehler beim Senden: ' + err.message;
+        result.style.display = 'block';
+        btn.disabled = false;
+        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg> Erneut versuchen';
+      }
+    });
+  </script>
+</body>
+</html>

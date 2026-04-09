@@ -181,6 +181,9 @@ if (logtoPortalAuth?.enabled) {
 // Kunden-Routes (touren.propus.ch)
 app.use('/r', customerRoutes);
 
+// Bereinigungslauf-Aktionsseiten (öffentlich, kein Login)
+app.use('/cleanup', require('./routes/cleanup'));
+
 // Auth (Login – Legacy-Fallback)
 app.use('/', authRoutes);
 

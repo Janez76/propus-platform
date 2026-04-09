@@ -168,14 +168,14 @@ function computeCleanupRule(tour) {
         isWithin6Months,
       };
     }
-    // Archiviert > 6 Monate: Standardpreis (Abo + Reaktivierungsgebühr)
+    // Archiviert > 6 Monate: beim Bereinigungslauf entfällt die Reaktivierungsgebühr (CHF 15.–) als Kulanz
     return {
       statusLabel: 'Archiviert',
       statusContext: ' (Ihre Tour ist derzeit archiviert.)',
       statusContextText: '(Ihre Tour ist derzeit archiviert.)',
-      weiterfuehrenHint: `Tour reaktivieren – neue Rechnung CHF ${REACTIVATION_PRICE_CHF}.– / 6 Monate (CHF ${EXTENSION_PRICE_CHF}.– Abo + CHF ${REACTIVATION_FEE_CHF}.– Reaktivierungsgebühr)`,
+      weiterfuehrenHint: `Tour reaktivieren – neue Rechnung CHF ${EXTENSION_PRICE_CHF}.– / 6 Monate`,
       needsInvoice: true,
-      invoiceAmount: REACTIVATION_PRICE_CHF,
+      invoiceAmount: EXTENSION_PRICE_CHF,
       paymentMethods: ['online', 'qr'],
       needsManualReview: false,
       archivedWithin6Months: false,

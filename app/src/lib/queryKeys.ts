@@ -82,3 +82,7 @@ export function toursAdminTeamQueryKey() {
 export function toursAdminAiChatConfigQueryKey() {
   return "toursAdmin:aiChatConfig";
 }
+
+export function toursAdminCleanupCandidatesQueryKey() {
+  return "toursAdmin:cleanup:candidates";
+}
