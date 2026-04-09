@@ -120,6 +120,9 @@ main.use("/api/tours/admin", express.json(), toursSessionMiddleware, bridgeBooki
 main.use("/api/tours/admin/galleries", express.json(), toursSessionMiddleware, bridgeBookingAdminSession, requireAdmin, galleryAdminApi);
 main.use("/api/listing", express.json(), galleryPublicApi);
 
+// Bereinigungslauf-Aktionsseiten: öffentlich auf Root-Ebene erreichbar (Token-Links in E-Mails zeigen auf /cleanup/...)
+main.use("/cleanup", express.json(), express.urlencoded({ extended: true }), require("../tours/routes/cleanup"));
+
 main.use(mount, tours.app);
 
 main.use(booking.app);
