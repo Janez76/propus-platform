@@ -280,7 +280,7 @@ function TourCard({ tour, token, onActionComplete }: { tour: DashboardTour; toke
             className="flex items-center justify-center gap-1.5 rounded-xl border-2 border-green-600 bg-green-600 px-3 py-2.5 text-xs font-bold text-white hover:bg-green-700 hover:border-green-700 disabled:opacity-50 transition-colors shadow-sm"
           >
             {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-            Weiterführen
+            {tour.status === "ARCHIVED" ? "Reaktivieren" : "Weiterführen"}
           </button>
           <button
             type="button"
