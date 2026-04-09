@@ -3,7 +3,6 @@ const path = require("path");
 const sharp = require("sharp");
 const { pdfToPng } = require("pdf-to-png-converter");
 const {
-  getCanonicalCategoryAbsolutePath,
   buildDerivedFloorplanJpgName,
   buildDerivedWebsizeName,
   migrateLegacyFinaleImageStructure,
@@ -277,22 +276,25 @@ async function syncWebsizePipelineForOrderFolder(
   logger = console,
   { forceRebuild = false } = {}
 ) {
-  const fullsizeRoot = getCanonicalCategoryAbsolutePath(orderFolderAbsolutePath, sourceCategoryKey);
-  const websizeRoot = getCanonicalCategoryAbsolutePath(orderFolderAbsolutePath, targetCategoryKey);
+  const fullsizeRoot = resolveCategoryPath(orderFolderAbsolutePath, sourceCategoryKey);
+  const websizeRoot = resolveCategoryPath(orderFolderAbsolutePath, targetCategoryKey);
   if (!fs.existsSync(fullsizeRoot) || !fs.statSync(fullsizeRoot).isDirectory()) {
     return createPipelineStats();
   }
-  fs.mkdirSync(websizeRoot, { recursive: true });
 
   const sourceFiles = walkFilesRecursive(fullsizeRoot);
+  const eligibleFiles = sourceFiles.filter((f) => isEligibleForWebsize(path.relative(fullsizeRoot, f)));
+  if (eligibleFiles.length === 0) return createPipelineStats();
+
+  fs.mkdirSync(websizeRoot, { recursive: true });
+
   const expected = new Set();
   let created = 0;
   let updated = 0;
   let scanned = 0;
 
-  for (const sourcePath of sourceFiles) {
+  for (const sourcePath of eligibleFiles) {
     const rel = path.relative(fullsizeRoot, sourcePath);
-    if (!isEligibleForWebsize(rel)) continue;
     const generatedName = buildDerivedWebsizeName(order, path.basename(rel));
     const generatedRel = path.join(path.dirname(rel), generatedName);
     expected.add(path.normalize(generatedRel).toLowerCase());

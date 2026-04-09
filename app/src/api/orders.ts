@@ -778,6 +778,13 @@ export const confirmUploadBatch = (token: string, orderNo: string, batchId: stri
     { timeoutMs: 120_000 },
   );
 
+export const generateWebsizeRebuild = (token: string, orderNo: string) =>
+  apiRequest<{ ok: boolean; stats: Record<string, number>; forced: boolean }>(
+    `/api/admin/orders/${encodeURIComponent(orderNo)}/uploads/websize-rebuild`,
+    "POST",
+    token,
+  );
+
 export const deleteOrderUploadFile = (token: string, orderNo: string, relativePath: string, folderType?: string) => {
   const ft = folderType ? `&folderType=${encodeURIComponent(folderType)}` : "";
   return apiRequest<{ ok: boolean; deleted: string }>(

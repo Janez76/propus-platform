@@ -5,6 +5,7 @@ import {
   archiveOrderStorageFolder,
   browseAdminStorage,
   generateNextcloudShare,
+  generateWebsizeRebuild,
   getOrderStorageSummary,
   getOrderUploads,
   getOrders,
@@ -119,6 +120,26 @@ export function UploadsPage() {
   const [generatingShare, setGeneratingShare] = useState(false);
   const [shareError, setShareError] = useState("");
   const [copiedShare, setCopiedShare] = useState(false);
+
+  const [generatingWebsite, setGeneratingWebsite] = useState(false);
+  const [websiteError, setWebsiteError] = useState("");
+  const [websiteSuccess, setWebsiteSuccess] = useState(false);
+
+  async function handleGenerateWebsite() {
+    if (!selectedOrderNo) return;
+    setGeneratingWebsite(true);
+    setWebsiteError("");
+    setWebsiteSuccess(false);
+    try {
+      await generateWebsizeRebuild(token, selectedOrderNo);
+      setWebsiteSuccess(true);
+      setTimeout(() => setWebsiteSuccess(false), 4000);
+    } catch (err) {
+      setWebsiteError(err instanceof Error ? err.message : "Website-Generierung fehlgeschlagen");
+    } finally {
+      setGeneratingWebsite(false);
+    }
+  }
 
   async function handleGenerateShare() {
     if (!selectedOrderNo) return;
@@ -490,8 +511,29 @@ export function UploadsPage() {
                             <Archive className="h-3.5 w-3.5" />
                             Archiviert löschen
                           </button>
+                          {ft === "customer_folder" && folder.exists && (
+                            <button
+                              type="button"
+                              onClick={() => void handleGenerateWebsite()}
+                              disabled={generatingWebsite}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-xs font-semibold transition disabled:opacity-60 text-amber-700 border-amber-300 bg-amber-50 hover:bg-amber-100 dark:text-amber-400 dark:border-amber-700 dark:bg-amber-950/30 dark:hover:bg-amber-900/40"
+                            >
+                              {generatingWebsite
+                                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                : websiteSuccess
+                                  ? <Check className="h-3.5 w-3.5 text-emerald-600" />
+                                  : <ImageIcon className="h-3.5 w-3.5" />
+                              }
+                              {websiteSuccess ? "Gestartet!" : "Websize generieren"}
+                            </button>
+                          )}
                         </div>
                       </div>
+                      {ft === "customer_folder" && websiteError && (
+                        <div className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600 dark:bg-red-950/30 dark:text-red-400">
+                          {websiteError}
+                        </div>
+                      )}
 
                       <div className="mt-3 space-y-1 text-sm">
                         <div className="text-[var(--text-muted)]">{folder.displayName}</div>

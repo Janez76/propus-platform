@@ -5699,8 +5699,10 @@ app.post("/api/admin/orders/:orderNo/uploads/websize-rebuild", requirePhotograph
     if (!fs.existsSync(link.absolute_path) || !fs.statSync(link.absolute_path).isDirectory()) {
       return res.status(404).json({ error: "Kundenordner nicht gefunden" });
     }
-    const stats = await syncWebsizeForOrderFolder(link.absolute_path, orderAccess.order, console, { forceRebuild: true });
-    res.json({ ok: true, stats, forced: true });
+    // Sofort antworten – Generierung läuft im Hintergrund
+    res.json({ ok: true, started: true });
+    syncWebsizeForOrderFolder(link.absolute_path, orderAccess.order, console, { forceRebuild: true })
+      .catch((err) => console.error("[websize-rebuild] Fehler:", err?.message || err));
   } catch (err) {
     res.status(500).json({ error: err.message || "Websize-Rebuild fehlgeschlagen" });
   }

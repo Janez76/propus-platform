@@ -36,7 +36,8 @@
 | `GET` | `/api/admin/orders/:orderNo/uploads/file` | Fotograf/Admin | Datei herunterladen |
 | `DELETE` | `/api/admin/orders/:orderNo/uploads/file` | Fotograf/Admin | Datei löschen |
 | `DELETE` | `/api/admin/orders/:orderNo/uploads/folder` | Fotograf/Admin | Unterordner löschen |
-| `POST` | `/api/admin/orders/:orderNo/uploads/websize-sync` | Fotograf/Admin | Websize-Sync manuell auslösen |
+| `POST` | `/api/admin/orders/:orderNo/uploads/websize-sync` | Fotograf/Admin | Websize-Sync manuell auslösen (synchron) |
+| `POST` | `/api/admin/orders/:orderNo/uploads/websize-rebuild` | Fotograf/Admin | Websize force-Rebuild (fire-and-forget, läuft im Hintergrund) |
 | `GET` | `/api/admin/orders/:orderNo/storage` | Admin | Ordner-Status, Batches, NAS-Gesundheit |
 | `POST` | `/api/admin/orders/:orderNo/storage/provision` | Admin | Kanonische NAS-Struktur anlegen + DB-Link (`createMissing`) |
 | `POST` | `/api/admin/orders/:orderNo/storage/link` | Admin | Bestehenden Ordner verknüpfen; optional Umbenennen auf kanonischen Pfad |
@@ -246,6 +247,30 @@ Ermöglichen das Zusammenfassen mehrerer Batches zu einer logischen Einheit (z.B
 Bei Fehler:
    → status='failed', Staging bleibt erhalten
    → Retry via POST .../retry
+```
+
+### Websize-Sync-Logik
+
+Der Sync läuft auf zwei Wegen:
+
+| Auslöser | Verhalten |
+|---|---|
+| Cronjob (`setInterval` alle 10 Min.) | `syncWebsizeForAllCustomerFolders` – alle verknüpften Kundenordner, inkrementell (nur neue/geänderte Bilder) |
+| Button "Websize generieren" im Admin-Panel | `websize-rebuild` – fire-and-forget, `forceRebuild: true` (überschreibt bestehende Websize-Bilder) |
+
+**Alias-Auflösung (seit April 2026):**
+
+- Quelle und Ziel werden mit `resolveCategoryPath` aufgelöst – nicht mit `getCanonicalCategoryAbsolutePath`
+- `resolveCategoryPath` sucht case-insensitiv nach Leerzeichen-normalisierten Alias-Namen (z.B. `WEB SIZE` = `websize` = `Websize`)
+- Konsequenz: bestehende Alias-Ordner (`Finale/Fullsize`, `Finale/Bilder/WEB SIZE`) werden gefunden und verwendet – es werden keine Duplikate angelegt
+- Ein leerer Zielordner wird **nicht** angelegt wenn keine verarbeitbaren `.jpg`-Dateien im Quellordner vorhanden sind
+
+**Verarbeitete Pipelines pro Sync-Lauf:**
+
+```
+staging_fullsize → staging_websize
+final_fullsize   → final_websize
+final_grundrisse → JPG-Variante (PDF → JPEG)
 ```
 
 ### NAS-Archivierung
