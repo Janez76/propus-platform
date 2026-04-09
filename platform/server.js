@@ -121,6 +121,8 @@ main.use("/api/tours/admin/galleries", express.json(), toursSessionMiddleware, b
 main.use("/api/listing", express.json(), galleryPublicApi);
 
 // Bereinigungslauf-Aktionsseiten: öffentlich auf Root-Ebene erreichbar (Token-Links in E-Mails zeigen auf /cleanup/...)
+main.set("view engine", "ejs");
+main.set("views", path.join(__dirname, "../tours/views"));
 main.use("/cleanup", express.json(), express.urlencoded({ extended: true }), require("../tours/routes/cleanup"));
 
 main.use(mount, tours.app);
