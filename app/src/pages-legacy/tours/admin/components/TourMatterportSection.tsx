@@ -420,7 +420,7 @@ export function TourMatterportSection({ tourId, tour, mpVisibility, onSuccess, p
 
   // Reaktivierungs-Dialog
   const [reactivateOpen, setReactivateOpen] = useState(false);
-  const [reactivateMethod, setReactivateMethod] = useState<"payrexx" | "qr_invoice">(
+  const [reactivateMethod, setReactivateMethod] = useState<"payrexx" | "qr_invoice" | "none">(
     payrexxConfigured ? "payrexx" : "qr_invoice",
   );
 
@@ -801,8 +801,12 @@ export function TourMatterportSection({ tourId, tour, mpVisibility, onSuccess, p
 
             <p className="text-sm text-[var(--text-subtle)]">
               Wählen Sie die Zahlungsart für die Reaktivierungsrechnung.
-              Kosten: <strong className="text-[var(--text-main)]">CHF 74.–</strong>{" "}
-              (CHF 59.– Abo + CHF 15.– Reaktivierungsgebühr) für 6 Monate.
+              {reactivateMethod !== "none" && (
+                <>
+                  {" "}Kosten: <strong className="text-[var(--text-main)]">CHF 74.–</strong>{" "}
+                  (CHF 59.– Abo + CHF 15.– Reaktivierungsgebühr) für 6 Monate.
+                </>
+              )}
             </p>
 
             {/* Zahlungsart-Auswahl */}
@@ -833,6 +837,17 @@ export function TourMatterportSection({ tourId, tour, mpVisibility, onSuccess, p
                 />
                 QR-Rechnung per E-Mail
               </label>
+              <label className="flex items-center gap-2 text-sm text-[var(--text-main)] cursor-pointer">
+                <input
+                  type="radio"
+                  name="reactivateMethod"
+                  value="none"
+                  checked={reactivateMethod === "none"}
+                  onChange={() => setReactivateMethod("none")}
+                  className="accent-[var(--accent)] w-4 h-4"
+                />
+                Ohne Rechnung aktivieren <span className="text-xs text-[var(--text-subtle)] ml-1">(nur Admin)</span>
+              </label>
             </div>
 
             {/* Kontextueller Hinweis je nach Methode */}
@@ -847,6 +862,17 @@ export function TourMatterportSection({ tourId, tour, mpVisibility, onSuccess, p
                 <p className="text-xs text-amber-700 dark:text-amber-400">
                   Diese Aktion kann <strong>nicht rückgängig</strong> gemacht werden.
                   Bei offener Rechnung nach <strong>30 Tagen</strong> wird die Tour automatisch archiviert.
+                </p>
+              </div>
+            ) : reactivateMethod === "none" ? (
+              <div className="rounded-xl border border-violet-200 bg-violet-50 px-4 py-3 space-y-1 dark:border-violet-800 dark:bg-violet-950/30">
+                <p className="text-xs font-semibold text-violet-800 dark:text-violet-300">Kulanz / interne Aktivierung</p>
+                <p className="text-xs text-violet-700 dark:text-violet-400">
+                  Die Tour wird <strong>sofort aktiviert</strong> ohne Rechnung zu erstellen.
+                  Das Abo läuft 6 Monate ab heute.
+                </p>
+                <p className="text-xs text-violet-700 dark:text-violet-400">
+                  Nur für interne oder Kulanz-Fälle verwenden. Diese Aktion wird protokolliert.
                 </p>
               </div>
             ) : (

@@ -540,12 +540,12 @@ export function postUnarchiveMatterportTour(tourId: string) {
 
 export function postReactivateTour(
   tourId: string,
-  paymentMethod: "payrexx" | "qr_invoice",
-): Promise<{ ok: true; via: "payrexx" | "qr_invoice"; redirectUrl?: string }> {
+  paymentMethod: "payrexx" | "qr_invoice" | "none",
+): Promise<{ ok: true; via: "payrexx" | "qr_invoice" | "none"; redirectUrl?: string }> {
   return toursAdminPost(
     `/tours/${tourId}/reactivate`,
     { paymentMethod },
-  ) as Promise<{ ok: true; via: "payrexx" | "qr_invoice"; redirectUrl?: string }>;
+  ) as Promise<{ ok: true; via: "payrexx" | "qr_invoice" | "none"; redirectUrl?: string }>;
 }
 
 export function deleteToursAdminTour(tourId: string, alsoDeleteMatterport?: boolean) {

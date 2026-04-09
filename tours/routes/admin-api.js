@@ -1688,10 +1688,34 @@ router.post('/tours/:id/reactivate', async (req, res) => {
     const spaceId = tour.canonical_matterport_space_id || tour.matterport_space_id;
     if (!spaceId) return res.status(400).json({ ok: false, error: 'Tour hat keine Matterport-Verknüpfung' });
 
-    const paymentMethod = req.body?.paymentMethod === 'qr_invoice' ? 'qr_invoice' : 'payrexx';
+    const rawMethod = req.body?.paymentMethod;
+    const paymentMethod = rawMethod === 'qr_invoice' ? 'qr_invoice' : rawMethod === 'none' ? 'none' : 'payrexx';
 
     // Rechnung + Subscription-Fenster vorbereiten
     const subscriptionWindow = getSubscriptionWindowFromStart(new Date());
+
+    // Admin-Option: Reaktivierung ohne Rechnung (Kulanz / interne Aktivierung)
+    if (paymentMethod === 'none') {
+      const mpResult = await matterport.unarchiveSpace(spaceId);
+      await pool.query(
+        `UPDATE tour_manager.tours
+         SET status = 'ACTIVE',
+             matterport_state = $2,
+             subscription_start_date = $3,
+             term_end_date = $4,
+             updated_at = NOW()
+         WHERE id = $1`,
+        [tour.id, mpResult?.success ? 'active' : 'unknown',
+          subscriptionWindow.startIso, subscriptionWindow.endIso],
+      );
+      await logAction(tour.id, 'admin', adminEmail(req), 'REACTIVATE_REQUESTED', {
+        source: 'admin_api', matterport_space_id: spaceId, via: 'admin_no_invoice',
+        immediate_activation: true, no_invoice: true,
+        subscription_start: subscriptionWindow.startIso,
+        subscription_end: subscriptionWindow.endIso,
+      });
+      return res.json({ ok: true, via: 'none' });
+    }
 
     if (paymentMethod === 'qr_invoice') {
       // Zahlungsfrist: 14 Tage ab heute
@@ -2432,7 +2456,7 @@ router.delete('/invoices/:type/:id', async (req, res) => {
     const invoiceId = String(req.params.id || '');
     const result = type === 'exxas'
       ? await phase3.deleteExxasInvoice(invoiceId)
-      : await phase3.deleteRenewalInvoice(invoiceId);
+      : await phase3.deleteRenewalInvoice(invoiceId, adminEmail(req));
     return res.json(result);
   } catch (err) {
     return res.status(400).json({ ok: false, error: err.message });

@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Plus, RefreshCw } from "lucide-react";
-import { createTourManualInvoice, renewalInvoicePdfUrl, postSyncExxasInventory } from "../../../../api/toursAdmin";
+import { Plus, RefreshCw, Trash2 } from "lucide-react";
+import { createTourManualInvoice, renewalInvoicePdfUrl, postSyncExxasInventory, deleteAdminInvoice } from "../../../../api/toursAdmin";
 import type { ExxasInventorySyncResult } from "../../../../api/toursAdmin";
 import type { ToursAdminTourDetailResponse, ToursAdminTourRow } from "../../../../types/toursAdmin";
 
@@ -63,6 +63,8 @@ export function TourInvoicesSection({
   const [createNote, setCreateNote] = useState("");
   const [syncBusy, setSyncBusy] = useState(false);
   const [syncResult, setSyncResult] = useState<ExxasInventorySyncResult | null>(null);
+  const [deletingId, setDeletingId] = useState<string | number | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   async function handleExxasSync() {
     if (!tourId) return;
@@ -78,6 +80,27 @@ export function TourInvoicesSection({
       setSyncBusy(false);
     }
   }
+  async function handleDeleteInvoice(invoiceId: string | number, invoiceNumber: string) {
+    const confirmed = window.confirm(
+      `Rechnung ${invoiceNumber} wirklich löschen?\n\nDer Workflow-Status der Tour wird ggf. automatisch zurückgesetzt.`
+    );
+    if (!confirmed) return;
+    setDeletingId(invoiceId);
+    setDeleteError(null);
+    try {
+      const res = await deleteAdminInvoice("renewal", invoiceId);
+      if (!(res as Record<string, unknown>).ok) {
+        setDeleteError(String((res as Record<string, unknown>).error || "Fehler beim Löschen"));
+      } else {
+        onRefresh?.();
+      }
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Fehler beim Löschen");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   const createdAt = tour.matterport_created_at ?? tour.created_at ?? null;
   const expiresAt = tour.canonical_term_end_date ?? tour.term_end_date ?? tour.ablaufdatum ?? null;
   const lastRenewalAt = latestRenewalDate(renewalInvoices);
@@ -234,6 +257,9 @@ export function TourInvoicesSection({
             </div>
           </div>
         ) : null}
+        {deleteError ? (
+          <p className="text-xs text-red-600 mb-2">{deleteError}</p>
+        ) : null}
         {renewalInvoices.length === 0 ? (
           <p className="text-sm text-[var(--text-subtle)]">Keine Einträge.</p>
         ) : (
@@ -246,15 +272,19 @@ export function TourInvoicesSection({
                   <th className="py-2 pr-2">Betrag</th>
                   <th className="py-2">Fällig</th>
                   {tourId ? <th className="py-2">PDF</th> : null}
+                  {tourId ? <th className="py-2"></th> : null}
                 </tr>
               </thead>
               <tbody>
                 {renewalInvoices.map((inv) => {
                   const r = inv as Record<string, unknown>;
                   const rid = r.id;
+                  const isPaid = String(r.invoice_status ?? "") === "paid";
+                  const invoiceLabel = String(r.invoice_number ?? r.id ?? "");
+                  const isDeleting = deletingId != null && String(deletingId) === String(rid);
                   return (
                     <tr key={String(r.id ?? Math.random())} className="border-b border-[var(--border-soft)]/40">
-                      <td className="py-2 pr-2">{String(r.invoice_number ?? r.id ?? "")}</td>
+                      <td className="py-2 pr-2">{invoiceLabel}</td>
                       <td className="py-2 pr-2">{String(r.invoice_status ?? "")}</td>
                       <td className="py-2 pr-2">{formatMoney(r.amount_chf ?? r.preis_brutto)}</td>
                       <td className="py-2">{formatDate(r.due_at)}</td>
@@ -271,6 +301,21 @@ export function TourInvoicesSection({
                         </td>
                       ) : tourId ? (
                         <td className="py-2">—</td>
+                      ) : null}
+                      {tourId ? (
+                        <td className="py-2 pl-1">
+                          {!isPaid && rid != null ? (
+                            <button
+                              type="button"
+                              disabled={isDeleting}
+                              onClick={() => void handleDeleteInvoice(rid as string | number, invoiceLabel)}
+                              title="Rechnung löschen"
+                              className="inline-flex items-center justify-center rounded p-1 text-[var(--text-subtle)] hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-40"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          ) : null}
+                        </td>
                       ) : null}
                     </tr>
                   );

@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei jeder Änderung an Tour-Status, Matterport-Integration, Verlängerungs- oder Archivierungs-Logik dieses Dokument aktualisieren. **Produkt-Workflow (Regeln, Reminder-Stufen, Preise):** [WORKFLOW_TOURS.md](./WORKFLOW_TOURS.md) — bei Abweichungen beide Dateien abstimmen.
 
-*Zuletzt aktualisiert: April 2026 (Galerie/NAS: Migrationen 031–032; Admin `/api/tours/admin/galleries` NAS-Import; öffentlich `/api/listing/...` Video/Grundriss/ZIP; Bestellung nachträglich verknüpfen via Tour-Detail Intern-Sektion; Bank-Import: Vorschau/Multi-Upload, Bestellungssuche zur Rechnungszuordnung; Bestellungs-Admin: Finanzblock «Rechnungen & Zahlungen»; Bereinigungslauf: CUSTOMER_ACCEPTED_AWAITING_PAYMENT-Label + termEndFormatted-Fix; Matterport-State-Cron: POST /api/tours/cron/sync-matterport-state alle 30 Min)*
+*Zuletzt aktualisiert: April 2026 (Galerie/NAS: Migrationen 031–032; Admin `/api/tours/admin/galleries` NAS-Import; öffentlich `/api/listing/...` Video/Grundriss/ZIP; Bestellung nachträglich verknüpfen via Tour-Detail Intern-Sektion; Bank-Import: Vorschau/Multi-Upload, Bestellungssuche zur Rechnungszuordnung; Bestellungs-Admin: Finanzblock «Rechnungen & Zahlungen»; Bereinigungslauf: CUSTOMER_ACCEPTED_AWAITING_PAYMENT-Label + termEndFormatted-Fix; Matterport-State-Cron: POST /api/tours/cron/sync-matterport-state alle 30 Min; Rechnung löschen mit Workflow-Reset; Reaktivierung ohne Rechnung (Admin-Kulanz); Bereinigungslauf-Widget in Tour-Detail)*
 
 ---
 
@@ -269,7 +269,7 @@ Body: { paymentMethod: "qr_invoice" | "payrexx" }
 Gleicher Flow wie Portal-Reaktivierung, aber durch Admin ausgelöst (nicht Kunde).
 
 ```
-Body: { paymentMethod: "qr_invoice" | "payrexx" }
+Body: { paymentMethod: "qr_invoice" | "payrexx" | "none" }
   │
   ├── [QR-Rechnung]:
   │     ├── matterport.unarchiveSpace() → sofort aktivieren
@@ -279,19 +279,26 @@ Body: { paymentMethod: "qr_invoice" | "payrexx" }
   │     └── sendInvoiceWithQrEmail() async
   │           Offene Rechnung nach 30 Tagen → cron/archive-unpaid-qr archiviert Tour
   │
-  └── [Payrexx]:
-        ├── UPDATE tours.status = 'CUSTOMER_ACCEPTED_AWAITING_PAYMENT'
-        ├── payrexx.isConfigured()? → NEIN → 400 { error: 'Payrexx nicht konfiguriert – bitte QR-Rechnung wählen' }
-        ├── INSERT renewal_invoices (payment_source='payrexx_pending', invoice_kind='portal_reactivation')
-        ├── payrexx.createCheckout()
-        ├── paymentUrl in renewal_invoices speichern
-        └── Response: { ok: true, via: 'payrexx', redirectUrl: paymentUrl }
+  ├── [Payrexx]:
+  │     ├── UPDATE tours.status = 'CUSTOMER_ACCEPTED_AWAITING_PAYMENT'
+  │     ├── payrexx.isConfigured()? → NEIN → 400 { error: 'Payrexx nicht konfiguriert – bitte QR-Rechnung wählen' }
+  │     ├── INSERT renewal_invoices (payment_source='payrexx_pending', invoice_kind='portal_reactivation')
+  │     ├── payrexx.createCheckout()
+  │     ├── paymentUrl in renewal_invoices speichern
+  │     └── Response: { ok: true, via: 'payrexx', redirectUrl: paymentUrl }
+  │
+  └── [Ohne Rechnung – Admin-Kulanz]:
+        ├── matterport.unarchiveSpace() → sofort aktivieren
+        ├── UPDATE tours: status='ACTIVE', matterport_state='active', subscription_start_date, term_end_date (+6 Monate)
+        ├── Keine Rechnung erstellen
+        └── Loggt REACTIVATE_REQUESTED (via: admin_no_invoice, no_invoice: true)
 ```
 
 **UI-Verhalten (TourMatterportSection.tsx):**
 - `payrexxConfigured` wird vom Backend im Tour-Detail-Payload mitgeliefert (`tour-detail-payload.js`)
 - Ist Payrexx nicht konfiguriert: "Online bezahlen (Payrexx)" ist ausgegraut + deaktiviert, "QR-Rechnung" ist vorgewählt
 - Ist Payrexx konfiguriert: "Payrexx" ist Standard-Auswahl
+- Dritte Option "Ohne Rechnung aktivieren (nur Admin)": sofortige Aktivierung ohne Rechnung, Abo 6 Monate ab heute, nur für Kulanz-/interne Fälle
 
 ### Payrexx-Webhook nach Zahlung
 
@@ -739,10 +746,25 @@ Systemweite Rechnungsliste **ausserhalb** des Tour-Untermenüs. Pro-Tour-Ansicht
 |---|---|---|
 | `GET` | `/api/tours/admin/invoices-central?type=renewal\|exxas&status=&search=` | Listen + Stats; `status` wie bisher Verlängerung (`offen`, `ueberfaellig`, `bezahlt`, `entwurf`) bzw. Exxas (`offen` = `exxas_status != 'bz'`, `bezahlt` = `bz`) |
 | `GET` | `/api/tours/admin/invoices` | Unverändert: nur Verlängerungen (Legacy / andere Clients) |
+| `DELETE` | `/api/tours/admin/invoices/renewal/:id` | Verlängerungsrechnung löschen (nur nicht-bezahlte); setzt Tour-Workflow-Status zurück; loggt `DELETE_INVOICE` |
+| `DELETE` | `/api/tours/admin/invoices/exxas/:id` | Exxas-Rechnung löschen |
 | `GET` | `/api/tours/admin/tours/:id/link-invoice?search=` | Link-Dialog für Exxas-Rechnungen; kombiniert lokale `exxas_invoices` mit Live-Treffern aus Exxas |
 | `POST` | `/api/tours/admin/tours/:id/link-invoice` | Verknüpft lokale Exxas-Rechnung oder legt bei `live:<referenz>` zuerst einen lokalen Datensatz an |
 
-**Backend:** `tours/lib/admin-phase3.js` — `getRenewalInvoicesCentral()`, `getExxasInvoicesCentral()`; Route `tours/routes/admin-api.js` → `GET /invoices-central`.
+**Backend:** `tours/lib/admin-phase3.js` — `getRenewalInvoicesCentral()`, `getExxasInvoicesCentral()`, `deleteRenewalInvoice(invoiceId, actorEmail)`; Route `tours/routes/admin-api.js` → `GET /invoices-central`.
+
+### Rechnung löschen — Workflow-Reset-Logik
+
+`deleteRenewalInvoice()` prüft nach dem Löschen den Tour-Status und setzt ihn automatisch zurück:
+
+| `invoice_kind` | Tour-Status war | → Reset auf |
+|---|---|---|
+| `portal_reactivation` | `CUSTOMER_ACCEPTED_AWAITING_PAYMENT` | `ARCHIVED` |
+| `portal_extension` / `null` | `CUSTOMER_ACCEPTED_AWAITING_PAYMENT` | `AWAITING_CUSTOMER_DECISION` |
+
+Bezahlte Rechnungen (`invoice_status = 'paid'`) können nicht gelöscht werden.
+
+**UI:** Trash-Icon pro Zeile in `TourInvoicesSection.tsx`, nur für nicht-bezahlte Rechnungen sichtbar. Bestätigung via `window.confirm()`. Nach Erfolg: `onRefresh()` lädt Tour-Detail neu.
 
 **Tour-Detail Nebenflow:** Der Dialog **„Exxas-Rechnung verknüpfen“** (`ToursAdminLinkInvoicePage.tsx`) zeigt lokale wie auch Live-Kandidaten. Live-Treffer werden im UI markiert und können direkt zugeordnet werden, auch wenn der reguläre Exxas-Sync die Rechnung lokal noch nicht geschrieben hat.
 
@@ -864,6 +886,9 @@ Einmaliger Lauf: Kunden werden per Mail gefragt, was mit ihrer Tour passieren so
 | Datei | Beschreibung |
 |---|---|
 | `app/src/pages-legacy/tours/admin/ToursAdminCleanupPage.tsx` | Admin-UI: Kandidatentabelle, Sandbox-Vorschau, Matterport Live-Check |
+| `app/src/pages-legacy/tours/admin/components/TourCleanupSection.tsx` | Tour-Detail-Widget: Sandbox-Vorschau + produktiver Einzelversand (nur wenn `confirmation_required = true`) |
+
+**Tour-Detail-Integration (`TourDetailPage.tsx`):** `TourCleanupSection` erscheint unterhalb von `TourInvoicesSection`, aber nur wenn `tour.confirmation_required = true`. Zeigt Sandbox-Vorschau-Toggle und "Mail jetzt senden (produktiv)"-Button mit Bestätigungsdialog. Bereits versendete/abgeschlossene Touren zeigen nur den Status.
 
 ### Backend
 

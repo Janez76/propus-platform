@@ -1717,19 +1717,71 @@ async function getExxasInvoicesCentral(status, search) {
 
 const RENEWAL_INVOICE_STATUSES = new Set(['draft', 'sent', 'overdue', 'paid', 'cancelled', 'archived']);
 
-async function deleteRenewalInvoice(invoiceId) {
+async function deleteRenewalInvoice(invoiceId, actorEmail) {
   const id = parseInt(String(invoiceId), 10);
   if (!Number.isFinite(id)) throw new Error('Ungültige Rechnungs-ID');
+
+  // Rechnungsdaten vor dem Löschen auslesen für Workflow-Reset und Logging
+  const existing = await pool.query(
+    `SELECT id, tour_id, invoice_kind, invoice_status, invoice_number, amount_chf
+     FROM tour_manager.renewal_invoices WHERE id = $1`,
+    [id]
+  );
+  if (!existing.rows[0]) throw new Error('Rechnung nicht gefunden');
+  const inv = existing.rows[0];
+  if (inv.invoice_status === 'paid') throw new Error('Bezahlte Rechnungen können nicht gelöscht werden');
+
   const r = await pool.query(
     `DELETE FROM tour_manager.renewal_invoices WHERE id = $1 AND invoice_status != 'paid' RETURNING id`,
     [id]
   );
-  if (r.rowCount === 0) {
-    const c = await pool.query(`SELECT invoice_status FROM tour_manager.renewal_invoices WHERE id = $1`, [id]);
-    if (!c.rows[0]) throw new Error('Rechnung nicht gefunden');
-    throw new Error('Bezahlte Rechnungen können nicht gelöscht werden');
+  if (r.rowCount === 0) throw new Error('Bezahlte Rechnungen können nicht gelöscht werden');
+
+  // Workflow-Status der Tour zurücksetzen, falls nötig
+  let tourStatusReset = null;
+  if (inv.tour_id) {
+    const tourRow = await pool.query(
+      `SELECT id, status FROM tour_manager.tours WHERE id = $1`,
+      [inv.tour_id]
+    );
+    const tour = tourRow.rows[0];
+    if (tour) {
+      let newStatus = null;
+      if (
+        tour.status === 'CUSTOMER_ACCEPTED_AWAITING_PAYMENT' &&
+        inv.invoice_kind === 'portal_reactivation'
+      ) {
+        // Reaktivierungsrechnung gelöscht → Tour zurück auf ARCHIVED
+        newStatus = 'ARCHIVED';
+      } else if (
+        tour.status === 'CUSTOMER_ACCEPTED_AWAITING_PAYMENT' &&
+        (inv.invoice_kind === 'portal_extension' || inv.invoice_kind === null)
+      ) {
+        // Verlängerungsrechnung gelöscht → Tour zurück auf AWAITING_CUSTOMER_DECISION
+        newStatus = 'AWAITING_CUSTOMER_DECISION';
+      }
+      if (newStatus) {
+        await pool.query(
+          `UPDATE tour_manager.tours SET status = $1, updated_at = NOW() WHERE id = $2`,
+          [newStatus, inv.tour_id]
+        );
+        tourStatusReset = newStatus;
+      }
+    }
   }
-  return { ok: true };
+
+  if (inv.tour_id) {
+    await logAction(inv.tour_id, 'admin', actorEmail || null, 'DELETE_INVOICE', {
+      invoice_id: id,
+      invoice_number: inv.invoice_number || null,
+      invoice_kind: inv.invoice_kind || null,
+      invoice_status: inv.invoice_status || null,
+      amount_chf: inv.amount_chf || null,
+      tour_status_reset: tourStatusReset,
+    });
+  }
+
+  return { ok: true, tourStatusReset };
 }
 
 async function archiveRenewalInvoice(invoiceId) {

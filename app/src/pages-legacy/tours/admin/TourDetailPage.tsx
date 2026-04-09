@@ -7,6 +7,7 @@ import { toursAdminTourDetailQueryKey } from "../../../lib/queryKeys";
 import type { ToursAdminTourRow } from "../../../types/toursAdmin";
 import { TourActionLog } from "./components/TourActionLog";
 import { TourActionsPanel } from "./components/TourActionsPanel";
+import { TourCleanupSection } from "./components/TourCleanupSection";
 import { TourInvoicesSection } from "./components/TourInvoicesSection";
 import { TourInternSection } from "./components/TourInternSection";
 import { TourMatterportSection } from "./components/TourMatterportSection";
@@ -161,6 +162,14 @@ export function TourDetailPage() {
             paymentTimeline={data.paymentTimeline}
             onOpenInvoiceLink={() => setEmbedView("invoice")}
           />
+          {data.tour.confirmation_required ? (
+            <TourCleanupSection
+              tourId={okId}
+              cleanupSentAt={data.tour.cleanup_sent_at as string | null | undefined}
+              cleanupAction={data.tour.cleanup_action as string | null | undefined}
+              onRefresh={refetchDetail}
+            />
+          ) : null}
         </>
       ) : null}
 
