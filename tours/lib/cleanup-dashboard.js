@@ -398,16 +398,26 @@ async function executeDashboardAction(customerEmail, tourId, action) {
   }
 
   if (action === 'archivieren') {
-    await pool.query(
-      `UPDATE tour_manager.tours SET status = 'ARCHIVED', archived_at = COALESCE(archived_at, NOW()), cleanup_action = 'archivieren', cleanup_action_at = NOW(), updated_at = NOW() WHERE id = $1`,
-      [tour.id]
-    );
-    await logAction(tour.id, 'customer', actorEmail, 'CLEANUP_DASHBOARD_ARCHIVIEREN', {});
-    try {
+    const spaceId = tour.canonical_matterport_space_id || tour.matterport_space_id;
+    if (spaceId) {
       const mp = require('./matterport');
-      const spaceId = tour.canonical_matterport_space_id || tour.matterport_space_id;
-      if (spaceId) await mp.archiveSpace(spaceId);
-    } catch (_) { /* best-effort */ }
+      const result = await mp.archiveSpace(spaceId);
+      if (!result?.success) {
+        throw new Error(result?.error || 'Matterport-Space konnte nicht archiviert werden');
+      }
+    }
+    await pool.query(
+      `UPDATE tour_manager.tours
+       SET status = 'ARCHIVED',
+           archived_at = COALESCE(archived_at, NOW()),
+           matterport_state = CASE WHEN COALESCE($2::text, '') <> '' THEN 'inactive' ELSE matterport_state END,
+           cleanup_action = 'archivieren',
+           cleanup_action_at = NOW(),
+           updated_at = NOW()
+       WHERE id = $1`,
+      [tour.id, spaceId || null]
+    );
+    await logAction(tour.id, 'customer', actorEmail, 'CLEANUP_DASHBOARD_ARCHIVIEREN', { matterport_space_id: spaceId || null });
     return { action: 'archivieren', message: 'Ihre Tour wurde archiviert.' };
   }
 
@@ -920,15 +930,27 @@ Ihr Propus Team`;
 
   for (const email of emails) {
     try {
-      await sendGraphMailToCustomer({
-        to: email,
-        subject,
-        html: htmlBody,
-        text: textBody,
-        templateKey: 'cleanup_thankyou',
-        referenceType: 'customer_email',
-        referenceId: email,
-      });
+      const fakeTour = { customer_email: email, id: null };
+      const mailResult = await sendGraphMailToCustomer(fakeTour, { subject, html: htmlBody, text: textBody });
+      if (mailResult.success) {
+        await pool.query(
+          `INSERT INTO tour_manager.outgoing_emails
+             (tour_id, mailbox_upn, graph_message_id, internet_message_id, conversation_id,
+              recipient_email, subject, template_key, sent_at, details_json)
+           VALUES (NULL,$1,$2,$3,$4,$5,$6,'cleanup_thankyou',NOW(),$7::jsonb)`,
+          [
+            mailResult.mailboxUpn || 'system',
+            mailResult.graphMessageId || null,
+            mailResult.internetMessageId || null,
+            mailResult.conversationId || null,
+            mailResult.recipientEmail || email,
+            subject,
+            JSON.stringify({ voucherCode, validTo: validTo.toISOString(), customerName: customerName || null }),
+          ]
+        );
+      } else {
+        console.warn(`[cleanup-voucher] Mail an ${email} fehlgeschlagen:`, mailResult.error);
+      }
     } catch (err) {
       console.warn(`[cleanup-voucher] Mail an ${email} fehlgeschlagen:`, err.message);
     }
