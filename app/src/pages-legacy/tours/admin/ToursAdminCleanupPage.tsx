@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   RefreshCw, Send, Eye, EyeOff, CheckCircle2, XCircle, AlertTriangle, Loader2, Mail, Search,
@@ -293,21 +293,59 @@ function CustomerCard({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [previewTourId, setPreviewTourId] = useState<number | null>(null);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
   const emails = group.customerEmails ?? [group.customerEmail];
-  // Standardauswahl: alle E-Mails (Haupt-Kontakt = erste E-Mail)
   const [selectedEmails, setSelectedEmails] = useState<string[]>(emails);
+  const [overrideEmail, setOverrideEmail] = useState("");
+  const [overrideError, setOverrideError] = useState("");
 
   const isBusy = busyAction === `single:${group.groupKey}`;
   const allDone = group.pendingCount === 0;
   const displayName = group.customerName || group.customerEmail;
 
+  // Klick ausserhalb schliesst Dropdown
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [dropdownOpen]);
+
   function toggleEmail(email: string) {
     setSelectedEmails((prev) =>
-      prev.includes(email)
-        ? prev.filter((e) => e !== email)
-        : [...prev, email]
+      prev.includes(email) ? prev.filter((e) => e !== email) : [...prev, email]
     );
   }
+
+  function addOverride() {
+    const v = overrideEmail.trim().toLowerCase();
+    if (!v) return;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) {
+      setOverrideError("Ungültige E-Mail-Adresse");
+      return;
+    }
+    setOverrideError("");
+    setSelectedEmails((prev) => (prev.includes(v) ? prev : [...prev, v]));
+    setOverrideEmail("");
+  }
+
+  // Effektive Empfänger: entweder Override-only wenn kein Standard gewählt, sonst selectedEmails
+  const effectiveRecipients = selectedEmails.length > 0 ? selectedEmails : emails;
+
+  const recipientLabel = (() => {
+    if (selectedEmails.length === 0) return "Keine";
+    if (selectedEmails.length === emails.length && selectedEmails.every((e) => emails.includes(e))) return "Alle";
+    if (selectedEmails.length === 1 && selectedEmails[0] === emails[0]) return "Hauptkontakt";
+    return `${selectedEmails.length}`;
+  })();
+
+  const hasCustomEmail = selectedEmails.some((e) => !emails.includes(e));
 
   return (
     <div className={`surface-card-strong rounded-lg border border-[var(--border-soft)] overflow-hidden ${allDone ? "opacity-50" : ""}`}>
@@ -359,22 +397,30 @@ function CustomerCard({
         {/* Empfänger-Auswahl + Senden */}
         {!group.allSent && group.pendingCount > 0 && (
           <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-            {emails.length > 1 ? (
-              <div className="relative group/dd">
-                {/* Dropdown-Trigger: zeigt gewählte Empfänger */}
-                <button
-                  type="button"
-                  className="flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-2.5 py-1.5 text-xs font-medium text-[var(--text-subtle)] hover:text-[var(--accent)] hover:bg-[var(--surface-card-strong)] bg-white"
-                  title="Empfänger auswählen"
-                >
-                  <Mail className="h-3.5 w-3.5" />
-                  <span>{selectedEmails.length === emails.length ? "Alle" : selectedEmails.length === 0 ? "Keine" : `${selectedEmails.length}/${emails.length}`}</span>
-                  <ChevronDown className="h-3 w-3 opacity-60" />
-                </button>
-                {/* Dropdown-Panel */}
-                <div className="absolute right-0 top-full mt-1 z-50 hidden group-hover/dd:block min-w-[220px] rounded-lg border border-[var(--border-soft)] bg-white shadow-lg py-1">
+            {/* Empfänger-Dropdown (immer sichtbar) */}
+            <div className="relative" ref={dropdownRef}>
+              <button
+                type="button"
+                onClick={() => setDropdownOpen((o) => !o)}
+                className={`flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-medium bg-white transition-colors ${
+                  hasCustomEmail
+                    ? "border-amber-400 text-amber-700"
+                    : dropdownOpen
+                    ? "border-[var(--accent)] text-[var(--accent)]"
+                    : "border-[var(--border-soft)] text-[var(--text-subtle)] hover:text-[var(--accent)] hover:border-[var(--accent)]"
+                }`}
+                title="Empfänger auswählen oder übersteuern"
+              >
+                <Mail className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">{recipientLabel}</span>
+                <ChevronDown className={`h-3 w-3 opacity-60 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
+              </button>
+
+              {dropdownOpen && (
+                <div className="absolute right-0 top-full mt-1 z-50 w-72 rounded-lg border border-[var(--border-soft)] bg-white shadow-xl py-1">
+                  {/* Bestehende E-Mails */}
                   <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-subtle)] border-b border-[var(--border-soft)]">
-                    Empfänger wählen
+                    Bekannte Kontakte
                   </div>
                   {emails.map((email, i) => (
                     <label key={email} className="flex items-center gap-2.5 px-3 py-2 hover:bg-[var(--surface-card-strong)] cursor-pointer">
@@ -382,28 +428,60 @@ function CustomerCard({
                         type="checkbox"
                         checked={selectedEmails.includes(email)}
                         onChange={() => toggleEmail(email)}
-                        className="rounded"
+                        className="rounded flex-shrink-0"
                       />
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="text-xs font-medium text-[var(--text-main)] truncate">{email}</div>
-                        {i === 0 && (
-                          <div className="text-[10px] text-[var(--text-subtle)]">Hauptkontakt</div>
-                        )}
+                        {i === 0 && <div className="text-[10px] text-[var(--text-subtle)]">Hauptkontakt</div>}
                       </div>
                     </label>
                   ))}
-                  <div className="px-3 pt-1 pb-1.5 border-t border-[var(--border-soft)] flex gap-2 mt-1">
-                    <button type="button" onClick={() => setSelectedEmails([...emails])} className="text-[10px] text-[var(--accent)] hover:underline">Alle</button>
+
+                  {/* Schnellaktionen */}
+                  <div className="px-3 py-1.5 flex gap-3 border-t border-[var(--border-soft)]">
+                    <button type="button" onClick={() => setSelectedEmails([...emails])} className="text-[10px] text-[var(--accent)] hover:underline">Alle wählen</button>
                     <button type="button" onClick={() => setSelectedEmails([emails[0]])} className="text-[10px] text-[var(--text-subtle)] hover:underline">Nur Hauptkontakt</button>
+                    <button type="button" onClick={() => setSelectedEmails([])} className="text-[10px] text-red-400 hover:underline ml-auto">Keine</button>
+                  </div>
+
+                  {/* Override: andere E-Mail eingeben */}
+                  <div className="px-3 pb-2 pt-1 border-t border-[var(--border-soft)]">
+                    <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-subtle)] mb-1.5">Andere E-Mail (übersteuern)</div>
+                    <div className="flex gap-1.5">
+                      <input
+                        type="email"
+                        value={overrideEmail}
+                        onChange={(e) => { setOverrideEmail(e.target.value); setOverrideError(""); }}
+                        onKeyDown={(e) => e.key === "Enter" && addOverride()}
+                        placeholder="neue@kontakt.ch"
+                        className="flex-1 min-w-0 rounded border border-[var(--border-soft)] px-2 py-1 text-xs focus:outline-none focus:border-[var(--accent)]"
+                      />
+                      <button
+                        type="button"
+                        onClick={addOverride}
+                        className="rounded border border-[var(--border-soft)] px-2 py-1 text-xs text-[var(--accent)] hover:bg-[var(--surface-card-strong)] font-medium flex-shrink-0"
+                      >
+                        +
+                      </button>
+                    </div>
+                    {overrideError && <div className="text-[10px] text-red-500 mt-1">{overrideError}</div>}
+                    {/* Hinzugefügte Override-E-Mails anzeigen */}
+                    {selectedEmails.filter((e) => !emails.includes(e)).map((e) => (
+                      <div key={e} className="flex items-center gap-1.5 mt-1">
+                        <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 flex-1 truncate">{e} <span className="text-amber-500">(manuell)</span></span>
+                        <button type="button" onClick={() => setSelectedEmails((prev) => prev.filter((x) => x !== e))} className="text-[10px] text-red-400 hover:text-red-600 flex-shrink-0">✕</button>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              </div>
-            ) : null}
+              )}
+            </div>
+
             <button
               type="button"
-              disabled={!!busyAction || selectedEmails.length === 0}
-              onClick={() => onSendSingle(selectedEmails.length > 0 ? selectedEmails : emails)}
-              title={`Dashboard-Link senden an: ${(selectedEmails.length > 0 ? selectedEmails : emails).join(", ")}`}
+              disabled={!!busyAction || effectiveRecipients.length === 0}
+              onClick={() => { onSendSingle(effectiveRecipients); setDropdownOpen(false); }}
+              title={`Dashboard-Link senden an: ${effectiveRecipients.join(", ")}`}
               className="flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-2.5 py-1.5 text-xs font-medium text-[var(--text-subtle)] hover:text-[var(--accent)] hover:bg-[var(--surface-card-strong)] disabled:opacity-40"
             >
               {isBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
