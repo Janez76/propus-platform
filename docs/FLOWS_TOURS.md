@@ -677,6 +677,11 @@ Diese Endpunkte können auch manuell aus dem Admin ausgelöst werden (brauchen A
 | `floorplanUnitPrice` | `booking.pricing_rules` (floorplans:tour, per_floor) | Via Rechnungsvorlage |
 | `hostingUnitPrice` | `booking.pricing_rules` (hosting, per_period) | Read-only |
 
+Hinweis zur Laufzeit-Konfiguration:
+- `platform/server.js` und `booking/server.js` laden `.env`, `.env.vps.secrets` und `.env.vps` in dieser Reihenfolge mit `override: true`.
+- Dadurch koennen produktive Werte aus `.env.vps` oder `.env.vps.secrets` lokale Defaults oder leere Werte aus `.env` gezielt ueberschreiben.
+- Nach Aenderungen an Payrexx-Variablen ist ein Neustart bzw. Container-Recreate noetig, damit `process.env` neu eingelesen wird.
+
 ### Rechnungsvorlage (`GET/PATCH /api/tours/admin/invoice-template`)
 
 **Creditor-Daten** — gespeichert in `tour_manager.settings` (key=`invoice_creditor`):

@@ -30,7 +30,8 @@ function getBuildId() {
 }
 function loadOptionalEnvFile(envPath) {
   if (!fs.existsSync(envPath)) return;
-  dotenv.config({ path: envPath });
+  // VPS-/Secrets-Dateien sollen fruehere Defaults aus .env gezielt ueberschreiben.
+  dotenv.config({ path: envPath, override: true });
 }
 [
   path.join(__dirname, ".env.local"),

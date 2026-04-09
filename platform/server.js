@@ -3,15 +3,20 @@
  * Mountet Tour Manager unter TOURS_MOUNT_PATH (default /tour-manager) und das Booking-Backend auf /.
  */
 const path = require("path");
+const fs = require("fs");
+const dotenv = require("dotenv");
 const crypto = require("crypto");
 
-const rootEnv = path.join(__dirname, "..", ".env");
-try {
-  require("dotenv").config({ path: rootEnv });
-} catch (_) {
-  /* optional */
+function loadOptionalEnvFile(envPath) {
+  if (!fs.existsSync(envPath)) return;
+  dotenv.config({ path: envPath, override: true });
 }
-require("dotenv").config();
+[
+  path.join(__dirname, "..", ".env"),
+  path.join(__dirname, "..", ".env.vps.secrets"),
+  path.join(__dirname, "..", ".env.vps"),
+].forEach(loadOptionalEnvFile);
+dotenv.config({ override: true });
 
 process.env.PROPUS_PLATFORM_MERGED = "1";
 if (!process.env.TOURS_MOUNT_PATH) process.env.TOURS_MOUNT_PATH = "/tour-manager";
