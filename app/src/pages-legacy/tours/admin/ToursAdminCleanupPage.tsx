@@ -46,6 +46,17 @@ type BatchResult = {
   }>;
 };
 
+const ACTION_LABEL: Record<string, string> = {
+  weiterfuehren: "Weitergeführt",
+  weiterfuehren_online: "Weitergeführt (Online)",
+  weiterfuehren_qr: "Weitergeführt (QR)",
+  weiterfuehren_review: "Review ausstehend",
+  weiterfuehren_pending_payment: "Zahlung ausstehend",
+  archivieren: "Archiviert",
+  uebertragen: "Übertragen",
+  loeschen: "Löschen beantragt",
+};
+
 const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
   ACTIVE: { label: "Aktiv", cls: "bg-green-100 text-green-800" },
   EXPIRING_SOON: { label: "Läuft ab", cls: "bg-yellow-100 text-yellow-800" },
@@ -377,8 +388,10 @@ function CustomerCard({
                       </td>
                       <td className="px-4 py-2">
                         {done ? (
-                          <span className="text-xs text-green-700 font-medium">
-                            {String(t.cleanup_action)} ({formatDate(t.cleanup_action_at)})
+                          <span className="inline-flex items-center gap-1 rounded-full bg-green-100 text-green-800 px-2 py-0.5 text-xs font-semibold">
+                            <CheckCircle2 className="h-3 w-3 flex-shrink-0" />
+                            {ACTION_LABEL[String(t.cleanup_action)] ?? String(t.cleanup_action)}
+                            <span className="text-green-600 font-normal ml-1">{formatDate(t.cleanup_action_at)}</span>
                           </span>
                         ) : t.cleanup_sent_at ? (
                           <span className="text-xs text-[var(--text-subtle)]">Mail: {formatDate(t.cleanup_sent_at)}</span>
@@ -441,6 +454,7 @@ export function ToursAdminCleanupPage() {
   const [actionMsg, setActionMsg] = useState<string | null>(null);
   const [actionErr, setActionErr] = useState<string | null>(null);
   const [confirmSend, setConfirmSend] = useState(false);
+  const [showSent, setShowSent] = useState(false);
 
   function toggleSelect(email: string) {
     setSelected((prev) => {
@@ -525,7 +539,9 @@ export function ToursAdminCleanupPage() {
     }
   }
 
-  const eligibleCount = customers.filter((c) => !c.allSent && c.pendingCount > 0).length;
+  const pendingCustomers = customers.filter((c) => !c.allSent && c.pendingCount > 0);
+  const sentCustomers = customers.filter((c) => c.allSent);
+  const eligibleCount = pendingCustomers.length;
   const totalPendingTours = customers.reduce((s, c) => s + c.pendingCount, 0);
 
   return (
@@ -660,19 +676,61 @@ export function ToursAdminCleanupPage() {
           <p className="text-xs mt-1 opacity-70">Touren müssen <code>confirmation_required = TRUE</code> gesetzt haben.</p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {customers.map((group) => (
-            <CustomerCard
-              key={group.customerEmail}
-              group={group}
-              isSelected={selected.has(group.customerEmail)}
-              onToggleSelect={() => toggleSelect(group.customerEmail)}
-              busyAction={busyAction}
-              onSendSingle={handleSendSingle}
-              onSendSingleTour={handleSendSingleTour}
-            />
-          ))}
-        </div>
+        <>
+          {/* Offene Kunden */}
+          {pendingCustomers.length > 0 ? (
+            <div className="space-y-3">
+              {pendingCustomers.map((group) => (
+                <CustomerCard
+                  key={group.customerEmail}
+                  group={group}
+                  isSelected={selected.has(group.customerEmail)}
+                  onToggleSelect={() => toggleSelect(group.customerEmail)}
+                  busyAction={busyAction}
+                  onSendSingle={handleSendSingle}
+                  onSendSingleTour={handleSendSingleTour}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="surface-card-strong flex flex-col items-center py-10 text-[var(--text-subtle)]">
+              <CheckCircle2 className="h-6 w-6 mb-2 opacity-40" />
+              <p className="text-sm">Alle Kunden wurden bereits kontaktiert.</p>
+            </div>
+          )}
+
+          {/* Gesendete Kunden — zugeklapptes Akkordeon */}
+          {sentCustomers.length > 0 && (
+            <div className="border border-[var(--border-soft)] rounded-lg overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowSent(!showSent)}
+                className="flex w-full items-center justify-between px-4 py-3 bg-[var(--surface-card-strong)] text-sm text-[var(--text-subtle)] hover:text-[var(--text-main)] hover:bg-[var(--surface-card)]"
+              >
+                <span className="flex items-center gap-2 font-medium">
+                  <Mail className="h-4 w-4" />
+                  Bereits gesendet ({sentCustomers.length})
+                </span>
+                {showSent ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              </button>
+              {showSent && (
+                <div className="space-y-2 p-3 bg-[var(--surface)]">
+                  {sentCustomers.map((group) => (
+                    <CustomerCard
+                      key={group.customerEmail}
+                      group={group}
+                      isSelected={selected.has(group.customerEmail)}
+                      onToggleSelect={() => toggleSelect(group.customerEmail)}
+                      busyAction={busyAction}
+                      onSendSingle={handleSendSingle}
+                      onSendSingleTour={handleSendSingleTour}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
 
       {/* Batch-Ergebnis */}

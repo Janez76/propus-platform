@@ -183,15 +183,15 @@ function computeCleanupRule(tour) {
         isWithin6Months,
       };
     }
-    // Archiviert > 6 Monate: beim Bereinigungslauf entfällt die Reaktivierungsgebühr (CHF 15.–) als Kulanz
+    // Archiviert > 6 Monate: Reaktivierung kostenlos als einmalige Kulanz beim Bereinigungslauf
     return {
       statusLabel: 'Archiviert',
       statusContext: ' (Ihre Tour ist derzeit archiviert.)',
       statusContextText: '(Ihre Tour ist derzeit archiviert.)',
-      weiterfuehrenHint: `Tour reaktivieren – neue Rechnung CHF ${EXTENSION_PRICE_CHF}.– / 6 Monate`,
-      needsInvoice: true,
-      invoiceAmount: EXTENSION_PRICE_CHF,
-      paymentMethods: ['online', 'qr'],
+      weiterfuehrenHint: 'Tour reaktivieren – kostenlos (einmalige Kulanz beim Bereinigungslauf)',
+      needsInvoice: false,
+      invoiceAmount: null,
+      paymentMethods: [],
       needsManualReview: false,
       archivedWithin6Months: false,
       isWithin6Months,
