@@ -183,7 +183,7 @@ function TourCard({ tour, token, onActionComplete }: { tour: DashboardTour; toke
                 href={tour.tourUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 rounded-full border border-[#c9a84c] bg-[#fdf6e3] px-2.5 py-0.5 text-xs font-semibold text-[#7a5c10] hover:bg-[#f9edd0] hover:border-[#b8922e] transition-colors"
+                className="inline-flex items-center gap-1 rounded-full border-2 border-[#8a6c18] bg-[#f0d98a] px-2.5 py-0.5 text-xs font-bold text-[#3b2a00] hover:bg-[#e8cc6a] transition-colors"
               >
                 Tour ansehen <ArrowUpRight className="h-3 w-3" />
               </a>
@@ -363,10 +363,10 @@ export function CleanupDashboardPage() {
               Propus Tour Manager
             </span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-center text-gray-900" style={{ letterSpacing: "-0.02em" }}>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-center text-gray-950" style={{ letterSpacing: "-0.02em" }}>
             Ihre Touren prüfen
           </h1>
-          <p className="text-center text-gray-700 text-sm mt-3 max-w-lg mx-auto font-medium">
+          <p className="text-center text-gray-800 text-sm mt-3 max-w-lg mx-auto font-semibold">
             Bitte wählen Sie für jede Tour, was damit passieren soll. Erledigte Touren werden automatisch ausgeblendet.
           </p>
         </div>
