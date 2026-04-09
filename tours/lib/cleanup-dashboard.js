@@ -186,10 +186,24 @@ async function validateDashboardSession(rawToken) {
   // Alle E-Mails der Firma auflösen — damit Hauptkontakte alle Touren sehen
   const allEmails = await resolveCustomerEmails(primaryEmail);
 
+  // Besten customer_name für diese E-Mail-Gruppe ermitteln
+  let customerName = null;
+  try {
+    const nameRes = await pool.query(
+      `SELECT customer_name FROM tour_manager.tours
+       WHERE LOWER(TRIM(customer_email)) = ANY($1::text[])
+         AND customer_name IS NOT NULL AND TRIM(customer_name) != ''
+       GROUP BY customer_name ORDER BY COUNT(*) DESC LIMIT 1`,
+      [allEmails]
+    );
+    customerName = nameRes.rows[0]?.customer_name || null;
+  } catch (_) { /* best-effort */ }
+
   return {
     ok: true,
     customerEmail: primaryEmail,
     customerEmails: allEmails,
+    customerName,
     sessionId: session.id,
   };
 }
@@ -333,6 +347,7 @@ async function executeDashboardAction(customerEmail, tourId, action) {
   );
   const tour = normalizeTourRow(r.rows[0]);
   if (!tour) throw new Error('Tour nicht gefunden oder gehört nicht zu dieser E-Mail');
+  const actorEmail = emails[0] || String(tour.customer_email || '').trim().toLowerCase() || 'unknown';
 
   if (tour.cleanup_action) {
     throw new Error(`Für diese Tour wurde bereits die Aktion "${tour.cleanup_action}" gewählt`);
@@ -352,11 +367,11 @@ async function executeDashboardAction(customerEmail, tourId, action) {
         [
           String(tour.id),
           'Bereinigungslauf: Weiterführen-Wunsch (manueller Review)',
-          `Kunde hat über das Cleanup-Dashboard "Weiterführen" gewählt. Tour war kürzlich archiviert (< 6 Monate). Preis bitte manuell klären.\n\nKunde: ${email}\nObjekt: ${tour.canonical_object_label || tour.bezeichnung}`,
-          email,
+          `Kunde hat über das Cleanup-Dashboard "Weiterführen" gewählt. Tour war kürzlich archiviert (< 6 Monate). Preis bitte manuell klären.\n\nKunde: ${actorEmail}\nObjekt: ${tour.canonical_object_label || tour.bezeichnung}`,
+          actorEmail,
         ]
       );
-      await logAction(tour.id, 'customer', email, 'CLEANUP_DASHBOARD_WEITERFUEHREN_REVIEW', { needsManualReview: true });
+      await logAction(tour.id, 'customer', actorEmail, 'CLEANUP_DASHBOARD_WEITERFUEHREN_REVIEW', { needsManualReview: true });
       return { action: 'weiterfuehren_review', message: 'Ihr Wunsch wurde registriert. Wir klären den Preis und melden uns bei Ihnen.' };
     }
 
@@ -365,7 +380,7 @@ async function executeDashboardAction(customerEmail, tourId, action) {
         `UPDATE tour_manager.tours SET cleanup_action = 'weiterfuehren_pending_payment', cleanup_action_at = NOW(), updated_at = NOW() WHERE id = $1`,
         [tour.id]
       );
-      await logAction(tour.id, 'customer', email, 'CLEANUP_DASHBOARD_WEITERFUEHREN_PENDING_PAYMENT', { invoiceAmount: rule.invoiceAmount });
+      await logAction(tour.id, 'customer', actorEmail, 'CLEANUP_DASHBOARD_WEITERFUEHREN_PENDING_PAYMENT', { invoiceAmount: rule.invoiceAmount });
       return {
         action: 'weiterfuehren_pending_payment',
         needsPayment: true,
@@ -378,7 +393,7 @@ async function executeDashboardAction(customerEmail, tourId, action) {
       `UPDATE tour_manager.tours SET cleanup_action = 'weiterfuehren', cleanup_action_at = NOW(), updated_at = NOW() WHERE id = $1`,
       [tour.id]
     );
-    await logAction(tour.id, 'customer', email, 'CLEANUP_DASHBOARD_WEITERFUEHREN', {});
+    await logAction(tour.id, 'customer', actorEmail, 'CLEANUP_DASHBOARD_WEITERFUEHREN', {});
     return { action: 'weiterfuehren', message: 'Ihre Tour wird wie gewohnt weitergeführt.' };
   }
 
@@ -387,7 +402,7 @@ async function executeDashboardAction(customerEmail, tourId, action) {
       `UPDATE tour_manager.tours SET status = 'ARCHIVED', archived_at = COALESCE(archived_at, NOW()), cleanup_action = 'archivieren', cleanup_action_at = NOW(), updated_at = NOW() WHERE id = $1`,
       [tour.id]
     );
-    await logAction(tour.id, 'customer', email, 'CLEANUP_DASHBOARD_ARCHIVIEREN', {});
+    await logAction(tour.id, 'customer', actorEmail, 'CLEANUP_DASHBOARD_ARCHIVIEREN', {});
     try {
       const mp = require('./matterport');
       const spaceId = tour.canonical_matterport_space_id || tour.matterport_space_id;
@@ -407,16 +422,16 @@ async function executeDashboardAction(customerEmail, tourId, action) {
       [
         String(tour.id),
         'Bereinigungslauf: Übertragung gewünscht',
-        `Kunde möchte Tour über Cleanup-Dashboard übertragen.\n\nObjekt: ${tour.canonical_object_label || tour.bezeichnung}\nKunde: ${email}`,
-        email,
+        `Kunde möchte Tour über Cleanup-Dashboard übertragen.\n\nObjekt: ${tour.canonical_object_label || tour.bezeichnung}\nKunde: ${actorEmail}`,
+        actorEmail,
       ]
     );
-    await logAction(tour.id, 'customer', email, 'CLEANUP_DASHBOARD_UEBERTRAGEN', {});
+    await logAction(tour.id, 'customer', actorEmail, 'CLEANUP_DASHBOARD_UEBERTRAGEN', {});
     return { action: 'uebertragen', message: 'Übertragungsanfrage registriert. Wir melden uns bei Ihnen.' };
   }
 
   if (action === 'loeschen') {
-    await logAction(tour.id, 'customer', email, 'CLEANUP_DASHBOARD_LOESCHEN', {});
+    await logAction(tour.id, 'customer', actorEmail, 'CLEANUP_DASHBOARD_LOESCHEN', {});
     try {
       const mp = require('./matterport');
       const spaceId = tour.canonical_matterport_space_id || tour.matterport_space_id;
@@ -447,6 +462,7 @@ async function executeDashboardPaymentChoice(customerEmail, tourId, paymentMetho
   );
   const tour = normalizeTourRow(r.rows[0]);
   if (!tour) throw new Error('Tour nicht gefunden');
+  const actorEmail = emails[0] || String(tour.customer_email || '').trim().toLowerCase() || 'unknown';
 
   const rule = computeCleanupRule(tour);
   const { EXTENSION_PRICE_CHF, getSubscriptionWindowFromStart } = require('./subscriptions');
@@ -471,7 +487,7 @@ async function executeDashboardPaymentChoice(customerEmail, tourId, paymentMetho
       `UPDATE tour_manager.tours SET cleanup_action = 'weiterfuehren_online', cleanup_action_at = NOW(), updated_at = NOW() WHERE id = $1`,
       [tour.id]
     );
-    await logAction(tour.id, 'customer', email, 'CLEANUP_DASHBOARD_ONLINE_CHECKOUT', { amount });
+    await logAction(tour.id, 'customer', actorEmail, 'CLEANUP_DASHBOARD_ONLINE_CHECKOUT', { amount });
     return { checkoutUrl };
   }
 
@@ -504,7 +520,7 @@ async function executeDashboardPaymentChoice(customerEmail, tourId, paymentMetho
     `UPDATE tour_manager.tours SET cleanup_action = 'weiterfuehren_qr', cleanup_action_at = NOW(), updated_at = NOW() WHERE id = $1`,
     [tour.id]
   );
-  await logAction(tour.id, 'customer', email, 'CLEANUP_DASHBOARD_QR_INVOICE', { amount });
+  await logAction(tour.id, 'customer', actorEmail, 'CLEANUP_DASHBOARD_QR_INVOICE', { amount });
   return { message: `QR-Rechnung (CHF ${amount}.–) wurde per E-Mail verschickt.` };
 }
 
@@ -766,6 +782,238 @@ function escapeHtml(value) {
     .replace(/"/g, '&quot;');
 }
 
+// ─── Cleanup-Gutschein: Prüfen ob alle Touren erledigt ───────────────────────
+
+/**
+ * Prüft ob alle cleanup-gesendeten Touren eines Kunden erledigt sind
+ * und ob noch kein Gutschein für diese E-Mail-Gruppe gesendet wurde.
+ * @returns {{ allDone: boolean, pendingCount: number, voucherAlreadySent: boolean }}
+ */
+async function checkAllToursCompleted(customerEmails) {
+  const emails = Array.isArray(customerEmails)
+    ? customerEmails.map((e) => String(e).trim().toLowerCase()).filter(Boolean)
+    : [String(customerEmails).trim().toLowerCase()];
+
+  // Touren die eine Cleanup-Mail erhalten haben aber noch keine Aktion haben
+  const pendingRes = await pool.query(
+    `SELECT COUNT(*) AS cnt FROM tour_manager.tours
+     WHERE LOWER(TRIM(customer_email)) = ANY($1::text[])
+       AND cleanup_sent_at IS NOT NULL
+       AND cleanup_action IS NULL
+       AND status NOT IN ('DELETED', 'TRANSFERRED')`,
+    [emails]
+  );
+  const pendingCount = parseInt(pendingRes.rows[0]?.cnt || '0', 10);
+
+  // Prüfen ob bereits ein Gutschein für diese Emails erstellt wurde
+  const voucherRes = await pool.query(
+    `SELECT id FROM booking.discount_codes
+     WHERE active = true
+       AND conditions_json->>'source' = 'cleanup'
+       AND conditions_json->'customerEmails' ?| $1::text[]
+     LIMIT 1`,
+    [emails]
+  );
+  const voucherAlreadySent = voucherRes.rows.length > 0;
+
+  return { allDone: pendingCount === 0, pendingCount, voucherAlreadySent };
+}
+
+// ─── Cleanup-Gutschein: Code generieren und in DB speichern ──────────────────
+
+function generateVoucherCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = 'CLEANUP-';
+  for (let i = 0; i < 6; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return code;
+}
+
+/**
+ * Erstellt einen einzigartigen 10%-Gutschein in booking.discount_codes
+ * und sendet eine Dankes-Mail an alle E-Mails des Kunden.
+ * @param {string[]} customerEmails  Alle E-Mails der Kunden-Gruppe
+ * @param {string}   customerName    Anzeigename des Kunden
+ * @returns {{ code: string, validTo: Date }}
+ */
+async function generateCleanupVoucher(customerEmails, customerName) {
+  const emails = Array.isArray(customerEmails)
+    ? customerEmails.map((e) => String(e).trim().toLowerCase()).filter(Boolean)
+    : [String(customerEmails).trim().toLowerCase()];
+
+  // Einzigartigen Code generieren (max 5 Versuche bei Kollision)
+  let code;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const candidate = generateVoucherCode();
+    const existing = await pool.query(
+      `SELECT id FROM booking.discount_codes WHERE code = $1 LIMIT 1`,
+      [candidate]
+    );
+    if (existing.rows.length === 0) { code = candidate; break; }
+  }
+  if (!code) throw new Error('Konnte keinen eindeutigen Gutschein-Code generieren');
+
+  const validFrom = new Date();
+  const validTo = new Date(Date.now() + 6 * 30 * 24 * 60 * 60 * 1000); // ~6 Monate
+
+  await pool.query(
+    `INSERT INTO booking.discount_codes
+       (code, type, amount, active, valid_from, valid_to, max_uses, uses_count, uses_per_customer, conditions_json)
+     VALUES ($1, 'percent', 10, true, $2, $3, 1, 0, 1, $4::jsonb)`,
+    [
+      code,
+      validFrom.toISOString().split('T')[0],
+      validTo.toISOString().split('T')[0],
+      JSON.stringify({ source: 'cleanup', customerEmails: emails, customerName: customerName || null }),
+    ]
+  );
+
+  return { code, validTo };
+}
+
+/**
+ * Dankes-Mail mit Gutscheincode an alle E-Mails der Kunden-Gruppe senden.
+ */
+async function sendCleanupThankYouMail(customerEmails, customerName, voucherCode, validTo) {
+  await ensureOutgoingEmailSchema();
+  const { buildEmailFrame, buildSummaryCard, buildInfoCallout } = require('./settings');
+
+  const emails = Array.isArray(customerEmails)
+    ? customerEmails.map((e) => String(e).trim().toLowerCase()).filter(Boolean)
+    : [String(customerEmails).trim().toLowerCase()];
+
+  const greeting = customerName ? `Guten Tag${customerName ? `, ${customerName}` : ''}` : 'Guten Tag';
+  const validToStr = validTo.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+  const subject = 'Vielen Dank – Ihr persönlicher Gutscheincode';
+
+  const htmlBody = buildEmailFrame({
+    preheader: 'Herzlichen Dank für Ihre Rückmeldung – hier ist Ihr persönlicher 10%-Gutschein',
+    title: 'Vielen Dank für Ihre Rückmeldung!',
+    introHtml: `<p style="margin:0 0 14px;">${escapeHtml(greeting)}</p><p style="margin:0;">herzlichen Dank, dass Sie sich die Zeit genommen haben, alle Ihre Touren zu prüfen und zu bearbeiten. Als kleines Dankeschön schenken wir Ihnen einen persönlichen Gutschein für Ihre nächste Buchung auf <a href="https://booking.propus.ch" style="color:#8a6c18;font-weight:700;">booking.propus.ch</a>.</p>`,
+    summaryHtml: buildSummaryCard(
+      [
+        { label: 'Ihr Code', value: `<span style="font-family:monospace;font-size:22px;font-weight:700;letter-spacing:0.12em;color:#1a1a1a;background:#f5edde;padding:4px 12px;border-radius:8px;display:inline-block;">${escapeHtml(voucherCode)}</span>` },
+        { label: 'Rabatt', value: '<strong>10 % auf Ihre nächste Buchung</strong>' },
+        { label: 'Gültig bis', value: escapeHtml(validToStr) },
+        { label: 'Einlösbar auf', value: '<a href="https://booking.propus.ch" style="color:#8a6c18;font-weight:700;">booking.propus.ch</a>' },
+      ]
+    ),
+    bodyHtml: `<p style="margin:0 0 10px;">Geben Sie den Code beim Buchungsabschluss einfach im Feld <em>«Gutschein / Rabattcode»</em> ein — der Rabatt wird sofort abgezogen.</p>`,
+    noteHtml: buildInfoCallout('ℹ️', 'Hinweis', `Der Code ist einmalig verwendbar und gültig bis ${escapeHtml(validToStr)}. Er gilt für eine Buchung auf booking.propus.ch.`),
+  });
+
+  const textBody = `${greeting}
+
+herzlichen Dank, dass Sie sich die Zeit genommen haben, alle Ihre Touren zu prüfen. Als Dankeschön erhalten Sie einen persönlichen 10%-Gutschein:
+
+Ihr Code: ${voucherCode}
+Rabatt: 10 % auf Ihre nächste Buchung
+Gültig bis: ${validToStr}
+Einlösbar auf: https://booking.propus.ch
+
+Geben Sie den Code beim Buchungsabschluss im Feld «Gutschein / Rabattcode» ein.
+
+Freundliche Grüsse
+Ihr Propus Team`;
+
+  for (const email of emails) {
+    try {
+      await sendGraphMailToCustomer({
+        to: email,
+        subject,
+        html: htmlBody,
+        text: textBody,
+        templateKey: 'cleanup_thankyou',
+        referenceType: 'customer_email',
+        referenceId: email,
+      });
+    } catch (err) {
+      console.warn(`[cleanup-voucher] Mail an ${email} fehlgeschlagen:`, err.message);
+    }
+  }
+}
+
+/**
+ * Prüft nach einer Aktion ob alle Touren erledigt sind und sendet ggf. Gutschein-Mail.
+ * Wird von booking/server.js nach executeDashboardAction und executeDashboardPaymentChoice aufgerufen.
+ */
+async function maybeDispatchCleanupVoucher(customerEmails, customerName) {
+  try {
+    const { allDone, voucherAlreadySent } = await checkAllToursCompleted(customerEmails);
+    if (!allDone || voucherAlreadySent) return { dispatched: false, reason: voucherAlreadySent ? 'already_sent' : 'tours_pending' };
+
+    const { code, validTo } = await generateCleanupVoucher(customerEmails, customerName);
+    await sendCleanupThankYouMail(customerEmails, customerName, code, validTo);
+    console.log(`[cleanup-voucher] Gutschein ${code} an ${JSON.stringify(customerEmails)} gesendet`);
+    return { dispatched: true, code };
+  } catch (err) {
+    console.warn('[cleanup-voucher] Fehler beim Gutschein-Versand:', err.message);
+    return { dispatched: false, error: err.message };
+  }
+}
+
+/**
+ * Batch-Versand für bereits erledigte Kunden (Admin-Aktion).
+ * Findet alle Gruppen bei denen alle Touren erledigt sind aber noch kein Gutschein gesendet wurde.
+ */
+async function sendVouchersBatch() {
+  // Alle Kunden-Gruppen mit mind. einer cleanup-gesendeten Tour und ALLEN erledigt
+  const res = await pool.query(
+    `SELECT
+       COALESCE(customer_id::TEXT, LOWER(COALESCE(customer_name, '')), LOWER(customer_email)) AS group_key,
+       customer_id,
+       customer_name,
+       ARRAY_AGG(DISTINCT LOWER(TRIM(customer_email))) AS emails,
+       COUNT(*) FILTER (WHERE cleanup_sent_at IS NOT NULL AND cleanup_action IS NULL) AS pending_count,
+       COUNT(*) FILTER (WHERE cleanup_sent_at IS NOT NULL) AS sent_count
+     FROM tour_manager.tours
+     WHERE cleanup_sent_at IS NOT NULL
+       AND status NOT IN ('DELETED', 'TRANSFERRED')
+     GROUP BY COALESCE(customer_id::TEXT, LOWER(COALESCE(customer_name, '')), LOWER(customer_email)), customer_id, customer_name
+     HAVING
+       COUNT(*) FILTER (WHERE cleanup_sent_at IS NOT NULL AND cleanup_action IS NULL) = 0
+       AND COUNT(*) FILTER (WHERE cleanup_sent_at IS NOT NULL) > 0`
+  );
+
+  const results = [];
+  for (const row of res.rows) {
+    const emails = row.emails || [];
+    if (emails.length === 0) continue;
+
+    // Bereits Gutschein vorhanden?
+    const voucherCheck = await pool.query(
+      `SELECT id FROM booking.discount_codes
+       WHERE active = true
+         AND conditions_json->>'source' = 'cleanup'
+         AND conditions_json->'customerEmails' ?| $1::text[]
+       LIMIT 1`,
+      [emails]
+    );
+    if (voucherCheck.rows.length > 0) {
+      results.push({ emails, skipped: true, reason: 'already_sent' });
+      continue;
+    }
+
+    try {
+      const { code, validTo } = await generateCleanupVoucher(emails, row.customer_name);
+      await sendCleanupThankYouMail(emails, row.customer_name, code, validTo);
+      results.push({ emails, skipped: false, success: true, code });
+    } catch (err) {
+      results.push({ emails, skipped: false, success: false, error: err.message });
+    }
+  }
+
+  return {
+    total: res.rows.length,
+    sent: results.filter((r) => !r.skipped && r.success).length,
+    skipped: results.filter((r) => r.skipped).length,
+    failed: results.filter((r) => !r.skipped && !r.success).length,
+    results,
+  };
+}
+
 module.exports = {
   ensureSessionSchema,
   getCleanupCandidatesGrouped,
@@ -776,4 +1024,9 @@ module.exports = {
   executeDashboardPaymentChoice,
   sendDashboardInvite,
   sendDashboardBatch,
+  checkAllToursCompleted,
+  generateCleanupVoucher,
+  sendCleanupThankYouMail,
+  maybeDispatchCleanupVoucher,
+  sendVouchersBatch,
 };

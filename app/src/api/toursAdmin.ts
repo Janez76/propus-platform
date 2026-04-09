@@ -1021,6 +1021,13 @@ export function postCleanupDashboardSendSingle(customerEmails: string | string[]
   });
 }
 
+export function postCleanupDashboardSendVouchers() {
+  return toursAdminFetch<{ ok: true; total: number; sent: number; skipped: number; failed: number }>("/cleanup/dashboard/send-vouchers", {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
 export function postSyncExxasInventory(tourId: number) {
   return toursAdminFetch<ExxasInventorySyncResult>(`/tours/${tourId}/sync-exxas-inventory`, {
     method: "POST",

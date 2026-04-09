@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   RefreshCw, Send, Eye, EyeOff, CheckCircle2, XCircle, AlertTriangle, Loader2, Mail, Search,
-  ChevronDown, ChevronRight, Users, Package,
+  ChevronDown, ChevronRight, Users, Package, Gift,
 } from "lucide-react";
 import {
   getCleanupDashboardCandidates,
@@ -11,6 +11,7 @@ import {
   postCleanupDashboardBatchDryRun,
   postCleanupDashboardBatchSend,
   postCleanupDashboardSendSingle,
+  postCleanupDashboardSendVouchers,
   postCleanupSendSingle,
   type CleanupCustomerGroup,
   type CleanupSandboxPreview,
@@ -591,6 +592,7 @@ export function ToursAdminCleanupPage() {
   const [actionErr, setActionErr] = useState<string | null>(null);
   const [confirmSend, setConfirmSend] = useState(false);
   const [showSent, setShowSent] = useState(false);
+  const [confirmVouchers, setConfirmVouchers] = useState(false);
 
   function toggleSelect(groupKey: string) {
     setSelected((prev) => {
@@ -683,10 +685,26 @@ export function ToursAdminCleanupPage() {
     }
   }
 
+  async function handleSendVouchers() {
+    setConfirmVouchers(false);
+    setBusyAction("vouchers");
+    setActionErr(null);
+    setActionMsg(null);
+    try {
+      const r = await postCleanupDashboardSendVouchers();
+      setActionMsg(`Gutscheine versendet: ${r.sent} neu, ${r.skipped} bereits erhalten, ${r.failed} fehlgeschlagen.`);
+    } catch (e) {
+      setActionErr(e instanceof Error ? e.message : "Fehler beim Gutschein-Versand");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
   const pendingCustomers = customers.filter((c) => !c.allSent && c.pendingCount > 0);
   const sentCustomers = customers.filter((c) => c.allSent);
   const eligibleCount = pendingCustomers.length;
   const totalPendingTours = customers.reduce((s, c) => s + c.pendingCount, 0);
+  const doneCustomers = customers.filter((c) => c.allSent && c.doneCount > 0);
 
   return (
     <div className="space-y-6">
@@ -783,6 +801,15 @@ export function ToursAdminCleanupPage() {
           {busyAction === "send" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           Produktiv senden{selected.size > 0 ? ` (${selected.size})` : " (alle)"}
         </button>
+        <button
+          type="button"
+          disabled={!!busyAction}
+          onClick={() => setConfirmVouchers(true)}
+          className="flex items-center gap-1.5 rounded-lg border border-green-300 bg-green-50 px-3 py-1.5 text-sm font-medium text-green-800 hover:bg-green-100 disabled:opacity-50"
+        >
+          {busyAction === "vouchers" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Gift className="h-4 w-4" />}
+          Gutscheine senden{doneCustomers.length > 0 ? ` (${doneCustomers.length})` : ""}
+        </button>
       </div>
 
       {/* Bestätigungs-Dialog */}
@@ -802,6 +829,29 @@ export function ToursAdminCleanupPage() {
               Ja, jetzt senden
             </button>
             <button type="button" onClick={() => setConfirmSend(false)} className="rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-sm text-[var(--text-subtle)]">
+              Abbrechen
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Bestätigungs-Dialog Gutscheine */}
+      {confirmVouchers && (
+        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 flex flex-col gap-3">
+          <div className="flex items-start gap-2">
+            <Gift className="h-5 w-5 text-green-700 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-green-900">Gutscheine versenden bestätigen</p>
+              <p className="text-sm text-green-800 mt-0.5">
+                An alle Kunden, die <strong>alle ihre Touren erledigt</strong> haben und <strong>noch keinen Gutschein</strong> erhalten haben, wird eine Dankes-Mail mit einem einmaligen <strong>10%-Gutscheincode</strong> (6 Monate gültig) gesendet.
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => void handleSendVouchers()} className="rounded-lg bg-green-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-green-800">
+              Ja, Gutscheine senden
+            </button>
+            <button type="button" onClick={() => setConfirmVouchers(false)} className="rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-sm text-[var(--text-subtle)]">
               Abbrechen
             </button>
           </div>

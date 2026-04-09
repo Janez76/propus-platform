@@ -13548,6 +13548,12 @@ if (fs.existsSync(PHOTOGRAPHER_PORTRAIT_DIR)) {
 
       // Aktion darf auf alle Touren der Firma ausgeführt werden
       const result = await dashboardModule.executeDashboardAction(session.customerEmails || session.customerEmail, tourId, action);
+
+      // Nach erfolgreicher Aktion: Prüfen ob alle Touren erledigt → Gutschein-Mail
+      if (result.action && !result.needsPayment) {
+        dashboardModule.maybeDispatchCleanupVoucher(session.customerEmails || session.customerEmail, session.customerName).catch(() => {});
+      }
+
       return res.json({ ok: true, ...result });
     } catch (err) {
       console.error("[cleanup-dashboard] POST action:", err.message);
@@ -13562,6 +13568,10 @@ if (fs.existsSync(PHOTOGRAPHER_PORTRAIT_DIR)) {
       if (!session.ok) return res.status(401).json({ ok: false, error: session.error });
 
       const result = await dashboardModule.executeDashboardPaymentChoice(session.customerEmails || session.customerEmail, tourId, paymentMethod);
+
+      // Nach Zahlungswahl ebenfalls prüfen ob alle erledigt
+      dashboardModule.maybeDispatchCleanupVoucher(session.customerEmails || session.customerEmail, session.customerName).catch(() => {});
+
       return res.json({ ok: true, ...result });
     } catch (err) {
       console.error("[cleanup-dashboard] POST payment:", err.message);

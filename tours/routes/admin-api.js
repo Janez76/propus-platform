@@ -1013,6 +1013,15 @@ router.post('/cleanup/dashboard/batch-send', async (req, res) => {
   }
 });
 
+router.post('/cleanup/dashboard/send-vouchers', async (req, res) => {
+  try {
+    const result = await cleanupDashboard.sendVouchersBatch();
+    return res.json({ ok: true, ...result });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 router.post('/cleanup/dashboard/send-single', async (req, res) => {
   try {
     const { customerEmail, customerEmails } = req.body || {};

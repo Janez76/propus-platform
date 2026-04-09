@@ -868,6 +868,38 @@ Bei Fragen antworten Sie direkt auf diese E-Mail.
 Freundliche Grüsse
 Ihr Propus Team`,
   },
+  cleanup_thankyou: {
+    name: 'Bereinigungslauf – Dankeschön & Gutschein',
+    description: 'Wird automatisch gesendet, sobald ein Kunde alle seine Touren im Cleanup-Dashboard bearbeitet hat. Enthält einen einmaligen 10%-Gutscheincode für booking.propus.ch.',
+    category: 'vorbereitet',
+    subject: 'Vielen Dank – Ihr persönlicher Gutscheincode',
+    html: buildEmailFrame({
+      preheader: 'Herzlichen Dank für Ihre Rückmeldung – hier ist Ihr persönlicher 10%-Gutschein',
+      title: 'Vielen Dank für Ihre Rückmeldung!',
+      introHtml: `<p style="margin:0 0 14px;">{{customerGreeting}}</p><p style="margin:0;">herzlichen Dank, dass Sie sich die Zeit genommen haben, alle Ihre Touren zu prüfen und zu bearbeiten. Als kleines Dankeschön schenken wir Ihnen einen persönlichen Gutschein für Ihre nächste Buchung auf <a href="https://booking.propus.ch" style="color:#8a6c18;font-weight:700;">booking.propus.ch</a>.</p>`,
+      summaryHtml: buildSummaryCard([
+        { label: 'Ihr Code', value: '<span style="font-family:monospace;font-size:22px;font-weight:700;letter-spacing:0.12em;color:#1a1a1a;background:#f5edde;padding:4px 12px;border-radius:8px;display:inline-block;">{{voucherCode}}</span>' },
+        { label: 'Rabatt', value: '<strong>10 % auf Ihre nächste Buchung</strong>' },
+        { label: 'Gültig bis', value: '{{validTo}}' },
+        { label: 'Einlösbar auf', value: '<a href="https://booking.propus.ch" style="color:#8a6c18;font-weight:700;">booking.propus.ch</a>' },
+      ]),
+      bodyHtml: `<p style="margin:0 0 10px;">Geben Sie den Code beim Buchungsabschluss einfach im Feld <em>«Gutschein / Rabattcode»</em> ein — der Rabatt wird sofort abgezogen.</p>`,
+      noteHtml: buildInfoCallout('ℹ️', 'Hinweis', 'Der Code ist einmalig verwendbar und gilt für eine Buchung auf booking.propus.ch.'),
+    }),
+    text: `{{customerGreeting}}
+
+herzlichen Dank, dass Sie sich die Zeit genommen haben, alle Ihre Touren zu prüfen. Als Dankeschön erhalten Sie einen persönlichen 10%-Gutschein:
+
+Ihr Code: {{voucherCode}}
+Rabatt: 10 % auf Ihre nächste Buchung
+Gültig bis: {{validTo}}
+Einlösbar auf: https://booking.propus.ch
+
+Geben Sie den Code beim Buchungsabschluss im Feld «Gutschein / Rabattcode» ein.
+
+Freundliche Grüsse
+Ihr Propus Team`,
+  },
   team_invite: {
     name: 'Team-Einladung Admin',
     description: 'Einladung für neue Team-Mitglieder mit Admin-Zugang.',
