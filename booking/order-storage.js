@@ -67,12 +67,16 @@ const CATEGORY_PATH_SEGMENT_ALIASES = {
   ],
   final_websize: [
     "Finale/Bilder/websize",
+    "Finale/Bilder/Websize",
+    "Finale/Bilder/WEB SIZE",
+    "Finale/Bilder/Web Size",
     "Finale/Web Size",
     "Finale/Websize",
     "Finale/websize",
   ],
   final_fullsize: [
     "Finale/Bilder/fullsize",
+    "Finale/Bilder/Fullsize",
     "Finale/Bilder/JPEG",
     "Finale/Bilder/jpeg",
     "Finale Bilder",
@@ -95,15 +99,23 @@ const CATEGORY_PATH_SEGMENT_ALIASES = {
   ],
   raw_bilder: [
     "Unbearbeitete/Bilder",
+    "Unbearbeitet/Bilder",
+    "unbearbeitet/Bilder",
   ],
   raw_grundrisse: [
     "Unbearbeitete/Grundrisse",
+    "Unbearbeitet/Grundrisse",
+    "unbearbeitet/Grundrisse",
   ],
   raw_video: [
     "Unbearbeitete/Video",
+    "Unbearbeitet/Video",
+    "unbearbeitet/Video",
   ],
   raw_sonstiges: [
     "Unbearbeitete/Sonstiges",
+    "Unbearbeitet/Sonstiges",
+    "unbearbeitet/Sonstiges",
   ],
   zur_auswahl: [
     "Zur Auswahl",
@@ -636,6 +648,11 @@ function deriveOrderNaming(order) {
 function ensureDirStructure(baseDir, structure) {
   fs.mkdirSync(baseDir, { recursive: true });
   for (const rel of structure) {
+    // Prüfe ob ein Alias-Ordner für diesen Pfad bereits existiert.
+    // Jeder Pfad-Segment wird case-insensitiv + leerzeichen-normalisiert verglichen,
+    // damit z.B. "Unbearbeitet" oder "unbearbeitet" als Alias für "Unbearbeitete" erkannt wird.
+    const alreadyExists = tryResolveCategoryPath(baseDir, rel);
+    if (alreadyExists) continue;
     fs.mkdirSync(path.join(baseDir, rel), { recursive: true });
   }
 }
