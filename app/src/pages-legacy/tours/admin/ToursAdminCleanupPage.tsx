@@ -293,11 +293,21 @@ function CustomerCard({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [previewTourId, setPreviewTourId] = useState<number | null>(null);
+  const emails = group.customerEmails ?? [group.customerEmail];
+  // Standardauswahl: alle E-Mails (Haupt-Kontakt = erste E-Mail)
+  const [selectedEmails, setSelectedEmails] = useState<string[]>(emails);
 
   const isBusy = busyAction === `single:${group.groupKey}`;
   const allDone = group.pendingCount === 0;
   const displayName = group.customerName || group.customerEmail;
-  const emails = group.customerEmails ?? [group.customerEmail];
+
+  function toggleEmail(email: string) {
+    setSelectedEmails((prev) =>
+      prev.includes(email)
+        ? prev.filter((e) => e !== email)
+        : [...prev, email]
+    );
+  }
 
   return (
     <div className={`surface-card-strong rounded-lg border border-[var(--border-soft)] overflow-hidden ${allDone ? "opacity-50" : ""}`}>
@@ -319,14 +329,9 @@ function CustomerCard({
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-sm font-medium text-[var(--text-main)] truncate">{displayName}</span>
-              {emails.length > 1 && (
-                <span className="text-xs text-[var(--text-subtle)] hidden sm:inline">
-                  {emails.join(", ")}
-                </span>
-              )}
-              {emails.length === 1 && group.customerName && (
-                <span className="text-xs text-[var(--text-subtle)] truncate hidden sm:inline">{emails[0]}</span>
-              )}
+              <span className="text-xs text-[var(--text-subtle)] hidden sm:inline truncate">
+                {emails.join(", ")}
+              </span>
             </div>
             <div className="flex items-center gap-3 mt-0.5">
               <span className="flex items-center gap-1 text-xs text-[var(--text-subtle)]">
@@ -350,20 +355,63 @@ function CustomerCard({
             </div>
           </div>
         </button>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {!group.allSent && group.pendingCount > 0 && (
+
+        {/* Empfänger-Auswahl + Senden */}
+        {!group.allSent && group.pendingCount > 0 && (
+          <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+            {emails.length > 1 ? (
+              <div className="relative group/dd">
+                {/* Dropdown-Trigger: zeigt gewählte Empfänger */}
+                <button
+                  type="button"
+                  className="flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-2.5 py-1.5 text-xs font-medium text-[var(--text-subtle)] hover:text-[var(--accent)] hover:bg-[var(--surface-card-strong)] bg-white"
+                  title="Empfänger auswählen"
+                >
+                  <Mail className="h-3.5 w-3.5" />
+                  <span>{selectedEmails.length === emails.length ? "Alle" : selectedEmails.length === 0 ? "Keine" : `${selectedEmails.length}/${emails.length}`}</span>
+                  <ChevronDown className="h-3 w-3 opacity-60" />
+                </button>
+                {/* Dropdown-Panel */}
+                <div className="absolute right-0 top-full mt-1 z-50 hidden group-hover/dd:block min-w-[220px] rounded-lg border border-[var(--border-soft)] bg-white shadow-lg py-1">
+                  <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-subtle)] border-b border-[var(--border-soft)]">
+                    Empfänger wählen
+                  </div>
+                  {emails.map((email, i) => (
+                    <label key={email} className="flex items-center gap-2.5 px-3 py-2 hover:bg-[var(--surface-card-strong)] cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedEmails.includes(email)}
+                        onChange={() => toggleEmail(email)}
+                        className="rounded"
+                      />
+                      <div className="min-w-0">
+                        <div className="text-xs font-medium text-[var(--text-main)] truncate">{email}</div>
+                        {i === 0 && (
+                          <div className="text-[10px] text-[var(--text-subtle)]">Hauptkontakt</div>
+                        )}
+                      </div>
+                    </label>
+                  ))}
+                  <div className="px-3 pt-1 pb-1.5 border-t border-[var(--border-soft)] flex gap-2 mt-1">
+                    <button type="button" onClick={() => setSelectedEmails([...emails])} className="text-[10px] text-[var(--accent)] hover:underline">Alle</button>
+                    <button type="button" onClick={() => setSelectedEmails([emails[0]])} className="text-[10px] text-[var(--text-subtle)] hover:underline">Nur Hauptkontakt</button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
             <button
               type="button"
-              disabled={!!busyAction}
-              onClick={() => onSendSingle(emails)}
-              title={`Dashboard-Link senden an: ${emails.join(", ")}`}
+              disabled={!!busyAction || selectedEmails.length === 0}
+              onClick={() => onSendSingle(selectedEmails.length > 0 ? selectedEmails : emails)}
+              title={`Dashboard-Link senden an: ${(selectedEmails.length > 0 ? selectedEmails : emails).join(", ")}`}
               className="flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-2.5 py-1.5 text-xs font-medium text-[var(--text-subtle)] hover:text-[var(--accent)] hover:bg-[var(--surface-card-strong)] disabled:opacity-40"
             >
               {isBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
               <span className="hidden sm:inline">Senden</span>
             </button>
-          )}
-        </div>
+          </div>
+        )}
+        {(group.allSent || allDone) && <div className="flex-shrink-0 w-20" />}
       </div>
 
       {/* Aufgeklappte Tour-Liste */}
