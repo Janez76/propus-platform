@@ -184,10 +184,24 @@ async function validateDashboardSession(rawToken) {
   return { ok: true, customerEmail: session.customer_email, sessionId: session.id };
 }
 
+function getDashboardEligibilityClause({ forSend = false } = {}) {
+  // forSend=true: beim Mail-Versand alle relevanten Touren laden (noch kein cleanup_sent_at gesetzt)
+  // forSend=false (default, Kunden-Dashboard): nur Touren zeigen die bereits zugeschickt wurden
+  //   oder wo eine Aktion gesetzt ist — Sicherheit damit Kunden nicht willkürlich fremde Touren sehen
+  if (forSend) {
+    return `AND status NOT IN ('DELETED', 'TRANSFERRED')`;
+  }
+  return `AND (
+    cleanup_sent_at IS NOT NULL
+    OR cleanup_action IS NOT NULL
+  )`;
+}
+
 // ─── Dashboard-Daten laden ───────────────────────────────────────────────────
 
-async function getDashboardTours(customerEmail) {
+async function getDashboardTours(customerEmail, options = {}) {
   await ensureSessionSchema();
+  const { forSend = false } = options;
   // customerEmail kann ein String oder Array von Strings sein
   const emails = Array.isArray(customerEmail)
     ? customerEmail.map((e) => String(e).trim().toLowerCase()).filter(Boolean)
@@ -197,6 +211,7 @@ async function getDashboardTours(customerEmail) {
     `SELECT * FROM tour_manager.tours
      WHERE LOWER(TRIM(customer_email)) = ANY($1::text[])
        AND status NOT IN ('DELETED', 'TRANSFERRED')
+       ${getDashboardEligibilityClause({ forSend })}
      ORDER BY
        CASE WHEN cleanup_action IS NULL THEN 0 ELSE 1 END,
        CASE WHEN status = 'ACTIVE' THEN 1 ELSE 0 END,
@@ -239,7 +254,9 @@ async function executeDashboardAction(customerEmail, tourId, action) {
 
   const r = await pool.query(
     `SELECT * FROM tour_manager.tours
-     WHERE id = $1 AND LOWER(TRIM(customer_email)) = $2 AND confirmation_required = TRUE`,
+     WHERE id = $1
+       AND LOWER(TRIM(customer_email)) = $2
+       ${getDashboardEligibilityClause()}`,
     [tourId, email]
   );
   const tour = normalizeTourRow(r.rows[0]);
@@ -349,7 +366,9 @@ async function executeDashboardPaymentChoice(customerEmail, tourId, paymentMetho
 
   const r = await pool.query(
     `SELECT * FROM tour_manager.tours
-     WHERE id = $1 AND LOWER(TRIM(customer_email)) = $2`,
+     WHERE id = $1
+       AND LOWER(TRIM(customer_email)) = $2
+       ${getDashboardEligibilityClause()}`,
     [tourId, email]
   );
   const tour = normalizeTourRow(r.rows[0]);
@@ -429,7 +448,7 @@ async function sendDashboardInvite(customerEmail, options = {}) {
   const primaryEmail = emailList[0];
   if (!primaryEmail) throw new Error('Keine E-Mail-Adresse');
 
-  const tours = await getDashboardTours(emailList);
+  const tours = await getDashboardTours(emailList, { forSend: true });
   const pendingTours = tours.filter((t) => !t.cleanupAction);
   if (pendingTours.length === 0) throw new Error('Keine offenen Touren für diesen Kunden');
 
