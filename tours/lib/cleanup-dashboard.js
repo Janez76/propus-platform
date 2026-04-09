@@ -933,21 +933,30 @@ Ihr Propus Team`;
       const fakeTour = { customer_email: email, id: null };
       const mailResult = await sendGraphMailToCustomer(fakeTour, { subject, html: htmlBody, text: textBody });
       if (mailResult.success) {
-        await pool.query(
-          `INSERT INTO tour_manager.outgoing_emails
-             (tour_id, mailbox_upn, graph_message_id, internet_message_id, conversation_id,
-              recipient_email, subject, template_key, sent_at, details_json)
-           VALUES (NULL,$1,$2,$3,$4,$5,$6,'cleanup_thankyou',NOW(),$7::jsonb)`,
-          [
-            mailResult.mailboxUpn || 'system',
-            mailResult.graphMessageId || null,
-            mailResult.internetMessageId || null,
-            mailResult.conversationId || null,
-            mailResult.recipientEmail || email,
-            subject,
-            JSON.stringify({ voucherCode, validTo: validTo.toISOString(), customerName: customerName || null }),
-          ]
+        // Erste verfügbare Tour-ID für den Log-Eintrag ermitteln
+        const tourIdRes = await pool.query(
+          `SELECT id FROM tour_manager.tours WHERE LOWER(TRIM(customer_email)) = $1 AND cleanup_sent_at IS NOT NULL LIMIT 1`,
+          [email]
         );
+        const logTourId = tourIdRes.rows[0]?.id || null;
+        if (logTourId) {
+          await pool.query(
+            `INSERT INTO tour_manager.outgoing_emails
+               (tour_id, mailbox_upn, graph_message_id, internet_message_id, conversation_id,
+                recipient_email, subject, template_key, sent_at, details_json)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,'cleanup_thankyou',NOW(),$8::jsonb)`,
+            [
+              logTourId,
+              mailResult.mailboxUpn || 'system',
+              mailResult.graphMessageId || null,
+              mailResult.internetMessageId || null,
+              mailResult.conversationId || null,
+              mailResult.recipientEmail || email,
+              subject,
+              JSON.stringify({ voucherCode, validTo: validTo.toISOString(), customerName: customerName || null }),
+            ]
+          );
+        }
       } else {
         console.warn(`[cleanup-voucher] Mail an ${email} fehlgeschlagen:`, mailResult.error);
       }
@@ -986,14 +995,18 @@ async function sendVouchersBatch() {
     `SELECT
        COALESCE(customer_id::TEXT, LOWER(COALESCE(customer_name, '')), LOWER(customer_email)) AS group_key,
        customer_id,
-       customer_name,
+       (SELECT customer_name FROM tour_manager.tours t2
+        WHERE (customer_id IS NOT NULL AND t2.customer_id = tours.customer_id
+               OR customer_id IS NULL AND LOWER(TRIM(t2.customer_email)) = LOWER(TRIM(tours.customer_email)))
+          AND t2.customer_name IS NOT NULL AND TRIM(t2.customer_name) != ''
+        GROUP BY t2.customer_name ORDER BY COUNT(*) DESC LIMIT 1) AS customer_name,
        ARRAY_AGG(DISTINCT LOWER(TRIM(customer_email))) AS emails,
        COUNT(*) FILTER (WHERE cleanup_sent_at IS NOT NULL AND cleanup_action IS NULL) AS pending_count,
        COUNT(*) FILTER (WHERE cleanup_sent_at IS NOT NULL) AS sent_count
      FROM tour_manager.tours
      WHERE cleanup_sent_at IS NOT NULL
        AND status NOT IN ('DELETED', 'TRANSFERRED')
-     GROUP BY COALESCE(customer_id::TEXT, LOWER(COALESCE(customer_name, '')), LOWER(customer_email)), customer_id, customer_name
+     GROUP BY COALESCE(customer_id::TEXT, LOWER(COALESCE(customer_name, '')), LOWER(customer_email)), customer_id
      HAVING
        COUNT(*) FILTER (WHERE cleanup_sent_at IS NOT NULL AND cleanup_action IS NULL) = 0
        AND COUNT(*) FILTER (WHERE cleanup_sent_at IS NOT NULL) > 0`
