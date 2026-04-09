@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei jeder Änderung an Tour-Status, Matterport-Integration, Verlängerungs- oder Archivierungs-Logik dieses Dokument aktualisieren. **Produkt-Workflow (Regeln, Reminder-Stufen, Preise):** [WORKFLOW_TOURS.md](./WORKFLOW_TOURS.md) — bei Abweichungen beide Dateien abstimmen.
 
-*Zuletzt aktualisiert: April 2026 (Galerie/NAS: Migrationen 031–032; Admin `/api/tours/admin/galleries` NAS-Import; öffentlich `/api/listing/...` Video/Grundriss/ZIP; Bestellung nachträglich verknüpfen via Tour-Detail Intern-Sektion; Bank-Import: Vorschau/Multi-Upload, Bestellungssuche zur Rechnungszuordnung; Bestellungs-Admin: Finanzblock «Rechnungen & Zahlungen»)*
+*Zuletzt aktualisiert: April 2026 (Galerie/NAS: Migrationen 031–032; Admin `/api/tours/admin/galleries` NAS-Import; öffentlich `/api/listing/...` Video/Grundriss/ZIP; Bestellung nachträglich verknüpfen via Tour-Detail Intern-Sektion; Bank-Import: Vorschau/Multi-Upload, Bestellungssuche zur Rechnungszuordnung; Bestellungs-Admin: Finanzblock «Rechnungen & Zahlungen»; Bereinigungslauf: CUSTOMER_ACCEPTED_AWAITING_PAYMENT-Label + termEndFormatted-Fix; Matterport-State-Cron: POST /api/tours/cron/sync-matterport-state alle 30 Min)*
 
 ---
 
@@ -22,6 +22,7 @@
 12. [Kanonische Felder (normalizeTourRow)](#12-kanonische-felder)
 13. [Zentrales Rechnungsmodul (Admin)](#13-zentrales-rechnungsmodul-admin)
 14. [Listing / Kunden-Galerie (Magic-Link)](#14-listing--kunden-galerie-magic-link)
+15. [Bereinigungslauf (Cleanup)](#15-bereinigungslauf-cleanup)
 
 ---
 
@@ -590,6 +591,42 @@ M365_SENT_TOP   (default 200)
 
 Zielbild Reminder (30 / 10 / 3 Tage) und Kulanzfristen: **[WORKFLOW_TOURS.md](./WORKFLOW_TOURS.md).** `send-expiring-soon` wählt Touren mit `status = ACTIVE` und Tagen bis Ablauf in den Fenstern **29–31**, **9–11**, **2–4**; Dedup über `outgoing_emails.details_json` (`reminderStage`, `termEndAnchor`). Stufe 3 nutzt Template `renewal_request_final`. Schalter: `expiringMailEnabled` (Default in Code: **false**).
 
+### Cron-API (neu, `/api/tours/cron/`)
+
+Dedizierte Cron-Endpunkte mit `X-Cron-Secret`-Header-Auth (kein Admin-Login nötig).
+
+| Endpunkt | Intervall (VPS crontab) | Zweck |
+|---|---|---|
+| `POST /api/tours/cron/sync-matterport-state` | `*/30 * * * *` (alle 30 Min) | `matterport_state` aller Touren via `listModels()` aktualisieren |
+
+**Auth:** `X-Cron-Secret: <CRON_SECRET>` (Wert aus `/opt/propus-platform/.env.vps`)
+
+**Backend:** `tours/routes/cron-api.js` → `postLinkMatterportSyncStatus()` in `tours/lib/admin-phase3.js`
+
+**Script:** `/opt/propus-platform/scripts/cron-matterport-sync.sh`
+
+**Log:** `/var/log/propus-matterport-sync.log`
+
+```
+# VPS crontab (root):
+*/30 * * * * /opt/propus-platform/scripts/cron-matterport-sync.sh >> /var/log/propus-matterport-sync.log 2>&1
+```
+
+**Env:** `CRON_SECRET` in `.env.vps` — wird beim Deploy nicht überschrieben (manuell gesetzt, einmalig).
+
+### Admin-UI-Trigger (manuell, `/api/tours/admin/link-matterport/...`)
+
+Diese Endpunkte können auch manuell aus dem Admin ausgelöst werden (brauchen Admin-Session):
+
+| Endpunkt | Zweck |
+|---|---|
+| `POST /api/tours/admin/link-matterport/sync-status` | Gleiches wie Cron, manuell auslösbar |
+| `POST /api/tours/admin/link-matterport/check-ownership` | `matterport_is_own` für alle Touren prüfen |
+| `POST /api/tours/admin/link-matterport/auto-link` | Auto-Verknüpfung via `tour_url` |
+| `POST /api/tours/admin/link-matterport/refresh-created` | `matterport_created_at` nachtragen |
+
+### Booking-Cron (bestehend, via Booking-Backend)
+
 | Endpunkt | Zweck |
 |---|---|
 | `POST /cron/send-expiring-soon` | Drei Reminder-Stufen (30/10/3 Tage), siehe oben |
@@ -597,10 +634,6 @@ Zielbild Reminder (30 / 10 / 3 Tage) und Kulanzfristen: **[WORKFLOW_TOURS.md](./
 | `POST /cron/remind-unpaid-qr` | Zahlungserinnerung bei überfälliger QR-Rechnung (einmalig, Template `invoice_overdue_reminder`) |
 | `POST /cron/archive-unpaid-qr` | QR-Rechnungen mit `payment_source='qr_pending'` älter als 30 Tage → Tour archivieren |
 | `POST /cron/archive-expired` | Archiviert EXPIRED_PENDING_ARCHIVE Touren |
-| `POST /cron/auto-link-matterport` | Auto-Verknüpfung via tour_url |
-| `POST /cron/refresh-matterport-created` | `matterport_created_at` nachtragen |
-| `POST /cron/sync-matterport-status` | Status-Sync via `listModels()` |
-| `POST /cron/check-matterport-ownership` | `matterport_is_own` prüfen |
 
 **Konfigurations-Key:** `automation_settings` in `tour_manager.settings`
 
@@ -773,3 +806,68 @@ Mount: **`/api/listing`** (ohne Login).
 | `POST` | `/:slug/downloaded` | Client-Log |
 | `POST` | `/:slug/feedback` | Kunden-Feedback |
 | `GET` | `/:slug/feedback` | Feedback-Liste / pro Asset |
+
+---
+
+## 15. Bereinigungslauf (Cleanup)
+
+Einmaliger Lauf: Kunden werden per Mail gefragt, was mit ihrer Tour passieren soll (Weiterführen / Archivieren / Übertragen / Löschen). Ausgelöst manuell durch Admin.
+
+### DB-Felder (tour_manager.tours)
+
+| Feld | Typ | Beschreibung |
+|---|---|---|
+| `confirmation_required` | BOOLEAN | Manuell markiert → erscheint in Kandidatenliste |
+| `cleanup_sent_at` | TIMESTAMPTZ | Zeitpunkt des letzten Mailversands |
+| `cleanup_action` | TEXT | Gewählte Aktion (`weiterfuehren` \| `archivieren` \| `uebertragen` \| `loeschen`) |
+| `cleanup_action_at` | TIMESTAMPTZ | Zeitpunkt der Aktion |
+
+### Status-Mapping (computeCleanupRule)
+
+| Tour-Status | `statusLabel` (E-Mail + UI) | `needsInvoice` | Besonderheit |
+|---|---|---|---|
+| `ACTIVE`, `EXPIRING_SOON` | Aktiv / Läuft bald ab | nein | Tour bleibt unverändert |
+| `EXPIRED_PENDING_ARCHIVE` | Abgelaufen | ja | Reaktivierung CHF 59.– |
+| `CUSTOMER_ACCEPTED_AWAITING_PAYMENT` | Warten auf Zahlung | ja | `termEndFormatted` = `–` (kein gültiges Ablaufdatum) |
+| `ARCHIVED` (< 6 Monate) | Archiviert | nein | `needsManualReview = true` |
+| `ARCHIVED` (> 6 Monate) | Archiviert | ja | Reaktivierung CHF 59.– |
+
+### Admin-API
+
+| Methode | Pfad | Beschreibung |
+|---|---|---|
+| `GET` | `/api/tours/admin/cleanup/candidates` | Kandidatenliste (confirmation_required = true) |
+| `GET` | `/api/tours/admin/cleanup/sandbox/:id` | Sandbox-Vorschau (kein DB-Write, kein Versand) |
+| `POST` | `/api/tours/admin/cleanup/batch-dry-run` | Dry-Run für alle/ausgewählte Kandidaten |
+| `POST` | `/api/tours/admin/cleanup/batch-send` | Produktiver Versand |
+| `POST` | `/api/tours/admin/cleanup/send/:id` | Einzelversand |
+| `POST` | `/api/tours/admin/cleanup/incoming-reply` | Ticket aus Kunden-E-Mail erstellen |
+
+### Kunden-Aktionsseiten (öffentlich, Token-basiert)
+
+| Pfad | Beschreibung |
+|---|---|
+| `GET /cleanup/:action?token=…` | Token einlösen, Aktion ausführen, EJS-Bestätigungsseite |
+| `POST /cleanup/reply` | Freitext-Antwort → Ticket |
+
+**Aktionen:** `weiterfuehren` \| `archivieren` \| `uebertragen` \| `loeschen`
+
+**Besonderheit `weiterfuehren`:** Setzt Matterport-Sichtbarkeit automatisch auf `LINK_ONLY`.
+
+### Frontend
+
+| Datei | Beschreibung |
+|---|---|
+| `app/src/pages-legacy/tours/admin/ToursAdminCleanupPage.tsx` | Admin-UI: Kandidatentabelle, Sandbox-Vorschau, Matterport Live-Check |
+
+### Backend
+
+| Datei | Beschreibung |
+|---|---|
+| `tours/lib/cleanup-mailer.js` | `computeCleanupRule()`, `buildCleanupEmailContent()`, `sandboxPreviewForTour()`, `sendCleanupMailForTour()`, `runCleanupBatch()` |
+| `tours/routes/cleanup.js` | Öffentliche Token-Aktionsseiten |
+| `tours/routes/admin-api.js` | Admin-API-Endpunkte (ab Zeile ~860) |
+
+### Matterport Live-Check (Sandbox-Vorschau)
+
+In der Sandbox-Vorschau kann der Admin den aktuellen Zustand des Spaces direkt bei Matterport abfragen (`GET /api/tours/admin/tours/:id/matterport-model`). Zeigt: Space-ID, Name, Zustand (active/inactive/…), Sichtbarkeit, Adresse, Link, Erstell-/Änderungsdatum.

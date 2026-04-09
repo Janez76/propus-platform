@@ -1,13 +1,15 @@
 import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
-import { RefreshCw, Send, Eye, EyeOff, CheckCircle2, XCircle, AlertTriangle, Loader2, Mail } from "lucide-react";
+import { RefreshCw, Send, Eye, EyeOff, CheckCircle2, XCircle, AlertTriangle, Loader2, Mail, Search } from "lucide-react";
 import {
   getCleanupCandidates,
   getCleanupSandboxPreview,
+  getToursAdminMatterportModel,
   postCleanupBatchDryRun,
   postCleanupBatchSend,
   postCleanupSendSingle,
   type CleanupSandboxPreview,
+  type MatterportModelMeta,
 } from "../../../api/toursAdmin";
 import { useQuery } from "../../../hooks/useQuery";
 import { toursAdminCleanupCandidatesQueryKey } from "../../../lib/queryKeys";
@@ -45,6 +47,7 @@ const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
   EXPIRING_SOON: { label: "Läuft ab", cls: "bg-yellow-100 text-yellow-800" },
   EXPIRED_PENDING_ARCHIVE: { label: "Abgelaufen", cls: "bg-orange-100 text-orange-800" },
   ARCHIVED: { label: "Archiviert", cls: "bg-gray-100 text-gray-700" },
+  CUSTOMER_ACCEPTED_AWAITING_PAYMENT: { label: "Warten auf Zahlung", cls: "bg-blue-100 text-blue-800" },
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -53,6 +56,153 @@ function StatusBadge({ status }: { status: string }) {
     <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${cfg.cls}`}>
       {cfg.label}
     </span>
+  );
+}
+
+const MP_STATE_LABEL: Record<string, { label: string; cls: string }> = {
+  active:     { label: "Aktiv",          cls: "bg-green-100 text-green-800" },
+  inactive:   { label: "Inaktiv",        cls: "bg-gray-100 text-gray-600" },
+  processing: { label: "In Verarbeitung",cls: "bg-blue-100 text-blue-700" },
+  failed:     { label: "Fehler",         cls: "bg-red-100 text-red-700" },
+  pending:    { label: "Ausstehend",     cls: "bg-yellow-100 text-yellow-700" },
+  staging:    { label: "Staging",        cls: "bg-purple-100 text-purple-700" },
+};
+
+const MP_VISIBILITY_LABEL: Record<string, string> = {
+  private:  "Privat",
+  unlisted: "Nur Link",
+  public:   "Öffentlich",
+  password: "Passwortgeschützt",
+};
+
+function MatterportSpaceCheck({ tourId }: { tourId: number }) {
+  const [model, setModel] = useState<MatterportModelMeta | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [inactiveWarning, setInactiveWarning] = useState(false);
+  const [checked, setChecked] = useState(false);
+
+  async function runCheck() {
+    setLoading(true);
+    setError(null);
+    setModel(null);
+    setInactiveWarning(false);
+    try {
+      const r = await getToursAdminMatterportModel(String(tourId));
+      setModel(r.model);
+      setInactiveWarning(r.inactiveWarning ?? false);
+      setChecked(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Fehler beim Abrufen");
+      setChecked(true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const stateKey = model?.state?.toLowerCase() ?? "";
+  const stateCfg = MP_STATE_LABEL[stateKey] ?? { label: model?.state ?? "—", cls: "bg-slate-100 text-slate-600" };
+  const visKey = model?.accessVisibility?.toLowerCase() ?? model?.visibility?.toLowerCase() ?? "";
+  const visLabel = MP_VISIBILITY_LABEL[visKey] ?? visKey ?? "—";
+
+  return (
+    <div className="border border-[var(--border-soft)] rounded-md overflow-hidden">
+      <div className="flex items-center justify-between px-3 py-2 bg-[var(--surface-card-strong)]">
+        <span className="text-xs font-semibold text-[var(--text-subtle)] uppercase tracking-wide flex items-center gap-1.5">
+          <Search className="h-3.5 w-3.5" />
+          Matterport Live-Check
+        </span>
+        <button
+          type="button"
+          onClick={() => void runCheck()}
+          disabled={loading}
+          className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium border border-[var(--border-soft)] text-[var(--text-main)] hover:bg-[var(--surface)] disabled:opacity-50"
+        >
+          {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+          {checked ? "Erneut prüfen" : "Space prüfen"}
+        </button>
+      </div>
+
+      {!checked && !loading && (
+        <p className="px-3 py-2 text-xs text-[var(--text-subtle)]">Klicken Sie auf «Space prüfen», um den Zustand direkt bei Matterport abzufragen.</p>
+      )}
+
+      {loading && (
+        <div className="flex items-center gap-2 px-3 py-3 text-xs text-[var(--text-subtle)]">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          Matterport API wird abgefragt…
+        </div>
+      )}
+
+      {error && (
+        <div className="flex items-start gap-2 px-3 py-2 text-xs text-red-700 bg-red-50">
+          <XCircle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+          {error}
+        </div>
+      )}
+
+      {model && (
+        <div className="px-3 py-2 space-y-2">
+          {inactiveWarning && (
+            <div className="flex gap-1.5 rounded bg-yellow-50 border border-yellow-200 px-2 py-1.5 text-xs text-yellow-800">
+              <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+              Space ist archiviert – publication-Felder nicht verfügbar
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+            <div>
+              <span className="text-[var(--text-subtle)]">Space-ID</span>
+              <div className="font-mono font-medium">{model.id}</div>
+            </div>
+            <div>
+              <span className="text-[var(--text-subtle)]">Name</span>
+              <div className="font-medium">{model.name || "—"}</div>
+            </div>
+            <div>
+              <span className="text-[var(--text-subtle)]">Zustand</span>
+              <div>
+                <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium mt-0.5 ${stateCfg.cls}`}>
+                  {stateCfg.label}
+                </span>
+              </div>
+            </div>
+            <div>
+              <span className="text-[var(--text-subtle)]">Sichtbarkeit</span>
+              <div className="font-medium">{visLabel}</div>
+            </div>
+            {model.publication?.address && (
+              <div className="col-span-2">
+                <span className="text-[var(--text-subtle)]">Adresse</span>
+                <div className="font-medium">{model.publication.address}</div>
+              </div>
+            )}
+            {model.publication?.url && (
+              <div className="col-span-2">
+                <span className="text-[var(--text-subtle)]">Link</span>
+                <div>
+                  <a
+                    href={model.publication.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[var(--accent)] hover:underline break-all"
+                  >
+                    {model.publication.url}
+                  </a>
+                </div>
+              </div>
+            )}
+            <div>
+              <span className="text-[var(--text-subtle)]">Erstellt</span>
+              <div>{model.created ? new Date(model.created).toLocaleDateString("de-CH") : "—"}</div>
+            </div>
+            <div>
+              <span className="text-[var(--text-subtle)]">Geändert</span>
+              <div>{model.modified ? new Date(model.modified).toLocaleDateString("de-CH") : "—"}</div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -96,6 +246,9 @@ function SandboxPreviewPanel({ tourId, onClose }: { tourId: number; onClose: () 
               <p><span className="text-[var(--text-subtle)]">Rechnungsbetrag:</span> CHF {preview.rule.invoiceAmount}.—</p>
             )}
           </div>
+
+          <MatterportSpaceCheck tourId={tourId} />
+
           <div>
             <p className="text-xs font-medium text-[var(--text-subtle)] uppercase tracking-wide mb-1">Betreff</p>
             <p className="text-xs bg-[var(--surface)] rounded px-3 py-2 border border-[var(--border-soft)]">{preview.mail.subject}</p>

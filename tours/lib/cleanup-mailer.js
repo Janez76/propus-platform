@@ -152,6 +152,21 @@ function computeCleanupRule(tour) {
     };
   }
 
+  if (status === 'CUSTOMER_ACCEPTED_AWAITING_PAYMENT') {
+    return {
+      statusLabel: 'Warten auf Zahlung',
+      statusContext: ' (Ihre Tour ist derzeit deaktiviert – die Zahlung für die Verlängerung steht noch aus.)',
+      statusContextText: '(Ihre Tour ist derzeit deaktiviert – die Zahlung für die Verlängerung steht noch aus.)',
+      weiterfuehrenHint: `Tour reaktivieren – Zahlung CHF ${EXTENSION_PRICE_CHF}.– ausstehend (online oder QR)`,
+      needsInvoice: true,
+      invoiceAmount: EXTENSION_PRICE_CHF,
+      paymentMethods: ['online', 'qr'],
+      needsManualReview: false,
+      archivedWithin6Months: false,
+      isWithin6Months,
+    };
+  }
+
   if (status === 'ARCHIVED') {
     // Archiviert < 6 Monate: kein pauschaler Preis, manueller Review
     if (isArchivedWithin6Months) {
@@ -211,7 +226,10 @@ async function buildCleanupEmailContent(tour, tokens, options = {}) {
   const baseUrl = getCleanupBaseUrl();
 
   const createdAtFormatted = formatDate(tour.matterport_created_at || tour.created_at) || '–';
-  const termEndFormatted = formatDate(tour.canonical_term_end_date || tour.term_end_date || tour.ablaufdatum) || '–';
+  const termEndRaw = String(tour.status || '').toUpperCase() === 'CUSTOMER_ACCEPTED_AWAITING_PAYMENT'
+    ? null
+    : (tour.canonical_term_end_date || tour.term_end_date || tour.ablaufdatum);
+  const termEndFormatted = formatDate(termEndRaw) || '–';
   const archivedAtFormatted = formatDate(tour.archived_at);
 
   // Aktions-URLs
