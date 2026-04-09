@@ -13286,6 +13286,8 @@ if (fs.existsSync(PHOTOGRAPHER_PORTRAIT_DIR)) {
         `UPDATE tour_manager.tours SET cleanup_action = 'weiterfuehren', cleanup_action_at = NOW(), updated_at = NOW() WHERE id = $1`,
         [tour.id]
       );
+      const cleanupDashboard = require("../tours/lib/cleanup-dashboard");
+      await cleanupDashboard.activateTourAndSpace(tour.id, tour.canonical_matterport_space_id || tour.matterport_space_id || null);
       await logAction(tour.id, "customer", tour.customer_email, "CLEANUP_ACTION_WEITERFUEHREN", {});
       return res.send(cleanupPage({ title: "Tour wird weitergeführt", icon: "✓", color: "#059669",
         body: "<p>Danke! Ihre Tour wird wie gewohnt weitergeführt. Wir freuen uns, Sie weiterhin als Kunden zu haben.</p>" }));
@@ -13375,9 +13377,8 @@ if (fs.existsSync(PHOTOGRAPHER_PORTRAIT_DIR)) {
       const amount = rule.invoiceAmount || EXTENSION_PRICE_CHF;
       const invoiceKind = tour.status === "ARCHIVED" ? "portal_reactivation" : "portal_extension";
 
-      // Space ggf. reaktivieren
-      if (spaceId) { try { await mp.unarchiveSpace(spaceId); } catch (_) { /* best-effort */ } }
-      await pgPool.query(`UPDATE tour_manager.tours SET status = 'ACTIVE', updated_at = NOW() WHERE id = $1`, [tour.id]);
+      const cleanupDashboard = require("../tours/lib/cleanup-dashboard");
+      await cleanupDashboard.activateTourAndSpace(tour.id, spaceId);
 
       const dbInv = await pgPool.query(
         `INSERT INTO tour_manager.renewal_invoices
@@ -13488,17 +13489,21 @@ if (fs.existsSync(PHOTOGRAPHER_PORTRAIT_DIR)) {
           body: `<p class="err">${result.error || "Ungültiger Link."}</p>` }));
       }
       const { tour } = result;
-      await logAction(tour.id, "customer", tour.customer_email, "CLEANUP_ACTION_LOESCHEN_CONFIRMED", {});
-      // Matterport löschen
-      try {
-        const mp = require("../tours/lib/matterport");
-        const spaceId = tour.canonical_matterport_space_id || tour.matterport_space_id;
-        if (spaceId) await mp.deleteSpace(spaceId);
-      } catch (_) { /* best-effort */ }
-      const pgPool = require("../tours/lib/db").pool;
-      await pgPool.query(`DELETE FROM tour_manager.tours WHERE id = $1`, [tour.id]);
-      return res.send(cleanupPage({ title: "Tour gelöscht", icon: "✕", color: "#b91c1c",
-        body: "<p>Ihre Tour und der zugehörige Matterport-Space wurden dauerhaft gelöscht. Bei Fragen wenden Sie sich bitte an office@propus.ch.</p>" }));
+      const cleanupDashboard = require("../tours/lib/cleanup-dashboard");
+      const scheduled = await cleanupDashboard.scheduleTourDeletion({
+        tourId: tour.id,
+        actorType: "customer",
+        actorRef: tour.customer_email,
+        reason: "cleanup mail link delete request",
+        via: "cleanup_mail_link",
+        deleteMatterport: true,
+      });
+      await logAction(tour.id, "customer", tour.customer_email, "CLEANUP_ACTION_LOESCHEN_CONFIRMED", {
+        execute_after: scheduled.executeAfter.toISOString(),
+        matterport_space_id: scheduled.spaceId || null,
+      });
+      return res.send(cleanupPage({ title: "Löschung vorgemerkt", icon: "✕", color: "#b91c1c",
+        body: "<p>Ihre Tour wurde zur Löschung vorgemerkt. Der Matterport-Space und die Tour-Daten werden in 30 Tagen gelöscht.</p>" }));
     } catch (err) {
       console.error("[cleanup] loeschen:", err.message);
       return res.status(500).send(cleanupPage({ title: "Fehler", icon: "⚠", color: "#b91c1c", body: "<p class=\"err\">Interner Fehler.</p>" }));

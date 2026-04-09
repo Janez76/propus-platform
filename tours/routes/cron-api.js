@@ -6,6 +6,7 @@
  *
  * Endpunkte:
  *   POST /sync-matterport-state   — matterport_state aller Touren aktualisieren
+ *   POST /process-pending-deletions — fällige Löschvormerkungen ausführen
  */
 
 'use strict';
@@ -29,7 +30,7 @@ function requireCron(req, res, next) {
 
 // POST /api/tours/cron/sync-matterport-state
 // Holt alle Matterport-Models via listModels() und schreibt matterport_state in DB.
-// Läuft alle 30 Minuten via Cron auf dem VPS.
+// Läuft alle 5 Minuten via Cron auf dem VPS.
 router.post('/sync-matterport-state', requireCron, async (req, res) => {
   const start = Date.now();
   try {
@@ -44,6 +45,27 @@ router.post('/sync-matterport-state', requireCron, async (req, res) => {
   } catch (err) {
     const elapsed = Date.now() - start;
     console.error('[cron] sync-matterport-state Exception:', err.message);
+    return res.status(500).json({ ok: false, error: err.message, elapsed });
+  }
+});
+
+// POST /api/tours/cron/process-pending-deletions
+// Führt fällige Löschvormerkungen aus: zuerst Matterport, dann Tour-Datensatz.
+router.post('/process-pending-deletions', requireCron, async (req, res) => {
+  const start = Date.now();
+  try {
+    const cleanupDashboard = require('../lib/cleanup-dashboard');
+    const result = await cleanupDashboard.processPendingDeletions({ actorRef: 'cron' });
+    const elapsed = Date.now() - start;
+    if (!result.ok) {
+      console.warn(`[cron] process-pending-deletions FEHLER (${elapsed}ms):`, JSON.stringify(result.failed));
+      return res.status(500).json({ ok: false, ...result, elapsed });
+    }
+    console.log(`[cron] process-pending-deletions OK — ${result.processedCount} Löschungen ausgeführt (${elapsed}ms)`);
+    return res.json({ ok: true, ...result, elapsed });
+  } catch (err) {
+    const elapsed = Date.now() - start;
+    console.error('[cron] process-pending-deletions Exception:', err.message);
     return res.status(500).json({ ok: false, error: err.message, elapsed });
   }
 });

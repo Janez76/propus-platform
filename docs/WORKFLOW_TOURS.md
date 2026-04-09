@@ -147,7 +147,8 @@ Tour ist ARCHIVED
 | Reminder-Versand | `POST /cron/send-expiring-soon` | Prüft täglich: 30 / 10 / 3 Tage vor `term_end_date` |
 | Archivierung | `POST /cron/archive-expired` | `EXPIRED_PENDING_ARCHIVE` → nach 3 Tagen → `ARCHIVED` |
 | Zahlungsprüfung | `POST /cron/check-payments` | Offene Rechnungen → `overdue` wenn überfällig |
-| Matterport Status-Sync | `POST /cron/sync-matterport-status` | `matterport_state` aktuell halten |
+| Matterport Status-Sync | `POST /api/tours/cron/sync-matterport-state` | `matterport_state` aktuell halten (typisch alle 5 Minuten) |
+| Pending Deletions | `POST /api/tours/cron/process-pending-deletions` | Fällige Löschvormerkungen nach 30 Tagen ausführen |
 
 ---
 
@@ -158,6 +159,7 @@ Tour ist ARCHIVED
 | `renewal_request` | Reminder 1 + 2 (30 / 10 Tage) |
 | `renewal_request_final` | Reminder 3 (ca. 3 Tage) |
 | `tour_confirmation_request` | Bereinigungslauf (geplant) |
+| `cleanup_thankyou` | Alle Touren im Cleanup-Dashboard erledigt → Dankesmail mit Gutschein |
 | `payment_confirmed` | Verlängerung bezahlt |
 | `reactivation_confirmed` | Reaktivierung bezahlt |
 | `archive_notice` | Tour archiviert |
@@ -188,6 +190,15 @@ Zentrale React-Seite: **`/admin/tours/workflow-settings`** (Tabs: Workflow, E-Ma
 - Checkbox pro Tour im Admin (Intern): „Bestätigung erforderlich“ → `confirmation_required = true`.
 - API: `GET /api/tours/admin/confirmation-pending`, `POST /api/tours/admin/run-confirmation-batch` (Dry-Run, kein Mail-Versand).
 - Template-Vorbereitung: `tour_confirmation_request` in den E-Mail-Vorlagen.
+
+### Kundendashboard nach Versand
+
+- Die Dashboard-Variante gruppiert Touren pro Kunde/Firma und wird über `/cleanup/dashboard?token=...` geöffnet.
+- `weiterfuehren` reagiert statusabhängig: sofortige Reaktivierung inkl. Matterport-Unarchive, Zahlungswahl (`online`/`qr`) oder manueller Review bei Sonderfällen.
+- `archivieren` archiviert Tour und Matterport-Space direkt.
+- `uebertragen` erzeugt ein Ticket zur Nachbearbeitung.
+- `loeschen` löscht nicht sofort, sondern legt eine Löschvormerkung mit 30 Tagen Sicherheitsfrist an.
+- Nach Abschluss aller Touren einer Gruppe kann einmalig eine `cleanup_thankyou`-Mail mit Gutschein versendet werden.
 
 ---
 

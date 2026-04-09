@@ -2199,31 +2199,28 @@ router.delete('/tours/:id', async (req, res) => {
   try {
     const tour = await loadTourById(req.params.id);
     if (!tour) return res.status(404).json({ ok: false, error: 'Tour nicht gefunden' });
-    const spaceId = tour.canonical_matterport_space_id || tour.matterport_space_id || null;
     const alsoDeleteMatterport = req.query.also_delete_matterport === '1' || req.body?.also_delete_matterport === true;
-
-    let matterportDeleted = false;
-    let matterportError = null;
-    if (alsoDeleteMatterport && spaceId) {
-      const mpResult = await matterport.deleteSpace(spaceId);
-      matterportDeleted = mpResult.success;
-      if (!mpResult.success) matterportError = mpResult.error || 'Matterport-Löschung fehlgeschlagen';
-    }
+    const cleanupDashboard = require('../lib/cleanup-dashboard');
+    const scheduled = await cleanupDashboard.scheduleTourDeletion({
+      tourId: tour.id,
+      actorType: 'admin',
+      actorRef: adminEmail(req),
+      reason: 'admin delete request',
+      via: 'admin_api',
+      deleteMatterport: alsoDeleteMatterport,
+    });
 
     await logAction(tour.id, 'admin', adminEmail(req), 'DELETE_TOUR', {
       source: 'admin_api',
       bezeichnung: tour.canonical_object_label || tour.bezeichnung,
-      matterport_space_id: spaceId,
+      matterport_space_id: scheduled.spaceId || null,
       also_delete_matterport: alsoDeleteMatterport,
-      matterport_deleted: matterportDeleted,
-      matterport_error: matterportError,
+      delete_after: scheduled.executeAfter.toISOString(),
     });
-    await pool.query('DELETE FROM tour_manager.tours WHERE id = $1', [tour.id]);
     return res.json({
       ok: true,
-      message: 'Tour wurde gelöscht.',
-      matterport_deleted: matterportDeleted,
-      matterport_error: matterportError,
+      message: 'Tour wurde zur Löschung in 30 Tagen vorgemerkt.',
+      delete_after: scheduled.executeAfter.toISOString(),
     });
   } catch (err) {
     return res.status(400).json({ ok: false, error: err.message });

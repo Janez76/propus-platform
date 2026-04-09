@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei jeder Änderung an Tour-Status, Matterport-Integration, Verlängerungs- oder Archivierungs-Logik dieses Dokument aktualisieren. **Produkt-Workflow (Regeln, Reminder-Stufen, Preise):** [WORKFLOW_TOURS.md](./WORKFLOW_TOURS.md) — bei Abweichungen beide Dateien abstimmen.
 
-*Zuletzt aktualisiert: April 2026 (Galerie/NAS: Migrationen 031–032; Admin `/api/tours/admin/galleries` NAS-Import; öffentlich `/api/listing/...` Video/Grundriss/ZIP; Bestellung nachträglich verknüpfen via Tour-Detail Intern-Sektion; Bank-Import: Vorschau/Multi-Upload, Bestellungssuche zur Rechnungszuordnung; Bestellungs-Admin: Finanzblock «Rechnungen & Zahlungen»; Bereinigungslauf: CUSTOMER_ACCEPTED_AWAITING_PAYMENT-Label + termEndFormatted-Fix; Matterport-State-Cron: POST /api/tours/cron/sync-matterport-state alle 30 Min; Rechnung löschen mit Workflow-Reset; Reaktivierung ohne Rechnung (Admin-Kulanz); Bereinigungslauf-Widget in Tour-Detail)*
+*Zuletzt aktualisiert: April 2026 (Galerie/NAS: Migrationen 031–032; Admin `/api/tours/admin/galleries` NAS-Import; öffentlich `/api/listing/...` Video/Grundriss/ZIP; Bestellung nachträglich verknüpfen via Tour-Detail Intern-Sektion; Bank-Import: Vorschau/Multi-Upload, Bestellungssuche zur Rechnungszuordnung; Bestellungs-Admin: Finanzblock «Rechnungen & Zahlungen»; Bereinigungslauf: CUSTOMER_ACCEPTED_AWAITING_PAYMENT-Label + termEndFormatted-Fix; Matterport-State-Cron: POST /api/tours/cron/sync-matterport-state alle 5 Min; Rechnung löschen mit Workflow-Reset; Reaktivierung ohne Rechnung (Admin-Kulanz); Bereinigungslauf-Widget in Tour-Detail; Cleanup-Dashboard mit Matterport-Reaktivierung, 30-Tage-Löschvormerkung, Lösch-Cron und Gutschein-Nachversand)*
 
 ---
 
@@ -604,11 +604,14 @@ Dedizierte Cron-Endpunkte mit `X-Cron-Secret`-Header-Auth (kein Admin-Login nöt
 
 | Endpunkt | Intervall (VPS crontab) | Zweck |
 |---|---|---|
-| `POST /api/tours/cron/sync-matterport-state` | `*/30 * * * *` (alle 30 Min) | `matterport_state` aller Touren via `listModels()` aktualisieren |
+| `POST /api/tours/cron/sync-matterport-state` | `*/5 * * * *` (alle 5 Min) | `matterport_state` aller Touren via `listModels()` aktualisieren |
+| `POST /api/tours/cron/process-pending-deletions` | frei planbar (empfohlen: alle 5–15 Min) | Führt fällige Löschvormerkungen aus und löscht zuerst Matterport, dann den Tour-Datensatz |
 
 **Auth:** `X-Cron-Secret: <CRON_SECRET>` (Wert aus `/opt/propus-platform/.env.vps`)
 
 **Backend:** `tours/routes/cron-api.js` → `postLinkMatterportSyncStatus()` in `tours/lib/admin-phase3.js`
+
+**Zusätzlich:** `POST /api/tours/cron/process-pending-deletions` ruft `processPendingDeletions()` in `tours/lib/cleanup-dashboard.js` auf.
 
 **Script:** `/opt/propus-platform/scripts/cron-matterport-sync.sh`
 
@@ -616,7 +619,7 @@ Dedizierte Cron-Endpunkte mit `X-Cron-Secret`-Header-Auth (kein Admin-Login nöt
 
 ```
 # VPS crontab (root):
-*/30 * * * * /opt/propus-platform/scripts/cron-matterport-sync.sh >> /var/log/propus-matterport-sync.log 2>&1
+*/5 * * * * /opt/propus-platform/scripts/cron-matterport-sync.sh >> /var/log/propus-matterport-sync.log 2>&1
 ```
 
 **Env:** `CRON_SECRET` in `.env.vps` — wird beim Deploy nicht überschrieben (manuell gesetzt, einmalig).
@@ -848,6 +851,14 @@ Einmaliger Lauf: Kunden werden per Mail gefragt, was mit ihrer Tour passieren so
 | `cleanup_sent_at` | TIMESTAMPTZ | Zeitpunkt des letzten Mailversands |
 | `cleanup_action` | TEXT | Gewählte Aktion (`weiterfuehren` \| `archivieren` \| `uebertragen` \| `loeschen`) |
 | `cleanup_action_at` | TIMESTAMPTZ | Zeitpunkt der Aktion |
+| `delete_requested_at` | TIMESTAMPTZ | Zeitpunkt, an dem eine Löschung vorgemerkt wurde |
+| `delete_after_at` | TIMESTAMPTZ | Frühester Ausführungszeitpunkt für die harte Löschung (aktuell +30 Tage) |
+
+### Zusätzliche Tabelle
+
+| Tabelle | Zweck |
+|---|---|
+| `tour_manager.pending_deletions` | Offene Löschvormerkungen inkl. `execute_after`, optionaler `matterport_space_id`, Actor-Infos, Fehlerstatus sowie `executed_at`/`cancelled_at` |
 
 ### Status-Mapping (computeCleanupRule)
 
@@ -870,6 +881,16 @@ Einmaliger Lauf: Kunden werden per Mail gefragt, was mit ihrer Tour passieren so
 | `POST` | `/api/tours/admin/cleanup/send/:id` | Einzelversand |
 | `POST` | `/api/tours/admin/cleanup/incoming-reply` | Ticket aus Kunden-E-Mail erstellen |
 
+### Dashboard-Admin-API (kunden-gruppiert)
+
+| Methode | Pfad | Beschreibung |
+|---|---|---|
+| `GET` | `/api/tours/admin/cleanup/dashboard/candidates` | Kunden-/Firmen-Gruppen mit offenen Dashboard-Touren |
+| `POST` | `/api/tours/admin/cleanup/dashboard/batch-dry-run` | Dry-Run für Dashboard-Einladungen |
+| `POST` | `/api/tours/admin/cleanup/dashboard/batch-send` | Produktiver Versand der Dashboard-Einladungen |
+| `POST` | `/api/tours/admin/cleanup/dashboard/send-single` | Einzelnen Kunden bzw. eine Firma erneut einladen |
+| `POST` | `/api/tours/admin/cleanup/dashboard/send-vouchers` | Ausstehende Dankes-/Gutschein-Mails gesammelt nachziehen |
+
 ### Kunden-Aktionsseiten (öffentlich, Token-basiert)
 
 | Pfad | Beschreibung |
@@ -881,12 +902,30 @@ Einmaliger Lauf: Kunden werden per Mail gefragt, was mit ihrer Tour passieren so
 
 **Besonderheit `weiterfuehren`:** Setzt Matterport-Sichtbarkeit automatisch auf `LINK_ONLY`.
 
+### Cleanup-Dashboard (öffentlich, Token-basiert)
+
+| Pfad | Beschreibung |
+|---|---|
+| `GET /cleanup/dashboard?token=…` | React-Kundenseite für alle cleanup-relevanten Touren einer Firma bzw. Kundengruppe |
+
+| Methode | Pfad | Beschreibung |
+|---|---|---|
+| `GET` | `/api/cleanup/dashboard` | Lädt Session und alle Touren für den Dashboard-Token |
+| `POST` | `/api/cleanup/dashboard/action` | Führt `weiterfuehren`, `archivieren`, `uebertragen` oder `loeschen` aus |
+| `POST` | `/api/cleanup/dashboard/payment` | Speichert `online` oder `qr` für `weiterfuehren_pending_payment` |
+
+**Besonderheiten:**
+- `weiterfuehren` reaktiviert Tour und Matterport-Space sofort, sofern weder Rechnung noch manueller Review nötig sind.
+- `loeschen` löscht nicht sofort, sondern legt eine Löschvormerkung mit 30 Tagen Sicherheitsfrist in `pending_deletions` an.
+- Nach erfolgreichen Aktionen prüft `maybeDispatchCleanupVoucher()`, ob alle Touren erledigt sind, und verschickt einmalig die Dankes-/Gutschein-Mail.
+
 ### Frontend
 
 | Datei | Beschreibung |
 |---|---|
 | `app/src/pages-legacy/tours/admin/ToursAdminCleanupPage.tsx` | Admin-UI: Kandidatentabelle, Sandbox-Vorschau, Matterport Live-Check |
 | `app/src/pages-legacy/tours/admin/components/TourCleanupSection.tsx` | Tour-Detail-Widget: Sandbox-Vorschau + produktiver Einzelversand (nur wenn `confirmation_required = true`) |
+| `app/src/pages-legacy/customer/CleanupDashboardPage.tsx` | Öffentliche Kunden-Seite `/cleanup/dashboard` mit Aktions- und Zahlungsdialog |
 
 **Tour-Detail-Integration (`TourDetailPage.tsx`):** `TourCleanupSection` erscheint unterhalb von `TourInvoicesSection`, aber nur wenn `tour.confirmation_required = true`. Zeigt Sandbox-Vorschau-Toggle und "Mail jetzt senden (produktiv)"-Button mit Bestätigungsdialog. Bereits versendete/abgeschlossene Touren zeigen nur den Status.
 
@@ -894,9 +933,11 @@ Einmaliger Lauf: Kunden werden per Mail gefragt, was mit ihrer Tour passieren so
 
 | Datei | Beschreibung |
 |---|---|
-| `tours/lib/cleanup-mailer.js` | `computeCleanupRule()`, `buildCleanupEmailContent()`, `sandboxPreviewForTour()`, `sendCleanupMailForTour()`, `runCleanupBatch()` |
+| `tours/lib/cleanup-mailer.js` | `computeCleanupRule()`, `buildCleanupEmailContent()`, `sandboxPreviewForTour()`, `sendCleanupMailForTour()`, `runCleanupBatch()`, Schema-Setup für Cleanup-/Deletion-Felder |
+| `tours/lib/cleanup-dashboard.js` | Dashboard-Sessions, Kundenaktionen, Matterport-Reaktivierung, Löschvormerkung (`scheduleTourDeletion()` / `processPendingDeletions()`), Gutschein-Versand |
 | `tours/routes/cleanup.js` | Öffentliche Token-Aktionsseiten |
 | `tours/routes/admin-api.js` | Admin-API-Endpunkte (ab Zeile ~860) |
+| `booking/server.js` | Öffentliche Dashboard-API `/api/cleanup/dashboard*` |
 
 ### Matterport Live-Check (Sandbox-Vorschau)
 

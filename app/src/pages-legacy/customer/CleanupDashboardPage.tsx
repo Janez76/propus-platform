@@ -49,7 +49,7 @@ const CLEANUP_ACTION_LABELS: Record<string, string> = {
   weiterfuehren_qr: "QR-Rechnung versendet",
   archivieren: "Archiviert",
   uebertragen: "Übertragung beantragt",
-  loeschen: "Gelöscht",
+  loeschen: "Löschung vorgemerkt",
 };
 
 function formatDate(v: unknown) {
@@ -86,7 +86,7 @@ async function postPayment(token: string, tourId: number, paymentMethod: string)
   return res.json();
 }
 
-function TourCard({ tour, token, onActionComplete }: { tour: DashboardTour; token: string; onActionComplete: () => void }) {
+function TourCard({ tour, token, onActionComplete }: { tour: DashboardTour; token: string; onActionComplete: () => Promise<void> }) {
   const [busy, setBusy] = useState(false);
   const [confirmAction, setConfirmAction] = useState<string | null>(null);
   const [paymentChoice, setPaymentChoice] = useState(false);
@@ -119,7 +119,7 @@ function TourCard({ tour, token, onActionComplete }: { tour: DashboardTour; toke
         return;
       }
       setSuccessMsg(r.message || "Aktion ausgeführt");
-      setTimeout(() => onActionComplete(), 1200);
+      await onActionComplete();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Netzwerkfehler");
     } finally {
@@ -142,7 +142,7 @@ function TourCard({ tour, token, onActionComplete }: { tour: DashboardTour; toke
       }
       setSuccessMsg(r.message || "Erledigt");
       setPaymentChoice(false);
-      setTimeout(() => onActionComplete(), 1200);
+      await onActionComplete();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Netzwerkfehler");
     } finally {
@@ -221,7 +221,7 @@ function TourCard({ tour, token, onActionComplete }: { tour: DashboardTour; toke
               </p>
               <p className="text-xs text-orange-700 mt-1">
                 {confirmAction === "loeschen"
-                  ? "Der Matterport-Space und alle Tour-Daten werden dauerhaft entfernt. Dieser Vorgang ist nicht rückgängig zu machen."
+                  ? "Die Löschung wird vorgemerkt. Der Matterport-Space und alle Tour-Daten werden erst nach 30 Tagen endgültig entfernt."
                   : "Der Matterport-Space wird deaktiviert. Eine Reaktivierung ist kostenpflichtig (CHF 74.–)."}
               </p>
               <div className="mt-3 flex gap-2">
@@ -230,7 +230,7 @@ function TourCard({ tour, token, onActionComplete }: { tour: DashboardTour; toke
                   onClick={() => void handleAction(confirmAction)}
                   className={`rounded-full px-4 py-1.5 text-xs font-bold text-white ${confirmAction === "loeschen" ? "bg-red-600 hover:bg-red-700" : "bg-orange-600 hover:bg-orange-700"}`}
                 >
-                  Ja, {confirmAction === "loeschen" ? "dauerhaft löschen" : "archivieren"}
+                  Ja, {confirmAction === "loeschen" ? "Löschung vormerken" : "archivieren"}
                 </button>
                 <button type="button" onClick={() => setConfirmAction(null)} className="rounded-full border border-gray-300 px-4 py-1.5 text-xs text-gray-600">
                   Abbrechen
@@ -420,7 +420,7 @@ export function CleanupDashboardPage() {
         )}
 
         {pendingTours.map((tour) => (
-          <TourCard key={tour.id} tour={tour} token={token} onActionComplete={() => void loadTours()} />
+          <TourCard key={tour.id} tour={tour} token={token} onActionComplete={loadTours} />
         ))}
 
         {doneTours.length > 0 && pendingTours.length > 0 && (
@@ -428,7 +428,7 @@ export function CleanupDashboardPage() {
             <p className="text-xs text-gray-400 uppercase tracking-wide font-semibold mb-3">Bereits erledigt</p>
             <div className="space-y-3">
               {doneTours.map((tour) => (
-                <TourCard key={tour.id} tour={tour} token={token} onActionComplete={() => void loadTours()} />
+                <TourCard key={tour.id} tour={tour} token={token} onActionComplete={loadTours} />
               ))}
             </div>
           </div>

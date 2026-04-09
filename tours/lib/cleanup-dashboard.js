@@ -280,6 +280,179 @@ function getDashboardEligibilityClause({ forSend = false } = {}) {
   )`;
 }
 
+const DELETE_DELAY_DAYS = 30;
+
+function getDeleteDelayDate() {
+  return new Date(Date.now() + DELETE_DELAY_DAYS * 24 * 60 * 60 * 1000);
+}
+
+async function activateTourAndSpace(tourId, spaceId) {
+  if (!spaceId) {
+    await pool.query(
+      `UPDATE tour_manager.tours
+       SET status = 'ACTIVE',
+           matterport_state = 'active',
+           updated_at = NOW()
+       WHERE id = $1`,
+      [tourId]
+    );
+    return { spaceActivated: false };
+  }
+
+  const mp = require('./matterport');
+  const result = await mp.unarchiveSpace(spaceId);
+  if (!result?.success) {
+    throw new Error(result?.error || 'Matterport-Space konnte nicht reaktiviert werden');
+  }
+
+  const live = await mp.getModel(spaceId);
+  const liveState = String(live?.model?.state || '').toLowerCase();
+  if (liveState !== 'active') {
+    throw new Error(`Matterport-Space ist nach Reaktivierung nicht aktiv (${liveState || 'unbekannt'})`);
+  }
+
+  await pool.query(
+    `UPDATE tour_manager.tours
+     SET status = 'ACTIVE',
+         matterport_state = 'active',
+         updated_at = NOW()
+     WHERE id = $1`,
+    [tourId]
+  );
+
+  return { spaceActivated: true };
+}
+
+async function scheduleTourDeletion({
+  tourId,
+  actorType,
+  actorRef,
+  reason,
+  via,
+  deleteMatterport = true,
+}) {
+  await ensureCleanupSchema();
+
+  const tourRes = await pool.query(
+    `SELECT id, canonical_matterport_space_id, matterport_space_id
+     FROM tour_manager.tours
+     WHERE id = $1`,
+    [tourId]
+  );
+  const tour = normalizeTourRow(tourRes.rows[0]);
+  if (!tour) throw new Error('Tour nicht gefunden');
+
+  const spaceId = tour.canonical_matterport_space_id || tour.matterport_space_id || null;
+  const executeAfter = getDeleteDelayDate();
+
+  await pool.query(
+    `INSERT INTO tour_manager.pending_deletions
+       (tour_id, matterport_space_id, delete_matterport, requested_by_type, requested_by_ref, requested_via, reason, execute_after, details_json)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)
+     ON CONFLICT (tour_id) WHERE tour_id IS NOT NULL AND executed_at IS NULL AND cancelled_at IS NULL
+     DO UPDATE SET
+       matterport_space_id = EXCLUDED.matterport_space_id,
+       delete_matterport = EXCLUDED.delete_matterport,
+       requested_by_type = EXCLUDED.requested_by_type,
+       requested_by_ref = EXCLUDED.requested_by_ref,
+       requested_via = EXCLUDED.requested_via,
+       reason = EXCLUDED.reason,
+       requested_at = NOW(),
+       execute_after = EXCLUDED.execute_after,
+       details_json = EXCLUDED.details_json,
+       last_error = NULL`,
+    [
+      tour.id,
+      spaceId,
+      !!deleteMatterport,
+      actorType,
+      actorRef || null,
+      via || null,
+      reason || null,
+      executeAfter.toISOString(),
+      JSON.stringify({
+        reason: reason || null,
+        requested_via: via || null,
+        delete_matterport: !!deleteMatterport,
+      }),
+    ]
+  );
+
+  await pool.query(
+    `UPDATE tour_manager.tours
+     SET cleanup_action = 'loeschen',
+         cleanup_action_at = NOW(),
+         delete_requested_at = NOW(),
+         delete_after_at = $2,
+         updated_at = NOW()
+     WHERE id = $1`,
+    [tour.id, executeAfter.toISOString()]
+  );
+
+  return { tourId: tour.id, spaceId, executeAfter };
+}
+
+async function processPendingDeletions({ limit = 100, actorRef = 'cron' } = {}) {
+  await ensureCleanupSchema();
+  const res = await pool.query(
+    `SELECT id, tour_id, matterport_space_id, delete_matterport
+     FROM tour_manager.pending_deletions
+     WHERE executed_at IS NULL
+       AND cancelled_at IS NULL
+       AND execute_after <= NOW()
+     ORDER BY execute_after ASC
+     LIMIT $1`,
+    [limit]
+  );
+
+  const processed = [];
+  const failed = [];
+
+  for (const row of res.rows) {
+    try {
+      if (row.delete_matterport && row.matterport_space_id) {
+        const mp = require('./matterport');
+        const result = await mp.deleteSpace(row.matterport_space_id);
+        if (!result?.success) {
+          throw new Error(result?.error || 'Matterport-Löschung fehlgeschlagen');
+        }
+      }
+
+      if (row.tour_id) {
+        await logAction(row.tour_id, 'system', actorRef, 'DELETE_TOUR_EXECUTED', {
+          source: 'pending_deletion',
+          matterport_space_id: row.matterport_space_id || null,
+        });
+        await pool.query(`DELETE FROM tour_manager.tours WHERE id = $1`, [row.tour_id]);
+      }
+
+      await pool.query(
+        `UPDATE tour_manager.pending_deletions
+         SET executed_at = NOW(), last_error = NULL
+         WHERE id = $1`,
+        [row.id]
+      );
+      processed.push({ id: row.id, tourId: row.tour_id });
+    } catch (err) {
+      await pool.query(
+        `UPDATE tour_manager.pending_deletions
+         SET last_error = $2
+         WHERE id = $1`,
+        [row.id, err.message]
+      );
+      failed.push({ id: row.id, error: err.message });
+    }
+  }
+
+  return {
+    ok: failed.length === 0,
+    processedCount: processed.length,
+    failedCount: failed.length,
+    processed,
+    failed,
+  };
+}
+
 // ─── Dashboard-Daten laden ───────────────────────────────────────────────────
 
 async function getDashboardTours(customerEmail, options = {}) {
@@ -393,6 +566,7 @@ async function executeDashboardAction(customerEmail, tourId, action) {
       `UPDATE tour_manager.tours SET cleanup_action = 'weiterfuehren', cleanup_action_at = NOW(), updated_at = NOW() WHERE id = $1`,
       [tour.id]
     );
+    await activateTourAndSpace(tour.id, tour.canonical_matterport_space_id || tour.matterport_space_id || null);
     await logAction(tour.id, 'customer', actorEmail, 'CLEANUP_DASHBOARD_WEITERFUEHREN', {});
     return { action: 'weiterfuehren', message: 'Ihre Tour wird wie gewohnt weitergeführt.' };
   }
@@ -441,14 +615,19 @@ async function executeDashboardAction(customerEmail, tourId, action) {
   }
 
   if (action === 'loeschen') {
-    await logAction(tour.id, 'customer', actorEmail, 'CLEANUP_DASHBOARD_LOESCHEN', {});
-    try {
-      const mp = require('./matterport');
-      const spaceId = tour.canonical_matterport_space_id || tour.matterport_space_id;
-      if (spaceId) await mp.deleteSpace(spaceId);
-    } catch (_) { /* best-effort */ }
-    await pool.query(`DELETE FROM tour_manager.tours WHERE id = $1`, [tour.id]);
-    return { action: 'loeschen', message: 'Tour und Matterport-Space wurden dauerhaft gelöscht.' };
+    const scheduled = await scheduleTourDeletion({
+      tourId: tour.id,
+      actorType: 'customer',
+      actorRef: actorEmail,
+      reason: 'cleanup dashboard delete request',
+      via: 'cleanup_dashboard',
+      deleteMatterport: true,
+    });
+    await logAction(tour.id, 'customer', actorEmail, 'CLEANUP_DASHBOARD_LOESCHEN', {
+      execute_after: scheduled.executeAfter.toISOString(),
+      matterport_space_id: scheduled.spaceId || null,
+    });
+    return { action: 'loeschen', message: 'Die Löschung wurde vorgemerkt und wird in 30 Tagen ausgeführt.' };
   }
 
   throw new Error('Unbekannte Aktion');
@@ -505,13 +684,7 @@ async function executeDashboardPaymentChoice(customerEmail, tourId, paymentMetho
   const dueAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
   const spaceId = tour.canonical_matterport_space_id || tour.matterport_space_id;
 
-  if (spaceId) {
-    try {
-      const mp = require('./matterport');
-      await mp.unarchiveSpace(spaceId);
-    } catch (_) { /* best-effort */ }
-  }
-  await pool.query(`UPDATE tour_manager.tours SET status = 'ACTIVE', updated_at = NOW() WHERE id = $1`, [tour.id]);
+  await activateTourAndSpace(tour.id, spaceId);
 
   const dbInv = await pool.query(
     `INSERT INTO tour_manager.renewal_invoices
@@ -933,30 +1106,21 @@ Ihr Propus Team`;
       const fakeTour = { customer_email: email, id: null };
       const mailResult = await sendGraphMailToCustomer(fakeTour, { subject, html: htmlBody, text: textBody });
       if (mailResult.success) {
-        // Erste verfügbare Tour-ID für den Log-Eintrag ermitteln
-        const tourIdRes = await pool.query(
-          `SELECT id FROM tour_manager.tours WHERE LOWER(TRIM(customer_email)) = $1 AND cleanup_sent_at IS NOT NULL LIMIT 1`,
-          [email]
+        await pool.query(
+          `INSERT INTO tour_manager.outgoing_emails
+             (tour_id, mailbox_upn, graph_message_id, internet_message_id, conversation_id,
+              recipient_email, subject, template_key, sent_at, details_json)
+           VALUES (NULL,$1,$2,$3,$4,$5,$6,'cleanup_thankyou',NOW(),$7::jsonb)`,
+          [
+            mailResult.mailboxUpn || 'system',
+            mailResult.graphMessageId || null,
+            mailResult.internetMessageId || null,
+            mailResult.conversationId || null,
+            mailResult.recipientEmail || email,
+            subject,
+            JSON.stringify({ voucherCode, validTo: validTo.toISOString(), customerName: customerName || null }),
+          ]
         );
-        const logTourId = tourIdRes.rows[0]?.id || null;
-        if (logTourId) {
-          await pool.query(
-            `INSERT INTO tour_manager.outgoing_emails
-               (tour_id, mailbox_upn, graph_message_id, internet_message_id, conversation_id,
-                recipient_email, subject, template_key, sent_at, details_json)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,'cleanup_thankyou',NOW(),$8::jsonb)`,
-            [
-              logTourId,
-              mailResult.mailboxUpn || 'system',
-              mailResult.graphMessageId || null,
-              mailResult.internetMessageId || null,
-              mailResult.conversationId || null,
-              mailResult.recipientEmail || email,
-              subject,
-              JSON.stringify({ voucherCode, validTo: validTo.toISOString(), customerName: customerName || null }),
-            ]
-          );
-        }
       } else {
         console.warn(`[cleanup-voucher] Mail an ${email} fehlgeschlagen:`, mailResult.error);
       }
@@ -995,18 +1159,14 @@ async function sendVouchersBatch() {
     `SELECT
        COALESCE(customer_id::TEXT, LOWER(COALESCE(customer_name, '')), LOWER(customer_email)) AS group_key,
        customer_id,
-       (SELECT customer_name FROM tour_manager.tours t2
-        WHERE (customer_id IS NOT NULL AND t2.customer_id = tours.customer_id
-               OR customer_id IS NULL AND LOWER(TRIM(t2.customer_email)) = LOWER(TRIM(tours.customer_email)))
-          AND t2.customer_name IS NOT NULL AND TRIM(t2.customer_name) != ''
-        GROUP BY t2.customer_name ORDER BY COUNT(*) DESC LIMIT 1) AS customer_name,
+       customer_name,
        ARRAY_AGG(DISTINCT LOWER(TRIM(customer_email))) AS emails,
        COUNT(*) FILTER (WHERE cleanup_sent_at IS NOT NULL AND cleanup_action IS NULL) AS pending_count,
        COUNT(*) FILTER (WHERE cleanup_sent_at IS NOT NULL) AS sent_count
      FROM tour_manager.tours
      WHERE cleanup_sent_at IS NOT NULL
        AND status NOT IN ('DELETED', 'TRANSFERRED')
-     GROUP BY COALESCE(customer_id::TEXT, LOWER(COALESCE(customer_name, '')), LOWER(customer_email)), customer_id
+     GROUP BY COALESCE(customer_id::TEXT, LOWER(COALESCE(customer_name, '')), LOWER(customer_email)), customer_id, customer_name
      HAVING
        COUNT(*) FILTER (WHERE cleanup_sent_at IS NOT NULL AND cleanup_action IS NULL) = 0
        AND COUNT(*) FILTER (WHERE cleanup_sent_at IS NOT NULL) > 0`
@@ -1054,9 +1214,12 @@ module.exports = {
   getCleanupCandidatesGrouped,
   createDashboardSession,
   validateDashboardSession,
+  activateTourAndSpace,
   getDashboardTours,
   executeDashboardAction,
   executeDashboardPaymentChoice,
+  scheduleTourDeletion,
+  processPendingDeletions,
   sendDashboardInvite,
   sendDashboardBatch,
   checkAllToursCompleted,
