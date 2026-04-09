@@ -13531,7 +13531,8 @@ if (fs.existsSync(PHOTOGRAPHER_PORTRAIT_DIR)) {
       const session = await dashboardModule.validateDashboardSession(token);
       if (!session.ok) return res.status(401).json({ ok: false, error: session.error });
 
-      const tours = await dashboardModule.getDashboardTours(session.customerEmail);
+      // customerEmails enthält alle E-Mails der Firma (Hauptkontakt sieht alle Touren)
+      const tours = await dashboardModule.getDashboardTours(session.customerEmails || session.customerEmail);
       return res.json({ ok: true, customerEmail: session.customerEmail, tours });
     } catch (err) {
       console.error("[cleanup-dashboard] GET /api/cleanup/dashboard:", err.message);
@@ -13545,7 +13546,8 @@ if (fs.existsSync(PHOTOGRAPHER_PORTRAIT_DIR)) {
       const session = await dashboardModule.validateDashboardSession(token);
       if (!session.ok) return res.status(401).json({ ok: false, error: session.error });
 
-      const result = await dashboardModule.executeDashboardAction(session.customerEmail, tourId, action);
+      // Aktion darf auf alle Touren der Firma ausgeführt werden
+      const result = await dashboardModule.executeDashboardAction(session.customerEmails || session.customerEmail, tourId, action);
       return res.json({ ok: true, ...result });
     } catch (err) {
       console.error("[cleanup-dashboard] POST action:", err.message);
@@ -13559,7 +13561,7 @@ if (fs.existsSync(PHOTOGRAPHER_PORTRAIT_DIR)) {
       const session = await dashboardModule.validateDashboardSession(token);
       if (!session.ok) return res.status(401).json({ ok: false, error: session.error });
 
-      const result = await dashboardModule.executeDashboardPaymentChoice(session.customerEmail, tourId, paymentMethod);
+      const result = await dashboardModule.executeDashboardPaymentChoice(session.customerEmails || session.customerEmail, tourId, paymentMethod);
       return res.json({ ok: true, ...result });
     } catch (err) {
       console.error("[cleanup-dashboard] POST payment:", err.message);

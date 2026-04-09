@@ -181,7 +181,76 @@ async function validateDashboardSession(rawToken) {
   }
 
   const session = r.rows[0];
-  return { ok: true, customerEmail: session.customer_email, sessionId: session.id };
+  const primaryEmail = session.customer_email;
+
+  // Alle E-Mails der Firma auflösen — damit Hauptkontakte alle Touren sehen
+  const allEmails = await resolveCustomerEmails(primaryEmail);
+
+  return {
+    ok: true,
+    customerEmail: primaryEmail,
+    customerEmails: allEmails,
+    sessionId: session.id,
+  };
+}
+
+// ─── Alle E-Mails einer Firma auflösen ───────────────────────────────────────
+// Schaut in core.customers (Hauptkontakt + email_aliases) und in tour_manager.tours
+// nach allen E-Mails die zur selben customer_id gehören.
+
+async function resolveCustomerEmails(email) {
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  if (!normalizedEmail) return [normalizedEmail];
+
+  try {
+    // 1. customer_id aus tours ermitteln (schnell, immer vorhanden)
+    const tourResult = await pool.query(
+      `SELECT DISTINCT customer_id FROM tour_manager.tours
+       WHERE LOWER(TRIM(customer_email)) = $1 AND customer_id IS NOT NULL
+       LIMIT 1`,
+      [normalizedEmail]
+    );
+
+    if (tourResult.rows.length > 0) {
+      const customerId = tourResult.rows[0].customer_id;
+      // Alle E-Mails dieser customer_id aus tours sammeln
+      const emailResult = await pool.query(
+        `SELECT DISTINCT LOWER(TRIM(customer_email)) AS email
+         FROM tour_manager.tours
+         WHERE customer_id = $1 AND customer_email IS NOT NULL AND TRIM(customer_email) != ''`,
+        [customerId]
+      );
+      const emails = emailResult.rows.map((r) => r.email).filter(Boolean);
+      if (emails.length > 0) return emails;
+    }
+
+    // 2. Fallback: core.customers prüfen ob E-Mail dort als Haupt-Mail oder Alias vorkommt
+    try {
+      const custResult = await pool.query(
+        `SELECT email, email_aliases FROM core.customers
+         WHERE LOWER(TRIM(email)) = $1
+            OR email_aliases::text ILIKE $2
+         LIMIT 1`,
+        [normalizedEmail, `%${normalizedEmail}%`]
+      );
+      if (custResult.rows.length > 0) {
+        const row = custResult.rows[0];
+        const aliases = Array.isArray(row.email_aliases) ? row.email_aliases : [];
+        const allEmails = [row.email, ...aliases]
+          .map((e) => String(e || '').trim().toLowerCase())
+          .filter(Boolean);
+        const unique = [...new Set(allEmails)];
+        if (unique.length > 0) return unique;
+      }
+    } catch {
+      // core schema nicht verfügbar — ignorieren
+    }
+  } catch (err) {
+    console.warn('[cleanup-dashboard] resolveCustomerEmails Fehler:', err.message);
+  }
+
+  // Fallback: nur die eigene E-Mail
+  return [normalizedEmail];
 }
 
 function getDashboardEligibilityClause({ forSend = false } = {}) {
@@ -248,16 +317,19 @@ async function getDashboardTours(customerEmail, options = {}) {
 
 async function executeDashboardAction(customerEmail, tourId, action) {
   await ensureSessionSchema();
-  const email = String(customerEmail).trim().toLowerCase();
+  // customerEmail kann String oder Array sein (bei Firmenzugang alle E-Mails der Firma)
+  const emails = Array.isArray(customerEmail)
+    ? customerEmail.map((e) => String(e).trim().toLowerCase()).filter(Boolean)
+    : [String(customerEmail).trim().toLowerCase()];
   const validActions = ['weiterfuehren', 'archivieren', 'uebertragen', 'loeschen'];
   if (!validActions.includes(action)) throw new Error('Ungültige Aktion');
 
   const r = await pool.query(
     `SELECT * FROM tour_manager.tours
      WHERE id = $1
-       AND LOWER(TRIM(customer_email)) = $2
+       AND LOWER(TRIM(customer_email)) = ANY($2::text[])
        ${getDashboardEligibilityClause()}`,
-    [tourId, email]
+    [tourId, emails]
   );
   const tour = normalizeTourRow(r.rows[0]);
   if (!tour) throw new Error('Tour nicht gefunden oder gehört nicht zu dieser E-Mail');
@@ -361,15 +433,17 @@ async function executeDashboardAction(customerEmail, tourId, action) {
 
 async function executeDashboardPaymentChoice(customerEmail, tourId, paymentMethod) {
   await ensureSessionSchema();
-  const email = String(customerEmail).trim().toLowerCase();
+  const emails = Array.isArray(customerEmail)
+    ? customerEmail.map((e) => String(e).trim().toLowerCase()).filter(Boolean)
+    : [String(customerEmail).trim().toLowerCase()];
   if (!['online', 'qr'].includes(paymentMethod)) throw new Error('Ungültige Zahlungsart');
 
   const r = await pool.query(
     `SELECT * FROM tour_manager.tours
      WHERE id = $1
-       AND LOWER(TRIM(customer_email)) = $2
+       AND LOWER(TRIM(customer_email)) = ANY($2::text[])
        ${getDashboardEligibilityClause()}`,
-    [tourId, email]
+    [tourId, emails]
   );
   const tour = normalizeTourRow(r.rows[0]);
   if (!tour) throw new Error('Tour nicht gefunden');
