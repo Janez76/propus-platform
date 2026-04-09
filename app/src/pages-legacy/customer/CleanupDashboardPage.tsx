@@ -179,8 +179,13 @@ function TourCard({ tour, token, onActionComplete }: { tour: DashboardTour; toke
               {tour.rule.statusLabel}
             </span>
             {tour.tourUrl && (
-              <a href={tour.tourUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-[#8e7440] hover:underline">
-                Tour ansehen →
+              <a
+                href={tour.tourUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 rounded-full border border-[#c9a84c] bg-[#fdf6e3] px-2.5 py-0.5 text-xs font-semibold text-[#7a5c10] hover:bg-[#f9edd0] hover:border-[#b8922e] transition-colors"
+              >
+                Tour ansehen <ArrowUpRight className="h-3 w-3" />
               </a>
             )}
           </div>
@@ -354,14 +359,14 @@ export function CleanupDashboardPage() {
       <div style={{ background: "linear-gradient(180deg, #fffdf9 0%, #f6f4ef 100%)", borderBottom: "1px solid #ece5d7" }}>
         <div className="max-w-3xl mx-auto px-4 py-8 sm:py-12">
           <div className="flex items-center justify-center mb-4">
-            <span className="inline-block rounded-full border border-[#e4dac7] bg-white px-3 py-1 text-[11px] font-bold uppercase tracking-widest" style={{ color: "#8e7440" }}>
+            <span className="inline-block rounded-full border border-[#c9a84c] bg-[#fdf6e3] px-3 py-1 text-[11px] font-bold uppercase tracking-widest" style={{ color: "#6b4e10" }}>
               Propus Tour Manager
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-center text-gray-900" style={{ letterSpacing: "-0.02em" }}>
             Ihre Touren prüfen
           </h1>
-          <p className="text-center text-gray-500 text-sm mt-3 max-w-lg mx-auto">
+          <p className="text-center text-gray-700 text-sm mt-3 max-w-lg mx-auto font-medium">
             Bitte wählen Sie für jede Tour, was damit passieren soll. Erledigte Touren werden automatisch ausgeblendet.
           </p>
         </div>
