@@ -109,9 +109,12 @@ async function graphRequest(url, options = {}) {
     }
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
+      const errCode = data?.error?.code || '';
+      const errMsg = data?.error?.message || `Microsoft Graph HTTP ${response.status}`;
       return {
         data: null,
-        error: data?.error?.message || `Microsoft Graph HTTP ${response.status}`,
+        error: errMsg,
+        errorCode: errCode,
       };
     }
     return { data, error: null };
@@ -183,8 +186,8 @@ async function fetchMailboxMessages(options = {}) {
   const allMessages = [];
 
   while (nextUrl && allMessages.length < totalLimit) {
-    const { data, error } = await graphRequest(nextUrl, { method: 'GET' });
-    if (error) return { messages: [], error };
+    const { data, error, errorCode } = await graphRequest(nextUrl, { method: 'GET' });
+    if (error) return { messages: [], error, errorCode };
     const pageMessages = Array.isArray(data?.value) ? data.value.map(normalizeMessage) : [];
     allMessages.push(...pageMessages);
     nextUrl = data?.['@odata.nextLink'] || null;

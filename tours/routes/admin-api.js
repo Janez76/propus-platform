@@ -989,8 +989,18 @@ router.get('/mail/inbox', async (req, res) => {
     const sinceDate = req.query.since ? String(req.query.since).trim() : null;
     const matchTours = req.query.matchTours !== 'false';
 
-    const { messages, error } = await fetchMailboxMessages({ mailboxUpn: mailbox, folder, top, sinceDate });
-    if (error) return res.status(502).json({ ok: false, error });
+    const { messages, error, errorCode } = await fetchMailboxMessages({ mailboxUpn: mailbox, folder, top, sinceDate });
+    if (error) {
+      if (errorCode === 'ErrorAccessDenied') {
+        console.error('[admin-api] mail/inbox: Exchange ApplicationAccessPolicy blockiert App-Zugriff auf Postfach', mailbox);
+        return res.status(503).json({
+          ok: false,
+          error: 'Postfach-Zugriff gesperrt: Exchange Online verweigert der App den Zugriff (ApplicationAccessPolicy fehlt oder zu restriktiv). Bitte in Exchange Online PowerShell eine ApplicationAccessPolicy für die App erstellen.',
+          errorCode: 'exchange_access_denied',
+        });
+      }
+      return res.status(502).json({ ok: false, error });
+    }
 
     if (!matchTours) {
       return res.json({ ok: true, mailbox, folder, total: messages.length, messages });

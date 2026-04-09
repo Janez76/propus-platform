@@ -40,7 +40,7 @@ function loadGoogleMapsScript(apiKey: string): Promise<void> {
     const s = document.createElement("script");
     s.id = MAPS_SCRIPT_ID;
     s.async = true;
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&loading=async`;
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}`;
     s.onload = () => resolve();
     s.onerror = () => {
       mapsScriptPromise = null;
