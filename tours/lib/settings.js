@@ -379,14 +379,14 @@ function buildActionButtons(buttons) {
   const html = (buttons || [])
     .filter((btn) => btn && btn.href && btn.label)
     .map((btn) => `
-      <a href="${btn.href}" style="display:inline-block;padding:14px 22px;border-radius:999px;background:${btn.primary ? 'linear-gradient(135deg,#B68E20 0%,#7a6318 100%)' : '#ffffff'};color:${btn.primary ? '#ffffff' : '#1f2937'};text-decoration:none;font-size:14px;font-weight:700;border:1px solid ${btn.primary ? '#9a7619' : '#e8e6e2'};margin:0 10px 10px 0;box-shadow:${btn.primary ? '0 10px 22px rgba(182,142,32,0.2)' : 'none'};">
-        ${btn.icon ? `${btn.icon} ` : ''}${btn.label}
+      <a href="${btn.href}" style="display:inline-block;padding:14px 28px;border-radius:999px;background-color:${btn.primary ? '#B68E20' : '#ffffff'};background:${btn.primary ? 'linear-gradient(135deg,#B68E20 0%,#8a6c18 100%)' : '#ffffff'};color:${btn.primary ? '#ffffff' : '#1f2937'};text-decoration:none;font-size:15px;font-weight:700;border:2px solid ${btn.primary ? '#8a6c18' : '#d1c9bb'};margin:0 10px 10px 0;box-shadow:${btn.primary ? '0 4px 14px rgba(182,142,32,0.35)' : 'none'};letter-spacing:0.01em;mso-padding-alt:0;line-height:1.4;">
+        ${btn.icon ? `<span style="margin-right:6px;">${btn.icon}</span>` : ''}${btn.label}
       </a>
     `)
     .join('');
   return `
-    <div style="background:#ffffff;border:1px solid #ece5d7;border-radius:24px;padding:22px 24px;">
-      <div style="font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#9a7619;margin-bottom:14px;">Nächste Schritte</div>
+    <div style="background:#fffdf8;border:1px solid #e0d5bf;border-radius:16px;padding:22px 24px;">
+      <div style="font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#8a6c18;margin-bottom:16px;">Nächste Schritte</div>
       ${html}
     </div>
   `;
