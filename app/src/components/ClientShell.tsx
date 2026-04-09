@@ -87,6 +87,7 @@ const ListingListPage = lazy(() => import("../pages-legacy/admin/listing/Listing
 const ListingEditorPage = lazy(() => import("../pages-legacy/admin/listing/ListingEditorPage").then((m) => ({ default: m.ListingEditorPage })));
 const ListingEmailTemplatesPage = lazy(() => import("../pages-legacy/admin/listing/ListingEmailTemplatesPage").then((m) => ({ default: m.ListingEmailTemplatesPage })));
 const ClientListingPage = lazy(() => import("../pages-legacy/listing/ClientListingPage").then((m) => ({ default: m.ClientListingPage })));
+const CleanupDashboardPage = lazy(() => import("../pages-legacy/customer/CleanupDashboardPage").then((m) => ({ default: m.CleanupDashboardPage })));
 
 // Portal pages
 const PortalLoginPage = lazy(() => import("../pages-legacy/portal/PortalLoginPage").then((m) => ({ default: m.PortalLoginPage })));
@@ -289,6 +290,7 @@ export default function ClientShell() {
           <Route path="/print/orders/:orderNo" element={<PrintOrderPage />} />
           <Route path="/print/order/:orderNo" element={<PrintOrderPage />} />
           <Route path="/listing/:slug" element={<ClientListingPage />} />
+          <Route path="/cleanup/dashboard" element={<CleanupDashboardPage />} />
           <Route path="*" element={<PrivateRoutes />} />
         </Routes>
       </Suspense>

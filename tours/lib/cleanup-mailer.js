@@ -56,11 +56,11 @@ function mergeTemplate(templateStr, placeholders, options = {}) {
 }
 
 function getPortalUrl() {
-  return (process.env.PORTAL_BASE_URL || process.env.CUSTOMER_BASE_URL || 'https://tour.propus.ch').replace(/\/$/, '') + '/portal';
+  return (process.env.PORTAL_BASE_URL || process.env.CUSTOMER_BASE_URL || 'https://portal.propus.ch').replace(/\/$/, '') + '/portal';
 }
 
 function getCleanupBaseUrl() {
-  return (process.env.PORTAL_BASE_URL || process.env.CUSTOMER_BASE_URL || 'https://tour.propus.ch').replace(/\/$/, '');
+  return (process.env.PORTAL_BASE_URL || process.env.CUSTOMER_BASE_URL || 'https://portal.propus.ch').replace(/\/$/, '');
 }
 
 const CLEANUP_TOKEN_TYPES = ['weiterfuehren', 'archivieren', 'uebertragen', 'loeschen'];

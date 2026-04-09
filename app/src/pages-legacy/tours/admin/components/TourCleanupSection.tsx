@@ -1,14 +1,16 @@
 import { useCallback, useState } from "react";
-import { Eye, EyeOff, Mail, Loader2, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
+import { Eye, EyeOff, Mail, Loader2, AlertTriangle, CheckCircle2, XCircle, Send } from "lucide-react";
 import {
   getCleanupSandboxPreview,
   postCleanupSendSingle,
+  postCleanupDashboardSendSingle,
   type CleanupSandboxPreview,
 } from "../../../../api/toursAdmin";
 import { useQuery } from "../../../../hooks/useQuery";
 
 type Props = {
   tourId: string;
+  customerEmail?: string | null;
   cleanupSentAt?: string | null;
   cleanupAction?: string | null;
   onRefresh?: () => void;
@@ -78,24 +80,48 @@ function SandboxPreviewPanel({ tourId, onClose }: { tourId: string; onClose: () 
   );
 }
 
-export function TourCleanupSection({ tourId, cleanupSentAt, cleanupAction, onRefresh }: Props) {
+export function TourCleanupSection({ tourId, customerEmail, cleanupSentAt, cleanupAction, onRefresh }: Props) {
   const [sandboxOpen, setSandboxOpen] = useState(false);
   const [sending, setSending] = useState(false);
+  const [sendMode, setSendMode] = useState<"dashboard" | "single" | null>(null);
   const [sendResult, setSendResult] = useState<{ ok: boolean; message?: string; error?: string } | null>(null);
-  const [confirmSend, setConfirmSend] = useState(false);
+  const [confirmSend, setConfirmSend] = useState<"dashboard" | "single" | null>(null);
 
-  async function handleSend() {
-    setConfirmSend(false);
+  async function handleSendDashboard() {
+    setConfirmSend(null);
     setSending(true);
+    setSendMode("dashboard");
     setSendResult(null);
     try {
-      const r = await postCleanupSendSingle(tourId);
-      setSendResult({ ok: true, message: `Mail versendet an ${r.recipientEmail || "?"}.` });
+      if (!customerEmail) throw new Error("Keine Kunden-E-Mail hinterlegt");
+      const r = await postCleanupDashboardSendSingle(customerEmail);
+      setSendResult({
+        ok: true,
+        message: `Dashboard-Link gesendet an ${r.recipientEmail} (${r.tourCount} Tour${r.tourCount > 1 ? "en" : ""}).`,
+      });
       onRefresh?.();
     } catch (e) {
       setSendResult({ ok: false, error: e instanceof Error ? e.message : "Fehler beim Versand" });
     } finally {
       setSending(false);
+      setSendMode(null);
+    }
+  }
+
+  async function handleSendSingle() {
+    setConfirmSend(null);
+    setSending(true);
+    setSendMode("single");
+    setSendResult(null);
+    try {
+      const r = await postCleanupSendSingle(tourId);
+      setSendResult({ ok: true, message: `Einzel-Mail versendet an ${r.recipientEmail || "?"}.` });
+      onRefresh?.();
+    } catch (e) {
+      setSendResult({ ok: false, error: e instanceof Error ? e.message : "Fehler beim Versand" });
+    } finally {
+      setSending(false);
+      setSendMode(null);
     }
   }
 
@@ -140,21 +166,25 @@ export function TourCleanupSection({ tourId, cleanupSentAt, cleanupAction, onRef
           <div className="flex items-start gap-2">
             <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" />
             <p className="text-xs text-orange-800 dark:text-orange-300">
-              Bereinigungsmail wird <strong>produktiv</strong> an den Kunden gesendet und ein Token erstellt. Dieser Vorgang kann nicht rückgängig gemacht werden.
+              {confirmSend === "dashboard" ? (
+                <>Der Kunde erhält <strong>eine E-Mail mit Dashboard-Link</strong>, auf dem alle seine offenen Touren angezeigt werden. Er kann dort pro Tour eine Aktion wählen.</>
+              ) : (
+                <>Bereinigungsmail wird <strong>produktiv</strong> nur für diese Tour an den Kunden gesendet (4 Aktions-Links). Dieser Vorgang kann nicht rückgängig gemacht werden.</>
+              )}
             </p>
           </div>
           <div className="flex gap-2">
             <button
               type="button"
               disabled={sending}
-              onClick={() => void handleSend()}
+              onClick={() => confirmSend === "dashboard" ? void handleSendDashboard() : void handleSendSingle()}
               className="rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
             >
               Ja, jetzt senden
             </button>
             <button
               type="button"
-              onClick={() => setConfirmSend(false)}
+              onClick={() => setConfirmSend(null)}
               className="rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-xs text-[var(--text-subtle)] hover:text-[var(--text-main)]"
             >
               Abbrechen
@@ -170,28 +200,52 @@ export function TourCleanupSection({ tourId, cleanupSentAt, cleanupAction, onRef
           className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-xs font-medium text-[var(--text-main)] hover:bg-[var(--surface-card-strong)] transition-colors"
         >
           {sandboxOpen ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-          {sandboxOpen ? "Vorschau schliessen" : "🔬 Sandbox-Vorschau laden"}
+          {sandboxOpen ? "Vorschau schliessen" : "Sandbox-Vorschau laden"}
         </button>
 
-        {!alreadySent && !alreadyDone && !confirmSend && (
-          <button
-            type="button"
-            disabled={sending}
-            onClick={() => setConfirmSend(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--accent)]/30 px-3 py-1.5 text-xs font-medium text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors disabled:opacity-50"
-          >
-            {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
-            📧 Mail jetzt senden (produktiv)
-          </button>
+        {!alreadyDone && !confirmSend && (
+          <>
+            {/* Empfohlene Variante: Dashboard-Link senden */}
+            <button
+              type="button"
+              disabled={sending}
+              onClick={() => setConfirmSend("dashboard")}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--accent)]/10 border border-[var(--accent)]/30 px-3 py-1.5 text-xs font-medium text-[var(--accent)] hover:bg-[var(--accent)]/20 transition-colors disabled:opacity-50"
+            >
+              {sending && sendMode === "dashboard" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+              Dashboard-Link senden
+            </button>
+
+            {/* Fallback: Einzel-Mail nur für diese Tour */}
+            {!alreadySent && (
+              <button
+                type="button"
+                disabled={sending}
+                onClick={() => setConfirmSend("single")}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-xs font-medium text-[var(--text-subtle)] hover:text-[var(--text-main)] hover:bg-[var(--surface-card-strong)] transition-colors disabled:opacity-50"
+                title="Sendet eine Einzel-Mail nur für diese Tour (4 Aktions-Links)"
+              >
+                {sending && sendMode === "single" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
+                Einzel-Mail (nur diese Tour)
+              </button>
+            )}
+          </>
         )}
 
-        {(alreadySent || alreadyDone) && !sendResult && (
+        {alreadyDone && !sendResult && (
           <span className="inline-flex items-center gap-1 text-xs text-[var(--text-subtle)] px-3 py-1.5">
             <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
-            {alreadyDone ? "Aktion bereits ausgeführt" : "Mail bereits versendet"}
+            Aktion bereits ausgeführt
           </span>
         )}
       </div>
+
+      {customerEmail && !alreadyDone && !confirmSend && (
+        <p className="text-[10px] text-[var(--text-subtle)] leading-relaxed">
+          <strong>Dashboard-Link</strong> = 1 Mail an {customerEmail} mit Übersichtsseite aller offenen Touren.
+          <strong className="ml-2">Einzel-Mail</strong> = separate Mail nur für diese Tour mit 4 Direktlinks.
+        </p>
+      )}
 
       {sandboxOpen && (
         <SandboxPreviewPanel tourId={tourId} onClose={() => setSandboxOpen(false)} />

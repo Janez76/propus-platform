@@ -1,13 +1,18 @@
 import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
-import { RefreshCw, Send, Eye, EyeOff, CheckCircle2, XCircle, AlertTriangle, Loader2, Mail, Search } from "lucide-react";
 import {
-  getCleanupCandidates,
+  RefreshCw, Send, Eye, EyeOff, CheckCircle2, XCircle, AlertTriangle, Loader2, Mail, Search,
+  ChevronDown, ChevronRight, Users, Package,
+} from "lucide-react";
+import {
+  getCleanupDashboardCandidates,
   getCleanupSandboxPreview,
   getToursAdminMatterportModel,
-  postCleanupBatchDryRun,
-  postCleanupBatchSend,
+  postCleanupDashboardBatchDryRun,
+  postCleanupDashboardBatchSend,
+  postCleanupDashboardSendSingle,
   postCleanupSendSingle,
+  type CleanupCustomerGroup,
   type CleanupSandboxPreview,
   type MatterportModelMeta,
 } from "../../../api/toursAdmin";
@@ -20,25 +25,24 @@ function formatDate(v: unknown) {
   return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
-type Candidate = Record<string, unknown>;
-
 type BatchResult = {
   dryRun: boolean;
-  total: number;
+  totalCustomers: number;
+  totalTours: number;
   sent: number;
   skipped: number;
   failed: number;
   results: Array<{
-    tourId: number;
-    objectLabel: string;
-    status: string;
-    email: string;
+    customerEmail: string;
+    customerName?: string | null;
+    tourCount: number;
+    pendingCount: number;
     skipped: boolean;
     skipReason?: string;
     success?: boolean;
     error?: string;
     dryRun?: boolean;
-    statusLabel?: string;
+    tours?: Array<{ id: number; objectLabel: string; status: string; statusLabel?: string }>;
   }>;
 };
 
@@ -180,12 +184,7 @@ function MatterportSpaceCheck({ tourId }: { tourId: number }) {
               <div className="col-span-2">
                 <span className="text-[var(--text-subtle)]">Link</span>
                 <div>
-                  <a
-                    href={model.publication.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[var(--accent)] hover:underline break-all"
-                  >
+                  <a href={model.publication.url} target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] hover:underline break-all">
                     {model.publication.url}
                   </a>
                 </div>
@@ -266,43 +265,198 @@ function SandboxPreviewPanel({ tourId, onClose }: { tourId: number; onClose: () 
   );
 }
 
+function CustomerCard({
+  group,
+  isSelected,
+  onToggleSelect,
+  busyAction,
+  onSendSingle,
+  onSendSingleTour,
+}: {
+  group: CleanupCustomerGroup;
+  isSelected: boolean;
+  onToggleSelect: () => void;
+  busyAction: string | null;
+  onSendSingle: (email: string) => void;
+  onSendSingleTour: (tourId: number) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [previewTourId, setPreviewTourId] = useState<number | null>(null);
+
+  const isBusy = busyAction === `single:${group.customerEmail}`;
+  const allDone = group.pendingCount === 0;
+
+  return (
+    <div className={`surface-card-strong rounded-lg border border-[var(--border-soft)] overflow-hidden ${allDone ? "opacity-50" : ""}`}>
+      {/* Kunden-Kopfzeile */}
+      <div className="flex items-center gap-3 px-4 py-3">
+        <input
+          type="checkbox"
+          checked={isSelected}
+          onChange={onToggleSelect}
+          disabled={group.allSent || allDone}
+          className="rounded flex-shrink-0"
+        />
+        <button
+          type="button"
+          onClick={() => setExpanded(!expanded)}
+          className="flex items-center gap-2 flex-1 min-w-0 text-left"
+        >
+          {expanded ? <ChevronDown className="h-4 w-4 text-[var(--text-subtle)] flex-shrink-0" /> : <ChevronRight className="h-4 w-4 text-[var(--text-subtle)] flex-shrink-0" />}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-[var(--text-main)] truncate">{group.customerEmail}</span>
+              {group.customerName && (
+                <span className="text-xs text-[var(--text-subtle)] truncate hidden sm:inline">({group.customerName})</span>
+              )}
+            </div>
+            <div className="flex items-center gap-3 mt-0.5">
+              <span className="flex items-center gap-1 text-xs text-[var(--text-subtle)]">
+                <Package className="h-3 w-3" />
+                {group.tourCount} Tour{group.tourCount > 1 ? "en" : ""}
+              </span>
+              {group.pendingCount > 0 && (
+                <span className="text-xs font-medium text-orange-600">{group.pendingCount} offen</span>
+              )}
+              {group.doneCount > 0 && (
+                <span className="text-xs text-green-600">{group.doneCount} erledigt</span>
+              )}
+              {group.allSent && (
+                <span className="inline-flex items-center gap-1 text-xs text-[var(--text-subtle)]">
+                  <Mail className="h-3 w-3" /> Versendet
+                </span>
+              )}
+            </div>
+          </div>
+        </button>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {!group.allSent && group.pendingCount > 0 && (
+            <button
+              type="button"
+              disabled={!!busyAction}
+              onClick={() => onSendSingle(group.customerEmail)}
+              title="Dashboard-Link senden"
+              className="flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-2.5 py-1.5 text-xs font-medium text-[var(--text-subtle)] hover:text-[var(--accent)] hover:bg-[var(--surface-card-strong)] disabled:opacity-40"
+            >
+              {isBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+              <span className="hidden sm:inline">Senden</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Aufgeklappte Tour-Liste */}
+      {expanded && (
+        <div className="border-t border-[var(--border-soft)]">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-left text-[var(--text-subtle)] border-b border-[var(--border-soft)] text-xs uppercase tracking-wide">
+                <th className="px-4 py-2">Tour</th>
+                <th className="px-4 py-2">Status</th>
+                <th className="px-4 py-2">Aktion</th>
+                <th className="px-4 py-2 text-right">Details</th>
+              </tr>
+            </thead>
+            <tbody>
+              {group.tours.map((tour) => {
+                const t = tour as Record<string, unknown>;
+                const id = Number(t.id);
+                const done = !!t.cleanup_action;
+                const isPreviewOpen = previewTourId === id;
+                return (
+                  <>
+                    <tr key={id} className={`border-b border-[var(--border-soft)] last:border-0 ${done ? "opacity-50" : ""}`}>
+                      <td className="px-4 py-2">
+                        <Link to={`/admin/tours/${id}`} className="font-medium text-[var(--accent)] hover:underline">
+                          {String(t.object_label || t.bezeichnung || `Tour ${id}`)}
+                        </Link>
+                        <div className="text-[10px] text-[var(--text-subtle)]">#{id}</div>
+                      </td>
+                      <td className="px-4 py-2">
+                        <StatusBadge status={String(t.status || "")} />
+                      </td>
+                      <td className="px-4 py-2">
+                        {done ? (
+                          <span className="text-xs text-green-700 font-medium">
+                            {String(t.cleanup_action)} ({formatDate(t.cleanup_action_at)})
+                          </span>
+                        ) : t.cleanup_sent_at ? (
+                          <span className="text-xs text-[var(--text-subtle)]">Mail: {formatDate(t.cleanup_sent_at)}</span>
+                        ) : (
+                          <span className="text-xs text-[var(--text-subtle)]">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setPreviewTourId(isPreviewOpen ? null : id)}
+                            title="Sandbox-Vorschau"
+                            className="rounded p-1 text-[var(--text-subtle)] hover:text-[var(--text-main)] hover:bg-[var(--surface-card-strong)]"
+                          >
+                            {isPreviewOpen ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                          </button>
+                          {!done && !t.cleanup_sent_at && (
+                            <button
+                              type="button"
+                              disabled={!!busyAction}
+                              onClick={() => onSendSingleTour(id)}
+                              title="Einzel-Mail nur für diese Tour senden (4 Aktions-Links)"
+                              className="rounded p-1 text-[var(--text-subtle)] hover:text-[var(--accent)] hover:bg-[var(--surface-card-strong)] disabled:opacity-40"
+                            >
+                              {busyAction === `tour:${id}` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                    {isPreviewOpen && (
+                      <tr key={`preview-${id}`}>
+                        <td colSpan={4} className="px-4 pb-3">
+                          <SandboxPreviewPanel tourId={id} onClose={() => setPreviewTourId(null)} />
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ToursAdminCleanupPage() {
   const qk = toursAdminCleanupCandidatesQueryKey();
-  const queryFn = useCallback(() => getCleanupCandidates().then((r) => r), []);
+  const queryFn = useCallback(() => getCleanupDashboardCandidates().then((r) => r), []);
   const { data, loading, error, refetch } = useQuery(qk, queryFn, { staleTime: 30_000 });
 
-  const candidates: Candidate[] = (data as { tours?: Candidate[] } | undefined)?.tours ?? [];
+  const customers: CleanupCustomerGroup[] = (data as { customers?: CleanupCustomerGroup[] } | undefined)?.customers ?? [];
 
-  const [selected, setSelected] = useState<Set<number>>(new Set());
-  const [openPreviews, setOpenPreviews] = useState<Set<number>>(new Set());
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [batchResult, setBatchResult] = useState<BatchResult | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
   const [actionErr, setActionErr] = useState<string | null>(null);
   const [confirmSend, setConfirmSend] = useState(false);
 
-  function toggleSelect(id: number) {
+  function toggleSelect(email: string) {
     setSelected((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      next.has(email) ? next.delete(email) : next.add(email);
       return next;
     });
   }
 
   function toggleAll() {
-    if (selected.size === candidates.length) {
+    const eligible = customers.filter((c) => !c.allSent && c.pendingCount > 0);
+    if (selected.size === eligible.length) {
       setSelected(new Set());
     } else {
-      setSelected(new Set(candidates.map((c) => Number(c.id))));
+      setSelected(new Set(eligible.map((c) => c.customerEmail)));
     }
-  }
-
-  function togglePreview(id: number) {
-    setOpenPreviews((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
   }
 
   async function handleDryRun() {
@@ -311,10 +465,10 @@ export function ToursAdminCleanupPage() {
     setActionMsg(null);
     setBatchResult(null);
     try {
-      const ids = selected.size > 0 ? [...selected] : undefined;
-      const r = await postCleanupBatchDryRun(ids);
+      const emails = selected.size > 0 ? [...selected] : undefined;
+      const r = await postCleanupDashboardBatchDryRun(emails);
       setBatchResult(r as BatchResult);
-      setActionMsg(`Dry-Run abgeschlossen: ${r.total} Touren geprüft.`);
+      setActionMsg(`Dry-Run abgeschlossen: ${r.totalCustomers} Kunden, ${r.totalTours} Touren geprüft.`);
     } catch (e) {
       setActionErr(e instanceof Error ? e.message : "Fehler beim Dry-Run");
     } finally {
@@ -329,8 +483,8 @@ export function ToursAdminCleanupPage() {
     setActionMsg(null);
     setBatchResult(null);
     try {
-      const ids = selected.size > 0 ? [...selected] : undefined;
-      const r = await postCleanupBatchSend(ids);
+      const emails = selected.size > 0 ? [...selected] : undefined;
+      const r = await postCleanupDashboardBatchSend(emails);
       setBatchResult(r as BatchResult);
       setActionMsg(`Versand abgeschlossen: ${r.sent} versendet, ${r.skipped} übersprungen, ${r.failed} fehlgeschlagen.`);
       void refetch({ force: true });
@@ -341,13 +495,13 @@ export function ToursAdminCleanupPage() {
     }
   }
 
-  async function handleSendSingle(tourId: number) {
-    setBusyAction(`single:${tourId}`);
+  async function handleSendSingle(email: string) {
+    setBusyAction(`single:${email}`);
     setActionErr(null);
     setActionMsg(null);
     try {
-      const r = await postCleanupSendSingle(tourId);
-      setActionMsg(`Mail gesendet an ${(r as { recipientEmail?: string }).recipientEmail || "?"}.`);
+      const r = await postCleanupDashboardSendSingle(email);
+      setActionMsg(`Dashboard-Link gesendet an ${r.recipientEmail} (${r.tourCount} Touren).`);
       void refetch({ force: true });
     } catch (e) {
       setActionErr(e instanceof Error ? e.message : "Fehler beim Einzelversand");
@@ -356,9 +510,23 @@ export function ToursAdminCleanupPage() {
     }
   }
 
-  const eligibleCount = candidates.filter(
-    (c) => !c.cleanup_sent_at && !c.cleanup_action
-  ).length;
+  async function handleSendSingleTour(tourId: number) {
+    setBusyAction(`tour:${tourId}`);
+    setActionErr(null);
+    setActionMsg(null);
+    try {
+      const r = await postCleanupSendSingle(tourId);
+      setActionMsg(`Einzel-Mail gesendet an ${(r as { recipientEmail?: string }).recipientEmail || "?"} für Tour #${tourId}.`);
+      void refetch({ force: true });
+    } catch (e) {
+      setActionErr(e instanceof Error ? e.message : "Fehler beim Einzelversand");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  const eligibleCount = customers.filter((c) => !c.allSent && c.pendingCount > 0).length;
+  const totalPendingTours = customers.reduce((s, c) => s + c.pendingCount, 0);
 
   return (
     <div className="space-y-6">
@@ -367,7 +535,7 @@ export function ToursAdminCleanupPage() {
         <div>
           <h1 className="text-2xl font-bold text-[var(--text-main)]">Bereinigungslauf</h1>
           <p className="text-sm text-[var(--text-subtle)] mt-1">
-            Einmaliger Lauf: Kunden werden per Mail gefragt, was mit ihrer Tour passieren soll.
+            Pro Kunde wird <strong>eine einzige E-Mail</strong> mit einem Dashboard-Link versendet, auf dem alle Touren gesammelt angezeigt werden.
           </p>
         </div>
         <button
@@ -379,6 +547,38 @@ export function ToursAdminCleanupPage() {
           Aktualisieren
         </button>
       </div>
+
+      {/* Statistik */}
+      {customers.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="surface-card-strong rounded-lg px-4 py-3">
+            <div className="flex items-center gap-2 text-xs text-[var(--text-subtle)] uppercase tracking-wide">
+              <Users className="h-3.5 w-3.5" /> Kunden
+            </div>
+            <div className="text-2xl font-bold text-[var(--text-main)] mt-1">{customers.length}</div>
+          </div>
+          <div className="surface-card-strong rounded-lg px-4 py-3">
+            <div className="flex items-center gap-2 text-xs text-[var(--text-subtle)] uppercase tracking-wide">
+              <Package className="h-3.5 w-3.5" /> Offene Touren
+            </div>
+            <div className="text-2xl font-bold text-orange-600 mt-1">{totalPendingTours}</div>
+          </div>
+          <div className="surface-card-strong rounded-lg px-4 py-3">
+            <div className="flex items-center gap-2 text-xs text-[var(--text-subtle)] uppercase tracking-wide">
+              <Mail className="h-3.5 w-3.5" /> Versendbar
+            </div>
+            <div className="text-2xl font-bold text-[var(--accent)] mt-1">{eligibleCount}</div>
+          </div>
+          <div className="surface-card-strong rounded-lg px-4 py-3">
+            <div className="flex items-center gap-2 text-xs text-[var(--text-subtle)] uppercase tracking-wide">
+              <CheckCircle2 className="h-3.5 w-3.5" /> Erledigt
+            </div>
+            <div className="text-2xl font-bold text-green-600 mt-1">
+              {customers.reduce((s, c) => s + c.doneCount, 0)}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Fehler beim Laden */}
       {error && (
@@ -398,8 +598,12 @@ export function ToursAdminCleanupPage() {
 
       {/* Aktionsleiste */}
       <div className="flex flex-wrap items-center gap-3">
+        <label className="flex items-center gap-1.5 text-sm text-[var(--text-subtle)] cursor-pointer">
+          <input type="checkbox" checked={selected.size > 0 && selected.size === customers.filter((c) => !c.allSent && c.pendingCount > 0).length} onChange={toggleAll} className="rounded" />
+          Alle
+        </label>
         <span className="text-sm text-[var(--text-subtle)]">
-          {selected.size > 0 ? `${selected.size} ausgewählt` : `${eligibleCount} versendbar`}
+          {selected.size > 0 ? `${selected.size} Kunden ausgewählt` : `${eligibleCount} Kunden versendbar`}
         </span>
         <button
           type="button"
@@ -429,147 +633,45 @@ export function ToursAdminCleanupPage() {
             <div>
               <p className="text-sm font-semibold text-orange-800">Produktiver Versand bestätigen</p>
               <p className="text-sm text-orange-700 mt-0.5">
-                Es werden Bereinigungsmails an {selected.size > 0 ? selected.size : eligibleCount} Empfänger gesendet. Dieser Vorgang kann nicht rückgängig gemacht werden.
+                Es wird pro Kunde <strong>eine E-Mail mit Dashboard-Link</strong> an {selected.size > 0 ? selected.size : eligibleCount} Empfänger gesendet. Dieser Vorgang kann nicht rückgängig gemacht werden.
               </p>
             </div>
           </div>
           <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={handleSend}
-              className="rounded-lg bg-orange-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-orange-700"
-            >
+            <button type="button" onClick={handleSend} className="rounded-lg bg-orange-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-orange-700">
               Ja, jetzt senden
             </button>
-            <button
-              type="button"
-              onClick={() => setConfirmSend(false)}
-              className="rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-sm text-[var(--text-subtle)]"
-            >
+            <button type="button" onClick={() => setConfirmSend(false)} className="rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-sm text-[var(--text-subtle)]">
               Abbrechen
             </button>
           </div>
         </div>
       )}
 
-      {/* Kandidatentabelle */}
+      {/* Kunden-Liste */}
       {loading && !data ? (
         <div className="flex justify-center py-16">
           <Loader2 className="h-8 w-8 animate-spin text-[var(--accent)]" />
         </div>
-      ) : candidates.length === 0 ? (
+      ) : customers.length === 0 ? (
         <div className="surface-card-strong flex flex-col items-center py-16 text-[var(--text-subtle)]">
           <CheckCircle2 className="h-8 w-8 mb-3 opacity-40" />
           <p className="text-sm">Keine Kandidaten für den Bereinigungslauf gefunden.</p>
           <p className="text-xs mt-1 opacity-70">Touren müssen <code>confirmation_required = TRUE</code> gesetzt haben.</p>
         </div>
       ) : (
-        <div className="surface-card-strong overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-[var(--text-subtle)] border-b border-[var(--border-soft)] text-xs uppercase tracking-wide">
-                <th className="px-4 py-3 w-8">
-                  <input
-                    type="checkbox"
-                    checked={selected.size === candidates.length && candidates.length > 0}
-                    onChange={toggleAll}
-                    className="rounded"
-                  />
-                </th>
-                <th className="px-4 py-3">Tour</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">E-Mail</th>
-                <th className="px-4 py-3">Versendet</th>
-                <th className="px-4 py-3">Aktion</th>
-                <th className="px-4 py-3 text-right">Aktionen</th>
-              </tr>
-            </thead>
-            <tbody>
-              {candidates.map((c) => {
-                const id = Number(c.id);
-                const alreadySent = !!c.cleanup_sent_at;
-                const alreadyDone = !!c.cleanup_action;
-                const isPreviewOpen = openPreviews.has(id);
-                const isSingleBusy = busyAction === `single:${id}`;
-
-                return (
-                  <>
-                    <tr
-                      key={id}
-                      className={`border-b border-[var(--border-soft)] last:border-0 ${alreadySent || alreadyDone ? "opacity-50" : ""}`}
-                    >
-                      <td className="px-4 py-3">
-                        <input
-                          type="checkbox"
-                          checked={selected.has(id)}
-                          onChange={() => toggleSelect(id)}
-                          disabled={alreadySent || alreadyDone}
-                          className="rounded"
-                        />
-                      </td>
-                      <td className="px-4 py-3">
-                        <Link
-                          to={`/admin/tours/${id}`}
-                          className="font-medium text-[var(--accent)] hover:underline"
-                        >
-                          {String(c.object_label || c.bezeichnung || c.canonical_object_label || `Tour ${id}`)}
-                        </Link>
-                        <div className="text-xs text-[var(--text-subtle)] mt-0.5">#{id}</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <StatusBadge status={String(c.status || "")} />
-                      </td>
-                      <td className="px-4 py-3 text-[var(--text-subtle)]">
-                        {String(c.customer_email || "—")}
-                      </td>
-                      <td className="px-4 py-3">
-                        {alreadyDone ? (
-                          <span className="text-xs text-green-700 font-medium">Aktion: {String(c.cleanup_action)}</span>
-                        ) : alreadySent ? (
-                          <span className="text-xs text-[var(--text-subtle)]">{formatDate(c.cleanup_sent_at)}</span>
-                        ) : (
-                          <span className="text-xs text-[var(--text-subtle)]">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-xs text-[var(--text-subtle)]">
-                        {alreadyDone ? formatDate(c.cleanup_action_at) : "—"}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() => togglePreview(id)}
-                            title="Sandbox-Vorschau"
-                            className="rounded p-1 text-[var(--text-subtle)] hover:text-[var(--text-main)] hover:bg-[var(--surface-card-strong)]"
-                          >
-                            {isPreviewOpen ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                          </button>
-                          {!alreadySent && !alreadyDone && (
-                            <button
-                              type="button"
-                              disabled={!!busyAction}
-                              onClick={() => void handleSendSingle(id)}
-                              title="Einzeln senden"
-                              className="rounded p-1 text-[var(--text-subtle)] hover:text-[var(--accent)] hover:bg-[var(--surface-card-strong)] disabled:opacity-40"
-                            >
-                              {isSingleBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                    {isPreviewOpen && (
-                      <tr key={`preview-${id}`}>
-                        <td colSpan={7} className="px-4 pb-4">
-                          <SandboxPreviewPanel tourId={id} onClose={() => togglePreview(id)} />
-                        </td>
-                      </tr>
-                    )}
-                  </>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="space-y-3">
+          {customers.map((group) => (
+            <CustomerCard
+              key={group.customerEmail}
+              group={group}
+              isSelected={selected.has(group.customerEmail)}
+              onToggleSelect={() => toggleSelect(group.customerEmail)}
+              busyAction={busyAction}
+              onSendSingle={handleSendSingle}
+              onSendSingleTour={handleSendSingleTour}
+            />
+          ))}
         </div>
       )}
 
@@ -581,7 +683,8 @@ export function ToursAdminCleanupPage() {
               {batchResult.dryRun ? "Dry-Run Ergebnis" : "Versand-Ergebnis"}
             </h2>
             <div className="flex gap-4 text-xs text-[var(--text-subtle)]">
-              <span>Gesamt: <strong>{batchResult.total}</strong></span>
+              <span>Kunden: <strong>{batchResult.totalCustomers}</strong></span>
+              <span>Touren: <strong>{batchResult.totalTours}</strong></span>
               {!batchResult.dryRun && <span className="text-green-700">Versendet: <strong>{batchResult.sent}</strong></span>}
               <span>Übersprungen: <strong>{batchResult.skipped}</strong></span>
               {!batchResult.dryRun && batchResult.failed > 0 && (
@@ -593,25 +696,36 @@ export function ToursAdminCleanupPage() {
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-left text-[var(--text-subtle)] border-b border-[var(--border-soft)]">
-                  <th className="px-3 py-2">Tour</th>
-                  <th className="px-3 py-2">Status</th>
-                  <th className="px-3 py-2">E-Mail</th>
+                  <th className="px-3 py-2">Kunde</th>
+                  <th className="px-3 py-2">Touren</th>
                   <th className="px-3 py-2">Ergebnis</th>
                 </tr>
               </thead>
               <tbody>
                 {batchResult.results.map((r) => (
-                  <tr key={r.tourId} className="border-b border-[var(--border-soft)] last:border-0">
-                    <td className="px-3 py-2 font-medium">{r.objectLabel}</td>
+                  <tr key={r.customerEmail} className="border-b border-[var(--border-soft)] last:border-0">
                     <td className="px-3 py-2">
-                      <StatusBadge status={r.status} />
+                      <div className="font-medium">{r.customerEmail}</div>
+                      {r.customerName && <div className="text-[var(--text-subtle)]">{r.customerName}</div>}
                     </td>
-                    <td className="px-3 py-2 text-[var(--text-subtle)]">{r.email || "—"}</td>
+                    <td className="px-3 py-2">
+                      {r.pendingCount} offen / {r.tourCount} total
+                      {r.dryRun && r.tours && (
+                        <div className="mt-1 space-y-0.5">
+                          {r.tours.map((t) => (
+                            <div key={t.id} className="flex items-center gap-1.5">
+                              <StatusBadge status={t.status} />
+                              <span>{t.objectLabel}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </td>
                     <td className="px-3 py-2">
                       {r.skipped ? (
                         <span className="text-[var(--text-subtle)]">Übersprungen: {r.skipReason}</span>
                       ) : batchResult.dryRun ? (
-                        <span className="text-blue-700">Würde versendet ({r.statusLabel})</span>
+                        <span className="text-blue-700">1 Dashboard-Mail würde versendet</span>
                       ) : r.success ? (
                         <span className="text-green-700 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" />Versendet</span>
                       ) : (

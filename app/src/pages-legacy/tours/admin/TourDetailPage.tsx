@@ -165,6 +165,7 @@ export function TourDetailPage() {
           {data.tour.confirmation_required ? (
             <TourCleanupSection
               tourId={okId}
+              customerEmail={data.tour.customer_email as string | null | undefined}
               cleanupSentAt={data.tour.cleanup_sent_at as string | null | undefined}
               cleanupAction={data.tour.cleanup_action as string | null | undefined}
               onRefresh={refetchDetail}

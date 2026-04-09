@@ -13270,7 +13270,7 @@ if (fs.existsSync(PHOTOGRAPHER_PORTRAIT_DIR)) {
           [tour.id]
         );
         await logAction(tour.id, "customer", tour.customer_email, "CLEANUP_ACTION_WEITERFUEHREN_PAYMENT_CHOICE", { invoiceAmount: rule.invoiceAmount });
-        const baseUrl = (process.env.PORTAL_BASE_URL || "https://tour.propus.ch").replace(/\/$/, "");
+        const baseUrl = (process.env.PORTAL_BASE_URL || "https://portal.propus.ch").replace(/\/$/, "");
         const onlineUrl = `${baseUrl}/cleanup/weiterfuehren/online?token=${token}`;
         const qrUrl = `${baseUrl}/cleanup/weiterfuehren/qr?token=${token}`;
         return res.send(cleanupPage({ title: "Wie möchten Sie bezahlen?", icon: "💳", color: "#7a6318",
@@ -13512,6 +13512,59 @@ if (fs.existsSync(PHOTOGRAPHER_PORTRAIT_DIR)) {
     const label = labels[action] || action || "Vorschau";
     return res.send(cleanupPage({ title: `[Sandbox] ${label}`, icon: "🔬", color: "#6d28d9",
       body: `<p>Dies ist eine <strong>Sandbox-Vorschau</strong> für Tour #${tourId || "?"}. Im produktiven Modus würde die Aktion <em>${label}</em> ausgeführt.</p><p>Keine Daten wurden verändert.</p>` }));
+  });
+})();
+
+// ─── Cleanup-Dashboard API (öffentlich, Token-basiert) ────────────────────────
+(function mountCleanupDashboardApi() {
+  let dashboardModule;
+  try {
+    dashboardModule = require("../tours/lib/cleanup-dashboard");
+  } catch (_e) {
+    console.warn("[cleanup-dashboard] Modul nicht verfügbar – Dashboard-API deaktiviert");
+    return;
+  }
+
+  app.get("/api/cleanup/dashboard", express.json(), async (req, res) => {
+    try {
+      const { token } = req.query;
+      const session = await dashboardModule.validateDashboardSession(token);
+      if (!session.ok) return res.status(401).json({ ok: false, error: session.error });
+
+      const tours = await dashboardModule.getDashboardTours(session.customerEmail);
+      return res.json({ ok: true, customerEmail: session.customerEmail, tours });
+    } catch (err) {
+      console.error("[cleanup-dashboard] GET /api/cleanup/dashboard:", err.message);
+      return res.status(500).json({ ok: false, error: "Interner Fehler" });
+    }
+  });
+
+  app.post("/api/cleanup/dashboard/action", express.json(), async (req, res) => {
+    try {
+      const { token, tourId, action } = req.body || {};
+      const session = await dashboardModule.validateDashboardSession(token);
+      if (!session.ok) return res.status(401).json({ ok: false, error: session.error });
+
+      const result = await dashboardModule.executeDashboardAction(session.customerEmail, tourId, action);
+      return res.json({ ok: true, ...result });
+    } catch (err) {
+      console.error("[cleanup-dashboard] POST action:", err.message);
+      return res.status(400).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.post("/api/cleanup/dashboard/payment", express.json(), async (req, res) => {
+    try {
+      const { token, tourId, paymentMethod } = req.body || {};
+      const session = await dashboardModule.validateDashboardSession(token);
+      if (!session.ok) return res.status(401).json({ ok: false, error: session.error });
+
+      const result = await dashboardModule.executeDashboardPaymentChoice(session.customerEmail, tourId, paymentMethod);
+      return res.json({ ok: true, ...result });
+    } catch (err) {
+      console.error("[cleanup-dashboard] POST payment:", err.message);
+      return res.status(400).json({ ok: false, error: err.message });
+    }
   });
 })();
 

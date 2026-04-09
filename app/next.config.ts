@@ -45,10 +45,36 @@ const nextConfig: NextConfig = {
           source: "/tour-manager/api/invite/:path*",
           destination: `${PLATFORM_INTERNAL_URL}/tour-manager/api/invite/:path*`,
         },
-        // Bereinigungslauf-Aktionsseiten: Token-Links in E-Mails zeigen auf /cleanup/...
+        // Cleanup-Dashboard-API (öffentlich, Token-basiert) — VOR dem /cleanup/:path* Rewrite
         {
-          source: "/cleanup/:path*",
-          destination: `${PLATFORM_INTERNAL_URL}/cleanup/:path*`,
+          source: "/api/cleanup/:path*",
+          destination: `${PLATFORM_INTERNAL_URL}/api/cleanup/:path*`,
+        },
+        // Bereinigungslauf-Aktionsseiten: Express-routen für Token-Links
+        // /cleanup/dashboard wird von React gerendert (kein Rewrite)
+        {
+          source: "/cleanup/weiterfuehren/:path*",
+          destination: `${PLATFORM_INTERNAL_URL}/cleanup/weiterfuehren/:path*`,
+        },
+        {
+          source: "/cleanup/weiterfuehren",
+          destination: `${PLATFORM_INTERNAL_URL}/cleanup/weiterfuehren`,
+        },
+        {
+          source: "/cleanup/archivieren",
+          destination: `${PLATFORM_INTERNAL_URL}/cleanup/archivieren`,
+        },
+        {
+          source: "/cleanup/uebertragen",
+          destination: `${PLATFORM_INTERNAL_URL}/cleanup/uebertragen`,
+        },
+        {
+          source: "/cleanup/loeschen",
+          destination: `${PLATFORM_INTERNAL_URL}/cleanup/loeschen`,
+        },
+        {
+          source: "/cleanup/preview",
+          destination: `${PLATFORM_INTERNAL_URL}/cleanup/preview`,
         },
       ],
       afterFiles: [],

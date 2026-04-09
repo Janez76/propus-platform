@@ -968,6 +968,56 @@ export function getCleanupCandidates() {
   return toursAdminFetch<{ ok: true; count: number; tours: unknown[] }>("/cleanup/candidates");
 }
 
+// ─── Bereinigungslauf v2: Dashboard (Kunden-gruppiert) ───────────────────────
+
+export interface CleanupCustomerGroup {
+  customerEmail: string;
+  customerName: string | null;
+  tourCount: number;
+  pendingCount: number;
+  doneCount: number;
+  allSent: boolean;
+  tours: Array<{
+    id: number;
+    object_label?: string;
+    bezeichnung?: string;
+    status: string;
+    cleanup_sent_at?: string | null;
+    cleanup_action?: string | null;
+  }>;
+}
+
+export function getCleanupDashboardCandidates() {
+  return toursAdminFetch<{ ok: true; count: number; customers: CleanupCustomerGroup[] }>("/cleanup/dashboard/candidates");
+}
+
+export function postCleanupDashboardBatchDryRun(customerEmails?: string[]) {
+  return toursAdminFetch<{
+    ok: true; dryRun: boolean; totalCustomers: number; totalTours: number;
+    sent: number; skipped: number; failed: number; results: unknown[];
+  }>("/cleanup/dashboard/batch-dry-run", {
+    method: "POST",
+    body: JSON.stringify(customerEmails ? { customerEmails } : {}),
+  });
+}
+
+export function postCleanupDashboardBatchSend(customerEmails?: string[]) {
+  return toursAdminFetch<{
+    ok: true; dryRun: boolean; totalCustomers: number; totalTours: number;
+    sent: number; skipped: number; failed: number; results: unknown[];
+  }>("/cleanup/dashboard/batch-send", {
+    method: "POST",
+    body: JSON.stringify(customerEmails ? { customerEmails } : {}),
+  });
+}
+
+export function postCleanupDashboardSendSingle(customerEmail: string) {
+  return toursAdminFetch<{ ok: true; recipientEmail: string; tourCount: number }>("/cleanup/dashboard/send-single", {
+    method: "POST",
+    body: JSON.stringify({ customerEmail }),
+  });
+}
+
 export function postSyncExxasInventory(tourId: number) {
   return toursAdminFetch<ExxasInventorySyncResult>(`/tours/${tourId}/sync-exxas-inventory`, {
     method: "POST",

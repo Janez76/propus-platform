@@ -1022,4 +1022,8 @@ module.exports = {
   saveEmailTemplates,
   DEFAULT_AUTOMATION_SETTINGS,
   DEFAULT_EMAIL_TEMPLATES,
+  buildEmailFrame,
+  buildSummaryCard,
+  buildInfoCallout,
+  buildActionButtons,
 };

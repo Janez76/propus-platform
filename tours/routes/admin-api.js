@@ -32,6 +32,7 @@ const {
 } = require('../lib/settings');
 const { logAction } = require('../lib/actions');
 const cleanupMailer = require('../lib/cleanup-mailer');
+const cleanupDashboard = require('../lib/cleanup-dashboard');
 const { getAiConfig, chatWithAi } = require('../lib/ai');
 const { listActionDefinitions, listRiskDefinitions } = require('../lib/admin-actions-schema');
 const { sendMailDirect, getGraphConfig, fetchMailboxMessages } = require('../lib/microsoft-graph');
@@ -62,7 +63,7 @@ const {
   getSubscriptionWindowFromStart,
 } = require('../lib/subscriptions');
 
-const ADMIN_PORTAL_BASE_URL = process.env.PORTAL_BASE_URL || 'https://tour.propus.ch';
+const ADMIN_PORTAL_BASE_URL = process.env.ADMIN_PANEL_URL || 'https://admin-booking.propus.ch';
 
 let adminRenewalSchemaEnsured = false;
 async function ensureAdminRenewalSchema() {
@@ -968,6 +969,61 @@ router.post('/cleanup/incoming-reply', async (req, res) => {
     return res.json({ ok: true, ticketId: ticket?.id, tourId: resolvedTourId });
   } catch (err) {
     return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ─── Bereinigungslauf v2: Dashboard (Kunden-gruppiert) ───────────────────────
+
+router.get('/cleanup/dashboard/candidates', async (req, res) => {
+  try {
+    const groups = await cleanupDashboard.getCleanupCandidatesGrouped();
+    return res.json({ ok: true, count: groups.length, customers: groups });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+router.post('/cleanup/dashboard/batch-dry-run', async (req, res) => {
+  try {
+    const { customerEmails } = req.body || {};
+    const result = await cleanupDashboard.sendDashboardBatch({
+      dryRun: true,
+      customerEmails: Array.isArray(customerEmails) ? customerEmails : null,
+      actorType: 'admin',
+      actorRef: adminEmail(req),
+    });
+    return res.json({ ok: true, ...result });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+router.post('/cleanup/dashboard/batch-send', async (req, res) => {
+  try {
+    const { customerEmails } = req.body || {};
+    const result = await cleanupDashboard.sendDashboardBatch({
+      dryRun: false,
+      customerEmails: Array.isArray(customerEmails) ? customerEmails : null,
+      actorType: 'admin',
+      actorRef: adminEmail(req),
+    });
+    return res.json({ ok: true, ...result });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+router.post('/cleanup/dashboard/send-single', async (req, res) => {
+  try {
+    const { customerEmail } = req.body || {};
+    if (!customerEmail) return res.status(400).json({ ok: false, error: 'customerEmail fehlt' });
+    const result = await cleanupDashboard.sendDashboardInvite(customerEmail, {
+      actorType: 'admin',
+      actorRef: adminEmail(req),
+    });
+    return res.json({ ok: true, ...result });
+  } catch (err) {
+    return res.status(400).json({ ok: false, error: err.message });
   }
 });
 
