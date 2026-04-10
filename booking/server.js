@@ -653,7 +653,7 @@ async function sendMailViaGraph(to, subject, htmlBody, textBody, icsAttachment, 
     if (attachments.length > 0) {
       message.attachments = attachments;
     }
-    await graphClient.api(`/users/${MAIL_FROM}/sendMail`).post({ message, saveToSentItems: false });
+    await graphClient.api(`/users/${MAIL_FROM}/sendMail`).post({ message, saveToSentItems: true });
     pushMailDiagnostic({
       status: "ok",
       context: "graph-direct",
@@ -716,7 +716,7 @@ async function sendMailViaGraphStrict(to, subject, htmlBody, textBody, icsAttach
   if (attachments.length > 0) {
     message.attachments = attachments;
   }
-  await graphClient.api(`/users/${MAIL_FROM}/sendMail`).post({ message, saveToSentItems: false });
+  await graphClient.api(`/users/${MAIL_FROM}/sendMail`).post({ message, saveToSentItems: true });
 }
 
 async function sendMailWithFallback({ to, subject, html, text, icsAttachment = null, icsAttachments = null, context = "generic" }) {
@@ -2287,12 +2287,25 @@ app.use(session({
   }
 }));
 // Admin-Session per Bearer-Token / admin_session-Cookie (admin_sessions)
-app.use(async (req, _res, next) => {
+app.use(async (req, res, next) => {
   try {
-    const token = getRequestToken(req);
+    const { token, source } = getRequestTokenDetails(req);
     if (!token || !db.getAdminSessionByTokenHash) return next();
     const row = await db.getAdminSessionByTokenHash(customerAuth.hashSha256Hex(token));
-    if (!row) return next();
+    if (!row) {
+      if (source === "cookie") {
+        req.invalidAdminSession = true;
+        clearAdminSessionCookie(res);
+        logAdminAuthEvent(
+          req,
+          "warn",
+          "invalid_admin_session",
+          "Admin session cookie invalid; cookie cleared",
+          { tokenSource: source }
+        );
+      }
+      return next();
+    }
     const userKey = row.user_key != null ? String(row.user_key) : "";
     const userName = row.user_name || "";
     const emailFromKey = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userKey) ? userKey : "";
@@ -2339,7 +2352,7 @@ app.get("/auth/logout", async (req, res) => {
       await db.deleteAdminSessionByTokenHash(customerAuth.hashSha256Hex(token));
     }
   } catch (_e) {}
-  res.clearCookie("admin_session");
+  clearAdminSessionCookie(res);
   req.session.destroy(() => {
     res.redirect(resolveAdminFrontendUrl(req));
   });
@@ -7911,25 +7924,62 @@ async function issueAdminSession(res, { role = "admin", rememberMe = false, user
 }
 
 
-function getRequestToken(req) {
+function getRequestTokenDetails(req) {
   // 1. Bearer Header
   const auth = req.headers.authorization || "";
   let token = auth.replace(/^Bearer\s+/i, "").trim();
+  if (token) return { token, source: "bearer" };
   // 2. Cookie als Fallback fuer Sessions
-  if(!token && req.headers.cookie) {
+  if (req.headers.cookie) {
     const cookies = req.headers.cookie.split(";").map(c => c.trim());
-    for(const c of cookies) {
-      if(c.startsWith("admin_session=")) {
+    for (const c of cookies) {
+      if (c.startsWith("admin_session=")) {
         token = c.substring("admin_session=".length);
         break;
       }
     }
+    if (token) return { token, source: "cookie" };
   }
   // 3. Query Param
-  if(!token) {
-    token = String(req.query.token || "").trim();
+  token = String(req.query.token || "").trim();
+  if (token) return { token, source: "query" };
+  return { token: "", source: null };
+}
+
+function getRequestToken(req) {
+  return getRequestTokenDetails(req).token;
+}
+
+function clearAdminSessionCookie(res) {
+  if (!res?.clearCookie) return;
+  const options = { path: "/" };
+  if (sessionCookieDomain) {
+    options.domain = sessionCookieDomain;
   }
-  return token;
+  res.clearCookie("admin_session", options);
+}
+
+function logAdminAuthEvent(req, level, authError, message, extra = {}) {
+  const logMeta = {
+    module: "auth",
+    area: "admin",
+    authError: String(authError || "").trim() || "unknown",
+    method: req?.method,
+    path: req?.originalUrl || req?.url,
+    host: req?.get?.("host") || req?.headers?.host,
+    cfRay: req?.headers?.["cf-ray"] || null,
+    requestId: req?.id,
+    sourceIp: req?.ip,
+    userAgent: req?.headers?.["user-agent"],
+    ...extra,
+  };
+  if (level === "error") {
+    logger.error(logMeta, message);
+  } else if (level === "warn") {
+    logger.warn(logMeta, message);
+  } else {
+    logger.info(logMeta, message);
+  }
 }
 
 function getActorLabel(req){
@@ -8124,7 +8174,25 @@ async function ensureCustomerInRequestCompany(req, customerId) {
 
 async function requireAdmin(req, res, next){
   if (!req.user) {
-    return res.status(401).json({ error: "Nicht authentifiziert." });
+    const tokenInfo = getRequestTokenDetails(req);
+    if (tokenInfo.source === "cookie") {
+      clearAdminSessionCookie(res);
+    }
+    const authError = req.invalidAdminSession ? "invalid_admin_session" : "not_authenticated";
+    res.set("x-auth-error", authError.replace(/_/g, "-"));
+    logAdminAuthEvent(
+      req,
+      req.invalidAdminSession ? "warn" : "info",
+      authError,
+      "Admin access denied",
+      { tokenSource: tokenInfo.source || "none" }
+    );
+    return res.status(401).json({
+      error: req.invalidAdminSession
+        ? "Session ungültig oder abgelaufen. Bitte neu anmelden."
+        : "Nicht authentifiziert.",
+      authError,
+    });
   }
   const ssoRole = String(req.user?.role || "");
   if (SUPER_ADMIN_ROLES.has(ssoRole)) {
@@ -8228,7 +8296,7 @@ app.post("/api/admin/logout", requireAdmin, async (req, res) => {
       await db.deleteAdminSessionByTokenHash(customerAuth.hashSha256Hex(token));
     }
   } catch (_e) {}
-  res.clearCookie("admin_session");
+  clearAdminSessionCookie(res);
   res.json({ ok: true });
 });
 
