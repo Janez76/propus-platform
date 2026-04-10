@@ -4370,6 +4370,34 @@ app.post("/api/booking", async (req, res) => {
       email: String(object.onsiteEmail || billing.onsiteEmail || "").trim(),
       calendarInvite: false,
     };
+
+    // Zonen-Anfahrtspauschale auto-injizieren falls nicht bereits im Payload enthalten
+    const rawAddons = (services.addons || []).map(a => ({ id: a.id, label: a.label, price: a.price, group: a.group }));
+    const bookingHasTravelZone = rawAddons.some((a) => String(a.id || "").startsWith("travel:zone-"));
+    if (!bookingHasTravelZone) {
+      try {
+        // PLZ aus Adresstext extrahieren (z.B. "Sackmatt, 6212 Knutwil") oder aus Billing
+        const zipFromAddr = (addressText.match(/\b(\d{4})\b/) || [])[1] || "";
+        const zipFromBilling = String(billing.zip || (billing.zipcity || "").split(" ")[0] || "").trim();
+        const zipForZone = zipFromAddr || zipFromBilling;
+        const cantonForZone = String(payload.canton || billing.canton || "").trim();
+        if (zipForZone || cantonForZone) {
+          const tz = await resolveTravelZone(cantonForZone, zipForZone);
+          if (tz.productCode && tz.price > 0) {
+            rawAddons.push({ id: tz.productCode, group: "travel_zone", label: tz.label, price: tz.price });
+            // Preis korrigieren: Zone zum Subtotal addieren, MwSt und Total neu berechnen
+            subtotalFinal = Math.round((subtotalFinal + tz.price) * 100) / 100;
+            const vatBase = Math.max(0, subtotalFinal - discountAmountFinal);
+            vatFinal = Math.round(vatBase * vatRateSetting * 100) / 100;
+            totalFinal = Math.round((vatBase + vatFinal) * 100) / 100;
+            console.log("[booking] travel zone auto-injected", { orderNo, zone: tz.zone, zip: zipForZone, price: tz.price, newTotal: totalFinal });
+          }
+        }
+      } catch (tzErr) {
+        console.warn("[booking] travel zone auto-inject failed (non-critical):", tzErr?.message);
+      }
+    }
+
     const orderRecord = {
       orderNo,
       createdAt: new Date().toISOString(),
@@ -4384,7 +4412,7 @@ app.post("/api/booking", async (req, res) => {
       },
       services: {
         package: services.package || {},
-        addons: (services.addons || []).map(a => ({ id: a.id, label: a.label, price: a.price, group: a.group }))
+        addons: rawAddons,
       },
       photographer: { key: photographerKey, name: photographerName, email: photographerEmail },
       schedule: { date, time, durationMin },
