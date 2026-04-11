@@ -4496,31 +4496,9 @@ app.post("/api/booking", async (req, res) => {
     }
 
     // E-Mails erst nach erfolgreichem DB-Speichern senden
-    try {
-      await sendMailWithFallback({
-        to: officeMail.to,
-        subject: officeMail.subject,
-        html: officeMail.html,
-        text: officeMail.text,
-        context: `booking:${orderNo}:office`
-      });
-    } catch (err) {
-      const message = String(err?.message || err || "Office mail send failed");
-      const code = err?.code || "MAIL_SEND_FAILED";
-      console.error("[booking] office mail failed", {
-        requestId,
-        stage: "office",
-        code,
-        message,
-        attempts: err?.attempts || []
-      });
-      bookingWarnings.push({
-        stage: "office",
-        code,
-        message,
-        attempts: err?.attempts || []
-      });
-    }
+    // Büro-Mail bei Erstbuchung wird nicht gesendet – der Auftrag wartet auf
+    // Kundenbestätigung. Das Büro wird erst beim letzten Reminder (Tag 3) informiert.
+    console.log("[booking] Büro-Mail bei Erstbuchung unterdrückt (Bestätigung ausstehend):", orderNo);
     try {
       await sendMailWithFallback({
         to: photographerMail.to,
