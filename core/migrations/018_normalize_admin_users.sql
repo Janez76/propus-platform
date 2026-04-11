@@ -91,12 +91,23 @@ ON CONFLICT (LOWER(email)) DO UPDATE
     updated_at   = GREATEST(core.admin_users.updated_at, EXCLUDED.updated_at);
 
 -- Logto-User-IDs aus booking.admin_users übernehmen (falls vorhanden, via Migration 047)
-UPDATE core.admin_users cu
-SET logto_user_id = ba.logto_user_id
-FROM booking.admin_users ba
-WHERE LOWER(cu.email) = LOWER(COALESCE(ba.email, ba.username || '@propus.internal'))
-  AND ba.logto_user_id IS NOT NULL
-  AND cu.logto_user_id IS NULL;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'booking'
+      AND table_name   = 'admin_users'
+      AND column_name  = 'logto_user_id'
+  ) THEN
+    UPDATE core.admin_users cu
+    SET logto_user_id = ba.logto_user_id
+    FROM booking.admin_users ba
+    WHERE LOWER(cu.email) = LOWER(COALESCE(ba.email, ba.username || '@propus.internal'))
+      AND ba.logto_user_id IS NOT NULL
+      AND cu.logto_user_id IS NULL;
+  END IF;
+END;
+$$;
 
 -- ─── Bestehende Benutzer migrieren: tour_manager.admin_users ───────────────
 -- Tour-Manager-Admins (haben nur email, full_name, password_hash)

@@ -66,12 +66,21 @@ export function mountServicesAdmin(root: HTMLElement): void {
 	}
 
 	async function reload() {
-		const data = (await fetchCms()) as Partial<Cms>;
-		cms = {
-			services: Array.isArray(data.services) ? data.services : [],
-			media: Array.isArray(data.media) ? data.media : [],
-		};
-		render();
+		try {
+			const data = (await fetchCms()) as Partial<Cms>;
+			cms = {
+				services: Array.isArray(data.services) ? data.services : [],
+				media: Array.isArray(data.media) ? data.media : [],
+			};
+			render();
+		} catch {
+			const el = document.getElementById('admin-services-msg');
+			if (el) {
+				el.className = 'admin-msg admin-msg--err';
+				el.textContent = 'Daten konnten nicht geladen werden. Bitte Seite neu laden.';
+				el.hidden = false;
+			}
+		}
 	}
 
 	async function persistOrder(): Promise<boolean> {

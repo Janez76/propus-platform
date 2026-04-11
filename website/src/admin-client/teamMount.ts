@@ -57,9 +57,13 @@ export function mountTeamAdmin(root: HTMLElement): void {
 	}
 
 	async function reload() {
-		const data = (await fetchCms()) as Cms;
-		cms = data;
-		render();
+		try {
+			const data = (await fetchCms()) as Cms;
+			cms = data;
+			render();
+		} catch {
+			renderMsg('Daten konnten nicht geladen werden. Bitte Seite neu laden.', false);
+		}
 	}
 
 	async function persistTeamOrder(): Promise<boolean> {

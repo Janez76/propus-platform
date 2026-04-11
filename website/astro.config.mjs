@@ -16,6 +16,13 @@ export default defineConfig({
 	site: 'https://www.propus.ch',
 	output: 'server',
 	adapter: node({ mode: 'standalone' }),
+	security: {
+		// Astro laeuft hinter einem Reverse-Proxy (Nginx). Der Origin-Header
+		// kommt als https://www.propus.ch an, der interne Server kennt aber nur
+		// http://localhost:4343 → CSRF-Pruefung schlaegt fehl. Auth erfolgt
+		// ueber signierte Session-Cookies in der Middleware.
+		checkOrigin: false,
+	},
 	/* Fester Port: weniger Konflikte mit anderem Dev-Server, Cookies immer für dieselbe Origin */
 	server: {
 		port: 4343,

@@ -18,11 +18,19 @@ function nextSortInCategory(
 }
 
 export const POST: APIRoute = async ({ request }) => {
-	const cms = await readCms();
 	const ct = request.headers.get('content-type') || '';
 
 	if (ct.includes('multipart/form-data')) {
-		const form = await request.formData();
+		const cms = await readCms();
+		let form: FormData;
+		try {
+			form = await request.formData();
+		} catch {
+			return new Response(JSON.stringify({ error: 'Ungültige Formulardaten.' }), {
+				status: 400,
+				headers: { 'Content-Type': 'application/json; charset=utf-8' },
+			});
+		}
 		const kind = String(form.get('kind') || '');
 		const category = form.get('category') as PortfolioCategory;
 
@@ -142,6 +150,7 @@ export const POST: APIRoute = async ({ request }) => {
 		});
 	}
 
+	const cms = await readCms();
 	const mediaIds = new Set(cms.media.map((m) => m.id));
 
 	if (body.kind === 'image') {

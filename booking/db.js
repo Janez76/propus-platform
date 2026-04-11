@@ -2060,7 +2060,7 @@ async function getOrdersForCustomerEmail(email, { limit = 200, offset = 0 } = {}
   if (!normEmail) return [];
   try {
     const { rows } = await query(
-      `SELECT o.*, c.email AS customer_email, c.exxas_contact_id
+      `SELECT o.*, c.email AS customer_email, c.company AS customer_company, c.exxas_contact_id
        FROM orders o
        LEFT JOIN customers c ON c.id = o.customer_id
        WHERE core.customer_email_matches($1, COALESCE(c.email,''), COALESCE(c.email_aliases,'{}'))
@@ -2072,7 +2072,7 @@ async function getOrdersForCustomerEmail(email, { limit = 200, offset = 0 } = {}
     return rows.map(dbRowToRecord);
   } catch (_aliasErr) {
     const { rows } = await query(
-      `SELECT o.*, c.email AS customer_email, c.exxas_contact_id
+      `SELECT o.*, c.email AS customer_email, c.company AS customer_company, c.exxas_contact_id
        FROM orders o
        LEFT JOIN customers c ON c.id = o.customer_id
        WHERE LOWER(TRIM(COALESCE(c.email,''))) = $1
@@ -2239,7 +2239,7 @@ async function insertOrder(record, customerId, createdByMemberId = null) {
 
 async function getOrders({ status, limit = 500, offset = 0 } = {}) {
   let sql = `
-    SELECT o.*, c.email AS customer_email, c.exxas_contact_id, c.street AS customer_street, c.zipcity AS customer_zipcity,
+    SELECT o.*, c.email AS customer_email, c.company AS customer_company, c.exxas_contact_id, c.street AS customer_street, c.zipcity AS customer_zipcity,
            c.phone AS customer_phone,
            (to_jsonb(c)->>'nas_customer_folder_base') AS customer_nas_customer_folder_base,
            (to_jsonb(c)->>'nas_raw_folder_base') AS customer_nas_raw_folder_base,
@@ -2268,7 +2268,7 @@ async function getOrders({ status, limit = 500, offset = 0 } = {}) {
 
 async function getOrderByNo(orderNo) {
   const { rows } = await query(
-    `    SELECT o.*, c.email AS customer_email, c.exxas_contact_id, c.street AS customer_street, c.zipcity AS customer_zipcity,
+    `    SELECT o.*, c.email AS customer_email, c.company AS customer_company, c.exxas_contact_id, c.street AS customer_street, c.zipcity AS customer_zipcity,
             c.phone AS customer_phone,
             (to_jsonb(c)->>'nas_customer_folder_base') AS customer_nas_customer_folder_base,
             (to_jsonb(c)->>'nas_raw_folder_base') AS customer_nas_raw_folder_base,
@@ -3051,6 +3051,7 @@ function dbRowToRecord(row) {
     exxasStatus: row.exxas_status,
     exxasError: row.exxas_error,
     customerId: row.customer_id,
+    customerCompany: row.customer_company || null,
     customerEmail: row.customer_email,
     customerPhone: row.customer_phone,
     customerStreet: row.customer_street,

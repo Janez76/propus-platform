@@ -388,8 +388,12 @@ export function mountSeoSettingsAdmin(
 	}
 
 	async function reload() {
-		const cms = (await fetchCms()) as CmsState;
-		render(cms);
+		try {
+			const cms = (await fetchCms()) as CmsState;
+			render(cms);
+		} catch {
+			msg('Daten konnten nicht geladen werden. Bitte Seite neu laden.', false);
+		}
 	}
 
 	function render(cms: CmsState) {

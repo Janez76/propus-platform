@@ -71,12 +71,16 @@ export function mountClientLogosAdmin(root: HTMLElement): void {
 	}
 
 	async function reload() {
-		const data = (await fetchCms()) as Partial<Cms>;
-		cms = {
-			clientLogos: Array.isArray(data.clientLogos) ? data.clientLogos : [],
-			media: Array.isArray(data.media) ? data.media : [],
-		};
-		render();
+		try {
+			const data = (await fetchCms()) as Partial<Cms>;
+			cms = {
+				clientLogos: Array.isArray(data.clientLogos) ? data.clientLogos : [],
+				media: Array.isArray(data.media) ? data.media : [],
+			};
+			render();
+		} catch {
+			renderMsg('Daten konnten nicht geladen werden. Bitte Seite neu laden.', false);
+		}
 	}
 
 	async function persistOrder(): Promise<boolean> {

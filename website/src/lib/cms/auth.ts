@@ -11,7 +11,17 @@ function envString(key: string): string {
 }
 
 function adminSecret(): string {
-	return envString('PROPUS_ADMIN_SECRET') || 'propus-dev-secret-bitte-in-produktion-aendern';
+	const secret = envString('PROPUS_ADMIN_SECRET');
+	if (!secret) {
+		if (process.env.NODE_ENV === 'production') {
+			console.error(
+				'[auth] KRITISCH: PROPUS_ADMIN_SECRET ist nicht gesetzt! ' +
+					'Session-Tokens sind unsicher. Bitte sofort in der Umgebung setzen.',
+			);
+		}
+		return 'propus-dev-secret-bitte-in-produktion-aendern';
+	}
+	return secret;
 }
 
 export function adminUsername(): string {

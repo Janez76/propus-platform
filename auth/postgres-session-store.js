@@ -38,7 +38,13 @@ function createPostgresSessionStore(Store, options = {}) {
         throw new Error(`Invalid session table name: ${this.tableName}`);
       }
 
-      await this.pool.query(`CREATE SCHEMA IF NOT EXISTS ${schema}`);
+      try {
+        await this.pool.query(`CREATE SCHEMA IF NOT EXISTS ${schema}`);
+      } catch (err) {
+        // 23505 = unique_violation: race condition when two connections try to
+        // CREATE SCHEMA simultaneously on a fresh database — safe to ignore.
+        if (err.code !== '23505') throw err;
+      }
       await this.pool.query(`
       CREATE TABLE IF NOT EXISTS ${schema}.${rawTable} (
         sid TEXT PRIMARY KEY,
