@@ -45,6 +45,7 @@ const ChangelogPage = lazy(() => import("../pages-legacy/ChangelogPage").then((m
 const ExxasReconcilePage = lazy(() => import("../pages-legacy/ExxasReconcilePage").then((m) => ({ default: m.ExxasReconcilePage })));
 const PaymentSettingsPage = lazy(() => import("../pages-legacy/PaymentSettingsPage").then((m) => ({ default: m.PaymentSettingsPage })));
 const InvoiceTemplatePage = lazy(() => import("../pages-legacy/InvoiceTemplatePage").then((m) => ({ default: m.InvoiceTemplatePage })));
+const FinanzEinstellungenPage = lazy(() => import("../pages-legacy/FinanzEinstellungenPage").then((m) => ({ default: m.FinanzEinstellungenPage })));
 const CompanyManagementPage = lazy(() => import("../pages-legacy/CompanyManagementPage").then((m) => ({ default: m.CompanyManagementPage })));
 const RolesPage = lazy(() => import("../pages-legacy/RolesPage").then((m) => ({ default: m.RolesPage })));
 const RoleMatrixPage = lazy(() => import("../pages-legacy/RoleMatrixPage").then((m) => ({ default: m.RoleMatrixPage })));
@@ -218,6 +219,7 @@ function PrivateRoutes() {
         <Route path="/settings/calendar-templates" element={guardedElement(adminOnlyRoles, <CalendarTemplatesPage />)} />
         <Route path="/settings/payment" element={guardedElement(adminOnlyRoles, <PaymentSettingsPage />)} />
         <Route path="/settings/invoice-template" element={guardedElement(adminOnlyRoles, <InvoiceTemplatePage />)} />
+        <Route path="/settings/finanzen" element={guardedElement(adminOnlyRoles, <FinanzEinstellungenPage />)} />
         <Route path="/settings/exxas" element={guardedElement(adminOnlyRoles, <ConfigurationPage initialTab="exxas" />)} />
         <Route path="/exxas-reconcile" element={guardedElement(adminOnlyRoles, <ExxasReconcilePage />)} />
         <Route path="/settings/team" element={guardedElement(adminOnlyRoles, <ConfigurationPage initialTab="employees" />)} />

@@ -107,6 +107,7 @@ const settingsSubItems = [
   { path: "/settings/team", icon: UserCircle, labelKey: "nav.employees" },
   { path: "/settings/payment", icon: CreditCard, labelKey: "sidebar.nav.paymentSettings" },
   { path: "/settings/invoice-template", icon: FileText, labelKey: "sidebar.nav.invoiceTemplate" },
+  { path: "/settings/finanzen", icon: FileText, labelKey: "sidebar.nav.finanzDokumente" },
   { path: "/settings/email-templates", icon: Mail, labelKey: "sidebar.nav.emailTemplates" },
   { path: "/settings/calendar-templates", icon: CalendarDays, labelKey: "sidebar.nav.calendarIcs" },
   { path: "/settings/exxas", icon: Plug, labelKey: "sidebar.nav.exxas" },
