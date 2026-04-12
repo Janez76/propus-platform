@@ -13386,6 +13386,31 @@ if (fs.existsSync(PHOTOGRAPHER_PORTRAIT_DIR)) {
           <a href="${qrUrl}" class="btn" style="background:#fff;color:#1f2937;border:1px solid #e8e0d0;">QR-Rechnung</a>` }));
       }
 
+      // Kostenlose Reaktivierung (Tour <= 6 Monate alt, oder einmalige Kulanz)
+      if (rule.needsFreeReactivation) {
+        const cleanupDashboard = require("../tours/lib/cleanup-dashboard");
+        const spaceId = tour.canonical_matterport_space_id || tour.matterport_space_id || null;
+        await cleanupDashboard.activateTourAndSpace(tour.id, spaceId);
+        if (spaceId) {
+          const mp = require("../tours/lib/matterport");
+          await mp.setVisibility(spaceId, 'LINK_ONLY').catch(() => {});
+        }
+        const { getSubscriptionWindowFromStart } = require("../tours/lib/subscriptions");
+        const subWindow = getSubscriptionWindowFromStart(new Date());
+        await pgPool.query(
+          `UPDATE tour_manager.tours
+           SET term_end_date = $2::date,
+               ablaufdatum = $2::date,
+               subscription_start_date = $3::date,
+               updated_at = NOW()
+           WHERE id = $1`,
+          [tour.id, subWindow.endDate, subWindow.startDate]
+        );
+        await logAction(tour.id, "customer", tour.customer_email, "CLEANUP_ACTION_WEITERFUEHREN_FREE", { freeReactivation: true, spaceId });
+        return res.send(cleanupPage({ title: "Tour kostenlos reaktiviert \u2713", icon: "\u2713", color: "#059669",
+          body: "<p>Danke! Ihre Tour wurde im Rahmen des Bereinigungslaufs <strong>einmalig kostenlos reaktiviert</strong>. Sie ist ab sofort wieder \u00fcber den direkten Link erreichbar.</p>" }));
+      }
+
       // Aktive Tour: Entscheid protokollieren, fertig
       const pgPool = require("../tours/lib/db").pool;
       await pgPool.query(
@@ -13395,8 +13420,8 @@ if (fs.existsSync(PHOTOGRAPHER_PORTRAIT_DIR)) {
       const cleanupDashboard = require("../tours/lib/cleanup-dashboard");
       await cleanupDashboard.activateTourAndSpace(tour.id, tour.canonical_matterport_space_id || tour.matterport_space_id || null);
       await logAction(tour.id, "customer", tour.customer_email, "CLEANUP_ACTION_WEITERFUEHREN", {});
-      return res.send(cleanupPage({ title: "Tour wird weitergeführt", icon: "✓", color: "#059669",
-        body: "<p>Danke! Ihre Tour wird wie gewohnt weitergeführt. Wir freuen uns, Sie weiterhin als Kunden zu haben.</p>" }));
+      return res.send(cleanupPage({ title: "Tour wird weitergef\u00fchrt", icon: "\u2713", color: "#059669",
+        body: "<p>Danke! Ihre Tour wird wie gewohnt weitergef\u00fchrt. Wir freuen uns, Sie weiterhin als Kunden zu haben.</p>" }));
     } catch (err) {
       console.error("[cleanup] weiterfuehren:", err.message);
       return res.status(500).send(cleanupPage({ title: "Fehler", icon: "⚠", color: "#b91c1c", body: "<p class=\"err\">Interner Fehler. Bitte kontaktieren Sie uns unter office@propus.ch.</p>" }));
