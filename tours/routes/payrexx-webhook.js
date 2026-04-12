@@ -15,7 +15,7 @@ const router = express.Router();
 const { pool } = require('../lib/db');
 const { logAction } = require('../lib/actions');
 const { normalizeTourRow } = require('../lib/normalize');
-const { unarchiveSpace: mpUnarchiveSpace } = require('../lib/matterport');
+const { unarchiveSpace: mpUnarchiveSpace, setVisibility: mpSetVisibility } = require('../lib/matterport');
 const payrexx = require('../lib/payrexx');
 const { getSubscriptionWindowFromStart } = require('../lib/subscriptions');
 const tourActions = require('../lib/tour-actions');
@@ -123,7 +123,12 @@ router.post('/payrexx', express.raw({ type: '*/*' }), async (req, res) => {
 
       if (isReactivation && tour?.matterport_space_id) {
         const mpResult = await mpUnarchiveSpace(tour.matterport_space_id);
-        if (mpResult?.success) matterportState = 'active';
+        if (mpResult?.success) {
+          matterportState = 'active';
+          await mpSetVisibility(tour.matterport_space_id, 'LINK_ONLY').catch((err) =>
+            console.warn('payrexx-webhook: setVisibility LINK_ONLY failed', tour.matterport_space_id, err?.message)
+          );
+        }
       }
 
       await pool.query(
