@@ -4705,12 +4705,44 @@ app.get("/api/booking/confirm/:token", async (req, res) => {
     if (mailEnabled && mailEnabled.value && sendMailWithFallback) {
       const orderObj = await db.getOrderByNo(orderNo);
       if (orderObj) {
-        const vars = templateRenderer.buildTemplateVars(orderObj, {});
-        const sendFn = function (to, subj, html, text) {
-          return sendMailWithFallback({ to, subject: subj, html, text, context: "confirm:" + orderNo });
+        const googleReviewSetting = await getSetting("google.reviewLink").catch(() => null);
+        const googleReviewLink = (googleReviewSetting && googleReviewSetting.value) || process.env.GOOGLE_REVIEW_LINK || "";
+        const vars = templateRenderer.buildTemplateVars(orderObj, { googleReviewLink });
+        const sendFn = function (to, subj, html, text, icsAtt) {
+          return sendMailWithFallback({ to, subject: subj, html, text, icsAttachment: icsAtt || null, context: "confirm:" + orderNo });
         };
+
+        // ICS-Datei für Kunden-Bestätigung bauen
+        let customerIcs = null;
+        try {
+          const sched = orderObj.schedule || {};
+          if (sched.date && sched.time) {
+            const icsTitle = buildCalendarSubject({ title: orderObj.address || "Propus Shooting", orderNo });
+            const icsDesc = [
+              `Auftrag #${orderNo}`,
+              `Adresse: ${orderObj.address || ""}`,
+              `Fotograf: ${orderObj.photographer?.name || ""}`,
+            ].join("\n");
+            const { icsContent } = buildIcsEvent({
+              title: icsTitle,
+              description: icsDesc,
+              location: orderObj.address || "-",
+              date: sched.date,
+              time: sched.time,
+              durationMin: sched.durationMin || 60,
+            });
+            customerIcs = {
+              filename: `Propus-Termin-${orderNo}.ics`,
+              content: icsContent,
+              contentType: "text/calendar; method=REQUEST",
+            };
+          }
+        } catch (icsErr) {
+          console.warn("[confirm] ICS-Generierung fehlgeschlagen:", icsErr?.message);
+        }
+
         if (orderObj.billing?.email) {
-          templateRenderer.sendMailIdempotent(pool, "confirmed_customer", orderObj.billing.email, orderNo, vars, sendFn)
+          templateRenderer.sendMailIdempotent(pool, "confirmed_customer", orderObj.billing.email, orderNo, vars, sendFn, undefined, customerIcs)
             .catch(function (e) { console.error("[confirm] confirmed_customer mail failed:", e?.message); });
         }
         if (OFFICE_EMAIL) {
