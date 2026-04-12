@@ -628,7 +628,7 @@ function deriveOrderNaming(order) {
   const customerId = normalizeFolderId(order?.customerId, orderNo);
   const rawDisplayName = `${zipCity}, ${street} #${orderNo}`;
   const companyName = sanitizePathSegment(
-    billing.company || order?.customerName || order?.billing?.name || `Auftrag ${orderNo}`,
+    order?.customerCompany || billing.company || order?.customerName || order?.billing?.name || `Auftrag ${orderNo}`,
     `Auftrag ${orderNo}`,
   );
   const customerCompanyName = sanitizePathSegment(`${companyName} #${customerId}`, companyName, 200);

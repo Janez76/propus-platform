@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS access_subjects (
                         )),
   admin_user_id        BIGINT REFERENCES admin_users(id) ON DELETE CASCADE,
   photographer_key     TEXT REFERENCES photographers(key) ON DELETE CASCADE,
-  customer_id          INTEGER REFERENCES customers(id) ON DELETE CASCADE,
+  customer_id          INTEGER REFERENCES core.customers(id) ON DELETE CASCADE,
   customer_contact_id  INTEGER REFERENCES customer_contacts(id) ON DELETE CASCADE,
   company_member_id    INTEGER REFERENCES company_members(id) ON DELETE CASCADE,
   created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS permission_groups (
   name                TEXT NOT NULL,
   scope_type          TEXT NOT NULL CHECK (scope_type IN ('system','company','customer')),
   scope_company_id    INTEGER REFERENCES companies(id) ON DELETE CASCADE,
-  scope_customer_id   INTEGER REFERENCES customers(id) ON DELETE CASCADE,
+  scope_customer_id   INTEGER REFERENCES core.customers(id) ON DELETE CASCADE,
   created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT permission_groups_scope_ok CHECK (
@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS subject_permission_overrides (
   effect              TEXT NOT NULL CHECK (effect IN ('allow','deny')),
   scope_type          TEXT NOT NULL DEFAULT 'system' CHECK (scope_type IN ('system','company','customer')),
   scope_company_id    INTEGER REFERENCES companies(id) ON DELETE CASCADE,
-  scope_customer_id   INTEGER REFERENCES customers(id) ON DELETE CASCADE,
+  scope_customer_id   INTEGER REFERENCES core.customers(id) ON DELETE CASCADE,
   created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -109,3 +109,4 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_subject_perm_override_uq
   );
 
 CREATE INDEX IF NOT EXISTS idx_subject_perm_override_subject ON subject_permission_overrides(subject_id);
+

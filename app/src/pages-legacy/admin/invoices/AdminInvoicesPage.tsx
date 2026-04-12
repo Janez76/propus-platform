@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Plus, Search } from "lucide-react";
+import { Plus, RefreshCw, Search } from "lucide-react";
 import {
   archiveAdminInvoice,
   deleteAdminInvoice,
@@ -18,6 +18,7 @@ import {
   RENEWAL_FILTERS,
   EditInvoiceModal,
   ExxasTable,
+  RechnungslaufModal,
   RenewalTable,
   StatCard,
 } from "./invoice-components";
@@ -32,6 +33,7 @@ export function AdminInvoicesPage() {
   const [exxasSearchInput, setExxasSearchInput] = useState("");
   const [editingInvoice, setEditingInvoice] = useState<EditingInvoice>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showRechnungslauf, setShowRechnungslauf] = useState(false);
   const [busyActionKey, setBusyActionKey] = useState<string | null>(null);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
   const [actionErr, setActionErr] = useState<string | null>(null);
@@ -175,14 +177,24 @@ export function AdminInvoicesPage() {
           <h1 className="text-2xl font-bold text-[var(--text-main)]">Rechnungen</h1>
           <p className="text-sm text-[var(--text-subtle)] mt-1">Zentrale Rechnungsübersicht — interne Rechnungen als Zielsystem, Exxas als Übergangsquelle.</p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowCreateModal(true)}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--accent)]/90 shrink-0"
-        >
-          <Plus className="h-4 w-4" />
-          Neue Rechnung
-        </button>
+        <div className="flex gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => setShowRechnungslauf(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-soft)] px-4 py-2 text-sm font-medium text-[var(--text-subtle)] hover:text-[var(--text-main)] hover:border-[var(--accent)]/50"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Rechnungslauf
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowCreateModal(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--accent)]/90"
+          >
+            <Plus className="h-4 w-4" />
+            Neue Rechnung
+          </button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -328,6 +340,16 @@ export function AdminInvoicesPage() {
           invoice={editingInvoice.invoice}
           onClose={() => setEditingInvoice(null)}
           onSaved={(message) => void handleEditSaved(message)}
+        />
+      ) : null}
+
+      {showRechnungslauf ? (
+        <RechnungslaufModal
+          onClose={() => setShowRechnungslauf(false)}
+          onDone={() => {
+            setShowRechnungslauf(false);
+            void refreshInvoices();
+          }}
         />
       ) : null}
 

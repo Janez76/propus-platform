@@ -6,7 +6,15 @@ export const prerender = false;
 
 /** Upload für Medienbibliothek, Team- und Portfolio-Flows. */
 export const POST: APIRoute = async ({ request }) => {
-	const form = await request.formData();
+	let form: FormData;
+	try {
+		form = await request.formData();
+	} catch {
+		return new Response(JSON.stringify({ error: 'Ungültige Formulardaten.' }), {
+			status: 400,
+			headers: { 'Content-Type': 'application/json; charset=utf-8' },
+		});
+	}
 	const file = form.get('file');
 	const alt = typeof form.get('alt') === 'string' ? String(form.get('alt')).trim() : '';
 	if (!file || !(file instanceof File)) {

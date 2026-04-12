@@ -141,14 +141,8 @@ function scheduleConfirmationPending(deps) {
                 });
               mailSummary.push({ role: "customer", templateKey: "provisional_created", sent: customerResult && customerResult.sent === true, reason: customerResult && customerResult.reason ? customerResult.reason : null });
             }
-            if (OFFICE_EMAIL) {
-              const officeResult = await sendMailIdempotent(pool, "office_confirmation_pending_notice", OFFICE_EMAIL, orderNo, vars, sendFn)
-                .catch(function(e) {
-                  console.error("[job:confirmation-pending] office notice mail failed:", orderNo, e && e.message);
-                  return { sent: false, reason: "send_error" };
-                });
-              mailSummary.push({ role: "office", templateKey: "office_confirmation_pending_notice", sent: officeResult && officeResult.sent === true, reason: officeResult && officeResult.reason ? officeResult.reason : null });
-            }
+            // Büro-Hinweis bei pending→provisional wird nicht mehr gesendet.
+            // Das Büro wird erst beim Reminder 3 (letzter Tag vor Ablauf) benachrichtigt.
             const attendeeResult = await sendAttendeeNotifications(pool, orderObj, "provisional", sendFn)
               .catch(function(e) {
                 console.error("[job:confirmation-pending] attendee CC mail failed:", orderNo, e && e.message);

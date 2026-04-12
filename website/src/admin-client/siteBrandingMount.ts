@@ -65,18 +65,22 @@ export function mountSiteBrandingAdmin(root: HTMLElement): void {
 	}
 
 	async function reload() {
-		const data = (await fetchCms()) as Partial<Cms>;
-		cms = {
-			media: Array.isArray(data.media) ? data.media : [],
-			headerLogoUrl: typeof data.headerLogoUrl === 'string' ? data.headerLogoUrl : undefined,
-			headerLogoMediaId: typeof data.headerLogoMediaId === 'string' ? data.headerLogoMediaId : undefined,
-			headerLogoDarkUrl: typeof data.headerLogoDarkUrl === 'string' ? data.headerLogoDarkUrl : undefined,
-			headerLogoDarkMediaId:
-				typeof data.headerLogoDarkMediaId === 'string' ? data.headerLogoDarkMediaId : undefined,
-			faviconUrl: typeof data.faviconUrl === 'string' ? data.faviconUrl : undefined,
-			faviconMediaId: typeof data.faviconMediaId === 'string' ? data.faviconMediaId : undefined,
-		};
-		render();
+		try {
+			const data = (await fetchCms()) as Partial<Cms>;
+			cms = {
+				media: Array.isArray(data.media) ? data.media : [],
+				headerLogoUrl: typeof data.headerLogoUrl === 'string' ? data.headerLogoUrl : undefined,
+				headerLogoMediaId: typeof data.headerLogoMediaId === 'string' ? data.headerLogoMediaId : undefined,
+				headerLogoDarkUrl: typeof data.headerLogoDarkUrl === 'string' ? data.headerLogoDarkUrl : undefined,
+				headerLogoDarkMediaId:
+					typeof data.headerLogoDarkMediaId === 'string' ? data.headerLogoDarkMediaId : undefined,
+				faviconUrl: typeof data.faviconUrl === 'string' ? data.faviconUrl : undefined,
+				faviconMediaId: typeof data.faviconMediaId === 'string' ? data.faviconMediaId : undefined,
+			};
+			render();
+		} catch {
+			showMsg('Daten konnten nicht geladen werden. Bitte Seite neu laden.', false);
+		}
 	}
 
 	function render() {

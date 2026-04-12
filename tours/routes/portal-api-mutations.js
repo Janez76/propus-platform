@@ -747,7 +747,7 @@ router.post('/tours/:id/visibility', async (req, res) => {
     if (!raw) return res.status(403).json({ error: 'Nicht erlaubt' });
 
     const tourNorm = normalizeTourRow(raw);
-    const spaceId = tourNorm.canonical_matterport_space_id;
+    const spaceId = tourNorm.canonical_matterport_space_id || tourNorm.matterport_space_id || null;
     if (!spaceId) return res.status(400).json({ error: 'no_matterport' });
 
     const visibility = String(req.body?.visibility || '').toUpperCase();

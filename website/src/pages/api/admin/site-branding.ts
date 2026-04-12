@@ -102,7 +102,11 @@ export const PATCH: APIRoute = async ({ request }) => {
 				headers: { 'Content-Type': 'application/json; charset=utf-8' },
 			});
 		}
-		throw e;
+		console.error('[site-branding] Unerwarteter Fehler:', e);
+		return new Response(JSON.stringify({ error: 'Interner Fehler beim Speichern des Brandings.' }), {
+			status: 500,
+			headers: { 'Content-Type': 'application/json; charset=utf-8' },
+		});
 	}
 
 	await writeCms(cms);

@@ -653,7 +653,7 @@ async function sendMailViaGraph(to, subject, htmlBody, textBody, icsAttachment, 
     if (attachments.length > 0) {
       message.attachments = attachments;
     }
-    await graphClient.api(`/users/${MAIL_FROM}/sendMail`).post({ message, saveToSentItems: false });
+    await graphClient.api(`/users/${MAIL_FROM}/sendMail`).post({ message, saveToSentItems: true });
     pushMailDiagnostic({
       status: "ok",
       context: "graph-direct",
@@ -716,7 +716,7 @@ async function sendMailViaGraphStrict(to, subject, htmlBody, textBody, icsAttach
   if (attachments.length > 0) {
     message.attachments = attachments;
   }
-  await graphClient.api(`/users/${MAIL_FROM}/sendMail`).post({ message, saveToSentItems: false });
+  await graphClient.api(`/users/${MAIL_FROM}/sendMail`).post({ message, saveToSentItems: true });
 }
 
 async function sendMailWithFallback({ to, subject, html, text, icsAttachment = null, icsAttachments = null, context = "generic" }) {
@@ -2287,12 +2287,25 @@ app.use(session({
   }
 }));
 // Admin-Session per Bearer-Token / admin_session-Cookie (admin_sessions)
-app.use(async (req, _res, next) => {
+app.use(async (req, res, next) => {
   try {
-    const token = getRequestToken(req);
+    const { token, source } = getRequestTokenDetails(req);
     if (!token || !db.getAdminSessionByTokenHash) return next();
     const row = await db.getAdminSessionByTokenHash(customerAuth.hashSha256Hex(token));
-    if (!row) return next();
+    if (!row) {
+      if (source === "cookie") {
+        req.invalidAdminSession = true;
+        clearAdminSessionCookie(res);
+        logAdminAuthEvent(
+          req,
+          "warn",
+          "invalid_admin_session",
+          "Admin session cookie invalid; cookie cleared",
+          { tokenSource: source }
+        );
+      }
+      return next();
+    }
     const userKey = row.user_key != null ? String(row.user_key) : "";
     const userName = row.user_name || "";
     const emailFromKey = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userKey) ? userKey : "";
@@ -2339,7 +2352,7 @@ app.get("/auth/logout", async (req, res) => {
       await db.deleteAdminSessionByTokenHash(customerAuth.hashSha256Hex(token));
     }
   } catch (_e) {}
-  res.clearCookie("admin_session");
+  clearAdminSessionCookie(res);
   req.session.destroy(() => {
     res.redirect(resolveAdminFrontendUrl(req));
   });
@@ -4357,6 +4370,34 @@ app.post("/api/booking", async (req, res) => {
       email: String(object.onsiteEmail || billing.onsiteEmail || "").trim(),
       calendarInvite: false,
     };
+
+    // Zonen-Anfahrtspauschale auto-injizieren falls nicht bereits im Payload enthalten
+    const rawAddons = (services.addons || []).map(a => ({ id: a.id, label: a.label, price: a.price, group: a.group }));
+    const bookingHasTravelZone = rawAddons.some((a) => String(a.id || "").startsWith("travel:zone-"));
+    if (!bookingHasTravelZone) {
+      try {
+        // PLZ aus Adresstext extrahieren (z.B. "Sackmatt, 6212 Knutwil") oder aus Billing
+        const zipFromAddr = (addressText.match(/\b(\d{4})\b/) || [])[1] || "";
+        const zipFromBilling = String(billing.zip || (billing.zipcity || "").split(" ")[0] || "").trim();
+        const zipForZone = zipFromAddr || zipFromBilling;
+        const cantonForZone = String(payload.canton || billing.canton || "").trim();
+        if (zipForZone || cantonForZone) {
+          const tz = await resolveTravelZone(cantonForZone, zipForZone);
+          if (tz.productCode && tz.price > 0) {
+            rawAddons.push({ id: tz.productCode, group: "travel_zone", label: tz.label, price: tz.price });
+            // Preis korrigieren: Zone zum Subtotal addieren, MwSt und Total neu berechnen
+            subtotalFinal = Math.round((subtotalFinal + tz.price) * 100) / 100;
+            const vatBase = Math.max(0, subtotalFinal - discountAmountFinal);
+            vatFinal = Math.round(vatBase * vatRateSetting * 100) / 100;
+            totalFinal = Math.round((vatBase + vatFinal) * 100) / 100;
+            console.log("[booking] travel zone auto-injected", { orderNo, zone: tz.zone, zip: zipForZone, price: tz.price, newTotal: totalFinal });
+          }
+        }
+      } catch (tzErr) {
+        console.warn("[booking] travel zone auto-inject failed (non-critical):", tzErr?.message);
+      }
+    }
+
     const orderRecord = {
       orderNo,
       createdAt: new Date().toISOString(),
@@ -4371,7 +4412,7 @@ app.post("/api/booking", async (req, res) => {
       },
       services: {
         package: services.package || {},
-        addons: (services.addons || []).map(a => ({ id: a.id, label: a.label, price: a.price, group: a.group }))
+        addons: rawAddons,
       },
       photographer: { key: photographerKey, name: photographerName, email: photographerEmail },
       schedule: { date, time, durationMin },
@@ -4455,31 +4496,9 @@ app.post("/api/booking", async (req, res) => {
     }
 
     // E-Mails erst nach erfolgreichem DB-Speichern senden
-    try {
-      await sendMailWithFallback({
-        to: officeMail.to,
-        subject: officeMail.subject,
-        html: officeMail.html,
-        text: officeMail.text,
-        context: `booking:${orderNo}:office`
-      });
-    } catch (err) {
-      const message = String(err?.message || err || "Office mail send failed");
-      const code = err?.code || "MAIL_SEND_FAILED";
-      console.error("[booking] office mail failed", {
-        requestId,
-        stage: "office",
-        code,
-        message,
-        attempts: err?.attempts || []
-      });
-      bookingWarnings.push({
-        stage: "office",
-        code,
-        message,
-        attempts: err?.attempts || []
-      });
-    }
+    // Büro-Mail bei Erstbuchung wird nicht gesendet – der Auftrag wartet auf
+    // Kundenbestätigung. Das Büro wird erst beim letzten Reminder (Tag 3) informiert.
+    console.log("[booking] Büro-Mail bei Erstbuchung unterdrückt (Bestätigung ausstehend):", orderNo);
     try {
       await sendMailWithFallback({
         to: photographerMail.to,
@@ -4686,12 +4705,44 @@ app.get("/api/booking/confirm/:token", async (req, res) => {
     if (mailEnabled && mailEnabled.value && sendMailWithFallback) {
       const orderObj = await db.getOrderByNo(orderNo);
       if (orderObj) {
-        const vars = templateRenderer.buildTemplateVars(orderObj, {});
-        const sendFn = function (to, subj, html, text) {
-          return sendMailWithFallback({ to, subject: subj, html, text, context: "confirm:" + orderNo });
+        const googleReviewSetting = await getSetting("google.reviewLink").catch(() => null);
+        const googleReviewLink = (googleReviewSetting && googleReviewSetting.value) || process.env.GOOGLE_REVIEW_LINK || "";
+        const vars = templateRenderer.buildTemplateVars(orderObj, { googleReviewLink });
+        const sendFn = function (to, subj, html, text, icsAtt) {
+          return sendMailWithFallback({ to, subject: subj, html, text, icsAttachment: icsAtt || null, context: "confirm:" + orderNo });
         };
+
+        // ICS-Datei für Kunden-Bestätigung bauen
+        let customerIcs = null;
+        try {
+          const sched = orderObj.schedule || {};
+          if (sched.date && sched.time) {
+            const icsTitle = buildCalendarSubject({ title: orderObj.address || "Propus Shooting", orderNo });
+            const icsDesc = [
+              `Auftrag #${orderNo}`,
+              `Adresse: ${orderObj.address || ""}`,
+              `Fotograf: ${orderObj.photographer?.name || ""}`,
+            ].join("\n");
+            const { icsContent } = buildIcsEvent({
+              title: icsTitle,
+              description: icsDesc,
+              location: orderObj.address || "-",
+              date: sched.date,
+              time: sched.time,
+              durationMin: sched.durationMin || 60,
+            });
+            customerIcs = {
+              filename: `Propus-Termin-${orderNo}.ics`,
+              content: icsContent,
+              contentType: "text/calendar; method=REQUEST",
+            };
+          }
+        } catch (icsErr) {
+          console.warn("[confirm] ICS-Generierung fehlgeschlagen:", icsErr?.message);
+        }
+
         if (orderObj.billing?.email) {
-          templateRenderer.sendMailIdempotent(pool, "confirmed_customer", orderObj.billing.email, orderNo, vars, sendFn)
+          templateRenderer.sendMailIdempotent(pool, "confirmed_customer", orderObj.billing.email, orderNo, vars, sendFn, undefined, customerIcs)
             .catch(function (e) { console.error("[confirm] confirmed_customer mail failed:", e?.message); });
         }
         if (OFFICE_EMAIL) {
@@ -7911,25 +7962,62 @@ async function issueAdminSession(res, { role = "admin", rememberMe = false, user
 }
 
 
-function getRequestToken(req) {
+function getRequestTokenDetails(req) {
   // 1. Bearer Header
   const auth = req.headers.authorization || "";
   let token = auth.replace(/^Bearer\s+/i, "").trim();
+  if (token) return { token, source: "bearer" };
   // 2. Cookie als Fallback fuer Sessions
-  if(!token && req.headers.cookie) {
+  if (req.headers.cookie) {
     const cookies = req.headers.cookie.split(";").map(c => c.trim());
-    for(const c of cookies) {
-      if(c.startsWith("admin_session=")) {
+    for (const c of cookies) {
+      if (c.startsWith("admin_session=")) {
         token = c.substring("admin_session=".length);
         break;
       }
     }
+    if (token) return { token, source: "cookie" };
   }
   // 3. Query Param
-  if(!token) {
-    token = String(req.query.token || "").trim();
+  token = String(req.query.token || "").trim();
+  if (token) return { token, source: "query" };
+  return { token: "", source: null };
+}
+
+function getRequestToken(req) {
+  return getRequestTokenDetails(req).token;
+}
+
+function clearAdminSessionCookie(res) {
+  if (!res?.clearCookie) return;
+  const options = { path: "/" };
+  if (sessionCookieDomain) {
+    options.domain = sessionCookieDomain;
   }
-  return token;
+  res.clearCookie("admin_session", options);
+}
+
+function logAdminAuthEvent(req, level, authError, message, extra = {}) {
+  const logMeta = {
+    module: "auth",
+    area: "admin",
+    authError: String(authError || "").trim() || "unknown",
+    method: req?.method,
+    path: req?.originalUrl || req?.url,
+    host: req?.get?.("host") || req?.headers?.host,
+    cfRay: req?.headers?.["cf-ray"] || null,
+    requestId: req?.id,
+    sourceIp: req?.ip,
+    userAgent: req?.headers?.["user-agent"],
+    ...extra,
+  };
+  if (level === "error") {
+    logger.error(logMeta, message);
+  } else if (level === "warn") {
+    logger.warn(logMeta, message);
+  } else {
+    logger.info(logMeta, message);
+  }
 }
 
 function getActorLabel(req){
@@ -8124,7 +8212,25 @@ async function ensureCustomerInRequestCompany(req, customerId) {
 
 async function requireAdmin(req, res, next){
   if (!req.user) {
-    return res.status(401).json({ error: "Nicht authentifiziert." });
+    const tokenInfo = getRequestTokenDetails(req);
+    if (tokenInfo.source === "cookie") {
+      clearAdminSessionCookie(res);
+    }
+    const authError = req.invalidAdminSession ? "invalid_admin_session" : "not_authenticated";
+    res.set("x-auth-error", authError.replace(/_/g, "-"));
+    logAdminAuthEvent(
+      req,
+      req.invalidAdminSession ? "warn" : "info",
+      authError,
+      "Admin access denied",
+      { tokenSource: tokenInfo.source || "none" }
+    );
+    return res.status(401).json({
+      error: req.invalidAdminSession
+        ? "Session ungültig oder abgelaufen. Bitte neu anmelden."
+        : "Nicht authentifiziert.",
+      authError,
+    });
   }
   const ssoRole = String(req.user?.role || "");
   if (SUPER_ADMIN_ROLES.has(ssoRole)) {
@@ -8228,7 +8334,7 @@ app.post("/api/admin/logout", requireAdmin, async (req, res) => {
       await db.deleteAdminSessionByTokenHash(customerAuth.hashSha256Hex(token));
     }
   } catch (_e) {}
-  res.clearCookie("admin_session");
+  clearAdminSessionCookie(res);
   res.json({ ok: true });
 });
 
@@ -13286,6 +13392,8 @@ if (fs.existsSync(PHOTOGRAPHER_PORTRAIT_DIR)) {
         `UPDATE tour_manager.tours SET cleanup_action = 'weiterfuehren', cleanup_action_at = NOW(), updated_at = NOW() WHERE id = $1`,
         [tour.id]
       );
+      const cleanupDashboard = require("../tours/lib/cleanup-dashboard");
+      await cleanupDashboard.activateTourAndSpace(tour.id, tour.canonical_matterport_space_id || tour.matterport_space_id || null);
       await logAction(tour.id, "customer", tour.customer_email, "CLEANUP_ACTION_WEITERFUEHREN", {});
       return res.send(cleanupPage({ title: "Tour wird weitergeführt", icon: "✓", color: "#059669",
         body: "<p>Danke! Ihre Tour wird wie gewohnt weitergeführt. Wir freuen uns, Sie weiterhin als Kunden zu haben.</p>" }));
@@ -13375,9 +13483,8 @@ if (fs.existsSync(PHOTOGRAPHER_PORTRAIT_DIR)) {
       const amount = rule.invoiceAmount || EXTENSION_PRICE_CHF;
       const invoiceKind = tour.status === "ARCHIVED" ? "portal_reactivation" : "portal_extension";
 
-      // Space ggf. reaktivieren
-      if (spaceId) { try { await mp.unarchiveSpace(spaceId); } catch (_) { /* best-effort */ } }
-      await pgPool.query(`UPDATE tour_manager.tours SET status = 'ACTIVE', updated_at = NOW() WHERE id = $1`, [tour.id]);
+      const cleanupDashboard = require("../tours/lib/cleanup-dashboard");
+      await cleanupDashboard.activateTourAndSpace(tour.id, spaceId);
 
       const dbInv = await pgPool.query(
         `INSERT INTO tour_manager.renewal_invoices
@@ -13488,17 +13595,21 @@ if (fs.existsSync(PHOTOGRAPHER_PORTRAIT_DIR)) {
           body: `<p class="err">${result.error || "Ungültiger Link."}</p>` }));
       }
       const { tour } = result;
-      await logAction(tour.id, "customer", tour.customer_email, "CLEANUP_ACTION_LOESCHEN_CONFIRMED", {});
-      // Matterport löschen
-      try {
-        const mp = require("../tours/lib/matterport");
-        const spaceId = tour.canonical_matterport_space_id || tour.matterport_space_id;
-        if (spaceId) await mp.deleteSpace(spaceId);
-      } catch (_) { /* best-effort */ }
-      const pgPool = require("../tours/lib/db").pool;
-      await pgPool.query(`DELETE FROM tour_manager.tours WHERE id = $1`, [tour.id]);
-      return res.send(cleanupPage({ title: "Tour gelöscht", icon: "✕", color: "#b91c1c",
-        body: "<p>Ihre Tour und der zugehörige Matterport-Space wurden dauerhaft gelöscht. Bei Fragen wenden Sie sich bitte an office@propus.ch.</p>" }));
+      const cleanupDashboard = require("../tours/lib/cleanup-dashboard");
+      const scheduled = await cleanupDashboard.scheduleTourDeletion({
+        tourId: tour.id,
+        actorType: "customer",
+        actorRef: tour.customer_email,
+        reason: "cleanup mail link delete request",
+        via: "cleanup_mail_link",
+        deleteMatterport: true,
+      });
+      await logAction(tour.id, "customer", tour.customer_email, "CLEANUP_ACTION_LOESCHEN_CONFIRMED", {
+        execute_after: scheduled.executeAfter.toISOString(),
+        matterport_space_id: scheduled.spaceId || null,
+      });
+      return res.send(cleanupPage({ title: "Löschung vorgemerkt", icon: "✕", color: "#b91c1c",
+        body: "<p>Ihre Tour wurde zur Löschung vorgemerkt. Der Matterport-Space und die Tour-Daten werden in 30 Tagen gelöscht.</p>" }));
     } catch (err) {
       console.error("[cleanup] loeschen:", err.message);
       return res.status(500).send(cleanupPage({ title: "Fehler", icon: "⚠", color: "#b91c1c", body: "<p class=\"err\">Interner Fehler.</p>" }));

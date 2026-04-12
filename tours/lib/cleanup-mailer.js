@@ -91,6 +91,42 @@ async function ensureCleanupSchema() {
   await pool.query(`ALTER TABLE tour_manager.tours ADD COLUMN IF NOT EXISTS cleanup_action TEXT`);
   // cleanup_action_at: wann wurde die Aktion ausgeführt
   await pool.query(`ALTER TABLE tour_manager.tours ADD COLUMN IF NOT EXISTS cleanup_action_at TIMESTAMPTZ`);
+  // delete_requested_at / delete_after_at: vorgemerkte Löschung mit Sicherheitsfrist
+  await pool.query(`ALTER TABLE tour_manager.tours ADD COLUMN IF NOT EXISTS delete_requested_at TIMESTAMPTZ`);
+  await pool.query(`ALTER TABLE tour_manager.tours ADD COLUMN IF NOT EXISTS delete_after_at TIMESTAMPTZ`);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS tour_manager.pending_deletions (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      tour_id INTEGER,
+      matterport_space_id TEXT,
+      delete_matterport BOOLEAN NOT NULL DEFAULT TRUE,
+      requested_by_type TEXT NOT NULL,
+      requested_by_ref TEXT,
+      requested_via TEXT,
+      reason TEXT,
+      requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      execute_after TIMESTAMPTZ NOT NULL,
+      executed_at TIMESTAMPTZ,
+      cancelled_at TIMESTAMPTZ,
+      last_error TEXT,
+      details_json JSONB
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_pending_deletions_due
+    ON tour_manager.pending_deletions(execute_after)
+    WHERE executed_at IS NULL AND cancelled_at IS NULL
+  `);
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_pending_deletions_open_tour
+    ON tour_manager.pending_deletions(tour_id)
+    WHERE tour_id IS NOT NULL AND executed_at IS NULL AND cancelled_at IS NULL
+  `);
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_pending_deletions_open_space
+    ON tour_manager.pending_deletions(matterport_space_id)
+    WHERE matterport_space_id IS NOT NULL AND executed_at IS NULL AND cancelled_at IS NULL
+  `);
   schemaEnsured = true;
 }
 

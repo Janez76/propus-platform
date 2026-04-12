@@ -577,7 +577,7 @@ const AVAILABLE_PLACEHOLDERS = [
  * @param {string} [language] - BCP-47 Sprachcode, z.B. "de-CH", "en"
  * @returns {Promise<{sent: boolean, reason?: string}>}
  */
-async function sendMailIdempotent(pool, templateKey, recipient, orderNo, vars, sendMail, language) {
+async function sendMailIdempotent(pool, templateKey, recipient, orderNo, vars, sendMail, language, icsAttachment) {
   if (!pool || !templateKey || !recipient || !sendMail) {
     return { sent: false, reason: "Fehlende Parameter" };
   }
@@ -615,7 +615,7 @@ async function sendMailIdempotent(pool, templateKey, recipient, orderNo, vars, s
   }
 
   try {
-    const sendResult = normalizeMailSendResult(await sendMail(recipient, subject, html, ""));
+    const sendResult = normalizeMailSendResult(await sendMail(recipient, subject, html, "", icsAttachment || null));
     if (!sendResult.sent) {
       throw new Error(sendResult.reason || "send_not_confirmed");
     }

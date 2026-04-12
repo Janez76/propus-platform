@@ -15,10 +15,10 @@ const cron = require("node-cron");
 const { buildTemplateVars, sendMailIdempotent } = require("../template-renderer");
 
 /**
- * @param {object} deps - { db, getSetting, sendMail }
+ * @param {object} deps - { db, getSetting, sendMail, OFFICE_EMAIL }
  */
 function scheduleProvisionalReminders(deps) {
-  const { db, getSetting, sendMail } = deps;
+  const { db, getSetting, sendMail, OFFICE_EMAIL } = deps;
 
   cron.schedule("0 * * * *", async function runReminders() {
     console.log("[job:reminders] Provisorium-Reminder-Job gestartet");
@@ -129,6 +129,15 @@ function scheduleProvisionalReminders(deps) {
       for (const row of r3Rows) {
         try {
           await sendReminder(row, "provisional_reminder_3", "provisional_reminder_3_sent_at");
+          // Büro einmalig beim letzten Reminder (Tag 3) benachrichtigen
+          if (mailOn && sendMail && OFFICE_EMAIL) {
+            const vars = buildTemplateVars(row, {});
+            const sendFn = function(to, subj, html, text) { return sendMail(to, subj, html, text, null); };
+            await sendMailIdempotent(pool, "office_provisional_expiry_notice", OFFICE_EMAIL, row.order_no, vars, sendFn)
+              .catch(function(e) {
+                console.error("[job:reminders] office_provisional_expiry_notice fehlgeschlagen:", row.order_no, e && e.message);
+              });
+          }
         } catch (err) {
           console.error("[job:reminders] Fehler Reminder-3 fuer Auftrag", row.order_no, err && err.message);
         }

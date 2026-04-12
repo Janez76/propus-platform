@@ -147,6 +147,44 @@ export function resendAdminInvoice(type: "renewal" | "exxas", invoiceId: string 
   });
 }
 
+export type RenewalRunTour = {
+  id: number;
+  object_label: string;
+  customer_name: string;
+  customer_email: string;
+  tour_age_date: string;
+  is_reactivation: boolean;
+  amount_chf: number;
+  canonical_term_end_date: string | null;
+  term_end_date: string | null;
+};
+
+export type RenewalRunResult = {
+  ok: true;
+  created: number;
+  skipped: number;
+  errors: number;
+  details: {
+    created: { tourId: number; invoiceId: number; emailSent: boolean }[];
+    skipped: { tourId: number; reason: string }[];
+    errors: { tourId: number; invoiceId?: number; reason: string }[];
+  };
+};
+
+export function previewRenewalInvoiceRun() {
+  return toursAdminFetch<{ ok: true; tours: RenewalRunTour[]; count: number }>("/renewal-invoice-run", {
+    method: "POST",
+    body: JSON.stringify({ action: "preview" }),
+  });
+}
+
+export function executeRenewalInvoiceRun(tourIds: number[]) {
+  return toursAdminFetch<RenewalRunResult>("/renewal-invoice-run", {
+    method: "POST",
+    body: JSON.stringify({ action: "execute", tourIds }),
+  });
+}
+
 export function getToursAdminBankImport() {
   return toursAdminFetch<Record<string, unknown>>("/bank-import");
 }

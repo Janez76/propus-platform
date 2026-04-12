@@ -1,12 +1,17 @@
-import { type FormEvent, type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
+import { type FormEvent, type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
+  AlertCircle,
   Archive,
+  CheckCircle2,
+  ChevronRight,
   Download,
   FileText,
+  Loader2,
   MoreHorizontal,
   Pencil,
   Plus,
+  RefreshCw,
   Send,
   Trash2,
   X,
@@ -15,13 +20,17 @@ import {
 import {
   createFreeformInvoice,
   createTourManualInvoice,
+  executeRenewalInvoiceRun,
   getInvoiceFormSuggestions,
   getLinkMatterportBookingSearch,
   getLinkMatterportCustomerDetail,
   getLinkMatterportCustomerSearch,
   getToursAdminToursList,
+  previewRenewalInvoiceRun,
   renewalInvoicePdfUrl,
   updateAdminInvoice,
+  type RenewalRunResult,
+  type RenewalRunTour,
 } from "../../../api/toursAdmin";
 import type { ToursAdminTourRow } from "../../../types/toursAdmin";
 
@@ -1565,6 +1574,303 @@ export function CreateInvoiceModal({
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+// ── Rechnungslauf-Modal ───────────────────────────────────────────────────────
+
+type RunPhase = "idle" | "previewing" | "preview" | "executing" | "done";
+
+export function RechnungslaufModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const [phase, setPhase] = useState<RunPhase>("idle");
+  const [tours, setTours] = useState<RenewalRunTour[]>([]);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [result, setResult] = useState<RenewalRunResult | null>(null);
+  const [runError, setRunError] = useState<string | null>(null);
+
+  const handlePreview = useCallback(async () => {
+    setPhase("previewing");
+    setRunError(null);
+    try {
+      const data = await previewRenewalInvoiceRun();
+      setTours(data.tours);
+      setSelected(new Set(data.tours.map((t) => t.id)));
+      setPhase("preview");
+    } catch (err) {
+      setRunError(err instanceof Error ? err.message : "Vorschau fehlgeschlagen.");
+      setPhase("idle");
+    }
+  }, []);
+
+  const toggleAll = useCallback(() => {
+    if (selected.size === tours.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(tours.map((t) => t.id)));
+    }
+  }, [selected.size, tours]);
+
+  const toggleOne = useCallback((id: number) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleExecute = useCallback(async () => {
+    const ids = Array.from(selected);
+    if (ids.length === 0) return;
+    if (!window.confirm(`${ids.length} Rechnung(en) jetzt erstellen und versenden?`)) return;
+    setPhase("executing");
+    setRunError(null);
+    try {
+      const data = await executeRenewalInvoiceRun(ids);
+      setResult(data);
+      setPhase("done");
+    } catch (err) {
+      setRunError(err instanceof Error ? err.message : "Rechnungslauf fehlgeschlagen.");
+      setPhase("preview");
+    }
+  }, [selected]);
+
+  const handleClose = useCallback(() => {
+    if (phase === "done") onDone();
+    else onClose();
+  }, [phase, onClose, onDone]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-[var(--border-soft)] shrink-0">
+          <div>
+            <h2 className="text-lg font-semibold text-[var(--text-main)]">Verlängerungs-Rechnungslauf</h2>
+            <p className="text-xs text-[var(--text-subtle)] mt-0.5">
+              Touren &gt; 6 Monate · Kundenzustimmung · keine bezahlte Verlängerungsrechnung
+            </p>
+          </div>
+          <button type="button" onClick={handleClose} className="rounded-lg p-1.5 hover:bg-[var(--surface-hover)] text-[var(--text-subtle)]">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+          {runError ? (
+            <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {runError}
+            </div>
+          ) : null}
+
+          {phase === "idle" && (
+            <div className="text-center py-8 space-y-3">
+              <RefreshCw className="h-10 w-10 text-[var(--text-subtle)] mx-auto" />
+              <p className="text-sm text-[var(--text-subtle)]">
+                Klicke auf "Vorschau laden" um zu sehen, welche Touren eine Verlängerungsrechnung erhalten würden.
+              </p>
+            </div>
+          )}
+
+          {(phase === "previewing" || phase === "executing") && (
+            <div className="flex items-center justify-center py-12 gap-3 text-[var(--text-subtle)]">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <span className="text-sm">
+                {phase === "previewing" ? "Lade Vorschau…" : "Erstelle Rechnungen und sende E-Mails…"}
+              </span>
+            </div>
+          )}
+
+          {phase === "preview" && (
+            <>
+              {tours.length === 0 ? (
+                <div className="text-center py-8 space-y-1">
+                  <CheckCircle2 className="h-8 w-8 text-green-500 mx-auto" />
+                  <p className="text-sm font-medium text-[var(--text-main)]">Keine offenen Touren gefunden</p>
+                  <p className="text-xs text-[var(--text-subtle)]">Alle berechtigten Touren haben bereits eine Rechnung.</p>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-[var(--text-main)]">
+                      {tours.length} Tour{tours.length !== 1 ? "en" : ""} gefunden
+                    </span>
+                    <label className="flex items-center gap-2 cursor-pointer text-xs text-[var(--text-subtle)]">
+                      <input
+                        type="checkbox"
+                        checked={selected.size === tours.length && tours.length > 0}
+                        onChange={toggleAll}
+                        className="h-3.5 w-3.5 rounded accent-[var(--accent)]"
+                      />
+                      {selected.size === tours.length ? "Alle abwählen" : "Alle auswählen"}
+                    </label>
+                  </div>
+                  <div className="rounded-lg border border-[var(--border-soft)] divide-y divide-[var(--border-soft)] overflow-hidden">
+                    {tours.map((tour) => (
+                      <label key={tour.id} className="flex items-center gap-3 px-4 py-3 hover:bg-[var(--surface-hover)] cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selected.has(tour.id)}
+                          onChange={() => toggleOne(tour.id)}
+                          className="h-4 w-4 rounded accent-[var(--accent)] shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-[var(--text-main)] truncate">
+                              {String(tour.object_label || `Tour #${tour.id}`)}
+                            </span>
+                            {tour.is_reactivation ? (
+                              <span className="shrink-0 rounded-full bg-orange-100 text-orange-700 text-[10px] font-medium px-1.5 py-0.5">
+                                Reaktivierung
+                              </span>
+                            ) : (
+                              <span className="shrink-0 rounded-full bg-blue-100 text-blue-700 text-[10px] font-medium px-1.5 py-0.5">
+                                Verlängerung
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex gap-3 mt-0.5">
+                            <span className="text-xs text-[var(--text-subtle)] truncate">{String(tour.customer_name || "—")}</span>
+                            <span className="text-xs text-[var(--text-subtle)] shrink-0">{String(tour.customer_email || "—")}</span>
+                          </div>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <span className="text-sm font-semibold text-[var(--text-main)]">
+                            CHF {Number(tour.amount_chf).toFixed(2)}
+                          </span>
+                          <div className="text-[10px] text-[var(--text-subtle)] mt-0.5">
+                            Erstellt: {tour.tour_age_date ? new Date(tour.tour_age_date).toLocaleDateString("de-CH") : "—"}
+                          </div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                  {selected.size > 0 && (
+                    <div className="rounded-lg bg-[var(--accent)]/8 border border-[var(--accent)]/20 px-4 py-2.5 flex items-center justify-between">
+                      <span className="text-sm text-[var(--text-main)]">
+                        <strong>{selected.size}</strong> Tour{selected.size !== 1 ? "en" : ""} ausgewählt
+                      </span>
+                      <span className="text-sm font-semibold text-[var(--accent)]">
+                        Total CHF{" "}
+                        {tours
+                          .filter((t) => selected.has(t.id))
+                          .reduce((s, t) => s + Number(t.amount_chf), 0)
+                          .toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                </>
+              )}
+            </>
+          )}
+
+          {phase === "done" && result && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-center">
+                  <p className="text-2xl font-bold text-green-700">{result.created}</p>
+                  <p className="text-xs text-green-600 mt-0.5">Erstellt &amp; gesendet</p>
+                </div>
+                <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-4 py-3 text-center">
+                  <p className="text-2xl font-bold text-[var(--text-subtle)]">{result.skipped}</p>
+                  <p className="text-xs text-[var(--text-subtle)] mt-0.5">Übersprungen</p>
+                </div>
+                <div
+                  className={`rounded-lg border px-4 py-3 text-center ${
+                    result.errors > 0 ? "border-red-200 bg-red-50" : "border-[var(--border-soft)] bg-[var(--surface)]"
+                  }`}
+                >
+                  <p className={`text-2xl font-bold ${result.errors > 0 ? "text-red-700" : "text-[var(--text-subtle)]"}`}>
+                    {result.errors}
+                  </p>
+                  <p className={`text-xs mt-0.5 ${result.errors > 0 ? "text-red-600" : "text-[var(--text-subtle)]"}`}>Fehler</p>
+                </div>
+              </div>
+
+              {result.details.errors.length > 0 && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 space-y-1">
+                  <p className="text-xs font-semibold text-red-700 mb-1">Fehlerdetails:</p>
+                  {result.details.errors.map((e, i) => (
+                    <p key={i} className="text-xs text-red-600">
+                      Tour #{e.tourId}: {e.reason}
+                    </p>
+                  ))}
+                </div>
+              )}
+
+              {result.details.skipped.length > 0 && (
+                <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-4 py-3 space-y-1">
+                  <p className="text-xs font-semibold text-[var(--text-subtle)] mb-1">Übersprungen:</p>
+                  {result.details.skipped.map((s, i) => (
+                    <p key={i} className="text-xs text-[var(--text-subtle)]">
+                      Tour #{s.tourId}: {s.reason}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex justify-end gap-2 px-6 py-4 border-t border-[var(--border-soft)] shrink-0">
+          {phase === "done" ? (
+            <button
+              type="button"
+              onClick={handleClose}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--accent)]/90"
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              Schliessen &amp; aktualisieren
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={handleClose}
+                disabled={phase === "previewing" || phase === "executing"}
+                className="rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm text-[var(--text-subtle)] hover:text-[var(--text-main)] disabled:opacity-40"
+              >
+                Abbrechen
+              </button>
+              {phase === "idle" && (
+                <button
+                  type="button"
+                  onClick={handlePreview}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--accent)]/90"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                  Vorschau laden
+                </button>
+              )}
+              {phase === "preview" && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handlePreview}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm text-[var(--text-subtle)] hover:text-[var(--text-main)]"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    Aktualisieren
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExecute}
+                    disabled={selected.size === 0}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--accent)]/90 disabled:opacity-40"
+                  >
+                    <Send className="h-4 w-4" />
+                    {selected.size} Rechnung{selected.size !== 1 ? "en" : ""} erstellen &amp; senden
+                  </button>
+                </>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

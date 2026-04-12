@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS companies (
   id                  SERIAL PRIMARY KEY,
   name                TEXT NOT NULL,
   slug                TEXT NOT NULL UNIQUE,
-  billing_customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
+  billing_customer_id INTEGER REFERENCES core.customers(id) ON DELETE SET NULL,
   created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS company_members (
   id               SERIAL PRIMARY KEY,
   company_id       INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   auth_subject TEXT NOT NULL DEFAULT '',
-  customer_id      INTEGER REFERENCES customers(id) ON DELETE SET NULL,
+  customer_id      INTEGER REFERENCES core.customers(id) ON DELETE SET NULL,
   email            TEXT NOT NULL DEFAULT '',
   role             TEXT NOT NULL CHECK (role IN ('company_admin','company_employee')),
   status           TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('invited','active','disabled')),
@@ -48,3 +48,4 @@ CREATE TABLE IF NOT EXISTS company_invitations (
 
 CREATE INDEX IF NOT EXISTS idx_company_invitations_company ON company_invitations(company_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_company_invitations_email ON company_invitations(LOWER(email));
+

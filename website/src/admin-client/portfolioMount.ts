@@ -62,14 +62,18 @@ export function mountPortfolioAdmin(root: HTMLElement): void {
 	}
 
 	async function reload() {
-		const data = await fetchPortfolioCategory(activeCat);
-		cms = {
-			media: data.media as CmsMedia[],
-			portfolio: data.entries as CmsEntry[],
-		};
-		featuredOrder = [...(data.featuredPortfolioIds || [])];
-		maxHomeTiles = typeof data.maxHomeTiles === 'number' ? data.maxHomeTiles : 6;
-		render();
+		try {
+			const data = await fetchPortfolioCategory(activeCat);
+			cms = {
+				media: data.media as CmsMedia[],
+				portfolio: data.entries as CmsEntry[],
+			};
+			featuredOrder = [...(data.featuredPortfolioIds || [])];
+			maxHomeTiles = typeof data.maxHomeTiles === 'number' ? data.maxHomeTiles : 6;
+			render();
+		} catch {
+			msg('Daten konnten nicht geladen werden. Bitte Seite neu laden.', false);
+		}
 	}
 
 	async function persistFeatured(): Promise<boolean> {
