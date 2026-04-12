@@ -2501,6 +2501,25 @@ router.get('/invoices', async (req, res) => {
   }
 });
 
+router.post('/renewal-invoice-run', async (req, res) => {
+  try {
+    const action = String(req.body?.action || 'preview');
+    if (action === 'preview') {
+      const data = await phase3.getRenewalRunPreview();
+      return res.json(data);
+    }
+    if (action === 'execute') {
+      const tourIds = Array.isArray(req.body?.tourIds) ? req.body.tourIds : [];
+      const data = await phase3.executeRenewalRun(tourIds, adminEmail(req));
+      return res.json(data);
+    }
+    return res.status(400).json({ ok: false, error: 'Ungültige Aktion.' });
+  } catch (err) {
+    console.error('[admin-api] POST /renewal-invoice-run', err);
+    return res.status(500).json({ error: 'Interner Fehler' });
+  }
+});
+
 router.get('/invoices-central', async (req, res) => {
   try {
     const type = String(req.query.type || 'renewal');

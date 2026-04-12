@@ -2280,6 +2280,138 @@ async function syncAllExxasInvoicesFromApi() {
   return { ok: true, imported, updated, total: invoices.length };
 }
 
+async function getRenewalRunPreview() {
+  const result = await pool.query(`
+    SELECT
+      t.id,
+      COALESCE(t.object_label, t.bezeichnung)   AS object_label,
+      COALESCE(t.customer_name, t.kunde_ref)     AS customer_name,
+      t.customer_email,
+      t.status,
+      COALESCE(t.matterport_created_at, t.created_at) AS tour_age_date,
+      t.canonical_term_end_date,
+      t.term_end_date,
+      CASE
+        WHEN COALESCE(t.canonical_term_end_date, t.term_end_date) < NOW() - INTERVAL '30 days'
+        THEN true ELSE false
+      END AS is_reactivation,
+      CASE
+        WHEN COALESCE(t.canonical_term_end_date, t.term_end_date) < NOW() - INTERVAL '30 days'
+        THEN 74 ELSE 59
+      END AS amount_chf
+    FROM tour_manager.tours t
+    WHERE
+      t.status = 'CUSTOMER_ACCEPTED_AWAITING_PAYMENT'
+      AND COALESCE(t.matterport_created_at, t.created_at) < NOW() - INTERVAL '6 months'
+      AND NOT EXISTS (
+        SELECT 1 FROM tour_manager.renewal_invoices ri
+        WHERE ri.tour_id = t.id AND ri.invoice_status = 'paid'
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM tour_manager.renewal_invoices ri
+        WHERE ri.tour_id = t.id AND ri.invoice_status IN ('sent', 'overdue')
+      )
+    ORDER BY COALESCE(t.matterport_created_at, t.created_at) ASC
+  `);
+  return { ok: true, tours: result.rows, count: result.rows.length };
+}
+
+async function executeRenewalRun(tourIds, actorEmail) {
+  if (!Array.isArray(tourIds) || tourIds.length === 0) {
+    return { ok: false, error: 'Keine Tour-IDs angegeben.' };
+  }
+  const validIds = tourIds.map(Number).filter(Number.isFinite);
+  if (validIds.length === 0) {
+    return { ok: false, error: 'Keine gültigen Tour-IDs.' };
+  }
+
+  const created = [];
+  const skipped = [];
+  const errors = [];
+
+  for (const tourId of validIds) {
+    try {
+      const tourRes = await pool.query(
+        `SELECT t.*,
+           CASE
+             WHEN COALESCE(t.canonical_term_end_date, t.term_end_date) < NOW() - INTERVAL '30 days'
+             THEN true ELSE false
+           END AS is_reactivation
+         FROM tour_manager.tours t
+         WHERE t.id = $1 AND t.status = 'CUSTOMER_ACCEPTED_AWAITING_PAYMENT'`,
+        [tourId],
+      );
+      const tour = tourRes.rows[0];
+      if (!tour) {
+        skipped.push({ tourId, reason: 'Tour nicht gefunden oder Status geändert' });
+        continue;
+      }
+
+      const paidCheck = await pool.query(
+        `SELECT id FROM tour_manager.renewal_invoices WHERE tour_id = $1 AND invoice_status = 'paid' LIMIT 1`,
+        [tourId],
+      );
+      if (paidCheck.rows.length > 0) {
+        skipped.push({ tourId, reason: 'Bereits bezahlt' });
+        continue;
+      }
+
+      const openCheck = await pool.query(
+        `SELECT id FROM tour_manager.renewal_invoices WHERE tour_id = $1 AND invoice_status IN ('sent', 'overdue') LIMIT 1`,
+        [tourId],
+      );
+      if (openCheck.rows.length > 0) {
+        skipped.push({ tourId, reason: 'Offene Rechnung bereits vorhanden' });
+        continue;
+      }
+
+      const isReactivation = tour.is_reactivation === true;
+      const amountChf = isReactivation ? 74 : 59;
+      const invoiceKind = isReactivation ? 'portal_reactivation' : 'portal_extension';
+      const dueAt = new Date();
+      dueAt.setDate(dueAt.getDate() + 30);
+      const dueAtIso = dueAt.toISOString().split('T')[0];
+
+      const inserted = await pool.query(
+        `INSERT INTO tour_manager.renewal_invoices
+           (tour_id, invoice_status, sent_at, amount_chf, due_at, invoice_kind, payment_source)
+         VALUES ($1, 'sent', NOW(), $2, $3::date, $4, 'qr_pending')
+         RETURNING id`,
+        [tourId, amountChf, dueAtIso, invoiceKind],
+      );
+      const invoiceId = inserted.rows[0]?.id;
+
+      await logAction(tourId, 'admin', actorEmail, 'RENEWAL_RUN_INVOICE_CREATED', {
+        invoice_id: invoiceId,
+        amount_chf: amountChf,
+        invoice_kind: invoiceKind,
+        batch_run: true,
+      });
+
+      let emailSent = false;
+      try {
+        await tourActions.sendInvoiceWithQrEmail(String(tourId), String(invoiceId));
+        emailSent = true;
+      } catch (emailErr) {
+        console.error(`[renewal-run] E-Mail fehlgeschlagen tour=${tourId} invoice=${invoiceId}:`, emailErr.message);
+        errors.push({ tourId, invoiceId, reason: 'Rechnung erstellt, E-Mail fehlgeschlagen: ' + emailErr.message });
+      }
+      created.push({ tourId, invoiceId, emailSent });
+    } catch (err) {
+      console.error(`[renewal-run] Fehler tour=${tourId}:`, err.message);
+      errors.push({ tourId, reason: err.message });
+    }
+  }
+
+  return {
+    ok: true,
+    created: created.length,
+    skipped: skipped.length,
+    errors: errors.length,
+    details: { created, skipped, errors },
+  };
+}
+
 module.exports = {
   getRenewalInvoicesJson,
   getRenewalInvoicesCentral,
@@ -2302,6 +2434,8 @@ module.exports = {
   createManualInvoice,
   createFreeformInvoice,
   markPaidManualInvoice,
+  getRenewalRunPreview,
+  executeRenewalRun,
   streamRenewalInvoicePdf,
   getLinkMatterportJson,
   postLinkMatterport,
