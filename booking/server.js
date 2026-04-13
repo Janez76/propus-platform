@@ -6143,10 +6143,51 @@ app.patch("/api/admin/orders/:orderNo/status", requireAdmin, async (req, res) =>
   // F-r UI-Debug/Transparenz
   if (deletedEvents.length) order.deletedEvents = deletedEvents;
 
-  // Bei Absage zus-tzlich: ICS + Mails
+  // Hilfsfunktion: ICS-CANCEL an Attendees senden
+  async function sendAttendeeIcsCancel(reasonLabel) {
+    const attendeeRaw = (order.attendeeEmails || order.attendee_emails || "").trim();
+    if (!attendeeRaw || !order.icsUid || !order.schedule?.date || !order.schedule?.time) return;
+    if (!graphClient && !mailer) return;
+    const attendees = attendeeRaw.split(",").map((e) => e.trim()).filter(Boolean);
+    const { icsContent: cancelIcs } = buildIcsEvent({
+      title: `ABGESAGT: Auftrag #${orderNo}`,
+      description: `Dieser Termin wurde ${reasonLabel}.`,
+      location: order.address || "-",
+      date: order.schedule.date,
+      time: order.schedule.time,
+      durationMin: order.schedule.durationMin || 60,
+      uid: order.icsUid,
+      method: "CANCEL",
+    });
+    const icsAttachment = { filename: "Absage.ics", content: cancelIcs, contentType: "text/calendar; method=CANCEL" };
+    for (const email of attendees) {
+      try {
+        await sendMailWithFallback({
+          to: email,
+          subject: `Termin abgesagt – Auftrag #${orderNo}`,
+          html: `<p>Der Termin zu Auftrag #${orderNo} wurde ${reasonLabel}. Bitte entnehmen Sie den beiliegenden Kalender-Eintrag.</p>`,
+          text: `Der Termin zu Auftrag #${orderNo} wurde ${reasonLabel}.`,
+          icsAttachment,
+          context: `${reasonLabel}-attendee-ics:${orderNo}:${email}`,
+        });
+        console.log(`[${reasonLabel}] attendee ICS-Cancel gesendet an`, email);
+      } catch (err) {
+        console.error(`[${reasonLabel}] attendee ICS-Cancel fehlgeschlagen für`, email, err?.message);
+      }
+    }
+  }
+
+  if (becomingPaused) {
+    await sendAttendeeIcsCancel("pausiert");
+  }
+
+  // Bei Absage zusätzlich: ICS + Mails
   if (status === "cancelled" && prevStatus !== "cancelled") {
 
-    // ICS-Cancellation erstellen (wenn icsUid vorhanden)
+    // ICS-Cancellation an Attendees
+    await sendAttendeeIcsCancel("abgesagt");
+
+    // cancelAttachments fuer interne Verwendung (aktuell per Graph direkt geloescht)
     let cancelAttachments = [];
     if(order.icsUid && order.schedule?.date && order.schedule?.time){
       const { icsContent: cancelIcs } = buildIcsEvent({
@@ -6161,6 +6202,7 @@ app.patch("/api/admin/orders/:orderNo/status", requireAdmin, async (req, res) =>
       });
       cancelAttachments = [{ filename: "Absage.ics", content: cancelIcs, contentType: "text/calendar; method=CANCEL" }];
     }
+    void cancelAttachments;
 
     // Absage-Mails via Graph API verschicken (umgeht SMTP-Throttling)
     // Kein ICS-Anhang n-tig - Graph API l-scht die Events direkt
