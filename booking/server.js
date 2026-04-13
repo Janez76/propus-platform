@@ -6107,12 +6107,13 @@ app.patch("/api/admin/orders/:orderNo/status", requireAdmin, async (req, res) =>
   }
 
     const becomingFinal = (status === "cancelled" || status === "completed" || status === "done" || status === "archived") && prevStatus !== status;
+  const becomingPaused = status === "paused" && prevStatus !== "paused";
 
-  // Bei Absage ODER Erledigt: Kalender-Events loeschen
+  // Bei Absage, Erledigt ODER Pausiert: Kalender-Events loeschen (Slot freigeben)
   const deletedEvents = [];
   let deletedPhotographerEvent = false;
   let deletedOfficeEvent = false;
-  if (becomingFinal && graphClient) {
+  if ((becomingFinal || becomingPaused) && graphClient) {
     if (order.photographerEventId && order.photographer?.email) {
       try {
         await graphClient.api(`/users/${order.photographer.email}/events/${order.photographerEventId}`).delete();
@@ -6287,8 +6288,8 @@ app.patch("/api/admin/orders/:orderNo/status", requireAdmin, async (req, res) =>
       updateFields.closed_at = nowIso;
     }
     if (status !== "done") updateFields.done_at = null;
-    if (becomingFinal && deletedPhotographerEvent) updateFields.photographer_event_id = null;
-    if (becomingFinal && deletedOfficeEvent) updateFields.office_event_id = null;
+    if ((becomingFinal || becomingPaused) && deletedPhotographerEvent) updateFields.photographer_event_id = null;
+    if ((becomingFinal || becomingPaused) && deletedOfficeEvent) updateFields.office_event_id = null;
     if (status === "cancelled" && reason) updateFields.cancel_reason = String(reason).slice(0, 500);
     if (status === "paused" && reason) updateFields.pause_reason = String(reason).slice(0, 500);
     if (status === "provisional" && prevStatus !== "provisional") {
