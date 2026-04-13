@@ -7357,7 +7357,15 @@ app.post("/api/bot", requirePhotographerOrAdmin, async (req, res) => {
         discountCode: String(body.discountCode || ""),
         customerEmail: String(body.customerEmail || ""),
       });
-      return res.json({ ok: true, ...result });
+      return res.json({
+        ok: true,
+        subtotal: result?.pricing?.subtotal ?? 0,
+        discountAmount: result?.pricing?.discountAmount ?? 0,
+        discount: result?.pricing?.discountAmount ?? 0,
+        vat: result?.pricing?.vat ?? 0,
+        total: result?.pricing?.total ?? 0,
+        ...result,
+      });
     }
     return res.status(400).json({ error: "Unbekannte action" });
   } catch (err) {
