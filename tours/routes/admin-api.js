@@ -2583,6 +2583,33 @@ router.get('/invoices-central', async (req, res) => {
   }
 });
 
+// Bulk-Delete-Routen MÜSSEN vor der Wildcard-Route stehen, sonst matcht Express sie als :type/:id
+router.delete('/invoices/exxas/bulk-delete-hosting', async (req, res) => {
+  try {
+    const result = await phase3.bulkDeleteHostingMatterportExxasInvoices({
+      dryRun: false,
+      actorEmail: adminEmail(req),
+    });
+    return res.json(result);
+  } catch (err) {
+    console.error('/invoices/exxas/bulk-delete-hosting:', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+router.delete('/invoices/renewal/bulk-delete-63', async (req, res) => {
+  try {
+    const result = await phase3.bulkDeleteOpenRenewalInvoicesByAmount({
+      dryRun: false,
+      actorEmail: adminEmail(req),
+    });
+    return res.json(result);
+  } catch (err) {
+    console.error('/invoices/renewal/bulk-delete-63:', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 router.delete('/invoices/:type/:id', async (req, res) => {
   try {
     const type = String(req.params.type || '');
@@ -2644,19 +2671,6 @@ router.get('/invoices/exxas/bulk-delete-hosting/preview', async (req, res) => {
   }
 });
 
-// DELETE: Löscht alle offenen Exxas-Rechnungen Hosting VR Tour Matterport (500xxx) + importierte
-router.delete('/invoices/exxas/bulk-delete-hosting', async (req, res) => {
-  try {
-    const result = await phase3.bulkDeleteHostingMatterportExxasInvoices({
-      dryRun: false,
-      actorEmail: adminEmail(req),
-    });
-    return res.json(result);
-  } catch (err) {
-    console.error('/invoices/exxas/bulk-delete-hosting:', err);
-    return res.status(500).json({ ok: false, error: err.message });
-  }
-});
 
 // GET: Vorschau — offene/überfällige renewal-Rechnungen CHF 63.80 (Matterport-Verlängerung)
 router.get('/invoices/renewal/bulk-delete-63/preview', async (req, res) => {
@@ -2669,19 +2683,6 @@ router.get('/invoices/renewal/bulk-delete-63/preview', async (req, res) => {
   }
 });
 
-// DELETE: Löscht alle offenen/überfälligen renewal-Rechnungen CHF 63.80 (Matterport-Verlängerung)
-router.delete('/invoices/renewal/bulk-delete-63', async (req, res) => {
-  try {
-    const result = await phase3.bulkDeleteOpenRenewalInvoicesByAmount({
-      dryRun: false,
-      actorEmail: adminEmail(req),
-    });
-    return res.json(result);
-  } catch (err) {
-    console.error('/invoices/renewal/bulk-delete-63:', err);
-    return res.status(500).json({ ok: false, error: err.message });
-  }
-});
 
 router.post('/invoices/exxas/:id/import', async (req, res) => {
   try {
