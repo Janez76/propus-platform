@@ -133,7 +133,7 @@ jobs:
       - name: Build Booking Admin Panel
         working-directory: booking/admin-panel
         env:
-          VITE_PICDROP_URL: https://bildauswahl.propus.ch/bilder-auswahl
+          VITE_PICDROP_URL: https://picdrop.propus.ch/bilder-auswahl
         run: |
           npm ci
           npx vite build
