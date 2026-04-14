@@ -136,7 +136,7 @@ jobs:
           VITE_PICDROP_URL: https://bildauswahl.propus.ch/bilder-auswahl
         run: |
           npm ci
-          npm run build
+          npx vite build
 
       - name: Create deploy archive
         run: |
