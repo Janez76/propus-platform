@@ -159,6 +159,12 @@ async function triggerDueRenewalInvoices() {
 
   for (const row of dueRows.rows) {
     try {
+      // Abo-Fenster: Periode endet am geplanten term_end_date, startet 6 Monate davor
+      const termEnd = new Date(row.term_end_date);
+      const termStart = addMonths(termEnd, -SUBSCRIPTION_MONTHS);
+      const subStartIso = toIsoDate(termStart);
+      const subEndIso = toIsoDate(termEnd);
+
       // Bereits eine offene Rechnung für dieses Abo-Window vorhanden?
       const existing = await pool.query(
         `SELECT id FROM tour_manager.renewal_invoices
@@ -166,7 +172,7 @@ async function triggerDueRenewalInvoices() {
            AND invoice_status IN ('sent','pending','paid')
            AND subscription_end_at = $2::date
          LIMIT 1`,
-        [row.tour_id, row.term_end_date]
+        [row.tour_id, subEndIso]
       );
       if (existing.rows.length > 0) {
         await pool.query(
@@ -177,7 +183,6 @@ async function triggerDueRenewalInvoices() {
         continue;
       }
 
-      const subWindow = getSubscriptionWindowFromStart(new Date());
       const dueAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
 
       const invRes = await pool.query(
@@ -186,7 +191,7 @@ async function triggerDueRenewalInvoices() {
             subscription_start_at, subscription_end_at)
          VALUES ($1, 'sent', NOW(), $2, $3, 'portal_extension', 'qr_pending', $4, $5)
          RETURNING id`,
-        [row.tour_id, EXTENSION_PRICE_CHF, dueAt, subWindow.startIso, subWindow.endIso]
+        [row.tour_id, EXTENSION_PRICE_CHF, dueAt, subStartIso, subEndIso]
       );
       const invoiceId = invRes.rows[0]?.id;
 

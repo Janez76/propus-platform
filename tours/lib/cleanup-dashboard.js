@@ -713,8 +713,25 @@ async function executeDashboardPaymentChoice(customerEmail, tourId, paymentMetho
   const rule = computeCleanupRule(tour);
   const { EXTENSION_PRICE_CHF, getSubscriptionWindowFromStart } = require('./subscriptions');
   const amount = rule.invoiceAmount || EXTENSION_PRICE_CHF;
-  const invoiceKind = tour.status === 'ARCHIVED' ? 'portal_reactivation' : 'portal_extension';
-  const subscriptionWindow = getSubscriptionWindowFromStart(new Date());
+  const invoiceKind = rule.invoiceKind || (tour.status === 'ARCHIVED' ? 'portal_reactivation' : 'portal_extension');
+
+  // Idempotenz: keine zweite Rechnung wenn bereits eine aktive/bezahlte vorhanden
+  const existingInv = await pool.query(
+    `SELECT id, invoice_status FROM tour_manager.renewal_invoices
+     WHERE tour_id = $1
+       AND invoice_status IN ('pending','sent','paid')
+       AND invoice_kind IN ('portal_extension','portal_reactivation')
+     ORDER BY created_at DESC LIMIT 1`,
+    [tour.id]
+  );
+  if (existingInv.rows.length > 0) {
+    const s = existingInv.rows[0].invoice_status;
+    throw new Error(`Zahlung für diese Tour bereits eingeleitet (Rechnung #${existingInv.rows[0].id}, Status: ${s})`);
+  }
+
+  // Periode startet ab dem letzten Ablaufdatum (term_end_date), nicht ab heute
+  const periodStart = tour.term_end_date || tour.ablaufdatum || new Date();
+  const subscriptionWindow = getSubscriptionWindowFromStart(new Date(periodStart));
 
   if (paymentMethod === 'online') {
     const dueAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);

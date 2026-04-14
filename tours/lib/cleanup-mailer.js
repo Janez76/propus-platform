@@ -221,8 +221,8 @@ function computeCleanupRule(tour) {
     if (!effectiveCreatedAt) {
       return {
         statusLabel: label,
-        statusContext: ' (Ihre Zahlung liegt mehr als 12 Monate zurück.)',
-        statusContextText: '(Ihre Zahlung liegt mehr als 12 Monate zurück.)',
+        statusContext: ' (Ihre Tour läuft in Kürze ab.)',
+        statusContextText: '(Ihre Tour läuft in Kürze ab.)',
         weiterfuehrenHint: `Tour verlängern – CHF ${EXTENSION_PRICE_CHF}.– / 6 Monate (online oder QR)`,
         needsInvoice: true,
         invoiceAmount: EXTENSION_PRICE_CHF,
