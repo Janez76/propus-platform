@@ -1934,11 +1934,20 @@ async function resendRenewalInvoice(invoiceId) {
     [id]
   );
   if (!row.rows[0]) throw new Error('Rechnung nicht gefunden');
-  if (row.rows[0].invoice_status === 'paid') throw new Error('Bezahlte Rechnung kann nicht erneut versendet werden');
+  const currentStatus = row.rows[0].invoice_status;
+  if (currentStatus === 'paid') throw new Error('Bezahlte Rechnung kann nicht versendet werden');
   const tourId = row.rows[0].tour_id;
   const result = await tourActions.sendInvoiceWithQrEmail(String(tourId), String(id));
   if (!result.success) throw new Error(result.error || 'E-Mail-Versand fehlgeschlagen');
-  await pool.query(`UPDATE tour_manager.renewal_invoices SET sent_at = NOW() WHERE id = $1`, [id]);
+  // Bei Entwurf: Status auf 'sent' setzen; sonst nur sent_at aktualisieren
+  if (currentStatus === 'draft') {
+    await pool.query(
+      `UPDATE tour_manager.renewal_invoices SET invoice_status = 'sent', sent_at = NOW() WHERE id = $1`,
+      [id]
+    );
+  } else {
+    await pool.query(`UPDATE tour_manager.renewal_invoices SET sent_at = NOW() WHERE id = $1`, [id]);
+  }
   return { ok: true };
 }
 

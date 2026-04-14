@@ -161,6 +161,20 @@ export function AdminInvoicesPage() {
     [runMutation],
   );
 
+  const handleSendDraft = useCallback(
+    async (invoice: InvoiceRow) => {
+      const id = String(invoice.id ?? "");
+      const label = String(invoice.invoice_number ?? invoice.id ?? "die Rechnung");
+      if (!window.confirm(`Entwurf ${label} jetzt als QR-Rechnung senden und freigeben?`)) return;
+      await runMutation(
+        `renewal-${id}-resend`,
+        () => resendAdminInvoice("renewal", id),
+        "Rechnung wurde gesendet und freigegeben.",
+      );
+    },
+    [runMutation],
+  );
+
   const handleEditSaved = useCallback(
     async (message: string) => {
       setEditingInvoice(null);
@@ -474,6 +488,7 @@ export function AdminInvoicesPage() {
               onArchive={(invoice) => void handleArchive("renewal", invoice)}
               onDelete={(invoice) => void handleDelete("renewal", invoice)}
               onResend={(invoice) => void handleResend(invoice)}
+              onSendDraft={(invoice) => void handleSendDraft(invoice)}
             />
           ) : (
             <ExxasTable
