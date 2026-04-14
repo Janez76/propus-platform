@@ -1241,6 +1241,32 @@ async function sendVouchersBatch() {
   };
 }
 
+// ─── Magic-Link für Admin abrufen (kein Mail, nur URL zurückgeben) ────────────
+
+async function getDashboardLinkForAdmin(customerEmails) {
+  await ensureSessionSchema();
+  const emailList = Array.isArray(customerEmails)
+    ? customerEmails.map((e) => String(e).trim().toLowerCase()).filter(Boolean)
+    : [String(customerEmails).trim().toLowerCase()];
+  const primaryEmail = emailList[0];
+  if (!primaryEmail) throw new Error('Keine E-Mail-Adresse');
+
+  const rawToken = generateToken();
+  const tokenHash = sha256(rawToken);
+  const expiresAt = new Date(Date.now() + SESSION_VALIDITY_DAYS * 24 * 60 * 60 * 1000);
+
+  await pool.query(
+    `INSERT INTO tour_manager.cleanup_sessions (customer_email, token_hash, expires_at)
+     VALUES ($1, $2, $3)`,
+    [primaryEmail, tokenHash, expiresAt.toISOString()]
+  );
+
+  const baseUrl = (process.env.PORTAL_BASE_URL || process.env.CUSTOMER_BASE_URL || 'https://portal.propus.ch').replace(/\/$/, '');
+  const dashboardUrl = `${baseUrl}/cleanup/dashboard?token=${encodeURIComponent(rawToken)}`;
+
+  return { dashboardUrl, expiresAt, primaryEmail };
+}
+
 // ─── Reminder-Batch: Erinnerung an Kunden mit offenen Touren (bereits gesendet) ─
 
 async function sendReminderBatch({ dryRun = true, customerEmails = null, actorType = 'admin', actorRef = null } = {}) {
@@ -1325,6 +1351,7 @@ module.exports = {
   sendDashboardInvite,
   sendDashboardBatch,
   sendReminderBatch,
+  getDashboardLinkForAdmin,
   checkAllToursCompleted,
   generateCleanupVoucher,
   sendCleanupThankYouMail,

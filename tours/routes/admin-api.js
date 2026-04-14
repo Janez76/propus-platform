@@ -1022,6 +1022,22 @@ router.post('/cleanup/dashboard/send-vouchers', async (req, res) => {
   }
 });
 
+router.post('/cleanup/dashboard/get-link', async (req, res) => {
+  try {
+    const { customerEmail, customerEmails } = req.body || {};
+    const target = customerEmails && Array.isArray(customerEmails) && customerEmails.length > 0
+      ? customerEmails
+      : customerEmail;
+    if (!target || (Array.isArray(target) && target.length === 0)) {
+      return res.status(400).json({ ok: false, error: 'customerEmail oder customerEmails fehlt' });
+    }
+    const result = await cleanupDashboard.getDashboardLinkForAdmin(target);
+    return res.json({ ok: true, ...result });
+  } catch (err) {
+    return res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
 router.post('/cleanup/dashboard/batch-reminder-dry-run', async (req, res) => {
   try {
     const { customerEmails } = req.body || {};

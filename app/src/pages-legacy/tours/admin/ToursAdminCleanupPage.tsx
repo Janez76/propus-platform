@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   RefreshCw, Send, Eye, EyeOff, CheckCircle2, XCircle, AlertTriangle, Loader2, Mail, Search,
-  ChevronDown, ChevronRight, Users, Package, Gift, Bell, MailOpen,
+  ChevronDown, ChevronRight, Users, Package, Gift, Bell, MailOpen, Link, Copy, Check,
 } from "lucide-react";
 import {
   getCleanupDashboardCandidates,
@@ -12,6 +12,7 @@ import {
   postCleanupDashboardBatchSend,
   postCleanupDashboardBatchReminder,
   postCleanupDashboardBatchReminderDryRun,
+  postCleanupDashboardGetLink,
   postCleanupDashboardSendSingle,
   postCleanupDashboardSendVouchers,
   postCleanupSendSingle,
@@ -279,6 +280,57 @@ function SandboxPreviewPanel({ tourId, onClose }: { tourId: number; onClose: () 
   );
 }
 
+function MagicLinkButton({ customerEmails }: { customerEmails: string[] }) {
+  const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleGetLink() {
+    setLoading(true);
+    setError(null);
+    try {
+      const r = await postCleanupDashboardGetLink(customerEmails);
+      await navigator.clipboard.writeText(r.dashboardUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Fehler");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="relative flex items-center">
+      <button
+        type="button"
+        onClick={() => void handleGetLink()}
+        disabled={loading}
+        title="Magic-Link generieren und kopieren"
+        className={`flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
+          copied
+            ? "border-green-300 bg-green-50 text-green-700"
+            : "border-[var(--border-soft)] text-[var(--text-subtle)] hover:text-[var(--accent)] hover:border-[var(--accent)] hover:bg-[var(--surface-card-strong)]"
+        }`}
+      >
+        {loading ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : copied ? (
+          <Check className="h-3.5 w-3.5" />
+        ) : (
+          <Link className="h-3.5 w-3.5" />
+        )}
+        <span className="hidden sm:inline">{copied ? "Kopiert!" : "Link"}</span>
+      </button>
+      {error && (
+        <span className="absolute top-full mt-1 right-0 z-50 whitespace-nowrap rounded bg-red-600 px-2 py-1 text-[10px] text-white shadow">
+          {error}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function CustomerCard({
   group,
   isSelected,
@@ -502,7 +554,11 @@ function CustomerCard({
             </button>
           </div>
         )}
-        {(group.allSent || allDone) && <div className="flex-shrink-0 w-20" />}
+        {(group.allSent || allDone) && (
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <MagicLinkButton customerEmails={emails} />
+          </div>
+        )}
       </div>
 
       {/* Aufgeklappte Tour-Liste */}

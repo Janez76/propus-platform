@@ -1060,6 +1060,14 @@ export function postCleanupDashboardSendSingle(customerEmails: string | string[]
   });
 }
 
+export function postCleanupDashboardGetLink(customerEmails: string | string[]) {
+  const emails = Array.isArray(customerEmails) ? customerEmails : [customerEmails];
+  return toursAdminFetch<{ ok: true; dashboardUrl: string; expiresAt: string; primaryEmail: string }>(
+    "/cleanup/dashboard/get-link",
+    { method: "POST", body: JSON.stringify({ customerEmails: emails }) }
+  );
+}
+
 export function postCleanupDashboardBatchReminderDryRun(customerEmails?: string[]) {
   return toursAdminFetch<{
     ok: true; dryRun: boolean; totalCustomers: number; totalTours: number;
