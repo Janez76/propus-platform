@@ -29,6 +29,7 @@ import {
   TrendingUp,
   Ticket,
   Home,
+  Images,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -64,6 +65,7 @@ const navigationItems: SidebarNavItem[] = [
   { path: "/products", icon: Boxes, labelKey: "nav.catalog" },
   { path: "/discount-codes", icon: Tag, labelKey: "nav.discountCodes" },
   { path: "/reviews", icon: Star, labelKey: "nav.reviews" },
+  { path: "/picdrop", icon: Images, label: "Picdrop" },
   { path: "/settings", icon: SlidersHorizontal, labelKey: "nav.settings" },
   { path: "/bugs", icon: ShieldAlert, labelKey: "nav.bugs" },
   { path: "/backups", icon: Database, labelKey: "nav.backups" },
