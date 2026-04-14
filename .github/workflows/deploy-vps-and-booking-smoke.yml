@@ -130,6 +130,14 @@ jobs:
             fs.writeFileSync('website/package.json', JSON.stringify(p, null, 2) + '\n');
           "
 
+      - name: Build Booking Admin Panel
+        run: |
+          cd booking/admin-panel
+          npm ci
+          VITE_PICDROP_URL=https://bildauswahl.propus.ch/bilder-auswahl npm run build
+        env:
+          NODE_ENV: production
+
       - name: Create deploy archive
         run: |
           tar \
