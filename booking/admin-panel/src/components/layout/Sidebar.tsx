@@ -65,7 +65,7 @@ const navigationItems: SidebarNavItem[] = [
   { path: "/products", icon: Boxes, labelKey: "nav.catalog" },
   { path: "/discount-codes", icon: Tag, labelKey: "nav.discountCodes" },
   { path: "/reviews", icon: Star, labelKey: "nav.reviews" },
-  { path: "/picdrop", icon: Images, label: "Picdrop" },
+  { path: "/picdrop", icon: Images, label: "Selekto" },
   { path: "/settings", icon: SlidersHorizontal, labelKey: "nav.settings" },
   { path: "/bugs", icon: ShieldAlert, labelKey: "nav.bugs" },
   { path: "/backups", icon: Database, labelKey: "nav.backups" },

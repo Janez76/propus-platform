@@ -16,7 +16,7 @@ export function PicdropPage() {
   return (
     <iframe
       src={picdropUrl}
-      title="Picdrop"
+      title="Selekto"
       allow="clipboard-write"
       style={{ width: "100%", flex: 1, border: "none", display: "block", minHeight: 0 }}
       className="h-full w-full"
