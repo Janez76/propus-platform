@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   RefreshCw, Send, Eye, EyeOff, CheckCircle2, XCircle, AlertTriangle, Loader2, Mail, Search,
-  ChevronDown, ChevronRight, Users, Package, Gift, Bell, MailOpen, Link, Copy, Check,
+  ChevronDown, ChevronRight, Users, Package, Gift, Bell, MailOpen, Link as LinkIcon, Copy, Check,
 } from "lucide-react";
 import {
   getCleanupDashboardCandidates,
@@ -318,7 +318,7 @@ function MagicLinkButton({ customerEmails }: { customerEmails: string[] }) {
         ) : copied ? (
           <Check className="h-3.5 w-3.5" />
         ) : (
-          <Link className="h-3.5 w-3.5" />
+          <LinkIcon className="h-3.5 w-3.5" />
         )}
         <span className="hidden sm:inline">{copied ? "Kopiert!" : "Link"}</span>
       </button>
