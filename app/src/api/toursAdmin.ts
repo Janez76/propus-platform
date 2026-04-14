@@ -124,6 +124,70 @@ export function deleteAdminInvoice(type: "renewal" | "exxas", invoiceId: string 
   });
 }
 
+export type BulkDeleteHostingPreview = {
+  ok: true;
+  dryRun: true;
+  count: number;
+  invoices: Array<{ id: number; nummer: string; bezeichnung: string; kunde_name: string; preis_brutto: number | null }>;
+};
+
+export type BulkDeleteHostingResult = {
+  ok: boolean;
+  deleted: number;
+  total: number;
+  errors: Array<{ id: number; nummer: string; error: string }>;
+  deletedInvoices: Array<{ id: number; nummer: string; bezeichnung: string; kunde_name: string }>;
+};
+
+export function getHostingMatterportDeletePreview() {
+  return toursAdminFetch<BulkDeleteHostingPreview>("/invoices/exxas/bulk-delete-hosting/preview");
+}
+
+export function bulkDeleteHostingMatterportInvoices() {
+  return toursAdminFetch<BulkDeleteHostingResult>("/invoices/exxas/bulk-delete-hosting", {
+    method: "DELETE",
+  });
+}
+
+export type BulkDeleteRenewal63Preview = {
+  ok: true;
+  dryRun: true;
+  count: number;
+  invoices: Array<{
+    id: number;
+    invoice_number: string | null;
+    invoice_status: string;
+    amount_chf: number;
+    customer_name: string | null;
+    tour_object_label: string | null;
+  }>;
+};
+
+export type BulkDeleteRenewal63Result = {
+  ok: boolean;
+  deleted: number;
+  total: number;
+  errors: Array<{ id: number; invoice_number: string | null; error: string }>;
+  deletedInvoices: Array<{
+    id: number;
+    invoice_number: string | null;
+    invoice_status: string;
+    amount_chf: number;
+    customer_name: string | null;
+    tour_object_label: string | null;
+  }>;
+};
+
+export function getRenewal63DeletePreview() {
+  return toursAdminFetch<BulkDeleteRenewal63Preview>("/invoices/renewal/bulk-delete-63/preview");
+}
+
+export function bulkDeleteRenewal63Invoices() {
+  return toursAdminFetch<BulkDeleteRenewal63Result>("/invoices/renewal/bulk-delete-63", {
+    method: "DELETE",
+  });
+}
+
 export function archiveAdminInvoice(type: "renewal" | "exxas", invoiceId: string | number) {
   return toursAdminFetch<{ ok: true }>(`/invoices/${type}/${invoiceId}/archive`, {
     method: "PATCH",

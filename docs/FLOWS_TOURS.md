@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei jeder Änderung an Tour-Status, Matterport-Integration, Verlängerungs- oder Archivierungs-Logik dieses Dokument aktualisieren. **Produkt-Workflow (Regeln, Reminder-Stufen, Preise):** [WORKFLOW_TOURS.md](./WORKFLOW_TOURS.md) — bei Abweichungen beide Dateien abstimmen.
 
-*Zuletzt aktualisiert: April 2026 (Galerie/NAS: Migrationen 031–032; Admin `/api/tours/admin/galleries` NAS-Import; öffentlich `/api/listing/...` Video/Grundriss/ZIP; Bestellung nachträglich verknüpfen via Tour-Detail Intern-Sektion; Bank-Import: Vorschau/Multi-Upload, Bestellungssuche zur Rechnungszuordnung; Bestellungs-Admin: Finanzblock «Rechnungen & Zahlungen»; Bereinigungslauf: CUSTOMER_ACCEPTED_AWAITING_PAYMENT-Label + termEndFormatted-Fix; Matterport-State-Cron: POST /api/tours/cron/sync-matterport-state alle 5 Min; Rechnung löschen mit Workflow-Reset; Reaktivierung ohne Rechnung (Admin-Kulanz); Bereinigungslauf-Widget in Tour-Detail; Cleanup-Dashboard mit Matterport-Reaktivierung, 30-Tage-Löschvormerkung, Lösch-Cron und Gutschein-Nachversand; Gelesen-Tracking via `last_accessed_at` in `cleanup_sessions`; Erinnerungs-Batch `batch-reminder` für bereits kontaktierte Kunden ohne Aktion)*
+*Zuletzt aktualisiert: April 2026 (Galerie/NAS: Migrationen 031–032; Admin `/api/tours/admin/galleries` NAS-Import; öffentlich `/api/listing/...` Video/Grundriss/ZIP; Bestellung nachträglich verknüpfen via Tour-Detail Intern-Sektion; Bank-Import: Vorschau/Multi-Upload, Bestellungssuche zur Rechnungszuordnung; Bestellungs-Admin: Finanzblock «Rechnungen & Zahlungen»; Bereinigungslauf: CUSTOMER_ACCEPTED_AWAITING_PAYMENT-Label + termEndFormatted-Fix; Matterport-State-Cron: POST /api/tours/cron/sync-matterport-state alle 5 Min; Rechnung löschen mit Workflow-Reset; Reaktivierung ohne Rechnung (Admin-Kulanz); Bereinigungslauf-Widget in Tour-Detail; Cleanup-Dashboard mit Matterport-Reaktivierung, 30-Tage-Löschvormerkung, Lösch-Cron und Gutschein-Nachversand; Gelesen-Tracking via `last_accessed_at` in `cleanup_sessions`; Erinnerungs-Batch `batch-reminder` für bereits kontaktierte Kunden ohne Aktion; Bulk-Delete: Exxas Hosting VR Tour Matterport 500xxx + Renewal CHF 63.80 offen/überfällig)*
 
 ---
 
@@ -756,6 +756,28 @@ Systemweite Rechnungsliste **ausserhalb** des Tour-Untermenüs. Pro-Tour-Ansicht
 
 **Backend:** `tours/lib/admin-phase3.js` — `getRenewalInvoicesCentral()`, `getExxasInvoicesCentral()`, `deleteRenewalInvoice(invoiceId, actorEmail)`; Route `tours/routes/admin-api.js` → `GET /invoices-central`.
 
+### Massen-Bereinigung (Bulk-Delete)
+
+Zwei spezielle Bulk-Delete-Endpunkte für gezielte Bereinigungsaktionen:
+
+| Aktion | Endpunkte | Funktion (admin-phase3.js) |
+|---|---|---|
+| **Exxas: Hosting VR Tour Matterport (500xxx)** | `GET /invoices/exxas/bulk-delete-hosting/preview` (Vorschau) · `DELETE /invoices/exxas/bulk-delete-hosting` | `bulkDeleteHostingMatterportExxasInvoices({ dryRun })` |
+| **Renewal: CHF 63.80 offen/überfällig** | `GET /invoices/renewal/bulk-delete-63/preview` (Vorschau) · `DELETE /invoices/renewal/bulk-delete-63` | `bulkDeleteOpenRenewalInvoicesByAmount({ dryRun })` |
+
+**Filter Exxas-Bulk:**
+- `exxas_status != 'bz'` (offen)
+- `nummer LIKE '500%'`
+- `LOWER(bezeichnung) LIKE '%hosting%' OR '%verlängerung%' OR '%matterport%' OR '%vr%'`
+- Löscht auch verknüpfte `renewal_invoices` (via `exxas_invoice_id`) ausser bezahlte
+
+**Filter Renewal-Bulk:**
+- `invoice_status IN ('sent', 'overdue')`
+- `amount_chf = 63.80`
+- Ruft `deleteRenewalInvoice()` je Eintrag auf (inkl. Workflow-Reset)
+
+**UI:** Roter Button in `AdminInvoicesPage.tsx` (tab-spezifisch) und `AdminOpenInvoicesPage.tsx`. Klick → Vorschau-Modal mit Rechnungsliste → explizite Bestätigung erforderlich. Bezahlte Rechnungen sind in beiden Flows ausgeschlossen.
+
 ### Rechnung löschen — Workflow-Reset-Logik
 
 `deleteRenewalInvoice()` prüft nach dem Löschen den Tour-Status und setzt ihn automatisch zurück:
@@ -862,13 +884,38 @@ Einmaliger Lauf: Kunden werden per Mail gefragt, was mit ihrer Tour passieren so
 
 ### Status-Mapping (computeCleanupRule)
 
-| Tour-Status | `statusLabel` (E-Mail + UI) | `needsInvoice` | Besonderheit |
+Die Logik prüft zuerst `cleanup_completed` (Post-Cleanup-Lock), dann Status + Alter.
+
+#### Während des Bereinigungslaufs (`cleanup_completed = FALSE`)
+
+| Tour-Status | Bedingung | `needsInvoice` | Betrag | Besonderheit |
+|---|---|---|---|---|
+| `ACTIVE`, `EXPIRING_SOON` | `subscription_start_date` < 12 Monate | nein | — | Tour bleibt unverändert |
+| `ACTIVE`, `EXPIRING_SOON` | `subscription_start_date` > 12 Monate / `null` | ja | CHF 59 | `invoiceKind = portal_extension` |
+| `EXPIRED_PENDING_ARCHIVE` | `created_at` ≤ 6 Monate | nein | — | `needsFreeReactivation = true` |
+| `EXPIRED_PENDING_ARCHIVE` | `created_at` > 6 Monate | ja | CHF 74 | `invoiceKind = portal_reactivation` |
+| `CUSTOMER_ACCEPTED_AWAITING_PAYMENT` | — | ja | CHF 59 | `termEndFormatted` = `–` (kein gültiges Ablaufdatum) |
+| `ARCHIVED` | `archived_at` < 6 Monate | nein | — | `needsManualReview = true` |
+| `ARCHIVED` | `archived_at` > 6 Monate | ja | CHF 74 | `invoiceKind = portal_reactivation`, einmalige Kulanz |
+
+#### Nach dem Bereinigungslauf (`cleanup_completed = TRUE`)
+
+| Tour-Status | `needsInvoice` | Betrag | Hinweis |
 |---|---|---|---|
-| `ACTIVE`, `EXPIRING_SOON` | Aktiv / Läuft bald ab | nein | Tour bleibt unverändert |
-| `EXPIRED_PENDING_ARCHIVE` | Abgelaufen | ja | Reaktivierung CHF 59.– |
-| `CUSTOMER_ACCEPTED_AWAITING_PAYMENT` | Warten auf Zahlung | ja | `termEndFormatted` = `–` (kein gültiges Ablaufdatum) |
-| `ARCHIVED` (< 6 Monate) | Archiviert | nein | `needsManualReview = true` |
-| `ARCHIVED` (> 6 Monate) | Archiviert | ja | Reaktivierung CHF 59.– |
+| `ACTIVE`, `EXPIRING_SOON` | ja | CHF 59 | Keine Gratis-Option mehr |
+| `EXPIRED_PENDING_ARCHIVE`, `ARCHIVED` | ja | CHF 74 | Keine Gratis-Option mehr, ARCHIVED-Einmalregel entfällt |
+
+#### Wann wird `cleanup_completed = TRUE` gesetzt?
+
+| Aktion | Zeitpunkt |
+|---|---|
+| `weiterfuehren` (kostenlos, aktive Tour) | sofort beim Klick |
+| `weiterfuehren` (kostenlos, Kulanz) | sofort nach Aktivierung |
+| `weiterfuehren_qr` (QR-Rechnung) | sofort (Tour aktiviert, Rechnung unterwegs) |
+| `weiterfuehren_online` (Payrexx) | nach Zahlungseingang via `applyImportedPayment` |
+| `archivieren` | sofort |
+| `uebertragen` | sofort |
+| `loeschen` | sofort nach Löschvormerkung |
 
 ### Admin-API
 

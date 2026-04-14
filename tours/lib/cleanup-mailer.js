@@ -94,6 +94,8 @@ async function ensureCleanupSchema() {
   // delete_requested_at / delete_after_at: vorgemerkte Löschung mit Sicherheitsfrist
   await pool.query(`ALTER TABLE tour_manager.tours ADD COLUMN IF NOT EXISTS delete_requested_at TIMESTAMPTZ`);
   await pool.query(`ALTER TABLE tour_manager.tours ADD COLUMN IF NOT EXISTS delete_after_at TIMESTAMPTZ`);
+  // cleanup_completed: TRUE wenn Bereinigungslauf für diese Tour abgeschlossen ist → fixe Preise danach
+  await pool.query(`ALTER TABLE tour_manager.tours ADD COLUMN IF NOT EXISTS cleanup_completed BOOLEAN DEFAULT FALSE`);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS tour_manager.pending_deletions (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -146,68 +148,120 @@ async function ensureCleanupSchema() {
  */
 function computeCleanupRule(tour) {
   const status = String(tour.status || '').toUpperCase();
+  const now = new Date();
+
+  function monthsAgo(n) {
+    const d = new Date(now);
+    d.setMonth(d.getMonth() - n);
+    return d;
+  }
+
   const createdAt = tour.created_at ? new Date(tour.created_at) : null;
   const archivedAt = tour.archived_at ? new Date(tour.archived_at) : null;
-  const now = new Date();
-  const sixMonthsAgo = new Date(now);
-  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  const subscriptionStartDate = tour.subscription_start_date ? new Date(tour.subscription_start_date) : null;
+  const cleanupCompleted = Boolean(tour.cleanup_completed);
 
-  const isWithin6Months = createdAt ? createdAt >= sixMonthsAgo : false;
+  const sixMonthsAgo = monthsAgo(6);
+  const twelveMonthsAgo = monthsAgo(12);
+
+  const isTourCreatedWithin6Months = createdAt ? createdAt >= sixMonthsAgo : false;
   const isArchivedWithin6Months = archivedAt ? archivedAt >= sixMonthsAgo : false;
+  const isLastPaymentWithin12Months = subscriptionStartDate ? subscriptionStartDate >= twelveMonthsAgo : false;
 
-  const matterportState = String(tour.matterport_state || '').toLowerCase();
-  const isDeactivated = matterportState === 'inactive' || status === 'ARCHIVED';
-
-  if (status === 'ACTIVE' || status === 'EXPIRING_SOON') {
-    return {
-      statusLabel: status === 'EXPIRING_SOON' ? 'Läuft bald ab' : 'Aktiv',
-      statusContext: '',
-      statusContextText: '',
-      weiterfuehrenHint: 'Tour bleibt aktiv – keine Änderung',
-      needsInvoice: false,
-      invoiceAmount: null,
-      paymentMethods: [],
-      needsManualReview: false,
-      archivedWithin6Months: false,
-      isWithin6Months,
-    };
-  }
-
-  // Tour <= 6 Monate alt: einmalig kostenlose Reaktivierung im Bereinigungslauf
-  if (isWithin6Months && status !== 'ACTIVE' && status !== 'EXPIRING_SOON') {
+  // ── Nach dem Bereinigungslauf: fixe Preise, keine Gratis-Optionen ─────────
+  if (cleanupCompleted) {
     const isArchived = status === 'ARCHIVED';
+    const isExpired = status === 'EXPIRED_PENDING_ARCHIVE' || status === 'EXPIRED';
+    const needsReactivation = isArchived || isExpired;
+    const amount = needsReactivation ? REACTIVATION_PRICE_CHF : EXTENSION_PRICE_CHF;
+    const invoiceKind = needsReactivation ? 'portal_reactivation' : 'portal_extension';
     return {
-      statusLabel: isArchived ? 'Archiviert' : 'Abgelaufen',
-      statusContext: ' (Ihre Tour wird im Rahmen des Bereinigungslaufs einmalig kostenlos reaktiviert.)',
-      statusContextText: '(Einmalige kostenlose Reaktivierung im Rahmen des Bereinigungslaufs.)',
-      weiterfuehrenHint: 'Tour einmalig kostenlos reaktivieren – Bereinigungslauf-Kulanz (Tour ≤ 6 Monate alt)',
-      needsInvoice: false,
-      invoiceAmount: null,
-      paymentMethods: [],
-      needsManualReview: false,
-      needsFreeReactivation: true,
-      archivedWithin6Months: isArchivedWithin6Months,
-      isWithin6Months,
-    };
-  }
-
-  // Tour > 6 Monate alt: kostenpflichtig wie bisher
-  if (status === 'EXPIRED_PENDING_ARCHIVE' || (isDeactivated && status !== 'ARCHIVED')) {
-    return {
-      statusLabel: 'Abgelaufen',
-      statusContext: ' (Ihre Tour ist derzeit deaktiviert.)',
-      statusContextText: '(Ihre Tour ist derzeit deaktiviert.)',
-      weiterfuehrenHint: `Tour reaktivieren – neue Rechnung CHF ${EXTENSION_PRICE_CHF}.– / 6 Monate (online oder QR)`,
+      statusLabel: isArchived ? 'Archiviert' : isExpired ? 'Abgelaufen' : 'Aktiv',
+      statusContext: needsReactivation ? ' (Ihre Tour ist derzeit deaktiviert.)' : '',
+      statusContextText: needsReactivation ? '(Ihre Tour ist derzeit deaktiviert.)' : '',
+      weiterfuehrenHint: `Tour ${needsReactivation ? 'reaktivieren' : 'verlängern'} – CHF ${amount}.– (nach Bereinigungslauf)`,
       needsInvoice: true,
-      invoiceAmount: EXTENSION_PRICE_CHF,
+      invoiceAmount: amount,
+      invoiceKind,
       paymentMethods: ['online', 'qr'],
       needsManualReview: false,
       needsFreeReactivation: false,
       archivedWithin6Months: false,
-      isWithin6Months,
+      isWithin6Months: false,
+      cleanupCompleted: true,
     };
   }
 
+  // ── ACTIVE / EXPIRING_SOON ────────────────────────────────────────────────
+  if (status === 'ACTIVE' || status === 'EXPIRING_SOON') {
+    const label = status === 'EXPIRING_SOON' ? 'Läuft bald ab' : 'Aktiv';
+    if (isLastPaymentWithin12Months) {
+      return {
+        statusLabel: label,
+        statusContext: '',
+        statusContextText: '',
+        weiterfuehrenHint: 'Tour bleibt aktiv – keine Änderung (letzte Zahlung < 12 Monate)',
+        needsInvoice: false,
+        invoiceAmount: null,
+        paymentMethods: [],
+        needsManualReview: false,
+        needsFreeReactivation: false,
+        archivedWithin6Months: false,
+        isWithin6Months: isTourCreatedWithin6Months,
+      };
+    }
+    // Letzte Zahlung > 12 Monate oder nie bezahlt → CHF 59
+    return {
+      statusLabel: label,
+      statusContext: ' (Ihre Zahlung liegt mehr als 12 Monate zurück.)',
+      statusContextText: '(Ihre Zahlung liegt mehr als 12 Monate zurück.)',
+      weiterfuehrenHint: `Tour verlängern – CHF ${EXTENSION_PRICE_CHF}.– / 6 Monate (online oder QR)`,
+      needsInvoice: true,
+      invoiceAmount: EXTENSION_PRICE_CHF,
+      invoiceKind: 'portal_extension',
+      paymentMethods: ['online', 'qr'],
+      needsManualReview: false,
+      needsFreeReactivation: false,
+      archivedWithin6Months: false,
+      isWithin6Months: isTourCreatedWithin6Months,
+    };
+  }
+
+  // ── EXPIRED: Tour ≤ 6 Monate alt → kostenlose Reaktivierung ──────────────
+  if (status === 'EXPIRED_PENDING_ARCHIVE' || status === 'EXPIRED') {
+    if (isTourCreatedWithin6Months) {
+      return {
+        statusLabel: 'Abgelaufen',
+        statusContext: ' (Ihre Tour wird im Rahmen des Bereinigungslaufs einmalig kostenlos reaktiviert.)',
+        statusContextText: '(Einmalige kostenlose Reaktivierung im Rahmen des Bereinigungslaufs.)',
+        weiterfuehrenHint: 'Tour einmalig kostenlos reaktivieren – Bereinigungslauf-Kulanz (Tour ≤ 6 Monate alt)',
+        needsInvoice: false,
+        invoiceAmount: null,
+        paymentMethods: [],
+        needsManualReview: false,
+        needsFreeReactivation: true,
+        archivedWithin6Months: false,
+        isWithin6Months: true,
+      };
+    }
+    // Tour > 6 Monate alt → CHF 74 (inkl. Bearbeitungsgebühr)
+    return {
+      statusLabel: 'Abgelaufen',
+      statusContext: ' (Ihre Tour ist derzeit deaktiviert.)',
+      statusContextText: '(Ihre Tour ist derzeit deaktiviert.)',
+      weiterfuehrenHint: `Tour reaktivieren – CHF ${REACTIVATION_PRICE_CHF}.– (inkl. CHF ${REACTIVATION_FEE_CHF}.– Bearbeitungsgebühr, online oder QR)`,
+      needsInvoice: true,
+      invoiceAmount: REACTIVATION_PRICE_CHF,
+      invoiceKind: 'portal_reactivation',
+      paymentMethods: ['online', 'qr'],
+      needsManualReview: false,
+      needsFreeReactivation: false,
+      archivedWithin6Months: false,
+      isWithin6Months: false,
+    };
+  }
+
+  // ── CUSTOMER_ACCEPTED_AWAITING_PAYMENT ────────────────────────────────────
   if (status === 'CUSTOMER_ACCEPTED_AWAITING_PAYMENT') {
     return {
       statusLabel: 'Warten auf Zahlung',
@@ -216,14 +270,16 @@ function computeCleanupRule(tour) {
       weiterfuehrenHint: `Tour reaktivieren – Zahlung CHF ${EXTENSION_PRICE_CHF}.– ausstehend (online oder QR)`,
       needsInvoice: true,
       invoiceAmount: EXTENSION_PRICE_CHF,
+      invoiceKind: 'portal_extension',
       paymentMethods: ['online', 'qr'],
       needsManualReview: false,
       needsFreeReactivation: false,
       archivedWithin6Months: false,
-      isWithin6Months,
+      isWithin6Months: isTourCreatedWithin6Months,
     };
   }
 
+  // ── ARCHIVED ──────────────────────────────────────────────────────────────
   if (status === 'ARCHIVED') {
     // Archiviert < 6 Monate: kein pauschaler Preis, manueller Review
     if (isArchivedWithin6Months) {
@@ -237,22 +293,23 @@ function computeCleanupRule(tour) {
         paymentMethods: [],
         needsManualReview: true,
         archivedWithin6Months: true,
-        isWithin6Months,
+        isWithin6Months: isTourCreatedWithin6Months,
       };
     }
-    // Archiviert > 6 Monate: Reaktivierung kostenlos als einmalige Kulanz beim Bereinigungslauf
+    // Archiviert > 6 Monate: CHF 74 einmalige Kulanz im Bereinigungslauf
     return {
       statusLabel: 'Archiviert',
       statusContext: ' (Ihre Tour ist derzeit archiviert.)',
       statusContextText: '(Ihre Tour ist derzeit archiviert.)',
-      weiterfuehrenHint: 'Tour reaktivieren – kostenlos (einmalige Kulanz beim Bereinigungslauf)',
-      needsInvoice: false,
-      invoiceAmount: null,
-      paymentMethods: [],
+      weiterfuehrenHint: `Tour reaktivieren – CHF ${REACTIVATION_PRICE_CHF}.– (einmalige Kulanz beim Bereinigungslauf, inkl. CHF ${REACTIVATION_FEE_CHF}.– Bearbeitungsgebühr)`,
+      needsInvoice: true,
+      invoiceAmount: REACTIVATION_PRICE_CHF,
+      invoiceKind: 'portal_reactivation',
+      paymentMethods: ['online', 'qr'],
       needsManualReview: false,
-      needsFreeReactivation: true,
+      needsFreeReactivation: false,
       archivedWithin6Months: false,
-      isWithin6Months,
+      isWithin6Months: isTourCreatedWithin6Months,
     };
   }
 
@@ -267,7 +324,7 @@ function computeCleanupRule(tour) {
     paymentMethods: [],
     needsManualReview: false,
     archivedWithin6Months: false,
-    isWithin6Months,
+    isWithin6Months: isTourCreatedWithin6Months,
   };
 }
 

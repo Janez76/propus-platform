@@ -595,7 +595,7 @@ async function executeDashboardAction(customerEmail, tourId, action) {
     }
 
     await pool.query(
-      `UPDATE tour_manager.tours SET cleanup_action = 'weiterfuehren', cleanup_action_at = NOW(), updated_at = NOW() WHERE id = $1`,
+      `UPDATE tour_manager.tours SET cleanup_action = 'weiterfuehren', cleanup_action_at = NOW(), cleanup_completed = TRUE, updated_at = NOW() WHERE id = $1`,
       [tour.id]
     );
     await activateTourAndSpace(tour.id, tour.canonical_matterport_space_id || tour.matterport_space_id || null);
@@ -619,6 +619,7 @@ async function executeDashboardAction(customerEmail, tourId, action) {
            matterport_state = CASE WHEN COALESCE($2::text, '') <> '' THEN 'inactive' ELSE matterport_state END,
            cleanup_action = 'archivieren',
            cleanup_action_at = NOW(),
+           cleanup_completed = TRUE,
            updated_at = NOW()
        WHERE id = $1`,
       [tour.id, spaceId || null]
@@ -629,7 +630,7 @@ async function executeDashboardAction(customerEmail, tourId, action) {
 
   if (action === 'uebertragen') {
     await pool.query(
-      `UPDATE tour_manager.tours SET cleanup_action = 'uebertragen', cleanup_action_at = NOW(), updated_at = NOW() WHERE id = $1`,
+      `UPDATE tour_manager.tours SET cleanup_action = 'uebertragen', cleanup_action_at = NOW(), cleanup_completed = TRUE, updated_at = NOW() WHERE id = $1`,
       [tour.id]
     );
     await pool.query(
@@ -655,6 +656,10 @@ async function executeDashboardAction(customerEmail, tourId, action) {
       via: 'cleanup_dashboard',
       deleteMatterport: true,
     });
+    await pool.query(
+      `UPDATE tour_manager.tours SET cleanup_completed = TRUE, updated_at = NOW() WHERE id = $1`,
+      [tour.id]
+    );
     await logAction(tour.id, 'customer', actorEmail, 'CLEANUP_DASHBOARD_LOESCHEN', {
       execute_after: scheduled.executeAfter.toISOString(),
       matterport_space_id: scheduled.spaceId || null,
@@ -732,7 +737,7 @@ async function executeDashboardPaymentChoice(customerEmail, tourId, paymentMetho
   });
 
   await pool.query(
-    `UPDATE tour_manager.tours SET cleanup_action = 'weiterfuehren_qr', cleanup_action_at = NOW(), updated_at = NOW() WHERE id = $1`,
+    `UPDATE tour_manager.tours SET cleanup_action = 'weiterfuehren_qr', cleanup_action_at = NOW(), cleanup_completed = TRUE, updated_at = NOW() WHERE id = $1`,
     [tour.id]
   );
   await logAction(tour.id, 'customer', actorEmail, 'CLEANUP_DASHBOARD_QR_INVOICE', { amount });

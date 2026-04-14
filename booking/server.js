@@ -13449,7 +13449,11 @@ if (fs.existsSync(PHOTOGRAPHER_PORTRAIT_DIR)) {
            WHERE id = $1`,
           [tour.id, subWindow.endDate, subWindow.startDate]
         );
-        await logAction(tour.id, "customer", tour.customer_email, "CLEANUP_ACTION_WEITERFUEHREN_FREE", { freeReactivation: true, spaceId });
+        await pgPool.query(
+        `UPDATE tour_manager.tours SET cleanup_completed = TRUE, updated_at = NOW() WHERE id = $1`,
+        [tour.id]
+      );
+      await logAction(tour.id, "customer", tour.customer_email, "CLEANUP_ACTION_WEITERFUEHREN_FREE", { freeReactivation: true, spaceId });
         return res.send(cleanupPage({ title: "Tour kostenlos reaktiviert \u2713", icon: "\u2713", color: "#059669",
           body: "<p>Danke! Ihre Tour wurde im Rahmen des Bereinigungslaufs <strong>einmalig kostenlos reaktiviert</strong>. Sie ist ab sofort wieder \u00fcber den direkten Link erreichbar.</p>" }));
       }
@@ -13457,7 +13461,7 @@ if (fs.existsSync(PHOTOGRAPHER_PORTRAIT_DIR)) {
       // Aktive Tour: Entscheid protokollieren, fertig
       const pgPool = require("../tours/lib/db").pool;
       await pgPool.query(
-        `UPDATE tour_manager.tours SET cleanup_action = 'weiterfuehren', cleanup_action_at = NOW(), updated_at = NOW() WHERE id = $1`,
+        `UPDATE tour_manager.tours SET cleanup_action = 'weiterfuehren', cleanup_action_at = NOW(), cleanup_completed = TRUE, updated_at = NOW() WHERE id = $1`,
         [tour.id]
       );
       const cleanupDashboard = require("../tours/lib/cleanup-dashboard");
@@ -13512,6 +13516,7 @@ if (fs.existsSync(PHOTOGRAPHER_PORTRAIT_DIR)) {
 
       await pgPool.query(`UPDATE tour_manager.tours SET cleanup_action = 'weiterfuehren_online', cleanup_action_at = NOW(), updated_at = NOW() WHERE id = $1`, [tour.id]);
       await logAction(matchedTourId, "customer", tour.customer_email, "CLEANUP_ACTION_ONLINE_CHECKOUT", { amount, invoiceKind });
+      // cleanup_completed wird nach Zahlungseingang via applyImportedPayment gesetzt
       return res.redirect(checkoutUrl);
     } catch (err) {
       console.error("[cleanup] weiterfuehren/online:", err.message);
@@ -13566,7 +13571,7 @@ if (fs.existsSync(PHOTOGRAPHER_PORTRAIT_DIR)) {
         console.error("[cleanup] sendInvoiceWithQrEmail failed:", tour.id, err.message);
       });
 
-      await pgPool.query(`UPDATE tour_manager.tours SET cleanup_action = 'weiterfuehren_qr', cleanup_action_at = NOW(), updated_at = NOW() WHERE id = $1`, [tour.id]);
+      await pgPool.query(`UPDATE tour_manager.tours SET cleanup_action = 'weiterfuehren_qr', cleanup_action_at = NOW(), cleanup_completed = TRUE, updated_at = NOW() WHERE id = $1`, [tour.id]);
       await logAction(matchedTourId, "customer", tour.customer_email, "CLEANUP_ACTION_QR_INVOICE_SENT", { amount, invoiceKind });
       return res.send(cleanupPage({ title: "QR-Rechnung unterwegs", icon: "📄", color: "#1d4ed8",
         body: `<p>Ihre QR-Rechnung (CHF ${amount}.–) wurde per E-Mail verschickt. Bitte bezahlen Sie diese innerhalb von 14 Tagen, um Ihre Tour zu reaktivieren.</p>` }));
@@ -13597,7 +13602,7 @@ if (fs.existsSync(PHOTOGRAPHER_PORTRAIT_DIR)) {
       }
       const { tour } = result;
       const pgPool = require("../tours/lib/db").pool;
-      await pgPool.query(`UPDATE tour_manager.tours SET status = 'ARCHIVED', archived_at = NOW(), cleanup_action = 'archivieren', cleanup_action_at = NOW(), updated_at = NOW() WHERE id = $1`, [tour.id]);
+      await pgPool.query(`UPDATE tour_manager.tours SET status = 'ARCHIVED', archived_at = NOW(), cleanup_action = 'archivieren', cleanup_action_at = NOW(), cleanup_completed = TRUE, updated_at = NOW() WHERE id = $1`, [tour.id]);
       await logAction(tour.id, "customer", tour.customer_email, "CLEANUP_ACTION_ARCHIVIEREN", {});
       // Matterport archivieren wenn möglich
       try {
@@ -13628,7 +13633,7 @@ if (fs.existsSync(PHOTOGRAPHER_PORTRAIT_DIR)) {
       }
       const { tour } = result;
       const pgPool = require("../tours/lib/db").pool;
-      await pgPool.query(`UPDATE tour_manager.tours SET cleanup_action = 'uebertragen', cleanup_action_at = NOW(), updated_at = NOW() WHERE id = $1`, [tour.id]);
+      await pgPool.query(`UPDATE tour_manager.tours SET cleanup_action = 'uebertragen', cleanup_action_at = NOW(), cleanup_completed = TRUE, updated_at = NOW() WHERE id = $1`, [tour.id]);
       await logAction(tour.id, "customer", tour.customer_email, "CLEANUP_ACTION_UEBERTRAGEN", {});
       // Ticket für Übertragung erstellen
       await pgPool.query(
@@ -13672,6 +13677,11 @@ if (fs.existsSync(PHOTOGRAPHER_PORTRAIT_DIR)) {
         via: "cleanup_mail_link",
         deleteMatterport: true,
       });
+      const pgPool = require("../tours/lib/db").pool;
+      await pgPool.query(
+        `UPDATE tour_manager.tours SET cleanup_completed = TRUE, updated_at = NOW() WHERE id = $1`,
+        [tour.id]
+      );
       await logAction(tour.id, "customer", tour.customer_email, "CLEANUP_ACTION_LOESCHEN_CONFIRMED", {
         execute_after: scheduled.executeAfter.toISOString(),
         matterport_space_id: scheduled.spaceId || null,

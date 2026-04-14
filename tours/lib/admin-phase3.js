@@ -1784,6 +1784,67 @@ async function deleteRenewalInvoice(invoiceId, actorEmail) {
   return { ok: true, tourStatusReset };
 }
 
+/**
+ * Massen-Löschung: Offene + überfällige interne Verlängerungsrechnungen (renewal_invoices)
+ * mit genau CHF 63.80 — betrifft Matterport-Verlängerungen.
+ *
+ * @param {object} options
+ * @param {boolean} options.dryRun  true = nur Vorschau (Standard: false)
+ * @param {string}  options.actorEmail
+ */
+async function bulkDeleteOpenRenewalInvoicesByAmount({ dryRun = false, actorEmail = null } = {}) {
+  const AMOUNT = 63.80;
+
+  const res = await pool.query(`
+    SELECT ri.id, ri.invoice_number, ri.invoice_status, ri.amount_chf,
+           ri.invoice_kind, ri.description, ri.customer_name, ri.customer_email,
+           ri.tour_id,
+           COALESCE(t.object_label, t.bezeichnung) AS tour_object_label
+    FROM tour_manager.renewal_invoices ri
+    LEFT JOIN tour_manager.tours t ON t.id = ri.tour_id
+    WHERE ri.invoice_status IN ('sent', 'overdue')
+      AND ri.amount_chf = $1::numeric
+    ORDER BY ri.invoice_status DESC, ri.id
+  `, [AMOUNT]);
+
+  const candidates = res.rows;
+
+  if (dryRun) {
+    return { ok: true, dryRun: true, count: candidates.length, invoices: candidates };
+  }
+
+  const deleted = [];
+  const errors = [];
+
+  for (const inv of candidates) {
+    try {
+      await deleteRenewalInvoice(inv.id, actorEmail);
+      deleted.push({
+        id: inv.id,
+        invoice_number: inv.invoice_number,
+        invoice_status: inv.invoice_status,
+        amount_chf: inv.amount_chf,
+        customer_name: inv.customer_name,
+        tour_object_label: inv.tour_object_label,
+      });
+    } catch (err) {
+      errors.push({ id: inv.id, invoice_number: inv.invoice_number, error: err.message });
+    }
+  }
+
+  console.log(
+    `[bulkDelete-renewal-63.80] actor=${actorEmail} deleted=${deleted.length} errors=${errors.length}`
+  );
+
+  return {
+    ok: errors.length === 0,
+    deleted: deleted.length,
+    errors,
+    deletedInvoices: deleted,
+    total: candidates.length,
+  };
+}
+
 async function archiveRenewalInvoice(invoiceId) {
   const id = parseInt(String(invoiceId), 10);
   if (!Number.isFinite(id)) throw new Error('Ungültige Rechnungs-ID');
@@ -1894,6 +1955,77 @@ async function deleteExxasInvoice(invoiceId) {
   const r = await pool.query(`DELETE FROM tour_manager.exxas_invoices WHERE id = $1 RETURNING id`, [id]);
   if (r.rowCount === 0) throw new Error('Rechnung nicht gefunden');
   return { ok: true };
+}
+
+/**
+ * Massen-Löschung: Offene Exxas-Rechnungen "Hosting Verlängerung 6 Monate VR Tour Matterport"
+ * mit Rechnungsnummer 500xxx — samt verknüpften importierten Verlängerungsrechnungen im Panel.
+ *
+ * @param {object} options
+ * @param {boolean} options.dryRun  true = nur Vorschau, kein Löschen (Standard: false)
+ * @param {string}  options.actorEmail  für Logging
+ */
+async function bulkDeleteHostingMatterportExxasInvoices({ dryRun = false, actorEmail = null } = {}) {
+  await ensureExxasArchivedColumn();
+
+  const res = await pool.query(`
+    SELECT id, exxas_document_id, nummer, bezeichnung, exxas_status, kunde_name, preis_brutto
+    FROM tour_manager.exxas_invoices
+    WHERE exxas_status != 'bz'
+      AND nummer LIKE '500%'
+      AND (
+        LOWER(bezeichnung) LIKE '%hosting%'
+        OR LOWER(bezeichnung) LIKE '%verlängerung%'
+        OR LOWER(bezeichnung) LIKE '%matterport%'
+        OR LOWER(bezeichnung) LIKE '%vr%'
+      )
+      AND archived_at IS NULL
+    ORDER BY nummer
+  `);
+
+  const candidates = res.rows;
+
+  if (dryRun) {
+    return { ok: true, dryRun: true, count: candidates.length, invoices: candidates };
+  }
+
+  const deleted = [];
+  const errors = [];
+
+  for (const inv of candidates) {
+    try {
+      const linkId = inv.exxas_document_id || inv.nummer || null;
+
+      // Verknüpfte importierte Verlängerungsrechnungen löschen (ausser bezahlte)
+      if (linkId) {
+        await pool.query(
+          `DELETE FROM tour_manager.renewal_invoices
+           WHERE exxas_invoice_id = $1
+             AND invoice_status != 'paid'`,
+          [String(linkId)]
+        );
+      }
+
+      // Exxas-Rechnung aus lokalem Panel löschen
+      await pool.query(`DELETE FROM tour_manager.exxas_invoices WHERE id = $1`, [inv.id]);
+
+      deleted.push({ id: inv.id, nummer: inv.nummer, bezeichnung: inv.bezeichnung, kunde_name: inv.kunde_name });
+    } catch (err) {
+      errors.push({ id: inv.id, nummer: inv.nummer, error: err.message });
+    }
+  }
+
+  console.log(
+    `[bulkDelete-hosting-matterport] actor=${actorEmail} deleted=${deleted.length} errors=${errors.length}`
+  );
+
+  return {
+    ok: errors.length === 0,
+    deleted: deleted.length,
+    errors,
+    deletedInvoices: deleted,
+    total: candidates.length,
+  };
 }
 
 async function archiveExxasInvoice(invoiceId) {
@@ -2418,10 +2550,12 @@ module.exports = {
   getExxasInvoicesCentral,
   syncAllExxasInvoicesFromApi,
   deleteRenewalInvoice,
+  bulkDeleteOpenRenewalInvoicesByAmount,
   archiveRenewalInvoice,
   updateRenewalInvoice,
   resendRenewalInvoice,
   deleteExxasInvoice,
+  bulkDeleteHostingMatterportExxasInvoices,
   archiveExxasInvoice,
   updateExxasInvoice,
   getBankImportJson,

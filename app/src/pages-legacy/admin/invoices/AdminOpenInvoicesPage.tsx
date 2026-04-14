@@ -1,11 +1,14 @@
 import { useCallback, useState } from "react";
-import { Search } from "lucide-react";
+import { AlertTriangle, Search, Trash2 } from "lucide-react";
 import {
   archiveAdminInvoice,
+  bulkDeleteRenewal63Invoices,
   deleteAdminInvoice,
   getAdminInvoicesCentral,
+  getRenewal63DeletePreview,
   importExxasAdminInvoice,
   resendAdminInvoice,
+  type BulkDeleteRenewal63Preview,
 } from "../../../api/toursAdmin";
 import { useQuery } from "../../../hooks/useQuery";
 import { adminInvoicesCentralQueryKey } from "../../../lib/queryKeys";
@@ -27,6 +30,10 @@ export function AdminOpenInvoicesPage() {
   const [busyActionKey, setBusyActionKey] = useState<string | null>(null);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
   const [actionErr, setActionErr] = useState<string | null>(null);
+  const [showRenewal63Modal, setShowRenewal63Modal] = useState(false);
+  const [renewal63Preview, setRenewal63Preview] = useState<BulkDeleteRenewal63Preview | null>(null);
+  const [renewal63Loading, setRenewal63Loading] = useState(false);
+  const [renewal63Err, setRenewal63Err] = useState<string | null>(null);
 
   const status = tab === "renewal" ? "offen" : "offen";
 
@@ -128,11 +135,57 @@ export function AdminOpenInvoicesPage() {
     [runMutation],
   );
 
+  const handleOpenRenewal63Modal = useCallback(async () => {
+    setRenewal63Err(null);
+    setRenewal63Preview(null);
+    setRenewal63Loading(true);
+    setShowRenewal63Modal(true);
+    try {
+      const preview = await getRenewal63DeletePreview();
+      setRenewal63Preview(preview);
+    } catch (err) {
+      setRenewal63Err(err instanceof Error ? err.message : "Vorschau fehlgeschlagen.");
+    } finally {
+      setRenewal63Loading(false);
+    }
+  }, []);
+
+  const handleConfirmRenewal63Delete = useCallback(async () => {
+    setRenewal63Loading(true);
+    setRenewal63Err(null);
+    try {
+      const result = await bulkDeleteRenewal63Invoices();
+      setShowRenewal63Modal(false);
+      setRenewal63Preview(null);
+      setActionMsg(
+        `${result.deleted} Verlängerungsrechnung${result.deleted !== 1 ? "en" : ""} (CHF 63.80) gelöscht.`
+      );
+      await refreshInvoices();
+    } catch (err) {
+      setRenewal63Err(err instanceof Error ? err.message : "Löschen fehlgeschlagen.");
+    } finally {
+      setRenewal63Loading(false);
+    }
+  }, [refreshInvoices]);
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-[var(--text-main)]">Offene Rechnungen</h1>
-        <p className="text-sm text-[var(--text-subtle)] mt-1">Alle ausstehenden und überfälligen Rechnungen.</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-[var(--text-main)]">Offene Rechnungen</h1>
+          <p className="text-sm text-[var(--text-subtle)] mt-1">Alle ausstehenden und überfälligen Rechnungen.</p>
+        </div>
+        {tab === "renewal" && (
+          <button
+            type="button"
+            onClick={() => void handleOpenRenewal63Modal()}
+            className="inline-flex items-center gap-1.5 shrink-0 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 hover:border-red-400"
+            title="Alle offenen/überfälligen Verlängerungsrechnungen CHF 63.80 (Matterport) löschen"
+          >
+            <Trash2 className="h-4 w-4" />
+            Verlängerung CHF 63.80 bereinigen
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -247,6 +300,91 @@ export function AdminOpenInvoicesPage() {
             await refreshInvoices();
           })()}
         />
+      ) : null}
+
+      {showRenewal63Modal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-[var(--surface)] rounded-2xl border border-[var(--border-soft)] shadow-xl max-w-lg w-full p-6 space-y-5">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-6 w-6 text-red-500 shrink-0 mt-0.5" />
+              <div>
+                <h2 className="text-lg font-bold text-[var(--text-main)]">
+                  Verlängerungsrechnungen CHF 63.80 bereinigen
+                </h2>
+                <p className="text-sm text-[var(--text-subtle)] mt-1">
+                  Löscht alle <strong>offenen und überfälligen</strong> internen Rechnungen mit Betrag{" "}
+                  <strong>CHF 63.80</strong> (Matterport-Verlängerung). Bezahlte Rechnungen werden nicht berührt.
+                </p>
+              </div>
+            </div>
+
+            {renewal63Loading && (
+              <div className="flex items-center gap-2 text-sm text-[var(--text-subtle)]">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--accent)]/30 border-t-[var(--accent)]" />
+                Wird geladen…
+              </div>
+            )}
+
+            {renewal63Err && (
+              <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{renewal63Err}</p>
+            )}
+
+            {renewal63Preview && !renewal63Loading && (
+              <div className="space-y-3">
+                {renewal63Preview.count === 0 ? (
+                  <p className="text-sm text-green-700 bg-green-50 rounded-lg px-3 py-2">
+                    Keine passenden offenen Rechnungen (CHF 63.80) gefunden. Nichts zu löschen.
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-sm font-medium text-red-700">
+                      {renewal63Preview.count} Rechnung{renewal63Preview.count !== 1 ? "en" : ""} werden gelöscht:
+                    </p>
+                    <div className="max-h-48 overflow-y-auto rounded-lg border border-[var(--border-soft)] divide-y divide-[var(--border-soft)]">
+                      {renewal63Preview.invoices.map((inv) => (
+                        <div key={inv.id} className="px-3 py-2 text-xs flex justify-between gap-2">
+                          <span className="font-mono font-medium text-[var(--text-main)]">
+                            {inv.invoice_number ?? `#${inv.id}`}
+                          </span>
+                          <span className={`shrink-0 font-medium ${inv.invoice_status === "overdue" ? "text-red-600" : "text-amber-600"}`}>
+                            {inv.invoice_status === "overdue" ? "Überfällig" : "Offen"}
+                          </span>
+                          <span className="text-[var(--text-subtle)] truncate">
+                            {inv.tour_object_label ?? inv.customer_name ?? "—"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => { setShowRenewal63Modal(false); setRenewal63Preview(null); }}
+                disabled={renewal63Loading}
+                className="rounded-lg px-4 py-2 text-sm font-medium border border-[var(--border-soft)] text-[var(--text-subtle)] hover:text-[var(--text-main)] disabled:opacity-50"
+              >
+                Abbrechen
+              </button>
+              {renewal63Preview && renewal63Preview.count > 0 && (
+                <button
+                  type="button"
+                  onClick={() => void handleConfirmRenewal63Delete()}
+                  disabled={renewal63Loading}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {renewal63Loading
+                    ? "Wird gelöscht…"
+                    : `${renewal63Preview.count} Rechnung${renewal63Preview.count !== 1 ? "en" : ""} löschen`}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   );

@@ -231,6 +231,7 @@ function drawInvoiceMeta(doc, ctx, y) {
 function drawParties(doc, ctx, y) {
   const margin = doc.page.margins.left;
   const midX = doc.page.width / 2;
+  const nameWidth = midX - margin - 10;
 
   doc.font('Helvetica-Bold').fontSize(6.5).fillColor(PROPUS_GOLD)
     .text('RECHNUNGSEMPFÄNGER', margin, y);
@@ -238,21 +239,27 @@ function drawParties(doc, ctx, y) {
     .text('ABSENDER', midX + 10, y);
   y += 14;
 
-  doc.font('Helvetica-Bold').fontSize(9.5).fillColor(PROPUS_DARK)
-    .text(ctx.customerName, margin, y, { width: midX - margin - 10 });
-  y += 14;
+  const nameStartY = y;
+
+  // Kundennamen messen, damit bei langen Namen kein Overlap entsteht
+  doc.font('Helvetica-Bold').fontSize(9.5);
+  const nameHeight = doc.heightOfString(ctx.customerName, { width: nameWidth });
+  doc.fillColor(PROPUS_DARK).text(ctx.customerName, margin, y, { width: nameWidth });
+  y += Math.max(14, nameHeight + 2);
+
   if (ctx.customerEmail) {
     doc.font('Helvetica').fontSize(8.5).fillColor('#4B5563')
-      .text(ctx.customerEmail, margin, y, { width: midX - margin - 10 });
+      .text(ctx.customerEmail, margin, y, { width: nameWidth });
     y += 12;
   }
   if (ctx.customerAddress) {
     doc.font('Helvetica').fontSize(8.5).fillColor('#4B5563')
-      .text(ctx.customerAddress, margin, y, { width: midX - margin - 10 });
+      .text(ctx.customerAddress, margin, y, { width: nameWidth });
     y += 12;
   }
 
-  let ry = y - (ctx.customerEmail ? 26 : 14);
+  // Absender-Spalte ab derselben Y-Position wie der Kundenname
+  let ry = nameStartY;
   doc.font('Helvetica-Bold').fontSize(9.5).fillColor(PROPUS_DARK)
     .text(ctx.creditor.name, midX + 10, ry, { width: midX - margin - 10 });
   ry += 14;
