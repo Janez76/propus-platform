@@ -9,6 +9,7 @@ backend/node_modules/
 *.log
 *.zip
 backups/
+!admin-panel/src/components/backups/
 Buchungstool-backups/
 .backups/
 _backup_*/
