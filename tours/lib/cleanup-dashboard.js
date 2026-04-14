@@ -1415,7 +1415,9 @@ async function createCleanupDraftInvoice(tourId) {
   const amount = rule.invoiceAmount;
   const invoiceKind = rule.invoiceKind || (tour.status === 'ARCHIVED' ? 'portal_reactivation' : 'portal_extension');
   const dueAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-  const subscriptionWindow = getSubscriptionWindowFromStart(new Date());
+  // Periode startet ab dem letzten Ablaufdatum (term_end_date), nicht ab heute
+  const periodStart = tour.term_end_date || tour.ablaufdatum || new Date();
+  const subscriptionWindow = getSubscriptionWindowFromStart(new Date(periodStart));
 
   const inserted = await dbPool.query(
     `INSERT INTO tour_manager.renewal_invoices
