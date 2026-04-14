@@ -2583,6 +2583,27 @@ router.get('/invoices-central', async (req, res) => {
   }
 });
 
+// Exxas-Storno: Direkt in Exxas stornieren (kein lokaler DB-Bezug nötig)
+router.get('/invoices/exxas/bulk-storno-hosting/preview', async (req, res) => {
+  try {
+    const result = await phase3.bulkStornoHostingMatterportInExxas({ dryRun: true });
+    return res.json(result);
+  } catch (err) {
+    console.error('/invoices/exxas/bulk-storno-hosting/preview:', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+router.post('/invoices/exxas/bulk-storno-hosting', async (req, res) => {
+  try {
+    const result = await phase3.bulkStornoHostingMatterportInExxas({ dryRun: false });
+    return res.json(result);
+  } catch (err) {
+    console.error('/invoices/exxas/bulk-storno-hosting:', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // Bulk-Delete-Routen MÜSSEN vor der Wildcard-Route stehen, sonst matcht Express sie als :type/:id
 router.delete('/invoices/exxas/bulk-delete-hosting', async (req, res) => {
   try {

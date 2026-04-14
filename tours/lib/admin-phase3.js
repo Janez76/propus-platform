@@ -2028,6 +2028,83 @@ async function bulkDeleteHostingMatterportExxasInvoices({ dryRun = false, actorE
   };
 }
 
+/**
+ * Direkt-Storno in Exxas: Holt die Live-Liste aus der Exxas-API,
+ * filtert auf offene Hosting-VR-Matterport-Rechnungen (500xxx) und
+ * storni jede via cancelInvoice().
+ * Kein lokaler DB-Bezug nötig — funktioniert auch wenn lokale Einträge bereits gelöscht.
+ *
+ * @param {object} options
+ * @param {boolean} options.dryRun  true = nur Vorschau (Standard: false)
+ */
+async function bulkStornoHostingMatterportInExxas({ dryRun = false } = {}) {
+  const { rows, ok, error } = await exxas.fetchExxasInvoicesRawList();
+  if (!ok && (!rows || rows.length === 0)) {
+    return { ok: false, error: error || 'Exxas API nicht erreichbar', candidates: [] };
+  }
+
+  const candidates = (rows || [])
+    .map((row) => exxas.mapInvoicePayload(row))
+    .filter((inv) => {
+      if (!inv) return false;
+      if (String(inv.typ || '').trim().toLowerCase() !== 'r') return false;
+      const nr = String(inv.nummer || '').trim();
+      if (!nr.startsWith('500')) return false;
+      if (String(inv.exxas_status || '').toLowerCase() === 'bz') return false;
+      const bez = String(inv.bezeichnung || '').toLowerCase();
+      return (
+        bez.includes('hosting') ||
+        bez.includes('verlängerung') ||
+        bez.includes('matterport') ||
+        bez.includes('vr')
+      );
+    })
+    .map((inv) => ({
+      exxas_document_id: inv.exxas_document_id || inv.id || inv.nummer,
+      nummer: inv.nummer,
+      bezeichnung: inv.bezeichnung,
+      kunde_name: inv.kunde_name,
+      exxas_status: inv.exxas_status,
+      preis_brutto: inv.preis_brutto,
+    }));
+
+  if (dryRun) {
+    return { ok: true, dryRun: true, count: candidates.length, invoices: candidates };
+  }
+
+  const storniert = [];
+  const errors = [];
+
+  for (const inv of candidates) {
+    const invoiceRef = inv.exxas_document_id || inv.nummer;
+    try {
+      const result = await exxas.cancelInvoice(invoiceRef);
+      if (result && result.success === false) {
+        errors.push({ nummer: inv.nummer, error: result.error || 'Storno fehlgeschlagen' });
+      } else {
+        storniert.push({ nummer: inv.nummer, bezeichnung: inv.bezeichnung, kunde_name: inv.kunde_name });
+      }
+    } catch (err) {
+      errors.push({ nummer: inv.nummer, error: err.message });
+    }
+  }
+
+  // Cache leeren damit nächster Sync den neuen Status holt
+  exxas.clearExxasInvoiceListCache();
+
+  console.log(
+    `[bulkStorno-hosting-matterport] storniert=${storniert.length} errors=${errors.length}`
+  );
+
+  return {
+    ok: errors.length === 0,
+    storniert: storniert.length,
+    errors,
+    storniertInvoices: storniert,
+    total: candidates.length,
+  };
+}
+
 async function archiveExxasInvoice(invoiceId) {
   await ensureExxasArchivedColumn();
   const id = parseInt(String(invoiceId), 10);
@@ -2556,6 +2633,7 @@ module.exports = {
   resendRenewalInvoice,
   deleteExxasInvoice,
   bulkDeleteHostingMatterportExxasInvoices,
+  bulkStornoHostingMatterportInExxas,
   archiveExxasInvoice,
   updateExxasInvoice,
   getBankImportJson,

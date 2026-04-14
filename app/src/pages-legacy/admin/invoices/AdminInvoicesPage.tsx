@@ -4,14 +4,17 @@ import {
   archiveAdminInvoice,
   bulkDeleteHostingMatterportInvoices,
   bulkDeleteRenewal63Invoices,
+  bulkStornoHostingMatterportInExxas,
   deleteAdminInvoice,
   getAdminInvoicesCentral,
   getHostingMatterportDeletePreview,
+  getHostingMatterportStornoPreview,
   getRenewal63DeletePreview,
   importExxasAdminInvoice,
   resendAdminInvoice,
   type BulkDeleteHostingPreview,
   type BulkDeleteRenewal63Preview,
+  type BulkStornoHostingPreview,
 } from "../../../api/toursAdmin";
 import { useQuery } from "../../../hooks/useQuery";
 import { adminInvoicesCentralQueryKey } from "../../../lib/queryKeys";
@@ -51,6 +54,10 @@ export function AdminInvoicesPage() {
   const [renewal63Preview, setRenewal63Preview] = useState<BulkDeleteRenewal63Preview | null>(null);
   const [renewal63Loading, setRenewal63Loading] = useState(false);
   const [renewal63Err, setRenewal63Err] = useState<string | null>(null);
+  const [showStornoModal, setShowStornoModal] = useState(false);
+  const [stornoPreview, setStornoPreview] = useState<BulkStornoHostingPreview | null>(null);
+  const [stornoLoading, setStornoLoading] = useState(false);
+  const [stornoErr, setStornoErr] = useState<string | null>(null);
 
   const status = tab === "renewal" ? renewalStatus : exxasStatus;
   const search = tab === "renewal" ? renewalSearch : exxasSearch;
@@ -249,6 +256,40 @@ export function AdminInvoicesPage() {
     }
   }, [refreshInvoices]);
 
+  const handleOpenStornoModal = useCallback(async () => {
+    setStornoErr(null);
+    setStornoPreview(null);
+    setStornoLoading(true);
+    setShowStornoModal(true);
+    try {
+      const preview = await getHostingMatterportStornoPreview();
+      setStornoPreview(preview);
+    } catch (err) {
+      setStornoErr(err instanceof Error ? err.message : "Vorschau fehlgeschlagen.");
+    } finally {
+      setStornoLoading(false);
+    }
+  }, []);
+
+  const handleConfirmStorno = useCallback(async () => {
+    setStornoLoading(true);
+    setStornoErr(null);
+    try {
+      const result = await bulkStornoHostingMatterportInExxas();
+      setShowStornoModal(false);
+      setStornoPreview(null);
+      const msg = result.ok
+        ? `${result.storniert} Rechnung${result.storniert !== 1 ? "en" : ""} in Exxas storniert.`
+        : `${result.storniert} storniert, ${result.errors.length} Fehler: ${result.errors.map((e) => e.nummer).join(", ")}`;
+      setActionMsg(msg);
+      await refreshInvoices();
+    } catch (err) {
+      setStornoErr(err instanceof Error ? err.message : "Storno fehlgeschlagen.");
+    } finally {
+      setStornoLoading(false);
+    }
+  }, [refreshInvoices]);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -270,15 +311,26 @@ export function AdminInvoicesPage() {
             </button>
           )}
           {tab === "exxas" && (
-            <button
-              type="button"
-              onClick={() => void handleOpenBulkDeleteModal()}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 hover:border-red-400"
-              title="Alle offenen Exxas-Rechnungen «Hosting Verlängerung 6 Monate VR Tour Matterport» (500xxx) löschen"
-            >
-              <Trash2 className="h-4 w-4" />
-              Hosting 500xxx bereinigen
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => void handleOpenStornoModal()}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-orange-300 px-4 py-2 text-sm font-medium text-orange-600 hover:bg-orange-50 hover:border-orange-400"
+                title="Offene Hosting-VR-Matterport-Rechnungen (500xxx) direkt in Exxas stornieren"
+              >
+                <AlertTriangle className="h-4 w-4" />
+                In Exxas stornieren
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleOpenBulkDeleteModal()}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 hover:border-red-400"
+                title="Alle offenen Exxas-Rechnungen «Hosting Verlängerung 6 Monate VR Tour Matterport» (500xxx) aus Panel löschen"
+              >
+                <Trash2 className="h-4 w-4" />
+                Panel bereinigen
+              </button>
+            </>
           )}
           <button
             type="button"
@@ -464,6 +516,86 @@ export function AdminInvoicesPage() {
             void refreshInvoices();
           }}
         />
+      ) : null}
+
+      {showStornoModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-[var(--surface)] rounded-2xl border border-[var(--border-soft)] shadow-xl max-w-lg w-full p-6 space-y-5">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-6 w-6 text-orange-500 shrink-0 mt-0.5" />
+              <div>
+                <h2 className="text-lg font-bold text-[var(--text-main)]">
+                  Hosting VR Tour Matterport (500xxx) in Exxas stornieren
+                </h2>
+                <p className="text-sm text-[var(--text-subtle)] mt-1">
+                  Ruft die Exxas-API direkt auf und storniert alle offenen Rechnungen mit Nummer{" "}
+                  <strong>500xxx</strong> und Bezeichnung «Hosting / Verlängerung / Matterport / VR».
+                  Bezahlte Rechnungen werden nicht berührt.
+                </p>
+              </div>
+            </div>
+
+            {stornoLoading && (
+              <div className="flex items-center gap-2 text-sm text-[var(--text-subtle)]">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-orange-300 border-t-orange-500" />
+                {stornoPreview ? "Wird storniert…" : "Exxas-Liste wird geladen…"}
+              </div>
+            )}
+
+            {stornoErr && (
+              <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{stornoErr}</p>
+            )}
+
+            {stornoPreview && !stornoLoading && (
+              <div className="space-y-3">
+                {stornoPreview.count === 0 ? (
+                  <p className="text-sm text-green-700 bg-green-50 rounded-lg px-3 py-2">
+                    Keine passenden offenen Rechnungen in Exxas gefunden. Nichts zu stornieren.
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-sm font-medium text-orange-700">
+                      {stornoPreview.count} Rechnung{stornoPreview.count !== 1 ? "en" : ""} werden in Exxas storniert:
+                    </p>
+                    <div className="max-h-48 overflow-y-auto rounded-lg border border-[var(--border-soft)] divide-y divide-[var(--border-soft)]">
+                      {stornoPreview.invoices.map((inv, i) => (
+                        <div key={inv.exxas_document_id ?? i} className="px-3 py-2 text-xs flex justify-between gap-2">
+                          <span className="font-mono font-medium text-[var(--text-main)]">{inv.nummer ?? "—"}</span>
+                          <span className="text-[var(--text-subtle)] truncate">{inv.bezeichnung ?? "—"}</span>
+                          <span className="text-[var(--text-subtle)] shrink-0">{inv.kunde_name ?? ""}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => { setShowStornoModal(false); setStornoPreview(null); }}
+                disabled={stornoLoading}
+                className="rounded-lg px-4 py-2 text-sm font-medium border border-[var(--border-soft)] text-[var(--text-subtle)] hover:text-[var(--text-main)] disabled:opacity-50"
+              >
+                Abbrechen
+              </button>
+              {stornoPreview && stornoPreview.count > 0 && (
+                <button
+                  type="button"
+                  onClick={() => void handleConfirmStorno()}
+                  disabled={stornoLoading}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700 disabled:opacity-50"
+                >
+                  <AlertTriangle className="h-4 w-4" />
+                  {stornoLoading
+                    ? "Wird storniert…"
+                    : `${stornoPreview.count} Rechnung${stornoPreview.count !== 1 ? "en" : ""} stornieren`}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       ) : null}
 
       {showRenewal63Modal ? (

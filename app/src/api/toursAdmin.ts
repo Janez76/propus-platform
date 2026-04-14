@@ -139,6 +139,31 @@ export type BulkDeleteHostingResult = {
   deletedInvoices: Array<{ id: number; nummer: string; bezeichnung: string; kunde_name: string }>;
 };
 
+export type BulkStornoHostingPreview = {
+  ok: true;
+  dryRun: true;
+  count: number;
+  invoices: Array<{ exxas_document_id: string | null; nummer: string | null; bezeichnung: string | null; kunde_name: string | null; exxas_status: string | null; preis_brutto: number | null }>;
+};
+
+export type BulkStornoHostingResult = {
+  ok: boolean;
+  storniert: number;
+  total: number;
+  errors: Array<{ nummer: string | null; error: string }>;
+  storniertInvoices: Array<{ nummer: string | null; bezeichnung: string | null; kunde_name: string | null }>;
+};
+
+export function getHostingMatterportStornoPreview() {
+  return toursAdminFetch<BulkStornoHostingPreview>("/invoices/exxas/bulk-storno-hosting/preview");
+}
+
+export function bulkStornoHostingMatterportInExxas() {
+  return toursAdminFetch<BulkStornoHostingResult>("/invoices/exxas/bulk-storno-hosting", {
+    method: "POST",
+  });
+}
+
 export function getHostingMatterportDeletePreview() {
   return toursAdminFetch<BulkDeleteHostingPreview>("/invoices/exxas/bulk-delete-hosting/preview");
 }
