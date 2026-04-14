@@ -43,6 +43,7 @@ const CalendarTemplatesPage = lazy(() => import("../pages-legacy/CalendarTemplat
 const ReviewsPage = lazy(() => import("../pages-legacy/ReviewsPage").then((m) => ({ default: m.ReviewsPage })));
 const ChangelogPage = lazy(() => import("../pages-legacy/ChangelogPage").then((m) => ({ default: m.ChangelogPage })));
 const ExxasReconcilePage = lazy(() => import("../pages-legacy/ExxasReconcilePage").then((m) => ({ default: m.ExxasReconcilePage })));
+const PicdropPage = lazy(() => import("../pages-legacy/PicdropPage").then((m) => ({ default: m.PicdropPage })));
 const PaymentSettingsPage = lazy(() => import("../pages-legacy/PaymentSettingsPage").then((m) => ({ default: m.PaymentSettingsPage })));
 const InvoiceTemplatePage = lazy(() => import("../pages-legacy/InvoiceTemplatePage").then((m) => ({ default: m.InvoiceTemplatePage })));
 const CompanyManagementPage = lazy(() => import("../pages-legacy/CompanyManagementPage").then((m) => ({ default: m.CompanyManagementPage })));
@@ -223,6 +224,7 @@ function PrivateRoutes() {
         <Route path="/settings/team" element={guardedElement(adminOnlyRoles, <ConfigurationPage initialTab="employees" />)} />
         <Route path="/settings/assignment-explorer" element={guardedElement(adminOnlyRoles, <Navigate to="/settings/access" replace />)} />
         <Route path="/reviews" element={guardedElement(adminOnlyRoles, <ReviewsPage />)} />
+        <Route path="/picdrop" element={guardedElement(adminOnlyRoles, <PicdropPage />)} />
         <Route path="/bugs" element={guardedElement(adminOnlyRoles, <BugsPage />)} />
         <Route path="/backups" element={guardedElement(adminOnlyRoles, <BackupsPage />)} />
         <Route path="/changelog" element={guardedElement(adminOnlyRoles, <ChangelogPage />)} />
