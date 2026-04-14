@@ -1022,6 +1022,36 @@ router.post('/cleanup/dashboard/send-vouchers', async (req, res) => {
   }
 });
 
+router.post('/cleanup/dashboard/batch-reminder-dry-run', async (req, res) => {
+  try {
+    const { customerEmails } = req.body || {};
+    const result = await cleanupDashboard.sendReminderBatch({
+      dryRun: true,
+      customerEmails: Array.isArray(customerEmails) ? customerEmails : null,
+      actorType: 'admin',
+      actorRef: adminEmail(req),
+    });
+    return res.json({ ok: true, ...result });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+router.post('/cleanup/dashboard/batch-reminder', async (req, res) => {
+  try {
+    const { customerEmails } = req.body || {};
+    const result = await cleanupDashboard.sendReminderBatch({
+      dryRun: false,
+      customerEmails: Array.isArray(customerEmails) ? customerEmails : null,
+      actorType: 'admin',
+      actorRef: adminEmail(req),
+    });
+    return res.json({ ok: true, ...result });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 router.post('/cleanup/dashboard/send-single', async (req, res) => {
   try {
     const { customerEmail, customerEmails } = req.body || {};

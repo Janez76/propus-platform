@@ -46,6 +46,8 @@ async function ensureSessionSchema() {
   `);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_cleanup_sessions_email ON tour_manager.cleanup_sessions(customer_email)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_cleanup_sessions_token ON tour_manager.cleanup_sessions(token_hash)`);
+  // last_accessed_at: wann der Kunde den Dashboard-Link zuletzt geöffnet hat
+  await pool.query(`ALTER TABLE tour_manager.cleanup_sessions ADD COLUMN IF NOT EXISTS last_accessed_at TIMESTAMPTZ`);
   sessionSchemaEnsured = true;
 }
 
@@ -72,6 +74,20 @@ async function getCleanupCandidatesGrouped({ maxAgeMonths = 6 } = {}) {
        COALESCE(archived_at, created_at) DESC`,
     [cutoff.toISOString()]
   );
+
+  // Letzter Zugriff pro E-Mail (= "Gelesen"-Zeitpunkt)
+  const sessionAccessMap = new Map();
+  try {
+    const sa = await pool.query(
+      `SELECT LOWER(TRIM(customer_email)) AS email, MAX(last_accessed_at) AS last_accessed
+       FROM tour_manager.cleanup_sessions
+       WHERE last_accessed_at IS NOT NULL
+       GROUP BY LOWER(TRIM(customer_email))`
+    );
+    for (const row of sa.rows) {
+      sessionAccessMap.set(row.email, row.last_accessed);
+    }
+  } catch (_) { /* Spalte noch nicht vorhanden – ignorieren */ }
 
   const tours = r.rows.map(normalizeTourRow);
 
@@ -128,6 +144,15 @@ async function getCleanupCandidatesGrouped({ maxAgeMonths = 6 } = {}) {
       bestName = entries[0][0];
     }
 
+    // Letzter Zugriff: Maximum über alle E-Mails der Gruppe
+    let lastAccessedAt = null;
+    for (const email of g.customerEmails) {
+      const t = sessionAccessMap.get(email);
+      if (t && (!lastAccessedAt || new Date(t) > new Date(lastAccessedAt))) {
+        lastAccessedAt = t;
+      }
+    }
+
     return {
       groupKey: g.groupKey,
       customerEmail: g.customerEmail,
@@ -135,6 +160,7 @@ async function getCleanupCandidatesGrouped({ maxAgeMonths = 6 } = {}) {
       customerName: bestName,
       tours: g.tours,
       allSent: g.allSent,
+      lastAccessedAt: lastAccessedAt || null,
       tourCount: g.tours.length,
       pendingCount: g.tours.filter((t) => !t.cleanup_action).length,
       doneCount: g.tours.filter((t) => !!t.cleanup_action).length,
@@ -182,6 +208,12 @@ async function validateDashboardSession(rawToken) {
 
   const session = r.rows[0];
   const primaryEmail = session.customer_email;
+
+  // Zugriff protokollieren – "Gelesen"-Status für Admin
+  await pool.query(
+    `UPDATE tour_manager.cleanup_sessions SET last_accessed_at = NOW() WHERE id = $1`,
+    [session.id]
+  ).catch(() => null);
 
   // Alle E-Mails der Firma auflösen — damit Hauptkontakte alle Touren sehen
   const allEmails = await resolveCustomerEmails(primaryEmail);
@@ -1209,6 +1241,76 @@ async function sendVouchersBatch() {
   };
 }
 
+// ─── Reminder-Batch: Erinnerung an Kunden mit offenen Touren (bereits gesendet) ─
+
+async function sendReminderBatch({ dryRun = true, customerEmails = null, actorType = 'admin', actorRef = null } = {}) {
+  const groups = await getCleanupCandidatesGrouped();
+
+  // Nur Kunden die BEREITS eine Mail erhalten haben (allSent=true) aber noch offene Touren haben
+  let targets = groups.filter((g) => g.allSent && g.pendingCount > 0);
+
+  if (customerEmails && Array.isArray(customerEmails) && customerEmails.length > 0) {
+    const normalized = customerEmails.map((e) => String(e).trim().toLowerCase());
+    targets = targets.filter((g) =>
+      g.customerEmails.some((e) => normalized.includes(e))
+    );
+  }
+
+  const results = [];
+
+  for (const group of targets) {
+    if (dryRun) {
+      results.push({
+        groupKey: group.groupKey,
+        customerEmail: group.customerEmail,
+        customerEmails: group.customerEmails,
+        customerName: group.customerName,
+        tourCount: group.tourCount,
+        pendingCount: group.pendingCount,
+        lastAccessedAt: group.lastAccessedAt || null,
+        skipped: false,
+        dryRun: true,
+      });
+    } else {
+      try {
+        const r = await sendDashboardInvite(group.customerEmails, { actorType, actorRef });
+        results.push({
+          groupKey: group.groupKey,
+          customerEmail: group.customerEmail,
+          customerEmails: group.customerEmails,
+          customerName: group.customerName,
+          tourCount: r.tourCount,
+          pendingCount: group.pendingCount,
+          skipped: false,
+          success: true,
+        });
+      } catch (err) {
+        results.push({
+          groupKey: group.groupKey,
+          customerEmail: group.customerEmail,
+          customerEmails: group.customerEmails,
+          customerName: group.customerName,
+          tourCount: group.tourCount,
+          pendingCount: group.pendingCount,
+          skipped: false,
+          success: false,
+          error: err.message,
+        });
+      }
+    }
+  }
+
+  return {
+    dryRun,
+    totalCustomers: targets.length,
+    totalTours: targets.reduce((s, g) => s + g.pendingCount, 0),
+    sent: results.filter((r) => !r.skipped && !r.dryRun && r.success).length,
+    skipped: results.filter((r) => r.skipped).length,
+    failed: results.filter((r) => !r.skipped && !r.dryRun && !r.success).length,
+    results,
+  };
+}
+
 module.exports = {
   ensureSessionSchema,
   getCleanupCandidatesGrouped,
@@ -1222,6 +1324,7 @@ module.exports = {
   processPendingDeletions,
   sendDashboardInvite,
   sendDashboardBatch,
+  sendReminderBatch,
   checkAllToursCompleted,
   generateCleanupVoucher,
   sendCleanupThankYouMail,

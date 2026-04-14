@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   RefreshCw, Send, Eye, EyeOff, CheckCircle2, XCircle, AlertTriangle, Loader2, Mail, Search,
-  ChevronDown, ChevronRight, Users, Package, Gift,
+  ChevronDown, ChevronRight, Users, Package, Gift, Bell, MailOpen,
 } from "lucide-react";
 import {
   getCleanupDashboardCandidates,
@@ -10,6 +10,8 @@ import {
   getToursAdminMatterportModel,
   postCleanupDashboardBatchDryRun,
   postCleanupDashboardBatchSend,
+  postCleanupDashboardBatchReminder,
+  postCleanupDashboardBatchReminderDryRun,
   postCleanupDashboardSendSingle,
   postCleanupDashboardSendVouchers,
   postCleanupSendSingle,
@@ -391,6 +393,16 @@ function CustomerCard({
                   <Mail className="h-3 w-3" /> Versendet
                 </span>
               )}
+              {group.lastAccessedAt ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 text-blue-700 px-2 py-0.5 text-xs font-medium" title={`Dashboard zuletzt geöffnet: ${new Date(group.lastAccessedAt).toLocaleString("de-CH")}`}>
+                  <MailOpen className="h-3 w-3" />
+                  Gelesen {new Date(group.lastAccessedAt).toLocaleDateString("de-CH")}
+                </span>
+              ) : group.allSent ? (
+                <span className="inline-flex items-center gap-1 text-xs text-orange-500" title="Kunde hat den Link noch nicht geöffnet">
+                  <Bell className="h-3 w-3" /> Ungelesen
+                </span>
+              ) : null}
             </div>
           </div>
         </button>
@@ -593,6 +605,7 @@ export function ToursAdminCleanupPage() {
   const [confirmSend, setConfirmSend] = useState(false);
   const [showSent, setShowSent] = useState(false);
   const [confirmVouchers, setConfirmVouchers] = useState(false);
+  const [confirmReminder, setConfirmReminder] = useState(false);
 
   function toggleSelect(groupKey: string) {
     setSelected((prev) => {
@@ -700,11 +713,49 @@ export function ToursAdminCleanupPage() {
     }
   }
 
+  async function handleReminderDryRun() {
+    setBusyAction("reminder-dryrun");
+    setActionErr(null);
+    setActionMsg(null);
+    setBatchResult(null);
+    try {
+      const emails = selected.size > 0 ? getSelectedEmails() : undefined;
+      const r = await postCleanupDashboardBatchReminderDryRun(emails);
+      setBatchResult(r as BatchResult);
+      setActionMsg(`Erinnerungs-Dry-Run: ${r.totalCustomers} Kunden mit ${r.totalTours} offenen Touren würden eine Erinnerung erhalten.`);
+    } catch (e) {
+      setActionErr(e instanceof Error ? e.message : "Fehler beim Dry-Run");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function handleSendReminder() {
+    setConfirmReminder(false);
+    setBusyAction("reminder");
+    setActionErr(null);
+    setActionMsg(null);
+    setBatchResult(null);
+    try {
+      const emails = selected.size > 0 ? getSelectedEmails() : undefined;
+      const r = await postCleanupDashboardBatchReminder(emails);
+      setBatchResult(r as BatchResult);
+      setActionMsg(`Erinnerung versendet: ${r.sent} Kunden kontaktiert, ${r.skipped} übersprungen, ${r.failed} fehlgeschlagen.`);
+      void refetch({ force: true });
+    } catch (e) {
+      setActionErr(e instanceof Error ? e.message : "Fehler beim Erinnerungs-Versand");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
   const pendingCustomers = customers.filter((c) => !c.allSent && c.pendingCount > 0);
   const sentCustomers = customers.filter((c) => c.allSent);
+  const reminderCustomers = sentCustomers.filter((c) => c.pendingCount > 0);
   const eligibleCount = pendingCustomers.length;
   const totalPendingTours = customers.reduce((s, c) => s + c.pendingCount, 0);
   const doneCustomers = customers.filter((c) => c.allSent && c.doneCount > 0);
+  const readCount = sentCustomers.filter((c) => c.lastAccessedAt).length;
 
   return (
     <div className="space-y-6">
@@ -754,6 +805,13 @@ export function ToursAdminCleanupPage() {
             <div className="text-2xl font-bold text-green-600 mt-1">
               {customers.reduce((s, c) => s + c.doneCount, 0)}
             </div>
+          </div>
+          <div className="surface-card-strong rounded-lg px-4 py-3">
+            <div className="flex items-center gap-2 text-xs text-[var(--text-subtle)] uppercase tracking-wide">
+              <MailOpen className="h-3.5 w-3.5" /> Gelesen
+            </div>
+            <div className="text-2xl font-bold text-blue-600 mt-1">{readCount}</div>
+            <div className="text-xs text-[var(--text-subtle)]">von {sentCustomers.length} versendet</div>
           </div>
         </div>
       )}
@@ -810,6 +868,30 @@ export function ToursAdminCleanupPage() {
           {busyAction === "vouchers" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Gift className="h-4 w-4" />}
           Gutscheine senden{doneCustomers.length > 0 ? ` (${doneCustomers.length})` : ""}
         </button>
+
+        {reminderCustomers.length > 0 && (
+          <>
+            <div className="h-5 w-px bg-[var(--border-soft)]" />
+            <button
+              type="button"
+              disabled={!!busyAction}
+              onClick={handleReminderDryRun}
+              className="flex items-center gap-1.5 rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-sm font-medium text-[var(--text-main)] hover:bg-[var(--surface-card-strong)] disabled:opacity-50"
+            >
+              {busyAction === "reminder-dryrun" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
+              Erinnerung Dry-Run ({reminderCustomers.length})
+            </button>
+            <button
+              type="button"
+              disabled={!!busyAction}
+              onClick={() => setConfirmReminder(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-orange-300 bg-orange-50 px-3 py-1.5 text-sm font-semibold text-orange-800 hover:bg-orange-100 disabled:opacity-50"
+            >
+              {busyAction === "reminder" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />}
+              Erinnerung senden ({reminderCustomers.length})
+            </button>
+          </>
+        )}
       </div>
 
       {/* Bestätigungs-Dialog */}
@@ -829,6 +911,29 @@ export function ToursAdminCleanupPage() {
               Ja, jetzt senden
             </button>
             <button type="button" onClick={() => setConfirmSend(false)} className="rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-sm text-[var(--text-subtle)]">
+              Abbrechen
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Bestätigungs-Dialog Erinnerung */}
+      {confirmReminder && (
+        <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 flex flex-col gap-3">
+          <div className="flex items-start gap-2">
+            <Bell className="h-5 w-5 text-orange-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-orange-800">Erinnerungs-Mail senden</p>
+              <p className="text-sm text-orange-700 mt-0.5">
+                An <strong>{reminderCustomers.length} Kunden</strong>, die bereits eine Mail erhalten haben aber <strong>noch keine Aktion</strong> gewählt haben, wird eine Erinnerung mit einem neuen Dashboard-Link gesendet.
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => void handleSendReminder()} className="rounded-lg bg-orange-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-orange-700">
+              Ja, Erinnerung senden
+            </button>
+            <button type="button" onClick={() => setConfirmReminder(false)} className="rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-sm text-[var(--text-subtle)]">
               Abbrechen
             </button>
           </div>

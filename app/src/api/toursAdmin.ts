@@ -1017,6 +1017,7 @@ export interface CleanupCustomerGroup {
   pendingCount: number;
   doneCount: number;
   allSent: boolean;
+  lastAccessedAt?: string | null;
   tours: Array<{
     id: number;
     object_label?: string;
@@ -1056,6 +1057,26 @@ export function postCleanupDashboardSendSingle(customerEmails: string | string[]
   return toursAdminFetch<{ ok: true; recipientEmail: string; recipientEmails: string[]; tourCount: number }>("/cleanup/dashboard/send-single", {
     method: "POST",
     body: JSON.stringify({ customerEmails: emails }),
+  });
+}
+
+export function postCleanupDashboardBatchReminderDryRun(customerEmails?: string[]) {
+  return toursAdminFetch<{
+    ok: true; dryRun: boolean; totalCustomers: number; totalTours: number;
+    sent: number; skipped: number; failed: number; results: unknown[];
+  }>("/cleanup/dashboard/batch-reminder-dry-run", {
+    method: "POST",
+    body: JSON.stringify(customerEmails ? { customerEmails } : {}),
+  });
+}
+
+export function postCleanupDashboardBatchReminder(customerEmails?: string[]) {
+  return toursAdminFetch<{
+    ok: true; dryRun: boolean; totalCustomers: number; totalTours: number;
+    sent: number; skipped: number; failed: number; results: unknown[];
+  }>("/cleanup/dashboard/batch-reminder", {
+    method: "POST",
+    body: JSON.stringify(customerEmails ? { customerEmails } : {}),
   });
 }
 

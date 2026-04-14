@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei jeder Änderung an Tour-Status, Matterport-Integration, Verlängerungs- oder Archivierungs-Logik dieses Dokument aktualisieren. **Produkt-Workflow (Regeln, Reminder-Stufen, Preise):** [WORKFLOW_TOURS.md](./WORKFLOW_TOURS.md) — bei Abweichungen beide Dateien abstimmen.
 
-*Zuletzt aktualisiert: April 2026 (Galerie/NAS: Migrationen 031–032; Admin `/api/tours/admin/galleries` NAS-Import; öffentlich `/api/listing/...` Video/Grundriss/ZIP; Bestellung nachträglich verknüpfen via Tour-Detail Intern-Sektion; Bank-Import: Vorschau/Multi-Upload, Bestellungssuche zur Rechnungszuordnung; Bestellungs-Admin: Finanzblock «Rechnungen & Zahlungen»; Bereinigungslauf: CUSTOMER_ACCEPTED_AWAITING_PAYMENT-Label + termEndFormatted-Fix; Matterport-State-Cron: POST /api/tours/cron/sync-matterport-state alle 5 Min; Rechnung löschen mit Workflow-Reset; Reaktivierung ohne Rechnung (Admin-Kulanz); Bereinigungslauf-Widget in Tour-Detail; Cleanup-Dashboard mit Matterport-Reaktivierung, 30-Tage-Löschvormerkung, Lösch-Cron und Gutschein-Nachversand)*
+*Zuletzt aktualisiert: April 2026 (Galerie/NAS: Migrationen 031–032; Admin `/api/tours/admin/galleries` NAS-Import; öffentlich `/api/listing/...` Video/Grundriss/ZIP; Bestellung nachträglich verknüpfen via Tour-Detail Intern-Sektion; Bank-Import: Vorschau/Multi-Upload, Bestellungssuche zur Rechnungszuordnung; Bestellungs-Admin: Finanzblock «Rechnungen & Zahlungen»; Bereinigungslauf: CUSTOMER_ACCEPTED_AWAITING_PAYMENT-Label + termEndFormatted-Fix; Matterport-State-Cron: POST /api/tours/cron/sync-matterport-state alle 5 Min; Rechnung löschen mit Workflow-Reset; Reaktivierung ohne Rechnung (Admin-Kulanz); Bereinigungslauf-Widget in Tour-Detail; Cleanup-Dashboard mit Matterport-Reaktivierung, 30-Tage-Löschvormerkung, Lösch-Cron und Gutschein-Nachversand; Gelesen-Tracking via `last_accessed_at` in `cleanup_sessions`; Erinnerungs-Batch `batch-reminder` für bereits kontaktierte Kunden ohne Aktion)*
 
 ---
 
@@ -885,9 +885,11 @@ Einmaliger Lauf: Kunden werden per Mail gefragt, was mit ihrer Tour passieren so
 
 | Methode | Pfad | Beschreibung |
 |---|---|---|
-| `GET` | `/api/tours/admin/cleanup/dashboard/candidates` | Kunden-/Firmen-Gruppen mit offenen Dashboard-Touren |
-| `POST` | `/api/tours/admin/cleanup/dashboard/batch-dry-run` | Dry-Run für Dashboard-Einladungen |
+| `GET` | `/api/tours/admin/cleanup/dashboard/candidates` | Kunden-/Firmen-Gruppen mit offenen Dashboard-Touren (inkl. `lastAccessedAt`) |
+| `POST` | `/api/tours/admin/cleanup/dashboard/batch-dry-run` | Dry-Run für Dashboard-Einladungen (nur noch nicht kontaktierte Kunden) |
 | `POST` | `/api/tours/admin/cleanup/dashboard/batch-send` | Produktiver Versand der Dashboard-Einladungen |
+| `POST` | `/api/tours/admin/cleanup/dashboard/batch-reminder-dry-run` | Dry-Run Erinnerung (nur bereits kontaktierte, aber noch offene Kunden) |
+| `POST` | `/api/tours/admin/cleanup/dashboard/batch-reminder` | Erinnerungsmail an bereits kontaktierte Kunden ohne Aktion |
 | `POST` | `/api/tours/admin/cleanup/dashboard/send-single` | Einzelnen Kunden bzw. eine Firma erneut einladen |
 | `POST` | `/api/tours/admin/cleanup/dashboard/send-vouchers` | Ausstehende Dankes-/Gutschein-Mails gesammelt nachziehen |
 
@@ -918,6 +920,32 @@ Einmaliger Lauf: Kunden werden per Mail gefragt, was mit ihrer Tour passieren so
 - `weiterfuehren` reaktiviert Tour und Matterport-Space sofort, sofern weder Rechnung noch manueller Review nötig sind.
 - `loeschen` löscht nicht sofort, sondern legt eine Löschvormerkung mit 30 Tagen Sicherheitsfrist in `pending_deletions` an.
 - Nach erfolgreichen Aktionen prüft `maybeDispatchCleanupVoucher()`, ob alle Touren erledigt sind, und verschickt einmalig die Dankes-/Gutschein-Mail.
+
+### Gelesen-Tracking
+
+Beim Öffnen des Dashboard-Links (`GET /api/cleanup/dashboard` → `validateDashboardSession()`) wird `last_accessed_at = NOW()` in `tour_manager.cleanup_sessions` gesetzt.
+
+| Tabelle | Spalte | Beschreibung |
+|---|---|---|
+| `tour_manager.cleanup_sessions` | `last_accessed_at` | Zeitpunkt, wann der Kunde den Dashboard-Link zuletzt geöffnet hat (NULL = noch nie) |
+
+Der Admin sieht in der Cleanup-Übersicht pro Kundengruppe:
+- **Gelesen** (blau, mit Datum): `lastAccessedAt` vorhanden
+- **Ungelesen** (orange): Mail versendet, aber Link noch nicht geöffnet
+
+### Erinnerungs-Flow (Reminder)
+
+`sendReminderBatch()` in `cleanup-dashboard.js` — sendet an alle Kunden die **bereits eine Mail erhalten haben** (`allSent = true`) aber **noch keine Aktion gewählt haben** (`pendingCount > 0`). Erstellt dabei eine neue Session (frischer 30-Tage-Link).
+
+```
+Admin klickt "Erinnerung senden"
+  └─ POST /api/tours/admin/cleanup/dashboard/batch-reminder
+       └─ sendReminderBatch({ dryRun: false })
+            └─ für jede Gruppe: sendDashboardInvite(emails)
+                 └─ neue cleanup_sessions erstellt
+                 └─ E-Mail via Graph API gesendet
+                 └─ outgoing_emails protokolliert
+```
 
 ### Frontend
 
