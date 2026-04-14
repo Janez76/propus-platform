@@ -64,6 +64,7 @@ RUN cd platform && npm ci --omit=dev
 
 COPY booking ./booking
 COPY booking/admin-panel/dist ./booking/admin-panel/dist
+COPY selekto/dist ./selekto/dist
 COPY tours ./tours
 COPY auth ./auth
 COPY core ./core
@@ -87,6 +88,7 @@ ENV NODE_ENV=production
 ENV PORT=3100
 ENV NEXTJS_PORT=3001
 ENV ADMIN_PANEL_DIST=/app/booking/admin-panel/dist
+ENV SELEKTO_DIST=/app/selekto/dist
 ENV TOURS_MOUNT_PATH=/tour-manager
 ENV PROPUS_ENABLE_LEGACY_CUSTOMER_LOGIN=1
 ENV NEXT_TELEMETRY_DISABLED=1

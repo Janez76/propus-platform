@@ -80,6 +80,23 @@ const nextConfig: NextConfig = {
           source: "/cleanup/preview",
           destination: `${PLATFORM_INTERNAL_URL}/cleanup/preview`,
         },
+        // ─── Selekto SPA + Proxy-Routen ────────────────────────────────────
+        {
+          source: "/selekto/:path*",
+          destination: `${PLATFORM_INTERNAL_URL}/selekto/:path*`,
+        },
+        {
+          source: "/__propus-nextcloud/:path*",
+          destination: `${PLATFORM_INTERNAL_URL}/__propus-nextcloud/:path*`,
+        },
+        {
+          source: "/__propus-nc-thumb/:path*",
+          destination: `${PLATFORM_INTERNAL_URL}/__propus-nc-thumb/:path*`,
+        },
+        {
+          source: "/__propus-pdf-inline",
+          destination: `${PLATFORM_INTERNAL_URL}/__propus-pdf-inline`,
+        },
       ],
       afterFiles: [],
       fallback: [],
