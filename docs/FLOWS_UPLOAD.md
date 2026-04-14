@@ -46,6 +46,37 @@
 
 ---
 
+## 1a. Nextcloud-Freigabelinks
+
+Über den Endpunkt `POST .../storage/nextcloud-share` wird für den `customer_folder` eines Auftrags ein öffentlicher Freigabelink in Nextcloud angelegt (Nextcloud OCS Share API v2).
+
+**Infrastruktur (seit April 2026):**
+
+| Eigenschaft | Wert |
+|---|---|
+| Nextcloud-Host | UGREEN NAS `192.168.1.5` |
+| Öffentliche URL | `https://cloud.propus.ch` (Cloudflare Tunnel direkt vom NAS) |
+| Docker-Pfad (NAS) | `/volume1/docker/nextcloud/` |
+| Log-Pfad (NAS) | `/volume1/docker/nextcloud/data/nextcloud.log` |
+
+**Erforderliche Env-Variablen** (in `.env.vps` / `.env.vps.secrets`):
+
+| Variable | Beschreibung |
+|---|---|
+| `NEXTCLOUD_URL` | `https://cloud.propus.ch` |
+| `NEXTCLOUD_USER` | Nextcloud-Benutzername |
+| `NEXTCLOUD_PASS` | Nextcloud-Passwort |
+| `NEXTCLOUD_CUSTOMER_FOLDER_PATH` | Nextcloud-Pfad, der auf `BOOKING_UPLOAD_CUSTOMER_HOST_PATH` zeigt (z. B. `/Immobilien Fotografie Propusimmo/Kunden`) |
+
+**Verhalten:**
+- Fehlende Konfiguration → `503` mit Hinweis auf fehlende Env-Variablen
+- Erstellter Link wird in `booking.order_folder_links.nextcloud_share_url` gespeichert
+- Bestehende Links können über denselben Endpunkt erneuert werden
+
+**Implementierung:** `booking/nextcloud-share.js` (Hilfsfunktionen), `booking/server.js` (Route)
+
+---
+
 ## 2. Tabellen
 
 ### `booking.upload_batches`

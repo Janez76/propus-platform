@@ -269,6 +269,7 @@ Der Alias nutzt:
 |--------|-----|
 | NAS lokal | `https://192.168.1.5` |
 | NAS extern | `https://ugreen.propus.ch` |
+| Nextcloud | `https://cloud.propus.ch` (Cloudflare Tunnel direkt vom NAS) |
 | vcard | `https://vcard-pcs.ch` → `192.168.1.5:9500` |
 
 ### NAS-Dokumentation
@@ -283,6 +284,7 @@ Alle NAS-Skripte und Anleitungen liegen in `Z:\NAS Ugreen\`:
 
 | Dienst | Pfad / Port |
 |--------|------------|
+| Nextcloud | `/volume1/docker/nextcloud/` · `cloud.propus.ch` via Cloudflare Tunnel |
 | vcard | `/volume1/docker/vcard/` · Port 9500 |
 | Cloudflare Tunnel | Container Manager → `cloudflared` |
 
