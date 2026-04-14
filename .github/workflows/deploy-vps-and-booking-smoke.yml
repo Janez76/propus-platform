@@ -131,12 +131,12 @@ jobs:
           "
 
       - name: Build Booking Admin Panel
-        run: |
-          cd booking/admin-panel
-          npm ci
-          VITE_PICDROP_URL=https://bildauswahl.propus.ch/bilder-auswahl npm run build
+        working-directory: booking/admin-panel
         env:
-          NODE_ENV: production
+          VITE_PICDROP_URL: https://bildauswahl.propus.ch/bilder-auswahl
+        run: |
+          npm ci
+          npm run build
 
       - name: Create deploy archive
         run: |
