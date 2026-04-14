@@ -61,6 +61,7 @@ const {
   REACTIVATION_PRICE_CHF,
   getPortalPricingForTour,
   getSubscriptionWindowFromStart,
+  triggerDueRenewalInvoices,
 } = require('../lib/subscriptions');
 
 const ADMIN_PORTAL_BASE_URL = process.env.ADMIN_PANEL_URL || 'https://admin-booking.propus.ch';
@@ -1085,6 +1086,33 @@ router.post('/cleanup/dashboard/send-single', async (req, res) => {
     return res.json({ ok: true, ...result });
   } catch (err) {
     return res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+// ─── Cleanup: Entwurfs-Rechnungen erstellen ──────────────────────────────────
+
+router.post('/cleanup/create-draft-invoices', async (req, res) => {
+  try {
+    const { tourIds } = req.body || {};
+    const result = await cleanupDashboard.createCleanupDraftInvoicesBatch(
+      Array.isArray(tourIds) && tourIds.length > 0 ? tourIds : null
+    );
+    return res.json({ ok: true, ...result });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ─── Cron: fällige Verlängerungsrechnungen automatisch versenden ─────────────
+// Täglich via Systemcron oder externem Scheduler aufrufen.
+// Endpoint: POST /api/tours/admin/cron/trigger-renewal-invoices
+
+router.post('/cron/trigger-renewal-invoices', async (req, res) => {
+  try {
+    const result = await triggerDueRenewalInvoices();
+    return res.json({ ok: true, ...result });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
   }
 });
 

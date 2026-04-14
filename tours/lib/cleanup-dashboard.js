@@ -585,6 +585,10 @@ async function executeDashboardAction(customerEmail, tourId, action) {
         `UPDATE tour_manager.tours SET cleanup_action = 'weiterfuehren_pending_payment', cleanup_action_at = NOW(), updated_at = NOW() WHERE id = $1`,
         [tour.id]
       );
+      // Draft-Rechnung sofort erstellen (sichtbar im Admin-Panel unter /admin/finance/invoices?status=draft)
+      createCleanupDraftInvoice(tour.id).catch((err) => {
+        console.warn('executeDashboardAction: createCleanupDraftInvoice failed', tour.id, err.message);
+      });
       await logAction(tour.id, 'customer', actorEmail, 'CLEANUP_DASHBOARD_WEITERFUEHREN_PENDING_PAYMENT', { invoiceAmount: rule.invoiceAmount });
       return {
         action: 'weiterfuehren_pending_payment',
@@ -594,12 +598,28 @@ async function executeDashboardAction(customerEmail, tourId, action) {
       };
     }
 
+    const { addMonths, toIsoDate, scheduleRenewalInvoice } = require('./subscriptions');
+    const newTermEnd = addMonths(new Date(), 6);
+    const newTermEndIso = toIsoDate(newTermEnd);
+
     await pool.query(
-      `UPDATE tour_manager.tours SET cleanup_action = 'weiterfuehren', cleanup_action_at = NOW(), cleanup_completed = TRUE, updated_at = NOW() WHERE id = $1`,
-      [tour.id]
+      `UPDATE tour_manager.tours
+       SET cleanup_action = 'weiterfuehren',
+           cleanup_action_at = NOW(),
+           cleanup_completed = TRUE,
+           term_end_date = $2::date,
+           ablaufdatum = $2::date,
+           subscription_start_date = NOW()::date,
+           updated_at = NOW()
+       WHERE id = $1`,
+      [tour.id, newTermEndIso]
     );
     await activateTourAndSpace(tour.id, tour.canonical_matterport_space_id || tour.matterport_space_id || null);
-    await logAction(tour.id, 'customer', actorEmail, 'CLEANUP_DASHBOARD_WEITERFUEHREN', {});
+    // Nächste Verlängerungsrechnung vorplanen (automatischer Abo-Workflow nach 6 Monaten)
+    scheduleRenewalInvoice(tour.id, newTermEnd).catch((err) => {
+      console.warn('executeDashboardAction weiterfuehren: scheduleRenewalInvoice failed', tour.id, err.message);
+    });
+    await logAction(tour.id, 'customer', actorEmail, 'CLEANUP_DASHBOARD_WEITERFUEHREN', { newTermEnd: newTermEndIso });
     return { action: 'weiterfuehren', message: 'Ihre Tour wird wie gewohnt weitergeführt.' };
   }
 
@@ -740,6 +760,11 @@ async function executeDashboardPaymentChoice(customerEmail, tourId, paymentMetho
     `UPDATE tour_manager.tours SET cleanup_action = 'weiterfuehren_qr', cleanup_action_at = NOW(), cleanup_completed = TRUE, updated_at = NOW() WHERE id = $1`,
     [tour.id]
   );
+  // Nächste Verlängerungsrechnung vorplanen (nach Zahlung der QR-Rechnung wird dies via applyImportedPayment nochmals gesetzt)
+  const { scheduleRenewalInvoice: scheduleQrRenewal } = require('./subscriptions');
+  scheduleQrRenewal(tour.id, subscriptionWindow.endIso).catch((err) => {
+    console.warn('executeDashboardPaymentChoice QR: scheduleRenewalInvoice failed', tour.id, err.message);
+  });
   await logAction(tour.id, 'customer', actorEmail, 'CLEANUP_DASHBOARD_QR_INVOICE', { amount });
   return { message: `QR-Rechnung (CHF ${amount}.–) wurde per E-Mail verschickt.` };
 }
@@ -1342,6 +1367,125 @@ async function sendReminderBatch({ dryRun = true, customerEmails = null, actorTy
   };
 }
 
+// ─── Entwurfs-Rechnung für eine Cleanup-Tour erstellen ───────────────────────
+
+/**
+ * Erstellt eine Entwurfs-Rechnung (invoice_status='draft') für eine Cleanup-Tour,
+ * sofern computeCleanupRule() needsInvoice=true zurückgibt und noch keine
+ * offene Rechnung (draft/sent/pending/paid) existiert.
+ *
+ * Idempotent: bei bereits vorhandener Rechnung wird skip zurückgegeben.
+ */
+async function createCleanupDraftInvoice(tourId) {
+  const { pool: dbPool } = require('./db');
+  const { getSubscriptionWindowFromStart } = require('./subscriptions');
+
+  const r = await dbPool.query(
+    `SELECT t.*,
+       (SELECT MAX(i.paid_at) FROM tour_manager.renewal_invoices i
+        WHERE i.tour_id = t.id AND i.invoice_status = 'paid') AS last_payment_at
+     FROM tour_manager.tours t WHERE t.id = $1`,
+    [tourId]
+  );
+  const tour = normalizeTourRow(r.rows[0]);
+  if (!tour) return { created: false, skipped: true, reason: 'Tour nicht gefunden', tourId };
+
+  const rule = computeCleanupRule(tour);
+  if (!rule.needsInvoice) {
+    return { created: false, skipped: true, reason: 'Keine Rechnung nötig (gratis oder manualReview)', tourId, rule };
+  }
+
+  // Bereits offene Rechnung vorhanden?
+  const existingRes = await dbPool.query(
+    `SELECT id, invoice_status FROM tour_manager.renewal_invoices
+     WHERE tour_id = $1 AND invoice_status IN ('draft','sent','pending','paid')
+     ORDER BY created_at DESC LIMIT 1`,
+    [tourId]
+  );
+  if (existingRes.rows.length > 0) {
+    return {
+      created: false,
+      skipped: true,
+      reason: `Bereits Rechnung vorhanden (${existingRes.rows[0].invoice_status})`,
+      tourId,
+      existingInvoiceId: existingRes.rows[0].id,
+    };
+  }
+
+  const amount = rule.invoiceAmount;
+  const invoiceKind = rule.invoiceKind || (tour.status === 'ARCHIVED' ? 'portal_reactivation' : 'portal_extension');
+  const dueAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  const subscriptionWindow = getSubscriptionWindowFromStart(new Date());
+
+  const inserted = await dbPool.query(
+    `INSERT INTO tour_manager.renewal_invoices
+       (tour_id, invoice_status, amount_chf, due_at, invoice_kind, payment_source,
+        subscription_start_at, subscription_end_at)
+     VALUES ($1, 'draft', $2, $3, $4, 'qr_pending', $5, $6)
+     RETURNING id`,
+    [tourId, amount, dueAt, invoiceKind, subscriptionWindow.startIso, subscriptionWindow.endIso]
+  );
+
+  await logAction(tourId, 'admin', 'system', 'CLEANUP_DRAFT_INVOICE_CREATED', {
+    invoice_id: inserted.rows[0]?.id,
+    amount,
+    invoice_kind: invoiceKind,
+  });
+
+  return { created: true, skipped: false, tourId, invoiceId: inserted.rows[0]?.id, amount, invoiceKind };
+}
+
+/**
+ * Erstellt Entwurfs-Rechnungen für alle Cleanup-Touren die eine Rechnung benötigen.
+ *
+ * tourIds = null → alle Touren mit confirmation_required=TRUE, cleanup_action IS NOT NULL
+ */
+async function createCleanupDraftInvoicesBatch(tourIds = null) {
+  const { pool: dbPool } = require('./db');
+  await ensureSessionSchema();
+
+  let rows;
+  if (tourIds && Array.isArray(tourIds) && tourIds.length > 0) {
+    const r = await dbPool.query(
+      `SELECT t.*,
+         (SELECT MAX(i.paid_at) FROM tour_manager.renewal_invoices i
+          WHERE i.tour_id = t.id AND i.invoice_status = 'paid') AS last_payment_at
+       FROM tour_manager.tours t
+       WHERE t.id = ANY($1::int[])`,
+      [tourIds]
+    );
+    rows = r.rows;
+  } else {
+    const r = await dbPool.query(
+      `SELECT t.*,
+         (SELECT MAX(i.paid_at) FROM tour_manager.renewal_invoices i
+          WHERE i.tour_id = t.id AND i.invoice_status = 'paid') AS last_payment_at
+       FROM tour_manager.tours t
+       WHERE t.confirmation_required = TRUE
+         AND t.cleanup_action IS NOT NULL`
+    );
+    rows = r.rows;
+  }
+
+  const results = [];
+  for (const row of rows) {
+    try {
+      const result = await createCleanupDraftInvoice(row.id);
+      results.push(result);
+    } catch (err) {
+      results.push({ created: false, skipped: false, error: err.message, tourId: row.id });
+    }
+  }
+
+  return {
+    total: results.length,
+    created: results.filter((r) => r.created).length,
+    skipped: results.filter((r) => r.skipped).length,
+    errors: results.filter((r) => r.error).length,
+    results,
+  };
+}
+
 module.exports = {
   ensureSessionSchema,
   getCleanupCandidatesGrouped,
@@ -1362,4 +1506,6 @@ module.exports = {
   sendCleanupThankYouMail,
   maybeDispatchCleanupVoucher,
   sendVouchersBatch,
+  createCleanupDraftInvoice,
+  createCleanupDraftInvoicesBatch,
 };

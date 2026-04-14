@@ -222,6 +222,12 @@ async function applyImportedPayment(invoiceId, actorEmail, details = {}) {
       tourActions.sendPaymentConfirmedEmail(inv.tour_id, endIso, templateKey).catch((err) => {
         console.warn('applyImportedPayment: sendPaymentConfirmedEmail failed', inv.tour_id, err.message);
       });
+
+      // Nächste Verlängerungsrechnung vorplanen (automatischer Abo-Workflow)
+      const { scheduleRenewalInvoice } = require('./subscriptions');
+      scheduleRenewalInvoice(inv.tour_id, endIso).catch((err) => {
+        console.warn('applyImportedPayment: scheduleRenewalInvoice failed', inv.tour_id, err.message);
+      });
     }
   }
 

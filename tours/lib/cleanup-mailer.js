@@ -158,15 +158,30 @@ function computeCleanupRule(tour) {
 
   const createdAt = tour.created_at ? new Date(tour.created_at) : null;
   const archivedAt = tour.archived_at ? new Date(tour.archived_at) : null;
-  const subscriptionStartDate = tour.subscription_start_date ? new Date(tour.subscription_start_date) : null;
+  const termEndDate = tour.term_end_date ? new Date(tour.term_end_date) : null;
+  const lastPaymentAt = tour.last_payment_at ? new Date(tour.last_payment_at) : null;
   const cleanupCompleted = Boolean(tour.cleanup_completed);
 
   const sixMonthsAgo = monthsAgo(6);
   const twelveMonthsAgo = monthsAgo(12);
 
-  const isTourCreatedWithin6Months = createdAt ? createdAt >= sixMonthsAgo : false;
-  const isArchivedWithin6Months = archivedAt ? archivedAt >= sixMonthsAgo : false;
-  const isLastPaymentWithin12Months = subscriptionStartDate ? subscriptionStartDate >= twelveMonthsAgo : false;
+  // Bei importierten Touren ist created_at = Migrationsdatum (2026-03-30), nicht das echte Erstelldatum.
+  // Proxy: term_end_date - 6 Monate (typische Abo-Laufzeit), da Abo-Start = term_end - 6M.
+  const MIGRATION_DATE_PREFIX = '2026-03-30';
+  const isCreatedAtUnknown =
+    !createdAt || createdAt.toISOString().startsWith(MIGRATION_DATE_PREFIX);
+  let effectiveCreatedAt = createdAt;
+  if (isCreatedAtUnknown) {
+    effectiveCreatedAt = termEndDate ? new Date(termEndDate.getTime()) : null;
+    if (effectiveCreatedAt) effectiveCreatedAt.setMonth(effectiveCreatedAt.getMonth() - 6);
+  }
+
+  const isTourCreatedWithin6Months = effectiveCreatedAt ? effectiveCreatedAt >= sixMonthsAgo : false;
+  const isTourCreatedWithin12Months = effectiveCreatedAt ? effectiveCreatedAt >= twelveMonthsAgo : false;
+
+  // archived_at ist bei importierten Touren oft NULL → term_end_date als Fallback
+  const effectiveArchivedAt = archivedAt || termEndDate;
+  const isArchivedWithin6Months = effectiveArchivedAt ? effectiveArchivedAt >= sixMonthsAgo : false;
 
   // ── Nach dem Bereinigungslauf: fixe Preise, keine Gratis-Optionen ─────────
   if (cleanupCompleted) {
@@ -193,24 +208,86 @@ function computeCleanupRule(tour) {
   }
 
   // ── ACTIVE / EXPIRING_SOON ────────────────────────────────────────────────
+  // Logik basiert auf Tour-Alter (effectiveCreatedAt = created_at oder term_end - 6M als Proxy):
+  //   < 6 Monate alt          → GRATIS + 6 Monate
+  //   6–12 Monate alt         → last_payment_at vorhanden → GRATIS (Abo-Workflow)
+  //                             kein last_payment_at       → CHF 59
+  //   > 12 Monate alt         → CHF 59
+  //   effectiveCreatedAt null  → CHF 59 (Fallback: unklar = kostenpflichtig)
   if (status === 'ACTIVE' || status === 'EXPIRING_SOON') {
     const label = status === 'EXPIRING_SOON' ? 'Läuft bald ab' : 'Aktiv';
-    if (isLastPaymentWithin12Months) {
+
+    // Kein verlässliches Datum → sicher CHF 59
+    if (!effectiveCreatedAt) {
+      return {
+        statusLabel: label,
+        statusContext: ' (Ihre Zahlung liegt mehr als 12 Monate zurück.)',
+        statusContextText: '(Ihre Zahlung liegt mehr als 12 Monate zurück.)',
+        weiterfuehrenHint: `Tour verlängern – CHF ${EXTENSION_PRICE_CHF}.– / 6 Monate (online oder QR)`,
+        needsInvoice: true,
+        invoiceAmount: EXTENSION_PRICE_CHF,
+        invoiceKind: 'portal_extension',
+        paymentMethods: ['online', 'qr'],
+        needsManualReview: false,
+        needsFreeReactivation: false,
+        archivedWithin6Months: false,
+        isWithin6Months: false,
+      };
+    }
+
+    // Tour < 6 Monate alt → GRATIS
+    if (isTourCreatedWithin6Months) {
       return {
         statusLabel: label,
         statusContext: '',
         statusContextText: '',
-        weiterfuehrenHint: 'Tour bleibt aktiv – keine Änderung (letzte Zahlung < 12 Monate)',
+        weiterfuehrenHint: 'Tour bleibt aktiv – keine Änderung (Tour < 6 Monate alt)',
         needsInvoice: false,
         invoiceAmount: null,
         paymentMethods: [],
         needsManualReview: false,
         needsFreeReactivation: false,
         archivedWithin6Months: false,
-        isWithin6Months: isTourCreatedWithin6Months,
+        isWithin6Months: true,
       };
     }
-    // Letzte Zahlung > 12 Monate oder nie bezahlt → CHF 59
+
+    // Tour 6–12 Monate alt → abhängig von last_payment_at
+    if (isTourCreatedWithin12Months) {
+      if (lastPaymentAt) {
+        // Zahlung vorhanden → GRATIS (normaler Abo-Workflow)
+        return {
+          statusLabel: label,
+          statusContext: '',
+          statusContextText: '',
+          weiterfuehrenHint: 'Tour bleibt aktiv – letzte Zahlung vorhanden (Abo-Verlängerung via Portal)',
+          needsInvoice: false,
+          invoiceAmount: null,
+          paymentMethods: [],
+          needsManualReview: false,
+          needsFreeReactivation: false,
+          archivedWithin6Months: false,
+          isWithin6Months: false,
+        };
+      }
+      // Kein last_payment_at → CHF 59
+      return {
+        statusLabel: label,
+        statusContext: ' (Keine Zahlung erfasst – Verlängerung kostenpflichtig.)',
+        statusContextText: '(Keine Zahlung erfasst – Verlängerung kostenpflichtig.)',
+        weiterfuehrenHint: `Tour verlängern – CHF ${EXTENSION_PRICE_CHF}.– / 6 Monate (online oder QR)`,
+        needsInvoice: true,
+        invoiceAmount: EXTENSION_PRICE_CHF,
+        invoiceKind: 'portal_extension',
+        paymentMethods: ['online', 'qr'],
+        needsManualReview: false,
+        needsFreeReactivation: false,
+        archivedWithin6Months: false,
+        isWithin6Months: false,
+      };
+    }
+
+    // Tour > 12 Monate alt → CHF 59
     return {
       statusLabel: label,
       statusContext: ' (Ihre Zahlung liegt mehr als 12 Monate zurück.)',
@@ -223,7 +300,7 @@ function computeCleanupRule(tour) {
       needsManualReview: false,
       needsFreeReactivation: false,
       archivedWithin6Months: false,
-      isWithin6Months: isTourCreatedWithin6Months,
+      isWithin6Months: false,
     };
   }
 
@@ -421,19 +498,22 @@ async function getCleanupCandidates({ maxAgeMonths = 6, includeAlreadySent = fal
   //  1. Nicht-archivierte Touren: created_at >= cutoff
   //  2. Archivierte Touren: archived_at >= cutoff (frisch archiviert, auch wenn Tour älter)
   const r = await pool.query(
-    `SELECT * FROM tour_manager.tours
+    `SELECT t.*,
+       (SELECT MAX(i.paid_at) FROM tour_manager.renewal_invoices i
+        WHERE i.tour_id = t.id AND i.invoice_status = 'paid') AS last_payment_at
+     FROM tour_manager.tours t
      WHERE (
-       -- Gruppe 1: aktive/abgelaufene Touren, nicht älter als 6 Monate
-       (status != 'ARCHIVED' AND created_at >= $1)
+       -- Gruppe 1: aktive/abgelaufene Touren (created_at oft = Migrationsdatum → confirmation_required als Hauptfilter)
+       (t.status != 'ARCHIVED' AND t.created_at >= $1)
        OR
        -- Gruppe 2: archivierte Touren, die innerhalb der letzten 6 Monate archiviert wurden
-       (status = 'ARCHIVED' AND (archived_at >= $1 OR created_at >= $1))
+       (t.status = 'ARCHIVED' AND (t.archived_at >= $1 OR t.created_at >= $1))
      )
-       AND (customer_email IS NOT NULL AND TRIM(customer_email) != '')
-       AND (cleanup_action IS NULL)
-       AND (cleanup_sent_at IS NULL OR $2::boolean = TRUE)
-       AND confirmation_required = TRUE
-     ORDER BY COALESCE(archived_at, created_at) DESC`,
+       AND (t.customer_email IS NOT NULL AND TRIM(t.customer_email) != '')
+       AND (t.cleanup_action IS NULL)
+       AND (t.cleanup_sent_at IS NULL OR $2::boolean = TRUE)
+       AND t.confirmation_required = TRUE
+     ORDER BY COALESCE(t.archived_at, t.created_at) DESC`,
     [cutoffIso, includeAlreadySent]
   );
   return r.rows.map(normalizeTourRow);
@@ -444,7 +524,13 @@ async function getCleanupCandidates({ maxAgeMonths = 6, includeAlreadySent = fal
 async function sendCleanupMailForTour(tourId, actorType = 'admin', actorRef = null) {
   await ensureCleanupSchema();
   await ensureOutgoingEmailSchema();
-  const r = await pool.query('SELECT * FROM tour_manager.tours WHERE id = $1', [tourId]);
+  const r = await pool.query(
+    `SELECT t.*,
+       (SELECT MAX(i.paid_at) FROM tour_manager.renewal_invoices i
+        WHERE i.tour_id = t.id AND i.invoice_status = 'paid') AS last_payment_at
+     FROM tour_manager.tours t WHERE t.id = $1`,
+    [tourId]
+  );
   const tour = normalizeTourRow(r.rows[0]);
   if (!tour) throw new Error('Tour nicht gefunden');
   const email = String(tour.customer_email || '').trim().toLowerCase();
@@ -455,17 +541,9 @@ async function sendCleanupMailForTour(tourId, actorType = 'admin', actorRef = nu
     throw new Error(`Bereinigungsmail wurde bereits am ${formatDate(tour.cleanup_sent_at)} versendet`);
   }
 
-  // 6-Monats-Grenze prüfen (Schutz gegen Einzelversand an alte Touren)
-  const sixMonthsAgo = new Date();
-  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-  const createdAt = tour.created_at ? new Date(tour.created_at) : null;
-  const archivedAt = tour.archived_at ? new Date(tour.archived_at) : null;
-  const isArchived = String(tour.status || '').toUpperCase() === 'ARCHIVED';
-  const withinWindow = isArchived
-    ? (archivedAt ? archivedAt >= sixMonthsAgo : false) || (createdAt ? createdAt >= sixMonthsAgo : false)
-    : createdAt ? createdAt >= sixMonthsAgo : false;
-  if (!withinWindow) {
-    throw new Error(`Tour ist älter als 6 Monate (erstellt: ${formatDate(createdAt) || '?'}). Bereinigungslauf gilt nur für Touren ≤ 6 Monate.`);
+  // Sicherheitscheck: Tour muss für Bereinigungslauf markiert sein
+  if (!tour.confirmation_required) {
+    throw new Error('Tour ist nicht für den Bereinigungslauf markiert (confirmation_required = false).');
   }
 
   // Tokens generieren
@@ -537,7 +615,13 @@ async function sendCleanupMailForTour(tourId, actorType = 'admin', actorRef = nu
 
 async function sandboxPreviewForTour(tourId) {
   await ensureCleanupSchema();
-  const r = await pool.query('SELECT * FROM tour_manager.tours WHERE id = $1', [tourId]);
+  const r = await pool.query(
+    `SELECT t.*,
+       (SELECT MAX(i.paid_at) FROM tour_manager.renewal_invoices i
+        WHERE i.tour_id = t.id AND i.invoice_status = 'paid') AS last_payment_at
+     FROM tour_manager.tours t WHERE t.id = $1`,
+    [tourId]
+  );
   const tour = normalizeTourRow(r.rows[0]);
   if (!tour) throw new Error('Tour nicht gefunden');
 
@@ -579,15 +663,8 @@ async function sandboxPreviewForTour(tourId) {
     },
   };
 
-  // 6-Monats-Fenster berechnen (weich: nur Warnung, kein Fehler im Sandbox)
-  const sixMonthsAgo = new Date();
-  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-  const createdAt = tour.created_at ? new Date(tour.created_at) : null;
-  const archivedAt = tour.archived_at ? new Date(tour.archived_at) : null;
-  const isArchived = String(tour.status || '').toUpperCase() === 'ARCHIVED';
-  const withinCleanupWindow = isArchived
-    ? (archivedAt ? archivedAt >= sixMonthsAgo : false) || (createdAt ? createdAt >= sixMonthsAgo : false)
-    : createdAt ? createdAt >= sixMonthsAgo : false;
+  // Cleanup-Fenster: Tour muss confirmation_required = TRUE sein (Hauptkriterium)
+  const withinCleanupWindow = !!tour.confirmation_required;
 
   return {
     dryRun: true,
@@ -599,7 +676,7 @@ async function sandboxPreviewForTour(tourId) {
     needsManualReview: rule.needsManualReview,
     withinCleanupWindow,
     withinCleanupWindowNote: !withinCleanupWindow
-      ? `Tour ist ausserhalb des 6-Monats-Fensters (${isArchived ? 'archiviert am' : 'erstellt am'}: ${formatDate(isArchived ? archivedAt : createdAt) || '?'}). Ein Versand wäre im Produktivbetrieb nicht möglich.`
+      ? 'Tour ist nicht für den Bereinigungslauf markiert (confirmation_required = false).'
       : null,
     isEligible: !tour.cleanup_sent_at && !!String(tour.customer_email || '').trim() && withinCleanupWindow,
     alreadySent: !!tour.cleanup_sent_at,
@@ -672,7 +749,10 @@ async function runCleanupBatch({ dryRun = true, tourIds = null, actorType = 'adm
   let candidates;
   if (tourIds && Array.isArray(tourIds) && tourIds.length > 0) {
     const r = await pool.query(
-      `SELECT * FROM tour_manager.tours WHERE id = ANY($1::int[]) ORDER BY id ASC`,
+      `SELECT t.*,
+         (SELECT MAX(i.paid_at) FROM tour_manager.renewal_invoices i
+          WHERE i.tour_id = t.id AND i.invoice_status = 'paid') AS last_payment_at
+       FROM tour_manager.tours t WHERE t.id = ANY($1::int[]) ORDER BY t.id ASC`,
       [tourIds]
     );
     candidates = r.rows.map(normalizeTourRow);
