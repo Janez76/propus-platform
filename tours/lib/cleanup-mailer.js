@@ -357,35 +357,19 @@ function computeCleanupRule(tour) {
   }
 
   // ── ARCHIVED ──────────────────────────────────────────────────────────────
+  // Archivierte Touren bekommen keine Rechnung – sie bleiben archiviert oder werden gelöscht.
   if (status === 'ARCHIVED') {
-    // Archiviert < 6 Monate: kein pauschaler Preis, manueller Review
-    if (isArchivedWithin6Months) {
-      return {
-        statusLabel: 'Archiviert',
-        statusContext: ' (Ihre Tour wurde kürzlich archiviert. Da dies möglicherweise auf einen Fehler unsererseits zurückzuführen ist, klären wir den Preis intern – wir melden uns bei Ihnen.)',
-        statusContextText: '(Ihre Tour wurde kürzlich archiviert. Wir klären den Reaktivierungspreis intern.)',
-        weiterfuehrenHint: 'Reaktivierungswunsch senden – unser Team meldet sich für die Preisklärung',
-        needsInvoice: false,
-        invoiceAmount: null,
-        paymentMethods: [],
-        needsManualReview: true,
-        archivedWithin6Months: true,
-        isWithin6Months: isTourCreatedWithin6Months,
-      };
-    }
-    // Archiviert > 6 Monate: CHF 74 einmalige Kulanz im Bereinigungslauf
     return {
       statusLabel: 'Archiviert',
-      statusContext: ' (Ihre Tour ist derzeit archiviert.)',
-      statusContextText: '(Ihre Tour ist derzeit archiviert.)',
-      weiterfuehrenHint: `Tour reaktivieren – CHF ${REACTIVATION_PRICE_CHF}.– (einmalige Kulanz beim Bereinigungslauf, inkl. CHF ${REACTIVATION_FEE_CHF}.– Bearbeitungsgebühr)`,
-      needsInvoice: true,
-      invoiceAmount: REACTIVATION_PRICE_CHF,
-      invoiceKind: 'portal_reactivation',
-      paymentMethods: ['online', 'qr'],
+      statusContext: ' (Ihre Tour ist archiviert.)',
+      statusContextText: '(Ihre Tour ist archiviert.)',
+      weiterfuehrenHint: 'Tour ist archiviert – keine Verlängerung möglich',
+      needsInvoice: false,
+      invoiceAmount: null,
+      paymentMethods: [],
       needsManualReview: false,
       needsFreeReactivation: false,
-      archivedWithin6Months: false,
+      archivedWithin6Months: isArchivedWithin6Months,
       isWithin6Months: isTourCreatedWithin6Months,
     };
   }
