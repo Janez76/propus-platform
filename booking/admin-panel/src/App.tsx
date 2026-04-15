@@ -122,9 +122,8 @@ function PrivateRoutes() {
         <Route path="/settings/team" element={guardedElement(adminOnlyRoles, <ConfigurationPage initialTab="employees" />)} />
         <Route
           path="/settings/assignment-explorer"
-          element={guardedElement(adminOnlyRoles, <Navigate to="/settings/access" replace />)}
+          element={guardedElement(adminOnlyRoles, <Navigate to="/settings/users" replace />)}
         />
-        <Route path="/settings/access" element={<Navigate to="/settings/users" replace />} />
         <Route path="/reviews" element={guardedElement(adminOnlyRoles, <ReviewsPage />)} />
         <Route path="/tickets" element={guardedElement(adminOnlyRoles, <TicketsPage />)} />
         <Route path="/picdrop" element={guardedElement(adminOnlyRoles, <PicdropPage />)} />
