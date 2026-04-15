@@ -1,25 +1,38 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Globe, FileText, Users, AlertCircle } from "lucide-react";
-import { getPortalTours, getPortalInvoices, type PortalTour, type PortalInvoice } from "../../api/portalTours";
+import { Globe, FileText, Users, AlertCircle, Settings } from "lucide-react";
+import { getPortalTours, getPortalInvoices, getPortalTeam, type PortalTour, type PortalInvoice, type PortalTeamMember } from "../../api/portalTours";
 import { usePortalNav } from "../../hooks/usePortalNav";
+import { usePermissions } from "../../hooks/usePermissions";
+import { useAuthStore } from "../../store/authStore";
 
 export function PortalDashboardPage() {
   const { portalPath } = usePortalNav();
+  const { can } = usePermissions();
+  const role = useAuthStore((s) => s.role);
+
+  const canManageTeam = can("portal_team.manage");
+  const canManageTours = can("tours.manage");
+  const isTourManager = role === "tour_manager";
+
   const [tours, setTours] = useState<PortalTour[]>([]);
   const [invoices, setInvoices] = useState<PortalInvoice[]>([]);
+  const [team, setTeam] = useState<PortalTeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([getPortalTours(), getPortalInvoices()])
-      .then(([t, i]) => {
-        setTours(t.tours);
-        setInvoices(i.invoices);
-      })
+    const requests: Promise<unknown>[] = [
+      getPortalTours().then((t) => setTours(t.tours)),
+      getPortalInvoices().then((i) => setInvoices(i.invoices)),
+    ];
+    if (canManageTeam) {
+      requests.push(getPortalTeam().then((t) => setTeam(t.team)).catch(() => {}));
+    }
+    Promise.all(requests)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [canManageTeam]);
 
   const activeTours = tours.filter((t) => !t.archiv && t.status !== "ARCHIVED");
   const openInvoices = invoices.filter((i) => i.invoice_status === "open" || i.invoice_status === "sent");
@@ -29,6 +42,8 @@ export function PortalDashboardPage() {
     const days = Math.ceil((new Date(end).getTime() - Date.now()) / 86400000);
     return days >= 0 && days <= 30;
   });
+  const activeTeamMembers = team.filter((m) => m.status === "active");
+  const pendingInvites = team.filter((m) => m.status === "pending");
 
   if (loading) {
     return (
@@ -40,7 +55,14 @@ export function PortalDashboardPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold text-[var(--text-main)]">Dashboard</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-[var(--text-main)]">Dashboard</h1>
+        {isTourManager && (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--accent)]/10 px-3 py-1 text-xs font-medium text-[var(--accent)]">
+            <Settings className="h-3 w-3" /> Tour Manager
+          </span>
+        )}
+      </div>
 
       {error && (
         <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
@@ -50,7 +72,7 @@ export function PortalDashboardPage() {
       )}
 
       {/* KPI-Kacheln */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className={`grid grid-cols-1 gap-4 ${canManageTeam ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3"}`}>
         <Link
           to={portalPath("tours")}
           className="group cust-form-section p-5 hover:border-[var(--accent)]/60 hover:shadow-sm transition-all"
@@ -80,12 +102,33 @@ export function PortalDashboardPage() {
         <div className="cust-form-section p-5">
           <div className="flex items-center gap-3 mb-2">
             <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-2">
-              <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              <Globe className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             </div>
             <span className="text-sm font-medium text-[var(--text-subtle)]">Touren gesamt</span>
           </div>
           <p className="text-3xl font-bold text-[var(--text-main)]">{tours.length}</p>
         </div>
+
+        {/* Team-Kachel: nur für customer_admin und tour_manager */}
+        {canManageTeam && (
+          <Link
+            to={portalPath("team")}
+            className="group cust-form-section p-5 hover:border-[var(--accent)]/60 hover:shadow-sm transition-all"
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <div className="rounded-lg bg-purple-50 dark:bg-purple-900/20 p-2">
+                <Users className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              </div>
+              <span className="text-sm font-medium text-[var(--text-subtle)]">Team</span>
+            </div>
+            <p className="text-3xl font-bold text-[var(--text-main)]">{activeTeamMembers.length}</p>
+            {pendingInvites.length > 0 && (
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                {pendingInvites.length} Einladung{pendingInvites.length !== 1 ? "en" : ""} ausstehend
+              </p>
+            )}
+          </Link>
+        )}
       </div>
 
       {/* Ablaufende Touren */}
@@ -103,9 +146,12 @@ export function PortalDashboardPage() {
               const days = Math.ceil((new Date(end!).getTime() - Date.now()) / 86400000);
               return (
                 <div key={t.id} className="flex items-center justify-between text-sm">
-                  <span className="text-amber-800 dark:text-amber-200">
+                  <Link
+                    to={portalPath(`tours/${t.id}`)}
+                    className="text-amber-800 dark:text-amber-200 hover:underline"
+                  >
                     {t.object_label || t.bezeichnung || `Tour #${t.id}`}
-                  </span>
+                  </Link>
                   <span className="font-medium text-amber-700 dark:text-amber-400">
                     in {days} Tag{days !== 1 ? "en" : ""}
                   </span>
@@ -119,7 +165,9 @@ export function PortalDashboardPage() {
       {/* Letzte Touren */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="font-semibold text-[var(--text-main)]">Letzte Touren</h2>
+          <h2 className="font-semibold text-[var(--text-main)]">
+            {isTourManager ? "Alle Touren (neueste)" : "Letzte Touren"}
+          </h2>
           <Link to={portalPath("tours")} className="text-sm text-[var(--accent)] hover:underline">
             Alle anzeigen →
           </Link>
@@ -137,15 +185,21 @@ export function PortalDashboardPage() {
                   <th className="text-left px-4 py-3 font-medium text-[var(--text-subtle)]">Objekt</th>
                   <th className="text-left px-4 py-3 font-medium text-[var(--text-subtle)] hidden sm:table-cell">Status</th>
                   <th className="text-left px-4 py-3 font-medium text-[var(--text-subtle)] hidden md:table-cell">Läuft bis</th>
+                  {canManageTours && (
+                    <th className="text-left px-4 py-3 font-medium text-[var(--text-subtle)] hidden lg:table-cell">Kunde</th>
+                  )}
                 </tr>
               </thead>
               <tbody>
                 {tours.slice(0, 5).map((t) => (
                   <tr key={t.id} className="border-b border-[var(--border-soft)]/50 last:border-0 hover:bg-[var(--surface-raised)]/30 transition-colors">
                     <td className="px-4 py-3">
-                      <div className="font-medium text-[var(--text-main)]">
+                      <Link
+                        to={portalPath(`tours/${t.id}`)}
+                        className="font-medium text-[var(--text-main)] hover:text-[var(--accent)] hover:underline"
+                      >
                         {t.object_label || t.bezeichnung || `Tour #${t.id}`}
-                      </div>
+                      </Link>
                       {t.matterport_model_id && (
                         <div className="text-xs text-[var(--text-subtle)] mt-0.5">{t.matterport_model_id}</div>
                       )}
@@ -156,6 +210,11 @@ export function PortalDashboardPage() {
                     <td className="px-4 py-3 hidden md:table-cell text-[var(--text-subtle)]">
                       {formatDate(t.term_end_date ?? t.ablaufdatum)}
                     </td>
+                    {canManageTours && (
+                      <td className="px-4 py-3 hidden lg:table-cell text-[var(--text-subtle)] text-xs">
+                        {t.customer_email ?? "–"}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -186,6 +245,3 @@ function formatDate(dateStr?: string): string {
   if (!dateStr) return "–";
   return new Date(dateStr).toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
-
-
-
