@@ -56,6 +56,7 @@ export type CustomerContact = {
   name: string;
   role: string;
   portal_role?: PortalRole;
+  member_status?: "invited" | "active" | "disabled" | null;
   phone: string;
   email: string;
   sort_order?: number;
@@ -78,6 +79,7 @@ export type Contact = {
   name: string;
   role: string;
   portal_role?: PortalRole;
+  member_status?: "invited" | "active" | "disabled" | null;
   phone: string;
   email: string;
   sort_order?: number;
@@ -257,3 +259,10 @@ export const deleteCustomer = (token: string, id: number, force = false) =>
 
 export const mergeCustomers = (token: string, keepId: number, mergeId: number) =>
   apiRequest<{ ok: true; keepId: number }>("/api/admin/customers/merge", "POST", token, { keepId, mergeId });
+
+export const inviteContact = (token: string, customerId: number, contactId: number) =>
+  apiRequest<{ ok: true; invitation: Record<string, unknown> }>(
+    `/api/admin/customers/${customerId}/contacts/${contactId}/invite`,
+    "POST",
+    token,
+  );
