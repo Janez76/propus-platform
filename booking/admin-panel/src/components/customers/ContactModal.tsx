@@ -404,8 +404,18 @@ export function ContactModal({ token, item, onSave, onToggleAdmin, onToggleBlock
 
         <div className="mb-1 mt-3 text-xs font-semibold uppercase tracking-wide text-zinc-400">{t(lang, "customerModal.section.other")}</div>
         <div className="grid gap-2">
+          <div>
+            <label className="mb-1 block text-sm">{t(lang, "customerModal.label.role")}</label>
+            <select
+              className="ui-input"
+              value={form.is_admin ? "customer_admin" : "customer_user"}
+              onChange={(e) => setForm((f) => ({ ...f, is_admin: e.target.value === "customer_admin" }))}
+            >
+              <option value="customer_user">{t(lang, "customerModal.role.customerUser")}</option>
+              <option value="customer_admin">{t(lang, "customerModal.role.customerAdmin")}</option>
+            </select>
+          </div>
           <div><label className="mb-1 block text-sm">{t(lang, "common.notes")}</label><textarea rows={2} className="ui-input" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} /></div>
-          <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" checked={form.is_admin} onChange={(e) => setForm((f) => ({ ...f, is_admin: e.target.checked }))} /> {t(lang, "customerModal.label.adminRights")}</label>
         </div>
 
         <CustomerContactsSection token={token} customerId={item.id} readonly={false} />
