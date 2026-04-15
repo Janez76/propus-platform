@@ -138,8 +138,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const isToursNavActive = location.pathname.startsWith("/admin/tours");
   const isListingNavActive = location.pathname.startsWith("/admin/listing");
   const isMessagesNavActive = location.pathname.startsWith("/admin/tickets");
-  const isCustomersNavActive =
-    location.pathname.startsWith("/customers") || location.pathname.startsWith("/settings/companies");
+  const isCustomersNavActive = location.pathname.startsWith("/customers");
   const isCompanyRole = isCompanyWorkspaceRole(role);
   const isKunden = isKundenRole(role);
   const visibleNavigationItems = useMemo(() => {
@@ -302,10 +301,6 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                         <NavLink to="/customers" onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
                           <Users className="h-4 w-4 flex-shrink-0" />
                           {t(lang, "nav.customers")}
-                        </NavLink>
-                        <NavLink to="/settings/companies" onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
-                          <Building2 className="h-4 w-4 flex-shrink-0" />
-                          {t(lang, "sidebar.nav.companies")}
                         </NavLink>
                       </div>
                     )}
@@ -576,10 +571,6 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                         <NavLink to="/customers" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
                           <Users className="h-4 w-4 flex-shrink-0" />
                           {t(lang, "nav.customers")}
-                        </NavLink>
-                        <NavLink to="/settings/companies" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
-                          <Building2 className="h-4 w-4 flex-shrink-0" />
-                          {t(lang, "sidebar.nav.companies")}
                         </NavLink>
                       </div>
                     )}

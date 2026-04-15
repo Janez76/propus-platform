@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Edit2, Plus, Save, Trash2, X } from "lucide-react";
+import { Edit2, Mail, Plus, Save, Trash2, X } from "lucide-react";
 import {
   getContacts,
   createCustomerContact,
   deleteCustomerContact,
   getCustomerContacts,
+  inviteContact,
   updateContact,
   updateCustomerContact,
   PORTAL_ROLE_OPTIONS,
@@ -109,7 +110,8 @@ export function CustomerContactsSection({ token, customerId, readonly = false }:
   const [selectedExistingId, setSelectedExistingId] = useState<string>("");
   const [editId, setEditId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<ContactFormState>(EMPTY_FORM);
-  const [busy, setBusy] = useState<"create" | "update" | "delete" | null>(null);
+  const [busy, setBusy] = useState<"create" | "update" | "delete" | "invite" | null>(null);
+  const [inviteSuccess, setInviteSuccess] = useState<number | null>(null);
 
   async function loadContacts() {
     setLoading(true);
@@ -253,6 +255,21 @@ export function CustomerContactsSection({ token, customerId, readonly = false }:
     }
   }
 
+  async function handleInvite(contactId: number) {
+    setBusy("invite");
+    setError("");
+    setInviteSuccess(null);
+    try {
+      await inviteContact(token, customerId, contactId);
+      setInviteSuccess(contactId);
+      await loadContacts();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Einladung konnte nicht gesendet werden");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   const inputClass = "ui-input w-full";
 
   const linkCandidates = useMemo(
@@ -330,14 +347,17 @@ export function CustomerContactsSection({ token, customerId, readonly = false }:
                       <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--text-subtle)]">
                         Portal-Rolle
                       </label>
-                      <div className="flex items-center gap-2">
-                        <span className="rounded border border-[var(--border-soft)] bg-[var(--surface-raised)] px-2 py-1 text-xs text-[var(--text-muted)]">
-                          {PORTAL_ROLE_OPTIONS.find((o) => o.value === editForm.portal_role)?.label ?? "—"}
-                        </span>
-                        <a href="/settings/access?tab=portal" className="text-xs text-[var(--accent)] hover:underline">
-                          Zentral verwalten →
-                        </a>
-                      </div>
+                      <select
+                        className={inputClass}
+                        value={editForm.portal_role}
+                        onChange={(e) => setEditForm((prev) => ({ ...prev, portal_role: e.target.value as PortalRole }))}
+                      >
+                        {PORTAL_ROLE_OPTIONS.map((o) => (
+                          <option key={o.value} value={o.value} title={o.description}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     <div className="md:col-span-2 lg:col-span-4">
                       <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--text-subtle)]">
@@ -406,6 +426,19 @@ export function CustomerContactsSection({ token, customerId, readonly = false }:
                             <span className="rounded bg-[var(--surface-raised)] px-1.5 py-0.5 text-xs text-[var(--text-subtle)]">Firmen-Mitarbeiter</span>
                           );
                         })()}
+                        {" "}
+                        {contact.member_status === "active" && (
+                          <span className="ml-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">Aktiv</span>
+                        )}
+                        {contact.member_status === "invited" && (
+                          <span className="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">Eingeladen</span>
+                        )}
+                        {contact.member_status === "disabled" && (
+                          <span className="ml-1 rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">Deaktiviert</span>
+                        )}
+                        {inviteSuccess === contact.id && (
+                          <span className="ml-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">Einladung gesendet!</span>
+                        )}
                       </p>
                       <p className="text-[var(--text-muted)]">
                         <span className="font-semibold">{t(lang, "contact.phoneDirect")}:</span>{" "}
@@ -433,6 +466,17 @@ export function CustomerContactsSection({ token, customerId, readonly = false }:
                     </div>
                     {!readonly ? (
                       <div className="flex items-center gap-1">
+                        {contact.email && contact.member_status !== "active" && (
+                          <button
+                            type="button"
+                            onClick={() => handleInvite(contact.id)}
+                            disabled={busy === "invite"}
+                            className="rounded-lg p-1.5 text-[var(--accent)] hover:bg-[var(--surface-raised)] disabled:opacity-60"
+                            title={contact.member_status === "invited" ? "Einladung erneut senden" : "Zum Portal einladen"}
+                          >
+                            <Mail className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => startEdit(contact)}
@@ -483,13 +527,17 @@ export function CustomerContactsSection({ token, customerId, readonly = false }:
               <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--text-subtle)]">
                 Portal-Rolle
               </label>
-              <p className="text-xs text-[var(--text-muted)]">
-                Wird nach dem Anlegen über{" "}
-                <a href="/settings/access?tab=portal" className="text-[var(--accent)] hover:underline">
-                  Rechteverwaltung → Portal & Team
-                </a>{" "}
-                gesetzt.
-              </p>
+              <select
+                className={inputClass}
+                value={createForm.portal_role}
+                onChange={(e) => setCreateForm((prev) => ({ ...prev, portal_role: e.target.value as PortalRole }))}
+              >
+                {PORTAL_ROLE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value} title={o.description}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
           <div className="mt-2 flex items-center justify-end gap-2">
