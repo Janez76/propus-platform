@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei neuen Rollen, geänderten Permission-Zuweisungen oder Logto-Org-Änderungen dieses Dokument aktualisieren.
 
-*Zuletzt aktualisiert: April 2026 (überarbeitet: Admin-Verwaltung zentralisiert, Portal-Rollen UI konsolidiert; §9 Unified-Login Rollen-Mapping)*
+*Zuletzt aktualisiert: April 2026 (überarbeitet: Admin-Verwaltung zentralisiert, Portal-Rollen UI konsolidiert; §9 Unified-Login Rollen-Mapping; Firmenverwaltung entfernt – Portal-Rolle direkt am Kontakt)*
 
 ---
 
@@ -247,13 +247,24 @@ customData: {
 
 ### 7.0 UI — Zentrale Verwaltung
 
-**Alle Rollen werden an einer einzigen Stelle verwaltet:**
+**Alle Rollen werden an diesen Stellen verwaltet:**
 
 | Was | Wo im UI | Pfad |
 |---|---|---|
 | Admin-Panel-Zugriff (Logto) | **Einstellungen → Benutzer** | `/settings/users` |
-| Portal-Zugang (intern + extern) | **Einstellungen → Rollen & Rechte → Tab "Portal-Zugang"** | `/settings/roles?view=portal` |
+| Portal-Rolle pro Kontakt | **Kunden → Kunde öffnen → Kontakte** | `/customers` |
+| Portal-Zugang Übersicht (intern + extern) | **Einstellungen → Rollen & Rechte → Tab "Portal-Zugang"** | `/settings/roles?view=portal` |
 | Rollen-Matrix (Referenz) | **Einstellungen → Rollen & Rechte → Tab "Rollen-Matrix"** | `/settings/roles` |
+
+**Portal-Rolle direkt am Kontakt (ab April 2026):**
+
+Die `portal_role` wird neu direkt im Kontakt-Formular gesetzt (Dropdown, editierbar beim Anlegen und Bearbeiten). Das Backend (`customer-contacts-routes.js`) synct die Rolle automatisch auf `core.company_members` und die Logto-Organisation.
+
+API: `GET /api/admin/customers/:id/contacts` liefert neu `member_status` (`"invited"` | `"active"` | `"disabled"` | `null`) via LEFT JOIN auf `company_members`.
+
+Einladen-Endpunkt: `POST /api/admin/customers/:id/contacts/:contactId/invite` erstellt einen `company_invitations`-Eintrag (Token-basiert, kein automatischer E-Mail-Versand im Backend — Logto-seitige Notification abhängig von Logto-Konfiguration).
+
+> **Entfernt (April 2026):** Die Seite `/settings/companies` ("Firmenverwaltung") wurde aus der Navigation entfernt. Die URL leitet auf `/customers` weiter. Firmen-Workspaces existieren weiterhin als technisches Konzept (Tabelle `core.companies`), werden aber nicht mehr separat verwaltet — sie entstehen automatisch beim Kontakt-Sync.
 
 > **Deprecated:** Die alte Route `/admin/tours/portal-roles` leitet automatisch auf `/settings/roles?view=portal` weiter.
 >
