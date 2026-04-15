@@ -443,14 +443,18 @@ export function GalleryListPage() {
                       >
                         Bestätigt
                       </span>
+                    ) : g.picdrop_selected_count > 0 ? (
+                      <span
+                        className="gal-admin-listing-num gal-admin-listing-num--selected"
+                        title="Entwurf mit Auswahl vorhanden, noch nicht bestätigt"
+                        aria-label={`${g.picdrop_selected_count} Bilder im Entwurf, noch nicht bestätigt`}
+                      >
+                        {g.picdrop_selected_count}
+                      </span>
                     ) : (
                       <span
                         className="gal-admin-listing-pill gal-admin-badge gal-admin-badge--picdrop-open"
-                        title={
-                          g.picdrop_selected_count > 0
-                            ? "Entwurf mit Auswahl vorhanden, noch nicht bestätigt"
-                            : "Auswahl noch nicht bestätigt"
-                        }
+                        title="Auswahl noch nicht bestätigt"
                       >
                         Offen
                       </span>
