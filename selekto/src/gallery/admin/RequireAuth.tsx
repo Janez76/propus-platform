@@ -29,13 +29,17 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  /** Login-Hintergrund nur während der Anmeldung; AdminShell übernimmt danach. */
+  /** Login-Hintergrund nur während der Anmeldung; AdminShell übernimmt danach.
+   *  Cleanup entfernt die Klasse beim Unmount (z. B. Navigation zu anderem Route). */
   useEffect(() => {
     if (user) {
       document.body.classList.remove("admin-body--login");
-    } else {
-      document.body.classList.add("admin-body--login");
+      return;
     }
+    document.body.classList.add("admin-body--login");
+    return () => {
+      document.body.classList.remove("admin-body--login");
+    };
   }, [user]);
 
   const handleSubmit = useCallback(
