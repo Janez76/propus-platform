@@ -96,11 +96,37 @@ export async function ensureContactSubject(token: string, customerId: number, co
   );
 }
 
-/** Alle Rollen-Permissions aus der DB laden (nur Super-Admin). */
+export type RoleMetadata = {
+  role_key: string;
+  label: string;
+  description: string;
+  is_custom: boolean;
+};
+
+/** Alle Rollen-Permissions + Metadaten aus der DB laden (nur Super-Admin). */
 export async function getRolePresets(token: string) {
-  return apiRequest<{ ok: true; presets: Record<string, string[]>; fallback?: boolean }>(
+  return apiRequest<{ ok: true; presets: Record<string, string[]>; roles: RoleMetadata[]; fallback?: boolean }>(
     "/api/admin/access/role-presets",
     "GET",
+    token,
+  );
+}
+
+/** Neue custom Rolle erstellen (nur Super-Admin). */
+export async function createRolePreset(token: string, body: { label: string; description: string }) {
+  return apiRequest<{ ok: true; role: RoleMetadata }>(
+    "/api/admin/access/role-presets",
+    "POST",
+    token,
+    body,
+  );
+}
+
+/** Custom Rolle löschen (nur Super-Admin, fixe Rollen werden abgewiesen). */
+export async function deleteRolePreset(token: string, roleKey: string) {
+  return apiRequest<{ ok: true }>(
+    `/api/admin/access/role-presets/${encodeURIComponent(roleKey)}`,
+    "DELETE",
     token,
   );
 }
