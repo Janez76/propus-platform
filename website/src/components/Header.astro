@@ -87,6 +87,19 @@ const pathname = Astro.url.pathname;
 		</nav>
 
 		<div class="site-header__actions">
+			<a
+				href="https://booking.propus.ch/login"
+				class="site-header__login"
+				data-login-link
+				aria-label="Anmelden"
+			>
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+					<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+					<polyline points="10 17 15 12 10 7"/>
+					<line x1="15" y1="12" x2="3" y2="12"/>
+				</svg>
+				<span class="site-header__login-label">Anmelden</span>
+			</a>
 			<button
 				type="button"
 				class="site-header__theme"
@@ -265,6 +278,29 @@ const pathname = Astro.url.pathname;
 		document.documentElement.dataset.propusThemeMicrotaskQueued = '1';
 		queueMicrotask(() => applyThemeFromStorage());
 	}
+
+	// Login-Link ausblenden wenn bereits angemeldet (Token im localStorage/sessionStorage)
+	function syncLoginLink() {
+		const TOKEN_KEY = 'admin_token_v2';
+		const loggedIn = !!(
+			(typeof localStorage !== 'undefined' && localStorage.getItem(TOKEN_KEY)) ||
+			(typeof sessionStorage !== 'undefined' && sessionStorage.getItem(TOKEN_KEY))
+		);
+		document.querySelectorAll('[data-login-link]').forEach((el) => {
+			if (loggedIn) {
+				el.setAttribute('hidden', '');
+			} else {
+				el.removeAttribute('hidden');
+			}
+		});
+	}
+
+	if (!document.documentElement.dataset.propusLoginLinkBound) {
+		document.documentElement.dataset.propusLoginLinkBound = '1';
+		queueMicrotask(() => syncLoginLink());
+		document.addEventListener('astro:page-load', syncLoginLink);
+		document.addEventListener('astro:after-swap', syncLoginLink);
+	}
 </script>
 
 <style>
@@ -333,6 +369,50 @@ const pathname = Astro.url.pathname;
 
 	html[data-theme='dark'] .site-header__logo--theme-dark {
 		display: block;
+	}
+
+	.site-header__login {
+		display: none;
+		align-items: center;
+		gap: 0.4rem;
+		box-sizing: border-box;
+		height: var(--site-header-icon-box);
+		padding-inline: 0.75rem;
+		border: 1px solid var(--color-border);
+		background: var(--color-surface);
+		border-radius: 10px;
+		text-decoration: none;
+		color: var(--color-text-muted);
+		font-size: 0.8rem;
+		font-weight: 500;
+		white-space: nowrap;
+		transition:
+			border-color var(--transition-fast),
+			color var(--transition-fast),
+			box-shadow var(--transition-fast);
+	}
+
+	.site-header__login:hover {
+		color: var(--color-text);
+		border-color: color-mix(in srgb, var(--color-text) 18%, transparent);
+		box-shadow: var(--shadow-border);
+	}
+
+	/* visible only on ≥900px; hidden when logged in via JS */
+	@media (min-width: 900px) {
+		.site-header__login:not([hidden]) {
+			display: inline-flex;
+		}
+	}
+
+	.site-header__login-label {
+		display: none;
+	}
+
+	@media (min-width: 1060px) {
+		.site-header__login-label {
+			display: inline;
+		}
 	}
 
 	.site-header__actions {
