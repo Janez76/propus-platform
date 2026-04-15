@@ -100,6 +100,19 @@ const pathname = Astro.url.pathname;
 				</svg>
 				<span class="site-header__login-label">Anmelden</span>
 			</a>
+			<a
+				href="https://booking.propus.ch/portal/tours"
+				class="site-header__profile"
+				data-profile-link
+				hidden
+				aria-label="Mein Konto"
+			>
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+					<circle cx="12" cy="8" r="4"/>
+					<path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+				</svg>
+				<span class="site-header__login-label">Mein Konto</span>
+			</a>
 			<button
 				type="button"
 				class="site-header__theme"
@@ -279,7 +292,7 @@ const pathname = Astro.url.pathname;
 		queueMicrotask(() => applyThemeFromStorage());
 	}
 
-	// Login-Link ausblenden wenn bereits angemeldet (Token im localStorage/sessionStorage)
+	// Login ↔ Profil tauschen je nach Auth-Status
 	function syncLoginLink() {
 		const TOKEN_KEY = 'admin_token_v2';
 		const loggedIn = !!(
@@ -287,11 +300,10 @@ const pathname = Astro.url.pathname;
 			(typeof sessionStorage !== 'undefined' && sessionStorage.getItem(TOKEN_KEY))
 		);
 		document.querySelectorAll('[data-login-link]').forEach((el) => {
-			if (loggedIn) {
-				el.setAttribute('hidden', '');
-			} else {
-				el.removeAttribute('hidden');
-			}
+			if (loggedIn) el.setAttribute('hidden', ''); else el.removeAttribute('hidden');
+		});
+		document.querySelectorAll('[data-profile-link]').forEach((el) => {
+			if (loggedIn) el.removeAttribute('hidden'); else el.setAttribute('hidden', '');
 		});
 	}
 
@@ -398,11 +410,39 @@ const pathname = Astro.url.pathname;
 		box-shadow: var(--shadow-border);
 	}
 
-	/* visible only on ≥900px; hidden when logged in via JS */
+	/* visible only on ≥900px; toggled via JS */
 	@media (min-width: 900px) {
-		.site-header__login:not([hidden]) {
+		.site-header__login:not([hidden]),
+		.site-header__profile:not([hidden]) {
 			display: inline-flex;
 		}
+	}
+
+	.site-header__profile {
+		display: none;
+		align-items: center;
+		gap: 0.4rem;
+		box-sizing: border-box;
+		height: var(--site-header-icon-box);
+		padding-inline: 0.75rem;
+		border: 1px solid var(--color-accent, #b09040);
+		background: color-mix(in srgb, var(--color-accent, #b09040) 8%, transparent);
+		border-radius: 10px;
+		text-decoration: none;
+		color: var(--color-accent, #b09040);
+		font-size: 0.8rem;
+		font-weight: 500;
+		white-space: nowrap;
+		transition:
+			border-color var(--transition-fast),
+			color var(--transition-fast),
+			background var(--transition-fast),
+			box-shadow var(--transition-fast);
+	}
+
+	.site-header__profile:hover {
+		background: color-mix(in srgb, var(--color-accent, #b09040) 15%, transparent);
+		box-shadow: var(--shadow-border);
 	}
 
 	.site-header__login-label {
