@@ -286,7 +286,7 @@ export function ToursAdminCustomerDetailPage() {
                     <td className="p-2">{String(ct.email || "—")}</td>
                     <td className="p-2">
                       <a
-                        href={`/settings/access?tab=portal`}
+                        href={`/settings/roles`}
                         className="inline-flex items-center gap-1 rounded border border-[var(--border-soft)] bg-[var(--surface-raised)] px-2 py-0.5 text-xs text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors"
                         title="Portalrollen zentral verwalten"
                       >

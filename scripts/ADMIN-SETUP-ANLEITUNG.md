@@ -102,5 +102,5 @@ bash scripts/vps-setup-admin.sh
 ## Nach dem Setup
 
 1. Passwort ändern unter: Einstellungen → Benutzerkonto
-2. Weitere Admin-Benutzer anlegen unter: /settings/access → Intern → Neuer Benutzer
+2. Weitere Admin-Benutzer anlegen unter: /settings/users → Neuer Benutzer
 3. `ADMIN_SETUP_TOKEN` nach dem Setup aus `.env.vps` entfernen

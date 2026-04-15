@@ -29,7 +29,6 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   "/settings/calendar-templates": "settings.manage",
   "/settings/exxas": "settings.manage",
   "/exxas-reconcile": "settings.manage",
-  "/settings/access": "roles.manage",
   "/settings/users": "users.manage",
   "/settings/companies": "users.manage",
   "/bugs": "bugs.read",
