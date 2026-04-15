@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const { pool } = require('./db');
 const { logAction } = require('./actions');
 const statusMachine = require('./status-machine');
@@ -90,6 +91,39 @@ function escapeHtml(value) {
 
 function getPortalUrl() {
   return (process.env.PORTAL_BASE_URL || process.env.CUSTOMER_BASE_URL || 'https://portal.propus.ch').replace(/\/$/, '') + '/portal';
+}
+
+/**
+ * Erstellt einen Magic Link für den Kunden-Portal-Direktzugang.
+ * Der Link loggt den Kunden automatisch ein und leitet ihn auf returnTo weiter.
+ * Gibt null zurück wenn der Kunde nicht gefunden wurde oder ein Fehler auftritt.
+ */
+async function createPortalMagicLink(customerEmail, { returnTo = '/portal/invoices', sessionDays = 30 } = {}) {
+  const email = String(customerEmail || '').toLowerCase().trim();
+  if (!email) return null;
+  try {
+    const customerResult = await pool.query(
+      'SELECT id, blocked FROM customers WHERE LOWER(email) = $1 LIMIT 1',
+      [email]
+    );
+    const customer = customerResult.rows[0];
+    if (!customer || customer.blocked) return null;
+
+    const token = crypto.randomBytes(32).toString('base64url');
+    const tokenHash = crypto.createHash('sha256').update(token, 'utf8').digest('hex');
+    const expiresAt = new Date(Date.now() + Math.max(1, sessionDays) * 24 * 60 * 60 * 1000);
+    await pool.query(
+      'INSERT INTO customer_sessions (customer_id, token_hash, expires_at) VALUES ($1, $2, $3)',
+      [customer.id, tokenHash, expiresAt]
+    );
+
+    const fe = String(process.env.FRONTEND_URL || 'https://booking.propus.ch').replace(/\/?$/, '');
+    const safeDest = String(returnTo || '').startsWith('/') ? returnTo : '/portal/invoices';
+    const returnToEncoded = encodeURIComponent(`${fe}${safeDest}`);
+    return `${fe}/auth/customer/magic?magic=${encodeURIComponent(token)}&returnTo=${returnToEncoded}`;
+  } catch (_e) {
+    return null;
+  }
 }
 
 function mergeTemplate(templateStr, placeholders, options = {}) {
@@ -584,6 +618,9 @@ async function sendInvoiceWithQrEmail(tourId, invoiceId) {
   const amountCHF = Number(invoice.amount_chf || 0).toFixed(2);
   const dueDateFormatted = invoice.due_at ? new Date(invoice.due_at).toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
 
+  const magicLink = await createPortalMagicLink(recipientEmail, { returnTo: '/portal/invoices', sessionDays: 30 });
+  const effectivePortalUrl = magicLink || portalUrl;
+
   const content = await resolveTemplateContent('portal_invoice_sent', {
     objectLabel,
     customerGreeting,
@@ -592,9 +629,9 @@ async function sendInvoiceWithQrEmail(tourId, invoiceId) {
     dueDateFormatted,
     tourLinkHtml,
     tourLinkText: tourLink ? `Virtueller Rundgang: ${tourLink}` : '',
-    portalUrl,
-    portalLinkHtml: `<a href="${escapeHtml(portalUrl)}">Meine Touren verwalten</a>`,
-    portalLinkText: `Kundenportal: ${portalUrl}`,
+    portalUrl: effectivePortalUrl,
+    portalLinkHtml: `<a href="${escapeHtml(effectivePortalUrl)}">Meine Touren verwalten</a>`,
+    portalLinkText: `Kundenportal: ${effectivePortalUrl}`,
   });
 
   let pdfBuffer = null;
@@ -688,8 +725,10 @@ async function sendInvoiceOverdueReminderEmail(tourId, invoiceId) {
     ? dueDate.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })
     : '–';
   const portalUrl = process.env.PORTAL_BASE_URL || process.env.ADMIN_PORTAL_BASE_URL || '';
-  const portalLinkHtml = portalUrl ? `<a href="${portalUrl}" style="color:#8c6d2b;font-weight:700;">${portalUrl}</a>` : '';
-  const portalLinkText = portalUrl || '';
+  const magicLink = await createPortalMagicLink(recipientEmail, { returnTo: '/portal/invoices', sessionDays: 30 });
+  const effectivePortalUrl = magicLink || portalUrl;
+  const portalLinkHtml = effectivePortalUrl ? `<a href="${escapeHtml(effectivePortalUrl)}" style="color:#8c6d2b;font-weight:700;">Meine Touren verwalten</a>` : '';
+  const portalLinkText = effectivePortalUrl || '';
   const tourUrl = t.tour_url || (portalUrl ? `${portalUrl}/portal/tours/${t.id}` : '');
   const tourLinkHtml = tourUrl ? `<a href="${tourUrl}" style="color:#4b5563;">${objectLabel}</a>` : objectLabel;
   const tourLinkText = tourUrl ? `${objectLabel}: ${tourUrl}` : objectLabel;
