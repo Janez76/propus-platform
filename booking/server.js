@@ -10360,7 +10360,7 @@ app.post("/api/company/invitations", requireCompanyAdmin, async (req, res) => {
   }
 });
 
-app.get("/api/company/invitations", requireCompanyMember, async (req, res) => {
+app.get("/api/company/invitations", requireCompanyAdmin, async (req, res) => {
   try {
     const invitations = await db.listCompanyInvitations(req.companyId, {
       includeExpired: String(req.query.includeExpired || "false").toLowerCase() === "true",
