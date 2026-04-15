@@ -1,0 +1,249 @@
+name: PR Auto-Docs (Claude pflegt docs/ nach)
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Dieser Workflow laesst Claude bei jedem Pull Request automatisch die
+# Dokumentation in docs/ sowie DATA_FIELDS.md mitpflegen:
+#
+#   - bestehende Flow-/Schema-/Rollen-Docs werden ergaenzt, wenn ein PR
+#     neue Endpunkte, Migrationen, Templates oder Rollen beruehrt
+#   - fehlende Docs (z.B. neues Modul) werden auf Basis von docs/FLOWS_TEMPLATE.md
+#     neu erzeugt
+#   - DATA_FIELDS.md wird als Hauptindex mit neuen Eintraegen erweitert
+#
+# Das Ergebnis wird als zusaetzlicher Commit zurueck auf den PR-Branch gepusht.
+# Schlaegt ein Commit fehl (z.B. Branch von Fork), wird ein Kommentar am PR
+# hinterlassen.
+#
+# Benoetigte Secrets (Repo-Settings > Secrets and variables > Actions):
+#   - ANTHROPIC_API_KEY               (Pflicht)
+#   - optional: CLAUDE_CODE_OAUTH_TOKEN (falls vorhanden, wird bevorzugt)
+# ──────────────────────────────────────────────────────────────────────────────
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      # Nur laufen wenn Code-Aenderungen anliegen, die Docs beruehren koennten
+      - "app/**"
+      - "auth/**"
+      - "booking/**"
+      - "core/**"
+      - "platform/**"
+      - "selekto/**"
+      - "tours/**"
+      - "website/**"
+      - "scripts/**"
+      - "infra/**"
+      - "docker-compose*.yml"
+      - "AGENTS.md"
+      - "DATA_FIELDS.md"
+      - "docs/**"
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "PR-Nummer fuer manuelles Nachfuehren"
+        required: true
+        type: string
+
+concurrency:
+  # Pro PR nur ein Lauf gleichzeitig, damit sich Commits nicht ueberholen
+  group: pr-auto-docs-${{ github.event.pull_request.number || inputs.pr_number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  id-token: write
+
+jobs:
+  update-docs:
+    name: Docs automatisch nachfuehren
+    runs-on: ubuntu-latest
+    # Drafts ueberspringen; bei PRs aus Forks ist contents:write nicht moeglich
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.draft == false &&
+       github.event.pull_request.head.repo.full_name == github.repository)
+
+    steps:
+      - name: Checkout PR-Branch
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Git-Identity fuer Auto-Commits setzen
+        run: |
+          git config user.name  "propus-docs-bot"
+          git config user.email "propus-docs-bot@users.noreply.github.com"
+
+      - name: Geaenderte Dateien ermitteln
+        id: changes
+        run: |
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          if [ -z "$BASE_SHA" ] || [ -z "$HEAD_SHA" ]; then
+            # workflow_dispatch Fallback
+            BASE_SHA=$(git merge-base origin/master HEAD || git rev-parse HEAD~1)
+            HEAD_SHA=$(git rev-parse HEAD)
+          fi
+          echo "base_sha=$BASE_SHA" >> "$GITHUB_OUTPUT"
+          echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "changed_files<<EOF"
+            git diff --name-only "$BASE_SHA" "$HEAD_SHA" || true
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "==> Geaenderte Dateien:"
+          git diff --name-only "$BASE_SHA" "$HEAD_SHA" || true
+
+      - name: Claude laeuft und pflegt Docs nach
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          # Wichtig: Claude darf Dateien schreiben + git nutzen
+          allowed_tools: "Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(cat:*),Bash(ls:*),Bash(find:*),Bash(head:*),Bash(tail:*),Bash(node:*),Bash(bash scripts/guard-docs.sh*)"
+          model: claude-opus-4-6
+          timeout_minutes: "20"
+          prompt: |
+            Du pflegst die Dokumentation der Propus-Plattform automatisch nach.
+            Referenzregeln: AGENTS.md, .cursor/rules/data-fields.mdc,
+            scripts/guard-docs.sh, docs/FLOWS_TEMPLATE.md.
+
+            Kontext dieses Pull Requests:
+              PR:         #${{ github.event.pull_request.number }}
+              Titel:      ${{ github.event.pull_request.title }}
+              Branch:     ${{ github.event.pull_request.head.ref }}
+              Base-SHA:   ${{ steps.changes.outputs.base_sha }}
+              Head-SHA:   ${{ steps.changes.outputs.head_sha }}
+
+            Geaenderte Dateien in diesem PR:
+            ${{ steps.changes.outputs.changed_files }}
+
+            ## Deine Aufgabe
+
+            1. Diff analysieren:
+                  git diff ${{ steps.changes.outputs.base_sha }} \
+                           ${{ steps.changes.outputs.head_sha }}
+               Identifiziere, welche Docs durch die Aenderungen betroffen sind.
+
+            2. Fuer jede betroffene Datei in `docs/` bzw. `DATA_FIELDS.md`:
+               - **ERGAENZEN**, wenn die Datei schon existiert (neue Endpunkte,
+                 neue Tabellenfelder, neue Templates, neue Rollen, neue Flows).
+               - **NEU ERZEUGEN** anhand `docs/FLOWS_TEMPLATE.md`, wenn ein
+                 neues Modul/Feature vorliegt, fuer das noch keine Doc existiert.
+                 Der Dateiname folgt `docs/FLOWS_<MODUL>.md` (GROSS, Unterstriche).
+               - **ERWEITERN**: Unterabschnitte hinzufuegen, Tabellen ergaenzen,
+                 TODO-Listen aktualisieren. Keine bestehenden Inhalte loeschen,
+                 es sei denn sie sind nachweislich ueberholt.
+
+            3. `DATA_FIELDS.md` (Hauptindex) immer konsistent halten:
+               - Neue `docs/FLOWS_*.md`-Dateien in die Modul-Tabelle eintragen.
+               - Datum "Zuletzt aktualisiert" auf den heutigen Monat setzen.
+
+            4. Zuordnungs-Leitfaden (grob):
+               - `core/migrations/*.sql`, `booking/migrations/*.sql`,
+                 `tours/migrations/*.sql`      → docs/SCHEMA_FULL.md
+               - `booking/*routes*.js`, `booking/server.js`
+                                               → docs/FLOWS_BOOKING.md
+               - `tours/routes/*.js`, `tours/lib/*.js`
+                                               → docs/FLOWS_TOURS.md (+ ggf.
+                                                  docs/WORKFLOW_TOURS.md)
+               - Upload-Logik                  → docs/FLOWS_UPLOAD.md
+               - Exxas-Logik                   → docs/FLOWS_EXXAS.md
+               - Auth/Logto/Sessions           → docs/FLOWS_AUTH.md
+               - E-Mail-Templates / Mailer     → docs/EMAIL_TEMPLATES.md
+               - Rollen / Permissions / RBAC   → docs/ROLES_PERMISSIONS.md
+               - Admin-Frontend (React)        → docs/ADMIN-FRONTEND-DESIGN.md
+               - Firmenhomepage-API            → docs/FIRMENHOMEPAGE-KATALOG-API.md
+               - Deploy/VPS/Backups/SSH        → docs/VPS-BETRIEB.md,
+                                                  docs/BACKUPS.md,
+                                                  docs/SSH-NAS-ZUGANG.md,
+                                                  docs/BOOKING-E2E-DEPLOY.md
+               Wenn unklar: lieber im passendsten Doc ergaenzen und in
+               `DATA_FIELDS.md` verlinken, als ein falsches Doc anfassen.
+
+            5. Stil:
+               - Deutsch, gleicher Ton wie bestehende Docs.
+               - Keine Emojis einfuegen, die noch nicht im Doc vorhanden waren.
+               - Tabellen-Format beibehalten (| Spalte | ... |).
+               - Keine Secrets, Passwoerter oder Tokens aus dem Diff
+                 uebernehmen.
+
+            6. Wenn die Aenderungen rein kosmetisch sind (Formatierung,
+               Typos, Tests ohne neue Fachlogik) UND keine Doc-relevanten
+               Auswirkungen haben: nichts aendern. Erklaere das kurz im
+               finalen Summary.
+
+            7. Abschluss:
+               - Aenderungen mit `git add` stagen.
+               - Wenn Aenderungen vorhanden sind:
+                   git commit -m "docs: auto-update via PR #${{ github.event.pull_request.number }}"
+                   git push origin HEAD:${{ github.event.pull_request.head.ref }}
+               - Wenn nichts geaendert wurde: keinen Commit erzeugen.
+               - Zum Schluss `bash scripts/guard-docs.sh --ci` laufen lassen
+                 und die Ausgabe im Summary zeigen.
+
+            Gib am Ende eine knappe Zusammenfassung (max. 15 Zeilen):
+              - Welche Docs wurden geaendert/erzeugt?
+              - Warum (Bezug zu welchen PR-Dateien)?
+              - Was bleibt offen (TODO-Liste am PR).
+
+      - name: PR kommentieren, falls Auto-Docs nicht moeglich war
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = [
+              "### Auto-Docs fehlgeschlagen",
+              "",
+              "Der automatische Doc-Update-Lauf konnte die Dokumentation",
+              "in `docs/` nicht aktualisieren. Bitte Logs des Workflows",
+              "`PR Auto-Docs` pruefen und ggf. manuell nachfuehren.",
+              "",
+              `Run: ${process.env.RUN_URL}`,
+            ].join("\n");
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+        env:
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # Hinweis-Job fuer PRs aus Forks: dort duerfen wir nicht zurueckpushen.
+  # ────────────────────────────────────────────────────────────────────────────
+  fork-notice:
+    name: Hinweis bei Fork-PR
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name != github.repository
+    steps:
+      - name: Kommentar am PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = [
+              "### Auto-Docs uebersprungen (Fork)",
+              "",
+              "Dieser PR kommt aus einem Fork. Der Auto-Docs-Workflow kann",
+              "nicht zurueck in den Fork-Branch pushen.",
+              "",
+              "Bitte die Docs in `docs/` manuell nachfuehren oder den PR in",
+              "einen Repo-internen Branch uebernehmen.",
+            ].join("\n");
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
