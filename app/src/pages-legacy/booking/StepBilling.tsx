@@ -36,11 +36,12 @@ export function StepBilling({ lang }: { lang: Lang }) {
     if (!billing.phone && profile.phone) updates.phone = profile.phone;
     if (!billing.street && profile.street) updates.street = profile.street;
     if (!billing.zip && !billing.city && profile.zipcity) {
-      const parts = profile.zipcity.trim().split(/\s+/);
-      if (parts.length >= 2) {
-        updates.zip = parts[0];
-        updates.city = parts.slice(1).join(" ");
-        updates.zipcity = profile.zipcity;
+      // Schweizer PLZ = 4 Ziffern. Zusätzlich optionales CH-Präfix tolerieren (z.B. "CH-8001 Zürich").
+      const match = profile.zipcity.trim().match(/^(?:CH-?)?(\d{4})\s+(.+)$/i);
+      if (match) {
+        updates.zip = match[1];
+        updates.city = match[2].trim();
+        updates.zipcity = `${match[1]} ${match[2].trim()}`;
       }
     }
     if (Object.keys(updates).length > 0) setBilling(updates);

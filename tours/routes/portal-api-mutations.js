@@ -83,33 +83,38 @@ router.post('/login', async (req, res) => {
 
 router.post('/forgot-password', async (req, res) => {
   // Immer dieselbe generische Antwort zurückgeben – verhindert Email-Enumeration.
+  // Mail wird fire-and-forget versendet, damit Response-Zeit unabhängig vom SMTP/Graph-Roundtrip ist.
   const genericMsg = 'Falls ein Konto existiert, wurde eine E-Mail gesendet.';
   try {
     const email = portalAuth.normalizeEmail(req.body?.email);
     if (!email) return res.status(400).json({ ok: false, error: 'E-Mail ist erforderlich.' });
-    const reset = await portalAuth.issuePasswordReset(email).catch(() => null);
-    if (reset?.ok && reset.token) {
-      const baseUrl = portalTeam.getPortalBaseUrl();
-      const resetLink = `${baseUrl}/portal/reset-password?token=${encodeURIComponent(reset.token)}`;
-      await sendMailDirect({
-        to: reset.email,
-        subject: 'Passwort setzen – Propus Kundenportal',
-        htmlBody:
-          `<p>Guten Tag</p>` +
-          `<p>Über diesen Link können Sie Ihr Passwort für das Propus Kundenportal setzen oder zurücksetzen:</p>` +
-          `<p><a href="${resetLink}"><strong>Passwort setzen</strong></a></p>` +
-          `<p style="color:#666;font-size:12px;">Falls der Link nicht funktioniert: ${resetLink}</p>` +
-          `<p>Der Link ist 2 Stunden gültig.</p>`,
-        textBody:
-          `Passwort setzen / zurücksetzen:\n${resetLink}\n\nDer Link ist 2 Stunden gültig.`,
-      }).catch((mailErr) => {
-        console.error('[portal-api] forgot-password mail error', mailErr?.message || mailErr);
+
+    // Reset-Token synchron generieren (schnell, nur DB-INSERT), Mail asynchron.
+    portalAuth.issuePasswordReset(email)
+      .then((reset) => {
+        if (!reset?.ok || !reset.token) return;
+        const baseUrl = portalTeam.getPortalBaseUrl();
+        const resetLink = `${baseUrl}/portal/reset-password?token=${encodeURIComponent(reset.token)}`;
+        return sendMailDirect({
+          to: reset.email,
+          subject: 'Passwort setzen – Propus Kundenportal',
+          htmlBody:
+            `<p>Guten Tag</p>` +
+            `<p>Über diesen Link können Sie Ihr Passwort für das Propus Kundenportal setzen oder zurücksetzen:</p>` +
+            `<p><a href="${resetLink}"><strong>Passwort setzen</strong></a></p>` +
+            `<p style="color:#666;font-size:12px;">Falls der Link nicht funktioniert: ${resetLink}</p>` +
+            `<p>Der Link ist 2 Stunden gültig.</p>`,
+          textBody:
+            `Passwort setzen / zurücksetzen:\n${resetLink}\n\nDer Link ist 2 Stunden gültig.`,
+        });
+      })
+      .catch((err) => {
+        console.error('[portal-api] forgot-password async error', err?.message || err);
       });
-    }
+
     return res.json({ ok: true, message: genericMsg });
   } catch (err) {
     console.error('[portal-api] forgot-password error', err);
-    // Auch bei Fehler generische Antwort – kein Leak ob Konto existiert.
     return res.json({ ok: true, message: genericMsg });
   }
 });

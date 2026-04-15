@@ -44,6 +44,10 @@ function requirePortalSession(req, res, next) {
     return res.status(401).json({ error: 'Nicht angemeldet' });
   }
 
+  if (!pool) {
+    return res.status(503).json({ error: 'Datenbank nicht verfügbar' });
+  }
+
   const tokenHash = crypto.createHash('sha256').update(adminToken).digest('hex');
   const CUSTOMER_ROLES = ['customer_user', 'customer_admin', 'tour_manager'];
 

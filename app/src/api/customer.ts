@@ -1,3 +1,5 @@
+import { TOKEN_STORAGE_KEY } from "../store/authStore";
+
 export interface CustomerProfile {
   email: string;
   name: string;
@@ -10,8 +12,8 @@ export interface CustomerProfile {
 function getAdminToken(): string {
   try {
     return (
-      window.localStorage.getItem("admin_token_v2") ||
-      window.sessionStorage.getItem("admin_token_v2") ||
+      window.localStorage.getItem(TOKEN_STORAGE_KEY) ||
+      window.sessionStorage.getItem(TOKEN_STORAGE_KEY) ||
       ""
     );
   } catch {
