@@ -627,6 +627,7 @@ async function resumePendingTransfers(db, deps) {
 }
 
 module.exports = {
+  activeTransfers,
   stageUploadBatch,
   stageUploadBatchFromPaths,
   getBatchWithFiles,

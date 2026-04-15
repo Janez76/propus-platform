@@ -11,6 +11,7 @@
 
 "use strict";
 
+const { activeTransfers } = require("../upload-batch-service");
 const fs    = require("fs");
 const path  = require("path");
 const cron  = require("node-cron");
@@ -96,6 +97,12 @@ async function ensureWebsizeCopy(srcAbs, srcRoot, dstRoot) {
 async function runWebsizeSync(deps) {
   const { db } = deps;
   if (!db) return;
+
+  // Kein websizeSync waehrend aktivem Batch-Transfer (CPU/SMB-Konkurrenz)
+  if (activeTransfers && activeTransfers.size > 0) {
+    console.log("[job:websizeSync] uebersprungen -- " + activeTransfers.size + " Transfer(s) aktiv");
+    return;
+  }
 
   // Alle aktiven Kundenordner aus order_folder_links laden
   let folderLinks;
