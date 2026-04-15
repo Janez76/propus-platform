@@ -3,6 +3,8 @@
  * Alle Requests laufen über Session-Cookies (kein Bearer-Token erforderlich).
  */
 
+import { TOKEN_STORAGE_KEY } from "../store/authStore";
+
 export type PortalTour = {
   id: number;
   status: string;
@@ -49,10 +51,28 @@ export type PortalMe = {
 
 const BASE = "/portal/api";
 
+/** Liest den Admin-Token aus dem lokalen Speicher (Key zentral in authStore). */
+function getAdminToken(): string {
+  try {
+    return (
+      window.localStorage.getItem(TOKEN_STORAGE_KEY) ||
+      window.sessionStorage.getItem(TOKEN_STORAGE_KEY) ||
+      ""
+    );
+  } catch {
+    return "";
+  }
+}
+
 async function portalFetch<T>(path: string, options?: RequestInit): Promise<T> {
+  const token = getAdminToken();
   const res = await fetch(`${BASE}${path}`, {
     credentials: "same-origin",
-    headers: { "Content-Type": "application/json", ...(options?.headers ?? {}) },
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+      ...(options?.headers ?? {}),
+    },
     ...options,
   });
   if (!res.ok) {

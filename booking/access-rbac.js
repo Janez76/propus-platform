@@ -55,7 +55,8 @@ const TOURS_INTERNAL_PERMS = [
 const ROLE_PRESETS = {
   super_admin: ALL_PERMISSION_KEYS,
   internal_admin: ALL_PERMISSION_KEYS,
-  tour_manager: TOURS_INTERNAL_PERMS,
+  // dashboard.view ergänzt via Migration 078 (war im Frontend-Fallback vorhanden, fehlte im Backend)
+  tour_manager: [...TOURS_INTERNAL_PERMS, "dashboard.view"],
   photographer: [
     "dashboard.view",
     "orders.read",
@@ -64,6 +65,7 @@ const ROLE_PRESETS = {
     "calendar.view",
     "photographers.read",
   ],
+  // tours.read ergänzt via Migration 078 (für /portal/tours Portal-Zugriff)
   company_owner: [
     "customers.read",
     "orders.read",
@@ -72,8 +74,10 @@ const ROLE_PRESETS = {
     "company.manage",
     "team.manage",
     "calendar.view",
+    "tours.read",
   ],
   // @deprecated - Rolle wird nicht mehr vergeben. Bestehende Einträge wurden per Migration 066 zu company_employee migriert.
+  // tours.read ergänzt via Migration 078 für Altdaten-Absicherung.
   company_admin: [
     "customers.read",
     "orders.read",
@@ -82,10 +86,14 @@ const ROLE_PRESETS = {
     "company.manage",
     "team.manage",
     "calendar.view",
+    "tours.read",
   ],
-  company_employee: ["customers.read", "orders.read", "orders.create", "calendar.view", "calendar.manage"],
-  customer_admin: ["customers.read", "contacts.read", "contacts.manage", "orders.read", "orders.update", "orders.create"],
-  customer_user: ["orders.read"],
+  // tours.read ergänzt via Migration 078
+  company_employee: ["customers.read", "orders.read", "orders.create", "calendar.view", "calendar.manage", "tours.read"],
+  // tours.read + tours.manage + portal_team.manage ergänzt via Migration 078 (Portal-Routenzugriff)
+  customer_admin: ["customers.read", "contacts.read", "contacts.manage", "orders.read", "orders.update", "orders.create", "tours.read", "tours.manage", "portal_team.manage"],
+  // tours.read ergänzt via Migration 078 (für /portal/dashboard, /portal/tours, /portal/invoices)
+  customer_user: ["orders.read", "tours.read"],
 };
 
 function mapAdminDbRoleToSystemRole(dbRole) {

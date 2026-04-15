@@ -53,11 +53,9 @@ export const INTERN_ADMIN_ROLES: Role[] = ["admin", "super_admin", "tour_manager
 
 /** Rollen die als Kunden-Panel-Nutzer gelten. */
 export const KUNDEN_ROLES: Role[] = [
-  "customer",
   "customer_admin",
   "customer_user",
   "company_owner",
-  "company_admin",
   "company_employee",
 ];
 
@@ -70,23 +68,31 @@ const PHOTOGRAPHER_PATHS = new Set(["/orders", "/upload", "/calendar"]);
 
 const ALL_ROUTE_PERMS = [...new Set(Object.values(ROUTE_PERMISSIONS))];
 
-/** Fallback-Rechte pro Rolle wenn Backend noch keine permissions[] liefert. */
+/**
+ * Fallback-Rechte pro Rolle wenn Backend noch keine permissions[] liefert.
+ * Muss 1:1 mit ROLE_PRESETS in booking/access-rbac.js übereinstimmen.
+ * Zusätzlich werden ROUTE_PERMISSIONS-Keys benötigt (z.B. tours.read für /portal/*).
+ */
 export const LEGACY_ROLE_PERMISSIONS: Partial<Record<Role, string[]>> = {
   admin: ALL_ROUTE_PERMS,
   super_admin: ALL_ROUTE_PERMS,
+  // Backend-Preset: TOURS_INTERNAL_PERMS + dashboard.view (Migration 078)
   tour_manager: ["tours.read", "tours.manage", "tours.assign", "tours.cross_company", "tours.archive", "tours.link_matterport", "portal_team.manage", "dashboard.view"],
+  // Backend-Preset: exakt
   photographer: ["dashboard.view", "orders.read", "orders.update", "orders.assign", "calendar.view", "photographers.read"],
+  // Backend-Preset + tours.read (Migration 078)
   company_owner: ["customers.read", "orders.read", "orders.update", "orders.create", "company.manage", "team.manage", "calendar.view", "tours.read"],
-  company_admin: ["customers.read", "orders.read", "orders.update", "orders.create", "company.manage", "team.manage", "calendar.view", "tours.read"],
-  company_employee: ["customers.read", "orders.read", "calendar.view", "tours.read"],
-  customer: ["tours.read"],
-  customer_admin: ["tours.read", "tours.manage", "portal_team.manage"],
-  customer_user: ["tours.read"],
+  // Backend-Preset + tours.read (Migration 078)
+  company_employee: ["customers.read", "orders.read", "orders.create", "calendar.view", "calendar.manage", "tours.read"],
+  // Backend-Preset + tours.read, tours.manage, portal_team.manage (Migration 078)
+  customer_admin: ["customers.read", "contacts.read", "contacts.manage", "orders.read", "orders.update", "orders.create", "tours.read", "tours.manage", "portal_team.manage"],
+  // Backend-Preset + tours.read (Migration 078)
+  customer_user: ["orders.read", "tours.read"],
 };
 
 export function legacyCanAccessPath(role: Role, path: string): boolean {
-  const isCompanyRole = role === "company_owner" || role === "company_admin" || role === "company_employee";
-  const isPortalKunde = role === "customer" || role === "customer_admin" || role === "customer_user";
+  const isCompanyRole = role === "company_owner" || role === "company_employee";
+  const isPortalKunde = role === "customer_admin" || role === "customer_user";
   if (isPortalKunde) {
     return path === "/account" || path.startsWith("/account/") ||
       path === "/portal/dashboard" || path.startsWith("/portal/dashboard") ||

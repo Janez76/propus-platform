@@ -418,6 +418,9 @@ function buildTemplateVars(order, extra) {
   vars.keyPickupInfo = keyPickup.info ? String(keyPickup.info) :
     keyPickup.notes ? String(keyPickup.notes) : "";
 
+  // portalMagicLink: Standardmässig leer – wird async per extra befüllt (createCustomerPortalMagicLink)
+  vars.portalMagicLink = "";
+
   Object.assign(vars, extra || {});
   return refreshPhotographerDerivedVars(vars);
 }
@@ -560,6 +563,7 @@ const AVAILABLE_PLACEHOLDERS = [
   { key: "altBillingNotes",     desc: "Bemerkungen zur abweichenden Rechnungsadresse" },
   { key: "keyPickupAddress",    desc: "Adresse der Schluesselabholung" },
   { key: "keyPickupInfo",       desc: "Info/Hinweis zur Schluesselabholung" },
+  { key: "portalMagicLink",     desc: "Magic-Link zum Kunden-Portal (automatisch generiert, leer wenn nicht verfuegbar)" },
 ];
 
 /**

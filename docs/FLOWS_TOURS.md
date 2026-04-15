@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei jeder Änderung an Tour-Status, Matterport-Integration, Verlängerungs- oder Archivierungs-Logik dieses Dokument aktualisieren. **Produkt-Workflow (Regeln, Reminder-Stufen, Preise):** [WORKFLOW_TOURS.md](./WORKFLOW_TOURS.md) — bei Abweichungen beide Dateien abstimmen.
 
-*Zuletzt aktualisiert: April 2026 (Galerie/NAS: Migrationen 031–032; Admin `/api/tours/admin/galleries` NAS-Import; öffentlich `/api/listing/...` Video/Grundriss/ZIP; Bestellung nachträglich verknüpfen via Tour-Detail Intern-Sektion; Bank-Import: Vorschau/Multi-Upload, Bestellungssuche zur Rechnungszuordnung; Bestellungs-Admin: Finanzblock «Rechnungen & Zahlungen»; Bereinigungslauf: CUSTOMER_ACCEPTED_AWAITING_PAYMENT-Label + termEndFormatted-Fix; Matterport-State-Cron: POST /api/tours/cron/sync-matterport-state alle 5 Min; Rechnung löschen mit Workflow-Reset; Reaktivierung ohne Rechnung (Admin-Kulanz); Bereinigungslauf-Widget in Tour-Detail; Cleanup-Dashboard mit Matterport-Reaktivierung, 30-Tage-Löschvormerkung, Lösch-Cron und Gutschein-Nachversand; Gelesen-Tracking via `last_accessed_at` in `cleanup_sessions`; Erinnerungs-Batch `batch-reminder` für bereits kontaktierte Kunden ohne Aktion; Bulk-Delete: Exxas Hosting VR Tour Matterport 500xxx + Renewal CHF 63.80 offen/überfällig)*
+*Zuletzt aktualisiert: April 2026 (§16 Portal-Auth: Unified Login + Session-Bridge; Galerie/NAS: Migrationen 031–032; Admin `/api/tours/admin/galleries` NAS-Import; öffentlich `/api/listing/...` Video/Grundriss/ZIP; Bestellung nachträglich verknüpfen via Tour-Detail Intern-Sektion; Bank-Import: Vorschau/Multi-Upload, Bestellungssuche zur Rechnungszuordnung; Bestellungs-Admin: Finanzblock «Rechnungen & Zahlungen»; Bereinigungslauf: CUSTOMER_ACCEPTED_AWAITING_PAYMENT-Label + termEndFormatted-Fix; Matterport-State-Cron: POST /api/tours/cron/sync-matterport-state alle 5 Min; Rechnung löschen mit Workflow-Reset; Reaktivierung ohne Rechnung (Admin-Kulanz); Bereinigungslauf-Widget in Tour-Detail; Cleanup-Dashboard mit Matterport-Reaktivierung, 30-Tage-Löschvormerkung, Lösch-Cron und Gutschein-Nachversand; Gelesen-Tracking via `last_accessed_at` in `cleanup_sessions`; Erinnerungs-Batch `batch-reminder` für bereits kontaktierte Kunden ohne Aktion; Bulk-Delete: Exxas Hosting VR Tour Matterport 500xxx + Renewal CHF 63.80 offen/überfällig)*
 
 ---
 
@@ -23,6 +23,7 @@
 13. [Zentrales Rechnungsmodul (Admin)](#13-zentrales-rechnungsmodul-admin)
 14. [Listing / Kunden-Galerie (Magic-Link)](#14-listing--kunden-galerie-magic-link)
 15. [Bereinigungslauf (Cleanup)](#15-bereinigungslauf-cleanup)
+16. [Portal-Auth: Unified Login & Session-Bridge](#16-portal-auth-unified-login--session-bridge)
 
 ---
 
@@ -1066,3 +1067,52 @@ Nach Änderungen an Env-Dateien Container neu erstellen:
 ```bash
 docker compose -f docker-compose.vps.yml --env-file .env.vps up -d --force-recreate platform
 ```
+
+---
+
+## 16. Portal-Auth: Unified Login & Session-Bridge
+
+Das Kunden-Portal (`/portal/api/*`) unterstützt seit April 2026 zwei Auth-Methoden:
+
+### 16.1 Klassischer Portal-Login
+
+Kunden melden sich unter `/login` mit E-Mail + Passwort an. Credentials werden in `tour_manager.portal_users` (bcrypt) gespeichert. Das Portal setzt dann eine Express-Session (`propus_tours.sid`) mit `req.session.portalCustomerEmail`.
+
+### 16.2 Unified Login → Session-Bridge
+
+Nach Einführung des Unified-Login-Endpoints können sich Kunden auch über die einheitliche Login-Seite anmelden. Sie erhalten dabei ein `admin_sessions`-Token (Cookie `admin_session`).
+
+**Session-Bridge in `requirePortalSession` (`tours/routes/portal-api.js`):**
+
+```
+Jeder Request an /portal/api/*
+  │
+  ├── req.session.portalCustomerEmail vorhanden?  → direkt weiter
+  │
+  └── Bearer-Token (Authorization-Header) oder Cookie "admin_session":
+        SHA-256(token) → SELECT FROM booking.admin_sessions
+        WHERE token_hash = ? AND expires_at > NOW()
+        AND role IN ('customer_user', 'customer_admin', 'tour_manager')
+        │
+        ├── Gefunden → req.session.portalCustomerEmail = row.user_key
+        │              req.session.save() → weiter
+        └── Nicht gefunden → 401
+```
+
+**Wichtig:** Admin-Tokens (role = admin, super_admin, photographer, …) werden **nicht** akzeptiert — die Bridge ist explizit auf Kunden-Rollen beschränkt.
+
+### 16.3 Token-Weiterleitung im Frontend
+
+`portalFetch()` in `app/src/api/portalTours.ts` liest automatisch den gespeicherten Admin-Token (`TOKEN_STORAGE_KEY = "admin_token_v2"`) und sendet ihn als Bearer-Header. Kunden, die sich über Unified-Login angemeldet haben, müssen nichts weiter tun.
+
+### 16.4 Passwort-Reset
+
+Portal-Kunden können ihr Passwort über `/login` → «Passwort vergessen?» zurücksetzen.
+
+**Endpunkte:** `POST /portal/api/forgot-password`, `GET /portal/api/check-reset-token`, `POST /portal/api/reset-password`
+
+- Reset-Link-Ziel: `/portal/reset-password?token=<token>` (Token 2h gültig)
+- «Zurück zum Login»-Links auf beiden Seiten zeigen auf `/login` (unified)
+- Fire-and-forget-Pattern verhindert E-Mail-Enumeration via Timing
+
+Vollständige Auth-Dokumentation: [docs/FLOWS_AUTH.md](./FLOWS_AUTH.md)

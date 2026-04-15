@@ -108,6 +108,7 @@ const {
 } = require("./chunked-upload-service");
 const { syncWebsizeForAllCustomerFolders, syncWebsizeForOrderFolder } = require("./websize-sync-service");
 const customerAuth = require("./customer-auth");
+const portalAuthBridge = require("./portal-auth-bridge");
 const travel = require("./travel");
 const { resolveAnyPhotographer, resolveExplicitPhotographer, buildNeededSkills } = require("./photographer-resolver");
 const geocoder = require("./geocoder");
@@ -2398,6 +2399,108 @@ app.post("/api/admin/login", async (req, res) => {
   }
 });
 
+// ─── Unified Login (Admin + Portal-Kunde) ─────────────────────────────────────
+// POST /auth/login: probiert Admin-Login, dann Portal-Kunden-Login.
+// Erreichbar über Next.js-Proxy: /api/auth/login → /auth/login (Express).
+// Gibt immer dasselbe Format zurück: { ok, token, role, permissions }
+app.post("/auth/login", async (req, res) => {
+  try {
+    if (!process.env.DATABASE_URL) return res.status(503).json({ error: "Datenbank nicht konfiguriert" });
+    const { email, username, password, rememberMe } = req.body || {};
+    const loginId = String(email || username || "").trim();
+    if (!loginId || !password) return res.status(400).json({ error: "E-Mail und Passwort erforderlich" });
+
+    // --- Versuch 1: Admin-Login ---
+    const adminUser = await db.getAdminUserByUsername(loginId);
+    if (adminUser && adminUser.active && adminUser.password_hash) {
+      const ok = await customerAuth.verifyPassword(String(password), adminUser.password_hash);
+      if (ok) {
+        const rawRole = String(adminUser.role || "admin");
+        const { token } = await issueAdminSession(res, {
+          role: rawRole,
+          rememberMe: !!rememberMe,
+          userKey: String(adminUser.id),
+          userName: String(adminUser.email || adminUser.username || ""),
+        });
+        let permissions = [];
+        try {
+          await rbac.seedRbacIfNeeded();
+          await rbac.syncAdminUserRolesFromDb(adminUser.id);
+          const sid = await rbac.ensureAdminUserSubject(adminUser.id);
+          if (sid) {
+            const pSet = await rbac.getEffectivePermissions(sid, { scopeType: "system", companyId: null, customerId: null });
+            permissions = Array.from(pSet);
+          }
+          if (!permissions.length) permissions = Array.from(rbac.legacyFallbackPermissions(rawRole));
+        } catch (_e) {
+          permissions = Array.from(rbac.legacyFallbackPermissions(rawRole));
+        }
+        return res.json({ ok: true, token, role: rawRole, permissions });
+      }
+    }
+
+    // --- Versuch 2: Portal-Kunden-Login ---
+    if (portalAuthBridge.isBridgeAvailable()) {
+      const normEmail = customerAuth.normalizeEmail(loginId);
+      const matchedEmail = await portalAuthBridge.verifyPortalCustomerPassword(normEmail, String(password));
+      if (matchedEmail) {
+        const role = await portalAuthBridge.getPortalCustomerRole(matchedEmail);
+        const { token } = await issueAdminSession(res, {
+          role,
+          rememberMe: !!rememberMe,
+          userKey: matchedEmail,
+          userName: matchedEmail,
+        });
+        const permissions = Array.from(rbac.legacyFallbackPermissions(role));
+        console.log("[auth/login] Portal-Kunde angemeldet:", { email: matchedEmail, role });
+        return res.json({ ok: true, token, role, permissions });
+      }
+    }
+
+    return res.status(401).json({ error: "Ungültige Zugangsdaten" });
+  } catch (err) {
+    console.error("[auth/login]", err?.message || err);
+    res.status(500).json({ error: err.message || "Login fehlgeschlagen" });
+  }
+});
+
+// GET /auth/profile: Gibt Kunden-Profildaten für angemeldete Portal-Kunden zurück.
+// Erreichbar über Next.js-Proxy: /api/auth/profile → /auth/profile (Express).
+// Erfordert: Authorization: Bearer <admin_token_v2>
+app.get("/auth/profile", async (req, res) => {
+  try {
+    if (!pool) return res.status(503).json({ error: "Datenbank nicht verfügbar" });
+    const auth = String(req.headers.authorization || "").trim();
+    const token = auth.replace(/^Bearer\s+/i, "").trim();
+    if (!token) return res.status(401).json({ error: "Nicht angemeldet" });
+
+    const tokenHash = customerAuth.hashSha256Hex(token);
+    const CUSTOMER_ROLES = ["customer_user", "customer_admin", "tour_manager"];
+    const { rows } = await pool.query(
+      `SELECT user_key, role FROM admin_sessions WHERE token_hash = $1 AND expires_at > NOW() LIMIT 1`,
+      [tokenHash]
+    );
+    const row = rows[0];
+    if (!row || !CUSTOMER_ROLES.includes(row.role)) {
+      return res.status(401).json({ error: "Nicht angemeldet" });
+    }
+
+    const customer = await db.getCustomerByEmail(row.user_key).catch(() => null);
+    return res.json({
+      ok: true,
+      email: row.user_key,
+      name: customer?.name || "",
+      company: customer?.company || "",
+      phone: customer?.phone || "",
+      street: customer?.street || "",
+      zipcity: customer?.zipcity || "",
+    });
+  } catch (err) {
+    console.error("[auth/profile]", err?.message || err);
+    return res.status(500).json({ error: err.message || "Profilfehler" });
+  }
+});
+
 const mailer = ensureSmtpConfigured()
   ? nodemailer.createTransport({
       host: SMTP_HOST,
@@ -2658,7 +2761,7 @@ function buildBookingCustomerProfile(billing = {}) {
   };
 }
 
-async function createCustomerPortalMagicLink(billing = {}, { sessionDays = 14 } = {}) {
+async function createCustomerPortalMagicLink(billing = {}, { sessionDays = 14, returnTo = null } = {}) {
   const pool = db.getPool ? db.getPool() : null;
   if (!pool) return null;
 
@@ -2724,8 +2827,11 @@ async function createCustomerPortalMagicLink(billing = {}, { sessionDays = 14 } 
   await db.createCustomerSession({ customerId: Number(customer.id), tokenHash, expiresAt });
 
   const fe = String(process.env.FRONTEND_URL || "https://booking.propus.ch/").replace(/\/?$/, "");
-  const returnTo = encodeURIComponent(`${fe}/account`);
-  return `${fe}/auth/customer/magic?magic=${encodeURIComponent(token)}&returnTo=${returnTo}`;
+  const destination = returnTo ? String(returnTo) : "/portal/dashboard";
+  // Nur relative Pfade erlaubt – absolute URLs werden auf /portal/dashboard reduziert
+  const safeDest = destination.startsWith("/") ? destination : "/portal/dashboard";
+  const returnToEncoded = encodeURIComponent(`${fe}${safeDest}`);
+  return `${fe}/auth/customer/magic?magic=${encodeURIComponent(token)}&returnTo=${returnToEncoded}`;
 }
 
 // Einfaches In-Memory Rate-Limit fuer erneutes Senden (pro E-Mail)
@@ -4284,7 +4390,7 @@ app.post("/api/booking", async (req, res) => {
     const frontendBase = process.env.FRONTEND_URL || "https://booking.propus.ch";
     let portalMagicLink = null;
     try {
-      portalMagicLink = await createCustomerPortalMagicLink(billing, { sessionDays: 14 });
+      portalMagicLink = await createCustomerPortalMagicLink(billing, { sessionDays: 14, returnTo: "/portal/dashboard" });
     } catch (err) {
       const message = String(err?.message || err || "Customer portal link failed");
       console.warn("[booking] customer portal link failed", { requestId, message, customerEmail });
@@ -4554,7 +4660,13 @@ app.post("/api/booking", async (req, res) => {
     try {
       const confirmPool = db.getPool ? db.getPool() : null;
       if (confirmPool && customerEmail && orderRecord.confirmationToken) {
-        const confirmVars = templateRenderer.buildTemplateVars(orderRecord, {});
+        const confirmMagicLink = await createCustomerPortalMagicLink(orderRecord.billing || {}, {
+          sessionDays: 30,
+          returnTo: "/portal/dashboard",
+        }).catch(() => null);
+        const confirmVars = templateRenderer.buildTemplateVars(orderRecord, {
+          portalMagicLink: confirmMagicLink || "",
+        });
         const confirmSendFn = function (to, subj, htm, txt) {
           return sendMailWithFallback({ to, subject: subj, html: htm, text: txt, context: `booking:${orderNo}:confirmation_request` });
         };
@@ -4707,7 +4819,14 @@ app.get("/api/booking/confirm/:token", async (req, res) => {
       if (orderObj) {
         const googleReviewSetting = await getSetting("google.reviewLink").catch(() => null);
         const googleReviewLink = (googleReviewSetting && googleReviewSetting.value) || process.env.GOOGLE_REVIEW_LINK || "";
-        const vars = templateRenderer.buildTemplateVars(orderObj, { googleReviewLink });
+        const confirmedPortalMagicLink = await createCustomerPortalMagicLink(orderObj.billing || {}, {
+          sessionDays: 30,
+          returnTo: "/portal/dashboard",
+        }).catch(() => null);
+        const vars = templateRenderer.buildTemplateVars(orderObj, {
+          googleReviewLink,
+          portalMagicLink: confirmedPortalMagicLink || "",
+        });
         const sendFn = function (to, subj, html, text, icsAtt) {
           return sendMailWithFallback({ to, subject: subj, html, text, icsAttachment: icsAtt || null, context: "confirm:" + orderNo });
         };
@@ -4804,7 +4923,7 @@ app.post("/api/admin/orders/:orderNo/resend-customer-email", requirePhotographer
     const frontendBaseResend = process.env.FRONTEND_URL || "https://booking.propus.ch";
     const billing = order.billing || {};
     const customerLang = order.billing?.language || billing?.language || "de";
-    const portalMagicLink = await createCustomerPortalMagicLink(billing, { sessionDays: 14 }).catch(() => null);
+    const portalMagicLink = await createCustomerPortalMagicLink(billing, { sessionDays: 30, returnTo: "/portal/dashboard" }).catch(() => null);
     const customerEmailData = buildCustomerEmail({
       objectInfo,
       serviceListWithPrice,
@@ -4925,7 +5044,7 @@ app.post("/api/admin/orders/:orderNo/resend-email", requireAdmin, async (req, re
         order.photographer?.email ||
         "";
       const photographerPhone = PHOTOG_PHONES[String(photographerKey).toLowerCase()] || "";
-      const portalMagicLink = await createCustomerPortalMagicLink(order.billing || {}, { sessionDays: 14 }).catch(() => null);
+      const portalMagicLink = await createCustomerPortalMagicLink(order.billing || {}, { sessionDays: 30, returnTo: "/portal/dashboard" }).catch(() => null);
       const emailData = buildCustomerEmail({
         objectInfo,
         serviceListWithPrice,
@@ -13857,6 +13976,7 @@ async function startServer() {
       OFFICE_EMAIL,
       PHOTOG_PHONES,
       sendMail: sendMailViaGraph,
+      createPortalMagicLink: createCustomerPortalMagicLink,
     });
   } catch (jobErr) {
     console.error("[boot] Jobs konnten nicht gestartet werden:", jobErr && jobErr.message);

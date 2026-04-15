@@ -1,8 +1,10 @@
 import { create } from "zustand";
 import type { Role } from "../types";
+import { isKundenRole } from "../lib/permissions";
 
 type UiMode = "modern";
 
+export const TOKEN_STORAGE_KEY = "admin_token_v2";
 const ROLE_STORAGE_KEY = "admin_role_v1";
 const PERMS_STORAGE_KEY = "admin_permissions_v1";
 
@@ -86,22 +88,23 @@ function writeStoredPermissions(perms: string[]) {
 
 export function normalizeStoredRole(input: string): Role {
   const role = String(input || "").trim();
+  // Legacy-Koercierungen: alte Rollennamen auf kanonische Werte abbilden
+  if (role === "customer") return "customer_user";
+  if (role === "company_admin") return "company_employee";
   const allowed: Role[] = [
     "admin",
     "photographer",
     "super_admin",
     "tour_manager",
     "company_owner",
-    "company_admin",
     "company_employee",
-    "customer",
     "customer_admin",
     "customer_user",
   ];
   return allowed.includes(role as Role) ? (role as Role) : "admin";
 }
 
-const initialToken = safeGet("admin_token_v2");
+const initialToken = safeGet(TOKEN_STORAGE_KEY);
 const allowedLangs = new Set(["de", "en", "fr", "it"]);
 const storedLang = safeGet("admin_lang_v2").toLowerCase();
 const initialLang = (allowedLangs.has(storedLang) ? storedLang : "de") as AuthState["language"];
@@ -117,16 +120,17 @@ export const useAuthStore = create<AuthState>((set) => ({
   language: initialLang,
   uiMode: initialUiMode,
   isSso: false,
-  userPanelKind: null,
+  userPanelKind: bootToken ? (isKundenRole(bootRole) ? "admin_kunde" : "admin_intern") : null,
   setUserPanelKind: (userPanelKind) => set({ userPanelKind }),
   setAuth: (token, role, remember = false, permissions) => {
-    safeSet("admin_token_v2", token, remember);
+    safeSet(TOKEN_STORAGE_KEY, token, remember);
     safeSet(ROLE_STORAGE_KEY, role, remember);
+    const userPanelKind: UserPanelKind = isKundenRole(role) ? "admin_kunde" : "admin_intern";
     if (permissions !== undefined) {
       writeStoredPermissions(permissions);
-      set({ token, role, permissions });
+      set({ token, role, permissions, userPanelKind });
     } else {
-      set({ token, role, permissions: readStoredPermissions() });
+      set({ token, role, permissions: readStoredPermissions(), userPanelKind });
     }
   },
   setRole: (role) => {
@@ -138,7 +142,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ permissions: [...permissions] });
   },
   clearAuth: () => {
-    safeRemove("admin_token_v2");
+    safeRemove(TOKEN_STORAGE_KEY);
     safeRemove(ROLE_STORAGE_KEY);
     safeRemove("admin_auth_provider_v1");
     safeRemove(PERMS_STORAGE_KEY);

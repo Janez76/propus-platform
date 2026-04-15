@@ -4,9 +4,7 @@ export type Role =
   | "super_admin"
   | "tour_manager"
   | "company_owner"
-  | "company_admin"
   | "company_employee"
-  | "customer"
   | "customer_admin"
   | "customer_user";
 
