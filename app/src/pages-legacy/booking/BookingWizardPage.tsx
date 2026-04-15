@@ -1,6 +1,6 @@
 import { useEffect, useCallback, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, ArrowRight, Loader2, Send } from "lucide-react";
+import { ArrowLeft, ArrowRight, LogIn, Loader2, Send } from "lucide-react";
 import { useBookingWizardStore } from "../../store/bookingWizardStore";
 import { fetchConfig, fetchCatalog, fetchPhotographers, submitBooking, type BookingPayload } from "../../api/bookingPublic";
 import { useCatalogSync } from "../../lib/useCatalogSync";
@@ -13,6 +13,7 @@ import { StepSchedule } from "./StepSchedule";
 import { StepBilling } from "./StepBilling";
 import { SummaryPanel } from "./SummaryPanel";
 import { ThankYouScreen } from "./ThankYouScreen";
+import { useAuthStore } from "../../store/authStore";
 import { t, type Lang } from "../../i18n";
 import { bookingPhotographerForPayload } from "../../lib/bookingLabels";
 import { cn } from "../../lib/utils";
@@ -36,6 +37,7 @@ export function BookingWizardPage() {
     selectedPackage, addons, photographer, date, time, billing, altBilling, agbAccepted,
     address, coords, object, discount, provisional, keyPickup,
   } = store;
+  const isLoggedIn = Boolean(useAuthStore((s) => s.token));
 
   const [showLanding, setShowLanding] = useState(true);
   const [lang, setLang] = useState<Lang>(() => {
@@ -245,6 +247,15 @@ export function BookingWizardPage() {
           <div className="flex items-center gap-3">
             <BookingThemeToggle lang={lang} />
             <BookingLangSelect lang={lang} onChange={changeLang} />
+            {!isLoggedIn && (
+              <a
+                href={`/login?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`}
+                className="hidden sm:flex items-center gap-1.5 rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] transition-colors hover:text-[var(--accent)] hover:border-[var(--accent)]"
+              >
+                <LogIn className="h-3.5 w-3.5" />
+                {t(lang, "booking.step4.loginButton")}
+              </a>
+            )}
             <div className="flex gap-1.5">
               {STEPS.map((s) => (
                 <button

@@ -2464,6 +2464,43 @@ app.post("/auth/login", async (req, res) => {
   }
 });
 
+// GET /auth/profile: Gibt Kunden-Profildaten für angemeldete Portal-Kunden zurück.
+// Erreichbar über Next.js-Proxy: /api/auth/profile → /auth/profile (Express).
+// Erfordert: Authorization: Bearer <admin_token_v2>
+app.get("/auth/profile", async (req, res) => {
+  try {
+    if (!pool) return res.status(503).json({ error: "Datenbank nicht verfügbar" });
+    const auth = String(req.headers.authorization || "").trim();
+    const token = auth.replace(/^Bearer\s+/i, "").trim();
+    if (!token) return res.status(401).json({ error: "Nicht angemeldet" });
+
+    const tokenHash = customerAuth.hashSha256Hex(token);
+    const CUSTOMER_ROLES = ["customer_user", "customer_admin", "tour_manager"];
+    const { rows } = await pool.query(
+      `SELECT user_key, role FROM admin_sessions WHERE token_hash = $1 AND expires_at > NOW() LIMIT 1`,
+      [tokenHash]
+    );
+    const row = rows[0];
+    if (!row || !CUSTOMER_ROLES.includes(row.role)) {
+      return res.status(401).json({ error: "Nicht angemeldet" });
+    }
+
+    const customer = await db.getCustomerByEmail(row.user_key).catch(() => null);
+    return res.json({
+      ok: true,
+      email: row.user_key,
+      name: customer?.name || "",
+      company: customer?.company || "",
+      phone: customer?.phone || "",
+      street: customer?.street || "",
+      zipcity: customer?.zipcity || "",
+    });
+  } catch (err) {
+    console.error("[auth/profile]", err?.message || err);
+    return res.status(500).json({ error: err.message || "Profilfehler" });
+  }
+});
+
 const mailer = ensureSmtpConfigured()
   ? nodemailer.createTransport({
       host: SMTP_HOST,
