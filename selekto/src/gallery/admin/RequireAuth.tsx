@@ -12,6 +12,12 @@ function shouldUseDarkFromStorage(): boolean {
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
+/** Gesetzt = Zugang nur mit Magic-Link; kein Passwort-Login erlaubt. */
+function hasMagicLinkConfig(): boolean {
+  const v = import.meta.env.VITE_BILDER_AUSWAHL_MAGIC_KEY;
+  return typeof v === "string" && v.trim().length > 0;
+}
+
 export function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading, signIn } = useGalleryAuth();
   const [username, setUsername] = useState("");
@@ -66,6 +72,43 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) {
+    /** Magic-Link konfiguriert: Passwort-Login nicht erlaubt — nur Link-Hinweis zeigen. */
+    if (hasMagicLinkConfig()) {
+      return (
+        <div className="admin-login">
+          <div className="admin-login__panel">
+            <div className="admin-login__masthead">
+              <a
+                href="https://www.propus.ch/"
+                className="admin-login__brand"
+                target="_blank"
+                rel="noreferrer"
+                aria-label="Propus"
+              >
+                <img
+                  className="admin-login__logo"
+                  src={LOGO_LIGHT}
+                  alt="Propus"
+                  width={200}
+                  height={48}
+                  loading="eager"
+                  decoding="async"
+                />
+                <span className="admin-login__brand-label">Bildauswahl Backpanel</span>
+              </a>
+            </div>
+            <p className="gal-admin-auth-wait__text">Kein Zugang</p>
+            <p className="gal-admin-auth-wait__hint">
+              Bitte den vollständigen <strong>Magic-Link</strong> aus der Einladung öffnen — er
+              enthält den Zugangscode in der Adresszeile (
+              <code className="gal-admin-auth-wait__code">?key=…</code>).
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    /** Kein Magic-Link konfiguriert (lokale / Dev-Umgebung): Passwort-Login zeigen. */
     return (
       <div className="admin-login">
         <div className="admin-login__panel">
