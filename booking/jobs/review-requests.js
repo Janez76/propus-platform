@@ -24,7 +24,7 @@ const REMINDER_MIN_DAYS = 14;
 const REMINDER_MAX_DAYS = 60;
 
 function scheduleReviewRequests(deps) {
-  const { db, getSetting, sendMail } = deps;
+  const { db, getSetting, sendMail, createPortalMagicLink } = deps;
 
   cron.schedule("0 10 * * *", async function runReviews() {
     console.log("[job:reviews] Review-Anfrage-Job gestartet");
@@ -104,7 +104,10 @@ function scheduleReviewRequests(deps) {
           let mailSent = false;
           let mailReason = "mail_disabled_or_missing_recipient";
           if (mailOn && sendMail && row.billing && row.billing.email) {
-            const vars = buildTemplateVars(row, { reviewLink, googleReviewLink, companyName });
+            const reviewMagicLink = createPortalMagicLink
+              ? await createPortalMagicLink(row.billing || {}, { sessionDays: 30, returnTo: "/portal/dashboard" }).catch(() => null)
+              : null;
+            const vars = buildTemplateVars(row, { reviewLink, googleReviewLink, companyName, portalMagicLink: reviewMagicLink || "" });
             const templateKey = isReminder ? "review_reminder" : "review_request";
             const result = await sendMailIdempotent(
               pool, templateKey, row.billing.email, row.order_no, vars, sendMail

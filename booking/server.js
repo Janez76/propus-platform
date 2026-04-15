@@ -2658,7 +2658,7 @@ function buildBookingCustomerProfile(billing = {}) {
   };
 }
 
-async function createCustomerPortalMagicLink(billing = {}, { sessionDays = 14 } = {}) {
+async function createCustomerPortalMagicLink(billing = {}, { sessionDays = 14, returnTo = null } = {}) {
   const pool = db.getPool ? db.getPool() : null;
   if (!pool) return null;
 
@@ -2724,8 +2724,11 @@ async function createCustomerPortalMagicLink(billing = {}, { sessionDays = 14 } 
   await db.createCustomerSession({ customerId: Number(customer.id), tokenHash, expiresAt });
 
   const fe = String(process.env.FRONTEND_URL || "https://booking.propus.ch/").replace(/\/?$/, "");
-  const returnTo = encodeURIComponent(`${fe}/account`);
-  return `${fe}/auth/customer/magic?magic=${encodeURIComponent(token)}&returnTo=${returnTo}`;
+  const destination = returnTo ? String(returnTo) : "/portal/dashboard";
+  // Nur relative Pfade erlaubt – absolute URLs werden auf /portal/dashboard reduziert
+  const safeDest = destination.startsWith("/") ? destination : "/portal/dashboard";
+  const returnToEncoded = encodeURIComponent(`${fe}${safeDest}`);
+  return `${fe}/auth/customer/magic?magic=${encodeURIComponent(token)}&returnTo=${returnToEncoded}`;
 }
 
 // Einfaches In-Memory Rate-Limit fuer erneutes Senden (pro E-Mail)
@@ -4284,7 +4287,7 @@ app.post("/api/booking", async (req, res) => {
     const frontendBase = process.env.FRONTEND_URL || "https://booking.propus.ch";
     let portalMagicLink = null;
     try {
-      portalMagicLink = await createCustomerPortalMagicLink(billing, { sessionDays: 14 });
+      portalMagicLink = await createCustomerPortalMagicLink(billing, { sessionDays: 14, returnTo: "/portal/dashboard" });
     } catch (err) {
       const message = String(err?.message || err || "Customer portal link failed");
       console.warn("[booking] customer portal link failed", { requestId, message, customerEmail });
@@ -4554,7 +4557,13 @@ app.post("/api/booking", async (req, res) => {
     try {
       const confirmPool = db.getPool ? db.getPool() : null;
       if (confirmPool && customerEmail && orderRecord.confirmationToken) {
-        const confirmVars = templateRenderer.buildTemplateVars(orderRecord, {});
+        const confirmMagicLink = await createCustomerPortalMagicLink(orderRecord.billing || {}, {
+          sessionDays: 30,
+          returnTo: "/portal/dashboard",
+        }).catch(() => null);
+        const confirmVars = templateRenderer.buildTemplateVars(orderRecord, {
+          portalMagicLink: confirmMagicLink || "",
+        });
         const confirmSendFn = function (to, subj, htm, txt) {
           return sendMailWithFallback({ to, subject: subj, html: htm, text: txt, context: `booking:${orderNo}:confirmation_request` });
         };
@@ -4707,7 +4716,14 @@ app.get("/api/booking/confirm/:token", async (req, res) => {
       if (orderObj) {
         const googleReviewSetting = await getSetting("google.reviewLink").catch(() => null);
         const googleReviewLink = (googleReviewSetting && googleReviewSetting.value) || process.env.GOOGLE_REVIEW_LINK || "";
-        const vars = templateRenderer.buildTemplateVars(orderObj, { googleReviewLink });
+        const confirmedPortalMagicLink = await createCustomerPortalMagicLink(orderObj.billing || {}, {
+          sessionDays: 30,
+          returnTo: "/portal/dashboard",
+        }).catch(() => null);
+        const vars = templateRenderer.buildTemplateVars(orderObj, {
+          googleReviewLink,
+          portalMagicLink: confirmedPortalMagicLink || "",
+        });
         const sendFn = function (to, subj, html, text, icsAtt) {
           return sendMailWithFallback({ to, subject: subj, html, text, icsAttachment: icsAtt || null, context: "confirm:" + orderNo });
         };
@@ -4804,7 +4820,7 @@ app.post("/api/admin/orders/:orderNo/resend-customer-email", requirePhotographer
     const frontendBaseResend = process.env.FRONTEND_URL || "https://booking.propus.ch";
     const billing = order.billing || {};
     const customerLang = order.billing?.language || billing?.language || "de";
-    const portalMagicLink = await createCustomerPortalMagicLink(billing, { sessionDays: 14 }).catch(() => null);
+    const portalMagicLink = await createCustomerPortalMagicLink(billing, { sessionDays: 30, returnTo: "/portal/dashboard" }).catch(() => null);
     const customerEmailData = buildCustomerEmail({
       objectInfo,
       serviceListWithPrice,
@@ -4925,7 +4941,7 @@ app.post("/api/admin/orders/:orderNo/resend-email", requireAdmin, async (req, re
         order.photographer?.email ||
         "";
       const photographerPhone = PHOTOG_PHONES[String(photographerKey).toLowerCase()] || "";
-      const portalMagicLink = await createCustomerPortalMagicLink(order.billing || {}, { sessionDays: 14 }).catch(() => null);
+      const portalMagicLink = await createCustomerPortalMagicLink(order.billing || {}, { sessionDays: 30, returnTo: "/portal/dashboard" }).catch(() => null);
       const emailData = buildCustomerEmail({
         objectInfo,
         serviceListWithPrice,
@@ -13857,6 +13873,7 @@ async function startServer() {
       OFFICE_EMAIL,
       PHOTOG_PHONES,
       sendMail: sendMailViaGraph,
+      createPortalMagicLink: createCustomerPortalMagicLink,
     });
   } catch (jobErr) {
     console.error("[boot] Jobs konnten nicht gestartet werden:", jobErr && jobErr.message);

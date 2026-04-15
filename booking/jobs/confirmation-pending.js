@@ -24,7 +24,7 @@ const { calcProvisionalExpiresAt } = require("../state-machine");
  * @param {object} deps - { db, getSetting, sendMail, graphClient, OFFICE_EMAIL, PHOTOG_PHONES }
  */
 function scheduleConfirmationPending(deps) {
-  const { db, getSetting, sendMail, graphClient, OFFICE_EMAIL, PHOTOG_PHONES } = deps;
+  const { db, getSetting, sendMail, graphClient, OFFICE_EMAIL, PHOTOG_PHONES, createPortalMagicLink } = deps;
 
   cron.schedule("15 * * * *", async function runPendingConfirmation() {
     console.log("[job:confirmation-pending] Job gestartet");
@@ -129,7 +129,10 @@ function scheduleConfirmationPending(deps) {
               confirmationToken: freshToken,
               attendeeEmails: row.attendee_emails,
             };
-            const vars = buildTemplateVars(orderObj, {});
+            const provisionalMagicLink = createPortalMagicLink
+              ? await createPortalMagicLink(row.billing || {}, { sessionDays: 30, returnTo: "/portal/dashboard" }).catch(() => null)
+              : null;
+            const vars = buildTemplateVars(orderObj, { portalMagicLink: provisionalMagicLink || "" });
             const sendFn = function(to, subj, html, text) { return sendMail(to, subj, html, text, null); };
             const mailSummary = [];
 
