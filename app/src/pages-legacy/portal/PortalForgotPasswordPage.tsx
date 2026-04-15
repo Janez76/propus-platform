@@ -60,8 +60,8 @@ export function PortalForgotPasswordPage() {
 
         <div className="portal-pw-back">
           <a
-            href="/portal/login"
-            onClick={(e) => { e.preventDefault(); navigate("/portal/login"); }}
+            href="/login"
+            onClick={(e) => { e.preventDefault(); navigate("/login"); }}
           >
             Zurück zum Login
           </a>
