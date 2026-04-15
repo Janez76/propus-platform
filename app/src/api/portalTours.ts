@@ -49,10 +49,28 @@ export type PortalMe = {
 
 const BASE = "/portal/api";
 
+/** Liest den Admin-Token (admin_token_v2) aus dem lokalen Speicher. */
+function getAdminToken(): string {
+  try {
+    return (
+      window.localStorage.getItem("admin_token_v2") ||
+      window.sessionStorage.getItem("admin_token_v2") ||
+      ""
+    );
+  } catch {
+    return "";
+  }
+}
+
 async function portalFetch<T>(path: string, options?: RequestInit): Promise<T> {
+  const token = getAdminToken();
   const res = await fetch(`${BASE}${path}`, {
     credentials: "same-origin",
-    headers: { "Content-Type": "application/json", ...(options?.headers ?? {}) },
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+      ...(options?.headers ?? {}),
+    },
     ...options,
   });
   if (!res.ok) {

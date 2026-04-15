@@ -4,6 +4,7 @@
  * Gemounted unter /portal/api (in server.js).
  */
 
+const crypto = require('crypto');
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../lib/db');
@@ -12,9 +13,56 @@ const { normalizeTourRow } = require('../lib/normalize');
 
 // ─── Auth-Guard ──────────────────────────────────────────────────────────────
 
+/**
+ * requirePortalSession
+ *
+ * Prüft (in dieser Reihenfolge):
+ *  1. Portal-Session-Cookie (propus_tours.sid) → req.session.portalCustomerEmail gesetzt
+ *  2. Bearer-Token / admin_session-Cookie aus dem Unified-Login-System:
+ *     Schlägt token_hash in admin_sessions nach (booking-Schema);
+ *     bei Kunden-Rolle wird req.session.portalCustomerEmail gesetzt und gespeichert.
+ */
 function requirePortalSession(req, res, next) {
   if (req.session?.portalCustomerEmail) return next();
-  return res.status(401).json({ error: 'Nicht angemeldet' });
+
+  // Bridge: Admin-Session-Token für Portal-Kunden (nach Unified-Login)
+  let adminToken = '';
+  const auth = String(req.headers.authorization || '');
+  adminToken = auth.replace(/^Bearer\s+/i, '').trim();
+  if (!adminToken) {
+    const cookieHeader = String(req.headers.cookie || '');
+    for (const part of cookieHeader.split(';')) {
+      const c = part.trim();
+      if (c.startsWith('admin_session=')) {
+        adminToken = c.substring('admin_session='.length);
+        break;
+      }
+    }
+  }
+
+  if (!adminToken) {
+    return res.status(401).json({ error: 'Nicht angemeldet' });
+  }
+
+  const tokenHash = crypto.createHash('sha256').update(adminToken).digest('hex');
+  const CUSTOMER_ROLES = ['customer_user', 'customer_admin', 'tour_manager'];
+
+  pool.query(
+    `SELECT user_key, user_name, role
+     FROM admin_sessions
+     WHERE token_hash = $1 AND expires_at > NOW()
+     LIMIT 1`,
+    [tokenHash]
+  ).then((result) => {
+    const row = result.rows[0];
+    if (row && CUSTOMER_ROLES.includes(row.role) && row.user_key) {
+      req.session.portalCustomerEmail = row.user_key;
+      req.session.portalCustomerName = row.user_name || row.user_key;
+      req.session.save(() => next());
+    } else {
+      res.status(401).json({ error: 'Nicht angemeldet' });
+    }
+  }).catch(() => res.status(401).json({ error: 'Nicht angemeldet' }));
 }
 
 router.use(requirePortalSession);

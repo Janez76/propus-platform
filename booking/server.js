@@ -108,6 +108,7 @@ const {
 } = require("./chunked-upload-service");
 const { syncWebsizeForAllCustomerFolders, syncWebsizeForOrderFolder } = require("./websize-sync-service");
 const customerAuth = require("./customer-auth");
+const portalAuthBridge = require("./portal-auth-bridge");
 const travel = require("./travel");
 const { resolveAnyPhotographer, resolveExplicitPhotographer, buildNeededSkills } = require("./photographer-resolver");
 const geocoder = require("./geocoder");
@@ -2394,6 +2395,71 @@ app.post("/api/admin/login", async (req, res) => {
     res.json({ ok: true, token, role: rawRole, permissions });
   } catch (err) {
     console.error("[admin-login]", err?.message || err);
+    res.status(500).json({ error: err.message || "Login fehlgeschlagen" });
+  }
+});
+
+// ─── Unified Login (Admin + Portal-Kunde) ─────────────────────────────────────
+// POST /auth/login: probiert Admin-Login, dann Portal-Kunden-Login.
+// Erreichbar über Next.js-Proxy: /api/auth/login → /auth/login (Express).
+// Gibt immer dasselbe Format zurück: { ok, token, role, permissions }
+app.post("/auth/login", async (req, res) => {
+  try {
+    if (!process.env.DATABASE_URL) return res.status(503).json({ error: "Datenbank nicht konfiguriert" });
+    const { email, username, password, rememberMe } = req.body || {};
+    const loginId = String(email || username || "").trim();
+    if (!loginId || !password) return res.status(400).json({ error: "E-Mail und Passwort erforderlich" });
+
+    // --- Versuch 1: Admin-Login ---
+    const adminUser = await db.getAdminUserByUsername(loginId);
+    if (adminUser && adminUser.active && adminUser.password_hash) {
+      const ok = await customerAuth.verifyPassword(String(password), adminUser.password_hash);
+      if (ok) {
+        const rawRole = String(adminUser.role || "admin");
+        const { token } = await issueAdminSession(res, {
+          role: rawRole,
+          rememberMe: !!rememberMe,
+          userKey: String(adminUser.id),
+          userName: String(adminUser.email || adminUser.username || ""),
+        });
+        let permissions = [];
+        try {
+          await rbac.seedRbacIfNeeded();
+          await rbac.syncAdminUserRolesFromDb(adminUser.id);
+          const sid = await rbac.ensureAdminUserSubject(adminUser.id);
+          if (sid) {
+            const pSet = await rbac.getEffectivePermissions(sid, { scopeType: "system", companyId: null, customerId: null });
+            permissions = Array.from(pSet);
+          }
+          if (!permissions.length) permissions = Array.from(rbac.legacyFallbackPermissions(rawRole));
+        } catch (_e) {
+          permissions = Array.from(rbac.legacyFallbackPermissions(rawRole));
+        }
+        return res.json({ ok: true, token, role: rawRole, permissions });
+      }
+    }
+
+    // --- Versuch 2: Portal-Kunden-Login ---
+    if (portalAuthBridge.isBridgeAvailable()) {
+      const normEmail = customerAuth.normalizeEmail(loginId);
+      const matchedEmail = await portalAuthBridge.verifyPortalCustomerPassword(normEmail, String(password));
+      if (matchedEmail) {
+        const role = await portalAuthBridge.getPortalCustomerRole(matchedEmail);
+        const { token } = await issueAdminSession(res, {
+          role,
+          rememberMe: !!rememberMe,
+          userKey: matchedEmail,
+          userName: matchedEmail,
+        });
+        const permissions = Array.from(rbac.legacyFallbackPermissions(role));
+        console.log("[auth/login] Portal-Kunde angemeldet:", { email: matchedEmail, role });
+        return res.json({ ok: true, token, role, permissions });
+      }
+    }
+
+    return res.status(401).json({ error: "Ungültige Zugangsdaten" });
+  } catch (err) {
+    console.error("[auth/login]", err?.message || err);
     res.status(500).json({ error: err.message || "Login fehlgeschlagen" });
   }
 });

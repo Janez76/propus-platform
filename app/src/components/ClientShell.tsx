@@ -11,7 +11,7 @@
  * The shell is mounted at the (admin), (portal) and other layout pages.
  */
 
-import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useParams, useSearchParams } from "react-router-dom";
 import { Suspense, lazy } from "react";
 import { CustomerMagicSessionRedirect } from "./auth/CustomerMagicSessionRedirect";
 import { OfflineIndicator } from "./layout/OfflineIndicator";
@@ -91,7 +91,6 @@ const ClientListingPage = lazy(() => import("../pages-legacy/listing/ClientListi
 const CleanupDashboardPage = lazy(() => import("../pages-legacy/customer/CleanupDashboardPage").then((m) => ({ default: m.CleanupDashboardPage })));
 
 // Portal pages
-const PortalLoginPage = lazy(() => import("../pages-legacy/portal/PortalLoginPage").then((m) => ({ default: m.PortalLoginPage })));
 const PortalForgotPasswordPage = lazy(() => import("../pages-legacy/portal/PortalForgotPasswordPage").then((m) => ({ default: m.PortalForgotPasswordPage })));
 const PortalResetPasswordPage = lazy(() => import("../pages-legacy/portal/PortalResetPasswordPage").then((m) => ({ default: m.PortalResetPasswordPage })));
 const PortalTourDetailPage = lazy(() => import("../pages-legacy/portal/PortalTourDetailPage").then((m) => ({ default: m.PortalTourDetailPage })));
@@ -113,6 +112,16 @@ function PageSkeleton() {
 function RedirectListingLegacyGalleriesSegment() {
   const { legacyId } = useParams<{ legacyId: string }>();
   return <Navigate to={`/admin/listing/${legacyId}`} replace />;
+}
+
+/**
+ * Leitet /portal/login auf /login weiter und behält Query-Parameter (z.B. ?success=password_reset) bei.
+ * Alt-Kompatibilität: PortalForgotPasswordPage / PortalResetPasswordPage navigieren noch auf /portal/login.
+ */
+function PortalLoginRedirect() {
+  const [searchParams] = useSearchParams();
+  const qs = searchParams.toString();
+  return <Navigate to={qs ? `/login?${qs}` : "/login"} replace />;
 }
 
 function PrivateRoutes() {
@@ -285,7 +294,7 @@ export default function ClientShell() {
           <Route path="/book" element={<BookingWizardPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/accept-invite" element={<AcceptInvitePage />} />
-          <Route path="/portal/login" element={<PortalLoginPage />} />
+          <Route path="/portal/login" element={<PortalLoginRedirect />} />
           <Route path="/portal/forgot-password" element={<PortalForgotPasswordPage />} />
           <Route path="/portal/reset-password" element={<PortalResetPasswordPage />} />
           <Route path="/confirm/:token" element={<ConfirmBookingPage />} />
