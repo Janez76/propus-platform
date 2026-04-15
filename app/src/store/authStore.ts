@@ -4,7 +4,7 @@ import { isKundenRole } from "../lib/permissions";
 
 type UiMode = "modern";
 
-export const TOKEN_STORAGE_KEY = TOKEN_STORAGE_KEY;
+export const TOKEN_STORAGE_KEY = "admin_token_v2";
 const ROLE_STORAGE_KEY = "admin_role_v1";
 const PERMS_STORAGE_KEY = "admin_permissions_v1";
 

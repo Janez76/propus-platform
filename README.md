@@ -192,6 +192,10 @@ Detaillierte Logto-Konfiguration: [docs/VPS-BETRIEB.md](docs/VPS-BETRIEB.md)
 
 | Datei                                                         | Inhalt                                               |
 |---------------------------------------------------------------|------------------------------------------------------|
+| [docs/FLOWS_AUTH.md](docs/FLOWS_AUTH.md)                     | Auth-Flows: Unified Login, Session-Bridge, Magic-Link, Passwort-Reset |
+| [docs/FLOWS_BOOKING.md](docs/FLOWS_BOOKING.md)               | Buchungs-Flows, Status-Übergänge, Kalender-Sync      |
+| [docs/FLOWS_TOURS.md](docs/FLOWS_TOURS.md)                   | Tour-Manager-Flows, Matterport, Portal, Cleanup      |
+| [docs/ROLES_PERMISSIONS.md](docs/ROLES_PERMISSIONS.md)       | RBAC, Rollen, Permissions, Logto-Mapping             |
 | [docs/VPS-BETRIEB.md](docs/VPS-BETRIEB.md)                   | VPS-Setup, Logto-Branding, Backup/Restore            |
 | [docs/BOOKING-E2E-DEPLOY.md](docs/BOOKING-E2E-DEPLOY.md)     | GitHub Actions Secrets, Playwright Smoke Tests       |
 | [docs/FIRMENHOMEPAGE-KATALOG-API.md](docs/FIRMENHOMEPAGE-KATALOG-API.md) | Website-Katalog-API                     |
