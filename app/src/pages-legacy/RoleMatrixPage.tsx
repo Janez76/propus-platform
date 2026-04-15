@@ -141,7 +141,9 @@ const PERMISSIONS: PermDef[] = [
   { key: "tours.cross_company",      label: "Touren (firmenübergreifend)",       section: "Touren",                 description: "Touren über Firmengrenzen hinweg einsehen und verwalten." },
   { key: "tours.archive",            label: "Touren archivieren",                section: "Touren",                 description: "Abgeschlossene Touren archivieren." },
   { key: "tours.link_matterport",    label: "Matterport verknüpfen",             section: "Touren",                 description: "Matterport-Spaces mit Touren verknüpfen und Space-IDs setzen." },
-  { key: "portal_team.manage",       label: "Portal-Team verwalten",             section: "Touren",                 description: "Team-Mitglieder im Kunden-Portal-Workspace hinzufügen/entfernen." },
+  // Kunden-Portal
+  { key: "portal_team.manage",       label: "Portal-Team verwalten",             section: "Kunden-Portal",          description: "Team-Mitglieder im Kunden-Portal-Workspace hinzufügen/entfernen." },
+  { key: "portal_invoices.read",     label: "Portal-Rechnungen einsehen",        section: "Kunden-Portal",          description: "Rechnungen im Kunden-Portal (/portal/invoices) einsehen." },
   // Aufträge
   { key: "orders.read",              label: "Aufträge ansehen",                  section: "Aufträge",               description: "Bestellungen und Aufträge einsehen." },
   { key: "orders.create",            label: "Auftrag erstellen",                 section: "Aufträge",               description: "Neue Bestellungen anlegen." },
@@ -158,24 +160,32 @@ const PERMISSIONS: PermDef[] = [
   { key: "company.manage",           label: "Firma verwalten",                   section: "Firmen & Team",          description: "Firmendaten im Kunden-Portal-Workspace bearbeiten." },
   { key: "team.manage",              label: "Team verwalten",                    section: "Firmen & Team",          description: "Firmen-Mitglieder einladen und verwalten." },
   // Fotografen
-  { key: "photographers.read",       label: "Fotografen ansehen",               section: "Fotografen",             description: "Fotografenprofile und Verfügbarkeiten einsehen." },
-  { key: "photographers.manage",     label: "Fotografen verwalten",             section: "Fotografen",             description: "Fotografen anlegen, bearbeiten, Verfügbarkeiten setzen." },
-  // Produkte & Preise
-  { key: "products.manage",          label: "Produkte verwalten",               section: "Produkte & Preise",      description: "Produkte, Pakete und Leistungen anlegen und bearbeiten." },
-  { key: "discount_codes.manage",    label: "Gutscheine verwalten",             section: "Produkte & Preise",      description: "Rabatt- und Gutscheincodes erstellen und verwalten." },
+  { key: "photographers.read",       label: "Fotografen ansehen",                section: "Fotografen",             description: "Fotografenprofile und Verfügbarkeiten einsehen." },
+  { key: "photographers.manage",     label: "Fotografen verwalten",              section: "Fotografen",             description: "Fotografen anlegen, bearbeiten, Verfügbarkeiten setzen." },
+  // Produkte, Preise & Inhalte
+  { key: "products.manage",          label: "Produkte verwalten",                section: "Produkte & Inhalte",     description: "Produkte, Pakete und Leistungen anlegen und bearbeiten." },
+  { key: "discount_codes.manage",    label: "Gutscheine verwalten",              section: "Produkte & Inhalte",     description: "Rabatt- und Gutscheincodes erstellen und verwalten." },
+  { key: "listing.manage",           label: "Listing-Page verwalten",            section: "Produkte & Inhalte",     description: "Inhalte der öffentlichen Listing-Seite (/admin/listing) pflegen." },
+  { key: "picdrop.manage",           label: "Selekto (Bildauswahl)",             section: "Produkte & Inhalte",     description: "Selekto / Picdrop: Bildauswahl-Workflow für Kunden und Fotografen." },
   // Kalender
-  { key: "calendar.view",            label: "Kalender ansehen",                 section: "Kalender",               description: "Terminkalender und geplante Aufträge einsehen." },
-  { key: "calendar.manage",          label: "Kalender bearbeiten",              section: "Kalender",               description: "Termine erstellen, verschieben und löschen." },
+  { key: "calendar.view",            label: "Kalender ansehen",                  section: "Kalender",               description: "Terminkalender und geplante Aufträge einsehen." },
+  { key: "calendar.manage",          label: "Kalender bearbeiten",               section: "Kalender",               description: "Termine erstellen, verschieben und löschen." },
+  // Finanzen & Abrechnung
+  { key: "finance.read",             label: "Finanzen einsehen",                 section: "Finanzen & Abrechnung",  description: "Zentrales Rechnungsmodul (/admin/finance): Rechnungen, Zahlungen, Mahnungen ansehen." },
+  { key: "finance.manage",           label: "Finanzen verwalten",                section: "Finanzen & Abrechnung",  description: "Rechnungen erstellen/bearbeiten, Bank-Import, Mahnungen versenden." },
+  { key: "billing.read",             label: "Abrechnung einsehen",               section: "Finanzen & Abrechnung",  description: "Abrechnungsdaten und Sammelrechnungen einsehen." },
+  // Kommunikation
+  { key: "tickets.read",             label: "Tickets einsehen",                  section: "Kommunikation",          description: "Zentrales Postfach / Ticketsystem (/admin/tickets) einsehen." },
+  { key: "tickets.manage",           label: "Tickets verwalten",                 section: "Kommunikation",          description: "Tickets zuweisen, beantworten, schliessen." },
+  { key: "emails.manage",            label: "E-Mail-Templates verwalten",        section: "Kommunikation",          description: "E-Mail-Vorlagen erstellen und bearbeiten." },
+  { key: "reviews.manage",           label: "Bewertungen verwalten",             section: "Kommunikation",          description: "Kundenbewertungen einsehen und moderieren." },
   // Einstellungen & System
-  { key: "settings.manage",          label: "Einstellungen verwalten",          section: "Einstellungen & System", description: "Systemkonfiguration, Workflow und allgemeine Einstellungen." },
-  { key: "emails.manage",            label: "E-Mail-Templates verwalten",       section: "Einstellungen & System", description: "E-Mail-Vorlagen erstellen und bearbeiten." },
-  { key: "billing.read",             label: "Abrechnung einsehen",              section: "Einstellungen & System", description: "Rechnungen und Abrechnungsdaten einsehen." },
-  { key: "backups.manage",           label: "Backups verwalten",                section: "Einstellungen & System", description: "Datenbank-Backups erstellen und herunterladen." },
-  { key: "bugs.read",                label: "Fehlerberichte ansehen",           section: "Einstellungen & System", description: "Fehlerberichte und Bug-Tickets einsehen." },
-  { key: "bugs.manage",              label: "Fehlerberichte verwalten",         section: "Einstellungen & System", description: "Fehlerberichte bearbeiten, schliessen und löschen." },
-  { key: "reviews.manage",           label: "Bewertungen verwalten",            section: "Einstellungen & System", description: "Kundenbewertungen einsehen und moderieren." },
-  { key: "roles.manage",             label: "Rollen verwalten",                 section: "Einstellungen & System", description: "Systemrollen und Berechtigungen bearbeiten. Nur Super-Admin." },
-  { key: "users.manage",             label: "Benutzer verwalten",               section: "Einstellungen & System", description: "Admin-Benutzer anlegen, sperren und löschen." },
+  { key: "settings.manage",          label: "Einstellungen verwalten",           section: "Einstellungen & System", description: "Systemkonfiguration, Workflow und allgemeine Einstellungen." },
+  { key: "backups.manage",           label: "Backups verwalten",                 section: "Einstellungen & System", description: "Datenbank-Backups erstellen und herunterladen." },
+  { key: "bugs.read",                label: "Fehlerberichte ansehen",            section: "Einstellungen & System", description: "Fehlerberichte und Bug-Tickets einsehen." },
+  { key: "bugs.manage",              label: "Fehlerberichte verwalten",          section: "Einstellungen & System", description: "Fehlerberichte bearbeiten, schliessen und löschen." },
+  { key: "roles.manage",             label: "Rollen verwalten",                  section: "Einstellungen & System", description: "Systemrollen und Berechtigungen bearbeiten. Nur Super-Admin." },
+  { key: "users.manage",             label: "Benutzer verwalten",                section: "Einstellungen & System", description: "Admin-Benutzer anlegen, sperren und löschen." },
 ];
 
 // ─── Preset-Zuordnungen (Spiegelbild von access-rbac.js) ─────────────────────
@@ -185,31 +195,43 @@ const ALL_PERM_KEYS = PERMISSIONS.map((p) => p.key);
 const ROLE_PRESETS: Record<RoleKey, Set<PermKey>> = {
   super_admin:      new Set(ALL_PERM_KEYS),
   internal_admin:   new Set(ALL_PERM_KEYS),
+  // Touren-Manager: Touren + Finanzen + Tickets + Listing (gleiche Zielgruppe, siehe Migration 080)
   tour_manager:     new Set([
     "tours.read", "tours.manage", "tours.assign", "tours.cross_company",
     "tours.archive", "tours.link_matterport", "portal_team.manage",
+    "dashboard.view",
+    "finance.read", "finance.manage",
+    "tickets.read", "tickets.manage",
+    "listing.manage",
+    "portal_invoices.read",
   ]),
   photographer: new Set([
     "dashboard.view", "orders.read", "orders.update", "orders.assign",
     "calendar.view", "photographers.read",
+    "picdrop.manage",
   ]),
   company_owner: new Set([
     "customers.read", "orders.read", "orders.update", "orders.create",
     "company.manage", "team.manage", "calendar.view",
+    "tours.read", "portal_invoices.read",
   ]),
   company_admin: new Set([
     "customers.read", "orders.read", "orders.update", "orders.create",
     "company.manage", "team.manage", "calendar.view",
+    "tours.read", "portal_invoices.read",
   ]),
   company_employee: new Set([
     "customers.read", "orders.read", "orders.create",
     "calendar.view", "calendar.manage",
+    "tours.read", "portal_invoices.read",
   ]),
   customer_admin: new Set([
     "customers.read", "contacts.read", "contacts.manage",
     "orders.read", "orders.update", "orders.create",
+    "tours.read", "tours.manage", "portal_team.manage",
+    "portal_invoices.read",
   ]),
-  customer_user: new Set(["orders.read"]),
+  customer_user: new Set(["orders.read", "tours.read", "portal_invoices.read"]),
 };
 
 // ─── Hilfsfunktionen ──────────────────────────────────────────────────────────
