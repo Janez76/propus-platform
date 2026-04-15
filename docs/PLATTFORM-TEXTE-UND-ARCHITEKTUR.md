@@ -57,6 +57,14 @@ Datenbank **eine Instanz**, logisch getrennte Schemas (u. a. `core`, `booking`, 
 
 Die sichtbaren Bereiche der React-App sind in [app/src/components/ClientShell.tsx](../app/src/components/ClientShell.tsx) an den Routen erkennbar (Dashboard, Bestellungen, Kunden, Einstellungen, Buchungs-Wizard, Portal usw.). Änderungen an Menü- oder Seitentiteln hängen typischerweise an denselben i18n-Keys wie die Navigation.
 
+**Wichtige Routen-Änderungen (April 2026):**
+
+| Route | Vorher | Jetzt |
+|---|---|---|
+| `/settings/companies` | `CompanyManagementPage` (Firmenverwaltung) | Redirect → `/customers` |
+
+Portal-Rollen werden nicht mehr in einer separaten Firmenverwaltung gesetzt, sondern direkt am Kontakt im Kundenstamm (`/customers`). Siehe [ROLES_PERMISSIONS.md §7.0](./ROLES_PERMISSIONS.md).
+
 ## Pflegeempfehlung
 
 1. Fachliche Begriffe (EXXAS, Logto, Produktnamen) **einheitlich** schreiben.
