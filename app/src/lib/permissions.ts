@@ -8,7 +8,7 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   // Kunden-Portal-Routen
   "/portal/dashboard": "tours.read",
   "/portal/tours": "tours.read",
-  "/portal/invoices": "tours.read",
+  "/portal/invoices": "portal_invoices.read",
   "/portal/team": "portal_team.manage",
   "/admin/users": "users.manage",
   "/admin/roles": "roles.manage",
@@ -36,16 +36,19 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   "/backups": "backups.manage",
   "/changelog": "dashboard.view",
   "/admin/tours": "dashboard.view",
-  /** Zentrales Rechnungsmodul (gleiche Zielgruppe wie Tour-Manager) */
-  "/admin/finance": "dashboard.view",
-  "/admin/finance/invoices": "dashboard.view",
-  "/admin/finance/invoices/open": "dashboard.view",
-  "/admin/finance/invoices/paid": "dashboard.view",
-  "/admin/finance/bank-import": "dashboard.view",
-  "/admin/finance/reminders": "dashboard.view",
-  "/admin/invoices": "dashboard.view",
-  /** Zentrale Ticket- / Postfach-Ansicht (gleiche Zielgruppe wie Tour-Manager) */
-  "/admin/tickets": "dashboard.view",
+  "/admin/listing": "listing.manage",
+  "/picdrop": "picdrop.manage",
+  "/selekto/bilder-auswahl": "picdrop.manage",
+  /** Zentrales Rechnungsmodul */
+  "/admin/finance": "finance.read",
+  "/admin/finance/invoices": "finance.read",
+  "/admin/finance/invoices/open": "finance.read",
+  "/admin/finance/invoices/paid": "finance.read",
+  "/admin/finance/bank-import": "finance.manage",
+  "/admin/finance/reminders": "finance.manage",
+  "/admin/invoices": "finance.read",
+  /** Zentrale Ticket- / Postfach-Ansicht */
+  "/admin/tickets": "tickets.read",
 };
 
 /** Rollen die als interne Admins behandelt werden (nicht Kunden-Panel). */
@@ -76,18 +79,25 @@ const ALL_ROUTE_PERMS = [...new Set(Object.values(ROUTE_PERMISSIONS))];
 export const LEGACY_ROLE_PERMISSIONS: Partial<Record<Role, string[]>> = {
   admin: ALL_ROUTE_PERMS,
   super_admin: ALL_ROUTE_PERMS,
-  // Backend-Preset: TOURS_INTERNAL_PERMS + dashboard.view (Migration 078)
-  tour_manager: ["tours.read", "tours.manage", "tours.assign", "tours.cross_company", "tours.archive", "tours.link_matterport", "portal_team.manage", "dashboard.view"],
-  // Backend-Preset: exakt
-  photographer: ["dashboard.view", "orders.read", "orders.update", "orders.assign", "calendar.view", "photographers.read"],
-  // Backend-Preset + tours.read (Migration 078)
-  company_owner: ["customers.read", "orders.read", "orders.update", "orders.create", "company.manage", "team.manage", "calendar.view", "tours.read"],
-  // Backend-Preset + tours.read (Migration 078)
-  company_employee: ["customers.read", "orders.read", "orders.create", "calendar.view", "calendar.manage", "tours.read"],
-  // Backend-Preset + tours.read, tours.manage, portal_team.manage (Migration 078)
-  customer_admin: ["customers.read", "contacts.read", "contacts.manage", "orders.read", "orders.update", "orders.create", "tours.read", "tours.manage", "portal_team.manage"],
-  // Backend-Preset + tours.read (Migration 078)
-  customer_user: ["orders.read", "tours.read"],
+  // Backend-Preset: TOURS_INTERNAL_PERMS + dashboard.view (Migration 078) + finance/tickets/listing/portal_invoices (Migration 080)
+  tour_manager: [
+    "tours.read", "tours.manage", "tours.assign", "tours.cross_company", "tours.archive", "tours.link_matterport", "portal_team.manage",
+    "dashboard.view",
+    "finance.read", "finance.manage",
+    "tickets.read", "tickets.manage",
+    "listing.manage",
+    "portal_invoices.read",
+  ],
+  // Backend-Preset + picdrop.manage (Migration 080)
+  photographer: ["dashboard.view", "orders.read", "orders.update", "orders.assign", "calendar.view", "photographers.read", "picdrop.manage"],
+  // Backend-Preset + tours.read (Migration 078) + portal_invoices.read (Migration 080)
+  company_owner: ["customers.read", "orders.read", "orders.update", "orders.create", "company.manage", "team.manage", "calendar.view", "tours.read", "portal_invoices.read"],
+  // Backend-Preset + tours.read (Migration 078) + portal_invoices.read (Migration 080)
+  company_employee: ["customers.read", "orders.read", "orders.create", "calendar.view", "calendar.manage", "tours.read", "portal_invoices.read"],
+  // Backend-Preset + tours.read, tours.manage, portal_team.manage (Migration 078) + portal_invoices.read (Migration 080)
+  customer_admin: ["customers.read", "contacts.read", "contacts.manage", "orders.read", "orders.update", "orders.create", "tours.read", "tours.manage", "portal_team.manage", "portal_invoices.read"],
+  // Backend-Preset + tours.read (Migration 078) + portal_invoices.read (Migration 080)
+  customer_user: ["orders.read", "tours.read", "portal_invoices.read"],
 };
 
 export function legacyCanAccessPath(role: Role, path: string): boolean {
