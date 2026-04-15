@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useSearchParams, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { AlertCircle, Check, Info, Lock, RotateCcw, Save, Shield, Users, Building2, User, Camera } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useAuthStore } from "../store/authStore";
@@ -618,13 +618,6 @@ export function RoleMatrixPage() {
   const isSuperAdmin = role === "super_admin" || role === "admin";
   const canManagePortalRoles = role === "super_admin" || role === "admin" || role === "tour_manager";
 
-  const [searchParams, setSearchParams] = useSearchParams();
-  const view = searchParams.get("view") === "portal" ? "portal" : "matrix";
-
-  function setView(next: "matrix" | "portal") {
-    setSearchParams((p) => { const n = new URLSearchParams(p); n.set("view", next); return n; }, { replace: true });
-  }
-
   const [hoveredPerm, setHoveredPerm] = useState<string | null>(null);
   const [hoveredRole, setHoveredRole] = useState<RoleKey | null>(null);
   const [filterGroup, setFilterGroup] = useState<"all" | "intern" | "fotograf" | "portal">("all");
@@ -722,7 +715,7 @@ export function RoleMatrixPage() {
                 Systemrollen, Zugriffsrechte und Portal-Zugang verwalten.
               </p>
             </div>
-            {isSuperAdmin && view === "matrix" && (
+            {isSuperAdmin && (
               <div className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/8 px-4 py-2.5 text-sm text-amber-400">
                 <Shield className="h-4 w-4 shrink-0" />
                 <span>Klick auf eine Checkbox zum Bearbeiten — Änderungen werden pro Rolle gespeichert. Fixe Rollen (Super-Admin, Admin) sind immer unveränderlich.</span>
@@ -730,46 +723,10 @@ export function RoleMatrixPage() {
             )}
           </div>
 
-          {/* Haupt-Tabs */}
-          <div className="mt-5 flex gap-1 rounded-xl border border-[var(--border-soft)] bg-[var(--surface-raised)] p-1 w-fit">
-            <button
-              type="button"
-              onClick={() => setView("matrix")}
-              className={cn(
-                "inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors",
-                view === "matrix"
-                  ? "bg-[var(--surface)] shadow-sm text-[var(--text-main)]"
-                  : "text-[var(--text-subtle)] hover:text-[var(--text-main)]",
-              )}
-            >
-              <Shield className="h-4 w-4" />
-              Rollen-Matrix
-            </button>
-            {canManagePortalRoles && (
-              <button
-                type="button"
-                onClick={() => setView("portal")}
-                className={cn(
-                  "inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors",
-                  view === "portal"
-                    ? "bg-[var(--surface)] shadow-sm text-[var(--text-main)]"
-                    : "text-[var(--text-subtle)] hover:text-[var(--text-main)]",
-                )}
-              >
-                <Users className="h-4 w-4" />
-                Portal-Zugang
-              </button>
-            )}
-          </div>
         </div>
 
-        {/* ─── Portal-Zugang Tab ───────────────────────────────────────────── */}
-        {view === "portal" && canManagePortalRoles && (
-          <PortalRolesPanel />
-        )}
-
-        {/* ─── Rollen-Matrix Tab ──────────────────────────────────────────── */}
-        {view === "matrix" && (<>
+        {/* ─── Rollen-Matrix ──────────────────────────────────────────────── */}
+        <>
 
           {/* Gruppen-Filter */}
           <div className="mb-6 flex flex-wrap gap-2">
@@ -1082,7 +1039,15 @@ export function RoleMatrixPage() {
           </span>
         </div>
 
-        </>)}
+        </>
+
+        {/* ─── Portal-Zugang ───────────────────────────────────────────────── */}
+        {canManagePortalRoles && (
+          <>
+            <div className="my-10 border-t-2 border-[var(--border-soft)]" />
+            <PortalRolesPanel />
+          </>
+        )}
 
       </div>
     </div>
