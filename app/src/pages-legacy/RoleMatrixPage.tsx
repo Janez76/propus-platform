@@ -1,21 +1,12 @@
 import { useEffect, useState } from "react";
-import { Check, Info, Lock, RotateCcw, Save, Shield, Users, Building2, Camera } from "lucide-react";
+import { Check, Info, Lock, Plus, RotateCcw, Save, Shield, Trash2, Users, Building2, Camera } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useAuthStore } from "../store/authStore";
-import { getRolePresets, patchRolePreset } from "../api/access";
+import { getRolePresets, createRolePreset, deleteRolePreset, patchRolePreset } from "../api/access";
 
 // ─── Datenstruktur ────────────────────────────────────────────────────────────
 
-type RoleKey =
-  | "super_admin"
-  | "internal_admin"
-  | "tour_manager"
-  | "photographer"
-  | "company_owner"
-  | "company_admin"
-  | "company_employee"
-  | "customer_admin"
-  | "customer_user";
+type RoleKey = string;
 
 type PermKey = string;
 
@@ -23,7 +14,7 @@ interface RoleDef {
   key: RoleKey;
   label: string;
   description: string;
-  group: "intern" | "fotograf" | "portal";
+  group: "intern" | "fotograf" | "portal" | "custom";
   color: string;        // Tailwind / CSS-Variable Token
   headerBg: string;
   fixed?: boolean;      // true = immer alle Rechte, Checkboxen gesperrt
@@ -237,9 +228,15 @@ function getSections(): string[] {
 // ─── Gruppen-Render-Helfer ────────────────────────────────────────────────────
 
 const GROUP_META = {
-  intern:   { label: "Intern",        Icon: Shield,    border: "border-amber-500/30", bg: "bg-amber-500/5"  },
+  intern:   { label: "Intern",        Icon: Shield,    border: "border-amber-500/30",  bg: "bg-amber-500/5"  },
   fotograf: { label: "Fotograf",      Icon: Camera,    border: "border-violet-500/30", bg: "bg-violet-500/5" },
   portal:   { label: "Kunden-Portal", Icon: Building2, border: "border-emerald-500/30", bg: "bg-emerald-500/5" },
+  custom:   { label: "Eigene Rollen", Icon: Plus,      border: "border-slate-500/30",  bg: "bg-slate-500/5"  },
+};
+
+const CUSTOM_ROLE_STYLE = {
+  color: "text-slate-400",
+  headerBg: "bg-slate-500/10 border-slate-500/20",
 };
 
 // ─── Tooltip ─────────────────────────────────────────────────────────────────
@@ -322,7 +319,10 @@ export function RoleMatrixPage() {
 
   const [hoveredPerm, setHoveredPerm] = useState<string | null>(null);
   const [hoveredRole, setHoveredRole] = useState<RoleKey | null>(null);
-  const [filterGroup, setFilterGroup] = useState<"all" | "intern" | "fotograf" | "portal">("all");
+  const [filterGroup, setFilterGroup] = useState<"all" | "intern" | "fotograf" | "portal" | "custom">("all");
+
+  // ─── Custom Rollen (aus DB) ──────────────────────────────────────────────────
+  const [customRoles, setCustomRoles] = useState<RoleDef[]>([]);
 
   // ─── Editier-State (nur Super-Admin) ────────────────────────────────────────
   const [loadedPresets, setLoadedPresets] = useState<Record<string, Set<string>> | null>(null);
@@ -331,7 +331,18 @@ export function RoleMatrixPage() {
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
   const [saveErr, setSaveErr] = useState<string | null>(null);
 
-  useEffect(() => {
+  // ─── Neue Rolle erstellen ────────────────────────────────────────────────────
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newLabel, setNewLabel] = useState("");
+  const [newDesc, setNewDesc] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [createErr, setCreateErr] = useState<string | null>(null);
+
+  // ─── Rolle löschen ──────────────────────────────────────────────────────────
+  const [deletingRole, setDeletingRole] = useState<string | null>(null);
+  const [deleteErr, setDeleteErr] = useState<string | null>(null);
+
+  function loadRoleData() {
     if (!isSuperAdmin || !token) return;
     getRolePresets(token)
       .then((r) => {
@@ -345,9 +356,54 @@ export function RoleMatrixPage() {
         }
         setLoadedPresets(loaded);
         setEditedPresets(edited);
+        // Custom Rollen aus API-Antwort einlesen
+        const custom = (r.roles ?? [])
+          .filter((rm) => rm.is_custom)
+          .map((rm): RoleDef => ({
+            key: rm.role_key,
+            label: rm.label || rm.role_key,
+            description: rm.description || "",
+            group: "custom",
+            color: CUSTOM_ROLE_STYLE.color,
+            headerBg: CUSTOM_ROLE_STYLE.headerBg,
+          }));
+        setCustomRoles(custom);
       })
       .catch(() => { /* fallback: hartkodierte ROLE_PRESETS bleiben */ });
-  }, [isSuperAdmin, token]);
+  }
+
+  useEffect(() => { loadRoleData(); }, [isSuperAdmin, token]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newLabel.trim()) return;
+    setCreating(true);
+    setCreateErr(null);
+    try {
+      await createRolePreset(token, { label: newLabel.trim(), description: newDesc.trim() });
+      setShowCreateModal(false);
+      setNewLabel("");
+      setNewDesc("");
+      loadRoleData();
+    } catch (err) {
+      setCreateErr(err instanceof Error ? err.message : "Fehler beim Erstellen");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function handleDelete(roleKey: string) {
+    setDeletingRole(roleKey);
+    setDeleteErr(null);
+    try {
+      await deleteRolePreset(token, roleKey);
+      loadRoleData();
+    } catch (err) {
+      setDeleteErr(err instanceof Error ? err.message : "Fehler beim Löschen");
+    } finally {
+      setDeletingRole(null);
+    }
+  }
 
   function getPresets(): Record<RoleKey, Set<PermKey>> {
     return (editedPresets ?? ROLE_PRESETS) as Record<RoleKey, Set<PermKey>>;
@@ -401,10 +457,12 @@ export function RoleMatrixPage() {
     return getPresets()[roleKey]?.size ?? 0;
   }
 
+  const allRoles = [...ROLES, ...customRoles];
   const sections = getSections();
-  const visibleRoles = filterGroup === "all" ? ROLES : ROLES.filter((r) => r.group === filterGroup);
+  const visibleRoles = filterGroup === "all" ? allRoles : allRoles.filter((r) => r.group === filterGroup);
 
   return (
+    <>
     <div className="min-h-screen bg-[var(--bg)] px-4 py-8 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-[1600px]">
 
@@ -430,27 +488,47 @@ export function RoleMatrixPage() {
         {/* ─── Rollen-Matrix ──────────────────────────────────────────────── */}
         <>
 
-          {/* Gruppen-Filter */}
-          <div className="mb-6 flex flex-wrap gap-2">
-            {(["all", "intern", "fotograf", "portal"] as const).map((g) => (
+          {/* Gruppen-Filter + Neue Rolle Button */}
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap gap-2">
+              {(["all", "intern", "fotograf", "portal", "custom"] as const).map((g) => (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() => setFilterGroup(g)}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-lg border px-3.5 py-1.5 text-sm font-medium transition-colors",
+                    filterGroup === g
+                      ? "border-[var(--accent)]/40 bg-[var(--accent)]/12 text-[var(--accent)]"
+                      : "border-[var(--border-soft)] text-[var(--text-muted)] hover:border-[var(--border-strong)] hover:text-[var(--text-main)]",
+                  )}
+                >
+                  {g === "all" && <><Users className="h-3.5 w-3.5" /> Alle Rollen ({allRoles.length})</>}
+                  {g === "intern" && <><Shield className="h-3.5 w-3.5" /> Intern</>}
+                  {g === "fotograf" && <><Camera className="h-3.5 w-3.5" /> Fotografen</>}
+                  {g === "portal" && <><Building2 className="h-3.5 w-3.5" /> Kunden-Portal</>}
+                  {g === "custom" && <><Plus className="h-3.5 w-3.5" /> Eigene{customRoles.length > 0 ? ` (${customRoles.length})` : ""}</>}
+                </button>
+              ))}
+            </div>
+            {isSuperAdmin && (
               <button
-                key={g}
                 type="button"
-                onClick={() => setFilterGroup(g)}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-lg border px-3.5 py-1.5 text-sm font-medium transition-colors",
-                  filterGroup === g
-                    ? "border-[var(--accent)]/40 bg-[var(--accent)]/12 text-[var(--accent)]"
-                    : "border-[var(--border-soft)] text-[var(--text-muted)] hover:border-[var(--border-strong)] hover:text-[var(--text-main)]",
-                )}
+                onClick={() => { setShowCreateModal(true); setCreateErr(null); }}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--accent)]/40 bg-[var(--accent)]/10 px-3.5 py-1.5 text-sm font-medium text-[var(--accent)] hover:bg-[var(--accent)]/20 transition-colors"
               >
-                {g === "all" && <><Users className="h-3.5 w-3.5" /> Alle Rollen ({ROLES.length})</>}
-                {g === "intern" && <><Shield className="h-3.5 w-3.5" /> Intern</>}
-                {g === "fotograf" && <><Camera className="h-3.5 w-3.5" /> Fotografen</>}
-                {g === "portal" && <><Building2 className="h-3.5 w-3.5" /> Kunden-Portal</>}
+                <Plus className="h-3.5 w-3.5" />
+                Neue Rolle
               </button>
-            ))}
+            )}
           </div>
+
+          {/* ─── Fehler beim Löschen ─────────────────────────────────────────── */}
+          {deleteErr && (
+            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-200">
+              {deleteErr}
+            </div>
+          )}
 
           {/* ─── Rollen-Karten oben ──────────────────────────────────────────── */}
         <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
@@ -458,7 +536,7 @@ export function RoleMatrixPage() {
             const count = countPerms(r.key);
             const total = ALL_PERM_KEYS.length;
             const pct = Math.round((count / total) * 100);
-            const { label: groupLabel, Icon: GroupIcon } = GROUP_META[r.group];
+            const { label: groupLabel, Icon: GroupIcon } = GROUP_META[r.group as keyof typeof GROUP_META];
             return (
               <div
                 key={r.key}
@@ -474,9 +552,22 @@ export function RoleMatrixPage() {
               >
                 <div className="flex items-start justify-between gap-2">
                   <span className={cn("text-sm font-semibold", r.color)}>{r.label}</span>
-                  <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-bold tabular-nums", r.headerBg, r.color)}>
-                    {count}/{total}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-bold tabular-nums", r.headerBg, r.color)}>
+                      {count}/{total}
+                    </span>
+                    {r.group === "custom" && isSuperAdmin && (
+                      <button
+                        type="button"
+                        disabled={deletingRole === r.key}
+                        onClick={(e) => { e.stopPropagation(); void handleDelete(r.key); }}
+                        className="rounded p-0.5 text-[var(--text-subtle)] hover:text-red-500 hover:bg-red-500/10 transition-colors disabled:opacity-40"
+                        title="Rolle löschen"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <p className="mt-1.5 text-[11px] leading-snug text-[var(--text-subtle)]">{r.description}</p>
                 <div className="mt-3">
@@ -515,7 +606,7 @@ export function RoleMatrixPage() {
                 <th className="sticky left-0 z-10 bg-[var(--surface-raised)] px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-widest text-[var(--text-subtle)]">
                   Berechtigung
                 </th>
-                {(["intern", "fotograf", "portal"] as const)
+                {(["intern", "fotograf", "portal", "custom"] as const)
                   .filter((g) => filterGroup === "all" || filterGroup === g)
                   .map((g) => {
                     const rolesInGroup = visibleRoles.filter((r) => r.group === g);
@@ -531,6 +622,7 @@ export function RoleMatrixPage() {
                           "text-amber-400": g === "intern",
                           "text-violet-400": g === "fotograf",
                           "text-emerald-400": g === "portal",
+                          "text-slate-400": g === "custom",
                         })}>
                           <Icon className="h-3 w-3" />
                           {label}
@@ -745,5 +837,68 @@ export function RoleMatrixPage() {
 
       </div>
     </div>
+
+    {/* ─── Modal: Neue Rolle erstellen ─────────────────────────────────────── */}
+    {showCreateModal && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+        onClick={() => setShowCreateModal(false)}
+      >
+        <div
+          className="w-full max-w-md rounded-2xl border border-[var(--border-soft)] bg-[var(--surface)] p-6 shadow-xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <h2 className="text-lg font-semibold text-[var(--text-main)] mb-1">Neue Rolle erstellen</h2>
+          <p className="text-sm text-[var(--text-subtle)] mb-5">
+            Die Rolle wird leer angelegt. Berechtigungen kannst du danach in der Matrix setzen.
+          </p>
+          <form onSubmit={(e) => { void handleCreate(e); }} className="space-y-4">
+            <label className="block">
+              <span className="text-sm text-[var(--text-subtle)]">Name der Rolle <span className="text-red-500">*</span></span>
+              <input
+                autoFocus
+                className="mt-1 w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40"
+                value={newLabel}
+                onChange={(e) => setNewLabel(e.target.value)}
+                placeholder="z.B. Vertriebs-Manager"
+                maxLength={60}
+              />
+            </label>
+            <label className="block">
+              <span className="text-sm text-[var(--text-subtle)]">Beschreibung</span>
+              <textarea
+                className="mt-1 w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40 resize-none"
+                value={newDesc}
+                onChange={(e) => setNewDesc(e.target.value)}
+                placeholder="Kurze Beschreibung der Rolle…"
+                rows={2}
+                maxLength={200}
+              />
+            </label>
+            {createErr && (
+              <p className="text-sm text-red-600 dark:text-red-400">{createErr}</p>
+            )}
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowCreateModal(false)}
+                className="rounded-lg border border-[var(--border-soft)] px-4 py-2 text-sm text-[var(--text-subtle)] hover:text-[var(--text-main)] transition-colors"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="submit"
+                disabled={!newLabel.trim() || creating}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 transition-opacity"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                {creating ? "Erstellen…" : "Erstellen"}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
