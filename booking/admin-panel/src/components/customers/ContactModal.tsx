@@ -349,6 +349,17 @@ export function ContactModal({ token, item, onSave, onToggleAdmin, onToggleBlock
 
         <div className="mb-1 mt-3 text-xs font-semibold uppercase tracking-wide text-zinc-400">{t(lang, "customerModal.section.contact")}</div>
         <div className="grid gap-2 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <label className="mb-1 block text-sm">{t(lang, "customerModal.label.role")}</label>
+            <select
+              className="ui-input"
+              value={form.is_admin ? "customer_admin" : "customer_user"}
+              onChange={(e) => setForm((f) => ({ ...f, is_admin: e.target.value === "customer_admin" }))}
+            >
+              <option value="customer_user">{t(lang, "customerModal.role.customerUser")}</option>
+              <option value="customer_admin">{t(lang, "customerModal.role.customerAdmin")}</option>
+            </select>
+          </div>
           <div><label className="mb-1 block text-sm">{t(lang, "customerModal.label.phonePrimary")}</label><input className="ui-input" type="tel" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} /><DbFieldHint fieldPath="customers.phone" /></div>
           <div><label className="mb-1 block text-sm">{t(lang, "customer.phone2")}</label><input className="ui-input" type="tel" value={form.phone_2} onChange={(e) => setForm((f) => ({ ...f, phone_2: e.target.value }))} /></div>
           <div><label className="mb-1 block text-sm">{t(lang, "customer.phoneMobile")}</label><input className="ui-input" type="tel" value={form.phone_mobile} onChange={(e) => setForm((f) => ({ ...f, phone_mobile: e.target.value }))} /></div>
@@ -404,17 +415,6 @@ export function ContactModal({ token, item, onSave, onToggleAdmin, onToggleBlock
 
         <div className="mb-1 mt-3 text-xs font-semibold uppercase tracking-wide text-zinc-400">{t(lang, "customerModal.section.other")}</div>
         <div className="grid gap-2">
-          <div>
-            <label className="mb-1 block text-sm">{t(lang, "customerModal.label.role")}</label>
-            <select
-              className="ui-input"
-              value={form.is_admin ? "customer_admin" : "customer_user"}
-              onChange={(e) => setForm((f) => ({ ...f, is_admin: e.target.value === "customer_admin" }))}
-            >
-              <option value="customer_user">{t(lang, "customerModal.role.customerUser")}</option>
-              <option value="customer_admin">{t(lang, "customerModal.role.customerAdmin")}</option>
-            </select>
-          </div>
           <div><label className="mb-1 block text-sm">{t(lang, "common.notes")}</label><textarea rows={2} className="ui-input" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} /></div>
         </div>
 
