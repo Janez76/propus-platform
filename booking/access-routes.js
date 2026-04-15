@@ -264,20 +264,17 @@ function registerAccessRoutes(app, deps) {
     }
   });
 
-  /** DELETE /api/admin/access/role-presets/:roleKey – custom Rolle löschen */
+  /** DELETE /api/admin/access/role-presets/:roleKey – Rolle löschen (alle ausser super_admin/internal_admin) */
   app.delete("/api/admin/access/role-presets/:roleKey", requireAdmin, requireRolesManage, async (req, res) => {
     try {
       const roleKey = String(req.params.roleKey || "").trim();
       if (FIXED_ROLE_KEYS.has(roleKey)) {
-        return res.status(400).json({ error: "System-Rollen können nicht gelöscht werden." });
+        return res.status(400).json({ error: "Super-Admin und Admin können nicht gelöscht werden." });
       }
       const { rows } = await deps.db.query(
-        `SELECT is_custom FROM system_roles WHERE role_key = $1`, [roleKey]
+        `SELECT role_key FROM system_roles WHERE role_key = $1`, [roleKey]
       );
       if (rows.length === 0) return res.status(404).json({ error: "Rolle nicht gefunden." });
-      if (!rows[0].is_custom) {
-        return res.status(400).json({ error: "Nur selbst erstellte Rollen können gelöscht werden." });
-      }
       // CASCADE löscht system_role_permissions + access_subject_system_roles automatisch
       await deps.db.query(`DELETE FROM system_roles WHERE role_key = $1`, [roleKey]);
       res.json({ ok: true });

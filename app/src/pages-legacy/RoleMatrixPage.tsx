@@ -556,7 +556,7 @@ export function RoleMatrixPage() {
                     <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-bold tabular-nums", r.headerBg, r.color)}>
                       {count}/{total}
                     </span>
-                    {r.group === "custom" && isSuperAdmin && (
+                    {!r.fixed && isSuperAdmin && (
                       <button
                         type="button"
                         disabled={deletingRole === r.key}
