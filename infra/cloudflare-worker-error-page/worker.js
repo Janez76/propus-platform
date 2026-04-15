@@ -1,0 +1,100 @@
+const ERROR_HTML = `<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kurze Unterbrechung – Propus</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #f4f6f9;
+      color: #1a202c;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    .card {
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      padding: 3rem 2.5rem;
+      max-width: 480px;
+      width: 100%;
+      text-align: center;
+    }
+    .logo { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.5px; color: #1a202c; margin-bottom: 2rem; }
+    .logo span { color: #3b82f6; }
+    .icon {
+      width: 72px; height: 72px; background: #eff6ff; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem;
+    }
+    .icon svg { width: 36px; height: 36px; color: #3b82f6; }
+    h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.75rem; color: #1a202c; }
+    p { font-size: 1rem; color: #4a5568; line-height: 1.6; margin-bottom: 0.5rem; }
+    .hint { font-size: 0.875rem; color: #718096; margin-top: 0.25rem; }
+    .divider { border: none; border-top: 1px solid #e2e8f0; margin: 2rem 0; }
+    .btn {
+      display: inline-block; background: #3b82f6; color: #ffffff;
+      font-size: 0.95rem; font-weight: 600; padding: 0.75rem 1.75rem;
+      border-radius: 8px; text-decoration: none; cursor: pointer; border: none;
+      transition: background 0.15s;
+    }
+    .btn:hover { background: #2563eb; }
+    footer { margin-top: 2.5rem; font-size: 0.8rem; color: #a0aec0; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #0f172a; color: #e2e8f0; }
+      .card { background: #1e293b; box-shadow: 0 4px 24px rgba(0,0,0,0.4); }
+      .logo { color: #e2e8f0; } h1 { color: #e2e8f0; } p { color: #94a3b8; }
+      .hint { color: #64748b; } .icon { background: #1e3a5f; }
+      .divider { border-color: #2d3748; } footer { color: #4a5568; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">Propus<span>.</span></div>
+    <div class="icon">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+        <path stroke-linecap="round" stroke-linejoin="round"
+          d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.008v.008H12v-.008z" />
+      </svg>
+    </div>
+    <h1>Kurze Unterbrechung</h1>
+    <p>Das Admin-Panel ist momentan nicht erreichbar.</p>
+    <p class="hint">Bitte versuchen Sie es in wenigen Minuten erneut.</p>
+    <hr class="divider" />
+    <a class="btn" href="javascript:location.reload()">Seite neu laden</a>
+  </div>
+  <footer>Propus &mdash; admin-booking.propus.ch</footer>
+</body>
+</html>`;
+
+export default {
+  async fetch(request, env, ctx) {
+    try {
+      const response = await fetch(request.clone());
+      if (response.status >= 500) {
+        return new Response(ERROR_HTML, {
+          status: response.status,
+          headers: {
+            'Content-Type': 'text/html; charset=utf-8',
+            'Cache-Control': 'no-store',
+          },
+        });
+      }
+      return response;
+    } catch (err) {
+      return new Response(ERROR_HTML, {
+        status: 502,
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'no-store',
+        },
+      });
+    }
+  },
+};
