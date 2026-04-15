@@ -195,7 +195,7 @@ function PrivateRoutes() {
         <Route path="/portal/tours" element={<PortalToursPage />} />
         <Route path="/portal/invoices" element={<PortalInvoicesPage />} />
         <Route path="/portal/team" element={<PortalTeamPage />} />
-        <Route path="/portal/firma" element={guardedElement(["company_owner", "company_admin"], <PortalFirmaPage />)} />
+        <Route path="/portal/firma" element={guardedElement(["company_owner"], <PortalFirmaPage />)} />
         <Route path="/portal/bestellungen" element={guardedElement(["company_employee"], <PortalBestellungenPage />)} />
         <Route path="/settings/access" element={guardedElement(adminOnlyRoles, <AccessControlPage />)} />
         <Route path="/settings/users" element={<Navigate to="/settings/access?tab=workspaces" replace />} />
@@ -204,7 +204,7 @@ function PrivateRoutes() {
         <Route path="/admin/users" element={<Navigate to="/settings/access?tab=workspaces" replace />} />
         <Route path="/admin/roles" element={guardedElement(adminOnlyRoles, <RolesPage />)} />
         <Route path="/company" element={<Navigate to={companyHome} replace />} />
-        <Route path="/company/dashboard" element={guardedElement(["company_owner", "company_admin", "company_employee"], <CompanyDashboardPage />)} />
+        <Route path="/company/dashboard" element={guardedElement(["company_owner", "company_employee"], <CompanyDashboardPage />)} />
         <Route path="/dashboard" element={guardedElement(adminOnlyRoles, <DashboardPage />)} />
         <Route path="/orders" element={guardedElement([...adminOnlyRoles, "photographer"], <OrdersPage />)} />
         <Route path="/upload" element={guardedElement([...adminOnlyRoles, "photographer"], <UploadsPage />)} />
