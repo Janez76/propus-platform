@@ -4,6 +4,7 @@ export type ClientDeliveryStatus = "open" | "sent";
 export type ClientGalleryRow = {
   id: string;
   slug: string;
+  friendly_slug?: string | null;
   title: string;
   address: string | null;
   storage_source_type: "share_link" | "order_folder" | "nas_browser" | null;

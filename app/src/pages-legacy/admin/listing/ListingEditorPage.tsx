@@ -702,10 +702,10 @@ export function ListingEditorPage() {
     (row: GalleryFeedbackRow): string | null => {
       if (!g) return null;
       if (row.asset_type === "image") {
-        return publicGalleryDeepLink(g.slug, { bild: row.asset_key });
+        return publicGalleryDeepLink(g, { bild: row.asset_key });
       }
       const idx = floorPlanIndexFromFeedbackAssetKey(row.asset_key);
-      return idx != null ? publicGalleryDeepLink(g.slug, { grundriss: idx }) : publicGalleryUrl(g.slug);
+      return idx != null ? publicGalleryDeepLink(g, { grundriss: idx }) : publicGalleryUrl(g);
     },
     [g],
   );
@@ -1247,7 +1247,7 @@ export function ListingEditorPage() {
     );
   }
 
-  const magicUrl = publicGalleryUrl(g.slug);
+  const magicUrl = publicGalleryUrl(g);
   const imgVisible = images.filter((i) => i.enabled).length;
   const imgHidden = images.length - imgVisible;
 

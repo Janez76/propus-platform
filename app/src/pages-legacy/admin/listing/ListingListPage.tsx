@@ -143,7 +143,7 @@ export function ListingListPage() {
   }, [rows, search, quickFilter, sortOrder]);
 
   async function onCopyMagicLink(g: GalleryListRow) {
-    const url = publicGalleryUrl(g.slug);
+    const url = publicGalleryUrl(g);
     const ok = await copyTextToClipboard(url);
     if (ok) {
       setCopyFlashId(g.id);
