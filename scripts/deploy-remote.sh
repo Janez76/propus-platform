@@ -80,7 +80,23 @@ mkdir -p "$STAGING_DIR"
 
 echo "==> Extract deploy archive"
 tar -xzf "$ARCHIVE_PATH" -C "$STAGING_DIR"
-tar -C "$STAGING_DIR" -cf - . | tar -C "$PROJECT_ROOT" -xf -
+
+# Sync with deletion so removed files don't linger on disk (causing stale TS/Docker errors).
+# Preserve runtime-only files that are not in the archive.
+if command -v rsync >/dev/null 2>&1; then
+  rsync -a --delete \
+    --exclude='.env.vps' \
+    --exclude='.env.vps.secrets' \
+    --exclude='backups/' \
+    "$STAGING_DIR/" "$PROJECT_ROOT/"
+else
+  # Fallback: wipe source-code directories explicitly before overlay-copy
+  for _srcdir in app booking core platform tours website; do
+    [ -d "$PROJECT_ROOT/$_srcdir" ] && rm -rf "$PROJECT_ROOT/$_srcdir" || true
+  done
+  tar -C "$STAGING_DIR" -cf - . | tar -C "$PROJECT_ROOT" -xf -
+fi
+
 rm -rf "$STAGING_DIR" "$ARCHIVE_PATH"
 
 mkdir -p "$PROJECT_ROOT/backups"
