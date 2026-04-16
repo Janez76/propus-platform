@@ -309,14 +309,15 @@ function listNasDirectoryEntries(rootKind, relativePath = '') {
   };
 }
 
-async function getGalleryNasContext(galleryId) {
+async function getGalleryNasContext(galleryId, { orderNoOverride = null } = {}) {
   const gallery = await getGallery(galleryId);
   if (!gallery) throw new Error('Galerie nicht gefunden.');
 
   const storageHealth = orderStorage.getStorageHealth();
   const suggestions = [];
-  if (gallery.booking_order_no != null) {
-    const order = await bookingDb.getOrderByNo(gallery.booking_order_no);
+  const effectiveOrderNo = orderNoOverride != null ? orderNoOverride : gallery.booking_order_no;
+  if (effectiveOrderNo != null) {
+    const order = await bookingDb.getOrderByNo(effectiveOrderNo);
     if (order) {
       const folders = await orderStorage.getOrderFolderSummary(order, bookingDb, { createMissing: false });
       for (const folder of folders) {
@@ -340,6 +341,7 @@ async function getGalleryNasContext(galleryId) {
           status: folder.status,
           exists: folder.exists,
           mediaSummary,
+          nextcloudShareUrl: folder.nextcloudShareUrl || null,
         });
       }
     }
