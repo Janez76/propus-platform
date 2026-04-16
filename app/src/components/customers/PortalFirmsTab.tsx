@@ -13,7 +13,7 @@ import {
   X,
   ClipboardList,
 } from "lucide-react";
-import type { CompanyMemberRole } from "../api/company";
+import type { CompanyMemberRole } from "../../api/company";
 import {
   createAdminCompany,
   createAdminCompanyInvitation,
@@ -25,13 +25,13 @@ import {
   resendAdminCompanyInvitation,
   type AdminCompanyRow,
   type AdminInvitationRow,
-} from "../api/adminCompanies";
-import { usePermissions } from "../hooks/usePermissions";
-import { useAuthStore } from "../store/authStore";
-import { cn } from "../lib/utils";
-import { CustomerAutocompleteInput } from "./ui/CustomerAutocompleteInput";
-import type { Customer } from "../api/customers";
-import { CustomerContactsSection } from "./customers/CustomerContactsSection";
+} from "../../api/adminCompanies";
+import { usePermissions } from "../../hooks/usePermissions";
+import { useAuthStore } from "../../store/authStore";
+import { cn } from "../../lib/utils";
+import { CustomerAutocompleteInput } from "../ui/CustomerAutocompleteInput";
+import type { Customer } from "../../api/customers";
+import { CustomerContactsSection } from "./CustomerContactsSection";
 
 function isSynthCustomerEmail(e?: string) {
   const lower = String(e || "").toLowerCase();
