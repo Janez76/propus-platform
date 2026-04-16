@@ -6,6 +6,7 @@ const express = require('express');
 const router = express.Router();
 const archiver = require('archiver');
 const gallery = require('../lib/gallery');
+const { pool } = require('../lib/db');
 
 function normalizeMatterportSrc(raw) {
   const trimmed = (raw || '').trim();
@@ -41,6 +42,15 @@ router.get('/:slug', async (req, res) => {
 
     const imgs = await gallery.listGalleryImages(g.id);
     const enabled = imgs.filter(i => i.enabled);
+    // Fullsize-Duplikate ausblenden, wenn websize-Variante desselben Basenames existiert
+    const deduped = gallery.dedupeGalleryRowsPreferWebsize(enabled);
+
+    let mediaSummary = null;
+    try {
+      mediaSummary = gallery.getGalleryMediaSummary(g);
+    } catch { /* optional — Public-Payload soll nicht scheitern */ }
+
+    const hasDownload = ['order_folder', 'nas_browser'].includes(String(g.storage_source_type || ''));
 
     res.json({
       ok: true,
@@ -50,7 +60,7 @@ router.get('/:slug', async (req, res) => {
       client_name: g.client_name || null,
       updated_at: g.updated_at,
       cloud_share_url: g.cloud_share_url || null,
-      download_all_url: ['order_folder', 'nas_browser'].includes(String(g.storage_source_type || ''))
+      download_all_url: hasDownload
         ? `/api/listing/${encodeURIComponent(g.slug)}/download-all`
         : null,
       matterport_src: normalizeMatterportSrc(g.matterport_input),
@@ -61,11 +71,12 @@ router.get('/:slug', async (req, res) => {
         ...item,
         url: item.url.replace('__SLUG__', encodeURIComponent(g.slug)),
       })),
-      images: enabled.map(i => ({
+      images: deduped.map(i => ({
         id: i.id,
         category: i.category,
         sort_order: i.sort_order,
       })),
+      media_summary: mediaSummary,
     });
   } catch (e) {
     console.error('public gallery error:', e);
@@ -83,7 +94,8 @@ router.get('/:slug/images/:imgId', async (req, res) => {
     const img = imgs.find(i => i.id === req.params.imgId);
     if (!img) return res.status(404).json({ ok: false, error: 'Bild nicht gefunden.' });
     if (img.source_type === 'nas_local') {
-      const filePath = gallery.resolveGalleryImageFile(img);
+      // Websize-Variante bevorzugen, falls neben Fullsize verfügbar
+      const filePath = gallery.resolvePreferredImageFile(img) || gallery.resolveGalleryImageFile(img);
       if (!filePath) return res.status(404).json({ ok: false, error: 'Bild nicht gefunden.' });
       return res.sendFile(filePath);
     }
@@ -132,15 +144,19 @@ router.get('/:slug/floorplans/:index', async (req, res) => {
 });
 
 // GET /:slug/download-all — ZIP aus NAS-Quelle erzeugen
+// Optional: ?variant=websize|fullsize|all (Default: all)
 router.get('/:slug/download-all', async (req, res) => {
   try {
     const g = await gallery.getGalleryBySlug(req.params.slug);
     if (!g) return res.status(404).json({ ok: false, error: 'Galerie nicht verfügbar.' });
-    const source = gallery.getGalleryDownloadSource(g);
+    const rawVariant = String(req.query.variant || 'all').trim().toLowerCase();
+    const variant = ['websize', 'fullsize', 'all'].includes(rawVariant) ? rawVariant : 'all';
+    const source = gallery.getGalleryDownloadSource(g, variant);
     if (!source) return res.status(404).json({ ok: false, error: 'Kein NAS-Download für diese Galerie verfügbar.' });
 
+    const filenameSuffix = variant === 'all' ? '' : `-${variant}`;
     res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(g.slug)}.zip"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(g.slug)}${filenameSuffix}.zip"`);
 
     const archive = archiver('zip', { zlib: { level: 9 } });
     archive.on('error', (error) => {
@@ -194,15 +210,38 @@ router.post('/:slug/feedback', async (req, res) => {
       return res.status(400).json({ ok: false, error: 'asset_type, asset_key und body sind erforderlich.' });
     }
 
+    const trimmedBody = body.trim();
     const fb = await gallery.submitFeedback({
       gallery_id: g.id,
       gallery_slug: g.slug,
       asset_type,
       asset_key,
       asset_label: asset_label || '',
-      body: body.trim(),
+      body: trimmedBody,
       author: 'client',
     });
+
+    // Parallel als Ticket im Admin-Postfach hinterlegen
+    try {
+      const assetLabelText = (asset_label && String(asset_label).trim()) || (asset_type === 'floor_plan' ? 'Grundriss' : 'Bild');
+      const subject = `Galerie-Anmerkung: ${assetLabelText}`.slice(0, 240);
+      const titleLine = g.title ? `Galerie: ${g.title}` : `Galerie-Slug: ${g.slug}`;
+      const descLines = [
+        titleLine,
+        `Asset: ${assetLabelText} (${asset_type || 'image'})`,
+        '',
+        trimmedBody,
+      ];
+      await pool.query(
+        `INSERT INTO tour_manager.tickets
+           (module, reference_id, reference_type, category, subject, description, priority, created_by, created_by_role)
+         VALUES ('tours', $1, 'gallery', 'gallery_anmerkung', $2, $3, 'normal', 'client', 'client')`,
+        [String(g.id), subject, descLines.join('\n')],
+      );
+    } catch (ticketErr) {
+      console.warn('gallery feedback ticket insert failed:', ticketErr?.message || ticketErr);
+    }
+
     res.json({ ok: true, feedback: fb });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });

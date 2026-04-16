@@ -94,6 +94,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   name_aendern: "Name ändern",
   blur_request: "Blur-Anfrage",
   sweep_verschieben: "Sweep verschieben",
+  gallery_anmerkung: "Galerie-Anmerkung",
   sonstiges: "Sonstiges",
 };
 
@@ -343,6 +344,25 @@ function AssignSection({ ticket, onUpdated }: { ticket: TicketRow; onUpdated: ()
           </div>
         )}
       </div>
+
+      {ticket.reference_type === "gallery" && ticket.reference_id && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="flex items-center gap-1.5 text-xs font-medium text-[var(--text-subtle)] uppercase tracking-wide">
+              <Map className="h-3 w-3" /> Galerie
+            </span>
+            <button className={removeBtnCls} onClick={() => assign({ reference_type: null, reference_id: null })}>
+              Entfernen
+            </button>
+          </div>
+          <a
+            href={`/admin/listing/${ticket.reference_id}`}
+            className="block rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)] hover:bg-[var(--surface-raised)]"
+          >
+            Galerie {String(ticket.reference_id).slice(0, 8)} öffnen →
+          </a>
+        </div>
+      )}
 
       {saving && (
         <div className="flex items-center justify-center gap-2 text-xs text-[var(--text-subtle)]">
@@ -700,6 +720,11 @@ function TicketsTab() {
                       {t.reference_type === "order" && (
                         <span className="text-xs text-[var(--text-subtle)]">
                           Bestellung #{t.reference_order_no ?? t.reference_id}
+                        </span>
+                      )}
+                      {t.reference_type === "gallery" && (
+                        <span className="text-xs text-[var(--text-subtle)]">
+                          Galerie {t.reference_id ? String(t.reference_id).slice(0, 8) : ""}
                         </span>
                       )}
                       {!t.reference_type && <span className="text-[var(--text-subtle)]">—</span>}

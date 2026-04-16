@@ -110,6 +110,28 @@ function dedupeByBasenamePreferWebsize(hrefs) {
   return [...byBase.values()];
 }
 
+/**
+ * Dedupliziert Galerie-Image-Rows anhand des Basenames (Dateiname ohne Pfad).
+ * Wenn websize- UND fullsize-Variante desselben Bildes in der DB liegen,
+ * gewinnt die websize-Variante; fullsize-Eintrag wird ausgeblendet.
+ * Die Originalreihenfolge bleibt erhalten.
+ */
+function dedupeGalleryRowsPreferWebsize(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return rows || [];
+  const bestByBase = new Map();
+  for (const row of rows) {
+    const pathForScore = row?.source_path || row?.remote_src || '';
+    const base = String(pathForScore).split('/').filter(Boolean).pop() || `__row_${row?.id || Math.random()}`;
+    const key = base.toLowerCase();
+    const current = bestByBase.get(key);
+    if (!current || pathScoreForGallery(pathForScore) > pathScoreForGallery(current.source_path || current.remote_src || '')) {
+      bestByBase.set(key, row);
+    }
+  }
+  const keep = new Set([...bestByBase.values()].map((r) => r.id));
+  return rows.filter((r) => keep.has(r.id));
+}
+
 function pathScoreForVideo(p) {
   const pl = String(p || '').toLowerCase();
   if (pl.includes('/finale/video/')) return 6;
@@ -969,6 +991,45 @@ function resolveGalleryImageFile(image) {
   return resolveGalleryAbsolutePath(image.source_root_kind, image.source_path, { expectDirectory: false }).absolutePath;
 }
 
+/**
+ * Liefert den Websize-Pfad einer Image-Row, falls neben der gespeicherten (ggf.
+ * fullsize) Datei eine websize-Variante mit gleichem Basename existiert.
+ * Reihenfolge der Kandidaten: Finale/Bilder/WEB SIZE → Bilder/WEB SIZE → websize.
+ */
+function resolvePreferredImageFile(image) {
+  const original = resolveGalleryImageFile(image);
+  if (!original) return null;
+  try {
+    // Bereits websize → nichts zu tun
+    if (pathScoreForGallery(image.source_path) >= 4) return original;
+    const base = path.basename(original);
+    const baseNoExt = base.replace(/\.[^.]+$/, '');
+    const dir = path.dirname(original);
+    // Heuristik: …/Bilder/FULLSIZE/foo.jpg → Kandidat …/Bilder/WEB SIZE/foo.jpg
+    const segments = dir.split(path.sep);
+    const candidates = [];
+    const fullsizeIdx = segments.findIndex((s) => /^fullsize$/i.test(s));
+    if (fullsizeIdx > 0) {
+      const base1 = [...segments];
+      base1[fullsizeIdx] = 'WEB SIZE';
+      candidates.push(path.join(...base1, `${baseNoExt}.jpg`));
+      const base2 = [...segments];
+      base2[fullsizeIdx] = 'websize';
+      candidates.push(path.join(...base2, `${baseNoExt}.jpg`));
+    }
+    // Zusätzlich: unter gleicher Elternebene nach WEB SIZE suchen
+    const parent = path.dirname(dir);
+    candidates.push(path.join(parent, 'WEB SIZE', `${baseNoExt}.jpg`));
+    candidates.push(path.join(parent, 'websize', `${baseNoExt}.jpg`));
+    for (const candidate of candidates) {
+      if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+        return candidate;
+      }
+    }
+  } catch { /* ignore and fall back to original */ }
+  return original;
+}
+
 function resolveGalleryVideoFile(gallery) {
   if (!gallery || gallery.video_source_type !== 'nas_local' || !gallery.video_source_root_kind || !gallery.video_source_path) {
     return null;
@@ -985,10 +1046,103 @@ function resolveGalleryFloorPlanFile(gallery, index) {
   return resolveGalleryAbsolutePath(item.source_root_kind, item.source_path, { expectDirectory: false }).absolutePath;
 }
 
-function getGalleryDownloadSource(gallery) {
+function getGalleryDownloadSource(gallery, variant = 'all') {
   if (!gallery || !gallery.storage_root_kind || !gallery.storage_relative_path) return null;
   if (!['order_folder', 'nas_browser'].includes(String(gallery.storage_source_type || ''))) return null;
-  return resolveGalleryAbsolutePath(gallery.storage_root_kind, gallery.storage_relative_path, { expectDirectory: true });
+  const base = resolveGalleryAbsolutePath(
+    gallery.storage_root_kind,
+    gallery.storage_relative_path,
+    { expectDirectory: true },
+  );
+  if (variant === 'all' || !variant) return base;
+
+  // Kandidaten-Unterordner innerhalb des Finale-Ordners
+  const subdirByVariant = {
+    websize: ['Bilder/WEB SIZE', 'Bilder/websize', 'WEB SIZE', 'websize'],
+    fullsize: ['Bilder/FULLSIZE', 'Bilder/fullsize', 'FULLSIZE', 'fullsize'],
+  };
+  const candidates = subdirByVariant[variant];
+  if (!candidates) return base;
+
+  for (const rel of candidates) {
+    const candidate = path.join(base.absolutePath, rel);
+    try {
+      if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) {
+        return { ...base, absolutePath: candidate, variant, variantSubdir: rel };
+      }
+    } catch { /* try next */ }
+  }
+  return base; // Fallback: ganzer Ordner
+}
+
+/**
+ * Zählt Bilder/Grundrisse/Videos im Download-Quellordner pro Variante
+ * und summiert die Bytes. Nicht-existierende Ordner werden übersprungen.
+ */
+function getGalleryMediaSummary(gallery) {
+  const summary = {
+    imagesWebsize: 0,
+    imagesFullsize: 0,
+    floorPlans: 0,
+    hasVideo: false,
+    bytesWebsize: 0,
+    bytesFullsize: 0,
+    bytesTotal: 0,
+  };
+  if (!gallery) return summary;
+  const base = getGalleryDownloadSource(gallery, 'all');
+  if (!base) return summary;
+
+  const websize = getGalleryDownloadSource(gallery, 'websize');
+  const fullsize = getGalleryDownloadSource(gallery, 'fullsize');
+
+  function sumImages(dir) {
+    let count = 0;
+    let bytes = 0;
+    if (!dir || !dir.absolutePath) return { count, bytes };
+    try {
+      if (!fs.existsSync(dir.absolutePath) || !fs.statSync(dir.absolutePath).isDirectory()) {
+        return { count, bytes };
+      }
+      const files = orderStorage.walkFilesRecursive(dir.absolutePath);
+      for (const file of files) {
+        if (!IMG_EXT.test(file)) continue;
+        try {
+          const stat = fs.statSync(file);
+          if (stat.isFile()) {
+            count += 1;
+            bytes += stat.size;
+          }
+        } catch { /* skip */ }
+      }
+    } catch { /* skip */ }
+    return { count, bytes };
+  }
+
+  if (websize && websize.variant === 'websize') {
+    const s = sumImages(websize);
+    summary.imagesWebsize = s.count;
+    summary.bytesWebsize = s.bytes;
+  }
+  if (fullsize && fullsize.variant === 'fullsize') {
+    const s = sumImages(fullsize);
+    summary.imagesFullsize = s.count;
+    summary.bytesFullsize = s.bytes;
+  }
+
+  try {
+    const all = orderStorage.walkFilesRecursive(base.absolutePath);
+    for (const file of all) {
+      try {
+        const stat = fs.statSync(file);
+        if (!stat.isFile()) continue;
+        summary.bytesTotal += stat.size;
+        if (PDF_EXT.test(file)) summary.floorPlans += 1;
+        if (MP4_EXT.test(file)) summary.hasVideo = true;
+      } catch { /* skip */ }
+    }
+  } catch { /* skip */ }
+  return summary;
 }
 
 // ---------------------------------------------------------------------------
@@ -1137,9 +1291,12 @@ module.exports = {
   importGalleryFromNas,
   parseStoredFloorPlans,
   resolveGalleryImageFile,
+  resolvePreferredImageFile,
   resolveGalleryVideoFile,
   resolveGalleryFloorPlanFile,
   getGalleryDownloadSource,
+  getGalleryMediaSummary,
+  dedupeGalleryRowsPreferWebsize,
   listGalleryFeedback,
   listFeedbackForAsset,
   submitFeedback,
