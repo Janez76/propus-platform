@@ -42,8 +42,13 @@ router.get('/:slug', async (req, res) => {
 
     const imgs = await gallery.listGalleryImages(g.id);
     const enabled = imgs.filter(i => i.enabled);
-    // Fullsize-Duplikate ausblenden, wenn websize-Variante desselben Basenames existiert
-    const deduped = gallery.dedupeGalleryRowsPreferWebsize(enabled);
+    // Strikt: nur Bilder aus einem Websize-Pfad anzeigen. Wenn die Galerie KEINE
+    // Websize-Varianten enthält (z. B. Alt-Galerien), auf alle Bilder zurückfallen.
+    const WEBSIZE_RE = /web[\s_-]?size/i;
+    const websizeOnly = enabled.filter((img) => WEBSIZE_RE.test(String(img.source_path || '')));
+    const visible = websizeOnly.length > 0
+      ? websizeOnly
+      : gallery.dedupeGalleryRowsPreferWebsize(enabled);
 
     let mediaSummary = null;
     try {
@@ -71,7 +76,7 @@ router.get('/:slug', async (req, res) => {
         ...item,
         url: item.url.replace('__SLUG__', encodeURIComponent(g.slug)),
       })),
-      images: deduped.map(i => ({
+      images: visible.map(i => ({
         id: i.id,
         category: i.category,
         sort_order: i.sort_order,

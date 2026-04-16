@@ -275,28 +275,8 @@ export function PropertyShowcaseLayout({
             </header>
             <div className="download-actions">
               <div className="download-action">
-                <button type="button" className="btn btn--outline btn--xl" onClick={() => handleDownload("websize")}>
-                  Websize herunterladen
-                </button>
-                {mediaSummary && mediaSummary.imagesWebsize > 0 ? (
-                  <span className="download-chip">
-                    {mediaSummary.imagesWebsize}&nbsp;Bilder · ~{formatBytes(mediaSummary.bytesWebsize)}
-                  </span>
-                ) : null}
-              </div>
-              <div className="download-action">
-                <button type="button" className="btn btn--outline btn--xl" onClick={() => handleDownload("fullsize")}>
-                  Fullsize herunterladen
-                </button>
-                {mediaSummary && mediaSummary.imagesFullsize > 0 ? (
-                  <span className="download-chip">
-                    {mediaSummary.imagesFullsize}&nbsp;Bilder · ~{formatBytes(mediaSummary.bytesFullsize)}
-                  </span>
-                ) : null}
-              </div>
-              <div className="download-action">
-                <button type="button" className="btn btn--primary btn--xl" onClick={() => handleDownload("all")}>
-                  Alles herunterladen
+                <button type="button" className="btn btn--outline btn--xl" onClick={() => handleDownload("all")}>
+                  Alle Medien herunterladen
                 </button>
                 {mediaSummary ? (
                   <span className="download-chip">

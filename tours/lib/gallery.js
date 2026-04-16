@@ -516,7 +516,8 @@ async function listGalleries({ search, filter, sort } = {}) {
       LOWER(COALESCE(g.client_contact, '')) LIKE $${idx} OR
       LOWER(g.client_email) LIKE $${idx} OR
       COALESCE(g.booking_order_no::text, '') LIKE $${idx} OR
-      LOWER(g.slug) LIKE $${idx}
+      LOWER(g.slug) LIKE $${idx} OR
+      LOWER(COALESCE(g.friendly_slug, '')) LIKE $${idx}
     )`;
     idx++;
   }
@@ -570,7 +571,9 @@ async function getGallery(idOrSlug) {
 
 async function getGalleryBySlug(slug) {
   const { rows } = await pool.query(
-    `SELECT * FROM tour_manager.galleries WHERE slug = $1 AND status = 'active'`,
+    `SELECT * FROM tour_manager.galleries
+     WHERE (slug = $1 OR friendly_slug = $1) AND status = 'active'
+     LIMIT 1`,
     [slug]
   );
   return rows[0] || null;
@@ -578,25 +581,82 @@ async function getGalleryBySlug(slug) {
 
 async function getGalleryBySlugAny(slug) {
   const { rows } = await pool.query(
-    'SELECT * FROM tour_manager.galleries WHERE slug = $1',
+    `SELECT * FROM tour_manager.galleries
+     WHERE slug = $1 OR friendly_slug = $1
+     LIMIT 1`,
     [slug]
   );
   return rows[0] || null;
 }
 
+function slugifyPart(value) {
+  if (!value) return '';
+  const umlautMap = { 'ä': 'ae', 'ö': 'oe', 'ü': 'ue', 'ß': 'ss', 'Ä': 'ae', 'Ö': 'oe', 'Ü': 'ue' };
+  return String(value)
+    .replace(/[äöüßÄÖÜ]/g, (c) => umlautMap[c] || c)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function buildFriendlySlugBase({ address, booking_order_no }) {
+  const addr = String(address || '');
+  let plz = '';
+  let ort = '';
+  // Schweiz: 4-stellige PLZ, typisch "Strasse 1, 8000 Zürich" oder "8000 Zürich, Strasse 1"
+  const plzMatch = addr.match(/\b(\d{4})\b/);
+  if (plzMatch) plz = plzMatch[1];
+  const afterPlz = addr.match(/\b\d{4}\s+([^,\n]+?)(?:,|$)/);
+  if (afterPlz) ort = afterPlz[1].trim();
+  if (!ort) {
+    const beforePlz = addr.match(/([^,\n]+?),\s*\d{4}/);
+    if (beforePlz) ort = beforePlz[1].trim();
+  }
+  const parts = [plz, slugifyPart(ort), booking_order_no != null ? String(booking_order_no) : '']
+    .filter(Boolean);
+  return parts.join('-');
+}
+
+async function generateUniqueFriendlySlug({ address, booking_order_no, excludeId = null }) {
+  const base = buildFriendlySlugBase({ address, booking_order_no });
+  if (!base) return null;
+  let candidate = base;
+  let i = 1;
+  // Kollision mit slug ODER friendly_slug vermeiden
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const params = excludeId ? [candidate, excludeId] : [candidate];
+    const sql = excludeId
+      ? `SELECT id FROM tour_manager.galleries
+         WHERE (slug = $1 OR friendly_slug = $1) AND id <> $2 LIMIT 1`
+      : `SELECT id FROM tour_manager.galleries
+         WHERE slug = $1 OR friendly_slug = $1 LIMIT 1`;
+    const { rows } = await pool.query(sql, params);
+    if (rows.length === 0) return candidate;
+    i += 1;
+    candidate = `${base}-${i}`;
+    if (i > 50) return candidate; // Notausgang
+  }
+}
+
 async function createGallery(data = {}) {
   const slug = generateSlug();
+  const friendlySlug = await generateUniqueFriendlySlug({
+    address: data.address,
+    booking_order_no: data.booking_order_no,
+  });
   const { rows } = await pool.query(
     `INSERT INTO tour_manager.galleries (
-       slug, title, address, customer_id, customer_contact_id, booking_order_no,
+       slug, friendly_slug, title, address, customer_id, customer_contact_id, booking_order_no,
        client_name, client_contact, client_email, status, matterport_input, cloud_share_url,
        storage_source_type, storage_root_kind, storage_relative_path,
        video_source_type, video_source_root_kind, video_source_path, video_url, floor_plans_json
      )
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
      RETURNING *`,
     [
       slug,
+      friendlySlug,
       data.title || '',
       data.address || null,
       data.customer_id || null,
@@ -643,6 +703,26 @@ async function updateGallery(id, patch) {
       idx++;
     }
   }
+
+  // Friendly-Slug neu berechnen, wenn Adresse/Bestellnummer betroffen sind
+  // oder der bisherige friendly_slug fehlt (Backfill für Alt-Galerien).
+  const current = await getGallery(id);
+  const addressChanged = patch.address !== undefined && patch.address !== current?.address;
+  const orderChanged = patch.booking_order_no !== undefined && patch.booking_order_no !== current?.booking_order_no;
+  const needsBackfill = !current?.friendly_slug;
+  if (addressChanged || orderChanged || needsBackfill) {
+    const nextAddress = patch.address !== undefined ? patch.address : current?.address;
+    const nextOrderNo = patch.booking_order_no !== undefined ? patch.booking_order_no : current?.booking_order_no;
+    const friendly = await generateUniqueFriendlySlug({
+      address: nextAddress,
+      booking_order_no: nextOrderNo,
+      excludeId: id,
+    });
+    sets.push(`friendly_slug = $${idx}`);
+    params.push(friendly);
+    idx++;
+  }
+
   if (sets.length === 0) return getGallery(id);
 
   sets.push(`updated_at = NOW()`);

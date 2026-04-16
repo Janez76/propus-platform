@@ -233,16 +233,29 @@ export function sendGalleryEmail(galleryId: string, data: { to: string; subject:
 // Helpers (client-side, kept from original)
 // ---------------------------------------------------------------------------
 
-export function publicGalleryUrl(slug: string): string {
+/** Bevorzugt den leserlichen friendly_slug, fällt sonst auf den Zufalls-slug zurück. */
+export function preferredGallerySlug(
+  source: string | { slug: string; friendly_slug?: string | null } | null | undefined,
+): string {
+  if (!source) return "";
+  if (typeof source === "string") return source;
+  const friendly = (source.friendly_slug ?? "").trim();
+  if (friendly) return friendly;
+  return (source.slug ?? "").trim();
+}
+
+export function publicGalleryUrl(
+  source: string | { slug: string; friendly_slug?: string | null },
+): string {
   const base = typeof window !== "undefined" ? window.location.origin : "";
-  return `${base}/listing/${encodeURIComponent(slug)}`;
+  return `${base}/listing/${encodeURIComponent(preferredGallerySlug(source))}`;
 }
 
 export function publicGalleryDeepLink(
-  slug: string,
+  source: string | { slug: string; friendly_slug?: string | null },
   opts: { bild?: string | null; grundriss?: number | null },
 ): string {
-  const base = publicGalleryUrl(slug);
+  const base = publicGalleryUrl(source);
   const sp = new URLSearchParams();
   if (opts.bild?.trim()) sp.set("bild", opts.bild.trim());
   if (opts.grundriss != null && Number.isFinite(opts.grundriss) && opts.grundriss >= 0) {
