@@ -1516,7 +1516,31 @@ export function ListingEditorPage() {
             />
           </div>
           <div className="gbe-divider" />
-          <GalleryBildauswahlStatusDropdown status={status} onStatusChange={setStatus} />
+          <GalleryBildauswahlStatusDropdown
+            status={status}
+            onStatusChange={(next) => {
+              if (!id || next === status) {
+                setStatus(next);
+                return;
+              }
+              const prev = status;
+              setStatus(next);
+              void (async () => {
+                try {
+                  await updateGallery(id, { status: next });
+                } catch (err) {
+                  setStatus(prev);
+                  alert(err instanceof Error ? err.message : "Status konnte nicht gespeichert werden.");
+                  return;
+                }
+                // Absichtlich kein load() und kein updated_at-Refresh — das würde
+                // EditorDraftField via syncKey triggern und unsaved Drafts verwerfen.
+                setG((g) => (g ? { ...g, status: next } : g));
+                setSavedMsg(next === "active" ? "Galerie aktiviert." : "Galerie deaktiviert.");
+                window.setTimeout(() => setSavedMsg(null), 4000);
+              })();
+            }}
+          />
         </section>
 
         <section className="gbe-card">
