@@ -844,18 +844,18 @@ export function EmployeeModal({ token, employeeKey, onClose, onSaved, isActive =
             </button>
           </div>
 
-          {/* Admin-Hinweis → Interne Verwaltung */}
+          {/* Admin-Hinweis → Portal-Firmen */}
           <div className="mt-2 flex items-center justify-between rounded-xl border border-[var(--border-soft)] bg-[var(--surface-raised)] px-4 py-3 gap-3">
             <div className="min-w-0">
               <div className="text-xs font-medium text-[var(--text-main)]">Admin-Zugriff</div>
               <div className="text-xs text-[var(--text-muted)]">
                 Wird zentral über{" "}
                 <Link
-                  to="/settings/users"
+                  to="/customers?tab=portal-firms"
                   className="text-[var(--accent)] underline hover:no-underline"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  Interne Verwaltung
+                  Portal-Firmen
                 </Link>{" "}
                 vergeben.
                 {isAdmin && (
