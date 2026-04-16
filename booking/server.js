@@ -13451,15 +13451,8 @@ registerAdminUsersRoutes(app, { db, requireAdmin, rbac });
 registerExxasReconcileRoutes(app, db, requireAdmin, ensureCustomerInRequestCompany);
 registerAdminMissingRoutes(app, db, requireAdmin, mailer);
 
-// ─── Selekto SPA + Proxy-Routen ─────────────────────────────────────────────
+// ─── Nextcloud/PDF-Proxy-Routen ─────────────────────────────────────────────
 const { nextcloudProxyMiddleware, nextcloudThumbMiddleware, pdfInlineMiddleware } = require('./selekto-proxy');
-const SELEKTO_DIST = process.env.SELEKTO_DIST
-  ? path.resolve(process.env.SELEKTO_DIST)
-  : path.join(__dirname, '..', 'selekto', 'dist');
-if (fs.existsSync(SELEKTO_DIST)) {
-  app.use('/selekto', express.static(SELEKTO_DIST));
-  app.get('/selekto/*', (_req, res) => res.sendFile(path.join(SELEKTO_DIST, 'index.html')));
-}
 app.use('/__propus-nextcloud', nextcloudProxyMiddleware);
 app.use('/__propus-nc-thumb', nextcloudThumbMiddleware);
 app.get('/__propus-pdf-inline', pdfInlineMiddleware);

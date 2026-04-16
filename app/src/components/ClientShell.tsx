@@ -43,7 +43,11 @@ const CalendarTemplatesPage = lazy(() => import("../pages-legacy/CalendarTemplat
 const ReviewsPage = lazy(() => import("../pages-legacy/ReviewsPage").then((m) => ({ default: m.ReviewsPage })));
 const ChangelogPage = lazy(() => import("../pages-legacy/ChangelogPage").then((m) => ({ default: m.ChangelogPage })));
 const ExxasReconcilePage = lazy(() => import("../pages-legacy/ExxasReconcilePage").then((m) => ({ default: m.ExxasReconcilePage })));
-const PicdropPage = lazy(() => import("../pages-legacy/PicdropPage").then((m) => ({ default: m.PicdropPage })));
+const SelektoListPage = lazy(() => import("../pages-legacy/selekto/SelektoListPage").then((m) => ({ default: m.SelektoListPage })));
+const SelektoEditorPage = lazy(() => import("../pages-legacy/selekto/SelektoEditorPage").then((m) => ({ default: m.SelektoEditorPage })));
+const SelektoEmailTemplatesPage = lazy(() => import("../pages-legacy/selekto/SelektoEmailTemplatesPage").then((m) => ({ default: m.SelektoEmailTemplatesPage })));
+const SelektoCreateRedirect = lazy(() => import("../pages-legacy/selekto/SelektoCreateRedirect").then((m) => ({ default: m.SelektoCreateRedirect })));
+const ClientSelektoPage = lazy(() => import("../pages-legacy/selekto/ClientSelektoPage").then((m) => ({ default: m.ClientSelektoPage })));
 const PaymentSettingsPage = lazy(() => import("../pages-legacy/PaymentSettingsPage").then((m) => ({ default: m.PaymentSettingsPage })));
 const InvoiceTemplatePage = lazy(() => import("../pages-legacy/InvoiceTemplatePage").then((m) => ({ default: m.InvoiceTemplatePage })));
 const RoleMatrixPage = lazy(() => import("../pages-legacy/RoleMatrixPage").then((m) => ({ default: m.RoleMatrixPage })));
@@ -109,6 +113,18 @@ function PageSkeleton() {
 function RedirectListingLegacyGalleriesSegment() {
   const { legacyId } = useParams<{ legacyId: string }>();
   return <Navigate to={`/admin/listing/${legacyId}`} replace />;
+}
+
+/** Alte Selekto-Editor-URL `/selekto/bilder-auswahl/galleries/:id` → `/admin/selekto/:id` */
+function LegacyBildauswahlGalleryRedirect() {
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={`/admin/selekto/${id ?? ""}`} replace />;
+}
+
+/** Alte Kunden-Magic-Links `/selekto/listing/:slug` → `/selekto/:slug` */
+function LegacySelektoClientRedirect() {
+  const { slug } = useParams<{ slug: string }>();
+  return <Navigate to={`/selekto/${slug ?? ""}`} replace />;
 }
 
 /**
@@ -229,7 +245,7 @@ function PrivateRoutes() {
         <Route path="/settings/team" element={guardedElement(adminOnlyRoles, <ConfigurationPage initialTab="employees" />)} />
         <Route path="/settings/assignment-explorer" element={<Navigate to="/settings/roles" replace />} />
         <Route path="/reviews" element={guardedElement(adminOnlyRoles, <ReviewsPage />)} />
-        <Route path="/picdrop" element={guardedElement(adminOnlyRoles, <PicdropPage />)} />
+        <Route path="/picdrop" element={<Navigate to="/admin/selekto" replace />} />
         <Route path="/bugs" element={guardedElement(adminOnlyRoles, <BugsPage />)} />
         <Route path="/backups" element={guardedElement(adminOnlyRoles, <BackupsPage />)} />
         <Route path="/changelog" element={guardedElement(adminOnlyRoles, <ChangelogPage />)} />
@@ -264,6 +280,11 @@ function PrivateRoutes() {
         <Route path="/admin/tickets" element={guardedElement(toursAdminRoles, <AdminTicketsPage />)} />
         <Route path="/admin/tours/:id" element={guardedElement(toursAdminRoles, <TourDetailPage />)} />
         <Route path="/admin/tours" element={guardedElement(toursAdminRoles, <ToursAdminDashboardPage />)} />
+        {/* Selekto (Bildauswahl) Admin */}
+        <Route path="/admin/selekto/new" element={guardedElement(toursAdminRoles, <SelektoCreateRedirect />)} />
+        <Route path="/admin/selekto/templates" element={guardedElement(toursAdminRoles, <SelektoEmailTemplatesPage />)} />
+        <Route path="/admin/selekto/:id" element={guardedElement(toursAdminRoles, <SelektoEditorPage />)} />
+        <Route path="/admin/selekto" element={guardedElement(toursAdminRoles, <SelektoListPage />)} />
         {/* Listing (Galerie) Admin */}
         <Route path="/admin/listing/galleries/new" element={<Navigate to="/admin/listing/new" replace />} />
         <Route path="/admin/listing/galleries/:legacyId" element={<RedirectListingLegacyGalleriesSegment />} />
@@ -297,6 +318,11 @@ export default function ClientShell() {
           <Route path="/print/orders/:orderNo" element={<PrintOrderPage />} />
           <Route path="/print/order/:orderNo" element={<PrintOrderPage />} />
           <Route path="/listing/:slug" element={<ClientListingPage />} />
+          <Route path="/selekto/bilder-auswahl" element={<Navigate to="/admin/selekto" replace />} />
+          <Route path="/selekto/bilder-auswahl/templates" element={<Navigate to="/admin/selekto/templates" replace />} />
+          <Route path="/selekto/bilder-auswahl/galleries/:id" element={<LegacyBildauswahlGalleryRedirect />} />
+          <Route path="/selekto/listing/:slug" element={<LegacySelektoClientRedirect />} />
+          <Route path="/selekto/:slug" element={<ClientSelektoPage />} />
           <Route path="/cleanup/dashboard" element={<CleanupDashboardPage />} />
           <Route path="*" element={<PrivateRoutes />} />
         </Routes>

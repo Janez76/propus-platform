@@ -65,6 +65,7 @@ type SidebarNavItem = {
   toursNav?: boolean;
   customersNav?: boolean;
   listingNav?: boolean;
+  selektoNav?: boolean;
   messagesNav?: boolean;
 };
 
@@ -81,7 +82,7 @@ const navigationItems: SidebarNavItem[] = [
   { path: "/products", icon: Boxes, labelKey: "nav.catalog" },
   { path: "/discount-codes", icon: Tag, labelKey: "nav.discountCodes" },
   { path: "/reviews", icon: Star, labelKey: "nav.reviews" },
-  { path: "/picdrop", icon: Images, labelKey: "nav.picdrop", href: "/selekto/bilder-auswahl" },
+  { path: "/admin/selekto", icon: Images, labelKey: "nav.selekto", selektoNav: true },
   { path: "/settings", icon: SlidersHorizontal, labelKey: "nav.settings" },
   { path: "/bugs", icon: ShieldAlert, labelKey: "nav.bugs" },
   { path: "/backups", icon: Database, labelKey: "nav.backups" },
@@ -122,6 +123,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const [toursNavOpen, setToursNavOpen] = useState(false);
   const [customersNavOpen, setCustomersNavOpen] = useState(false);
   const [listingNavOpen, setListingNavOpen] = useState(false);
+  const [selektoNavOpen, setSelektoNavOpen] = useState(false);
   const [messagesNavOpen, setMessagesNavOpen] = useState(false);
   const lang = useAuthStore((s) => s.language);
   const role = useAuthStore((s) => s.role);
@@ -136,6 +138,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
     location.pathname.startsWith("/admin/invoices");
   const isToursNavActive = location.pathname.startsWith("/admin/tours");
   const isListingNavActive = location.pathname.startsWith("/admin/listing");
+  const isSelektoNavActive = location.pathname.startsWith("/admin/selekto");
   const isMessagesNavActive = location.pathname.startsWith("/admin/tickets");
   const isCustomersNavActive = location.pathname.startsWith("/customers");
   const isCompanyRole = isCompanyWorkspaceRole(role);
@@ -202,7 +205,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
         <nav className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 py-4 [-webkit-overflow-scrolling:touch]">
           <div className="space-y-0.5">
             {visibleNavigationItems.map((item) => {
-              const { path, icon: Icon, labelKey, href, financeNav, toursNav, customersNav, listingNav, messagesNav } = item;
+              const { path, icon: Icon, labelKey, href, financeNav, toursNav, customersNav, listingNav, selektoNav, messagesNav } = item;
               if (href) {
                 return (
                   <a key={path} href={href} className="propus-nav-item" onClick={onMobileClose}>
@@ -337,6 +340,33 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                   </div>
                 );
               }
+              if (selektoNav) {
+                return (
+                  <div key={path}>
+                    <button
+                      type="button"
+                      onClick={() => setSelektoNavOpen((v) => !v)}
+                      className={cn("propus-nav-item w-full", isSelektoNavActive && "active")}
+                    >
+                      <Icon className="h-5 w-5 flex-shrink-0" />
+                      <span className="truncate flex-1 text-left">{t(lang, labelKey)}</span>
+                      <ChevronDown className={cn("h-4 w-4 flex-shrink-0 transition-transform opacity-60", (selektoNavOpen || isSelektoNavActive) ? "rotate-180" : "")} />
+                    </button>
+                    {(selektoNavOpen || isSelektoNavActive) && (
+                      <div className="ml-4 mt-0.5 space-y-0.5 pl-3" style={{ borderLeft: "2px solid var(--border-soft)" }}>
+                        <NavLink to="/admin/selekto" end onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <List className="h-4 w-4 flex-shrink-0" />
+                          {t(lang, "nav.selekto.galleries")}
+                        </NavLink>
+                        <NavLink to="/admin/selekto/templates" onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <Mail className="h-4 w-4 flex-shrink-0" />
+                          {t(lang, "nav.selekto.emailTemplates")}
+                        </NavLink>
+                      </div>
+                    )}
+                  </div>
+                );
+              }
               if (toursNav) {
                 return (
                   <div key={path}>
@@ -448,7 +478,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
         <nav className="flex-1 overflow-y-auto py-4 px-3">
           <div className="space-y-0.5">
             {visibleNavigationItems.map((item) => {
-              const { path, icon: Icon, labelKey, href, financeNav, toursNav, customersNav, listingNav, messagesNav } = item;
+              const { path, icon: Icon, labelKey, href, financeNav, toursNav, customersNav, listingNav, selektoNav, messagesNav } = item;
               if (href) {
                 return (
                   <a key={path} href={href} className="propus-nav-item">
@@ -617,6 +647,45 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                         <NavLink to="/admin/listing/templates" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
                           <Mail className="h-4 w-4 flex-shrink-0" />
                           {t(lang, "nav.listing.emailTemplates")}
+                        </NavLink>
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+              if (selektoNav) {
+                if (isCollapsed) {
+                  return (
+                    <NavLink
+                      key={path}
+                      to={path}
+                      title={t(lang, labelKey)}
+                      className={cn("propus-nav-item", isSelektoNavActive ? "active" : "")}
+                    >
+                      <Icon className={cn("h-5 w-5 flex-shrink-0", isSelektoNavActive ? "text-white" : "")} />
+                    </NavLink>
+                  );
+                }
+                return (
+                  <div key={path}>
+                    <button
+                      type="button"
+                      onClick={() => setSelektoNavOpen((v) => !v)}
+                      className={cn("propus-nav-item w-full", isSelektoNavActive && "active")}
+                    >
+                      <Icon className="h-5 w-5 flex-shrink-0" />
+                      <span className="truncate flex-1 text-left">{t(lang, labelKey)}</span>
+                      <ChevronDown className={cn("h-4 w-4 flex-shrink-0 transition-transform opacity-60", (selektoNavOpen || isSelektoNavActive) ? "rotate-180" : "")} />
+                    </button>
+                    {(selektoNavOpen || isSelektoNavActive) && (
+                      <div className="ml-4 mt-0.5 space-y-0.5 pl-3" style={{ borderLeft: "2px solid var(--border-soft)" }}>
+                        <NavLink to="/admin/selekto" end className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <List className="h-4 w-4 flex-shrink-0" />
+                          {t(lang, "nav.selekto.galleries")}
+                        </NavLink>
+                        <NavLink to="/admin/selekto/templates" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                          <Mail className="h-4 w-4 flex-shrink-0" />
+                          {t(lang, "nav.selekto.emailTemplates")}
                         </NavLink>
                       </div>
                     )}

@@ -35,6 +35,7 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   "/changelog": "dashboard.view",
   "/admin/tours": "dashboard.view",
   "/admin/listing": "listing.manage",
+  "/admin/selekto": "picdrop.manage",
   "/picdrop": "picdrop.manage",
   "/selekto/bilder-auswahl": "picdrop.manage",
   /** Zentrales Rechnungsmodul */
