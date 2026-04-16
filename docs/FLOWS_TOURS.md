@@ -809,6 +809,17 @@ Bezahlte Rechnungen (`invoice_status = 'paid'`) können nicht gelöscht werden.
 
 React-Admin unter `/admin/listing/…` (Komponenten in `app/src/pages-legacy/admin/listing/`). Öffentliche Kundenansicht: Next.js-Route `/listing/:slug` (Payload von `/api/listing/:slug`).
 
+### Admin-Editor: Seitenstruktur
+
+Der Listing-Editor (`ListingEditorPage.tsx`) gliedert sich in folgende Karten-Sektionen:
+
+1. **Zuweisung** (`gbe-card--assignment`): Bestellungs-Autocomplete (mit `OrderStatusBadge`), Kunde und Kontakt. Bei Auswahl einer Bestellung werden Kunde, Kontakt und Adresse automatisch vorausgefuellt (Autofill-Flash). Verknuepfungen werden als Link-Chips mit Entfernen-Button angezeigt.
+2. **Stammdaten**: Titel, E-Mail, Adresse, Matterport-ID.
+3. **Status & Einstellungen**: Galerie-Status, Slug, Download-Optionen.
+4. **Bilder**: Drag-and-Drop-Sortierung, NAS-Import, Bildauswahl-Status.
+
+Design-Referenz fuer die UI-Bausteine (Link-Chips, Autocomplete-Optionen, Status-Badges): [ADMIN-FRONTEND-DESIGN.md](./ADMIN-FRONTEND-DESIGN.md#listing-editor-zuweisungs-bausteine).
+
 ### Datenmodell
 
 → Tabellen `tour_manager.galleries`, `gallery_images`, `gallery_feedback`, `gallery_email_templates`: [SCHEMA_FULL.md](./SCHEMA_FULL.md#tour_managergalleries--listing--kunden-galerie-magic-link)
