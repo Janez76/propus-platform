@@ -719,6 +719,12 @@ export function ListingEditorPage() {
         navigate(pathListingAdmin(), { replace: true });
         return;
       }
+      // Slug-URL → kanonische UUID-URL umleiten, damit alle Folge-Mutationen
+      // (PATCH/DELETE) gegen WHERE id = $1 funktionieren.
+      if (row.id !== id) {
+        navigate(pathListingAdmin(row.id), { replace: true });
+        return;
+      }
       setG(row);
       setStatus(row.status);
       setCustomerId(row.customer_id ?? null);
