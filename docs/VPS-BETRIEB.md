@@ -191,6 +191,20 @@ docker compose -p propus-platform -f docker-compose.vps.yml --env-file .env.vps 
   up -d --force-recreate platform
 ```
 
+### CI/CD: Datei-Synchronisation auf dem VPS (`deploy-remote.sh`)
+
+Das Skript `scripts/deploy-remote.sh` wird vom GitHub-Actions-Workflow auf dem VPS ausgefuehrt. Es entpackt das Deploy-Archiv in ein Staging-Verzeichnis und synchronisiert es nach `/opt/propus-platform`.
+
+**rsync --delete** (bevorzugt): Entfernt Dateien, die im Archiv nicht mehr enthalten sind, damit keine veralteten Quell-Dateien auf dem VPS liegen bleiben (verhindert Stale-TS/Docker-Fehler). Folgende Pfade werden vom Loeschen ausgenommen:
+
+| Exclude-Pfad        | Grund                                              |
+|----------------------|----------------------------------------------------|
+| `.env.vps`           | Produktive Umgebungsvariablen (nur auf VPS)        |
+| `.env.vps.secrets`   | VPS-lokale Secrets (z. B. Payrexx)                 |
+| `backups/`           | Lokale Backup-Daten                                |
+
+**Fallback** (kein rsync verfuegbar): Die Source-Verzeichnisse (`app`, `booking`, `core`, `platform`, `tours`, `website`) werden vor dem Overlay-Copy explizit geloescht.
+
 ---
 
 ## Rollback auf altes Buchungstool
@@ -416,6 +430,7 @@ button[type='submit']:hover {
 | `scripts/backup-vps.sh`        | Automatisches VPS-Backup-Script          |
 | `scripts/restore-vps.sh`       | VPS-Restore-Script                       |
 | `scripts/deploy-vps.ps1`       | Windows-Deployment-Script                |
+| `scripts/deploy-remote.sh`     | VPS-seitiges Deploy-Script (rsync --delete) |
 | `core/migrate.js`              | Schema-Migrationen                       |
 | `core/migrate-from-vps.js`     | Daten-Migration vom alten Buchungstool   |
 | `auth/setup-logto.js`          | Logto-App-Setup-Script                   |

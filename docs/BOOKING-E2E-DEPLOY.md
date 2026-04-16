@@ -12,6 +12,7 @@ Diese Notiz beschreibt das Zusammenspiel von VPS-Deploy und Playwright-Smoke-Tes
 
 - `.github/workflows/deploy-vps-and-booking-smoke.yml`
   - deployt den aktuellen Commit-Stand als Archiv auf den VPS (ohne `git pull` auf dem Server)
+  - `deploy-remote.sh` synchronisiert per `rsync --delete` (Fallback: explizites Loeschen + tar-Overlay); `.env.vps`, `.env.vps.secrets` und `backups/` werden vom Loeschen ausgenommen
   - baut das `platform`-Image neu
   - prueft `/api/health`
   - leert bei gesetzten Cloudflare-Secrets den Zone-Cache (`purge_everything`)
