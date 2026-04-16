@@ -57,7 +57,7 @@ Die Listing-Editor-Seite (`/admin/listing/:id`) verwendet eigene `gbe-*`-Klassen
 Kompakte Pill-Elemente, die eine aktive Verknuepfung (Bestellung, Kunde, Kontakt) anzeigen. Enthalten Icon, Label, optionale ID und einen Entfernen-Button.
 
 - `gbe-link-chip`: Basis-Chip (Pill, `border-radius: 999px`, `--surface-raised`).
-- `gbe-link-chip--order`, `gbe-link-chip--customer`, `gbe-link-chip--contact`: Varianten mit eigener Rand-Farbe.
+- `gbe-link-chip--order`, `gbe-link-chip--customer`, `gbe-link-chip--contact`: Varianten mit eigener Rand-Farbe. Die Kontakt-Variante zeigt bei einem Bestell-Kontakt-Fallback (Sentinel-ID `−1`) die Rolle «aus Bestellung» statt einer DB-ID an.
 - `gbe-link-chip-icon`, `gbe-link-chip-label`, `gbe-link-chip-id`, `gbe-link-chip-remove`: Interne Bestandteile.
 
 ### Autocomplete-Optionen (strukturiert)
@@ -86,7 +86,7 @@ Alle Varianten haben Light- und Dark-Theme-Farben.
 
 ### Autofill-Flash
 
-- `gbe-autofill-flash`: Einblend-Meldung (gruener Balken links, `role="status"`), die nach 4 Sekunden automatisch ausblendet. Wird angezeigt wenn eine Bestellungs-Auswahl Kunde, Kontakt und Adresse vorausfuellt.
+- `gbe-autofill-flash`: Einblend-Meldung (gruener Balken links, `role="status"`), die nach 4 Sekunden automatisch ausblendet. Wird angezeigt wenn eine Bestellungs-Auswahl Felder vorausfuellt. Die Meldung listet dynamisch die uebernommenen Teile auf (z. B. «Kunde, Kontakt, Adresse, Kundenordner, Freigabe-Link aus Bestellung uebernommen.»).
 
 ## i18n Pflicht
 
