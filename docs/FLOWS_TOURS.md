@@ -859,6 +859,8 @@ Basis-Mount: **`/api/tours/admin/galleries`** (hinter `requireAdmin`, siehe `pla
 
 Mount: **`/api/listing`** (ohne Login).
 
+**Proxy:** Next.js leitet `/api/listing/*` via Rewrite (`next.config.ts`) und Catch-All-Route (`app/src/app/api/listing/[[...path]]/route.ts`) an Express weiter. Damit ist die öffentliche Listing-API auch über die Frontend-Domain erreichbar.
+
 | Methode | Pfad | Beschreibung |
 |---|---|---|
 | `GET` | `/:slug` | Payload inkl. `download_all_url` wenn `storage_source_type` `order_folder` oder `nas_browser` |
