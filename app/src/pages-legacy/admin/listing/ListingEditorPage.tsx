@@ -620,6 +620,7 @@ export function ListingEditorPage() {
   const [addressInput, setAddressInput] = useState("");
   const [clientEmailInput, setClientEmailInput] = useState("");
   const [matterportInput, setMatterportInput] = useState("");
+  const [cloudInput, setCloudInput] = useState<string | undefined>(undefined);
   const [customerId, setCustomerId] = useState<number | null>(null);
   const [customerContactId, setCustomerContactId] = useState<number | null>(null);
   const [bookingOrderNo, setBookingOrderNo] = useState<number | null>(null);
@@ -642,6 +643,7 @@ export function ListingEditorPage() {
       status: string;
       exists: boolean;
       mediaSummary: { images: number; floorPlans: number; hasVideo: boolean };
+      nextcloudShareUrl: string | null;
     }>
   >([]);
   const [nasRootKind, setNasRootKind] = useState<"customer" | "raw">("customer");
@@ -951,9 +953,29 @@ export function ListingEditorPage() {
         // Matterport-Autofill ist optional; Bestellungswahl soll trotzdem funktionieren.
       }
 
-      setAssignmentAutofillMsg("Kunde, Kontakt und Adresse aus Bestellung übernommen.");
+      const autofillParts = ["Kunde", "Kontakt", "Adresse"];
+      if (id) {
+        try {
+          const context = await getGalleryNasContext(id, order.order_no);
+          setNasHealth(context.storageHealth);
+          setNasSuggestions(context.suggestions);
+          const customerSuggestion = context.suggestions.find((s) => s.folderType === "customer_folder");
+          if (customerSuggestion) {
+            autofillParts.push("Kundenordner");
+            const shareUrl = (customerSuggestion.nextcloudShareUrl || "").trim();
+            if (shareUrl) {
+              setCloudInput(shareUrl);
+              autofillParts.push("Freigabe-Link");
+            }
+          }
+        } catch {
+          // Ordner-/Share-Autofill ist optional.
+        }
+      }
+
+      setAssignmentAutofillMsg(`${autofillParts.join(", ")} aus Bestellung übernommen.`);
     },
-    [],
+    [id],
   );
 
   useEffect(() => {
@@ -1457,6 +1479,7 @@ export function ListingEditorPage() {
               <EditorDraftField
                 syncKey={g.updated_at}
                 serverValue={g.cloud_share_url ?? ""}
+                valueOverride={cloudInput}
                 draftRef={cloudDraftRef}
                 inputId="gal-edit-cloud"
                 type="url"

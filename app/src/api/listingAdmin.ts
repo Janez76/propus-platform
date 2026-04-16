@@ -106,7 +106,8 @@ export function importImagesFromShare(galleryId: string, urls: Array<{ url: stri
   });
 }
 
-export function getGalleryNasContext(galleryId: string) {
+export function getGalleryNasContext(galleryId: string, orderNoOverride?: number | null) {
+  const qs = orderNoOverride != null ? `?orderNo=${encodeURIComponent(String(orderNoOverride))}` : "";
   return galleryFetch<{
     ok: boolean;
     storageHealth: Array<{ key: string; path: string; ok: boolean; mounted: boolean | null; error?: string }>;
@@ -119,13 +120,14 @@ export function getGalleryNasContext(galleryId: string) {
       status: string;
       exists: boolean;
       mediaSummary: { images: number; floorPlans: number; hasVideo: boolean };
+      nextcloudShareUrl: string | null;
     }>;
     currentSource: {
       storage_source_type: "share_link" | "order_folder" | "nas_browser" | null;
       storage_root_kind: "customer" | "raw" | null;
       storage_relative_path: string | null;
     };
-  }>(`/${galleryId}/nas-context`);
+  }>(`/${galleryId}/nas-context${qs}`);
 }
 
 export function browseGalleryNas(

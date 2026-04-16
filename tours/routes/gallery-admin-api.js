@@ -41,9 +41,19 @@ router.get('/email-templates', async (_req, res) => {
 });
 
 // GET /:id/nas-context — Storage-Health + Bestellordner-Vorschläge
+// Optional `?orderNo=<n>` Query liefert die Vorschläge für eine andere (noch nicht verknüpfte) Bestellung.
 router.get('/:id/nas-context', async (req, res) => {
   try {
-    const context = await gallery.getGalleryNasContext(req.params.id);
+    const rawOrderNo = req.query.orderNo;
+    let orderNoOverride = null;
+    if (rawOrderNo != null && String(rawOrderNo).trim() !== '') {
+      const parsed = Number(rawOrderNo);
+      if (!Number.isFinite(parsed) || parsed < 1) {
+        return res.status(400).json({ ok: false, error: 'Ungültige Bestellnummer' });
+      }
+      orderNoOverride = parsed;
+    }
+    const context = await gallery.getGalleryNasContext(req.params.id, { orderNoOverride });
     res.json({ ok: true, ...context });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
