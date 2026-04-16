@@ -44,6 +44,7 @@ services:
       dockerfile: platform/Dockerfile
       args:
         PLATFORM_INTERNAL_URL: http://127.0.0.1:3100
+        NEXT_PUBLIC_PICDROP_URL: https://admin-booking.propus.ch/selekto/bilder-auswahl
     # .env.vps wird bei CI-Deploy überschrieben; .env.vps.secrets nur auf dem VPS,
     # niemals aus dem Archiv — letztere überschreibt gleiche Keys (z. B. Payrexx).
     env_file:
