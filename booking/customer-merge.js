@@ -50,21 +50,6 @@ async function mergeCustomerRecords(client, keepId, mergeId) {
   await client.query(`UPDATE orders SET customer_id = $1 WHERE customer_id = $2`, [keepId, mergeId]);
   await client.query(`UPDATE customer_contacts SET customer_id = $1 WHERE customer_id = $2`, [keepId, mergeId]);
 
-  await client.query(`UPDATE companies SET billing_customer_id = $1 WHERE billing_customer_id = $2`, [keepId, mergeId]);
-
-  await client.query(
-    `DELETE FROM company_members cm
-     USING company_members ck
-     WHERE cm.customer_id = $2
-       AND ck.customer_id = $1
-       AND ck.company_id = cm.company_id`,
-    [keepId, mergeId],
-  );
-  await client.query(`UPDATE company_members SET customer_id = $1, updated_at = NOW() WHERE customer_id = $2`, [
-    keepId,
-    mergeId,
-  ]);
-
   await client.query(
     `UPDATE permission_groups SET scope_customer_id = $1, updated_at = NOW() WHERE scope_customer_id = $2`,
     [keepId, mergeId],

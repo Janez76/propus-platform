@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import type { Role } from "../types";
-import { isKundenRole } from "../lib/permissions";
 
 type UiMode = "modern";
 
@@ -8,8 +7,7 @@ export const TOKEN_STORAGE_KEY = "admin_token_v2";
 const ROLE_STORAGE_KEY = "admin_role_v1";
 const PERMS_STORAGE_KEY = "admin_permissions_v1";
 
-/** Vorbereitung zentrales Kunden-Panel: interne Admins vs. Kunden (Logto/Portal). */
-export type UserPanelKind = "admin_intern" | "admin_kunde" | null;
+export type UserPanelKind = "admin_intern" | null;
 
 type AuthState = {
   token: string;
@@ -88,18 +86,11 @@ function writeStoredPermissions(perms: string[]) {
 
 export function normalizeStoredRole(input: string): Role {
   const role = String(input || "").trim();
-  // Legacy-Koercierungen: alte Rollennamen auf kanonische Werte abbilden
-  if (role === "customer") return "customer_user";
-  if (role === "company_admin") return "company_employee";
   const allowed: Role[] = [
     "admin",
     "photographer",
     "super_admin",
     "tour_manager",
-    "company_owner",
-    "company_employee",
-    "customer_admin",
-    "customer_user",
   ];
   return allowed.includes(role as Role) ? (role as Role) : "admin";
 }
@@ -120,12 +111,12 @@ export const useAuthStore = create<AuthState>((set) => ({
   language: initialLang,
   uiMode: initialUiMode,
   isSso: false,
-  userPanelKind: bootToken ? (isKundenRole(bootRole) ? "admin_kunde" : "admin_intern") : null,
+  userPanelKind: bootToken ? "admin_intern" : null,
   setUserPanelKind: (userPanelKind) => set({ userPanelKind }),
   setAuth: (token, role, remember = false, permissions) => {
     safeSet(TOKEN_STORAGE_KEY, token, remember);
     safeSet(ROLE_STORAGE_KEY, role, remember);
-    const userPanelKind: UserPanelKind = isKundenRole(role) ? "admin_kunde" : "admin_intern";
+    const userPanelKind: UserPanelKind = "admin_intern";
     if (permissions !== undefined) {
       writeStoredPermissions(permissions);
       set({ token, role, permissions, userPanelKind });

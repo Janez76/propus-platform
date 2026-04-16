@@ -725,43 +725,6 @@ export function deleteToursAdminCustomerContact(customerId: string, contactId: s
   return toursAdminDelete<Record<string, unknown>>(`/customers/${customerId}/contacts/${contactId}`);
 }
 
-export function postToursAdminContactPortalRole(
-  customerId: string,
-  contactId: string | number,
-  body: { portal_role: string },
-) {
-  return toursAdminPost(`/customers/${customerId}/contacts/${contactId}/portal-role`, body as Record<string, unknown>);
-}
-
-export function getToursAdminPortalRoles(tab?: string) {
-  const qs = tab ? `?tab=${encodeURIComponent(tab)}` : "";
-  return toursAdminFetch<Record<string, unknown>>(`/portal-roles${qs}`);
-}
-
-export function getToursAdminPortalExternContacts(ownerEmail?: string, customerId?: string | number) {
-  const p = new URLSearchParams();
-  if (ownerEmail) p.set("owner_email", ownerEmail);
-  if (customerId != null && customerId !== "") p.set("customer_id", String(customerId));
-  const qs = p.toString();
-  return toursAdminFetch<Record<string, unknown>>(`/portal-roles/extern-contacts${qs ? `?${qs}` : ""}`);
-}
-
-export function postPortalStaffAdd(email: string) {
-  return toursAdminPost("/portal-roles/staff/add", { email });
-}
-
-export function postPortalStaffRemove(email: string) {
-  return toursAdminPost("/portal-roles/staff/remove", { email });
-}
-
-export function postPortalExternSet(ownerEmail: string, memberEmail: string) {
-  return toursAdminPost("/portal-roles/extern/set", { owner_email: ownerEmail, member_email: memberEmail });
-}
-
-export function postPortalExternRemove(ownerEmail: string, memberEmail: string) {
-  return toursAdminPost("/portal-roles/extern/remove", { owner_email: ownerEmail, member_email: memberEmail });
-}
-
 export function getToursAdminTourSettings() {
   return toursAdminFetch<Record<string, unknown>>("/tour-settings");
 }

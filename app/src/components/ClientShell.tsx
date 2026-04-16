@@ -11,15 +11,13 @@
  * The shell is mounted at the (admin), (portal) and other layout pages.
  */
 
-import { BrowserRouter, Routes, Route, Navigate, useParams, useSearchParams } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
 import { Suspense, lazy } from "react";
 import { CustomerMagicSessionRedirect } from "./auth/CustomerMagicSessionRedirect";
 import { OfflineIndicator } from "./layout/OfflineIndicator";
 import { AppShell } from "./layout/AppShell";
 import { useAuth } from "../hooks/useAuth";
-import { isCompanyWorkspaceRole } from "../lib/companyRoles";
 import { isPublicBookingHost } from "../lib/publicBookingHost";
-import { isKundenRole } from "../lib/permissions";
 import type { ReactElement } from "react";
 import type { Role } from "../types";
 
@@ -51,11 +49,7 @@ const ClientSelektoPage = lazy(() => import("../pages-legacy/selekto/ClientSelek
 const PaymentSettingsPage = lazy(() => import("../pages-legacy/PaymentSettingsPage").then((m) => ({ default: m.PaymentSettingsPage })));
 const InvoiceTemplatePage = lazy(() => import("../pages-legacy/InvoiceTemplatePage").then((m) => ({ default: m.InvoiceTemplatePage })));
 const RoleMatrixPage = lazy(() => import("../pages-legacy/RoleMatrixPage").then((m) => ({ default: m.RoleMatrixPage })));
-const PortalFirmaPage = lazy(() => import("../pages-legacy/PortalFirmaPage").then((m) => ({ default: m.PortalFirmaPage })));
-const PortalBestellungenPage = lazy(() => import("../pages-legacy/PortalBestellungenPage").then((m) => ({ default: m.PortalBestellungenPage })));
 const BookingWizardPage = lazy(() => import("../pages-legacy/BookingWizardPage").then((m) => ({ default: m.BookingWizardPage })));
-const AccountDashboardPage = lazy(() => import("../pages-legacy/AccountDashboardPage").then((m) => ({ default: m.AccountDashboardPage })));
-const CompanyDashboardPage = lazy(() => import("../pages-legacy/CompanyDashboardPage").then((m) => ({ default: m.CompanyDashboardPage })));
 
 // Admin central pages
 const AdminInvoicesPage = lazy(() => import("../pages-legacy/admin/invoices/AdminInvoicesPage").then((m) => ({ default: m.AdminInvoicesPage })));
@@ -73,7 +67,6 @@ const ToursAdminBankImportPage = lazy(() => import("../pages-legacy/tours/admin/
 const ToursAdminLinkMatterportPage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminLinkMatterportPage").then((m) => ({ default: m.ToursAdminLinkMatterportPage })));
 const ToursAdminLinkInvoicePage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminLinkInvoicePage").then((m) => ({ default: m.ToursAdminLinkInvoicePage })));
 const ToursAdminLinkExxasCustomerPage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminLinkExxasCustomerPage").then((m) => ({ default: m.ToursAdminLinkExxasCustomerPage })));
-const ToursAdminPortalRolesPage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminPortalRolesPage").then((m) => ({ default: m.ToursAdminPortalRolesPage })));
 const ToursAdminTourSettingsPage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminTourSettingsPage").then((m) => ({ default: m.ToursAdminTourSettingsPage })));
 const ToursAdminWorkflowSettingsPage = lazy(() =>
   import("../pages-legacy/tours/admin/ToursAdminWorkflowSettingsPage").then((m) => ({ default: m.ToursAdminWorkflowSettingsPage })),
@@ -90,16 +83,6 @@ const ListingEditorPage = lazy(() => import("../pages-legacy/admin/listing/Listi
 const ListingEmailTemplatesPage = lazy(() => import("../pages-legacy/admin/listing/ListingEmailTemplatesPage").then((m) => ({ default: m.ListingEmailTemplatesPage })));
 const ClientListingPage = lazy(() => import("../pages-legacy/listing/ClientListingPage").then((m) => ({ default: m.ClientListingPage })));
 const CleanupDashboardPage = lazy(() => import("../pages-legacy/customer/CleanupDashboardPage").then((m) => ({ default: m.CleanupDashboardPage })));
-
-// Portal pages
-const PortalForgotPasswordPage = lazy(() => import("../pages-legacy/portal/PortalForgotPasswordPage").then((m) => ({ default: m.PortalForgotPasswordPage })));
-const PortalResetPasswordPage = lazy(() => import("../pages-legacy/portal/PortalResetPasswordPage").then((m) => ({ default: m.PortalResetPasswordPage })));
-const PortalTourDetailPage = lazy(() => import("../pages-legacy/portal/PortalTourDetailPage").then((m) => ({ default: m.PortalTourDetailPage })));
-const PortalInvoicePrintPage = lazy(() => import("../pages-legacy/portal/PortalInvoicePrintPage").then((m) => ({ default: m.PortalInvoicePrintPage })));
-const PortalDashboardPage = lazy(() => import("../pages-legacy/portal/PortalDashboardPage").then((m) => ({ default: m.PortalDashboardPage })));
-const PortalToursPage = lazy(() => import("../pages-legacy/portal/PortalToursPage").then((m) => ({ default: m.PortalToursPage })));
-const PortalInvoicesPage = lazy(() => import("../pages-legacy/portal/PortalInvoicesPage").then((m) => ({ default: m.PortalInvoicesPage })));
-const PortalTeamPage = lazy(() => import("../pages-legacy/portal/PortalTeamPage").then((m) => ({ default: m.PortalTeamPage })));
 
 function PageSkeleton() {
   return (
@@ -127,59 +110,24 @@ function LegacySelektoClientRedirect() {
   return <Navigate to={`/selekto/${slug ?? ""}`} replace />;
 }
 
-/**
- * Leitet /portal/login auf /login weiter und behält Query-Parameter (z.B. ?success=password_reset) bei.
- * Alt-Kompatibilität: PortalForgotPasswordPage / PortalResetPasswordPage navigieren noch auf /portal/login.
- */
-function PortalLoginRedirect() {
-  const [searchParams] = useSearchParams();
-  const qs = searchParams.toString();
-  return <Navigate to={qs ? `/login?${qs}` : "/login"} replace />;
-}
-
 function PrivateRoutes() {
   const { isLoggedIn, role } = useAuth();
-  const isCompanyRole = isCompanyWorkspaceRole(role);
-  const isKunden = isKundenRole(role);
   const adminOnlyRoles: Role[] = ["admin", "super_admin"];
   const toursAdminRoles: Role[] = ["admin", "super_admin", "tour_manager"];
-  const companyHome = role === "company_employee" ? "/portal/bestellungen" : "/portal/firma";
 
   if (!isLoggedIn) return <Navigate to="/login" replace />;
 
   function guardedElement(allowed: Role[], element: ReactElement) {
     if (!allowed.includes(role)) {
-      if (isKunden) return <Navigate to="/portal/dashboard" replace />;
-      return <Navigate to={isCompanyRole ? companyHome : "/dashboard"} replace />;
+      return <Navigate to="/dashboard" replace />;
     }
     return element;
-  }
-
-  if (isKunden && !isCompanyRole) {
-    return (
-      <AppShell>
-        <Routes>
-          <Route path="/" element={<Navigate to="/portal/dashboard" replace />} />
-          <Route path="/account" element={<AccountDashboardPage />} />
-          <Route path="/portal/dashboard" element={<PortalDashboardPage />} />
-          <Route path="/portal/tours/:tourId/invoices/:invoiceId/print" element={<PortalInvoicePrintPage />} />
-          <Route path="/portal/tours/:tourId" element={<PortalTourDetailPage />} />
-          <Route path="/portal/tours" element={<PortalToursPage />} />
-          <Route path="/portal/invoices" element={<PortalInvoicesPage />} />
-          {role === "customer_admin" && (
-            <Route path="/portal/team" element={<PortalTeamPage />} />
-          )}
-          <Route path="*" element={<Navigate to="/portal/dashboard" replace />} />
-        </Routes>
-      </AppShell>
-    );
   }
 
   // Embed-Modus: kein AppShell (Header/Sidebar/Footer), nur Content
   const embedPaths = [
     "/embed/tours/link-matterport",
     "/embed/tours/",
-    "/embed/portal",
   ];
   const currentPath = window.location.pathname;
   if (embedPaths.some((p) => currentPath.startsWith(p))) {
@@ -193,13 +141,6 @@ function PrivateRoutes() {
               path="/embed/tours/:id/link-exxas-customer"
               element={guardedElement(toursAdminRoles, <ToursAdminLinkExxasCustomerPage />)}
             />
-            <Route path="/embed/portal/dashboard" element={<PortalDashboardPage />} />
-            <Route path="/embed/portal/tours/:tourId/invoices/:invoiceId/print" element={<PortalInvoicePrintPage />} />
-            <Route path="/embed/portal/tours/:tourId" element={<PortalTourDetailPage />} />
-            <Route path="/embed/portal/tours" element={<PortalToursPage />} />
-            <Route path="/embed/portal/invoices" element={<PortalInvoicesPage />} />
-            <Route path="/embed/portal/team" element={<PortalTeamPage />} />
-            <Route path="/embed/portal" element={<Navigate to="/embed/portal/dashboard" replace />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </Suspense>
@@ -210,22 +151,9 @@ function PrivateRoutes() {
   return (
     <AppShell>
       <Routes>
-        <Route path="/" element={<Navigate to={isCompanyRole ? companyHome : "/dashboard"} replace />} />
-        <Route path="/portal/dashboard" element={<PortalDashboardPage />} />
-        <Route path="/portal/tours/:tourId/invoices/:invoiceId/print" element={<PortalInvoicePrintPage />} />
-        <Route path="/portal/tours/:tourId" element={<PortalTourDetailPage />} />
-        <Route path="/portal/tours" element={<PortalToursPage />} />
-        <Route path="/portal/invoices" element={<PortalInvoicesPage />} />
-        <Route path="/portal/team" element={<PortalTeamPage />} />
-        <Route path="/portal/firma" element={guardedElement(["company_owner"], <PortalFirmaPage />)} />
-        <Route path="/portal/bestellungen" element={guardedElement(["company_employee"], <PortalBestellungenPage />)} />
-        <Route path="/settings/users" element={<Navigate to="/customers?tab=portal-firms" replace />} />
-        <Route path="/settings/companies" element={<Navigate to="/customers" replace />} />
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/settings/roles" element={guardedElement(toursAdminRoles, <RoleMatrixPage />)} />
-        <Route path="/admin/users" element={<Navigate to="/customers?tab=portal-firms" replace />} />
         <Route path="/admin/roles" element={<Navigate to="/settings/roles" replace />} />
-        <Route path="/company" element={<Navigate to={companyHome} replace />} />
-        <Route path="/company/dashboard" element={guardedElement(["company_owner", "company_employee"], <CompanyDashboardPage />)} />
         <Route path="/dashboard" element={guardedElement(adminOnlyRoles, <DashboardPage />)} />
         <Route path="/orders" element={guardedElement([...adminOnlyRoles, "photographer"], <OrdersPage />)} />
         <Route path="/upload" element={guardedElement([...adminOnlyRoles, "photographer"], <UploadsPage />)} />
@@ -311,9 +239,6 @@ export default function ClientShell() {
           <Route path="/book" element={<BookingWizardPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/accept-invite" element={<AcceptInvitePage />} />
-          <Route path="/portal/login" element={<PortalLoginRedirect />} />
-          <Route path="/portal/forgot-password" element={<PortalForgotPasswordPage />} />
-          <Route path="/portal/reset-password" element={<PortalResetPasswordPage />} />
           <Route path="/confirm/:token" element={<ConfirmBookingPage />} />
           <Route path="/print/orders/:orderNo" element={<PrintOrderPage />} />
           <Route path="/print/order/:orderNo" element={<PrintOrderPage />} />

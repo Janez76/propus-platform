@@ -65,16 +65,6 @@ async function seed() {
   }
   console.log('[seed] Kontaktpersonen eingefügt');
 
-  // ─── Core: Company ────────────────────────────────────────────
-  const musterCustId = custMap['max.muster@example.com'] || null;
-  await pool.query(
-    `INSERT INTO core.companies (name, slug, billing_customer_id, standort)
-     VALUES ('Muster AG', 'muster-ag', $1, 'Zürich')
-     ON CONFLICT (slug) DO NOTHING`,
-    [musterCustId]
-  );
-  console.log('[seed] Companies eingefügt');
-
   // ─── Booking: Fotografen ──────────────────────────────────────
   const photographers = [
     { key: 'janez', name: 'Janez Svajcer', email: 'janez@propus.ch', phone: '+41 79 111 22 33', initials: 'JS' },

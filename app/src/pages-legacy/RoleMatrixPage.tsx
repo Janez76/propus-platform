@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, Info, Lock, Plus, RotateCcw, Save, Shield, Trash2, Users, Building2, Camera } from "lucide-react";
+import { Check, Info, Lock, Plus, RotateCcw, Save, Shield, Trash2, Users, Camera } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useAuthStore } from "../store/authStore";
 import { getRolePresets, createRolePreset, deleteRolePreset, patchRolePreset } from "../api/access";
@@ -14,7 +14,7 @@ interface RoleDef {
   key: RoleKey;
   label: string;
   description: string;
-  group: "intern" | "fotograf" | "portal" | "custom";
+  group: "intern" | "fotograf" | "custom";
   color: string;        // Tailwind / CSS-Variable Token
   headerBg: string;
   fixed?: boolean;      // true = immer alle Rechte, Checkboxen gesperrt
@@ -66,47 +66,6 @@ const ROLES: RoleDef[] = [
     color: "text-violet-400",
     headerBg: "bg-violet-500/10 border-violet-500/20",
   },
-  // ─ Kunden-Portal ───────────────────────────────────────────────────────────
-  {
-    key: "company_owner",
-    label: "Firmen-Hauptkontakt",
-    description: "Vollzugriff auf den Firmen-Workspace, inklusive Mitglieder einladen/entfernen.",
-    group: "portal",
-    color: "text-emerald-400",
-    headerBg: "bg-emerald-500/10 border-emerald-500/20",
-  },
-  {
-    key: "company_admin",
-    label: "Firmen-Admin",
-    description: "[Deprecated] Wird nicht mehr vergeben — bestehende Einträge gelten als Mitarbeiter.",
-    group: "portal",
-    color: "text-emerald-300",
-    headerBg: "bg-emerald-400/10 border-emerald-400/20",
-  },
-  {
-    key: "company_employee",
-    label: "Firmen-Mitarbeiter",
-    description: "Kann eigene Bestellungen lesen und erstellen, Kalender einsehen.",
-    group: "portal",
-    color: "text-teal-400",
-    headerBg: "bg-teal-500/10 border-teal-500/20",
-  },
-  {
-    key: "customer_admin",
-    label: "Kunden-Admin",
-    description: "Kunden-Portal erweitert: Bestellungen erstellen, Kontaktpersonen verwalten.",
-    group: "portal",
-    color: "text-blue-400",
-    headerBg: "bg-blue-500/10 border-blue-500/20",
-  },
-  {
-    key: "customer_user",
-    label: "Kunden-Benutzer",
-    description: "Minimaler Zugriff: Nur eigene Bestellungen lesen.",
-    group: "portal",
-    color: "text-blue-300",
-    headerBg: "bg-blue-400/10 border-blue-400/20",
-  },
 ];
 
 // ─── Berechtigungs-Definitionen ───────────────────────────────────────────────
@@ -121,9 +80,6 @@ const PERMISSIONS: PermDef[] = [
   { key: "tours.cross_company",      label: "Touren (firmenübergreifend)",       section: "Touren",                 description: "Touren über Firmengrenzen hinweg einsehen und verwalten." },
   { key: "tours.archive",            label: "Touren archivieren",                section: "Touren",                 description: "Abgeschlossene Touren archivieren." },
   { key: "tours.link_matterport",    label: "Matterport verknüpfen",             section: "Touren",                 description: "Matterport-Spaces mit Touren verknüpfen und Space-IDs setzen." },
-  // Kunden-Portal
-  { key: "portal_team.manage",       label: "Portal-Team verwalten",             section: "Kunden-Portal",          description: "Team-Mitglieder im Kunden-Portal-Workspace hinzufügen/entfernen." },
-  { key: "portal_invoices.read",     label: "Portal-Rechnungen einsehen",        section: "Kunden-Portal",          description: "Rechnungen im Kunden-Portal (/portal/invoices) einsehen." },
   // Aufträge
   { key: "orders.read",              label: "Aufträge ansehen",                  section: "Aufträge",               description: "Bestellungen und Aufträge einsehen." },
   { key: "orders.create",            label: "Auftrag erstellen",                 section: "Aufträge",               description: "Neue Bestellungen anlegen." },
@@ -136,9 +92,6 @@ const PERMISSIONS: PermDef[] = [
   { key: "customers.manage",         label: "Kunden verwalten",                  section: "Kunden & Kontakte",      description: "Kunden anlegen, bearbeiten, sperren/entsperren." },
   { key: "contacts.read",            label: "Kontakte ansehen",                  section: "Kunden & Kontakte",      description: "Kontaktpersonen eines Kunden einsehen." },
   { key: "contacts.manage",          label: "Kontakte verwalten",                section: "Kunden & Kontakte",      description: "Kontaktpersonen anlegen, bearbeiten und löschen." },
-  // Firmen & Team
-  { key: "company.manage",           label: "Firma verwalten",                   section: "Firmen & Team",          description: "Firmendaten im Kunden-Portal-Workspace bearbeiten." },
-  { key: "team.manage",              label: "Team verwalten",                    section: "Firmen & Team",          description: "Firmen-Mitglieder einladen und verwalten." },
   // Fotografen
   { key: "photographers.read",       label: "Fotografen ansehen",                section: "Fotografen",             description: "Fotografenprofile und Verfügbarkeiten einsehen." },
   { key: "photographers.manage",     label: "Fotografen verwalten",              section: "Fotografen",             description: "Fotografen anlegen, bearbeiten, Verfügbarkeiten setzen." },
@@ -178,40 +131,17 @@ const ROLE_PRESETS: Record<RoleKey, Set<PermKey>> = {
   // Touren-Manager: Touren + Finanzen + Tickets + Listing (gleiche Zielgruppe, siehe Migration 080)
   tour_manager:     new Set([
     "tours.read", "tours.manage", "tours.assign", "tours.cross_company",
-    "tours.archive", "tours.link_matterport", "portal_team.manage",
+    "tours.archive", "tours.link_matterport",
     "dashboard.view",
     "finance.read", "finance.manage",
     "tickets.read", "tickets.manage",
     "listing.manage",
-    "portal_invoices.read",
   ]),
   photographer: new Set([
     "dashboard.view", "orders.read", "orders.update", "orders.assign",
     "calendar.view", "photographers.read",
     "picdrop.manage",
   ]),
-  company_owner: new Set([
-    "customers.read", "orders.read", "orders.update", "orders.create",
-    "company.manage", "team.manage", "calendar.view",
-    "tours.read", "portal_invoices.read",
-  ]),
-  company_admin: new Set([
-    "customers.read", "orders.read", "orders.update", "orders.create",
-    "company.manage", "team.manage", "calendar.view",
-    "tours.read", "portal_invoices.read",
-  ]),
-  company_employee: new Set([
-    "customers.read", "orders.read", "orders.create",
-    "calendar.view", "calendar.manage",
-    "tours.read", "portal_invoices.read",
-  ]),
-  customer_admin: new Set([
-    "customers.read", "contacts.read", "contacts.manage",
-    "orders.read", "orders.update", "orders.create",
-    "tours.read", "tours.manage", "portal_team.manage",
-    "portal_invoices.read",
-  ]),
-  customer_user: new Set(["orders.read", "tours.read", "portal_invoices.read"]),
 };
 
 // ─── Hilfsfunktionen ──────────────────────────────────────────────────────────
@@ -230,7 +160,6 @@ function getSections(): string[] {
 const GROUP_META = {
   intern:   { label: "Intern",        Icon: Shield,    border: "border-amber-500/30",  bg: "bg-amber-500/5"  },
   fotograf: { label: "Fotograf",      Icon: Camera,    border: "border-violet-500/30", bg: "bg-violet-500/5" },
-  portal:   { label: "Kunden-Portal", Icon: Building2, border: "border-emerald-500/30", bg: "bg-emerald-500/5" },
   custom:   { label: "Eigene Rollen", Icon: Plus,      border: "border-slate-500/30",  bg: "bg-slate-500/5"  },
 };
 
@@ -319,7 +248,7 @@ export function RoleMatrixPage() {
 
   const [hoveredPerm, setHoveredPerm] = useState<string | null>(null);
   const [hoveredRole, setHoveredRole] = useState<RoleKey | null>(null);
-  const [filterGroup, setFilterGroup] = useState<"all" | "intern" | "fotograf" | "portal" | "custom">("all");
+  const [filterGroup, setFilterGroup] = useState<"all" | "intern" | "fotograf" | "custom">("all");
 
   // ─── Custom Rollen (aus DB) ──────────────────────────────────────────────────
   const [customRoles, setCustomRoles] = useState<RoleDef[]>([]);
@@ -472,7 +401,7 @@ export function RoleMatrixPage() {
             <div>
               <h1 className="text-2xl font-semibold text-[var(--text-main)]">Rollen & Berechtigungen</h1>
               <p className="mt-1 text-sm text-[var(--text-subtle)]">
-                Systemrollen, Zugriffsrechte und Portal-Zugang verwalten.
+                Systemrollen und Zugriffsrechte verwalten.
               </p>
             </div>
             {isSuperAdmin && (
@@ -491,7 +420,7 @@ export function RoleMatrixPage() {
           {/* Gruppen-Filter + Neue Rolle Button */}
           <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-wrap gap-2">
-              {(["all", "intern", "fotograf", "portal", "custom"] as const).map((g) => (
+              {(["all", "intern", "fotograf", "custom"] as const).map((g) => (
                 <button
                   key={g}
                   type="button"
@@ -506,7 +435,6 @@ export function RoleMatrixPage() {
                   {g === "all" && <><Users className="h-3.5 w-3.5" /> Alle Rollen ({allRoles.length})</>}
                   {g === "intern" && <><Shield className="h-3.5 w-3.5" /> Intern</>}
                   {g === "fotograf" && <><Camera className="h-3.5 w-3.5" /> Fotografen</>}
-                  {g === "portal" && <><Building2 className="h-3.5 w-3.5" /> Kunden-Portal</>}
                   {g === "custom" && <><Plus className="h-3.5 w-3.5" /> Eigene{customRoles.length > 0 ? ` (${customRoles.length})` : ""}</>}
                 </button>
               ))}
@@ -606,7 +534,7 @@ export function RoleMatrixPage() {
                 <th className="sticky left-0 z-10 bg-[var(--surface-raised)] px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-widest text-[var(--text-subtle)]">
                   Berechtigung
                 </th>
-                {(["intern", "fotograf", "portal", "custom"] as const)
+                {(["intern", "fotograf", "custom"] as const)
                   .filter((g) => filterGroup === "all" || filterGroup === g)
                   .map((g) => {
                     const rolesInGroup = visibleRoles.filter((r) => r.group === g);
@@ -621,7 +549,6 @@ export function RoleMatrixPage() {
                         <span className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5", border, {
                           "text-amber-400": g === "intern",
                           "text-violet-400": g === "fotograf",
-                          "text-emerald-400": g === "portal",
                           "text-slate-400": g === "custom",
                         })}>
                           <Icon className="h-3 w-3" />

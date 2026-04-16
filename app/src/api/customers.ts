@@ -35,28 +35,15 @@ export type Customer = {
   nas_customer_folder_base?: string | null;
   /** Relativ zu Rohmaterial-NAS-Root */
   nas_raw_folder_base?: string | null;
-  /** Frühere/alternative E-Mail-Domains (z.B. nach Firmenzusammenführung). Touren, Bestellungen und Portal-Login
-   *  funktionieren unter diesen Adressen genauso wie unter der primären E-Mail. */
+  /** Frühere/alternative E-Mail-Domains (z.B. nach Firmenzusammenführung). */
   email_aliases?: string[];
 };
-
-export type PortalRole = "company_owner" | "company_admin" | "company_employee" | "customer_admin" | "customer_user";
-
-export const PORTAL_ROLE_OPTIONS: { value: PortalRole; label: string; description: string }[] = [
-  { value: "company_owner",    label: "Firmen-Hauptkontakt", description: "Vollzugriff auf die Firma inkl. Mitglieder einladen/entfernen" },
-  { value: "company_admin",    label: "Firmen-Admin",        description: "Firma und Mitglieder verwalten, Bestellungen erstellen/aktualisieren" },
-  { value: "company_employee", label: "Firmen-Mitarbeiter",  description: "Eigene Bestellungen lesen und erstellen, Kalender" },
-  { value: "customer_admin",   label: "Kunden-Admin",        description: "Bestellungen erstellen, Kontakte verwalten (ohne Firmenzugehörigkeit)" },
-  { value: "customer_user",    label: "Kunden-Benutzer",     description: "Nur eigene Bestellungen lesen (minimaler Zugriff)" },
-];
 
 export type CustomerContact = {
   id: number;
   customer_id: number;
   name: string;
   role: string;
-  portal_role?: PortalRole;
-  member_status?: "invited" | "active" | "disabled" | null;
   phone: string;
   email: string;
   sort_order?: number;
@@ -78,8 +65,6 @@ export type Contact = {
   customer_company?: string;
   name: string;
   role: string;
-  portal_role?: PortalRole;
-  member_status?: "invited" | "active" | "disabled" | null;
   phone: string;
   email: string;
   sort_order?: number;
@@ -96,7 +81,6 @@ export type Contact = {
 export type CustomerContactPayload = {
   name?: string;
   role?: string;
-  portal_role?: PortalRole;
   phone?: string;
   email?: string;
   sort_order?: number;
@@ -259,10 +243,3 @@ export const deleteCustomer = (token: string, id: number, force = false) =>
 
 export const mergeCustomers = (token: string, keepId: number, mergeId: number) =>
   apiRequest<{ ok: true; keepId: number }>("/api/admin/customers/merge", "POST", token, { keepId, mergeId });
-
-export const inviteContact = (token: string, customerId: number, contactId: number) =>
-  apiRequest<{ ok: true; invitation: Record<string, unknown> }>(
-    `/api/admin/customers/${customerId}/contacts/${contactId}/invite`,
-    "POST",
-    token,
-  );
