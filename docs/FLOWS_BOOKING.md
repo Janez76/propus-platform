@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei jeder Änderung an Buchungslogik, Status-Übergängen, Kalender-Sync oder Provisional-Flow dieses Dokument aktualisieren. Cursor-Regel `.cursor/rules/data-fields.mdc` erinnert daran.
 
-*Zuletzt aktualisiert: April 2026*
+*Zuletzt aktualisiert: April 2026 (§15 Kunden-Profil-Vorausfüllung via /auth/profile)*
 
 ---
 
@@ -21,6 +21,8 @@
 11. [Fotograf-Vergabe (resolveAnyPhotographer)](#11-fotograf-vergabe)
 12. [Slot-Generierung (fahrzeit-bewusst)](#12-slot-generierung)
 13. [Routing-Service](#13-routing-service)
+14. [Magic-Link in Buchungs-Mail](#14-magic-link-in-buchungs-mail)
+15. [Kunden-Profil-Vorausfüllung (StepBilling)](#15-kunden-profil-vorausfüllung-stepbilling)
 
 ---
 
@@ -631,3 +633,57 @@ buffer = Math.max(
 | `routing.cacheHours` | `6` | Cache-TTL |
 | `routing.timeoutMs` | `2000` | Fallback-Trigger pro Stufe |
 | `scheduling.minBufferMinutes` | `30` | Mindestpuffer zwischen Einsätzen |
+
+---
+
+## 14. Magic-Link in Buchungs-Mail
+
+Nach erfolgreichem Buchungsabschluss (`POST /api/booking`) wird ein persönlicher Magic-Link generiert und in die Bestätigungs-E-Mail eingebettet.
+
+**Funktion:** `createCustomerPortalMagicLink(billing)` in `booking/server.js`
+
+```
+Buchungsabschluss
+  │
+  ├── Kunde in core.customers suchen / anlegen
+  ├── Firma sicherstellen (ensureCompanyByName)
+  ├── company_member erstellen + Logto-Org-Sync
+  ├── Token (random hex) → INSERT booking.customer_sessions
+  └── Link: /auth/customer/magic?magic=<token>&returnTo=<path>
+```
+
+**Endpunkt:** `GET /auth/customer/magic` setzt Cookie `customer_session` und leitet weiter.
+
+Vollständige Dokumentation: [docs/FLOWS_AUTH.md §5](./FLOWS_AUTH.md#5-magic-link-flow-buchungs-mail)
+
+---
+
+## 15. Kunden-Profil-Vorausfüllung (StepBilling)
+
+Angemeldete Portal-Kunden sehen im Buchungs-Wizard (Schritt 4 — Rechnungsadresse) ihre gespeicherten Profil-Daten automatisch vorausgefüllt.
+
+**Dateien:**
+- `app/src/hooks/useCustomerProfile.ts` — Hook, ruft `/api/auth/profile` auf
+- `app/src/api/customer.ts` — `getCustomerProfile()` Fetch-Funktion
+- `app/src/pages-legacy/booking/StepBilling.tsx` — `useEffect` zum Vorausfüllen
+
+**Ablauf:**
+
+```
+StepBilling mountet
+  │
+  ├── useCustomerProfile() → GET /api/auth/profile  (nur wenn isKundenRole)
+  │     → { email, name, company, phone, street, zipcity }
+  │
+  └── useEffect([profile]):
+        Felder nur setzen wenn noch leer (kein Überschreiben bereits eingetippter Werte)
+        zipcity-Parsing: /^(?:CH-?)?(\d{4})\s+(.+)$/i
+          → billing.zip  = match[1]   z.B. "8001"
+          → billing.city = match[2]   z.B. "Zürich"
+```
+
+**Login-Hinweis-Banner:** Nicht angemeldete Benutzer sehen einen Hinweis mit Link zur Login-Seite (`/login?returnTo=<aktuelle-URL>`).
+
+**Profil-Vorausfüll-Banner:** Angemeldete Kunden sehen eine Bestätigung, dass Profil-Daten verwendet wurden (`booking.step4.profilePrefilled`).
+
+**Auth-Endpunkt:** Vollständige Dokumentation → [docs/FLOWS_AUTH.md §4](./FLOWS_AUTH.md#4-kunden-profil-endpunkt-get-authprofile)

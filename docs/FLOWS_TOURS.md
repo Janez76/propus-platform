@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei jeder Änderung an Tour-Status, Matterport-Integration, Verlängerungs- oder Archivierungs-Logik dieses Dokument aktualisieren. **Produkt-Workflow (Regeln, Reminder-Stufen, Preise):** [WORKFLOW_TOURS.md](./WORKFLOW_TOURS.md) — bei Abweichungen beide Dateien abstimmen.
 
-*Zuletzt aktualisiert: April 2026 (Galerie/NAS: Migrationen 031–032; Admin `/api/tours/admin/galleries` NAS-Import; öffentlich `/api/listing/...` Video/Grundriss/ZIP; Bestellung nachträglich verknüpfen via Tour-Detail Intern-Sektion; Bank-Import: Vorschau/Multi-Upload, Bestellungssuche zur Rechnungszuordnung; Bestellungs-Admin: Finanzblock «Rechnungen & Zahlungen»; Bereinigungslauf: CUSTOMER_ACCEPTED_AWAITING_PAYMENT-Label + termEndFormatted-Fix; Matterport-State-Cron: POST /api/tours/cron/sync-matterport-state alle 30 Min; Rechnung löschen mit Workflow-Reset; Reaktivierung ohne Rechnung (Admin-Kulanz); Bereinigungslauf-Widget in Tour-Detail)*
+*Zuletzt aktualisiert: April 2026 (§16 Portal-Auth: Unified Login + Session-Bridge; Galerie/NAS: Migrationen 031–032; Admin `/api/tours/admin/galleries` NAS-Import; öffentlich `/api/listing/...` Video/Grundriss/ZIP; Bestellung nachträglich verknüpfen via Tour-Detail Intern-Sektion; Bank-Import: Vorschau/Multi-Upload, Bestellungssuche zur Rechnungszuordnung; Bestellungs-Admin: Finanzblock «Rechnungen & Zahlungen»; Bereinigungslauf: CUSTOMER_ACCEPTED_AWAITING_PAYMENT-Label + termEndFormatted-Fix; Matterport-State-Cron: POST /api/tours/cron/sync-matterport-state alle 5 Min; Rechnung löschen mit Workflow-Reset; Reaktivierung ohne Rechnung (Admin-Kulanz); Bereinigungslauf-Widget in Tour-Detail; Cleanup-Dashboard mit Matterport-Reaktivierung, 30-Tage-Löschvormerkung, Lösch-Cron und Gutschein-Nachversand; Gelesen-Tracking via `last_accessed_at` in `cleanup_sessions`; Erinnerungs-Batch `batch-reminder` für bereits kontaktierte Kunden ohne Aktion; Bulk-Delete: Exxas Hosting VR Tour Matterport 500xxx + Renewal CHF 63.80 offen/überfällig)*
 
 ---
 
@@ -23,6 +23,7 @@
 13. [Zentrales Rechnungsmodul (Admin)](#13-zentrales-rechnungsmodul-admin)
 14. [Listing / Kunden-Galerie (Magic-Link)](#14-listing--kunden-galerie-magic-link)
 15. [Bereinigungslauf (Cleanup)](#15-bereinigungslauf-cleanup)
+16. [Portal-Auth: Unified Login & Session-Bridge](#16-portal-auth-unified-login--session-bridge)
 
 ---
 
@@ -604,11 +605,14 @@ Dedizierte Cron-Endpunkte mit `X-Cron-Secret`-Header-Auth (kein Admin-Login nöt
 
 | Endpunkt | Intervall (VPS crontab) | Zweck |
 |---|---|---|
-| `POST /api/tours/cron/sync-matterport-state` | `*/30 * * * *` (alle 30 Min) | `matterport_state` aller Touren via `listModels()` aktualisieren |
+| `POST /api/tours/cron/sync-matterport-state` | `*/5 * * * *` (alle 5 Min) | `matterport_state` aller Touren via `listModels()` aktualisieren |
+| `POST /api/tours/cron/process-pending-deletions` | frei planbar (empfohlen: alle 5–15 Min) | Führt fällige Löschvormerkungen aus und löscht zuerst Matterport, dann den Tour-Datensatz |
 
 **Auth:** `X-Cron-Secret: <CRON_SECRET>` (Wert aus `/opt/propus-platform/.env.vps`)
 
 **Backend:** `tours/routes/cron-api.js` → `postLinkMatterportSyncStatus()` in `tours/lib/admin-phase3.js`
+
+**Zusätzlich:** `POST /api/tours/cron/process-pending-deletions` ruft `processPendingDeletions()` in `tours/lib/cleanup-dashboard.js` auf.
 
 **Script:** `/opt/propus-platform/scripts/cron-matterport-sync.sh`
 
@@ -616,7 +620,7 @@ Dedizierte Cron-Endpunkte mit `X-Cron-Secret`-Header-Auth (kein Admin-Login nöt
 
 ```
 # VPS crontab (root):
-*/30 * * * * /opt/propus-platform/scripts/cron-matterport-sync.sh >> /var/log/propus-matterport-sync.log 2>&1
+*/5 * * * * /opt/propus-platform/scripts/cron-matterport-sync.sh >> /var/log/propus-matterport-sync.log 2>&1
 ```
 
 **Env:** `CRON_SECRET` in `.env.vps` — wird beim Deploy nicht überschrieben (manuell gesetzt, einmalig).
@@ -753,6 +757,28 @@ Systemweite Rechnungsliste **ausserhalb** des Tour-Untermenüs. Pro-Tour-Ansicht
 
 **Backend:** `tours/lib/admin-phase3.js` — `getRenewalInvoicesCentral()`, `getExxasInvoicesCentral()`, `deleteRenewalInvoice(invoiceId, actorEmail)`; Route `tours/routes/admin-api.js` → `GET /invoices-central`.
 
+### Massen-Bereinigung (Bulk-Delete)
+
+Zwei spezielle Bulk-Delete-Endpunkte für gezielte Bereinigungsaktionen:
+
+| Aktion | Endpunkte | Funktion (admin-phase3.js) |
+|---|---|---|
+| **Exxas: Hosting VR Tour Matterport (500xxx)** | `GET /invoices/exxas/bulk-delete-hosting/preview` (Vorschau) · `DELETE /invoices/exxas/bulk-delete-hosting` | `bulkDeleteHostingMatterportExxasInvoices({ dryRun })` |
+| **Renewal: CHF 63.80 offen/überfällig** | `GET /invoices/renewal/bulk-delete-63/preview` (Vorschau) · `DELETE /invoices/renewal/bulk-delete-63` | `bulkDeleteOpenRenewalInvoicesByAmount({ dryRun })` |
+
+**Filter Exxas-Bulk:**
+- `exxas_status != 'bz'` (offen)
+- `nummer LIKE '500%'`
+- `LOWER(bezeichnung) LIKE '%hosting%' OR '%verlängerung%' OR '%matterport%' OR '%vr%'`
+- Löscht auch verknüpfte `renewal_invoices` (via `exxas_invoice_id`) ausser bezahlte
+
+**Filter Renewal-Bulk:**
+- `invoice_status IN ('sent', 'overdue')`
+- `amount_chf = 63.80`
+- Ruft `deleteRenewalInvoice()` je Eintrag auf (inkl. Workflow-Reset)
+
+**UI:** Roter Button in `AdminInvoicesPage.tsx` (tab-spezifisch) und `AdminOpenInvoicesPage.tsx`. Klick → Vorschau-Modal mit Rechnungsliste → explizite Bestätigung erforderlich. Bezahlte Rechnungen sind in beiden Flows ausgeschlossen.
+
 ### Rechnung löschen — Workflow-Reset-Logik
 
 `deleteRenewalInvoice()` prüft nach dem Löschen den Tour-Status und setzt ihn automatisch zurück:
@@ -848,16 +874,49 @@ Einmaliger Lauf: Kunden werden per Mail gefragt, was mit ihrer Tour passieren so
 | `cleanup_sent_at` | TIMESTAMPTZ | Zeitpunkt des letzten Mailversands |
 | `cleanup_action` | TEXT | Gewählte Aktion (`weiterfuehren` \| `archivieren` \| `uebertragen` \| `loeschen`) |
 | `cleanup_action_at` | TIMESTAMPTZ | Zeitpunkt der Aktion |
+| `delete_requested_at` | TIMESTAMPTZ | Zeitpunkt, an dem eine Löschung vorgemerkt wurde |
+| `delete_after_at` | TIMESTAMPTZ | Frühester Ausführungszeitpunkt für die harte Löschung (aktuell +30 Tage) |
+
+### Zusätzliche Tabelle
+
+| Tabelle | Zweck |
+|---|---|
+| `tour_manager.pending_deletions` | Offene Löschvormerkungen inkl. `execute_after`, optionaler `matterport_space_id`, Actor-Infos, Fehlerstatus sowie `executed_at`/`cancelled_at` |
 
 ### Status-Mapping (computeCleanupRule)
 
-| Tour-Status | `statusLabel` (E-Mail + UI) | `needsInvoice` | Besonderheit |
+Die Logik prüft zuerst `cleanup_completed` (Post-Cleanup-Lock), dann Status + Alter.
+
+#### Während des Bereinigungslaufs (`cleanup_completed = FALSE`)
+
+| Tour-Status | Bedingung | `needsInvoice` | Betrag | Besonderheit |
+|---|---|---|---|---|
+| `ACTIVE`, `EXPIRING_SOON` | `subscription_start_date` < 12 Monate | nein | — | Tour bleibt unverändert |
+| `ACTIVE`, `EXPIRING_SOON` | `subscription_start_date` > 12 Monate / `null` | ja | CHF 59 | `invoiceKind = portal_extension` |
+| `EXPIRED_PENDING_ARCHIVE` | `created_at` ≤ 6 Monate | nein | — | `needsFreeReactivation = true` |
+| `EXPIRED_PENDING_ARCHIVE` | `created_at` > 6 Monate | ja | CHF 74 | `invoiceKind = portal_reactivation` |
+| `CUSTOMER_ACCEPTED_AWAITING_PAYMENT` | — | ja | CHF 59 | `termEndFormatted` = `–` (kein gültiges Ablaufdatum) |
+| `ARCHIVED` | `archived_at` < 6 Monate | nein | — | `needsManualReview = true` |
+| `ARCHIVED` | `archived_at` > 6 Monate | ja | CHF 74 | `invoiceKind = portal_reactivation`, einmalige Kulanz |
+
+#### Nach dem Bereinigungslauf (`cleanup_completed = TRUE`)
+
+| Tour-Status | `needsInvoice` | Betrag | Hinweis |
 |---|---|---|---|
-| `ACTIVE`, `EXPIRING_SOON` | Aktiv / Läuft bald ab | nein | Tour bleibt unverändert |
-| `EXPIRED_PENDING_ARCHIVE` | Abgelaufen | ja | Reaktivierung CHF 59.– |
-| `CUSTOMER_ACCEPTED_AWAITING_PAYMENT` | Warten auf Zahlung | ja | `termEndFormatted` = `–` (kein gültiges Ablaufdatum) |
-| `ARCHIVED` (< 6 Monate) | Archiviert | nein | `needsManualReview = true` |
-| `ARCHIVED` (> 6 Monate) | Archiviert | ja | Reaktivierung CHF 59.– |
+| `ACTIVE`, `EXPIRING_SOON` | ja | CHF 59 | Keine Gratis-Option mehr |
+| `EXPIRED_PENDING_ARCHIVE`, `ARCHIVED` | ja | CHF 74 | Keine Gratis-Option mehr, ARCHIVED-Einmalregel entfällt |
+
+#### Wann wird `cleanup_completed = TRUE` gesetzt?
+
+| Aktion | Zeitpunkt |
+|---|---|
+| `weiterfuehren` (kostenlos, aktive Tour) | sofort beim Klick |
+| `weiterfuehren` (kostenlos, Kulanz) | sofort nach Aktivierung |
+| `weiterfuehren_qr` (QR-Rechnung) | sofort (Tour aktiviert, Rechnung unterwegs) |
+| `weiterfuehren_online` (Payrexx) | nach Zahlungseingang via `applyImportedPayment` |
+| `archivieren` | sofort |
+| `uebertragen` | sofort |
+| `loeschen` | sofort nach Löschvormerkung |
 
 ### Admin-API
 
@@ -870,6 +929,18 @@ Einmaliger Lauf: Kunden werden per Mail gefragt, was mit ihrer Tour passieren so
 | `POST` | `/api/tours/admin/cleanup/send/:id` | Einzelversand |
 | `POST` | `/api/tours/admin/cleanup/incoming-reply` | Ticket aus Kunden-E-Mail erstellen |
 
+### Dashboard-Admin-API (kunden-gruppiert)
+
+| Methode | Pfad | Beschreibung |
+|---|---|---|
+| `GET` | `/api/tours/admin/cleanup/dashboard/candidates` | Kunden-/Firmen-Gruppen mit offenen Dashboard-Touren (inkl. `lastAccessedAt`) |
+| `POST` | `/api/tours/admin/cleanup/dashboard/batch-dry-run` | Dry-Run für Dashboard-Einladungen (nur noch nicht kontaktierte Kunden) |
+| `POST` | `/api/tours/admin/cleanup/dashboard/batch-send` | Produktiver Versand der Dashboard-Einladungen |
+| `POST` | `/api/tours/admin/cleanup/dashboard/batch-reminder-dry-run` | Dry-Run Erinnerung (nur bereits kontaktierte, aber noch offene Kunden) |
+| `POST` | `/api/tours/admin/cleanup/dashboard/batch-reminder` | Erinnerungsmail an bereits kontaktierte Kunden ohne Aktion |
+| `POST` | `/api/tours/admin/cleanup/dashboard/send-single` | Einzelnen Kunden bzw. eine Firma erneut einladen |
+| `POST` | `/api/tours/admin/cleanup/dashboard/send-vouchers` | Ausstehende Dankes-/Gutschein-Mails gesammelt nachziehen |
+
 ### Kunden-Aktionsseiten (öffentlich, Token-basiert)
 
 | Pfad | Beschreibung |
@@ -881,12 +952,56 @@ Einmaliger Lauf: Kunden werden per Mail gefragt, was mit ihrer Tour passieren so
 
 **Besonderheit `weiterfuehren`:** Setzt Matterport-Sichtbarkeit automatisch auf `LINK_ONLY`.
 
+### Cleanup-Dashboard (öffentlich, Token-basiert)
+
+| Pfad | Beschreibung |
+|---|---|
+| `GET /cleanup/dashboard?token=…` | React-Kundenseite für alle cleanup-relevanten Touren einer Firma bzw. Kundengruppe |
+
+| Methode | Pfad | Beschreibung |
+|---|---|---|
+| `GET` | `/api/cleanup/dashboard` | Lädt Session und alle Touren für den Dashboard-Token |
+| `POST` | `/api/cleanup/dashboard/action` | Führt `weiterfuehren`, `archivieren`, `uebertragen` oder `loeschen` aus |
+| `POST` | `/api/cleanup/dashboard/payment` | Speichert `online` oder `qr` für `weiterfuehren_pending_payment` |
+
+**Besonderheiten:**
+- `weiterfuehren` reaktiviert Tour und Matterport-Space sofort, sofern weder Rechnung noch manueller Review nötig sind.
+- `loeschen` löscht nicht sofort, sondern legt eine Löschvormerkung mit 30 Tagen Sicherheitsfrist in `pending_deletions` an.
+- Nach erfolgreichen Aktionen prüft `maybeDispatchCleanupVoucher()`, ob alle Touren erledigt sind, und verschickt einmalig die Dankes-/Gutschein-Mail.
+
+### Gelesen-Tracking
+
+Beim Öffnen des Dashboard-Links (`GET /api/cleanup/dashboard` → `validateDashboardSession()`) wird `last_accessed_at = NOW()` in `tour_manager.cleanup_sessions` gesetzt.
+
+| Tabelle | Spalte | Beschreibung |
+|---|---|---|
+| `tour_manager.cleanup_sessions` | `last_accessed_at` | Zeitpunkt, wann der Kunde den Dashboard-Link zuletzt geöffnet hat (NULL = noch nie) |
+
+Der Admin sieht in der Cleanup-Übersicht pro Kundengruppe:
+- **Gelesen** (blau, mit Datum): `lastAccessedAt` vorhanden
+- **Ungelesen** (orange): Mail versendet, aber Link noch nicht geöffnet
+
+### Erinnerungs-Flow (Reminder)
+
+`sendReminderBatch()` in `cleanup-dashboard.js` — sendet an alle Kunden die **bereits eine Mail erhalten haben** (`allSent = true`) aber **noch keine Aktion gewählt haben** (`pendingCount > 0`). Erstellt dabei eine neue Session (frischer 30-Tage-Link).
+
+```
+Admin klickt "Erinnerung senden"
+  └─ POST /api/tours/admin/cleanup/dashboard/batch-reminder
+       └─ sendReminderBatch({ dryRun: false })
+            └─ für jede Gruppe: sendDashboardInvite(emails)
+                 └─ neue cleanup_sessions erstellt
+                 └─ E-Mail via Graph API gesendet
+                 └─ outgoing_emails protokolliert
+```
+
 ### Frontend
 
 | Datei | Beschreibung |
 |---|---|
 | `app/src/pages-legacy/tours/admin/ToursAdminCleanupPage.tsx` | Admin-UI: Kandidatentabelle, Sandbox-Vorschau, Matterport Live-Check |
 | `app/src/pages-legacy/tours/admin/components/TourCleanupSection.tsx` | Tour-Detail-Widget: Sandbox-Vorschau + produktiver Einzelversand (nur wenn `confirmation_required = true`) |
+| `app/src/pages-legacy/customer/CleanupDashboardPage.tsx` | Öffentliche Kunden-Seite `/cleanup/dashboard` mit Aktions- und Zahlungsdialog |
 
 **Tour-Detail-Integration (`TourDetailPage.tsx`):** `TourCleanupSection` erscheint unterhalb von `TourInvoicesSection`, aber nur wenn `tour.confirmation_required = true`. Zeigt Sandbox-Vorschau-Toggle und "Mail jetzt senden (produktiv)"-Button mit Bestätigungsdialog. Bereits versendete/abgeschlossene Touren zeigen nur den Status.
 
@@ -894,9 +1009,11 @@ Einmaliger Lauf: Kunden werden per Mail gefragt, was mit ihrer Tour passieren so
 
 | Datei | Beschreibung |
 |---|---|
-| `tours/lib/cleanup-mailer.js` | `computeCleanupRule()`, `buildCleanupEmailContent()`, `sandboxPreviewForTour()`, `sendCleanupMailForTour()`, `runCleanupBatch()` |
+| `tours/lib/cleanup-mailer.js` | `computeCleanupRule()`, `buildCleanupEmailContent()`, `sandboxPreviewForTour()`, `sendCleanupMailForTour()`, `runCleanupBatch()`, Schema-Setup für Cleanup-/Deletion-Felder |
+| `tours/lib/cleanup-dashboard.js` | Dashboard-Sessions, Kundenaktionen, Matterport-Reaktivierung, Löschvormerkung (`scheduleTourDeletion()` / `processPendingDeletions()`), Gutschein-Versand |
 | `tours/routes/cleanup.js` | Öffentliche Token-Aktionsseiten |
 | `tours/routes/admin-api.js` | Admin-API-Endpunkte (ab Zeile ~860) |
+| `booking/server.js` | Öffentliche Dashboard-API `/api/cleanup/dashboard*` |
 
 ### Matterport Live-Check (Sandbox-Vorschau)
 
@@ -950,3 +1067,52 @@ Nach Änderungen an Env-Dateien Container neu erstellen:
 ```bash
 docker compose -f docker-compose.vps.yml --env-file .env.vps up -d --force-recreate platform
 ```
+
+---
+
+## 16. Portal-Auth: Unified Login & Session-Bridge
+
+Das Kunden-Portal (`/portal/api/*`) unterstützt seit April 2026 zwei Auth-Methoden:
+
+### 16.1 Klassischer Portal-Login
+
+Kunden melden sich unter `/login` mit E-Mail + Passwort an. Credentials werden in `tour_manager.portal_users` (bcrypt) gespeichert. Das Portal setzt dann eine Express-Session (`propus_tours.sid`) mit `req.session.portalCustomerEmail`.
+
+### 16.2 Unified Login → Session-Bridge
+
+Nach Einführung des Unified-Login-Endpoints können sich Kunden auch über die einheitliche Login-Seite anmelden. Sie erhalten dabei ein `admin_sessions`-Token (Cookie `admin_session`).
+
+**Session-Bridge in `requirePortalSession` (`tours/routes/portal-api.js`):**
+
+```
+Jeder Request an /portal/api/*
+  │
+  ├── req.session.portalCustomerEmail vorhanden?  → direkt weiter
+  │
+  └── Bearer-Token (Authorization-Header) oder Cookie "admin_session":
+        SHA-256(token) → SELECT FROM booking.admin_sessions
+        WHERE token_hash = ? AND expires_at > NOW()
+        AND role IN ('customer_user', 'customer_admin', 'tour_manager')
+        │
+        ├── Gefunden → req.session.portalCustomerEmail = row.user_key
+        │              req.session.save() → weiter
+        └── Nicht gefunden → 401
+```
+
+**Wichtig:** Admin-Tokens (role = admin, super_admin, photographer, …) werden **nicht** akzeptiert — die Bridge ist explizit auf Kunden-Rollen beschränkt.
+
+### 16.3 Token-Weiterleitung im Frontend
+
+`portalFetch()` in `app/src/api/portalTours.ts` liest automatisch den gespeicherten Admin-Token (`TOKEN_STORAGE_KEY = "admin_token_v2"`) und sendet ihn als Bearer-Header. Kunden, die sich über Unified-Login angemeldet haben, müssen nichts weiter tun.
+
+### 16.4 Passwort-Reset
+
+Portal-Kunden können ihr Passwort über `/login` → «Passwort vergessen?» zurücksetzen.
+
+**Endpunkte:** `POST /portal/api/forgot-password`, `GET /portal/api/check-reset-token`, `POST /portal/api/reset-password`
+
+- Reset-Link-Ziel: `/portal/reset-password?token=<token>` (Token 2h gültig)
+- «Zurück zum Login»-Links auf beiden Seiten zeigen auf `/login` (unified)
+- Fire-and-forget-Pattern verhindert E-Mail-Enumeration via Timing
+
+Vollständige Auth-Dokumentation: [docs/FLOWS_AUTH.md](./FLOWS_AUTH.md)

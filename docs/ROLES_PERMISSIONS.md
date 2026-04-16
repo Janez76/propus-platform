@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei neuen Rollen, geänderten Permission-Zuweisungen oder Logto-Org-Änderungen dieses Dokument aktualisieren.
 
-*Zuletzt aktualisiert: April 2026 (überarbeitet: Admin-Verwaltung zentralisiert, Portal-Rollen UI konsolidiert)*
+*Zuletzt aktualisiert: April 2026 (überarbeitet: Admin-Verwaltung zentralisiert, Portal-Rollen UI konsolidiert; §9 Unified-Login Rollen-Mapping; Firmenverwaltung entfernt – Portal-Rolle direkt am Kontakt)*
 
 ---
 
@@ -16,6 +16,7 @@
 6. [Logto-Integration](#6-logto-integration)
 7. [Portal-Rollen (Tour-Manager)](#7-portal-rollen-tour-manager)
 8. [Access-Subjects](#8-access-subjects)
+9. [Unified-Login: Rollen-Zuweisung für Portal-Kunden](#9-unified-login-rollen-zuweisung-für-portal-kunden)
 
 ---
 
@@ -246,13 +247,24 @@ customData: {
 
 ### 7.0 UI — Zentrale Verwaltung
 
-**Alle Rollen werden an einer einzigen Stelle verwaltet:**
+**Alle Rollen werden an diesen Stellen verwaltet:**
 
 | Was | Wo im UI | Pfad |
 |---|---|---|
 | Admin-Panel-Zugriff (Logto) | **Einstellungen → Benutzer** | `/settings/users` |
-| Portal-Zugang (intern + extern) | **Einstellungen → Rollen & Rechte → Tab "Portal-Zugang"** | `/settings/roles?view=portal` |
+| Portal-Rolle pro Kontakt | **Kunden → Kunde öffnen → Kontakte** | `/customers` |
+| Portal-Zugang Übersicht (intern + extern) | **Einstellungen → Rollen & Rechte → Tab "Portal-Zugang"** | `/settings/roles?view=portal` |
 | Rollen-Matrix (Referenz) | **Einstellungen → Rollen & Rechte → Tab "Rollen-Matrix"** | `/settings/roles` |
+
+**Portal-Rolle direkt am Kontakt (ab April 2026):**
+
+Die `portal_role` wird neu direkt im Kontakt-Formular gesetzt (Dropdown, editierbar beim Anlegen und Bearbeiten). Das Backend (`customer-contacts-routes.js`) synct die Rolle automatisch auf `core.company_members` und die Logto-Organisation.
+
+API: `GET /api/admin/customers/:id/contacts` liefert neu `member_status` (`"invited"` | `"active"` | `"disabled"` | `null`) via LEFT JOIN auf `company_members`.
+
+Einladen-Endpunkt: `POST /api/admin/customers/:id/contacts/:contactId/invite` erstellt einen `company_invitations`-Eintrag (Token-basiert, kein automatischer E-Mail-Versand im Backend — Logto-seitige Notification abhängig von Logto-Konfiguration).
+
+> **Entfernt (April 2026):** Die Seite `/settings/companies` ("Firmenverwaltung") wurde aus der Navigation entfernt. Die URL leitet auf `/customers` weiter. Firmen-Workspaces existieren weiterhin als technisches Konzept (Tabelle `core.companies`), werden aber nicht mehr separat verwaltet — sie entstehen automatisch beim Kontakt-Sync.
 
 > **Deprecated:** Die alte Route `/admin/tours/portal-roles` leitet automatisch auf `/settings/roles?view=portal` weiter.
 >
@@ -363,3 +375,38 @@ Kunden-Admin (aus Portal-Team):
 | `portal_user` | `portal_user_email` | Portal-User (E-Mail-basiert) |
 
 **Exactly-one-FK-Constraint:** Genau einer der FKs darf pro Zeile gesetzt sein (DB-Constraint).
+
+---
+
+## 9. Unified-Login: Rollen-Zuweisung für Portal-Kunden
+
+Seit April 2026 können sich Portal-Kunden über den einheitlichen `POST /auth/login`-Endpunkt anmelden. Die Rolle wird dabei durch `getPortalCustomerRole()` in `booking/portal-auth-bridge.js` ermittelt:
+
+```
+getPortalCustomerRole(email)
+  │
+  ├── 1. tour_manager.portal_staff_roles WHERE role = 'tour_manager'
+  │         → Systemrolle: "tour_manager"
+  │
+  ├── 2. tour_manager.portal_team_members
+  │         WHERE role IN ('inhaber','admin') AND status = 'active'
+  │         → Systemrolle: "customer_admin"
+  │
+  ├── 3. tour_manager.tours WHERE customer_email = email
+  │         (direkter Tour-Besitzer)
+  │         → Systemrolle: "customer_admin"
+  │
+  └── 4. Fallback → "customer_user"
+```
+
+**Ergebnis:** Das zurückgegebene Token in `booking.admin_sessions` enthält die ermittelte Systemrolle. Das Frontend speichert Rolle + Token und behandelt den Nutzer entsprechend der Kunden-UI (Portal-Ansicht, Buchungs-Wizard-Vorausfüllung, etc.).
+
+**`isKundenRole(role)`** (`app/src/lib/permissions.ts`): Gibt `true` für `customer_user`, `customer_admin`, `tour_manager` zurück. Steuert:
+- Standard-Redirect nach Login → `/portal/tours`
+- Anzeige von Portal-UI vs. Admin-UI
+- Vorausfüllung des Buchungs-Wizard Schritt 4 via `GET /auth/profile`
+
+**Verhältnis zu RBAC-Permissions:**  
+Portal-Kunden erhalten `legacyFallbackPermissions(role)` (kein volles RBAC-Lookup wie bei Admin-Users). Die relevanten Permissions für Kunden-Rollen sind in §4 (Rollen → Permissions Mapping) dokumentiert.
+
+Vollständige Auth-Flow-Dokumentation: [docs/FLOWS_AUTH.md](./FLOWS_AUTH.md)

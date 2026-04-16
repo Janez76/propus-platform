@@ -130,6 +130,26 @@ jobs:
             fs.writeFileSync('website/package.json', JSON.stringify(p, null, 2) + '\n');
           "
 
+      - name: Build Booking Admin Panel
+        working-directory: booking/admin-panel
+        env:
+          VITE_PICDROP_URL: https://admin-booking.propus.ch/selekto/bilder-auswahl
+        run: |
+          npm ci
+          npx vite build
+
+      - name: Build Selekto
+        working-directory: selekto
+        env:
+          VITE_BILDER_AUSWAHL_MAGIC_KEY: ${{ secrets.SELEKTO_MAGIC_KEY }}
+          VITE_PUBLIC_SITE_URL: https://admin-booking.propus.ch
+          VITE_NEXTCLOUD_PROXY: /__propus-nextcloud
+          VITE_PDF_INLINE_PROXY: /__propus-pdf-inline
+          VITE_PICDROP_NOTIFY_EMAIL: office@propus.ch
+        run: |
+          npm ci
+          npm run build
+
       - name: Create deploy archive
         run: |
           tar \
@@ -137,6 +157,7 @@ jobs:
             --exclude='.github' \
             --exclude='docs' \
             --exclude='backups' \
+            --exclude='selekto/node_modules' \
             -czf "/tmp/propus-platform-${GITHUB_SHA}.tar.gz" .
 
       - name: Write VPS env file

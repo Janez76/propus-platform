@@ -124,6 +124,11 @@ services:
       # PAYREXX_* / PAYREXX_PAYMENT_METHODS nur über env_file (.env.vps + optional .env.vps.secrets)
       GOOGLE_PLACES_API_KEY: ${GOOGLE_PLACES_API_KEY:-}
       GOOGLE_REVIEWS_PLACE_ID: ${GOOGLE_REVIEWS_PLACE_ID:-ChIJCXJ70_ZCiisRJDlGdaYk66Y}
+      # ─── Nextcloud-Integration (UGREEN NAS via cloud.propus.ch) ──────────────
+      NEXTCLOUD_URL: ${NEXTCLOUD_URL:-https://cloud.propus.ch}
+      NEXTCLOUD_USER: ${NEXTCLOUD_USER:-}
+      NEXTCLOUD_PASS: ${NEXTCLOUD_PASS:-}
+      NEXTCLOUD_CUSTOMER_FOLDER_PATH: ${NEXTCLOUD_CUSTOMER_FOLDER_PATH:-/Immobilien Fotografie Propusimmo/Kunden}
     depends_on:
       postgres:
         condition: service_healthy
