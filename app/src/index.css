@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "./styles/listing.css";
 @import "./styles/listing-admin.css";
+@import "./styles/selekto/propus-admin.css";
+@import "./styles/selekto/gallery-admin-supplement.css";
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
