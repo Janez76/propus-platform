@@ -643,6 +643,8 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
   const [category, setCategory] = useState<OrderUploadCategory>(defaultCategory);
   const [uploadMode, setUploadMode] = useState<"existing" | "new_batch">("existing");
   const [batchFolderName, setBatchFolderName] = useState("");
+  /** true: Dateiname um _#Auftragsnummer vor der Endung erweitern */
+  const [addOrderSuffix, setAddOrderSuffix] = useState(false);
   const [comment, setComment] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [progress, setProgress] = useState(0);
@@ -943,6 +945,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
         folderType,
         batchFolderName: uploadMode === "new_batch" ? batchFolderName.trim() || undefined : undefined,
         comment: uploadComment || undefined,
+        ...(addOrderSuffix ? { addOrderSuffix: true } : {}),
       };
       const result =
         files.length > 0
@@ -954,6 +957,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
               batchFolderName: uploadMode === "new_batch" ? batchFolderName.trim() || undefined : undefined,
               comment: uploadComment || undefined,
               files: [],
+              ...(addOrderSuffix ? { addOrderSuffix: true } : {}),
             });
 
       // Sofort Erfolg zeigen – NAS-Transfer läuft im Hintergrund
@@ -1141,6 +1145,21 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
               <option value="existing">{t(lang, "upload.select.addToExisting")}</option>
               <option value="new_batch">{t(lang, "upload.select.newSubfolder")}</option>
             </select>
+          </div>
+          <div className="sm:col-span-2 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setAddOrderSuffix((v) => !v)}
+              className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition ${
+                addOrderSuffix
+                  ? "border-[var(--accent)] bg-[var(--accent)]/20 text-[var(--accent)]"
+                  : "border-zinc-600 bg-zinc-800/50 text-zinc-300 hover:border-zinc-500"
+              }`}
+              title={t(lang, "upload.hint.orderSuffix")}
+            >
+              {addOrderSuffix ? "✓ " : ""}
+              {t(lang, "upload.toggle.orderSuffix")} #{orderNo}
+            </button>
           </div>
           {uploadMode === "new_batch" && (
             <div className="sm:col-span-2">

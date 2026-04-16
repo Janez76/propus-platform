@@ -1,49 +1,51 @@
 import { useEffect, useRef, useState } from "react";
 import { Eye, EyeOff, LogIn } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { normalizeStoredRole, useAuthStore } from "../store/authStore";
-import { isCompanyWorkspaceRole } from "../lib/companyRoles";
 import { t } from "../i18n";
 import { Footer } from "../components/layout/Footer";
 import { AuthLogoHeader, AuthCard } from "../components/auth/AuthPageLayout";
-import { API_BASE } from "../api/client";
+import { resolvePostLoginTarget } from "../lib/postLoginRedirect";
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const token = useAuthStore((s) => s.token);
   const role = useAuthStore((s) => s.role);
   const lang = useAuthStore((s) => s.language) || "de";
   const setAuth = useAuthStore((s) => s.setAuth);
 
-  const [username, setUsername] = useState("");
+  const [username, setUsername] = useState(params.get("email") ?? "");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const usernameRef = useRef<HTMLInputElement>(null);
 
+  const successParam = params.get("success");
+  const successMessages: Record<string, string> = {
+    password_reset: "Passwort gespeichert. Sie können sich jetzt anmelden.",
+  };
+
   useEffect(() => {
     usernameRef.current?.focus();
   }, []);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
     const errParam = params.get("auth_error");
     if (errParam) {
       setError(decodeURIComponent(errParam));
-      params.delete("auth_error");
-      const newSearch = params.toString();
-      window.history.replaceState({}, "", newSearch ? `?${newSearch}` : window.location.pathname);
     }
-  }, []);
+  }, [params]);
 
   useEffect(() => {
     if (token) {
-      const companyHome = role === "company_employee" ? "/portal/bestellungen" : "/portal/firma";
-      navigate(isCompanyWorkspaceRole(role) ? companyHome : "/dashboard", { replace: true });
+      const returnTo = params.get("returnTo");
+      navigate(resolvePostLoginTarget(role, returnTo), { replace: true });
     }
-  }, [navigate, role, token]);
+  }, [navigate, role, token, params]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -51,22 +53,22 @@ export function LoginPage() {
     setError("");
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/admin/login`, {
+      const res = await fetch(`/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: username.trim(), password }),
+        body: JSON.stringify({ email: username.trim(), username: username.trim(), password, rememberMe }),
         credentials: "include",
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data?.error || "Login fehlgeschlagen");
+        setError((data as { error?: string })?.error || "Login fehlgeschlagen");
         return;
       }
       const { token: tok, role: r, permissions } = data as { token: string; role: string; permissions?: string[] };
-      setAuth(tok, normalizeStoredRole(r), true, Array.isArray(permissions) ? permissions : []);
-      const params = new URLSearchParams(window.location.search);
-      const returnTo = params.get("returnTo") || "/dashboard";
-      navigate(returnTo.startsWith("/") ? returnTo : "/dashboard", { replace: true });
+      const normalizedRole = normalizeStoredRole(r);
+      setAuth(tok, normalizedRole, rememberMe, Array.isArray(permissions) ? permissions : []);
+      const returnTo = params.get("returnTo");
+      navigate(resolvePostLoginTarget(normalizedRole, returnTo), { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Verbindungsfehler");
     } finally {
@@ -86,6 +88,11 @@ export function LoginPage() {
           />
 
           <AuthCard>
+            {successParam && successMessages[successParam] && (
+              <div className="mb-4 rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300">
+                {successMessages[successParam]}
+              </div>
+            )}
             {error && <div className="auth-error mb-4">{error}</div>}
 
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -100,16 +107,25 @@ export function LoginPage() {
                   className="ui-input w-full"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="name@propus.ch"
+                  placeholder="name@firma.ch"
                   disabled={loading}
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                  Passwort
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-[var(--text-muted)]">
+                    Passwort
+                  </label>
+                  <a
+                    href="/portal/forgot-password"
+                    onClick={(e) => { e.preventDefault(); navigate("/portal/forgot-password"); }}
+                    className="text-xs text-[var(--accent,#B68E20)] hover:underline"
+                  >
+                    Passwort vergessen?
+                  </a>
+                </div>
                 <div className="relative">
                   <input
                     type={showPw ? "text" : "password"}
@@ -130,6 +146,19 @@ export function LoginPage() {
                     {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  id="remember-me"
+                  type="checkbox"
+                  className="h-4 w-4 rounded accent-[var(--accent,#B68E20)]"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                />
+                <label htmlFor="remember-me" className="text-sm text-[var(--text-muted)] cursor-pointer select-none">
+                  Angemeldet bleiben
+                </label>
               </div>
 
               <button

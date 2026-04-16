@@ -58,7 +58,7 @@ const ROLE_LABELS: Record<CompanyMemberRole, string> = {
 const ROLE_PERMISSIONS: Record<CompanyMemberRole, string[]> = {
   company_owner: ["Aufträge lesen", "Aufträge erstellen", "Aufträge bearbeiten", "Kunden einsehen", "Firma verwalten", "Team verwalten", "Kalender"],
   company_admin: ["Aufträge lesen", "Kunden einsehen", "Kalender"], // @deprecated - wird nicht mehr vergeben
-  company_employee: ["Aufträge lesen", "Kunden einsehen", "Kalender"],
+  company_employee: ["Aufträge lesen", "Aufträge erstellen", "Kunden einsehen", "Kalender"],
 };
 
 const ALL_PERMISSIONS = ["Aufträge lesen", "Aufträge erstellen", "Aufträge bearbeiten", "Kunden einsehen", "Firma verwalten", "Team verwalten", "Kalender"];
@@ -306,6 +306,7 @@ export function PortalFirmaPage() {
       {/* Tab Content */}
       {activeTab === "orders" && (
         <OrdersTab
+          canManage={canManage}
           orders={orders}
           filteredOrders={filteredOrders}
           employeesCount={employeesCount}
@@ -354,9 +355,10 @@ export function PortalFirmaPage() {
 
 /* ── Orders Tab ────────────────────────────────────────── */
 function OrdersTab({
-  orders, filteredOrders, employeesCount, statusOptions, statusFilter, setStatusFilter,
+  canManage, orders, filteredOrders, employeesCount, statusOptions, statusFilter, setStatusFilter,
   memberFilter, setMemberFilter, activeEmployees, fromDate, setFromDate, toDate, setToDate,
 }: {
+  canManage: boolean;
   orders: CompanyOrder[];
   filteredOrders: CompanyOrder[];
   employeesCount: number;
@@ -388,14 +390,16 @@ function OrdersTab({
         <StatCard label="Mitarbeiter" value={employeesCount} />
       </div>
 
-      <div className="grid gap-2 rounded-xl border border-slate-200 bg-white p-4 md:grid-cols-4 border-[var(--border-soft)] bg-[var(--surface)]">
+      <div className={`grid gap-2 rounded-xl border border-slate-200 bg-white p-4 border-[var(--border-soft)] bg-[var(--surface)] ${canManage ? "md:grid-cols-4" : "md:grid-cols-3"}`}>
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm border-[var(--border-soft)] bg-[var(--surface-raised)] text-[var(--text-main)]">
           {statusOptions.map((s) => <option key={s} value={s}>{s === "alle" ? "Alle Status" : s}</option>)}
         </select>
-        <select value={memberFilter} onChange={(e) => setMemberFilter(e.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm border-[var(--border-soft)] bg-[var(--surface-raised)] text-[var(--text-main)]">
-          <option value="alle">Alle Mitarbeiter</option>
-          {activeEmployees.map((m) => <option key={m.id} value={String(m.id)}>{m.email}</option>)}
-        </select>
+        {canManage && (
+          <select value={memberFilter} onChange={(e) => setMemberFilter(e.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm border-[var(--border-soft)] bg-[var(--surface-raised)] text-[var(--text-main)]">
+            <option value="alle">Alle Mitarbeiter</option>
+            {activeEmployees.map((m) => <option key={m.id} value={String(m.id)}>{m.email}</option>)}
+          </select>
+        )}
         <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm border-[var(--border-soft)] bg-[var(--surface-raised)] text-[var(--text-main)]" />
         <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm border-[var(--border-soft)] bg-[var(--surface-raised)] text-[var(--text-main)]" />
       </div>
@@ -427,7 +431,7 @@ function OrdersTab({
         </table>
       </div>
 
-      {employeeLastOrders.length > 0 && (
+      {canManage && employeeLastOrders.length > 0 && (
         <div className="rounded-xl border border-slate-200 bg-white p-4 border-[var(--border-soft)] bg-[var(--surface)]">
           <h2 className="mb-3 text-base font-medium text-[var(--text-main)]">Mitarbeiter mit letzter Bestellung</h2>
           <div className="space-y-2">

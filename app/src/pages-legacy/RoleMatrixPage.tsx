@@ -1,32 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
-import { useSearchParams, Link } from "react-router-dom";
-import { AlertCircle, Check, Info, Lock, RotateCcw, Save, Shield, Users, Building2, User, Camera } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Check, Info, Lock, Plus, RotateCcw, Save, Shield, Trash2, Users, Building2, Camera } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useAuthStore } from "../store/authStore";
-import {
-  getToursAdminPortalExternContacts,
-  getToursAdminPortalRoles,
-  postPortalExternRemove,
-  postPortalExternSet,
-  postPortalStaffAdd,
-  postPortalStaffRemove,
-} from "../api/toursAdmin";
-import { getRolePresets, patchRolePreset } from "../api/access";
-import { useQuery } from "../hooks/useQuery";
-import { toursAdminPortalRolesQueryKey } from "../lib/queryKeys";
+import { getRolePresets, createRolePreset, deleteRolePreset, patchRolePreset } from "../api/access";
 
 // ─── Datenstruktur ────────────────────────────────────────────────────────────
 
-type RoleKey =
-  | "super_admin"
-  | "internal_admin"
-  | "tour_manager"
-  | "photographer"
-  | "company_owner"
-  | "company_admin"
-  | "company_employee"
-  | "customer_admin"
-  | "customer_user";
+type RoleKey = string;
 
 type PermKey = string;
 
@@ -34,7 +14,7 @@ interface RoleDef {
   key: RoleKey;
   label: string;
   description: string;
-  group: "intern" | "fotograf" | "portal";
+  group: "intern" | "fotograf" | "portal" | "custom";
   color: string;        // Tailwind / CSS-Variable Token
   headerBg: string;
   fixed?: boolean;      // true = immer alle Rechte, Checkboxen gesperrt
@@ -141,7 +121,9 @@ const PERMISSIONS: PermDef[] = [
   { key: "tours.cross_company",      label: "Touren (firmenübergreifend)",       section: "Touren",                 description: "Touren über Firmengrenzen hinweg einsehen und verwalten." },
   { key: "tours.archive",            label: "Touren archivieren",                section: "Touren",                 description: "Abgeschlossene Touren archivieren." },
   { key: "tours.link_matterport",    label: "Matterport verknüpfen",             section: "Touren",                 description: "Matterport-Spaces mit Touren verknüpfen und Space-IDs setzen." },
-  { key: "portal_team.manage",       label: "Portal-Team verwalten",             section: "Touren",                 description: "Team-Mitglieder im Kunden-Portal-Workspace hinzufügen/entfernen." },
+  // Kunden-Portal
+  { key: "portal_team.manage",       label: "Portal-Team verwalten",             section: "Kunden-Portal",          description: "Team-Mitglieder im Kunden-Portal-Workspace hinzufügen/entfernen." },
+  { key: "portal_invoices.read",     label: "Portal-Rechnungen einsehen",        section: "Kunden-Portal",          description: "Rechnungen im Kunden-Portal (/portal/invoices) einsehen." },
   // Aufträge
   { key: "orders.read",              label: "Aufträge ansehen",                  section: "Aufträge",               description: "Bestellungen und Aufträge einsehen." },
   { key: "orders.create",            label: "Auftrag erstellen",                 section: "Aufträge",               description: "Neue Bestellungen anlegen." },
@@ -158,24 +140,32 @@ const PERMISSIONS: PermDef[] = [
   { key: "company.manage",           label: "Firma verwalten",                   section: "Firmen & Team",          description: "Firmendaten im Kunden-Portal-Workspace bearbeiten." },
   { key: "team.manage",              label: "Team verwalten",                    section: "Firmen & Team",          description: "Firmen-Mitglieder einladen und verwalten." },
   // Fotografen
-  { key: "photographers.read",       label: "Fotografen ansehen",               section: "Fotografen",             description: "Fotografenprofile und Verfügbarkeiten einsehen." },
-  { key: "photographers.manage",     label: "Fotografen verwalten",             section: "Fotografen",             description: "Fotografen anlegen, bearbeiten, Verfügbarkeiten setzen." },
-  // Produkte & Preise
-  { key: "products.manage",          label: "Produkte verwalten",               section: "Produkte & Preise",      description: "Produkte, Pakete und Leistungen anlegen und bearbeiten." },
-  { key: "discount_codes.manage",    label: "Gutscheine verwalten",             section: "Produkte & Preise",      description: "Rabatt- und Gutscheincodes erstellen und verwalten." },
+  { key: "photographers.read",       label: "Fotografen ansehen",                section: "Fotografen",             description: "Fotografenprofile und Verfügbarkeiten einsehen." },
+  { key: "photographers.manage",     label: "Fotografen verwalten",              section: "Fotografen",             description: "Fotografen anlegen, bearbeiten, Verfügbarkeiten setzen." },
+  // Produkte, Preise & Inhalte
+  { key: "products.manage",          label: "Produkte verwalten",                section: "Produkte & Inhalte",     description: "Produkte, Pakete und Leistungen anlegen und bearbeiten." },
+  { key: "discount_codes.manage",    label: "Gutscheine verwalten",              section: "Produkte & Inhalte",     description: "Rabatt- und Gutscheincodes erstellen und verwalten." },
+  { key: "listing.manage",           label: "Listing-Page verwalten",            section: "Produkte & Inhalte",     description: "Inhalte der öffentlichen Listing-Seite (/admin/listing) pflegen." },
+  { key: "picdrop.manage",           label: "Selekto (Bildauswahl)",             section: "Produkte & Inhalte",     description: "Selekto / Picdrop: Bildauswahl-Workflow für Kunden und Fotografen." },
   // Kalender
-  { key: "calendar.view",            label: "Kalender ansehen",                 section: "Kalender",               description: "Terminkalender und geplante Aufträge einsehen." },
-  { key: "calendar.manage",          label: "Kalender bearbeiten",              section: "Kalender",               description: "Termine erstellen, verschieben und löschen." },
+  { key: "calendar.view",            label: "Kalender ansehen",                  section: "Kalender",               description: "Terminkalender und geplante Aufträge einsehen." },
+  { key: "calendar.manage",          label: "Kalender bearbeiten",               section: "Kalender",               description: "Termine erstellen, verschieben und löschen." },
+  // Finanzen & Abrechnung
+  { key: "finance.read",             label: "Finanzen einsehen",                 section: "Finanzen & Abrechnung",  description: "Zentrales Rechnungsmodul (/admin/finance): Rechnungen, Zahlungen, Mahnungen ansehen." },
+  { key: "finance.manage",           label: "Finanzen verwalten",                section: "Finanzen & Abrechnung",  description: "Rechnungen erstellen/bearbeiten, Bank-Import, Mahnungen versenden." },
+  { key: "billing.read",             label: "Abrechnung einsehen",               section: "Finanzen & Abrechnung",  description: "Abrechnungsdaten und Sammelrechnungen einsehen." },
+  // Kommunikation
+  { key: "tickets.read",             label: "Tickets einsehen",                  section: "Kommunikation",          description: "Zentrales Postfach / Ticketsystem (/admin/tickets) einsehen." },
+  { key: "tickets.manage",           label: "Tickets verwalten",                 section: "Kommunikation",          description: "Tickets zuweisen, beantworten, schliessen." },
+  { key: "emails.manage",            label: "E-Mail-Templates verwalten",        section: "Kommunikation",          description: "E-Mail-Vorlagen erstellen und bearbeiten." },
+  { key: "reviews.manage",           label: "Bewertungen verwalten",             section: "Kommunikation",          description: "Kundenbewertungen einsehen und moderieren." },
   // Einstellungen & System
-  { key: "settings.manage",          label: "Einstellungen verwalten",          section: "Einstellungen & System", description: "Systemkonfiguration, Workflow und allgemeine Einstellungen." },
-  { key: "emails.manage",            label: "E-Mail-Templates verwalten",       section: "Einstellungen & System", description: "E-Mail-Vorlagen erstellen und bearbeiten." },
-  { key: "billing.read",             label: "Abrechnung einsehen",              section: "Einstellungen & System", description: "Rechnungen und Abrechnungsdaten einsehen." },
-  { key: "backups.manage",           label: "Backups verwalten",                section: "Einstellungen & System", description: "Datenbank-Backups erstellen und herunterladen." },
-  { key: "bugs.read",                label: "Fehlerberichte ansehen",           section: "Einstellungen & System", description: "Fehlerberichte und Bug-Tickets einsehen." },
-  { key: "bugs.manage",              label: "Fehlerberichte verwalten",         section: "Einstellungen & System", description: "Fehlerberichte bearbeiten, schliessen und löschen." },
-  { key: "reviews.manage",           label: "Bewertungen verwalten",            section: "Einstellungen & System", description: "Kundenbewertungen einsehen und moderieren." },
-  { key: "roles.manage",             label: "Rollen verwalten",                 section: "Einstellungen & System", description: "Systemrollen und Berechtigungen bearbeiten. Nur Super-Admin." },
-  { key: "users.manage",             label: "Benutzer verwalten",               section: "Einstellungen & System", description: "Admin-Benutzer anlegen, sperren und löschen." },
+  { key: "settings.manage",          label: "Einstellungen verwalten",           section: "Einstellungen & System", description: "Systemkonfiguration, Workflow und allgemeine Einstellungen." },
+  { key: "backups.manage",           label: "Backups verwalten",                 section: "Einstellungen & System", description: "Datenbank-Backups erstellen und herunterladen." },
+  { key: "bugs.read",                label: "Fehlerberichte ansehen",            section: "Einstellungen & System", description: "Fehlerberichte und Bug-Tickets einsehen." },
+  { key: "bugs.manage",              label: "Fehlerberichte verwalten",          section: "Einstellungen & System", description: "Fehlerberichte bearbeiten, schliessen und löschen." },
+  { key: "roles.manage",             label: "Rollen verwalten",                  section: "Einstellungen & System", description: "Systemrollen und Berechtigungen bearbeiten. Nur Super-Admin." },
+  { key: "users.manage",             label: "Benutzer verwalten",                section: "Einstellungen & System", description: "Admin-Benutzer anlegen, sperren und löschen." },
 ];
 
 // ─── Preset-Zuordnungen (Spiegelbild von access-rbac.js) ─────────────────────
@@ -185,31 +175,43 @@ const ALL_PERM_KEYS = PERMISSIONS.map((p) => p.key);
 const ROLE_PRESETS: Record<RoleKey, Set<PermKey>> = {
   super_admin:      new Set(ALL_PERM_KEYS),
   internal_admin:   new Set(ALL_PERM_KEYS),
+  // Touren-Manager: Touren + Finanzen + Tickets + Listing (gleiche Zielgruppe, siehe Migration 080)
   tour_manager:     new Set([
     "tours.read", "tours.manage", "tours.assign", "tours.cross_company",
     "tours.archive", "tours.link_matterport", "portal_team.manage",
+    "dashboard.view",
+    "finance.read", "finance.manage",
+    "tickets.read", "tickets.manage",
+    "listing.manage",
+    "portal_invoices.read",
   ]),
   photographer: new Set([
     "dashboard.view", "orders.read", "orders.update", "orders.assign",
     "calendar.view", "photographers.read",
+    "picdrop.manage",
   ]),
   company_owner: new Set([
     "customers.read", "orders.read", "orders.update", "orders.create",
     "company.manage", "team.manage", "calendar.view",
+    "tours.read", "portal_invoices.read",
   ]),
   company_admin: new Set([
     "customers.read", "orders.read", "orders.update", "orders.create",
     "company.manage", "team.manage", "calendar.view",
+    "tours.read", "portal_invoices.read",
   ]),
   company_employee: new Set([
     "customers.read", "orders.read", "orders.create",
     "calendar.view", "calendar.manage",
+    "tours.read", "portal_invoices.read",
   ]),
   customer_admin: new Set([
     "customers.read", "contacts.read", "contacts.manage",
     "orders.read", "orders.update", "orders.create",
+    "tours.read", "tours.manage", "portal_team.manage",
+    "portal_invoices.read",
   ]),
-  customer_user: new Set(["orders.read"]),
+  customer_user: new Set(["orders.read", "tours.read", "portal_invoices.read"]),
 };
 
 // ─── Hilfsfunktionen ──────────────────────────────────────────────────────────
@@ -226,9 +228,15 @@ function getSections(): string[] {
 // ─── Gruppen-Render-Helfer ────────────────────────────────────────────────────
 
 const GROUP_META = {
-  intern:   { label: "Intern",        Icon: Shield,    border: "border-amber-500/30", bg: "bg-amber-500/5"  },
+  intern:   { label: "Intern",        Icon: Shield,    border: "border-amber-500/30",  bg: "bg-amber-500/5"  },
   fotograf: { label: "Fotograf",      Icon: Camera,    border: "border-violet-500/30", bg: "bg-violet-500/5" },
   portal:   { label: "Kunden-Portal", Icon: Building2, border: "border-emerald-500/30", bg: "bg-emerald-500/5" },
+  custom:   { label: "Eigene Rollen", Icon: Plus,      border: "border-slate-500/30",  bg: "bg-slate-500/5"  },
+};
+
+const CUSTOM_ROLE_STYLE = {
+  color: "text-slate-400",
+  headerBg: "bg-slate-500/10 border-slate-500/20",
 };
 
 // ─── Tooltip ─────────────────────────────────────────────────────────────────
@@ -302,310 +310,19 @@ function MatrixCell({
   );
 }
 
-// ─── Portal-Rollen-Verwaltung ──────────────────────────────────────────────────
-
-function PortalRolesPanel() {
-  const [portalTab, setPortalTab] = useState<"intern" | "extern">("intern");
-  const qk = toursAdminPortalRolesQueryKey(portalTab);
-  const queryFn = useCallback(() => getToursAdminPortalRoles(portalTab), [portalTab]);
-  const { data, loading, error, refetch } = useQuery(qk, queryFn, { staleTime: 20_000 });
-
-  const staffRows = (data?.staffRows as Record<string, unknown>[]) ?? [];
-  const externRows = (data?.externRows as Record<string, unknown>[]) ?? [];
-  const ownerList = (data?.ownerList as Record<string, unknown>[]) ?? [];
-
-  const [staffEmail, setStaffEmail] = useState("");
-  const [extOwner, setExtOwner] = useState("");
-  const [extOwnerCid, setExtOwnerCid] = useState("");
-  const [extMember, setExtMember] = useState("");
-  const [contacts, setContacts] = useState<Record<string, unknown>[]>([]);
-  const [msg, setMsg] = useState<string | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (portalTab !== "extern" || (!extOwner && !extOwnerCid)) {
-      setContacts([]);
-      return;
-    }
-    void getToursAdminPortalExternContacts(extOwner || undefined, extOwnerCid || undefined)
-      .then((r) => setContacts((r.contacts as Record<string, unknown>[]) ?? []))
-      .catch(() => setContacts([]));
-  }, [portalTab, extOwner, extOwnerCid]);
-
-  async function doStaffAdd(e: React.FormEvent) {
-    e.preventDefault();
-    setErr(null);
-    setMsg(null);
-    try {
-      await postPortalStaffAdd(staffEmail.trim());
-      setStaffEmail("");
-      setMsg("Interne Rolle hinzugefügt.");
-      void refetch();
-    } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "Fehler");
-    }
-  }
-
-  async function doStaffRemove(email: string) {
-    setErr(null);
-    setMsg(null);
-    try {
-      await postPortalStaffRemove(email);
-      void refetch();
-    } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "Fehler");
-    }
-  }
-
-  async function doExternSet(e: React.FormEvent) {
-    e.preventDefault();
-    setErr(null);
-    setMsg(null);
-    if (!extOwner || !extMember) {
-      setErr("Workspace und Mitglied wählen.");
-      return;
-    }
-    try {
-      await postPortalExternSet(extOwner.trim().toLowerCase(), extMember.trim().toLowerCase());
-      setMsg("Kunden-Admin gesetzt.");
-      void refetch();
-    } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "Fehler");
-    }
-  }
-
-  async function doExternRemove(owner: string, member: string) {
-    setErr(null);
-    setMsg(null);
-    try {
-      await postPortalExternRemove(owner, member);
-      void refetch();
-    } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "Fehler");
-    }
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-[var(--text-main)]">Portal-Zugang verwalten</h2>
-          <p className="text-sm text-[var(--text-subtle)] mt-0.5">
-            Interne Tour-Manager und externe Kunden-Admins.
-          </p>
-        </div>
-      </div>
-
-      <div className="flex gap-2 border-b border-[var(--border-soft)]">
-        <button
-          type="button"
-          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${portalTab === "intern" ? "border-[var(--accent)] text-[var(--text-main)]" : "border-transparent text-[var(--text-subtle)] hover:text-[var(--text-main)]"}`}
-          onClick={() => setPortalTab("intern")}
-        >
-          Intern (Tour-Manager)
-        </button>
-        <button
-          type="button"
-          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${portalTab === "extern" ? "border-[var(--accent)] text-[var(--text-main)]" : "border-transparent text-[var(--text-subtle)] hover:text-[var(--text-main)]"}`}
-          onClick={() => setPortalTab("extern")}
-        >
-          Extern (Kunden-Admins)
-        </button>
-      </div>
-
-      {msg ? <p className="text-sm text-emerald-700 dark:text-emerald-400">{msg}</p> : null}
-      {err ? (
-        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-200">
-          <AlertCircle className="h-4 w-4 shrink-0" />
-          {err}
-        </div>
-      ) : null}
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
-
-      {portalTab === "intern" ? (
-        <div className="space-y-4">
-          <form onSubmit={doStaffAdd} className="surface-card-strong p-4 flex flex-wrap gap-2 items-end">
-            <label className="text-sm flex-1 min-w-[200px]">
-              <span className="text-[var(--text-subtle)]">E-Mail (Tour-Manager Portal)</span>
-              <input
-                className="mt-1 w-full rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm"
-                value={staffEmail}
-                onChange={(e) => setStaffEmail(e.target.value)}
-                placeholder="name@firma.ch"
-              />
-            </label>
-            <button type="submit" className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white">
-              Hinzufügen
-            </button>
-          </form>
-          <div className="surface-card-strong overflow-x-auto">
-            {loading && !data ? (
-              <p className="p-4 text-sm text-[var(--text-subtle)]">Laden …</p>
-            ) : (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-[var(--border-soft)] text-left text-[var(--text-subtle)]">
-                    <th className="p-3">E-Mail</th>
-                    <th className="p-3">Rolle</th>
-                    <th className="p-3" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {staffRows.map((row, i) => {
-                    const em = String(row.email_norm || row.member_email || row.email || "");
-                    return (
-                      <tr key={i} className="border-b border-[var(--border-soft)]/60">
-                        <td className="p-3">{em || "—"}</td>
-                        <td className="p-3">{String(row.role || "—")}</td>
-                        <td className="p-3 text-right">
-                          <button
-                            type="button"
-                            className="text-red-600 text-xs hover:underline"
-                            onClick={() => void doStaffRemove(em)}
-                          >
-                            Entfernen
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {!loading && staffRows.length === 0 ? (
-                    <tr><td colSpan={3} className="p-4 text-sm text-center text-[var(--text-subtle)]">Keine Einträge</td></tr>
-                  ) : null}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          <form onSubmit={doExternSet} className="surface-card-strong p-4 space-y-3">
-            <p className="text-sm text-[var(--text-subtle)]">
-              Workspace-Inhaber aus Touren auswählen und Kontakt als Kunden-Admin setzen.
-            </p>
-            <label className="block text-sm">
-              <span className="text-[var(--text-subtle)]">Workspace (E-Mail)</span>
-              <select
-                className="mt-1 w-full rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm"
-                value={extOwner}
-                onChange={(e) => {
-                  setExtOwner(e.target.value);
-                  const sel = ownerList.find((o) => String(o.owner_email) === e.target.value);
-                  setExtOwnerCid(sel?.customer_id != null ? String(sel.customer_id) : "");
-                }}
-              >
-                <option value="">— wählen —</option>
-                {ownerList.map((o, i) => (
-                  <option key={i} value={String(o.owner_email || "")}>
-                    {String(o.customer_name || o.owner_email)} ({String(o.owner_email)})
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block text-sm">
-              <span className="text-[var(--text-subtle)]">Kunden-ID (optional, für Kontakte)</span>
-              <input
-                className="mt-1 w-full rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm"
-                value={extOwnerCid}
-                onChange={(e) => setExtOwnerCid(e.target.value)}
-                placeholder="core.customers.id"
-              />
-            </label>
-            <label className="block text-sm">
-              <span className="text-[var(--text-subtle)]">Mitglied (E-Mail)</span>
-              <select
-                className="mt-1 w-full rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm"
-                value={extMember}
-                onChange={(e) => setExtMember(e.target.value)}
-              >
-                <option value="">— Kontakt wählen —</option>
-                {contacts.map((c, i) => (
-                  <option key={i} value={String(c.email || "")}>
-                    {String(c.name || c.email)} ({String(c.position || "")})
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button type="submit" className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white">
-              Als Kunden-Admin setzen
-            </button>
-          </form>
-
-          <div className="surface-card-strong overflow-x-auto">
-            {loading && !data ? (
-              <p className="p-4 text-sm text-[var(--text-subtle)]">Laden …</p>
-            ) : (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-[var(--border-soft)] text-left text-[var(--text-subtle)]">
-                    <th className="p-3">Kunde / Workspace</th>
-                    <th className="p-3">Admin-E-Mail</th>
-                    <th className="p-3">Rolle</th>
-                    <th className="p-3" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {externRows.map((row, i) => (
-                    <tr key={i} className="border-b border-[var(--border-soft)]/60">
-                      <td className="p-3">
-                        <div>{String(row.customer_name || row.owner_email || "—")}</div>
-                        <div className="text-xs text-[var(--text-subtle)]">{String(row.owner_email || "")}</div>
-                      </td>
-                      <td className="p-3">{String(row.member_email || "—")}</td>
-                      <td className="p-3">{String(row.role || "—")}</td>
-                      <td className="p-3 text-right">
-                        <button
-                          type="button"
-                          className="text-xs text-red-600 hover:underline"
-                          onClick={() =>
-                            void doExternRemove(
-                              String(row.owner_email || "").toLowerCase(),
-                              String(row.member_email || "").toLowerCase()
-                            )
-                          }
-                        >
-                          Auf Mitarbeiter
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                  {!loading && externRows.length === 0 ? (
-                    <tr><td colSpan={4} className="p-4 text-sm text-center text-[var(--text-subtle)]">Keine Einträge</td></tr>
-                  ) : null}
-                </tbody>
-              </table>
-            )}
-          </div>
-          <p className="text-xs text-[var(--text-subtle)]">
-            Kunden-Stammdaten:{" "}
-            <Link to="/admin/tours/customers" className="text-[var(--accent)] hover:underline">
-              Kundenliste
-            </Link>
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ─── Haupt-Komponente ─────────────────────────────────────────────────────────
 
 export function RoleMatrixPage() {
   const role = useAuthStore((s) => s.role);
   const token = useAuthStore((s) => s.token);
   const isSuperAdmin = role === "super_admin" || role === "admin";
-  const canManagePortalRoles = role === "super_admin" || role === "admin" || role === "tour_manager";
-
-  const [searchParams, setSearchParams] = useSearchParams();
-  const view = searchParams.get("view") === "portal" ? "portal" : "matrix";
-
-  function setView(next: "matrix" | "portal") {
-    setSearchParams((p) => { const n = new URLSearchParams(p); n.set("view", next); return n; }, { replace: true });
-  }
 
   const [hoveredPerm, setHoveredPerm] = useState<string | null>(null);
   const [hoveredRole, setHoveredRole] = useState<RoleKey | null>(null);
-  const [filterGroup, setFilterGroup] = useState<"all" | "intern" | "fotograf" | "portal">("all");
+  const [filterGroup, setFilterGroup] = useState<"all" | "intern" | "fotograf" | "portal" | "custom">("all");
+
+  // ─── Custom Rollen (aus DB) ──────────────────────────────────────────────────
+  const [customRoles, setCustomRoles] = useState<RoleDef[]>([]);
 
   // ─── Editier-State (nur Super-Admin) ────────────────────────────────────────
   const [loadedPresets, setLoadedPresets] = useState<Record<string, Set<string>> | null>(null);
@@ -614,7 +331,18 @@ export function RoleMatrixPage() {
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
   const [saveErr, setSaveErr] = useState<string | null>(null);
 
-  useEffect(() => {
+  // ─── Neue Rolle erstellen ────────────────────────────────────────────────────
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newLabel, setNewLabel] = useState("");
+  const [newDesc, setNewDesc] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [createErr, setCreateErr] = useState<string | null>(null);
+
+  // ─── Rolle löschen ──────────────────────────────────────────────────────────
+  const [deletingRole, setDeletingRole] = useState<string | null>(null);
+  const [deleteErr, setDeleteErr] = useState<string | null>(null);
+
+  function loadRoleData() {
     if (!isSuperAdmin || !token) return;
     getRolePresets(token)
       .then((r) => {
@@ -628,9 +356,54 @@ export function RoleMatrixPage() {
         }
         setLoadedPresets(loaded);
         setEditedPresets(edited);
+        // Custom Rollen aus API-Antwort einlesen
+        const custom = (r.roles ?? [])
+          .filter((rm) => rm.is_custom)
+          .map((rm): RoleDef => ({
+            key: rm.role_key,
+            label: rm.label || rm.role_key,
+            description: rm.description || "",
+            group: "custom",
+            color: CUSTOM_ROLE_STYLE.color,
+            headerBg: CUSTOM_ROLE_STYLE.headerBg,
+          }));
+        setCustomRoles(custom);
       })
       .catch(() => { /* fallback: hartkodierte ROLE_PRESETS bleiben */ });
-  }, [isSuperAdmin, token]);
+  }
+
+  useEffect(() => { loadRoleData(); }, [isSuperAdmin, token]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newLabel.trim()) return;
+    setCreating(true);
+    setCreateErr(null);
+    try {
+      await createRolePreset(token, { label: newLabel.trim(), description: newDesc.trim() });
+      setShowCreateModal(false);
+      setNewLabel("");
+      setNewDesc("");
+      loadRoleData();
+    } catch (err) {
+      setCreateErr(err instanceof Error ? err.message : "Fehler beim Erstellen");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function handleDelete(roleKey: string) {
+    setDeletingRole(roleKey);
+    setDeleteErr(null);
+    try {
+      await deleteRolePreset(token, roleKey);
+      loadRoleData();
+    } catch (err) {
+      setDeleteErr(err instanceof Error ? err.message : "Fehler beim Löschen");
+    } finally {
+      setDeletingRole(null);
+    }
+  }
 
   function getPresets(): Record<RoleKey, Set<PermKey>> {
     return (editedPresets ?? ROLE_PRESETS) as Record<RoleKey, Set<PermKey>>;
@@ -684,10 +457,12 @@ export function RoleMatrixPage() {
     return getPresets()[roleKey]?.size ?? 0;
   }
 
+  const allRoles = [...ROLES, ...customRoles];
   const sections = getSections();
-  const visibleRoles = filterGroup === "all" ? ROLES : ROLES.filter((r) => r.group === filterGroup);
+  const visibleRoles = filterGroup === "all" ? allRoles : allRoles.filter((r) => r.group === filterGroup);
 
   return (
+    <>
     <div className="min-h-screen bg-[var(--bg)] px-4 py-8 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-[1600px]">
 
@@ -700,7 +475,7 @@ export function RoleMatrixPage() {
                 Systemrollen, Zugriffsrechte und Portal-Zugang verwalten.
               </p>
             </div>
-            {isSuperAdmin && view === "matrix" && (
+            {isSuperAdmin && (
               <div className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/8 px-4 py-2.5 text-sm text-amber-400">
                 <Shield className="h-4 w-4 shrink-0" />
                 <span>Klick auf eine Checkbox zum Bearbeiten — Änderungen werden pro Rolle gespeichert. Fixe Rollen (Super-Admin, Admin) sind immer unveränderlich.</span>
@@ -708,68 +483,52 @@ export function RoleMatrixPage() {
             )}
           </div>
 
-          {/* Haupt-Tabs */}
-          <div className="mt-5 flex gap-1 rounded-xl border border-[var(--border-soft)] bg-[var(--surface-raised)] p-1 w-fit">
-            <button
-              type="button"
-              onClick={() => setView("matrix")}
-              className={cn(
-                "inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors",
-                view === "matrix"
-                  ? "bg-[var(--surface)] shadow-sm text-[var(--text-main)]"
-                  : "text-[var(--text-subtle)] hover:text-[var(--text-main)]",
-              )}
-            >
-              <Shield className="h-4 w-4" />
-              Rollen-Matrix
-            </button>
-            {canManagePortalRoles && (
+        </div>
+
+        {/* ─── Rollen-Matrix ──────────────────────────────────────────────── */}
+        <>
+
+          {/* Gruppen-Filter + Neue Rolle Button */}
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap gap-2">
+              {(["all", "intern", "fotograf", "portal", "custom"] as const).map((g) => (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() => setFilterGroup(g)}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-lg border px-3.5 py-1.5 text-sm font-medium transition-colors",
+                    filterGroup === g
+                      ? "border-[var(--accent)]/40 bg-[var(--accent)]/12 text-[var(--accent)]"
+                      : "border-[var(--border-soft)] text-[var(--text-muted)] hover:border-[var(--border-strong)] hover:text-[var(--text-main)]",
+                  )}
+                >
+                  {g === "all" && <><Users className="h-3.5 w-3.5" /> Alle Rollen ({allRoles.length})</>}
+                  {g === "intern" && <><Shield className="h-3.5 w-3.5" /> Intern</>}
+                  {g === "fotograf" && <><Camera className="h-3.5 w-3.5" /> Fotografen</>}
+                  {g === "portal" && <><Building2 className="h-3.5 w-3.5" /> Kunden-Portal</>}
+                  {g === "custom" && <><Plus className="h-3.5 w-3.5" /> Eigene{customRoles.length > 0 ? ` (${customRoles.length})` : ""}</>}
+                </button>
+              ))}
+            </div>
+            {isSuperAdmin && (
               <button
                 type="button"
-                onClick={() => setView("portal")}
-                className={cn(
-                  "inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors",
-                  view === "portal"
-                    ? "bg-[var(--surface)] shadow-sm text-[var(--text-main)]"
-                    : "text-[var(--text-subtle)] hover:text-[var(--text-main)]",
-                )}
+                onClick={() => { setShowCreateModal(true); setCreateErr(null); }}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--accent)]/40 bg-[var(--accent)]/10 px-3.5 py-1.5 text-sm font-medium text-[var(--accent)] hover:bg-[var(--accent)]/20 transition-colors"
               >
-                <Users className="h-4 w-4" />
-                Portal-Zugang
+                <Plus className="h-3.5 w-3.5" />
+                Neue Rolle
               </button>
             )}
           </div>
-        </div>
 
-        {/* ─── Portal-Zugang Tab ───────────────────────────────────────────── */}
-        {view === "portal" && canManagePortalRoles && (
-          <PortalRolesPanel />
-        )}
-
-        {/* ─── Rollen-Matrix Tab ──────────────────────────────────────────── */}
-        {view === "matrix" && (<>
-
-          {/* Gruppen-Filter */}
-          <div className="mb-6 flex flex-wrap gap-2">
-            {(["all", "intern", "fotograf", "portal"] as const).map((g) => (
-              <button
-                key={g}
-                type="button"
-                onClick={() => setFilterGroup(g)}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-lg border px-3.5 py-1.5 text-sm font-medium transition-colors",
-                  filterGroup === g
-                    ? "border-[var(--accent)]/40 bg-[var(--accent)]/12 text-[var(--accent)]"
-                    : "border-[var(--border-soft)] text-[var(--text-muted)] hover:border-[var(--border-strong)] hover:text-[var(--text-main)]",
-                )}
-              >
-                {g === "all" && <><Users className="h-3.5 w-3.5" /> Alle Rollen ({ROLES.length})</>}
-                {g === "intern" && <><Shield className="h-3.5 w-3.5" /> Intern</>}
-                {g === "fotograf" && <><Camera className="h-3.5 w-3.5" /> Fotografen</>}
-                {g === "portal" && <><Building2 className="h-3.5 w-3.5" /> Kunden-Portal</>}
-              </button>
-            ))}
-          </div>
+          {/* ─── Fehler beim Löschen ─────────────────────────────────────────── */}
+          {deleteErr && (
+            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-200">
+              {deleteErr}
+            </div>
+          )}
 
           {/* ─── Rollen-Karten oben ──────────────────────────────────────────── */}
         <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
@@ -777,7 +536,7 @@ export function RoleMatrixPage() {
             const count = countPerms(r.key);
             const total = ALL_PERM_KEYS.length;
             const pct = Math.round((count / total) * 100);
-            const { label: groupLabel, Icon: GroupIcon } = GROUP_META[r.group];
+            const { label: groupLabel, Icon: GroupIcon } = GROUP_META[r.group as keyof typeof GROUP_META];
             return (
               <div
                 key={r.key}
@@ -793,9 +552,22 @@ export function RoleMatrixPage() {
               >
                 <div className="flex items-start justify-between gap-2">
                   <span className={cn("text-sm font-semibold", r.color)}>{r.label}</span>
-                  <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-bold tabular-nums", r.headerBg, r.color)}>
-                    {count}/{total}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-bold tabular-nums", r.headerBg, r.color)}>
+                      {count}/{total}
+                    </span>
+                    {!r.fixed && isSuperAdmin && (
+                      <button
+                        type="button"
+                        disabled={deletingRole === r.key}
+                        onClick={(e) => { e.stopPropagation(); void handleDelete(r.key); }}
+                        className="rounded p-0.5 text-[var(--text-subtle)] hover:text-red-500 hover:bg-red-500/10 transition-colors disabled:opacity-40"
+                        title="Rolle löschen"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <p className="mt-1.5 text-[11px] leading-snug text-[var(--text-subtle)]">{r.description}</p>
                 <div className="mt-3">
@@ -834,7 +606,7 @@ export function RoleMatrixPage() {
                 <th className="sticky left-0 z-10 bg-[var(--surface-raised)] px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-widest text-[var(--text-subtle)]">
                   Berechtigung
                 </th>
-                {(["intern", "fotograf", "portal"] as const)
+                {(["intern", "fotograf", "portal", "custom"] as const)
                   .filter((g) => filterGroup === "all" || filterGroup === g)
                   .map((g) => {
                     const rolesInGroup = visibleRoles.filter((r) => r.group === g);
@@ -850,6 +622,7 @@ export function RoleMatrixPage() {
                           "text-amber-400": g === "intern",
                           "text-violet-400": g === "fotograf",
                           "text-emerald-400": g === "portal",
+                          "text-slate-400": g === "custom",
                         })}>
                           <Icon className="h-3 w-3" />
                           {label}
@@ -1060,9 +833,72 @@ export function RoleMatrixPage() {
           </span>
         </div>
 
-        </>)}
+        </>
 
       </div>
     </div>
+
+    {/* ─── Modal: Neue Rolle erstellen ─────────────────────────────────────── */}
+    {showCreateModal && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+        onClick={() => setShowCreateModal(false)}
+      >
+        <div
+          className="w-full max-w-md rounded-2xl border border-[var(--border-soft)] bg-[var(--surface)] p-6 shadow-xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <h2 className="text-lg font-semibold text-[var(--text-main)] mb-1">Neue Rolle erstellen</h2>
+          <p className="text-sm text-[var(--text-subtle)] mb-5">
+            Die Rolle wird leer angelegt. Berechtigungen kannst du danach in der Matrix setzen.
+          </p>
+          <form onSubmit={(e) => { void handleCreate(e); }} className="space-y-4">
+            <label className="block">
+              <span className="text-sm text-[var(--text-subtle)]">Name der Rolle <span className="text-red-500">*</span></span>
+              <input
+                autoFocus
+                className="mt-1 w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40"
+                value={newLabel}
+                onChange={(e) => setNewLabel(e.target.value)}
+                placeholder="z.B. Vertriebs-Manager"
+                maxLength={60}
+              />
+            </label>
+            <label className="block">
+              <span className="text-sm text-[var(--text-subtle)]">Beschreibung</span>
+              <textarea
+                className="mt-1 w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40 resize-none"
+                value={newDesc}
+                onChange={(e) => setNewDesc(e.target.value)}
+                placeholder="Kurze Beschreibung der Rolle…"
+                rows={2}
+                maxLength={200}
+              />
+            </label>
+            {createErr && (
+              <p className="text-sm text-red-600 dark:text-red-400">{createErr}</p>
+            )}
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowCreateModal(false)}
+                className="rounded-lg border border-[var(--border-soft)] px-4 py-2 text-sm text-[var(--text-subtle)] hover:text-[var(--text-main)] transition-colors"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="submit"
+                disabled={!newLabel.trim() || creating}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 transition-opacity"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                {creating ? "Erstellen…" : "Erstellen"}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

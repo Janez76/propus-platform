@@ -8,6 +8,7 @@
 
 'use strict';
 
+const crypto = require('crypto');
 const express = require('express');
 const multer = require('multer');
 const router = express.Router();
@@ -81,14 +82,40 @@ router.post('/login', async (req, res) => {
 });
 
 router.post('/forgot-password', async (req, res) => {
+  // Immer dieselbe generische Antwort zurückgeben – verhindert Email-Enumeration.
+  // Mail wird fire-and-forget versendet, damit Response-Zeit unabhängig vom SMTP/Graph-Roundtrip ist.
+  const genericMsg = 'Falls ein Konto existiert, wurde eine E-Mail gesendet.';
   try {
     const email = portalAuth.normalizeEmail(req.body?.email);
     if (!email) return res.status(400).json({ ok: false, error: 'E-Mail ist erforderlich.' });
-    await portalAuth.issuePasswordReset(email).catch(() => null);
-    return res.json({ ok: true, message: 'Falls ein Konto existiert, wurde eine E-Mail gesendet.' });
+
+    // Reset-Token synchron generieren (schnell, nur DB-INSERT), Mail asynchron.
+    portalAuth.issuePasswordReset(email)
+      .then((reset) => {
+        if (!reset?.ok || !reset.token) return;
+        const baseUrl = portalTeam.getPortalBaseUrl();
+        const resetLink = `${baseUrl}/portal/reset-password?token=${encodeURIComponent(reset.token)}`;
+        return sendMailDirect({
+          to: reset.email,
+          subject: 'Passwort setzen – Propus Kundenportal',
+          htmlBody:
+            `<p>Guten Tag</p>` +
+            `<p>Über diesen Link können Sie Ihr Passwort für das Propus Kundenportal setzen oder zurücksetzen:</p>` +
+            `<p><a href="${resetLink}"><strong>Passwort setzen</strong></a></p>` +
+            `<p style="color:#666;font-size:12px;">Falls der Link nicht funktioniert: ${resetLink}</p>` +
+            `<p>Der Link ist 2 Stunden gültig.</p>`,
+          textBody:
+            `Passwort setzen / zurücksetzen:\n${resetLink}\n\nDer Link ist 2 Stunden gültig.`,
+        });
+      })
+      .catch((err) => {
+        console.error('[portal-api] forgot-password async error', err?.message || err);
+      });
+
+    return res.json({ ok: true, message: genericMsg });
   } catch (err) {
     console.error('[portal-api] forgot-password error', err);
-    res.status(500).json({ ok: false, error: 'Interner Fehler' });
+    return res.json({ ok: true, message: genericMsg });
   }
 });
 
@@ -127,9 +154,52 @@ router.post('/logout', (req, res) => {
 
 // ─── Auth-Guard ──────────────────────────────────────────────────────────────
 
+/**
+ * requirePortalSession (Mutations)
+ * Identisch zur Guard-Logik in portal-api.js:
+ * 1. Portal-Session-Cookie → req.session.portalCustomerEmail
+ * 2. Admin-Bearer-Token / admin_session-Cookie (Unified-Login für Portal-Kunden)
+ */
 function requirePortalSession(req, res, next) {
   if (req.session?.portalCustomerEmail) return next();
-  return res.status(401).json({ error: 'Nicht angemeldet' });
+
+  let adminToken = '';
+  const auth = String(req.headers.authorization || '');
+  adminToken = auth.replace(/^Bearer\s+/i, '').trim();
+  if (!adminToken) {
+    const cookieHeader = String(req.headers.cookie || '');
+    for (const part of cookieHeader.split(';')) {
+      const c = part.trim();
+      if (c.startsWith('admin_session=')) {
+        adminToken = c.substring('admin_session='.length);
+        break;
+      }
+    }
+  }
+
+  if (!adminToken) {
+    return res.status(401).json({ error: 'Nicht angemeldet' });
+  }
+
+  const tokenHash = crypto.createHash('sha256').update(adminToken).digest('hex');
+  const CUSTOMER_ROLES = ['customer_user', 'customer_admin', 'tour_manager'];
+
+  pool.query(
+    `SELECT user_key, user_name, role
+     FROM admin_sessions
+     WHERE token_hash = $1 AND expires_at > NOW()
+     LIMIT 1`,
+    [tokenHash]
+  ).then((result) => {
+    const row = result.rows[0];
+    if (row && CUSTOMER_ROLES.includes(row.role) && row.user_key) {
+      req.session.portalCustomerEmail = row.user_key;
+      req.session.portalCustomerName = row.user_name || row.user_key;
+      req.session.save(() => next());
+    } else {
+      res.status(401).json({ error: 'Nicht angemeldet' });
+    }
+  }).catch(() => res.status(401).json({ error: 'Nicht angemeldet' }));
 }
 
 router.use(requirePortalSession);

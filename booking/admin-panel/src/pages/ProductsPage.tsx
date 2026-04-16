@@ -16,7 +16,6 @@ import { useQueryStore } from "../store/queryStore";
 import { ProductEditModal } from "../components/products/ProductEditModal";
 import { ProductListByCategory } from "../components/products/ProductListByCategory";
 import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
-import { RichTextEditor } from "../components/ui/RichTextEditor";
 
 type ModalMode = "create" | "edit" | "duplicate";
 

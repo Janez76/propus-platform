@@ -13,6 +13,7 @@ const ALL_PERMISSION_KEYS = [
   "tours.archive",
   "tours.link_matterport",
   "portal_team.manage",
+  "portal_invoices.read",
   "dashboard.view",
   "orders.read",
   "orders.create",
@@ -30,7 +31,14 @@ const ALL_PERMISSION_KEYS = [
   "photographers.manage",
   "products.manage",
   "discount_codes.manage",
+  "listing.manage",
+  "picdrop.manage",
   "calendar.view",
+  "calendar.manage",
+  "finance.read",
+  "finance.manage",
+  "tickets.read",
+  "tickets.manage",
   "settings.manage",
   "emails.manage",
   "billing.read",
@@ -55,7 +63,18 @@ const TOURS_INTERNAL_PERMS = [
 const ROLE_PRESETS = {
   super_admin: ALL_PERMISSION_KEYS,
   internal_admin: ALL_PERMISSION_KEYS,
-  tour_manager: TOURS_INTERNAL_PERMS,
+  // dashboard.view ergänzt via Migration 078 (war im Frontend-Fallback vorhanden, fehlte im Backend)
+  // finance.*/tickets.*/listing.manage ergänzt via Migration 080 (Zentrales Rechnungs- & Ticket-Modul für Tour-Manager)
+  tour_manager: [
+    ...TOURS_INTERNAL_PERMS,
+    "dashboard.view",
+    "finance.read",
+    "finance.manage",
+    "tickets.read",
+    "tickets.manage",
+    "listing.manage",
+    "portal_invoices.read",
+  ],
   photographer: [
     "dashboard.view",
     "orders.read",
@@ -63,7 +82,11 @@ const ROLE_PRESETS = {
     "orders.assign",
     "calendar.view",
     "photographers.read",
+    // picdrop.manage ergänzt via Migration 080 (Bildauswahl-Workflow)
+    "picdrop.manage",
   ],
+  // tours.read ergänzt via Migration 078 (für /portal/tours Portal-Zugriff)
+  // portal_invoices.read ergänzt via Migration 080
   company_owner: [
     "customers.read",
     "orders.read",
@@ -72,8 +95,12 @@ const ROLE_PRESETS = {
     "company.manage",
     "team.manage",
     "calendar.view",
+    "tours.read",
+    "portal_invoices.read",
   ],
   // @deprecated - Rolle wird nicht mehr vergeben. Bestehende Einträge wurden per Migration 066 zu company_employee migriert.
+  // tours.read ergänzt via Migration 078 für Altdaten-Absicherung.
+  // portal_invoices.read ergänzt via Migration 080
   company_admin: [
     "customers.read",
     "orders.read",
@@ -82,10 +109,18 @@ const ROLE_PRESETS = {
     "company.manage",
     "team.manage",
     "calendar.view",
+    "tours.read",
+    "portal_invoices.read",
   ],
-  company_employee: ["customers.read", "orders.read", "orders.create", "calendar.view", "calendar.manage"],
-  customer_admin: ["customers.read", "contacts.read", "contacts.manage", "orders.read", "orders.update", "orders.create"],
-  customer_user: ["orders.read"],
+  // tours.read ergänzt via Migration 078
+  // portal_invoices.read ergänzt via Migration 080
+  company_employee: ["customers.read", "orders.read", "orders.create", "calendar.view", "calendar.manage", "tours.read", "portal_invoices.read"],
+  // tours.read + tours.manage + portal_team.manage ergänzt via Migration 078 (Portal-Routenzugriff)
+  // portal_invoices.read ergänzt via Migration 080
+  customer_admin: ["customers.read", "contacts.read", "contacts.manage", "orders.read", "orders.update", "orders.create", "tours.read", "tours.manage", "portal_team.manage", "portal_invoices.read"],
+  // tours.read ergänzt via Migration 078 (für /portal/dashboard, /portal/tours, /portal/invoices)
+  // portal_invoices.read ergänzt via Migration 080
+  customer_user: ["orders.read", "tours.read", "portal_invoices.read"],
 };
 
 function mapAdminDbRoleToSystemRole(dbRole) {

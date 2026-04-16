@@ -2,6 +2,7 @@
  * Routes für GET/POST/PUT/DELETE /api/admin/customers/:id/contacts
  * Wird in server.js nach den customer-Routen eingebunden.
  */
+const crypto = require("crypto");
 const logtoOrgSync = require("./logto-org-sync");
 const rbac = require("./access-rbac");
 
@@ -100,9 +101,12 @@ function registerCustomerContactsRoutes(app, db, requireAdmin, ensureCustomerInR
         `SELECT cc.id, cc.customer_id, cc.name, cc.role, cc.portal_role, cc.phone, cc.email, cc.sort_order,
                 cc.phone_direct, cc.salutation, cc.first_name, cc.last_name, cc.phone_mobile, cc.department, cc.exxas_contact_id,
                 cc.created_at,
-                c.name AS customer_name, c.company AS customer_company
+                c.name AS customer_name, c.company AS customer_company,
+                cm.status AS member_status
          FROM core.customer_contacts cc
          JOIN core.customers c ON c.id = cc.customer_id
+         LEFT JOIN core.companies co ON co.billing_customer_id = cc.customer_id
+         LEFT JOIN core.company_members cm ON cm.company_id = co.id AND LOWER(cm.email) = LOWER(cc.email)
          WHERE ($1::text = '%' OR cc.name ILIKE $1 OR cc.first_name ILIKE $1 OR cc.last_name ILIKE $1
                 OR cc.email ILIKE $1 OR c.name ILIKE $1 OR c.company ILIKE $1)
          ORDER BY COALESCE(NULLIF(TRIM(cc.last_name), ''), cc.name) ASC NULLS LAST, cc.first_name ASC NULLS LAST
@@ -367,9 +371,13 @@ function registerCustomerContactsRoutes(app, db, requireAdmin, ensureCustomerInR
       const customerId = Number(req.params.id);
       if (!Number.isFinite(customerId)) return res.status(400).json({ error: "Ungueltige Kunden-ID" });
       const { rows } = await p.query(
-        `SELECT id, customer_id, name, role, portal_role, phone, email, sort_order, created_at,
-                phone AS phone_direct, salutation, first_name, last_name, phone_mobile, department, exxas_contact_id
-         FROM customer_contacts WHERE customer_id = $1 ORDER BY sort_order ASC, id ASC`,
+        `SELECT cc.id, cc.customer_id, cc.name, cc.role, cc.portal_role, cc.phone, cc.email, cc.sort_order, cc.created_at,
+                cc.phone AS phone_direct, cc.salutation, cc.first_name, cc.last_name, cc.phone_mobile, cc.department, cc.exxas_contact_id,
+                cm.status AS member_status
+         FROM core.customer_contacts cc
+         LEFT JOIN core.companies co ON co.billing_customer_id = cc.customer_id
+         LEFT JOIN core.company_members cm ON cm.company_id = co.id AND LOWER(cm.email) = LOWER(cc.email)
+         WHERE cc.customer_id = $1 ORDER BY cc.sort_order ASC, cc.id ASC`,
         [customerId]
       );
       res.json(rows);
@@ -555,6 +563,52 @@ function registerCustomerContactsRoutes(app, db, requireAdmin, ensureCustomerInR
       res.json({ ok: true });
     } catch (err) {
       res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/admin/customers/:id/contacts/:contactId/invite", requireAdmin, async (req, res) => {
+    try {
+      if (!(await ensureCustomerInRequestCompany(req, req.params.id))) {
+        return res.status(404).json({ error: "Nicht gefunden" });
+      }
+      const p = db.getPool ? db.getPool() : null;
+      if (!p) return res.status(503).json({ error: "DB nicht verf\u00fcgbar" });
+      const customerId = Number(req.params.id);
+      const contactId = Number(req.params.contactId);
+      if (!Number.isFinite(customerId) || !Number.isFinite(contactId)) {
+        return res.status(400).json({ error: "Ungueltige ID" });
+      }
+      const cur = await loadContactRow(p, contactId);
+      if (!cur || Number(cur.customer_id) !== customerId) {
+        return res.status(404).json({ error: "Kontakt nicht gefunden" });
+      }
+      const email = String(cur.email || "").trim().toLowerCase();
+      if (!email || !email.includes("@")) {
+        return res.status(400).json({ error: "Kontakt hat keine g\u00fcltige E-Mail-Adresse" });
+      }
+      const company = await ensureCompanyForContactSync(p, customerId);
+      if (!company?.id) {
+        return res.status(400).json({ error: "Keine Firma f\u00fcr diesen Kunden gefunden. Bitte zuerst einen Firmennamen beim Kunden hinterlegen." });
+      }
+      const VALID_COMPANY_ROLES = new Set(["company_owner", "company_admin", "company_employee"]);
+      const portalRole = String(cur.portal_role || "").trim();
+      const role = VALID_COMPANY_ROLES.has(portalRole) ? portalRole : "company_employee";
+      const token = crypto.randomBytes(32).toString("base64url");
+      const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 14).toISOString();
+      const invitation = await db.createCompanyInvitation({
+        companyId: Number(company.id),
+        email,
+        role,
+        token,
+        expiresAt,
+        invitedBy: String(req.user?.id || req.user?.name || "admin"),
+        givenName: String(cur.first_name || "").trim(),
+        familyName: String(cur.last_name || "").trim(),
+        loginName: "",
+      });
+      return res.status(201).json({ ok: true, invitation });
+    } catch (err) {
+      return res.status(400).json({ error: err.message || "Einladung konnte nicht erstellt werden" });
     }
   });
 }

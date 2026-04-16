@@ -250,14 +250,21 @@ function buildCanonicalFullsizeName(order, originalName) {
   });
 }
 
-function buildStoredUploadName(order, categoryKey, originalName) {
+function buildStoredUploadName(order, categoryKey, originalName, addOrderSuffix) {
+  let name;
   if (categoryKey === "staging_fullsize" || categoryKey === "final_fullsize") {
-    return buildCanonicalFullsizeName(order, originalName);
+    name = buildCanonicalFullsizeName(order, originalName);
+  } else if (categoryKey === "staging_websize" || categoryKey === "final_websize") {
+    name = buildDerivedWebsizeName(order, originalName);
+  } else {
+    name = sanitizeUploadFilename(originalName);
   }
-  if (categoryKey === "staging_websize" || categoryKey === "final_websize") {
-    return buildDerivedWebsizeName(order, originalName);
+  if (addOrderSuffix && order && order.orderNo != null) {
+    const ext = path.extname(name);
+    const stem = ext ? name.slice(0, -ext.length) : name;
+    name = `${stem}_#${order.orderNo}${ext}`;
   }
-  return sanitizeUploadFilename(originalName);
+  return name;
 }
 
 function buildDerivedWebsizeName(order, originalName) {

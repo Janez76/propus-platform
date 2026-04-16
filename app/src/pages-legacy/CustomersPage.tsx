@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ArrowUpDown, Building2, CheckCircle2, ChevronDown, ChevronUp, Mail, PackageX, Phone, Plus, Search, ShoppingBag, User, UserPlus, Users, X } from "lucide-react";
+import { PortalFirmsTab } from "../components/customers/PortalFirmsTab";
 import { createContact, createCustomer, createCustomerContact, deleteCustomer, getContacts, getCustomers, getCustomerImpersonateUrl, patchCustomerNasFolderBases, updateContact, updateCustomer, updateCustomerAdmin, updateCustomerBlocked, type Contact, type Customer } from "../api/customers";
 import { CustomerList, type CustomerSortKey } from "../components/customers/CustomerList";
 import { ContactModal } from "../components/customers/ContactModal";
@@ -89,10 +90,20 @@ export function CustomersPage() {
     next.delete("focusCustomerId");
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    const tabParam = searchParams.get("tab");
+    if (tabParam === "portal-firms" || tabParam === "contacts") {
+      setViewMode(tabParam);
+      const next = new URLSearchParams(searchParams);
+      next.delete("tab");
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [customerListPage, setCustomerListPage] = useState(1);
-  const [viewMode, setViewMode] = useState<"customers" | "contacts">("customers");
+  const [viewMode, setViewMode] = useState<"customers" | "contacts" | "portal-firms">("customers");
   const [customerSortKey, setCustomerSortKey] = useState<CustomerSortKey>("name");
   const [customerSortDir, setCustomerSortDir] = useState<"asc" | "desc">("asc");
   const [contactSortKey, setContactSortKey] = useState<"contactId" | "customerId" | "name" | "contact" | "customer" | "role">("name");
@@ -531,23 +542,25 @@ export function CustomersPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="cust-page-header-title">
-            {viewMode === "contacts" ? t(lang, "customers.titleContacts") : t(lang, "customers.title")}
+            {viewMode === "portal-firms" ? "Portal-Firmen" : viewMode === "contacts" ? t(lang, "customers.titleContacts") : t(lang, "customers.title")}
           </h1>
           <p className="cust-page-header-sub">
-            {viewMode === "contacts" ? t(lang, "customers.descriptionContacts") : t(lang, "customers.description")}
+            {viewMode === "portal-firms" ? "Externe Firmen und Workspace-Zugänge" : viewMode === "contacts" ? t(lang, "customers.descriptionContacts") : t(lang, "customers.description")}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setCreateContactDialogOpen(true)}
-          className="cust-btn-new shrink-0 self-start"
-        >
-          <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
-          <span className="hidden sm:inline">
-            {viewMode === "contacts" ? t(lang, "customers.button.newContact") : t(lang, "customers.button.newCustomer")}
-          </span>
-          <span className="sm:hidden">+</span>
-        </button>
+        {viewMode !== "portal-firms" && (
+          <button
+            type="button"
+            onClick={() => setCreateContactDialogOpen(true)}
+            className="cust-btn-new shrink-0 self-start"
+          >
+            <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
+            <span className="hidden sm:inline">
+              {viewMode === "contacts" ? t(lang, "customers.button.newContact") : t(lang, "customers.button.newCustomer")}
+            </span>
+            <span className="sm:hidden">+</span>
+          </button>
+        )}
       </div>
 
       {viewMode === "customers" ? (
@@ -618,6 +631,19 @@ export function CustomersPage() {
           {t(lang, "customers.view.contacts")}
           <span className={viewMode === "contacts" ? "cust-tab-count" : "cust-tab-count cust-tab-count--neutral"}>{allContacts.length}</span>
         </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={viewMode === "portal-firms"}
+          className={`cust-tab ${viewMode === "portal-firms" ? "active" : ""}`}
+          onClick={() => {
+            setViewMode("portal-firms");
+            setQuery("");
+          }}
+        >
+          <Building2 className="h-[13px] w-[13px]" strokeWidth={1.8} />
+          Portal-Firmen
+        </button>
       </div>
 
       {viewMode === "customers" ? (
@@ -686,8 +712,10 @@ export function CustomersPage() {
         </div>
       ) : null}
 
-      {/* Customer List / Contacts List */}
-      {viewMode === "customers" ? (
+      {/* Customer List / Contacts List / Portal Firms */}
+      {viewMode === "portal-firms" ? (
+        <PortalFirmsTab />
+      ) : viewMode === "customers" ? (
         <>
           <CustomerList
             items={paginatedCustomers}

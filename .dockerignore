@@ -1,5 +1,7 @@
 **/node_modules
 **/dist
+!booking/admin-panel/dist
+!selekto/dist
 .git
 data
 *.log

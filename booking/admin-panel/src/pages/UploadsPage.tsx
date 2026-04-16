@@ -328,7 +328,7 @@ export function UploadsPage() {
                           <>
                             <p className="mt-2 text-sm text-[var(--text-main)]">Noch kein Freigabelink vorhanden.</p>
                             <p className="mt-1 text-xs leading-relaxed text-[var(--text-subtle)]">
-                              Hinweis: Nextcloud läuft neu auf der VPS. Lokal gestartete Instanzen benötigen
+                              Hinweis: Nextcloud läuft auf dem UGREEN NAS (192.168.1.5). Lokal gestartete Instanzen benötigen
                               {" "}`NEXTCLOUD_URL`, `NEXTCLOUD_USER` und `NEXTCLOUD_PASS`.
                             </p>
                             <button

@@ -23,12 +23,12 @@ import {
   FolderSync,
   Building2,
   Upload,
-  Shield,
   UserCog,
   Globe,
   TrendingUp,
   Ticket,
   Home,
+  Images,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -49,6 +49,7 @@ type SidebarNavItem = {
   icon: LucideIcon;
   labelKey?: string;
   label?: string;
+  href?: string;
 };
 
 const navigationItems: SidebarNavItem[] = [
@@ -64,6 +65,7 @@ const navigationItems: SidebarNavItem[] = [
   { path: "/products", icon: Boxes, labelKey: "nav.catalog" },
   { path: "/discount-codes", icon: Tag, labelKey: "nav.discountCodes" },
   { path: "/reviews", icon: Star, labelKey: "nav.reviews" },
+  { path: "/picdrop", icon: Images, label: "Selekto", href: "/selekto/bilder-auswahl" },
   { path: "/settings", icon: SlidersHorizontal, labelKey: "nav.settings" },
   { path: "/bugs", icon: ShieldAlert, labelKey: "nav.bugs" },
   { path: "/backups", icon: Database, labelKey: "nav.backups" },
@@ -95,7 +97,6 @@ const kundenSubItems = [
 
 const settingsSubItems = [
   { path: "/settings/users", icon: UserCog, labelKey: "sidebar.nav.userManagement" },
-  { path: "/settings/access", icon: Shield, labelKey: "sidebar.nav.access" },
   { path: "/settings/workflow", icon: GitBranch, labelKey: "sidebar.nav.workflow" },
   { path: "/settings/team", icon: UserCircle, labelKey: "nav.employees" },
   { path: "/settings/email-templates", icon: Mail, labelKey: "sidebar.nav.emailTemplates" },
@@ -177,7 +178,15 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
 
         <nav className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 py-4 [-webkit-overflow-scrolling:touch]">
           <div className="space-y-0.5">
-            {visibleNavigationItems.map(({ path, icon: Icon, labelKey, label }) => {
+            {visibleNavigationItems.map(({ path, icon: Icon, labelKey, label, href }) => {
+              if (href) {
+                return (
+                  <a key={path} href={href} className="propus-nav-item" onClick={onMobileClose}>
+                    <Icon className="h-5 w-5 flex-shrink-0" />
+                    <span className="truncate">{labelKey ? t(lang, labelKey) : label}</span>
+                  </a>
+                );
+              }
               if (path === "__finanzen__") {
                 return (
                   <div key={path}>
@@ -343,7 +352,15 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto py-4 px-3">
           <div className="space-y-0.5">
-            {visibleNavigationItems.map(({ path, icon: Icon, labelKey, label }) => {
+            {visibleNavigationItems.map(({ path, icon: Icon, labelKey, label, href }) => {
+              if (href) {
+                return (
+                  <a key={path} href={href} className="propus-nav-item">
+                    <Icon className="h-5 w-5 flex-shrink-0" />
+                    {!isCollapsed && <span className="truncate">{labelKey ? t(lang, labelKey) : label}</span>}
+                  </a>
+                );
+              }
               if (path === "__finanzen__") {
                 return (
                   <div key={path}>

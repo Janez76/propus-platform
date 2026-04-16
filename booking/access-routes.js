@@ -179,37 +179,106 @@ function registerAccessRoutes(app, deps) {
 
   // ─── Role-Presets (Berechtigungen pro Systemrolle) ────────────────────────
 
-  const EDITABLE_ROLE_KEYS = new Set([
-    "tour_manager", "photographer",
-    "company_owner", "company_admin", "company_employee",
-    "customer_admin", "customer_user",
-  ]);
+  const FIXED_ROLE_KEYS = new Set(["super_admin", "internal_admin"]);
 
-  /** GET /api/admin/access/role-presets – alle Rollen-Permissions aus DB */
+  /** Label in snake_case role_key umwandeln, z.B. "Vertriebs Admin" -> "custom_vertriebs_admin" */
+  function labelToRoleKey(label) {
+    return "custom_" + label
+      .toLowerCase()
+      .replace(/[äöü]/g, (c) => ({ ä: "ae", ö: "oe", ü: "ue" }[c] || c))
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 40);
+  }
+
+  /** GET /api/admin/access/role-presets – alle Rollen-Permissions + Metadaten aus DB */
   app.get("/api/admin/access/role-presets", requireAdmin, requireRolesManage, async (_req, res) => {
     try {
-      const { rows } = await deps.db.query(
+      await rbac.seedRbacIfNeeded();
+      const { rows: permRows } = await deps.db.query(
         `SELECT role_key, array_agg(permission_key ORDER BY permission_key) AS permissions
          FROM system_role_permissions
          GROUP BY role_key`
       );
+      const { rows: roleRows } = await deps.db.query(
+        `SELECT role_key, label, description, is_custom FROM system_roles`
+      );
       const presets = {};
-      for (const row of rows) {
+      for (const row of permRows) {
         presets[row.role_key] = row.permissions ?? [];
       }
       // Fallback aus ROLE_PRESETS fuer Rollen ohne DB-Eintraege
       for (const [rk, perms] of Object.entries(rbac.ROLE_PRESETS)) {
         if (!presets[rk]) presets[rk] = Array.isArray(perms) ? [...perms] : [];
       }
-      res.json({ ok: true, presets });
+      const roles = roleRows.map((r) => ({
+        role_key: r.role_key,
+        label: r.label,
+        description: r.description,
+        is_custom: r.is_custom ?? false,
+      }));
+      res.json({ ok: true, presets, roles });
     } catch (err) {
       if (String(err?.code) === "42P01") {
         const presets = {};
         for (const [rk, perms] of Object.entries(rbac.ROLE_PRESETS)) {
           presets[rk] = Array.isArray(perms) ? [...perms] : [];
         }
-        return res.json({ ok: true, presets, fallback: true });
+        return res.json({ ok: true, presets, roles: [], fallback: true });
       }
+      res.status(500).json({ error: err?.message || "Fehler" });
+    }
+  });
+
+  /** POST /api/admin/access/role-presets – neue custom Rolle erstellen */
+  app.post("/api/admin/access/role-presets", requireAdmin, requireRolesManage, async (req, res) => {
+    try {
+      const label = String(req.body?.label || "").trim();
+      const description = String(req.body?.description || "").trim();
+      if (!label) return res.status(400).json({ error: "label ist erforderlich." });
+
+      await rbac.seedRbacIfNeeded();
+
+      let roleKey = labelToRoleKey(label);
+      // Eindeutigkeit sicherstellen
+      const { rows: existing } = await deps.db.query(
+        `SELECT role_key FROM system_roles WHERE role_key LIKE $1`, [`${roleKey}%`]
+      );
+      if (existing.length > 0) {
+        const existingKeys = new Set(existing.map((r) => r.role_key));
+        let candidate = roleKey;
+        let suffix = 2;
+        while (existingKeys.has(candidate)) {
+          candidate = `${roleKey}_${suffix++}`;
+        }
+        roleKey = candidate;
+      }
+
+      await deps.db.query(
+        `INSERT INTO system_roles (role_key, label, description, is_custom) VALUES ($1, $2, $3, TRUE)`,
+        [roleKey, label, description]
+      );
+      res.json({ ok: true, role: { role_key: roleKey, label, description, is_custom: true } });
+    } catch (err) {
+      res.status(500).json({ error: err?.message || "Fehler" });
+    }
+  });
+
+  /** DELETE /api/admin/access/role-presets/:roleKey – Rolle löschen (alle ausser super_admin/internal_admin) */
+  app.delete("/api/admin/access/role-presets/:roleKey", requireAdmin, requireRolesManage, async (req, res) => {
+    try {
+      const roleKey = String(req.params.roleKey || "").trim();
+      if (FIXED_ROLE_KEYS.has(roleKey)) {
+        return res.status(400).json({ error: "Super-Admin und Admin können nicht gelöscht werden." });
+      }
+      const { rows } = await deps.db.query(
+        `SELECT role_key FROM system_roles WHERE role_key = $1`, [roleKey]
+      );
+      if (rows.length === 0) return res.status(404).json({ error: "Rolle nicht gefunden." });
+      // CASCADE löscht system_role_permissions + access_subject_system_roles automatisch
+      await deps.db.query(`DELETE FROM system_roles WHERE role_key = $1`, [roleKey]);
+      res.json({ ok: true });
+    } catch (err) {
       res.status(500).json({ error: err?.message || "Fehler" });
     }
   });
@@ -218,7 +287,7 @@ function registerAccessRoutes(app, deps) {
   app.patch("/api/admin/access/role-presets/:roleKey", requireAdmin, requireRolesManage, async (req, res) => {
     try {
       const roleKey = String(req.params.roleKey || "").trim();
-      if (!EDITABLE_ROLE_KEYS.has(roleKey)) {
+      if (FIXED_ROLE_KEYS.has(roleKey)) {
         return res.status(400).json({ error: `Rolle '${roleKey}' ist nicht editierbar (super_admin und internal_admin sind fixe System-Rollen).` });
       }
       const permissions = req.body?.permissions;

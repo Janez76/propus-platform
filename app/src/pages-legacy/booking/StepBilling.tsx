@@ -1,6 +1,10 @@
-import { CreditCard, MapPin } from "lucide-react";
+import { useEffect } from "react";
+import { CreditCard, LogIn, MapPin } from "lucide-react";
 import { AddressAutocompleteInput, type ParsedAddress } from "../../components/ui/AddressAutocompleteInput";
-import { useBookingWizardStore } from "../../store/bookingWizardStore";
+import { useBookingWizardStore, type BillingData } from "../../store/bookingWizardStore";
+import { useAuthStore } from "../../store/authStore";
+import { isKundenRole } from "../../lib/permissions";
+import { useCustomerProfile } from "../../hooks/useCustomerProfile";
 import { t, type Lang } from "../../i18n";
 import { cn } from "../../lib/utils";
 
@@ -16,6 +20,33 @@ const labelClass = "block text-xs font-semibold uppercase tracking-wider text-[v
 
 export function StepBilling({ lang }: { lang: Lang }) {
   const { billing, setBilling, altBilling, setAltBilling, agbAccepted, setAgbAccepted } = useBookingWizardStore();
+  const token = useAuthStore((s) => s.token);
+  const role = useAuthStore((s) => s.role);
+  const isLoggedIn = Boolean(token);
+  const isKunden = isKundenRole(role);
+  const { profile } = useCustomerProfile();
+
+  // Billing-Felder vorausfüllen, sobald Kundenprofil geladen ist
+  useEffect(() => {
+    if (!profile) return;
+    const updates: Partial<BillingData> = {};
+    if (!billing.email && profile.email) updates.email = profile.email;
+    if (!billing.company && profile.company) updates.company = profile.company;
+    if (!billing.name && profile.name) updates.name = profile.name;
+    if (!billing.phone && profile.phone) updates.phone = profile.phone;
+    if (!billing.street && profile.street) updates.street = profile.street;
+    if (!billing.zip && !billing.city && profile.zipcity) {
+      // Schweizer PLZ = 4 Ziffern. Zusätzlich optionales CH-Präfix tolerieren (z.B. "CH-8001 Zürich").
+      const match = profile.zipcity.trim().match(/^(?:CH-?)?(\d{4})\s+(.+)$/i);
+      if (match) {
+        updates.zip = match[1];
+        updates.city = match[2].trim();
+        updates.zipcity = `${match[1]} ${match[2].trim()}`;
+      }
+    }
+    if (Object.keys(updates).length > 0) setBilling(updates);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile]);
 
   function onAddressParsed(p: ParsedAddress) {
     setBilling({ street: `${p.street} ${p.houseNumber}`.trim(), zip: p.zip, city: p.city, zipcity: `${p.zip} ${p.city}` });
@@ -27,6 +58,28 @@ export function StepBilling({ lang }: { lang: Lang }) {
 
   return (
     <div className="space-y-6">
+      {/* Login-Hinweis für nicht angemeldete Benutzer */}
+      {!isLoggedIn && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] px-5 py-3.5 shadow-sm dark:shadow-none">
+          <span className="text-sm text-[var(--text-muted)]">
+            {t(lang, "booking.step4.loginHint")}
+          </span>
+          <a
+            href={`/login?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`}
+            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-[var(--accent)] px-3.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#b08f4a]"
+          >
+            <LogIn className="h-3.5 w-3.5" />
+            {t(lang, "booking.step4.loginButton")}
+          </a>
+        </div>
+      )}
+      {/* Angemeldet als Kunde — Profil verwendet */}
+      {isLoggedIn && isKunden && profile && (
+        <div className="rounded-xl border border-[var(--accent)]/30 bg-[var(--accent)]/5 px-5 py-3 text-sm text-[var(--text-muted)]">
+          {t(lang, "booking.step4.profilePrefilled")}
+        </div>
+      )}
+
       {/* Firma & Kontakt */}
       <section className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-5 shadow-sm dark:shadow-none">
         <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[var(--text-muted)]">

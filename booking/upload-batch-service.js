@@ -3,6 +3,116 @@ const fsPromises = require("fs").promises;
 const path = require("path");
 const crypto = require("crypto");
 
+/**
+ * Parst DateTimeOriginal aus einem TIFF-Buffer (funktioniert für JPEG-EXIF-App1-Payload
+ * sowie für rohe TIFF/DNG-Dateiheader).
+ * base = Startoffset des TIFF-Headers im Buffer (nach "Exif\0\0"-Prefix überspringen).
+ */
+function parseTiffDateTime(buf, base) {
+  base = base || 0;
+  if (!Buffer.isBuffer(buf) || buf.length - base < 8) return null;
+  const byteOrder = buf.slice(base, base + 2).toString("binary");
+  const le = byteOrder === "II";
+  if (!le && byteOrder !== "MM") return null;
+  const r16 = (o) => le ? buf.readUInt16LE(o) : buf.readUInt16BE(o);
+  const r32 = (o) => le ? buf.readUInt32LE(o) : buf.readUInt32BE(o);
+  if (r16(base + 2) !== 42) return null;
+
+  const readAscii = (off, len) => buf.slice(off, off + len).toString("ascii").replace(/\0.*/, "").trim();
+
+  const scanIFD = (ifdOff, targetTag) => {
+    if (ifdOff + 2 > buf.length) return null;
+    const count = r16(ifdOff);
+    for (let i = 0; i < count; i++) {
+      const e = ifdOff + 2 + i * 12;
+      if (e + 12 > buf.length) break;
+      const tag = r16(e);
+      if (tag !== targetTag) continue;
+      const type = r16(e + 2);
+      const cnt  = r32(e + 4);
+      if (type === 2) { // ASCII
+        const valOff = cnt <= 4 ? e + 8 : r32(e + 8) + base;
+        if (valOff + cnt <= buf.length) return readAscii(valOff, cnt);
+      }
+      if (type === 4) return r32(e + 8) + base; // LONG (IFD-Zeiger)
+    }
+    return null;
+  };
+
+  const ifd0 = r32(base + 4) + base;
+  const exifIFDOff = scanIFD(ifd0, 0x8769);
+  if (typeof exifIFDOff === "number") {
+    const dto = scanIFD(exifIFDOff, 0x9003);
+    if (typeof dto === "string" && dto.length >= 19) { const d = exifStrToDate(dto); if (d) return d; }
+  }
+  const dt = scanIFD(ifd0, 0x0132);
+  if (typeof dt === "string" && dt.length >= 19) return exifStrToDate(dt);
+  return null;
+}
+
+function exifStrToDate(s) {
+  const m = /^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(s);
+  if (!m) return null;
+  const d = new Date(`${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}`);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * Liest DateTimeOriginal direkt aus Datei-Bytes.
+ * Unterstützt JPEG (APP1-EXIF-Segment) und TIFF/DNG (natives TIFF-Header).
+ * Liest nur die ersten 64 KB – keine vollständige Dekodierung.
+ */
+async function readExifShootDate(filePath) {
+  const BUF_SIZE = 65536;
+  try {
+    const fd = await fsPromises.open(filePath, "r");
+    let buf;
+    try {
+      const tmp = Buffer.alloc(BUF_SIZE);
+      const { bytesRead } = await fd.read(tmp, 0, BUF_SIZE, 0);
+      buf = tmp.slice(0, bytesRead);
+    } finally {
+      await fd.close();
+    }
+    if (buf.length < 4) return null;
+
+    // JPEG: SOI-Marker 0xFFD8, dann APP-Segmente scannen
+    if (buf[0] === 0xFF && buf[1] === 0xD8) {
+      let pos = 2;
+      while (pos + 4 <= buf.length) {
+        if (buf[pos] !== 0xFF) break;
+        const marker = buf[pos + 1];
+        const segLen = buf.readUInt16BE(pos + 2);
+        if (marker === 0xE1 && segLen > 6 && buf.slice(pos + 4, pos + 10).toString("binary") === "Exif\0\0") {
+          return parseTiffDateTime(buf, pos + 10);
+        }
+        if (marker === 0xDA) break; // SOS: Bilddaten beginnen
+        pos += 2 + segLen;
+      }
+      return null;
+    }
+
+    // TIFF/DNG: direkt als TIFF-Header parsen (kein Prefix)
+    return parseTiffDateTime(buf, 0);
+  } catch (_) { return null; }
+}
+
+/**
+ * Setzt den Dateisystem-Zeitstempel (mtime) einer Datei auf das EXIF-Aufnahmedatum.
+ * Unterstützt JPEG, DNG, TIFF, HEIC und weitere Bildformate.
+ * Gibt true zurück wenn der Zeitstempel gesetzt wurde, sonst false.
+ */
+async function applyExifMtime(filePath) {
+  const PHOTO_EXT = new Set([".jpg", ".jpeg", ".dng", ".tif", ".tiff", ".heic", ".heif", ".png", ".webp"]);
+  if (!PHOTO_EXT.has(path.extname(filePath).toLowerCase())) return false;
+  try {
+    const shootDate = await readExifShootDate(filePath);
+    if (!shootDate) return false;
+    await fsPromises.utimes(filePath, shootDate, shootDate);
+    return true;
+  } catch (_) { return false; }
+}
+
 function sha256FileAsync(filePath) {
   return new Promise((resolve, reject) => {
     const hash = crypto.createHash("sha256");
@@ -20,7 +130,6 @@ const {
   buildStoredUploadName,
   normalizeUploadMode,
   sanitizeUploadComment,
-  sha256File,
   toPortablePath,
   createStagingBatchDir,
   provisionOrderFolders,
@@ -202,6 +311,7 @@ async function stageUploadBatch({
   uploadGroupId,
   uploadGroupTotalParts,
   uploadGroupPartIndex,
+  addOrderSuffix,
 }) {
   const normalized = normalizeBatchInput({
     category,
@@ -227,7 +337,7 @@ async function stageUploadBatch({
   const usedStoredNames = new Set();
 
   for (const file of safeFiles) {
-    const desiredName = buildStoredUploadName(order, normalized.categoryKey, file?.originalname);
+    const desiredName = buildStoredUploadName(order, normalized.categoryKey, file?.originalname, addOrderSuffix);
     const safeName = makeUniqueFileName(sanitizeUploadFilename(desiredName), usedStoredNames);
     const sourcePath = file?.path || null;
     const targetPath = path.join(batchDir, safeName);
@@ -238,7 +348,7 @@ async function stageUploadBatch({
     } else {
       fs.writeFileSync(targetPath, file?.buffer || Buffer.alloc(0));
     }
-    const hash = sha256File(targetPath);
+    const hash = await sha256FileAsync(targetPath);
     const sizeBytes = Number(file?.size || fs.statSync(targetPath).size || 0);
     totalBytes += sizeBytes;
     stagedFiles.push({
@@ -277,6 +387,7 @@ async function stageUploadBatchFromPaths({
   uploadGroupId,
   uploadGroupTotalParts,
   uploadGroupPartIndex,
+  addOrderSuffix,
 }) {
   const normalized = normalizeBatchInput({
     category,
@@ -306,7 +417,7 @@ async function stageUploadBatchFromPaths({
     if (!sourcePath || !fs.existsSync(sourcePath)) {
       throw new Error(`Staging-Datei fehlt: ${sourcePath || "(leer)"}`);
     }
-    const desiredName = buildStoredUploadName(order, normalized.categoryKey, file?.originalName || path.basename(sourcePath));
+    const desiredName = buildStoredUploadName(order, normalized.categoryKey, file?.originalName || path.basename(sourcePath), addOrderSuffix);
     const safeName = makeUniqueFileName(sanitizeUploadFilename(desiredName), usedStoredNames);
     const targetPath = path.join(batchDir, safeName);
     // Prefer atomic rename (same filesystem); fall back to copy+delete if cross-device.
@@ -324,7 +435,7 @@ async function stageUploadBatchFromPaths({
         throw renameErr;
       }
     }
-    const hash = sha256File(targetPath);
+    const hash = await sha256FileAsync(targetPath);
     const sizeBytes = Number(file?.size || fs.statSync(targetPath).size || 0);
     totalBytes += sizeBytes;
     stagedFiles.push({
@@ -465,8 +576,7 @@ async function transferBatch(db, batchId, deps) {
         // Kopie auf NAS (fsPromises.copyFile = non-blocking)
         await fsPromises.copyFile(file.staging_path, destination);
 
-        // Original-Metadaten (mtime/atime) vom Staging-File übernehmen –
-        // completeChunkedUpload hat bereits das originale lastModified gesetzt.
+        // Zeitstempel: Original vom Browser (Staging-Stat) übernehmen — kein EXIF-Override
         try {
           const srcStat = await fsPromises.stat(file.staging_path);
           if (srcStat.mtime) {
@@ -627,7 +737,6 @@ async function resumePendingTransfers(db, deps) {
 }
 
 module.exports = {
-  activeTransfers,
   stageUploadBatch,
   stageUploadBatchFromPaths,
   getBatchWithFiles,

@@ -263,6 +263,7 @@ export type UploadOrderFilesInput = {
   uploadGroupId?: string;
   uploadGroupTotalParts?: number;
   uploadGroupPartIndex?: number;
+  addOrderSuffix?: boolean;
 };
 
 export type ChunkedUploadInitInput = {
@@ -304,6 +305,7 @@ export type FinalizeChunkedUploadInput = {
   uploadGroupId?: string;
   uploadGroupTotalParts?: number;
   uploadGroupPartIndex?: number;
+  addOrderSuffix?: boolean;
 };
 
 function buildUploadPathQuery(path: string) {
@@ -520,6 +522,7 @@ export async function uploadOrderFiles(
     uploadGroupId,
     uploadGroupTotalParts,
     uploadGroupPartIndex,
+    addOrderSuffix,
   } = input;
   const formData = new FormData();
   formData.append("category", category);
@@ -530,6 +533,7 @@ export async function uploadOrderFiles(
   if (conflictMode) formData.append("conflictMode", conflictMode);
   if (customFolderName?.trim()) formData.append("customFolderName", customFolderName.trim());
   if (uploadGroupId?.trim()) formData.append("uploadGroupId", uploadGroupId.trim());
+  if (addOrderSuffix) formData.append("addOrderSuffix", "true");
   if (Number.isFinite(uploadGroupTotalParts) && Number(uploadGroupTotalParts) > 0) {
     formData.append("uploadGroupTotalParts", String(uploadGroupTotalParts));
   }

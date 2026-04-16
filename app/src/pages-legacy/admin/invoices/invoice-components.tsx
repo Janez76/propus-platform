@@ -182,6 +182,7 @@ export function RenewalTable({
   onArchive,
   onDelete,
   onResend,
+  onSendDraft,
 }: {
   invoices: InvoiceRow[];
   busyActionKey: string | null;
@@ -189,6 +190,7 @@ export function RenewalTable({
   onArchive: (invoice: InvoiceRow) => void;
   onDelete: (invoice: InvoiceRow) => void;
   onResend: (invoice: InvoiceRow) => void;
+  onSendDraft?: (invoice: InvoiceRow) => void;
 }) {
   return (
     <table className="w-full text-sm">
@@ -240,6 +242,17 @@ export function RenewalTable({
                       <FileText className="h-3.5 w-3.5" />
                       PDF
                     </a>
+                    {String(row.invoice_status || "") === "draft" && onSendDraft ? (
+                      <button
+                        type="button"
+                        disabled={busyActionKey !== null}
+                        onClick={() => onSendDraft(row)}
+                        className="inline-flex items-center gap-1 rounded-lg border border-[var(--accent)]/40 bg-[var(--accent)]/10 px-2 py-1 text-xs font-medium text-[var(--accent)] hover:bg-[var(--accent)]/20 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <Send className="h-3.5 w-3.5" />
+                        Senden
+                      </button>
+                    ) : null}
                     <ActionMenu
                       actions={[
                         {
@@ -254,17 +267,21 @@ export function RenewalTable({
                           onClick: () => onArchive(row),
                           disabled: busyActionKey !== null,
                         },
-                        {
-                          label: "Erneut senden",
-                          icon: Send,
-                          onClick: () => onResend(row),
-                          disabled: busyActionKey !== null,
-                        },
+                        ...(String(row.invoice_status || "") !== "draft"
+                          ? [
+                              {
+                                label: "Erneut senden",
+                                icon: Send,
+                                onClick: () => onResend(row),
+                                disabled: busyActionKey !== null,
+                              },
+                            ]
+                          : []),
                         {
                           label: "Löschen",
                           icon: Trash2,
                           onClick: () => onDelete(row),
-                          tone: "danger",
+                          tone: "danger" as const,
                           disabled: busyActionKey !== null || String(row.invoice_status || "") === "paid",
                         },
                       ]}

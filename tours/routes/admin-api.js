@@ -61,6 +61,7 @@ const {
   REACTIVATION_PRICE_CHF,
   getPortalPricingForTour,
   getSubscriptionWindowFromStart,
+  triggerDueRenewalInvoices,
 } = require('../lib/subscriptions');
 
 const ADMIN_PORTAL_BASE_URL = process.env.ADMIN_PANEL_URL || 'https://admin-booking.propus.ch';
@@ -1022,6 +1023,52 @@ router.post('/cleanup/dashboard/send-vouchers', async (req, res) => {
   }
 });
 
+router.post('/cleanup/dashboard/get-link', async (req, res) => {
+  try {
+    const { customerEmail, customerEmails } = req.body || {};
+    const target = customerEmails && Array.isArray(customerEmails) && customerEmails.length > 0
+      ? customerEmails
+      : customerEmail;
+    if (!target || (Array.isArray(target) && target.length === 0)) {
+      return res.status(400).json({ ok: false, error: 'customerEmail oder customerEmails fehlt' });
+    }
+    const result = await cleanupDashboard.getDashboardLinkForAdmin(target);
+    return res.json({ ok: true, ...result });
+  } catch (err) {
+    return res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+router.post('/cleanup/dashboard/batch-reminder-dry-run', async (req, res) => {
+  try {
+    const { customerEmails } = req.body || {};
+    const result = await cleanupDashboard.sendReminderBatch({
+      dryRun: true,
+      customerEmails: Array.isArray(customerEmails) ? customerEmails : null,
+      actorType: 'admin',
+      actorRef: adminEmail(req),
+    });
+    return res.json({ ok: true, ...result });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+router.post('/cleanup/dashboard/batch-reminder', async (req, res) => {
+  try {
+    const { customerEmails } = req.body || {};
+    const result = await cleanupDashboard.sendReminderBatch({
+      dryRun: false,
+      customerEmails: Array.isArray(customerEmails) ? customerEmails : null,
+      actorType: 'admin',
+      actorRef: adminEmail(req),
+    });
+    return res.json({ ok: true, ...result });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 router.post('/cleanup/dashboard/send-single', async (req, res) => {
   try {
     const { customerEmail, customerEmails } = req.body || {};
@@ -1039,6 +1086,33 @@ router.post('/cleanup/dashboard/send-single', async (req, res) => {
     return res.json({ ok: true, ...result });
   } catch (err) {
     return res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+// ─── Cleanup: Entwurfs-Rechnungen erstellen ──────────────────────────────────
+
+router.post('/cleanup/create-draft-invoices', async (req, res) => {
+  try {
+    const { tourIds } = req.body || {};
+    const result = await cleanupDashboard.createCleanupDraftInvoicesBatch(
+      Array.isArray(tourIds) && tourIds.length > 0 ? tourIds : null
+    );
+    return res.json({ ok: true, ...result });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ─── Cron: fällige Verlängerungsrechnungen automatisch versenden ─────────────
+// Täglich via Systemcron oder externem Scheduler aufrufen.
+// Endpoint: POST /api/tours/admin/cron/trigger-renewal-invoices
+
+router.post('/cron/trigger-renewal-invoices', async (req, res) => {
+  try {
+    const result = await triggerDueRenewalInvoices();
+    return res.json({ ok: true, ...result });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
   }
 });
 
@@ -2537,6 +2611,54 @@ router.get('/invoices-central', async (req, res) => {
   }
 });
 
+// Exxas-Storno: Direkt in Exxas stornieren (kein lokaler DB-Bezug nötig)
+router.get('/invoices/exxas/bulk-storno-hosting/preview', async (req, res) => {
+  try {
+    const result = await phase3.bulkStornoHostingMatterportInExxas({ dryRun: true });
+    return res.json(result);
+  } catch (err) {
+    console.error('/invoices/exxas/bulk-storno-hosting/preview:', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+router.post('/invoices/exxas/bulk-storno-hosting', async (req, res) => {
+  try {
+    const result = await phase3.bulkStornoHostingMatterportInExxas({ dryRun: false });
+    return res.json(result);
+  } catch (err) {
+    console.error('/invoices/exxas/bulk-storno-hosting:', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Bulk-Delete-Routen MÜSSEN vor der Wildcard-Route stehen, sonst matcht Express sie als :type/:id
+router.delete('/invoices/exxas/bulk-delete-hosting', async (req, res) => {
+  try {
+    const result = await phase3.bulkDeleteHostingMatterportExxasInvoices({
+      dryRun: false,
+      actorEmail: adminEmail(req),
+    });
+    return res.json(result);
+  } catch (err) {
+    console.error('/invoices/exxas/bulk-delete-hosting:', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+router.delete('/invoices/renewal/bulk-delete-63', async (req, res) => {
+  try {
+    const result = await phase3.bulkDeleteOpenRenewalInvoicesByAmount({
+      dryRun: false,
+      actorEmail: adminEmail(req),
+    });
+    return res.json(result);
+  } catch (err) {
+    console.error('/invoices/renewal/bulk-delete-63:', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 router.delete('/invoices/:type/:id', async (req, res) => {
   try {
     const type = String(req.params.type || '');
@@ -2586,6 +2708,30 @@ router.post('/invoices/exxas/sync-all', async (req, res) => {
     return res.status(500).json({ ok: false, error: err.message });
   }
 });
+
+// GET: Vorschau — welche Rechnungen würden gelöscht (dryRun)
+router.get('/invoices/exxas/bulk-delete-hosting/preview', async (req, res) => {
+  try {
+    const result = await phase3.bulkDeleteHostingMatterportExxasInvoices({ dryRun: true });
+    return res.json(result);
+  } catch (err) {
+    console.error('/invoices/exxas/bulk-delete-hosting/preview:', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+
+// GET: Vorschau — offene/überfällige renewal-Rechnungen CHF 63.80 (Matterport-Verlängerung)
+router.get('/invoices/renewal/bulk-delete-63/preview', async (req, res) => {
+  try {
+    const result = await phase3.bulkDeleteOpenRenewalInvoicesByAmount({ dryRun: true });
+    return res.json(result);
+  } catch (err) {
+    console.error('/invoices/renewal/bulk-delete-63/preview:', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 
 router.post('/invoices/exxas/:id/import', async (req, res) => {
   try {

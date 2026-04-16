@@ -512,6 +512,10 @@ const EXXAS_INVOICE_CACHE_MS = 60 * 1000;
 const EXXAS_INVOICE_PAGE_SIZE = 1000;
 let exxasInvoiceListCache = { at: 0, rows: null, error: null };
 
+function clearExxasInvoiceListCache() {
+  exxasInvoiceListCache = { at: 0, rows: null, error: null };
+}
+
 async function fetchExxasInvoicesRawList() {
   const now = Date.now();
   if (exxasInvoiceListCache.rows && now - exxasInvoiceListCache.at < EXXAS_INVOICE_CACHE_MS) {
@@ -853,4 +857,5 @@ module.exports = {
   mapInvoicePayload,
   getInventoryByMatterportId,
   getInventoryByCustomer,
+  clearExxasInvoiceListCache,
 };

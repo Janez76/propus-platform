@@ -4,6 +4,63 @@ const assert = require('node:assert/strict');
 const bankImport = require('../lib/bank-import');
 const qrBill = require('../lib/qr-bill');
 
+test('parseCamt054 parst Standard-XML korrekt', () => {
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.054.001.04">
+  <BkToCstmrDbtCdtNtfctn>
+    <Ntfctn>
+      <Ntry>
+        <Amt Ccy="CHF">59.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <BookgDt><Dt>2026-04-14</Dt></BookgDt>
+        <ValDt><Dt>2026-04-14</Dt></ValDt>
+        <NtryDtls>
+          <TxDtls>
+            <RltdPties><Dbtr><Nm>Test AG</Nm></Dbtr></RltdPties>
+            <RmtInf>
+              <Strd><CdtrRefInf><Ref>00 00000 00000 00000 00050 08284</Ref></CdtrRefInf></Strd>
+            </RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+    </Ntfctn>
+  </BkToCstmrDbtCdtNtfctn>
+</Document>`;
+  const rows = bankImport.parseCamt054(xml);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].amount, 59);
+  assert.equal(rows[0].currency, 'CHF');
+  assert.equal(rows[0].debtorName, 'Test AG');
+  assert.match(rows[0].referenceRaw, /00050 08284/);
+});
+
+test('parseCamt054 parst XML mit Namespace-Prefix (ns2:) korrekt', () => {
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<ns2:Document xmlns:ns2="urn:iso:std:iso:20022:tech:xsd:camt.054.001.04">
+  <ns2:BkToCstmrDbtCdtNtfctn>
+    <ns2:Ntfctn>
+      <ns2:Ntry>
+        <ns2:Amt Ccy="CHF">189.00</ns2:Amt>
+        <ns2:CdtDbtInd>CRDT</ns2:CdtDbtInd>
+        <ns2:BookgDt><ns2:Dt>2026-04-14</ns2:Dt></ns2:BookgDt>
+        <ns2:NtryDtls>
+          <ns2:TxDtls>
+            <ns2:RltdPties><ns2:Dbtr><ns2:Nm>Meier GmbH</ns2:Nm></ns2:Dbtr></ns2:RltdPties>
+            <ns2:RmtInf>
+              <ns2:Strd><ns2:CdtrRefInf><ns2:Ref>210000000003139471430009017</ns2:Ref></ns2:CdtrRefInf></ns2:Strd>
+            </ns2:RmtInf>
+          </ns2:TxDtls>
+        </ns2:NtryDtls>
+      </ns2:Ntry>
+    </ns2:Ntfctn>
+  </ns2:BkToCstmrDbtCdtNtfctn>
+</ns2:Document>`;
+  const rows = bankImport.parseCamt054(xml);
+  assert.equal(rows.length, 1, 'Namespace-Prefix darf Parsing nicht verhindern');
+  assert.equal(rows[0].amount, 189);
+  assert.equal(rows[0].debtorName, 'Meier GmbH');
+});
+
 test('parseCsv liest einfache Buchungen', () => {
   const csv = [
     'date;amount;currency;reference;debtor',

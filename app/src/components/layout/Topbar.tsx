@@ -89,7 +89,7 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
     clearAuth();
     if (isKunden) {
       await portalLogout().catch(() => null);
-      window.location.href = "/portal/login";
+      window.location.href = "/login";
       return;
     }
     const redirect = encodeURIComponent(new URL(process.env.NEXT_PUBLIC_BASE_URL || "/", window.location.origin).toString());

@@ -5,7 +5,8 @@ export type Role =
   | "company_owner"
   | "company_admin"
   | "company_employee"
-  | "customer";
+  | "customer"
+  | "tour_manager";
 
 export type ApiOrder = {
   orderNo: string;

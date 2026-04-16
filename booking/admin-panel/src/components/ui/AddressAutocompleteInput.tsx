@@ -26,6 +26,7 @@ export type ParsedAddress = {
   houseNumber: string;
   zip: string;
   city: string;
+  canton?: string;
   countryCode: "CH";
   display: string;
 };

@@ -119,10 +119,10 @@ export function PortalResetPasswordPage() {
 
         <div className="portal-pw-back">
           <a
-            href="/portal/login"
+            href={success ? "/login?success=password_reset" : "/login"}
             onClick={(e) => {
               e.preventDefault();
-              navigate(success ? "/portal/login?success=password_reset" : "/portal/login");
+              navigate(success ? "/login?success=password_reset" : "/login");
             }}
           >
             Zurück zum Login

@@ -67,6 +67,7 @@ function parseCamt054(xmlString) {
     attributeNamePrefix: '@_',
     trimValues: true,
     parseTagValue: false,
+    removeNSPrefix: true,
   });
   const parsed = parser.parse(xmlString);
   const root = parsed?.Document?.BkToCstmrDbtCdtNtfctn;

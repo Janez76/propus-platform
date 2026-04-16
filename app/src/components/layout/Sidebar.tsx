@@ -35,6 +35,7 @@ import {
   Inbox,
   CreditCard,
   Image,
+  Images,
   Clock,
   CheckCircle,
   AlertTriangle,
@@ -59,6 +60,7 @@ type SidebarNavItem = {
   path: string;
   icon: LucideIcon;
   labelKey: string;
+  href?: string;
   financeNav?: boolean;
   toursNav?: boolean;
   customersNav?: boolean;
@@ -79,6 +81,7 @@ const navigationItems: SidebarNavItem[] = [
   { path: "/products", icon: Boxes, labelKey: "nav.catalog" },
   { path: "/discount-codes", icon: Tag, labelKey: "nav.discountCodes" },
   { path: "/reviews", icon: Star, labelKey: "nav.reviews" },
+  { path: "/picdrop", icon: Images, labelKey: "nav.picdrop", href: "/selekto/bilder-auswahl" },
   { path: "/settings", icon: SlidersHorizontal, labelKey: "nav.settings" },
   { path: "/bugs", icon: ShieldAlert, labelKey: "nav.bugs" },
   { path: "/backups", icon: Database, labelKey: "nav.backups" },
@@ -101,7 +104,6 @@ const kundenNavigationItems: SidebarNavItem[] = [
 ];
 
 const settingsSubItems = [
-  { path: "/settings/users", icon: UserCog, labelKey: "sidebar.nav.userManagement" },
   { path: "/settings/roles", icon: Shield, labelKey: "sidebar.nav.roleMatrix" },
   { path: "/settings/workflow", icon: GitBranch, labelKey: "sidebar.nav.workflow" },
   { path: "/settings/team", icon: UserCircle, labelKey: "nav.employees" },
@@ -135,8 +137,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const isToursNavActive = location.pathname.startsWith("/admin/tours");
   const isListingNavActive = location.pathname.startsWith("/admin/listing");
   const isMessagesNavActive = location.pathname.startsWith("/admin/tickets");
-  const isCustomersNavActive =
-    location.pathname.startsWith("/customers") || location.pathname.startsWith("/settings/companies");
+  const isCustomersNavActive = location.pathname.startsWith("/customers");
   const isCompanyRole = isCompanyWorkspaceRole(role);
   const isKunden = isKundenRole(role);
   const visibleNavigationItems = useMemo(() => {
@@ -201,7 +202,15 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
         <nav className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 py-4 [-webkit-overflow-scrolling:touch]">
           <div className="space-y-0.5">
             {visibleNavigationItems.map((item) => {
-              const { path, icon: Icon, labelKey, financeNav, toursNav, customersNav, listingNav, messagesNav } = item;
+              const { path, icon: Icon, labelKey, href, financeNav, toursNav, customersNav, listingNav, messagesNav } = item;
+              if (href) {
+                return (
+                  <a key={path} href={href} className="propus-nav-item" onClick={onMobileClose}>
+                    <Icon className="h-5 w-5 flex-shrink-0" />
+                    <span className="truncate">{t(lang, labelKey)}</span>
+                  </a>
+                );
+              }
               if (path === "/settings") {
                 return (
                   <div key={path}>
@@ -292,9 +301,9 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                           <Users className="h-4 w-4 flex-shrink-0" />
                           {t(lang, "nav.customers")}
                         </NavLink>
-                        <NavLink to="/settings/companies" onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                        <NavLink to="/customers?tab=portal-firms" onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", location.pathname === "/customers" && location.search === "?tab=portal-firms" ? "active-sub" : "")}>
                           <Building2 className="h-4 w-4 flex-shrink-0" />
-                          {t(lang, "sidebar.nav.companies")}
+                          Portal-Firmen
                         </NavLink>
                       </div>
                     )}
@@ -439,7 +448,15 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
         <nav className="flex-1 overflow-y-auto py-4 px-3">
           <div className="space-y-0.5">
             {visibleNavigationItems.map((item) => {
-              const { path, icon: Icon, labelKey, financeNav, toursNav, customersNav, listingNav, messagesNav } = item;
+              const { path, icon: Icon, labelKey, href, financeNav, toursNav, customersNav, listingNav, messagesNav } = item;
+              if (href) {
+                return (
+                  <a key={path} href={href} className="propus-nav-item">
+                    <Icon className="h-5 w-5 flex-shrink-0" />
+                    {!isCollapsed && <span className="truncate">{t(lang, labelKey)}</span>}
+                  </a>
+                );
+              }
               if (path === "/settings") {
                 return (
                   <div key={path}>
@@ -558,9 +575,9 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                           <Users className="h-4 w-4 flex-shrink-0" />
                           {t(lang, "nav.customers")}
                         </NavLink>
-                        <NavLink to="/settings/companies" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
+                        <NavLink to="/customers?tab=portal-firms" className={({ isActive }) => cn("propus-nav-item text-sm", location.pathname === "/customers" && location.search === "?tab=portal-firms" ? "active-sub" : "")}>
                           <Building2 className="h-4 w-4 flex-shrink-0" />
-                          {t(lang, "sidebar.nav.companies")}
+                          Portal-Firmen
                         </NavLink>
                       </div>
                     )}

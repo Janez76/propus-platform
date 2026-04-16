@@ -108,6 +108,7 @@ const {
 } = require("./chunked-upload-service");
 const { syncWebsizeForAllCustomerFolders, syncWebsizeForOrderFolder } = require("./websize-sync-service");
 const customerAuth = require("./customer-auth");
+const portalAuthBridge = require("./portal-auth-bridge");
 const travel = require("./travel");
 const { resolveAnyPhotographer, resolveExplicitPhotographer, buildNeededSkills } = require("./photographer-resolver");
 const geocoder = require("./geocoder");
@@ -2398,6 +2399,108 @@ app.post("/api/admin/login", async (req, res) => {
   }
 });
 
+// ─── Unified Login (Admin + Portal-Kunde) ─────────────────────────────────────
+// POST /auth/login: probiert Admin-Login, dann Portal-Kunden-Login.
+// Erreichbar über Next.js-Proxy: /api/auth/login → /auth/login (Express).
+// Gibt immer dasselbe Format zurück: { ok, token, role, permissions }
+app.post("/auth/login", async (req, res) => {
+  try {
+    if (!process.env.DATABASE_URL) return res.status(503).json({ error: "Datenbank nicht konfiguriert" });
+    const { email, username, password, rememberMe } = req.body || {};
+    const loginId = String(email || username || "").trim();
+    if (!loginId || !password) return res.status(400).json({ error: "E-Mail und Passwort erforderlich" });
+
+    // --- Versuch 1: Admin-Login ---
+    const adminUser = await db.getAdminUserByUsername(loginId);
+    if (adminUser && adminUser.active && adminUser.password_hash) {
+      const ok = await customerAuth.verifyPassword(String(password), adminUser.password_hash);
+      if (ok) {
+        const rawRole = String(adminUser.role || "admin");
+        const { token } = await issueAdminSession(res, {
+          role: rawRole,
+          rememberMe: !!rememberMe,
+          userKey: String(adminUser.id),
+          userName: String(adminUser.email || adminUser.username || ""),
+        });
+        let permissions = [];
+        try {
+          await rbac.seedRbacIfNeeded();
+          await rbac.syncAdminUserRolesFromDb(adminUser.id);
+          const sid = await rbac.ensureAdminUserSubject(adminUser.id);
+          if (sid) {
+            const pSet = await rbac.getEffectivePermissions(sid, { scopeType: "system", companyId: null, customerId: null });
+            permissions = Array.from(pSet);
+          }
+          if (!permissions.length) permissions = Array.from(rbac.legacyFallbackPermissions(rawRole));
+        } catch (_e) {
+          permissions = Array.from(rbac.legacyFallbackPermissions(rawRole));
+        }
+        return res.json({ ok: true, token, role: rawRole, permissions });
+      }
+    }
+
+    // --- Versuch 2: Portal-Kunden-Login ---
+    if (portalAuthBridge.isBridgeAvailable()) {
+      const normEmail = customerAuth.normalizeEmail(loginId);
+      const matchedEmail = await portalAuthBridge.verifyPortalCustomerPassword(normEmail, String(password));
+      if (matchedEmail) {
+        const role = await portalAuthBridge.getPortalCustomerRole(matchedEmail);
+        const { token } = await issueAdminSession(res, {
+          role,
+          rememberMe: !!rememberMe,
+          userKey: matchedEmail,
+          userName: matchedEmail,
+        });
+        const permissions = Array.from(rbac.legacyFallbackPermissions(role));
+        console.log("[auth/login] Portal-Kunde angemeldet:", { email: matchedEmail, role });
+        return res.json({ ok: true, token, role, permissions });
+      }
+    }
+
+    return res.status(401).json({ error: "Ungültige Zugangsdaten" });
+  } catch (err) {
+    console.error("[auth/login]", err?.message || err);
+    res.status(500).json({ error: err.message || "Login fehlgeschlagen" });
+  }
+});
+
+// GET /auth/profile: Gibt Kunden-Profildaten für angemeldete Portal-Kunden zurück.
+// Erreichbar über Next.js-Proxy: /api/auth/profile → /auth/profile (Express).
+// Erfordert: Authorization: Bearer <admin_token_v2>
+app.get("/auth/profile", async (req, res) => {
+  try {
+    if (!pool) return res.status(503).json({ error: "Datenbank nicht verfügbar" });
+    const auth = String(req.headers.authorization || "").trim();
+    const token = auth.replace(/^Bearer\s+/i, "").trim();
+    if (!token) return res.status(401).json({ error: "Nicht angemeldet" });
+
+    const tokenHash = customerAuth.hashSha256Hex(token);
+    const CUSTOMER_ROLES = ["customer_user", "customer_admin", "tour_manager"];
+    const { rows } = await pool.query(
+      `SELECT user_key, role FROM admin_sessions WHERE token_hash = $1 AND expires_at > NOW() LIMIT 1`,
+      [tokenHash]
+    );
+    const row = rows[0];
+    if (!row || !CUSTOMER_ROLES.includes(row.role)) {
+      return res.status(401).json({ error: "Nicht angemeldet" });
+    }
+
+    const customer = await db.getCustomerByEmail(row.user_key).catch(() => null);
+    return res.json({
+      ok: true,
+      email: row.user_key,
+      name: customer?.name || "",
+      company: customer?.company || "",
+      phone: customer?.phone || "",
+      street: customer?.street || "",
+      zipcity: customer?.zipcity || "",
+    });
+  } catch (err) {
+    console.error("[auth/profile]", err?.message || err);
+    return res.status(500).json({ error: err.message || "Profilfehler" });
+  }
+});
+
 const mailer = ensureSmtpConfigured()
   ? nodemailer.createTransport({
       host: SMTP_HOST,
@@ -2658,7 +2761,7 @@ function buildBookingCustomerProfile(billing = {}) {
   };
 }
 
-async function createCustomerPortalMagicLink(billing = {}, { sessionDays = 14 } = {}) {
+async function createCustomerPortalMagicLink(billing = {}, { sessionDays = 14, returnTo = null } = {}) {
   const pool = db.getPool ? db.getPool() : null;
   if (!pool) return null;
 
@@ -2724,8 +2827,11 @@ async function createCustomerPortalMagicLink(billing = {}, { sessionDays = 14 } 
   await db.createCustomerSession({ customerId: Number(customer.id), tokenHash, expiresAt });
 
   const fe = String(process.env.FRONTEND_URL || "https://booking.propus.ch/").replace(/\/?$/, "");
-  const returnTo = encodeURIComponent(`${fe}/account`);
-  return `${fe}/auth/customer/magic?magic=${encodeURIComponent(token)}&returnTo=${returnTo}`;
+  const destination = returnTo ? String(returnTo) : "/portal/dashboard";
+  // Nur relative Pfade erlaubt – absolute URLs werden auf /portal/dashboard reduziert
+  const safeDest = destination.startsWith("/") ? destination : "/portal/dashboard";
+  const returnToEncoded = encodeURIComponent(`${fe}${safeDest}`);
+  return `${fe}/auth/customer/magic?magic=${encodeURIComponent(token)}&returnTo=${returnToEncoded}`;
 }
 
 // Einfaches In-Memory Rate-Limit fuer erneutes Senden (pro E-Mail)
@@ -4284,7 +4390,7 @@ app.post("/api/booking", async (req, res) => {
     const frontendBase = process.env.FRONTEND_URL || "https://booking.propus.ch";
     let portalMagicLink = null;
     try {
-      portalMagicLink = await createCustomerPortalMagicLink(billing, { sessionDays: 14 });
+      portalMagicLink = await createCustomerPortalMagicLink(billing, { sessionDays: 14, returnTo: "/portal/dashboard" });
     } catch (err) {
       const message = String(err?.message || err || "Customer portal link failed");
       console.warn("[booking] customer portal link failed", { requestId, message, customerEmail });
@@ -4554,7 +4660,13 @@ app.post("/api/booking", async (req, res) => {
     try {
       const confirmPool = db.getPool ? db.getPool() : null;
       if (confirmPool && customerEmail && orderRecord.confirmationToken) {
-        const confirmVars = templateRenderer.buildTemplateVars(orderRecord, {});
+        const confirmMagicLink = await createCustomerPortalMagicLink(orderRecord.billing || {}, {
+          sessionDays: 30,
+          returnTo: "/portal/dashboard",
+        }).catch(() => null);
+        const confirmVars = templateRenderer.buildTemplateVars(orderRecord, {
+          portalMagicLink: confirmMagicLink || "",
+        });
         const confirmSendFn = function (to, subj, htm, txt) {
           return sendMailWithFallback({ to, subject: subj, html: htm, text: txt, context: `booking:${orderNo}:confirmation_request` });
         };
@@ -4707,7 +4819,14 @@ app.get("/api/booking/confirm/:token", async (req, res) => {
       if (orderObj) {
         const googleReviewSetting = await getSetting("google.reviewLink").catch(() => null);
         const googleReviewLink = (googleReviewSetting && googleReviewSetting.value) || process.env.GOOGLE_REVIEW_LINK || "";
-        const vars = templateRenderer.buildTemplateVars(orderObj, { googleReviewLink });
+        const confirmedPortalMagicLink = await createCustomerPortalMagicLink(orderObj.billing || {}, {
+          sessionDays: 30,
+          returnTo: "/portal/dashboard",
+        }).catch(() => null);
+        const vars = templateRenderer.buildTemplateVars(orderObj, {
+          googleReviewLink,
+          portalMagicLink: confirmedPortalMagicLink || "",
+        });
         const sendFn = function (to, subj, html, text, icsAtt) {
           return sendMailWithFallback({ to, subject: subj, html, text, icsAttachment: icsAtt || null, context: "confirm:" + orderNo });
         };
@@ -4804,7 +4923,7 @@ app.post("/api/admin/orders/:orderNo/resend-customer-email", requirePhotographer
     const frontendBaseResend = process.env.FRONTEND_URL || "https://booking.propus.ch";
     const billing = order.billing || {};
     const customerLang = order.billing?.language || billing?.language || "de";
-    const portalMagicLink = await createCustomerPortalMagicLink(billing, { sessionDays: 14 }).catch(() => null);
+    const portalMagicLink = await createCustomerPortalMagicLink(billing, { sessionDays: 30, returnTo: "/portal/dashboard" }).catch(() => null);
     const customerEmailData = buildCustomerEmail({
       objectInfo,
       serviceListWithPrice,
@@ -4925,7 +5044,7 @@ app.post("/api/admin/orders/:orderNo/resend-email", requireAdmin, async (req, re
         order.photographer?.email ||
         "";
       const photographerPhone = PHOTOG_PHONES[String(photographerKey).toLowerCase()] || "";
-      const portalMagicLink = await createCustomerPortalMagicLink(order.billing || {}, { sessionDays: 14 }).catch(() => null);
+      const portalMagicLink = await createCustomerPortalMagicLink(order.billing || {}, { sessionDays: 30, returnTo: "/portal/dashboard" }).catch(() => null);
       const emailData = buildCustomerEmail({
         objectInfo,
         serviceListWithPrice,
@@ -5344,10 +5463,10 @@ app.post("/api/admin/orders/:orderNo/storage/nextcloud-share", requireAdmin, asy
     } = require("./nextcloud-share");
     if (!isNextcloudConfigured()) {
       return res.status(503).json({
-        error: `${getNextcloudConfigError()}. Nextcloud läuft neu auf der VPS; bei lokalem Start bitte NEXTCLOUD_URL, NEXTCLOUD_USER und NEXTCLOUD_PASS in .env, .env.local, .env.vps oder .env.vps.secrets setzen.`,
+        error: `${getNextcloudConfigError()}. Nextcloud läuft auf dem UGREEN NAS (192.168.1.5); bei lokalem Start bitte NEXTCLOUD_URL, NEXTCLOUD_USER und NEXTCLOUD_PASS in .env, .env.local, .env.vps oder .env.vps.secrets setzen.`,
       });
     }
-    const ncPath = buildNextcloudPath(folderLink.relative_path);
+    const ncPath = buildNextcloudPath(folderLink.relative_path) + "/Finale";
     const { shareUrl } = await createNextcloudShare(ncPath);
     await db.setOrderFolderNextcloudShare(orderNo, folderType, shareUrl);
     const folders = await getOrderFolderSummary(order, db, { createMissing: false });
@@ -5496,6 +5615,7 @@ app.post("/api/admin/orders/:orderNo/upload-chunked/finalize", requirePhotograph
       uploadGroupId: payload.uploadGroupId,
       uploadGroupTotalParts: payload.uploadGroupTotalParts,
       uploadGroupPartIndex: payload.uploadGroupPartIndex,
+      addOrderSuffix: payload.addOrderSuffix === true,
     }, {
       stageUploadBatchFromPaths,
       enqueueBatchTransfer,
@@ -5542,6 +5662,7 @@ app.post("/api/admin/orders/:orderNo/upload", requirePhotographerOrAdmin, async 
       uploadGroupId: req.body?.uploadGroupId,
       uploadGroupTotalParts: req.body?.uploadGroupTotalParts,
       uploadGroupPartIndex: req.body?.uploadGroupPartIndex,
+      addOrderSuffix: req.body?.addOrderSuffix === true || req.body?.addOrderSuffix === "true" || req.body?.addOrderSuffix === "1",
     });
 
     enqueueBatchTransfer(db, batch.id, {
@@ -6107,12 +6228,13 @@ app.patch("/api/admin/orders/:orderNo/status", requireAdmin, async (req, res) =>
   }
 
     const becomingFinal = (status === "cancelled" || status === "completed" || status === "done" || status === "archived") && prevStatus !== status;
+  const becomingPaused = status === "paused" && prevStatus !== "paused";
 
-  // Bei Absage ODER Erledigt: Kalender-Events loeschen
+  // Bei Absage, Erledigt ODER Pausiert: Kalender-Events loeschen (Slot freigeben)
   const deletedEvents = [];
   let deletedPhotographerEvent = false;
   let deletedOfficeEvent = false;
-  if (becomingFinal && graphClient) {
+  if ((becomingFinal || becomingPaused) && graphClient) {
     if (order.photographerEventId && order.photographer?.email) {
       try {
         await graphClient.api(`/users/${order.photographer.email}/events/${order.photographerEventId}`).delete();
@@ -6142,24 +6264,45 @@ app.patch("/api/admin/orders/:orderNo/status", requireAdmin, async (req, res) =>
   // F-r UI-Debug/Transparenz
   if (deletedEvents.length) order.deletedEvents = deletedEvents;
 
-  // Bei Absage zus-tzlich: ICS + Mails
-  if (status === "cancelled" && prevStatus !== "cancelled") {
-
-    // ICS-Cancellation erstellen (wenn icsUid vorhanden)
-    let cancelAttachments = [];
-    if(order.icsUid && order.schedule?.date && order.schedule?.time){
+  // ICS-CANCEL an Attendees senden (paused + cancelled)
+  // Wird nur ausgefuehrt wenn sendEmails true ist und attendeeEmails + icsUid vorhanden.
+  const shouldSendIcsCancel = sendEmails && (graphClient || mailer);
+  if (shouldSendIcsCancel && (becomingPaused || (status === "cancelled" && prevStatus !== "cancelled"))) {
+    const attendeeRaw = (order.attendeeEmails || order.attendee_emails || "").trim();
+    if (attendeeRaw && order.icsUid && order.schedule?.date && order.schedule?.time) {
+      const reasonLabel = becomingPaused ? "pausiert" : "abgesagt";
+      const attendees = attendeeRaw.split(",").map((e) => e.trim()).filter(Boolean);
       const { icsContent: cancelIcs } = buildIcsEvent({
         title: `ABGESAGT: Auftrag #${orderNo}`,
-        description: "Dieser Termin wurde abgesagt.",
+        description: `Dieser Termin wurde ${reasonLabel}.`,
         location: order.address || "-",
         date: order.schedule.date,
         time: order.schedule.time,
         durationMin: order.schedule.durationMin || 60,
         uid: order.icsUid,
-        method: "CANCEL"
+        method: "CANCEL",
       });
-      cancelAttachments = [{ filename: "Absage.ics", content: cancelIcs, contentType: "text/calendar; method=CANCEL" }];
+      const icsCancelAttachment = { filename: "Absage.ics", content: cancelIcs, contentType: "text/calendar; method=CANCEL" };
+      for (const email of attendees) {
+        try {
+          await sendMailWithFallback({
+            to: email,
+            subject: `Termin abgesagt \u2013 Auftrag #${orderNo}`,
+            html: `<p>Der Termin zu Auftrag #${orderNo} wurde ${reasonLabel}. Bitte entnehmen Sie den beiliegenden Kalender-Eintrag.</p>`,
+            text: `Der Termin zu Auftrag #${orderNo} wurde ${reasonLabel}.`,
+            icsAttachment: icsCancelAttachment,
+            context: `ics-cancel:${orderNo}:${email}`,
+          });
+          console.log(`[ics-cancel] ${reasonLabel} – gesendet an`, email, { orderNo });
+        } catch (err) {
+          console.error(`[ics-cancel] ${reasonLabel} – fehlgeschlagen fuer`, email, err?.message);
+        }
+      }
     }
+  }
+
+  // Bei Absage zusätzlich: Mails an Office / Fotograf / Kunde
+  if (status === "cancelled" && prevStatus !== "cancelled") {
 
     // Absage-Mails via Graph API verschicken (umgeht SMTP-Throttling)
     // Kein ICS-Anhang n-tig - Graph API l-scht die Events direkt
@@ -6287,8 +6430,8 @@ app.patch("/api/admin/orders/:orderNo/status", requireAdmin, async (req, res) =>
       updateFields.closed_at = nowIso;
     }
     if (status !== "done") updateFields.done_at = null;
-    if (becomingFinal && deletedPhotographerEvent) updateFields.photographer_event_id = null;
-    if (becomingFinal && deletedOfficeEvent) updateFields.office_event_id = null;
+    if ((becomingFinal || becomingPaused) && deletedPhotographerEvent) updateFields.photographer_event_id = null;
+    if ((becomingFinal || becomingPaused) && deletedOfficeEvent) updateFields.office_event_id = null;
     if (status === "cancelled" && reason) updateFields.cancel_reason = String(reason).slice(0, 500);
     if (status === "paused" && reason) updateFields.pause_reason = String(reason).slice(0, 500);
     if (status === "provisional" && prevStatus !== "provisional") {
@@ -7335,7 +7478,15 @@ app.post("/api/bot", requirePhotographerOrAdmin, async (req, res) => {
         discountCode: String(body.discountCode || ""),
         customerEmail: String(body.customerEmail || ""),
       });
-      return res.json({ ok: true, ...result });
+      return res.json({
+        ok: true,
+        subtotal: result?.pricing?.subtotal ?? 0,
+        discountAmount: result?.pricing?.discountAmount ?? 0,
+        discount: result?.pricing?.discountAmount ?? 0,
+        vat: result?.pricing?.vat ?? 0,
+        total: result?.pricing?.total ?? 0,
+        ...result,
+      });
     }
     return res.status(400).json({ error: "Unbekannte action" });
   } catch (err) {
@@ -10211,7 +10362,7 @@ app.post("/api/company/invitations", requireCompanyAdmin, async (req, res) => {
   }
 });
 
-app.get("/api/company/invitations", requireCompanyMember, async (req, res) => {
+app.get("/api/company/invitations", requireCompanyAdmin, async (req, res) => {
   try {
     const invitations = await db.listCompanyInvitations(req.companyId, {
       includeExpired: String(req.query.includeExpired || "false").toLowerCase() === "true",
@@ -13300,6 +13451,19 @@ registerAdminUsersRoutes(app, { db, requireAdmin, rbac });
 registerExxasReconcileRoutes(app, db, requireAdmin, ensureCustomerInRequestCompany);
 registerAdminMissingRoutes(app, db, requireAdmin, mailer);
 
+// ─── Selekto SPA + Proxy-Routen ─────────────────────────────────────────────
+const { nextcloudProxyMiddleware, nextcloudThumbMiddleware, pdfInlineMiddleware } = require('./selekto-proxy');
+const SELEKTO_DIST = process.env.SELEKTO_DIST
+  ? path.resolve(process.env.SELEKTO_DIST)
+  : path.join(__dirname, '..', 'selekto', 'dist');
+if (fs.existsSync(SELEKTO_DIST)) {
+  app.use('/selekto', express.static(SELEKTO_DIST));
+  app.get('/selekto/*', (_req, res) => res.sendFile(path.join(SELEKTO_DIST, 'index.html')));
+}
+app.use('/__propus-nextcloud', nextcloudProxyMiddleware);
+app.use('/__propus-nc-thumb', nextcloudThumbMiddleware);
+app.get('/__propus-pdf-inline', pdfInlineMiddleware);
+
 // ─── Admin-Panel SPA (React/Vite Build) ─────────────────────────────────────
 // Liefert das gebaute Frontend aus admin-panel/dist aus.
 // Alle nicht-API-Routen geben index.html zurück (SPA-Routing).
@@ -13386,17 +13550,46 @@ if (fs.existsSync(PHOTOGRAPHER_PORTRAIT_DIR)) {
           <a href="${qrUrl}" class="btn" style="background:#fff;color:#1f2937;border:1px solid #e8e0d0;">QR-Rechnung</a>` }));
       }
 
+      // Kostenlose Reaktivierung (Tour <= 6 Monate alt, oder einmalige Kulanz)
+      if (rule.needsFreeReactivation) {
+        const cleanupDashboard = require("../tours/lib/cleanup-dashboard");
+        const spaceId = tour.canonical_matterport_space_id || tour.matterport_space_id || null;
+        await cleanupDashboard.activateTourAndSpace(tour.id, spaceId);
+        if (spaceId) {
+          const mp = require("../tours/lib/matterport");
+          await mp.setVisibility(spaceId, 'LINK_ONLY').catch(() => {});
+        }
+        const { getSubscriptionWindowFromStart } = require("../tours/lib/subscriptions");
+        const subWindow = getSubscriptionWindowFromStart(new Date());
+        await pgPool.query(
+          `UPDATE tour_manager.tours
+           SET term_end_date = $2::date,
+               ablaufdatum = $2::date,
+               subscription_start_date = $3::date,
+               updated_at = NOW()
+           WHERE id = $1`,
+          [tour.id, subWindow.endDate, subWindow.startDate]
+        );
+        await pgPool.query(
+        `UPDATE tour_manager.tours SET cleanup_completed = TRUE, updated_at = NOW() WHERE id = $1`,
+        [tour.id]
+      );
+      await logAction(tour.id, "customer", tour.customer_email, "CLEANUP_ACTION_WEITERFUEHREN_FREE", { freeReactivation: true, spaceId });
+        return res.send(cleanupPage({ title: "Tour kostenlos reaktiviert \u2713", icon: "\u2713", color: "#059669",
+          body: "<p>Danke! Ihre Tour wurde im Rahmen des Bereinigungslaufs <strong>einmalig kostenlos reaktiviert</strong>. Sie ist ab sofort wieder \u00fcber den direkten Link erreichbar.</p>" }));
+      }
+
       // Aktive Tour: Entscheid protokollieren, fertig
       const pgPool = require("../tours/lib/db").pool;
       await pgPool.query(
-        `UPDATE tour_manager.tours SET cleanup_action = 'weiterfuehren', cleanup_action_at = NOW(), updated_at = NOW() WHERE id = $1`,
+        `UPDATE tour_manager.tours SET cleanup_action = 'weiterfuehren', cleanup_action_at = NOW(), cleanup_completed = TRUE, updated_at = NOW() WHERE id = $1`,
         [tour.id]
       );
       const cleanupDashboard = require("../tours/lib/cleanup-dashboard");
       await cleanupDashboard.activateTourAndSpace(tour.id, tour.canonical_matterport_space_id || tour.matterport_space_id || null);
       await logAction(tour.id, "customer", tour.customer_email, "CLEANUP_ACTION_WEITERFUEHREN", {});
-      return res.send(cleanupPage({ title: "Tour wird weitergeführt", icon: "✓", color: "#059669",
-        body: "<p>Danke! Ihre Tour wird wie gewohnt weitergeführt. Wir freuen uns, Sie weiterhin als Kunden zu haben.</p>" }));
+      return res.send(cleanupPage({ title: "Tour wird weitergef\u00fchrt", icon: "\u2713", color: "#059669",
+        body: "<p>Danke! Ihre Tour wird wie gewohnt weitergef\u00fchrt. Wir freuen uns, Sie weiterhin als Kunden zu haben.</p>" }));
     } catch (err) {
       console.error("[cleanup] weiterfuehren:", err.message);
       return res.status(500).send(cleanupPage({ title: "Fehler", icon: "⚠", color: "#b91c1c", body: "<p class=\"err\">Interner Fehler. Bitte kontaktieren Sie uns unter office@propus.ch.</p>" }));
@@ -13444,6 +13637,7 @@ if (fs.existsSync(PHOTOGRAPHER_PORTRAIT_DIR)) {
 
       await pgPool.query(`UPDATE tour_manager.tours SET cleanup_action = 'weiterfuehren_online', cleanup_action_at = NOW(), updated_at = NOW() WHERE id = $1`, [tour.id]);
       await logAction(matchedTourId, "customer", tour.customer_email, "CLEANUP_ACTION_ONLINE_CHECKOUT", { amount, invoiceKind });
+      // cleanup_completed wird nach Zahlungseingang via applyImportedPayment gesetzt
       return res.redirect(checkoutUrl);
     } catch (err) {
       console.error("[cleanup] weiterfuehren/online:", err.message);
@@ -13498,7 +13692,7 @@ if (fs.existsSync(PHOTOGRAPHER_PORTRAIT_DIR)) {
         console.error("[cleanup] sendInvoiceWithQrEmail failed:", tour.id, err.message);
       });
 
-      await pgPool.query(`UPDATE tour_manager.tours SET cleanup_action = 'weiterfuehren_qr', cleanup_action_at = NOW(), updated_at = NOW() WHERE id = $1`, [tour.id]);
+      await pgPool.query(`UPDATE tour_manager.tours SET cleanup_action = 'weiterfuehren_qr', cleanup_action_at = NOW(), cleanup_completed = TRUE, updated_at = NOW() WHERE id = $1`, [tour.id]);
       await logAction(matchedTourId, "customer", tour.customer_email, "CLEANUP_ACTION_QR_INVOICE_SENT", { amount, invoiceKind });
       return res.send(cleanupPage({ title: "QR-Rechnung unterwegs", icon: "📄", color: "#1d4ed8",
         body: `<p>Ihre QR-Rechnung (CHF ${amount}.–) wurde per E-Mail verschickt. Bitte bezahlen Sie diese innerhalb von 14 Tagen, um Ihre Tour zu reaktivieren.</p>` }));
@@ -13529,7 +13723,7 @@ if (fs.existsSync(PHOTOGRAPHER_PORTRAIT_DIR)) {
       }
       const { tour } = result;
       const pgPool = require("../tours/lib/db").pool;
-      await pgPool.query(`UPDATE tour_manager.tours SET status = 'ARCHIVED', archived_at = NOW(), cleanup_action = 'archivieren', cleanup_action_at = NOW(), updated_at = NOW() WHERE id = $1`, [tour.id]);
+      await pgPool.query(`UPDATE tour_manager.tours SET status = 'ARCHIVED', archived_at = NOW(), cleanup_action = 'archivieren', cleanup_action_at = NOW(), cleanup_completed = TRUE, updated_at = NOW() WHERE id = $1`, [tour.id]);
       await logAction(tour.id, "customer", tour.customer_email, "CLEANUP_ACTION_ARCHIVIEREN", {});
       // Matterport archivieren wenn möglich
       try {
@@ -13560,7 +13754,7 @@ if (fs.existsSync(PHOTOGRAPHER_PORTRAIT_DIR)) {
       }
       const { tour } = result;
       const pgPool = require("../tours/lib/db").pool;
-      await pgPool.query(`UPDATE tour_manager.tours SET cleanup_action = 'uebertragen', cleanup_action_at = NOW(), updated_at = NOW() WHERE id = $1`, [tour.id]);
+      await pgPool.query(`UPDATE tour_manager.tours SET cleanup_action = 'uebertragen', cleanup_action_at = NOW(), cleanup_completed = TRUE, updated_at = NOW() WHERE id = $1`, [tour.id]);
       await logAction(tour.id, "customer", tour.customer_email, "CLEANUP_ACTION_UEBERTRAGEN", {});
       // Ticket für Übertragung erstellen
       await pgPool.query(
@@ -13604,6 +13798,11 @@ if (fs.existsSync(PHOTOGRAPHER_PORTRAIT_DIR)) {
         via: "cleanup_mail_link",
         deleteMatterport: true,
       });
+      const pgPool = require("../tours/lib/db").pool;
+      await pgPool.query(
+        `UPDATE tour_manager.tours SET cleanup_completed = TRUE, updated_at = NOW() WHERE id = $1`,
+        [tour.id]
+      );
       await logAction(tour.id, "customer", tour.customer_email, "CLEANUP_ACTION_LOESCHEN_CONFIRMED", {
         execute_after: scheduled.executeAfter.toISOString(),
         matterport_space_id: scheduled.spaceId || null,
@@ -13779,6 +13978,7 @@ async function startServer() {
       OFFICE_EMAIL,
       PHOTOG_PHONES,
       sendMail: sendMailViaGraph,
+      createPortalMagicLink: createCustomerPortalMagicLink,
     });
   } catch (jobErr) {
     console.error("[boot] Jobs konnten nicht gestartet werden:", jobErr && jobErr.message);

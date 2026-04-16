@@ -38,9 +38,12 @@ interface CreateOrderWizardProps {
 
 type OrderFormData = {
   // Customer
+  salutation: string;
+  first_name: string;
   customerName: string;
   customerEmail: string;
   customerPhone: string;
+  customerPhoneMobile: string;
   company: string;
   // Rechnungsadresse Kunde
   billingStreet: string;
@@ -92,9 +95,12 @@ type OrderFormData = {
 };
 
 const EMPTY_FORM: OrderFormData = {
+  salutation: "",
+  first_name: "",
   customerName: "",
   customerEmail: "",
   customerPhone: "",
+  customerPhoneMobile: "",
   company: "",
   billingStreet: "",
   billingHouseNumber: "",

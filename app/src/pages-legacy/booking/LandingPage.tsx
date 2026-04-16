@@ -1,6 +1,7 @@
 ﻿import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { motion, useInView } from "framer-motion";
-import { ArrowRight, ChevronLeft, ChevronRight, ChevronDown, Star } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight, ChevronDown, LogIn, Star } from "lucide-react";
+import { useAuthStore } from "../../store/authStore";
 import { t, type Lang } from "../../i18n";
 import { apiRequest } from "../../api/client";
 import type { CatalogAddon, CatalogCategory, CatalogData } from "../../api/bookingPublic";
@@ -173,6 +174,7 @@ function PriceListCategory({ category, addons, defaultOpen, lang }: { category: 
 type TravelZone = { zone: string; productCode: string; price: number; label: string; description: string; cantons: string[] };
 
 export function LandingPage({ lang, onLangChange, onStart }: LandingPageProps) {
+  const isLoggedIn = Boolean(useAuthStore((s) => s.token));
   const [catalog, setCatalog] = useState<CatalogData | null>(null);
   const [travelZones, setTravelZones] = useState<TravelZone[]>([]);
   const [reviews, setReviews] = useState<Review[]>([FALLBACK_REVIEW]);
@@ -271,6 +273,15 @@ export function LandingPage({ lang, onLangChange, onStart }: LandingPageProps) {
         <div className="flex items-center gap-2 sm:gap-3">
           <BookingThemeToggle lang={lang} />
           {onLangChange ? <BookingLangSelect lang={lang} onChange={onLangChange} /> : null}
+          {!isLoggedIn && (
+            <a
+              href="/login?returnTo=/book"
+              className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-xs font-medium text-[var(--text-muted)] transition-colors hover:text-[var(--accent)] hover:border-[var(--accent)]"
+            >
+              <LogIn className="h-3.5 w-3.5" />
+              {t(lang, "booking.step4.loginButton")}
+            </a>
+          )}
           <button
             type="button"
             data-testid="booking-landing-start"

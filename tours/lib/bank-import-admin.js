@@ -151,9 +151,11 @@ async function applySafeTourSyncFromRenewalInvoice(invoice) {
 
 async function applyImportedPayment(invoiceId, actorEmail, details = {}) {
   const invoiceRes = await pool.query(
-    `SELECT id, tour_id, invoice_number, invoice_kind, subscription_end_at, subscription_start_at
-     FROM tour_manager.renewal_invoices
-     WHERE id = $1
+    `SELECT i.id, i.tour_id, i.invoice_number, i.invoice_kind, i.subscription_end_at, i.subscription_start_at,
+            t.cleanup_action
+     FROM tour_manager.renewal_invoices i
+     LEFT JOIN tour_manager.tours t ON t.id = i.tour_id
+     WHERE i.id = $1
      LIMIT 1`,
     [invoiceId]
   );
@@ -181,6 +183,8 @@ async function applyImportedPayment(invoiceId, actorEmail, details = {}) {
     const endIso = toImportIso(inv.subscription_end_at);
     const startFromInv = toImportIso(inv.subscription_start_at);
     const subStartIso = startFromInv || paidAtIso;
+    const cleanupActions = ['weiterfuehren_online', 'weiterfuehren_qr', 'weiterfuehren_pending_payment'];
+    const isCleanupPayment = cleanupActions.includes(inv.cleanup_action);
     if (endIso) {
       await pool.query(
         `UPDATE tour_manager.tours
@@ -188,9 +192,10 @@ async function applyImportedPayment(invoiceId, actorEmail, details = {}) {
              term_end_date = $2::date,
              ablaufdatum = $2::date,
              subscription_start_date = $3::date,
+             cleanup_completed = CASE WHEN $4 THEN TRUE ELSE cleanup_completed END,
              updated_at = NOW()
          WHERE id = $1`,
-        [inv.tour_id, endIso, subStartIso]
+        [inv.tour_id, endIso, subStartIso, isCleanupPayment]
       );
 
       if (inv.invoice_kind === 'portal_reactivation') {
@@ -216,6 +221,12 @@ async function applyImportedPayment(invoiceId, actorEmail, details = {}) {
       const templateKey = inv.invoice_kind === 'portal_reactivation' ? 'reactivation_confirmed' : 'extension_confirmed';
       tourActions.sendPaymentConfirmedEmail(inv.tour_id, endIso, templateKey).catch((err) => {
         console.warn('applyImportedPayment: sendPaymentConfirmedEmail failed', inv.tour_id, err.message);
+      });
+
+      // Nächste Verlängerungsrechnung vorplanen (automatischer Abo-Workflow)
+      const { scheduleRenewalInvoice } = require('./subscriptions');
+      scheduleRenewalInvoice(inv.tour_id, endIso).catch((err) => {
+        console.warn('applyImportedPayment: scheduleRenewalInvoice failed', inv.tour_id, err.message);
       });
     }
   }

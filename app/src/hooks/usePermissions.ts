@@ -48,7 +48,7 @@ export function usePermissions() {
       if (r === "company_employee") {
         if (path === "/portal/firma" || path.startsWith("/portal/firma/")) return false;
       }
-      if (r === "company_owner" || r === "company_admin") {
+      if (r === "company_owner") {
         if (path === "/portal/bestellungen" || path.startsWith("/portal/bestellungen/")) return false;
       }
       const req = permissionForPath(path);
