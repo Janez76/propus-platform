@@ -1516,7 +1516,24 @@ export function ListingEditorPage() {
             />
           </div>
           <div className="gbe-divider" />
-          <GalleryBildauswahlStatusDropdown status={status} onStatusChange={setStatus} />
+          <GalleryBildauswahlStatusDropdown
+            status={status}
+            onStatusChange={(next) => {
+              setStatus(next);
+              if (!id || next === status) return;
+              void (async () => {
+                try {
+                  await updateGallery(id, { status: next });
+                  setSavedMsg(next === "active" ? "Galerie aktiviert." : "Galerie deaktiviert.");
+                  window.setTimeout(() => setSavedMsg(null), 4000);
+                  await load();
+                } catch (err) {
+                  setStatus(status);
+                  alert(err instanceof Error ? err.message : "Status konnte nicht gespeichert werden.");
+                }
+              })();
+            }}
+          />
         </section>
 
         <section className="gbe-card">
