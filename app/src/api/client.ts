@@ -74,7 +74,7 @@ function humanizeApiError(raw: string, status: number, path: string) {
     return "Pricing-Preview API nicht verfügbar. Bitte Backend neu starten.";
   }
   if (lower.startsWith("<!doctype") || lower.startsWith("<html")) {
-    return `API-Fehler (HTTP ${status}). Server antwortet mit HTML statt JSON. Mögliche Ursachen: Backend läuft nicht, falsche API-URL (z. B. VITE_API_BASE), oder die Anfrage trifft den Frontend-Server statt das Backend (Proxy/Deployment prüfen).`;
+    return `API-Fehler (HTTP ${status}). Server antwortet mit HTML statt JSON. Mögliche Ursachen: Backend läuft nicht, falsche API-URL (z. B. NEXT_PUBLIC_API_BASE), oder die Anfrage trifft den Frontend-Server statt das Backend (Proxy/Deployment prüfen).`;
   }
   return text;
 }
