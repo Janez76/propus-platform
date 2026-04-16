@@ -3,6 +3,20 @@ import { nextcloudPublicShareFolderZipUrl } from "./demo/nextcloudShare";
 import { isMp4VideoUrl } from "./demo/parsing";
 import type { FloorPlanItem } from "./demo/demoTypes";
 import type { GalleryItem } from "./data";
+import type { GalleryMediaSummary } from "./types";
+
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 MB";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  const decimals = value >= 100 || unit <= 1 ? 0 : 1;
+  return `${value.toFixed(decimals)} ${units[unit]}`;
+}
 import { Gallery } from "./Gallery";
 import { Header } from "./Header";
 import { Hero } from "./Hero";
@@ -32,6 +46,8 @@ export type PropertyShowcaseLayoutProps = {
    */
   cloudShareUrl?: string | null;
   downloadAllUrl?: string | null;
+  /** Server-seitige Zusammenfassung der Medien (Zählwerte + Bytes pro Variante) */
+  mediaSummary?: GalleryMediaSummary | null;
   /** Magic-Link: Kunden-Feedback zu Bildern (Lightbox) und Grundrissen */
   listingFeedback?: { galleryId: string; gallerySlug: string } | null;
   /** Query `?bild=` – öffnet Lightbox auf diesem Bild */
@@ -61,6 +77,7 @@ export function PropertyShowcaseLayout({
   showBackpanel = true,
   cloudShareUrl,
   downloadAllUrl,
+  mediaSummary = null,
   listingFeedback = null,
   clientDeepLinkImageId = null,
   clientDeepLinkFloorIndex = null,
@@ -85,12 +102,50 @@ export function PropertyShowcaseLayout({
     });
   }, [gallery.length]);
 
-  const handleDownloadAll = useCallback(() => {
-    const directDownload = (downloadAllUrl ?? "").trim();
-    if (directDownload) {
-      setToast("ZIP-Download startet …");
+  const handleDownload = useCallback(
+    (variant: "websize" | "fullsize" | "all") => {
+      const directDownload = (downloadAllUrl ?? "").trim();
+      if (directDownload) {
+        setToast("ZIP-Download startet …");
+        const href = variant === "all"
+          ? directDownload
+          : `${directDownload}${directDownload.includes("?") ? "&" : "?"}variant=${variant}`;
+        const a = document.createElement("a");
+        a.href = href;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        onClientZipDownloadStarted?.();
+        window.setTimeout(() => setToast(null), 3500);
+        return;
+      }
+      if (cloudShareUrl === undefined) {
+        setToast("Ihr Download wird vorbereitet.");
+        window.setTimeout(() => setToast(null), 3200);
+        return;
+      }
+      const trimmed = (cloudShareUrl ?? "").trim();
+      if (!trimmed) {
+        setToast("Kein Cloud-Freigabe-Link hinterlegt. Bitte im Backpanel speichern.");
+        window.setTimeout(() => setToast(null), 4500);
+        return;
+      }
+      const zipUrl = nextcloudPublicShareFolderZipUrl(trimmed);
+      if (!zipUrl) {
+        setToast("Freigabe-Link wird nicht als Nextcloud-URL erkannt.");
+        window.setTimeout(() => setToast(null), 4500);
+        return;
+      }
+      if (variant !== "all") {
+        setToast("Variante nicht verfügbar — starte Komplett-Download.");
+        window.setTimeout(() => setToast(null), 3500);
+      } else {
+        setToast("ZIP-Download startet …");
+      }
       const a = document.createElement("a");
-      a.href = directDownload;
+      a.href = zipUrl;
       a.target = "_blank";
       a.rel = "noopener noreferrer";
       document.body.appendChild(a);
@@ -98,36 +153,10 @@ export function PropertyShowcaseLayout({
       a.remove();
       onClientZipDownloadStarted?.();
       window.setTimeout(() => setToast(null), 3500);
-      return;
-    }
-    if (cloudShareUrl === undefined) {
-      setToast("Ihr Download wird vorbereitet.");
-      window.setTimeout(() => setToast(null), 3200);
-      return;
-    }
-    const trimmed = (cloudShareUrl ?? "").trim();
-    if (!trimmed) {
-      setToast("Kein Cloud-Freigabe-Link hinterlegt. Bitte im Backpanel speichern.");
-      window.setTimeout(() => setToast(null), 4500);
-      return;
-    }
-    const zipUrl = nextcloudPublicShareFolderZipUrl(trimmed);
-    if (!zipUrl) {
-      setToast("Freigabe-Link wird nicht als Nextcloud-URL erkannt.");
-      window.setTimeout(() => setToast(null), 4500);
-      return;
-    }
-    setToast("ZIP-Download startet …");
-    const a = document.createElement("a");
-    a.href = zipUrl;
-    a.target = "_blank";
-    a.rel = "noopener noreferrer";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    onClientZipDownloadStarted?.();
-    window.setTimeout(() => setToast(null), 3500);
-  }, [cloudShareUrl, downloadAllUrl, onClientZipDownloadStarted]);
+    },
+    [cloudShareUrl, downloadAllUrl, onClientZipDownloadStarted],
+  );
+  const handleDownloadAll = useCallback(() => handleDownload("all"), [handleDownload]);
 
   const openLightbox = useCallback((index: number) => {
     setFloorLightboxOpen(false);
@@ -245,9 +274,45 @@ export function PropertyShowcaseLayout({
               </p>
             </header>
             <div className="download-actions">
-              <button type="button" className="btn btn--outline btn--xl" onClick={handleDownloadAll}>
-                Alle Medien herunterladen
-              </button>
+              <div className="download-action">
+                <button type="button" className="btn btn--outline btn--xl" onClick={() => handleDownload("websize")}>
+                  Websize herunterladen
+                </button>
+                {mediaSummary && mediaSummary.imagesWebsize > 0 ? (
+                  <span className="download-chip">
+                    {mediaSummary.imagesWebsize}&nbsp;Bilder · ~{formatBytes(mediaSummary.bytesWebsize)}
+                  </span>
+                ) : null}
+              </div>
+              <div className="download-action">
+                <button type="button" className="btn btn--outline btn--xl" onClick={() => handleDownload("fullsize")}>
+                  Fullsize herunterladen
+                </button>
+                {mediaSummary && mediaSummary.imagesFullsize > 0 ? (
+                  <span className="download-chip">
+                    {mediaSummary.imagesFullsize}&nbsp;Bilder · ~{formatBytes(mediaSummary.bytesFullsize)}
+                  </span>
+                ) : null}
+              </div>
+              <div className="download-action">
+                <button type="button" className="btn btn--primary btn--xl" onClick={() => handleDownload("all")}>
+                  Alles herunterladen
+                </button>
+                {mediaSummary ? (
+                  <span className="download-chip">
+                    {[
+                      mediaSummary.imagesWebsize + mediaSummary.imagesFullsize > 0
+                        ? `${mediaSummary.imagesWebsize + mediaSummary.imagesFullsize} Bilder`
+                        : null,
+                      mediaSummary.floorPlans > 0 ? `${mediaSummary.floorPlans} Grundrisse` : null,
+                      mediaSummary.hasVideo ? "1 Video" : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                    {mediaSummary.bytesTotal > 0 ? ` · ~${formatBytes(mediaSummary.bytesTotal)}` : ""}
+                  </span>
+                ) : null}
+              </div>
             </div>
           </div>
         </section>

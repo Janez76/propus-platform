@@ -136,6 +136,9 @@ export function Lightbox(props: LightboxProps) {
                         className="lightbox__img"
                         src={lightboxSrcFromGallery(galleryItem.src)}
                         alt={galleryItem.label}
+                        loading="eager"
+                        decoding="async"
+                        sizes="(max-width: 768px) 100vw, 92vw"
                       />
                     </div>
                   </div>
@@ -190,11 +193,11 @@ export function Lightbox(props: LightboxProps) {
               </button>
             </div>
           ) : null}
-        </div>
-        <div className="lightbox__chrome" aria-hidden="true">
-          <span>
-            {safeIndex + 1} / {len}
-          </span>
+          <div className="lightbox__chrome" aria-hidden="true">
+            <span>
+              {safeIndex + 1} / {len}
+            </span>
+          </div>
         </div>
       </div>
 

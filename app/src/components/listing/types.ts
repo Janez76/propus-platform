@@ -72,6 +72,16 @@ export type EmailTemplateRow = {
 
 export type GalleryFloorPlan = { url: string; title: string };
 
+export type GalleryMediaSummary = {
+  imagesWebsize: number;
+  imagesFullsize: number;
+  floorPlans: number;
+  hasVideo: boolean;
+  bytesWebsize: number;
+  bytesFullsize: number;
+  bytesTotal: number;
+};
+
 export type PublicGalleryPayload = {
   id: string;
   title: string;
@@ -88,6 +98,7 @@ export type PublicGalleryPayload = {
     category: string | null;
     sort_order: number;
   }>;
+  media_summary?: GalleryMediaSummary | null;
 };
 
 export type GalleryListRow = ClientGalleryRow & {
