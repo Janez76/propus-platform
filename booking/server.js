@@ -5466,7 +5466,7 @@ app.post("/api/admin/orders/:orderNo/storage/nextcloud-share", requireAdmin, asy
         error: `${getNextcloudConfigError()}. Nextcloud läuft auf dem UGREEN NAS (192.168.1.5); bei lokalem Start bitte NEXTCLOUD_URL, NEXTCLOUD_USER und NEXTCLOUD_PASS in .env, .env.local, .env.vps oder .env.vps.secrets setzen.`,
       });
     }
-    const ncPath = buildNextcloudPath(folderLink.relative_path);
+    const ncPath = buildNextcloudPath(folderLink.relative_path) + "/Finale";
     const { shareUrl } = await createNextcloudShare(ncPath);
     await db.setOrderFolderNextcloudShare(orderNo, folderType, shareUrl);
     const folders = await getOrderFolderSummary(order, db, { createMissing: false });
