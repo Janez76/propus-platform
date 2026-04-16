@@ -104,7 +104,6 @@ const kundenNavigationItems: SidebarNavItem[] = [
 ];
 
 const settingsSubItems = [
-  { path: "/settings/users", icon: UserCog, labelKey: "sidebar.nav.userManagement" },
   { path: "/settings/roles", icon: Shield, labelKey: "sidebar.nav.roleMatrix" },
   { path: "/settings/workflow", icon: GitBranch, labelKey: "sidebar.nav.workflow" },
   { path: "/settings/team", icon: UserCircle, labelKey: "nav.employees" },
@@ -301,6 +300,10 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                         <NavLink to="/customers" onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
                           <Users className="h-4 w-4 flex-shrink-0" />
                           {t(lang, "nav.customers")}
+                        </NavLink>
+                        <NavLink to="/customers?tab=portal-firms" onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", location.pathname === "/customers" && location.search === "?tab=portal-firms" ? "active-sub" : "")}>
+                          <Building2 className="h-4 w-4 flex-shrink-0" />
+                          Portal-Firmen
                         </NavLink>
                       </div>
                     )}
@@ -571,6 +574,10 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                         <NavLink to="/customers" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
                           <Users className="h-4 w-4 flex-shrink-0" />
                           {t(lang, "nav.customers")}
+                        </NavLink>
+                        <NavLink to="/customers?tab=portal-firms" className={({ isActive }) => cn("propus-nav-item text-sm", location.pathname === "/customers" && location.search === "?tab=portal-firms" ? "active-sub" : "")}>
+                          <Building2 className="h-4 w-4 flex-shrink-0" />
+                          Portal-Firmen
                         </NavLink>
                       </div>
                     )}

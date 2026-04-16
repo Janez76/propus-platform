@@ -47,7 +47,6 @@ const PicdropPage = lazy(() => import("../pages-legacy/PicdropPage").then((m) =>
 const PaymentSettingsPage = lazy(() => import("../pages-legacy/PaymentSettingsPage").then((m) => ({ default: m.PaymentSettingsPage })));
 const InvoiceTemplatePage = lazy(() => import("../pages-legacy/InvoiceTemplatePage").then((m) => ({ default: m.InvoiceTemplatePage })));
 const RoleMatrixPage = lazy(() => import("../pages-legacy/RoleMatrixPage").then((m) => ({ default: m.RoleMatrixPage })));
-const CompanyManagementPage = lazy(() => import("../pages-legacy/CompanyManagementPage").then((m) => ({ default: m.CompanyManagementPage })));
 const PortalFirmaPage = lazy(() => import("../pages-legacy/PortalFirmaPage").then((m) => ({ default: m.PortalFirmaPage })));
 const PortalBestellungenPage = lazy(() => import("../pages-legacy/PortalBestellungenPage").then((m) => ({ default: m.PortalBestellungenPage })));
 const BookingWizardPage = lazy(() => import("../pages-legacy/BookingWizardPage").then((m) => ({ default: m.BookingWizardPage })));
@@ -204,10 +203,10 @@ function PrivateRoutes() {
         <Route path="/portal/team" element={<PortalTeamPage />} />
         <Route path="/portal/firma" element={guardedElement(["company_owner"], <PortalFirmaPage />)} />
         <Route path="/portal/bestellungen" element={guardedElement(["company_employee"], <PortalBestellungenPage />)} />
-        <Route path="/settings/users" element={guardedElement(adminOnlyRoles, <CompanyManagementPage />)} />
+        <Route path="/settings/users" element={<Navigate to="/customers?tab=portal-firms" replace />} />
         <Route path="/settings/companies" element={<Navigate to="/customers" replace />} />
         <Route path="/settings/roles" element={guardedElement(toursAdminRoles, <RoleMatrixPage />)} />
-        <Route path="/admin/users" element={<Navigate to="/settings/users" replace />} />
+        <Route path="/admin/users" element={<Navigate to="/customers?tab=portal-firms" replace />} />
         <Route path="/admin/roles" element={<Navigate to="/settings/roles" replace />} />
         <Route path="/company" element={<Navigate to={companyHome} replace />} />
         <Route path="/company/dashboard" element={guardedElement(["company_owner", "company_employee"], <CompanyDashboardPage />)} />
