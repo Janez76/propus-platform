@@ -822,7 +822,7 @@ Basis-Mount: **`/api/tours/admin/galleries`** (hinter `requireAdmin`, siehe `pla
 | Methode | Pfad | Beschreibung |
 |---|---|---|
 | `GET` | `/` | Liste mit `search`, `filter`, `sort` |
-| `POST` | `/` | Neue Galerie |
+| `POST` | `/` | Neues Listing erstellen |
 | `GET` | `/:id` | Detail inkl. Bilder + Feedback |
 | `PATCH` | `/:id` | Metadaten |
 | `DELETE` | `/:id` | Galerie löschen |
