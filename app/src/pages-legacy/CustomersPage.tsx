@@ -897,7 +897,7 @@ export function CustomersPage() {
             </table>
           )}
         </div>
-      ) : null}
+      )}
 
       {/* Modals */}
       <CreateContactDialog
