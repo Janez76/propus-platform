@@ -5615,6 +5615,7 @@ app.post("/api/admin/orders/:orderNo/upload-chunked/finalize", requirePhotograph
       uploadGroupId: payload.uploadGroupId,
       uploadGroupTotalParts: payload.uploadGroupTotalParts,
       uploadGroupPartIndex: payload.uploadGroupPartIndex,
+      addOrderSuffix: payload.addOrderSuffix === true,
     }, {
       stageUploadBatchFromPaths,
       enqueueBatchTransfer,
@@ -5661,6 +5662,7 @@ app.post("/api/admin/orders/:orderNo/upload", requirePhotographerOrAdmin, async 
       uploadGroupId: req.body?.uploadGroupId,
       uploadGroupTotalParts: req.body?.uploadGroupTotalParts,
       uploadGroupPartIndex: req.body?.uploadGroupPartIndex,
+      addOrderSuffix: req.body?.addOrderSuffix === true || req.body?.addOrderSuffix === "true" || req.body?.addOrderSuffix === "1",
     });
 
     enqueueBatchTransfer(db, batch.id, {

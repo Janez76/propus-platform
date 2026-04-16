@@ -566,6 +566,8 @@
   "upload.label.file": "Datei",
   "upload.label.targetFolder": "Zielordner",
   "upload.label.deliveryMode": "Nachlieferung",
+  "upload.toggle.orderSuffix": "Auftragsnr. anhängen",
+  "upload.hint.orderSuffix": "Dateiname wird um _#Auftragsnummer vor der Dateiendung ergänzt (z. B. foto_#100079.dng).",
   "upload.label.comment": "Kommentar (optional)",
   "upload.label.selectOrDrop": "Dateien wählen oder hierher ziehen",
   "upload.label.duplicates": "Duplikate",

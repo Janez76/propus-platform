@@ -77,6 +77,7 @@ async function ensureWebsizeCopy(srcAbs, srcRoot, dstRoot) {
         fit:    "inside",
         withoutEnlargement: true,
       })
+      .withMetadata()
       .jpeg({ quality: JPEG_QUALITY, progressive: true })
       .toFile(dstAbs);
     if (srcStat.atime && srcStat.mtime) {

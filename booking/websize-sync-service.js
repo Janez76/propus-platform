@@ -39,6 +39,7 @@ async function writeWebsizeVariant(sourcePath, targetPath) {
       fit: "inside",
       withoutEnlargement: true,
     })
+    .withMetadata()
     .jpeg({
       quality: WEBSIZE_QUALITY,
       mozjpeg: true,

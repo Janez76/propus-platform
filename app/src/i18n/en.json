@@ -566,6 +566,8 @@
   "upload.label.file": "File",
   "upload.label.targetFolder": "Target folder",
   "upload.label.deliveryMode": "Redelivery",
+  "upload.toggle.orderSuffix": "Append order no.",
+  "upload.hint.orderSuffix": "Appends _#order number before the file extension (e.g. photo_#100079.dng).",
   "upload.label.comment": "Comment (optional)",
   "upload.label.selectOrDrop": "Select files or drag and drop here",
   "upload.label.duplicates": "Duplicates",

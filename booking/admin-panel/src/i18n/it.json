@@ -404,6 +404,8 @@
   "upload.label.file": "File",
   "upload.label.targetFolder": "Cartella di destinazione",
   "upload.label.deliveryMode": "Consegna successiva",
+  "upload.toggle.orderSuffix": "Aggiungi n. ordine",
+  "upload.hint.orderSuffix": "Aggiunge _#numero ordine prima dell’estensione (es. foto_#100079.dng).",
   "upload.label.comment": "Commento (facoltativo)",
   "upload.label.selectOrDrop": "Seleziona file o trascinali qui",
   "upload.label.duplicates": "Duplicati",

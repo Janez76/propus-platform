@@ -404,6 +404,8 @@
   "upload.label.file": "Fichier",
   "upload.label.targetFolder": "Dossier cible",
   "upload.label.deliveryMode": "Livraison complémentaire",
+  "upload.toggle.orderSuffix": "Ajouter n° de commande",
+  "upload.hint.orderSuffix": "Ajoute _#numéro avant l’extension (ex. photo_#100079.dng).",
   "upload.label.comment": "Commentaire (facultatif)",
   "upload.label.selectOrDrop": "Sélectionner des fichiers ou les glisser-déposer ici",
   "upload.label.duplicates": "Doublons",
