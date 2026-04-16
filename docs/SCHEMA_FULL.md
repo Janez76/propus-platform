@@ -593,12 +593,13 @@ Read-only View: vereinheitlicht `renewal_invoices` und `exxas_invoices` für Rep
 
 ### `tour_manager.galleries` — Listing / Kunden-Galerie (Magic-Link)
 
-**Migrationen:** `core/migrations/028_listing_galleries.sql` (Basis), `031_gallery_links.sql` (Kunde/Kontakt/Bestellung), `032_gallery_nas_sources.sql` (NAS-Quelle, lokale Video-Pfade).
+**Migrationen:** `core/migrations/028_listing_galleries.sql` (Basis), `031_gallery_links.sql` (Kunde/Kontakt/Bestellung), `032_gallery_nas_sources.sql` (NAS-Quelle, lokale Video-Pfade), `038_gallery_friendly_slug.sql` (leserlicher Slug).
 
 | Feld | Typ | Beschreibung |
 |---|---|---|
 | `id` | UUID PK | |
 | `slug` | TEXT UNIQUE | Öffentlicher Pfad-Slug (`/listing/:slug`) |
+| `friendly_slug` | TEXT (038) | Leserlicher Slug im Format `<plz>-<ort>-<bestellnr>`, Unique-Index (partiell, WHERE NOT NULL). Wird bei `createGallery` / `updateGallery` automatisch generiert. Öffentliche Auflösung: `WHERE slug = $1 OR friendly_slug = $1`. |
 | `title` | TEXT | Anzeigetitel |
 | `address` | TEXT | Objektadresse |
 | `client_name` | TEXT | Anzeige-Name Kunde |

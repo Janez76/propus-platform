@@ -160,8 +160,9 @@ router.get('/:slug/download-all', async (req, res) => {
     if (!source) return res.status(404).json({ ok: false, error: 'Kein NAS-Download für diese Galerie verfügbar.' });
 
     const filenameSuffix = variant === 'all' ? '' : `-${variant}`;
+    const fileBaseName = (g.friendly_slug || g.slug).replace(/[^\w-]/g, '-');
     res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(g.slug)}${filenameSuffix}.zip"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(fileBaseName)}${filenameSuffix}.zip"`);
 
     const archive = archiver('zip', { zlib: { level: 9 } });
     archive.on('error', (error) => {

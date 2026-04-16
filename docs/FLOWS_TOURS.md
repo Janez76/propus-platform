@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei jeder Änderung an Tour-Status, Matterport-Integration, Verlängerungs- oder Archivierungs-Logik dieses Dokument aktualisieren. **Produkt-Workflow (Regeln, Reminder-Stufen, Preise):** [WORKFLOW_TOURS.md](./WORKFLOW_TOURS.md) — bei Abweichungen beide Dateien abstimmen.
 
-*Zuletzt aktualisiert: April 2026 (§16 Portal-Auth: Unified Login + Session-Bridge; Galerie/NAS: Migrationen 031–032; Admin `/api/tours/admin/galleries` NAS-Import; öffentlich `/api/listing/...` Video/Grundriss/ZIP; Bestellung nachträglich verknüpfen via Tour-Detail Intern-Sektion; Bank-Import: Vorschau/Multi-Upload, Bestellungssuche zur Rechnungszuordnung; Bestellungs-Admin: Finanzblock «Rechnungen & Zahlungen»; Bereinigungslauf: CUSTOMER_ACCEPTED_AWAITING_PAYMENT-Label + termEndFormatted-Fix; Matterport-State-Cron: POST /api/tours/cron/sync-matterport-state alle 5 Min; Rechnung löschen mit Workflow-Reset; Reaktivierung ohne Rechnung (Admin-Kulanz); Bereinigungslauf-Widget in Tour-Detail; Cleanup-Dashboard mit Matterport-Reaktivierung, 30-Tage-Löschvormerkung, Lösch-Cron und Gutschein-Nachversand; Gelesen-Tracking via `last_accessed_at` in `cleanup_sessions`; Erinnerungs-Batch `batch-reminder` für bereits kontaktierte Kunden ohne Aktion; Bulk-Delete: Exxas Hosting VR Tour Matterport 500xxx + Renewal CHF 63.80 offen/überfällig; Listing-Editor: Auto-Fill Kundenordner + Freigabe-Link nach Bestell-Auswahl via `?orderNo`-Override auf `nas-context`; Bestell-Kontakt-Fallback (Sentinel-ID −1) wenn Kunde keine gespeicherten Kontakte hat; NAS-Vorschläge: Raw-Material-Ordner im Editor ausgeblendet; Kundenordner-Vorschlag zeigt auf `/Finale`-Unterordner wenn vorhanden; Status-Wechsel im Listing-Editor wird sofort via PATCH persistiert; `getGallery()` akzeptiert UUID oder Slug — Admin-Routen mit `:id`-Parameter funktionieren nun auch mit Slug-URLs; Public-Listing: Download-Varianten (Websize/Fullsize/All) mit `?variant=`-Parameter, `GalleryMediaSummary` im Payload, Websize-Deduplizierung in Bildliste + Bildauslieferung, Lightbox-Chrome-Fix, Feedback→Ticket-Integration (`gallery_anmerkung`))*
+*Zuletzt aktualisiert: April 2026 (§16 Portal-Auth: Unified Login + Session-Bridge; Galerie/NAS: Migrationen 031–032, 038 (friendly_slug); Admin `/api/tours/admin/galleries` NAS-Import; öffentlich `/api/listing/...` Video/Grundriss/ZIP; Bestellung nachträglich verknüpfen via Tour-Detail Intern-Sektion; Bank-Import: Vorschau/Multi-Upload, Bestellungssuche zur Rechnungszuordnung; Bestellungs-Admin: Finanzblock «Rechnungen & Zahlungen»; Bereinigungslauf: CUSTOMER_ACCEPTED_AWAITING_PAYMENT-Label + termEndFormatted-Fix; Matterport-State-Cron: POST /api/tours/cron/sync-matterport-state alle 5 Min; Rechnung löschen mit Workflow-Reset; Reaktivierung ohne Rechnung (Admin-Kulanz); Bereinigungslauf-Widget in Tour-Detail; Cleanup-Dashboard mit Matterport-Reaktivierung, 30-Tage-Löschvormerkung, Lösch-Cron und Gutschein-Nachversand; Gelesen-Tracking via `last_accessed_at` in `cleanup_sessions`; Erinnerungs-Batch `batch-reminder` für bereits kontaktierte Kunden ohne Aktion; Bulk-Delete: Exxas Hosting VR Tour Matterport 500xxx + Renewal CHF 63.80 offen/überfällig; Listing-Editor: Auto-Fill Kundenordner + Freigabe-Link nach Bestell-Auswahl via `?orderNo`-Override auf `nas-context`; Bestell-Kontakt-Fallback (Sentinel-ID −1) wenn Kunde keine gespeicherten Kontakte hat; NAS-Vorschläge: Raw-Material-Ordner im Editor ausgeblendet; Kundenordner-Vorschlag zeigt auf `/Finale`-Unterordner wenn vorhanden; Status-Wechsel im Listing-Editor wird sofort via PATCH persistiert; `getGallery()` akzeptiert UUID oder Slug — Admin-Routen mit `:id`-Parameter funktionieren nun auch mit Slug-URLs; Public-Listing: Websize-only Galerie (strikt nur Websize-Bilder, Fallback auf Deduplizierung), nur ein Download-Button «Alle Medien herunterladen», `GalleryMediaSummary` im Payload, Lightbox-Chrome-Fix, Feedback→Ticket-Integration (`gallery_anmerkung`); Friendly-Slug-URLs: automatisch generierte leserliche URLs `<plz>-<ort>-<bestellnr>` mit Fallback auf Zufalls-Slug)*
 
 ---
 
@@ -826,13 +826,27 @@ Design-Referenz fuer die UI-Bausteine (Link-Chips, Autocomplete-Optionen, Status
 
 **NAS-Import:** Relativ zu den gleichen Roots wie das Buchungs-Upload-System (`BOOKING_UPLOAD_CUSTOMER_ROOT`, `BOOKING_UPLOAD_RAW_ROOT`, …); Logik in `booking/order-storage.js`, genutzt von `tours/lib/gallery.js`. Keine freien absoluten Pfade über die API.
 
+### Friendly-Slug-URLs (Migration 038)
+
+Neben dem bestehenden Zufalls-`slug` generiert die Plattform automatisch einen leserlichen `friendly_slug` im Format `<plz>-<ort>-<bestellnr>` (z. B. `8000-zuerich-42`). Umlaute werden transliteriert (`ä→ae`, `ö→oe`, `ü→ue`, `ß→ss`).
+
+**Generierung:** `generateUniqueFriendlySlug()` in `tours/lib/gallery.js` — extrahiert PLZ und Ort aus der Adresse (Schweizer 4-stellige PLZ), fügt die Bestellnummer an und prüft auf Kollisionen mit bestehenden `slug`- und `friendly_slug`-Werten. Bei Kollision wird ein Suffix `-2`, `-3` usw. angehängt (Notausgang bei Suffix > 50).
+
+**Wann generiert:**
+- `createGallery()`: sofort beim Anlegen.
+- `updateGallery()`: neu berechnet wenn Adresse oder Bestellnummer geändert wird, oder als Backfill wenn `friendly_slug` fehlt (Alt-Galerien).
+
+**Öffentliche Auflösung:** `getGalleryBySlug()` und `getGalleryBySlugAny()` matchen auf `slug = $1 OR friendly_slug = $1`. Alte Zufalls-Slugs bleiben funktional.
+
+**Frontend URL-Bevorzugung:** `preferredGallerySlug()` in `app/src/api/listingAdmin.ts` gibt bevorzugt den `friendly_slug` zurück, fällt auf `slug` zurück. `publicGalleryUrl()` und `publicGalleryDeepLink()` akzeptieren nun ein Objekt `{ slug, friendly_slug }` statt nur einen String. Admin-Links und Magic-Link-URLs verwenden automatisch den leserlichen Slug.
+
 ### Admin-JSON-API (`tours/routes/gallery-admin-api.js`)
 
 Basis-Mount: **`/api/tours/admin/galleries`** (hinter `requireAdmin`, siehe `platform/server.js`).
 
 | Methode | Pfad | Beschreibung |
 |---|---|---|
-| `GET` | `/` | Liste mit `search`, `filter`, `sort` |
+| `GET` | `/` | Liste mit `search` (durchsucht auch `friendly_slug`), `filter`, `sort` |
 | `POST` | `/` | Neues Listing erstellen |
 | `GET` | `/:id` | Detail inkl. Bilder + Feedback. `:id` akzeptiert UUID oder Slug (`getGallery` erkennt das Format automatisch). |
 | `PATCH` | `/:id` | Metadaten (`:id` = UUID oder Slug) |
@@ -863,7 +877,7 @@ Mount: **`/api/listing`** (ohne Login).
 
 | Methode | Pfad | Beschreibung |
 |---|---|---|
-| `GET` | `/:slug` | Payload inkl. `download_all_url`, `media_summary` (Zählwerte + Bytes pro Variante) und deduplizierter Bildliste (Websize-Variante bevorzugt) |
+| `GET` | `/:slug` | Payload inkl. `download_all_url`, `media_summary` (Zählwerte + Bytes pro Variante) und Bildliste (strikt nur Websize-Bilder; Fallback auf Deduplizierung bei Alt-Galerien ohne Websize). `:slug` matcht auf `slug` oder `friendly_slug`. |
 | `GET` | `/:slug/images/:imgId` | Bild: NAS → `sendFile` (Websize-Variante bevorzugt via `resolvePreferredImageFile`), sonst Redirect `remote_src` |
 | `GET` | `/:slug/video` | Video-Datei (NAS) oder 404 |
 | `GET` | `/:slug/floorplans/:index` | PDF (NAS) oder Redirect auf gespeicherte URL |
@@ -875,7 +889,7 @@ Mount: **`/api/listing`** (ohne Login).
 
 ### Download-Varianten (Websize / Fullsize / All)
 
-Die öffentliche Listing-Seite bietet drei Download-Buttons: **Websize herunterladen**, **Fullsize herunterladen** und **Alles herunterladen**. Jeder Button zeigt einen Chip mit Bildanzahl und geschätzter Dateigrösse (aus `media_summary`).
+Die öffentliche Listing-Seite bietet einen einzigen Download-Button: **«Alle Medien herunterladen»**. Der Button zeigt einen Chip mit Bildanzahl und geschätzter Dateigrösse (aus `media_summary`). Die früheren separaten Buttons für Websize und Fullsize wurden entfernt — da die Bildliste ohnehin nur Websize-Varianten anzeigt (s. «Websize-only Galerie»), ist ein differenzierter Download nicht mehr nötig.
 
 **Backend (`getGalleryDownloadSource(gallery, variant)`):** Sucht innerhalb des Finale-Ordners nach passenden Unterordnern:
 
@@ -903,9 +917,11 @@ Fallback: Wird kein Varianten-Unterordner gefunden, wird der gesamte Ordner als 
 | `bytesFullsize` | number | Gesamtgrösse Fullsize-Bilder (Bytes) |
 | `bytesTotal` | number | Gesamtgrösse aller Dateien im Quellordner |
 
-### Websize-Deduplizierung
+### Websize-only Galerie
 
-Liegen websize- und fullsize-Variante desselben Bildes (gleicher Basename) in der Datenbank, blendet die öffentliche API die fullsize-Variante aus (`dedupeGalleryRowsPreferWebsize`). Bei der Bildauslieferung (`GET /:slug/images/:imgId`) wird bevorzugt die Websize-Datei zurückgegeben (`resolvePreferredImageFile`), auch wenn der DB-Eintrag auf die Fullsize-Datei zeigt.
+Die öffentliche API (`GET /:slug`) zeigt **strikt nur Bilder aus einem Websize-Pfad** an. Bilder werden gefiltert über den regulären Ausdruck `/web[\s_-]?size/i` auf `source_path`. Enthält die Galerie mindestens ein Websize-Bild, werden ausschliesslich diese angezeigt. Nur wenn **keine** Websize-Varianten vorhanden sind (z. B. bei Alt-Galerien ohne Websize-Import), fällt die API auf die bisherige Deduplizierung zurück (`dedupeGalleryRowsPreferWebsize`).
+
+Bei der Bildauslieferung (`GET /:slug/images/:imgId`) wird weiterhin bevorzugt die Websize-Datei zurückgegeben (`resolvePreferredImageFile`), auch wenn der DB-Eintrag auf die Fullsize-Datei zeigt.
 
 ### Feedback → Ticket-Integration
 
