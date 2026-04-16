@@ -60,6 +60,8 @@ jobs:
   update-docs:
     name: Docs automatisch nachfuehren
     runs-on: ubuntu-latest
+    # v1.0 erwartet das Step-Timeout am Job (frueher action-Input timeout_minutes)
+    timeout-minutes: 25
     # Drafts ueberspringen; bei PRs aus Forks ist contents:write nicht moeglich
     if: >-
       github.event_name == 'workflow_dispatch' ||
@@ -104,13 +106,16 @@ jobs:
       - name: Claude laeuft und pflegt Docs nach
         uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Auth: bevorzugt OAuth-Token, sonst API-Key (nur EINER aktiv,
+          # damit die Action-CLI nicht zwischen beiden Quellen entscheiden muss)
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          anthropic_api_key: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN == '' && secrets.ANTHROPIC_API_KEY || '' }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          # Wichtig: Claude darf Dateien schreiben + git nutzen
-          allowed_tools: "Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(cat:*),Bash(ls:*),Bash(find:*),Bash(head:*),Bash(tail:*),Bash(node:*),Bash(bash scripts/guard-docs.sh*)"
-          model: claude-opus-4-6
-          timeout_minutes: "20"
+          # v1: alte Inputs (allowed_tools, model, timeout_minutes) wandern in claude_args
+          claude_args: |
+            --model claude-opus-4-6
+            --max-turns 25
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(cat:*),Bash(ls:*),Bash(find:*),Bash(head:*),Bash(tail:*),Bash(node:*),Bash(bash scripts/guard-docs.sh*)"
           prompt: |
             Du pflegst die Dokumentation der Propus-Plattform automatisch nach.
             Referenzregeln: AGENTS.md, .cursor/rules/data-fields.mdc,
