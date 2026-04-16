@@ -19,6 +19,7 @@ import { Building2, Hash, User, X } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
+  adminGalleryFloorPlanUrl,
   adminGalleryImageUrl,
   browseGalleryNas,
   createGallery,
@@ -29,6 +30,7 @@ import {
   getGalleryNasContext,
   importGalleryFromNas,
   importImagesFromShare,
+  parseAdminFloorPlans,
   publicGalleryDeepLink,
   publicGalleryUrl,
   reorderImages,
@@ -36,6 +38,7 @@ import {
   updateGallery,
   updateImage,
 } from "../../../api/listingAdmin";
+import { LightboxFloorPlanCanvas } from "../../../components/listing/LightboxFloorPlanCanvas";
 import {
   getLinkMatterportBookingSearch,
   getToursByOrderNo,
@@ -1830,6 +1833,43 @@ export function ListingEditorPage() {
           {nasMsg ? <p className="mt-3 text-sm text-emerald-700">{nasMsg}</p> : null}
           {nasError ? <p className="mt-3 text-sm text-rose-700">{nasError}</p> : null}
         </section>
+
+        {(() => {
+          const floorPlans = parseAdminFloorPlans(g?.floor_plans_json ?? null);
+          if (!id || floorPlans.length === 0) return null;
+          return (
+            <section className="gbe-card">
+              <div className="gbe-section-head">
+                <h2 className="gbe-card-label">Grundrisse</h2>
+                <span className="gbe-section-meta">{floorPlans.length} PDF</span>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {floorPlans.map((fp, idx) => {
+                  const url = fp.source_type === "nas_local" ? adminGalleryFloorPlanUrl(id, idx) : fp.url;
+                  if (!url) return null;
+                  return (
+                    <a
+                      key={`${idx}-${fp.title}`}
+                      href={url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block overflow-hidden rounded-lg border border-[var(--line)] bg-[var(--surface-raised)] hover:border-[var(--gold)] transition-colors"
+                      title={`${fp.title} in neuem Tab öffnen`}
+                    >
+                      <div className="aspect-[4/3] bg-white">
+                        <LightboxFloorPlanCanvas remotePdfUrl={url} label={fp.title} />
+                      </div>
+                      <div className="px-3 py-2 text-xs text-[var(--text-subtle)] truncate">
+                        <i className="fa-regular fa-file-pdf mr-1.5" />
+                        {fp.title}
+                      </div>
+                    </a>
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })()}
 
         <section className="gbe-card">
           <div className="gbe-section-head">
