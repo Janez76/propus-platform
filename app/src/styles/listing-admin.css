@@ -3736,3 +3736,185 @@ body.theme-dark .gbe-save-bar .gbe-toast {
 body.theme-dark .gbe-link-sep {
 	color: #444;
 }
+
+/* ============================================================
+ * Zuweisungs-Karte: Kunde / Kontakt / Bestellung
+ * ============================================================ */
+.gbe-card--assignment {
+	border-left: 3px solid var(--accent);
+}
+
+.gbe-card-hint {
+	font-size: 12px;
+	color: var(--text-subtle);
+	margin: -6px 0 12px;
+	line-height: 1.4;
+}
+
+.gbe-autocomplete-option {
+	display: flex;
+	align-items: flex-start;
+	gap: 10px;
+}
+
+.gbe-autocomplete-option-icon {
+	flex-shrink: 0;
+	width: 16px;
+	height: 16px;
+	color: var(--text-subtle);
+	margin-top: 2px;
+}
+
+.gbe-autocomplete-option-body {
+	min-width: 0;
+	flex: 1;
+}
+
+.gbe-autocomplete-option-title {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+.gbe-autocomplete-option-sub {
+	margin-top: 2px;
+	font-size: 12px;
+	color: var(--text-subtle);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gbe-link-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	margin-top: 8px;
+	padding: 4px 8px 4px 8px;
+	background: var(--surface-raised);
+	border: 1px solid var(--border-soft);
+	border-radius: 999px;
+	font-size: 13px;
+	color: var(--text-main);
+	max-width: 100%;
+}
+
+.gbe-link-chip--order {
+	border-color: var(--accent);
+}
+
+.gbe-link-chip-icon {
+	width: 14px;
+	height: 14px;
+	color: var(--text-subtle);
+	flex-shrink: 0;
+}
+
+.gbe-link-chip-label {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	max-width: 260px;
+}
+
+.gbe-link-chip-id {
+	color: var(--text-subtle);
+	font-variant-numeric: tabular-nums;
+	font-size: 12px;
+}
+
+.gbe-link-chip-remove {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 18px;
+	height: 18px;
+	border-radius: 999px;
+	color: var(--text-subtle);
+	background: transparent;
+	border: none;
+	cursor: pointer;
+	padding: 0;
+	margin-left: 2px;
+	opacity: 0.7;
+	transition: opacity 120ms ease, background 120ms ease;
+}
+
+.gbe-link-chip-remove:hover {
+	opacity: 1;
+	background: rgba(0, 0, 0, 0.06);
+}
+
+.gbe-order-status-badge {
+	display: inline-block;
+	padding: 1px 8px;
+	border-radius: 999px;
+	font-size: 10.5px;
+	font-weight: 600;
+	letter-spacing: 0.02em;
+	text-transform: uppercase;
+	line-height: 1.5;
+	white-space: nowrap;
+}
+
+.gbe-order-status-badge--confirmed { background: #ecfdf5; color: #047857; }
+.gbe-order-status-badge--pending   { background: #fef3c7; color: #92400e; }
+.gbe-order-status-badge--paused    { background: #fef3c7; color: #92400e; }
+.gbe-order-status-badge--cancelled { background: #fee2e2; color: #b91c1c; }
+.gbe-order-status-badge--completed,
+.gbe-order-status-badge--done      { background: #dbeafe; color: #1e40af; }
+.gbe-order-status-badge--archived  { background: #f3f4f6; color: #4b5563; }
+.gbe-order-status-badge--default   { background: var(--surface-raised); color: var(--text-subtle); }
+
+.gbe-autofill-flash {
+	display: inline-block;
+	font-size: 12px;
+	color: #047857;
+	background: #ecfdf5;
+	border-left: 3px solid #10b981;
+	padding: 6px 10px;
+	border-radius: 6px;
+	margin-top: 12px;
+	animation: gbe-autofill-flash-fade 4000ms ease forwards;
+}
+
+@keyframes gbe-autofill-flash-fade {
+	0%   { opacity: 0; transform: translateY(-2px); }
+	10%  { opacity: 1; transform: translateY(0); }
+	85%  { opacity: 1; }
+	100% { opacity: 0; }
+}
+
+body.theme-dark .gbe-card--assignment {
+	border-left-color: var(--accent);
+}
+
+body.theme-dark .gbe-link-chip {
+	background: #222228;
+	border-color: rgba(255, 255, 255, 0.1);
+	color: #f0f0ee;
+}
+
+body.theme-dark .gbe-link-chip--order {
+	border-color: var(--accent);
+}
+
+body.theme-dark .gbe-link-chip-remove:hover {
+	background: rgba(255, 255, 255, 0.08);
+}
+
+body.theme-dark .gbe-order-status-badge--confirmed { background: rgba(4, 120, 87, 0.18); color: #6ee7b7; }
+body.theme-dark .gbe-order-status-badge--pending,
+body.theme-dark .gbe-order-status-badge--paused    { background: rgba(146, 64, 14, 0.22); color: #fcd34d; }
+body.theme-dark .gbe-order-status-badge--cancelled { background: rgba(185, 28, 28, 0.22); color: #fca5a5; }
+body.theme-dark .gbe-order-status-badge--completed,
+body.theme-dark .gbe-order-status-badge--done      { background: rgba(30, 64, 175, 0.25); color: #93c5fd; }
+body.theme-dark .gbe-order-status-badge--archived  { background: rgba(75, 85, 99, 0.3); color: #d1d5db; }
+body.theme-dark .gbe-order-status-badge--default   { background: #222228; color: #9a9a96; }
+
+body.theme-dark .gbe-autofill-flash {
+	color: #6ee7b7;
+	background: rgba(4, 120, 87, 0.15);
+	border-left-color: #10b981;
+}

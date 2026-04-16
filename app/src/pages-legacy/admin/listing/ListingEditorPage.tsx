@@ -15,6 +15,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { Building2, Hash, User, X } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
@@ -410,6 +411,24 @@ function GalleryAutocompleteField<T>({
   );
 }
 
+const ORDER_STATUS_LABELS: Record<string, string> = {
+  pending: "offen",
+  paused: "pausiert",
+  confirmed: "bestätigt",
+  completed: "abgeschlossen",
+  done: "erledigt",
+  cancelled: "storniert",
+  archived: "archiviert",
+};
+
+function OrderStatusBadge({ status }: { status?: string | null }) {
+  const key = (status || "").trim().toLowerCase();
+  if (!key) return null;
+  const label = ORDER_STATUS_LABELS[key] || key;
+  const variant = ORDER_STATUS_LABELS[key] ? key : "default";
+  return <span className={`gbe-order-status-badge gbe-order-status-badge--${variant}`}>{label}</span>;
+}
+
 /** Status-Dropdown im Stil bildauswahl-backpanel.html */
 function GalleryBildauswahlStatusDropdown({
   status,
@@ -589,6 +608,7 @@ export function ListingEditorPage() {
   imagesRef.current = images;
   const [err, setErr] = useState<string | null>(null);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
+  const [assignmentAutofillMsg, setAssignmentAutofillMsg] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const [status, setStatus] = useState<GalleryStatus>("active");
@@ -930,9 +950,17 @@ export function ListingEditorPage() {
       } catch {
         // Matterport-Autofill ist optional; Bestellungswahl soll trotzdem funktionieren.
       }
+
+      setAssignmentAutofillMsg("Kunde, Kontakt und Adresse aus Bestellung übernommen.");
     },
     [],
   );
+
+  useEffect(() => {
+    if (!assignmentAutofillMsg) return;
+    const timer = window.setTimeout(() => setAssignmentAutofillMsg(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [assignmentAutofillMsg]);
 
   const importNasSelection = useCallback(
     async (rootKind: "customer" | "raw", relativePath: string, storageSourceType: "order_folder" | "nas_browser") => {
@@ -1205,17 +1233,59 @@ export function ListingEditorPage() {
           </div>
         </section>
 
-        <section className="gbe-card">
-          <h2 className="gbe-card-label">Stammdaten</h2>
+        <section className="gbe-card gbe-card--assignment">
+          <h2 className="gbe-card-label">Zuweisung</h2>
+          <p className="gbe-card-hint">
+            Bestellung auswählen füllt Kunde, Kontakt und Adresse automatisch aus.
+          </p>
           <div className="gbe-field">
-            <label htmlFor="gal-edit-title">Titel</label>
-            <EditorDraftField
-              syncKey={g.updated_at}
-              serverValue={g.title}
-              draftRef={titleDraftRef}
-              inputId="gal-edit-title"
-              placeholder="z. B. EFH mit Ausblick"
+            <label htmlFor="gal-edit-order">Bestellung</label>
+            <GalleryAutocompleteField
+              inputId="gal-edit-order"
+              value={orderInput}
+              onChange={(value) => {
+                setOrderInput(value);
+                setBookingOrderNo(null);
+              }}
+              options={orderOptions}
+              loading={orderSearchLoading}
+              minQueryLength={1}
+              placeholder="Bestellnummer, Kunde oder Adresse"
+              emptyText="Keine passende Bestellung gefunden."
+              getOptionKey={(order) => String(order.order_no)}
+              renderOption={(order) => (
+                <div className="gbe-autocomplete-option">
+                  <Hash className="gbe-autocomplete-option-icon" aria-hidden="true" />
+                  <div className="gbe-autocomplete-option-body">
+                    <div className="gbe-autocomplete-option-title">
+                      <span className="font-semibold text-[var(--text-main)]">#{order.order_no}</span>
+                      <OrderStatusBadge status={order.status} />
+                    </div>
+                    <div className="gbe-autocomplete-option-sub">
+                      {[order.company || order.contactName, order.address].filter(Boolean).join(" · ") || "—"}
+                    </div>
+                  </div>
+                </div>
+              )}
+              onSelect={(order) => void handleSelectOrder(order)}
             />
+            {bookingOrderNo ? (
+              <div className="gbe-link-chip gbe-link-chip--order">
+                <Hash className="gbe-link-chip-icon" aria-hidden="true" />
+                <span className="gbe-link-chip-label">Bestellung #{bookingOrderNo}</span>
+                <button
+                  type="button"
+                  className="gbe-link-chip-remove"
+                  aria-label="Verknüpfung zur Bestellung entfernen"
+                  onClick={() => {
+                    setBookingOrderNo(null);
+                    setOrderInput("");
+                  }}
+                >
+                  <X className="h-3 w-3" aria-hidden="true" />
+                </button>
+              </div>
+            ) : null}
           </div>
           <div className="gbe-two-col">
             <div className="gbe-field">
@@ -1236,19 +1306,39 @@ export function ListingEditorPage() {
                 minQueryLength={1}
                 getOptionKey={(customer) => String(customer.id)}
                 renderOption={(customer) => (
-                  <div>
-                    <div className="font-semibold text-[var(--text-main)]">{customerDisplayLabel(customer)}</div>
-                    <div className="mt-0.5 text-xs text-[var(--text-subtle)]">
-                      {customer.email || customerAddressLine(customer) || `Kunde #${customer.id}`}
+                  <div className="gbe-autocomplete-option">
+                    <Building2 className="gbe-autocomplete-option-icon" aria-hidden="true" />
+                    <div className="gbe-autocomplete-option-body">
+                      <div className="gbe-autocomplete-option-title font-semibold text-[var(--text-main)]">
+                        {customerDisplayLabel(customer)}
+                      </div>
+                      <div className="gbe-autocomplete-option-sub">
+                        {[customer.email, customerAddressLine(customer)].filter(Boolean).join(" · ") || `Kunde #${customer.id}`}
+                      </div>
                     </div>
                   </div>
                 )}
                 onSelect={handleSelectCustomer}
               />
               {customerId ? (
-                <p className="gbe-field-hint">
-                  Kunde verknüpft: #{customerId}
-                </p>
+                <div className="gbe-link-chip gbe-link-chip--customer">
+                  <Building2 className="gbe-link-chip-icon" aria-hidden="true" />
+                  <span className="gbe-link-chip-label">{customerInput || `Kunde #${customerId}`}</span>
+                  <span className="gbe-link-chip-id">#{customerId}</span>
+                  <button
+                    type="button"
+                    className="gbe-link-chip-remove"
+                    aria-label="Verknüpfung zum Kunden entfernen"
+                    onClick={() => {
+                      setCustomerId(null);
+                      setCustomerInput("");
+                      setCustomerContactId(null);
+                      setContactInput("");
+                    }}
+                  >
+                    <X className="h-3 w-3" aria-hidden="true" />
+                  </button>
+                </div>
               ) : customerInput.trim() ? (
                 <p className="gbe-field-hint text-rose-600">
                   Kein Kunde verknüpft — bitte aus der Vorschlagsliste wählen.{" "}
@@ -1296,58 +1386,54 @@ export function ListingEditorPage() {
                 ))}
               </select>
               {customerContactId ? (
-                <p className="gbe-field-hint">
-                  Kontakt verknüpft: #{customerContactId}
-                </p>
+                <div className="gbe-link-chip gbe-link-chip--contact">
+                  <User className="gbe-link-chip-icon" aria-hidden="true" />
+                  <span className="gbe-link-chip-label">{contactInput || `Kontakt #${customerContactId}`}</span>
+                  <span className="gbe-link-chip-id">#{customerContactId}</span>
+                  <button
+                    type="button"
+                    className="gbe-link-chip-remove"
+                    aria-label="Verknüpfung zum Kontakt entfernen"
+                    onClick={() => {
+                      setCustomerContactId(null);
+                      setContactInput("");
+                    }}
+                  >
+                    <X className="h-3 w-3" aria-hidden="true" />
+                  </button>
+                </div>
               ) : null}
             </div>
           </div>
-          <div className="gbe-two-col">
-            <div className="gbe-field">
-              <label htmlFor="gal-edit-email">E-Mail des Kunden</label>
-              <EditorDraftField
-                syncKey={g.updated_at}
-                serverValue={g.client_email ?? ""}
-                valueOverride={clientEmailInput}
-                draftRef={clientEmailDraftRef}
-                inputId="gal-edit-email"
-                type="email"
-                placeholder="kunde@beispiel.ch"
-              />
-            </div>
-            <div className="gbe-field">
-              <label htmlFor="gal-edit-order">Bestellung verknüpfen</label>
-              <GalleryAutocompleteField
-                inputId="gal-edit-order"
-                value={orderInput}
-                onChange={(value) => {
-                  setOrderInput(value);
-                  setBookingOrderNo(null);
-                }}
-                options={orderOptions}
-                loading={orderSearchLoading}
-                minQueryLength={1}
-                placeholder="Bestellnummer, Kunde oder Adresse"
-                emptyText="Keine passende Bestellung gefunden."
-                getOptionKey={(order) => String(order.order_no)}
-                renderOption={(order) => (
-                  <div>
-                    <div className="font-semibold text-[var(--text-main)]">#{order.order_no}</div>
-                    <div className="mt-0.5 text-xs text-[var(--text-subtle)]">
-                      {[order.company || order.contactName, order.address, order.status].filter(Boolean).join(" · ")}
-                    </div>
-                  </div>
-                )}
-                onSelect={(order) => void handleSelectOrder(order)}
-              />
-              {bookingOrderNo ? (
-                <p className="gbe-field-hint">
-                  Bestellung verknüpft: #{bookingOrderNo}
-                </p>
-              ) : null}
-            </div>
+          {assignmentAutofillMsg ? (
+            <div className="gbe-autofill-flash" role="status">{assignmentAutofillMsg}</div>
+          ) : null}
+        </section>
+
+        <section className="gbe-card">
+          <h2 className="gbe-card-label">Stammdaten</h2>
+          <div className="gbe-field">
+            <label htmlFor="gal-edit-title">Titel</label>
+            <EditorDraftField
+              syncKey={g.updated_at}
+              serverValue={g.title}
+              draftRef={titleDraftRef}
+              inputId="gal-edit-title"
+              placeholder="z. B. EFH mit Ausblick"
+            />
           </div>
-          <div className="gbe-divider" />
+          <div className="gbe-field">
+            <label htmlFor="gal-edit-email">E-Mail des Kunden</label>
+            <EditorDraftField
+              syncKey={g.updated_at}
+              serverValue={g.client_email ?? ""}
+              valueOverride={clientEmailInput}
+              draftRef={clientEmailDraftRef}
+              inputId="gal-edit-email"
+              type="email"
+              placeholder="kunde@beispiel.ch"
+            />
+          </div>
           <div className="gbe-field">
             <label htmlFor="gal-edit-addr">Adresse</label>
             <EditorDraftField
