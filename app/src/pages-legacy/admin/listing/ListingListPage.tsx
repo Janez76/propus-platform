@@ -186,7 +186,7 @@ export function ListingListPage() {
               </p>
             </div>
             <Link to={pathListingAdmin("new")} className="admin-btn admin-btn--outline gal-admin-btn-new-listing">
-              + Neue Galerie
+              + Neues Listing Erstellen
             </Link>
           </div>
 
