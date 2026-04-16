@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei jeder Änderung an Tour-Status, Matterport-Integration, Verlängerungs- oder Archivierungs-Logik dieses Dokument aktualisieren. **Produkt-Workflow (Regeln, Reminder-Stufen, Preise):** [WORKFLOW_TOURS.md](./WORKFLOW_TOURS.md) — bei Abweichungen beide Dateien abstimmen.
 
-*Zuletzt aktualisiert: April 2026 (§16 Portal-Auth: Unified Login + Session-Bridge; Galerie/NAS: Migrationen 031–032; Admin `/api/tours/admin/galleries` NAS-Import; öffentlich `/api/listing/...` Video/Grundriss/ZIP; Bestellung nachträglich verknüpfen via Tour-Detail Intern-Sektion; Bank-Import: Vorschau/Multi-Upload, Bestellungssuche zur Rechnungszuordnung; Bestellungs-Admin: Finanzblock «Rechnungen & Zahlungen»; Bereinigungslauf: CUSTOMER_ACCEPTED_AWAITING_PAYMENT-Label + termEndFormatted-Fix; Matterport-State-Cron: POST /api/tours/cron/sync-matterport-state alle 5 Min; Rechnung löschen mit Workflow-Reset; Reaktivierung ohne Rechnung (Admin-Kulanz); Bereinigungslauf-Widget in Tour-Detail; Cleanup-Dashboard mit Matterport-Reaktivierung, 30-Tage-Löschvormerkung, Lösch-Cron und Gutschein-Nachversand; Gelesen-Tracking via `last_accessed_at` in `cleanup_sessions`; Erinnerungs-Batch `batch-reminder` für bereits kontaktierte Kunden ohne Aktion; Bulk-Delete: Exxas Hosting VR Tour Matterport 500xxx + Renewal CHF 63.80 offen/überfällig; Listing-Editor: Auto-Fill Kundenordner + Freigabe-Link nach Bestell-Auswahl via `?orderNo`-Override auf `nas-context`; Bestell-Kontakt-Fallback (Sentinel-ID −1) wenn Kunde keine gespeicherten Kontakte hat; NAS-Vorschläge: Raw-Material-Ordner im Editor ausgeblendet; Kundenordner-Vorschlag zeigt auf `/Finale`-Unterordner wenn vorhanden; Status-Wechsel im Listing-Editor wird sofort via PATCH persistiert; `getGallery()` akzeptiert UUID oder Slug — Admin-Routen mit `:id`-Parameter funktionieren nun auch mit Slug-URLs)*
+*Zuletzt aktualisiert: April 2026 (§16 Portal-Auth: Unified Login + Session-Bridge; Galerie/NAS: Migrationen 031–032; Admin `/api/tours/admin/galleries` NAS-Import; öffentlich `/api/listing/...` Video/Grundriss/ZIP; Bestellung nachträglich verknüpfen via Tour-Detail Intern-Sektion; Bank-Import: Vorschau/Multi-Upload, Bestellungssuche zur Rechnungszuordnung; Bestellungs-Admin: Finanzblock «Rechnungen & Zahlungen»; Bereinigungslauf: CUSTOMER_ACCEPTED_AWAITING_PAYMENT-Label + termEndFormatted-Fix; Matterport-State-Cron: POST /api/tours/cron/sync-matterport-state alle 5 Min; Rechnung löschen mit Workflow-Reset; Reaktivierung ohne Rechnung (Admin-Kulanz); Bereinigungslauf-Widget in Tour-Detail; Cleanup-Dashboard mit Matterport-Reaktivierung, 30-Tage-Löschvormerkung, Lösch-Cron und Gutschein-Nachversand; Gelesen-Tracking via `last_accessed_at` in `cleanup_sessions`; Erinnerungs-Batch `batch-reminder` für bereits kontaktierte Kunden ohne Aktion; Bulk-Delete: Exxas Hosting VR Tour Matterport 500xxx + Renewal CHF 63.80 offen/überfällig; Listing-Editor: Auto-Fill Kundenordner + Freigabe-Link nach Bestell-Auswahl via `?orderNo`-Override auf `nas-context`; Bestell-Kontakt-Fallback (Sentinel-ID −1) wenn Kunde keine gespeicherten Kontakte hat; NAS-Vorschläge: Raw-Material-Ordner im Editor ausgeblendet; Kundenordner-Vorschlag zeigt auf `/Finale`-Unterordner wenn vorhanden; Status-Wechsel im Listing-Editor wird sofort via PATCH persistiert; `getGallery()` akzeptiert UUID oder Slug — Admin-Routen mit `:id`-Parameter funktionieren nun auch mit Slug-URLs; Public-Listing: Download-Varianten (Websize/Fullsize/All) mit `?variant=`-Parameter, `GalleryMediaSummary` im Payload, Websize-Deduplizierung in Bildliste + Bildauslieferung, Lightbox-Chrome-Fix, Feedback→Ticket-Integration (`gallery_anmerkung`))*
 
 ---
 
@@ -863,15 +863,64 @@ Mount: **`/api/listing`** (ohne Login).
 
 | Methode | Pfad | Beschreibung |
 |---|---|---|
-| `GET` | `/:slug` | Payload inkl. `download_all_url` wenn `storage_source_type` `order_folder` oder `nas_browser` |
-| `GET` | `/:slug/images/:imgId` | Bild: NAS → `sendFile`, sonst Redirect `remote_src` |
+| `GET` | `/:slug` | Payload inkl. `download_all_url`, `media_summary` (Zählwerte + Bytes pro Variante) und deduplizierter Bildliste (Websize-Variante bevorzugt) |
+| `GET` | `/:slug/images/:imgId` | Bild: NAS → `sendFile` (Websize-Variante bevorzugt via `resolvePreferredImageFile`), sonst Redirect `remote_src` |
 | `GET` | `/:slug/video` | Video-Datei (NAS) oder 404 |
 | `GET` | `/:slug/floorplans/:index` | PDF (NAS) oder Redirect auf gespeicherte URL |
-| `GET` | `/:slug/download-all` | ZIP des importierten NAS-Ordners (`archiver`) |
+| `GET` | `/:slug/download-all` | ZIP des importierten NAS-Ordners (`archiver`). Query `?variant=websize\|fullsize\|all` (Default: `all`) filtert auf den jeweiligen Unterordner |
 | `POST` | `/:slug/viewed` | Client-Log |
 | `POST` | `/:slug/downloaded` | Client-Log |
-| `POST` | `/:slug/feedback` | Kunden-Feedback |
+| `POST` | `/:slug/feedback` | Kunden-Feedback; legt parallel ein Ticket in `tour_manager.tickets` an (`category='gallery_anmerkung'`, `reference_type='gallery'`) |
 | `GET` | `/:slug/feedback` | Feedback-Liste / pro Asset |
+
+### Download-Varianten (Websize / Fullsize / All)
+
+Die öffentliche Listing-Seite bietet drei Download-Buttons: **Websize herunterladen**, **Fullsize herunterladen** und **Alles herunterladen**. Jeder Button zeigt einen Chip mit Bildanzahl und geschätzter Dateigrösse (aus `media_summary`).
+
+**Backend (`getGalleryDownloadSource(gallery, variant)`):** Sucht innerhalb des Finale-Ordners nach passenden Unterordnern:
+
+| Variante | Kandidaten-Unterordner (in Prioritätsreihenfolge) |
+|---|---|
+| `websize` | `Bilder/WEB SIZE`, `Bilder/websize`, `WEB SIZE`, `websize` |
+| `fullsize` | `Bilder/FULLSIZE`, `Bilder/fullsize`, `FULLSIZE`, `fullsize` |
+| `all` | Gesamter NAS-Quellordner (kein Unterordner-Filter) |
+
+Fallback: Wird kein Varianten-Unterordner gefunden, wird der gesamte Ordner als ZIP ausgeliefert.
+
+**ZIP-Dateiname:** `<slug>.zip` (all), `<slug>-websize.zip` bzw. `<slug>-fullsize.zip`.
+
+### Media-Summary (`GalleryMediaSummary`)
+
+`getGalleryMediaSummary(gallery)` zählt Bilder, Grundrisse (PDF) und Videos im NAS-Quellordner und liefert Byte-Summen pro Variante. Das Ergebnis wird im Public-Payload als `media_summary` zurückgegeben.
+
+| Feld | Typ | Beschreibung |
+|---|---|---|
+| `imagesWebsize` | number | Anzahl Bilder im Websize-Unterordner |
+| `imagesFullsize` | number | Anzahl Bilder im Fullsize-Unterordner |
+| `floorPlans` | number | Anzahl PDFs im gesamten Quellordner |
+| `hasVideo` | boolean | Mindestens eine MP4-Datei vorhanden |
+| `bytesWebsize` | number | Gesamtgrösse Websize-Bilder (Bytes) |
+| `bytesFullsize` | number | Gesamtgrösse Fullsize-Bilder (Bytes) |
+| `bytesTotal` | number | Gesamtgrösse aller Dateien im Quellordner |
+
+### Websize-Deduplizierung
+
+Liegen websize- und fullsize-Variante desselben Bildes (gleicher Basename) in der Datenbank, blendet die öffentliche API die fullsize-Variante aus (`dedupeGalleryRowsPreferWebsize`). Bei der Bildauslieferung (`GET /:slug/images/:imgId`) wird bevorzugt die Websize-Datei zurückgegeben (`resolvePreferredImageFile`), auch wenn der DB-Eintrag auf die Fullsize-Datei zeigt.
+
+### Feedback → Ticket-Integration
+
+Beim Absenden von Kunden-Feedback (`POST /:slug/feedback`) wird parallel ein Ticket im Admin-Postfach angelegt:
+
+| Feld | Wert |
+|---|---|
+| `module` | `tours` |
+| `reference_type` | `gallery` |
+| `reference_id` | Galerie-UUID |
+| `category` | `gallery_anmerkung` |
+| `priority` | `normal` |
+| `created_by` / `created_by_role` | `client` |
+
+Die Admin-Ticket-Übersicht (`AdminTicketsPage.tsx`) zeigt für `reference_type='gallery'` einen Link zur Galerie. Neues Kategorie-Label: **Galerie-Anmerkung**.
 
 ---
 
