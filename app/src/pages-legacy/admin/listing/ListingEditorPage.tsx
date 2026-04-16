@@ -216,6 +216,23 @@ function orderDisplayLabel(order: GalleryOrderOption) {
   return `#${order.order_no} · ${main}${address ? ` · ${address}` : ""}`;
 }
 
+const ORDER_CONTACT_SENTINEL_ID = -1;
+
+function buildOrderContactOption(order: GalleryOrderOption, customerId: number): GalleryContactOption | null {
+  const name = order.contactName.trim();
+  const email = order.contactEmail.trim();
+  const phone = order.contactPhone.trim();
+  if (!name && !email && !phone) return null;
+  return {
+    id: ORDER_CONTACT_SENTINEL_ID,
+    customer_id: customerId,
+    name: name || email || "Bestell-Kontakt",
+    email,
+    phone,
+    role: "aus Bestellung",
+  };
+}
+
 function normalizeCustomerOption(raw: unknown): GalleryCustomerOption | null {
   const r = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null;
   if (!r) return null;
@@ -617,6 +634,7 @@ export function ListingEditorPage() {
   const clientEmailDraftRef = useRef("");
   const cloudDraftRef = useRef("");
   const matterportDraftRef = useRef("");
+  const lastSelectedOrderRef = useRef<GalleryOrderOption | null>(null);
   const [addressInput, setAddressInput] = useState("");
   const [clientEmailInput, setClientEmailInput] = useState("");
   const [matterportInput, setMatterportInput] = useState("");
@@ -821,7 +839,15 @@ export function ListingEditorPage() {
           ? ((detail as { contacts?: unknown[] }).contacts ?? [])
           : [];
         const nextContacts = contactsRaw.map(normalizeContactOption).filter((row): row is GalleryContactOption => Boolean(row));
-        setContactOptions(nextContacts);
+        let mergedContacts = nextContacts;
+        if (nextContacts.length === 0) {
+          const lastOrder = lastSelectedOrderRef.current;
+          if (lastOrder && Number(lastOrder.coreCustomerId) === customerId) {
+            const fallback = buildOrderContactOption(lastOrder, customerId);
+            if (fallback) mergedContacts = [fallback];
+          }
+        }
+        setContactOptions(mergedContacts);
         if (customer) {
           setCustomerInput((prev) => (prev.trim() ? prev : customerDisplayLabel(customer)));
           if (!clientEmailDraftRef.current.trim() && customer.email.trim()) {
@@ -887,6 +913,7 @@ export function ListingEditorPage() {
 
   const handleSelectOrder = useCallback(
     async (order: GalleryOrderOption) => {
+      lastSelectedOrderRef.current = order;
       setBookingOrderNo(order.order_no);
       setOrderInput(orderDisplayLabel(order));
       if (order.address.trim()) setAddressInput(order.address.trim());
@@ -895,10 +922,12 @@ export function ListingEditorPage() {
 
       const nextCustomerLabel =
         order.coreCompany.trim() || order.company.trim() || order.contactName.trim() || order.coreEmail.trim() || order.email.trim();
+      let parsedCustomerId: number | null = null;
       if (order.coreCustomerId) {
-        const parsedCustomerId = Number(order.coreCustomerId);
-        if (Number.isFinite(parsedCustomerId) && parsedCustomerId > 0) {
-          setCustomerId(parsedCustomerId);
+        const parsed = Number(order.coreCustomerId);
+        if (Number.isFinite(parsed) && parsed > 0) {
+          parsedCustomerId = parsed;
+          setCustomerId(parsed);
           if (nextCustomerLabel) setCustomerInput(nextCustomerLabel);
         }
       } else if (nextCustomerLabel) {
@@ -909,14 +938,13 @@ export function ListingEditorPage() {
       const nextContactLabel = order.contactName.trim();
       if (nextContactLabel) setContactInput(nextContactLabel);
 
-      if (order.coreCustomerId) {
+      if (parsedCustomerId != null) {
         try {
-          const detail = await getToursAdminCustomerDetail(order.coreCustomerId);
+          const detail = await getToursAdminCustomerDetail(order.coreCustomerId!);
           const contactsRaw = Array.isArray((detail as { contacts?: unknown[] }).contacts)
             ? ((detail as { contacts?: unknown[] }).contacts ?? [])
             : [];
           const nextContacts = contactsRaw.map(normalizeContactOption).filter((row): row is GalleryContactOption => Boolean(row));
-          setContactOptions(nextContacts);
           const match = nextContacts.find((contact) => {
             const contactName = contact.name.trim().toLowerCase();
             const orderName = order.contactName.trim().toLowerCase();
@@ -928,9 +956,21 @@ export function ListingEditorPage() {
             );
           });
           if (match) {
+            setContactOptions(nextContacts);
             setCustomerContactId(match.id);
             setContactInput(contactDisplayLabel(match));
+          } else if (nextContacts.length === 0) {
+            const fallback = buildOrderContactOption(order, parsedCustomerId);
+            if (fallback) {
+              setContactOptions([fallback]);
+              setCustomerContactId(ORDER_CONTACT_SENTINEL_ID);
+              setContactInput(fallback.name);
+            } else {
+              setContactOptions([]);
+              setCustomerContactId(null);
+            }
           } else {
+            setContactOptions(nextContacts);
             setCustomerContactId(null);
           }
         } catch {
@@ -1045,11 +1085,13 @@ export function ListingEditorPage() {
 
     setSaving(true);
     try {
+      const persistedContactId =
+        customerContactId === ORDER_CONTACT_SENTINEL_ID ? null : customerContactId;
       await updateGallery(id, {
         title: titleDraftRef.current.trim() || "Ohne Titel",
         address: addressDraftRef.current.trim() || null,
         customer_id: customerId,
-        customer_contact_id: customerContactId,
+        customer_contact_id: persistedContactId,
         booking_order_no: bookingOrderNo,
         client_name: customerInput.trim() || null,
         client_contact: contactInput.trim() || null,
@@ -1300,6 +1342,7 @@ export function ListingEditorPage() {
                   className="gbe-link-chip-remove"
                   aria-label="Verknüpfung zur Bestellung entfernen"
                   onClick={() => {
+                    lastSelectedOrderRef.current = null;
                     setBookingOrderNo(null);
                     setOrderInput("");
                   }}
@@ -1407,16 +1450,21 @@ export function ListingEditorPage() {
                   </option>
                 ))}
               </select>
-              {customerContactId ? (
+              {customerContactId != null ? (
                 <div className="gbe-link-chip gbe-link-chip--contact">
                   <User className="gbe-link-chip-icon" aria-hidden="true" />
-                  <span className="gbe-link-chip-label">{contactInput || `Kontakt #${customerContactId}`}</span>
-                  <span className="gbe-link-chip-id">#{customerContactId}</span>
+                  <span className="gbe-link-chip-label">
+                    {contactInput || (customerContactId === ORDER_CONTACT_SENTINEL_ID ? "Bestell-Kontakt" : `Kontakt #${customerContactId}`)}
+                  </span>
+                  <span className="gbe-link-chip-id">
+                    {customerContactId === ORDER_CONTACT_SENTINEL_ID ? "aus Bestellung" : `#${customerContactId}`}
+                  </span>
                   <button
                     type="button"
                     className="gbe-link-chip-remove"
                     aria-label="Verknüpfung zum Kontakt entfernen"
                     onClick={() => {
+                      lastSelectedOrderRef.current = null;
                       setCustomerContactId(null);
                       setContactInput("");
                     }}
@@ -1539,38 +1587,47 @@ export function ListingEditorPage() {
 
           <div className="gbe-field">
             <label>Bestellordner-Vorschläge</label>
-            {bookingOrderNo == null ? (
-              <p className="gbe-field-hint">Nach dem Speichern einer verknüpften Bestellung erscheinen hier die vorgeschlagenen NAS-Ordner.</p>
-            ) : nasSuggestions.length === 0 ? (
-              <p className="gbe-field-hint">Für diese Bestellung wurden noch keine NAS-Vorschläge gefunden.</p>
-            ) : (
-              <div className="space-y-3">
-                {nasSuggestions.map((item) => (
-                  <div key={`${item.folderType}:${item.relativePath}`} className="rounded-[16px] border border-[var(--line)] p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <div className="font-semibold text-[var(--text-main)]">{item.displayName}</div>
-                        <div className="text-xs text-[var(--text-subtle)]">
-                          {item.folderType === "customer_folder" ? "Kundenordner" : "Raw-Material"} · {item.relativePath}
+            {(() => {
+              const visibleNasSuggestions = nasSuggestions.filter((item) => item.folderType !== "raw_material");
+              if (bookingOrderNo == null) {
+                return (
+                  <p className="gbe-field-hint">Nach dem Speichern einer verknüpften Bestellung erscheinen hier die vorgeschlagenen NAS-Ordner.</p>
+                );
+              }
+              if (visibleNasSuggestions.length === 0) {
+                return (
+                  <p className="gbe-field-hint">Für diese Bestellung wurden noch keine NAS-Vorschläge gefunden.</p>
+                );
+              }
+              return (
+                <div className="space-y-3">
+                  {visibleNasSuggestions.map((item) => (
+                    <div key={`${item.folderType}:${item.relativePath}`} className="rounded-[16px] border border-[var(--line)] p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <div className="font-semibold text-[var(--text-main)]">{item.displayName}</div>
+                          <div className="text-xs text-[var(--text-subtle)]">
+                            Kundenordner · {item.relativePath}
+                          </div>
+                          <div className="mt-1 text-xs text-[var(--text-subtle)]">
+                            {item.mediaSummary.images} Bilder · {item.mediaSummary.floorPlans} Grundrisse ·{" "}
+                            {item.mediaSummary.hasVideo ? "mit Video" : "ohne Video"}
+                          </div>
                         </div>
-                        <div className="mt-1 text-xs text-[var(--text-subtle)]">
-                          {item.mediaSummary.images} Bilder · {item.mediaSummary.floorPlans} Grundrisse ·{" "}
-                          {item.mediaSummary.hasVideo ? "mit Video" : "ohne Video"}
-                        </div>
+                        <button
+                          type="button"
+                          className="admin-btn admin-btn--outline"
+                          disabled={!item.exists || nasImporting}
+                          onClick={() => void importNasSelection(item.rootKind, item.relativePath, "order_folder")}
+                        >
+                          {nasImporting ? "Import läuft …" : "Diesen Ordner importieren"}
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        className="admin-btn admin-btn--outline"
-                        disabled={!item.exists || nasImporting}
-                        onClick={() => void importNasSelection(item.rootKind, item.relativePath, "order_folder")}
-                      >
-                        {nasImporting ? "Import läuft …" : "Diesen Ordner importieren"}
-                      </button>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              );
+            })()}
           </div>
 
           {(() => {
