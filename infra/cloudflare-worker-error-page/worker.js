@@ -75,9 +75,24 @@ const ERROR_HTML = `<!DOCTYPE html>
 
 export default {
   async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+    const accept = request.headers.get('Accept') || '';
+    const dest = request.headers.get('Sec-Fetch-Dest') || '';
+
+    // API-Pfade niemals durch die HTML-Fehlerseite ersetzen – JSON muss ungefiltert
+    // zum Frontend durch, damit echte Fehlermeldungen (z. B. "Nextcloud nicht konfiguriert")
+    // angezeigt werden statt des generischen HTML-Hinweises.
+    const isApiPath =
+      url.pathname.startsWith('/api/') ||
+      url.pathname.startsWith('/auth/') ||
+      url.pathname.startsWith('/ocs/');
+    const isHtmlNavigation =
+      !isApiPath && (dest === 'document' || accept.includes('text/html'));
+
     try {
-      const response = await fetch(request.clone());
-      if (response.status >= 500) {
+      const response = await fetch(request);
+      // Nur Browser-Vollseiten (HTML-Navigation) durch die Fehlerseite ersetzen.
+      if (isHtmlNavigation && response.status >= 500) {
         return new Response(ERROR_HTML, {
           status: response.status,
           headers: {
@@ -88,13 +103,29 @@ export default {
       }
       return response;
     } catch (err) {
-      return new Response(ERROR_HTML, {
-        status: 502,
-        headers: {
-          'Content-Type': 'text/html; charset=utf-8',
-          'Cache-Control': 'no-store',
+      if (isHtmlNavigation) {
+        return new Response(ERROR_HTML, {
+          status: 502,
+          headers: {
+            'Content-Type': 'text/html; charset=utf-8',
+            'Cache-Control': 'no-store',
+          },
+        });
+      }
+      // API-Calls: maschinenlesbarer JSON-Fehler statt HTML.
+      return new Response(
+        JSON.stringify({
+          error: 'Backend nicht erreichbar (Cloudflare Tunnel)',
+          detail: String(err?.message || err),
+        }),
+        {
+          status: 502,
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+            'Cache-Control': 'no-store',
+          },
         },
-      });
+      );
     }
   },
 };
