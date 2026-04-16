@@ -75,8 +75,6 @@ const { resolveEffectiveSqm } = require("./product-meta");
 const { markDiscountUsed, validateDiscountCode } = require("./discount-codes");
 const { getSetting, listEffectiveDefaults, setSystemSettings: settingsResolverSet } = require("./settings-resolver");
 const db = require("./db");
-const runtimeLogtoClient = require("./logto-client");
-const logtoOrgSync = require("./logto-org-sync");
 const { createPostgresSessionStore } = require("../auth/postgres-session-store");
 const {
   UPLOAD_CATEGORY_MAP,
@@ -108,7 +106,6 @@ const {
 } = require("./chunked-upload-service");
 const { syncWebsizeForAllCustomerFolders, syncWebsizeForOrderFolder } = require("./websize-sync-service");
 const customerAuth = require("./customer-auth");
-const portalAuthBridge = require("./portal-auth-bridge");
 const travel = require("./travel");
 const { resolveAnyPhotographer, resolveExplicitPhotographer, buildNeededSkills } = require("./photographer-resolver");
 const geocoder = require("./geocoder");
@@ -127,7 +124,6 @@ const rbac = require("./access-rbac");
 const customerMerge = require("./customer-merge");
 const { buildAuthContext } = require("./authz/middleware");
 const { registerAccessRoutes } = require("./access-routes");
-const { registerAdminUsersRoutes } = require("./admin-users-routes");
 const { registerExxasReconcileRoutes } = require("./exxas-reconcile-routes");
 const { registerAdminMissingRoutes } = require("./admin-missing-routes");
 
@@ -2253,7 +2249,6 @@ function allowFrontendLog(ipAddress) {
 }
 
 const app = express();
-const COMPANY_MEMBER_ROLES = new Set(["company_owner", "company_admin", "company_employee"]);
 const SUPER_ADMIN_ROLES = new Set(["super_admin", "admin", "employee"]);
 app.set("trust proxy", 1);
 app.use(logger.httpLoggerOptions.middleware);
@@ -2399,8 +2394,8 @@ app.post("/api/admin/login", async (req, res) => {
   }
 });
 
-// ─── Unified Login (Admin + Portal-Kunde) ─────────────────────────────────────
-// POST /auth/login: probiert Admin-Login, dann Portal-Kunden-Login.
+// ─── Admin Login (Unified) ─────────────────────────────────────
+// POST /auth/login: Admin-Login (interne Benutzer).
 // Erreichbar über Next.js-Proxy: /api/auth/login → /auth/login (Express).
 // Gibt immer dasselbe Format zurück: { ok, token, role, permissions }
 app.post("/auth/login", async (req, res) => {
@@ -2410,7 +2405,6 @@ app.post("/auth/login", async (req, res) => {
     const loginId = String(email || username || "").trim();
     if (!loginId || !password) return res.status(400).json({ error: "E-Mail und Passwort erforderlich" });
 
-    // --- Versuch 1: Admin-Login ---
     const adminUser = await db.getAdminUserByUsername(loginId);
     if (adminUser && adminUser.active && adminUser.password_hash) {
       const ok = await customerAuth.verifyPassword(String(password), adminUser.password_hash);
@@ -2439,65 +2433,10 @@ app.post("/auth/login", async (req, res) => {
       }
     }
 
-    // --- Versuch 2: Portal-Kunden-Login ---
-    if (portalAuthBridge.isBridgeAvailable()) {
-      const normEmail = customerAuth.normalizeEmail(loginId);
-      const matchedEmail = await portalAuthBridge.verifyPortalCustomerPassword(normEmail, String(password));
-      if (matchedEmail) {
-        const role = await portalAuthBridge.getPortalCustomerRole(matchedEmail);
-        const { token } = await issueAdminSession(res, {
-          role,
-          rememberMe: !!rememberMe,
-          userKey: matchedEmail,
-          userName: matchedEmail,
-        });
-        const permissions = Array.from(rbac.legacyFallbackPermissions(role));
-        console.log("[auth/login] Portal-Kunde angemeldet:", { email: matchedEmail, role });
-        return res.json({ ok: true, token, role, permissions });
-      }
-    }
-
     return res.status(401).json({ error: "Ungültige Zugangsdaten" });
   } catch (err) {
     console.error("[auth/login]", err?.message || err);
     res.status(500).json({ error: err.message || "Login fehlgeschlagen" });
-  }
-});
-
-// GET /auth/profile: Gibt Kunden-Profildaten für angemeldete Portal-Kunden zurück.
-// Erreichbar über Next.js-Proxy: /api/auth/profile → /auth/profile (Express).
-// Erfordert: Authorization: Bearer <admin_token_v2>
-app.get("/auth/profile", async (req, res) => {
-  try {
-    if (!pool) return res.status(503).json({ error: "Datenbank nicht verfügbar" });
-    const auth = String(req.headers.authorization || "").trim();
-    const token = auth.replace(/^Bearer\s+/i, "").trim();
-    if (!token) return res.status(401).json({ error: "Nicht angemeldet" });
-
-    const tokenHash = customerAuth.hashSha256Hex(token);
-    const CUSTOMER_ROLES = ["customer_user", "customer_admin", "tour_manager"];
-    const { rows } = await pool.query(
-      `SELECT user_key, role FROM admin_sessions WHERE token_hash = $1 AND expires_at > NOW() LIMIT 1`,
-      [tokenHash]
-    );
-    const row = rows[0];
-    if (!row || !CUSTOMER_ROLES.includes(row.role)) {
-      return res.status(401).json({ error: "Nicht angemeldet" });
-    }
-
-    const customer = await db.getCustomerByEmail(row.user_key).catch(() => null);
-    return res.json({
-      ok: true,
-      email: row.user_key,
-      name: customer?.name || "",
-      company: customer?.company || "",
-      phone: customer?.phone || "",
-      street: customer?.street || "",
-      zipcity: customer?.zipcity || "",
-    });
-  } catch (err) {
-    console.error("[auth/profile]", err?.message || err);
-    return res.status(500).json({ error: err.message || "Profilfehler" });
   }
 });
 
@@ -2575,8 +2514,8 @@ app.get("/api/health", (_req, res) => {
       adminSettings: true,
       discountCodes: true,
       assignmentDecisionTrace: true,
-      ssoEnabled: !!(process.env.PROPUS_BOOKING_LOGTO_APP_ID && process.env.PROPUS_BOOKING_LOGTO_APP_SECRET),
-      logtoEnabled: !!(process.env.PROPUS_BOOKING_LOGTO_APP_ID && process.env.PROPUS_BOOKING_LOGTO_APP_SECRET),
+      ssoEnabled: false,
+      logtoEnabled: false,
     },
     dbEnabled: !!process.env.DATABASE_URL,
     uptimeSec: Math.round(process.uptime()),
@@ -2769,7 +2708,6 @@ async function createCustomerPortalMagicLink(billing = {}, { sessionDays = 14, r
   if (!email) return null;
 
   let customer = await db.getCustomerByEmail(email);
-  const isNewCustomer = !customer;
   if (!customer) {
     const profile = buildBookingCustomerProfile(billing);
     await db.createCustomer({
@@ -2785,41 +2723,6 @@ async function createCustomerPortalMagicLink(billing = {}, { sessionDays = 14, r
   }
 
   if (!customer?.id || customer?.blocked) return null;
-
-  // Firma + Mitgliedschaft + Logto-Sync sicherstellen
-  // Gilt für Neukunden immer, für Bestandskunden wenn noch kein company_member-Eintrag existiert
-  const companyName = String(billing?.company || customer?.company || "").trim();
-  if (companyName) {
-    try {
-      const company = await db.ensureCompanyByName(companyName, { billingCustomerId: Number(customer.id) });
-      if (company?.id) {
-        const existingMember = await db.findCompanyMemberByCompanyAndEmail(Number(company.id), email).catch(() => null);
-        if (isNewCustomer || !existingMember) {
-          const member = await db.upsertCompanyMember({
-            companyId: Number(company.id),
-            customerId: Number(customer.id),
-            email,
-            role: "company_owner",
-            status: "active",
-          });
-          try {
-            await logtoOrgSync.ensureOrganizationForCompany(company);
-            if (member) await logtoOrgSync.addCompanyMemberToLogtoOrg(Number(company.id), member);
-          } catch (_e) {
-            console.warn("[booking] logto org sync failed for customer", email, _e?.message);
-          }
-          try {
-            if (member?.id) await rbac.syncCompanyMemberRolesFromDb(Number(member.id));
-          } catch (_e) {
-            console.warn("[booking] rbac sync failed for customer", email, _e?.message);
-          }
-        }
-      }
-    } catch (syncErr) {
-      // Sync-Fehler dürfen den Magic-Link nicht blockieren
-      console.warn("[booking] company sync failed for customer", email, syncErr?.message);
-    }
-  }
 
   const token = customerAuth.createSessionToken();
   const tokenHash = customerAuth.hashSha256Hex(token);
@@ -2967,62 +2870,6 @@ app.post("/api/customer/logout", requireCustomer, async (req, res) => {
     res.status(500).json({ error: err.message || "Logout fehlgeschlagen" });
   }
 });
-
-if (process.env.PROPUS_ENABLE_LEGACY_CUSTOMER_LOGIN !== "0") {
-  app.post("/api/customer/login", async (req, res) => {
-    try {
-      if (!ensureDbForCustomer(res)) return;
-      const { email, password } = req.body || {};
-      const norm = customerAuth.normalizeEmail(email);
-      if (!norm || !password) return res.status(400).json({ error: "E-Mail und Passwort erforderlich" });
-      const customer = await db.getCustomerByEmail(norm);
-      if (!customer || !customer.password_hash) return res.status(401).json({ error: "Ungueltige Zugangsdaten" });
-      const ok = await customerAuth.verifyPassword(String(password), customer.password_hash);
-      if (!ok) return res.status(401).json({ error: "Ungueltige Zugangsdaten" });
-      const token = customerAuth.createSessionToken();
-      const tokenHash = customerAuth.hashSha256Hex(token);
-      const days = 30;
-      const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
-      await db.createCustomerSession({ customerId: customer.id, tokenHash, expiresAt });
-      res.cookie("customer_session", token, customerSessionCookieOptions(days * 24 * 60 * 60 * 1000));
-      res.json({ ok: true, token });
-    } catch (err) {
-      res.status(500).json({ error: err.message || "Login fehlgeschlagen" });
-    }
-  });
-
-  app.post("/api/customer/register", async (req, res) => {
-    try {
-      if (!ensureDbForCustomer(res)) return;
-      const { email, password, name } = req.body || {};
-      const norm = customerAuth.normalizeEmail(email);
-      if (!norm || !password) return res.status(400).json({ error: "E-Mail und Passwort erforderlich" });
-      const existing = await db.getCustomerByEmail(norm);
-      if (existing) return res.status(409).json({ error: "Diese E-Mail ist bereits registriert" });
-      const passwordHash = await customerAuth.hashPassword(String(password));
-      await db.createCustomer({
-        email: norm,
-        name: String(name || "").trim() || norm,
-        passwordHash,
-        phone: "",
-        company: "",
-        street: "",
-        zipcity: "",
-      });
-      res.status(201).json({ ok: true });
-    } catch (err) {
-      const msg = err && err.message ? String(err.message) : "Registrierung fehlgeschlagen";
-      res.status(400).json({ error: msg });
-    }
-  });
-} else {
-  app.post("/api/customer/login", (_req, res) => {
-    res.status(410).json({ error: "Legacy-Kundenlogin deaktiviert – bitte SSO (Logto) nutzen." });
-  });
-  app.post("/api/customer/register", (_req, res) => {
-    res.status(410).json({ error: "Legacy-Registrierung deaktiviert – bitte SSO (Logto) nutzen." });
-  });
-}
 
 app.get("/api/customer/verify-email", (_req, res) => {
   res.status(501).json({ error: "E-Mail-Verifizierung nicht aktiviert." });
@@ -7313,11 +7160,7 @@ app.post("/api/admin/orders", requireAdmin, async (req, res) => {
       } catch(err){ console.error("[manual] office event failed", err?.message); }
     }
 
-    const createdByMemberId =
-      req.companyMembership?.id != null ? Number(req.companyMembership.id) : null;
-    await saveOrder(orderRecord, {
-      createdByMemberId: Number.isFinite(createdByMemberId) ? createdByMemberId : null,
-    });
+    await saveOrder(orderRecord);
     console.log("[manual] order created", { orderNo });
 
     // E-Mails an alle Parteien senden
@@ -7695,7 +7538,7 @@ function shouldSkipCustomerUpsert(record) {
   if (looksLikeAddressText(billingNameRaw)) return true;
   return false;
 }
-async function saveOrder(record, opts = {}){
+async function saveOrder(record){
   if (process.env.DATABASE_URL) {
     const canUpsertCustomer = !!record.billing?.email && !shouldSkipCustomerUpsert(record);
     if (record.billing?.email && !canUpsertCustomer) {
@@ -7706,8 +7549,7 @@ async function saveOrder(record, opts = {}){
       });
     }
     const customerId = canUpsertCustomer ? await db.upsertCustomer(record.billing) : null;
-    const mid = opts.createdByMemberId != null ? Number(opts.createdByMemberId) : null;
-    await db.insertOrder(record, customerId, Number.isFinite(mid) ? mid : null);
+    await db.insertOrder(record, customerId);
   } else {
     const orders = loadOrdersFromJson();
     orders.push(record);
@@ -8295,52 +8137,6 @@ async function enforceRoutePermission(req, res) {
   return false;
 }
 
-async function resolveCompanyScope(req) {
-  const role = String(req.user?.role || "");
-  if (!COMPANY_MEMBER_ROLES.has(role)) {
-    req.authRole = role;
-    req.companyId = null;
-    req.companyMembership = null;
-    return null;
-  }
-
-  const member = await db.getCompanyMemberForIdentity({
-    authSubject: req.user?.id || "",
-    email: req.user?.email || "",
-  });
-  if (!member) return null;
-
-  if (member.status !== "active") return null;
-  req.authRole = member.role;
-  req.companyId = Number(member.company_id);
-  req.companyMembership = member;
-  return member;
-}
-
-async function requireCompanyMember(req, res, next) {
-  if (!req.user) {
-    return res.status(401).json({ error: "Nicht authentifiziert." });
-  }
-  const member = await resolveCompanyScope(req);
-  if (!member) return res.status(403).json({ error: "Keine Firmenberechtigung" });
-  await attachRbacToRequest(req);
-  if (!(await enforceRoutePermission(req, res))) return;
-  return next();
-}
-
-async function requireCompanyAdmin(req, res, next) {
-  if (!req.user) {
-    return res.status(401).json({ error: "Nicht authentifiziert." });
-  }
-  const member = await resolveCompanyScope(req);
-  if (!member || (member.role !== "company_admin" && member.role !== "company_owner")) {
-    return res.status(403).json({ error: "Keine Firmen-Admin-Berechtigung" });
-  }
-  await attachRbacToRequest(req);
-  if (!(await enforceRoutePermission(req, res))) return;
-  return next();
-}
-
 function requireSuperAdmin(req, res, next) {
   if (!req.user) {
     return res.status(401).json({ error: "Nicht authentifiziert." });
@@ -8350,15 +8146,14 @@ function requireSuperAdmin(req, res, next) {
     return res.status(403).json({ error: "Nur Super-Admin erlaubt" });
   }
   req.authRole = "super_admin";
-  req.companyId = null;
-  req.companyMembership = null;
   return next();
 }
 
-async function ensureCustomerInRequestCompany(req, customerId) {
-  if (!req.companyId) return true;
-  const customers = await db.listCompanyCustomers(req.companyId);
-  return customers.some((item) => Number(item.id) === Number(customerId));
+// Portal-Firmen feature removed: customers no longer have a company scope.
+// Keep helper signature for customer-contacts-routes / exxas-reconcile-routes;
+// always allow since there is no company filter anymore.
+async function ensureCustomerInRequestCompany(_req, _customerId) {
+  return true;
 }
 
 async function requireAdmin(req, res, next){
@@ -8386,20 +8181,6 @@ async function requireAdmin(req, res, next){
   const ssoRole = String(req.user?.role || "");
   if (SUPER_ADMIN_ROLES.has(ssoRole)) {
     req.authRole = "super_admin";
-    req.companyId = null;
-    req.companyMembership = null;
-    await attachRbacToRequest(req);
-    if (!(await enforceRoutePermission(req, res))) return;
-    return next();
-  }
-  const member = await resolveCompanyScope(req);
-  if (member) {
-    const pathName = String(req.path || "");
-    const isAllowedCompanyPath = pathName.startsWith("/api/company/");
-    const isAllowedAdminUtilityPath = pathName === "/api/admin/me" || pathName === "/api/admin/logout";
-    if (!isAllowedCompanyPath && !isAllowedAdminUtilityPath) {
-      return res.status(403).json({ error: "Keine Berechtigung fuer diesen Admin-Endpunkt" });
-    }
     await attachRbacToRequest(req);
     if (!(await enforceRoutePermission(req, res))) return;
     return next();
@@ -8492,17 +8273,12 @@ app.post("/api/admin/logout", requireAdmin, async (req, res) => {
 // Admin Profil
 app.get("/api/admin/me", requireAdmin, async (req, res) => {
   try {
-    const companyMember = await resolveCompanyScope(req);
     const adminUser = await resolveCurrentAdminUserRecord(req);
     const permissions = req.effectivePermissions ? Array.from(req.effectivePermissions) : [];
     return res.json({
       ok: true,
-      role: companyMember?.role || req.user?.role || "admin",
-      company: companyMember ? {
-        id: Number(companyMember.company_id),
-        name: companyMember.company_name || "",
-        slug: companyMember.company_slug || "",
-      } : null,
+      role: req.user?.role || "admin",
+      company: null,
       profile: buildAdminProfilePayload(req, adminUser),
       permissions,
     });
@@ -9811,15 +9587,6 @@ app.post("/api/admin/customers", requireAdmin, async (req, res) => {
         v("nas_raw_folder_base") || null,
       ],
     );
-    if (req.companyId && rows[0]?.id) {
-      await db.upsertCompanyMember({
-        companyId: req.companyId,
-        customerId: rows[0].id,
-        email,
-        role: "company_employee",
-        status: "active",
-      });
-    }
     if (rows[0]?.id) {
       try {
         await rbac.syncCustomerRolesFromDb(Number(rows[0].id));
@@ -9883,14 +9650,6 @@ app.put("/api/admin/customers/:id", requireAdmin, async (req, res) => {
       ],
     );
     if (!rows[0]) return res.status(404).json({ error: "Nicht gefunden" });
-    try {
-      const { updated: syncedCos } = await db.syncCompaniesLinkedToBillingCustomer(rows[0]);
-      for (const co of syncedCos) {
-        try {
-          await logtoOrgSync.ensureOrganizationForCompany(co);
-        } catch (_e) {}
-      }
-    } catch (_syncErr) {}
     res.json({ ok: true, customer: rows[0] });
   } catch (err) {
     res.status(500).json({ error: err.message || "Kunde konnte nicht gespeichert werden" });
@@ -10042,9 +9801,6 @@ app.delete("/api/admin/customers/:id", requireAdmin, async (req, res) => {
     }
     await pool.query("DELETE FROM customer_sessions WHERE customer_id = $1", [customerId]);
     await pool.query("DELETE FROM customer_contacts WHERE customer_id = $1", [customerId]);
-    if (req.companyId) {
-      await pool.query("DELETE FROM company_members WHERE company_id = $1 AND customer_id = $2", [req.companyId, customerId]);
-    }
     if (force) {
       await pool.query("UPDATE orders SET customer_id = NULL WHERE customer_id = $1", [customerId]);
     }
@@ -10087,17 +9843,6 @@ app.post("/api/admin/customers/merge", requireAdmin, async (req, res) => {
     const pool = db.getPool ? db.getPool() : null;
     if (!pool) return res.status(503).json({ error: "DB nicht verfuegbar" });
     await customerMerge.mergeCustomers(pool, keepId, mergeId);
-    const { rows: mergedKeepRows } = await pool.query("SELECT * FROM customers WHERE id = $1", [keepId]);
-    if (mergedKeepRows[0]) {
-      try {
-        const { updated: syncedAfterMerge } = await db.syncCompaniesLinkedToBillingCustomer(mergedKeepRows[0]);
-        for (const co of syncedAfterMerge) {
-          try {
-            await logtoOrgSync.ensureOrganizationForCompany(co);
-          } catch (_e) {}
-        }
-      } catch (_e) {}
-    }
     res.json({ ok: true, keepId });
   } catch (err) {
     const code = err && err.code;
@@ -10272,887 +10017,11 @@ app.get("/api/admin/discount-codes/:id/usages", requireAdmin, async (req, res) =
   }
 });
 
-// Company Workspace
-function parseCompanyMemberRoleFromBody(rawRole, actorMemberRole) {
-  const r = String(rawRole || "").trim().toLowerCase().replace(/-/g, "_");
-  let role = "company_employee";
-  if (r === "company_owner" || r === "owner") role = "company_owner";
-  else if (r === "company_admin" || r === "admin") role = "company_admin";
-  if (role === "company_owner" && actorMemberRole !== "company_owner") {
-    return { error: "Nur Hauptkontakt (company_owner) darf diese Rolle vergeben." };
-  }
-  return { role };
-}
+// Company Workspace (Portal-Firmen) — ENTFERNT (Logto-Abbau, April 2026).
+// Alle /api/company/*, /api/admin/companies/*, /api/admin/users/companies/* sowie
+// die zugehörigen Helper und Logto-Sync wurden entfernt.
 
-app.get("/api/company/me", requireCompanyMember, async (req, res) => {
-  try {
-    const company = await db.getCompanyById(req.companyId);
-    if (!company) return res.status(404).json({ error: "Firma nicht gefunden" });
-    res.json({
-      ok: true,
-      role: req.companyMembership?.role || "company_employee",
-      membership: req.companyMembership,
-      company,
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message || "Firma konnte nicht geladen werden" });
-  }
-});
-
-app.get("/api/company/members", requireCompanyMember, async (req, res) => {
-  try {
-    const members = await db.listCompanyMembers(req.companyId);
-    res.json({ ok: true, members });
-  } catch (err) {
-    res.status(500).json({ error: err.message || "Mitglieder konnten nicht geladen werden" });
-  }
-});
-
-// Vorschläge für das Einladungsformular – Kunden der Firma die noch kein Mitglied sind
-app.get("/api/company/invitations/suggestions", requireCompanyAdmin, async (req, res) => {
-  try {
-    const customers = await db.listCompanyCustomers(req.companyId);
-    const members = await db.listCompanyMembers(req.companyId);
-    const memberEmails = new Set(members.map((m) => String(m.email || "").toLowerCase()));
-    const suggestions = customers
-      .filter((c) => {
-        const em = String(c.email || "").trim().toLowerCase();
-        return em && em.includes("@") && !memberEmails.has(em);
-      })
-      .map((c) => ({
-        email: String(c.email || "").trim().toLowerCase(),
-        name: String(c.name || c.company || "").trim(),
-      }));
-    res.json({ ok: true, suggestions });
-  } catch (err) {
-    res.status(500).json({ error: err.message || "Fehler" });
-  }
-});
-
-app.post("/api/company/invitations", requireCompanyAdmin, async (req, res) => {
-  try {
-    const email = String(req.body?.email || "").trim().toLowerCase();
-    if (!email || !email.includes("@")) return res.status(400).json({ error: "Gueltige E-Mail erforderlich" });
-    const parsed = parseCompanyMemberRoleFromBody(req.body?.role, req.companyMembership?.role);
-    if (parsed.error) return res.status(403).json({ error: parsed.error });
-    const role = parsed.role;
-    const token = generateToken();
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    const invitation = await db.createCompanyInvitation({
-      companyId: req.companyId,
-      email,
-      role,
-      token,
-      expiresAt,
-      invitedBy: req.user?.email || req.user?.id || "",
-    });
-    const authCtx = buildAuthContext(req);
-    await db.logAuthAudit({
-      actorId: authCtx.userId || authCtx.email,
-      actorRole: authCtx.companyRole || authCtx.role,
-      action: "company_invite",
-      targetType: "company_invitation",
-      targetId: String(invitation?.id || email),
-      details: { companyId: req.companyId, email, role },
-      ipAddress: req.ip,
-    });
-    res.status(201).json({ ok: true, invitation });
-  } catch (err) {
-    res.status(400).json({ error: err.message || "Einladung konnte nicht erstellt werden" });
-  }
-});
-
-app.get("/api/company/invitations", requireCompanyAdmin, async (req, res) => {
-  try {
-    const invitations = await db.listCompanyInvitations(req.companyId, {
-      includeExpired: String(req.query.includeExpired || "false").toLowerCase() === "true",
-    });
-    res.json({ ok: true, invitations });
-  } catch (err) {
-    res.status(500).json({ error: err.message || "Einladungen konnten nicht geladen werden" });
-  }
-});
-
-app.post("/api/company/invitations/accept", async (req, res, next) => {
-  if (!req.user) return res.status(401).json({ error: "Nicht authentifiziert." });
-  next();
-}, async (req, res) => {
-  try {
-    const token = String(req.body?.token || "").trim();
-    if (!token) return res.status(400).json({ error: "token erforderlich" });
-    const result = await db.acceptCompanyInvitation({
-      token,
-      authSubject: req.user?.id || "",
-      email: req.user?.email || "",
-    });
-    if (!result) return res.status(404).json({ error: "Einladung nicht gefunden" });
-    if (result.expired) return res.status(400).json({ error: "Einladung ist abgelaufen" });
-    if (result.accepted && result.member) {
-      try {
-        const co = await db.getCompanyById(Number(result.invitation.company_id));
-        if (co) await logtoOrgSync.ensureOrganizationForCompany(co);
-        await logtoOrgSync.addCompanyMemberToLogtoOrg(Number(result.invitation.company_id), result.member);
-      } catch (_syncErr) {}
-    }
-    res.json({ ok: true, result });
-  } catch (err) {
-    res.status(400).json({ error: err.message || "Einladung konnte nicht akzeptiert werden" });
-  }
-});
-
-app.delete("/api/company/invitations/:id", requireCompanyAdmin, async (req, res) => {
-  try {
-    const invitations = await db.listCompanyInvitations(req.companyId, { includeExpired: true });
-    const target = invitations.find((i) => Number(i.id) === Number(req.params.id));
-    if (!target) return res.status(404).json({ error: "Einladung nicht gefunden" });
-    if (target.accepted_at) return res.status(400).json({ error: "Bereits akzeptierte Einladung kann nicht geloescht werden" });
-    await db.query("DELETE FROM company_invitations WHERE id = $1 AND company_id = $2", [req.params.id, req.companyId]);
-    const authCtx = buildAuthContext(req);
-    await db.logAuthAudit({
-      actorId: authCtx.userId || authCtx.email,
-      actorRole: authCtx.companyRole || authCtx.role,
-      action: "company_invitation_delete",
-      targetType: "company_invitation",
-      targetId: String(req.params.id),
-      details: { companyId: req.companyId, email: target.email },
-      ipAddress: req.ip,
-    });
-    res.json({ ok: true });
-  } catch (err) {
-    res.status(400).json({ error: err.message || "Einladung konnte nicht geloescht werden" });
-  }
-});
-
-app.post("/api/company/invitations/:id/resend", requireCompanyAdmin, async (req, res) => {
-  try {
-    const invitations = await db.listCompanyInvitations(req.companyId, { includeExpired: true });
-    const target = invitations.find((i) => Number(i.id) === Number(req.params.id));
-    if (!target) return res.status(404).json({ error: "Einladung nicht gefunden" });
-    if (target.accepted_at) return res.status(400).json({ error: "Bereits akzeptierte Einladung kann nicht erneut gesendet werden" });
-    const newToken = generateToken();
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    const invitation = await db.createCompanyInvitation({
-      companyId: req.companyId,
-      email: target.email,
-      role: target.role,
-      token: newToken,
-      expiresAt,
-      invitedBy: req.user?.email || req.user?.id || "",
-    });
-    const authCtx = buildAuthContext(req);
-    await db.logAuthAudit({
-      actorId: authCtx.userId || authCtx.email,
-      actorRole: authCtx.companyRole || authCtx.role,
-      action: "company_invitation_resend",
-      targetType: "company_invitation",
-      targetId: String(invitation?.id || req.params.id),
-      details: { companyId: req.companyId, email: target.email },
-      ipAddress: req.ip,
-    });
-    res.json({ ok: true, invitation });
-  } catch (err) {
-    res.status(400).json({ error: err.message || "Einladung konnte nicht erneut gesendet werden" });
-  }
-});
-
-app.patch("/api/company/members/:id/role", requireCompanyAdmin, async (req, res) => {
-  try {
-    const members = await db.listCompanyMembers(req.companyId);
-    const target = members.find((m) => Number(m.id) === Number(req.params.id));
-    if (!target) return res.status(404).json({ error: "Mitglied nicht gefunden" });
-    if (req.companyMembership && Number(target.id) === Number(req.companyMembership.id)) {
-      return res.status(403).json({ error: "Eigene Rolle kann nicht geaendert werden." });
-    }
-    const parsed = parseCompanyMemberRoleFromBody(req.body?.role, req.companyMembership?.role);
-    if (parsed.error) return res.status(403).json({ error: parsed.error });
-    const role = parsed.role;
-    if (target.role === "company_admin" || target.role === "company_owner") {
-      const adminCount = members.filter((m) => m.status === "active" && (m.role === "company_admin" || m.role === "company_owner")).length;
-      if (role === "company_employee" && adminCount <= 1) {
-        return res.status(403).json({ error: "Mindestens ein Admin muss aktiv bleiben." });
-      }
-    }
-    const updated = await db.updateCompanyMemberRole(req.params.id, role);
-    try {
-      await rbac.syncCompanyMemberRolesFromDb(Number(req.params.id));
-    } catch (_e) {}
-    const authCtx = buildAuthContext(req);
-    await db.logAuthAudit({
-      actorId: authCtx.userId || authCtx.email,
-      actorRole: authCtx.companyRole || authCtx.role,
-      action: "company_member_role",
-      targetType: "company_member",
-      targetId: String(req.params.id),
-      details: { companyId: req.companyId, role },
-      ipAddress: req.ip,
-    });
-    res.json({ ok: true, member: updated });
-  } catch (err) {
-    res.status(400).json({ error: err.message || "Rolle konnte nicht gesetzt werden" });
-  }
-});
-
-app.patch("/api/company/members/:id/active", requireCompanyAdmin, async (req, res) => {
-  try {
-    const members = await db.listCompanyMembers(req.companyId);
-    const target = members.find((m) => Number(m.id) === Number(req.params.id));
-    if (!target) return res.status(404).json({ error: "Mitglied nicht gefunden" });
-    if (req.companyMembership && Number(target.id) === Number(req.companyMembership.id)) {
-      return res.status(403).json({ error: "Eigener Status kann nicht geaendert werden." });
-    }
-    const status = req.body?.active ? "active" : "disabled";
-    if (status === "disabled" && (target.role === "company_admin" || target.role === "company_owner")) {
-      const adminCount = members.filter((m) => m.status === "active" && (m.role === "company_admin" || m.role === "company_owner")).length;
-      if (adminCount <= 1) {
-        return res.status(403).json({ error: "Der letzte Admin kann nicht deaktiviert werden." });
-      }
-    }
-    const updated = await db.updateCompanyMemberStatus(req.params.id, status);
-    try {
-      const merged = { ...target, ...updated };
-      if (status === "disabled") {
-        await logtoOrgSync.removeCompanyMemberFromLogtoOrg(req.companyId, merged);
-      } else if (status === "active") {
-        await logtoOrgSync.addCompanyMemberToLogtoOrg(req.companyId, merged);
-      }
-    } catch (_e) {}
-    const authCtx = buildAuthContext(req);
-    await db.logAuthAudit({
-      actorId: authCtx.userId || authCtx.email,
-      actorRole: authCtx.companyRole || authCtx.role,
-      action: "company_member_active",
-      targetType: "company_member",
-      targetId: String(req.params.id),
-      details: { companyId: req.companyId, status },
-      ipAddress: req.ip,
-    });
-    res.json({ ok: true, member: updated });
-  } catch (err) {
-    res.status(400).json({ error: err.message || "Status konnte nicht gesetzt werden" });
-  }
-});
-
-app.get("/api/company/orders", requireCompanyMember, async (req, res) => {
-  try {
-    const orders = await db.listCompanyOrders(req.companyId, {
-      limit: Number(req.query.limit || 200),
-      offset: Number(req.query.offset || 0),
-      member: req.companyMembership,
-    });
-    res.json({ ok: true, orders });
-  } catch (err) {
-    res.status(500).json({ error: err.message || "Auftraege konnten nicht geladen werden" });
-  }
-});
-
-app.get("/api/company/customers", requireCompanyMember, async (req, res) => {
-  try {
-    const customers = await db.listCompanyCustomers(req.companyId, { member: req.companyMembership });
-    res.json({ ok: true, customers });
-  } catch (err) {
-    res.status(500).json({ error: err.message || "Kunden konnten nicht geladen werden" });
-  }
-});
-
-app.patch("/api/company/profile", requireCompanyAdmin, async (req, res) => {
-  try {
-    const name = String(req.body?.name || "").trim();
-    if (!name) return res.status(400).json({ error: "Name erforderlich" });
-    const { rows } = await db.query(
-      `UPDATE companies
-       SET name = $2, updated_at = NOW()
-       WHERE id = $1
-       RETURNING id, name, slug, billing_customer_id, created_at, updated_at`,
-      [req.companyId, name]
-    );
-    const authCtx = buildAuthContext(req);
-    await db.logAuthAudit({
-      actorId: authCtx.userId || authCtx.email,
-      actorRole: authCtx.companyRole || authCtx.role,
-      action: "company_profile_update",
-      targetType: "company",
-      targetId: String(req.companyId),
-      details: { name },
-      ipAddress: req.ip,
-    });
-    const co = rows[0] || null;
-    try {
-      if (co) await logtoOrgSync.ensureOrganizationForCompany(co);
-    } catch (_e) {}
-    res.json({ ok: true, company: co });
-  } catch (err) {
-    res.status(400).json({ error: err.message || "Firmenprofil konnte nicht gespeichert werden" });
-  }
-});
-
-app.get("/api/admin/company-migration/preview", requireSuperAdmin, async (_req, res) => {
-  try {
-    const preview = await db.bootstrapCompaniesFromCustomers({ dryRun: true });
-    res.json({ ok: true, ...preview });
-  } catch (err) {
-    res.status(500).json({ error: err.message || "Migration-Preview fehlgeschlagen" });
-  }
-});
-
-async function syncAllActiveCompanyMembersToProviders() {
-  const companies = await db.listCompanies({ limit: 5000, offset: 0, queryText: "" });
-  for (const company of companies || []) {
-    try {
-      await logtoOrgSync.ensureOrganizationForCompany(company);
-    } catch (_e) {}
-    const members = await db.listCompanyMembers(company.id);
-    for (const member of members || []) {
-      if (String(member.status || "") !== "active") continue;
-      try {
-        await logtoOrgSync.addCompanyMemberToLogtoOrg(company.id, member);
-      } catch (_e) {}
-      try {
-        await rbac.syncCompanyMemberRolesFromDb(Number(member.id));
-      } catch (_e) {}
-    }
-  }
-}
-
-app.post("/api/admin/company-migration/run", requireSuperAdmin, async (_req, res) => {
-  try {
-    const result = await db.syncCompaniesFromCustomersAndContacts();
-    await syncAllActiveCompanyMembersToProviders();
-    res.json({ ok: true, ...result });
-  } catch (err) {
-    res.status(500).json({ error: err.message || "Migration fehlgeschlagen" });
-  }
-});
-
-function parseAdminCompanyInviteRole(raw) {
-  const r = String(raw || "")
-    .trim()
-    .toLowerCase()
-    .replace(/-/g, "_");
-  if (r === "company_owner" || r === "owner" || r === "hauptkontakt") return "company_owner";
-  if (r === "company_admin" || r === "admin") return "company_admin";
-  return "company_employee";
-}
-
-const MANUAL_INVITE_EMAIL_DOMAIN = "invite.buchungstool.invalid";
-
-function sanitizeCompanyInviteLoginName(raw) {
-  return String(raw || "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9._-]+/g, "")
-    .slice(0, 64);
-}
-
-function buildSyntheticManualInviteEmail(companyId, loginSlug) {
-  return `manual-c${Number(companyId)}-${loginSlug}@${MANUAL_INVITE_EMAIL_DOMAIN}`;
-}
-
-function toLegacyUserRole(companyRole) {
-  return companyRole === "company_employee" ? "mitarbeiter" : "hauptkontakt";
-}
-
-/** Benutzerverwaltung: keine Kunden-/CRM-Felder ausliefern (nur interne Workspace-Mitglieder). */
-function mapCompanyMembersForAdminUsersList(members) {
-  if (!Array.isArray(members)) return [];
-  return members.map((m) => ({
-    id: Number(m.id),
-    company_id: Number(m.company_id),
-    auth_subject: String(m.auth_subject || ""),
-    email: String(m.email || ""),
-    role: m.role,
-    status: String(m.status || "active"),
-    is_primary_contact: Boolean(m.is_primary_contact),
-    created_at: m.created_at,
-    updated_at: m.updated_at,
-  }));
-}
-
-async function buildAdminCompaniesPayload({ q = "", status = "alle" } = {}) {
-  try {
-    await db.syncCompaniesFromCustomersAndContacts();
-  } catch (_syncErr) {}
-  const rows = await db.listCompanies({ limit: 500, offset: 0, queryText: q });
-  const companies = [];
-  let haupt = 0;
-  let mitarbeiter = 0;
-  let pendingInv = 0;
-  let aktivFirmen = 0;
-
-  for (const c of rows) {
-    const membersRaw = await db.listCompanyMembers(c.id);
-    const members = mapCompanyMembersForAdminUsersList(membersRaw);
-    const invitations = await db.listCompanyInvitations(c.id, { includeExpired: false });
-    const openInv = invitations.filter((i) => !i.accepted_at && new Date(i.expires_at).getTime() > Date.now());
-    const activeMain = members.filter(
-      (m) => m.status === "active" && (m.role === "company_owner" || m.role === "company_admin"),
-    );
-    const activeStaff = members.filter((m) => m.status === "active" && m.role === "company_employee");
-    const hasMain = activeMain.length > 0;
-    const hasActiveAny = members.some((m) => m.status === "active");
-    const uiStatus = hasMain ? "aktiv" : (openInv.length > 0 ? "ausstehend" : "inaktiv");
-    if (hasMain) aktivFirmen += 1;
-    haupt += activeMain.length;
-    mitarbeiter += activeStaff.length;
-    pendingInv += openInv.length;
-    companies.push({
-      ...c,
-      status: uiStatus,
-      uiStatus,
-      hauptkontakte_count: activeMain.length,
-      mitarbeiter_count: activeStaff.length,
-      pending_invitations: openInv.length,
-      has_active_any: hasActiveAny,
-      members,
-      invitations: openInv,
-    });
-  }
-
-  const filtered = companies.filter((c) => {
-    if (status === "alle") return true;
-    if (status === "aktiv") return c.status === "aktiv";
-    if (status === "ausstehend") return c.status === "ausstehend";
-    if (status === "inaktiv") return c.status === "inaktiv";
-    return true;
-  });
-
-  return {
-    stats: {
-      aktiveFirmen: aktivFirmen,
-      hauptkontakte: haupt,
-      mitarbeiterZugaenge: mitarbeiter,
-      ausstehendeEinladungen: pendingInv,
-      active_companies: aktivFirmen,
-      main_contacts: haupt,
-      employees: mitarbeiter,
-      pending_invitations: pendingInv,
-    },
-    companies: filtered,
-  };
-}
-
-app.get("/api/admin/companies", requireAdmin, async (req, res) => {
-  try {
-    const payload = await buildAdminCompaniesPayload({
-      q: String(req.query?.q || req.query?.search || ""),
-      status: String(req.query?.status || "alle").toLowerCase(),
-    });
-    res.json({
-      ok: true,
-      stats: {
-        aktiveFirmen: payload.stats.aktiveFirmen,
-        hauptkontakte: payload.stats.hauptkontakte,
-        mitarbeiterZugaenge: payload.stats.mitarbeiterZugaenge,
-        ausstehendeEinladungen: payload.stats.ausstehendeEinladungen,
-      },
-      companies: payload.companies,
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message || "Firmen konnten nicht geladen werden" });
-  }
-});
-
-app.post("/api/admin/companies", requireAdmin, async (req, res) => {
-  try {
-    const name = String(req.body?.name || "").trim();
-    if (!name) return res.status(400).json({ error: "Firmenname erforderlich" });
-    const standort = String(req.body?.standort || "").trim();
-    const notiz = String(req.body?.notiz || "").trim();
-    const inviteEmail = String(req.body?.inviteEmail || req.body?.primaryContactEmail || "")
-      .trim()
-      .toLowerCase();
-    const inviteRole = parseAdminCompanyInviteRole(req.body?.inviteRole || "company_owner");
-    const company = await db.createCompanyWithMeta({ name, standort, notiz, billingCustomerId: null });
-    if (!company) return res.status(500).json({ error: "Firma konnte nicht angelegt werden" });
-    let invitation = null;
-    if (inviteEmail && inviteEmail.includes("@")) {
-      const token = generateToken();
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-      invitation = await db.createCompanyInvitation({
-        companyId: company.id,
-        email: inviteEmail,
-        role: inviteRole,
-        token,
-        expiresAt,
-        invitedBy: req.user?.email || req.user?.id || "admin",
-      });
-    }
-    const authCtx = buildAuthContext(req);
-    await db.logAuthAudit({
-      actorId: authCtx.userId || authCtx.email,
-      actorRole: authCtx.companyRole || authCtx.role,
-      action: "admin_company_create",
-      targetType: "company",
-      targetId: String(company.id),
-      details: { name, standort, inviteEmail: inviteEmail || null },
-      ipAddress: req.ip,
-    });
-    try {
-      await logtoOrgSync.ensureOrganizationForCompany(company);
-    } catch (_e) {}
-    res.status(201).json({ ok: true, company, invitation });
-  } catch (err) {
-    res.status(400).json({ error: err.message || "Firma konnte nicht angelegt werden" });
-  }
-});
-
-app.post("/api/admin/companies/:companyId/invitations", requireAdmin, async (req, res) => {
-  try {
-    const companyId = Number(req.params.companyId);
-    const co = await db.getCompanyById(companyId);
-    if (!co) return res.status(404).json({ error: "Firma nicht gefunden" });
-    const email = String(req.body?.email || "").trim().toLowerCase();
-    if (!email || !email.includes("@")) return res.status(400).json({ error: "Gueltige E-Mail erforderlich" });
-    const role = parseAdminCompanyInviteRole(req.body?.role || "company_employee");
-    const token = generateToken();
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    const invitation = await db.createCompanyInvitation({
-      companyId,
-      email,
-      role,
-      token,
-      expiresAt,
-      invitedBy: req.user?.email || req.user?.id || "admin",
-    });
-    const authCtx = buildAuthContext(req);
-    await db.logAuthAudit({
-      actorId: authCtx.userId || authCtx.email,
-      actorRole: authCtx.companyRole || authCtx.role,
-      action: "admin_company_invite",
-      targetType: "company_invitation",
-      targetId: String(invitation?.id || email),
-      details: { companyId, email, role },
-      ipAddress: req.ip,
-    });
-    res.status(201).json({ ok: true, invitation });
-  } catch (err) {
-    res.status(400).json({ error: err.message || "Einladung konnte nicht erstellt werden" });
-  }
-});
-
-app.delete("/api/admin/companies/:companyId/invitations/:invitationId", requireAdmin, async (req, res) => {
-  try {
-    const companyId = Number(req.params.companyId);
-    const invitationId = Number(req.params.invitationId);
-    const invQ = await db.query(
-      "SELECT id, company_id, accepted_at FROM company_invitations WHERE id = $1 LIMIT 1",
-      [invitationId]
-    );
-    const inv = invQ.rows[0];
-    if (!inv) return res.status(404).json({ error: "Einladung nicht gefunden" });
-    if (Number(inv.company_id) !== companyId) return res.status(400).json({ error: "Ungueltige Firma" });
-    if (inv.accepted_at) return res.status(400).json({ error: "Einladung bereits akzeptiert" });
-    await db.query("DELETE FROM company_invitations WHERE id = $1", [invitationId]);
-    const authCtx = buildAuthContext(req);
-    await db.logAuthAudit({
-      actorId: authCtx.userId || authCtx.email,
-      actorRole: authCtx.companyRole || authCtx.role,
-      action: "admin_company_invitation_delete",
-      targetType: "company_invitation",
-      targetId: String(invitationId),
-      details: { companyId },
-      ipAddress: req.ip,
-    });
-    res.json({ ok: true });
-  } catch (err) {
-    res.status(400).json({ error: err.message || "Einladung konnte nicht geloescht werden" });
-  }
-});
-
-app.patch("/api/admin/companies/:companyId/members/:memberId/role", requireAdmin, async (req, res) => {
-  try {
-    const companyId = Number(req.params.companyId);
-    const memberId = Number(req.params.memberId);
-    const members = await db.listCompanyMembers(companyId);
-    const target = members.find((m) => Number(m.id) === memberId);
-    if (!target) return res.status(404).json({ error: "Mitglied nicht gefunden" });
-    const role = parseAdminCompanyInviteRole(req.body?.role);
-    const updated = await db.updateCompanyMemberRole(memberId, role);
-    try {
-      await rbac.syncCompanyMemberRolesFromDb(memberId);
-    } catch (_e) {}
-    const authCtx = buildAuthContext(req);
-    await db.logAuthAudit({
-      actorId: authCtx.userId || authCtx.email,
-      actorRole: authCtx.companyRole || authCtx.role,
-      action: "admin_company_member_role",
-      targetType: "company_member",
-      targetId: String(memberId),
-      details: { companyId, role },
-      ipAddress: req.ip,
-    });
-    res.json({ ok: true, member: updated });
-  } catch (err) {
-    res.status(400).json({ error: err.message || "Rolle konnte nicht gesetzt werden" });
-  }
-});
-
-app.patch("/api/admin/companies/:companyId/members/:memberId/status", requireAdmin, async (req, res) => {
-  try {
-    const companyId = Number(req.params.companyId);
-    const memberId = Number(req.params.memberId);
-    const members = await db.listCompanyMembers(companyId);
-    const target = members.find((m) => Number(m.id) === memberId);
-    if (!target) return res.status(404).json({ error: "Mitglied nicht gefunden" });
-    let st = String(req.body?.status || "").trim();
-    if (req.body?.active === true) st = "active";
-    if (req.body?.active === false) st = "disabled";
-    if (!["active", "disabled", "invited"].includes(st)) {
-      return res.status(400).json({ error: "Ungueltiger Status" });
-    }
-    const updated = await db.updateCompanyMemberStatus(memberId, st);
-    const merged = { ...target, ...updated };
-    try {
-      if (st === "disabled") {
-        await logtoOrgSync.removeCompanyMemberFromLogtoOrg(companyId, merged);
-      } else if (st === "active") {
-        await logtoOrgSync.addCompanyMemberToLogtoOrg(companyId, merged);
-      }
-    } catch (_e) {}
-    const authCtx = buildAuthContext(req);
-    await db.logAuthAudit({
-      actorId: authCtx.userId || authCtx.email,
-      actorRole: authCtx.companyRole || authCtx.role,
-      action: "admin_company_member_status",
-      targetType: "company_member",
-      targetId: String(memberId),
-      details: { companyId, status: st },
-      ipAddress: req.ip,
-    });
-    res.json({ ok: true, member: updated });
-  } catch (err) {
-    res.status(400).json({ error: err.message || "Status konnte nicht gesetzt werden" });
-  }
-});
-
-app.delete("/api/admin/companies/:companyId", requireSuperAdmin, async (req, res) => {
-  try {
-    const companyId = Number(req.params.companyId);
-    const co = await db.getCompanyById(companyId);
-    if (!co) return res.status(404).json({ error: "Firma nicht gefunden" });
-    try {
-      await logtoOrgSync.deleteOrganizationForCompany(companyId);
-    } catch (_e) {}
-    await db.query(`DELETE FROM companies WHERE id = $1`, [companyId]);
-    const authCtx = buildAuthContext(req);
-    await db.logAuthAudit({
-      actorId: authCtx.userId || authCtx.email,
-      actorRole: authCtx.companyRole || authCtx.role,
-      action: "admin_company_delete",
-      targetType: "company",
-      targetId: String(companyId),
-      details: {},
-      ipAddress: req.ip,
-    });
-    res.json({ ok: true });
-  } catch (err) {
-    res.status(400).json({ error: err.message || "Firma konnte nicht geloescht werden" });
-  }
-});
-
-// Legacy-compatible alias routes for user management pages.
-app.get("/api/admin/users/companies", requireAdmin, async (req, res) => {
-  try {
-    const payload = await buildAdminCompaniesPayload({
-      q: String(req.query?.q || req.query?.search || ""),
-      status: String(req.query?.status || "alle").toLowerCase(),
-    });
-    const companies = payload.companies.map((c) => ({
-      id: c.id,
-      name: c.name,
-      slug: c.slug,
-      billing_customer_id:
-        c.billing_customer_id != null && Number.isFinite(Number(c.billing_customer_id))
-          ? Number(c.billing_customer_id)
-          : null,
-      standort: c.standort || "",
-      notiz: c.notiz || "",
-      status: c.status,
-      uiStatus: c.uiStatus,
-      hauptkontakte_count: Number(c.hauptkontakte_count || 0),
-      mitarbeiter_count: Number(c.mitarbeiter_count || 0),
-      pending_invitations: Number(c.pending_invitations || 0),
-      members: (c.members || []).map((m) => ({
-        ...m,
-        role: m.role,
-        ui_role: toLegacyUserRole(m.role),
-      })),
-      invitations: c.invitations || [],
-      created_at: c.created_at,
-      updated_at: c.updated_at,
-    }));
-    return res.json({
-      ok: true,
-      stats: {
-        active_companies: payload.stats.active_companies,
-        main_contacts: payload.stats.main_contacts,
-        employees: payload.stats.employees,
-        pending_invitations: payload.stats.pending_invitations,
-      },
-      companies,
-    });
-  } catch (err) {
-    return res.status(500).json({ error: err.message || "Firmen konnten nicht geladen werden" });
-  }
-});
-
-app.post("/api/admin/users/companies", requireAdmin, async (req, res) => {
-  try {
-    const name = String(req.body?.name || "").trim();
-    if (!name) return res.status(400).json({ error: "Firmenname erforderlich" });
-    const standort = String(req.body?.standort || "").trim();
-    const notiz = String(req.body?.notiz || "").trim();
-    const inviteEmail = String(req.body?.mainContactEmail || req.body?.inviteEmail || "").trim().toLowerCase();
-    const inviteRole = parseAdminCompanyInviteRole(req.body?.inviteRole || req.body?.role || "company_owner");
-    let billingCustomerId = null;
-    const rawBillingId = req.body?.billingCustomerId ?? req.body?.billing_customer_id;
-    if (rawBillingId != null && String(rawBillingId).trim() !== "") {
-      const bid = Number(rawBillingId);
-      if (Number.isFinite(bid) && bid > 0) {
-        const { rows: custRows } = await db.query("SELECT id FROM customers WHERE id = $1 LIMIT 1", [bid]);
-        if (custRows[0]) billingCustomerId = bid;
-      }
-    }
-    const company = await db.createCompanyWithMeta({ name, standort, notiz, billingCustomerId });
-    if (!company) return res.status(500).json({ error: "Firma konnte nicht angelegt werden" });
-    let invitation = null;
-    if (inviteEmail && inviteEmail.includes("@")) {
-      const token = generateToken();
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-      invitation = await db.createCompanyInvitation({
-        companyId: company.id,
-        email: inviteEmail,
-        role: inviteRole,
-        token,
-        expiresAt,
-        invitedBy: req.user?.email || req.user?.id || "admin",
-      });
-    }
-    try {
-      await logtoOrgSync.ensureOrganizationForCompany(company);
-    } catch (_e) {}
-    return res.status(201).json({ ok: true, company, invitation });
-  } catch (err) {
-    return res.status(400).json({ error: err.message || "Firma konnte nicht angelegt werden" });
-  }
-});
-
-app.post("/api/admin/users/companies/:companyId/invitations", requireAdmin, async (req, res) => {
-  try {
-    const companyId = Number(req.params.companyId);
-    const co = await db.getCompanyById(companyId);
-    if (!co) return res.status(404).json({ error: "Firma nicht gefunden" });
-    const role = parseAdminCompanyInviteRole(req.body?.role || "company_employee");
-    const givenName = String(req.body?.givenName ?? req.body?.vorname ?? "").trim();
-    const familyName = String(req.body?.familyName ?? req.body?.nachname ?? "").trim();
-    const loginNameRaw = String(req.body?.loginName ?? req.body?.login_name ?? "").trim();
-    const loginSlug = sanitizeCompanyInviteLoginName(loginNameRaw);
-    let email = String(req.body?.email || "").trim().toLowerCase();
-
-    if (email.includes("@")) {
-      // echte E-Mail
-    } else if (loginSlug && givenName && familyName) {
-      email = buildSyntheticManualInviteEmail(companyId, loginSlug);
-    } else {
-      return res.status(400).json({
-        error:
-          "Gueltige E-Mail erforderlich, oder manuell: Vorname, Nachname und Login-Name (nur Buchstaben, Ziffern, . _ -).",
-      });
-    }
-
-    const token = generateToken();
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    const invitation = await db.createCompanyInvitation({
-      companyId,
-      email,
-      role,
-      token,
-      expiresAt,
-      invitedBy: req.user?.email || req.user?.id || "admin",
-      givenName,
-      familyName,
-      loginName: loginSlug || String(loginNameRaw).trim().toLowerCase(),
-    });
-    return res.status(201).json({ ok: true, invitation });
-  } catch (err) {
-    return res.status(400).json({ error: err.message || "Einladung konnte nicht erstellt werden" });
-  }
-});
-
-app.patch("/api/admin/users/members/:memberId/role", requireAdmin, async (req, res) => {
-  try {
-    const memberId = Number(req.params.memberId);
-    const q = await db.query("SELECT id, company_id FROM company_members WHERE id = $1 LIMIT 1", [memberId]);
-    const target = q.rows[0];
-    if (!target) return res.status(404).json({ error: "Mitglied nicht gefunden" });
-    const role = parseAdminCompanyInviteRole(req.body?.role);
-    const updated = await db.updateCompanyMemberRole(memberId, role);
-    try {
-      await rbac.syncCompanyMemberRolesFromDb(memberId);
-    } catch (_e) {}
-    return res.json({ ok: true, member: updated, companyId: Number(target.company_id) });
-  } catch (err) {
-    return res.status(400).json({ error: err.message || "Rolle konnte nicht gesetzt werden" });
-  }
-});
-
-app.patch("/api/admin/users/members/:memberId/status", requireAdmin, async (req, res) => {
-  try {
-    const memberId = Number(req.params.memberId);
-    const q = await db.query("SELECT * FROM company_members WHERE id = $1 LIMIT 1", [memberId]);
-    const target = q.rows[0];
-    if (!target) return res.status(404).json({ error: "Mitglied nicht gefunden" });
-    let st = String(req.body?.status || "").trim();
-    if (req.body?.active === true) st = "active";
-    if (req.body?.active === false) st = "disabled";
-    if (!["active", "disabled", "invited"].includes(st)) {
-      return res.status(400).json({ error: "Ungueltiger Status" });
-    }
-    const updated = await db.updateCompanyMemberStatus(memberId, st);
-    const companyId = Number(target.company_id);
-    const merged = { ...target, ...updated };
-    try {
-      if (st === "disabled") {
-        await logtoOrgSync.removeCompanyMemberFromLogtoOrg(companyId, merged);
-      } else if (st === "active") {
-        await logtoOrgSync.addCompanyMemberToLogtoOrg(companyId, merged);
-      }
-    } catch (_e) {}
-    return res.json({ ok: true, member: updated, companyId });
-  } catch (err) {
-    return res.status(400).json({ error: err.message || "Status konnte nicht gesetzt werden" });
-  }
-});
-
-app.post("/api/admin/users/invitations/:invitationId/resend", requireAdmin, async (req, res) => {
-  try {
-    const invitationId = Number(req.params.invitationId);
-    const invQ = await db.query(
-      "SELECT id, company_id, email, role, given_name, family_name, login_name FROM company_invitations WHERE id = $1 LIMIT 1",
-      [invitationId]
-    );
-    const inv = invQ.rows[0];
-    if (!inv) return res.status(404).json({ error: "Einladung nicht gefunden" });
-    const token = generateToken();
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    const invitation = await db.createCompanyInvitation({
-      companyId: Number(inv.company_id),
-      email: String(inv.email || "").toLowerCase(),
-      role: parseAdminCompanyInviteRole(inv.role),
-      token,
-      expiresAt,
-      invitedBy: req.user?.email || req.user?.id || "admin",
-      givenName: String(inv.given_name || ""),
-      familyName: String(inv.family_name || ""),
-      loginName: String(inv.login_name || ""),
-    });
-    return res.json({ ok: true, invitation });
-  } catch (err) {
-    return res.status(400).json({ error: err.message || "Einladung konnte nicht erneut gesendet werden" });
-  }
-});
-
-// ─── Interne Benutzer (Logto) ────────────────────────────────────────────────
-const logtoClient = require('./logto-client');
+// ─── Interne Benutzer (lokal) ────────────────────────────────────────────────
 
 const INTERNAL_ROLES = ['admin', 'super_admin', 'photographer'];
 
@@ -13447,7 +12316,6 @@ app.post("/api/review/:token", async (req, res) => {
 // Zus?tzliche Admin-Routen, die das Frontend erwartet (Kontakte/Reviews/Templates/etc.)
 registerCustomerContactsRoutes(app, db, requireAdmin, ensureCustomerInRequestCompany);
 registerAccessRoutes(app, { db, requireAdmin, ensureCustomerInRequestCompany, rbac });
-registerAdminUsersRoutes(app, { db, requireAdmin, rbac });
 registerExxasReconcileRoutes(app, db, requireAdmin, ensureCustomerInRequestCompany);
 registerAdminMissingRoutes(app, db, requireAdmin, mailer);
 

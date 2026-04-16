@@ -21,9 +21,7 @@ import {
   X,
   Plug,
   FolderSync,
-  Building2,
   Upload,
-  UserCog,
   Globe,
   TrendingUp,
   Ticket,
@@ -37,7 +35,6 @@ import { useAuthStore } from "../../store/authStore";
 import { usePermissions } from "../../hooks/usePermissions";
 import { cn } from "../../lib/utils";
 import { logger } from "../../utils/logger";
-import { isCompanyWorkspaceRole } from "../../lib/companyRoles";
 
 interface SidebarProps {
   isMobileOpen?: boolean;
@@ -61,7 +58,7 @@ const navigationItems: SidebarNavItem[] = [
   { path: "/orders", icon: ShoppingCart, labelKey: "nav.orders" },
   { path: "/upload", icon: Upload, labelKey: "nav.upload" },
   { path: "/calendar", icon: Calendar, labelKey: "nav.calendar" },
-  { path: "__kunden__", icon: Users, label: "Kunden & Firmen" },
+  { path: "/customers", icon: Users, labelKey: "nav.customers" },
   { path: "/products", icon: Boxes, labelKey: "nav.catalog" },
   { path: "/discount-codes", icon: Tag, labelKey: "nav.discountCodes" },
   { path: "/reviews", icon: Star, labelKey: "nav.reviews" },
@@ -70,12 +67,6 @@ const navigationItems: SidebarNavItem[] = [
   { path: "/bugs", icon: ShieldAlert, labelKey: "nav.bugs" },
   { path: "/backups", icon: Database, labelKey: "nav.backups" },
   { path: "/changelog", icon: GitBranch, labelKey: "nav.changelog" },
-];
-
-const companyNavigationOwner: SidebarNavItem[] = [{ path: "/portal/firma", icon: Building2, label: "Firma" }];
-
-const companyNavigationEmployee: SidebarNavItem[] = [
-  { path: "/portal/bestellungen", icon: ShoppingCart, label: "Meine Bestellungen" },
 ];
 
 const finanzenSubItems = [
@@ -90,13 +81,7 @@ const listingSubItems = [
   { path: "/listing", icon: Home, label: "Listings" },
 ] as const;
 
-const kundenSubItems = [
-  { path: "/customers", icon: Users, label: "Kunden" },
-  { path: "/settings/companies", icon: Building2, label: "Firmen" },
-] as const;
-
 const settingsSubItems = [
-  { path: "/settings/users", icon: UserCog, labelKey: "sidebar.nav.userManagement" },
   { path: "/settings/workflow", icon: GitBranch, labelKey: "sidebar.nav.workflow" },
   { path: "/settings/team", icon: UserCircle, labelKey: "nav.employees" },
   { path: "/settings/email-templates", icon: Mail, labelKey: "sidebar.nav.emailTemplates" },
@@ -111,32 +96,25 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const [finanzenOpen, setFinanzenOpen] = useState(false);
   const [tourManagerOpen, setTourManagerOpen] = useState(false);
   const [listingOpen, setListingOpen] = useState(false);
-  const [kundenOpen, setKundenOpen] = useState(false);
   const lang = useAuthStore((s) => s.language);
   const role = useAuthStore((s) => s.role);
   const { canAccessPath } = usePermissions();
   const location = useLocation();
   const showDevLoggerButton = import.meta.env.DEV;
   const isSettingsActive =
-    (location.pathname.startsWith("/settings") && !location.pathname.startsWith("/settings/companies")) ||
-    location.pathname.startsWith("/exxas-reconcile");
+    location.pathname.startsWith("/settings") || location.pathname.startsWith("/exxas-reconcile");
   const isFinanzenActive = location.pathname.startsWith("/finanzen");
   const isTourManagerActive = location.pathname.startsWith("/admin/tours");
   const isListingActive = location.pathname.startsWith("/listing");
-  const isKundenActive =
-    location.pathname.startsWith("/customers") || location.pathname.startsWith("/settings/companies");
-  const isCompanyRole = isCompanyWorkspaceRole(role);
   const visibleNavigationItems = useMemo(() => {
-    const fakePaths = new Set(["__finanzen__", "__tour_manager__", "__listing__", "__kunden__"]);
-    if (!isCompanyRole) return navigationItems.filter((item) => {
+    const fakePaths = new Set(["__finanzen__", "__tour_manager__", "__listing__"]);
+    return navigationItems.filter((item) => {
       if (fakePaths.has(item.path)) return true;
       if (!canAccessPath(item.path)) return false;
       if (role === "tour_manager" && item.path === "/customers") return false;
       return true;
     });
-    const base = role === "company_employee" ? companyNavigationEmployee : companyNavigationOwner;
-    return base.filter((item) => canAccessPath(item.path));
-  }, [isCompanyRole, role, canAccessPath]);
+  }, [role, canAccessPath]);
 
   const visibleSettingsSubItems = useMemo(
     () => settingsSubItems.filter((item) => canAccessPath(item.path)),
@@ -243,28 +221,6 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                     {(listingOpen || isListingActive) && (
                       <div className="ml-4 mt-0.5 space-y-0.5 pl-3" style={{ borderLeft: "2px solid var(--border-soft)" }}>
                         {listingSubItems.map(({ path: subPath, icon: SubIcon, label: subLabel }) => (
-                          <NavLink key={subPath} to={subPath} onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
-                            <SubIcon className="h-4 w-4 flex-shrink-0" />
-                            {subLabel}
-                          </NavLink>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              }
-              if (path === "__kunden__") {
-                return (
-                  <div key={path}>
-                    <button type="button" onClick={() => setKundenOpen((v) => !v)}
-                      className={cn("propus-nav-item w-full", isKundenActive && "active")}>
-                      <Icon className="h-5 w-5 flex-shrink-0" />
-                      <span className="truncate flex-1 text-left">{label}</span>
-                      <ChevronDown className={cn("h-4 w-4 flex-shrink-0 transition-transform opacity-60", (kundenOpen || isKundenActive) ? "rotate-180" : "")} />
-                    </button>
-                    {(kundenOpen || isKundenActive) && (
-                      <div className="ml-4 mt-0.5 space-y-0.5 pl-3" style={{ borderLeft: "2px solid var(--border-soft)" }}>
-                        {kundenSubItems.map(({ path: subPath, icon: SubIcon, label: subLabel }) => (
                           <NavLink key={subPath} to={subPath} onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
                             <SubIcon className="h-4 w-4 flex-shrink-0" />
                             {subLabel}
@@ -429,32 +385,6 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                     {!isCollapsed && (listingOpen || isListingActive) && (
                       <div className="ml-4 mt-0.5 space-y-0.5 pl-3" style={{ borderLeft: "2px solid var(--border-soft)" }}>
                         {listingSubItems.map(({ path: subPath, icon: SubIcon, label: subLabel }) => (
-                          <NavLink key={subPath} to={subPath} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
-                            <SubIcon className="h-4 w-4 flex-shrink-0" />
-                            {subLabel}
-                          </NavLink>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              }
-              if (path === "__kunden__") {
-                return (
-                  <div key={path}>
-                    <button type="button" onClick={() => setKundenOpen((v) => !v)}
-                      className={cn("propus-nav-item w-full", isKundenActive && "active")}>
-                      <Icon className="h-5 w-5 flex-shrink-0" />
-                      {!isCollapsed && (
-                        <>
-                          <span className="truncate flex-1 text-left">{label}</span>
-                          <ChevronDown className={cn("h-4 w-4 flex-shrink-0 transition-transform opacity-60", (kundenOpen || isKundenActive) ? "rotate-180" : "")} />
-                        </>
-                      )}
-                    </button>
-                    {!isCollapsed && (kundenOpen || isKundenActive) && (
-                      <div className="ml-4 mt-0.5 space-y-0.5 pl-3" style={{ borderLeft: "2px solid var(--border-soft)" }}>
-                        {kundenSubItems.map(({ path: subPath, icon: SubIcon, label: subLabel }) => (
                           <NavLink key={subPath} to={subPath} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
                             <SubIcon className="h-4 w-4 flex-shrink-0" />
                             {subLabel}

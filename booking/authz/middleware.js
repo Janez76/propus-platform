@@ -1,7 +1,6 @@
 /**
  * Auth-Context-Helfer fuer Audit-Logging.
- * Extrahiert Benutzer-/Rollen-Informationen aus dem Request-Objekt,
- * unabhaengig davon ob der Aufrufer ein Admin, Fotograf oder Company-Member ist.
+ * Extrahiert Benutzer-/Rollen-Informationen aus dem Request-Objekt.
  */
 
 function buildAuthContext(req) {
@@ -10,8 +9,6 @@ function buildAuthContext(req) {
     userId: user.id || user.sub || null,
     email: user.email || null,
     role: user.role || null,
-    companyRole: req.companyMembership?.role || null,
-    companyId: req.companyId || null,
   };
 }
 

@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Link } from "react-router-dom";
 import type { FormEvent } from "react";
 import {
   getEmployeeLog,
@@ -844,28 +843,6 @@ export function EmployeeModal({ token, employeeKey, onClose, onSaved, isActive =
             </button>
           </div>
 
-          {/* Admin-Hinweis → Portal-Firmen */}
-          <div className="mt-2 flex items-center justify-between rounded-xl border border-[var(--border-soft)] bg-[var(--surface-raised)] px-4 py-3 gap-3">
-            <div className="min-w-0">
-              <div className="text-xs font-medium text-[var(--text-main)]">Admin-Zugriff</div>
-              <div className="text-xs text-[var(--text-muted)]">
-                Wird zentral über{" "}
-                <Link
-                  to="/customers?tab=portal-firms"
-                  className="text-[var(--accent)] underline hover:no-underline"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  Portal-Firmen
-                </Link>{" "}
-                vergeben.
-                {isAdmin && (
-                  <span className="ml-1.5 inline-flex items-center rounded-full border border-[var(--accent)]/30 bg-[var(--accent)]/10 px-2 py-0.5 text-[10px] font-medium text-[var(--accent)]">
-                    Admin aktiv
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Accordion sections */}

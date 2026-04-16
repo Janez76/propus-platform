@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { LogIn } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
-import { isCompanyWorkspaceRole } from "../lib/companyRoles";
 import { t } from "../i18n";
 import { Footer } from "../components/layout/Footer";
 import { AuthLogoHeader, AuthCard } from "../components/auth/AuthPageLayout";
@@ -11,7 +10,6 @@ import { API_BASE } from "../api/client";
 export function LoginPage() {
   const navigate = useNavigate();
   const token = useAuthStore((s) => s.token);
-  const role = useAuthStore((s) => s.role);
   const lang = useAuthStore((s) => s.language) || "de";
   const setAuth = useAuthStore((s) => s.setAuth);
   const [username, setUsername] = useState("");
@@ -32,10 +30,9 @@ export function LoginPage() {
 
   useEffect(() => {
     if (token) {
-      const companyHome = role === "company_employee" ? "/portal/bestellungen" : "/portal/firma";
-      navigate(isCompanyWorkspaceRole(role) ? companyHome : "/dashboard", { replace: true });
+      navigate("/dashboard", { replace: true });
     }
-  }, [navigate, role, token]);
+  }, [navigate, token]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

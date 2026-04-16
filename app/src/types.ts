@@ -2,11 +2,7 @@ export type Role =
   | "admin"
   | "photographer"
   | "super_admin"
-  | "tour_manager"
-  | "company_owner"
-  | "company_employee"
-  | "customer_admin"
-  | "customer_user";
+  | "tour_manager";
 
 export type ApiOrder = {
   orderNo: string;

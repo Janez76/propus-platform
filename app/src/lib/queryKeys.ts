@@ -59,10 +59,6 @@ export function toursAdminCustomerDetailQueryKey(customerId: string) {
   return `toursAdmin:customer:${customerId}`;
 }
 
-export function toursAdminPortalRolesQueryKey(tab: string) {
-  return `toursAdmin:portalRoles:${tab || "intern"}`;
-}
-
 export function toursAdminTourSettingsQueryKey() {
   return "toursAdmin:tourSettings";
 }

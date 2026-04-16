@@ -41,12 +41,6 @@ export function usePermissions() {
   const canAccessPath = useCallback(
     (path: string) => {
       const r = role as Role;
-      if (r === "company_employee") {
-        if (path === "/portal/firma" || path.startsWith("/portal/firma/")) return false;
-      }
-      if (r === "company_owner" || r === "company_admin") {
-        if (path === "/portal/bestellungen" || path.startsWith("/portal/bestellungen/")) return false;
-      }
       const req = permissionForPath(path);
       if (permissions.length > 0) return canPermission(permissions, req);
       return legacyCanAccessPath(r, path);

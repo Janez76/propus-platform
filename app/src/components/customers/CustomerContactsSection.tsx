@@ -1,18 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
-import { Edit2, Mail, Plus, Save, Trash2, X } from "lucide-react";
+import { Edit2, Plus, Save, Trash2, X } from "lucide-react";
 import {
   getContacts,
   createCustomerContact,
   deleteCustomerContact,
   getCustomerContacts,
-  inviteContact,
   updateContact,
   updateCustomerContact,
-  PORTAL_ROLE_OPTIONS,
   type Contact,
   type CustomerContact,
   type CustomerContactPayload,
-  type PortalRole,
 } from "../../api/customers";
 import { formatPhoneCH, formatSwissDateTime } from "../../lib/format";
 import { PhoneLink } from "../ui/PhoneLink";
@@ -31,7 +28,6 @@ type ContactFormState = {
   first_name: string;
   last_name: string;
   role: string;
-  portal_role: PortalRole;
   phone_direct: string;
   phone_mobile: string;
   email: string;
@@ -44,7 +40,6 @@ const EMPTY_FORM: ContactFormState = {
   first_name: "",
   last_name: "",
   role: "",
-  portal_role: "company_employee",
   phone_direct: "",
   phone_mobile: "",
   email: "",
@@ -62,7 +57,6 @@ function toPayload(form: ContactFormState): CustomerContactPayload {
     first_name: form.first_name.trim(),
     last_name: form.last_name.trim(),
     role: form.role.trim(),
-    portal_role: form.portal_role,
     phone_direct: phoneDirect,
     phone_mobile: phoneMobile,
     phone: phoneDirect,
@@ -89,7 +83,6 @@ function toForm(contact: CustomerContact): ContactFormState {
     first_name: first,
     last_name: last,
     role: contact.role || "",
-    portal_role: (contact.portal_role as PortalRole) || "company_employee",
     phone_direct: contact.phone_direct || contact.phone || "",
     phone_mobile: contact.phone_mobile || "",
     email: contact.email || "",
@@ -110,8 +103,7 @@ export function CustomerContactsSection({ token, customerId, readonly = false }:
   const [selectedExistingId, setSelectedExistingId] = useState<string>("");
   const [editId, setEditId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<ContactFormState>(EMPTY_FORM);
-  const [busy, setBusy] = useState<"create" | "update" | "delete" | "invite" | null>(null);
-  const [inviteSuccess, setInviteSuccess] = useState<number | null>(null);
+  const [busy, setBusy] = useState<"create" | "update" | "delete" | null>(null);
 
   async function loadContacts() {
     setLoading(true);
@@ -255,21 +247,6 @@ export function CustomerContactsSection({ token, customerId, readonly = false }:
     }
   }
 
-  async function handleInvite(contactId: number) {
-    setBusy("invite");
-    setError("");
-    setInviteSuccess(null);
-    try {
-      await inviteContact(token, customerId, contactId);
-      setInviteSuccess(contactId);
-      await loadContacts();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Einladung konnte nicht gesendet werden");
-    } finally {
-      setBusy(null);
-    }
-  }
-
   const inputClass = "ui-input w-full";
 
   const linkCandidates = useMemo(
@@ -345,22 +322,6 @@ export function CustomerContactsSection({ token, customerId, readonly = false }:
                     <input className={inputClass} placeholder={t(lang, "contact.department")} value={editForm.department} onChange={(e) => setEditForm((prev) => ({ ...prev, department: e.target.value }))} />
                     <div className="md:col-span-2 lg:col-span-4">
                       <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--text-subtle)]">
-                        Portal-Rolle
-                      </label>
-                      <select
-                        className={inputClass}
-                        value={editForm.portal_role}
-                        onChange={(e) => setEditForm((prev) => ({ ...prev, portal_role: e.target.value as PortalRole }))}
-                      >
-                        {PORTAL_ROLE_OPTIONS.map((o) => (
-                          <option key={o.value} value={o.value} title={o.description}>
-                            {o.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="md:col-span-2 lg:col-span-4">
-                      <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--text-subtle)]">
                         EXXAS-ID
                       </label>
                       <input
@@ -415,32 +376,6 @@ export function CustomerContactsSection({ token, customerId, readonly = false }:
                         <span className="font-semibold">{t(lang, "customers.label.role")}:</span> {toDisplayString(contact.role, "-")}
                       </p>
                       <p className="text-[var(--text-muted)]">
-                        <span className="font-semibold">Portal-Rolle:</span>{" "}
-                        {(() => {
-                          const opt = PORTAL_ROLE_OPTIONS.find((o) => o.value === contact.portal_role);
-                          return opt ? (
-                            <span title={opt.description} className="cursor-help rounded bg-[var(--surface-raised)] px-1.5 py-0.5 text-xs font-medium text-[var(--text-main)]">
-                              {opt.label}
-                            </span>
-                          ) : (
-                            <span className="rounded bg-[var(--surface-raised)] px-1.5 py-0.5 text-xs text-[var(--text-subtle)]">Firmen-Mitarbeiter</span>
-                          );
-                        })()}
-                        {" "}
-                        {contact.member_status === "active" && (
-                          <span className="ml-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">Aktiv</span>
-                        )}
-                        {contact.member_status === "invited" && (
-                          <span className="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">Eingeladen</span>
-                        )}
-                        {contact.member_status === "disabled" && (
-                          <span className="ml-1 rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">Deaktiviert</span>
-                        )}
-                        {inviteSuccess === contact.id && (
-                          <span className="ml-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">Einladung gesendet!</span>
-                        )}
-                      </p>
-                      <p className="text-[var(--text-muted)]">
                         <span className="font-semibold">{t(lang, "contact.phoneDirect")}:</span>{" "}
                         <PhoneLink value={contact.phone_direct || contact.phone} className="text-[var(--accent)]" />
                       </p>
@@ -466,17 +401,6 @@ export function CustomerContactsSection({ token, customerId, readonly = false }:
                     </div>
                     {!readonly ? (
                       <div className="flex items-center gap-1">
-                        {contact.email && contact.member_status !== "active" && (
-                          <button
-                            type="button"
-                            onClick={() => handleInvite(contact.id)}
-                            disabled={busy === "invite"}
-                            className="rounded-lg p-1.5 text-[var(--accent)] hover:bg-[var(--surface-raised)] disabled:opacity-60"
-                            title={contact.member_status === "invited" ? "Einladung erneut senden" : "Zum Portal einladen"}
-                          >
-                            <Mail className="h-3.5 w-3.5" />
-                          </button>
-                        )}
                         <button
                           type="button"
                           onClick={() => startEdit(contact)}
@@ -523,22 +447,6 @@ export function CustomerContactsSection({ token, customerId, readonly = false }:
             <input className={inputClass} placeholder={t(lang, "customer.phoneMobile")} value={createForm.phone_mobile} onChange={(e) => setCreateForm((prev) => ({ ...prev, phone_mobile: e.target.value }))} />
             <input className={inputClass} placeholder={t(lang, "common.email")} value={createForm.email} onChange={(e) => setCreateForm((prev) => ({ ...prev, email: e.target.value }))} />
             <input className={inputClass} placeholder={t(lang, "contact.department")} value={createForm.department} onChange={(e) => setCreateForm((prev) => ({ ...prev, department: e.target.value }))} />
-            <div className="md:col-span-2 lg:col-span-4">
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--text-subtle)]">
-                Portal-Rolle
-              </label>
-              <select
-                className={inputClass}
-                value={createForm.portal_role}
-                onChange={(e) => setCreateForm((prev) => ({ ...prev, portal_role: e.target.value as PortalRole }))}
-              >
-                {PORTAL_ROLE_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value} title={o.description}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </div>
           </div>
           <div className="mt-2 flex items-center justify-end gap-2">
             <button

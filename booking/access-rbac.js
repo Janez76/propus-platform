@@ -3,8 +3,6 @@
  */
 const db = require("./db");
 
-const COMPANY_MEMBER_ROLES = new Set(["company_owner", "company_admin", "company_employee"]);
-
 const ALL_PERMISSION_KEYS = [
   "tours.read",
   "tours.manage",
@@ -12,8 +10,6 @@ const ALL_PERMISSION_KEYS = [
   "tours.cross_company",
   "tours.archive",
   "tours.link_matterport",
-  "portal_team.manage",
-  "portal_invoices.read",
   "dashboard.view",
   "orders.read",
   "orders.create",
@@ -25,8 +21,6 @@ const ALL_PERMISSION_KEYS = [
   "customers.manage",
   "contacts.read",
   "contacts.manage",
-  "company.manage",
-  "team.manage",
   "photographers.read",
   "photographers.manage",
   "products.manage",
@@ -57,14 +51,11 @@ const TOURS_INTERNAL_PERMS = [
   "tours.cross_company",
   "tours.archive",
   "tours.link_matterport",
-  "portal_team.manage",
 ];
 
 const ROLE_PRESETS = {
   super_admin: ALL_PERMISSION_KEYS,
   internal_admin: ALL_PERMISSION_KEYS,
-  // dashboard.view ergänzt via Migration 078 (war im Frontend-Fallback vorhanden, fehlte im Backend)
-  // finance.*/tickets.*/listing.manage ergänzt via Migration 080 (Zentrales Rechnungs- & Ticket-Modul für Tour-Manager)
   tour_manager: [
     ...TOURS_INTERNAL_PERMS,
     "dashboard.view",
@@ -73,7 +64,6 @@ const ROLE_PRESETS = {
     "tickets.read",
     "tickets.manage",
     "listing.manage",
-    "portal_invoices.read",
   ],
   photographer: [
     "dashboard.view",
@@ -82,45 +72,8 @@ const ROLE_PRESETS = {
     "orders.assign",
     "calendar.view",
     "photographers.read",
-    // picdrop.manage ergänzt via Migration 080 (Bildauswahl-Workflow)
     "picdrop.manage",
   ],
-  // tours.read ergänzt via Migration 078 (für /portal/tours Portal-Zugriff)
-  // portal_invoices.read ergänzt via Migration 080
-  company_owner: [
-    "customers.read",
-    "orders.read",
-    "orders.update",
-    "orders.create",
-    "company.manage",
-    "team.manage",
-    "calendar.view",
-    "tours.read",
-    "portal_invoices.read",
-  ],
-  // @deprecated - Rolle wird nicht mehr vergeben. Bestehende Einträge wurden per Migration 066 zu company_employee migriert.
-  // tours.read ergänzt via Migration 078 für Altdaten-Absicherung.
-  // portal_invoices.read ergänzt via Migration 080
-  company_admin: [
-    "customers.read",
-    "orders.read",
-    "orders.update",
-    "orders.create",
-    "company.manage",
-    "team.manage",
-    "calendar.view",
-    "tours.read",
-    "portal_invoices.read",
-  ],
-  // tours.read ergänzt via Migration 078
-  // portal_invoices.read ergänzt via Migration 080
-  company_employee: ["customers.read", "orders.read", "orders.create", "calendar.view", "calendar.manage", "tours.read", "portal_invoices.read"],
-  // tours.read + tours.manage + portal_team.manage ergänzt via Migration 078 (Portal-Routenzugriff)
-  // portal_invoices.read ergänzt via Migration 080
-  customer_admin: ["customers.read", "contacts.read", "contacts.manage", "orders.read", "orders.update", "orders.create", "tours.read", "tours.manage", "portal_team.manage", "portal_invoices.read"],
-  // tours.read ergänzt via Migration 078 (für /portal/dashboard, /portal/tours, /portal/invoices)
-  // portal_invoices.read ergänzt via Migration 080
-  customer_user: ["orders.read", "tours.read", "portal_invoices.read"],
 };
 
 function mapAdminDbRoleToSystemRole(dbRole) {
@@ -128,27 +81,6 @@ function mapAdminDbRoleToSystemRole(dbRole) {
   if (r === "super_admin") return "super_admin";
   if (r === "admin" || r === "employee") return "internal_admin";
   return "internal_admin";
-}
-
-function mapLogtoRolesToSystemRole(logtoRoles) {
-  const roles = Array.isArray(logtoRoles) ? logtoRoles : [];
-  if (roles.includes("super_admin")) return "super_admin";
-  if (roles.includes("tour_manager")) return "tour_manager";
-  if (roles.includes("admin")) return "internal_admin";
-  if (roles.includes("photographer")) return "photographer";
-  if (roles.includes("company_owner")) return "company_owner";
-  if (roles.includes("company_admin")) return "company_employee"; // @deprecated - company_admin wird als company_employee behandelt
-  if (roles.includes("company_employee")) return "company_employee";
-  if (roles.includes("customer_admin")) return "customer_admin";
-  if (roles.includes("customer")) return "customer_user";
-  return "photographer";
-}
-
-function mapCompanyMemberRoleToSystemRole(role) {
-  const r = String(role || "").trim();
-  if (r === "company_owner") return "company_owner";
-  if (r === "company_admin") return "company_employee"; // @deprecated - company_admin wird als company_employee behandelt
-  return "company_employee";
 }
 
 async function tableExists(tableName) {
@@ -182,11 +114,6 @@ async function seedRbacIfNeeded() {
     ["internal_admin", "Interner Admin", "Admin-Panel"],
     ["tour_manager", "Tour-Manager (intern)", "Alle Touren firmenuebergreifend"],
     ["photographer", "Fotograf", "Auftraege und Kalender"],
-    ["company_owner", "Firmen-Hauptkontakt", "Company Workspace volle Firmensicht"],
-    ["company_admin", "Firmen-Admin (deprecated)", "Nicht mehr vergeben – Altdaten werden als company_employee behandelt"],
-    ["company_employee", "Firmen-Mitarbeiter", "Company Workspace eingeschraenkt"],
-    ["customer_admin", "Kunden-Admin", "Portal / Kunde erweitert"],
-    ["customer_user", "Kunden-Benutzer", "Portal eingeschraenkt"],
   ];
   for (const [rk, label, desc] of roleMeta) {
     await db.query(
@@ -238,18 +165,6 @@ async function ensurePhotographerSubject(photographerKey) {
   return ins.rows[0]?.id || null;
 }
 
-async function ensureCompanyMemberSubject(memberId) {
-  const id = Number(memberId);
-  if (!Number.isFinite(id)) return null;
-  const { rows } = await db.query(`SELECT id FROM access_subjects WHERE company_member_id = $1 LIMIT 1`, [id]);
-  if (rows[0]) return rows[0].id;
-  const ins = await db.query(
-    `INSERT INTO access_subjects (subject_type, company_member_id) VALUES ('company_member', $1) RETURNING id`,
-    [id]
-  );
-  return ins.rows[0]?.id || null;
-}
-
 async function ensureCustomerSubject(customerId) {
   const id = Number(customerId);
   if (!Number.isFinite(id)) return null;
@@ -274,33 +189,6 @@ async function ensureCustomerContactSubject(contactId) {
   return ins.rows[0]?.id || null;
 }
 
-/** Portal-Nutzer nur per E-Mail (ohne customer_contact-Zeile), z. B. interner Tour-Manager. */
-async function ensurePortalUserSubject(emailRaw) {
-  const em = String(emailRaw || "")
-    .trim()
-    .toLowerCase();
-  if (!em || !em.includes("@")) return null;
-  if (!(await tableExists("access_subjects"))) return null;
-  const hasCol = await db.query(
-    `SELECT 1 FROM information_schema.columns
-     WHERE table_schema = ANY (current_schemas(false))
-       AND table_name = 'access_subjects' AND column_name = 'portal_user_email'
-     LIMIT 1`
-  );
-  if (!hasCol.rows.length) return null;
-
-  const { rows } = await db.query(
-    `SELECT id FROM access_subjects WHERE subject_type = 'portal_user' AND LOWER(portal_user_email) = $1 LIMIT 1`,
-    [em]
-  );
-  if (rows[0]) return rows[0].id;
-  const ins = await db.query(
-    `INSERT INTO access_subjects (subject_type, portal_user_email) VALUES ('portal_user', $1) RETURNING id`,
-    [em]
-  );
-  return ins.rows[0]?.id || null;
-}
-
 async function addSubjectSystemRole(subjectId, roleKey) {
   const sid = Number(subjectId);
   const rk = String(roleKey || "").trim();
@@ -318,19 +206,6 @@ async function removeSubjectSystemRole(subjectId, roleKey) {
   await db.query(`DELETE FROM access_subject_system_roles WHERE subject_id = $1 AND role_key = $2`, [sid, rk]);
 }
 
-/** Entfernt leeres portal_user-Subject (keine Rollen mehr). */
-async function prunePortalUserSubjectIfEmpty(subjectId) {
-  const sid = Number(subjectId);
-  if (!Number.isFinite(sid)) return;
-  const { rows } = await db.query(
-    `SELECT s.subject_type, (SELECT COUNT(*)::int FROM access_subject_system_roles r WHERE r.subject_id = s.id) AS n
-     FROM access_subjects s WHERE s.id = $1`,
-    [sid]
-  );
-  if (rows[0]?.subject_type !== "portal_user" || (rows[0]?.n || 0) > 0) return;
-  await db.query(`DELETE FROM access_subjects WHERE id = $1`, [sid]);
-}
-
 async function setSubjectSystemRoles(subjectId, roleKeys) {
   const sid = Number(subjectId);
   if (!Number.isFinite(sid)) return;
@@ -346,9 +221,6 @@ async function setSubjectSystemRoles(subjectId, roleKeys) {
 function groupAppliesToContext(group, ctx) {
   if (!group) return false;
   if (group.scope_type === "system") return ctx.scopeType === "system";
-  if (group.scope_type === "company") {
-    return ctx.scopeType === "company" && Number(group.scope_company_id) === Number(ctx.companyId);
-  }
   if (group.scope_type === "customer") {
     return ctx.scopeType === "customer" && Number(group.scope_customer_id) === Number(ctx.customerId);
   }
@@ -358,9 +230,6 @@ function groupAppliesToContext(group, ctx) {
 function overrideApplies(row, ctx) {
   const st = String(row.scope_type || "system");
   if (st === "system") return ctx.scopeType === "system";
-  if (st === "company") {
-    return ctx.scopeType === "company" && Number(row.scope_company_id) === Number(ctx.companyId);
-  }
   if (st === "customer") {
     return ctx.scopeType === "customer" && Number(row.scope_customer_id) === Number(ctx.customerId);
   }
@@ -386,7 +255,7 @@ async function getEffectivePermissions(subjectId, ctx) {
   }
 
   const { rows: groups } = await db.query(
-    `SELECT pg.id, pg.scope_type, pg.scope_company_id, pg.scope_customer_id
+    `SELECT pg.id, pg.scope_type, pg.scope_customer_id
      FROM permission_group_members pgm
      JOIN permission_groups pg ON pg.id = pgm.group_id
      WHERE pgm.subject_id = $1`,
@@ -401,7 +270,7 @@ async function getEffectivePermissions(subjectId, ctx) {
   }
 
   const { rows: ovs } = await db.query(
-    `SELECT permission_key, effect, scope_type, scope_company_id, scope_customer_id
+    `SELECT permission_key, effect, scope_type, scope_customer_id
      FROM subject_permission_overrides
      WHERE subject_id = $1
      ORDER BY id ASC`,
@@ -421,9 +290,6 @@ function legacyFallbackPermissions(sessionRole) {
   if (r === "super_admin" || r === "admin" || r === "employee") return new Set(ALL_PERMISSION_KEYS);
   if (r === "tour_manager") return new Set(ROLE_PRESETS.tour_manager);
   if (r === "photographer") return new Set(ROLE_PRESETS.photographer);
-  if (r === "company_owner") return new Set(ROLE_PRESETS.company_owner);
-  if (r === "company_admin") return new Set(ROLE_PRESETS.company_employee); // @deprecated - fallback auf company_employee
-  if (r === "company_employee") return new Set(ROLE_PRESETS.company_employee);
   return new Set();
 }
 
@@ -443,26 +309,6 @@ async function resolveRequestAccessContext(req) {
 
   const sessionRole = String(u.role || "");
 
-  if (req.companyMembership && req.companyId && COMPANY_MEMBER_ROLES.has(sessionRole)) {
-    const sid = await ensureCompanyMemberSubject(req.companyMembership.id);
-    if (!sid) {
-      return {
-        subjectId: null,
-        permissions: legacyFallbackPermissions(sessionRole),
-        scope: "company",
-      };
-    }
-    const perms = await getEffectivePermissions(sid, {
-      scopeType: "company",
-      companyId: req.companyId,
-      customerId: null,
-    });
-    if (perms.size === 0) {
-      legacyFallbackPermissions(sessionRole).forEach((p) => perms.add(p));
-    }
-    return { subjectId: sid, permissions: perms, scope: "company" };
-  }
-
   if (sessionRole === "photographer" && u.id) {
     const sid = await ensurePhotographerSubject(String(u.id));
     if (!sid) {
@@ -472,7 +318,7 @@ async function resolveRequestAccessContext(req) {
         scope: "system",
       };
     }
-    let perms = await getEffectivePermissions(sid, { scopeType: "system", companyId: null, customerId: null });
+    let perms = await getEffectivePermissions(sid, { scopeType: "system", customerId: null });
     if (perms.size === 0) {
       perms = legacyFallbackPermissions("photographer");
     }
@@ -489,7 +335,7 @@ async function resolveRequestAccessContext(req) {
         scope: "system",
       };
     }
-    let perms = await getEffectivePermissions(sid, { scopeType: "system", companyId: null, customerId: null });
+    let perms = await getEffectivePermissions(sid, { scopeType: "system", customerId: null });
     if (perms.size === 0) {
       perms = legacyFallbackPermissions(sessionRole);
     }
@@ -519,20 +365,10 @@ async function syncPhotographerRolesFromDb(photographerKey) {
   await setSubjectSystemRoles(sid, [isAdm ? "internal_admin" : "photographer"]);
 }
 
-async function syncCompanyMemberRolesFromDb(memberId) {
-  const sid = await ensureCompanyMemberSubject(memberId);
-  if (!sid) return;
-  const { rows } = await db.query(`SELECT role FROM company_members WHERE id = $1 LIMIT 1`, [Number(memberId)]);
-  const rk = mapCompanyMemberRoleToSystemRole(rows[0]?.role || "company_employee");
-  await setSubjectSystemRoles(sid, [rk]);
-}
-
 async function syncCustomerRolesFromDb(customerId) {
   const sid = await ensureCustomerSubject(customerId);
   if (!sid) return;
-  const { rows } = await db.query(`SELECT is_admin FROM customers WHERE id = $1 LIMIT 1`, [Number(customerId)]);
-  const rk = Boolean(rows[0]?.is_admin) ? "customer_admin" : "customer_user";
-  await setSubjectSystemRoles(sid, [rk]);
+  await setSubjectSystemRoles(sid, []);
 }
 
 async function syncAllLegacySubjects() {
@@ -547,16 +383,6 @@ async function syncAllLegacySubjects() {
   const { rows: photogs } = await db.query(`SELECT key FROM photographers`);
   for (const p of photogs || []) {
     await syncPhotographerRolesFromDb(p.key);
-  }
-
-  const { rows: members } = await db.query(`SELECT id FROM company_members WHERE status = 'active'`);
-  for (const m of members || []) {
-    await syncCompanyMemberRolesFromDb(m.id);
-  }
-
-  const { rows: custs } = await db.query(`SELECT id FROM customers`);
-  for (const c of custs || []) {
-    await syncCustomerRolesFromDb(c.id);
   }
 
   return { ok: true };
@@ -587,21 +413,16 @@ module.exports = {
   legacyFallbackPermissions,
   ensureAdminUserSubject,
   ensurePhotographerSubject,
-  ensureCompanyMemberSubject,
   ensureCustomerSubject,
   ensureCustomerContactSubject,
-  ensurePortalUserSubject,
   addSubjectSystemRole,
   removeSubjectSystemRole,
-  prunePortalUserSubjectIfEmpty,
   setSubjectSystemRoles,
   syncAllLegacySubjects,
   syncAdminUserRolesFromDb,
   syncPhotographerRolesFromDb,
-  syncCompanyMemberRolesFromDb,
   syncCustomerRolesFromDb,
   mapAdminDbRoleToSystemRole,
-  mapLogtoRolesToSystemRole,
   requirePermission,
   tableExists,
 };

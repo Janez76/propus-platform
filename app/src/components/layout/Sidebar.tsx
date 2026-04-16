@@ -21,7 +21,6 @@ import {
   X,
   Plug,
   FolderSync,
-  Building2,
   Upload,
   UserCog,
   Globe,
@@ -48,8 +47,6 @@ import { useAuthStore } from "../../store/authStore";
 import { usePermissions } from "../../hooks/usePermissions";
 import { cn } from "../../lib/utils";
 import { logger } from "../../utils/logger";
-import { isCompanyWorkspaceRole } from "../../lib/companyRoles";
-import { isKundenRole } from "../../lib/permissions";
 
 interface SidebarProps {
   isMobileOpen?: boolean;
@@ -78,7 +75,7 @@ const navigationItems: SidebarNavItem[] = [
   { path: "/orders", icon: ShoppingCart, labelKey: "nav.orders" },
   { path: "/upload", icon: Upload, labelKey: "nav.upload" },
   { path: "/calendar", icon: Calendar, labelKey: "nav.calendar" },
-  { path: "/customers", icon: Users, labelKey: "nav.customersAndFirms", customersNav: true },
+  { path: "/customers", icon: Users, labelKey: "nav.customers", customersNav: true },
   { path: "/products", icon: Boxes, labelKey: "nav.catalog" },
   { path: "/discount-codes", icon: Tag, labelKey: "nav.discountCodes" },
   { path: "/reviews", icon: Star, labelKey: "nav.reviews" },
@@ -87,21 +84,6 @@ const navigationItems: SidebarNavItem[] = [
   { path: "/bugs", icon: ShieldAlert, labelKey: "nav.bugs" },
   { path: "/backups", icon: Database, labelKey: "nav.backups" },
   { path: "/changelog", icon: GitBranch, labelKey: "nav.changelog" },
-];
-
-const companyNavigationOwner: SidebarNavItem[] = [{ path: "/portal/firma", icon: Building2, labelKey: "nav.portal.firma" }];
-
-const companyNavigationEmployee: SidebarNavItem[] = [
-  { path: "/portal/bestellungen", icon: ShoppingCart, labelKey: "nav.portal.myOrders" },
-];
-
-/** Kunden-Panel: alle möglichen Items; werden per canAccessPath gefiltert. */
-const kundenNavigationItems: SidebarNavItem[] = [
-  { path: "/portal/dashboard", icon: LayoutDashboard, labelKey: "nav.portal.dashboard" },
-  { path: "/portal/tours",     icon: Globe,           labelKey: "nav.portal.myTours" },
-  { path: "/portal/invoices",  icon: FileText,        labelKey: "nav.portal.invoices" },
-  { path: "/portal/team",      icon: Users,           labelKey: "nav.portal.team" },
-  { path: "/portal/firma",     icon: Building2,       labelKey: "nav.portal.firma" },
 ];
 
 const settingsSubItems = [
@@ -141,20 +123,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const isSelektoNavActive = location.pathname.startsWith("/admin/selekto");
   const isMessagesNavActive = location.pathname.startsWith("/admin/tickets");
   const isCustomersNavActive = location.pathname.startsWith("/customers");
-  const isCompanyRole = isCompanyWorkspaceRole(role);
-  const isKunden = isKundenRole(role);
   const visibleNavigationItems = useMemo(() => {
-    // Kunden-Rollen: einheitliches Kunden-Panel
-    if (isKunden) {
-      if (isCompanyRole) {
-        // company_owner/admin: Touren + Firma; company_employee: Touren + Bestellungen
-        if (role === "company_employee") {
-          return [...kundenNavigationItems, ...companyNavigationEmployee].filter((item) => canAccessPath(item.path));
-        }
-        return [...kundenNavigationItems, ...companyNavigationOwner].filter((item) => canAccessPath(item.path));
-      }
-      return kundenNavigationItems.filter((item) => canAccessPath(item.path));
-    }
     return navigationItems.filter((item) => {
       if (!canAccessPath(item.path)) return false;
       // tour_manager sieht keine globale Kundenliste — Kunden werden zentral über /customers verwaltet,
@@ -162,7 +131,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
       if (role === "tour_manager" && (item.customersNav || item.path === "/customers")) return false;
       return true;
     });
-  }, [isCompanyRole, isKunden, role, canAccessPath]);
+  }, [role, canAccessPath]);
 
   const visibleSettingsSubItems = useMemo(
     () => settingsSubItems.filter((item) => canAccessPath(item.path)),
@@ -190,7 +159,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
         <div className="flex h-16 flex-shrink-0 items-center justify-between px-4" style={{ borderBottom: "1px solid var(--border-soft)" }}>
           <div className="flex items-center gap-3">
             <img src="/assets/brand/logopropus.png" alt="Propus" className="h-8 w-auto" />
-            <span className="font-bold text-lg" style={{ color: "var(--text-main)", fontFamily: "var(--propus-font-heading)" }}>{isKunden ? t(lang, "nav.portal.customerPortal") : t(lang, "nav.admin")}</span>
+            <span className="font-bold text-lg" style={{ color: "var(--text-main)", fontFamily: "var(--propus-font-heading)" }}>{t(lang, "nav.admin")}</span>
           </div>
           <button
             onClick={onMobileClose}
@@ -303,10 +272,6 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                         <NavLink to="/customers" onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
                           <Users className="h-4 w-4 flex-shrink-0" />
                           {t(lang, "nav.customers")}
-                        </NavLink>
-                        <NavLink to="/customers?tab=portal-firms" onClick={onMobileClose} className={({ isActive }) => cn("propus-nav-item text-sm", location.pathname === "/customers" && location.search === "?tab=portal-firms" ? "active-sub" : "")}>
-                          <Building2 className="h-4 w-4 flex-shrink-0" />
-                          Portal-Firmen
                         </NavLink>
                       </div>
                     )}
@@ -461,7 +426,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                 className="h-8 w-auto"
               />
               <span className="font-bold text-lg" style={{ color: "var(--text-main)", fontFamily: "var(--propus-font-heading)" }}>
-                {isKunden ? t(lang, "nav.portal.customerPortal") : t(lang, "nav.admin")}
+                {t(lang, "nav.admin")}
               </span>
             </div>
           )}
@@ -604,10 +569,6 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                         <NavLink to="/customers" className={({ isActive }) => cn("propus-nav-item text-sm", isActive ? "active-sub" : "")}>
                           <Users className="h-4 w-4 flex-shrink-0" />
                           {t(lang, "nav.customers")}
-                        </NavLink>
-                        <NavLink to="/customers?tab=portal-firms" className={({ isActive }) => cn("propus-nav-item text-sm", location.pathname === "/customers" && location.search === "?tab=portal-firms" ? "active-sub" : "")}>
-                          <Building2 className="h-4 w-4 flex-shrink-0" />
-                          Portal-Firmen
                         </NavLink>
                       </div>
                     )}

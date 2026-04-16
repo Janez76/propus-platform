@@ -2,24 +2,15 @@ import { useState } from "react";
 import { useAuthStore } from "../../store/authStore";
 import { t } from "../../i18n";
 import { API_BASE } from "../../api/client";
-import { isKundenRole } from "../../lib/permissions";
-import { portalLogout } from "../../api/portalTours";
 
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const language = useAuthStore((s) => s.language);
   const setLanguage = useAuthStore((s) => s.setLanguage);
-  const role = useAuthStore((s) => s.role);
-  const isKunden = isKundenRole(role);
 
   async function handleLogout() {
     clearAuth();
-    if (isKunden) {
-      await portalLogout().catch(() => null);
-      window.location.href = "/login";
-      return;
-    }
     const redirect = encodeURIComponent(new URL(process.env.NEXT_PUBLIC_BASE_URL || "/", window.location.origin).toString());
     window.location.href = `${API_BASE}/auth/logout?redirect=${redirect}`;
   }

@@ -21,24 +21,19 @@ function registerAccessRoutes(app, deps) {
   app.get("/api/admin/access/groups", requireAdmin, async (req, res) => {
     try {
       const scopeType = String(req.query.scope_type || "").trim();
-      const companyId = req.query.scope_company_id != null ? Number(req.query.scope_company_id) : null;
       const customerId = req.query.scope_customer_id != null ? Number(req.query.scope_customer_id) : null;
       const params = [];
       let where = "WHERE 1=1";
-      if (scopeType && ["system", "company", "customer"].includes(scopeType)) {
+      if (scopeType && ["system", "customer"].includes(scopeType)) {
         params.push(scopeType);
         where += ` AND pg.scope_type = $${params.length}`;
-      }
-      if (Number.isFinite(companyId)) {
-        params.push(companyId);
-        where += ` AND pg.scope_company_id = $${params.length}`;
       }
       if (Number.isFinite(customerId)) {
         params.push(customerId);
         where += ` AND pg.scope_customer_id = $${params.length}`;
       }
       const { rows } = await deps.db.query(
-        `SELECT pg.id, pg.name, pg.scope_type, pg.scope_company_id, pg.scope_customer_id, pg.created_at,
+        `SELECT pg.id, pg.name, pg.scope_type, pg.scope_customer_id, pg.created_at,
                 COALESCE(
                   (SELECT json_agg(pgp.permission_key ORDER BY pgp.permission_key)
                    FROM permission_group_permissions pgp WHERE pgp.group_id = pg.id),
@@ -61,24 +56,19 @@ function registerAccessRoutes(app, deps) {
     try {
       const name = String(req.body?.name || "").trim();
       const scope_type = String(req.body?.scope_type || "system").trim();
-      const scope_company_id = req.body?.scope_company_id != null ? Number(req.body.scope_company_id) : null;
       const scope_customer_id = req.body?.scope_customer_id != null ? Number(req.body.scope_customer_id) : null;
       if (!name) return res.status(400).json({ error: "name erforderlich" });
-      if (!["system", "company", "customer"].includes(scope_type)) return res.status(400).json({ error: "Ungueltiger scope_type" });
-      if (scope_type === "company" && !Number.isFinite(scope_company_id)) {
-        return res.status(400).json({ error: "scope_company_id erforderlich" });
-      }
+      if (!["system", "customer"].includes(scope_type)) return res.status(400).json({ error: "Ungueltiger scope_type" });
       if (scope_type === "customer" && !Number.isFinite(scope_customer_id)) {
         return res.status(400).json({ error: "scope_customer_id erforderlich" });
       }
       const { rows } = await deps.db.query(
-        `INSERT INTO permission_groups (name, scope_type, scope_company_id, scope_customer_id)
-         VALUES ($1,$2,$3,$4)
-         RETURNING id, name, scope_type, scope_company_id, scope_customer_id, created_at`,
+        `INSERT INTO permission_groups (name, scope_type, scope_customer_id)
+         VALUES ($1,$2,$3)
+         RETURNING id, name, scope_type, scope_customer_id, created_at`,
         [
           name,
           scope_type,
-          scope_type === "company" ? scope_company_id : null,
           scope_type === "customer" ? scope_customer_id : null,
         ]
       );
@@ -113,7 +103,7 @@ function registerAccessRoutes(app, deps) {
           ]);
         }
       }
-      const { rows } = await deps.db.query(`SELECT id, name, scope_type, scope_company_id, scope_customer_id FROM permission_groups WHERE id = $1`, [gid]);
+      const { rows } = await deps.db.query(`SELECT id, name, scope_type, scope_customer_id FROM permission_groups WHERE id = $1`, [gid]);
       if (!rows[0]) return res.status(404).json({ error: "Gruppe nicht gefunden" });
       const { rows: pkRows } = await deps.db.query(`SELECT permission_key FROM permission_group_permissions WHERE group_id = $1 ORDER BY permission_key`, [gid]);
       res.json({ ok: true, group: { ...rows[0], permission_keys: pkRows.map((r) => r.permission_key) } });
@@ -138,7 +128,7 @@ function registerAccessRoutes(app, deps) {
       const gid = Number(req.params.id);
       const subjectId = Number(req.body?.subject_id);
       if (!Number.isFinite(gid) || !Number.isFinite(subjectId)) return res.status(400).json({ error: "group_id und subject_id erforderlich" });
-      const { rows: gRows } = await deps.db.query(`SELECT scope_type, scope_company_id, scope_customer_id FROM permission_groups WHERE id = $1`, [gid]);
+      const { rows: gRows } = await deps.db.query(`SELECT scope_type, scope_customer_id FROM permission_groups WHERE id = $1`, [gid]);
       const g = gRows[0];
       if (!g) return res.status(404).json({ error: "Gruppe nicht gefunden" });
       const { rows: sRows } = await deps.db.query(
@@ -382,9 +372,9 @@ function registerAccessRoutes(app, deps) {
       const name = String(req.body?.name || "").trim();
       if (!name) return res.status(400).json({ error: "name erforderlich" });
       const { rows } = await deps.db.query(
-        `INSERT INTO permission_groups (name, scope_type, scope_company_id, scope_customer_id)
-         VALUES ($1, 'customer', NULL, $2)
-         RETURNING id, name, scope_type, scope_company_id, scope_customer_id, created_at`,
+        `INSERT INTO permission_groups (name, scope_type, scope_customer_id)
+         VALUES ($1, 'customer', $2)
+         RETURNING id, name, scope_type, scope_customer_id, created_at`,
         [name, customerId]
       );
       const g = rows[0];
