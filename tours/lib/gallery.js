@@ -533,11 +533,16 @@ async function listGalleries({ search, filter, sort } = {}) {
   return rows;
 }
 
-async function getGallery(id) {
-  const { rows } = await pool.query(
-    'SELECT * FROM tour_manager.galleries WHERE id = $1',
-    [id]
-  );
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function getGallery(idOrSlug) {
+  if (idOrSlug == null) return null;
+  const value = String(idOrSlug).trim();
+  if (!value) return null;
+  const sql = UUID_REGEX.test(value)
+    ? 'SELECT * FROM tour_manager.galleries WHERE id = $1'
+    : 'SELECT * FROM tour_manager.galleries WHERE slug = $1';
+  const { rows } = await pool.query(sql, [value]);
   return rows[0] || null;
 }
 

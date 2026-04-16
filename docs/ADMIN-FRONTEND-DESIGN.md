@@ -45,7 +45,7 @@ Das gilt fuer:
 
 Referenz: `app/src/pages-legacy/admin/listing/ListingEditorPage.tsx`, CSS in `app/src/styles/listing-admin.css`.
 
-Die Listing-Editor-Seite (`/admin/listing/:id`) verwendet eigene `gbe-*`-Klassen. Folgende Muster stehen zur Wiederverwendung bereit:
+Die Listing-Editor-Seite (`/admin/listing/:id`) verwendet eigene `gbe-*`-Klassen. Der `:id`-Parameter akzeptiert sowohl UUID als auch Slug: Wird ein Slug erkannt, leitet die Seite automatisch auf die kanonische UUID-URL um (`navigate(pathListingAdmin(row.id), { replace: true })`), damit alle Folge-Mutationen (PATCH/DELETE) korrekt gegen `WHERE id = $1` funktionieren. Folgende Muster stehen zur Wiederverwendung bereit:
 
 ### Zuweisungs-Karte
 

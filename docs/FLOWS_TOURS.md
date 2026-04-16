@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei jeder Änderung an Tour-Status, Matterport-Integration, Verlängerungs- oder Archivierungs-Logik dieses Dokument aktualisieren. **Produkt-Workflow (Regeln, Reminder-Stufen, Preise):** [WORKFLOW_TOURS.md](./WORKFLOW_TOURS.md) — bei Abweichungen beide Dateien abstimmen.
 
-*Zuletzt aktualisiert: April 2026 (§16 Portal-Auth: Unified Login + Session-Bridge; Galerie/NAS: Migrationen 031–032; Admin `/api/tours/admin/galleries` NAS-Import; öffentlich `/api/listing/...` Video/Grundriss/ZIP; Bestellung nachträglich verknüpfen via Tour-Detail Intern-Sektion; Bank-Import: Vorschau/Multi-Upload, Bestellungssuche zur Rechnungszuordnung; Bestellungs-Admin: Finanzblock «Rechnungen & Zahlungen»; Bereinigungslauf: CUSTOMER_ACCEPTED_AWAITING_PAYMENT-Label + termEndFormatted-Fix; Matterport-State-Cron: POST /api/tours/cron/sync-matterport-state alle 5 Min; Rechnung löschen mit Workflow-Reset; Reaktivierung ohne Rechnung (Admin-Kulanz); Bereinigungslauf-Widget in Tour-Detail; Cleanup-Dashboard mit Matterport-Reaktivierung, 30-Tage-Löschvormerkung, Lösch-Cron und Gutschein-Nachversand; Gelesen-Tracking via `last_accessed_at` in `cleanup_sessions`; Erinnerungs-Batch `batch-reminder` für bereits kontaktierte Kunden ohne Aktion; Bulk-Delete: Exxas Hosting VR Tour Matterport 500xxx + Renewal CHF 63.80 offen/überfällig; Listing-Editor: Auto-Fill Kundenordner + Freigabe-Link nach Bestell-Auswahl via `?orderNo`-Override auf `nas-context`; Bestell-Kontakt-Fallback (Sentinel-ID −1) wenn Kunde keine gespeicherten Kontakte hat; NAS-Vorschläge: Raw-Material-Ordner im Editor ausgeblendet; Kundenordner-Vorschlag zeigt auf `/Finale`-Unterordner wenn vorhanden; Status-Wechsel im Listing-Editor wird sofort via PATCH persistiert)*
+*Zuletzt aktualisiert: April 2026 (§16 Portal-Auth: Unified Login + Session-Bridge; Galerie/NAS: Migrationen 031–032; Admin `/api/tours/admin/galleries` NAS-Import; öffentlich `/api/listing/...` Video/Grundriss/ZIP; Bestellung nachträglich verknüpfen via Tour-Detail Intern-Sektion; Bank-Import: Vorschau/Multi-Upload, Bestellungssuche zur Rechnungszuordnung; Bestellungs-Admin: Finanzblock «Rechnungen & Zahlungen»; Bereinigungslauf: CUSTOMER_ACCEPTED_AWAITING_PAYMENT-Label + termEndFormatted-Fix; Matterport-State-Cron: POST /api/tours/cron/sync-matterport-state alle 5 Min; Rechnung löschen mit Workflow-Reset; Reaktivierung ohne Rechnung (Admin-Kulanz); Bereinigungslauf-Widget in Tour-Detail; Cleanup-Dashboard mit Matterport-Reaktivierung, 30-Tage-Löschvormerkung, Lösch-Cron und Gutschein-Nachversand; Gelesen-Tracking via `last_accessed_at` in `cleanup_sessions`; Erinnerungs-Batch `batch-reminder` für bereits kontaktierte Kunden ohne Aktion; Bulk-Delete: Exxas Hosting VR Tour Matterport 500xxx + Renewal CHF 63.80 offen/überfällig; Listing-Editor: Auto-Fill Kundenordner + Freigabe-Link nach Bestell-Auswahl via `?orderNo`-Override auf `nas-context`; Bestell-Kontakt-Fallback (Sentinel-ID −1) wenn Kunde keine gespeicherten Kontakte hat; NAS-Vorschläge: Raw-Material-Ordner im Editor ausgeblendet; Kundenordner-Vorschlag zeigt auf `/Finale`-Unterordner wenn vorhanden; Status-Wechsel im Listing-Editor wird sofort via PATCH persistiert; `getGallery()` akzeptiert UUID oder Slug — Admin-Routen mit `:id`-Parameter funktionieren nun auch mit Slug-URLs)*
 
 ---
 
@@ -834,9 +834,9 @@ Basis-Mount: **`/api/tours/admin/galleries`** (hinter `requireAdmin`, siehe `pla
 |---|---|---|
 | `GET` | `/` | Liste mit `search`, `filter`, `sort` |
 | `POST` | `/` | Neues Listing erstellen |
-| `GET` | `/:id` | Detail inkl. Bilder + Feedback |
-| `PATCH` | `/:id` | Metadaten |
-| `DELETE` | `/:id` | Galerie löschen |
+| `GET` | `/:id` | Detail inkl. Bilder + Feedback. `:id` akzeptiert UUID oder Slug (`getGallery` erkennt das Format automatisch). |
+| `PATCH` | `/:id` | Metadaten (`:id` = UUID oder Slug) |
+| `DELETE` | `/:id` | Galerie löschen (`:id` = UUID oder Slug) |
 | `POST` | `/:id/duplicate` | Duplikat |
 | `GET` | `/email-templates` | E-Mail-Vorlagen |
 | `PUT` | `/email-templates/:tplId` | Vorlage speichern |
@@ -858,6 +858,8 @@ Basis-Mount: **`/api/tours/admin/galleries`** (hinter `requireAdmin`, siehe `pla
 ### Öffentliche JSON-API (`tours/routes/gallery-public-api.js`)
 
 Mount: **`/api/listing`** (ohne Login).
+
+**Proxy:** Next.js leitet `/api/listing/*` via Rewrite (`next.config.ts`) und Catch-All-Route (`app/src/app/api/listing/[[...path]]/route.ts`) an Express weiter. Damit ist die öffentliche Listing-API auch über die Frontend-Domain erreichbar.
 
 | Methode | Pfad | Beschreibung |
 |---|---|---|
