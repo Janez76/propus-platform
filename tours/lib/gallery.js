@@ -322,11 +322,27 @@ async function getGalleryNasContext(galleryId, { orderNoOverride = null } = {}) 
       const folders = await orderStorage.getOrderFolderSummary(order, bookingDb, { createMissing: false });
       for (const folder of folders) {
         const rootKind = folder.folderType === 'raw_material' ? 'raw' : 'customer';
+        // Kundenordner: bevorzuge den '/Finale'-Unterordner, wenn er existiert,
+        // weil dort die publizierten Bilder liegen.
+        let effectiveRelativePath = folder.relativePath;
+        let effectiveExists = folder.exists;
+        if (folder.folderType === 'customer_folder' && folder.exists) {
+          try {
+            const finaleCandidate = toPortableRelative(`${folder.relativePath}/Finale`);
+            const finaleAbs = resolveGalleryAbsolutePath(rootKind, finaleCandidate, { expectDirectory: true }).absolutePath;
+            if (fs.existsSync(finaleAbs) && fs.statSync(finaleAbs).isDirectory()) {
+              effectiveRelativePath = finaleCandidate;
+              effectiveExists = true;
+            }
+          } catch {
+            /* Finale-Ordner nicht vorhanden — bleibe bei Parent */
+          }
+        }
         let mediaSummary = { images: 0, floorPlans: 0, hasVideo: false };
-        if (folder.exists) {
+        if (effectiveExists) {
           try {
             mediaSummary = buildNasMediaSummary(
-              scanNasMediaFromDirectory(rootKind, resolveGalleryAbsolutePath(rootKind, folder.relativePath, { expectDirectory: true }).absolutePath)
+              scanNasMediaFromDirectory(rootKind, resolveGalleryAbsolutePath(rootKind, effectiveRelativePath, { expectDirectory: true }).absolutePath)
             );
           } catch {
             /* ignore broken folder */
@@ -335,11 +351,11 @@ async function getGalleryNasContext(galleryId, { orderNoOverride = null } = {}) 
         suggestions.push({
           folderType: folder.folderType,
           rootKind,
-          relativePath: folder.relativePath,
+          relativePath: effectiveRelativePath,
           displayName: folder.displayName,
           companyName: folder.companyName,
           status: folder.status,
-          exists: folder.exists,
+          exists: effectiveExists,
           mediaSummary,
           nextcloudShareUrl: folder.nextcloudShareUrl || null,
         });
