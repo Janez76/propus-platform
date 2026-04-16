@@ -881,7 +881,7 @@ Mount: **`/api/listing`** (ohne Login).
 | `GET` | `/:slug/images/:imgId` | Bild: NAS → `sendFile` (Websize-Variante bevorzugt via `resolvePreferredImageFile`), sonst Redirect `remote_src` |
 | `GET` | `/:slug/video` | Video-Datei (NAS) oder 404 |
 | `GET` | `/:slug/floorplans/:index` | PDF (NAS) oder Redirect auf gespeicherte URL |
-| `GET` | `/:slug/download-all` | ZIP des importierten NAS-Ordners (`archiver`). Query `?variant=websize\|fullsize\|all` (Default: `all`) filtert auf den jeweiligen Unterordner |
+| `GET` | `/:slug/download-all` | ZIP des importierten NAS-Ordners (`archiver`). Query `?variant=websize\|fullsize\|all` (Default: `all`) filtert auf den jeweiligen Unterordner. Dateiname nutzt `friendly_slug` (Fallback `slug`). |
 | `POST` | `/:slug/viewed` | Client-Log |
 | `POST` | `/:slug/downloaded` | Client-Log |
 | `POST` | `/:slug/feedback` | Kunden-Feedback; legt parallel ein Ticket in `tour_manager.tickets` an (`category='gallery_anmerkung'`, `reference_type='gallery'`) |
@@ -901,7 +901,7 @@ Die öffentliche Listing-Seite bietet einen einzigen Download-Button: **«Alle M
 
 Fallback: Wird kein Varianten-Unterordner gefunden, wird der gesamte Ordner als ZIP ausgeliefert.
 
-**ZIP-Dateiname:** `<slug>.zip` (all), `<slug>-websize.zip` bzw. `<slug>-fullsize.zip`.
+**ZIP-Dateiname:** Bevorzugt `<friendly_slug>.zip`, Fallback auf `<slug>.zip` wenn kein `friendly_slug` gesetzt ist. Bei Varianten-Download: `<friendly_slug>-websize.zip` bzw. `<friendly_slug>-fullsize.zip`. Nicht-Wort-Zeichen im Slug werden durch `-` ersetzt.
 
 ### Media-Summary (`GalleryMediaSummary`)
 

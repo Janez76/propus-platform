@@ -169,6 +169,30 @@ router.get('/:id/images/:imgId/file', async (req, res) => {
   }
 });
 
+// GET /:id/floorplans/:index/file — Admin-Vorschau fuer Grundriss-PDF
+router.get('/:id/floorplans/:index/file', async (req, res) => {
+  try {
+    const g = await gallery.getGallery(req.params.id);
+    if (!g) return res.status(404).json({ ok: false, error: 'Galerie nicht gefunden.' });
+    const index = Number.parseInt(String(req.params.index || ''), 10);
+    if (!Number.isFinite(index) || index < 0) {
+      return res.status(400).json({ ok: false, error: 'Ungültiger Grundriss-Index.' });
+    }
+    const items = gallery.parseStoredFloorPlans(g.floor_plans_json);
+    const item = items[index];
+    if (!item) return res.status(404).json({ ok: false, error: 'Grundriss nicht gefunden.' });
+    if (item.source_type === 'nas_local') {
+      const filePath = gallery.resolveGalleryFloorPlanFile(g, index);
+      if (!filePath) return res.status(404).json({ ok: false, error: 'Grundriss-Pfad nicht gefunden.' });
+      return res.sendFile(filePath);
+    }
+    if (!item.url) return res.status(404).json({ ok: false, error: 'Grundriss nicht gefunden.' });
+    return res.redirect(item.url);
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 // DELETE /:id/images/:imgId — Bild loeschen
 router.delete('/:id/images/:imgId', async (req, res) => {
   try {

@@ -166,6 +166,33 @@ export function adminGalleryImageUrl(galleryId: string, imageId: string) {
   return `${BASE}/${galleryId}/images/${imageId}/file`;
 }
 
+export function adminGalleryFloorPlanUrl(galleryId: string, index: number) {
+  return `${BASE}/${galleryId}/floorplans/${index}/file`;
+}
+
+export type AdminFloorPlanItem = {
+  title: string;
+  url: string | null;
+  source_type: string | null;
+};
+
+export function parseAdminFloorPlans(raw: string | null | undefined): AdminFloorPlanItem[] {
+  if (!raw || !raw.trim()) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === "object")
+      .map((entry) => ({
+        title: String(entry.title || "Grundriss").trim() || "Grundriss",
+        url: entry.url ? String(entry.url).trim() : null,
+        source_type: entry.source_type ? String(entry.source_type).trim() : null,
+      }));
+  } catch {
+    return [];
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Feedback
 // ---------------------------------------------------------------------------
