@@ -88,6 +88,58 @@ Alle Varianten haben Light- und Dark-Theme-Farben.
 
 - `gbe-autofill-flash`: Einblend-Meldung (gruener Balken links, `role="status"`), die nach 4 Sekunden automatisch ausblendet. Wird angezeigt wenn eine Bestellungs-Auswahl Felder vorausfuellt. Die Meldung listet dynamisch die uebernommenen Teile auf (z. B. «Kunde, Kontakt, Adresse, Kundenordner, Freigabe-Link aus Bestellung uebernommen.»).
 
+## Booking Admin-Panel: Gemeinsame Bausteine (seit Phase 1 Refactoring)
+
+Wiederverwendbare Module im Booking Admin-Panel (`booking/admin-panel/`), die bei neuen Order-Features zuerst herangezogen werden sollen.
+
+### StatusBadge
+
+Komponente: `src/components/ui/StatusBadge.tsx`
+
+Einheitliche Darstellung des Bestell-Status in allen Order-Ansichten. Ersetzt bisherige inline Badge-Implementierungen.
+
+| Prop | Typ | Beschreibung |
+|---|---|---|
+| `status` | `string` | Status-Key (z.B. `pending`, `confirmed`, `cancelled`) |
+| `variant` | `"default" \| "print"` | `default`: Icon + CSS-Klasse; `print`: Inline-Styles fuer Drucklayout |
+
+Verwendet in: `OrderTable`, `OrderCards`, `PrintOrder`.
+
+### Preisberechnung (`pricing.ts`)
+
+Modul: `src/lib/pricing.ts`
+
+| Export | Beschreibung |
+|---|---|
+| `calculatePricing(input)` | Kanonische Preisformel: Subtotal + MwSt + Rabatt → Total |
+| `VAT_RATE` | `0.081` (8.1 % Schweizer MwSt) |
+| `KEY_PICKUP_PRICE` | `50` (CHF, Schluesselabholung) |
+
+Eingabe (`PricingInput`): `packagePrice`, `addons[]`, `travelZonePrice`, `keyPickupActive`, `discount`.
+Ausgabe (`PricingResult`): `subtotal`, `discount`, `vat`, `total`.
+
+Regeln:
+- Negative Eingaben werden auf 0 geklemmt.
+- Rabatt wird vor MwSt abgezogen; Ergebnis kann nicht negativ werden.
+- Rundung auf 2 Dezimalstellen (`Math.round(x * 100) / 100`).
+- Unit-Tests: `src/lib/pricing.test.ts` (Vitest, 10 Tests).
+
+### Hilfsfunktionen und Hooks
+
+| Modul | Export | Beschreibung |
+|---|---|---|
+| `src/lib/address.ts` | `extractSwissZip(address)` | Extrahiert 4-stellige Schweizer PLZ aus Adress-String |
+| `src/hooks/useDirty.ts` | `useDirty(current, initial)` | Generisches Dirty-Tracking via `fast-deep-equal` |
+| `src/hooks/useT.ts` | `useT()` | Gibt sprachgebundene `t(key)`-Funktion zurueck (Convenience-Wrapper) |
+
+### Test-Infrastruktur
+
+- Vitest-Konfiguration: `booking/admin-panel/vitest.config.ts`
+- Scripts in `package.json`: `npm test` / `npm run test:watch`
+- Abhaengigkeiten: `vitest`, `@vitest/coverage-v8`, `fast-deep-equal`
+
+---
+
 ## i18n Pflicht
 
 Wenn neue Texte oder Tabellenlabels eingefuehrt werden:
