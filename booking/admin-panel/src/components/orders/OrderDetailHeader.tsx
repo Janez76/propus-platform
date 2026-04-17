@@ -15,13 +15,9 @@ type Props = {
   status: string;
   lang: Lang;
   uiMode: string;
-  isDirty: boolean;
+  statusDirty: boolean;
   savedOk: boolean;
   busy: string;
-  canManageOrder: boolean;
-  editMode: boolean;
-  onOpenEdit: () => void;
-  onCancelEdit: () => void;
   onSave: () => void;
   onClose: () => void;
   menuItems: MenuItem[];
@@ -32,13 +28,9 @@ export function OrderDetailHeader({
   status,
   lang,
   uiMode,
-  isDirty,
+  statusDirty,
   savedOk,
   busy,
-  canManageOrder,
-  editMode,
-  onOpenEdit,
-  onCancelEdit,
   onSave,
   onClose,
   menuItems,
@@ -76,23 +68,13 @@ export function OrderDetailHeader({
         <StatusBadge status={status} />
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        {canManageOrder && editMode && (
-          <>
-            <button
-              className={primaryClass}
-              disabled={!isDirty || busy === "save"}
-              onClick={onSave}
-            >
-              {busy === "save" ? t(lang, "common.saving") : t(lang, "orderDetail.button.saveChanges")}
-            </button>
-            <button className={secondaryClass} onClick={onCancelEdit} disabled={busy === "save"}>
-              {t(lang, "common.cancel")}
-            </button>
-          </>
-        )}
-        {canManageOrder && !editMode && (
-          <button className={secondaryClass} onClick={onOpenEdit}>
-            {t(lang, "common.edit")}
+        {statusDirty && (
+          <button
+            className={primaryClass}
+            disabled={busy === "save"}
+            onClick={onSave}
+          >
+            {busy === "save" ? t(lang, "common.saving") : t(lang, "orderDetail.button.saveChanges")}
           </button>
         )}
         {savedOk && (

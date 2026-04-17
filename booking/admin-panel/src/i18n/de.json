@@ -321,6 +321,7 @@
   "orderDetail.select.unassigned": "– Nicht zugewiesen –",
   "orderDetail.info.calendarUpdate": "Kalendereinträge werden nach dem Speichern aktualisiert.",
   "orderDetail.confirm.unsavedClose": "Es gibt ungespeicherte Änderungen. Wirklich schliessen?",
+  "orderDetail.confirm.discardChanges": "Änderungen verwerfen?",
   "orderDetail.error.invalidDateTime": "Bitte gültiges Datum und Uhrzeit angeben",
   "orderDetail.error.saveFailed": "Änderungen konnten nicht gespeichert werden",
   "orderDetail.error.emailFailed": "E-Mail konnte nicht gesendet werden",
