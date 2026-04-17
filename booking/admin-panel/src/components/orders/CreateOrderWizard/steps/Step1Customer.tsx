@@ -1,7 +1,8 @@
-import { User } from "lucide-react";
+import { User, UserX } from "lucide-react";
 import { CustomerAutocompleteInput } from "../../../ui/CustomerAutocompleteInput";
 import { AddressAutocompleteInput } from "../../../ui/AddressAutocompleteInput";
 import { DbFieldHint } from "../../../ui/DbFieldHint";
+import { EmptyState } from "../../../ui/empty-state";
 import { useT } from "../../../../hooks/useT";
 import { useAuthStore } from "../../../../store/authStore";
 import type { Lang } from "../../../../i18n";
@@ -58,6 +59,14 @@ export function Step1Customer({
             placeholder={t("wizard.placeholder.company")}
           />
         </div>
+
+        {state.company.trim() !== "" && customerContacts.length === 0 && (
+          <EmptyState
+            icon={<UserX className="h-6 w-6 text-[var(--text-subtle)]" />}
+            title={t("wizard.empty.noContacts")}
+            description={t("wizard.empty.noContacts.description")}
+          />
+        )}
 
         {customerContacts.length > 0 && (
           <div>
