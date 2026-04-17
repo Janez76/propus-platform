@@ -1,7 +1,7 @@
 import { useReducer, useMemo } from "react";
 import type { Product } from "../../../api/products";
 import type { Customer } from "../../../api/customers";
-import { calculatePricing, type PricingResult } from "../../../lib/pricing";
+import { calculatePricing, VAT_RATE, type PricingResult } from "../../../lib/pricing";
 import type { StatusKey } from "../../../lib/status";
 
 export type WizardFormState = {
@@ -295,7 +295,7 @@ export function selectPricing(state: WizardFormState, catalog: Product[]): Prici
     const overriddenSub = Number(state.manualSubtotal || 0);
     const disc = Number(state.discount || 0);
     const vatBase = Math.max(0, overriddenSub - disc);
-    const vat = Math.round(vatBase * 0.081 * 100) / 100;
+    const vat = Math.round(vatBase * VAT_RATE * 100) / 100;
     const total = Math.round((vatBase + vat) * 100) / 100;
     return {
       subtotal: overriddenSub,
