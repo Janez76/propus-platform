@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useCallback, useEffect, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { Pencil } from "lucide-react";
-import { assignPhotographer, getOrder, getOrderIcsUrl, resendEmail, resendStatusEmails, rescheduleOrder, type Order, type EditAddon, type EditPricing, type ResendEmailType, updateOrderDetails, updateOrderStatus } from "../../../api/orders";
+import { assignPhotographer, getOrder, getOrderIcsUrl, resendEmail, resendStatusEmails, rescheduleOrder, type Order, type ResendEmailType, updateOrderDetails, updateOrderStatus } from "../../../api/orders";
 import { getAdminConfig, type AdminConfig } from "../../../api/adminConfig";
 import { apiRequest } from "../../../api/client";
 import { getPhotographers, type Photographer } from "../../../api/photographers";
@@ -20,10 +20,10 @@ import { OrderChat } from "../OrderChat";
 import { OrderEmailLog } from "../OrderEmailLog";
 import { t, type Lang } from "../../../i18n";
 import { calculatePricing, KEY_PICKUP_PRICE } from "../../../lib/pricing";
-import { useDirty } from "../../../hooks/useDirty";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../../ui/tabs";
 import { OrderDetailHeader } from "./OrderDetailHeader";
 import { OrderDetailStatsBar } from "./OrderDetailStatsBar";
+import { useOrderForm } from "./hooks/useOrderForm";
 const GROUP_LABEL_KEYS: Record<string, string> = {
   camera: "orderDetail.group.camera", dronePhoto: "orderDetail.group.dronePhoto", tour: "orderDetail.group.tour",
   floorplans: "orderDetail.group.floorplans", groundVideo: "orderDetail.group.groundVideo", droneVideo: "orderDetail.group.droneVideo",
@@ -115,103 +115,33 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
   const [sendStatusEmails, setSendStatusEmails] = useState(false);
   const [statusEmailTargets, setStatusEmailTargets] = useState(DEFAULT_STATUS_EMAIL_TARGETS);
   const [editingCard, setEditingCard] = useState<CardKey | null>(null);
-  const [editBilling, setEditBilling] = useState({ salutation: "", first_name: "", name: "", email: "", phone: "", phone_mobile: "", company: "", company_email: "", company_phone: "", onsiteName: "", onsitePhone: "", street: "", zip: "", city: "", zipcity: "", order_ref: "", notes: "", alt_company: "", alt_company_email: "", alt_company_phone: "", alt_street: "", alt_zip: "", alt_city: "", alt_zipcity: "", alt_salutation: "", alt_first_name: "", alt_name: "", alt_email: "", alt_phone: "", alt_phone_mobile: "" });
-  const [editObjectAddress, setEditObjectAddress] = useState("");
-  const [editObject, setEditObject] = useState({ type: "", area: "", floors: "", rooms: "" });
   const [adminConfig, setAdminConfig] = useState<AdminConfig | null>(null);
-  const [editPackageKey, setEditPackageKey] = useState("");
-  const [editAddons, setEditAddons] = useState<EditAddon[]>([]);
-  const [editPricing, setEditPricing] = useState<EditPricing>({ subtotal: 0, discount: 0, vat: 0, total: 0 });
-  const [editKeyPickupActive, setEditKeyPickupActive] = useState(false);
-  const [editKeyPickupAddress, setEditKeyPickupAddress] = useState("");
-  const [newCustomLabel, setNewCustomLabel] = useState("");
-  const [newCustomPrice, setNewCustomPrice] = useState("");
+  const {
+    editBilling,
+    setEditBilling,
+    editObjectAddress,
+    setEditObjectAddress,
+    editObject,
+    setEditObject,
+    editPackageKey,
+    setEditPackageKey,
+    editAddons,
+    setEditAddons,
+    editPricing,
+    setEditPricing,
+    editKeyPickupActive,
+    setEditKeyPickupActive,
+    editKeyPickupAddress,
+    setEditKeyPickupAddress,
+    newCustomLabel,
+    setNewCustomLabel,
+    newCustomPrice,
+    setNewCustomPrice,
+    detailsDirty,
+    loadFromOrder,
+  } = useOrderForm(data);
   const emailsDirty = sendStatusEmails && (statusEmailTargets.customer || statusEmailTargets.office || statusEmailTargets.photographer || statusEmailTargets.cc);
   const statusDirty = status !== originalStatus || scheduleLocal !== originalSchedule || scheduleDurationMin !== originalScheduleDurationMin || pendingPhotographerKey !== originalPhotographerKey || emailsDirty;
-
-  const initialDetails = useMemo(() => {
-    if (!data) return null;
-    const normalizeAddons = (addons: EditAddon[]) => addons.map((a) => ({ id: a.id, label: a.label, price: Number(a.price) || 0, ...(a.qty !== undefined ? { qty: Number(a.qty) } : {}) }));
-    return {
-      billing: {
-        salutation: data.billing?.salutation || "",
-        first_name: data.billing?.first_name || "",
-        name: data.billing?.name || data.customerName || "",
-        email: data.billing?.email || data.customerEmail || "",
-        phone: data.billing?.phone || "",
-        phone_mobile: data.billing?.phone_mobile || "",
-        company: data.billing?.company || "",
-        company_email: data.billing?.company_email || "",
-        company_phone: data.billing?.company_phone || "",
-        onsiteName: data.billing?.onsiteName || "",
-        onsitePhone: data.billing?.onsitePhone || "",
-        street: data.billing?.street || data.customerStreet || "",
-        zip: data.billing?.zip || "",
-        city: data.billing?.city || "",
-        zipcity: data.billing?.zipcity || data.customerZipcity || "",
-        order_ref: data.billing?.order_ref || "",
-        notes: data.billing?.notes || data.notes || "",
-        alt_company: data.billing?.alt_company || "",
-        alt_company_email: data.billing?.alt_company_email || "",
-        alt_company_phone: data.billing?.alt_company_phone || "",
-        alt_street: data.billing?.alt_street || "",
-        alt_zip: data.billing?.alt_zip || "",
-        alt_city: data.billing?.alt_city || "",
-        alt_zipcity: data.billing?.alt_zipcity || "",
-        alt_salutation: data.billing?.alt_salutation || "",
-        alt_first_name: data.billing?.alt_first_name || "",
-        alt_name: data.billing?.alt_name || "",
-        alt_email: data.billing?.alt_email || "",
-        alt_phone: data.billing?.alt_phone || "",
-        alt_phone_mobile: data.billing?.alt_phone_mobile || "",
-      },
-      objectAddress: data.address || "",
-      object: {
-        type: String(data.object?.type || ""),
-        area: String(data.object?.area || ""),
-        floors: String(data.object?.floors || ""),
-        rooms: String(data.object?.rooms || ""),
-      },
-      packageKey: data.services?.package?.key || "",
-      addons: normalizeAddons((data.services?.addons || []) as EditAddon[]),
-      pricing: {
-        subtotal: Number(data.pricing?.subtotal || 0),
-        discount: Number(data.pricing?.discount || 0),
-        vat: Number(data.pricing?.vat || 0),
-        total: Number(data.total || data.pricing?.total || 0),
-      },
-      keyPickup: {
-        active: !!data.keyPickup?.address,
-        address: data.keyPickup?.address || "",
-      },
-      customDraft: { label: "", price: "" },
-    };
-  }, [data]);
-
-  const currentDetails = useMemo(() => {
-    if (!data) return null;
-    const normalizeAddons = (addons: EditAddon[]) => addons.map((a) => ({ id: a.id, label: a.label, price: Number(a.price) || 0, ...(a.qty !== undefined ? { qty: Number(a.qty) } : {}) }));
-    return {
-      billing: { ...editBilling },
-      objectAddress: editObjectAddress || "",
-      object: { ...editObject },
-      packageKey: editPackageKey || "",
-      addons: normalizeAddons(editAddons),
-      pricing: {
-        subtotal: Number(editPricing.subtotal) || 0,
-        discount: Number(editPricing.discount) || 0,
-        vat: Number(editPricing.vat) || 0,
-        total: Number(editPricing.total) || 0,
-      },
-      keyPickup: {
-        active: !!(editKeyPickupActive && editKeyPickupAddress),
-        address: editKeyPickupAddress || "",
-      },
-      customDraft: { label: newCustomLabel.trim(), price: newCustomPrice.trim() },
-    };
-  }, [data, editAddons, editBilling, editKeyPickupActive, editKeyPickupAddress, editObject, editObjectAddress, editPackageKey, editPricing, newCustomLabel, newCustomPrice]);
-
-  const detailsDirty = useDirty(currentDetails, initialDetails);
 
   const effectiveEditMode = canManageOrder && editingCard !== null;
   const isDirty = canManageOrder && (statusDirty || (effectiveEditMode && detailsDirty));
@@ -238,51 +168,8 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
     setOriginalPhotographerKey(pk);
     setSendStatusEmails(false);
     setStatusEmailTargets(DEFAULT_STATUS_EMAIL_TARGETS);
-    setEditBilling({
-      salutation: order.billing?.salutation || "",
-      first_name: order.billing?.first_name || "",
-      name: order.billing?.name || order.customerName || "",
-      email: order.billing?.email || order.customerEmail || "",
-      phone: order.billing?.phone || "",
-      phone_mobile: order.billing?.phone_mobile || "",
-      company: order.billing?.company || "",
-      company_email: order.billing?.company_email || "",
-      company_phone: order.billing?.company_phone || "",
-      onsiteName: order.billing?.onsiteName || "",
-      onsitePhone: order.billing?.onsitePhone || "",
-      street: order.billing?.street || order.customerStreet || "",
-      zip: order.billing?.zip || "",
-      city: order.billing?.city || "",
-      zipcity: order.billing?.zipcity || order.customerZipcity || "",
-      order_ref: order.billing?.order_ref || "",
-      notes: order.billing?.notes || order.notes || "",
-      alt_company: order.billing?.alt_company || "",
-      alt_company_email: order.billing?.alt_company_email || "",
-      alt_company_phone: order.billing?.alt_company_phone || "",
-      alt_street: order.billing?.alt_street || "",
-      alt_zip: order.billing?.alt_zip || "",
-      alt_city: order.billing?.alt_city || "",
-      alt_zipcity: order.billing?.alt_zipcity || "",
-      alt_salutation: order.billing?.alt_salutation || "",
-      alt_first_name: order.billing?.alt_first_name || "",
-      alt_name: order.billing?.alt_name || "",
-      alt_email: order.billing?.alt_email || "",
-      alt_phone: order.billing?.alt_phone || "",
-      alt_phone_mobile: order.billing?.alt_phone_mobile || "",
-    });
-    setEditObjectAddress(order.address || "");
-    setEditObject({
-      type: String(order.object?.type || ""),
-      area: String(order.object?.area || ""),
-      floors: String(order.object?.floors || ""),
-      rooms: String(order.object?.rooms || ""),
-    });
-    setEditPackageKey(order.services?.package?.key || "");
-    setEditAddons((order.services?.addons || []).map((a) => { const raw = a as unknown as Record<string, unknown>; return { id: String(a.id || ""), label: String(a.label || ""), price: Number(a.price) || 0, ...(raw.qty !== undefined ? { qty: Number(raw.qty) } : {}) }; }));
-    setEditPricing({ subtotal: Number(order.pricing?.subtotal) || 0, discount: Number(order.pricing?.discount) || 0, vat: Number(order.pricing?.vat) || 0, total: Number(order.total || order.pricing?.total) || 0 });
-    setEditKeyPickupActive(!!order.keyPickup?.address);
-    setEditKeyPickupAddress(order.keyPickup?.address || "");
-  }, [canManageOrder, token, orderNo]);
+    loadFromOrder(order);
+  }, [canManageOrder, token, orderNo, loadFromOrder]);
 
   useEffect(() => {
     load().catch((e) => setErr(e instanceof Error ? e.message : t(lang, "common.error")));
