@@ -9,7 +9,7 @@ import { formatPhoneCH } from "../../../lib/format";
 import { API_BASE } from "../../../api/client";
 import { extractSwissZip } from "../../../lib/address";
 import { useT } from "../../../hooks/useT";
-import { useWizardForm, usePricing, estimatePrice, type WizardFormState } from "./useWizardForm";
+import { useWizardForm, usePricing, estimatePrice, type WizardFormState } from "./hooks/useWizardForm";
 import { WizardShell, type WizardStepDef } from "./WizardShell";
 import { WizardPriceSidebar } from "./WizardPriceSidebar";
 import { Step1Customer } from "./steps/Step1Customer";

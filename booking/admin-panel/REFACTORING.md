@@ -6,8 +6,8 @@
 - **Ursprungs-Branch:** claude/refactor-orders-module-OlvYb
 - **Ursprungs-Commit:** 823c0c2d07cd0fa47fb7c5363f946942c8d90209
 - **Commit-Message:** Merge pull request #75 from Janez76/claude/admin-booking-listing-OVBJc
-- **Backup-Branch:** backup/orders-pre-refactor-20260417-105816
-- **Tarball:** .backups/orders-pre-refactor-20260417-105816.tar.gz (145 KB)
+- **Backup-Branch:** backup/orders-pre-refactor-20260417-105816 (lokal, aus dem damaligen Claude-Worktree). Nur der reduzierte Variant-Branch **`backup/orders-pre-refactor-20260417`** ist auf `origin` gelandet und dient dort als Rollback-Quelle.
+- **Tarball:** `.backups/orders-pre-refactor-20260417-105816.tar.gz` (145 KB, damals angelegt, im aktuellen Worktree nicht mehr vorhanden – siehe "Backup-Bestaetigung" unten fuer die Rekonstruktionsoptionen)
 - **Feature-Branch:** claude/refactor-orders-module-OlvYb (harness-vorgegeben, kein separater `refactor/orders-module`-Branch)
 
 ## Entscheidungen (aus Planungs-Q&A)
@@ -246,6 +246,6 @@ Intern (nur für Entwickler an `OrderDetail`/`CreateOrderWizard`):
 ## Backup-Bestätigung
 
 - **Ausgangs-Commit** `823c0c2d07cd0fa47fb7c5363f946942c8d90209` (Merge von PR #75) ist in der Git-History auf `master` weiterhin erreichbar (`git cat-file -t 823c0c2` → commit). Der komplette Pre-Refactor-Stand lässt sich jederzeit wiederherstellen via `git checkout 823c0c2 -- booking/admin-panel/src/components/orders/` oder für einen vollständigen Rollback-Branch via `git checkout -b rollback-orders 823c0c2`.
-- **Backup-Branch** `backup/orders-pre-refactor-20260417-105816`: der in Phase 0 angelegte lokale Backup-Branch existiert im aktuellen Arbeits-Worktree nicht mehr (vermutlich nur lokal im vorherigen Claude-Worktree angelegt und nicht zu `origin` gepusht). Der Inhalt ist dennoch vollständig reproduzierbar aus `823c0c2` (siehe oben).
-- **Tarball** `.backups/orders-pre-refactor-20260417-105816.tar.gz`: ebenfalls nicht im aktuellen Worktree vorhanden. Für einen neuen Tarball-Snapshot: `git archive --format=tar.gz --prefix=orders-pre-refactor/ 823c0c2 -- booking/admin-panel/src/components/orders booking/admin-panel/src/i18n booking/admin-panel/src/lib > /tmp/orders-pre-refactor.tar.gz`.
-- **Empfehlung für Follow-up**: Zum Absichern einen remote Backup-Branch anlegen: `git push origin 823c0c2:refs/heads/backup/orders-pre-refactor-20260417`. Das kostet nichts und schützt gegen versehentliches History-Rewriting.
+- **Backup-Branch auf origin:** `backup/orders-pre-refactor-20260417` (Commit `823c0c2`) existiert remote und ist die autoritative Rollback-Quelle. Abruf per `git fetch origin backup/orders-pre-refactor-20260417 && git checkout -b rollback-orders FETCH_HEAD`.
+- **Hinweis zum Plan-Namen mit Uhrzeit-Suffix:** Der ursprünglich in Phase 0 erzeugte lokale Backup-Branch `backup/orders-pre-refactor-20260417-105816` wurde nicht zu `origin` gepusht und existiert in keinem aktuellen Worktree mehr. Der Inhalt ist vollständig identisch zum Commit `823c0c2` (siehe oben) und ist über den remote-Branch ohne Uhrzeit-Suffix weiterhin erreichbar.
+- **Tarball `.backups/orders-pre-refactor-20260417-105816.tar.gz`: lokal nicht verfügbar.** Für einen reproduzierbaren Tarball-Snapshot aus dem Ausgangs-Commit: `git archive --format=tar.gz --prefix=orders-pre-refactor/ 823c0c2 -- booking/admin-panel/src/components/orders booking/admin-panel/src/i18n booking/admin-panel/src/lib > /tmp/orders-pre-refactor.tar.gz`.

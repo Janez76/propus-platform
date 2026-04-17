@@ -1,7 +1,7 @@
 import { Receipt } from "lucide-react";
 import { useT } from "../../../hooks/useT";
-import type { WizardFormState } from "./useWizardForm";
-import type { PricingSelection } from "./useWizardForm";
+import type { WizardFormState } from "./hooks/useWizardForm";
+import type { PricingSelection } from "./hooks/useWizardForm";
 import { KEY_PICKUP_PRICE } from "../../../lib/pricing";
 
 type Props = {

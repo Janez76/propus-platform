@@ -4,7 +4,7 @@ import { useT } from "../../../../hooks/useT";
 import { DbFieldHint } from "../../../ui/DbFieldHint";
 import { EmptyState } from "../../../ui/empty-state";
 import type { Photographer } from "../../../../api/photographers";
-import type { WizardFormState, WizardAction } from "../useWizardForm";
+import type { WizardFormState, WizardAction } from "../hooks/useWizardForm";
 import { STATUS_KEYS, STATUS_MAP } from "../../../../lib/status";
 import { INPUT_CLASS, LABEL_CLASS, SECTION_CLASS, SECTION_TITLE_CLASS } from "../styles";
 
