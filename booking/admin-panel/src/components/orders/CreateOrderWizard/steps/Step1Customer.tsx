@@ -6,7 +6,7 @@ import { useT } from "../../../../hooks/useT";
 import { useAuthStore } from "../../../../store/authStore";
 import type { Lang } from "../../../../i18n";
 import type { CustomerContact } from "../../../../api/customers";
-import type { WizardFormState, WizardAction } from "../useWizardForm";
+import type { WizardFormState, WizardAction } from "../hooks/useWizardForm";
 import {
   INPUT_CLASS,
   LABEL_CLASS,

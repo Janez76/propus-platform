@@ -1,8 +1,8 @@
 import { useReducer, useMemo } from "react";
-import type { Product } from "../../../api/products";
-import type { Customer } from "../../../api/customers";
-import { calculatePricing, type PricingResult } from "../../../lib/pricing";
-import type { StatusKey } from "../../../lib/status";
+import type { Product } from "../../../../api/products";
+import type { Customer } from "../../../../api/customers";
+import { calculatePricing, type PricingResult } from "../../../../lib/pricing";
+import type { StatusKey } from "../../../../lib/status";
 
 export type WizardFormState = {
   // Customer
