@@ -38,7 +38,7 @@ tar -xzf .backups/orders-pre-refactor-20260417-105816.tar.gz -C .
 - [x] Phase 0 – Backup
 - [x] Phase 1 – Code-Hygiene
 - [x] Phase 2 – OrderDetail UX
-- [ ] Phase 3 – Wizard
+- [x] Phase 3 – Wizard
 - [ ] Phase 4 – Empty States + Feinschliff
 
 ## Phase 1 – Änderungen
@@ -100,3 +100,51 @@ tar -xzf .backups/orders-pre-refactor-20260417-105816.tar.gz -C .
 - `npx vitest run` → 10/10 passed.
 - `npm run build` → erfolgreich.
 - `npm run lint` → keine neuen Fehler in geänderten Dateien (2 pre-existing `exhaustive-deps`-Warnungen in `OrderDetail.tsx`).
+
+## Phase 3 – Änderungen
+
+### Neue Module
+- `src/components/orders/CreateOrderWizard/` – neuer Ordner mit Wizard-Struktur:
+  - `index.tsx` – Main-Orchestrator (lädt Katalog/Fotografen/Kontakte, hält Step-Index, Slot-Fetch, Submit).
+  - `WizardShell.tsx` – Progress-Bar (4 Segmente, Checkmarks bei abgeschlossenen Schritten, Step-Label + Schritt-Zähler), Next/Back/Submit-Navigation, Content-Slot + optional Sticky-Sidebar (lg:`grid-cols-[1fr_320px]`).
+  - `WizardPriceSidebar.tsx` – Live-Preis (Paket, Addons, Key-Pickup, Travel-Zone, Subtotal, Discount, VAT, Total) mit Empty-State.
+  - `useWizardForm.ts` – `useReducer`-basierter Form-State (`WizardFormState` + `WizardAction`), `INITIAL_STATE`, `estimatePrice`, `selectPricing` (Selector) und `usePricing`-Hook; alle State-Mutationen gehen über typisierte Actions (`selectCustomer`, `setObjectAddress`, `setTravelZone`, `selectPackage`, `toggleAddon`, `toggleKeyPickup`, `setSlot`, `setInitialStatus`, `setStatusEmailTarget`, …).
+  - `styles.ts` – gemeinsame Tailwind-Klassen (`INPUT_CLASS`, `LABEL_CLASS`, `SECTION_CLASS`, `SECTION_TITLE_CLASS`).
+  - `steps/Step1Customer.tsx` – Firma, Ansprechpartner-Dropdown, Name/E-Mail/Telefon, Rechnungsadresse, CC-E-Mails.
+  - `steps/Step2Object.tsx` – Objektadresse + Auto-Travel-Zone, Vor-Ort-Kontakt, Objekt-Metadaten (Typ, Fläche, Etagen, Zimmer), Beschreibung.
+  - `steps/Step3Service.tsx` – Paket-Select, Addons-Checkboxen, Key-Pickup, Discount + Discount-Code; EmptyState wenn Katalog leer.
+  - `steps/Step4Schedule.tsx` – Anfangsstatus, E-Mail-Targets, Fotograf-Select, Datum, AM/PM-Slot-Picker, Notizen; EmptyStates für leere Fotografen-Liste und leere Slots.
+
+### Entfernte Module
+- `src/components/orders/CreateOrderWizard.tsx` (1676-Zeilen-Monolith) → ersetzt durch `CreateOrderWizard/`-Ordner (Import-Pfad bleibt identisch, `import { CreateOrderWizard } from "../components/orders/CreateOrderWizard"` löst auf `index.tsx` auf).
+
+### UX-Verbesserungen
+- **4 Schritte** (Kunde / Objekt / Service / Termin) statt eine endlose Seite.
+- **Progress-Bar**: abgeschlossene Schritte klickbar (zurückspringen), zukünftige blockiert; aktueller Schritt via `aria-current="step"`.
+- **Per-Schritt-Validierung**: `Next`-Button ist disabled, wenn der aktuelle Schritt ungültige Pflichtfelder hat; Fehler werden inline am Feld angezeigt, nicht erst beim Submit.
+- **Live-Preis-Sidebar** ab Schritt 3 (`showSidebar = currentStep >= 2`); auf Mobil fällt die Sidebar unter den Content (lg-breakpoint-gesteuert via `grid-cols-[1fr_320px]`).
+- **Slot-Fetch** lädt nur, wenn der User tatsächlich auf Schritt 4 ist (Datensparen + weniger `/api/admin/availability`-Requests während dem Ausfüllen der ersten Schritte).
+
+### useReducer statt useState-Cluster
+- Alte 50-Felder-`useState` plus 10 weitere Zustände (Package/Addon-Codes, Slots, Email-Targets, …) zusammengeführt in einem einzigen Reducer.
+- Pricing wird nicht mehr im Reducer berechnet, sondern on-the-fly aus dem State via `selectPricing(state, catalog)` (Selector-Pattern).
+- Manuelle `subtotal`-Override möglich via `setManualSubtotal`-Action (erhält Ableitung von VAT/Total, clampt nie die gespeicherte Subtotal).
+
+### i18n
+- Neu (DE/EN/FR/IT): `wizard.progress.stepOf`, `wizard.priceSidebar.title`, `wizard.priceSidebar.empty`, `wizard.empty.noPhotographers`, `wizard.empty.noSlots`.
+- Bestehende Keys `wizard.step.customer/object/service/schedule/price`, `wizard.button.back/next/createOrder` unverändert wiederverwendet.
+
+### Verhaltensänderungen (bewusst)
+- **Slot-Fetch-Timing**: Slots werden erst ab Schritt 4 geladen (bisher: sobald Datum gesetzt wurde, unabhängig von Wizard-Position). Weniger Netzwerk-Last während frühen Schritten.
+- **Duplicate-else-if bereinigt**: Redundante `else if (isAny && data.resolvedPhotographer && Array.isArray(data.freeSlots))`-Klausel entfernt (Lint-Fehler `no-dupe-else-if`, gleichzeitig Logik-Cleanup; das erste `Array.isArray(data.freeSlots)` deckt den Fall ab).
+- **Save-Button**: Aus dem Inline-Submit-Knopf am Seitenende wurde ein Submit-Button am Ende der Wizard-Navigation (nur im letzten Schritt sichtbar).
+
+### Nicht umgestellt
+- API-Contract zu `createOrder` / `updateOrderStatus` identisch (gleiches Payload-Shape).
+- `OrderCreate.tsx` und `OrderDetail.tsx` wurden nicht angefasst.
+
+### Verifikation
+- `npx tsc -b --noEmit` → clean.
+- `npx vitest run` → 10/10 passed.
+- `npm run build` → erfolgreich (13.64s).
+- `npm run lint` → 38 errors / 13 warnings (2 pre-existing Warnings in OrderDetail, alles andere vor-bestehend; −1 aus dem Wizard `no-dupe-else-if`-Fix).
