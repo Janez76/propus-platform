@@ -15,11 +15,11 @@ Das gilt fuer:
 ## Source Of Truth
 
 - Layout- und Design-Tokens: `app/src/index.css`
-- Zweites internes Frontend: `booking/admin-panel/src/index.css`
+- ~~Zweites internes Frontend: `booking/admin-panel/src/index.css`~~ — **deprecated** seit April 2026, siehe [`booking/admin-panel/DEPRECATED.md`](../booking/admin-panel/DEPRECATED.md)
 - Referenzseite: `app/src/pages-legacy/CustomersPage.tsx`
 - Referenzliste: `app/src/components/customers/CustomerList.tsx`
 - Zentrale Listen mit Tabs/Stats/Filter (Tour-Manager): `app/src/pages-legacy/admin/invoices/AdminInvoicesPage.tsx` (`/admin/invoices`)
-- Weitere interne Referenzseiten koennen aus `app/src/pages-legacy/` und `booking/admin-panel/src/pages/` herangezogen werden, muessen sich aber in dieselbe visuelle Sprache einfuegen
+- Weitere interne Referenzseiten aus `app/src/pages-legacy/` heranziehen. `booking/admin-panel/src/pages/` ist deprecated und dient nur noch als historische Referenz.
 
 ## Verbindliche Bausteine
 
@@ -89,6 +89,8 @@ Alle Varianten haben Light- und Dark-Theme-Farben.
 - `gbe-autofill-flash`: Einblend-Meldung (gruener Balken links, `role="status"`), die nach 4 Sekunden automatisch ausblendet. Wird angezeigt wenn eine Bestellungs-Auswahl Felder vorausfuellt. Die Meldung listet dynamisch die uebernommenen Teile auf (z. B. «Kunde, Kontakt, Adresse, Kundenordner, Freigabe-Link aus Bestellung uebernommen.»).
 
 ## Booking Admin-Panel: Gemeinsame Bausteine (seit Phase 1 Refactoring)
+
+> **Deprecated (April 2026):** `booking/admin-panel/` wird nicht mehr in Produktion ausgeliefert. Neue Features gehoeren nach `app/src/`. Die folgenden Abschnitte (Phase 1–4) dokumentieren die historische Architektur und dienen nur noch als Referenz fuer den inkrementellen Umzug nach `app/src/pages-legacy/`. Siehe [`booking/admin-panel/DEPRECATED.md`](../booking/admin-panel/DEPRECATED.md).
 
 Wiederverwendbare Module im Booking Admin-Panel (`booking/admin-panel/`), die bei neuen Order-Features zuerst herangezogen werden sollen.
 

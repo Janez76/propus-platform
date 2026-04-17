@@ -20,7 +20,7 @@
 | [docs/SCHEMA_FULL.md](docs/SCHEMA_FULL.md) | Vollständiges DB-Schema: core.*, booking.*, tour_manager.* — alle Tabellen mit allen Feldern |
 | [docs/ROLES_PERMISSIONS.md](docs/ROLES_PERMISSIONS.md) | Rollen & Permissions: RBAC-System, System-Rollen, Permission-Keys, Mapping-Tabelle, Rollen-Sync, Logto-Integration, Portal-Rollen |
 | [docs/EMAIL_TEMPLATES.md](docs/EMAIL_TEMPLATES.md) | E-Mail-Templates: Mail-Transport, alle Booking-Builder-Funktionen, Tour-Manager DB-Templates mit Platzhaltern, Logging |
-| [docs/ADMIN-FRONTEND-DESIGN.md](docs/ADMIN-FRONTEND-DESIGN.md) | Admin-Frontend Design-Referenz: Verbindliche Bausteine, Listing-Editor, Booking Admin-Panel Shared Components (StatusBadge, Tabs, Pricing, OrderDetail UX, CreateOrderWizard, EmptyState, Spacing Tokens) |
+| [docs/ADMIN-FRONTEND-DESIGN.md](docs/ADMIN-FRONTEND-DESIGN.md) | Admin-Frontend Design-Referenz: Verbindliche Bausteine, Listing-Editor, Booking Admin-Panel Shared Components (StatusBadge, Tabs, Pricing, OrderDetail UX, CreateOrderWizard, EmptyState, Spacing Tokens) — `booking/admin-panel/` ist seit April 2026 deprecated, siehe [`DEPRECATED.md`](booking/admin-panel/DEPRECATED.md) |
 
 ---
 
