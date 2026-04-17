@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 
 // Simple global registry to track unsaved/dirty states across components
 const dirtyRegistry = new Map<string, boolean>();
@@ -16,15 +16,12 @@ function hasAnyDirty() {
  * @param isDirty boolean flag
  */
 export function useUnsavedChangesGuard(id: string, isDirty: boolean) {
-  const idRef = useRef(id);
-  idRef.current = id;
-
   useEffect(() => {
-    dirtyRegistry.set(idRef.current, isDirty);
+    dirtyRegistry.set(id, isDirty);
     return () => {
-      dirtyRegistry.delete(idRef.current);
+      dirtyRegistry.delete(id);
     };
-  }, [isDirty]);
+  }, [id, isDirty]);
 
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {

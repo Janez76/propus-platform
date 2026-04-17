@@ -30,9 +30,29 @@ describe("isObjectAddressComplete", () => {
     expect(isObjectAddressComplete(state)).toBe(false);
   });
 
+  it("returns false when house number is missing but ZIP is present", () => {
+    const state = makeState({ address: "Bahnhofstrasse, 8001 Zürich" });
+    expect(isObjectAddressComplete(state)).toBe(false);
+  });
+
   it("returns false when zip/city is missing", () => {
     const state = makeState({ address: "Bahnhofstrasse 1" });
     expect(isObjectAddressComplete(state)).toBe(false);
+  });
+
+  it("accepts Swiss address with house number suffix (e.g. '12a')", () => {
+    const state = makeState({ address: "Seestrasse 12a, 6300 Zug" });
+    expect(isObjectAddressComplete(state)).toBe(true);
+  });
+
+  it("accepts French-style multi-word street names", () => {
+    const state = makeState({ address: "Rue du Lac 5, 1003 Lausanne" });
+    expect(isObjectAddressComplete(state)).toBe(true);
+  });
+
+  it("accepts address without a comma (space-separated)", () => {
+    const state = makeState({ address: "Postgasse 5 3011 Bern" });
+    expect(isObjectAddressComplete(state)).toBe(true);
   });
 });
 

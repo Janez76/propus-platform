@@ -82,7 +82,9 @@ export function OrderChat({ token, orderNo, order, actorRole = "admin" }: Props)
           if (prev.some((item) => item.id === parsed.id)) return prev;
           return [...prev, parsed];
         });
-      } catch (_) {}
+      } catch {
+        /* malformed SSE payload – skip */
+      }
     };
     es.addEventListener("message", onMessage as EventListener);
     es.onerror = () => {

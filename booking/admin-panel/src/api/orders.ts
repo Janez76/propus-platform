@@ -637,7 +637,9 @@ export function uploadChunkPart(
         if (parsed && typeof parsed === "object" && "error" in parsed) {
           message = String((parsed as { error?: unknown }).error || message);
         }
-      } catch {}
+      } catch {
+        /* use raw message */
+      }
       reject(new Error(message));
     };
     xhr.onerror = () => {

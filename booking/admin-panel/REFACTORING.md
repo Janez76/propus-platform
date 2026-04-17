@@ -238,8 +238,18 @@ Intern (nur für Entwickler an `OrderDetail`/`CreateOrderWizard`):
 ## Offene Punkte / Follow-ups
 
 - **Phase 2b**: Per-Card Inline-Edit in `OrderDetail.tsx` (globaler `editMode`-Flag durch pro-Section-Toggles ersetzen). Erfordert Backend-seitig entweder feinere Save-Endpoints oder client-seitiges partielles Payload-Merging.
-- **Lint-Baseline**: 51 vor-bestehende Probleme (vor allem `exhaustive-deps` in Legacy-Komponenten). Separater Cleanup-PR empfohlen.
-- **Wizard-Tests** (2026-04-17): Unit-Tests für `estimatePrice`, `selectPricing` (`CreateOrderWizard/hooks/useWizardForm.test.ts`) und `validateStep`/`isObjectAddressComplete` (`CreateOrderWizard/validation.test.ts`) ergänzt – 34 neue Tests (`npx vitest run` → 44/44). Follow-up: Component-Tests für den Stepper/Progress-Bar (benötigt `@testing-library/react`).
+- **Lint-Baseline** (2026-04-17, reduziert): Von 51 → 23 Probleme (38 → 10 Errors). Durchgeführt:
+  - `eslint.config.js` erweitert: `_`-Präfix-Konvention für `@typescript-eslint/no-unused-vars` (`argsIgnorePattern`, `varsIgnorePattern`, `caughtErrorsIgnorePattern`, `destructuredArrayIgnorePattern`, `ignoreRestSiblings`).
+  - Leere `catch (_) {}`-Blöcke in `api/client.ts`, `api/orders.ts`, `components/orders/OrderChat.tsx`, `pages/CustomersPage.tsx`, `pages/EmailTemplatesPage.tsx` durch sprechende Kommentare ersetzt.
+  - Irreguläre Whitespace-Chars (U+202F, U+00A0) in `api/client.ts` durch reguläre Spaces ersetzt.
+  - Leere Interfaces in `components/ui/dialog.tsx` (`DialogContentProps`, `DialogHeaderProps`, `DialogTitleProps`) zu Type-Aliases umgestellt.
+  - `OrderTable.SortHeader` aus dem Render-Body in eine Top-Level-Komponente extrahiert (Behebt 6x `react-hooks/static-components`).
+  - `StatusBadge` nutzt `createElement(getStatusIcon(status), { className })` statt `const Icon = … ; <Icon />` (Behebt `react-hooks/static-components`).
+  - `useUnsavedChangesGuard`: `idRef` entfernt, `id` direkt als Dependency übergeben (Behebt `react-hooks/refs`).
+  - `PrintOrderPage`: `printTokenRef` durch lazy `useState`-Initializer ersetzt (Behebt 3x `react-hooks/refs`).
+  - **Verbleibend (strukturell, separater PR empfohlen)**: 6x `react-hooks/set-state-in-effect` in Legacy-Komponenten (`CustomerViewModal`, `Topbar`, `OrderTable`-Scope, `OnsiteContactAutocompleteInput`, `OrdersPage`, `PrintOrderPage`), 1x `react-refresh/only-export-components` (`CalendarView.tsx` Konstanten-Split), 1x React-Compiler-Diagnose, 13x `react-hooks/exhaustive-deps`-Warnings.
+- **Wizard-Tests** (2026-04-17): Unit-Tests für `estimatePrice`, `selectPricing` (`CreateOrderWizard/hooks/useWizardForm.test.ts`) und `validateStep`/`isObjectAddressComplete` (`CreateOrderWizard/validation.test.ts`). Adress-Heuristik verschärft (Street+Housenummer muss unmittelbar aufeinanderfolgen, verhindert ZIP-Falschpositive wie `"Bahnhofstrasse, 8001 Zürich"`), 3 zusätzliche Testcases für Suffix-Hausnummern, Multi-Word-Strassen und komma-freie Adressen.
+- **Stepper-Component-Tests** (2026-04-17): `@testing-library/react` + `@testing-library/user-event` + `jsdom` als Dev-Deps ergänzt. `vitest.config.ts` bleibt auf `node`; Component-Tests opten per `// @vitest-environment jsdom`-Pragma auf Datei-Ebene in jsdom. 17 Tests in `CreateOrderWizard/WizardShell.test.tsx` (Progress-Bar, Navigation, Content-Slot). `npx vitest run` → **65/65** grün (10 pricing + 20 validation + 18 wizardForm + 17 WizardShell).
 - **Playwright-Suite**: `tests/chat.e2e.spec.ts` + ggf. neue Specs für den 4-Step-Wizard in CI aufnehmen.
 
 ## Backup-Bestätigung

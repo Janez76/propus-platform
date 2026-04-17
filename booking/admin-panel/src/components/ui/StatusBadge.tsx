@@ -1,3 +1,4 @@
+import { createElement } from "react";
 import { getStatusEntry, getStatusIcon } from "../../lib/status";
 
 type Variant = "default" | "print";
@@ -40,10 +41,9 @@ export function StatusBadge({ status, variant = "default" }: Props) {
       </span>
     );
   }
-  const Icon = getStatusIcon(status);
   return (
     <span className={entry.badgeClass}>
-      <Icon className="mr-1 h-3 w-3 shrink-0" />
+      {createElement(getStatusIcon(status), { className: "mr-1 h-3 w-3 shrink-0" })}
       {entry.label}
     </span>
   );
