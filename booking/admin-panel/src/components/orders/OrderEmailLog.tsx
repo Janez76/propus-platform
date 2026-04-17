@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { RefreshCw, Mail } from "lucide-react";
+import { RefreshCw, Mail, MailX } from "lucide-react";
 import { getOrderEmailLog, type OrderEmailLogEntry, type OrderEmailLogResponse } from "../../api/orders";
 import { t } from "../../i18n";
 import { useAuthStore } from "../../store/authStore";
+import { EmptyState } from "../ui/empty-state";
 
 const TEMPLATE_LABELS: Record<string, string> = {
   booking_office: "Neue Buchung (Büro)",
@@ -126,8 +127,12 @@ export function OrderEmailLog({ token, orderNo }: Props) {
         )}
 
         {!loading && !error && entries.length === 0 && (
-          <div className="px-4 py-6 text-center text-sm p-text-muted">
-            {availability === "no_db" ? t(language, "emailLog.empty.noDb") : t(language, "emailLog.empty")}
+          <div className="px-4 py-4">
+            <EmptyState
+              icon={<MailX className="h-5 w-5 text-[var(--text-subtle)]" />}
+              title={availability === "no_db" ? t(language, "emailLog.empty.noDb") : t(language, "emailLog.empty")}
+              className="!p-6"
+            />
           </div>
         )}
 

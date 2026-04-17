@@ -1332,24 +1332,18 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
         </div>
 
         {/* Fortschrittsbalken */}
-        {(busy === "upload" || transferActive) && (
+        {transferActive && (
           <div className="mt-3">
             <div className="mb-1 flex justify-between text-xs text-zinc-400">
               <span className="flex items-center gap-2">
-                {busy === "upload"
-                  ? `${uploadedCount} von ${files.length > 0 ? files.length : "?"} Datei${files.length !== 1 ? "en" : ""}`
-                  : t(lang, "upload.label.transferStatus")}
-                {uploadPaused && <span className="text-amber-400 font-semibold">– Pausiert</span>}
-                {uploadSpeed && busy === "upload" && !uploadPaused && (
-                  <span className="text-zinc-500">{uploadSpeed}</span>
-                )}
+                {t(lang, "upload.label.transferStatus")}
               </span>
-              <span>{busy === "upload" ? `${progress}%` : currentBatch?.status || "-"}</span>
+              <span>{currentBatch?.status || "-"}</span>
             </div>
             <div className="h-2 overflow-hidden rounded bg-zinc-800">
               <div
-                className={`h-full transition-all ${transferActive ? "animate-pulse bg-[var(--accent)]" : uploadPaused ? "bg-amber-500" : "bg-[var(--accent)]"}`}
-                style={{ width: `${busy === "upload" ? progress : transferActive ? 100 : 0}%` }}
+                className="h-full animate-pulse bg-[var(--accent)] transition-all"
+                style={{ width: "100%" }}
               />
             </div>
           </div>
@@ -1546,30 +1540,6 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
                           />
                         </div>
                       </div>
-                      {/* Dateiliste mit individuellem Fortschritt */}
-                      {files.length > 0 && (
-                        <div className="max-h-36 overflow-y-auto rounded-lg border border-zinc-700 bg-zinc-800/50 p-2 space-y-1">
-                          {files.map((f) => {
-                            const fKey = `${f.name}-${f.size}-${f.lastModified}`;
-                            const fProg = fileProgress[fKey] ?? 0;
-                            const done = fProg >= 100;
-                            const active = fProg > 0 && fProg < 100;
-                            return (
-                              <div key={fKey} className="flex items-center gap-2 text-xs">
-                                <span className="h-5 w-5 shrink-0 flex items-center justify-center">
-                                  {done
-                                    ? <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                                    : active
-                                    ? <RefreshCw className="h-3.5 w-3.5 animate-spin text-[var(--accent)]" />
-                                    : <span className="h-4 w-4 rounded-full border border-zinc-600" />}
-                                </span>
-                                <span className={`truncate flex-1 ${done ? "text-zinc-400" : active ? "text-zinc-100" : "text-zinc-500"}`}>{f.name}</span>
-                                <span className="shrink-0 text-zinc-500 tabular-nums w-8 text-right">{active ? `${fProg}%` : done ? "✓" : ""}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
                     </div>
                   ) : (
                     /* Vor dem Upload: Bestätigungsdialog */

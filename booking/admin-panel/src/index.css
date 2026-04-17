@@ -32,6 +32,14 @@
   --accent-hover:  var(--propus-gold-hover);
   --accent-subtle: color-mix(in srgb, var(--propus-gold) 12%, transparent);
 
+  /* --- Spacing Tokens (align with Tailwind default scale) --- */
+  --space-xs:  4px;
+  --space-sm:  8px;
+  --space-md:  12px;
+  --space-lg:  16px;
+  --space-xl:  24px;
+  --space-2xl: 32px;
+
   /* --- Auth Page Tokens --- */
   --auth-bg:            var(--propus-beige);
   --auth-card-bg:       #ffffff;
