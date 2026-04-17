@@ -3,8 +3,8 @@ import { Package as PackageIcon } from "lucide-react";
 import { cn } from "../../../../lib/utils";
 import { useT } from "../../../../hooks/useT";
 import type { Product } from "../../../../api/products";
-import type { WizardFormState, WizardAction } from "../useWizardForm";
-import { estimatePrice } from "../useWizardForm";
+import type { WizardFormState, WizardAction } from "../hooks/useWizardForm";
+import { estimatePrice } from "../hooks/useWizardForm";
 import { INPUT_CLASS, LABEL_CLASS, SECTION_CLASS, SECTION_TITLE_CLASS } from "../styles";
 import { EmptyState } from "../../../ui/empty-state";
 

@@ -35,7 +35,7 @@ export function Dialog({ open, onOpenChange, children }: DialogProps) {
   );
 }
 
-export interface DialogContentProps extends React.HTMLAttributes<HTMLDivElement> {}
+export type DialogContentProps = React.HTMLAttributes<HTMLDivElement>;
 
 export function DialogContent({ className, children, ...props }: DialogContentProps) {
   return (
@@ -52,7 +52,7 @@ export function DialogContent({ className, children, ...props }: DialogContentPr
   );
 }
 
-export interface DialogHeaderProps extends React.HTMLAttributes<HTMLDivElement> {}
+export type DialogHeaderProps = React.HTMLAttributes<HTMLDivElement>;
 
 export function DialogHeader({ className, ...props }: DialogHeaderProps) {
   return (
@@ -63,7 +63,7 @@ export function DialogHeader({ className, ...props }: DialogHeaderProps) {
   );
 }
 
-export interface DialogTitleProps extends React.HTMLAttributes<HTMLHeadingElement> {}
+export type DialogTitleProps = React.HTMLAttributes<HTMLHeadingElement>;
 
 export function DialogTitle({ className, ...props }: DialogTitleProps) {
   return (

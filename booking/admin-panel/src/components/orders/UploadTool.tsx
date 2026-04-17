@@ -22,6 +22,7 @@ import {
 } from "../../api/orders";
 import { t, type Lang } from "../../i18n";
 import { useAuthStore } from "../../store/authStore";
+import { EmptyState } from "../ui/empty-state";
 type Props = {
   token: string;
   orderNo: string;
@@ -1405,7 +1406,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
         )}
 
         {/* Dateibaum */}
-        {(anyFile || folderExists) && (
+        {anyFile || folderExists ? (
           <div className="mt-4 rounded-lg border border-zinc-700 bg-zinc-800/50 p-4">
             <div className="mb-2 font-semibold text-sm text-zinc-100">{t(lang, "upload.label.alreadyUploaded")}</div>
             {folderName && (
@@ -1428,6 +1429,14 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
                 />
               ))}
             </ul>
+          </div>
+        ) : (
+          <div className="mt-4">
+            <EmptyState
+              icon={<UploadCloud className="h-6 w-6 text-[var(--text-subtle)]" />}
+              title={t(lang, "uploads.empty")}
+              description={t(lang, "uploads.empty.description")}
+            />
           </div>
         )}
 

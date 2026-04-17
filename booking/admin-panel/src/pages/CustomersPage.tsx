@@ -574,7 +574,9 @@ export function CustomersPage() {
             try {
               const data = await getCustomerImpersonateUrl(token, c.id);
               if (data?.url) window.open(data.url, "_blank", "noopener");
-            } catch {}
+            } catch {
+              /* ignore: impersonation is best-effort */
+            }
           }}
           onAddContact={openQuickContact}
           onMerge={(c) => setMergeKeepCustomer(c)}

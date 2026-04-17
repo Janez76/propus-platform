@@ -6,8 +6,8 @@ import { useAuthStore } from "../../../../store/authStore";
 import type { Lang } from "../../../../i18n";
 import type { Product } from "../../../../api/products";
 import type { CustomerContact } from "../../../../api/customers";
-import type { WizardFormState, WizardAction } from "../useWizardForm";
-import { estimatePrice } from "../useWizardForm";
+import type { WizardFormState, WizardAction } from "../hooks/useWizardForm";
+import { estimatePrice } from "../hooks/useWizardForm";
 import { INPUT_CLASS, LABEL_CLASS, SECTION_CLASS, SECTION_TITLE_CLASS } from "../styles";
 
 type Props = {

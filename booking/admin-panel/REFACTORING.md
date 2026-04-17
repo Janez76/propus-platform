@@ -6,8 +6,8 @@
 - **Ursprungs-Branch:** claude/refactor-orders-module-OlvYb
 - **Ursprungs-Commit:** 823c0c2d07cd0fa47fb7c5363f946942c8d90209
 - **Commit-Message:** Merge pull request #75 from Janez76/claude/admin-booking-listing-OVBJc
-- **Backup-Branch:** backup/orders-pre-refactor-20260417-105816
-- **Tarball:** .backups/orders-pre-refactor-20260417-105816.tar.gz (145 KB)
+- **Backup-Branch:** backup/orders-pre-refactor-20260417-105816 (lokal, aus dem damaligen Claude-Worktree). Nur der reduzierte Variant-Branch **`backup/orders-pre-refactor-20260417`** ist auf `origin` gelandet und dient dort als Rollback-Quelle.
+- **Tarball:** `.backups/orders-pre-refactor-20260417-105816.tar.gz` (145 KB, damals angelegt, im aktuellen Worktree nicht mehr vorhanden – siehe "Backup-Bestaetigung" unten fuer die Rekonstruktionsoptionen)
 - **Feature-Branch:** claude/refactor-orders-module-OlvYb (harness-vorgegeben, kein separater `refactor/orders-module`-Branch)
 
 ## Entscheidungen (aus Planungs-Q&A)
@@ -90,7 +90,7 @@ tar -xzf .backups/orders-pre-refactor-20260417-105816.tar.gz -C .
 
 ### i18n
 - Neu (DE/EN/FR/IT): `orderDetail.tab.details`, `orderDetail.tab.scheduling`, `orderDetail.tab.communication`, `common.moreActions`.
-- `orderDetail.section.dangerZone` und `common.unsavedChanges` bleiben in den JSONs erhalten (potenzielle Wiederverwendung an anderer Stelle; harmlos). Cleanup ggf. in Phase 4.
+- `orderDetail.section.dangerZone` und `common.unsavedChanges` waren noch in den JSONs (ohne UI-Nutzung); später im i18n-Cleanup entfernt.
 
 ### Bewusst verschoben (Phase 2b)
 - **Per-Card Inline-Edit** ist in Phase 2 nicht geliefert. Der bestehende globale `editMode`-Flag kontrolliert weiterhin sämtliche Edit-UI gleichzeitig. Rationale: Einzelsektions-Edit würde eine größere Umstellung der Save-Logik erfordern (entweder pro Sektion separate Endpoints oder feinere Dirty-Flags mit partiellem Payload) und gefährdet ohne Backend-Anpassungen das "No-API-Change"-Constraint. Als Phase-2b-Follow-up vorgesehen: pro Card ein Stift-Icon + lokaler `isEditing`-Toggle, globaler Save im Header speichert weiterhin alles.
@@ -172,7 +172,7 @@ tar -xzf .backups/orders-pre-refactor-20260417-105816.tar.gz -C .
 
 ### Nicht umgestellt
 - Bestehende Tailwind-Utility-Klassen in den Orders-Komponenten wurden **nicht** pauschal auf `var(--space-*)` umgeschrieben – Tailwind-Scale und Tokens sind numerisch identisch, ein Massen-Ersatz würde das Diff aufblähen ohne Nutzen.
-- i18n-Key-Cleanup (`orderDetail.section.dangerZone`, `common.unsavedChanges`, die in Phase 2 als "harmlos erhaltbar" markiert wurden) wurde **bewusst verschoben**, um das Diff klein zu halten. Follow-up: in einem separaten "docs/i18n-Cleanup"-PR entfernen.
+- i18n-Key-Cleanup für `orderDetail.section.dangerZone` / `common.unsavedChanges` erfolgte nach Phase 4 separat (Keys waren unbenutzt).
 
 ### Verifikation
 - `npx tsc -b --noEmit` → clean.
@@ -238,14 +238,23 @@ Intern (nur für Entwickler an `OrderDetail`/`CreateOrderWizard`):
 ## Offene Punkte / Follow-ups
 
 - **Phase 2b**: Per-Card Inline-Edit in `OrderDetail.tsx` (globaler `editMode`-Flag durch pro-Section-Toggles ersetzen). Erfordert Backend-seitig entweder feinere Save-Endpoints oder client-seitiges partielles Payload-Merging.
-- **i18n-Cleanup**: Ungenutzte Keys `orderDetail.section.dangerZone`, `common.unsavedChanges` in allen 4 Sprachdateien entfernen.
-- **Lint-Baseline**: 51 vor-bestehende Probleme (vor allem `exhaustive-deps` in Legacy-Komponenten). Separater Cleanup-PR empfohlen.
-- **Wizard-Tests**: Unit-/Component-Tests für `selectPricing`, `validateStep` und den Stepper wären wertvoll (Vitest + React Testing Library bereits verfügbar).
+- **Lint-Baseline** (2026-04-17, reduziert): Von 51 → 23 Probleme (38 → 10 Errors). Durchgeführt:
+  - `eslint.config.js` erweitert: `_`-Präfix-Konvention für `@typescript-eslint/no-unused-vars` (`argsIgnorePattern`, `varsIgnorePattern`, `caughtErrorsIgnorePattern`, `destructuredArrayIgnorePattern`, `ignoreRestSiblings`).
+  - Leere `catch (_) {}`-Blöcke in `api/client.ts`, `api/orders.ts`, `components/orders/OrderChat.tsx`, `pages/CustomersPage.tsx`, `pages/EmailTemplatesPage.tsx` durch sprechende Kommentare ersetzt.
+  - Irreguläre Whitespace-Chars (U+202F, U+00A0) in `api/client.ts` durch reguläre Spaces ersetzt.
+  - Leere Interfaces in `components/ui/dialog.tsx` (`DialogContentProps`, `DialogHeaderProps`, `DialogTitleProps`) zu Type-Aliases umgestellt.
+  - `OrderTable.SortHeader` aus dem Render-Body in eine Top-Level-Komponente extrahiert (Behebt 6x `react-hooks/static-components`).
+  - `StatusBadge` nutzt `createElement(getStatusIcon(status), { className })` statt `const Icon = … ; <Icon />` (Behebt `react-hooks/static-components`).
+  - `useUnsavedChangesGuard`: `idRef` entfernt, `id` direkt als Dependency übergeben (Behebt `react-hooks/refs`).
+  - `PrintOrderPage`: `printTokenRef` durch lazy `useState`-Initializer ersetzt (Behebt 3x `react-hooks/refs`).
+  - **Verbleibend (strukturell, separater PR empfohlen)**: 6x `react-hooks/set-state-in-effect` in Legacy-Komponenten (`CustomerViewModal`, `Topbar`, `OrderTable`-Scope, `OnsiteContactAutocompleteInput`, `OrdersPage`, `PrintOrderPage`), 1x `react-refresh/only-export-components` (`CalendarView.tsx` Konstanten-Split), 1x React-Compiler-Diagnose, 13x `react-hooks/exhaustive-deps`-Warnings.
+- **Wizard-Tests** (2026-04-17): Unit-Tests für `estimatePrice`, `selectPricing` (`CreateOrderWizard/hooks/useWizardForm.test.ts`) und `validateStep`/`isObjectAddressComplete` (`CreateOrderWizard/validation.test.ts`). Adress-Heuristik verschärft (Street+Housenummer muss unmittelbar aufeinanderfolgen, verhindert ZIP-Falschpositive wie `"Bahnhofstrasse, 8001 Zürich"`), 3 zusätzliche Testcases für Suffix-Hausnummern, Multi-Word-Strassen und komma-freie Adressen.
+- **Stepper-Component-Tests** (2026-04-17): `@testing-library/react` + `@testing-library/user-event` + `jsdom` als Dev-Deps ergänzt. `vitest.config.ts` bleibt auf `node`; Component-Tests opten per `// @vitest-environment jsdom`-Pragma auf Datei-Ebene in jsdom. 17 Tests in `CreateOrderWizard/WizardShell.test.tsx` (Progress-Bar, Navigation, Content-Slot). `npx vitest run` → **65/65** grün (10 pricing + 20 validation + 18 wizardForm + 17 WizardShell).
 - **Playwright-Suite**: `tests/chat.e2e.spec.ts` + ggf. neue Specs für den 4-Step-Wizard in CI aufnehmen.
 
 ## Backup-Bestätigung
 
 - **Ausgangs-Commit** `823c0c2d07cd0fa47fb7c5363f946942c8d90209` (Merge von PR #75) ist in der Git-History auf `master` weiterhin erreichbar (`git cat-file -t 823c0c2` → commit). Der komplette Pre-Refactor-Stand lässt sich jederzeit wiederherstellen via `git checkout 823c0c2 -- booking/admin-panel/src/components/orders/` oder für einen vollständigen Rollback-Branch via `git checkout -b rollback-orders 823c0c2`.
-- **Backup-Branch** `backup/orders-pre-refactor-20260417-105816`: der in Phase 0 angelegte lokale Backup-Branch existiert im aktuellen Arbeits-Worktree nicht mehr (vermutlich nur lokal im vorherigen Claude-Worktree angelegt und nicht zu `origin` gepusht). Der Inhalt ist dennoch vollständig reproduzierbar aus `823c0c2` (siehe oben).
-- **Tarball** `.backups/orders-pre-refactor-20260417-105816.tar.gz`: ebenfalls nicht im aktuellen Worktree vorhanden. Für einen neuen Tarball-Snapshot: `git archive --format=tar.gz --prefix=orders-pre-refactor/ 823c0c2 -- booking/admin-panel/src/components/orders booking/admin-panel/src/i18n booking/admin-panel/src/lib > /tmp/orders-pre-refactor.tar.gz`.
-- **Empfehlung für Follow-up**: Zum Absichern einen remote Backup-Branch anlegen: `git push origin 823c0c2:refs/heads/backup/orders-pre-refactor-20260417`. Das kostet nichts und schützt gegen versehentliches History-Rewriting.
+- **Backup-Branch auf origin:** `backup/orders-pre-refactor-20260417` (Commit `823c0c2`) existiert remote und ist die autoritative Rollback-Quelle. Abruf per `git fetch origin backup/orders-pre-refactor-20260417 && git checkout -b rollback-orders FETCH_HEAD`.
+- **Hinweis zum Plan-Namen mit Uhrzeit-Suffix:** Der ursprünglich in Phase 0 erzeugte lokale Backup-Branch `backup/orders-pre-refactor-20260417-105816` wurde nicht zu `origin` gepusht und existiert in keinem aktuellen Worktree mehr. Der Inhalt ist vollständig identisch zum Commit `823c0c2` (siehe oben) und ist über den remote-Branch ohne Uhrzeit-Suffix weiterhin erreichbar.
+- **Tarball `.backups/orders-pre-refactor-20260417-105816.tar.gz`: lokal nicht verfügbar.** Für einen reproduzierbaren Tarball-Snapshot aus dem Ausgangs-Commit: `git archive --format=tar.gz --prefix=orders-pre-refactor/ 823c0c2 -- booking/admin-panel/src/components/orders booking/admin-panel/src/i18n booking/admin-panel/src/lib > /tmp/orders-pre-refactor.tar.gz`.

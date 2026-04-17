@@ -1,7 +1,7 @@
 import { CalendarDays, User, Wallet } from "lucide-react";
-import type { Order } from "../../api/orders";
-import { formatCurrency, formatDateTime } from "../../lib/utils";
-import { t, type Lang } from "../../i18n";
+import type { Order } from "../../../api/orders";
+import { formatCurrency, formatDateTime } from "../../../lib/utils";
+import { t, type Lang } from "../../../i18n";
 
 type Props = {
   data: Order;

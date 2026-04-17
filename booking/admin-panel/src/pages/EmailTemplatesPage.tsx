@@ -194,7 +194,7 @@ export function EmailTemplatesPage() {
         `/api/admin/email-templates/${tmpl.key}`, "GET", token
       );
       setHistory(res.history || []);
-    } catch (_) {
+    } catch {
       setHistory([]);
     }
   };

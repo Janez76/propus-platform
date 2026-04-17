@@ -14,26 +14,25 @@ export function PrintOrderPage() {
   const [data, setData] = useState<Order | null>(null);
   const [error, setError] = useState("");
   const printTriggered = useRef(false);
-  const printTokenRef = useRef("");
-
-  if (!printTokenRef.current) {
-    if (token) {
-      printTokenRef.current = token;
-    } else if (typeof window !== "undefined") {
-      try {
-        printTokenRef.current = window.localStorage.getItem(PRINT_TOKEN_KEY) || "";
-      } catch {
-        printTokenRef.current = "";
-      }
+  // Snapshot the token once on mount: prefer the auth store, fall back to the
+  // one-shot print token stashed in localStorage by the admin panel. Using a
+  // lazy useState initializer avoids writing to a ref during render.
+  const [initialPrintToken] = useState<string>(() => {
+    if (token) return token;
+    if (typeof window === "undefined") return "";
+    try {
+      return window.localStorage.getItem(PRINT_TOKEN_KEY) || "";
+    } catch {
+      return "";
     }
-  }
+  });
 
   useEffect(() => {
     if (!orderNo) {
       setError(t(language, "printOrderPage.error.invalidOrderNo"));
       return;
     }
-    const effectiveToken = printTokenRef.current || token;
+    const effectiveToken = initialPrintToken || token;
     if (!effectiveToken) {
       setError(t(language, "printOrderPage.error.missingToken"));
       return;
@@ -42,7 +41,7 @@ export function PrintOrderPage() {
     getOrder(effectiveToken, orderNo)
       .then(setData)
       .catch((e) => setError(e instanceof Error ? e.message : t(language, "printOrderPage.error.loadFailed")));
-  }, [orderNo, token, language]);
+  }, [orderNo, token, language, initialPrintToken]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;

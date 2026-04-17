@@ -22,6 +22,36 @@ type Props = {
 type SortKey = "orderNo" | "customer" | "address" | "appointment" | "total" | "status";
 type SortDir = "asc" | "desc";
 
+function SortHeader({
+  label,
+  keyName,
+  sortKey,
+  sortDir,
+  onToggle,
+}: {
+  label: string;
+  keyName: SortKey;
+  sortKey: SortKey | null;
+  sortDir: SortDir;
+  onToggle: (key: SortKey) => void;
+}) {
+  const isActive = sortKey === keyName;
+  return (
+    <button
+      type="button"
+      onClick={() => onToggle(keyName)}
+      className="inline-flex items-center gap-1.5 text-left text-xs font-bold uppercase tracking-wider text-[var(--accent)] hover:text-[#d7b878]"
+    >
+      <span>{label}</span>
+      {isActive ? (
+        sortDir === "asc" ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />
+      ) : (
+        <ArrowUpDown className="h-3.5 w-3.5 opacity-70" />
+      )}
+    </button>
+  );
+}
+
 const SECTION_ORDER: StatusKey[] = [
   "pending",
   "provisional",
@@ -171,24 +201,6 @@ export function OrderTable({
       return;
     }
     setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
-  }
-
-  function SortHeader({ label, keyName }: { label: string; keyName: SortKey }) {
-    const isActive = sortKey === keyName;
-    return (
-      <button
-        type="button"
-        onClick={() => toggleSort(keyName)}
-        className="inline-flex items-center gap-1.5 text-left text-xs font-bold uppercase tracking-wider text-[var(--accent)] hover:text-[#d7b878]"
-      >
-        <span>{label}</span>
-        {isActive ? (
-          sortDir === "asc" ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />
-        ) : (
-          <ArrowUpDown className="h-3.5 w-3.5 opacity-70" />
-        )}
-      </button>
-    );
   }
 
   function renderOrderCard(o: Order) {
@@ -388,12 +400,12 @@ export function OrderTable({
                     aria-label={t(lang, "orders.bulk.selectAllVisible")}
                   />
                 </th>
-                <th className="px-3 py-2 text-left"><SortHeader label={t(lang, "orders.table.order")} keyName="orderNo" /></th>
-                <th className="px-3 py-2 text-left"><SortHeader label={t(lang, "orders.table.customer")} keyName="customer" /></th>
-                <th className="px-3 py-2 text-left"><SortHeader label={t(lang, "orders.table.address")} keyName="address" /></th>
-                <th className="px-3 py-2 text-left"><SortHeader label={t(lang, "orders.table.appointment")} keyName="appointment" /></th>
-                <th className="px-3 py-2 text-left"><SortHeader label={t(lang, "orders.table.total")} keyName="total" /></th>
-                <th className="px-3 py-2 text-left"><SortHeader label={t(lang, "orders.table.status")} keyName="status" /></th>
+                <th className="px-3 py-2 text-left"><SortHeader label={t(lang, "orders.table.order")} keyName="orderNo" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} /></th>
+                <th className="px-3 py-2 text-left"><SortHeader label={t(lang, "orders.table.customer")} keyName="customer" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} /></th>
+                <th className="px-3 py-2 text-left"><SortHeader label={t(lang, "orders.table.address")} keyName="address" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} /></th>
+                <th className="px-3 py-2 text-left"><SortHeader label={t(lang, "orders.table.appointment")} keyName="appointment" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} /></th>
+                <th className="px-3 py-2 text-left"><SortHeader label={t(lang, "orders.table.total")} keyName="total" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} /></th>
+                <th className="px-3 py-2 text-left"><SortHeader label={t(lang, "orders.table.status")} keyName="status" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} /></th>
                 <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-[var(--accent)]">{t(lang, "orders.table.actions")}</th>
               </tr>
             </thead>
