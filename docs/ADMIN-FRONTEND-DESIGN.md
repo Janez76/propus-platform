@@ -164,10 +164,11 @@ Ersetzt die bisherige einfache Kopfzeile (H3 + Edit/Close) durch einen vollstaen
 | Element | Beschreibung |
 |---|---|
 | Titel + StatusBadge | Bestellnummer mit inline Status-Badge |
-| Primaere Aktion (Edit-Modus) | Save-Button (disabled wenn nicht dirty), Cancel-Button |
-| Edit-Button (Lese-Modus) | Oeffnet den globalen Edit-Modus |
+| Save-Button (nur bei Status-Aenderung) | Erscheint wenn `statusDirty` true ist; speichert Statusaenderung |
 | Kebab-Menue (3-Punkte) | Drucken, Upload, ICS-Download, Auftrag loeschen (destructive, rot) |
 | Schliessen-Button | Immer sichtbar |
+
+Seit Phase 2b entfallen die Props `canManageOrder`, `editMode`, `onOpenEdit`, `onCancelEdit`. Der Header zeigt keinen globalen Edit/Cancel mehr — Detail-Bearbeitung erfolgt per-Card inline (siehe unten). `isDirty` wurde durch `statusDirty` ersetzt.
 
 Das Kebab-Menue schliesst bei Click-outside und Escape. Menueeintraege werden als `MenuItem[]`-Array uebergeben (Label, onClick, optional `destructive`).
 
@@ -198,7 +199,49 @@ Styling: `surface-raised` Hintergrund, `--border-soft` Rand, Lucide-Icons in Akz
 Bisherige Elemente, die entfernt/verschoben wurden:
 - Bottom-Action-Bar (Drucken/Upload/ICS) → Kebab-Menue im Header
 - Danger-Zone-Block (roter Loeschen-Button) → Kebab-Menue (destructive)
-- Inline Save-Button-Zeile → Primaere Aktion im Header
+- Globaler Edit-Button im Header → Per-Card Pencil-Icons (seit Phase 2b)
+- Globaler Save/Cancel im Header → Inline Save/Cancel pro Karte (seit Phase 2b)
+
+## Booking Admin-Panel: Per-Card Inline Edit (seit Phase 2b Refactoring)
+
+Der bisherige globale Edit-Modus (`editMode: boolean`) wurde durch kartenweises Inline-Editing ersetzt. Jede Karte im Details-Tab kann einzeln bearbeitet werden.
+
+### Konzept
+
+State: `editingCard: CardKey | null` mit `CardKey = "company" | "contact" | "billing" | "object" | "services"`. Nur eine Karte ist gleichzeitig im Edit-Modus. Der Wechsel zwischen Karten mit ungespeicherten Aenderungen loest einen Confirm-Dialog aus (`orderDetail.confirm.discardChanges`).
+
+### Karten-Aufbau (Muster)
+
+Jede editierbare Karte folgt demselben Aufbau:
+
+| Element | Beschreibung |
+|---|---|
+| Pencil-Icon (Kopfzeile rechts) | Oeffnet den Edit-Modus fuer diese Karte; nur sichtbar wenn `canManageOrder` und Karte nicht bereits im Edit-Modus |
+| Edit-Formular | Wird anstelle der Lese-Ansicht gerendert wenn `editingCard === key` |
+| Card-Footer | Inline Save-Button (disabled wenn nicht dirty) + Cancel-Button; einheitlich via `renderCardFooter()` |
+
+### Keyboard-Shortcuts
+
+Jede aktive Karte faengt Tastatur-Events via `onKeyDown`:
+
+| Shortcut | Aktion |
+|---|---|
+| `Escape` | Bricht Bearbeitung ab (`cancelCardEdit`) |
+| `Ctrl+Enter` / `Cmd+Enter` | Speichert Aenderungen (`runSaveDetails`) |
+
+### Karten-Uebersicht
+
+| CardKey | Karteninhalt |
+|---|---|
+| `company` | Firma, Firma-E-Mail, Firma-Telefon (mit CustomerAutocompleteInput) |
+| `contact` | Anrede, Vorname, Name, E-Mail, Telefon, Mobil (mit CustomerAutocompleteInput) |
+| `billing` | Rechnungsadresse (Strasse, PLZ/Ort) + alternative Rechnungsadresse, Auftragsreferenz, Notizen |
+| `object` | Objektadresse, Typ, Flaeche, Etagen, Zimmer, Vor-Ort-Kontakt |
+| `services` | Paket, Addons, Schluesselabholung, Rabatt, Custom-Posten, Preisberechnung (ganzseitig, `sm:col-span-2`) |
+
+### i18n
+
+Neuer Schluessel: `orderDetail.confirm.discardChanges` (alle 4 Sprachen: DE, EN, FR, IT).
 
 ## Booking Admin-Panel: CreateOrderWizard (seit Phase 3 Refactoring)
 
