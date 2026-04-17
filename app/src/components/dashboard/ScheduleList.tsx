@@ -1,9 +1,10 @@
+import { useMemo } from "react";
 import { Calendar, MapPin, User, Clock } from "lucide-react";
 import { Link } from "react-router-dom";
-import { formatSwissDate } from "../../lib/format";
 import { cn } from "../../lib/utils";
 import type { Order } from "../../api/orders";
-import { t } from "../../i18n";
+import { getStatusEntry } from "../../lib/status";
+import { t, type Lang } from "../../i18n";
 import { useAuthStore } from "../../store/authStore";
 
 interface ScheduleListProps {
@@ -12,35 +13,87 @@ interface ScheduleListProps {
   onCreateOrder?: () => void;
 }
 
+interface DayBucket {
+  key: string;
+  date: Date;
+  isToday: boolean;
+  isTomorrow: boolean;
+  orders: Order[];
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function startOfDay(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function dayKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export function ScheduleList({ orders, days = 7, onCreateOrder }: ScheduleListProps) {
   const lang = useAuthStore((s) => s.language);
-  const now = new Date();
-  const maxDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
 
-  const upcomingOrders = orders
-    .filter((order) => {
-      if (!order.appointmentDate) return false;
-      const appointmentDate = new Date(order.appointmentDate);
-      return appointmentDate >= now && appointmentDate <= maxDate;
-    })
-    .sort((a, b) => {
-      const dateA = new Date(a.appointmentDate || 0);
-      const dateB = new Date(b.appointmentDate || 0);
-      return dateA.getTime() - dateB.getTime();
-    })
-    .slice(0, 8);
+  const buckets = useMemo<DayBucket[]>(() => {
+    const today = startOfDay(new Date());
+    const tomorrow = new Date(today.getTime() + DAY_MS);
+    const horizon = new Date(today.getTime() + days * DAY_MS);
 
-  if (upcomingOrders.length === 0) {
+    const map = new Map<string, DayBucket>();
+    for (const order of orders) {
+      if (!order.appointmentDate) continue;
+      const date = new Date(order.appointmentDate);
+      if (date < today || date > horizon) continue;
+      const day = startOfDay(date);
+      const key = dayKey(day);
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          date: day,
+          isToday: day.getTime() === today.getTime(),
+          isTomorrow: day.getTime() === tomorrow.getTime(),
+          orders: [],
+        });
+      }
+      map.get(key)!.orders.push(order);
+    }
+    for (const bucket of map.values()) {
+      bucket.orders.sort((a, b) => {
+        const ta = a.appointmentDate ? new Date(a.appointmentDate).getTime() : 0;
+        const tb = b.appointmentDate ? new Date(b.appointmentDate).getTime() : 0;
+        return ta - tb;
+      });
+    }
+    return Array.from(map.values()).sort((a, b) => a.date.getTime() - b.date.getTime());
+  }, [orders, days]);
+
+  const totalCount = buckets.reduce((sum, b) => sum + b.orders.length, 0);
+
+  const headerNode = (
+    <div className="mb-4 flex items-center justify-between gap-2">
+      <div className="flex items-center gap-3">
+        <div className="p-2 rounded-lg p-bg-raised">
+          <Calendar className="h-5 w-5 p-text-accent" />
+        </div>
+        <h3 className="section-title">
+          {t(lang, "schedule.title").replace("{{n}}", String(days))}
+        </h3>
+      </div>
+      <Link
+        to="/calendar"
+        className="whitespace-nowrap text-xs font-semibold p-text-accent p-hover-accent transition-colors"
+      >
+        {t(lang, "schedule.link.showAll")}
+      </Link>
+    </div>
+  );
+
+  if (totalCount === 0) {
     return (
       <div className="surface-card p-4 sm:p-6">
-        <div className="mb-4 flex items-center gap-3">
-          <div className="p-2 rounded-lg p-bg-raised">
-            <Calendar className="h-5 w-5 p-text-accent" />
-          </div>
-          <h3 className="section-title">
-            {t(lang, "schedule.title").replace("{{n}}", String(days))}
-          </h3>
-        </div>
+        {headerNode}
         <p className="text-sm p-text-muted text-center py-8">
           {t(lang, "schedule.empty")}
         </p>
@@ -55,104 +108,125 @@ export function ScheduleList({ orders, days = 7, onCreateOrder }: ScheduleListPr
 
   return (
     <div className="surface-card p-4 sm:p-6">
-      <div className="mb-4 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg p-bg-raised">
-            <Calendar className="h-5 w-5 p-text-accent" />
-          </div>
-          <h3 className="section-title">
-            {t(lang, "schedule.title").replace("{{n}}", String(days))}
-          </h3>
-        </div>
-        <Link
-          to="/calendar"
-          className="whitespace-nowrap text-xs font-semibold p-text-accent p-hover-accent transition-colors"
-        >
-          {t(lang, "schedule.link.showAll")}
-        </Link>
-      </div>
+      {headerNode}
 
-      <div className="space-y-3">
-        {upcomingOrders.map((order, index) => {
-          const appointmentDate = new Date(order.appointmentDate || "");
-          const isToday = appointmentDate.toDateString() === now.toDateString();
-          const isTomorrow = appointmentDate.toDateString() === new Date(now.getTime() + 24 * 60 * 60 * 1000).toDateString();
-          const dayLabel = isToday ? t(lang, "schedule.label.today") : isTomorrow ? t(lang, "schedule.label.tomorrow") : formatSwissDate(order.appointmentDate || "");
-          const timeLabel = appointmentDate.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" });
-
-          return (
-            <div key={order.orderNo} className="grid grid-cols-[16px,minmax(0,1fr)] items-stretch gap-2 sm:grid-cols-[20px,minmax(0,1fr),70px] sm:gap-3">
-              <div className="flex flex-col items-center pt-2">
-                <span className={cn(
-                  "h-2.5 w-2.5 rounded-full",
-                  isToday ? "bg-amber-500" : isTomorrow ? "bg-sky-500" : "bg-zinc-400"
-                )} />
-                {index < upcomingOrders.length - 1 ? (
-                  <span className="mt-1 h-full w-px" style={{ background: "var(--border-soft)" }} />
-                ) : null}
-              </div>
-
-              <Link
-                to={`/orders?orderNo=${order.orderNo}`}
-                className={cn(
-                  "block rounded-lg border p-3 transition-all duration-200 hover:shadow-md sm:p-4",
-                  isToday
-                    ? "bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/50"
-                    : "p-bg-raised"
-                )}
-                style={isToday ? undefined : { borderColor: "var(--border-soft)" }}
-              >
-                <div className="mb-2 flex items-center gap-2">
-                  <span
-                    className={cn(
-                      "rounded-full px-2 py-0.5 text-xs font-semibold",
-                      isToday
-                        ? "bg-amber-200/80 text-amber-900 dark:bg-amber-900/60 dark:text-amber-200"
-                        : isTomorrow
-                          ? "bg-sky-200/80 text-sky-900 dark:bg-sky-900/50 dark:text-sky-200"
-                          : undefined
-                    )}
-                    style={!isToday && !isTomorrow ? { background: "var(--border-strong)", color: "var(--text-muted)" } : undefined}
-                  >
-                    {dayLabel}
-                  </span>
-                </div>
-
-                <div className="space-y-1.5">
-                  <div className="flex items-start gap-2">
-                    <User className="h-3.5 w-3.5 p-text-subtle mt-0.5 flex-shrink-0" />
-                    <span className="text-sm p-text-main font-medium">
-                      {order.customerName || t(lang, "schedule.label.noName")}
-                    </span>
-                  </div>
-                  {order.address && (
-                    <div className="flex items-start gap-2">
-                      <MapPin className="h-3.5 w-3.5 p-text-subtle mt-0.5 flex-shrink-0" />
-                      <span className="text-xs p-text-muted line-clamp-1">
-                        {order.address}
-                      </span>
-                    </div>
-                  )}
-                </div>
-                <div className="mt-2 sm:hidden">
-                  <div className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold p-text-muted" style={{ background: "var(--surface-raised)" }}>
-                    <Clock className="h-3.5 w-3.5" />
-                    {timeLabel}
-                  </div>
-                </div>
-              </Link>
-
-              <div className="hidden pt-2 text-right sm:block">
-                <div className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold p-text-muted" style={{ background: "var(--surface-raised)" }}>
-                  <Clock className="h-3.5 w-3.5" />
-                  {timeLabel}
-                </div>
-              </div>
-            </div>
-          );
-        })}
+      <div className="relative max-h-[520px] overflow-y-auto pr-1">
+        {buckets.map((bucket) => (
+          <DaySection key={bucket.key} bucket={bucket} lang={lang} />
+        ))}
       </div>
     </div>
   );
 }
 
+interface DaySectionProps {
+  bucket: DayBucket;
+  lang: Lang;
+}
+
+function DaySection({ bucket, lang }: DaySectionProps) {
+  const weekday = bucket.date.toLocaleDateString(lang === "de" ? "de-CH" : lang, {
+    weekday: "short",
+  });
+  const dateShort = bucket.date.toLocaleDateString("de-CH", {
+    day: "2-digit",
+    month: "2-digit",
+  });
+  const prefix = bucket.isToday
+    ? t(lang, "schedule.label.today")
+    : bucket.isTomorrow
+      ? t(lang, "schedule.label.tomorrow")
+      : weekday;
+  const count = bucket.orders.length;
+  const countLabel =
+    count === 1
+      ? t(lang, "schedule.label.appointment")
+      : t(lang, "schedule.label.appointments").replace("{{n}}", String(count));
+
+  return (
+    <section className="mb-4 last:mb-0">
+      <div
+        className={cn(
+          "sticky top-0 z-10 -mx-1 mb-2 flex items-center justify-between gap-3 px-1 py-1.5",
+          "backdrop-blur",
+        )}
+        style={{ background: "color-mix(in srgb, var(--surface) 85%, transparent)" }}
+      >
+        <div className="flex items-center gap-2">
+          <span
+            className={cn(
+              "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider",
+              bucket.isToday
+                ? "bg-amber-200/80 text-amber-900 dark:bg-amber-900/60 dark:text-amber-200"
+                : bucket.isTomorrow
+                  ? "bg-sky-200/80 text-sky-900 dark:bg-sky-900/50 dark:text-sky-200"
+                  : "",
+            )}
+            style={
+              !bucket.isToday && !bucket.isTomorrow
+                ? { background: "var(--border-strong)", color: "var(--text-muted)" }
+                : undefined
+            }
+          >
+            {prefix}
+          </span>
+          <span className="text-xs font-semibold uppercase tracking-wider p-text-muted">
+            {dateShort}
+          </span>
+        </div>
+        <span className="text-[11px] font-medium p-text-subtle">{countLabel}</span>
+      </div>
+
+      <ul className="space-y-1.5">
+        {bucket.orders.map((order) => (
+          <ScheduleRow key={order.orderNo} order={order} lang={lang} />
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+interface ScheduleRowProps {
+  order: Order;
+  lang: Lang;
+}
+
+function ScheduleRow({ order, lang }: ScheduleRowProps) {
+  const date = new Date(order.appointmentDate || "");
+  const time = date.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" });
+  const status = getStatusEntry(order.status);
+
+  return (
+    <li>
+      <Link
+        to={`/orders?orderNo=${order.orderNo}`}
+        className="group grid grid-cols-[56px,1fr,auto] items-center gap-3 rounded-lg border p-2.5 transition-colors hover:border-[var(--accent)]/40"
+        style={{ borderColor: "var(--border-soft)", background: "var(--surface-raised)" }}
+      >
+        <div className="flex flex-col items-center justify-center rounded-md py-1.5" style={{ background: "var(--surface)" }}>
+          <Clock className="mb-0.5 h-3 w-3 p-text-subtle" />
+          <span className="text-sm font-bold tabular-nums p-text-main">{time}</span>
+        </div>
+
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5">
+            <User className="h-3.5 w-3.5 flex-shrink-0 p-text-subtle" />
+            <span className="truncate text-sm font-medium p-text-main">
+              {order.customerName || t(lang, "schedule.label.noName")}
+            </span>
+          </div>
+          {order.address && (
+            <div className="mt-0.5 flex items-center gap-1.5">
+              <MapPin className="h-3.5 w-3.5 flex-shrink-0 p-text-subtle" />
+              <span className="truncate text-xs p-text-muted">{order.address}</span>
+            </div>
+          )}
+        </div>
+
+        <span className={cn("hidden shrink-0 sm:inline-flex", status.badgeClass)}>
+          {status.label}
+        </span>
+      </Link>
+    </li>
+  );
+}
