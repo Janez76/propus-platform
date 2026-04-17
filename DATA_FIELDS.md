@@ -62,6 +62,7 @@ WHERE LOWER(c.email) = $1
 | 5 | Booking-Modul hat kein dediziertes E-Mail-Log (nur `order_status_audit`) | Offen |
 | 6 | Exxas-Order-Sync (`exxas_status`, `exxas_order_id`) ohne dedizierte Dokumentation der Sync-Häufigkeit | Offen |
 | 7 | `calendar_delete_queue`-Tabelle noch nicht vollständig dokumentiert | Offen |
+| 8 | `booking/admin-panel/` ist deprecated — Orders-Refactoring (Phasen 0–4 + 2b) muss nach `app/src/` migriert werden. Siehe `booking/admin-panel/DEPRECATED.md` | Offen |
 
 ---
 

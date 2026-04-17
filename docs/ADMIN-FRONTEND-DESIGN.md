@@ -90,6 +90,8 @@ Alle Varianten haben Light- und Dark-Theme-Farben.
 
 ## Booking Admin-Panel: Gemeinsame Bausteine (seit Phase 1 Refactoring)
 
+> **Deprecated (April 2026):** `booking/admin-panel/` wird nicht mehr in Produktion ausgeliefert. Alle neuen Features gehoeren nach `app/src/` (Next.js). Die folgenden Abschnitte dokumentieren den Ist-Stand des Altcodes — sie bleiben als Referenz bestehen, bis die Migration nach `app/src/` abgeschlossen ist. Siehe `booking/admin-panel/DEPRECATED.md` und `README.md`.
+
 Wiederverwendbare Module im Booking Admin-Panel (`booking/admin-panel/`), die bei neuen Order-Features zuerst herangezogen werden sollen.
 
 ### StatusBadge
