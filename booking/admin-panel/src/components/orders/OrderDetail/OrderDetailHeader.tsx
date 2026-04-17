@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { MoreVertical } from "lucide-react";
-import { t, type Lang } from "../../i18n";
-import { StatusBadge } from "../ui/StatusBadge";
+import { t, type Lang } from "../../../i18n";
+import { StatusBadge } from "../../ui/StatusBadge";
 
 type MenuItem = {
   label: string;
