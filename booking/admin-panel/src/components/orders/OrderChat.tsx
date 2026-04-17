@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { MessageSquare } from "lucide-react";
 import { API_BASE } from "../../api/client";
 import {
   getChatMessages,
@@ -11,6 +12,7 @@ import {
 import { formatDateTime } from "../../lib/utils";
 import { useAuthStore } from "../../store/authStore";
 import { t } from "../../i18n";
+import { EmptyState } from "../ui/empty-state";
 
 type Props = {
   token: string;
@@ -19,9 +21,11 @@ type Props = {
   actorRole?: "admin" | "photographer";
 };
 
-const ACTIVE_STATUSES = new Set(["pending", "paused", "confirmed", "completed"]);
-const CHAT_BLOCKED_STATUSES = new Set(["cancelled", "archived"]);
-const FEEDBACK_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+const LOADING_AVAILABILITY: OrderChatAvailability = {
+  readable: false,
+  writable: false,
+  feedbackUntil: null,
+};
 
 function getAppointmentTs(order: Order): number {
   const date = String(order.schedule?.date || "").trim();
@@ -35,39 +39,15 @@ function isBeforeAppointment(order: Order): boolean {
   return Number.isFinite(ts) ? Date.now() < ts : false;
 }
 
-function deriveAvailabilityFromOrder(order: Order, actorRole: "admin" | "photographer" = "admin"): OrderChatAvailability {
-  if (actorRole === "admin") {
-    return { readable: true, writable: true, feedbackUntil: null };
-  }
-  const status = String(order.status || "").toLowerCase();
-  if (!status || CHAT_BLOCKED_STATUSES.has(status)) {
-    return { readable: false, writable: false, feedbackUntil: null };
-  }
-  if (ACTIVE_STATUSES.has(status)) {
-    return { readable: true, writable: true, feedbackUntil: null };
-  }
-  if (status !== "done") {
-    return { readable: true, writable: false, feedbackUntil: null };
-  }
-
-  const doneTs = order.doneAt ? new Date(order.doneAt).getTime() : NaN;
-  if (!Number.isFinite(doneTs)) {
-    return { readable: true, writable: false, feedbackUntil: null };
-  }
-  const feedbackUntil = new Date(doneTs + FEEDBACK_WINDOW_MS).toISOString();
-  return { readable: true, writable: Date.now() < doneTs + FEEDBACK_WINDOW_MS, feedbackUntil };
-}
-
 export function OrderChat({ token, orderNo, order, actorRole = "admin" }: Props) {
   const language = useAuthStore((s) => s.language);
   const [items, setItems] = useState<OrderChatMessage[]>([]);
   const [message, setMessage] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
-  const [availability, setAvailability] = useState<OrderChatAvailability>(() => deriveAvailabilityFromOrder(order, actorRole));
+  const [availability, setAvailability] = useState<OrderChatAvailability>(LOADING_AVAILABILITY);
 
-  const fallbackAvailability = useMemo(() => deriveAvailabilityFromOrder(order, actorRole), [order, actorRole]);
-  const effectiveAvailability = availability ?? fallbackAvailability;
+  const effectiveAvailability = availability;
   const beforeAppointment = useMemo(() => isBeforeAppointment(order), [order]);
 
   useEffect(() => {
@@ -78,7 +58,7 @@ export function OrderChat({ token, orderNo, order, actorRole = "admin" }: Props)
         const data = await getChatMessages(token, orderNo);
         if (!alive) return;
         setItems(Array.isArray(data.messages) ? data.messages : []);
-        setAvailability(data.availability || deriveAvailabilityFromOrder(order, actorRole));
+        setAvailability(data.availability || LOADING_AVAILABILITY);
         await markChatRead(token, orderNo);
       } catch (e) {
         if (!alive) return;
@@ -89,7 +69,7 @@ export function OrderChat({ token, orderNo, order, actorRole = "admin" }: Props)
     return () => {
       alive = false;
     };
-  }, [token, orderNo, order, actorRole]);
+  }, [token, orderNo]);
 
   useEffect(() => {
     if (!effectiveAvailability.readable) return;
@@ -159,7 +139,13 @@ export function OrderChat({ token, orderNo, order, actorRole = "admin" }: Props)
       ) : (
         <>
           <div data-testid="chat-messages" className="max-h-72 space-y-2 overflow-y-auto rounded-xl border border-[var(--border-soft)] bg-[var(--surface)]/40 p-3">
-            {!items.length && <p className="text-sm text-[var(--text-subtle)]">{t(language, "chat.empty")}</p>}
+            {!items.length && (
+              <EmptyState
+                icon={<MessageSquare className="h-5 w-5 text-[var(--text-subtle)]" />}
+                title={t(language, "chat.empty")}
+                className="!p-6"
+              />
+            )}
             {items.map((item) => {
               const fromCustomer = String(item.senderRole || "").toLowerCase() === "customer";
               return (

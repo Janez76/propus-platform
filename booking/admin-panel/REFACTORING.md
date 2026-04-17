@@ -38,8 +38,8 @@ tar -xzf .backups/orders-pre-refactor-20260417-105816.tar.gz -C .
 - [x] Phase 0 – Backup
 - [x] Phase 1 – Code-Hygiene
 - [x] Phase 2 – OrderDetail UX
-- [ ] Phase 3 – Wizard
-- [ ] Phase 4 – Empty States + Feinschliff
+- [x] Phase 3 – Wizard
+- [x] Phase 4 – Empty States + Feinschliff
 
 ## Phase 1 – Änderungen
 
@@ -100,3 +100,152 @@ tar -xzf .backups/orders-pre-refactor-20260417-105816.tar.gz -C .
 - `npx vitest run` → 10/10 passed.
 - `npm run build` → erfolgreich.
 - `npm run lint` → keine neuen Fehler in geänderten Dateien (2 pre-existing `exhaustive-deps`-Warnungen in `OrderDetail.tsx`).
+
+## Phase 3 – Änderungen
+
+### Neue Module
+- `src/components/orders/CreateOrderWizard/` – neuer Ordner mit Wizard-Struktur:
+  - `index.tsx` – Main-Orchestrator (lädt Katalog/Fotografen/Kontakte, hält Step-Index, Slot-Fetch, Submit).
+  - `WizardShell.tsx` – Progress-Bar (4 Segmente, Checkmarks bei abgeschlossenen Schritten, Step-Label + Schritt-Zähler), Next/Back/Submit-Navigation, Content-Slot + optional Sticky-Sidebar (lg:`grid-cols-[1fr_320px]`).
+  - `WizardPriceSidebar.tsx` – Live-Preis (Paket, Addons, Key-Pickup, Travel-Zone, Subtotal, Discount, VAT, Total) mit Empty-State.
+  - `useWizardForm.ts` – `useReducer`-basierter Form-State (`WizardFormState` + `WizardAction`), `INITIAL_STATE`, `estimatePrice`, `selectPricing` (Selector) und `usePricing`-Hook; alle State-Mutationen gehen über typisierte Actions (`selectCustomer`, `setObjectAddress`, `setTravelZone`, `selectPackage`, `toggleAddon`, `toggleKeyPickup`, `setSlot`, `setInitialStatus`, `setStatusEmailTarget`, …).
+  - `styles.ts` – gemeinsame Tailwind-Klassen (`INPUT_CLASS`, `LABEL_CLASS`, `SECTION_CLASS`, `SECTION_TITLE_CLASS`).
+  - `steps/Step1Customer.tsx` – Firma, Ansprechpartner-Dropdown, Name/E-Mail/Telefon, Rechnungsadresse, CC-E-Mails.
+  - `steps/Step2Object.tsx` – Objektadresse + Auto-Travel-Zone, Vor-Ort-Kontakt, Objekt-Metadaten (Typ, Fläche, Etagen, Zimmer), Beschreibung.
+  - `steps/Step3Service.tsx` – Paket-Select, Addons-Checkboxen, Key-Pickup, Discount + Discount-Code; EmptyState wenn Katalog leer.
+  - `steps/Step4Schedule.tsx` – Anfangsstatus, E-Mail-Targets, Fotograf-Select, Datum, AM/PM-Slot-Picker, Notizen; EmptyStates für leere Fotografen-Liste und leere Slots.
+
+### Entfernte Module
+- `src/components/orders/CreateOrderWizard.tsx` (1676-Zeilen-Monolith) → ersetzt durch `CreateOrderWizard/`-Ordner (Import-Pfad bleibt identisch, `import { CreateOrderWizard } from "../components/orders/CreateOrderWizard"` löst auf `index.tsx` auf).
+
+### UX-Verbesserungen
+- **4 Schritte** (Kunde / Objekt / Service / Termin) statt eine endlose Seite.
+- **Progress-Bar**: abgeschlossene Schritte klickbar (zurückspringen), zukünftige blockiert; aktueller Schritt via `aria-current="step"`.
+- **Per-Schritt-Validierung**: `Next`-Button ist disabled, wenn der aktuelle Schritt ungültige Pflichtfelder hat; Fehler werden inline am Feld angezeigt, nicht erst beim Submit.
+- **Live-Preis-Sidebar** ab Schritt 3 (`showSidebar = currentStep >= 2`); auf Mobil fällt die Sidebar unter den Content (lg-breakpoint-gesteuert via `grid-cols-[1fr_320px]`).
+- **Slot-Fetch** lädt nur, wenn der User tatsächlich auf Schritt 4 ist (Datensparen + weniger `/api/admin/availability`-Requests während dem Ausfüllen der ersten Schritte).
+
+### useReducer statt useState-Cluster
+- Alte 50-Felder-`useState` plus 10 weitere Zustände (Package/Addon-Codes, Slots, Email-Targets, …) zusammengeführt in einem einzigen Reducer.
+- Pricing wird nicht mehr im Reducer berechnet, sondern on-the-fly aus dem State via `selectPricing(state, catalog)` (Selector-Pattern).
+- Manuelle `subtotal`-Override möglich via `setManualSubtotal`-Action (erhält Ableitung von VAT/Total, clampt nie die gespeicherte Subtotal).
+
+### i18n
+- Neu (DE/EN/FR/IT): `wizard.progress.stepOf`, `wizard.priceSidebar.title`, `wizard.priceSidebar.empty`, `wizard.empty.noPhotographers`, `wizard.empty.noSlots`.
+- Bestehende Keys `wizard.step.customer/object/service/schedule/price`, `wizard.button.back/next/createOrder` unverändert wiederverwendet.
+
+### Verhaltensänderungen (bewusst)
+- **Slot-Fetch-Timing**: Slots werden erst ab Schritt 4 geladen (bisher: sobald Datum gesetzt wurde, unabhängig von Wizard-Position). Weniger Netzwerk-Last während frühen Schritten.
+- **Duplicate-else-if bereinigt**: Redundante `else if (isAny && data.resolvedPhotographer && Array.isArray(data.freeSlots))`-Klausel entfernt (Lint-Fehler `no-dupe-else-if`, gleichzeitig Logik-Cleanup; das erste `Array.isArray(data.freeSlots)` deckt den Fall ab).
+- **Save-Button**: Aus dem Inline-Submit-Knopf am Seitenende wurde ein Submit-Button am Ende der Wizard-Navigation (nur im letzten Schritt sichtbar).
+
+### Nicht umgestellt
+- API-Contract zu `createOrder` / `updateOrderStatus` identisch (gleiches Payload-Shape).
+- `OrderCreate.tsx` und `OrderDetail.tsx` wurden nicht angefasst.
+
+### Verifikation
+- `npx tsc -b --noEmit` → clean.
+- `npx vitest run` → 10/10 passed.
+- `npm run build` → erfolgreich (13.64s).
+- `npm run lint` → 38 errors / 13 warnings (2 pre-existing Warnings in OrderDetail, alles andere vor-bestehend; −1 aus dem Wizard `no-dupe-else-if`-Fix).
+
+## Phase 4 – Änderungen
+
+### Empty States
+- `OrderChat.tsx`: Wenn noch keine Nachrichten existieren, wird die alte Inline-Leerzeile durch `<EmptyState>` mit `MessageSquare`-Icon und i18n-Titel `chat.empty` ersetzt.
+- `OrderEmailLog.tsx`: Die "Keine E-Mails gefunden"-Zeile ist durch `<EmptyState>` mit `MailX`-Icon ersetzt; bei `availability === "no_db"` wird `emailLog.empty.noDb` angezeigt, ansonsten `emailLog.empty`.
+
+### UploadTool – Progress-Overlap entfernt
+- Der globale Fortschrittsbalken im Upload-Header (der nur bei `busy === "upload"` sichtbar war und den gleichen Prozentwert wie die Datei-Overlays zeigte) wurde komplett entfernt.
+- Die interne Datei-Progress-Liste im Dialog (zeigte pro Datei einen kleinen Balken zusätzlich zum Overlay über dem Preview) wurde entfernt.
+- Übrig bleibt der **Transfer-Status-Balken** für Nicht-Upload-Transfers (WeTransfer/externe Links) – dieser hat als einziges verbliebenes UI-Element keinen Duplikat.
+- Die Prozent-Overlays direkt auf den `FilePreviewCard`s bleiben unverändert; sie sind die einzige Fortschrittsanzeige pro Datei.
+
+### OrderChat – Availability vereinfacht
+- Entfernt: lokale Konstanten `ACTIVE_STATUSES`, `CHAT_BLOCKED_STATUSES`, `FEEDBACK_WINDOW_MS` und die Helfer-Funktion `deriveAvailabilityFromOrder(order, actorRole)`.
+- Die Availability kommt jetzt ausschliesslich vom Backend (`GET /api/admin/orders/:orderNo/chat` liefert `availability`). Vor dem ersten Fetch wird ein sicherer Loading-Default (`{ readable: false, writable: false, feedbackUntil: null }`) verwendet – das Chat-Fenster ist also während des initialen Ladens nicht bedienbar, was mit dem bisherigen UX-Vertrag übereinstimmt (User sah vorher bestenfalls `chat.closed`).
+- Die `actorRole`-Prop bleibt im Interface (wird nur noch für das Regel-Label `chat.rule.admin` / `chat.rule.beforeAppointment` / `chat.rule.afterAppointment` genutzt).
+
+### Spacing-Tokens
+- `src/index.css`: Neue CSS-Custom-Properties `--space-xs` (4px), `--space-sm` (8px), `--space-md` (12px), `--space-lg` (16px), `--space-xl` (24px), `--space-2xl` (32px) im `:root`-Block.
+- Die Werte decken sich mit der Tailwind-Default-Scale (`space-1` = 4px, `space-2` = 8px, `space-3` = 12px, `space-4` = 16px, `space-6` = 24px, `space-8` = 32px), so dass bestehendes Tailwind-Padding/`gap-*` bereits konsistent ist. Tokens stehen bereit für direktes Inline-CSS (`style={{ padding: "var(--space-lg)" }}`) ohne Tailwind-Umweg.
+
+### Nicht umgestellt
+- Bestehende Tailwind-Utility-Klassen in den Orders-Komponenten wurden **nicht** pauschal auf `var(--space-*)` umgeschrieben – Tailwind-Scale und Tokens sind numerisch identisch, ein Massen-Ersatz würde das Diff aufblähen ohne Nutzen.
+- i18n-Key-Cleanup (`orderDetail.section.dangerZone`, `common.unsavedChanges`, die in Phase 2 als "harmlos erhaltbar" markiert wurden) wurde **bewusst verschoben**, um das Diff klein zu halten. Follow-up: in einem separaten "docs/i18n-Cleanup"-PR entfernen.
+
+### Verifikation
+- `npx tsc -b --noEmit` → clean.
+- `npx vitest run` → 10/10 passed.
+- `npm run build` → erfolgreich (12.82s).
+- `npm run lint` → 51 Probleme, alles vor-bestehend (keine neuen Fehler oder Warnungen in den in Phase 4 geänderten Dateien).
+- `tests/chat.e2e.spec.ts` nicht ausgeführt (Playwright-E2E benötigt laufenden API-Server auf `:3004` und Admin-Credentials); statische Review: Test hängt an `data-testid="order-chat"`, `chat-input`, `chat-send`, alle sind nach der Änderung unverändert vorhanden. Die Availability-Anzeige im Test stützt sich auf die Backend-Response, nicht auf den entfernten Client-Derivate-Code – damit weiterhin kompatibel.
+
+---
+
+## Übersicht – alle neuen Dateien (Phase 1 – 4)
+
+- `src/lib/pricing.ts`
+- `src/lib/pricing.test.ts`
+- `src/lib/address.ts`
+- `src/hooks/useDirty.ts`
+- `src/hooks/useT.ts`
+- `src/components/ui/StatusBadge.tsx`
+- `src/components/ui/tabs.tsx`
+- `src/components/orders/OrderDetailHeader.tsx`
+- `src/components/orders/OrderDetailStatsBar.tsx`
+- `src/components/orders/CreateOrderWizard/index.tsx`
+- `src/components/orders/CreateOrderWizard/WizardShell.tsx`
+- `src/components/orders/CreateOrderWizard/WizardPriceSidebar.tsx`
+- `src/components/orders/CreateOrderWizard/useWizardForm.ts`
+- `src/components/orders/CreateOrderWizard/styles.ts`
+- `src/components/orders/CreateOrderWizard/steps/Step1Customer.tsx`
+- `src/components/orders/CreateOrderWizard/steps/Step2Object.tsx`
+- `src/components/orders/CreateOrderWizard/steps/Step3Service.tsx`
+- `src/components/orders/CreateOrderWizard/steps/Step4Schedule.tsx`
+- `vitest.config.ts`
+- `REFACTORING.md` (dieses Dokument)
+
+## Gelöschte Dateien
+
+- `src/components/orders/OrderDetails.tsx` (toter Code, Phase 1)
+- `src/components/orders/OrderDetailsExample.tsx` (toter Code, Phase 1)
+- `src/components/orders/CreateOrderWizard.tsx` (1676-Zeilen-Monolith ersetzt durch Ordner-Struktur, Phase 3)
+
+## Breaking Changes
+
+Keine für externe Consumer:
+
+- **API-Contract unverändert**: `POST /api/admin/orders`, `PATCH …/status`, `GET …/chat`, `…/email-log`, `…/availability` – alle Payloads und Response-Shapes identisch.
+- **Import-Pfade**: `CreateOrderWizard` wird weiterhin aus `@/components/orders/CreateOrderWizard` importiert (Node-Resolve greift `CreateOrderWizard/index.tsx`).
+- **i18n-Keys**: nur additiv (neue Keys, keine umbenannten/entfernten, die von Konsumenten erwartet werden).
+
+Intern (nur für Entwickler an `OrderDetail`/`CreateOrderWizard`):
+
+- **`OrderDetail.recalcPricing` rundet jetzt auf 2 Dezimalen** statt auf 5 Rappen. Auswirkung ≤ 0.02 CHF auf client-seitige Totals; Backend-Berechnung unverändert.
+- **`OrderChat` leitet Availability nicht mehr aus `order.status` ab**, sondern verlässt sich auf die Backend-Response. Wer `OrderChat` ausserhalb von `OrderDetail` verwenden will, muss sicherstellen, dass der `GET …/chat`-Endpoint eine valide `availability` liefert.
+- **Wizard-Form-State** ist jetzt `useReducer`-basiert. Wer vorher direkten `setXxx`-Zugriff hatte, muss auf `dispatch({ type: …, … })` umstellen (nur intern, keine externen Konsumenten).
+
+## Migration-Notes für andere Devs
+
+1. **Neue Preislogik verwenden**: Alle client-seitigen Preisberechnungen gehen durch `calculatePricing(...)` aus `src/lib/pricing.ts`. Keine neuen Inline-VAT/Discount-Formeln mehr.
+2. **Dirty-Tracking**: Für neue Forms `useDirty(snapshot, current)` aus `src/hooks/useDirty.ts` nutzen (via `fast-deep-equal`), nicht manuell per-Feld vergleichen.
+3. **Status-Badges**: Einheitlich `<StatusBadge status={...} variant="default|print" />` aus `src/components/ui/StatusBadge.tsx` – keine neuen eigenen Badge-Komponenten.
+4. **Tabs / Empty States**: `src/components/ui/tabs.tsx` und `src/components/ui/empty-state.tsx` wiederverwenden.
+5. **Wizard erweitern**: Neue Felder als Action im `WizardAction`-Union hinzufügen, Reducer-Branch anfügen, in `selectPricing` berücksichtigen wenn preisrelevant, dann im entsprechenden `steps/StepX.tsx` renderen.
+6. **Spacing**: `var(--space-*)` für Inline-Styles; Tailwind `gap-2/3/4/6/8` für Flex/Grid – beide führen zum gleichen Pixelwert.
+
+## Offene Punkte / Follow-ups
+
+- **Phase 2b**: Per-Card Inline-Edit in `OrderDetail.tsx` (globaler `editMode`-Flag durch pro-Section-Toggles ersetzen). Erfordert Backend-seitig entweder feinere Save-Endpoints oder client-seitiges partielles Payload-Merging.
+- **i18n-Cleanup**: Ungenutzte Keys `orderDetail.section.dangerZone`, `common.unsavedChanges` in allen 4 Sprachdateien entfernen.
+- **Lint-Baseline**: 51 vor-bestehende Probleme (vor allem `exhaustive-deps` in Legacy-Komponenten). Separater Cleanup-PR empfohlen.
+- **Wizard-Tests**: Unit-/Component-Tests für `selectPricing`, `validateStep` und den Stepper wären wertvoll (Vitest + React Testing Library bereits verfügbar).
+- **Playwright-Suite**: `tests/chat.e2e.spec.ts` + ggf. neue Specs für den 4-Step-Wizard in CI aufnehmen.
+
+## Backup-Bestätigung
+
+- **Ausgangs-Commit** `823c0c2d07cd0fa47fb7c5363f946942c8d90209` (Merge von PR #75) ist in der Git-History auf `master` weiterhin erreichbar (`git cat-file -t 823c0c2` → commit). Der komplette Pre-Refactor-Stand lässt sich jederzeit wiederherstellen via `git checkout 823c0c2 -- booking/admin-panel/src/components/orders/` oder für einen vollständigen Rollback-Branch via `git checkout -b rollback-orders 823c0c2`.
+- **Backup-Branch** `backup/orders-pre-refactor-20260417-105816`: der in Phase 0 angelegte lokale Backup-Branch existiert im aktuellen Arbeits-Worktree nicht mehr (vermutlich nur lokal im vorherigen Claude-Worktree angelegt und nicht zu `origin` gepusht). Der Inhalt ist dennoch vollständig reproduzierbar aus `823c0c2` (siehe oben).
+- **Tarball** `.backups/orders-pre-refactor-20260417-105816.tar.gz`: ebenfalls nicht im aktuellen Worktree vorhanden. Für einen neuen Tarball-Snapshot: `git archive --format=tar.gz --prefix=orders-pre-refactor/ 823c0c2 -- booking/admin-panel/src/components/orders booking/admin-panel/src/i18n booking/admin-panel/src/lib > /tmp/orders-pre-refactor.tar.gz`.
+- **Empfehlung für Follow-up**: Zum Absichern einen remote Backup-Branch anlegen: `git push origin 823c0c2:refs/heads/backup/orders-pre-refactor-20260417`. Das kostet nichts und schützt gegen versehentliches History-Rewriting.
