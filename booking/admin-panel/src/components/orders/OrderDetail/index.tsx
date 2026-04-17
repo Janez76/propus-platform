@@ -16,13 +16,13 @@ import { useQueryStore } from "../../../store/queryStore";
 import { ConfirmDeleteDialog } from "../../ui/ConfirmDeleteDialog";
 import { useUnsavedChangesGuard } from "../../../hooks/useUnsavedChangesGuard";
 import { CustomerAutocompleteInput } from "../../ui/CustomerAutocompleteInput";
-import { OrderChat } from "../OrderChat";
-import { OrderEmailLog } from "../OrderEmailLog";
 import { t, type Lang } from "../../../i18n";
 import { calculatePricing, KEY_PICKUP_PRICE } from "../../../lib/pricing";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "../../ui/tabs";
+import { Tabs, TabsContent } from "../../ui/tabs";
 import { OrderDetailHeader } from "./OrderDetailHeader";
 import { OrderDetailStatsBar } from "./OrderDetailStatsBar";
+import { OrderDetailTabs } from "./OrderDetailTabs";
+import { CommunicationTab } from "./tabs/CommunicationTab";
 import { useOrderForm } from "./hooks/useOrderForm";
 const GROUP_LABEL_KEYS: Record<string, string> = {
   camera: "orderDetail.group.camera", dronePhoto: "orderDetail.group.dronePhoto", tour: "orderDetail.group.tour",
@@ -619,11 +619,7 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
             <>
             <OrderDetailStatsBar data={data} lang={lang} />
             <Tabs defaultValue="details">
-              <TabsList>
-                <TabsTrigger value="details">{t(lang, "orderDetail.tab.details")}</TabsTrigger>
-                <TabsTrigger value="scheduling">{t(lang, "orderDetail.tab.scheduling")}</TabsTrigger>
-                <TabsTrigger value="communication">{t(lang, "orderDetail.tab.communication")}</TabsTrigger>
-              </TabsList>
+              <OrderDetailTabs lang={lang} />
 
               <TabsContent value="details">
                 <div className="space-y-4 text-sm">
@@ -1234,35 +1230,16 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
               </TabsContent>
 
               <TabsContent value="communication">
-                <div className="space-y-4">
-                  <OrderChat token={token} orderNo={orderNo} order={data} actorRole={role === "photographer" ? "photographer" : "admin"} />
-
-                  {role !== "photographer" && <OrderEmailLog token={token} orderNo={orderNo} />}
-
-                  {canManageOrder && (
-                    <div className="surface-card p-3">
-                      <h4 className="mb-2 font-semibold">{t(lang, "orderDetail.button.resendEmail")}</h4>
-                      <select
-                        className="ui-input"
-                        disabled={busy === "mail"}
-                        value=""
-                        onChange={(e) => {
-                          const v = e.target.value as ResendEmailType;
-                          if (v) { runResendEmail(v); e.target.value = ""; }
-                        }}
-                      >
-                        <option value="">{t(lang, "orderDetail.button.resendEmail")}</option>
-                        {["pending", "provisional"].includes((data.status || "").toLowerCase()) && (
-                          <option value="confirmation_request">{t(lang, "orderDetail.resendEmail.confirmationRequest")}</option>
-                        )}
-                        {data.schedule?.date && data.schedule?.time && data.lastRescheduleOldDate && data.lastRescheduleOldTime && (
-                          <option value="reschedule">{t(lang, "orderDetail.resendEmail.reschedule")}</option>
-                        )}
-                        <option value="booking_confirmed">{t(lang, "orderDetail.resendEmail.bookingConfirmed")}</option>
-                      </select>
-                    </div>
-                  )}
-                </div>
+                <CommunicationTab
+                  token={token}
+                  orderNo={orderNo}
+                  data={data}
+                  role={role}
+                  canManageOrder={canManageOrder}
+                  busy={busy}
+                  lang={lang}
+                  onResendEmail={runResendEmail}
+                />
               </TabsContent>
             </Tabs>
             </>
