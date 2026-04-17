@@ -9,13 +9,14 @@ import { formatPhoneCH } from "../../../lib/format";
 import { API_BASE } from "../../../api/client";
 import { extractSwissZip } from "../../../lib/address";
 import { useT } from "../../../hooks/useT";
-import { useWizardForm, usePricing, estimatePrice, type WizardFormState } from "./hooks/useWizardForm";
+import { useWizardForm, usePricing, estimatePrice } from "./hooks/useWizardForm";
 import { WizardShell, type WizardStepDef } from "./WizardShell";
 import { WizardPriceSidebar } from "./WizardPriceSidebar";
 import { Step1Customer } from "./steps/Step1Customer";
 import { Step2Object } from "./steps/Step2Object";
 import { Step3Service } from "./steps/Step3Service";
 import { Step4Schedule } from "./steps/Step4Schedule";
+import { validateStep, isObjectAddressComplete } from "./validation";
 
 interface CreateOrderWizardProps {
   token: string;
@@ -34,41 +35,6 @@ type AvailabilityResponse = {
   result?: { photographer?: string; time?: string; key?: string } | null;
   debug?: { durationMin?: number; slotMinutes?: number; bufferMinutes?: number };
 };
-
-type StepErrors = Partial<Record<keyof WizardFormState, string>>;
-
-function isObjectAddressCompleteFn(state: WizardFormState): boolean {
-  if (state.address.trim() && state.houseNumber.trim() && state.zipcity.trim()) return true;
-  const raw = state.address.trim();
-  if (!raw) return false;
-  const hasHouseNumber = /\b\d+[a-zA-Z]?\b/.test(raw);
-  const hasZipCity =
-    /\b\d{4,5}\s+[A-Za-z\u00C0-\u00FF][^,]*$/u.test(raw) || /\b\d{4,5}\s+[A-Za-z\u00C0-\u00FF]/u.test(raw);
-  return hasHouseNumber && hasZipCity;
-}
-
-function validateStep(index: number, state: WizardFormState): StepErrors {
-  const errors: StepErrors = {};
-  if (index === 0) {
-    if (!state.customerName.trim()) errors.customerName = "Pflichtfeld";
-    if (!state.customerEmail.trim()) errors.customerEmail = "Pflichtfeld";
-    if (!state.billingStreet.trim()) errors.billingStreet = "Pflichtfeld";
-    if (!state.billingZip.trim()) errors.billingZip = "Pflichtfeld";
-    if (!state.billingCity.trim()) errors.billingCity = "Pflichtfeld";
-  }
-  if (index === 1) {
-    if (!isObjectAddressCompleteFn(state)) errors.address = "Bitte vollständige Adresse eingeben";
-  }
-  if (index === 3) {
-    const requires =
-      state.initialStatus === "confirmed" || state.initialStatus === "provisional";
-    if (requires) {
-      if (!state.date) errors.date = "Datum erforderlich";
-      if (!state.time) errors.photographerKey = "Zeit und Fotograf erforderlich";
-    }
-  }
-  return errors;
-}
 
 export function CreateOrderWizard({
   token,
@@ -443,7 +409,7 @@ export function CreateOrderWizard({
     }
   };
 
-  const isObjectComplete = isObjectAddressCompleteFn(state);
+  const isObjectComplete = isObjectAddressComplete(state);
 
   const showSidebar = currentStep >= 2; // from step 3 (service)
 

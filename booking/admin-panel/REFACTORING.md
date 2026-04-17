@@ -239,7 +239,7 @@ Intern (nur für Entwickler an `OrderDetail`/`CreateOrderWizard`):
 
 - **Phase 2b**: Per-Card Inline-Edit in `OrderDetail.tsx` (globaler `editMode`-Flag durch pro-Section-Toggles ersetzen). Erfordert Backend-seitig entweder feinere Save-Endpoints oder client-seitiges partielles Payload-Merging.
 - **Lint-Baseline**: 51 vor-bestehende Probleme (vor allem `exhaustive-deps` in Legacy-Komponenten). Separater Cleanup-PR empfohlen.
-- **Wizard-Tests**: Unit-/Component-Tests für `selectPricing`, `validateStep` und den Stepper wären wertvoll (Vitest + React Testing Library bereits verfügbar).
+- **Wizard-Tests** (2026-04-17): Unit-Tests für `estimatePrice`, `selectPricing` (`CreateOrderWizard/hooks/useWizardForm.test.ts`) und `validateStep`/`isObjectAddressComplete` (`CreateOrderWizard/validation.test.ts`) ergänzt – 34 neue Tests (`npx vitest run` → 44/44). Follow-up: Component-Tests für den Stepper/Progress-Bar (benötigt `@testing-library/react`).
 - **Playwright-Suite**: `tests/chat.e2e.spec.ts` + ggf. neue Specs für den 4-Step-Wizard in CI aufnehmen.
 
 ## Backup-Bestätigung
