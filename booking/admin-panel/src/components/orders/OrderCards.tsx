@@ -2,12 +2,10 @@ import type { Order } from "../../api/orders";
 import { formatCurrency, formatDateTime } from "../../lib/utils";
 import {
   STATUS_KEYS,
-  getStatusLabel,
-  getStatusBadgeClass,
-  getStatusIcon,
   normalizeStatusKey,
   type StatusKey,
 } from "../../lib/status";
+import { StatusBadge } from "../ui/StatusBadge";
 import { OrderStatusSelect } from "./OrderStatusSelect";
 
 type Props = {
@@ -24,16 +22,12 @@ export function OrderCards({ orders, token, onStatusChange, onOpenDetail, onOpen
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {orders.map((o) => {
         const currentKey = normalizeStatusKey(o.status) ?? "pending";
-        const Icon = getStatusIcon(currentKey);
 
         return (
           <article key={o.orderNo} className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm border-[var(--border-soft)] bg-[var(--surface)]">
             <div className="mb-2 flex items-center justify-between">
               <h3 className="text-lg font-bold">#{o.orderNo}</h3>
-              <span className={getStatusBadgeClass(currentKey)}>
-                <Icon className="mr-1 h-3 w-3 shrink-0" />
-                {getStatusLabel(currentKey)}
-              </span>
+              <StatusBadge status={currentKey} />
             </div>
             <div className="text-sm font-semibold">{o.customerName || "-"}</div>
             <div className="text-xs text-zinc-500">{o.customerEmail || ""}</div>

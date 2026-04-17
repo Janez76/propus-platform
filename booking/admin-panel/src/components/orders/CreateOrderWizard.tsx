@@ -26,6 +26,8 @@ import { t, type Lang } from "../../i18n";
 import { useAuthStore } from "../../store/authStore";
 import { STATUS_KEYS, STATUS_MAP, type StatusKey } from "../../lib/status";
 import { API_BASE } from "../../api/client";
+import { calculatePricing } from "../../lib/pricing";
+import { extractSwissZip } from "../../lib/address";
 
 interface CreateOrderWizardProps {
   token: string;
@@ -391,11 +393,6 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
     return hasHouseNumber && hasZipCity;
   }
 
-  function extractSwissZip(address: string): string {
-    const m = address.match(/\b(\d{4})\b/);
-    return m ? m[1] : "";
-  }
-
   async function lookupTravelZone(canton: string, zip: string) {
     if (!canton && !zip) return;
     try {
@@ -407,12 +404,15 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
       if (!data.ok) return;
       setFormData((prev) => {
         const newZonePrice = Number(data.price ?? 0);
-        const oldZonePrice = prev.travelZonePrice;
-        const sub = Math.max(0, Number(prev.subtotal || 0) - oldZonePrice + newZonePrice);
-        const dis = Number(prev.discount || 0);
-        const vatBase = Math.max(0, sub - dis);
-        const vat = Math.round(vatBase * 0.081 * 100) / 100;
-        const total = Math.round((vatBase + vat) * 100) / 100;
+        const pkg = catalog.find((p) => p.code === selectedPackageCode);
+        const selectedAddons = catalog.filter((p) => selectedAddonCodes.includes(p.code));
+        const pricing = calculatePricing({
+          packagePrice: pkg ? estimatePrice(pkg) : 0,
+          addons: selectedAddons.map((a) => ({ price: estimatePrice(a) })),
+          travelZonePrice: newZonePrice,
+          keyPickupActive: prev.keyPickupActive && !!prev.keyPickupAddress.trim(),
+          discount: Number(prev.discount || 0),
+        });
         return {
           ...prev,
           objectCanton: canton,
@@ -420,9 +420,9 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
           travelZoneProduct: data.productCode || "",
           travelZonePrice: newZonePrice,
           travelZoneLabel: data.label || "",
-          subtotal: String(sub),
-          vat: String(vat),
-          total: String(total),
+          subtotal: String(pricing.subtotal),
+          vat: String(pricing.vat),
+          total: String(pricing.total),
         };
       });
     } catch { /* travel zone lookup failed silently */ }
@@ -451,26 +451,23 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
     const pkg = catalog.find((p) => p.code === nextPackageCode);
     const selectedAddons = catalog.filter((p) => nextAddonCodes.includes(p.code));
     const packagePrice = pkg ? estimatePrice(pkg) : 0;
-    const addonTotal = selectedAddons.reduce((sum, a) => sum + estimatePrice(a), 0);
     const addonRows = selectedAddons.map((a) => `${a.name};${estimatePrice(a)}`);
-    // Key-pickup adds 50 CHF if active and has text
     setFormData((prev) => {
-      const keyPickupPrice = prev.keyPickupActive && prev.keyPickupAddress.trim() ? 50 : 0;
-      const travelZonePrice = prev.travelZonePrice || 0;
-      const subtotal = packagePrice + addonTotal + keyPickupPrice + travelZonePrice;
-      const discount = Number(prev.discount || 0);
-      const vatRate = 0.081; // 8.1% Swiss VAT
-      const vatBase = Math.max(0, subtotal - discount);
-      const vat = Math.round(vatBase * vatRate * 100) / 100;
-      const total = Math.round((vatBase + vat) * 100) / 100;
+      const pricing = calculatePricing({
+        packagePrice,
+        addons: selectedAddons.map((a) => ({ price: estimatePrice(a) })),
+        travelZonePrice: prev.travelZonePrice || 0,
+        keyPickupActive: prev.keyPickupActive && !!prev.keyPickupAddress.trim(),
+        discount: Number(prev.discount || 0),
+      });
       return {
         ...prev,
         packageLabel: pkg?.name || "",
         packagePrice: String(packagePrice || 0),
         addonsText: addonRows.join("\n"),
-        subtotal: String(subtotal),
-        vat: String(vat),
-        total: String(total),
+        subtotal: String(pricing.subtotal),
+        vat: String(pricing.vat),
+        total: String(pricing.total),
       };
     });
   }
@@ -1265,23 +1262,22 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                     checked={formData.keyPickupActive}
                     onChange={(e) => {
                       const active = e.target.checked;
-                      const keyPickupPrice = active && formData.keyPickupAddress.trim() ? 50 : 0;
                       const pkg = catalog.find((p) => p.code === selectedPackageCode);
                       const selectedAddons = catalog.filter((p) => selectedAddonCodes.includes(p.code));
-                      const pkgPrice = pkg ? estimatePrice(pkg) : 0;
-                      const addonTotal = selectedAddons.reduce((sum, a) => sum + estimatePrice(a), 0);
-                      const sub = pkgPrice + addonTotal + keyPickupPrice + (formData.travelZonePrice || 0);
-                      const dis = Number(formData.discount || 0);
-                      const base = Math.max(0, sub - dis);
-                      const vat = Math.round(base * 0.081 * 100) / 100;
-                      const total = Math.round((base + vat) * 100) / 100;
+                      const pricing = calculatePricing({
+                        packagePrice: pkg ? estimatePrice(pkg) : 0,
+                        addons: selectedAddons.map((a) => ({ price: estimatePrice(a) })),
+                        travelZonePrice: formData.travelZonePrice || 0,
+                        keyPickupActive: active && !!formData.keyPickupAddress.trim(),
+                        discount: Number(formData.discount || 0),
+                      });
                       setFormData((prev) => ({
                         ...prev,
                         keyPickupActive: active,
                         keyPickupAddress: active ? prev.keyPickupAddress : "",
-                        subtotal: String(sub),
-                        vat: String(vat),
-                        total: String(total),
+                        subtotal: String(pricing.subtotal),
+                        vat: String(pricing.vat),
+                        total: String(pricing.total),
                       }));
                     }}
                   />
@@ -1292,23 +1288,21 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                     value={formData.keyPickupAddress}
                     onChange={(e) => {
                       const text = e.target.value;
-                      const hasPickup = !!text.trim();
-                      const keyPickupPrice = hasPickup ? 50 : 0;
                       const pkg = catalog.find((p) => p.code === selectedPackageCode);
                       const selectedAddons = catalog.filter((p) => selectedAddonCodes.includes(p.code));
-                      const pkgPrice = pkg ? estimatePrice(pkg) : 0;
-                      const addonTotal = selectedAddons.reduce((sum, a) => sum + estimatePrice(a), 0);
-                      const sub = pkgPrice + addonTotal + keyPickupPrice + (formData.travelZonePrice || 0);
-                      const dis = Number(formData.discount || 0);
-                      const base = Math.max(0, sub - dis);
-                      const vat = Math.round(base * 0.081 * 100) / 100;
-                      const total = Math.round((base + vat) * 100) / 100;
+                      const pricing = calculatePricing({
+                        packagePrice: pkg ? estimatePrice(pkg) : 0,
+                        addons: selectedAddons.map((a) => ({ price: estimatePrice(a) })),
+                        travelZonePrice: formData.travelZonePrice || 0,
+                        keyPickupActive: !!text.trim(),
+                        discount: Number(formData.discount || 0),
+                      });
                       setFormData((prev) => ({
                         ...prev,
                         keyPickupAddress: text,
-                        subtotal: String(sub),
-                        vat: String(vat),
-                        total: String(total),
+                        subtotal: String(pricing.subtotal),
+                        vat: String(pricing.vat),
+                        total: String(pricing.total),
                       }));
                     }}
                     className={cn(inputClass, "mt-2")}
@@ -1484,14 +1478,14 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                         step="0.01"
                         value={formData.subtotal}
                         onChange={(e) => {
-                          updateField("subtotal", e.target.value);
-                          // Recalculate VAT and total
-                          const sub = Number(e.target.value || 0);
-                          const dis = Number(formData.discount || 0);
-                          const base = Math.max(0, sub - dis);
-                          const vat = Math.round(base * 0.081 * 100) / 100;
-                          const total = Math.round((base + vat) * 100) / 100;
-                          setFormData((prev) => ({ ...prev, subtotal: e.target.value, vat: String(vat), total: String(total) }));
+                          const pricing = calculatePricing({
+                            packagePrice: Number(e.target.value || 0),
+                            addons: [],
+                            travelZonePrice: 0,
+                            keyPickupActive: false,
+                            discount: Number(formData.discount || 0),
+                          });
+                          setFormData((prev) => ({ ...prev, subtotal: e.target.value, vat: String(pricing.vat), total: String(pricing.total) }));
                         }}
                         className={cn(inputClass, "pr-12")}
                       />
@@ -1507,12 +1501,14 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                         min="0"
                         value={formData.discount}
                         onChange={(e) => {
-                          const dis = Number(e.target.value || 0);
-                          const sub = Number(formData.subtotal || 0);
-                          const base = Math.max(0, sub - dis);
-                          const vat = Math.round(base * 0.081 * 100) / 100;
-                          const total = Math.round((base + vat) * 100) / 100;
-                          setFormData((prev) => ({ ...prev, discount: e.target.value, vat: String(vat), total: String(total) }));
+                          const pricing = calculatePricing({
+                            packagePrice: Number(formData.subtotal || 0),
+                            addons: [],
+                            travelZonePrice: 0,
+                            keyPickupActive: false,
+                            discount: Number(e.target.value || 0),
+                          });
+                          setFormData((prev) => ({ ...prev, discount: e.target.value, vat: String(pricing.vat), total: String(pricing.total) }));
                         }}
                         className={cn(inputClass, "pr-12")}
                       />

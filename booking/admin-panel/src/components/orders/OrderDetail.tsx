@@ -18,6 +18,11 @@ import { CustomerAutocompleteInput } from "../ui/CustomerAutocompleteInput";
 import { OrderChat } from "./OrderChat";
 import { OrderEmailLog } from "./OrderEmailLog";
 import { t, type Lang } from "../../i18n";
+import { calculatePricing, KEY_PICKUP_PRICE } from "../../lib/pricing";
+import { useDirty } from "../../hooks/useDirty";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "../ui/tabs";
+import { OrderDetailHeader } from "./OrderDetailHeader";
+import { OrderDetailStatsBar } from "./OrderDetailStatsBar";
 const GROUP_LABEL_KEYS: Record<string, string> = {
   camera: "orderDetail.group.camera", dronePhoto: "orderDetail.group.dronePhoto", tour: "orderDetail.group.tour",
   floorplans: "orderDetail.group.floorplans", groundVideo: "orderDetail.group.groundVideo", droneVideo: "orderDetail.group.droneVideo",
@@ -31,7 +36,6 @@ const DEFAULT_STATUS_EMAIL_TARGETS = {
 };
 const RADIO_GROUPS = new Set(["camera", "dronePhoto", "groundVideo", "droneVideo"]);
 const ADDON_ORDER = ["camera", "dronePhoto", "tour", "floorplans", "groundVideo", "droneVideo", "staging", "express"];
-const KEY_PICKUP_PRICE = 50;
 
 type Props = {
   token: string;
@@ -122,67 +126,89 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
   const emailsDirty = sendStatusEmails && (statusEmailTargets.customer || statusEmailTargets.office || statusEmailTargets.photographer || statusEmailTargets.cc);
   const statusDirty = status !== originalStatus || scheduleLocal !== originalSchedule || scheduleDurationMin !== originalScheduleDurationMin || pendingPhotographerKey !== originalPhotographerKey || emailsDirty;
 
-  const detailsDirty = useMemo(() => {
-    if (!data) return false;
-    const baseBillingStreet = data.billing?.street || data.customerStreet || "";
-    const baseBillingZipcity = data.billing?.zipcity || data.customerZipcity || "";
-    const billingDirty =
-      (editBilling.salutation || "") !== (data.billing?.salutation || "") ||
-      (editBilling.first_name || "") !== (data.billing?.first_name || "") ||
-      (editBilling.name || "") !== (data.billing?.name || data.customerName || "") ||
-      (editBilling.email || "") !== (data.billing?.email || data.customerEmail || "") ||
-      (editBilling.phone || "") !== (data.billing?.phone || "") ||
-      (editBilling.phone_mobile || "") !== (data.billing?.phone_mobile || "") ||
-      (editBilling.company || "") !== (data.billing?.company || "") ||
-      (editBilling.company_email || "") !== (data.billing?.company_email || "") ||
-      (editBilling.company_phone || "") !== (data.billing?.company_phone || "") ||
-      (editBilling.onsiteName || "") !== (data.billing?.onsiteName || "") ||
-      (editBilling.onsitePhone || "") !== (data.billing?.onsitePhone || "") ||
-      (editBilling.street || "") !== baseBillingStreet ||
-      (editBilling.zip || "") !== (data.billing?.zip || "") ||
-      (editBilling.city || "") !== (data.billing?.city || "") ||
-      (editBilling.zipcity || "") !== baseBillingZipcity ||
-      (editBilling.order_ref || "") !== (data.billing?.order_ref || "") ||
-      (editBilling.notes || "") !== (data.billing?.notes || data.notes || "") ||
-      (editBilling.alt_company || "") !== (data.billing?.alt_company || "") ||
-      (editBilling.alt_company_email || "") !== (data.billing?.alt_company_email || "") ||
-      (editBilling.alt_company_phone || "") !== (data.billing?.alt_company_phone || "") ||
-      (editBilling.alt_street || "") !== (data.billing?.alt_street || "") ||
-      (editBilling.alt_zip || "") !== (data.billing?.alt_zip || "") ||
-      (editBilling.alt_city || "") !== (data.billing?.alt_city || "") ||
-      (editBilling.alt_zipcity || "") !== (data.billing?.alt_zipcity || "") ||
-      (editBilling.alt_salutation || "") !== (data.billing?.alt_salutation || "") ||
-      (editBilling.alt_first_name || "") !== (data.billing?.alt_first_name || "") ||
-      (editBilling.alt_name || "") !== (data.billing?.alt_name || "") ||
-      (editBilling.alt_email || "") !== (data.billing?.alt_email || "") ||
-      (editBilling.alt_phone || "") !== (data.billing?.alt_phone || "") ||
-      (editBilling.alt_phone_mobile || "") !== (data.billing?.alt_phone_mobile || "");
-
-    const objectAddressDirty = (editObjectAddress || "") !== (data.address || "");
-    const objectDirty =
-      objectAddressDirty ||
-      (editObject.type || "") !== String(data.object?.type || "") ||
-      (editObject.area || "") !== String(data.object?.area || "") ||
-      (editObject.floors || "") !== String(data.object?.floors || "") ||
-      (editObject.rooms || "") !== String(data.object?.rooms || "");
-
-    const pkgDirty = (editPackageKey || "") !== (data.services?.package?.key || "");
-
+  const initialDetails = useMemo(() => {
+    if (!data) return null;
     const normalizeAddons = (addons: EditAddon[]) => addons.map((a) => ({ id: a.id, label: a.label, price: Number(a.price) || 0, ...(a.qty !== undefined ? { qty: Number(a.qty) } : {}) }));
-    const addonsDirty = JSON.stringify(normalizeAddons(editAddons)) !== JSON.stringify(normalizeAddons((data.services?.addons || []) as EditAddon[]));
+    return {
+      billing: {
+        salutation: data.billing?.salutation || "",
+        first_name: data.billing?.first_name || "",
+        name: data.billing?.name || data.customerName || "",
+        email: data.billing?.email || data.customerEmail || "",
+        phone: data.billing?.phone || "",
+        phone_mobile: data.billing?.phone_mobile || "",
+        company: data.billing?.company || "",
+        company_email: data.billing?.company_email || "",
+        company_phone: data.billing?.company_phone || "",
+        onsiteName: data.billing?.onsiteName || "",
+        onsitePhone: data.billing?.onsitePhone || "",
+        street: data.billing?.street || data.customerStreet || "",
+        zip: data.billing?.zip || "",
+        city: data.billing?.city || "",
+        zipcity: data.billing?.zipcity || data.customerZipcity || "",
+        order_ref: data.billing?.order_ref || "",
+        notes: data.billing?.notes || data.notes || "",
+        alt_company: data.billing?.alt_company || "",
+        alt_company_email: data.billing?.alt_company_email || "",
+        alt_company_phone: data.billing?.alt_company_phone || "",
+        alt_street: data.billing?.alt_street || "",
+        alt_zip: data.billing?.alt_zip || "",
+        alt_city: data.billing?.alt_city || "",
+        alt_zipcity: data.billing?.alt_zipcity || "",
+        alt_salutation: data.billing?.alt_salutation || "",
+        alt_first_name: data.billing?.alt_first_name || "",
+        alt_name: data.billing?.alt_name || "",
+        alt_email: data.billing?.alt_email || "",
+        alt_phone: data.billing?.alt_phone || "",
+        alt_phone_mobile: data.billing?.alt_phone_mobile || "",
+      },
+      objectAddress: data.address || "",
+      object: {
+        type: String(data.object?.type || ""),
+        area: String(data.object?.area || ""),
+        floors: String(data.object?.floors || ""),
+        rooms: String(data.object?.rooms || ""),
+      },
+      packageKey: data.services?.package?.key || "",
+      addons: normalizeAddons((data.services?.addons || []) as EditAddon[]),
+      pricing: {
+        subtotal: Number(data.pricing?.subtotal || 0),
+        discount: Number(data.pricing?.discount || 0),
+        vat: Number(data.pricing?.vat || 0),
+        total: Number(data.total || data.pricing?.total || 0),
+      },
+      keyPickup: {
+        active: !!data.keyPickup?.address,
+        address: data.keyPickup?.address || "",
+      },
+      customDraft: { label: "", price: "" },
+    };
+  }, [data]);
 
-    const pricingDirty =
-      Number(editPricing.subtotal) !== Number(data.pricing?.subtotal || 0) ||
-      Number(editPricing.discount) !== Number(data.pricing?.discount || 0) ||
-      Number(editPricing.vat) !== Number(data.pricing?.vat || 0) ||
-      Number(editPricing.total) !== Number(data.total || data.pricing?.total || 0);
-
-    const keyPickupDirty = !!(editKeyPickupActive && editKeyPickupAddress) !== !!data.keyPickup?.address || (editKeyPickupAddress || "") !== (data.keyPickup?.address || "");
-
-    const customDraftDirty = Boolean(newCustomLabel.trim()) || Boolean(newCustomPrice.trim());
-
-    return billingDirty || objectDirty || pkgDirty || addonsDirty || pricingDirty || keyPickupDirty || customDraftDirty;
+  const currentDetails = useMemo(() => {
+    if (!data) return null;
+    const normalizeAddons = (addons: EditAddon[]) => addons.map((a) => ({ id: a.id, label: a.label, price: Number(a.price) || 0, ...(a.qty !== undefined ? { qty: Number(a.qty) } : {}) }));
+    return {
+      billing: { ...editBilling },
+      objectAddress: editObjectAddress || "",
+      object: { ...editObject },
+      packageKey: editPackageKey || "",
+      addons: normalizeAddons(editAddons),
+      pricing: {
+        subtotal: Number(editPricing.subtotal) || 0,
+        discount: Number(editPricing.discount) || 0,
+        vat: Number(editPricing.vat) || 0,
+        total: Number(editPricing.total) || 0,
+      },
+      keyPickup: {
+        active: !!(editKeyPickupActive && editKeyPickupAddress),
+        address: editKeyPickupAddress || "",
+      },
+      customDraft: { label: newCustomLabel.trim(), price: newCustomPrice.trim() },
+    };
   }, [data, editAddons, editBilling, editKeyPickupActive, editKeyPickupAddress, editObject, editObjectAddress, editPackageKey, editPricing, newCustomLabel, newCustomPrice]);
+
+  const detailsDirty = useDirty(currentDetails, initialDetails);
 
   const effectiveEditMode = canManageOrder && editMode;
   const isDirty = canManageOrder && (statusDirty || (effectiveEditMode && detailsDirty));
@@ -503,13 +529,16 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
         { action: "pricing", package: editPackageKey || null, addons: addonIds, area: editObject.area, floors: editObject.floors },
       );
       if (result) {
-        let subtotal = (result.subtotal || 0) + customSum;
-        if (editKeyPickupActive) subtotal += KEY_PICKUP_PRICE;
-        const discount = result.discountAmount ?? result.discount ?? 0;
-        const afterDiscount = Math.max(0, subtotal - discount);
-        const vat = Math.round(afterDiscount * 0.081 * 20) / 20;
-        const total = Math.round((afterDiscount + vat) * 20) / 20;
-        setEditPricing({ subtotal, discount, vat, total });
+        const apiSubtotal = Number(result.subtotal || 0);
+        const discount = Number(result.discountAmount ?? result.discount ?? 0);
+        const pricing = calculatePricing({
+          packagePrice: apiSubtotal + customSum,
+          addons: [],
+          travelZonePrice: 0,
+          keyPickupActive: editKeyPickupActive,
+          discount,
+        });
+        setEditPricing(pricing);
       }
     } catch (e) {
       setErr(e instanceof Error ? e.message : t(lang, "orderDetail.error.pricingFailed"));
@@ -597,24 +626,71 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
     },
   );
 
+  function openPrintPage() {
+    try {
+      window.localStorage.setItem("admin_print_token_v1", token);
+    } catch {
+      // Ignore storage errors and try opening print page anyway.
+    }
+    window.open(`/print/orders/${orderNo}`, "_blank", "noopener,noreferrer");
+  }
+
+  function openIcsDownload() {
+    const href = getOrderIcsUrl(token, orderNo);
+    const a = document.createElement("a");
+    a.href = href;
+    a.download = `propus-${orderNo}.ics`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  const menuItems = data
+    ? [
+        { label: t(lang, "orderDetail.button.print"), onClick: openPrintPage },
+        ...(onOpenUpload ? [{ label: t(lang, "orderDetail.button.upload"), onClick: () => onOpenUpload(orderNo) }] : []),
+        { label: t(lang, "orderDetail.button.calendarIcs"), onClick: openIcsDownload },
+        ...(canManageOrder
+          ? [{ label: t(lang, "orderDetail.button.deleteOrder"), onClick: () => setShowDeleteConfirm(true), destructive: true }]
+          : []),
+      ]
+    : [];
+
   return (
     <>
       <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-2 sm:p-4">
         <div className={uiMode === "modern" ? "surface-card max-h-[92vh] w-full max-w-full sm:max-w-5xl overflow-auto p-3 sm:p-5" : "max-h-[92vh] w-full max-w-full sm:max-w-3xl overflow-auto rounded-xl bg-white p-3 sm:p-4 shadow-xl"}>
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-lg font-bold">{t(lang, "orderDetail.title").replace("{{orderNo}}", orderNo)}</h3>
-            <div className="flex items-center gap-2">
-              {!effectiveEditMode && data && canManageOrder && (
-                <button onClick={openEditMode} className={uiMode === "modern" ? "btn-secondary" : "rounded border px-2 py-1 text-sm"}>{t(lang, "common.edit")}</button>
-              )}
-              <button onClick={handleClose} className={uiMode === "modern" ? "btn-secondary" : "rounded border px-2 py-1 text-sm"}>{t(lang, "common.close")}</button>
-            </div>
-          </div>
+          <OrderDetailHeader
+            orderNo={orderNo}
+            status={data?.status || ""}
+            lang={lang}
+            uiMode={uiMode}
+            isDirty={isDirty}
+            savedOk={savedOk}
+            busy={busy}
+            canManageOrder={canManageOrder}
+            editMode={effectiveEditMode}
+            onOpenEdit={openEditMode}
+            onCancelEdit={cancelEditMode}
+            onSave={runSaveChanges}
+            onClose={handleClose}
+            menuItems={menuItems}
+          />
 
           {err ? <p className="mb-2 text-sm text-red-600">{err}</p> : null}
           {!data ? <p className="text-sm text-zinc-500">{t(lang, "common.loading")}</p> : (
-            <div className="space-y-4 text-sm">
-              <div className="grid gap-3 sm:grid-cols-2">
+            <>
+            <OrderDetailStatsBar data={data} lang={lang} />
+            <Tabs defaultValue="details">
+              <TabsList>
+                <TabsTrigger value="details">{t(lang, "orderDetail.tab.details")}</TabsTrigger>
+                <TabsTrigger value="scheduling">{t(lang, "orderDetail.tab.scheduling")}</TabsTrigger>
+                <TabsTrigger value="communication">{t(lang, "orderDetail.tab.communication")}</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="details">
+                <div className="space-y-4 text-sm">
+                  <div className="grid gap-3 sm:grid-cols-2">
                 {effectiveEditMode ? (
                   <>
                     <div className="surface-card p-3">
@@ -1064,7 +1140,11 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                   )}
                 </div>
               )}
+                </div>
+              </TabsContent>
 
+              <TabsContent value="scheduling">
+                <div className="space-y-4 text-sm">
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="surface-card p-3">
                   <h4 className="mb-2 font-semibold">{t(lang, "orderDetail.section.status")}</h4>
@@ -1194,95 +1274,42 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                   )}
                 </div>
               </div>
+                </div>
+              </TabsContent>
 
-              {canManageOrder && (
-                <div className="flex items-center gap-3">
-                  <button
-                    className="btn-primary"
-                    disabled={!isDirty || busy === "save"}
-                    onClick={runSaveChanges}
-                  >
-                    {busy === "save" ? t(lang, "common.saving") : t(lang, "orderDetail.button.saveChanges")}
-                  </button>
-                  {isDirty && !savedOk && <span className="text-xs text-amber-500">{t(lang, "common.unsavedChanges")}</span>}
-                  {savedOk && (
-                    <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600">
-                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                      {t(lang, "common.saved")}
-                    </span>
+              <TabsContent value="communication">
+                <div className="space-y-4">
+                  <OrderChat token={token} orderNo={orderNo} order={data} actorRole={role === "photographer" ? "photographer" : "admin"} />
+
+                  {role !== "photographer" && <OrderEmailLog token={token} orderNo={orderNo} />}
+
+                  {canManageOrder && (
+                    <div className="surface-card p-3">
+                      <h4 className="mb-2 font-semibold">{t(lang, "orderDetail.button.resendEmail")}</h4>
+                      <select
+                        className="ui-input"
+                        disabled={busy === "mail"}
+                        value=""
+                        onChange={(e) => {
+                          const v = e.target.value as ResendEmailType;
+                          if (v) { runResendEmail(v); e.target.value = ""; }
+                        }}
+                      >
+                        <option value="">{t(lang, "orderDetail.button.resendEmail")}</option>
+                        {["pending", "provisional"].includes((data.status || "").toLowerCase()) && (
+                          <option value="confirmation_request">{t(lang, "orderDetail.resendEmail.confirmationRequest")}</option>
+                        )}
+                        {data.schedule?.date && data.schedule?.time && data.lastRescheduleOldDate && data.lastRescheduleOldTime && (
+                          <option value="reschedule">{t(lang, "orderDetail.resendEmail.reschedule")}</option>
+                        )}
+                        <option value="booking_confirmed">{t(lang, "orderDetail.resendEmail.bookingConfirmed")}</option>
+                      </select>
+                    </div>
                   )}
                 </div>
-              )}
-
-
-            </div>
-          )}
-
-          {data && (
-            <OrderChat token={token} orderNo={orderNo} order={data} actorRole={role === "photographer" ? "photographer" : "admin"} />
-          )}
-
-          {data && role !== "photographer" && (
-            <div className="mt-4">
-              <OrderEmailLog token={token} orderNo={orderNo} />
-            </div>
-          )}
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button
-              className="btn-secondary"
-              onClick={() => {
-                try {
-                  window.localStorage.setItem("admin_print_token_v1", token);
-                } catch {
-                  // Ignore storage errors and try opening print page anyway.
-                }
-                window.open(`/print/orders/${orderNo}`, "_blank", "noopener,noreferrer");
-              }}
-            >
-              {t(lang, "orderDetail.button.print")}
-            </button>
-            <button className="btn-secondary" onClick={() => onOpenUpload?.(orderNo)}>{t(lang, "orderDetail.button.upload")}</button>
-            {canManageOrder && (
-              <select
-                className="btn-secondary appearance-none pr-8 cursor-pointer"
-                disabled={busy === "mail"}
-                value=""
-                onChange={(e) => {
-                  const v = e.target.value as ResendEmailType;
-                  if (v) { runResendEmail(v); e.target.value = ""; }
-                }}
-              >
-                <option value="">{t(lang, "orderDetail.button.resendEmail")}</option>
-                {["pending", "provisional"].includes((data?.status || "").toLowerCase()) && (
-                  <option value="confirmation_request">{t(lang, "orderDetail.resendEmail.confirmationRequest")}</option>
-                )}
-                {data?.schedule?.date && data?.schedule?.time && data?.lastRescheduleOldDate && data?.lastRescheduleOldTime && (
-                  <option value="reschedule">{t(lang, "orderDetail.resendEmail.reschedule")}</option>
-                )}
-                <option value="booking_confirmed">{t(lang, "orderDetail.resendEmail.bookingConfirmed")}</option>
-              </select>
-            )}
-            <a
-              href={getOrderIcsUrl(token, orderNo)}
-              download={`propus-${orderNo}.ics`}
-              className="btn-secondary inline-flex items-center gap-1.5"
-            >
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-              {t(lang, "orderDetail.button.calendarIcs")}
-            </a>
-          </div>
-
-          {canManageOrder && (
-            <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/5 p-3">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-red-400">{t(lang, "orderDetail.section.dangerZone")}</p>
-              <button
-                className="rounded-[10px] border border-red-500/40 bg-transparent px-4 py-2 text-sm font-semibold text-red-400 hover:bg-red-500/10 transition-colors"
-                onClick={() => setShowDeleteConfirm(true)}
-              >
-                {t(lang, "orderDetail.button.deleteOrder")}
-              </button>
-            </div>
+              </TabsContent>
+            </Tabs>
+            </>
           )}
         </div>
       </div>

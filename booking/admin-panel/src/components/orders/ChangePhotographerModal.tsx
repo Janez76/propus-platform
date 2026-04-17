@@ -125,7 +125,7 @@ export function ChangePhotographerModal({
               className="flex items-center gap-2 rounded-xl bg-[#5C4A21] px-5 py-2.5 font-bold text-white transition-colors hover:bg-[#4a3b1a] disabled:opacity-50"
             >
               <Sparkles className="h-4 w-4" />
-              {busy ? t(lang, "changePhotographer.button.changing") : t(lang, "changePhotographer.button.changing")}
+              {busy ? t(lang, "changePhotographer.button.changing") : t(lang, "changePhotographer.button.confirm")}
             </button>
           </div>
         </div>

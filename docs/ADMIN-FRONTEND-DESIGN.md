@@ -88,6 +88,120 @@ Alle Varianten haben Light- und Dark-Theme-Farben.
 
 - `gbe-autofill-flash`: Einblend-Meldung (gruener Balken links, `role="status"`), die nach 4 Sekunden automatisch ausblendet. Wird angezeigt wenn eine Bestellungs-Auswahl Felder vorausfuellt. Die Meldung listet dynamisch die uebernommenen Teile auf (z. B. «Kunde, Kontakt, Adresse, Kundenordner, Freigabe-Link aus Bestellung uebernommen.»).
 
+## Booking Admin-Panel: Gemeinsame Bausteine (seit Phase 1 Refactoring)
+
+Wiederverwendbare Module im Booking Admin-Panel (`booking/admin-panel/`), die bei neuen Order-Features zuerst herangezogen werden sollen.
+
+### StatusBadge
+
+Komponente: `src/components/ui/StatusBadge.tsx`
+
+Einheitliche Darstellung des Bestell-Status in allen Order-Ansichten. Ersetzt bisherige inline Badge-Implementierungen.
+
+| Prop | Typ | Beschreibung |
+|---|---|---|
+| `status` | `string` | Status-Key (z.B. `pending`, `confirmed`, `cancelled`) |
+| `variant` | `"default" \| "print"` | `default`: Icon + CSS-Klasse; `print`: Inline-Styles fuer Drucklayout |
+
+Verwendet in: `OrderTable`, `OrderCards`, `PrintOrder`.
+
+### Preisberechnung (`pricing.ts`)
+
+Modul: `src/lib/pricing.ts`
+
+| Export | Beschreibung |
+|---|---|
+| `calculatePricing(input)` | Kanonische Preisformel: Subtotal + MwSt + Rabatt → Total |
+| `VAT_RATE` | `0.081` (8.1 % Schweizer MwSt) |
+| `KEY_PICKUP_PRICE` | `50` (CHF, Schluesselabholung) |
+
+Eingabe (`PricingInput`): `packagePrice`, `addons[]`, `travelZonePrice`, `keyPickupActive`, `discount`.
+Ausgabe (`PricingResult`): `subtotal`, `discount`, `vat`, `total`.
+
+Regeln:
+- Negative Eingaben werden auf 0 geklemmt.
+- Rabatt wird vor MwSt abgezogen; Ergebnis kann nicht negativ werden.
+- Rundung auf 2 Dezimalstellen (`Math.round(x * 100) / 100`).
+- Unit-Tests: `src/lib/pricing.test.ts` (Vitest, 10 Tests).
+
+### Hilfsfunktionen und Hooks
+
+| Modul | Export | Beschreibung |
+|---|---|---|
+| `src/lib/address.ts` | `extractSwissZip(address)` | Extrahiert 4-stellige Schweizer PLZ aus Adress-String |
+| `src/hooks/useDirty.ts` | `useDirty(current, initial)` | Generisches Dirty-Tracking via `fast-deep-equal` |
+| `src/hooks/useT.ts` | `useT()` | Gibt sprachgebundene `t(key)`-Funktion zurueck (Convenience-Wrapper) |
+
+### Test-Infrastruktur
+
+- Vitest-Konfiguration: `booking/admin-panel/vitest.config.ts`
+- Scripts in `package.json`: `npm test` / `npm run test:watch`
+- Abhaengigkeiten: `vitest`, `@vitest/coverage-v8`, `fast-deep-equal`
+
+## Booking Admin-Panel: OrderDetail UX (seit Phase 2 Refactoring)
+
+### Tabs-Primitiv (`tabs.tsx`)
+
+Komponente: `src/components/ui/tabs.tsx`
+
+Generisches, abhaengigkeitsfreies Tabs-Primitiv mit vollstaendiger ARIA-Unterstuetzung (`role="tablist"`, `role="tab"`, `role="tabpanel"`, `aria-selected`, `aria-controls`). Unterstuetzt sowohl kontrolliert (`value`-Prop) als auch unkontrolliert (`defaultValue`).
+
+| Export | Beschreibung |
+|---|---|
+| `Tabs` | Wrapper mit Context-Provider; nimmt `defaultValue` oder `value`+`onValueChange` entgegen |
+| `TabsList` | Container fuer Tab-Trigger (`role="tablist"`) |
+| `TabsTrigger` | Einzelner Tab-Button mit `value`-Prop; aktiver Tab erhaelt Akzent-Farbe und `border-bottom` |
+| `TabsContent` | Panel-Inhalt, wird nur gerendert wenn der zugehoerige Tab aktiv ist |
+
+Styling: Verwendet Design-Tokens (`--accent`, `--border-soft`). Keyboard-Navigation via `tabIndex`.
+
+### OrderDetailHeader
+
+Komponente: `src/components/orders/OrderDetailHeader.tsx`
+
+Ersetzt die bisherige einfache Kopfzeile (H3 + Edit/Close) durch einen vollstaendigen Header-Baustein.
+
+| Element | Beschreibung |
+|---|---|
+| Titel + StatusBadge | Bestellnummer mit inline Status-Badge |
+| Primaere Aktion (Edit-Modus) | Save-Button (disabled wenn nicht dirty), Cancel-Button |
+| Edit-Button (Lese-Modus) | Oeffnet den globalen Edit-Modus |
+| Kebab-Menue (3-Punkte) | Drucken, Upload, ICS-Download, Auftrag loeschen (destructive, rot) |
+| Schliessen-Button | Immer sichtbar |
+
+Das Kebab-Menue schliesst bei Click-outside und Escape. Menueeintraege werden als `MenuItem[]`-Array uebergeben (Label, onClick, optional `destructive`).
+
+### OrderDetailStatsBar
+
+Komponente: `src/components/orders/OrderDetailStatsBar.tsx`
+
+Kompakte 3-Spalten-Leiste (responsive, `sm:grid-cols-3`) direkt unter dem Header. Zeigt auf einen Blick:
+
+| Stat | Icon | Quelle |
+|---|---|---|
+| Termin | `CalendarDays` | `data.appointmentDate` (formatiert) oder "Nicht gesetzt" |
+| Fotograf | `User` | `data.photographer.name` oder "Nicht zugewiesen" |
+| Total | `Wallet` | `data.total` bzw. `data.pricing.total` (formatiert als Waehrung) |
+
+Styling: `surface-raised` Hintergrund, `--border-soft` Rand, Lucide-Icons in Akzent-Farbe.
+
+### OrderDetail Tab-Layout
+
+`OrderDetail.tsx` ist seit Phase 2 in drei Tabs aufgeteilt (via `<Tabs defaultValue="details">`):
+
+| Tab | i18n-Key | Inhalt |
+|---|---|---|
+| **Details** | `orderDetail.tab.details` | Kunde, Rechnung, Objekt, Leistungen, Preisberechnung |
+| **Termin & Status** | `orderDetail.tab.scheduling` | Status-Select, Termin-/Zeitfelder, Fotografen-Zuweisung, Status-E-Mail-Targets |
+| **Kommunikation** | `orderDetail.tab.communication` | `OrderChat`, `OrderEmailLog`, E-Mail-Resend-Select |
+
+Bisherige Elemente, die entfernt/verschoben wurden:
+- Bottom-Action-Bar (Drucken/Upload/ICS) → Kebab-Menue im Header
+- Danger-Zone-Block (roter Loeschen-Button) → Kebab-Menue (destructive)
+- Inline Save-Button-Zeile → Primaere Aktion im Header
+
+---
+
 ## i18n Pflicht
 
 Wenn neue Texte oder Tabellenlabels eingefuehrt werden:
