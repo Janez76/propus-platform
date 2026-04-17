@@ -181,6 +181,15 @@ Regeln: Negative Eingaben → 0; Rabatt vor MwSt; Rundung auf 2 Dezimalstellen.
 
 Neue Abhaengigkeit in `app/package.json`: `fast-deep-equal` (fuer `useDirty`).
 
+### Test-Infrastruktur
+
+- Vitest-Konfiguration: `app/vitest.config.ts`
+- Setup (jest-dom + Auto-Cleanup): `app/src/__tests__/setup.ts`
+- Scripts in `package.json`: `npm test` / `npm run test:watch` / `npm run test:ui`
+- Abhaengigkeiten: `vitest`, `@vitejs/plugin-react`, `@testing-library/react`, `@testing-library/jest-dom`, `jsdom`, `vite-tsconfig-paths`
+- CI-Workflow: `.github/workflows/app-ci.yml` (laeuft bei PRs und Pushes auf `master`, Pfad-Filter `app/**`)
+- Ausfuehrliche Dokumentation: `app/TESTING.md`
+
 ---
 
 ## Booking Admin-Panel: OrderDetail UX (seit Phase 2 Refactoring)
