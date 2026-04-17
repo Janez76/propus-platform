@@ -138,6 +138,49 @@ Regeln:
 - Scripts in `package.json`: `npm test` / `npm run test:watch`
 - Abhaengigkeiten: `vitest`, `@vitest/coverage-v8`, `fast-deep-equal`
 
+## Main App: Portierte Shared-Module (aus Booking Admin-Panel)
+
+Die folgenden Module wurden in PR #82 aus `booking/admin-panel/src/` nach `app/src/` portiert und stehen damit allen Seiten der Haupt-App zur Verfuegung. Die Originale im Booking Admin-Panel bleiben bestehen.
+
+### StatusBadge
+
+Komponente: `app/src/components/ui/StatusBadge.tsx`
+
+Identisch zum Booking-Admin-Panel-Pendant. Zeigt Bestell-Status als Badge mit Icon (Default-Variante) oder als Inline-Span mit Hintergrundfarbe (Print-Variante).
+
+| Prop | Typ | Beschreibung |
+|---|---|---|
+| `status` | `string \| undefined \| null` | Status-Key (z.B. `pending`, `confirmed`, `cancelled`) |
+| `variant` | `"default" \| "print"` | `default`: Icon + CSS-Klasse via `getStatusEntry`/`getStatusIcon`; `print`: Inline-Styles fuer Drucklayout |
+
+Abhaengigkeit: `app/src/lib/status` (muss `getStatusEntry`, `getStatusIcon` exportieren).
+
+### Preisberechnung (`pricing.ts`)
+
+Modul: `app/src/lib/pricing.ts`
+
+| Export | Beschreibung |
+|---|---|
+| `calculatePricing(input)` | Kanonische Preisformel: Subtotal + MwSt - Rabatt → Total |
+| `VAT_RATE` | `0.081` (8.1 % Schweizer MwSt) |
+| `KEY_PICKUP_PRICE` | `50` (CHF, Schluesselabholung) |
+| `PricingInput` | Typ: `packagePrice`, `addons[]`, `travelZonePrice`, `keyPickupActive`, `discount` |
+| `PricingResult` | Typ: `subtotal`, `discount`, `vat`, `total` |
+
+Regeln: Negative Eingaben → 0; Rabatt vor MwSt; Rundung auf 2 Dezimalstellen.
+
+### Hilfsfunktionen und Hooks
+
+| Modul | Export | Beschreibung |
+|---|---|---|
+| `app/src/lib/address.ts` | `extractSwissZip(address)` | Extrahiert 4-stellige Schweizer PLZ aus Adress-String |
+| `app/src/hooks/useDirty.ts` | `useDirty(current, initial)` | Generisches Dirty-Tracking via `fast-deep-equal` |
+| `app/src/hooks/useT.ts` | `useT()` | Gibt sprachgebundene `t(key)`-Funktion zurueck (liest Sprache aus `authStore`) |
+
+Neue Abhaengigkeit in `app/package.json`: `fast-deep-equal` (fuer `useDirty`).
+
+---
+
 ## Booking Admin-Panel: OrderDetail UX (seit Phase 2 Refactoring)
 
 ### Tabs-Primitiv (`tabs.tsx`)
