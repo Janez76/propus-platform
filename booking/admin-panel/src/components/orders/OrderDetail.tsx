@@ -20,6 +20,9 @@ import { OrderEmailLog } from "./OrderEmailLog";
 import { t, type Lang } from "../../i18n";
 import { calculatePricing, KEY_PICKUP_PRICE } from "../../lib/pricing";
 import { useDirty } from "../../hooks/useDirty";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "../ui/tabs";
+import { OrderDetailHeader } from "./OrderDetailHeader";
+import { OrderDetailStatsBar } from "./OrderDetailStatsBar";
 const GROUP_LABEL_KEYS: Record<string, string> = {
   camera: "orderDetail.group.camera", dronePhoto: "orderDetail.group.dronePhoto", tour: "orderDetail.group.tour",
   floorplans: "orderDetail.group.floorplans", groundVideo: "orderDetail.group.groundVideo", droneVideo: "orderDetail.group.droneVideo",
@@ -623,24 +626,71 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
     },
   );
 
+  function openPrintPage() {
+    try {
+      window.localStorage.setItem("admin_print_token_v1", token);
+    } catch {
+      // Ignore storage errors and try opening print page anyway.
+    }
+    window.open(`/print/orders/${orderNo}`, "_blank", "noopener,noreferrer");
+  }
+
+  function openIcsDownload() {
+    const href = getOrderIcsUrl(token, orderNo);
+    const a = document.createElement("a");
+    a.href = href;
+    a.download = `propus-${orderNo}.ics`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  const menuItems = data
+    ? [
+        { label: t(lang, "orderDetail.button.print"), onClick: openPrintPage },
+        ...(onOpenUpload ? [{ label: t(lang, "orderDetail.button.upload"), onClick: () => onOpenUpload(orderNo) }] : []),
+        { label: t(lang, "orderDetail.button.calendarIcs"), onClick: openIcsDownload },
+        ...(canManageOrder
+          ? [{ label: t(lang, "orderDetail.button.deleteOrder"), onClick: () => setShowDeleteConfirm(true), destructive: true }]
+          : []),
+      ]
+    : [];
+
   return (
     <>
       <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-2 sm:p-4">
         <div className={uiMode === "modern" ? "surface-card max-h-[92vh] w-full max-w-full sm:max-w-5xl overflow-auto p-3 sm:p-5" : "max-h-[92vh] w-full max-w-full sm:max-w-3xl overflow-auto rounded-xl bg-white p-3 sm:p-4 shadow-xl"}>
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-lg font-bold">{t(lang, "orderDetail.title").replace("{{orderNo}}", orderNo)}</h3>
-            <div className="flex items-center gap-2">
-              {!effectiveEditMode && data && canManageOrder && (
-                <button onClick={openEditMode} className={uiMode === "modern" ? "btn-secondary" : "rounded border px-2 py-1 text-sm"}>{t(lang, "common.edit")}</button>
-              )}
-              <button onClick={handleClose} className={uiMode === "modern" ? "btn-secondary" : "rounded border px-2 py-1 text-sm"}>{t(lang, "common.close")}</button>
-            </div>
-          </div>
+          <OrderDetailHeader
+            orderNo={orderNo}
+            status={data?.status || ""}
+            lang={lang}
+            uiMode={uiMode}
+            isDirty={isDirty}
+            savedOk={savedOk}
+            busy={busy}
+            canManageOrder={canManageOrder}
+            editMode={effectiveEditMode}
+            onOpenEdit={openEditMode}
+            onCancelEdit={cancelEditMode}
+            onSave={runSaveChanges}
+            onClose={handleClose}
+            menuItems={menuItems}
+          />
 
           {err ? <p className="mb-2 text-sm text-red-600">{err}</p> : null}
           {!data ? <p className="text-sm text-zinc-500">{t(lang, "common.loading")}</p> : (
-            <div className="space-y-4 text-sm">
-              <div className="grid gap-3 sm:grid-cols-2">
+            <>
+            <OrderDetailStatsBar data={data} lang={lang} />
+            <Tabs defaultValue="details">
+              <TabsList>
+                <TabsTrigger value="details">{t(lang, "orderDetail.tab.details")}</TabsTrigger>
+                <TabsTrigger value="scheduling">{t(lang, "orderDetail.tab.scheduling")}</TabsTrigger>
+                <TabsTrigger value="communication">{t(lang, "orderDetail.tab.communication")}</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="details">
+                <div className="space-y-4 text-sm">
+                  <div className="grid gap-3 sm:grid-cols-2">
                 {effectiveEditMode ? (
                   <>
                     <div className="surface-card p-3">
@@ -1090,7 +1140,11 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                   )}
                 </div>
               )}
+                </div>
+              </TabsContent>
 
+              <TabsContent value="scheduling">
+                <div className="space-y-4 text-sm">
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="surface-card p-3">
                   <h4 className="mb-2 font-semibold">{t(lang, "orderDetail.section.status")}</h4>
@@ -1220,95 +1274,42 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                   )}
                 </div>
               </div>
+                </div>
+              </TabsContent>
 
-              {canManageOrder && (
-                <div className="flex items-center gap-3">
-                  <button
-                    className="btn-primary"
-                    disabled={!isDirty || busy === "save"}
-                    onClick={runSaveChanges}
-                  >
-                    {busy === "save" ? t(lang, "common.saving") : t(lang, "orderDetail.button.saveChanges")}
-                  </button>
-                  {isDirty && !savedOk && <span className="text-xs text-amber-500">{t(lang, "common.unsavedChanges")}</span>}
-                  {savedOk && (
-                    <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600">
-                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                      {t(lang, "common.saved")}
-                    </span>
+              <TabsContent value="communication">
+                <div className="space-y-4">
+                  <OrderChat token={token} orderNo={orderNo} order={data} actorRole={role === "photographer" ? "photographer" : "admin"} />
+
+                  {role !== "photographer" && <OrderEmailLog token={token} orderNo={orderNo} />}
+
+                  {canManageOrder && (
+                    <div className="surface-card p-3">
+                      <h4 className="mb-2 font-semibold">{t(lang, "orderDetail.button.resendEmail")}</h4>
+                      <select
+                        className="ui-input"
+                        disabled={busy === "mail"}
+                        value=""
+                        onChange={(e) => {
+                          const v = e.target.value as ResendEmailType;
+                          if (v) { runResendEmail(v); e.target.value = ""; }
+                        }}
+                      >
+                        <option value="">{t(lang, "orderDetail.button.resendEmail")}</option>
+                        {["pending", "provisional"].includes((data.status || "").toLowerCase()) && (
+                          <option value="confirmation_request">{t(lang, "orderDetail.resendEmail.confirmationRequest")}</option>
+                        )}
+                        {data.schedule?.date && data.schedule?.time && data.lastRescheduleOldDate && data.lastRescheduleOldTime && (
+                          <option value="reschedule">{t(lang, "orderDetail.resendEmail.reschedule")}</option>
+                        )}
+                        <option value="booking_confirmed">{t(lang, "orderDetail.resendEmail.bookingConfirmed")}</option>
+                      </select>
+                    </div>
                   )}
                 </div>
-              )}
-
-
-            </div>
-          )}
-
-          {data && (
-            <OrderChat token={token} orderNo={orderNo} order={data} actorRole={role === "photographer" ? "photographer" : "admin"} />
-          )}
-
-          {data && role !== "photographer" && (
-            <div className="mt-4">
-              <OrderEmailLog token={token} orderNo={orderNo} />
-            </div>
-          )}
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button
-              className="btn-secondary"
-              onClick={() => {
-                try {
-                  window.localStorage.setItem("admin_print_token_v1", token);
-                } catch {
-                  // Ignore storage errors and try opening print page anyway.
-                }
-                window.open(`/print/orders/${orderNo}`, "_blank", "noopener,noreferrer");
-              }}
-            >
-              {t(lang, "orderDetail.button.print")}
-            </button>
-            <button className="btn-secondary" onClick={() => onOpenUpload?.(orderNo)}>{t(lang, "orderDetail.button.upload")}</button>
-            {canManageOrder && (
-              <select
-                className="btn-secondary appearance-none pr-8 cursor-pointer"
-                disabled={busy === "mail"}
-                value=""
-                onChange={(e) => {
-                  const v = e.target.value as ResendEmailType;
-                  if (v) { runResendEmail(v); e.target.value = ""; }
-                }}
-              >
-                <option value="">{t(lang, "orderDetail.button.resendEmail")}</option>
-                {["pending", "provisional"].includes((data?.status || "").toLowerCase()) && (
-                  <option value="confirmation_request">{t(lang, "orderDetail.resendEmail.confirmationRequest")}</option>
-                )}
-                {data?.schedule?.date && data?.schedule?.time && data?.lastRescheduleOldDate && data?.lastRescheduleOldTime && (
-                  <option value="reschedule">{t(lang, "orderDetail.resendEmail.reschedule")}</option>
-                )}
-                <option value="booking_confirmed">{t(lang, "orderDetail.resendEmail.bookingConfirmed")}</option>
-              </select>
-            )}
-            <a
-              href={getOrderIcsUrl(token, orderNo)}
-              download={`propus-${orderNo}.ics`}
-              className="btn-secondary inline-flex items-center gap-1.5"
-            >
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-              {t(lang, "orderDetail.button.calendarIcs")}
-            </a>
-          </div>
-
-          {canManageOrder && (
-            <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/5 p-3">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-red-400">{t(lang, "orderDetail.section.dangerZone")}</p>
-              <button
-                className="rounded-[10px] border border-red-500/40 bg-transparent px-4 py-2 text-sm font-semibold text-red-400 hover:bg-red-500/10 transition-colors"
-                onClick={() => setShowDeleteConfirm(true)}
-              >
-                {t(lang, "orderDetail.button.deleteOrder")}
-              </button>
-            </div>
+              </TabsContent>
+            </Tabs>
+            </>
           )}
         </div>
       </div>

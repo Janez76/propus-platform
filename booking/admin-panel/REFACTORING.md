@@ -37,7 +37,7 @@ tar -xzf .backups/orders-pre-refactor-20260417-105816.tar.gz -C .
 
 - [x] Phase 0 – Backup
 - [x] Phase 1 – Code-Hygiene
-- [ ] Phase 2 – OrderDetail UX
+- [x] Phase 2 – OrderDetail UX
 - [ ] Phase 3 – Wizard
 - [ ] Phase 4 – Empty States + Feinschliff
 
@@ -69,3 +69,34 @@ tar -xzf .backups/orders-pre-refactor-20260417-105816.tar.gz -C .
 - `npx tsc -b --noEmit` → clean.
 - `npx vitest run` → 10/10 passed.
 - `npm run lint` → 40 errors / 13 warnings, identisch zur Baseline bis auf −1 `static-components` (Netto-Verbesserung; alle verbleibenden Warnungen sind vor-bestehend und außerhalb des Phase-1-Scopes).
+
+## Phase 2 – Änderungen
+
+### Neue Module
+- `src/components/ui/tabs.tsx` – generisches Tabs-Primitiv (`<Tabs>`, `<TabsList>`, `<TabsTrigger>`, `<TabsContent>`) mit ARIA `role="tablist"`/`role="tab"`/`role="tabpanel"` und Keyboard-Fokus.
+- `src/components/orders/OrderDetailHeader.tsx` – Header mit Titel + Status-Badge + primärer Save-Aktion (nur im Edit-Modus) + Kebab-Menü (Drucken / Upload / ICS / Auftrag löschen) + Schliessen-Button. Click-outside und Escape schliessen das Menü.
+- `src/components/orders/OrderDetailStatsBar.tsx` – kompakte Stats-Leiste mit Termin, Fotograf, Total (3-Spalten auf sm).
+
+### Restrukturierung `OrderDetail.tsx`
+- Alte Kopfzeile (H3 + Edit/Close-Buttons) ersetzt durch `<OrderDetailHeader />`.
+- `<OrderDetailStatsBar />` direkt unter dem Header, wenn `data` geladen ist.
+- Inhalt in drei Tabs aufgeteilt:
+  1. **Details** – Kunde, Rechnung, Objekt, Leistungen, Preisübersicht.
+  2. **Termin & Status** – Status-Select, Termin, Mitarbeiter, Status-E-Mail-Targets.
+  3. **Kommunikation** – `OrderChat`, `OrderEmailLog`, E-Mail-Resend.
+- Inline Save-Button-Zeile (`flex items-center gap-3` mit `runSaveChanges`) entfernt – Save ist jetzt die primäre Aktion im Header.
+- Bottom-Action-Bar (Drucken/Upload/ResendEmail/ICS) entfernt – Drucken/Upload/ICS/Löschen sind im Kebab-Menü; ResendEmail ist Bestandteil der Kommunikations-Tab.
+- Danger-Zone-Block (roter Löschen-Button am Ende) entfernt – Löschen ist jetzt im Kebab-Menü (destructive, rot) und triggert den bestehenden `ConfirmDeleteDialog`.
+
+### i18n
+- Neu (DE/EN/FR/IT): `orderDetail.tab.details`, `orderDetail.tab.scheduling`, `orderDetail.tab.communication`, `common.moreActions`.
+- `orderDetail.section.dangerZone` und `common.unsavedChanges` bleiben in den JSONs erhalten (potenzielle Wiederverwendung an anderer Stelle; harmlos). Cleanup ggf. in Phase 4.
+
+### Bewusst verschoben (Phase 2b)
+- **Per-Card Inline-Edit** ist in Phase 2 nicht geliefert. Der bestehende globale `editMode`-Flag kontrolliert weiterhin sämtliche Edit-UI gleichzeitig. Rationale: Einzelsektions-Edit würde eine größere Umstellung der Save-Logik erfordern (entweder pro Sektion separate Endpoints oder feinere Dirty-Flags mit partiellem Payload) und gefährdet ohne Backend-Anpassungen das "No-API-Change"-Constraint. Als Phase-2b-Follow-up vorgesehen: pro Card ein Stift-Icon + lokaler `isEditing`-Toggle, globaler Save im Header speichert weiterhin alles.
+
+### Verifikation
+- `npx tsc -b --noEmit` → clean.
+- `npx vitest run` → 10/10 passed.
+- `npm run build` → erfolgreich.
+- `npm run lint` → keine neuen Fehler in geänderten Dateien (2 pre-existing `exhaustive-deps`-Warnungen in `OrderDetail.tsx`).
