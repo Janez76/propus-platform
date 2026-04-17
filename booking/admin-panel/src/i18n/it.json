@@ -325,6 +325,7 @@
   "orderDetail.select.unassigned": "– Non assegnato –",
   "orderDetail.info.calendarUpdate": "Le voci del calendario verranno aggiornate dopo il salvataggio.",
   "orderDetail.confirm.unsavedClose": "Ci sono modifiche non salvate. Chiudere comunque?",
+  "orderDetail.confirm.discardChanges": "Annullare le modifiche?",
   "orderDetail.error.invalidDateTime": "Inserire data e ora validi",
   "orderDetail.error.saveFailed": "Impossibile salvare le modifiche",
   "orderDetail.error.emailFailed": "Impossibile inviare l'e-mail",

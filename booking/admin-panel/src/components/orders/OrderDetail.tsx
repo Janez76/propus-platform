@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { Pencil } from "lucide-react";
 import { assignPhotographer, getOrder, getOrderIcsUrl, resendEmail, resendStatusEmails, rescheduleOrder, type Order, type EditAddon, type EditPricing, type ResendEmailType, updateOrderDetails, updateOrderStatus } from "../../api/orders";
 import { getAdminConfig, type AdminConfig } from "../../api/adminConfig";
 import { apiRequest } from "../../api/client";
@@ -36,6 +37,8 @@ const DEFAULT_STATUS_EMAIL_TARGETS = {
 };
 const RADIO_GROUPS = new Set(["camera", "dronePhoto", "groundVideo", "droneVideo"]);
 const ADDON_ORDER = ["camera", "dronePhoto", "tour", "floorplans", "groundVideo", "droneVideo", "staging", "express"];
+
+type CardKey = "company" | "contact" | "billing" | "object" | "services";
 
 type Props = {
   token: string;
@@ -111,7 +114,7 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
   const [busy, setBusy] = useState("");
   const [sendStatusEmails, setSendStatusEmails] = useState(false);
   const [statusEmailTargets, setStatusEmailTargets] = useState(DEFAULT_STATUS_EMAIL_TARGETS);
-  const [editMode, setEditMode] = useState(false);
+  const [editingCard, setEditingCard] = useState<CardKey | null>(null);
   const [editBilling, setEditBilling] = useState({ salutation: "", first_name: "", name: "", email: "", phone: "", phone_mobile: "", company: "", company_email: "", company_phone: "", onsiteName: "", onsitePhone: "", street: "", zip: "", city: "", zipcity: "", order_ref: "", notes: "", alt_company: "", alt_company_email: "", alt_company_phone: "", alt_street: "", alt_zip: "", alt_city: "", alt_zipcity: "", alt_salutation: "", alt_first_name: "", alt_name: "", alt_email: "", alt_phone: "", alt_phone_mobile: "" });
   const [editObjectAddress, setEditObjectAddress] = useState("");
   const [editObject, setEditObject] = useState({ type: "", area: "", floors: "", rooms: "" });
@@ -210,7 +213,7 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
 
   const detailsDirty = useDirty(currentDetails, initialDetails);
 
-  const effectiveEditMode = canManageOrder && editMode;
+  const effectiveEditMode = canManageOrder && editingCard !== null;
   const isDirty = canManageOrder && (statusDirty || (effectiveEditMode && detailsDirty));
 
   useUnsavedChangesGuard(`order-detail-${orderNo}`, isDirty);
@@ -377,12 +380,6 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
     } finally { setBusy(""); }
   }
 
-  function openEditMode() {
-    if (!canManageOrder) return;
-    setErr("");
-    setEditMode(true);
-  }
-
   function handleClose() {
     if (isDirty) {
       const ok = window.confirm(t(lang, "orderDetail.confirm.unsavedClose"));
@@ -391,7 +388,7 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
     onClose();
   }
 
-  function cancelEditMode() {
+  function cancelCardEdit() {
     if (!data) return;
     setEditBilling({
       salutation: data.billing?.salutation || "",
@@ -439,8 +436,31 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
     setEditKeyPickupAddress(data.keyPickup?.address || "");
     setNewCustomLabel("");
     setNewCustomPrice("");
-    setEditMode(false);
+    setEditingCard(null);
     setErr("");
+  }
+
+  function requestOpenCard(next: CardKey) {
+    if (!canManageOrder) return;
+    if (editingCard === next) return;
+    if (editingCard !== null && detailsDirty) {
+      const ok = window.confirm(t(lang, "orderDetail.confirm.discardChanges"));
+      if (!ok) return;
+      cancelCardEdit();
+    }
+    setErr("");
+    setEditingCard(next);
+  }
+
+  function handleCardKeyDown(e: ReactKeyboardEvent<HTMLDivElement>) {
+    if (busy === "details") return;
+    if (e.key === "Escape") {
+      e.preventDefault();
+      cancelCardEdit();
+    } else if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      void runSaveDetails();
+    }
   }
 
   async function runSaveDetails() {
@@ -462,7 +482,7 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
         keyPickup: editKeyPickupActive && editKeyPickupAddress ? { address: editKeyPickupAddress } : null,
       });
       await load();
-      setEditMode(false);
+      setEditingCard(null);
       setSavedOk(true);
       setTimeout(() => setSavedOk(false), 2000);
     } catch (e) {
@@ -546,10 +566,10 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
   }, [editAddons, editPackageKey, editObject.area, editObject.floors, editKeyPickupActive, token]);
 
   useEffect(() => {
-    if (!effectiveEditMode) return;
+    if (editingCard !== "services") return;
     const timer = setTimeout(recalcPricing, 500);
     return () => clearTimeout(timer);
-  }, [effectiveEditMode, recalcPricing]);
+  }, [editingCard, recalcPricing]);
 
   const customerLabel = data?.billing?.company || data?.customerName || "";
   const customerPhoneRaw = String(data?.billing?.company_phone || data?.customerPhone || "").trim();
@@ -656,6 +676,40 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
       ]
     : [];
 
+  const renderEditPencil = (key: CardKey) =>
+    canManageOrder && editingCard !== key ? (
+      <button
+        type="button"
+        aria-label={t(lang, "common.edit")}
+        title={t(lang, "common.edit")}
+        onClick={() => requestOpenCard(key)}
+        className="rounded p-1 text-zinc-400 transition-colors hover:text-[var(--accent)]"
+      >
+        <Pencil className="h-3.5 w-3.5" />
+      </button>
+    ) : null;
+
+  const renderCardFooter = () => (
+    <div className="mt-3 flex gap-2 border-t border-zinc-100 pt-2 dark:border-zinc-700">
+      <button
+        type="button"
+        className="btn-primary text-xs"
+        disabled={busy === "details" || !detailsDirty}
+        onClick={runSaveDetails}
+      >
+        {busy === "details" ? t(lang, "common.saving") : t(lang, "common.save")}
+      </button>
+      <button
+        type="button"
+        className="btn-secondary text-xs"
+        disabled={busy === "details"}
+        onClick={cancelCardEdit}
+      >
+        {t(lang, "common.cancel")}
+      </button>
+    </div>
+  );
+
   return (
     <>
       <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-2 sm:p-4">
@@ -665,13 +719,9 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
             status={data?.status || ""}
             lang={lang}
             uiMode={uiMode}
-            isDirty={isDirty}
+            statusDirty={canManageOrder && statusDirty}
             savedOk={savedOk}
             busy={busy}
-            canManageOrder={canManageOrder}
-            editMode={effectiveEditMode}
-            onOpenEdit={openEditMode}
-            onCancelEdit={cancelEditMode}
             onSave={runSaveChanges}
             onClose={handleClose}
             menuItems={menuItems}
@@ -691,32 +741,22 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
               <TabsContent value="details">
                 <div className="space-y-4 text-sm">
                   <div className="grid gap-3 sm:grid-cols-2">
-                {effectiveEditMode ? (
-                  <>
-                    <div className="surface-card p-3">
-                      <h4 className="mb-2 font-semibold">{t(lang, "orderDetail.label.customerSection")}</h4>
+                <div className="surface-card p-3" onKeyDown={editingCard === "company" ? handleCardKeyDown : undefined}>
+                  <div className="mb-2 flex items-center justify-between">
+                    <h4 className="font-semibold">{t(lang, "orderDetail.label.customerSection")}</h4>
+                    {renderEditPencil("company")}
+                  </div>
+                  {editingCard === "company" ? (
+                    <>
                       <div className="space-y-1.5">
                         <label className="block"><span className="text-xs text-zinc-500">{t(lang, "common.company")}</span><CustomerAutocompleteInput className="ui-input mt-0.5" value={editBilling.company} onChange={value => setEditBilling(p => ({ ...p, company: value }))} onSelectCustomer={(customer) => setEditBilling((p) => ({ ...p, name: customer.name || p.name, email: customer.email || p.email, phone: customer.phone || p.phone, company: customer.company || p.company, company_email: customer.email || p.company_email, company_phone: customer.phone || p.company_phone, street: customer.street || p.street, zipcity: customer.zipcity || p.zipcity }))} selectValue={(c) => c.company || ""} token={token} /></label>
                         <label className="block"><span className="text-xs text-zinc-500">Firma E-Mail</span><input className="ui-input mt-0.5" type="email" value={editBilling.company_email} onChange={e => setEditBilling(p => ({ ...p, company_email: e.target.value }))} /></label>
                         <label className="block"><span className="text-xs text-zinc-500">Firma Telefon</span><input className="ui-input mt-0.5" value={editBilling.company_phone} onChange={e => setEditBilling(p => ({ ...p, company_phone: e.target.value }))} /></label>
                       </div>
-                    </div>
-                    <div className="surface-card p-3">
-                      <h4 className="mb-2 font-semibold">{t(lang, "orderDetail.label.contactSection")}</h4>
-                      <div className="space-y-1.5">
-                        <label className="block"><span className="text-xs text-zinc-500">Anrede</span><input className="ui-input mt-0.5" value={editBilling.salutation} onChange={e => setEditBilling(p => ({ ...p, salutation: e.target.value }))} /></label>
-                        <label className="block"><span className="text-xs text-zinc-500">Vorname</span><input className="ui-input mt-0.5" value={editBilling.first_name} onChange={e => setEditBilling(p => ({ ...p, first_name: e.target.value }))} /></label>
-                        <label className="block"><span className="text-xs text-zinc-500">{t(lang, "common.name")}</span><CustomerAutocompleteInput className="ui-input mt-0.5" value={editBilling.name} onChange={value => setEditBilling(p => ({ ...p, name: value }))} onSelectCustomer={(customer) => setEditBilling((p) => ({ ...p, name: customer.name || p.name, email: customer.email || p.email, phone: customer.phone || p.phone, company: customer.company || p.company, street: customer.street || p.street, zipcity: customer.zipcity || p.zipcity }))} token={token} /></label>
-                        <label className="block"><span className="text-xs text-zinc-500">{t(lang, "common.email")}</span><CustomerAutocompleteInput className="ui-input mt-0.5" type="email" value={editBilling.email} onChange={value => setEditBilling(p => ({ ...p, email: value }))} onSelectCustomer={(customer) => setEditBilling((p) => ({ ...p, name: customer.name || p.name, email: customer.email || p.email, phone: customer.phone || p.phone, company: customer.company || p.company, street: customer.street || p.street, zipcity: customer.zipcity || p.zipcity }))} token={token} /></label>
-                        <label className="block"><span className="text-xs text-zinc-500">{t(lang, "common.phone")}</span><CustomerAutocompleteInput className="ui-input mt-0.5" value={editBilling.phone} onChange={value => setEditBilling(p => ({ ...p, phone: value }))} onSelectCustomer={(customer) => setEditBilling((p) => ({ ...p, name: customer.name || p.name, email: customer.email || p.email, phone: customer.phone || p.phone, company: customer.company || p.company, street: customer.street || p.street, zipcity: customer.zipcity || p.zipcity }))} token={token} /></label>
-                        <label className="block"><span className="text-xs text-zinc-500">Mobil</span><input className="ui-input mt-0.5" value={editBilling.phone_mobile} onChange={e => setEditBilling(p => ({ ...p, phone_mobile: e.target.value }))} /></label>
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="surface-card p-3">
-                      <h4 className="mb-2 font-semibold">{t(lang, "orderDetail.label.customerSection")}</h4>
+                      {renderCardFooter()}
+                    </>
+                  ) : (
+                    <>
                       <div><b>{t(lang, "common.company")}:</b> {customerLabel || <span className="text-zinc-400">{t(lang, "common.notSet")}</span>}</div>
                       {customerPhoneRaw && (
                         <div className="flex items-center gap-1">
@@ -739,9 +779,28 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                           ) : <span className="text-zinc-400">{t(lang, "common.notSet")}</span>}
                         </div>
                       )}
-                    </div>
-                    <div className="surface-card p-3">
-                      <h4 className="mb-2 font-semibold">{t(lang, "orderDetail.label.contactSection")}</h4>
+                    </>
+                  )}
+                </div>
+                <div className="surface-card p-3" onKeyDown={editingCard === "contact" ? handleCardKeyDown : undefined}>
+                  <div className="mb-2 flex items-center justify-between">
+                    <h4 className="font-semibold">{t(lang, "orderDetail.label.contactSection")}</h4>
+                    {renderEditPencil("contact")}
+                  </div>
+                  {editingCard === "contact" ? (
+                    <>
+                      <div className="space-y-1.5">
+                        <label className="block"><span className="text-xs text-zinc-500">Anrede</span><input className="ui-input mt-0.5" value={editBilling.salutation} onChange={e => setEditBilling(p => ({ ...p, salutation: e.target.value }))} /></label>
+                        <label className="block"><span className="text-xs text-zinc-500">Vorname</span><input className="ui-input mt-0.5" value={editBilling.first_name} onChange={e => setEditBilling(p => ({ ...p, first_name: e.target.value }))} /></label>
+                        <label className="block"><span className="text-xs text-zinc-500">{t(lang, "common.name")}</span><CustomerAutocompleteInput className="ui-input mt-0.5" value={editBilling.name} onChange={value => setEditBilling(p => ({ ...p, name: value }))} onSelectCustomer={(customer) => setEditBilling((p) => ({ ...p, name: customer.name || p.name, email: customer.email || p.email, phone: customer.phone || p.phone, company: customer.company || p.company, street: customer.street || p.street, zipcity: customer.zipcity || p.zipcity }))} token={token} /></label>
+                        <label className="block"><span className="text-xs text-zinc-500">{t(lang, "common.email")}</span><CustomerAutocompleteInput className="ui-input mt-0.5" type="email" value={editBilling.email} onChange={value => setEditBilling(p => ({ ...p, email: value }))} onSelectCustomer={(customer) => setEditBilling((p) => ({ ...p, name: customer.name || p.name, email: customer.email || p.email, phone: customer.phone || p.phone, company: customer.company || p.company, street: customer.street || p.street, zipcity: customer.zipcity || p.zipcity }))} token={token} /></label>
+                        <label className="block"><span className="text-xs text-zinc-500">{t(lang, "common.phone")}</span><CustomerAutocompleteInput className="ui-input mt-0.5" value={editBilling.phone} onChange={value => setEditBilling(p => ({ ...p, phone: value }))} onSelectCustomer={(customer) => setEditBilling((p) => ({ ...p, name: customer.name || p.name, email: customer.email || p.email, phone: customer.phone || p.phone, company: customer.company || p.company, street: customer.street || p.street, zipcity: customer.zipcity || p.zipcity }))} token={token} /></label>
+                        <label className="block"><span className="text-xs text-zinc-500">Mobil</span><input className="ui-input mt-0.5" value={editBilling.phone_mobile} onChange={e => setEditBilling(p => ({ ...p, phone_mobile: e.target.value }))} /></label>
+                      </div>
+                      {renderCardFooter()}
+                    </>
+                  ) : (
+                    <>
                       <div><b>{t(lang, "common.name")}:</b> {contactName || <span className="text-zinc-400">{t(lang, "common.notSet")}</span>}</div>
                       <div className="flex items-center gap-1">
                         <b>{t(lang, "common.email")}:</b>&nbsp;
@@ -762,12 +821,16 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                           <CopyButton value={formatPhoneDisplay(mobileRaw)} lang={lang} />
                         </div>
                       ) : null}
-                    </div>
-                  </>
-                )}
-                <div className="surface-card p-3">
-                  <h4 className="mb-2 font-semibold">{billingSectionTitle}</h4>
-                  {effectiveEditMode ? (
+                    </>
+                  )}
+                </div>
+                <div className="surface-card p-3" onKeyDown={editingCard === "billing" ? handleCardKeyDown : undefined}>
+                  <div className="mb-2 flex items-center justify-between">
+                    <h4 className="font-semibold">{billingSectionTitle}</h4>
+                    {renderEditPencil("billing")}
+                  </div>
+                  {editingCard === "billing" ? (
+                    <>
                     <div className="space-y-1.5">
                       <label className="block"><span className="text-xs text-zinc-500">{t(lang, "orderDetail.label.street")}</span><input className="ui-input mt-0.5" value={editBilling.street} onChange={e => setEditBilling(p => ({ ...p, street: e.target.value }))} /><DbFieldHint fieldPath="billing.street" /></label>
                       <div className="grid gap-1.5 sm:grid-cols-2">
@@ -796,6 +859,8 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                         </div>
                       </div>
                     </div>
+                    {renderCardFooter()}
+                    </>
                   ) : (
                     <>
                       <div><b>{t(lang, "orderDetail.label.street")}:</b> {billingStreetDisplay || <span className="text-zinc-400">{t(lang, "common.notSet")}</span>}</div>
@@ -830,9 +895,13 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                     </>
                   )}
                 </div>
-                <div className="sm:col-span-2 surface-card p-3">
-                  <h4 className="mb-2 font-semibold">{t(lang, "orderDetail.section.object")}</h4>
-                  {effectiveEditMode ? (
+                <div className="sm:col-span-2 surface-card p-3" onKeyDown={editingCard === "object" ? handleCardKeyDown : undefined}>
+                  <div className="mb-2 flex items-center justify-between">
+                    <h4 className="font-semibold">{t(lang, "orderDetail.section.object")}</h4>
+                    {renderEditPencil("object")}
+                  </div>
+                  {editingCard === "object" ? (
+                    <>
                     <div className="grid gap-1.5 sm:grid-cols-2">
                       <label className="block sm:col-span-2"><span className="text-xs text-zinc-500">{t(lang, "orderDetail.label.address")}</span><input className="ui-input mt-0.5" value={editObjectAddress} onChange={e => setEditObjectAddress(e.target.value)} placeholder="Objektadresse (Shooting-Ort)" /><DbFieldHint fieldPath="address.text" /></label>
                       <label className="block"><span className="text-xs text-zinc-500">{t(lang, "orderDetail.label.type")}</span><input className="ui-input mt-0.5" value={editObject.type} onChange={e => setEditObject(p => ({ ...p, type: e.target.value }))} /><DbFieldHint fieldPath="object.type" /></label>
@@ -842,6 +911,8 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                       <label className="block"><span className="text-xs text-zinc-500">{t(lang, "orderDetail.label.onsiteName")}</span><input className="ui-input mt-0.5" value={editBilling.onsiteName} onChange={e => setEditBilling(p => ({ ...p, onsiteName: e.target.value }))} /></label>
                       <label className="block"><span className="text-xs text-zinc-500">{t(lang, "orderDetail.label.onsitePhone")}</span><input className="ui-input mt-0.5" value={editBilling.onsitePhone} onChange={e => setEditBilling(p => ({ ...p, onsitePhone: e.target.value }))} /></label>
                     </div>
+                    {renderCardFooter()}
+                    </>
                   ) : (
                     <div className="grid gap-x-6 gap-y-0.5 sm:grid-cols-2">
                       <div className="flex items-center gap-1 sm:col-span-2">
@@ -883,8 +954,8 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                 </div>
               </div>
 
-              {effectiveEditMode ? (
-                <div className="surface-card space-y-3 p-3">
+              {editingCard === "services" ? (
+                <div className="surface-card space-y-3 p-3" onKeyDown={handleCardKeyDown}>
                   <h4 className="font-semibold">{t(lang, "orderDetail.section.editServices")}</h4>
 
                   <div>
@@ -1077,16 +1148,14 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                     </div>
                   </div>
 
-                  <div className="flex gap-2">
-                    <button className="btn-primary" disabled={busy === "details"} onClick={runSaveDetails}>
-                      {busy === "details" ? t(lang, "common.saving") : t(lang, "common.save")}
-                    </button>
-                    <button className="btn-secondary" disabled={busy === "details"} onClick={cancelEditMode}>{t(lang, "common.cancel")}</button>
-                  </div>
+                  {renderCardFooter()}
                 </div>
               ) : (
                 <div className="surface-card p-3">
-                  <h4 className="mb-3 font-semibold">{t(lang, "orderDetail.section.orderOverview")}</h4>
+                  <div className="mb-3 flex items-center justify-between">
+                    <h4 className="font-semibold">{t(lang, "orderDetail.section.orderOverview")}</h4>
+                    {renderEditPencil("services")}
+                  </div>
                   <div className="space-y-1 text-sm">
                     {data.services?.package?.label && (
                       <div className="flex items-baseline justify-between gap-2">

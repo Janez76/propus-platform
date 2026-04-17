@@ -325,6 +325,7 @@
   "orderDetail.select.unassigned": "– Non attribué –",
   "orderDetail.info.calendarUpdate": "Les entrées du calendrier seront mises à jour après l'enregistrement.",
   "orderDetail.confirm.unsavedClose": "Il y a des modifications non enregistrées. Voulez-vous vraiment fermer ?",
+  "orderDetail.confirm.discardChanges": "Annuler les modifications ?",
   "orderDetail.error.invalidDateTime": "Veuillez indiquer une date et une heure valides",
   "orderDetail.error.saveFailed": "Les modifications n'ont pas pu être enregistrées",
   "orderDetail.error.emailFailed": "L'e-mail n'a pas pu être envoyé",

@@ -200,6 +200,98 @@ Bisherige Elemente, die entfernt/verschoben wurden:
 - Danger-Zone-Block (roter Loeschen-Button) → Kebab-Menue (destructive)
 - Inline Save-Button-Zeile → Primaere Aktion im Header
 
+## Booking Admin-Panel: CreateOrderWizard (seit Phase 3 Refactoring)
+
+Der ehemalige 1676-Zeilen-Monolith `CreateOrderWizard.tsx` wurde in eine Ordner-Struktur aufgeteilt. Der Import-Pfad bleibt identisch (`import { CreateOrderWizard } from "../components/orders/CreateOrderWizard"` → loest auf `index.tsx` auf).
+
+### Ordner-Struktur
+
+| Datei | Beschreibung |
+|---|---|
+| `CreateOrderWizard/index.tsx` | Main-Orchestrator: laedt Katalog/Fotografen/Kontakte, haelt Step-Index, Slot-Fetch, Submit |
+| `CreateOrderWizard/WizardShell.tsx` | Progress-Bar (4 Segmente, Checkmarks, Step-Label), Next/Back/Submit-Navigation, Content-Slot + optionale Sticky-Sidebar |
+| `CreateOrderWizard/WizardPriceSidebar.tsx` | Live-Preis-Sidebar: Paket, Addons, Key-Pickup, Travel-Zone, Subtotal, Discount, VAT, Total; mit Empty-State |
+| `CreateOrderWizard/useWizardForm.ts` | `useReducer`-basierter Form-State (`WizardFormState` + `WizardAction`), `INITIAL_STATE`, `estimatePrice`, `selectPricing`-Selector, `usePricing`-Hook |
+| `CreateOrderWizard/styles.ts` | Gemeinsame Tailwind-Klassen: `INPUT_CLASS`, `LABEL_CLASS`, `SECTION_CLASS`, `SECTION_TITLE_CLASS` |
+| `CreateOrderWizard/steps/Step1Customer.tsx` | Firma, Ansprechpartner-Dropdown, Name/E-Mail/Telefon, Rechnungsadresse, CC-E-Mails |
+| `CreateOrderWizard/steps/Step2Object.tsx` | Objektadresse + Auto-Travel-Zone, Vor-Ort-Kontakt, Objekt-Metadaten (Typ, Flaeche, Etagen, Zimmer), Beschreibung |
+| `CreateOrderWizard/steps/Step3Service.tsx` | Paket-Select, Addons-Checkboxen, Key-Pickup, Discount + Discount-Code |
+| `CreateOrderWizard/steps/Step4Schedule.tsx` | Anfangsstatus, E-Mail-Targets, Fotograf-Select, Datum, AM/PM-Slot-Picker, Notizen |
+
+### WizardShell (wiederverwendbar)
+
+Exportiert: `WizardShell`, `WizardStepDef`
+
+| Prop | Typ | Beschreibung |
+|---|---|---|
+| `steps` | `WizardStepDef[]` | Array mit `{ key, label }` pro Schritt |
+| `currentIndex` | `number` | Aktueller Schritt (0-basiert) |
+| `canNext` | `boolean` | Aktiviert/deaktiviert den Weiter-Button |
+| `isSubmitting` | `boolean` | Zeigt Spinner auf Submit-Button |
+| `onBack / onNext / onSubmit / onGoto` | Callbacks | Navigation |
+| `children` | `ReactNode` | Step-Inhalt (linke Spalte) |
+| `sidebar` | `ReactNode` (optional) | Sticky-Sidebar (rechte Spalte, `lg:grid-cols-[1fr_320px]`) |
+
+Progress-Bar: abgeschlossene Schritte klickbar (zurueckspringen), zukuenftige blockiert; aktiver Schritt via `aria-current="step"`.
+
+### useWizardForm (Reducer-Pattern)
+
+Form-State wird ueber typisierte Actions mutiert. Wichtige Actions:
+
+| Action | Beschreibung |
+|---|---|
+| `selectCustomer` | Befuellt Kunde + Rechnungsadresse aus Customer-Objekt |
+| `selectContact` | Waehlt Kontaktperson aus Dropdown |
+| `setObjectAddress` | Parsed Adresse (Strasse, PLZ, Ort, Kanton) |
+| `setTravelZone` | Setzt Anfahrtszone inkl. Preis |
+| `selectPackage` | Waehlt Paket + Preis |
+| `toggleAddon` | Addon an/aus |
+| `toggleKeyPickup` | Schluesselabholung an/aus |
+| `setSlot` | Datum + Uhrzeit setzen |
+| `setInitialStatus` | Anfangsstatus der Bestellung |
+| `setStatusEmailTarget` | E-Mail-Versand-Ziele (Kunde, Buero, Fotograf, CC) |
+
+Pricing wird nicht im Reducer berechnet, sondern on-the-fly via `selectPricing(state, catalog)` (Selector-Pattern). Manueller Subtotal-Override moeglich via `setManualSubtotal`.
+
+### Per-Schritt-Validierung
+
+`validateStep(index, state)` prueft Pflichtfelder pro Schritt. Der `Next`-Button ist disabled, wenn der aktuelle Schritt ungueltige Felder hat; Fehler werden inline am Feld angezeigt.
+
+## Booking Admin-Panel: EmptyState + Spacing Tokens (seit Phase 4 Refactoring)
+
+### EmptyState
+
+Komponente: `src/components/ui/empty-state.tsx`
+
+Einheitliche Leer-Darstellung fuer Listen und Panels ohne Inhalt.
+
+| Prop | Typ | Beschreibung |
+|---|---|---|
+| `icon` | `ReactNode` | Lucide-Icon (z.B. `<MessageSquare />`, `<MailX />`) |
+| `title` | `string` | Haupttext (via i18n) |
+| `className` | `string` (optional) | Zusaetzliche CSS-Klassen |
+
+Verwendet in: `OrderChat` (leere Nachrichten), `OrderEmailLog` (kein E-Mail-Log), `Step3Service` (leerer Katalog), `Step4Schedule` (keine Fotografen/keine Slots).
+
+### Spacing Tokens
+
+Neue CSS-Custom-Properties in `booking/admin-panel/src/index.css` (`:root`-Block):
+
+| Token | Wert | Tailwind-Aequivalent |
+|---|---|---|
+| `--space-xs` | 4px | `space-1` |
+| `--space-sm` | 8px | `space-2` |
+| `--space-md` | 12px | `space-3` |
+| `--space-lg` | 16px | `space-4` |
+| `--space-xl` | 24px | `space-6` |
+| `--space-2xl` | 32px | `space-8` |
+
+Fuer Inline-Styles (`style={{ padding: "var(--space-lg)" }}`) ohne Tailwind-Umweg. Bestehende Tailwind-Klassen bleiben unveraendert (numerisch identisch).
+
+### OrderChat – Server-seitige Availability
+
+`OrderChat` leitet die Chat-Verfuegbarkeit nicht mehr lokal ab (`deriveAvailabilityFromOrder` entfernt). Die Availability kommt ausschliesslich vom Backend (`GET /api/admin/orders/:orderNo/chat` → `availability`). Vor dem ersten Fetch gilt ein sicherer Default (`readable: false, writable: false`).
+
 ---
 
 ## i18n Pflicht

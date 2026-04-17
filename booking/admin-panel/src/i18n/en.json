@@ -321,6 +321,7 @@
   "orderDetail.select.unassigned": "– Unassigned –",
   "orderDetail.info.calendarUpdate": "Calendar entries will be updated after saving.",
   "orderDetail.confirm.unsavedClose": "There are unsaved changes. Close anyway?",
+  "orderDetail.confirm.discardChanges": "Discard changes?",
   "orderDetail.error.invalidDateTime": "Please enter a valid date and time",
   "orderDetail.error.saveFailed": "Changes could not be saved",
   "orderDetail.error.emailFailed": "Email could not be sent",
