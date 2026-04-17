@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode }
 import type { Order } from "../../api/orders";
 import { formatCurrency, formatDateTime } from "../../lib/utils";
 import { getStatusEntry, getStatusIcon, normalizeStatusKey, type StatusKey } from "../../lib/status";
+import { StatusBadge } from "../ui/StatusBadge";
 import { CalendarDays, MessageSquare, FolderUp, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronUp } from "lucide-react";
 import { Tooltip } from "../ui/tooltip";
 import { t } from "../../i18n";
@@ -52,17 +53,6 @@ function contactSubline(o: Order): string | null {
     return o.customerName;
   }
   return null;
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const entry = getStatusEntry(status);
-  const Icon = getStatusIcon(status);
-  return (
-    <span className={entry.badgeClass}>
-      <Icon className="mr-1 h-3 w-3 shrink-0" />
-      {entry.label}
-    </span>
-  );
 }
 
 function IconBtn({

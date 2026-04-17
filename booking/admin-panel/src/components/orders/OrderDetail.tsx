@@ -18,6 +18,8 @@ import { CustomerAutocompleteInput } from "../ui/CustomerAutocompleteInput";
 import { OrderChat } from "./OrderChat";
 import { OrderEmailLog } from "./OrderEmailLog";
 import { t, type Lang } from "../../i18n";
+import { calculatePricing, KEY_PICKUP_PRICE } from "../../lib/pricing";
+import { useDirty } from "../../hooks/useDirty";
 const GROUP_LABEL_KEYS: Record<string, string> = {
   camera: "orderDetail.group.camera", dronePhoto: "orderDetail.group.dronePhoto", tour: "orderDetail.group.tour",
   floorplans: "orderDetail.group.floorplans", groundVideo: "orderDetail.group.groundVideo", droneVideo: "orderDetail.group.droneVideo",
@@ -31,7 +33,6 @@ const DEFAULT_STATUS_EMAIL_TARGETS = {
 };
 const RADIO_GROUPS = new Set(["camera", "dronePhoto", "groundVideo", "droneVideo"]);
 const ADDON_ORDER = ["camera", "dronePhoto", "tour", "floorplans", "groundVideo", "droneVideo", "staging", "express"];
-const KEY_PICKUP_PRICE = 50;
 
 type Props = {
   token: string;
@@ -122,67 +123,89 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
   const emailsDirty = sendStatusEmails && (statusEmailTargets.customer || statusEmailTargets.office || statusEmailTargets.photographer || statusEmailTargets.cc);
   const statusDirty = status !== originalStatus || scheduleLocal !== originalSchedule || scheduleDurationMin !== originalScheduleDurationMin || pendingPhotographerKey !== originalPhotographerKey || emailsDirty;
 
-  const detailsDirty = useMemo(() => {
-    if (!data) return false;
-    const baseBillingStreet = data.billing?.street || data.customerStreet || "";
-    const baseBillingZipcity = data.billing?.zipcity || data.customerZipcity || "";
-    const billingDirty =
-      (editBilling.salutation || "") !== (data.billing?.salutation || "") ||
-      (editBilling.first_name || "") !== (data.billing?.first_name || "") ||
-      (editBilling.name || "") !== (data.billing?.name || data.customerName || "") ||
-      (editBilling.email || "") !== (data.billing?.email || data.customerEmail || "") ||
-      (editBilling.phone || "") !== (data.billing?.phone || "") ||
-      (editBilling.phone_mobile || "") !== (data.billing?.phone_mobile || "") ||
-      (editBilling.company || "") !== (data.billing?.company || "") ||
-      (editBilling.company_email || "") !== (data.billing?.company_email || "") ||
-      (editBilling.company_phone || "") !== (data.billing?.company_phone || "") ||
-      (editBilling.onsiteName || "") !== (data.billing?.onsiteName || "") ||
-      (editBilling.onsitePhone || "") !== (data.billing?.onsitePhone || "") ||
-      (editBilling.street || "") !== baseBillingStreet ||
-      (editBilling.zip || "") !== (data.billing?.zip || "") ||
-      (editBilling.city || "") !== (data.billing?.city || "") ||
-      (editBilling.zipcity || "") !== baseBillingZipcity ||
-      (editBilling.order_ref || "") !== (data.billing?.order_ref || "") ||
-      (editBilling.notes || "") !== (data.billing?.notes || data.notes || "") ||
-      (editBilling.alt_company || "") !== (data.billing?.alt_company || "") ||
-      (editBilling.alt_company_email || "") !== (data.billing?.alt_company_email || "") ||
-      (editBilling.alt_company_phone || "") !== (data.billing?.alt_company_phone || "") ||
-      (editBilling.alt_street || "") !== (data.billing?.alt_street || "") ||
-      (editBilling.alt_zip || "") !== (data.billing?.alt_zip || "") ||
-      (editBilling.alt_city || "") !== (data.billing?.alt_city || "") ||
-      (editBilling.alt_zipcity || "") !== (data.billing?.alt_zipcity || "") ||
-      (editBilling.alt_salutation || "") !== (data.billing?.alt_salutation || "") ||
-      (editBilling.alt_first_name || "") !== (data.billing?.alt_first_name || "") ||
-      (editBilling.alt_name || "") !== (data.billing?.alt_name || "") ||
-      (editBilling.alt_email || "") !== (data.billing?.alt_email || "") ||
-      (editBilling.alt_phone || "") !== (data.billing?.alt_phone || "") ||
-      (editBilling.alt_phone_mobile || "") !== (data.billing?.alt_phone_mobile || "");
-
-    const objectAddressDirty = (editObjectAddress || "") !== (data.address || "");
-    const objectDirty =
-      objectAddressDirty ||
-      (editObject.type || "") !== String(data.object?.type || "") ||
-      (editObject.area || "") !== String(data.object?.area || "") ||
-      (editObject.floors || "") !== String(data.object?.floors || "") ||
-      (editObject.rooms || "") !== String(data.object?.rooms || "");
-
-    const pkgDirty = (editPackageKey || "") !== (data.services?.package?.key || "");
-
+  const initialDetails = useMemo(() => {
+    if (!data) return null;
     const normalizeAddons = (addons: EditAddon[]) => addons.map((a) => ({ id: a.id, label: a.label, price: Number(a.price) || 0, ...(a.qty !== undefined ? { qty: Number(a.qty) } : {}) }));
-    const addonsDirty = JSON.stringify(normalizeAddons(editAddons)) !== JSON.stringify(normalizeAddons((data.services?.addons || []) as EditAddon[]));
+    return {
+      billing: {
+        salutation: data.billing?.salutation || "",
+        first_name: data.billing?.first_name || "",
+        name: data.billing?.name || data.customerName || "",
+        email: data.billing?.email || data.customerEmail || "",
+        phone: data.billing?.phone || "",
+        phone_mobile: data.billing?.phone_mobile || "",
+        company: data.billing?.company || "",
+        company_email: data.billing?.company_email || "",
+        company_phone: data.billing?.company_phone || "",
+        onsiteName: data.billing?.onsiteName || "",
+        onsitePhone: data.billing?.onsitePhone || "",
+        street: data.billing?.street || data.customerStreet || "",
+        zip: data.billing?.zip || "",
+        city: data.billing?.city || "",
+        zipcity: data.billing?.zipcity || data.customerZipcity || "",
+        order_ref: data.billing?.order_ref || "",
+        notes: data.billing?.notes || data.notes || "",
+        alt_company: data.billing?.alt_company || "",
+        alt_company_email: data.billing?.alt_company_email || "",
+        alt_company_phone: data.billing?.alt_company_phone || "",
+        alt_street: data.billing?.alt_street || "",
+        alt_zip: data.billing?.alt_zip || "",
+        alt_city: data.billing?.alt_city || "",
+        alt_zipcity: data.billing?.alt_zipcity || "",
+        alt_salutation: data.billing?.alt_salutation || "",
+        alt_first_name: data.billing?.alt_first_name || "",
+        alt_name: data.billing?.alt_name || "",
+        alt_email: data.billing?.alt_email || "",
+        alt_phone: data.billing?.alt_phone || "",
+        alt_phone_mobile: data.billing?.alt_phone_mobile || "",
+      },
+      objectAddress: data.address || "",
+      object: {
+        type: String(data.object?.type || ""),
+        area: String(data.object?.area || ""),
+        floors: String(data.object?.floors || ""),
+        rooms: String(data.object?.rooms || ""),
+      },
+      packageKey: data.services?.package?.key || "",
+      addons: normalizeAddons((data.services?.addons || []) as EditAddon[]),
+      pricing: {
+        subtotal: Number(data.pricing?.subtotal || 0),
+        discount: Number(data.pricing?.discount || 0),
+        vat: Number(data.pricing?.vat || 0),
+        total: Number(data.total || data.pricing?.total || 0),
+      },
+      keyPickup: {
+        active: !!data.keyPickup?.address,
+        address: data.keyPickup?.address || "",
+      },
+      customDraft: { label: "", price: "" },
+    };
+  }, [data]);
 
-    const pricingDirty =
-      Number(editPricing.subtotal) !== Number(data.pricing?.subtotal || 0) ||
-      Number(editPricing.discount) !== Number(data.pricing?.discount || 0) ||
-      Number(editPricing.vat) !== Number(data.pricing?.vat || 0) ||
-      Number(editPricing.total) !== Number(data.total || data.pricing?.total || 0);
-
-    const keyPickupDirty = !!(editKeyPickupActive && editKeyPickupAddress) !== !!data.keyPickup?.address || (editKeyPickupAddress || "") !== (data.keyPickup?.address || "");
-
-    const customDraftDirty = Boolean(newCustomLabel.trim()) || Boolean(newCustomPrice.trim());
-
-    return billingDirty || objectDirty || pkgDirty || addonsDirty || pricingDirty || keyPickupDirty || customDraftDirty;
+  const currentDetails = useMemo(() => {
+    if (!data) return null;
+    const normalizeAddons = (addons: EditAddon[]) => addons.map((a) => ({ id: a.id, label: a.label, price: Number(a.price) || 0, ...(a.qty !== undefined ? { qty: Number(a.qty) } : {}) }));
+    return {
+      billing: { ...editBilling },
+      objectAddress: editObjectAddress || "",
+      object: { ...editObject },
+      packageKey: editPackageKey || "",
+      addons: normalizeAddons(editAddons),
+      pricing: {
+        subtotal: Number(editPricing.subtotal) || 0,
+        discount: Number(editPricing.discount) || 0,
+        vat: Number(editPricing.vat) || 0,
+        total: Number(editPricing.total) || 0,
+      },
+      keyPickup: {
+        active: !!(editKeyPickupActive && editKeyPickupAddress),
+        address: editKeyPickupAddress || "",
+      },
+      customDraft: { label: newCustomLabel.trim(), price: newCustomPrice.trim() },
+    };
   }, [data, editAddons, editBilling, editKeyPickupActive, editKeyPickupAddress, editObject, editObjectAddress, editPackageKey, editPricing, newCustomLabel, newCustomPrice]);
+
+  const detailsDirty = useDirty(currentDetails, initialDetails);
 
   const effectiveEditMode = canManageOrder && editMode;
   const isDirty = canManageOrder && (statusDirty || (effectiveEditMode && detailsDirty));
@@ -503,13 +526,16 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
         { action: "pricing", package: editPackageKey || null, addons: addonIds, area: editObject.area, floors: editObject.floors },
       );
       if (result) {
-        let subtotal = (result.subtotal || 0) + customSum;
-        if (editKeyPickupActive) subtotal += KEY_PICKUP_PRICE;
-        const discount = result.discountAmount ?? result.discount ?? 0;
-        const afterDiscount = Math.max(0, subtotal - discount);
-        const vat = Math.round(afterDiscount * 0.081 * 20) / 20;
-        const total = Math.round((afterDiscount + vat) * 20) / 20;
-        setEditPricing({ subtotal, discount, vat, total });
+        const apiSubtotal = Number(result.subtotal || 0);
+        const discount = Number(result.discountAmount ?? result.discount ?? 0);
+        const pricing = calculatePricing({
+          packagePrice: apiSubtotal + customSum,
+          addons: [],
+          travelZonePrice: 0,
+          keyPickupActive: editKeyPickupActive,
+          discount,
+        });
+        setEditPricing(pricing);
       }
     } catch (e) {
       setErr(e instanceof Error ? e.message : t(lang, "orderDetail.error.pricingFailed"));

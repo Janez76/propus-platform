@@ -36,7 +36,36 @@ tar -xzf .backups/orders-pre-refactor-20260417-105816.tar.gz -C .
 ## Phasen-Log
 
 - [x] Phase 0 – Backup
-- [ ] Phase 1 – Code-Hygiene
+- [x] Phase 1 – Code-Hygiene
 - [ ] Phase 2 – OrderDetail UX
 - [ ] Phase 3 – Wizard
 - [ ] Phase 4 – Empty States + Feinschliff
+
+## Phase 1 – Änderungen
+
+### Neue Module
+- `src/lib/pricing.ts` – zentrale Preislogik (`calculatePricing`, `VAT_RATE=0.081`, `KEY_PICKUP_PRICE=50`).
+- `src/lib/pricing.test.ts` – 10 Unit-Tests (Vitest).
+- `src/lib/address.ts` – `extractSwissZip(address)`.
+- `src/hooks/useDirty.ts` – generisches Dirty-Tracking via `fast-deep-equal`.
+- `src/hooks/useT.ts` – sprachgebundene `t`-Funktion (kein Call-Site-Migration in Phase 1).
+- `src/components/ui/StatusBadge.tsx` – gemeinsame Status-Badge mit `variant: "default" | "print"`.
+- `vitest.config.ts` + neue Scripts `test`/`test:watch` in `package.json`.
+
+### Ersetzungen & Löschungen
+- `CreateOrderWizard.tsx`: 6 Preiskalkulationen → `calculatePricing`; lokale `extractSwissZip` entfernt.
+- `OrderDetail.tsx`: lokales `KEY_PICKUP_PRICE` entfernt, `recalcPricing` nutzt `calculatePricing`; ~60-Zeilen `detailsDirty`-Block durch Snapshot + `useDirty` ersetzt.
+- `OrderCards.tsx`, `OrderTable.tsx`, `PrintOrder.tsx`: Eigene Badge-Varianten → `<StatusBadge />`.
+- Dead Code: `OrderDetails.tsx`, `OrderDetailsExample.tsx` gelöscht; i18n-Keys `orderDetails.*`/`orderDetailsExample.*` aus allen 4 Sprachdateien entfernt.
+- `ChangePhotographerModal.tsx`: Bugfix (beide Ternary-Zweige rendern denselben Key) → neuer Key `changePhotographer.button.confirm` in DE/EN/FR/IT.
+
+### Abhängigkeiten
+- Hinzu: `fast-deep-equal@^3.1.3`, `vitest@^4.1.4`, `@vitest/coverage-v8@^4.1.4`.
+
+### Verhaltensänderungen (bewusst)
+- **Rundung in `OrderDetail.recalcPricing`**: vorher 5-Rappen-Rundung (`Math.round(x*20)/20`), jetzt 2-Dezimal-Rundung (`Math.round(x*100)/100`). Abgestimmt mit der Formel in der Spec und konsistent mit dem Wizard. Auswirkung: Endbeträge können um ≤ 0.02 CHF abweichen; Backend-Preise werden nicht verändert (nur die clientseitige Nach-API-Mathematik).
+
+### Verifikation
+- `npx tsc -b --noEmit` → clean.
+- `npx vitest run` → 10/10 passed.
+- `npm run lint` → 40 errors / 13 warnings, identisch zur Baseline bis auf −1 `static-components` (Netto-Verbesserung; alle verbleibenden Warnungen sind vor-bestehend und außerhalb des Phase-1-Scopes).

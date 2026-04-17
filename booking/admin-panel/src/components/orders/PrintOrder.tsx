@@ -4,7 +4,7 @@ import { t } from "../../i18n";
 import { useAuthStore } from "../../store/authStore";
 import { formatCurrency } from "../../lib/utils";
 import { formatPhoneDisplay, phoneTelHref } from "../../lib/format";
-import { getStatusLabel } from "../../lib/status";
+import { StatusBadge } from "../ui/StatusBadge";
 
 type Props = { data: Order };
 
@@ -58,21 +58,6 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function StatusPill({ status }: { status: string }) {
-  const label = getStatusLabel(status);
-  const colors: Record<string, string> = {
-    confirmed: "#d1fae5", provisional: "#fef3c7", pending: "#f1f5f9",
-    cancelled: "#fee2e2", done: "#ede9fe", completed: "#e0f2fe",
-    paused: "#fce7f3", archived: "#f3f4f6",
-  };
-  const bg = colors[status] || "#f3f4f6";
-  return (
-    <span style={{ background: bg, borderRadius: 100, padding: "2px 10px", fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#333" }}>
-      {label}
-    </span>
-  );
-}
-
 export function PrintOrder({ data }: Props) {
   const language = useAuthStore((s) => s.language);
   const addressLine = data.address || data.billing?.street || "";
@@ -107,7 +92,7 @@ export function PrintOrder({ data }: Props) {
             {t(language, "printOrder.order")} <span style={{ color: "#9E8649" }}>#{data.orderNo}</span>
           </div>
           <div style={{ marginBottom: 4 }}>
-            <StatusPill status={data.status} />
+            <StatusBadge status={data.status} variant="print" />
           </div>
           <div style={{ fontSize: 10, color: "#888" }}>{dateFormatted}</div>
         </div>
