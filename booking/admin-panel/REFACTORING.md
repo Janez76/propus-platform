@@ -90,7 +90,7 @@ tar -xzf .backups/orders-pre-refactor-20260417-105816.tar.gz -C .
 
 ### i18n
 - Neu (DE/EN/FR/IT): `orderDetail.tab.details`, `orderDetail.tab.scheduling`, `orderDetail.tab.communication`, `common.moreActions`.
-- `orderDetail.section.dangerZone` und `common.unsavedChanges` bleiben in den JSONs erhalten (potenzielle Wiederverwendung an anderer Stelle; harmlos). Cleanup ggf. in Phase 4.
+- `orderDetail.section.dangerZone` und `common.unsavedChanges` waren noch in den JSONs (ohne UI-Nutzung); später im i18n-Cleanup entfernt.
 
 ### Bewusst verschoben (Phase 2b)
 - **Per-Card Inline-Edit** ist in Phase 2 nicht geliefert. Der bestehende globale `editMode`-Flag kontrolliert weiterhin sämtliche Edit-UI gleichzeitig. Rationale: Einzelsektions-Edit würde eine größere Umstellung der Save-Logik erfordern (entweder pro Sektion separate Endpoints oder feinere Dirty-Flags mit partiellem Payload) und gefährdet ohne Backend-Anpassungen das "No-API-Change"-Constraint. Als Phase-2b-Follow-up vorgesehen: pro Card ein Stift-Icon + lokaler `isEditing`-Toggle, globaler Save im Header speichert weiterhin alles.
@@ -172,7 +172,7 @@ tar -xzf .backups/orders-pre-refactor-20260417-105816.tar.gz -C .
 
 ### Nicht umgestellt
 - Bestehende Tailwind-Utility-Klassen in den Orders-Komponenten wurden **nicht** pauschal auf `var(--space-*)` umgeschrieben – Tailwind-Scale und Tokens sind numerisch identisch, ein Massen-Ersatz würde das Diff aufblähen ohne Nutzen.
-- i18n-Key-Cleanup (`orderDetail.section.dangerZone`, `common.unsavedChanges`, die in Phase 2 als "harmlos erhaltbar" markiert wurden) wurde **bewusst verschoben**, um das Diff klein zu halten. Follow-up: in einem separaten "docs/i18n-Cleanup"-PR entfernen.
+- i18n-Key-Cleanup für `orderDetail.section.dangerZone` / `common.unsavedChanges` erfolgte nach Phase 4 separat (Keys waren unbenutzt).
 
 ### Verifikation
 - `npx tsc -b --noEmit` → clean.
@@ -238,7 +238,6 @@ Intern (nur für Entwickler an `OrderDetail`/`CreateOrderWizard`):
 ## Offene Punkte / Follow-ups
 
 - **Phase 2b**: Per-Card Inline-Edit in `OrderDetail.tsx` (globaler `editMode`-Flag durch pro-Section-Toggles ersetzen). Erfordert Backend-seitig entweder feinere Save-Endpoints oder client-seitiges partielles Payload-Merging.
-- **i18n-Cleanup**: Ungenutzte Keys `orderDetail.section.dangerZone`, `common.unsavedChanges` in allen 4 Sprachdateien entfernen.
 - **Lint-Baseline**: 51 vor-bestehende Probleme (vor allem `exhaustive-deps` in Legacy-Komponenten). Separater Cleanup-PR empfohlen.
 - **Wizard-Tests**: Unit-/Component-Tests für `selectPricing`, `validateStep` und den Stepper wären wertvoll (Vitest + React Testing Library bereits verfügbar).
 - **Playwright-Suite**: `tests/chat.e2e.spec.ts` + ggf. neue Specs für den 4-Step-Wizard in CI aufnehmen.
