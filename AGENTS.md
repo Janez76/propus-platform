@@ -206,6 +206,12 @@ Zeigt E-Mails aus `office@propus.ch` via `GET /api/tours/admin/mail/inbox`. Auto
 - **Auth**: Session-basiert (lokale Passwort-Auth, Admin + Portal)
 - **Deploy**: Docker Compose auf VPS, GitHub Actions CI/CD
 
+### VPS-Deploy: `tar`/`rsync`-Excludes (häufige Falle)
+
+- **Kein loses `backups`-Pattern ohne Root-Anker:** Sowohl GNU `tar --exclude=…` als auch `rsync --exclude='…'` matchen oft den **Basisnamen** auf **jeder** Pfadtiefe. Ein Exclude wie `backups` oder `backups/` schließt damit nicht nur das Top-Level-Verzeichnis `backups/` (Runtime-Backups), sondern auch **`app/src/components/backups/`** (React-Backup-UI) aus — die Dateien fehlen dann still im Deploy-Archiv bzw. werden per rsync nicht aktualisiert; der Docker-Build auf dem VPS tippt gegen **alten** Stand, während `git` lokal sauber ist.
+- **Praxis:** Deploy-Archiv mit expliziter Top-Level-Dateiliste erstellen (z. B. `find . -maxdepth 1` mit gezielten Ausschlüssen für `./backups`, `./docs`, …) statt einem globalen `--exclude=backups`. Beim Sync in `scripts/deploy-remote.sh` das Runtime-`backups/`-Verzeichnis nur mit **Root-Anker** auslassen: `--exclude='/backups/'` (führendes `/` = relativ zum rsync-Quellroot).
+- **CI-Hinweis:** Der Workflow-Job „Build Next.js“ im Deploy-Workflow läuft bei **normalem Push** typischerweise nicht (nur bei manuellem `workflow_dispatch` mit Smoke-Option). Dann prüft der Typecheck die App erst im **Platform-Docker-Build** auf dem VPS — lokale `npm run build`-Grünheit im Runner ersetzt das nicht.
+
 ## NAS / Infrastruktur (UGREEN 192.168.1.5)
 
 ### Netzlaufwerke (lokal gemountet)
