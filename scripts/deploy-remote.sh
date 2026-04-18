@@ -1,6 +1,11 @@
 #!/bin/bash
 # deploy-remote.sh
 # Wird auf dem VPS ausgefuehrt. Erwartet GITHUB_SHA als Umgebungsvariable.
+#
+# Phase 2 von 3 im Deploy-Flow. Architektur und Aufteilung:
+#   docs/DEPLOY-FLOW.md
+# Phase 1 (Orchestrierung): .github/workflows/deploy-vps-and-booking-smoke.yml
+# Phase 3 (Container-Init): scripts/start.sh
 set -euo pipefail
 
 PROJECT_ROOT=/opt/propus-platform
