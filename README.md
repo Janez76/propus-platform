@@ -10,7 +10,6 @@ propus-platform/
 ├── platform/       # Zentraler Server (server.js): Booking + Tours, ein Port (3100)
 │   └── frontend/   # Vite/React-SPA (Admin + Buchungs-Wizard, wird von platform ausgeliefert)
 ├── booking/        # Backend Buchungstool (Express) – API, RBAC, E-Mail, Kalender
-│   └── admin-panel/# Vite/React-SPA (separates Booking-Admin-Panel)
 ├── tours/          # Tour Manager (Express), unter /tour-manager gemountet
 ├── core/           # Gemeinsame Migrationen, Migration Runner, Seed-Daten
 ├── auth/           # Logto-Middleware (OIDC-Callbacks, Session)
@@ -39,7 +38,6 @@ Alle Module nutzen dieselbe Datenbank (`propus`) und setzen `search_path`, damit
 | Paket                  | Tech-Stack                          | Zweck                                                             |
 |------------------------|-------------------------------------|-------------------------------------------------------------------|
 | `app/`                 | Next.js 16, React 19, Tailwind v4   | Primäres Admin-Frontend (Kunden, Aufträge, Kalender, Exxas, …)   |
-| `booking/admin-panel/` | Vite, React, TypeScript             | _deprecated_ — siehe [`booking/admin-panel/DEPRECATED.md`](booking/admin-panel/DEPRECATED.md) |
 | `website/`             | Astro + Supabase                    | Öffentliche Firmenhomepage mit Produkt-Katalog-API               |
 
 ---
