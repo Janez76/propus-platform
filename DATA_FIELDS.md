@@ -4,7 +4,7 @@
 >
 > **Automatisch mitpflegen:** Cursor-Regel `.cursor/rules/data-fields.mdc` definiert, wann welche Datei aktualisiert werden muss.
 
-*Zuletzt aktualisiert: April 2026*
+*Zuletzt aktualisiert: April 2026 (PR #88: Node-Pinning, GOOGLE_REVIEWS_PLACE_ID externalisiert, core/lib/customer-lookup zentralisiert)*
 
 ---
 
@@ -43,6 +43,8 @@ WHERE core.customer_email_matches($1, c.email, c.email_aliases)
 -- ❌ FALSCH: Aliase werden nicht erkannt
 WHERE LOWER(c.email) = $1
 ```
+
+- **Gemeinsames Customer-Lookup:** `core/lib/customer-lookup.js` exportiert `getCustomerByEmail(pool, email)` — kanonische Implementierung mit `customer_email_matches()`-Fallback. Wird von `booking/db.js` und `tours/lib/customer-lookup.js` per Pool-Injection genutzt. Neue Module sollen diese Funktion verwenden statt eigene Lookup-Logik zu schreiben.
 
 - **Synthetische E-Mails:** `@invite.buchungstool.invalid` (nicht `@company.local`)
 - **Kein serverseitiges HTML:** Express-Routen → JSON, kein `res.render()`
