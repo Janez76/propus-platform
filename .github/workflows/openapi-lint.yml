@@ -1,0 +1,40 @@
+name: OpenAPI Lint
+
+on:
+  pull_request:
+    branches:
+      - master
+    paths:
+      - "docs/openapi/**"
+      - "scripts/extract-routes.js"
+      - ".github/workflows/openapi-lint.yml"
+  push:
+    branches:
+      - master
+    paths:
+      - "docs/openapi/**"
+      - "scripts/extract-routes.js"
+      - ".github/workflows/openapi-lint.yml"
+
+concurrency:
+  group: openapi-lint-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Redocly lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Lint docs/openapi/openapi.yaml
+        run: npx --yes @redocly/cli@1.34.2 lint docs/openapi/openapi.yaml --format=github-actions

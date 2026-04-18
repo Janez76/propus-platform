@@ -1,4 +1,8 @@
 #!/bin/sh
+# Phase 3 von 3 im Deploy-Flow. Architektur und Aufteilung:
+#   docs/DEPLOY-FLOW.md
+# Phase 1 (Orchestrierung): .github/workflows/deploy-vps-and-booking-smoke.yml
+# Phase 2 (VPS-Host):       scripts/deploy-remote.sh
 set -e
 
 echo "[start.sh] Starting Next.js on port ${NEXTJS_PORT:-3001}..."

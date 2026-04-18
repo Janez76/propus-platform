@@ -5,6 +5,7 @@
 
 const { pool } = require('./db');
 const exxas = require('./exxas');
+const coreCustomerLookup = require('../../core/lib/customer-lookup');
 
 async function searchLocalCustomers(needle, limit = 10) {
   if (!needle || needle.length < 2) return [];
@@ -120,23 +121,7 @@ async function getCustomerById(customerId) {
 }
 
 async function getCustomerByEmail(email) {
-  if (!email) return null;
-  const norm = email.trim().toLowerCase();
-  try {
-    const { rows } = await pool.query(
-      `SELECT * FROM core.customers
-       WHERE core.customer_email_matches($1, email, email_aliases)
-       LIMIT 1`,
-      [norm]
-    );
-    return rows[0] || null;
-  } catch (_aliasErr) {
-    const { rows } = await pool.query(
-      `SELECT * FROM core.customers WHERE LOWER(TRIM(email)) = $1 LIMIT 1`,
-      [norm]
-    );
-    return rows[0] || null;
-  }
+  return coreCustomerLookup.getCustomerByEmail(pool, email);
 }
 
 async function getCustomerByExxasRef(exxasRef) {

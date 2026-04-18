@@ -197,6 +197,23 @@ Initialisiert via `core/migrations/000_init_schemas.sql`.
 
 ---
 
+### `core.booking_sessions` & `core.tours_sessions` — Express-Session-Stores
+
+Connect-pg-simple-kompatible Session-Stores für die zwei Express-Apps. Der
+Platform-Container nutzt `core.booking_sessions`; das Legacy Tours-Backend
+nutzt `core.tours_sessions`. Schema identisch, getrennt für Isolation.
+
+| Feld | Typ | Default | Beschreibung |
+|---|---|---|---|
+| `sid` | TEXT PK | | Session-ID (Cookie-Wert) |
+| `sess` | JSONB | | Serialisierter Session-Inhalt |
+| `expire` | TIMESTAMPTZ | | Ablauf, wird vom GC abgeräumt |
+| `created_at` / `updated_at` | TIMESTAMPTZ | NOW() | |
+
+Migration: `core/migrations/007_session_store.sql`
+
+---
+
 ## 2. `booking.*`-Tabellen
 
 ### `booking.orders` — Hauptbuchungstabelle
@@ -394,6 +411,260 @@ Wichtige Keys: `enable_confirmation_mails`, `enable_calendar_sync`, `calendar_pr
 | `details` | JSONB |
 | `performed_by` | TEXT |
 | `created_at` | TIMESTAMPTZ |
+
+---
+
+### `booking.photographer_settings` — Fotograf-Konfiguration
+
+Einstellungen pro Fotograf (Verfügbarkeit, Skills, Heimadresse, Login).
+Getrennt von `booking.photographers`, damit Stammdaten und Konfiguration
+unabhängig versionierbar sind.
+
+| Feld | Typ | Default | Beschreibung |
+|---|---|---|---|
+| `photographer_key` | TEXT PK FK CASCADE | | → `booking.photographers(key)` |
+| `home_address` / `home_lat` / `home_lon` | TEXT / FLOAT | `''` / NULL | Startpunkt für Reisezeitberechnung |
+| `max_radius_km` | INTEGER | NULL | Optionaler Reise-Radius |
+| `skills` | JSONB | `'{}'` | Tag-Map: `{drone: true, …}` |
+| `blocked_dates` | JSONB | `'[]'` | Gesperrte Daten (Urlaub etc.) |
+| `depart_times` | JSONB | `'{}'` | Abfahrtszeiten pro Wochentag |
+| `work_start` / `work_end` / `workdays` / `work_hours_by_day` | TEXT/JSONB | NULL | Arbeitszeiten |
+| `buffer_minutes` / `slot_minutes` | INTEGER | NULL | Slot-Generator-Parameter |
+| `national_holidays` | BOOLEAN | TRUE | Schweizer Feiertage berücksichtigen |
+| `languages` / `native_language` | JSONB / TEXT | `'[]'` / `'de'` | |
+| `event_color` | TEXT | `'#3b82f6'` | Kalender-Anzeigefarbe |
+| `password_hash` | TEXT | NULL | Lokales Passwort (legacy; SSO via Logto bevorzugt) |
+| `earliest_departure` | TEXT | NULL | Globale Untergrenze, z. B. `'07:00'` |
+| `created_at` / `updated_at` | TIMESTAMPTZ | NOW() | |
+
+---
+
+### `booking.service_categories` — Produkt-Kategorien
+
+| Feld | Typ | Default | Beschreibung |
+|---|---|---|---|
+| `key` | TEXT PK | | Stable-ID (z. B. `'photo_basic'`) |
+| `name` / `description` | TEXT | | Anzeige-Texte |
+| `kind_scope` | TEXT CHECK | `'addon'` | `'package'` / `'addon'` / `'both'` |
+| `sort_order` | INTEGER | 0 | Anzeige-Reihenfolge im Wizard |
+| `active` | BOOLEAN | TRUE | |
+| `show_in_frontpanel` | BOOLEAN | FALSE | Auf öffentlicher Buchungsseite zeigen |
+| `created_at` / `updated_at` | TIMESTAMPTZ | NOW() | |
+
+---
+
+### `booking.pricing_rules` — Dynamische Preisformeln
+
+| Feld | Typ | Default | Beschreibung |
+|---|---|---|---|
+| `id` | BIGSERIAL PK | | |
+| `product_id` | BIGINT FK CASCADE | | → `booking.products(id)` |
+| `rule_type` | TEXT CHECK | | `'fixed'`/`'per_floor'`/`'per_room'`/`'area_tier'`/`'conditional'` |
+| `config_json` | JSONB | `'{}'` | Regel-spezifische Parameter |
+| `priority` | INTEGER | 100 | Niedriger = früher angewendet |
+| `valid_from` / `valid_to` | DATE | NULL | Optionaler Gültigkeitszeitraum |
+| `active` | BOOLEAN | TRUE | |
+| `created_at` / `updated_at` | TIMESTAMPTZ | NOW() | |
+
+---
+
+### `booking.email_templates`, `booking.email_template_history`, `booking.email_send_log`
+
+E-Mail-Vorlagen mit Audit-Trail und Idempotenz-Log. → Vollständige Beschreibung:
+[EMAIL_TEMPLATES.md](./EMAIL_TEMPLATES.md)
+
+**`booking.email_templates`** — aktuelle Vorlagen.
+
+| Feld | Typ | Default |
+|---|---|---|
+| `id` | SERIAL PK | |
+| `key` | TEXT UNIQUE | |
+| `label` / `subject` / `body_html` / `body_text` | TEXT | `''` |
+| `placeholders` | JSONB | `'[]'` |
+| `active` | BOOLEAN | TRUE |
+| `created_at` / `updated_at` | TIMESTAMPTZ | NOW() |
+
+**`booking.email_template_history`** — jede Änderung als unveränderbare Zeile.
+
+| Feld | Typ |
+|---|---|
+| `id` | BIGSERIAL PK |
+| `template_id` | INT FK CASCADE |
+| `template_key` / `subject` / `body_html` / `body_text` | TEXT |
+| `changed_by` | TEXT (default `'system'`) |
+| `changed_at` | TIMESTAMPTZ NOW() |
+
+**`booking.email_send_log`** — verhindert Doppel-Versand pro `idempotency_key`.
+
+| Feld | Typ |
+|---|---|
+| `id` | BIGSERIAL PK |
+| `idempotency_key` | TEXT UNIQUE |
+| `order_no` | INT (nullable) |
+| `template_key` | TEXT |
+| `recipient` | TEXT |
+| `sent_at` | TIMESTAMPTZ NOW() |
+
+---
+
+### `booking.email_workflow_config` — Status → E-Mail-Mapping
+
+Steuert, welche Vorlage bei welchem Status-Übergang an welche Rolle (customer /
+photographer / office) verschickt wird.
+
+| Feld | Typ | Default |
+|---|---|---|
+| `id` | SERIAL PK | |
+| `status_to` | VARCHAR(32) | |
+| `template_key` | VARCHAR(64) | |
+| `role` | VARCHAR(32) | |
+| `active` | BOOLEAN | TRUE |
+| `updated_at` | TIMESTAMPTZ | NOW() |
+
+UNIQUE `(status_to, template_key, role)`.
+
+---
+
+### `booking.calendar_templates` — Kalender-Event-Vorlagen
+
+Body/Subject für die Google-/iCal-Events der Termine.
+
+| Feld | Typ | Default |
+|---|---|---|
+| `id` | SERIAL PK | |
+| `key` | TEXT UNIQUE | |
+| `label` / `subject` / `body` | TEXT | `''` |
+| `active` | BOOLEAN | TRUE |
+| `created_at` / `updated_at` | TIMESTAMPTZ | NOW() |
+
+---
+
+### `booking.calendar_delete_queue` — Async-Lösch-Worker
+
+Termine, deren zugehörige Kalendereinträge noch beim Provider entfernt werden
+müssen. Wird vom Cron-Worker abgearbeitet.
+
+| Feld | Typ | Default |
+|---|---|---|
+| `id` | SERIAL PK | |
+| `order_no` | INTEGER | |
+| `event_type` | TEXT CHECK | `'photographer'` oder `'office'` |
+| `event_id` | TEXT | (Provider-ID) |
+| `user_email` | TEXT | (auf wessen Kalender) |
+| `attempts` | INTEGER | 0 |
+| `last_error` | TEXT | NULL |
+| `next_retry_at` | TIMESTAMPTZ | NOW() |
+| `done_at` | TIMESTAMPTZ | NULL (gesetzt → fertig) |
+| `created_at` | TIMESTAMPTZ | NOW() |
+
+---
+
+### `booking.order_reviews` — Kundenbewertungen
+
+Magic-Link-Reviews per `token`; pro Order genau ein Eintrag möglich.
+
+| Feld | Typ |
+|---|---|
+| `id` | SERIAL PK |
+| `order_no` | INT FK CASCADE |
+| `token` | TEXT UNIQUE |
+| `rating` | INT CHECK 1..5 |
+| `comment` | TEXT |
+| `submitted_at` | TIMESTAMPTZ (NULL = Link nicht eingelöst) |
+| `created_at` | TIMESTAMPTZ NOW() |
+
+---
+
+### `booking.order_folder_links`, `booking.upload_batches`, `booking.upload_batch_files`
+
+NAS-Upload-Workflow (Roh-/Kunden-Material). → Vollständige Beschreibung:
+[FLOWS_UPLOAD.md](./FLOWS_UPLOAD.md)
+
+Kurzform für Diff/Lookup:
+
+**`booking.order_folder_links`** — registrierte Order-Folders auf dem NAS.
+`order_no FK CASCADE`, `folder_type ∈ ('raw_material','customer_folder')`,
+`status ∈ ('pending','ready','linked','archived','failed')`, plus Pfade,
+Display-Name, Firma, Fehlermeldung, Timestamps inkl. `archived_at`.
+
+**`booking.upload_batches`** — geplante / laufende Übertragungen ans NAS.
+`id TEXT PK`, `order_no FK CASCADE`, `upload_mode ∈ ('existing','new_batch')`,
+`status ∈ ('staged','transferring','completed','failed','retrying','cancelled')`,
+plus Pfade, Kategorie, Datei-Statistiken, Timestamps, Conflict-Mode,
+Multi-Part-Felder (`upload_group_*`).
+
+**`booking.upload_batch_files`** — einzelne Dateien pro Batch mit Hash,
+`status ∈ ('staged','stored','skipped_duplicate','skipped_invalid_type','failed')`
+und Verweis auf Duplikate.
+
+---
+
+### `booking.bug_reports` — Frontend-Bug-Reports
+
+Inline-Formular im Admin-Frontend, Screenshot landet als BYTEA.
+
+| Feld | Typ | Default |
+|---|---|---|
+| `id` | SERIAL PK | |
+| `name` | TEXT | |
+| `text` | TEXT | |
+| `page` | TEXT | NULL |
+| `file_name` / `file_mime` | TEXT | NULL |
+| `file_data` | BYTEA | NULL |
+| `status` | TEXT | `'new'` |
+| `created_at` | TIMESTAMPTZ | NOW() |
+
+---
+
+### `booking.gbp_oauth_tokens` — Google-Business-Profile-Auth
+
+Single-Row-Tabelle (CHECK `id = 1`) für die OAuth-Tokens des GBP-Admin-Panels.
+
+| Feld | Typ | Default |
+|---|---|---|
+| `id` | INT PK CHECK = 1 | 1 |
+| `access_token` / `refresh_token` | TEXT | |
+| `expires_at` | TIMESTAMPTZ | |
+| `account_id` / `location_id` | TEXT | NULL (nach erstem Login befüllt) |
+| `updated_at` | TIMESTAMPTZ | NOW() |
+
+---
+
+### `booking.companies`, `booking.company_members`, `booking.company_invitations` — Legacy-Workspace
+
+**Achtung:** Duplikate zu `core.companies/company_members/company_invitations`.
+Migration nach `core.*` ist offen — neue Features ausschließlich gegen die
+`core`-Versionen schreiben. Diese Tabellen bleiben bestehen, bis die Lese-Pfade
+in `booking/server.js` umgestellt sind.
+
+Schema entspricht den `core.*`-Pendants ([siehe oben](#corecompanies--b2b-mandanten)),
+mit FKs auf `booking.companies` statt `core.companies`.
+
+---
+
+### `booking.admin_users`, `booking.admin_sessions`, `booking.photographer_password_resets` — Legacy-Auth
+
+**Achtung:** `booking.admin_users` ist Legacy. Die Single Source of Truth ist
+[`core.admin_users`](#coreadmin_users--admin-benutzer-konsolidiert) (s. Views
+`booking.v_admin_users` / `tour_manager.v_admin_users`).
+
+| Tabelle | Feld | Typ |
+|---|---|---|
+| `booking.admin_users` | `id` | BIGSERIAL PK |
+| | `username` | TEXT UNIQUE |
+| | `email` / `name` | TEXT |
+| | `role` | TEXT (default `'admin'`) |
+| | `password_hash` | TEXT |
+| | `active` | BOOLEAN (default TRUE) |
+| | `created_at` / `updated_at` | TIMESTAMPTZ NOW() |
+| `booking.admin_sessions` | `token_hash` | TEXT PK |
+| | `role` / `user_key` / `user_name` | TEXT |
+| | `expires_at` | TIMESTAMPTZ |
+| | `created_at` | TIMESTAMPTZ NOW() |
+| `booking.photographer_password_resets` | `token_hash` | TEXT PK |
+| | `photographer_key` | TEXT FK CASCADE → `booking.photographer_settings` |
+| | `expires_at` | TIMESTAMPTZ |
+| | `created_at` | TIMESTAMPTZ NOW() |
 
 ---
 
@@ -667,6 +938,88 @@ Read-only View: vereinheitlicht `renewal_invoices` und `exxas_invoices` für Rep
 | `revision` | INT | |
 | `resolved_at` | TIMESTAMPTZ | |
 | `created_at` | TIMESTAMPTZ | |
+
+---
+
+### `tour_manager.actions_log` — Audit-Log Touren
+
+Generischer Audit-Trail für alles, was an einer Tour passiert (Statuswechsel,
+Mail-Versand, Cleanup-Trigger). Wird vom `actions`-Helper geschrieben.
+
+| Feld | Typ | Default |
+|---|---|---|
+| `id` | BIGSERIAL PK | |
+| `tour_id` | INT FK CASCADE | NULL möglich (Aktion ohne Tour-Bezug) |
+| `actor_type` / `actor_ref` | TEXT | Wer hat ausgelöst (`'admin'`, `'cron'`, `'customer'`…) |
+| `action` | TEXT | Action-Key |
+| `details_json` | JSONB | Optional zusätzlicher Kontext |
+| `created_at` | TIMESTAMPTZ | NOW() |
+
+---
+
+### `tour_manager.admin_users`, `tour_manager.admin_invites`, `tour_manager.admin_remember_tokens` — Legacy-Auth
+
+**Achtung:** Wie `booking.admin_users` Legacy. Single Source of Truth ist
+[`core.admin_users`](#coreadmin_users--admin-benutzer-konsolidiert) inkl. View
+`tour_manager.v_admin_users`.
+
+| Tabelle | Feld | Typ |
+|---|---|---|
+| `tour_manager.admin_users` | `id` | BIGSERIAL PK |
+| | `email` | TEXT |
+| | `full_name` / `password_hash` | TEXT (nullable) |
+| | `is_active` | BOOLEAN (default TRUE) |
+| | `invited_by` | TEXT (nullable) |
+| | `created_at` / `updated_at` | TIMESTAMPTZ NOW() |
+| | `last_login_at` | TIMESTAMPTZ (nullable) |
+| `tour_manager.admin_invites` | `id` | BIGSERIAL PK |
+| | `email` | TEXT |
+| | `token_hash` | TEXT UNIQUE |
+| | `invited_by` | TEXT (nullable) |
+| | `created_at` / `expires_at` | TIMESTAMPTZ |
+| | `accepted_at` / `revoked_at` | TIMESTAMPTZ (nullable) |
+| `tour_manager.admin_remember_tokens` | `id` | BIGSERIAL PK |
+| | `email` | TEXT |
+| | `token_hash` | TEXT UNIQUE |
+| | `created_at` / `expires_at` | TIMESTAMPTZ |
+| | `revoked_at` | TIMESTAMPTZ (nullable) |
+
+---
+
+### `tour_manager.portal_users`, `tour_manager.portal_password_reset_tokens` — Kundenportal-Auth
+
+Eigene Auth-Tabelle für das Tour-Manager-Portal (Tour-Owner). Kein Bezug zu
+`core.customers` — historisch separater Login.
+
+| Tabelle | Feld | Typ |
+|---|---|---|
+| `tour_manager.portal_users` | `email` | TEXT PK |
+| | `full_name` / `password_hash` | TEXT (nullable) |
+| | `is_active` | BOOLEAN (default TRUE) |
+| | `last_login_at` | TIMESTAMPTZ (nullable) |
+| | `created_at` / `updated_at` | TIMESTAMPTZ NOW() |
+| `tour_manager.portal_password_reset_tokens` | `id` | BIGSERIAL PK |
+| | `email` | TEXT |
+| | `token_hash` | TEXT UNIQUE |
+| | `expires_at` | TIMESTAMPTZ |
+| | `used_at` | TIMESTAMPTZ (nullable) |
+| | `created_at` | TIMESTAMPTZ NOW() |
+
+---
+
+### `tour_manager.portal_team_exclusions` — Negative Team-Mitgliedschaft
+
+Ergänzt `portal_team_members` um Auschluss-Regeln (z. B. „Mitglied X soll bei
+Owner Y NICHT in der Vorschlagsliste auftauchen").
+
+| Feld | Typ | Default |
+|---|---|---|
+| `id` | BIGSERIAL PK | |
+| `owner_email` | TEXT | |
+| `member_email` | TEXT | |
+| `reason` | TEXT | NULL |
+| `created_by` | TEXT | NULL |
+| `created_at` | TIMESTAMPTZ | NOW() |
 
 ---
 

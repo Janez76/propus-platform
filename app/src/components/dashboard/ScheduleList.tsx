@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Calendar, MapPin, User, Clock } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "../../lib/utils";
@@ -21,11 +21,19 @@ interface DayBucket {
   orders: Order[];
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 function startOfDay(d: Date): Date {
   const x = new Date(d);
   x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+// Kalendertags-Arithmetik (DST-sicher). `setDate` adjustiert die Stunden
+// korrekt bei Sommer-/Winterzeitumstellung in Europe/Zurich — reine
+// Millisekunden-Addition würde am Umstellungstag bei 23:00 oder 01:00 landen
+// und das horizonExclusive um eine Stunde verschieben.
+function addDays(d: Date, n: number): Date {
+  const x = new Date(d);
+  x.setDate(x.getDate() + n);
   return x;
 }
 
@@ -36,16 +44,31 @@ function dayKey(d: Date): string {
 export function ScheduleList({ orders, days = 7, onCreateOrder }: ScheduleListProps) {
   const lang = useAuthStore((s) => s.language);
 
+  // Minutengenauer Ticker: erzwingt Re-Memo, damit abgelaufene Termine
+  // aus der Upcoming-Liste fliegen, auch wenn sich `orders` nicht ändert.
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNowTick(Date.now()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+
   const buckets = useMemo<DayBucket[]>(() => {
-    const today = startOfDay(new Date());
-    const tomorrow = new Date(today.getTime() + DAY_MS);
-    const horizon = new Date(today.getTime() + days * DAY_MS);
+    const now = new Date(nowTick);
+    const today = startOfDay(now);
+    const tomorrow = addDays(today, 1);
+    // horizon ist die Mitternacht NACH dem letzten gewünschten Tag (exklusiv).
+    // days=7 → Termine von jetzt bis Ende Tag 6 inkl., also < today + 7 Tage.
+    const horizonExclusive = addDays(today, days);
 
     const map = new Map<string, DayBucket>();
     for (const order of orders) {
       if (!order.appointmentDate) continue;
       const date = new Date(order.appointmentDate);
-      if (date < today || date > horizon) continue;
+      // Invalid Date → getTime() ist NaN; alle Vergleiche unten wären false und
+      // der Termin würde durchrutschen. Vorher prüfen, sonst entstehen
+      // "NaN-NaN-NaN"-Buckets aus Legacy-Daten.
+      if (Number.isNaN(date.getTime())) continue;
+      if (date < now || date >= horizonExclusive) continue;
       const day = startOfDay(date);
       const key = dayKey(day);
       if (!map.has(key)) {
@@ -67,7 +90,7 @@ export function ScheduleList({ orders, days = 7, onCreateOrder }: ScheduleListPr
       });
     }
     return Array.from(map.values()).sort((a, b) => a.date.getTime() - b.date.getTime());
-  }, [orders, days]);
+  }, [orders, days, nowTick]);
 
   const totalCount = buckets.reduce((sum, b) => sum + b.orders.length, 0);
 

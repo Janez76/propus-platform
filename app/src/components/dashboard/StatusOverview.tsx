@@ -127,23 +127,23 @@ export function StatusOverview({ orders }: StatusOverviewProps) {
         </div>
 
         <ul className="flex w-full min-w-0 flex-col gap-1.5">
-          {stats.map((stat, idx) => (
+          {segments.map((seg) => (
             <li
-              key={stat.key}
+              key={seg.key}
               className="flex items-center gap-2.5 rounded-md px-2 py-1.5"
               style={{
-                background: idx < TOP ? "var(--surface-raised)" : "transparent",
+                background: seg.key === "__others__" ? "transparent" : "var(--surface-raised)",
               }}
             >
               <span
                 className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
-                style={{ background: stat.color }}
+                style={{ background: seg.color }}
                 aria-hidden="true"
               />
-              <span className="min-w-0 flex-1 truncate text-sm p-text-main">{stat.label}</span>
-              <span className="text-sm font-bold tabular-nums p-text-main">{stat.count}</span>
+              <span className="min-w-0 flex-1 truncate text-sm p-text-main">{seg.label}</span>
+              <span className="text-sm font-bold tabular-nums p-text-main">{seg.count}</span>
               <span className="w-12 text-right text-xs tabular-nums p-text-muted">
-                {stat.percentage.toFixed(0)}%
+                {seg.percentage.toFixed(0)}%
               </span>
             </li>
           ))}

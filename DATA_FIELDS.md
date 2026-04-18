@@ -4,7 +4,7 @@
 >
 > **Automatisch mitpflegen:** Cursor-Regel `.cursor/rules/data-fields.mdc` definiert, wann welche Datei aktualisiert werden muss.
 
-*Zuletzt aktualisiert: April 2026 (PR #88: Node-Pinning, GOOGLE_REVIEWS_PLACE_ID externalisiert, core/lib/customer-lookup zentralisiert)*
+*Zuletzt aktualisiert: April 2026 (PR #89: Rate-Limiting auf Auth/Booking-Endpunkte, helmet Security-Header, OpenAPI-CI-Lint, SCHEMA_FULL.md um ~20 fehlende Tabellen ergänzt). PR #88: Node-Pinning auf 20.18.1, GOOGLE_REVIEWS_PLACE_ID externalisiert, core/lib/customer-lookup zentralisiert.*
 
 ---
 
@@ -12,7 +12,7 @@
 
 | Datei | Inhalt |
 |---|---|
-| [docs/FLOWS_BOOKING.md](docs/FLOWS_BOOKING.md) | Buchungs-Flows: Haupt-Buchung, Provisional, Kalender-Sync, Reschedule, Storno, Fotograf-Wechsel, Bestätigung, Payrexx-Webhook, Exxas-Order-Sync |
+| [docs/FLOWS_BOOKING.md](docs/FLOWS_BOOKING.md) | Buchungs-Flows: Haupt-Buchung, Provisional, Kalender-Sync, Reschedule, Storno, Fotograf-Wechsel, Bestätigung, Payrexx-Webhook, Exxas-Order-Sync, Rate-Limiting & Security-Header |
 | [docs/FLOWS_TOURS.md](docs/FLOWS_TOURS.md) | Tour-Manager: tours-Tabelle, Status-Maschine, Matterport-Integration, Verlängerungs-Flow, zentrales Rechnungsmodul (`/admin/invoices`), Listing/Kunden-Galerie (Magic-Link, NAS-Import, Auto-Fill Kundenordner + Freigabe-Link, Bestell-Kontakt-Fallback, NAS `/Finale`-Unterordner-Präferenz, Status-Sofortspeicherung, Slug-URL-Auflösung in Admin + API, Friendly-Slug-URLs `<plz>-<ort>-<bestellnr>`, Websize-only Galerie, nur «Alle Medien herunterladen»-Button, MediaSummary, Feedback→Ticket-Integration), Bank-Import (Vorschau/Multi-Upload, Bestellungssuche), Bestellungs-Admin Finanzblock, KI/AI-Suggestions, Incoming-Emails, Cron-Jobs, Bestellung nachträglich verknüpfen (Tour-Detail Intern) |
 | [docs/WORKFLOW_TOURS.md](docs/WORKFLOW_TOURS.md) | Tour-Workflow Regelwerk (Produkt), Admin `/admin/tours/workflow-settings`; mit `FLOWS_TOURS.md` synchron halten |
 | [docs/FLOWS_UPLOAD.md](docs/FLOWS_UPLOAD.md) | Upload-System: Endpunkte, upload_batches/files-Tabellen, NAS-Pfad-Logik, Kategorien, Chunked-Upload, Konflikt-Modi, Upload-Gruppen |
@@ -21,6 +21,8 @@
 | [docs/ROLES_PERMISSIONS.md](docs/ROLES_PERMISSIONS.md) | Rollen & Permissions: RBAC-System, System-Rollen, Permission-Keys, Mapping-Tabelle, Rollen-Sync, Logto-Integration, Portal-Rollen |
 | [docs/EMAIL_TEMPLATES.md](docs/EMAIL_TEMPLATES.md) | E-Mail-Templates: Mail-Transport, alle Booking-Builder-Funktionen, Tour-Manager DB-Templates mit Platzhaltern, Logging |
 | [docs/ADMIN-FRONTEND-DESIGN.md](docs/ADMIN-FRONTEND-DESIGN.md) | Admin-Frontend Design-Referenz: Verbindliche Bausteine, Listing-Editor, Booking Admin-Panel Shared Components (StatusBadge, Tabs, Pricing, OrderDetail UX, CreateOrderWizard, EmptyState, Spacing Tokens), Main-App portierte Module (StatusBadge, Pricing, useDirty, useT, address, Test-Infrastruktur/Vitest) — `booking/admin-panel/` ist seit April 2026 deprecated, siehe [`DEPRECATED.md`](booking/admin-panel/DEPRECATED.md) |
+| [docs/OPENAPI.md](docs/OPENAPI.md) | OpenAPI 3.1 Spec (Skeleton): 5 kritische Endpunkte, Konventionen, Lint-/Preview-Anleitung. Spec liegt in [`docs/openapi/openapi.yaml`](docs/openapi/openapi.yaml) |
+| [docs/DEPLOY-FLOW.md](docs/DEPLOY-FLOW.md) | Drei-Phasen-Deploy: GitHub Actions → VPS-Bash (`scripts/deploy-remote.sh`) → Container-Init (`scripts/start.sh`). Trigger-Matrix, Decision-Table |
 
 ---
 
@@ -44,8 +46,6 @@ WHERE core.customer_email_matches($1, c.email, c.email_aliases)
 WHERE LOWER(c.email) = $1
 ```
 
-- **Gemeinsames Customer-Lookup:** `core/lib/customer-lookup.js` exportiert `getCustomerByEmail(pool, email)` — kanonische Implementierung mit `customer_email_matches()`-Fallback. Wird von `booking/db.js` und `tours/lib/customer-lookup.js` per Pool-Injection genutzt. Neue Module sollen diese Funktion verwenden statt eigene Lookup-Logik zu schreiben.
-
 - **Synthetische E-Mails:** `@invite.buchungstool.invalid` (nicht `@company.local`)
 - **Kein serverseitiges HTML:** Express-Routen → JSON, kein `res.render()`
 - **Portal spiegelt Admin:** `TourDetailPage.tsx` → identisch in `PortalTourDetailPage.tsx`
@@ -61,9 +61,11 @@ WHERE LOWER(c.email) = $1
 | 2 | `isSynthCustomerEmail` erkannte nur `@company.local`, nicht `@invite.buchungstool.invalid` | ✅ **Behoben** April 2026 in `CompanyManagementPage.tsx` |
 | 3 | Sidebar hatte doppelte Einträge "Kunden" + "Firmenverwaltung" | ✅ **Behoben** April 2026: kombiniertes Submenu "Kunden & Firmen" |
 | 4 | Firmenverwaltungs-Seite zeigte keine Kontaktpersonen | ✅ **Behoben** April 2026: `CustomerContactsSection` integriert |
-| 5 | Booking-Modul hat kein dediziertes E-Mail-Log (nur `order_status_audit`) | Offen |
+| 5 | Booking-Modul hat kein dediziertes E-Mail-Log (nur `order_status_audit`) | ✅ **Behoben** April 2026: `booking.email_send_log` dokumentiert in SCHEMA_FULL.md |
 | 6 | Exxas-Order-Sync (`exxas_status`, `exxas_order_id`) ohne dedizierte Dokumentation der Sync-Häufigkeit | Offen |
-| 7 | `calendar_delete_queue`-Tabelle noch nicht vollständig dokumentiert | Offen |
+| 7 | `calendar_delete_queue`-Tabelle noch nicht vollständig dokumentiert | ✅ **Behoben** April 2026: in SCHEMA_FULL.md |
+| 8 | `booking.companies/company_members/company_invitations` sind Duplikate zu `core.*` — Migration zur `core`-Variante offen | Offen |
+| 9 | `booking.admin_users` und `tour_manager.admin_users` sind Legacy — Single Source of Truth ist `core.admin_users` (Views: `booking.v_admin_users`, `tour_manager.v_admin_users`) | Offen |
 
 ---
 

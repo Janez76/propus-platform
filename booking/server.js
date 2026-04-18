@@ -106,6 +106,7 @@ const {
 } = require("./chunked-upload-service");
 const { syncWebsizeForAllCustomerFolders, syncWebsizeForOrderFolder } = require("./websize-sync-service");
 const customerAuth = require("./customer-auth");
+const { authLimiter, confirmTokenLimiter, bookingLimiter } = require("./rate-limiters");
 const travel = require("./travel");
 const { resolveAnyPhotographer, resolveExplicitPhotographer, buildNeededSkills } = require("./photographer-resolver");
 const geocoder = require("./geocoder");
@@ -2252,6 +2253,20 @@ const app = express();
 const SUPER_ADMIN_ROLES = new Set(["super_admin", "admin", "employee"]);
 app.set("trust proxy", 1);
 app.use(logger.httpLoggerOptions.middleware);
+// Security-Header via helmet. CSP und COEP deaktiviert, weil das Admin-SPA
+// Assets von NAS (Nextcloud), Cloudflare und Google Maps embedded — eine zu
+// enge CSP würde diese Ressourcen blockieren. Die restlichen Defaults
+// (HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy) bleiben
+// aktiv und sind risikolos. crossOriginResourcePolicy auf "cross-origin",
+// damit Bilder vom NAS über die Admin-Oberfläche ladbar bleiben.
+const helmet = require("helmet");
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  }),
+);
 app.use(cors({ origin: "*", methods: ["GET","POST","PUT","PATCH","DELETE","OPTIONS"], allowedHeaders: ["Content-Type","Authorization"] }));
 app.use(compression());
 app.use(express.json({ limit: "1mb" }));
@@ -2355,7 +2370,7 @@ app.get("/auth/logout", async (req, res) => {
 });
 
 // Lokaler Admin-Login (admin_users + admin_sessions)
-app.post("/api/admin/login", async (req, res) => {
+app.post("/api/admin/login", authLimiter, async (req, res) => {
   try {
     if (!process.env.DATABASE_URL) return res.status(503).json({ error: "Datenbank nicht konfiguriert" });
     const { username, password, rememberMe } = req.body || {};
@@ -2398,7 +2413,7 @@ app.post("/api/admin/login", async (req, res) => {
 // POST /auth/login: Admin-Login (interne Benutzer).
 // Erreichbar über Next.js-Proxy: /api/auth/login → /auth/login (Express).
 // Gibt immer dasselbe Format zurück: { ok, token, role, permissions }
-app.post("/auth/login", async (req, res) => {
+app.post("/auth/login", authLimiter, async (req, res) => {
   try {
     if (!process.env.DATABASE_URL) return res.status(503).json({ error: "Datenbank nicht konfiguriert" });
     const { email, username, password, rememberMe } = req.body || {};
@@ -3867,7 +3882,7 @@ app.post("/api/admin/availability/simulate", requireAdmin, async (req, res) => {
   }
 });
 
-app.post("/api/booking", async (req, res) => {
+app.post("/api/booking", bookingLimiter, async (req, res) => {
   const requestId = `bk_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
   let photographerKey = "";
   let date = "";
@@ -4592,7 +4607,7 @@ app.post("/api/booking", async (req, res) => {
 });
 
 // Public: Kunden-Bestätigung via Token-Link (GET /api/booking/confirm/:token)
-app.get("/api/booking/confirm/:token", async (req, res) => {
+app.get("/api/booking/confirm/:token", confirmTokenLimiter, async (req, res) => {
   const token = String(req.params.token || "").trim();
   if (!token || token.length < 32) {
     return res.status(400).json({ ok: false, error: "Ungültiger Bestätigungslink." });

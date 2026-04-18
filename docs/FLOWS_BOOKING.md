@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei jeder Änderung an Buchungslogik, Status-Übergängen, Kalender-Sync oder Provisional-Flow dieses Dokument aktualisieren. Cursor-Regel `.cursor/rules/data-fields.mdc` erinnert daran.
 
-*Zuletzt aktualisiert: April 2026 (§15 Kunden-Profil-Vorausfüllung via /auth/profile)*
+*Zuletzt aktualisiert: April 2026 (PR #89: §16 Rate-Limiting & Security-Header, helmet). PR #88: §15 Kunden-Profil-Vorausfüllung via /auth/profile*
 
 ---
 
@@ -23,13 +23,15 @@
 13. [Routing-Service](#13-routing-service)
 14. [Magic-Link in Buchungs-Mail](#14-magic-link-in-buchungs-mail)
 15. [Kunden-Profil-Vorausfüllung (StepBilling)](#15-kunden-profil-vorausfüllung-stepbilling)
+16. [Rate-Limiting & Security-Header](#16-rate-limiting--security-header)
 
 ---
 
 ## 1. Haupt-Buchungsfluss
 
 **Endpunkt:** `POST /api/booking`  
-**Datei:** `booking/server.js`
+**Datei:** `booking/server.js`  
+**Rate-Limit:** `bookingLimiter` — 10 Submits / 60 min pro IP
 
 ```
 POST /api/booking
@@ -265,7 +267,7 @@ PATCH /api/admin/orders/:orderNo/photographer
 Kunde erhält E-Mail mit Bestätigungs-Link:
   → /api/booking/confirm/:token
 
-GET /api/booking/confirm/:token
+GET /api/booking/confirm/:token  (confirmTokenLimiter: 10 / 15 min pro IP)
   │
   ├── Token prüfen: confirmation_token + confirmation_token_expires_at
   ├── Status: pending/provisional → confirmed
@@ -687,3 +689,41 @@ StepBilling mountet
 **Profil-Vorausfüll-Banner:** Angemeldete Kunden sehen eine Bestätigung, dass Profil-Daten verwendet wurden (`booking.step4.profilePrefilled`).
 
 **Auth-Endpunkt:** Vollständige Dokumentation → [docs/FLOWS_AUTH.md §4](./FLOWS_AUTH.md#4-kunden-profil-endpunkt-get-authprofile)
+
+---
+
+## 16. Rate-Limiting & Security-Header
+
+**Datei:** `booking/rate-limiters.js` (neu in PR #89)  
+**Eingebunden in:** `booking/server.js`
+
+### Rate-Limiter
+
+Vier vorkonfigurierte `express-rate-limit`-Instanzen schützen sicherheitskritische Endpunkte. Alle Limiter nutzen `req.ip` (Trust-Proxy aktiv, echte Client-IP hinter Cloudflare/Nginx). Defaults via ENV überschreibbar.
+
+| Limiter | Endpunkte | Default-Limit | Fenster | ENV-Override |
+|---|---|---|---|---|
+| `authLimiter` | `POST /api/admin/login`, `POST /auth/login` | 5 Versuche | 15 min | `RATE_LIMIT_AUTH_MAX`, `RATE_LIMIT_AUTH_WINDOW_MS` |
+| `confirmTokenLimiter` | `GET /api/booking/confirm/:token` | 10 Versuche | 15 min | `RATE_LIMIT_CONFIRM_MAX`, `RATE_LIMIT_CONFIRM_WINDOW_MS` |
+| `passwordResetLimiter` | Forgot-Password-Endpunkte | 3 Versuche | 60 min | `RATE_LIMIT_PASSWORD_RESET_MAX`, `RATE_LIMIT_PASSWORD_RESET_WINDOW_MS` |
+| `bookingLimiter` | `POST /api/booking` | 10 Submits | 60 min | `RATE_LIMIT_BOOKING_MAX`, `RATE_LIMIT_BOOKING_WINDOW_MS` |
+
+**Besonderheiten:**
+- `authLimiter` hat `skipSuccessfulRequests: true` — nur fehlgeschlagene Logins (4xx/5xx) zählen gegen das Budget. Grund: Shared-NAT (Office, VPN) könnte mit normalen Logins das 5er-Budget aufbrauchen.
+- `confirmTokenLimiter` ist eine eigene Instanz (nicht `authLimiter`), damit Confirm-Link-Spam nicht das Admin-Login-Budget beeinflusst.
+- Alle Limiter senden `429 Too Many Requests` mit deutschsprachiger JSON-Fehlermeldung.
+- Response-Header: `RateLimit-*` im Draft-7-Format (`standardHeaders: "draft-7"`).
+
+### Helmet Security-Header
+
+`booking/server.js` setzt via `helmet` die Standard-Security-Header:
+
+| Header | Wert |
+|---|---|
+| `Strict-Transport-Security` | Default (max-age=15552000) |
+| `X-Content-Type-Options` | nosniff |
+| `X-Frame-Options` | SAMEORIGIN |
+| `Referrer-Policy` | no-referrer |
+| `Content-Security-Policy` | **deaktiviert** — Admin-SPA lädt Assets von NAS/Cloudflare/Google Maps |
+| `Cross-Origin-Embedder-Policy` | **deaktiviert** — gleicher Grund |
+| `Cross-Origin-Resource-Policy` | cross-origin — NAS-Bilder in Admin-Oberfläche ladbar |
