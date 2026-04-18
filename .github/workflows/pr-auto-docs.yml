@@ -81,6 +81,11 @@ jobs:
           git config user.name  "propus-docs-bot"
           git config user.email "propus-docs-bot@users.noreply.github.com"
 
+      - name: Branch auf aktuellen Stand bringen (verhindert Push-Konflikte)
+        run: |
+          git fetch origin ${{ github.event.pull_request.head.ref }}
+          git reset --hard origin/${{ github.event.pull_request.head.ref }}
+
       - name: Geaenderte Dateien ermitteln
         id: changes
         run: |
@@ -113,7 +118,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           # v1: alte Inputs (allowed_tools, model, timeout_minutes) wandern in claude_args
           claude_args: |
-            --model claude-opus-4-6
+            --model claude-sonnet-4-6
             --max-turns 25
             --allowedTools "Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(cat:*),Bash(ls:*),Bash(find:*),Bash(head:*),Bash(tail:*),Bash(node:*),Bash(bash scripts/guard-docs.sh*)"
           prompt: |
@@ -145,8 +150,15 @@ jobs:
                  neues Modul/Feature vorliegt, fuer das noch keine Doc existiert.
                  Der Dateiname folgt `docs/FLOWS_<MODUL>.md` (GROSS, Unterstriche).
                - **ERWEITERN**: Unterabschnitte hinzufuegen, Tabellen ergaenzen,
-                 TODO-Listen aktualisieren. Keine bestehenden Inhalte loeschen,
-                 es sei denn sie sind nachweislich ueberholt.
+                 TODO-Listen aktualisieren.
+               - **ENTFERNEN / DEPRECATEN**: Wenn der Diff zeigt, dass Dateien
+                 geloescht, Routen entfernt, Tabellen gedroppt oder Features
+                 abgeschaltet wurden, den entsprechenden Docs-Abschnitt entweder
+                 loeschen oder mit einem DEPRECATED-Hinweis versehen
+                 (z.B. "DEPRECATED: geloescht in PR #XYZ"). Niemals geloeschte
+                 Features als "hinzugefuegt" oder "neu" beschreiben.
+                 WICHTIG: Pruefe im Diff explizit nach geloeschten Dateien
+                 (`git diff --name-status` zeigt D fuer Deleted).
 
             3. `DATA_FIELDS.md` (Hauptindex) immer konsistent halten:
                - Neue `docs/FLOWS_*.md`-Dateien in die Modul-Tabelle eintragen.
@@ -187,9 +199,13 @@ jobs:
                finalen Summary.
 
             7. Abschluss:
-               - Aenderungen mit `git add` stagen.
-               - Wenn Aenderungen vorhanden sind:
+               - Aenderungen mit `git add docs/ DATA_FIELDS.md` stagen
+                 (nur Docs, keine anderen Dateien).
+               - Trocken-Test: `git diff --staged --quiet` — wenn kein Output
+                 (exit 0), gibt es nichts zu commiten → KEIN Commit erzeugen.
+               - Nur wenn staged Aenderungen vorhanden sind (exit code != 0):
                    git commit -m "docs: auto-update via PR #${{ github.event.pull_request.number }}"
+                   git pull --rebase origin ${{ github.event.pull_request.head.ref }}
                    git push origin HEAD:${{ github.event.pull_request.head.ref }}
                - Wenn nichts geaendert wurde: keinen Commit erzeugen.
                - Zum Schluss `bash scripts/guard-docs.sh --ci` laufen lassen
@@ -209,10 +225,20 @@ jobs:
               "### Auto-Docs fehlgeschlagen",
               "",
               "Der automatische Doc-Update-Lauf konnte die Dokumentation",
-              "in `docs/` nicht aktualisieren. Bitte Logs des Workflows",
-              "`PR Auto-Docs` pruefen und ggf. manuell nachfuehren.",
+              "in `docs/` nicht aktualisieren.",
               "",
-              `Run: ${process.env.RUN_URL}`,
+              "**Moegliche Ursachen:**",
+              "- Push-403: Branch-Schutzregel oder Token-Rechte",
+              "- Timeout: Claude-Aktion lief laenger als 25 Minuten",
+              "- Refusal: Claude hat die Aufgabe abgelehnt (z.B. kein Diff erkennbar)",
+              "- Git-Konflikt: parallele Commits auf dem Branch",
+              "",
+              "**Naechste Schritte:**",
+              "1. Workflow-Log pruefen (Link unten)",
+              "2. Falls nur Typos/Tests geoendert: manuell 'nichts zu tun' bestätigen",
+              "3. Falls Docs fehlen: manuell nachfuehren",
+              "",
+              `Logs: ${process.env.RUN_URL}`,
             ].join("\n");
             await github.rest.issues.createComment({
               owner: context.repo.owner,
