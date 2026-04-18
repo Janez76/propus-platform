@@ -43,11 +43,25 @@ tags:
   - name: system
     description: Health-Check, Build-Info, Feature-Flags
   - name: tours
+    description: >-
+      Tour-Manager Public- und Service-Endpunkte (Matterport-Viewer,
+      Gallery-API, Cron).
   - name: tours-admin
+    description: >-
+      Admin-Oberfläche des Tour-Managers (`/api/tours/admin/*` und
+      `/tour-manager/admin/*`). Erfordert Admin-Session.
   - name: tours-auth
+    description: Login- und Session-Handling des Tour-Managers (`/tour-manager/*`).
   - name: tours-customer
+    description: >-
+      Kunden-Self-Service-Links (`/tour-manager/r/*`), adressiert per
+      Signed-URL.
   - name: tours-portal
+    description: >-
+      Kunden-Portal-API (`/tour-manager/portal/*`). Erfordert Portal-Session
+      (`requirePortalSession`).
   - name: tours-webhook
+    description: Eingehende Webhooks (z. B. Payrexx-Zahlungsstatus).
 security: []
 paths:
   /api/admin/login:
@@ -18141,7 +18155,7 @@ x-generator:
     Auto-Stubs via `node scripts/extract-routes.js` gemerget. Kuratierte
     Einträge (mit echten Schemas) bleiben unangetastet; Stubs haben `summary:
     TODO` und sind an `x-source-file`/`x-source-line` erkennbar.
-  lastRun: '2026-04-18T08:03:31.813Z'
+  lastRun: '2026-04-18T08:06:06.501Z'
   routesScanned: 561
   curatedSkipped: 5
   autoAdded: 549
