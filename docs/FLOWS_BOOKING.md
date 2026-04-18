@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei jeder Änderung an Buchungslogik, Status-Übergängen, Kalender-Sync oder Provisional-Flow dieses Dokument aktualisieren. Cursor-Regel `.cursor/rules/data-fields.mdc` erinnert daran.
 
-*Zuletzt aktualisiert: April 2026 (PR #89: §16 Rate-Limiting & Security-Header, helmet). PR #88: §15 Kunden-Profil-Vorausfüllung via /auth/profile*
+*Zuletzt aktualisiert: April 2026 (PR #91: §17 API-Key-Verwaltung CRUD). PR #89: §16 Rate-Limiting & Security-Header, helmet. PR #88: §15 Kunden-Profil-Vorausfüllung via /auth/profile*
 
 ---
 
@@ -727,3 +727,44 @@ Vier vorkonfigurierte `express-rate-limit`-Instanzen schützen sicherheitskritis
 | `Content-Security-Policy` | **deaktiviert** — Admin-SPA lädt Assets von NAS/Cloudflare/Google Maps |
 | `Cross-Origin-Embedder-Policy` | **deaktiviert** — gleicher Grund |
 | `Cross-Origin-Resource-Policy` | cross-origin — NAS-Bilder in Admin-Oberfläche ladbar |
+
+---
+
+## 17. API-Key-Verwaltung (CRUD)
+
+**Datei:** `booking/server.js`, `booking/db.js`
+**Frontend:** `app/src/pages-legacy/settings/ApiKeysSection.tsx`, `app/src/api/apiKeys.ts`
+**Migration:** `core/migrations/039_api_keys.sql`
+
+Langlebige API-Tokens fuer Integrationen und CI-Jobs. Tokens werden einmalig bei Erstellung angezeigt (wie GitHub/Stripe Personal Access Tokens). Verwaltung im Settings-UI unter Tab "API-Keys".
+
+### Endpunkte
+
+| Methode | Pfad | Auth | Rate-Limit | Beschreibung |
+|---|---|---|---|---|
+| `GET` | `/api/admin/api-keys` | `requireAdmin` + `api_keys.manage` | — | Alle Keys auflisten (inkl. revozierte), JOIN auf `admin_users` fuer Ersteller-Info |
+| `POST` | `/api/admin/api-keys` | `requireAdmin` + `api_keys.manage` | `authLimiter` | Neuen Key erstellen; gibt `{ key, token }` zurueck — `token` ist der Klartext (einmalig!) |
+| `DELETE` | `/api/admin/api-keys/:id` | `requireAdmin` + `api_keys.manage` | `authLimiter` | Soft-Revoke: setzt `revoked_at = NOW()` |
+
+### Token-Erstellung (POST)
+
+```
+POST /api/admin/api-keys  { label }
+  │
+  ├── Validierung: label nicht leer, max. 200 Zeichen
+  ├── crypto.randomBytes(32).toString("base64url")
+  │     → token = "ppk_live_<base64url>"
+  │     → tokenHash = SHA-256(token)
+  │     → prefix = token.slice(0, 12)
+  ├── created_by = admin_users.id des eingeloggten Users
+  ├── INSERT INTO core.api_keys
+  └── Response 201: { key: {...}, token: "ppk_live_..." }
+```
+
+### Frontend (ApiKeysSection)
+
+- Tab "API-Keys" in SettingsPage, sichtbar fuer `super_admin`, `admin` oder Permission `api_keys.manage`
+- Erstell-Formular mit Label-Eingabe
+- Einmaliger Token-Anzeige-Banner (Amber-Box) mit Kopieren-Button
+- Tabelle aktiver Keys (Label, Prefix, Ersteller, Erstellt am, Zuletzt genutzt, Revoke-Button)
+- Tabelle revozierter Keys (Label, Prefix, Revoziert am)

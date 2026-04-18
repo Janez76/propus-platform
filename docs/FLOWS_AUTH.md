@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei Änderungen an Login-Logik, Session-Verwaltung, Token-Handling oder Portal-Auth dieses Dokument aktualisieren.
 
-*Zuletzt aktualisiert: April 2026 (PR #89: Rate-Limiting auf Login-Endpunkte). PR #88: Unified Login, Portal-Session-Bridge, Profil-Endpunkt, Passwort-Reset-Fix*
+*Zuletzt aktualisiert: April 2026 (PR #91: API-Key-Auth-Pfad in Middleware). PR #89: Rate-Limiting auf Login-Endpunkte. PR #88: Unified Login, Portal-Session-Bridge, Profil-Endpunkt, Passwort-Reset-Fix*
 
 ---
 
@@ -17,7 +17,8 @@
 7. [Post-Login-Redirect](#7-post-login-redirect)
 8. [Session-Tabellen & Cookies](#8-session-tabellen--cookies)
 9. [Frontend-Integration](#9-frontend-integration)
-10. [Sicherheitshinweise](#10-sicherheitshinweise)
+10. [API-Key-Authentifizierung](#10-api-key-authentifizierung-bearer-token-ppk_live_)
+11. [Sicherheitshinweise](#11-sicherheitshinweise)
 
 ---
 
@@ -370,7 +371,45 @@ Steuert u.a.: Login-Hinweis-Banner, Profil-Vorausfüllung, Standard-Redirect nac
 
 ---
 
-## 10. Sicherheitshinweise
+## 10. API-Key-Authentifizierung (Bearer-Token `ppk_live_…`)
+
+Seit PR #91 unterstuetzt die Auth-Middleware in `booking/server.js` neben Session-Tokens auch langlebige API-Keys als Bearer-Token.
+
+### Erkennung
+
+Das Middleware prueft nach Token-Extraktion (`getRequestTokenDetails`):
+1. `source !== "cookie"` — API-Keys werden nur via `Authorization: Bearer` oder Query-Parameter akzeptiert, nie aus Cookies.
+2. Token beginnt mit `ppk_live_` — Prefix-basierte Unterscheidung von Session-Tokens.
+
+### Ablauf
+
+```
+Eingehender Request mit Bearer ppk_live_<secret>
+  │
+  ├── SHA-256(token) → core.api_keys WHERE token_hash = ? AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())
+  │
+  ├── api_key.created_by → core.admin_users WHERE id = ? AND is_active = TRUE
+  │     → req.user = { id, userKey, email, name, role }   (Permissions des Erstellers)
+  │     → req.apiKeyId = api_key.id
+  │
+  ├── Async: UPDATE core.api_keys SET last_used_at = NOW()  (fire-and-forget)
+  │
+  └── next()  (Routing-Middleware prueft dann requireAdmin + rbac.requirePermission)
+```
+
+### Sicherheitsaspekte
+
+| Thema | Massnahme |
+|---|---|
+| Kein Cookie-Pfad | `source !== "cookie"` verhindert CSRF-Angriffe ueber API-Keys |
+| Permissions | Token erbt Rolle + Permissions des erstellenden Admin-Users (kein eigener Scope) |
+| Revoke | Sofort wirksam — `revoked_at IS NULL`-Check in jeder Anfrage |
+| Token-Format | `ppk_live_` + 32 Bytes base64url (256 Bit Entropie) |
+| Speicherung | Nur SHA-256-Hash in DB; Klartext wird einmalig bei Erstellung angezeigt |
+
+---
+
+## 11. Sicherheitshinweise
 
 | Thema | Maßnahme |
 |---|---|

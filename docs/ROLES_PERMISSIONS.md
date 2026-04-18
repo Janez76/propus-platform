@@ -96,6 +96,7 @@ Das RBAC-System (`booking/access-rbac.js`) verwaltet alle Zugriffsrechte der Pla
 | `reviews.manage` | booking | Reviews verwalten |
 | `roles.manage` | booking | Rollen verwalten |
 | `users.manage` | booking | Benutzer verwalten |
+| `api_keys.manage` | booking | API-Keys erstellen, auflisten und revozieren |
 
 ---
 
@@ -137,6 +138,7 @@ Das RBAC-System (`booking/access-rbac.js`) verwaltet alle Zugriffsrechte der Pla
 | `reviews.manage` | ✓ | ✓ | | | | | | | |
 | `roles.manage` | ✓ | | | | | | | | |
 | `users.manage` | ✓ | | | | | | | | |
+| `api_keys.manage` | ✓ | | | | | | | | |
 
 ---
 

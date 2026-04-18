@@ -214,6 +214,28 @@ Migration: `core/migrations/007_session_store.sql`
 
 ---
 
+### `core.api_keys` — Langlebige API-Tokens
+
+Langlebige, revozierbare API-Tokens fuer Integrationen, CI-Jobs und externe Tools. Der Token-Klartext wird dem User einmalig nach Erstellung angezeigt; in der DB liegt nur der SHA-256-Hash. Tokens vererben die Permissions des erstellenden Admin-Users (keine Custom-Scopes).
+
+| Feld | Typ | Default | Beschreibung |
+|---|---|---|---|
+| `id` | BIGSERIAL PK | | |
+| `label` | TEXT NOT NULL | | Freitext-Bezeichnung (max. 200 Zeichen, UI-Validierung) |
+| `token_hash` | TEXT NOT NULL UNIQUE | | SHA-256-Hash des Klartext-Tokens (`ppk_live_…`) |
+| `prefix` | TEXT NOT NULL | | Erste 12 Zeichen des Tokens (zur Anzeige im UI) |
+| `created_by` | BIGINT FK → admin_users SET NULL | | Ersteller |
+| `created_at` | TIMESTAMPTZ | NOW() | |
+| `last_used_at` | TIMESTAMPTZ | NULL | Wird bei jeder Nutzung aktualisiert (fire-and-forget) |
+| `expires_at` | TIMESTAMPTZ | NULL | Optional, aktuell nicht im UI gesetzt |
+| `revoked_at` | TIMESTAMPTZ | NULL | Soft-Revoke (Zeitstempel statt DELETE) |
+
+**Indizes:** `api_keys_token_hash_idx` (UNIQUE), `api_keys_active_idx` (Partial: `WHERE revoked_at IS NULL`)
+
+Migration: `core/migrations/039_api_keys.sql`
+
+---
+
 ## 2. `booking.*`-Tabellen
 
 ### `booking.orders` — Hauptbuchungstabelle
