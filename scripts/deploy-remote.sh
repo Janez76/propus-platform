@@ -154,7 +154,9 @@ echo "Alle Ports verfuegbar."
 
 echo "==> Docker Build"
 export DOCKER_BUILDKIT=1
-docker compose -f docker-compose.vps.yml --env-file .env.vps build migrate platform website
+docker compose -f docker-compose.vps.yml --env-file .env.vps build \
+  --build-arg DEPLOY_SHA="${GITHUB_SHA:-$(date +%s)}" \
+  migrate platform website
 
 echo "==> Platform Restart"
 docker compose -f docker-compose.vps.yml --env-file .env.vps up -d --force-recreate platform

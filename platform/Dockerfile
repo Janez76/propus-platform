@@ -11,6 +11,9 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /nextjs
 COPY app/package*.json ./
 RUN npm ci
+# Cache-Buster: ändert sich pro Deploy → invalidiert alle folgenden Layer (inkl. COPY app/)
+ARG DEPLOY_SHA=""
+RUN echo "Deploy: ${DEPLOY_SHA}"
 COPY app/ .
 
 ARG NEXT_PUBLIC_API_BASE=""
