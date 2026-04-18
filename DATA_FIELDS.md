@@ -21,6 +21,8 @@
 | [docs/ROLES_PERMISSIONS.md](docs/ROLES_PERMISSIONS.md) | Rollen & Permissions: RBAC-System, System-Rollen, Permission-Keys, Mapping-Tabelle, Rollen-Sync, Logto-Integration, Portal-Rollen |
 | [docs/EMAIL_TEMPLATES.md](docs/EMAIL_TEMPLATES.md) | E-Mail-Templates: Mail-Transport, alle Booking-Builder-Funktionen, Tour-Manager DB-Templates mit Platzhaltern, Logging |
 | [docs/ADMIN-FRONTEND-DESIGN.md](docs/ADMIN-FRONTEND-DESIGN.md) | Admin-Frontend Design-Referenz: Verbindliche Bausteine, Listing-Editor, Booking Admin-Panel Shared Components (StatusBadge, Tabs, Pricing, OrderDetail UX, CreateOrderWizard, EmptyState, Spacing Tokens), Main-App portierte Module (StatusBadge, Pricing, useDirty, useT, address, Test-Infrastruktur/Vitest) — `booking/admin-panel/` ist seit April 2026 deprecated, siehe [`DEPRECATED.md`](booking/admin-panel/DEPRECATED.md) |
+| [docs/OPENAPI.md](docs/OPENAPI.md) | OpenAPI 3.1 Spec (Skeleton): 5 kritische Endpunkte, Konventionen, Lint-/Preview-Anleitung. Spec liegt in [`docs/openapi/openapi.yaml`](docs/openapi/openapi.yaml) |
+| [docs/DEPLOY-FLOW.md](docs/DEPLOY-FLOW.md) | Drei-Phasen-Deploy: GitHub Actions → VPS-Bash (`scripts/deploy-remote.sh`) → Container-Init (`scripts/start.sh`). Trigger-Matrix, Decision-Table |
 
 ---
 

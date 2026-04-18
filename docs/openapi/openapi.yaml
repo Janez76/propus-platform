@@ -1,0 +1,434 @@
+# Propus Platform — Booking API
+#
+# OpenAPI 3.1 Spec für die wichtigsten öffentlichen + Admin-Endpunkte
+# des Booking-Backends (Express, Port 3100). Erweiterung siehe docs/OPENAPI.md.
+#
+# Status: Skeleton mit 5 kritischen Endpunkten als Vorlage. Body-Schemas der
+# Booking-Submit-Route sind absichtlich `additionalProperties: true` markiert,
+# weil die vollständige Payload-Struktur ein eigenes Doku-Ticket benötigt.
+
+openapi: 3.1.0
+
+info:
+  title: Propus Booking API
+  version: "1.0.0"
+  description: |
+    Backend-API für das Buchungstool von Propus GmbH. Serviert sowohl die
+    öffentliche Buchungsstrecke (`/api/booking*`) als auch die Admin-Oberfläche
+    (`/api/admin/*`, `/auth/*`).
+
+    **Hinweise:**
+    - Die meisten Routen liegen hinter Cloudflare + Nginx; `req.ip` ist die
+      echte Client-IP (Trust-Proxy aktiv).
+    - Sicherheitskritische Routen sind per `express-rate-limit` geschützt
+      (siehe `booking/rate-limiters.js`).
+    - Auth: Admin-Sessions via `admin_session`-Cookie (HttpOnly) **oder**
+      `Authorization: Bearer <token>`-Header.
+  contact:
+    name: Propus Platform Team
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+
+servers:
+  - url: https://booking.propus.ch
+    description: Produktion (Public Booking Frontend)
+  - url: https://admin-booking.propus.ch
+    description: Produktion (Admin Backend)
+  - url: http://localhost:3100
+    description: Lokale Entwicklung (Express direkt)
+
+tags:
+  - name: auth
+    description: Login, Sessions, Admin-Authentifizierung
+  - name: booking
+    description: Öffentliche Buchungsstrecke + Bestätigung
+  - name: system
+    description: Health-Check, Build-Info, Feature-Flags
+
+# Default: keine Auth (öffentliche Routen). Geschützte Operations
+# überschreiben mit `security: [{ bearerAuth: [] }, { sessionCookie: [] }]`.
+security: []
+
+paths:
+  /api/admin/login:
+    post:
+      tags: [auth]
+      summary: Lokaler Admin-Login (Legacy, ohne Logto)
+      description: |
+        Klassischer Username/Passwort-Login gegen `core.admin_users`. Setzt
+        ein `admin_session`-Cookie und liefert zusätzlich einen Bearer-Token
+        zurück, den das Admin-Panel im LocalStorage hält.
+
+        **Rate-Limit:** 5 Versuche / 15 min pro IP (`authLimiter`).
+      operationId: adminLoginLegacy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                  description: E-Mail oder Username
+                  example: admin@propus.ch
+                password:
+                  type: string
+                  format: password
+                rememberMe:
+                  type: boolean
+                  default: false
+                  description: Verlängert Session-Cookie auf 30 Tage
+      responses:
+        "200":
+          description: Login erfolgreich
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          description: Ungültige Zugangsdaten
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "503":
+          description: Datenbank nicht konfiguriert
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Unified Admin-Login
+      description: |
+        Neuere, vereinheitlichte Login-Route. Akzeptiert sowohl `email` als
+        auch `username` als Login-ID. Wird vom Admin-Panel via Next.js-Proxy
+        (`/api/auth/login` → `/auth/login`) angesprochen.
+
+        Liefert dasselbe Response-Format wie `/api/admin/login`.
+
+        **Rate-Limit:** 5 Versuche / 15 min pro IP (`authLimiter`, gleicher
+        Bucket wie `/api/admin/login`).
+      operationId: adminLoginUnified
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: Login-ID (entweder `email` oder `username` setzen)
+                username:
+                  type: string
+                  description: Login-ID (entweder `email` oder `username` setzen)
+                password:
+                  type: string
+                  format: password
+                rememberMe:
+                  type: boolean
+                  default: false
+      responses:
+        "200":
+          description: Login erfolgreich
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          description: Ungültige Zugangsdaten
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /api/booking:
+    post:
+      tags: [booking]
+      summary: Öffentliche Buchungsanfrage
+      description: |
+        Hauptendpunkt der öffentlichen Buchungsstrecke. Akzeptiert die
+        komplette Buchungs-Payload (Termin, Fotograf, Adresse, Services,
+        Kontakt) und legt eine `booking.orders`-Zeile an.
+
+        Bei Erfolg wird eine Bestätigungs-E-Mail mit Token-Link verschickt
+        (siehe `/api/booking/confirm/:token`).
+
+        **Rate-Limit:** 10 Submits / 60 min pro IP (`bookingLimiter`,
+        eigener Bucket — Schutz vor Spam und Mailkosten).
+
+        **TODO:** Vollständiges Body-Schema (`schedule`, `billing`,
+        `object`, `services`, `address`, `keyPickup`, ...) ergänzen.
+        Aktuell `additionalProperties: true`, weil ein eigenes Doku-Ticket
+        benötigt wird, um alle Felder + ihre Validierung zu erfassen.
+      operationId: createBooking
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              properties:
+                schedule:
+                  type: object
+                  properties:
+                    photographer:
+                      type: object
+                      properties:
+                        key:
+                          type: string
+                          description: Fotograf-Key oder `"any"` für Smart-Assignment
+                        name:
+                          type: string
+                    date:
+                      type: string
+                      format: date
+                    time:
+                      type: string
+                      pattern: "^[0-9]{2}:[0-9]{2}$"
+                billing:
+                  type: object
+                  properties:
+                    email:
+                      type: string
+                      format: email
+                  additionalProperties: true
+                object:
+                  type: object
+                  additionalProperties: true
+                services:
+                  type: object
+                  additionalProperties: true
+                address:
+                  type: object
+                  additionalProperties: true
+                keyPickup:
+                  type: object
+                  additionalProperties: true
+      responses:
+        "200":
+          description: Buchung angelegt
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  orderNo:
+                    type: string
+                    description: Generierte Auftragsnummer
+                  requestId:
+                    type: string
+                  warnings:
+                    type: array
+                    items:
+                      type: string
+                additionalProperties: true
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/booking/confirm/{token}:
+    get:
+      tags: [booking]
+      summary: Buchung per Token-Link bestätigen
+      description: |
+        Wird vom Bestätigungs-Link in der E-Mail aufgerufen. Setzt
+        `orders.status = 'confirmed'` und legt anschliessend Kalender-
+        Einträge (Fotograf + Office) an.
+
+        **Idempotent:** Wiederholtes Aufrufen mit demselben Token gibt
+        `{ ok: true, already: true }` zurück.
+
+        **Rate-Limit:** 10 Versuche / 15 min pro IP (`confirmTokenLimiter`,
+        eigener Bucket — verhindert dass Bots, die öffentliche Confirm-Links
+        spammen, das Admin-Login-Budget aus derselben NAT-IP auffressen).
+      operationId: confirmBooking
+      parameters:
+        - in: path
+          name: token
+          required: true
+          schema:
+            type: string
+            minLength: 32
+          description: Confirmation-Token aus der E-Mail
+      responses:
+        "200":
+          description: Bestätigung erfolgreich (oder bereits bestätigt)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  already:
+                    type: boolean
+                    description: True wenn Status bereits `confirmed` war
+                  status:
+                    type: string
+                  orderNo:
+                    type: string
+        "400":
+          description: Ungültiges Token-Format
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Token unbekannt oder bereits gelöscht
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "410":
+          description: Token abgelaufen
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "503":
+          description: Service nicht verfügbar (DB nicht erreichbar)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/health:
+    get:
+      tags: [system]
+      summary: Health-Check + Feature-Flags
+      description: |
+        Liefert Build-ID, Uptime und aktive Feature-Flags. Wird vom
+        Container-Healthcheck (`docker-compose.vps.yml`) und vom Smoke-Test
+        in der CI verwendet.
+      operationId: getHealth
+      responses:
+        "200":
+          description: Service ist erreichbar
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, buildId, uptimeSec, dbEnabled]
+                properties:
+                  ok:
+                    type: boolean
+                    enum: [true]
+                  buildId:
+                    type: string
+                  hasPricingPreviewRoute:
+                    type: boolean
+                  features:
+                    type: object
+                    additionalProperties:
+                      type: boolean
+                  dbEnabled:
+                    type: boolean
+                    description: True wenn `DATABASE_URL` gesetzt ist
+                  uptimeSec:
+                    type: integer
+                    minimum: 0
+        "503":
+          description: Service degraded (z. B. DB nicht erreichbar)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+      description: Admin-Token aus Login-Response (LocalStorage)
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: admin_session
+      description: HttpOnly-Session-Cookie, vom Login-Endpunkt gesetzt
+
+  schemas:
+    LoginSuccess:
+      type: object
+      required: [ok, token, role, permissions]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        token:
+          type: string
+          description: Bearer-Token, identisch mit `admin_session`-Cookie
+        role:
+          type: string
+          example: admin
+        permissions:
+          type: array
+          items:
+            type: string
+          description: Aufgelöste RBAC-Permissions (siehe ROLES_PERMISSIONS.md)
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+        ok:
+          type: boolean
+          enum: [false]
+
+  responses:
+    BadRequest:
+      description: Eingabe ungültig
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    TooManyRequests:
+      description: Rate-Limit überschritten (siehe `booking/rate-limiters.js`)
+      headers:
+        RateLimit-Limit:
+          schema:
+            type: integer
+        RateLimit-Remaining:
+          schema:
+            type: integer
+        RateLimit-Reset:
+          schema:
+            type: integer
+            description: Sekunden bis Reset
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    ServerError:
+      description: Interner Fehler
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
