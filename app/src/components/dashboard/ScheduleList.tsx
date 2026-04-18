@@ -37,15 +37,18 @@ export function ScheduleList({ orders, days = 7, onCreateOrder }: ScheduleListPr
   const lang = useAuthStore((s) => s.language);
 
   const buckets = useMemo<DayBucket[]>(() => {
-    const today = startOfDay(new Date());
+    const now = new Date();
+    const today = startOfDay(now);
     const tomorrow = new Date(today.getTime() + DAY_MS);
-    const horizon = new Date(today.getTime() + days * DAY_MS);
+    // horizon ist die Mitternacht NACH dem letzten gewünschten Tag (exklusiv).
+    // days=7 → Termine von jetzt bis Ende Tag 6 inkl., also < today + 7 Tage.
+    const horizonExclusive = new Date(today.getTime() + days * DAY_MS);
 
     const map = new Map<string, DayBucket>();
     for (const order of orders) {
       if (!order.appointmentDate) continue;
       const date = new Date(order.appointmentDate);
-      if (date < today || date > horizon) continue;
+      if (date < now || date >= horizonExclusive) continue;
       const day = startOfDay(date);
       const key = dayKey(day);
       if (!map.has(key)) {
