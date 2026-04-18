@@ -70,6 +70,24 @@ BEGIN
     SELECT s.old_id, u.id FROM src s JOIN upserted u ON u.slug = s.slug;
   END IF;
 
+  -- ─── 3b. Spalte keycloak_subject → auth_subject in booking.company_members ─
+  -- core/migrations/008 hat das Rename nur für core.company_members gemacht.
+  -- Auf Alt-DBs heißt die Spalte in booking.* noch keycloak_subject. Umbenennen,
+  -- damit der Merge-SELECT weiter unten auf bm.auth_subject zugreifen kann.
+  IF has_b_members THEN
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+       WHERE table_schema = 'booking' AND table_name = 'company_members'
+         AND column_name  = 'keycloak_subject'
+    ) AND NOT EXISTS (
+      SELECT 1 FROM information_schema.columns
+       WHERE table_schema = 'booking' AND table_name = 'company_members'
+         AND column_name  = 'auth_subject'
+    ) THEN
+      ALTER TABLE booking.company_members RENAME COLUMN keycloak_subject TO auth_subject;
+    END IF;
+  END IF;
+
   -- ─── 4. Company-Members mergen ────────────────────────────────────────
   IF has_b_members THEN
     WITH src AS (
