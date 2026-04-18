@@ -4,7 +4,7 @@
 >
 > **Automatisch mitpflegen:** Cursor-Regel `.cursor/rules/data-fields.mdc` definiert, wann welche Datei aktualisiert werden muss.
 
-*Zuletzt aktualisiert: April 2026 (PR #88: Node-Pinning auf 20.18.1, GOOGLE_REVIEWS_PLACE_ID externalisiert, booking/db.js core.customers-Schema-Prefix)*
+*Zuletzt aktualisiert: April 2026 (PR #89: SCHEMA_FULL.md um ~20 fehlende Tabellen ergänzt — Sessions, Email-Workflow, Calendar-Queue, Reviews, Upload-Workflow, GBP-OAuth, Legacy-Auth-Tabellen). PR #88: Node-Pinning auf 20.18.1, GOOGLE_REVIEWS_PLACE_ID externalisiert, booking/db.js core.customers-Schema-Prefix.*
 
 ---
 
@@ -59,9 +59,11 @@ WHERE LOWER(c.email) = $1
 | 2 | `isSynthCustomerEmail` erkannte nur `@company.local`, nicht `@invite.buchungstool.invalid` | ✅ **Behoben** April 2026 in `CompanyManagementPage.tsx` |
 | 3 | Sidebar hatte doppelte Einträge "Kunden" + "Firmenverwaltung" | ✅ **Behoben** April 2026: kombiniertes Submenu "Kunden & Firmen" |
 | 4 | Firmenverwaltungs-Seite zeigte keine Kontaktpersonen | ✅ **Behoben** April 2026: `CustomerContactsSection` integriert |
-| 5 | Booking-Modul hat kein dediziertes E-Mail-Log (nur `order_status_audit`) | Offen |
+| 5 | Booking-Modul hat kein dediziertes E-Mail-Log (nur `order_status_audit`) | ✅ **Behoben** April 2026: `booking.email_send_log` dokumentiert in SCHEMA_FULL.md |
 | 6 | Exxas-Order-Sync (`exxas_status`, `exxas_order_id`) ohne dedizierte Dokumentation der Sync-Häufigkeit | Offen |
-| 7 | `calendar_delete_queue`-Tabelle noch nicht vollständig dokumentiert | Offen |
+| 7 | `calendar_delete_queue`-Tabelle noch nicht vollständig dokumentiert | ✅ **Behoben** April 2026: in SCHEMA_FULL.md |
+| 8 | `booking.companies/company_members/company_invitations` sind Duplikate zu `core.*` — Migration zur `core`-Variante offen | Offen |
+| 9 | `booking.admin_users` und `tour_manager.admin_users` sind Legacy — Single Source of Truth ist `core.admin_users` (Views: `booking.v_admin_users`, `tour_manager.v_admin_users`) | Offen |
 
 ---
 
