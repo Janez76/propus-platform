@@ -64,7 +64,7 @@ WHERE LOWER(c.email) = $1
 | 5 | Booking-Modul hat kein dediziertes E-Mail-Log (nur `order_status_audit`) | ✅ **Behoben** April 2026: `booking.email_send_log` dokumentiert in SCHEMA_FULL.md |
 | 6 | Exxas-Order-Sync (`exxas_status`, `exxas_order_id`) ohne dedizierte Dokumentation der Sync-Häufigkeit | Offen |
 | 7 | `calendar_delete_queue`-Tabelle noch nicht vollständig dokumentiert | ✅ **Behoben** April 2026: in SCHEMA_FULL.md |
-| 8 | `booking.companies/company_members/company_invitations` sind Duplikate zu `core.*` — Migration zur `core`-Variante offen | Offen |
+| 8 | `booking.companies/company_members/company_invitations` sind Duplikate zu `core.*` — Migration zur `core`-Variante offen | ✅ **Behoben** April 2026 in `booking/migrations/082`: Daten-Merge booking→core via slug/natural-keys, FK-Remap für `booking.orders.created_by_member_id` + `booking.access_subjects.company_member_id`, Legacy-Tabellen gedroppt. |
 | 9 | `booking.admin_users` und `tour_manager.admin_users` sind Legacy — Single Source of Truth ist `core.admin_users` | ✅ **Behoben** April 2026 in `core/migrations/040`: Legacy-Tabellen durch Views mit INSTEAD-OF-Triggern ersetzt; FK `booking.access_subjects.admin_user_id` zeigt jetzt auf `core.admin_users(id)`. |
 
 ---
