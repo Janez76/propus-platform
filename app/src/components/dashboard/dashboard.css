@@ -255,6 +255,8 @@
 .pds-tl-item .meta-row span { display: inline-flex; align-items: center; gap: 4px; }
 .pds-tl-item .meta-row svg { width: 11px; height: 11px; stroke-width: 1.75; }
 .pds-timeline-empty { padding: 24px 0; text-align: center; color: var(--fg-3); font-size: 13px; }
+.pds-tasks-empty { padding: 24px 0; text-align: center; color: var(--fg-3); font-size: 13px; }
+.pds-act-empty { padding: 24px 0; text-align: center; color: var(--fg-3); font-size: 13px; }
 
 /* Pipeline board */
 .pds-board { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
