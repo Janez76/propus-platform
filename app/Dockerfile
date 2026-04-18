@@ -1,7 +1,7 @@
 # Next.js Standalone Build
 # Multi-stage: Build -> Runtime
 
-FROM node:20-alpine AS base
+FROM node:20.18.1-alpine AS base
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
@@ -36,7 +36,7 @@ ENV NODE_ENV=production
 RUN npm run build
 
 # ─── Runner ───────────────────────────────────────────────────────────────────
-FROM node:20-alpine AS runner
+FROM node:20.18.1-alpine AS runner
 WORKDIR /app
 
 RUN apk add --no-cache libc6-compat postgresql-client

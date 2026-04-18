@@ -6,7 +6,7 @@
 # Phase B (Nach Migration): Nur Next.js, kein Express mehr
 
 # ─── Stage 1: Next.js Build ──────────────────────────────────────────────────
-FROM node:20-alpine AS nextjs-builder
+FROM node:20.18.1-alpine AS nextjs-builder
 RUN apk add --no-cache libc6-compat
 WORKDIR /nextjs
 COPY app/package*.json ./
@@ -32,7 +32,7 @@ ENV NODE_ENV=production
 RUN npm run build
 
 # ─── Stage 2: Runtime ─────────────────────────────────────────────────────────
-FROM node:20-alpine AS runtime
+FROM node:20.18.1-alpine AS runtime
 WORKDIR /app
 RUN apk add --no-cache libc6-compat postgresql-client curl
 

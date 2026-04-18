@@ -10,6 +10,7 @@
 | Compose-Projekt     | `propus-platform`                          |
 | Env-Datei           | `/opt/propus-platform/.env.vps`            |
 | Alte Installation   | `/opt/buchungstool-OLD` (Rollback-Reserve) |
+| Node-Version (Docker) | `20.18.1` (gepinnt in allen Dockerfiles und Compose-Dateien) |
 
 ### Öffentliche Endpunkte
 
@@ -270,6 +271,14 @@ docker compose -p propus-platform -f docker-compose.vps.yml --env-file .env.vps 
 ```
 
 > Die `payrexx_configured`-Info wird bei jedem Tour-Detail-Aufruf live aus den Env-Vars gelesen — kein Neustart nötig um den Status im UI zu sehen, aber die Variablen selbst brauchen einen Neustart.
+
+### Google Reviews (Firmenhomepage)
+
+`GOOGLE_REVIEWS_PLACE_ID` legt die Google-Place-ID fuer die Bewertungsanzeige auf der Propus-Website fest. Seit PR #88 ist der Default-Wert **nicht mehr in `docker-compose.vps.yml` hartcodiert**, sondern muss in `.env.vps` (bzw. `.env.vps.example` als Vorlage) gesetzt sein. Ohne diesen Wert bleibt die Variable leer und die Google-Reviews-Integration ist inaktiv.
+
+```env
+GOOGLE_REVIEWS_PLACE_ID=ChIJCXJ70_ZCiisRJDlGdaYk66Y
+```
 
 ---
 

@@ -1,4 +1,4 @@
-FROM node:20-alpine
+FROM node:20.18.1-alpine
 
 # Einige native Module (u. a. Abhaengigkeiten) erwarten glibc-Kompatibilitaet unter musl
 RUN apk add --no-cache libc6-compat

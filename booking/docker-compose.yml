@@ -22,7 +22,7 @@ services:
       backend:
         condition: service_healthy
   backend:
-    image: node:20-alpine
+    image: node:20.18.1-alpine
     working_dir: /app
     ports:
       - "3005:3001"

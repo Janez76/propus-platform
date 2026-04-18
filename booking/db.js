@@ -953,7 +953,7 @@ async function getCustomerByEmail(email) {
   if (!normEmail) return null;
   try {
     const { rows } = await query(
-      `SELECT * FROM customers
+      `SELECT * FROM core.customers
        WHERE core.customer_email_matches($1, email, email_aliases)
        LIMIT 1`,
       [normEmail]
@@ -961,7 +961,7 @@ async function getCustomerByEmail(email) {
     return rows[0] || null;
   } catch (_aliasErr) {
     const { rows } = await query(
-      `SELECT * FROM customers WHERE LOWER(TRIM(email)) = $1 LIMIT 1`,
+      `SELECT * FROM core.customers WHERE LOWER(TRIM(email)) = $1 LIMIT 1`,
       [normEmail]
     );
     return rows[0] || null;
