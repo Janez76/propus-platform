@@ -4,7 +4,7 @@
 >
 > **Automatisch mitpflegen:** Cursor-Regel `.cursor/rules/data-fields.mdc` definiert, wann welche Datei aktualisiert werden muss.
 
-*Zuletzt aktualisiert: April 2026 (PR #89: SCHEMA_FULL.md um ~20 fehlende Tabellen ergänzt — Sessions, Email-Workflow, Calendar-Queue, Reviews, Upload-Workflow, GBP-OAuth, Legacy-Auth-Tabellen). PR #88: Node-Pinning auf 20.18.1, GOOGLE_REVIEWS_PLACE_ID externalisiert, booking/db.js core.customers-Schema-Prefix.*
+*Zuletzt aktualisiert: April 2026 (PR #89: Rate-Limiting auf Auth/Booking-Endpunkte, helmet Security-Header, OpenAPI-CI-Lint, SCHEMA_FULL.md um ~20 fehlende Tabellen ergänzt). PR #88: Node-Pinning auf 20.18.1, GOOGLE_REVIEWS_PLACE_ID externalisiert, core/lib/customer-lookup zentralisiert.*
 
 ---
 
@@ -12,7 +12,7 @@
 
 | Datei | Inhalt |
 |---|---|
-| [docs/FLOWS_BOOKING.md](docs/FLOWS_BOOKING.md) | Buchungs-Flows: Haupt-Buchung, Provisional, Kalender-Sync, Reschedule, Storno, Fotograf-Wechsel, Bestätigung, Payrexx-Webhook, Exxas-Order-Sync |
+| [docs/FLOWS_BOOKING.md](docs/FLOWS_BOOKING.md) | Buchungs-Flows: Haupt-Buchung, Provisional, Kalender-Sync, Reschedule, Storno, Fotograf-Wechsel, Bestätigung, Payrexx-Webhook, Exxas-Order-Sync, Rate-Limiting & Security-Header |
 | [docs/FLOWS_TOURS.md](docs/FLOWS_TOURS.md) | Tour-Manager: tours-Tabelle, Status-Maschine, Matterport-Integration, Verlängerungs-Flow, zentrales Rechnungsmodul (`/admin/invoices`), Listing/Kunden-Galerie (Magic-Link, NAS-Import, Auto-Fill Kundenordner + Freigabe-Link, Bestell-Kontakt-Fallback, NAS `/Finale`-Unterordner-Präferenz, Status-Sofortspeicherung, Slug-URL-Auflösung in Admin + API, Friendly-Slug-URLs `<plz>-<ort>-<bestellnr>`, Websize-only Galerie, nur «Alle Medien herunterladen»-Button, MediaSummary, Feedback→Ticket-Integration), Bank-Import (Vorschau/Multi-Upload, Bestellungssuche), Bestellungs-Admin Finanzblock, KI/AI-Suggestions, Incoming-Emails, Cron-Jobs, Bestellung nachträglich verknüpfen (Tour-Detail Intern) |
 | [docs/WORKFLOW_TOURS.md](docs/WORKFLOW_TOURS.md) | Tour-Workflow Regelwerk (Produkt), Admin `/admin/tours/workflow-settings`; mit `FLOWS_TOURS.md` synchron halten |
 | [docs/FLOWS_UPLOAD.md](docs/FLOWS_UPLOAD.md) | Upload-System: Endpunkte, upload_batches/files-Tabellen, NAS-Pfad-Logik, Kategorien, Chunked-Upload, Konflikt-Modi, Upload-Gruppen |

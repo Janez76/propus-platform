@@ -70,7 +70,7 @@ npx @redocly/cli lint docs/openapi/openapi.yaml
 npx @apidevtools/swagger-cli validate docs/openapi/openapi.yaml
 ```
 
-CI-Integration ist noch nicht eingerichtet — siehe TODO unten.
+CI-Integration: `.github/workflows/openapi-lint.yml` führt `npx @redocly/cli lint` bei jedem Push/PR auf `master` aus (Trigger-Pfade: `docs/openapi/**`, `scripts/extract-routes.js`).
 
 ## Konventionen für neue Endpunkte
 
@@ -143,8 +143,8 @@ zu erinnern (TODO).
 | # | Lücke | Lösung |
 |---|---|---|
 | 1 | 548 Routen sind nur als Stub dokumentiert (keine echten Request/Response-Schemas) | Top-Endpoints (Order-CRUD, Customer-API, Tour-Workflow) schrittweise kuratieren |
-| 2 | Kein CI-Lint-Job für die Spec | `.github/workflows/openapi-lint.yml` mit `redocly lint` ergänzen |
-| 3 | Keine `tag-description` auf den meisten Tags (Linter-Warning) | In `spec.tags[].description` ergänzen |
+| 2 | ~~Kein CI-Lint-Job für die Spec~~ | ~~`.github/workflows/openapi-lint.yml` mit `redocly lint` ergänzen~~ — **Behoben** PR #89: `openapi-lint.yml` aktiv |
+| 3 | ~~Keine `tag-description` auf den meisten Tags~~ | ~~In `spec.tags[].description` ergänzen~~ — **Behoben** PR #89: alle 9 Tags haben Descriptions |
 | 4 | Keine Webhooks (Payrexx, Exxas) dokumentiert | OpenAPI 3.1 unterstützt `webhooks:` — aktuell als normale POST-Routen erfasst |
 | 5 | Keine `examples:` in Responses | Schrittweise beim Kuratieren eines Endpoints ergänzen |
 

@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei Änderungen an Login-Logik, Session-Verwaltung, Token-Handling oder Portal-Auth dieses Dokument aktualisieren.
 
-*Zuletzt aktualisiert: April 2026 (Unified Login, Portal-Session-Bridge, Profil-Endpunkt, Passwort-Reset-Fix)*
+*Zuletzt aktualisiert: April 2026 (PR #89: Rate-Limiting auf Login-Endpunkte). PR #88: Unified Login, Portal-Session-Bridge, Profil-Endpunkt, Passwort-Reset-Fix*
 
 ---
 
@@ -381,3 +381,4 @@ Steuert u.a.: Login-Hinweis-Banner, Profil-Vorausfüllung, Standard-Redirect nac
 | **Pool-Null-Check** | `requirePortalSession` prüft `if (!pool)` → 503, kein unbehandelter Crash |
 | **Token-Key-Konstante** | `TOKEN_STORAGE_KEY = "admin_token_v2"` zentral in `authStore.ts` exportiert — kein Hard-Coding in einzelnen Dateien |
 | **Session-Bridge** | Bearer-Token nur für Kunden-Rollen (`customer_user`, `customer_admin`, `tour_manager`) akzeptiert — Admin-Tokens können kein Portal-Session hijacken |
+| **Rate-Limiting** | `authLimiter` (5 Versuche / 15 min pro IP, nur fehlgeschlagene Requests) auf `POST /auth/login` und `POST /api/admin/login`. `passwordResetLimiter` (3 / 60 min) auf Forgot-Password. Konfiguration: `booking/rate-limiters.js`, ENV-Overrides möglich. Details: [FLOWS_BOOKING.md §16](./FLOWS_BOOKING.md#16-rate-limiting--security-header) |
