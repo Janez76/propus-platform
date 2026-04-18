@@ -2253,6 +2253,20 @@ const app = express();
 const SUPER_ADMIN_ROLES = new Set(["super_admin", "admin", "employee"]);
 app.set("trust proxy", 1);
 app.use(logger.httpLoggerOptions.middleware);
+// Security-Header via helmet. CSP und COEP deaktiviert, weil das Admin-SPA
+// Assets von NAS (Nextcloud), Cloudflare und Google Maps embedded — eine zu
+// enge CSP würde diese Ressourcen blockieren. Die restlichen Defaults
+// (HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy) bleiben
+// aktiv und sind risikolos. crossOriginResourcePolicy auf "cross-origin",
+// damit Bilder vom NAS über die Admin-Oberfläche ladbar bleiben.
+const helmet = require("helmet");
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  }),
+);
 app.use(cors({ origin: "*", methods: ["GET","POST","PUT","PATCH","DELETE","OPTIONS"], allowedHeaders: ["Content-Type","Authorization"] }));
 app.use(compression());
 app.use(express.json({ limit: "1mb" }));
