@@ -21,11 +21,19 @@ interface DayBucket {
   orders: Order[];
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 function startOfDay(d: Date): Date {
   const x = new Date(d);
   x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+// Kalendertags-Arithmetik (DST-sicher). `setDate` adjustiert die Stunden
+// korrekt bei Sommer-/Winterzeitumstellung in Europe/Zurich — reine
+// Millisekunden-Addition würde am Umstellungstag bei 23:00 oder 01:00 landen
+// und das horizonExclusive um eine Stunde verschieben.
+function addDays(d: Date, n: number): Date {
+  const x = new Date(d);
+  x.setDate(x.getDate() + n);
   return x;
 }
 
@@ -47,10 +55,10 @@ export function ScheduleList({ orders, days = 7, onCreateOrder }: ScheduleListPr
   const buckets = useMemo<DayBucket[]>(() => {
     const now = new Date(nowTick);
     const today = startOfDay(now);
-    const tomorrow = new Date(today.getTime() + DAY_MS);
+    const tomorrow = addDays(today, 1);
     // horizon ist die Mitternacht NACH dem letzten gewünschten Tag (exklusiv).
     // days=7 → Termine von jetzt bis Ende Tag 6 inkl., also < today + 7 Tage.
-    const horizonExclusive = new Date(today.getTime() + days * DAY_MS);
+    const horizonExclusive = addDays(today, days);
 
     const map = new Map<string, DayBucket>();
     for (const order of orders) {
