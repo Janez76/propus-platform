@@ -2309,10 +2309,11 @@ app.use(async (req, res, next) => {
       if (apiKey && apiKey.createdBy && db.getAdminUserById) {
         const adminUser = await db.getAdminUserById(apiKey.createdBy);
         if (adminUser && adminUser.active) {
+          const adminId = String(adminUser.id);
           const emailFromRow = adminUser.email || "";
           req.user = {
-            id: emailFromRow || "api_key",
-            userKey: emailFromRow,
+            id: adminId,
+            userKey: adminId,
             email: emailFromRow,
             name: adminUser.name || emailFromRow,
             role: String(adminUser.role || "admin"),
@@ -12384,8 +12385,9 @@ app.post(
       const prefix = token.slice(0, 12);
 
       let createdBy = null;
-      if (req.user?.userKey && db.getAdminUserByUsername) {
-        const admin = await db.getAdminUserByUsername(req.user.userKey);
+      const adminId = Number(req.user?.id);
+      if (Number.isFinite(adminId) && adminId > 0 && db.getAdminUserById) {
+        const admin = await db.getAdminUserById(adminId);
         if (admin?.id) createdBy = admin.id;
       }
 
