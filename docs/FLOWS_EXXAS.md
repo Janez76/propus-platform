@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei Änderungen an Exxas-API-Calls, Scoring-Logik, Reconcile-Flow oder DB-Feldern dieses Dokument aktualisieren.
 
-*Zuletzt aktualisiert: April 2026 (Verweis zentrales Rechnungsmodul + Inventory/Kundenanlagen-Entdeckung)*
+*Zuletzt aktualisiert: April 2026 (Verweis zentrales Rechnungsmodul + Inventory/Kundenanlagen-Entdeckung; Sync-Häufigkeit + Order-Sync-Status dokumentiert — Lücke #6)*
 
 ---
 
@@ -88,6 +88,15 @@ Sync-Tabelle: Rechnungsdaten aus Exxas, im Tour-Manager sichtbar und KI-matchbar
 | `archived_at` | TIMESTAMPTZ | Archivierungszeitpunkt; archivierte Exxas-Rechnungen bleiben erhalten, werden aber in zentralen Listen ausgefiltert |
 | `synced_at` | TIMESTAMPTZ | Letzter Sync |
 | `created_at` | TIMESTAMPTZ | |
+
+**Sync-Häufigkeit / Trigger:**
+
+| Trigger | Häufigkeit | Beschreibung |
+|---|---|---|
+| Admin-UI-Button | On-demand | „Alle von Exxas importieren" auf `/admin/finance/exxas-sync` |
+| API-Endpunkt | On-demand | `POST /api/tours/admin/invoices/exxas/sync-all` (erfordert Admin-Auth) |
+
+Kein automatischer Cron-Job für den Rechnungs-Sync. Die Daten sind nur so aktuell wie der letzte manuelle Import. `synced_at` zeigt den Zeitpunkt des letzten Sync pro Zeile.
 
 ---
 
@@ -342,4 +351,11 @@ async function getInventoryItem(inventoryId) {
 | `sent` | Erfolgreich übertragen, `exxas_order_id` gesetzt |
 | `error` | Fehler, `exxas_error` gesetzt |
 
-**Hinweis:** Die Statusfelder und Hilfsfunktionen sind vorhanden, aber ein aktiv verdrahteter Order-Sync-Trigger für Buchungen ist im aktuellen Repo-Stand nicht klar nachweisbar. Diesen Abschnitt daher nur als Feld-/Zielbeschreibung verstehen, nicht als gesicherten Live-Flow.
+**Implementierungsstatus (April 2026):**
+
+Die Datenbankfelder (`exxas_order_id`, `exxas_status`, `exxas_error`) und die Hilfsfunktionen (`setExxasOrderId()`, `setExxasError()` in `booking/db.js`) sind vorhanden und exportiert. Es gibt jedoch **keinen aktiven Runtime-Trigger**, der Buchungen automatisch oder manuell an Exxas überträgt — kein API-Endpunkt, keine UI-Aktion, kein Cron-Job. Die Felder dienen als Platzhalter für eine zukünftige Implementierung.
+
+Wenn eine Buchung an Exxas übertragen werden soll, sind folgende Schritte nötig:
+1. Exxas-API-Aufruf (z. B. `POST /api/v2/auftraege`) mit Buchungsdaten aus `booking.orders`
+2. `db.setExxasOrderId(orderNo, exxasId)` aufrufen (setzt `exxas_status = 'sent'`)
+3. Im Fehlerfall `db.setExxasError(orderNo, msg)` aufrufen (setzt `exxas_status = 'error'`)
