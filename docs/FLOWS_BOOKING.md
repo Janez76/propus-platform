@@ -24,6 +24,7 @@
 14. [Magic-Link in Buchungs-Mail](#14-magic-link-in-buchungs-mail)
 15. [Kunden-Profil-Vorausfüllung (StepBilling)](#15-kunden-profil-vorausfüllung-stepbilling)
 16. [Rate-Limiting & Security-Header](#16-rate-limiting--security-header)
+17. [API-Key-Verwaltung (CRUD)](#17-api-key-verwaltung-crud)
 
 ---
 
