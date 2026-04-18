@@ -31,7 +31,7 @@ test('resolveEmailCandidateDecision markiert knappen Heuristik-Zweikampf als meh
   ]);
   assert.equal(result.ambiguous, true);
   assert.equal(result.selectedCandidate, null);
-  assert.match(result.reason, /Mehrdeutig/);
+  assert.match(result.reason, /heuristische/);
 });
 
 test('resolveEmailCandidateDecision behandelt leere Kandidatenliste sauber', () => {

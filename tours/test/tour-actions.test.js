@@ -2,8 +2,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { buildRenewalEmailContent } = require('../lib/tour-actions');
 
-test('buildRenewalEmailContent enthält Tourdaten und sichere Links', () => {
-  const result = buildRenewalEmailContent({
+test('buildRenewalEmailContent enthält Tourdaten und sichere Links', async () => {
+  const result = await buildRenewalEmailContent({
     id: 7,
     object_label: 'Musterwohnung',
     customer_contact: 'Frau Keller',
