@@ -116,6 +116,11 @@ Constraints**:
 Historisch — siehe [`booking/admin-panel/DEPRECATED.md`](../booking/admin-panel/DEPRECATED.md).
 Der Build-Schritt bleibt drin, bis die letzten Seiten nach `app/src/` migriert sind.
 
+**Wie wird das Admin-Panel ausgeliefert?**
+Zwei Wege (seit PR #94):
+1. **Im Platform-Container** (Hauptweg): `platform/Dockerfile` kopiert `booking/admin-panel/dist` ins Image. ENV `ADMIN_PANEL_DIST=/app/booking/admin-panel/dist`. `booking/server.js` liefert das SPA via `express.static` aus und leitet Nicht-API-Routen auf `index.html` (SPA-Routing).
+2. **Standalone** (Entwicklung/NAS): `booking/docker-compose.prod.yml` definiert einen eigenen `admin`-Service (Nginx, Port 8091), der das SPA über `booking/admin-panel/Dockerfile` baut.
+
 **Warum kein BlueGreen / Zero-Downtime?**
 Der Cloudflare-Tunnel routet auf die Container-Health-Probe. Während des
 `force-recreate` antwortet Platform für ~60 s mit 502. Die Phase-2-Health-Probe

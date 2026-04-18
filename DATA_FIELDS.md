@@ -4,7 +4,7 @@
 >
 > **Automatisch mitpflegen:** Cursor-Regel `.cursor/rules/data-fields.mdc` definiert, wann welche Datei aktualisiert werden muss.
 
-*Zuletzt aktualisiert: April 2026 (PR #91: API-Token-Generator — core.api_keys-Tabelle, CRUD-Endpunkte, RBAC-Permission `api_keys.manage`, Settings-UI). PR #90: booking/Dockerfile Build-Context auf Repo-Root, core/ wird mitkopiert wegen cross-module Dependency. PR #89: Rate-Limiting auf Auth/Booking-Endpunkte, helmet Security-Header, OpenAPI-CI-Lint, SCHEMA_FULL.md um ~20 fehlende Tabellen ergänzt. PR #88: Node-Pinning auf 20.18.1, GOOGLE_REVIEWS_PLACE_ID externalisiert, core/lib/customer-lookup zentralisiert.*
+*Zuletzt aktualisiert: April 2026 (PR #94: admin_users Legacy-Tabellen durch Views mit INSTEAD-OF-Triggern über `core.admin_users` ersetzt; `booking/admin-panel/` SPA hinzugefügt (deprecated); req.user-Binding auf E-Mail statt numerische ID; docker-compose admin-Service). PR #91: API-Token-Generator — core.api_keys-Tabelle, CRUD-Endpunkte, RBAC-Permission `api_keys.manage`, Settings-UI. PR #90: booking/Dockerfile Build-Context auf Repo-Root, core/ wird mitkopiert wegen cross-module Dependency. PR #89: Rate-Limiting auf Auth/Booking-Endpunkte, helmet Security-Header, OpenAPI-CI-Lint, SCHEMA_FULL.md um ~20 fehlende Tabellen ergänzt. PR #88: Node-Pinning auf 20.18.1, GOOGLE_REVIEWS_PLACE_ID externalisiert, core/lib/customer-lookup zentralisiert.*
 
 ---
 

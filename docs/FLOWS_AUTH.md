@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei Änderungen an Login-Logik, Session-Verwaltung, Token-Handling oder Portal-Auth dieses Dokument aktualisieren.
 
-*Zuletzt aktualisiert: April 2026 (PR #91: API-Key-Auth-Pfad in Middleware). PR #89: Rate-Limiting auf Login-Endpunkte. PR #88: Unified Login, Portal-Session-Bridge, Profil-Endpunkt, Passwort-Reset-Fix*
+*Zuletzt aktualisiert: April 2026 (PR #94: API-Key-Auth setzt `req.user.id` auf E-Mail statt numerische admin_users.id; `is_active`-Prüfung statt `active`). PR #91: API-Key-Auth-Pfad in Middleware. PR #89: Rate-Limiting auf Login-Endpunkte. PR #88: Unified Login, Portal-Session-Bridge, Profil-Endpunkt, Passwort-Reset-Fix*
 
 ---
 
