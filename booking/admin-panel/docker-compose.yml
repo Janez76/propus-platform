@@ -1,9 +1,0 @@
-﻿services:
-  admin-new:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: buchungstool-admin-new
-    ports:
-      - "8092:80"
-    restart: unless-stopped

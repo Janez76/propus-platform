@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei jeder Änderung an Buchungslogik, Status-Übergängen, Kalender-Sync oder Provisional-Flow dieses Dokument aktualisieren. Cursor-Regel `.cursor/rules/data-fields.mdc` erinnert daran.
 
-*Zuletzt aktualisiert: April 2026 (PR #91: §17 API-Key-Verwaltung CRUD). PR #89: §16 Rate-Limiting & Security-Header, helmet. PR #88: §15 Kunden-Profil-Vorausfüllung via /auth/profile*
+*Zuletzt aktualisiert: April 2026 (PR #92: §17 API-Key-Erstellung nutzt numerische Admin-ID fuer created_by). PR #91: §17 API-Key-Verwaltung CRUD. PR #89: §16 Rate-Limiting & Security-Header, helmet. PR #88: §15 Kunden-Profil-Vorausfüllung via /auth/profile*
 
 ---
 
@@ -757,7 +757,8 @@ POST /api/admin/api-keys  { label }
   │     → token = "ppk_live_<base64url>"
   │     → tokenHash = SHA-256(token)
   │     → prefix = token.slice(0, 12)
-  ├── created_by = admin_users.id des eingeloggten Users
+  ├── created_by = Number(req.user.id) → db.getAdminUserById(adminId)
+  │     → numerische admin_users.id wird direkt verwendet (kein Username-Lookup)
   ├── INSERT INTO core.api_keys
   └── Response 201: { key: {...}, token: "ppk_live_..." }
 ```

@@ -11,16 +11,6 @@ services:
       - backend
     restart: unless-stopped
 
-  admin:
-    build:
-      context: /volume1/docker/Buchungstool/admin-panel
-      dockerfile: Dockerfile
-    ports:
-      - "8091:80"
-    restart: unless-stopped
-    depends_on:
-      backend:
-        condition: service_healthy
   backend:
     image: node:20.18.1-alpine
     working_dir: /app

@@ -1,7 +1,6 @@
 # Testing in app/
 
-Vitest-basierte Unit-Tests. Eingeführt in Etappe 1 des Ports
-booking/admin-panel/ → app/src/ (siehe PORTING-INVENTORY.md).
+Vitest-basierte Unit-Tests fuer die Main-App.
 
 ## Tests ausführen
 
@@ -39,18 +38,6 @@ Vitest-Konfiguration beeinflusst den Next.js-Build nicht:
 - Test-Files (`*.test.ts`, `*.test.tsx`) werden von Next automatisch ignoriert
 - Verifiziert in Etappe 1 (Schritt 6): `tsc --noEmit` clean,
   `next build` clean nach Setup
-
-## Test-Portierung (geplant)
-
-In Etappe 7 des Ports werden 65 Tests aus `booking/admin-panel/`
-portiert:
-- `validation.test.ts` (121 Zeilen, Wizard-Validierung)
-- `WizardShell.test.tsx` (134 Zeilen, Stepper-Verhalten)
-- `useWizardForm.test.ts` (229 Zeilen, Wizard-State)
-- `pricing.test.ts` (121 Zeilen, Pricing-Logik)
-
-Diese Dateien existieren derzeit noch in `booking/admin-panel/` und
-warten auf Portierung nach `app/src/`.
 
 ## Known Issues
 

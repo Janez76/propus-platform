@@ -97,17 +97,6 @@ services:
       start_period: 180s
     restart: unless-stopped
 
-  admin:
-    build:
-      context: ./admin-panel
-      dockerfile: Dockerfile
-    ports:
-      - "8091:80"
-    restart: unless-stopped
-    depends_on:
-      backend:
-        condition: service_healthy
-
 volumes:
   backend_orders:
   postgres_data:

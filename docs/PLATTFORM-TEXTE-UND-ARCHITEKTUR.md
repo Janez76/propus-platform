@@ -49,7 +49,6 @@ Datenbank **eine Instanz**, logisch getrennte Schemas (u. a. `core`, `booking`, 
 | 4 | Statische Shell (Seitentitel etc.) | [app/src/app/layout.tsx](../app/src/app/layout.tsx) |
 | 5 | Sichtbare Build-Version | `app/public/VERSION` |
 | 6 | E-Mails und ähnliche Vorlagen | `booking/templates/` (u. a. E-Mail-Texte) |
-| 7 | Legacy-Duplikat (**deprecated**) | `booking/admin-panel/src/i18n/de.json` — `booking/admin-panel/` ist seit April 2026 deprecated und wird nicht mehr in Produktion ausgeliefert, siehe [`DEPRECATED.md`](../booking/admin-panel/DEPRECATED.md). Neue i18n-Keys nur noch in `app/src/i18n/` anlegen. |
 
 **Hinweis:** UI-Texte werden über **Keys** in `de.json` (und weiteren Sprachen) geladen; nur die **Werte** übersetzen, Keys und Platzhalter wie `{{name}}` unverändert lassen.
 

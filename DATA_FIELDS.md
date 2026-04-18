@@ -4,7 +4,7 @@
 >
 > **Automatisch mitpflegen:** Cursor-Regel `.cursor/rules/data-fields.mdc` definiert, wann welche Datei aktualisiert werden muss.
 
-*Zuletzt aktualisiert: April 2026 (PR #91: API-Token-Generator — core.api_keys-Tabelle, CRUD-Endpunkte, RBAC-Permission `api_keys.manage`, Settings-UI). PR #90: booking/Dockerfile Build-Context auf Repo-Root, core/ wird mitkopiert wegen cross-module Dependency. PR #89: Rate-Limiting auf Auth/Booking-Endpunkte, helmet Security-Header, OpenAPI-CI-Lint, SCHEMA_FULL.md um ~20 fehlende Tabellen ergänzt. PR #88: Node-Pinning auf 20.18.1, GOOGLE_REVIEWS_PLACE_ID externalisiert, core/lib/customer-lookup zentralisiert.*
+*Zuletzt aktualisiert: April 2026 (PR #93: `booking/admin-panel/` vollständig entfernt — Code, Docker-Services, CI-Build-Step, Warn-Workflow gelöscht; Docs bereinigt). PR #92: API-Key-Auth bindet req.user.id auf numerische admin_users.id, created_by-Lookup per ID. PR #91: API-Token-Generator — core.api_keys-Tabelle, CRUD-Endpunkte, RBAC-Permission `api_keys.manage`, Settings-UI. PR #90: booking/Dockerfile Build-Context auf Repo-Root, core/ wird mitkopiert wegen cross-module Dependency. PR #89: Rate-Limiting auf Auth/Booking-Endpunkte, helmet Security-Header, OpenAPI-CI-Lint, SCHEMA_FULL.md um ~20 fehlende Tabellen ergänzt. PR #88: Node-Pinning auf 20.18.1, GOOGLE_REVIEWS_PLACE_ID externalisiert, core/lib/customer-lookup zentralisiert.*
 
 ---
 
@@ -20,7 +20,7 @@
 | [docs/SCHEMA_FULL.md](docs/SCHEMA_FULL.md) | Vollständiges DB-Schema: core.*, booking.*, tour_manager.* — alle Tabellen mit allen Feldern |
 | [docs/ROLES_PERMISSIONS.md](docs/ROLES_PERMISSIONS.md) | Rollen & Permissions: RBAC-System, System-Rollen, Permission-Keys, Mapping-Tabelle, Rollen-Sync, Logto-Integration, Portal-Rollen |
 | [docs/EMAIL_TEMPLATES.md](docs/EMAIL_TEMPLATES.md) | E-Mail-Templates: Mail-Transport, alle Booking-Builder-Funktionen, Tour-Manager DB-Templates mit Platzhaltern, Logging |
-| [docs/ADMIN-FRONTEND-DESIGN.md](docs/ADMIN-FRONTEND-DESIGN.md) | Admin-Frontend Design-Referenz: Verbindliche Bausteine, Listing-Editor, Booking Admin-Panel Shared Components (StatusBadge, Tabs, Pricing, OrderDetail UX, CreateOrderWizard, EmptyState, Spacing Tokens), Main-App portierte Module (StatusBadge, Pricing, useDirty, useT, address, Test-Infrastruktur/Vitest) — `booking/admin-panel/` ist seit April 2026 deprecated, siehe [`DEPRECATED.md`](booking/admin-panel/DEPRECATED.md) |
+| [docs/ADMIN-FRONTEND-DESIGN.md](docs/ADMIN-FRONTEND-DESIGN.md) | Admin-Frontend Design-Referenz: Verbindliche Bausteine, Listing-Editor, Shared-Module in der Main-App (StatusBadge, Pricing, useDirty, useT, address, Test-Infrastruktur/Vitest) |
 | [docs/OPENAPI.md](docs/OPENAPI.md) | OpenAPI 3.1 Spec (Skeleton): 5 kritische Endpunkte, Konventionen, Lint-/Preview-Anleitung. Spec liegt in [`docs/openapi/openapi.yaml`](docs/openapi/openapi.yaml) |
 | [docs/DEPLOY-FLOW.md](docs/DEPLOY-FLOW.md) | Drei-Phasen-Deploy: GitHub Actions → VPS-Bash (`scripts/deploy-remote.sh`) → Container-Init (`scripts/start.sh`). Trigger-Matrix, Decision-Table |
 

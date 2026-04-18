@@ -12,7 +12,6 @@ const BUILD_ID_FILE_CANDIDATES = [
   process.env.BUILD_ID_FILE,
   "/opt/buchungstool/VERSION",
   path.join(__dirname, "..", "VERSION"),
-  path.join(__dirname, "admin-panel", "public", "VERSION"),
   path.join(__dirname, "public", "VERSION"),
   path.join(__dirname, "VERSION")
 ].filter(Boolean);
@@ -2309,10 +2308,11 @@ app.use(async (req, res, next) => {
       if (apiKey && apiKey.createdBy && db.getAdminUserById) {
         const adminUser = await db.getAdminUserById(apiKey.createdBy);
         if (adminUser && adminUser.active) {
+          const adminId = String(adminUser.id);
           const emailFromRow = adminUser.email || "";
           req.user = {
-            id: emailFromRow || "api_key",
-            userKey: emailFromRow,
+            id: adminId,
+            userKey: adminId,
             email: emailFromRow,
             name: adminUser.name || emailFromRow,
             role: String(adminUser.role || "admin"),
@@ -2577,7 +2577,7 @@ app.post("/api/logs", (req, res) => {
   const context = isObjectRecord(payload.context) ? payload.context : {};
   const logMeta = {
     module: "frontend",
-    source: "admin-panel",
+    source: "booking-backend",
     path: typeof payload.url === "string" ? payload.url.slice(0, 1000) : undefined,
     userAgent: typeof payload.userAgent === "string" ? payload.userAgent.slice(0, 400) : req.headers["user-agent"],
     requestId: req.id,
@@ -12384,8 +12384,9 @@ app.post(
       const prefix = token.slice(0, 12);
 
       let createdBy = null;
-      if (req.user?.userKey && db.getAdminUserByUsername) {
-        const admin = await db.getAdminUserByUsername(req.user.userKey);
+      const adminId = Number(req.user?.id);
+      if (Number.isFinite(adminId) && adminId > 0 && db.getAdminUserById) {
+        const admin = await db.getAdminUserById(adminId);
         if (admin?.id) createdBy = admin.id;
       }
 
@@ -12431,17 +12432,10 @@ app.use('/__propus-nextcloud', nextcloudProxyMiddleware);
 app.use('/__propus-nc-thumb', nextcloudThumbMiddleware);
 app.get('/__propus-pdf-inline', pdfInlineMiddleware);
 
-// ─── Admin-Panel SPA (React/Vite Build) ─────────────────────────────────────
-// Liefert das gebaute Frontend aus admin-panel/dist aus.
-// Alle nicht-API-Routen geben index.html zurück (SPA-Routing).
-const ADMIN_PANEL_DIST = process.env.ADMIN_PANEL_DIST
-  ? path.resolve(process.env.ADMIN_PANEL_DIST)
-  : path.join(__dirname, "admin-panel", "dist");
 if (fs.existsSync(PHOTOGRAPHER_PORTRAIT_DIR)) {
   app.use("/assets/photographers", express.static(PHOTOGRAPHER_PORTRAIT_DIR));
 }
 // ─── Öffentlicher Bereinigungslauf-Kundenflow ─────────────────────────────────
-// Muss vor dem SPA-Catch-all stehen.
 (function mountCleanupRoutes() {
   let cleanupMailer;
   try {
@@ -12856,17 +12850,6 @@ if (fs.existsSync(PHOTOGRAPHER_PORTRAIT_DIR)) {
     }
   });
 })();
-
-if (fs.existsSync(ADMIN_PANEL_DIST)) {
-  app.use(express.static(ADMIN_PANEL_DIST));
-  app.get(/^(?!\/api|\/auth).*$/, (_req, res) => {
-    res.sendFile(path.join(ADMIN_PANEL_DIST, "index.html"));
-  });
-} else {
-  app.get("/", (_req, res) => {
-    res.send("<h2>Admin Panel nicht gebaut – bitte <code>npm run build</code> in <code>admin-panel/</code> ausführen.</h2>");
-  });
-}
 
 async function ensureDatabaseBootstrapped() {
   if (!process.env.DATABASE_URL) return;

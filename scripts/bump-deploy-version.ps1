@@ -1,6 +1,6 @@
 # Erhoeht die sichtbare Deploy-Version (Patch) und traegt einen kurzen Changelog-Eintrag ein.
 # Wird von deploy-vps.ps1 vor dem tar-Upload aufgerufen (wenn nicht -SkipVersionBump).
-# VERSION-Quelle: booking/admin-panel/public/VERSION (Format v2.3.123).
+# VERSION-Quelle: booking/public/VERSION (Format v2.3.123).
 
 param(
     [string]$WorkspaceRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
@@ -40,7 +40,7 @@ function Update-PackageJsonVersionPreserveFormatting {
     Write-Utf8NoBom -Path $Path -Content $updated
 }
 
-$versionFile = Join-Path $WorkspaceRoot (Join-Path "booking" (Join-Path "admin-panel" (Join-Path "public" "VERSION")))
+$versionFile = Join-Path $WorkspaceRoot (Join-Path "booking" (Join-Path "public" "VERSION"))
 if (-not (Test-Path -LiteralPath $versionFile)) {
     throw "VERSION nicht gefunden: $versionFile"
 }
@@ -57,7 +57,6 @@ $verStr = "$major.$minor.$patch"
 $verTag = "v$verStr"
 
 $versionRelPaths = @(
-    @( "booking", "admin-panel", "public", "VERSION" ),
     @( "booking", "public", "VERSION" ),
     @( "app", "public", "VERSION" ),
     @( "website", "public", "VERSION" )
@@ -93,7 +92,7 @@ $changelogBlock = @"
 "@
 
 $changelogRelPaths = @(
-    ,@( "booking", "admin-panel", "src", "data", "changelogData.ts" )
+    ,@( "app", "src", "data", "changelogData.ts" )
 )
 
 foreach ($segments in $changelogRelPaths) {

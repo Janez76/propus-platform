@@ -1,6 +1,6 @@
 # Buchungstool
 
-Zentrales Repository fuer Backend, Admin-Panel und Betriebsdokumentation.
+Zentrales Repository fuer das Backend und die Betriebsdokumentation.
 
 ## Operations Quicklinks
 
@@ -10,20 +10,15 @@ Zentrales Repository fuer Backend, Admin-Panel und Betriebsdokumentation.
 - Projektstruktur und wichtige Hinweise: `docs/PROJEKT_STRUKTUR_HINWEISE.md`
 - Live-Setup Checklisten: `docs/LIVE_SETUP_PRICING_SCHEDULING_CHECKLIST.md`
 
-## Lokal: Admin-Panel und Backend
-
-Kurzanleitung zum parallelen Start von API und Admin-UI (inkl. Proxy `/api` → Backend): siehe Abschnitt **„Lokal starten“** in [`admin-panel/README.md`](admin-panel/README.md).
-
 ## Lokal mit Docker
 
-- **Gesamt-Stack (Postgres + Backend + Buchungsseite + Admin):** aus dem Repo-Root:
+- **Gesamt-Stack (Postgres + Backend + Buchungsseite):** aus dem Repo-Root:
 
   ```bash
   docker compose -f docker-compose.desktop.yml up --build
   ```
 
   - Buchungsseite: **http://localhost:8090**
-  - Admin-Panel: **http://localhost:8092**
   - API (direkt): **http://localhost:3001**
   - Postgres: **localhost:5432** (`propus` / `propus` / `buchungstool`)
 
@@ -49,8 +44,4 @@ Hinweise: NAS-Upload-Pfade der VPS existieren lokal nicht; der Desktop-Stack nut
 
 - **Nur PostgreSQL:** `docker compose -f docker-compose.local.yml up -d postgres` startet Postgres auf **Port 5432**. Backend und Admin startest du danach auf dem Host; im Ordner `backend` in der `.env` z. B. `DATABASE_URL=postgresql://propus:propus@127.0.0.1:5432/buchungstool` setzen.
 
-- **Hinweis:** Die Datei `docker-compose.yml` im Repo-Root ist für die NAS-/Produktionspfade (`/volume1/...`) ausgelegt und auf einem normalen Entwicklungsrechner in der Regel **nicht** ohne Anpassung lauffähig. Details: [`admin-panel/README.md`](admin-panel/README.md).
-
-## Weitere README-Dateien
-
-- Admin-Panel: `admin-panel/README.md`
+- **Hinweis:** Die Datei `docker-compose.yml` im Repo-Root ist für die NAS-/Produktionspfade (`/volume1/...`) ausgelegt und auf einem normalen Entwicklungsrechner in der Regel **nicht** ohne Anpassung lauffähig.
