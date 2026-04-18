@@ -86,14 +86,21 @@ mkdir -p "$STAGING_DIR"
 echo "==> Extract deploy archive"
 tar -xzf "$ARCHIVE_PATH" -C "$STAGING_DIR"
 
+echo "==> DEBUG: Archive-Stand von BackupManager.tsx"
+ls -la "$STAGING_DIR/app/src/components/backups/BackupManager.tsx" 2>&1 || echo "(Datei im Archiv FEHLT!)"
+echo "--- grep 'logto' im Archive-BackupManager:"
+grep -n 'logto' "$STAGING_DIR/app/src/components/backups/BackupManager.tsx" 2>&1 | head -5 || echo "(keine Treffer)"
+echo "--- rsync/fallback wird gleich die Dateien nach $PROJECT_ROOT syncen"
+
 # Sync with deletion so removed files don't linger on disk (causing stale TS/Docker errors).
 # Preserve runtime-only files that are not in the archive.
 if command -v rsync >/dev/null 2>&1; then
-  rsync -a --delete \
+  echo "==> rsync --delete (verbose)"
+  rsync -av --delete \
     --exclude='.env.vps' \
     --exclude='.env.vps.secrets' \
     --exclude='backups/' \
-    "$STAGING_DIR/" "$PROJECT_ROOT/"
+    "$STAGING_DIR/" "$PROJECT_ROOT/" 2>&1 | grep -E "BackupManager|backups/|deleting|^sent" | head -20 || true
 else
   # Fallback: wipe source-code directories explicitly before overlay-copy
   for _srcdir in app booking core platform tours website; do
@@ -101,6 +108,10 @@ else
   done
   tar -C "$STAGING_DIR" -cf - . | tar -C "$PROJECT_ROOT" -xf -
 fi
+
+echo "==> DEBUG: VPS-Stand nach rsync"
+ls -la "$PROJECT_ROOT/app/src/components/backups/BackupManager.tsx"
+grep -c 'logto' "$PROJECT_ROOT/app/src/components/backups/BackupManager.tsx" || echo "0 Logto-Treffer"
 
 rm -rf "$STAGING_DIR" "$ARCHIVE_PATH"
 
