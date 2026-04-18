@@ -222,6 +222,20 @@ function extractParams(p) {
   return out;
 }
 
+// Extrahiert simple `const IDENT = "literal";`-Zuweisungen aus einem File.
+// Wird genutzt, um Routen wie `app.get(ADDRESS_AUTOCOMPLETE_ENDPOINT, ...)`
+// aufzulösen — sonst würden solche Endpoints im OpenAPI-Inventar fehlen.
+function collectStringConstants(src) {
+  const out = new Map(); // name → literal
+  const re =
+    /^\s*(?:const|let|var)\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(['"`])([^'"`]+)\2\s*;?\s*$/gm;
+  let m;
+  while ((m = re.exec(src)) !== null) {
+    out.set(m[1], m[3]);
+  }
+  return out;
+}
+
 // ── Scanner ────────────────────────────────────────────────────────────────
 function scanFile(target) {
   const { file, mountPrefix, tag } = target;
@@ -236,19 +250,47 @@ function scanFile(target) {
   // Erst die `router.use(X)`-Guards im File sammeln, damit wir pro Route
   // wissen, welche Middlewares vor ihrer Registrierung aktiv geworden sind.
   const routerUseGuards = collectRouterUseGuards(src);
+  // Simple String-Konstanten zum Auflösen identifier-basierter Routen
+  // (z. B. `app.get(ADDRESS_AUTOCOMPLETE_ENDPOINT, ...)`).
+  const stringConstants = collectStringConstants(src);
 
   // Line-by-line scan, damit wir Zeilennummern haben.
   const lines = src.split("\n");
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const m =
+    // Erstes Argument ist entweder ein Stringliteral ODER ein Identifier.
+    // Bei Identifier wird der Wert über `stringConstants` aufgelöst; fehlt
+    // er, wird die Route übersprungen (Warning), damit wir keine Fantasie-
+    // Pfade dokumentieren.
+    const litMatch =
       /^\s*(app|router)\.(get|post|put|patch|delete)\(\s*(['"`])([^'"`]+)\3\s*(.*)/.exec(
         line,
       );
-    if (!m) continue;
-    const method = m[2].toLowerCase();
-    const rawPath = m[4];
-    const rest = m[5] || "";
+    const identMatch = !litMatch
+      ? /^\s*(app|router)\.(get|post|put|patch|delete)\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*,\s*(.*)/.exec(
+          line,
+        )
+      : null;
+    let method, rawPath, rest;
+    if (litMatch) {
+      method = litMatch[2].toLowerCase();
+      rawPath = litMatch[4];
+      rest = litMatch[5] || "";
+    } else if (identMatch) {
+      const ident = identMatch[3];
+      const resolved = stringConstants.get(ident);
+      if (!resolved) {
+        console.warn(
+          `[extract-routes] ${file}:${i + 1} identifier ${ident} not resolved, skipping`,
+        );
+        continue;
+      }
+      method = identMatch[2].toLowerCase();
+      rawPath = resolved;
+      rest = identMatch[4] || "";
+    } else {
+      continue;
+    }
     // Alle `router.use(X)`-Guards, die VOR dieser Route registriert sind,
     // gelten laut Express-Semantik für die Route — bisher haben wir die
     // ignoriert, wodurch z. B. `tours/routes/portal-api.js`-Endpunkte
