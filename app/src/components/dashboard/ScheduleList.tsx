@@ -48,6 +48,10 @@ export function ScheduleList({ orders, days = 7, onCreateOrder }: ScheduleListPr
     for (const order of orders) {
       if (!order.appointmentDate) continue;
       const date = new Date(order.appointmentDate);
+      // Invalid Date → getTime() ist NaN; alle Vergleiche unten wären false und
+      // der Termin würde durchrutschen. Vorher prüfen, sonst entstehen
+      // "NaN-NaN-NaN"-Buckets aus Legacy-Daten.
+      if (Number.isNaN(date.getTime())) continue;
       if (date < now || date >= horizonExclusive) continue;
       const day = startOfDay(date);
       const key = dayKey(day);
