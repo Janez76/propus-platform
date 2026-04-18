@@ -4,7 +4,7 @@
 >
 > **Automatisch mitpflegen:** Cursor-Regel `.cursor/rules/data-fields.mdc` definiert, wann welche Datei aktualisiert werden muss.
 
-*Zuletzt aktualisiert: April 2026 (PR #90: booking/Dockerfile Build-Context auf Repo-Root, core/ wird mitkopiert wegen cross-module Dependency). PR #89: Rate-Limiting auf Auth/Booking-Endpunkte, helmet Security-Header, OpenAPI-CI-Lint, SCHEMA_FULL.md um ~20 fehlende Tabellen ergänzt. PR #88: Node-Pinning auf 20.18.1, GOOGLE_REVIEWS_PLACE_ID externalisiert, core/lib/customer-lookup zentralisiert.*
+*Zuletzt aktualisiert: April 2026 (PR #91: API-Token-Generator — core.api_keys-Tabelle, CRUD-Endpunkte, RBAC-Permission `api_keys.manage`, Settings-UI). PR #90: booking/Dockerfile Build-Context auf Repo-Root, core/ wird mitkopiert wegen cross-module Dependency. PR #89: Rate-Limiting auf Auth/Booking-Endpunkte, helmet Security-Header, OpenAPI-CI-Lint, SCHEMA_FULL.md um ~20 fehlende Tabellen ergänzt. PR #88: Node-Pinning auf 20.18.1, GOOGLE_REVIEWS_PLACE_ID externalisiert, core/lib/customer-lookup zentralisiert.*
 
 ---
 
@@ -12,7 +12,7 @@
 
 | Datei | Inhalt |
 |---|---|
-| [docs/FLOWS_BOOKING.md](docs/FLOWS_BOOKING.md) | Buchungs-Flows: Haupt-Buchung, Provisional, Kalender-Sync, Reschedule, Storno, Fotograf-Wechsel, Bestätigung, Payrexx-Webhook, Exxas-Order-Sync, Rate-Limiting & Security-Header |
+| [docs/FLOWS_BOOKING.md](docs/FLOWS_BOOKING.md) | Buchungs-Flows: Haupt-Buchung, Provisional, Kalender-Sync, Reschedule, Storno, Fotograf-Wechsel, Bestätigung, Payrexx-Webhook, Exxas-Order-Sync, Rate-Limiting & Security-Header, API-Key-Verwaltung (CRUD) |
 | [docs/FLOWS_TOURS.md](docs/FLOWS_TOURS.md) | Tour-Manager: tours-Tabelle, Status-Maschine, Matterport-Integration, Verlängerungs-Flow, zentrales Rechnungsmodul (`/admin/invoices`), Listing/Kunden-Galerie (Magic-Link, NAS-Import, Auto-Fill Kundenordner + Freigabe-Link, Bestell-Kontakt-Fallback, NAS `/Finale`-Unterordner-Präferenz, Status-Sofortspeicherung, Slug-URL-Auflösung in Admin + API, Friendly-Slug-URLs `<plz>-<ort>-<bestellnr>`, Websize-only Galerie, nur «Alle Medien herunterladen»-Button, MediaSummary, Feedback→Ticket-Integration), Bank-Import (Vorschau/Multi-Upload, Bestellungssuche), Bestellungs-Admin Finanzblock, KI/AI-Suggestions, Incoming-Emails, Cron-Jobs, Bestellung nachträglich verknüpfen (Tour-Detail Intern) |
 | [docs/WORKFLOW_TOURS.md](docs/WORKFLOW_TOURS.md) | Tour-Workflow Regelwerk (Produkt), Admin `/admin/tours/workflow-settings`; mit `FLOWS_TOURS.md` synchron halten |
 | [docs/FLOWS_UPLOAD.md](docs/FLOWS_UPLOAD.md) | Upload-System: Endpunkte, upload_batches/files-Tabellen, NAS-Pfad-Logik, Kategorien, Chunked-Upload, Konflikt-Modi, Upload-Gruppen |
@@ -30,7 +30,7 @@
 
 | Schema | Wichtigste Tabellen |
 |---|---|
-| `core` | `customers`, `customer_contacts`, `companies`, `company_members`, `admin_users`, `sessions` |
+| `core` | `customers`, `customer_contacts`, `companies`, `company_members`, `admin_users`, `sessions`, `api_keys` |
 | `booking` | `orders`, `photographers`, `products`, `discount_codes`, `upload_batches`, `access_subjects`, `app_settings` |
 | `tour_manager` | `tours`, `galleries`, `gallery_images`, `gallery_feedback`, `renewal_invoices`, `exxas_invoices`, `invoices_central_v` (View), `incoming_emails`, `outgoing_emails`, `ai_suggestions`, `settings` |
 

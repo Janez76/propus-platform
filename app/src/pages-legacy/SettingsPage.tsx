@@ -3,11 +3,12 @@ import { getSystemSettings, patchSystemSettings, type SystemSettingsMap } from "
 import { getPhotographers, type Photographer } from "../api/photographers";
 import { getProducts, type Product } from "../api/products";
 import { DiscountCodesPage } from "./DiscountCodesPage";
+import { ApiKeysSection } from "./settings/ApiKeysSection";
 import { t, type Lang } from "../i18n";
 import { useAuthStore } from "../store/authStore";
 import { useUnsavedChangesGuard } from "../hooks/useUnsavedChangesGuard";
 
-type TabKey = "pricing" | "scheduling" | "assignment" | "discounts" | "reviews" | "travelZones";
+type TabKey = "pricing" | "scheduling" | "assignment" | "discounts" | "reviews" | "travelZones" | "apiKeys";
 type AssignmentPolicy = "strict_then_admin" | "radius_expand_then_no_auto_assign" | "allow_skill_relax";
 type SkillKey = "foto" | "matterport" | "drohne_foto" | "drohne_video" | "video";
 type SkillGroup = "assignment.requiredSkillLevels" | "assignment.absoluteSkillMinimums";
@@ -476,6 +477,10 @@ function TravelZonesTab({
 export function SettingsPage() {
   const token = useAuthStore((s) => s.token);
   const lang = useAuthStore((s) => s.language);
+  const role = useAuthStore((s) => s.role);
+  const permissions = useAuthStore((s) => s.permissions);
+  const canManageApiKeys =
+    role === "super_admin" || role === "admin" || permissions.includes("api_keys.manage");
   const [activeTab, setActiveTab] = useState<TabKey>("pricing");
   const [settings, setSettings] = useState<SystemSettingsMap>({});
   const [draft, setDraft] = useState<SystemSettingsMap>({});
@@ -863,6 +868,17 @@ export function SettingsPage() {
           >
             {t(lang, "settings.tabs.travelZones")}
           </button>
+          {canManageApiKeys ? (
+            <button
+              type="button"
+              onClick={() => setActiveTab("apiKeys")}
+              className={`rounded-lg px-3 py-1.5 text-sm ${
+                activeTab === "apiKeys" ? "bg-[var(--accent)] text-white" : "border border-[var(--border-soft)]"
+              }`}
+            >
+              {t(lang, "settings.tabs.apiKeys")}
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -1322,6 +1338,8 @@ export function SettingsPage() {
           setBackfillResult={setBackfillResult}
         />
       ) : null}
+
+      {activeTab === "apiKeys" && canManageApiKeys ? <ApiKeysSection /> : null}
 
       {activeTab === "reviews" ? (
         <div className="space-y-4 rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-4">

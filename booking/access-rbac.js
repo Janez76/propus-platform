@@ -42,6 +42,7 @@ const ALL_PERMISSION_KEYS = [
   "reviews.manage",
   "roles.manage",
   "users.manage",
+  "api_keys.manage",
 ];
 
 const TOURS_INTERNAL_PERMS = [

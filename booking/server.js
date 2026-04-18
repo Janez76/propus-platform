@@ -2301,7 +2301,30 @@ app.use(session({
 app.use(async (req, res, next) => {
   try {
     const { token, source } = getRequestTokenDetails(req);
-    if (!token || !db.getAdminSessionByTokenHash) return next();
+    if (!token) return next();
+
+    // API-Key-Pfad: ppk_live_<base64url> als Bearer/Query (niemals Cookie).
+    if (source !== "cookie" && token.startsWith("ppk_live_") && db.getApiKeyByTokenHash) {
+      const apiKey = await db.getApiKeyByTokenHash(customerAuth.hashSha256Hex(token));
+      if (apiKey && apiKey.createdBy && db.getAdminUserById) {
+        const adminUser = await db.getAdminUserById(apiKey.createdBy);
+        if (adminUser && adminUser.active) {
+          const emailFromRow = adminUser.email || "";
+          req.user = {
+            id: emailFromRow || "api_key",
+            userKey: emailFromRow,
+            email: emailFromRow,
+            name: adminUser.name || emailFromRow,
+            role: String(adminUser.role || "admin"),
+          };
+          req.apiKeyId = apiKey.id;
+          if (db.touchApiKeyLastUsed) db.touchApiKeyLastUsed(apiKey.id);
+        }
+      }
+      return next();
+    }
+
+    if (!db.getAdminSessionByTokenHash) return next();
     const row = await db.getAdminSessionByTokenHash(customerAuth.hashSha256Hex(token));
     if (!row) {
       if (source === "cookie") {
@@ -12327,6 +12350,74 @@ app.post("/api/review/:token", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// ─── API-Keys (General API Token Generator) ────────────────────────────────
+app.get(
+  "/api/admin/api-keys",
+  requireAdmin,
+  rbac.requirePermission("api_keys.manage"),
+  async (_req, res) => {
+    try {
+      const keys = await db.listApiKeys();
+      res.json({ keys });
+    } catch (err) {
+      console.error("[api-keys] list failed", err?.message || err);
+      res.status(500).json({ error: "Liste konnte nicht geladen werden" });
+    }
+  }
+);
+
+app.post(
+  "/api/admin/api-keys",
+  authLimiter,
+  requireAdmin,
+  rbac.requirePermission("api_keys.manage"),
+  async (req, res) => {
+    try {
+      const label = String(req.body?.label || "").trim();
+      if (!label) return res.status(400).json({ error: "Label erforderlich" });
+      if (label.length > 200) return res.status(400).json({ error: "Label zu lang (max. 200)" });
+
+      const rawSecret = crypto.randomBytes(32).toString("base64url");
+      const token = `ppk_live_${rawSecret}`;
+      const tokenHash = customerAuth.hashSha256Hex(token);
+      const prefix = token.slice(0, 12);
+
+      let createdBy = null;
+      if (req.user?.userKey && db.getAdminUserByUsername) {
+        const admin = await db.getAdminUserByUsername(req.user.userKey);
+        if (admin?.id) createdBy = admin.id;
+      }
+
+      const created = await db.createApiKey({ label, tokenHash, prefix, createdBy });
+      res.status(201).json({ key: created, token });
+    } catch (err) {
+      console.error("[api-keys] create failed", err?.message || err);
+      res.status(500).json({ error: "API-Key konnte nicht erstellt werden" });
+    }
+  }
+);
+
+app.delete(
+  "/api/admin/api-keys/:id",
+  authLimiter,
+  requireAdmin,
+  rbac.requirePermission("api_keys.manage"),
+  async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isFinite(id) || id <= 0) {
+        return res.status(400).json({ error: "Ungueltige ID" });
+      }
+      const ok = await db.revokeApiKey(id);
+      if (!ok) return res.status(404).json({ error: "Nicht gefunden oder bereits revoziert" });
+      res.json({ ok: true });
+    } catch (err) {
+      console.error("[api-keys] revoke failed", err?.message || err);
+      res.status(500).json({ error: "Revoke fehlgeschlagen" });
+    }
+  }
+);
 
 // Zus?tzliche Admin-Routen, die das Frontend erwartet (Kontakte/Reviews/Templates/etc.)
 registerCustomerContactsRoutes(app, db, requireAdmin, ensureCustomerInRequestCompany);
