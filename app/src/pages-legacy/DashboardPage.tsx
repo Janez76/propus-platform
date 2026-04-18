@@ -1,122 +1,181 @@
-import { useMemo, useState } from "react";
-import { Calendar as CalendarIcon, DollarSign, Plus, ShoppingBag, TrendingUp } from "lucide-react";
-import { Link } from "react-router-dom";
+import { useEffect, useMemo, useState, type CSSProperties, type ReactElement } from "react";
+import { Plus, SlidersHorizontal } from "lucide-react";
 import { statusMatches } from "../lib/status";
-import { KpiCard } from "../components/dashboard/KpiCard";
-import { ScheduleList } from "../components/dashboard/ScheduleList";
-import { StatusOverview } from "../components/dashboard/StatusOverview";
 import { CreateOrderWizard } from "../components/orders/CreateOrderWizard";
 import { useOrders } from "../hooks/useOrders";
 import { useAuthStore } from "../store/authStore";
 import { t } from "../i18n";
+import { HeroGreeting } from "../components/dashboard/HeroGreeting";
+import { ProductivityRing } from "../components/dashboard/ProductivityRing";
+import { KpiStrip } from "../components/dashboard/KpiStrip";
+import { TodayTimeline } from "../components/dashboard/TodayTimeline";
+import { OpenTasks } from "../components/dashboard/OpenTasks";
+import { PipelineBoard } from "../components/dashboard/PipelineBoard";
+import { BookingFunnel } from "../components/dashboard/BookingFunnel";
+import { CalendarHeatmap } from "../components/dashboard/CalendarHeatmap";
+import { ActivityFeed } from "../components/dashboard/ActivityFeed";
+import { TweaksPanel } from "../components/dashboard/TweaksPanel";
+import {
+  DENSITY_GAPS,
+  DENSITY_PADDING,
+  useDashState,
+  type DashRowId,
+  type DashTileId,
+} from "../components/dashboard/dashboardState";
+import "../components/dashboard/dashboard.css";
+
+function isoWeek(date: Date): number {
+  const tmp = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = tmp.getUTCDay() || 7;
+  tmp.setUTCDate(tmp.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1));
+  return Math.ceil(((tmp.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+}
 
 export function DashboardPage() {
   const token = useAuthStore((s) => s.token);
   const lang = useAuthStore((s) => s.language);
   const { orders, loading, error, refresh } = useOrders(token);
-  const [scheduleDays, setScheduleDays] = useState(7);
   const [showCreateOrder, setShowCreateOrder] = useState(false);
+  const [tweaksOpen, setTweaksOpen] = useState(false);
+  const [state, setState] = useDashState();
 
-  const kpiData = useMemo(() => {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (state.editMode) setState({ ...state, editMode: false });
+        else if (tweaksOpen) setTweaksOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [state, setState, tweaksOpen]);
+
+  const metrics = useMemo(() => {
     const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-    const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-    const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+    const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const endToday = startToday + 86400000;
+    const thirtyDaysAgo = startToday - 30 * 86400000;
+    const sixtyDaysAgo = startToday - 60 * 86400000;
+    const startOfWeek = (() => {
+      const d = new Date(now);
+      const diff = (d.getDay() + 6) % 7;
+      d.setDate(d.getDate() - diff);
+      d.setHours(0, 0, 0, 0);
+      return d.getTime();
+    })();
+    const startOfPrevWeek = startOfWeek - 7 * 86400000;
 
-    const openOrders = orders.filter((o) =>
-      !statusMatches(o.status, "done") &&
-      !statusMatches(o.status, "archived") &&
-      !statusMatches(o.status, "cancelled")
+    const open = orders.filter(
+      (o) =>
+        !statusMatches(o.status, "done") &&
+        !statusMatches(o.status, "archived") &&
+        !statusMatches(o.status, "cancelled"),
     );
 
-    const currentMonthOrders = orders.filter((o) => {
-      const date = o.appointmentDate ? new Date(o.appointmentDate) : null;
-      return date && date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+    const overdue = open.filter((o) => {
+      if (!o.appointmentDate) return false;
+      return new Date(o.appointmentDate).getTime() < startToday;
     });
 
-    const lastMonthOrders = orders.filter((o) => {
-      const date = o.appointmentDate ? new Date(o.appointmentDate) : null;
-      return date && date.getMonth() === lastMonth && date.getFullYear() === lastMonthYear;
+    const todays = orders.filter((o) => {
+      if (!o.appointmentDate) return false;
+      const ts = new Date(o.appointmentDate).getTime();
+      return ts >= startToday && ts < endToday;
     });
 
-    const currentMonthRevenue = currentMonthOrders.reduce((sum, o) => sum + (o.total || 0), 0);
-    const lastMonthRevenue = lastMonthOrders.reduce((sum, o) => sum + (o.total || 0), 0);
-    const totalRevenue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
-
-    const revenueTrend = lastMonthRevenue > 0 
-      ? ((currentMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100
-      : 0;
-
-      const openTrend = lastMonthOrders.length > 0
-      ? ((openOrders.length - lastMonthOrders.filter(o =>
-          !statusMatches(o.status, "done") &&
-          !statusMatches(o.status, "archived") &&
-          !statusMatches(o.status, "cancelled")
-        ).length) / lastMonthOrders.length) * 100
-      : 0;
-
-    const nextAppointment = [...orders]
-      .filter((o) => o.appointmentDate && new Date(o.appointmentDate) >= now)
-      .sort((a, b) => new Date(a.appointmentDate || 0).getTime() - new Date(b.appointmentDate || 0).getTime())[0];
-
-    const monthlyRevenueSeries = Array.from({ length: 6 }).map((_, offset) => {
-      const date = new Date(currentYear, currentMonth - (5 - offset), 1);
-      const month = date.getMonth();
-      const year = date.getFullYear();
-      return orders
+    const revenueWindow = (from: number, to: number) =>
+      orders
         .filter((o) => {
-          const orderDate = o.appointmentDate ? new Date(o.appointmentDate) : null;
-          return orderDate && orderDate.getMonth() === month && orderDate.getFullYear() === year;
+          const ts = o.appointmentDate ? new Date(o.appointmentDate).getTime() : 0;
+          return ts >= from && ts < to;
         })
         .reduce((sum, o) => sum + (o.total || 0), 0);
-    });
+
+    const revenue30 = revenueWindow(thirtyDaysAgo, startToday + 86400000);
+    const revenuePrev30 = revenueWindow(sixtyDaysAgo, thirtyDaysAgo);
+    const revenueTrend =
+      revenuePrev30 > 0 ? ((revenue30 - revenuePrev30) / revenuePrev30) * 100 : revenue30 > 0 ? 100 : 0;
+
+    const bookingsThisWeek = orders.filter((o) => {
+      const ts = o.appointmentDate ? new Date(o.appointmentDate).getTime() : 0;
+      return ts >= startOfWeek && ts < startOfWeek + 7 * 86400000;
+    }).length;
+    const bookingsPrevWeek = orders.filter((o) => {
+      const ts = o.appointmentDate ? new Date(o.appointmentDate).getTime() : 0;
+      return ts >= startOfPrevWeek && ts < startOfWeek;
+    }).length;
+
+    const revenueToday = todays.reduce((sum, o) => sum + (o.total || 0), 0);
+
+    const upcomingTodayAfterNow = todays
+      .filter((o) => new Date(o.appointmentDate || 0).getTime() > now.getTime())
+      .sort((a, b) => new Date(a.appointmentDate || 0).getTime() - new Date(b.appointmentDate || 0).getTime());
+    const nextDeliveryTime = upcomingTodayAfterNow[0]?.appointmentDate
+      ? new Date(upcomingTodayAfterNow[0].appointmentDate).toLocaleTimeString("de-CH", {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : null;
+
+    const funnelInquiries = orders.length;
+    const funnelOffers = orders.filter(
+      (o) =>
+        !statusMatches(o.status, "cancelled") &&
+        !statusMatches(o.status, "archived"),
+    ).length;
+    const funnelConfirmed = orders.filter(
+      (o) =>
+        statusMatches(o.status, "confirmed") ||
+        statusMatches(o.status, "completed") ||
+        statusMatches(o.status, "done"),
+    ).length;
+    const funnelCompleted = orders.filter(
+      (o) => statusMatches(o.status, "done") || statusMatches(o.status, "completed"),
+    ).length;
 
     return {
-      monthlyRevenue: currentMonthRevenue,
-      totalRevenue,
-      openOrders: openOrders.length,
-      nextAppointment,
+      open,
+      overdue,
+      todays,
+      revenue30,
       revenueTrend,
-      openTrend,
-      monthlyRevenueSeries,
+      bookingsThisWeek,
+      bookingsDiff: bookingsThisWeek - bookingsPrevWeek,
+      revenueToday,
+      nextDeliveryTime,
+      funnel: {
+        inquiries: funnelInquiries,
+        offers: funnelOffers,
+        confirmed: funnelConfirmed,
+        completed: funnelCompleted,
+      },
     };
   }, [orders]);
 
+  const rootClass = `pds-dashboard${state.editMode ? " edit-mode" : ""}`;
+  const rootStyle = {
+    "--gap": DENSITY_GAPS[state.density],
+  } as CSSProperties;
+
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="surface-card-strong p-6 lg:p-7">
-          <div className="space-y-3">
-            <div className="skeleton-line h-3 w-28" />
-            <div className="skeleton-line h-8 w-2/3 max-w-lg" />
-            <div className="skeleton-line h-4 w-1/2 max-w-sm" />
-          </div>
-        </div>
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, idx) => (
-            <div key={idx} className="surface-card p-6">
-              <div className="skeleton-line mb-4 h-3 w-24" />
-              <div className="skeleton-line h-8 w-32" />
-            </div>
-          ))}
-        </div>
-        <div className="grid gap-6 lg:grid-cols-2">
-          <div className="surface-card p-6">
-            <div className="skeleton-line mb-4 h-3 w-28" />
-            <div className="space-y-2">
-              <div className="skeleton-line h-12 w-full" />
-              <div className="skeleton-line h-12 w-full" />
-              <div className="skeleton-line h-12 w-full" />
-            </div>
-          </div>
-          <div className="surface-card p-6">
-            <div className="skeleton-line mb-4 h-3 w-32" />
+      <div className={rootClass} style={rootStyle}>
+        <div className="space-y-6">
+          <div className="surface-card-strong p-6 lg:p-7">
             <div className="space-y-3">
-              <div className="skeleton-line h-4 w-full" />
-              <div className="skeleton-line h-4 w-11/12" />
-              <div className="skeleton-line h-4 w-10/12" />
+              <div className="skeleton-line h-3 w-28" />
+              <div className="skeleton-line h-8 w-2/3 max-w-lg" />
+              <div className="skeleton-line h-4 w-1/2 max-w-sm" />
             </div>
+          </div>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
+            {Array.from({ length: 5 }).map((_, idx) => (
+              <div key={idx} className="surface-card p-6">
+                <div className="skeleton-line mb-4 h-3 w-24" />
+                <div className="skeleton-line h-8 w-32" />
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -125,122 +184,181 @@ export function DashboardPage() {
 
   if (error) {
     return (
-      <div className="surface-card p-6 text-center">
-        <p className="font-medium text-red-700 dark:text-red-400">{error}</p>
-        <button
-          type="button"
-          onClick={() => window.location.reload()}
-          className="btn-secondary mt-4"
-        >
-          {t(lang, "dashboard.button.reload")}
-        </button>
+      <div className={rootClass} style={rootStyle}>
+        <div className="surface-card p-6 text-center">
+          <p className="font-medium text-red-700 dark:text-red-400">{error}</p>
+          <button
+            type="button"
+            onClick={() => refresh()}
+            className="btn-secondary mt-4"
+          >
+            {t(lang, "dashboard.button.reload")}
+          </button>
+        </div>
       </div>
     );
   }
 
-  const nextDate = kpiData.nextAppointment?.appointmentDate
-    ? new Date(kpiData.nextAppointment.appointmentDate).toLocaleDateString("de-CH", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      })
-    : "-";
+  const rowVisible = (rowId: DashRowId): boolean => {
+    const tiles = state.tileOrder[rowId] ?? [];
+    return tiles.some((id) => !state.hidden.includes(id));
+  };
 
-  const todayLabel = new Date().toLocaleDateString("de-CH", {
-    weekday: "long",
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
+  const tileHidden = (id: DashTileId) => state.hidden.includes(id);
+
+  const panelPad = DENSITY_PADDING[state.density];
+  const panelStyle = { padding: panelPad } as CSSProperties;
+
+  const weekLabel = `KW ${isoWeek(new Date())}`;
+  const totalBookedMinutes = metrics.todays.length * 90;
+  const workdayMinutes = 9 * 60;
+  const slotFillPct = Math.min(100, Math.round((totalBookedMinutes / workdayMinutes) * 100));
+
+  // Placeholder productivity + receivables figures — real data source pending.
+  const productivityScore = 87;
+  const tasksDone = 12;
+  const tasksTotal = 18;
+  const avgResponse = "1 h 42 m";
+  const onTimePct = 96.4;
+  const receivables = 12840;
+  const overdueInvoices = 4;
+
+  const tiles: Record<DashTileId, () => ReactElement> = {
+    greeting: () => (
+      <HeroGreeting
+        shootingsToday={metrics.todays.length}
+        deliveriesToday={metrics.todays.length}
+        openInquiries={metrics.open.length}
+        revenueToday={metrics.revenueToday}
+      />
+    ),
+    productivity: () => (
+      <ProductivityRing
+        score={productivityScore}
+        tasksDone={tasksDone}
+        tasksTotal={tasksTotal}
+        avgResponse={avgResponse}
+        onTimePct={onTimePct}
+        slotFillPct={slotFillPct}
+        weekLabel={weekLabel}
+      />
+    ),
+    "kpi-revenue": () => <></>,
+    "kpi-bookings": () => <></>,
+    "kpi-open": () => <></>,
+    "kpi-due": () => <></>,
+    "kpi-receivables": () => <></>,
+    timeline: () => <TodayTimeline orders={orders} />,
+    tasks: () => <OpenTasks hideDone={state.hideDone} />,
+    pipeline: () => <PipelineBoard orders={metrics.open} />,
+    funnel: () => (
+      <BookingFunnel
+        inquiries={metrics.funnel.inquiries}
+        offers={metrics.funnel.offers}
+        confirmed={metrics.funnel.confirmed}
+        completed={metrics.funnel.completed}
+      />
+    ),
+    heatmap: () => <CalendarHeatmap orders={orders} />,
+    activity: () => <ActivityFeed />,
+  };
 
   return (
-    <div className="space-y-6">
-      <div className="surface-card-strong p-4 sm:p-6 lg:p-7">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] p-text-accent">{t(lang, "dashboard.title")}</p>
-            <h1 className="mt-2 text-2xl font-bold tracking-tight p-text-main sm:text-3xl">
-              {t(lang, "dashboard.subtitle")}
-            </h1>
-            <p className="mt-2 text-sm p-text-muted">
-              {todayLabel} · {error ? t(lang, "dashboard.status.checkHints") : t(lang, "dashboard.status.online")}
-            </p>
-          </div>
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
-            <Link to="/orders" className="btn-primary w-full justify-center sm:w-auto">
-              <Plus className="h-4 w-4" />
-              {t(lang, "dashboard.button.newOrder")}
-            </Link>
-            <Link to="/calendar" className="btn-secondary w-full justify-center sm:w-auto">
-              <CalendarIcon className="h-4 w-4" />
-              {t(lang, "dashboard.button.openCalendar")}
-            </Link>
-          </div>
-        </div>
+    <div className={rootClass} style={rootStyle}>
+      <div className="pds-edit-hint">
+        {t(lang, "dashboard.editHint")}
       </div>
 
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard
-          title={t(lang, "dashboard.kpi.monthlyRevenue")}
-          value={kpiData.monthlyRevenue}
-          format="currency"
-          emphasis="primary"
-          trend={{
-            value: Math.round(Math.abs(kpiData.revenueTrend)),
-            direction: kpiData.revenueTrend > 0 ? "up" : kpiData.revenueTrend < 0 ? "down" : "neutral",
-          }}
-          sparkline={kpiData.monthlyRevenueSeries}
-          icon={<DollarSign className="h-5 w-5 p-text-accent" />}
-        />
-        <KpiCard
-          title={t(lang, "dashboard.kpi.totalRevenue")}
-          value={kpiData.totalRevenue}
-          format="currency"
-          sparkline={kpiData.monthlyRevenueSeries}
-          icon={<TrendingUp className="h-5 w-5 p-text-accent" />}
-        />
-        <KpiCard
-          title={t(lang, "dashboard.kpi.openOrders")}
-          value={kpiData.openOrders}
-          trend={{
-            value: Math.round(Math.abs(kpiData.openTrend)),
-            direction: kpiData.openTrend > 0 ? "up" : kpiData.openTrend < 0 ? "down" : "neutral",
-          }}
-          icon={<ShoppingBag className="h-5 w-5 p-text-accent" />}
-        />
-        <KpiCard
-          title={t(lang, "dashboard.kpi.nextAppointment")}
-          value={nextDate}
-          format="text"
-          icon={<CalendarIcon className="h-5 w-5 p-text-accent" />}
-        />
+      <div className="pds-dash-toolbar">
+        <button
+          type="button"
+          className="pds-tweak-trigger"
+          onClick={() => setTweaksOpen((v) => !v)}
+          aria-pressed={tweaksOpen}
+        >
+          <SlidersHorizontal />
+          {t(lang, "dashboard.tweaks.button")}
+        </button>
+        <button
+          type="button"
+          className="pds-tweak-trigger"
+          onClick={() => setShowCreateOrder(true)}
+        >
+          <Plus />
+          {t(lang, "dashboard.button.newOrder")}
+        </button>
       </div>
 
-      <div className="surface-card p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <label className="text-sm font-semibold p-text-muted">
-            {t(lang, "dashboard.label.showAppointments")}
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {[7, 14, 30].map((days) => (
-              <button
-                key={days}
-                onClick={() => setScheduleDays(days)}
-                className={`min-w-[88px] rounded-lg px-4 py-2 text-sm font-medium transition-all ${
-                  scheduleDays === days ? "btn-primary" : "btn-secondary"
-                }`}
-              >
-                {t(lang, "dashboard.label.days").replace("{{n}}", String(days))}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+      {state.rowOrder.map((rowId) => {
+        if (!rowVisible(rowId)) return null;
+        const ordered = (state.tileOrder[rowId] ?? []).filter((id) => !tileHidden(id));
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <ScheduleList orders={orders} days={scheduleDays} onCreateOrder={() => setShowCreateOrder(true)} />
-        <StatusOverview orders={orders} />
-      </div>
+        if (rowId === "r-hero") {
+          return (
+            <div className="pds-hero" data-row={rowId} key={rowId}>
+              {ordered.map((id) => (
+                <div key={id} style={id === "productivity" ? panelStyle : undefined}>
+                  {tiles[id]()}
+                </div>
+              ))}
+            </div>
+          );
+        }
+        if (rowId === "r-kpi") {
+          return (
+            <div className="pds-kpis" data-row={rowId} key={rowId}>
+              <KpiStrip
+                revenue30d={metrics.revenue30}
+                revenueTrendPct={metrics.revenueTrend}
+                newBookingsWeek={metrics.bookingsThisWeek}
+                newBookingsDiff={metrics.bookingsDiff}
+                openOrders={metrics.open.length}
+                overdueOrders={metrics.overdue.length}
+                deliveriesToday={metrics.todays.length}
+                nextDeliveryTime={metrics.nextDeliveryTime}
+                receivables={receivables}
+                overdueInvoices={overdueInvoices}
+                visibleIds={ordered}
+              />
+            </div>
+          );
+        }
+        if (rowId === "r-today") {
+          return (
+            <div className="pds-grid-main" data-row={rowId} key={rowId}>
+              {ordered.map((id) => (
+                <div key={id}>{tiles[id]()}</div>
+              ))}
+            </div>
+          );
+        }
+        if (rowId === "r-pipeline") {
+          return (
+            <div className="pds-grid-full" data-row={rowId} key={rowId}>
+              {ordered.map((id) => (
+                <div key={id}>{tiles[id]()}</div>
+              ))}
+            </div>
+          );
+        }
+        if (rowId === "r-bottom") {
+          return (
+            <div className="pds-grid-3" data-row={rowId} key={rowId}>
+              {ordered.map((id) => (
+                <div key={id}>{tiles[id]()}</div>
+              ))}
+            </div>
+          );
+        }
+        return null;
+      })}
+
+      <TweaksPanel
+        open={tweaksOpen}
+        onClose={() => setTweaksOpen(false)}
+        state={state}
+        onChange={setState}
+      />
 
       <CreateOrderWizard
         token={token}
@@ -254,4 +372,3 @@ export function DashboardPage() {
     </div>
   );
 }
-
