@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Calendar, MapPin } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "../../lib/utils";
@@ -36,8 +36,16 @@ function dayKey(d: Date): string {
 export function ScheduleList({ orders, days = 7, onCreateOrder }: ScheduleListProps) {
   const lang = useAuthStore((s) => s.language);
 
+  // Minutengenauer Ticker: erzwingt Re-Memo, damit abgelaufene Termine
+  // aus der Upcoming-Liste fliegen, auch wenn sich `orders` nicht ändert.
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNowTick(Date.now()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+
   const buckets = useMemo<DayBucket[]>(() => {
-    const now = new Date();
+    const now = new Date(nowTick);
     const today = startOfDay(now);
     const tomorrow = new Date(today.getTime() + DAY_MS);
     // horizon ist die Mitternacht NACH dem letzten gewünschten Tag (exklusiv).
@@ -74,7 +82,7 @@ export function ScheduleList({ orders, days = 7, onCreateOrder }: ScheduleListPr
       });
     }
     return Array.from(map.values()).sort((a, b) => a.date.getTime() - b.date.getTime());
-  }, [orders, days]);
+  }, [orders, days, nowTick]);
 
   const totalCount = buckets.reduce((sum, b) => sum + b.orders.length, 0);
 
