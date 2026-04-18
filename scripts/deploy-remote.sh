@@ -152,10 +152,14 @@ if [ -n "$FAILED_PORTS" ]; then
 fi
 echo "Alle Ports verfuegbar."
 
+echo "==> DEBUG: Datei-Stand auf VPS-Dateisystem"
+ls -la "$PROJECT_ROOT/app/src/components/backups/BackupManager.tsx" || echo "Datei fehlt"
+echo "--- grep 'logto' in BackupManager.tsx:"
+grep -n 'logto' "$PROJECT_ROOT/app/src/components/backups/BackupManager.tsx" || echo "(keine Treffer - Datei ist sauber)"
+echo "--- grep 'logto' in api/backups.ts:"
+grep -n 'logto' "$PROJECT_ROOT/app/src/api/backups.ts" || echo "(keine Treffer - Datei ist sauber)"
 echo "==> Docker Build"
 export DOCKER_BUILDKIT=1
-# platform explizit OHNE Cache bauen (COPY-Layer kann bei BuildKit sonst stale Code liefern).
-# migrate + website duerfen cachen (reine Backend/Website-Builds ohne bekannte Cache-Probleme).
 docker compose -f docker-compose.vps.yml --env-file .env.vps build migrate website
 docker compose -f docker-compose.vps.yml --env-file .env.vps build --no-cache \
   --build-arg DEPLOY_SHA="${GITHUB_SHA:-$(date +%s)}" \
