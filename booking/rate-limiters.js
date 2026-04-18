@@ -20,11 +20,15 @@ function intEnv(name, fallback) {
 const MIN = 60 * 1000;
 
 // 5 Versuche / 15 min pro IP für Login & Token-basierte Reset-Endpunkte.
+// `skipSuccessfulRequests: true` — nur fehlgeschlagene Logins (4xx/5xx) zählen.
+// Grund: Shared-NAT (Office, VPN, Proxy) kann sonst mit normalen Logins das
+// 5er-Budget aufbrauchen und legitime Admins aus dem Panel aussperren.
 const authLimiter = rateLimit({
   windowMs: intEnv("RATE_LIMIT_AUTH_WINDOW_MS", 15 * MIN),
   limit: intEnv("RATE_LIMIT_AUTH_MAX", 5),
   standardHeaders: "draft-7",
   legacyHeaders: false,
+  skipSuccessfulRequests: true,
   message: { error: "Zu viele Versuche. Bitte später erneut probieren." },
 });
 
