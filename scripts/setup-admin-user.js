@@ -72,12 +72,14 @@ async function main() {
     const hash = await hashPassword(ADMIN_PASSWORD);
     console.log("  ✓ Passwort gehasht\n");
 
-    // Schema-Präfix ermitteln (booking.admin_users oder public.admin_users)
+    // Schema-Präfix ermitteln (booking.admin_users VIEW seit Migration 040,
+    // oder public.admin_users auf alten Stand-Alone-DBs).
     let tableName = "admin_users";
     try {
       const schemaCheck = await pool.query(
         `SELECT table_schema FROM information_schema.tables
          WHERE table_name = 'admin_users'
+           AND table_type IN ('BASE TABLE', 'VIEW')
          ORDER BY CASE table_schema WHEN 'booking' THEN 0 WHEN 'public' THEN 1 ELSE 2 END
          LIMIT 1`
       );

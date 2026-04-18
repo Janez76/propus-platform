@@ -155,9 +155,15 @@ Initialisiert via `core/migrations/000_init_schemas.sql`.
 | `invited_by` | TEXT | |
 | `created_at` / `updated_at` | TIMESTAMPTZ | |
 
-**Views:**
-- `booking.v_admin_users` → `module_access IN ('booking','both')`
-- `tour_manager.v_admin_users` → `module_access IN ('tour_manager','both')`
+**Kompatibilitäts-Views (seit Migration 040, April 2026):**
+- `booking.admin_users` — VIEW mit INSTEAD-OF-Triggern (`INSERT`/`UPDATE`/`DELETE` schreiben auf `core.admin_users` zurück). Exponiert Legacy-Spaltennamen (`name` ← `full_name`, `role` ← `roles[1]`, `active` ← `is_active`). Filter: `module_access IN ('booking','both')`.
+- `tour_manager.admin_users` — VIEW mit INSTEAD-OF-Triggern. Filter: `module_access IN ('tour_manager','both')`.
+- Die alten Read-Only-Views `booking.v_admin_users` / `tour_manager.v_admin_users` (aus Migration 018) wurden gelöscht.
+
+**Trigger-Funktionen (Migration 040):**
+- `core.booking_admin_users_insert()` / `…_update()` / `…_delete()` — INSTEAD-OF-Trigger auf `booking.admin_users`
+- `core.tour_manager_admin_users_insert()` / `…_update()` / `…_delete()` — INSTEAD-OF-Trigger auf `tour_manager.admin_users`
+- Bei DELETE eines Users mit `module_access = 'both'` wird nur der Modulzugang entzogen (→ Downgrade auf das andere Modul), nicht physisch gelöscht.
 
 ---
 
@@ -664,21 +670,24 @@ mit FKs auf `booking.companies` statt `core.companies`.
 
 ---
 
-### `booking.admin_users`, `booking.admin_sessions`, `booking.photographer_password_resets` — Legacy-Auth
+### `booking.admin_users` (VIEW), `booking.admin_sessions`, `booking.photographer_password_resets`
 
-**Achtung:** `booking.admin_users` ist Legacy. Die Single Source of Truth ist
-[`core.admin_users`](#coreadmin_users--admin-benutzer-konsolidiert) (s. Views
-`booking.v_admin_users` / `tour_manager.v_admin_users`).
+**Seit Migration 040 (April 2026):** `booking.admin_users` ist ein **VIEW** über
+[`core.admin_users`](#coreadmin_users--admin-benutzer-konsolidiert) mit INSTEAD-OF-Triggern
+für INSERT/UPDATE/DELETE. Die physische Tabelle heisst `core.admin_users`;
+`booking.admin_users` exponiert die historischen Legacy-Spaltennamen (`name`, `role`, `active`)
+und wirkt wie eine schreibbare Tabelle. FK `booking.access_subjects.admin_user_id` zeigt
+auf `core.admin_users(id)`.
 
 | Tabelle | Feld | Typ |
 |---|---|---|
-| `booking.admin_users` | `id` | BIGSERIAL PK |
-| | `username` | TEXT UNIQUE |
-| | `email` / `name` | TEXT |
-| | `role` | TEXT (default `'admin'`) |
+| `booking.admin_users` (VIEW) | `id` | BIGINT (aus `core.admin_users.id`) |
+| | `username` | TEXT |
+| | `email` / `name` | TEXT (`name` ← `core.full_name`) |
+| | `role` | TEXT (`roles[1]`) |
 | | `password_hash` | TEXT |
-| | `active` | BOOLEAN (default TRUE) |
-| | `created_at` / `updated_at` | TIMESTAMPTZ NOW() |
+| | `active` | BOOLEAN (`core.is_active`) |
+| | `created_at` / `updated_at` | TIMESTAMPTZ |
 | `booking.admin_sessions` | `token_hash` | TEXT PK |
 | | `role` / `user_key` / `user_name` | TEXT |
 | | `expires_at` | TIMESTAMPTZ |
@@ -979,20 +988,20 @@ Mail-Versand, Cleanup-Trigger). Wird vom `actions`-Helper geschrieben.
 
 ---
 
-### `tour_manager.admin_users`, `tour_manager.admin_invites`, `tour_manager.admin_remember_tokens` — Legacy-Auth
+### `tour_manager.admin_users` (VIEW), `tour_manager.admin_invites`, `tour_manager.admin_remember_tokens`
 
-**Achtung:** Wie `booking.admin_users` Legacy. Single Source of Truth ist
-[`core.admin_users`](#coreadmin_users--admin-benutzer-konsolidiert) inkl. View
-`tour_manager.v_admin_users`.
+**Seit Migration 040 (April 2026):** Wie `booking.admin_users` ein VIEW über
+[`core.admin_users`](#coreadmin_users--admin-benutzer-konsolidiert) mit
+INSTEAD-OF-Triggern. Filter: `module_access IN ('tour_manager','both')`.
 
 | Tabelle | Feld | Typ |
 |---|---|---|
-| `tour_manager.admin_users` | `id` | BIGSERIAL PK |
+| `tour_manager.admin_users` (VIEW) | `id` | BIGINT (aus `core.admin_users.id`) |
 | | `email` | TEXT |
 | | `full_name` / `password_hash` | TEXT (nullable) |
-| | `is_active` | BOOLEAN (default TRUE) |
+| | `is_active` | BOOLEAN |
 | | `invited_by` | TEXT (nullable) |
-| | `created_at` / `updated_at` | TIMESTAMPTZ NOW() |
+| | `created_at` / `updated_at` | TIMESTAMPTZ |
 | | `last_login_at` | TIMESTAMPTZ (nullable) |
 | `tour_manager.admin_invites` | `id` | BIGSERIAL PK |
 | | `email` | TEXT |

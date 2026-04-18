@@ -24,6 +24,8 @@
 14. [Magic-Link in Buchungs-Mail](#14-magic-link-in-buchungs-mail)
 15. [Kunden-Profil-Vorausfüllung (StepBilling)](#15-kunden-profil-vorausfüllung-stepbilling)
 16. [Rate-Limiting & Security-Header](#16-rate-limiting--security-header)
+17. [API-Key-Verwaltung (CRUD)](#17-api-key-verwaltung-crud)
+18. [Admin-Panel SPA-Auslieferung](#18-admin-panel-spa-auslieferung)
 
 ---
 
@@ -769,3 +771,24 @@ POST /api/admin/api-keys  { label }
 - Einmaliger Token-Anzeige-Banner (Amber-Box) mit Kopieren-Button
 - Tabelle aktiver Keys (Label, Prefix, Ersteller, Erstellt am, Zuletzt genutzt, Revoke-Button)
 - Tabelle revozierter Keys (Label, Prefix, Revoziert am)
+
+---
+
+## 18. Admin-Panel SPA-Auslieferung
+
+*Seit PR #94 (April 2026).* Das Booking-Admin-Panel (`booking/admin-panel/`) ist ein Vite/React-SPA, das von `booking/server.js` ausgeliefert wird. **Deprecated** — neue Features nach `app/src/`.
+
+### Routing in `booking/server.js`
+
+```
+ADMIN_PANEL_DIST = process.env.ADMIN_PANEL_DIST
+  || path.join(__dirname, "admin-panel", "dist")
+
+Falls dist-Verzeichnis existiert:
+  express.static(ADMIN_PANEL_DIST)
+  GET /^(?!\/api|\/auth).*$/  → index.html   (SPA Catch-all)
+```
+
+- Alle `/api/*`- und `/auth/*`-Routen werden **nicht** vom Catch-all erfasst.
+- Wenn das dist-Verzeichnis nicht existiert (kein Build), zeigt die Root-Route einen Hinweis.
+- Frontend-Logs (`POST /api/logs`) werden mit `source: "admin-panel"` getaggt (vorher `"booking-backend"`).

@@ -32,27 +32,8 @@ function getEnvAdminCredentials() {
 
 async function ensureAdminTeamSchema() {
   if (schemaReady) return;
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS tour_manager.admin_users (
-      id BIGSERIAL PRIMARY KEY,
-      email TEXT NOT NULL,
-      full_name TEXT NULL,
-      password_hash TEXT NULL,
-      is_active BOOLEAN NOT NULL DEFAULT TRUE,
-      invited_by TEXT NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      last_login_at TIMESTAMPTZ NULL
-    )
-  `);
-  await pool.query(`
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_admin_users_email_unique
-    ON tour_manager.admin_users ((LOWER(email)))
-  `);
-  await pool.query(`
-    ALTER TABLE tour_manager.admin_users
-    ADD COLUMN IF NOT EXISTS full_name TEXT NULL
-  `);
+  // tour_manager.admin_users ist seit core/migrations/040 ein VIEW über
+  // core.admin_users. Die physische Tabelle + Indizes werden dort verwaltet.
   await pool.query(`
     CREATE TABLE IF NOT EXISTS tour_manager.admin_invites (
       id BIGSERIAL PRIMARY KEY,

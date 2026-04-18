@@ -599,25 +599,12 @@ CREATE TABLE IF NOT EXISTS upload_batch_files (
 CREATE INDEX IF NOT EXISTS idx_upload_batch_files_batch_id
   ON upload_batch_files(batch_id, id);
 
--- ─── Lokale Admin-Benutzer (falls noch nicht aus Migration 032) ──────────────
-CREATE TABLE IF NOT EXISTS admin_users (
-  id            BIGSERIAL PRIMARY KEY,
-  username      TEXT NOT NULL UNIQUE,
-  email         TEXT,
-  name          TEXT,
-  phone         TEXT,
-  language      TEXT NOT NULL DEFAULT 'de',
-  logto_user_id TEXT,
-  role          TEXT NOT NULL DEFAULT 'admin',
-  password_hash TEXT NOT NULL,
-  active        BOOLEAN NOT NULL DEFAULT TRUE,
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_admin_users_username ON admin_users(username);
-CREATE INDEX IF NOT EXISTS idx_admin_users_email ON admin_users(email) WHERE email IS NOT NULL;
-CREATE UNIQUE INDEX IF NOT EXISTS idx_admin_users_logto_user_id ON admin_users(logto_user_id) WHERE logto_user_id IS NOT NULL;
+-- ─── Lokale Admin-Benutzer ───────────────────────────────────────────────────
+-- booking.admin_users ist seit Migration 040 ein VIEW über core.admin_users mit
+-- INSTEAD-OF-Triggern (INSERT/UPDATE/DELETE). Die physische Tabelle heisst
+-- core.admin_users und wird in core/migrations/018 angelegt.
+-- Dieser schema.sql-Block ist nur für Erst-Schema-Anlage auf leeren DBs relevant;
+-- Produktions-Deploys laufen ausschliesslich über den Migration-Runner.
 
 -- ─── Zentrales RBAC (Subjects, Rollen, Gruppen) ─────────────────────────────
 CREATE TABLE IF NOT EXISTS permission_definitions (
@@ -643,7 +630,8 @@ CREATE TABLE IF NOT EXISTS access_subjects (
   subject_type         TEXT NOT NULL CHECK (subject_type IN (
                           'admin_user','photographer','customer','customer_contact','company_member'
                         )),
-  admin_user_id        BIGINT REFERENCES admin_users(id) ON DELETE CASCADE,
+  -- FK-Target ist seit Migration 040: core.admin_users(id) (booking.admin_users ist ein VIEW).
+  admin_user_id        BIGINT,
   photographer_key     TEXT REFERENCES photographers(key) ON DELETE CASCADE,
   customer_id          INTEGER REFERENCES customers(id) ON DELETE CASCADE,
   customer_contact_id  INTEGER REFERENCES customer_contacts(id) ON DELETE CASCADE,

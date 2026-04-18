@@ -4,7 +4,7 @@
 >
 > **Automatisch mitpflegen:** Cursor-Regel `.cursor/rules/data-fields.mdc` definiert, wann welche Datei aktualisiert werden muss.
 
-*Zuletzt aktualisiert: April 2026 (PR #93: `booking/admin-panel/` vollständig entfernt — Code, Docker-Services, CI-Build-Step, Warn-Workflow gelöscht; Docs bereinigt). PR #92: API-Key-Auth bindet req.user.id auf numerische admin_users.id, created_by-Lookup per ID. PR #91: API-Token-Generator — core.api_keys-Tabelle, CRUD-Endpunkte, RBAC-Permission `api_keys.manage`, Settings-UI. PR #90: booking/Dockerfile Build-Context auf Repo-Root, core/ wird mitkopiert wegen cross-module Dependency. PR #89: Rate-Limiting auf Auth/Booking-Endpunkte, helmet Security-Header, OpenAPI-CI-Lint, SCHEMA_FULL.md um ~20 fehlende Tabellen ergänzt. PR #88: Node-Pinning auf 20.18.1, GOOGLE_REVIEWS_PLACE_ID externalisiert, core/lib/customer-lookup zentralisiert.*
+*Zuletzt aktualisiert: April 2026 (PR #94: admin_users Legacy-Tabellen durch Views mit INSTEAD-OF-Triggern über `core.admin_users` ersetzt; FK `booking.access_subjects.admin_user_id` zeigt jetzt auf `core.admin_users(id)`). PR #93: `booking/admin-panel/` vollständig entfernt — Code, Docker-Services, CI-Build-Step, Warn-Workflow gelöscht; Docs bereinigt. PR #92: API-Key-Auth bindet req.user.id auf numerische admin_users.id, created_by-Lookup per ID. PR #91: API-Token-Generator — core.api_keys-Tabelle, CRUD-Endpunkte, RBAC-Permission `api_keys.manage`, Settings-UI. PR #90: booking/Dockerfile Build-Context auf Repo-Root, core/ wird mitkopiert wegen cross-module Dependency. PR #89: Rate-Limiting auf Auth/Booking-Endpunkte, helmet Security-Header, OpenAPI-CI-Lint, SCHEMA_FULL.md um ~20 fehlende Tabellen ergänzt. PR #88: Node-Pinning auf 20.18.1, GOOGLE_REVIEWS_PLACE_ID externalisiert, core/lib/customer-lookup zentralisiert.*
 
 ---
 
@@ -65,7 +65,7 @@ WHERE LOWER(c.email) = $1
 | 6 | Exxas-Order-Sync (`exxas_status`, `exxas_order_id`) ohne dedizierte Dokumentation der Sync-Häufigkeit | Offen |
 | 7 | `calendar_delete_queue`-Tabelle noch nicht vollständig dokumentiert | ✅ **Behoben** April 2026: in SCHEMA_FULL.md |
 | 8 | `booking.companies/company_members/company_invitations` sind Duplikate zu `core.*` — Migration zur `core`-Variante offen | Offen |
-| 9 | `booking.admin_users` und `tour_manager.admin_users` sind Legacy — Single Source of Truth ist `core.admin_users` (Views: `booking.v_admin_users`, `tour_manager.v_admin_users`) | Offen |
+| 9 | `booking.admin_users` und `tour_manager.admin_users` sind Legacy — Single Source of Truth ist `core.admin_users` | ✅ **Behoben** April 2026 in `core/migrations/040`: Legacy-Tabellen durch Views mit INSTEAD-OF-Triggern ersetzt; FK `booking.access_subjects.admin_user_id` zeigt jetzt auf `core.admin_users(id)`. |
 
 ---
 
