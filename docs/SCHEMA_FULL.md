@@ -268,6 +268,7 @@ Migration: `core/migrations/039_api_keys.sql`
 | `exxas_order_id` | TEXT | |
 | `exxas_status` | TEXT | `not_sent`, `sent`, `error` |
 | `exxas_error` | TEXT | |
+| `created_by_member_id` | INT FK → core.company_members ON DELETE SET NULL | B2B: welches Company-Member die Buchung angelegt hat (seit Migration 082 auf `core.company_members`) |
 | `cancel_reason` | TEXT | |
 | `closed_at` | TIMESTAMPTZ | |
 | `created_at` / `updated_at` | TIMESTAMPTZ | |
@@ -658,15 +659,22 @@ Single-Row-Tabelle (CHECK `id = 1`) für die OAuth-Tokens des GBP-Admin-Panels.
 
 ---
 
-### `booking.companies`, `booking.company_members`, `booking.company_invitations` — Legacy-Workspace
+### ~~`booking.companies`, `booking.company_members`, `booking.company_invitations`~~ — entfernt
 
-**Achtung:** Duplikate zu `core.companies/company_members/company_invitations`.
-Migration nach `core.*` ist offen — neue Features ausschließlich gegen die
-`core`-Versionen schreiben. Diese Tabellen bleiben bestehen, bis die Lese-Pfade
-in `booking/server.js` umgestellt sind.
+**Seit Migration 082 (April 2026) gelöscht.** Die Daten wurden per
+`booking/migrations/082_companies_legacy_dedup.sql` in die `core.*`-Pendants
+gemergt (ON CONFLICT via slug/natural-keys) und die Legacy-Tabellen gedroppt.
 
-Schema entspricht den `core.*`-Pendants ([siehe oben](#corecompanies--b2b-mandanten)),
-mit FKs auf `booking.companies` statt `core.companies`.
+FK-Änderungen durch Migration 082:
+
+| FK-Spalte | Alte Referenz | Neue Referenz |
+|---|---|---|
+| `booking.orders.created_by_member_id` | `booking.company_members(id)` | `core.company_members(id)` ON DELETE SET NULL |
+| `booking.access_subjects.company_member_id` | `booking.company_members(id)` | `core.company_members(id)` ON DELETE CASCADE |
+
+Kanonische Tabellen: [`core.companies`](#corecompanies--b2b-mandanten),
+[`core.company_members`](#corecompanies--b2b-mandanten),
+[`core.company_invitations`](#corecompanies--b2b-mandanten).
 
 ---
 
