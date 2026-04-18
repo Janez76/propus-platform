@@ -136,16 +136,21 @@ jobs:
 
       - name: Create deploy archive
         run: |
-          # --anchored: excludes greifen nur auf top-level Pfade.
-          # Ohne --anchored wuerden Unterordner wie app/src/components/backups/
-          # faelschlich mit ausgeschlossen (fuehrt zu stale Code auf VPS!).
-          tar \
-            --exclude-vcs \
-            --anchored \
-            --exclude='./.github' \
-            --exclude='./docs' \
-            --exclude='./backups' \
-            -czf "/tmp/propus-platform-${GITHUB_SHA}.tar.gz" .
+          # WICHTIG: `tar --exclude='backups'` schliesst ALLE Ordner namens "backups"
+          # aus - auch Unterordner wie app/src/components/backups/. Deshalb
+          # selektieren wir explizit die Top-Level-Pfade die geliefert werden sollen
+          # und uebergeben sie mit -T. Fuehrt zu deterministischen, erklaerbaren
+          # Archiv-Inhalten ohne tar-Glob-Pattern-Ueberraschungen.
+          find . -maxdepth 1 -mindepth 1 \
+            -not -name '.git' \
+            -not -name '.github' \
+            -not -name 'docs' \
+            -not -name 'backups' \
+            -not -name 'node_modules' \
+            -print > /tmp/deploy-archive-files.txt
+          echo "==> Inhalt des Deploy-Archivs:"
+          cat /tmp/deploy-archive-files.txt
+          tar --exclude-vcs -czf "/tmp/propus-platform-${GITHUB_SHA}.tar.gz" -T /tmp/deploy-archive-files.txt
 
       - name: Write VPS env file
         run: |
