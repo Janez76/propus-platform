@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei Änderungen an Login-Logik, Session-Verwaltung, Token-Handling oder Portal-Auth dieses Dokument aktualisieren.
 
-*Zuletzt aktualisiert: April 2026 (PR #91: API-Key-Auth-Pfad in Middleware). PR #89: Rate-Limiting auf Login-Endpunkte. PR #88: Unified Login, Portal-Session-Bridge, Profil-Endpunkt, Passwort-Reset-Fix*
+*Zuletzt aktualisiert: April 2026 (PR #92: API-Key-Auth bindet req.user.id auf numerische admin_users.id). PR #91: API-Key-Auth-Pfad in Middleware. PR #89: Rate-Limiting auf Login-Endpunkte. PR #88: Unified Login, Portal-Session-Bridge, Profil-Endpunkt, Passwort-Reset-Fix*
 
 ---
 
@@ -388,8 +388,9 @@ Eingehender Request mit Bearer ppk_live_<secret>
   │
   ├── SHA-256(token) → core.api_keys WHERE token_hash = ? AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())
   │
-  ├── api_key.created_by → core.admin_users WHERE id = ? AND is_active = TRUE
-  │     → req.user = { id, userKey, email, name, role }   (Permissions des Erstellers)
+  ├── api_key.created_by → core.admin_users WHERE id = ? AND active = TRUE
+  │     → req.user = { id: String(admin_users.id), userKey: String(admin_users.id), email, name, role }
+  │     → id und userKey enthalten die numerische Admin-User-ID (als String), nicht die E-Mail
   │     → req.apiKeyId = api_key.id
   │
   ├── Async: UPDATE core.api_keys SET last_used_at = NOW()  (fire-and-forget)
