@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Calendar, MapPin, User, Clock } from "lucide-react";
+import { Calendar, MapPin } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "../../lib/utils";
 import type { Order } from "../../api/orders";
@@ -144,40 +144,27 @@ function DaySection({ bucket, lang }: DaySectionProps) {
       : t(lang, "schedule.label.appointments").replace("{{n}}", String(count));
 
   return (
-    <section className="mb-4 last:mb-0">
+    <section className="mb-5 last:mb-0">
       <div
-        className={cn(
-          "sticky top-0 z-10 -mx-1 mb-2 flex items-center justify-between gap-3 px-1 py-1.5",
-          "backdrop-blur",
-        )}
-        style={{ background: "color-mix(in srgb, var(--surface) 85%, transparent)" }}
+        className="sticky top-0 z-10 -mx-1 mb-1.5 flex items-baseline justify-between gap-3 px-1 py-1"
+        style={{ background: "color-mix(in srgb, var(--surface) 90%, transparent)" }}
       >
-        <div className="flex items-center gap-2">
-          <span
-            className={cn(
-              "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider",
-              bucket.isToday
-                ? "bg-amber-200/80 text-amber-900 dark:bg-amber-900/60 dark:text-amber-200"
-                : bucket.isTomorrow
-                  ? "bg-sky-200/80 text-sky-900 dark:bg-sky-900/50 dark:text-sky-200"
-                  : "",
-            )}
-            style={
-              !bucket.isToday && !bucket.isTomorrow
-                ? { background: "var(--border-strong)", color: "var(--text-muted)" }
-                : undefined
-            }
-          >
-            {prefix}
-          </span>
-          <span className="text-xs font-semibold uppercase tracking-wider p-text-muted">
-            {dateShort}
-          </span>
+        <div className="flex items-baseline gap-2">
+          {bucket.isToday || bucket.isTomorrow ? (
+            <span
+              className={cn(
+                "inline-block h-1.5 w-1.5 rounded-full",
+                bucket.isToday ? "bg-amber-500" : "bg-sky-500",
+              )}
+            />
+          ) : null}
+          <span className="text-xs font-semibold p-text-main">{prefix}</span>
+          <span className="text-xs p-text-muted tabular-nums">{dateShort}</span>
         </div>
-        <span className="text-[11px] font-medium p-text-subtle">{countLabel}</span>
+        <span className="text-[11px] p-text-subtle">{countLabel}</span>
       </div>
 
-      <ul className="space-y-1.5">
+      <ul className="divide-y" style={{ borderColor: "var(--border-soft)" }}>
         {bucket.orders.map((order) => (
           <ScheduleRow key={order.orderNo} order={order} lang={lang} />
         ))}
@@ -197,34 +184,31 @@ function ScheduleRow({ order, lang }: ScheduleRowProps) {
   const status = getStatusEntry(order.status);
 
   return (
-    <li>
+    <li style={{ borderColor: "var(--border-soft)" }}>
       <Link
         to={`/orders?orderNo=${order.orderNo}`}
-        className="group grid grid-cols-[56px,1fr,auto] items-center gap-3 rounded-lg border p-2.5 transition-colors hover:border-[var(--accent)]/40"
-        style={{ borderColor: "var(--border-soft)", background: "var(--surface-raised)" }}
+        className="group grid grid-cols-[48px,1fr,auto] items-center gap-3 rounded-md px-1 py-2 transition-colors hover:bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]"
       >
-        <div className="flex flex-col items-center justify-center rounded-md py-1.5" style={{ background: "var(--surface)" }}>
-          <Clock className="mb-0.5 h-3 w-3 p-text-subtle" />
-          <span className="text-sm font-bold tabular-nums p-text-main">{time}</span>
-        </div>
+        <span className="text-sm font-semibold tabular-nums p-text-main">{time}</span>
 
         <div className="min-w-0">
-          <div className="flex items-center gap-1.5">
-            <User className="h-3.5 w-3.5 flex-shrink-0 p-text-subtle" />
-            <span className="truncate text-sm font-medium p-text-main">
-              {order.customerName || t(lang, "schedule.label.noName")}
-            </span>
+          <div className="truncate text-sm p-text-main">
+            {order.customerName || t(lang, "schedule.label.noName")}
           </div>
           {order.address && (
             <div className="mt-0.5 flex items-center gap-1.5">
-              <MapPin className="h-3.5 w-3.5 flex-shrink-0 p-text-subtle" />
+              <MapPin className="h-3 w-3 flex-shrink-0 p-text-subtle" />
               <span className="truncate text-xs p-text-muted">{order.address}</span>
             </div>
           )}
         </div>
 
-        <span className={cn("hidden shrink-0 sm:inline-flex", status.badgeClass)}>
-          {status.label}
+        <span className="flex shrink-0 items-center gap-1.5">
+          <span
+            className={cn("h-1.5 w-1.5 rounded-full", status.barColor)}
+            aria-hidden="true"
+          />
+          <span className="hidden text-[11px] p-text-muted sm:inline">{status.label}</span>
         </span>
       </Link>
     </li>
