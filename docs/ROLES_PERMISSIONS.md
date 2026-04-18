@@ -1,6 +1,6 @@
-# Propus Platform — Rollen, Permissions & Logto-Mapping
+# Propus Platform — Rollen, Permissions & RBAC
 
-> **Automatisch mitpflegen:** Bei neuen Rollen, geänderten Permission-Zuweisungen oder Logto-Org-Änderungen dieses Dokument aktualisieren.
+> **Automatisch mitpflegen:** Bei neuen Rollen oder geänderten Permission-Zuweisungen dieses Dokument aktualisieren.
 
 *Zuletzt aktualisiert: April 2026 (überarbeitet: Admin-Verwaltung zentralisiert, Portal-Rollen UI konsolidiert; §9 Unified-Login Rollen-Mapping; Firmenverwaltung entfernt – Portal-Rolle direkt am Kontakt)*
 
@@ -13,8 +13,7 @@
 3. [Alle Permission-Keys](#3-alle-permission-keys)
 4. [Rollen → Permissions Mapping](#4-rollen--permissions-mapping)
 5. [Rollen-Sync-Logik](#5-rollen-sync-logik)
-6. [Logto-Integration](#6-logto-integration)
-7. [Portal-Rollen (Tour-Manager)](#7-portal-rollen-tour-manager)
+6. [Portal-Rollen (Tour-Manager)](#6-portal-rollen-tour-manager)
 8. [Access-Subjects](#8-access-subjects)
 9. [Unified-Login: Rollen-Zuweisung für Portal-Kunden](#9-unified-login-rollen-zuweisung-für-portal-kunden)
 
@@ -165,87 +164,13 @@ syncCustomerRolesFromDb(customerId)
   → FALSE → Rolle: customer_user
 ```
 
-**Logto → System-Rolle Mapping (`mapLogtoRolesToSystemRole`):**
-
-Logto-Rollen-Array wird von links nach rechts geprüft (erste Übereinstimmung gewinnt):
-1. `super_admin`
-2. `tour_manager`
-3. `admin`
-4. `photographer`
-5. `company_owner`
-6. `company_admin` (deprecated → wird als `company_employee` behandelt)
-7. `company_employee`
-8. `customer_admin`
-9. `customer`
-10. (Fallback: `photographer`)
-
 **Exklusivitäts-Regel (UI-Enforcement):**
 `super_admin` und `admin` schließen sich gegenseitig aus.
 Das UI (`/settings/users`, `AdminUsersPage.tsx`) entfernt die jeweils andere Rolle automatisch beim Zuweisen.
 
 ---
 
-## 6. Logto-Integration
-
-### 6.1 Firmen-Organisationen (`booking/logto-org-sync.js`)
-
-Jede `core.companies`-Firma bekommt eine Logto-Organisation:
-
-```
-customData: {
-  source: 'propus-core',
-  companyId: number,
-  slug: string
-}
-```
-
-**`ensureOrganizationForCompany(company)`**
-1. Suche via `customData.companyId`
-2. Erstelle neue Org falls nicht vorhanden
-3. Aktualisiere Namen bei Änderung
-
-**`addCompanyMemberToLogtoOrg(companyId, member)`**
-1. Findet Logto-Org via `companyId`
-2. Löst Logto-User-ID auf: `member.auth_subject` → E-Mail-Lookup
-3. Fügt User zur Org hinzu (ignoriert 409/422)
-
-> **Hinweis:** Firmen-Org-Rollen werden **nicht** in `logto-org-sync.js` vergeben — nur Mitgliedschaft. Rollen kommen aus dem RBAC-System.
-
----
-
-### 6.2 Portal-Workspaces (`booking/logto-portal-workspace-sync.js`)
-
-Jeder Kunden-Workspace bekommt eine separate Logto-Organisation:
-
-```
-customData: {
-  source: 'tour-portal',
-  ownerEmail: string,
-  customerId: number
-}
-```
-
-**Logto Organization Roles:**
-
-| Konstante | Rollenname | Zugeordnet an |
-|---|---|---|
-| `ORG_ROLE_OWNER` | `workspace_owner` | Workspace-Inhaber |
-| `ORG_ROLE_ADMIN` | `workspace_admin` | `portal_team_members.role = 'admin'` |
-| `ORG_ROLE_MEMBER` | `workspace_member` | `portal_team_members.role = 'mitarbeiter'` |
-
-**`syncPortalMemberToLogtoOrg(ownerEmail, memberEmail, portalRole)`**
-1. Workspace-Org sicherstellen
-2. Logto-User per E-Mail finden
-3. User zur Org hinzufügen
-4. Alle bestehenden Org-Rollen des Users löschen
-5. Neue Rolle setzen:
-   - `memberEmail === ownerEmail` → `workspace_owner`
-   - `portalRole === 'admin'` → `workspace_admin`
-   - sonst → `workspace_member`
-
----
-
-## 7. Portal-Rollen (Tour-Manager)
+## 6. Portal-Rollen (Tour-Manager)
 
 ### 7.0 UI — Zentrale Verwaltung
 
@@ -253,18 +178,18 @@ customData: {
 
 | Was | Wo im UI | Pfad |
 |---|---|---|
-| Admin-Panel-Zugriff (Logto) | **Einstellungen → Benutzer** | `/settings/users` |
+| Admin-Panel-Zugriff | **Einstellungen → Benutzer** | `/settings/users` |
 | Portal-Rolle pro Kontakt | **Kunden → Kunde öffnen → Kontakte** | `/customers` |
 | Portal-Zugang Übersicht (intern + extern) | **Einstellungen → Rollen & Rechte → Tab "Portal-Zugang"** | `/settings/roles?view=portal` |
 | Rollen-Matrix (Referenz) | **Einstellungen → Rollen & Rechte → Tab "Rollen-Matrix"** | `/settings/roles` |
 
 **Portal-Rolle direkt am Kontakt (ab April 2026):**
 
-Die `portal_role` wird neu direkt im Kontakt-Formular gesetzt (Dropdown, editierbar beim Anlegen und Bearbeiten). Das Backend (`customer-contacts-routes.js`) synct die Rolle automatisch auf `core.company_members` und die Logto-Organisation.
+Die `portal_role` wird neu direkt im Kontakt-Formular gesetzt (Dropdown, editierbar beim Anlegen und Bearbeiten). Das Backend (`customer-contacts-routes.js`) synct die Rolle automatisch auf `core.company_members`.
 
 API: `GET /api/admin/customers/:id/contacts` liefert neu `member_status` (`"invited"` | `"active"` | `"disabled"` | `null`) via LEFT JOIN auf `company_members`.
 
-Einladen-Endpunkt: `POST /api/admin/customers/:id/contacts/:contactId/invite` erstellt einen `company_invitations`-Eintrag (Token-basiert, kein automatischer E-Mail-Versand im Backend — Logto-seitige Notification abhängig von Logto-Konfiguration).
+Einladen-Endpunkt: `POST /api/admin/customers/:id/contacts/:contactId/invite` erstellt einen `company_invitations`-Eintrag (Token-basiert, kein automatischer E-Mail-Versand im Backend).
 
 > **Entfernt (April 2026):** Die Seite `/settings/companies` ("Firmenverwaltung") wurde aus der Navigation entfernt. Die URL leitet auf `/customers` weiter. Firmen-Workspaces existieren weiterhin als technisches Konzept (Tabelle `core.companies`), werden aber nicht mehr separat verwaltet — sie entstehen automatisch beim Kontakt-Sync.
 
@@ -312,10 +237,10 @@ Globale Rollen für interne Mitarbeiter, die auf alle Kunden-Workspaces zugreife
 
 **Zugriffsrechte:**
 
-| portal_team_members.role | status | RBAC-Systemrolle | Logto-Org-Rolle |
-|---|---|---|---|
-| `admin` | `active` | `customer_admin` | `workspace_admin` |
-| `mitarbeiter` | `active` | — (kein RBAC) | `workspace_member` |
+| portal_team_members.role | status | RBAC-Systemrolle |
+|---|---|---|
+| `admin` | `active` | `customer_admin` |
+| `mitarbeiter` | `active` | — (kein RBAC) |
 
 ---
 

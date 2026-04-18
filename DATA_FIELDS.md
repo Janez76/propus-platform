@@ -18,7 +18,7 @@
 | [docs/FLOWS_UPLOAD.md](docs/FLOWS_UPLOAD.md) | Upload-System: Endpunkte, upload_batches/files-Tabellen, NAS-Pfad-Logik, Kategorien, Chunked-Upload, Konflikt-Modi, Upload-Gruppen |
 | [docs/FLOWS_EXXAS.md](docs/FLOWS_EXXAS.md) | Exxas-Integration: Gespeicherte Felder, exxas_invoices-Tabelle, Reconcile-Flow, Scoring, API-Funktionen, Order-Sync |
 | [docs/SCHEMA_FULL.md](docs/SCHEMA_FULL.md) | Vollständiges DB-Schema: core.*, booking.*, tour_manager.* — alle Tabellen mit allen Feldern |
-| [docs/ROLES_PERMISSIONS.md](docs/ROLES_PERMISSIONS.md) | Rollen & Permissions: RBAC-System, System-Rollen, Permission-Keys, Mapping-Tabelle, Rollen-Sync, Logto-Integration, Portal-Rollen |
+| [docs/ROLES_PERMISSIONS.md](docs/ROLES_PERMISSIONS.md) | Rollen & Permissions: RBAC-System, System-Rollen, Permission-Keys, Mapping-Tabelle, Rollen-Sync, Portal-Rollen |
 | [docs/EMAIL_TEMPLATES.md](docs/EMAIL_TEMPLATES.md) | E-Mail-Templates: Mail-Transport, alle Booking-Builder-Funktionen, Tour-Manager DB-Templates mit Platzhaltern, Logging |
 | [docs/ADMIN-FRONTEND-DESIGN.md](docs/ADMIN-FRONTEND-DESIGN.md) | Admin-Frontend Design-Referenz: Verbindliche Bausteine, Listing-Editor, Shared-Module in der Main-App (StatusBadge, Pricing, useDirty, useT, address, Test-Infrastruktur/Vitest) |
 | [docs/OPENAPI.md](docs/OPENAPI.md) | OpenAPI 3.1 Spec (Skeleton): 5 kritische Endpunkte, Konventionen, Lint-/Preview-Anleitung. Spec liegt in [`docs/openapi/openapi.yaml`](docs/openapi/openapi.yaml) |
@@ -57,7 +57,7 @@ WHERE LOWER(c.email) = $1
 
 | # | Lücke | Status |
 |---|---|---|
-| 1 | Neukunde über Online-Buchung landet nur in `customers` ohne Company-Member und Logto-Sync | ✅ **Behoben** April 2026 in `booking/server.js` (`createCustomerPortalMagicLink`) |
+| 1 | Neukunde über Online-Buchung landet nur in `customers` ohne Company-Member | ✅ **Behoben** April 2026 in `booking/server.js` (`createCustomerPortalMagicLink`) |
 | 2 | `isSynthCustomerEmail` erkannte nur `@company.local`, nicht `@invite.buchungstool.invalid` | ✅ **Behoben** April 2026 in `CompanyManagementPage.tsx` |
 | 3 | Sidebar hatte doppelte Einträge "Kunden" + "Firmenverwaltung" | ✅ **Behoben** April 2026: kombiniertes Submenu "Kunden & Firmen" |
 | 4 | Firmenverwaltungs-Seite zeigte keine Kontaktpersonen | ✅ **Behoben** April 2026: `CustomerContactsSection` integriert |
@@ -75,7 +75,7 @@ WHERE LOWER(c.email) = $1
 |---|---|
 | Frontend | React 19, Next.js (SPA), TypeScript, Tailwind CSS |
 | Backend | Express.js, PostgreSQL |
-| Auth | Logto OIDC (Admin), Session-basiert (Portal-Legacy), Magic-Link (Kunden) |
+| Auth | Session-basiert (Admin + Portal), Magic-Link (Kunden) |
 | E-Mail | Microsoft Graph API + SMTP-Fallback |
 | Kalender | Microsoft Graph API (Exchange/M365) |
 | Matterport | REST + GraphQL API |

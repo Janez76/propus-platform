@@ -2,49 +2,11 @@
  * Portal-Rollen (intern/extern) — Daten und Helfer wie in routes/admin.js
  */
 
-const path = require('path');
 const { pool } = require('./db');
 const portalTeam = require('./portal-team');
-const { isLogtoEnabled } = require('../../auth/logto-config');
 
-function getBookingPortalSyncModules() {
-  try {
-    const br = path.join(__dirname, '..', '..', 'booking');
-    return {
-      portalRbac: require(path.join(br, 'portal-rbac-sync')),
-      logtoRole: require(path.join(br, 'logto-role-sync')),
-      logtoWs: require(path.join(br, 'logto-portal-workspace-sync')),
-    };
-  } catch {
-    return null;
-  }
-}
-
-async function runExternPortalSync(ownerEmail, memberEmail) {
-  const m = getBookingPortalSyncModules();
-  if (!m) return;
-  try {
-    await m.portalRbac.syncPortalTeamMemberAdminRbac(ownerEmail, memberEmail);
-    const cnt = await m.portalRbac.countActivePortalAdminWorkspaces(memberEmail);
-    if (cnt > 0) await m.logtoRole.syncSystemRoleToLogto(memberEmail, 'customer_admin', 'add');
-    else await m.logtoRole.syncSystemRoleToLogto(memberEmail, 'customer_admin', 'remove');
-    const row = await pool.query(
-      `SELECT role, status FROM tour_manager.portal_team_members
-       WHERE LOWER(TRIM(owner_email)) = $1 AND LOWER(TRIM(member_email)) = $2
-       LIMIT 1`,
-      [String(ownerEmail).trim().toLowerCase(), String(memberEmail).trim().toLowerCase()]
-    );
-    const t = row.rows[0];
-    if (t && String(t.status) === 'active') {
-      await m.logtoWs.ensureWorkspaceOrganizationForOwner(ownerEmail);
-      await m.logtoWs.syncWorkspaceOwnerToLogtoOrg(ownerEmail);
-      await m.logtoWs.syncPortalMemberToLogtoOrg(ownerEmail, memberEmail, portalTeam.normalizeMemberRole(t.role));
-    } else {
-      await m.logtoWs.removePortalMemberFromLogtoOrg(ownerEmail, memberEmail);
-    }
-  } catch (e) {
-    console.warn('[admin-portal-roles extern sync]', e.message);
-  }
+async function runExternPortalSync(_ownerEmail, _memberEmail) {
+  // Logto entfernt – kein externer Sync mehr nötig
 }
 
 async function loadPortalRolesSnapshot(queryTab) {
@@ -163,7 +125,7 @@ async function loadPortalRolesSnapshot(queryTab) {
     staffRows,
     externRows,
     ownerList,
-    logtoPortalEnabled: isLogtoEnabled('PROPUS_TOURS_PORTAL'),
+    logtoPortalEnabled: false,
   };
 }
 

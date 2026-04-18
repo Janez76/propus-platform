@@ -22,7 +22,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import { formatSwissDateTime } from "../../lib/format";
 
 type CreateOpts = { includeVolumes?: boolean };
-type RestoreOpts = { restoreLogto?: boolean; restoreVolumes?: boolean };
+type RestoreOpts = { restoreVolumes?: boolean };
 
 type Props = {
   items: BackupItem[];
@@ -42,7 +42,6 @@ function formatFileSize(bytes?: number): string {
 
 const FILE_ICONS: Record<string, React.ReactNode> = {
   "db.sql":        <Database  className="h-3.5 w-3.5" style={{ color: "#3498db" }} />,
-  "logto.sql":     <Database  className="h-3.5 w-3.5" style={{ color: "#9b59b6" }} />,
   "orders.json":   <FileArchive className="h-3.5 w-3.5" style={{ color: "var(--propus-gold)" }} />,
   "metadata.txt":  <Info className="h-3.5 w-3.5" style={{ color: "var(--text-subtle)" }} />,
   "SHA256SUMS.txt":<Info className="h-3.5 w-3.5" style={{ color: "var(--text-subtle)" }} />,
@@ -91,7 +90,6 @@ export function BackupManager({ items, config, onCreate, onDelete, onRestore }: 
   const [error, setError] = useState("");
 
   const [createIncludeVolumes, setCreateIncludeVolumes] = useState(false);
-  const [restoreSkipLogto, setRestoreSkipLogto] = useState(false);
   const [restoreVolumes, setRestoreVolumes] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
 
@@ -128,7 +126,7 @@ export function BackupManager({ items, config, onCreate, onDelete, onRestore }: 
     setError("");
     setRestoreTarget(null);
     try {
-      await onRestore(name, { restoreLogto: !restoreSkipLogto, restoreVolumes });
+      await onRestore(name, { restoreVolumes });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Backup konnte nicht wiederhergestellt werden.");
     } finally {
@@ -151,8 +149,6 @@ export function BackupManager({ items, config, onCreate, onDelete, onRestore }: 
       setSelectedName(null);
     }
   }
-
-  const hasLogto = config?.logtoEnabled ?? false;
 
   return (
     <section className="space-y-5">
@@ -188,15 +184,6 @@ export function BackupManager({ items, config, onCreate, onDelete, onRestore }: 
             <div>
               <div style={{ color: "var(--text-subtle)" }}>Zeitplan</div>
               <div className="font-semibold font-mono mt-0.5" style={{ color: "var(--text-muted)" }}>{config.schedule} (02:00)</div>
-            </div>
-            <div>
-              <div style={{ color: "var(--text-subtle)" }}>Logto-DB</div>
-              <div className="mt-0.5">
-                {config.logtoEnabled
-                  ? <span className="cust-status-badge cust-status-completed"><CheckCircle2 className="h-3 w-3" /> Aktiv</span>
-                  : <span className="cust-status-badge cust-status-draft"><AlertTriangle className="h-3 w-3" /> Nicht konfiguriert</span>
-                }
-              </div>
             </div>
             <div>
               <div style={{ color: "var(--text-subtle)" }}>Manuelles Voll-Backup</div>
@@ -240,7 +227,7 @@ export function BackupManager({ items, config, onCreate, onDelete, onRestore }: 
             </p>
           )}
           <p className="text-xs" style={{ color: "var(--text-subtle)" }}>
-            Der tägliche NAS-Sync sichert standardmässig Datenbank, Logto und Metadaten. Volume-Archive nur manuell bei Bedarf.
+            Der tägliche NAS-Sync sichert standardmässig Datenbank und Metadaten. Volume-Archive nur manuell bei Bedarf.
           </p>
         </div>
       )}
@@ -275,7 +262,6 @@ export function BackupManager({ items, config, onCreate, onDelete, onRestore }: 
                 const isRestoring = busyAction === "restore" && selectedName === item.name;
                 const isExpanded = expandedRow === item.name;
                 const hasContents = item.contents && item.contents.length > 0;
-                const hasLogtoSql = item.contents?.some((f) => f.file === "logto.sql");
                 const hasVolumes = item.contents?.some((f) => f.file.endsWith(".tar.gz"));
 
                 return (
@@ -301,11 +287,6 @@ export function BackupManager({ items, config, onCreate, onDelete, onRestore }: 
                           <span className="text-sm font-medium font-mono" style={{ color: "var(--text-main)" }}>{item.name}</span>
                         </div>
                         <div className="flex flex-wrap gap-1 mt-1">
-                          {hasLogtoSql && (
-                            <span className="cust-badge cust-badge--info">
-                              <Database className="h-2.5 w-2.5 mr-0.5 inline" /> logto
-                            </span>
-                          )}
                           {hasVolumes && (
                             <span className="cust-badge cust-badge--gold">
                               <FolderArchive className="h-2.5 w-2.5 mr-0.5 inline" /> volumes
@@ -384,7 +365,6 @@ export function BackupManager({ items, config, onCreate, onDelete, onRestore }: 
             <ul className="space-y-1.5 rounded-lg p-3" style={{ background: "var(--surface-raised)" }}>
               {[
                 "Haupt-Datenbank (propus)",
-                hasLogto ? "Auth-Datenbank (logto)" : null,
                 "Bestellungen (orders.json)",
                 "Umgebungskonfiguration (.env.vps)",
                 "Volume-Archive der lokalen VPS-Restore-Daten (optional)",
@@ -416,7 +396,7 @@ export function BackupManager({ items, config, onCreate, onDelete, onRestore }: 
 
             <div className="cust-alert cust-alert--warning text-xs">
               <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-              <span>Der tägliche NAS-Sync speichert standardmässig nur DB, Logto und Metadaten. Voll-Volume-Backups bitte gezielt manuell starten.</span>
+              <span>Der tägliche NAS-Sync speichert standardmässig nur DB und Metadaten. Voll-Volume-Backups bitte gezielt manuell starten.</span>
             </div>
           </div>
           <div className="mt-4 flex items-center justify-end gap-2">
@@ -455,7 +435,6 @@ export function BackupManager({ items, config, onCreate, onDelete, onRestore }: 
             </div>
             {[
               { checked: restoreVolumes, onChange: (v: boolean) => setRestoreVolumes(v), title: "Volume-Archive wiederherstellen", hint: "Stellt die lokalen VPS-Pfade State, Logs und Upload-Staging aus dem Backup wieder her." },
-              hasLogto ? { checked: restoreSkipLogto, onChange: (v: boolean) => setRestoreSkipLogto(v), title: "Logto-Datenbank überspringen", hint: "Nur Haupt-DB wiederherstellen. Logto-Auth-Daten bleiben unverändert." } : null,
             ].filter(Boolean).map((opt) => opt && (
               <label key={opt.title} className="flex items-start gap-3 cursor-pointer select-none rounded-lg border p-3 transition-colors" style={{ borderColor: "var(--border-soft)" }}>
                 <input

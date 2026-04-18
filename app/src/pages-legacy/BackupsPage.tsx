@@ -36,7 +36,7 @@ export function BackupsPage() {
       config={config}
       onCreate={async (opts: { includeVolumes?: boolean }) => { await createBackup(token, opts); await load(); }}
       onDelete={async (name: string) => { await deleteBackup(token, name); await load(); }}
-      onRestore={async (name: string, opts: { restoreLogto?: boolean; restoreVolumes?: boolean }) => { await restoreBackup(token, name, opts); await load(); }}
+      onRestore={async (name: string, opts: { restoreVolumes?: boolean }) => { await restoreBackup(token, name, opts); await load(); }}
     />
   );
 }

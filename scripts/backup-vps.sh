@@ -17,12 +17,6 @@ orders_file="${ORDERS_FILE:-/data/state/orders.json}"
 retention_days="${BACKUP_RETENTION_DAYS:-30}"
 env_file="${VPS_ENV_FILE:-/opt/propus-platform/.env.vps}"
 
-logto_host="${LOGTO_DB_HOST:-}"
-logto_port="${LOGTO_DB_PORT:-5432}"
-logto_db="${LOGTO_DB_NAME:-logto}"
-logto_user="${LOGTO_DB_USER:-logto}"
-logto_password="${LOGTO_DB_PASSWORD:-}"
-
 # Volume archives stay opt-in because the NAS-backed upload mounts can get very large.
 # Daily NAS backups should remain fast and reliable even when upload shares grow.
 include_volumes="${BACKUP_INCLUDE_VOLUMES:-0}"
@@ -50,25 +44,6 @@ pg_dump \
 if [ ! -s "${backup_dir}/db.sql" ]; then
   printf '[backup] FEHLER: SQL-Dump ist leer.\n' >&2
   exit 1
-fi
-
-if [ -n "${logto_host}" ] && [ -n "${logto_password}" ]; then
-  printf '[backup] Erstelle SQL-Dump (logto): %s/logto.sql\n' "${backup_dir}"
-  PGPASSWORD="${logto_password}" pg_dump \
-    -h "${logto_host}" \
-    -p "${logto_port}" \
-    -U "${logto_user}" \
-    -d "${logto_db}" \
-    --clean \
-    --if-exists \
-    > "${backup_dir}/logto.sql"
-
-  if [ ! -s "${backup_dir}/logto.sql" ]; then
-    printf '[backup] WARNUNG: Logto-Dump ist leer, wird entfernt.\n' >&2
-    rm -f "${backup_dir}/logto.sql"
-  fi
-else
-  printf '[backup] Logto-DB-Backup uebersprungen (LOGTO_DB_HOST oder LOGTO_DB_PASSWORD nicht gesetzt)\n'
 fi
 
 if [ -f "${orders_file}" ]; then
@@ -110,7 +85,6 @@ fi
 {
   printf 'timestamp=%s\n' "${timestamp}"
   printf 'database=%s\n' "${pg_db}"
-  printf 'logto_database=%s\n' "${logto_db}"
   printf 'host=%s\n' "${pg_host}"
   printf 'orders_file=%s\n' "${orders_file}"
   printf 'include_volumes=%s\n' "${include_volumes}"

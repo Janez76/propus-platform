@@ -17,36 +17,6 @@ const userProfiles = require('./lib/user-profiles');
 const { pool } = require('./lib/db');
 const { createPostgresSessionStore } = require('../auth/postgres-session-store');
 
-let logtoAuth = null;
-let logtoPortalAuth = null;
-try {
-  const { createLogtoAuth } = require('../auth/logto-middleware');
-  logtoAuth = createLogtoAuth({
-    prefix: 'PROPUS_TOURS_ADMIN',
-    callbackPath: '/auth/callback',
-    logoutRedirect: '/',
-    loginPath: '/auth/login',
-    logoutPath: '/auth/logout',
-    sessionKind: 'admin',
-  });
-  logtoPortalAuth = createLogtoAuth({
-    prefix: 'PROPUS_TOURS_PORTAL',
-    callbackPath: '/portal/auth/callback',
-    logoutRedirect: '/portal/login',
-    loginPath: '/portal/auth/login',
-    logoutPath: '/portal/auth/logout',
-    sessionKind: 'portal',
-  });
-  if (logtoAuth.enabled) {
-    console.log('[tours] Logto OIDC auth enabled (admin)');
-  }
-  if (logtoPortalAuth.enabled) {
-    console.log('[tours] Logto OIDC auth enabled (portal)');
-  }
-} catch {
-  // auth module not available – legacy-only mode
-}
-
 const app = express();
 /** Wenn unter /tour-manager gemountet: Prefix für Links in EJS (res.locals.basePath) */
 const TOURS_MOUNT_PATH = String(process.env.TOURS_MOUNT_PATH || '').replace(/\/$/, '');
@@ -169,14 +139,6 @@ app.get('/', (req, res) => {
     '<h1>Propus VR Touren</h1><p>Verwende den Link aus der E-Mail zur Verlängerung.</p></body></html>'
   );
 });
-
-// Logto OIDC Routes (wenn aktiviert)
-if (logtoAuth?.enabled) {
-  app.use(logtoAuth.routes());
-}
-if (logtoPortalAuth?.enabled) {
-  app.use(logtoPortalAuth.routes());
-}
 
 // Kunden-Routes (touren.propus.ch)
 app.use('/r', customerRoutes);

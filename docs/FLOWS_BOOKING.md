@@ -74,8 +74,6 @@ POST /api/booking
   │        ├── [billing.company gesetzt]:
   │        │     ├── ensureCompanyByName() → core.companies
   │        │     ├── upsertCompanyMember(role: company_owner) → core.company_members
-  │        │     ├── logtoOrgSync.ensureOrganizationForCompany()
-  │        │     ├── logtoOrgSync.addCompanyMemberToLogtoOrg()
   │        │     └── rbac.syncCompanyMemberRolesFromDb()
   │        └── createCustomerSession() → core.customer_sessions (Token für Magic-Link)
   │
@@ -651,7 +649,7 @@ Buchungsabschluss
   │
   ├── Kunde in core.customers suchen / anlegen
   ├── Firma sicherstellen (ensureCompanyByName)
-  ├── company_member erstellen + Logto-Org-Sync
+  ├── company_member erstellen
   ├── Token (random hex) → INSERT booking.customer_sessions
   └── Link: /auth/customer/magic?magic=<token>&returnTo=<path>
 ```

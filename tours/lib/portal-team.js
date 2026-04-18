@@ -10,75 +10,16 @@ const userProfiles = require('./user-profiles');
 
 let schemaReady = false;
 
-function getBookingPortalSync() {
-  try {
-    // Von tours/lib → Repo-Root/booking
-    const bookingRoot = path.join(__dirname, '..', '..', 'booking');
-    return {
-      portalRbac: require(path.join(bookingRoot, 'portal-rbac-sync')),
-      logtoRole: require(path.join(bookingRoot, 'logto-role-sync')),
-      logtoWs: require(path.join(bookingRoot, 'logto-portal-workspace-sync')),
-    };
-  } catch (e) {
-    return null;
-  }
+async function runAfterTeamMemberDbChange(_ownerEmail, _memberEmail) {
+  // Logto entfernt – kein externer Sync mehr nötig
 }
 
-async function runAfterTeamMemberDbChange(ownerEmail, memberEmail) {
-  const m = getBookingPortalSync();
-  if (!m) return;
-  try {
-    await m.portalRbac.syncPortalTeamMemberAdminRbac(ownerEmail, memberEmail);
-    const cnt = await m.portalRbac.countActivePortalAdminWorkspaces(memberEmail);
-    if (cnt > 0) await m.logtoRole.syncSystemRoleToLogto(memberEmail, 'customer_admin', 'add');
-    else await m.logtoRole.syncSystemRoleToLogto(memberEmail, 'customer_admin', 'remove');
-
-    const tm = await pool.query(
-      `SELECT role, status FROM tour_manager.portal_team_members
-       WHERE LOWER(TRIM(owner_email)) = $1 AND LOWER(TRIM(member_email)) = $2
-       LIMIT 1`,
-      [normalizeEmail(ownerEmail), normalizeEmail(memberEmail)]
-    );
-    const t = tm.rows[0];
-    if (t && String(t.status) === 'active') {
-      await m.logtoWs.ensureWorkspaceOrganizationForOwner(ownerEmail);
-      await m.logtoWs.syncWorkspaceOwnerToLogtoOrg(ownerEmail);
-      await m.logtoWs.syncPortalMemberToLogtoOrg(ownerEmail, memberEmail, normalizeMemberRole(t.role));
-    } else {
-      await m.logtoWs.removePortalMemberFromLogtoOrg(ownerEmail, memberEmail);
-    }
-  } catch (e) {
-    console.warn('[portal-team sync]', e.message);
-  }
+async function runAfterTeamMemberRemoved(_ownerEmail, _memberEmail) {
+  // Logto entfernt – kein externer Sync mehr nötig
 }
 
-async function runAfterTeamMemberRemoved(ownerEmail, memberEmail) {
-  const m = getBookingPortalSync();
-  if (!m) return;
-  try {
-    await m.portalRbac.syncPortalTeamMemberAdminRbac(ownerEmail, memberEmail);
-    const cnt = await m.portalRbac.countActivePortalAdminWorkspaces(memberEmail);
-    if (cnt === 0) await m.logtoRole.syncSystemRoleToLogto(memberEmail, 'customer_admin', 'remove');
-    await m.logtoWs.removePortalMemberFromLogtoOrg(ownerEmail, memberEmail);
-  } catch (e) {
-    console.warn('[portal-team sync]', e.message);
-  }
-}
-
-async function runAfterStaffTourManagerChange(emailNorm, action) {
-  const m = getBookingPortalSync();
-  if (!m) return;
-  try {
-    if (action === 'add') {
-      await m.portalRbac.syncPortalStaffTourManagerRbac(emailNorm, 'add');
-      await m.logtoRole.syncSystemRoleToLogto(emailNorm, 'tour_manager', 'add');
-    } else {
-      await m.portalRbac.syncPortalStaffTourManagerRbac(emailNorm, 'remove');
-      await m.logtoRole.syncSystemRoleToLogto(emailNorm, 'tour_manager', 'remove');
-    }
-  } catch (e) {
-    console.warn('[portal-team staff sync]', e.message);
-  }
+async function runAfterStaffTourManagerChange(_emailNorm, _action) {
+  // Logto entfernt – kein externer Sync mehr nötig
 }
 
 /** Workspace-Inhaber (customer_email der Tour); keine Zeile in portal_team_members. */

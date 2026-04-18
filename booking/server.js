@@ -2364,19 +2364,6 @@ app.use((err, req, res, next) => {
   next();
 });
 
-// ─── Logto OIDC Stub-Routen (Rückwärtskompatibilität für gespeicherte Links) ─
-// Logto wurde vollständig entfernt. Diese Routen leiten auf /login weiter.
-app.get('/auth/logto/login', (req, res) => {
-  const returnTo = encodeURIComponent(req.query.returnTo || '/dashboard');
-  res.redirect(`/login?returnTo=${returnTo}`);
-});
-app.get('/auth/logto/callback', (_req, res) => {
-  res.status(410).send('Logto SSO wurde entfernt. Bitte melde dich über /login an.');
-});
-app.get('/auth/logto/logout', (req, res) => {
-  req.session?.destroy?.(() => res.redirect('/login'));
-});
-// ─── Logto vollständig entfernt (April 2026) ─────────────────────────────────
 
 // SPA/Topbar nutzt /auth/logout
 app.get("/auth/logout", async (req, res) => {
@@ -2553,7 +2540,6 @@ app.get("/api/health", (_req, res) => {
       discountCodes: true,
       assignmentDecisionTrace: true,
       ssoEnabled: false,
-      logtoEnabled: false,
     },
     dbEnabled: !!process.env.DATABASE_URL,
     uptimeSec: Math.round(process.uptime()),
@@ -10223,8 +10209,8 @@ app.post("/api/admin/internal-users/:id/send-credentials", requireAdmin, async (
   }
 });
 
-// GET /api/admin/logto-roles – Rollenkatalog (jetzt lokal)
-app.get("/api/admin/logto-roles", requireAdmin, async (req, res) => {
+// GET /api/admin/roles – Rollenkatalog (lokal)
+app.get("/api/admin/roles", requireAdmin, async (req, res) => {
   const roles = INTERNAL_ROLES.map(name => ({ name, id: name }));
   res.json({ roles });
 });
@@ -10874,7 +10860,7 @@ app.get("/api/admin/photographers/:key/activity-log", requireAdmin, async (req, 
   }
 });
 
-// Passwort-Reset fuer Fotografen: Endpunkte liefern 403; Zugangsdaten laufen ueber SSO (Logto), nicht lokal.
+// Passwort-Reset fuer Fotografen: Endpunkte liefern 403; Zugang ueber Administratoren zu beantragen.
 app.post("/api/photographer/forgot-password", (_req, res) => {
   res.status(403).json({ error: "Passwort-Reset fuer Fotografen ist aktuell nicht aktiviert." });
 });
@@ -11484,7 +11470,6 @@ app.get("/api/admin/backup-config", requireAdmin, (req, res) => {
       volumePaths: (process.env.BACKUP_VOLUME_PATHS || "/data/state:/app/logs:/upload_staging")
         .split(":")
         .filter(Boolean),
-      logtoEnabled: Boolean(process.env.LOGTO_DB_HOST && process.env.LOGTO_DB_PASSWORD),
       schedule: nasSchedule,
       nasSync: {
         enabled: true,
@@ -11603,11 +11588,6 @@ app.post("/api/admin/backups/create", requireAdmin, async (req, res) => {
       POSTGRES_DB: process.env.POSTGRES_DB || "propus",
       POSTGRES_USER: process.env.POSTGRES_USER || "propus",
       POSTGRES_PASSWORD: process.env.POSTGRES_PASSWORD || "",
-      LOGTO_DB_HOST: process.env.LOGTO_DB_HOST || "",
-      LOGTO_DB_PORT: process.env.LOGTO_DB_PORT || "5432",
-      LOGTO_DB_NAME: process.env.LOGTO_DB_NAME || "logto",
-      LOGTO_DB_USER: process.env.LOGTO_DB_USER || "logto",
-      LOGTO_DB_PASSWORD: process.env.LOGTO_DB_PASSWORD || "",
       BACKUP_ROOT: process.env.BACKUP_ROOT || "/data/backups",
       BACKUP_INCLUDE_VOLUMES: includeVolumes,
       BACKUP_VOLUME_PATHS: process.env.BACKUP_VOLUME_PATHS || "/data/state:/app/logs:/upload_staging",
@@ -11752,10 +11732,9 @@ app.post("/api/admin/backups/:name/restore", requireAdmin, async (req, res) => {
       }
     }
 
-    // Ordner-Backup: db.sql + logto.sql wiederherstellen
+    // Ordner-Backup: db.sql wiederherstellen
     if (fs.statSync(fullPath).isDirectory()) {
       const dbSql = path.join(fullPath, "db.sql");
-      const logtoSql = path.join(fullPath, "logto.sql");
       const volumeMappings = [
         { file: "state.tar.gz", target: "/data/state" },
         { file: "logs.tar.gz", target: process.env.LOG_FILE_PATH ? path.dirname(process.env.LOG_FILE_PATH) : "/app/logs" },
@@ -11774,20 +11753,6 @@ app.post("/api/admin/backups/:name/restore", requireAdmin, async (req, res) => {
         results.push({ db: pgDb, ok: true, output: out });
       } catch (e) {
         return res.status(500).json({ error: `Fehler beim Wiederherstellen von ${pgDb}: ${e.message}`, stderr: e.stderr, results });
-      }
-
-      if (fs.existsSync(logtoSql) && req.body?.restoreLogto !== false) {
-        const logtoHost = process.env.LOGTO_DB_HOST || "logto-db";
-        const logtoPort = process.env.LOGTO_DB_PORT || "5432";
-        const logtoDb = process.env.LOGTO_DB_NAME || "logto";
-        const logtoUser = process.env.LOGTO_DB_USER || "logto";
-        const logtoPass = process.env.LOGTO_DB_PASSWORD || "";
-        try {
-          const out = await restoreSQL(logtoSql, logtoHost, logtoPort, logtoUser, logtoDb, logtoPass);
-          results.push({ db: logtoDb, ok: true, output: out });
-        } catch (e) {
-          results.push({ db: logtoDb, ok: false, error: e.message, stderr: e.stderr });
-        }
       }
 
       if (req.body?.restoreVolumes !== false) {

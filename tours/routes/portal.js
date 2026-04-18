@@ -21,7 +21,6 @@ const payrexx = require('../lib/payrexx');
 const portalAuth = require('../lib/portal-auth');
 const qrBill = require('../lib/qr-bill');
 const { appendPayrexxOnlineSection } = require('../lib/invoice-pdf-payrexx-hint');
-const { isLogtoEnabled } = require('../../auth/logto-config');
 const {
   EXTENSION_PRICE_CHF,
   REACTIVATION_PRICE_CHF,
@@ -564,9 +563,6 @@ router.post('/profile/password', requirePortalAuth, async (req, res) => {
 
 router.get('/logout', async (req, res) => {
   const bp = typeof res.locals.basePath === 'string' ? res.locals.basePath : '';
-  if (req.session?.portalLogtoAuth) {
-    return res.redirect(`${bp}/portal/auth/logout`);
-  }
   req.session.destroy(() => res.redirect(`${bp}/portal/login`));
 });
 

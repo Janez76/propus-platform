@@ -173,7 +173,7 @@ POST /api/admin/integrations/exxas/reconcile/confirm
   │
   └── Nach Commit:
         → syncCustomerContactToCompanyMember()
-        → logtoOrgSync (Company + Member)
+
 ```
 
 ---

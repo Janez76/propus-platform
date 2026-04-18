@@ -6,19 +6,8 @@ const { pool } = require('./db');
 const portalTeam = require('./portal-team');
 const exxas = require('./exxas');
 
-async function runExternPortalSync(ownerEmail, memberEmail) {
-  const path = require('path');
-  try {
-    const br = path.join(__dirname, '..', '..', 'booking');
-    const portalRbac = require(path.join(br, 'portal-rbac-sync'));
-    const logtoRole = require(path.join(br, 'logto-role-sync'));
-    await portalRbac.syncPortalTeamMemberAdminRbac(ownerEmail, memberEmail);
-    const cnt = await portalRbac.countActivePortalAdminWorkspaces(memberEmail);
-    if (cnt > 0) await logtoRole.syncSystemRoleToLogto(memberEmail, 'customer_admin', 'add');
-    else await logtoRole.syncSystemRoleToLogto(memberEmail, 'customer_admin', 'remove');
-  } catch {
-    /* optional booking-modul */
-  }
+async function runExternPortalSync(_ownerEmail, _memberEmail) {
+  // Logto entfernt – kein externer Sync mehr nötig
 }
 
 async function getCustomersListJson(query) {

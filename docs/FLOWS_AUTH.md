@@ -176,7 +176,7 @@ Buchungsabschluss POST /api/booking
   ├── createCustomerPortalMagicLink(billing)
   │     ├── Kunde suchen/anlegen in core.customers
   │     ├── Firma sicherstellen (ensureCompanyByName)
-  │     ├── company_member erstellen / Logto-Org-Sync
+  │     ├── company_member erstellen
   │     └── Token (random hex) → INSERT INTO booking.customer_sessions
   │           → URL: /auth/customer/magic?magic=<token>&returnTo=<path>
   │

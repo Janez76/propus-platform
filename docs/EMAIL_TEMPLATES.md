@@ -140,7 +140,7 @@ Wie `buildCustomerEmail`, zusätzlich:
 
 | Funktion | Parameter | Auslöser |
 |---|---|---|
-| `buildWelcomeEmail({name, adminUrl}, lang)` | | Neuer Admin via Logto |
+| `buildWelcomeEmail({name, adminUrl}, lang)` | | Neuer Admin-Benutzer |
 | `buildCredentialsEmail({name, key, email, tempPw, adminUrl, resetUrl}, lang)` | `tempPw` optional | Admin-Zugangsdaten erstellt |
 | `buildResetPasswordEmail({name, resetUrl}, lang)` | | Passwort-Reset-Anfrage |
 

@@ -1,6 +1,5 @@
 /**
- * Authentication helpers for Next.js
- * Logto wurde April 2026 entfernt — lokale Session-basierte Auth.
+ * Authentication helpers for Next.js — lokale Session-basierte Auth.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -14,16 +13,6 @@ export function getTokenFromRequest(req: NextRequest): string | null {
   const cookie = req.cookies.get("admin_session");
   if (cookie?.value) return cookie.value;
   return null;
-}
-
-/** Immer false — Logto entfernt */
-export function isLogtoEnabled(_prefix?: string): boolean {
-  return false;
-}
-
-/** Immer leeres Config-Objekt — Logto entfernt */
-export function getLogtoConfig(_prefix?: string) {
-  return { endpoint: "", internalEndpoint: "", appId: "", appSecret: "", scopes: [], discoveryUrl: "" };
 }
 
 /** JWT-Payload dekodieren (ohne Verifikation) */

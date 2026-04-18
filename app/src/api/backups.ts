@@ -26,7 +26,6 @@ export type BackupConfig = {
   retentionDays: number;
   includeVolumes: boolean;
   volumePaths: string[];
-  logtoEnabled: boolean;
   schedule: string;
   nasSync: NasSyncInfo;
 };
@@ -55,5 +54,5 @@ export const createBackup = (token: string, opts?: { includeVolumes?: boolean })
 export const deleteBackup = (token: string, name: string) =>
   apiRequest(`/api/admin/backups/${encodeURIComponent(name)}`, "DELETE", token);
 
-export const restoreBackup = (token: string, name: string, opts?: { restoreLogto?: boolean; restoreVolumes?: boolean }) =>
+export const restoreBackup = (token: string, name: string, opts?: { restoreVolumes?: boolean }) =>
   apiRequest(`/api/admin/backups/${encodeURIComponent(name)}/restore`, "POST", token, opts ?? {});

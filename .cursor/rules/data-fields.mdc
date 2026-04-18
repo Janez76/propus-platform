@@ -7,8 +7,6 @@ globs:
   - "booking/customer-contacts-routes.js"
   - "booking/admin-users-routes.js"
   - "booking/access-rbac.js"
-  - "booking/logto-org-sync.js"
-  - "booking/logto-portal-workspace-sync.js"
   - "tours/routes/**/*.js"
   - "tours/lib/**/*.js"
   - "core/migrations/**/*.sql"
@@ -33,7 +31,7 @@ Die Dokumentation liegt im Ordner `docs/` im Repo-Root. `DATA_FIELDS.md` ist der
 | `docs/FLOWS_UPLOAD.md` | Upload-System (Chunked-Upload, NAS-Pfade, Kategorien, Konflikt-Modi) |
 | `docs/FLOWS_EXXAS.md` | Exxas-Integration (Reconcile, Order-Sync, Rechnungs-Sync) |
 | `docs/SCHEMA_FULL.md` | Vollständiges DB-Schema (core.*, booking.*, tour_manager.*) |
-| `docs/ROLES_PERMISSIONS.md` | Rollen, Permissions, Logto-Mapping, Portal-Rollen |
+| `docs/ROLES_PERMISSIONS.md` | Rollen, Permissions, RBAC, Portal-Rollen |
 | `docs/EMAIL_TEMPLATES.md` | Alle Templates mit Platzhaltern und Auslösern |
 
 ## Wann welche Datei aktualisieren?

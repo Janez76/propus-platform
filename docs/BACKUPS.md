@@ -33,7 +33,7 @@ Cron auf dem NAS:
 Standardverhalten:
 
 - `BACKUP_INCLUDE_VOLUMES=0`
-- gesichert werden `db.sql`, `logto.sql`, `metadata.txt`, `SHA256SUMS.txt`
+- gesichert werden `db.sql`, `metadata.txt`, `SHA256SUMS.txt`
 - keine grossen Volume-Archive
 
 ### 2. Wöchentlicher Voll-Backup-Lauf
@@ -59,7 +59,7 @@ Standardverhalten:
 ### Immer enthalten
 
 - `db.sql`
-- `logto.sql` sofern Logto konfiguriert ist
+- 
 - `metadata.txt`
 - `SHA256SUMS.txt`
 - `orders.json` falls vorhanden
@@ -153,7 +153,7 @@ Wichtige Variablen im NAS-Skript:
 Fuer einen technischen Plattform-Restore auf der VPS sind vor allem relevant:
 
 - `db.sql`
-- `logto.sql`
+
 - `state.tar.gz`
 - `logs.tar.gz`
 - `upload_staging.tar.gz`

@@ -49,7 +49,7 @@ Initialisiert via `core/migrations/000_init_schemas.sql`.
 | `exxas_contact_id` | TEXT | NULL | Exxas-Legacy-Referenz |
 | `exxas_customer_id` | TEXT | NULL | Exxas-Kunden-ID |
 | `exxas_address_id` | TEXT | NULL | Exxas-Adress-ID |
-| `auth_sub` | TEXT | NULL | Logto-Subject |
+| `auth_sub` | TEXT | NULL | Auth-Subject (SSO) |
 | `blocked` | BOOLEAN | FALSE | |
 | `notes` | TEXT | `''` | |
 | `email_verified` | BOOLEAN | FALSE | |
@@ -107,7 +107,7 @@ Initialisiert via `core/migrations/000_init_schemas.sql`.
 |---|---|---|
 | `id` | SERIAL PK | |
 | `company_id` | INT FK → companies CASCADE | |
-| `auth_subject` | TEXT | Logto-Subject |
+| `auth_subject` | TEXT | Auth-Subject (SSO) |
 | `customer_id` | INT FK → customers SET NULL | |
 | `email` | TEXT | |
 | `role` | TEXT | CHECK: `company_owner`, `company_admin`, `company_employee` |
@@ -142,7 +142,7 @@ Initialisiert via `core/migrations/000_init_schemas.sql`.
 | `email` | TEXT NOT NULL UNIQUE | |
 | `username` | TEXT UNIQUE | |
 | `full_name` | TEXT | |
-| `logto_user_id` | TEXT UNIQUE | Logto-Subject |
+| `logto_user_id` | TEXT UNIQUE | Legacy Auth-Subject (historisch) |
 | `password_hash` | TEXT | Legacy |
 | `is_active` | BOOLEAN DEFAULT TRUE | |
 | `roles` | TEXT[] DEFAULT `ARRAY['admin']` | z.B. `['super_admin']`, `['admin']`, `['photographer']` |
@@ -462,7 +462,7 @@ unabhängig versionierbar sind.
 | `national_holidays` | BOOLEAN | TRUE | Schweizer Feiertage berücksichtigen |
 | `languages` / `native_language` | JSONB / TEXT | `'[]'` / `'de'` | |
 | `event_color` | TEXT | `'#3b82f6'` | Kalender-Anzeigefarbe |
-| `password_hash` | TEXT | NULL | Lokales Passwort (legacy; SSO via Logto bevorzugt) |
+| `password_hash` | TEXT | NULL | Lokales Passwort (lokal oder SSO) |
 | `earliest_departure` | TEXT | NULL | Globale Untergrenze, z. B. `'07:00'` |
 | `created_at` / `updated_at` | TIMESTAMPTZ | NOW() | |
 

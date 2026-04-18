@@ -1,0 +1,58 @@
+---
+description: Regeln für sichere Datenbankmigrationen – verhindert Fehler wie fehlende Spalten auf bestehenden DBs
+globs: "**/migrations/**/*.sql,booking/db.js,core/migrate.js"
+alwaysApply: false
+---
+
+# Datenbank-Migrations-Regeln
+
+## Schema-übergreifende Umbenennungen immer vollständig durchführen
+
+Wenn eine Spalte in einem Schema (`core.*`) umbenannt wird, muss dieselbe Umbenennung in **allen Schemas** nachgezogen werden, die diese Tabelle noch in alter Form enthalten (`booking.*`, `tour_manager.*`).
+
+```sql
+-- ❌ FALSCH: Nur core.* umbenannt, booking.* vergessen
+-- core/migrations/008_rename_keycloak_cols_to_auth.sql
+ALTER TABLE core.company_members RENAME COLUMN keycloak_subject TO auth_subject;
+-- booking.company_members hat die Spalte aber noch als keycloak_subject!
+
+-- ✅ RICHTIG: In der nächsten Migration (oder derselben) auch booking.* anpassen
+IF EXISTS (
+  SELECT 1 FROM information_schema.columns
+   WHERE table_schema = 'booking' AND table_name = 'company_members'
+     AND column_name = 'keycloak_subject'
+) THEN
+  ALTER TABLE booking.company_members RENAME COLUMN keycloak_subject TO auth_subject;
+END IF;
+```
+
+## Migrations-SQL immer defensiv schreiben (bestehende DBs)
+
+Jede Migration muss auf DBs laufen, die seit Monaten oder Jahren in Produktion sind und frühere Migrationsstufen haben.
+
+- `CREATE TABLE IF NOT EXISTS` statt `CREATE TABLE`
+- `ADD COLUMN IF NOT EXISTS` statt `ADD COLUMN`
+- `DROP TABLE IF EXISTS` statt `DROP TABLE`
+- Spaltenzugriffe via `information_schema.columns` prüfen, wenn unklar ob vorhanden
+- Keine Annahme machen, dass alle Schemas denselben Stand haben
+
+## Migration-Fehler blockieren den gesamten Start
+
+Express führt alle Migrationen beim Boot aus (`runMigrations()` in `booking/db.js`). Ein einziger SQL-Fehler in einer Migration bricht `startServer()` ab → Express lauscht nie auf Port 3100 → Next.js Proxy antwortet mit `503 auth backend unavailable`.
+
+**Vor dem Commit einer neuen Migration prüfen:**
+1. Läuft sie auf einer frischen DB (alle Tabellen neu)?
+2. Läuft sie auf einer bestehenden VPS-DB (Tabellen aus alten Migrationen)?
+3. Sind alle referenzierten Spalten in **allen** betroffenen Schemas vorhanden?
+
+## Neue Migrations-Dateien immer im Container testen
+
+Migrations laufen im Docker-Container aus `/app/booking/migrations/`. Eine Datei nur auf dem VPS-Host abzulegen reicht nicht – sie muss im Image oder per `docker cp` in den Container.
+
+```bash
+# Datei in laufenden Container kopieren (Hotfix):
+docker cp ./migrations/082_fix.sql propus-platform-platform-1:/app/booking/migrations/082_fix.sql
+
+# Dann Container neu starten:
+docker compose -p propus-platform -f docker-compose.vps.yml restart platform
+```

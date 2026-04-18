@@ -1,6 +1,6 @@
 # Propus Platform
 
-Die **Propus Platform** bündelt **Buchungstool**, **Tour Manager** und **Firmenhomepage** in **einer Codebasis**: gemeinsame Kundendaten, zentrale Anmeldung über **Logto** und **eine PostgreSQL-Datenbank**.
+Die **Propus Platform** bündelt **Buchungstool**, **Tour Manager** und **Firmenhomepage** in **einer Codebasis**: gemeinsame Kundendaten, lokale Session-basierte Anmeldung und **eine PostgreSQL-Datenbank**.
 
 ## Architektur
 
@@ -12,9 +12,9 @@ propus-platform/
 ├── booking/        # Backend Buchungstool (Express) – API, RBAC, E-Mail, Kalender
 ├── tours/          # Tour Manager (Express), unter /tour-manager gemountet
 ├── core/           # Gemeinsame Migrationen, Migration Runner, Seed-Daten
-├── auth/           # Logto-Middleware (OIDC-Callbacks, Session)
+├── auth/           # Auth-Hilfsfunktionen (Session-Store, Postgres-Sessions)
 ├── website/        # Firmenhomepage (Astro + Supabase)
-├── infra/          # Hilfsskripte (Logto-Setup)
+├── infra/          # Hilfsskripte
 ├── scripts/        # Deploy-, Backup- und Utility-Skripte
 ├── docs/           # Zusätzliche Dokumentation
 ├── docker-compose.yml          # Lokale Entwicklungsumgebung
@@ -49,10 +49,9 @@ Voraussetzung: [Docker Compose v2](https://docs.docker.com/compose/) im Projektr
 ```bash
 # 1. Umgebung anlegen und anpassen
 cp .env.example .env
-# Optional: .env.logto aus .env.logto.example (echte Logto-App-IDs für SSO-Tests)
 
-# 2. Datenbank + Logto starten
-docker compose up -d postgres logto-db logto
+# 2. Datenbank starten
+docker compose up -d postgres
 
 # 3. SQL-Migrationen ausführen
 docker compose --profile migrate run --rm migrate
@@ -68,8 +67,6 @@ docker compose up -d platform
 | Plattform (SPA, API, Tour Mgr) | [http://localhost:3100](http://localhost:3100)                   | `BOOKING_PORT`; Container intern auf 3000      |
 | Tour Manager (EJS)             | [http://localhost:3100/tour-manager/admin](http://localhost:3100/tour-manager/admin) | gleicher Container          |
 | Health-Check                   | `http://localhost:3100/api/core/health`                         | Prüft DB-Verbindung                            |
-| Logto (OIDC)                   | [http://localhost:3301](http://localhost:3301)                   | `LOGTO_PORT`                                   |
-| Logto Admin Console            | [http://localhost:3302](http://localhost:3302)                   | mapped auf Container-Port 3002                 |
 | PostgreSQL (Propus)            | `localhost:5435`                                                | `PROPUS_PG_PORT`                               |
 
 **Next.js App lokal starten** (separater Dev-Server, zeigt auf `platform`-API):
@@ -163,26 +160,14 @@ Vor jedem Deploy die Build-Nummer in `scripts/bump-deploy-version.ps1` erhöhen.
 
 ---
 
-## Logto (SSO)
-
-| Eigenschaft         | Wert                                                     |
-|---------------------|----------------------------------------------------------|
-| Admin Console       | `https://auth-admin.propus.ch/console`                   |
-| Branding anwenden   | `node auth/apply-logto-propus-branding.js`               |
-
-Detaillierte Logto-Konfiguration: [docs/VPS-BETRIEB.md](docs/VPS-BETRIEB.md)
-
----
-
 ## Weiterarbeit auf einem anderen Rechner
 
 1. Repository klonen (bei Netzlaufwerk ggf. `git config --global --add safe.directory "Z:/propus-platform"`).
 2. `.env` aus `.env.example` erzeugen und anpassen.
-3. `.env.logto` aus `.env.logto.example` anlegen und Logto-App-IDs/Secrets eintragen (oder sicher vom bisherigen Rechner übernehmen – **nicht** committen).
-4. `docker compose up -d postgres logto-db logto` → `docker compose --profile migrate run --rm migrate` → `docker compose up -d platform`.
-5. Kurztest: `http://localhost:3100` (SPA) und `http://localhost:3100/api/core/health`.
+3. `docker compose up -d postgres` → `docker compose --profile migrate run --rm migrate` → `docker compose up -d platform`.
+4. Kurztest: `http://localhost:3100` (SPA) und `http://localhost:3100/api/core/health`.
 
-**Hinweis:** `core/dumps/` (SQL-Dumps) und `.env.logto` sind per `.gitignore` ausgeschlossen.
+**Hinweis:** `core/dumps/` (SQL-Dumps) sind per `.gitignore` ausgeschlossen.
 
 ---
 
@@ -193,8 +178,8 @@ Detaillierte Logto-Konfiguration: [docs/VPS-BETRIEB.md](docs/VPS-BETRIEB.md)
 | [docs/FLOWS_AUTH.md](docs/FLOWS_AUTH.md)                     | Auth-Flows: Unified Login, Session-Bridge, Magic-Link, Passwort-Reset |
 | [docs/FLOWS_BOOKING.md](docs/FLOWS_BOOKING.md)               | Buchungs-Flows, Status-Übergänge, Kalender-Sync      |
 | [docs/FLOWS_TOURS.md](docs/FLOWS_TOURS.md)                   | Tour-Manager-Flows, Matterport, Portal, Cleanup      |
-| [docs/ROLES_PERMISSIONS.md](docs/ROLES_PERMISSIONS.md)       | RBAC, Rollen, Permissions, Logto-Mapping             |
-| [docs/VPS-BETRIEB.md](docs/VPS-BETRIEB.md)                   | VPS-Setup, Logto-Branding, Backup/Restore            |
+| [docs/ROLES_PERMISSIONS.md](docs/ROLES_PERMISSIONS.md)       | RBAC, Rollen, Permissions                             |
+| [docs/VPS-BETRIEB.md](docs/VPS-BETRIEB.md)                   | VPS-Setup, Backup/Restore                             |
 | [docs/BOOKING-E2E-DEPLOY.md](docs/BOOKING-E2E-DEPLOY.md)     | GitHub Actions Secrets, Playwright Smoke Tests       |
 | [docs/FIRMENHOMEPAGE-KATALOG-API.md](docs/FIRMENHOMEPAGE-KATALOG-API.md) | Website-Katalog-API                     |
 | [docs/ADMIN-FRONTEND-DESIGN.md](docs/ADMIN-FRONTEND-DESIGN.md) | Design-System, Theme, Komponenten                  |

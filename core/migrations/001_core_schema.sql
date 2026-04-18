@@ -112,7 +112,7 @@ CREATE INDEX IF NOT EXISTS idx_core_company_invitations_company
 CREATE INDEX IF NOT EXISTS idx_core_company_invitations_email
   ON core.company_invitations(LOWER(email));
 
--- ─── Customer Sessions (für Legacy-Auth, wird durch Logto abgelöst) ─────────
+-- ─── Customer Sessions (für Kunden-Auth via Datenbank) ─────────────────────
 CREATE TABLE IF NOT EXISTS core.customer_sessions (
   id            SERIAL PRIMARY KEY,
   customer_id   INTEGER NOT NULL REFERENCES core.customers(id) ON DELETE CASCADE,

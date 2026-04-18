@@ -35,7 +35,7 @@ flowchart LR
 - **`booking/`**: Haupt-API und Geschäftslogik des Buchungstools (Express).
 - **`tours/`**: Tour Manager (Express mit EJS-Templates).
 - **`core/`**: gemeinsame SQL-Migrationen, Migration Runner und geteilte Bibliotheken (`core/lib/customer-lookup.js` u. a.). `booking/Dockerfile` kopiert `core/` mit, da `booking/db.js` die zentrale Kundensuche aus `core/lib/` importiert (Build-Context ist deshalb Repo-Root).
-- **`auth/`**: Logto-Anbindung (OIDC) und Sitzungsverwaltung.
+- **`auth/`**: Auth-Hilfsfunktionen und Sitzungsverwaltung.
 
 Datenbank **eine Instanz**, logisch getrennte Schemas (u. a. `core`, `booking`, `tour_manager`); Module setzen `search_path` passend.
 
@@ -66,6 +66,6 @@ Portal-Rollen werden nicht mehr in einer separaten Firmenverwaltung gesetzt, son
 
 ## Pflegeempfehlung
 
-1. Fachliche Begriffe (EXXAS, Logto, Produktnamen) **einheitlich** schreiben.
+1. Fachliche Begriffe (EXXAS, Produktnamen) **einheitlich** schreiben.
 2. **Du/Sie**: Im internen Admin ist „du“ bei Einstellungstexten üblich; kundenorientierte Fließtexte oft „Sie“ – bei großen Umbauten Stil vereinheitlichen.
 3. Nach inhaltlichen Änderungen kurz prüfen, ob **Changelog** und ggf. **README** mitgezogen werden sollen.

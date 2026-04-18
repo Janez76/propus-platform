@@ -68,7 +68,7 @@ paths:
     post:
       tags:
         - auth
-      summary: Lokaler Admin-Login (Legacy, ohne Logto)
+      summary: Admin-Login
       description: |
         Klassischer Username/Passwort-Login gegen `core.admin_users`. Setzt
         ein `admin_session`-Cookie und liefert zusätzlich einen Bearer-Token
@@ -380,69 +380,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /auth/logto/login:
-    get:
-      tags:
-        - booking
-      summary: 'TODO: GET /auth/logto/login'
-      description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:2346`. Schemas
-        noch nicht dokumentiert.
-      operationId: getAuthLogtoLogin
-      x-source-file: booking/server.js
-      x-source-line: 2346
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        5XX:
-          $ref: '#/components/responses/ServerError'
-  /auth/logto/callback:
-    get:
-      tags:
-        - booking
-      summary: 'TODO: GET /auth/logto/callback'
-      description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:2350`. Schemas
-        noch nicht dokumentiert.
-      operationId: getAuthLogtoCallback
-      x-source-file: booking/server.js
-      x-source-line: 2350
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        5XX:
-          $ref: '#/components/responses/ServerError'
-  /auth/logto/logout:
-    get:
-      tags:
-        - booking
-      summary: 'TODO: GET /auth/logto/logout'
-      description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:2353`. Schemas
-        noch nicht dokumentiert.
-      operationId: getAuthLogtoLogout
-      x-source-file: booking/server.js
-      x-source-line: 2353
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        5XX:
-          $ref: '#/components/responses/ServerError'
   /auth/logout:
     get:
       tags:
@@ -5056,15 +4993,15 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         5XX:
           $ref: '#/components/responses/ServerError'
-  /api/admin/logto-roles:
+  /api/admin/roles:
     get:
       tags:
         - booking
-      summary: 'TODO: GET /api/admin/logto-roles'
+      summary: 'TODO: GET /api/admin/roles'
       description: >-
         **Auto-generierter Stub.** Quelle: `booking/server.js:10204`. Schemas
         noch nicht dokumentiert.
-      operationId: getApiAdminLogtoroles
+      operationId: getApiAdminRoles
       x-source-file: booking/server.js
       x-source-line: 10204
       security:

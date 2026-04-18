@@ -162,7 +162,7 @@ jobs:
                                                   docs/WORKFLOW_TOURS.md)
                - Upload-Logik                  → docs/FLOWS_UPLOAD.md
                - Exxas-Logik                   → docs/FLOWS_EXXAS.md
-               - Auth/Logto/Sessions           → docs/FLOWS_AUTH.md
+               - Auth/Sessions                 → docs/FLOWS_AUTH.md
                - E-Mail-Templates / Mailer     → docs/EMAIL_TEMPLATES.md
                - Rollen / Permissions / RBAC   → docs/ROLES_PERMISSIONS.md
                - Admin-Frontend (React)        → docs/ADMIN-FRONTEND-DESIGN.md

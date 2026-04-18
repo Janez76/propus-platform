@@ -43,7 +43,7 @@ app/              → Next.js SPA (React Frontend)
 tours/            → Express Backend (JSON-APIs)
 tours/routes/     → API-Endpunkte (nur JSON, keine HTML-Views)
 tours/views/      → Nur customer/ EJS (3 Dateien, Legacy)
-auth/             → Logto OIDC Integration
+auth/             → Auth-Hilfsfunktionen (Session-Store, Postgres-Sessions)
 booking/          → Buchungsportal
 platform/         → Docker-Container (Express + Next.js)
 ```
@@ -203,7 +203,7 @@ Zeigt E-Mails aus `office@propus.ch` via `GET /api/tours/admin/mail/inbox`. Auto
 
 - **Frontend**: React 19, Next.js, TypeScript, Tailwind CSS
 - **Backend**: Express.js, PostgreSQL
-- **Auth**: Logto OIDC (Admin), Session-basiert (Portal)
+- **Auth**: Session-basiert (lokale Passwort-Auth, Admin + Portal)
 - **Deploy**: Docker Compose auf VPS, GitHub Actions CI/CD
 
 ## NAS / Infrastruktur (UGREEN 192.168.1.5)
