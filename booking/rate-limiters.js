@@ -28,6 +28,17 @@ const authLimiter = rateLimit({
   message: { error: "Zu viele Versuche. Bitte später erneut probieren." },
 });
 
+// 10 Versuche / 15 min pro IP für token-basierte Bestätigungslinks.
+// Eigene Instanz, damit ein Bot, der öffentliche Confirm-Links spammt, nicht
+// das Admin-Login-Budget aus demselben Bucket auffrisst.
+const confirmTokenLimiter = rateLimit({
+  windowMs: intEnv("RATE_LIMIT_CONFIRM_WINDOW_MS", 15 * MIN),
+  limit: intEnv("RATE_LIMIT_CONFIRM_MAX", 10),
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { error: "Zu viele Versuche. Bitte später erneut probieren." },
+});
+
 // 3 / Stunde pro IP für Forgot-Password (verhindert Mail-Bombing/Enumeration).
 const passwordResetLimiter = rateLimit({
   windowMs: intEnv("RATE_LIMIT_PASSWORD_RESET_WINDOW_MS", 60 * MIN),
@@ -48,6 +59,7 @@ const bookingLimiter = rateLimit({
 
 module.exports = {
   authLimiter,
+  confirmTokenLimiter,
   passwordResetLimiter,
   bookingLimiter,
 };

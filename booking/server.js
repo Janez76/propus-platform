@@ -106,7 +106,7 @@ const {
 } = require("./chunked-upload-service");
 const { syncWebsizeForAllCustomerFolders, syncWebsizeForOrderFolder } = require("./websize-sync-service");
 const customerAuth = require("./customer-auth");
-const { authLimiter, bookingLimiter } = require("./rate-limiters");
+const { authLimiter, confirmTokenLimiter, bookingLimiter } = require("./rate-limiters");
 const travel = require("./travel");
 const { resolveAnyPhotographer, resolveExplicitPhotographer, buildNeededSkills } = require("./photographer-resolver");
 const geocoder = require("./geocoder");
@@ -4593,7 +4593,7 @@ app.post("/api/booking", bookingLimiter, async (req, res) => {
 });
 
 // Public: Kunden-Bestätigung via Token-Link (GET /api/booking/confirm/:token)
-app.get("/api/booking/confirm/:token", authLimiter, async (req, res) => {
+app.get("/api/booking/confirm/:token", confirmTokenLimiter, async (req, res) => {
   const token = String(req.params.token || "").trim();
   if (!token || token.length < 32) {
     return res.status(400).json({ ok: false, error: "Ungültiger Bestätigungslink." });
