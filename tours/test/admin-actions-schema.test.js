@@ -49,11 +49,4 @@ test('Risikostufen sind vollständig definiert', () => {
   });
 });
 
-test('settings view enthält Modell- und Action-Doku-Blöcke', () => {
-  const settingsPath = path.resolve(__dirname, '../views/admin/settings.ejs');
-  const content = fs.readFileSync(settingsPath, 'utf8');
-  assert.match(content, /KI-Modelle und Einsatzbereiche/);
-  assert.match(content, /Action-Layer und Risikostufen/);
-  assert.match(content, /Mail-Vorfilter/);
-  assert.match(content, /Deterministische Fachabfragen/);
-});
+// settings.ejs wurde mit PR #93 (admin-panel removal) entfernt; EJS-View-Test entfällt
