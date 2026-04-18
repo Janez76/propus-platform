@@ -32,26 +32,98 @@ try {
 const REPO_ROOT = path.resolve(__dirname, "..");
 
 // ── Scan-Targets ────────────────────────────────────────────────────────────
+//
+// Mount-Präfixe entsprechen der **Platform-Realität** (platform/server.js),
+// nicht der standalone tours/server.js — so zeigen die Pfade auf URLs, die
+// unter https://booking.propus.ch tatsächlich callable sind. `mountAuth`
+// hält auth-relevante Middleware, die in platform/server.js vor dem Router
+// hängt und sonst in der pro-Route-Erkennung nicht auftauchen würde.
+//
+// Referenzen:
+//   platform/server.js:125  → requireAdmin vor /api/tours/admin
+//   platform/server.js:126  → requireAdmin vor /api/tours/admin/galleries
+//   platform/server.js:135  → tours.app unter TOURS_MOUNT_PATH (`/tour-manager`)
+//   tours/server.js:191     → requireAdminOrRedirect vor /admin
+//   tours/server.js:194     → requireAdminOrRedirect vor /admin/api (intern)
+const TOURS_MOUNT = "/tour-manager"; // platform/server.js:40 TOURS_MOUNT_PATH
 const TARGETS = [
   {
     file: "booking/server.js",
     mountPrefix: "",
     tag: "booking",
   },
-  // tours/server.js mountet die Router unter Präfixen, siehe `app.use(...)`-Aufrufe.
-  { file: "tours/routes/admin-api.js", mountPrefix: "/admin/api", tag: "tours-admin" },
-  { file: "tours/routes/admin.js", mountPrefix: "/admin", tag: "tours-admin" },
-  { file: "tours/routes/api.js", mountPrefix: "/api", tag: "tours" },
-  { file: "tours/routes/auth.js", mountPrefix: "", tag: "tours-auth" },
-  { file: "tours/routes/cleanup.js", mountPrefix: "/cleanup", tag: "tours" },
-  { file: "tours/routes/cron-api.js", mountPrefix: "", tag: "tours" },
-  { file: "tours/routes/customer.js", mountPrefix: "/r", tag: "tours-customer" },
-  { file: "tours/routes/gallery-admin-api.js", mountPrefix: "/admin/api", tag: "tours-admin" },
-  { file: "tours/routes/gallery-public-api.js", mountPrefix: "/api", tag: "tours" },
-  { file: "tours/routes/payrexx-webhook.js", mountPrefix: "/webhook", tag: "tours-webhook" },
-  { file: "tours/routes/portal-api-mutations.js", mountPrefix: "/portal/api", tag: "tours-portal" },
-  { file: "tours/routes/portal-api.js", mountPrefix: "/portal/api", tag: "tours-portal" },
-  { file: "tours/routes/portal.js", mountPrefix: "/portal", tag: "tours-portal" },
+  // Direkt-Mounts in platform/server.js — die kanonischen Admin-URLs.
+  {
+    file: "tours/routes/admin-api.js",
+    mountPrefix: "/api/tours/admin",
+    mountAuth: "requireAdmin",
+    tag: "tours-admin",
+  },
+  {
+    file: "tours/routes/gallery-admin-api.js",
+    mountPrefix: "/api/tours/admin/galleries",
+    mountAuth: "requireAdmin",
+    tag: "tours-admin",
+  },
+  {
+    file: "tours/routes/cron-api.js",
+    mountPrefix: "/api/tours/cron",
+    tag: "tours",
+  },
+  {
+    file: "tours/routes/gallery-public-api.js",
+    mountPrefix: "/api/listing",
+    tag: "tours",
+  },
+  // Standalone tours.app — läuft in der Platform unter `/tour-manager/*`.
+  // tours/server.js:116 webhook, 182 /r, 185 /cleanup, 188 authRoutes, 191 /admin,
+  // 194 /admin/api (intern), 197 /portal/api, 200 /portal/api, 203 /portal, 206 /api
+  {
+    file: "tours/routes/payrexx-webhook.js",
+    mountPrefix: `${TOURS_MOUNT}/webhook`,
+    tag: "tours-webhook",
+  },
+  {
+    file: "tours/routes/customer.js",
+    mountPrefix: `${TOURS_MOUNT}/r`,
+    tag: "tours-customer",
+  },
+  {
+    file: "tours/routes/cleanup.js",
+    mountPrefix: "/cleanup", // platform/server.js:133 mountet cleanup direkt
+    tag: "tours",
+  },
+  {
+    file: "tours/routes/auth.js",
+    mountPrefix: TOURS_MOUNT,
+    tag: "tours-auth",
+  },
+  {
+    file: "tours/routes/admin.js",
+    mountPrefix: `${TOURS_MOUNT}/admin`,
+    mountAuth: "requireAdminOrRedirect",
+    tag: "tours-admin",
+  },
+  {
+    file: "tours/routes/api.js",
+    mountPrefix: `${TOURS_MOUNT}/api`,
+    tag: "tours",
+  },
+  {
+    file: "tours/routes/portal-api.js",
+    mountPrefix: `${TOURS_MOUNT}/portal/api`,
+    tag: "tours-portal",
+  },
+  {
+    file: "tours/routes/portal-api-mutations.js",
+    mountPrefix: `${TOURS_MOUNT}/portal/api`,
+    tag: "tours-portal",
+  },
+  {
+    file: "tours/routes/portal.js",
+    mountPrefix: `${TOURS_MOUNT}/portal`,
+    tag: "tours-portal",
+  },
 ];
 
 // ── Regex: zieht Methode, Pfad und rohe Argument-Liste aus .get/.post/... ──
@@ -118,7 +190,8 @@ function extractParams(p) {
 }
 
 // ── Scanner ────────────────────────────────────────────────────────────────
-function scanFile({ file, mountPrefix, tag }) {
+function scanFile(target) {
+  const { file, mountPrefix, tag } = target;
   const full = path.join(REPO_ROOT, file);
   if (!fs.existsSync(full)) {
     console.warn(`[skip] ${file} not found`);
@@ -145,7 +218,10 @@ function scanFile({ file, mountPrefix, tag }) {
       method,
       path: mountPrefix + rawPath,
       rawPath,
-      middleware: rest,
+      // Mount-Level-Middleware (z. B. `requireAdmin` in platform/server.js)
+      // mit route-lokaler Middleware kombinieren, damit Security korrekt
+      // abgeleitet wird — sonst würden geschützte Routen als public markiert.
+      middleware: (target.mountAuth ? target.mountAuth + " " : "") + rest,
       tag,
     });
   }
