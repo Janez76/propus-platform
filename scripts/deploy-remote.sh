@@ -88,11 +88,15 @@ tar -xzf "$ARCHIVE_PATH" -C "$STAGING_DIR"
 
 # Sync with deletion so removed files don't linger on disk (causing stale TS/Docker errors).
 # Preserve runtime-only files that are not in the archive.
+#
+# WICHTIG: fuehrender Slash bei '/backups/' anchort das Pattern am Sync-Root,
+# sonst matcht rsync JEDEN Ordner namens 'backups/' auf jeder Tiefe (inkl.
+# app/src/components/backups/ - das ist der Bug der Logto-Cleanup blockiert hat).
 if command -v rsync >/dev/null 2>&1; then
   rsync -a --delete \
     --exclude='.env.vps' \
     --exclude='.env.vps.secrets' \
-    --exclude='backups/' \
+    --exclude='/backups/' \
     "$STAGING_DIR/" "$PROJECT_ROOT/"
 else
   # Fallback: wipe source-code directories explicitly before overlay-copy
