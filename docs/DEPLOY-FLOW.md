@@ -33,7 +33,8 @@ in [`VPS-BETRIEB.md`](VPS-BETRIEB.md).
 │   scripts/deploy-remote.sh                                           │
 │                                                                      │
 │   ▸ tar -xzf  →  rsync --delete nach /opt/propus-platform            │
-│     (preserved: .env.vps, .env.vps.secrets, backups/)                │
+│     (preserved: .env.vps, .env.vps.secrets; Runtime ./backups/       │
+│      via --exclude='/backups/' — siehe Abschnitt unten)               │
 │   ▸ Symlinks: compose.yaml → docker-compose.vps.yml,  .env → .env.vps│
 │   ▸ Port-Konflikt-Check (3100, 3301, 3302, 5435, 5436, 4343)         │
 │   ▸ docker compose build  (migrate + platform + website)             │
@@ -51,8 +52,9 @@ in [`VPS-BETRIEB.md`](VPS-BETRIEB.md).
 │                                                                      │
 │   scripts/start.sh                                                   │
 │                                                                      │
-│   ▸ Next.js spawnen:  PORT=3001 node /app/nextjs/server.js           │
-│   ▸ Express spawnen:  PORT=3100 node /app/platform/server.js         │
+│   ▸ Express zuerst: PORT=3100 node /app/platform/server.js           │
+│   ▸ Warten bis GET /api/core/health auf 127.0.0.1:3100 OK (max 180s) │
+│   ▸ Dann Next.js: PORT=3001 node /app/nextjs/server.js               │
 │   ▸ trap SIGTERM/SIGINT → beide Prozesse sauber beenden              │
 │   ▸ wait -n: bricht der Container ab, wenn ein Prozess stirbt        │
 └──────────────────────────────────────────────────────────────────────┘
@@ -98,6 +100,21 @@ Constraints**:
 | `scripts/deploy-remote.sh` | VPS (Host, kein Container) | Workflow via `ssh` |
 | `scripts/rollback-vps.sh` | VPS (Host, kein Container) | Workflow bei Deploy-Fehler |
 | `scripts/start.sh` | Im `platform`-Container | `CMD` im `platform/Dockerfile` |
+
+## Deploy-Archiv und rsync: Exclude-Fallen (wichtig)
+
+Ein loses Pattern wie `tar --exclude=backups` oder `rsync --exclude='backups/'`
+**ohne** Anker am Archiv- bzw. Sync-Root schließt auf GNU tar/rsync oft **jede**
+Pfadkomponente dieses Namens aus — nicht nur das Top-Level-Verzeichnis
+`./backups/` (Runtime-Backups auf dem VPS). Dadurch kann u. a.
+`app/src/components/backups/` (React-Backup-UI) **still** aus dem Archiv
+fallen oder beim rsync nicht aktualisiert werden; der Docker-Build auf dem VPS
+tippt dann gegen veralteten Code, obwohl `git` sauber ist.
+
+**Umsetzung im Repo:** Phase 1 baut das Archiv per expliziter Top-Level-Liste
+(`find . -maxdepth 1` mit Ausschlüssen), Phase 2 nutzt
+`--exclude='/backups/'` (führendes `/` = relativ zum rsync-Quellroot). Kurz
+auch in [`AGENTS.md`](../AGENTS.md) unter *VPS-Deploy*.
 
 ## Erweiterungen — wo gehört was hin?
 
