@@ -214,14 +214,13 @@ export function DashboardPage() {
   const workdayMinutes = 9 * 60;
   const slotFillPct = Math.min(100, Math.round((totalBookedMinutes / workdayMinutes) * 100));
 
-  // Placeholder productivity + receivables figures — real data source pending.
-  const productivityScore = 87;
-  const tasksDone = 12;
-  const tasksTotal = 18;
-  const avgResponse = "1 h 42 m";
-  const onTimePct = 96.4;
-  const receivables = 12840;
-  const overdueInvoices = 4;
+  const productivityScore = 0;
+  const tasksDone = 0;
+  const tasksTotal = 0;
+  const avgResponse = "—";
+  const onTimePct = 0;
+  const receivables = 0;
+  const overdueInvoices = 0;
 
   const tiles: Record<DashTileId, () => ReactElement> = {
     greeting: () => (
@@ -249,7 +248,7 @@ export function DashboardPage() {
     "kpi-due": () => <></>,
     "kpi-receivables": () => <></>,
     timeline: () => <TodayTimeline orders={orders} />,
-    tasks: () => <OpenTasks hideDone={state.hideDone} />,
+    tasks: () => <OpenTasks />,
     pipeline: () => <PipelineBoard orders={metrics.open} />,
     funnel: () => (
       <BookingFunnel

@@ -64,7 +64,7 @@ export function TodayTimeline({ orders }: TodayTimelineProps) {
     month: "long",
   });
 
-  let subtitle = t(lang, "dashboard.timeline.empty");
+  let subtitle = t(lang, "dashboard.timeline.emptySub");
   if (todays.length > 0) {
     const startLabel = formatTime(todays[0].appointmentDate).hhmm;
     const endLabel = formatTime(todays[todays.length - 1].appointmentDate).hhmm;
