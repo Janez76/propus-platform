@@ -1,6 +1,8 @@
+import { useEffect, useState } from "react";
 import { GripVertical } from "lucide-react";
 import { t, type Lang } from "../../i18n";
 import { useAuthStore } from "../../store/authStore";
+import { getAdminProfile } from "../../api/profile";
 
 interface HeroGreetingProps {
   shootingsToday: number;
@@ -32,6 +34,14 @@ function formatChf(n: number): string {
   return new Intl.NumberFormat("de-CH", { style: "currency", currency: "CHF", maximumFractionDigits: 0 }).format(n);
 }
 
+function firstName(raw: string | undefined): string {
+  if (!raw) return "";
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  const first = trimmed.split(/\s+/)[0];
+  return first.replace(/[,.]$/, "");
+}
+
 export function HeroGreeting({
   shootingsToday,
   deliveriesToday,
@@ -39,13 +49,25 @@ export function HeroGreeting({
   revenueToday,
 }: HeroGreetingProps) {
   const lang = useAuthStore((s) => s.language);
-  const role = useAuthStore((s) => s.role);
+  const token = useAuthStore((s) => s.token);
+  const [profileName, setProfileName] = useState<string>("");
+
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    void getAdminProfile(token)
+      .then((data) => {
+        if (cancelled) return;
+        setProfileName(firstName(data.profile?.name) || firstName(data.profile?.user));
+      })
+      .catch(() => { /* stay empty */ });
+    return () => { cancelled = true; };
+  }, [token]);
+
   const now = new Date();
   const hour = now.getHours();
   const greeting = pickGreeting(hour, lang);
-
-  const roleLabel = t(lang, `auth.role.${role}`);
-  const displayName = roleLabel && roleLabel !== `auth.role.${role}` ? roleLabel : t(lang, "nav.admin");
+  const displayName = profileName || t(lang, "nav.admin");
 
   const summary = t(lang, "dashboard.hero.summary")
     .replace("{{shootings}}", String(shootingsToday))
