@@ -3,12 +3,17 @@ FROM node:20.18.1-alpine
 # Einige native Module (u. a. Abhaengigkeiten) erwarten glibc-Kompatibilitaet unter musl
 RUN apk add --no-cache libc6-compat
 
+# Build-Context ist Repo-Root, damit wir sowohl booking/ als auch core/
+# kopieren können — booking/db.js importiert core/lib/customer-lookup.js.
 WORKDIR /app
 
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+COPY booking/package.json booking/package-lock.json ./booking/
+RUN cd booking && npm ci --omit=dev
 
-COPY . .
+COPY booking ./booking
+COPY core ./core
+
+WORKDIR /app/booking
 
 EXPOSE 3000
 

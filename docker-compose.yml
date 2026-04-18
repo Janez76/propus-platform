@@ -97,8 +97,8 @@ services:
     profiles:
       - legacy-services
     build:
-      context: ./booking
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./booking/Dockerfile
     ports:
       - "${BOOKING_PORT:-3100}:3000"
     environment:
