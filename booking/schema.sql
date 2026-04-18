@@ -443,65 +443,13 @@ CREATE TABLE IF NOT EXISTS customer_contacts (
 CREATE INDEX IF NOT EXISTS idx_customer_contacts_customer ON customer_contacts(customer_id);
 
 -- ─── Company Workspace (B2B Mandantenmodell) ────────────────────────────────
-CREATE TABLE IF NOT EXISTS companies (
-  id                  SERIAL PRIMARY KEY,
-  name                TEXT NOT NULL,
-  slug                TEXT NOT NULL UNIQUE,
-  billing_customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
-  standort            TEXT NOT NULL DEFAULT '',
-  notiz               TEXT NOT NULL DEFAULT '',
-  status              TEXT NOT NULL DEFAULT 'aktiv' CHECK (status IN ('aktiv','ausstehend','inaktiv')),
-  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+-- Seit Migration booking/082_companies_legacy_dedup.sql leben Firmen-Tabellen
+-- ausschliesslich in core.companies / core.company_members / core.company_invitations.
+-- Die booking-seitigen Duplikate (angelegt in booking/migrations/021) wurden entfernt;
+-- FKs booking.orders.created_by_member_id und booking.access_subjects.company_member_id
+-- zeigen auf core.company_members(id).
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_companies_slug ON companies(slug);
-CREATE INDEX IF NOT EXISTS idx_companies_name ON companies(name);
-
-CREATE TABLE IF NOT EXISTS company_members (
-  id              SERIAL PRIMARY KEY,
-  company_id      INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-  auth_subject TEXT NOT NULL DEFAULT '',
-  customer_id     INTEGER REFERENCES customers(id) ON DELETE SET NULL,
-  email           TEXT NOT NULL DEFAULT '',
-  role            TEXT NOT NULL CHECK (role IN ('company_owner','company_admin','company_employee')),
-  status          TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('invited','active','disabled')),
-  is_primary_contact BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_company_members_company_auth_subject
-  ON company_members(company_id, auth_subject)
-  WHERE auth_subject <> '';
-CREATE UNIQUE INDEX IF NOT EXISTS idx_company_members_company_customer
-  ON company_members(company_id, customer_id)
-  WHERE customer_id IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_company_members_company_email
-  ON company_members(company_id, LOWER(email));
-CREATE INDEX IF NOT EXISTS idx_company_members_auth_subject ON company_members(auth_subject);
-
-CREATE TABLE IF NOT EXISTS company_invitations (
-  id            SERIAL PRIMARY KEY,
-  company_id    INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-  email         TEXT NOT NULL,
-  role          TEXT NOT NULL CHECK (role IN ('company_owner','company_admin','company_employee')),
-  token         TEXT NOT NULL UNIQUE,
-  expires_at    TIMESTAMPTZ NOT NULL,
-  accepted_at   TIMESTAMPTZ,
-  invited_by    TEXT NOT NULL DEFAULT '',
-  given_name    TEXT NOT NULL DEFAULT '',
-  family_name   TEXT NOT NULL DEFAULT '',
-  login_name    TEXT NOT NULL DEFAULT '',
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_company_invitations_company ON company_invitations(company_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_company_invitations_email ON company_invitations(LOWER(email));
-
-ALTER TABLE company_members ADD COLUMN IF NOT EXISTS is_primary_contact BOOLEAN NOT NULL DEFAULT FALSE;
-
-ALTER TABLE orders ADD COLUMN IF NOT EXISTS created_by_member_id INTEGER REFERENCES company_members(id) ON DELETE SET NULL;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS created_by_member_id INTEGER REFERENCES core.company_members(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS idx_orders_created_by_member_id ON orders(created_by_member_id) WHERE created_by_member_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS auth_audit_log (
@@ -635,7 +583,7 @@ CREATE TABLE IF NOT EXISTS access_subjects (
   photographer_key     TEXT REFERENCES photographers(key) ON DELETE CASCADE,
   customer_id          INTEGER REFERENCES customers(id) ON DELETE CASCADE,
   customer_contact_id  INTEGER REFERENCES customer_contacts(id) ON DELETE CASCADE,
-  company_member_id    INTEGER REFERENCES company_members(id) ON DELETE CASCADE,
+  company_member_id    INTEGER REFERENCES core.company_members(id) ON DELETE CASCADE,
   created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT access_subjects_one_fk CHECK (
