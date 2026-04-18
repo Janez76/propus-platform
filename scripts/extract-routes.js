@@ -132,6 +132,8 @@ const ROUTE_RE =
   /^\s*(app|router)\.(get|post|put|patch|delete)\(\s*(['"`])([^'"`]+)\3\s*,?\s*([^{=]*?)(?:async\s*)?(?:\([^)]*\)\s*=>|function)/gm;
 
 // ── Auth-Ableitung ─────────────────────────────────────────────────────────
+//
+// Session/Bearer-Guards (bearerAuth + sessionCookie).
 const AUTH_MIDDLEWARES = {
   requireAdmin: "admin",
   requirePhotographerOrAdmin: "admin-or-photographer",
@@ -140,16 +142,47 @@ const AUTH_MIDDLEWARES = {
   requirePortalAuth: "portal",
   requirePortalSession: "portal",
 };
+// API-Key-Guards (separates Scheme, z. B. Cron-Endpoints).
+const API_KEY_MIDDLEWARES = ["requireApiKey"];
 
 function deriveSecurity(middlewareSegment) {
-  const names = Object.keys(AUTH_MIDDLEWARES);
-  for (const n of names) {
+  for (const n of API_KEY_MIDDLEWARES) {
     if (middlewareSegment.includes(n)) {
-      // Alle geschützten Routen akzeptieren Bearer oder Cookie.
+      return [{ apiKeyAuth: [] }];
+    }
+  }
+  for (const n of Object.keys(AUTH_MIDDLEWARES)) {
+    if (middlewareSegment.includes(n)) {
+      // Alle session-geschützten Routen akzeptieren Bearer oder Cookie.
       return [{ bearerAuth: [] }, { sessionCookie: [] }];
     }
   }
   return []; // public
+}
+
+// Sammelt alle auth-relevanten `router.use(<name>)`-Aufrufe im File und
+// liefert pro Zeilennummer die kumulierte Middleware-Liste. Express führt
+// `router.use(fn)` in Reihenfolge aus — ein Guard gilt für alle Routen,
+// die nach ihm registriert werden. Path-Form `router.use('/path', ...)`
+// wird bewusst ignoriert (pfadspezifischer Mount, nicht globaler Guard).
+function collectRouterUseGuards(src) {
+  const known = new Set([
+    ...Object.keys(AUTH_MIDDLEWARES),
+    ...API_KEY_MIDDLEWARES,
+  ]);
+  const lines = src.split("\n");
+  const guards = []; // { line, name }
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    // Nur `router.use(IDENT)` oder `app.use(IDENT)` ohne Pfad-String als Arg 1.
+    const m = /^\s*(?:router|app)\.use\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*[),]/.exec(
+      line,
+    );
+    if (!m) continue;
+    const name = m[1];
+    if (known.has(name)) guards.push({ line: i + 1, name });
+  }
+  return guards;
 }
 
 // ── Rate-Limit-Ableitung ───────────────────────────────────────────────────
@@ -200,6 +233,10 @@ function scanFile(target) {
   const src = fs.readFileSync(full, "utf8");
   const routes = [];
 
+  // Erst die `router.use(X)`-Guards im File sammeln, damit wir pro Route
+  // wissen, welche Middlewares vor ihrer Registrierung aktiv geworden sind.
+  const routerUseGuards = collectRouterUseGuards(src);
+
   // Line-by-line scan, damit wir Zeilennummern haben.
   const lines = src.split("\n");
   for (let i = 0; i < lines.length; i++) {
@@ -212,6 +249,15 @@ function scanFile(target) {
     const method = m[2].toLowerCase();
     const rawPath = m[4];
     const rest = m[5] || "";
+    // Alle `router.use(X)`-Guards, die VOR dieser Route registriert sind,
+    // gelten laut Express-Semantik für die Route — bisher haben wir die
+    // ignoriert, wodurch z. B. `tours/routes/portal-api.js`-Endpunkte
+    // (`router.use(requirePortalSession)`) fälschlich als public markiert
+    // wurden.
+    const inheritedGuards = routerUseGuards
+      .filter((g) => g.line < i + 1)
+      .map((g) => g.name)
+      .join(" ");
     routes.push({
       file,
       line: i + 1,
@@ -219,9 +265,14 @@ function scanFile(target) {
       path: mountPrefix + rawPath,
       rawPath,
       // Mount-Level-Middleware (z. B. `requireAdmin` in platform/server.js)
-      // mit route-lokaler Middleware kombinieren, damit Security korrekt
-      // abgeleitet wird — sonst würden geschützte Routen als public markiert.
-      middleware: (target.mountAuth ? target.mountAuth + " " : "") + rest,
+      // + geerbte `router.use(...)`-Guards + route-lokale Middleware.
+      middleware: [
+        target.mountAuth || "",
+        inheritedGuards,
+        rest,
+      ]
+        .filter(Boolean)
+        .join(" "),
       tag,
     });
   }
@@ -380,6 +431,15 @@ function main() {
   // Security Schemes ergänzen falls noch nicht vorhanden (für Auto-Stubs nötig).
   spec.components = spec.components || {};
   spec.components.securitySchemes = spec.components.securitySchemes || {};
+  if (!spec.components.securitySchemes.apiKeyAuth) {
+    spec.components.securitySchemes.apiKeyAuth = {
+      type: "apiKey",
+      in: "header",
+      name: "x-api-key",
+      description:
+        "Shared-Secret für Cron-/Server-zu-Server-Integrationen (requireApiKey).",
+    };
+  }
   spec.components.responses = spec.components.responses || {};
   if (!spec.components.responses.Unauthorized) {
     spec.components.responses.Unauthorized = {
