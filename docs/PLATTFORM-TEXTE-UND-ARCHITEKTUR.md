@@ -34,7 +34,7 @@ flowchart LR
 - **`platform/server.js`**: zentraler HTTP-Einstieg; bündelt Core-Routen, Buchungs-App und Tour-Manager (typisch unter `/tour-manager`).
 - **`booking/`**: Haupt-API und Geschäftslogik des Buchungstools (Express).
 - **`tours/`**: Tour Manager (Express mit EJS-Templates).
-- **`core/`**: gemeinsame SQL-Migrationen und Migration Runner.
+- **`core/`**: gemeinsame SQL-Migrationen, Migration Runner und geteilte Bibliotheken (`core/lib/customer-lookup.js` u. a.). `booking/Dockerfile` kopiert `core/` mit, da `booking/db.js` die zentrale Kundensuche aus `core/lib/` importiert (Build-Context ist deshalb Repo-Root).
 - **`auth/`**: Logto-Anbindung (OIDC) und Sitzungsverwaltung.
 
 Datenbank **eine Instanz**, logisch getrennte Schemas (u. a. `core`, `booking`, `tour_manager`); Module setzen `search_path` passend.
