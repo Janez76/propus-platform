@@ -16,6 +16,8 @@ booking/data/
 Thumbs.db
 .cursor/mcp.json
 .cursor/prompts/
+# Hook-Laufzeit (Zähler, letzte Verarbeitung) — nicht versionieren
+.cursor/hooks/state/continual-learning.json
 .vscode/
 dist/
 .next/
