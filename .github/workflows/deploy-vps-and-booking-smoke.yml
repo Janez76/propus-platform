@@ -136,11 +136,15 @@ jobs:
 
       - name: Create deploy archive
         run: |
+          # --anchored: excludes greifen nur auf top-level Pfade.
+          # Ohne --anchored wuerden Unterordner wie app/src/components/backups/
+          # faelschlich mit ausgeschlossen (fuehrt zu stale Code auf VPS!).
           tar \
             --exclude-vcs \
-            --exclude='.github' \
-            --exclude='docs' \
-            --exclude='backups' \
+            --anchored \
+            --exclude='./.github' \
+            --exclude='./docs' \
+            --exclude='./backups' \
             -czf "/tmp/propus-platform-${GITHUB_SHA}.tar.gz" .
 
       - name: Write VPS env file

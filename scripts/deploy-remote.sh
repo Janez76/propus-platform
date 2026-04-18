@@ -86,21 +86,14 @@ mkdir -p "$STAGING_DIR"
 echo "==> Extract deploy archive"
 tar -xzf "$ARCHIVE_PATH" -C "$STAGING_DIR"
 
-echo "==> DEBUG: Archive-Stand von BackupManager.tsx"
-ls -la "$STAGING_DIR/app/src/components/backups/BackupManager.tsx" 2>&1 || echo "(Datei im Archiv FEHLT!)"
-echo "--- grep 'logto' im Archive-BackupManager:"
-grep -n 'logto' "$STAGING_DIR/app/src/components/backups/BackupManager.tsx" 2>&1 | head -5 || echo "(keine Treffer)"
-echo "--- rsync/fallback wird gleich die Dateien nach $PROJECT_ROOT syncen"
-
 # Sync with deletion so removed files don't linger on disk (causing stale TS/Docker errors).
 # Preserve runtime-only files that are not in the archive.
 if command -v rsync >/dev/null 2>&1; then
-  echo "==> rsync --delete (verbose)"
-  rsync -av --delete \
+  rsync -a --delete \
     --exclude='.env.vps' \
     --exclude='.env.vps.secrets' \
     --exclude='backups/' \
-    "$STAGING_DIR/" "$PROJECT_ROOT/" 2>&1 | grep -E "BackupManager|backups/|deleting|^sent" | head -20 || true
+    "$STAGING_DIR/" "$PROJECT_ROOT/"
 else
   # Fallback: wipe source-code directories explicitly before overlay-copy
   for _srcdir in app booking core platform tours website; do
@@ -108,10 +101,6 @@ else
   done
   tar -C "$STAGING_DIR" -cf - . | tar -C "$PROJECT_ROOT" -xf -
 fi
-
-echo "==> DEBUG: VPS-Stand nach rsync"
-ls -la "$PROJECT_ROOT/app/src/components/backups/BackupManager.tsx"
-grep -c 'logto' "$PROJECT_ROOT/app/src/components/backups/BackupManager.tsx" || echo "0 Logto-Treffer"
 
 rm -rf "$STAGING_DIR" "$ARCHIVE_PATH"
 
@@ -163,18 +152,11 @@ if [ -n "$FAILED_PORTS" ]; then
 fi
 echo "Alle Ports verfuegbar."
 
-echo "==> DEBUG: Datei-Stand auf VPS-Dateisystem"
-ls -la "$PROJECT_ROOT/app/src/components/backups/BackupManager.tsx" || echo "Datei fehlt"
-echo "--- grep 'logto' in BackupManager.tsx:"
-grep -n 'logto' "$PROJECT_ROOT/app/src/components/backups/BackupManager.tsx" || echo "(keine Treffer - Datei ist sauber)"
-echo "--- grep 'logto' in api/backups.ts:"
-grep -n 'logto' "$PROJECT_ROOT/app/src/api/backups.ts" || echo "(keine Treffer - Datei ist sauber)"
 echo "==> Docker Build"
 export DOCKER_BUILDKIT=1
-docker compose -f docker-compose.vps.yml --env-file .env.vps build migrate website
-docker compose -f docker-compose.vps.yml --env-file .env.vps build --no-cache \
+docker compose -f docker-compose.vps.yml --env-file .env.vps build \
   --build-arg DEPLOY_SHA="${GITHUB_SHA:-$(date +%s)}" \
-  platform
+  migrate platform website
 
 echo "==> Platform Restart"
 docker compose -f docker-compose.vps.yml --env-file .env.vps up -d --force-recreate platform
