@@ -1043,6 +1043,64 @@ async function deleteAdminSessionByTokenHash(tokenHash) {
   await query("DELETE FROM admin_sessions WHERE token_hash = $1", [tokenHash]);
 }
 
+// ─── API-Keys (General API Tokens) ──────────────────────────────────────────
+async function createApiKey({ label, tokenHash, prefix, createdBy, expiresAt = null }) {
+  const { rows } = await query(
+    `INSERT INTO core.api_keys (label, token_hash, prefix, created_by, expires_at)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING id, label, prefix, created_by AS "createdBy",
+               created_at AS "createdAt", last_used_at AS "lastUsedAt",
+               expires_at AS "expiresAt", revoked_at AS "revokedAt"`,
+    [String(label), String(tokenHash), String(prefix), createdBy || null, expiresAt || null]
+  );
+  return rows[0] || null;
+}
+
+async function getApiKeyByTokenHash(tokenHash) {
+  const { rows } = await query(
+    `SELECT id, label, prefix, created_by AS "createdBy",
+            created_at AS "createdAt", last_used_at AS "lastUsedAt",
+            expires_at AS "expiresAt", revoked_at AS "revokedAt"
+       FROM core.api_keys
+      WHERE token_hash = $1
+        AND revoked_at IS NULL
+        AND (expires_at IS NULL OR expires_at > NOW())
+      LIMIT 1`,
+    [String(tokenHash)]
+  );
+  return rows[0] || null;
+}
+
+async function listApiKeys() {
+  const { rows } = await query(
+    `SELECT k.id, k.label, k.prefix,
+            k.created_by   AS "createdById",
+            u.full_name    AS "createdByName",
+            u.email        AS "createdByEmail",
+            k.created_at   AS "createdAt",
+            k.last_used_at AS "lastUsedAt",
+            k.expires_at   AS "expiresAt",
+            k.revoked_at   AS "revokedAt"
+       FROM core.api_keys k
+       LEFT JOIN core.admin_users u ON u.id = k.created_by
+      ORDER BY k.created_at DESC`
+  );
+  return rows;
+}
+
+async function revokeApiKey(id) {
+  const { rowCount } = await query(
+    `UPDATE core.api_keys SET revoked_at = NOW()
+      WHERE id = $1 AND revoked_at IS NULL`,
+    [Number(id)]
+  );
+  return rowCount > 0;
+}
+
+function touchApiKeyLastUsed(id) {
+  query("UPDATE core.api_keys SET last_used_at = NOW() WHERE id = $1", [Number(id)]).catch(() => {});
+}
+
 async function getAdminUserByUsername(username) {
   const u = String(username || "").trim().toLowerCase();
   if (!u) return null;
@@ -2273,6 +2331,11 @@ module.exports = {
   createAdminSession,
   getAdminSessionByTokenHash,
   deleteAdminSessionByTokenHash,
+  createApiKey,
+  getApiKeyByTokenHash,
+  listApiKeys,
+  revokeApiKey,
+  touchApiKeyLastUsed,
   getAdminUserByUsername,
   getAdminUserById,
   listAdminUsers,
