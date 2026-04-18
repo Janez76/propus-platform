@@ -9,23 +9,15 @@ backend/node_modules/
 *.log
 *.zip
 backups/
-!admin-panel/src/components/backups/
 Buchungstool-backups/
 .backups/
 _backup_*/
-admin-panel-backup-propus-css-redesign/
 .DS_Store
 Thumbs.db
 _deploy_now.py
 nas-analysis-instructions.md
 
-# Doppelte Komponenten-Baum (Kanon: admin-panel/src/components)
-admin-panel/components/
-
 # Build-Artefakte
-admin-panel/dist.tar.gz
-admin-panel/*.tar
-admin-panel/dist/
 test-results/
 screenshots/
 coverage/

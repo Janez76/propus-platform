@@ -1,6 +1,5 @@
 **/node_modules
 **/dist
-!booking/admin-panel/dist
 .git
 data
 *.log

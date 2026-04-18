@@ -18,7 +18,6 @@ in [`VPS-BETRIEB.md`](VPS-BETRIEB.md).
 │   ▸ Trigger: push auf master  oder  workflow_dispatch                │
 │   ▸ Architecture-Guard (kein neues EJS), Documentation-Guard         │
 │   ▸ Version stempeln (booking/public/VERSION etc.)                   │
-│   ▸ admin-panel via Vite bauen                                       │
 │   ▸ Deploy-Archiv (tar.gz) bauen                                     │
 │   ▸ Rollback-Snapshot auf VPS sichern                                │
 │   ▸ Archiv + Scripts via scp hochladen                               │
@@ -111,10 +110,6 @@ Constraints**:
 | Neuer Service neben Platform/Website | `docker-compose.vps.yml` (neuer Service) und `deploy-remote.sh` (Build/Start in der richtigen Reihenfolge) |
 
 ## Häufige Fragen
-
-**Warum baut die Pipeline `booking/admin-panel` separat und schickt das mit?**
-Historisch — siehe [`booking/admin-panel/DEPRECATED.md`](../booking/admin-panel/DEPRECATED.md).
-Der Build-Schritt bleibt drin, bis die letzten Seiten nach `app/src/` migriert sind.
 
 **Warum kein BlueGreen / Zero-Downtime?**
 Der Cloudflare-Tunnel routet auf die Container-Health-Probe. Während des
