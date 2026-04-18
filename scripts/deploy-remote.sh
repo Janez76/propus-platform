@@ -154,9 +154,12 @@ echo "Alle Ports verfuegbar."
 
 echo "==> Docker Build"
 export DOCKER_BUILDKIT=1
-docker compose -f docker-compose.vps.yml --env-file .env.vps build \
+# platform explizit OHNE Cache bauen (COPY-Layer kann bei BuildKit sonst stale Code liefern).
+# migrate + website duerfen cachen (reine Backend/Website-Builds ohne bekannte Cache-Probleme).
+docker compose -f docker-compose.vps.yml --env-file .env.vps build migrate website
+docker compose -f docker-compose.vps.yml --env-file .env.vps build --no-cache \
   --build-arg DEPLOY_SHA="${GITHUB_SHA:-$(date +%s)}" \
-  migrate platform website
+  platform
 
 echo "==> Platform Restart"
 docker compose -f docker-compose.vps.yml --env-file .env.vps up -d --force-recreate platform
