@@ -16,6 +16,7 @@ const {
 } = require("./pricing.config.js");
 const { DEFAULT_APP_SETTINGS } = require("./settings-defaults");
 const { formatPhoneCH } = require("./phone-format");
+const coreCustomerLookup = require("../core/lib/customer-lookup");
 
 const DATABASE_URL = process.env.DATABASE_URL || "";
 const DB_SEARCH_PATH = process.env.DB_SEARCH_PATH || "booking,core,public";
@@ -949,23 +950,7 @@ async function upsertCustomer(billing) {
 }
 
 async function getCustomerByEmail(email) {
-  const normEmail = (email || "").toLowerCase().trim();
-  if (!normEmail) return null;
-  try {
-    const { rows } = await query(
-      `SELECT * FROM core.customers
-       WHERE core.customer_email_matches($1, email, email_aliases)
-       LIMIT 1`,
-      [normEmail]
-    );
-    return rows[0] || null;
-  } catch (_aliasErr) {
-    const { rows } = await query(
-      `SELECT * FROM core.customers WHERE LOWER(TRIM(email)) = $1 LIMIT 1`,
-      [normEmail]
-    );
-    return rows[0] || null;
-  }
+  return coreCustomerLookup.getCustomerByEmail({ query }, email);
 }
 
 async function createCustomer({ email, passwordHash, name = "", company = "", phone = "", street = "", zipcity = "", authSub = null }) {
