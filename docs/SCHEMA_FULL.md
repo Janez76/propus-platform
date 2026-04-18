@@ -155,9 +155,15 @@ Initialisiert via `core/migrations/000_init_schemas.sql`.
 | `invited_by` | TEXT | |
 | `created_at` / `updated_at` | TIMESTAMPTZ | |
 
-**Views:**
-- `booking.v_admin_users` → `module_access IN ('booking','both')`
-- `tour_manager.v_admin_users` → `module_access IN ('tour_manager','both')`
+**Kompatibilitäts-Views (seit Migration 040, April 2026):**
+- `booking.admin_users` — VIEW mit INSTEAD-OF-Triggern (`INSERT`/`UPDATE`/`DELETE` schreiben auf `core.admin_users` zurück). Exponiert Legacy-Spaltennamen (`name` ← `full_name`, `role` ← `roles[1]`, `active` ← `is_active`). Filter: `module_access IN ('booking','both')`.
+- `tour_manager.admin_users` — VIEW mit INSTEAD-OF-Triggern. Filter: `module_access IN ('tour_manager','both')`.
+- Die alten Read-Only-Views `booking.v_admin_users` / `tour_manager.v_admin_users` (aus Migration 018) wurden gelöscht.
+
+**Trigger-Funktionen (Migration 040):**
+- `core.booking_admin_users_insert()` / `…_update()` / `…_delete()` — INSTEAD-OF-Trigger auf `booking.admin_users`
+- `core.tour_manager_admin_users_insert()` / `…_update()` / `…_delete()` — INSTEAD-OF-Trigger auf `tour_manager.admin_users`
+- Bei DELETE eines Users mit `module_access = 'both'` wird nur der Modulzugang entzogen (→ Downgrade auf das andere Modul), nicht physisch gelöscht.
 
 ---
 
