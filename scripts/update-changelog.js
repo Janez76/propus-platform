@@ -108,10 +108,9 @@ ${changesLines}
     ],
   },`;
 
-// ── Beide changelogData.ts aktualisieren ──────────────────────────────────────
+// ── changelogData.ts aktualisieren ────────────────────────────────────────────
 const targets = [
   path.join(__dirname, "../app/src/data/changelogData.ts"),
-  path.join(__dirname, "../booking/admin-panel/src/data/changelogData.ts"),
 ];
 
 const MARKER = "export const CHANGELOG: ChangelogVersion[] = [";

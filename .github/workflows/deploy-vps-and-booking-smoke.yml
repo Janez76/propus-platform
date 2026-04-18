@@ -123,7 +123,6 @@ jobs:
           # Alle VERSION-Dateien nur fuer dieses Deploy aktualisieren.
           # Der Workflow schreibt bewusst nicht mehr nach master zurueck.
           echo -n "$NEW_VER" > booking/public/VERSION
-          echo -n "$NEW_VER" > booking/admin-panel/public/VERSION
           echo -n "$NEW_VER" > app/public/VERSION
           echo -n "$NEW_VER" > website/public/VERSION
 
@@ -134,12 +133,6 @@ jobs:
             p.version = '${WEBSITE_VER}';
             fs.writeFileSync('website/package.json', JSON.stringify(p, null, 2) + '\n');
           "
-
-      - name: Build Booking Admin Panel
-        working-directory: booking/admin-panel
-        run: |
-          npm ci
-          npx vite build
 
       - name: Create deploy archive
         run: |
