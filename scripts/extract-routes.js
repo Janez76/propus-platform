@@ -96,7 +96,11 @@ function deriveRateLimit(middlewareSegment) {
 
 // ── Express `:name` → OpenAPI `{name}` ─────────────────────────────────────
 function convertPath(p) {
-  return p.replace(/:([a-zA-Z0-9_]+)/g, "{$1}");
+  let out = p.replace(/:([a-zA-Z0-9_]+)/g, "{$1}");
+  // Trailing Slashes entfernen (OpenAPI-Linter erlaubt sie nicht, Express
+  // behandelt `/foo` und `/foo/` per Default identisch).
+  if (out.length > 1 && out.endsWith("/")) out = out.slice(0, -1);
+  return out;
 }
 function extractParams(p) {
   const out = [];
@@ -229,29 +233,49 @@ function makeOperationId(route) {
 
 // ── Main ───────────────────────────────────────────────────────────────────
 function main() {
+  if (!YAML) {
+    console.error(
+      "[extract-routes] js-yaml nicht verfügbar (app/node_modules). Abbruch.",
+    );
+    process.exit(1);
+  }
+
   const allRoutes = [];
   for (const t of TARGETS) {
     allRoutes.push(...scanFile(t));
   }
 
-  // Kuratierte Spec laden, um deren Routen auszufiltern (kein Überschreiben).
-  const manualSpecPath = path.join(REPO_ROOT, "docs/openapi/openapi.yaml");
+  // Kuratierte Spec laden — wir MERGEN in diese Datei, kein Überschreiben
+  // der manuellen Einträge. Auto-Stubs (erkennbar an `x-source-file`) werden
+  // vor der Regeneration weggeworfen, damit gelöschte Routen nicht ewig bleiben.
+  const specPath = path.join(REPO_ROOT, "docs/openapi/openapi.yaml");
+  const spec = YAML.load(fs.readFileSync(specPath, "utf8"));
+  spec.paths = spec.paths || {};
   const manualPaths = new Set();
-  if (fs.existsSync(manualSpecPath) && YAML) {
-    const manual = YAML.load(fs.readFileSync(manualSpecPath, "utf8"));
-    for (const p of Object.keys(manual.paths || {})) {
-      for (const m of Object.keys(manual.paths[p])) {
+  // Trailing-Slash-Normalisierung auf existierende Keys: ältere Stubs hatten
+  // `/admin/api/` etc., der Linter verbietet das.
+  for (const p of Object.keys(spec.paths)) {
+    const normalized = p.length > 1 && p.endsWith("/") ? p.slice(0, -1) : p;
+    if (normalized !== p) {
+      spec.paths[normalized] = spec.paths[p];
+      delete spec.paths[p];
+    }
+  }
+  for (const p of Object.keys(spec.paths)) {
+    for (const m of Object.keys(spec.paths[p])) {
+      const op = spec.paths[p][m];
+      if (op && op["x-source-file"]) {
+        // Auto-Stub → wird neu generiert, NICHT als manual merken.
+        delete spec.paths[p][m];
+      } else {
         manualPaths.add(`${m}:${p}`);
+        if (op && op.operationId) seenOperationIds.add(op.operationId);
       }
     }
-  } else if (!YAML) {
-    console.warn(
-      "[extract-routes] js-yaml nicht gefunden — Dedup gegen openapi.yaml deaktiviert",
-    );
+    if (Object.keys(spec.paths[p]).length === 0) delete spec.paths[p];
   }
 
-  const tags = new Set();
-  const paths = {};
+  const tags = new Set((spec.tags || []).map((t) => t.name));
   let added = 0;
   let skipped = 0;
   for (const r of allRoutes) {
@@ -261,99 +285,66 @@ function main() {
       skipped++;
       continue;
     }
-    if (!paths[openapiPath]) paths[openapiPath] = {};
-    if (paths[openapiPath][r.method]) {
+    if (!spec.paths[openapiPath]) spec.paths[openapiPath] = {};
+    if (spec.paths[openapiPath][r.method]) {
       // Gleiche Methode+Pfad-Duplikate (z. B. in booking/server.js mehrmals
       // definiert) — nur erstes Vorkommen dokumentieren.
       continue;
     }
-    paths[openapiPath][r.method] = buildOperation(r, tags);
+    spec.paths[openapiPath][r.method] = buildOperation(r, tags);
     added++;
   }
 
-  const spec = {
-    openapi: "3.1.0",
-    info: {
-      title: "Propus Platform — Auto-Generated Route Inventory",
-      version: "1.0.0",
-      description:
-        "**Auto-generierter OpenAPI-Stub aller Routen aus `booking/server.js` und `tours/routes/*.js`.** " +
-        "Kuratierte Routen aus `openapi.yaml` sind hier ausgenommen (Quelle dort).\n\n" +
-        "Regenerieren: `node scripts/extract-routes.js`.\n\n" +
-        "Request/Response-Schemas sind `additionalProperties: true` — manuelle Ergänzung empfohlen.",
-      license: { name: "Proprietary", identifier: "LicenseRef-Proprietary" },
-    },
-    servers: [
-      { url: "https://booking.propus.ch", description: "Produktion" },
-      { url: "http://localhost:3100", description: "Lokale Entwicklung" },
-    ],
-    tags: Array.from(tags).sort().map((name) => ({ name })),
-    security: [],
-    paths,
-    components: {
-      securitySchemes: {
-        bearerAuth: {
-          type: "http",
-          scheme: "bearer",
-          bearerFormat: "opaque",
-        },
-        sessionCookie: {
-          type: "apiKey",
-          in: "cookie",
-          name: "admin_session",
-        },
-      },
-      responses: {
-        Unauthorized: {
-          description: "Auth erforderlich oder ungültig",
-          content: {
-            "application/json": {
-              schema: {
-                type: "object",
-                properties: { error: { type: "string" } },
-              },
-            },
-          },
-        },
-        TooManyRequests: {
-          description: "Rate-Limit überschritten",
-          content: {
-            "application/json": {
-              schema: {
-                type: "object",
-                properties: { error: { type: "string" } },
-              },
-            },
-          },
-        },
-        ServerError: {
-          description: "Interner Fehler",
-          content: {
-            "application/json": {
-              schema: {
-                type: "object",
-                properties: { error: { type: "string" } },
-              },
-            },
-          },
-        },
-      },
-    },
-  };
+  // Tags aktualisieren (alphabetisch, ohne bestehende Descriptions zu verlieren).
+  const existingTagMap = new Map((spec.tags || []).map((t) => [t.name, t]));
+  spec.tags = Array.from(tags)
+    .sort()
+    .map((name) => existingTagMap.get(name) || { name });
 
-  // Ausgabe als JSON — swagger-ui-express frisst JSON nativ und wir brauchen
-  // keinen YAML-Emitter als zusätzliche Dep. Der Header ist nur Dokumentation.
-  const outPath = path.join(REPO_ROOT, "docs/openapi/openapi-auto.json");
+  // Security Schemes ergänzen falls noch nicht vorhanden (für Auto-Stubs nötig).
+  spec.components = spec.components || {};
+  spec.components.securitySchemes = spec.components.securitySchemes || {};
+  spec.components.responses = spec.components.responses || {};
+  if (!spec.components.responses.Unauthorized) {
+    spec.components.responses.Unauthorized = {
+      description: "Auth erforderlich oder ungültig",
+      content: {
+        "application/json": {
+          schema: {
+            type: "object",
+            properties: { error: { type: "string" } },
+          },
+        },
+      },
+    };
+  }
   spec["x-generator"] = {
     tool: "scripts/extract-routes.js",
-    note: "AUTO-GENERATED — nicht direkt editieren. Regeneriere mit: node scripts/extract-routes.js",
-    generatedAt: new Date().toISOString(),
+    note:
+      "Auto-Stubs via `node scripts/extract-routes.js` gemerget. Kuratierte Einträge (mit echten Schemas) bleiben unangetastet; Stubs haben `summary: TODO` und sind an `x-source-file`/`x-source-line` erkennbar.",
+    lastRun: new Date().toISOString(),
+    routesScanned: allRoutes.length,
+    curatedSkipped: skipped,
+    autoAdded: added,
   };
-  fs.writeFileSync(outPath, JSON.stringify(spec, null, 2) + "\n");
+
+  // Zurück als YAML schreiben — bleibt menschlich editierbar, kuratierte
+  // Einträge können per Hand weiter ausgebaut werden.
+  const out = YAML.dump(spec, { lineWidth: 0, noRefs: true, sortKeys: false });
+  const header =
+    "# Propus Platform — Unified OpenAPI 3.1 Spec\n" +
+    "#\n" +
+    "# Diese Datei enthält sowohl kuratierte Einträge (mit echten Schemas)\n" +
+    "# als auch auto-generierte Stubs aus booking/server.js + tours/routes/*.js.\n" +
+    "# Auto-Stubs sind an `summary: 'TODO: ...'` und `x-source-file` erkennbar.\n" +
+    "#\n" +
+    "# Stubs regenerieren: `node scripts/extract-routes.js`\n" +
+    "# Manuelle Einträge bleiben beim Regen erhalten.\n\n";
+  fs.writeFileSync(specPath, header + out);
 
   console.log(`[extract-routes] scanned ${allRoutes.length} route definitions`);
   console.log(`[extract-routes] added ${added} auto-stubs, skipped ${skipped} curated`);
-  console.log(`[extract-routes] wrote ${outPath}`);
+  console.log(`[extract-routes] wrote ${specPath}`);
 }
 
 main();

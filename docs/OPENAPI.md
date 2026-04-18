@@ -1,7 +1,20 @@
-# OpenAPI-Spezifikation — Propus Booking API
+# OpenAPI-Spezifikation — Propus Platform
 
-> **Status:** Skeleton mit 5 kritischen Endpunkten als Vorlage. Erweiterung
-> auf die ~150+ vorhandenen Routen ist ein eigenes Doku-Ticket.
+> **Status:** Vollständiges Routen-Inventar — **553 Endpoints** (5 kuratiert
+> mit echten Schemas + 548 Auto-Stubs aus `booking/server.js` und
+> `tours/routes/*.js`). Auto-Stubs haben `summary: "TODO: ..."` und
+> `x-source-file`/`x-source-line`-Marker.
+
+## Regenerieren
+
+```bash
+node scripts/extract-routes.js
+```
+
+Das Script scannt alle Express-Route-Definitionen, behält kuratierte
+Einträge (alles ohne `x-source-file`) und ersetzt vorhandene Auto-Stubs.
+Neu hinzugefügte Routen erscheinen beim nächsten Run automatisch als Stub,
+gelöschte Routen verschwinden.
 
 ## Wo liegt die Spec?
 
@@ -12,6 +25,8 @@
 
 ## Was ist dokumentiert?
 
+**Vollständig (kuratiert, mit echten Schemas):**
+
 | Endpunkt | Zweck | Tag |
 |---|---|---|
 | `POST /api/admin/login` | Lokaler Admin-Login (Legacy) | auth |
@@ -20,8 +35,13 @@
 | `GET /api/booking/confirm/{token}` | Bestätigung per Token-Link | booking |
 | `GET /api/health` | Health-Check + Feature-Flags | system |
 
-Alle 5 sind die rate-limit-geschützten oder operationskritischen Routen
-(siehe `booking/rate-limiters.js`).
+**Als Stub dokumentiert (548 Routen):** Methode, Pfad, Auth-Security aus
+Middleware-Name abgeleitet, generische Responses. Request-/Response-Bodies
+sind `additionalProperties: true` — manuelle Ergänzung empfohlen für
+operationskritische Endpoints.
+
+Tag-Gruppen: `auth`, `booking`, `system`, `tours`, `tours-admin`,
+`tours-auth`, `tours-customer`, `tours-portal`, `tours-webhook`.
 
 ## Spec lokal ansehen
 
@@ -122,11 +142,11 @@ zu erinnern (TODO).
 
 | # | Lücke | Lösung |
 |---|---|---|
-| 1 | Body-Schema von `POST /api/booking` ist `additionalProperties: true` | Eigenes Ticket: vollständige Payload aus `booking/server.js:3871-4593` extrahieren |
+| 1 | 548 Routen sind nur als Stub dokumentiert (keine echten Request/Response-Schemas) | Top-Endpoints (Order-CRUD, Customer-API, Tour-Workflow) schrittweise kuratieren |
 | 2 | Kein CI-Lint-Job für die Spec | `.github/workflows/openapi-lint.yml` mit `redocly lint` ergänzen |
-| 3 | Keine Tour-Manager-Routen dokumentiert (`/api/tours/*`) | Eigenes Ticket pro Modul |
-| 4 | Keine Webhooks (Payrexx, Exxas) dokumentiert | OpenAPI 3.1 unterstützt `webhooks:` — eigenes Ticket |
-| 5 | Keine `examples:` in Responses | Schrittweise beim Dokumentieren neuer Endpunkte ergänzen |
+| 3 | Keine `tag-description` auf den meisten Tags (Linter-Warning) | In `spec.tags[].description` ergänzen |
+| 4 | Keine Webhooks (Payrexx, Exxas) dokumentiert | OpenAPI 3.1 unterstützt `webhooks:` — aktuell als normale POST-Routen erfasst |
+| 5 | Keine `examples:` in Responses | Schrittweise beim Kuratieren eines Endpoints ergänzen |
 
 ## Verwandte Dokumentation
 
