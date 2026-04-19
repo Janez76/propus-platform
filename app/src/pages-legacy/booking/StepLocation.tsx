@@ -269,7 +269,7 @@ export function StepLocation({ lang }: { lang: Lang }) {
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <label className={labelClass}>{t(lang, "booking.step1.objectType")}</label>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
               {OBJECT_TYPES.map((ot) => (
                 <button
                   key={ot.value}
@@ -277,7 +277,7 @@ export function StepLocation({ lang }: { lang: Lang }) {
                   data-testid={`booking-object-type-${ot.value}`}
                   onClick={() => setObject({ type: ot.value })}
                   className={cn(
-                    "rounded-lg border px-3 py-2 text-xs font-medium transition-all",
+                    "rounded-lg border px-2 py-2 text-xs font-medium leading-tight transition-all",
                     object.type === ot.value
                       ? "border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]"
                       : "border-[var(--border-soft)] text-[var(--text-subtle)] hover:border-[var(--border-strong)]",
