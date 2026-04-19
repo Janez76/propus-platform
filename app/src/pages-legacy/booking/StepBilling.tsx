@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { Building2, CreditCard, LogIn, MapPin, Plus, Trash2, User } from "lucide-react";
 import { AddressAutocompleteInput, type ParsedAddress, type StreetContext } from "../../components/ui/AddressAutocompleteInput";
 import {
@@ -35,13 +35,10 @@ function StructuredAddressFields({ lang, address, onPatch, testIdPrefix }: Struc
     if (!address.street) return undefined;
     return { street: address.street, zip: address.zip, city: address.city };
   }, [address.street, address.zip, address.city]);
+  // PLZ-Feld ist editierbar, sobald eine Strasse gesetzt ist (siehe StepLocation
+  // für die Begründung — Remount-safe und keystroke-safe).
+  const zipEditable = Boolean(address.street);
   const zipMissing = Boolean(address.street) && !address.zip;
-  // Latched: PLZ-Feld bleibt editierbar bis neue Strasse MIT PLZ gewählt wird
-  // oder die Strasse geleert wird. Verhindert Re-Lock nach erstem Tastendruck.
-  const [zipEditable, setZipEditable] = useState<boolean>(() => Boolean(address.street) && !address.zip);
-  useEffect(() => {
-    if (!address.street) setZipEditable(false);
-  }, [address.street]);
 
   const onSelectStreet = useCallback((p: ParsedAddress) => {
     onPatch({
@@ -54,7 +51,6 @@ function StructuredAddressFields({ lang, address, onPatch, testIdPrefix }: Struc
       lat: null,
       lng: null,
     });
-    setZipEditable(!p.zip);
     sessionTokenRef.current = crypto.randomUUID();
   }, [onPatch]);
 
