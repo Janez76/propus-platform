@@ -1745,6 +1745,8 @@
   "booking.step1.zip": "CAP",
   "booking.step1.zipMissingHint": "Si prega di aggiungere il CAP.",
   "booking.step1.city": "Località",
+  "booking.step1.addressSuffix": "Complemento indirizzo",
+  "booking.step1.addressSuffixPlaceholder": "es. c/o Rossi, 4° piano",
   "booking.step1.mapUnavailable": "Mappa non disponibile – inserire l'indirizzo manualmente.",
   "booking.step1.objectDetails": "Dettagli dell'oggetto",
   "booking.step1.objectType": "Tipo di oggetto",

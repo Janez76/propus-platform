@@ -14,6 +14,8 @@ export type OnsiteContactRow = {
 export type StructuredAddress = {
   street: string;
   houseNumber: string;
+  /** Freier Adresszusatz (z. B. "c/o Müller", "4. OG", "Büro Ost") — optional, kein Autocomplete. */
+  addressSuffix: string;
   zip: string;
   city: string;
   canton: string;
@@ -139,6 +141,7 @@ export type BillingData = {
   phone: string;
   phone_mobile: string;
   street: string;
+  street_suffix: string;
   zip: string;
   city: string;
   zipcity: string;
@@ -148,6 +151,7 @@ export type BillingData = {
   alt_company_email: string;
   alt_company_phone: string;
   alt_street: string;
+  alt_street_suffix: string;
   alt_zip: string;
   alt_city: string;
   alt_zipcity: string;
@@ -168,6 +172,7 @@ export function makeEmptyStructuredAddress(): StructuredAddress {
   return {
     street: "",
     houseNumber: "",
+    addressSuffix: "",
     zip: "",
     city: "",
     canton: "",
@@ -245,10 +250,10 @@ export function formatStructuredAddress(a: StructuredAddress): string {
 const EMPTY_BILLING: BillingData = {
   salutation: "", first_name: "", company: "", company_email: "", company_phone: "",
   name: "", email: "", phone: "", phone_mobile: "",
-  street: "", zip: "", city: "", zipcity: "",
+  street: "", street_suffix: "", zip: "", city: "", zipcity: "",
   order_ref: "", notes: "",
   alt_company: "", alt_company_email: "", alt_company_phone: "",
-  alt_street: "", alt_zip: "", alt_city: "", alt_zipcity: "",
+  alt_street: "", alt_street_suffix: "", alt_zip: "", alt_city: "", alt_zipcity: "",
   alt_salutation: "", alt_first_name: "", alt_name: "",
   alt_email: "", alt_phone: "", alt_phone_mobile: "",
   alt_order_ref: "", alt_notes: "",

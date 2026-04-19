@@ -1745,6 +1745,8 @@
   "booking.step1.zip": "Postcode",
   "booking.step1.zipMissingHint": "Please add the postcode.",
   "booking.step1.city": "City",
+  "booking.step1.addressSuffix": "Address addition",
+  "booking.step1.addressSuffixPlaceholder": "e.g. c/o Smith, 4th floor",
   "booking.step1.mapUnavailable": "Map not available – please enter address manually.",
   "booking.step1.objectDetails": "Property details",
   "booking.step1.objectType": "Property type",

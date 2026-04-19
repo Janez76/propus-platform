@@ -141,6 +141,18 @@ function StructuredAddressFields({ lang, address, onPatch, testIdPrefix }: Struc
           tabIndex={-1}
         />
       </div>
+      <div className="sm:col-span-3">
+        <label className={labelClass}>{t(lang, "booking.step1.addressSuffix")}</label>
+        <input
+          data-testid={testId("suffix")}
+          type="text"
+          autoComplete="off"
+          value={address.addressSuffix}
+          onChange={(e) => onPatch({ addressSuffix: e.target.value })}
+          className={inputClass}
+          placeholder={t(lang, "booking.step1.addressSuffixPlaceholder")}
+        />
+      </div>
     </div>
   );
 }
@@ -183,9 +195,6 @@ export function StepBilling({ lang }: { lang: Lang }) {
     setBillingCompany({ name: v });
     setBilling({ company: v });
   };
-  const setCompanyUid = (v: string) => {
-    setBillingCompany({ uid: v });
-  };
   const setCompanyOrderRef = (v: string) => {
     setBillingCompany({ orderRef: v });
     setBilling({ order_ref: v });
@@ -195,6 +204,7 @@ export function StepBilling({ lang }: { lang: Lang }) {
     const addr = useBookingWizardStore.getState().billing.structured.company.address;
     setBilling({
       street: [addr.street, addr.houseNumber].filter(Boolean).join(" ").trim(),
+      street_suffix: addr.addressSuffix,
       zip: addr.zip,
       city: addr.city,
       zipcity: [addr.zip, addr.city].filter(Boolean).join(" ").trim(),
@@ -217,6 +227,7 @@ export function StepBilling({ lang }: { lang: Lang }) {
     const addr = useBookingWizardStore.getState().billing.structured.private.address;
     setBilling({
       street: [addr.street, addr.houseNumber].filter(Boolean).join(" ").trim(),
+      street_suffix: addr.addressSuffix,
       zip: addr.zip,
       city: addr.city,
       zipcity: [addr.zip, addr.city].filter(Boolean).join(" ").trim(),
@@ -246,6 +257,7 @@ export function StepBilling({ lang }: { lang: Lang }) {
     const addr = useBookingWizardStore.getState().billing.structured.altBilling.company.address;
     setBilling({
       alt_street: [addr.street, addr.houseNumber].filter(Boolean).join(" ").trim(),
+      alt_street_suffix: addr.addressSuffix,
       alt_zip: addr.zip,
       alt_city: addr.city,
       alt_zipcity: [addr.zip, addr.city].filter(Boolean).join(" ").trim(),
@@ -328,18 +340,7 @@ export function StepBilling({ lang }: { lang: Lang }) {
                   className={inputClass}
                 />
               </div>
-              <div>
-                <label className={labelClass}>{t(lang, "booking.step4.uid")}</label>
-                <input
-                  type="text"
-                  autoComplete="off"
-                  value={structured.company.uid}
-                  onChange={(e) => setCompanyUid(e.target.value)}
-                  placeholder={t(lang, "booking.step4.uidPlaceholder")}
-                  className={inputClass}
-                />
-              </div>
-              <div>
+              <div className="sm:col-span-2">
                 <label className={labelClass}>{t(lang, "booking.step4.orderRef")}</label>
                 <input
                   type="text"
@@ -513,18 +514,7 @@ export function StepBilling({ lang }: { lang: Lang }) {
                     className={inputClass}
                   />
                 </div>
-                <div>
-                  <label className={labelClass}>{t(lang, "booking.step4.uid")}</label>
-                  <input
-                    type="text"
-                    autoComplete="off"
-                    value={structured.altBilling.company.uid}
-                    onChange={(e) => setBillingAltCompany({ uid: e.target.value })}
-                    placeholder={t(lang, "booking.step4.uidPlaceholder")}
-                    className={inputClass}
-                  />
-                </div>
-                <div>
+                <div className="sm:col-span-2">
                   <label className={labelClass}>{t(lang, "booking.step4.orderRef")}</label>
                   <input
                     type="text"
@@ -684,7 +674,8 @@ export function StepBilling({ lang }: { lang: Lang }) {
           <a href="https://www.propus.ch/datenschutz/" target="_blank" rel="noopener noreferrer" className="underline hover:text-[var(--accent)]" onClick={(e) => e.stopPropagation()}>
             {t(lang, "booking.step4.agb.privacyLink")}
           </a>{" "}
-          {t(lang, "booking.step4.agb.suffix")}
+          {t(lang, "booking.step4.agb.suffix")}{" "}
+          <span className="text-red-500">*</span>
         </span>
       </label>
     </div>
