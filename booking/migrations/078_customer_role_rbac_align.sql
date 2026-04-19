@@ -1,5 +1,12 @@
 -- Migration 078: customer-Rolle bereinigen und RBAC-Presets mit Frontend abgleichen
 --
+-- FK system_role_permissions → permission_definitions: dashboard.view muss existieren
+-- (wird unten fuer tour_manager gesetzt; fehlte zuvor in permission_definitions).
+INSERT INTO permission_definitions (permission_key, description, module_tag) VALUES
+  ('dashboard.view', 'Dashboard ansehen', 'dashboard')
+ON CONFLICT (permission_key) DO NOTHING;
+
+--
 -- Probleme behoben:
 --   1. `customer`-Rolle hatte kein RBAC-Preset → immer Legacy-Fallback
 --   2. customer_user/customer_admin fehlten tours.read → Portal-Routen geblockt
