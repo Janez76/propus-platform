@@ -57,6 +57,27 @@ describe("validateStep4 — billing mode awareness (regression for PR #113)", ()
     const fields = validateStep4(s).map((e) => e.field);
     expect(fields).toEqual(expect.arrayContaining(["alt_company", "alt_street", "alt_zipCity"]));
   });
+
+  it("main billing: 1-digit ZIP fails format check (Codex P2)", () => {
+    const s = makeStep4({ zip: "8" });
+    const fields = validateStep4(s).map((e) => e.field);
+    expect(fields).toContain("zipCity");
+  });
+
+  it("main billing: 4-digit Swiss ZIP passes", () => {
+    const s = makeStep4({ zip: "8050" });
+    const fields = validateStep4(s).map((e) => e.field);
+    expect(fields).not.toContain("zipCity");
+  });
+
+  it("altBilling: partial alt_zip fails format check", () => {
+    const s = makeStep4(
+      { alt_company: "Alt GmbH", alt_street: "Limmatstr. 5", alt_zip: "80", alt_city: "Zürich" },
+      true,
+    );
+    const fields = validateStep4(s).map((e) => e.field);
+    expect(fields).toContain("alt_zipCity");
+  });
 });
 
 function makeStep1(zipOverride?: string): Step1State {

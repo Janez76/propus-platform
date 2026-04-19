@@ -134,11 +134,16 @@ export function validateStep4(s: Step4State): ValidationError[] {
   if (!s.billing.street.trim()) errors.push({ field: "street", message: "booking.validation.streetRequired" });
   if (!s.billing.zip.trim() || !s.billing.city.trim()) {
     errors.push({ field: "zipCity", message: "booking.validation.zipCityRequired" });
+  } else if (!/^\d{4,5}$/.test(s.billing.zip.trim())) {
+    // Editierbares PLZ-Feld: partielle Eingaben ("8") vor Persist blocken.
+    errors.push({ field: "zipCity", message: "booking.validation.zipCityRequired" });
   }
   if (s.altBilling) {
     if (!s.billing.alt_company?.trim()) errors.push({ field: "alt_company", message: "booking.validation.companyRequired" });
     if (!s.billing.alt_street?.trim()) errors.push({ field: "alt_street", message: "booking.validation.streetRequired" });
     if (!s.billing.alt_zip?.trim() || !s.billing.alt_city?.trim()) {
+      errors.push({ field: "alt_zipCity", message: "booking.validation.zipCityRequired" });
+    } else if (!/^\d{4,5}$/.test(s.billing.alt_zip.trim())) {
       errors.push({ field: "alt_zipCity", message: "booking.validation.zipCityRequired" });
     }
   }
