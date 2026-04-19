@@ -27,6 +27,11 @@ export function validateStep1(s: Step1State): ValidationError[] {
   }
   if (s.parsedAddress && (!s.parsedAddress.zip || !s.parsedAddress.city)) {
     errors.push({ field: "address", message: "booking.validation.zipCityRequired" });
+  } else if (s.parsedAddress?.zip && !/^\d{4,5}$/.test(s.parsedAddress.zip.trim())) {
+    // CH/FL = 4-stellig, AT/DE = 5-stellig. 1–3-stellige Eingaben blocken,
+    // damit das editable PLZ-Feld (bei Autocomplete-Treffern ohne PLZ) keine
+    // unvollständigen Nummern durchlässt.
+    errors.push({ field: "address", message: "booking.validation.zipCityRequired" });
   }
   if (!s.object.type) {
     errors.push({ field: "objectType", message: "booking.validation.objectTypeRequired" });
@@ -109,6 +114,7 @@ export type Step4State = {
     alt_email?: string;
     alt_order_ref?: string;
     alt_notes?: string;
+    structured?: { mode: "company" | "private" };
   };
   altBilling: boolean;
   agbAccepted: boolean;
@@ -116,7 +122,10 @@ export type Step4State = {
 
 export function validateStep4(s: Step4State): ValidationError[] {
   const errors: ValidationError[] = [];
-  if (!s.billing.company.trim()) errors.push({ field: "company", message: "booking.validation.companyRequired" });
+  const mode = s.billing.structured?.mode ?? "company";
+  if (mode === "company" && !s.billing.company.trim()) {
+    errors.push({ field: "company", message: "booking.validation.companyRequired" });
+  }
   if (!s.billing.name.trim()) errors.push({ field: "name", message: "booking.validation.nameRequired" });
   if (!EMAIL_RE.test(s.billing.email)) errors.push({ field: "email", message: "booking.validation.emailInvalid" });
   if (!s.billing.phone.trim() && !s.billing.phone_mobile.trim()) {
@@ -125,14 +134,18 @@ export function validateStep4(s: Step4State): ValidationError[] {
   if (!s.billing.street.trim()) errors.push({ field: "street", message: "booking.validation.streetRequired" });
   if (!s.billing.zip.trim() || !s.billing.city.trim()) {
     errors.push({ field: "zipCity", message: "booking.validation.zipCityRequired" });
+  } else if (!/^\d{4,5}$/.test(s.billing.zip.trim())) {
+    // Editierbares PLZ-Feld: partielle Eingaben ("8") vor Persist blocken.
+    errors.push({ field: "zipCity", message: "booking.validation.zipCityRequired" });
   }
   if (s.altBilling) {
     if (!s.billing.alt_company?.trim()) errors.push({ field: "alt_company", message: "booking.validation.companyRequired" });
     if (!s.billing.alt_street?.trim()) errors.push({ field: "alt_street", message: "booking.validation.streetRequired" });
     if (!s.billing.alt_zip?.trim() || !s.billing.alt_city?.trim()) {
       errors.push({ field: "alt_zipCity", message: "booking.validation.zipCityRequired" });
+    } else if (!/^\d{4,5}$/.test(s.billing.alt_zip.trim())) {
+      errors.push({ field: "alt_zipCity", message: "booking.validation.zipCityRequired" });
     }
-    if (!s.billing.alt_name?.trim()) errors.push({ field: "alt_name", message: "booking.validation.nameRequired" });
   }
   if (!s.agbAccepted) errors.push({ field: "agb", message: "booking.validation.agbRequired" });
   return errors;

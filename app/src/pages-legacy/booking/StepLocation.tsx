@@ -44,6 +44,9 @@ export function StepLocation({ lang }: { lang: Lang }) {
   const cantonRef = useRef(object.address.canton || "");
   // Single session token shared across street + house-number autocomplete calls.
   const sessionTokenRef = useRef(randomUUID());
+  // Monotonic token: protects gegen Out-of-Order-Responses, wenn User
+  // die editierbare PLZ in schneller Folge korrigiert.
+  const travelZoneReqRef = useRef(0);
 
   const streetValue = object.address.street;
   const houseNumberValue = object.address.houseNumber;
@@ -51,18 +54,28 @@ export function StepLocation({ lang }: { lang: Lang }) {
   const cityValue = object.address.city;
 
   const streetContext = useMemo((): StreetContext | undefined => {
-    if (!streetValue || !zipValue) return undefined;
+    if (!streetValue) return undefined;
     return { street: streetValue, zip: zipValue, city: cityValue };
   }, [streetValue, zipValue, cityValue]);
+  // PLZ-Feld ist editierbar, sobald eine Strasse gesetzt ist. Deckt ab:
+  //  - Autocomplete-Treffer ohne PLZ (User tippt PLZ manuell)
+  //  - Autocomplete-Treffer mit falscher PLZ (User korrigiert)
+  //  - Remount nach Step-Navigation (zipEditable muss persistiert bleiben)
+  // Der ursprüngliche Lock war paternalistisch; Google liegt regelmässig daneben.
+  const zipEditable = Boolean(streetValue);
+  const zipMissing = Boolean(streetValue) && !zipValue;
 
   async function lookupTravelZone(canton: string, zip: string) {
     if (!canton && !zip) return;
+    const reqId = ++travelZoneReqRef.current;
     try {
       const base = API_BASE || "";
       const url = new URL(`/api/travel-zone?canton=${encodeURIComponent(canton)}&zip=${encodeURIComponent(zip)}`, base || window.location.origin);
       const r = await fetch(url.toString(), { headers: { Accept: "application/json" } });
+      if (reqId !== travelZoneReqRef.current) return;
       if (!r.ok) return;
       const data = await r.json() as { ok?: boolean; zone?: string; productCode?: string; price?: number; label?: string };
+      if (reqId !== travelZoneReqRef.current) return;
       if (!data.ok || !data.productCode) return;
       removeAddonGroup("travel_zone");
       upsertAddon({
@@ -77,8 +90,11 @@ export function StepLocation({ lang }: { lang: Lang }) {
   }
 
   useEffect(() => {
-    const zip = object.address.zip || parsedAddress?.zip || "";
-    if (!zip) return;
+    const zip = (object.address.zip || parsedAddress?.zip || "").trim();
+    // Lookup nur bei vollständiger PLZ (CH/FL: 4-stellig, DE/AT: 5-stellig).
+    // Trim, damit gepastete Werte wie "8050 " (mit Whitespace) nicht am
+    // Regex-Gate scheitern — validateStep4 akzeptiert sie ebenfalls getrimmt.
+    if (!/^\d{4,5}$/.test(zip)) return;
     if (zip === prevZipRef.current) return;
     prevZipRef.current = zip;
     lookupTravelZone(cantonRef.current, zip);
@@ -110,7 +126,8 @@ export function StepLocation({ lang }: { lang: Lang }) {
       lng: null,
     });
     setParsedAddress({ street: p.street, houseNumber: "", zip: p.zip, city: p.city });
-    setAddress(`${p.street}, ${p.zip} ${p.city}`);
+    const zipCityLine = [p.zip, p.city].filter(Boolean).join(" ");
+    setAddress(zipCityLine ? `${p.street}, ${zipCityLine}` : p.street);
     cantonRef.current = p.canton || "";
     if (p.zip) lookupTravelZone(p.canton || "", p.zip);
     // Rotate session token so house-number search opens a fresh billing session.
@@ -188,15 +205,35 @@ export function StepLocation({ lang }: { lang: Lang }) {
           </div>
           {/* PLZ */}
           <div>
-            <label className={labelClass}>{t(lang, "booking.step1.zip")}</label>
+            <label className={labelClass}>
+              {t(lang, "booking.step1.zip")}
+              {zipMissing ? <span className="text-red-500"> *</span> : null}
+            </label>
             <input
               type="text"
-              readOnly
+              readOnly={!zipEditable}
               value={zipValue}
-              className={cn(inputClass, "cursor-default select-none")}
-              placeholder="—"
-              tabIndex={-1}
+              onChange={(e) => {
+                const v = e.target.value;
+                setObjectAddress({ zip: v });
+                setParsedAddress({ street: streetValue, houseNumber: houseNumberValue, zip: v, city: cityValue });
+                const zipCityLine = [v, cityValue].filter(Boolean).join(" ");
+                const line1 = [streetValue, houseNumberValue].filter(Boolean).join(" ").trim();
+                setAddress(zipCityLine ? `${line1}, ${zipCityLine}` : line1);
+              }}
+              className={cn(inputClass, zipEditable ? "" : "cursor-default select-none")}
+              placeholder={zipEditable ? "z. B. 8050" : "—"}
+              tabIndex={zipEditable ? 0 : -1}
+              inputMode="numeric"
+              autoComplete="postal-code"
+              maxLength={10}
+              data-testid="booking-input-zip"
             />
+            {zipMissing ? (
+              <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                {t(lang, "booking.step1.zipMissingHint")}
+              </p>
+            ) : null}
           </div>
           {/* Ort */}
           <div className="sm:col-span-2">
