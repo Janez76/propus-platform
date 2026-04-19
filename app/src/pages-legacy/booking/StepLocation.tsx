@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { MapPin, Home, Ruler, Layers, DoorOpen, Plus, Trash2 } from "lucide-react";
-import { AddressAutocompleteInput, type ParsedAddress } from "../../components/ui/AddressAutocompleteInput";
+import { AddressAutocompleteInput, type ParsedAddress, type StreetContext } from "../../components/ui/AddressAutocompleteInput";
 import { useBookingWizardStore, type OnsiteContactRow } from "../../store/bookingWizardStore";
 import { AddressPreviewMap } from "./AddressPreviewMap";
 import { t, type Lang } from "../../i18n";
@@ -34,10 +34,25 @@ const emptyOnsiteRow = (): OnsiteContactRow => ({
 });
 
 export function StepLocation({ lang }: { lang: Lang }) {
-  const { address, coords, setAddress, parsedAddress, setParsedAddress, setCoords, object, setObject, config, addons, upsertAddon, removeAddonGroup } = useBookingWizardStore();
+  const {
+    address, coords, setAddress, parsedAddress, setParsedAddress, setCoords,
+    object, setObject, setObjectAddress, config, upsertAddon, removeAddonGroup,
+  } = useBookingWizardStore();
 
   const prevZipRef = useRef("");
-  const cantonRef = useRef("");
+  const cantonRef = useRef(object.address.canton || "");
+  // Single session token shared across street + house-number autocomplete calls.
+  const sessionTokenRef = useRef(crypto.randomUUID());
+
+  const streetValue = object.address.street;
+  const houseNumberValue = object.address.houseNumber;
+  const zipValue = object.address.zip;
+  const cityValue = object.address.city;
+
+  const streetContext = useMemo((): StreetContext | undefined => {
+    if (!streetValue || !zipValue) return undefined;
+    return { street: streetValue, zip: zipValue, city: cityValue };
+  }, [streetValue, zipValue, cityValue]);
 
   async function lookupTravelZone(canton: string, zip: string) {
     if (!canton && !zip) return;
@@ -48,7 +63,6 @@ export function StepLocation({ lang }: { lang: Lang }) {
       if (!r.ok) return;
       const data = await r.json() as { ok?: boolean; zone?: string; productCode?: string; price?: number; label?: string };
       if (!data.ok || !data.productCode) return;
-      // Alte Zone entfernen bevor neue gesetzt wird
       removeAddonGroup("travel_zone");
       upsertAddon({
         id: data.productCode,
@@ -62,15 +76,13 @@ export function StepLocation({ lang }: { lang: Lang }) {
   }
 
   useEffect(() => {
-    const zip = parsedAddress?.zip || "";
+    const zip = object.address.zip || parsedAddress?.zip || "";
     if (!zip) return;
-    // Fallback fuer manuelle Eingabe ohne onSelectParsed (kein Kanton bekannt)
-    // onSelectParsed loest bereits lookupTravelZone mit korrektem Kanton aus
     if (zip === prevZipRef.current) return;
     prevZipRef.current = zip;
     lookupTravelZone(cantonRef.current, zip);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [parsedAddress?.zip]);
+  }, [object.address.zip]);
 
   function updateAdditionalAt(index: number, patch: Partial<OnsiteContactRow>) {
     const next = object.additionalOnsiteContacts.map((row, i) => (i === index ? { ...row, ...patch } : row));
@@ -85,17 +97,39 @@ export function StepLocation({ lang }: { lang: Lang }) {
     setObject({ additionalOnsiteContacts: [...object.additionalOnsiteContacts, emptyOnsiteRow()] });
   }
 
-  const onSelectParsed = useCallback((p: ParsedAddress) => {
-    setParsedAddress({ street: p.street, houseNumber: p.houseNumber, zip: p.zip, city: p.city });
-    // Kanton separat merken (Store-Typ hat kein canton-Feld)
+  const onSelectStreet = useCallback((p: ParsedAddress) => {
+    setObjectAddress({
+      street: p.street,
+      houseNumber: "",
+      zip: p.zip,
+      city: p.city,
+      canton: p.canton || "",
+      countryCode: p.countryCode || "CH",
+      lat: null,
+      lng: null,
+    });
+    setParsedAddress({ street: p.street, houseNumber: "", zip: p.zip, city: p.city });
+    setAddress(`${p.street}, ${p.zip} ${p.city}`);
     cantonRef.current = p.canton || "";
     if (p.zip) lookupTravelZone(p.canton || "", p.zip);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setParsedAddress]);
+    // Rotate session token so house-number search opens a fresh billing session.
+    sessionTokenRef.current = crypto.randomUUID();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setObjectAddress, setParsedAddress, setAddress]);
 
   const onSelectCoords = useCallback((lat: number, lon: number) => {
     setCoords({ lat, lng: lon });
   }, [setCoords]);
+
+  const onSelectHouseNumber = useCallback((payload: { houseNumber: string; lat: number | null; lng: number | null }) => {
+    setObjectAddress({ houseNumber: payload.houseNumber, lat: payload.lat, lng: payload.lng });
+    const addr = useBookingWizardStore.getState().object.address;
+    setParsedAddress({ street: addr.street, houseNumber: addr.houseNumber, zip: addr.zip, city: addr.city });
+    setAddress(addr.formatted || `${addr.street} ${addr.houseNumber}, ${addr.zip} ${addr.city}`);
+    if (payload.lat !== null && payload.lng !== null) {
+      setCoords({ lat: payload.lat, lng: payload.lng });
+    }
+  }, [setObjectAddress, setParsedAddress, setAddress, setCoords]);
 
   return (
     <div className="space-y-6">
@@ -104,25 +138,84 @@ export function StepLocation({ lang }: { lang: Lang }) {
         <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[var(--text-muted)]">
           <MapPin className="h-4 w-4 text-[var(--accent)]" /> {t(lang, "booking.step1.address")}
         </h3>
-        <label className={labelClass}>{t(lang, "booking.step1.addressLabel")}</label>
-        <AddressAutocompleteInput
-          data-testid="booking-input-address"
-          value={address}
-          onChange={setAddress}
-          mode="combined"
-          onSelectParsed={onSelectParsed}
-          onSelectCoords={onSelectCoords}
-          lang={lang}
-          className={inputClass}
-          placeholder={t(lang, "booking.step1.addressPlaceholder")}
-        />
-        {parsedAddress && (
-          <p className="mt-2 text-xs text-[var(--text-subtle)]">
-            {parsedAddress.street} {parsedAddress.houseNumber}, {parsedAddress.zip} {parsedAddress.city}
-          </p>
-        )}
+        <div className="grid gap-4 sm:grid-cols-3">
+          {/* Strasse */}
+          <div className="sm:col-span-2">
+            <label className={labelClass}>
+              {t(lang, "booking.step1.street")} <span className="text-red-500">*</span>
+            </label>
+            <AddressAutocompleteInput
+              data-testid="booking-input-street"
+              value={streetValue}
+              onChange={(v) => setObjectAddress({ street: v })}
+              mode="street"
+              allowPartial
+              sessionToken={sessionTokenRef.current}
+              onSelectParsed={onSelectStreet}
+              onSelectCoords={onSelectCoords}
+              lang={lang}
+              className={inputClass}
+              placeholder={t(lang, "booking.step1.streetPlaceholder")}
+            />
+          </div>
+          {/* Hausnummer */}
+          <div>
+            <label className={labelClass}>
+              {t(lang, "booking.step1.houseNumber")} <span className="text-red-500">*</span>
+            </label>
+            {streetContext ? (
+              <AddressAutocompleteInput
+                data-testid="booking-input-housenumber"
+                value={houseNumberValue}
+                onChange={(v) => setObjectAddress({ houseNumber: v })}
+                mode="houseNumber"
+                streetContext={streetContext}
+                sessionToken={sessionTokenRef.current}
+                onSelectHouseNumber={onSelectHouseNumber}
+                lang={lang}
+                className={inputClass}
+                placeholder={t(lang, "booking.step1.houseNumberPlaceholder")}
+              />
+            ) : (
+              <input
+                type="text"
+                disabled
+                className={cn(inputClass, "cursor-not-allowed opacity-50")}
+                placeholder={t(lang, "booking.step1.houseNumberHint")}
+              />
+            )}
+          </div>
+          {/* PLZ */}
+          <div>
+            <label className={labelClass}>{t(lang, "booking.step1.zip")}</label>
+            <input
+              type="text"
+              readOnly
+              value={zipValue}
+              className={cn(inputClass, "cursor-default select-none")}
+              placeholder="—"
+              tabIndex={-1}
+            />
+          </div>
+          {/* Ort */}
+          <div className="sm:col-span-2">
+            <label className={labelClass}>{t(lang, "booking.step1.city")}</label>
+            <input
+              type="text"
+              readOnly
+              value={cityValue}
+              className={cn(inputClass, "cursor-default select-none")}
+              placeholder="—"
+              tabIndex={-1}
+            />
+          </div>
+        </div>
         {config?.googleMapsKey ? (
-          <AddressPreviewMap apiKey={config.googleMapsKey} address={address} coords={coords} />
+          <AddressPreviewMap
+            apiKey={config.googleMapsKey}
+            address={object.address.formatted || address}
+            coords={coords}
+          />
         ) : (
           <div className="mt-3 rounded-lg border border-dashed border-[var(--border-soft)] bg-[var(--surface-raised)]/50 p-4 text-center text-xs text-[var(--text-subtle)]">
             {t(lang, "booking.step1.mapUnavailable")}
@@ -237,15 +330,37 @@ export function StepLocation({ lang }: { lang: Lang }) {
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label className={labelClass}>{t(lang, "booking.step1.onsiteName")} <span className="text-red-500">*</span></label>
-            <input data-testid="booking-input-onsite-name" type="text" required value={object.onsiteName} onChange={(e) => setObject({ onsiteName: e.target.value })} className={inputClass} />
+            <input
+              data-testid="booking-input-onsite-name"
+              type="text"
+              required
+              autoComplete="off"
+              value={object.onsiteName}
+              onChange={(e) => setObject({ onsiteName: e.target.value })}
+              className={inputClass}
+            />
           </div>
           <div>
             <label className={labelClass}>{t(lang, "booking.step1.onsitePhone")} <span className="text-red-500">*</span></label>
-            <input data-testid="booking-input-onsite-phone" type="tel" required value={object.onsitePhone} onChange={(e) => setObject({ onsitePhone: e.target.value })} className={inputClass} />
+            <input
+              data-testid="booking-input-onsite-phone"
+              type="tel"
+              required
+              autoComplete="off"
+              value={object.onsitePhone}
+              onChange={(e) => setObject({ onsitePhone: e.target.value })}
+              className={inputClass}
+            />
           </div>
           <div className="sm:col-span-2">
             <label className={labelClass}>{t(lang, "booking.step1.onsiteEmail")}</label>
-            <input type="email" value={object.onsiteEmail} onChange={(e) => setObject({ onsiteEmail: e.target.value })} className={inputClass} />
+            <input
+              type="email"
+              autoComplete="off"
+              value={object.onsiteEmail}
+              onChange={(e) => setObject({ onsiteEmail: e.target.value })}
+              className={inputClass}
+            />
           </div>
           <label className="flex cursor-pointer items-start gap-3 sm:col-span-2">
             <input
@@ -278,15 +393,33 @@ export function StepLocation({ lang }: { lang: Lang }) {
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label className={labelClass}>{t(lang, "booking.step1.onsiteName")}</label>
-                <input type="text" value={row.name} onChange={(e) => updateAdditionalAt(idx, { name: e.target.value })} className={inputClass} />
+                <input
+                  type="text"
+                  autoComplete="off"
+                  value={row.name}
+                  onChange={(e) => updateAdditionalAt(idx, { name: e.target.value })}
+                  className={inputClass}
+                />
               </div>
               <div>
                 <label className={labelClass}>{t(lang, "booking.step1.onsitePhone")}</label>
-                <input type="tel" value={row.phone} onChange={(e) => updateAdditionalAt(idx, { phone: e.target.value })} className={inputClass} />
+                <input
+                  type="tel"
+                  autoComplete="off"
+                  value={row.phone}
+                  onChange={(e) => updateAdditionalAt(idx, { phone: e.target.value })}
+                  className={inputClass}
+                />
               </div>
               <div className="sm:col-span-2">
                 <label className={labelClass}>{t(lang, "booking.step1.onsiteEmail")}</label>
-                <input type="email" value={row.email} onChange={(e) => updateAdditionalAt(idx, { email: e.target.value })} className={inputClass} />
+                <input
+                  type="email"
+                  autoComplete="off"
+                  value={row.email}
+                  onChange={(e) => updateAdditionalAt(idx, { email: e.target.value })}
+                  className={inputClass}
+                />
               </div>
               <label className="flex cursor-pointer items-start gap-3 sm:col-span-2">
                 <input
@@ -312,4 +445,3 @@ export function StepLocation({ lang }: { lang: Lang }) {
     </div>
   );
 }
-
