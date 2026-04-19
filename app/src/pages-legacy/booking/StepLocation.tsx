@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { MapPin, Home, Ruler, Layers, DoorOpen, Plus, Trash2 } from "lucide-react";
 import { randomUUID } from "../../lib/selekto/randomId";
 import { AddressAutocompleteInput, type ParsedAddress, type StreetContext } from "../../components/ui/AddressAutocompleteInput";
@@ -54,15 +54,12 @@ export function StepLocation({ lang }: { lang: Lang }) {
     if (!streetValue) return undefined;
     return { street: streetValue, zip: zipValue, city: cityValue };
   }, [streetValue, zipValue, cityValue]);
-  // Latched state: PLZ-Feld bleibt editierbar, sobald Autocomplete eine Strasse
-  // OHNE PLZ geliefert hat. Wird erst zurückgesetzt, wenn eine neue Strasse MIT
-  // PLZ gewählt wird (oder die Strasse geleert wird). Andernfalls würde
-  // readOnly nach dem ersten Tastendruck wieder aktiv werden, weil zipValue
-  // dann nicht mehr leer ist.
-  const [zipEditable, setZipEditable] = useState<boolean>(() => Boolean(streetValue) && !zipValue);
-  useEffect(() => {
-    if (!streetValue) setZipEditable(false);
-  }, [streetValue]);
+  // PLZ-Feld ist editierbar, sobald eine Strasse gesetzt ist. Deckt ab:
+  //  - Autocomplete-Treffer ohne PLZ (User tippt PLZ manuell)
+  //  - Autocomplete-Treffer mit falscher PLZ (User korrigiert)
+  //  - Remount nach Step-Navigation (zipEditable muss persistiert bleiben)
+  // Der ursprüngliche Lock war paternalistisch; Google liegt regelmässig daneben.
+  const zipEditable = Boolean(streetValue);
   const zipMissing = Boolean(streetValue) && !zipValue;
 
   async function lookupTravelZone(canton: string, zip: string) {
@@ -88,7 +85,10 @@ export function StepLocation({ lang }: { lang: Lang }) {
 
   useEffect(() => {
     const zip = object.address.zip || parsedAddress?.zip || "";
-    if (!zip) return;
+    // Lookup nur bei vollständiger PLZ (CH/FL: 4-stellig, DE/AT: 5-stellig).
+    // Bei manueller Eingabe würde jeder Tastendruck sonst eine Anfrage auslösen;
+    // eine späte Response für "63" kann die korrekte Zone für "6344" überschreiben.
+    if (!/^\d{4,5}$/.test(zip)) return;
     if (zip === prevZipRef.current) return;
     prevZipRef.current = zip;
     lookupTravelZone(cantonRef.current, zip);
@@ -124,7 +124,6 @@ export function StepLocation({ lang }: { lang: Lang }) {
     setAddress(zipCityLine ? `${p.street}, ${zipCityLine}` : p.street);
     cantonRef.current = p.canton || "";
     if (p.zip) lookupTravelZone(p.canton || "", p.zip);
-    setZipEditable(!p.zip);
     // Rotate session token so house-number search opens a fresh billing session.
     sessionTokenRef.current = randomUUID();
     // eslint-disable-next-line react-hooks/exhaustive-deps
