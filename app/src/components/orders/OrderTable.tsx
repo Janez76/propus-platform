@@ -3,7 +3,6 @@ import type { Order } from "../../api/orders";
 import { formatCurrency } from "../../lib/utils";
 import { getStatusEntry, getStatusIcon, normalizeStatusKey, type StatusKey } from "../../lib/status";
 import { MessageSquare, FolderUp, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronUp } from "lucide-react";
-import { Tooltip } from "../ui/tooltip";
 import { t } from "../../i18n";
 import { useAuthStore } from "../../store/authStore";
 import { avatarColorFor, avatarInitials, getTerminInfo, terminKindClasses } from "../../lib/orderTermin";
@@ -83,16 +82,15 @@ function IconBtn({
   children: ReactNode;
 }) {
   return (
-    <Tooltip content={title}>
-      <button
-        type="button"
-        aria-label={title}
-        className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-transparent text-[var(--text-subtle)] transition-colors hover:border-[var(--border-soft)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-main)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-        onClick={(e) => { e.stopPropagation(); onClick(e); }}
-      >
-        {children}
-      </button>
-    </Tooltip>
+    <button
+      type="button"
+      title={title}
+      aria-label={title}
+      className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-transparent text-[var(--text-subtle)] transition-colors hover:border-[var(--border-soft)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-main)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+      onClick={(e) => { e.stopPropagation(); onClick(e); }}
+    >
+      {children}
+    </button>
   );
 }
 
