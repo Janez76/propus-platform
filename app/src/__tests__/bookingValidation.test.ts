@@ -153,3 +153,42 @@ describe("validateStep1 — house number must come from Google Places (validated
     expect(fields).toContain("address");
   });
 });
+
+describe("validateStep1 — addressFields consistency (Bug H)", () => {
+  it("passes when addressFields match parsedAddress exactly", () => {
+    const s = makeStep1();
+    s.addressFields = { street: "Albisstrasse", houseNumber: "1", zip: "8050", city: "Zürich" };
+    const fields = validateStep1(s).map((e) => e.field);
+    expect(fields).not.toContain("address");
+  });
+
+  it("flags address when canonical street differs from validated parsedAddress (manual edit)", () => {
+    const s = makeStep1();
+    s.addressFields = { street: "Bahnhofstrasse", houseNumber: "1", zip: "8050", city: "Zürich" };
+    const errors = validateStep1(s);
+    const fields = errors.map((e) => e.field);
+    const messages = errors.map((e) => e.message);
+    expect(fields).toContain("address");
+    expect(messages).toContain("booking.validation.addressOutOfSync");
+  });
+
+  it("flags address when canonical zip differs from validated parsedAddress", () => {
+    const s = makeStep1();
+    s.addressFields = { street: "Albisstrasse", houseNumber: "1", zip: "9000", city: "Zürich" };
+    const messages = validateStep1(s).map((e) => e.message);
+    expect(messages).toContain("booking.validation.addressOutOfSync");
+  });
+
+  it("ignores consistency check when no addressFields supplied (legacy callers)", () => {
+    const s = makeStep1();
+    const messages = validateStep1(s).map((e) => e.message);
+    expect(messages).not.toContain("booking.validation.addressOutOfSync");
+  });
+
+  it("normalizes whitespace + case before comparing", () => {
+    const s = makeStep1();
+    s.addressFields = { street: "  ALBISSTRASSE  ", houseNumber: " 1 ", zip: "8050", city: "zürich" };
+    const messages = validateStep1(s).map((e) => e.message);
+    expect(messages).not.toContain("booking.validation.addressOutOfSync");
+  });
+});
