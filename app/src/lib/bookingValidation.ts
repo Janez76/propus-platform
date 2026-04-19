@@ -109,6 +109,7 @@ export type Step4State = {
     alt_email?: string;
     alt_order_ref?: string;
     alt_notes?: string;
+    structured?: { mode: "company" | "private" };
   };
   altBilling: boolean;
   agbAccepted: boolean;
@@ -116,7 +117,10 @@ export type Step4State = {
 
 export function validateStep4(s: Step4State): ValidationError[] {
   const errors: ValidationError[] = [];
-  if (!s.billing.company.trim()) errors.push({ field: "company", message: "booking.validation.companyRequired" });
+  const mode = s.billing.structured?.mode ?? "company";
+  if (mode === "company" && !s.billing.company.trim()) {
+    errors.push({ field: "company", message: "booking.validation.companyRequired" });
+  }
   if (!s.billing.name.trim()) errors.push({ field: "name", message: "booking.validation.nameRequired" });
   if (!EMAIL_RE.test(s.billing.email)) errors.push({ field: "email", message: "booking.validation.emailInvalid" });
   if (!s.billing.phone.trim() && !s.billing.phone_mobile.trim()) {
@@ -132,7 +136,6 @@ export function validateStep4(s: Step4State): ValidationError[] {
     if (!s.billing.alt_zip?.trim() || !s.billing.alt_city?.trim()) {
       errors.push({ field: "alt_zipCity", message: "booking.validation.zipCityRequired" });
     }
-    if (!s.billing.alt_name?.trim()) errors.push({ field: "alt_name", message: "booking.validation.nameRequired" });
   }
   if (!s.agbAccepted) errors.push({ field: "agb", message: "booking.validation.agbRequired" });
   return errors;

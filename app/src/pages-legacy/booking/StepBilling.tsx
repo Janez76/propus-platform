@@ -33,9 +33,10 @@ function StructuredAddressFields({ lang, address, onPatch, testIdPrefix }: Struc
   const sessionTokenRef = useRef(randomUUID());
 
   const streetContext = useMemo((): StreetContext | undefined => {
-    if (!address.street || !address.zip) return undefined;
+    if (!address.street) return undefined;
     return { street: address.street, zip: address.zip, city: address.city };
   }, [address.street, address.zip, address.city]);
+  const zipMissing = Boolean(address.street) && !address.zip;
 
   const onSelectStreet = useCallback((p: ParsedAddress) => {
     onPatch({
@@ -103,15 +104,27 @@ function StructuredAddressFields({ lang, address, onPatch, testIdPrefix }: Struc
         )}
       </div>
       <div>
-        <label className={labelClass}>{t(lang, "booking.step1.zip")}</label>
+        <label className={labelClass}>
+          {t(lang, "booking.step1.zip")}
+          {zipMissing ? <span className="text-red-500"> *</span> : null}
+        </label>
         <input
           type="text"
-          readOnly
+          readOnly={!zipMissing}
           value={address.zip}
-          className={cn(inputClass, "cursor-default select-none")}
-          placeholder="—"
-          tabIndex={-1}
+          onChange={(e) => onPatch({ zip: e.target.value })}
+          className={cn(inputClass, zipMissing ? "" : "cursor-default select-none")}
+          placeholder={zipMissing ? "z. B. 8050" : "—"}
+          tabIndex={zipMissing ? 0 : -1}
+          inputMode="numeric"
+          autoComplete="postal-code"
+          data-testid={testId("zip")}
         />
+        {zipMissing ? (
+          <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+            {t(lang, "booking.step1.zipMissingHint")}
+          </p>
+        ) : null}
       </div>
       <div className="sm:col-span-2">
         <label className={labelClass}>{t(lang, "booking.step1.city")}</label>

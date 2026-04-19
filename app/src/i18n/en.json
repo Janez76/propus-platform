@@ -1743,6 +1743,7 @@
   "booking.step1.houseNumberPlaceholder": "e.g. 12a",
   "booking.step1.houseNumberHint": "Select street first",
   "booking.step1.zip": "Postcode",
+  "booking.step1.zipMissingHint": "Please add the postcode.",
   "booking.step1.city": "City",
   "booking.step1.mapUnavailable": "Map not available – please enter address manually.",
   "booking.step1.objectDetails": "Property details",
