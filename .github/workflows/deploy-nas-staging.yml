@@ -4,6 +4,7 @@
 # Kein „git pull" auf dem NAS nötig: actions/checkout holt den Code (GITHUB_TOKEN).
 # .env.staging kommt aus Secret NAS_ENV_FILE oder von der bestehenden Datei
 # unter /volume1/docker/propus-staging/.env.staging auf dem NAS.
+# Bei Fehler wird automatisch ein GitHub Issue erstellt (Label: staging-deploy).
 
 name: Deploy NAS Staging
 
@@ -16,6 +17,7 @@ concurrency:
 
 permissions:
   contents: read
+  issues: write
 
 jobs:
   deploy:
@@ -62,3 +64,56 @@ jobs:
           echo "[deploy-nas] curl http://${IP}:${PORT}/api/core/health"
           curl -fsS "http://${IP}:${PORT}/api/core/health"
           echo ""
+
+  report-failure:
+    name: Issue bei Fehler erstellen
+    needs: deploy
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+
+    steps:
+      - name: Bestehendes offenes Issue suchen
+        id: find
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ISSUE_NUM=$(gh issue list \
+            --repo "${{ github.repository }}" \
+            --label "staging-deploy" \
+            --state open \
+            --json number \
+            --jq '.[0].number // empty')
+          echo "number=${ISSUE_NUM}" >> "$GITHUB_OUTPUT"
+
+      - name: Neues Issue erstellen (falls noch keines offen)
+        if: steps.find.outputs.number == ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --repo "${{ github.repository }}" \
+            --title "NAS Staging Deploy fehlgeschlagen (${{ github.sha }})" \
+            --label "staging-deploy" \
+            --body "## Deploy fehlgeschlagen
+
+          **Workflow:** [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          **Commit:** \`${{ github.sha }}\`
+          **Ausgelöst von:** @${{ github.actor }}
+          **Zeitpunkt:** $(date -u '+%Y-%m-%d %H:%M UTC')
+
+          Bitte Workflow-Log prüfen und Issue schliessen, sobald behoben."
+
+      - name: Kommentar zu bestehendem Issue hinzufügen
+        if: steps.find.outputs.number != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue comment "${{ steps.find.outputs.number }}" \
+            --repo "${{ github.repository }}" \
+            --body "Erneuter Fehler beim Deploy.
+
+          **Workflow:** [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          **Commit:** \`${{ github.sha }}\`
+          **Zeitpunkt:** $(date -u '+%Y-%m-%d %H:%M UTC')"
