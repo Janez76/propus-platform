@@ -42,6 +42,17 @@ services:
       # Prod setzt SESSION_COOKIE_SECURE=true hart in docker-compose.vps.yml;
       # im LAN-HTTP würden Cookies dann nie an den Browser zurückgehen.
       SESSION_COOKIE_SECURE: "${STAGING_SESSION_COOKIE_SECURE:-false}"
+      # Container-interner Self-Call (unverändert zu Prod) — explizit, damit
+      # hier unmissverständlich ist, welche interne URL verwendet wird.
+      PLATFORM_INTERNAL_URL: "http://127.0.0.1:3100"
+      # Basis-Compose setzt Nextcloud-Defaults auf echte Prod-URL und
+      # Propus-Ordnerpfad (Zeilen 127, 130). `${VAR:-default}` aktiviert den
+      # Default auch bei leerer Variable — deshalb MUSS hier explizit ""
+      # gesetzt werden, damit Staging nicht in Prod-Nextcloud schreibt.
+      NEXTCLOUD_URL: ""
+      NEXTCLOUD_USER: ""
+      NEXTCLOUD_PASS: ""
+      NEXTCLOUD_CUSTOMER_FOLDER_PATH: ""
 
   website:
     ports: !override

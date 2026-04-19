@@ -1,5 +1,7 @@
 # Propus Platform – VPS-Betriebshandbuch
 
+> Für die LAN-Testumgebung auf dem UGREEN NAS (vor Live-Deploy) siehe [STAGING-UGREEN.md](STAGING-UGREEN.md).
+
 ## Überblick
 
 | Eigenschaft         | Wert                                       |
