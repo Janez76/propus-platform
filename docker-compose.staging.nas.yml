@@ -22,6 +22,10 @@ services:
     ports: !override
       - "${STAGING_PLATFORM_BIND:-0.0.0.0}:${STAGING_PLATFORM_PORT:-13100}:3001"
     environment:
+      # Immer fest: .env.staging enthält PLATFORM_PORT/STAGING_PLATFORM_PORT für den *Host*-Mapping,
+      # nicht für Express im Container. Ein versehentliches PORT=13100/3001 bricht start.sh + Health.
+      PORT: "3100"
+      NEXTJS_PORT: "3001"
       SESSION_COOKIE_SECURE: "${STAGING_SESSION_COOKIE_SECURE:-false}"
       PLATFORM_INTERNAL_URL: "http://127.0.0.1:3100"
       NEXTCLOUD_URL: ""

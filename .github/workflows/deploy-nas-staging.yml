@@ -59,12 +59,12 @@ jobs:
         run: |
           set -eu
           COMPOSE="docker compose -p propus-staging -f docker-compose.vps.yml -f docker-compose.staging.nas.yml --env-file .env.staging"
-          # Express (PORT/3100): /api/core/health ohne DB — wie scripts/start.sh. Port 3001 ist Next.js; dessen
-          # Health macht pool.query und kann 503 liefern, obwohl der Stack sonst startet.
-          HEALTH_URL="http://127.0.0.1:3100/api/core/health"
-          echo "[deploy-nas] Warte auf Express ${HEALTH_URL} im Container platform (max ~300s)..."
+          # Express: /api/core/health (Core-Router, ohne DB). Port aus $PORT im Container (soll 3100 sein).
+          echo "[deploy-nas] Diagnose (einmal): PORT/NEXTJS_PORT im Container:"
+          $COMPOSE exec -T platform sh -c 'printf "PORT=%s NEXTJS_PORT=%s\n" "${PORT:-}" "${NEXTJS_PORT:-}"' || true
+          echo "[deploy-nas] Warte auf Express http://127.0.0.1:\${PORT:-3100}/api/core/health (max ~300s)..."
           for i in $(seq 1 60); do
-            if $COMPOSE exec -T platform sh -c "curl -fsS --max-time 5 '${HEALTH_URL}'"; then
+            if $COMPOSE exec -T platform sh -c 'EP="${PORT:-3100}"; curl -fsS --max-time 5 "http://127.0.0.1:${EP}/api/core/health"'; then
               echo ""
               echo "[deploy-nas] Health-Check OK (Express)."
               exit 0
@@ -72,8 +72,8 @@ jobs:
             echo "[deploy-nas] Versuch ${i}/60 fehlgeschlagen, warte 5s..."
             sleep 5
           done
-          echo "[deploy-nas] Health-Check nach ~300s nicht erfolgreich. platform logs:"
-          $COMPOSE logs platform --tail 120
+          echo "[deploy-nas] Health-Check nach ~300s nicht erfolgreich. Letzte platform logs:"
+          $COMPOSE logs platform --tail 200
           exit 1
 
   report-failure:
