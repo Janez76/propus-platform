@@ -1745,6 +1745,8 @@
   "booking.step1.zip": "NPA",
   "booking.step1.zipMissingHint": "Veuillez ajouter le NPA.",
   "booking.step1.city": "Localité",
+  "booking.step1.addressSuffix": "Complément d'adresse",
+  "booking.step1.addressSuffixPlaceholder": "p.ex. c/o Dupont, 4e étage",
   "booking.step1.mapUnavailable": "Carte non disponible – veuillez saisir l'adresse manuellement.",
   "booking.step1.objectDetails": "Détails de l'objet",
   "booking.step1.objectType": "Type d'objet",

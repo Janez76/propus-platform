@@ -12,6 +12,7 @@ describe("formatStructuredAddress", () => {
     expect(formatStructuredAddress({
       street: "Albisstrasse",
       houseNumber: "158",
+      addressSuffix: "",
       zip: "8038",
       city: "Zürich",
       canton: "",
@@ -77,10 +78,10 @@ describe("useBookingWizardStore — structured setters", () => {
       billing: {
         salutation: "", first_name: "", company: "", company_email: "", company_phone: "",
         name: "", email: "", phone: "", phone_mobile: "",
-        street: "", zip: "", city: "", zipcity: "",
+        street: "", street_suffix: "", zip: "", city: "", zipcity: "",
         order_ref: "", notes: "",
         alt_company: "", alt_company_email: "", alt_company_phone: "",
-        alt_street: "", alt_zip: "", alt_city: "", alt_zipcity: "",
+        alt_street: "", alt_street_suffix: "", alt_zip: "", alt_city: "", alt_zipcity: "",
         alt_salutation: "", alt_first_name: "", alt_name: "",
         alt_email: "", alt_phone: "", alt_phone_mobile: "",
         alt_order_ref: "", alt_notes: "",

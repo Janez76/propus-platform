@@ -1745,6 +1745,8 @@
   "booking.step1.zip": "PLZ",
   "booking.step1.zipMissingHint": "Bitte PLZ ergänzen.",
   "booking.step1.city": "Ort",
+  "booking.step1.addressSuffix": "Adresszusatz",
+  "booking.step1.addressSuffixPlaceholder": "z.B. c/o Müller, 4. OG",
   "booking.step1.mapUnavailable": "Kartenansicht nicht verfügbar – bitte Adresse manuell eingeben.",
   "booking.step1.objectDetails": "Objektdaten",
   "booking.step1.objectType": "Objekttyp",
