@@ -414,7 +414,7 @@ export function AddressAutocompleteInput({
     if (!isComplete && !allowPartial) {
       const zipcityHint = [result.zip, result.city].filter(Boolean).join(" ").trim();
       if (onSelectZipcity && zipcityHint) onSelectZipcity(zipcityHint);
-      setSelectError("Bitte eine vollständige Adresse mit Hausnummer wählen.");
+      setSelectError(t((lang as Lang) || "de", "booking.step1.houseNumberInvalid"));
       setOpen(false);
       setShowEmpty(false);
       setActiveIndex(-1);
@@ -541,7 +541,7 @@ export function AddressAutocompleteInput({
         <div
           className="absolute z-40 mt-1 w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-subtle)] shadow-xl"
         >
-          Keine vollständige Adresse gefunden (Hausnummer erforderlich).
+          {t((lang as Lang) || "de", "booking.step1.houseNumberInvalid")}
         </div>
       ) : null}
 

@@ -19,43 +19,51 @@ type MapsApi = {
 let mapsApiPromise: Promise<MapsApi> | null = null;
 const MAPS_SCRIPT_ID = "propus-gmaps-booking-js";
 
+function readGlobalApi(): MapsApi | null {
+  const g = (typeof window !== "undefined" ? window.google : undefined) as typeof google | undefined;
+  if (g?.maps?.Map && g.maps.Marker && g.maps.Geocoder) {
+    return { Map: g.maps.Map, Marker: g.maps.Marker, Geocoder: g.maps.Geocoder };
+  }
+  return null;
+}
+
 function loadGoogleMapsApi(apiKey: string): Promise<MapsApi> {
   if (typeof window === "undefined") {
     return Promise.reject(new Error("no window"));
   }
+  const ready = readGlobalApi();
+  if (ready) return Promise.resolve(ready);
   if (mapsApiPromise) return mapsApiPromise;
 
-  mapsApiPromise = (async () => {
+  mapsApiPromise = new Promise<MapsApi>((resolve, reject) => {
+    const finish = () => {
+      const api = readGlobalApi();
+      if (api) resolve(api);
+      else reject(new Error("google.maps not available after script load"));
+    };
+
     const existing = document.getElementById(MAPS_SCRIPT_ID) as HTMLScriptElement | null;
-    if (!existing) {
-      await new Promise<void>((resolve, reject) => {
-        const s = document.createElement("script");
-        s.id = MAPS_SCRIPT_ID;
-        s.async = true;
-        // loading=async erfordert importLibrary() — der direkte Zugriff auf
-        // window.google.maps.Map waere undefined, der Karten-Container
-        // bliebe leer (schwarzer Kasten).
-        s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&loading=async&v=weekly`;
-        s.onload = () => resolve();
-        s.onerror = () => reject(new Error("script load failed"));
-        document.head.appendChild(s);
-      });
-    } else if (!window.google?.maps?.importLibrary) {
-      await new Promise<void>((resolve, reject) => {
-        existing.addEventListener("load", () => resolve(), { once: true });
-        existing.addEventListener("error", () => reject(new Error("script load failed")), { once: true });
-      });
+    if (existing) {
+      if (readGlobalApi()) { finish(); return; }
+      existing.addEventListener("load", finish, { once: true });
+      existing.addEventListener("error", () => reject(new Error("script load failed")), { once: true });
+      return;
     }
-    if (!window.google?.maps?.importLibrary) {
-      throw new Error("importLibrary missing after script load");
-    }
-    const [mapsLib, markerLib, geoLib] = await Promise.all([
-      window.google.maps.importLibrary("maps") as Promise<google.maps.MapsLibrary>,
-      window.google.maps.importLibrary("marker") as Promise<google.maps.MarkerLibrary>,
-      window.google.maps.importLibrary("geocoding") as Promise<google.maps.GeocodingLibrary>,
-    ]);
-    return { Map: mapsLib.Map, Marker: markerLib.Marker, Geocoder: geoLib.Geocoder };
-  })();
+
+    const s = document.createElement("script");
+    s.id = MAPS_SCRIPT_ID;
+    s.async = true;
+    s.defer = true;
+    // Klassisches Script-Loading (ohne loading=async): google.maps.Map ist nach
+    // onload direkt verfuegbar. Mit loading=async muesste man importLibrary()
+    // aufrufen — was bei uns in der Praxis fehlschlaegt und einen schwarzen
+    // Karten-Container hinterlaesst. Libraries=marker,geocoding lassen wir
+    // gleich mitladen, damit alle drei Klassen im selben Script-Load fertig sind.
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=marker,geocoding&v=weekly`;
+    s.onload = finish;
+    s.onerror = () => reject(new Error("script load failed"));
+    document.head.appendChild(s);
+  });
 
   mapsApiPromise.catch(() => {
     mapsApiPromise = null;

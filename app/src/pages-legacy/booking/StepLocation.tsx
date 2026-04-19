@@ -116,29 +116,36 @@ export function StepLocation({ lang }: { lang: Lang }) {
 
   const onSelectStreet = useCallback((p: ParsedAddress) => {
     // Autocomplete kann eine komplette Adresse liefern (Strasse + Hausnummer +
-    // PLZ + Ort). Alle Felder aus dem gewählten Vorschlag übernehmen, damit
-    // der Nutzer mit einem Klick fertig ist.
-    const hn = p.houseNumber ?? "";
-    setObjectAddress({
+    // PLZ + Ort). Bewusst nur Felder uebernehmen, die der Vorschlag tatsaechlich
+    // setzt — so loescht ein Strassen-only-Treffer keine vorher korrekt
+    // ausgewaehlte Hausnummer/PLZ/Ort. (Bug D: keine undefined-Overrides.)
+    const patch: Partial<{
+      street: string; houseNumber: string; zip: string; city: string;
+      canton: string; countryCode: string; lat: number | null; lng: number | null;
+    }> = {
       street: p.street,
-      houseNumber: hn,
-      zip: p.zip,
-      city: p.city,
       canton: p.canton || "",
       countryCode: p.countryCode || "CH",
       lat: null,
       lng: null,
-    });
-    setParsedAddress({ street: p.street, houseNumber: hn, zip: p.zip, city: p.city });
-    const streetLine = hn ? `${p.street} ${hn}` : p.street;
-    const zipCityLine = [p.zip, p.city].filter(Boolean).join(" ");
+    };
+    if (p.houseNumber) patch.houseNumber = p.houseNumber;
+    if (p.zip) patch.zip = p.zip;
+    if (p.city) patch.city = p.city;
+    setObjectAddress(patch);
+    const nextHn = p.houseNumber || parsedAddress?.houseNumber || "";
+    const nextZip = p.zip || zipValue;
+    const nextCity = p.city || cityValue;
+    setParsedAddress({ street: p.street, houseNumber: nextHn, zip: nextZip, city: nextCity });
+    const streetLine = nextHn ? `${p.street} ${nextHn}` : p.street;
+    const zipCityLine = [nextZip, nextCity].filter(Boolean).join(" ");
     setAddress(zipCityLine ? `${streetLine}, ${zipCityLine}` : streetLine);
     cantonRef.current = p.canton || "";
-    if (p.zip) lookupTravelZone(p.canton || "", p.zip);
+    if (nextZip) lookupTravelZone(p.canton || "", nextZip);
     // Rotate session token so house-number search opens a fresh billing session.
     sessionTokenRef.current = randomUUID();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setObjectAddress, setParsedAddress, setAddress]);
+  }, [setObjectAddress, setParsedAddress, setAddress, parsedAddress?.houseNumber, zipValue, cityValue]);
 
   const onSelectCoords = useCallback((lat: number, lon: number) => {
     setCoords({ lat, lng: lon });
@@ -229,11 +236,16 @@ export function StepLocation({ lang }: { lang: Lang }) {
               value={zipValue}
               onChange={(e) => {
                 const v = e.target.value;
-                setObjectAddress({ zip: v });
-                // parsedAddress.houseNumber bleibt die "validierte" Hausnummer
-                // (per Dropdown-Auswahl gesetzt). Nicht mit dem free-text
-                // houseNumberValue ueberschreiben — sonst koennen Fantasie-
-                // Nummern via Umweg ueber PLZ-Edit als "validiert" durchgehen.
+                // Manuelle PLZ-Korrektur entwertet die ursprünglich von Google
+                // mitgelieferten Geo-Daten (canton, lat/lng). Sonst koennten
+                // Anfahrtszone (CHF 0 / 89 / 199) und Marker auf der Karte
+                // weiter auf der alten Adresse basieren — finanzkritisch.
+                setObjectAddress({ zip: v, canton: "", lat: null, lng: null });
+                setCoords(null);
+                cantonRef.current = "";
+                // Travel-Zone neu lookuppen (falls PLZ vollständig); die
+                // useEffect-Diff erkennt nur Veraenderungen, also reset prev.
+                prevZipRef.current = "";
                 setParsedAddress({
                   street: streetValue,
                   houseNumber: parsedAddress?.houseNumber ?? "",
