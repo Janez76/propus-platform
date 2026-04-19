@@ -1106,7 +1106,7 @@ async function getAdminUserByUsername(username) {
   if (!u) return null;
   // Sucht nach Benutzername ODER E-Mail – beides erlaubt
   const { rows } = await query(
-    `SELECT id, username, email, name, phone, language, role, password_hash, active
+    `SELECT id, username, email, name, phone, language, role, password_hash, active, avatar_url
      FROM admin_users
      WHERE LOWER(username) = $1 OR LOWER(email) = $1
      LIMIT 1`,
@@ -1119,7 +1119,7 @@ async function getAdminUserById(adminUserId) {
   const id = Number(adminUserId);
   if (!Number.isFinite(id) || id <= 0) return null;
   const { rows } = await query(
-    `SELECT id, username, email, name, phone, language, role, password_hash, active
+    `SELECT id, username, email, name, phone, language, role, password_hash, active, avatar_url
      FROM admin_users
      WHERE id = $1
      LIMIT 1`,
