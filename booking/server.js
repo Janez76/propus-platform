@@ -5957,6 +5957,68 @@ app.patch("/api/admin/orders/:orderNo", requireAdmin, async (req, res) => {
       await saveAllOrders(fallbackOrders || []);
     }
 
+    try {
+      const actor = { user: req.user?.name || req.user?.id || "admin", role: req.user?.role || "" };
+      const tabs = [];
+      if (updateFields.billing) {
+        tabs.push("billing");
+        await db.logOrderEvent({
+          orderNo,
+          eventType: "billing_change",
+          actor,
+          oldValue: existingOrder?.billing || null,
+          newValue: updateFields.billing ? JSON.parse(updateFields.billing) : null,
+          metadata: { tab: "uebersicht" },
+        });
+      }
+      if (updateFields.object) {
+        tabs.push("object");
+        await db.logOrderEvent({
+          orderNo,
+          eventType: "object_change",
+          actor,
+          oldValue: existingOrder?.object || null,
+          newValue: updateFields.object ? JSON.parse(updateFields.object) : null,
+          metadata: { tab: "objekt" },
+        });
+      }
+      if (updateFields.address !== undefined) {
+        tabs.push("address");
+        await db.logOrderEvent({
+          orderNo,
+          eventType: "address_change",
+          actor,
+          oldValue: existingOrder?.address || null,
+          newValue: updateFields.address,
+          metadata: { tab: "objekt" },
+        });
+      }
+      if (updateFields.services) {
+        tabs.push("services");
+        await db.logOrderEvent({
+          orderNo,
+          eventType: "services_change",
+          actor,
+          oldValue: existingOrder?.services || null,
+          newValue: updateFields.services ? JSON.parse(updateFields.services) : null,
+          metadata: { tab: "leistungen" },
+        });
+      }
+      if (updateFields.internal_notes !== undefined) {
+        tabs.push("internal_notes");
+        await db.logOrderEvent({
+          orderNo,
+          eventType: "internal_notes_change",
+          actor,
+          oldValue: existingOrder?.internalNotes || existingOrder?.internal_notes || "",
+          newValue: updateFields.internal_notes,
+          metadata: { tab: "uebersicht" },
+        });
+      }
+    } catch (logErr) {
+      console.error("[order-update] event log error", logErr && logErr.message);
+    }
+
     res.json({ ok: true, orderNo });
   } catch (err) {
     console.error("[order-update] error", err.message);
@@ -6359,7 +6421,44 @@ app.patch("/api/admin/orders/:orderNo/status", requireAdmin, async (req, res) =>
   } else {
     saveAllOrdersToJson(orders);
   }
+  try {
+    await db.logOrderEvent({
+      orderNo,
+      eventType: "status_change",
+      actor: { user: req.user?.name || req.user?.id || "admin", role: req.user?.role || "" },
+      oldValue: prevStatus,
+      newValue: status,
+      metadata: { reason: reason || null, sideEffects },
+    });
+  } catch (logErr) {
+    console.error("[status] event log error", logErr && logErr.message);
+  }
   res.json({ ok: true, orderNo, status, sideEffects });
+});
+
+app.get("/api/admin/orders/:orderNo/events", requireAdmin, async (req, res) => {
+  try {
+    const orderNo = Number(req.params.orderNo);
+    if (!Number.isFinite(orderNo)) return res.status(400).json({ error: "Invalid order number" });
+    const limit = Number(req.query.limit) || 100;
+    const beforeId = req.query.before ? Number(req.query.before) : null;
+    const rows = await db.listOrderEvents(orderNo, { limit, beforeId });
+    const events = rows.map((row) => ({
+      id: Number(row.id),
+      orderNo: Number(row.order_no),
+      eventType: row.event_type,
+      actorUser: row.actor_user || "",
+      actorRole: row.actor_role || "",
+      oldValue: row.old_value,
+      newValue: row.new_value,
+      metadata: row.metadata,
+      createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+    }));
+    res.json(events);
+  } catch (err) {
+    console.error("[order-events] error", err && err.message);
+    res.status(500).json({ error: err.message || "Failed to load events" });
+  }
 });
 
 app.get("/api/admin/orders/:orderNo/email-log", requireAdmin, async (req, res) => {
@@ -6806,6 +6905,18 @@ app.patch("/api/admin/orders/:orderNo/reschedule", requireAdmin, async (req, res
   }
 
   console.log("[reschedule] done", { orderNo, newDate: date, newTime: time, durationMin, timingChanged });
+  try {
+    await db.logOrderEvent({
+      orderNo,
+      eventType: "schedule_change",
+      actor: { user: req.user?.name || req.user?.id || "admin", role: req.user?.role || "" },
+      oldValue: { date: oldDate, time: oldTime, durationMin: Number(order.schedule?.durationMin || 60) },
+      newValue: { date, time, durationMin },
+      metadata: { timingChanged },
+    });
+  } catch (logErr) {
+    console.error("[reschedule] event log error", logErr && logErr.message);
+  }
   res.json({ ok: true, orderNo, schedule: { date, time, durationMin }, emailsSent: timingChanged });
 });
 
@@ -7003,6 +7114,17 @@ app.patch("/api/admin/orders/:orderNo/photographer", requireAdmin, async (req, r
   }
 
   console.log("[reassign] done", { orderNo, newPhotog: newPhotogName });
+  try {
+    await db.logOrderEvent({
+      orderNo,
+      eventType: "photographer_change",
+      actor: { user: req.user?.name || req.user?.id || "admin", role: req.user?.role || "" },
+      oldValue: { key: oldPhotogKey, name: oldPhotogName, email: oldPhotogEmail },
+      newValue: { key: newKey, name: newPhotogName, email: newPhotogEmail },
+    });
+  } catch (logErr) {
+    console.error("[reassign] event log error", logErr && logErr.message);
+  }
   res.json({ ok: true, orderNo, photographer: { key: newKey, name: newPhotogName } });
 });
 
