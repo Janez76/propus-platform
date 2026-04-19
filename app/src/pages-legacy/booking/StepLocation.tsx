@@ -84,10 +84,10 @@ export function StepLocation({ lang }: { lang: Lang }) {
   }
 
   useEffect(() => {
-    const zip = object.address.zip || parsedAddress?.zip || "";
+    const zip = (object.address.zip || parsedAddress?.zip || "").trim();
     // Lookup nur bei vollständiger PLZ (CH/FL: 4-stellig, DE/AT: 5-stellig).
-    // Bei manueller Eingabe würde jeder Tastendruck sonst eine Anfrage auslösen;
-    // eine späte Response für "63" kann die korrekte Zone für "6344" überschreiben.
+    // Trim, damit gepastete Werte wie "8050 " (mit Whitespace) nicht am
+    // Regex-Gate scheitern — validateStep4 akzeptiert sie ebenfalls getrimmt.
     if (!/^\d{4,5}$/.test(zip)) return;
     if (zip === prevZipRef.current) return;
     prevZipRef.current = zip;
