@@ -113,6 +113,44 @@ docker compose -p propus-staging \
   down -v
 ```
 
+## Echte Prod-Daten ins Staging laden (Dump → Restore)
+
+Empfohlener Weg, um mit echten Buchungs-/Kunden-Daten zu testen, **ohne** die Prod-DB zu gefährden: täglich produzierter `pg_dump` vom VPS wird über den bestehenden Cron `scripts/backup-nas-pull.sh` nach `/volume1/backup/propus-platform/data/backup-*/db.sql` gespiegelt. Daraus restoren wir gezielt in die Staging-DB.
+
+> Voraussetzung: der NAS-Cron für `backup-nas-pull.sh` läuft (siehe Header dieses Scripts). Prüfen mit `ls -lt /volume1/backup/propus-platform/data | head`.
+
+### Restore-Befehl
+
+```bash
+# Aus dem Repo-Root auf dem NAS:
+./scripts/restore-staging-from-vps-backup.sh
+# → nimmt den lexikalisch jüngsten Backup-Ordner unter
+#   /volume1/backup/propus-platform/data/
+
+# Bestimmten Stand wählen:
+./scripts/restore-staging-from-vps-backup.sh backup-20260418-020014
+
+# Ohne Rückfrage (für Cron / Skripte):
+STAGING_RESTORE_YES=1 ./scripts/restore-staging-from-vps-backup.sh
+
+# Nach dem Restore Migrations ausführen (falls Staging-Branch neuer ist):
+STAGING_RESTORE_YES=1 STAGING_RESTORE_RUN_MIGRATE=1 \
+  ./scripts/restore-staging-from-vps-backup.sh
+```
+
+### Was das Script tut
+
+1. Stoppt den `platform`-Container (verhindert Schreibkollisionen)
+2. Streamt `db.sql` durch `sed` (`OWNER TO propus` / `GRANT ... TO propus` → Staging-User) in `psql -U $POSTGRES_USER -d $POSTGRES_DB`
+3. Optional: `--profile migrate run --rm migrate`
+4. Startet `platform` neu
+
+### Wichtig
+
+- Der Dump enthält **echte Kunden-Mails**. Stelle sicher, dass `SMTP_HOST=sandbox.smtp.mailtrap.io` (oder vergleichbar) in `.env.staging` gesetzt ist — sonst löst Staging beim ersten Order-Status-Wechsel echte Mails aus.
+- Payrexx-/Nextcloud-Vars in `.env.staging` müssen leer / Sandbox bleiben.
+- `BOOKING_UPLOAD_*_HOST_PATH` zeigt auf eigene Staging-Verzeichnisse — Datei-Pfade in der DB können auf das echte `/mnt/propus-nas-customers/...` zeigen, das auf dem NAS nicht existiert. Erwartetes Verhalten: Vorschauen 404, Listing funktioniert.
+
 ## Smoke-Tests
 
 ```bash
