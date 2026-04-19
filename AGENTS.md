@@ -299,7 +299,7 @@ Alle NAS-Skripte und Anleitungen liegen in `Z:\NAS Ugreen\`:
 Einrichtung, Ports, Runner: `docs/STAGING-UGREEN.md` (Repo-Root).
 
 - **Deploy:** Nur manuell — Workflow **„Deploy NAS Staging“** (`workflow_dispatch` in `.github/workflows/deploy-nas-staging.yml`) oder `scripts/deploy-staging-nas.sh`. Merge/Push und **Unit Tests**-Workflows starten **keinen** NAS-Staging-Deploy.
-- **Health vom self-hosted Runner auf dem NAS:** `http://127.0.0.1:<STAGING_PLATFORM_PORT>/api/core/health` (nicht die LAN-IP des Hosts; `curl` zur eigenen LAN-IP scheitert oft sofort). Optional Repo-Variable `STAGING_HEALTH_HOST`, wenn der Runner nicht auf dem NAS liegt.
+- **Health im CI-Workflow:** `docker compose exec platform` → `curl http://127.0.0.1:3001/api/core/health` (im Container; Host-Port/LAN ist je nach Runner-Docker oft unzuverlässig). Manuell im LAN: `http://192.168.1.5:<STAGING_PLATFORM_PORT>/api/core/health`.
 - **`buildId` in `/api/core/health`:** kommt aus VERSION/`getBuildId()` in `booking/server.js`; muss nicht dem Git-Short-Hash des Deploys entsprechen — für den echten Stand **Workflow-Commit-SHA** oder Container/Inhalt prüfen.
 
 ### Zweites NAS (Dev – 192.168.1.4)
