@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState } from "react";
+import { useEffect, useCallback, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, ArrowRight, LogIn, Loader2, Send } from "lucide-react";
 import { useBookingWizardStore } from "../../store/bookingWizardStore";
@@ -98,7 +98,17 @@ export function BookingWizardPage() {
     if (step !== 1) return;
     setErrors((errs) => {
       if (errs.length === 0) return errs;
-      const fresh = validateStep1({ address, parsedAddress: store.parsedAddress, object });
+      const fresh = validateStep1({
+        address,
+        parsedAddress: store.parsedAddress,
+        addressFields: {
+          street: object.address.street,
+          houseNumber: object.address.houseNumber,
+          zip: object.address.zip,
+          city: object.address.city,
+        },
+        object,
+      });
       const freshFields = new Set(fresh.map((e) => e.field));
       const filtered = errs.filter((e) => freshFields.has(e.field));
       if (filtered.length === errs.length) return errs;
@@ -111,6 +121,10 @@ export function BookingWizardPage() {
     store.parsedAddress?.houseNumber,
     store.parsedAddress?.zip,
     store.parsedAddress?.city,
+    object.address.street,
+    object.address.houseNumber,
+    object.address.zip,
+    object.address.city,
     object.type,
     object.area,
     object.floors,
@@ -120,9 +134,42 @@ export function BookingWizardPage() {
     object.onsiteCalendarInvite,
   ]);
 
+  /** Bug F: Stepper-Top zeigt einen Schritt nur dann als "abgeschlossen" (gold)
+   *  an, wenn die Daten dieses Schrittes JETZT noch valide sind. Sonst wird der
+   *  Schritt als "warnend" markiert (amber) — sichtbares Signal, dass Editieren
+   *  ihn invalidiert hat. */
+  const stepValidity = useMemo(() => {
+    const v: Record<number, boolean> = { 1: false, 2: false, 3: false, 4: false };
+    v[1] = validateStep1({
+      address,
+      parsedAddress: store.parsedAddress,
+      addressFields: {
+        street: object.address.street,
+        houseNumber: object.address.houseNumber,
+        zip: object.address.zip,
+        city: object.address.city,
+      },
+      object,
+    }).length === 0;
+    v[2] = validateStep2({ selectedPackage, addons }).length === 0;
+    v[3] = validateStep3({ photographer, date, time }).length === 0;
+    v[4] = validateStep4({ billing, altBilling, agbAccepted }).length === 0;
+    return v;
+  }, [address, store.parsedAddress, object, selectedPackage, addons, photographer, date, time, billing, altBilling, agbAccepted]);
+
   function validateCurrentStep(): boolean {
     let errs: ValidationError[] = [];
-    if (step === 1) errs = validateStep1({ address, parsedAddress: store.parsedAddress, object });
+    if (step === 1) errs = validateStep1({
+        address,
+        parsedAddress: store.parsedAddress,
+        addressFields: {
+          street: object.address.street,
+          houseNumber: object.address.houseNumber,
+          zip: object.address.zip,
+          city: object.address.city,
+        },
+        object,
+      });
     else if (step === 2) errs = validateStep2({ selectedPackage, addons });
     else if (step === 3) errs = validateStep3({ photographer, date, time });
     else if (step === 4) errs = validateStep4({ billing, altBilling, agbAccepted });
@@ -287,23 +334,30 @@ export function BookingWizardPage() {
               </a>
             )}
             <div className="flex gap-1.5">
-              {STEPS.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => { if (s.id < step) { setStep(s.id); setErrors([]); } }}
-                  className={cn(
-                    "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all",
-                    step === s.id
-                      ? "bg-[var(--accent)] text-white shadow-md"
-                      : step > s.id
-                        ? "bg-[var(--accent)]/20 text-[var(--accent)] cursor-pointer hover:bg-[var(--accent)]/30"
-                        : "bg-[var(--surface-raised)] text-[var(--text-subtle)]",
-                  )}
-                >
-                  {s.id}
-                </button>
-              ))}
+              {STEPS.map((s) => {
+                const isActive = step === s.id;
+                const isPassed = step > s.id;
+                const isValid = stepValidity[s.id];
+                const passedButInvalid = isPassed && !isValid;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => { if (s.id < step) { setStep(s.id); setErrors([]); } }}
+                    title={passedButInvalid ? t(lang, "booking.stepper.needsAttention") : undefined}
+                    aria-label={passedButInvalid ? `${s.id} — ${t(lang, "booking.stepper.needsAttention")}` : String(s.id)}
+                    className={cn(
+                      "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all",
+                      isActive && "bg-[var(--accent)] text-white shadow-md",
+                      !isActive && isPassed && isValid && "bg-[var(--accent)]/20 text-[var(--accent)] cursor-pointer hover:bg-[var(--accent)]/30",
+                      !isActive && passedButInvalid && "bg-amber-500/20 text-amber-600 dark:text-amber-400 cursor-pointer hover:bg-amber-500/30 ring-1 ring-amber-500/40",
+                      !isActive && !isPassed && "bg-[var(--surface-raised)] text-[var(--text-subtle)]",
+                    )}
+                  >
+                    {s.id}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>

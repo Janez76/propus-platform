@@ -5,6 +5,9 @@ const EMAIL_RE_STEP1 = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export type Step1State = {
   address: string;
   parsedAddress: { street: string; houseNumber: string; zip: string; city: string } | null;
+  /** Canonical, always-up-to-date Adressfelder aus object.address. Wenn gesetzt,
+   *  prueft validateStep1, dass parsedAddress damit deckungsgleich ist. */
+  addressFields?: { street: string; houseNumber: string; zip: string; city: string };
   object: {
     type: string;
     area: string;
@@ -16,6 +19,10 @@ export type Step1State = {
     additionalOnsiteContacts?: Array<{ name: string; phone: string; email: string; calendarInvite: boolean }>;
   };
 };
+
+function normForCompare(s: string): string {
+  return String(s || "").trim().toLowerCase().replace(/\s+/g, " ");
+}
 
 export function validateStep1(s: Step1State): ValidationError[] {
   const errors: ValidationError[] = [];
@@ -35,6 +42,24 @@ export function validateStep1(s: Step1State): ValidationError[] {
     // damit das editable PLZ-Feld (bei Autocomplete-Treffern ohne PLZ) keine
     // unvollständigen Nummern durchlässt.
     errors.push({ field: "address", message: "booking.validation.zipCityRequired" });
+  }
+  // Bug H: Konsistenz zwischen parsedAddress (= validierte Auswahl) und
+  // canonical object.address (= Quelle der Wahrheit fuer die UI). Wenn der
+  // Nutzer die Strasse manuell editiert hat, ohne aus dem Autocomplete-
+  // Dropdown neu zu waehlen, klafft hier eine Luecke — die "Weiter" darf
+  // nicht ueberbruecken. parsedAddress ohne Werte (initialer State) wird
+  // bereits oben durch die houseNumberRequired-Regel gefangen.
+  if (s.addressFields && s.parsedAddress?.houseNumber?.trim()) {
+    const f = s.addressFields;
+    const p = s.parsedAddress;
+    const mismatch =
+      normForCompare(f.street) !== normForCompare(p.street) ||
+      normForCompare(f.houseNumber) !== normForCompare(p.houseNumber) ||
+      normForCompare(f.zip) !== normForCompare(p.zip) ||
+      normForCompare(f.city) !== normForCompare(p.city);
+    if (mismatch) {
+      errors.push({ field: "address", message: "booking.validation.addressOutOfSync" });
+    }
   }
   if (!s.object.type) {
     errors.push({ field: "objectType", message: "booking.validation.objectTypeRequired" });
