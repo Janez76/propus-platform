@@ -27,6 +27,11 @@ export function validateStep1(s: Step1State): ValidationError[] {
   }
   if (s.parsedAddress && (!s.parsedAddress.zip || !s.parsedAddress.city)) {
     errors.push({ field: "address", message: "booking.validation.zipCityRequired" });
+  } else if (s.parsedAddress?.zip && !/^\d{4,5}$/.test(s.parsedAddress.zip.trim())) {
+    // CH/FL = 4-stellig, AT/DE = 5-stellig. 1–3-stellige Eingaben blocken,
+    // damit das editable PLZ-Feld (bei Autocomplete-Treffern ohne PLZ) keine
+    // unvollständigen Nummern durchlässt.
+    errors.push({ field: "address", message: "booking.validation.zipCityRequired" });
   }
   if (!s.object.type) {
     errors.push({ field: "objectType", message: "booking.validation.objectTypeRequired" });

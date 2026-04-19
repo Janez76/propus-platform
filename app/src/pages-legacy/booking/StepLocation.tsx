@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MapPin, Home, Ruler, Layers, DoorOpen, Plus, Trash2 } from "lucide-react";
 import { randomUUID } from "../../lib/selekto/randomId";
 import { AddressAutocompleteInput, type ParsedAddress, type StreetContext } from "../../components/ui/AddressAutocompleteInput";
@@ -54,8 +54,15 @@ export function StepLocation({ lang }: { lang: Lang }) {
     if (!streetValue) return undefined;
     return { street: streetValue, zip: zipValue, city: cityValue };
   }, [streetValue, zipValue, cityValue]);
-  // Autocomplete-Treffer ohne PLZ (z. B. "Albisstrasse – Zürich") → PLZ-Feld
-  // manuell editierbar + Hint, damit User nicht in Sackgasse sitzt.
+  // Latched state: PLZ-Feld bleibt editierbar, sobald Autocomplete eine Strasse
+  // OHNE PLZ geliefert hat. Wird erst zurückgesetzt, wenn eine neue Strasse MIT
+  // PLZ gewählt wird (oder die Strasse geleert wird). Andernfalls würde
+  // readOnly nach dem ersten Tastendruck wieder aktiv werden, weil zipValue
+  // dann nicht mehr leer ist.
+  const [zipEditable, setZipEditable] = useState<boolean>(() => Boolean(streetValue) && !zipValue);
+  useEffect(() => {
+    if (!streetValue) setZipEditable(false);
+  }, [streetValue]);
   const zipMissing = Boolean(streetValue) && !zipValue;
 
   async function lookupTravelZone(canton: string, zip: string) {
@@ -117,6 +124,7 @@ export function StepLocation({ lang }: { lang: Lang }) {
     setAddress(zipCityLine ? `${p.street}, ${zipCityLine}` : p.street);
     cantonRef.current = p.canton || "";
     if (p.zip) lookupTravelZone(p.canton || "", p.zip);
+    setZipEditable(!p.zip);
     // Rotate session token so house-number search opens a fresh billing session.
     sessionTokenRef.current = randomUUID();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -198,7 +206,7 @@ export function StepLocation({ lang }: { lang: Lang }) {
             </label>
             <input
               type="text"
-              readOnly={!zipMissing}
+              readOnly={!zipEditable}
               value={zipValue}
               onChange={(e) => {
                 const v = e.target.value;
@@ -208,11 +216,12 @@ export function StepLocation({ lang }: { lang: Lang }) {
                 const line1 = [streetValue, houseNumberValue].filter(Boolean).join(" ").trim();
                 setAddress(zipCityLine ? `${line1}, ${zipCityLine}` : line1);
               }}
-              className={cn(inputClass, zipMissing ? "" : "cursor-default select-none")}
-              placeholder={zipMissing ? "z. B. 8050" : "—"}
-              tabIndex={zipMissing ? 0 : -1}
+              className={cn(inputClass, zipEditable ? "" : "cursor-default select-none")}
+              placeholder={zipEditable ? "z. B. 8050" : "—"}
+              tabIndex={zipEditable ? 0 : -1}
               inputMode="numeric"
               autoComplete="postal-code"
+              maxLength={10}
               data-testid="booking-input-zip"
             />
             {zipMissing ? (
