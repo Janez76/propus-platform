@@ -4411,7 +4411,7 @@ app.post("/api/booking", bookingLimiter, async (req, res) => {
         street: billing.street || "",
         zip: billing.zip || "",
         city: billing.city || "",
-        zipcity: billing.zipcity || "",
+        zipcity: billing.zipcity || [billing.zip, billing.city].filter(Boolean).join(" "),
         order_ref: billing.order_ref || "",
         alt_company: billing.alt_company || "",
         alt_company_email: billing.alt_company_email || "",
@@ -8538,22 +8538,58 @@ app.get("/api/catalog/photographers", async (_req, res) => {
   res.json({ ok: true, photographers: fallbackList() });
 });
 
+function normalizeStreetNameForMatch(s) {
+  return String(s || "")
+    .toLowerCase()
+    .replace(/\u00DF/g, "ss")
+    .replace(/[\u00E4\u00C4]/g, "a")
+    .replace(/[\u00F6\u00D6]/g, "o")
+    .replace(/[\u00FC\u00DC]/g, "u")
+    .replace(/[.,-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 app.get(ADDRESS_AUTOCOMPLETE_ENDPOINT, async (req, res) => {
   try {
     const q = String(req.query.q || "").trim().replace(/\u00DF/g, "ss");
     const lang = String(req.query.lang || "de-CH").split("-")[0] || "de";
-    const limit = Math.min(Number(req.query.limit || 8), 5);
-    if (!q || q.length < 3) return res.json({ ok: true, results: [] });
+    // Strukturierter Kontext für Cascading-Autocomplete (Hausnummer-Modus im Wizard).
+    // Wenn gesetzt, filtern wir Details-Resultate auf exakt diese Strasse/PLZ.
+    const streetCtxStreet = String(req.query.streetCtxStreet || "").trim();
+    const streetCtxZip = String(req.query.streetCtxZip || "").trim();
+    const streetCtxCity = String(req.query.streetCtxCity || "").trim();
+    const hasStreetContext = Boolean(streetCtxStreet);
+    // Session-Token: transparent an Google Places weitergereicht (Kostenoptimierung
+    // bei mehreren Autocomplete-Aufrufen einer Sitzung). Reiner String, kein Lookup.
+    const sessionTokenRaw = String(req.query.sessionToken || "").trim();
+    const sessionToken = /^[a-zA-Z0-9_.:-]{1,128}$/.test(sessionTokenRaw) ? sessionTokenRaw : "";
+    // Cascading-Modus braucht mehr Roh-Treffer für Dedup + Sort, Default bleibt eng.
+    const limitClamp = hasStreetContext ? 15 : 5;
+    const limit = Math.min(Number(req.query.limit || 8), limitClamp);
+    const minChars = hasStreetContext ? 1 : 3;
+    if (!q || q.length < minChars) return res.json({ ok: true, results: [] });
 
     const apiKey = String(process.env.GOOGLE_PLACES_API_KEY || "").trim();
     if (!apiKey) return res.json({ ok: true, results: [] });
 
+    // Im Hausnummer-Modus Strassennamen in die Query einspiegeln,
+    // damit Google die Autocomplete-Predictions auf konkrete Adressen mit Hausnummer fokussiert.
+    const effectiveQuery = hasStreetContext
+      ? [streetCtxStreet, q].filter(Boolean).join(" ").trim() +
+        (streetCtxZip || streetCtxCity
+          ? `, ${[streetCtxZip, streetCtxCity].filter(Boolean).join(" ").trim()}`
+          : "")
+      : q;
+
     // 1. Google Places Autocomplete
     const acUrl = new URL("https://maps.googleapis.com/maps/api/place/autocomplete/json");
-    acUrl.searchParams.set("input", q);
+    acUrl.searchParams.set("input", effectiveQuery);
     acUrl.searchParams.set("components", "country:ch");
     acUrl.searchParams.set("language", lang);
     acUrl.searchParams.set("key", apiKey);
+    if (hasStreetContext) acUrl.searchParams.set("types", "address");
+    if (sessionToken) acUrl.searchParams.set("sessiontoken", sessionToken);
 
     const acRes = await fetch(acUrl.toString(), { signal: AbortSignal.timeout(6000) });
     if (!acRes.ok) return res.json({ ok: true, results: [] });
@@ -8571,6 +8607,7 @@ app.get(ADDRESS_AUTOCOMPLETE_ENDPOINT, async (req, res) => {
       detailsUrl.searchParams.set("language", lang);
       detailsUrl.searchParams.set("fields", "address_components,geometry,formatted_address");
       detailsUrl.searchParams.set("key", apiKey);
+      if (sessionToken) detailsUrl.searchParams.set("sessiontoken", sessionToken);
       const dr = await fetch(detailsUrl.toString(), { signal: AbortSignal.timeout(4000) });
       if (!dr.ok) return null;
       const dj = await dr.json();
@@ -8629,7 +8666,21 @@ app.get(ADDRESS_AUTOCOMPLETE_ENDPOINT, async (req, res) => {
     };
 
     const details = await Promise.all(predictions.map((p) => fetchDetails(p).catch(() => null)));
-    const results = details.filter(Boolean);
+    let results = details.filter(Boolean);
+
+    // Cascading-Modus: Resultate auf exakten Strassen-Match beschränken, damit
+    // fuer "Albisstrasse 1" keine Vorschläge von "Albisriederstrasse" landen.
+    if (hasStreetContext) {
+      const expected = normalizeStreetNameForMatch(streetCtxStreet);
+      const expectedZip = streetCtxZip.trim();
+      results = results.filter((r) => {
+        if (!r || r.type !== "address") return false;
+        if (!r.street) return false;
+        if (normalizeStreetNameForMatch(r.street) !== expected) return false;
+        if (expectedZip && r.zip && String(r.zip).trim() !== expectedZip) return false;
+        return true;
+      });
+    }
 
     res.json({ ok: true, results });
   } catch (err) {

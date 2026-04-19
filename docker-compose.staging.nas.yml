@@ -1,14 +1,16 @@
 # =============================================================================
 # LAN-Staging auf UGREEN NAS — Merge-Override zu docker-compose.vps.yml
 # =============================================================================
-# Verwendung:
+# Kein eigenständiger Stack: nur Abweichungen für LAN-Tests (z. B. 192.168.1.5).
+#
 #   docker compose -p propus-staging \
 #     -f docker-compose.vps.yml \
 #     -f docker-compose.staging.nas.yml \
 #     --env-file .env.staging \
 #     up -d --build
 #
-# Erfordert Docker Compose v2.20+ (YAML-Tags !override / Ersetzen statt Listen-Anhängen).
+# Erfordert Docker Compose v2.20+ (YAML-Tags !override).
+# Siehe docs/STAGING-UGREEN.md
 # =============================================================================
 
 services:
@@ -21,18 +23,15 @@ services:
       args:
         PLATFORM_INTERNAL_URL: ${PLATFORM_INTERNAL_URL:-http://192.168.1.5:13100}
     ports: !override
-      - "0.0.0.0:${STAGING_PLATFORM_PORT:-13100}:3001"
+      - "${STAGING_PLATFORM_BIND:-0.0.0.0}:${STAGING_PLATFORM_PORT:-13100}:3001"
     environment:
-      SESSION_COOKIE_SECURE: "false"
+      SESSION_COOKIE_SECURE: "${STAGING_SESSION_COOKIE_SECURE:-false}"
       PLATFORM_INTERNAL_URL: ${PLATFORM_INTERNAL_URL:-http://192.168.1.5:13100}
-      # Nextcloud abschalten (Compose-Defaults in vps sonst Prod-Pfade/URL)
       NEXTCLOUD_URL: ""
       NEXTCLOUD_USER: ""
       NEXTCLOUD_PASS: ""
       NEXTCLOUD_CUSTOMER_FOLDER_PATH: ""
 
   website:
-    # Kein env_file: Variablen kommen wie in vps über --env-file .env.staging zur Substitution
-    # der expliziten `environment`-Keys in docker-compose.vps.yml (sonst Import aller Keys).
     ports: !override
-      - "0.0.0.0:${STAGING_WEBSITE_PORT:-14343}:4343"
+      - "${STAGING_WEBSITE_BIND:-0.0.0.0}:${STAGING_WEBSITE_PORT:-14343}:4343"
