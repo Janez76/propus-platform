@@ -59,13 +59,14 @@ jobs:
         run: |
           set -eu
           COMPOSE="docker compose -p propus-staging -f docker-compose.vps.yml -f docker-compose.staging.nas.yml --env-file .env.staging"
-          # Health im laufenden Platform-Container (intern :3001). Host-Loopback/LAN vom Runner aus ist je nach
-          # Docker-/Runner-Setup unzuverlässig (RST, Hairpin); exec umgeht das.
-          echo "[deploy-nas] Warte auf /api/core/health im Container platform (max ~300s)..."
+          # Express (PORT/3100): /api/core/health ohne DB — wie scripts/start.sh. Port 3001 ist Next.js; dessen
+          # Health macht pool.query und kann 503 liefern, obwohl der Stack sonst startet.
+          HEALTH_URL="http://127.0.0.1:3100/api/core/health"
+          echo "[deploy-nas] Warte auf Express ${HEALTH_URL} im Container platform (max ~300s)..."
           for i in $(seq 1 60); do
-            if $COMPOSE exec -T platform sh -c 'curl -fsS --max-time 5 http://127.0.0.1:3001/api/core/health' 2>/dev/null; then
+            if $COMPOSE exec -T platform sh -c "curl -fsS --max-time 5 '${HEALTH_URL}'"; then
               echo ""
-              echo "[deploy-nas] Health-Check OK."
+              echo "[deploy-nas] Health-Check OK (Express)."
               exit 0
             fi
             echo "[deploy-nas] Versuch ${i}/60 fehlgeschlagen, warte 5s..."
