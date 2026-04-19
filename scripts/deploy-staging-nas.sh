@@ -44,24 +44,40 @@ else
   git pull --ff-only
 fi
 
-echo "[deploy-staging-nas] docker compose up -d --build …"
-docker compose -p "${COMPOSE_PROJECT}" \
-  -f docker-compose.vps.yml \
-  -f docker-compose.staging.nas.yml \
-  --env-file .env.staging \
-  up -d --build
+COMPOSE_BASE="docker compose -p ${COMPOSE_PROJECT} -f docker-compose.vps.yml -f docker-compose.staging.nas.yml --env-file .env.staging"
 
-# Port für Health-Check: aus .env.staging (STAGING_PLATFORM_PORT), sonst Env, sonst 13100
+echo "[deploy-staging-nas] docker compose up -d --build …"
+${COMPOSE_BASE} up -d --build
+
+# Wie CI: Express im Container (PORT soll 3100 sein; siehe docker-compose.staging.nas.yml)
+if command -v curl >/dev/null 2>&1; then
+  echo "[deploy-staging-nas] Health Express (im Container, /api/core/health) …"
+  i=0
+  while [ "$i" -lt 60 ]; do
+    if ${COMPOSE_BASE} exec -T platform sh -c 'EP="${PORT:-3100}"; curl -fsS --max-time 5 "http://127.0.0.1:${EP}/api/core/health"' 2>/dev/null; then
+      echo ""
+      echo "[deploy-staging-nas] Express-Health OK."
+      break
+    fi
+    i=$((i + 1))
+    if [ "$i" -eq 60 ]; then
+      echo "[deploy-staging-nas] WARNUNG: Express-Health nach ~300s nicht OK (Logs prüfen)."
+    else
+      sleep 5
+    fi
+  done
+fi
+
+# Optional: Next am Host-Port (DB-Pool); STAGING_PLATFORM_PORT → Container 3001
 STAGING_PORT="${STAGING_PLATFORM_PORT:-}"
 if [ -z "${STAGING_PORT}" ] && [ -f "${REPO_ROOT}/.env.staging" ]; then
   STAGING_PORT="$(grep -E '^STAGING_PLATFORM_PORT=' "${REPO_ROOT}/.env.staging" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '\r')"
 fi
 STAGING_PORT="${STAGING_PORT:-13100}"
-# Auf dem NAS: Health per Loopback; STAGING_HEALTH_HOST=192.168.1.5 nur nötig, wenn das Skript von einem anderen Host aus läuft.
 STAGING_IP="${STAGING_HEALTH_HOST:-127.0.0.1}"
 if command -v curl >/dev/null 2>&1; then
-  echo "[deploy-staging-nas] Health: curl -fsS http://${STAGING_IP}:${STAGING_PORT}/api/core/health"
-  curl -fsS "http://${STAGING_IP}:${STAGING_PORT}/api/core/health" && echo "" || echo "[deploy-staging-nas] WARNUNG: Health-Check fehlgeschlagen (Dienst startet evtl. noch)."
+  echo "[deploy-staging-nas] Health Next (Host ${STAGING_IP}:${STAGING_PORT}, optional) …"
+  curl -fsS "http://${STAGING_IP}:${STAGING_PORT}/api/core/health" && echo "" || echo "[deploy-staging-nas] HINWEIS: Next-Health optional fehlgeschlagen (Express oben ist maßgeblich für CI)."
 fi
 
 echo "[deploy-staging-nas] Fertig."
