@@ -7,7 +7,8 @@ BEGIN;
 ALTER TABLE core.admin_users
   ADD COLUMN IF NOT EXISTS avatar_url TEXT;
 
--- booking.admin_users: Spalte durchreichen (Kompatibilität mit Legacy-Spaltennamen)
+-- booking.admin_users: Spalte ANHAENGEN (CREATE OR REPLACE VIEW erlaubt nur
+-- Spalten am Ende, kein Umsortieren bestehender Spalten).
 CREATE OR REPLACE VIEW booking.admin_users AS
   SELECT
     id,
@@ -21,10 +22,10 @@ CREATE OR REPLACE VIEW booking.admin_users AS
     phone,
     language,
     profile_photo_version,
-    avatar_url,
     last_login_at,
     created_at,
-    updated_at
+    updated_at,
+    avatar_url
   FROM core.admin_users
   WHERE module_access IN ('booking', 'both');
 
@@ -36,10 +37,10 @@ CREATE OR REPLACE VIEW tour_manager.admin_users AS
     password_hash,
     is_active,
     invited_by,
-    avatar_url,
     last_login_at,
     created_at,
-    updated_at
+    updated_at,
+    avatar_url
   FROM core.admin_users
   WHERE module_access IN ('tour_manager', 'both');
 
