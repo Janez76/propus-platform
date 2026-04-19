@@ -4,6 +4,8 @@
 
 ## Überblick
 
+Für **LAN-Staging auf dem UGREEN NAS** (ohne VPS anzutasten) siehe [STAGING-UGREEN.md](STAGING-UGREEN.md).
+
 | Eigenschaft         | Wert                                       |
 |---------------------|--------------------------------------------|
 | VPS-IP              | `87.106.24.107`                            |

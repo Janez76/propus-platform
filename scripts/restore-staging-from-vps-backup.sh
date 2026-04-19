@@ -115,3 +115,5 @@ ${compose_cmd} up -d platform
 
 echo "[restore-staging] Fertig. Health-Check:"
 echo "[restore-staging]   curl -fsS http://192.168.1.5:\${STAGING_PLATFORM_PORT:-13100}/api/core/health"
+echo "[restore-staging] Hinweis: Admin-Login nutzt password_hash aus dem Dump (nicht ADMIN_PASS)."
+echo "[restore-staging]          Eigenes Staging-Passwort: docs/STAGING-UGREEN.md → Separates Staging-Admin-Passwort"

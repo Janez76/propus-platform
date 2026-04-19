@@ -13,5 +13,19 @@ CREATE TABLE IF NOT EXISTS admin_users (
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_admin_users_username ON admin_users(username);
-CREATE INDEX IF NOT EXISTS idx_admin_users_email    ON admin_users(email) WHERE email IS NOT NULL;
+-- Indizes nur auf der physischen Tabelle; nach core/migrations/040 ist
+-- booking.admin_users ein VIEW — dort sind keine Indizes erlaubt.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'booking'
+      AND c.relname = 'admin_users'
+      AND c.relkind = 'r'
+  ) THEN
+    CREATE INDEX IF NOT EXISTS idx_admin_users_username ON booking.admin_users (username);
+    CREATE INDEX IF NOT EXISTS idx_admin_users_email ON booking.admin_users (email) WHERE email IS NOT NULL;
+  END IF;
+END $$;

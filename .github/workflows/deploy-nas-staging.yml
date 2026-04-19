@@ -1,0 +1,64 @@
+# NAS-Staging manuell deployen (kein automatischer Push-Trigger).
+# Start: GitHub → Actions → "Deploy NAS Staging" → Run workflow.
+#
+# Kein „git pull" auf dem NAS nötig: actions/checkout holt den Code (GITHUB_TOKEN).
+# .env.staging kommt aus Secret NAS_ENV_FILE oder von der bestehenden Datei
+# unter /volume1/docker/propus-staging/.env.staging auf dem NAS.
+
+name: Deploy NAS Staging
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-nas-staging
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Checkout + Docker Compose (NAS)
+    runs-on: [self-hosted, nas-staging]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: .env.staging für Compose
+        env:
+          NAS_ENV_BODY: ${{ secrets.NAS_ENV_FILE }}
+        run: |
+          set -eu
+          if [ -n "${NAS_ENV_BODY:-}" ]; then
+            printf '%s\n' "$NAS_ENV_BODY" > .env.staging
+            echo "[deploy-nas] .env.staging aus Secret NAS_ENV_FILE."
+          else
+            LEG="/volume1/docker/propus-staging/.env.staging"
+            test -f "$LEG" || { echo "[deploy-nas] FEHLER: $LEG fehlt. Bitte Secret NAS_ENV_FILE setzen oder Datei anlegen."; exit 1; }
+            cp -a "$LEG" .env.staging
+            echo "[deploy-nas] .env.staging von $LEG kopiert."
+          fi
+          chmod 600 .env.staging
+
+      - name: Docker Compose
+        run: |
+          set -eu
+          docker compose -p propus-staging \
+            -f docker-compose.vps.yml \
+            -f docker-compose.staging.nas.yml \
+            --env-file .env.staging \
+            up -d --build
+
+      - name: Health-Check
+        run: |
+          set -eu
+          PORT="$(grep -E '^STAGING_PLATFORM_PORT=' .env.staging | tail -1 | cut -d= -f2- | tr -d '\r')"
+          PORT="${PORT:-13100}"
+          IP="${STAGING_HEALTH_HOST:-192.168.1.5}"
+          echo "[deploy-nas] curl http://${IP}:${PORT}/api/core/health"
+          curl -fsS "http://${IP}:${PORT}/api/core/health"
+          echo ""

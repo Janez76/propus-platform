@@ -1,54 +1,32 @@
-# Propus Platform — LAN-Staging-Override für UGREEN NAS
+# =============================================================================
+# LAN-Staging auf UGREEN NAS — Merge-Override zu docker-compose.vps.yml
+# =============================================================================
+# Kein eigenständiger Stack: nur Abweichungen für LAN-Tests (z. B. 192.168.1.5).
 #
-# Dieses File ist kein eigenständiger Stack, sondern ein Override auf
-# docker-compose.vps.yml. Es enthält nur Abweichungen, die für
-# LAN-Tests auf dem NAS (192.168.1.5) zwingend anders sein müssen:
-#   - platform: env_file komplett ersetzen (.env.staging statt .env.vps)
-#   - platform / website: Port-Bind auf 0.0.0.0, eigene Staging-Ports
-#   - platform: SESSION_COOKIE_SECURE=false (HTTP im LAN)
-#
-# Aufruf (aus dem Repo-Root auf dem NAS):
 #   docker compose -p propus-staging \
 #     -f docker-compose.vps.yml \
 #     -f docker-compose.staging.nas.yml \
 #     --env-file .env.staging \
 #     up -d --build
 #
-# Migrationen einmalig:
-#   docker compose -p propus-staging \
-#     -f docker-compose.vps.yml \
-#     -f docker-compose.staging.nas.yml \
-#     --env-file .env.staging \
-#     --profile migrate run --rm migrate
-#
-# NAS-Host-Pfade (BOOKING_UPLOAD_*_HOST_PATH, BACKUP_NAS_TARGET usw.) werden
-# via .env.staging gesetzt — hier keine Volume-Overrides nötig, da
-# docker-compose.vps.yml bereits ${…:-/opt/…} / ${…:-/mnt/…} benutzt.
-#
-# Siehe docs/STAGING-UGREEN.md für das vollständige Setup.
+# Erfordert Docker Compose v2.20+ (YAML-Tags !override).
+# Siehe docs/STAGING-UGREEN.md
+# =============================================================================
 
 services:
   platform:
-    # env_file MUSS komplett ersetzt werden, sonst würden Prod-Werte aus
-    # .env.vps ins Staging-Container-Env gemischt. !override (Compose ≥ 2.20)
-    # verhindert das Anhängen und setzt die Liste komplett neu.
     env_file: !override
       - .env.staging
       - path: .env.staging.secrets
         required: false
+    build:
+      args:
+        PLATFORM_INTERNAL_URL: ${PLATFORM_INTERNAL_URL:-http://192.168.1.5:13100}
     ports: !override
       - "${STAGING_PLATFORM_BIND:-0.0.0.0}:${STAGING_PLATFORM_PORT:-13100}:3001"
     environment:
-      # Prod setzt SESSION_COOKIE_SECURE=true hart in docker-compose.vps.yml;
-      # im LAN-HTTP würden Cookies dann nie an den Browser zurückgehen.
       SESSION_COOKIE_SECURE: "${STAGING_SESSION_COOKIE_SECURE:-false}"
-      # Container-interner Self-Call (unverändert zu Prod) — explizit, damit
-      # hier unmissverständlich ist, welche interne URL verwendet wird.
-      PLATFORM_INTERNAL_URL: "http://127.0.0.1:3100"
-      # Basis-Compose setzt Nextcloud-Defaults auf echte Prod-URL und
-      # Propus-Ordnerpfad (Zeilen 127, 130). `${VAR:-default}` aktiviert den
-      # Default auch bei leerer Variable — deshalb MUSS hier explizit ""
-      # gesetzt werden, damit Staging nicht in Prod-Nextcloud schreibt.
+      PLATFORM_INTERNAL_URL: ${PLATFORM_INTERNAL_URL:-http://192.168.1.5:13100}
       NEXTCLOUD_URL: ""
       NEXTCLOUD_USER: ""
       NEXTCLOUD_PASS: ""
