@@ -1743,6 +1743,7 @@
   "booking.step1.houseNumberPlaceholder": "es. 12a",
   "booking.step1.houseNumberHint": "Prima selezionare la via",
   "booking.step1.zip": "CAP",
+  "booking.step1.zipMissingHint": "Si prega di aggiungere il CAP.",
   "booking.step1.city": "Località",
   "booking.step1.mapUnavailable": "Mappa non disponibile – inserire l'indirizzo manualmente.",
   "booking.step1.objectDetails": "Dettagli dell'oggetto",
