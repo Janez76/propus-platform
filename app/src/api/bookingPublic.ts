@@ -124,7 +124,7 @@ export type BookingPayload = {
     time: string;
     provisional?: boolean;
   };
-  billing: Record<string, string>;
+  billing: Record<string, unknown>;
   pricing: { subtotal: number; discountAmount: number; vat: number; total: number };
   discountCode?: string;
   keyPickup?: { enabled: boolean; address: string; floor?: string; info?: string };

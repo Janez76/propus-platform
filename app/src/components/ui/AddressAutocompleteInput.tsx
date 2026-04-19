@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { InputHTMLAttributes } from "react";
 import { MapPin } from "lucide-react";
 import { cn } from "../../lib/utils";
@@ -31,6 +31,13 @@ export type ParsedAddress = {
   display: string;
 };
 
+export type StreetContext = {
+  street: string;
+  zip: string;
+  city: string;
+  canton?: string;
+};
+
 type AddressAutocompleteInputProps = Omit<
   InputHTMLAttributes<HTMLInputElement>,
   "value" | "onChange"
@@ -38,30 +45,57 @@ type AddressAutocompleteInputProps = Omit<
   value: string;
   onChange: (value: string) => void;
   /**
-   * "combined" — ein Freitextfeld (Strasse + PLZ/Ort), z.B. für homeAddress oder Objekt-Adresse.
-   * "street"   — Strassenfeld; bei Auswahl wird onSelectZipcity mit PLZ/Ort aufgerufen.
+   * "combined"    — ein Freitextfeld (Strasse + PLZ/Ort), z.B. für homeAddress oder Objekt-Adresse.
+   * "street"      — Strassenfeld; bei Auswahl wird onSelectZipcity mit PLZ/Ort aufgerufen.
+   * "houseNumber" — Cascading-Autocomplete: schlägt nur Hausnummern der via streetContext
+   *                 gewählten Strasse vor. Schreibt über onSelectHouseNumber nur die Nummer
+   *                 zurück, Strasse/PLZ/Ort bleiben unberührt.
    */
-  mode: "combined" | "street";
+  mode: "combined" | "street" | "houseNumber";
   onSelectZipcity?: (zipcity: string) => void;
   onSelectCoords?: (lat: number, lon: number) => void;
-  /** Strukturierte Adressdaten bei Auswahl (Strasse, Hausnummer, PLZ, Ort) */
+  /** Strukturierte Adressdaten bei Auswahl (Strasse, Hausnummer, PLZ, Ort). */
   onSelectParsed?: (parsed: ParsedAddress) => void;
+  /** Nur für mode="houseNumber": Rückgabe nur der Hausnummer + ggf. präziserer Koordinaten. */
+  onSelectHouseNumber?: (payload: {
+    houseNumber: string;
+    lat: number | null;
+    lng: number | null;
+  }) => void;
+  /** Nur für mode="houseNumber": Kontext zur Einschränkung der Vorschläge. */
+  streetContext?: StreetContext;
+  /** Wenn true, werden auch unvollständige (Strasse ohne Hausnummer) Vorschläge akzeptiert. Default false. */
+  allowPartial?: boolean;
+  /** Google-Places-Session-Token (optional) — wird als sessionToken-Query-Param mitgesendet. */
+  sessionToken?: string;
   minChars?: number;
   lang?: string;
-  /** Bei gesetzten Werten: Vorschlaege unterdruecken, wenn Adresse bereits vollstaendig */
+  /** Bei gesetzten Werten: Vorschlaege unterdruecken, wenn Adresse bereits vollstaendig. Ignoriert in houseNumber-Mode. */
   zip?: string;
   city?: string;
 };
 
-async function fetchSuggestions(q: string, lang: string, signal?: AbortSignal): Promise<AddressResult[]> {
+type FetchOptions = {
+  signal?: AbortSignal;
+  streetContext?: StreetContext;
+  sessionToken?: string;
+};
+
+async function fetchSuggestions(q: string, lang: string, opts: FetchOptions = {}): Promise<AddressResult[]> {
   const requestUrl = API_BASE
     ? new URL(ADDRESS_AUTOCOMPLETE_ENDPOINT, API_BASE).toString()
     : ADDRESS_AUTOCOMPLETE_ENDPOINT;
   const url = new URL(requestUrl, typeof window !== "undefined" ? window.location.origin : "http://localhost");
   url.searchParams.set("q", q.replace(/\u00DF/g, "ss"));
   url.searchParams.set("lang", lang === "de" ? "de-CH" : lang);
+  if (opts.streetContext?.street) {
+    url.searchParams.set("streetCtxStreet", opts.streetContext.street);
+    if (opts.streetContext.zip) url.searchParams.set("streetCtxZip", opts.streetContext.zip);
+    if (opts.streetContext.city) url.searchParams.set("streetCtxCity", opts.streetContext.city);
+  }
+  if (opts.sessionToken) url.searchParams.set("sessionToken", opts.sessionToken);
   try {
-    const r = await fetch(url.toString(), { signal, headers: { Accept: "application/json" } });
+    const r = await fetch(url.toString(), { signal: opts.signal, headers: { Accept: "application/json" } });
     if (!r.ok) return [];
     const json = await r.json() as { ok: boolean; results?: AddressResult[] };
     return Array.isArray(json.results) ? json.results.map(normalizeAddressResult).filter((r): r is AddressResult => r != null) : [];
@@ -128,6 +162,29 @@ function normalizeAddressResult(raw: AddressResult): AddressResult | null {
   };
 }
 
+function normalizeStreetName(s: string): string {
+  return String(s || "")
+    .toLowerCase()
+    .replace(/\u00DF/g, "ss")
+    .replace(/[\u00E4\u00C4]/g, "a")
+    .replace(/[\u00F6\u00D6]/g, "o")
+    .replace(/[\u00FC\u00DC]/g, "u")
+    .replace(/[.,-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function compareHouseNumbers(a: string, b: string): number {
+  const parseNum = (v: string) => {
+    const m = v.match(/^(\d+)/);
+    return m ? Number(m[1]) : Number.MAX_SAFE_INTEGER;
+  };
+  const na = parseNum(a);
+  const nb = parseNum(b);
+  if (na !== nb) return na - nb;
+  return a.localeCompare(b, "de", { sensitivity: "base" });
+}
+
 export function AddressAutocompleteInput({
   value,
   onChange,
@@ -135,7 +192,11 @@ export function AddressAutocompleteInput({
   onSelectZipcity,
   onSelectCoords,
   onSelectParsed,
-  minChars = 3,
+  onSelectHouseNumber,
+  streetContext,
+  allowPartial = false,
+  sessionToken,
+  minChars,
   lang = "de",
   zip,
   city,
@@ -158,18 +219,57 @@ export function AddressAutocompleteInput({
   const [isLoading, setIsLoading] = useState(false);
   const [selectError, setSelectError] = useState("");
 
-  const addressAlreadyComplete = Boolean(
-    zip?.trim() && city?.trim() && value.trim().length >= minChars
+  const isHouseNumberMode = mode === "houseNumber";
+  // Hausnummer-Mode: schon ab 1 Zeichen suchen; sonst Default 3.
+  const effectiveMinChars = minChars ?? (isHouseNumberMode ? 1 : 3);
+
+  const addressAlreadyComplete = !isHouseNumberMode && Boolean(
+    zip?.trim() && city?.trim() && value.trim().length >= effectiveMinChars,
   );
+
+  // Deduplizierte, numerisch sortierte Hausnummern für den Listboxmodus.
+  const houseNumberSuggestions = useMemo(() => {
+    if (!isHouseNumberMode) return suggestions;
+    const expectedStreet = normalizeStreetName(streetContext?.street || "");
+    const seen = new Set<string>();
+    const out: AddressResult[] = [];
+    for (const r of suggestions) {
+      if (!r.houseNumber) continue;
+      if (expectedStreet && normalizeStreetName(r.street || "") !== expectedStreet) continue;
+      const key = r.houseNumber.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(r);
+    }
+    out.sort((a, b) => compareHouseNumbers(a.houseNumber || "", b.houseNumber || ""));
+    return out.slice(0, 10);
+  }, [isHouseNumberMode, suggestions, streetContext?.street]);
+
+  const activeSuggestions = isHouseNumberMode ? houseNumberSuggestions : suggestions;
 
   useEffect(() => {
     const query = value.trim();
-    if (query.length < minChars || addressAlreadyComplete) {
+    if (query.length < effectiveMinChars || addressAlreadyComplete) {
       setSuggestions([]);
       setOpen(false);
       setShowEmpty(false);
       return;
     }
+
+    // Hausnummer-Mode benötigt einen Strassen-Kontext, sonst keine sinnvollen Vorschläge.
+    if (isHouseNumberMode && !streetContext?.street) {
+      setSuggestions([]);
+      setOpen(false);
+      setShowEmpty(false);
+      return;
+    }
+
+    const effectiveQuery = isHouseNumberMode && streetContext?.street
+      ? [streetContext.street, query].filter(Boolean).join(" ") +
+        (streetContext.zip || streetContext.city
+          ? `, ${[streetContext.zip, streetContext.city].filter(Boolean).join(" ").trim()}`
+          : "")
+      : query;
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
@@ -179,11 +279,14 @@ export function AddressAutocompleteInput({
       setIsLoading(true);
       setShowEmpty(false);
       try {
-        const results = await fetchSuggestions(query, lang, controller.signal);
-        // Phase 1: Vorschläge nicht auf Hausnummer blockieren, nur CH-Adressen.
+        const results = await fetchSuggestions(effectiveQuery, lang, {
+          signal: controller.signal,
+          streetContext: isHouseNumberMode ? streetContext : undefined,
+          sessionToken,
+        });
         const filtered = results
           .filter((r) => r.type === "address" && String(r.countryCode || "").toUpperCase() === "CH")
-          .slice(0, 5);
+          .slice(0, isHouseNumberMode ? 15 : 5);
         setSuggestions(filtered);
         setOpen(filtered.length > 0);
         setShowEmpty(filtered.length === 0);
@@ -198,7 +301,7 @@ export function AddressAutocompleteInput({
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [value, minChars, lang, mode, addressAlreadyComplete]);
+  }, [value, effectiveMinChars, lang, mode, addressAlreadyComplete, isHouseNumberMode, streetContext?.street, streetContext?.zip, streetContext?.city, sessionToken]);
 
   useEffect(() => {
     return () => abortRef.current?.abort();
@@ -220,7 +323,33 @@ export function AddressAutocompleteInput({
     setActiveIndex(-1);
   }, [value]);
 
+  function handleSelectHouseNumber(result: AddressResult) {
+    const hn = String(result.houseNumber || "").trim();
+    if (!hn) return;
+    onChange(hn);
+    setSelectError("");
+    if (onSelectHouseNumber) {
+      onSelectHouseNumber({
+        houseNumber: hn,
+        lat: typeof result.lat === "number" ? result.lat : null,
+        lng: typeof result.lng === "number" ? result.lng : (typeof result.lon === "number" ? result.lon : null),
+      });
+    }
+    if (onSelectCoords && typeof result.lat === "number") {
+      onSelectCoords(result.lat, result.lng ?? result.lon);
+    }
+    setOpen(false);
+    setShowEmpty(false);
+    setActiveIndex(-1);
+    setSuggestions([]);
+  }
+
   function handleSelect(result: AddressResult) {
+    if (isHouseNumberMode) {
+      handleSelectHouseNumber(result);
+      return;
+    }
+
     const main = result.street
       ? `${result.street}${result.houseNumber ? ` ${result.houseNumber}` : ""}`.trim()
       : result.main;
@@ -240,7 +369,7 @@ export function AddressAutocompleteInput({
       && String(result.countryCode || "CH").toUpperCase() === "CH",
     );
 
-    if (!isComplete) {
+    if (!isComplete && !allowPartial) {
       const zipcityHint = [result.zip, result.city].filter(Boolean).join(" ").trim();
       if (onSelectZipcity && zipcityHint) onSelectZipcity(zipcityHint);
       setSelectError("Bitte eine vollständige Adresse mit Hausnummer wählen.");
@@ -251,11 +380,10 @@ export function AddressAutocompleteInput({
       return;
     }
 
-    // Strukturierte Daten (Priorität)
-    if (onSelectParsed && result.street && result.houseNumber) {
+    if (onSelectParsed && result.street) {
       onSelectParsed({
         street: result.street,
-        houseNumber: result.houseNumber,
+        houseNumber: result.houseNumber ?? "",
         zip: result.zip ?? "",
         city: result.city ?? "",
         canton: result.canton ?? "",
@@ -264,12 +392,11 @@ export function AddressAutocompleteInput({
       });
     }
 
-    // Legacy-Kompatibilität
     if (onSelectZipcity) {
-      const zipcity = result.zip && result.city
+      const zipcityOut = result.zip && result.city
         ? `${result.zip} ${result.city}`
         : stripCountrySuffix(result.sub ?? "");
-      if (zipcity) onSelectZipcity(zipcity);
+      if (zipcityOut) onSelectZipcity(zipcityOut);
     }
 
     if (onSelectCoords) onSelectCoords(result.lat, result.lng ?? result.lon);
@@ -284,22 +411,22 @@ export function AddressAutocompleteInput({
     if (e.defaultPrevented) return;
 
     if (e.key === "Escape") { setOpen(false); setShowEmpty(false); setActiveIndex(-1); return; }
-    if (!open || !suggestions.length) return;
+    if (!open || !activeSuggestions.length) return;
 
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setActiveIndex((prev) => (prev + 1) % suggestions.length);
+      setActiveIndex((prev) => (prev + 1) % activeSuggestions.length);
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setActiveIndex((prev) => (prev - 1 + suggestions.length) % suggestions.length);
+      setActiveIndex((prev) => (prev - 1 + activeSuggestions.length) % activeSuggestions.length);
     } else if (e.key === "Enter" && activeIndex >= 0) {
       e.preventDefault();
-      handleSelect(suggestions[activeIndex]);
+      handleSelect(activeSuggestions[activeIndex]);
     }
   }
 
-  const showSuggestions = open && suggestions.length > 0;
-  const showEmptyState = showEmpty && !isLoading && value.trim().length >= minChars;
+  const showSuggestions = open && activeSuggestions.length > 0;
+  const showEmptyState = showEmpty && !isLoading && value.trim().length >= effectiveMinChars && !isHouseNumberMode;
 
   return (
     <div ref={wrapperRef} className="relative">
@@ -310,7 +437,7 @@ export function AddressAutocompleteInput({
           onChange(e.target.value); setOpen(true); setShowEmpty(false); setSelectError("");
         }}
         onFocus={(e) => {
-          if (suggestions.length > 0) setOpen(true); onFocus?.(e);
+          if (activeSuggestions.length > 0) setOpen(true); onFocus?.(e);
         }}
         onBlur={(e) => { onBlur?.(e); }}
         onKeyDown={handleKeyDown}
@@ -322,7 +449,7 @@ export function AddressAutocompleteInput({
         aria-controls={listboxId}
       />
 
-      {isLoading && value.trim().length >= minChars ? (
+      {isLoading && value.trim().length >= effectiveMinChars ? (
         <div className="pointer-events-none absolute right-2 top-[36px] rounded bg-zinc-800/90 px-2 py-1 text-[11px] text-zinc-300">
           Suche…
         </div>
@@ -334,9 +461,9 @@ export function AddressAutocompleteInput({
           role="listbox"
           className="absolute z-40 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] p-1 shadow-xl"
         >
-          {suggestions.map((item, index) => (
+          {activeSuggestions.map((item, index) => (
             <li
-              key={`${item.display ?? item.main}-${index}`}
+              key={isHouseNumberMode ? `hn-${item.houseNumber}-${index}` : `${item.display ?? item.main}-${index}`}
               role="option"
               aria-selected={activeIndex === index}
               className={cn(
@@ -347,15 +474,22 @@ export function AddressAutocompleteInput({
               )}
               onMouseDown={(e) => { e.preventDefault(); handleSelect(item); }}
             >
-              <div className="flex items-start gap-2">
-                <MapPin className="mt-[2px] h-3.5 w-3.5 shrink-0 text-[var(--accent)]" />
-                <div className="min-w-0">
-                  <p className="truncate font-semibold text-[var(--text-main)]">{item.main}</p>
-                  {item.sub ? (
-                    <p className="truncate text-xs text-[var(--text-subtle)]">{item.sub}</p>
-                  ) : null}
+              {isHouseNumberMode ? (
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-3.5 w-3.5 shrink-0 text-[var(--accent)]" />
+                  <span className="font-mono font-semibold text-[var(--text-main)]">{item.houseNumber}</span>
                 </div>
-              </div>
+              ) : (
+                <div className="flex items-start gap-2">
+                  <MapPin className="mt-[2px] h-3.5 w-3.5 shrink-0 text-[var(--accent)]" />
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-[var(--text-main)]">{item.main}</p>
+                    {item.sub ? (
+                      <p className="truncate text-xs text-[var(--text-subtle)]">{item.sub}</p>
+                    ) : null}
+                  </div>
+                </div>
+              )}
             </li>
           ))}
         </ul>
@@ -375,4 +509,3 @@ export function AddressAutocompleteInput({
     </div>
   );
 }
-

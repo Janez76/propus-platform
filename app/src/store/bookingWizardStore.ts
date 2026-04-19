@@ -10,6 +10,92 @@ export type OnsiteContactRow = {
   calendarInvite: boolean;
 };
 
+/** Strukturierte Adresse (Wizard V2). `formatted` hält Volltext für Backward-Compat. */
+export type StructuredAddress = {
+  street: string;
+  houseNumber: string;
+  zip: string;
+  city: string;
+  canton: string;
+  countryCode: string;
+  lat: number | null;
+  lng: number | null;
+  formatted: string;
+};
+
+/** Ansprechpartner/Mitarbeiter einer Firma — wird beim Submit in customer_contacts upserted. */
+export type BillingContact = {
+  salutation: string;
+  firstName: string;
+  lastName: string;
+  department: string;
+  email: string;
+  phone: string;
+  phoneMobile: string;
+};
+
+export type BillingMode = "company" | "private";
+
+/** Firmendaten + Rechnungsadresse (Haupt-Bestellung). */
+export type BillingCompanyV2 = {
+  name: string;
+  uid: string;
+  address: StructuredAddress;
+  orderRef: string;
+};
+
+/** Privatpersonen-Daten (wenn Haupt-Modus = "private"). */
+export type BillingPrivateV2 = {
+  salutation: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  phoneMobile: string;
+  address: StructuredAddress;
+};
+
+/** Kontakt-Stub für Alternative Rechnungsadresse (weniger Felder als Hauptkontakt). */
+export type BillingAltContact = {
+  salutation: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+};
+
+/** Alternative Rechnungsadresse — nur bei Haupt-Modus "company". */
+export type BillingAltV2 = {
+  enabled: boolean;
+  mode: BillingMode;
+  company: {
+    name: string;
+    uid: string;
+    address: StructuredAddress;
+    orderRef: string;
+    contact: BillingAltContact;
+  };
+  private: {
+    salutation: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    address: StructuredAddress;
+    orderRef: string;
+  };
+  notes: string;
+};
+
+/** Strukturierter Billing-Slot (Wizard V2) — lebt parallel zu den flachen Legacy-Feldern in `BillingData`. */
+export type BillingStructured = {
+  mode: BillingMode;
+  company: BillingCompanyV2;
+  private: BillingPrivateV2;
+  contacts: BillingContact[];
+  altBilling: BillingAltV2;
+};
+
 export type ObjectData = {
   type: string;
   area: string;
@@ -22,6 +108,8 @@ export type ObjectData = {
   onsiteEmail: string;
   onsiteCalendarInvite: boolean;
   additionalOnsiteContacts: OnsiteContactRow[];
+  /** Strukturierte Objekt-Adresse (Wizard V2). Quelle der Wahrheit; `address`/`parsedAddress`/`coords` bleiben als Mirror. */
+  address: StructuredAddress;
 };
 
 export type SelectedPackage = {
@@ -71,7 +159,88 @@ export type BillingData = {
   alt_phone_mobile: string;
   alt_order_ref: string;
   alt_notes: string;
+  /** Strukturierter Slot (Wizard V2). Quelle der Wahrheit beim Submit; flache Felder werden daraus abgeleitet. */
+  structured: BillingStructured;
 };
+
+/** Factory: leere strukturierte Adresse (deep-clone-sicher). */
+export function makeEmptyStructuredAddress(): StructuredAddress {
+  return {
+    street: "",
+    houseNumber: "",
+    zip: "",
+    city: "",
+    canton: "",
+    countryCode: "CH",
+    lat: null,
+    lng: null,
+    formatted: "",
+  };
+}
+
+/** Factory: leerer Billing-Kontakt. */
+export function makeEmptyBillingContact(): BillingContact {
+  return {
+    salutation: "",
+    firstName: "",
+    lastName: "",
+    department: "",
+    email: "",
+    phone: "",
+    phoneMobile: "",
+  };
+}
+
+/** Factory: leerer strukturierter Billing-Slot (enthält 1 leeren Kontakt — min. 1 Pflicht im Firma-Modus). */
+export function makeEmptyBillingStructured(): BillingStructured {
+  return {
+    mode: "company",
+    company: {
+      name: "",
+      uid: "",
+      address: makeEmptyStructuredAddress(),
+      orderRef: "",
+    },
+    private: {
+      salutation: "",
+      firstName: "",
+      lastName: "",
+      email: "",
+      phone: "",
+      phoneMobile: "",
+      address: makeEmptyStructuredAddress(),
+    },
+    contacts: [makeEmptyBillingContact()],
+    altBilling: {
+      enabled: false,
+      mode: "company",
+      company: {
+        name: "",
+        uid: "",
+        address: makeEmptyStructuredAddress(),
+        orderRef: "",
+        contact: { salutation: "", firstName: "", lastName: "", email: "", phone: "" },
+      },
+      private: {
+        salutation: "",
+        firstName: "",
+        lastName: "",
+        email: "",
+        phone: "",
+        address: makeEmptyStructuredAddress(),
+        orderRef: "",
+      },
+      notes: "",
+    },
+  };
+}
+
+/** Baut den Volltext-String aus den strukturierten Adressfeldern. */
+export function formatStructuredAddress(a: StructuredAddress): string {
+  const line1 = [a.street, a.houseNumber].filter((v) => v && v.trim()).join(" ").trim();
+  const line2 = [a.zip, a.city].filter((v) => v && v.trim()).join(" ").trim();
+  return [line1, line2].filter(Boolean).join(", ");
+}
 
 const EMPTY_BILLING: BillingData = {
   salutation: "", first_name: "", company: "", company_email: "", company_phone: "",
@@ -83,6 +252,7 @@ const EMPTY_BILLING: BillingData = {
   alt_salutation: "", alt_first_name: "", alt_name: "",
   alt_email: "", alt_phone: "", alt_phone_mobile: "",
   alt_order_ref: "", alt_notes: "",
+  structured: makeEmptyBillingStructured(),
 };
 
 export const EMPTY_OBJECT: ObjectData = {
@@ -97,6 +267,7 @@ export const EMPTY_OBJECT: ObjectData = {
   onsiteEmail: "",
   onsiteCalendarInvite: false,
   additionalOnsiteContacts: [],
+  address: makeEmptyStructuredAddress(),
 };
 
 export type BookingWizardState = {
@@ -165,6 +336,23 @@ export type BookingWizardState = {
 
   setScheduleAutoPickSignature: (sig: string | null) => void;
 
+  /** Wizard V2: strukturierte Setter */
+  setObjectAddress: (patch: Partial<StructuredAddress>) => void;
+  setBillingMode: (mode: BillingMode) => void;
+  setBillingCompany: (patch: Partial<BillingCompanyV2>) => void;
+  setBillingCompanyAddress: (patch: Partial<StructuredAddress>) => void;
+  setBillingPrivate: (patch: Partial<BillingPrivateV2>) => void;
+  setBillingPrivateAddress: (patch: Partial<StructuredAddress>) => void;
+  setBillingContact: (index: number, patch: Partial<BillingContact>) => void;
+  addBillingContact: () => void;
+  removeBillingContact: (index: number) => void;
+  setBillingAlt: (patch: Partial<Omit<BillingAltV2, "company" | "private">>) => void;
+  setBillingAltCompany: (patch: Partial<BillingAltV2["company"]>) => void;
+  setBillingAltCompanyAddress: (patch: Partial<StructuredAddress>) => void;
+  setBillingAltCompanyContact: (patch: Partial<BillingAltContact>) => void;
+  setBillingAltPrivate: (patch: Partial<BillingAltV2["private"]>) => void;
+  setBillingAltPrivateAddress: (patch: Partial<StructuredAddress>) => void;
+
   reset: () => void;
 };
 
@@ -174,20 +362,26 @@ const INITIAL: Omit<BookingWizardState,
   "setTime" | "setProvisional" | "setBilling" | "setAltBilling" | "setDiscount" |
   "setKeyPickup" | "setAgbAccepted" | "setSlotPeriod" | "setAvailableSlots" |
   "setSlotsLoading" | "setSkillWarning" | "setConfig" | "setCatalog" | "setPhotographers" |
-  "setConfigLoading" | "setSubmitting" | "setSubmitted" | "setScheduleAutoPickSignature" | "reset"
+  "setConfigLoading" | "setSubmitting" | "setSubmitted" | "setScheduleAutoPickSignature" |
+  "setObjectAddress" | "setBillingMode" | "setBillingCompany" | "setBillingCompanyAddress" |
+  "setBillingPrivate" | "setBillingPrivateAddress" | "setBillingContact" |
+  "addBillingContact" | "removeBillingContact" |
+  "setBillingAlt" | "setBillingAltCompany" | "setBillingAltCompanyAddress" |
+  "setBillingAltCompanyContact" | "setBillingAltPrivate" | "setBillingAltPrivateAddress" |
+  "reset"
 > = {
   step: 1,
   address: "",
   coords: null,
   parsedAddress: null,
-  object: { ...EMPTY_OBJECT },
+  object: { ...EMPTY_OBJECT, address: makeEmptyStructuredAddress() },
   selectedPackage: null,
   addons: [],
   photographer: null,
   date: "",
   time: "",
   provisional: false,
-  billing: { ...EMPTY_BILLING },
+  billing: { ...EMPTY_BILLING, structured: makeEmptyBillingStructured() },
   altBilling: false,
   discount: { code: "", percent: 0, amount: 0 },
   keyPickup: { enabled: false, address: "", info: "" },
@@ -205,6 +399,13 @@ const INITIAL: Omit<BookingWizardState,
   orderNo: null,
   scheduleAutoPickSignature: null,
 };
+
+function updateStructured(
+  s: BookingWizardState,
+  updater: (prev: BillingStructured) => BillingStructured,
+): Pick<BookingWizardState, "billing"> {
+  return { billing: { ...s.billing, structured: updater(s.billing.structured) } };
+}
 
 export const useBookingWizardStore = create<BookingWizardState>()(
   persist(
@@ -251,10 +452,103 @@ export const useBookingWizardStore = create<BookingWizardState>()(
 
       setScheduleAutoPickSignature: (scheduleAutoPickSignature) => set({ scheduleAutoPickSignature }),
 
+      setObjectAddress: (patch) => set((s) => {
+        const next = { ...s.object.address, ...patch };
+        next.formatted = formatStructuredAddress(next);
+        return { object: { ...s.object, address: next } };
+      }),
+
+      setBillingMode: (mode) => set((s) => updateStructured(s, (prev) => ({ ...prev, mode }))),
+
+      setBillingCompany: (patch) => set((s) => updateStructured(s, (prev) => ({
+        ...prev,
+        company: { ...prev.company, ...patch },
+      }))),
+
+      setBillingCompanyAddress: (patch) => set((s) => updateStructured(s, (prev) => {
+        const nextAddr = { ...prev.company.address, ...patch };
+        nextAddr.formatted = formatStructuredAddress(nextAddr);
+        return { ...prev, company: { ...prev.company, address: nextAddr } };
+      })),
+
+      setBillingPrivate: (patch) => set((s) => updateStructured(s, (prev) => ({
+        ...prev,
+        private: { ...prev.private, ...patch },
+      }))),
+
+      setBillingPrivateAddress: (patch) => set((s) => updateStructured(s, (prev) => {
+        const nextAddr = { ...prev.private.address, ...patch };
+        nextAddr.formatted = formatStructuredAddress(nextAddr);
+        return { ...prev, private: { ...prev.private, address: nextAddr } };
+      })),
+
+      setBillingContact: (index, patch) => set((s) => updateStructured(s, (prev) => {
+        if (index < 0 || index >= prev.contacts.length) return prev;
+        const nextContacts = prev.contacts.map((c, i) => (i === index ? { ...c, ...patch } : c));
+        return { ...prev, contacts: nextContacts };
+      })),
+
+      addBillingContact: () => set((s) => updateStructured(s, (prev) => ({
+        ...prev,
+        contacts: [...prev.contacts, makeEmptyBillingContact()],
+      }))),
+
+      removeBillingContact: (index) => set((s) => updateStructured(s, (prev) => {
+        if (prev.contacts.length <= 1) return prev;
+        if (index < 0 || index >= prev.contacts.length) return prev;
+        return { ...prev, contacts: prev.contacts.filter((_, i) => i !== index) };
+      })),
+
+      setBillingAlt: (patch) => set((s) => updateStructured(s, (prev) => ({
+        ...prev,
+        altBilling: { ...prev.altBilling, ...patch },
+      }))),
+
+      setBillingAltCompany: (patch) => set((s) => updateStructured(s, (prev) => ({
+        ...prev,
+        altBilling: { ...prev.altBilling, company: { ...prev.altBilling.company, ...patch } },
+      }))),
+
+      setBillingAltCompanyAddress: (patch) => set((s) => updateStructured(s, (prev) => {
+        const nextAddr = { ...prev.altBilling.company.address, ...patch };
+        nextAddr.formatted = formatStructuredAddress(nextAddr);
+        return {
+          ...prev,
+          altBilling: { ...prev.altBilling, company: { ...prev.altBilling.company, address: nextAddr } },
+        };
+      })),
+
+      setBillingAltCompanyContact: (patch) => set((s) => updateStructured(s, (prev) => ({
+        ...prev,
+        altBilling: {
+          ...prev.altBilling,
+          company: {
+            ...prev.altBilling.company,
+            contact: { ...prev.altBilling.company.contact, ...patch },
+          },
+        },
+      }))),
+
+      setBillingAltPrivate: (patch) => set((s) => updateStructured(s, (prev) => ({
+        ...prev,
+        altBilling: { ...prev.altBilling, private: { ...prev.altBilling.private, ...patch } },
+      }))),
+
+      setBillingAltPrivateAddress: (patch) => set((s) => updateStructured(s, (prev) => {
+        const nextAddr = { ...prev.altBilling.private.address, ...patch };
+        nextAddr.formatted = formatStructuredAddress(nextAddr);
+        return {
+          ...prev,
+          altBilling: { ...prev.altBilling, private: { ...prev.altBilling.private, address: nextAddr } },
+        };
+      })),
+
       /** Leert die Buchung (Schritt 1), behält geladenes Config/Katalog/Fotografen — vermeidet leeren Wizard ohne erneuten Fetch. */
       reset: () =>
         set((s) => ({
           ...INITIAL,
+          object: { ...EMPTY_OBJECT, address: makeEmptyStructuredAddress() },
+          billing: { ...EMPTY_BILLING, structured: makeEmptyBillingStructured() },
           config: s.config,
           catalog: s.catalog,
           photographers: s.photographers,
@@ -264,7 +558,7 @@ export const useBookingWizardStore = create<BookingWizardState>()(
     }),
     {
       name: "propus-booking-wizard-draft",
-      version: 5,
+      version: 6,
       merge: (persistedState, currentState) => {
         const p =
           persistedState && typeof persistedState === "object"
@@ -315,6 +609,43 @@ export const useBookingWizardStore = create<BookingWizardState>()(
           p = {
             ...po,
             keyPickup: { enabled: false, address: "", info: "" },
+          };
+        }
+        if (fromVersion < 6 && p && typeof p === "object" && p !== null) {
+          const po = p as Record<string, unknown>;
+          const objRaw = po.object && typeof po.object === "object" ? (po.object as Record<string, unknown>) : {};
+          const parsed = po.parsedAddress && typeof po.parsedAddress === "object" ? (po.parsedAddress as Record<string, unknown>) : null;
+          const coords = po.coords && typeof po.coords === "object" ? (po.coords as Record<string, unknown>) : null;
+          const addressText = typeof po.address === "string" ? po.address : "";
+
+          const objectAddress: StructuredAddress = {
+            ...makeEmptyStructuredAddress(),
+            street: typeof parsed?.street === "string" ? parsed.street : "",
+            houseNumber: typeof parsed?.houseNumber === "string" ? parsed.houseNumber : "",
+            zip: typeof parsed?.zip === "string" ? parsed.zip : "",
+            city: typeof parsed?.city === "string" ? parsed.city : "",
+            lat: typeof coords?.lat === "number" ? coords.lat : null,
+            lng: typeof coords?.lng === "number" ? coords.lng : null,
+            formatted: addressText,
+          };
+          if (!objectAddress.formatted) {
+            objectAddress.formatted = formatStructuredAddress(objectAddress);
+          }
+
+          const billingRaw = po.billing && typeof po.billing === "object" ? (po.billing as Record<string, unknown>) : {};
+
+          p = {
+            ...po,
+            object: {
+              ...EMPTY_OBJECT,
+              ...objRaw,
+              address: objectAddress,
+            },
+            billing: {
+              ...EMPTY_BILLING,
+              ...billingRaw,
+              structured: makeEmptyBillingStructured(),
+            },
           };
         }
         return p;
