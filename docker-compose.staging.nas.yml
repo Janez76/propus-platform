@@ -19,14 +19,11 @@ services:
       - .env.staging
       - path: .env.staging.secrets
         required: false
-    build:
-      args:
-        PLATFORM_INTERNAL_URL: ${PLATFORM_INTERNAL_URL:-http://192.168.1.5:13100}
     ports: !override
       - "${STAGING_PLATFORM_BIND:-0.0.0.0}:${STAGING_PLATFORM_PORT:-13100}:3001"
     environment:
       SESSION_COOKIE_SECURE: "${STAGING_SESSION_COOKIE_SECURE:-false}"
-      PLATFORM_INTERNAL_URL: ${PLATFORM_INTERNAL_URL:-http://192.168.1.5:13100}
+      PLATFORM_INTERNAL_URL: "http://127.0.0.1:3100"
       NEXTCLOUD_URL: ""
       NEXTCLOUD_USER: ""
       NEXTCLOUD_PASS: ""
