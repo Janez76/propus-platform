@@ -769,11 +769,11 @@ export function CustomersPage() {
           ) : (
             <table className="w-full table-fixed">
               <colgroup>
-                <col className="w-[5%]" />
-                <col className="w-[5%]" />
-                <col className="w-[22%]" />
-                <col className="w-[24%]" />
+                <col className="w-[8%]" />
+                <col className="w-[8%]" />
                 <col className="w-[20%]" />
+                <col className="w-[22%]" />
+                <col className="w-[18%]" />
                 <col className="w-[11%]" />
                 <col className="w-[13%]" />
               </colgroup>
