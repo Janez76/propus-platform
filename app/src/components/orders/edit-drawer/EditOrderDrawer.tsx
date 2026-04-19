@@ -9,10 +9,13 @@ import {
   FileText,
   History as HistoryIcon,
   Loader2,
+  Lock,
   Mail,
   MessageSquare,
   Package,
+  Pencil,
   Save,
+  Unlock,
   User2,
   X,
 } from "lucide-react";
@@ -33,11 +36,17 @@ import { cn } from "../../../lib/utils";
 import { TabUebersicht } from "./TabUebersicht";
 import { TabObjekt } from "./TabObjekt";
 import { TabTermin } from "./TabTermin";
+import { TabVerlauf } from "./TabVerlauf";
+import { TabDateien } from "./TabDateien";
+import { TabKommunikation } from "./TabKommunikation";
+import { TabLeistungen } from "./TabLeistungen";
+import { computePricing } from "../../../lib/bookingPricing";
 import {
   buildInitialState,
   type DirtyMap,
   type DrawerState,
   type EmailTargets,
+  type LeistungenForm,
   type ObjektForm,
   type TerminForm,
   type UebersichtForm,
@@ -169,6 +178,27 @@ function buildAddressString(o: ObjektForm): string {
   return [street, zipcity].filter(Boolean).join(", ");
 }
 
+function buildServicesPayload(l: LeistungenForm) {
+  return {
+    package: l.packageKey
+      ? { key: l.packageKey, label: l.packageLabel, price: l.packagePrice }
+      : null,
+    addons: l.addons.map((a) => ({
+      id: a.id,
+      label: a.label,
+      price: Number(a.price) || 0,
+      group: a.group,
+      ...(a.qty != null ? { qty: a.qty } : {}),
+    })),
+  };
+}
+
+function buildPricingPayload(l: LeistungenForm) {
+  const subtotal = (Number(l.packagePrice) || 0) + l.addons.reduce((s, a) => s + (Number(a.price) || 0), 0);
+  const p = computePricing(subtotal, l.discountPercent || 0);
+  return { subtotal: p.subtotal, discount: p.discountAmount, vat: p.vat, total: p.total };
+}
+
 function splitDateTime(local: string): { date: string; time: string } | null {
   if (!local) return null;
   const m = local.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
@@ -196,6 +226,7 @@ export function EditOrderDrawer({ open, orderNo, onClose, onSaved }: Props) {
 
   const [initial, setInitial] = useState<DrawerState | null>(null);
   const [draft, setDraft] = useState<DrawerState | null>(null);
+  const [editMode, setEditMode] = useState(false);
 
   // Load order whenever orderNo changes while open
   useEffect(() => {
@@ -211,6 +242,7 @@ export function EditOrderDrawer({ open, orderNo, onClose, onSaved }: Props) {
         setInitial(state);
         setDraft(state);
         setActiveTab("uebersicht");
+        setEditMode(false);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -235,15 +267,16 @@ export function EditOrderDrawer({ open, orderNo, onClose, onSaved }: Props) {
   }, [open, token, photographers.length, photographersLoading]);
 
   const dirtyMap: DirtyMap = useMemo(() => {
-    if (!initial || !draft) return { uebersicht: false, objekt: false, termin: false };
+    if (!initial || !draft) return { uebersicht: false, objekt: false, termin: false, leistungen: false };
     return {
       uebersicht: JSON.stringify(initial.uebersicht) !== JSON.stringify(draft.uebersicht),
       objekt: JSON.stringify(initial.objekt) !== JSON.stringify(draft.objekt),
       termin: JSON.stringify(initial.termin) !== JSON.stringify(draft.termin),
+      leistungen: JSON.stringify(initial.leistungen) !== JSON.stringify(draft.leistungen),
     };
   }, [initial, draft]);
 
-  const isDirty = dirtyMap.uebersicht || dirtyMap.objekt || dirtyMap.termin;
+  const isDirty = dirtyMap.uebersicht || dirtyMap.objekt || dirtyMap.termin || dirtyMap.leistungen;
 
   useUnsavedChangesGuard(`edit-order-drawer:${orderNo || ""}`, isDirty);
 
@@ -254,6 +287,15 @@ export function EditOrderDrawer({ open, orderNo, onClose, onSaved }: Props) {
     }
     onClose();
   }, [isDirty, onClose, t]);
+
+  const requestDiscard = useCallback(() => {
+    if (isDirty) {
+      const ok = window.confirm(t("ordersDrawer.confirmDiscard"));
+      if (!ok) return;
+      if (initial) setDraft(initial);
+    }
+    setEditMode(false);
+  }, [isDirty, t, initial]);
 
   // ESC handler
   useEffect(() => {
@@ -277,14 +319,17 @@ export function EditOrderDrawer({ open, orderNo, onClose, onSaved }: Props) {
   const setTermin = useCallback((patch: Partial<TerminForm>) => {
     setDraft((prev) => (prev ? { ...prev, termin: { ...prev.termin, ...patch } } : prev));
   }, []);
+  const setLeistungen = useCallback((patch: Partial<LeistungenForm>) => {
+    setDraft((prev) => (prev ? { ...prev, leistungen: { ...prev.leistungen, ...patch } } : prev));
+  }, []);
 
   const handleSave = useCallback(async () => {
     if (!order || !draft || !initial || !token || !orderNo) return;
     setSaving(true);
     setError(null);
     try {
-      // 1) Persist details (billing + object + onsite contacts + internalNotes)
-      if (dirtyMap.uebersicht || dirtyMap.objekt) {
+      // 1) Persist details (billing + object + onsite contacts + internalNotes + services/pricing)
+      if (dirtyMap.uebersicht || dirtyMap.objekt || dirtyMap.leistungen) {
         const billing = dirtyMap.uebersicht ? buildBillingPayload(draft.uebersicht) : undefined;
         const objectPayload = dirtyMap.objekt ? buildObjectPayload(draft.objekt) : undefined;
         const addressStr = dirtyMap.objekt ? buildAddressString(draft.objekt) : undefined;
@@ -299,6 +344,17 @@ export function EditOrderDrawer({ open, orderNo, onClose, onSaved }: Props) {
         const onsiteEmail = dirtyMap.objekt ? draft.objekt.onsiteEmail || null : undefined;
         const internalNotes = dirtyMap.uebersicht ? draft.uebersicht.internalNotes : undefined;
 
+        let services: ReturnType<typeof buildServicesPayload> | undefined;
+        let pricing: ReturnType<typeof buildPricingPayload> | undefined;
+        let keyPickup: { address: string; notes?: string } | null | undefined;
+        if (dirtyMap.leistungen) {
+          services = buildServicesPayload(draft.leistungen);
+          pricing = buildPricingPayload(draft.leistungen);
+          keyPickup = draft.leistungen.keyPickup.enabled
+            ? { address: draft.leistungen.keyPickup.address, notes: draft.leistungen.keyPickup.notes }
+            : null;
+        }
+
         await updateOrderDetails(token, orderNo, {
           ...(billing ? { billing } : {}),
           ...(objectPayload ? { object: objectPayload } : {}),
@@ -306,6 +362,9 @@ export function EditOrderDrawer({ open, orderNo, onClose, onSaved }: Props) {
           ...(onsiteContacts !== undefined ? { onsiteContacts } : {}),
           ...(onsiteEmail !== undefined ? { onsite_email: onsiteEmail } : {}),
           ...(internalNotes !== undefined ? { internalNotes } : {}),
+          ...(services ? { services } : {}),
+          ...(pricing ? { pricing } : {}),
+          ...(keyPickup !== undefined ? { keyPickup } : {}),
         });
       }
 
@@ -347,6 +406,7 @@ export function EditOrderDrawer({ open, orderNo, onClose, onSaved }: Props) {
       const state = buildInitialState(fresh);
       setInitial(state);
       setDraft(state);
+      setEditMode(false);
       onSaved?.(fresh);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err));
@@ -395,6 +455,15 @@ export function EditOrderDrawer({ open, orderNo, onClose, onSaved }: Props) {
                   {t("ordersDrawer.title")} #{order?.orderNo || orderNo || ""}
                 </h2>
                 <span className={statusEntry.badgeClass}>{statusEntry.label}</span>
+                {editMode ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">
+                    <Unlock className="h-3 w-3" /> {t("ordersDrawer.lock.editing")}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[var(--surface-raised)] px-2 py-0.5 text-xs font-medium text-[var(--text-subtle)]">
+                    <Lock className="h-3 w-3" /> {t("ordersDrawer.lock.locked")}
+                  </span>
+                )}
                 {isDirty && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-700">
                     <AlertCircle className="h-3 w-3" /> {t("ordersDrawer.unsaved")}
@@ -434,14 +503,27 @@ export function EditOrderDrawer({ open, orderNo, onClose, onSaved }: Props) {
                 </div>
               )}
             </div>
-            <button
-              type="button"
-              onClick={requestClose}
-              className="rounded-lg p-2 text-[var(--text-muted)] hover:bg-[var(--surface-raised)]"
-              aria-label={t("ordersDrawer.close")}
-            >
-              <X className="h-5 w-5" />
-            </button>
+            <div className="flex items-center gap-2">
+              {!editMode && !loading && !error && draft && (
+                <button
+                  type="button"
+                  data-testid="drawer-unlock"
+                  onClick={() => setEditMode(true)}
+                  className="inline-flex items-center gap-2 rounded-lg border border-[var(--accent)]/30 bg-[var(--accent)]/10 px-3 py-2 text-sm font-medium text-[var(--accent)] hover:bg-[var(--accent)]/20"
+                >
+                  <Pencil className="h-4 w-4" />
+                  {t("ordersDrawer.lock.unlock")}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={requestClose}
+                className="rounded-lg p-2 text-[var(--text-muted)] hover:bg-[var(--surface-raised)]"
+                aria-label={t("ordersDrawer.close")}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
           </div>
 
           {/* Tabs */}
@@ -452,7 +534,8 @@ export function EditOrderDrawer({ open, orderNo, onClose, onSaved }: Props) {
               const showDot =
                 (tab.key === "uebersicht" && dirtyMap.uebersicht) ||
                 (tab.key === "objekt" && dirtyMap.objekt) ||
-                (tab.key === "termin" && dirtyMap.termin);
+                (tab.key === "termin" && dirtyMap.termin) ||
+                (tab.key === "leistungen" && dirtyMap.leistungen);
               return (
                 <button
                   key={tab.key}
@@ -493,67 +576,82 @@ export function EditOrderDrawer({ open, orderNo, onClose, onSaved }: Props) {
           )}
           {!loading && !error && draft && (
             <>
-              {activeTab === "uebersicht" && (
-                <TabUebersicht lang={lang} value={draft.uebersicht} onChange={setUebersicht} />
+              {(activeTab === "uebersicht" ||
+                activeTab === "objekt" ||
+                activeTab === "termin" ||
+                activeTab === "leistungen") && (
+                <fieldset
+                  disabled={!editMode}
+                  className="contents [&_input:disabled]:cursor-not-allowed [&_input:disabled]:opacity-60 [&_select:disabled]:cursor-not-allowed [&_select:disabled]:opacity-60 [&_textarea:disabled]:cursor-not-allowed [&_textarea:disabled]:opacity-60 [&_button:disabled]:cursor-not-allowed [&_button:disabled]:opacity-60"
+                >
+                  {activeTab === "uebersicht" && (
+                    <TabUebersicht lang={lang} value={draft.uebersicht} onChange={setUebersicht} />
+                  )}
+                  {activeTab === "objekt" && (
+                    <TabObjekt lang={lang} value={draft.objekt} onChange={setObjekt} />
+                  )}
+                  {activeTab === "termin" && (
+                    <TabTermin
+                      lang={lang}
+                      value={draft.termin}
+                      onChange={setTermin}
+                      photographers={photographers}
+                      photographersLoading={photographersLoading}
+                    />
+                  )}
+                  {activeTab === "leistungen" && (
+                    <TabLeistungen value={draft.leistungen} objekt={draft.objekt} onChange={setLeistungen} />
+                  )}
+                </fieldset>
               )}
-              {activeTab === "objekt" && (
-                <TabObjekt lang={lang} value={draft.objekt} onChange={setObjekt} />
-              )}
-              {activeTab === "termin" && (
-                <TabTermin
-                  lang={lang}
-                  value={draft.termin}
-                  onChange={setTermin}
-                  photographers={photographers}
-                  photographersLoading={photographersLoading}
-                />
-              )}
-              {(activeTab === "leistungen" ||
-                activeTab === "kommunikation" ||
-                activeTab === "dateien" ||
-                activeTab === "verlauf") && (
-                <ComingSoonTab labelKey={`ordersDrawer.tabs.${activeTab}`} />
+              {activeTab === "verlauf" && orderNo && <TabVerlauf orderNo={orderNo} />}
+              {activeTab === "dateien" && orderNo && <TabDateien orderNo={orderNo} />}
+              {activeTab === "kommunikation" && orderNo && (
+                <TabKommunikation orderNo={orderNo} editMode={editMode} />
               )}
             </>
           )}
         </div>
 
-        {/* Sticky save bar */}
-        <footer className="sticky bottom-0 z-10 border-t border-[var(--border-soft)] bg-[var(--surface)] px-6 py-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <EmailTargetsControl
-              targets={emailTargets}
-              onChange={setEmailTargets}
-              t={t}
-            />
-            <div className="ml-auto flex items-center gap-2">
-              <button
-                type="button"
-                onClick={requestClose}
-                disabled={saving}
-                className="rounded-lg border border-[var(--border-soft)] px-4 py-2 text-sm text-[var(--text-muted)] hover:bg-[var(--surface-raised)] disabled:opacity-50"
-              >
-                {isDirty ? t("ordersDrawer.discard") : t("ordersDrawer.close")}
-              </button>
-              <button
-                type="button"
-                data-testid="drawer-save"
-                onClick={handleSave}
-                disabled={!isDirty || saving}
-                className={cn(
-                  "inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors",
-                  isDirty && !saving
-                    ? "bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]"
-                    : "bg-[var(--surface-raised)] text-[var(--text-subtle)]",
-                )}
-              >
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                {t("ordersDrawer.save")}
-                <span className="hidden text-xs opacity-70 sm:inline">⌘S</span>
-              </button>
+        {/* Sticky save bar — only visible in edit mode */}
+        {editMode && (
+          <footer className="sticky bottom-0 z-10 border-t border-[var(--border-soft)] bg-[var(--surface)] px-6 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <EmailTargetsControl
+                targets={emailTargets}
+                onChange={setEmailTargets}
+                t={t}
+              />
+              <div className="ml-auto flex items-center gap-2">
+                <button
+                  type="button"
+                  data-testid="drawer-discard"
+                  onClick={requestDiscard}
+                  disabled={saving}
+                  className="rounded-lg border border-[var(--border-soft)] px-4 py-2 text-sm text-[var(--text-muted)] hover:bg-[var(--surface-raised)] disabled:opacity-50"
+                >
+                  {isDirty ? t("ordersDrawer.discard") : t("ordersDrawer.lock.lock")}
+                </button>
+                <button
+                  type="button"
+                  data-testid="drawer-save"
+                  onClick={handleSave}
+                  disabled={!isDirty || saving}
+                  className={cn(
+                    "inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors",
+                    isDirty && !saving
+                      ? "bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]"
+                      : "bg-[var(--surface-raised)] text-[var(--text-subtle)]",
+                  )}
+                >
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  {t("ordersDrawer.save")}
+                  <span className="hidden text-xs opacity-70 sm:inline">⌘S</span>
+                </button>
+              </div>
             </div>
-          </div>
-        </footer>
+          </footer>
+        )}
       </aside>
     </div>
   );
@@ -644,13 +742,3 @@ function Toggle({
   );
 }
 
-function ComingSoonTab({ labelKey }: { labelKey: string }) {
-  const t = useT();
-  return (
-    <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-[var(--text-subtle)]">
-      <FileText className="h-8 w-8 opacity-50" />
-      <p className="text-sm font-medium">{t(labelKey)}</p>
-      <p className="max-w-xs text-xs">{t("ordersDrawer.comingSoon")}</p>
-    </div>
-  );
-}
