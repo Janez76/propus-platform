@@ -8807,6 +8807,90 @@ app.get(ADDRESS_AUTOCOMPLETE_ENDPOINT, async (req, res) => {
   }
 });
 
+/**
+ * /api/zip-city-suggest — leichtgewichtige Bidirektionale PLZ ↔ Ort Suche.
+ *  - mode=zip : User tippt im PLZ-Feld, Predictions als postal_code (CH).
+ *  - mode=city: User tippt im Ort-Feld, Predictions als (cities) (CH).
+ * Liefert deduplizierte {zip, city, canton, lat, lng} Paare. Ausschliesslich
+ * Schweiz (components=country:ch). Kein Strassen-/Hausnummer-Detail noetig,
+ * darum schlanker als address-suggest.
+ */
+app.get("/api/zip-city-suggest", async (req, res) => {
+  try {
+    const q = String(req.query.q || "").trim().replace(/\u00DF/g, "ss");
+    const mode = String(req.query.mode || "city").toLowerCase() === "zip" ? "zip" : "city";
+    const lang = String(req.query.lang || "de-CH").split("-")[0] || "de";
+    const limit = Math.min(Number(req.query.limit || 8), 12);
+    const sessionTokenRaw = String(req.query.sessionToken || "").trim();
+    const sessionToken = /^[a-zA-Z0-9_.:-]{1,128}$/.test(sessionTokenRaw) ? sessionTokenRaw : "";
+    const minChars = mode === "zip" ? 2 : 2;
+    if (!q || q.length < minChars) return res.json({ ok: true, results: [] });
+
+    const apiKey = String(process.env.GOOGLE_PLACES_API_KEY || "").trim();
+    if (!apiKey) return res.json({ ok: true, results: [] });
+
+    const acUrl = new URL("https://maps.googleapis.com/maps/api/place/autocomplete/json");
+    acUrl.searchParams.set("input", q);
+    acUrl.searchParams.set("components", "country:ch");
+    acUrl.searchParams.set("language", lang);
+    acUrl.searchParams.set("key", apiKey);
+    // Google trennt Postleitzahlen und Ortschaften ueber unterschiedliche Type-Filter.
+    if (mode === "zip") acUrl.searchParams.set("types", "postal_code");
+    else acUrl.searchParams.set("types", "(cities)");
+    if (sessionToken) acUrl.searchParams.set("sessiontoken", sessionToken);
+
+    const acRes = await fetch(acUrl.toString(), { signal: AbortSignal.timeout(6000) });
+    if (!acRes.ok) return res.json({ ok: true, results: [] });
+    const acJson = await acRes.json();
+    const predictions = Array.isArray(acJson.predictions) ? acJson.predictions.slice(0, limit) : [];
+    if ((acJson.status !== "OK" && acJson.status !== "ZERO_RESULTS") || predictions.length === 0) {
+      return res.json({ ok: true, results: [] });
+    }
+
+    const chStr = (s) => String(s || "").replace(/\u00DF/g, "ss");
+
+    const fetchDetails = async (p) => {
+      const detailsUrl = new URL("https://maps.googleapis.com/maps/api/place/details/json");
+      detailsUrl.searchParams.set("place_id", p.place_id);
+      detailsUrl.searchParams.set("language", lang);
+      detailsUrl.searchParams.set("fields", "address_components,geometry");
+      detailsUrl.searchParams.set("key", apiKey);
+      if (sessionToken) detailsUrl.searchParams.set("sessiontoken", sessionToken);
+      const dr = await fetch(detailsUrl.toString(), { signal: AbortSignal.timeout(4000) });
+      if (!dr.ok) return null;
+      const dj = await dr.json();
+      if (dj.status !== "OK" || !dj.result) return null;
+      const r = dj.result;
+      const comps = Array.isArray(r.address_components) ? r.address_components : [];
+      const get = (types) => comps.find((c) => types.some((t) => c.types && c.types.includes(t)));
+      const city = chStr((get(["locality"]) || get(["postal_town"]) || get(["administrative_area_level_2"]) || {}).long_name || "");
+      const zip = chStr((get(["postal_code"]) || {}).long_name || "");
+      const canton = chStr((get(["administrative_area_level_1"]) || {}).short_name || "");
+      const countryCode = chStr((get(["country"]) || {}).short_name || "CH").toUpperCase();
+      const loc = r.geometry && r.geometry.location;
+      const lat = loc && Number.isFinite(loc.lat) ? Number(loc.lat) : 0;
+      const lng = loc && Number.isFinite(loc.lng) ? Number(loc.lng) : 0;
+      if (countryCode !== "CH") return null;
+      if (!zip && !city) return null;
+      return { zip, city, canton, lat, lng };
+    };
+
+    const details = await Promise.all(predictions.map((p) => fetchDetails(p).catch(() => null)));
+    const seen = new Set();
+    const results = [];
+    for (const d of details) {
+      if (!d) continue;
+      const key = `${d.zip}|${d.city}`.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      results.push(d);
+    }
+    res.json({ ok: true, results });
+  } catch (err) {
+    res.json({ ok: true, results: [] });
+  }
+});
+
 app.get("/api/config", async (_req, res) => {
   const key = String(process.env.GOOGLE_PLACES_API_KEY || "").trim();
   const mapId = String(process.env.GOOGLE_MAP_ID || "DEMO_MAP_ID").trim();
