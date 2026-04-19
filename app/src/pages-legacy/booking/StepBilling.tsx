@@ -42,9 +42,11 @@ function StructuredAddressFields({ lang, address, onPatch, testIdPrefix }: Struc
   const zipMissing = Boolean(address.street) && !address.zip;
 
   const onSelectStreet = useCallback((p: ParsedAddress) => {
+    // Autocomplete kann die Hausnummer, PLZ und Ort mitliefern — alle Felder
+    // übernehmen, damit ein Klick die komplette Adresse setzt.
     onPatch({
       street: p.street,
-      houseNumber: "",
+      houseNumber: p.houseNumber ?? "",
       zip: p.zip,
       city: p.city,
       canton: p.canton || "",

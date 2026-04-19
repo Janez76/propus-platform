@@ -115,9 +115,13 @@ export function StepLocation({ lang }: { lang: Lang }) {
   }
 
   const onSelectStreet = useCallback((p: ParsedAddress) => {
+    // Autocomplete kann eine komplette Adresse liefern (Strasse + Hausnummer +
+    // PLZ + Ort). Alle Felder aus dem gewählten Vorschlag übernehmen, damit
+    // der Nutzer mit einem Klick fertig ist.
+    const hn = p.houseNumber ?? "";
     setObjectAddress({
       street: p.street,
-      houseNumber: "",
+      houseNumber: hn,
       zip: p.zip,
       city: p.city,
       canton: p.canton || "",
@@ -125,9 +129,10 @@ export function StepLocation({ lang }: { lang: Lang }) {
       lat: null,
       lng: null,
     });
-    setParsedAddress({ street: p.street, houseNumber: "", zip: p.zip, city: p.city });
+    setParsedAddress({ street: p.street, houseNumber: hn, zip: p.zip, city: p.city });
+    const streetLine = hn ? `${p.street} ${hn}` : p.street;
     const zipCityLine = [p.zip, p.city].filter(Boolean).join(" ");
-    setAddress(zipCityLine ? `${p.street}, ${zipCityLine}` : p.street);
+    setAddress(zipCityLine ? `${streetLine}, ${zipCityLine}` : streetLine);
     cantonRef.current = p.canton || "";
     if (p.zip) lookupTravelZone(p.canton || "", p.zip);
     // Rotate session token so house-number search opens a fresh billing session.
