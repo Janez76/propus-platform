@@ -530,6 +530,16 @@ try {
   console.warn("[photographer-portraits] mkdir failed:", PHOTOGRAPHER_PORTRAIT_DIR, mkdirErr?.message || mkdirErr);
 }
 
+const ADMIN_AVATAR_DIR = process.env.ADMIN_AVATAR_DIR
+  ? path.resolve(process.env.ADMIN_AVATAR_DIR)
+  : path.join(__dirname, "data", "admin-avatars");
+const ADMIN_AVATAR_MAX_MB = Math.min(4, Math.max(1, Number(process.env.ADMIN_AVATAR_MAX_MB || 1)));
+try {
+  fs.mkdirSync(ADMIN_AVATAR_DIR, { recursive: true });
+} catch (mkdirErr) {
+  console.warn("[admin-avatars] mkdir failed:", ADMIN_AVATAR_DIR, mkdirErr?.message || mkdirErr);
+}
+
 const photographerPortraitUpload = multer({
   storage: multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, PHOTOGRAPHER_PORTRAIT_DIR),
@@ -547,6 +557,28 @@ const photographerPortraitUpload = multer({
 function runPhotographerPortraitUpload(req, res) {
   return new Promise((resolve, reject) => {
     photographerPortraitUpload.single("file")(req, res, (err) => {
+      if (err) return reject(err);
+      resolve();
+    });
+  });
+}
+
+const adminAvatarUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, ADMIN_AVATAR_DIR),
+    filename: (req, _file, cb) => {
+      const adminId = Number(req.user?.userKey || req.user?.id || 0);
+      const stamp = Date.now().toString(36);
+      const base = Number.isFinite(adminId) && adminId > 0 ? `admin-${adminId}` : `admin-${stamp}`;
+      cb(null, `${base}-${stamp}.webp`);
+    },
+  }),
+  limits: { fileSize: ADMIN_AVATAR_MAX_MB * 1024 * 1024 },
+});
+
+function runAdminAvatarUpload(req, res) {
+  return new Promise((resolve, reject) => {
+    adminAvatarUpload.single("file")(req, res, (err) => {
       if (err) return reject(err);
       resolve();
     });
@@ -8272,6 +8304,7 @@ function buildAdminProfilePayload(req, adminUser) {
   ).trim();
   const phone = String(adminUser?.phone || "").trim();
   const language = normalizeAdminProfileLanguage(adminUser?.language || "de");
+  const avatarUrl = adminUser?.avatar_url ? String(adminUser.avatar_url).trim() : "";
 
   return {
     user: String(adminUser?.username || req.user?.userKey || email || req.user?.id || "").trim(),
@@ -8279,6 +8312,7 @@ function buildAdminProfilePayload(req, adminUser) {
     name,
     phone,
     language,
+    avatarUrl: avatarUrl || null,
   };
 }
 
@@ -8388,7 +8422,67 @@ app.put("/api/admin/me", requireAdmin, async (req, res) => {
 });
 
 app.post("/api/admin/me/change-password", requireAdmin, async (req, res) => {
-  return res.status(400).json({ error: "Passwort-Aenderung bitte direkt in der Datenbank (admin_users) oder per zukuenftigem Admin-Tool." });
+  try {
+    const adminUser = await resolveCurrentAdminUserRecord(req);
+    if (!adminUser?.id) {
+      return res.status(404).json({ error: "Admin-Account nicht gefunden." });
+    }
+    const oldPassword = String(req.body?.oldPassword || "");
+    const newPassword = String(req.body?.newPassword || "");
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ error: "Altes und neues Passwort sind erforderlich." });
+    }
+    if (newPassword.length < 10) {
+      return res.status(400).json({ error: "Neues Passwort zu kurz (min. 10 Zeichen)." });
+    }
+    if (!adminUser.password_hash) {
+      return res.status(400).json({ error: "Kein Passwort hinterlegt. Bitte wende dich an einen Administrator." });
+    }
+    const ok = await customerAuth.verifyPassword(oldPassword, adminUser.password_hash);
+    if (!ok) {
+      return res.status(401).json({ error: "Altes Passwort stimmt nicht." });
+    }
+    const newHash = await customerAuth.hashPassword(newPassword);
+    await db.query(
+      `UPDATE admin_users SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
+      [newHash, adminUser.id],
+    );
+    return res.json({ ok: true });
+  } catch (err) {
+    return res.status(500).json({ error: err?.message || "Passwort konnte nicht geaendert werden." });
+  }
+});
+
+app.post("/api/admin/me/avatar", requireAdmin, async (req, res, next) => {
+  try {
+    try { fs.mkdirSync(ADMIN_AVATAR_DIR, { recursive: true }); } catch (_) {}
+    await runAdminAvatarUpload(req, res);
+    if (!req.file) return res.status(400).json({ error: "Keine Datei" });
+    const mime = String(req.file.mimetype || "");
+    if (!/^image\/(png|jpeg|pjpeg|webp)$/i.test(mime)) {
+      try { fs.unlinkSync(req.file.path); } catch (_e) {}
+      return res.status(400).json({ error: "Nur Bilddateien (PNG, JPEG, WebP) erlaubt" });
+    }
+    const adminUser = await resolveCurrentAdminUserRecord(req);
+    if (!adminUser?.id) {
+      try { fs.unlinkSync(req.file.path); } catch (_e) {}
+      return res.status(404).json({ error: "Admin-Account nicht gefunden." });
+    }
+    const avatarUrl = `/assets/admin-avatars/${req.file.filename}`;
+    await db.query(
+      `UPDATE admin_users SET avatar_url = $1, updated_at = NOW() WHERE id = $2`,
+      [avatarUrl, adminUser.id],
+    );
+    return res.json({ ok: true, avatarUrl });
+  } catch (err) {
+    if (err instanceof multer.MulterError) {
+      if (err.code === "LIMIT_FILE_SIZE") {
+        return res.status(400).json({ error: `Datei zu gross (max. ${ADMIN_AVATAR_MAX_MB} MB)` });
+      }
+      return res.status(400).json({ error: err.message || "Upload fehlgeschlagen" });
+    }
+    next(err);
+  }
 });
 
 // Mail diagnostics for quick admin troubleshooting
@@ -12450,6 +12544,9 @@ app.get('/__propus-pdf-inline', pdfInlineMiddleware);
 
 if (fs.existsSync(PHOTOGRAPHER_PORTRAIT_DIR)) {
   app.use("/assets/photographers", express.static(PHOTOGRAPHER_PORTRAIT_DIR));
+}
+if (fs.existsSync(ADMIN_AVATAR_DIR)) {
+  app.use("/assets/admin-avatars", express.static(ADMIN_AVATAR_DIR));
 }
 // ─── Öffentlicher Bereinigungslauf-Kundenflow ─────────────────────────────────
 (function mountCleanupRoutes() {
