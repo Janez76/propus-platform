@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { MapPin, Home, Ruler, Layers, DoorOpen, Plus, Trash2 } from "lucide-react";
+import { randomUUID } from "../../lib/selekto/randomId";
 import { AddressAutocompleteInput, type ParsedAddress, type StreetContext } from "../../components/ui/AddressAutocompleteInput";
 import { useBookingWizardStore, type OnsiteContactRow } from "../../store/bookingWizardStore";
 import { AddressPreviewMap } from "./AddressPreviewMap";
@@ -42,7 +43,7 @@ export function StepLocation({ lang }: { lang: Lang }) {
   const prevZipRef = useRef("");
   const cantonRef = useRef(object.address.canton || "");
   // Single session token shared across street + house-number autocomplete calls.
-  const sessionTokenRef = useRef(crypto.randomUUID());
+  const sessionTokenRef = useRef(randomUUID());
 
   const streetValue = object.address.street;
   const houseNumberValue = object.address.houseNumber;
@@ -113,7 +114,7 @@ export function StepLocation({ lang }: { lang: Lang }) {
     cantonRef.current = p.canton || "";
     if (p.zip) lookupTravelZone(p.canton || "", p.zip);
     // Rotate session token so house-number search opens a fresh billing session.
-    sessionTokenRef.current = crypto.randomUUID();
+    sessionTokenRef.current = randomUUID();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setObjectAddress, setParsedAddress, setAddress]);
 

@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef } from "react";
 import { Building2, CreditCard, LogIn, MapPin, Plus, Trash2, User } from "lucide-react";
+import { randomUUID } from "../../lib/selekto/randomId";
 import { AddressAutocompleteInput, type ParsedAddress, type StreetContext } from "../../components/ui/AddressAutocompleteInput";
 import {
   useBookingWizardStore,
@@ -29,7 +30,7 @@ type StructuredAddressFieldsProps = {
 
 /** 4-Feld-Adress-Block (Strasse + Hausnummer cascading; PLZ/Ort readonly). */
 function StructuredAddressFields({ lang, address, onPatch, testIdPrefix }: StructuredAddressFieldsProps) {
-  const sessionTokenRef = useRef(crypto.randomUUID());
+  const sessionTokenRef = useRef(randomUUID());
 
   const streetContext = useMemo((): StreetContext | undefined => {
     if (!address.street || !address.zip) return undefined;
@@ -47,7 +48,7 @@ function StructuredAddressFields({ lang, address, onPatch, testIdPrefix }: Struc
       lat: null,
       lng: null,
     });
-    sessionTokenRef.current = crypto.randomUUID();
+    sessionTokenRef.current = randomUUID();
   }, [onPatch]);
 
   const onSelectHouseNumber = useCallback((payload: { houseNumber: string; lat: number | null; lng: number | null }) => {
