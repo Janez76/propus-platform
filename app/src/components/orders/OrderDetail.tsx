@@ -141,6 +141,8 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
   const [manualInvoiceError, setManualInvoiceError] = useState("");
   const [manualInvoiceFeedback, setManualInvoiceFeedback] = useState("");
   const [orderInvoices, setOrderInvoices] = useState<OrderInvoiceRow[] | null>(null);
+  type OrderDetailTab = "overview" | "services" | "schedule" | "communication" | "files" | "history";
+  const [activeTab, setActiveTab] = useState<OrderDetailTab>("overview");
   const listingHref = data?.listingSlug ? `/listing/${encodeURIComponent(data.listingSlug)}` : "";
   const emailsDirty = sendStatusEmails && (statusEmailTargets.customer || statusEmailTargets.office || statusEmailTargets.photographer || statusEmailTargets.cc);
   const statusDirty = status !== originalStatus || scheduleLocal !== originalSchedule || scheduleDurationMin !== originalScheduleDurationMin || pendingPhotographerKey !== originalPhotographerKey || emailsDirty;
@@ -690,23 +692,115 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
     },
   );
 
+  const currentStatusKey = (status || data?.status || "").toLowerCase();
+  const statusBadgeCls =
+    currentStatusKey === "confirmed" || currentStatusKey === "completed"
+      ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+      : currentStatusKey === "cancelled"
+        ? "bg-red-500/10 text-red-600 border-red-500/20"
+        : currentStatusKey === "paused"
+          ? "bg-amber-500/10 text-amber-600 border-amber-500/20"
+          : "bg-[var(--accent)]/10 text-[var(--accent)] border-[var(--accent)]/20";
+  const statusLabel = t(lang, `orderStatus.label.${currentStatusKey}`);
+  const statusLabelDisplay = statusLabel.startsWith("orderStatus.") ? (currentStatusKey || "—") : statusLabel;
+  const subtitleParts = [data?.address, data?.billing?.company || data?.customerName].filter(Boolean) as string[];
+  const selectedPhotographer = photographers.find((p) => p.key === pendingPhotographerKey);
+  const photographerName = selectedPhotographer?.name || data?.photographer?.name || t(lang, "orderDetail.summary.notAssigned");
+  const appointmentLabel = data?.appointmentDate ? formatDateTime(data.appointmentDate) : "—";
+  const durationLabel = `${Number(data?.schedule?.durationMin || scheduleDurationMin || 60)} Min.`;
+  const totalLabel = formatCurrency(data?.total || data?.pricing?.total || 0);
+
+  const tabDefs: Array<{ id: OrderDetailTab; labelKey: string; count?: number }> = [
+    { id: "overview", labelKey: "orderDetail.tab.overview" },
+    { id: "services", labelKey: "orderDetail.tab.services", count: (data?.services?.addons?.length || 0) + (data?.services?.package ? 1 : 0) },
+    { id: "schedule", labelKey: "orderDetail.tab.schedule" },
+    { id: "communication", labelKey: "orderDetail.tab.communication" },
+    { id: "files", labelKey: "orderDetail.tab.files" },
+    { id: "history", labelKey: "orderDetail.tab.history" },
+  ];
+
   return (
     <>
       <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-2 sm:p-4">
-        <div className={uiMode === "modern" ? "surface-card max-h-[92vh] w-full max-w-full sm:max-w-5xl overflow-auto p-3 sm:p-5" : "max-h-[92vh] w-full max-w-full sm:max-w-3xl overflow-auto rounded-xl bg-white p-3 sm:p-4 shadow-xl"}>
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-lg font-bold">{t(lang, "orderDetail.title").replace("{{orderNo}}", orderNo)}</h3>
-            <div className="flex items-center gap-2">
-              {!effectiveEditMode && data && canManageOrder && (
-                <button onClick={openEditMode} className={uiMode === "modern" ? "btn-secondary" : "rounded border px-2 py-1 text-sm"}>{t(lang, "common.edit")}</button>
-              )}
-              <button onClick={handleClose} className={uiMode === "modern" ? "btn-secondary" : "rounded border px-2 py-1 text-sm"}>{t(lang, "common.close")}</button>
+        <div className={uiMode === "modern" ? "surface-card max-h-[92vh] w-full max-w-full sm:max-w-5xl overflow-hidden flex flex-col" : "max-h-[92vh] w-full max-w-full sm:max-w-3xl overflow-auto rounded-xl bg-white p-3 sm:p-4 shadow-xl"}>
+          <div className={uiMode === "modern" ? "sticky top-0 z-10 border-b border-[var(--border-soft)] bg-[var(--surface)]/95 backdrop-blur px-3 sm:px-5 pt-3 sm:pt-4" : "mb-3"}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <h3 className="text-lg font-bold truncate">{t(lang, "orderDetail.title").replace("{{orderNo}}", orderNo)}</h3>
+                {uiMode === "modern" && data && (
+                  <span className={`shrink-0 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium ${statusBadgeCls}`}>
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-current" />
+                    {statusLabelDisplay}
+                  </span>
+                )}
+                {uiMode === "modern" && subtitleParts.length > 0 && (
+                  <span className="hidden sm:inline text-xs text-[var(--text-subtle)] truncate">· {subtitleParts.join(" · ")}</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {!effectiveEditMode && data && canManageOrder && (
+                  <button onClick={openEditMode} className={uiMode === "modern" ? "btn-secondary" : "rounded border px-2 py-1 text-sm"}>{t(lang, "common.edit")}</button>
+                )}
+                <button onClick={handleClose} className={uiMode === "modern" ? "btn-secondary" : "rounded border px-2 py-1 text-sm"}>{t(lang, "common.close")}</button>
+              </div>
             </div>
+
+            {uiMode === "modern" && data && (
+              <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 border-t border-[var(--border-soft)] text-xs">
+                <div className="py-2 pr-3 border-r border-[var(--border-soft)]">
+                  <div className="text-[10px] uppercase tracking-wider text-[var(--text-subtle)]">{t(lang, "orderDetail.summary.appointment")}</div>
+                  <div className="font-semibold text-[var(--text-main)] truncate">{appointmentLabel}</div>
+                </div>
+                <div className="py-2 px-3 border-r border-[var(--border-soft)]">
+                  <div className="text-[10px] uppercase tracking-wider text-[var(--text-subtle)]">{t(lang, "orderDetail.summary.employee")}</div>
+                  <div className="font-semibold text-[var(--text-main)] truncate">{photographerName}</div>
+                </div>
+                <div className="py-2 px-3 border-r border-[var(--border-soft)]">
+                  <div className="text-[10px] uppercase tracking-wider text-[var(--text-subtle)]">{t(lang, "orderDetail.summary.duration")}</div>
+                  <div className="font-semibold text-[var(--text-main)]">{durationLabel}</div>
+                </div>
+                <div className="py-2 pl-3">
+                  <div className="text-[10px] uppercase tracking-wider text-[var(--text-subtle)]">{t(lang, "orderDetail.summary.total")}</div>
+                  <div className="font-bold text-[var(--accent)] text-base">{totalLabel}</div>
+                </div>
+              </div>
+            )}
+
+            {uiMode === "modern" && (
+              <div className="flex gap-0 overflow-x-auto border-b border-[var(--border-soft)] -mb-px" role="tablist">
+                {tabDefs.map((tab) => {
+                  const active = activeTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`inline-flex items-center gap-2 whitespace-nowrap px-3 sm:px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                        active
+                          ? "text-[var(--accent)] border-[var(--accent)]"
+                          : "text-[var(--text-subtle)] border-transparent hover:text-[var(--text-main)]"
+                      }`}
+                    >
+                      {t(lang, tab.labelKey)}
+                      {tab.count && tab.count > 0 ? (
+                        <span className={`text-[10px] rounded-full px-1.5 py-0.5 font-semibold ${active ? "bg-[var(--accent)]/15 text-[var(--accent)]" : "bg-[var(--border-soft)]/60 text-[var(--text-subtle)]"}`}>
+                          {tab.count}
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
+          <div className={uiMode === "modern" ? "flex-1 overflow-auto px-3 sm:px-5 pb-4 pt-4" : ""}>
           {err ? <p className="mb-2 text-sm text-red-600">{err}</p> : null}
           {!data ? <p className="text-sm text-zinc-500">{t(lang, "common.loading")}</p> : (
             <div className="space-y-4 text-sm">
+              {(uiMode !== "modern" || activeTab === "overview") && (
               <div className="grid gap-3 sm:grid-cols-2">
                 {effectiveEditMode ? (
                   <>
@@ -898,7 +992,9 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                   )}
                 </div>
               </div>
+              )}
 
+              {(uiMode !== "modern" || activeTab === "services") && (<>
               {effectiveEditMode ? (
                 <div className="surface-card space-y-3 p-3">
                   <h4 className="font-semibold">{t(lang, "orderDetail.section.editServices")}</h4>
@@ -1321,7 +1417,9 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                   <div className="text-xs text-[var(--text-subtle)] break-all">{listingHref}</div>
                 </div>
               ) : null}
+              </>)}
 
+              {(uiMode !== "modern" || activeTab === "schedule") && (<>
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="surface-card p-3">
                   <h4 className="mb-2 font-semibold">{t(lang, "orderDetail.section.status")}</h4>
@@ -1470,16 +1568,66 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                   )}
                 </div>
               )}
+              </>)}
 
+              {uiMode === "modern" && activeTab === "files" && (
+                <div className="surface-card p-4 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className="font-semibold text-sm">{t(lang, "orderDetail.tab.files")}</h4>
+                    <button className="btn-secondary" onClick={() => onOpenUpload?.(orderNo)}>
+                      {t(lang, "orderDetail.button.upload")}
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-3 rounded-lg border border-dashed border-[var(--border-soft)] bg-[var(--surface)]/40 px-4 py-4">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--accent)]/10 text-[var(--accent)] text-xl">📷</div>
+                    <div className="flex-1 text-xs text-[var(--text-subtle)]">
+                      {t(lang, "upload.hint.dragDropPrepend")}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {uiMode === "modern" && activeTab === "history" && (
+                <div className="surface-card p-4">
+                  <h4 className="mb-3 font-semibold text-sm">{t(lang, "orderDetail.tab.history")}</h4>
+                  <ul className="relative space-y-4 pl-5 before:absolute before:left-[7px] before:top-1 before:bottom-1 before:w-px before:bg-[var(--border-soft)]">
+                    {data?.appointmentDate && (
+                      <li className="relative">
+                        <span className="absolute -left-[17px] top-1.5 h-2.5 w-2.5 rounded-full border-2 border-[var(--accent)] bg-[var(--surface)]" />
+                        <div className="text-sm font-medium text-[var(--text-main)]">
+                          {t(lang, "orderDetail.section.appointment")}: {formatDateTime(data.appointmentDate)}
+                        </div>
+                      </li>
+                    )}
+                    {data?.photographer?.name && (
+                      <li className="relative">
+                        <span className="absolute -left-[17px] top-1.5 h-2.5 w-2.5 rounded-full border-2 border-[var(--accent)] bg-[var(--surface)]" />
+                        <div className="text-sm font-medium text-[var(--text-main)]">
+                          {t(lang, "orderDetail.section.employee")}: {data.photographer.name}
+                        </div>
+                      </li>
+                    )}
+                    <li className="relative">
+                      <span className="absolute -left-[17px] top-1.5 h-2.5 w-2.5 rounded-full border-2 border-[var(--accent)] bg-[var(--surface)]" />
+                      <div className="text-sm font-medium text-[var(--text-main)]">
+                        {t(lang, "orderDetail.section.status")}: {statusLabelDisplay}
+                      </div>
+                    </li>
+                  </ul>
+                  <p className="mt-3 text-xs text-[var(--text-subtle)]">
+                    {t(lang, "emailLog.title")} · {t(lang, "chat.title")}
+                  </p>
+                </div>
+              )}
 
             </div>
           )}
 
-          {data && (
+          {(uiMode !== "modern" || activeTab === "communication") && data && (
             <OrderChat token={token} orderNo={orderNo} order={data} actorRole={role === "photographer" ? "photographer" : "admin"} />
           )}
 
-          {data && role !== "photographer" && (
+          {(uiMode !== "modern" || activeTab === "communication") && data && role !== "photographer" && (
             <div className="mt-4">
               <OrderEmailLog token={token} orderNo={orderNo} />
             </div>
@@ -1541,6 +1689,7 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
               </button>
             </div>
           )}
+          </div>
         </div>
       </div>
 
