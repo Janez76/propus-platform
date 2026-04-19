@@ -61,9 +61,19 @@ jobs:
           PORT="$(grep -E '^STAGING_PLATFORM_PORT=' .env.staging | tail -1 | cut -d= -f2- | tr -d '\r')"
           PORT="${PORT:-13100}"
           IP="${STAGING_HEALTH_HOST:-192.168.1.5}"
-          echo "[deploy-nas] curl http://${IP}:${PORT}/api/core/health"
-          curl -fsS "http://${IP}:${PORT}/api/core/health"
-          echo ""
+          URL="http://${IP}:${PORT}/api/core/health"
+          echo "[deploy-nas] Warte auf ${URL} (max 90s)..."
+          for i in $(seq 1 18); do
+            if curl -fsS --max-time 5 "$URL"; then
+              echo ""
+              echo "[deploy-nas] Health-Check OK."
+              exit 0
+            fi
+            echo "[deploy-nas] Versuch ${i}/18 fehlgeschlagen, warte 5s..."
+            sleep 5
+          done
+          echo "[deploy-nas] Health-Check nach 90s nicht erfolgreich."
+          exit 1
 
   report-failure:
     name: Issue bei Fehler erstellen
