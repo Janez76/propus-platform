@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Building2, CreditCard, LogIn, MapPin, Plus, Trash2, User } from "lucide-react";
 import { AddressAutocompleteInput, type ParsedAddress, type StreetContext } from "../../components/ui/AddressAutocompleteInput";
 import {
@@ -36,6 +36,12 @@ function StructuredAddressFields({ lang, address, onPatch, testIdPrefix }: Struc
     return { street: address.street, zip: address.zip, city: address.city };
   }, [address.street, address.zip, address.city]);
   const zipMissing = Boolean(address.street) && !address.zip;
+  // Latched: PLZ-Feld bleibt editierbar bis neue Strasse MIT PLZ gewählt wird
+  // oder die Strasse geleert wird. Verhindert Re-Lock nach erstem Tastendruck.
+  const [zipEditable, setZipEditable] = useState<boolean>(() => Boolean(address.street) && !address.zip);
+  useEffect(() => {
+    if (!address.street) setZipEditable(false);
+  }, [address.street]);
 
   const onSelectStreet = useCallback((p: ParsedAddress) => {
     onPatch({
@@ -48,6 +54,7 @@ function StructuredAddressFields({ lang, address, onPatch, testIdPrefix }: Struc
       lat: null,
       lng: null,
     });
+    setZipEditable(!p.zip);
     sessionTokenRef.current = crypto.randomUUID();
   }, [onPatch]);
 
@@ -109,14 +116,15 @@ function StructuredAddressFields({ lang, address, onPatch, testIdPrefix }: Struc
         </label>
         <input
           type="text"
-          readOnly={!zipMissing}
+          readOnly={!zipEditable}
           value={address.zip}
           onChange={(e) => onPatch({ zip: e.target.value })}
-          className={cn(inputClass, zipMissing ? "" : "cursor-default select-none")}
-          placeholder={zipMissing ? "z. B. 8050" : "—"}
-          tabIndex={zipMissing ? 0 : -1}
+          className={cn(inputClass, zipEditable ? "" : "cursor-default select-none")}
+          placeholder={zipEditable ? "z. B. 8050" : "—"}
+          tabIndex={zipEditable ? 0 : -1}
           inputMode="numeric"
           autoComplete="postal-code"
+          maxLength={10}
           data-testid={testId("zip")}
         />
         {zipMissing ? (
