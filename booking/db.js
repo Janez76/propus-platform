@@ -2307,6 +2307,7 @@ function dbRowToRecord(row) {
     onsiteContacts: Array.isArray(row.onsite_contacts)
       ? row.onsite_contacts
       : (row.onsite_contacts && typeof row.onsite_contacts === "object" ? row.onsite_contacts : []),
+    internalNotes: row.internal_notes || "",
     provisionalBookedAt: row.provisional_booked_at || null,
     provisionalExpiresAt: row.provisional_expires_at || null,
     lastRescheduleOldDate: row.last_reschedule_old_date || null,

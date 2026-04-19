@@ -156,6 +156,7 @@ function PrivateRoutes() {
         <Route path="/admin/roles" element={<Navigate to="/settings/roles" replace />} />
         <Route path="/dashboard" element={guardedElement(adminOnlyRoles, <DashboardPage />)} />
         <Route path="/orders" element={guardedElement([...adminOnlyRoles, "photographer"], <OrdersPage />)} />
+        <Route path="/orders/:orderNo" element={guardedElement([...adminOnlyRoles, "photographer"], <OrdersPage />)} />
         <Route path="/upload" element={guardedElement([...adminOnlyRoles, "photographer"], <UploadsPage />)} />
         <Route path="/calendar" element={guardedElement([...adminOnlyRoles, "photographer"], <CalendarPage />)} />
         <Route path="/employees" element={guardedElement(adminOnlyRoles, <Navigate to="/settings/team" replace />)} />

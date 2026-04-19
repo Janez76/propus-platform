@@ -5923,6 +5923,9 @@ app.patch("/api/admin/orders/:orderNo", requireAdmin, async (req, res) => {
       updateFields.onsite_email =
         raw != null && String(raw).trim() ? String(raw).trim() : null;
     }
+    if (Object.prototype.hasOwnProperty.call(body, "internalNotes")) {
+      updateFields.internal_notes = String(body.internalNotes || "");
+    }
 
     if (Object.keys(updateFields).length === 0) {
       return res.status(400).json({ error: "No updatable fields provided" });
@@ -5947,6 +5950,9 @@ app.patch("/api/admin/orders/:orderNo", requireAdmin, async (req, res) => {
       }
       if (updateFields.onsite_email !== undefined) {
         order.onsiteEmail = updateFields.onsite_email;
+      }
+      if (updateFields.internal_notes !== undefined) {
+        order.internalNotes = updateFields.internal_notes;
       }
       await saveAllOrders(fallbackOrders || []);
     }

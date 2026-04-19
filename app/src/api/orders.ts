@@ -99,6 +99,8 @@ export type Order = {
   schedule?: OrderSchedule;
   photographer?: OrderPhotographer;
   notes?: string;
+  internalNotes?: string;
+  onsiteContacts?: Array<{ name?: string; phone?: string; email?: string; calendarInvite?: boolean }>;
   keyPickup?: { address?: string; notes?: string } | null;
   lastRescheduleOldDate?: string | null;
   lastRescheduleOldTime?: string | null;
@@ -360,6 +362,12 @@ function normalizeOrder(raw: unknown): Order {
     schedule,
     photographer,
     notes: String((r.notes as string) || billing.notes || ""),
+    internalNotes: String((r.internalNotes as string) || (r.internal_notes as string) || ""),
+    onsiteContacts: Array.isArray(r.onsiteContacts)
+      ? (r.onsiteContacts as Array<{ name?: string; phone?: string; email?: string; calendarInvite?: boolean }>)
+      : Array.isArray(r.onsite_contacts)
+        ? (r.onsite_contacts as Array<{ name?: string; phone?: string; email?: string; calendarInvite?: boolean }>)
+        : [],
     keyPickup: (r.keyPickup as { address?: string; notes?: string } | null) || null,
     lastRescheduleOldDate: (r.lastRescheduleOldDate as string | null | undefined) ?? (r.last_reschedule_old_date as string | null | undefined) ?? null,
     lastRescheduleOldTime: (r.lastRescheduleOldTime as string | null | undefined) ?? (r.last_reschedule_old_time as string | null | undefined) ?? null,
@@ -408,6 +416,13 @@ export type EditAddon = { id: string; label: string; price: number; qty?: number
 export type EditServices = { package?: { key: string; label: string; price: number } | null; addons?: EditAddon[] };
 export type EditPricing = { subtotal: number; discount: number; vat: number; total: number };
 
+export type OnsiteContactPayload = {
+  name?: string;
+  phone?: string;
+  email?: string;
+  calendarInvite?: boolean;
+};
+
 export const updateOrderDetails = (
   token: string,
   orderNo: string,
@@ -418,6 +433,9 @@ export const updateOrderDetails = (
     services?: EditServices;
     pricing?: EditPricing;
     keyPickup?: { address: string; notes?: string } | null;
+    onsiteContacts?: OnsiteContactPayload[];
+    onsite_email?: string | null;
+    internalNotes?: string;
   },
 ) => apiRequest(`/api/admin/orders/${encodeURIComponent(orderNo)}`, "PATCH", token, payload);
 

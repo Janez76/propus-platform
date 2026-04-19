@@ -1,15 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AlertTriangle, Calendar, List, Map as MapIcon, Plus, Search } from "lucide-react";
 import { deleteOrder, getOrders, updateOrderStatus, type Order } from "../api/orders";
 import { getPhotographers, type Photographer } from "../api/photographers";
 import { getAdminProfile, type AdminProfile } from "../api/profile";
 import { CreateOrderWizard } from "../components/orders/CreateOrderWizard";
-import { OrderDetail } from "../components/orders/OrderDetail";
+import { EditOrderDrawer } from "../components/orders/edit-drawer/EditOrderDrawer";
 import { OrderMessages } from "../components/orders/OrderMessages";
 import { OrderTable } from "../components/orders/OrderTable";
 import { OrderWeekCalendar } from "../components/orders/OrderWeekCalendar";
-import { useMutation } from "../hooks/useMutation";
 import { useQuery } from "../hooks/useQuery";
 import { ordersQueryKey } from "../lib/queryKeys";
 import { useAuthStore } from "../store/authStore";
@@ -18,31 +17,33 @@ import { getStatusLabel, normalizeStatusKey, STATUS_KEYS, type StatusKey } from 
 import { getTerminInfo, startOfWeek, addDays, sameDay } from "../lib/orderTermin";
 import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { useOrderStore } from "../store/orderStore";
-import { useQueryStore } from "../store/queryStore";
 
 type ViewMode = "list" | "calendar";
 type QuickFilter = "none" | "today" | "thisWeek" | "nextWeek" | "overdue" | "mine";
 
-const STATUS_DOT: Record<StatusKey, string> = {
-  pending: "#f59e0b",
-  provisional: "#8b5cf6",
-  confirmed: "#3b82f6",
-  paused: "#71717a",
-  completed: "#14b8a6",
-  done: "#10b981",
-  cancelled: "#ef4444",
-  archived: "#94a3b8",
+// Grouped chips per redesign:
+//  Offen        → pending + provisional
+//  Bestätigt    → confirmed
+//  Abgeschlossen→ completed + done
+//  Pausiert     → paused
+//  Storniert    → cancelled
+//  Archiviert   → archived (hidden by default)
+type ChipGroup = {
+  id: string;
+  labelKey: string;
+  fallbackLabel: string;
+  members: StatusKey[];
+  dot: string;
+  hiddenByDefault?: boolean;
 };
 
-const CHIP_ORDER: StatusKey[] = [
-  "pending",
-  "provisional",
-  "confirmed",
-  "paused",
-  "completed",
-  "done",
-  "cancelled",
-  "archived",
+const CHIP_GROUPS: ChipGroup[] = [
+  { id: "open", labelKey: "orders.chip.open", fallbackLabel: "Offen", members: ["pending", "provisional"], dot: "#f59e0b" },
+  { id: "confirmed", labelKey: "orders.chip.confirmed", fallbackLabel: "Bestätigt", members: ["confirmed"], dot: "#3b82f6" },
+  { id: "completed", labelKey: "orders.chip.completed", fallbackLabel: "Abgeschlossen", members: ["completed", "done"], dot: "#10b981" },
+  { id: "paused", labelKey: "orders.chip.paused", fallbackLabel: "Pausiert", members: ["paused"], dot: "#71717a" },
+  { id: "cancelled", labelKey: "orders.chip.cancelled", fallbackLabel: "Storniert", members: ["cancelled"], dot: "#ef4444" },
+  { id: "archived", labelKey: "orders.chip.archived", fallbackLabel: "Archiviert", members: ["archived"], dot: "#94a3b8", hiddenByDefault: true },
 ];
 
 function isOpenOrder(key: StatusKey | null): boolean {
@@ -52,12 +53,12 @@ function isOpenOrder(key: StatusKey | null): boolean {
 
 export function OrdersPage() {
   const navigate = useNavigate();
+  const params = useParams();
   const token = useAuthStore((s) => s.token);
   const lang = useAuthStore((s) => s.language);
   const [searchParams, setSearchParams] = useSearchParams();
   const query = useOrderStore((s) => s.query);
   const setQuery = useOrderStore((s) => s.setQuery);
-  const updateCachedOrders = useQueryStore((s) => s.updateData);
 
   const queryKey = ordersQueryKey(token);
   const {
@@ -87,9 +88,10 @@ export function OrdersPage() {
   );
 
   const [view, setView] = useState<ViewMode>("list");
-  const [statusSelection, setStatusSelection] = useState<Set<StatusKey>>(() => new Set());
+  const [statusSelection, setStatusSelection] = useState<Set<string>>(() => new Set());
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("none");
   const [photographerFilter, setPhotographerFilter] = useState<string>("all");
+  const [showArchivedChip, setShowArchivedChip] = useState(false);
 
   const [detailNo, setDetailNo] = useState<string | null>(null);
   const [msgNo, setMsgNo] = useState<string | null>(null);
@@ -130,7 +132,12 @@ export function OrdersPage() {
       return isOpenOrder(k);
     }
     const k = normalizeStatusKey(o.status);
-    return k ? statusSelection.has(k) : false;
+    if (!k) return false;
+    for (const groupId of statusSelection) {
+      const grp = CHIP_GROUPS.find((g) => g.id === groupId);
+      if (grp && grp.members.includes(k)) return true;
+    }
+    return false;
   }
 
   function matchesQuickFilter(o: Order): boolean {
@@ -185,11 +192,11 @@ export function OrdersPage() {
     });
   }, [visibleOrderNoSet]);
 
-  function toggleStatusChip(key: StatusKey) {
+  function toggleStatusChip(groupId: string) {
     setStatusSelection((prev) => {
       const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
       return next;
     });
   }
@@ -291,42 +298,21 @@ export function OrdersPage() {
     window.setTimeout(() => setBulkFeedback(null), 8000);
   }
 
-  const deleteMutation = useMutation<void, { orderNo: string }, { previous?: Order[] }>(
-    async ({ orderNo }) => {
-      await deleteOrder(token, orderNo);
+  const closeDetail = useCallback(() => {
+    setDetailNo(null);
+    const next = new URLSearchParams(searchParams);
+    next.delete("open");
+    setSearchParams(next, { replace: true });
+    if (params.orderNo) navigate("/orders", { replace: true });
+  }, [searchParams, setSearchParams, params.orderNo, navigate]);
+
+  const openDetail = useCallback(
+    (orderNo: string) => {
+      setDetailNo(orderNo);
+      navigate(`/orders/${encodeURIComponent(orderNo)}`);
     },
-    {
-      mutationKey: `orders:delete:${token}`,
-      invalidateKeys: [queryKey],
-      onMutate: ({ orderNo }) => {
-        const previous = useQueryStore.getState().queries[queryKey]?.data as Order[] | undefined;
-        updateCachedOrders<Order[]>(queryKey, (current = []) =>
-          current.filter((order) => order.orderNo !== orderNo),
-        );
-        return { previous: previous ? [...previous] : undefined };
-      },
-      onError: (_error, _variables, context) => {
-        if (!context?.previous) return;
-        useQueryStore.getState().setData(queryKey, context.previous);
-      },
-    },
+    [navigate],
   );
-
-  async function onDelete(orderNo: string) {
-    await deleteMutation.mutate({ orderNo });
-    setDetailNo(null);
-    const next = new URLSearchParams(searchParams);
-    next.delete("open");
-    setSearchParams(next, { replace: true });
-    await refetch({ force: true });
-  }
-
-  function closeDetail() {
-    setDetailNo(null);
-    const next = new URLSearchParams(searchParams);
-    next.delete("open");
-    setSearchParams(next, { replace: true });
-  }
 
   const overdueCount = useMemo(
     () =>
@@ -339,7 +325,7 @@ export function OrdersPage() {
     [allOrders, lang, now],
   );
 
-  const effectiveDetailNo = detailNo || searchParams.get("open");
+  const effectiveDetailNo = params.orderNo || detailNo || searchParams.get("open");
 
   const hasAnyActiveFilter = statusSelection.size > 0 || quickFilter !== "none" || photographerFilter !== "all" || query.length > 0;
 
@@ -439,20 +425,22 @@ export function OrdersPage() {
           ) : null}
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-dashed border-[var(--border-soft)] pt-3">
-          {CHIP_ORDER.map((key) => {
-            const n = statusCounts[key];
-            const active = statusSelection.has(key);
+          {CHIP_GROUPS.filter((g) => !g.hiddenByDefault || showArchivedChip || statusSelection.has(g.id)).map((group) => {
+            const n = group.members.reduce((acc, k) => acc + (statusCounts[k] || 0), 0);
+            const active = statusSelection.has(group.id);
+            const label = t(lang, group.labelKey) || group.fallbackLabel;
             return (
               <button
-                key={key}
+                key={group.id}
                 type="button"
-                onClick={() => toggleStatusChip(key)}
+                data-testid={`orders-chip-${group.id}`}
+                onClick={() => toggleStatusChip(group.id)}
                 className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${active
                   ? "border-[var(--accent)] bg-[var(--accent-subtle)] text-[var(--accent)]"
                   : "border-[var(--border-soft)] bg-[var(--surface-raised)] text-[var(--text-muted)] hover:border-[var(--border-strong)] hover:text-[var(--text-main)]"}`}
               >
-                <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: STATUS_DOT[key] }} />
-                {getStatusLabel(key)}
+                <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: group.dot }} />
+                {label}
                 <span
                   className={`rounded-full px-1.5 py-0 text-[10px] ${active
                     ? "bg-[color-mix(in_srgb,var(--accent)_30%,transparent)]"
@@ -463,6 +451,15 @@ export function OrdersPage() {
               </button>
             );
           })}
+          {!showArchivedChip ? (
+            <button
+              type="button"
+              onClick={() => setShowArchivedChip(true)}
+              className="text-[11px] text-[var(--text-subtle)] hover:text-[var(--text-main)] underline-offset-2 hover:underline"
+            >
+              {t(lang, "orders.chip.showArchived") || "Archivierte zeigen"}
+            </button>
+          ) : null}
           {statusSelection.size === 0 ? (
             <span className="text-[11px] text-[var(--text-subtle)]">{t(lang, "orders.filter.chipsHint")}</span>
           ) : null}
@@ -531,7 +528,7 @@ export function OrdersPage() {
         ) : (
           <OrderTable
             orders={orders}
-            onOpenDetail={setDetailNo}
+            onOpenDetail={openDetail}
             onOpenMessages={setMsgNo}
             onOpenUpload={(no) => navigate(`/upload?order=${encodeURIComponent(no)}`)}
             selectedNos={selectedNos}
@@ -541,7 +538,7 @@ export function OrdersPage() {
           />
         )
       ) : (
-        <OrderWeekCalendar orders={orders} onOpenDetail={setDetailNo} />
+        <OrderWeekCalendar orders={orders} onOpenDetail={openDetail} />
       )}
 
       <Dialog open={showBulkDelete} onOpenChange={(open) => !bulkBusy && setShowBulkDelete(open)}>
@@ -587,18 +584,14 @@ export function OrdersPage() {
           await refetch({ force: true });
         }}
       />
-      {effectiveDetailNo ? (
-        <OrderDetail
-          token={token}
-          orderNo={effectiveDetailNo}
-          onClose={closeDetail}
-          onDelete={onDelete}
-          onRefresh={async () => {
-            await refetch({ force: true });
-          }}
-          onOpenUpload={(no) => navigate(`/upload?order=${encodeURIComponent(no)}`)}
-        />
-      ) : null}
+      <EditOrderDrawer
+        open={Boolean(effectiveDetailNo)}
+        orderNo={effectiveDetailNo || null}
+        onClose={closeDetail}
+        onSaved={async () => {
+          await refetch({ force: true });
+        }}
+      />
       {msgNo ? <OrderMessages token={token} orderNo={msgNo} onClose={() => setMsgNo(null)} /> : null}
     </div>
   );
