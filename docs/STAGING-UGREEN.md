@@ -52,7 +52,7 @@ Nach jedem Push auf **`master`** kann der Staging-Stack auf dem NAS automatisch 
 1. Workflow [`.github/workflows/deploy-nas-staging.yml`](../.github/workflows/deploy-nas-staging.yml) startet nur auf Runnern mit Labels **`self-hosted`** + **`nas-staging`**.
 2. **`actions/checkout`** holt den Code direkt von GitHub (privates Repo geht über den eingebauten `GITHUB_TOKEN` — **kein** funktionierendes `git` im Ordner `/volume1/docker/propus-staging/repo` nötig).
 3. **`.env.staging`:** Entweder Secret **`NAS_ENV_FILE`** (vollständiger Inhalt) oder Kopie von **`/volume1/docker/propus-staging/repo/.env.staging`** auf dem NAS.
-4. **`docker compose … up -d --build`**, danach **Health-Check** (`STAGING_PLATFORM_PORT` aus der Env, Host `192.168.1.5`).
+4. **`docker compose … up -d --build`**, danach **Health-Check im `platform`-Container** via `curl http://127.0.0.1:${PORT:-3100}/api/core/health` (Express, unabhängig vom Host-Port).
 5. Markdown-/Doku-Pushes werden per `paths-ignore` **nicht** deployed.
 
 Manuelles Deploy ohne CI weiterhin: [`scripts/deploy-staging-nas.sh`](../scripts/deploy-staging-nas.sh) (setzt voraus, dass unter `NAS_STAGING_REPO_ROOT` ein **Git-Repo** mit `origin` existiert).
