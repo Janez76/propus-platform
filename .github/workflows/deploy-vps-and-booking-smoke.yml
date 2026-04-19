@@ -6,9 +6,6 @@
 name: Deploy VPS And Booking Smoke
 
 on:
-  push:
-    branches:
-      - master
   workflow_dispatch:
     inputs:
       run_deploy:
@@ -17,7 +14,7 @@ on:
         default: true
         type: boolean
       run_smoke:
-        description: "Playwright-Staging-Smoke-Test ausfuehren (bei Push auf master nie automatisch)"
+        description: "Playwright-Staging-Smoke-Test ausfuehren"
         required: true
         default: true
         type: boolean
