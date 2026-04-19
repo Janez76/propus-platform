@@ -21,9 +21,12 @@ export function validateStep1(s: Step1State): ValidationError[] {
   const errors: ValidationError[] = [];
   if (!s.address.trim()) {
     errors.push({ field: "address", message: "booking.validation.addressRequired" });
-  } else if (!s.parsedAddress?.houseNumber) {
-    const hasNum = /\d+[a-zA-Z]?\b/.test(s.address);
-    if (!hasNum) errors.push({ field: "address", message: "booking.validation.houseNumberRequired" });
+  } else if (!s.parsedAddress?.houseNumber?.trim()) {
+    // parsedAddress.houseNumber wird nur per Auswahl aus dem Google-Autocomplete
+    // (street- oder houseNumber-Mode) gesetzt. Free-Text-Eingabe alleine reicht
+    // nicht — sonst werden Fantasie-Hausnummern (die an der gewaehlten Strasse
+    // gar nicht existieren) durchgewunken.
+    errors.push({ field: "address", message: "booking.validation.houseNumberRequired" });
   }
   if (s.parsedAddress && (!s.parsedAddress.zip || !s.parsedAddress.city)) {
     errors.push({ field: "address", message: "booking.validation.zipCityRequired" });

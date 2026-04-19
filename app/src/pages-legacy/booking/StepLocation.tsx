@@ -190,11 +190,20 @@ export function StepLocation({ lang }: { lang: Lang }) {
               <AddressAutocompleteInput
                 data-testid="booking-input-housenumber"
                 value={houseNumberValue}
-                onChange={(v) => setObjectAddress({ houseNumber: v })}
+                onChange={(v) => {
+                  setObjectAddress({ houseNumber: v });
+                  // Free-Text-Eingabe entwertet die zuvor validierte Nummer.
+                  // Erst onSelectHouseNumber setzt parsedAddress.houseNumber
+                  // wieder — Validation in validateStep1 verlangt diese.
+                  if (parsedAddress && parsedAddress.houseNumber) {
+                    setParsedAddress({ ...parsedAddress, houseNumber: "" });
+                  }
+                }}
                 mode="houseNumber"
                 streetContext={streetContext}
                 sessionToken={sessionTokenRef.current}
                 onSelectHouseNumber={onSelectHouseNumber}
+                requireSelection
                 lang={lang}
                 className={inputClass}
                 placeholder={t(lang, "booking.step1.houseNumberPlaceholder")}
@@ -221,7 +230,16 @@ export function StepLocation({ lang }: { lang: Lang }) {
               onChange={(e) => {
                 const v = e.target.value;
                 setObjectAddress({ zip: v });
-                setParsedAddress({ street: streetValue, houseNumber: houseNumberValue, zip: v, city: cityValue });
+                // parsedAddress.houseNumber bleibt die "validierte" Hausnummer
+                // (per Dropdown-Auswahl gesetzt). Nicht mit dem free-text
+                // houseNumberValue ueberschreiben — sonst koennen Fantasie-
+                // Nummern via Umweg ueber PLZ-Edit als "validiert" durchgehen.
+                setParsedAddress({
+                  street: streetValue,
+                  houseNumber: parsedAddress?.houseNumber ?? "",
+                  zip: v,
+                  city: cityValue,
+                });
                 const zipCityLine = [v, cityValue].filter(Boolean).join(" ");
                 const line1 = [streetValue, houseNumberValue].filter(Boolean).join(" ").trim();
                 setAddress(zipCityLine ? `${line1}, ${zipCityLine}` : line1);
@@ -258,6 +276,7 @@ export function StepLocation({ lang }: { lang: Lang }) {
             apiKey={config.googleMapsKey}
             address={object.address.formatted || address}
             coords={coords}
+            lang={lang}
           />
         ) : (
           <div className="mt-3 rounded-lg border border-dashed border-[var(--border-soft)] bg-[var(--surface-raised)]/50 p-4 text-center text-xs text-[var(--text-subtle)]">

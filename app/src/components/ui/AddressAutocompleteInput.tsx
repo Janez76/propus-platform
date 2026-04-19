@@ -3,6 +3,7 @@ import type { InputHTMLAttributes } from "react";
 import { MapPin } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { API_BASE, ADDRESS_AUTOCOMPLETE_ENDPOINT } from "../../api/client";
+import { t, type Lang } from "../../i18n";
 
 type AddressResult = {
   type: "address" | "place";
@@ -66,10 +67,16 @@ type AddressAutocompleteInputProps = Omit<
   streetContext?: StreetContext;
   /** Wenn true, werden auch unvollständige (Strasse ohne Hausnummer) Vorschläge akzeptiert. Default false. */
   allowPartial?: boolean;
+  /**
+   * Nur für mode="houseNumber": Wenn true, zeigt eine inline Warnung, wenn der
+   * eingetippte Wert nicht zu den von Google gelieferten Vorschlägen gehört.
+   * Default false (Legacy-Verhalten).
+   */
+  requireSelection?: boolean;
   /** Google-Places-Session-Token (optional) — wird als sessionToken-Query-Param mitgesendet. */
   sessionToken?: string;
   minChars?: number;
-  lang?: string;
+  lang?: Lang | string;
   /** Bei gesetzten Werten: Vorschlaege unterdruecken, wenn Adresse bereits vollstaendig. Ignoriert in houseNumber-Mode. */
   zip?: string;
   city?: string;
@@ -195,6 +202,7 @@ export function AddressAutocompleteInput({
   onSelectHouseNumber,
   streetContext,
   allowPartial = false,
+  requireSelection = false,
   sessionToken,
   minChars,
   lang = "de",
@@ -246,6 +254,33 @@ export function AddressAutocompleteInput({
   }, [isHouseNumberMode, suggestions, streetContext?.street]);
 
   const activeSuggestions = isHouseNumberMode ? houseNumberSuggestions : suggestions;
+
+  // Per Dropdown explizit ausgewaehlte Hausnummern. Wird bei Strassenwechsel
+  // zurueckgesetzt. Kombiniert mit den aktuellen Vorschlaegen ergibt das die
+  // Menge der "validierten" Nummern fuer die aktuelle Strasse.
+  const [selectedHnSet, setSelectedHnSet] = useState<Set<string>>(() => new Set());
+  useEffect(() => {
+    setSelectedHnSet(new Set());
+  }, [streetContext?.street]);
+
+  const validatedHnSet = useMemo(() => {
+    if (!isHouseNumberMode) return new Set<string>();
+    const s = new Set<string>(selectedHnSet);
+    for (const r of houseNumberSuggestions) {
+      const k = (r.houseNumber || "").toLowerCase().trim();
+      if (k) s.add(k);
+    }
+    return s;
+  }, [isHouseNumberMode, houseNumberSuggestions, selectedHnSet]);
+
+  const trimmedValue = value.trim();
+  const isHouseNumberInvalid =
+    requireSelection &&
+    isHouseNumberMode &&
+    Boolean(streetContext?.street) &&
+    trimmedValue.length > 0 &&
+    !isLoading &&
+    !validatedHnSet.has(trimmedValue.toLowerCase());
 
   useEffect(() => {
     const query = value.trim();
@@ -326,6 +361,13 @@ export function AddressAutocompleteInput({
   function handleSelectHouseNumber(result: AddressResult) {
     const hn = String(result.houseNumber || "").trim();
     if (!hn) return;
+    // Auswahl explizit als validiert markieren, damit isHouseNumberInvalid
+    // nicht aufflackert, falls die naechste Suche andere Vorschlaege liefert.
+    setSelectedHnSet((prev) => {
+      const next = new Set(prev);
+      next.add(hn.toLowerCase());
+      return next;
+    });
     onChange(hn);
     setSelectError("");
     if (onSelectHouseNumber) {
@@ -505,6 +547,16 @@ export function AddressAutocompleteInput({
 
       {selectError ? (
         <p className="mt-1 text-xs text-amber-500">{selectError}</p>
+      ) : null}
+
+      {isHouseNumberInvalid ? (
+        <p
+          className="mt-1 text-xs text-amber-500"
+          role="alert"
+          data-testid="housenumber-invalid-warning"
+        >
+          {t((lang as Lang) || "de", "booking.step1.houseNumberInvalid")}
+        </p>
       ) : null}
     </div>
   );

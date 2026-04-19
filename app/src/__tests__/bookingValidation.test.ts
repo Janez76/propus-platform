@@ -120,3 +120,36 @@ describe("validateStep1 — ZIP format guard (regression for Codex P1 on #114)",
     expect(fields).toContain("address");
   });
 });
+
+describe("validateStep1 — house number must come from Google Places (validated)", () => {
+  it("rejects when parsedAddress.houseNumber is empty even if address string contains digits", () => {
+    const s = makeStep1();
+    s.parsedAddress = { street: "Albisstrasse", houseNumber: "", zip: "5430", city: "Wettingen" };
+    s.address = "Albisstrasse 999, 5430 Wettingen";
+    const fields = validateStep1(s).map((e) => e.field);
+    expect(fields).toContain("address");
+  });
+
+  it("rejects when parsedAddress is null (autocomplete never used)", () => {
+    const s = makeStep1();
+    s.parsedAddress = null;
+    s.address = "Albisstrasse 1, 8050 Zürich";
+    const fields = validateStep1(s).map((e) => e.field);
+    expect(fields).toContain("address");
+  });
+
+  it("accepts when parsedAddress.houseNumber is set via dropdown selection", () => {
+    const s = makeStep1();
+    s.parsedAddress = { street: "Albisstrasse", houseNumber: "1", zip: "8050", city: "Zürich" };
+    const fields = validateStep1(s).map((e) => e.field);
+    expect(fields).not.toContain("address");
+  });
+
+  it("rejects whitespace-only parsedAddress.houseNumber", () => {
+    const s = makeStep1();
+    s.parsedAddress = { street: "Albisstrasse", houseNumber: "   ", zip: "8050", city: "Zürich" };
+    s.address = "Albisstrasse, 8050 Zürich";
+    const fields = validateStep1(s).map((e) => e.field);
+    expect(fields).toContain("address");
+  });
+});
