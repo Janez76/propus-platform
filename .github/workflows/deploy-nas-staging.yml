@@ -56,11 +56,15 @@ jobs:
             up -d --build
 
       - name: Health-Check
+        env:
+          STAGING_HEALTH_HOST: ${{ vars.STAGING_HEALTH_HOST }}
         run: |
           set -eu
           PORT="$(grep -E '^STAGING_PLATFORM_PORT=' .env.staging | tail -1 | cut -d= -f2- | tr -d '\r')"
           PORT="${PORT:-13100}"
-          IP="${STAGING_HEALTH_HOST:-192.168.1.5}"
+          # Self-hosted Runner liegt auf dem NAS: Loopback ist zuverlässiger als curl zur eigenen LAN-IP.
+          # Optional: Repo-Variable STAGING_HEALTH_HOST (z. B. 192.168.1.5), falls der Runner nicht auf dem NAS läuft.
+          IP="${STAGING_HEALTH_HOST:-127.0.0.1}"
           URL="http://${IP}:${PORT}/api/core/health"
           echo "[deploy-nas] Warte auf ${URL} (max 90s)..."
           for i in $(seq 1 18); do

@@ -57,7 +57,8 @@ if [ -z "${STAGING_PORT}" ] && [ -f "${REPO_ROOT}/.env.staging" ]; then
   STAGING_PORT="$(grep -E '^STAGING_PLATFORM_PORT=' "${REPO_ROOT}/.env.staging" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '\r')"
 fi
 STAGING_PORT="${STAGING_PORT:-13100}"
-STAGING_IP="${STAGING_HEALTH_HOST:-192.168.1.5}"
+# Auf dem NAS: Health per Loopback; STAGING_HEALTH_HOST=192.168.1.5 nur nötig, wenn das Skript von einem anderen Host aus läuft.
+STAGING_IP="${STAGING_HEALTH_HOST:-127.0.0.1}"
 if command -v curl >/dev/null 2>&1; then
   echo "[deploy-staging-nas] Health: curl -fsS http://${STAGING_IP}:${STAGING_PORT}/api/core/health"
   curl -fsS "http://${STAGING_IP}:${STAGING_PORT}/api/core/health" && echo "" || echo "[deploy-staging-nas] WARNUNG: Health-Check fehlgeschlagen (Dienst startet evtl. noch)."
