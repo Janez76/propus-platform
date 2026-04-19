@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import { MapPin, Home, Ruler, Layers, DoorOpen, Plus, Trash2 } from "lucide-react";
 import { randomUUID } from "../../lib/selekto/randomId";
 import { AddressAutocompleteInput, type ParsedAddress, type StreetContext } from "../../components/ui/AddressAutocompleteInput";
+import { ZipCitySuggestInput, type ZipCityPair } from "../../components/ui/ZipCitySuggestInput";
 import { useBookingWizardStore, type OnsiteContactRow } from "../../store/bookingWizardStore";
 import { AddressPreviewMap } from "./AddressPreviewMap";
 import { t, type Lang } from "../../i18n";
@@ -151,6 +152,28 @@ export function StepLocation({ lang }: { lang: Lang }) {
     setCoords({ lat, lng: lon });
   }, [setCoords]);
 
+  const onPickZipCity = useCallback((p: ZipCityPair) => {
+    // Bidirektionales PLZ↔Ort Autocomplete: Auswahl aus Vorschlagsliste setzt
+    // beide Felder gleichzeitig + Kanton + frischen Travel-Zone-Lookup. Lat/Lng
+    // bleiben null — der Ort-Centroid wuerde den Marker auf falsche Stelle setzen,
+    // sobald Strasse + Hausnummer fertig validiert sind, kommen echte Coords.
+    setObjectAddress({ zip: p.zip, city: p.city, canton: p.canton || "", lat: null, lng: null });
+    setCoords(null);
+    cantonRef.current = p.canton || "";
+    prevZipRef.current = "";
+    setParsedAddress({
+      street: streetValue,
+      houseNumber: parsedAddress?.houseNumber ?? "",
+      zip: p.zip,
+      city: p.city,
+    });
+    const zipCityLine = [p.zip, p.city].filter(Boolean).join(" ");
+    const line1 = [streetValue, houseNumberValue].filter(Boolean).join(" ").trim();
+    setAddress(zipCityLine ? `${line1}, ${zipCityLine}` : line1);
+    if (p.zip) lookupTravelZone(p.canton || "", p.zip);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setObjectAddress, setCoords, setParsedAddress, setAddress, streetValue, houseNumberValue, parsedAddress?.houseNumber]);
+
   const onSelectHouseNumber = useCallback((payload: { houseNumber: string; lat: number | null; lng: number | null }) => {
     setObjectAddress({ houseNumber: payload.houseNumber, lat: payload.lat, lng: payload.lng });
     const addr = useBookingWizardStore.getState().object.address;
@@ -230,21 +253,16 @@ export function StepLocation({ lang }: { lang: Lang }) {
               {t(lang, "booking.step1.zip")}
               {zipMissing ? <span className="text-red-500"> *</span> : null}
             </label>
-            <input
-              type="text"
-              readOnly={!zipEditable}
+            <ZipCitySuggestInput
+              data-testid="booking-input-zip"
+              mode="zip"
               value={zipValue}
-              onChange={(e) => {
-                const v = e.target.value;
-                // Manuelle PLZ-Korrektur entwertet die ursprünglich von Google
-                // mitgelieferten Geo-Daten (canton, lat/lng). Sonst koennten
-                // Anfahrtszone (CHF 0 / 89 / 199) und Marker auf der Karte
-                // weiter auf der alten Adresse basieren — finanzkritisch.
+              onChange={(v) => {
+                // Free-Text-Edit: Bug-B-Safeguard — canton/coords entwerten,
+                // damit Travel-Zone nicht auf alten Geo-Daten basiert.
                 setObjectAddress({ zip: v, canton: "", lat: null, lng: null });
                 setCoords(null);
                 cantonRef.current = "";
-                // Travel-Zone neu lookuppen (falls PLZ vollständig); die
-                // useEffect-Diff erkennt nur Veraenderungen, also reset prev.
                 prevZipRef.current = "";
                 setParsedAddress({
                   street: streetValue,
@@ -256,13 +274,14 @@ export function StepLocation({ lang }: { lang: Lang }) {
                 const line1 = [streetValue, houseNumberValue].filter(Boolean).join(" ").trim();
                 setAddress(zipCityLine ? `${line1}, ${zipCityLine}` : line1);
               }}
-              className={cn(inputClass, zipEditable ? "" : "cursor-default select-none")}
-              placeholder={zipEditable ? "z. B. 8050" : "—"}
-              tabIndex={zipEditable ? 0 : -1}
+              onSelectPair={onPickZipCity}
+              lang={lang}
+              sessionToken={sessionTokenRef.current}
+              className={inputClass}
+              placeholder="z. B. 8050"
               inputMode="numeric"
               autoComplete="postal-code"
               maxLength={10}
-              data-testid="booking-input-zip"
             />
             {zipMissing ? (
               <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
@@ -273,13 +292,30 @@ export function StepLocation({ lang }: { lang: Lang }) {
           {/* Ort */}
           <div className="sm:col-span-2">
             <label className={labelClass}>{t(lang, "booking.step1.city")}</label>
-            <input
-              type="text"
-              readOnly
+            <ZipCitySuggestInput
+              data-testid="booking-input-city"
+              mode="city"
               value={cityValue}
-              className={cn(inputClass, "cursor-default select-none")}
-              placeholder="—"
-              tabIndex={-1}
+              onChange={(v) => {
+                setObjectAddress({ city: v, canton: "", lat: null, lng: null });
+                setCoords(null);
+                cantonRef.current = "";
+                setParsedAddress({
+                  street: streetValue,
+                  houseNumber: parsedAddress?.houseNumber ?? "",
+                  zip: zipValue,
+                  city: v,
+                });
+                const zipCityLine = [zipValue, v].filter(Boolean).join(" ");
+                const line1 = [streetValue, houseNumberValue].filter(Boolean).join(" ").trim();
+                setAddress(zipCityLine ? `${line1}, ${zipCityLine}` : line1);
+              }}
+              onSelectPair={onPickZipCity}
+              lang={lang}
+              sessionToken={sessionTokenRef.current}
+              className={inputClass}
+              placeholder="z. B. Zürich"
+              autoComplete="address-level2"
             />
           </div>
         </div>
