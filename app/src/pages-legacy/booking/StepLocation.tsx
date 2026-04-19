@@ -43,6 +43,9 @@ export function StepLocation({ lang }: { lang: Lang }) {
   const cantonRef = useRef(object.address.canton || "");
   // Single session token shared across street + house-number autocomplete calls.
   const sessionTokenRef = useRef(crypto.randomUUID());
+  // Monotonic token: protects gegen Out-of-Order-Responses, wenn User
+  // die editierbare PLZ in schneller Folge korrigiert.
+  const travelZoneReqRef = useRef(0);
 
   const streetValue = object.address.street;
   const houseNumberValue = object.address.houseNumber;
@@ -63,12 +66,15 @@ export function StepLocation({ lang }: { lang: Lang }) {
 
   async function lookupTravelZone(canton: string, zip: string) {
     if (!canton && !zip) return;
+    const reqId = ++travelZoneReqRef.current;
     try {
       const base = API_BASE || "";
       const url = new URL(`/api/travel-zone?canton=${encodeURIComponent(canton)}&zip=${encodeURIComponent(zip)}`, base || window.location.origin);
       const r = await fetch(url.toString(), { headers: { Accept: "application/json" } });
+      if (reqId !== travelZoneReqRef.current) return;
       if (!r.ok) return;
       const data = await r.json() as { ok?: boolean; zone?: string; productCode?: string; price?: number; label?: string };
+      if (reqId !== travelZoneReqRef.current) return;
       if (!data.ok || !data.productCode) return;
       removeAddonGroup("travel_zone");
       upsertAddon({

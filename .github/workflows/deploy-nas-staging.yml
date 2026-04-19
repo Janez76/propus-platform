@@ -53,8 +53,9 @@ jobs:
       - name: Wait for health
         id: health
         run: |
-          # Port kommt aus .env.nas (PROPUS_PLATFORM_PORT), Default 3100.
-          PORT="$(grep -E '^PROPUS_PLATFORM_PORT=' .env.nas | cut -d= -f2 | tr -d '\r\n' || true)"
+          # Port kommt aus .env.nas (BOOKING_PORT, matching docker-compose.yml),
+          # Default 3100. WICHTIG: Variable muss mit compose-Datei synchron bleiben.
+          PORT="$(grep -E '^BOOKING_PORT=' .env.nas | cut -d= -f2 | tr -d '\r\n' || true)"
           PORT="${PORT:-3100}"
           echo "port=$PORT" >> "$GITHUB_OUTPUT"
           for i in $(seq 1 24); do
