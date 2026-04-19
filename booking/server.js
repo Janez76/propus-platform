@@ -8774,6 +8774,25 @@ app.get(ADDRESS_AUTOCOMPLETE_ENDPOINT, async (req, res) => {
         if (expectedZip && r.zip && String(r.zip).trim() !== expectedZip) return false;
         return true;
       });
+    } else {
+      // Strassen-Mode: Place-Treffer ohne Strasse herausfiltern. Eintraege
+      // wie "8001, 8001 Zürich, Schweiz" sind hier irrefuehrend, der Nutzer
+      // tippt eine Strasse. Zusaetzlich Plausibilitaets-Check: die User-Query
+      // muss als Token im normalisierten main/sub vorkommen, sonst werden
+      // unpassende Place-Treffer (z.B. POIs mit gleicher PLZ) nicht mehr
+      // als "vollstaendig" durchgewunken.
+      const qTokens = q
+        .toLowerCase()
+        .split(/[^a-z0-9\u00e4\u00f6\u00fc]+/)
+        .filter((t) => t && t.length >= 2);
+      results = results.filter((r) => {
+        if (!r) return false;
+        if (r.type !== "address") return false;
+        if (!r.street) return false;
+        if (qTokens.length === 0) return true;
+        const hay = `${r.main || ""} ${r.sub || ""}`.toLowerCase();
+        return qTokens.some((tok) => hay.includes(tok));
+      });
     }
 
     res.json({ ok: true, results });

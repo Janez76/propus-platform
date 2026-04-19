@@ -90,6 +90,36 @@ export function BookingWizardPage() {
     );
   }, [time, date, photographer, step]);
 
+  /** Step 1: Fehler-Banner gegen aktuellen State neu auswerten, sobald
+   * Adressfelder editiert werden. Ohne diesen Pass blieb ein veraltetes
+   * "Hausnummer existiert nicht" stehen, obwohl der Nutzer ZIP/Ort/HN
+   * korrigiert hatte. */
+  useEffect(() => {
+    if (step !== 1) return;
+    setErrors((errs) => {
+      if (errs.length === 0) return errs;
+      const fresh = validateStep1({ address, parsedAddress: store.parsedAddress, object });
+      const freshFields = new Set(fresh.map((e) => e.field));
+      const filtered = errs.filter((e) => freshFields.has(e.field));
+      if (filtered.length === errs.length) return errs;
+      return filtered;
+    });
+  }, [
+    step,
+    address,
+    store.parsedAddress?.street,
+    store.parsedAddress?.houseNumber,
+    store.parsedAddress?.zip,
+    store.parsedAddress?.city,
+    object.type,
+    object.area,
+    object.floors,
+    object.onsiteName,
+    object.onsitePhone,
+    object.onsiteEmail,
+    object.onsiteCalendarInvite,
+  ]);
+
   function validateCurrentStep(): boolean {
     let errs: ValidationError[] = [];
     if (step === 1) errs = validateStep1({ address, parsedAddress: store.parsedAddress, object });
