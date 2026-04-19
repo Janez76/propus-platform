@@ -66,17 +66,18 @@ jobs:
           # Optional: Repo-Variable STAGING_HEALTH_HOST (z. B. 192.168.1.5), falls der Runner nicht auf dem NAS läuft.
           IP="${STAGING_HEALTH_HOST:-127.0.0.1}"
           URL="http://${IP}:${PORT}/api/core/health"
-          echo "[deploy-nas] Warte auf ${URL} (max 90s)..."
-          for i in $(seq 1 18); do
+          # Platform-Container: start_period 180s (docker-compose.vps.yml) — kürzeres Warten liefert oft RST/leeren Socket.
+          echo "[deploy-nas] Warte auf ${URL} (max ~300s, 5s-Takt)..."
+          for i in $(seq 1 60); do
             if curl -fsS --max-time 5 "$URL"; then
               echo ""
               echo "[deploy-nas] Health-Check OK."
               exit 0
             fi
-            echo "[deploy-nas] Versuch ${i}/18 fehlgeschlagen, warte 5s..."
+            echo "[deploy-nas] Versuch ${i}/60 fehlgeschlagen, warte 5s..."
             sleep 5
           done
-          echo "[deploy-nas] Health-Check nach 90s nicht erfolgreich."
+          echo "[deploy-nas] Health-Check nach ~300s nicht erfolgreich."
           exit 1
 
   report-failure:
