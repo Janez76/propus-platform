@@ -933,8 +933,8 @@ async function upsertCustomer(billing) {
        name    = EXCLUDED.name,
        company = EXCLUDED.company,
        phone   = EXCLUDED.phone,
-       street  = EXCLUDED.street,
-       zipcity = EXCLUDED.zipcity,
+       street  = CASE WHEN EXCLUDED.street  <> '' THEN EXCLUDED.street  ELSE customers.street  END,
+       zipcity = CASE WHEN EXCLUDED.zipcity <> '' THEN EXCLUDED.zipcity ELSE customers.zipcity END,
        updated_at = NOW()
      RETURNING id`,
     [

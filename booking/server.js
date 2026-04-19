@@ -4411,7 +4411,7 @@ app.post("/api/booking", bookingLimiter, async (req, res) => {
         street: billing.street || "",
         zip: billing.zip || "",
         city: billing.city || "",
-        zipcity: billing.zipcity || "",
+        zipcity: billing.zipcity || [billing.zip, billing.city].filter(Boolean).join(" "),
         order_ref: billing.order_ref || "",
         alt_company: billing.alt_company || "",
         alt_company_email: billing.alt_company_email || "",

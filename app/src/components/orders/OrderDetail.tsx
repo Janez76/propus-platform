@@ -629,7 +629,15 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
   const billingStreetRaw = data?.billing?.street || "";
   const billingZipcityRaw = data?.billing?.zipcity || "";
   const billingStreetDisplay = data?.billing?.street || data?.customerStreet || "";
-  const billingZipcityDisplay = data?.billing?.zipcity || data?.customerZipcity || "";
+  const billingZipcityDisplay =
+    data?.billing?.zipcity
+    || [data?.billing?.zip, data?.billing?.city].filter(Boolean).join(" ")
+    || data?.customerZipcity
+    || "";
+  const billingAddressDisplay = [billingStreetDisplay, billingZipcityDisplay]
+    .map((s) => (s || "").trim())
+    .filter(Boolean)
+    .join(", ");
   const hasExplicitBillingAddress = normalizeCompareValue(billingStreetRaw) !== "" || normalizeCompareValue(billingZipcityRaw) !== "";
   const billingAddressDiffersFromCustomer = hasExplicitBillingAddress && (
     normalizeCompareValue(billingStreetRaw) !== normalizeCompareValue(customerStreetRaw) ||
@@ -740,12 +748,11 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                           <><a href={`mailto:${customerEmailDisplay}`} className="text-[var(--accent)] hover:underline">{customerEmailDisplay}</a><CopyButton value={customerEmailDisplay} lang={lang} /></>
                         ) : <span className="text-zinc-400">{t(lang, "common.notSet")}</span>}
                       </div>
-                      {(billingStreetDisplay || billingZipcityDisplay) && (
+                      {billingAddressDisplay && (
                         <div className="flex items-center gap-1">
                           <b>{t(lang, "orderDetail.label.street")}:</b>&nbsp;
-                          {(billingStreetDisplay || billingZipcityDisplay) ? (
-                            <><a href={`https://maps.google.com/?q=${encodeURIComponent(`${billingStreetDisplay} ${billingZipcityDisplay}`.trim())}`} target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] hover:underline">{billingStreetDisplay}{billingZipcityDisplay && <span className="ml-1">{billingZipcityDisplay}</span>}</a><CopyButton value={`${billingStreetDisplay} ${billingZipcityDisplay}`.trim()} lang={lang} /></>
-                          ) : <span className="text-zinc-400">{t(lang, "common.notSet")}</span>}
+                          <a href={`https://maps.google.com/?q=${encodeURIComponent(billingAddressDisplay)}`} target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] hover:underline">{billingAddressDisplay}</a>
+                          <CopyButton value={billingAddressDisplay} lang={lang} />
                         </div>
                       )}
                     </div>

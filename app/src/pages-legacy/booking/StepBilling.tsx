@@ -106,11 +106,11 @@ export function StepBilling({ lang }: { lang: Lang }) {
           </div>
           <div>
             <label className={labelClass}>{t(lang, "booking.step4.zip")} *</label>
-            <input data-testid="booking-input-zip" type="text" value={billing.zip} onChange={(e) => setBilling({ zip: e.target.value })} className={inputClass} />
+            <input data-testid="booking-input-zip" type="text" value={billing.zip} onChange={(e) => setBilling({ zip: e.target.value, zipcity: [e.target.value, billing.city].filter(Boolean).join(" ") })} className={inputClass} />
           </div>
           <div>
             <label className={labelClass}>{t(lang, "booking.step4.city")} *</label>
-            <input data-testid="booking-input-city" type="text" value={billing.city} onChange={(e) => setBilling({ city: e.target.value })} className={inputClass} />
+            <input data-testid="booking-input-city" type="text" value={billing.city} onChange={(e) => setBilling({ city: e.target.value, zipcity: [billing.zip, e.target.value].filter(Boolean).join(" ") })} className={inputClass} />
           </div>
           <div>
             <label className={labelClass}>{t(lang, "booking.step4.orderRef")}</label>
@@ -156,11 +156,11 @@ export function StepBilling({ lang }: { lang: Lang }) {
             </div>
             <div>
               <label className={labelClass}>{t(lang, "booking.step4.zip")} *</label>
-              <input type="text" value={billing.alt_zip} onChange={(e) => setBilling({ alt_zip: e.target.value })} className={inputClass} />
+              <input type="text" value={billing.alt_zip} onChange={(e) => setBilling({ alt_zip: e.target.value, alt_zipcity: [e.target.value, billing.alt_city].filter(Boolean).join(" ") })} className={inputClass} />
             </div>
             <div>
               <label className={labelClass}>{t(lang, "booking.step4.city")} *</label>
-              <input type="text" value={billing.alt_city} onChange={(e) => setBilling({ alt_city: e.target.value })} className={inputClass} />
+              <input type="text" value={billing.alt_city} onChange={(e) => setBilling({ alt_city: e.target.value, alt_zipcity: [billing.alt_zip, e.target.value].filter(Boolean).join(" ") })} className={inputClass} />
             </div>
             <div>
               <label className={labelClass}>{t(lang, "booking.step4.email")}</label>
