@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { AlertTriangle, Calendar, List, Map as MapIcon, Plus, Search } from "lucide-react";
 import { deleteOrder, getOrders, updateOrderStatus, type Order } from "../api/orders";
 import { getPhotographers, type Photographer } from "../api/photographers";
 import { getAdminProfile, type AdminProfile } from "../api/profile";
 import { CreateOrderWizard } from "../components/orders/CreateOrderWizard";
-import { EditOrderDrawer } from "../components/orders/edit-drawer/EditOrderDrawer";
 import { OrderMessages } from "../components/orders/OrderMessages";
 import { OrderTable } from "../components/orders/OrderTable";
 import { OrderWeekCalendar } from "../components/orders/OrderWeekCalendar";
@@ -53,7 +52,6 @@ function isOpenOrder(key: StatusKey | null): boolean {
 
 export function OrdersPage() {
   const navigate = useNavigate();
-  const params = useParams();
   const token = useAuthStore((s) => s.token);
   const lang = useAuthStore((s) => s.language);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -93,7 +91,6 @@ export function OrdersPage() {
   const [photographerFilter, setPhotographerFilter] = useState<string>("all");
   const [showArchivedChip, setShowArchivedChip] = useState(false);
 
-  const [detailNo, setDetailNo] = useState<string | null>(null);
   const [msgNo, setMsgNo] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [selectedNos, setSelectedNos] = useState<Set<string>>(() => new Set());
@@ -277,12 +274,6 @@ export function OrdersPage() {
     }
     setBulkBusy(false);
     setShowBulkDelete(false);
-    if (detailNo && list.includes(detailNo)) {
-      setDetailNo(null);
-      const next = new URLSearchParams(searchParams);
-      next.delete("open");
-      setSearchParams(next, { replace: true });
-    }
     await refetch({ force: true });
     setSelectedNos(new Set());
     if (fail > 0) {
@@ -298,17 +289,8 @@ export function OrdersPage() {
     window.setTimeout(() => setBulkFeedback(null), 8000);
   }
 
-  const closeDetail = useCallback(() => {
-    setDetailNo(null);
-    const next = new URLSearchParams(searchParams);
-    next.delete("open");
-    setSearchParams(next, { replace: true });
-    if (params.orderNo) navigate("/orders", { replace: true });
-  }, [searchParams, setSearchParams, params.orderNo, navigate]);
-
   const openDetail = useCallback(
     (orderNo: string) => {
-      setDetailNo(orderNo);
       navigate(`/orders/${encodeURIComponent(orderNo)}`);
     },
     [navigate],
@@ -324,8 +306,6 @@ export function OrdersPage() {
       }).length,
     [allOrders, lang, now],
   );
-
-  const effectiveDetailNo = params.orderNo || detailNo || searchParams.get("open");
 
   const hasAnyActiveFilter = statusSelection.size > 0 || quickFilter !== "none" || photographerFilter !== "all" || query.length > 0;
 
@@ -581,14 +561,6 @@ export function OrdersPage() {
         open={showCreate}
         onOpenChange={setShowCreate}
         onSuccess={async () => {
-          await refetch({ force: true });
-        }}
-      />
-      <EditOrderDrawer
-        open={Boolean(effectiveDetailNo)}
-        orderNo={effectiveDetailNo || null}
-        onClose={closeDetail}
-        onSaved={async () => {
           await refetch({ force: true });
         }}
       />
