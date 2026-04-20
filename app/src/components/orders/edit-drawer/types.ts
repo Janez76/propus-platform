@@ -79,10 +79,28 @@ export type TerminForm = {
   durationMin: string;
 };
 
+export type LeistungenAddon = {
+  id: string;
+  group: string;
+  label: string;
+  price: number;
+  qty?: number;
+};
+
+export type LeistungenForm = {
+  packageKey: string;
+  packageLabel: string;
+  packagePrice: number;
+  addons: LeistungenAddon[];
+  keyPickup: { enabled: boolean; address: string; notes: string };
+  discountPercent: number;
+};
+
 export type DrawerState = {
   uebersicht: UebersichtForm;
   objekt: ObjektForm;
   termin: TerminForm;
+  leistungen: LeistungenForm;
 };
 
 export type EmailTargets = {
@@ -95,6 +113,7 @@ export type DirtyMap = {
   uebersicht: boolean;
   objekt: boolean;
   termin: boolean;
+  leistungen: boolean;
 };
 
 const emptyAddress = (): AddressRow => ({
@@ -233,6 +252,41 @@ export function buildInitialState(order: Order): DrawerState {
       scheduleLocal,
       durationMin: String(Math.max(1, Number(order.schedule?.durationMin || 60))),
     },
+    leistungen: buildLeistungenForm(order),
+  };
+}
+
+function buildLeistungenForm(order: Order): LeistungenForm {
+  const services = order.services || {};
+  const pkg = services.package || {};
+  const addonsRaw = Array.isArray(services.addons) ? services.addons : [];
+  const addons: LeistungenAddon[] = addonsRaw.map((a) => ({
+    id: String((a as { id?: string }).id || ""),
+    group: String((a as { group?: string }).group || ""),
+    label: String((a as { label?: string }).label || ""),
+    price: Number((a as { price?: number }).price) || 0,
+    qty: (a as { qty?: number }).qty != null ? Number((a as { qty?: number }).qty) : undefined,
+  }));
+  const keyPickupAddon = addons.find((a) => a.group === "keypickup" || a.id.startsWith("keypickup"));
+  const orderKeyPickup = order.keyPickup || null;
+  const pricing = order.pricing || {};
+  const persistedSubtotal = Number(pricing.subtotal) || 0;
+  const persistedDiscount = Number(pricing.discount) || 0;
+  const discountPercent =
+    persistedSubtotal > 0 && persistedDiscount > 0
+      ? Math.round((persistedDiscount / persistedSubtotal) * 10000) / 100
+      : 0;
+  return {
+    packageKey: String(pkg.key || ""),
+    packageLabel: String(pkg.label || ""),
+    packagePrice: Number(pkg.price) || 0,
+    addons,
+    keyPickup: {
+      enabled: Boolean(keyPickupAddon || (orderKeyPickup && (orderKeyPickup.address || orderKeyPickup.notes))),
+      address: String(orderKeyPickup?.address || ""),
+      notes: String(orderKeyPickup?.notes || ""),
+    },
+    discountPercent,
   };
 }
 

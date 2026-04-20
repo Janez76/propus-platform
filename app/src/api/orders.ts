@@ -867,3 +867,27 @@ export const getOrderEmailLog = (token: string, orderNo: string) =>
     entries: r?.entries ?? [],
     availability: r?.availability ?? "available",
   }));
+
+export type OrderEventLogEntry = {
+  id: number;
+  orderNo: number;
+  eventType: string;
+  actorUser: string;
+  actorRole: string;
+  oldValue: unknown;
+  newValue: unknown;
+  metadata: unknown;
+  createdAt: string;
+};
+
+export const getOrderEvents = (token: string, orderNo: string, opts?: { limit?: number; before?: number }) => {
+  const params = new URLSearchParams();
+  if (opts?.limit) params.set("limit", String(opts.limit));
+  if (opts?.before) params.set("before", String(opts.before));
+  const qs = params.toString();
+  return apiRequest<OrderEventLogEntry[]>(
+    `/api/admin/orders/${encodeURIComponent(orderNo)}/events${qs ? `?${qs}` : ""}`,
+    "GET",
+    token,
+  );
+};

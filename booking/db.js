@@ -1624,6 +1624,57 @@ async function updateOrderFields(orderNo, fields) {
   );
 }
 
+async function logOrderEvent({ orderNo, eventType, actor, oldValue, newValue, metadata }) {
+  if (!process.env.DATABASE_URL) return null;
+  const orderNoNum = Number(orderNo);
+  if (!Number.isFinite(orderNoNum)) return null;
+  const actorUser = String(actor?.user || actor?.name || actor?.email || "system");
+  const actorRole = String(actor?.role || "");
+  try {
+    const { rows } = await query(
+      `INSERT INTO order_event_log (order_no, event_type, actor_user, actor_role, old_value, new_value, metadata)
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb)
+       RETURNING id, created_at`,
+      [
+        orderNoNum,
+        String(eventType || "unknown"),
+        actorUser,
+        actorRole,
+        oldValue === undefined ? null : JSON.stringify(oldValue),
+        newValue === undefined ? null : JSON.stringify(newValue),
+        metadata === undefined ? null : JSON.stringify(metadata),
+      ]
+    );
+    return rows[0] || null;
+  } catch (err) {
+    console.error("[order-event-log] insert failed", err && err.message);
+    return null;
+  }
+}
+
+async function listOrderEvents(orderNo, { limit = 100, beforeId = null } = {}) {
+  if (!process.env.DATABASE_URL) return [];
+  const orderNoNum = Number(orderNo);
+  if (!Number.isFinite(orderNoNum)) return [];
+  const params = [orderNoNum];
+  let where = "order_no = $1";
+  if (beforeId != null && Number.isFinite(Number(beforeId))) {
+    params.push(Number(beforeId));
+    where += ` AND id < $${params.length}`;
+  }
+  const lim = Math.min(Math.max(Number(limit) || 100, 1), 500);
+  params.push(lim);
+  const { rows } = await query(
+    `SELECT id, order_no, event_type, actor_user, actor_role, old_value, new_value, metadata, created_at
+     FROM order_event_log
+     WHERE ${where}
+     ORDER BY id DESC
+     LIMIT $${params.length}`,
+    params
+  );
+  return rows;
+}
+
 async function listOrderFolderLinks(orderNo) {
   const { rows } = await query(
     `SELECT *
@@ -2373,6 +2424,8 @@ module.exports = {
   getOrdersByPhotographerAndDate,
   updateCustomerNasStorageBases,
   updateOrderFields,
+  logOrderEvent,
+  listOrderEvents,
   listOrderFolderLinks,
   getOrderFolderLink,
   upsertOrderFolderLink,
