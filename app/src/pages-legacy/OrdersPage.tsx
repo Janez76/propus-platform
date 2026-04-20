@@ -289,12 +289,9 @@ export function OrdersPage() {
     window.setTimeout(() => setBulkFeedback(null), 8000);
   }
 
-  const openDetail = useCallback(
-    (orderNo: string) => {
-      navigate(`/orders/${encodeURIComponent(orderNo)}`);
-    },
-    [navigate],
-  );
+  const openDetail = useCallback((orderNo: string) => {
+    window.location.href = `/orders/${encodeURIComponent(orderNo)}`;
+  }, []);
 
   const overdueCount = useMemo(
     () =>

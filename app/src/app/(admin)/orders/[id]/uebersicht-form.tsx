@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { Building2, MapPin, User2 } from 'lucide-react';
 
 type Order = {
@@ -25,6 +26,8 @@ type Props = {
 };
 
 export function UebersichtForm({ order, isEditing, action }: Props) {
+  const [bookingType, setBookingType] = useState<'firma' | 'privat'>(order.booking_type);
+
   return (
     <form id="order-form" action={action} className="space-y-8">
       <input type="hidden" name="order_no" value={order.order_no} />
@@ -36,21 +39,23 @@ export function UebersichtForm({ order, isEditing, action }: Props) {
             value="firma"
             icon={<Building2 className="h-4 w-4" />}
             label="Firma"
-            checked={order.booking_type === 'firma'}
+            checked={bookingType === 'firma'}
             disabled={!isEditing}
+            onChange={() => setBookingType('firma')}
           />
           <RadioCard
             name="booking_type"
             value="privat"
             icon={<User2 className="h-4 w-4" />}
             label="Privatperson"
-            checked={order.booking_type === 'privat'}
+            checked={bookingType === 'privat'}
             disabled={!isEditing}
+            onChange={() => setBookingType('privat')}
           />
         </div>
       </Section>
 
-      {order.booking_type === 'firma' && (
+      {bookingType === 'firma' && (
         <Section title="Firmenangaben" icon={<Building2 className="h-4 w-4" />}>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <Field
@@ -213,7 +218,7 @@ function SelectField({
 }
 
 function RadioCard({
-  name, value, icon, label, checked, disabled,
+  name, value, icon, label, checked, disabled, onChange,
 }: {
   name: string;
   value: string;
@@ -221,6 +226,7 @@ function RadioCard({
   label: string;
   checked: boolean;
   disabled?: boolean;
+  onChange?: () => void;
 }) {
   return (
     <label
@@ -228,7 +234,15 @@ function RadioCard({
         checked ? 'border-[#B68E20] bg-[#B68E20]/10 text-[#B68E20]' : 'border-white/10 bg-white/[0.02] text-white/70 hover:border-white/20'
       } ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
     >
-      <input type="radio" name={name} value={value} defaultChecked={checked} disabled={disabled} className="sr-only" />
+      <input
+        type="radio"
+        name={name}
+        value={value}
+        checked={checked}
+        disabled={disabled}
+        onChange={onChange}
+        className="sr-only"
+      />
       {icon}
       {label}
     </label>

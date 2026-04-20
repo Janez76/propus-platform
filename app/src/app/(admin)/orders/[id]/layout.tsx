@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Calendar, User, Clock, Receipt, Pencil, Lock } from 'lucide-react';
+import { ArrowLeft, Calendar, User, Clock, Receipt } from 'lucide-react';
 import { queryOne } from '@/lib/db';
-import { Button } from '@/components/ui/button';
 import { OrderTabs } from './order-tabs';
+import { OrderReadOnlyBadge, OrderEditActions } from './header-actions';
 
 const STATUS_LABEL: Record<string, { label: string; className: string }> = {
   pending:    { label: 'Offen',          className: 'bg-amber-500/15 text-amber-400' },
@@ -37,12 +37,10 @@ function formatCHF(amount: number | null | undefined) {
 type Props = {
   children: ReactNode;
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ edit?: string }>;
 };
 
-export default async function OrderLayout({ children, params, searchParams }: Props) {
+export default async function OrderLayout({ children, params }: Props) {
   const { id } = await params;
-  const sp = searchParams ? await searchParams : {};
 
   const order = await queryOne<{
     id: number;
@@ -71,7 +69,6 @@ export default async function OrderLayout({ children, params, searchParams }: Pr
   if (!order) notFound();
 
   const status = STATUS_LABEL[order.status] ?? STATUS_LABEL.pending;
-  const isEditing = sp.edit === '1';
 
   return (
     <div className="min-h-screen bg-[#0c0d10] text-white">
@@ -93,41 +90,10 @@ export default async function OrderLayout({ children, params, searchParams }: Pr
               <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${status.className}`}>
                 {status.label}
               </span>
-              {!isEditing && (
-                <span className="flex items-center gap-1 text-xs text-white/40">
-                  <Lock className="h-3 w-3" />
-                  Schreibgeschützt
-                </span>
-              )}
+              <OrderReadOnlyBadge />
             </div>
 
-            {isEditing ? (
-              <div className="flex items-center gap-2">
-                <Button asChild variant="ghost" size="sm">
-                  <Link href={`/orders/${order.order_no}`}>Abbrechen</Link>
-                </Button>
-                <Button
-                  type="submit"
-                  form="order-form"
-                  size="sm"
-                  className="bg-[#B68E20] text-black hover:bg-[#d4a82c]"
-                >
-                  Speichern
-                </Button>
-              </div>
-            ) : (
-              <Button
-                asChild
-                size="sm"
-                variant="outline"
-                className="border-[#B68E20] text-[#B68E20] hover:bg-[#B68E20]/10 hover:text-[#B68E20]"
-              >
-                <Link href={`/orders/${order.order_no}?edit=1`}>
-                  <Pencil className="h-4 w-4" />
-                  Bearbeiten
-                </Link>
-              </Button>
-            )}
+            <OrderEditActions orderNo={order.order_no} />
           </div>
 
           <div className="grid grid-cols-2 gap-3 pb-4 md:grid-cols-4">
