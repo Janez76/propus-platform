@@ -59,6 +59,7 @@ export function computePricing(
   return { subtotal, discountAmount, vat, total };
 }
 
-export function formatCHF(value: number): string {
-  return `CHF ${value.toFixed(2)}`;
+export function formatCHF(value: number | null | undefined): string {
+  const n = Number(value);
+  return `CHF ${(Number.isFinite(n) ? n : 0).toFixed(2)}`;
 }

@@ -6,7 +6,8 @@ export function addonPrice(addon: CatalogAddon, area: number, floors: number): n
     return computeTourPrice(area);
   }
   if (addon.pricingType === "per_floor" || addon.pricingType === "perFloor") {
-    return (addon.unitPrice ?? addon.price) * floors;
+    const unit = Number(addon.unitPrice ?? addon.price) || 0;
+    return unit * (Number(floors) || 0);
   }
-  return addon.price;
+  return Number(addon.price) || 0;
 }
