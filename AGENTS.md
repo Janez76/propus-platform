@@ -294,14 +294,6 @@ Alle NAS-Skripte und Anleitungen liegen in `Z:\NAS Ugreen\`:
 | vcard | `/volume1/docker/vcard/` · Port 9500 |
 | Cloudflare Tunnel | Container Manager → `cloudflared` |
 
-### Propus LAN-Staging (Plattform)
-
-Einrichtung, Ports, Runner: `docs/STAGING-UGREEN.md` (Repo-Root).
-
-- **Deploy:** Nur manuell — Workflow **„Deploy NAS Staging“** (`workflow_dispatch` in `.github/workflows/deploy-nas-staging.yml`) oder `scripts/deploy-staging-nas.sh`. Merge/Push und **Unit Tests**-Workflows starten **keinen** NAS-Staging-Deploy.
-- **Health im CI-Workflow / `deploy-staging-nas.sh`:** `docker compose exec platform` → `curl http://127.0.0.1:${PORT:-3100}/api/core/health` (Express; `docker-compose.staging.nas.yml` setzt `PORT`/`NEXTJS_PORT` fest). Next am Host-Port (`STAGING_PLATFORM_PORT` → Container 3001) prüft zusätzlich DB — kann 503 liefern, obwohl Express OK ist.
-- **`buildId` in `/api/core/health`:** kommt aus VERSION/`getBuildId()` in `booking/server.js`; muss nicht dem Git-Short-Hash des Deploys entsprechen — für den echten Stand **Workflow-Commit-SHA** oder Container/Inhalt prüfen.
-
 ### Zweites NAS (Dev – 192.168.1.4)
 
 - Benutzer: `Janez`
