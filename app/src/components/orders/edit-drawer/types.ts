@@ -269,6 +269,13 @@ function buildLeistungenForm(order: Order): LeistungenForm {
   }));
   const keyPickupAddon = addons.find((a) => a.group === "keypickup" || a.id.startsWith("keypickup"));
   const orderKeyPickup = order.keyPickup || null;
+  const pricing = order.pricing || {};
+  const persistedSubtotal = Number(pricing.subtotal) || 0;
+  const persistedDiscount = Number(pricing.discount) || 0;
+  const discountPercent =
+    persistedSubtotal > 0 && persistedDiscount > 0
+      ? Math.round((persistedDiscount / persistedSubtotal) * 10000) / 100
+      : 0;
   return {
     packageKey: String(pkg.key || ""),
     packageLabel: String(pkg.label || ""),
@@ -279,7 +286,7 @@ function buildLeistungenForm(order: Order): LeistungenForm {
       address: String(orderKeyPickup?.address || ""),
       notes: String(orderKeyPickup?.notes || ""),
     },
-    discountPercent: 0,
+    discountPercent,
   };
 }
 

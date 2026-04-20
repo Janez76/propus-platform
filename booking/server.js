@@ -6727,6 +6727,7 @@ app.patch("/api/admin/orders/:orderNo/reschedule", requireAdmin, async (req, res
 
   const oldDate = order.schedule?.date || "";
   const oldTime = order.schedule?.time || "";
+  const oldDurationMin = Number(order.schedule?.durationMin || 60);
   const durationMin = durationMinRaw === undefined ? Number(order.schedule?.durationMin || 60) : Number(durationMinRaw);
   if (!Number.isFinite(durationMin) || durationMin <= 0) {
     return res.status(400).json({ error: "Gueltige Dauer erforderlich" });
@@ -6910,7 +6911,7 @@ app.patch("/api/admin/orders/:orderNo/reschedule", requireAdmin, async (req, res
       orderNo,
       eventType: "schedule_change",
       actor: { user: req.user?.name || req.user?.id || "admin", role: req.user?.role || "" },
-      oldValue: { date: oldDate, time: oldTime, durationMin: Number(order.schedule?.durationMin || 60) },
+      oldValue: { date: oldDate, time: oldTime, durationMin: oldDurationMin },
       newValue: { date, time, durationMin },
       metadata: { timingChanged },
     });
