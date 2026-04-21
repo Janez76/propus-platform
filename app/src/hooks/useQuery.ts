@@ -5,6 +5,7 @@ type UseQueryOptions = {
   enabled?: boolean;
   staleTime?: number;
   refetchOnMount?: boolean;
+  refetchInterval?: number;
 };
 
 type RefetchOptions = {
@@ -27,6 +28,7 @@ export function useQuery<TData>(
   const enabled = options?.enabled ?? true;
   const staleTime = options?.staleTime ?? DEFAULT_STALE_TIME;
   const refetchOnMount = options?.refetchOnMount ?? true;
+  const refetchInterval = options?.refetchInterval;
   const didInitialFetchRef = useRef(false);
   const prevQueryKeyRef = useRef<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -96,6 +98,14 @@ export function useQuery<TData>(
     prevQueryKeyRef.current = queryKey;
     void refetch();
   }, [enabled, refetch, refetchOnMount, queryKey]);
+
+  useEffect(() => {
+    if (!enabled || !refetchInterval || refetchInterval <= 0) return;
+    const id = setInterval(() => {
+      void refetch({ force: true });
+    }, refetchInterval);
+    return () => clearInterval(id);
+  }, [enabled, refetch, refetchInterval]);
 
   const error = entry?.error ?? localError;
   const isFetching = Boolean(entry?.isFetching);

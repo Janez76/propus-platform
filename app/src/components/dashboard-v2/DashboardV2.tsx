@@ -50,7 +50,7 @@ export function DashboardV2() {
   const { data: orders = [], loading, error, refetch } = useQuery(
     ordersQueryKey(token),
     () => getOrders(token),
-    { enabled: Boolean(token), staleTime: 5 * 60 * 1000 },
+    { enabled: Boolean(token), staleTime: 2 * 60 * 1000, refetchInterval: 2 * 60 * 1000 },
   );
 
   useEffect(() => {
