@@ -183,15 +183,15 @@ async function isGlobalTourManager(userEmail) {
   await ensurePortalTeamSchema();
   const norm = normalizeEmail(userEmail);
   if (!norm) return false;
-  const m = getBookingPortalSync();
-  if (m) {
-    try {
+  try {
+    const m = typeof getBookingPortalSync === 'function' ? getBookingPortalSync() : null;
+    if (m) {
       const ok = await m.portalRbac.emailHasPortalSystemRole(norm, ROLE_TOUR_MANAGER);
       if (ok) return true;
       if (await m.portalRbac.emailHasPortalPermission(norm, "tours.cross_company")) return true;
-    } catch (_e) {
-      /* Migration 060 evtl. noch nicht */
     }
+  } catch (_e) {
+    /* getBookingPortalSync oder Migration 060 evtl. noch nicht vorhanden */
   }
   const r = await pool.query(
     `SELECT 1 FROM tour_manager.portal_staff_roles
@@ -551,15 +551,15 @@ async function getPortalTeamManageContext(sessionEmail, ownerEmail) {
     return { canManage: true, isWorkspaceOwner: false, sessionRole: ROLE_TOUR_MANAGER };
   }
 
-  const m = getBookingPortalSync();
-  if (m) {
-    try {
+  try {
+    const m = typeof getBookingPortalSync === 'function' ? getBookingPortalSync() : null;
+    if (m) {
       if (await m.portalRbac.emailHasPortalPermission(session, "portal_team.manage")) {
         return { canManage: true, isWorkspaceOwner: false, sessionRole: ROLE_TOUR_MANAGER };
       }
-    } catch (_e) {
-      /* RBAC nicht verfügbar */
     }
+  } catch (_e) {
+    /* getBookingPortalSync oder RBAC nicht verfügbar */
   }
 
   const isWorkspaceOwner = session === owner;
