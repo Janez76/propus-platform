@@ -126,6 +126,7 @@ const { buildAuthContext } = require("./authz/middleware");
 const { registerAccessRoutes } = require("./access-routes");
 const { registerExxasReconcileRoutes } = require("./exxas-reconcile-routes");
 const { registerAdminMissingRoutes } = require("./admin-missing-routes");
+const portalAuthBridge = require("./portal-auth-bridge");
 
 const { ClientSecretCredential } = require("@azure/identity");
 const { Client } = require("@microsoft/microsoft-graph-client");
@@ -2490,10 +2491,65 @@ app.post("/auth/login", authLimiter, async (req, res) => {
       }
     }
 
+    // ─── Portal-Kunden-Fallback ──────────────────────────────────────────────
+    // Wenn kein interner Admin-Account passt, gegen portal_users (bcrypt) prüfen.
+    // Ergibt eine customer_admin / customer_user / tour_manager Session.
+    // SCOPE: Rolando ist Admin SEINER Firma, KEIN Propus-interner Admin.
+    try {
+      const portalEmail = await portalAuthBridge.verifyPortalCustomerPassword(loginId, String(password || ""));
+      if (portalEmail) {
+        const rawRole = await portalAuthBridge.getPortalCustomerRole(portalEmail);
+        const { token } = await issueAdminSession(res, {
+          role: rawRole,
+          rememberMe: !!rememberMe,
+          userKey: portalEmail,
+          userName: portalEmail,
+        });
+        const permissions = Array.from(rbac.legacyFallbackPermissions(rawRole));
+        return res.json({ ok: true, token, role: rawRole, permissions });
+      }
+    } catch (portalErr) {
+      console.error("[auth/login portal-fallback]", portalErr?.message || portalErr);
+    }
+
     return res.status(401).json({ error: "Ungültige Zugangsdaten" });
   } catch (err) {
     console.error("[auth/login]", err?.message || err);
     res.status(500).json({ error: err.message || "Login fehlgeschlagen" });
+  }
+});
+
+// ─── GET /auth/profile ────────────────────────────────────────────────────────
+// Gibt Kunden-Stammdaten für Buchungs-Wizard (StepBilling / useCustomerProfile) zurück.
+// Nur für Portal-Kunden-Rollen (customer_admin, customer_user, tour_manager).
+// Erreichbar über Next.js-Proxy: /api/auth/profile → /auth/profile (Express).
+app.get("/auth/profile", async (req, res) => {
+  try {
+    const { token } = getRequestTokenDetails(req);
+    if (!token) return res.status(401).json({ error: "Unauthorized" });
+
+    const tokenHash = customerAuth.hashSha256Hex(token);
+    const session = await db.getAdminSessionByTokenHash(tokenHash);
+    if (!session) return res.status(401).json({ error: "Unauthorized" });
+
+    const PORTAL_ROLES = ["customer_user", "customer_admin", "tour_manager"];
+    if (!PORTAL_ROLES.includes(session.role)) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const customer = await db.getCustomerByEmail(session.user_key || session.user_name || "");
+    return res.json({
+      ok: true,
+      email: session.user_key || session.user_name || "",
+      name: customer?.name || session.user_name || "",
+      company: customer?.company || "",
+      phone: customer?.phone || "",
+      street: customer?.street || "",
+      zipcity: customer?.zipcity || "",
+    });
+  } catch (err) {
+    console.error("[auth/profile]", err?.message || err);
+    res.status(500).json({ error: "profile_failed" });
   }
 });
 
