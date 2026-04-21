@@ -7779,6 +7779,20 @@ function shouldSkipCustomerUpsert(record) {
   if (looksLikeAddressText(billingNameRaw)) return true;
   return false;
 }
+function billingStreetMatchesObjectAddress(record) {
+  const billingStreet = normalizeForCustomerCompare(String(record?.billing?.street || ""));
+  if (!billingStreet) return false;
+  const objAddr = normalizeForCustomerCompare(String(record?.address || ""));
+  if (!objAddr) return false;
+  if (objAddr.startsWith(billingStreet) || billingStreet.startsWith(objAddr)) return true;
+  const billingZip = String(record?.billing?.zip || "").trim();
+  const billingCity = normalizeForCustomerCompare(String(record?.billing?.city || ""));
+  const billingZipcity = normalizeForCustomerCompare(String(record?.billing?.zipcity || ""));
+  if (billingZip && objAddr.includes(billingZip) && objAddr.includes(billingStreet)) return true;
+  if (billingCity && objAddr.includes(billingCity) && objAddr.includes(billingStreet)) return true;
+  if (billingZipcity && objAddr.includes(billingStreet)) return true;
+  return false;
+}
 async function saveOrder(record){
   if (process.env.DATABASE_URL) {
     const canUpsertCustomer = !!record.billing?.email && !shouldSkipCustomerUpsert(record);
@@ -7789,7 +7803,16 @@ async function saveOrder(record){
         address: String(record.address || ""),
       });
     }
-    const customerId = canUpsertCustomer ? await db.upsertCustomer(record.billing) : null;
+    let billingForCustomer = record.billing;
+    if (canUpsertCustomer && billingStreetMatchesObjectAddress(record)) {
+      console.warn("[orders] billing street matches object address — preserving existing customer address", {
+        orderNo: record.orderNo,
+        billingStreet: record.billing?.street,
+        objectAddress: record.address,
+      });
+      billingForCustomer = { ...record.billing, street: "", zipcity: "" };
+    }
+    const customerId = canUpsertCustomer ? await db.upsertCustomer(billingForCustomer) : null;
     await db.insertOrder(record, customerId);
   } else {
     const orders = loadOrdersFromJson();
