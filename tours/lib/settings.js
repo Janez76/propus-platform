@@ -404,7 +404,7 @@ const DEFAULT_EMAIL_TEMPLATES = {
       introHtml: `<p style="margin:0 0 14px;">{{customerGreeting}}</p><p style="margin:0;">wir möchten Sie höflich darauf hinweisen, dass das Hosting Ihres virtuellen Rundgangs in Kürze zur Verlängerung ansteht.</p>`,
       summaryHtml: buildSummaryCard(
         [
-          { label: 'Objekt', value: '{{objectLabel}}' },
+          { label: 'Objekt', value: '{{objectLabel}}{{objectAddressHtmlLine}}' },
           { label: 'Erstellt', value: '{{createdAt}}' },
           { label: 'Preis', value: 'CHF {{amount}} für weitere 6 Monate' },
         ],
@@ -424,7 +424,7 @@ const DEFAULT_EMAIL_TEMPLATES = {
 
 wir möchten Sie höflich darauf hinweisen, dass das Hosting Ihres virtuellen Rundgangs in Kürze zur Verlängerung ansteht.
 
-Objekt: {{objectLabel}}
+Objekt: {{objectLabel}}{{objectAddressTextLine}}
 {{tourLinkText}}
 Die Tour wurde erstellt am: {{createdAt}}
 
@@ -458,7 +458,7 @@ Ihr Propus Team`,
       introHtml: `<p style="margin:0 0 14px;">{{customerGreeting}}</p><p style="margin:0;">Ihr virtuelles Rundgang-Hosting läuft in wenigen Tagen aus. Bitte entscheiden Sie sich für eine Verlängerung oder teilen Sie uns mit, wenn wir nicht mehr benötigt werden.</p>`,
       summaryHtml: buildSummaryCard(
         [
-          { label: 'Objekt', value: '{{objectLabel}}' },
+          { label: 'Objekt', value: '{{objectLabel}}{{objectAddressHtmlLine}}' },
           { label: 'Ablauf', value: '{{termEndFormatted}}' },
           { label: 'Hinweis', value: 'Nach Ablauf kostet eine Reaktivierung CHF 15 zusätzlich zum regulären Hosting.' },
         ],
@@ -476,7 +476,7 @@ Ihr Propus Team`,
 letzte Erinnerung: Ihr Rundgang läuft am {{termEndFormatted}} aus.
 Nach Ablauf kostet eine Reaktivierung CHF 15 zusätzlich.
 
-Objekt: {{objectLabel}}
+Objekt: {{objectLabel}}{{objectAddressTextLine}}
 {{tourLinkText}}
 
 Verlängern: {{yesUrl}}
@@ -493,7 +493,7 @@ Nicht verlängern: {{noUrl}}
       preheader: 'Bitte bestätigen Sie Ihre Tour',
       title: 'Ist das Ihre Tour?',
       introHtml: `<p style="margin:0 0 14px;">{{customerGreeting}}</p><p style="margin:0;">Wir möchten sicherstellen, dass diese Tour noch zu Ihnen gehört und ob Sie eine Verlängerung wünschen.</p>`,
-      summaryHtml: buildSummaryCard([{ label: 'Objekt', value: '{{objectLabel}}' }], `{{tourLinkHtml}}`),
+      summaryHtml: buildSummaryCard([{ label: 'Objekt', value: '{{objectLabel}}{{objectAddressHtmlLine}}' }], `{{tourLinkHtml}}`),
       ctaHtml: buildActionButtons([
         { href: '{{yesUrl}}', label: 'Ja, verlängern', icon: '✓', primary: true },
         { href: '{{noUrl}}', label: 'Nein', icon: '–', primary: false },
@@ -503,7 +503,7 @@ Nicht verlängern: {{noUrl}}
 
 Bitte bestätigen Sie, ob diese Tour Ihnen gehört und ob Sie verlängern möchten.
 
-Objekt: {{objectLabel}}
+Objekt: {{objectLabel}}{{objectAddressTextLine}}
 {{tourLinkText}}
 
 Ja: {{yesUrl}}
@@ -520,7 +520,7 @@ Nein: {{noUrl}}`,
       introHtml: `<p style="margin:0 0 14px;">{{customerGreeting}}</p><p style="margin:0;">vielen Dank für Ihre Zahlung. Wir bestätigen hiermit, dass Ihr virtueller Rundgang erfolgreich verlängert wurde.</p>`,
       summaryHtml: buildSummaryCard(
         [
-          { label: 'Objekt', value: '{{objectLabel}}' },
+          { label: 'Objekt', value: '{{objectLabel}}{{objectAddressHtmlLine}}' },
           { label: 'Gültig bis', value: '{{termEndFormatted}}' },
         ],
         `<div style="padding-top:2px;color:#4b5563;font-size:14px;line-height:1.7;">{{tourLinkHtml}}</div>`
@@ -531,7 +531,7 @@ Nein: {{noUrl}}`,
 
 vielen Dank für Ihre Zahlung. Wir bestätigen hiermit, dass Ihr virtueller Rundgang erfolgreich verlängert wurde.
 
-Objekt: {{objectLabel}}
+Objekt: {{objectLabel}}{{objectAddressTextLine}}
 Gültig bis: {{termEndFormatted}}
 {{tourLinkText}}
 
@@ -552,7 +552,7 @@ Ihr Propus Team`,
       title: 'Erinnerung vor Ablauf',
       introHtml: `<p style="margin:0 0 14px;">{{customerGreeting}}</p><p style="margin:0;">dies ist eine kurze Erinnerung: Ihr virtueller Rundgang läuft am <strong>{{termEndFormatted}}</strong> ab.</p>`,
       summaryHtml: buildSummaryCard(
-        [{ label: 'Objekt', value: '{{objectLabel}}' }],
+        [{ label: 'Objekt', value: '{{objectLabel}}{{objectAddressHtmlLine}}' }],
         `<div style="padding-top:2px;color:#4b5563;font-size:14px;line-height:1.7;">{{tourLinkHtml}}</div>`
       ),
       noteHtml: buildInfoCallout('⏰', 'Empfehlung', 'Falls Sie verlängern möchten, antworten Sie einfach auf diese E-Mail oder nutzen Sie Ihre vorhandenen Verlängerungs-Links. Überblick im Portal: {{portalLinkHtml}}'),
@@ -561,7 +561,7 @@ Ihr Propus Team`,
 
 dies ist eine kurze Erinnerung: Ihr virtueller Rundgang läuft am {{termEndFormatted}} ab.
 
-Objekt: {{objectLabel}}
+Objekt: {{objectLabel}}{{objectAddressTextLine}}
 {{tourLinkText}}
 
 Falls Sie verlängern möchten, antworten Sie einfach auf diese E-Mail oder verwenden Sie Ihren Verlängerungs-Link.
@@ -582,7 +582,7 @@ Ihr Propus Team`,
       introHtml: `<p style="margin:0 0 14px;">{{customerGreeting}}</p><p style="margin:0;">Im Anhang finden Sie Ihre Rechnung für die {{actionLabel}} Ihres virtuellen Rundgangs. Bitte begleichen Sie den Betrag mit dem beiliegenden QR-Einzahlungsschein.</p>`,
       summaryHtml: buildSummaryCard(
         [
-          { label: 'Objekt', value: '{{objectLabel}}' },
+          { label: 'Objekt', value: '{{objectLabel}}{{objectAddressHtmlLine}}' },
           { label: 'Betrag', value: 'CHF {{amountCHF}}' },
           { label: 'Fällig bis', value: '{{dueDateFormatted}}' },
         ],
@@ -595,7 +595,7 @@ Ihr Propus Team`,
 Im Anhang finden Sie Ihre Rechnung für die {{actionLabel}} Ihres virtuellen Rundgangs.
 Bitte begleichen Sie den Betrag von CHF {{amountCHF}} bis {{dueDateFormatted}} mit dem beiliegenden QR-Einzahlungsschein.
 
-Objekt: {{objectLabel}}
+Objekt: {{objectLabel}}{{objectAddressTextLine}}
 Betrag: CHF {{amountCHF}}
 Fällig bis: {{dueDateFormatted}}
 {{tourLinkText}}
@@ -617,7 +617,7 @@ Ihr Propus Team`,
       introHtml: `<p style="margin:0 0 14px;">{{customerGreeting}}</p><p style="margin:0;">Ihre Tour wurde erfolgreich verlängert.</p>`,
       summaryHtml: buildSummaryCard(
         [
-          { label: 'Objekt', value: '{{objectLabel}}' },
+          { label: 'Objekt', value: '{{objectLabel}}{{objectAddressHtmlLine}}' },
           { label: 'Neue Laufzeit bis', value: '{{termEndFormatted}}' },
         ],
         `<div style="padding-top:2px;color:#4b5563;font-size:14px;line-height:1.7;">{{tourLinkHtml}}</div>`
@@ -628,7 +628,7 @@ Ihr Propus Team`,
 
 Ihre Tour wurde erfolgreich verlängert.
 
-Objekt: {{objectLabel}}
+Objekt: {{objectLabel}}{{objectAddressTextLine}}
 Neue Laufzeit bis: {{termEndFormatted}}
 {{tourLinkText}}
 
@@ -648,7 +648,7 @@ Ihr Propus Team`,
       introHtml: `<p style="margin:0 0 14px;">{{customerGreeting}}</p><p style="margin:0;">Ihre archivierte Tour wurde erfolgreich reaktiviert und ist wieder verfügbar.</p>`,
       summaryHtml: buildSummaryCard(
         [
-          { label: 'Objekt', value: '{{objectLabel}}' },
+          { label: 'Objekt', value: '{{objectLabel}}{{objectAddressHtmlLine}}' },
           { label: 'Aktiv bis', value: '{{termEndFormatted}}' },
         ],
         `<div style="padding-top:2px;color:#4b5563;font-size:14px;line-height:1.7;">{{tourLinkHtml}}</div>`
@@ -659,7 +659,7 @@ Ihr Propus Team`,
 
 Ihre archivierte Tour wurde erfolgreich reaktiviert.
 
-Objekt: {{objectLabel}}
+Objekt: {{objectLabel}}{{objectAddressTextLine}}
 Aktiv bis: {{termEndFormatted}}
 {{tourLinkText}}
 
@@ -677,14 +677,14 @@ Ihr Propus Team`,
       preheader: 'Ihre Tour wurde archiviert',
       title: 'Tour archiviert',
       introHtml: `<p style="margin:0 0 14px;">{{customerGreeting}}</p><p style="margin:0;">Ihre Tour wurde archiviert und ist aktuell nicht mehr öffentlich erreichbar.</p>`,
-      summaryHtml: buildSummaryCard([{ label: 'Objekt', value: '{{objectLabel}}' }]),
+      summaryHtml: buildSummaryCard([{ label: 'Objekt', value: '{{objectLabel}}{{objectAddressHtmlLine}}' }]),
       noteHtml: buildInfoCallout('i', 'Wieder aktivieren', 'Falls Sie die Tour wieder aktivieren möchten, melden Sie sich bitte bei uns. Im Kundenportal behalten Sie jederzeit den Überblick: {{portalLinkHtml}}'),
     }),
     text: `{{customerGreeting}}
 
 Ihre Tour wurde archiviert und ist aktuell nicht mehr öffentlich erreichbar.
 
-Objekt: {{objectLabel}}
+Objekt: {{objectLabel}}{{objectAddressTextLine}}
 
 Falls Sie die Tour wieder aktivieren möchten, melden Sie sich bitte bei uns.
 
@@ -702,14 +702,14 @@ Ihr Propus Team`,
       preheader: 'Zahlung konnte nicht abgeschlossen werden',
       title: 'Zahlung fehlgeschlagen',
       introHtml: `<p style="margin:0 0 14px;">{{customerGreeting}}</p><p style="margin:0;">Ihre Zahlung konnte leider nicht erfolgreich abgeschlossen werden.</p>`,
-      summaryHtml: buildSummaryCard([{ label: 'Objekt', value: '{{objectLabel}}' }]),
+      summaryHtml: buildSummaryCard([{ label: 'Objekt', value: '{{objectLabel}}{{objectAddressHtmlLine}}' }]),
       noteHtml: buildInfoCallout('!', 'Nächster Schritt', 'Bitte versuchen Sie es erneut oder kontaktieren Sie uns, falls Sie Unterstützung benötigen. Überblick im Kundenportal: {{portalLinkHtml}}'),
     }),
     text: `{{customerGreeting}}
 
 Ihre Zahlung konnte leider nicht erfolgreich abgeschlossen werden.
 
-Objekt: {{objectLabel}}
+Objekt: {{objectLabel}}{{objectAddressTextLine}}
 
 Bitte versuchen Sie es erneut oder kontaktieren Sie uns, falls Sie Unterstützung benötigen.
 
@@ -729,7 +729,7 @@ Ihr Propus Team`,
       introHtml: `<p style="margin:0 0 14px;">{{customerGreeting}}</p><p style="margin:0;">wir möchten Sie freundlich daran erinnern, dass die Rechnung für Ihren virtuellen Rundgang noch offen ist. Bitte begleichen Sie den ausstehenden Betrag so bald wie möglich — Ihre Tour ist weiterhin aktiv.</p>`,
       summaryHtml: buildSummaryCard(
         [
-          { label: 'Objekt', value: '{{objectLabel}}' },
+          { label: 'Objekt', value: '{{objectLabel}}{{objectAddressHtmlLine}}' },
           { label: 'Offener Betrag', value: 'CHF {{amountCHF}}' },
           { label: 'Fällig am', value: '{{dueDateFormatted}}' },
         ],
@@ -741,7 +741,7 @@ Ihr Propus Team`,
 
 wir möchten Sie freundlich daran erinnern, dass die Rechnung für Ihren virtuellen Rundgang noch offen ist. Ihre Tour ist weiterhin aktiv.
 
-Objekt: {{objectLabel}}
+Objekt: {{objectLabel}}{{objectAddressTextLine}}
 Offener Betrag: CHF {{amountCHF}}
 Fällig am: {{dueDateFormatted}}
 
@@ -767,7 +767,7 @@ Ihr Propus Team`,
       introHtml: `<p style="margin:0 0 14px;">{{customerGreeting}}</p><p style="margin:0;">Im Zuge einer Neuorganisation unserer Touren bitten wir Sie, die folgende Tour zu prüfen und eine Aktion zu wählen.{{statusContextHtml}}</p>`,
       summaryHtml: buildSummaryCard(
         [
-          { label: 'Objekt', value: '{{objectLabel}}' },
+          { label: 'Objekt', value: '{{objectLabel}}{{objectAddressHtmlLine}}' },
           { label: 'Erstellt am', value: '{{createdAt}}' },
           { label: 'Abo gültig bis', value: '{{termEndFormatted}}' },
           { label: 'Archiviert am', value: '{{archivedAt}}' },
@@ -844,7 +844,7 @@ Ihr Propus Team`,
 Im Zuge einer Neuorganisation unserer Touren bitten wir Sie, die folgende Tour zu prüfen und eine Aktion zu wählen.
 {{statusContextText}}
 
-Objekt: {{objectLabel}}
+Objekt: {{objectLabel}}{{objectAddressTextLine}}
 Erstellt am: {{createdAt}}
 Abo gültig bis: {{termEndFormatted}}
 {{archivedAtText}}{{tourLinkText}}

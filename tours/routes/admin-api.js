@@ -3623,22 +3623,59 @@ router.get('/email-templates', async (req, res) => {
       defaultTemplates: DEFAULT_EMAIL_TEMPLATES,
       placeholderHints: {
         renewal_request: [
-          'objectLabel', 'customerGreeting', 'tourLinkHtml', 'tourLinkText', 'termEndFormatted',
+          'objectLabel', 'objectAddress', 'objectAddressHtmlLine', 'objectAddressTextLine',
+          'customerGreeting', 'tourLinkHtml', 'tourLinkText', 'termEndFormatted',
           'portalUrl', 'portalLinkHtml', 'portalLinkText', 'createdAt', 'amount', 'yesUrl', 'noUrl',
         ],
         renewal_request_final: [
-          'objectLabel', 'customerGreeting', 'tourLinkHtml', 'tourLinkText', 'termEndFormatted',
+          'objectLabel', 'objectAddress', 'objectAddressHtmlLine', 'objectAddressTextLine',
+          'customerGreeting', 'tourLinkHtml', 'tourLinkText', 'termEndFormatted',
           'portalUrl', 'portalLinkHtml', 'portalLinkText', 'yesUrl', 'noUrl',
         ],
         tour_confirmation_request: [
-          'objectLabel', 'customerGreeting', 'tourLinkHtml', 'tourLinkText', 'yesUrl', 'noUrl',
+          'objectLabel', 'objectAddress', 'objectAddressHtmlLine', 'objectAddressTextLine',
+          'customerGreeting', 'tourLinkHtml', 'tourLinkText', 'yesUrl', 'noUrl',
         ],
-        payment_confirmed: ['objectLabel', 'customerGreeting', 'tourLinkHtml', 'tourLinkText', 'termEndFormatted', 'portalUrl', 'portalLinkHtml', 'portalLinkText'],
-        expiry_reminder: ['objectLabel', 'customerGreeting', 'tourLinkHtml', 'tourLinkText', 'termEndFormatted', 'portalUrl', 'portalLinkHtml', 'portalLinkText'],
-        extension_confirmed: ['objectLabel', 'customerGreeting', 'tourLinkHtml', 'tourLinkText', 'termEndFormatted', 'portalUrl', 'portalLinkHtml', 'portalLinkText'],
-        reactivation_confirmed: ['objectLabel', 'customerGreeting', 'tourLinkHtml', 'tourLinkText', 'termEndFormatted', 'portalUrl', 'portalLinkHtml', 'portalLinkText'],
-        archive_notice: ['objectLabel', 'customerGreeting', 'tourLinkHtml', 'tourLinkText', 'termEndFormatted', 'portalUrl', 'portalLinkHtml', 'portalLinkText'],
-        payment_failed: ['objectLabel', 'customerGreeting', 'tourLinkHtml', 'tourLinkText', 'termEndFormatted', 'portalUrl', 'portalLinkHtml', 'portalLinkText'],
+        payment_confirmed: [
+          'objectLabel', 'objectAddress', 'objectAddressHtmlLine', 'objectAddressTextLine',
+          'customerGreeting', 'tourLinkHtml', 'tourLinkText', 'termEndFormatted', 'portalUrl', 'portalLinkHtml', 'portalLinkText',
+        ],
+        expiry_reminder: [
+          'objectLabel', 'objectAddress', 'objectAddressHtmlLine', 'objectAddressTextLine',
+          'customerGreeting', 'tourLinkHtml', 'tourLinkText', 'termEndFormatted', 'portalUrl', 'portalLinkHtml', 'portalLinkText',
+        ],
+        extension_confirmed: [
+          'objectLabel', 'objectAddress', 'objectAddressHtmlLine', 'objectAddressTextLine',
+          'customerGreeting', 'tourLinkHtml', 'tourLinkText', 'termEndFormatted', 'portalUrl', 'portalLinkHtml', 'portalLinkText',
+        ],
+        reactivation_confirmed: [
+          'objectLabel', 'objectAddress', 'objectAddressHtmlLine', 'objectAddressTextLine',
+          'customerGreeting', 'tourLinkHtml', 'tourLinkText', 'termEndFormatted', 'portalUrl', 'portalLinkHtml', 'portalLinkText',
+        ],
+        archive_notice: [
+          'objectLabel', 'objectAddress', 'objectAddressHtmlLine', 'objectAddressTextLine',
+          'customerGreeting', 'portalUrl', 'portalLinkHtml', 'portalLinkText',
+        ],
+        payment_failed: [
+          'objectLabel', 'objectAddress', 'objectAddressHtmlLine', 'objectAddressTextLine',
+          'customerGreeting', 'tourLinkHtml', 'tourLinkText', 'termEndFormatted', 'portalUrl', 'portalLinkHtml', 'portalLinkText',
+        ],
+        portal_invoice_sent: [
+          'objectLabel', 'objectAddress', 'objectAddressHtmlLine', 'objectAddressTextLine',
+          'customerGreeting', 'actionLabel', 'amountCHF', 'dueDateFormatted',
+          'tourLinkHtml', 'tourLinkText', 'portalUrl', 'portalLinkHtml', 'portalLinkText',
+        ],
+        invoice_overdue_reminder: [
+          'objectLabel', 'objectAddress', 'objectAddressHtmlLine', 'objectAddressTextLine',
+          'customerGreeting', 'amountCHF', 'reactivationPriceCHF', 'dueDateFormatted',
+          'tourLinkHtml', 'tourLinkText', 'portalLinkHtml', 'portalLinkText',
+        ],
+        cleanup_review_request: [
+          'objectLabel', 'objectAddress', 'objectAddressHtmlLine', 'objectAddressTextLine',
+          'customerGreeting', 'tourLinkHtml', 'tourLinkText', 'portalUrl', 'portalLinkHtml', 'portalLinkText',
+          'createdAt', 'termEndFormatted', 'archivedAt', 'statusLabel', 'statusContextHtml', 'statusContextText',
+          'weiterfuehrenHint', 'weiterfuehrenUrl', 'archivierenUrl', 'uebertragungUrl', 'loeschenUrl',
+        ],
         team_invite: ['inviteLink', 'invitedByEmail', 'appName'],
       },
     });

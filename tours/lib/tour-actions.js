@@ -3,6 +3,7 @@ const { pool } = require('./db');
 const { logAction } = require('./actions');
 const statusMachine = require('./status-machine');
 const matterport = require('./matterport');
+const { resolveTourAddress } = require('./tour-matterport-address');
 const { generateToken, hashToken } = require('./tokens');
 const { getMatterportId } = require('./normalize');
 const nodemailer = require('nodemailer');
@@ -151,10 +152,23 @@ function resolveTemplateContent(templateKey, placeholders) {
     const htmlRaw = template.html || defaultTemplate.html || '';
     const textRaw = template.text || defaultTemplate.text || '';
     const subject = mergeTemplate(subjectRaw, placeholders).trim();
-    const html = mergeTemplate(htmlRaw, placeholders, { htmlMode: true, safeKeys: ['tourLinkHtml', 'portalLinkHtml'] }).trim();
+    const html = mergeTemplate(htmlRaw, placeholders, {
+      htmlMode: true,
+      safeKeys: ['tourLinkHtml', 'portalLinkHtml', 'objectAddressHtmlLine'],
+    }).trim();
     const text = mergeTemplate(textRaw, placeholders).trim() || fallbackTextFromHtml(html);
     return { subject, html, text };
   });
+}
+
+/** Platzhalter für Matterport-Objektadresse (HTML/Text-Fragmente sind bereits escaped wo nötig). */
+async function buildAddressPlaceholders(tour) {
+  const objectAddress = await resolveTourAddress(tour);
+  return {
+    objectAddress,
+    objectAddressHtmlLine: objectAddress ? `<br>${escapeHtml(objectAddress)}` : '',
+    objectAddressTextLine: objectAddress ? `\n${objectAddress}` : '',
+  };
 }
 
 async function buildRenewalEmailContent(tour, options = {}) {
@@ -168,8 +182,10 @@ async function buildRenewalEmailContent(tour, options = {}) {
     ? `<strong>Virtueller Rundgang:</strong> <a href="${escapeHtml(tourLink)}">${escapeHtml(tourLink)}</a><br>`
     : '';
   const portalUrl = getPortalUrl();
+  const addr = await buildAddressPlaceholders(tour);
   const placeholders = {
     objectLabel,
+    ...addr,
     customerGreeting,
     tourLinkHtml,
     tourLinkText: tourLink ? `Virtueller Rundgang: ${tourLink}` : '',
@@ -194,8 +210,10 @@ async function buildPaymentConfirmedEmailContent(tour, options) {
     ? `<br><strong>Virtueller Rundgang:</strong> <a href="${escapeHtml(tourLink)}">${escapeHtml(tourLink)}</a>`
     : '';
   const portalUrl = getPortalUrl();
+  const addr = await buildAddressPlaceholders(tour);
   const placeholders = {
     objectLabel,
+    ...addr,
     customerGreeting,
     tourLinkHtml,
     tourLinkText: tourLink ? `Virtueller Rundgang: ${tourLink}` : '',
@@ -524,8 +542,10 @@ async function buildArchiveNoticeEmailContent(tour) {
   const objectLabel = tour.object_label || tour.bezeichnung || tour.canonical_object_label || `Tour ${tour.id}`;
   const customerGreeting = tour.customer_contact ? `Guten Tag ${tour.customer_contact},` : 'Guten Tag,';
   const portalUrl = getPortalUrl();
+  const addr = await buildAddressPlaceholders(tour);
   const placeholders = {
     objectLabel,
+    ...addr,
     customerGreeting,
     portalUrl,
     portalLinkHtml: `<a href="${escapeHtml(portalUrl)}">Meine Touren verwalten</a>`,
@@ -621,8 +641,10 @@ async function sendInvoiceWithQrEmail(tourId, invoiceId) {
   const magicLink = await createPortalMagicLink(recipientEmail, { returnTo: '/portal/invoices', sessionDays: 30 });
   const effectivePortalUrl = magicLink || portalUrl;
 
+  const addr = await buildAddressPlaceholders(t);
   const content = await resolveTemplateContent('portal_invoice_sent', {
     objectLabel,
+    ...addr,
     customerGreeting,
     actionLabel,
     amountCHF,
@@ -733,9 +755,18 @@ async function sendInvoiceOverdueReminderEmail(tourId, invoiceId) {
   const tourLinkHtml = tourUrl ? `<a href="${tourUrl}" style="color:#4b5563;">${objectLabel}</a>` : objectLabel;
   const tourLinkText = tourUrl ? `${objectLabel}: ${tourUrl}` : objectLabel;
 
+  const addr = await buildAddressPlaceholders(t);
   const content = await resolveTemplateContent('invoice_overdue_reminder', {
-    objectLabel, customerGreeting, amountCHF, reactivationPriceCHF, dueDateFormatted,
-    tourLinkHtml, tourLinkText, portalLinkHtml, portalLinkText,
+    objectLabel,
+    ...addr,
+    customerGreeting,
+    amountCHF,
+    reactivationPriceCHF,
+    dueDateFormatted,
+    tourLinkHtml,
+    tourLinkText,
+    portalLinkHtml,
+    portalLinkText,
   });
 
   let mailResult = await sendGraphMailToCustomer(t, content);

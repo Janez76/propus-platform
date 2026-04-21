@@ -21,6 +21,7 @@ const { getEmailTemplates, DEFAULT_EMAIL_TEMPLATES } = require('./settings');
 const tourActions = require('./tour-actions');
 const { sendGraphMailToCustomer, ensureOutgoingEmailSchema } = tourActions;
 const { EXTENSION_PRICE_CHF, REACTIVATION_PRICE_CHF, REACTIVATION_FEE_CHF } = require('./subscriptions');
+const { resolveTourAddress } = require('./tour-matterport-address');
 
 // ─── Hilfsfunktionen ─────────────────────────────────────────────────────────
 
@@ -423,8 +424,15 @@ async function buildCleanupEmailContent(tour, tokens, options = {}) {
     ? `<strong>Virtueller Rundgang:</strong> <a href="${escapeHtml(tourLink)}">${escapeHtml(tourLink)}</a><br>`
     : '';
 
+  const objectAddress = await resolveTourAddress(tour);
+  const objectAddressHtmlLine = objectAddress ? `<br>${escapeHtml(objectAddress)}` : '';
+  const objectAddressTextLine = objectAddress ? `\n${objectAddress}` : '';
+
   const placeholders = {
     objectLabel,
+    objectAddress,
+    objectAddressHtmlLine,
+    objectAddressTextLine,
     customerGreeting,
     tourLinkHtml,
     tourLinkText: tourLink ? `Virtueller Rundgang: ${tourLink}` : '',
@@ -451,7 +459,7 @@ async function buildCleanupEmailContent(tour, tokens, options = {}) {
   const htmlRaw = tpl.html || '';
   const textRaw = tpl.text || '';
 
-  const safeKeys = ['tourLinkHtml', 'portalLinkHtml', 'statusContextHtml'];
+  const safeKeys = ['tourLinkHtml', 'portalLinkHtml', 'statusContextHtml', 'objectAddressHtmlLine'];
   const subject = mergeTemplate(subjectRaw, placeholders).trim();
   const html = mergeTemplate(htmlRaw, placeholders, { htmlMode: true, safeKeys }).trim();
   const text = mergeTemplate(textRaw, placeholders).trim();

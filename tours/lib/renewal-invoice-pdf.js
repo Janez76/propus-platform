@@ -4,8 +4,8 @@
  */
 
 const { pool } = require('./db');
-const matterport = require('./matterport');
 const { normalizeTourRow } = require('./normalize');
+const { enrichTourWithMatterportPublication } = require('./tour-matterport-address');
 const {
   EXTENSION_PRICE_CHF,
   REACTIVATION_PRICE_CHF,
@@ -31,11 +31,7 @@ async function loadInvoiceAndTour(tourId, invoiceId) {
     const tourRaw = tourResult.rows[0];
     if (!tourRaw) return { error: 'Tour nicht gefunden.' };
     tour = normalizeTourRow(tourRaw);
-    if (tour.canonical_matterport_space_id) {
-      const { model } = await matterport.getModel(tour.canonical_matterport_space_id).catch(() => ({ model: null }));
-      if (model?.publication?.url && !tour.tour_url) tour.tour_url = model.publication.url;
-      if (model?.publication?.address) tour.object_address = model.publication.address;
-    }
+    await enrichTourWithMatterportPublication(tour);
   }
 
   const invQuery = tourId
@@ -52,11 +48,7 @@ async function loadInvoiceAndTour(tourId, invoiceId) {
     );
     if (tourResult.rows[0]) {
       tour = normalizeTourRow(tourResult.rows[0]);
-      if (tour.canonical_matterport_space_id) {
-        const { model } = await matterport.getModel(tour.canonical_matterport_space_id).catch(() => ({ model: null }));
-        if (model?.publication?.url && !tour.tour_url) tour.tour_url = model.publication.url;
-        if (model?.publication?.address) tour.object_address = model.publication.address;
-      }
+      await enrichTourWithMatterportPublication(tour);
     }
   }
 
@@ -510,21 +502,27 @@ async function streamRenewalInvoicePdf(res, tourId, invoiceId) {
 }
 
 async function generateInvoicePdfBuffer(invoice, tour) {
+  let t = tour;
+  if (t) {
+    t = normalizeTourRow({ ...t });
+    await enrichTourWithMatterportPublication(t);
+  }
+
   const paymentContext = await qrBill.buildInvoicePaymentContext(
     { ...invoice, amount_chf: Number(invoice.amount_chf || 0) },
-    tour || {},
+    t || {},
   );
 
   let payrexxUrl = null;
-  if (tour) {
+  if (t) {
     try {
-      payrexxUrl = await payrexx.ensureRenewalInvoiceCheckoutUrl(pool, invoice, tour);
+      payrexxUrl = await payrexx.ensureRenewalInvoiceCheckoutUrl(pool, invoice, t);
     } catch (e) {
       console.warn('ensureRenewalInvoiceCheckoutUrl (buffer):', e.message);
     }
   }
 
-  const ctx = buildInvoiceContext(invoice, tour, paymentContext);
+  const ctx = buildInvoiceContext(invoice, t, paymentContext);
 
   const PDFDocument = require('pdfkit');
   const { SwissQRBill } = require('swissqrbill/pdf');
