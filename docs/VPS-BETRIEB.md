@@ -289,9 +289,10 @@ Aktuelle Ingress-Regeln:
 ### Cache purgen
 
 ```bash
-curl -X POST "https://api.cloudflare.com/client/v4/zones/705b4ad4994d062aada5c5432044d9cb/purge_cache" \
-  -H "X-Auth-Email: js@propus.ch" \
-  -H "X-Auth-Key: 6521f97f602256db7891475518d0d7b6c646e" \
+# Zugangsdaten: CLOUDFLARE_AUTH_EMAIL + CLOUDFLARE_AUTH_KEY (Global API Key) oder API-Token
+curl -X POST "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/purge_cache" \
+  -H "X-Auth-Email: ${CLOUDFLARE_AUTH_EMAIL}" \
+  -H "X-Auth-Key: ${CLOUDFLARE_AUTH_KEY}" \
   -H "Content-Type: application/json" \
   --data '{"purge_everything":true}'
 ```
