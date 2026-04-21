@@ -1929,6 +1929,8 @@
   "booking.step1.houseNumberHint": "Prima selezionare la via",
   "booking.step1.zip": "CAP",
   "booking.step1.zipMissingHint": "Si prega di aggiungere il CAP.",
+  "booking.step1.zipAutoPlaceholder": "Compilato automaticamente",
+  "booking.step1.cityAutoPlaceholder": "Compilato automaticamente",
   "booking.step1.city": "Località",
   "booking.step1.addressSuffix": "Complemento indirizzo",
   "booking.step1.addressSuffixPlaceholder": "es. c/o Rossi, 4° piano",

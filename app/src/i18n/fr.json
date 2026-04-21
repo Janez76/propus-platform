@@ -1929,6 +1929,8 @@
   "booking.step1.houseNumberHint": "Sélectionnez d'abord la rue",
   "booking.step1.zip": "NPA",
   "booking.step1.zipMissingHint": "Veuillez ajouter le NPA.",
+  "booking.step1.zipAutoPlaceholder": "Rempli automatiquement",
+  "booking.step1.cityAutoPlaceholder": "Rempli automatiquement",
   "booking.step1.city": "Localité",
   "booking.step1.addressSuffix": "Complément d'adresse",
   "booking.step1.addressSuffixPlaceholder": "p.ex. c/o Dupont, 4e étage",

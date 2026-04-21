@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import { MapPin, Home, Ruler, Layers, DoorOpen, Plus, Trash2 } from "lucide-react";
 import { randomUUID } from "../../lib/selekto/randomId";
 import { AddressAutocompleteInput, type ParsedAddress, type StreetContext } from "../../components/ui/AddressAutocompleteInput";
-import { ZipCitySuggestInput, type ZipCityPair } from "../../components/ui/ZipCitySuggestInput";
 import { useBookingWizardStore, type OnsiteContactRow } from "../../store/bookingWizardStore";
 import { AddressPreviewMap } from "./AddressPreviewMap";
 import { t, type Lang } from "../../i18n";
@@ -152,28 +151,6 @@ export function StepLocation({ lang }: { lang: Lang }) {
     setCoords({ lat, lng: lon });
   }, [setCoords]);
 
-  const onPickZipCity = useCallback((p: ZipCityPair) => {
-    // Bidirektionales PLZ↔Ort Autocomplete: Auswahl aus Vorschlagsliste setzt
-    // beide Felder gleichzeitig + Kanton + frischen Travel-Zone-Lookup. Lat/Lng
-    // bleiben null — der Ort-Centroid wuerde den Marker auf falsche Stelle setzen,
-    // sobald Strasse + Hausnummer fertig validiert sind, kommen echte Coords.
-    setObjectAddress({ zip: p.zip, city: p.city, canton: p.canton || "", lat: null, lng: null });
-    setCoords(null);
-    cantonRef.current = p.canton || "";
-    prevZipRef.current = "";
-    setParsedAddress({
-      street: streetValue,
-      houseNumber: parsedAddress?.houseNumber ?? "",
-      zip: p.zip,
-      city: p.city,
-    });
-    const zipCityLine = [p.zip, p.city].filter(Boolean).join(" ");
-    const line1 = [streetValue, houseNumberValue].filter(Boolean).join(" ").trim();
-    setAddress(zipCityLine ? `${line1}, ${zipCityLine}` : line1);
-    if (p.zip) lookupTravelZone(p.canton || "", p.zip);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setObjectAddress, setCoords, setParsedAddress, setAddress, streetValue, houseNumberValue, parsedAddress?.houseNumber]);
-
   const onSelectHouseNumber = useCallback((payload: { houseNumber: string; lat: number | null; lng: number | null }) => {
     setObjectAddress({ houseNumber: payload.houseNumber, lat: payload.lat, lng: payload.lng });
     const addr = useBookingWizardStore.getState().object.address;
@@ -247,41 +224,21 @@ export function StepLocation({ lang }: { lang: Lang }) {
               />
             )}
           </div>
-          {/* PLZ */}
+          {/* PLZ — readonly, wird automatisch aus Strassen-/Hausnummer-Auswahl gesetzt */}
           <div>
             <label className={labelClass}>
               {t(lang, "booking.step1.zip")}
               {zipMissing ? <span className="text-red-500"> *</span> : null}
             </label>
-            <ZipCitySuggestInput
+            <input
               data-testid="booking-input-zip"
-              mode="zip"
+              type="text"
               value={zipValue}
-              onChange={(v) => {
-                // Free-Text-Edit: Bug-B-Safeguard — canton/coords entwerten,
-                // damit Travel-Zone nicht auf alten Geo-Daten basiert.
-                setObjectAddress({ zip: v, canton: "", lat: null, lng: null });
-                setCoords(null);
-                cantonRef.current = "";
-                prevZipRef.current = "";
-                setParsedAddress({
-                  street: streetValue,
-                  houseNumber: parsedAddress?.houseNumber ?? "",
-                  zip: v,
-                  city: cityValue,
-                });
-                const zipCityLine = [v, cityValue].filter(Boolean).join(" ");
-                const line1 = [streetValue, houseNumberValue].filter(Boolean).join(" ").trim();
-                setAddress(zipCityLine ? `${line1}, ${zipCityLine}` : line1);
-              }}
-              onSelectPair={onPickZipCity}
-              lang={lang}
-              sessionToken={sessionTokenRef.current}
-              className={inputClass}
-              placeholder="z. B. 8050"
-              inputMode="numeric"
-              autoComplete="postal-code"
-              maxLength={10}
+              readOnly
+              tabIndex={-1}
+              className={cn(inputClass, "cursor-not-allowed opacity-75")}
+              placeholder={t(lang, "booking.step1.zipAutoPlaceholder")}
+              aria-readonly="true"
             />
             {zipMissing ? (
               <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
@@ -289,33 +246,18 @@ export function StepLocation({ lang }: { lang: Lang }) {
               </p>
             ) : null}
           </div>
-          {/* Ort */}
+          {/* Ort — readonly, wird automatisch aus Strassen-/Hausnummer-Auswahl gesetzt */}
           <div className="sm:col-span-2">
             <label className={labelClass}>{t(lang, "booking.step1.city")}</label>
-            <ZipCitySuggestInput
+            <input
               data-testid="booking-input-city"
-              mode="city"
+              type="text"
               value={cityValue}
-              onChange={(v) => {
-                setObjectAddress({ city: v, canton: "", lat: null, lng: null });
-                setCoords(null);
-                cantonRef.current = "";
-                setParsedAddress({
-                  street: streetValue,
-                  houseNumber: parsedAddress?.houseNumber ?? "",
-                  zip: zipValue,
-                  city: v,
-                });
-                const zipCityLine = [zipValue, v].filter(Boolean).join(" ");
-                const line1 = [streetValue, houseNumberValue].filter(Boolean).join(" ").trim();
-                setAddress(zipCityLine ? `${line1}, ${zipCityLine}` : line1);
-              }}
-              onSelectPair={onPickZipCity}
-              lang={lang}
-              sessionToken={sessionTokenRef.current}
-              className={inputClass}
-              placeholder="z. B. Zürich"
-              autoComplete="address-level2"
+              readOnly
+              tabIndex={-1}
+              className={cn(inputClass, "cursor-not-allowed opacity-75")}
+              placeholder={t(lang, "booking.step1.cityAutoPlaceholder")}
+              aria-readonly="true"
             />
           </div>
         </div>
