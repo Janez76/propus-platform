@@ -1,13 +1,11 @@
 ﻿import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { motion, useInView } from "framer-motion";
-import { ArrowRight, ChevronLeft, ChevronRight, ChevronDown, LogIn, Star } from "lucide-react";
-import { useAuthStore } from "../../store/authStore";
+import { ArrowRight, ChevronLeft, ChevronRight, ChevronDown, Star } from "lucide-react";
 import { t, type Lang } from "../../i18n";
 import { apiRequest } from "../../api/client";
 import type { CatalogAddon, CatalogCategory, CatalogData } from "../../api/bookingPublic";
-import { bookingBrandLogoUrl, bookingPublicAssetUrl } from "../../lib/bookingAssets";
-import { BookingThemeToggle } from "./BookingThemeToggle";
-import { BookingLangSelect } from "./BookingLangSelect";
+import { bookingPublicAssetUrl } from "../../lib/bookingAssets";
+import { BookingPublicHeader } from "./BookingPublicHeader";
 import { BookingPublicFooter } from "./BookingPublicFooter";
 
 type Review = { author: string; rating: number; text: string; relativeTime?: string };
@@ -174,7 +172,6 @@ function PriceListCategory({ category, addons, defaultOpen, lang }: { category: 
 type TravelZone = { zone: string; productCode: string; price: number; label: string; description: string; cantons: string[] };
 
 export function LandingPage({ lang, onLangChange, onStart }: LandingPageProps) {
-  const isLoggedIn = Boolean(useAuthStore((s) => s.token));
   const [catalog, setCatalog] = useState<CatalogData | null>(null);
   const [travelZones, setTravelZones] = useState<TravelZone[]>([]);
   const [reviews, setReviews] = useState<Review[]>([FALLBACK_REVIEW]);
@@ -262,37 +259,12 @@ export function LandingPage({ lang, onLangChange, onStart }: LandingPageProps) {
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[var(--bg-classic)] text-[var(--text-main)] transition-colors">
-      {/* Nav */}
-      <nav className="sticky top-0 z-50 flex items-center justify-between gap-3 border-b border-[var(--border-soft)]/80 bg-[var(--surface)]/90 px-6 py-4 shadow-sm backdrop-blur-xl sm:px-10">
-        <img
-          src={bookingBrandLogoUrl()}
-          alt="Propus"
-          className="h-9 w-auto object-contain"
-          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-        />
-        <div className="flex items-center gap-2 sm:gap-3">
-          <BookingThemeToggle lang={lang} />
-          {onLangChange ? <BookingLangSelect lang={lang} onChange={onLangChange} /> : null}
-          {!isLoggedIn && (
-            <a
-              href="/login?returnTo=/book"
-              className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-xs font-medium text-[var(--text-muted)] transition-colors hover:text-[var(--accent)] hover:border-[var(--accent)]"
-            >
-              <LogIn className="h-3.5 w-3.5" />
-              {t(lang, "booking.step4.loginButton")}
-            </a>
-          )}
-          <button
-            type="button"
-            data-testid="booking-landing-start"
-            onClick={onStart}
-            className="inline-flex items-center gap-2 rounded-full bg-gradient-to-br from-[var(--accent)] to-[#b08f4a] px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-[var(--accent)]/30 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[var(--accent)]/40 sm:px-5"
-          >
-            {t(lang, "landing.nav.cta")}
-            <ArrowRight className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      </nav>
+      <BookingPublicHeader
+        lang={lang}
+        onLangChange={onLangChange}
+        variant="landing"
+        cta={{ label: t(lang, "landing.nav.cta"), onClick: onStart, testId: "booking-landing-start" }}
+      />
 
       {/* Hero */}
       <section className="relative flex min-h-[92vh] flex-col items-center justify-center px-6 py-28 text-center">

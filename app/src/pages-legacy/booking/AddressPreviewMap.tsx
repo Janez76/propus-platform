@@ -76,6 +76,8 @@ type AddressPreviewMapProps = {
   apiKey: string;
   address: string;
   coords: { lat: number; lng: number } | null;
+  /** Wenn gesetzt, wird der Pin draggable und ruft bei dragend den Callback mit neuen Koordinaten. */
+  onCoordsChange?: (coords: { lat: number; lng: number }) => void;
   className?: string;
   lang?: Lang;
 };
@@ -83,7 +85,7 @@ type AddressPreviewMapProps = {
 type LoadState = "idle" | "loading" | "ready" | "error";
 type GeoState = "idle" | "geocoding" | "found" | "notFound";
 
-export function AddressPreviewMap({ apiKey, address, coords, className, lang = "de" }: AddressPreviewMapProps) {
+export function AddressPreviewMap({ apiKey, address, coords, onCoordsChange, className, lang = "de" }: AddressPreviewMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<MapsApi | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -145,7 +147,20 @@ export function AddressPreviewMap({ apiKey, address, coords, className, lang = "
 
     const placeMarker = (pos: google.maps.LatLngLiteral) => {
       if (!markerRef.current) {
-        markerRef.current = new api.Marker({ map, position: pos });
+        markerRef.current = new api.Marker({
+          map,
+          position: pos,
+          draggable: Boolean(onCoordsChange),
+          cursor: onCoordsChange ? "grab" : undefined,
+          title: onCoordsChange ? t(lang, "booking.step1.mapDragHint") : undefined,
+        });
+        if (onCoordsChange) {
+          markerRef.current.addListener("dragend", () => {
+            const p = markerRef.current?.getPosition();
+            if (!p) return;
+            onCoordsChange({ lat: p.lat(), lng: p.lng() });
+          });
+        }
       } else {
         markerRef.current.setPosition(pos);
         markerRef.current.setMap(map);
@@ -205,7 +220,7 @@ export function AddressPreviewMap({ apiKey, address, coords, className, lang = "
     <div
       className={cn(
         "relative mt-3 w-full overflow-hidden rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)]",
-        "h-44 min-h-[11rem] max-h-[13rem]",
+        "h-64 sm:h-72 min-h-[16rem] max-h-[18rem]",
         className,
       )}
     >

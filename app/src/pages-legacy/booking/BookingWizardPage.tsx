@@ -1,6 +1,6 @@
 import { useEffect, useCallback, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, ArrowRight, LogIn, Loader2, Send } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, Send } from "lucide-react";
 import { useBookingWizardStore } from "../../store/bookingWizardStore";
 import { fetchConfig, fetchCatalog, fetchPhotographers, submitBooking, type BookingPayload } from "../../api/bookingPublic";
 import { useCatalogSync } from "../../lib/useCatalogSync";
@@ -13,13 +13,10 @@ import { StepSchedule } from "./StepSchedule";
 import { StepBilling } from "./StepBilling";
 import { SummaryPanel } from "./SummaryPanel";
 import { ThankYouScreen } from "./ThankYouScreen";
-import { useAuthStore } from "../../store/authStore";
 import { t, type Lang } from "../../i18n";
 import { bookingPhotographerForPayload } from "../../lib/bookingLabels";
 import { cn } from "../../lib/utils";
-import { bookingBrandLogoUrl } from "../../lib/bookingAssets";
-import { BookingThemeToggle } from "./BookingThemeToggle";
-import { BookingLangSelect } from "./BookingLangSelect";
+import { BookingPublicHeader } from "./BookingPublicHeader";
 import { BookingPublicFooter } from "./BookingPublicFooter";
 
 const STEPS = [
@@ -29,6 +26,48 @@ const STEPS = [
   { id: 4, titleKey: "booking.step4.title", descKey: "booking.step4.desc" },
 ];
 
+/** Step-Indikatoren als eigenständiger Sub-Component für den Header-Slot. */
+function StepIndicators({
+  step,
+  stepValidity,
+  lang,
+  onStepClick,
+}: {
+  step: number;
+  stepValidity: Record<number, boolean>;
+  lang: Lang;
+  onStepClick: (id: number) => void;
+}) {
+  return (
+    <div className="flex gap-1.5">
+      {STEPS.map((s) => {
+        const isActive = step === s.id;
+        const isPassed = step > s.id;
+        const isValid = stepValidity[s.id];
+        const passedButInvalid = isPassed && !isValid;
+        return (
+          <button
+            key={s.id}
+            type="button"
+            onClick={() => { if (s.id < step) onStepClick(s.id); }}
+            title={passedButInvalid ? t(lang, "booking.stepper.needsAttention") : undefined}
+            aria-label={passedButInvalid ? `${s.id} — ${t(lang, "booking.stepper.needsAttention")}` : String(s.id)}
+            className={cn(
+              "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all",
+              isActive && "bg-[var(--accent)] text-white shadow-md",
+              !isActive && isPassed && isValid && "bg-[var(--accent)]/20 text-[var(--accent)] cursor-pointer hover:bg-[var(--accent)]/30",
+              !isActive && passedButInvalid && "bg-amber-500/20 text-amber-600 dark:text-amber-400 cursor-pointer hover:bg-amber-500/30 ring-1 ring-amber-500/40",
+              !isActive && !isPassed && "bg-[var(--surface-raised)] text-[var(--text-subtle)]",
+            )}
+          >
+            {s.id}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function BookingWizardPage() {
   const store = useBookingWizardStore();
   const {
@@ -37,7 +76,6 @@ export function BookingWizardPage() {
     selectedPackage, addons, photographer, date, time, billing, altBilling, agbAccepted,
     address, coords, object, discount, provisional, keyPickup,
   } = store;
-  const isLoggedIn = Boolean(useAuthStore((s) => s.token));
 
   const [showLanding, setShowLanding] = useState(true);
   const [lang, setLang] = useState<Lang>(() => {
@@ -293,6 +331,7 @@ export function BookingWizardPage() {
   if (submitted) {
     return (
       <div data-testid="booking-thank-you-root" className="flex min-h-screen flex-col bg-gradient-to-b from-zinc-50 to-zinc-100 dark:from-zinc-950 dark:to-zinc-900">
+        <BookingPublicHeader lang={lang} onLangChange={changeLang} variant="app" />
         <div className="flex-1">
           <ThankYouScreen lang={lang} />
         </div>
@@ -304,6 +343,7 @@ export function BookingWizardPage() {
   if (configLoading) {
     return (
       <div data-testid="booking-wizard-loading" className="flex min-h-screen flex-col bg-gradient-to-b from-zinc-50 to-zinc-100 dark:from-zinc-950 dark:to-zinc-900">
+        <BookingPublicHeader lang={lang} onLangChange={changeLang} variant="app" />
         <div className="flex flex-1 items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-[var(--accent)]" />
         </div>
@@ -314,54 +354,20 @@ export function BookingWizardPage() {
 
   return (
     <div data-testid="booking-wizard" className="flex min-h-screen flex-col bg-gradient-to-b from-zinc-50 to-zinc-100 dark:from-zinc-950 dark:to-zinc-900">
-      {/* Header */}
-      <header className="border-b border-[var(--border-soft)] bg-[var(--surface)]/90 px-4 py-4 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <img src={bookingBrandLogoUrl()} alt="Propus" className="h-7" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-            <h1 className="font-display text-xl font-semibold text-[var(--text-main)]">{t(lang, "booking.title")}</h1>
-          </div>
-          <div className="flex items-center gap-3">
-            <BookingThemeToggle lang={lang} />
-            <BookingLangSelect lang={lang} onChange={changeLang} />
-            {!isLoggedIn && (
-              <a
-                href={`/login?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`}
-                className="hidden sm:flex items-center gap-1.5 rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] transition-colors hover:text-[var(--accent)] hover:border-[var(--accent)]"
-              >
-                <LogIn className="h-3.5 w-3.5" />
-                {t(lang, "booking.step4.loginButton")}
-              </a>
-            )}
-            <div className="flex gap-1.5">
-              {STEPS.map((s) => {
-                const isActive = step === s.id;
-                const isPassed = step > s.id;
-                const isValid = stepValidity[s.id];
-                const passedButInvalid = isPassed && !isValid;
-                return (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => { if (s.id < step) { setStep(s.id); setErrors([]); } }}
-                    title={passedButInvalid ? t(lang, "booking.stepper.needsAttention") : undefined}
-                    aria-label={passedButInvalid ? `${s.id} — ${t(lang, "booking.stepper.needsAttention")}` : String(s.id)}
-                    className={cn(
-                      "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all",
-                      isActive && "bg-[var(--accent)] text-white shadow-md",
-                      !isActive && isPassed && isValid && "bg-[var(--accent)]/20 text-[var(--accent)] cursor-pointer hover:bg-[var(--accent)]/30",
-                      !isActive && passedButInvalid && "bg-amber-500/20 text-amber-600 dark:text-amber-400 cursor-pointer hover:bg-amber-500/30 ring-1 ring-amber-500/40",
-                      !isActive && !isPassed && "bg-[var(--surface-raised)] text-[var(--text-subtle)]",
-                    )}
-                  >
-                    {s.id}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </header>
+      <BookingPublicHeader
+        lang={lang}
+        onLangChange={changeLang}
+        variant="app"
+        title={t(lang, "booking.title")}
+        progress={
+          <StepIndicators
+            step={step}
+            stepValidity={stepValidity}
+            lang={lang}
+            onStepClick={(id) => { setStep(id); setErrors([]); }}
+          />
+        }
+      />
 
       {/* Mobile Summary */}
       <SummaryPanel

@@ -48,6 +48,7 @@ type AddressAutocompleteInputProps = Omit<
   /**
    * "combined"    — ein Freitextfeld (Strasse + PLZ/Ort), z.B. für homeAddress oder Objekt-Adresse.
    * "street"      — Strassenfeld; bei Auswahl wird onSelectZipcity mit PLZ/Ort aufgerufen.
+   *                 Zeigt nur Strassennamen (keine Hausnummer) in Ghost und Dropdown.
    * "houseNumber" — Cascading-Autocomplete: schlägt nur Hausnummern der via streetContext
    *                 gewählten Strasse vor. Schreibt über onSelectHouseNumber nur die Nummer
    *                 zurück, Strasse/PLZ/Ort bleiben unberührt.
@@ -192,6 +193,12 @@ function compareHouseNumbers(a: string, b: string): number {
   return a.localeCompare(b, "de", { sensitivity: "base" });
 }
 
+/** Baut einen einzeiligen Anzeigetext aus Strassenname und PLZ/Ort. */
+function buildSingleLineLabel(street: string, zip: string, city: string): string {
+  const loc = [zip, city].filter(Boolean).join(" ");
+  return loc ? `${street} · ${loc}` : street;
+}
+
 export function AddressAutocompleteInput({
   value,
   onChange,
@@ -219,6 +226,8 @@ export function AddressAutocompleteInput({
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Nach einer Auswahl Dropdown unterdrücken bis zum nächsten echten Tipp.
+  const suppressUntilEditRef = useRef(false);
 
   const [suggestions, setSuggestions] = useState<AddressResult[]>([]);
   const [open, setOpen] = useState(false);
@@ -228,6 +237,7 @@ export function AddressAutocompleteInput({
   const [selectError, setSelectError] = useState("");
 
   const isHouseNumberMode = mode === "houseNumber";
+  const isStreetMode = mode === "street";
   // Hausnummer-Mode: schon ab 1 Zeichen suchen; sonst Default 3.
   const effectiveMinChars = minChars ?? (isHouseNumberMode ? 1 : 3);
 
@@ -253,7 +263,29 @@ export function AddressAutocompleteInput({
     return out.slice(0, 10);
   }, [isHouseNumberMode, suggestions, streetContext?.street]);
 
-  const activeSuggestions = isHouseNumberMode ? houseNumberSuggestions : suggestions;
+  // Street-Mode: Strassennamen deduplizieren (je Strasse+PLZ+Ort einen Eintrag, ohne Hausnummer).
+  const streetOnlySuggestions = useMemo(() => {
+    if (!isStreetMode) return suggestions;
+    const seen = new Set<string>();
+    const out: AddressResult[] = [];
+    for (const r of suggestions) {
+      const key = [
+        normalizeStreetName(r.street || r.main || ""),
+        (r.zip || "").trim(),
+        (r.city || "").trim(),
+      ].join("|");
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      out.push({ ...r, houseNumber: "" });
+    }
+    return out.slice(0, 3);
+  }, [isStreetMode, suggestions]);
+
+  const activeSuggestions = isHouseNumberMode
+    ? houseNumberSuggestions
+    : isStreetMode
+    ? streetOnlySuggestions
+    : suggestions.slice(0, 3);
 
   // Per Dropdown explizit ausgewaehlte Hausnummern. Wird bei Strassenwechsel
   // zurueckgesetzt. Kombiniert mit den aktuellen Vorschlaegen ergibt das die
@@ -282,8 +314,44 @@ export function AddressAutocompleteInput({
     !isLoading &&
     !validatedHnSet.has(trimmedValue.toLowerCase());
 
+  // Ghost-Completion: bester Vorschlag wenn der getippte Text ein Prefix ist.
+  const ghostSuffix = useMemo(() => {
+    if (!activeSuggestions.length || isHouseNumberMode) return "";
+    const top = activeSuggestions[0];
+    const ghostBase = isStreetMode
+      ? (top.street || top.main || "")
+      : (top.main || "");
+    if (!ghostBase) return "";
+    const norm = normalizeStreetName(ghostBase);
+    const normValue = normalizeStreetName(value);
+    if (!normValue || !norm.startsWith(normValue)) return "";
+    // Suffix = der Teil des Originals hinter dem getippten Wert (case-preserving).
+    if (ghostBase.toLowerCase().startsWith(value.toLowerCase())) {
+      return ghostBase.slice(value.length);
+    }
+    return "";
+  }, [activeSuggestions, value, isHouseNumberMode, isStreetMode]);
+
+  // hasDistinctLocations: Dropdown erscheint im street/combined-Mode nur wenn
+  // mehrere Vorschläge unterschiedliche Orte haben (Ghost reicht sonst).
+  const hasDistinctLocations = useMemo(() => {
+    if (isHouseNumberMode) return activeSuggestions.length > 0;
+    if (activeSuggestions.length <= 1) return false;
+    const locs = new Set(activeSuggestions.slice(0, 4).map((r) => `${r.zip ?? ""}|${r.city ?? ""}`));
+    return locs.size > 1;
+  }, [activeSuggestions, isHouseNumberMode]);
+
   useEffect(() => {
     const query = value.trim();
+
+    // Nach einer Auswahl: keine neue Suche bis zum nächsten echten Tipp.
+    if (suppressUntilEditRef.current) {
+      setSuggestions([]);
+      setOpen(false);
+      setShowEmpty(false);
+      return;
+    }
+
     if (query.length < effectiveMinChars || addressAlreadyComplete) {
       setSuggestions([]);
       setOpen(false);
@@ -361,8 +429,6 @@ export function AddressAutocompleteInput({
   function handleSelectHouseNumber(result: AddressResult) {
     const hn = String(result.houseNumber || "").trim();
     if (!hn) return;
-    // Auswahl explizit als validiert markieren, damit isHouseNumberInvalid
-    // nicht aufflackert, falls die naechste Suche andere Vorschlaege liefert.
     setSelectedHnSet((prev) => {
       const next = new Set(prev);
       next.add(hn.toLowerCase());
@@ -384,6 +450,7 @@ export function AddressAutocompleteInput({
     setShowEmpty(false);
     setActiveIndex(-1);
     setSuggestions([]);
+    suppressUntilEditRef.current = true;
   }
 
   function handleSelect(result: AddressResult) {
@@ -392,11 +459,18 @@ export function AddressAutocompleteInput({
       return;
     }
 
-    const main = result.street
-      ? `${result.street}${result.houseNumber ? ` ${result.houseNumber}` : ""}`.trim()
-      : result.main;
+    // Street-Mode: nur Strassenname ins Feld, keine Hausnummer.
+    const main = isStreetMode
+      ? (result.street || result.main || "")
+      : result.street
+        ? `${result.street}${result.houseNumber ? ` ${result.houseNumber}` : ""}`.trim()
+        : result.main;
+
     const zipcity = [result.zip, result.city].filter(Boolean).join(" ").trim() || result.sub || "";
-    const displayRaw = result.display ?? (zipcity ? `${main}, ${zipcity}` : main);
+    // Im Street-Mode kein PLZ/Ort im Feldwert; das display für onChange ist nur der Strassenname.
+    const displayRaw = isStreetMode
+      ? main
+      : (result.display ?? (zipcity ? `${main}, ${zipcity}` : main));
     const display = stripCountrySuffix(displayRaw);
 
     onChange(display);
@@ -419,13 +493,15 @@ export function AddressAutocompleteInput({
       setShowEmpty(false);
       setActiveIndex(-1);
       setSuggestions([]);
+      suppressUntilEditRef.current = true;
       return;
     }
 
     if (onSelectParsed && result.street) {
       onSelectParsed({
         street: result.street,
-        houseNumber: result.houseNumber ?? "",
+        // Street-Mode: Hausnummer leer lassen, damit das nächste Feld cascading ausfüllt.
+        houseNumber: isStreetMode ? "" : (result.houseNumber ?? ""),
         zip: result.zip ?? "",
         city: result.city ?? "",
         canton: result.canton ?? "",
@@ -446,6 +522,7 @@ export function AddressAutocompleteInput({
     setShowEmpty(false);
     setActiveIndex(-1);
     setSuggestions([]);
+    suppressUntilEditRef.current = true;
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -453,6 +530,18 @@ export function AddressAutocompleteInput({
     if (e.defaultPrevented) return;
 
     if (e.key === "Escape") { setOpen(false); setShowEmpty(false); setActiveIndex(-1); return; }
+
+    // Tab oder ArrowRight am Zeilenende: Ghost-Completion übernehmen.
+    if ((e.key === "Tab" || e.key === "ArrowRight") && ghostSuffix && !isHouseNumberMode) {
+      const input = e.currentTarget;
+      const atEnd = input.selectionStart === value.length && input.selectionEnd === value.length;
+      if (atEnd && activeSuggestions.length > 0) {
+        e.preventDefault();
+        handleSelect(activeSuggestions[0]);
+        return;
+      }
+    }
+
     if (!open || !activeSuggestions.length) return;
 
     if (e.key === "ArrowDown") {
@@ -467,19 +556,42 @@ export function AddressAutocompleteInput({
     }
   }
 
-  const showSuggestions = open && activeSuggestions.length > 0;
+  // Dropdown: nur bei Uneindeutigkeit (mehrere PLZ/Orte) oder im Hausnummer-Mode.
+  const showSuggestions = open && hasDistinctLocations && activeSuggestions.length > 0;
   const showEmptyState = showEmpty && !isLoading && value.trim().length >= effectiveMinChars && !isHouseNumberMode;
+
+  // Ghost-Completion ist sichtbar wenn kein Dropdown offen und ein Suffix vorhanden.
+  const showGhost = Boolean(ghostSuffix) && !hasDistinctLocations && !isHouseNumberMode;
 
   return (
     <div ref={wrapperRef} className="relative">
+      {/* Ghost-Completion Overlay: grauer Prefix-Match hinter dem getippten Text */}
+      {showGhost ? (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 flex items-center overflow-hidden rounded-lg px-3 py-2.5"
+          style={{ fontFamily: "inherit", fontSize: "inherit", letterSpacing: "inherit" }}
+        >
+          <span className="invisible whitespace-pre">{value}</span>
+          <span className="whitespace-pre text-[var(--text-subtle)] opacity-50">{ghostSuffix}</span>
+        </div>
+      ) : null}
+
       <input
         {...props}
         value={value}
         onChange={(e) => {
-          onChange(e.target.value); setOpen(true); setShowEmpty(false); setSelectError("");
+          // Echte User-Eingabe: Suppress zurücksetzen.
+          suppressUntilEditRef.current = false;
+          onChange(e.target.value);
+          setOpen(true);
+          setShowEmpty(false);
+          setSelectError("");
         }}
         onFocus={(e) => {
-          if (activeSuggestions.length > 0) setOpen(true); onFocus?.(e);
+          // Kein automatisches Öffnen nach einer Auswahl.
+          if (!suppressUntilEditRef.current && activeSuggestions.length > 0) setOpen(true);
+          onFocus?.(e);
         }}
         onBlur={(e) => { onBlur?.(e); }}
         onKeyDown={handleKeyDown}
@@ -501,7 +613,7 @@ export function AddressAutocompleteInput({
         <ul
           id={listboxId}
           role="listbox"
-          className="absolute z-40 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] p-1 shadow-xl"
+          className="absolute z-40 mt-1 max-h-40 w-full overflow-auto rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] p-1 shadow-xl"
         >
           {activeSuggestions.map((item, index) => (
             <li
@@ -509,7 +621,7 @@ export function AddressAutocompleteInput({
               role="option"
               aria-selected={activeIndex === index}
               className={cn(
-                "cursor-pointer rounded-md px-3 py-2 text-sm",
+                "cursor-pointer rounded-md px-2.5 py-1.5 text-xs",
                 activeIndex === index
                   ? "bg-[var(--surface-raised)]"
                   : "hover:bg-[var(--surface-raised)]/70",
@@ -518,18 +630,19 @@ export function AddressAutocompleteInput({
             >
               {isHouseNumberMode ? (
                 <div className="flex items-center gap-2">
-                  <MapPin className="h-3.5 w-3.5 shrink-0 text-[var(--accent)]" />
+                  <MapPin className="h-3 w-3 shrink-0 text-[var(--accent)]" />
                   <span className="font-mono font-semibold text-[var(--text-main)]">{item.houseNumber}</span>
                 </div>
               ) : (
-                <div className="flex items-start gap-2">
-                  <MapPin className="mt-[2px] h-3.5 w-3.5 shrink-0 text-[var(--accent)]" />
-                  <div className="min-w-0">
-                    <p className="truncate font-semibold text-[var(--text-main)]">{item.main}</p>
-                    {item.sub ? (
-                      <p className="truncate text-xs text-[var(--text-subtle)]">{item.sub}</p>
-                    ) : null}
-                  </div>
+                <div className="flex items-center gap-1.5">
+                  <MapPin className="h-3 w-3 shrink-0 text-[var(--accent)]" />
+                  <span className="truncate text-[var(--text-main)]">
+                    {buildSingleLineLabel(
+                      isStreetMode ? (item.street || item.main) : item.main,
+                      item.zip ?? "",
+                      item.city ?? "",
+                    )}
+                  </span>
                 </div>
               )}
             </li>
@@ -539,7 +652,7 @@ export function AddressAutocompleteInput({
 
       {showEmptyState ? (
         <div
-          className="absolute z-40 mt-1 w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-subtle)] shadow-xl"
+          className="absolute z-40 mt-1 w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-xs text-[var(--text-subtle)] shadow-xl"
         >
           {t((lang as Lang) || "de", "booking.step1.houseNumberInvalid")}
         </div>

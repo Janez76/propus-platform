@@ -324,6 +324,10 @@ export function StepLocation({ lang }: { lang: Lang }) {
             apiKey={config.googleMapsKey}
             address={object.address.formatted || address}
             coords={coords}
+            onCoordsChange={(c) => {
+              setCoords(c);
+              setObjectAddress({ lat: c.lat, lng: c.lng });
+            }}
             lang={lang}
           />
         ) : (
