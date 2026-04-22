@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { ThemeRoot } from "@/components/ThemeRoot";
+import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
   title: "Propus Admin",
@@ -33,6 +34,12 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col">
         <ThemeRoot>{children}</ThemeRoot>
+        <Toaster
+          position="top-center"
+          closeButton
+          theme="dark"
+          toastOptions={{ className: "border border-white/10" }}
+        />
       </body>
     </html>
   );

@@ -122,6 +122,7 @@ services:
       MATTERPORT_TOKEN_SECRET: ${MATTERPORT_TOKEN_SECRET:-}
       # PAYREXX_* / PAYREXX_PAYMENT_METHODS nur über env_file (.env.vps + optional .env.vps.secrets)
       GOOGLE_PLACES_API_KEY: ${GOOGLE_PLACES_API_KEY:-}
+      GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
       GOOGLE_REVIEWS_PLACE_ID: ${GOOGLE_REVIEWS_PLACE_ID:-}
       # ─── Nextcloud-Integration (UGREEN NAS via cloud.propus.ch) ──────────────
       NEXTCLOUD_URL: ${NEXTCLOUD_URL:-https://cloud.propus.ch}
@@ -152,6 +153,31 @@ services:
     networks:
       - propus
 
+  platform-worker:
+    build:
+      context: .
+      dockerfile: platform/Dockerfile.worker
+    env_file:
+      - .env.vps
+      - path: .env.vps.secrets
+        required: false
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      TIMEZONE: ${TIMEZONE:-Europe/Zurich}
+      PROPUS_ENABLE_CRON: ${PROPUS_ENABLE_CRON:-1}
+      LOG_CRON: ${LOG_CRON:-0}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - propus
+
   website:
     build:
       context: ./website
@@ -170,6 +196,7 @@ services:
       PROPUS_ADMIN_PASSWORD: ${WEBSITE_ADMIN_PASSWORD}
       PROPUS_ADMIN_SECRET: ${WEBSITE_ADMIN_SECRET}
       GOOGLE_PLACES_API_KEY: ${GOOGLE_PLACES_API_KEY:-}
+      GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
       GOOGLE_REVIEWS_PLACE_ID: ${GOOGLE_REVIEWS_PLACE_ID:-}
       PUBLIC_SITE_LOGO_URL: ${PUBLIC_SITE_LOGO_URL:-}
       PUBLIC_SITE_FAVICON_URL: ${PUBLIC_SITE_FAVICON_URL:-}

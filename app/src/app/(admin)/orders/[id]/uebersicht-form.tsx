@@ -70,6 +70,8 @@ export function UebersichtForm({ order, isEditing, action }: Props) {
               name="order_reference"
               defaultValue={order.order_reference ?? ''}
               disabled={!isEditing}
+              maxLength={64}
+              hint="Max. 64 Zeichen (interne Referenz)"
             />
           </div>
         </Section>
@@ -118,7 +120,7 @@ export function UebersichtForm({ order, isEditing, action }: Props) {
             name="contact_first_name"
             defaultValue={order.contact_first_name ?? ''}
             disabled={!isEditing}
-            required
+            hint="Optional, falls im Nachname-Feld der vollständige Name steht (wird beim Speichern getrennt)"
           />
           <Field
             label="Nachname"
@@ -161,7 +163,7 @@ function Section({ title, icon, children }: { title: string; icon?: React.ReactN
 }
 
 function Field({
-  label, name, defaultValue = '', type = 'text', disabled, required, autoComplete,
+  label, name, defaultValue = '', type = 'text', disabled, required, autoComplete, maxLength, hint,
 }: {
   label: string;
   name: string;
@@ -170,18 +172,22 @@ function Field({
   disabled?: boolean;
   required?: boolean;
   autoComplete?: string;
+  maxLength?: number;
+  hint?: string;
 }) {
   return (
     <label className="block">
       <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-white/50">
         {label}{required && ' *'}
       </span>
+      {hint && <p className="mb-1 text-[10px] text-white/40">{hint}</p>}
       <input
         name={name}
         type={type}
         defaultValue={defaultValue}
         disabled={disabled}
         required={required}
+        maxLength={maxLength}
         autoComplete={autoComplete}
         className="w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm outline-none transition-colors focus:border-[#B68E20]/60 focus:bg-white/[0.05] disabled:cursor-not-allowed disabled:opacity-60"
       />

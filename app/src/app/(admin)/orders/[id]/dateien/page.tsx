@@ -2,6 +2,8 @@ import { notFound } from 'next/navigation';
 import { FolderOpen, Upload, ExternalLink } from 'lucide-react';
 import { queryOne, query } from '@/lib/db';
 import { Section, Empty, formatBytes, formatTS } from '../_shared';
+import { LinkFolderDialog } from './link-folder-dialog';
+import { FolderArchiveButton } from './folder-row-actions';
 
 export default async function DateienPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -24,6 +26,7 @@ export default async function DateienPage({ params }: { params: Promise<{ id: st
       SELECT id, folder_type, display_name, absolute_path, nextcloud_share_url, status, created_at
       FROM booking.order_folder_links
       WHERE order_no = $1
+        AND archived_at IS NULL
       ORDER BY created_at ASC
     `, [id]),
 
@@ -60,7 +63,11 @@ export default async function DateienPage({ params }: { params: Promise<{ id: st
 
   return (
     <div className="space-y-6">
-      <Section title="Ordner & Links" icon={<FolderOpen className="h-4 w-4" />}>
+      <Section
+        title="Ordner & Links"
+        icon={<FolderOpen className="h-4 w-4" />}
+        right={<LinkFolderDialog orderNo={orderCheck.order_no} />}
+      >
         {folders.length > 0 ? (
           <div className="space-y-2">
             {folders.map((folder) => (
@@ -90,6 +97,7 @@ export default async function DateienPage({ params }: { params: Promise<{ id: st
                       Nextcloud
                     </a>
                   )}
+                  <FolderArchiveButton id={folder.id} orderNo={orderCheck.order_no} />
                 </div>
               </div>
             ))}

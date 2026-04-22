@@ -1,12 +1,22 @@
-import { notFound } from 'next/navigation';
-import { CalendarClock, User, ArrowRight } from 'lucide-react';
-import { queryOne, query } from '@/lib/db';
-import { Section, InfoItem, Empty, Badge, STATUS_LABEL, formatDateTime, formatTS } from '../_shared';
+import { notFound } from "next/navigation";
+import { CalendarClock, User, ArrowRight } from "lucide-react";
+import { queryOne, query } from "@/lib/db";
+import { listPhotographers } from "@/lib/repos/orders/termin";
+import { Section, InfoItem, Empty, Badge, STATUS_LABEL, formatDateTime, formatTS } from "../_shared";
+import { TerminForm } from "./termin-form";
+import { OrderSaveToast } from "../order-save-toast";
 
-export default async function TerminPage({ params }: { params: Promise<{ id: string }> }) {
+type Props = {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ edit?: string; saved?: string }>;
+};
+
+export default async function TerminPage({ params, searchParams }: Props) {
   const { id } = await params;
+  const sp = searchParams ? await searchParams : {};
+  const isEditing = sp.edit === "1";
 
-  const [order, statusHistory] = await Promise.all([
+  const [order, statusHistory, photographers] = await Promise.all([
     queryOne<{
       order_no: number;
       status: string;
@@ -16,6 +26,7 @@ export default async function TerminPage({ params }: { params: Promise<{ id: str
       photographer_name: string | null;
       photographer_email: string | null;
       photographer_phone: string | null;
+      photographer_key: string | null;
       done_at: string | null;
     }>(`
       SELECT
@@ -27,6 +38,7 @@ export default async function TerminPage({ params }: { params: Promise<{ id: str
         photographer->>'name'            AS photographer_name,
         photographer->>'email'           AS photographer_email,
         photographer->>'phone'           AS photographer_phone,
+        photographer->>'key'            AS photographer_key,
         done_at
       FROM booking.orders
       WHERE order_no = $1
@@ -45,14 +57,44 @@ export default async function TerminPage({ params }: { params: Promise<{ id: str
       WHERE order_no = $1
       ORDER BY created_at DESC
     `, [id]),
+
+    listPhotographers(),
   ]);
 
   if (!order) notFound();
 
   const currentStatus = STATUS_LABEL[order.status] ?? STATUS_LABEL.pending;
 
+  if (isEditing) {
+    return (
+      <>
+        <OrderSaveToast />
+        <TerminForm
+          order={{
+            order_no: order.order_no,
+            status: order.status,
+            schedule_date: order.schedule_date,
+            schedule_time: order.schedule_time,
+            duration_min: order.duration_min,
+            photographer_key: order.photographer_key,
+          }}
+          photographers={photographers}
+        />
+        <div className="mt-6 space-y-2">
+          <h3 className="text-xs font-semibold uppercase text-white/50">Status-Verlauf (Lesen)</h3>
+          {statusHistory.length > 0 ? (
+            <StatusList rows={statusHistory} />
+          ) : (
+            <Empty>Kein Status-Verlauf vorhanden</Empty>
+          )}
+        </div>
+      </>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      <OrderSaveToast />
       <Section title="Termin" icon={<CalendarClock className="h-4 w-4" />}>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <InfoItem
@@ -92,34 +134,42 @@ export default async function TerminPage({ params }: { params: Promise<{ id: str
 
       <Section title="Status-Verlauf">
         {statusHistory.length > 0 ? (
-          <div className="space-y-2">
-            {statusHistory.map((entry) => {
-              const from = entry.from_status ? STATUS_LABEL[entry.from_status] : null;
-              const to = STATUS_LABEL[entry.to_status] ?? { label: entry.to_status, className: 'bg-white/10 text-white/50' };
-              return (
-                <div key={entry.id} className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.02] px-4 py-3">
-                  <div className="flex min-w-0 flex-1 items-center gap-2">
-                    {from
-                      ? <Badge label={from.label} className={from.className} />
-                      : <span className="text-xs text-white/30">—</span>
-                    }
-                    <ArrowRight className="h-3.5 w-3.5 shrink-0 text-white/30" />
-                    <Badge label={to.label} className={to.className} />
-                    {entry.source && (
-                      <span className="ml-2 text-xs text-white/30">{entry.source}</span>
-                    )}
-                  </div>
-                  <span className="shrink-0 text-xs text-white/40 tabular-nums">
-                    {formatTS(entry.created_at)}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+          <StatusList rows={statusHistory} />
         ) : (
           <Empty>Kein Status-Verlauf vorhanden</Empty>
         )}
       </Section>
+    </div>
+  );
+}
+
+function StatusList({ rows }: {
+  rows: { id: number; from_status: string | null; to_status: string; source: string | null; actor_id: string | null; created_at: string }[];
+}) {
+  return (
+    <div className="space-y-2">
+      {rows.map((entry) => {
+        const from = entry.from_status ? STATUS_LABEL[entry.from_status] : null;
+        const to = STATUS_LABEL[entry.to_status] ?? { label: entry.to_status, className: "bg-white/10 text-white/50" };
+        return (
+          <div key={entry.id} className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.02] px-4 py-3">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              {from
+                ? <Badge label={from.label} className={from.className} />
+                : <span className="text-xs text-white/30">—</span>
+              }
+              <ArrowRight className="h-3.5 w-3.5 shrink-0 text-white/30" />
+              <Badge label={to.label} className={to.className} />
+              {entry.source && (
+                <span className="ml-2 text-xs text-white/30">{entry.source}</span>
+              )}
+            </div>
+            <span className="shrink-0 text-xs text-white/40 tabular-nums">
+              {formatTS(entry.created_at)}
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }

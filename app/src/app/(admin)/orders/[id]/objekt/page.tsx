@@ -1,15 +1,25 @@
-import { notFound } from 'next/navigation';
-import { Building2, MapPin, Users, KeyRound } from 'lucide-react';
-import { queryOne } from '@/lib/db';
-import { Section, InfoItem, Empty } from '../_shared';
+import { notFound } from "next/navigation";
+import { Building2, MapPin, Users, KeyRound } from "lucide-react";
+import { queryOne } from "@/lib/db";
+import { Section, InfoItem, Empty } from "../_shared";
+import { ObjektForm } from "./objekt-form";
+import { OrderSaveToast } from "../order-save-toast";
 
-type OnsiteContact = { name?: string; phone?: string; email?: string; calendarInvite?: boolean };
+type OnsiteContact = { name?: string; phone?: string; email?: string; role?: string; calendarInvite?: boolean };
 type KeyPickup = { enabled?: boolean; address?: string; floor?: string; info?: string };
 
-export default async function ObjektPage({ params }: { params: Promise<{ id: string }> }) {
+type Props = {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ edit?: string }>;
+};
+
+export default async function ObjektPage({ params, searchParams }: Props) {
   const { id } = await params;
+  const sp = searchParams ? await searchParams : {};
+  const isEditing = sp.edit === "1";
 
   const order = await queryOne<{
+    order_no: number;
     address: string | null;
     object_type: string | null;
     object_area: string | null;
@@ -20,6 +30,7 @@ export default async function ObjektPage({ params }: { params: Promise<{ id: str
     key_pickup: KeyPickup | null;
   }>(`
     SELECT
+      order_no,
       address,
       object->>'type'      AS object_type,
       object->>'area'      AS object_area,
@@ -38,8 +49,18 @@ export default async function ObjektPage({ params }: { params: Promise<{ id: str
   const kp = order.key_pickup;
   const hasObject = order.object_type || order.object_area || order.object_floors || order.object_rooms || order.object_desc;
 
+  if (isEditing) {
+    return (
+      <>
+        <OrderSaveToast />
+        <ObjektForm order={order} />
+      </>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      <OrderSaveToast />
       <Section title="Adresse" icon={<MapPin className="h-4 w-4" />}>
         {order.address
           ? <p className="text-sm">{order.address}</p>
@@ -72,6 +93,7 @@ export default async function ObjektPage({ params }: { params: Promise<{ id: str
                 {c.name && <InfoItem label="Name" value={c.name} />}
                 {c.phone && <InfoItem label="Telefon" value={c.phone} />}
                 {c.email && <InfoItem label="E-Mail" value={c.email} />}
+                {c.role && <InfoItem label="Rolle" value={c.role} />}
               </div>
             ))}
           </div>

@@ -15,6 +15,17 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.394",
+    date: "2026-04-22",
+    title: "Admin: Bestellung vollständig bearbeitbar (Tabs, Zod, Audit, Mail-Workflow, Verlauf-Export)",
+    changes: [
+      { type: "feature", text: "Next.js Admin: Termin/Status, Objekt, Leistungen mit RHF+Zod; Server Actions; booking.order_event_log" },
+      { type: "feature", text: "Kommunikation: Composer, interne Nachrichten (Migration 042), Soft-Delete für Chat" },
+      { type: "feature", text: "Verlauf: Filter nach Typ/Datum, CSV-Export /orders/[id]/verlauf/export" },
+      { type: "improvement", text: "Auth: Admin-Layout prüft booking.admin_sessions; Bearbeiten-Button nur auf editierbaren Tabs" },
+    ],
+  },
+  {
     version: "2.3.393",
     date: "2026-04-03",
     title: "Enhance tour management with new embed links and UI updates",

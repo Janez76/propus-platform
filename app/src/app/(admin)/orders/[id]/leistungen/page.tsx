@@ -1,14 +1,24 @@
-import { notFound } from 'next/navigation';
-import { ListChecks, Tag, Receipt } from 'lucide-react';
-import { queryOne } from '@/lib/db';
-import { Section, InfoItem, Empty, formatCHF } from '../_shared';
+import { notFound } from "next/navigation";
+import { ListChecks, Tag, Receipt } from "lucide-react";
+import { queryOne } from "@/lib/db";
+import { Section, InfoItem, Empty, formatCHF } from "../_shared";
+import { LeistungenForm } from "./leistungen-form";
+import { OrderSaveToast } from "../order-save-toast";
 
 type Addon = { id?: string; label: string; price?: number; qty?: number; group?: string };
 
-export default async function LeistungenPage({ params }: { params: Promise<{ id: string }> }) {
+type Props = {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ edit?: string }>;
+};
+
+export default async function LeistungenPage({ params, searchParams }: Props) {
   const { id } = await params;
+  const sp = searchParams ? await searchParams : {};
+  const isEditing = sp.edit === "1";
 
   const order = await queryOne<{
+    order_no: number;
     package_key: string | null;
     package_label: string | null;
     package_price: string | null;
@@ -17,8 +27,10 @@ export default async function LeistungenPage({ params }: { params: Promise<{ id:
     pricing_discount: string | null;
     pricing_vat: string | null;
     pricing_total: string | null;
+    duration_min: number | null;
   }>(`
     SELECT
+      order_no,
       services->'package'->>'key'              AS package_key,
       services->'package'->>'label'            AS package_label,
       services->'package'->>'price'            AS package_price,
@@ -26,20 +38,46 @@ export default async function LeistungenPage({ params }: { params: Promise<{ id:
       pricing->>'subtotal'                     AS pricing_subtotal,
       pricing->>'discount'                     AS pricing_discount,
       pricing->>'vat'                          AS pricing_vat,
-      pricing->>'total'                        AS pricing_total
+      pricing->>'total'                        AS pricing_total,
+      (schedule->>'durationMin')::int          AS duration_min
     FROM booking.orders
     WHERE order_no = $1
   `, [id]);
 
   if (!order) notFound();
 
+  const discount = Number(order.pricing_discount ?? 0);
+
+  if (isEditing) {
+    return (
+      <>
+        <OrderSaveToast />
+        <LeistungenForm
+          order={{
+            order_no: order.order_no,
+            discount_chf: Number.isFinite(discount) ? discount : 0,
+            package_key: order.package_key,
+            package_label: order.package_label,
+            package_price: order.package_price,
+            addons: order.addons,
+            duration_min: order.duration_min,
+            pricing_subtotal: order.pricing_subtotal,
+            pricing_discount: order.pricing_discount,
+            pricing_vat: order.pricing_vat,
+            pricing_total: order.pricing_total,
+          }}
+        />
+      </>
+    );
+  }
+
   const addons: Addon[] = order.addons ?? [];
   const subtotal = Number(order.pricing_subtotal ?? 0);
-  const discount = Number(order.pricing_discount ?? 0);
   const total = Number(order.pricing_total ?? 0);
 
   return (
     <div className="space-y-6">
+      <OrderSaveToast />
       <Section title="Paket" icon={<Tag className="h-4 w-4" />}>
         {order.package_label ? (
           <div className="flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.02] px-4 py-3">
@@ -83,6 +121,12 @@ export default async function LeistungenPage({ params }: { params: Promise<{ id:
         )}
       </Section>
 
+      {order.duration_min != null && (
+        <Section title="Dauer" icon={<Receipt className="h-4 w-4" />}>
+          <p className="text-sm">{order.duration_min} min (schedule.durationMin)</p>
+        </Section>
+      )}
+
       <Section title="Preisübersicht" icon={<Receipt className="h-4 w-4" />}>
         {order.pricing_total ? (
           <div className="space-y-2">
@@ -115,7 +159,7 @@ function PriceLine({ label, value, className }: { label: string; value: string; 
   return (
     <div className="flex justify-between">
       <span className="text-sm text-white/60">{label}</span>
-      <span className={`text-sm tabular-nums ${className ?? ''}`}>{value}</span>
+      <span className={`text-sm tabular-nums ${className ?? ""}`}>{value}</span>
     </div>
   );
 }

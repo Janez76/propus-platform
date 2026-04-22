@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { History, ArrowRight } from 'lucide-react';
 import { queryOne, query } from '@/lib/db';
 import { Empty, Badge, STATUS_LABEL, formatTS } from '../_shared';
+import { VerlaufFilters } from './verlauf-filters';
 
 type EventEntry = {
   id: string;
@@ -30,45 +31,98 @@ const EVENT_TYPE_LABEL: Record<string, string> = {
   file_uploaded:       'Datei hochgeladen',
   folder_created:      'Ordner erstellt',
   calendar_synced:     'Kalender synchronisiert',
+  message_sent:        'Nachricht gesendet',
+  message_deleted:     'Nachricht gelöscht',
+  folder_updated:      'Ordner verknüpft',
 };
 
-export default async function VerlaufPage({ params }: { params: Promise<{ id: string }> }) {
+type SP = { eventType?: string; from?: string; to?: string };
+
+export default async function VerlaufPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<SP>;
+}) {
   const { id } = await params;
+  const sp = searchParams ? await searchParams : ({} as SP);
+  const evF = sp.eventType?.trim() || "";
+  const fromD = sp.from || "";
+  const toD = sp.to || "";
+  const filterStatusOnly = evF === "status_changed";
 
   const orderCheck = await queryOne<{ order_no: number }>(`
     SELECT order_no FROM booking.orders WHERE order_no = $1
   `, [id]);
   if (!orderCheck) notFound();
 
-  const [eventLog, statusAudit] = await Promise.all([
-    query<{
-      id: number;
-      event_type: string;
-      actor_user: string | null;
-      actor_role: string | null;
-      metadata: Record<string, unknown> | null;
-      created_at: string;
-    }>(`
-      SELECT id, event_type, actor_user, actor_role, metadata, created_at
-      FROM booking.order_event_log
-      WHERE order_no = $1
-      ORDER BY created_at DESC
-      LIMIT 200
-    `, [id]),
+  const evConds: string[] = ["order_no = $1"];
+  const evParams: (string | number)[] = [id];
+  let p = 2;
+  if (evF && !filterStatusOnly) {
+    evConds.push(`event_type = $${p}`);
+    evParams.push(evF);
+    p += 1;
+  }
+  if (fromD) {
+    evConds.push(`created_at::date >= $${p}::date`);
+    evParams.push(fromD);
+    p += 1;
+  }
+  if (toD) {
+    evConds.push(`created_at::date <= $${p}::date`);
+    evParams.push(toD);
+    p += 1;
+  }
 
-    query<{
-      id: number;
-      from_status: string | null;
-      to_status: string;
-      source: string | null;
-      actor_id: string | null;
-      created_at: string;
-    }>(`
-      SELECT id, from_status, to_status, source, actor_id, created_at
-      FROM booking.order_status_audit
-      WHERE order_no = $1
-      ORDER BY created_at DESC
-    `, [id]),
+  const stConds = ["order_no = $1"];
+  const stParams: (string | number)[] = [id];
+  let s = 2;
+  if (fromD) {
+    stConds.push(`created_at::date >= $${s}::date`);
+    stParams.push(fromD);
+    s += 1;
+  }
+  if (toD) {
+    stConds.push(`created_at::date <= $${s}::date`);
+    stParams.push(toD);
+    s += 1;
+  }
+
+  const [eventLog, statusAudit] = await Promise.all([
+    !filterStatusOnly
+      ? query<{
+        id: number;
+        event_type: string;
+        actor_user: string | null;
+        actor_role: string | null;
+        metadata: Record<string, unknown> | null;
+        created_at: string;
+      }>(`
+        SELECT id, event_type, actor_user, actor_role, metadata, created_at
+        FROM booking.order_event_log
+        WHERE ${evConds.join(" AND ")}
+        ORDER BY created_at DESC
+        LIMIT 200
+      `, evParams)
+      : Promise.resolve([]),
+
+    !evF || filterStatusOnly
+      ? query<{
+        id: number;
+        from_status: string | null;
+        to_status: string;
+        source: string | null;
+        actor_id: string | null;
+        created_at: string;
+      }>(`
+        SELECT id, from_status, to_status, source, actor_id, created_at
+        FROM booking.order_status_audit
+        WHERE ${stConds.join(" AND ")}
+        ORDER BY created_at DESC
+      `, stParams)
+      : Promise.resolve([]),
   ]);
 
   const events: EventEntry[] = [
@@ -96,6 +150,7 @@ export default async function VerlaufPage({ params }: { params: Promise<{ id: st
 
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.02] p-6">
+      <VerlaufFilters />
       <h2 className="mb-5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-white/60">
         <History className="h-4 w-4" />
         Aktivitätsverlauf

@@ -1,27 +1,49 @@
-'use server';
+"use server";
 
-import { redirect } from 'next/navigation';
-import { revalidatePath } from 'next/cache';
-import { query } from '@/lib/db';
+import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
+import { query, queryOne } from "@/lib/db";
+import { requireOrderEditor } from "@/lib/auth.server";
+import { logOrderEvent } from "@/lib/audit";
+import { suggestSplitName } from "@/lib/nameSplit";
+import { parseFormDataToUebersicht } from "@/lib/validators/orders/uebersicht";
 
 export async function updateOrderOverview(formData: FormData) {
-  const orderNo = formData.get('order_no') as string;
-  if (!orderNo) throw new Error('Fehlende Bestellungsnummer');
+  const editor = await requireOrderEditor();
+  const p = parseFormDataToUebersicht(formData);
+  if (!p.success) {
+    const first = p.error.issues[0];
+    throw new Error(first?.message || "Validierung fehlgeschlagen");
+  }
+  const v = p.data;
+  const orderNo = String(v.order_no);
+  if (!orderNo) throw new Error("Fehlende Bestellungsnummer");
 
-  const bookingType = formData.get('booking_type') as 'firma' | 'privat';
-  const companyName = (formData.get('company_name') as string) || null;
+  const split = suggestSplitName(v.contact_first_name, v.contact_last_name);
+  const first = split ? split.first : v.contact_first_name.trim();
+  const last = split ? split.last : v.contact_last_name.trim();
+  if (!first || !last) {
+    throw new Error("Vor- und Nachname (oder ein gemeinsames Namensfeld) sind erforderlich");
+  }
+
+  const before = await queryOne<Record<string, unknown>>(
+    `SELECT billing FROM booking.orders WHERE order_no = $1`,
+    [orderNo],
+  );
+
+  const companyName = v.booking_type === "firma" ? (v.company_name || null) : null;
 
   const billingPatch = {
-    company:    bookingType === 'firma' ? (companyName || null) : null,
-    order_ref:  (formData.get('order_reference') as string) || null,
-    street:     formData.get('billing_street') as string,
-    zip:        formData.get('billing_zip') as string,
-    city:       formData.get('billing_city') as string,
-    salutation: formData.get('contact_salutation') as string,
-    first_name: formData.get('contact_first_name') as string,
-    name:       formData.get('contact_last_name') as string,
-    email:      formData.get('contact_email') as string,
-    phone:      (formData.get('contact_phone') as string) || null,
+    company: companyName,
+    order_ref: (v.order_reference as string) || null,
+    street: v.billing_street,
+    zip: v.billing_zip,
+    city: v.billing_city,
+    salutation: v.contact_salutation,
+    first_name: first,
+    name: last,
+    email: v.contact_email,
+    phone: (v.contact_phone as string) || null,
   };
 
   await query(
@@ -32,6 +54,15 @@ export async function updateOrderOverview(formData: FormData) {
     [JSON.stringify(billingPatch), orderNo],
   );
 
+  if (before?.billing) {
+    await logOrderEvent(
+      Number(orderNo),
+      "billing_updated",
+      { old: { billing: before.billing }, new: { billing: { ...((before.billing as object) || {}), ...billingPatch } } },
+      editor,
+    );
+  }
+
   revalidatePath(`/orders/${orderNo}`);
-  redirect(`/orders/${orderNo}`);
+  redirect(`/orders/${orderNo}?saved=1`);
 }

@@ -12,18 +12,22 @@ export const STATUS_LABEL: Record<string, { label: string; className: string }> 
 };
 
 export function Section({
-  title, icon, children,
+  title, icon, children, right,
 }: {
   title: string;
   icon?: ReactNode;
   children: ReactNode;
+  right?: ReactNode;
 }) {
   return (
     <section className="rounded-xl border border-white/10 bg-white/[0.02] p-6">
-      <h2 className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-white/60">
-        {icon}
-        {title}
-      </h2>
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-white/60">
+          {icon}
+          {title}
+        </h2>
+        {right}
+      </div>
       {children}
     </section>
   );
