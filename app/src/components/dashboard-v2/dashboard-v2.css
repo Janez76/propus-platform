@@ -25,6 +25,169 @@
   color: var(--d-text);
   font-family: inherit;
 }
+.dv2.dv2--density-compact {
+  padding: 16px 20px;
+  gap: 10px;
+  --d-gap: 10px;
+}
+.dv2.dv2--density-spacious {
+  padding: 32px 36px;
+  gap: 22px;
+  --d-gap: 22px;
+}
+.dv2-grid-main--single {
+  grid-template-columns: 1fr !important;
+}
+.dv2-tweaks-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: color-mix(in srgb, #0a0a0a 55%, transparent);
+  backdrop-filter: blur(4px);
+}
+.dv2-tweaks-panel {
+  position: relative;
+  width: min(440px, 100%);
+  max-height: min(88vh, 720px);
+  overflow: auto;
+  background: var(--d-card);
+  color: var(--d-text);
+  border: 1.5px solid var(--d-border-gold);
+  border-radius: 12px;
+  box-shadow: 0 20px 48px -12px rgba(0, 0, 0, 0.45);
+  padding: 18px 20px 16px;
+}
+.dv2-tweaks-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.dv2-tweaks-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0;
+  font-family: Montserrat, inherit;
+}
+.dv2-tweaks-hint {
+  font-size: 12px;
+  color: var(--d-text-muted);
+  margin: 0 0 16px;
+  line-height: 1.4;
+}
+.dv2-tweaks-close {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--d-border);
+  background: var(--d-bg);
+  color: var(--d-text);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.dv2-tweaks-close:hover {
+  border-color: var(--d-border-gold);
+  color: var(--d-gold);
+}
+.dv2-tweaks-sec { margin-bottom: 18px; }
+.dv2-tweaks-sec-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--d-text-dim);
+  margin: 0 0 10px;
+  font-weight: 600;
+}
+.dv2-tweaks-dens { display: flex; flex-direction: column; gap: 8px; }
+.dv2-tweaks-den {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--d-border);
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+}
+.dv2-tweaks-den input { accent-color: var(--d-gold); width: 16px; height: 16px; }
+.dv2-tweaks-den.is-on {
+  border-color: var(--d-border-gold);
+  background: color-mix(in srgb, var(--d-gold) 6%, var(--d-card));
+}
+.dv2-tweaks-list { list-style: none; margin: 0; padding: 0; }
+.dv2-tweaks-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--d-border);
+  font-size: 13px;
+}
+.dv2-tweaks-row:last-child { border-bottom: none; }
+.dv2-tweaks-lbl { min-width: 0; }
+.dv2-tweaks-switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 44px;
+  height: 24px;
+  border-radius: 12px;
+  border: 1px solid var(--d-border);
+  background: var(--d-bg);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  padding: 0;
+}
+.dv2-tweaks-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--d-text-dim);
+  transition: transform 0.2s, background 0.15s;
+}
+.dv2-tweaks-switch.is-on {
+  background: color-mix(in srgb, var(--d-gold) 32%, var(--d-bg));
+  border-color: var(--d-border-gold);
+}
+.dv2-tweaks-switch.is-on::after {
+  transform: translateX(20px);
+  background: var(--d-gold);
+}
+.dv2-tweaks-foot {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 8px;
+  border-top: 1px solid var(--d-border);
+  margin-top: 4px;
+}
+.dv2-tweaks-btn {
+  background: transparent;
+  border: 1px solid var(--d-border);
+  color: var(--d-text-dim);
+  font-size: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.dv2-tweaks-btn:hover {
+  border-color: var(--d-border-gold);
+  color: var(--d-text);
+}
 
 /* ─── Skeleton & error ───────────────────────────────────────────────────── */
 .dv2-skeleton {
