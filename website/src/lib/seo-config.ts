@@ -1,4 +1,4 @@
-import { seo, site } from '../content/site';
+import { site } from '../content/site';
 
 export type SeoPageKey =
 	| 'startseite'
@@ -56,8 +56,9 @@ export const SEO_PAGE_DEFINITIONS: readonly SeoPageDefinition[] = [
 		adminGroup: 'einstieg',
 		label: 'Startseite',
 		defaultPath: '/',
-		defaultTitle: `Immobilienfotografie & Drohnenaufnahmen in der Schweiz | ${site.name}`,
-		defaultDescription: seo.defaultDescription,
+		defaultTitle: `Immobilienfotografie Zürich & Deutschschweiz | ${site.name}`,
+		defaultDescription:
+			'Professionelle Immobilienfotografie, Drohne & 360°-Touren in Zürich, Zug & Deutschschweiz. Pakete ab 229 CHF. Jetzt online buchen.',
 		defaultKeywords:
 			'Immobilienfotografie, Drohnenaufnahmen, 360 Rundgang, Grundrisse, Immobilienvideo, Visualisierung, Zug, Schweiz',
 		defaultIndex: true,
@@ -70,9 +71,9 @@ export const SEO_PAGE_DEFINITIONS: readonly SeoPageDefinition[] = [
 		adminGroup: 'angebot',
 		label: 'Portfolio',
 		defaultPath: '/portfolio/',
-		defaultTitle: `Portfolio Immobilienfotografie & Luftaufnahmen | ${site.name}`,
+		defaultTitle: `Portfolio Immobilienfotografie Schweiz | ${site.name}`,
 		defaultDescription:
-			'Referenzen von Propus: Boden- und Luftaufnahmen, 360°-Rundgänge, Grundrisse, Video, Staging und Retusche – für überzeugende Immobilien-Exposés in der Schweiz.',
+			'Ausgewählte Arbeiten: Wohnimmobilien, Gewerbe und Neubau aus Zürich, Zug und der Deutschschweiz. Referenzen von Propus GmbH.',
 		defaultKeywords:
 			'Portfolio, Referenzen, Immobilienfotografie, Drohnenaufnahmen, 360 Rundgang, Matterport, Home Staging, Schweiz',
 		defaultIndex: true,
@@ -85,9 +86,9 @@ export const SEO_PAGE_DEFINITIONS: readonly SeoPageDefinition[] = [
 		adminGroup: 'angebot',
 		label: 'Dienstleistungen',
 		defaultPath: '/dienstleistungen/',
-		defaultTitle: `Immobilienfotografie, Drohne, 360°, Grundrisse & mehr | ${site.name}`,
+		defaultTitle: `Leistungen: Foto, Drohne, 360°-Tour, Video | ${site.name}`,
 		defaultDescription:
-			'Alle Leistungen von Propus für die Immobilienvermarktung: Fotografie, Drohnenaufnahmen, 360°-Rundgänge, Grundrisse, Immobilienvideo, Home Staging und Retusche – modular buchbar, schweizweit.',
+			'Acht Leistungen für Immobilien: Fotografie, Drohne, 360°-Touren, Grundrisse, Video, Staging, Visualisierung, Retusche. Deutschschweiz.',
 		defaultKeywords:
 			'Immobilienfotografie, Drohnenaufnahmen, 360 Rundgang, Grundriss, Immobilienvideo, Home Staging, Visualisierung, Retusche, Schweiz, Zug',
 		defaultIndex: true,
@@ -100,9 +101,9 @@ export const SEO_PAGE_DEFINITIONS: readonly SeoPageDefinition[] = [
 		adminGroup: 'angebot',
 		label: 'Preise',
 		defaultPath: '/preise/',
-		defaultTitle: `Preise Immobilienfotografie & Drohne | ${site.name}`,
+		defaultTitle: `Preise Immobilienfotografie ab 229 CHF | ${site.name}`,
 		defaultDescription:
-			'Transparente Preise für Immobilienfotografie, Drohnenaufnahmen, 360°-Rundgänge und Grundrisse – modular buchbar, passend zum Objekt, online buchbar.',
+			'Transparente Pakete: Bestseller 399 CHF, Full View 649 CHF, Cinematic Duo 549 CHF. Einzelleistungen ab 49 CHF. Jetzt buchen.',
 		defaultKeywords:
 			'Preise, Pakete, Immobilienfotografie, Drohne, Buchung, Leistungen, Schweiz',
 		defaultIndex: true,
@@ -115,9 +116,9 @@ export const SEO_PAGE_DEFINITIONS: readonly SeoPageDefinition[] = [
 		adminGroup: 'angebot',
 		label: 'Über uns',
 		defaultPath: '/ueber-uns/',
-		defaultTitle: `Über uns – Immobilienfotograf in Zug | ${site.name}`,
+		defaultTitle: `Über Propus — Immobilienfotografen Zug | ${site.name}`,
 		defaultDescription:
-			'Propus GmbH aus Zug: professionelle Immobilienfotografie und Visualisierung schweizweit. Persönliche Begleitung vom Shooting bis zur Lieferung innerhalb von 24–48 Stunden.',
+			'Propus GmbH aus Zug: Immobilienfotografie, Drohne und virtuelle Touren für Makler, Verwaltungen und Architekten in der Deutschschweiz.',
 		defaultKeywords:
 			'Über uns, Propus GmbH, Immobilienfotograf Zug, Immobilienvermarktung Schweiz, Team',
 		defaultIndex: true,
@@ -130,8 +131,9 @@ export const SEO_PAGE_DEFINITIONS: readonly SeoPageDefinition[] = [
 		adminGroup: 'angebot',
 		label: 'Kontakt',
 		defaultPath: '/kontakt/',
-		defaultTitle: `Kontakt – Immobilienfotografie anfragen | ${site.name}`,
-		defaultDescription: `Kontakt zu ${site.name}: Anfragen, Offerten und Projektgespräch – wir antworten zügig und beraten Sie zu Fotografie, Drohnenaufnahmen und 360°-Rundgängen.`,
+		defaultTitle: `Kontakt Propus GmbH — Anfrage & Termin | ${site.name}`,
+		defaultDescription:
+			'Propus GmbH, Untere Roostmatt 8, 6300 Zug. Mo–Sa 08:00–17:00. Telefon +41 44 589 63 63. Termin online buchen.',
 		defaultKeywords:
 			'Kontakt, Anfrage, Offerte, Immobilienfotografie, Drohne, Propus GmbH, Zug',
 		defaultIndex: true,
