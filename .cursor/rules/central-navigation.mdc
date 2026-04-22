@@ -35,3 +35,10 @@ Dieses Projekt arbeitet **zentral**. Kunden- und Firmendaten werden **nie** modu
 // ❌ FALSCH – modul-eigene Links
 <NavLink to="/admin/tours/customers">Kunden</NavLink>
 ```
+
+## Eine Firma = ein Kunde (Kernregel)
+
+- Eine **Firma/Organisation** = **eine** Zeile in `customers` (Hauptstammdatensatz inkl. Rechnungs- und Sammel-E-Mail, soweit vorhanden).
+- Weitere Ansprechpersonen erscheinen ausschließlich als **`customer_contacts`**, nicht als zweite Kunden-ID mit gleichem Firmennen.
+- Neue Personen derselben Domäne/Firma: Backend dedupliziert per `company_key` + E-Mail-Domain (`strong`) → Kontakt am bestehenden Kunden; unsichere Treffer landen in **`customer_duplicate_candidates`** (Admin-Review) oder werden aus dem nächtlichen Report befüllt.
+- Konsolidierung: nur über **Zusammenführen** (`/api/admin/customers/merge` / Kunden-UI), nicht durch parallele Neu-Anlage mit leicht abweichender E-Mail, wenn es dieselbe Firma ist.

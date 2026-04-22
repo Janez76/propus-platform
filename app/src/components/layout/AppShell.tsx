@@ -10,9 +10,14 @@ export function AppShell({ children }: PropsWithChildren) {
 
   return (
     <div className="min-h-screen transition-colors duration-300" style={{ background: "var(--bg-classic)" }}>
-      <Sidebar isMobileOpen={isMobileMenuOpen} onMobileClose={() => setIsMobileMenuOpen(false)} />
-      
-      <div className="lg:pl-64 flex flex-col min-h-screen">
+      <Sidebar
+        onOpenCmdk={() => {
+          // TODO: Cmd+K-Befehlspalette (eigener PR)
+          console.log("TODO: Cmd+K Palette");
+        }}
+      />
+
+      <div className="flex min-h-screen flex-col lg:pl-[272px]">
         <Topbar onMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)} />
         
         <main className={cn(

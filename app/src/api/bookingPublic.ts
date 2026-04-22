@@ -213,6 +213,32 @@ export async function submitBooking(payload: BookingPayload): Promise<BookingRes
   return apiRequest<BookingResult>("/api/booking", "POST", undefined, payload);
 }
 
+export type BookingDuplicateCheckResult = {
+  match: "exact" | "strong" | "weak" | "none";
+  customer: {
+    id: number;
+    name: string;
+    company: string;
+    email: string;
+    phone?: string;
+    street?: string;
+    zipcity?: string;
+  } | null;
+  reason?: string;
+  score?: number;
+};
+
+export async function checkBookingDuplicate(body: {
+  email: string;
+  company?: string;
+  name?: string;
+  phone?: string;
+  street?: string;
+  zipcity?: string;
+}): Promise<BookingDuplicateCheckResult> {
+  return apiRequest<BookingDuplicateCheckResult>("/api/booking/duplicate-check", "POST", undefined, body);
+}
+
 export async function validateDiscount(code: string, customerEmail?: string): Promise<DiscountResult> {
   const res = await apiRequest<DiscountResult & { action: string }>("/api/bot", "POST", undefined, {
     action: "validate_discount",

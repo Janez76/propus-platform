@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ArrowUpDown, Building2, CheckCircle2, ChevronDown, ChevronUp, Mail, PackageX, Phone, Plus, Search, ShoppingBag, User, UserPlus, Users, X } from "lucide-react";
-import { createContact, createCustomer, createCustomerContact, deleteCustomer, getContacts, getCustomers, getCustomerImpersonateUrl, patchCustomerNasFolderBases, updateContact, updateCustomer, updateCustomerAdmin, updateCustomerBlocked, type Contact, type Customer } from "../api/customers";
+import { createContact, createCustomer, createCustomerContact, deleteCustomer, getContacts, getCustomers, getCustomerImpersonateUrl, getDuplicateCandidates, patchCustomerNasFolderBases, dismissDuplicateCandidate, updateContact, updateCustomer, updateCustomerAdmin, updateCustomerBlocked, type Contact, type Customer, type DuplicateCandidateRow } from "../api/customers";
 import { CustomerList, type CustomerSortKey } from "../components/customers/CustomerList";
 import { ContactModal } from "../components/customers/ContactModal";
 import { formatPhoneCH } from "../lib/format";
@@ -116,6 +116,7 @@ export function CustomersPage() {
   const [linkBusy, setLinkBusy] = useState(false);
   const [linkError, setLinkError] = useState("");
   const [mergeKeepCustomer, setMergeKeepCustomer] = useState<Customer | null>(null);
+  const [mergeInitialCustomer, setMergeInitialCustomer] = useState<Customer | null>(null);
   const [contactSaving, setContactSaving] = useState(false);
   const [contactError, setContactError] = useState("");
   const [contactSuccess, setContactSuccess] = useState("");
@@ -123,11 +124,36 @@ export function CustomersPage() {
   const updateCachedCustomers = useQueryStore((s) => s.updateData);
 
   const queryKey = customersQueryKey(token);
+  const dupQueryKey = `${queryKey}:duplicate-candidates`;
   const { data: items = [], refetch } = useQuery<Customer[]>(
     queryKey,
     () => getCustomers(token),
     { enabled: Boolean(token), staleTime: 5 * 60 * 1000 },
   );
+  const { data: dupListPayload, refetch: refetchDuplicateCandidates } = useQuery<{
+    ok: boolean;
+    candidates: DuplicateCandidateRow[];
+    count: number;
+  }>(dupQueryKey, () => getDuplicateCandidates(token, "open"), {
+    enabled: Boolean(token),
+    staleTime: 60_000,
+  });
+  const duplicateCandidates = dupListPayload?.candidates ?? [];
+
+  function openMergeFromDuplicate(row: DuplicateCandidateRow) {
+    setMergeKeepCustomer({
+      id: row.suspected_keep_id,
+      name: row.keep_customer_name,
+      email: row.keep_customer_email,
+      company: row.keep_customer_company,
+    });
+    setMergeInitialCustomer({
+      id: row.new_customer_id,
+      name: row.new_customer_name,
+      email: row.new_customer_email,
+      company: row.new_customer_company,
+    });
+  }
 
   const createMutation = useMutation<void, { data: Record<string, unknown>; mergeWithId?: number }>(
     async ({ data, mergeWithId }) => {
@@ -603,6 +629,58 @@ export function CustomersPage() {
         </div>
       ) : null}
 
+      {viewMode === "customers" && can("customers.manage") && duplicateCandidates.length > 0 ? (
+        <div className="rounded-xl border border-amber-200/60 bg-amber-50/80 p-4 dark:border-amber-900/40 dark:bg-amber-950/20">
+          <h2 className="mb-1 text-sm font-bold text-amber-950 dark:text-amber-100">
+            {t(lang, "customers.duplicateCandidates.title")}{" "}
+            <span className="rounded-md bg-amber-200/80 px-2 py-0.5 text-xs font-semibold text-amber-950 dark:bg-amber-800/50 dark:text-amber-100">
+              {t(lang, "customers.duplicateCandidates.badge").replace("{{n}}", String(duplicateCandidates.length))}
+            </span>
+          </h2>
+          <p className="mb-3 text-xs text-amber-900/80 dark:text-amber-200/90">{t(lang, "customers.duplicateCandidates.hint")}</p>
+          <div className="max-h-64 space-y-2 overflow-y-auto rounded-lg border border-amber-200/50 bg-white/60 p-2 dark:border-amber-900/30 dark:bg-black/20">
+            {duplicateCandidates.map((row) => (
+              <div
+                key={row.id}
+                className="flex flex-col gap-2 rounded-lg border border-amber-100/80 p-3 text-sm sm:flex-row sm:items-center sm:justify-between dark:border-amber-900/20"
+              >
+                <div className="min-w-0">
+                  <div className="font-medium text-[var(--text-main)]">
+                    {t(lang, "customers.duplicateCandidates.col.new")}: ID {row.new_customer_id} — {row.new_customer_company || row.new_customer_name || row.new_customer_email}
+                  </div>
+                  <div className="text-xs text-[var(--text-muted)]">
+                    {t(lang, "customers.duplicateCandidates.col.keep")}: ID {row.suspected_keep_id} — {row.keep_customer_company || row.keep_customer_name || row.keep_customer_email}
+                  </div>
+                </div>
+                <div className="flex flex-shrink-0 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => openMergeFromDuplicate(row)}
+                    className="rounded-lg border border-amber-300 bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-950 hover:bg-amber-200 dark:border-amber-800 dark:bg-amber-900/50 dark:text-amber-100 dark:hover:bg-amber-900/80"
+                  >
+                    {t(lang, "customers.duplicateCandidates.merge")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await dismissDuplicateCandidate(token, row.id);
+                        await refetchDuplicateCandidates({ force: true });
+                      } catch {
+                        /* */
+                      }
+                    }}
+                    className="rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-xs text-[var(--text-muted)] hover:bg-[var(--surface-raised)]"
+                  >
+                    {t(lang, "customers.duplicateCandidates.dismiss")}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       <div className="cust-tab-row" role="tablist">
         <button
           type="button"
@@ -617,6 +695,14 @@ export function CustomersPage() {
           <Building2 className="h-[13px] w-[13px]" strokeWidth={1.8} />
           {t(lang, "customers.view.customers")}
           <span className={viewMode === "customers" ? "cust-tab-count" : "cust-tab-count cust-tab-count--neutral"}>{items.length}</span>
+          {duplicateCandidates.length > 0 ? (
+            <span
+              className="ml-1 min-w-[1.25rem] rounded-full bg-amber-500 px-1.5 text-center text-[10px] font-bold leading-5 text-white"
+              title={t(lang, "customers.duplicateCandidates.badge").replace("{{n}}", String(duplicateCandidates.length))}
+            >
+              {duplicateCandidates.length > 99 ? "99+" : duplicateCandidates.length}
+            </span>
+          ) : null}
         </button>
         <button
           type="button"
@@ -930,11 +1016,16 @@ export function CustomersPage() {
       <CustomerMergeModal
         open={!!mergeKeepCustomer}
         keepCustomer={mergeKeepCustomer}
+        initialMergeCustomer={mergeInitialCustomer}
         customers={items}
         token={token}
-        onClose={() => setMergeKeepCustomer(null)}
+        onClose={() => {
+          setMergeKeepCustomer(null);
+          setMergeInitialCustomer(null);
+        }}
         onSuccess={async () => {
           await refetch({ force: true });
+          await refetchDuplicateCandidates({ force: true });
         }}
       />
 
