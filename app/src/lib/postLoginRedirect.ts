@@ -14,6 +14,15 @@ export function getPortalUrl(): string {
   );
 }
 
+/** Hostname des Kunden-Portals (z. B. portal.propus.ch) – für `window.location`-Vergleiche. */
+export function getPortalHostname(): string {
+  try {
+    return new URL(getPortalUrl().replace(/\/$/, "")).hostname.toLowerCase();
+  } catch {
+    return "portal.propus.ch";
+  }
+}
+
 /** Gibt true zurück, wenn die Rolle zum Kunden-Portal gehört (kein Admin). */
 export function isPortalOnlyRole(role: string): boolean {
   return PORTAL_ONLY_ROLES.has(String(role || ""));

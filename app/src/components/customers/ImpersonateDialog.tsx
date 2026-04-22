@@ -8,8 +8,8 @@ import { t } from "@/i18n";
 import { X } from "lucide-react";
 
 const ROLES: { value: ImpersonatePanelBody["role"]; label: string; hint: string }[] = [
-  { value: "customer_admin", label: "Kunden-Admin", hint: "Öffnet Kundenportal (booking.propus.ch/account) als Inhaber" },
-  { value: "customer_user", label: "Kunden-Benutzer", hint: "Öffnet Kundenportal (booking.propus.ch/account) als Inhaber" },
+  { value: "customer_admin", label: "Kunden-Admin", hint: "Kundenportal (portal.propus.ch/account) als Inhaber" },
+  { value: "customer_user", label: "Kunden-Benutzer", hint: "Kundenportal (portal.propus.ch/account) als Inhaber" },
   { value: "tour_manager", label: "Tour-Manager", hint: "Interne Admin-Sicht laut Zuteilung (Vorsicht)" },
 ];
 
@@ -64,7 +64,7 @@ export function ImpersonateDialog({ token, item, onClose }: Props) {
     setErr("");
     setSubmitting(true);
     try {
-      // Kunden-Rollen → echtes Kunden-Portal (booking.propus.ch/account)
+      // Kunden-Rollen → Kundenportal (portal.propus.ch/account) + customer_session; Admin-Token wird dort entfernt
       // Interne Rollen (tour_manager) → Admin-Panel via admin_session Impersonation
       let url = "";
       if (role === "customer_admin" || role === "customer_user") {
@@ -153,7 +153,7 @@ export function ImpersonateDialog({ token, item, onClose }: Props) {
           </div>
         ) : (
           <div className="mb-4 rounded border border-(--border-soft) bg-(--surface-raised) p-2 text-xs text-(--text-muted)">
-            Öffnet eine neue Sitzung auf <code>booking.propus.ch/account</code> als Inhaber des Kundenkontos.
+            Öffnet <code>portal.propus.ch/account</code> als Inhaber (Admin-Sitzung in diesem Tab bleibt; neuer Tab = Kundensicht).
           </div>
         )}
 

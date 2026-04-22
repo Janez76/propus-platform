@@ -14,6 +14,7 @@
 import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
 import { Suspense, lazy } from "react";
 import { CustomerMagicSessionRedirect } from "./auth/CustomerMagicSessionRedirect";
+import { CustomerSessionBootstrap } from "./auth/CustomerSessionBootstrap";
 import { OfflineIndicator } from "./layout/OfflineIndicator";
 import { AppShell } from "./layout/AppShell";
 import { useAuth } from "../hooks/useAuth";
@@ -83,6 +84,7 @@ const ListingEditorPage = lazy(() => import("../pages-legacy/admin/listing/Listi
 const ListingEmailTemplatesPage = lazy(() => import("../pages-legacy/admin/listing/ListingEmailTemplatesPage").then((m) => ({ default: m.ListingEmailTemplatesPage })));
 const ClientListingPage = lazy(() => import("../pages-legacy/listing/ClientListingPage").then((m) => ({ default: m.ClientListingPage })));
 const CleanupDashboardPage = lazy(() => import("../pages-legacy/customer/CleanupDashboardPage").then((m) => ({ default: m.CleanupDashboardPage })));
+const CustomerAccountPage = lazy(() => import("../pages-legacy/customer/CustomerAccountPage").then((m) => ({ default: m.CustomerAccountPage })));
 
 function PageSkeleton() {
   return (
@@ -231,6 +233,7 @@ function PublicBookingIndex() {
 export default function ClientShell() {
   return (
     <BrowserRouter>
+      <CustomerSessionBootstrap />
       <CustomerMagicSessionRedirect />
       <OfflineIndicator />
       <Suspense fallback={<PageSkeleton />}>
@@ -249,6 +252,7 @@ export default function ClientShell() {
           <Route path="/selekto/listing/:slug" element={<LegacySelektoClientRedirect />} />
           <Route path="/selekto/:slug" element={<ClientSelektoPage />} />
           <Route path="/cleanup/dashboard" element={<CleanupDashboardPage />} />
+          <Route path="/account" element={<CustomerAccountPage />} />
           <Route path="*" element={<PrivateRoutes />} />
         </Routes>
       </Suspense>
