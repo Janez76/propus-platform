@@ -135,6 +135,7 @@ const { registerAccessRoutes } = require("./access-routes");
 const { registerExxasReconcileRoutes } = require("./exxas-reconcile-routes");
 const { registerAdminMissingRoutes } = require("./admin-missing-routes");
 const portalAuthBridge = require("./portal-auth-bridge");
+const portalTeam = require("../tours/lib/portal-team");
 
 const { ClientSecretCredential } = require("@azure/identity");
 const { Client } = require("@microsoft/microsoft-graph-client");
@@ -2291,6 +2292,10 @@ function allowFrontendLog(ipAddress) {
 
 const app = express();
 const SUPER_ADMIN_ROLES = new Set(["super_admin", "admin", "employee"]);
+/** Laufzeit der Kunden-Impersonation (admin_sessions), kein rememberMe. */
+const IMPERSONATION_SESSION_MS = 60 * 60 * 1000;
+/** Sicherung des echten Admin-Tokens in admin_session_pre. */
+const IMPERSONATION_PRE_COOKIE_MS = 2 * 60 * 60 * 1000;
 app.set("trust proxy", 1);
 app.use(logger.httpLoggerOptions.middleware);
 // Security-Header via helmet. CSP und COEP deaktiviert, weil das Admin-SPA
@@ -2385,12 +2390,17 @@ app.use(async (req, res, next) => {
     const userName = row.user_name || "";
     const emailFromKey = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userKey) ? userKey : "";
     const emailFromName = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userName) ? userName : "";
+    const impersonatorKey = row.impersonator_user_key != null ? String(row.impersonator_user_key) : "";
+    const isImpersonating = !!String(impersonatorKey).trim();
     req.user = {
       id: userKey || "local",
       userKey,
       email: emailFromKey || emailFromName || "",
       name: userName || emailFromKey || userKey || "",
       role: String(row.role || "admin"),
+      isImpersonating,
+      impersonatorUserKey: isImpersonating ? impersonatorKey : null,
+      impersonationStartedAt: row.impersonator_started_at || null,
     };
   } catch (err) {
     console.warn("[auth] admin token attach failed", err?.message);
@@ -2558,6 +2568,97 @@ app.get("/auth/profile", async (req, res) => {
   } catch (err) {
     console.error("[auth/profile]", err?.message || err);
     res.status(500).json({ error: "profile_failed" });
+  }
+});
+
+// GET /auth/me – Session-Info inkl. Impersonation (alle Rollen, kein requireAdmin)
+app.get("/auth/me", async (req, res) => {
+  try {
+    const { token, source } = getRequestTokenDetails(req);
+    if (!token) return res.status(401).json({ ok: false, error: "Unauthorized" });
+    const th = customerAuth.hashSha256Hex(token);
+    const row = await db.getAdminSessionByTokenHash(th);
+    if (!row) return res.status(401).json({ ok: false, error: "Unauthorized" });
+    const role = String(row.role || "admin");
+    const imp = row.impersonator_user_key != null && String(row.impersonator_user_key).trim() !== "";
+    const impersonatorEmail = imp ? await resolveImpersonatorDisplayKey(String(row.impersonator_user_key)) : null;
+    const targetEmail = String(row.user_key || row.user_name || "")
+      .trim()
+      .toLowerCase();
+    const perms = Array.from(rbac.legacyFallbackPermissions(role));
+    return res.json({
+      ok: true,
+      role,
+      isImpersonating: imp,
+      impersonatorEmail: imp ? impersonatorEmail : null,
+      impersonatedAs: {
+        email: targetEmail,
+        role,
+      },
+      permissions: perms,
+    });
+  } catch (e) {
+    console.error("[auth/me]", e?.message || e);
+    res.status(500).json({ error: e?.message || "me_failed" });
+  }
+});
+
+// GET /auth/impersonation-claim – nur Cookie, ignoriert Bearer (für localStorage-Sync nach Impersonate-Redirect)
+app.get("/auth/impersonation-claim", async (req, res) => {
+  try {
+    const raw = getRawCookie(req, "admin_session");
+    if (!raw) {
+      return res.status(401).json({ ok: false, error: "Kein admin_session-Cookie" });
+    }
+    const th = customerAuth.hashSha256Hex(raw);
+    const row = await db.getAdminSessionByTokenHash(th);
+    if (!row) {
+      return res.status(401).json({ ok: false, error: "Ungueltige Session" });
+    }
+    const imp = row.impersonator_user_key != null && String(row.impersonator_user_key).trim() !== "";
+    if (!imp) {
+      return res.status(400).json({ ok: false, error: "Keine aktive Impersonation" });
+    }
+    const role = String(row.role || "customer_user");
+    const perms = Array.from(rbac.legacyFallbackPermissions(role));
+    return res.json({
+      ok: true,
+      token: raw,
+      role,
+      permissions: perms,
+    });
+  } catch (e) {
+    console.error("[auth/impersonation-claim]", e?.message || e);
+    res.status(500).json({ error: e?.message || "claim_failed" });
+  }
+});
+
+// GET /auth/impersonate-consume?t=... – setzt httpOnly admin_session, Redirect inkl. __imp=1
+app.get("/auth/impersonate-consume", async (req, res) => {
+  try {
+    const t = String(req.query?.t || req.query?.token || "").trim();
+    if (!t) {
+      return res.status(400).send("Token fehlt");
+    }
+    const th = customerAuth.hashSha256Hex(t);
+    const row = await db.getAdminSessionByTokenHash(th);
+    if (!row) {
+      return res.status(400).send("Ungueltiger oder abgelaufener Link");
+    }
+    const isImp = row.impersonator_user_key != null && String(row.impersonator_user_key).trim() !== "";
+    if (!isImp) {
+      return res.status(400).send("Nicht als Impersonation-Token vorgesehen");
+    }
+    const exp = row.expires_at ? new Date(row.expires_at) : new Date();
+    const maxAgeMs = Math.max(0, exp.getTime() - Date.now());
+    setAdminSessionCookieValue(res, t, maxAgeMs);
+    const base = getPublicPanelOrigin(req);
+    const to = new URL(base);
+    to.searchParams.set("__imp", "1");
+    return res.redirect(302, to.toString());
+  } catch (e) {
+    console.error("[auth/impersonate-consume]", e?.message || e);
+    return res.status(500).send(e?.message || "consume_failed");
   }
 });
 
@@ -8243,6 +8344,34 @@ function resolveAdminFrontendUrl(req) {
   return "http://localhost:5173/";
 }
 
+/**
+ * Legt admin_sessions an (kein Set-Cookie), z. B. Kunden-Impersonation.
+ * @returns {Promise<{ token: string, expiresAt: Date }|null>}
+ */
+async function createAdminSessionInDb({
+  role = "admin",
+  userKey = null,
+  userName = null,
+  expiresAt = null,
+  impersonatorUserKey = null,
+  impersonatorStartedAt = null,
+} = {}) {
+  if (!db.createAdminSession) return null;
+  const token = generateToken();
+  const exp = expiresAt || new Date(Date.now() + ADMIN_SESSION_DAYS * 24 * 60 * 60 * 1000);
+  const tokenHash = customerAuth.hashSha256Hex(token);
+  await db.createAdminSession({
+    tokenHash,
+    role,
+    userKey,
+    userName,
+    expiresAt: exp,
+    impersonatorUserKey: impersonatorUserKey || null,
+    impersonatorStartedAt: impersonatorStartedAt || (impersonatorUserKey ? new Date() : null),
+  });
+  return { token, expiresAt: exp };
+}
+
 async function issueAdminSession(res, { role = "admin", rememberMe = false, userKey = null, userName = null } = {}) {
   const token = generateToken();
   const sessionDays = rememberMe ? 30 : ADMIN_SESSION_DAYS;
@@ -8253,12 +8382,7 @@ async function issueAdminSession(res, { role = "admin", rememberMe = false, user
       const tokenHash = customerAuth.hashSha256Hex(token);
       await db.createAdminSession({ tokenHash, role, userKey, userName, expiresAt });
     }
-    res.cookie("admin_session", token, {
-      httpOnly: true,
-      secure: String(process.env.SESSION_COOKIE_SECURE || "false").toLowerCase() === "true",
-      sameSite: "lax",
-      maxAge: sessionDays * 24 * 60 * 60 * 1000
-    });
+    setAdminSessionCookieValue(res, token, sessionDays * 24 * 60 * 60 * 1000);
   } catch (e) {
     console.error("[auth] create admin session failed", e?.message);
   }
@@ -8291,6 +8415,80 @@ function getRequestTokenDetails(req) {
 
 function getRequestToken(req) {
   return getRequestTokenDetails(req).token;
+}
+
+function buildAdminSessionCookieOptions(maxAgeMs) {
+  const options = {
+    path: "/",
+    httpOnly: true,
+    secure: String(process.env.SESSION_COOKIE_SECURE || "false").toLowerCase() === "true",
+    sameSite: "lax",
+    maxAge: maxAgeMs,
+  };
+  if (sessionCookieDomain) {
+    options.domain = sessionCookieDomain;
+  }
+  return options;
+}
+
+function setAdminSessionCookieValue(res, token, maxAgeMs) {
+  res.cookie("admin_session", token, buildAdminSessionCookieOptions(maxAgeMs));
+}
+
+function setAdminPreSessionCookie(res, token) {
+  res.cookie("admin_session_pre", token, buildAdminSessionCookieOptions(IMPERSONATION_PRE_COOKIE_MS));
+}
+
+function clearAdminPreSessionCookie(res) {
+  if (!res?.clearCookie) return;
+  res.clearCookie("admin_session_pre", { path: "/", ...(sessionCookieDomain ? { domain: sessionCookieDomain } : {}) });
+}
+
+/**
+ * Liest rohen Cookiewert (ohne decodeURIComponent) — nur serverseitig.
+ * @param {import('http').IncomingMessage} req
+ * @param {string} name
+ * @returns {string}
+ */
+function getRawCookie(req, name) {
+  const raw = String(req?.headers?.cookie || "");
+  if (!raw) return "";
+  for (const part of raw.split(";")) {
+    const t = part.trim();
+    if (!t) continue;
+    if (t.startsWith(`${name}=`)) {
+      return decodeURIComponent(t.substring(name.length + 1).trim());
+    }
+  }
+  return "";
+}
+
+function getPublicPanelOrigin(req) {
+  const configured = String(
+    process.env.ADMIN_PANEL_URL || process.env.ADMIN_FRONTEND_URL || process.env.FRONTEND_URL || ""
+  )
+    .trim()
+    .replace(/\/?$/, "");
+  if (configured) return configured;
+  const proto = String(req?.protocol || "https");
+  const host = String(req?.get?.("host") || "localhost");
+  return `${proto}://${host}`.replace(/\/?$/, "");
+}
+
+/**
+ * Ermittelt E-Mail/Label eines Intern-Admins für Anzeige im Impersonation-Banner.
+ * @param {string} key
+ * @returns {Promise<string>}
+ */
+async function resolveImpersonatorDisplayKey(key) {
+  const s = String(key || "").trim();
+  if (!s) return "";
+  const id = Number(s);
+  if (Number.isFinite(id) && id > 0 && db.getAdminUserById) {
+    const u = await db.getAdminUserById(id);
+    if (u) return String(u.email || u.username || s).toLowerCase();
+  }
+  return s;
 }
 
 function clearAdminSessionCookie(res) {
@@ -10064,6 +10262,206 @@ app.get("/api/admin/customers/:id/orders", requireAdmin, async (req, res) => {
   } catch (err) {
     console.error("[customers/:id/orders]", err?.message || err);
     res.status(500).json({ error: err.message || "Auftraege konnten nicht geladen werden" });
+  }
+});
+
+// Portal-Team eines Kunden (E-Mail = Buchungskunde) für "Als Kunde einloggen" / Mitarbeiter-Dropdown
+app.get("/api/admin/customers/:id/team-members", requireAdmin, async (req, res) => {
+  try {
+    const customerId = Number(req.params.id);
+    if (!Number.isFinite(customerId)) return res.status(400).json({ error: "Ungueltige Kunden-ID" });
+    if (!(await ensureCustomerInRequestCompany(req, customerId))) {
+      return res.status(404).json({ error: "Nicht gefunden" });
+    }
+    const pool = db.getPool ? db.getPool() : null;
+    if (!pool) return res.status(503).json({ error: "DB nicht verfuegbar" });
+    const { rows: cust } = await pool.query("SELECT id, email, blocked FROM customers WHERE id = $1", [customerId]);
+    if (!cust[0]) return res.status(404).json({ error: "Kunde nicht gefunden" });
+    if (cust[0].blocked) {
+      return res.status(403).json({ error: "Gesperrter Kunde" });
+    }
+    const ownerEmail = String(cust[0].email || "").trim().toLowerCase();
+    let team;
+    try {
+      team = await portalTeam.listTeamMembers(ownerEmail);
+    } catch (e) {
+      console.warn("[team-members] listTeamMembers", e?.message || e);
+      team = [];
+    }
+    const members = (Array.isArray(team) ? team : []).map((m) => ({
+      email: String(m.member_email || m.memberEmail || "").toLowerCase(),
+      displayName: (m.display_name && String(m.display_name).trim()) || "",
+      role: m.role != null ? String(m.role) : "",
+      status: m.status != null ? String(m.status) : "",
+    }));
+    return res.json({ ok: true, members });
+  } catch (err) {
+    console.error("[team-members]", err?.message || err);
+    return res.status(500).json({ error: err.message || "team-members fehlgeschlagen" });
+  }
+});
+
+// Admin-Panel: Kunden-Impersonation (admin_session – gleiche Sitzungstabelle wie /auth/login)
+app.post("/api/admin/customers/:id/impersonate-panel", requireAdmin, async (req, res) => {
+  try {
+    if (getRawCookie(req, "admin_session_pre")) {
+      return res.status(400).json({ error: "Session-Sicherung bereits aktiv. Zuerst Impersonation beenden." });
+    }
+    const curT = getRequestToken(req);
+    if (!curT) return res.status(401).json({ error: "Nicht authentifiziert" });
+    const curH = customerAuth.hashSha256Hex(curT);
+    const curRow = await db.getAdminSessionByTokenHash(curH);
+    if (!curRow) return res.status(401).json({ error: "Session ungültig" });
+    if (curRow.impersonator_user_key) {
+      return res.status(400).json({ error: 'Bereits als Kunde: Bitte zuerst "Zurueck zum Admin" verwenden' });
+    }
+    const srole = String(req.user?.role || "");
+    if (!SUPER_ADMIN_ROLES.has(srole)) {
+      return res.status(403).json({ error: "Nur interne Admins" });
+    }
+    const customerId = Number(req.params.id);
+    if (!Number.isFinite(customerId)) return res.status(400).json({ error: "Ungueltige Kunden-ID" });
+    if (!(await ensureCustomerInRequestCompany(req, customerId))) {
+      return res.status(404).json({ error: "Nicht gefunden" });
+    }
+    const pool = db.getPool ? db.getPool() : null;
+    if (!pool) return res.status(503).json({ error: "DB nicht verfuegbar" });
+    const { rows: custRows } = await pool.query("SELECT id, email, blocked FROM customers WHERE id = $1", [customerId]);
+    if (!custRows[0]) return res.status(404).json({ error: "Kunde nicht gefunden" });
+    if (custRows[0].blocked) return res.status(403).json({ error: "Gesperrter Kunde kann nicht impersoniert werden" });
+
+    const body = req.body || {};
+    const chosenRole = String(body.role || "").trim();
+    if (!["customer_admin", "customer_user", "tour_manager"].includes(chosenRole)) {
+      return res.status(400).json({ error: "Ungueltige Rolle (customer_admin, customer_user, tour_manager)" });
+    }
+    const memRaw = String(body.memberEmail || body.member_email || "").trim().toLowerCase();
+    const ownerEmail = String(custRows[0].email || "").trim().toLowerCase();
+    if (!ownerEmail) {
+      return res.status(400).json({ error: "Kunde ohne E-Mail" });
+    }
+    let targetEmail = ownerEmail;
+    if (memRaw) {
+      if (memRaw === ownerEmail) {
+        targetEmail = ownerEmail;
+      } else {
+        let team;
+        try {
+          team = await portalTeam.listTeamMembers(ownerEmail);
+        } catch (e) {
+          return res.status(500).json({ error: e?.message || "Team-Liste" });
+        }
+        const found = (Array.isArray(team) ? team : []).find(
+          (m) => String(m.member_email || "")
+            .trim()
+            .toLowerCase() === memRaw && ["active", "pending"].includes(String(m.status || "")),
+        );
+        if (!found) {
+          return res.status(400).json({ error: "E-Mail kein Team-Mitglied (aktiv/pending) des Kunden" });
+        }
+        targetEmail = memRaw;
+      }
+    }
+
+    const exp = new Date(Date.now() + IMPERSONATION_SESSION_MS);
+    const impKey = String(req.user?.userKey != null ? req.user.userKey : req.user?.id != null ? req.user.id : "").trim();
+    const created = await createAdminSessionInDb({
+      role: chosenRole,
+      userKey: targetEmail,
+      userName: targetEmail,
+      expiresAt: exp,
+      impersonatorUserKey: impKey,
+      impersonatorStartedAt: new Date(),
+    });
+    if (!created) return res.status(500).json({ error: "Session anlegen fehlgeschlagen" });
+    setAdminPreSessionCookie(res, curT);
+    const u = getPublicPanelOrigin(req);
+    const link = `${u}/auth/impersonate-consume?t=${encodeURIComponent(created.token)}`;
+    try {
+      console.info(
+        `[IMPERSONATE] target=${targetEmail} role=${chosenRole} as_admin_user_key=${impKey} customer_id=${customerId}`,
+      );
+    } catch (_c) {
+      /* */
+    }
+    return res.json({ ok: true, url: link });
+  } catch (err) {
+    console.error("[impersonate-panel]", err?.message || err);
+    return res.status(500).json({ error: err?.message || "Impersonation fehlgeschlagen" });
+  }
+});
+
+app.post("/api/admin/impersonate/stop", async (req, res) => {
+  try {
+    const t = getRequestToken(req);
+    if (!t) {
+      return res.status(401).json({ error: "Nicht authentifiziert" });
+    }
+    const h = customerAuth.hashSha256Hex(t);
+    const row = await db.getAdminSessionByTokenHash(h);
+    if (!row) {
+      return res.status(401).json({ error: "Ungueltige Session" });
+    }
+    const impK = row.impersonator_user_key;
+    if (impK == null || !String(impK).trim()) {
+      return res.status(400).json({ error: "Keine aktive Impersonation" });
+    }
+    const pre = getRawCookie(req, "admin_session_pre");
+    if (!pre) {
+      return res.status(400).json({ error: "Keine gespeicherte Admin-Session" });
+    }
+    const preH = customerAuth.hashSha256Hex(pre);
+    const preRow = await db.getAdminSessionByTokenHash(preH);
+    if (!preRow) {
+      return res.status(401).json({ error: "Gespeicherte Admin-Session abgelaufen – bitte neu anmelden" });
+    }
+    if (!SUPER_ADMIN_ROLES.has(String(preRow.role || ""))) {
+      return res.status(403).json({ error: "Gespeicherte Session ungueltig" });
+    }
+    if (db.deleteAdminSessionByTokenHash) {
+      await db.deleteAdminSessionByTokenHash(h);
+    }
+    const pExp = preRow.expires_at ? new Date(preRow.expires_at) : new Date();
+    const preMaxAge = Math.max(0, pExp.getTime() - Date.now());
+    if (preMaxAge <= 0) {
+      clearAdminPreSessionCookie(res);
+      return res.status(401).json({ error: "Gespeicherte Admin-Session abgelaufen" });
+    }
+    setAdminSessionCookieValue(res, pre, preMaxAge);
+    clearAdminPreSessionCookie(res);
+    const role = String(preRow.role || "admin");
+    let permissions = Array.from(rbac.legacyFallbackPermissions(role));
+    try {
+      const uid = Number(preRow.user_key);
+      if (Number.isFinite(uid) && uid > 0) {
+        await rbac.syncAdminUserRolesFromDb(uid);
+        const sid = await rbac.ensureAdminUserSubject(uid);
+        if (sid) {
+          const pSet = await rbac.getEffectivePermissions(sid, { scopeType: "system", companyId: null, customerId: null });
+          permissions = Array.from(pSet);
+        }
+        if (!permissions.length) {
+          permissions = Array.from(rbac.legacyFallbackPermissions(role));
+        }
+      }
+    } catch (_e) {
+      /* */
+    }
+    try {
+      console.info(`[IMPERSONATE-STOP] restored admin session user_key=${String(preRow.user_key)}`);
+    } catch (_c) {
+      /* */
+    }
+    return res.json({
+      ok: true,
+      token: pre,
+      role,
+      permissions,
+      redirect: "/",
+    });
+  } catch (err) {
+    console.error("[impersonate-stop]", err?.message || err);
+    return res.status(500).json({ error: err?.message || "Stop fehlgeschlagen" });
   }
 });
 

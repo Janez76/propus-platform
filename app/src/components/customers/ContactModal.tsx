@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { X } from "lucide-react";
 import { getCustomer, getCustomerImpersonateUrl, getCustomerOrders, resetCustomerPassword, type Customer, type CustomerOrder } from "../../api/customers";
+import { ImpersonateDialog } from "./ImpersonateDialog";
 import { useAuthStore } from "../../store/authStore";
 import { t } from "../../i18n";
 import { toDisplayString } from "../../lib/utils";
@@ -127,6 +128,7 @@ export function ContactModal({ token, item, onSave, onToggleAdmin, onToggleBlock
   const lang = useAuthStore((s) => s.language);
   const [form, setForm] = useState<ContactFormState>(() => toFormState(item));
   const [newPassword, setNewPassword] = useState("");
+  const [showImpersonate, setShowImpersonate] = useState(false);
   const [orders, setOrders] = useState<CustomerOrder[]>([]);
   const [ordersCount, setOrdersCount] = useState<number | null>(null);
   const [error, setError] = useState("");
@@ -450,12 +452,34 @@ export function ContactModal({ token, item, onSave, onToggleAdmin, onToggleBlock
                 {portalLoading ? t(lang, "common.loading") : t(lang, "customerView.button.openPortal")}
               </button>
             </p>
+            <p className="mb-1">
+              {t(lang, "impersonate.openPanel")}{" "}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowImpersonate(true);
+                }}
+                disabled={item.blocked}
+                className="text-[var(--accent)] hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {t(lang, "impersonate.start")}
+              </button>
+            </p>
             <p className="text-[11px] text-zinc-500">{t(lang, "customerModal.hint.portal")}</p>
           </div>
         </div>
 
         {error ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}
         {saveError ? <p className="mt-1 text-sm text-red-600">{saveError}</p> : null}
+        {showImpersonate ? (
+          <ImpersonateDialog
+            token={token}
+            item={item}
+            onClose={() => {
+              setShowImpersonate(false);
+            }}
+          />
+        ) : null}
         <div className="mt-3 flex flex-wrap gap-2">
           <button type="button" className={uiMode === "modern" ? "btn-secondary" : "rounded border px-3 py-1 text-sm"} onClick={toggleBlockedNow}>
             {item.blocked ? t(lang, "common.unblock") : t(lang, "common.block")}

@@ -13,6 +13,17 @@ export type AdminProfile = {
 export const getAdminProfile = (token: string) =>
   apiRequest<{ ok: true; role: Role; profile: AdminProfile; permissions?: string[] }>("/api/admin/me", "GET", token);
 
+/** Session-Info inkl. Impersonation (eignet sich für Kunden-Panel, nicht requireAdmin) */
+export const getAuthMe = (token: string) =>
+  apiRequest<{
+    ok: true;
+    role: string;
+    isImpersonating: boolean;
+    impersonatorEmail: string | null;
+    impersonatedAs: { email: string; role: string };
+    permissions: string[];
+  }>("/api/auth/me", "GET", token);
+
 export const updateAdminProfile = (token: string, profile: Partial<AdminProfile>) =>
   apiRequest<{ ok: true; profile: AdminProfile }>("/api/admin/me", "PUT", token, profile);
 

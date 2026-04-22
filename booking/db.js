@@ -1022,17 +1022,18 @@ async function logAuthAudit({ actorId, actorRole, action, targetType, targetId, 
 }
 
 // ─── Admin-Sessions ─────────────────────────────────────────────────────────────
-async function createAdminSession({ tokenHash, role, userKey, userName, expiresAt }) {
+async function createAdminSession({ tokenHash, role, userKey, userName, expiresAt, impersonatorUserKey = null, impersonatorStartedAt = null }) {
   await query(
-    `INSERT INTO admin_sessions (token_hash, role, user_key, user_name, expires_at)
-     VALUES ($1, $2, $3, $4, $5)`,
-    [tokenHash, role, userKey || null, userName || null, expiresAt]
+    `INSERT INTO admin_sessions (token_hash, role, user_key, user_name, expires_at, impersonator_user_key, impersonator_started_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [tokenHash, role, userKey || null, userName || null, expiresAt, impersonatorUserKey || null, impersonatorStartedAt || null]
   );
 }
 
 async function getAdminSessionByTokenHash(tokenHash) {
   const { rows } = await query(
-    `SELECT role, user_key, user_name, expires_at FROM admin_sessions
+    `SELECT role, user_key, user_name, expires_at, impersonator_user_key, impersonator_started_at
+     FROM admin_sessions
      WHERE token_hash = $1 AND expires_at > NOW()`,
     [tokenHash]
   );

@@ -341,3 +341,5 @@ getPortalCustomerRole(email)
 Portal-Kunden erhalten `legacyFallbackPermissions(role)` (kein volles RBAC-Lookup wie bei Admin-Users). Die relevanten Permissions für Kunden-Rollen sind in §4 (Rollen → Permissions Mapping) dokumentiert.
 
 Vollständige Auth-Flow-Dokumentation: [docs/FLOWS_AUTH.md](./FLOWS_AUTH.md)
+
+**Test-Impersonation (Intern):** Entwickler/Support können aus der Kundenverwaltung „Als Kunde einloggen (Panel)“ wählen. Die Zielrolle ist **explizit wählbar** (nicht nur `getPortalCustomerRole`) und landet als `admin_sessions`-Zeile mit `impersonator_user_key` (siehe [docs/FLOWS_AUTH.md §9](./FLOWS_AUTH.md)). So bleibt die fachliche Sicht (z. B. `customer_user` vs. `customer_admin`) testbar, ohne die echten Zugangsdaten des Kunden.

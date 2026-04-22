@@ -2,6 +2,8 @@
 
 import { useLayoutEffect, type ReactNode } from "react";
 import { applyTheme } from "@/store/themeStore";
+import { ImpersonationHandshake } from "@/components/auth/ImpersonationHandshake";
+import { ImpersonateBanner } from "@/components/auth/ImpersonateBanner";
 
 /**
  * Re-applies the stored theme to <html> after React hydration.
@@ -15,5 +17,11 @@ export function ThemeRoot({ children }: { children: ReactNode }) {
     applyTheme();
   }, []);
 
-  return <>{children}</>;
+  return (
+    <>
+      <ImpersonationHandshake />
+      <ImpersonateBanner />
+      {children}
+    </>
+  );
 }

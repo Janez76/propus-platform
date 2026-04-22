@@ -1,8 +1,11 @@
 export type Role =
   | "admin"
+  | "employee"
   | "photographer"
   | "super_admin"
-  | "tour_manager";
+  | "tour_manager"
+  | "customer_admin"
+  | "customer_user";
 
 export type ApiOrder = {
   orderNo: string;

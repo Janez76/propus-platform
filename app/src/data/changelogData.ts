@@ -15,6 +15,15 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.397",
+    date: "2026-04-22",
+    title: "Kunden-Impersonation: Panel als Kunde testen (Als Kunde einloggen)",
+    changes: [
+      { type: "feature", text: "Kunden-Modal: „Als Kunde einloggen (Panel)“ mit Rollen- und Team-Auswahl; 1h-Session, Banner „Zurück zum Admin“" },
+      { type: "improvement", text: "Backend: admin_sessions (impersonator_*, Migration 043), POST /impersonate-panel, GET /impersonate-consume, POST /impersonate/stop, /auth/me" },
+    ],
+  },
+  {
     version: "2.3.396",
     date: "2026-04-22",
     title: "Rollen-Matrix: Kunden-Rollen und portal_team.manage",

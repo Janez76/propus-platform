@@ -88,9 +88,12 @@ export function normalizeStoredRole(input: string): Role {
   const role = String(input || "").trim();
   const allowed: Role[] = [
     "admin",
+    "employee",
     "photographer",
     "super_admin",
     "tour_manager",
+    "customer_admin",
+    "customer_user",
   ];
   return allowed.includes(role as Role) ? (role as Role) : "admin";
 }

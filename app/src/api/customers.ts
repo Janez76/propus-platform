@@ -203,6 +203,32 @@ export const resetCustomerPassword = (token: string, id: number, newPassword: st
 export const getCustomerImpersonateUrl = (token: string, id: number) =>
   apiRequest<{ ok: true; url: string }>(`/api/admin/customers/${id}/impersonate`, "POST", token);
 
+export type ImpersonatePanelBody = {
+  role: "customer_admin" | "customer_user" | "tour_manager";
+  memberEmail?: string;
+};
+
+export const impersonateCustomerPanel = (token: string, id: number, body: ImpersonatePanelBody) =>
+  apiRequest<{ ok: true; url: string }>(`/api/admin/customers/${id}/impersonate-panel`, "POST", token, body);
+
+export type TeamMemberRow = {
+  email: string;
+  displayName: string;
+  role: string;
+  status: string;
+};
+
+export const listCustomerTeamMembers = (token: string, id: number) =>
+  apiRequest<{ ok: true; members: TeamMemberRow[] }>(`/api/admin/customers/${id}/team-members`, "GET", token);
+
+export const stopImpersonation = (token: string) =>
+  apiRequest<{ ok: true; token: string; role: string; permissions: string[]; redirect: string }>(
+    "/api/admin/impersonate/stop",
+    "POST",
+    token,
+    {},
+  );
+
 export const getCustomerOrders = (token: string, id: number) =>
   apiRequest<CustomerOrder[]>(`/api/admin/customers/${id}/orders`, "GET", token);
 

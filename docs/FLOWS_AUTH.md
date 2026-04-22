@@ -16,9 +16,10 @@
 6. [Passwort-Reset-Flow (Portal)](#6-passwort-reset-flow-portal)
 7. [Post-Login-Redirect](#7-post-login-redirect)
 8. [Session-Tabellen & Cookies](#8-session-tabellen--cookies)
-9. [Frontend-Integration](#9-frontend-integration)
-10. [API-Key-Authentifizierung](#10-api-key-authentifizierung-bearer-token-ppk_live_)
-11. [Sicherheitshinweise](#11-sicherheitshinweise)
+9. [Admin-Impersonation (Kunden-Vorschau)](#9-admin-impersonation-kunden-vorschau)
+10. [Frontend-Integration](#10-frontend-integration)
+11. [API-Key-Authentifizierung](#11-api-key-authentifizierung-bearer-token-ppk_live_)
+12. [Sicherheitshinweise](#12-sicherheitshinweise)
 
 ---
 
@@ -298,6 +299,8 @@ function isSafeInternalPath(path: string): boolean {
 | `user_name` | TEXT | Anzeigename |
 | `role` | TEXT | System-Rolle |
 | `expires_at` | TIMESTAMPTZ | Ablaufzeit (rememberMe → 30d, sonst 1d) |
+| `impersonator_user_key` | TEXT | Nur bei Kunden-Impersonation: `user_key` des echten Intern-Admins |
+| `impersonator_started_at` | TIMESTAMPTZ | Startzeit der Impersonation, sonst NULL |
 | `created_at` | TIMESTAMPTZ | |
 
 **Verwendet von:** Unified-Login, Portal-Session-Bridge, `/auth/profile`
@@ -327,12 +330,26 @@ Verwaltet vom Tour-Manager-Express-Router via `express-session` + Postgres-Store
 | Cookie | Scope | Gesetzt von |
 |---|---|---|
 | `admin_session` | `/` | `issueAdminSession()` in `booking/server.js` |
+| `admin_session_pre` | `/` | Kurzlebig: sichert das echt-Admin-Token, bevor `admin_session` in die Kunden-Impersonation umschaltet |
 | `customer_session` | `/` | Magic-Link-Endpunkt |
 | `propus_tours.sid` | `/` | Express-Session (Tour-Manager) |
 
 ---
 
-## 9. Frontend-Integration
+## 9. Admin-Impersonation (Kunden-Vorschau)
+
+Nur **Intern-Admins** (`admin`, `employee`, `super_admin` gemäss `requireAdmin`) dürfen eine **neue** `admin_sessions`-Zeile erzeugen, deren `user_key` / `user_name` die E-Mail des Kunden (oder Team-Mitglieds) trägt, mit gewünschter Rolle (`customer_admin` \| `customer_user` \| `tour_manager`).
+
+1. `POST /api/admin/customers/:id/impersonate-panel` — legt proaktisch `admin_session_pre = <aktueller Raw-Token>`; erzeugt ein **1h-Token** in `admin_sessions` inkl. `impersonator_user_key`.
+2. Antwort `url` öffnet `GET /auth/impersonate-consume?t=…` (serverseitig) → setzt `admin_session` (httpOnly) und leitet mit `?__imp=1` in den Admin-Frontend-Origin; danach wechselt lokal `Authorization`-Bearer-Token vs. httpOnly-Abgleich nur über `GET /api/auth/impersonation-claim` (Cookie-only) und `app`-Store.
+3. `GET /api/auth/me` und Panel-Banner lesen `impersonator_user_key` aus `admin_sessions` (für Lauftext „Admin: …“).
+4. `POST /api/admin/impersonate/stop` – ohne `requireAdmin` (Kundenrolle) erlaubt, wenn `impersonator_user_key` in der **aktuellen** Session-Zeile gesetzt ist: löscht Kunden-Token, setzt `admin_session` aus `admin_session_pre` zurück, JSON enthält neues `token` fürs Frontend-Store (Wiederherstellung).
+
+Kein Chaining: eine bereits impersonierte Session kann `impersonate-panel` nicht starten; `isAdminImpersonating` blockiert sinnvoll in der Implementierung (und `requireAdmin` greift Kundenrolle).
+
+---
+
+## 10. Frontend-Integration
 
 ### Token-Speicherung (`app/src/store/authStore.ts`)
 
@@ -381,7 +398,7 @@ Steuert u.a.: Login-Hinweis-Banner, Profil-Vorausfüllung, Standard-Redirect nac
 
 ---
 
-## 10. API-Key-Authentifizierung (Bearer-Token `ppk_live_…`)
+## 11. API-Key-Authentifizierung (Bearer-Token `ppk_live_…`)
 
 Seit PR #91 unterstuetzt die Auth-Middleware in `booking/server.js` neben Session-Tokens auch langlebige API-Keys als Bearer-Token.
 
@@ -420,7 +437,7 @@ Eingehender Request mit Bearer ppk_live_<secret>
 
 ---
 
-## 11. Sicherheitshinweise
+## 12. Sicherheitshinweise
 
 | Thema | Maßnahme |
 |---|---|
