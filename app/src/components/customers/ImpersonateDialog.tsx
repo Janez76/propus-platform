@@ -2,15 +2,15 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { Customer } from "@/api/customers";
-import { impersonateCustomerPanel, listCustomerTeamMembers, type ImpersonatePanelBody } from "@/api/customers";
+import { getCustomerImpersonateUrl, impersonateCustomerPanel, listCustomerTeamMembers, type ImpersonatePanelBody } from "@/api/customers";
 import { useAuthStore } from "@/store/authStore";
 import { t } from "@/i18n";
 import { X } from "lucide-react";
 
 const ROLES: { value: ImpersonatePanelBody["role"]; label: string; hint: string }[] = [
-  { value: "customer_admin", label: "Kunden-Admin", hint: "Typische Sicht: Team & Bestellungen verwalten" },
-  { value: "customer_user", label: "Kunden-Benutzer", hint: "Typische Sicht: Lesen" },
-  { value: "tour_manager", label: "Tour-Manager", hint: "Interne Sicht laut Zuteilung (Vorsicht)" },
+  { value: "customer_admin", label: "Kunden-Admin", hint: "Öffnet Kundenportal (booking.propus.ch/account) als Inhaber" },
+  { value: "customer_user", label: "Kunden-Benutzer", hint: "Öffnet Kundenportal (booking.propus.ch/account) als Inhaber" },
+  { value: "tour_manager", label: "Tour-Manager", hint: "Interne Admin-Sicht laut Zuteilung (Vorsicht)" },
 ];
 
 type Props = {
@@ -22,7 +22,7 @@ type Props = {
 export function ImpersonateDialog({ token, item, onClose }: Props) {
   const uiMode = useAuthStore((s) => s.uiMode);
   const lang = useAuthStore((s) => s.language);
-  const [role, setRole] = useState<ImpersonatePanelBody["role"]>("customer_user");
+  const [role, setRole] = useState<ImpersonatePanelBody["role"]>("customer_admin");
   const [memberValue, setMemberValue] = useState<"owner" | string>("owner");
   const [members, setMembers] = useState<{ email: string; displayName: string; status: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,9 +64,18 @@ export function ImpersonateDialog({ token, item, onClose }: Props) {
     setErr("");
     setSubmitting(true);
     try {
-      const memberEmail = memberValue === "owner" ? undefined : String(memberValue).toLowerCase();
-      const { url } = await impersonateCustomerPanel(token, item.id, { role, memberEmail });
-      const u = String(url || "").trim();
+      // Kunden-Rollen → echtes Kunden-Portal (booking.propus.ch/account)
+      // Interne Rollen (tour_manager) → Admin-Panel via admin_session Impersonation
+      let url = "";
+      if (role === "customer_admin" || role === "customer_user") {
+        const resp = await getCustomerImpersonateUrl(token, item.id);
+        url = String(resp?.url || "");
+      } else {
+        const memberEmail = memberValue === "owner" ? undefined : String(memberValue).toLowerCase();
+        const resp = await impersonateCustomerPanel(token, item.id, { role, memberEmail });
+        url = String(resp?.url || "");
+      }
+      const u = url.trim();
       if (!u) throw new Error("Keine URL");
       const w = window.open("about:blank", "_blank");
       if (w) {
@@ -122,25 +131,31 @@ export function ImpersonateDialog({ token, item, onClose }: Props) {
           ))}
         </div>
 
-        <div className="mb-4">
-          <label className="mb-1 block text-sm font-medium">{t(lang, "impersonate.member")}</label>
-          <select
-            className="ui-input w-full"
-            value={memberValue}
-            onChange={(e) => {
-              setMemberValue(e.target.value);
-            }}
-            disabled={loading}
-          >
-            <option value="owner">Inhaber / {String(item.email || t(lang, "common.email"))}</option>
-            {members.map((m) => (
-              <option key={m.email} value={m.email}>
-                {m.displayName ? `${m.displayName} · ` : ""}
-                {m.email} ({m.status})
-              </option>
-            ))}
-          </select>
-        </div>
+        {role === "tour_manager" ? (
+          <div className="mb-4">
+            <label className="mb-1 block text-sm font-medium">{t(lang, "impersonate.member")}</label>
+            <select
+              className="ui-input w-full"
+              value={memberValue}
+              onChange={(e) => {
+                setMemberValue(e.target.value);
+              }}
+              disabled={loading}
+            >
+              <option value="owner">Inhaber / {String(item.email || t(lang, "common.email"))}</option>
+              {members.map((m) => (
+                <option key={m.email} value={m.email}>
+                  {m.displayName ? `${m.displayName} · ` : ""}
+                  {m.email} ({m.status})
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <div className="mb-4 rounded border border-(--border-soft) bg-(--surface-raised) p-2 text-xs text-(--text-muted)">
+            Öffnet eine neue Sitzung auf <code>booking.propus.ch/account</code> als Inhaber des Kundenkontos.
+          </div>
+        )}
 
         {err ? <p className="mb-2 text-sm text-red-600 dark:text-red-400">{err}</p> : null}
 

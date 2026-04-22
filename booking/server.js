@@ -2652,11 +2652,13 @@ app.get("/auth/impersonate-consume", async (req, res) => {
     const exp = row.expires_at ? new Date(row.expires_at) : new Date();
     const maxAgeMs = Math.max(0, exp.getTime() - Date.now());
     setAdminSessionCookieValue(res, t, maxAgeMs);
-    // Kunden-Rollen → Portal-Bridge (portal.propus.ch); interne Rollen → Admin-Panel
+    // Kunden-Rollen → Portal-Bridge (same-origin; Tour-Manager unter /tour-manager gemountet).
+    // Interne Rollen (tour_manager) → Admin-Panel.
     const portalRoles = new Set(["customer_admin", "customer_user"]);
     if (portalRoles.has(String(row.role || ""))) {
-      const portalBase = (process.env.PORTAL_BASE_URL || "https://portal.propus.ch").replace(/\/$/, "");
-      return res.redirect(302, `${portalBase}/portal/admin-bridge`);
+      const mount = String(process.env.TOURS_MOUNT_PATH || "/tour-manager").replace(/\/$/, "");
+      // Relative URL: gleicher Host wie admin-booking.propus.ch → kein Cross-Domain-Cookie-Problem
+      return res.redirect(302, `${mount}/portal/admin-bridge`);
     }
     const base = getPublicPanelOrigin(req);
     const to = new URL(base);
