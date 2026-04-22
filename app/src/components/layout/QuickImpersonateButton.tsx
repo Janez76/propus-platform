@@ -180,8 +180,7 @@ export function QuickImpersonateButton() {
       {selected && token && (
         <ImpersonateDialog
           token={token}
-          customerId={selected.id}
-          customerName={displayName(selected)}
+          item={selected}
           onClose={() => setSelected(null)}
         />
       )}

@@ -299,8 +299,7 @@ export function CustomerViewModal({ open, token, customer, onClose, onCreateOrde
       {showImpersonate && customer && (
         <ImpersonateDialog
           token={token}
-          customerId={customer.id}
-          customerName={toDisplayString(displayTitle || customer.name)}
+          item={customer}
           onClose={() => setShowImpersonate(false)}
         />
       )}
