@@ -222,6 +222,77 @@
 }
 .propus-nav-item[data-active="true"] .propus-nav-item__icon { color: var(--accent); }
 
+/* ─── Parent-Item mit Untermenü ────────────────────────────────────────── */
+.propus-nav-item--parent {
+  width: 100%;
+  background: none;
+  border: none;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.propus-nav-item__chev {
+  width: 12px;
+  height: 12px;
+  color: var(--text-subtle);
+  transition: transform 0.18s ease;
+  flex-shrink: 0;
+}
+.propus-nav-group[data-open="true"] > .propus-nav-item--parent > .propus-nav-item__chev {
+  transform: rotate(90deg);
+}
+
+/* ─── Children-Container ───────────────────────────────────────────────── */
+.propus-nav-children {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 2px 0 4px 10px;
+  padding-left: 10px;
+  border-left: 1px dashed var(--border-softer, var(--border-soft));
+}
+
+/* ─── Sub-Item ─────────────────────────────────────────────────────────── */
+.propus-nav-subitem {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 10px;
+  border-radius: 5px;
+  color: var(--text-subtle);
+  font-size: 12.5px;
+  font-weight: 400;
+  text-decoration: none;
+  transition: background 0.12s, color 0.12s;
+}
+.propus-nav-subitem__icon {
+  width: 13px;
+  height: 13px;
+  stroke-width: 1.6;
+  color: var(--text-subtle);
+  flex-shrink: 0;
+}
+.propus-nav-subitem__label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.propus-nav-subitem:hover {
+  background: color-mix(in oklab, var(--accent) 5%, transparent);
+  color: var(--text-main);
+}
+.propus-nav-subitem:hover .propus-nav-subitem__icon { color: var(--text-dim); }
+.propus-nav-subitem[data-active="true"] {
+  color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 8%, transparent);
+  font-weight: 500;
+}
+.propus-nav-subitem[data-active="true"] .propus-nav-subitem__icon { color: var(--accent); }
+
+/* Im Collapsed-Rail: Children einklappen, Parent wird als Link behandelt */
+.propus-sidebar[data-collapsed="true"] .propus-nav-group > .propus-nav-item--parent > .propus-nav-item__chev,
+.propus-sidebar[data-collapsed="true"] .propus-nav-children { display: none; }
+
 /* ─── Badge ────────────────────────────────────────────────────────────── */
 .propus-nav-badge {
   display: inline-flex;

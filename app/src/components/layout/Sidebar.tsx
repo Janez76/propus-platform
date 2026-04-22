@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type JSX } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   ChevronDown,
+  ChevronRight,
   PanelLeftClose,
   PanelLeftOpen,
   Search,
@@ -13,6 +14,7 @@ import { useT } from "../../hooks/useT";
 import {
   filterNavForRole,
   isItemActive,
+  isItemOrChildActive,
   type NavBadgeKey,
   type NavSection as NavSectionType,
   type NavItem as NavItemType,
@@ -243,7 +245,7 @@ function NavSection({
           <NavItem
             key={item.id}
             item={item}
-            active={isItemActive(pathname, item)}
+            pathname={pathname}
             collapsed={collapsed}
             t={t}
           />
@@ -259,41 +261,111 @@ function NavSection({
 
 function NavItem({
   item,
-  active,
+  pathname,
   collapsed,
   t,
 }: {
   item: NavItemType;
-  active: boolean;
+  pathname: string;
   collapsed: boolean;
   t: (key: string) => string;
 }): JSX.Element {
   const badgeValue = useNavBadge(item.badgeKey);
   const label = t(item.labelKey);
   const Icon = item.icon;
+  const hasChildren = Boolean(item.children && item.children.length > 0);
+  const selfActive = isItemActive(pathname, item);
+  const subtreeActive = isItemOrChildActive(pathname, item);
+
+  // Expand-State für Untermenüs: automatisch offen, wenn eine Sub-Route aktiv ist.
+  const [open, setOpen] = useState<boolean>(() => subtreeActive);
+  useEffect(() => {
+    if (subtreeActive) setOpen(true);
+  }, [subtreeActive]);
+
+  const badge =
+    badgeValue !== null && badgeValue > 0 ? (
+      <span
+        className="propus-nav-badge"
+        data-tone={item.badgeTone ?? "default"}
+        aria-label={`${badgeValue} ${t("nav.badge.openSuffix")}`}
+      >
+        {badgeValue}
+      </span>
+    ) : null;
+
+  if (hasChildren && !collapsed) {
+    return (
+      <div className="propus-nav-group" data-open={open ? "true" : "false"}>
+        <button
+          type="button"
+          className="propus-nav-item propus-nav-item--parent"
+          data-active={subtreeActive ? "true" : "false"}
+          data-label={label}
+          data-badge={badgeValue !== null && badgeValue > 0 ? "true" : undefined}
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+        >
+          <Icon className="propus-nav-item__icon" aria-hidden="true" />
+          <span className="propus-nav-item__label">{label}</span>
+          {badge}
+          <ChevronRight className="propus-nav-item__chev" aria-hidden="true" />
+        </button>
+        {open ? (
+          <div className="propus-nav-children" role="list">
+            {item.children!.map((child) => (
+              <NavSubItem
+                key={child.id}
+                item={child}
+                active={isItemActive(pathname, child)}
+                t={t}
+              />
+            ))}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <Link
       to={item.to}
       className="propus-nav-item"
-      data-active={active ? "true" : "false"}
+      data-active={(collapsed ? subtreeActive : selfActive) ? "true" : "false"}
       data-label={label}
       data-badge={badgeValue !== null && badgeValue > 0 ? "true" : undefined}
-      aria-current={active ? "page" : undefined}
+      aria-current={selfActive ? "page" : undefined}
       title={collapsed ? label : undefined}
       role="listitem"
     >
       <Icon className="propus-nav-item__icon" aria-hidden="true" />
       <span className="propus-nav-item__label">{label}</span>
-      {badgeValue !== null && badgeValue > 0 ? (
-        <span
-          className="propus-nav-badge"
-          data-tone={item.badgeTone ?? "default"}
-          aria-label={`${badgeValue} ${t("nav.badge.openSuffix")}`}
-        >
-          {badgeValue}
-        </span>
-      ) : null}
+      {badge}
+    </Link>
+  );
+}
+
+function NavSubItem({
+  item,
+  active,
+  t,
+}: {
+  item: NavItemType;
+  active: boolean;
+  t: (key: string) => string;
+}): JSX.Element {
+  const label = t(item.labelKey);
+  const Icon = item.icon;
+  return (
+    <Link
+      to={item.to}
+      className="propus-nav-subitem"
+      data-active={active ? "true" : "false"}
+      aria-current={active ? "page" : undefined}
+      role="listitem"
+    >
+      <Icon className="propus-nav-subitem__icon" aria-hidden="true" />
+      <span className="propus-nav-subitem__label">{label}</span>
     </Link>
   );
 }
