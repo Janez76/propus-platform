@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, type ChangeEvent } from "react";
 import { MapPin, Home, Ruler, Layers, DoorOpen, Plus, Trash2 } from "lucide-react";
 import { randomUUID } from "../../lib/selekto/randomId";
 import { AddressAutocompleteInput, type ParsedAddress, type StreetContext } from "../../components/ui/AddressAutocompleteInput";
@@ -161,6 +161,18 @@ export function StepLocation({ lang }: { lang: Lang }) {
     }
   }, [setObjectAddress, setParsedAddress, setAddress, setCoords]);
 
+  const onZipInputChange = useCallback(
+    (e: ChangeEvent<HTMLInputElement>) => {
+      const raw = e.target.value.replace(/\D/g, "").slice(0, 5);
+      setObjectAddress({ zip: raw });
+      if (parsedAddress) {
+        setParsedAddress({ ...parsedAddress, zip: raw });
+      }
+      setAddress(useBookingWizardStore.getState().object.address.formatted);
+    },
+    [setObjectAddress, setParsedAddress, setAddress, parsedAddress],
+  );
+
   return (
     <div className="space-y-6">
       {/* Adresse */}
@@ -224,7 +236,7 @@ export function StepLocation({ lang }: { lang: Lang }) {
               />
             )}
           </div>
-          {/* PLZ — readonly, wird automatisch aus Strassen-/Hausnummer-Auswahl gesetzt */}
+          {/* PLZ — editierbar, sobald Strasse gesetzt (v. a. wenn Autocomplete keine PLZ liefert) */}
           <div>
             <label className={labelClass}>
               {t(lang, "booking.step1.zip")}
@@ -233,12 +245,15 @@ export function StepLocation({ lang }: { lang: Lang }) {
             <input
               data-testid="booking-input-zip"
               type="text"
+              inputMode="numeric"
+              autoComplete="postal-code"
               value={zipValue}
-              readOnly
-              tabIndex={-1}
-              className={cn(inputClass, "cursor-not-allowed opacity-75")}
+              readOnly={!zipEditable}
+              tabIndex={zipEditable ? 0 : -1}
+              onChange={onZipInputChange}
+              className={cn(inputClass, !zipEditable && "cursor-not-allowed opacity-75")}
               placeholder={t(lang, "booking.step1.zipAutoPlaceholder")}
-              aria-readonly="true"
+              aria-readonly={!zipEditable}
             />
             {zipMissing ? (
               <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
