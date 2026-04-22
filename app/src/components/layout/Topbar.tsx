@@ -4,6 +4,7 @@ import { useAuthStore } from "../../store/authStore";
 import { useThemeStore } from "../../store/themeStore";
 import { t } from "../../i18n";
 import { ProfileModal } from "../profile/ProfileModal";
+import { QuickImpersonateButton } from "./QuickImpersonateButton";
 import { API_BASE } from "../../api/client";
 
 interface TopbarProps {
@@ -73,7 +74,7 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
           {/* Profile */}
           <button
             onClick={() => setShowProfile(true)}
-            className="hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all duration-200 hover:text-[var(--accent)] focus:outline-none"
+            className="hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all duration-200 hover:text-(--accent) focus:outline-none"
             style={{ background: "var(--surface)", borderColor: "var(--border-soft)", color: "var(--text-main)" }}
           >
             <User className="h-4 w-4" />
@@ -105,9 +106,11 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
             <span className="hidden md:inline">{themeLabel}</span>
           </button>
 
+          <QuickImpersonateButton />
+
           <button
             onClick={openAdminBooking}
-            className="hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all duration-200 hover:text-[var(--accent)] focus:outline-none"
+            className="hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all duration-200 hover:text-(--accent) focus:outline-none"
             style={{ background: "var(--surface)", borderColor: "var(--border-soft)", color: "var(--text-main)" }}
             aria-label={t(language, "landing.nav.cta")}
           >
@@ -140,7 +143,7 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
           {/* Mobile: booking link */}
           <button
             onClick={openAdminBooking}
-            className="sm:hidden p-2.5 rounded-lg transition-all duration-200 hover:text-[var(--accent)]"
+            className="sm:hidden p-2.5 rounded-lg transition-all duration-200 hover:text-(--accent)"
             style={{ background: "var(--surface-raised)", color: "var(--text-muted)" }}
             aria-label={t(language, "landing.nav.cta")}
           >
