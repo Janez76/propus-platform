@@ -4271,6 +4271,43 @@ app.post("/api/admin/availability/simulate", requireAdmin, async (req, res) => {
   }
 });
 
+app.post("/api/booking/duplicate-check", bookingLimiter, async (req, res) => {
+  try {
+    const b = normalizeTextDeep(req.body || {});
+    const email = String(b.email || "")
+      .toLowerCase()
+      .trim();
+    if (!email) {
+      return res.status(400).json({ error: "email required" });
+    }
+    const m = await db.findMatchingCustomer(
+      { query: db.query },
+      {
+        email,
+        company: b.company,
+        name: b.name,
+        phone: b.phone,
+        street: b.street,
+        zipcity: b.zipcity,
+      }
+    );
+    const c = m.customer
+      ? {
+          id: m.customer.id,
+          name: m.customer.name,
+          company: m.customer.company,
+          email: m.customer.email,
+          phone: m.customer.phone,
+          street: m.customer.street,
+          zipcity: m.customer.zipcity,
+        }
+      : null;
+    res.json({ match: m.match, customer: c, reason: m.reason, score: m.score });
+  } catch (err) {
+    res.status(500).json({ error: err?.message || "duplicate-check" });
+  }
+});
+
 app.post("/api/booking", bookingLimiter, async (req, res) => {
   const requestId = `bk_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
   let photographerKey = "";
@@ -10968,6 +11005,63 @@ app.patch("/api/admin/customers/:id/nas-folder-bases", requireAdmin, async (req,
   }
 });
 
+app.get("/api/admin/customers/duplicate-candidates", requireAdmin, async (req, res) => {
+  try {
+    const pool = db.getPool ? db.getPool() : null;
+    if (!pool) return res.status(503).json({ error: "DB nicht verfuegbar" });
+    const raw = String(req.query.status || "open").toLowerCase();
+    const st = ["open", "merged", "dismissed", "all"].includes(raw) ? raw : "open";
+    const params = [];
+    let where = "";
+    if (st !== "all") {
+      where = " WHERE d.status = $1";
+      params.push(st);
+    }
+    const { rows } = await pool.query(
+      `SELECT d.id, d.new_customer_id, d.suspected_keep_id, d.score, d.reason, d.status, d.created_at,
+          n.name AS new_customer_name, n.email AS new_customer_email, n.company AS new_customer_company,
+          k.name AS keep_customer_name, k.email AS keep_customer_email, k.company AS keep_customer_company
+        FROM booking.customer_duplicate_candidates d
+        INNER JOIN customers n ON n.id = d.new_customer_id
+        INNER JOIN customers k ON k.id = d.suspected_keep_id
+        ${where}
+        ORDER BY d.created_at DESC
+        LIMIT 500`,
+      params
+    );
+    res.json({ ok: true, candidates: rows, count: rows.length });
+  } catch (err) {
+    if (err && err.code === "42P01") {
+      return res.json({ ok: true, candidates: [], count: 0 });
+    }
+    res.status(500).json({ error: err?.message || "Dubletten-Liste" });
+  }
+});
+
+app.post("/api/admin/customers/duplicate-candidates/:id/dismiss", requireAdmin, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) {
+      return res.status(400).json({ error: "Ungueltige id" });
+    }
+    const pool = db.getPool ? db.getPool() : null;
+    if (!pool) return res.status(503).json({ error: "DB nicht verfuegbar" });
+    const { rowCount } = await pool.query(
+      `UPDATE booking.customer_duplicate_candidates SET status = 'dismissed' WHERE id = $1 AND status = 'open'`,
+      [id]
+    );
+    if (!rowCount) {
+      return res.status(404).json({ error: "Nicht gefunden oder schon abgeschlossen" });
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    if (err && err.code === "42P01") {
+      return res.json({ ok: true });
+    }
+    res.status(500).json({ error: err?.message || "Dismiss fehlgeschlagen" });
+  }
+});
+
 app.post("/api/admin/customers/merge", requireAdmin, async (req, res) => {
   try {
     const keepId = Number(req.body?.keepId);
@@ -10984,6 +11078,16 @@ app.post("/api/admin/customers/merge", requireAdmin, async (req, res) => {
     const pool = db.getPool ? db.getPool() : null;
     if (!pool) return res.status(503).json({ error: "DB nicht verfuegbar" });
     await customerMerge.mergeCustomers(pool, keepId, mergeId);
+    try {
+      await pool.query(
+        `UPDATE booking.customer_duplicate_candidates
+         SET status = 'merged'
+         WHERE status = 'open' AND suspected_keep_id = $1 AND new_customer_id = $2`,
+        [keepId, mergeId]
+      );
+    } catch (_e) {
+      /* Tabelle fehlt optional */
+    }
     res.json({ ok: true, keepId });
   } catch (err) {
     const code = err && err.code;

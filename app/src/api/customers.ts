@@ -269,3 +269,29 @@ export const deleteCustomer = (token: string, id: number, force = false) =>
 
 export const mergeCustomers = (token: string, keepId: number, mergeId: number) =>
   apiRequest<{ ok: true; keepId: number }>("/api/admin/customers/merge", "POST", token, { keepId, mergeId });
+
+export type DuplicateCandidateRow = {
+  id: number;
+  new_customer_id: number;
+  suspected_keep_id: number;
+  score: number | null;
+  reason: string;
+  status: string;
+  created_at: string;
+  new_customer_name: string;
+  new_customer_email: string;
+  new_customer_company: string;
+  keep_customer_name: string;
+  keep_customer_email: string;
+  keep_customer_company: string;
+};
+
+export const getDuplicateCandidates = (token: string, status: "open" | "merged" | "dismissed" | "all" = "open") =>
+  apiRequest<{ ok: true; candidates: DuplicateCandidateRow[]; count: number }>(
+    `/api/admin/customers/duplicate-candidates?status=${encodeURIComponent(status)}`,
+    "GET",
+    token,
+  );
+
+export const dismissDuplicateCandidate = (token: string, id: number) =>
+  apiRequest<{ ok: true }>(`/api/admin/customers/duplicate-candidates/${id}/dismiss`, "POST", token);

@@ -1,0 +1,8 @@
+{
+  "name": "propus-platform",
+  "private": true,
+  "description": "Hilfsskripte am Repo-Root; Buchung: booking/",
+  "scripts": {
+    "analyze:duplicate-customers": "node scripts/find-duplicate-customers.js --export"
+  }
+}

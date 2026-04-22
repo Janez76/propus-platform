@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Building2, CreditCard, LogIn, MapPin, Plus, Trash2, User } from "lucide-react";
 import { randomUUID } from "../../lib/selekto/randomId";
 import { type ParsedAddress } from "../../components/ui/AddressAutocompleteInput";
@@ -11,6 +11,10 @@ import {
 import { useAuthStore } from "../../store/authStore";
 import { t, type Lang } from "../../i18n";
 import { cn } from "../../lib/utils";
+import { checkBookingDuplicate, type BookingDuplicateCheckResult } from "../../api/bookingPublic";
+import type { Customer } from "../../api/customers";
+import type { DuplicateMatch } from "../../lib/duplicateDetection";
+import { DuplicateWarningDialog } from "../../components/customers/DuplicateWarningDialog";
 
 const inputClass = cn(
   "w-full rounded-lg border px-3 py-2.5 text-sm transition-colors",
@@ -124,6 +128,82 @@ export function StepBilling({ lang }: { lang: Lang }) {
   } = useBookingWizardStore();
   const token = useAuthStore((s) => s.token);
   const isLoggedIn = Boolean(token);
+  const [dupMatches, setDupMatches] = useState<DuplicateMatch[]>([]);
+
+  function toDuplicateMatch(r: BookingDuplicateCheckResult): DuplicateMatch | null {
+    if (!r.customer || (r.match !== "strong" && r.match !== "weak")) return null;
+    const c = r.customer;
+    const customer: Customer = {
+      id: c.id,
+      name: c.name || "",
+      email: c.email || "",
+      company: c.company || "",
+      phone: c.phone || "",
+      street: c.street || "",
+      zipcity: c.zipcity || "",
+    };
+    const sim = typeof r.score === "number" && r.score > 0 && r.score <= 1 ? r.score : r.match === "strong" ? 0.92 : 0.62;
+    const reason = String(r.reason || "");
+    const matchedFields: string[] = [];
+    if (r.match === "strong" || /company|domain|company_key/i.test(reason)) matchedFields.push("company");
+    if (reason.includes("fuzzy") || r.match === "weak") {
+      if (!matchedFields.includes("name")) matchedFields.push("name");
+    }
+    if (matchedFields.length === 0) matchedFields.push("company");
+    return { customer, similarity: sim, matchedFields };
+  }
+
+  const runDuplicateCheck = useCallback(async () => {
+    const s = useBookingWizardStore.getState();
+    const st = s.billing.structured;
+    const leg = s.billing;
+    if (st.mode === "company") {
+      const c0 = st.contacts[0];
+      const comp = (st.company.name || "").trim();
+      const em = (c0?.email || "").trim();
+      if (!em || comp.length < 2) {
+        setDupMatches([]);
+        return;
+      }
+      const name = [c0.firstName, c0.lastName].filter(Boolean).join(" ").trim();
+      try {
+        const r = await checkBookingDuplicate({
+          email: em,
+          company: comp,
+          name,
+          phone: c0?.phone || "",
+          street: leg.street || "",
+          zipcity: leg.zipcity || "",
+        });
+        const m = toDuplicateMatch(r);
+        setDupMatches(m ? [m] : []);
+      } catch {
+        setDupMatches([]);
+      }
+    } else {
+      const p = st.private;
+      const em = (p?.email || "").trim();
+      if (!em) {
+        setDupMatches([]);
+        return;
+      }
+      const name = [p?.firstName, p?.lastName].filter(Boolean).join(" ").trim();
+      try {
+        const r = await checkBookingDuplicate({
+          email: em,
+          company: "",
+          name,
+          phone: p?.phone || "",
+          street: leg.street || "",
+          zipcity: leg.zipcity || "",
+        });
+        const m = toDuplicateMatch(r);
+        setDupMatches(m ? [m] : []);
+      } catch {
+        setDupMatches([]);
+      }
+    }
+  }, []);
 
   const structured = billing.structured;
   const mode: BillingMode = structured.mode;
@@ -282,6 +362,7 @@ export function StepBilling({ lang }: { lang: Lang }) {
                   autoComplete="off"
                   value={structured.company.name}
                   onChange={(e) => setCompanyName(e.target.value)}
+                  onBlur={() => void runDuplicateCheck()}
                   className={inputClass}
                 />
               </div>
@@ -393,6 +474,7 @@ export function StepBilling({ lang }: { lang: Lang }) {
                     autoComplete="off"
                     value={c.email}
                     onChange={(e) => (idx === 0 ? setMainContact({ email: e.target.value }) : setBillingContact(idx, { email: e.target.value }))}
+                    onBlur={idx === 0 ? () => void runDuplicateCheck() : undefined}
                     className={inputClass}
                   />
                 </div>
@@ -548,6 +630,7 @@ export function StepBilling({ lang }: { lang: Lang }) {
                   autoComplete="off"
                   value={structured.private.email}
                   onChange={(e) => setPrivatePatch({ email: e.target.value })}
+                  onBlur={() => void runDuplicateCheck()}
                   className={inputClass}
                 />
               </div>
@@ -589,6 +672,20 @@ export function StepBilling({ lang }: { lang: Lang }) {
           </section>
         </>
       )}
+
+      <DuplicateWarningDialog
+        open={dupMatches.length > 0}
+        embedded
+        simplifiedForPublicBooking
+        duplicates={dupMatches}
+        onCreateAnyway={async () => {
+          setDupMatches([]);
+        }}
+        onCancel={() => {
+          setDupMatches([]);
+        }}
+        companyName={mode === "company" ? structured.company.name : undefined}
+      />
 
       {/* Bemerkungen (immer sichtbar) */}
       <section className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-5 shadow-sm dark:shadow-none">

@@ -5,6 +5,7 @@
  * - Vorschlaege fuer Kunden/Kontakte erzeugen (ohne Schreibzugriff)
  * - Nach manueller Bestaetigung selektiv in lokale DB uebernehmen
  */
+const { findMatchingCustomer } = require("./customer-dedup");
 function registerExxasReconcileRoutes(app, db, requireAdmin, ensureCustomerInRequestCompany) {
   function asString(value) {
     return value == null ? "" : String(value).trim();
@@ -888,6 +889,28 @@ function registerExxasReconcileRoutes(app, db, requireAdmin, ensureCustomerInReq
     const city = asString(exxasCustomer.city);
     const zipcity = zip && city ? `${zip} ${city}` : "";
 
+    let preDedup = null;
+    if (email) {
+      preDedup = await findMatchingCustomer(
+        { query: (q, a) => p.query(q, a) },
+        {
+          email,
+          company: asString(exxasCustomer.name),
+          name: getExxasCustomerNameValue(exxasCustomer),
+          phone: asString(exxasCustomer.phone),
+          street: asString(exxasCustomer.street),
+          zipcity,
+        }
+      );
+      if (preDedup && preDedup.match === "strong" && preDedup.customer) {
+        const id = Number(preDedup.customer.id);
+        if (Number.isFinite(id) && id > 0) {
+          await fillMissingCustomerFields(p, id, exxasCustomer);
+          return id;
+        }
+      }
+    }
+
     const insertParams = [
       email,
       getExxasCustomerNameValue(exxasCustomer),
@@ -921,7 +944,29 @@ function registerExxasReconcileRoutes(app, db, requireAdmin, ensureCustomerInReq
          RETURNING id`,
         insertParams
       );
-      return Number(insert.rows[0].id);
+      const newId = Number(insert.rows[0].id);
+      if (
+        preDedup &&
+        preDedup.match === "weak" &&
+        preDedup.customer &&
+        newId > 0 &&
+        Number.isFinite(newId) &&
+        Number.isFinite(Number(preDedup.customer.id)) &&
+        newId !== Number(preDedup.customer.id)
+      ) {
+        try {
+          const { insertCustomerDuplicateCandidate } = require("./db");
+          await insertCustomerDuplicateCandidate({
+            newCustomerId: newId,
+            suspectedKeepId: preDedup.customer.id,
+            score: preDedup.score,
+            reason: String(preDedup.reason || "exxas_weak"),
+          });
+        } catch (_e) {
+          /* Kandidat optional */
+        }
+      }
+      return newId;
     } catch (err) {
       if (isCustomersEmailUniqueViolation(err) && email) {
         let fallbackId = await findCustomerIdByEmailExact(p, email);

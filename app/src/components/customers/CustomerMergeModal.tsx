@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AlertTriangle, X } from "lucide-react";
 import type { Customer } from "../../api/customers";
 import { mergeCustomers } from "../../api/customers";
@@ -9,18 +9,34 @@ import { useAuthStore } from "../../store/authStore";
 type Props = {
   open: boolean;
   keepCustomer: Customer | null;
+  /** Wenn aus Dubletten-Warteschlange: zweiter Kunde vorausgewaehlt */
+  initialMergeCustomer?: Customer | null;
   customers: Customer[];
   token: string;
   onClose: () => void;
   onSuccess: () => void;
 };
 
-export function CustomerMergeModal({ open, keepCustomer, customers, token, onClose, onSuccess }: Props) {
+export function CustomerMergeModal({ open, keepCustomer, initialMergeCustomer = null, customers, token, onClose, onSuccess }: Props) {
   const lang = useAuthStore((s) => s.language);
   const [query, setQuery] = useState("");
   const [mergeTarget, setMergeTarget] = useState<Customer | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!open) return;
+    if (keepCustomer && initialMergeCustomer && initialMergeCustomer.id !== keepCustomer.id) {
+      setMergeTarget(initialMergeCustomer);
+      setQuery(
+        (initialMergeCustomer.company || initialMergeCustomer.name || String(initialMergeCustomer.id) || "").trim()
+      );
+    } else {
+      setMergeTarget(null);
+      setQuery("");
+    }
+    setError("");
+  }, [open, keepCustomer, initialMergeCustomer]);
 
   function reset() {
     setQuery("");

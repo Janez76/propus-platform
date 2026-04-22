@@ -17,6 +17,7 @@ const {
 const { DEFAULT_APP_SETTINGS } = require("./settings-defaults");
 const { formatPhoneCH } = require("./phone-format");
 const coreCustomerLookup = require("../core/lib/customer-lookup");
+const { findMatchingCustomer } = require("./customer-dedup");
 
 const DATABASE_URL = process.env.DATABASE_URL || "";
 const DB_SEARCH_PATH = process.env.DB_SEARCH_PATH || "booking,core,public";
@@ -921,10 +922,130 @@ async function listDiscountCodeUsages(discountCodeId, { limit = 200 } = {}) {
 
 // ─── Kunden ──────────────────────────────────────────────────────────────────
 
+async function insertCustomerDuplicateCandidate({ newCustomerId, suspectedKeepId, score, reason }) {
+  const n = Number(newCustomerId);
+  const s = Number(suspectedKeepId);
+  if (!Number.isFinite(n) || !Number.isFinite(s) || n === s) return;
+  const sc = score == null ? null : Number(score);
+  const r = String(reason || "weak_match");
+  try {
+    await query(
+      `INSERT INTO booking.customer_duplicate_candidates (new_customer_id, suspected_keep_id, score, reason, status)
+       VALUES ($1, $2, $3, $4, 'open')
+       ON CONFLICT (new_customer_id, suspected_keep_id) DO NOTHING`,
+      [n, s, sc, r]
+    );
+  } catch (e) {
+    if (e && e.message && (e.message.includes("customer_duplicate_candidates") || e.code === "42P01")) {
+      /* Tabelle (ältere Instanz) fehlt — ignorieren */
+      return;
+    }
+    throw e;
+  }
+}
+
+async function ensureCustomerContactForEmail(customerId, { name, email, phone }) {
+  const cid = Number(customerId);
+  if (!Number.isFinite(cid) || cid <= 0) return;
+  const e = String(email || "")
+    .toLowerCase()
+    .trim();
+  if (!e) return;
+  const n = String(name || "").trim() || "Kontakt";
+  try {
+    await query(
+      `INSERT INTO customer_contacts (customer_id, name, role, phone, email, sort_order)
+       VALUES ($1, $2, '', $3, $4, 0)`,
+      [cid, n, String(phone || ""), e]
+    );
+  } catch (err) {
+    if (err && err.code === "23505") return;
+    throw err;
+  }
+}
+
+async function mergeBillingIntoCustomerRow(customerId, billing) {
+  const id = Number(customerId);
+  if (!Number.isFinite(id) || id <= 0) return;
+  const b = normalizeTextDeep(billing || {});
+  await query(
+    `UPDATE customers SET
+       name     = $2,
+       company  = CASE WHEN btrim($3) <> '' THEN $3 ELSE btrim(COALESCE(company, '')) END,
+       phone    = $4,
+       street   = CASE WHEN btrim($5) <> '' THEN $5 ELSE btrim(COALESCE(street, '')) END,
+       zipcity  = CASE WHEN btrim($6) <> '' THEN $6 ELSE btrim(COALESCE(zipcity, '')) END,
+       updated_at = NOW()
+     WHERE id = $1`,
+    [id, b.name || "", b.company || "", b.phone || "", b.street || "", b.zipcity || ""]
+  );
+}
+
 async function upsertCustomer(billing) {
   const normalizedBilling = normalizeTextDeep(billing || {});
   const email = (normalizedBilling.email || "").toLowerCase().trim();
   if (!email) return null;
+
+  const match = await findMatchingCustomer(
+    { query },
+    {
+      email,
+      company: normalizedBilling.company || "",
+      name: normalizedBilling.name || "",
+      phone: normalizedBilling.phone || "",
+      street: normalizedBilling.street || "",
+      zipcity: normalizedBilling.zipcity || "",
+    }
+  );
+
+  if (match && match.match === "strong" && match.customer) {
+    const keepId = Number(match.customer.id);
+    await ensureCustomerContactForEmail(keepId, {
+      name: normalizedBilling.name,
+      email,
+      phone: normalizedBilling.phone,
+    });
+    try {
+      await mergeBillingIntoCustomerRow(keepId, normalizedBilling);
+    } catch (_e) {
+      /* falls Bedingung nicht trifft */
+    }
+    return keepId;
+  }
+
+  if (match && match.match === "weak" && match.customer) {
+    const suspected = Number(match.customer.id);
+    const { rows: ins } = await query(
+      `INSERT INTO customers (email, name, company, phone, street, zipcity)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (email) WHERE email <> '' DO UPDATE SET
+         name    = EXCLUDED.name,
+         company = EXCLUDED.company,
+         phone   = EXCLUDED.phone,
+         street  = CASE WHEN EXCLUDED.street  <> '' THEN EXCLUDED.street  ELSE customers.street  END,
+         zipcity = CASE WHEN EXCLUDED.zipcity <> '' THEN EXCLUDED.zipcity ELSE customers.zipcity END,
+         updated_at = NOW()
+       RETURNING id`,
+      [
+        email,
+        normalizedBilling.name || "",
+        normalizedBilling.company || "",
+        normalizedBilling.phone || "",
+        normalizedBilling.street || "",
+        normalizedBilling.zipcity || "",
+      ]
+    );
+    const newId = ins[0]?.id != null ? Number(ins[0].id) : null;
+    if (newId != null && Number.isFinite(suspected) && newId !== suspected) {
+      await insertCustomerDuplicateCandidate({
+        newCustomerId: newId,
+        suspectedKeepId: suspected,
+        score: match.score,
+        reason: String(match.reason || "weak_match"),
+      });
+    }
+    return newId;
+  }
 
   const { rows } = await query(
     `INSERT INTO customers (email, name, company, phone, street, zipcity)
@@ -2374,6 +2495,8 @@ module.exports = {
   initSchema,
   runMigrations,
   upsertCustomer,
+  findMatchingCustomer,
+  insertCustomerDuplicateCandidate,
   getCustomerByEmail,
   getCustomerByAuthSub,
   updateCustomerAuthSub,

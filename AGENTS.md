@@ -48,6 +48,12 @@ booking/          → Buchungsportal
 platform/         → Docker-Container (Express + Next.js)
 ```
 
+## Dubletten-Prävention & Wartung (Kunden)
+
+- **Logik (Backend):** `booking/customer-dedup.js` – `findMatchingCustomer` (exact/strong/weak); starke Treffer: Kontakt an bestehendem Kunden; schwache: neuer Kunde + Eintrag in `booking.customer_duplicate_candidates` (siehe Migrationen 087/088).
+- **Analyse (read-only):** `node scripts/find-duplicate-customers.js` (bzw. `cd booking && npm run analyze-duplicate-customers`) – gruppiert potenzielle Dubletten; geteilte Report-Logik: `scripts/lib/duplicate-customers-report.js` (wird von CLI + nächtlichem Job genutzt).
+- **Nightly:** Hintergrundjob in `booking/jobs/duplicate-customers-nightly.js` (nur mit `feature.backgroundJobs=true`); optional Mail an `OFFICE_EMAIL` bzw. `DUPLICATE_CANDIDATES_REPORT_EMAIL` bei **neu** eingefügten Kandidaten.
+
 ## Kunden-E-Mail-Zuordnung (Email Aliases)
 
 Kunden können mehrere E-Mail-Adressen haben: eine primäre (`customers.email`) und beliebig viele Aliase (`customers.email_aliases TEXT[]`).
