@@ -1,0 +1,51 @@
+---
+/**
+ * JSON-LD fuer eine einzelne Service-Leistung.
+ *
+ * Wird pro Service-Block auf /dienstleistungen/ eingebunden. Verweist via
+ * `provider.@id` auf das LocalBusiness-Schema aus SchemaLocalBusiness.astro.
+ * Die optionalen `minPrice` / `priceCurrency` erzeugen einen Offer-Block mit
+ * Link auf /preise/ – wird `minPrice` weggelassen, bleibt der Offer-Block leer.
+ */
+
+import { canonicalBase, organization } from '../config/seo';
+
+interface Props {
+	name: string;
+	description: string;
+	/** Mindestpreis der Leistung (z. B. Einstiegspreis aus der Preisliste). */
+	minPrice?: number;
+	/** ISO-4217 Waehrungscode. Default CHF. */
+	priceCurrency?: 'CHF' | 'EUR' | 'USD';
+	/** URL-Fragment fuer eindeutige @id (z. B. 'fotografie'). */
+	anchor?: string;
+}
+
+const { name, description, minPrice, priceCurrency = 'CHF', anchor } = Astro.props;
+
+const hasOffer = typeof minPrice === 'number' && Number.isFinite(minPrice);
+
+const schema = {
+	'@context': 'https://schema.org',
+	'@type': 'Service',
+	...(anchor ? { '@id': `${canonicalBase}/dienstleistungen/#${anchor}` } : {}),
+	name,
+	description,
+	serviceType: name,
+	provider: { '@id': `${canonicalBase}/#organization` },
+	areaServed: organization.areaServed.map((a) => a.name),
+	...(hasOffer
+		? {
+				offers: {
+					'@type': 'Offer',
+					price: minPrice,
+					priceCurrency,
+					availability: 'https://schema.org/InStock',
+					url: `${canonicalBase}/preise/`,
+				},
+			}
+		: {}),
+};
+---
+
+<script type="application/ld+json" set:html={JSON.stringify(schema)} is:inline />
