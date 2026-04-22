@@ -37,6 +37,10 @@ const nextConfig: NextConfig = {
           destination: `${PLATFORM_INTERNAL_URL}/api/booking/:path*`,
         },
         {
+          source: "/api/customer/:path*",
+          destination: `${PLATFORM_INTERNAL_URL}/api/customer/:path*`,
+        },
+        {
           source: "/api/listing/:path*",
           destination: `${PLATFORM_INTERNAL_URL}/api/listing/:path*`,
         },
