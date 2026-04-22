@@ -69,7 +69,9 @@
 | `NEXTCLOUD_CUSTOMER_FOLDER_PATH` | Nextcloud-Pfad, der auf `BOOKING_UPLOAD_CUSTOMER_HOST_PATH` zeigt (z. B. `/Immobilien Fotografie Propusimmo/Kunden`) |
 
 **Verhalten:**
-- Fehlende Konfiguration → `503` mit Hinweis auf fehlende Env-Variablen
+- **Ziel im Nextcloud:** Der Freigabelink zeigt immer auf den Ordner **`<Kundenordner>/Finale`** (relativ zum in Nextcloud erwarteten Kunden-Root, vgl. `NEXTCLOUD_CUSTOMER_FOLDER_PATH` + `relative_path` des Auftrags, siehe `buildNextcloudPath` in `booking/nextcloud-share.js`). Damit sehen Kund:innen die finale Lieferung, nicht den gesamten Rohmaterial-Baum.
+- **Ohne DB-Verknüpfung:** Fehlt noch ein `customer_folder`-Eintrag in `order_folder_links`, legt der Endpunkt den Ordner per `provisionOrderFolders` an (analog **Ordner automatisch erstellen**), inkl. kanonischer Unterstruktur (`ensureDirStructure` + `CUSTOMER_UPLOAD_STRUCTURE` in `booking/order-storage.js`), bevor der Share erstellt wird. Fehlt der NAS-Root o. Ä. → `503` mit aussagekräftiger Meldung.
+- Fehlende Nextcloud-Konfiguration → `503` mit Hinweis auf fehlende Env-Variablen
 - Erstellter Link wird in `booking.order_folder_links.nextcloud_share_url` gespeichert
 - Bestehende Links können über denselben Endpunkt erneuert werden
 

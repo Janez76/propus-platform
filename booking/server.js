@@ -88,6 +88,8 @@ const {
   assertRootReady,
   provisionOrderFolders,
   getOrderFolderSummary,
+  ensureDirStructure,
+  CUSTOMER_UPLOAD_STRUCTURE,
   linkExistingOrderFolder,
   archiveOrderFolder,
   getStorageHealth,
@@ -5418,8 +5420,6 @@ app.post("/api/admin/orders/:orderNo/storage/nextcloud-share", requireAdmin, asy
     }
     const order = await db.getOrderByNo(orderNo);
     if (!order) return res.status(404).json({ error: "Order not found" });
-    const folderLink = await db.getOrderFolderLink(orderNo, folderType);
-    if (!folderLink) return res.status(404).json({ error: "Kein Kundenordner verknuepft" });
     const {
       isNextcloudConfigured,
       createNextcloudShare,
@@ -5431,8 +5431,50 @@ app.post("/api/admin/orders/:orderNo/storage/nextcloud-share", requireAdmin, asy
         error: `${getNextcloudConfigError()}. Nextcloud läuft auf dem UGREEN NAS (192.168.1.5); bei lokalem Start bitte NEXTCLOUD_URL, NEXTCLOUD_USER und NEXTCLOUD_PASS in .env, .env.local, .env.vps oder .env.vps.secrets setzen.`,
       });
     }
-    const ncPath = buildNextcloudPath(folderLink.relative_path) + "/Finale";
-    const { shareUrl } = await createNextcloudShare(ncPath);
+
+    let folderLink = await db.getOrderFolderLink(orderNo, folderType);
+    if (!folderLink) {
+      try {
+        await provisionOrderFolders(order, db, { folderTypes: [folderType], createMissing: true });
+      } catch (err) {
+        const msg = err && err.message ? err.message : String(err);
+        const isInfrastructure =
+          /nicht gefunden|ist kein Verzeichnis|ist nicht als Mount|Kunden-Root|Raw-Root|EACCES|EPERM|EROFS|permission denied|nicht verf|Mount/i.test(
+            msg
+          );
+        return res.status(isInfrastructure ? 503 : 400).json({
+          error: isInfrastructure ? `NAS/ Auftragsordner: ${msg}` : msg,
+        });
+      }
+      folderLink = await db.getOrderFolderLink(orderNo, folderType);
+    }
+    if (!folderLink) {
+      return res.status(404).json({
+        error:
+          "Kein Kundenordner verknuepft — bitte 'Ordner automatisch erstellen' waehlen oder manuell verknuepfen",
+      });
+    }
+
+    try {
+      ensureDirStructure(folderLink.absolute_path, CUSTOMER_UPLOAD_STRUCTURE);
+    } catch (err) {
+      const msg = err && err.message ? err.message : String(err);
+      return res.status(400).json({ error: `Ordnerstruktur: ${msg}` });
+    }
+
+    const relBase = String(folderLink.relative_path || "")
+      .replace(/\\/g, "/")
+      .replace(/^\//, "")
+      .replace(/\/$/, "");
+    const ncPath = buildNextcloudPath(relBase ? `${relBase}/Finale` : "Finale");
+    let shareUrl;
+    try {
+      const created = await createNextcloudShare(ncPath);
+      shareUrl = created.shareUrl;
+    } catch (err) {
+      const msg = err && err.message ? err.message : String(err);
+      return res.status(400).json({ error: msg });
+    }
     await db.setOrderFolderNextcloudShare(orderNo, folderType, shareUrl);
     const folders = await getOrderFolderSummary(order, db, { createMissing: false });
     res.json({ ok: true, shareUrl, folders });

@@ -795,7 +795,7 @@ function buildFolderDefinitions(order) {
  * Schlägt lautlos fehl wenn Nextcloud nicht konfiguriert oder der API-Call scheitert.
  *
  * @param {number} orderNo
- * @param {string} relativePath - relativer Pfad ab Customer-Root
+ * @param {string} relativePath - relativer Pfad ab Customer-Root, inkl. `.../Finale` (Wunsch-Share-Root)
  * @param {object} db
  * @returns {Promise<string|null>} share URL oder null
  */
@@ -834,7 +834,8 @@ async function provisionOrderFolders(order, db, { folderTypes = ["raw_material",
     });
     links[folderType] = link;
     if (folderType === "customer_folder") {
-      await tryCreateNextcloudShare(order.orderNo, toPortablePath(def.relativePath), db);
+      const finaleRel = toPortablePath(joinPortableRelative(toPortablePath(def.relativePath), "Finale"));
+      await tryCreateNextcloudShare(order.orderNo, finaleRel, db);
     }
   }
   return links;
@@ -1285,6 +1286,7 @@ module.exports = {
   buildFolderDefinitions,
   provisionOrderFolders,
   getOrderFolderSummary,
+  ensureDirStructure,
   linkExistingOrderFolder,
   archiveOrderFolder,
   getStorageRoots,

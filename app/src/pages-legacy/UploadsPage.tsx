@@ -146,10 +146,8 @@ export function UploadsPage() {
     setGeneratingShare(true);
     setShareError("");
     try {
-      const result = await generateNextcloudShare(token, selectedOrderNo);
-      setSummary((prev) =>
-        prev ? { ...prev, folders: result.folders } : prev,
-      );
+      await generateNextcloudShare(token, selectedOrderNo);
+      await loadSummary(selectedOrderNo);
     } catch (err) {
       setShareError(err instanceof Error ? err.message : "Nextcloud-Link konnte nicht erstellt werden");
     } finally {
@@ -584,6 +582,9 @@ export function UploadsPage() {
                                   <ExternalLink className="h-3.5 w-3.5" />
                                 </a>
                               </div>
+                              {shareError && (
+                                <p className="text-xs text-red-500">{shareError}</p>
+                              )}
                               <button
                                 type="button"
                                 onClick={() => void handleGenerateShare()}
@@ -601,10 +602,15 @@ export function UploadsPage() {
                               {shareError && (
                                 <p className="text-xs text-red-500">{shareError}</p>
                               )}
+                              {!folder.exists && (
+                                <p className="text-xs text-[var(--text-muted)]">
+                                  Ordner wird bei Bedarf automatisch erstellt.
+                                </p>
+                              )}
                               <button
                                 type="button"
                                 onClick={() => void handleGenerateShare()}
-                                disabled={generatingShare || !folder.exists}
+                                disabled={generatingShare}
                                 className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-xs font-semibold text-[var(--text-main)] transition hover:bg-[var(--surface-raised)] disabled:opacity-50"
                               >
                                 <Link2 className="h-3.5 w-3.5" />
