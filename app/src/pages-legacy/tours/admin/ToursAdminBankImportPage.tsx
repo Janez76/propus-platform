@@ -682,6 +682,8 @@ export function ToursAdminBankImportPage() {
   const qk = toursAdminBankImportQueryKey();
   const queryFn = useCallback(() => getToursAdminBankImport(), []);
   const { data, loading, error, refetch } = useQuery(qk, queryFn, { staleTime: 15_000 });
+  /** Ausgewählter Bank-Import-Lauf (Zeile in „Letzte Läufe“): fokussiert offene Transaktionen dieses Laufs. */
+  const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
   const [previewing, setPreviewing] = useState(false);
   // Multi-file: Liste von {file, preview}, aktueller Index
   const [previewEntries, setPreviewEntries] = useState<MultiPreviewEntry[]>([]);
@@ -690,13 +692,18 @@ export function ToursAdminBankImportPage() {
   const [msg, setMsg] = useState<string | null>(null);
 
   const runs = (data?.runs as BankRun[]) || [];
-  const pendingRows = ((data?.pendingRows as BankImportTx[]) || []).slice().sort((a, b) => {
+  const rawPending = (data?.pendingRows as BankImportTx[]) || [];
+  const runIdOf = (row: BankImportTx) => Number((row as { run_id?: unknown }).run_id);
+  const pendingForView =
+    selectedRunId == null ? rawPending : rawPending.filter((r) => runIdOf(r) === selectedRunId);
+  const pendingRows = pendingForView.slice().sort((a, b) => {
     const aReview = String(a.match_status || "") === "review" ? 0 : 1;
     const bReview = String(b.match_status || "") === "review" ? 0 : 1;
     return aReview - bReview;
   });
-  const reviewRows = (data?.reviewRows as BankImportTx[]) || [];
-  const unmatchedRows = (data?.unmatchedRows as BankImportTx[]) || [];
+  const reviewRows = pendingRows.filter((row) => String(row.match_status) === "review");
+  const unmatchedRows = pendingRows.filter((row) => String(row.match_status) === "none");
+  const selectedRun = selectedRunId != null ? runs.find((r) => Number(r.id) === selectedRunId) : null;
 
   async function onFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files || []);
@@ -848,29 +855,75 @@ export function ToursAdminBankImportPage() {
       {data ? (
         <>
           <section>
-            <h2 className="text-lg font-semibold text-[var(--text-main)] mb-2">Letzte Läufe</h2>
-            <div className="surface-card-strong overflow-x-auto max-h-48 overflow-y-auto">
+            <h2 className="text-lg font-semibold text-[var(--text-main)] mb-1">Letzte Läufe</h2>
+            <p className="text-xs text-[var(--text-subtle)] mb-2">
+              Klicken Sie einen Lauf an, um die offenen Import-Buchungen (Prüfung) wieder zu diesem
+              Durchlauf anzuzeigen. Die ursprüngliche Datei muss dafür nicht erneut hochgeladen werden.
+            </p>
+            <div className="surface-card-strong overflow-x-auto max-h-64 overflow-y-auto">
               <table className="w-full text-xs">
                 <thead>
                   <tr className="text-left text-[var(--text-subtle)] border-b border-[var(--border-soft)]">
                     <th className="p-2">ID</th>
+                    <th className="p-2">Datei</th>
                     <th className="p-2">Datum</th>
                     <th className="p-2">Format</th>
                     <th className="p-2">Zeilen</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {runs.map((r) => (
-                    <tr key={String(r.id)} className="border-b border-[var(--border-soft)]/40">
-                      <td className="p-2">{String(r.id)}</td>
-                      <td className="p-2">{String(r.created_at || "").slice(0, 19)}</td>
-                      <td className="p-2">{String(r.source_format)}</td>
-                      <td className="p-2">{String(r.total_rows)}</td>
-                    </tr>
-                  ))}
+                  {runs.map((r) => {
+                    const rid = Number(r.id);
+                    const active = selectedRunId != null && rid === selectedRunId;
+                    return (
+                      <tr
+                        key={String(r.id)}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setSelectedRunId((cur) => (cur === rid ? null : rid))}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setSelectedRunId((cur) => (cur === rid ? null : rid));
+                          }
+                        }}
+                        className={`border-b border-[var(--border-soft)]/40 cursor-pointer transition-colors ${
+                          active
+                            ? "bg-[var(--accent)]/12 ring-1 ring-inset ring-[var(--accent)]/35"
+                            : "hover:bg-[var(--text-main)]/5"
+                        }`}
+                        title="Lauf auswählen: offene Prüfungen anzeigen"
+                      >
+                        <td className="p-2 font-mono">#{String(r.id)}</td>
+                        <td className="p-2 max-w-[200px] truncate" title={String((r as { file_name?: unknown }).file_name ?? "")}>
+                          {String((r as { file_name?: unknown }).file_name || "").trim() || "—"}
+                        </td>
+                        <td className="p-2 whitespace-nowrap">{String(r.created_at || "").slice(0, 19)}</td>
+                        <td className="p-2">{String(r.source_format)}</td>
+                        <td className="p-2 font-variant-numeric tabular-nums">{String(r.total_rows)}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
+            {selectedRunId != null ? (
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--border-soft)] bg-[var(--text-main)]/5 px-3 py-2 text-xs text-[var(--text-main)]">
+                <span>
+                  Fokus: Lauf <strong>#{String(selectedRunId)}</strong>
+                  {String((selectedRun as { file_name?: unknown } | null)?.file_name || "").trim()
+                    ? ` · ${String((selectedRun as { file_name?: string }).file_name).trim()}`
+                    : null}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedRunId(null)}
+                  className="shrink-0 rounded border border-[var(--border-soft)] px-2 py-1 text-[11px] font-medium text-[var(--text-subtle)] hover:text-[var(--text-main)] hover:border-[var(--text-subtle)]"
+                >
+                  Alle Läufe
+                </button>
+              </div>
+            ) : null}
           </section>
 
           <section>
