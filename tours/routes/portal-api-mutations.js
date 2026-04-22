@@ -34,7 +34,7 @@ const {
 } = require('../lib/subscriptions');
 const { getDisplayedTourStatus } = require('../lib/tour-detail-payload');
 
-const PORTAL_BASE_URL = process.env.PORTAL_BASE_URL || 'https://tour.propus.ch';
+const PORTAL_BASE_URL = process.env.PORTAL_BASE_URL || 'https://portal.propus.ch';
 
 const profileUpload = multer({
   storage: multer.memoryStorage(),
@@ -93,8 +93,8 @@ router.post('/forgot-password', async (req, res) => {
     portalAuth.issuePasswordReset(email)
       .then((reset) => {
         if (!reset?.ok || !reset.token) return;
-        const baseUrl = portalTeam.getPortalBaseUrl();
-        const resetLink = `${baseUrl}/portal/reset-password?token=${encodeURIComponent(reset.token)}`;
+        const baseUrl = portalTeam.getPortalBaseUrl().replace(/\/$/, '');
+        const resetLink = `${baseUrl}/reset-password?token=${encodeURIComponent(reset.token)}`;
         return sendMailDirect({
           to: reset.email,
           subject: 'Passwort setzen – Propus Kundenportal',
@@ -139,7 +139,13 @@ router.get('/check-reset-token', async (req, res) => {
     const token = String(req.query?.token || '').trim();
     if (!token) return res.json({ ok: true, valid: false });
     const row = await portalAuth.getResetTokenRow(token).catch(() => null);
-    return res.json({ ok: true, valid: !!row, email: row?.email || null });
+    const valid = !!(
+      row &&
+      !row.used_at &&
+      row.expires_at &&
+      new Date(row.expires_at).getTime() > Date.now()
+    );
+    return res.json({ ok: true, valid, email: valid ? row.email : null });
   } catch (err) {
     res.status(500).json({ ok: false, error: 'Interner Fehler' });
   }

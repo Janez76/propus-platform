@@ -2,7 +2,6 @@ import { notFound } from 'next/navigation';
 import { queryOne } from '@/lib/db';
 import { UebersichtForm } from './uebersicht-form';
 import { updateOrderOverview } from './actions';
-import { OrderSaveToast } from './order-save-toast';
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -55,7 +54,6 @@ export default async function UebersichtPage({ params, searchParams }: Props) {
 
   return (
     <>
-      <OrderSaveToast />
       <UebersichtForm
         order={order}
         isEditing={isEditing}

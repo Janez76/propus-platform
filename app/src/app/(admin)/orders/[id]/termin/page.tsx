@@ -4,7 +4,6 @@ import { queryOne, query } from "@/lib/db";
 import { listPhotographers } from "@/lib/repos/orders/termin";
 import { Section, InfoItem, Empty, Badge, STATUS_LABEL, formatDateTime, formatTS } from "../_shared";
 import { TerminForm } from "./termin-form";
-import { OrderSaveToast } from "../order-save-toast";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -68,7 +67,6 @@ export default async function TerminPage({ params, searchParams }: Props) {
   if (isEditing) {
     return (
       <>
-        <OrderSaveToast />
         <TerminForm
           order={{
             order_no: order.order_no,
@@ -94,7 +92,6 @@ export default async function TerminPage({ params, searchParams }: Props) {
 
   return (
     <div className="space-y-6">
-      <OrderSaveToast />
       <Section title="Termin" icon={<CalendarClock className="h-4 w-4" />}>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <InfoItem

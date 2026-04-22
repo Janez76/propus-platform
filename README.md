@@ -134,12 +134,13 @@ Details und Secrets-Setup: [docs/BOOKING-E2E-DEPLOY.md](docs/BOOKING-E2E-DEPLOY.
 
 ### Cloudflare-Hostnames
 
-Alle drei zeigen auf `http://127.0.0.1:3100`:
+Diese zeigen auf `http://127.0.0.1:3100` (ohne vollständige Liste — siehe [docs/VPS-BETRIEB.md](docs/VPS-BETRIEB.md)):
 
 | Hostname                    | Zweck                             |
 |-----------------------------|-----------------------------------|
 | `booking.propus.ch`         | Öffentlicher Buchungs-Wizard      |
 | `admin-booking.propus.ch`   | Admin-SPA                         |
+| `portal.propus.ch`          | Kunden-Login / Passwort-Reset (`PORTAL_BASE_URL`) |
 | `api-booking.propus.ch`     | API + Auth-Endpunkte              |
 
 ### Logs & Health auf dem VPS

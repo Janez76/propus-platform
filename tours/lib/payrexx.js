@@ -145,7 +145,7 @@ function isConfigured() {
 }
 
 function portalBaseUrl() {
-  return String(process.env.PORTAL_BASE_URL || 'https://tour.propus.ch').replace(/\/$/, '');
+  return String(process.env.PORTAL_BASE_URL || 'https://portal.propus.ch').replace(/\/$/, '');
 }
 
 function renewalInvoiceSuccessQuery(invoiceKind) {

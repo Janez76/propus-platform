@@ -3,7 +3,6 @@ import { Building2, MapPin, Users, KeyRound } from "lucide-react";
 import { queryOne } from "@/lib/db";
 import { Section, InfoItem, Empty } from "../_shared";
 import { ObjektForm } from "./objekt-form";
-import { OrderSaveToast } from "../order-save-toast";
 
 type OnsiteContact = { name?: string; phone?: string; email?: string; role?: string; calendarInvite?: boolean };
 type KeyPickup = { enabled?: boolean; address?: string; floor?: string; info?: string };
@@ -52,7 +51,6 @@ export default async function ObjektPage({ params, searchParams }: Props) {
   if (isEditing) {
     return (
       <>
-        <OrderSaveToast />
         <ObjektForm order={order} />
       </>
     );
@@ -60,7 +58,6 @@ export default async function ObjektPage({ params, searchParams }: Props) {
 
   return (
     <div className="space-y-6">
-      <OrderSaveToast />
       <Section title="Adresse" icon={<MapPin className="h-4 w-4" />}>
         {order.address
           ? <p className="text-sm">{order.address}</p>

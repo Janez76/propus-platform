@@ -247,6 +247,27 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--text-subtle);
 }
 
+/* Native <select>: In dunklem UI kann die System-Dropdown-Liste hell sein, waehrend
+   der Text --text-main (hell) geerbt — unleserlich. color-scheme + explizite option-Farben. */
+html.dark select {
+  color-scheme: dark;
+  color: var(--text-main);
+  background-color: var(--surface-raised);
+}
+html.dark select option {
+  background-color: var(--surface);
+  color: var(--text-main);
+}
+body.theme-dark select {
+  color-scheme: dark;
+  color: var(--text-main);
+  background-color: var(--surface-raised);
+}
+body.theme-dark select option {
+  background-color: var(--surface);
+  color: var(--text-main);
+}
+
 .btn-primary {
   border-radius: 10px;
   background: var(--accent);

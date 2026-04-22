@@ -121,23 +121,9 @@ app.use(session({
   },
 }));
 
-// Host-Routing: admin.touren.propus.ch → Admin, tour.propus.ch → Portal, rest → Info
-app.use((req, res, next) => {
-  const host = req.get('host') || '';
-  req.isAdminHost = host.startsWith('admin.');
-  req.isPortalHost = host === 'tour.propus.ch' || host.startsWith('tour.');
-  next();
-});
-
-// Root: Admin-Host → /admin, Portal-Host → /portal, Kunden-Host → kurze Info
+// GET /: Tour-Manager ist unter /tour-manager gemountet; Root direkt (ohne Mount) praktisch unbenutzt.
 app.get('/', (req, res) => {
-  if (req.isAdminHost) return res.redirect('/admin');
-  if (req.isPortalHost) return res.redirect('/portal');
-  res.send(
-    '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Propus Touren</title></head>' +
-    '<body style="font-family:sans-serif;max-width:600px;margin:2rem auto;padding:0 1rem;">' +
-    '<h1>Propus VR Touren</h1><p>Verwende den Link aus der E-Mail zur Verlängerung.</p></body></html>'
-  );
+  res.status(404).type('text/plain').send('Not found');
 });
 
 // Kunden-Routes (touren.propus.ch)
@@ -161,7 +147,7 @@ app.use('/portal/api', portalApiRoutes);
 // Kunden-Portal JSON-API (mutierend – für React SPA)
 app.use('/portal/api', portalApiMutationsRoutes);
 
-// Kunden-Portal (tour.propus.ch/portal)
+// Kunden-Portal (EJS/Redirect-Legacy) + /portal/*
 app.use('/portal', portalRoutes);
 
 // API (für n8n, Cron, Admin-Aktionen)

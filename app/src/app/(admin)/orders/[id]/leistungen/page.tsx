@@ -3,7 +3,6 @@ import { ListChecks, Tag, Receipt } from "lucide-react";
 import { queryOne } from "@/lib/db";
 import { Section, InfoItem, Empty, formatCHF } from "../_shared";
 import { LeistungenForm } from "./leistungen-form";
-import { OrderSaveToast } from "../order-save-toast";
 
 type Addon = { id?: string; label: string; price?: number; qty?: number; group?: string };
 
@@ -51,7 +50,6 @@ export default async function LeistungenPage({ params, searchParams }: Props) {
   if (isEditing) {
     return (
       <>
-        <OrderSaveToast />
         <LeistungenForm
           order={{
             order_no: order.order_no,
@@ -77,7 +75,6 @@ export default async function LeistungenPage({ params, searchParams }: Props) {
 
   return (
     <div className="space-y-6">
-      <OrderSaveToast />
       <Section title="Paket" icon={<Tag className="h-4 w-4" />}>
         {order.package_label ? (
           <div className="flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.02] px-4 py-3">

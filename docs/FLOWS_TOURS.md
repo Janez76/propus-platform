@@ -1126,6 +1126,7 @@ Alle Hosts zeigen auf `http://127.0.0.1:3100` (= Next.js via Port-Mapping):
 |---|---|
 | `booking.propus.ch` | `http://127.0.0.1:3100` |
 | `admin-booking.propus.ch` | `http://127.0.0.1:3100` |
+| `portal.propus.ch` | `http://127.0.0.1:3100` |
 | `api-booking.propus.ch` | `http://127.0.0.1:3100` |
 | `api.propus.ch` | `http://127.0.0.1:3100` |
 | `upload.propus.ch` | `http://127.0.0.1:4455` |
@@ -1189,7 +1190,7 @@ Portal-Kunden können ihr Passwort über `/login` → «Passwort vergessen?» zu
 
 **Endpunkte:** `POST /portal/api/forgot-password`, `GET /portal/api/check-reset-token`, `POST /portal/api/reset-password`
 
-- Reset-Link-Ziel: `/portal/reset-password?token=<token>` (Token 2h gültig)
+- Reset-Link-Ziel: `/reset-password?token=<token>` (Token 2h gültig; Host = `PORTAL_BASE_URL`, z. B. `https://portal.propus.ch`)
 - «Zurück zum Login»-Links auf beiden Seiten zeigen auf `/login` (unified)
 - Fire-and-forget-Pattern verhindert E-Mail-Enumeration via Timing
 

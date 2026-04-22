@@ -275,16 +275,21 @@ GOOGLE_REVIEWS_PLACE_ID=ChIJCXJ70_ZCiisRJDlGdaYk66Y
 
 Der Tunnel `a07b6bcd-f180-4ed8-9bf0-7b52f9098550` wird vom systemd-Service `cloudflared` betrieben.
 
+**Hinweis (Remote-Config):** Läuft `cloudflared` mit `tunnel run --token …` (ohne lokale `config.yml`), werden Ingress-Regeln im **Cloudflare Zero Trust**-Dashboard gepflegt. Neuen Hostname (z. B. `portal.propus.ch`) dort unter dem Tunnel als **Public Hostname** anlegen: Service-URL `http://127.0.0.1:3100` (gleich wie `admin-booking.propus.ch`). DNS-Record (CNAME) ggf. automatisch anlegen lassen.
+
 Aktuelle Ingress-Regeln:
 
 | Hostname                    | Origin                      |
 |-----------------------------|-----------------------------|
 | `booking.propus.ch`         | `http://127.0.0.1:3100`    |
 | `admin-booking.propus.ch`   | `http://127.0.0.1:3100`    |
+| `portal.propus.ch`          | `http://127.0.0.1:3100`    |
 | `api-booking.propus.ch`     | `http://127.0.0.1:3100`    |
 | `api.propus.ch`             | `http://127.0.0.1:3100`    |
 | `auth.propus.ch`            | `http://127.0.0.1:3301`    |
 | `auth-admin.propus.ch`      | `http://127.0.0.1:3302`    |
+
+**Kunden-Portal-URLs (`.env.vps`):** `PORTAL_BASE_URL=https://portal.propus.ch` — steuert Reset-/Mail-Links und Payrexx-Return-URLs im Tour-Manager. **Session über `portal` + `admin-booking`:** `SESSION_COOKIE_DOMAIN=.propus.ch` (siehe `docker-compose.vps.yml`).
 
 ### Cache purgen
 

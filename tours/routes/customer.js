@@ -57,7 +57,7 @@ router.get('/yes', async (req, res) => {
 
   // Nur Payrexx – keine Exxas-Rechnung
   const pricing = getPortalPricingForTour(row);
-  const baseUrl = process.env.PORTAL_BASE_URL || process.env.CUSTOMER_BASE_URL || 'https://tour.propus.ch';
+  const baseUrl = process.env.PORTAL_BASE_URL || process.env.CUSTOMER_BASE_URL || 'https://portal.propus.ch';
 
   if (!payrexx.isConfigured()) {
     return res.render('customer/thank-you-yes', {

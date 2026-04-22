@@ -91,7 +91,7 @@ function escapeHtml(value) {
 }
 
 function getPortalUrl() {
-  return (process.env.PORTAL_BASE_URL || process.env.CUSTOMER_BASE_URL || 'https://portal.propus.ch').replace(/\/$/, '') + '/portal';
+  return (process.env.PORTAL_BASE_URL || process.env.CUSTOMER_BASE_URL || 'https://portal.propus.ch').replace(/\/$/, '') + '/login';
 }
 
 /**

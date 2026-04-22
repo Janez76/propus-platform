@@ -1,10 +1,11 @@
-import type { ReactNode } from 'react';
+import { Suspense, type ReactNode } from 'react';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Calendar, User, Clock, Receipt } from 'lucide-react';
 import { queryOne } from '@/lib/db';
 import { OrderTabs } from './order-tabs';
 import { OrderReadOnlyBadge, OrderEditActions } from './header-actions';
+import { OrderSaveToast } from './order-save-toast';
 
 const STATUS_LABEL: Record<string, { label: string; className: string }> = {
   pending:    { label: 'Offen',          className: 'bg-amber-500/15 text-amber-400' },
@@ -90,10 +91,14 @@ export default async function OrderLayout({ children, params }: Props) {
               <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${status.className}`}>
                 {status.label}
               </span>
-              <OrderReadOnlyBadge />
+              <Suspense fallback={null}>
+                <OrderReadOnlyBadge />
+              </Suspense>
             </div>
 
-            <OrderEditActions orderNo={order.order_no} />
+            <Suspense fallback={null}>
+              <OrderEditActions orderNo={order.order_no} />
+            </Suspense>
           </div>
 
           <div className="grid grid-cols-2 gap-3 pb-4 md:grid-cols-4">
@@ -123,7 +128,12 @@ export default async function OrderLayout({ children, params }: Props) {
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>
+      <main className="mx-auto max-w-6xl px-6 py-8">
+        <Suspense fallback={null}>
+          <OrderSaveToast />
+        </Suspense>
+        {children}
+      </main>
     </div>
   );
 }

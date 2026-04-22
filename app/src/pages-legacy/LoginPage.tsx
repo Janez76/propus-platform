@@ -119,8 +119,8 @@ export function LoginPage() {
                     Passwort
                   </label>
                   <a
-                    href="/portal/forgot-password"
-                    onClick={(e) => { e.preventDefault(); navigate("/portal/forgot-password"); }}
+                    href="/forgot-password"
+                    onClick={(e) => { e.preventDefault(); navigate("/forgot-password"); }}
                     className="text-xs text-[var(--accent,#B68E20)] hover:underline"
                   >
                     Passwort vergessen?

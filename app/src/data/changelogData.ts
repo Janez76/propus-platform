@@ -15,6 +15,26 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.396",
+    date: "2026-04-22",
+    title: "Rollen-Matrix: Kunden-Rollen und portal_team.manage",
+    changes: [
+      { type: "feature", text: "Rollen-Matrix (/admin/roles) zeigt Kunden-Rollen (customer_admin, customer_user, company_owner, company_employee) in neuer Gruppe 'Kunde'" },
+      { type: "feature", text: "Neue Permission portal_team.manage in Matrix und Backend (ALL_PERMISSION_KEYS)" },
+    ],
+  },
+  {
+    version: "2.3.395",
+    date: "2026-04-22",
+    title: "Kunden-Portal: portal.propus.ch, Passwort-Reset in Next.js, tour.propus.ch entfernt",
+    changes: [
+      { type: "feature", text: "Next.js-Seiten /forgot-password und /reset-password; API /portal/api/* unverändert" },
+      { type: "improvement", text: "PORTAL_BASE_URL-Default https://portal.propus.ch; Mail-Links /reset-password; getPortalUrl → /login" },
+      { type: "improvement", text: "docker-compose.vps: PORTAL_BASE_URL + SESSION_COOKIE_DOMAIN default .propus.ch; Tour-Manager: toter Host-Routing-Code entfernt" },
+      { type: "fix", text: "tour.propus.ch / tour.propusimmo.ch aus Defaults und Doku entfernt (Exxas-Hinweis: Matterport-URL)" },
+    ],
+  },
+  {
     version: "2.3.394",
     date: "2026-04-22",
     title: "Admin: Bestellung vollständig bearbeitbar (Tabs, Zod, Audit, Mail-Workflow, Verlauf-Export)",

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, Info, Lock, Plus, RotateCcw, Save, Shield, Trash2, Users, Camera } from "lucide-react";
+import { Building2, Check, Info, Lock, Plus, RotateCcw, Save, Shield, Trash2, Users, Camera } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useAuthStore } from "../store/authStore";
 import { getRolePresets, createRolePreset, deleteRolePreset, patchRolePreset } from "../api/access";
@@ -14,7 +14,7 @@ interface RoleDef {
   key: RoleKey;
   label: string;
   description: string;
-  group: "intern" | "fotograf" | "custom";
+  group: "intern" | "fotograf" | "kunde" | "custom";
   color: string;        // Tailwind / CSS-Variable Token
   headerBg: string;
   fixed?: boolean;      // true = immer alle Rechte, Checkboxen gesperrt
@@ -66,6 +66,39 @@ const ROLES: RoleDef[] = [
     color: "text-violet-400",
     headerBg: "bg-violet-500/10 border-violet-500/20",
   },
+  // ─ Kunde ──────────────────────────────────────────────────────────────────
+  {
+    key: "customer_admin",
+    label: "Kunden-Admin",
+    description: "Firmenverantwortlicher Kunde. Darf bestellen, Team einladen und Rechnungen sehen.",
+    group: "kunde",
+    color: "text-emerald-400",
+    headerBg: "bg-emerald-500/10 border-emerald-500/20",
+  },
+  {
+    key: "customer_user",
+    label: "Kunden-Benutzer",
+    description: "Kunden-Kontakt mit Lese-Zugriff auf eigene Touren und Rechnungen.",
+    group: "kunde",
+    color: "text-emerald-300",
+    headerBg: "bg-emerald-400/10 border-emerald-400/20",
+  },
+  {
+    key: "company_owner",
+    label: "Firmen-Hauptkontakt",
+    description: "Hauptkontakt einer Firma mit erweiterten Rechten.",
+    group: "kunde",
+    color: "text-teal-400",
+    headerBg: "bg-teal-500/10 border-teal-500/20",
+  },
+  {
+    key: "company_employee",
+    label: "Firmen-Mitarbeiter",
+    description: "Mitarbeiter einer Firma mit Lese-Zugriff.",
+    group: "kunde",
+    color: "text-teal-300",
+    headerBg: "bg-teal-400/10 border-teal-400/20",
+  },
 ];
 
 // ─── Berechtigungs-Definitionen ───────────────────────────────────────────────
@@ -73,6 +106,8 @@ const ROLES: RoleDef[] = [
 const PERMISSIONS: PermDef[] = [
   // Dashboard
   { key: "dashboard.view",           label: "Dashboard anzeigen",                section: "Dashboard",              description: "Zugriff auf das Haupt-Dashboard mit Statistiken." },
+  // Portal / Kunde
+  { key: "portal_team.manage",       label: "Portal-Team verwalten",             section: "Portal / Kunde",         description: "Kunden-Team im Portal einladen und verwalten (Mitarbeiter-Rollen)." },
   // Touren
   { key: "tours.read",               label: "Touren ansehen",                    section: "Touren",                 description: "Matterport-Touren und deren Details einsehen." },
   { key: "tours.manage",             label: "Touren verwalten",                  section: "Touren",                 description: "Touren erstellen, bearbeiten, Status ändern." },
@@ -142,6 +177,21 @@ const ROLE_PRESETS: Record<RoleKey, Set<PermKey>> = {
     "calendar.view", "photographers.read",
     "picdrop.manage",
   ]),
+  customer_admin: new Set([
+    "orders.read", "orders.create", "orders.update",
+    "customers.read", "contacts.read", "contacts.manage",
+    "tours.read", "tours.manage", "portal_team.manage", "billing.read",
+  ]),
+  customer_user: new Set([
+    "orders.read", "tours.read", "billing.read",
+  ]),
+  company_owner: new Set([
+    "orders.read", "orders.create", "orders.update",
+    "customers.read", "contacts.read", "tours.read", "billing.read",
+  ]),
+  company_employee: new Set([
+    "orders.read", "tours.read",
+  ]),
 };
 
 // ─── Hilfsfunktionen ──────────────────────────────────────────────────────────
@@ -158,9 +208,10 @@ function getSections(): string[] {
 // ─── Gruppen-Render-Helfer ────────────────────────────────────────────────────
 
 const GROUP_META = {
-  intern:   { label: "Intern",        Icon: Shield,    border: "border-amber-500/30",  bg: "bg-amber-500/5"  },
-  fotograf: { label: "Fotograf",      Icon: Camera,    border: "border-violet-500/30", bg: "bg-violet-500/5" },
-  custom:   { label: "Eigene Rollen", Icon: Plus,      border: "border-slate-500/30",  bg: "bg-slate-500/5"  },
+  intern:   { label: "Intern",        Icon: Shield,    border: "border-amber-500/30",  bg: "bg-amber-500/5"    },
+  fotograf: { label: "Fotograf",      Icon: Camera,    border: "border-violet-500/30", bg: "bg-violet-500/5"   },
+  kunde:    { label: "Kunde",         Icon: Building2, border: "border-emerald-500/30", bg: "bg-emerald-500/5" },
+  custom:   { label: "Eigene Rollen", Icon: Plus,      border: "border-slate-500/30",  bg: "bg-slate-500/5"    },
 };
 
 const CUSTOM_ROLE_STYLE = {
@@ -248,7 +299,7 @@ export function RoleMatrixPage() {
 
   const [hoveredPerm, setHoveredPerm] = useState<string | null>(null);
   const [hoveredRole, setHoveredRole] = useState<RoleKey | null>(null);
-  const [filterGroup, setFilterGroup] = useState<"all" | "intern" | "fotograf" | "custom">("all");
+  const [filterGroup, setFilterGroup] = useState<"all" | "intern" | "fotograf" | "kunde" | "custom">("all");
 
   // ─── Custom Rollen (aus DB) ──────────────────────────────────────────────────
   const [customRoles, setCustomRoles] = useState<RoleDef[]>([]);
@@ -420,7 +471,7 @@ export function RoleMatrixPage() {
           {/* Gruppen-Filter + Neue Rolle Button */}
           <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-wrap gap-2">
-              {(["all", "intern", "fotograf", "custom"] as const).map((g) => (
+              {(["all", "intern", "fotograf", "kunde", "custom"] as const).map((g) => (
                 <button
                   key={g}
                   type="button"
@@ -435,6 +486,7 @@ export function RoleMatrixPage() {
                   {g === "all" && <><Users className="h-3.5 w-3.5" /> Alle Rollen ({allRoles.length})</>}
                   {g === "intern" && <><Shield className="h-3.5 w-3.5" /> Intern</>}
                   {g === "fotograf" && <><Camera className="h-3.5 w-3.5" /> Fotografen</>}
+                  {g === "kunde" && <><Building2 className="h-3.5 w-3.5" /> Kunde</>}
                   {g === "custom" && <><Plus className="h-3.5 w-3.5" /> Eigene{customRoles.length > 0 ? ` (${customRoles.length})` : ""}</>}
                 </button>
               ))}
@@ -534,7 +586,7 @@ export function RoleMatrixPage() {
                 <th className="sticky left-0 z-10 bg-[var(--surface-raised)] px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-widest text-[var(--text-subtle)]">
                   Berechtigung
                 </th>
-                {(["intern", "fotograf", "custom"] as const)
+                {(["intern", "fotograf", "kunde", "custom"] as const)
                   .filter((g) => filterGroup === "all" || filterGroup === g)
                   .map((g) => {
                     const rolesInGroup = visibleRoles.filter((r) => r.group === g);
@@ -549,6 +601,7 @@ export function RoleMatrixPage() {
                         <span className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5", border, {
                           "text-amber-400": g === "intern",
                           "text-violet-400": g === "fotograf",
+                          "text-emerald-400": g === "kunde",
                           "text-slate-400": g === "custom",
                         })}>
                           <Icon className="h-3 w-3" />

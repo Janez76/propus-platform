@@ -78,7 +78,8 @@ services:
       BOOKING_SESSION_SECRET: ${BOOKING_SESSION_SECRET}
       TOURS_SESSION_SECRET: ${TOURS_SESSION_SECRET}
       SESSION_COOKIE_SECURE: "true"
-      SESSION_COOKIE_DOMAIN: ${SESSION_COOKIE_DOMAIN:-}
+      SESSION_COOKIE_DOMAIN: ${SESSION_COOKIE_DOMAIN:-.propus.ch}
+      PORTAL_BASE_URL: ${PORTAL_BASE_URL:-https://portal.propus.ch}
       TOURS_MOUNT_PATH: /tour-manager
       PROPUS_ENABLE_LEGACY_CUSTOMER_LOGIN: ${PROPUS_ENABLE_LEGACY_CUSTOMER_LOGIN:-1}
       # ─── Admin-Hauptbenutzer (Bootstrap beim Start) ──────────────────────────

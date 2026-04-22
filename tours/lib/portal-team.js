@@ -996,7 +996,7 @@ async function canViewPortalIdentity(viewerEmail, targetEmail) {
 }
 
 function getPortalBaseUrl() {
-  return process.env.PORTAL_BASE_URL || 'https://tour.propus.ch';
+  return process.env.PORTAL_BASE_URL || 'https://portal.propus.ch';
 }
 
 /**

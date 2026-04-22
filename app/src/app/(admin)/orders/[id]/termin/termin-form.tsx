@@ -122,7 +122,7 @@ export function TerminForm({ order, photographers }: Props) {
               <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-white/50">Datum *</span>
               <input
                 type="date"
-                className="w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm"
+                className="w-full rounded-md border border-white/10 bg-zinc-900/50 px-3 py-2 text-sm text-zinc-100 scheme-dark"
                 {...form.register("scheduleDate")}
               />
               <FieldError<TerminFormValues> name="scheduleDate" />
@@ -130,7 +130,7 @@ export function TerminForm({ order, photographers }: Props) {
             <div>
               <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-white/50">Uhrzeit (15 min) *</span>
               <select
-                className="w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm"
+                className="w-full rounded-md border border-white/10 bg-zinc-900/50 px-3 py-2 text-sm text-zinc-100 scheme-dark"
                 {...form.register("scheduleTime")}
               >
                 {TIME_OPTIONS.map((t) => (
@@ -147,7 +147,7 @@ export function TerminForm({ order, photographers }: Props) {
                 type="number"
                 min={15}
                 step={15}
-                className="w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm"
+                className="w-full rounded-md border border-white/10 bg-zinc-900/50 px-3 py-2 text-sm text-zinc-100 scheme-dark"
                 {...form.register("durationMin", { valueAsNumber: true })}
               />
               <FieldError<TerminFormValues> name="durationMin" />
@@ -155,7 +155,7 @@ export function TerminForm({ order, photographers }: Props) {
             <div>
               <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-white/50">Status *</span>
               <select
-                className="w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm"
+                className="w-full rounded-md border border-white/10 bg-zinc-900/50 px-3 py-2 text-sm text-zinc-100 scheme-dark"
                 {...form.register("status")}
               >
                 {STATUS_ORDER.map((k) => {
@@ -176,7 +176,7 @@ export function TerminForm({ order, photographers }: Props) {
           <div className="max-w-xl">
             <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-white/50">Fotograf / Mitarbeiter</span>
             <select
-              className="w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm"
+              className="w-full rounded-md border border-white/10 bg-zinc-900/50 px-3 py-2 text-sm text-zinc-100 scheme-dark"
               {...form.register("photographerKey", {
                 setValueAs: (v: string) => (v === "" ? null : v),
               })}

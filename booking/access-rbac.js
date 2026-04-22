@@ -43,6 +43,7 @@ const ALL_PERMISSION_KEYS = [
   "roles.manage",
   "users.manage",
   "api_keys.manage",
+  "portal_team.manage",
 ];
 
 const TOURS_INTERNAL_PERMS = [

@@ -16,7 +16,13 @@ import {
 } from '../content/site';
 import { loadHomePageData } from '../lib/cms/resolve';
 
-const placesKey = import.meta.env.GOOGLE_PLACES_API_KEY ?? process.env.GOOGLE_PLACES_API_KEY ?? '';
+const placesKey = String(
+	import.meta.env.GOOGLE_PLACES_API_KEY ||
+		import.meta.env.GOOGLE_MAPS_API_KEY ||
+		process.env.GOOGLE_PLACES_API_KEY ||
+		process.env.GOOGLE_MAPS_API_KEY ||
+		'',
+).trim();
 
 const [home, reviewsForHome] = await Promise.all([
 	loadHomePageData(),

@@ -55,6 +55,10 @@ Das RBAC-System (`booking/access-rbac.js`) verwaltet alle Zugriffsrechte der Pla
 | `customer_admin` | Kunden-Admin | `customers.is_admin = TRUE` oder `portal_team_members.role = 'admin'` |
 | `customer_user` | Kunden-Benutzer | `customers.is_admin = FALSE` |
 
+> **Bearbeiten in der UI:** Alle nicht-fixen Rollen (alles ausser `super_admin` und `internal_admin`) sind
+> über `/admin/roles` (Super-Admin) editierbar — inkl. der Kunden-Rollen (`customer_admin`, `customer_user`,
+> `company_owner`, `company_employee`). Die Matrix zeigt diese unter der Gruppe **Kunde**.
+
 ---
 
 ## 3. Alle Permission-Keys

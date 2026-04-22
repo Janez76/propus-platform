@@ -295,8 +295,8 @@ Der Standard-`/api/v2/`-Pfad (ohne System-ID) reicht für diesen Endpunkt **nich
 | `status` | `ak` = aktiv | `"ak"` |
 | `lieferdatum` | Lieferdatum (Tour-Erstellungsdatum) | `"2025-08-27"` |
 
-> **Feld-Konvention:** `optional1` = Matterport/Tour-Link, `optional3` = Startdatum.  
-> Verträge (`/contracts`) verwenden ebenfalls `optional1` für Tour-Links im Format `https://tour.propusimmo.ch/tour/...`.
+> **Feld-Konvention:** `optional1` = Matterport/Tour-Link (z. B. `https://my.matterport.com/show/?m=...`), `optional3` = Startdatum.  
+> Verträge (`/contracts`) nutzen ebenfalls `optional1` für die Matterport-URL; die frühere Domain `tour.propusimmo.ch` ist nicht mehr in Betrieb.
 
 ### Authentifizierung
 

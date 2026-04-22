@@ -1,5 +1,5 @@
 /**
- * Kunden-Portal – tour.propus.ch/portal
+ * Kunden-Portal (Express-UI) – in Produktion primär: portal.propus.ch (Next.js) + /portal/*
  *
  * Authentifizierung: internes Kunden-Login via Datenbank.
  * Danach: alle eigenen Touren sehen, bearbeiten, verlängern, archivieren, löschen, bezahlen.
@@ -42,7 +42,7 @@ const profileUpload = multer({
   },
 });
 
-const PORTAL_BASE_URL = process.env.PORTAL_BASE_URL || 'https://tour.propus.ch';
+const PORTAL_BASE_URL = process.env.PORTAL_BASE_URL || 'https://portal.propus.ch';
 let renewalSchemaEnsured = false;
 
 async function ensureRenewalInvoiceSchema() {
@@ -401,80 +401,14 @@ router.post('/login', async (req, res) => {
   });
 });
 
+/** Next.js: /forgot-password (Self-Service per /portal/api/forgot-password) */
 router.get('/forgot-password', (req, res) => {
   if (req.session?.portalCustomerEmail) return res.redirect('/portal/dashboard');
-  const qs = req.query.email ? `?email=${encodeURIComponent(String(req.query.email))}` : '';
-  return res.redirect(`/portal/forgot-password${qs}`);
-});
-
-router.post('/forgot-password', async (req, res) => {
-  const email = portalAuth.normalizeEmail(req.body?.email);
-  const genericSuccess =
-    'Falls ein passender Zugang existiert, haben wir einen Link zum Setzen Ihres Passworts gesendet.';
-  try {
-    const reset = await portalAuth.issuePasswordReset(email);
-    if (reset?.ok && reset.token) {
-      const resetLink = `${PORTAL_BASE_URL}/portal/reset-password?token=${encodeURIComponent(reset.token)}`;
-      await sendMailDirect({
-        to: reset.email,
-        subject: 'Passwort setzen – Propus Kundenportal',
-        htmlBody:
-          `<p>Guten Tag</p>` +
-          `<p>über diesen Link können Sie Ihr Passwort für das Propus Kundenportal setzen oder zurücksetzen:</p>` +
-          `<p><a href="${resetLink}"><strong>Passwort setzen</strong></a></p>` +
-          `<p style="color:#666;font-size:12px;">Falls der Button nicht funktioniert: ${resetLink}</p>` +
-          `<p>Der Link ist 2 Stunden gültig.</p>`,
-        textBody:
-          `Passwort setzen / zurücksetzen:\n${resetLink}\n\n` +
-          `Der Link ist 2 Stunden gültig.`,
-      });
-    }
-    const qs = new URLSearchParams({ success: genericSuccess });
-    if (email) qs.set('email', email);
-    return res.redirect(`/portal/forgot-password?${qs.toString()}`);
-  } catch (err) {
-    const qs = new URLSearchParams({ error: 'Anfrage konnte nicht verarbeitet werden. Bitte später erneut versuchen.' });
-    if (email) qs.set('email', email);
-    return res.redirect(`/portal/forgot-password?${qs.toString()}`);
-  }
-});
-
-router.get('/reset-password', async (req, res) => {
-  const token = String(req.query?.token || '').trim();
-  return res.redirect(`/portal/reset-password${token ? '?token=' + encodeURIComponent(token) : ''}`);
-});
-
-router.post('/reset-password', async (req, res) => {
-  const token = String(req.body?.token || '').trim();
-  const password = String(req.body?.password || '');
-  const passwordRepeat = String(req.body?.passwordRepeat || '');
-  const row = token ? await portalAuth.getResetTokenRow(token).catch(() => null) : null;
-  const isValid =
-    !!(row && !row.used_at && row.expires_at && new Date(row.expires_at).getTime() > Date.now());
-
-  if (!isValid) {
-    const qs = new URLSearchParams({ error: 'Link ungültig oder abgelaufen.' });
-    if (token) qs.set('token', token);
-    return res.redirect(`/portal/reset-password?${qs.toString()}`);
-  }
-  if (password !== passwordRepeat) {
-    const qs = new URLSearchParams({ error: 'Die Passwörter stimmen nicht überein.' });
-    if (token) qs.set('token', token);
-    return res.redirect(`/portal/reset-password?${qs.toString()}`);
-  }
-  try {
-    await portalAuth.consumePasswordReset(token, password);
-    return res.redirect(
-      '/portal/login?success=' +
-        encodeURIComponent('password_reset') +
-        '&email=' +
-        encodeURIComponent(row.email || '')
-    );
-  } catch (err) {
-    const qs = new URLSearchParams({ error: err.message || 'Passwort konnte nicht gesetzt werden.' });
-    if (token) qs.set('token', token);
-    return res.redirect(`/portal/reset-password?${qs.toString()}`);
-  }
+  const base = PORTAL_BASE_URL.replace(/\/$/, '');
+  const qs = new URLSearchParams();
+  if (req.query.email) qs.set('email', String(req.query.email));
+  const q = qs.toString();
+  return res.redirect(`${base}/forgot-password${q ? '?' + q : ''}`);
 });
 
 // ─── Logout ───────────────────────────────────────────────────────────────────

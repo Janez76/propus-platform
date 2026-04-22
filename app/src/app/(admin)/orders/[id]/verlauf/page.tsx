@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { notFound } from 'next/navigation';
 import { History, ArrowRight } from 'lucide-react';
 import { queryOne, query } from '@/lib/db';
@@ -150,7 +151,9 @@ export default async function VerlaufPage({
 
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.02] p-6">
-      <VerlaufFilters />
+      <Suspense fallback={null}>
+        <VerlaufFilters />
+      </Suspense>
       <h2 className="mb-5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-white/60">
         <History className="h-4 w-4" />
         Aktivitätsverlauf

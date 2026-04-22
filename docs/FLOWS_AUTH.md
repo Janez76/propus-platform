@@ -194,6 +194,16 @@ Kunde klickt Link: GET /auth/customer/magic?magic=<token>
 
 **Hinweis:** Der Magic-Link-Flow ist vom Unified-Login getrennt. Er nutzt `booking.customer_sessions` (nicht `admin_sessions`) und den Cookie `customer_session` (nicht `admin_session`).
 
+### Hostname-Strategie (Kunden-Portal, ab April 2026)
+
+| Host | Rolle |
+|---|---|
+| `portal.propus.ch` | Kunden-Login, Passwort-Reset, E-Mail-Links (`PORTAL_BASE_URL`) |
+| `admin-booking.propus.ch` | Admin- und interne URLs (`ADMIN_PANEL_URL` u. a.) |
+| `tour.propus.ch` | deprecated (nicht mehr im Tunnel) |
+
+Gleiche Next.js-App, gleicher Container. Für eine gemeinsame Session über beide Hosts: `SESSION_COOKIE_DOMAIN=.propus.ch` in `.env.vps` / `docker-compose.vps.yml`.
+
 ---
 
 ## 6. Passwort-Reset-Flow (Portal)
@@ -204,7 +214,7 @@ Kunde klickt Link: GET /auth/customer/magic?magic=<token>
 - `POST /portal/api/reset-password` → setzt neues Passwort
 
 **Datei:** `tours/routes/portal-api-mutations.js`  
-**Frontend:** `app/src/pages-legacy/portal/PortalForgotPasswordPage.tsx`, `PortalResetPasswordPage.tsx`
+**Frontend (Next.js App Router):** `app/src/app/(auth)/forgot-password/page.tsx`, `app/src/app/(auth)/reset-password/page.tsx`
 
 ### Ablauf
 
@@ -219,7 +229,7 @@ POST /portal/api/forgot-password  { email }
   │     │     NEIN → { ok: false }
   │     │
   │     └── .then(reset => sendMailDirect({ to: reset.email, subject: …, htmlBody: … }))
-  │               Reset-Link: <baseUrl>/portal/reset-password?token=<encoded-token>
+  │               Reset-Link: <baseUrl>/reset-password?token=<encoded-token>  (baseUrl = `PORTAL_BASE_URL`, z. B. `https://portal.propus.ch`)
   │
   └── Immer → { ok: true, message: "Falls ein Konto existiert, wurde eine E-Mail gesendet." }
               (E-Mail-Enumeration verhindert)

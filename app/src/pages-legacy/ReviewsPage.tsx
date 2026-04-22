@@ -128,6 +128,7 @@ function GbpPanel({ token, lang }: { token: string | undefined; lang: Lang }) {
   const [avgRating, setAvgRating] = useState<number | null>(null);
   const [totalCount, setTotalCount] = useState<number | null>(null);
   const [reviewsSource, setReviewsSource] = useState<"gbp" | "places" | null>(null);
+  const [placesEnvMissing, setPlacesEnvMissing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
@@ -161,6 +162,7 @@ function GbpPanel({ token, lang }: { token: string | undefined; lang: Lang }) {
 
   const loadReviews = useCallback(async () => {
     setReviewsLoading(true);
+    setPlacesEnvMissing(false);
     try {
       const res = await apiRequest<{
         ok: boolean;
@@ -168,11 +170,22 @@ function GbpPanel({ token, lang }: { token: string | undefined; lang: Lang }) {
         averageRating: number | null;
         totalReviewCount: number | null;
         source?: string;
+        notConfigured?: boolean;
       }>("/api/admin/gbp/reviews", "GET", token);
-      setReviews(res.reviews || []);
-      setAvgRating(res.averageRating ?? null);
-      setTotalCount(res.totalReviewCount ?? null);
-      setReviewsSource(res.source === "places" ? "places" : "gbp");
+      if (res.notConfigured) {
+        setReviews([]);
+        setAvgRating(null);
+        setTotalCount(null);
+        setReviewsSource(null);
+        setPlacesEnvMissing(true);
+        setMsg(null);
+      } else {
+        setReviews(res.reviews || []);
+        setAvgRating(res.averageRating ?? null);
+        setTotalCount(res.totalReviewCount ?? null);
+        setReviewsSource(res.source === "places" ? "places" : "gbp");
+        setMsg(null);
+      }
     } catch (e) {
       setMsg({ type: "err", text: t(lang, "reviews.gbp.error") + " " + (e as Error).message });
     } finally {
@@ -415,6 +428,13 @@ function GbpPanel({ token, lang }: { token: string | undefined; lang: Lang }) {
           <div className="flex items-center gap-2 py-4 text-sm" style={{ color: "var(--text-subtle)" }}>
             <div className="h-4 w-4 animate-spin rounded-full border-2" style={{ borderColor: "var(--accent-subtle)", borderTopColor: "#4285F4" }} />
             {t(lang, "reviews.gbp.loading")}
+          </div>
+        ) : placesEnvMissing ? (
+          <div
+            className="rounded-xl border px-4 py-4 text-sm"
+            style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--text-main)" }}
+          >
+            {t(lang, "reviews.gbp.placesEnvHint")}
           </div>
         ) : reviews.length === 0 ? (
           <div className="text-sm py-4" style={{ color: "var(--text-subtle)" }}>

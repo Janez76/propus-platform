@@ -71,6 +71,7 @@ services:
       - EXXAS_WEBHOOK_SECRET=${EXXAS_WEBHOOK_SECRET:-}
       - TODO_SYNC_API_KEY=${TODO_SYNC_API_KEY:-}
       - GOOGLE_PLACES_API_KEY=${GOOGLE_PLACES_API_KEY:-}
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY:-}
       - BACKUP_ROOT=/volume1/docker/Buchungstool-backups
       - BACKUP_SCRIPT_PATH=/volume1/docker/Buchungstool/scripts/backup-container.sh
       - SRC_DIR=/volume1/docker/Buchungstool
