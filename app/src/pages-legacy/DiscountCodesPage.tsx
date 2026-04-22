@@ -13,6 +13,7 @@ import {
 } from "../api/discountCodes";
 import { useAuthStore } from "../store/authStore";
 import { t, type Lang } from "../i18n";
+import { usePermissions } from "../hooks/usePermissions";
 
 function toInputDate(value: string | null): string {
   if (!value) return "";
@@ -40,6 +41,8 @@ function isExpired(validTo: string | null): boolean {
 export function DiscountCodesPage() {
   const token = useAuthStore((s) => s.token);
   const lang = useAuthStore((s) => s.language);
+  const { can } = usePermissions();
+  const canManage = can("discount_codes.manage");
   const [rows, setRows] = useState<DiscountCode[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -184,6 +187,7 @@ export function DiscountCodesPage() {
       </div>
 
       {/* Create / Edit Form */}
+      {canManage ? (
       <form onSubmit={onCreate} className="cust-form-section">
         <div className="cust-form-section-title flex items-center justify-between">
           <span>{editingId != null ? t(lang, "discountCodes.form.editTitle") : t(lang, "discountCodes.form.createTitle")}</span>
@@ -273,6 +277,7 @@ export function DiscountCodesPage() {
           )}
         </div>
       </form>
+      ) : null}
 
       {/* Table */}
       <div className="cust-table-wrap">
@@ -336,6 +341,8 @@ export function DiscountCodesPage() {
                   </td>
                   <td>
                     <div className="flex gap-1.5 flex-wrap">
+                      {canManage ? (
+                        <>
                       <button type="button" onClick={() => onEdit(row)} className="cust-action-view min-h-0 min-w-0">
                         <Pencil className="h-3.5 w-3.5" />
                         {t(lang, "common.edit")}
@@ -343,12 +350,16 @@ export function DiscountCodesPage() {
                       <button type="button" onClick={() => toggleActive(row)} className="cust-action-icon min-h-0 min-w-0" title={row.active ? t(lang, "common.deactivate") : t(lang, "common.activate")}>
                         {row.active ? "⏸" : "▶"}
                       </button>
+                        </>
+                      ) : null}
                       <button type="button" onClick={() => showUsages(row)} className="cust-action-icon min-h-0 min-w-0" title={t(lang, "discountCodes.button.usages")}>
                         <CalendarClock className="h-3.5 w-3.5" />
                       </button>
+                      {canManage ? (
                       <button type="button" onClick={() => onDelete(row)} className="cust-action-icon cust-action-icon--danger min-h-0 min-w-0" title={t(lang, "discountCodes.button.remove")}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
+                      ) : null}
                     </div>
                   </td>
                 </tr>

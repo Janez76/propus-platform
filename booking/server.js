@@ -2867,6 +2867,14 @@ async function requireCustomer(req, res, next) {
 
     req.customer = customer;
     req.customerTokenHash = tokenHash;
+    try {
+      await rbac.hydrateCustomerPortalRbac(req);
+    } catch (_e) {
+      /* Fallback: leere Rechte (403 auf geschuetzte Endpoints) */
+      req.customerPermissions = rbac.legacyCustomerPortalSet("customer_user");
+      req.portalSystemRole = "customer_user";
+      req.portalSessionRole = "customer_user";
+    }
     next();
   } catch (err) {
     res.status(500).json({ error: err.message || "Auth error" });
@@ -3148,9 +3156,14 @@ app.post("/api/customer/reset-password", (_req, res) => {
 
 app.get("/api/customer/me", requireCustomer, async (req, res) => {
   const c = req.customer;
+  const perms = req.customerPermissions ? Array.from(req.customerPermissions) : [];
   res.json({
     ok: true,
+    role: req.portalSystemRole || "customer_user",
+    portalRole: req.portalSessionRole || "customer_user",
+    permissions: perms,
     customer: {
+      id: c.id,
       salutation: c.salutation || "",
       first_name: c.first_name || "",
       email: c.email,
@@ -3169,7 +3182,7 @@ app.get("/api/customer/me", requireCustomer, async (req, res) => {
   });
 });
 
-app.get("/api/customer/orders", requireCustomer, async (req, res) => {
+app.get("/api/customer/orders", requireCustomer, rbac.requireCustomerPermission("portal.orders.read"), async (req, res) => {
   try {
     const email = req.customer.email;
     const orders = await db.getOrdersForCustomerEmail(email, { limit: 200, offset: 0 });
@@ -3179,8 +3192,35 @@ app.get("/api/customer/orders", requireCustomer, async (req, res) => {
   }
 });
 
+app.get(
+  "/api/customer/orders/:orderNo",
+  requireCustomer,
+  rbac.requireCustomerPermission("portal.orders.read"),
+  async (req, res) => {
+    try {
+      const orderNo = Number(req.params.orderNo);
+      if (!Number.isFinite(orderNo)) return res.status(400).json({ error: "Ungueltige Bestellnummer" });
+      const order = process.env.DATABASE_URL
+        ? await db.getOrderByNo(orderNo)
+        : (await loadOrders()).find((o) => o.orderNo === orderNo);
+      if (!order) return res.status(404).json({ error: "Nicht gefunden" });
+      const em = (order.billing?.email || order.customerEmail || "").toLowerCase().trim();
+      if (!em || em !== String(req.customer.email || "").toLowerCase().trim()) {
+        return res.status(404).json({ error: "Nicht gefunden" });
+      }
+      res.json({ ok: true, order });
+    } catch (err) {
+      res.status(500).json({ error: err.message || "Bestellung laden fehlgeschlagen" });
+    }
+  },
+);
+
 // NOTE: Cutoff/Business-Day-Regel wird im n-chsten Schritt (todo) erzwungen.
-app.post("/api/customer/orders/:orderNo/cancel", requireCustomer, async (req, res) => {
+app.post(
+  "/api/customer/orders/:orderNo/cancel",
+  requireCustomer,
+  rbac.requireCustomerPermission("portal.orders.cancel"),
+  async (req, res) => {
   try {
     const orderNo = Number(req.params.orderNo);
     const order = process.env.DATABASE_URL ? await db.getOrderByNo(orderNo) : (await loadOrders()).find(o => o.orderNo === orderNo);
@@ -3230,7 +3270,11 @@ app.post("/api/customer/orders/:orderNo/cancel", requireCustomer, async (req, re
 });
 
 // Prueft ob ein Wunschtermin verfuegbar ist und gibt ggf. 3 Alternativvorschlaege zurueck
-app.post("/api/customer/orders/:orderNo/reschedule-check", requireCustomer, async (req, res) => {
+app.post(
+  "/api/customer/orders/:orderNo/reschedule-check",
+  requireCustomer,
+  rbac.requireCustomerPermission("portal.orders.reschedule"),
+  async (req, res) => {
   try {
     const orderNo = Number(req.params.orderNo);
     const { date, time } = req.body || {};
@@ -3400,7 +3444,11 @@ app.post("/api/customer/orders/:orderNo/reschedule-check", requireCustomer, asyn
   }
 });
 
-app.patch("/api/customer/orders/:orderNo/reschedule", requireCustomer, async (req, res) => {
+app.patch(
+  "/api/customer/orders/:orderNo/reschedule",
+  requireCustomer,
+  rbac.requireCustomerPermission("portal.orders.reschedule"),
+  async (req, res) => {
   try {
     const orderNo = Number(req.params.orderNo);
     const { date, time, photographerKey, photographerName } = req.body || {};
@@ -3508,7 +3556,11 @@ async function sendOrderMessageMails({ order, orderNo, senderLabel, senderRole, 
   return recipients;
 }
 
-app.get("/api/customer/orders/:orderNo/messages", requireCustomer, async (req, res) => {
+app.get(
+  "/api/customer/orders/:orderNo/messages",
+  requireCustomer,
+  rbac.requireCustomerPermission("portal.messages.read"),
+  async (req, res) => {
   try {
     const orderNo = Number(req.params.orderNo);
     const order = await db.getOrderByNo(orderNo);
@@ -3522,7 +3574,11 @@ app.get("/api/customer/orders/:orderNo/messages", requireCustomer, async (req, r
   }
 });
 
-app.post("/api/customer/orders/:orderNo/message", requireCustomer, async (req, res) => {
+app.post(
+  "/api/customer/orders/:orderNo/message",
+  requireCustomer,
+  rbac.requireCustomerPermission("portal.messages.write"),
+  async (req, res) => {
   try {
     const orderNo = Number(req.params.orderNo);
     const message = sanitizeMessageText(req.body?.message);
@@ -3553,7 +3609,11 @@ app.post("/api/customer/orders/:orderNo/message", requireCustomer, async (req, r
   }
 });
 
-app.get("/api/customer/orders/:orderNo/chat", requireCustomer, async (req, res) => {
+app.get(
+  "/api/customer/orders/:orderNo/chat",
+  requireCustomer,
+  rbac.requireCustomerPermission("portal.messages.read"),
+  async (req, res) => {
   try {
     const orderNo = Number(req.params.orderNo);
     const order = await getOrderForChat(orderNo);
@@ -3570,7 +3630,11 @@ app.get("/api/customer/orders/:orderNo/chat", requireCustomer, async (req, res) 
   }
 });
 
-app.post("/api/customer/orders/:orderNo/chat/message", requireCustomer, async (req, res) => {
+app.post(
+  "/api/customer/orders/:orderNo/chat/message",
+  requireCustomer,
+  rbac.requireCustomerPermission("portal.messages.write"),
+  async (req, res) => {
   try {
     const orderNo = Number(req.params.orderNo);
     const order = await getOrderForChat(orderNo);
@@ -3608,7 +3672,11 @@ app.post("/api/customer/orders/:orderNo/chat/message", requireCustomer, async (r
   }
 });
 
-app.patch("/api/customer/orders/:orderNo/chat/read", requireCustomer, async (req, res) => {
+app.patch(
+  "/api/customer/orders/:orderNo/chat/read",
+  requireCustomer,
+  rbac.requireCustomerPermission("portal.messages.write"),
+  async (req, res) => {
   try {
     const orderNo = Number(req.params.orderNo);
     const order = await getOrderForChat(orderNo);
@@ -3623,7 +3691,11 @@ app.patch("/api/customer/orders/:orderNo/chat/read", requireCustomer, async (req
   }
 });
 
-app.get("/api/customer/orders/:orderNo/chat/events", requireCustomer, async (req, res) => {
+app.get(
+  "/api/customer/orders/:orderNo/chat/events",
+  requireCustomer,
+  rbac.requireCustomerPermission("portal.messages.read"),
+  async (req, res) => {
   try {
     const orderNo = Number(req.params.orderNo);
     const order = await getOrderForChat(orderNo);
@@ -3651,6 +3723,79 @@ app.get("/api/customer/orders/:orderNo/chat/events", requireCustomer, async (req
     res.status(500).json({ error: err.message || "Chat-Eventstream fehlgeschlagen" });
   }
 });
+
+// ─── Kunden-Portal: Team (owner = customers.email) ───────────────────────────
+app.get("/api/customer/team", requireCustomer, rbac.requireCustomerPermission("portal.team.read"), async (req, res) => {
+  try {
+    const owner = String(req.customer.email || "").trim().toLowerCase();
+    if (!owner) return res.status(400).json({ error: "Keine E-Mail" });
+    const team = await portalTeam.listTeamMembers(owner);
+    res.json({ ok: true, members: team });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Team laden fehlgeschlagen" });
+  }
+});
+
+app.post("/api/customer/team/invite", requireCustomer, rbac.requireCustomerPermission("portal.team.manage"), async (req, res) => {
+  try {
+    const owner = String(req.customer.email || "").trim().toLowerCase();
+    if (!owner) return res.status(400).json({ error: "Keine E-Mail" });
+    await portalTeam.assertCanManageTeam(owner, owner);
+    const { email, role, displayName } = req.body || {};
+    const out = await portalTeam.createTeamInvite({
+      ownerEmail: owner,
+      inviterEmail: owner,
+      memberEmail: String(email || "").trim(),
+      displayName: displayName || null,
+      role: role || "mitarbeiter",
+    });
+    res.json({ ok: true, ...out });
+  } catch (err) {
+    if (err && err.code === "FORBIDDEN") return res.status(403).json({ error: err.message || "Keine Berechtigung" });
+    res.status(400).json({ error: err.message || "Einladung fehlgeschlagen" });
+  }
+});
+
+app.patch("/api/customer/team/:memberId", requireCustomer, rbac.requireCustomerPermission("portal.team.manage"), async (req, res) => {
+  try {
+    const owner = String(req.customer.email || "").trim().toLowerCase();
+    if (!owner) return res.status(400).json({ error: "Keine E-Mail" });
+    await portalTeam.assertCanManageTeam(owner, owner);
+    const memberId = Number(req.params.memberId);
+    if (!Number.isFinite(memberId)) return res.status(400).json({ error: "Ungueltige ID" });
+    const newRole = req.body?.role;
+    if (!newRole) return res.status(400).json({ error: "Rolle erforderlich" });
+    const ok = await portalTeam.updateTeamMemberRole(owner, memberId, newRole);
+    if (!ok) return res.status(404).json({ error: "Mitglied nicht gefunden" });
+    res.json({ ok: true });
+  } catch (err) {
+    if (err && err.code === "FORBIDDEN") return res.status(403).json({ error: err.message || "Keine Berechtigung" });
+    res.status(500).json({ error: err.message || "Aktualisieren fehlgeschlagen" });
+  }
+});
+
+/** Rechnungen: aus Bestellungen mit offenen Betraegen (vereinfachte Sicht) */
+app.get(
+  "/api/customer/invoices",
+  requireCustomer,
+  rbac.requireCustomerPermission("portal.invoices.read"),
+  async (req, res) => {
+    try {
+      const email = String(req.customer.email || "").toLowerCase().trim();
+      const orders = await db.getOrdersForCustomerEmail(email, { limit: 200, offset: 0 });
+      const rows = (orders || []).map((o) => ({
+        orderNo: o.orderNo,
+        status: o.status,
+        address: o.address || o.object?.line || "",
+        exxasInvoiceId: o.exxasInvoiceId || o.billing?.exxas_invoice_id || null,
+        total: o.totals?.gross != null ? o.totals.gross : o.total,
+      }));
+      res.json({ ok: true, invoices: rows });
+    } catch (err) {
+      res.status(500).json({ error: err.message || "Rechnungen laden fehlgeschlagen" });
+    }
+  },
+);
 
 app.get("/api/availability", async (req, res) => {
   try {
@@ -8629,8 +8774,14 @@ function getRoutePermission(method, url) {
       p === "/api/admin/me" || p.startsWith("/api/admin/me/") ||
       p.startsWith("/api/admin/sso")) return null;
 
-  if (/\/orders\/\d+\/review\//.test(p)) return "reviews.manage";
-  if (/^\/api\/admin\/reviews/.test(p)) return "reviews.manage";
+  if (/\/orders\/\d+\/review\//.test(p)) {
+    if (m === "GET" || m === "HEAD") return "reviews.read";
+    return "reviews.manage";
+  }
+  if (/^\/api\/admin\/reviews/.test(p)) {
+    if (m === "GET" || m === "HEAD") return "reviews.read";
+    return "reviews.manage";
+  }
 
   if (/^\/api\/admin\/orders/.test(p)) {
     if (m === "POST" && /^\/api\/admin\/orders$/.test(p)) return "orders.create";
@@ -8727,8 +8878,9 @@ async function requireAdmin(req, res, next){
     });
   }
   const ssoRole = String(req.user?.role || "");
-  if (SUPER_ADMIN_ROLES.has(ssoRole)) {
-    req.authRole = "super_admin";
+  const internalPanel = SUPER_ADMIN_ROLES.has(ssoRole) || ssoRole === "tour_manager";
+  if (internalPanel) {
+    req.authRole = SUPER_ADMIN_ROLES.has(ssoRole) ? "super_admin" : ssoRole;
     await attachRbacToRequest(req);
     if (!(await enforceRoutePermission(req, res))) return;
     return next();
@@ -8824,10 +8976,22 @@ app.post("/api/admin/logout", requireAdmin, async (req, res) => {
 app.get("/api/admin/me", requireAdmin, async (req, res) => {
   try {
     const adminUser = await resolveCurrentAdminUserRecord(req);
-    const permissions = req.effectivePermissions ? Array.from(req.effectivePermissions) : [];
+    let permissions = req.effectivePermissions ? Array.from(req.effectivePermissions) : [];
+    if (!permissions.length) {
+      try {
+        await attachRbacToRequest(req);
+        permissions = req.effectivePermissions ? Array.from(req.effectivePermissions) : [];
+      } catch {
+        /* */
+      }
+    }
+    if (!permissions.length) {
+      permissions = Array.from(rbac.legacyFallbackPermissions(String(req.user?.role || "admin")));
+    }
     return res.json({
       ok: true,
       role: req.user?.role || "admin",
+      customerId: null,
       company: null,
       profile: buildAdminProfilePayload(req, adminUser),
       permissions,
@@ -10565,7 +10729,7 @@ app.post("/api/admin/customers", requireAdmin, async (req, res) => {
     );
     if (rows[0]?.id) {
       try {
-        await rbac.syncCustomerRolesFromDb(Number(rows[0].id));
+        await rbac.syncCustomerRolesFromDb(Number(rows[0].id), String(rows[0].email || ""));
       } catch (_e) {}
     }
     res.json({ ok: true, customer: rows[0] });
@@ -10723,7 +10887,8 @@ app.patch("/api/admin/customers/:id/admin", requireAdmin, async (req, res) => {
     );
     if (!rows[0]) return res.status(404).json({ error: "Nicht gefunden" });
     try {
-      await rbac.syncCustomerRolesFromDb(customerId);
+      const { rows: cr } = await pool.query("SELECT email FROM customers WHERE id = $1", [customerId]);
+      await rbac.syncCustomerRolesFromDb(customerId, String(cr[0]?.email || ""));
     } catch (_e) {}
     res.json({ ok: true, is_admin: rows[0].is_admin });
   } catch (err) {

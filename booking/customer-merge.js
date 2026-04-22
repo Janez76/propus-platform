@@ -1,6 +1,7 @@
 "use strict";
 
 const rbac = require("./access-rbac");
+const db = require("./db");
 
 function trimText(v) {
   return String(v == null ? "" : v).trim();
@@ -169,7 +170,13 @@ async function mergeCustomers(pool, keepId, mergeId) {
     client.release();
   }
   try {
-    await rbac.syncCustomerRolesFromDb(keepId);
+    let em = "";
+    const pool = db.getPool && db.getPool();
+    if (pool) {
+      const { rows } = await pool.query("SELECT email FROM customers WHERE id = $1", [keepId]);
+      em = String(rows[0]?.email || "");
+    }
+    await rbac.syncCustomerRolesFromDb(keepId, em);
   } catch (_e) {
     /* RBAC optional */
   }

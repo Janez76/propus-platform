@@ -9,6 +9,7 @@ import {
 } from "../api/serviceCategories";
 import { useMutation } from "../hooks/useMutation";
 import { useQuery } from "../hooks/useQuery";
+import { usePermissions } from "../hooks/usePermissions";
 import { t } from "../i18n";
 import { productsQueryKey } from "../lib/queryKeys";
 import { useAuthStore } from "../store/authStore";
@@ -39,6 +40,8 @@ function pickFallbackCategoryKey(categories: ServiceCategory[], deletingKey: str
 export function ProductsPage() {
   const token = useAuthStore((s) => s.token);
   const language = useAuthStore((s) => s.language);
+  const { can } = usePermissions();
+  const canManage = can("products.manage");
   const updateCachedProducts = useQueryStore((s) => s.updateData);
 
   const [actionError, setActionError] = useState("");
@@ -155,9 +158,11 @@ export function ProductsPage() {
           >
             <RefreshCw className="h-4 w-4" /> {t(language, "catalog.refresh")}
           </button>
+          {canManage ? (
           <button onClick={startCreate} className={btnPrimaryClass}>
             <Plus className="h-4 w-4" /> {t(language, "catalog.newProduct")}
           </button>
+          ) : null}
         </div>
       </div>
 
@@ -167,6 +172,7 @@ export function ProductsPage() {
         </div>
       ) : null}
       <div className="space-y-4">
+        {canManage ? (
         <div className="cust-form-section">
           <h2 className="mb-3 font-semibold">{t(language, "catalog.categoryManager.title")}</h2>
           {categorySectionError ? (
@@ -238,6 +244,7 @@ export function ProductsPage() {
           </div>
           <p className="mb-2 text-xs text-zinc-500">{t(language, "catalog.categoryManager.frontpanelHint")}</p>
         </div>
+        ) : null}
 
         <div className="space-y-4">
           <ProductListByCategory
@@ -252,6 +259,7 @@ export function ProductsPage() {
             productsQueryKey={queryKey}
             categoriesQueryKey={categoriesQueryKey}
             onDeleteCategory={setCategoryPendingDelete}
+            readOnly={!canManage}
             onAfterPersist={async () => {
               await refetchCategories({ force: true });
               await refetch({ force: true });

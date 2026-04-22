@@ -3,6 +3,7 @@ import { Building2, Check, Info, Lock, Plus, RotateCcw, Save, Shield, Trash2, Us
 import { cn } from "../lib/utils";
 import { useAuthStore } from "../store/authStore";
 import { getRolePresets, createRolePreset, deleteRolePreset, patchRolePreset } from "../api/access";
+import { getAdminProfile } from "../api/profile";
 
 // ─── Datenstruktur ────────────────────────────────────────────────────────────
 
@@ -52,7 +53,7 @@ const ROLES: RoleDef[] = [
   {
     key: "tour_manager",
     label: "Tour-Manager",
-    description: "Verwaltet Matterport-Touren firmenübergreifend. Kein Zugriff auf Aufträge/Kunden.",
+    description: "Touren, Aufträge, Kalender, Kunden lesen, Reviews — kein Finanz- oder Einstellungs-Backoffice.",
     group: "intern",
     color: "text-sky-400",
     headerBg: "bg-sky-500/10 border-sky-500/20",
@@ -108,6 +109,15 @@ const PERMISSIONS: PermDef[] = [
   { key: "dashboard.view",           label: "Dashboard anzeigen",                section: "Dashboard",              description: "Zugriff auf das Haupt-Dashboard mit Statistiken." },
   // Portal / Kunde
   { key: "portal_team.manage",       label: "Portal-Team verwalten",             section: "Portal / Kunde",         description: "Kunden-Team im Portal einladen und verwalten (Mitarbeiter-Rollen)." },
+  { key: "portal.orders.read",       label: "Portal: Bestellungen ansehen",      section: "Kundenportal (API)",     description: "Kundensession: eigene Bestellungen (portal.propus.ch)." },
+  { key: "portal.orders.cancel",     label: "Portal: stornieren",              section: "Kundenportal (API)",     description: "Eigene Bestellung stornieren (Fristen)." },
+  { key: "portal.orders.reschedule", label: "Portal: umbuchen",                 section: "Kundenportal (API)",     description: "Termin der eigenen Bestellung aendern." },
+  { key: "portal.messages.read",     label: "Portal: Nachrichten lesen",        section: "Kundenportal (API)",     description: "Nachrichten/Chat zu eigenen Auftraegen." },
+  { key: "portal.messages.write",    label: "Portal: Nachrichten senden",      section: "Kundenportal (API)",     description: "An Fotograf/Office schreiben." },
+  { key: "portal.invoices.read",     label: "Portal: Rechnungsdaten",          section: "Kundenportal (API)",     description: "Rechnungs-/Zahlungssicht." },
+  { key: "portal.team.read",         label: "Portal: Team ansehen",            section: "Kundenportal (API)",     description: "Teamliste der Firma." },
+  { key: "portal.team.manage",       label: "Portal: Team verwalten",          section: "Kundenportal (API)",     description: "Einladen, Rollen (Kunden-Admin)." },
+  { key: "portal.profile.update",   label: "Portal: Profil",                  section: "Kundenportal (API)",     description: "Stammdaten im Kundenportal." },
   // Touren
   { key: "tours.read",               label: "Touren ansehen",                    section: "Touren",                 description: "Matterport-Touren und deren Details einsehen." },
   { key: "tours.manage",             label: "Touren verwalten",                  section: "Touren",                 description: "Touren erstellen, bearbeiten, Status ändern." },
@@ -146,6 +156,7 @@ const PERMISSIONS: PermDef[] = [
   { key: "tickets.read",             label: "Tickets einsehen",                  section: "Kommunikation",          description: "Zentrales Postfach / Ticketsystem (/admin/tickets) einsehen." },
   { key: "tickets.manage",           label: "Tickets verwalten",                 section: "Kommunikation",          description: "Tickets zuweisen, beantworten, schliessen." },
   { key: "emails.manage",            label: "E-Mail-Templates verwalten",        section: "Kommunikation",          description: "E-Mail-Vorlagen erstellen und bearbeiten." },
+  { key: "reviews.read",             label: "Bewertungen ansehen",              section: "Kommunikation",          description: "Bewertungen und Google-Review-Flows lesen." },
   { key: "reviews.manage",           label: "Bewertungen verwalten",             section: "Kommunikation",          description: "Kundenbewertungen einsehen und moderieren." },
   // Einstellungen & System
   { key: "settings.manage",          label: "Einstellungen verwalten",           section: "Einstellungen & System", description: "Systemkonfiguration, Workflow und allgemeine Einstellungen." },
@@ -163,14 +174,11 @@ const ALL_PERM_KEYS = PERMISSIONS.map((p) => p.key);
 const ROLE_PRESETS: Record<RoleKey, Set<PermKey>> = {
   super_admin:      new Set(ALL_PERM_KEYS),
   internal_admin:   new Set(ALL_PERM_KEYS),
-  // Touren-Manager: Touren + Finanzen + Tickets + Listing (gleiche Zielgruppe, siehe Migration 080)
+  // Touren-Manager: Touren, Auftraege, Kalender, Kunden lesen, Reviews — ohne Finance-Backoffice/Settings-Listing
   tour_manager:     new Set([
     "tours.read", "tours.manage", "tours.assign", "tours.cross_company",
     "tours.archive", "tours.link_matterport",
-    "dashboard.view",
-    "finance.read", "finance.manage",
-    "tickets.read", "tickets.manage",
-    "listing.manage",
+    "dashboard.view", "orders.read", "orders.update", "calendar.view", "customers.read", "reviews.read",
   ]),
   photographer: new Set([
     "dashboard.view", "orders.read", "orders.update", "orders.assign",
@@ -181,16 +189,24 @@ const ROLE_PRESETS: Record<RoleKey, Set<PermKey>> = {
     "orders.read", "orders.create", "orders.update",
     "customers.read", "contacts.read", "contacts.manage",
     "tours.read", "tours.manage", "portal_team.manage", "billing.read",
+    "portal.orders.read", "portal.orders.cancel", "portal.orders.reschedule", "portal.messages.read", "portal.messages.write",
+    "portal.invoices.read", "portal.team.read", "portal.team.manage", "portal.profile.update",
   ]),
   customer_user: new Set([
     "orders.read", "tours.read", "billing.read",
+    "portal.orders.read", "portal.orders.cancel", "portal.orders.reschedule", "portal.messages.read", "portal.messages.write",
+    "portal.invoices.read", "portal.profile.update",
   ]),
   company_owner: new Set([
     "orders.read", "orders.create", "orders.update",
     "customers.read", "contacts.read", "tours.read", "billing.read",
+    "portal.orders.read", "portal.orders.cancel", "portal.orders.reschedule", "portal.messages.read", "portal.messages.write",
+    "portal.invoices.read", "portal.team.read", "portal.team.manage", "portal.profile.update",
   ]),
   company_employee: new Set([
     "orders.read", "tours.read",
+    "portal.orders.read", "portal.orders.cancel", "portal.orders.reschedule", "portal.messages.read", "portal.messages.write",
+    "portal.invoices.read", "portal.profile.update",
   ]),
 };
 
@@ -300,6 +316,17 @@ export function RoleMatrixPage() {
   const [hoveredPerm, setHoveredPerm] = useState<string | null>(null);
   const [hoveredRole, setHoveredRole] = useState<RoleKey | null>(null);
   const [filterGroup, setFilterGroup] = useState<"all" | "intern" | "fotograf" | "kunde" | "custom">("all");
+  const [mePerms, setMePerms] = useState<string[] | null>(null);
+
+  useEffect(() => {
+    if (!token) {
+      setMePerms(null);
+      return;
+    }
+    void getAdminProfile(token)
+      .then((d) => setMePerms(Array.isArray(d.permissions) ? d.permissions : []))
+      .catch(() => setMePerms([]));
+  }, [token]);
 
   // ─── Custom Rollen (aus DB) ──────────────────────────────────────────────────
   const [customRoles, setCustomRoles] = useState<RoleDef[]>([]);
@@ -462,6 +489,16 @@ export function RoleMatrixPage() {
               </div>
             )}
           </div>
+
+          {mePerms && mePerms.length > 0 && (
+            <div className="mb-4 rounded-xl border border-[var(--border-soft)] bg-[var(--surface-raised)] p-3 text-sm">
+              <p className="font-medium text-[var(--text-main)]">Meine effektiven Rechte ({mePerms.length})</p>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">Von /api/admin/me (Debug / Abgleich mit UI)</p>
+              <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words text-xs text-[var(--text-subtle)]">
+                {mePerms.slice().sort().join(", ")}
+              </pre>
+            </div>
+          )}
 
         </div>
 

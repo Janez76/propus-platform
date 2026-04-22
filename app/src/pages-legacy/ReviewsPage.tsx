@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { apiRequest } from "../api/client";
 import { useAuthStore } from "../store/authStore";
+import { usePermissions } from "../hooks/usePermissions";
 import { t, Lang } from "../i18n";
 
 interface KpiData {
@@ -122,7 +123,7 @@ function GbpAvatar({ author, photo }: { author: string; photo: string | null }) 
   );
 }
 
-function GbpPanel({ token, lang }: { token: string | undefined; lang: Lang }) {
+function GbpPanel({ token, lang, readOnly = false }: { token: string | undefined; lang: Lang; readOnly?: boolean }) {
   const [status, setStatus] = useState<GbpStatus | null>(null);
   const [reviews, setReviews] = useState<GbpReview[]>([]);
   const [avgRating, setAvgRating] = useState<number | null>(null);
@@ -330,7 +331,7 @@ function GbpPanel({ token, lang }: { token: string | undefined; lang: Lang }) {
               {t(lang, "reviews.gbp.refresh")}
             </button>
           )}
-          {status?.connected ? (
+          {!readOnly && (status?.connected ? (
             <button
               onClick={() => { void handleDisconnect(); }}
               className="btn-secondary flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs min-h-0 min-w-0"
@@ -349,7 +350,7 @@ function GbpPanel({ token, lang }: { token: string | undefined; lang: Lang }) {
               <Link2 className="h-4 w-4" />
               {t(lang, "reviews.gbp.connect")}
             </button>
-          )}
+          ))}
         </div>
       </div>
 
@@ -371,6 +372,7 @@ function GbpPanel({ token, lang }: { token: string | undefined; lang: Lang }) {
               (Google Business Profile API benötigt Quota-Freigabe).
               Trage deine Location ID manuell ein:
             </span>
+            {!readOnly ? (
             <button
               onClick={() => setShowManualInput((v) => !v)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium flex-shrink-0"
@@ -378,8 +380,9 @@ function GbpPanel({ token, lang }: { token: string | undefined; lang: Lang }) {
             >
               {showManualInput ? "Abbrechen" : "Manuell eingeben"}
             </button>
+            ) : null}
           </div>
-          {showManualInput && (
+          {!readOnly && showManualInput && (
             <div className="flex items-center gap-2">
               <input
                 type="text"
@@ -473,14 +476,14 @@ function GbpPanel({ token, lang }: { token: string | undefined; lang: Lang }) {
                     </div>
                     {/* Aktionen */}
                     <div className="flex items-center gap-1 flex-shrink-0">
-                      {reviewsSource !== "places" && <button
+                      {!readOnly && reviewsSource !== "places" && <button
                         onClick={() => openReply(rv.name, rv.reply?.comment || "")}
                         className="cust-action-icon min-h-0 min-w-0"
                         title={hasReply ? t(lang, "reviews.gbp.editReply") : t(lang, "reviews.gbp.reply")}
                       >
                         <Reply className="h-3.5 w-3.5" />
                       </button>}
-                      {hasReply && (
+                      {!readOnly && hasReply && (
                         <button
                           onClick={() => { void deleteReply(rv.name); }}
                           disabled={replyMap[rv.name]?.deleting}
@@ -503,7 +506,7 @@ function GbpPanel({ token, lang }: { token: string | undefined; lang: Lang }) {
                   )}
 
                   {/* Antwort-Eingabe */}
-                  {entry?.open && (
+                  {entry?.open && !readOnly && (
                     <div className="ml-11 space-y-2">
                       <textarea
                         value={entry.text}
@@ -548,6 +551,8 @@ function GbpPanel({ token, lang }: { token: string | undefined; lang: Lang }) {
 export function ReviewsPage() {
   const token = useAuthStore((s) => s.token);
   const lang = useAuthStore((s) => s.language) as Lang;
+  const { can } = usePermissions();
+  const canManageReviews = can("reviews.manage");
   const [kpi, setKpi] = useState<KpiData | null>(null);
   const [reviews, setReviews] = useState<ReviewRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -743,7 +748,7 @@ export function ReviewsPage() {
 
       {/* Google Reviews Panel */}
       <div className="cust-card p-5">
-        <GbpPanel token={token} lang={lang} />
+        <GbpPanel token={token} lang={lang} readOnly={!canManageReviews} />
       </div>
 
       {/* Interne Review-Tabelle */}
@@ -820,6 +825,7 @@ export function ReviewsPage() {
                       )}
                     </td>
                     <td>
+                      {canManageReviews ? (
                       <div className="flex items-center gap-2 flex-wrap">
                         {(row.review_status === "pending" || row.review_status === "sent") && (
                           <button
@@ -855,6 +861,9 @@ export function ReviewsPage() {
                           </button>
                         )}
                       </div>
+                      ) : (
+                        <span className="text-xs" style={{ color: "var(--text-subtle)" }}>—</span>
+                      )}
                     </td>
                   </tr>
                 );

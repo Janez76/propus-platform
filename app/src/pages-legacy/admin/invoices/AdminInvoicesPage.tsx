@@ -17,6 +17,7 @@ import {
   type BulkStornoHostingPreview,
 } from "../../../api/toursAdmin";
 import { useQuery } from "../../../hooks/useQuery";
+import { usePermissions } from "../../../hooks/usePermissions";
 import { adminInvoicesCentralQueryKey } from "../../../lib/queryKeys";
 import {
   type EditingInvoice,
@@ -33,6 +34,8 @@ import {
 } from "./invoice-components";
 
 export function AdminInvoicesPage() {
+  const { can } = usePermissions();
+  const finManage = can("finance.manage");
   const [tab, setTab] = useState<InvoiceType>("renewal");
   const [renewalStatus, setRenewalStatus] = useState("");
   const [exxasStatus, setExxasStatus] = useState("");
@@ -313,7 +316,7 @@ export function AdminInvoicesPage() {
           <p className="text-sm text-[var(--text-subtle)] mt-1">Zentrale Rechnungsübersicht — interne Rechnungen als Zielsystem, Exxas als Übergangsquelle.</p>
         </div>
         <div className="flex gap-2 shrink-0">
-          {tab === "renewal" && (
+          {finManage && tab === "renewal" && (
             <button
               type="button"
               onClick={() => void handleOpenRenewal63Modal()}
@@ -324,7 +327,7 @@ export function AdminInvoicesPage() {
               Verlängerung CHF 63.80 bereinigen
             </button>
           )}
-          {tab === "exxas" && (
+          {finManage && tab === "exxas" && (
             <>
               <button
                 type="button"
@@ -346,6 +349,7 @@ export function AdminInvoicesPage() {
               </button>
             </>
           )}
+          {finManage ? (
           <button
             type="button"
             onClick={() => setShowRechnungslauf(true)}
@@ -354,6 +358,8 @@ export function AdminInvoicesPage() {
             <RefreshCw className="h-4 w-4" />
             Rechnungslauf
           </button>
+          ) : null}
+          {finManage ? (
           <button
             type="button"
             onClick={() => setShowCreateModal(true)}
@@ -362,6 +368,7 @@ export function AdminInvoicesPage() {
             <Plus className="h-4 w-4" />
             Neue Rechnung
           </button>
+          ) : null}
         </div>
       </div>
 

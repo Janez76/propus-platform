@@ -15,6 +15,7 @@ import { useQuery } from "../hooks/useQuery";
 import { customersQueryKey } from "../lib/queryKeys";
 import { cn } from "../lib/utils";
 import { useAuthStore } from "../store/authStore";
+import { usePermissions } from "../hooks/usePermissions";
 import { t } from "../i18n";
 import { useQueryStore } from "../store/queryStore";
 
@@ -72,6 +73,7 @@ function compareStrings(a: string, b: string) {
 export function CustomersPage() {
   const token = useAuthStore((s) => s.token);
   const lang = useAuthStore((s) => s.language);
+  const { can } = usePermissions();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedContactRecord, setSelectedContactRecord] = useState<Customer | null>(null);
   const [viewCustomer, setViewCustomer] = useState<Customer | null>(null);
@@ -547,17 +549,19 @@ export function CustomersPage() {
             {viewMode === "contacts" ? t(lang, "customers.descriptionContacts") : t(lang, "customers.description")}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setCreateContactDialogOpen(true)}
-          className="cust-btn-new shrink-0 self-start"
-        >
-          <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
-          <span className="hidden sm:inline">
-            {viewMode === "contacts" ? t(lang, "customers.button.newContact") : t(lang, "customers.button.newCustomer")}
-          </span>
-          <span className="sm:hidden">+</span>
-        </button>
+        {((viewMode === "contacts" && can("contacts.manage")) || (viewMode === "customers" && can("customers.manage"))) && (
+          <button
+            type="button"
+            onClick={() => setCreateContactDialogOpen(true)}
+            className="cust-btn-new shrink-0 self-start"
+          >
+            <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
+            <span className="hidden sm:inline">
+              {viewMode === "contacts" ? t(lang, "customers.button.newContact") : t(lang, "customers.button.newCustomer")}
+            </span>
+            <span className="sm:hidden">+</span>
+          </button>
+        )}
       </div>
 
       {viewMode === "customers" ? (

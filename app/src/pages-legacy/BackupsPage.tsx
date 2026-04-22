@@ -10,9 +10,12 @@ import {
   type BackupItem,
 } from "../api/backups";
 import { useAuthStore } from "../store/authStore";
+import { usePermissions } from "../hooks/usePermissions";
 
 export function BackupsPage() {
   const token = useAuthStore((s) => s.token);
+  const { can } = usePermissions();
+  const canManage = can("backups.manage");
   const [items, setItems] = useState<BackupItem[]>([]);
   const [config, setConfig] = useState<BackupConfig | null>(null);
 
@@ -34,6 +37,7 @@ export function BackupsPage() {
     <BackupManager
       items={items}
       config={config}
+      canManage={canManage}
       onCreate={async (opts: { includeVolumes?: boolean }) => { await createBackup(token, opts); await load(); }}
       onDelete={async (name: string) => { await deleteBackup(token, name); await load(); }}
       onRestore={async (name: string, opts: { restoreVolumes?: boolean }) => { await restoreBackup(token, name, opts); await load(); }}

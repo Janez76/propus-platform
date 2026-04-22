@@ -2,6 +2,7 @@ import { Settings, Users, GitBranch, Plug } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { t } from "../i18n";
 import { useAuthStore } from "../store/authStore";
+import { usePermissions } from "../hooks/usePermissions";
 import { cn } from "../lib/utils";
 import { SettingsPage } from "./SettingsPage";
 import { WorkflowSettingsPage } from "./WorkflowSettingsPage";
@@ -28,7 +29,15 @@ type ConfigurationPageProps = {
 
 export function ConfigurationPage({ initialTab = "general" }: ConfigurationPageProps) {
   const lang = useAuthStore((s) => s.language);
+  const { canAccessPath } = usePermissions();
   const navigate = useNavigate();
+
+  const visibleTabItems = TAB_ITEMS.filter((item) => {
+    if (item.key === "employees") {
+      return canAccessPath("/settings/team");
+    }
+    return canAccessPath(item.path);
+  });
 
   function selectTab(nextTab: ConfigTab) {
     const target = TAB_ITEMS.find((item) => item.key === nextTab);
@@ -59,7 +68,7 @@ export function ConfigurationPage({ initialTab = "general" }: ConfigurationPageP
         </div>
 
         <div className="mt-6 flex flex-wrap gap-2">
-          {TAB_ITEMS.map(({ key, labelKey, icon: Icon }) => (
+          {visibleTabItems.map(({ key, labelKey, icon: Icon }) => (
             <button
               key={key}
               type="button"

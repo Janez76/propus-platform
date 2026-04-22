@@ -38,6 +38,8 @@ type Props = {
   productsQueryKey: string;
   categoriesQueryKey: string;
   onDeleteCategory: (cat: ServiceCategory) => void;
+  /** Keine Bearbeiten-/DnD-Aktionen (nur Katalog anzeigen) */
+  readOnly?: boolean;
   /** Nach DnD-Persistenz: Queries vom Server neu laden (invalidate allein reicht nicht) */
   onAfterPersist?: () => void | Promise<void>;
 };
@@ -102,6 +104,7 @@ type SortableProductCardProps = {
   product: Product;
   lang: Lang;
   dndDisabled: boolean;
+  readOnly: boolean;
   btnSmallClass: string;
   onEdit: (product: Product) => void;
   onDuplicate: (product: Product) => void;
@@ -112,6 +115,7 @@ function SortableProductCard({
   product,
   lang,
   dndDisabled,
+  readOnly,
   btnSmallClass,
   onEdit,
   onDuplicate,
@@ -137,7 +141,7 @@ function SortableProductCard({
       )}
     >
       <div className="flex items-start justify-between gap-3">
-        {!dndDisabled ? (
+        {!dndDisabled && !readOnly ? (
           <button
             type="button"
             className="mt-0.5 shrink-0 cursor-grab touch-none rounded p-1 text-[var(--accent)]/80 hover:bg-[var(--accent)]/15 hover:text-[var(--accent)] active:cursor-grabbing"
@@ -172,6 +176,7 @@ function SortableProductCard({
             </div>
           ) : null}
         </div>
+        {!readOnly ? (
         <div className="flex shrink-0 gap-1.5">
           <button
             type="button"
@@ -200,6 +205,7 @@ function SortableProductCard({
             {product.active ? t(lang, "common.deactivate") : t(lang, "common.activate")}
           </button>
         </div>
+        ) : null}
       </div>
     </div>
   );
@@ -213,6 +219,7 @@ type ProductDndListProps = {
   items: Product[];
   lang: Lang;
   dndDisabled: boolean;
+  readOnly: boolean;
   btnSmallClass: string;
   onEdit: (product: Product) => void;
   onDuplicate: (product: Product) => void;
@@ -224,6 +231,7 @@ function ProductDndList({
   items,
   lang,
   dndDisabled,
+  readOnly,
   btnSmallClass,
   onEdit,
   onDuplicate,
@@ -267,6 +275,7 @@ function ProductDndList({
             product={product}
             lang={lang}
             dndDisabled={dndDisabled}
+            readOnly={readOnly}
             btnSmallClass={btnSmallClass}
             onEdit={onEdit}
             onDuplicate={onDuplicate}
@@ -287,6 +296,7 @@ type SortableCategorySectionProps = {
   category: ServiceCategory;
   lang: Lang;
   dndDisabled: boolean;
+  readOnly: boolean;
   open: boolean;
   onToggle: () => void;
   btnSmallClass: string;
@@ -310,6 +320,7 @@ function SortableCategorySection({
   category,
   lang,
   dndDisabled,
+  readOnly,
   open,
   onToggle,
   btnSmallClass,
@@ -364,7 +375,7 @@ function SortableCategorySection({
           className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-sm font-semibold text-[var(--text-main)] hover:bg-[var(--surface-raised)]"
           onClick={(e) => e.preventDefault()}
         >
-          {!dndDisabled ? (
+          {!dndDisabled && !readOnly ? (
             <button
               type="button"
               className="shrink-0 cursor-grab touch-none rounded p-1 text-[var(--accent)]/80 hover:bg-[var(--accent)]/15 hover:text-[var(--accent)] active:cursor-grabbing"
@@ -395,6 +406,9 @@ function SortableCategorySection({
             >
               {group.items.length}
             </button>
+            {readOnly ? (
+              <span className="min-w-[120px] flex-1 text-sm font-medium sm:min-w-[180px]">{nameDraft || category.name}</span>
+            ) : (
             <input
               className="ui-input h-8 min-w-[120px] flex-1 text-sm font-medium sm:min-w-[180px]"
               value={nameDraft}
@@ -408,7 +422,10 @@ function SortableCategorySection({
                 await onNameSave(category, e.target.value);
               }}
             />
+            )}
             <span className="text-xs text-[var(--text-subtle)]">({category.key})</span>
+            {!readOnly ? (
+            <>
             <button
               type="button"
               className={cn(
@@ -441,19 +458,30 @@ function SortableCategorySection({
             >
               {t(lang, "catalog.category.remove")}
             </button>
+            </>
+            ) : null}
           </div>
         </summary>
         <div className="space-y-2 border-t p-2 border-[var(--border-soft)]">
+          {readOnly ? (
+            <div
+              className="prose prose-sm max-w-none text-xs text-[var(--text-subtle)]"
+              // eslint-disable-next-line react/no-danger
+              dangerouslySetInnerHTML={{ __html: descriptionDraft || "—" }}
+            />
+          ) : (
           <RichTextEditor
             value={descriptionDraft}
             onChange={debouncedDescSave}
             placeholder={t(lang, "catalog.categoryManager.descriptionPlaceholder")}
             className="text-xs"
           />
+          )}
           <ProductDndList
             items={group.items}
             lang={lang}
             dndDisabled={dndDisabled}
+            readOnly={readOnly}
             btnSmallClass={btnSmallClass}
             onEdit={onEdit}
             onDuplicate={onDuplicate}
@@ -474,6 +502,7 @@ type UnassignedCategorySectionProps = {
   group: ProductGroup;
   lang: Lang;
   dndDisabled: boolean;
+  readOnly: boolean;
   open: boolean;
   onToggle: () => void;
   btnSmallClass: string;
@@ -487,6 +516,7 @@ function UnassignedCategorySection({
   group,
   lang,
   dndDisabled,
+  readOnly,
   open,
   onToggle,
   btnSmallClass,
@@ -522,6 +552,7 @@ function UnassignedCategorySection({
             items={group.items}
             lang={lang}
             dndDisabled={dndDisabled}
+            readOnly={readOnly}
             btnSmallClass={btnSmallClass}
             onEdit={onEdit}
             onDuplicate={onDuplicate}
@@ -550,6 +581,7 @@ export function ProductListByCategory({
   productsQueryKey,
   categoriesQueryKey,
   onDeleteCategory,
+  readOnly = false,
   onAfterPersist,
 }: Props) {
   const lang = useAuthStore((s) => s.language);
@@ -571,7 +603,7 @@ export function ProductListByCategory({
   const btnSmallClass =
     "inline-flex items-center justify-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors";
   const q = query.trim().toLowerCase();
-  const dndDisabled = Boolean(q) || !token;
+  const dndDisabled = Boolean(q) || !token || readOnly;
 
   const filteredProducts = q
     ? products.filter((p) => [p.name, p.code, p.group_key, p.kind].join(" ").toLowerCase().includes(q))
@@ -855,6 +887,7 @@ export function ProductListByCategory({
                   category={category}
                   lang={lang}
                   dndDisabled={dndDisabled}
+                  readOnly={readOnly}
                   open={openGroupKeys[group.key] !== false}
                   onToggle={() => setOpenGroupKeys((prev) => ({ ...prev, [group.key]: !prev[group.key] }))}
                   btnSmallClass={btnSmallClass}
@@ -882,6 +915,7 @@ export function ProductListByCategory({
               group={unassignedGroup}
               lang={lang}
               dndDisabled={dndDisabled}
+              readOnly={readOnly}
               open={openGroupKeys[unassignedGroup.key] !== false}
               onToggle={() => setOpenGroupKeys((prev) => ({ ...prev, [unassignedGroup.key]: !prev[unassignedGroup.key] }))}
               btnSmallClass={btnSmallClass}

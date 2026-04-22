@@ -32,6 +32,7 @@ backend/admin-account.json
 backend/*.bak
 backend/*.enc_bak
 docs/reports/
+analysis-duplicate-customers/
 
 # Lokale Merge-/Backup-Artefakte (nicht versionieren)
 backend/server.js.local-broken-backup-*

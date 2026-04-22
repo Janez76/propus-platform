@@ -44,6 +44,28 @@ const ALL_PERMISSION_KEYS = [
   "users.manage",
   "api_keys.manage",
   "portal_team.manage",
+  "reviews.read",
+  "portal.orders.read",
+  "portal.orders.cancel",
+  "portal.orders.reschedule",
+  "portal.messages.read",
+  "portal.messages.write",
+  "portal.invoices.read",
+  "portal.team.read",
+  "portal.team.manage",
+  "portal.profile.update",
+];
+
+const PORTAL_PERMISSION_KEYS = [
+  "portal.orders.read",
+  "portal.orders.cancel",
+  "portal.orders.reschedule",
+  "portal.messages.read",
+  "portal.messages.write",
+  "portal.invoices.read",
+  "portal.team.read",
+  "portal.team.manage",
+  "portal.profile.update",
 ];
 
 const TOURS_INTERNAL_PERMS = [
@@ -55,17 +77,40 @@ const TOURS_INTERNAL_PERMS = [
   "tours.link_matterport",
 ];
 
+const PORTAL_PRESET_FULL = [
+  "portal.orders.read",
+  "portal.orders.cancel",
+  "portal.orders.reschedule",
+  "portal.messages.read",
+  "portal.messages.write",
+  "portal.invoices.read",
+  "portal.team.read",
+  "portal.team.manage",
+  "portal.profile.update",
+];
+
+const PORTAL_PRESET_USER = [
+  "portal.orders.read",
+  "portal.orders.cancel",
+  "portal.orders.reschedule",
+  "portal.messages.read",
+  "portal.messages.write",
+  "portal.invoices.read",
+  "portal.profile.update",
+];
+
 const ROLE_PRESETS = {
   super_admin: ALL_PERMISSION_KEYS,
   internal_admin: ALL_PERMISSION_KEYS,
+  /** Intern: Touren, Auftraege, Kalender, Kunden lesen — kein Finance/Settings-Backoffice */
   tour_manager: [
     ...TOURS_INTERNAL_PERMS,
     "dashboard.view",
-    "finance.read",
-    "finance.manage",
-    "tickets.read",
-    "tickets.manage",
-    "listing.manage",
+    "orders.read",
+    "orders.update",
+    "calendar.view",
+    "customers.read",
+    "reviews.read",
   ],
   photographer: [
     "dashboard.view",
@@ -76,7 +121,18 @@ const ROLE_PRESETS = {
     "photographers.read",
     "picdrop.manage",
   ],
+  customer_admin: [...PORTAL_PRESET_FULL],
+  customer_user: [...PORTAL_PRESET_USER],
+  company_owner: [...PORTAL_PRESET_FULL],
+  company_employee: [...PORTAL_PRESET_USER],
 };
+
+function legacyCustomerPortalSet(roleKey) {
+  const rk = String(roleKey || "customer_user");
+  if (rk === "customer_admin" || rk === "company_owner") return new Set(PORTAL_PRESET_FULL);
+  if (rk === "customer_user" || rk === "company_employee") return new Set(PORTAL_PRESET_USER);
+  return new Set(PORTAL_PRESET_USER);
+}
 
 function mapAdminDbRoleToSystemRole(dbRole) {
   const r = String(dbRole || "").trim();
@@ -114,8 +170,12 @@ async function seedRbacIfNeeded() {
   const roleMeta = [
     ["super_admin", "Super-Admin", "Voller Zugriff"],
     ["internal_admin", "Interner Admin", "Admin-Panel"],
-    ["tour_manager", "Tour-Manager (intern)", "Alle Touren firmenuebergreifend"],
+    ["tour_manager", "Tour-Manager (intern)", "Touren und Kunden, ohne Finance/Settings-Backoffice"],
     ["photographer", "Fotograf", "Auftraege und Kalender"],
+    ["customer_admin", "Kunden-Admin (Portal)", "Eigener Workspace inkl. Teamverwaltung"],
+    ["customer_user", "Kunden-Benutzer (Portal)", "Eingeschraenkt: Bestellungen, Nachrichten, Rechnungen"],
+    ["company_owner", "Firmen-Inhaber (Portal)", "Gleich Kunden-Admin (Legacy)"],
+    ["company_employee", "Firmen-Mitarbeiter (Portal)", "Eingeschraenkt (Legacy)"],
   ];
   for (const [rk, label, desc] of roleMeta) {
     await db.query(
@@ -367,10 +427,113 @@ async function syncPhotographerRolesFromDb(photographerKey) {
   await setSubjectSystemRoles(sid, [isAdm ? "internal_admin" : "photographer"]);
 }
 
-async function syncCustomerRolesFromDb(customerId) {
-  const sid = await ensureCustomerSubject(customerId);
+/** E-Mail -> { rk, at } Caching fuer resolveCustomerSystemRoleKey (1 min) */
+const _customerRbacRoleCache = new Map();
+
+async function resolveCustomerSystemRoleKey(customerId, email) {
+  const id = Number(customerId);
+  let em = String(email || "").trim().toLowerCase();
+  if (!em && Number.isFinite(id) && id > 0) {
+    const { rows } = await db.query(`SELECT LOWER(TRIM(email)) AS em FROM customers WHERE id = $1 LIMIT 1`, [id]);
+    em = String(rows[0]?.em || "").trim().toLowerCase();
+  }
+  if (!em) return "customer_user";
+  const h = _customerRbacRoleCache.get(em);
+  if (h && Date.now() - h.at < 60_000) return h.rk;
+  let rk = "customer_user";
+  try {
+    const bridge = require("./portal-auth-bridge");
+    const pr = await bridge.getPortalCustomerRole(em);
+    if (pr === "customer_admin") rk = "customer_admin";
+    else rk = "customer_user";
+  } catch {
+    /* */
+  }
+  _customerRbacRoleCache.set(em, { rk, at: Date.now() });
+  return rk;
+}
+
+async function getPortalSessionRoleForEmail(email) {
+  const em = String(email || "").trim().toLowerCase();
+  if (!em) return "customer_user";
+  try {
+    const bridge = require("./portal-auth-bridge");
+    return (await bridge.getPortalCustomerRole(em)) || "customer_user";
+  } catch {
+    return "customer_user";
+  }
+}
+
+async function syncCustomerRolesFromDb(customerId, email) {
+  const id = Number(customerId);
+  if (!Number.isFinite(id) || id <= 0) return;
+  const sid = await ensureCustomerSubject(id);
   if (!sid) return;
-  await setSubjectSystemRoles(sid, []);
+  const rk = await resolveCustomerSystemRoleKey(id, email);
+  await setSubjectSystemRoles(sid, [rk]);
+}
+
+/**
+ * Liefert effektive Set + Rollen-Strings fuer /api/customer/* (customer_session).
+ */
+async function getCustomerRbacSet(customerId, email) {
+  if (!(await tableExists("access_subjects"))) {
+    const r0 = await resolveCustomerSystemRoleKey(customerId, email);
+    let em = String(email || "").trim();
+    if (!em) {
+      const { rows } = await db.query(`SELECT email FROM customers WHERE id = $1 LIMIT 1`, [Number(customerId)]);
+      em = String(rows[0]?.email || "");
+    }
+    const pRole = await getPortalSessionRoleForEmail(em);
+    return { permissions: legacyCustomerPortalSet(r0), systemRole: r0, portalRole: pRole };
+  }
+  await seedRbacIfNeeded();
+  await syncCustomerRolesFromDb(customerId, email);
+  const id = Number(customerId);
+  const systemRole = await resolveCustomerSystemRoleKey(id, email);
+  let em2 = String(email || "").trim();
+  if (!em2) {
+    const { rows } = await db.query(`SELECT email FROM customers WHERE id = $1 LIMIT 1`, [id]);
+    em2 = String(rows[0]?.email || "");
+  }
+  const portalRole = await getPortalSessionRoleForEmail(em2);
+  const sid = await ensureCustomerSubject(id);
+  if (!sid) {
+    return { permissions: legacyCustomerPortalSet(systemRole), systemRole, portalRole };
+  }
+  let pSet = await getEffectivePermissions(sid, { scopeType: "system", customerId: null });
+  if (pSet.size === 0) pSet = legacyCustomerPortalSet(systemRole);
+  return { permissions: pSet, systemRole, portalRole };
+}
+
+async function hydrateCustomerPortalRbac(req) {
+  if (!req.customer) return;
+  const c = req.customer;
+  try {
+    const snap = await getCustomerRbacSet(c.id, c.email);
+    req.customerPermissions = snap.permissions;
+    req.portalSystemRole = snap.systemRole;
+    req.portalSessionRole = snap.portalRole;
+  } catch (e) {
+    req.portalSystemRole = "customer_user";
+    req.portalSessionRole = "customer_user";
+    req.customerPermissions = legacyCustomerPortalSet("customer_user");
+  }
+}
+
+function requireCustomerPermission(permissionKey) {
+  return (req, res, next) => {
+    try {
+      if (!req.customer) return res.status(401).json({ error: "Unauthorized" });
+      if (!req.customerPermissions) {
+        return res.status(500).json({ error: "Portal-Berechtigungen nicht geladen" });
+      }
+      if (req.customerPermissions.has(permissionKey)) return next();
+      return res.status(403).json({ error: "Keine Berechtigung", permission: permissionKey });
+    } catch (e) {
+      return res.status(500).json({ error: e?.message || "RBAC" });
+    }
+  };
 }
 
 async function syncAllLegacySubjects() {
@@ -408,9 +571,14 @@ function requirePermission(permissionKey) {
 
 module.exports = {
   ALL_PERMISSION_KEYS,
+  PORTAL_PERMISSION_KEYS,
   ROLE_PRESETS,
+  legacyCustomerPortalSet,
   seedRbacIfNeeded,
   getEffectivePermissions,
+  getCustomerRbacSet,
+  hydrateCustomerPortalRbac,
+  requireCustomerPermission,
   resolveRequestAccessContext,
   legacyFallbackPermissions,
   ensureAdminUserSubject,

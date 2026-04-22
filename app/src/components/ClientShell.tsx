@@ -12,15 +12,14 @@
  */
 
 import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, type ReactElement } from "react";
 import { CustomerMagicSessionRedirect } from "./auth/CustomerMagicSessionRedirect";
 import { CustomerSessionBootstrap } from "./auth/CustomerSessionBootstrap";
 import { OfflineIndicator } from "./layout/OfflineIndicator";
 import { AppShell } from "./layout/AppShell";
 import { useAuth } from "../hooks/useAuth";
 import { isPublicBookingHost } from "../lib/publicBookingHost";
-import type { ReactElement } from "react";
-import type { Role } from "../types";
+import { RouteGuard } from "./routing/RouteGuard";
 
 // Lazy-load all pages from the legacy pages directory
 const LoginPage = lazy(() => import("../pages-legacy/LoginPage").then((m) => ({ default: m.LoginPage })));
@@ -84,7 +83,7 @@ const ListingEditorPage = lazy(() => import("../pages-legacy/admin/listing/Listi
 const ListingEmailTemplatesPage = lazy(() => import("../pages-legacy/admin/listing/ListingEmailTemplatesPage").then((m) => ({ default: m.ListingEmailTemplatesPage })));
 const ClientListingPage = lazy(() => import("../pages-legacy/listing/ClientListingPage").then((m) => ({ default: m.ClientListingPage })));
 const CleanupDashboardPage = lazy(() => import("../pages-legacy/customer/CleanupDashboardPage").then((m) => ({ default: m.CleanupDashboardPage })));
-const CustomerAccountPage = lazy(() => import("../pages-legacy/customer/CustomerAccountPage").then((m) => ({ default: m.CustomerAccountPage })));
+const CustomerPortalLayout = lazy(() => import("../pages-legacy/customer/CustomerPortalLayout").then((m) => ({ default: m.CustomerPortalLayout })));
 
 function PageSkeleton() {
   return (
@@ -113,35 +112,30 @@ function LegacySelektoClientRedirect() {
 }
 
 function PrivateRoutes() {
-  const { isLoggedIn, role } = useAuth();
-  const adminOnlyRoles: Role[] = ["admin", "super_admin"];
-  const toursAdminRoles: Role[] = ["admin", "super_admin", "tour_manager"];
-
+  const { isLoggedIn } = useAuth();
   if (!isLoggedIn) return <Navigate to="/login" replace />;
 
-  function guardedElement(allowed: Role[], element: ReactElement) {
-    if (!allowed.includes(role)) {
-      return <Navigate to="/dashboard" replace />;
-    }
-    return element;
-  }
+  const eg = (p: string, el: ReactElement) => <RouteGuard path={p}>{el}</RouteGuard>;
 
-  // Embed-Modus: kein AppShell (Header/Sidebar/Footer), nur Content
-  const embedPaths = [
-    "/embed/tours/link-matterport",
-    "/embed/tours/",
-  ];
+  // Embed-Modus: kein AppShell
+  const embedPaths = ["/embed/tours/link-matterport", "/embed/tours/"];
   const currentPath = window.location.pathname;
   if (embedPaths.some((p) => currentPath.startsWith(p))) {
     return (
       <div className="min-h-screen p-4" style={{ background: "var(--bg-classic)" }}>
         <Suspense fallback={<div className="flex justify-center py-12"><div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--accent)]/25 border-t-[var(--accent)]" /></div>}>
           <Routes>
-            <Route path="/embed/tours/link-matterport" element={guardedElement(toursAdminRoles, <ToursAdminLinkMatterportPage />)} />
-            <Route path="/embed/tours/:id/link-invoice" element={guardedElement(toursAdminRoles, <ToursAdminLinkInvoicePage />)} />
+            <Route
+              path="/embed/tours/link-matterport"
+              element={eg("/embed/tours/link-matterport", <ToursAdminLinkMatterportPage />)}
+            />
+            <Route
+              path="/embed/tours/:id/link-invoice"
+              element={eg("/embed/tours/link-matterport", <ToursAdminLinkInvoicePage />)}
+            />
             <Route
               path="/embed/tours/:id/link-exxas-customer"
-              element={guardedElement(toursAdminRoles, <ToursAdminLinkExxasCustomerPage />)}
+              element={eg("/embed/tours/link-matterport", <ToursAdminLinkExxasCustomerPage />)}
             />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
@@ -154,73 +148,69 @@ function PrivateRoutes() {
     <AppShell>
       <Routes>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/settings/roles" element={guardedElement(toursAdminRoles, <RoleMatrixPage />)} />
+        <Route path="/settings/roles" element={eg("/settings/roles", <RoleMatrixPage />)} />
         <Route path="/admin/roles" element={<Navigate to="/settings/roles" replace />} />
-        <Route path="/dashboard" element={guardedElement(adminOnlyRoles, <DashboardPage />)} />
-        <Route path="/orders" element={guardedElement([...adminOnlyRoles, "photographer"], <OrdersPage />)} />
-        <Route path="/upload" element={guardedElement([...adminOnlyRoles, "photographer"], <UploadsPage />)} />
-        <Route path="/calendar" element={guardedElement([...adminOnlyRoles, "photographer"], <CalendarPage />)} />
-        <Route path="/employees" element={guardedElement(adminOnlyRoles, <Navigate to="/settings/team" replace />)} />
-        <Route path="/customers" element={guardedElement(adminOnlyRoles, <CustomersPage />)} />
-        <Route path="/products" element={guardedElement(adminOnlyRoles, <ProductsPage />)} />
-        <Route path="/discount-codes" element={guardedElement(adminOnlyRoles, <DiscountCodesPage />)} />
-        <Route path="/settings" element={guardedElement(adminOnlyRoles, <ConfigurationPage initialTab="general" />)} />
-        <Route path="/settings/workflow" element={guardedElement(adminOnlyRoles, <ConfigurationPage initialTab="workflow" />)} />
-        <Route path="/settings/email-templates" element={guardedElement(adminOnlyRoles, <EmailTemplatesPage />)} />
-        <Route path="/settings/calendar-templates" element={guardedElement(adminOnlyRoles, <CalendarTemplatesPage />)} />
-        <Route path="/settings/payment" element={guardedElement(adminOnlyRoles, <PaymentSettingsPage />)} />
-        <Route path="/settings/invoice-template" element={guardedElement(adminOnlyRoles, <InvoiceTemplatePage />)} />
-        <Route path="/settings/exxas" element={guardedElement(adminOnlyRoles, <ConfigurationPage initialTab="exxas" />)} />
-        <Route path="/exxas-reconcile" element={guardedElement(adminOnlyRoles, <ExxasReconcilePage />)} />
-        <Route path="/settings/team" element={guardedElement(adminOnlyRoles, <ConfigurationPage initialTab="employees" />)} />
+        <Route path="/dashboard" element={eg("/dashboard", <DashboardPage />)} />
+        <Route path="/orders" element={eg("/orders", <OrdersPage />)} />
+        <Route path="/upload" element={eg("/upload", <UploadsPage />)} />
+        <Route path="/calendar" element={eg("/calendar", <CalendarPage />)} />
+        <Route path="/employees" element={eg("/settings/team", <Navigate to="/settings/team" replace />)} />
+        <Route path="/customers" element={eg("/customers", <CustomersPage />)} />
+        <Route path="/products" element={eg("/products", <ProductsPage />)} />
+        <Route path="/discount-codes" element={eg("/discount-codes", <DiscountCodesPage />)} />
+        <Route path="/settings" element={eg("/settings", <ConfigurationPage initialTab="general" />)} />
+        <Route path="/settings/workflow" element={eg("/settings/workflow", <ConfigurationPage initialTab="workflow" />)} />
+        <Route path="/settings/email-templates" element={eg("/settings/email-templates", <EmailTemplatesPage />)} />
+        <Route path="/settings/calendar-templates" element={eg("/settings/calendar-templates", <CalendarTemplatesPage />)} />
+        <Route path="/settings/payment" element={eg("/settings/payment", <PaymentSettingsPage />)} />
+        <Route path="/settings/invoice-template" element={eg("/settings/invoice-template", <InvoiceTemplatePage />)} />
+        <Route path="/settings/exxas" element={eg("/settings/exxas", <ConfigurationPage initialTab="exxas" />)} />
+        <Route path="/exxas-reconcile" element={eg("/exxas-reconcile", <ExxasReconcilePage />)} />
+        <Route path="/settings/team" element={eg("/settings/team", <ConfigurationPage initialTab="employees" />)} />
         <Route path="/settings/assignment-explorer" element={<Navigate to="/settings/roles" replace />} />
-        <Route path="/reviews" element={guardedElement(adminOnlyRoles, <ReviewsPage />)} />
+        <Route path="/reviews" element={eg("/reviews", <ReviewsPage />)} />
         <Route path="/picdrop" element={<Navigate to="/admin/selekto" replace />} />
-        <Route path="/bugs" element={guardedElement(adminOnlyRoles, <BugsPage />)} />
-        <Route path="/backups" element={guardedElement(adminOnlyRoles, <BackupsPage />)} />
-        <Route path="/changelog" element={guardedElement(adminOnlyRoles, <ChangelogPage />)} />
-        {/* Central admin modules */}
+        <Route path="/bugs" element={eg("/bugs", <BugsPage />)} />
+        <Route path="/backups" element={eg("/backups", <BackupsPage />)} />
+        <Route path="/changelog" element={eg("/changelog", <ChangelogPage />)} />
         <Route path="/admin/finance" element={<Navigate to="/admin/finance/invoices" replace />} />
-        <Route path="/admin/finance/invoices" element={guardedElement(toursAdminRoles, <AdminInvoicesPage />)} />
-        <Route path="/admin/finance/invoices/open" element={guardedElement(toursAdminRoles, <AdminOpenInvoicesPage />)} />
-        <Route path="/admin/finance/invoices/paid" element={guardedElement(toursAdminRoles, <AdminPaidInvoicesPage />)} />
-        <Route path="/admin/finance/bank-import" element={guardedElement(toursAdminRoles, <ToursAdminBankImportPage />)} />
-        <Route path="/admin/finance/reminders" element={guardedElement(toursAdminRoles, <AdminRemindersPage />)} />
-        <Route path="/admin/finance/exxas-sync" element={guardedElement(toursAdminRoles, <AdminExxasSyncPage />)} />
+        <Route path="/admin/finance/invoices" element={eg("/admin/finance/invoices", <AdminInvoicesPage />)} />
+        <Route path="/admin/finance/invoices/open" element={eg("/admin/finance/invoices/open", <AdminOpenInvoicesPage />)} />
+        <Route path="/admin/finance/invoices/paid" element={eg("/admin/finance/invoices/paid", <AdminPaidInvoicesPage />)} />
+        <Route path="/admin/finance/bank-import" element={eg("/admin/finance/bank-import", <ToursAdminBankImportPage />)} />
+        <Route path="/admin/finance/reminders" element={eg("/admin/finance/reminders", <AdminRemindersPage />)} />
+        <Route path="/admin/finance/exxas-sync" element={eg("/admin/finance/exxas-sync", <AdminExxasSyncPage />)} />
         <Route path="/admin/invoices" element={<Navigate to="/admin/finance/invoices" replace />} />
-        {/* Tours Admin */}
-        <Route path="/admin/tours/list" element={guardedElement(toursAdminRoles, <ToursAdminListPage />)} />
+        <Route path="/admin/tours/list" element={eg("/admin/tours/list", <ToursAdminListPage />)} />
         <Route path="/admin/tours/invoices" element={<Navigate to="/admin/finance/invoices" replace />} />
         <Route path="/admin/tours/bank-import" element={<Navigate to="/admin/finance/bank-import" replace />} />
-        <Route path="/admin/tours/link-matterport" element={guardedElement(toursAdminRoles, <ToursAdminLinkMatterportPage />)} />
-        <Route path="/admin/tours/:id/link-invoice" element={guardedElement(toursAdminRoles, <ToursAdminLinkInvoicePage />)} />
-        <Route path="/admin/tours/:id/link-exxas-customer" element={guardedElement(toursAdminRoles, <ToursAdminLinkExxasCustomerPage />)} />
+        <Route path="/admin/tours/link-matterport" element={eg("/admin/tours", <ToursAdminLinkMatterportPage />)} />
+        <Route path="/admin/tours/:id/link-invoice" element={eg("/admin/tours", <ToursAdminLinkInvoicePage />)} />
+        <Route path="/admin/tours/:id/link-exxas-customer" element={eg("/admin/tours", <ToursAdminLinkExxasCustomerPage />)} />
         <Route path="/admin/tours/customers/new" element={<Navigate to="/customers" replace />} />
         <Route path="/admin/tours/customers/:customerId" element={<Navigate to="/customers" replace />} />
         <Route path="/admin/tours/customers" element={<Navigate to="/customers" replace />} />
         <Route path="/admin/tours/portal-roles" element={<Navigate to="/settings/roles" replace />} />
-        <Route path="/admin/tours/settings" element={guardedElement(toursAdminRoles, <ToursAdminTourSettingsPage />)} />
-        <Route path="/admin/tours/workflow-settings" element={guardedElement(toursAdminRoles, <ToursAdminWorkflowSettingsPage />)} />
+        <Route path="/admin/tours/settings" element={eg("/admin/tours", <ToursAdminTourSettingsPage />)} />
+        <Route path="/admin/tours/workflow-settings" element={eg("/admin/tours", <ToursAdminWorkflowSettingsPage />)} />
         <Route path="/admin/tours/email-templates" element={<Navigate to="/admin/tours/workflow-settings?tab=templates" replace />} />
         <Route path="/admin/tours/automations" element={<Navigate to="/admin/tours/workflow-settings?tab=workflow" replace />} />
-        <Route path="/admin/tours/bereinigung" element={guardedElement(toursAdminRoles, <ToursAdminCleanupPage />)} />
-        <Route path="/admin/tours/team" element={guardedElement(toursAdminRoles, <ToursAdminTeamPage />)} />
-        <Route path="/admin/tours/ai-chat" element={guardedElement(toursAdminRoles, <ToursAdminAiChatPage />)} />
-        <Route path="/admin/tours/portal-vorschau" element={guardedElement(toursAdminRoles, <PortalPreviewPage />)} />
-        <Route path="/admin/tickets" element={guardedElement(toursAdminRoles, <AdminTicketsPage />)} />
-        <Route path="/admin/tours/:id" element={guardedElement(toursAdminRoles, <TourDetailPage />)} />
-        <Route path="/admin/tours" element={guardedElement(toursAdminRoles, <ToursAdminDashboardPage />)} />
-        {/* Selekto (Bildauswahl) Admin */}
-        <Route path="/admin/selekto/new" element={guardedElement(toursAdminRoles, <SelektoCreateRedirect />)} />
-        <Route path="/admin/selekto/templates" element={guardedElement(toursAdminRoles, <SelektoEmailTemplatesPage />)} />
-        <Route path="/admin/selekto/:id" element={guardedElement(toursAdminRoles, <SelektoEditorPage />)} />
-        <Route path="/admin/selekto" element={guardedElement(toursAdminRoles, <SelektoListPage />)} />
-        {/* Listing (Galerie) Admin */}
+        <Route path="/admin/tours/bereinigung" element={eg("/admin/tours", <ToursAdminCleanupPage />)} />
+        <Route path="/admin/tours/team" element={eg("/admin/tours", <ToursAdminTeamPage />)} />
+        <Route path="/admin/tours/ai-chat" element={eg("/admin/tours", <ToursAdminAiChatPage />)} />
+        <Route path="/admin/tours/portal-vorschau" element={eg("/admin/tours", <PortalPreviewPage />)} />
+        <Route path="/admin/tickets" element={eg("/admin/tickets", <AdminTicketsPage />)} />
+        <Route path="/admin/tours/:id" element={eg("/admin/tours", <TourDetailPage />)} />
+        <Route path="/admin/tours" element={eg("/admin/tours", <ToursAdminDashboardPage />)} />
+        <Route path="/admin/selekto/new" element={eg("/admin/selekto", <SelektoCreateRedirect />)} />
+        <Route path="/admin/selekto/templates" element={eg("/admin/selekto", <SelektoEmailTemplatesPage />)} />
+        <Route path="/admin/selekto/:id" element={eg("/admin/selekto", <SelektoEditorPage />)} />
+        <Route path="/admin/selekto" element={eg("/admin/selekto", <SelektoListPage />)} />
         <Route path="/admin/listing/galleries/new" element={<Navigate to="/admin/listing/new" replace />} />
         <Route path="/admin/listing/galleries/:legacyId" element={<RedirectListingLegacyGalleriesSegment />} />
-        <Route path="/admin/listing/templates" element={guardedElement(toursAdminRoles, <ListingEmailTemplatesPage />)} />
-        <Route path="/admin/listing/:id" element={guardedElement(toursAdminRoles, <ListingEditorPage />)} />
-        <Route path="/admin/listing" element={guardedElement(toursAdminRoles, <ListingListPage />)} />
+        <Route path="/admin/listing/templates" element={eg("/admin/listing", <ListingEmailTemplatesPage />)} />
+        <Route path="/admin/listing/:id" element={eg("/admin/listing", <ListingEditorPage />)} />
+        <Route path="/admin/listing" element={eg("/admin/listing", <ListingListPage />)} />
       </Routes>
     </AppShell>
   );
@@ -252,7 +242,14 @@ export default function ClientShell() {
           <Route path="/selekto/listing/:slug" element={<LegacySelektoClientRedirect />} />
           <Route path="/selekto/:slug" element={<ClientSelektoPage />} />
           <Route path="/cleanup/dashboard" element={<CleanupDashboardPage />} />
-          <Route path="/account" element={<CustomerAccountPage />} />
+          <Route
+            path="/account/*"
+            element={
+              <Suspense fallback={<PageSkeleton />}>
+                <CustomerPortalLayout />
+              </Suspense>
+            }
+          />
           <Route path="*" element={<PrivateRoutes />} />
         </Routes>
       </Suspense>

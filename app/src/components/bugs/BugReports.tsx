@@ -5,6 +5,8 @@ import { useAuthStore } from "../../store/authStore";
 
 type Props = {
   bugs: BugReport[];
+  /** Wenn false: nur Anzeige, keine Status-/Mail-/Lösch-Aktionen */
+  canManage?: boolean;
   onStatus: (id: number, status: string) => void;
   onDelete: (id: number) => void;
   onMail: (id: number) => void;
@@ -17,7 +19,7 @@ const BUG_STATUS_MAP: Record<string, string> = {
   closed: "cust-status-badge cust-status-draft",
 };
 
-export function BugReports({ bugs, onStatus, onDelete, onMail }: Props) {
+export function BugReports({ bugs, canManage = true, onStatus, onDelete, onMail }: Props) {
   const language = useAuthStore((s) => s.language);
 
   if (bugs.length === 0) {
@@ -47,6 +49,7 @@ export function BugReports({ bugs, onStatus, onDelete, onMail }: Props) {
                 <div className="text-xs" style={{ color: "var(--text-subtle)" }}>{b.description || ""}</div>
               </td>
               <td>
+                {canManage ? (
                 <select
                   id={`bug-status-${b.id}`}
                   name={`bug_status_${b.id}`}
@@ -59,8 +62,12 @@ export function BugReports({ bugs, onStatus, onDelete, onMail }: Props) {
                     <option key={s} value={s}>{s}</option>
                   ))}
                 </select>
+                ) : (
+                <span className={BUG_STATUS_MAP[b.status] ?? "cust-status-badge cust-status-draft"}>{b.status}</span>
+                )}
               </td>
               <td>
+                {canManage ? (
                 <div className="flex gap-2">
                   <button className="cust-action-view min-h-0 min-w-0" onClick={() => onMail(b.id)}>
                     {t(language, "bugs.button.email")}
@@ -69,6 +76,9 @@ export function BugReports({ bugs, onStatus, onDelete, onMail }: Props) {
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
+                ) : (
+                <span className="text-xs text-[var(--text-subtle)]">—</span>
+                )}
               </td>
             </tr>
           ))}

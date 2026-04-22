@@ -27,6 +27,8 @@ type RestoreOpts = { restoreVolumes?: boolean };
 type Props = {
   items: BackupItem[];
   config: BackupConfig | null;
+  /** Wenn false: nur Liste/Konfiguration, keine Create/Restore/Delete */
+  canManage?: boolean;
   onCreate: (opts: CreateOpts) => Promise<void>;
   onDelete: (name: string) => Promise<void>;
   onRestore: (name: string, opts: RestoreOpts) => Promise<void>;
@@ -81,7 +83,7 @@ function NasSyncBadge({ status }: { status: BackupConfig["nasSync"]["lastSyncSta
   );
 }
 
-export function BackupManager({ items, config, onCreate, onDelete, onRestore }: Props) {
+export function BackupManager({ items, config, canManage = true, onCreate, onDelete, onRestore }: Props) {
   const [busyAction, setBusyAction] = useState<"create" | "delete" | "restore" | null>(null);
   const [selectedName, setSelectedName] = useState<string | null>(null);
   const [confirmDeleteName, setConfirmDeleteName] = useState<string | null>(null);
@@ -158,6 +160,7 @@ export function BackupManager({ items, config, onCreate, onDelete, onRestore }: 
           <h1 className="cust-page-header-title">Backups</h1>
           <p className="cust-page-header-sub">Datenbank-Sicherungen erstellen, wiederherstellen und verwalten.</p>
         </div>
+        {canManage ? (
         <button
           type="button"
           onClick={() => setShowCreateDialog(true)}
@@ -167,6 +170,7 @@ export function BackupManager({ items, config, onCreate, onDelete, onRestore }: 
           {busyAction === "create" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
           Neues Backup
         </button>
+        ) : null}
       </header>
 
       {/* Config / Status Panel */}
@@ -253,7 +257,7 @@ export function BackupManager({ items, config, onCreate, onDelete, onRestore }: 
                 <th className="hidden sm:table-cell">Inhalt</th>
                 <th className="text-right">Grösse</th>
                 <th>Erstellt am</th>
-                <th className="text-right">Aktionen</th>
+                {canManage ? <th className="text-right">Aktionen</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -309,6 +313,7 @@ export function BackupManager({ items, config, onCreate, onDelete, onRestore }: 
                       <td className="text-sm whitespace-nowrap" style={{ color: "var(--text-muted)" }}>
                         {item.createdAt ? formatSwissDateTime(item.createdAt) : "-"}
                       </td>
+                      {canManage ? (
                       <td onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-2">
                           <button
@@ -334,11 +339,12 @@ export function BackupManager({ items, config, onCreate, onDelete, onRestore }: 
                           </button>
                         </div>
                       </td>
+                      ) : null}
                     </tr>
                     {isExpanded && hasContents && (
                       <tr key={`${item.name}-expanded`} style={{ background: "color-mix(in srgb, var(--surface-raised) 60%, transparent)" }}>
                         <td />
-                        <td colSpan={5} className="px-4 pb-3 pt-1">
+                        <td colSpan={canManage ? 5 : 4} className="px-4 pb-3 pt-1">
                           <BackupContents contents={item.contents} />
                         </td>
                       </tr>
