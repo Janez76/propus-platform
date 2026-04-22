@@ -42,6 +42,9 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
 const ADMIN_ONLY_ROLES: Role[] = ["admin", "super_admin", "tour_manager"];
 const PHOTOGRAPHER_PATHS = new Set(["/orders", "/upload", "/calendar"]);
 
+/** Wie `SUPER_ADMIN_ROLES` im Booking-Backend: volle Panel-Navigation, wenn kein feingranulares Recht dagegen spricht. */
+const INTERNAL_STAFF_ROLES: Role[] = ["admin", "super_admin", "employee"];
+
 const ALL_ROUTE_PERMS = [...new Set(Object.values(ROUTE_PERMISSIONS))];
 
 /**
@@ -62,7 +65,7 @@ export const LEGACY_ROLE_PERMISSIONS: Partial<Record<Role, string[]>> = {
 };
 
 export function legacyCanAccessPath(role: Role, path: string): boolean {
-  if (ADMIN_ONLY_ROLES.includes(role)) return true;
+  if (INTERNAL_STAFF_ROLES.includes(role) || role === "tour_manager") return true;
   if (role === "photographer") return PHOTOGRAPHER_PATHS.has(path);
   return false;
 }
@@ -70,7 +73,7 @@ export function legacyCanAccessPath(role: Role, path: string): boolean {
 export function legacyCanPermission(role: Role, permissionKey: string): boolean {
   const set = LEGACY_ROLE_PERMISSIONS[role];
   if (set && set.includes(permissionKey)) return true;
-  if (role === "admin" || role === "super_admin") return true;
+  if (role === "admin" || role === "super_admin" || role === "employee") return true;
   return false;
 }
 
@@ -87,4 +90,43 @@ export function canPermission(permissions: Set<string> | string[], required: str
   if (required == null) return true;
   const set = Array.isArray(permissions) ? new Set(permissions) : permissions;
   return set.has(required);
+}
+
+/**
+ * Navigations- und Sichtlogik: gleiche Shell wie für Admins, Einträge nur bei Berechtigung.
+ * - Wenn `permissions` vom API geliefert wird: zuerst exakter Match; fehlt (ältere/ungenüge Listen),
+ *   für interne Admin-Rollen: volles Legacy; sonst Legacy pro Rolle (z. B. tour_manager, photographer).
+ * - Ohne API-Liste: wie bisher reines Legacy.
+ */
+export function effectiveCanAccessPath(
+  role: Role,
+  permissions: string[] | null | undefined,
+  path: string,
+): boolean {
+  const req = permissionForPath(path);
+  const perms = Array.isArray(permissions) ? permissions : [];
+
+  if (perms.length > 0) {
+    if (canPermission(perms, req)) return true;
+    if (INTERNAL_STAFF_ROLES.includes(role)) {
+      return legacyCanAccessPath(role, path);
+    }
+    if (req == null) return legacyCanAccessPath(role, path);
+    return legacyCanPermission(role, req);
+  }
+
+  if (!legacyCanAccessPath(role, path)) return false;
+  if (req == null) return true;
+  return legacyCanPermission(role, req);
+}
+
+/**
+ * Einzelpermission: API-Set zuerst; bei Lücken für `admin`/`super_admin`/`employee` voll, sonst Legacy-Set.
+ */
+export function effectiveCan(permissions: string[] | null | undefined, role: Role, permissionKey: string): boolean {
+  const perms = Array.isArray(permissions) ? permissions : [];
+  if (perms.length > 0) {
+    if (perms.includes(permissionKey)) return true;
+  }
+  return legacyCanPermission(role, permissionKey);
 }

@@ -8,6 +8,7 @@ import { useAuthStore } from "../../store/authStore";
 import { t, type Lang } from "../../i18n";
 import { CreateOrderWizard } from "../orders/CreateOrderWizard";
 import { useNow } from "../../hooks/useNow";
+import { usePermissions } from "../../hooks/usePermissions";
 import { useDashboardMetrics } from "./useDashboardMetrics";
 import { AlertBar } from "./AlertBar";
 import { KpiRowV2 } from "./KpiRowV2";
@@ -52,6 +53,7 @@ function firstName(raw: string | undefined | null): string {
 export function DashboardV2() {
   const token = useAuthStore((s) => s.token);
   const lang = useAuthStore((s) => s.language);
+  const { can } = usePermissions();
   const [showCreateOrder, setShowCreateOrder] = useState(false);
   const [showTweaks, setShowTweaks] = useState(false);
   const [prefs, setPrefs] = useState<DashV2Preferences>(loadDashV2Preferences);
@@ -62,13 +64,17 @@ export function DashboardV2() {
     saveDashV2Preferences(next);
   };
   const isSec = (id: DashV2SectionId) => !prefs.hidden.includes(id);
-  const showAlerts = isSec("alerts");
-  const showKpi = isSec("kpi");
-  const showPipeline = isSec("pipeline");
-  const showUpcoming = isSec("upcoming");
-  const showFunnel = isSec("funnel");
-  const showHeat = isSec("heatmap");
-  const showPerf = isSec("perf");
+  const showOrders = can("orders.read");
+  const showCal = can("calendar.view");
+  const showFin = can("finance.read");
+  const showDas = can("dashboard.view");
+  const showAlerts = isSec("alerts") && showOrders && showDas;
+  const showKpi = isSec("kpi") && showDas && (showOrders || showFin);
+  const showPipeline = isSec("pipeline") && showOrders;
+  const showUpcoming = isSec("upcoming") && showOrders;
+  const showFunnel = isSec("funnel") && showOrders;
+  const showHeat = isSec("heatmap") && (showCal || showOrders) && showDas;
+  const showPerf = isSec("perf") && showOrders;
   const mainSingleCol = (showPipeline && !showUpcoming) || (!showPipeline && showUpcoming);
   const nBottom = [showFunnel, showHeat, showPerf].filter(Boolean).length;
 
@@ -173,14 +179,16 @@ export function DashboardV2() {
           >
             {t(lang, "dashboardV2.button.customize")}
           </button>
-          <button
-            type="button"
-            className="dv2-btn-primary"
-            onClick={() => setShowCreateOrder(true)}
-          >
-            <Plus size={14} />
-            {t(lang, "dashboardV2.button.newOrder")}
-          </button>
+          {can("orders.create") ? (
+            <button
+              type="button"
+              className="dv2-btn-primary"
+              onClick={() => setShowCreateOrder(true)}
+            >
+              <Plus size={14} />
+              {t(lang, "dashboardV2.button.newOrder")}
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -224,12 +232,14 @@ export function DashboardV2() {
         )}
       </div>
 
-      <CreateOrderWizard
-        token={token}
-        open={showCreateOrder}
-        onOpenChange={setShowCreateOrder}
-        onSuccess={() => setShowCreateOrder(false)}
-      />
+      {can("orders.create") ? (
+        <CreateOrderWizard
+          token={token}
+          open={showCreateOrder}
+          onOpenChange={setShowCreateOrder}
+          onSuccess={() => setShowCreateOrder(false)}
+        />
+      ) : null}
       <DashboardV2TweaksModal
         open={showTweaks}
         lang={lang}

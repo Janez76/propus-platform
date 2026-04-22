@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { getAdminProfile } from "../api/profile";
-import { canPermission, legacyCanAccessPath, legacyCanPermission, permissionForPath } from "../lib/permissions";
+import { effectiveCan, effectiveCanAccessPath } from "../lib/permissions";
 import { useAuthStore } from "../store/authStore";
 import type { Role } from "../types";
 
@@ -11,43 +11,44 @@ export function usePermissions() {
   const setRole = useAuthStore((s) => s.setRole);
   const setPermissions = useAuthStore((s) => s.setPermissions);
   const loadingRef = useRef(false);
+  const profileFetchedForToken = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!token) return;
-    if (permissions.length > 0 && role !== "admin") return;
+    if (!token) {
+      profileFetchedForToken.current = null;
+      return;
+    }
+    if (profileFetchedForToken.current === token) return;
     if (loadingRef.current) return;
     loadingRef.current = true;
     void (async () => {
       try {
         const data = await getAdminProfile(token);
-        if (data.role && data.role !== role) {
+        if (data.role) {
           setRole(data.role);
         }
         if (Array.isArray(data.permissions)) {
           setPermissions(data.permissions);
         }
+        profileFetchedForToken.current = token;
       } catch {
         /* ignore */
       } finally {
         loadingRef.current = false;
       }
     })();
-  }, [token, permissions.length, role, setPermissions, setRole]);
+  }, [token, setPermissions, setRole]);
 
   const can = useCallback(
     (permissionKey: string) => {
-      if (permissions.length > 0) return permissions.includes(permissionKey);
-      return legacyCanPermission(role as Role, permissionKey);
+      return effectiveCan(permissions, role as Role, permissionKey);
     },
     [permissions, role],
   );
 
   const canAccessPath = useCallback(
     (path: string) => {
-      const r = role as Role;
-      const req = permissionForPath(path);
-      if (permissions.length > 0) return canPermission(permissions, req);
-      return legacyCanAccessPath(r, path);
+      return effectiveCanAccessPath(role as Role, permissions, path);
     },
     [permissions, role],
   );

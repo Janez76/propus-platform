@@ -108,7 +108,6 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const [selektoNavOpen, setSelektoNavOpen] = useState(false);
   const [messagesNavOpen, setMessagesNavOpen] = useState(false);
   const lang = useAuthStore((s) => s.language);
-  const role = useAuthStore((s) => s.role);
   const { canAccessPath } = usePermissions();
   const location = useLocation();
   const showDevLoggerButton = process.env.NODE_ENV === "development";
@@ -124,14 +123,8 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const isMessagesNavActive = location.pathname.startsWith("/admin/tickets");
   const isCustomersNavActive = location.pathname.startsWith("/customers");
   const visibleNavigationItems = useMemo(() => {
-    return navigationItems.filter((item) => {
-      if (!canAccessPath(item.path)) return false;
-      // tour_manager sieht keine globale Kundenliste — Kunden werden zentral über /customers verwaltet,
-      // aber der Nav-Eintrag ist für tour_manager nicht relevant
-      if (role === "tour_manager" && (item.customersNav || item.path === "/customers")) return false;
-      return true;
-    });
-  }, [role, canAccessPath]);
+    return navigationItems.filter((item) => canAccessPath(item.path));
+  }, [canAccessPath]);
 
   const visibleSettingsSubItems = useMemo(
     () => settingsSubItems.filter((item) => canAccessPath(item.path)),
