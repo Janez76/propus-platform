@@ -1,6 +1,6 @@
 # Deploy-Flow (Architektur)
 
-**Status:** verbindlich · **Letzte Aktualisierung:** 2026-04-18
+**Status:** verbindlich · **Letzte Aktualisierung:** 2026-04-22
 
 Dieses Dokument erklärt, **warum** der Deploy auf drei Dateien verteilt ist
 (GitHub-Workflow, VPS-Script, Container-Init) und **welche Datei wofür
@@ -15,7 +15,7 @@ in [`VPS-BETRIEB.md`](VPS-BETRIEB.md).
 │                                                                      │
 │   .github/workflows/deploy-vps-and-booking-smoke.yml                 │
 │                                                                      │
-│   ▸ Trigger: push auf master  oder  workflow_dispatch                │
+│   ▸ Trigger: ausschliesslich workflow_dispatch (manuell in Actions)   │
 │   ▸ Architecture-Guard (kein neues EJS), Documentation-Guard         │
 │   ▸ Version stempeln (booking/public/VERSION etc.)                   │
 │   ▸ Deploy-Archiv (tar.gz) bauen                                     │
@@ -84,19 +84,33 @@ Constraints**:
 
 ## Was triggert was?
 
-| Trigger | Phase 1 | Phase 2 | Phase 3 |
+VPS-Deploy-Workflow (`.github/workflows/deploy-vps-and-booking-smoke.yml`) startet
+**nur** per **Actions → manuell ausfuehren** (`workflow_dispatch`). Ein `git push`
+auf `master` loest **kein** Deploy aus; er loest nur ggf. [`app-ci.yml`](../.github/workflows/app-ci.yml) (Unit-Tests) aus.
+
+| Trigger | Phase 1 (GH) | Phase 2 (VPS) | Phase 3 (Container) |
 |---|---|---|---|
-| `git push` auf `master` | ✓ | ✓ | ✓ |
-| `workflow_dispatch` mit `run_deploy=true` | ✓ | ✓ | ✓ |
+| `workflow_dispatch` mit `run_deploy=true` | ✓ | ✓ | ✓ (nach `up`) |
+| `workflow_dispatch` mit `run_deploy=true`, `run_smoke=false` | ✓ (ohne Smokes) | ✓ | ✓ (nach `up`) |
+| `git push` `master` | – | – | – |
 | Manuelles `docker compose up -d platform` auf VPS | – | – | ✓ |
 | Manueller Aufruf `bash deploy-remote.sh` mit `GITHUB_SHA=...` | – | ✓ | ✓ |
 | `docker compose restart platform` | – | – | ✓ |
+
+### Booking-Smoke (nur `workflow_dispatch`)
+
+- `run_smoke=true`: Job **Booking Smoke Tests**; Playwright nutzt `BASE_URL` aus
+  Repository-Secret **`STAGING_URL`**, sonst `https://booking.propus.ch` (oeffentlicher
+  Host). Ohne funktionierendes DNS liefert der GitHub-Runner
+  `net::ERR_NAME_NOT_RESOLVED` — ggf. `STAGING_URL` auf eine erreichbare
+  Buchungs-URL setzen, oder
+- `run_smoke=false`: **nur Deploy**, Workflow endet gruen ohne Playwright. Details: [`BOOKING-E2E-DEPLOY.md`](BOOKING-E2E-DEPLOY.md).
 
 ## Wo läuft welche Datei?
 
 | Datei | Läuft auf | Wird gestartet von |
 |---|---|---|
-| `.github/workflows/deploy-vps-and-booking-smoke.yml` | GitHub-Runner (`ubuntu-latest`) | Push / Dispatch |
+| `.github/workflows/deploy-vps-and-booking-smoke.yml` | GitHub-Runner (`ubuntu-latest`) | Nur manuell (`workflow_dispatch`) |
 | `scripts/deploy-remote.sh` | VPS (Host, kein Container) | Workflow via `ssh` |
 | `scripts/rollback-vps.sh` | VPS (Host, kein Container) | Workflow bei Deploy-Fehler |
 | `scripts/start.sh` | Im `platform`-Container | `CMD` im `platform/Dockerfile` |

@@ -55,7 +55,15 @@ Der Workflow kann auf zwei Arten laufen:
 - `CLOUDFLARE_AUTH_KEY`
   - fuer automatischen **Cache-Purge nach jedem Deploy** (Schritt im Workflow); gleiche API-Zugangsdaten wie lokal in `booking/.env` unter `CF_ZONE` / `CF_EMAIL` / `CF_KEY`
 
-### Playwright-Secrets
+### Playwright-Secrets (Deploy-Workflow `deploy-vps-and-booking-smoke.yml`)
+
+- `STAGING_URL` (Repository-Secret, **optional**)
+  - Wird in CI als `BASE_URL` an Playwright uebergeben (siehe Schritt **Run smoke tests**).
+  - **Nicht** gesetzt: Default ist `https://booking.propus.ch` (oeffentliche Buchung, Wizard-Start `/`; siehe `e2e/booking-wizard-smoke.spec.ts`).
+  - Falscher Host: GitHub-Runner liefert z. B. `net::ERR_NAME_NOT_RESOLVED` (nur in Cloudflare-Zone existierend, oeffentliches DNS, Admin-Subdomain, …).
+- **Nur** VPS deployen, kein Smoke-Test: Workflow manuell starten und **`run_smoke`** auf **false** (beschrieben in Abschnitt [Manuelle Workflow-Starts](#manuelle-workflow-starts)).
+
+### Playwright-Secrets (aeltere / lokale Live-Specs)
 
 - `PLAYWRIGHT_BASE_URL`
   - bevorzugt eine echte Staging-Domain
