@@ -76,7 +76,7 @@ export function ImpersonateBanner() {
 
   return (
     <div
-      className="sticky top-0 z-[100] flex w-full flex-wrap items-center justify-between gap-2 border-b border-amber-500/30 bg-amber-500/15 px-3 py-2 text-sm text-amber-950 dark:border-amber-400/30 dark:bg-amber-500/20 dark:text-amber-100"
+      className="sticky top-0 z-100 flex w-full flex-wrap items-center justify-between gap-2 border-b border-amber-500/30 bg-amber-500/15 px-3 py-2 text-sm text-amber-950 dark:border-amber-400/30 dark:bg-amber-500/20 dark:text-amber-100"
       role="status"
     >
       <span>

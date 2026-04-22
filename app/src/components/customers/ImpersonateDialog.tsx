@@ -84,7 +84,7 @@ export function ImpersonateDialog({ token, item, onClose }: Props) {
   }, [item.id, lang, memberValue, onClose, role, token]);
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="imp-title">
+    <div className="fixed inset-0 z-200 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="imp-title">
       <div className="surface-card w-full max-w-md rounded-lg border border-zinc-200 p-4 shadow-lg dark:border-zinc-600">
         <div className="mb-3 flex items-start justify-between gap-2">
           <h2 id="imp-title" className="text-lg font-semibold">
@@ -150,7 +150,7 @@ export function ImpersonateDialog({ token, item, onClose }: Props) {
           </button>
           <button
             type="button"
-            className={uiMode === "modern" ? "btn-primary" : "rounded border border-[var(--accent)] bg-[var(--accent)] px-3 py-1.5 text-sm text-white disabled:opacity-50"}
+            className={uiMode === "modern" ? "btn-primary" : "rounded border border-(--accent) bg-(--accent) px-3 py-1.5 text-sm text-white disabled:opacity-50"}
             disabled={item.blocked || loading || submitting}
             onClick={() => {
               void submit();
