@@ -46,9 +46,8 @@ function inWindow(dateStr: string | null | undefined, from: number, to: number):
 
 export type DashboardMetrics = ReturnType<typeof useDashboardMetrics>;
 
-export function useDashboardMetrics(orders: Order[]) {
+export function useDashboardMetrics(orders: Order[], now: Date) {
   return useMemo(() => {
-    const now = new Date();
     const todayMs = startOfDay(now).getTime();
     const window30 = todayMs - 30 * MS_DAY;
     const window60 = todayMs - 60 * MS_DAY;
@@ -74,10 +73,13 @@ export function useDashboardMetrics(orders: Order[]) {
     const totalRevenuePrev30d = orders
       .filter((o) => !statusMatches(o.status, "cancelled") && inWindow(o.appointmentDate, window60, window30))
       .reduce((s, o) => s + (o.total ?? 0), 0);
-    const revenueDeltaPct =
-      totalRevenuePrev30d > 0
-        ? ((totalRevenue30d - totalRevenuePrev30d) / totalRevenuePrev30d) * 100
-        : 0;
+    let revenueDeltaPct: number | null = null;
+    let revenueIsNew = false;
+    if (totalRevenuePrev30d > 0) {
+      revenueDeltaPct = ((totalRevenue30d - totalRevenuePrev30d) / totalRevenuePrev30d) * 100;
+    } else if (totalRevenue30d > 0) {
+      revenueIsNew = true;
+    }
 
     // Bookings weekly — 8 weeks
     const bookingsWeekly: number[] = [];
@@ -107,7 +109,8 @@ export function useDashboardMetrics(orders: Order[]) {
       const wStart = todayMs - (i + 1) * 7 * MS_DAY;
       const wEnd = todayMs - i * 7 * MS_DAY;
       const shootings = orders.filter((o) => inWindow(o.appointmentDate, wStart, wEnd)).length;
-      capacityData.push(Math.min(100, Math.round((shootings * 90) / 2700) * 100));
+      const capRatio = (shootings * 90) / 2700;
+      capacityData.push(Math.min(100, Math.round(capRatio * 100)));
     }
     const currentKW = getISOWeek(now);
     const currentCapacity = capacityData[capacityData.length - 1];
@@ -211,6 +214,7 @@ export function useDashboardMetrics(orders: Order[]) {
       revenue30d,
       totalRevenue30d,
       revenueDeltaPct,
+      revenueIsNew,
       bookingsWeekly,
       bookingsThisWeek,
       bookingsDelta,
@@ -243,5 +247,5 @@ export function useDashboardMetrics(orders: Order[]) {
       weekTotal: weekOrders.length,
       today: now,
     };
-  }, [orders]);
+  }, [orders, now.getTime()]);
 }

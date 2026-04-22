@@ -6,6 +6,8 @@ type UseQueryOptions = {
   staleTime?: number;
   refetchOnMount?: boolean;
   refetchInterval?: number;
+  /** When true, refetch when the window regains focus or the tab becomes visible. */
+  refetchOnWindowFocus?: boolean;
 };
 
 type RefetchOptions = {
@@ -29,6 +31,7 @@ export function useQuery<TData>(
   const staleTime = options?.staleTime ?? DEFAULT_STALE_TIME;
   const refetchOnMount = options?.refetchOnMount ?? true;
   const refetchInterval = options?.refetchInterval;
+  const refetchOnWindowFocus = options?.refetchOnWindowFocus ?? false;
   const didInitialFetchRef = useRef(false);
   const prevQueryKeyRef = useRef<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -106,6 +109,24 @@ export function useQuery<TData>(
     }, refetchInterval);
     return () => clearInterval(id);
   }, [enabled, refetch, refetchInterval]);
+
+  useEffect(() => {
+    if (!enabled || !refetchOnWindowFocus) return;
+    const onFocus = () => {
+      void refetch({ force: true });
+    };
+    const onVis = () => {
+      if (document.visibilityState === "visible") {
+        void refetch({ force: true });
+      }
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [enabled, refetch, refetchOnWindowFocus]);
 
   const error = entry?.error ?? localError;
   const isFetching = Boolean(entry?.isFetching);

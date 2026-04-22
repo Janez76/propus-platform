@@ -2225,6 +2225,7 @@
   "dashboardV2.kpi.slots": "Slots",
   "dashboardV2.kpi.receivables": "Open Receivables",
   "dashboardV2.kpi.noReceivables": "No outstanding invoices",
+  "dashboardV2.kpi.revenueNew": "New",
   "dashboardV2.pipeline.title": "Order Pipeline",
   "dashboardV2.pipeline.openBoard": "Open board",
   "dashboardV2.pipeline.requested": "Requested",

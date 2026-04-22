@@ -16,6 +16,7 @@ export function KpiRowV2({ metrics, lang }: KpiRowV2Props) {
     revenue30d,
     totalRevenue30d,
     revenueDeltaPct,
+    revenueIsNew,
     bookingsWeekly,
     bookingsThisWeek,
     bookingsDelta,
@@ -27,7 +28,22 @@ export function KpiRowV2({ metrics, lang }: KpiRowV2Props) {
     currentKW,
   } = metrics;
 
-  const revenueDir = revenueDeltaPct > 0 ? "up" : revenueDeltaPct < 0 ? "down" : "neutral";
+  const revenueDir = revenueIsNew
+    ? "up"
+    : revenueDeltaPct === null
+      ? "neutral"
+      : revenueDeltaPct > 0
+        ? "up"
+        : revenueDeltaPct < 0
+          ? "down"
+          : "neutral";
+  const revenueDeltaStr =
+    revenueIsNew
+      ? t(lang, "dashboardV2.kpi.revenueNew")
+      : revenueDeltaPct !== null
+        ? `${revenueDeltaPct >= 0 ? "+" : ""}${Math.round(revenueDeltaPct)} %`
+        : undefined;
+  const revenueSparklineDanger = !revenueIsNew && revenueDeltaPct !== null && revenueDeltaPct < 0;
   const bookingsDir = bookingsDelta > 0 ? "up" : bookingsDelta < 0 ? "down" : "neutral";
 
   return (
@@ -35,11 +51,14 @@ export function KpiRowV2({ metrics, lang }: KpiRowV2Props) {
       <KpiCardV2
         label={t(lang, "dashboardV2.kpi.revenue30d")}
         value={formatCHF(totalRevenue30d)}
-        delta={`${revenueDeltaPct >= 0 ? "+" : ""}${Math.round(revenueDeltaPct)} %`}
+        delta={revenueDeltaStr}
         deltaDir={revenueDir}
         icon={Banknote}
       >
-        <Sparkline data={revenue30d} color={revenueDeltaPct < 0 ? "var(--d-danger)" : "var(--d-gold)"} />
+        <Sparkline
+          data={revenue30d}
+          color={revenueSparklineDanger ? "var(--d-danger)" : "var(--d-gold)"}
+        />
       </KpiCardV2>
 
       <KpiCardV2

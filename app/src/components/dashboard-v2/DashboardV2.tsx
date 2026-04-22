@@ -7,6 +7,7 @@ import { ordersQueryKey } from "../../lib/queryKeys";
 import { useAuthStore } from "../../store/authStore";
 import { t, type Lang } from "../../i18n";
 import { CreateOrderWizard } from "../orders/CreateOrderWizard";
+import { useNow } from "../../hooks/useNow";
 import { useDashboardMetrics } from "./useDashboardMetrics";
 import { AlertBar } from "./AlertBar";
 import { KpiRowV2 } from "./KpiRowV2";
@@ -15,6 +16,13 @@ import { UpcomingV2 } from "./UpcomingV2";
 import { BookingFunnelV2 } from "./BookingFunnelV2";
 import { HeatmapV2 } from "./HeatmapV2";
 import { PerformanceV2 } from "./PerformanceV2";
+import { DashboardV2TweaksModal } from "./DashboardV2TweaksModal";
+import {
+  loadDashV2Preferences,
+  saveDashV2Preferences,
+  type DashV2Preferences,
+  type DashV2SectionId,
+} from "./dashboardV2Preferences";
 import "./dashboard-v2.css";
 
 const WEEKDAYS: Record<Lang, string[]> = {
@@ -45,12 +53,35 @@ export function DashboardV2() {
   const token = useAuthStore((s) => s.token);
   const lang = useAuthStore((s) => s.language);
   const [showCreateOrder, setShowCreateOrder] = useState(false);
+  const [showTweaks, setShowTweaks] = useState(false);
+  const [prefs, setPrefs] = useState<DashV2Preferences>(loadDashV2Preferences);
   const [displayName, setDisplayName] = useState("");
 
+  const setPrefsAndSave = (next: DashV2Preferences) => {
+    setPrefs(next);
+    saveDashV2Preferences(next);
+  };
+  const isSec = (id: DashV2SectionId) => !prefs.hidden.includes(id);
+  const showAlerts = isSec("alerts");
+  const showKpi = isSec("kpi");
+  const showPipeline = isSec("pipeline");
+  const showUpcoming = isSec("upcoming");
+  const showFunnel = isSec("funnel");
+  const showHeat = isSec("heatmap");
+  const showPerf = isSec("perf");
+  const mainSingleCol = (showPipeline && !showUpcoming) || (!showPipeline && showUpcoming);
+  const nBottom = [showFunnel, showHeat, showPerf].filter(Boolean).length;
+
+  const wallNow = useNow();
   const { data: orders = [], loading, error, refetch } = useQuery(
     ordersQueryKey(token),
     () => getOrders(token),
-    { enabled: Boolean(token), staleTime: 2 * 60 * 1000, refetchInterval: 2 * 60 * 1000 },
+    {
+      enabled: Boolean(token),
+      staleTime: 60 * 1000,
+      refetchInterval: 60 * 1000,
+      refetchOnWindowFocus: true,
+    },
   );
 
   useEffect(() => {
@@ -65,7 +96,7 @@ export function DashboardV2() {
     return () => { cancelled = true; };
   }, [token]);
 
-  const metrics = useDashboardMetrics(orders);
+  const metrics = useDashboardMetrics(orders, wallNow);
 
   if (loading) {
     return (
@@ -88,18 +119,17 @@ export function DashboardV2() {
     );
   }
 
-  const now = metrics.today;
-  const hour = now.getHours();
-  const weekday = WEEKDAYS[lang]?.[now.getDay()] ?? WEEKDAYS.de[now.getDay()];
-  const monthName = MONTHS_LONG[lang]?.[now.getMonth()] ?? MONTHS_LONG.de[now.getMonth()];
-  const eyebrow = `${weekday} · ${now.getDate()}. ${monthName} ${now.getFullYear()}`;
+  const hour = wallNow.getHours();
+  const weekday = WEEKDAYS[lang]?.[wallNow.getDay()] ?? WEEKDAYS.de[wallNow.getDay()];
+  const monthName = MONTHS_LONG[lang]?.[wallNow.getMonth()] ?? MONTHS_LONG.de[wallNow.getMonth()];
+  const eyebrow = `${weekday} · ${wallNow.getDate()}. ${monthName} ${wallNow.getFullYear()}`;
   const greeting = pickGreeting(hour, lang);
   const name = displayName || t(lang, "nav.admin");
 
   const weeklyShoots = metrics.upcomingOrders.length + metrics.todayOrders.length;
 
   return (
-    <div className="dv2">
+    <div className={`dv2 dv2--density-${prefs.density}`}>
       {/* Header */}
       <div className="dv2-header">
         <div className="dv2-header-left">
@@ -129,7 +159,13 @@ export function DashboardV2() {
           </p>
         </div>
         <div className="dv2-header-actions">
-          <button type="button" className="dv2-btn-outline">
+          <button
+            type="button"
+            className="dv2-btn-outline"
+            onClick={() => setShowTweaks(true)}
+            aria-haspopup="dialog"
+            aria-expanded={showTweaks}
+          >
             {t(lang, "dashboardV2.button.customize")}
           </button>
           <button
@@ -143,19 +179,26 @@ export function DashboardV2() {
         </div>
       </div>
 
-      <AlertBar orders={metrics.overdueOrders} lang={lang} />
-      <KpiRowV2 metrics={metrics} lang={lang} />
+      {showAlerts ? <AlertBar orders={metrics.overdueOrders} lang={lang} /> : null}
+      {showKpi ? <KpiRowV2 metrics={metrics} lang={lang} /> : null}
 
-      <div className="dv2-grid-main">
-        <PipelineBoardV2 metrics={metrics} lang={lang} />
-        <UpcomingV2 metrics={metrics} lang={lang} />
-      </div>
+      {showPipeline || showUpcoming ? (
+        <div className={`dv2-grid-main${mainSingleCol ? " dv2-grid-main--single" : ""}`}>
+          {showPipeline ? <PipelineBoardV2 metrics={metrics} lang={lang} /> : null}
+          {showUpcoming ? <UpcomingV2 metrics={metrics} lang={lang} /> : null}
+        </div>
+      ) : null}
 
-      <div className="dv2-grid-bottom">
-        <BookingFunnelV2 metrics={metrics} lang={lang} />
-        <HeatmapV2 metrics={metrics} lang={lang} />
-        <PerformanceV2 metrics={metrics} lang={lang} />
-      </div>
+      {nBottom > 0 ? (
+        <div
+          className="dv2-grid-bottom"
+          style={nBottom < 3 ? { gridTemplateColumns: `repeat(${nBottom}, minmax(0, 1fr))` } : undefined}
+        >
+          {showFunnel ? <BookingFunnelV2 metrics={metrics} lang={lang} /> : null}
+          {showHeat ? <HeatmapV2 metrics={metrics} lang={lang} /> : null}
+          {showPerf ? <PerformanceV2 metrics={metrics} lang={lang} /> : null}
+        </div>
+      ) : null}
 
       <div className="dv2-footer">{t(lang, "dashboardV2.footer")}</div>
 
@@ -164,6 +207,13 @@ export function DashboardV2() {
         open={showCreateOrder}
         onOpenChange={setShowCreateOrder}
         onSuccess={() => setShowCreateOrder(false)}
+      />
+      <DashboardV2TweaksModal
+        open={showTweaks}
+        lang={lang}
+        prefs={prefs}
+        onClose={() => setShowTweaks(false)}
+        onChange={setPrefsAndSave}
       />
     </div>
   );

@@ -2225,6 +2225,7 @@
   "dashboardV2.kpi.slots": "Créneaux",
   "dashboardV2.kpi.receivables": "Créances ouvertes",
   "dashboardV2.kpi.noReceivables": "Aucune facture en attente",
+  "dashboardV2.kpi.revenueNew": "Nouveau",
   "dashboardV2.pipeline.title": "Pipeline des commandes",
   "dashboardV2.pipeline.openBoard": "Ouvrir le tableau",
   "dashboardV2.pipeline.requested": "Demandé",

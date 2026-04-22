@@ -2225,6 +2225,7 @@
   "dashboardV2.kpi.slots": "Slot",
   "dashboardV2.kpi.receivables": "Crediti aperti",
   "dashboardV2.kpi.noReceivables": "Nessuna fattura in sospeso",
+  "dashboardV2.kpi.revenueNew": "Nuovo",
   "dashboardV2.pipeline.title": "Pipeline ordini",
   "dashboardV2.pipeline.openBoard": "Apri board",
   "dashboardV2.pipeline.requested": "Richiesto",
