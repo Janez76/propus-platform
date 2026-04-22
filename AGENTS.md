@@ -290,9 +290,43 @@ Alle NAS-Skripte und Anleitungen liegen in `Z:\NAS Ugreen\`:
 
 | Dienst | Pfad / Port |
 |--------|------------|
-| Nextcloud | `/volume1/docker/nextcloud/` · `cloud.propus.ch` via Cloudflare Tunnel |
+| Nextcloud | `/volume1/docker/nextcloud/` · lokal `http://192.168.1.5:8090` · extern `https://cloud.propus.ch` |
 | vcard | `/volume1/docker/vcard/` · Port 9500 |
-| Cloudflare Tunnel | Container Manager → `cloudflared` |
+| Cloudflare Tunnel | Container `dreamy_poincare` (cloudflared) |
+
+**Nextcloud-Container (Docker Compose):**
+
+| Container | Details |
+|-----------|---------|
+| `nextcloud` | App-Container |
+| `nextcloud-nginx` | Port 8090→80 |
+| `nextcloud-db` | PostgreSQL 16 |
+| `nextcloud-redis` | Cache |
+| `nextcloud-push` | Push-Benachrichtigungen |
+| `nextcloud-signaling` | Sprach-/Video-Signaling |
+| `nextcloud-coturn` | TURN-Server |
+| `nextcloud-nats` | NATS-Messaging |
+
+### Cloudflare-Infrastruktur
+
+| | |
+|---|---|
+| **Zone** | `propus.ch` |
+| **Zone ID** | `705b4ad4994d062aada5c5432044d9cb` |
+| **Account ID** | `8b91ce43aae424d922fc7bc54ffa93dd` |
+| **Tunnel Name** | `Ugreen 4800` |
+| **Tunnel ID** | `852d718f-22ff-4ab3-8e52-1a9e337314e0` |
+| **Tunnel-Container** | `dreamy_poincare` (läuft auf NAS 192.168.1.5) |
+| **Tunnel-Ingress** | `cloud.propus.ch` → `http://192.168.1.5:8090` |
+| **CF-Credentials** | `CF_EMAIL` + `CF_KEY` (Global API Key) in `.env.vps` auf dem VPS |
+
+### VPS & Netzwerk
+
+| | |
+|---|---|
+| **VPS IP** | `87.106.24.107` |
+| **Router** | UniFi OS · `192.168.1.1` |
+| **Hinweis DNS** | UniFi lokale DNS-Overrides für interne Domains immer prüfen — können Cloudflare-Tunnel-Routing stören |
 
 ### Zweites NAS (Dev – 192.168.1.4)
 

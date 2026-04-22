@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "test": "node --test \"tests/*.test.js\"",
-    "analyze-duplicate-customers": "node ../scripts/find-duplicate-customers.js --export"
+    "analyze-duplicate-customers": "node ../scripts/find-duplicate-customers.js --export",
+    "analyze-duplicate-customers:help": "node ../scripts/find-duplicate-customers.js --help"
   },
   "keywords": [],
   "author": "",
