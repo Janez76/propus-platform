@@ -2652,6 +2652,12 @@ app.get("/auth/impersonate-consume", async (req, res) => {
     const exp = row.expires_at ? new Date(row.expires_at) : new Date();
     const maxAgeMs = Math.max(0, exp.getTime() - Date.now());
     setAdminSessionCookieValue(res, t, maxAgeMs);
+    // Kunden-Rollen → Portal-Bridge (portal.propus.ch); interne Rollen → Admin-Panel
+    const portalRoles = new Set(["customer_admin", "customer_user"]);
+    if (portalRoles.has(String(row.role || ""))) {
+      const portalBase = (process.env.PORTAL_BASE_URL || "https://portal.propus.ch").replace(/\/$/, "");
+      return res.redirect(302, `${portalBase}/portal/admin-bridge`);
+    }
     const base = getPublicPanelOrigin(req);
     const to = new URL(base);
     to.searchParams.set("__imp", "1");
@@ -10304,16 +10310,18 @@ app.get("/api/admin/customers/:id/team-members", requireAdmin, async (req, res) 
 // Admin-Panel: Kunden-Impersonation (admin_session – gleiche Sitzungstabelle wie /auth/login)
 app.post("/api/admin/customers/:id/impersonate-panel", requireAdmin, async (req, res) => {
   try {
-    if (getRawCookie(req, "admin_session_pre")) {
-      return res.status(400).json({ error: "Session-Sicherung bereits aktiv. Zuerst Impersonation beenden." });
-    }
     const curT = getRequestToken(req);
     if (!curT) return res.status(401).json({ error: "Nicht authentifiziert" });
     const curH = customerAuth.hashSha256Hex(curT);
     const curRow = await db.getAdminSessionByTokenHash(curH);
     if (!curRow) return res.status(401).json({ error: "Session ungültig" });
     if (curRow.impersonator_user_key) {
+      // Bereits als Kunde – zurück zum Admin verlangen
       return res.status(400).json({ error: 'Bereits als Kunde: Bitte zuerst "Zurueck zum Admin" verwenden' });
+    }
+    // Veraltetes admin_session_pre (z.B. Tab geschlossen ohne Stop) → einfach überschreiben
+    if (getRawCookie(req, "admin_session_pre")) {
+      clearAdminPreSessionCookie(res);
     }
     const srole = String(req.user?.role || "");
     if (!SUPER_ADMIN_ROLES.has(srole)) {

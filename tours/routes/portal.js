@@ -68,6 +68,49 @@ function requirePortalAuth(req, res, next) {
   return res.redirect('/portal/login?next=' + encodeURIComponent(req.originalUrl));
 }
 
+/**
+ * Admin-Impersonation-Bridge: setzt Portal-Session aus bestehendem admin_session-Cookie.
+ * GET /portal/admin-bridge
+ * Wird von /auth/impersonate-consume aufgerufen wenn die Rolle customer_admin/customer_user ist.
+ */
+const crypto = require('crypto');
+const PORTAL_IMPERSONATION_ROLES = new Set(['customer_admin', 'customer_user']);
+
+router.get('/admin-bridge', async (req, res) => {
+  try {
+    const token = req.cookies?.admin_session;
+    if (!token) return res.redirect('/portal/login?error=session_missing');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const { rows } = await pool.query(
+      `SELECT role, user_key, user_name, expires_at, impersonator_user_key
+       FROM booking.admin_sessions
+       WHERE token_hash = $1 AND expires_at > NOW()`,
+      [tokenHash],
+    );
+    const row = rows[0];
+    if (!row) return res.redirect('/portal/login?error=session_expired');
+    if (!PORTAL_IMPERSONATION_ROLES.has(String(row.role || ''))) {
+      return res.redirect('/portal/login?error=invalid_role');
+    }
+    const email = String(row.user_key || row.user_name || '').trim().toLowerCase();
+    if (!email) return res.redirect('/portal/login?error=no_email');
+    // Session regenerieren und Portal-E-Mail setzen
+    req.session.regenerate((err) => {
+      if (err) return res.redirect('/portal/login?error=session_error');
+      req.session.portalCustomerEmail = email;
+      req.session.portalCustomerName = email;
+      req.session.portalCustomerGivenName = '';
+      req.session.portalCustomerFamilyName = '';
+      req.session.isAdminImpersonation = true;
+      req.session.impersonatorUserKey = String(row.impersonator_user_key || '');
+      req.session.save(() => res.redirect('/portal/dashboard'));
+    });
+  } catch (e) {
+    console.error('[portal/admin-bridge]', e?.message || e);
+    return res.redirect('/portal/login?error=bridge_error');
+  }
+});
+
 /** Häufigster Firmen-/Kundenname aus Touren (für Sidebar & Begrüssung) */
 function organizationNameFromTours(tours) {
   if (!tours || !tours.length) return null;
