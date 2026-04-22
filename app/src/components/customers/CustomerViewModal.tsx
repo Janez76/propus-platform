@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { ShoppingBag, X, Plus } from "lucide-react";
+import { ShoppingBag, X, Plus, LogIn } from "lucide-react";
 import { getCustomerImpersonateUrl, getCustomerOrders, updateCustomerEmailAliases, type Customer, type CustomerOrder } from "../../api/customers";
 import { t } from "../../i18n";
 import { PhoneLink } from "../ui/PhoneLink";
 import { toDisplayString } from "../../lib/utils";
 import { useAuthStore } from "../../store/authStore";
 import { CustomerContactsSection } from "./CustomerContactsSection";
+import { ImpersonateDialog } from "./ImpersonateDialog";
 
 function OpenPortalButton({ token, customerId, disabled, label }: { token: string; customerId: number; disabled: boolean; label: string }) {
   const [loading, setLoading] = useState(false);
@@ -70,9 +71,10 @@ export function CustomerViewModal({ open, token, customer, onClose, onCreateOrde
   const displayTitle = companyName || String(customer?.name || "").trim();
   const isCompanyProfile = Boolean(companyName);
   const phoneOrDash = (value?: string | null) =>
-    String(value || "").trim() ? <PhoneLink value={value} className="text-[var(--accent)]" /> : "-";
+    String(value || "").trim() ? <PhoneLink value={value} className="text-(--accent)" /> : "-";
   const [orders, setOrders] = useState<CustomerOrder[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
+  const [showImpersonate, setShowImpersonate] = useState(false);
 
   // E-Mail-Aliases
   const [aliases, setAliases] = useState<string[]>(customer?.email_aliases ?? []);
@@ -167,19 +169,19 @@ export function CustomerViewModal({ open, token, customer, onClose, onCreateOrde
             {/* E-Mail-Aliases */}
             <div className="sm:col-span-2">
               <span className="font-medium">E-Mail-Aliase:</span>
-              <span className="ml-1 text-xs text-[var(--text-muted)]">(Touren &amp; Bestellungen unter diesen Adressen werden diesem Kunden zugeordnet)</span>
+              <span className="ml-1 text-xs text-(--text-muted)">(Touren &amp; Bestellungen unter diesen Adressen werden diesem Kunden zugeordnet)</span>
               <div className="mt-1.5 flex flex-wrap gap-1.5 items-center">
                 {aliases.map((alias) => (
                   <span
                     key={alias}
-                    className="inline-flex items-center gap-1 rounded-full bg-[var(--accent-subtle)] px-2.5 py-0.5 text-xs font-medium text-[var(--text-main)]"
+                    className="inline-flex items-center gap-1 rounded-full bg-(--accent-subtle) px-2.5 py-0.5 text-xs font-medium text-(--text-main)"
                   >
                     {alias}
                     <button
                       type="button"
                       disabled={aliasesBusy}
                       onClick={() => removeAlias(alias)}
-                      className="ml-0.5 rounded-full p-0.5 hover:bg-[var(--surface-raised)] disabled:opacity-50"
+                      className="ml-0.5 rounded-full p-0.5 hover:bg-(--surface-raised) disabled:opacity-50"
                       title="Alias entfernen"
                     >
                       <X className="h-3 w-3" />
@@ -200,7 +202,7 @@ export function CustomerViewModal({ open, token, customer, onClose, onCreateOrde
                     type="button"
                     onClick={addAlias}
                     disabled={aliasesBusy || !newAlias.trim().includes("@")}
-                    className="inline-flex items-center gap-0.5 rounded-full bg-[var(--accent)] px-2 py-0.5 text-xs text-white hover:opacity-90 disabled:opacity-40"
+                    className="inline-flex items-center gap-0.5 rounded-full bg-(--accent) px-2 py-0.5 text-xs text-white hover:opacity-90 disabled:opacity-40"
                   >
                     <Plus className="h-3 w-3" /> Hinzufügen
                   </button>
@@ -228,8 +230,8 @@ export function CustomerViewModal({ open, token, customer, onClose, onCreateOrde
             <div><span className="font-medium">Land:</span> {toDisplayString(customer.country)}</div>
             <div className="sm:col-span-2"><span className="font-medium">{t(lang, "customerView.label.notes")}</span> {toDisplayString(customer.notes)}</div>
             <div><span className="font-medium">{t(lang, "customerView.label.status")}</span> {customer.blocked ? <span className="text-red-600">{t(lang, "customerView.status.blocked")}</span> : <span className="text-emerald-600">{t(lang, "customerView.status.active")}</span>}</div>
-            <div className="sm:col-span-2 text-xs text-[var(--text-subtle)] border border-[var(--border-soft)] rounded-lg px-3 py-2 bg-[var(--surface-raised)]">
-              <span className="font-semibold text-[var(--text-muted)]">Portal-Rolle:</span> Die Portalrolle wird pro Kontaktperson vergeben (Abschnitt &ldquo;Weitere Kontakte&rdquo; unten).
+            <div className="sm:col-span-2 text-xs text-(--text-subtle) border border-(--border-soft) rounded-lg px-3 py-2 bg-(--surface-raised)">
+              <span className="font-semibold text-(--text-muted)">Portal-Rolle:</span> Die Portalrolle wird pro Kontaktperson vergeben (Abschnitt &ldquo;Weitere Kontakte&rdquo; unten).
             </div>
             <div><span className="font-medium">EXXAS Kunden-ID:</span> {toDisplayString(customer.exxas_customer_id, "-")}</div>
             <div><span className="font-medium">EXXAS Adress-ID:</span> {toDisplayString(customer.exxas_address_id, "-")}</div>
@@ -277,13 +279,31 @@ export function CustomerViewModal({ open, token, customer, onClose, onCreateOrde
           <div className="text-sm space-y-1">
             <p><span className="font-medium">{t(lang, "customerView.label.loginEmail")}</span> <span className="font-mono">{isSyntheticCompanyEmail ? "-" : toDisplayString(customer.email)}</span></p>
             <p><span className="font-medium">{t(lang, "customerView.label.status")}</span> {customer.blocked ? <span className="text-red-600">{t(lang, "customerView.status.blocked")}</span> : <span className="text-emerald-600">{t(lang, "customerView.status.active")}</span>}</p>
-            <p className="mt-2">
+            <div className="mt-2 flex flex-wrap items-center gap-2">
               <OpenPortalButton token={token} customerId={customer.id} disabled={!!customer.blocked || isSyntheticCompanyEmail} label={t(lang, "customerView.button.openPortal")} />
-            </p>
+              <button
+                type="button"
+                onClick={() => setShowImpersonate(true)}
+                disabled={!!customer.blocked}
+                className="btn-secondary inline-flex items-center gap-1.5 px-3 py-1 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <LogIn className="h-3.5 w-3.5" />
+                {t(lang, "impersonate.start")}
+              </button>
+            </div>
             <p className="text-xs text-zinc-500 mt-1">{t(lang, "customerView.hint.portalImpersonate")}</p>
           </div>
         </div>
       </div>
+
+      {showImpersonate && customer && (
+        <ImpersonateDialog
+          token={token}
+          customerId={customer.id}
+          customerName={toDisplayString(displayTitle || customer.name)}
+          onClose={() => setShowImpersonate(false)}
+        />
+      )}
     </div>
   );
 }
