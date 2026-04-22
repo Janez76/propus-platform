@@ -1,0 +1,356 @@
+/* ============================================================================
+ * Propus Sidebar
+ * ---------------------------------------------------------------------------
+ * Nutzt ausschliesslich semantische Tokens aus app/src/index.css
+ * (--accent, --surface, --text-main, --border-soft, ...). Keine Hardcoded
+ * Farben. Siehe docs/ADMIN-FRONTEND-DESIGN.md.
+ * ========================================================================== */
+
+/* Desktop-only: kein flex/display auf Mobile, damit `hidden`/`lg:flex` aus TSX funktionieren */
+.propus-sidebar {
+  --sidebar-w: 272px;
+  --sidebar-w-rail: 60px;
+
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 30;
+  display: none;
+  width: var(--sidebar-w);
+  height: 100vh;
+  height: 100dvh;
+  background: linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%);
+  border-right: 1px solid var(--border-soft);
+  flex-direction: column;
+  overflow: hidden;
+  transition: width 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: "DM Sans", system-ui, sans-serif;
+  font-size: 13.5px;
+  color: var(--text-main);
+}
+
+@media (min-width: 1024px) {
+  .propus-sidebar {
+    display: flex;
+  }
+}
+.propus-sidebar[data-collapsed="true"] { width: var(--sidebar-w-rail); }
+
+/* ─── Brand ────────────────────────────────────────────────────────────── */
+.propus-sidebar__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 14px 12px;
+  border-bottom: 1px solid var(--border-softer, var(--border-soft));
+}
+.propus-sidebar__brand-mark {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  background: linear-gradient(135deg, var(--accent) 0%, #8a6c18 100%);
+  display: grid;
+  place-items: center;
+  box-shadow: 0 2px 8px rgba(182, 142, 32, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+}
+.propus-sidebar__brand-mark > svg {
+  width: 16px;
+  height: 16px;
+  color: #0c0d10;
+  stroke-width: 2.5;
+}
+.propus-sidebar__brand-text { display: flex; flex-direction: column; line-height: 1.15; }
+.propus-sidebar__brand-title {
+  font-family: "DM Serif Display", serif;
+  font-size: 16px;
+  color: var(--text-main);
+}
+.propus-sidebar__brand-sub {
+  font-size: 10px;
+  color: var(--text-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin-top: 1px;
+}
+.propus-sidebar[data-collapsed="true"] .propus-sidebar__brand-text { display: none; }
+.propus-sidebar[data-collapsed="true"] .propus-sidebar__brand {
+  justify-content: center;
+  padding: 14px 0 12px;
+}
+
+/* ─── Cmd+K Trigger ────────────────────────────────────────────────────── */
+.propus-sidebar__search {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 12px 12px 6px;
+  padding: 8px 10px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.propus-sidebar__search:hover {
+  background: var(--surface-hover, var(--surface-raised));
+  color: var(--text-main);
+  border-color: color-mix(in oklab, var(--accent) 30%, var(--border-soft));
+}
+.propus-sidebar__search-icon { width: 14px; height: 14px; color: var(--text-subtle); }
+.propus-sidebar__search-text { flex: 1; text-align: left; }
+.propus-sidebar__kbd {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 5px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10.5px;
+  color: var(--text-subtle);
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 4px;
+  line-height: 1.4;
+}
+.propus-sidebar[data-collapsed="true"] .propus-sidebar__search {
+  justify-content: center;
+  padding: 8px;
+}
+.propus-sidebar[data-collapsed="true"] .propus-sidebar__search-text,
+.propus-sidebar[data-collapsed="true"] .propus-sidebar__search .propus-sidebar__kbd {
+  display: none;
+}
+
+/* ─── Scroll ───────────────────────────────────────────────────────────── */
+.propus-sidebar__scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 0 12px;
+}
+.propus-sidebar__scroll::-webkit-scrollbar { width: 5px; }
+.propus-sidebar__scroll::-webkit-scrollbar-track { background: transparent; }
+.propus-sidebar__scroll::-webkit-scrollbar-thumb {
+  background: var(--border-soft);
+  border-radius: 3px;
+}
+
+/* ─── Section ──────────────────────────────────────────────────────────── */
+.propus-nav-section { padding: 10px 8px 4px; }
+.propus-nav-section + .propus-nav-section {
+  border-top: 1px dashed var(--border-softer, var(--border-soft));
+  margin-top: 2px;
+}
+.propus-nav-section__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 8px 6px;
+  color: var(--text-subtle);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-weight: 500;
+  font-family: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.propus-nav-section__header:hover { color: var(--text-dim); }
+.propus-nav-section__chev {
+  width: 11px;
+  height: 11px;
+  color: var(--text-subtle);
+  transition: transform 0.18s ease;
+}
+.propus-nav-section[data-open="false"] .propus-nav-section__chev { transform: rotate(-90deg); }
+.propus-nav-section__label { flex: 1; text-align: left; }
+.propus-nav-section__items { display: flex; flex-direction: column; gap: 1px; }
+.propus-nav-section[data-open="false"] .propus-nav-section__items { display: none; }
+
+.propus-sidebar[data-collapsed="true"] .propus-nav-section__header { display: none; }
+.propus-sidebar[data-collapsed="true"] .propus-nav-section { padding: 6px 6px; border-top: none !important; }
+.propus-sidebar[data-collapsed="true"] .propus-nav-section + .propus-nav-section {
+  border-top: 1px dashed var(--border-softer, var(--border-soft)) !important;
+  padding-top: 10px;
+  margin-top: 6px;
+}
+
+/* ─── Nav-Item ─────────────────────────────────────────────────────────── */
+.propus-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 400;
+  text-decoration: none;
+  position: relative;
+  transition: background 0.12s, color 0.12s;
+}
+.propus-nav-item__icon {
+  width: 15px;
+  height: 15px;
+  stroke-width: 1.6;
+  color: var(--text-subtle);
+  flex-shrink: 0;
+  transition: color 0.12s;
+}
+.propus-nav-item:hover {
+  background: color-mix(in oklab, var(--accent) 6%, transparent);
+  color: var(--text-main);
+}
+.propus-nav-item:hover .propus-nav-item__icon { color: var(--text-dim); }
+.propus-nav-item__label {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.propus-nav-item[data-active="true"] {
+  background: color-mix(in oklab, var(--accent) 9%, transparent);
+  color: var(--accent);
+  font-weight: 500;
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.propus-nav-item[data-active="true"] .propus-nav-item__icon { color: var(--accent); }
+
+/* ─── Badge ────────────────────────────────────────────────────────────── */
+.propus-nav-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 17px;
+  padding: 0 5px;
+  font-size: 10.5px;
+  font-weight: 600;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  border-radius: 9px;
+  line-height: 1;
+  background: color-mix(in oklab, var(--accent) 14%, transparent);
+  color: var(--accent);
+  border: 1px solid color-mix(in oklab, var(--accent) 30%, transparent);
+}
+.propus-nav-badge[data-tone="warn"] {
+  background: color-mix(in oklab, #c49046 14%, transparent);
+  color: #c49046;
+  border-color: color-mix(in oklab, #c49046 30%, transparent);
+}
+.propus-nav-badge[data-tone="danger"] {
+  background: color-mix(in oklab, #c4574a 14%, transparent);
+  color: #c4574a;
+  border-color: color-mix(in oklab, #c4574a 30%, transparent);
+}
+
+/* ─── Collapsed Rail ───────────────────────────────────────────────────── */
+.propus-sidebar[data-collapsed="true"] .propus-nav-item {
+  justify-content: center;
+  padding: 8px;
+}
+.propus-sidebar[data-collapsed="true"] .propus-nav-item__label,
+.propus-sidebar[data-collapsed="true"] .propus-nav-badge { display: none; }
+
+.propus-sidebar[data-collapsed="true"] .propus-nav-item[data-badge]::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 6px;
+  height: 6px;
+  background: var(--accent);
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
+/* Tooltip */
+.propus-sidebar[data-collapsed="true"] .propus-nav-item::before {
+  content: attr(data-label);
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--surface-raised);
+  color: var(--text-main);
+  padding: 5px 9px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-soft);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease 0.3s;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+.propus-sidebar[data-collapsed="true"] .propus-nav-item:hover::before { opacity: 1; }
+
+/* ─── Footer ───────────────────────────────────────────────────────────── */
+.propus-sidebar__footer {
+  border-top: 1px solid var(--border-softer, var(--border-soft));
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.propus-sidebar__avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2a2d38, #1a1c24);
+  border: 1px solid var(--border-soft);
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.propus-sidebar__user { flex: 1; min-width: 0; line-height: 1.2; }
+.propus-sidebar__user-name {
+  font-size: 12.5px;
+  color: var(--text-main);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.propus-sidebar__user-role {
+  font-size: 10.5px;
+  color: var(--text-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-top: 2px;
+}
+.propus-sidebar__collapse-btn {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  background: none;
+  border: none;
+  color: var(--text-subtle);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.propus-sidebar__collapse-btn:hover {
+  background: var(--surface-raised);
+  color: var(--text-main);
+}
+.propus-sidebar__collapse-btn > svg { width: 15px; height: 15px; }
+
+.propus-sidebar[data-collapsed="true"] .propus-sidebar__user { display: none; }
+.propus-sidebar[data-collapsed="true"] .propus-sidebar__footer {
+  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 4px;
+}
