@@ -5,6 +5,7 @@ import { useThemeStore } from "../../store/themeStore";
 import { t } from "../../i18n";
 import { ProfileModal } from "../profile/ProfileModal";
 import { QuickImpersonateButton } from "./QuickImpersonateButton";
+import { TopbarSearch } from "../search/TopbarSearch";
 import { API_BASE } from "../../api/client";
 
 interface TopbarProps {
@@ -67,6 +68,11 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
           <div className="lg:hidden flex items-center gap-2">
             <img src="/assets/brand/logopropus.png" alt="Propus" className="h-7 w-auto" />
           </div>
+        </div>
+
+        {/* Center Section - Global Search */}
+        <div className="flex-1 flex items-center justify-center px-3 min-w-0">
+          <TopbarSearch />
         </div>
 
         {/* Right Section - Actions */}

@@ -3,19 +3,17 @@ import { useState } from "react";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { Footer } from "./Footer";
+import { SearchPalette } from "../search/SearchPalette";
 import { cn } from "../../lib/utils";
 
 export function AppShell({ children }: PropsWithChildren) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   return (
     <div className="min-h-screen transition-colors duration-300" style={{ background: "var(--bg-classic)" }}>
-      <Sidebar
-        onOpenCmdk={() => {
-          // TODO: Cmd+K-Befehlspalette (eigener PR)
-          console.log("TODO: Cmd+K Palette");
-        }}
-      />
+      <Sidebar onOpenCmdk={() => setIsSearchOpen(true)} />
+      <SearchPalette open={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
 
       <div className="flex min-h-screen flex-col lg:pl-[272px]">
         <Topbar onMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)} />

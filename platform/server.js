@@ -34,6 +34,7 @@ const toursAdminApi = require("../tours/routes/admin-api");
 const toursCronApi = require("../tours/routes/cron-api");
 const galleryAdminApi = require("../tours/routes/gallery-admin-api");
 const galleryPublicApi = require("../tours/routes/gallery-public-api");
+const adminSearchApi = require("../tours/routes/admin-search");
 
 const main = express();
 main.set("trust proxy", true);
@@ -122,6 +123,7 @@ async function bridgeBookingAdminSession(req, _res, next) {
   }
 }
 
+main.use("/api/tours/admin/search", express.json(), toursSessionMiddleware, bridgeBookingAdminSession, requireAdmin, adminSearchApi);
 main.use("/api/tours/admin", express.json(), toursSessionMiddleware, bridgeBookingAdminSession, requireAdmin, toursAdminApi);
 main.use("/api/tours/admin/galleries", express.json(), toursSessionMiddleware, bridgeBookingAdminSession, requireAdmin, galleryAdminApi);
 main.use("/api/tours/cron", express.json(), toursCronApi);
