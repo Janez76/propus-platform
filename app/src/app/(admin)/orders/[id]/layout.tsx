@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Calendar, User, Clock, Receipt } from 'lucide-react';
 import { queryOne } from '@/lib/db';
+import { getAdminSession, requireOrderViewAccess } from '@/lib/auth.server';
 import { OrderTabs } from './order-tabs';
 import { OrderReadOnlyBadge, OrderEditActions } from './header-actions';
 import { OrderSaveToast } from './order-save-toast';
@@ -42,6 +43,12 @@ type Props = {
 
 export default async function OrderLayout({ children, params }: Props) {
   const { id } = await params;
+
+  // Kunden-Rollen dürfen nur ihre eigene Bestellung sehen.
+  const session = await getAdminSession();
+  if (session) {
+    await requireOrderViewAccess(id, session);
+  }
 
   const order = await queryOne<{
     id: number;
@@ -140,7 +147,7 @@ export default async function OrderLayout({ children, params }: Props) {
 
 function MetaCard({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2">
+      <div className="rounded-lg border border-white/10 bg-white/2 px-3 py-2">
       <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-white/40">
         {icon}
         {label}

@@ -43,7 +43,12 @@ export function LoginPage() {
   useEffect(() => {
     if (token) {
       const returnTo = params.get("returnTo");
-      navigate(resolvePostLoginTarget(role, returnTo), { replace: true });
+      const target = resolvePostLoginTarget(role, returnTo);
+      if (/^https?:\/\//.test(target)) {
+        window.location.replace(target);
+      } else {
+        navigate(target, { replace: true });
+      }
     }
   }, [navigate, role, token, params]);
 
@@ -68,7 +73,12 @@ export function LoginPage() {
       const normalizedRole = normalizeStoredRole(r);
       setAuth(tok, normalizedRole, rememberMe, Array.isArray(permissions) ? permissions : []);
       const returnTo = params.get("returnTo");
-      navigate(resolvePostLoginTarget(normalizedRole, returnTo), { replace: true });
+      const target = resolvePostLoginTarget(normalizedRole, returnTo);
+      if (/^https?:\/\//.test(target)) {
+        window.location.replace(target);
+      } else {
+        navigate(target, { replace: true });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Verbindungsfehler");
     } finally {
@@ -97,7 +107,7 @@ export function LoginPage() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
+                <label className="block text-sm font-medium text-(--text-muted) mb-1">
                   E-Mail oder Benutzername
                 </label>
                 <input
@@ -115,13 +125,13 @@ export function LoginPage() {
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-sm font-medium text-[var(--text-muted)]">
+                  <label className="block text-sm font-medium text-(--text-muted)">
                     Passwort
                   </label>
                   <a
                     href="/forgot-password"
                     onClick={(e) => { e.preventDefault(); navigate("/forgot-password"); }}
-                    className="text-xs text-[var(--accent,#B68E20)] hover:underline"
+                    className="text-xs text-(--accent,#B68E20) hover:underline"
                   >
                     Passwort vergessen?
                   </a>
@@ -140,7 +150,7 @@ export function LoginPage() {
                   <button
                     type="button"
                     onClick={() => setShowPw((v) => !v)}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-subtle)] hover:text-[var(--text-muted)]"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-(--text-subtle) hover:text-(--text-muted)"
                     tabIndex={-1}
                   >
                     {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -152,11 +162,11 @@ export function LoginPage() {
                 <input
                   id="remember-me"
                   type="checkbox"
-                  className="h-4 w-4 rounded accent-[var(--accent,#B68E20)]"
+                  className="h-4 w-4 rounded accent-(--accent,#B68E20)"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
                 />
-                <label htmlFor="remember-me" className="text-sm text-[var(--text-muted)] cursor-pointer select-none">
+                <label htmlFor="remember-me" className="text-sm text-(--text-muted) cursor-pointer select-none">
                   Angemeldet bleiben
                 </label>
               </div>
