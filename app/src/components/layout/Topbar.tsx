@@ -1,5 +1,5 @@
 import { ExternalLink, LogOut, Menu, Monitor, Moon, Sun, User } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useAuthStore } from "../../store/authStore";
 import { useThemeStore } from "../../store/themeStore";
 import { t } from "../../i18n";
@@ -8,51 +8,6 @@ import { API_BASE } from "../../api/client";
 
 interface TopbarProps {
   onMenuToggle?: () => void;
-}
-
-function isAdminHtmlCustomerUrl(rawUrl: string) {
-  return /\/admin\.html(?:$|\?)/i.test(String(rawUrl || "").trim());
-}
-
-function normalizeCustomerPortalUrl(rawUrl: string) {
-  try {
-    const url = new URL(rawUrl);
-    if (url.hostname.startsWith("admin-")) {
-      url.hostname = url.hostname.replace(/^admin-/, "");
-    }
-    if (url.port === "5173" || url.port === "5174") {
-      url.port = "8090";
-    }
-    // Customer panel should open the public portal, not the admin login page.
-    if (url.pathname === "/admin.html") {
-      url.pathname = "/";
-    }
-    if (url.pathname === "/" || !url.pathname.trim()) {
-      url.pathname = "/";
-    }
-    return url.toString();
-  } catch {
-    return rawUrl;
-  }
-}
-
-function resolveCustomerPortalUrl() {
-  const configured = String(process.env.NEXT_PUBLIC_CUSTOMER_PORTAL_URL || "").trim();
-  if (configured) return normalizeCustomerPortalUrl(configured);
-  if (typeof window !== "undefined") {
-    const { hostname, protocol, port } = window.location;
-    if (hostname === "localhost" || hostname === "127.0.0.1") {
-      const localHost = hostname === "localhost" ? "localhost" : "127.0.0.1";
-      if (port === "5173" || port === "5174" || port === "3004" || port === "3005") {
-        return `${protocol}//${localHost}:8090/`;
-      }
-      return `${protocol}//${localHost}:8090/`;
-    }
-    if (hostname.startsWith("admin-")) {
-      return `${protocol}//${hostname.replace(/^admin-/, "")}/`;
-    }
-  }
-  return "https://booking.propus.ch/";
 }
 
 function resolveAdminBookingUrl() {
@@ -64,21 +19,11 @@ function resolveAdminBookingUrl() {
 
 export function Topbar({ onMenuToggle }: TopbarProps) {
   const [showProfile, setShowProfile] = useState(false);
-  const [customerPanelWarning, setCustomerPanelWarning] = useState("");
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const language = useAuthStore((s) => s.language);
   const setLanguage = useAuthStore((s) => s.setLanguage);
   const theme = useThemeStore((s) => s.theme);
   const setTheme = useThemeStore((s) => s.setTheme);
-
-  useEffect(() => {
-    const configuredRaw = String(process.env.NEXT_PUBLIC_CUSTOMER_PORTAL_URL || "").trim();
-    if (!isAdminHtmlCustomerUrl(configuredRaw)) return;
-    console.warn("[Topbar] VITE_CUSTOMER_PORTAL_URL points to admin.html. Redirecting customer panel target to '/'.");
-    setCustomerPanelWarning(t(language, "topbar.customerPanelConfigWarning"));
-    const timer = window.setTimeout(() => setCustomerPanelWarning(""), 5000);
-    return () => window.clearTimeout(timer);
-  }, [language]);
 
   const handleLogout = async () => {
     clearAuth();
@@ -100,16 +45,6 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
 
   const themeLabel = theme === "dark" ? "Dark" : theme === "light" ? "Light" : "System";
   const ThemeIcon = theme === "dark" ? Moon : theme === "light" ? Sun : Monitor;
-
-  const openCustomerPanel = () => {
-    const configuredRaw = String(process.env.NEXT_PUBLIC_CUSTOMER_PORTAL_URL || "").trim();
-    if (isAdminHtmlCustomerUrl(configuredRaw)) {
-      setCustomerPanelWarning(t(language, "topbar.customerPanelConfigWarning"));
-      window.setTimeout(() => setCustomerPanelWarning(""), 5000);
-    }
-    const customerUrl = resolveCustomerPortalUrl();
-    window.open(customerUrl, "_blank", "noopener,noreferrer");
-  };
 
   const openAdminBooking = () => {
     window.open(resolveAdminBookingUrl(), "_blank", "noopener,noreferrer");
@@ -170,7 +105,6 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
             <span className="hidden md:inline">{themeLabel}</span>
           </button>
 
-          {/* Customer Panel Switch */}
           <button
             onClick={openAdminBooking}
             className="hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all duration-200 hover:text-[var(--accent)] focus:outline-none"
@@ -179,17 +113,6 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
           >
             <ExternalLink className="h-4 w-4" />
             <span>{t(language, "landing.nav.cta")}</span>
-          </button>
-
-          {/* Customer Panel Switch */}
-          <button
-            onClick={openCustomerPanel}
-            className="hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all duration-200 hover:text-[var(--accent)] focus:outline-none"
-            style={{ background: "var(--surface)", borderColor: "var(--border-soft)", color: "var(--text-main)" }}
-            aria-label={t(language, "nav.customerPanel")}
-          >
-            <ExternalLink className="h-4 w-4" />
-            <span>{t(language, "nav.customerPanel")}</span>
           </button>
 
           {/* Logout Button */}
@@ -214,22 +137,12 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
             <span>{t(language, "auth.logout")}</span>
           </button>
 
-          {/* Mobile: Customer Panel */}
+          {/* Mobile: booking link */}
           <button
             onClick={openAdminBooking}
             className="sm:hidden p-2.5 rounded-lg transition-all duration-200 hover:text-[var(--accent)]"
             style={{ background: "var(--surface-raised)", color: "var(--text-muted)" }}
             aria-label={t(language, "landing.nav.cta")}
-          >
-            <ExternalLink className="h-4 w-4" />
-          </button>
-
-          {/* Mobile: Customer Panel */}
-          <button
-            onClick={openCustomerPanel}
-            className="sm:hidden p-2.5 rounded-lg transition-all duration-200 hover:text-[var(--accent)]"
-            style={{ background: "var(--surface-raised)", color: "var(--text-muted)" }}
-            aria-label={t(language, "nav.customerPanel")}
           >
             <ExternalLink className="h-4 w-4" />
           </button>
@@ -255,13 +168,7 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
           </button>
         </div>
       </div>
-      {customerPanelWarning ? (
-        <div className="absolute right-4 top-[calc(100%+6px)] z-50 rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs text-amber-900 shadow-sm dark:border-amber-700/60 dark:bg-amber-950/70 dark:text-amber-200">
-          {customerPanelWarning}
-        </div>
-      ) : null}
       <ProfileModal open={showProfile} onClose={() => setShowProfile(false)} />
     </header>
   );
 }
-
