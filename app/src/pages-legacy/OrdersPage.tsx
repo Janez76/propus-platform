@@ -4,8 +4,10 @@ import { AlertTriangle, Calendar, List, Map as MapIcon, Plus, Search } from "luc
 import { deleteOrder, getOrders, updateOrderStatus, type Order } from "../api/orders";
 import { getPhotographers, type Photographer } from "../api/photographers";
 import { getAdminProfile, type AdminProfile } from "../api/profile";
+import { fetchConfig } from "../api/bookingPublic";
 import { CreateOrderWizard } from "../components/orders/CreateOrderWizard";
 import { OrderMessages } from "../components/orders/OrderMessages";
+import { OrdersMapView, OrdersMapViewNoKey } from "../components/orders/OrdersMapView";
 import { OrderTable } from "../components/orders/OrderTable";
 import { OrderWeekCalendar } from "../components/orders/OrderWeekCalendar";
 import { useQuery } from "../hooks/useQuery";
@@ -17,7 +19,7 @@ import { getTerminInfo, startOfWeek, addDays, sameDay } from "../lib/orderTermin
 import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { useOrderStore } from "../store/orderStore";
 
-type ViewMode = "list" | "calendar";
+type ViewMode = "list" | "calendar" | "map";
 type QuickFilter = "none" | "today" | "thisWeek" | "nextWeek" | "overdue" | "mine";
 
 // Grouped chips per redesign:
@@ -84,6 +86,13 @@ export function OrdersPage() {
     },
     { enabled: Boolean(token), staleTime: 30 * 60 * 1000 },
   );
+
+  const { data: bookingConfig, loading: bookingConfigLoading } = useQuery(
+    "bookingConfig:public",
+    () => fetchConfig(),
+    { enabled: true, staleTime: 15 * 60 * 1000, refetchOnWindowFocus: false },
+  );
+  const googleMapsKey = bookingConfig?.googleMapsKey?.trim() || null;
 
   const [view, setView] = useState<ViewMode>("list");
   const [statusSelection, setStatusSelection] = useState<Set<string>>(() => new Set());
@@ -339,10 +348,10 @@ export function OrdersPage() {
             items={[
               { key: "list", label: t(lang, "orders.view.list"), icon: <List className="h-3.5 w-3.5" /> },
               { key: "calendar", label: t(lang, "orders.view.calendar"), icon: <Calendar className="h-3.5 w-3.5" /> },
-              { key: "map", label: t(lang, "orders.view.map"), icon: <MapIcon className="h-3.5 w-3.5" />, disabled: true },
+              { key: "map", label: t(lang, "orders.view.map"), icon: <MapIcon className="h-3.5 w-3.5" /> },
             ]}
             value={view}
-            onChange={(v) => v !== "map" && setView(v as ViewMode)}
+            onChange={(v) => setView(v as ViewMode)}
           />
           <button
             onClick={() => setShowCreate(true)}
@@ -517,8 +526,24 @@ export function OrdersPage() {
             onToggleSection={toggleSectionSelection}
           />
         )
-      ) : (
+      ) : view === "calendar" ? (
         <OrderWeekCalendar orders={orders} onOpenDetail={openDetail} />
+      ) : (
+        orders.length === 0 ? (
+          <EmptyState lang={lang} />
+        ) : bookingConfigLoading ? (
+          <div className="flex h-64 items-center justify-center rounded-xl border border-[var(--border-soft)]">
+            <div
+              className="h-12 w-12 animate-spin rounded-full border-2"
+              style={{ borderColor: "var(--accent-subtle)", borderTopColor: "var(--accent)" }}
+            />
+            <span className="ml-3 text-sm text-[var(--text-subtle)]">{t(lang, "orders.map.configLoading")}</span>
+          </div>
+        ) : !googleMapsKey ? (
+          <OrdersMapViewNoKey lang={lang} />
+        ) : (
+          <OrdersMapView apiKey={googleMapsKey} orders={orders} onOpenDetail={openDetail} lang={lang} />
+        )
       )}
 
       <Dialog open={showBulkDelete} onOpenChange={(open) => !bulkBusy && setShowBulkDelete(open)}>
