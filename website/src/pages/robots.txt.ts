@@ -1,11 +1,11 @@
 import type { APIRoute } from 'astro';
 import { site } from '../content/site';
-import { loadAllSeoPages, loadSeoSettings } from '../lib/seo';
+import { loadSeoSettings } from '../lib/seo';
 
 export const prerender = false;
 
 export const GET: APIRoute = async () => {
-	const [pages, settings] = await Promise.all([loadAllSeoPages(), loadSeoSettings()]);
+	const settings = await loadSeoSettings();
 
 	const systemDisallow = new Set<string>([
 		'/admin/',
@@ -20,9 +20,13 @@ export const GET: APIRoute = async () => {
 			pageDisallow.add(path);
 		}
 	}
-	for (const page of pages) {
-		if (!page.index) pageDisallow.add(page.path);
-	}
+	// Seiten mit index=false NICHT automatisch disallowen: ein gleichzeitiges
+	// `Disallow` + `<meta robots="noindex">` ist konflikthaft. Google fetcht die
+	// Seite bei Disallow gar nicht erst und sieht den noindex-Tag nie – die URL
+	// kann trotzdem als nacktes SERP-Ergebnis auftauchen. Per Google-Empfehlung
+	// gilt: noindex meta ODER Disallow, nicht beides. Wir lassen noindex wirken
+	// und halten robots.txt offen. Manuelle `robotsDisallow`-Eintraege aus dem
+	// CMS bleiben unveraendert respektiert.
 
 	const lines = ['User-agent: *'];
 	if (!settings.allowIndexing) {
