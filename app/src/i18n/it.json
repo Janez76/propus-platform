@@ -2268,5 +2268,7 @@
   "dashboardV2.tweaks.section.perf": "Performance",
   "dashboardV2.tweaks.reset": "Ripristina predefiniti",
   "dashboardV2.tweaks.resetConfirm": "Reimpostare layout e sezioni visibili?",
-  "dashboardV2.footer": "PROPUS · Dashboard v2"
+  "dashboardV2.footer": "PROPUS · Dashboard v2",
+  "dashboardV2.dataRefreshing": "Aggiornamento…",
+  "dashboardV2.dataUpdated": "· Dati: {{time}}"
 }

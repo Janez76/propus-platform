@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { useQuery } from "../../hooks/useQuery";
-import { getOrders } from "../../api/orders";
+import { getOrders, type Order } from "../../api/orders";
 import { getAdminProfile } from "../../api/profile";
 import { ordersQueryKey } from "../../lib/queryKeys";
 import { useAuthStore } from "../../store/authStore";
@@ -73,13 +73,18 @@ export function DashboardV2() {
   const nBottom = [showFunnel, showHeat, showPerf].filter(Boolean).length;
 
   const wallNow = useNow();
-  const { data: orders = [], loading, error, refetch } = useQuery(
+  const fetchOrders = useCallback((): Promise<Order[]> => {
+    if (!token) return Promise.resolve([]);
+    return getOrders(token);
+  }, [token]);
+  const { data: orders = [], loading, error, refetch, isFetching, updatedAt } = useQuery(
     ordersQueryKey(token),
-    () => getOrders(token),
+    fetchOrders,
     {
       enabled: Boolean(token),
-      staleTime: 60 * 1000,
-      refetchInterval: 60 * 1000,
+      /** Kurze Staleness, damit Fokus-Refetch schnell wirkt. */
+      staleTime: 15 * 1000,
+      refetchInterval: 20 * 1000,
       refetchOnWindowFocus: true,
     },
   );
@@ -200,7 +205,24 @@ export function DashboardV2() {
         </div>
       ) : null}
 
-      <div className="dv2-footer">{t(lang, "dashboardV2.footer")}</div>
+      <div className="dv2-footer">
+        {t(lang, "dashboardV2.footer")}
+        {token && (
+          <span className="dv2-footer-refresh" aria-live="polite">
+            {isFetching
+              ? t(lang, "dashboardV2.dataRefreshing")
+              : updatedAt
+                ? t(lang, "dashboardV2.dataUpdated").replace(
+                    "{{time}}",
+                    new Date(updatedAt).toLocaleTimeString(lang === "de" ? "de-CH" : lang === "fr" ? "fr-CH" : lang === "it" ? "it-CH" : "en-GB", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    }),
+                  )
+                : null}
+          </span>
+        )}
+      </div>
 
       <CreateOrderWizard
         token={token}

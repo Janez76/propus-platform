@@ -767,6 +767,14 @@
   letter-spacing: 0.1em;
   padding-bottom: 8px;
 }
+.dv2-footer-refresh {
+  display: block;
+  margin-top: 4px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--d-text-subtle);
+  font-weight: 400;
+}
 
 /* ─── Responsive ─────────────────────────────────────────────────────────── */
 @media (max-width: 1280px) {

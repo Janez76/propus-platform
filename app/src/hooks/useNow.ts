@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 
-const TICK_MS = 60_000;
+const TICK_MS = 30_000;
 
 /**
- * A clock that updates every 60s and on tab focus (visibility),
+ * A clock that updates every 30s and on tab focus (visibility),
  * so dashboard date/KW/metrics can advance without a full page reload.
  */
 export function useNow(): Date {

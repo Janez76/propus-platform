@@ -147,7 +147,10 @@ export function OrdersPage() {
     if (!o.appointmentDate) return quickFilter === "overdue" ? false : false;
     const d = new Date(o.appointmentDate);
     if (Number.isNaN(d.getTime())) return false;
-    if (quickFilter === "today") return sameDay(d, now);
+    if (quickFilter === "today") {
+      if (normalizeStatusKey(o.status) === "paused") return false;
+      return sameDay(d, now);
+    }
     if (quickFilter === "overdue") {
       return d.getTime() < new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
         && normalizeStatusKey(o.status) !== "done"

@@ -2268,5 +2268,7 @@
   "dashboardV2.tweaks.section.perf": "Performance",
   "dashboardV2.tweaks.reset": "Reset to default",
   "dashboardV2.tweaks.resetConfirm": "Reset layout and visibility to default?",
-  "dashboardV2.footer": "PROPUS · Dashboard v2"
+  "dashboardV2.footer": "PROPUS · Dashboard v2",
+  "dashboardV2.dataRefreshing": "Updating…",
+  "dashboardV2.dataUpdated": "· As of {{time}}"
 }

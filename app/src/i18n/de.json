@@ -2268,5 +2268,7 @@
   "dashboardV2.tweaks.section.perf": "Performance",
   "dashboardV2.tweaks.reset": "Standard wiederherstellen",
   "dashboardV2.tweaks.resetConfirm": "Layout und Anzeige auf Standard zurücksetzen?",
-  "dashboardV2.footer": "PROPUS · Dashboard v2"
+  "dashboardV2.footer": "PROPUS · Dashboard v2",
+  "dashboardV2.dataRefreshing": "Aktualisiere…",
+  "dashboardV2.dataUpdated": "· Datenstand {{time}}"
 }

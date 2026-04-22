@@ -142,6 +142,8 @@ async function fetchJson<T>(
   try {
     const res = await fetch(`${API_BASE}${path}`, {
       method,
+      /** Verhindert Stale-Listen (Dashboard, Admin) durch Browser-HTTP-Cache. */
+      ...(method === "GET" ? { cache: "no-store" as const } : {}),
       headers: {
         ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),

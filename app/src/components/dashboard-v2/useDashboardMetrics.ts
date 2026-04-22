@@ -44,6 +44,11 @@ function inWindow(dateStr: string | null | undefined, from: number, to: number):
   return t >= from && t < to;
 }
 
+/** Pausiert = Termin/Slot faktisch inaktiv — nicht in „heute“/Kapazitaet/Heatmap wie laufende Shootings. */
+function countsForScheduleDay(o: Order): boolean {
+  return !statusMatches(o.status, "paused");
+}
+
 export type DashboardMetrics = ReturnType<typeof useDashboardMetrics>;
 
 export function useDashboardMetrics(orders: Order[], now: Date) {
@@ -108,7 +113,9 @@ export function useDashboardMetrics(orders: Order[], now: Date) {
     for (let i = 9; i >= 0; i--) {
       const wStart = todayMs - (i + 1) * 7 * MS_DAY;
       const wEnd = todayMs - i * 7 * MS_DAY;
-      const shootings = orders.filter((o) => inWindow(o.appointmentDate, wStart, wEnd)).length;
+      const shootings = orders.filter(
+        (o) => countsForScheduleDay(o) && inWindow(o.appointmentDate, wStart, wEnd),
+      ).length;
       const capRatio = (shootings * 90) / 2700;
       capacityData.push(Math.min(100, Math.round(capRatio * 100)));
     }
@@ -147,10 +154,17 @@ export function useDashboardMetrics(orders: Order[], now: Date) {
 
     // Today + upcoming
     const todayOrders = orders
-      .filter((o) => inWindow(o.appointmentDate, todayMs, todayMs + MS_DAY))
+      .filter(
+        (o) => countsForScheduleDay(o) && inWindow(o.appointmentDate, todayMs, todayMs + MS_DAY),
+      )
       .sort(byAppt);
     const upcomingOrders = orders
-      .filter((o) => o.appointmentDate && new Date(o.appointmentDate).getTime() >= todayMs + MS_DAY)
+      .filter(
+        (o) =>
+          countsForScheduleDay(o) &&
+          o.appointmentDate &&
+          new Date(o.appointmentDate).getTime() >= todayMs + MS_DAY,
+      )
       .sort(byAppt)
       .slice(0, 3);
 
@@ -181,7 +195,7 @@ export function useDashboardMetrics(orders: Order[], now: Date) {
     const firstDayOfWeek = (new Date(currYear, currMonth, 1).getDay() + 6) % 7; // 0=Mon
     const heatmapData: Record<number, number> = {};
     orders.forEach((o) => {
-      if (!o.appointmentDate) return;
+      if (!o.appointmentDate || !countsForScheduleDay(o)) return;
       const d = new Date(o.appointmentDate);
       if (d.getMonth() !== currMonth || d.getFullYear() !== currYear) return;
       const day = d.getDate();
@@ -204,7 +218,9 @@ export function useDashboardMetrics(orders: Order[], now: Date) {
         ? doneOrders30d.reduce((s, o) => s + (o.total ?? 0), 0) / doneOrders30d.length
         : null;
     const weekStartMs = startOfWeek(now).getTime();
-    const weekOrders = orders.filter((o) => inWindow(o.appointmentDate, weekStartMs, weekStartMs + 7 * MS_DAY));
+    const weekOrders = orders.filter(
+      (o) => countsForScheduleDay(o) && inWindow(o.appointmentDate, weekStartMs, weekStartMs + 7 * MS_DAY),
+    );
     const weekDone = weekOrders.filter(
       (o) => statusMatches(o.status, "done") || statusMatches(o.status, "completed"),
     ).length;
