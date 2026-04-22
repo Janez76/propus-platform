@@ -1,0 +1,60 @@
+---
+import Layout from "../layouts/Layout.astro";
+import Hero from "../components/Hero.astro";
+import Services from "../components/Services.astro";
+import Cases from "../components/Cases.astro";
+import Process from "../components/Process.astro";
+import Pricing from "../components/Pricing.astro";
+import About from "../components/About.astro";
+import Contact from "../components/Contact.astro";
+import FAQ from "../components/FAQ.tsx";
+---
+
+<Layout
+  title="Propus Codestudio – Web & interne Tools für KMU"
+  description="Websites, Landingpages und interne Tools für KMU. Saubere Umsetzung, feste Offerten nach Briefing, klare Prozesse."
+>
+  <Hero />
+  <Services />
+  <Cases />
+  <Process />
+  <Pricing />
+  <About />
+
+  <section id="faq" class="u-section faq">
+    <div class="u-container faq__grid">
+      <div class="section-heading u-animate" style="--delay: 0ms">
+        <p class="u-eyebrow">FAQ</p>
+        <h2>Häufige <em>Fragen</em></h2>
+        <div class="divider-gold" aria-hidden="true"></div>
+        <p class="section-heading__sub">
+          Keine passende Antwort? <a href="#kontakt" class="link-cta">Schreiben Sie uns</a>
+        </p>
+      </div>
+      <div class="u-animate" style="--delay: 100ms">
+        <FAQ client:visible />
+      </div>
+    </div>
+  </section>
+
+  <Contact />
+</Layout>
+
+<style>
+  .faq {
+    background: var(--color-bg-muted);
+    border-top: 1px solid var(--color-border);
+  }
+
+  .faq__grid {
+    display: grid;
+    gap: clamp(2rem, 4vw, 3rem);
+  }
+
+  @media (min-width: 900px) {
+    .faq__grid {
+      grid-template-columns: 1fr 1.5fr;
+      align-items: start;
+    }
+  }
+</style>

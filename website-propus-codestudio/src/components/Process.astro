@@ -1,0 +1,122 @@
+---
+const steps = [
+  {
+    number: "01",
+    title: "Briefing",
+    description: "30 Minuten – gratis und unverbindlich. Wir hören zu und schätzen die Machbarkeit ein.",
+  },
+  {
+    number: "02",
+    title: "Konzept & Offerte",
+    description: "Innert drei Arbeitstagen: Skizze, Scope, fixer Preisrahmen.",
+  },
+  {
+    number: "03",
+    title: "Umsetzung",
+    description: "Iterativ mit Preview-Links. Feedback, dann nächster Schritt.",
+  },
+  {
+    number: "04",
+    title: "Launch & Support",
+    description: "Go-Live, Doku, optional SLA für Betrieb und Weiterentwicklung.",
+  },
+];
+---
+
+<section id="prozess" class="u-section process">
+  <div class="u-container">
+    <div class="section-heading u-animate" style="--delay: 0ms">
+      <p class="u-eyebrow">Prozess</p>
+      <h2>Ablauf in vier <em>Schritten</em></h2>
+      <div class="divider-gold" aria-hidden="true"></div>
+      <p class="section-heading__sub">
+        Kein Wasserfall, keine Blackbox – Sie wissen jederzeit, wo wir stehen.
+      </p>
+    </div>
+
+    <ol class="process__list u-animate" style="--delay: 120ms">
+      {
+        steps.map((step, i) => (
+          <li class="process__item" style={`--step-delay: ${120 + i * 60}ms`}>
+            <span class="process__number">{step.number}</span>
+            <h3 class="process__title">{step.title}</h3>
+            <p class="process__desc">{step.description}</p>
+          </li>
+        ))
+      }
+    </ol>
+  </div>
+</section>
+
+<style>
+  .process {
+    background: var(--color-bg);
+    border-top: 1px solid var(--color-border);
+  }
+
+  .process__list {
+    list-style: none;
+    padding: 0;
+    margin: clamp(2rem, 5vw, 3rem) 0 0;
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: 1fr;
+    counter-reset: step;
+  }
+
+  @media (min-width: 640px) {
+    .process__list {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (min-width: 980px) {
+    .process__list {
+      grid-template-columns: repeat(4, 1fr);
+    }
+  }
+
+  .process__item {
+    position: relative;
+    padding: clamp(1.25rem, 3vw, 1.75rem) clamp(1.1rem, 3vw, 1.5rem);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-soft);
+    transition:
+      border-color var(--transition-med),
+      box-shadow var(--transition-med),
+      transform var(--transition-med);
+  }
+
+  .process__item:hover {
+    border-color: var(--color-gold-line);
+    box-shadow: var(--shadow-hover);
+    transform: translateY(-2px);
+  }
+
+  .process__number {
+    display: block;
+    font-family: var(--font-sans);
+    font-variant-numeric: tabular-nums;
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: var(--color-gold);
+    letter-spacing: -0.02em;
+    opacity: 0.65;
+  }
+
+  .process__title {
+    margin-top: 1rem;
+    font-size: 1.125rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .process__desc {
+    margin-top: 0.5rem;
+    color: var(--color-text-muted);
+    font-size: 0.9375rem;
+    line-height: 1.6;
+  }
+</style>

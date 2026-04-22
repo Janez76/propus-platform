@@ -1,0 +1,147 @@
+---
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout
+  title="Impressum – Propus Codestudio"
+  description="Impressum und Kontaktangaben der Propus GmbH, Zug."
+>
+  <section class="u-section legal-page">
+    <div class="u-container legal-page__inner">
+      <a href="/" class="legal-page__back">← Zur Startseite</a>
+
+      <p class="u-eyebrow legal-page__eyebrow">Rechtliches</p>
+      <h1 class="legal-page__title">Impressum</h1>
+      <div class="divider-gold" aria-hidden="true"></div>
+
+      <div class="legal-page__body">
+        <section>
+          <h2>Betreiberin</h2>
+          <p>
+            <strong>Propus GmbH</strong><br />
+            Untere Roostmatt 8<br />
+            6300 Zug<br />
+            Schweiz
+          </p>
+        </section>
+
+        <section>
+          <h2>Kontakt</h2>
+          <ul>
+            <li>
+              E-Mail: <a href="mailto:hallo@propus.ch">hallo@propus.ch</a>
+            </li>
+            <li>Telefon: +41 XX XXX XX XX</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Handelsregister</h2>
+          <ul>
+            <li>UID: CHE-TODO</li>
+            <li>Handelsregisternummer: CH-TODO</li>
+            <li>Sitz: Zug</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Vertretungsberechtigte Personen</h2>
+          <p>Janez · <span class="u-muted">Geschäftsführer</span></p>
+        </section>
+
+        <section>
+          <h2>Inhaltliche Verantwortung</h2>
+          <p>
+            Die Propus GmbH ist für die Inhalte dieser Website verantwortlich. Trotz sorgfältiger Prüfung übernehmen wir keine Gewähr für
+            Richtigkeit, Vollständigkeit oder Aktualität externer Verlinkungen.
+          </p>
+        </section>
+
+        <section>
+          <h2>Urheberrecht</h2>
+          <p>
+            Alle Inhalte (Texte, Bilder, Code, Design) sind, sofern nicht anders angegeben, urheberrechtlich geschützt. Eine Verwendung
+            ausserhalb dieser Website erfordert die schriftliche Zustimmung der Propus GmbH.
+          </p>
+        </section>
+      </div>
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .legal-page {
+    background: var(--color-bg);
+  }
+
+  .legal-page__inner {
+    max-width: 48rem;
+  }
+
+  .legal-page__back {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    text-decoration: none;
+    transition: color var(--transition-fast);
+  }
+
+  .legal-page__back:hover {
+    color: var(--color-gold);
+  }
+
+  .legal-page__eyebrow {
+    margin-top: 2rem;
+  }
+
+  .legal-page__title {
+    margin-top: 0.5rem;
+    font-size: clamp(2.25rem, 3.5vw + 1rem, 3.25rem);
+    font-weight: 600;
+  }
+
+  .legal-page__body {
+    margin-top: 2.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2.5rem;
+  }
+
+  .legal-page__body h2 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--color-text);
+  }
+
+  .legal-page__body p,
+  .legal-page__body li {
+    color: var(--color-text);
+    font-size: 0.9375rem;
+    line-height: 1.7;
+  }
+
+  .legal-page__body p {
+    margin-top: 0.75rem;
+  }
+
+  .legal-page__body ul {
+    margin-top: 0.75rem;
+    padding-left: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .legal-page__body a {
+    color: var(--color-gold);
+    text-decoration: none;
+  }
+
+  .legal-page__body a:hover {
+    text-decoration: underline;
+  }
+</style>

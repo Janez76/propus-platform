@@ -1,0 +1,204 @@
+---
+import { media } from "../data/media";
+
+interface Case {
+  client: string;
+  industry: string;
+  image: string;
+  imageLabel: string;
+  situation: string;
+  solution: string;
+  result: string;
+  tech?: string[];
+}
+
+const cases: Case[] = [
+  {
+    client: "Propus Plattform",
+    industry: "Eigenprojekt · Buchung & Community",
+    image: media.cases.platform,
+    imageLabel: "Propus Plattform · Übersicht",
+    situation:
+      "Mehrere getrennte Tools für Buchungen und Medien erschwerten Pflege und einheitliches Auftreten.",
+    solution:
+      "Zusammenführung in eine Plattform mit Buchungslogik, geschütztem Kundenbereich und Admin-Oberfläche – klar strukturiert, erweiterbar.",
+    result:
+      "Weniger Medienbrüche, schnellere Reaktion auf Anfragen und eine Basis für weitere Module.",
+  },
+  {
+    client: "IMH Vermarktung",
+    industry: "Kampagne · B2B-Dienstleistung",
+    image: media.cases.imh,
+    imageLabel: "IMH · Kampagnen-Landingpage",
+    situation:
+      "Für eine regionale Kampagne wurde eine eigenständige Landingpage benötigt – mit starkem Visual, klaren Facts und direktem Kontaktpfad.",
+    solution:
+      "Fokussierte One-Pager-Struktur, schnelle Ladezeiten, saubere Typografie und messbares Tracking der Anfragen.",
+    result:
+      "Professioneller Auftritt pro Kampagne, besser qualifizierte Kontakte und reproduzierbares Template für Folgeprojekte.",
+  },
+];
+---
+
+<section id="referenzen" class="u-section cases">
+  <div class="u-container">
+    <div class="section-heading u-animate" style="--delay: 0ms">
+      <p class="u-eyebrow">Referenzen</p>
+      <h2>Ausgewählte <em>Arbeiten</em></h2>
+      <div class="divider-gold" aria-hidden="true"></div>
+      <p class="section-heading__sub">
+        Ein kurzer Blick hinter die Kulissen: Ausgangslage, Lösung und was die Zusammenarbeit bewirkt hat.
+      </p>
+    </div>
+
+    <div class="cases__list">
+      {
+        cases.map((c, i) => (
+          <article class="cases__row u-animate" style="--delay: 0ms">
+            <figure class={`cases__media ${i % 2 === 1 ? "cases__media--right" : ""}`}>
+              <img
+                src={c.image}
+                alt={`${c.client} – ${c.imageLabel}`}
+                width={1600}
+                height={1000}
+                loading="lazy"
+                decoding="async"
+              />
+            </figure>
+            <div class="cases__content">
+              <p class="cases__industry">{c.industry}</p>
+              <h3 class="cases__client">{c.client}</h3>
+              <dl class="cases__facts">
+                <div>
+                  <dt>Ausgangslage</dt>
+                  <dd>{c.situation}</dd>
+                </div>
+                <div>
+                  <dt>Lösung</dt>
+                  <dd>{c.solution}</dd>
+                </div>
+                <div>
+                  <dt>Ergebnis</dt>
+                  <dd>{c.result}</dd>
+                </div>
+              </dl>
+            </div>
+          </article>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  .cases {
+    background: var(--color-bg-muted);
+    border-top: 1px solid var(--color-border);
+  }
+
+  .cases__list {
+    margin-top: clamp(2rem, 5vw, 3rem);
+    display: flex;
+    flex-direction: column;
+    gap: clamp(1.25rem, 4vw, 5rem);
+  }
+
+  .cases__row {
+    display: grid;
+    gap: 0;
+  }
+
+  /* Mobile: jede Case ist eine klar getrennte Karte */
+  @media (max-width: 899px) {
+    .cases__row {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: var(--shadow-soft);
+    }
+
+    .cases__media {
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+    }
+
+    .cases__content {
+      padding: clamp(1.25rem, 4vw, 1.75rem);
+    }
+  }
+
+  @media (min-width: 900px) {
+    .cases__row {
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: clamp(2.5rem, 4vw, 4rem);
+      align-items: center;
+    }
+
+    .cases__media--right {
+      order: 2;
+    }
+  }
+
+  .cases__media {
+    margin: 0;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: var(--color-surface);
+    box-shadow: var(--shadow-soft);
+    border: 1px solid var(--color-border);
+  }
+
+  .cases__media img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    object-fit: cover;
+    transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .cases__media:hover img {
+    transform: scale(1.02);
+  }
+
+  .cases__industry {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-gold);
+    margin: 0;
+  }
+
+  .cases__client {
+    margin-top: 0.75rem;
+    font-size: clamp(1.5rem, 2vw + 1rem, 2.5rem);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    text-wrap: balance;
+  }
+
+  .cases__facts {
+    display: grid;
+    gap: clamp(1rem, 2.5vw, 1.25rem);
+    margin-top: clamp(1.1rem, 3vw, 1.5rem);
+  }
+
+  .cases__facts dt {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    margin-bottom: 0.35rem;
+  }
+
+  .cases__facts dd {
+    margin: 0;
+    color: var(--color-text);
+    font-size: 0.9375rem;
+    line-height: 1.65;
+  }
+</style>

@@ -1,0 +1,139 @@
+---
+import { Globe, LayoutDashboard, Puzzle, ArrowRight } from "@lucide/astro";
+
+const services = [
+  {
+    icon: Globe,
+    title: "Websites & Landingpages",
+    description:
+      "Schnelle, SEO-starke Sites und fokussierte Landingpages – für Marken, Kampagnen und Angebote, die konvertieren sollen.",
+    price: "auf Anfrage",
+  },
+  {
+    icon: LayoutDashboard,
+    title: "Tools & Backpanels",
+    description:
+      "Interne Oberflächen, Kundenportale und Admin-Bereiche, die Teams entlasten – ohne Ballast aus der Schublade.",
+    price: "auf Anfrage",
+  },
+  {
+    icon: Puzzle,
+    title: "Custom Software & Integrationen",
+    description:
+      "Schnittstellen, Automatisierung und Massgeschneidertes – dokumentiert, getestet, erweiterbar.",
+    price: "auf Anfrage",
+  },
+];
+---
+
+<section id="leistungen" class="u-section services">
+  <div class="u-container">
+    <div class="section-heading u-animate" style="--delay: 0ms">
+      <p class="u-eyebrow">Leistungen</p>
+      <h2>Was wir <em>umsetzen</em></h2>
+      <div class="divider-gold" aria-hidden="true"></div>
+      <p class="section-heading__sub">
+        Ein Team der Propus GmbH – Qualität und Kommunikation, die Sie erwarten, auf digitale Produkte übertragen.
+      </p>
+    </div>
+
+    <div class="services__grid u-animate" style="--delay: 100ms">
+      {
+        services.map((service) => {
+          const Icon = service.icon;
+          return (
+            <a href="#kontakt" class="card services__item group">
+              <div class="card__inner">
+                <span class="services__icon" aria-hidden="true">
+                  <Icon size={22} stroke-width={1.6} />
+                </span>
+                <h3 class="services__title">{service.title}</h3>
+                <p class="services__desc">{service.description}</p>
+                <div class="services__foot">
+                  <span class="services__price">{service.price}</span>
+                  <span class="link-cta services__cta">Anfragen</span>
+                </div>
+              </div>
+            </a>
+          );
+        })
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  .services {
+    background: var(--color-bg);
+    border-top: 1px solid var(--color-border);
+  }
+
+  .services__grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+    margin-top: clamp(2rem, 5vw, 3rem);
+  }
+
+  @media (min-width: 720px) {
+    .services__grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1.5rem;
+    }
+  }
+
+  @media (min-width: 1000px) {
+    .services__grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  .services__item {
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .services__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 10px;
+    background: color-mix(in oklab, var(--color-gold), transparent 88%);
+    color: var(--color-gold);
+  }
+
+  .services__title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+  }
+
+  .services__desc {
+    color: var(--color-text-muted);
+    font-size: 0.9375rem;
+    line-height: 1.65;
+    flex: 1;
+  }
+
+  .services__foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--color-border);
+    margin-top: auto;
+  }
+
+  .services__price {
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--color-text);
+  }
+
+  .services__cta {
+    font-size: 0.875rem;
+  }
+</style>

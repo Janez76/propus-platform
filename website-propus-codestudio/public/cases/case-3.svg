@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 750" role="img" aria-label="Case 3  Screenshot Platzhalter">
+  <rect width="1200" height="750" fill="#111318"/>
+  <rect x="1" y="1" width="1198" height="748" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="2"/>
+  <g fill="rgba(255,255,255,0.04)">
+    <rect x="40" y="40" width="280" height="670" rx="10"/>
+    <rect x="340" y="40" width="820" height="100" rx="10"/>
+    <rect x="340" y="160" width="400" height="250" rx="10"/>
+    <rect x="760" y="160" width="400" height="250" rx="10"/>
+    <rect x="340" y="430" width="820" height="280" rx="10"/>
+  </g>
+  <g fill="#a0a0a0">
+    <text x="750" y="565" text-anchor="middle" font-size="28" font-family="DM Serif Display, serif">Case 3 · TODO</text>
+    <text x="750" y="598" text-anchor="middle" font-size="14" font-family="DM Sans, sans-serif" fill="#6b6b6b">Kunde &amp; Screenshot folgen</text>
+  </g>
+</svg>

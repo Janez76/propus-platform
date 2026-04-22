@@ -1,0 +1,137 @@
+---
+import "../styles/global.css";
+import Nav from "../components/Nav.astro";
+import Footer from "../components/Footer.astro";
+import { media } from "../data/media";
+
+interface Props {
+  title?: string;
+  description?: string;
+  ogImage?: string;
+  canonical?: string;
+  showNav?: boolean;
+  showFooter?: boolean;
+}
+
+const {
+  title = "Propus Codestudio – Web & interne Tools für KMU",
+  description = "Websites, Landingpages und interne Tools für KMU. Saubere Umsetzung, feste Offerten nach Briefing, klare Prozesse.",
+  ogImage = media.og,
+  canonical,
+  showNav = true,
+  showFooter = true,
+} = Astro.props;
+
+const siteUrl = Astro.site?.toString().replace(/\/$/, "") ?? "https://codestudio.propus.ch";
+const canonicalUrl = canonical ?? new URL(Astro.url.pathname, Astro.site ?? "https://codestudio.propus.ch").toString();
+
+const orgJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "Propus Codestudio",
+  url: siteUrl,
+  logo: `${siteUrl}/favicon.svg`,
+  description,
+  parentOrganization: {
+    "@type": "Organization",
+    name: "Propus GmbH",
+    address: {
+      "@type": "PostalAddress",
+      addressLocality: "Zug",
+      addressCountry: "CH",
+    },
+  },
+  areaServed: {
+    "@type": "Country",
+    name: "Switzerland",
+  },
+  email: "hallo@propus.ch",
+};
+---
+
+<!doctype html>
+<html lang="de-CH">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="generator" content={Astro.generator} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" sizes="any" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+    <link rel="mask-icon" href="/favicon.svg" color="#0f0f0f" />
+    <link rel="preconnect" href="https://images.unsplash.com" crossorigin />
+    <link rel="dns-prefetch" href="https://images.unsplash.com" />
+    <link rel="canonical" href={canonicalUrl} />
+
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#ffffff" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Propus Codestudio" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:image" content={new URL(ogImage, siteUrl).toString()} />
+    <meta property="og:locale" content="de_CH" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={new URL(ogImage, siteUrl).toString()} />
+
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(orgJsonLd)} />
+  </head>
+  <body class="min-h-screen antialiased">
+    {showNav && <Nav />}
+    <main id="main">
+      <slot />
+    </main>
+    {showFooter && <Footer />}
+
+    <script is:inline>
+      (() => {
+        const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        const reveal = (el) => el.classList.add("is-visible");
+        const els = document.querySelectorAll(".u-animate");
+        if (!els.length) return;
+
+        if (prefersReduced || !("IntersectionObserver" in window)) {
+          els.forEach(reveal);
+          return;
+        }
+
+        // Elemente above the fold (Hero) sofort sanft einblenden,
+        // der Rest via Scroll-Observer – ruhiger, wie bei propus.ch.
+        const viewportH = window.innerHeight || 800;
+        const initial = [];
+        const observed = [];
+        els.forEach((el) => {
+          const top = el.getBoundingClientRect().top;
+          if (top < viewportH * 0.85) initial.push(el);
+          else observed.push(el);
+        });
+
+        // Hero-Block: über zwei Frames, damit der Browser vor der Transition
+        // sauber rendert – sonst springt der erste Frame ohne Fade rein.
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            initial.forEach(reveal);
+          });
+        });
+
+        const io = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              if (entry.isIntersecting) {
+                reveal(entry.target);
+                io.unobserve(entry.target);
+              }
+            });
+          },
+          { rootMargin: "0px 0px -10% 0px", threshold: 0.12 },
+        );
+        observed.forEach((el) => io.observe(el));
+      })();
+    </script>
+  </body>
+</html>

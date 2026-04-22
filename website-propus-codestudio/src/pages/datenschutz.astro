@@ -1,0 +1,165 @@
+---
+import Layout from "../layouts/Layout.astro";
+
+const stand = new Date().toLocaleDateString("de-CH", { year: "numeric", month: "long" });
+---
+
+<Layout
+  title="Datenschutzerklärung – Propus Codestudio"
+  description="Datenschutzerklärung gemäss Schweizer Datenschutzgesetz (revDSG) der Propus GmbH, Zug."
+>
+  <section class="u-section legal-page">
+    <div class="u-container legal-page__inner">
+      <a href="/" class="legal-page__back">← Zur Startseite</a>
+
+      <p class="u-eyebrow legal-page__eyebrow">Rechtliches</p>
+      <h1 class="legal-page__title">Datenschutzerklärung</h1>
+      <div class="divider-gold" aria-hidden="true"></div>
+      <p class="legal-page__stand">Stand: {stand}</p>
+
+      <div class="legal-page__body">
+        <section>
+          <h2>1. Verantwortliche Stelle</h2>
+          <p>Verantwortlich im Sinne des revidierten Schweizer Datenschutzgesetzes (revDSG) ist:</p>
+          <p>
+            <strong>Propus GmbH</strong><br />
+            Untere Roostmatt 8, 6300 Zug, Schweiz<br />
+            E-Mail: <a href="mailto:hallo@propus.ch">hallo@propus.ch</a>
+          </p>
+        </section>
+
+        <section>
+          <h2>2. Grundsätze der Datenbearbeitung</h2>
+          <p>
+            Wir bearbeiten Personendaten im Einklang mit dem revDSG – in Treu und Glauben, verhältnismässig und zweckgebunden. Personendaten
+            werden nur so lange aufbewahrt, wie es der jeweilige Zweck erfordert oder gesetzliche Vorgaben es verlangen.
+          </p>
+        </section>
+
+        <section>
+          <h2>3. Erhobene Daten</h2>
+          <p>Beim Besuch dieser Website können folgende Daten bearbeitet werden:</p>
+          <ul>
+            <li>Technische Daten (IP-Adresse, Browser, Betriebssystem, Zeitstempel)</li>
+            <li>Daten aus Kontaktanfragen (Name, E-Mail, Firma, Nachricht)</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>4. Cookies und lokale Speicherung</h2>
+          <p>
+            Diese Website verwendet im aktuellen Stand keine Tracking-Cookies. Technisch notwendige Speicherungen (z. B. für Darstellung oder
+            Sicherheit) können zum Einsatz kommen.
+          </p>
+        </section>
+
+        <section>
+          <h2>5. Auftragsbearbeiter & Hosting</h2>
+          <p>
+            Für Hosting, Versand und Infrastruktur arbeiten wir mit sorgfältig ausgewählten Dienstleistern zusammen. Diese sind vertraglich
+            zum Schutz Ihrer Daten verpflichtet.
+          </p>
+        </section>
+
+        <section>
+          <h2>6. Ihre Rechte</h2>
+          <p>
+            Sie haben jederzeit das Recht auf Auskunft, Berichtigung, Löschung und Einschränkung der Bearbeitung Ihrer Personendaten sowie das
+            Recht auf Datenübertragbarkeit. Wenden Sie sich dazu an die oben genannte Adresse.
+          </p>
+        </section>
+
+        <section>
+          <h2>7. Kontakt & Anpassungen</h2>
+          <p>
+            Bei Fragen zum Datenschutz erreichen Sie uns unter <a href="mailto:hallo@propus.ch">hallo@propus.ch</a>. Diese Erklärung kann
+            jederzeit angepasst werden; massgebend ist die jeweils aktuelle Fassung auf dieser Seite.
+          </p>
+        </section>
+      </div>
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .legal-page {
+    background: var(--color-bg);
+  }
+
+  .legal-page__inner {
+    max-width: 48rem;
+  }
+
+  .legal-page__back {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    text-decoration: none;
+    transition: color var(--transition-fast);
+  }
+
+  .legal-page__back:hover {
+    color: var(--color-gold);
+  }
+
+  .legal-page__eyebrow {
+    margin-top: 2rem;
+  }
+
+  .legal-page__title {
+    margin-top: 0.5rem;
+    font-size: clamp(2.25rem, 3.5vw + 1rem, 3.25rem);
+    font-weight: 600;
+  }
+
+  .legal-page__stand {
+    margin-top: 0.75rem;
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+  }
+
+  .legal-page__body {
+    margin-top: 2.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2.5rem;
+  }
+
+  .legal-page__body h2 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--color-text);
+  }
+
+  .legal-page__body p,
+  .legal-page__body li {
+    color: var(--color-text);
+    font-size: 0.9375rem;
+    line-height: 1.7;
+  }
+
+  .legal-page__body p {
+    margin-top: 0.75rem;
+  }
+
+  .legal-page__body ul {
+    margin-top: 0.75rem;
+    padding-left: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .legal-page__body a {
+    color: var(--color-gold);
+    text-decoration: none;
+  }
+
+  .legal-page__body a:hover {
+    text-decoration: underline;
+  }
+</style>

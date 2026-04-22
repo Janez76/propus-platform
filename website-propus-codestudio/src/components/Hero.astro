@@ -1,0 +1,212 @@
+---
+import { ArrowRight } from "@lucide/astro";
+---
+
+<section id="hero" class="hero">
+  <div class="hero__media" aria-hidden="true">
+    <img
+      src="/hero/hero-workspace.jpg"
+      alt=""
+      width="1376"
+      height="768"
+      loading="eager"
+      decoding="async"
+      fetchpriority="high"
+    />
+    <div class="hero__scrim"></div>
+  </div>
+
+  <div class="u-container hero__inner">
+    <p class="hero__kicker u-animate" style="--delay: 0ms">Codestudio</p>
+
+    <h1 class="hero__headline u-animate" style="--delay: 120ms">
+      Digitale Produkte,<br />
+      <em class="hero__accent">klar gedacht</em> <span class="hero__amp">&amp;</span> sauber gebaut.
+    </h1>
+
+    <p class="hero__lead u-animate" style="--delay: 240ms">
+      Websites, Landingpages und interne Werkzeuge – fokussiert auf Substanz,
+      feste Offerte nach Briefing, klare Prozesse.
+    </p>
+
+    <div class="hero__cta u-animate" style="--delay: 360ms">
+      <a class="btn btn--primary btn--xl hero__primary" href="#kontakt">
+        Projekt besprechen
+        <ArrowRight size={18} />
+      </a>
+      <a class="hero__ghost" href="#referenzen">Arbeiten ansehen</a>
+    </div>
+  </div>
+</section>
+
+<style>
+  .hero {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    min-height: clamp(560px, 88svh, 880px);
+    display: flex;
+    align-items: center;
+    padding-block: clamp(3.5rem, 10vw, 9rem);
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-bg);
+  }
+
+  @media (max-width: 720px) {
+    .hero {
+      min-height: clamp(520px, 72svh, 720px);
+    }
+  }
+
+  .hero__media {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  .hero__media img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center right;
+    filter: saturate(0.95) contrast(0.98);
+    transform: scale(1.02);
+  }
+
+  .hero__scrim {
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0.96) 0%,
+        rgba(255, 255, 255, 0.88) 38%,
+        rgba(255, 255, 255, 0.62) 62%,
+        rgba(255, 255, 255, 0.48) 100%
+      ),
+      linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0) 55%,
+        rgba(255, 255, 255, 0.85) 92%,
+        var(--color-bg) 100%
+      );
+  }
+
+  @media (max-width: 720px) {
+    .hero__media img {
+      object-position: 70% center;
+    }
+    .hero__scrim {
+      background:
+        linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.92) 0%,
+          rgba(255, 255, 255, 0.8) 45%,
+          rgba(255, 255, 255, 0.88) 75%,
+          var(--color-bg) 100%
+        );
+    }
+  }
+
+  .hero__inner {
+    position: relative;
+    max-width: 54rem;
+  }
+
+  .hero__kicker {
+    display: inline-block;
+    margin: 0;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--color-gold);
+  }
+
+  .hero__headline {
+    margin: clamp(1rem, 3vw, 1.5rem) 0 0;
+    font-size: clamp(2.25rem, 5.6vw + 1rem, 5.25rem);
+    line-height: 1.04;
+    letter-spacing: -0.035em;
+    font-weight: 600;
+    color: var(--color-text);
+    text-wrap: balance;
+  }
+
+  @media (min-width: 720px) {
+    .hero__headline {
+      line-height: 1;
+    }
+  }
+
+  .hero__accent {
+    color: var(--color-gold);
+    font-style: italic;
+    font-weight: 500;
+    letter-spacing: -0.025em;
+  }
+
+  .hero__amp {
+    color: var(--color-text-muted);
+    font-weight: 400;
+  }
+
+  .hero__lead {
+    margin: 1.75rem 0 0;
+    font-size: clamp(1.0625rem, 0.4vw + 1rem, 1.2rem);
+    line-height: 1.6;
+    color: var(--color-text-muted);
+    max-width: 34rem;
+  }
+
+  .hero__cta {
+    margin-top: clamp(1.75rem, 4vw, 2.5rem);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem 1.75rem;
+  }
+
+  @media (max-width: 520px) {
+    .hero__cta {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.9rem;
+    }
+    .hero__primary {
+      width: 100%;
+      justify-content: center;
+    }
+    .hero__ghost {
+      align-self: center;
+    }
+  }
+
+  .hero__primary {
+    box-shadow: 0 8px 24px -12px rgba(0, 0, 0, 0.35);
+  }
+
+  .hero__ghost {
+    color: var(--color-text-muted);
+    font-weight: 500;
+    font-size: 0.9375rem;
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    padding-bottom: 0.15rem;
+    transition:
+      color var(--transition-fast),
+      border-color var(--transition-fast);
+  }
+
+  .hero__ghost:hover {
+    color: var(--color-text);
+    border-bottom-color: var(--color-gold);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero__media img {
+      transform: none;
+    }
+  }
+</style>

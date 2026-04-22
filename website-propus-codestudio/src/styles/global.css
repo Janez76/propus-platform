@@ -1,0 +1,678 @@
+@import "tailwindcss";
+
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/inter/700.css";
+
+/* ==========================================================================
+   Tokens – im Stil von propus.ch (light-first, optional dark)
+   ========================================================================== */
+@theme {
+  --color-bg: #ffffff;
+  --color-bg-muted: #f7f7f7;
+  --color-surface: #ffffff;
+  --color-text: #0f0f0f;
+  --color-text-muted: #5a5a5a;
+  --color-border: #e5e5e5;
+  --color-gold: #b8956a;
+  --color-gold-muted: #9a7b52;
+  --color-gold-line: #c5a073;
+  --color-page-rule: rgba(15, 15, 15, 0.14);
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  --space-xs: 0.5rem;
+  --space-sm: 1rem;
+  --space-md: 1.5rem;
+  --space-lg: 2.5rem;
+  --space-xl: 4.5rem;
+  --space-2xl: 6.5rem;
+
+  --content-max: 72rem;
+  --text-max: 40rem;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-btn: 12px;
+
+  --shadow-border: 0 0 0 1px rgba(0, 0, 0, 0.06);
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px -8px rgba(0, 0, 0, 0.08);
+  --shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.06), 0 16px 40px -12px rgba(0, 0, 0, 0.12);
+
+  --header-h: 5.5rem;
+  --transition-fast: 0.16s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-med: 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (max-width: 720px) {
+  :root {
+    --header-h: 4.25rem;
+  }
+}
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    scrollbar-gutter: stable;
+  }
+
+  body {
+    margin: 0;
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--color-text);
+    background: var(--color-bg);
+    overflow-x: hidden;
+    transition:
+      background-color 0.28s ease,
+      color 0.28s ease;
+  }
+
+  body.is-locked {
+    overflow: hidden;
+  }
+
+  img,
+  svg,
+  video {
+    max-width: 100%;
+    height: auto;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-sans);
+    color: var(--color-text);
+    letter-spacing: -0.02em;
+    line-height: 1.12;
+    margin: 0;
+  }
+
+  h1 {
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    line-height: 1.04;
+  }
+
+  h2 em,
+  h3 em {
+    font-style: italic;
+    font-weight: inherit;
+    color: var(--color-gold);
+    letter-spacing: -0.025em;
+  }
+
+  p {
+    margin: 0;
+  }
+
+  ::selection {
+    background-color: var(--color-gold);
+    color: #fff;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+}
+
+/* ==========================================================================
+   Components
+   ========================================================================== */
+@layer components {
+  .u-container {
+    width: 100%;
+    max-width: var(--content-max);
+    margin-inline: auto;
+    padding-inline: clamp(1.25rem, 4vw, 2rem);
+  }
+
+  .u-section {
+    padding-block: clamp(3rem, 7vw, var(--space-2xl));
+  }
+
+  .u-eyebrow {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-gold);
+  }
+
+  .u-text {
+    color: var(--color-text);
+  }
+
+  .u-muted {
+    color: var(--color-text-muted);
+  }
+
+  .u-rule {
+    border: 0;
+    border-top: 1px solid var(--color-page-rule);
+  }
+
+  .divider-gold {
+    width: 4.375rem;
+    height: 0;
+    border: 0;
+    border-top: 1px solid var(--color-gold-line);
+    margin-block: var(--space-md);
+    background: transparent;
+    box-sizing: border-box;
+  }
+
+  .section-heading {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    max-width: var(--text-max);
+  }
+
+  .section-heading--center {
+    margin-inline: auto;
+    align-items: center;
+    text-align: center;
+  }
+
+  .section-heading h2 {
+    font-size: clamp(1.75rem, 2.5vw + 1rem, 3rem);
+    font-weight: 600;
+    text-wrap: balance;
+  }
+
+  .section-heading__sub {
+    color: var(--color-text-muted);
+    font-size: clamp(0.9375rem, 0.3vw + 0.9rem, 1rem);
+    line-height: 1.6;
+    max-width: 36rem;
+  }
+
+  .link-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--color-gold);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    text-decoration: none;
+    transition: color var(--transition-fast);
+  }
+
+  .link-cta::after {
+    content: "→";
+    transition: transform var(--transition-fast);
+  }
+
+  .link-cta:hover {
+    color: var(--color-gold-muted);
+  }
+
+  .link-cta:hover::after {
+    transform: translateX(3px);
+  }
+
+  /* Buttons – Propus.ch Ästhetik: rounded, schlank, klare Hierarchie */
+  .btn {
+    --btn-py: 0.85rem;
+    --btn-px: 1.6rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: var(--btn-py) var(--btn-px);
+    border-radius: var(--radius-btn);
+    font-weight: 600;
+    font-size: 0.9375rem;
+    line-height: 1.25;
+    letter-spacing: 0.01em;
+    text-decoration: none;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition:
+      background 0.18s ease,
+      color 0.18s ease,
+      border-color 0.18s ease,
+      box-shadow 0.18s ease,
+      transform 0.18s ease;
+  }
+
+  .btn:active {
+    transform: translateY(1px);
+  }
+
+  .btn--primary {
+    background: var(--color-text);
+    color: var(--color-bg);
+  }
+
+  .btn--primary:hover {
+    background: #1f1f1f;
+  }
+
+  .btn--outline {
+    background: transparent;
+    color: var(--color-text);
+    border-color: var(--color-border);
+  }
+
+  .btn--outline:hover {
+    border-color: var(--color-gold);
+    color: var(--color-gold);
+  }
+
+  .btn--gold {
+    background: var(--color-gold);
+    color: #fff;
+  }
+
+  .btn--gold:hover {
+    background: var(--color-gold-muted);
+  }
+
+  .btn--xl {
+    --btn-py: 1.05rem;
+    --btn-px: 2rem;
+    font-size: 1rem;
+  }
+
+  /* Card */
+  .card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-soft);
+    transition:
+      border-color var(--transition-med),
+      box-shadow var(--transition-med),
+      transform var(--transition-med);
+  }
+
+  .card:hover {
+    border-color: var(--color-gold-line);
+    box-shadow: var(--shadow-hover);
+    transform: translateY(-3px);
+  }
+
+  .card__inner {
+    padding: clamp(1.5rem, 2.4vw, 2rem);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    height: 100%;
+  }
+
+  /* Animations – ruhiges, sanftes Reveal im Stil von propus.ch */
+  @keyframes u-fade-up {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 10px, 0);
+    }
+    to {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+    }
+  }
+
+  /* Ausgangszustand: unsichtbar, leicht verschoben. Wird per .is-visible
+     gefadet (Scroll-Reveal via IntersectionObserver) oder per .is-initial
+     beim Page-Load (Hero / above-the-fold). Fallback ohne JS: alles sichtbar. */
+  .u-animate {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+    will-change: opacity, transform;
+    transition:
+      opacity 0.9s cubic-bezier(0.22, 1, 0.36, 1),
+      transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+    transition-delay: var(--delay, 0ms);
+  }
+
+  .u-animate.is-visible,
+  .u-animate.is-initial {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+
+  /* No-JS Fallback: nichts verstecken, falls JS ausfällt. */
+  html.no-js .u-animate {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .u-animate {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+
+    .card:hover,
+    .btn:active,
+    .link-cta:hover::after {
+      transform: none;
+    }
+  }
+
+  /* ========================================================================
+     Site footer – wie propus.ch
+     ======================================================================== */
+  .site-footer {
+    --sf-fast: 0.16s ease;
+    margin-top: 0;
+    background: var(--color-bg-muted);
+    border-top: 1px solid var(--color-border);
+    color: var(--color-text);
+  }
+
+  .site-footer__inner {
+    --footer-rail-max: 87.5rem;
+    --footer-rail-gutter: clamp(1.5rem, 5vw, 3.25rem);
+    width: min(100% - 2 * var(--footer-rail-gutter), var(--footer-rail-max));
+    max-width: var(--footer-rail-max);
+    margin-inline: auto;
+    box-sizing: border-box;
+    padding-block: clamp(2rem, 5vw, 2.75rem);
+  }
+
+  .site-footer__stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 0.4rem;
+    max-width: 32rem;
+    margin-inline: auto;
+  }
+
+  .site-footer__name {
+    margin: 0 0 0.15rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--color-text);
+  }
+
+  .site-footer__address {
+    margin: 0;
+    font-size: 0.8125rem;
+    line-height: 1.55;
+    font-style: normal;
+    color: var(--color-text-muted);
+  }
+
+  .site-footer__hours-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    margin-top: 0.5rem;
+  }
+
+  .site-footer__hours-eyebrow {
+    margin: 0;
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    opacity: 0.9;
+  }
+
+  .site-footer__hours {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    margin: 0;
+    padding: 0;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--color-text-muted);
+  }
+
+  .site-footer__hours-days {
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    color: var(--color-text);
+  }
+
+  .site-footer__hours-pipe {
+    color: var(--color-text-muted);
+    font-weight: 600;
+    opacity: 0.65;
+    user-select: none;
+  }
+
+  .site-footer__hours-time {
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+    color: var(--color-text-muted);
+  }
+
+  .site-footer__contact {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem 0.35rem;
+    margin: 0.35rem 0 0;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+  }
+
+  @media (max-width: 420px) {
+    .site-footer__contact {
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .site-footer__contact .site-footer__dot {
+      display: none;
+    }
+  }
+
+  .site-footer__contact-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.25rem 0.35rem;
+    margin: -0.25rem -0.35rem;
+    color: var(--color-text-muted);
+    text-decoration: none;
+    border-radius: var(--radius-sm);
+    transition:
+      color var(--sf-fast),
+      background var(--sf-fast);
+  }
+
+  .site-footer__contact-text {
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.2em;
+  }
+
+  .site-footer__contact-link:hover {
+    color: var(--color-gold-muted);
+  }
+
+  .site-footer__contact-link:focus-visible {
+    outline: 2px solid var(--color-gold);
+    outline-offset: 2px;
+  }
+
+  .site-footer__contact-icon {
+    display: block;
+    flex-shrink: 0;
+  }
+
+  .site-footer__dot {
+    display: inline-block;
+    margin-inline: 0.45rem;
+    color: var(--color-text-muted);
+    font-weight: 700;
+    font-size: 1.25em;
+    line-height: 1;
+    opacity: 0.88;
+    user-select: none;
+    vertical-align: -0.05em;
+  }
+
+  .site-footer__social {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.125rem;
+    margin-top: 0.65rem;
+    padding: 0;
+    list-style: none;
+  }
+
+  .site-footer__icon-link {
+    display: inline-flex;
+    color: var(--color-text-muted);
+    text-decoration: none;
+    transition: color var(--sf-fast);
+  }
+
+  .site-footer__icon-link:hover {
+    color: var(--color-gold-muted);
+  }
+
+  .site-footer__icon-link:focus-visible {
+    outline: 2px solid var(--color-gold);
+    outline-offset: 2px;
+  }
+
+  .site-footer__social-svg {
+    display: block;
+  }
+
+  .site-footer__legal {
+    margin-top: 1.25rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--color-border);
+    width: 100%;
+    display: flex;
+    justify-content: center;
+  }
+
+  .site-footer__legal-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    max-width: min(28rem, 100%);
+    column-gap: clamp(0.35rem, 2.5vw, 0.85rem);
+    row-gap: 0.25rem;
+    font-size: 0.8125rem;
+  }
+
+  .site-footer__legal-item {
+    flex: 0 1 auto;
+    text-align: center;
+  }
+
+  .site-footer__legal-sep {
+    flex: 0 0 auto;
+  }
+
+  .site-footer__legal-sep {
+    margin: 0;
+    padding: 0;
+    align-self: center;
+    list-style: none;
+  }
+
+  .site-footer__legal-pipe {
+    display: block;
+    color: var(--color-text-muted);
+    opacity: 0.55;
+    font-weight: 400;
+    line-height: 1;
+    user-select: none;
+  }
+
+  .site-footer__legal-list a {
+    display: inline-block;
+    padding: 0.2rem 0;
+    color: var(--color-text-muted);
+    text-decoration: none;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    transition: color var(--sf-fast);
+  }
+
+  .site-footer__legal-list a:hover {
+    color: var(--color-text);
+  }
+
+  .site-footer__copy {
+    margin: 1rem 0 0;
+    width: 100%;
+    text-align: center;
+    font-size: 0.6875rem;
+    line-height: 1.65;
+    letter-spacing: 0.03em;
+    color: color-mix(in oklab, var(--color-text-muted), transparent 20%);
+    font-weight: 400;
+    max-width: none;
+  }
+
+  .site-footer__copy-sep {
+    display: inline-block;
+    margin-inline: 0.5rem 0.65rem;
+    color: var(--color-text-muted);
+    font-weight: 500;
+    font-size: 1em;
+    opacity: 0.7;
+    user-select: none;
+  }
+
+  .site-footer__credit-note {
+    white-space: nowrap;
+  }
+
+  @media (max-width: 480px) {
+    .site-footer__credit-note {
+      white-space: normal;
+    }
+  }
+}
