@@ -57,8 +57,22 @@ function StructuredAddressFields({ lang, address, onPatch, testIdPrefix }: Struc
     sessionTokenRef.current = randomUUID();
   }, [onPatch]);
 
-  const onSelectHouseNumber = useCallback((payload: { houseNumber: string; lat: number | null; lng: number | null }) => {
-    onPatch({ houseNumber: payload.houseNumber, lat: payload.lat, lng: payload.lng });
+  const onSelectHouseNumber = useCallback((payload: {
+    houseNumber: string;
+    lat: number | null;
+    lng: number | null;
+    zip?: string;
+    city?: string;
+    canton?: string;
+  }) => {
+    onPatch({
+      houseNumber: payload.houseNumber,
+      lat: payload.lat,
+      lng: payload.lng,
+      ...(payload.zip ? { zip: payload.zip } : {}),
+      ...(payload.city ? { city: payload.city } : {}),
+      ...(payload.canton ? { canton: payload.canton } : {}),
+    });
   }, [onPatch]);
 
   const testId = (suffix: string) => (testIdPrefix ? `${testIdPrefix}-${suffix}` : undefined);

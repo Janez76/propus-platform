@@ -151,8 +151,22 @@ export function StepLocation({ lang }: { lang: Lang }) {
     setCoords({ lat, lng: lon });
   }, [setCoords]);
 
-  const onSelectHouseNumber = useCallback((payload: { houseNumber: string; lat: number | null; lng: number | null }) => {
-    setObjectAddress({ houseNumber: payload.houseNumber, lat: payload.lat, lng: payload.lng });
+  const onSelectHouseNumber = useCallback((payload: {
+    houseNumber: string;
+    lat: number | null;
+    lng: number | null;
+    zip?: string;
+    city?: string;
+    canton?: string;
+  }) => {
+    setObjectAddress({
+      houseNumber: payload.houseNumber,
+      lat: payload.lat,
+      lng: payload.lng,
+      ...(payload.zip ? { zip: payload.zip } : {}),
+      ...(payload.city ? { city: payload.city } : {}),
+      ...(payload.canton ? { canton: payload.canton } : {}),
+    });
     const addr = useBookingWizardStore.getState().object.address;
     setParsedAddress({ street: addr.street, houseNumber: addr.houseNumber, zip: addr.zip, city: addr.city });
     setAddress(addr.formatted || `${addr.street} ${addr.houseNumber}, ${addr.zip} ${addr.city}`);

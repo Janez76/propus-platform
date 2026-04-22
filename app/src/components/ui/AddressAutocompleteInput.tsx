@@ -58,11 +58,15 @@ type AddressAutocompleteInputProps = Omit<
   onSelectCoords?: (lat: number, lon: number) => void;
   /** Strukturierte Adressdaten bei Auswahl (Strasse, Hausnummer, PLZ, Ort). */
   onSelectParsed?: (parsed: ParsedAddress) => void;
-  /** Nur für mode="houseNumber": Rückgabe nur der Hausnummer + ggf. präziserer Koordinaten. */
+  /** Nur für mode="houseNumber": Hausnummer, Koordinaten; PLZ/Ort/Canton liefert die Places-Details-Antwort mit. */
   onSelectHouseNumber?: (payload: {
     houseNumber: string;
     lat: number | null;
     lng: number | null;
+    /** Aus Google-Place-Details, wenn vorhanden (füllt PLZ/Ort nach kaskadiertem Flow). */
+    zip?: string;
+    city?: string;
+    canton?: string;
   }) => void;
   /** Nur für mode="houseNumber": Kontext zur Einschränkung der Vorschläge. */
   streetContext?: StreetContext;
@@ -437,10 +441,16 @@ export function AddressAutocompleteInput({
     onChange(hn);
     setSelectError("");
     if (onSelectHouseNumber) {
+      const z = (result.zip && String(result.zip).trim()) || undefined;
+      const c = (result.city && String(result.city).trim()) || undefined;
+      const cant = (result.canton && String(result.canton).trim()) || undefined;
       onSelectHouseNumber({
         houseNumber: hn,
         lat: typeof result.lat === "number" ? result.lat : null,
         lng: typeof result.lng === "number" ? result.lng : (typeof result.lon === "number" ? result.lon : null),
+        ...(z ? { zip: z } : {}),
+        ...(c ? { city: c } : {}),
+        ...(cant ? { canton: cant } : {}),
       });
     }
     if (onSelectCoords && typeof result.lat === "number") {
