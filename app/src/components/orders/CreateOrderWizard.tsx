@@ -19,7 +19,9 @@ import { getProducts, type Product } from "../../api/products";
 import { getPhotographers, type Photographer } from "../../api/photographers";
 import { getCustomerContacts, type Customer, type CustomerContact } from "../../api/customers";
 import { CustomerAutocompleteInput } from "../ui/CustomerAutocompleteInput";
-import { AddressAutocompleteInput } from "../ui/AddressAutocompleteInput";
+import { AddressAutocompleteInput, type ParsedAddress } from "../ui/AddressAutocompleteInput";
+import { StructuredAddressForm } from "../address/StructuredAddressForm";
+import { randomUUID } from "../../lib/selekto/randomId";
 import { DbFieldHint } from "../ui/DbFieldHint";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "../ui/dialog";
 import { cn } from "../../lib/utils";
@@ -67,6 +69,8 @@ type OrderFormData = {
   altFirstName: string;
   altName: string;
   altStreet: string;
+  /** Getrennt wie Buchung; vor Submit → eine `altStreet`-Zeile fürs Backend. */
+  altHouseNumber: string;
   altZip: string;
   altCity: string;
   altZipcity: string;
@@ -120,6 +124,15 @@ type OrderFormData = {
   travelZoneLabel: string;
 };
 
+/** Trennt „Bahnhofstrasse 12a“ in Strasse + Hausnummer (gleiche Heuristik wie Buchung). */
+function splitSwissStreetLine(line: string): { street: string; houseNumber: string } {
+  const t = (line || "").trim();
+  if (!t) return { street: "", houseNumber: "" };
+  const m = t.match(/^(.*?)(?:\s+(\d+[A-Za-z]?[\w/-]*))$/);
+  if (!m) return { street: t, houseNumber: "" };
+  return { street: String(m[1] || "").trim(), houseNumber: String(m[2] || "").trim() };
+}
+
 const EMPTY_FORM: OrderFormData = {
   salutation: "",
   first_name: "",
@@ -139,6 +152,7 @@ const EMPTY_FORM: OrderFormData = {
   altFirstName: "",
   altName: "",
   altStreet: "",
+  altHouseNumber: "",
   altZip: "",
   altCity: "",
   altZipcity: "",
@@ -233,6 +247,8 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
 
   // Abort controller for availability calls
   const abortRef = useRef<AbortController | null>(null);
+  const billingAddressSessionRef = useRef(randomUUID());
+  const altAddressSessionRef = useRef(randomUUID());
 
   const inputClass = cn(
     "w-full rounded-lg border px-3 py-2 text-sm transition-colors",
@@ -266,20 +282,22 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
     const isSynthEmail = (e?: string) => String(e || "").toLowerCase().endsWith("@company.local");
     const zipcity = initialCustomer.zipcity || [initialCustomer.zip, initialCustomer.city].filter(Boolean).join(" ");
     const zipMatch = zipcity.match(/^(\d{4,5})\s+(.+)$/);
+    const { street: billStreet, houseNumber: billHn } = splitSwissStreetLine(initialCustomer.street || "");
     setFormData((prev) => ({
       ...prev,
       customerName: initialCustomer.name || "",
       customerEmail: isSynthEmail(initialCustomer.email) ? "" : (initialCustomer.email || ""),
       customerPhone: initialCustomer.phone || "",
       company: initialCustomer.company || "",
-      billingStreet: initialCustomer.street || "",
+      billingStreet: billStreet,
+      billingHouseNumber: billHn,
       billingZipcity: zipcity,
       billingZip: zipMatch ? zipMatch[1] : (initialCustomer.zip || ""),
       billingCity: zipMatch ? zipMatch[2] : (initialCustomer.city || zipcity),
-      billingHouseNumber: "",
       onsiteName: "",
       onsitePhone: "",
     }));
+    billingAddressSessionRef.current = randomUUID();
     setSelectedContactId("");
     setCustomerContacts([]);
     if (initialCustomer.id && token) {
@@ -529,6 +547,7 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
     if (!formData.customerName.trim()) return t(lang, "wizard.error.requiredFields");
     if (!formData.customerEmail.trim()) return t(lang, "wizard.error.requiredFields");
     if (!formData.billingStreet.trim()) return t(lang, "wizard.error.requiredFields");
+    if (!formData.billingHouseNumber.trim()) return t(lang, "wizard.error.requiredFields");
     if (!formData.billingZip.trim()) return t(lang, "wizard.error.requiredFields");
     if (!formData.billingCity.trim()) return t(lang, "wizard.error.requiredFields");
     if (!isObjectAddressComplete()) return t(lang, "wizard.error.requiredFields");
@@ -541,7 +560,8 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
   }
 
   function handleSelectCustomer(customer: { id?: number; name?: string; email?: string; phone?: string; phone_mobile?: string; company?: string; salutation?: string; first_name?: string; onsite_name?: string; onsite_phone?: string; street?: string; zipcity?: string; [key: string]: unknown }) {
-    const street = customer.street || "";
+    const rawLine = customer.street || "";
+    const { street, houseNumber: hn } = splitSwissStreetLine(rawLine);
     const zipcity = customer.zipcity || "";
     const zipMatch = zipcity.match(/^(\d{4,5})\s+(.+)$/);
     const isSynthEmail = (e?: string) => String(e || "").toLowerCase().endsWith("@company.local");
@@ -557,11 +577,12 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
       onsiteName: "",
       onsitePhone: "",
       billingStreet: street,
+      billingHouseNumber: hn,
       billingZipcity: zipcity,
       billingZip: zipMatch ? zipMatch[1] : "",
       billingCity: zipMatch ? zipMatch[2] : zipcity,
-      billingHouseNumber: prev.billingHouseNumber,
     }));
+    billingAddressSessionRef.current = randomUUID();
 
     const cid = customer.id ?? null;
     setSelectedContactId("");
@@ -628,7 +649,7 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
         altCompany: formData.altCompany,
         altFirstName: formData.altFirstName,
         altName: formData.altName,
-        altStreet: formData.altStreet,
+        altStreet: [formData.altStreet, formData.altHouseNumber].filter(Boolean).join(" ").trim(),
         altZip: formData.altZip,
         altCity: formData.altCity,
         altZipcity: formData.altZipcity,
@@ -944,71 +965,58 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                   </div>
                 )}
 
-                {/* Rechnungsadresse */}
+                {/* Rechnungsadresse (gleiche 4-Feld-Kaskade wie Buchung Schritt 1) */}
                 <div className="pt-3 border-t border-slate-100 border-[var(--border-soft)]">
                   <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-subtle)] mb-2">
                     {t(lang, "wizard.section.billingAddress")}
                   </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="sm:col-span-2">
-                      <label className={labelClass}>{t(lang, "wizard.label.billingStreet")} *</label>
-                      <AddressAutocompleteInput
-                        mode="street"
-                        value={formData.billingStreet}
-                        onChange={(v) => updateField("billingStreet", v)}
-                        onSelectParsed={(parsed) => {
-                          setFormData((prev) => ({
+                  <div className="space-y-3">
+                    <StructuredAddressForm
+                      lang={lang}
+                      className={{ input: inputClass, label: labelClass }}
+                      value={{
+                        street: formData.billingStreet,
+                        houseNumber: formData.billingHouseNumber,
+                        zip: formData.billingZip,
+                        city: formData.billingCity,
+                      }}
+                      sessionToken={billingAddressSessionRef.current}
+                      dataTestIdPrefix="order-wizard-billing"
+                      onChangeStreet={(v) => updateField("billingStreet", v)}
+                      onSelectStreet={(p: ParsedAddress) => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          billingStreet: p.street,
+                          billingHouseNumber: p.houseNumber ?? "",
+                          billingZip: p.zip || "",
+                          billingCity: p.city || "",
+                          billingZipcity: [p.zip, p.city].filter(Boolean).join(" "),
+                        }));
+                        billingAddressSessionRef.current = randomUUID();
+                      }}
+                      onChangeHouseNumber={(v) => updateField("billingHouseNumber", v)}
+                      onSelectHouseNumber={(payload) => {
+                        setFormData((prev) => {
+                          const zip = payload.zip || prev.billingZip;
+                          const city = payload.city || prev.billingCity;
+                          return {
                             ...prev,
-                            billingStreet: `${parsed.street} ${parsed.houseNumber}`.trim(),
-                            billingHouseNumber: parsed.houseNumber,
-                            billingZip: parsed.zip,
-                            billingCity: parsed.city,
-                            billingZipcity: `${parsed.zip} ${parsed.city}`.trim(),
-                          }));
-                        }}
-                        onSelectZipcity={(zipcity) => {
-                          if (!zipcity) return;
-                          const m = zipcity.match(/^(\d{4,5})\s+(.+)$/);
-                          setFormData((prev) => ({
-                            ...prev,
-                            billingZipcity: zipcity,
-                            billingZip: m ? m[1] : prev.billingZip,
-                            billingCity: m ? m[2] : prev.billingCity,
-                          }));
-                        }}
-                        lang={lang}
-                        className={inputClass}
-                        placeholder="Musterstrasse 12"
-                        minChars={3}
-                      />
+                            billingHouseNumber: payload.houseNumber,
+                            ...(payload.zip ? { billingZip: payload.zip } : {}),
+                            ...(payload.city ? { billingCity: payload.city } : {}),
+                            billingZipcity: [zip, city].filter(Boolean).join(" "),
+                          };
+                        });
+                      }}
+                      onZipDigitsChange={(raw) => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          billingZip: raw,
+                          billingZipcity: [raw, prev.billingCity].filter(Boolean).join(" "),
+                        }));
+                      }}
+                    />
                     <DbFieldHint fieldPath="billing.street" />
-                    </div>
-                    <div>
-                      <label className={labelClass}>{t(lang, "wizard.label.billingZip")} *</label>
-                      <input
-                        type="text"
-                        value={formData.billingZip}
-                        onChange={(e) => {
-                          updateField("billingZip", e.target.value);
-                          updateField("billingZipcity", `${e.target.value} ${formData.billingCity}`.trim());
-                        }}
-                        className={inputClass}
-                        placeholder="8001"
-                      />
-                    </div>
-                    <div>
-                      <label className={labelClass}>{t(lang, "wizard.label.billingCity")} *</label>
-                      <input
-                        type="text"
-                        value={formData.billingCity}
-                        onChange={(e) => {
-                          updateField("billingCity", e.target.value);
-                          updateField("billingZipcity", `${formData.billingZip} ${e.target.value}`.trim());
-                        }}
-                        className={inputClass}
-                        placeholder="Zürich"
-                      />
-                    </div>
                     <div>
                       <label className={labelClass}>{t(lang, "booking.step4.orderRef")}</label>
                       <input
@@ -1052,38 +1060,51 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                           <input type="text" value={formData.altName} onChange={(e) => updateField("altName", e.target.value)} className={inputClass} />
                         </div>
                         <div className="sm:col-span-2">
-                          <label className={labelClass}>{t(lang, "booking.step4.street")}</label>
-                          <AddressAutocompleteInput
-                            mode="street"
-                            value={formData.altStreet}
-                            onChange={(v) => updateField("altStreet", v)}
-                            onSelectParsed={(parsed) => {
+                          <StructuredAddressForm
+                            lang={lang}
+                            className={{ input: inputClass, label: labelClass }}
+                            value={{
+                              street: formData.altStreet,
+                              houseNumber: formData.altHouseNumber,
+                              zip: formData.altZip,
+                              city: formData.altCity,
+                            }}
+                            sessionToken={altAddressSessionRef.current}
+                            dataTestIdPrefix="order-wizard-alt"
+                            onChangeStreet={(v) => updateField("altStreet", v)}
+                            onSelectStreet={(p: ParsedAddress) => {
                               setFormData((prev) => ({
                                 ...prev,
-                                altStreet: `${parsed.street} ${parsed.houseNumber}`.trim(),
-                                altZip: parsed.zip,
-                                altCity: parsed.city,
-                                altZipcity: `${parsed.zip} ${parsed.city}`.trim(),
+                                altStreet: p.street,
+                                altHouseNumber: p.houseNumber ?? "",
+                                altZip: p.zip || "",
+                                altCity: p.city || "",
+                                altZipcity: [p.zip, p.city].filter(Boolean).join(" "),
+                              }));
+                              altAddressSessionRef.current = randomUUID();
+                            }}
+                            onChangeHouseNumber={(v) => updateField("altHouseNumber", v)}
+                            onSelectHouseNumber={(payload) => {
+                              setFormData((prev) => {
+                                const z = payload.zip || prev.altZip;
+                                const c = payload.city || prev.altCity;
+                                return {
+                                  ...prev,
+                                  altHouseNumber: payload.houseNumber,
+                                  ...(payload.zip ? { altZip: payload.zip } : {}),
+                                  ...(payload.city ? { altCity: payload.city } : {}),
+                                  altZipcity: [z, c].filter(Boolean).join(" "),
+                                };
+                              });
+                            }}
+                            onZipDigitsChange={(raw) => {
+                              setFormData((prev) => ({
+                                ...prev,
+                                altZip: raw,
+                                altZipcity: [raw, prev.altCity].filter(Boolean).join(" "),
                               }));
                             }}
-                            onSelectZipcity={(zipcity) => {
-                              if (!zipcity) return;
-                              const m = zipcity.match(/^(\d{4,5})\s+(.+)$/);
-                              setFormData((prev) => ({ ...prev, altZipcity: zipcity, altZip: m ? m[1] : prev.altZip, altCity: m ? m[2] : prev.altCity }));
-                            }}
-                            lang={lang}
-                            className={inputClass}
-                            placeholder="Musterstrasse 12"
-                            minChars={3}
                           />
-                        </div>
-                        <div>
-                          <label className={labelClass}>{t(lang, "booking.step4.zip")}</label>
-                          <input type="text" value={formData.altZip} onChange={(e) => { updateField("altZip", e.target.value); updateField("altZipcity", `${e.target.value} ${formData.altCity}`.trim()); }} className={inputClass} placeholder="8001" />
-                        </div>
-                        <div>
-                          <label className={labelClass}>{t(lang, "booking.step4.city")}</label>
-                          <input type="text" value={formData.altCity} onChange={(e) => { updateField("altCity", e.target.value); updateField("altZipcity", `${formData.altZip} ${e.target.value}`.trim()); }} className={inputClass} placeholder="Zürich" />
                         </div>
                         <div>
                           <label className={labelClass}>{t(lang, "booking.step4.email")}</label>

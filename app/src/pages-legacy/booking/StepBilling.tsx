@@ -1,7 +1,8 @@
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useRef } from "react";
 import { Building2, CreditCard, LogIn, MapPin, Plus, Trash2, User } from "lucide-react";
 import { randomUUID } from "../../lib/selekto/randomId";
-import { AddressAutocompleteInput, type ParsedAddress, type StreetContext } from "../../components/ui/AddressAutocompleteInput";
+import { type ParsedAddress } from "../../components/ui/AddressAutocompleteInput";
+import { StructuredAddressForm } from "../../components/address/StructuredAddressForm";
 import {
   useBookingWizardStore,
   type StructuredAddress,
@@ -28,22 +29,11 @@ type StructuredAddressFieldsProps = {
   testIdPrefix?: string;
 };
 
-/** 4-Feld-Adress-Block (Strasse + Hausnummer cascading; PLZ/Ort readonly). */
-function StructuredAddressFields({ lang, address, onPatch, testIdPrefix }: StructuredAddressFieldsProps) {
+/** 4-Feld-Block inkl. optionalem Adresszusatz (gleiche Logik wie Schritt 1, siehe `StructuredAddressForm`). */
+function StructuredAddressFields({ lang, address, onPatch, testIdPrefix = "booking-input" }: StructuredAddressFieldsProps) {
   const sessionTokenRef = useRef(randomUUID());
 
-  const streetContext = useMemo((): StreetContext | undefined => {
-    if (!address.street) return undefined;
-    return { street: address.street, zip: address.zip, city: address.city };
-  }, [address.street, address.zip, address.city]);
-  // PLZ-Feld ist editierbar, sobald eine Strasse gesetzt ist (siehe StepLocation
-  // für die Begründung — Remount-safe und keystroke-safe).
-  const zipEditable = Boolean(address.street);
-  const zipMissing = Boolean(address.street) && !address.zip;
-
   const onSelectStreet = useCallback((p: ParsedAddress) => {
-    // Autocomplete kann die Hausnummer, PLZ und Ort mitliefern — alle Felder
-    // übernehmen, damit ein Klick die komplette Adresse setzt.
     onPatch({
       street: p.street,
       houseNumber: p.houseNumber ?? "",
@@ -75,92 +65,31 @@ function StructuredAddressFields({ lang, address, onPatch, testIdPrefix }: Struc
     });
   }, [onPatch]);
 
-  const testId = (suffix: string) => (testIdPrefix ? `${testIdPrefix}-${suffix}` : undefined);
+  const testIdSuffix = (suffix: string) => (testIdPrefix ? `${testIdPrefix}-${suffix}` : undefined);
 
   return (
-    <div className="grid gap-4 sm:grid-cols-3">
-      <div className="sm:col-span-2">
-        <label className={labelClass}>
-          {t(lang, "booking.step1.street")} <span className="text-red-500">*</span>
-        </label>
-        <AddressAutocompleteInput
-          data-testid={testId("street")}
-          value={address.street}
-          onChange={(v) => onPatch({ street: v })}
-          mode="street"
-          allowPartial
-          sessionToken={sessionTokenRef.current}
-          onSelectParsed={onSelectStreet}
-          lang={lang}
-          className={inputClass}
-          placeholder={t(lang, "booking.step1.streetPlaceholder")}
-        />
-      </div>
+    <div className="space-y-4">
+      <StructuredAddressForm
+        lang={lang}
+        className={{ input: inputClass, label: labelClass }}
+        value={{
+          street: address.street,
+          houseNumber: address.houseNumber,
+          zip: address.zip,
+          city: address.city,
+        }}
+        sessionToken={sessionTokenRef.current}
+        dataTestIdPrefix={testIdPrefix}
+        onChangeStreet={(v) => onPatch({ street: v })}
+        onSelectStreet={onSelectStreet}
+        onChangeHouseNumber={(v) => onPatch({ houseNumber: v })}
+        onSelectHouseNumber={onSelectHouseNumber}
+        onZipDigitsChange={(raw) => onPatch({ zip: raw })}
+      />
       <div>
-        <label className={labelClass}>
-          {t(lang, "booking.step1.houseNumber")} <span className="text-red-500">*</span>
-        </label>
-        {streetContext ? (
-          <AddressAutocompleteInput
-            data-testid={testId("housenumber")}
-            value={address.houseNumber}
-            onChange={(v) => onPatch({ houseNumber: v })}
-            mode="houseNumber"
-            streetContext={streetContext}
-            sessionToken={sessionTokenRef.current}
-            onSelectHouseNumber={onSelectHouseNumber}
-            lang={lang}
-            className={inputClass}
-            placeholder={t(lang, "booking.step1.houseNumberPlaceholder")}
-          />
-        ) : (
-          <input
-            type="text"
-            disabled
-            className={cn(inputClass, "cursor-not-allowed opacity-50")}
-            placeholder={t(lang, "booking.step1.houseNumberHint")}
-          />
-        )}
-      </div>
-      <div>
-        <label className={labelClass}>
-          {t(lang, "booking.step1.zip")}
-          {zipMissing ? <span className="text-red-500"> *</span> : null}
-        </label>
-        <input
-          type="text"
-          readOnly={!zipEditable}
-          value={address.zip}
-          onChange={(e) => onPatch({ zip: e.target.value })}
-          className={cn(inputClass, zipEditable ? "" : "cursor-default select-none")}
-          placeholder={zipEditable ? "z. B. 8050" : "—"}
-          tabIndex={zipEditable ? 0 : -1}
-          inputMode="numeric"
-          autoComplete="postal-code"
-          maxLength={10}
-          data-testid={testId("zip")}
-        />
-        {zipMissing ? (
-          <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
-            {t(lang, "booking.step1.zipMissingHint")}
-          </p>
-        ) : null}
-      </div>
-      <div className="sm:col-span-2">
-        <label className={labelClass}>{t(lang, "booking.step1.city")}</label>
-        <input
-          type="text"
-          readOnly
-          value={address.city}
-          className={cn(inputClass, "cursor-default select-none")}
-          placeholder="—"
-          tabIndex={-1}
-        />
-      </div>
-      <div className="sm:col-span-3">
         <label className={labelClass}>{t(lang, "booking.step1.addressSuffix")}</label>
         <input
-          data-testid={testId("suffix")}
+          data-testid={testIdSuffix("suffix")}
           type="text"
           autoComplete="off"
           value={address.addressSuffix}

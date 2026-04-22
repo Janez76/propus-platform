@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, type ChangeEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { MapPin, Home, Ruler, Layers, DoorOpen, Plus, Trash2 } from "lucide-react";
 import { randomUUID } from "../../lib/selekto/randomId";
-import { AddressAutocompleteInput, type ParsedAddress, type StreetContext } from "../../components/ui/AddressAutocompleteInput";
+import { type ParsedAddress } from "../../components/ui/AddressAutocompleteInput";
+import { StructuredAddressForm } from "../../components/address/StructuredAddressForm";
 import { useBookingWizardStore, type OnsiteContactRow } from "../../store/bookingWizardStore";
 import { AddressPreviewMap } from "./AddressPreviewMap";
 import { t, type Lang } from "../../i18n";
@@ -52,18 +53,6 @@ export function StepLocation({ lang }: { lang: Lang }) {
   const houseNumberValue = object.address.houseNumber;
   const zipValue = object.address.zip;
   const cityValue = object.address.city;
-
-  const streetContext = useMemo((): StreetContext | undefined => {
-    if (!streetValue) return undefined;
-    return { street: streetValue, zip: zipValue, city: cityValue };
-  }, [streetValue, zipValue, cityValue]);
-  // PLZ-Feld ist editierbar, sobald eine Strasse gesetzt ist. Deckt ab:
-  //  - Autocomplete-Treffer ohne PLZ (User tippt PLZ manuell)
-  //  - Autocomplete-Treffer mit falscher PLZ (User korrigiert)
-  //  - Remount nach Step-Navigation (zipEditable muss persistiert bleiben)
-  // Der ursprüngliche Lock war paternalistisch; Google liegt regelmässig daneben.
-  const zipEditable = Boolean(streetValue);
-  const zipMissing = Boolean(streetValue) && !zipValue;
 
   async function lookupTravelZone(canton: string, zip: string) {
     if (!canton && !zip) return;
@@ -175,17 +164,20 @@ export function StepLocation({ lang }: { lang: Lang }) {
     }
   }, [setObjectAddress, setParsedAddress, setAddress, setCoords]);
 
-  const onZipInputChange = useCallback(
-    (e: ChangeEvent<HTMLInputElement>) => {
-      const raw = e.target.value.replace(/\D/g, "").slice(0, 5);
-      setObjectAddress({ zip: raw });
-      if (parsedAddress) {
-        setParsedAddress({ ...parsedAddress, zip: raw });
-      }
-      setAddress(useBookingWizardStore.getState().object.address.formatted);
-    },
-    [setObjectAddress, setParsedAddress, setAddress, parsedAddress],
-  );
+  const onZipDigitsChange = useCallback((raw: string) => {
+    setObjectAddress({ zip: raw });
+    if (parsedAddress) {
+      setParsedAddress({ ...parsedAddress, zip: raw });
+    }
+    setAddress(useBookingWizardStore.getState().object.address.formatted);
+  }, [setObjectAddress, setParsedAddress, setAddress, parsedAddress]);
+
+  const onChangeHouseNumber = useCallback((v: string) => {
+    setObjectAddress({ houseNumber: v });
+    if (parsedAddress && parsedAddress.houseNumber) {
+      setParsedAddress({ ...parsedAddress, houseNumber: "" });
+    }
+  }, [setObjectAddress, setParsedAddress, parsedAddress]);
 
   return (
     <div className="space-y-6">
@@ -194,102 +186,26 @@ export function StepLocation({ lang }: { lang: Lang }) {
         <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[var(--text-muted)]">
           <MapPin className="h-4 w-4 text-[var(--accent)]" /> {t(lang, "booking.step1.address")}
         </h3>
-        <div className="grid gap-4 sm:grid-cols-3">
-          {/* Strasse */}
-          <div className="sm:col-span-2">
-            <label className={labelClass}>
-              {t(lang, "booking.step1.street")} <span className="text-red-500">*</span>
-            </label>
-            <AddressAutocompleteInput
-              data-testid="booking-input-street"
-              value={streetValue}
-              onChange={(v) => setObjectAddress({ street: v })}
-              mode="street"
-              allowPartial
-              sessionToken={sessionTokenRef.current}
-              onSelectParsed={onSelectStreet}
-              onSelectCoords={onSelectCoords}
-              lang={lang}
-              className={inputClass}
-              placeholder={t(lang, "booking.step1.streetPlaceholder")}
-            />
-          </div>
-          {/* Hausnummer */}
-          <div>
-            <label className={labelClass}>
-              {t(lang, "booking.step1.houseNumber")} <span className="text-red-500">*</span>
-            </label>
-            {streetContext ? (
-              <AddressAutocompleteInput
-                data-testid="booking-input-housenumber"
-                value={houseNumberValue}
-                onChange={(v) => {
-                  setObjectAddress({ houseNumber: v });
-                  // Free-Text-Eingabe entwertet die zuvor validierte Nummer.
-                  // Erst onSelectHouseNumber setzt parsedAddress.houseNumber
-                  // wieder — Validation in validateStep1 verlangt diese.
-                  if (parsedAddress && parsedAddress.houseNumber) {
-                    setParsedAddress({ ...parsedAddress, houseNumber: "" });
-                  }
-                }}
-                mode="houseNumber"
-                streetContext={streetContext}
-                sessionToken={sessionTokenRef.current}
-                onSelectHouseNumber={onSelectHouseNumber}
-                requireSelection
-                lang={lang}
-                className={inputClass}
-                placeholder={t(lang, "booking.step1.houseNumberPlaceholder")}
-              />
-            ) : (
-              <input
-                type="text"
-                disabled
-                className={cn(inputClass, "cursor-not-allowed opacity-50")}
-                placeholder={t(lang, "booking.step1.houseNumberHint")}
-              />
-            )}
-          </div>
-          {/* PLZ — editierbar, sobald Strasse gesetzt (v. a. wenn Autocomplete keine PLZ liefert) */}
-          <div>
-            <label className={labelClass}>
-              {t(lang, "booking.step1.zip")}
-              {zipMissing ? <span className="text-red-500"> *</span> : null}
-            </label>
-            <input
-              data-testid="booking-input-zip"
-              type="text"
-              inputMode="numeric"
-              autoComplete="postal-code"
-              value={zipValue}
-              readOnly={!zipEditable}
-              tabIndex={zipEditable ? 0 : -1}
-              onChange={onZipInputChange}
-              className={cn(inputClass, !zipEditable && "cursor-not-allowed opacity-75")}
-              placeholder={t(lang, "booking.step1.zipAutoPlaceholder")}
-              aria-readonly={!zipEditable}
-            />
-            {zipMissing ? (
-              <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
-                {t(lang, "booking.step1.zipMissingHint")}
-              </p>
-            ) : null}
-          </div>
-          {/* Ort — readonly, wird automatisch aus Strassen-/Hausnummer-Auswahl gesetzt */}
-          <div className="sm:col-span-2">
-            <label className={labelClass}>{t(lang, "booking.step1.city")}</label>
-            <input
-              data-testid="booking-input-city"
-              type="text"
-              value={cityValue}
-              readOnly
-              tabIndex={-1}
-              className={cn(inputClass, "cursor-not-allowed opacity-75")}
-              placeholder={t(lang, "booking.step1.cityAutoPlaceholder")}
-              aria-readonly="true"
-            />
-          </div>
-        </div>
+        <StructuredAddressForm
+          lang={lang}
+          className={{ input: inputClass, label: labelClass }}
+          value={{
+            street: streetValue,
+            houseNumber: houseNumberValue,
+            zip: zipValue,
+            city: cityValue,
+          }}
+          sessionToken={sessionTokenRef.current}
+          dataTestIdPrefix="booking-input"
+          requireSelectionHouseNumber
+          enableOnSelectCoords
+          onSelectCoords={onSelectCoords}
+          onChangeStreet={(v) => setObjectAddress({ street: v })}
+          onSelectStreet={onSelectStreet}
+          onChangeHouseNumber={onChangeHouseNumber}
+          onSelectHouseNumber={onSelectHouseNumber}
+          onZipDigitsChange={onZipDigitsChange}
+        />
         {config?.googleMapsKey ? (
           <AddressPreviewMap
             apiKey={config.googleMapsKey}
