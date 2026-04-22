@@ -39,6 +39,12 @@ function loadOptionalEnvFile(envPath) {
   path.join(__dirname, "..", ".env.vps.secrets"),
   path.join(__dirname, "..", ".env.vps"),
 ].forEach(loadOptionalEnvFile);
+/** Bevorzugt GOOGLE_PLACES_API_KEY; sonst derselbe technische Key wie fürs Maps-Autocomplete (GOOGLE_MAPS_API_KEY). */
+function googlePlacesOrMapsApiKey() {
+  return String(
+    process.env.GOOGLE_PLACES_API_KEY || process.env.GOOGLE_MAPS_API_KEY || ""
+  ).trim();
+}
 const logger = require("./logger");
 const console = logger.createModuleConsole();
 require("isomorphic-fetch");
@@ -8872,7 +8878,7 @@ app.get(ADDRESS_AUTOCOMPLETE_ENDPOINT, async (req, res) => {
     const minChars = hasStreetContext ? 1 : 3;
     if (!q || q.length < minChars) return res.json({ ok: true, results: [] });
 
-    const apiKey = String(process.env.GOOGLE_PLACES_API_KEY || "").trim();
+    const apiKey = googlePlacesOrMapsApiKey();
     if (!apiKey) return res.json({ ok: true, results: [] });
 
     // Im Hausnummer-Modus Strassennamen in die Query einspiegeln,
@@ -9028,7 +9034,7 @@ app.get("/api/zip-city-suggest", async (req, res) => {
     const minChars = mode === "zip" ? 2 : 2;
     if (!q || q.length < minChars) return res.json({ ok: true, results: [] });
 
-    const apiKey = String(process.env.GOOGLE_PLACES_API_KEY || "").trim();
+    const apiKey = googlePlacesOrMapsApiKey();
     if (!apiKey) return res.json({ ok: true, results: [] });
 
     const acUrl = new URL("https://maps.googleapis.com/maps/api/place/autocomplete/json");
@@ -9094,7 +9100,7 @@ app.get("/api/zip-city-suggest", async (req, res) => {
 });
 
 app.get("/api/config", async (_req, res) => {
-  const key = String(process.env.GOOGLE_PLACES_API_KEY || "").trim();
+  const key = googlePlacesOrMapsApiKey();
   const mapId = String(process.env.GOOGLE_MAP_ID || "DEMO_MAP_ID").trim();
   let dbFieldHintsEnabled = false;
   let provisionalBookingEnabled = false;
@@ -9142,7 +9148,7 @@ app.get("/api/reverse-geocode", async (req, res) => {
   try {
     const lat = parseFloat(req.query.lat);
     const lng = parseFloat(req.query.lng);
-    const apiKey = String(process.env.GOOGLE_PLACES_API_KEY || "").trim();
+    const apiKey = googlePlacesOrMapsApiKey();
     if (!Number.isFinite(lat) || !Number.isFinite(lng) || !apiKey) {
       return res.json({ ok: true, addr: "", parsed: null });
     }
@@ -9196,7 +9202,7 @@ app.get("/api/reviews", async (req, res) => {
       return res.json(_reviewsCache);
     }
 
-    const apiKey = String(process.env.GOOGLE_PLACES_API_KEY || "").trim();
+    const apiKey = googlePlacesOrMapsApiKey();
     const placeId = String(process.env.GOOGLE_REVIEWS_PLACE_ID || "").trim();
 
     if (!apiKey || !placeId) {
@@ -9300,9 +9306,19 @@ app.get("/api/admin/gbp/callback", async (req, res) => {
 
 // Alle Google Reviews laden – GBP OAuth wenn Location gesetzt, sonst Places API Fallback
 async function _loadPlacesReviews() {
-  const apiKey = String(process.env.GOOGLE_PLACES_API_KEY || "").trim();
+  const apiKey = googlePlacesOrMapsApiKey();
   const placeId = String(process.env.GOOGLE_REVIEWS_PLACE_ID || "").trim();
-  if (!apiKey || !placeId) throw new Error("Keine Google Reviews konfiguriert");
+  if (!apiKey || !placeId) {
+    // Kein 500: Admin-UI zeigt freundlichen Hinweis statt „Fehler beim Laden …“
+    return {
+      ok: true,
+      reviews: [],
+      averageRating: null,
+      totalReviewCount: null,
+      source: 'none',
+      notConfigured: true,
+    };
+  }
   const placesUrl = new URL("https://maps.googleapis.com/maps/api/place/details/json");
   placesUrl.searchParams.set("place_id", placeId);
   placesUrl.searchParams.set("fields", "name,rating,user_ratings_total,reviews");

@@ -70,7 +70,10 @@ $filesToDeploy = @(
     @{ local = "tours\lib\subscriptions.js";   remote = "$RemotePath/tours/lib/subscriptions.js" },
     @{ local = "tours\lib\payrexx.js";         remote = "$RemotePath/tours/lib/payrexx.js" },
     @{ local = "tours\lib\customer-lookup.js"; remote = "$RemotePath/tours/lib/customer-lookup.js" },
-    @{ local = "tours\lib\microsoft-graph.js"; remote = "$RemotePath/tours/lib/microsoft-graph.js" }
+    @{ local = "tours\lib\microsoft-graph.js"; remote = "$RemotePath/tours/lib/microsoft-graph.js" },
+    # Booking Backend (Unified Auth + Portal-Bridge)
+    @{ local = "booking\server.js";            remote = "$RemotePath/booking/server.js" },
+    @{ local = "booking\portal-auth-bridge.js"; remote = "$RemotePath/booking/portal-auth-bridge.js" }
 )
 
 $deployed = @()
@@ -103,8 +106,8 @@ if ($DryRun -or $deployed.Count -eq 0) {
 # ─── 3. Dateien in Container kopieren ────────────────────────────────────────
 Write-Host "[3/4] Dateien in Container kopieren..." -ForegroundColor Yellow
 
-# tours/lib komplett
-$libCopy = Invoke-SSH "docker cp ${RemotePath}/tours/lib/. ${Container}:/app/tours/lib/ && docker cp ${RemotePath}/tours/routes/admin-api.js ${Container}:/app/tours/routes/admin-api.js 2>/dev/null; echo CP_DONE"
+# tours/lib + booking komplett
+$libCopy = Invoke-SSH "docker cp ${RemotePath}/tours/lib/. ${Container}:/app/tours/lib/ && docker cp ${RemotePath}/tours/routes/admin-api.js ${Container}:/app/tours/routes/admin-api.js 2>/dev/null && docker cp ${RemotePath}/booking/server.js ${Container}:/app/booking/server.js 2>/dev/null && docker cp ${RemotePath}/booking/portal-auth-bridge.js ${Container}:/app/booking/portal-auth-bridge.js 2>/dev/null; echo CP_DONE"
 if ($libCopy -match "CP_DONE") {
     Write-Host "  OK" -ForegroundColor Green
 } else {
