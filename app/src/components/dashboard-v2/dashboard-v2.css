@@ -390,7 +390,9 @@
   margin-bottom: 14px;
 }
 
-/* ─── Pipeline ───────────────────────────────────────────────────────────── */
+/* ─── Pipeline ─────────────────────────────────────────────────────────────
+   Sichtbare Trennlinien: var(--d-border) ist im Dark nahezu deckungsgleich
+   mit dem Card-Bereich; daher Gold-/Gradient-Strich, nicht flacher Border. ─── */
 .dv2-pipeline {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -399,12 +401,33 @@
 }
 .dv2-pcol {
   min-width: 0;
-  padding: 0 0 0 12px;
-  border-left: 1px solid var(--d-border);
+  position: relative;
 }
 .dv2-pcol:first-child {
-  border-left: none;
   padding-left: 0;
+}
+/* 4 Spalten, breiter Viewport: vertikale Linie nur zwischen Spalten */
+@media (min-width: 1281px) {
+  .dv2-pcol:not(:first-child) {
+    padding-left: 0.9rem;
+  }
+  .dv2-pcol:not(:first-child)::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.15rem;
+    bottom: 0.15rem;
+    width: 1px;
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--d-gold) 25%, transparent) 0%,
+      var(--d-gold) 18%,
+      var(--d-gold) 82%,
+      color-mix(in srgb, var(--d-gold) 25%, transparent) 100%
+    );
+    box-shadow: 0 0 0 0.5px color-mix(in srgb, var(--d-gold) 20%, transparent);
+    pointer-events: none;
+  }
 }
 .dv2-pcol-head {
   font-size: 10px;
@@ -596,17 +619,17 @@
   }
   .dv2-pcol:nth-child(1) { padding: 0 8px 0 0; }
   .dv2-pcol:nth-child(2) {
-    border-left: 1px solid var(--d-border);
+    border-left: 1px solid var(--d-border-gold);
     padding: 0 0 0 16px;
   }
   .dv2-pcol:nth-child(3) {
-    border-top: 1px solid var(--d-border);
+    border-top: 1px solid var(--d-border-gold);
     margin-top: 4px;
     padding: 10px 8px 0 0;
   }
   .dv2-pcol:nth-child(4) {
-    border-top: 1px solid var(--d-border);
-    border-left: 1px solid var(--d-border);
+    border-top: 1px solid var(--d-border-gold);
+    border-left: 1px solid var(--d-border-gold);
     margin-top: 4px;
     padding: 10px 0 0 16px;
   }
@@ -632,7 +655,7 @@
     margin-top: 0;
   }
   .dv2-pcol + .dv2-pcol {
-    border-top: 1px solid var(--d-border);
+    border-top: 1px solid var(--d-border-gold);
     margin-top: 12px;
     padding-top: 12px;
   }
