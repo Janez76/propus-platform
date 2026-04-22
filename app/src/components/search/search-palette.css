@@ -1,0 +1,231 @@
+/* Global Search Palette — Modal-Overlay mit Typeahead-Groups.
+   Nutzt die vorhandenen --surface/--text-*-Variablen der App. */
+
+.propus-search-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 10vh 16px 16px;
+  background: color-mix(in oklab, #000 45%, transparent);
+  backdrop-filter: blur(6px);
+  animation: propus-search-fade-in 0.12s ease;
+}
+
+@keyframes propus-search-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.propus-search-modal {
+  width: 100%;
+  max-width: 640px;
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface, #fff);
+  border: 1px solid var(--border-soft, rgba(0, 0, 0, 0.08));
+  border-radius: 12px;
+  box-shadow: 0 20px 60px -10px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  font-family: "DM Sans", system-ui, sans-serif;
+}
+
+/* ─── Header / Input ──────────────────────────────────────────────────── */
+.propus-search-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 14px 12px 16px;
+  border-bottom: 1px solid var(--border-soft, rgba(0, 0, 0, 0.08));
+}
+.propus-search-header__icon {
+  width: 18px;
+  height: 18px;
+  color: var(--text-subtle, #888);
+  flex-shrink: 0;
+}
+.propus-search-header__spinner {
+  width: 16px;
+  height: 16px;
+  color: var(--accent, #5B8FF9);
+  animation: propus-search-spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes propus-search-spin {
+  to { transform: rotate(360deg); }
+}
+.propus-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  font: inherit;
+  font-size: 15px;
+  color: var(--text-main, #111);
+}
+.propus-search-input::placeholder {
+  color: var(--text-subtle, #999);
+}
+.propus-search-close {
+  background: none;
+  border: none;
+  padding: 4px;
+  border-radius: 6px;
+  color: var(--text-subtle, #888);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  flex-shrink: 0;
+}
+.propus-search-close:hover {
+  background: color-mix(in oklab, var(--accent, #5B8FF9) 10%, transparent);
+  color: var(--text-main, #111);
+}
+
+/* ─── Body / Scrollbereich ───────────────────────────────────────────── */
+.propus-search-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 6px 6px 8px;
+}
+
+.propus-search-error {
+  margin: 8px 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: color-mix(in oklab, #e74c3c 12%, transparent);
+  color: #c0392b;
+  font-size: 13px;
+}
+
+/* ─── Gruppen ─────────────────────────────────────────────────────────── */
+.propus-search-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px 0;
+}
+.propus-search-group__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px 4px;
+  color: var(--text-subtle, #888);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.propus-search-group__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.propus-search-group__action {
+  background: none;
+  border: none;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--text-subtle, #888);
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+}
+.propus-search-group__action:hover {
+  background: color-mix(in oklab, var(--accent, #5B8FF9) 8%, transparent);
+  color: var(--text-main, #111);
+}
+
+/* ─── Items ──────────────────────────────────────────────────────────── */
+.propus-search-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  font: inherit;
+  text-align: left;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.1s;
+  color: var(--text-main, #111);
+}
+.propus-search-item[data-active="true"] {
+  background: color-mix(in oklab, var(--accent, #5B8FF9) 10%, transparent);
+}
+.propus-search-item__icon {
+  width: 16px;
+  height: 16px;
+  color: var(--text-subtle, #888);
+  flex-shrink: 0;
+  stroke-width: 1.6;
+}
+.propus-search-item[data-active="true"] .propus-search-item__icon {
+  color: var(--accent, #5B8FF9);
+}
+.propus-search-item__text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.propus-search-item__title {
+  font-size: 13.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.propus-search-item__subtitle {
+  font-size: 12px;
+  color: var(--text-subtle, #888);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ─── Empty / Hint ───────────────────────────────────────────────────── */
+.propus-search-empty,
+.propus-search-hint {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--text-subtle, #888);
+  font-size: 13px;
+}
+
+/* ─── Footer ─────────────────────────────────────────────────────────── */
+.propus-search-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-top: 1px solid var(--border-soft, rgba(0, 0, 0, 0.08));
+  color: var(--text-subtle, #888);
+  font-size: 11.5px;
+  background: color-mix(in oklab, var(--surface, #fff) 80%, transparent);
+}
+.propus-search-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border: 1px solid var(--border-soft, rgba(0, 0, 0, 0.15));
+  border-radius: 4px;
+  font-size: 10.5px;
+  color: var(--text-main, #111);
+  background: var(--surface-raised, #f5f5f5);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
