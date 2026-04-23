@@ -7979,7 +7979,20 @@ async function postExxasAuftrag(credentials, body) {
   if (!exxasId) {
     return { ok: false, err: "EXXAS: Keine ID in der Antwort" };
   }
-  return { ok: true, exxasId };
+  // Zusaetzlich die menschlich lesbare Auftrags-Nummer (z.B. 500854) per GET holen.
+  let exxasNummer = null;
+  try {
+    const getRes = await fetch(`${apiBase}/documents/${exxasId}`, {
+      headers,
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (getRes.ok) {
+      const getData = await getRes.json().catch(() => ({}));
+      const m = Array.isArray(getData.message) ? getData.message[0] : getData.message;
+      if (m && m.nummer != null) exxasNummer = String(m.nummer);
+    }
+  } catch { /* nummer ist optional */ }
+  return { ok: true, exxasId, exxasNummer };
 }
 
 app.post("/api/admin/orders/:orderNo/exxas-create-service-order", requireAdmin, async (req, res) => {
@@ -8045,8 +8058,12 @@ app.post("/api/admin/orders/:orderNo/exxas-create-service-order", requireAdmin, 
       await db.setExxasError(orderNo, result.err);
       return res.status(422).json({ ok: false, error: result.err });
     }
-    await db.setExxasOrderId(orderNo, result.exxasId);
-    return res.json({ ok: true, exxasOrderId: result.exxasId });
+    await db.setExxasOrderId(orderNo, result.exxasId, result.exxasNummer || null);
+    return res.json({
+      ok: true,
+      exxasOrderId: result.exxasId,
+      exxasOrderNumber: result.exxasNummer || null,
+    });
   } catch (err) {
     const msg = err && err.message ? String(err.message) : "Exxas-Aufruf fehlgeschlagen";
     try {

@@ -387,6 +387,20 @@ export function OrderTable({
         <td className="w-[110px] px-3 py-3 text-right align-middle tabular-nums">
           <span className="text-sm font-semibold text-[var(--text-main)]">{formatCurrency(o.total || 0)}</span>
         </td>
+        <td className="w-[90px] px-3 py-3 align-middle">
+          {o.exxasOrderNumber ? (
+            <span
+              className="font-mono text-xs text-[var(--text-muted)]"
+              title={o.exxasOrderId ? `ID ${o.exxasOrderId}` : undefined}
+            >
+              {o.exxasOrderNumber}
+            </span>
+          ) : o.exxasOrderId ? (
+            <span className="font-mono text-xs text-[var(--text-subtle)]">{o.exxasOrderId}</span>
+          ) : (
+            <span className="text-xs text-[var(--text-subtle)]">—</span>
+          )}
+        </td>
         <td className="w-[120px] px-3 py-3 align-middle">
           <div className="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100" onClick={(e) => e.stopPropagation()}>
             <IconBtn title={tooltipMessage} onClick={() => onOpenMessages(o.orderNo)}>
@@ -509,6 +523,7 @@ export function OrderTable({
                 <th className="w-[190px] px-3 py-2.5"><SortHeader label={t(lang, "orders.table.appointment")} keyName="appointment" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} /></th>
                 <th className="w-[130px] px-3 py-2.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-subtle)]">{t(lang, "orders.table.employee")}</th>
                 <th className="w-[110px] px-3 py-2.5"><SortHeader label={t(lang, "orders.table.total")} keyName="total" align="right" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} /></th>
+                <th className="w-[90px] px-3 py-2.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-subtle)]">{t(lang, "orders.table.exxas")}</th>
                 <th className="w-[120px] px-3 py-2.5" />
               </tr>
             </thead>
@@ -588,7 +603,7 @@ function GroupRows({
             aria-label={selectLabel}
           />
         </td>
-        <td colSpan={7} className="px-3 py-2">
+        <td colSpan={8} className="px-3 py-2">
           <div className="flex items-center gap-2 text-xs font-medium text-[var(--text-muted)]">
             {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5 rotate-180" />}
             <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: dotColor }} />

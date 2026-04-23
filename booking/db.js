@@ -2441,12 +2441,16 @@ async function reactivatePhotographer(key) {
 
 // ─── Exxas-Status ─────────────────────────────────────────────────────────────
 
-async function setExxasOrderId(orderNo, exxasOrderId) {
-  await updateOrderFields(orderNo, {
+async function setExxasOrderId(orderNo, exxasOrderId, exxasOrderNumber) {
+  const fields = {
     exxas_order_id: exxasOrderId,
     exxas_status: "sent",
     exxas_error: null,
-  });
+  };
+  if (exxasOrderNumber !== undefined) {
+    fields.exxas_order_number = exxasOrderNumber;
+  }
+  await updateOrderFields(orderNo, fields);
 }
 
 async function setExxasError(orderNo, errorMsg) {
@@ -2510,6 +2514,7 @@ function dbRowToRecord(row) {
     photographerEventId: row.photographer_event_id,
     officeEventId: row.office_event_id,
     exxasOrderId: row.exxas_order_id,
+    exxasOrderNumber: row.exxas_order_number || null,
     exxasStatus: row.exxas_status,
     exxasError: row.exxas_error,
     customerId: row.customer_id,

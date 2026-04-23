@@ -778,6 +778,7 @@
   "orders.table.address": "Address",
   "orders.table.appointment": "Appointment",
   "orders.table.total": "Total",
+  "orders.table.exxas": "Exxas",
   "orders.table.status": "Status",
   "orders.table.actions": "Actions",
   "orders.section.pending": "Pending ({{count}})",
