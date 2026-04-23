@@ -762,6 +762,37 @@ async function upsertAppSettings(entries) {
   }
 }
 
+/**
+ * Exxas-Laufzeitkonfig lesen – sucht zuerst in tour_manager.settings
+ * (Key: exxas_runtime_config, gespeichert via /settings/exxas),
+ * dann Fallback auf booking.app_settings (Key: integration.exxas.config).
+ * Gibt null zurück, wenn nichts gefunden.
+ */
+async function getExxasRuntimeConfig() {
+  if (!getPool()) return null;
+  // 1. tour_manager.settings
+  try {
+    const r = await query(
+      "SELECT value FROM tour_manager.settings WHERE key = 'exxas_runtime_config' LIMIT 1"
+    );
+    const val = r.rows[0]?.value;
+    if (val && typeof val === "object" && !Array.isArray(val)) return val;
+  } catch {
+    // schema/table might not exist – fall through
+  }
+  // 2. booking.app_settings (via search_path)
+  try {
+    const r = await query(
+      "SELECT value_json FROM app_settings WHERE key = 'integration.exxas.config' LIMIT 1"
+    );
+    const val = r.rows[0]?.value_json;
+    if (val && typeof val === "object" && !Array.isArray(val)) return val;
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
 // ─── Discount Codes ───────────────────────────────────────────────────────────
 
 function mapDiscountRow(row) {
@@ -2583,6 +2614,7 @@ module.exports = {
   getAppSetting,
   setAppSetting,
   upsertAppSettings,
+  getExxasRuntimeConfig,
   listDiscountCodes,
   getDiscountCodeByCode,
   getDiscountCodeById,

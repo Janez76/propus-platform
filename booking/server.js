@@ -7915,14 +7915,11 @@ function buildExxasAuthHeadersForOrders(credentials) {
 async function getExxasCredentialsForServiceOrder() {
   const DEFAULT_ENDPOINT =
     "https://api.exxas.net/cloud/D239DEE32E17B4B49567C7650FDF2160/api/v2/customers?limit=1";
-  let fromDb = null;
-  if (db.getAppSetting) {
-    const cfg = await db.getAppSetting("integration.exxas.config");
-    if (cfg && typeof cfg === "object" && !Array.isArray(cfg)) {
-      fromDb = cfg;
-    }
-  }
-  // API-Key aus DB oder Umgebung; Endpoint/Passwort aus DB mit Env-Override (Secrets oft nur in .env)
+
+  // tour_manager.settings (exxas_runtime_config) zuerst, dann booking.app_settings
+  const fromDb = db.getExxasRuntimeConfig ? await db.getExxasRuntimeConfig().catch(() => null) : null;
+
+  // API-Key aus DB oder Umgebung; Endpoint/Passwort aus DB mit Env-Override
   const envKey = String(process.env.EXXAS_API_KEY || process.env.EXXAS_JWT || "").trim();
   const apiKey = String((fromDb && fromDb.apiKey) || "").trim() || envKey;
   if (!apiKey) return null;
