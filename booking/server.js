@@ -8012,7 +8012,7 @@ app.post("/api/admin/orders/:orderNo/exxas-create-service-order", requireAdmin, 
     const result = await postExxasAuftrag(credentials, body);
     if (!result.ok) {
       await db.setExxasError(orderNo, result.err);
-      return res.status(502).json({ ok: false, error: result.err });
+      return res.status(422).json({ ok: false, error: result.err });
     }
     await db.setExxasOrderId(orderNo, result.exxasId);
     return res.json({ ok: true, exxasOrderId: result.exxasId });
