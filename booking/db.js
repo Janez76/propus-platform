@@ -2469,6 +2469,25 @@ async function setCustomerExxasContactId(email, contactId) {
 
 // Findet die Exxas-Kontakt-ID eines Customer-Contacts (core.customer_contacts)
 // anhand der E-Mail (case-insensitive) und des zugehoerigen Kunden.
+async function getOrderMatterportTourUrl(orderNo) {
+  const n = Number(orderNo);
+  if (!Number.isFinite(n)) return null;
+  try {
+    const { rows } = await query(
+      `SELECT tour_url
+         FROM tour_manager.tours
+        WHERE booking_order_no = $1
+          AND COALESCE(tour_url, '') <> ''
+        ORDER BY updated_at DESC NULLS LAST, id DESC
+        LIMIT 1`,
+      [n]
+    );
+    return rows[0]?.tour_url || null;
+  } catch {
+    return null;
+  }
+}
+
 async function findCustomerContactExxasIdByEmail(customerId, email) {
   const normEmail = String(email || "").toLowerCase().trim();
   if (!normEmail || !customerId) return null;
@@ -2646,6 +2665,7 @@ module.exports = {
   upsertAppSettings,
   getExxasRuntimeConfig,
   findCustomerContactExxasIdByEmail,
+  getOrderMatterportTourUrl,
   listDiscountCodes,
   getDiscountCodeByCode,
   getDiscountCodeById,

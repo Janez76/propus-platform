@@ -7995,6 +7995,39 @@ async function postExxasAuftrag(credentials, body) {
   return { ok: true, exxasId, exxasNummer };
 }
 
+// Aktualisiert die Zusatzfelder ("optionalX") eines Exxas-Dokuments per POST /documents/:id.
+// Beispiel: { optional1: "https://matterport…", optional7: "https://cloud.propus.ch/…" }
+async function patchExxasDocumentOptionalFields(credentials, exxasId, fields) {
+  const endpoint = String(credentials?.endpoint || "").trim();
+  if (!endpoint || !exxasId) return { ok: false, err: "Exxas: fehlende Daten" };
+  const apiBase = findExxasApiV2BaseForOrders(endpoint);
+  if (!apiBase) return { ok: false, err: "Exxas Endpoint ungueltig" };
+  // Nur Keys mit Wert uebertragen
+  const payload = {};
+  for (const [k, v] of Object.entries(fields || {})) {
+    if (v == null) continue;
+    const s = String(v).trim();
+    if (s) payload[k] = s;
+  }
+  if (Object.keys(payload).length === 0) return { ok: true, skipped: true };
+  const headers = buildExxasAuthHeadersForOrders(credentials);
+  try {
+    const res = await fetch(`${apiBase}/documents/${encodeURIComponent(exxasId)}`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      return { ok: false, err: `EXXAS Update HTTP ${res.status}: ${text.slice(0, 200)}` };
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, err: `EXXAS Update Fehler: ${e && e.message ? e.message : String(e)}` };
+  }
+}
+
 app.post("/api/admin/orders/:orderNo/exxas-create-service-order", requireAdmin, async (req, res) => {
   try {
     if (!process.env.DATABASE_URL) {
@@ -8058,11 +8091,41 @@ app.post("/api/admin/orders/:orderNo/exxas-create-service-order", requireAdmin, 
       await db.setExxasError(orderNo, result.err);
       return res.status(422).json({ ok: false, error: result.err });
     }
+
+    // Zusatzfelder im Exxas-Dokument aktualisieren:
+    //   optional1 = "Link der Tour"  → Matterport-URL (tour_manager.tours.tour_url)
+    //   optional7 = "Link Drive:"     → Nextcloud-Finale-Share (customer_folder share)
+    let matterportUrl = null;
+    let nextcloudFinalUrl = null;
+    try {
+      if (db.getOrderMatterportTourUrl) {
+        matterportUrl = await db.getOrderMatterportTourUrl(orderNo).catch(() => null);
+      }
+      if (db.getOrderFolderLink) {
+        const link = await db.getOrderFolderLink(orderNo, "customer_folder").catch(() => null);
+        nextcloudFinalUrl = link && link.nextcloud_share_url ? String(link.nextcloud_share_url) : null;
+      }
+    } catch { /* non-fatal */ }
+
+    try {
+      const patchRes = await patchExxasDocumentOptionalFields(credentials, result.exxasId, {
+        optional1: matterportUrl,
+        optional7: nextcloudFinalUrl,
+      });
+      if (!patchRes.ok && !patchRes.skipped) {
+        console.warn("[exxas] Zusatzfelder konnten nicht aktualisiert werden:", patchRes.err);
+      }
+    } catch (e) {
+      console.warn("[exxas] Zusatzfelder-Update-Fehler:", e && e.message ? e.message : e);
+    }
+
     await db.setExxasOrderId(orderNo, result.exxasId, result.exxasNummer || null);
     return res.json({
       ok: true,
       exxasOrderId: result.exxasId,
       exxasOrderNumber: result.exxasNummer || null,
+      exxasLinkTour: matterportUrl || null,
+      exxasLinkDrive: nextcloudFinalUrl || null,
     });
   } catch (err) {
     const msg = err && err.message ? String(err.message) : "Exxas-Aufruf fehlgeschlagen";
