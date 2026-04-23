@@ -53,6 +53,7 @@ platform/         → Docker-Container (Express + Next.js)
 - **Logik (Backend):** `booking/customer-dedup.js` – `findMatchingCustomer` (exact/strong/weak); starke Treffer: Kontakt an bestehendem Kunden; schwache: neuer Kunde + Eintrag in `booking.customer_duplicate_candidates` (siehe Migrationen 087/088).
 - **Analyse (read-only):** `node scripts/find-duplicate-customers.js` (bzw. `cd booking && npm run analyze-duplicate-customers`) – gruppiert potenzielle Dubletten; geteilte Report-Logik: `scripts/lib/duplicate-customers-report.js` (wird von CLI + nächtlichem Job genutzt).
 - **Nightly:** Hintergrundjob in `booking/jobs/duplicate-customers-nightly.js` (nur mit `feature.backgroundJobs=true`); optional Mail an `OFFICE_EMAIL` bzw. `DUPLICATE_CANDIDATES_REPORT_EMAIL` bei **neu** eingefügten Kandidaten.
+- **Stammdaten vs. Exxas (read-only):** `cd booking && npm run audit:customer-stammdaten` → `scripts/customer-stammdaten-audit.js` (CSV/MD in `booking/analysis-customer-stammdaten/`, gitignored). Bewusste Differenzen beim **Firmennamen** in `EXXAS_COMPANY_NAME_DIFF_IGNORE` (z. B. Kunde 74: «Mirai Real Estate AG» in Propus, Exxas-Kartenname «Tonet»).
 
 ## Kunden-E-Mail-Zuordnung (Email Aliases)
 

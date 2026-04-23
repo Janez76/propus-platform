@@ -12,6 +12,8 @@ scripts/local.github-actions.secrets.env
 core/dumps/
 data/pgdata/
 booking/data/
+booking/analysis-customer-stammdaten/
+analysis-nas-customer-folders/
 *.log
 .tmp*/
 .DS_Store

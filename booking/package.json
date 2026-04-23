@@ -7,7 +7,8 @@
     "start": "node server.js",
     "test": "node --test \"tests/*.test.js\"",
     "analyze-duplicate-customers": "node ../scripts/find-duplicate-customers.js --export",
-    "analyze-duplicate-customers:help": "node ../scripts/find-duplicate-customers.js --help"
+    "analyze-duplicate-customers:help": "node ../scripts/find-duplicate-customers.js --help",
+    "audit:customer-stammdaten": "node ../scripts/customer-stammdaten-audit.js --export"
   },
   "keywords": [],
   "author": "",
