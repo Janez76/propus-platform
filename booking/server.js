@@ -7915,25 +7915,30 @@ function buildExxasAuthHeadersForOrders(credentials) {
 async function getExxasCredentialsForServiceOrder() {
   const DEFAULT_ENDPOINT =
     "https://api.exxas.net/cloud/D239DEE32E17B4B49567C7650FDF2160/api/v2/customers?limit=1";
+  let fromDb = null;
   if (db.getAppSetting) {
     const cfg = await db.getAppSetting("integration.exxas.config");
-    if (cfg && typeof cfg === "object" && String(cfg.apiKey || "").trim()) {
-      return {
-        apiKey: String(cfg.apiKey || "").trim(),
-        appPassword: String(cfg.appPassword || ""),
-        endpoint: String(cfg.endpoint || DEFAULT_ENDPOINT).trim() || DEFAULT_ENDPOINT,
-        authMode: String(cfg.authMode || "").toLowerCase() === "bearer" ? "bearer" : "apiKey",
-      };
+    if (cfg && typeof cfg === "object" && !Array.isArray(cfg)) {
+      fromDb = cfg;
     }
   }
-  const apiKey = String(process.env.EXXAS_API_KEY || process.env.EXXAS_JWT || "").trim();
+  // API-Key aus DB oder Umgebung; Endpoint/Passwort aus DB mit Env-Override (Secrets oft nur in .env)
+  const envKey = String(process.env.EXXAS_API_KEY || process.env.EXXAS_JWT || "").trim();
+  const apiKey = String((fromDb && fromDb.apiKey) || "").trim() || envKey;
   if (!apiKey) return null;
-  return {
-    apiKey,
-    appPassword: String(process.env.EXXAS_APP_PASSWORD || ""),
-    endpoint: String(process.env.EXXAS_ENDPOINT || DEFAULT_ENDPOINT).trim() || DEFAULT_ENDPOINT,
-    authMode: String(process.env.EXXAS_AUTH_MODE || "").toLowerCase() === "bearer" ? "bearer" : "apiKey",
-  };
+  const appPassword = String(
+    (fromDb && fromDb.appPassword) || process.env.EXXAS_APP_PASSWORD || ""
+  );
+  const endpoint = String(
+    (fromDb && fromDb.endpoint) || process.env.EXXAS_ENDPOINT || DEFAULT_ENDPOINT
+  ).trim() || DEFAULT_ENDPOINT;
+  const authMode =
+    String(
+      (fromDb && fromDb.authMode) || process.env.EXXAS_AUTH_MODE || "apiKey"
+    ).toLowerCase() === "bearer"
+      ? "bearer"
+      : "apiKey";
+  return { apiKey, appPassword, endpoint, authMode };
 }
 
 function extractExxasCreateId(data) {
@@ -7993,7 +7998,12 @@ app.post("/api/admin/orders/:orderNo/exxas-create-service-order", requireAdmin, 
     }
     const credentials = await getExxasCredentialsForServiceOrder();
     if (!credentials || !credentials.apiKey) {
-      return res.status(503).json({ ok: false, error: "EXXAS API nicht konfiguriert" });
+      return res.status(503).json({
+        ok: false,
+        error:
+          "EXXAS API nicht konfiguriert. Admin: unter /settings/exxas API-Key, App-Passwort und Endpoint speichern " +
+          "oder auf dem Server EXXAS_API_KEY (bzw. EXXAS_JWT) und ggf. EXXAS_APP_PASSWORD, EXXAS_ENDPOINT setzen.",
+      });
     }
     const addressLine = String(order.address || order.billing?.street || order.customerStreet || "").trim() || "Ohne Adresse";
     const bezeichnung = `${addressLine} #${String(order.orderNo || orderNo)}`;
