@@ -382,7 +382,10 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
       headers: { Authorization: `Bearer ${token}` },
       signal: controller.signal,
     })
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((data: AvailabilityResponse) => {
         if (controller.signal.aborted) return;
 

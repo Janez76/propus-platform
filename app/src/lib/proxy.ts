@@ -39,7 +39,18 @@ export async function proxyToExpress(
   label: string,
   opts?: { redirect?: RequestRedirect },
 ): Promise<NextResponse> {
-  const targetUrl = `${getTarget()}${targetPath}`;
+  let targetUrl: string;
+  try {
+    targetUrl = `${getTarget()}${targetPath}`;
+  } catch (e) {
+    logger.error(`${label} proxy config error`, {
+      error: e instanceof Error ? e.message : String(e),
+    });
+    return NextResponse.json(
+      { error: `${label} backend not configured (PLATFORM_INTERNAL_URL missing)` },
+      { status: 503 },
+    );
+  }
 
   try {
     const headers = new Headers();
