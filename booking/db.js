@@ -2463,6 +2463,30 @@ async function setCustomerExxasContactId(email, contactId) {
   );
 }
 
+// Findet die Exxas-Kontakt-ID eines Customer-Contacts (core.customer_contacts)
+// anhand der E-Mail (case-insensitive) und des zugehoerigen Kunden.
+async function findCustomerContactExxasIdByEmail(customerId, email) {
+  const normEmail = String(email || "").toLowerCase().trim();
+  if (!normEmail || !customerId) return null;
+  try {
+    const { rows } = await query(
+      `SELECT exxas_contact_id
+         FROM core.customer_contacts
+        WHERE customer_id = $1
+          AND LOWER(TRIM(COALESCE(email, ''))) = $2
+          AND exxas_contact_id IS NOT NULL
+          AND exxas_contact_id <> ''
+        ORDER BY updated_at DESC NULLS LAST, id ASC
+        LIMIT 1`,
+      [Number(customerId), normEmail]
+    );
+    if (!rows[0]) return null;
+    return { exxasContactId: rows[0].exxas_contact_id };
+  } catch {
+    return null;
+  }
+}
+
 // ─── Hilfsfunktion: DB-Zeile → Record-Objekt ─────────────────────────────────
 
 function dbRowToRecord(row) {
@@ -2616,6 +2640,7 @@ module.exports = {
   setAppSetting,
   upsertAppSettings,
   getExxasRuntimeConfig,
+  findCustomerContactExxasIdByEmail,
   listDiscountCodes,
   getDiscountCodeByCode,
   getDiscountCodeById,

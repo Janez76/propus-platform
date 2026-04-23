@@ -8014,10 +8014,31 @@ app.post("/api/admin/orders/:orderNo/exxas-create-service-order", requireAdmin, 
       order.exxasContactId || order.exxas_contact_id ||
       order.exxasCustomerId || order.exxas_customer_id || ""
     ).trim();
+
+    // Termin aus schedule.date (Format YYYY-MM-DD)
+    const termin = String(order.schedule?.date || "").trim();
+
+    // Exxas-Kontakt-ID (ref_kontakt) passend zur Bestell-Kontakt-Email
+    // (billing.email hat Vorrang, dann customerContactEmail) aus core.customer_contacts
+    let refKontakt = "";
+    try {
+      const contactEmail = String(
+        order.billing?.email || order.customerContactEmail || ""
+      ).toLowerCase().trim();
+      if (contactEmail && order.customerId) {
+        const rows = await db.findCustomerContactExxasIdByEmail
+          ? await db.findCustomerContactExxasIdByEmail(order.customerId, contactEmail)
+          : null;
+        if (rows && rows.exxasContactId) refKontakt = String(rows.exxasContactId).trim();
+      }
+    } catch (_e) { /* non-fatal */ }
+
     const body = {
       bezeichnung,
       typ: "a",
       ...(exxasKundeId ? { ref_kunde: exxasKundeId } : {}),
+      ...(refKontakt ? { ref_kontakt: refKontakt } : {}),
+      ...(termin ? { termin } : {}),
     };
     const result = await postExxasAuftrag(credentials, body);
     if (!result.ok) {
