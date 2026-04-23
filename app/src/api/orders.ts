@@ -104,6 +104,11 @@ export type Order = {
   keyPickup?: { address?: string; notes?: string } | null;
   lastRescheduleOldDate?: string | null;
   lastRescheduleOldTime?: string | null;
+
+  /** Exxas-Export (Dienstleistungsauftrag) */
+  exxasOrderId?: string | null;
+  exxasStatus?: string;
+  exxasError?: string | null;
 };
 
 export type OrderMessage = { id: number; message: string; created_at: string };
@@ -371,6 +376,9 @@ function normalizeOrder(raw: unknown): Order {
     keyPickup: (r.keyPickup as { address?: string; notes?: string } | null) || null,
     lastRescheduleOldDate: (r.lastRescheduleOldDate as string | null | undefined) ?? (r.last_reschedule_old_date as string | null | undefined) ?? null,
     lastRescheduleOldTime: (r.lastRescheduleOldTime as string | null | undefined) ?? (r.last_reschedule_old_time as string | null | undefined) ?? null,
+    exxasOrderId: (r.exxasOrderId as string | null | undefined) ?? (r.exxas_order_id as string | null | undefined) ?? null,
+    exxasStatus: String((r.exxasStatus as string) || (r.exxas_status as string) || "not_sent"),
+    exxasError: (r.exxasError as string | null | undefined) ?? (r.exxas_error as string | null | undefined) ?? null,
   };
 }
 
@@ -389,6 +397,19 @@ export async function getOrder(token: string, orderNo: string): Promise<Order> {
     return normalizeOrder((data as { order: unknown }).order);
   }
   return normalizeOrder(data);
+}
+
+export type CreateExxasServiceOrderResult = { ok: boolean; exxasOrderId?: string; error?: string };
+
+export async function createExxasServiceOrder(
+  token: string,
+  orderNo: string,
+): Promise<CreateExxasServiceOrderResult> {
+  return apiRequest<CreateExxasServiceOrderResult>(
+    `/api/admin/orders/${encodeURIComponent(orderNo)}/exxas-create-service-order`,
+    "POST",
+    token,
+  );
 }
 
 export const updateOrderStatus = (

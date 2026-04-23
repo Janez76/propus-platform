@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AlertTriangle, Calendar, List, Map as MapIcon, Plus, Search } from "lucide-react";
-import { deleteOrder, getOrders, updateOrderStatus, type Order } from "../api/orders";
+import { createExxasServiceOrder, deleteOrder, getOrders, updateOrderStatus, type Order } from "../api/orders";
 import { getPhotographers, type Photographer } from "../api/photographers";
 import { getAdminProfile, type AdminProfile } from "../api/profile";
 import { fetchConfig } from "../api/bookingPublic";
@@ -55,7 +55,9 @@ function isOpenOrder(key: StatusKey | null): boolean {
 export function OrdersPage() {
   const navigate = useNavigate();
   const token = useAuthStore((s) => s.token);
+  const role = useAuthStore((s) => s.role);
   const lang = useAuthStore((s) => s.language);
+  const canCreateExxasOrder = role === "admin" || role === "super_admin";
   const [searchParams, setSearchParams] = useSearchParams();
   const query = useOrderStore((s) => s.query);
   const setQuery = useOrderStore((s) => s.setQuery);
@@ -106,6 +108,8 @@ export function OrdersPage() {
   const [bulkTargetStatus, setBulkTargetStatus] = useState<StatusKey>("pending");
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkFeedback, setBulkFeedback] = useState<string | null>(null);
+  const [exxasNotice, setExxasNotice] = useState<string | null>(null);
+  const [exxasBusy, setExxasBusy] = useState(false);
   const [showBulkDelete, setShowBulkDelete] = useState(false);
 
   const now = useMemo(() => new Date(), []);
@@ -237,6 +241,31 @@ export function OrdersPage() {
       return next;
     });
   }
+
+  const handleCreateExxasOrder = useCallback(
+    async (orderNo: string) => {
+      if (!token || exxasBusy) return;
+      setExxasBusy(true);
+      setExxasNotice(null);
+      try {
+        const result = await createExxasServiceOrder(token, orderNo);
+        if (result?.ok) {
+          setExxasNotice(
+            t(lang, "orders.exxas.createSuccess").replace("{{id}}", String(result.exxasOrderId ?? "")),
+          );
+          await refetch({ force: true });
+        } else {
+          setExxasNotice(String((result as { error?: string })?.error || t(lang, "orders.exxas.createError")));
+        }
+      } catch (e) {
+        setExxasNotice(e instanceof Error ? e.message : t(lang, "orders.exxas.createError"));
+      } finally {
+        setExxasBusy(false);
+      }
+      window.setTimeout(() => setExxasNotice(null), 8000);
+    },
+    [token, exxasBusy, lang, refetch],
+  );
 
   async function runBulkSetStatus() {
     const list = [...selectedNos];
@@ -458,6 +487,9 @@ export function OrdersPage() {
       {bulkFeedback ? (
         <div className="cust-alert cust-alert--info rounded-xl px-4 py-3 text-sm">{bulkFeedback}</div>
       ) : null}
+      {exxasNotice ? (
+        <div className="cust-alert cust-alert--info rounded-xl px-4 py-3 text-sm">{exxasNotice}</div>
+      ) : null}
 
       {selectedNos.size > 0 ? (
         <div className="flex flex-wrap items-center gap-2 rounded-xl bg-[var(--accent)] px-4 py-2.5 text-[var(--primary-contrast)] shadow-md" style={{ color: "#1a1200" }}>
@@ -524,6 +556,7 @@ export function OrdersPage() {
             onToggleRow={toggleRowSelection}
             onToggleAllVisible={toggleAllVisible}
             onToggleSection={toggleSectionSelection}
+            onCreateExxasOrder={canCreateExxasOrder ? handleCreateExxasOrder : undefined}
           />
         )
       ) : view === "calendar" ? (

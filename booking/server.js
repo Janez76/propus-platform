@@ -7881,6 +7881,144 @@ app.get("/api/admin/orders/:orderNo", requirePhotographerOrAdmin, async (req, re
   }
 });
 
+// Exxas: Dienstleistungsauftrag manuell anlegen (Titel = Adresse + #Auftragsnr., Status neu)
+function findExxasApiV2BaseForOrders(endpoint) {
+  const raw = String(endpoint || "").trim();
+  if (!raw) return "";
+  try {
+    const url = new URL(raw);
+    const path = url.pathname || "";
+    const idx = path.toLowerCase().indexOf("/api/v2");
+    if (idx >= 0) {
+      return `${url.origin}${path.slice(0, idx + "/api/v2".length)}`;
+    }
+    return `${url.origin}/api/v2`;
+  } catch {
+    return "";
+  }
+}
+
+function buildExxasAuthHeadersForOrders(credentials) {
+  const apiKey = String(credentials?.apiKey || "").trim();
+  const appPassword = String(credentials?.appPassword || "");
+  const authMode = credentials?.authMode === "bearer" ? "bearer" : "apiKey";
+  const authorization = authMode === "bearer" ? `Bearer ${apiKey}` : `ApiKey ${apiKey}`;
+  const headers = {
+    Authorization: authorization,
+    Accept: "application/json",
+    "Content-Type": "application/json",
+  };
+  if (appPassword) headers["X-App-Password"] = appPassword;
+  return headers;
+}
+
+async function getExxasCredentialsForServiceOrder() {
+  const DEFAULT_ENDPOINT =
+    "https://api.exxas.net/cloud/D239DEE32E17B4B49567C7650FDF2160/api/v2/customers?limit=1";
+  if (db.getAppSetting) {
+    const cfg = await db.getAppSetting("integration.exxas.config");
+    if (cfg && typeof cfg === "object" && String(cfg.apiKey || "").trim()) {
+      return {
+        apiKey: String(cfg.apiKey || "").trim(),
+        appPassword: String(cfg.appPassword || ""),
+        endpoint: String(cfg.endpoint || DEFAULT_ENDPOINT).trim() || DEFAULT_ENDPOINT,
+        authMode: String(cfg.authMode || "").toLowerCase() === "bearer" ? "bearer" : "apiKey",
+      };
+    }
+  }
+  const apiKey = String(process.env.EXXAS_API_KEY || process.env.EXXAS_JWT || "").trim();
+  if (!apiKey) return null;
+  return {
+    apiKey,
+    appPassword: String(process.env.EXXAS_APP_PASSWORD || ""),
+    endpoint: String(process.env.EXXAS_ENDPOINT || DEFAULT_ENDPOINT).trim() || DEFAULT_ENDPOINT,
+    authMode: String(process.env.EXXAS_AUTH_MODE || "").toLowerCase() === "bearer" ? "bearer" : "apiKey",
+  };
+}
+
+function extractExxasCreateId(data) {
+  if (!data || typeof data !== "object") return null;
+  const payload = data.message && typeof data.message === "object" && !Array.isArray(data.message) ? data.message : data;
+  const id = payload.id ?? data.id;
+  if (id == null) return null;
+  return String(id);
+}
+
+async function postExxasAuftrag(credentials, body) {
+  const endpoint = String(credentials?.endpoint || "").trim();
+  if (!endpoint) return { ok: false, err: "EXXAS Endpoint fehlt" };
+  const apiBase = findExxasApiV2BaseForOrders(endpoint);
+  if (!apiBase) return { ok: false, err: "EXXAS Endpoint ungueltig" };
+  const url = `${apiBase}/auftraege`;
+  const headers = buildExxasAuthHeadersForOrders(credentials);
+  const res = await fetch(url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(20_000),
+  });
+  const text = await res.text();
+  let data = {};
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    return { ok: false, err: `EXXAS: Ungueltige JSON-Antwort (HTTP ${res.status})` };
+  }
+  if (!res.ok) {
+    const msg = (data && data.error) || (data && data.message && String(data.message)) || text.slice(0, 240);
+    return { ok: false, err: `EXXAS HTTP ${res.status}: ${msg}` };
+  }
+  const exxasId = extractExxasCreateId(data);
+  if (!exxasId) {
+    return { ok: false, err: "EXXAS: Keine ID in der Antwort" };
+  }
+  return { ok: true, exxasId };
+}
+
+app.post("/api/admin/orders/:orderNo/exxas-create-service-order", requireAdmin, async (req, res) => {
+  try {
+    if (!process.env.DATABASE_URL) {
+      return res.status(503).json({ ok: false, error: "DB nicht verfuegbar" });
+    }
+    const orderNo = Number(req.params.orderNo);
+    if (!Number.isFinite(orderNo)) {
+      return res.status(400).json({ ok: false, error: "Ungueltige Auftragsnummer" });
+    }
+    const order = await db.getOrderByNo(orderNo);
+    if (!order) {
+      return res.status(404).json({ ok: false, error: "Auftrag nicht gefunden" });
+    }
+    if (String(order.exxasStatus || "") === "sent" && String(order.exxasOrderId || "").trim()) {
+      return res.status(409).json({ ok: false, error: "Bereits in Exxas erstellt" });
+    }
+    const credentials = await getExxasCredentialsForServiceOrder();
+    if (!credentials || !credentials.apiKey) {
+      return res.status(503).json({ ok: false, error: "EXXAS API nicht konfiguriert" });
+    }
+    const addressLine = String(order.address || order.billing?.street || order.customerStreet || "").trim() || "Ohne Adresse";
+    const bezeichnung = `${addressLine} #${String(order.orderNo || orderNo)}`;
+    const body = {
+      bezeichnung,
+      status: "neu",
+      typ: "o",
+    };
+    const result = await postExxasAuftrag(credentials, body);
+    if (!result.ok) {
+      await db.setExxasError(orderNo, result.err);
+      return res.status(502).json({ ok: false, error: result.err });
+    }
+    await db.setExxasOrderId(orderNo, result.exxasId);
+    return res.json({ ok: true, exxasOrderId: result.exxasId });
+  } catch (err) {
+    const msg = err && err.message ? String(err.message) : "Exxas-Aufruf fehlgeschlagen";
+    try {
+      const n = Number(req.params.orderNo);
+      if (Number.isFinite(n) && db.setExxasError) await db.setExxasError(n, msg);
+    } catch (_e) { /* ignore */ }
+    return res.status(500).json({ ok: false, error: msg });
+  }
+});
+
 // ==============================
 // BOT API - Ein Endpoint, alle Befehle
 // ==============================

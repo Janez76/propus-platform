@@ -353,9 +353,11 @@ async function getInventoryItem(inventoryId) {
 
 **Implementierungsstatus (April 2026):**
 
-Die Datenbankfelder (`exxas_order_id`, `exxas_status`, `exxas_error`) und die Hilfsfunktionen (`setExxasOrderId()`, `setExxasError()` in `booking/db.js`) sind vorhanden und exportiert. Es gibt jedoch **keinen aktiven Runtime-Trigger**, der Buchungen automatisch oder manuell an Exxas überträgt — kein API-Endpunkt, keine UI-Aktion, kein Cron-Job. Die Felder dienen als Platzhalter für eine zukünftige Implementierung.
+Die Datenbankfelder (`exxas_order_id`, `exxas_status`, `exxas_error`) und die Hilfsfunktionen (`setExxasOrderId()`, `setExxasError()` in `booking/db.js`) sind vorhanden und exportiert.
 
-Wenn eine Buchung an Exxas übertragen werden soll, sind folgende Schritte nötig:
+**Manueller Export:** Admins können in der Auftragsliste (`app/src/components/orders/OrderTable.tsx`, `OrdersPage`) pro Zeile einen Exxas-Dienstleistungsauftrag anlegen. API: `POST /api/admin/orders/:orderNo/exxas-create-service-order` in `booking/server.js` (`requireAdmin`) → `POST {apiBase}/auftraege` mit u. a. `bezeichnung` = Adresse + `#Auftragsnr.`, `status: "neu"`, `typ: "o"`. Erfolg → `setExxasOrderId`, Fehler → `setExxasError`. Kein vollautomatischer Trigger bei jeder Buchung, kein Cron-Job.
+
+Für weitere/zusätzliche Automatisierung sinngemäss:
 1. Exxas-API-Aufruf (z. B. `POST /api/v2/auftraege`) mit Buchungsdaten aus `booking.orders`
 2. `db.setExxasOrderId(orderNo, exxasId)` aufrufen (setzt `exxas_status = 'sent'`)
 3. Im Fehlerfall `db.setExxasError(orderNo, msg)` aufrufen (setzt `exxas_status = 'error'`)
