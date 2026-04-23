@@ -8081,7 +8081,7 @@ app.post("/api/admin/orders/:orderNo/exxas-create-service-order", requireAdmin, 
 
     const body = {
       bezeichnung,
-      typ: "a",
+      typ: "s",
       ...(exxasKundeId ? { ref_kunde: exxasKundeId } : {}),
       ...(refKontakt ? { ref_kontakt: refKontakt } : {}),
       ...(termin ? { termin } : {}),
