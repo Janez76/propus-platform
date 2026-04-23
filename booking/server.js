@@ -8137,6 +8137,81 @@ app.post("/api/admin/orders/:orderNo/exxas-create-service-order", requireAdmin, 
   }
 });
 
+// Exxas-Zusatzlinks (Matterport optional1, Nextcloud Finale optional7) erneut aus Propus-DB in ein bestehendes Exxas-Dokument schreiben.
+app.post("/api/admin/orders/:orderNo/exxas-sync-links", requireAdmin, async (req, res) => {
+  try {
+    if (!process.env.DATABASE_URL) {
+      return res.status(503).json({ ok: false, error: "DB nicht verfuegbar" });
+    }
+    const orderNo = Number(req.params.orderNo);
+    if (!Number.isFinite(orderNo)) {
+      return res.status(400).json({ ok: false, error: "Ungueltige Auftragsnummer" });
+    }
+    const order = await db.getOrderByNo(orderNo);
+    if (!order) {
+      return res.status(404).json({ ok: false, error: "Auftrag nicht gefunden" });
+    }
+    const exxasId = String(order.exxasOrderId || order.exxas_order_id || "").trim();
+    if (!exxasId) {
+      return res.status(409).json({ ok: false, error: "Kein Exxas-Auftrag hinterlegt" });
+    }
+    const credentials = await getExxasCredentialsForServiceOrder();
+    if (!credentials || !credentials.apiKey) {
+      return res.status(503).json({
+        ok: false,
+        error:
+          "EXXAS API nicht konfiguriert. Admin: unter /settings/exxas API-Key, App-Passwort und Endpoint speichern " +
+          "oder auf dem Server EXXAS_API_KEY (bzw. EXXAS_JWT) und ggf. EXXAS_APP_PASSWORD, EXXAS_ENDPOINT setzen.",
+      });
+    }
+
+    let matterportUrl = null;
+    let nextcloudFinalUrl = null;
+    if (db.getOrderMatterportTourUrl) {
+      matterportUrl = await db.getOrderMatterportTourUrl(orderNo).catch(() => null);
+    }
+    if (db.getOrderFolderLink) {
+      const link = await db.getOrderFolderLink(orderNo, "customer_folder").catch(() => null);
+      nextcloudFinalUrl = link && link.nextcloud_share_url ? String(link.nextcloud_share_url) : null;
+    }
+    if (!String(matterportUrl || "").trim() && !String(nextcloudFinalUrl || "").trim()) {
+      return res.status(400).json({
+        ok: false,
+        error:
+          "Keine Tour- und Drive-URLs in Propus hinterlegt (Matterport-Tour, Nextcloud Kunden-Share). Nichts zu synchronisieren.",
+        exxasLinkTour: null,
+        exxasLinkDrive: null,
+      });
+    }
+
+    const patchRes = await patchExxasDocumentOptionalFields(credentials, exxasId, {
+      optional1: matterportUrl,
+      optional7: nextcloudFinalUrl,
+    });
+    if (patchRes.skipped) {
+      return res.status(400).json({
+        ok: false,
+        error:
+          "Keine Tour- und Drive-URLs in Propus hinterlegt (Matterport-Tour, Nextcloud Kunden-Share). Nichts zu synchronisieren.",
+        exxasLinkTour: matterportUrl,
+        exxasLinkDrive: nextcloudFinalUrl,
+      });
+    }
+    if (!patchRes.ok) {
+      return res.status(422).json({ ok: false, error: patchRes.err });
+    }
+    return res.json({
+      ok: true,
+      exxasOrderId: exxasId,
+      exxasLinkTour: matterportUrl || null,
+      exxasLinkDrive: nextcloudFinalUrl || null,
+    });
+  } catch (err) {
+    const msg = err && err.message ? String(err.message) : "Exxas-Sync fehlgeschlagen";
+    return res.status(500).json({ ok: false, error: msg });
+  }
+});
+
 // ==============================
 // BOT API - Ein Endpoint, alle Befehle
 // ==============================

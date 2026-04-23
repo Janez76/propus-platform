@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode }
 import type { Order } from "../../api/orders";
 import { formatCurrency } from "../../lib/utils";
 import { getStatusEntry, getStatusIcon, normalizeStatusKey, type StatusKey } from "../../lib/status";
-import { MessageSquare, FolderUp, FileText, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronUp } from "lucide-react";
+import { MessageSquare, FolderUp, FileText, RefreshCw, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronUp } from "lucide-react";
 import { t } from "../../i18n";
 import { useAuthStore } from "../../store/authStore";
 import { avatarColorFor, avatarInitials, getTerminInfo, terminKindClasses } from "../../lib/orderTermin";
@@ -17,6 +17,8 @@ type Props = {
   onToggleAllVisible: (select: boolean) => void;
   onToggleSection: (orderNos: string[], select: boolean) => void;
   onCreateExxasOrder?: (orderNo: string) => void;
+  /** Bestehender Exxas-Auftrag: Tour- und Drive-URL aus Propus nachträglich in Exxas schreiben */
+  onSyncExxasOrderLinks?: (orderNo: string) => void;
 };
 
 type SortKey = "orderNo" | "customer" | "address" | "appointment" | "total";
@@ -154,13 +156,14 @@ export function OrderTable({
   onToggleAllVisible,
   onToggleSection,
   onCreateExxasOrder,
+  onSyncExxasOrderLinks,
 }: Props) {
   const lang = useAuthStore((s) => s.language);
   const tooltipMessage = t(lang, "orders.tooltip.sendMessage");
   const tooltipUpload = t(lang, "orders.tooltip.uploadFiles");
 
   function exxasRowTitle(o: Order): string {
-    if (o.exxasStatus === "sent") return t(lang, "orders.tooltip.exxasCreated");
+    if (o.exxasOrderId) return t(lang, "orders.tooltip.exxasCreated");
     if (o.exxasStatus === "error") return t(lang, "orders.tooltip.exxasError");
     return t(lang, "orders.tooltip.exxasCreate");
   }
@@ -305,13 +308,20 @@ export function OrderTable({
               <FolderUp className="h-3.5 w-3.5" />
             </IconBtn>
             {onCreateExxasOrder ? (
-              o.exxasStatus === "sent" ? (
-                <span
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-md text-[var(--text-subtle)] opacity-40"
-                  title={exxasRowTitle(o)}
-                  aria-label={exxasRowTitle(o)}
-                >
-                  <FileText className="h-3.5 w-3.5" />
+              o.exxasOrderId ? (
+                <span className="inline-flex items-center gap-0.5">
+                  <span
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-md text-[var(--text-subtle)] opacity-40"
+                    title={exxasRowTitle(o)}
+                    aria-label={exxasRowTitle(o)}
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                  </span>
+                  {onSyncExxasOrderLinks ? (
+                    <IconBtn title={t(lang, "orders.tooltip.exxasSync")} onClick={() => onSyncExxasOrderLinks(o.orderNo)}>
+                      <RefreshCw className="h-3.5 w-3.5" />
+                    </IconBtn>
+                  ) : null}
                 </span>
               ) : (
                 <IconBtn title={exxasRowTitle(o)} onClick={() => onCreateExxasOrder(o.orderNo)}>
@@ -410,13 +420,20 @@ export function OrderTable({
               <FolderUp className="h-3.5 w-3.5" />
             </IconBtn>
             {onCreateExxasOrder ? (
-              o.exxasStatus === "sent" ? (
-                <span
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-md text-[var(--text-subtle)] opacity-40"
-                  title={exxasRowTitle(o)}
-                  aria-label={exxasRowTitle(o)}
-                >
-                  <FileText className="h-3.5 w-3.5" />
+              o.exxasOrderId ? (
+                <span className="inline-flex items-center gap-0.5">
+                  <span
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-md text-[var(--text-subtle)] opacity-40"
+                    title={exxasRowTitle(o)}
+                    aria-label={exxasRowTitle(o)}
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                  </span>
+                  {onSyncExxasOrderLinks ? (
+                    <IconBtn title={t(lang, "orders.tooltip.exxasSync")} onClick={() => onSyncExxasOrderLinks(o.orderNo)}>
+                      <RefreshCw className="h-3.5 w-3.5" />
+                    </IconBtn>
+                  ) : null}
                 </span>
               ) : (
                 <IconBtn title={exxasRowTitle(o)} onClick={() => onCreateExxasOrder(o.orderNo)}>

@@ -419,6 +419,25 @@ export async function createExxasServiceOrder(
   );
 }
 
+export type SyncExxasOrderLinksResult = {
+  ok: boolean;
+  exxasOrderId?: string;
+  exxasLinkTour?: string | null;
+  exxasLinkDrive?: string | null;
+  error?: string;
+};
+
+export async function syncExxasOrderLinks(
+  token: string,
+  orderNo: string,
+): Promise<SyncExxasOrderLinksResult> {
+  return apiRequest<SyncExxasOrderLinksResult>(
+    `/api/admin/orders/${encodeURIComponent(orderNo)}/exxas-sync-links`,
+    "POST",
+    token,
+  );
+}
+
 export const updateOrderStatus = (
   token: string,
   orderNo: string,

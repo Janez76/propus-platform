@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AlertTriangle, Calendar, List, Map as MapIcon, Plus, Search } from "lucide-react";
-import { createExxasServiceOrder, deleteOrder, getOrders, updateOrderStatus, type Order } from "../api/orders";
+import {
+  createExxasServiceOrder,
+  deleteOrder,
+  getOrders,
+  syncExxasOrderLinks,
+  updateOrderStatus,
+  type Order,
+} from "../api/orders";
 import { getPhotographers, type Photographer } from "../api/photographers";
 import { getAdminProfile, type AdminProfile } from "../api/profile";
 import { fetchConfig } from "../api/bookingPublic";
@@ -263,6 +270,39 @@ export function OrdersPage() {
         setExxasBusy(false);
       }
       window.setTimeout(() => setExxasNotice(null), 8000);
+    },
+    [token, exxasBusy, lang, refetch],
+  );
+
+  const handleSyncExxasOrderLinks = useCallback(
+    async (orderNo: string) => {
+      if (!token || exxasBusy) return;
+      setExxasBusy(true);
+      setExxasNotice(null);
+      try {
+        const result = await syncExxasOrderLinks(token, orderNo);
+        if (result?.ok) {
+          const tour = (result as { exxasLinkTour?: string | null }).exxasLinkTour;
+          const drive = (result as { exxasLinkDrive?: string | null }).exxasLinkDrive;
+          const msg = t(lang, "orders.exxas.syncSuccess")
+            .replace("{{tour}}", tour || "—")
+            .replace("{{drive}}", drive || "—");
+          setExxasNotice(msg);
+          await refetch({ force: true });
+        } else {
+          const err = String((result as { error?: string })?.error || "");
+          if (err && (/Nichts zu synchronisieren/i.test(err) || /hinterlegt/.test(err))) {
+            setExxasNotice(t(lang, "orders.exxas.syncNoLinks"));
+          } else {
+            setExxasNotice(err || t(lang, "orders.exxas.syncError"));
+          }
+        }
+      } catch (e) {
+        setExxasNotice(e instanceof Error ? e.message : t(lang, "orders.exxas.syncError"));
+      } finally {
+        setExxasBusy(false);
+      }
+      window.setTimeout(() => setExxasNotice(null), 10000);
     },
     [token, exxasBusy, lang, refetch],
   );
@@ -557,6 +597,7 @@ export function OrdersPage() {
             onToggleAllVisible={toggleAllVisible}
             onToggleSection={toggleSectionSelection}
             onCreateExxasOrder={canCreateExxasOrder ? handleCreateExxasOrder : undefined}
+            onSyncExxasOrderLinks={canCreateExxasOrder ? handleSyncExxasOrderLinks : undefined}
           />
         )
       ) : view === "calendar" ? (
