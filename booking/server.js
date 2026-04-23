@@ -8010,7 +8010,10 @@ app.post("/api/admin/orders/:orderNo/exxas-create-service-order", requireAdmin, 
     const addressLine = String(order.address || order.billing?.street || order.customerStreet || "").trim() || "Ohne Adresse";
     const bezeichnung = `${addressLine} #${String(order.orderNo || orderNo)}`;
     // Exxas-Kunden-ID aus dem Order-Datensatz (über Kunden-Verknüpfung)
-    const exxasKundeId = String(order.exxasContactId || order.exxas_contact_id || "").trim();
+    const exxasKundeId = String(
+      order.exxasContactId || order.exxas_contact_id ||
+      order.exxasCustomerId || order.exxas_customer_id || ""
+    ).trim();
     const body = {
       bezeichnung,
       typ: "o",

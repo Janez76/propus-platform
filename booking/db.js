@@ -1655,7 +1655,7 @@ async function getOrders({ status, limit = 500, offset = 0 } = {}) {
 
 async function getOrderByNo(orderNo) {
   const { rows } = await query(
-    `    SELECT o.*, c.email AS customer_email, c.company AS customer_company, c.exxas_contact_id, c.street AS customer_street, c.zipcity AS customer_zipcity,
+    `    SELECT o.*, c.email AS customer_email, c.company AS customer_company, c.exxas_contact_id, c.exxas_customer_id, c.street AS customer_street, c.zipcity AS customer_zipcity,
             c.phone AS customer_phone,
             (to_jsonb(c)->>'nas_customer_folder_base') AS customer_nas_customer_folder_base,
             (to_jsonb(c)->>'nas_raw_folder_base') AS customer_nas_raw_folder_base,
@@ -2501,6 +2501,7 @@ function dbRowToRecord(row) {
     listingTitle: row.listing_title || "",
     listingStatus: row.listing_status || "",
     exxasContactId: row.exxas_contact_id,
+    exxasCustomerId: row.exxas_customer_id,
     customerNasCustomerFolderBase: row.customer_nas_customer_folder_base || null,
     customerNasRawFolderBase: row.customer_nas_raw_folder_base || null,
     confirmationToken: row.confirmation_token || null,
