@@ -3,8 +3,8 @@ export const prerender = false;
 
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import SectionHeading from '../../components/SectionHeading.astro';
+import SchemaService from '../../components/SchemaService.astro';
 import ServiceCard from '../../components/ServiceCard.astro';
-import { site } from '../../content/site';
 import { loadSiteServiceSections } from '../../lib/cms/resolve';
 import { loadSeoPage } from '../../lib/seo';
 
@@ -24,6 +24,13 @@ const description = seoPage.description;
 	keywords={seoPage.keywords}
 	noIndex={!seoPage.index}
 >
+	{servicesDetailSections.map((section) => (
+		<SchemaService
+			name={section.title}
+			description={section.body}
+			anchor={section.id}
+		/>
+	))}
 	<section class="services-page-intro u-container">
 		<div class="services-page-intro__inner u-animate" style="--delay: 40ms">
 			<SectionHeading
