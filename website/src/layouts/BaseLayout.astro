@@ -7,6 +7,7 @@ import { loadSiteBranding, type SiteBranding } from '../lib/cms/resolve';
 import { serverEnv } from '../lib/serverEnv';
 import Footer from '../components/Footer.astro';
 import { loadSiteSeoLinks, type SeoNavLink } from '../lib/seo';
+import SchemaLocalBusiness from '../components/SchemaLocalBusiness.astro';
 
 type SiteLinksBundle = { navItems: SeoNavLink[]; footerLegalItems: SeoNavLink[] };
 
@@ -103,95 +104,7 @@ try {
 		<meta name="twitter:title" content={ogTitle} />
 		<meta name="twitter:description" content={ogDescription} />
 		<meta name="twitter:image" content={absoluteOg} />
-		<script
-			type="application/ld+json"
-			set:html={JSON.stringify({
-				'@context': 'https://schema.org',
-				'@graph': [
-					{
-						'@type': ['LocalBusiness', 'ProfessionalService'],
-						'@id': `${site.url}/#organization`,
-						name: site.legalName,
-						alternateName: site.name,
-						url: site.url,
-						logo: {
-							'@type': 'ImageObject',
-							url: `${site.url}/images/propus-logo.png`,
-							width: 300,
-							height: 80,
-						},
-						image: absoluteOg,
-						description: site.description,
-						telephone: site.phone,
-						email: site.email,
-						address: {
-							'@type': 'PostalAddress',
-							streetAddress: site.addressLines[0],
-							addressLocality: 'Zug',
-							postalCode: '6300',
-							addressCountry: 'CH',
-						},
-						areaServed: {
-							'@type': 'Country',
-							name: 'Schweiz',
-						},
-						knowsLanguage: ['de', 'de-CH'],
-						openingHoursSpecification: [
-							{
-								'@type': 'OpeningHoursSpecification',
-								dayOfWeek: [
-									'Monday',
-									'Tuesday',
-									'Wednesday',
-									'Thursday',
-									'Friday',
-									'Saturday',
-								],
-								opens: '08:00',
-								closes: '17:00',
-							},
-						],
-						sameAs: [
-							'https://www.instagram.com/propus.ch/',
-							'https://ch.linkedin.com/company/propusgmbh',
-							'https://www.google.com/maps/place/Propus+GmbH/@47.1566619,8.5120229,17z',
-						],
-						priceRange: '$$',
-						hasOfferCatalog: {
-							'@type': 'OfferCatalog',
-							name: 'Immobilienpräsentation',
-							itemListElement: [
-								{ '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Immobilienfotografie' } },
-								{ '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Drohnenaufnahmen' } },
-								{ '@type': 'Offer', itemOffered: { '@type': 'Service', name: '360°-Rundgang' } },
-								{ '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Grundrisse' } },
-								{ '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Immobilienvideo' } },
-								{ '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Home Staging' } },
-								{ '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Visualisierung' } },
-								{ '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Retusche' } },
-							],
-						},
-					},
-					{
-						'@type': 'WebSite',
-						'@id': `${site.url}/#website`,
-						url: site.url,
-						name: site.name,
-						description: site.description,
-						publisher: { '@id': `${site.url}/#organization` },
-						inLanguage: 'de-CH',
-						potentialAction: {
-							'@type': 'SearchAction',
-							target: {
-								'@type': 'EntryPoint',
-								urlTemplate: `${site.url}/?s={search_term_string}`,
-							},
-							'query-input': 'required name=search_term_string',
-						},
-					},
-				],
-			})}
-		/>
+		<SchemaLocalBusiness image={absoluteOg} />
 		<link rel="dns-prefetch" href="https://www.googletagmanager.com" />
 		<link rel="dns-prefetch" href="https://www.google-analytics.com" />
 		<link rel="dns-prefetch" href="https://images.unsplash.com" />

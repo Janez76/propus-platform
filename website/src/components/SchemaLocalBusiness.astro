@@ -1,0 +1,103 @@
+---
+/**
+ * JSON-LD fuer LocalBusiness / ProfessionalService + WebSite.
+ * Wird einmal im Root-Layout eingebunden und ist damit auf jeder Seite aktiv.
+ *
+ * Ersetzt den vorher inline im BaseLayout gerenderten Graph – Felder stammen jetzt
+ * aus `src/config/seo.ts` (single source of truth).
+ */
+
+import { canonicalBase, contentLocale, organization } from '../config/seo';
+
+interface Props {
+	/** Absolute URL fuer das ImageObject (z. B. OG-Bild der aktuellen Seite). */
+	image?: string;
+	/** Logo-URL. Default: absoluter Pfad zu `/images/propus-logo.png`. */
+	logo?: string;
+}
+
+const { image, logo } = Astro.props;
+const logoUrl = logo ?? `${canonicalBase}/images/propus-logo.png`;
+const imageUrl = image ?? logoUrl;
+
+const schema = {
+	'@context': 'https://schema.org',
+	'@graph': [
+		{
+			'@type': ['LocalBusiness', 'ProfessionalService'],
+			'@id': `${canonicalBase}/#organization`,
+			name: organization.legalName,
+			legalName: organization.legalName,
+			alternateName: organization.alternateName,
+			url: organization.url,
+			logo: {
+				'@type': 'ImageObject',
+				url: logoUrl,
+			},
+			image: imageUrl,
+			telephone: organization.telephone,
+			email: organization.email,
+			address: {
+				'@type': 'PostalAddress',
+				streetAddress: organization.address.streetAddress,
+				postalCode: organization.address.postalCode,
+				addressLocality: organization.address.addressLocality,
+				addressRegion: organization.address.addressRegion,
+				addressCountry: organization.address.addressCountry,
+			},
+			foundingDate: organization.foundingDate,
+			// UID statt vatID: MwSt-Registrierung ist laut Impressum noch "in Gruendung".
+			identifier: {
+				'@type': 'PropertyValue',
+				propertyID: 'UID',
+				value: organization.uid,
+			},
+			priceRange: organization.priceRange,
+			areaServed: organization.areaServed.map((a) => ({
+				'@type': 'AdministrativeArea',
+				name: a.name,
+				identifier: a.code,
+			})),
+			knowsLanguage: ['de', 'de-CH'],
+			openingHoursSpecification: organization.openingHours.map((o) => ({
+				'@type': 'OpeningHoursSpecification',
+				dayOfWeek: [...o.dayOfWeek],
+				opens: o.opens,
+				closes: o.closes,
+			})),
+			sameAs: [...organization.sameAs],
+			hasOfferCatalog: {
+				'@type': 'OfferCatalog',
+				name: 'Immobilienpräsentation',
+				itemListElement: organization.services.map((s) => ({
+					'@type': 'Offer',
+					itemOffered: {
+						'@type': 'Service',
+						name: s.name,
+						description: s.description,
+					},
+				})),
+			},
+		},
+		{
+			'@type': 'WebSite',
+			'@id': `${canonicalBase}/#website`,
+			url: canonicalBase,
+			name: organization.alternateName,
+			description: organization.legalName,
+			inLanguage: contentLocale,
+			publisher: { '@id': `${canonicalBase}/#organization` },
+			potentialAction: {
+				'@type': 'SearchAction',
+				target: {
+					'@type': 'EntryPoint',
+					urlTemplate: `${canonicalBase}/?s={search_term_string}`,
+				},
+				'query-input': 'required name=search_term_string',
+			},
+		},
+	],
+};
+---
+
+<script type="application/ld+json" set:html={JSON.stringify(schema)} is:inline />

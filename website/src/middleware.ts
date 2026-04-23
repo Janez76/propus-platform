@@ -23,8 +23,40 @@ function canRewriteSeoPath(pathname: string): boolean {
 	return !/\/[^/]+\.[a-z0-9]+$/i.test(pathname);
 }
 
+/**
+ * Permanente 301-Redirects fuer alte WordPress-Permalinks.
+ * Reihenfolge: spezifische Matches vor allgemeinen Prefixen.
+ * Gibt das Ziel (Pfad ohne Query) zurueck, oder null wenn keine Regel greift.
+ */
+function wordpressLegacyRedirect(url: URL): string | null {
+	const p = url.pathname;
+
+	if (p === '/team' || p === '/team/') return '/ueber-uns/';
+
+	if (p === '/wp-content/uploads/2025/06/PREISLISTE-PROPUS.pdf') return '/preise/';
+
+	if (p.startsWith('/wp-content/')) return '/';
+	if (p.startsWith('/wp-admin/')) return '/';
+	if (p === '/wp-login.php') return '/';
+
+	if (p.startsWith('/category/')) return '/';
+	if (p.startsWith('/tag/')) return '/';
+
+	// Altes WP-Query-Permalink-Schema: /?page_id=42 → /
+	if (p === '/' && url.searchParams.has('page_id')) return '/';
+
+	return null;
+}
+
 export const onRequest = defineMiddleware(async (context, next) => {
 	const path = context.url.pathname;
+
+	// 1) Legacy-WordPress-Redirects zuerst — laufen auch auf Admin-Paths
+	//    nicht los, weil sie anhand der alten URL-Struktur filtern.
+	const legacyTarget = wordpressLegacyRedirect(context.url);
+	if (legacyTarget) {
+		return context.redirect(legacyTarget, 301);
+	}
 
 	if (path.startsWith('/admin') && !isAdminLoginPath(path)) {
 		const token = context.cookies.get(ADMIN_COOKIE)?.value;
