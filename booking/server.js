@@ -10461,6 +10461,64 @@ app.get("/api/admin/customers", requireAdmin, async (_req, res) => {
   }
 });
 
+// Muss VOR /api/admin/customers/:id stehen, sonst matcht :id = "duplicate-candidates" und die API liefert 400.
+app.get("/api/admin/customers/duplicate-candidates", requireAdmin, async (req, res) => {
+  try {
+    const pool = db.getPool ? db.getPool() : null;
+    if (!pool) return res.status(503).json({ error: "DB nicht verfuegbar" });
+    const raw = String(req.query.status || "open").toLowerCase();
+    const st = ["open", "merged", "dismissed", "all"].includes(raw) ? raw : "open";
+    const params = [];
+    let where = "";
+    if (st !== "all") {
+      where = " WHERE d.status = $1";
+      params.push(st);
+    }
+    const { rows } = await pool.query(
+      `SELECT d.id, d.new_customer_id, d.suspected_keep_id, d.score, d.reason, d.status, d.created_at,
+          n.name AS new_customer_name, n.email AS new_customer_email, n.company AS new_customer_company,
+          k.name AS keep_customer_name, k.email AS keep_customer_email, k.company AS keep_customer_company
+        FROM booking.customer_duplicate_candidates d
+        INNER JOIN customers n ON n.id = d.new_customer_id
+        INNER JOIN customers k ON k.id = d.suspected_keep_id
+        ${where}
+        ORDER BY d.created_at DESC
+        LIMIT 500`,
+      params
+    );
+    res.json({ ok: true, candidates: rows, count: rows.length });
+  } catch (err) {
+    if (err && err.code === "42P01") {
+      return res.json({ ok: true, candidates: [], count: 0 });
+    }
+    res.status(500).json({ error: err?.message || "Dubletten-Liste" });
+  }
+});
+
+app.post("/api/admin/customers/duplicate-candidates/:id/dismiss", requireAdmin, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) {
+      return res.status(400).json({ error: "Ungueltige id" });
+    }
+    const pool = db.getPool ? db.getPool() : null;
+    if (!pool) return res.status(503).json({ error: "DB nicht verfuegbar" });
+    const { rowCount } = await pool.query(
+      `UPDATE booking.customer_duplicate_candidates SET status = 'dismissed' WHERE id = $1 AND status = 'open'`,
+      [id]
+    );
+    if (!rowCount) {
+      return res.status(404).json({ error: "Nicht gefunden oder schon abgeschlossen" });
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    if (err && err.code === "42P01") {
+      return res.json({ ok: true });
+    }
+    res.status(500).json({ error: err?.message || "Dismiss fehlgeschlagen" });
+  }
+});
+
 app.get("/api/admin/customers/:id", requireAdmin, async (req, res) => {
   try {
     const customerId = Number(req.params.id);
@@ -11002,63 +11060,6 @@ app.patch("/api/admin/customers/:id/nas-folder-bases", requireAdmin, async (req,
     res.json({ ok: true });
   } catch (err) {
     res.status(400).json({ error: err.message || "NAS-Pfade konnten nicht gespeichert werden" });
-  }
-});
-
-app.get("/api/admin/customers/duplicate-candidates", requireAdmin, async (req, res) => {
-  try {
-    const pool = db.getPool ? db.getPool() : null;
-    if (!pool) return res.status(503).json({ error: "DB nicht verfuegbar" });
-    const raw = String(req.query.status || "open").toLowerCase();
-    const st = ["open", "merged", "dismissed", "all"].includes(raw) ? raw : "open";
-    const params = [];
-    let where = "";
-    if (st !== "all") {
-      where = " WHERE d.status = $1";
-      params.push(st);
-    }
-    const { rows } = await pool.query(
-      `SELECT d.id, d.new_customer_id, d.suspected_keep_id, d.score, d.reason, d.status, d.created_at,
-          n.name AS new_customer_name, n.email AS new_customer_email, n.company AS new_customer_company,
-          k.name AS keep_customer_name, k.email AS keep_customer_email, k.company AS keep_customer_company
-        FROM booking.customer_duplicate_candidates d
-        INNER JOIN customers n ON n.id = d.new_customer_id
-        INNER JOIN customers k ON k.id = d.suspected_keep_id
-        ${where}
-        ORDER BY d.created_at DESC
-        LIMIT 500`,
-      params
-    );
-    res.json({ ok: true, candidates: rows, count: rows.length });
-  } catch (err) {
-    if (err && err.code === "42P01") {
-      return res.json({ ok: true, candidates: [], count: 0 });
-    }
-    res.status(500).json({ error: err?.message || "Dubletten-Liste" });
-  }
-});
-
-app.post("/api/admin/customers/duplicate-candidates/:id/dismiss", requireAdmin, async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isFinite(id)) {
-      return res.status(400).json({ error: "Ungueltige id" });
-    }
-    const pool = db.getPool ? db.getPool() : null;
-    if (!pool) return res.status(503).json({ error: "DB nicht verfuegbar" });
-    const { rowCount } = await pool.query(
-      `UPDATE booking.customer_duplicate_candidates SET status = 'dismissed' WHERE id = $1 AND status = 'open'`,
-      [id]
-    );
-    if (!rowCount) {
-      return res.status(404).json({ error: "Nicht gefunden oder schon abgeschlossen" });
-    }
-    res.json({ ok: true });
-  } catch (err) {
-    if (err && err.code === "42P01") {
-      return res.json({ ok: true });
-    }
-    res.status(500).json({ error: err?.message || "Dismiss fehlgeschlagen" });
   }
 });
 
