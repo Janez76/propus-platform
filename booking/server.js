@@ -7940,6 +7940,11 @@ async function getExxasCredentialsForServiceOrder() {
 
 function extractExxasCreateId(data) {
   if (!data || typeof data !== "object") return null;
+  // Exxas /documents gibt { success: true, message: [{ id: "..." }] } zurück
+  if (Array.isArray(data.message) && data.message.length > 0 && data.message[0]?.id != null) {
+    return String(data.message[0].id);
+  }
+  // Fallback: flaches Objekt oder { message: { id } }
   const payload = data.message && typeof data.message === "object" && !Array.isArray(data.message) ? data.message : data;
   const id = payload.id ?? data.id;
   if (id == null) return null;
@@ -7951,7 +7956,7 @@ async function postExxasAuftrag(credentials, body) {
   if (!endpoint) return { ok: false, err: "EXXAS Endpoint fehlt" };
   const apiBase = findExxasApiV2BaseForOrders(endpoint);
   if (!apiBase) return { ok: false, err: "EXXAS Endpoint ungueltig" };
-  const url = `${apiBase}/auftraege`;
+  const url = `${apiBase}/documents`;
   const headers = buildExxasAuthHeadersForOrders(credentials);
   const res = await fetch(url, {
     method: "POST",
@@ -8004,10 +8009,12 @@ app.post("/api/admin/orders/:orderNo/exxas-create-service-order", requireAdmin, 
     }
     const addressLine = String(order.address || order.billing?.street || order.customerStreet || "").trim() || "Ohne Adresse";
     const bezeichnung = `${addressLine} #${String(order.orderNo || orderNo)}`;
+    // Exxas-Kunden-ID aus dem Order-Datensatz (über Kunden-Verknüpfung)
+    const exxasKundeId = String(order.exxasContactId || order.exxas_contact_id || "").trim();
     const body = {
       bezeichnung,
-      status: "neu",
       typ: "o",
+      ...(exxasKundeId ? { ref_kunde: exxasKundeId } : {}),
     };
     const result = await postExxasAuftrag(credentials, body);
     if (!result.ok) {
