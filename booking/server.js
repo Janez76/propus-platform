@@ -8016,7 +8016,7 @@ app.post("/api/admin/orders/:orderNo/exxas-create-service-order", requireAdmin, 
     ).trim();
     const body = {
       bezeichnung,
-      typ: "o",
+      typ: "a",
       ...(exxasKundeId ? { ref_kunde: exxasKundeId } : {}),
     };
     const result = await postExxasAuftrag(credentials, body);
