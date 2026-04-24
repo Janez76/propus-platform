@@ -120,7 +120,7 @@ export default async function LeistungenPage({ params, searchParams }: Props) {
 
       {order.duration_min != null && (
         <Section title="Dauer" icon={<Receipt className="h-4 w-4" />}>
-          <p className="text-sm">{order.duration_min} min (schedule.durationMin)</p>
+          <p className="text-sm">{order.duration_min} min</p>
         </Section>
       )}
 

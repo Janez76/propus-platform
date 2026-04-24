@@ -201,7 +201,7 @@ export function LeistungenForm({ order }: Props) {
         </Section>
 
         <Section title="Dauer" icon={<Receipt className="h-4 w-4" />}>
-          <p className="mb-1 text-xs text-white/50">Override für Dauer in Minuten (sonst unverändert aus `schedule.durationMin`)</p>
+          <p className="mb-1 text-xs text-white/50">Override für Dauer in Minuten (wenn leer, bleibt die Dauer aus dem Termin unverändert).</p>
           <input
             type="number"
             min={15}
