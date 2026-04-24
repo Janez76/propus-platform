@@ -48,7 +48,7 @@ export function UebersichtForm({ order, isEditing, action }: Props) {
               onChange={() => setBookingType('firma')}
               className="peer sr-only"
             />
-            <span className="block rounded px-5 py-1.5 text-sm text-white/50 transition-colors peer-checked:bg-[#B68E20]/20 peer-checked:text-[#B68E20] peer-checked:ring-1 peer-checked:ring-[#B68E20]/50 peer-focus-visible:ring-2 peer-focus-visible:ring-white/20 peer-disabled:cursor-not-allowed peer-disabled:opacity-60">
+            <span className="block rounded px-5 py-1.5 text-sm text-white/70 transition-colors peer-checked:bg-[#B68E20]/20 peer-checked:text-[#B68E20] peer-checked:ring-1 peer-checked:ring-[#B68E20]/50 peer-focus-visible:ring-2 peer-focus-visible:ring-white/20 peer-disabled:cursor-not-allowed peer-disabled:opacity-60">
               Firma
             </span>
           </label>
@@ -62,7 +62,7 @@ export function UebersichtForm({ order, isEditing, action }: Props) {
               onChange={() => setBookingType('privat')}
               className="peer sr-only"
             />
-            <span className="block rounded px-5 py-1.5 text-sm text-white/50 transition-colors peer-checked:bg-[#B68E20]/20 peer-checked:text-[#B68E20] peer-checked:ring-1 peer-checked:ring-[#B68E20]/50 peer-focus-visible:ring-2 peer-focus-visible:ring-white/20 peer-disabled:cursor-not-allowed peer-disabled:opacity-60">
+            <span className="block rounded px-5 py-1.5 text-sm text-white/70 transition-colors peer-checked:bg-[#B68E20]/20 peer-checked:text-[#B68E20] peer-checked:ring-1 peer-checked:ring-[#B68E20]/50 peer-focus-visible:ring-2 peer-focus-visible:ring-white/20 peer-disabled:cursor-not-allowed peer-disabled:opacity-60">
               Privatperson
             </span>
           </label>
@@ -91,7 +91,7 @@ export function UebersichtForm({ order, isEditing, action }: Props) {
           </>
         )}
 
-        <p className="mb-4 text-xs text-white/50">
+        <p className="mb-4 text-xs text-white/70">
           Mindestens eine Person mit E-Mail – diese wird als Schlüssel in der Kundenkartei verwendet.
         </p>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
@@ -171,7 +171,7 @@ export function UebersichtForm({ order, isEditing, action }: Props) {
 function Section({ title, icon, children }: { title: string; icon?: React.ReactNode; children: React.ReactNode }) {
   return (
     <section className="rounded-xl border border-white/10 bg-white/[0.02] p-5">
-      <h2 className="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-white/50">
+      <h2 className="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-[#B68E20]/80">
         {icon}
         {title}
       </h2>
@@ -243,34 +243,3 @@ function SelectField({
   );
 }
 
-function RadioCard({
-  name, value, icon, label, checked, disabled, onChange,
-}: {
-  name: string;
-  value: string;
-  icon: React.ReactNode;
-  label: string;
-  checked: boolean;
-  disabled?: boolean;
-  onChange?: () => void;
-}) {
-  return (
-    <label
-      className={`flex cursor-pointer items-center justify-center gap-2 rounded-md border px-4 py-3 text-sm transition-colors ${
-        checked ? 'border-[#B68E20] bg-[#B68E20]/10 text-[#B68E20]' : 'border-white/10 bg-white/[0.02] text-white/70 hover:border-white/20'
-      } ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
-    >
-      <input
-        type="radio"
-        name={name}
-        value={value}
-        checked={checked}
-        disabled={disabled}
-        onChange={onChange}
-        className="sr-only"
-      />
-      {icon}
-      {label}
-    </label>
-  );
-}
