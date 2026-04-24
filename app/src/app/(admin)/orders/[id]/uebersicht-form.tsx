@@ -36,9 +36,9 @@ export function UebersichtForm({ order, isEditing, action }: Props) {
         title="Rechnungsempfänger"
         icon={bookingType === 'firma' ? <Building2 className="h-4 w-4" /> : <User2 className="h-4 w-4" />}
       >
-        <fieldset className="flex gap-4 items-center py-2">
+        <fieldset className="mb-4 inline-flex rounded-md border border-white/10 bg-white/5 p-0.5">
           <legend className="sr-only">Buchungstyp</legend>
-          <label className="flex items-center gap-2 text-sm cursor-pointer">
+          <label className="cursor-pointer">
             <input
               type="radio"
               name="booking_type"
@@ -46,10 +46,13 @@ export function UebersichtForm({ order, isEditing, action }: Props) {
               checked={bookingType === 'firma'}
               disabled={!isEditing}
               onChange={() => setBookingType('firma')}
+              className="peer sr-only"
             />
-            Firma
+            <span className="block rounded px-5 py-1.5 text-sm text-white/50 transition-colors peer-checked:bg-[#B68E20]/20 peer-checked:text-[#B68E20] peer-checked:ring-1 peer-checked:ring-[#B68E20]/50 peer-focus-visible:ring-2 peer-focus-visible:ring-white/20 peer-disabled:cursor-not-allowed peer-disabled:opacity-60">
+              Firma
+            </span>
           </label>
-          <label className="flex items-center gap-2 text-sm cursor-pointer">
+          <label className="cursor-pointer">
             <input
               type="radio"
               name="booking_type"
@@ -57,8 +60,11 @@ export function UebersichtForm({ order, isEditing, action }: Props) {
               checked={bookingType === 'privat'}
               disabled={!isEditing}
               onChange={() => setBookingType('privat')}
+              className="peer sr-only"
             />
-            Privatperson
+            <span className="block rounded px-5 py-1.5 text-sm text-white/50 transition-colors peer-checked:bg-[#B68E20]/20 peer-checked:text-[#B68E20] peer-checked:ring-1 peer-checked:ring-[#B68E20]/50 peer-focus-visible:ring-2 peer-focus-visible:ring-white/20 peer-disabled:cursor-not-allowed peer-disabled:opacity-60">
+              Privatperson
+            </span>
           </label>
         </fieldset>
 
