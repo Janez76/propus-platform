@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   User, Building2, ListChecks, CalendarClock,
-  MessageSquare, Files, History,
+  MessageSquare, Files, Link2, History,
 } from 'lucide-react';
 
 type Tab = { href: string; label: string; icon: React.ComponentType<{ className?: string }> };
@@ -17,6 +17,7 @@ function getTabs(orderId: string): Tab[] {
     { href: `/orders/${orderId}/termin`,         label: 'Termin & Status',  icon: CalendarClock },
     { href: `/orders/${orderId}/kommunikation`,  label: 'Kommunikation',    icon: MessageSquare },
     { href: `/orders/${orderId}/dateien`,        label: 'Dateien',          icon: Files },
+    { href: `/orders/${orderId}/verknuepfungen`,  label: 'Verknüpfungen',   icon: Link2 },
     { href: `/orders/${orderId}/verlauf`,        label: 'Verlauf',          icon: History },
   ];
 }
