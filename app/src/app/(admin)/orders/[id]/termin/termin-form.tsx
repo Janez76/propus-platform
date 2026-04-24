@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
+import { useOrderEditShellOptional } from "../order-edit-shell-context";
 import { useForm, FormProvider, useFormContext } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CalendarClock, Mail, User } from "lucide-react";
@@ -70,6 +71,11 @@ export function TerminForm({ order, photographers }: Props) {
     resolver: zodResolver(terminFormSchema) as import("react-hook-form").Resolver<TerminFormValues>,
     defaultValues: defaults,
   });
+  const shell = useOrderEditShellOptional();
+  const isDirty = form.formState.isDirty;
+  useEffect(() => {
+    shell?.markDirty("termin", isDirty);
+  }, [isDirty, shell]);
   const [pending, start] = useTransition();
   const [formError, setFormError] = useState("");
 

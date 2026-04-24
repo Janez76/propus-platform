@@ -1,10 +1,10 @@
 import { notFound } from "next/navigation";
 import { CalendarClock, User, ArrowRight } from "lucide-react";
-import { queryOne, query } from "@/lib/db";
+import { query } from "@/lib/db";
 import { listPhotographers } from "@/lib/repos/orders/termin";
-import { DURATION_MIN_FROM_SCHEDULE } from "@/lib/repos/orders/durationFromScheduleSql";
 import { Section, InfoItem, Empty, Badge, STATUS_LABEL, formatDateTime, formatTS } from "../_shared";
 import { TerminForm } from "./termin-form";
+import { loadOrderContext } from "../_order-context";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -15,34 +15,11 @@ export default async function TerminPage({ params, searchParams }: Props) {
   const { id } = await params;
   const sp = searchParams ? await searchParams : {};
   const isEditing = sp.edit === "1";
+  const orderNo = Number(id);
+  if (!Number.isInteger(orderNo) || orderNo <= 0) notFound();
 
-  const [order, statusHistory, photographers] = await Promise.all([
-    queryOne<{
-      order_no: number;
-      status: string;
-      schedule_date: string | null;
-      schedule_time: string | null;
-      duration_min: number | null;
-      photographer_name: string | null;
-      photographer_email: string | null;
-      photographer_phone: string | null;
-      photographer_key: string | null;
-      done_at: string | null;
-    }>(`
-      SELECT
-        order_no,
-        status,
-        schedule_date,
-        schedule_time,
-        ${DURATION_MIN_FROM_SCHEDULE.bare}  AS duration_min,
-        photographer->>'name'            AS photographer_name,
-        photographer->>'email'           AS photographer_email,
-        photographer->>'phone'           AS photographer_phone,
-        photographer->>'key'            AS photographer_key,
-        done_at
-      FROM booking.orders
-      WHERE order_no = $1
-    `, [id]),
+  const [ctx, statusHistory, photographers] = await Promise.all([
+    loadOrderContext(orderNo),
 
     query<{
       id: number;
@@ -61,7 +38,19 @@ export default async function TerminPage({ params, searchParams }: Props) {
     listPhotographers(),
   ]);
 
-  if (!order) notFound();
+  if (!ctx) notFound();
+  const order = {
+    order_no: ctx.order_no,
+    status: ctx.status,
+    schedule_date: ctx.schedule_date,
+    schedule_time: ctx.schedule_time,
+    duration_min: ctx.duration_min,
+    photographer_name: ctx.photographer_name,
+    photographer_email: ctx.photographer_email,
+    photographer_phone: ctx.photographer_phone,
+    photographer_key: ctx.photographer_key,
+    done_at: ctx.done_at,
+  };
 
   const currentStatus = STATUS_LABEL[order.status] ?? STATUS_LABEL.pending;
 

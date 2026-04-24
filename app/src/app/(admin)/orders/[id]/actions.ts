@@ -8,7 +8,10 @@ import { logOrderEvent } from "@/lib/audit";
 import { suggestSplitName } from "@/lib/nameSplit";
 import { parseFormDataToUebersicht } from "@/lib/validators/orders/uebersicht";
 
-export async function updateOrderOverview(formData: FormData) {
+export type UpdateOverviewOptions = { skipRedirect?: boolean };
+
+export async function updateOrderOverview(formData: FormData, options: UpdateOverviewOptions = {}) {
+  const { skipRedirect = false } = options;
   const editor = await requireOrderEditor();
   const p = parseFormDataToUebersicht(formData);
   if (!p.success) {
@@ -64,5 +67,7 @@ export async function updateOrderOverview(formData: FormData) {
   }
 
   revalidatePath(`/orders/${orderNo}`);
-  redirect(`/orders/${orderNo}?saved=1`);
+  if (!skipRedirect) {
+    redirect(`/orders/${orderNo}?saved=1`);
+  }
 }

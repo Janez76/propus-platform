@@ -1,9 +1,8 @@
 import { notFound } from "next/navigation";
 import { ListChecks, Tag, Receipt } from "lucide-react";
-import { queryOne } from "@/lib/db";
-import { DURATION_MIN_FROM_SCHEDULE } from "@/lib/repos/orders/durationFromScheduleSql";
 import { Section, Empty, formatCHF } from "../_shared";
 import { LeistungenForm } from "./leistungen-form";
+import { loadOrderContext } from "../_order-context";
 
 type Addon = { id?: string; label: string; price?: number; qty?: number; group?: string };
 
@@ -16,35 +15,23 @@ export default async function LeistungenPage({ params, searchParams }: Props) {
   const { id } = await params;
   const sp = searchParams ? await searchParams : {};
   const isEditing = sp.edit === "1";
+  const orderNo = Number(id);
+  if (!Number.isInteger(orderNo) || orderNo <= 0) notFound();
 
-  const order = await queryOne<{
-    order_no: number;
-    package_key: string | null;
-    package_label: string | null;
-    package_price: string | null;
-    addons: Addon[] | null;
-    pricing_subtotal: string | null;
-    pricing_discount: string | null;
-    pricing_vat: string | null;
-    pricing_total: string | null;
-    duration_min: number | null;
-  }>(`
-    SELECT
-      order_no,
-      services->'package'->>'key'              AS package_key,
-      services->'package'->>'label'            AS package_label,
-      services->'package'->>'price'            AS package_price,
-      services->'addons'                       AS addons,
-      pricing->>'subtotal'                     AS pricing_subtotal,
-      pricing->>'discount'                     AS pricing_discount,
-      pricing->>'vat'                          AS pricing_vat,
-      pricing->>'total'                        AS pricing_total,
-      ${DURATION_MIN_FROM_SCHEDULE.bare}          AS duration_min
-    FROM booking.orders
-    WHERE order_no = $1
-  `, [id]);
-
-  if (!order) notFound();
+  const o = await loadOrderContext(orderNo);
+  if (!o) notFound();
+  const order = {
+    order_no: o.order_no,
+    package_key: o.package_key,
+    package_label: o.package_label,
+    package_price: o.package_price,
+    addons: o.addons as Addon[] | null,
+    pricing_subtotal: o.pricing_subtotal,
+    pricing_discount: o.pricing_discount,
+    pricing_vat: o.pricing_vat,
+    pricing_total: o.pricing_total,
+    duration_min: o.duration_min,
+  };
 
   const discount = Number(order.pricing_discount ?? 0);
 

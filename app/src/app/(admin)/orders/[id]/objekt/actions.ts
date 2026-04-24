@@ -8,7 +8,13 @@ import { joinAddressLine } from "@/lib/parseOrderAddress";
 import { objektFormSchema } from "@/lib/validators/orders/objekt";
 import { queryOne, withTransaction } from "@/lib/db";
 
-export async function saveOrderObjekt(input: unknown) {
+export type SaveOrderObjektOptions = { skipRedirect?: boolean };
+
+export async function saveOrderObjekt(
+  input: unknown,
+  options: SaveOrderObjektOptions = {},
+) {
+  const { skipRedirect = false } = options;
   const editor = await requireOrderEditor();
   const parsed = objektFormSchema.safeParse(input);
   if (!parsed.success) {
@@ -64,5 +70,7 @@ export async function saveOrderObjekt(input: unknown) {
 
   revalidatePath(`/orders/${v.orderNo}/objekt`);
   revalidatePath(`/orders/${v.orderNo}`);
-  redirect(`/orders/${v.orderNo}/objekt?saved=1`);
+  if (!skipRedirect) {
+    redirect(`/orders/${v.orderNo}/objekt?saved=1`);
+  }
 }

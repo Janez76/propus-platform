@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
 import { Building2, MapPin, Users, KeyRound } from "lucide-react";
-import { queryOne } from "@/lib/db";
 import { Section, InfoItem, Empty } from "../_shared";
 import { ObjektForm } from "./objekt-form";
+import { loadOrderContext } from "../_order-context";
 
 type OnsiteContact = { name?: string; phone?: string; email?: string; role?: string; calendarInvite?: boolean };
 type KeyPickup = { enabled?: boolean; address?: string; floor?: string; info?: string };
@@ -16,37 +16,33 @@ export default async function ObjektPage({ params, searchParams }: Props) {
   const { id } = await params;
   const sp = searchParams ? await searchParams : {};
   const isEditing = sp.edit === "1";
+  const orderNo = Number(id);
+  if (!Number.isInteger(orderNo) || orderNo <= 0) notFound();
 
-  const order = await queryOne<{
-    order_no: number;
-    address: string | null;
-    object_type: string | null;
-    object_area: string | null;
-    object_floors: string | null;
-    object_rooms: string | null;
-    object_desc: string | null;
-    onsite_contacts: OnsiteContact[] | null;
-    key_pickup: KeyPickup | null;
-  }>(`
-    SELECT
-      order_no,
-      address,
-      object->>'type'      AS object_type,
-      object->>'area'      AS object_area,
-      object->>'floors'    AS object_floors,
-      object->>'rooms'     AS object_rooms,
-      object->>'desc'      AS object_desc,
-      onsite_contacts,
-      key_pickup
-    FROM booking.orders
-    WHERE order_no = $1
-  `, [id]);
+  const o = await loadOrderContext(orderNo);
+  if (!o) notFound();
 
-  if (!order) notFound();
+  const ro = o.raw_object as Record<string, unknown> | null;
+  const objectRoomsRead =
+    o.object_rooms ??
+    (ro && typeof ro.zimmer === "string" && ro.zimmer.trim() !== "" ? ro.zimmer : null) ??
+    (ro && typeof (ro as { Zimmer?: unknown }).Zimmer === "string" ? String((ro as { Zimmer: string }).Zimmer) : null);
 
-  const contacts: OnsiteContact[] = order.onsite_contacts ?? [];
+  const order = {
+    order_no: o.order_no,
+    address: o.address,
+    object_type: o.object_type,
+    object_area: o.object_area,
+    object_floors: o.object_floors,
+    object_rooms: o.object_rooms,
+    object_desc: o.object_desc,
+    onsite_contacts: o.onsite_contacts as OnsiteContact[] | null,
+    key_pickup: o.key_pickup as KeyPickup | null,
+  };
+
+  const contacts: OnsiteContact[] = (order.onsite_contacts ?? []) as OnsiteContact[];
   const kp = order.key_pickup;
-  const hasObject = order.object_type || order.object_area || order.object_floors || order.object_rooms || order.object_desc;
+  const hasObject = order.object_type || order.object_area || order.object_floors || objectRoomsRead || order.object_desc;
 
   if (isEditing) {
     return (
@@ -70,7 +66,7 @@ export default async function ObjektPage({ params, searchParams }: Props) {
             {order.object_type && <InfoItem label="Typ" value={order.object_type} />}
             {order.object_area && <InfoItem label="Fläche" value={`${order.object_area} m²`} />}
             {order.object_floors && <InfoItem label="Etagen" value={order.object_floors} />}
-            {order.object_rooms && <InfoItem label="Zimmer" value={order.object_rooms} />}
+            {objectRoomsRead && <InfoItem label="Zimmer" value={objectRoomsRead} />}
             {order.object_desc && (
               <div className="col-span-full">
                 <InfoItem label="Beschreibung" value={order.object_desc} />

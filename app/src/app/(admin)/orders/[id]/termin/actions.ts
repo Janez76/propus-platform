@@ -15,7 +15,13 @@ export type SaveTerminResult =
   | { ok: true }
   | { ok: false; error: string; conflicts?: { orderNo: number }[]; fieldErrors?: Record<string, string[] | undefined> };
 
-export async function saveOrderTermin(input: unknown): Promise<SaveTerminResult> {
+export type SaveOrderTerminOptions = { skipRedirect?: boolean };
+
+export async function saveOrderTermin(
+  input: unknown,
+  options: SaveOrderTerminOptions = {},
+): Promise<SaveTerminResult> {
+  const { skipRedirect = false } = options;
   const editor = await requireOrderEditor();
   const parsed = terminFormSchema.safeParse(input);
   if (!parsed.success) {
@@ -172,5 +178,8 @@ export async function saveOrderTermin(input: unknown): Promise<SaveTerminResult>
 
   revalidatePath(`/orders/${v.orderNo}`);
   revalidatePath(`/orders/${v.orderNo}/termin`);
-  redirect(`/orders/${v.orderNo}/termin?saved=1`);
+  if (!skipRedirect) {
+    redirect(`/orders/${v.orderNo}/termin?saved=1`);
+  }
+  return { ok: true };
 }

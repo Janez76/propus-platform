@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition, useCallback } from "react";
+import { useState, useTransition, useCallback, useEffect } from "react";
+import { useOrderEditShellOptional } from "../order-edit-shell-context";
 import { useFieldArray, useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Building2, MapPin, Plus, Trash2, Users, KeyRound } from "lucide-react";
@@ -67,6 +68,11 @@ export function ObjektForm({ order }: Props) {
     resolver: zodResolver(objektFormSchema) as import("react-hook-form").Resolver<ObjektFormValues>,
     defaultValues: defaults(order),
   });
+  const shell = useOrderEditShellOptional();
+  const isDirty = form.formState.isDirty;
+  useEffect(() => {
+    shell?.markDirty("objekt", isDirty);
+  }, [isDirty, shell]);
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "onsiteContacts" });
 
   const onSubmit = useCallback(

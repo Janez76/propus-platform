@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { useOrderEditShellOptional } from "../order-edit-shell-context";
 import { useFieldArray, useForm, FormProvider, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ListChecks, Plus, Receipt, Tag, Trash2 } from "lucide-react";
@@ -95,6 +96,11 @@ export function LeistungenForm({ order }: Props) {
     resolver: zodResolver(leistungenFormSchema) as import("react-hook-form").Resolver<LeistungenFormValues>,
     defaultValues: { ...defaults(order) },
   });
+  const shell = useOrderEditShellOptional();
+  const isDirty = form.formState.isDirty;
+  useEffect(() => {
+    shell?.markDirty("leistungen", isDirty);
+  }, [isDirty, shell]);
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "addons" });
   const [addSelect, setAddSelect] = useState(catalog[0]?.id ?? "");
 

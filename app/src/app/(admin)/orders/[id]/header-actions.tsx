@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Pencil, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useOrderEditShellOptional } from "./order-edit-shell-context";
 
 function tabPathSupportsEdit(pathname: string | null): boolean {
   if (!pathname) return true;
@@ -26,8 +27,17 @@ function basePath(pathname: string, orderNo: string | number): string {
 export function OrderReadOnlyBadge() {
   const searchParams = useSearchParams();
   const pathname = usePathname();
+  const shell = useOrderEditShellOptional();
   const isEditing = searchParams.get("edit") === "1";
   if (isEditing) return null;
+  if (shell?.clientSection) {
+    return (
+      <span className="flex items-center gap-1 text-xs text-white/40">
+        <Lock className="h-3 w-3" />
+        Schreibgeschützt
+      </span>
+    );
+  }
   if (!tabPathSupportsEdit(pathname)) return null;
   return (
     <span className="flex items-center gap-1 text-xs text-white/40">
@@ -44,10 +54,11 @@ type ActionProps = {
 export function OrderEditActions({ orderNo }: ActionProps) {
   const searchParams = useSearchParams();
   const pathname = usePathname();
+  const shell = useOrderEditShellOptional();
   const isEditing = searchParams.get("edit") === "1";
   const no = String(orderNo);
   const tabBase = basePath(pathname || "", orderNo);
-  const supportsEdit = tabPathSupportsEdit(pathname);
+  const supportsEdit = tabPathSupportsEdit(pathname) && !shell?.clientSection;
 
   if (!supportsEdit) {
     return null;

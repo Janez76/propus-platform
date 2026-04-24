@@ -1,7 +1,8 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { Building2, MapPin, User2 } from 'lucide-react';
+import { useState, useCallback, useEffect } from "react";
+import { Building2, MapPin, User2 } from "lucide-react";
+import { useOrderEditShellOptional } from "./order-edit-shell-context";
 
 type Order = {
   id: number | string;
@@ -26,10 +27,26 @@ type Props = {
 };
 
 export function UebersichtForm({ order, isEditing, action }: Props) {
-  const [bookingType, setBookingType] = useState<'firma' | 'privat'>(order.booking_type);
+  const [bookingType, setBookingType] = useState<"firma" | "privat">(order.booking_type);
+  const shell = useOrderEditShellOptional();
+
+  const markTouched = useCallback(() => {
+    if (isEditing) shell?.markDirty("uebersicht", true);
+  }, [isEditing, shell]);
+
+  useEffect(() => {
+    if (isEditing) {
+      shell?.markDirty("uebersicht", false);
+    }
+  }, [isEditing, order.order_no, shell]);
 
   return (
-    <form id="order-form" action={action} className="space-y-6">
+    <form
+      id="order-form"
+      action={action}
+      className="space-y-6"
+      onInput={markTouched}
+    >
       <input type="hidden" name="order_no" value={order.order_no} />
 
       <Section

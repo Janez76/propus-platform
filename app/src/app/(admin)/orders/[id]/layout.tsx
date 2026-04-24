@@ -7,6 +7,9 @@ import { loadOrderContext } from './_order-context';
 import { OrderTabs } from './order-tabs';
 import { OrderReadOnlyBadge, OrderEditActions } from './header-actions';
 import { OrderSaveToast } from './order-save-toast';
+import { OrderEditShellProvider } from './order-edit-shell-context';
+import { OrderEditShellContent } from './order-edit-shell-content';
+import { OrderBulkDirtyHint } from './order-bulk-hint';
 
 const STATUS_LABEL: Record<string, { label: string; className: string }> = {
   pending:    { label: 'Offen',          className: 'bg-amber-500/15 text-amber-400' },
@@ -61,6 +64,7 @@ export default async function OrderLayout({ children, params }: Props) {
   const status = STATUS_LABEL[order.status] ?? STATUS_LABEL.pending;
 
   return (
+    <OrderEditShellProvider orderNo={order.order_no}>
     <div className="min-h-screen bg-[#0c0d10] text-white">
       <header className="sticky top-0 z-20 border-b border-white/10 bg-[#0c0d10]/95 backdrop-blur">
         <div className="mx-auto max-w-6xl px-6">
@@ -121,9 +125,13 @@ export default async function OrderLayout({ children, params }: Props) {
         <Suspense fallback={null}>
           <OrderSaveToast />
         </Suspense>
-        {children}
+        <OrderBulkDirtyHint />
+        <OrderEditShellContent orderId={String(order.order_no)}>
+          {children}
+        </OrderEditShellContent>
       </main>
     </div>
+    </OrderEditShellProvider>
   );
 }
 

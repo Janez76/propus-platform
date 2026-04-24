@@ -18,7 +18,13 @@ type AddonRow = {
   priceOverride?: number | null;
 };
 
-export async function saveLeistungen(input: unknown) {
+export type SaveLeistungenOptions = { skipRedirect?: boolean };
+
+export async function saveLeistungen(
+  input: unknown,
+  options: SaveLeistungenOptions = {},
+) {
+  const { skipRedirect = false } = options;
   const editor = await requireOrderEditor();
   const p = leistungenFormSchema.safeParse(input);
   if (!p.success) {
@@ -124,5 +130,7 @@ export async function saveLeistungen(input: unknown) {
 
   revalidatePath(`/orders/${v.orderNo}/leistungen`);
   revalidatePath(`/orders/${v.orderNo}`);
-  redirect(`/orders/${v.orderNo}/leistungen?saved=1`);
+  if (!skipRedirect) {
+    redirect(`/orders/${v.orderNo}/leistungen?saved=1`);
+  }
 }
