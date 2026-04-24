@@ -29,53 +29,109 @@ export function UebersichtForm({ order, isEditing, action }: Props) {
   const [bookingType, setBookingType] = useState<'firma' | 'privat'>(order.booking_type);
 
   return (
-    <form id="order-form" action={action} className="space-y-8">
+    <form id="order-form" action={action} className="space-y-6">
       <input type="hidden" name="order_no" value={order.order_no} />
 
-      <Section title="Ich buche als">
-        <div className="grid grid-cols-2 gap-3">
-          <RadioCard
-            name="booking_type"
-            value="firma"
-            icon={<Building2 className="h-4 w-4" />}
-            label="Firma"
-            checked={bookingType === 'firma'}
+      <Section
+        title="Rechnungsempfänger"
+        icon={bookingType === 'firma' ? <Building2 className="h-4 w-4" /> : <User2 className="h-4 w-4" />}
+      >
+        <fieldset className="flex gap-4 items-center py-2">
+          <legend className="sr-only">Buchungstyp</legend>
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input
+              type="radio"
+              name="booking_type"
+              value="firma"
+              checked={bookingType === 'firma'}
+              disabled={!isEditing}
+              onChange={() => setBookingType('firma')}
+            />
+            Firma
+          </label>
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input
+              type="radio"
+              name="booking_type"
+              value="privat"
+              checked={bookingType === 'privat'}
+              disabled={!isEditing}
+              onChange={() => setBookingType('privat')}
+            />
+            Privatperson
+          </label>
+        </fieldset>
+
+        {bookingType === 'firma' && (
+          <>
+            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+              <Field
+                label="Firma"
+                name="company_name"
+                defaultValue={order.company_name ?? ''}
+                disabled={!isEditing}
+                required
+              />
+              <Field
+                label="Bestell-Referenz"
+                name="order_reference"
+                defaultValue={order.order_reference ?? ''}
+                disabled={!isEditing}
+                maxLength={64}
+                hint="Max. 64 Zeichen (interne Referenz)"
+              />
+            </div>
+            <div className="border-t border-white/10 my-4" />
+          </>
+        )}
+
+        <p className="mb-4 text-xs text-white/50">
+          Mindestens eine Person mit E-Mail – diese wird als Schlüssel in der Kundenkartei verwendet.
+        </p>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+          <SelectField
+            label="Anrede"
+            name="contact_salutation"
+            defaultValue={order.contact_salutation ?? 'Herr'}
             disabled={!isEditing}
-            onChange={() => setBookingType('firma')}
+            options={['Herr', 'Frau', 'Divers']}
+            className="md:col-span-1"
           />
-          <RadioCard
-            name="booking_type"
-            value="privat"
-            icon={<User2 className="h-4 w-4" />}
-            label="Privatperson"
-            checked={bookingType === 'privat'}
+          <Field
+            label="Vorname"
+            name="contact_first_name"
+            defaultValue={order.contact_first_name ?? ''}
             disabled={!isEditing}
-            onChange={() => setBookingType('privat')}
+            hint="Optional, falls im Nachname-Feld der vollständige Name steht (wird beim Speichern getrennt)"
+            className="md:col-span-1"
+          />
+          <Field
+            label="Nachname"
+            name="contact_last_name"
+            defaultValue={order.contact_last_name ?? ''}
+            disabled={!isEditing}
+            required
+            className="md:col-span-2"
+          />
+          <Field
+            label="E-Mail"
+            name="contact_email"
+            type="email"
+            defaultValue={order.contact_email ?? ''}
+            disabled={!isEditing}
+            required
+            className="md:col-span-2"
+          />
+          <Field
+            label="Telefon"
+            name="contact_phone"
+            type="tel"
+            defaultValue={order.contact_phone ?? ''}
+            disabled={!isEditing}
+            className="md:col-span-2"
           />
         </div>
       </Section>
-
-      {bookingType === 'firma' && (
-        <Section title="Firmenangaben" icon={<Building2 className="h-4 w-4" />}>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Field
-              label="Firma"
-              name="company_name"
-              defaultValue={order.company_name ?? ''}
-              disabled={!isEditing}
-              required
-            />
-            <Field
-              label="Bestell-Referenz"
-              name="order_reference"
-              defaultValue={order.order_reference ?? ''}
-              disabled={!isEditing}
-              maxLength={64}
-              hint="Max. 64 Zeichen (interne Referenz)"
-            />
-          </div>
-        </Section>
-      )}
 
       <Section title="Rechnungsadresse" icon={<MapPin className="h-4 w-4" />}>
         <Field
@@ -102,58 +158,14 @@ export function UebersichtForm({ order, isEditing, action }: Props) {
           />
         </div>
       </Section>
-
-      <Section title="Hauptkontakt" icon={<User2 className="h-4 w-4" />}>
-        <p className="mb-4 text-xs text-white/50">
-          Mindestens eine Person mit E-Mail – diese wird als Schlüssel in der Kundenkartei verwendet.
-        </p>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <SelectField
-            label="Anrede"
-            name="contact_salutation"
-            defaultValue={order.contact_salutation ?? 'Herr'}
-            disabled={!isEditing}
-            options={['Herr', 'Frau', 'Divers']}
-          />
-          <Field
-            label="Vorname"
-            name="contact_first_name"
-            defaultValue={order.contact_first_name ?? ''}
-            disabled={!isEditing}
-            hint="Optional, falls im Nachname-Feld der vollständige Name steht (wird beim Speichern getrennt)"
-          />
-          <Field
-            label="Nachname"
-            name="contact_last_name"
-            defaultValue={order.contact_last_name ?? ''}
-            disabled={!isEditing}
-            required
-          />
-          <Field
-            label="E-Mail"
-            name="contact_email"
-            type="email"
-            defaultValue={order.contact_email ?? ''}
-            disabled={!isEditing}
-            required
-          />
-          <Field
-            label="Telefon"
-            name="contact_phone"
-            type="tel"
-            defaultValue={order.contact_phone ?? ''}
-            disabled={!isEditing}
-          />
-        </div>
-      </Section>
     </form>
   );
 }
 
 function Section({ title, icon, children }: { title: string; icon?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <section className="rounded-xl border border-white/10 bg-white/[0.02] p-6">
-      <h2 className="mb-5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-white/60">
+    <section className="rounded-xl border border-white/10 bg-white/[0.02] p-5">
+      <h2 className="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-white/50">
         {icon}
         {title}
       </h2>
@@ -163,7 +175,7 @@ function Section({ title, icon, children }: { title: string; icon?: React.ReactN
 }
 
 function Field({
-  label, name, defaultValue = '', type = 'text', disabled, required, autoComplete, maxLength, hint,
+  label, name, defaultValue = '', type = 'text', disabled, required, autoComplete, maxLength, hint, className,
 }: {
   label: string;
   name: string;
@@ -174,13 +186,13 @@ function Field({
   autoComplete?: string;
   maxLength?: number;
   hint?: string;
+  className?: string;
 }) {
   return (
-    <label className="block">
+    <label className={`block${className ? ` ${className}` : ''}`}>
       <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-white/50">
         {label}{required && ' *'}
       </span>
-      {hint && <p className="mb-1 text-[10px] text-white/40">{hint}</p>}
       <input
         name={name}
         type={type}
@@ -191,21 +203,23 @@ function Field({
         autoComplete={autoComplete}
         className="w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm outline-none transition-colors focus:border-[#B68E20]/60 focus:bg-white/[0.05] disabled:cursor-not-allowed disabled:opacity-60"
       />
+      {hint && <p className="mt-1 text-xs text-white/40 leading-tight">{hint}</p>}
     </label>
   );
 }
 
 function SelectField({
-  label, name, defaultValue, disabled, options,
+  label, name, defaultValue, disabled, options, className,
 }: {
   label: string;
   name: string;
   defaultValue: string;
   disabled?: boolean;
   options: string[];
+  className?: string;
 }) {
   return (
-    <label className="block">
+    <label className={`block${className ? ` ${className}` : ''}`}>
       <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-white/50">
         {label}
       </span>
