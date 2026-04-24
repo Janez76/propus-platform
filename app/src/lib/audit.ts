@@ -14,7 +14,11 @@ export type OrderEventType =
   | "message_deleted"
   | "file_uploaded"
   | "folder_updated"
-  | "note_added";
+  | "note_added"
+  | "matterport_linked"
+  | "matterport_unlinked"
+  | "gallery_linked"
+  | "gallery_unlinked";
 
 export async function logOrderEvent(
   orderNo: number,
