@@ -77,7 +77,7 @@ function PriceSidebar({ form, discountChf }: { form: ReturnType<typeof useForm<L
       </div>
       <div className="flex justify-between text-white/60">
         <span>MwSt. ({Math.round(VAT_RATE * 1000) / 10} %)</span>
-        <span className="tabular-nums">CHF {calc.vat.toFixed(2)}</span>
+        <span className="tabular-nums">{formatCHF(calc.vat)}</span>
       </div>
       <div className="flex justify-between font-semibold text-white">
         <span>Total</span>

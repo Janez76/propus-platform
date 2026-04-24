@@ -134,7 +134,7 @@ export default async function LeistungenPage({ params, searchParams }: Props) {
               <PriceLine label="Rabatt" value={`−${formatCHF(discount)}`} className="text-emerald-400" />
             )}
             {order.pricing_vat && (
-              <PriceLine label="MwSt." value={order.pricing_vat} />
+              <PriceLine label="MwSt." value={formatCHF(order.pricing_vat)} />
             )}
             <div className="mt-3 border-t border-white/10 pt-3">
               <PriceLine
