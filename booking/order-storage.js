@@ -652,13 +652,28 @@ function deriveOrderNaming(order) {
   };
 }
 
+/**
+ * Gibt den categoryKey zurück wenn rel dem kanonischen Pfad dieser Kategorie entspricht.
+ * Ermöglicht in ensureDirStructure alle Aliases (z. B. "WEB SIZE", "Websize") zu prüfen,
+ * statt nur den exakten kanonischen String — damit kein zweiter Ordner angelegt wird.
+ */
+function findCategoryKeyForStructurePath(rel) {
+  for (const [key, canonicalPath] of Object.entries(UPLOAD_CATEGORY_MAP)) {
+    if (canonicalPath === rel) return key;
+  }
+  return null;
+}
+
 function ensureDirStructure(baseDir, structure) {
   fs.mkdirSync(baseDir, { recursive: true });
   for (const rel of structure) {
-    // Prüfe ob ein Alias-Ordner für diesen Pfad bereits existiert.
-    // Jeder Pfad-Segment wird case-insensitiv + leerzeichen-normalisiert verglichen,
-    // damit z.B. "Unbearbeitet" oder "unbearbeitet" als Alias für "Unbearbeitete" erkannt wird.
-    const alreadyExists = tryResolveCategoryPath(baseDir, rel);
+    // Für Pfade die einer bekannten Kategorie entsprechen (z.B. "Finale/Bilder/websize")
+    // werden ALLE definierten Aliases berücksichtigt — so wird z.B. "WEB SIZE" als
+    // bestehender websize-Ordner erkannt und kein zweiter Ordner angelegt.
+    const categoryKey = findCategoryKeyForStructurePath(rel);
+    const alreadyExists = categoryKey
+      ? resolveExistingCategoryPaths(baseDir, categoryKey).length > 0
+      : tryResolveCategoryPath(baseDir, rel);
     if (alreadyExists) continue;
     fs.mkdirSync(path.join(baseDir, rel), { recursive: true });
   }
@@ -813,6 +828,16 @@ async function tryCreateNextcloudShare(orderNo, relativePath, db) {
   }
 }
 
+/** @returns {boolean} true wenn beide Pfade auf denselben absoluten Pfad zeigen */
+function isSameOrderFolderPath(p1, p2) {
+  if (p1 == null || p2 == null) return false;
+  try {
+    return path.resolve(String(p1)) === path.resolve(String(p2));
+  } catch {
+    return false;
+  }
+}
+
 async function provisionOrderFolders(order, db, { folderTypes = ["raw_material", "customer_folder"], createMissing = true } = {}) {
   const defs = buildFolderDefinitions(order);
   const links = {};
@@ -820,6 +845,29 @@ async function provisionOrderFolders(order, db, { folderTypes = ["raw_material",
     const def = defs[folderType];
     if (!def) continue;
     assertRootReady(def.rootPath, { label: folderType === "raw_material" ? "Raw-Root" : "Kunden-Root" });
+    if (createMissing) {
+      const existingLink = await db.getOrderFolderLink(order.orderNo, def.folderType);
+      if (
+        existingLink &&
+        String(existingLink.status || "") === "linked" &&
+        existingLink.absolute_path &&
+        !isSameOrderFolderPath(existingLink.absolute_path, def.absolutePath)
+      ) {
+        // Bereits an anderer Stelle verknüpft: kein zweiter Platzhalter am kanonischen Pfad,
+        // kein DB-Update (würde den verknüpften Pfad überschreiben), kein neuer Nextcloud-Share.
+        console.warn(
+          "[order-storage] provisionOrderFolders: Anlage/Update übersprungen für " +
+            def.folderType +
+            " (bereits verknüpft, nicht am kanonischen Ziel: " +
+            String(existingLink.absolute_path) +
+            " ; kanonisch: " +
+            def.absolutePath +
+            ")"
+        );
+        links[folderType] = existingLink;
+        continue;
+      }
+    }
     if (createMissing) ensureDirStructure(def.absolutePath, def.structure);
     const link = await db.upsertOrderFolderLink({
       orderNo: order.orderNo,
@@ -1286,7 +1334,9 @@ module.exports = {
   buildFolderDefinitions,
   provisionOrderFolders,
   getOrderFolderSummary,
+  findCategoryKeyForStructurePath,
   ensureDirStructure,
+  isSameOrderFolderPath,
   linkExistingOrderFolder,
   archiveOrderFolder,
   getStorageRoots,

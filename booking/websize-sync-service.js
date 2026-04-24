@@ -5,6 +5,7 @@ const { pdfToPng } = require("pdf-to-png-converter");
 const {
   buildDerivedFloorplanJpgName,
   buildDerivedWebsizeName,
+  getCanonicalCategoryAbsolutePath,
   migrateLegacyFinaleImageStructure,
   renameExistingFullsizeFiles,
   renameExistingStagingFiles,
@@ -278,7 +279,9 @@ async function syncWebsizePipelineForOrderFolder(
   { forceRebuild = false } = {}
 ) {
   const fullsizeRoot = resolveCategoryPath(orderFolderAbsolutePath, sourceCategoryKey);
-  const websizeRoot = resolveCategoryPath(orderFolderAbsolutePath, targetCategoryKey);
+  // Schreibziel immer kanonisch — verhindert dass Dateien in Alias-Ordner ("WEB SIZE" statt
+  // "websize") landen und so ein Duplikat neben dem kanonischen Ordner entsteht.
+  const websizeRoot = getCanonicalCategoryAbsolutePath(orderFolderAbsolutePath, targetCategoryKey);
   if (!fs.existsSync(fullsizeRoot) || !fs.statSync(fullsizeRoot).isDirectory()) {
     return createPipelineStats();
   }

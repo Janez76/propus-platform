@@ -144,3 +144,144 @@ test("getStorageHealth does not throw when configured staging path is invalid", 
     fs.rmSync(tempBase, { recursive: true, force: true });
   }
 });
+
+// ── Szenario 8: isSameOrderFolderPath ─────────────────────────────────────
+test("isSameOrderFolderPath: gleiche Pfade, unterschiedliche Normalisierung", () => {
+  const { mod, restore } = loadOrderStorage();
+  try {
+    const a = path.join("x", "y", "z");
+    const b = path.resolve(a);
+    assert.equal(mod.isSameOrderFolderPath(a, b), true);
+    assert.equal(mod.isSameOrderFolderPath(null, b), false);
+  } finally {
+    restore();
+  }
+});
+
+// ── Szenario 9: provisionOrderFolders überspringt bei linked+anderem Pfad ─
+test("provisionOrderFolders: überspringt Anlage wenn linked und nicht am kanonischen Ziel", async () => {
+  const customerRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ost-prov-"));
+  const rawRoot = path.join(customerRoot, "_raw");
+  const linkedElsewhere = path.join(customerRoot, "linked-elsewhere");
+  fs.mkdirSync(linkedElsewhere, { recursive: true });
+  const { mod, restore } = loadOrderStorage({
+    BOOKING_UPLOAD_CUSTOMER_ROOT: customerRoot,
+    BOOKING_UPLOAD_RAW_ROOT: rawRoot,
+  });
+  try {
+    const order = {
+      orderNo: 100,
+      customerId: 215,
+      address: "Bahnhofstrasse 1",
+      customerCompany: "Beseder Immobilien",
+      customerZipcity: "8000 Zug",
+      billing: {},
+    };
+    const defs = mod.buildFolderDefinitions(order);
+    const expectedCanonical = defs.customer_folder.absolutePath;
+    let upsertCount = 0;
+    const db = {
+      getOrderFolderLink: async (_orderNo, folderType) => {
+        if (folderType === "customer_folder") {
+          return { status: "linked", absolute_path: linkedElsewhere, folder_type: "customer_folder" };
+        }
+        return null;
+      },
+      upsertOrderFolderLink: async () => {
+        upsertCount += 1;
+        return { status: "linked" };
+      },
+    };
+    const out = await mod.provisionOrderFolders(order, db, { folderTypes: ["customer_folder"], createMissing: true });
+    assert.equal(upsertCount, 0, "upsert darf bei Skip nicht aufgerufen werden");
+    assert.equal(out.customer_folder?.absolute_path, linkedElsewhere);
+    assert.equal(fs.existsSync(expectedCanonical), false, "kanonischer Platzhalterpfad darf nicht angelegt werden");
+  } finally {
+    restore();
+    fs.rmSync(customerRoot, { recursive: true, force: true });
+  }
+});
+
+// ── Szenario 10: provisionOrderFolders legt kanonische Struktur an ─────────
+test("provisionOrderFolders: legt Kundenstruktur an wenn kein linked-Eintrag", async () => {
+  const customerRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ost-prov2-"));
+  const rawRoot = path.join(customerRoot, "_raw");
+  const { mod, restore } = loadOrderStorage({
+    BOOKING_UPLOAD_CUSTOMER_ROOT: customerRoot,
+    BOOKING_UPLOAD_RAW_ROOT: rawRoot,
+  });
+  try {
+    const order = {
+      orderNo: 101,
+      customerId: 215,
+      address: "Bahnhofstrasse 1",
+      customerCompany: "Beseder Immobilien",
+      customerZipcity: "8000 Zug",
+      billing: {},
+    };
+    const defs = mod.buildFolderDefinitions(order);
+    const expectedCanonical = defs.customer_folder.absolutePath;
+    const db = {
+      getOrderFolderLink: async () => null,
+      upsertOrderFolderLink: async (row) => row,
+    };
+    await mod.provisionOrderFolders(order, db, { folderTypes: ["customer_folder"], createMissing: true });
+    const websize = path.join(expectedCanonical, "Finale", "Bilder", "websize");
+    assert.ok(fs.existsSync(websize), "kanonische websize-Unterstruktur muss existieren: " + websize);
+  } finally {
+    restore();
+    fs.rmSync(customerRoot, { recursive: true, force: true });
+  }
+});
+
+// ── Szenario 11: ensureDirStructure legt websize nicht an wenn WEB SIZE existiert
+test("ensureDirStructure: kein zweiter websize-Ordner wenn WEB SIZE bereits existiert", () => {
+  const customerRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ost-ensuredir-"));
+  const { mod, restore } = loadOrderStorage({
+    BOOKING_UPLOAD_CUSTOMER_ROOT: customerRoot,
+    BOOKING_UPLOAD_RAW_ROOT: path.join(customerRoot, "_raw"),
+  });
+  try {
+    const orderRoot = path.join(customerRoot, "TestKunde #1", "8000 Zug, Teststrasse #99");
+    // Alias-Ordner "WEB SIZE" manuell anlegen (Legacy-Name)
+    const webSizeDir = path.join(orderRoot, "Finale", "Bilder", "WEB SIZE");
+    fs.mkdirSync(webSizeDir, { recursive: true });
+
+    mod.ensureDirStructure(orderRoot, mod.CUSTOMER_UPLOAD_STRUCTURE);
+
+    const websize = path.join(orderRoot, "Finale", "Bilder", "websize");
+    assert.equal(
+      fs.existsSync(websize),
+      false,
+      "websize darf nicht angelegt werden wenn WEB SIZE bereits existiert"
+    );
+    assert.ok(
+      fs.existsSync(webSizeDir),
+      "WEB SIZE muss noch vorhanden sein"
+    );
+  } finally {
+    restore();
+    fs.rmSync(customerRoot, { recursive: true, force: true });
+  }
+});
+
+// ── Szenario 12: ensureDirStructure legt websize an wenn kein Alias existiert
+test("ensureDirStructure: legt websize an wenn kein Alias-Ordner vorhanden ist", () => {
+  const customerRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ost-ensuredir2-"));
+  const { mod, restore } = loadOrderStorage({
+    BOOKING_UPLOAD_CUSTOMER_ROOT: customerRoot,
+    BOOKING_UPLOAD_RAW_ROOT: path.join(customerRoot, "_raw"),
+  });
+  try {
+    const orderRoot = path.join(customerRoot, "TestKunde #2", "8000 Zug, Teststrasse #100");
+    fs.mkdirSync(orderRoot, { recursive: true });
+
+    mod.ensureDirStructure(orderRoot, mod.CUSTOMER_UPLOAD_STRUCTURE);
+
+    const websize = path.join(orderRoot, "Finale", "Bilder", "websize");
+    assert.ok(fs.existsSync(websize), "websize muss angelegt werden wenn kein Alias existiert");
+  } finally {
+    restore();
+    fs.rmSync(customerRoot, { recursive: true, force: true });
+  }
+});
