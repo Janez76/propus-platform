@@ -72,7 +72,7 @@ export async function listPhotographers(): Promise<PhotographerOption[]> {
   return query<PhotographerOption>(
     `SELECT key, name, email
      FROM booking.photographers
-     WHERE COALESCE(active, true) = true
+     WHERE active IS NOT FALSE
      ORDER BY name ASC, key ASC`,
   );
 }
