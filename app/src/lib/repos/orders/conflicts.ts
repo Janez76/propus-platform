@@ -1,4 +1,5 @@
 import { query } from "@/lib/db";
+import { DURATION_MIN_FROM_SCHEDULE } from "./durationFromScheduleSql";
 
 function timeToMinutes(t: string): number {
   const [h, m] = t.split(":").map(Number);
@@ -31,11 +32,11 @@ export async function findScheduleConflicts(params: {
     `SELECT
         order_no,
         schedule_time,
-        (schedule->>'durationMin')::int AS duration_min
+        ${DURATION_MIN_FROM_SCHEDULE.bare} AS duration_min
      FROM booking.orders
      WHERE order_no != $1
        AND photographer_key = $2
-       AND schedule_date = $3::date
+       AND schedule_date = $3
        AND status NOT IN ('cancelled', 'archived')`,
     [params.orderNo, params.photographerKey, params.scheduleDate],
   );

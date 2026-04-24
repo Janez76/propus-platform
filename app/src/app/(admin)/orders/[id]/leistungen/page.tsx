@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import { ListChecks, Tag, Receipt } from "lucide-react";
 import { queryOne } from "@/lib/db";
-import { Section, InfoItem, Empty, formatCHF } from "../_shared";
+import { DURATION_MIN_FROM_SCHEDULE } from "@/lib/repos/orders/durationFromScheduleSql";
+import { Section, Empty, formatCHF } from "../_shared";
 import { LeistungenForm } from "./leistungen-form";
 
 type Addon = { id?: string; label: string; price?: number; qty?: number; group?: string };
@@ -38,7 +39,7 @@ export default async function LeistungenPage({ params, searchParams }: Props) {
       pricing->>'discount'                     AS pricing_discount,
       pricing->>'vat'                          AS pricing_vat,
       pricing->>'total'                        AS pricing_total,
-      (schedule->>'durationMin')::int          AS duration_min
+      ${DURATION_MIN_FROM_SCHEDULE.bare}          AS duration_min
     FROM booking.orders
     WHERE order_no = $1
   `, [id]);

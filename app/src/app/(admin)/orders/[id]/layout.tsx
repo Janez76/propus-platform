@@ -2,8 +2,8 @@ import { Suspense, type ReactNode } from 'react';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Calendar, User, Clock, Receipt } from 'lucide-react';
-import { queryOne } from '@/lib/db';
 import { getAdminSession, requireOrderViewAccess } from '@/lib/auth.server';
+import { loadOrderContext } from './_order-context';
 import { OrderTabs } from './order-tabs';
 import { OrderReadOnlyBadge, OrderEditActions } from './header-actions';
 import { OrderSaveToast } from './order-save-toast';
@@ -50,30 +50,12 @@ export default async function OrderLayout({ children, params }: Props) {
     await requireOrderViewAccess(id, session);
   }
 
-  const order = await queryOne<{
-    id: number;
-    order_no: number;
-    status: string;
-    schedule_date: string | null;
-    schedule_time: string | null;
-    duration_min: number | null;
-    total_chf: number | null;
-    photographer_name: string | null;
-  }>(`
-    SELECT
-      o.id,
-      o.order_no,
-      o.status,
-      o.schedule_date,
-      o.schedule_time,
-      (o.schedule->>'durationMin')::int    AS duration_min,
-      (o.pricing->>'total')::numeric       AS total_chf,
-      p.name                               AS photographer_name
-    FROM booking.orders o
-    LEFT JOIN booking.photographers p ON p.key = o.photographer_key
-    WHERE o.order_no = $1
-  `, [id]);
+  const orderNo = Number(id);
+  if (!Number.isInteger(orderNo) || orderNo <= 0) {
+    notFound();
+  }
 
+  const order = await loadOrderContext(orderNo);
   if (!order) notFound();
 
   const status = STATUS_LABEL[order.status] ?? STATUS_LABEL.pending;
@@ -92,7 +74,7 @@ export default async function OrderLayout({ children, params }: Props) {
                 Bestellungen
               </Link>
               <span className="text-white/20">/</span>
-              <h1 className="text-xl font-semibold tracking-tight">
+              <h1 className="text-xl font-semibold tracking-tight text-white">
                 Bestellung #{order.order_no}
               </h1>
               <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${status.className}`}>
@@ -148,7 +130,7 @@ export default async function OrderLayout({ children, params }: Props) {
 function MetaCard({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
   return (
       <div className="rounded-lg border border-white/10 bg-white/2 px-3 py-2">
-      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-white/40">
+      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-white/60">
         {icon}
         {label}
       </div>

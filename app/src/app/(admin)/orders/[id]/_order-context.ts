@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { queryOne } from "@/lib/db";
+import { DURATION_MIN_FROM_SCHEDULE } from "@/lib/repos/orders/durationFromScheduleSql";
 
 /**
  * Vollständiger Order-Datensatz für künftige Order-Edit-Shell (Stufe 2, additiv).
@@ -75,7 +76,7 @@ export const loadOrderContext = cache(
         o.done_at,
         o.schedule_date,
         o.schedule_time,
-        (o.schedule->>'durationMin')::int AS duration_min,
+        ${DURATION_MIN_FROM_SCHEDULE.o} AS duration_min,
         (o.pricing->>'total')::numeric AS total_chf,
         p.name AS photographer_name,
         o.photographer->>'email' AS photographer_email,

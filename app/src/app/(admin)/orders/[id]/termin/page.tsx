@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { CalendarClock, User, ArrowRight } from "lucide-react";
 import { queryOne, query } from "@/lib/db";
 import { listPhotographers } from "@/lib/repos/orders/termin";
+import { DURATION_MIN_FROM_SCHEDULE } from "@/lib/repos/orders/durationFromScheduleSql";
 import { Section, InfoItem, Empty, Badge, STATUS_LABEL, formatDateTime, formatTS } from "../_shared";
 import { TerminForm } from "./termin-form";
 
@@ -33,7 +34,7 @@ export default async function TerminPage({ params, searchParams }: Props) {
         status,
         schedule_date,
         schedule_time,
-        (schedule->>'durationMin')::int  AS duration_min,
+        ${DURATION_MIN_FROM_SCHEDULE.bare}  AS duration_min,
         photographer->>'name'            AS photographer_name,
         photographer->>'email'           AS photographer_email,
         photographer->>'phone'           AS photographer_phone,
