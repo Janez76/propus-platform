@@ -2441,5 +2441,16 @@
   "dashboardV2.mails.justNow": "jetzt",
   "dashboardV2.mails.minsShort": "{{n}} Min",
   "dashboardV2.mails.hoursShort": "{{n}} Std",
-  "dashboardV2.mails.daysShort": "{{n}} T"
+  "dashboardV2.mails.daysShort": "{{n}} T",
+  "dashboardV2.heatmap.view.day": "Tag",
+  "dashboardV2.heatmap.view.week": "Woche",
+  "dashboardV2.heatmap.view.month": "Monat",
+  "dashboardV2.heatmap.prev": "Zurück",
+  "dashboardV2.heatmap.next": "Weiter",
+  "dashboardV2.heatmap.today": "heute",
+  "dashboardV2.heatmap.weekLabel": "KW{{kw}}",
+  "dashboardV2.heatmap.weekTotal": "{{n}} Termine",
+  "dashboardV2.heatmap.dayTotal": "{{n}} Termine",
+  "dashboardV2.heatmap.dayEmpty": "Kein Termin geplant.",
+  "dashboardV2.heatmap.minutesShort": "′"
 }
