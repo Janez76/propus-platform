@@ -425,7 +425,13 @@ export function OrdersPage() {
       allOrders.filter((o) => {
         const k = normalizeStatusKey(o.status);
         if (k === "cancelled" || k === "archived" || k === "done") return false;
-        return !(o.photographer?.key || "").trim();
+        // Match the assignment heuristic used by the table
+        // (photographerDisplay in OrderTable.tsx): an order counts as
+        // assigned when either `photographer.name` OR `photographer.key`
+        // is set. Legacy/imported orders sometimes carry only a name.
+        const name = o.photographer?.name?.trim() || "";
+        const key = o.photographer?.key?.trim() || "";
+        return !name && !key;
       }).length,
     [allOrders],
   );
