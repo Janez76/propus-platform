@@ -89,7 +89,19 @@ async function loadLibRawModule(): Promise<new () => {
   metadata: (fullOutput?: boolean) => Promise<Record<string, unknown>>;
   imageData: () => Promise<unknown>;
 }> {
-  const mod = await import(/* @vite-ignore */ LIBRAW_WASM_URL);
+  // Indirect import via the Function constructor so the bundler
+  // (Turbopack/webpack) treats `LIBRAW_WASM_URL` as opaque and does NOT
+  // try to statically resolve `/libraw/index.js` at build time. The
+  // asset is served at that path in production but is intentionally
+  // not part of the JS module graph. The upstream caller wraps this
+  // in try/catch and returns null on failure, so a missing asset
+  // degrades gracefully (RAW preview is skipped).
+  const dynamicImport = new Function("url", "return import(url)") as (url: string) => Promise<{ default: new () => {
+    open: (bytes: Uint8Array, settings?: Record<string, unknown>) => Promise<unknown>;
+    metadata: (fullOutput?: boolean) => Promise<Record<string, unknown>>;
+    imageData: () => Promise<unknown>;
+  } }>;
+  const mod = await dynamicImport(LIBRAW_WASM_URL);
   return mod.default;
 }
 
