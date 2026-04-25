@@ -52,6 +52,7 @@ function countsForScheduleDay(o: Order): boolean {
 export type DashboardMetrics = ReturnType<typeof useDashboardMetrics>;
 
 export function useDashboardMetrics(orders: Order[], now: Date) {
+  const nowMs = now.getTime();
   return useMemo(() => {
     const todayMs = startOfDay(now).getTime();
     const window30 = todayMs - 30 * MS_DAY;
@@ -225,6 +226,32 @@ export function useDashboardMetrics(orders: Order[], now: Date) {
       (o) => statusMatches(o.status, "done") || statusMatches(o.status, "completed"),
     ).length;
 
+    // Phase A — KPIs in header
+    const prevWeekStartMs = weekStartMs - 7 * MS_DAY;
+    const weekPrevOrders = orders.filter(
+      (o) => countsForScheduleDay(o) && inWindow(o.appointmentDate, prevWeekStartMs, weekStartMs),
+    );
+    const weekDeltaPct =
+      weekPrevOrders.length > 0
+        ? Math.round(((weekOrders.length - weekPrevOrders.length) / weekPrevOrders.length) * 100)
+        : null;
+
+    const monthStartMs = new Date(currYear, currMonth, 1).getTime();
+    const monthEndMs = new Date(currYear, currMonth + 1, 1).getTime();
+    const monthRevenue = orders
+      .filter((o) => !statusMatches(o.status, "cancelled") && inWindow(o.appointmentDate, monthStartMs, monthEndMs))
+      .reduce((s, o) => s + (o.total ?? 0), 0);
+
+    const hasStaff = (o: Order) =>
+      Boolean(o.photographer?.key || o.photographer?.name);
+    const todayWithoutStaff = todayOrders.filter((o) => !hasStaff(o)).length;
+    const withoutStaffCount = orders.filter((o) => isOpen(o) && !hasStaff(o)).length;
+    const invoicesToCreate = orders.filter(
+      (o) =>
+        (statusMatches(o.status, "done") || statusMatches(o.status, "completed")) &&
+        !o.exxasOrderNumber,
+    ).length;
+
     return {
       overdueOrders,
       revenue30d,
@@ -261,7 +288,14 @@ export function useDashboardMetrics(orders: Order[], now: Date) {
       avgOrderValue,
       weekDone,
       weekTotal: weekOrders.length,
+      weekPrevTotal: weekPrevOrders.length,
+      weekDeltaPct,
+      monthRevenue,
+      todayWithoutStaff,
+      withoutStaffCount,
+      invoicesToCreate,
       today: now,
     };
-  }, [orders, now.getTime()]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: re-memoize when wallclock changes
+  }, [orders, nowMs]);
 }

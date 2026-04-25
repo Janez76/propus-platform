@@ -11,7 +11,8 @@ import { useNow } from "../../hooks/useNow";
 import { usePermissions } from "../../hooks/usePermissions";
 import { useDashboardMetrics } from "./useDashboardMetrics";
 import { AlertBar } from "./AlertBar";
-import { KpiRowV2 } from "./KpiRowV2";
+import { DashAlerts } from "./DashAlerts";
+import { HeaderKpis } from "./HeaderKpis";
 import { PipelineBoardV2 } from "./PipelineBoardV2";
 import { UpcomingV2 } from "./UpcomingV2";
 import { BookingFunnelV2 } from "./BookingFunnelV2";
@@ -143,57 +144,60 @@ export function DashboardV2() {
     <div className={`padmin-shell dv2 dv2--density-${prefs.density}`}>
       {/* Header */}
       <div className="dv2-header">
-        <div className="dv2-header-left">
-          <div className="dv2-eyebrow">
-            <span className="dv2-eyebrow-line" />
-            {eyebrow}
-          </div>
-          <h1 className="dv2-greeting">
-            {greeting}, {name}.
-          </h1>
-          <p className="dv2-summary">
-            {metrics.overdueCount > 0 && (
-              <span className="dv2-summary-danger">
-                {metrics.overdueCount} {t(lang, "dashboardV2.summary.overdue")}
+        <div className="dv2-header-top">
+          <div className="dv2-header-left">
+            <div className="dv2-eyebrow">
+              <span className="dv2-eyebrow-line" />
+              {eyebrow}
+            </div>
+            <h1 className="dv2-greeting">
+              {greeting}, {name}.
+            </h1>
+            <p className="dv2-summary">
+              {metrics.overdueCount > 0 && (
+                <span className="dv2-summary-danger">
+                  {metrics.overdueCount} {t(lang, "dashboardV2.summary.overdue")}
+                </span>
+              )}
+              {metrics.overdueCount > 0 && " · "}
+              <span>
+                {weeklyShoots} {t(lang, "dashboardV2.summary.weekShoots")}
               </span>
-            )}
-            {metrics.overdueCount > 0 && " · "}
-            <span>
-              {weeklyShoots} {t(lang, "dashboardV2.summary.weekShoots")}
-            </span>
-            {" · "}
-            <span>
-              {t(lang, "dashboardV2.summary.capacity")
-                .replace("{{kw}}", String(metrics.currentKW))
-                .replace("{{pct}}", String(metrics.currentCapacity))}
-            </span>
-          </p>
-        </div>
-        <div className="dv2-header-actions">
-          <button
-            type="button"
-            className="dv2-btn-outline"
-            onClick={() => setShowTweaks(true)}
-            aria-haspopup="dialog"
-            aria-expanded={showTweaks}
-          >
-            {t(lang, "dashboardV2.button.customize")}
-          </button>
-          {can("orders.create") ? (
+              {" · "}
+              <span>
+                {t(lang, "dashboardV2.summary.capacity")
+                  .replace("{{kw}}", String(metrics.currentKW))
+                  .replace("{{pct}}", String(metrics.currentCapacity))}
+              </span>
+            </p>
+          </div>
+          <div className="dv2-header-actions">
             <button
               type="button"
-              className="dv2-btn-primary"
-              onClick={() => setShowCreateOrder(true)}
+              className="dv2-btn-outline"
+              onClick={() => setShowTweaks(true)}
+              aria-haspopup="dialog"
+              aria-expanded={showTweaks}
             >
-              <Plus size={14} />
-              {t(lang, "dashboardV2.button.newOrder")}
+              {t(lang, "dashboardV2.button.customize")}
             </button>
-          ) : null}
+            {can("orders.create") ? (
+              <button
+                type="button"
+                className="dv2-btn-primary"
+                onClick={() => setShowCreateOrder(true)}
+              >
+                <Plus size={14} />
+                {t(lang, "dashboardV2.button.newOrder")}
+              </button>
+            ) : null}
+          </div>
         </div>
+        {showKpi && showDas ? <HeaderKpis metrics={metrics} lang={lang} /> : null}
       </div>
 
+      {showAlerts ? <DashAlerts metrics={metrics} lang={lang} /> : null}
       {showAlerts ? <AlertBar orders={metrics.overdueOrders} lang={lang} /> : null}
-      {showKpi ? <KpiRowV2 metrics={metrics} lang={lang} /> : null}
 
       {showPipeline || showUpcoming ? (
         <div className={`dv2-grid-main${mainSingleCol ? " dv2-grid-main--single" : ""}`}>
