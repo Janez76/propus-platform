@@ -176,6 +176,14 @@ export function SelektoListPage() {
     }
   }
 
+  const kpiCounts = {
+    total: rows.length,
+    active: rows.filter((g) => g.status === "active").length,
+    deliveryOpen: rows.filter((g) => g.client_delivery_status === "open").length,
+    picdropOpen: rows.filter((g) => !g.client_log_files_downloaded_at).length,
+    picdropConfirmed: rows.filter((g) => Boolean(g.client_log_files_downloaded_at)).length,
+  };
+
   return (
     <>
       <div className="padmin-shell admin-content gal-admin-listings-page">
@@ -190,6 +198,26 @@ export function SelektoListPage() {
               </div>
             </div>
           </div>
+          {rows.length > 0 ? (
+            <div className="pad-kpis">
+              <div className="pad-kpi">
+                <div className="pad-kpi-label">Aktive Auswahlen</div>
+                <div className="pad-kpi-value">{kpiCounts.active}</div>
+              </div>
+              <div className={`pad-kpi${kpiCounts.deliveryOpen > 0 ? " is-warn" : ""}`}>
+                <div className="pad-kpi-label">Lieferung offen</div>
+                <div className="pad-kpi-value">{kpiCounts.deliveryOpen}</div>
+              </div>
+              <div className="pad-kpi">
+                <div className="pad-kpi-label">Picdrop offen</div>
+                <div className="pad-kpi-value">{kpiCounts.picdropOpen}</div>
+              </div>
+              <div className="pad-kpi is-gold">
+                <div className="pad-kpi-label">Bestätigt</div>
+                <div className="pad-kpi-value is-gold">{kpiCounts.picdropConfirmed}</div>
+              </div>
+            </div>
+          ) : null}
         </header>
         {loadErr ? <p className="admin-msg admin-msg--err">{loadErr}</p> : null}
 

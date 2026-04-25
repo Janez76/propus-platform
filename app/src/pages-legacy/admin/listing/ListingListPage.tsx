@@ -170,6 +170,14 @@ export function ListingListPage() {
     }
   }
 
+  const kpiCounts = {
+    total: rows.length,
+    active: rows.filter((g) => g.status === "active").length,
+    inactive: rows.filter((g) => g.status === "inactive").length,
+    deliveryOpen: rows.filter((g) => g.client_delivery_status === "open").length,
+    deliverySent: rows.filter((g) => g.client_delivery_status === "sent").length,
+  };
+
   return (
     <>
       <div className="padmin-shell admin-content gal-admin-listings-page">
@@ -184,6 +192,29 @@ export function ListingListPage() {
               </div>
             </div>
           </div>
+          {rows.length > 0 ? (
+            <div className="pad-kpis">
+              <div className="pad-kpi">
+                <div className="pad-kpi-label">Aktive Listings</div>
+                <div className="pad-kpi-value">{kpiCounts.active}</div>
+              </div>
+              <div className="pad-kpi is-gold">
+                <div className="pad-kpi-label">Listings gesamt</div>
+                <div className="pad-kpi-value is-gold">{kpiCounts.total}</div>
+              </div>
+              <div className={`pad-kpi${kpiCounts.deliveryOpen > 0 ? " is-warn" : ""}`}>
+                <div className="pad-kpi-label">Lieferung offen</div>
+                <div className="pad-kpi-value">{kpiCounts.deliveryOpen}</div>
+              </div>
+              <div className="pad-kpi">
+                <div className="pad-kpi-label">Lieferung versandt</div>
+                <div className="pad-kpi-value">{kpiCounts.deliverySent}</div>
+                {kpiCounts.inactive > 0 && (
+                  <div className="pad-kpi-trend">{kpiCounts.inactive} inaktiv</div>
+                )}
+              </div>
+            </div>
+          ) : null}
         </header>
         {loadErr ? <p className="admin-msg admin-msg--err">{loadErr}</p> : null}
 
