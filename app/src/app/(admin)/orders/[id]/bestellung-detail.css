@@ -358,6 +358,58 @@
 }
 .bestellung-shell .bd-edit-pill svg { width: 12px; height: 12px; }
 
+/* ── Popover (Mehr-Menü im Topbar) ─────────────────────────── */
+.bestellung-shell .bd-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 220px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 6px 16px rgb(0 0 0 / 0.08), 0 24px 48px -16px rgb(0 0 0 / 0.18);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 40;
+}
+.bestellung-shell .bd-popover-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-2);
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  font-family: inherit;
+  width: 100%;
+  transition: background-color 160ms, color 160ms;
+}
+.bestellung-shell .bd-popover-item svg {
+  width: 14px;
+  height: 14px;
+  color: var(--ink-3);
+  flex-shrink: 0;
+}
+.bestellung-shell .bd-popover-item:hover:not(:disabled) {
+  background: var(--paper-strip);
+  color: var(--ink);
+}
+.bestellung-shell .bd-popover-item:hover:not(:disabled) svg {
+  color: var(--gold-700);
+}
+.bestellung-shell .bd-popover-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 /* ── Section card ──────────────────────────────────────────── */
 .bestellung-shell .bd-sect {
   background: #fff;
@@ -556,10 +608,23 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Compatibility overlay: light up legacy tab content
-      that still uses Tailwind dark utilities (bg-white/[0.02],
-      text-white/60, border-white/10, etc.). These rules are scoped
-      to .bestellung-shell so they only affect the order detail view. */
+/* ── Compatibility overlay ─────────────────────────────────────
+   Some children of .bestellung-shell still use the old dark-mode
+   Tailwind utilities (e.g. `bg-white/[0.02]`, `text-white/60`,
+   `border-white/10`). The rules below remap those utilities to
+   light-mode equivalents — scoped strictly to the order-detail
+   subtree so the rest of the admin UI is untouched.
+
+   This is a deliberate bridge while the components are migrated
+   piece by piece to the explicit `bd-*` classes (`bd-field-input`,
+   `bd-info-v`, `bd-sect`, …). When a component is fully migrated,
+   it stops relying on these overrides automatically.
+
+   Currently relied upon by: termin-form.tsx, leistungen-form.tsx,
+   objekt-form.tsx, dateien/page.tsx, verlauf-timeline.tsx,
+   verknuepfungen-view.tsx (mostly inline rows / alerts). When you
+   touch one of those files, prefer migrating it to bd-* classes
+   over adding new dark utilities. */
 .bestellung-shell .bg-white\/\[0\.02\],
 .bestellung-shell .bg-white\/\[0\.03\] {
   background-color: var(--paper-strip) !important;

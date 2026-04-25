@@ -1,5 +1,22 @@
 import type { ReactNode } from 'react';
 
+/**
+ * Statuswerte, bei denen die Bestellung als „schreibgeschützt" gilt.
+ * Wird im Hero-Lock-Chip angezeigt und vom „Bearbeiten"-Button respektiert.
+ * Status `done` zählt zusätzlich, weil Aufträge nach Abschluss nicht mehr
+ * geändert werden sollten (siehe `OrderChat.tsx` CHAT_BLOCKED_STATUSES).
+ */
+export const READ_ONLY_STATUSES: ReadonlySet<string> = new Set([
+  'cancelled',
+  'archived',
+  'done',
+]);
+
+export function isOrderReadOnly(status: string | null | undefined): boolean {
+  if (!status) return false;
+  return READ_ONLY_STATUSES.has(status);
+}
+
 export const STATUS_LABEL: Record<string, { label: string; className: string }> = {
   pending:     { label: 'Offen',          className: 'bg-[#FBEED4] text-[#8A5710] border border-[#B87514]/30' },
   provisional: { label: 'Provisorisch',   className: 'bg-[#EDE5FA] text-[#4A2F8E] border border-[#7C5BC9]/30' },

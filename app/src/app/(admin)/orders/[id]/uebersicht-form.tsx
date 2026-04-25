@@ -234,28 +234,37 @@ function Field({
   mono?: boolean;
   link?: boolean;
 }) {
+  const inputId = `bd-field-${name}`;
+  const hintId = hint ? `${inputId}-hint` : undefined;
   return (
     <div className="bd-field">
-      <label>
+      <label htmlFor={inputId}>
         {label}{required && <span className="req"> *</span>}
       </label>
       {disabled ? (
-        <div className={`bd-field-input${mono ? ' is-mono' : ''}${link ? ' is-link' : ''}`}>
+        <div
+          id={inputId}
+          className={`bd-field-input${mono ? ' is-mono' : ''}${link ? ' is-link' : ''}`}
+        >
           {defaultValue || <span className="bd-ph">—</span>}
+          {/* Defensiver Hidden-Input: stellt sicher, dass der Wert auch dann
+              im FormData landet, wenn ein anderer Trigger das Form submitted. */}
           <input type="hidden" name={name} value={defaultValue} />
         </div>
       ) : (
         <input
+          id={inputId}
           name={name}
           type={type}
           defaultValue={defaultValue}
           required={required}
           maxLength={maxLength}
           autoComplete={autoComplete}
+          aria-describedby={hintId}
           className={mono ? 'bd-mono' : ''}
         />
       )}
-      {hint && <div className="bd-field-hint">{hint}</div>}
+      {hint && <div id={hintId} className="bd-field-hint">{hint}</div>}
     </div>
   );
 }
@@ -269,16 +278,17 @@ function SelectField({
   disabled?: boolean;
   options: string[];
 }) {
+  const inputId = `bd-field-${name}`;
   return (
     <div className="bd-field">
-      <label>{label}</label>
+      <label htmlFor={inputId}>{label}</label>
       {disabled ? (
-        <div className="bd-field-input">
+        <div id={inputId} className="bd-field-input">
           {defaultValue}
           <input type="hidden" name={name} value={defaultValue} />
         </div>
       ) : (
-        <select name={name} defaultValue={defaultValue}>
+        <select id={inputId} name={name} defaultValue={defaultValue}>
           {options.map((o) => (
             <option key={o} value={o}>{o}</option>
           ))}

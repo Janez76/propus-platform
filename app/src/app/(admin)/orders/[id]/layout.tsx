@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft, Calendar, User, Clock, Receipt,
-  Lock, Printer, Copy, MoreHorizontal,
+  Lock,
 } from 'lucide-react';
 import { getAdminSession, requireOrderViewAccess } from '@/lib/auth.server';
 import { loadOrderContext } from './_order-context';
@@ -13,6 +13,8 @@ import { OrderSaveToast } from './order-save-toast';
 import { OrderEditShellProvider } from './order-edit-shell-context';
 import { OrderEditShellContent } from './order-edit-shell-content';
 import { OrderBulkDirtyHint } from './order-bulk-hint';
+import { OrderTopActions } from './topbar-actions';
+import { isOrderReadOnly } from './_shared';
 import './bestellung-detail.css';
 
 type StatusMeta = {
@@ -96,17 +98,9 @@ export default async function OrderLayout({ children, params }: Props) {
           </div>
 
           <div className="bd-top-actions">
-            <button type="button" className="bd-icon-btn" title="Drucken" aria-label="Drucken">
-              <Printer />
-            </button>
-            <button type="button" className="bd-icon-btn" title="Duplizieren" aria-label="Duplizieren">
-              <Copy />
-            </button>
-            <button type="button" className="bd-icon-btn" title="Mehr" aria-label="Mehr">
-              <MoreHorizontal />
-            </button>
+            <OrderTopActions orderNo={order.order_no} status={order.status} />
             <Suspense fallback={null}>
-              <OrderEditActions orderNo={order.order_no} />
+              <OrderEditActions orderNo={order.order_no} status={order.status} />
             </Suspense>
           </div>
         </div>
@@ -124,8 +118,11 @@ export default async function OrderLayout({ children, params }: Props) {
               <span className="dot" style={{ background: status.color }} />
               {status.label}
             </span>
-            {order.done_at && (
-              <span className="bd-lock-chip">
+            {isOrderReadOnly(order.status) && (
+              <span
+                className="bd-lock-chip"
+                title={`Status: ${status.label} — Bearbeitung deaktiviert`}
+              >
                 <Lock className="h-3 w-3" />
                 Schreibgeschützt
               </span>

@@ -7,6 +7,7 @@ import { useState, useTransition, useCallback } from "react";
 import { useOrderEditShellOptional, type OrderDirtyKey } from "./order-edit-shell-context";
 import { saveOrderAllSections } from "./order-bulk-actions";
 import type { BulkStep } from "./order-bulk-types";
+import { isOrderReadOnly } from "./_shared";
 
 function tabPathSupportsEdit(pathname: string | null): boolean {
   if (!pathname) return true;
@@ -73,9 +74,12 @@ export function OrderReadOnlyBadge() {
 
 type ActionProps = {
   orderNo: number | string;
+  /** Aktueller Bestell-Status — wird verwendet, um den Bearbeiten-Button bei
+   *  schreibgeschützten Status (cancelled / archived / done) zu deaktivieren. */
+  status?: string;
 };
 
-export function OrderEditActions({ orderNo }: ActionProps) {
+export function OrderEditActions({ orderNo, status }: ActionProps) {
   const searchParams = useSearchParams();
   const pathname = usePathname() || "";
   const shell = useOrderEditShellOptional();
@@ -83,6 +87,7 @@ export function OrderEditActions({ orderNo }: ActionProps) {
   const no = String(orderNo);
   const tabBase = basePath(pathname, orderNo);
   const supportsEdit = tabPathSupportsEdit(pathname) && !shell?.clientSection;
+  const orderLocked = isOrderReadOnly(status);
 
   const [bulkError, setBulkError] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -181,6 +186,20 @@ export function OrderEditActions({ orderNo }: ActionProps) {
           )}
         </div>
       </div>
+    );
+  }
+
+  if (orderLocked) {
+    return (
+      <button
+        type="button"
+        className="bd-btn-outline-gold"
+        disabled
+        title="Bestellung ist im aktuellen Status schreibgeschützt"
+      >
+        <Lock className="h-4 w-4" />
+        Bearbeiten
+      </button>
     );
   }
 
