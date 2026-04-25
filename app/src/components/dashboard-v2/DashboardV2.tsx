@@ -20,6 +20,7 @@ import { MailsCard } from "./MailsCard";
 import { BookingFunnelV2 } from "./BookingFunnelV2";
 import { HeatmapV2 } from "./HeatmapV2";
 import { PerformanceV2 } from "./PerformanceV2";
+import { OrdersMap } from "./OrdersMap";
 import { DashboardV2TweaksModal } from "./DashboardV2TweaksModal";
 import {
   loadDashV2Preferences,
@@ -80,6 +81,7 @@ export function DashboardV2() {
   const showFunnel = isSec("funnel") && showOrders;
   const showHeat = isSec("heatmap") && (showCal || showOrders) && showDas;
   const showPerf = isSec("perf") && showOrders;
+  const showMap = isSec("map") && showOrders;
   const mainSingleCol = (showPipeline && !showUpcoming) || (!showPipeline && showUpcoming);
   const inboxSingleCol = (showTickets && !showMails) || (!showTickets && showMails);
   const nBottom = [showFunnel, showHeat, showPerf].filter(Boolean).length;
@@ -228,6 +230,8 @@ export function DashboardV2() {
           {showPerf ? <PerformanceV2 metrics={metrics} lang={lang} /> : null}
         </div>
       ) : null}
+
+      {showMap ? <OrdersMap orders={orders} lang={lang} /> : null}
 
       <div className="dv2-footer">
         {t(lang, "dashboardV2.footer")}

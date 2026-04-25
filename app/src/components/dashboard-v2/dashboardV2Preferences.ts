@@ -2,7 +2,7 @@ const LS_KEY = "propus-dash-v2";
 
 export type DashV2Density = "compact" | "comfy" | "spacious";
 
-export type DashV2SectionId = "alerts" | "kpi" | "pipeline" | "upcoming" | "tickets" | "mails" | "funnel" | "heatmap" | "perf";
+export type DashV2SectionId = "alerts" | "kpi" | "pipeline" | "upcoming" | "tickets" | "mails" | "funnel" | "heatmap" | "perf" | "map";
 
 export interface DashV2Preferences {
   version: 1;
@@ -26,6 +26,7 @@ const ALL_SECTIONS: DashV2SectionId[] = [
   "funnel",
   "heatmap",
   "perf",
+  "map",
 ];
 
 function isSectionId(x: unknown): x is DashV2SectionId {
