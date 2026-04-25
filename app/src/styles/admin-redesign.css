@@ -568,3 +568,96 @@
 @media (max-width: 720px) {
   .padmin-shell .pad-kpis { grid-template-columns: 1fr; }
 }
+
+/* ── Dashboard bridge ─────────────────────────────────────
+   When DashboardV2 is wrapped in `.padmin-shell` (see
+   DashboardV2.tsx) we re-point the dv2-* design tokens to the
+   admin redesign's Paper + Gold palette so the dashboard adopts
+   the new visual language without restructuring its rich
+   functionality (KPI row, pipeline, upcoming, funnel, heatmap,
+   tweaks modal). Only colour/typography tokens are remapped —
+   layout, density and customisable sections stay untouched.
+
+   We remap BOTH the `--d-*` aliases used by most dv2 components
+   AND the underlying `--propus-*` vars consumed directly by some
+   sub-elements (e.g. .dv2-skeleton-card uses --propus-bg-card and
+   --propus-border without going through --d-*). Otherwise the
+   loading skeleton would keep legacy colours while the success
+   state switches to Paper+Gold — visible palette flicker. */
+.padmin-shell.dv2 {
+  --d-bg:          var(--paper);
+  --d-card:        var(--pad-card);
+  --d-card-hover:  var(--paper-strip);
+  --d-border:      var(--pad-border);
+  --d-border-gold: var(--gold-300);
+  --d-gold:        var(--gold-600);
+  --d-gold-dim:    var(--gold-700);
+  --d-gold-soft:   var(--gold-50);
+  --d-text:        var(--ink);
+  --d-text-dim:    var(--ink-2);
+  --d-text-muted:  var(--ink-3);
+
+  /* Underlying propus-* vars used directly by skeleton/error etc.
+     These overrides are scoped to .padmin-shell.dv2 so the rest of
+     the app's propus theme is unaffected.
+
+     IMPORTANT: do NOT remap `--propus-bg-page` here. dashboard-v2.css
+     uses it as a *foreground* color on gold backgrounds in
+     `.dv2-btn-primary` (line 279) and `.dv2-heatmap-cell--l4` (line
+     723). The visible page background is already set explicitly via
+     `background: var(--paper)` below, so leaving --propus-bg-page on
+     its theme default keeps text-on-gold contrast correct. We
+     additionally pin those two rules to `--ink` further down for a
+     defensive guarantee. */
+  --propus-bg-card:        var(--pad-card);
+  --propus-bg-strip:       var(--paper-strip);
+  --propus-border:         var(--pad-border);
+  --propus-gold:           var(--gold-600);
+  --propus-gold-dark:      var(--gold-700);
+  --propus-text-primary:   var(--ink);
+  --propus-text-secondary: var(--ink-2);
+  --propus-text-muted:     var(--ink-3);
+
+  background: var(--paper);
+}
+
+/* Explicit restyle for the loading skeleton so it uses the same
+   token set even if a future change re-introduces a hardcoded
+   colour. Keeps the pulse animation untouched. */
+.padmin-shell.dv2.dv2-skeleton .dv2-skeleton-card,
+.padmin-shell.dv2 .dv2-skeleton-card {
+  background: var(--paper-strip);
+  border-color: var(--pad-border);
+}
+
+/* Pin foreground colour on gold backgrounds: dashboard-v2.css uses
+   `var(--propus-bg-page)` as text colour assuming it's the dark
+   page background. On the new Paper palette that yields ~2.7:1
+   contrast on gold (light text on gold). Force `--ink` so the
+   primary CTA label and the high-intensity heatmap cells stay
+   accessible. */
+.padmin-shell.dv2 .dv2-btn-primary,
+.padmin-shell.dv2 .dv2-heatmap-cell--l4 {
+  color: var(--ink);
+}
+/* Make the dashboard greeting feel like the new pad-h1 */
+.padmin-shell.dv2 .dv2-eyebrow {
+  color: var(--gold-700);
+  letter-spacing: 0.2em;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 11px;
+}
+.padmin-shell.dv2 .dv2-eyebrow-line {
+  background: var(--gold-600);
+}
+.padmin-shell.dv2 .dv2-greeting {
+  color: var(--ink);
+  letter-spacing: -0.025em;
+}
+.padmin-shell.dv2 .dv2-summary {
+  color: var(--ink-3);
+}
+.padmin-shell.dv2 .dv2-summary-danger {
+  color: var(--pad-danger);
+}
