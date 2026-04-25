@@ -62,6 +62,33 @@ export function Empty({ children }: { children: ReactNode }) {
   return <p className="text-sm text-[#9A968C] italic">{children}</p>;
 }
 
+export function KpiGrid({ children }: { children: ReactNode }) {
+  return <div className="bd-kpi-grid">{children}</div>;
+}
+
+export function Kpi({
+  icon, label, value, sub, accent,
+}: {
+  icon?: ReactNode;
+  label: string;
+  value: string | number;
+  sub?: string;
+  accent?: 'gold' | 'success' | 'warn' | 'danger' | 'info';
+}) {
+  const cls = accent ? ` is-${accent}` : '';
+  return (
+    <div className={`bd-kpi${cls}`}>
+      {icon && <div className="bd-kpi-icon">{icon}</div>}
+      <div className="min-w-0">
+        <div className="bd-kpi-label">{label}</div>
+        <div className="bd-kpi-value">{value}</div>
+        {sub && <div className="bd-kpi-sub">{sub}</div>}
+      </div>
+    </div>
+  );
+}
+
+
 export function Badge({ label, className }: { label: string; className: string }) {
   return (
     <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${className}`}>

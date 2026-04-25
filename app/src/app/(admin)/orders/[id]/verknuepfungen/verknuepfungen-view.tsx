@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Box, Camera, ExternalLink, FolderOpen, Receipt } from "lucide-react";
-import { Section, Empty, formatCHF, formatTS } from "../_shared";
+import { Section, Empty, KpiGrid, Kpi, formatCHF, formatTS } from "../_shared";
 import { galleryDisplayHostPath, galleryUrl, matterportShowUrl } from "./_links";
 import { CopyLinkButton } from "./copy-link-button";
 import { linkGallery, linkMatterportTour, unlinkGallery, unlinkMatterportTour } from "./actions";
@@ -56,8 +56,53 @@ export function VerknuepfungenView({
   const galleryLink = gSlug ? galleryUrl(gSlug) : null;
   const galleryPathDisplay = gSlug ? galleryDisplayHostPath(gSlug) : null;
 
+  const invoicesPaid = invoices.filter((iv) => {
+    if (iv.paid_at) return true;
+    const raw = (iv.invoice_status ?? "").toLowerCase();
+    return raw === "paid" || raw === "bz";
+  }).length;
+  const invoicesOpen = invoices.length - invoicesPaid;
+  const invoiceTotal = invoices.reduce((sum, iv) => {
+    const v = Number(iv.amount_chf);
+    return Number.isFinite(v) ? sum + v : sum;
+  }, 0);
+
   return (
     <div className="space-y-6">
+      <KpiGrid>
+        <Kpi
+          icon={<Box />}
+          label="Matterport"
+          value={tour ? "Verknüpft" : "—"}
+          sub={tour?.matterport_state ?? (tour ? undefined : "keine Tour")}
+          accent={tour ? "info" : undefined}
+        />
+        <Kpi
+          icon={<Camera />}
+          label="Galerie"
+          value={gallery ? "Verknüpft" : "—"}
+          sub={gallery?.status ?? (gallery ? undefined : "keine Galerie")}
+          accent={gallery ? "gold" : undefined}
+        />
+        <Kpi
+          icon={<FolderOpen />}
+          label="Ordner"
+          value={folderCounts?.folder_count ?? 0}
+          sub={`${folderCounts?.shared_count ?? 0} geteilt`}
+        />
+        <Kpi
+          icon={<Receipt />}
+          label="Rechnungen"
+          value={invoices.length}
+          sub={
+            invoices.length === 0
+              ? "keine erfasst"
+              : `${invoicesPaid} bezahlt · ${invoicesOpen} offen · ${formatCHF(invoiceTotal)}`
+          }
+          accent={invoices.length > 0 ? "gold" : undefined}
+        />
+      </KpiGrid>
+
       {sp.error && (
         <div className="rounded-lg border border-[var(--danger)]/30 bg-[var(--danger-bg)] px-4 py-2 text-sm text-[#8A2515]">
           {sp.error}
