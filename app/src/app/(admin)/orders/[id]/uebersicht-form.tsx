@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Building2, MapPin, User2 } from "lucide-react";
+import { Building2, MapPin, User2, Info } from "lucide-react";
 import { useOrderEditShellOptional } from "./order-edit-shell-context";
+import { Section } from "./_shared";
 
 type Order = {
   id: number | string;
@@ -60,89 +61,75 @@ export function UebersichtForm({ order, isEditing, action }: Props) {
       ref={formRef}
       id="order-form"
       action={action}
-      className="space-y-6"
+      className="space-y-5"
       onInput={markTouched}
     >
       <input type="hidden" name="order_no" value={order.order_no} />
 
       <Section
         title="Rechnungsempfänger"
-        icon={bookingType === 'firma' ? <Building2 className="h-4 w-4" /> : <User2 className="h-4 w-4" />}
+        icon={bookingType === 'firma' ? <Building2 /> : <User2 />}
       >
-        <fieldset className="mb-4 inline-flex rounded-md border border-white/10 bg-white/5 p-0.5">
-          <legend className="sr-only">Buchungstyp</legend>
-          <label className="cursor-pointer">
-            <input
-              type="radio"
-              name="booking_type"
-              value="firma"
-              checked={bookingType === 'firma'}
-              disabled={!isEditing}
-              onChange={() => setBookingType('firma')}
-              className="peer sr-only"
-            />
-            <span className="block rounded px-5 py-1.5 text-sm text-white/70 transition-colors peer-checked:bg-[#B68E20]/20 peer-checked:text-[#B68E20] peer-checked:ring-1 peer-checked:ring-[#B68E20]/50 peer-focus-visible:ring-2 peer-focus-visible:ring-white/20 peer-disabled:cursor-not-allowed peer-disabled:opacity-60">
-              Firma
-            </span>
-          </label>
-          <label className="cursor-pointer">
-            <input
-              type="radio"
-              name="booking_type"
-              value="privat"
-              checked={bookingType === 'privat'}
-              disabled={!isEditing}
-              onChange={() => setBookingType('privat')}
-              className="peer sr-only"
-            />
-            <span className="block rounded px-5 py-1.5 text-sm text-white/70 transition-colors peer-checked:bg-[#B68E20]/20 peer-checked:text-[#B68E20] peer-checked:ring-1 peer-checked:ring-[#B68E20]/50 peer-focus-visible:ring-2 peer-focus-visible:ring-white/20 peer-disabled:cursor-not-allowed peer-disabled:opacity-60">
-              Privatperson
-            </span>
-          </label>
-        </fieldset>
+        <div className="bd-seg" role="radiogroup" aria-label="Buchungstyp">
+          <SegOption
+            name="booking_type"
+            value="firma"
+            label="Firma"
+            icon={<Building2 />}
+            checked={bookingType === 'firma'}
+            disabled={!isEditing}
+            onSelect={() => setBookingType('firma')}
+          />
+          <SegOption
+            name="booking_type"
+            value="privat"
+            label="Privatperson"
+            icon={<User2 />}
+            checked={bookingType === 'privat'}
+            disabled={!isEditing}
+            onSelect={() => setBookingType('privat')}
+          />
+        </div>
 
         {bookingType === 'firma' && (
-          <>
-            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Field
-                label="Firma"
-                name="company_name"
-                defaultValue={order.company_name ?? ''}
-                disabled={!isEditing}
-                required
-              />
-              <Field
-                label="Bestell-Referenz"
-                name="order_reference"
-                defaultValue={order.order_reference ?? ''}
-                disabled={!isEditing}
-                maxLength={64}
-                hint="Max. 64 Zeichen (interne Referenz)"
-              />
-            </div>
-            <div className="border-t border-white/10 my-4" />
-          </>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <Field
+              label="Firma"
+              name="company_name"
+              defaultValue={order.company_name ?? ''}
+              disabled={!isEditing}
+              required
+            />
+            <Field
+              label="Bestell-Referenz"
+              name="order_reference"
+              defaultValue={order.order_reference ?? ''}
+              disabled={!isEditing}
+              maxLength={64}
+              hint="Max. 64 Zeichen (interne Referenz)"
+            />
+          </div>
         )}
 
-        <p className="mb-4 text-xs text-white/70">
-          Mindestens eine Person mit E-Mail – diese wird als Schlüssel in der Kundenkartei verwendet.
-        </p>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+        <div className="bd-hint-strip">
+          <Info />
+          <span>Mindestens eine Person mit E-Mail – diese wird als Schlüssel in der Kundenkartei verwendet.</span>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-[140px_1fr_1fr]">
           <SelectField
             label="Anrede"
             name="contact_salutation"
             defaultValue={order.contact_salutation ?? 'Herr'}
             disabled={!isEditing}
             options={['Herr', 'Frau', 'Divers']}
-            className="md:col-span-1"
           />
           <Field
             label="Vorname"
             name="contact_first_name"
             defaultValue={order.contact_first_name ?? ''}
             disabled={!isEditing}
-            hint="Optional, falls im Nachname-Feld der vollständige Name steht (wird beim Speichern getrennt)"
-            className="md:col-span-1"
+            hint="Optional, falls im Nachname-Feld der vollständige Name steht"
           />
           <Field
             label="Nachname"
@@ -150,8 +137,10 @@ export function UebersichtForm({ order, isEditing, action }: Props) {
             defaultValue={order.contact_last_name ?? ''}
             disabled={!isEditing}
             required
-            className="md:col-span-2"
           />
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <Field
             label="E-Mail"
             name="contact_email"
@@ -159,7 +148,7 @@ export function UebersichtForm({ order, isEditing, action }: Props) {
             defaultValue={order.contact_email ?? ''}
             disabled={!isEditing}
             required
-            className="md:col-span-2"
+            link
           />
           <Field
             label="Telefon"
@@ -167,12 +156,12 @@ export function UebersichtForm({ order, isEditing, action }: Props) {
             type="tel"
             defaultValue={order.contact_phone ?? ''}
             disabled={!isEditing}
-            className="md:col-span-2"
+            mono
           />
         </div>
       </Section>
 
-      <Section title="Rechnungsadresse" icon={<MapPin className="h-4 w-4" />}>
+      <Section title="Rechnungsadresse" icon={<MapPin />}>
         <Field
           label="Strasse"
           name="billing_street"
@@ -180,13 +169,14 @@ export function UebersichtForm({ order, isEditing, action }: Props) {
           disabled={!isEditing}
           required
         />
-        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-[140px_1fr]">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-[140px_1fr]">
           <Field
             label="PLZ"
             name="billing_zip"
             defaultValue={order.billing_zip ?? ''}
             disabled={!isEditing}
             required
+            mono
           />
           <Field
             label="Ort"
@@ -201,20 +191,36 @@ export function UebersichtForm({ order, isEditing, action }: Props) {
   );
 }
 
-function Section({ title, icon, children }: { title: string; icon?: React.ReactNode; children: React.ReactNode }) {
+function SegOption({
+  name, value, label, icon, checked, disabled, onSelect,
+}: {
+  name: string;
+  value: string;
+  label: string;
+  icon: React.ReactNode;
+  checked: boolean;
+  disabled?: boolean;
+  onSelect: () => void;
+}) {
   return (
-    <section className="rounded-xl border border-white/10 bg-white/[0.02] p-5">
-      <h2 className="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-[#B68E20]/80">
-        {icon}
-        {title}
-      </h2>
-      {children}
-    </section>
+    <label className={`bd-seg-opt${checked ? ' is-active' : ''}`}>
+      <input
+        type="radio"
+        name={name}
+        value={value}
+        checked={checked}
+        disabled={disabled}
+        onChange={onSelect}
+        className="sr-only"
+      />
+      {icon}
+      <span>{label}</span>
+    </label>
   );
 }
 
 function Field({
-  label, name, defaultValue = '', type = 'text', disabled, required, autoComplete, maxLength, hint, className,
+  label, name, defaultValue = '', type = 'text', disabled, required, autoComplete, maxLength, hint, mono, link,
 }: {
   label: string;
   name: string;
@@ -225,54 +231,69 @@ function Field({
   autoComplete?: string;
   maxLength?: number;
   hint?: string;
-  className?: string;
+  mono?: boolean;
+  link?: boolean;
 }) {
+  const inputId = `bd-field-${name}`;
+  const hintId = hint ? `${inputId}-hint` : undefined;
   return (
-    <label className={`block${className ? ` ${className}` : ''}`}>
-      <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-white/50">
-        {label}{required && ' *'}
-      </span>
-      <input
-        name={name}
-        type={type}
-        defaultValue={defaultValue}
-        disabled={disabled}
-        required={required}
-        maxLength={maxLength}
-        autoComplete={autoComplete}
-        className="w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm outline-none transition-colors focus:border-[#B68E20]/60 focus:bg-white/[0.05] disabled:cursor-not-allowed disabled:opacity-60"
-      />
-      {hint && <p className="mt-1 text-xs text-white/40 leading-tight">{hint}</p>}
-    </label>
+    <div className="bd-field">
+      <label htmlFor={inputId}>
+        {label}{required && <span className="req"> *</span>}
+      </label>
+      {disabled ? (
+        <div
+          id={inputId}
+          className={`bd-field-input${mono ? ' is-mono' : ''}${link ? ' is-link' : ''}`}
+        >
+          {defaultValue || <span className="bd-ph">—</span>}
+          {/* Defensiver Hidden-Input: stellt sicher, dass der Wert auch dann
+              im FormData landet, wenn ein anderer Trigger das Form submitted. */}
+          <input type="hidden" name={name} value={defaultValue} />
+        </div>
+      ) : (
+        <input
+          id={inputId}
+          name={name}
+          type={type}
+          defaultValue={defaultValue}
+          required={required}
+          maxLength={maxLength}
+          autoComplete={autoComplete}
+          aria-describedby={hintId}
+          className={mono ? 'bd-mono' : ''}
+        />
+      )}
+      {hint && <div id={hintId} className="bd-field-hint">{hint}</div>}
+    </div>
   );
 }
 
 function SelectField({
-  label, name, defaultValue, disabled, options, className,
+  label, name, defaultValue, disabled, options,
 }: {
   label: string;
   name: string;
   defaultValue: string;
   disabled?: boolean;
   options: string[];
-  className?: string;
 }) {
+  const inputId = `bd-field-${name}`;
   return (
-    <label className={`block${className ? ` ${className}` : ''}`}>
-      <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-white/50">
-        {label}
-      </span>
-      <select
-        name={name}
-        defaultValue={defaultValue}
-        disabled={disabled}
-        className="w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm outline-none transition-colors focus:border-[#B68E20]/60 focus:bg-white/[0.05] disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {options.map((o) => (
-          <option key={o} value={o} className="bg-[#0c0d10]">{o}</option>
-        ))}
-      </select>
-    </label>
+    <div className="bd-field">
+      <label htmlFor={inputId}>{label}</label>
+      {disabled ? (
+        <div id={inputId} className="bd-field-input">
+          {defaultValue}
+          <input type="hidden" name={name} value={defaultValue} />
+        </div>
+      ) : (
+        <select id={inputId} name={name} defaultValue={defaultValue}>
+          {options.map((o) => (
+            <option key={o} value={o}>{o}</option>
+          ))}
+        </select>
+      )}
+    </div>
   );
 }
-

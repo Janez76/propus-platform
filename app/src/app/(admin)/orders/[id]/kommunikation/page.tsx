@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { MessageSquare } from "lucide-react";
 import { queryOne, query } from "@/lib/db";
-import { Empty, formatTS } from "../_shared";
+import { Empty } from "../_shared";
 import { KommunikationComposer } from "./kommunikation-composer";
 import { MessageRowWithDelete } from "./message-row";
 
@@ -63,23 +63,24 @@ export default async function KommunikationPage({ params }: { params: Promise<{ 
   ].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-xl border border-white/10 bg-white/[0.02] p-6">
-        <h2 className="mb-5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-white/60">
-          <MessageSquare className="h-4 w-4" />
-          Nachrichten
-        </h2>
-
-        {messages.length > 0 ? (
-          <div className="space-y-3">
-            {messages.map((msg) => (
-              <MessageRowWithDelete key={`${msg.kind}-${msg.id}`} msg={msg} orderNo={orderCheck.order_no} />
-            ))}
-          </div>
-        ) : (
-          <Empty>Keine Nachrichten vorhanden</Empty>
-        )}
-      </div>
+    <div className="space-y-5">
+      <section className="bd-sect">
+        <header className="bd-sect-head">
+          <MessageSquare />
+          <h2>Nachrichten</h2>
+        </header>
+        <div className="bd-sect-body">
+          {messages.length > 0 ? (
+            <div className="space-y-3">
+              {messages.map((msg) => (
+                <MessageRowWithDelete key={`${msg.kind}-${msg.id}`} msg={msg} orderNo={orderCheck.order_no} />
+              ))}
+            </div>
+          ) : (
+            <Empty>Keine Nachrichten vorhanden</Empty>
+          )}
+        </div>
+      </section>
       <KommunikationComposer orderNo={orderCheck.order_no} />
     </div>
   );

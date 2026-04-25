@@ -41,16 +41,16 @@ export function VerlaufSectionClient({ orderId }: Props) {
 
   if (loading && events === null) {
     return (
-      <div className="rounded-xl border border-white/10 bg-white/[0.02] p-6 text-sm text-white/50">
-        Verlauf wird geladen…
-      </div>
+      <section className="bd-sect">
+        <div className="bd-sect-body text-sm text-[var(--ink-3)]">Verlauf wird geladen…</div>
+      </section>
     );
   }
 
   return (
     <div>
       {error && (
-        <div className="mb-3 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
+        <div className="mb-3 rounded-lg border border-[var(--danger)]/30 bg-[var(--danger-bg)] px-3 py-2 text-sm text-[#8A2515]">
           {error}
         </div>
       )}
@@ -64,7 +64,7 @@ export function VerlaufSectionClient({ orderId }: Props) {
         />
       </VerlaufSectionFrame>
       {loading && events !== null && (
-        <p className="mt-2 text-center text-xs text-white/30">Aktualisiere…</p>
+        <p className="mt-2 text-center text-xs text-[var(--ink-3)]">Aktualisiere…</p>
       )}
     </div>
   );

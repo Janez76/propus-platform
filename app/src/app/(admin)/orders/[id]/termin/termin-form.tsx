@@ -152,10 +152,10 @@ export function TerminForm({ order, scheduleDateFallback, photographers }: Props
     <FormProvider {...form}>
       <form id="order-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         {formError && (
-          <div className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 py-2 text-sm text-rose-200" role="alert">
+          <div className="rounded-lg border border-[var(--danger)]/30 bg-[var(--danger-bg)] px-4 py-2 text-sm text-[#8A2515]" role="alert">
             {formError}
             {/Konflikt/.test(formError) && (
-              <label className="mt-2 flex items-center gap-2 text-white/80">
+              <label className="mt-2 flex items-center gap-2 text-[var(--ink-2)]">
                 <input type="checkbox" {...form.register("overrideConflicts")} className="rounded" />
                 Trotzdem speichern
               </label>
@@ -166,18 +166,18 @@ export function TerminForm({ order, scheduleDateFallback, photographers }: Props
         <Section title="Termin" icon={<CalendarClock className="h-4 w-4" />}>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
             <div>
-              <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-white/50">Datum *</span>
+              <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-3)]">Datum *</span>
               <input
                 type="date"
-                className="w-full rounded-md border border-white/10 bg-zinc-900/50 px-3 py-2 text-sm text-zinc-100 scheme-dark"
+                className="w-full rounded-md border border-[var(--border)] bg-[var(--paper-strip)] px-3 py-2 text-sm text-[var(--ink)] focus:bg-white focus:border-[var(--gold-500)] focus:outline-none focus:ring-2 focus:ring-[var(--gold-500)]/20"
                 {...form.register("scheduleDate")}
               />
               <FieldError<TerminFormValues> name="scheduleDate" />
             </div>
             <div>
-              <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-white/50">Uhrzeit (15 min) *</span>
+              <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-3)]">Uhrzeit (15 min) *</span>
               <select
-                className="w-full rounded-md border border-white/10 bg-zinc-900/50 px-3 py-2 text-sm text-zinc-100 scheme-dark"
+                className="w-full rounded-md border border-[var(--border)] bg-[var(--paper-strip)] px-3 py-2 text-sm text-[var(--ink)] focus:bg-white focus:border-[var(--gold-500)] focus:outline-none focus:ring-2 focus:ring-[var(--gold-500)]/20"
                 {...form.register("scheduleTime")}
               >
                 {TIME_OPTIONS.map((t) => (
@@ -189,20 +189,20 @@ export function TerminForm({ order, scheduleDateFallback, photographers }: Props
               <FieldError<TerminFormValues> name="scheduleTime" />
             </div>
             <div>
-              <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-white/50">Dauer (min) *</span>
+              <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-3)]">Dauer (min) *</span>
               <input
                 type="number"
                 min={15}
                 step={15}
-                className="w-full rounded-md border border-white/10 bg-zinc-900/50 px-3 py-2 text-sm text-zinc-100 scheme-dark"
+                className="w-full rounded-md border border-[var(--border)] bg-[var(--paper-strip)] px-3 py-2 text-sm text-[var(--ink)] focus:bg-white focus:border-[var(--gold-500)] focus:outline-none focus:ring-2 focus:ring-[var(--gold-500)]/20"
                 {...form.register("durationMin", { valueAsNumber: true })}
               />
               <FieldError<TerminFormValues> name="durationMin" />
             </div>
             <div>
-              <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-white/50">Status *</span>
+              <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-3)]">Status *</span>
               <select
-                className="w-full rounded-md border border-white/10 bg-zinc-900/50 px-3 py-2 text-sm text-zinc-100 scheme-dark"
+                className="w-full rounded-md border border-[var(--border)] bg-[var(--paper-strip)] px-3 py-2 text-sm text-[var(--ink)] focus:bg-white focus:border-[var(--gold-500)] focus:outline-none focus:ring-2 focus:ring-[var(--gold-500)]/20"
                 {...form.register("status")}
               >
                 {STATUS_ORDER.map((k) => {
@@ -221,9 +221,9 @@ export function TerminForm({ order, scheduleDateFallback, photographers }: Props
 
         <Section title="Mitarbeiter" icon={<User className="h-4 w-4" />}>
           <div className="max-w-xl">
-            <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-white/50">Fotograf / Mitarbeiter</span>
+            <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-3)]">Fotograf / Mitarbeiter</span>
             <select
-              className="w-full rounded-md border border-white/10 bg-zinc-900/50 px-3 py-2 text-sm text-zinc-100 scheme-dark"
+              className="w-full rounded-md border border-[var(--border)] bg-[var(--paper-strip)] px-3 py-2 text-sm text-[var(--ink)] focus:bg-white focus:border-[var(--gold-500)] focus:outline-none focus:ring-2 focus:ring-[var(--gold-500)]/20"
               {...form.register("photographerKey", {
                 setValueAs: (v: string) => (v === "" ? null : v),
               })}
@@ -241,7 +241,7 @@ export function TerminForm({ order, scheduleDateFallback, photographers }: Props
         </Section>
 
         <EmailSection />
-        <p className="text-xs text-white/40">
+        <p className="text-xs text-[var(--ink-3)]">
           {saving && "Wird gespeichert…"}
         </p>
       </form>
@@ -254,7 +254,7 @@ function EmailSection() {
   const send = watch("sendEmails");
   return (
     <Section title="E-Mail bei Statuswechsel" icon={<Mail className="h-4 w-4" />}>
-      <p className="mb-3 text-xs text-white/50">
+      <p className="mb-3 text-xs text-[var(--ink-3)]">
         Optional: Nach Speichern Benachrichtigungs-Mails an ausgewählte Rollen (nur wenn der Status tatsächlich wechselt
         und passende Mails in der Verkettung hinterlegt sind).
       </p>

@@ -54,11 +54,11 @@ export default async function DateienPage({ params }: { params: Promise<{ id: st
   };
 
   const BATCH_STATUS_CLASS: Record<string, string> = {
-    pending:    'bg-amber-500/15 text-amber-400',
-    uploading:  'bg-blue-500/15 text-blue-400',
-    completed:  'bg-emerald-500/15 text-emerald-400',
-    failed:     'bg-rose-500/15 text-rose-400',
-    cancelled:  'bg-zinc-500/15 p-text-muted',
+    pending:    'bg-[#FBEED4] text-[#8A5710] border border-[#B87514]/30',
+    uploading:  'bg-[#DFEBF5] text-[#244865] border border-[#2E5A7A]/30',
+    completed:  'bg-[#E6F2E3] text-[#1F5C20] border border-[#2A7A2A]/30',
+    failed:     'bg-[#F8E0DB] text-[#8A2515] border border-[#B4311B]/30',
+    cancelled:  'bg-[#EFEDE6] text-[#3C3B38] border border-[#6B6962]/30',
   };
 
   return (
@@ -91,7 +91,7 @@ export default async function DateienPage({ params }: { params: Promise<{ id: st
                       href={folder.nextcloud_share_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-1 rounded border border-[#B68E20]/40 px-2 py-1 text-xs text-[#B68E20] transition-colors hover:bg-[#B68E20]/10"
+                      className="flex items-center gap-1 rounded border border-[var(--gold-300)] bg-[var(--gold-50)] px-2 py-1 text-xs font-semibold text-[var(--gold-800)] transition-colors hover:border-[var(--gold-600)]"
                     >
                       <ExternalLink className="h-3 w-3" />
                       Nextcloud

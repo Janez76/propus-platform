@@ -18,7 +18,7 @@ const EVENTS = [
 function CsvExportLink({ orderId }: { orderId: string }) {
   return (
     <a
-      className="ml-auto text-[#B68E20] hover:underline"
+      className="ml-auto text-[var(--gold-700)] font-semibold hover:underline"
       href={`/orders/${orderId}/verlauf/export`}
     >
       CSV-Export
@@ -38,12 +38,14 @@ type FilterFieldsProps = {
 };
 
 function FilterFields({ ev, from, to, onEv, onFrom, onTo, onApply, orderId }: FilterFieldsProps) {
+  const inputCls = "ml-1 rounded border border-[var(--border)] bg-[var(--paper-strip)] px-2 py-1 text-sm text-[var(--ink)] focus:bg-white focus:border-[var(--gold-500)] focus:outline-none focus:ring-2 focus:ring-[var(--gold-500)]/20";
+  const labelCls = "text-[10px] font-semibold uppercase tracking-wider text-[var(--ink-3)]";
   return (
-    <div className="mb-4 flex flex-wrap items-end gap-2 rounded-lg border border-white/10 bg-white/[0.02] p-3 text-sm">
-      <div>
-        <span className="text-[10px] text-white/50">Typ</span>
+    <div className="mb-4 flex flex-wrap items-end gap-3 rounded-lg border border-[var(--border)] bg-[var(--paper-strip)] p-3 text-sm">
+      <label className="flex flex-col gap-1">
+        <span className={labelCls}>Typ</span>
         <select
-          className="ml-1 rounded border border-white/10 bg-[#0c0d10] px-2 py-1"
+          className={inputCls}
           value={ev}
           onChange={(e) => onEv(e.target.value)}
         >
@@ -53,26 +55,26 @@ function FilterFields({ ev, from, to, onEv, onFrom, onTo, onApply, orderId }: Fi
             </option>
           ))}
         </select>
-      </div>
-      <div>
-        <span className="text-[10px] text-white/50">Von</span>
+      </label>
+      <label className="flex flex-col gap-1">
+        <span className={labelCls}>Von</span>
         <input
           type="date"
-          className="ml-1 rounded border border-white/10 bg-[#0c0d10] px-1"
+          className={inputCls}
           value={from}
           onChange={(e) => onFrom(e.target.value)}
         />
-      </div>
-      <div>
-        <span className="text-[10px] text-white/50">Bis</span>
+      </label>
+      <label className="flex flex-col gap-1">
+        <span className={labelCls}>Bis</span>
         <input
           type="date"
-          className="ml-1 rounded border border-white/10 bg-[#0c0d10] px-1"
+          className={inputCls}
           value={to}
           onChange={(e) => onTo(e.target.value)}
         />
-      </div>
-      <button type="button" onClick={onApply} className="rounded bg-white/10 px-3 py-1">
+      </label>
+      <button type="button" onClick={onApply} className="bd-btn-outline-gold">
         Anwenden
       </button>
       {orderId && <CsvExportLink orderId={orderId} />}

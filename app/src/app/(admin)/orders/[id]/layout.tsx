@@ -1,7 +1,10 @@
 import { Suspense, type ReactNode } from 'react';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Calendar, User, Clock, Receipt } from 'lucide-react';
+import {
+  ArrowLeft, Calendar, User, Clock, Receipt,
+  Lock,
+} from 'lucide-react';
 import { getAdminSession, requireOrderViewAccess } from '@/lib/auth.server';
 import { loadOrderContext } from './_order-context';
 import { OrderTabs } from './order-tabs';
@@ -10,16 +13,27 @@ import { OrderSaveToast } from './order-save-toast';
 import { OrderEditShellProvider } from './order-edit-shell-context';
 import { OrderEditShellContent } from './order-edit-shell-content';
 import { OrderBulkDirtyHint } from './order-bulk-hint';
+import { OrderTopActions } from './topbar-actions';
+import { isOrderReadOnly } from './_shared';
+import './bestellung-detail.css';
 
-const STATUS_LABEL: Record<string, { label: string; className: string }> = {
-  pending:    { label: 'Offen',          className: 'bg-amber-500/15 text-amber-400' },
-  provisional:{ label: 'Provisorisch',   className: 'bg-yellow-500/15 text-yellow-400' },
-  confirmed:  { label: 'Bestätigt',      className: 'bg-emerald-500/15 text-emerald-400' },
-  completed:  { label: 'Abgeschlossen',  className: 'bg-blue-500/15 text-blue-400' },
-  done:       { label: 'Erledigt',       className: 'bg-blue-500/15 text-blue-400' },
-  paused:     { label: 'Pausiert',       className: 'bg-zinc-500/15 p-text-muted' },
-  cancelled:  { label: 'Storniert',      className: 'bg-rose-500/15 text-rose-400' },
-  archived:   { label: 'Archiviert',     className: 'bg-white/10 text-white/50' },
+type StatusMeta = {
+  label: string;
+  color: string;
+  bg: string;
+  text: string;
+  border: string;
+};
+
+const STATUS_META: Record<string, StatusMeta> = {
+  pending:     { label: 'Offen',          color: '#B87514', bg: '#FBEED4', text: '#8A5710', border: 'rgba(184,117,20,0.33)' },
+  provisional: { label: 'Provisorisch',   color: '#7C5BC9', bg: '#EDE5FA', text: '#4A2F8E', border: 'rgba(124,91,201,0.33)' },
+  confirmed:   { label: 'Bestätigt',      color: '#2A7A2A', bg: '#E6F2E3', text: '#1F5C20', border: 'rgba(42,122,42,0.33)' },
+  completed:   { label: 'Abgeschlossen',  color: '#0F8A7E', bg: '#D6F1ED', text: '#0A5C53', border: 'rgba(15,138,126,0.33)' },
+  done:        { label: 'Erledigt',       color: '#244865', bg: '#DFEBF5', text: '#244865', border: 'rgba(36,72,101,0.33)' },
+  paused:      { label: 'Pausiert',       color: '#6B6962', bg: '#EFEDE6', text: '#3C3B38', border: 'rgba(107,105,98,0.33)' },
+  cancelled:   { label: 'Storniert',      color: '#B4311B', bg: '#F8E0DB', text: '#8A2515', border: 'rgba(180,49,27,0.33)' },
+  archived:    { label: 'Archiviert',     color: '#6B6962', bg: '#F0EBDF', text: '#3C3B38', border: 'rgba(107,105,98,0.33)' },
 };
 
 function formatAppointment(date: string | null, time: string | null) {
@@ -37,6 +51,10 @@ function formatAppointment(date: string | null, time: string | null) {
 function formatCHF(amount: number | null | undefined) {
   if (amount == null) return '—';
   return new Intl.NumberFormat('de-CH', { style: 'currency', currency: 'CHF' }).format(amount);
+}
+
+function formatCreated(ts: string) {
+  return new Intl.DateTimeFormat('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(ts));
 }
 
 type Props = {
@@ -61,90 +79,117 @@ export default async function OrderLayout({ children, params }: Props) {
   const order = await loadOrderContext(orderNo);
   if (!order) notFound();
 
-  const status = STATUS_LABEL[order.status] ?? STATUS_LABEL.pending;
+  const status = STATUS_META[order.status] ?? STATUS_META.pending;
 
   return (
     <OrderEditShellProvider orderNo={order.order_no}>
-    <div className="min-h-screen bg-[#0c0d10] text-white">
-      <header className="sticky top-0 z-20 border-b border-white/10 bg-[#0c0d10]/95 backdrop-blur">
-        <div className="mx-auto max-w-6xl px-6">
-          <div className="flex items-center justify-between gap-4 py-4">
-            <div className="min-w-0 flex-1 flex items-center gap-4">
-              <Link
-                href="/orders"
-                className="flex items-center gap-2 text-sm text-white/60 hover:text-white transition-colors"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Bestellungen
-              </Link>
-              <span className="text-white/20">/</span>
-              <h1 className="text-xl font-semibold tracking-tight text-white">
-                Bestellung #{order.order_no}
-              </h1>
-              <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${status.className}`}>
-                {status.label}
-              </span>
-              <Suspense fallback={null}>
-                <OrderReadOnlyBadge />
-              </Suspense>
-            </div>
-
-            <div className="relative z-30 shrink-0">
-              <Suspense fallback={null}>
-                <OrderEditActions orderNo={order.order_no} />
-              </Suspense>
-            </div>
+      <div className="bestellung-shell min-h-screen">
+        <div className="bd-topbar">
+          <div className="bd-crumbs">
+            <Link href="/orders">
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Bestellungen
+            </Link>
+            <span className="sep">›</span>
+            <strong>#{order.order_no}</strong>
+            <Suspense fallback={null}>
+              <OrderReadOnlyBadge />
+            </Suspense>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 pb-4 md:grid-cols-4">
-            <MetaCard
-              icon={<Calendar className="h-3.5 w-3.5" />}
+          <div className="bd-top-actions">
+            <OrderTopActions orderNo={order.order_no} status={order.status} />
+            <Suspense fallback={null}>
+              <OrderEditActions orderNo={order.order_no} status={order.status} />
+            </Suspense>
+          </div>
+        </div>
+
+        <header className="bd-hero">
+          <div className="bd-eyebrow">— Bestellung · erstellt {formatCreated(order.created_at)}</div>
+          <h1 className="bd-h1">
+            Bestellung <span className="num">#{order.order_no}</span>
+          </h1>
+          <div className="bd-hero-sub">
+            <span
+              className="bd-status-chip"
+              style={{ background: status.bg, color: status.text, borderColor: status.border }}
+            >
+              <span className="dot" style={{ background: status.color }} />
+              {status.label}
+            </span>
+            {isOrderReadOnly(order.status) && (
+              <span
+                className="bd-lock-chip"
+                title={`Status: ${status.label} — Bearbeitung deaktiviert`}
+              >
+                <Lock className="h-3 w-3" />
+                Schreibgeschützt
+              </span>
+            )}
+            <span className="bd-hero-meta">· Zuletzt aktualisiert {formatCreated(order.updated_at)}</span>
+          </div>
+
+          <div className="bd-hero-stats">
+            <HeroStat
+              icon={<Calendar />}
               label="Termin"
               value={formatAppointment(order.schedule_date, order.schedule_time)}
             />
-            <MetaCard
-              icon={<User className="h-3.5 w-3.5" />}
+            <HeroStat
+              icon={<User />}
               label="Mitarbeiter"
               value={order.photographer_name ?? '—'}
             />
-            <MetaCard
-              icon={<Clock className="h-3.5 w-3.5" />}
+            <HeroStat
+              icon={<Clock />}
               label="Dauer"
-              value={order.duration_min ? `${order.duration_min} min` : '—'}
+              value={order.duration_min ? `${order.duration_min} Min` : '—'}
             />
-            <MetaCard
-              icon={<Receipt className="h-3.5 w-3.5" />}
-              label="Total"
+            <HeroStat
+              icon={<Receipt />}
+              label="Total inkl. MwSt"
               value={formatCHF(order.total_chf)}
+              variant="total"
             />
           </div>
+        </header>
 
-          <OrderTabs orderId={String(order.order_no)} />
+        <div className="bd-tabbar">
+          <div className="bd-tabbar-inner">
+            <OrderTabs orderId={String(order.order_no)} />
+          </div>
         </div>
-      </header>
 
-      <main className="mx-auto max-w-6xl px-6 py-8">
-        <Suspense fallback={null}>
-          <OrderSaveToast />
-        </Suspense>
-        <OrderBulkDirtyHint />
-        <OrderEditShellContent orderId={String(order.order_no)}>
-          {children}
-        </OrderEditShellContent>
-      </main>
-    </div>
+        <main className="bd-content">
+          <Suspense fallback={null}>
+            <OrderSaveToast />
+          </Suspense>
+          <OrderBulkDirtyHint />
+          <OrderEditShellContent orderId={String(order.order_no)}>
+            {children}
+          </OrderEditShellContent>
+        </main>
+      </div>
     </OrderEditShellProvider>
   );
 }
 
-function MetaCard({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+function HeroStat({
+  icon, label, value, variant,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  variant?: 'total';
+}) {
   return (
-      <div className="rounded-lg border border-white/10 bg-white/2 px-3 py-2">
-      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-white/60">
-        {icon}
-        {label}
+    <div className={`bd-hero-stat${variant === 'total' ? ' is-total' : ''}`}>
+      <div className="hs-icon">{icon}</div>
+      <div className="min-w-0">
+        <div className="hs-label">{label}</div>
+        <div className={`hs-value${variant === 'total' ? ' gold' : ''}`}>{value}</div>
       </div>
-      <div className="mt-0.5 truncate text-sm font-medium">{value}</div>
     </div>
   );
 }

@@ -9,7 +9,7 @@ import { Building2, MapPin, Plus, Trash2, Users, KeyRound } from "lucide-react";
 import { objektFormSchema, type ObjektFormValues } from "@/lib/validators/orders/objekt";
 import { saveOrderObjekt } from "./actions";
 import { FieldError } from "@/components/forms/FieldError";
-import { Section, Empty, InfoItem } from "../_shared";
+import { Section, InfoItem } from "../_shared";
 import { splitAddressLine } from "@/lib/parseOrderAddress";
 
 const TYPE_OPTIONS: { value: ObjektFormValues["objectType"]; label: string }[] = [
@@ -118,23 +118,23 @@ export function ObjektForm({ order }: Props) {
   return (
     <FormProvider {...form}>
       <form id="order-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        {err && <p className="text-sm text-rose-400">{err}</p>}
+        {err && <p className="text-sm text-[var(--danger)]">{err}</p>}
         <Section title="Adresse" icon={<MapPin className="h-4 w-4" />}>
           <div className="space-y-4">
             <div>
-              <span className="mb-1.5 block text-[11px] text-white/50">Strasse *</span>
-              <input className="w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm" {...form.register("street")} />
+              <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-3)]">Strasse *</span>
+              <input className="w-full rounded-md border border-[var(--border)] bg-[var(--paper-strip)] px-3 py-2 text-sm focus:bg-white focus:border-[var(--gold-500)] focus:outline-none focus:ring-2 focus:ring-[var(--gold-500)]/20" {...form.register("street")} />
               <FieldError<ObjektFormValues> name="street" />
             </div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <div>
-                <span className="mb-1.5 block text-[11px] text-white/50">PLZ *</span>
-                <input className="w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm" {...form.register("zip")} />
+                <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-3)]">PLZ *</span>
+                <input className="w-full rounded-md border border-[var(--border)] bg-[var(--paper-strip)] px-3 py-2 text-sm focus:bg-white focus:border-[var(--gold-500)] focus:outline-none focus:ring-2 focus:ring-[var(--gold-500)]/20" {...form.register("zip")} />
                 <FieldError<ObjektFormValues> name="zip" />
               </div>
               <div className="md:col-span-2">
-                <span className="mb-1.5 block text-[11px] text-white/50">Ort *</span>
-                <input className="w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm" {...form.register("city")} />
+                <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-3)]">Ort *</span>
+                <input className="w-full rounded-md border border-[var(--border)] bg-[var(--paper-strip)] px-3 py-2 text-sm focus:bg-white focus:border-[var(--gold-500)] focus:outline-none focus:ring-2 focus:ring-[var(--gold-500)]/20" {...form.register("city")} />
                 <FieldError<ObjektFormValues> name="city" />
               </div>
             </div>
@@ -144,9 +144,9 @@ export function ObjektForm({ order }: Props) {
         <Section title="Objekt" icon={<Building2 className="h-4 w-4" />}>
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             <div className="col-span-2">
-              <span className="mb-1.5 block text-[11px] text-white/50">Typ</span>
+              <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-3)]">Typ</span>
               <select
-                className="w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm"
+                className="w-full rounded-md border border-[var(--border)] bg-[var(--paper-strip)] px-3 py-2 text-sm focus:bg-white focus:border-[var(--gold-500)] focus:outline-none focus:ring-2 focus:ring-[var(--gold-500)]/20"
                 {...form.register("objectType", { setValueAs: (v: string) => (v === "" ? null : v) })}
               >
                 <option value="">—</option>
@@ -158,37 +158,37 @@ export function ObjektForm({ order }: Props) {
               </select>
             </div>
             <div>
-              <span className="mb-1.5 block text-[11px] text-white/50">Fläche m²</span>
+              <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-3)]">Fläche m²</span>
               <input
                 type="number"
                 min={1}
-                className="w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm"
+                className="w-full rounded-md border border-[var(--border)] bg-[var(--paper-strip)] px-3 py-2 text-sm focus:bg-white focus:border-[var(--gold-500)] focus:outline-none focus:ring-2 focus:ring-[var(--gold-500)]/20"
                 {...form.register("objectAreaM2", { valueAsNumber: true, setValueAs: (v) => (v === "" || v === null ? null : v) })}
               />
             </div>
             <div>
-              <span className="mb-1.5 block text-[11px] text-white/50">Etagen</span>
+              <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-3)]">Etagen</span>
               <input
                 type="number"
                 min={0}
-                className="w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm"
+                className="w-full rounded-md border border-[var(--border)] bg-[var(--paper-strip)] px-3 py-2 text-sm focus:bg-white focus:border-[var(--gold-500)] focus:outline-none focus:ring-2 focus:ring-[var(--gold-500)]/20"
                 {...form.register("objectFloors", { valueAsNumber: true, setValueAs: (v) => (v === "" || v === null ? null : v) })}
               />
             </div>
             <div>
-              <span className="mb-1.5 block text-[11px] text-white/50">Zimmer</span>
+              <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-3)]">Zimmer</span>
               <input
                 type="number"
                 min={0}
-                className="w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm"
+                className="w-full rounded-md border border-[var(--border)] bg-[var(--paper-strip)] px-3 py-2 text-sm focus:bg-white focus:border-[var(--gold-500)] focus:outline-none focus:ring-2 focus:ring-[var(--gold-500)]/20"
                 {...form.register("objectRooms", { valueAsNumber: true, setValueAs: (v) => (v === "" || v === null ? null : v) })}
               />
             </div>
             <div className="col-span-full">
-              <span className="mb-1.5 block text-[11px] text-white/50">Beschreibung</span>
+              <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-3)]">Beschreibung</span>
               <textarea
                 rows={2}
-                className="w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm"
+                className="w-full rounded-md border border-[var(--border)] bg-[var(--paper-strip)] px-3 py-2 text-sm focus:bg-white focus:border-[var(--gold-500)] focus:outline-none focus:ring-2 focus:ring-[var(--gold-500)]/20"
                 {...form.register("objectDesc")}
               />
             </div>
@@ -203,20 +203,20 @@ export function ObjektForm({ order }: Props) {
                 className="grid grid-cols-1 gap-3 rounded-lg border border-white/10 bg-white/[0.02] p-4 md:grid-cols-12"
               >
                 <div className="md:col-span-3">
-                  <input className="w-full rounded border border-white/10 bg-white/[0.03] px-2 py-1.5 text-sm" placeholder="Name" {...form.register(`onsiteContacts.${i}.name`)} />
+                  <input className="w-full rounded border border-[var(--border)] bg-[var(--paper-strip)] px-2 py-1.5 text-sm focus:bg-white focus:border-[var(--gold-500)] focus:outline-none focus:ring-2 focus:ring-[var(--gold-500)]/20" placeholder="Name" {...form.register(`onsiteContacts.${i}.name`)} />
                   <FieldError<ObjektFormValues> name={`onsiteContacts.${i}.name`} />
                 </div>
                 <div className="md:col-span-3">
-                  <input className="w-full rounded border border-white/10 bg-white/[0.03] px-2 py-1.5 text-sm" placeholder="E-Mail" type="email" {...form.register(`onsiteContacts.${i}.email`)} />
+                  <input className="w-full rounded border border-[var(--border)] bg-[var(--paper-strip)] px-2 py-1.5 text-sm focus:bg-white focus:border-[var(--gold-500)] focus:outline-none focus:ring-2 focus:ring-[var(--gold-500)]/20" placeholder="E-Mail" type="email" {...form.register(`onsiteContacts.${i}.email`)} />
                 </div>
                 <div className="md:col-span-3">
-                  <input className="w-full rounded border border-white/10 bg-white/[0.03] px-2 py-1.5 text-sm" placeholder="Telefon" {...form.register(`onsiteContacts.${i}.phone`)} />
+                  <input className="w-full rounded border border-[var(--border)] bg-[var(--paper-strip)] px-2 py-1.5 text-sm focus:bg-white focus:border-[var(--gold-500)] focus:outline-none focus:ring-2 focus:ring-[var(--gold-500)]/20" placeholder="Telefon" {...form.register(`onsiteContacts.${i}.phone`)} />
                 </div>
                 <div className="md:col-span-2">
-                  <input className="w-full rounded border border-white/10 bg-white/[0.03] px-2 py-1.5 text-sm" placeholder="Rolle / Notiz" {...form.register(`onsiteContacts.${i}.role`)} />
+                  <input className="w-full rounded border border-[var(--border)] bg-[var(--paper-strip)] px-2 py-1.5 text-sm focus:bg-white focus:border-[var(--gold-500)] focus:outline-none focus:ring-2 focus:ring-[var(--gold-500)]/20" placeholder="Rolle / Notiz" {...form.register(`onsiteContacts.${i}.role`)} />
                 </div>
                 <div className="flex items-start justify-end md:col-span-1">
-                  <button type="button" className="rounded p-1 text-rose-400 hover:bg-white/10" onClick={() => remove(i)} title="Entfernen">
+                  <button type="button" className="rounded p-1 text-[var(--danger)] hover:bg-[var(--danger-bg)]" onClick={() => remove(i)} title="Entfernen">
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
@@ -224,7 +224,7 @@ export function ObjektForm({ order }: Props) {
             ))}
             <button
               type="button"
-              className="inline-flex items-center gap-1 rounded border border-dashed border-white/20 px-3 py-2 text-sm text-white/70"
+              className="inline-flex items-center gap-1 rounded border border-dashed border-[var(--gold-300)] bg-[var(--gold-50)] px-3 py-2 text-sm text-[var(--gold-800)] hover:border-[var(--gold-600)]"
               onClick={() => append({ name: "", email: "", phone: "", role: "" })}
             >
               <Plus className="h-4 w-4" />
@@ -235,14 +235,14 @@ export function ObjektForm({ order }: Props) {
 
         {kp?.enabled && (
           <Section title="Schlüsselübergabe" icon={<KeyRound className="h-4 w-4" />}>
-            <p className="text-xs text-white/50">Nur Anzeige — Bearbeitung folgt bei Bedarf.</p>
+            <p className="text-xs text-[var(--ink-3)]">Nur Anzeige — Bearbeitung folgt bei Bedarf.</p>
             {kp.address && <InfoItem label="Adresse" value={kp.address} />}
             {kp.floor && <InfoItem label="Stockwerk" value={kp.floor} />}
             {kp.info && <InfoItem label="Hinweis" value={kp.info} />}
           </Section>
         )}
 
-        {saving && <p className="text-xs text-white/40">Wird gespeichert…</p>}
+        {saving && <p className="text-xs text-[var(--ink-3)]">Wird gespeichert…</p>}
       </form>
     </FormProvider>
   );

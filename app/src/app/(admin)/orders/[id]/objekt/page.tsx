@@ -82,7 +82,7 @@ export default async function ObjektPage({ params, searchParams }: Props) {
         {contacts.length > 0 ? (
           <div className="space-y-3">
             {contacts.map((c, i) => (
-              <div key={i} className="grid grid-cols-1 gap-3 rounded-lg border border-white/10 bg-white/[0.02] p-4 md:grid-cols-3">
+              <div key={i} className="grid grid-cols-1 gap-3 rounded-lg border border-[var(--border)] bg-[var(--paper-strip)] p-4 md:grid-cols-3">
                 {c.name && <InfoItem label="Name" value={c.name} />}
                 {c.phone && <InfoItem label="Telefon" value={c.phone} />}
                 {c.email && <InfoItem label="E-Mail" value={c.email} />}

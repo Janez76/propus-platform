@@ -11,7 +11,7 @@ export function OrderBulkDirtyHint() {
   const keys = (Object.keys(dirty) as (keyof typeof dirty)[]).filter((k) => dirty[k]);
   const label = keys.join(", ");
   return (
-    <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100/90">
+    <div className="mb-3 rounded-lg border border-[#E4CE94] bg-[#FBF7EE] px-3 py-2 text-xs text-[#7A5D14]">
       Ungespeicherte Änderungen: {label || "Bereiche"}. Wechsel nicht vergessen: Tab-Wechsel fragt ggf. nach. Ein
       Tab, eine Sektion: normal mit «Speichern»; mehrere Sektionen: «Sammel-Speichern» im Header.
     </div>
