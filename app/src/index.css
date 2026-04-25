@@ -3,6 +3,7 @@
 @import "./styles/listing-admin.css";
 @import "./styles/selekto/propus-admin.css";
 @import "./styles/selekto/gallery-admin-supplement.css";
+@import "./styles/reviews-redesign.css";
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ─── Tailwind v4 Theme Tokens ───────────────────────────────────────────────

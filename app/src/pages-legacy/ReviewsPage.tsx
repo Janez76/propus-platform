@@ -1,20 +1,16 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Star,
   Send,
   CheckCircle2,
   AlertCircle,
-  Clock,
-  MailCheck,
-  MessageSquare,
-  BanIcon,
   RefreshCw,
   ExternalLink,
-  ThumbsUp,
   Link2,
   Link2Off,
   Reply,
   Trash2,
+  Download,
 } from "lucide-react";
 import { apiRequest } from "../api/client";
 import { useAuthStore } from "../store/authStore";
@@ -44,35 +40,6 @@ interface ReviewRow {
   review_status: "responded" | "sent" | "pending" | "not_due";
 }
 
-function isSyntheticCompanyEmail(value?: string | null) {
-  return String(value || "").trim().toLowerCase().endsWith("@company.local");
-}
-
-function toVisibleCustomerEmail(value?: string | null) {
-  return isSyntheticCompanyEmail(value) ? "" : String(value || "");
-}
-
-function StarRating({ rating }: { rating: number }) {
-  return (
-    <span className="flex items-center gap-0.5">
-      {[1, 2, 3, 4, 5].map((s) => (
-        <Star
-          key={s}
-          className={`h-3.5 w-3.5 ${s <= rating ? "text-yellow-400 fill-yellow-400" : ""}`}
-          style={s > rating ? { color: "var(--text-subtle)" } : undefined}
-        />
-      ))}
-    </span>
-  );
-}
-
-const STATUS_CONFIG = {
-  responded: { labelKey: "reviews.status.responded", cls: "cust-status-badge cust-status-completed", icon: CheckCircle2 },
-  sent:      { labelKey: "reviews.status.sent",       cls: "cust-status-badge cust-status-confirmed",  icon: MailCheck },
-  pending:   { labelKey: "reviews.status.pending",    cls: "cust-status-badge cust-status-pending",   icon: Clock },
-  not_due:   { labelKey: "reviews.status.notDue",     cls: "cust-status-badge cust-status-draft",     icon: Clock },
-};
-
 interface GbpStatus {
   connected: boolean;
   configured: boolean;
@@ -94,48 +61,206 @@ interface GbpReview {
   reply: { comment: string; updateTime: string | null } | null;
 }
 
-function GbpStars({ rating }: { rating: number }) {
+type UnifiedReview = {
+  key: string;
+  source: "google" | "local";
+  rating: number;
+  customer: string;
+  customerCo: string | null;
+  text: string;
+  date: string;
+  responded: boolean;
+  response: string | null;
+  orderNo: number | null;
+  internalRow: ReviewRow | null;
+  gbpReview: GbpReview | null;
+};
+
+type FilterId = "recent" | "pending" | "fivestar" | "lowrating" | "all";
+
+function isSyntheticCompanyEmail(value?: string | null) {
+  return String(value || "").trim().toLowerCase().endsWith("@company.local");
+}
+
+function toVisibleCustomerEmail(value?: string | null) {
+  return isSyntheticCompanyEmail(value) ? "" : String(value || "");
+}
+
+function customerInitials(label: string | null): string {
+  if (!label) return "—";
+  const parts = label.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "—";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function formatReviewDate(iso: string | null): string {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" });
+  } catch {
+    return "—";
+  }
+}
+
+function Stars({ n }: { n: number }) {
   return (
-    <span className="flex items-center gap-0.5">
-      {[1, 2, 3, 4, 5].map((s) => (
-        <Star
-          key={s}
-          className={`h-3.5 w-3.5 ${s <= rating ? "text-yellow-400 fill-yellow-400" : ""}`}
-          style={s > rating ? { color: "var(--text-subtle)" } : undefined}
-        />
+    <span className="bw-stars" aria-label={`${n} von 5 Sternen`}>
+      {[1, 2, 3, 4, 5].map((i) => (
+        <span key={i} className={i <= n ? undefined : "is-empty"}>★</span>
       ))}
     </span>
   );
 }
 
-function GbpAvatar({ author, photo }: { author: string; photo: string | null }) {
-  const initial = author ? author.charAt(0).toUpperCase() : "?";
-  if (photo) {
-    return <img src={photo} alt={author} className="h-8 w-8 rounded-full object-cover flex-shrink-0" />;
-  }
-  return (
-    <div
-      className="h-8 w-8 rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0"
-      style={{ background: "#4285F4", color: "#fff" }}
-    >
-      {initial}
-    </div>
-  );
+function normalizeInternal(row: ReviewRow): UnifiedReview | null {
+  if (row.rating == null || !row.comment) return null;
+  const co = toVisibleCustomerEmail(row.customer_email);
+  return {
+    key: `local-${row.order_no}`,
+    source: "local",
+    rating: row.rating,
+    customer: row.customer_name || "—",
+    customerCo: co || null,
+    text: row.comment,
+    date: row.submitted_at || row.done_at || "",
+    // Internal reviews don't have a public reply mechanism. Treat as
+    // already-handled to keep them out of the "Ohne Antwort" filter.
+    responded: true,
+    response: null,
+    orderNo: row.order_no,
+    internalRow: row,
+    gbpReview: null,
+  };
 }
 
-function GbpPanel({ token, lang, readOnly = false }: { token: string | undefined; lang: Lang; readOnly?: boolean }) {
-  const [status, setStatus] = useState<GbpStatus | null>(null);
-  const [reviews, setReviews] = useState<GbpReview[]>([]);
-  const [avgRating, setAvgRating] = useState<number | null>(null);
-  const [totalCount, setTotalCount] = useState<number | null>(null);
-  const [reviewsSource, setReviewsSource] = useState<"gbp" | "places" | null>(null);
-  const [placesEnvMissing, setPlacesEnvMissing] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [reviewsLoading, setReviewsLoading] = useState(false);
-  const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
-  const [replyMap, setReplyMap] = useState<Record<string, { open: boolean; text: string; saving: boolean; deleting: boolean }>>({});
+function normalizeGbp(rv: GbpReview): UnifiedReview {
+  return {
+    key: `gbp-${rv.reviewId || rv.name}`,
+    source: "google",
+    rating: rv.rating,
+    customer: rv.isAnonymous ? "Anonym" : rv.author,
+    customerCo: "Google",
+    text: rv.comment || "",
+    date: rv.createTime || "",
+    responded: !!rv.reply,
+    response: rv.reply?.comment ?? null,
+    orderNo: null,
+    internalRow: null,
+    gbpReview: rv,
+  };
+}
 
-  // URL-Parameter nach OAuth-Callback prüfen
+function withinLast30Days(iso: string): boolean {
+  if (!iso) return false;
+  const d = new Date(iso).getTime();
+  if (Number.isNaN(d)) return false;
+  return (Date.now() - d) / 86400000 <= 30;
+}
+
+function applyFilter(reviews: UnifiedReview[], filter: FilterId): UnifiedReview[] {
+  return reviews.filter((r) => {
+    if (filter === "recent") return withinLast30Days(r.date);
+    if (filter === "pending") return !r.responded;
+    if (filter === "fivestar") return r.rating === 5;
+    if (filter === "lowrating") return r.rating <= 3;
+    return true;
+  });
+}
+
+export function ReviewsPage() {
+  const token = useAuthStore((s) => s.token);
+  const lang = useAuthStore((s) => s.language) as Lang;
+  const { can } = usePermissions();
+  const canManageReviews = can("reviews.manage");
+
+  const [kpi, setKpi] = useState<KpiData | null>(null);
+  const [internalReviews, setInternalReviews] = useState<ReviewRow[]>([]);
+  const [gbpStatus, setGbpStatus] = useState<GbpStatus | null>(null);
+  const [gbpReviews, setGbpReviews] = useState<GbpReview[]>([]);
+  const [gbpAvgRating, setGbpAvgRating] = useState<number | null>(null);
+  const [gbpTotalCount, setGbpTotalCount] = useState<number | null>(null);
+  const [gbpSource, setGbpSource] = useState<"gbp" | "places" | null>(null);
+
+  const [loading, setLoading] = useState(true);
+  const [gbpLoading, setGbpLoading] = useState(false);
+  const [msg, setMsg] = useState<{ type: "ok" | "err" | "info"; text: string } | null>(null);
+  const [filter, setFilter] = useState<FilterId>("recent");
+  const [googleLink, setGoogleLink] = useState("https://g.page/r/CSQ5RnWmJOumEAE/review");
+  const [replyMap, setReplyMap] = useState<Record<string, { open: boolean; text: string; saving: boolean; deleting: boolean }>>({});
+  const [manualLocationId, setManualLocationId] = useState("");
+  const [showManualInput, setShowManualInput] = useState(false);
+
+  const loadStatus = useCallback(async () => {
+    try {
+      const res = await apiRequest<{ ok: boolean } & GbpStatus>("/api/admin/gbp/status", "GET", token);
+      setGbpStatus(res);
+      return res;
+    } catch {
+      const fallback: GbpStatus = { connected: false, configured: false };
+      setGbpStatus(fallback);
+      return fallback;
+    }
+  }, [token]);
+
+  const loadGbpReviews = useCallback(async () => {
+    setGbpLoading(true);
+    try {
+      const res = await apiRequest<{
+        ok: boolean;
+        reviews: GbpReview[];
+        averageRating: number | null;
+        totalReviewCount: number | null;
+        source?: string;
+        notConfigured?: boolean;
+      }>("/api/admin/gbp/reviews", "GET", token);
+      if (res.notConfigured) {
+        setGbpReviews([]);
+        setGbpAvgRating(null);
+        setGbpTotalCount(null);
+        setGbpSource(null);
+      } else {
+        setGbpReviews(res.reviews || []);
+        setGbpAvgRating(res.averageRating ?? null);
+        setGbpTotalCount(res.totalReviewCount ?? null);
+        setGbpSource(res.source === "places" ? "places" : "gbp");
+      }
+    } catch (e) {
+      setMsg({ type: "err", text: t(lang, "reviews.gbp.error") + " " + (e as Error).message });
+    } finally {
+      setGbpLoading(false);
+    }
+  }, [token, lang]);
+
+  const loadInternal = useCallback(async () => {
+    try {
+      const [kpiRes, listRes] = await Promise.all([
+        apiRequest<{ ok: boolean; kpi: KpiData }>("/api/admin/reviews/kpi", "GET", token),
+        apiRequest<{ ok: boolean; reviews: ReviewRow[] }>("/api/admin/reviews", "GET", token),
+      ]);
+      setKpi(kpiRes.kpi);
+      setInternalReviews(listRes.reviews || []);
+    } catch (e) {
+      setMsg({ type: "err", text: (e as Error).message });
+    }
+  }, [token]);
+
+  useEffect(() => {
+    apiRequest<{ ok: boolean; link: string }>("/api/reviews/google-link", "GET")
+      .then((res) => { if (res.link) setGoogleLink(res.link); })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    setLoading(true);
+    void Promise.all([loadInternal(), loadStatus()]).finally(() => setLoading(false));
+  }, [loadInternal, loadStatus]);
+
+  useEffect(() => {
+    if (gbpStatus?.connected) void loadGbpReviews();
+  }, [gbpStatus?.connected, loadGbpReviews]);
+
+  // OAuth callback toasts
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("gbp_connected") === "1") {
@@ -152,59 +277,110 @@ function GbpPanel({ token, lang, readOnly = false }: { token: string | undefined
     }
   }, [lang]);
 
-  const loadStatus = useCallback(async () => {
-    try {
-      const res = await apiRequest<{ ok: boolean } & GbpStatus>("/api/admin/gbp/status", "GET", token);
-      setStatus(res);
-    } catch {
-      setStatus({ connected: false, configured: false });
+  /* ── Unified review feed ──────────────────────────────── */
+  const unifiedReviews = useMemo<UnifiedReview[]>(() => {
+    const list: UnifiedReview[] = [];
+    for (const row of internalReviews) {
+      const u = normalizeInternal(row);
+      if (u) list.push(u);
     }
-  }, [token]);
+    for (const rv of gbpReviews) list.push(normalizeGbp(rv));
+    return list.sort((a, b) => {
+      const da = a.date ? new Date(a.date).getTime() : 0;
+      const db = b.date ? new Date(b.date).getTime() : 0;
+      return db - da;
+    });
+  }, [internalReviews, gbpReviews]);
 
-  const loadReviews = useCallback(async () => {
-    setReviewsLoading(true);
-    setPlacesEnvMissing(false);
+  const counts = useMemo(() => ({
+    all: unifiedReviews.length,
+    recent: unifiedReviews.filter((r) => withinLast30Days(r.date)).length,
+    pending: unifiedReviews.filter((r) => !r.responded).length,
+    fivestar: unifiedReviews.filter((r) => r.rating === 5).length,
+    lowrating: unifiedReviews.filter((r) => r.rating <= 3).length,
+  }), [unifiedReviews]);
+
+  const filtered = useMemo(() => applyFilter(unifiedReviews, filter), [unifiedReviews, filter]);
+
+  /* ── KPIs (matching the design) ───────────────────────── */
+  const totalReviews = unifiedReviews.length;
+  const avgRating = useMemo(() => {
+    if (totalReviews === 0) return null;
+    return unifiedReviews.reduce((s, r) => s + r.rating, 0) / totalReviews;
+  }, [unifiedReviews, totalReviews]);
+
+  const dist = useMemo(() => {
+    return [5, 4, 3, 2, 1].map((n) => {
+      const count = unifiedReviews.filter((r) => r.rating === n).length;
+      const pct = totalReviews > 0 ? Math.round((count / totalReviews) * 100) : 0;
+      return { n, count, pct };
+    });
+  }, [unifiedReviews, totalReviews]);
+
+  const responseRate = useMemo(() => {
+    if (totalReviews === 0) return 0;
+    return Math.round(unifiedReviews.filter((r) => r.responded).length / totalReviews * 100);
+  }, [unifiedReviews, totalReviews]);
+
+  const sourceCounts = useMemo(() => ({
+    google: unifiedReviews.filter((r) => r.source === "google").length,
+    local: unifiedReviews.filter((r) => r.source === "local").length,
+  }), [unifiedReviews]);
+
+  /* ── GBP reply actions ────────────────────────────────── */
+  const openReply = (key: string, existingReply: string) => {
+    setReplyMap((m) => ({
+      ...m,
+      [key]: { open: true, text: existingReply || "", saving: false, deleting: false },
+    }));
+  };
+
+  const closeReply = (key: string) => {
+    setReplyMap((m) => { const n = { ...m }; delete n[key]; return n; });
+  };
+
+  const sendReply = async (review: UnifiedReview) => {
+    if (!review.gbpReview) return;
+    const entry = replyMap[review.key];
+    if (!entry || !entry.text.trim()) return;
+    setReplyMap((m) => ({ ...m, [review.key]: { ...m[review.key], saving: true } }));
+    setMsg(null);
     try {
-      const res = await apiRequest<{
-        ok: boolean;
-        reviews: GbpReview[];
-        averageRating: number | null;
-        totalReviewCount: number | null;
-        source?: string;
-        notConfigured?: boolean;
-      }>("/api/admin/gbp/reviews", "GET", token);
-      if (res.notConfigured) {
-        setReviews([]);
-        setAvgRating(null);
-        setTotalCount(null);
-        setReviewsSource(null);
-        setPlacesEnvMissing(true);
-        setMsg(null);
-      } else {
-        setReviews(res.reviews || []);
-        setAvgRating(res.averageRating ?? null);
-        setTotalCount(res.totalReviewCount ?? null);
-        setReviewsSource(res.source === "places" ? "places" : "gbp");
-        setMsg(null);
-      }
+      await apiRequest("/api/admin/gbp/reviews/reply", "PUT", token, {
+        reviewName: review.gbpReview.name,
+        comment: entry.text.trim(),
+      });
+      setMsg({ type: "ok", text: t(lang, "reviews.gbp.replySent") });
+      closeReply(review.key);
+      await loadGbpReviews();
     } catch (e) {
-      setMsg({ type: "err", text: t(lang, "reviews.gbp.error") + " " + (e as Error).message });
-    } finally {
-      setReviewsLoading(false);
+      setMsg({ type: "err", text: (e as Error).message });
+      setReplyMap((m) => ({ ...m, [review.key]: { ...m[review.key], saving: false } }));
     }
-  }, [token, lang]);
+  };
 
-  useEffect(() => {
-    setLoading(true);
-    loadStatus().then(() => setLoading(false));
-  }, [loadStatus]);
-
-  useEffect(() => {
-    if (status?.connected) {
-      void loadReviews();
+  const deleteReply = async (review: UnifiedReview) => {
+    if (!review.gbpReview) return;
+    if (!window.confirm(t(lang, "reviews.gbp.deleteReplyConfirm"))) return;
+    setReplyMap((m) => ({
+      ...m,
+      [review.key]: { ...(m[review.key] || { open: false, text: "", saving: false }), deleting: true },
+    }));
+    setMsg(null);
+    try {
+      await apiRequest("/api/admin/gbp/reviews/reply", "DELETE", token, {
+        reviewName: review.gbpReview.name,
+      });
+      setMsg({ type: "ok", text: t(lang, "reviews.gbp.replyDeleted") });
+      closeReply(review.key);
+      await loadGbpReviews();
+    } catch (e) {
+      setMsg({ type: "err", text: (e as Error).message });
+      setReplyMap((m) => { const n = { ...m }; delete n[review.key]; return n; });
     }
-  }, [status?.connected, loadReviews]);
+  };
 
+  /* ── GBP connection actions ───────────────────────────── */
   const handleConnect = async () => {
     try {
       const res = await apiRequest<{ ok: boolean; authUrl: string }>("/api/admin/gbp/auth-url", "GET", token);
@@ -218,661 +394,460 @@ function GbpPanel({ token, lang, readOnly = false }: { token: string | undefined
     if (!window.confirm(t(lang, "reviews.gbp.disconnectConfirm"))) return;
     try {
       await apiRequest("/api/admin/gbp/disconnect", "DELETE", token);
-      setStatus((s) => s ? { ...s, connected: false } : s);
-      setReviews([]);
+      setGbpStatus((s) => s ? { ...s, connected: false } : s);
+      setGbpReviews([]);
       setMsg({ type: "ok", text: t(lang, "reviews.gbp.disconnect") + " ✓" });
     } catch (e) {
       setMsg({ type: "err", text: (e as Error).message });
     }
   };
 
-  const [manualLocationId, setManualLocationId] = useState("");
-  const [showManualInput, setShowManualInput] = useState(false);
-
   const handleResolveLocation = async (locationId?: string) => {
     setMsg(null);
     try {
       const body = locationId ? { locationId } : {};
-      const res = await apiRequest<{ ok: boolean; accountId: string; locationId: string }>("/api/admin/gbp/resolve", "POST", token, Object.keys(body).length ? body : undefined);
+      const res = await apiRequest<{ ok: boolean; accountId: string; locationId: string }>(
+        "/api/admin/gbp/resolve",
+        "POST",
+        token,
+        Object.keys(body).length ? body : undefined,
+      );
       setMsg({ type: "ok", text: "Location gesetzt: " + res.locationId });
       setShowManualInput(false);
       setManualLocationId("");
       await loadStatus();
-      await loadReviews();
+      await loadGbpReviews();
     } catch (e) {
       setMsg({ type: "err", text: (e as Error).message });
     }
   };
 
-  const openReply = (reviewName: string, existingReply: string) => {
-    setReplyMap((m) => ({
-      ...m,
-      [reviewName]: { open: true, text: existingReply || "", saving: false, deleting: false },
-    }));
-  };
-
-  const closeReply = (reviewName: string) => {
-    setReplyMap((m) => { const n = { ...m }; delete n[reviewName]; return n; });
-  };
-
-  const sendReply = async (reviewName: string) => {
-    const entry = replyMap[reviewName];
-    if (!entry || !entry.text.trim()) return;
-    setReplyMap((m) => ({ ...m, [reviewName]: { ...m[reviewName], saving: true } }));
-    setMsg(null);
+  const refreshAll = useCallback(async () => {
+    setLoading(true);
     try {
-      await apiRequest("/api/admin/gbp/reviews/reply", "PUT", token, { reviewName, comment: entry.text.trim() });
-      setMsg({ type: "ok", text: t(lang, "reviews.gbp.replySent") });
-      closeReply(reviewName);
-      await loadReviews();
-    } catch (e) {
-      setMsg({ type: "err", text: (e as Error).message });
-      setReplyMap((m) => ({ ...m, [reviewName]: { ...m[reviewName], saving: false } }));
+      await Promise.all([loadInternal(), loadStatus()]);
+      if (gbpStatus?.connected) await loadGbpReviews();
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [loadInternal, loadStatus, loadGbpReviews, gbpStatus?.connected]);
 
-  const deleteReply = async (reviewName: string) => {
-    if (!window.confirm(t(lang, "reviews.gbp.deleteReplyConfirm"))) return;
-    setReplyMap((m) => ({ ...m, [reviewName]: { ...(m[reviewName] || { open: false, text: "", saving: false }), deleting: true } }));
-    setMsg(null);
-    try {
-      await apiRequest("/api/admin/gbp/reviews/reply", "DELETE", token, { reviewName });
-      setMsg({ type: "ok", text: t(lang, "reviews.gbp.replyDeleted") });
-      closeReply(reviewName);
-      await loadReviews();
-    } catch (e) {
-      setMsg({ type: "err", text: (e as Error).message });
-      setReplyMap((m) => { const n = { ...m }; delete n[reviewName]; return n; });
-    }
-  };
-
-  if (loading) {
+  /* ── Loading splash ───────────────────────────────────── */
+  if (loading && unifiedReviews.length === 0) {
     return (
-      <div className="flex items-center justify-center py-8">
-        <div className="h-6 w-6 animate-spin rounded-full border-2"
-          style={{ borderColor: "var(--accent-subtle)", borderTopColor: "#4285F4" }} />
+      <div className="bw-shell">
+        <div className="bw-loader"><div className="bw-loader-dot" /></div>
       </div>
     );
   }
 
+  /* ── KPI tiles ────────────────────────────────────────── */
+  const avgDisplay = avgRating != null ? avgRating.toFixed(2) + " ★" : "—";
+
+  /* ── Filter pills ─────────────────────────────────────── */
+  const FILTERS: { id: FilterId; label: string }[] = [
+    { id: "recent", label: t(lang, "reviews.filter.recent") || "Letzte 30 T." },
+    { id: "pending", label: t(lang, "reviews.filter.pending") || "Ohne Antwort" },
+    { id: "fivestar", label: t(lang, "reviews.filter.fivestar") || "5 Sterne" },
+    { id: "lowrating", label: t(lang, "reviews.filter.lowrating") || "≤ 3 Sterne" },
+    { id: "all", label: t(lang, "common.all") || "Alle" },
+  ];
+
   return (
-    <div className="space-y-4">
-      {/* Header-Zeile */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-2">
-          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none">
-            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
-            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-          </svg>
-          <h2 className="font-semibold" style={{ color: "var(--text-main)" }}>{t(lang, "reviews.gbp.title")}</h2>
-          {status?.connected && (
-            <span className="cust-status-badge cust-status-completed text-xs">
-              <CheckCircle2 className="h-3 w-3" />
-              {t(lang, "reviews.gbp.connected")}
-            </span>
-          )}
-          {avgRating != null && (
-            <span className="text-sm font-medium text-yellow-500">{avgRating.toFixed(1)} ★</span>
-          )}
-          {totalCount != null && (
-            <span className="text-xs" style={{ color: "var(--text-subtle)" }}>({totalCount})</span>
-          )}
+    <div className="bw-shell">
+      <header className="bw-page-header">
+        <div className="bw-ph-top">
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div className="bw-eyebrow">
+              {t(lang, "reviews.header.eyebrow") || "Reputation"} · {totalReviews} {t(lang, "reviews.header.count") || "Bewertungen"}
+            </div>
+            <h1 className="bw-h1">{t(lang, "reviews.title")}</h1>
+            <div className="bw-ph-sub">
+              {t(lang, "reviews.header.sub") || "Google- und lokale Bewertungen — Antworten verfassen, Trends beobachten."}
+            </div>
+          </div>
+          <div className="bw-ph-actions">
+            <a
+              href={googleLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bw-btn-ghost"
+            >
+              <ExternalLink />
+              <span>{t(lang, "reviews.button.google")}</span>
+            </a>
+            <button type="button" onClick={() => { void refreshAll(); }} className="bw-btn-ghost">
+              <RefreshCw />
+              <span>{t(lang, "common.refresh")}</span>
+            </button>
+            {canManageReviews && (
+              <button type="button" className="bw-btn-primary">
+                <Download />
+                <span>{t(lang, "common.export") || "Export"}</span>
+              </button>
+            )}
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          {status?.connected && (
-            <button
-              onClick={() => { void loadReviews(); }}
-              disabled={reviewsLoading}
-              className="btn-secondary flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs min-h-0 min-w-0"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${reviewsLoading ? "animate-spin" : ""}`} />
-              {t(lang, "reviews.gbp.refresh")}
-            </button>
-          )}
-          {!readOnly && (status?.connected ? (
-            <button
-              onClick={() => { void handleDisconnect(); }}
-              className="btn-secondary flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs min-h-0 min-w-0"
-              style={{ color: "var(--text-subtle)" }}
-            >
-              <Link2Off className="h-3.5 w-3.5" />
-              {t(lang, "reviews.gbp.disconnect")}
-            </button>
-          ) : (
-            <button
-              onClick={() => { void handleConnect(); }}
-              disabled={!status?.configured}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
-              style={{ background: "#4285F4", color: "#fff" }}
-            >
-              <Link2 className="h-4 w-4" />
-              {t(lang, "reviews.gbp.connect")}
-            </button>
-          ))}
+
+        <div className="bw-kpis">
+          <div className="bw-kpi is-gold">
+            <div className="bw-kpi-label">{t(lang, "reviews.kpi.avgRating") || "Ø Bewertung"}</div>
+            <div className="bw-kpi-value is-gold">{avgDisplay}</div>
+            <div className="bw-kpi-trend">{totalReviews} {t(lang, "reviews.kpi.totalSuffix") || "gesamt"}</div>
+          </div>
+          <div className="bw-kpi">
+            <div className="bw-kpi-label">{t(lang, "reviews.kpi.fivestar") || "5-Sterne"}</div>
+            <div className="bw-kpi-value">{counts.fivestar}</div>
+            <div className="bw-kpi-trend is-up">
+              {totalReviews > 0 ? Math.round(counts.fivestar / totalReviews * 100) : 0}%
+            </div>
+          </div>
+          <div className="bw-kpi">
+            <div className="bw-kpi-label">{t(lang, "reviews.kpi.pending") || "Ohne Antwort"}</div>
+            <div className="bw-kpi-value">{counts.pending}</div>
+            <div className={"bw-kpi-trend " + (counts.pending ? "is-warn" : "")}>
+              {counts.pending === 0 ? (t(lang, "reviews.kpi.allReplied") || "Alle beantwortet") : (t(lang, "reviews.kpi.needsReply") || "warten auf Antwort")}
+            </div>
+          </div>
+          <div className="bw-kpi">
+            <div className="bw-kpi-label">{t(lang, "reviews.kpi.responseRate") || "Antwortquote"}</div>
+            <div className="bw-kpi-value">{responseRate}%</div>
+            {kpi && (
+              <div className="bw-kpi-trend">
+                {kpi.beantwortet}/{kpi.gesendet} {t(lang, "reviews.kpi.requestsResponded") || "Anfragen beantwortet"}
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+
+      <div className="bw-content">
+        {msg && (
+          <div className={`bw-alert is-${msg.type === "ok" ? "success" : msg.type === "err" ? "error" : "info"}`}>
+            {msg.type === "ok" ? <CheckCircle2 className="h-4 w-4 flex-shrink-0" /> : <AlertCircle className="h-4 w-4 flex-shrink-0" />}
+            <span>{msg.text}</span>
+            <button type="button" className="bw-alert-close" onClick={() => setMsg(null)} aria-label="Schliessen">✕</button>
+          </div>
+        )}
+
+        {/* GBP setup banners */}
+        {gbpStatus && !gbpStatus.connected && (
+          <div className="bw-gbp-banner">
+            <div className="bw-gbp-info">
+              <strong>{t(lang, "reviews.gbp.title")}</strong>
+              <span>
+                {!gbpStatus.configured
+                  ? t(lang, "reviews.gbp.notConfigured")
+                  : t(lang, "reviews.gbp.notConnected")}
+              </span>
+            </div>
+            {canManageReviews && (
+              <button
+                type="button"
+                className="bw-btn-primary"
+                onClick={() => { void handleConnect(); }}
+                disabled={!gbpStatus.configured}
+              >
+                <Link2 />
+                <span>{t(lang, "reviews.gbp.connect")}</span>
+              </button>
+            )}
+          </div>
+        )}
+
+        {gbpStatus?.connected && !gbpStatus.locationId && (
+          <div className="bw-alert is-warn">
+            <AlertCircle className="h-4 w-4 flex-shrink-0" />
+            <div style={{ flex: 1 }}>
+              <div style={{ marginBottom: 6 }}>
+                Google-Verbindung aktiv, aber der Standort konnte nicht automatisch ermittelt werden. Trage deine Location ID manuell ein.
+              </div>
+              {canManageReviews && showManualInput ? (
+                <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
+                  <input
+                    type="text"
+                    className="bw-input"
+                    value={manualLocationId}
+                    onChange={(e) => setManualLocationId(e.target.value)}
+                    placeholder="z. B. 08027544707664038446 oder accounts/.../locations/…"
+                  />
+                  <button
+                    type="button"
+                    className="bw-btn-primary"
+                    onClick={() => { void handleResolveLocation(manualLocationId); }}
+                    disabled={!manualLocationId.trim()}
+                  >
+                    Speichern
+                  </button>
+                  <button type="button" className="bw-btn-ghost" onClick={() => setShowManualInput(false)}>
+                    Abbrechen
+                  </button>
+                </div>
+              ) : canManageReviews ? (
+                <button type="button" className="bw-btn-outline-gold" onClick={() => setShowManualInput(true)}>
+                  Manuell eingeben
+                </button>
+              ) : null}
+            </div>
+          </div>
+        )}
+
+        {gbpSource === "places" && (
+          <div className="bw-alert is-info">
+            <AlertCircle className="h-4 w-4 flex-shrink-0" />
+            <span>
+              Zeigt bis zu 5 Bewertungen via Google Places API (Übergangslösung). Antworten ist erst möglich,
+              sobald der Google Business Profile API-Zugriff genehmigt ist.
+            </span>
+          </div>
+        )}
+
+        <div className="bw-grid">
+          <div>
+            <div className="bw-filterbar">
+              {FILTERS.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  className={"bw-filter-pill" + (filter === f.id ? " is-active" : "")}
+                  onClick={() => setFilter(f.id)}
+                >
+                  {f.label}
+                  <span className="bw-count">{counts[f.id]}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="bw-reviews-list">
+              {filtered.length === 0 ? (
+                <div className="bw-empty">
+                  <div className="bw-empty-icon"><Star /></div>
+                  <div className="bw-empty-title">{t(lang, "reviews.table.empty")}</div>
+                  <div className="bw-empty-sub">
+                    Sobald neue Bewertungen eingehen, erscheinen sie hier. Wechsle auf «Alle», um auch ältere zu sehen.
+                  </div>
+                </div>
+              ) : (
+                filtered.map((r) => (
+                  <ReviewCard
+                    key={r.key}
+                    r={r}
+                    canManage={canManageReviews}
+                    replyState={replyMap[r.key]}
+                    onOpenReply={openReply}
+                    onCloseReply={closeReply}
+                    onChangeReply={(text) => setReplyMap((m) => ({ ...m, [r.key]: { ...m[r.key], text } }))}
+                    onSendReply={() => { void sendReply(r); }}
+                    onDeleteReply={() => { void deleteReply(r); }}
+                    canReplyToGoogle={gbpSource !== "places"}
+                    lang={lang}
+                  />
+                ))
+              )}
+            </div>
+          </div>
+
+          <aside className="bw-aside">
+            <section className="bw-card">
+              <div className="bw-card-head"><h3>{t(lang, "reviews.aside.distribution") || "Verteilung"}</h3></div>
+              <div className="bw-card-body">
+                {dist.map((d) => (
+                  <div key={d.n} className="bw-dist-row">
+                    <span className="bw-dist-label">{d.n} ★</span>
+                    <div className="bw-dist-bar">
+                      <div
+                        className="bw-dist-fill"
+                        style={{
+                          width: d.pct + "%",
+                          background: d.n >= 4 ? "var(--gold-600)" : d.n === 3 ? "#C5A073" : "#B85540",
+                        }}
+                      />
+                    </div>
+                    <span className="bw-dist-count">{d.count}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="bw-card">
+              <div className="bw-card-head"><h3>{t(lang, "reviews.aside.sources") || "Quellen"}</h3></div>
+              <div className="bw-card-body">
+                <div className="bw-source-row"><span>Google</span><span>{sourceCounts.google}</span></div>
+                <div className="bw-source-row"><span>Lokal</span><span>{sourceCounts.local}</span></div>
+                {gbpAvgRating != null && (
+                  <div className="bw-source-row" style={{ borderTop: "1px solid var(--border-soft)", paddingTop: 8, marginTop: 4 }}>
+                    <span>Ø Google</span><span>{gbpAvgRating.toFixed(1)} ★</span>
+                  </div>
+                )}
+                {gbpTotalCount != null && (
+                  <div className="bw-source-row">
+                    <span>Google gesamt</span><span>{gbpTotalCount}</span>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            {gbpStatus?.connected && canManageReviews && (
+              <section className="bw-card">
+                <div className="bw-card-head"><h3>Google Verbindung</h3></div>
+                <div className="bw-card-body">
+                  <div className="bw-source-row"><span>Status</span><span style={{ color: "var(--success)" }}>verbunden</span></div>
+                  {gbpLoading && (
+                    <div className="bw-source-row"><span>Lade…</span><span>—</span></div>
+                  )}
+                  <button
+                    type="button"
+                    className="bw-btn-ghost bw-btn-sm"
+                    onClick={() => { void handleDisconnect(); }}
+                    style={{ marginTop: 8, alignSelf: "flex-start" }}
+                  >
+                    <Link2Off />
+                    <span>{t(lang, "reviews.gbp.disconnect")}</span>
+                  </button>
+                </div>
+              </section>
+            )}
+          </aside>
         </div>
       </div>
+    </div>
+  );
+}
 
-      {/* Meldungen */}
-      {msg && (
-        <div className={`cust-alert ${msg.type === "ok" ? "cust-alert--success" : "cust-alert--error"}`}>
-          {msg.type === "ok" ? <CheckCircle2 className="h-4 w-4 flex-shrink-0" /> : <AlertCircle className="h-4 w-4 flex-shrink-0" />}
-          <span>{msg.text}</span>
-          <button onClick={() => setMsg(null)} className="ml-auto text-xs opacity-60 hover:opacity-100">✕</button>
+type ReviewCardProps = {
+  r: UnifiedReview;
+  canManage: boolean;
+  replyState: { open: boolean; text: string; saving: boolean; deleting: boolean } | undefined;
+  onOpenReply: (key: string, existingReply: string) => void;
+  onCloseReply: (key: string) => void;
+  onChangeReply: (text: string) => void;
+  onSendReply: () => void;
+  onDeleteReply: () => void;
+  canReplyToGoogle: boolean;
+  lang: Lang;
+};
+
+function ReviewCard({
+  r, canManage, replyState, onOpenReply, onCloseReply,
+  onChangeReply, onSendReply, onDeleteReply, canReplyToGoogle, lang,
+}: ReviewCardProps) {
+  const isGoogle = r.source === "google";
+  const replyOpen = replyState?.open;
+  return (
+    <article className="bw-review-card">
+      <div className="bw-review-head">
+        {isGoogle && r.gbpReview?.profilePhoto ? (
+          <img
+            src={r.gbpReview.profilePhoto}
+            alt={r.customer}
+            className="bw-avatar is-google"
+            style={{ objectFit: "cover" }}
+          />
+        ) : (
+          <span className={"bw-avatar" + (isGoogle ? " is-google" : "")}>
+            {customerInitials(r.customer)}
+          </span>
+        )}
+        <div className="bw-author">
+          <p className="bw-author-name">{r.customer}</p>
+          {r.customerCo && <p className="bw-author-co">{r.customerCo}</p>}
         </div>
-      )}
+        <div className="bw-review-meta-r">
+          <Stars n={r.rating} />
+          <div className="bw-review-date">{formatReviewDate(r.date)}</div>
+        </div>
+      </div>
+      {r.text && <p className="bw-review-text">{r.text}</p>}
+      <div className="bw-review-meta">
+        <span className={"bw-chip " + (isGoogle ? "is-google" : "is-local")}>
+          {isGoogle ? "Google" : "Lokal"}
+        </span>
+        {r.orderNo != null && (
+          <span className="bw-review-orderno">#{r.orderNo}</span>
+        )}
+      </div>
 
-      {/* Verbunden aber Location fehlt */}
-      {status?.connected && !status?.locationId && (
-        <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: "#f59e0b", background: "#fffbeb" }}>
-          <div className="flex items-start gap-3">
-            <span className="text-sm flex-1" style={{ color: "var(--text-main)" }}>
-              Google-Verbindung aktiv, aber der Standort konnte nicht automatisch ermittelt werden
-              (Google Business Profile API benötigt Quota-Freigabe).
-              Trage deine Location ID manuell ein:
-            </span>
-            {!readOnly ? (
-            <button
-              onClick={() => setShowManualInput((v) => !v)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium flex-shrink-0"
-              style={{ background: "#f59e0b", color: "#fff" }}
-            >
-              {showManualInput ? "Abbrechen" : "Manuell eingeben"}
-            </button>
-            ) : null}
+      {/* Existing response (non-edit mode) */}
+      {r.responded && r.response && !replyOpen && (
+        <div className="bw-review-response">
+          <div className="bw-response-label">
+            {t(lang, "reviews.response.title") || "Unsere Antwort"}
           </div>
-          {!readOnly && showManualInput && (
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={manualLocationId}
-                onChange={(e) => setManualLocationId(e.target.value)}
-                placeholder="z.B. 08027544707664038446 oder accounts/.../locations/..."
-                className="flex-1 rounded-lg border px-3 py-2 text-sm"
-                style={{ borderColor: "var(--border)", background: "var(--input-bg)", color: "var(--text-main)" }}
-              />
+          <div className="bw-response-text">{r.response}</div>
+          {isGoogle && canManage && canReplyToGoogle && (
+            <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
               <button
-                onClick={() => { void handleResolveLocation(manualLocationId); }}
-                disabled={!manualLocationId.trim()}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
-                style={{ background: "#4285F4", color: "#fff" }}
+                type="button"
+                className="bw-btn-ghost bw-btn-sm"
+                onClick={() => onOpenReply(r.key, r.response || "")}
               >
-                Speichern
+                <Reply />
+                <span>{t(lang, "reviews.gbp.editReply") || "Antwort bearbeiten"}</span>
+              </button>
+              <button
+                type="button"
+                className="bw-btn-ghost bw-btn-sm"
+                onClick={onDeleteReply}
+                disabled={replyState?.deleting}
+              >
+                <Trash2 />
+                <span>{t(lang, "reviews.gbp.deleteReply") || "Antwort löschen"}</span>
               </button>
             </div>
           )}
         </div>
       )}
 
-      {/* Places API Fallback Hinweis */}
-      {reviewsSource === "places" && (
-        <div className="rounded-xl border px-4 py-3 text-xs flex items-center gap-2" style={{ borderColor: "#e5e7eb", background: "#f9fafb", color: "var(--text-subtle)" }}>
-          <span>⚠️</span>
-          <span>
-            Zeigt bis zu 5 Bewertungen via Google Places API (Übergangslösung).
-            Antworten ist erst möglich sobald der Google Business Profile API-Zugriff genehmigt wurde.
+      {/* No reply yet — Google review only */}
+      {!r.responded && isGoogle && (
+        <div className="bw-needs-reply">
+          <span className="bw-needs-reply-text">
+            ⚠ {t(lang, "reviews.response.missing") || "Noch keine Antwort verfasst."}
           </span>
+          {canManage && canReplyToGoogle && (
+            <button
+              type="button"
+              className="bw-btn-outline-gold bw-btn-sm"
+              onClick={() => onOpenReply(r.key, "")}
+            >
+              <Reply />
+              <span>{t(lang, "reviews.gbp.reply") || "Antworten"}</span>
+            </button>
+          )}
         </div>
       )}
 
-      {/* Nicht verbunden / nicht konfiguriert */}
-      {!status?.connected && (
-        <div className="rounded-xl border p-5 text-sm" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>
-          {!status?.configured
-            ? t(lang, "reviews.gbp.notConfigured")
-            : t(lang, "reviews.gbp.notConnected")}
+      {/* Inline reply form */}
+      {replyOpen && (
+        <div className="bw-reply-form">
+          <textarea
+            value={replyState?.text || ""}
+            onChange={(e) => onChangeReply(e.target.value)}
+            placeholder={t(lang, "reviews.gbp.replyPlaceholder")}
+            disabled={replyState?.saving}
+            rows={3}
+          />
+          <div className="bw-reply-form-actions">
+            <button
+              type="button"
+              className="bw-btn-primary bw-btn-sm"
+              onClick={onSendReply}
+              disabled={replyState?.saving || !replyState?.text.trim()}
+            >
+              <Send />
+              <span>{replyState?.saving ? "…" : t(lang, "reviews.gbp.send")}</span>
+            </button>
+            <button
+              type="button"
+              className="bw-btn-ghost bw-btn-sm"
+              onClick={() => onCloseReply(r.key)}
+              disabled={replyState?.saving}
+            >
+              {t(lang, "reviews.gbp.cancel")}
+            </button>
+          </div>
         </div>
       )}
-
-      {/* Review-Liste */}
-      {status?.connected && (
-        reviewsLoading ? (
-          <div className="flex items-center gap-2 py-4 text-sm" style={{ color: "var(--text-subtle)" }}>
-            <div className="h-4 w-4 animate-spin rounded-full border-2" style={{ borderColor: "var(--accent-subtle)", borderTopColor: "#4285F4" }} />
-            {t(lang, "reviews.gbp.loading")}
-          </div>
-        ) : placesEnvMissing ? (
-          <div
-            className="rounded-xl border px-4 py-4 text-sm"
-            style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--text-main)" }}
-          >
-            {t(lang, "reviews.gbp.placesEnvHint")}
-          </div>
-        ) : reviews.length === 0 ? (
-          <div className="text-sm py-4" style={{ color: "var(--text-subtle)" }}>
-            {t(lang, "reviews.gbp.empty")}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {reviews.map((rv) => {
-              const entry = replyMap[rv.name];
-              const hasReply = !!rv.reply;
-              return (
-                <div key={rv.name} className="rounded-xl border p-4 space-y-3" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
-                  {/* Review-Header */}
-                  <div className="flex items-start gap-3">
-                    <GbpAvatar author={rv.author} photo={rv.profilePhoto} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium text-sm" style={{ color: "var(--text-main)" }}>
-                          {rv.isAnonymous ? t(lang, "reviews.gbp.anonymous") : rv.author}
-                        </span>
-                        <GbpStars rating={rv.rating} />
-                        <span
-                          className={`cust-status-badge text-xs ${hasReply ? "cust-status-completed" : "cust-status-pending"}`}
-                        >
-                          {hasReply ? t(lang, "reviews.gbp.status.replied") : t(lang, "reviews.gbp.status.open")}
-                        </span>
-                        {rv.createTime && (
-                          <span className="text-xs" style={{ color: "var(--text-subtle)" }}>
-                            {new Date(rv.createTime).toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" })}
-                          </span>
-                        )}
-                      </div>
-                      {rv.comment && (
-                        <p className="text-sm mt-1" style={{ color: "var(--text-main)" }}>{rv.comment}</p>
-                      )}
-                    </div>
-                    {/* Aktionen */}
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      {!readOnly && reviewsSource !== "places" && <button
-                        onClick={() => openReply(rv.name, rv.reply?.comment || "")}
-                        className="cust-action-icon min-h-0 min-w-0"
-                        title={hasReply ? t(lang, "reviews.gbp.editReply") : t(lang, "reviews.gbp.reply")}
-                      >
-                        <Reply className="h-3.5 w-3.5" />
-                      </button>}
-                      {!readOnly && hasReply && (
-                        <button
-                          onClick={() => { void deleteReply(rv.name); }}
-                          disabled={replyMap[rv.name]?.deleting}
-                          className="cust-action-icon min-h-0 min-w-0 disabled:opacity-50"
-                          title={t(lang, "reviews.gbp.deleteReply")}
-                          style={{ color: "var(--text-subtle)" }}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Bestehende Antwort anzeigen */}
-                  {hasReply && !entry?.open && (
-                    <div className="ml-11 pl-3 border-l-2 text-sm" style={{ borderColor: "#4285F4", color: "var(--text-muted)" }}>
-                      <span className="text-xs font-medium" style={{ color: "#4285F4" }}>Propus GmbH · </span>
-                      {rv.reply!.comment}
-                    </div>
-                  )}
-
-                  {/* Antwort-Eingabe */}
-                  {entry?.open && !readOnly && (
-                    <div className="ml-11 space-y-2">
-                      <textarea
-                        value={entry.text}
-                        onChange={(e) => setReplyMap((m) => ({ ...m, [rv.name]: { ...m[rv.name], text: e.target.value } }))}
-                        rows={3}
-                        className="w-full rounded-lg border px-3 py-2 text-sm resize-none"
-                        style={{ borderColor: "var(--border)", background: "var(--input-bg)", color: "var(--text-main)" }}
-                        placeholder={t(lang, "reviews.gbp.replyPlaceholder")}
-                        disabled={entry.saving}
-                        autoFocus
-                      />
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => { void sendReply(rv.name); }}
-                          disabled={entry.saving || !entry.text.trim()}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-50"
-                          style={{ background: "#4285F4", color: "#fff" }}
-                        >
-                          <Send className="h-3 w-3" />
-                          {entry.saving ? "..." : t(lang, "reviews.gbp.send")}
-                        </button>
-                        <button
-                          onClick={() => closeReply(rv.name)}
-                          disabled={entry.saving}
-                          className="btn-secondary px-3 py-1.5 rounded-lg text-xs min-h-0 min-w-0"
-                        >
-                          {t(lang, "reviews.gbp.cancel")}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )
-      )}
-    </div>
+    </article>
   );
 }
-
-export function ReviewsPage() {
-  const token = useAuthStore((s) => s.token);
-  const lang = useAuthStore((s) => s.language) as Lang;
-  const { can } = usePermissions();
-  const canManageReviews = can("reviews.manage");
-  const [kpi, setKpi] = useState<KpiData | null>(null);
-  const [reviews, setReviews] = useState<ReviewRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [actionMap, setActionMap] = useState<Record<number, string>>({});
-  const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
-  const [filter, setFilter] = useState<"all" | "pending" | "responded" | "sent">("all");
-  const [googleLink, setGoogleLink] = useState("https://g.page/r/CSQ5RnWmJOumEAE/review");
-
-  useEffect(() => {
-    apiRequest<{ ok: boolean; link: string }>("/api/reviews/google-link", "GET")
-      .then((res) => { if (res.link) setGoogleLink(res.link); })
-      .catch(() => {});
-  }, []);
-
-  const loadAll = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [kpiRes, listRes] = await Promise.all([
-        apiRequest<{ ok: boolean; kpi: KpiData }>("/api/admin/reviews/kpi", "GET", token),
-        apiRequest<{ ok: boolean; reviews: ReviewRow[] }>("/api/admin/reviews", "GET", token),
-      ]);
-      setKpi(kpiRes.kpi);
-      setReviews(listRes.reviews || []);
-    } catch (e) {
-      setMsg({ type: "err", text: (e as Error).message });
-    } finally {
-      setLoading(false);
-    }
-  }, [token]);
-
-  useEffect(() => { void loadAll(); }, [loadAll]);
-
-  const resend = async (orderNo: number) => {
-    setActionMap((m) => ({ ...m, [orderNo]: "sending" }));
-    setMsg(null);
-    try {
-      const res = await apiRequest<{ ok: boolean; sentTo: string | null }>(
-        `/api/admin/orders/${orderNo}/review/resend`, "POST", token
-      );
-      setMsg({
-        type: "ok",
-        text: t(lang, "reviews.success.sent").replace("{{email}}", toVisibleCustomerEmail(res.sentTo) || "-"),
-      });
-      await loadAll();
-    } catch (e) {
-      setMsg({ type: "err", text: (e as Error).message });
-    } finally {
-      setActionMap((m) => { const n = { ...m }; delete n[orderNo]; return n; });
-    }
-  };
-
-  const dismiss = async (orderNo: number) => {
-    setActionMap((m) => ({ ...m, [orderNo]: "dismissing" }));
-    setMsg(null);
-    try {
-      await apiRequest<{ ok: boolean }>(`/api/admin/orders/${orderNo}/review/dismiss`, "PATCH", token);
-      setMsg({ type: "ok", text: t(lang, "reviews.success.dismissed").replace("{{orderNo}}", String(orderNo)) });
-      await loadAll();
-    } catch (e) {
-      setMsg({ type: "err", text: (e as Error).message });
-    } finally {
-      setActionMap((m) => { const n = { ...m }; delete n[orderNo]; return n; });
-    }
-  };
-
-  const toggleGoogleFlag = async (orderNo: number, currentValue: boolean | null) => {
-    setActionMap((m) => ({ ...m, [orderNo]: "flagging" }));
-    setMsg(null);
-    try {
-      const newValue = currentValue === true ? false : true;
-      await apiRequest<{ ok: boolean }>(
-        `/api/admin/orders/${orderNo}/review/google-flag`,
-        "PATCH",
-        token,
-        { google_review_left: newValue }
-      );
-      setMsg({
-        type: "ok",
-        text: newValue
-          ? t(lang, "reviews.success.googleFlagSet").replace("{{orderNo}}", String(orderNo))
-          : t(lang, "reviews.success.googleFlagUnset").replace("{{orderNo}}", String(orderNo)),
-      });
-      await loadAll();
-    } catch (e) {
-      setMsg({ type: "err", text: (e as Error).message });
-    } finally {
-      setActionMap((m) => { const n = { ...m }; delete n[orderNo]; return n; });
-    }
-  };
-
-  const filtered = reviews.filter((r) => filter === "all" || r.review_status === filter);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[40vh]">
-        <div className="h-8 w-8 animate-spin rounded-full border-2"
-          style={{ borderColor: "var(--accent-subtle)", borderTopColor: "var(--accent)" }} />
-      </div>
-    );
-  }
-
-  return (
-    <div className="max-w-6xl mx-auto py-8 px-4 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-3">
-          <Star className="h-6 w-6" style={{ color: "var(--accent)" }} />
-          <h1 className="cust-page-header-title">{t(lang, "reviews.title")}</h1>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <a
-            href={googleLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm"
-            style={{ background: "#4285F4", color: "#ffffff" }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = "#3367D6"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = "#4285F4"; }}
-          >
-            <ExternalLink className="h-4 w-4" />
-            {t(lang, "reviews.button.google")}
-          </a>
-          <button
-            onClick={() => { void loadAll(); }}
-            className="btn-secondary flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm min-h-0 min-w-0"
-          >
-            <RefreshCw className="h-4 w-4" /> {t(lang, "common.refresh")}
-          </button>
-        </div>
-      </div>
-
-      {msg && (
-        <div className={`cust-alert ${msg.type === "ok" ? "cust-alert--success" : "cust-alert--error"}`}>
-          {msg.type === "ok" ? <CheckCircle2 className="h-4 w-4 flex-shrink-0" /> : <AlertCircle className="h-4 w-4 flex-shrink-0" />}
-          {msg.text}
-        </div>
-      )}
-
-      {/* KPI-Kacheln */}
-      {kpi && (
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-          <div className="cust-stat-card text-center">
-            <div className="cust-stat-value" style={{ color: "#c87f0a" }}>{kpi.faellig}</div>
-            <div className="cust-stat-label mt-1">{t(lang, "reviews.status.pending")}</div>
-          </div>
-          <div className="cust-stat-card text-center">
-            <div className="cust-stat-value" style={{ color: "#1a6fa8" }}>{kpi.gesendet}</div>
-            <div className="cust-stat-label mt-1">{t(lang, "reviews.status.sent")}</div>
-          </div>
-          <div className="cust-stat-card text-center">
-            <div className="cust-stat-value" style={{ color: "#1d9e56" }}>{kpi.beantwortet}</div>
-            <div className="cust-stat-label mt-1">{t(lang, "reviews.status.responded")}</div>
-          </div>
-          <div className="cust-stat-card text-center">
-            <div className="cust-stat-value">{kpi.responseRate}%</div>
-            <div className="cust-stat-label mt-1">{t(lang, "reviews.kpi.responseRate")}</div>
-          </div>
-          <div className="cust-stat-card text-center">
-            {kpi.avgRating != null ? (
-              <>
-                <div className="cust-stat-value text-yellow-500">{kpi.avgRating.toFixed(1)}</div>
-                <div className="flex justify-center mt-1">
-                  <StarRating rating={Math.round(kpi.avgRating)} />
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="cust-stat-value" style={{ color: "var(--text-subtle)" }}>—</div>
-                <div className="cust-stat-label mt-1">{t(lang, "reviews.kpi.noRatings")}</div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Filter-Tabs */}
-      <div className="cust-tab-row">
-        {(["all", "pending", "sent", "responded"] as const).map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`cust-tab${filter === f ? " active" : ""}`}
-          >
-            {f === "all" ? t(lang, "common.all") : f === "pending" ? t(lang, "reviews.status.pending") : f === "sent" ? t(lang, "reviews.status.sent") : t(lang, "reviews.status.responded")}
-            {f !== "all" && (
-              <span className={`cust-tab-count${filter !== f ? " cust-tab-count--neutral" : ""}`}>
-                {reviews.filter((r) => r.review_status === f).length}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* Google Reviews Panel */}
-      <div className="cust-card p-5">
-        <GbpPanel token={token} lang={lang} readOnly={!canManageReviews} />
-      </div>
-
-      {/* Interne Review-Tabelle */}
-      <div className="cust-table-wrap">
-        <div className="overflow-x-auto">
-          <table>
-            <thead>
-              <tr>
-                <th>{t(lang, "reviews.table.order")}</th>
-                <th>{t(lang, "reviews.table.customer")}</th>
-                <th>{t(lang, "reviews.table.completed")}</th>
-                <th>{t(lang, "orderDetail.section.status")}</th>
-                <th>{t(lang, "reviews.table.rating")}</th>
-                <th>{t(lang, "reviews.table.actions")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={6}>
-                    <div className="cust-empty-state">
-                      <Star className="h-10 w-10 mx-auto" />
-                      <p className="cust-empty-title">{t(lang, "reviews.table.empty")}</p>
-                    </div>
-                  </td>
-                </tr>
-              ) : filtered.map((row) => {
-                const sc = STATUS_CONFIG[row.review_status] || STATUS_CONFIG.not_due;
-                const StatusIcon = sc.icon;
-                const customerEmail = toVisibleCustomerEmail(row.customer_email);
-                return (
-                  <tr key={row.order_no}>
-                    <td className="cust-td-id">#{row.order_no}</td>
-                    <td>
-                      <div className="font-medium" style={{ color: "var(--text-main)" }}>{row.customer_name || "—"}</div>
-                      <div className="text-xs" style={{ color: "var(--text-subtle)" }}>{customerEmail}</div>
-                    </td>
-                    <td style={{ color: "var(--text-muted)", fontSize: "13px" }}>
-                      {row.done_at ? new Date(row.done_at).toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—"}
-                    </td>
-                    <td>
-                      <span className={sc.cls}>
-                        <StatusIcon className="h-3 w-3" />
-                        {t(lang, sc.labelKey)}
-                      </span>
-                      {row.review_request_count > 0 && (
-                        <div className="text-xs mt-0.5" style={{ color: "var(--text-subtle)" }}>
-                          {row.review_request_count}{t(lang, "reviews.label.timesSent")}
-                        </div>
-                      )}
-                    </td>
-                    <td>
-                      {row.rating ? (
-                        <div>
-                          <StarRating rating={row.rating} />
-                          {row.comment && (
-                            <div className="text-xs mt-1 max-w-xs truncate" style={{ color: "var(--text-muted)" }} title={row.comment}>
-                              <MessageSquare className="h-3 w-3 inline mr-1" />
-                              {row.comment}
-                            </div>
-                          )}
-                          {row.submitted_at && (
-                            <div className="text-xs" style={{ color: "var(--text-subtle)" }}>{new Date(row.submitted_at).toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" })}</div>
-                          )}
-                        </div>
-                      ) : (
-                        <span style={{ color: "var(--text-subtle)" }}>—</span>
-                      )}
-                      {row.google_review_left === true && (
-                        <div className="flex items-center gap-1 mt-1 text-xs" style={{ color: "#4285F4" }}>
-                          <ThumbsUp className="h-3 w-3" />
-                          {t(lang, "reviews.label.googleReviewed")}
-                        </div>
-                      )}
-                    </td>
-                    <td>
-                      {canManageReviews ? (
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {(row.review_status === "pending" || row.review_status === "sent") && (
-                          <button
-                            onClick={() => { void resend(row.order_no); }}
-                            disabled={actionMap[row.order_no] === "sending"}
-                            className="cust-action-view min-h-0 min-w-0 disabled:opacity-50"
-                          >
-                            <Send className="h-3 w-3" />
-                            {actionMap[row.order_no] === "sending" ? "..." : t(lang, "common.send")}
-                          </button>
-                        )}
-                        {row.review_status === "pending" && (
-                          <button
-                            onClick={() => { void dismiss(row.order_no); }}
-                            disabled={actionMap[row.order_no] === "dismissing"}
-                            className="cust-action-icon disabled:opacity-50"
-                            title={t(lang, "reviews.button.ignore")}
-                          >
-                            <BanIcon className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                        {row.review_id != null && (
-                          <button
-                            onClick={() => { void toggleGoogleFlag(row.order_no, row.google_review_left); }}
-                            disabled={actionMap[row.order_no] === "flagging"}
-                            className="cust-action-icon disabled:opacity-50"
-                            title={row.google_review_left === true
-                              ? t(lang, "reviews.button.googleFlagUnset")
-                              : t(lang, "reviews.button.googleFlagSet")}
-                            style={row.google_review_left === true ? { color: "#4285F4" } : undefined}
-                          >
-                            <ThumbsUp className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                      </div>
-                      ) : (
-                        <span className="text-xs" style={{ color: "var(--text-subtle)" }}>—</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-}
-
