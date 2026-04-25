@@ -224,7 +224,7 @@ export function DashboardV2() {
           style={nBottom < 3 ? { gridTemplateColumns: `repeat(${nBottom}, minmax(0, 1fr))` } : undefined}
         >
           {showFunnel ? <BookingFunnelV2 metrics={metrics} lang={lang} /> : null}
-          {showHeat ? <HeatmapV2 metrics={metrics} lang={lang} /> : null}
+          {showHeat ? <HeatmapV2 metrics={metrics} orders={orders} lang={lang} /> : null}
           {showPerf ? <PerformanceV2 metrics={metrics} lang={lang} /> : null}
         </div>
       ) : null}
