@@ -568,3 +568,47 @@
 @media (max-width: 720px) {
   .padmin-shell .pad-kpis { grid-template-columns: 1fr; }
 }
+
+/* ── Dashboard bridge ─────────────────────────────────────
+   When DashboardV2 is wrapped in `.padmin-shell` (see
+   DashboardV2.tsx) we re-point the dv2-* design tokens to the
+   admin redesign's Paper + Gold palette so the dashboard adopts
+   the new visual language without restructuring its rich
+   functionality (KPI row, pipeline, upcoming, funnel, heatmap,
+   tweaks modal). Only colour/typography tokens are remapped —
+   layout, density and customisable sections stay untouched. */
+.padmin-shell.dv2 {
+  --d-bg:          var(--paper);
+  --d-card:        var(--pad-card);
+  --d-card-hover:  var(--paper-strip);
+  --d-border:      var(--pad-border);
+  --d-border-gold: var(--gold-300);
+  --d-gold:        var(--gold-600);
+  --d-gold-dim:    var(--gold-700);
+  --d-gold-soft:   var(--gold-50);
+  --d-text:        var(--ink);
+  --d-text-dim:    var(--ink-2);
+  --d-text-muted:  var(--ink-3);
+  background: var(--paper);
+}
+/* Make the dashboard greeting feel like the new pad-h1 */
+.padmin-shell.dv2 .dv2-eyebrow {
+  color: var(--gold-700);
+  letter-spacing: 0.2em;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 11px;
+}
+.padmin-shell.dv2 .dv2-eyebrow-line {
+  background: var(--gold-600);
+}
+.padmin-shell.dv2 .dv2-greeting {
+  color: var(--ink);
+  letter-spacing: -0.025em;
+}
+.padmin-shell.dv2 .dv2-summary {
+  color: var(--ink-3);
+}
+.padmin-shell.dv2 .dv2-summary-danger {
+  color: var(--pad-danger);
+}

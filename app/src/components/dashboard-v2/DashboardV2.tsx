@@ -140,7 +140,7 @@ export function DashboardV2() {
   const weeklyShoots = metrics.upcomingOrders.length + metrics.todayOrders.length;
 
   return (
-    <div className={`dv2 dv2--density-${prefs.density}`}>
+    <div className={`padmin-shell dv2 dv2--density-${prefs.density}`}>
       {/* Header */}
       <div className="dv2-header">
         <div className="dv2-header-left">
