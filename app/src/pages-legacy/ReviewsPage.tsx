@@ -521,12 +521,17 @@ export function ReviewsPage() {
   const refreshAll = useCallback(async () => {
     setLoading(true);
     try {
-      await Promise.all([loadInternal(), loadStatus()]);
-      if (gbpStatus?.connected) await loadGbpReviews();
+      // Use the *fresh* status returned by loadStatus() to gate the GBP
+      // fetch — the closure-captured `gbpStatus.connected` could be stale
+      // (e.g. account revoked between renders), and we'd otherwise
+      // repopulate Google data right after a disconnect cleared it,
+      // leaving a "Nicht verbunden" banner alongside live Google KPIs.
+      const [, freshStatus] = await Promise.all([loadInternal(), loadStatus()]);
+      if (freshStatus.connected) await loadGbpReviews();
     } finally {
       setLoading(false);
     }
-  }, [loadInternal, loadStatus, loadGbpReviews, gbpStatus?.connected]);
+  }, [loadInternal, loadStatus, loadGbpReviews]);
 
   /* ── Loading splash ───────────────────────────────────── */
   if (loading && unifiedReviews.length === 0) {
