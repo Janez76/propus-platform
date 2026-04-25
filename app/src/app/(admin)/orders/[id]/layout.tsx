@@ -78,7 +78,6 @@ function deriveSidebarUser(name: string | null, role: string): SidebarUser | und
   return {
     initials: initials.toUpperCase(),
     name,
-    role: role as Role,
     roleLabel: ROLE_LABEL[role] ?? role,
   };
 }
@@ -106,12 +105,13 @@ export default async function OrderLayout({ children, params }: Props) {
   if (!order) notFound();
 
   const status = STATUS_META[order.status] ?? STATUS_META.pending;
-  const sidebarUser = deriveSidebarUser(session?.userName ?? null, session?.role ?? 'admin');
+  const sessionRole = (session?.role ?? 'admin') as Role;
+  const sidebarUser = deriveSidebarUser(session?.userName ?? null, sessionRole);
 
   return (
     <OrderEditShellProvider orderNo={order.order_no}>
       <div className="bestellung-page">
-        <BestellungSidebar user={sidebarUser} />
+        <BestellungSidebar role={sessionRole} user={sidebarUser} />
         <div className="bestellung-shell">
         <div className="bd-topbar">
           <div className="bd-crumbs">

@@ -31,11 +31,18 @@ export type SidebarUser = {
   name: string;
   /** Display label for the role (e.g. "Admin"). */
   roleLabel: string;
-  /** Internal role key used for nav permission checks. */
-  role: Role;
 };
 
-export function BestellungSidebar({ user }: { user?: SidebarUser }) {
+type Props = {
+  /** Role used for nav permission checks. Always required so filtering
+   *  stays active even when display-only user data is missing. */
+  role: Role;
+  /** Optional display info (avatar initials + name). When absent, the
+   *  user footer renders a neutral placeholder but filtering still runs. */
+  user?: SidebarUser;
+};
+
+export function BestellungSidebar({ role, user }: Props) {
   const pathname = usePathname() ?? "";
 
   const isActive = (href: string) =>
@@ -45,10 +52,8 @@ export function BestellungSidebar({ user }: { user?: SidebarUser }) {
 
   // Same role-based filter as the AppShell sidebar uses, so users like
   // tour_manager don't see finance/tickets entries that would just bounce
-  // them off RouteGuard. Without a known role we fall back to showing all
-  // entries (defensive — the order detail layout requires an admin session).
-  const canSee = (href: string): boolean =>
-    user ? legacyCanAccessPath(user.role, href) : true;
+  // them off RouteGuard.
+  const canSee = (href: string): boolean => legacyCanAccessPath(role, href);
 
   const mainItems = NAV_MAIN.filter((it) => canSee(it.href));
   const systemItems = NAV_SYSTEM.filter((it) => canSee(it.href));
