@@ -193,23 +193,26 @@ export function ToursAdminListPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-[var(--text-main)]">Touren</h1>
-          <p className="text-sm text-[var(--text-subtle)] mt-1">
-            Gefilterte Tour-Übersicht.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+    <div className="padmin-shell">
+      <header className="pad-page-header">
+        <div className="pad-ph-top">
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div className="pad-eyebrow">Tour Manager</div>
+            <h1 className="pad-h1">Touren</h1>
+            <div className="pad-ph-sub">Gefilterte Tour-Übersicht.</div>
+          </div>
+          <div className="pad-ph-actions">
           <Link
             to="/admin/tours"
             className="inline-flex items-center rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm font-medium text-[var(--text-main)] hover:bg-[var(--surface-raised)]"
           >
             Dashboard
           </Link>
+          </div>
         </div>
-      </div>
+      </header>
+
+      <div className="pad-content space-y-6">
 
       {error ? (
         <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
@@ -535,6 +538,7 @@ export function ToursAdminListPage() {
           </div>
         </div>
       ) : null}
+      </div>
     </div>
   );
 }

@@ -332,26 +332,31 @@ export function UploadsPage() {
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-[var(--text-main)]">Upload</h1>
-          <p className="text-[var(--text-subtle)]">
-            Auftrag suchen, NAS-Ordner verwalten und Uploads zuerst lokal auf der VPS stagen.
-          </p>
-        </div>
+    <div className="padmin-shell">
+      <header className="pad-page-header">
+        <div className="pad-ph-top">
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div className="pad-eyebrow">Lieferung</div>
+            <h1 className="pad-h1">Upload</h1>
+            <div className="pad-ph-sub">
+              Auftrag suchen, NAS-Ordner verwalten und Uploads zuerst lokal auf der VPS stagen.
+            </div>
+          </div>
+          <div className="pad-ph-actions">
         <button
           type="button"
           onClick={() => loadSummary(selectedOrderNo)}
           disabled={!selectedOrderNo || loadingSummary}
-          className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--text-main)] shadow-sm transition hover:bg-[var(--surface-raised)] disabled:opacity-50"
+          className="pad-btn-outline-dark"
         >
           <RefreshCw className={`h-4 w-4 ${loadingSummary ? "animate-spin" : ""}`} />
           Aktualisieren
         </button>
-      </div>
+          </div>
+        </div>
+      </header>
 
-      <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
+      <div className="pad-content grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
         {/* Auftragssuche */}
         <section className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface)] p-4 shadow-sm">
           <label className="mb-2 block text-sm font-semibold text-[var(--text-muted)]">Auftrag suchen</label>

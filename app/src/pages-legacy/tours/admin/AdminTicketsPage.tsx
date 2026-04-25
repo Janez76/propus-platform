@@ -982,19 +982,17 @@ export function AdminTicketsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-5 p-5 min-h-0 h-full">
-      {/* Page Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-[var(--text-main)] flex items-center gap-2">
-            <Inbox className="h-5 w-5 text-[var(--accent)]" />
-            Tickets & Postfach
-          </h1>
-          <p className="text-sm text-[var(--text-subtle)] mt-0.5">
-            Zentrale Übersicht über alle Module (Touren, Buchung und künftige Kanäle)
-          </p>
+    <div className="padmin-shell flex flex-col min-h-0 h-full">
+      <header className="pad-page-header">
+        <div className="pad-ph-top">
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div className="pad-eyebrow">Support</div>
+            <h1 className="pad-h1">Tickets &amp; Postfach</h1>
+            <div className="pad-ph-sub">Zentrale Übersicht über alle Module (Touren, Buchung und künftige Kanäle)</div>
+          </div>
         </div>
-      </div>
+      </header>
+      <div className="pad-content flex flex-col gap-5">
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-[var(--border-soft)]">
@@ -1021,6 +1019,7 @@ export function AdminTicketsPage() {
       <div className="flex-1 min-h-0 flex flex-col">
         {tab === "tickets" && <TicketsTab />}
         {tab === "inbox" && <InboxTab />}
+      </div>
       </div>
     </div>
   );

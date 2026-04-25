@@ -308,14 +308,15 @@ export function AdminInvoicesPage() {
   }, [refreshInvoices]);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-[var(--text-main)]">Rechnungen</h1>
-          <p className="text-sm text-[var(--text-subtle)] mt-1">Zentrale Rechnungsübersicht — interne Rechnungen als Zielsystem, Exxas als Übergangsquelle.</p>
-        </div>
-        <div className="flex gap-2 shrink-0">
+    <div className="padmin-shell">
+      <header className="pad-page-header">
+        <div className="pad-ph-top">
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div className="pad-eyebrow">Finanzen</div>
+            <h1 className="pad-h1">Rechnungen</h1>
+            <div className="pad-ph-sub">Zentrale Rechnungsübersicht — interne Rechnungen als Zielsystem, Exxas als Übergangsquelle.</div>
+          </div>
+          <div className="pad-ph-actions">
           {finManage && tab === "renewal" && (
             <button
               type="button"
@@ -369,8 +370,11 @@ export function AdminInvoicesPage() {
             Neue Rechnung
           </button>
           ) : null}
+          </div>
         </div>
-      </div>
+      </header>
+
+      <div className="pad-content space-y-6">
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -782,6 +786,7 @@ export function AdminInvoicesPage() {
           </div>
         </div>
       ) : null}
+      </div>
     </div>
   );
 }
