@@ -2394,5 +2394,18 @@
   "dashboardV2.tweaks.resetConfirm": "Reimpostare layout e sezioni visibili?",
   "dashboardV2.footer": "PROPUS · Dashboard v2",
   "dashboardV2.dataRefreshing": "Aggiornamento…",
-  "dashboardV2.dataUpdated": "· Dati: {{time}}"
+  "dashboardV2.dataUpdated": "· Dati: {{time}}",
+  "dashboardV2.headerKpi.todayAppts": "Oggi · Appuntamenti",
+  "dashboardV2.headerKpi.weekOrders": "S{{kw}} · Ordini",
+  "dashboardV2.headerKpi.monthRevenue": "Fatturato {{month}}",
+  "dashboardV2.headerKpi.capacity": "Utilizzo",
+  "dashboardV2.headerKpi.withoutStaff": "{{n}} senza fotografo",
+  "dashboardV2.headerKpi.weekDelta": "{{pct}} % vs sett. prec.",
+  "dashboardV2.headerKpi.weekFlat": "come sett. prec.",
+  "dashboardV2.headerKpi.capacityCritical": "critico",
+  "dashboardV2.headerKpi.capacityOk": "nel verde",
+  "dashboardV2.dashAlert.overdue": "ordini in ritardo",
+  "dashboardV2.dashAlert.withoutStaff": "ordini senza fotografo",
+  "dashboardV2.dashAlert.invoicesToCreate": "fatture da creare",
+  "dashboardV2.dashAlert.capacity": "Utilizzo S{{kw}}"
 }

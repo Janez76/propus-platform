@@ -2394,5 +2394,18 @@
   "dashboardV2.tweaks.resetConfirm": "Réinitialiser la mise en page et la visibilité ?",
   "dashboardV2.footer": "PROPUS · Dashboard v2",
   "dashboardV2.dataRefreshing": "Mise à jour…",
-  "dashboardV2.dataUpdated": "· Données à {{time}}"
+  "dashboardV2.dataUpdated": "· Données à {{time}}",
+  "dashboardV2.headerKpi.todayAppts": "Aujourd'hui · Rendez-vous",
+  "dashboardV2.headerKpi.weekOrders": "S{{kw}} · Commandes",
+  "dashboardV2.headerKpi.monthRevenue": "Revenu {{month}}",
+  "dashboardV2.headerKpi.capacity": "Charge",
+  "dashboardV2.headerKpi.withoutStaff": "{{n}} sans photographe",
+  "dashboardV2.headerKpi.weekDelta": "{{pct}} % vs sem. préc.",
+  "dashboardV2.headerKpi.weekFlat": "comme la sem. préc.",
+  "dashboardV2.headerKpi.capacityCritical": "critique",
+  "dashboardV2.headerKpi.capacityOk": "dans le vert",
+  "dashboardV2.dashAlert.overdue": "commandes en retard",
+  "dashboardV2.dashAlert.withoutStaff": "commandes sans photographe",
+  "dashboardV2.dashAlert.invoicesToCreate": "factures à créer",
+  "dashboardV2.dashAlert.capacity": "Charge S{{kw}}"
 }

@@ -216,6 +216,11 @@
 /* ─── Header ─────────────────────────────────────────────────────────────── */
 .dv2-header {
   display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.dv2-header-top {
+  display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 16px;
@@ -815,7 +820,8 @@
   .dv2-kpi-row { grid-template-columns: 1fr; }
   .dv2-alert-row { grid-template-columns: 60px 1fr 20px; }
   .dv2-alert-client, .dv2-alert-overdue { display: none; }
-  .dv2-header { flex-direction: column; }
+  .dv2-header-top { flex-direction: column; }
+  .dv2-ph-kpis { grid-template-columns: 1fr; }
   .dv2-pipeline {
     grid-template-columns: 1fr;
     gap: 0;
@@ -831,3 +837,119 @@
     padding-top: 12px;
   }
 }
+
+/* ─── Header KPIs (Phase A — Claude Design) ──────────────────────────────── */
+.dv2-ph-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+.dv2-ph-kpi {
+  padding: 16px 18px;
+  background: var(--d-card);
+  border: 1px solid var(--d-border);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.dv2-ph-kpi-label {
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--d-text-dim);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.dv2-ph-kpi-label-icon { color: var(--d-gold); flex-shrink: 0; }
+.dv2-ph-kpi-value {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--d-text);
+  letter-spacing: -0.025em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.05;
+}
+.dv2-ph-kpi-value.is-gold {
+  color: var(--d-gold);
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+.dv2-ph-kpi-trend {
+  font-size: 11.5px;
+  color: var(--d-text-dim);
+}
+.dv2-ph-kpi-trend.is-up { color: var(--d-success); }
+.dv2-ph-kpi-trend.is-down { color: var(--d-danger); }
+.dv2-ph-kpi-trend.is-warn { color: #B68E20; }
+
+.dv2-ph-kpi--gold {
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--d-gold) 8%, var(--d-card)),
+    var(--d-card));
+  border-color: color-mix(in srgb, var(--d-gold) 30%, var(--d-border));
+}
+.dv2-ph-kpi--warn {
+  background: linear-gradient(180deg,
+    color-mix(in srgb, #B68E20 10%, var(--d-card)),
+    var(--d-card));
+  border-color: color-mix(in srgb, #B68E20 30%, var(--d-border));
+}
+
+@media (max-width: 980px) {
+  .dv2-ph-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ─── Dashboard Alert pills (Phase A — Claude Design) ────────────────────── */
+.dv2-dash-alerts {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.dv2-dash-alert {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--d-gold) 10%, var(--d-card)),
+    var(--d-card));
+  border: 1px solid color-mix(in srgb, var(--d-gold) 28%, var(--d-border));
+  border-radius: 999px;
+  font-size: 13px;
+  color: var(--d-text);
+  font-weight: 500;
+  font-family: inherit;
+  text-decoration: none;
+}
+.dv2-dash-alert.is-clickable {
+  cursor: pointer;
+  transition: transform 0.12s, border-color 0.12s, background 0.12s;
+}
+.dv2-dash-alert.is-clickable:hover {
+  transform: translateY(-1px);
+  border-color: var(--d-border-gold);
+}
+.dv2-dash-alert--danger {
+  background: var(--d-danger-soft);
+  border-color: color-mix(in srgb, var(--d-danger) 35%, transparent);
+  color: var(--d-danger);
+}
+.dv2-dash-alert--danger.is-clickable:hover {
+  border-color: var(--d-danger);
+}
+.dv2-dash-alert-num {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-weight: 700;
+  padding: 1px 8px;
+  background: var(--d-card);
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+.dv2-dash-alert--danger .dv2-dash-alert-num {
+  background: color-mix(in srgb, var(--d-danger) 15%, var(--d-card));
+}
+.dv2-dash-alert-label { white-space: nowrap; }

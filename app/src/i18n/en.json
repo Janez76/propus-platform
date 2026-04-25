@@ -2406,5 +2406,18 @@
   "dashboardV2.tweaks.resetConfirm": "Reset layout and visibility to default?",
   "dashboardV2.footer": "PROPUS · Dashboard v2",
   "dashboardV2.dataRefreshing": "Updating…",
-  "dashboardV2.dataUpdated": "· As of {{time}}"
+  "dashboardV2.dataUpdated": "· As of {{time}}",
+  "dashboardV2.headerKpi.todayAppts": "Today · Appointments",
+  "dashboardV2.headerKpi.weekOrders": "W{{kw}} · Orders",
+  "dashboardV2.headerKpi.monthRevenue": "Revenue {{month}}",
+  "dashboardV2.headerKpi.capacity": "Utilisation",
+  "dashboardV2.headerKpi.withoutStaff": "{{n}} without photographer",
+  "dashboardV2.headerKpi.weekDelta": "{{pct}} % vs. last week",
+  "dashboardV2.headerKpi.weekFlat": "same as last week",
+  "dashboardV2.headerKpi.capacityCritical": "critical",
+  "dashboardV2.headerKpi.capacityOk": "healthy",
+  "dashboardV2.dashAlert.overdue": "overdue orders",
+  "dashboardV2.dashAlert.withoutStaff": "orders without photographer",
+  "dashboardV2.dashAlert.invoicesToCreate": "invoices to create",
+  "dashboardV2.dashAlert.capacity": "Utilisation W{{kw}}"
 }

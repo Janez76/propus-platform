@@ -2406,5 +2406,18 @@
   "dashboardV2.tweaks.resetConfirm": "Layout und Anzeige auf Standard zurücksetzen?",
   "dashboardV2.footer": "PROPUS · Dashboard v2",
   "dashboardV2.dataRefreshing": "Aktualisiere…",
-  "dashboardV2.dataUpdated": "· Datenstand {{time}}"
+  "dashboardV2.dataUpdated": "· Datenstand {{time}}",
+  "dashboardV2.headerKpi.todayAppts": "Heute · Termine",
+  "dashboardV2.headerKpi.weekOrders": "KW{{kw}} · Aufträge",
+  "dashboardV2.headerKpi.monthRevenue": "Umsatz {{month}}",
+  "dashboardV2.headerKpi.capacity": "Auslastung",
+  "dashboardV2.headerKpi.withoutStaff": "{{n}} ohne Fotograf",
+  "dashboardV2.headerKpi.weekDelta": "{{pct}} % ggü. Vorwoche",
+  "dashboardV2.headerKpi.weekFlat": "wie Vorwoche",
+  "dashboardV2.headerKpi.capacityCritical": "kritisch",
+  "dashboardV2.headerKpi.capacityOk": "im grünen Bereich",
+  "dashboardV2.dashAlert.overdue": "überfällige Bestellungen",
+  "dashboardV2.dashAlert.withoutStaff": "Bestellungen ohne Fotograf",
+  "dashboardV2.dashAlert.invoicesToCreate": "Rechnungen zu erstellen",
+  "dashboardV2.dashAlert.capacity": "Auslastung KW{{kw}}"
 }
