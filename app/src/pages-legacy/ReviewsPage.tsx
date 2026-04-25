@@ -114,7 +114,10 @@ function Stars({ n }: { n: number }) {
 }
 
 function normalizeInternal(row: ReviewRow): UnifiedReview | null {
-  if (row.rating == null || !row.comment) return null;
+  // Include any internal review with a star rating, even if the customer
+  // didn't leave a comment — these are still valid feedback signals and
+  // should count towards average/distribution/filters.
+  if (row.rating == null) return null;
   const co = toVisibleCustomerEmail(row.customer_email);
   return {
     key: `local-${row.order_no}`,
@@ -122,10 +125,11 @@ function normalizeInternal(row: ReviewRow): UnifiedReview | null {
     rating: row.rating,
     customer: row.customer_name || "—",
     customerCo: co || null,
-    text: row.comment,
+    text: row.comment || "",
     date: row.submitted_at || row.done_at || "",
     // Internal reviews don't have a public reply mechanism. Treat as
-    // already-handled to keep them out of the "Ohne Antwort" filter.
+    // already-handled to keep them out of the "Ohne Antwort" filter
+    // (which is reserved for unanswered Google reviews).
     responded: true,
     response: null,
     orderNo: row.order_no,
@@ -317,10 +321,24 @@ export function ReviewsPage() {
     });
   }, [unifiedReviews, totalReviews]);
 
+  // Response rate measures how many reply-eligible reviews we've actually
+  // replied to. Internal reviews don't have a public reply mechanism, so
+  // they are excluded from both the numerator and denominator — otherwise
+  // a flood of local reviews would inflate the percentage.
   const responseRate = useMemo(() => {
-    if (totalReviews === 0) return 0;
-    return Math.round(unifiedReviews.filter((r) => r.responded).length / totalReviews * 100);
-  }, [unifiedReviews, totalReviews]);
+    const eligible = unifiedReviews.filter((r) => r.source === "google");
+    if (eligible.length === 0) return 0;
+    return Math.round(eligible.filter((r) => r.responded).length / eligible.length * 100);
+  }, [unifiedReviews]);
+
+  const respondedGoogleCount = useMemo(
+    () => unifiedReviews.filter((r) => r.source === "google" && r.responded).length,
+    [unifiedReviews],
+  );
+  const totalGoogleCount = useMemo(
+    () => unifiedReviews.filter((r) => r.source === "google").length,
+    [unifiedReviews],
+  );
 
   const sourceCounts = useMemo(() => ({
     google: unifiedReviews.filter((r) => r.source === "google").length,
@@ -512,11 +530,11 @@ export function ReviewsPage() {
           <div className="bw-kpi">
             <div className="bw-kpi-label">{t(lang, "reviews.kpi.responseRate") || "Antwortquote"}</div>
             <div className="bw-kpi-value">{responseRate}%</div>
-            {kpi && (
-              <div className="bw-kpi-trend">
-                {kpi.beantwortet}/{kpi.gesendet} {t(lang, "reviews.kpi.requestsResponded") || "Anfragen beantwortet"}
-              </div>
-            )}
+            <div className="bw-kpi-trend">
+              {totalGoogleCount > 0
+                ? `${respondedGoogleCount}/${totalGoogleCount} ${t(lang, "reviews.kpi.googleResponded") || "Google-Reviews beantwortet"}`
+                : (t(lang, "reviews.kpi.noGoogleReviews") || "Keine Google-Reviews")}
+            </div>
           </div>
         </div>
       </header>
