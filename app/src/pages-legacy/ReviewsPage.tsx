@@ -280,8 +280,21 @@ export function ReviewsPage() {
   }, [loadInternal, loadStatus]);
 
   useEffect(() => {
-    if (gbpStatus?.connected) void loadGbpReviews();
-  }, [gbpStatus?.connected, loadGbpReviews]);
+    if (gbpStatus?.connected) {
+      void loadGbpReviews();
+    } else if (gbpStatus && !gbpStatus.connected) {
+      // Mirror handleDisconnect: when the connection flips to false
+      // (e.g. revoked outside this page, or the status fetch reports
+      // disconnected after an error) clear all GBP-derived state so
+      // the unified feed and the blended KPIs stop showing stale
+      // Google data and aggregates.
+      setGbpReviews([]);
+      setGbpAvgRating(null);
+      setGbpTotalCount(null);
+      setGbpSource(null);
+      setPlacesEnvMissing(false);
+    }
+  }, [gbpStatus, loadGbpReviews]);
 
   // OAuth callback toasts
   useEffect(() => {
