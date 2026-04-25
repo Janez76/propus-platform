@@ -15,7 +15,19 @@ import { OrderEditShellContent } from './order-edit-shell-content';
 import { OrderBulkDirtyHint } from './order-bulk-hint';
 import { OrderTopActions } from './topbar-actions';
 import { isOrderReadOnly } from './_shared';
+import { BestellungSidebar, type SidebarUser } from './bestellung-sidebar';
+import type { Role } from '@/types';
 import './bestellung-detail.css';
+
+const ROLE_LABEL: Record<string, string> = {
+  admin: 'Admin',
+  super_admin: 'Super-Admin',
+  employee: 'Mitarbeiter',
+  tour_manager: 'Tour Manager',
+  photographer: 'Fotograf',
+  customer_admin: 'Kundenadmin',
+  customer_user: 'Kunde',
+};
 
 type StatusMeta = {
   label: string;
@@ -57,6 +69,19 @@ function formatCreated(ts: string) {
   return new Intl.DateTimeFormat('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(ts));
 }
 
+function deriveSidebarUser(name: string | null, role: string): SidebarUser | undefined {
+  if (!name) return undefined;
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const initials = parts.length >= 2
+    ? (parts[0][0] + parts[parts.length - 1][0])
+    : (parts[0]?.slice(0, 2) ?? '');
+  return {
+    initials: initials.toUpperCase(),
+    name,
+    roleLabel: ROLE_LABEL[role] ?? role,
+  };
+}
+
 type Props = {
   children: ReactNode;
   params: Promise<{ id: string }>;
@@ -80,10 +105,14 @@ export default async function OrderLayout({ children, params }: Props) {
   if (!order) notFound();
 
   const status = STATUS_META[order.status] ?? STATUS_META.pending;
+  const sessionRole = (session?.role ?? 'admin') as Role;
+  const sidebarUser = deriveSidebarUser(session?.userName ?? null, sessionRole);
 
   return (
     <OrderEditShellProvider orderNo={order.order_no}>
-      <div className="bestellung-shell min-h-screen">
+      <div className="bestellung-page">
+        <BestellungSidebar role={sessionRole} user={sidebarUser} />
+        <div className="bestellung-shell">
         <div className="bd-topbar">
           <div className="bd-crumbs">
             <Link href="/orders">
@@ -170,6 +199,7 @@ export default async function OrderLayout({ children, params }: Props) {
             {children}
           </OrderEditShellContent>
         </main>
+        </div>
       </div>
     </OrderEditShellProvider>
   );
