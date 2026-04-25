@@ -5,6 +5,43 @@
 @import "./styles/selekto/gallery-admin-supplement.css";
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* ─── Tailwind v4 Theme Tokens ───────────────────────────────────────────────
+   Exponiert die semantischen CSS-Variablen (definiert in :root / html.dark
+   weiter unten) als Tailwind-Utilities. `inline` haelt die Werte als
+   var()-Referenzen, sodass das Light/Dark-Switching automatisch greift.
+   Beispiele: text-muted, bg-surface, border-border-strong, ring-accent,
+   bg-accent/15 (Opacity-Modifier funktionieren out-of-the-box). */
+@theme inline {
+  --color-bg:             var(--bg-classic);
+  --color-bg-classic:     var(--bg-classic);
+  --color-bg-modern:      var(--bg-modern);
+  --color-surface:        var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-bg-card:        var(--bg-card);
+  --color-bg-input:       var(--bg-input);
+
+  --color-text:           var(--text-main);
+  --color-muted:          var(--text-muted);
+  --color-subtle:         var(--text-subtle);
+  --color-primary:        var(--primary);
+  --color-on-primary:     var(--primary-contrast);
+
+  --color-border:         var(--border-soft);
+  --color-border-strong:  var(--border-strong);
+
+  --color-accent:         var(--accent);
+  --color-accent-hover:   var(--accent-hover);
+  --color-accent-subtle:  var(--accent-subtle);
+
+  --color-auth-bg:        var(--auth-bg);
+  --color-auth-card:      var(--auth-card-bg);
+  --color-auth-border:    var(--auth-card-border);
+  --shadow-auth-card:     var(--auth-card-shadow);
+
+  --font-heading:         var(--propus-font-heading);
+  --font-body:            var(--propus-font-body);
+}
+
 :root {
   font-family: 'Roboto', system-ui, sans-serif;
   color: #111111;
