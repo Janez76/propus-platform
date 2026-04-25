@@ -67,7 +67,17 @@ export function EmployeesPage() {
   const isSelectedActive = useMemo(() => selectedEmployee?.active !== false, [selectedEmployee]);
 
   return (
-    <div className="space-y-3">
+    <div className="padmin-shell">
+      <header className="pad-page-header">
+        <div className="pad-ph-top">
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div className="pad-eyebrow">{t(lang, "employees.eyebrow") || "Team"}</div>
+            <h1 className="pad-h1">{t(lang, "nav.employees") || "Mitarbeiter"}</h1>
+            <div className="pad-ph-sub">{t(lang, "employees.description") || "Mitarbeiter, Initialen und Berechtigungen verwalten."}</div>
+          </div>
+        </div>
+      </header>
+      <div className="pad-content space-y-3">
       <form className="cust-form-section" onSubmit={create}>
         <h3 className="mb-3 text-sm font-bold text-[var(--text-main)]">{t(lang, "employees.title.create")}</h3>
         <div className="grid gap-3 sm:grid-cols-6">
@@ -135,6 +145,7 @@ export function EmployeesPage() {
       <EmployeeList items={filtered} onEdit={setSelected} />
       {selected ? <AbsenceCalendar token={token} employeeKey={selected} employeeEmail={selectedEmployee?.email} /> : null}
       {selected ? <EmployeeModal token={token} employeeKey={selected} isActive={isSelectedActive} onClose={() => setSelected(null)} onSaved={() => { void refetch({ force: true }); }} /> : null}
+      </div>
     </div>
   );
 }

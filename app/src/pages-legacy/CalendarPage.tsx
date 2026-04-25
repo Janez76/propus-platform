@@ -186,7 +186,27 @@ export function CalendarPage() {
     : false;
 
   return (
-    <div className="space-y-3">
+    <div className="padmin-shell">
+      <header className="pad-page-header">
+        <div className="pad-ph-top">
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div className="pad-eyebrow">{t(lang, "calendar.eyebrow") || "Planung"}</div>
+            <h1 className="pad-h1">{t(lang, "nav.calendar") || "Kalender"}</h1>
+            <div className="pad-ph-sub">{t(lang, "calendar.label.filterDesc")}</div>
+          </div>
+          <div className="pad-ph-actions">
+            <button
+              type="button"
+              onClick={() => openCreateBooking()}
+              className="pad-btn-primary"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {t(lang, "calendar.button.createBooking")}
+            </button>
+          </div>
+        </div>
+      </header>
+      <div className="pad-content space-y-3">
       <div className="rounded-xl border border-zinc-700/60 bg-zinc-900/60 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -379,6 +399,7 @@ export function CalendarPage() {
           </div>
         </div>
       ) : null}
+      </div>
     </div>
   );
 }

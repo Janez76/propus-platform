@@ -178,12 +178,24 @@ export function SelektoListPage() {
 
   return (
     <>
-      <div className="admin-content gal-admin-listings-page">
+      <div className="padmin-shell admin-content gal-admin-listings-page">
+        <header className="pad-page-header">
+          <div className="pad-ph-top">
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div className="pad-eyebrow">Bildauswahl · Backpanel</div>
+              <h1 className="pad-h1">Bildauswahlen</h1>
+              <div className="pad-ph-sub">
+                Hier verwalten Sie alle Picdrop-Bildauswahlen: Freigabe aus der Propus Cloud, Kundenlink, Versand und
+                Rückmeldungen — übersichtlich an einem Ort.
+              </div>
+            </div>
+          </div>
+        </header>
         {loadErr ? <p className="admin-msg admin-msg--err">{loadErr}</p> : null}
 
         <div className="gal-admin-listings-shell">
           <div className="gal-admin-listings-shell__head">
-            <div className="gal-admin-listings-shell__titles">
+            <div className="gal-admin-listings-shell__titles" style={{ display: "none" }}>
               <p className="admin-section-title admin-section-title--accent">Backpanel</p>
               <h1 className="gal-admin-listings-shell__h1">Bildauswahlen</h1>
               <p className="admin-lead">

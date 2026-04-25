@@ -172,12 +172,24 @@ export function ListingListPage() {
 
   return (
     <>
-      <div className="admin-content gal-admin-listings-page">
+      <div className="padmin-shell admin-content gal-admin-listings-page">
+        <header className="pad-page-header">
+          <div className="pad-ph-top">
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div className="pad-eyebrow">Galerien · Backpanel</div>
+              <h1 className="pad-h1">Listings</h1>
+              <div className="pad-ph-sub">
+                Hier pflegen Sie alle Listings: Fotos und Unterlagen bündeln, für Kunden freigeben und Versand sowie
+                Rückmeldungen im Griff behalten.
+              </div>
+            </div>
+          </div>
+        </header>
         {loadErr ? <p className="admin-msg admin-msg--err">{loadErr}</p> : null}
 
         <div className="gal-admin-listings-shell">
           <div className="gal-admin-listings-shell__head">
-            <div className="gal-admin-listings-shell__titles">
+            <div className="gal-admin-listings-shell__titles" style={{ display: "none" }}>
               <p className="admin-section-title admin-section-title--accent">Backpanel</p>
               <h1 className="gal-admin-listings-shell__h1">Listings</h1>
               <p className="admin-lead">

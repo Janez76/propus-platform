@@ -565,30 +565,35 @@ export function CustomersPage() {
     .replace("{{total}}", String(sortedCustomers.length));
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="cust-page-header-title">
-            {viewMode === "contacts" ? t(lang, "customers.titleContacts") : t(lang, "customers.title")}
-          </h1>
-          <p className="cust-page-header-sub">
-            {viewMode === "contacts" ? t(lang, "customers.descriptionContacts") : t(lang, "customers.description")}
-          </p>
+    <div className="padmin-shell">
+      <header className="pad-page-header">
+        <div className="pad-ph-top">
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div className="pad-eyebrow">{t(lang, "customers.eyebrow") || "Kundschaft"}</div>
+            <h1 className="pad-h1">
+              {viewMode === "contacts" ? t(lang, "customers.titleContacts") : t(lang, "customers.title")}
+            </h1>
+            <div className="pad-ph-sub">
+              {viewMode === "contacts" ? t(lang, "customers.descriptionContacts") : t(lang, "customers.description")}
+            </div>
+          </div>
+          {((viewMode === "contacts" && can("contacts.manage")) || (viewMode === "customers" && can("customers.manage"))) && (
+            <div className="pad-ph-actions">
+              <button
+                type="button"
+                onClick={() => setCreateContactDialogOpen(true)}
+                className="pad-btn-primary"
+              >
+                <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
+                <span>
+                  {viewMode === "contacts" ? t(lang, "customers.button.newContact") : t(lang, "customers.button.newCustomer")}
+                </span>
+              </button>
+            </div>
+          )}
         </div>
-        {((viewMode === "contacts" && can("contacts.manage")) || (viewMode === "customers" && can("customers.manage"))) && (
-          <button
-            type="button"
-            onClick={() => setCreateContactDialogOpen(true)}
-            className="cust-btn-new shrink-0 self-start"
-          >
-            <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
-            <span className="hidden sm:inline">
-              {viewMode === "contacts" ? t(lang, "customers.button.newContact") : t(lang, "customers.button.newCustomer")}
-            </span>
-            <span className="sm:hidden">+</span>
-          </button>
-        )}
-      </div>
+      </header>
+      <div className="pad-content space-y-6">
 
       {viewMode === "customers" ? (
         <div className="cust-stats-row">
@@ -1235,6 +1240,7 @@ export function CustomersPage() {
           </form>
         </div>
       ) : null}
+      </div>
     </div>
   );
 }
