@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
-import { ListChecks, Tag, Receipt } from "lucide-react";
-import { Section, Empty, formatCHF } from "../_shared";
+import { ListChecks, Tag, Receipt, Clock, Wallet } from "lucide-react";
+import { Section, Empty, KpiGrid, Kpi, formatCHF } from "../_shared";
 import { LeistungenForm } from "./leistungen-form";
 import { loadOrderContext } from "../_order-context";
 
@@ -60,9 +60,38 @@ export default async function LeistungenPage({ params, searchParams }: Props) {
   const addons: Addon[] = order.addons ?? [];
   const subtotal = Number(order.pricing_subtotal ?? 0);
   const total = Number(order.pricing_total ?? 0);
+  const addonQty = addons.reduce((acc, a) => acc + (a.qty ?? 1), 0);
 
   return (
     <div className="space-y-6">
+      <KpiGrid>
+        <Kpi
+          icon={<Tag />}
+          label="Paket"
+          value={order.package_label ?? "—"}
+          sub={order.package_price ? formatCHF(order.package_price) : (order.package_label ? undefined : "kein Paket")}
+          accent={order.package_label ? "info" : undefined}
+        />
+        <Kpi
+          icon={<ListChecks />}
+          label="Zusatzleistungen"
+          value={addons.length}
+          sub={addonQty > addons.length ? `${addonQty} Einheiten` : undefined}
+        />
+        <Kpi
+          icon={<Clock />}
+          label="Dauer"
+          value={order.duration_min ? `${order.duration_min} min` : "—"}
+        />
+        <Kpi
+          icon={<Wallet />}
+          label="Total inkl. MwSt"
+          value={total > 0 ? formatCHF(total) : "—"}
+          sub={discount > 0 ? `Rabatt ${formatCHF(discount)}` : undefined}
+          accent="gold"
+        />
+      </KpiGrid>
+
       <Section title="Paket" icon={<Tag className="h-4 w-4" />}>
         {order.package_label ? (
           <div className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--paper-strip)] px-4 py-3">

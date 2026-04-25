@@ -1,8 +1,11 @@
 import { notFound } from "next/navigation";
-import { CalendarClock, User, ArrowRight } from "lucide-react";
+import { CalendarClock, User, ArrowRight, Clock, History, CheckCircle2 } from "lucide-react";
 import { query } from "@/lib/db";
 import { listPhotographers } from "@/lib/repos/orders/termin";
-import { Section, InfoItem, Empty, Badge, STATUS_LABEL, formatDateTime, formatTS } from "../_shared";
+import {
+  Section, InfoItem, Empty, Badge, KpiGrid, Kpi,
+  STATUS_LABEL, formatDateTime, formatTS,
+} from "../_shared";
 import { TerminForm } from "./termin-form";
 import { loadOrderContext } from "../_order-context";
 
@@ -82,8 +85,40 @@ export default async function TerminPage({ params, searchParams }: Props) {
     );
   }
 
+  const terminLabel = order.schedule_date
+    ? formatDateTime(order.schedule_date, order.schedule_time)
+    : "—";
+
   return (
     <div className="space-y-6">
+      <KpiGrid>
+        <Kpi
+          icon={<CalendarClock />}
+          label="Termin"
+          value={order.schedule_date ? terminLabel : "Offen"}
+          sub={order.schedule_date ? undefined : "noch nicht geplant"}
+          accent={order.schedule_date ? "gold" : undefined}
+        />
+        <Kpi
+          icon={<Clock />}
+          label="Dauer"
+          value={order.duration_min ? `${order.duration_min} min` : "—"}
+        />
+        <Kpi
+          icon={<User />}
+          label="Mitarbeiter"
+          value={order.photographer_name ?? "—"}
+          sub={order.photographer_name ? undefined : "nicht zugewiesen"}
+          accent={order.photographer_name ? "info" : undefined}
+        />
+        <Kpi
+          icon={order.done_at ? <CheckCircle2 /> : <History />}
+          label={order.done_at ? "Abgeschlossen" : "Status-Verlauf"}
+          value={order.done_at ? formatTS(order.done_at) : `${statusHistory.length} Wechsel`}
+          accent={order.done_at ? "success" : undefined}
+        />
+      </KpiGrid>
+
       <Section title="Termin" icon={<CalendarClock className="h-4 w-4" />}>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <InfoItem
@@ -139,7 +174,10 @@ function StatusList({ rows }: {
     <div className="space-y-2">
       {rows.map((entry) => {
         const from = entry.from_status ? STATUS_LABEL[entry.from_status] : null;
-        const to = STATUS_LABEL[entry.to_status] ?? { label: entry.to_status, className: "bg-white/10 text-white/50" };
+        const to = STATUS_LABEL[entry.to_status] ?? {
+          label: entry.to_status,
+          className: "bg-[var(--paper-strip)] text-[var(--ink-3)] border border-[var(--border)]",
+        };
         return (
           <div key={entry.id} className="flex items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--paper-strip)] px-4 py-3">
             <div className="flex min-w-0 flex-1 items-center gap-2">

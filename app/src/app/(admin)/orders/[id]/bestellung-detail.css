@@ -614,6 +614,148 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* ── KPI grid (per-tab metrics) ────────────────────────────── */
+.bestellung-shell .bd-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.bestellung-shell .bd-kpi {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.bestellung-shell .bd-kpi-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: var(--paper-strip);
+  border: 1px solid var(--border);
+  display: grid;
+  place-items: center;
+  color: var(--ink-2);
+  flex-shrink: 0;
+}
+.bestellung-shell .bd-kpi-icon svg { width: 16px; height: 16px; }
+.bestellung-shell .bd-kpi-label {
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+.bestellung-shell .bd-kpi-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+.bestellung-shell .bd-kpi-sub {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  margin-top: 2px;
+  font-weight: 500;
+}
+.bestellung-shell .bd-kpi.is-gold { background: linear-gradient(180deg, #FBF7EE, #F7EFD9); border-color: var(--gold-200); }
+.bestellung-shell .bd-kpi.is-gold .bd-kpi-icon { background: var(--gold-50); border-color: var(--gold-200); color: var(--gold-700); }
+.bestellung-shell .bd-kpi.is-gold .bd-kpi-value { color: var(--gold-700); }
+.bestellung-shell .bd-kpi.is-success .bd-kpi-icon { background: var(--success-bg); border-color: rgba(42,122,42,0.25); color: var(--success); }
+.bestellung-shell .bd-kpi.is-success .bd-kpi-value { color: var(--success); }
+.bestellung-shell .bd-kpi.is-warn .bd-kpi-icon { background: var(--warn-bg); border-color: rgba(184,117,20,0.25); color: var(--warn); }
+.bestellung-shell .bd-kpi.is-warn .bd-kpi-value { color: var(--warn); }
+.bestellung-shell .bd-kpi.is-danger .bd-kpi-icon { background: var(--danger-bg); border-color: rgba(180,49,27,0.25); color: var(--danger); }
+.bestellung-shell .bd-kpi.is-danger .bd-kpi-value { color: var(--danger); }
+.bestellung-shell .bd-kpi.is-info .bd-kpi-icon { background: var(--info-bg); border-color: rgba(46,90,122,0.25); color: var(--info); }
+.bestellung-shell .bd-kpi.is-info .bd-kpi-value { color: var(--info); }
+
+@media (max-width: 1100px) {
+  .bestellung-shell .bd-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 560px) {
+  .bestellung-shell .bd-kpi-grid { grid-template-columns: 1fr; }
+}
+
+/* ── Filter bar (search + selects on list-style tabs) ──────── */
+.bestellung-shell .bd-filterbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  background: var(--paper-strip);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.bestellung-shell .bd-filterbar label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-weight: 600;
+}
+.bestellung-shell .bd-filterbar input[type="text"],
+.bestellung-shell .bd-filterbar input[type="search"],
+.bestellung-shell .bd-filterbar select {
+  padding: 7px 10px;
+  font-size: 13px;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  min-height: 34px;
+  font-family: inherit;
+  letter-spacing: 0;
+  text-transform: none;
+  font-weight: 500;
+}
+.bestellung-shell .bd-filterbar input[type="search"] { min-width: 220px; }
+.bestellung-shell .bd-filterbar input:focus,
+.bestellung-shell .bd-filterbar select:focus {
+  outline: none;
+  border-color: var(--gold-500);
+  box-shadow: 0 0 0 3px rgba(196, 153, 55, 0.15);
+}
+.bestellung-shell .bd-filterbar .spacer { flex: 1; }
+
+/* ── List rows (light, replacing the dark white/* utilities) ── */
+.bestellung-shell .bd-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--paper-strip);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.bestellung-shell .bd-row:hover { background: #fff; border-color: var(--gold-300); }
+.bestellung-shell .bd-row-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.bestellung-shell .bd-row-meta {
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.bestellung-shell .bd-row-meta.is-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ── Compatibility overlay ─────────────────────────────────────
    Some children of .bestellung-shell still use the old dark-mode
    Tailwind utilities (e.g. `bg-white/[0.02]`, `text-white/60`,
