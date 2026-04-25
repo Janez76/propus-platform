@@ -62,7 +62,7 @@ export async function loadOrderVerlaufData(
   const evConds: string[] = ["order_no = $1"];
   const evParams: (string | number)[] = [orderId];
   let p = 2;
-  if (evF && !filterStatusOnly) {
+  if (evF) {
     evConds.push(`event_type = $${p}`);
     evParams.push(evF);
     p += 1;
@@ -93,22 +93,21 @@ export async function loadOrderVerlaufData(
   }
 
   const [eventLog, statusAudit] = await Promise.all([
-    !filterStatusOnly
-      ? query<{
-          id: number;
-          event_type: string;
-          actor_user: string | null;
-          actor_role: string | null;
-          metadata: Record<string, unknown> | null;
-          created_at: string;
-        }>(`
-        SELECT id, event_type, actor_user, actor_role, metadata, created_at
-        FROM booking.order_event_log
-        WHERE ${evConds.join(" AND ")}
-        ORDER BY created_at DESC
-        LIMIT 200
-      `, evParams)
-      : Promise.resolve([]),
+    query<{
+      id: number;
+      event_type: string;
+      actor_user: string | null;
+      actor_role: string | null;
+      old_value: Record<string, unknown> | null;
+      new_value: Record<string, unknown> | null;
+      created_at: string;
+    }>(`
+      SELECT id, event_type, actor_user, actor_role, old_value, new_value, created_at
+      FROM booking.order_event_log
+      WHERE ${evConds.join(" AND ")}
+      ORDER BY created_at DESC
+      LIMIT 200
+    `, evParams),
 
     !evF || filterStatusOnly
       ? query<{
@@ -127,16 +126,64 @@ export async function loadOrderVerlaufData(
       : Promise.resolve([]),
   ]);
 
+  // Same status transition is logged to both tables by termin/actions.ts;
+  // dedupe event_log status_changed rows that have a matching audit row
+  // within a 10s window so the UI doesn't show duplicates.
+  const auditKeys = new Set<string>();
+  for (const st of statusAudit) {
+    const bucket = Math.floor(new Date(st.created_at).getTime() / 1000);
+    auditKeys.add(`${st.from_status ?? ""}|${st.to_status}|${bucket}`);
+  }
+  const isCoveredByAudit = (
+    fromStatus: string,
+    toStatus: string,
+    createdAt: string,
+  ): boolean => {
+    const bucket = Math.floor(new Date(createdAt).getTime() / 1000);
+    for (let dt = -10; dt <= 10; dt += 1) {
+      if (auditKeys.has(`${fromStatus}|${toStatus}|${bucket + dt}`)) return true;
+    }
+    return false;
+  };
+
+  const eventEntries: EventEntry[] = [];
+  for (const e of eventLog) {
+    if (e.event_type === "status_changed") {
+      const fromStatus = (e.old_value as { status?: string } | null)?.status ?? null;
+      const toStatus = (e.new_value as { status?: string } | null)?.status ?? null;
+      if (
+        fromStatus &&
+        toStatus &&
+        isCoveredByAudit(fromStatus, toStatus, e.created_at)
+      ) {
+        continue;
+      }
+      eventEntries.push({
+        id: `event-${e.id}`,
+        kind: "status",
+        event_type: "status_changed",
+        actor: e.actor_user,
+        actor_role: e.actor_role,
+        description: EVENT_TYPE_LABEL.status_changed,
+        from_status: fromStatus,
+        to_status: toStatus,
+        created_at: e.created_at,
+      });
+    } else {
+      eventEntries.push({
+        id: `event-${e.id}`,
+        kind: "event",
+        event_type: e.event_type,
+        actor: e.actor_user,
+        actor_role: e.actor_role,
+        description: EVENT_TYPE_LABEL[e.event_type] ?? e.event_type,
+        created_at: e.created_at,
+      });
+    }
+  }
+
   return [
-    ...eventLog.map((e) => ({
-      id: `event-${e.id}`,
-      kind: "event" as const,
-      event_type: e.event_type,
-      actor: e.actor_user,
-      actor_role: e.actor_role,
-      description: EVENT_TYPE_LABEL[e.event_type] ?? e.event_type,
-      created_at: e.created_at,
-    })),
+    ...eventEntries,
     ...statusAudit.map((st) => ({
       id: `status-${st.id}`,
       kind: "status" as const,

@@ -86,7 +86,7 @@ export async function saveLeistungen(
   const pricingPatch = {
     subtotal: String(calc.subtotal),
     discount: String(calc.discount),
-    vat: `CHF ${calc.vat.toFixed(2)}`,
+    vat: String(calc.vat),
     total: String(calc.total),
     vatRate: String(VAT_RATE),
   };

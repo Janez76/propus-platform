@@ -56,7 +56,11 @@ export function Badge({ label, className }: { label: string; className: string }
 
 export function formatCHF(amount: number | string | null | undefined) {
   if (amount == null || amount === '') return '—';
-  return new Intl.NumberFormat('de-CH', { style: 'currency', currency: 'CHF' }).format(Number(amount));
+  const n = typeof amount === 'number'
+    ? amount
+    : Number(String(amount).replace(/[^\d.,-]/g, '').replace(',', '.'));
+  if (!Number.isFinite(n)) return '—';
+  return new Intl.NumberFormat('de-CH', { style: 'currency', currency: 'CHF' }).format(n);
 }
 
 export function formatDateTime(dateStr: string | null, timeStr?: string | null): string {
