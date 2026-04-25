@@ -1,0 +1,570 @@
+/* ============================================================
+   PROPUS · Admin pages — shared redesign tokens & components
+   from the Claude Design handoff (admin-shell.css).
+   Scope: anything inside .padmin-shell
+
+   Designed to layer on top of the existing Propus theme tokens
+   (--surface, --accent, --text-main, --propus-gold...) without
+   duplicating them. Adds the design's structural classes:
+     .page-header / .ph-kpis / .filterbar / .filter-pill /
+     .dt (table) / .pad-card / .pad-stars / etc.
+
+   Used by re-skinned legacy pages: Bestellungen, Dashboard,
+   Kalender, Kunden, Mitarbeiter, Tickets, Rechnungen, Touren,
+   Uploads, Galerien, Bildauswahl.
+   ============================================================ */
+
+.padmin-shell {
+  --paper:       #F4F1EA;
+  --paper-strip: #F7F6F3;
+  --pad-card:    #FFFFFF;
+  --ink:         #141413;
+  --ink-2:       #3C3B38;
+  --ink-3:       #6B6962;
+  --ink-4:       #9A968C;
+  --pad-border:  #EAE6DD;
+  --pad-border-soft: #F0EBDF;
+
+  --gold-50:   #FBF7EE;
+  --gold-100:  #F2E7C9;
+  --gold-200:  #E4CE94;
+  --gold-300:  #D4B462;
+  --gold-400:  #C5A073;
+  --gold-500:  #C49937;
+  --gold-600:  #B68E20;
+  --gold-700:  #9A7619;
+  --gold-800:  #7A5D14;
+
+  --pad-success:    #2A7A2A;
+  --pad-success-bg: #E6F2E3;
+  --pad-warn:       #B87514;
+  --pad-warn-bg:    #FBEED4;
+  --pad-danger:     #B4311B;
+  --pad-danger-bg:  #F8E0DB;
+  --pad-info:       #2E5A7A;
+  --pad-info-bg:    #DFEBF5;
+
+  --pad-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+.padmin-shell *,
+.padmin-shell *::before,
+.padmin-shell *::after { box-sizing: border-box; }
+
+/* ── Page header ──────────────────────────────────────── */
+.padmin-shell .pad-page-header {
+  background: #fff;
+  border-bottom: 1px solid var(--pad-border);
+  padding: 24px 32px 22px;
+  margin: -16px -16px 0 -16px; /* full-bleed inside admin layout */
+}
+.padmin-shell .pad-ph-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.padmin-shell .pad-eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--gold-700);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.padmin-shell .pad-h1 {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  margin: 0 0 6px;
+  line-height: 1.15;
+  color: var(--ink);
+}
+.padmin-shell .pad-h1 .num {
+  color: var(--gold-700);
+  font-family: var(--pad-mono);
+  font-weight: 700;
+}
+.padmin-shell .pad-ph-sub {
+  font-size: 13.5px;
+  color: var(--ink-3);
+}
+.padmin-shell .pad-ph-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* ── KPI tiles ────────────────────────────────────────── */
+.padmin-shell .pad-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-top: 22px;
+}
+.padmin-shell .pad-kpi {
+  padding: 16px 18px;
+  background: var(--paper-strip);
+  border: 1px solid var(--pad-border);
+  border-radius: 10px;
+}
+.padmin-shell .pad-kpi.is-gold {
+  background: linear-gradient(180deg, #FBF7EE, #fff);
+  border-color: var(--gold-200);
+}
+.padmin-shell .pad-kpi.is-warn {
+  background: linear-gradient(180deg, #FBF7EE, #F7EFD9);
+  border-color: var(--gold-200);
+}
+.padmin-shell .pad-kpi-label {
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.padmin-shell .pad-kpi-value {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.025em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.padmin-shell .pad-kpi-value.is-gold {
+  color: var(--gold-700);
+  font-family: var(--pad-mono);
+}
+.padmin-shell .pad-kpi-trend {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  margin-top: 6px;
+}
+.padmin-shell .pad-kpi-trend.is-up   { color: var(--pad-success); }
+.padmin-shell .pad-kpi-trend.is-warn { color: var(--pad-warn); }
+.padmin-shell .pad-kpi-trend.is-danger { color: var(--pad-danger); }
+
+/* ── Page content ─────────────────────────────────────── */
+.padmin-shell .pad-content {
+  padding: 24px 32px 80px;
+  max-width: 88rem;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* ── Filterbar ────────────────────────────────────────── */
+.padmin-shell .pad-filterbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: #fff;
+  border: 1px solid var(--pad-border);
+  border-radius: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.padmin-shell .pad-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  background: var(--paper-strip);
+  border: 1px solid var(--pad-border);
+  border-radius: 8px;
+  min-width: 240px;
+  flex: 1;
+  max-width: 420px;
+}
+.padmin-shell .pad-search svg { width: 14px; height: 14px; color: var(--ink-3); flex-shrink: 0; }
+.padmin-shell .pad-search input {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  outline: 0;
+  font-family: inherit;
+  font-size: 13.5px;
+  color: var(--ink);
+  min-width: 0;
+}
+.padmin-shell .pad-search input::placeholder { color: var(--ink-4); }
+.padmin-shell .pad-search kbd {
+  font-family: var(--pad-mono);
+  font-size: 10.5px;
+  padding: 1px 6px;
+  background: #fff;
+  border: 1px solid var(--pad-border);
+  border-radius: 4px;
+  color: var(--ink-3);
+}
+.padmin-shell .pad-fb-divider {
+  width: 1px;
+  height: 22px;
+  background: var(--pad-border);
+}
+.padmin-shell .pad-filter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-2);
+  background: var(--paper-strip);
+  border: 1px solid var(--pad-border);
+  border-radius: 999px;
+  transition: background-color 160ms, border-color 160ms, color 160ms;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.padmin-shell .pad-filter-pill:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+.padmin-shell .pad-filter-pill.is-active {
+  background: var(--gold-50);
+  border-color: var(--gold-300);
+  color: var(--gold-800);
+  font-weight: 600;
+}
+.padmin-shell .pad-filter-pill .pad-count {
+  font-family: var(--pad-mono);
+  font-size: 11px;
+  color: var(--ink-3);
+  margin-left: 2px;
+}
+.padmin-shell .pad-filter-pill.is-active .pad-count {
+  color: var(--gold-700);
+}
+.padmin-shell .pad-filter-pill svg { width: 12px; height: 12px; }
+
+/* Toggle group (e.g. Tabelle / Kanban / Kalender / Karte) */
+.padmin-shell .pad-toggle-group {
+  display: inline-flex;
+  padding: 2px;
+  background: var(--paper-strip);
+  border: 1px solid var(--pad-border);
+  border-radius: 8px;
+}
+.padmin-shell .pad-toggle {
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-3);
+  border: 0;
+  background: transparent;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.padmin-shell .pad-toggle svg { width: 13px; height: 13px; }
+.padmin-shell .pad-toggle.is-active {
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 0 0 1px var(--pad-border);
+  font-weight: 600;
+}
+
+/* ── Generic data table ──────────────────────────────── */
+.padmin-shell .pad-table-wrap {
+  background: #fff;
+  border: 1px solid var(--pad-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.padmin-shell .pad-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+.padmin-shell .pad-table thead th {
+  text-align: left;
+  padding: 12px 16px;
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-weight: 600;
+  border-bottom: 1px solid var(--pad-border);
+  background: var(--paper-strip);
+  white-space: nowrap;
+}
+.padmin-shell .pad-table thead th.num { text-align: right; }
+.padmin-shell .pad-table tbody td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--pad-border-soft);
+  vertical-align: middle;
+  color: var(--ink-2);
+}
+.padmin-shell .pad-table tbody tr {
+  transition: background 120ms;
+  cursor: pointer;
+}
+.padmin-shell .pad-table tbody tr:hover { background: var(--paper-strip); }
+.padmin-shell .pad-table tbody tr.is-selected { background: var(--gold-50); }
+.padmin-shell .pad-table tbody tr:last-child td { border-bottom: 0; }
+.padmin-shell .pad-table td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--pad-mono);
+  font-size: 13px;
+}
+.padmin-shell .pad-table td.actions {
+  text-align: right;
+  white-space: nowrap;
+}
+.padmin-shell .pad-orderno {
+  font-family: var(--pad-mono);
+  font-size: 13px;
+  color: var(--gold-700);
+  font-weight: 600;
+}
+.padmin-shell .pad-customer-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.padmin-shell .pad-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--gold-100);
+  color: var(--gold-800);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 11.5px;
+  flex-shrink: 0;
+}
+.padmin-shell .pad-avatar.is-staff {
+  background: var(--gold-600);
+  color: #fff;
+  border-radius: 999px;
+}
+.padmin-shell .pad-customer-name {
+  font-weight: 600;
+  color: var(--ink);
+}
+.padmin-shell .pad-customer-meta {
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+.padmin-shell .pad-action-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid var(--pad-border);
+  background: #fff;
+  color: var(--ink-2);
+  display: inline-grid;
+  place-items: center;
+  transition: border-color 160ms, color 160ms;
+  margin-left: 4px;
+  cursor: pointer;
+}
+.padmin-shell .pad-action-icon:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+.padmin-shell .pad-action-icon svg { width: 13px; height: 13px; }
+.padmin-shell .pad-action-icon.is-danger:hover {
+  border-color: var(--pad-danger);
+  color: var(--pad-danger);
+}
+.padmin-shell .pad-empty {
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--ink-3);
+}
+
+/* ── Status chip ──────────────────────────────────────── */
+.padmin-shell .pad-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: 1px solid;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.padmin-shell .pad-chip .pad-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+}
+
+/* ── Buttons ──────────────────────────────────────────── */
+.padmin-shell .pad-btn,
+.padmin-shell .pad-btn-primary,
+.padmin-shell .pad-btn-ghost,
+.padmin-shell .pad-btn-outline-gold,
+.padmin-shell .pad-btn-outline-dark {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  letter-spacing: 0.01em;
+  transition: background-color 160ms, color 160ms, border-color 160ms;
+  cursor: pointer;
+  text-decoration: none;
+  font-family: inherit;
+}
+.padmin-shell .pad-btn svg,
+.padmin-shell .pad-btn-primary svg,
+.padmin-shell .pad-btn-ghost svg,
+.padmin-shell .pad-btn-outline-gold svg,
+.padmin-shell .pad-btn-outline-dark svg {
+  width: 14px;
+  height: 14px;
+}
+.padmin-shell .pad-btn-primary {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+}
+.padmin-shell .pad-btn-primary:hover {
+  background: #1F1F1F;
+  border-color: var(--gold-600);
+}
+.padmin-shell .pad-btn-ghost {
+  background: transparent;
+  color: var(--ink-2);
+  border-color: var(--pad-border);
+}
+.padmin-shell .pad-btn-ghost:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+.padmin-shell .pad-btn-outline-gold {
+  background: transparent;
+  color: var(--gold-700);
+  border-color: var(--gold-400);
+}
+.padmin-shell .pad-btn-outline-gold:hover {
+  background: var(--gold-50);
+  border-color: var(--gold-600);
+}
+.padmin-shell .pad-btn-outline-dark {
+  background: #fff;
+  color: var(--ink);
+  border-color: var(--pad-border);
+}
+.padmin-shell .pad-btn-outline-dark:hover {
+  border-color: var(--ink);
+}
+.padmin-shell .pad-btn-sm {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+.padmin-shell .pad-btn:disabled,
+.padmin-shell .pad-btn-primary:disabled,
+.padmin-shell .pad-btn-ghost:disabled,
+.padmin-shell .pad-btn-outline-gold:disabled,
+.padmin-shell .pad-btn-outline-dark:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ── Card ─────────────────────────────────────────────── */
+.padmin-shell .pad-card {
+  background: #fff;
+  border: 1px solid var(--pad-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.padmin-shell .pad-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--pad-border-soft);
+}
+.padmin-shell .pad-card-head h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--ink);
+}
+.padmin-shell .pad-card-head .pad-aside {
+  margin-left: auto;
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+.padmin-shell .pad-card-body {
+  padding: 16px 18px 18px;
+}
+
+/* ── Stars ────────────────────────────────────────────── */
+.padmin-shell .pad-stars {
+  display: inline-flex;
+  gap: 1px;
+  color: var(--gold-600);
+  font-size: 13px;
+}
+.padmin-shell .pad-stars span { display: inline-block; }
+.padmin-shell .pad-stars .is-empty { opacity: 0.22; }
+
+/* ── Alert ────────────────────────────────────────────── */
+.padmin-shell .pad-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid;
+  border-radius: 10px;
+  font-size: 13px;
+  margin-bottom: 14px;
+  line-height: 1.45;
+}
+.padmin-shell .pad-alert.is-success {
+  background: var(--pad-success-bg);
+  border-color: rgba(42, 122, 42, 0.3);
+  color: #1F5C20;
+}
+.padmin-shell .pad-alert.is-error {
+  background: var(--pad-danger-bg);
+  border-color: rgba(180, 49, 27, 0.3);
+  color: #8A2515;
+}
+.padmin-shell .pad-alert.is-warn {
+  background: var(--pad-warn-bg);
+  border-color: rgba(184, 117, 20, 0.3);
+  color: #8A5710;
+}
+.padmin-shell .pad-alert.is-info {
+  background: var(--pad-info-bg);
+  border-color: rgba(46, 90, 122, 0.3);
+  color: #244865;
+}
+
+/* ── Responsive ───────────────────────────────────────── */
+@media (max-width: 1100px) {
+  .padmin-shell .pad-kpis { grid-template-columns: repeat(2, 1fr); }
+  .padmin-shell .pad-page-header,
+  .padmin-shell .pad-content { padding-left: 20px; padding-right: 20px; }
+}
+@media (max-width: 720px) {
+  .padmin-shell .pad-kpis { grid-template-columns: 1fr; }
+}

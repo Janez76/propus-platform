@@ -387,6 +387,49 @@ export function OrdersPage() {
 
   const hasAnyActiveFilter = statusSelection.size > 0 || quickFilter !== "none" || photographerFilter !== "all" || query.length > 0;
 
+  // ── KPIs (Propus admin redesign) ──────────────────────
+  // Active = open orders that aren't done/cancelled/archived.
+  // Open revenue = sum of totals on orders that haven't been invoiced.
+  // Today = orders scheduled for today (any status that still uses a slot).
+  // Unassigned = open orders without a photographer.
+  const kpiActiveCount = useMemo(
+    () => allOrders.filter((o) => isOpenOrder(normalizeStatusKey(o.status))).length,
+    [allOrders],
+  );
+  const kpiOpenRevenue = useMemo(() => {
+    // Heuristic: orders that aren't done/cancelled/archived still have
+    // open revenue from the operational view (work not yet delivered).
+    // The Order shape doesn't expose an `invoiced` flag; once billing
+    // status is wired through the API this can become a stronger
+    // "unbilled" check.
+    return allOrders.reduce((sum, o) => {
+      const k = normalizeStatusKey(o.status);
+      if (k === "done" || k === "cancelled" || k === "archived") return sum;
+      const total = Number(o.total ?? 0);
+      if (!Number.isFinite(total) || total <= 0) return sum;
+      return sum + total;
+    }, 0);
+  }, [allOrders]);
+  const kpiTodayCount = useMemo(() => {
+    const today = new Date();
+    return allOrders.filter((o) => {
+      if (!o.appointmentDate) return false;
+      const k = normalizeStatusKey(o.status);
+      if (k === "cancelled" || k === "archived") return false;
+      const d = new Date(o.appointmentDate);
+      return !Number.isNaN(d.getTime()) && sameDay(d, today);
+    }).length;
+  }, [allOrders]);
+  const kpiUnassignedCount = useMemo(
+    () =>
+      allOrders.filter((o) => {
+        const k = normalizeStatusKey(o.status);
+        if (k === "cancelled" || k === "archived" || k === "done") return false;
+        return !(o.photographer?.key || "").trim();
+      }).length,
+    [allOrders],
+  );
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -404,33 +447,78 @@ export function OrdersPage() {
     );
   }
 
+  const eyebrowText = `${t(lang, "orders.eyebrow") || "Operativ"} · ${kpiActiveCount} ${t(lang, "orders.eyebrowSuffix") || "aktive Bestellungen"}`;
+  const formattedRevenue = new Intl.NumberFormat("de-CH", {
+    style: "currency",
+    currency: "CHF",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(kpiOpenRevenue);
+
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="cust-page-header-title text-3xl mb-1">{t(lang, "orders.title")}</h1>
-          <p className="cust-page-header-sub">{t(lang, "orders.description")}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Segmented
-            items={[
-              { key: "list", label: t(lang, "orders.view.list"), icon: <List className="h-3.5 w-3.5" /> },
-              { key: "calendar", label: t(lang, "orders.view.calendar"), icon: <Calendar className="h-3.5 w-3.5" /> },
+    <div className="padmin-shell space-y-4">
+      {/* Page header (design's PageHeader pattern) */}
+      <header className="pad-page-header">
+        <div className="pad-ph-top">
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div className="pad-eyebrow">{eyebrowText}</div>
+            <h1 className="pad-h1">{t(lang, "orders.title")}</h1>
+            <div className="pad-ph-sub">{t(lang, "orders.description")}</div>
+          </div>
+          <div className="pad-ph-actions">
+            <Segmented
+              items={[
+                { key: "list", label: t(lang, "orders.view.list"), icon: <List className="h-3.5 w-3.5" /> },
+                { key: "calendar", label: t(lang, "orders.view.calendar"), icon: <Calendar className="h-3.5 w-3.5" /> },
               { key: "map", label: t(lang, "orders.view.map"), icon: <MapIcon className="h-3.5 w-3.5" /> },
             ]}
             value={view}
             onChange={(v) => setView(v as ViewMode)}
           />
-          <button
-            onClick={() => setShowCreate(true)}
-            className="cust-btn-new"
-          >
-            <Plus className="h-5 w-5" />
-            <span className="hidden sm:inline">{t(lang, "orders.button.newOrder")}</span>
-          </button>
+            <button
+              onClick={() => setShowCreate(true)}
+              className="cust-btn-new"
+            >
+              <Plus className="h-5 w-5" />
+              <span className="hidden sm:inline">{t(lang, "orders.button.newOrder")}</span>
+            </button>
+          </div>
         </div>
-      </div>
+
+        {/* KPI tiles */}
+        <div className="pad-kpis">
+          <div className="pad-kpi">
+            <div className="pad-kpi-label">{t(lang, "orders.kpi.activeTotal") || "Gesamt aktiv"}</div>
+            <div className="pad-kpi-value">{kpiActiveCount}</div>
+            <div className="pad-kpi-trend">
+              {(t(lang, "orders.kpi.totalSuffix") || "von {{total}} insgesamt").replace("{{total}}", String(allOrders.length))}
+            </div>
+          </div>
+          <div className="pad-kpi is-gold">
+            <div className="pad-kpi-label">{t(lang, "orders.kpi.openRevenue") || "Umsatz offen"}</div>
+            <div className="pad-kpi-value is-gold">{formattedRevenue}</div>
+            <div className="pad-kpi-trend">{t(lang, "orders.kpi.unbilled") || "noch nicht abgerechnet"}</div>
+          </div>
+          <div className="pad-kpi">
+            <div className="pad-kpi-label">{t(lang, "orders.kpi.today") || "Heute"}</div>
+            <div className="pad-kpi-value">{kpiTodayCount}</div>
+            <div className={"pad-kpi-trend" + (kpiUnassignedCount > 0 ? " is-warn" : "")}>
+              {kpiUnassignedCount > 0
+                ? `${kpiUnassignedCount} ${t(lang, "orders.kpi.unassignedShort") || "ungeplant"}`
+                : (t(lang, "orders.kpi.allAssigned") || "alle zugewiesen")}
+            </div>
+          </div>
+          <div className={"pad-kpi" + (kpiUnassignedCount > 0 ? " is-warn" : "")}>
+            <div className="pad-kpi-label">{t(lang, "orders.kpi.unassigned") || "Ohne Fotograf"}</div>
+            <div className="pad-kpi-value">{kpiUnassignedCount}</div>
+            <div className={"pad-kpi-trend" + (kpiUnassignedCount > 0 ? " is-warn" : " is-up")}>
+              {kpiUnassignedCount > 0
+                ? (t(lang, "orders.kpi.assignNow") || "Aufträge benötigen Zuweisung")
+                : (t(lang, "orders.kpi.allAssigned") || "alle zugewiesen")}
+            </div>
+          </div>
+        </div>
+      </header>
 
       {/* Filter bar */}
       <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-4">

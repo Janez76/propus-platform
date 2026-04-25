@@ -4,6 +4,7 @@
 @import "./styles/selekto/propus-admin.css";
 @import "./styles/selekto/gallery-admin-supplement.css";
 @import "./styles/reviews-redesign.css";
+@import "./styles/admin-redesign.css";
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ─── Tailwind v4 Theme Tokens ───────────────────────────────────────────────
