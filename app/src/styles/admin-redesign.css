@@ -576,7 +576,14 @@
    the new visual language without restructuring its rich
    functionality (KPI row, pipeline, upcoming, funnel, heatmap,
    tweaks modal). Only colour/typography tokens are remapped —
-   layout, density and customisable sections stay untouched. */
+   layout, density and customisable sections stay untouched.
+
+   We remap BOTH the `--d-*` aliases used by most dv2 components
+   AND the underlying `--propus-*` vars consumed directly by some
+   sub-elements (e.g. .dv2-skeleton-card uses --propus-bg-card and
+   --propus-border without going through --d-*). Otherwise the
+   loading skeleton would keep legacy colours while the success
+   state switches to Paper+Gold — visible palette flicker. */
 .padmin-shell.dv2 {
   --d-bg:          var(--paper);
   --d-card:        var(--pad-card);
@@ -589,7 +596,30 @@
   --d-text:        var(--ink);
   --d-text-dim:    var(--ink-2);
   --d-text-muted:  var(--ink-3);
+
+  /* Underlying propus-* vars used directly by skeleton/error etc.
+     These overrides are scoped to .padmin-shell.dv2 so the rest of
+     the app's propus theme is unaffected. */
+  --propus-bg-page:        var(--paper);
+  --propus-bg-card:        var(--pad-card);
+  --propus-bg-strip:       var(--paper-strip);
+  --propus-border:         var(--pad-border);
+  --propus-gold:           var(--gold-600);
+  --propus-gold-dark:      var(--gold-700);
+  --propus-text-primary:   var(--ink);
+  --propus-text-secondary: var(--ink-2);
+  --propus-text-muted:     var(--ink-3);
+
   background: var(--paper);
+}
+
+/* Explicit restyle for the loading skeleton so it uses the same
+   token set even if a future change re-introduces a hardcoded
+   colour. Keeps the pulse animation untouched. */
+.padmin-shell.dv2.dv2-skeleton .dv2-skeleton-card,
+.padmin-shell.dv2 .dv2-skeleton-card {
+  background: var(--paper-strip);
+  border-color: var(--pad-border);
 }
 /* Make the dashboard greeting feel like the new pad-h1 */
 .padmin-shell.dv2 .dv2-eyebrow {
