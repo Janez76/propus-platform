@@ -953,3 +953,262 @@
   background: color-mix(in srgb, var(--d-danger) 15%, var(--d-card));
 }
 .dv2-dash-alert-label { white-space: nowrap; }
+
+/* ─── Inbox row (Tickets + Mails) — Phase B ──────────────────────────────── */
+.dv2-grid-inbox {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.dv2-grid-inbox--single { grid-template-columns: 1fr; }
+
+.dv2-card .dv2-card-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.dv2-card .dv2-card-title svg { color: var(--d-gold); }
+.dv2-tickets-count {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11.5px;
+  color: var(--d-text-dim);
+  margin-left: 4px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+.dv2-mails-count {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11.5px;
+  color: var(--d-gold);
+  margin-left: 6px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.dv2-card-link {
+  font-size: 12px;
+  color: var(--d-gold);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+.dv2-card-link:hover { text-decoration: underline; }
+
+.dv2-card-loading,
+.dv2-card-empty,
+.dv2-card-error {
+  font-size: 12px;
+  color: var(--d-text-muted);
+  padding: 12px 0;
+  margin: 0;
+}
+.dv2-card-error { color: var(--d-danger); }
+
+/* Tickets list */
+.dv2-tickets-list,
+.dv2-mails-list {
+  display: flex;
+  flex-direction: column;
+}
+.dv2-ticket-row {
+  display: grid;
+  grid-template-columns: 4px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 4px;
+  border-bottom: 1px solid var(--d-border);
+  cursor: pointer;
+  transition: background 0.14s;
+  text-decoration: none;
+  color: inherit;
+}
+.dv2-ticket-row:last-child { border-bottom: 0; }
+.dv2-ticket-row:hover { background: var(--d-card-hover); }
+
+.dv2-ticket-prio {
+  width: 4px;
+  align-self: stretch;
+  border-radius: 2px;
+  background: var(--d-text-muted);
+}
+.dv2-ticket-prio--high { background: #B53D3D; }
+.dv2-ticket-prio--med  { background: var(--d-gold); }
+.dv2-ticket-prio--low  { background: var(--d-text-muted); }
+
+.dv2-ticket-main { min-width: 0; }
+.dv2-ticket-id {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 10.5px;
+  color: var(--d-text-muted);
+  letter-spacing: 0.06em;
+}
+.dv2-ticket-subject {
+  font-size: 13.5px;
+  color: var(--d-text);
+  font-weight: 500;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dv2-ticket-meta {
+  font-size: 11.5px;
+  color: var(--d-text-dim);
+  margin-top: 3px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.dv2-ticket-meta-dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.5;
+}
+
+.dv2-ticket-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+.dv2-ticket-status {
+  font-size: 10.5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: var(--d-card-hover);
+  color: var(--d-text-dim);
+}
+.dv2-ticket-status--open    { background: #FBEED4; color: #7A4F0E; }
+.dv2-ticket-status--waiting { background: #DFEBF5; color: #1F3F56; }
+.dv2-ticket-status--done    { background: #E6F2E3; color: #1B521B; }
+.dv2-ticket-status--rejected{ background: #F8E0DB; color: #76210F; }
+
+.dv2-ticket-assignee {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--d-gold);
+  color: #141413;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+.dv2-ticket-assignee.is-unassigned {
+  background: transparent;
+  border: 1px dashed var(--d-border);
+  color: var(--d-text-muted);
+}
+
+/* Mails list */
+.dv2-mail-row {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  gap: 12px;
+  padding: 12px 4px;
+  border-bottom: 1px solid var(--d-border);
+  cursor: pointer;
+  transition: background 0.14s;
+  align-items: flex-start;
+  text-decoration: none;
+  color: inherit;
+}
+.dv2-mail-row:last-child { border-bottom: 0; }
+.dv2-mail-row:hover { background: var(--d-card-hover); }
+.dv2-mail-row.is-unread {
+  background: color-mix(in srgb, var(--d-gold) 4%, transparent);
+}
+.dv2-mail-row.is-unread .dv2-mail-from { font-weight: 700; color: var(--d-text); }
+.dv2-mail-row.is-unread .dv2-mail-subject { color: var(--d-text); font-weight: 600; }
+
+.dv2-mail-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--d-card-hover);
+  border: 1px solid var(--d-border);
+  display: grid;
+  place-items: center;
+  font-size: 10.5px;
+  font-weight: 700;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  color: var(--d-text-dim);
+  margin-top: 2px;
+}
+.dv2-mail-main { min-width: 0; }
+.dv2-mail-from {
+  font-size: 12.5px;
+  color: var(--d-text-dim);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dv2-mail-from-meta {
+  font-size: 11px;
+  color: var(--d-text-muted);
+  font-weight: 400;
+}
+.dv2-mail-subject {
+  font-size: 13px;
+  color: var(--d-text);
+  font-weight: 500;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dv2-mail-preview {
+  font-size: 12px;
+  color: var(--d-text-muted);
+  margin-top: 3px;
+  line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  -webkit-box-orient: vertical;
+}
+.dv2-mail-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  min-width: 60px;
+}
+.dv2-mail-time {
+  font-size: 10.5px;
+  color: var(--d-text-muted);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  letter-spacing: 0.04em;
+}
+.dv2-mail-flags {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+.dv2-mail-flags svg {
+  color: var(--d-text-muted);
+}
+.dv2-mail-unread-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--d-gold);
+}
+
+@media (max-width: 980px) {
+  .dv2-grid-inbox { grid-template-columns: 1fr; }
+}
