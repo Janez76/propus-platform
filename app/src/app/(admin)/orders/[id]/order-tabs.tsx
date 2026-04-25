@@ -50,9 +50,14 @@ export function OrderTabs({ orderId }: { orderId: string }) {
   const pathname = usePathname();
   const shell = useOrderEditShellOptional();
   const clearShell = () => shell?.clearClientSection();
+  const confirmLeave = () => {
+    if (!shell?.hasAnyDirty()) return true;
+    return window.confirm("Ungespeicherte Änderungen wirklich verwerfen und wechseln?");
+  };
   const setShell = (s: OrderShellClientSection) => {
     if (!shell) return;
     if (s === "verlauf" || s === "verknuepfungen" || s === null) {
+      if (!confirmLeave()) return;
       shell.setClientSection(s);
     }
   };
@@ -86,7 +91,13 @@ export function OrderTabs({ orderId }: { orderId: string }) {
               </button>
               <Link
                 href={tab.hrefFallback}
-                onClick={clearShell}
+                onClick={(e) => {
+                  if (!confirmLeave()) {
+                    e.preventDefault();
+                    return;
+                  }
+                  clearShell();
+                }}
                 className="self-center pl-0.5 pr-1 text-[10px] text-white/25 hover:text-white/50"
                 title="In neuer/klassischer Subroute öffnen"
                 prefetch={false}
@@ -102,7 +113,13 @@ export function OrderTabs({ orderId }: { orderId: string }) {
           <Link
             key={tab.href}
             href={tab.href}
-            onClick={clearShell}
+            onClick={(e) => {
+              if (!confirmLeave()) {
+                e.preventDefault();
+                return;
+              }
+              clearShell();
+            }}
             className={`
               flex items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm transition-colors
               ${isActive

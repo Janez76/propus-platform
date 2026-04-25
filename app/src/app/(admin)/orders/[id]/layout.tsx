@@ -68,8 +68,8 @@ export default async function OrderLayout({ children, params }: Props) {
     <div className="min-h-screen bg-[#0c0d10] text-white">
       <header className="sticky top-0 z-20 border-b border-white/10 bg-[#0c0d10]/95 backdrop-blur">
         <div className="mx-auto max-w-6xl px-6">
-          <div className="flex items-center justify-between py-4">
-            <div className="flex items-center gap-4">
+          <div className="flex items-center justify-between gap-4 py-4">
+            <div className="min-w-0 flex-1 flex items-center gap-4">
               <Link
                 href="/orders"
                 className="flex items-center gap-2 text-sm text-white/60 hover:text-white transition-colors"
@@ -89,9 +89,11 @@ export default async function OrderLayout({ children, params }: Props) {
               </Suspense>
             </div>
 
-            <Suspense fallback={null}>
-              <OrderEditActions orderNo={order.order_no} />
-            </Suspense>
+            <div className="relative z-30 shrink-0">
+              <Suspense fallback={null}>
+                <OrderEditActions orderNo={order.order_no} />
+              </Suspense>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3 pb-4 md:grid-cols-4">

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { useOrderEditShellOptional } from "../order-edit-shell-context";
 import { useFieldArray, useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -63,7 +64,8 @@ function defaults(p: Props["order"]): ObjektFormValues {
 export function ObjektForm({ order }: Props) {
   const kp = order.key_pickup;
   const [err, setErr] = useState("");
-  const [pen, start] = useTransition();
+  const [saving, setSaving] = useState(false);
+  const pathname = usePathname() || `/orders/${order.order_no}/objekt`;
   const form = useForm<ObjektFormValues>({
     resolver: zodResolver(objektFormSchema) as import("react-hook-form").Resolver<ObjektFormValues>,
     defaultValues: defaults(order),
@@ -73,19 +75,44 @@ export function ObjektForm({ order }: Props) {
   useEffect(() => {
     shell?.markDirty("objekt", isDirty);
   }, [isDirty, shell]);
+  useEffect(() => {
+    if (!isDirty) return;
+    shell?.setSectionSnapshot("objekt", form.getValues());
+    const subscription = form.watch(() => {
+      shell?.setSectionSnapshot("objekt", form.getValues());
+    });
+    return () => subscription.unsubscribe();
+  }, [form, isDirty, shell]);
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "onsiteContacts" });
 
   const onSubmit = useCallback(
     (v: ObjektFormValues) => {
+      shell?.setSectionSnapshot("objekt", v);
       setErr("");
-      start(async () => {
-        const r = await saveOrderObjekt(v);
-        if (r && "ok" in r && r.ok === false) {
-          setErr(r.error);
+      setSaving(true);
+      void (async () => {
+        try {
+          const r = await saveOrderObjekt(v, { skipRedirect: true });
+          if (r && "ok" in r && r.ok === false) {
+            setErr(r.error);
+            return;
+          }
+          shell?.clearDirty("objekt");
+          const p = new URLSearchParams(window.location.search);
+          p.set("saved", "1");
+          p.delete("edit");
+          p.delete("error");
+          const q = p.toString();
+          shell?.allowNextPageUnload();
+          window.location.assign(q ? `${pathname.split("?")[0]}?${q}` : pathname.split("?")[0]);
+        } catch (e) {
+          setErr(e instanceof Error ? e.message : "Speichern fehlgeschlagen");
+        } finally {
+          setSaving(false);
         }
-      });
+      })();
     },
-    [],
+    [pathname, shell],
   );
 
   return (
@@ -215,7 +242,7 @@ export function ObjektForm({ order }: Props) {
           </Section>
         )}
 
-        {pen && <p className="text-xs text-white/40">Wird gespeichert…</p>}
+        {saving && <p className="text-xs text-white/40">Wird gespeichert…</p>}
       </form>
     </FormProvider>
   );

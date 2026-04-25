@@ -39,6 +39,7 @@ export default async function TerminPage({ params, searchParams }: Props) {
   ]);
 
   if (!ctx) notFound();
+  const scheduleDateFallback = new Date().toISOString().slice(0, 10);
   const order = {
     order_no: ctx.order_no,
     status: ctx.status,
@@ -66,6 +67,7 @@ export default async function TerminPage({ params, searchParams }: Props) {
             duration_min: order.duration_min,
             photographer_key: order.photographer_key,
           }}
+          scheduleDateFallback={scheduleDateFallback}
           photographers={photographers}
         />
         <div className="mt-6 space-y-2">

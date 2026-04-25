@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
 import { useOrderEditShellOptional } from "../order-edit-shell-context";
 import { useFieldArray, useForm, FormProvider, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -91,7 +92,8 @@ function PriceSidebar({ form, discountChf }: { form: ReturnType<typeof useForm<L
 export function LeistungenForm({ order }: Props) {
   const catalog = getAddonCatalog();
   const [err, setErr] = useState("");
-  const [pen, start] = useTransition();
+  const [saving, setSaving] = useState(false);
+  const pathname = usePathname() || `/orders/${order.order_no}/leistungen`;
   const form = useForm<LeistungenFormValues>({
     resolver: zodResolver(leistungenFormSchema) as import("react-hook-form").Resolver<LeistungenFormValues>,
     defaultValues: { ...defaults(order) },
@@ -101,20 +103,45 @@ export function LeistungenForm({ order }: Props) {
   useEffect(() => {
     shell?.markDirty("leistungen", isDirty);
   }, [isDirty, shell]);
+  useEffect(() => {
+    if (!isDirty) return;
+    shell?.setSectionSnapshot("leistungen", form.getValues());
+    const subscription = form.watch(() => {
+      shell?.setSectionSnapshot("leistungen", form.getValues());
+    });
+    return () => subscription.unsubscribe();
+  }, [form, isDirty, shell]);
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "addons" });
   const [addSelect, setAddSelect] = useState(catalog[0]?.id ?? "");
 
   const onSubmit = useCallback(
     (v: LeistungenFormValues) => {
+      shell?.setSectionSnapshot("leistungen", v);
       setErr("");
-      start(async () => {
-        const r = await saveLeistungen(v);
-        if (r && "ok" in r && r.ok === false) {
-          setErr(r.error);
+      setSaving(true);
+      void (async () => {
+        try {
+          const r = await saveLeistungen(v, { skipRedirect: true });
+          if (r && "ok" in r && r.ok === false) {
+            setErr(r.error);
+            return;
+          }
+          shell?.clearDirty("leistungen");
+          const p = new URLSearchParams(window.location.search);
+          p.set("saved", "1");
+          p.delete("edit");
+          p.delete("error");
+          const q = p.toString();
+          shell?.allowNextPageUnload();
+          window.location.assign(q ? `${pathname.split("?")[0]}?${q}` : pathname.split("?")[0]);
+        } catch (e) {
+          setErr(e instanceof Error ? e.message : "Speichern fehlgeschlagen");
+        } finally {
+          setSaving(false);
         }
-      });
+      })();
     },
-    [],
+    [pathname, shell],
   );
 
   return (
@@ -220,7 +247,7 @@ export function LeistungenForm({ order }: Props) {
         <Section title="Preisübersicht (live)" icon={<Receipt className="h-4 w-4" />}>
           <PriceSidebar form={form} discountChf={order.discount_chf} />
         </Section>
-        {pen && <p className="text-xs text-white/40">Wird gespeichert…</p>}
+        {saving && <p className="text-xs text-white/40">Wird gespeichert…</p>}
       </form>
     </FormProvider>
   );

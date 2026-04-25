@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Building2, MapPin, User2 } from "lucide-react";
 import { useOrderEditShellOptional } from "./order-edit-shell-context";
 
@@ -29,10 +29,19 @@ type Props = {
 export function UebersichtForm({ order, isEditing, action }: Props) {
   const [bookingType, setBookingType] = useState<"firma" | "privat">(order.booking_type);
   const shell = useOrderEditShellOptional();
+  const formRef = useRef<HTMLFormElement>(null);
+
+  const captureSnapshot = useCallback(() => {
+    if (!isEditing || !formRef.current || !shell) return;
+    shell.setSectionSnapshot("uebersicht", new FormData(formRef.current));
+  }, [isEditing, shell]);
 
   const markTouched = useCallback(() => {
-    if (isEditing) shell?.markDirty("uebersicht", true);
-  }, [isEditing, shell]);
+    if (isEditing) {
+      shell?.markDirty("uebersicht", true);
+      captureSnapshot();
+    }
+  }, [isEditing, shell, captureSnapshot]);
 
   useEffect(() => {
     if (isEditing) {
@@ -40,8 +49,15 @@ export function UebersichtForm({ order, isEditing, action }: Props) {
     }
   }, [isEditing, order.order_no, shell]);
 
+  useEffect(() => {
+    if (isEditing) {
+      captureSnapshot();
+    }
+  }, [bookingType, isEditing, captureSnapshot]);
+
   return (
     <form
+      ref={formRef}
       id="order-form"
       action={action}
       className="space-y-6"

@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { useOrderEditShellOptional } from "../order-edit-shell-context";
 import { useForm, FormProvider, useFormContext } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -41,12 +42,14 @@ type Props = {
     duration_min: number | null;
     photographer_key: string | null;
   };
+  /** Einmal pro Request von der Server-Page gesetzt, damit SSR und Hydration dasselbe Default-Datum nutzen. */
+  scheduleDateFallback: string;
   photographers: PhotographerOption[];
 };
 
-function buildDefaults(p: Props["order"]): TerminFormValues {
+function buildDefaults(p: Props["order"], scheduleDateFallback: string): TerminFormValues {
   const t = p.schedule_time ? String(p.schedule_time).slice(0, 5) : "10:00";
-  const d = p.schedule_date || new Date().toISOString().slice(0, 10);
+  const d = p.schedule_date || scheduleDateFallback;
   return {
     orderNo: p.order_no,
     scheduleDate: d,
@@ -65,8 +68,9 @@ function buildDefaults(p: Props["order"]): TerminFormValues {
   };
 }
 
-export function TerminForm({ order, photographers }: Props) {
-  const defaults = buildDefaults(order);
+export function TerminForm({ order, scheduleDateFallback, photographers }: Props) {
+  const defaults = buildDefaults(order, scheduleDateFallback);
+  const pathname = usePathname() || `/orders/${order.order_no}/termin`;
   const form = useForm<TerminFormValues>({
     resolver: zodResolver(terminFormSchema) as import("react-hook-form").Resolver<TerminFormValues>,
     defaultValues: defaults,
@@ -76,7 +80,24 @@ export function TerminForm({ order, photographers }: Props) {
   useEffect(() => {
     shell?.markDirty("termin", isDirty);
   }, [isDirty, shell]);
-  const [pending, start] = useTransition();
+  useEffect(() => {
+    if (!isDirty) return;
+    const buildSnapshot = (v: TerminFormValues) => ({
+      ...v,
+      sendEmailTargets: v.sendEmailTargets ?? {
+        customer: true,
+        office: true,
+        photographer: true,
+        cc: true,
+      },
+    });
+    shell?.setSectionSnapshot("termin", buildSnapshot(form.getValues()));
+    const subscription = form.watch(() => {
+      shell?.setSectionSnapshot("termin", buildSnapshot(form.getValues()));
+    });
+    return () => subscription.unsubscribe();
+  }, [form, isDirty, shell]);
+  const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
 
   const onSubmit = useCallback(
@@ -84,27 +105,47 @@ export function TerminForm({ order, photographers }: Props) {
       if (v.status === "cancelled" && !window.confirm("Bestellung wirklich stornieren?")) {
         return;
       }
-      setFormError("");
-      start(async () => {
-        const r: SaveTerminResult = await saveOrderTermin({
-          ...v,
-          sendEmailTargets: v.sendEmailTargets ?? {
-            customer: true,
-            office: true,
-            photographer: true,
-            cc: true,
-          },
-        });
-        if (r && "ok" in r && r.ok === false) {
-          setFormError(
-            "conflicts" in r && r.conflicts?.length
-              ? `${r.error} (Konflikt mit #${r.conflicts.map((c) => c.orderNo).join(", #")})`
-              : r.error,
-          );
-        }
+      const payload = {
+        ...v,
+        sendEmailTargets: v.sendEmailTargets ?? {
+          customer: true,
+          office: true,
+          photographer: true,
+          cc: true,
+        },
+      };
+      shell?.setSectionSnapshot("termin", {
+        ...payload,
       });
+      setFormError("");
+      setSaving(true);
+      void (async () => {
+        try {
+          const r: SaveTerminResult = await saveOrderTermin(payload, { skipRedirect: true });
+          if (r && "ok" in r && r.ok === false) {
+            setFormError(
+              "conflicts" in r && r.conflicts?.length
+                ? `${r.error} (Konflikt mit #${r.conflicts.map((c) => c.orderNo).join(", #")})`
+                : r.error,
+            );
+            return;
+          }
+          shell?.clearDirty("termin");
+          const p = new URLSearchParams(window.location.search);
+          p.set("saved", "1");
+          p.delete("edit");
+          p.delete("error");
+          const q = p.toString();
+          shell?.allowNextPageUnload();
+          window.location.assign(q ? `${pathname.split("?")[0]}?${q}` : pathname.split("?")[0]);
+        } catch (e) {
+          setFormError(e instanceof Error ? e.message : "Speichern fehlgeschlagen");
+        } finally {
+          setSaving(false);
+        }
+      })();
     },
-    [],
+    [pathname, shell],
   );
 
   return (
@@ -201,7 +242,7 @@ export function TerminForm({ order, photographers }: Props) {
 
         <EmailSection />
         <p className="text-xs text-white/40">
-          {pending && "Wird gespeichert…"}
+          {saving && "Wird gespeichert…"}
         </p>
       </form>
     </FormProvider>

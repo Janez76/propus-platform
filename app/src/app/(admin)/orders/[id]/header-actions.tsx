@@ -2,9 +2,12 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Pencil, Lock } from "lucide-react";
+import { Pencil, Lock, Loader2 } from "lucide-react";
+import { useState, useTransition, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { useOrderEditShellOptional } from "./order-edit-shell-context";
+import { useOrderEditShellOptional, type OrderDirtyKey } from "./order-edit-shell-context";
+import { saveOrderAllSections } from "./order-bulk-actions";
+import type { BulkStep } from "./order-bulk-types";
 
 function tabPathSupportsEdit(pathname: string | null): boolean {
   if (!pathname) return true;
@@ -23,6 +26,28 @@ function basePath(pathname: string, orderNo: string | number): string {
   }
   return p;
 }
+
+const SECTION_LABEL: Record<"uebersicht" | "objekt" | "leistungen" | "termin", string> = {
+  uebersicht: "Übersicht",
+  objekt: "Objekt",
+  leistungen: "Leistungen",
+  termin: "Termin & Status",
+};
+
+const STEP_TO_KEY: Record<BulkStep, OrderDirtyKey> = {
+  overview: "uebersicht",
+  objekt: "objekt",
+  leistungen: "leistungen",
+  termin: "termin",
+};
+
+const STEP_LABEL: Record<BulkStep | "exception", string> = {
+  overview: "Übersicht",
+  objekt: "Objekt",
+  leistungen: "Leistungen",
+  termin: "Termin & Status",
+  exception: "Speichern",
+};
 
 export function OrderReadOnlyBadge() {
   const searchParams = useSearchParams();
@@ -53,12 +78,61 @@ type ActionProps = {
 
 export function OrderEditActions({ orderNo }: ActionProps) {
   const searchParams = useSearchParams();
-  const pathname = usePathname();
+  const pathname = usePathname() || "";
   const shell = useOrderEditShellOptional();
   const isEditing = searchParams.get("edit") === "1";
   const no = String(orderNo);
-  const tabBase = basePath(pathname || "", orderNo);
+  const tabBase = basePath(pathname, orderNo);
   const supportsEdit = tabPathSupportsEdit(pathname) && !shell?.clientSection;
+
+  const [bulkError, setBulkError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+
+  const useFormSubmit =
+    !shell || !shell.hasAnyDirty() || shell.canSubmitSingleForm(pathname);
+
+  const onBulkSave = useCallback(() => {
+    if (!shell) return;
+    setBulkError(null);
+    start(async () => {
+      const { complete, missing } = shell.getBulkReadiness();
+      if (!complete) {
+        const labels = missing.map((k) => SECTION_LABEL[k] ?? k).join(", ");
+        setBulkError(
+          `Für Sammel-Speichern fehlen Eingaben. Bitte kurz jeden offenen Tab besuchen: ${labels}.`,
+        );
+        return;
+      }
+      const input = shell.buildBulkSaveInput();
+      const hasWork =
+        !!input.overviewFormData ||
+        input.objekt !== undefined ||
+        input.leistungen !== undefined ||
+        input.termin !== undefined;
+      if (!hasWork) {
+        setBulkError("Keine Sektionen zum Speichern.");
+        return;
+      }
+      const attemptedCount = shell.countDirty();
+      const r = await saveOrderAllSections(input);
+      r.successfulSteps.forEach((step) => shell.clearDirty(STEP_TO_KEY[step]));
+      if (!r.ok) {
+        const total = Math.max(attemptedCount, r.successfulSteps.length);
+        setBulkError(
+          `${r.successfulSteps.length} von ${total} Sektionen gespeichert. Fehler bei ${STEP_LABEL[r.step]}: ${r.error}`,
+        );
+        return;
+      }
+      shell.clearAllDirty();
+      const p = new URLSearchParams(searchParams.toString());
+      p.set("saved", "1");
+      p.delete("edit");
+      p.delete("error");
+      const q = p.toString();
+      shell.allowNextPageUnload();
+      window.location.assign(q ? `${pathname.split("?")[0]}?${q}` : `${pathname.split("?")[0]}`);
+    });
+  }, [shell, pathname, searchParams]);
 
   if (!supportsEdit) {
     return null;
@@ -66,20 +140,40 @@ export function OrderEditActions({ orderNo }: ActionProps) {
 
   if (isEditing) {
     return (
-      <div className="flex items-center gap-2">
-        <Button asChild variant="ghost" size="sm">
-          <Link href={tabBase} scroll={false}>
-            Abbrechen
-          </Link>
-        </Button>
-        <Button
-          type="submit"
-          form="order-form"
-          size="sm"
-          className="bg-[#B68E20] text-black hover:bg-[#d4a82c]"
-        >
-          Speichern
-        </Button>
+      <div className="flex max-w-md flex-col items-end gap-1.5 sm:max-w-none sm:flex-row sm:items-center">
+        {bulkError && (
+          <p className="text-right text-xs text-rose-300 sm:mr-2" role="alert">
+            {bulkError}
+          </p>
+        )}
+        <div className="flex items-center gap-2">
+          <Button asChild variant="ghost" size="sm">
+            <Link href={tabBase} scroll={false}>
+              Abbrechen
+            </Link>
+          </Button>
+          {useFormSubmit ? (
+            <Button
+              type="submit"
+              form="order-form"
+              size="sm"
+              className="bg-[#B68E20] text-black hover:bg-[#d4a82c]"
+            >
+              Speichern
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              disabled={pending}
+              onClick={onBulkSave}
+              className="inline-flex items-center gap-1.5 bg-[#B68E20] text-black hover:bg-[#d4a82c]"
+            >
+              {pending ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> : null}
+              Sammel-Speichern
+            </Button>
+          )}
+        </div>
       </div>
     );
   }
