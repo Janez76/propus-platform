@@ -3,6 +3,10 @@
    Scope: anything inside .bestellung-shell
    ============================================================ */
 
+/* Tokens are declared on the outer page wrapper so both children
+   (.bd-sidebar AND .bestellung-shell) can resolve them — CSS custom
+   properties don't inherit across siblings. */
+.bestellung-page,
 .bestellung-shell {
   --paper:       #F4F1EA;
   --paper-strip: #F7F6F3;
@@ -34,7 +38,9 @@
   --info-bg:     #DFEBF5;
 
   --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+}
 
+.bestellung-shell {
   background: var(--paper);
   color: var(--ink);
 }

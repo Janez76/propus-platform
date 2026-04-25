@@ -16,7 +16,18 @@ import { OrderBulkDirtyHint } from './order-bulk-hint';
 import { OrderTopActions } from './topbar-actions';
 import { isOrderReadOnly } from './_shared';
 import { BestellungSidebar, type SidebarUser } from './bestellung-sidebar';
+import type { Role } from '@/types';
 import './bestellung-detail.css';
+
+const ROLE_LABEL: Record<string, string> = {
+  admin: 'Admin',
+  super_admin: 'Super-Admin',
+  employee: 'Mitarbeiter',
+  tour_manager: 'Tour Manager',
+  photographer: 'Fotograf',
+  customer_admin: 'Kundenadmin',
+  customer_user: 'Kunde',
+};
 
 type StatusMeta = {
   label: string;
@@ -64,7 +75,12 @@ function deriveSidebarUser(name: string | null, role: string): SidebarUser | und
   const initials = parts.length >= 2
     ? (parts[0][0] + parts[parts.length - 1][0])
     : (parts[0]?.slice(0, 2) ?? '');
-  return { initials: initials.toUpperCase(), name, role };
+  return {
+    initials: initials.toUpperCase(),
+    name,
+    role: role as Role,
+    roleLabel: ROLE_LABEL[role] ?? role,
+  };
 }
 
 type Props = {
@@ -90,7 +106,7 @@ export default async function OrderLayout({ children, params }: Props) {
   if (!order) notFound();
 
   const status = STATUS_META[order.status] ?? STATUS_META.pending;
-  const sidebarUser = deriveSidebarUser(session?.userName ?? null, session?.role ?? 'Admin');
+  const sidebarUser = deriveSidebarUser(session?.userName ?? null, session?.role ?? 'admin');
 
   return (
     <OrderEditShellProvider orderNo={order.order_no}>
