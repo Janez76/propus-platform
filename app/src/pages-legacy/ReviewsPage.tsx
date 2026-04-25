@@ -72,6 +72,10 @@ type UnifiedReview = {
   responded: boolean;
   response: string | null;
   orderNo: number | null;
+  /** True when this review has a working public-reply mechanism. Local
+   *  reviews never do (no reply API). Google reviews from the Places
+   *  fallback are read-only — replying is only possible via the GBP API. */
+  replyEligible: boolean;
   internalRow: ReviewRow | null;
   gbpReview: GbpReview | null;
 };
@@ -135,10 +139,15 @@ function normalizeInternal(row: ReviewRow): UnifiedReview | null {
     orderNo: row.order_no,
     internalRow: row,
     gbpReview: null,
+    replyEligible: false,
   };
 }
 
-function normalizeGbp(rv: GbpReview): UnifiedReview {
+function normalizeGbp(rv: GbpReview, gbpSource: "gbp" | "places" | null): UnifiedReview {
+  // Google reviews are reply-eligible only via the Google Business Profile
+  // API. The Places fallback returns read-only data — no reply payload is
+  // ever attached and the team cannot answer those reviews from this UI.
+  const replyEligible = gbpSource === "gbp";
   return {
     key: `gbp-${rv.reviewId || rv.name}`,
     source: "google",
@@ -147,11 +156,15 @@ function normalizeGbp(rv: GbpReview): UnifiedReview {
     customerCo: "Google",
     text: rv.comment || "",
     date: rv.createTime || "",
-    responded: !!rv.reply,
+    // In Places-fallback mode there is no reply mechanism, so treat the
+    // review as already-handled — otherwise every fallback review would
+    // pile up in "Ohne Antwort" and drag the response KPI to 0 %.
+    responded: replyEligible ? !!rv.reply : true,
     response: rv.reply?.comment ?? null,
     orderNo: null,
     internalRow: null,
     gbpReview: rv,
+    replyEligible,
   };
 }
 
@@ -288,13 +301,13 @@ export function ReviewsPage() {
       const u = normalizeInternal(row);
       if (u) list.push(u);
     }
-    for (const rv of gbpReviews) list.push(normalizeGbp(rv));
+    for (const rv of gbpReviews) list.push(normalizeGbp(rv, gbpSource));
     return list.sort((a, b) => {
       const da = a.date ? new Date(a.date).getTime() : 0;
       const db = b.date ? new Date(b.date).getTime() : 0;
       return db - da;
     });
-  }, [internalReviews, gbpReviews]);
+  }, [internalReviews, gbpReviews, gbpSource]);
 
   const counts = useMemo(() => ({
     all: unifiedReviews.length,
@@ -322,21 +335,23 @@ export function ReviewsPage() {
   }, [unifiedReviews, totalReviews]);
 
   // Response rate measures how many reply-eligible reviews we've actually
-  // replied to. Internal reviews don't have a public reply mechanism, so
-  // they are excluded from both the numerator and denominator — otherwise
-  // a flood of local reviews would inflate the percentage.
+  // replied to. Reviews without a working reply mechanism — internal
+  // reviews and Google reviews delivered via the Places fallback — are
+  // excluded from both numerator and denominator. Otherwise a flood of
+  // unanswerable reviews would either inflate (when treated as
+  // already-responded) or deflate (when treated as needing reply) the KPI.
   const responseRate = useMemo(() => {
-    const eligible = unifiedReviews.filter((r) => r.source === "google");
+    const eligible = unifiedReviews.filter((r) => r.replyEligible);
     if (eligible.length === 0) return 0;
     return Math.round(eligible.filter((r) => r.responded).length / eligible.length * 100);
   }, [unifiedReviews]);
 
-  const respondedGoogleCount = useMemo(
-    () => unifiedReviews.filter((r) => r.source === "google" && r.responded).length,
+  const respondedEligibleCount = useMemo(
+    () => unifiedReviews.filter((r) => r.replyEligible && r.responded).length,
     [unifiedReviews],
   );
-  const totalGoogleCount = useMemo(
-    () => unifiedReviews.filter((r) => r.source === "google").length,
+  const totalEligibleCount = useMemo(
+    () => unifiedReviews.filter((r) => r.replyEligible).length,
     [unifiedReviews],
   );
 
@@ -531,9 +546,9 @@ export function ReviewsPage() {
             <div className="bw-kpi-label">{t(lang, "reviews.kpi.responseRate") || "Antwortquote"}</div>
             <div className="bw-kpi-value">{responseRate}%</div>
             <div className="bw-kpi-trend">
-              {totalGoogleCount > 0
-                ? `${respondedGoogleCount}/${totalGoogleCount} ${t(lang, "reviews.kpi.googleResponded") || "Google-Reviews beantwortet"}`
-                : (t(lang, "reviews.kpi.noGoogleReviews") || "Keine Google-Reviews")}
+              {totalEligibleCount > 0
+                ? `${respondedEligibleCount}/${totalEligibleCount} ${t(lang, "reviews.kpi.replyEligibleResponded") || "antwortbare Reviews beantwortet"}`
+                : (t(lang, "reviews.kpi.noEligibleReviews") || "Keine antwortbaren Reviews")}
             </div>
           </div>
         </div>
