@@ -91,6 +91,21 @@ export function OrderEditActions({ orderNo }: ActionProps) {
   const useFormSubmit =
     !shell || !shell.hasAnyDirty() || shell.canSubmitSingleForm(pathname);
 
+  const onCancelEdit = useCallback(() => {
+    if (shell?.hasAnyDirty() && !window.confirm("Ungespeicherte Änderungen verwerfen?")) {
+      return;
+    }
+    shell?.clearAllDirty();
+    shell?.allowNextPageUnload();
+    const p = new URLSearchParams(searchParams.toString());
+    p.delete("edit");
+    p.delete("error");
+    p.delete("saved");
+    const q = p.toString();
+    const pathOnly = tabBase.split("?")[0];
+    window.location.assign(q ? `${pathOnly}?${q}` : pathOnly);
+  }, [shell, searchParams, tabBase]);
+
   const onBulkSave = useCallback(() => {
     if (!shell) return;
     setBulkError(null);
@@ -147,10 +162,8 @@ export function OrderEditActions({ orderNo }: ActionProps) {
           </p>
         )}
         <div className="flex items-center gap-2">
-          <Button asChild variant="ghost" size="sm">
-            <Link href={tabBase} scroll={false}>
-              Abbrechen
-            </Link>
+          <Button type="button" variant="ghost" size="sm" onClick={onCancelEdit}>
+            Abbrechen
           </Button>
           {useFormSubmit ? (
             <Button
