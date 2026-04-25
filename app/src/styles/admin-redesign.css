@@ -599,8 +599,16 @@
 
   /* Underlying propus-* vars used directly by skeleton/error etc.
      These overrides are scoped to .padmin-shell.dv2 so the rest of
-     the app's propus theme is unaffected. */
-  --propus-bg-page:        var(--paper);
+     the app's propus theme is unaffected.
+
+     IMPORTANT: do NOT remap `--propus-bg-page` here. dashboard-v2.css
+     uses it as a *foreground* color on gold backgrounds in
+     `.dv2-btn-primary` (line 279) and `.dv2-heatmap-cell--l4` (line
+     723). The visible page background is already set explicitly via
+     `background: var(--paper)` below, so leaving --propus-bg-page on
+     its theme default keeps text-on-gold contrast correct. We
+     additionally pin those two rules to `--ink` further down for a
+     defensive guarantee. */
   --propus-bg-card:        var(--pad-card);
   --propus-bg-strip:       var(--paper-strip);
   --propus-border:         var(--pad-border);
@@ -620,6 +628,17 @@
 .padmin-shell.dv2 .dv2-skeleton-card {
   background: var(--paper-strip);
   border-color: var(--pad-border);
+}
+
+/* Pin foreground colour on gold backgrounds: dashboard-v2.css uses
+   `var(--propus-bg-page)` as text colour assuming it's the dark
+   page background. On the new Paper palette that yields ~2.7:1
+   contrast on gold (light text on gold). Force `--ink` so the
+   primary CTA label and the high-intensity heatmap cells stay
+   accessible. */
+.padmin-shell.dv2 .dv2-btn-primary,
+.padmin-shell.dv2 .dv2-heatmap-cell--l4 {
+  color: var(--ink);
 }
 /* Make the dashboard greeting feel like the new pad-h1 */
 .padmin-shell.dv2 .dv2-eyebrow {
