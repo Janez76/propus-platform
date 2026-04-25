@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ArrowUpDown, Building2, CheckCircle2, ChevronDown, ChevronUp, Mail, PackageX, Phone, Plus, Search, ShoppingBag, User, UserPlus, Users, X } from "lucide-react";
+import { ArrowUpDown, Building2, ChevronDown, ChevronUp, Mail, Phone, Plus, Search, User, UserPlus, X } from "lucide-react";
 import { createContact, createCustomer, createCustomerContact, deleteCustomer, getContacts, getCustomers, getCustomerImpersonateUrl, getDuplicateCandidates, patchCustomerNasFolderBases, dismissDuplicateCandidate, updateContact, updateCustomer, updateCustomerAdmin, updateCustomerBlocked, type Contact, type Customer, type DuplicateCandidateRow } from "../api/customers";
 import { CustomerList, type CustomerSortKey } from "../components/customers/CustomerList";
 import { ContactModal } from "../components/customers/ContactModal";
@@ -592,47 +592,32 @@ export function CustomersPage() {
             </div>
           )}
         </div>
+        {viewMode === "customers" ? (
+          <div className="pad-kpis">
+            <div className="pad-kpi">
+              <div className="pad-kpi-label">{t(lang, "customers.stats.total")}</div>
+              <div className="pad-kpi-value">{customerStats.total}</div>
+            </div>
+            <div className="pad-kpi">
+              <div className="pad-kpi-label">{t(lang, "customers.stats.active")}</div>
+              <div className="pad-kpi-value">{customerStats.active}</div>
+              <div className="pad-kpi-trend is-up">
+                {t(lang, "customers.stats.activeRate").replace("{{n}}", String(customerStats.rate))}
+              </div>
+            </div>
+            <div className="pad-kpi is-gold">
+              <div className="pad-kpi-label">{t(lang, "customers.stats.ordersTotal")}</div>
+              <div className="pad-kpi-value is-gold">{customerStats.ordersTotal}</div>
+            </div>
+            <div className="pad-kpi">
+              <div className="pad-kpi-label">{t(lang, "customers.stats.zeroOrders")}</div>
+              <div className="pad-kpi-value">{customerStats.zeroOrders}</div>
+              <div className="pad-kpi-trend">{t(lang, "customers.stats.zeroOrdersHint")}</div>
+            </div>
+          </div>
+        ) : null}
       </header>
       <div className="pad-content space-y-6">
-
-      {viewMode === "customers" ? (
-        <div className="cust-stats-row">
-          <div className="cust-stat-card relative">
-            <div className="cust-stat-label">{t(lang, "customers.stats.total")}</div>
-            <div className="cust-stat-value">{customerStats.total}</div>
-            <div className="cust-stat-delta cust-stat-delta--muted">—</div>
-            <div className="cust-stat-icon" aria-hidden>
-              <Users className="h-5 w-5" strokeWidth={1.5} />
-            </div>
-          </div>
-          <div className="cust-stat-card relative">
-            <div className="cust-stat-label">{t(lang, "customers.stats.active")}</div>
-            <div className="cust-stat-value">{customerStats.active}</div>
-            <div className="cust-stat-delta">
-              {t(lang, "customers.stats.activeRate").replace("{{n}}", String(customerStats.rate))}
-            </div>
-            <div className="cust-stat-icon" aria-hidden>
-              <CheckCircle2 className="h-5 w-5" strokeWidth={1.5} />
-            </div>
-          </div>
-          <div className="cust-stat-card relative">
-            <div className="cust-stat-label">{t(lang, "customers.stats.ordersTotal")}</div>
-            <div className="cust-stat-value">{customerStats.ordersTotal}</div>
-            <div className="cust-stat-delta cust-stat-delta--muted">—</div>
-            <div className="cust-stat-icon" aria-hidden>
-              <ShoppingBag className="h-5 w-5" strokeWidth={1.5} />
-            </div>
-          </div>
-          <div className="cust-stat-card relative">
-            <div className="cust-stat-label">{t(lang, "customers.stats.zeroOrders")}</div>
-            <div className="cust-stat-value">{customerStats.zeroOrders}</div>
-            <div className="cust-stat-delta cust-stat-delta--muted">{t(lang, "customers.stats.zeroOrdersHint")}</div>
-            <div className="cust-stat-icon" aria-hidden>
-              <PackageX className="h-5 w-5" strokeWidth={1.5} />
-            </div>
-          </div>
-        </div>
-      ) : null}
 
       {viewMode === "customers" && can("customers.manage") && duplicateCandidates.length > 0 ? (
         <div className="rounded-xl border border-amber-200/60 bg-amber-50/80 p-4 dark:border-amber-900/40 dark:bg-amber-950/20">
