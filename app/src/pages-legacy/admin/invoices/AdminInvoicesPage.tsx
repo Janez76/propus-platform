@@ -30,7 +30,6 @@ import {
   ExxasTable,
   RechnungslaufModal,
   RenewalTable,
-  StatCard,
 } from "./invoice-components";
 
 export function AdminInvoicesPage() {
@@ -372,28 +371,54 @@ export function AdminInvoicesPage() {
           ) : null}
           </div>
         </div>
+
+        <div className="pad-kpis">
+          {tab === "renewal" ? (
+            <>
+              <div className="pad-kpi is-warn">
+                <div className="pad-kpi-label">Offen</div>
+                <div className="pad-kpi-value">{stats.offen ?? "—"}</div>
+              </div>
+              <div className={`pad-kpi${(stats.ueberfaellig ?? 0) > 0 ? " is-warn" : ""}`}>
+                <div className="pad-kpi-label">Überfällig</div>
+                <div className="pad-kpi-value">{stats.ueberfaellig ?? "—"}</div>
+                {(stats.ueberfaellig ?? 0) > 0 && (
+                  <div className="pad-kpi-trend is-danger">Mahnung prüfen</div>
+                )}
+              </div>
+              <div className="pad-kpi is-gold">
+                <div className="pad-kpi-label">Bezahlt</div>
+                <div className="pad-kpi-value is-gold">{stats.bezahlt ?? "—"}</div>
+              </div>
+              <div className="pad-kpi">
+                <div className="pad-kpi-label">Entwurf</div>
+                <div className="pad-kpi-value">{stats.entwurf ?? "—"}</div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="pad-kpi is-warn">
+                <div className="pad-kpi-label">Offen</div>
+                <div className="pad-kpi-value">{stats.offen ?? "—"}</div>
+              </div>
+              <div className="pad-kpi is-gold">
+                <div className="pad-kpi-label">Bezahlt</div>
+                <div className="pad-kpi-value is-gold">{stats.bezahlt ?? "—"}</div>
+              </div>
+              <div className="pad-kpi">
+                <div className="pad-kpi-label">Gesamt</div>
+                <div className="pad-kpi-value">{stats.total ?? "—"}</div>
+              </div>
+              <div className="pad-kpi" style={{ visibility: "hidden" }} aria-hidden>
+                <div className="pad-kpi-label">·</div>
+                <div className="pad-kpi-value">·</div>
+              </div>
+            </>
+          )}
+        </div>
       </header>
 
       <div className="pad-content space-y-6">
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {tab === "renewal" ? (
-          <>
-            <StatCard label="Offen" value={stats.offen ?? "—"} tone="warning" />
-            <StatCard label="Überfällig" value={stats.ueberfaellig ?? "—"} tone="danger" />
-            <StatCard label="Bezahlt" value={stats.bezahlt ?? "—"} tone="success" />
-            <StatCard label="Entwurf" value={stats.entwurf ?? "—"} tone="neutral" />
-          </>
-        ) : (
-          <>
-            <StatCard label="Offen" value={stats.offen ?? "—"} tone="warning" />
-            <StatCard label="Bezahlt" value={stats.bezahlt ?? "—"} tone="success" />
-            <StatCard label="Gesamt" value={stats.total ?? "—"} tone="neutral" />
-            <div />
-          </>
-        )}
-      </div>
 
       {/* Tabs */}
       <div className="flex gap-1 surface-card-strong rounded-xl p-1 w-fit">

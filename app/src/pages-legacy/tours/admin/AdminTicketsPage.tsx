@@ -964,9 +964,46 @@ function InboxTab() {
 
 type TabId = "tickets" | "inbox";
 
+interface TicketKpiCounts {
+  open: number;
+  inProgress: number;
+  unassigned: number;
+  high: number;
+}
+
+function useTicketKpiCounts(enabled: boolean): TicketKpiCounts | null {
+  const [counts, setCounts] = useState<TicketKpiCounts | null>(null);
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+    getTicketsList()
+      .then((res) => {
+        if (cancelled) return;
+        const open = res.tickets.filter((t) => t.status === "open").length;
+        const inProgress = res.tickets.filter((t) => t.status === "in_progress").length;
+        const unassigned = res.tickets.filter(
+          (t) => t.status !== "done" && t.status !== "rejected" && !t.assigned_to,
+        ).length;
+        const high = res.tickets.filter(
+          (t) => t.priority === "high" && t.status !== "done" && t.status !== "rejected",
+        ).length;
+        setCounts({ open, inProgress, unassigned, high });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setCounts({ open: 0, inProgress: 0, unassigned: 0, high: 0 });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled]);
+  return counts;
+}
+
 export function AdminTicketsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = (searchParams.get("tab") as TabId) ?? "tickets";
+  const counts = useTicketKpiCounts(tab === "tickets");
 
   function setTab(t: TabId) {
     setSearchParams((prev) => {
@@ -991,6 +1028,29 @@ export function AdminTicketsPage() {
             <div className="pad-ph-sub">Zentrale Übersicht über alle Module (Touren, Buchung und künftige Kanäle)</div>
           </div>
         </div>
+        {tab === "tickets" && counts ? (
+          <div className="pad-kpis">
+            <div className={`pad-kpi${counts.high > 0 ? " is-warn" : ""}`}>
+              <div className="pad-kpi-label">Offen</div>
+              <div className="pad-kpi-value">{counts.open}</div>
+              {counts.high > 0 && (
+                <div className="pad-kpi-trend is-warn">{counts.high} hohe Prio</div>
+              )}
+            </div>
+            <div className="pad-kpi">
+              <div className="pad-kpi-label">In Bearbeitung</div>
+              <div className="pad-kpi-value">{counts.inProgress}</div>
+            </div>
+            <div className={`pad-kpi${counts.unassigned > 0 ? " is-warn" : ""}`}>
+              <div className="pad-kpi-label">Nicht zugewiesen</div>
+              <div className="pad-kpi-value">{counts.unassigned}</div>
+            </div>
+            <div className="pad-kpi is-gold">
+              <div className="pad-kpi-label">Hohe Prio offen</div>
+              <div className="pad-kpi-value is-gold">{counts.high}</div>
+            </div>
+          </div>
+        ) : null}
       </header>
       <div className="pad-content flex flex-col gap-5">
 
