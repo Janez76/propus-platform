@@ -470,7 +470,15 @@ export function ReviewsPage() {
     try {
       await apiRequest("/api/admin/gbp/disconnect", "DELETE", token);
       setGbpStatus((s) => s ? { ...s, connected: false } : s);
+      // Clear ALL GBP aggregates so the blended KPIs (header count,
+      // weighted Ø rating, sidebar Quellen) immediately reflect the
+      // disconnected state. Otherwise stale gbpAvgRating/gbpTotalCount
+      // would keep inflating totalReviews until a full page reload.
       setGbpReviews([]);
+      setGbpAvgRating(null);
+      setGbpTotalCount(null);
+      setGbpSource(null);
+      setPlacesEnvMissing(false);
       setMsg({ type: "ok", text: t(lang, "reviews.gbp.disconnect") + " ✓" });
     } catch (e) {
       setMsg({ type: "err", text: (e as Error).message });
