@@ -9,6 +9,8 @@ const SECTIONS: { id: DashV2SectionId; labelKey: string }[] = [
   { id: "kpi", labelKey: "dashboardV2.tweaks.section.kpi" },
   { id: "pipeline", labelKey: "dashboardV2.tweaks.section.pipeline" },
   { id: "upcoming", labelKey: "dashboardV2.tweaks.section.upcoming" },
+  { id: "tickets", labelKey: "dashboardV2.tweaks.section.tickets" },
+  { id: "mails", labelKey: "dashboardV2.tweaks.section.mails" },
   { id: "funnel", labelKey: "dashboardV2.tweaks.section.funnel" },
   { id: "heatmap", labelKey: "dashboardV2.tweaks.section.heatmap" },
   { id: "perf", labelKey: "dashboardV2.tweaks.section.perf" },

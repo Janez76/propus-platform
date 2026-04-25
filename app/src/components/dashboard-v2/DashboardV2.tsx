@@ -15,6 +15,8 @@ import { DashAlerts } from "./DashAlerts";
 import { HeaderKpis } from "./HeaderKpis";
 import { PipelineBoardV2 } from "./PipelineBoardV2";
 import { UpcomingV2 } from "./UpcomingV2";
+import { TicketsCard } from "./TicketsCard";
+import { MailsCard } from "./MailsCard";
 import { BookingFunnelV2 } from "./BookingFunnelV2";
 import { HeatmapV2 } from "./HeatmapV2";
 import { PerformanceV2 } from "./PerformanceV2";
@@ -73,10 +75,13 @@ export function DashboardV2() {
   const showKpi = isSec("kpi") && showDas && (showOrders || showFin);
   const showPipeline = isSec("pipeline") && showOrders;
   const showUpcoming = isSec("upcoming") && showOrders;
+  const showTickets = isSec("tickets") && can("tickets.read");
+  const showMails = isSec("mails") && showDas;
   const showFunnel = isSec("funnel") && showOrders;
   const showHeat = isSec("heatmap") && (showCal || showOrders) && showDas;
   const showPerf = isSec("perf") && showOrders;
   const mainSingleCol = (showPipeline && !showUpcoming) || (!showPipeline && showUpcoming);
+  const inboxSingleCol = (showTickets && !showMails) || (!showTickets && showMails);
   const nBottom = [showFunnel, showHeat, showPerf].filter(Boolean).length;
 
   const wallNow = useNow();
@@ -203,6 +208,13 @@ export function DashboardV2() {
         <div className={`dv2-grid-main${mainSingleCol ? " dv2-grid-main--single" : ""}`}>
           {showPipeline ? <PipelineBoardV2 metrics={metrics} lang={lang} /> : null}
           {showUpcoming ? <UpcomingV2 metrics={metrics} lang={lang} /> : null}
+        </div>
+      ) : null}
+
+      {showTickets || showMails ? (
+        <div className={`dv2-grid-inbox${inboxSingleCol ? " dv2-grid-inbox--single" : ""}`}>
+          {showTickets ? <TicketsCard lang={lang} /> : null}
+          {showMails ? <MailsCard lang={lang} /> : null}
         </div>
       ) : null}
 
