@@ -16,7 +16,7 @@ export function FolderArchiveButton({ id, orderNo }: { id: number; orderNo: numb
           await archiveOrderFolderLink({ id, orderNo });
         });
       }}
-      className="flex items-center gap-1 rounded border border-white/10 px-2 py-1 text-xs text-white/60 hover:bg-white/5 disabled:opacity-50"
+      className="flex items-center gap-1 rounded border border-[var(--border)] px-2 py-1 text-xs text-[var(--ink-3)] bg-white hover:border-[var(--ink)] hover:text-[var(--ink)] disabled:opacity-50"
       title="Archivieren"
     >
       <Archive className="h-3 w-3" />

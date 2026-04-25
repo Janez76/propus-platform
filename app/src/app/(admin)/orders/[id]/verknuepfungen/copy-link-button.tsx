@@ -22,7 +22,7 @@ export function CopyLinkButton({ label = "Link kopieren", url, className }: Prop
           // ignore
         }
       }}
-      className={className ?? "rounded border border-white/20 px-2 py-1 text-xs text-white/80 hover:bg-white/10"}
+      className={className ?? "rounded-md border border-[var(--border)] bg-white px-2.5 py-1.5 text-xs font-semibold text-[var(--ink-2)] hover:border-[var(--gold-400)] hover:text-[var(--ink)]"}
     >
       {done ? "Kopiert" : label}
     </button>

@@ -65,14 +65,14 @@ export default async function LeistungenPage({ params, searchParams }: Props) {
     <div className="space-y-6">
       <Section title="Paket" icon={<Tag className="h-4 w-4" />}>
         {order.package_label ? (
-          <div className="flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.02] px-4 py-3">
+          <div className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--paper-strip)] px-4 py-3">
             <div>
-              <p className="text-sm font-medium">{order.package_label}</p>
+              <p className="text-sm font-medium text-[var(--ink)]">{order.package_label}</p>
               {order.package_key && (
-                <p className="mt-0.5 text-xs text-white/40">{order.package_key}</p>
+                <p className="mt-0.5 text-xs text-[var(--ink-3)] font-mono">{order.package_key}</p>
               )}
             </div>
-            <p className="text-sm font-semibold tabular-nums">{formatCHF(order.package_price)}</p>
+            <p className="text-sm font-semibold tabular-nums text-[var(--ink)] font-mono">{formatCHF(order.package_price)}</p>
           </div>
         ) : (
           <Empty>Kein Paket hinterlegt</Empty>
@@ -83,20 +83,20 @@ export default async function LeistungenPage({ params, searchParams }: Props) {
         {addons.length > 0 ? (
           <div className="space-y-2">
             {addons.map((a, i) => (
-              <div key={i} className="flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.02] px-4 py-3">
+              <div key={i} className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--paper-strip)] px-4 py-3">
                 <div className="flex items-center gap-3">
                   {a.qty && a.qty > 1 && (
-                    <span className="rounded bg-white/10 px-1.5 py-0.5 text-xs font-medium tabular-nums">
+                    <span className="rounded bg-[var(--gold-50)] border border-[var(--gold-200)] px-1.5 py-0.5 text-xs font-semibold text-[var(--gold-700)] tabular-nums font-mono">
                       ×{a.qty}
                     </span>
                   )}
                   <div>
-                    <p className="text-sm">{a.label}</p>
-                    {a.group && <p className="mt-0.5 text-xs text-white/40">{a.group}</p>}
+                    <p className="text-sm text-[var(--ink)]">{a.label}</p>
+                    {a.group && <p className="mt-0.5 text-xs text-[var(--ink-3)]">{a.group}</p>}
                   </div>
                 </div>
                 {a.price != null && (
-                  <p className="text-sm tabular-nums">{formatCHF(a.price * (a.qty ?? 1))}</p>
+                  <p className="text-sm tabular-nums font-mono text-[var(--ink)]">{formatCHF(a.price * (a.qty ?? 1))}</p>
                 )}
               </div>
             ))}
@@ -119,17 +119,16 @@ export default async function LeistungenPage({ params, searchParams }: Props) {
               <PriceLine label="Zwischensumme" value={formatCHF(subtotal)} />
             )}
             {discount > 0 && (
-              <PriceLine label="Rabatt" value={`−${formatCHF(discount)}`} className="text-emerald-400" />
+              <PriceLine label="Rabatt" value={`−${formatCHF(discount)}`} className="text-[var(--success)]" />
             )}
             {order.pricing_vat && (
               <PriceLine label="MwSt." value={formatCHF(order.pricing_vat)} />
             )}
-            <div className="mt-3 border-t border-white/10 pt-3">
-              <PriceLine
-                label="Total"
-                value={formatCHF(total)}
-                className="text-base font-semibold text-white"
-              />
+            <div className="mt-3 border-t border-[var(--border)] pt-3">
+              <div className="flex justify-between items-baseline">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-2)]">Total</span>
+                <span className="text-2xl font-bold tabular-nums text-[var(--gold-700)] font-mono">{formatCHF(total)}</span>
+              </div>
             </div>
           </div>
         ) : (
@@ -143,8 +142,8 @@ export default async function LeistungenPage({ params, searchParams }: Props) {
 function PriceLine({ label, value, className }: { label: string; value: string; className?: string }) {
   return (
     <div className="flex justify-between">
-      <span className="text-sm text-white/60">{label}</span>
-      <span className={`text-sm tabular-nums ${className ?? ""}`}>{value}</span>
+      <span className="text-sm text-[var(--ink-3)]">{label}</span>
+      <span className={`text-sm tabular-nums font-mono text-[var(--ink)] ${className ?? ""}`}>{value}</span>
     </div>
   );
 }

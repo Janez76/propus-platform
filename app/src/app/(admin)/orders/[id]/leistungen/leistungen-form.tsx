@@ -73,15 +73,15 @@ function PriceSidebar({ form, discountChf }: { form: ReturnType<typeof useForm<L
   }, [packagePrice, addons, discount]);
   return (
     <div className="mt-2 space-y-1 text-sm">
-      <div className="flex justify-between text-white/60">
+      <div className="flex justify-between text-[var(--ink-3)]">
         <span>Zwischensumme</span>
         <span className="tabular-nums">{formatCHF(calc.subtotal)}</span>
       </div>
-      <div className="flex justify-between text-white/60">
+      <div className="flex justify-between text-[var(--ink-3)]">
         <span>MwSt. ({Math.round(VAT_RATE * 1000) / 10} %)</span>
         <span className="tabular-nums">{formatCHF(calc.vat)}</span>
       </div>
-      <div className="flex justify-between font-semibold text-white">
+      <div className="flex justify-between font-semibold text-[var(--ink)]">
         <span>Total</span>
         <span className="tabular-nums">{formatCHF(calc.total)}</span>
       </div>
@@ -147,11 +147,11 @@ export function LeistungenForm({ order }: Props) {
   return (
     <FormProvider {...form}>
       <form id="order-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        {err && <p className="text-rose-400 text-sm">{err}</p>}
+        {err && <p className="text-[var(--danger)] text-sm">{err}</p>}
 
         <Section title="Paket" icon={<Tag className="h-4 w-4" />}>
           <select
-            className="max-w-md w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm"
+            className="max-w-md w-full rounded-md border border-[var(--border)] bg-[var(--paper-strip)] px-3 py-2 text-sm focus:bg-white focus:border-[var(--gold-500)] focus:outline-none focus:ring-2 focus:ring-[var(--gold-500)]/20"
             {...form.register("packageKey", { setValueAs: (v) => (v === "" ? null : v) })}
           >
             <option value="">Kein Paket</option>
@@ -166,7 +166,7 @@ export function LeistungenForm({ order }: Props) {
         <Section title="Zusatzleistungen" icon={<ListChecks className="h-4 w-4" />}>
           <div className="mb-3 flex max-w-lg flex-wrap gap-2">
             <select
-              className="flex-1 min-w-[200px] rounded border border-white/10 bg-white/[0.03] px-2 py-1.5 text-sm"
+              className="flex-1 min-w-[200px] rounded border border-[var(--border)] bg-[var(--paper-strip)] px-2 py-1.5 text-sm focus:bg-white focus:border-[var(--gold-500)] focus:outline-none focus:ring-2 focus:ring-[var(--gold-500)]/20"
               value={addSelect}
               onChange={(e) => setAddSelect(e.target.value)}
             >
@@ -178,7 +178,7 @@ export function LeistungenForm({ order }: Props) {
             </select>
             <button
               type="button"
-              className="rounded border border-white/20 px-3 py-1.5 text-sm"
+              className="rounded border border-[var(--gold-300)] bg-[var(--gold-50)] px-3 py-1.5 text-sm font-semibold text-[var(--gold-800)] hover:border-[var(--gold-600)]"
               onClick={() => {
                 const a = catalog.find((x) => x.id === addSelect);
                 if (a) {
@@ -198,7 +198,7 @@ export function LeistungenForm({ order }: Props) {
               >
                 <div className="min-w-0 flex-1 text-sm font-medium">{form.watch(`addons.${i}.label`)}</div>
                 <div>
-                  <span className="text-xs text-white/50">Menge</span>
+                  <span className="text-xs text-[var(--ink-3)]">Menge</span>
                   <input
                     type="number"
                     min={1}
@@ -207,11 +207,11 @@ export function LeistungenForm({ order }: Props) {
                   />
                 </div>
                 <div>
-                  <span className="text-xs text-white/50" title="Nur wenn vom Katalog abweichend">Override</span>
+                  <span className="text-xs text-[var(--ink-3)]" title="Nur wenn vom Katalog abweichend">Override</span>
                   <input
                     type="number"
                     step="0.05"
-                    className="w-20 rounded border border-amber-500/30 bg-white/[0.03] px-1 py-0.5 text-sm"
+                    className="w-20 rounded border border-[var(--gold-300)] bg-[var(--gold-50)] px-1 py-0.5 text-sm focus:bg-white focus:border-[var(--gold-500)] focus:outline-none focus:ring-2 focus:ring-[var(--gold-500)]/20"
                     placeholder="CHF"
                     {...form.register(`addons.${i}.priceOverride`, {
                       valueAsNumber: true,
@@ -221,7 +221,7 @@ export function LeistungenForm({ order }: Props) {
                 </div>
                 <button
                   type="button"
-                  className="p-1 text-rose-400"
+                  className="p-1 text-[var(--danger)]"
                   onClick={() => remove(i)}
                   title="Entfernen"
                 >
@@ -234,12 +234,12 @@ export function LeistungenForm({ order }: Props) {
         </Section>
 
         <Section title="Dauer" icon={<Receipt className="h-4 w-4" />}>
-          <p className="mb-1 text-xs text-white/50">Override für Dauer in Minuten (wenn leer, bleibt die Dauer aus dem Termin unverändert).</p>
+          <p className="mb-1 text-xs text-[var(--ink-3)]">Override für Dauer in Minuten (wenn leer, bleibt die Dauer aus dem Termin unverändert).</p>
           <input
             type="number"
             min={15}
             step={15}
-            className="max-w-xs rounded border border-white/10 bg-white/[0.03] px-2 py-1.5 text-sm"
+            className="max-w-xs rounded border border-[var(--border)] bg-[var(--paper-strip)] px-2 py-1.5 text-sm focus:bg-white focus:border-[var(--gold-500)] focus:outline-none focus:ring-2 focus:ring-[var(--gold-500)]/20"
             {...form.register("durationMinOverride", { valueAsNumber: true, setValueAs: (v) => (v === "" ? null : v) })}
           />
         </Section>
@@ -247,7 +247,7 @@ export function LeistungenForm({ order }: Props) {
         <Section title="Preisübersicht (live)" icon={<Receipt className="h-4 w-4" />}>
           <PriceSidebar form={form} discountChf={order.discount_chf} />
         </Section>
-        {saving && <p className="text-xs text-white/40">Wird gespeichert…</p>}
+        {saving && <p className="text-xs text-[var(--ink-3)]">Wird gespeichert…</p>}
       </form>
     </FormProvider>
   );

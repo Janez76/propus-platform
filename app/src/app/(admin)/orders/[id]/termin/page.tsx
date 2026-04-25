@@ -71,7 +71,7 @@ export default async function TerminPage({ params, searchParams }: Props) {
           photographers={photographers}
         />
         <div className="mt-6 space-y-2">
-          <h3 className="text-xs font-semibold uppercase text-white/50">Status-Verlauf (Lesen)</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--ink-3)]">Status-Verlauf (Lesen)</h3>
           {statusHistory.length > 0 ? (
             <StatusList rows={statusHistory} />
           ) : (
@@ -94,7 +94,7 @@ export default async function TerminPage({ params, searchParams }: Props) {
             <InfoItem label="Dauer" value={`${order.duration_min} min`} />
           )}
           <div>
-            <p className="text-[11px] font-medium uppercase tracking-wider text-white/40">Status</p>
+            <p className="bd-info-k">Status</p>
             <div className="mt-1">
               <Badge label={currentStatus.label} className={currentStatus.className} />
             </div>
@@ -141,19 +141,19 @@ function StatusList({ rows }: {
         const from = entry.from_status ? STATUS_LABEL[entry.from_status] : null;
         const to = STATUS_LABEL[entry.to_status] ?? { label: entry.to_status, className: "bg-white/10 text-white/50" };
         return (
-          <div key={entry.id} className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.02] px-4 py-3">
+          <div key={entry.id} className="flex items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--paper-strip)] px-4 py-3">
             <div className="flex min-w-0 flex-1 items-center gap-2">
               {from
                 ? <Badge label={from.label} className={from.className} />
-                : <span className="text-xs text-white/30">—</span>
+                : <span className="text-xs text-[var(--ink-3)]">—</span>
               }
-              <ArrowRight className="h-3.5 w-3.5 shrink-0 text-white/30" />
+              <ArrowRight className="h-3.5 w-3.5 shrink-0 text-[var(--ink-4)]" />
               <Badge label={to.label} className={to.className} />
               {entry.source && (
-                <span className="ml-2 text-xs text-white/30">{entry.source}</span>
+                <span className="ml-2 text-xs text-[var(--ink-3)]">{entry.source}</span>
               )}
             </div>
-            <span className="shrink-0 text-xs text-white/40 tabular-nums">
+            <span className="shrink-0 text-xs text-[var(--ink-3)] tabular-nums font-mono">
               {formatTS(entry.created_at)}
             </span>
           </div>

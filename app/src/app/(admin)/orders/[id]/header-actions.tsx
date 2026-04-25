@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Pencil, Lock, Loader2 } from "lucide-react";
 import { useState, useTransition, useCallback } from "react";
-import { Button } from "@/components/ui/button";
 import { useOrderEditShellOptional, type OrderDirtyKey } from "./order-edit-shell-context";
 import { saveOrderAllSections } from "./order-bulk-actions";
 import type { BulkStep } from "./order-bulk-types";
@@ -57,7 +56,7 @@ export function OrderReadOnlyBadge() {
   if (isEditing) return null;
   if (shell?.clientSection) {
     return (
-      <span className="flex items-center gap-1 text-xs text-white/40">
+      <span className="bd-lock-chip">
         <Lock className="h-3 w-3" />
         Schreibgeschützt
       </span>
@@ -65,7 +64,7 @@ export function OrderReadOnlyBadge() {
   }
   if (!tabPathSupportsEdit(pathname)) return null;
   return (
-    <span className="flex items-center gap-1 text-xs text-white/40">
+    <span className="bd-lock-chip">
       <Lock className="h-3 w-3" />
       Schreibgeschützt
     </span>
@@ -157,34 +156,28 @@ export function OrderEditActions({ orderNo }: ActionProps) {
     return (
       <div className="flex max-w-md flex-col items-end gap-1.5 sm:max-w-none sm:flex-row sm:items-center">
         {bulkError && (
-          <p className="text-right text-xs text-rose-300 sm:mr-2" role="alert">
+          <p className="text-right text-xs text-[#B4311B] sm:mr-2" role="alert">
             {bulkError}
           </p>
         )}
         <div className="flex items-center gap-2">
-          <Button type="button" variant="ghost" size="sm" onClick={onCancelEdit}>
+          <button type="button" className="bd-btn-ghost" onClick={onCancelEdit}>
             Abbrechen
-          </Button>
+          </button>
           {useFormSubmit ? (
-            <Button
-              type="submit"
-              form="order-form"
-              size="sm"
-              className="bg-[#B68E20] text-black hover:bg-[#d4a82c]"
-            >
+            <button type="submit" form="order-form" className="bd-btn-primary">
               Speichern
-            </Button>
+            </button>
           ) : (
-            <Button
+            <button
               type="button"
-              size="sm"
               disabled={pending}
               onClick={onBulkSave}
-              className="inline-flex items-center gap-1.5 bg-[#B68E20] text-black hover:bg-[#d4a82c]"
+              className="bd-btn-primary"
             >
               {pending ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> : null}
               Sammel-Speichern
-            </Button>
+            </button>
           )}
         </div>
       </div>
@@ -192,16 +185,9 @@ export function OrderEditActions({ orderNo }: ActionProps) {
   }
 
   return (
-    <Button
-      asChild
-      size="sm"
-      variant="outline"
-      className="border-[#B68E20] text-[#B68E20] hover:bg-[#B68E20]/10 hover:text-[#B68E20]"
-    >
-      <Link href={`${tabBase}?edit=1`} scroll={false}>
-        <Pencil className="h-4 w-4" />
-        Bearbeiten
-      </Link>
-    </Button>
+    <Link href={`${tabBase}?edit=1`} scroll={false} className="bd-btn-outline-gold">
+      <Pencil className="h-4 w-4" />
+      Bearbeiten
+    </Link>
   );
 }

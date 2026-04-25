@@ -1,34 +1,33 @@
 import type { ReactNode } from 'react';
 
 export const STATUS_LABEL: Record<string, { label: string; className: string }> = {
-  pending:     { label: 'Offen',          className: 'bg-amber-500/15 text-amber-400' },
-  provisional: { label: 'Provisorisch',   className: 'bg-yellow-500/15 text-yellow-400' },
-  confirmed:   { label: 'Bestätigt',      className: 'bg-emerald-500/15 text-emerald-400' },
-  completed:   { label: 'Abgeschlossen',  className: 'bg-blue-500/15 text-blue-400' },
-  done:        { label: 'Erledigt',       className: 'bg-blue-500/15 text-blue-400' },
-  paused:      { label: 'Pausiert',       className: 'bg-zinc-500/15 p-text-muted' },
-  cancelled:   { label: 'Storniert',      className: 'bg-rose-500/15 text-rose-400' },
-  archived:    { label: 'Archiviert',     className: 'bg-white/10 text-white/50' },
+  pending:     { label: 'Offen',          className: 'bg-[#FBEED4] text-[#8A5710] border border-[#B87514]/30' },
+  provisional: { label: 'Provisorisch',   className: 'bg-[#EDE5FA] text-[#4A2F8E] border border-[#7C5BC9]/30' },
+  confirmed:   { label: 'Bestätigt',      className: 'bg-[#E6F2E3] text-[#1F5C20] border border-[#2A7A2A]/30' },
+  completed:   { label: 'Abgeschlossen',  className: 'bg-[#D6F1ED] text-[#0A5C53] border border-[#0F8A7E]/30' },
+  done:        { label: 'Erledigt',       className: 'bg-[#DFEBF5] text-[#244865] border border-[#244865]/30' },
+  paused:      { label: 'Pausiert',       className: 'bg-[#EFEDE6] text-[#3C3B38] border border-[#6B6962]/30' },
+  cancelled:   { label: 'Storniert',      className: 'bg-[#F8E0DB] text-[#8A2515] border border-[#B4311B]/30' },
+  archived:    { label: 'Archiviert',     className: 'bg-[#F0EBDF] text-[#3C3B38] border border-[#6B6962]/30' },
 };
 
 export function Section({
-  title, icon, children, right,
+  title, icon, children, right, accent,
 }: {
   title: string;
   icon?: ReactNode;
   children: ReactNode;
   right?: ReactNode;
+  accent?: boolean;
 }) {
   return (
-    <section className="rounded-xl border border-white/10 bg-white/[0.02] p-6">
-      <div className="mb-4 flex items-center justify-between gap-2">
-        <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-white/60">
-          {icon}
-          {title}
-        </h2>
-        {right}
-      </div>
-      {children}
+    <section className={`bd-sect${accent ? ' is-accent' : ''}`}>
+      <header className="bd-sect-head">
+        {icon}
+        <h2>{title}</h2>
+        {right && <div className="bd-sect-actions">{right}</div>}
+      </header>
+      <div className="bd-sect-body">{children}</div>
     </section>
   );
 }
@@ -36,19 +35,19 @@ export function Section({
 export function InfoItem({ label, value }: { label: string; value: string | ReactNode }) {
   return (
     <div>
-      <p className="text-[11px] font-medium uppercase tracking-wider text-white/40">{label}</p>
-      <p className="mt-0.5 text-sm">{value}</p>
+      <p className="bd-info-k">{label}</p>
+      <p className="bd-info-v">{value}</p>
     </div>
   );
 }
 
 export function Empty({ children }: { children: ReactNode }) {
-  return <p className="text-sm text-white/30">{children}</p>;
+  return <p className="text-sm text-[#9A968C] italic">{children}</p>;
 }
 
 export function Badge({ label, className }: { label: string; className: string }) {
   return (
-    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${className}`}>
+    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${className}`}>
       {label}
     </span>
   );

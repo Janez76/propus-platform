@@ -36,14 +36,14 @@ export function VerknuepfungenSectionClient({ orderId }: Props) {
 
   if (loading) {
     return (
-      <div className="rounded-xl border border-white/10 bg-white/[0.02] p-6 text-sm text-white/50">
-        Verknüpfungen werden geladen…
-      </div>
+      <section className="bd-sect">
+        <div className="bd-sect-body text-sm text-[var(--ink-3)]">Verknüpfungen werden geladen…</div>
+      </section>
     );
   }
   if (error || !data) {
     return (
-      <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+      <div className="rounded-lg border border-[var(--danger)]/30 bg-[var(--danger-bg)] px-4 py-3 text-sm text-[#8A2515]">
         {error ?? "Daten konnten nicht geladen werden."}
       </div>
     );

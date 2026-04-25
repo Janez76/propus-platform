@@ -32,14 +32,14 @@ export function KommunikationComposer({ orderNo }: { orderNo: number }) {
   }
 
   return (
-    <div className="rounded-xl border border-[#B68E20]/30 bg-white/[0.02] p-4">
-      <h3 className="mb-3 text-xs font-semibold uppercase text-[#B68E20]">Nachricht senden</h3>
-      {err && <p className="mb-2 text-sm text-rose-400">{err}</p>}
-      <div className="mb-2 flex flex-wrap gap-2">
-        <label className="text-xs text-white/60">
+    <div className="rounded-xl border border-[var(--gold-200)] bg-white p-4">
+      <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-[var(--gold-700)]">Nachricht senden</h3>
+      {err && <p className="mb-2 text-sm text-[var(--danger)]">{err}</p>}
+      <div className="mb-2 flex flex-wrap gap-3 items-center">
+        <label className="text-xs font-semibold uppercase tracking-wider text-[var(--ink-3)] flex items-center gap-2">
           An
           <select
-            className="ml-1 rounded border border-white/10 bg-[#0c0d10] px-2 py-1"
+            className="rounded-md border border-[var(--border)] bg-[var(--paper-strip)] px-2 py-1.5 text-sm font-normal normal-case tracking-normal text-[var(--ink)] focus:bg-white focus:border-[var(--gold-500)] focus:outline-none focus:ring-2 focus:ring-[var(--gold-500)]/20"
             value={recipient}
             onChange={(e) => setRecipient(e.target.value as typeof recipient)}
           >
@@ -48,18 +48,18 @@ export function KommunikationComposer({ orderNo }: { orderNo: number }) {
             <option value="internal">Intern</option>
           </select>
         </label>
-        <label className="flex items-center gap-1 text-xs text-white/60">
+        <label className="flex items-center gap-1.5 text-xs text-[var(--ink-2)]">
           <input
             type="checkbox"
             checked={isInternal}
             onChange={(e) => setIsInternal(e.target.checked)}
-            className="rounded"
+            className="rounded accent-[var(--gold-600)]"
           />
           Nur intern (Kunde sieht es nicht)
         </label>
       </div>
       <textarea
-        className="mb-2 w-full min-h-24 rounded border border-white/10 bg-[#0c0d10] px-3 py-2 text-sm"
+        className="mb-2 w-full min-h-24 rounded-md border border-[var(--border)] bg-[var(--paper-strip)] px-3 py-2 text-sm text-[var(--ink)] focus:bg-white focus:border-[var(--gold-500)] focus:outline-none focus:ring-2 focus:ring-[var(--gold-500)]/20"
         placeholder="Nachrichtentext…"
         value={message}
         onChange={(e) => setMessage(e.target.value)}
@@ -68,7 +68,7 @@ export function KommunikationComposer({ orderNo }: { orderNo: number }) {
         type="button"
         onClick={submit}
         disabled={pend || !message.trim()}
-        className="bg-[#B68E20] text-black"
+        className="bd-btn-primary"
       >
         {pend ? "…" : "Senden"}
       </Button>

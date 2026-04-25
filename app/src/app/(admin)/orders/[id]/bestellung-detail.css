@@ -1,0 +1,595 @@
+/* ============================================================
+   PROPUS · Bestellungs-Detailseite — Light Mode (Paper + Gold)
+   Scope: anything inside .bestellung-shell
+   ============================================================ */
+
+.bestellung-shell {
+  --paper:       #F4F1EA;
+  --paper-strip: #F7F6F3;
+  --card:        #FFFFFF;
+  --ink:         #141413;
+  --ink-2:       #3C3B38;
+  --ink-3:       #6B6962;
+  --ink-4:       #9A968C;
+  --border:      #EAE6DD;
+  --border-soft: #F0EBDF;
+
+  --gold-50:   #FBF7EE;
+  --gold-100:  #F2E7C9;
+  --gold-200:  #E4CE94;
+  --gold-300:  #D4B462;
+  --gold-400:  #C5A073;
+  --gold-500:  #C49937;
+  --gold-600:  #B68E20;
+  --gold-700:  #9A7619;
+  --gold-800:  #7A5D14;
+
+  --success:     #2A7A2A;
+  --success-bg:  #E6F2E3;
+  --warn:        #B87514;
+  --warn-bg:     #FBEED4;
+  --danger:      #B4311B;
+  --danger-bg:   #F8E0DB;
+  --info:        #2E5A7A;
+  --info-bg:     #DFEBF5;
+
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  background: var(--paper);
+  color: var(--ink);
+}
+
+/* ── Topbar ────────────────────────────────────────────────── */
+.bestellung-shell .bd-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: rgb(244 241 234 / 0.94);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-soft);
+  padding: 14px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.bestellung-shell .bd-crumbs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--ink-3);
+  min-width: 0;
+}
+.bestellung-shell .bd-crumbs a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  color: var(--ink-2);
+  text-decoration: none;
+  transition: background-color 160ms, color 160ms;
+}
+.bestellung-shell .bd-crumbs a:hover { background: rgba(0,0,0,0.04); color: var(--ink); }
+.bestellung-shell .bd-crumbs strong {
+  color: var(--ink);
+  font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: 14px;
+}
+.bestellung-shell .bd-crumbs .sep { color: var(--ink-4); }
+
+.bestellung-shell .bd-top-actions { display: flex; align-items: center; gap: 8px; }
+
+/* ── Hero ──────────────────────────────────────────────────── */
+.bestellung-shell .bd-hero {
+  background: #fff;
+  border-bottom: 1px solid var(--border);
+  padding: 28px 32px 24px;
+}
+.bestellung-shell .bd-eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--gold-700);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.bestellung-shell .bd-h1 {
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin: 0 0 10px;
+  line-height: 1.1;
+  color: var(--ink);
+}
+.bestellung-shell .bd-h1 .num {
+  color: var(--gold-700);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.bestellung-shell .bd-hero-sub {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.bestellung-shell .bd-hero-meta { font-size: 12px; color: var(--ink-3); }
+
+.bestellung-shell .bd-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 999px;
+  border: 1px solid;
+}
+.bestellung-shell .bd-status-chip .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+}
+
+.bestellung-shell .bd-lock-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--ink-3);
+  background: var(--paper-strip);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.bestellung-shell .bd-hero-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-top: 22px;
+}
+.bestellung-shell .bd-hero-stat {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--paper-strip);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.bestellung-shell .bd-hero-stat .hs-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid var(--border);
+  display: grid;
+  place-items: center;
+  color: var(--ink-2);
+  flex-shrink: 0;
+}
+.bestellung-shell .bd-hero-stat .hs-label {
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+.bestellung-shell .bd-hero-stat .hs-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+}
+.bestellung-shell .bd-hero-stat .hs-value.gold {
+  color: var(--gold-700);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-family: var(--font-mono);
+}
+.bestellung-shell .bd-hero-stat .hs-value .sub {
+  font-weight: 400;
+  color: var(--ink-3);
+  font-size: 12px;
+}
+.bestellung-shell .bd-hero-stat.is-total {
+  background: linear-gradient(180deg, #FBF7EE, #F7EFD9);
+  border-color: var(--gold-200);
+}
+.bestellung-shell .bd-hero-stat.is-total .hs-icon {
+  background: var(--gold-50);
+  border-color: var(--gold-200);
+  color: var(--gold-700);
+}
+
+/* ── Tabbar ────────────────────────────────────────────────── */
+.bestellung-shell .bd-tabbar {
+  background: rgb(255 255 255 / 0.96);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 60px;
+  z-index: 20;
+}
+.bestellung-shell .bd-tabbar-inner {
+  display: flex;
+  gap: 2px;
+  padding: 0 32px;
+  max-width: 88rem;
+  margin: 0 auto;
+  overflow-x: auto;
+}
+.bestellung-shell .bd-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 14px 14px 13px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--ink-3);
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  transition: color 160ms, border-color 160ms;
+  cursor: pointer;
+  text-decoration: none;
+}
+.bestellung-shell .bd-tab svg { width: 14px; height: 14px; stroke-width: 1.75; }
+.bestellung-shell .bd-tab:hover { color: var(--ink); }
+.bestellung-shell .bd-tab.is-active {
+  color: var(--ink);
+  border-bottom-color: var(--gold-600);
+  font-weight: 600;
+}
+.bestellung-shell .bd-tab.is-active svg { color: var(--gold-700); }
+.bestellung-shell .bd-tab-badge {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  padding: 1px 6px;
+  background: var(--gold-50);
+  color: var(--gold-700);
+  border-radius: 999px;
+  font-weight: 600;
+}
+.bestellung-shell .bd-tab-pop {
+  align-self: center;
+  padding: 0 4px;
+  font-size: 10px;
+  color: var(--ink-4);
+  text-decoration: none;
+  transition: color 160ms;
+}
+.bestellung-shell .bd-tab-pop:hover { color: var(--ink-3); }
+
+/* ── Content ───────────────────────────────────────────────── */
+.bestellung-shell .bd-content {
+  padding: 28px 32px 80px;
+  max-width: 88rem;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* ── Buttons ───────────────────────────────────────────────── */
+.bestellung-shell .bd-icon-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #fff;
+  display: grid;
+  place-items: center;
+  color: var(--ink-2);
+  transition: border-color 160ms, color 160ms;
+  cursor: pointer;
+}
+.bestellung-shell .bd-icon-btn:hover { border-color: var(--gold-400); color: var(--ink); }
+.bestellung-shell .bd-icon-btn svg { width: 15px; height: 15px; }
+
+.bestellung-shell .bd-btn-primary,
+.bestellung-shell .bd-btn-ghost,
+.bestellung-shell .bd-btn-outline-gold {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  letter-spacing: 0.01em;
+  transition: background-color 160ms, color 160ms, border-color 160ms, transform 160ms;
+  cursor: pointer;
+  text-decoration: none;
+  font-family: inherit;
+}
+.bestellung-shell .bd-btn-primary svg,
+.bestellung-shell .bd-btn-ghost svg,
+.bestellung-shell .bd-btn-outline-gold svg { width: 14px; height: 14px; }
+.bestellung-shell .bd-btn-primary {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+}
+.bestellung-shell .bd-btn-primary:hover {
+  background: #1F1F1F;
+  border-color: var(--gold-600);
+  transform: translateY(-1px);
+}
+.bestellung-shell .bd-btn-ghost {
+  background: transparent;
+  color: var(--ink-2);
+  border-color: var(--border);
+}
+.bestellung-shell .bd-btn-ghost:hover { border-color: var(--ink); color: var(--ink); }
+.bestellung-shell .bd-btn-outline-gold {
+  background: transparent;
+  color: var(--gold-700);
+  border-color: var(--gold-400);
+}
+.bestellung-shell .bd-btn-outline-gold:hover {
+  background: var(--gold-50);
+  border-color: var(--gold-600);
+}
+.bestellung-shell .bd-btn-outline-gold:disabled,
+.bestellung-shell .bd-btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.bestellung-shell .bd-edit-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--gold-800);
+  background: var(--gold-50);
+  border: 1px solid var(--gold-200);
+  border-radius: 999px;
+}
+.bestellung-shell .bd-edit-pill svg { width: 12px; height: 12px; }
+
+/* ── Section card ──────────────────────────────────────────── */
+.bestellung-shell .bd-sect {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.bestellung-shell .bd-sect-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.bestellung-shell .bd-sect-head svg { width: 16px; height: 16px; color: var(--ink-3); }
+.bestellung-shell .bd-sect-head h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.bestellung-shell .bd-sect-head .bd-sect-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.bestellung-shell .bd-sect-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.bestellung-shell .bd-sect.is-accent .bd-sect-head {
+  background: linear-gradient(180deg, #FBF7EE, #fff);
+}
+.bestellung-shell .bd-sect.is-accent .bd-sect-head svg,
+.bestellung-shell .bd-sect.is-accent .bd-sect-head h2 {
+  color: var(--gold-700);
+}
+
+/* ── Field ─────────────────────────────────────────────────── */
+.bestellung-shell .bd-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.bestellung-shell .bd-field label {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-weight: 600;
+}
+.bestellung-shell .bd-field label .req { color: var(--gold-700); }
+.bestellung-shell .bd-field-input,
+.bestellung-shell .bd-field input[type="text"],
+.bestellung-shell .bd-field input[type="email"],
+.bestellung-shell .bd-field input[type="tel"],
+.bestellung-shell .bd-field input[type="number"],
+.bestellung-shell .bd-field select,
+.bestellung-shell .bd-field textarea {
+  padding: 10px 12px;
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--paper-strip);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  font-family: inherit;
+  width: 100%;
+}
+.bestellung-shell .bd-field-input { display: flex; align-items: center; }
+.bestellung-shell .bd-field-input.is-mono,
+.bestellung-shell .bd-field-input.is-link {
+  font-variant-numeric: tabular-nums;
+}
+.bestellung-shell .bd-field-input.is-mono { font-family: var(--font-mono); font-size: 13.5px; }
+.bestellung-shell .bd-field-input.is-link { color: var(--gold-700); }
+.bestellung-shell .bd-field-input .bd-ph { color: var(--ink-4); }
+.bestellung-shell .bd-field-hint {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  line-height: 1.4;
+}
+
+.bestellung-shell .bd-field input:focus,
+.bestellung-shell .bd-field select:focus,
+.bestellung-shell .bd-field textarea:focus,
+.bestellung-shell .bd-edit-input:focus {
+  outline: none;
+  background: #fff;
+  border-color: var(--gold-500);
+  box-shadow: 0 0 0 3px rgba(196, 153, 55, 0.15);
+}
+.bestellung-shell .bd-field input:disabled,
+.bestellung-shell .bd-field select:disabled,
+.bestellung-shell .bd-field textarea:disabled {
+  cursor: not-allowed;
+}
+
+/* ── Info pair (read mode) ─────────────────────────────────── */
+.bestellung-shell .bd-info-k {
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.bestellung-shell .bd-info-v {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+/* ── Segmented ─────────────────────────────────────────────── */
+.bestellung-shell .bd-seg {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--paper-strip);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  width: fit-content;
+}
+.bestellung-shell .bd-seg-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-3);
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  transition: background-color 160ms, color 160ms, box-shadow 160ms;
+  cursor: pointer;
+  font-family: inherit;
+}
+.bestellung-shell .bd-seg-opt svg { width: 13px; height: 13px; }
+.bestellung-shell .bd-seg-opt.is-active {
+  background: var(--gold-50);
+  color: var(--gold-800);
+  box-shadow: 0 0 0 1px var(--gold-300);
+  font-weight: 600;
+}
+.bestellung-shell .bd-seg-opt:disabled { cursor: not-allowed; opacity: 0.7; }
+
+/* ── Hint strip ────────────────────────────────────────────── */
+.bestellung-shell .bd-hint-strip {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--gold-50);
+  border: 1px solid var(--gold-200);
+  border-radius: 8px;
+  font-size: 12.5px;
+  color: var(--gold-800);
+}
+.bestellung-shell .bd-hint-strip svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.bestellung-shell .bd-hint-strip.is-subtle {
+  background: var(--paper-strip);
+  border-color: var(--border);
+  color: var(--ink-3);
+}
+
+/* ── Save toast (replaces dark-mode toast) ─────────────────── */
+.bestellung-shell .bd-toast {
+  position: fixed;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 18px;
+  background: var(--ink);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 13.5px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 8px 24px -8px rgb(0 0 0 / 0.18);
+  z-index: 50;
+}
+
+/* ── Helpers ───────────────────────────────────────────────── */
+.bestellung-shell .bd-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Compatibility overlay: light up legacy tab content
+      that still uses Tailwind dark utilities (bg-white/[0.02],
+      text-white/60, border-white/10, etc.). These rules are scoped
+      to .bestellung-shell so they only affect the order detail view. */
+.bestellung-shell .bg-white\/\[0\.02\],
+.bestellung-shell .bg-white\/\[0\.03\] {
+  background-color: var(--paper-strip) !important;
+}
+.bestellung-shell .bg-white\/5 { background-color: rgb(0 0 0 / 0.03) !important; }
+.bestellung-shell .bg-white\/10 { background-color: rgb(0 0 0 / 0.06) !important; }
+
+.bestellung-shell .border-white\/10 { border-color: var(--border) !important; }
+.bestellung-shell .border-white\/20 { border-color: var(--border) !important; }
+
+.bestellung-shell .text-white { color: var(--ink) !important; }
+.bestellung-shell .text-white\/30 { color: var(--ink-4) !important; }
+.bestellung-shell .text-white\/40 { color: var(--ink-3) !important; }
+.bestellung-shell .text-white\/50 { color: var(--ink-3) !important; }
+.bestellung-shell .text-white\/60 { color: var(--ink-3) !important; }
+.bestellung-shell .text-white\/70 { color: var(--ink-2) !important; }
+.bestellung-shell .text-white\/80 { color: var(--ink-2) !important; }
+
+.bestellung-shell input,
+.bestellung-shell textarea,
+.bestellung-shell select {
+  color: var(--ink);
+}
+.bestellung-shell input::placeholder,
+.bestellung-shell textarea::placeholder { color: var(--ink-4); }
+
+@media (max-width: 1100px) {
+  .bestellung-shell .bd-hero-stats { grid-template-columns: repeat(2, 1fr); }
+  .bestellung-shell .bd-hero,
+  .bestellung-shell .bd-topbar,
+  .bestellung-shell .bd-tabbar-inner,
+  .bestellung-shell .bd-content { padding-left: 20px; padding-right: 20px; }
+}

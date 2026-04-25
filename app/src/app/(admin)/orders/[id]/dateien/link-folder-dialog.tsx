@@ -44,7 +44,7 @@ export function LinkFolderDialog({ orderNo }: Props) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 rounded-md border border-[#B68E20]/40 bg-[#B68E20]/10 px-3 py-1.5 text-xs font-medium text-[#B68E20] transition-colors hover:bg-[#B68E20]/20"
+        className="inline-flex items-center gap-1.5 rounded-md border border-[var(--gold-300)] bg-[var(--gold-50)] px-3 py-1.5 text-xs font-semibold text-[var(--gold-800)] transition-colors hover:border-[var(--gold-600)]"
       >
         <FolderPlus className="h-3.5 w-3.5" />
         Ordner verknüpfen
@@ -57,45 +57,45 @@ export function LinkFolderDialog({ orderNo }: Props) {
             <DialogTitle>Ordner verknüpfen</DialogTitle>
           </DialogHeader>
           <form onSubmit={submit} className="space-y-4">
-            {err && <p className="text-sm text-rose-400">{err}</p>}
+            {err && <p className="text-sm text-[var(--danger)]">{err}</p>}
             <div>
-              <label className="mb-1 block text-xs text-white/60">Anzeigename *</label>
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-3)]">Anzeigename *</label>
               <input
                 value={form.displayName}
                 onChange={(e) => setForm({ ...form, displayName: e.target.value })}
                 required
                 maxLength={200}
-                className="w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm"
+                className="w-full rounded-md border border-[var(--border)] bg-[var(--paper-strip)] px-3 py-2 text-sm focus:bg-white focus:border-[var(--gold-500)] focus:outline-none focus:ring-2 focus:ring-[var(--gold-500)]/20"
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs text-white/60">Ordner-Typ *</label>
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-3)]">Ordner-Typ *</label>
               <select
                 value={form.folderType}
                 onChange={(e) => setForm({ ...form, folderType: e.target.value as typeof form.folderType })}
-                className="w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm"
+                className="w-full rounded-md border border-[var(--border)] bg-[var(--paper-strip)] px-3 py-2 text-sm focus:bg-white focus:border-[var(--gold-500)] focus:outline-none focus:ring-2 focus:ring-[var(--gold-500)]/20"
               >
                 <option value="customer_folder">Kundenmaterial</option>
                 <option value="raw_material">Rohmaterial</option>
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-xs text-white/60">Nextcloud-Share-URL</label>
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-3)]">Nextcloud-Share-URL</label>
               <input
                 value={form.nextcloudShareUrl}
                 onChange={(e) => setForm({ ...form, nextcloudShareUrl: e.target.value })}
                 placeholder="https://cloud.propus.ch/s/…"
-                className="w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm"
+                className="w-full rounded-md border border-[var(--border)] bg-[var(--paper-strip)] px-3 py-2 text-sm focus:bg-white focus:border-[var(--gold-500)] focus:outline-none focus:ring-2 focus:ring-[var(--gold-500)]/20"
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs text-white/60">Absoluter Pfad (optional)</label>
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-3)]">Absoluter Pfad (optional)</label>
               <input
                 value={form.absolutePath}
                 onChange={(e) => setForm({ ...form, absolutePath: e.target.value })}
                 maxLength={2000}
                 placeholder="/mnt/propus-nas-customers/2026/…"
-                className="w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm font-mono"
+                className="w-full rounded-md border border-[var(--border)] bg-[var(--paper-strip)] px-3 py-2 text-sm focus:bg-white focus:border-[var(--gold-500)] focus:outline-none focus:ring-2 focus:ring-[var(--gold-500)]/20 font-mono"
               />
             </div>
             <div className="flex items-center justify-end gap-2 pt-2">
@@ -103,14 +103,14 @@ export function LinkFolderDialog({ orderNo }: Props) {
                 type="button"
                 onClick={() => setOpen(false)}
                 disabled={pen}
-                className="rounded-md border border-white/10 px-3 py-1.5 text-xs text-white/70 hover:bg-white/5"
+                className="bd-btn-ghost"
               >
                 Abbrechen
               </button>
               <button
                 type="submit"
                 disabled={pen || !form.displayName.trim()}
-                className="rounded-md bg-[#B68E20] px-3 py-1.5 text-xs font-medium text-black hover:bg-[#C9A23A] disabled:opacity-50"
+                className="bd-btn-primary"
               >
                 {pen ? "Speichert…" : "Speichern"}
               </button>
