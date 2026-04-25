@@ -111,7 +111,7 @@ export function DashboardV2() {
 
   if (loading) {
     return (
-      <div className="dv2-skeleton">
+      <div className="padmin-shell dv2 dv2-skeleton">
         {Array.from({ length: 5 }).map((_, i) => (
           <div key={i} className="dv2-skeleton-card" />
         ))}
@@ -121,7 +121,7 @@ export function DashboardV2() {
 
   if (error) {
     return (
-      <div className="dv2-error">
+      <div className="padmin-shell dv2 dv2-error">
         <p>{error}</p>
         <button type="button" onClick={() => refetch({ force: true })} className="dv2-btn-ghost">
           {t(lang, "dashboard.button.reload")}
