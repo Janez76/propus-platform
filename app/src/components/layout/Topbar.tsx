@@ -59,7 +59,7 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
         <div className="flex items-center gap-4">
           <button
             onClick={onMenuToggle}
-            className="lg:hidden p-2 rounded-lg transition-colors"
+            className="lg:hidden inline-flex items-center justify-center min-h-11 min-w-11 rounded-lg transition-colors"
             style={{ color: "var(--text-muted)" }}
             aria-label="Toggle menu"
           >
