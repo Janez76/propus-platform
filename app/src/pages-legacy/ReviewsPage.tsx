@@ -198,6 +198,10 @@ export function ReviewsPage() {
   const [gbpAvgRating, setGbpAvgRating] = useState<number | null>(null);
   const [gbpTotalCount, setGbpTotalCount] = useState<number | null>(null);
   const [gbpSource, setGbpSource] = useState<"gbp" | "places" | null>(null);
+  /** True when the backend reports the Places-fallback env vars are not
+   *  configured. Surfaced as a remediation banner so operators don't
+   *  mistake it for an empty feed. */
+  const [placesEnvMissing, setPlacesEnvMissing] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [gbpLoading, setGbpLoading] = useState(false);
@@ -236,11 +240,13 @@ export function ReviewsPage() {
         setGbpAvgRating(null);
         setGbpTotalCount(null);
         setGbpSource(null);
+        setPlacesEnvMissing(true);
       } else {
         setGbpReviews(res.reviews || []);
         setGbpAvgRating(res.averageRating ?? null);
         setGbpTotalCount(res.totalReviewCount ?? null);
         setGbpSource(res.source === "places" ? "places" : "gbp");
+        setPlacesEnvMissing(false);
       }
     } catch (e) {
       setMsg({ type: "err", text: t(lang, "reviews.gbp.error") + " " + (e as Error).message });
@@ -319,20 +325,56 @@ export function ReviewsPage() {
 
   const filtered = useMemo(() => applyFilter(unifiedReviews, filter), [unifiedReviews, filter]);
 
-  /* ── KPIs (matching the design) ───────────────────────── */
-  const totalReviews = unifiedReviews.length;
-  const avgRating = useMemo(() => {
-    if (totalReviews === 0) return null;
-    return unifiedReviews.reduce((s, r) => s + r.rating, 0) / totalReviews;
-  }, [unifiedReviews, totalReviews]);
+  /* ── KPIs (matching the design) ──────────────────────────
+   *
+   * The two upstream endpoints (`/api/admin/reviews` and
+   * `/api/admin/gbp/reviews`) only deliver paged slices, so deriving
+   * global totals purely from `unifiedReviews` would silently
+   * underreport once the dataset exceeds the backend page caps.
+   *
+   * Where the server provides authoritative totals we prefer those:
+   * - `kpi.avgRating`, `kpi.beantwortet` cover all rated internal reviews.
+   * - `gbpAvgRating`, `gbpTotalCount` cover all Google reviews (the GBP
+   *   API returns the global aggregates alongside the page).
+   *
+   * The distribution and 5-star/low-rating counts are inherently
+   * view-only (neither endpoint exposes a rating breakdown), so they
+   * are labelled as referring to the loaded slice. */
+  const totalReviewsLoaded = unifiedReviews.length;
+  const internalRatedCountLoaded = useMemo(
+    () => unifiedReviews.filter((r) => r.source === "local").length,
+    [unifiedReviews],
+  );
+  const internalRatedCountTotal = kpi?.beantwortet ?? internalRatedCountLoaded;
+  const gbpCountTotal = gbpTotalCount ?? gbpReviews.length;
+  const totalReviews = internalRatedCountTotal + gbpCountTotal;
+
+  const avgRating = useMemo<number | null>(() => {
+    // Weighted blend of the two server-side averages where available;
+    // fall back to the loaded slice if a backend value is missing.
+    const internalAvg = kpi?.avgRating ?? null;
+    const gbpAvg = gbpAvgRating;
+
+    const haveInternalServer = internalAvg != null && internalRatedCountTotal > 0;
+    const haveGbpServer = gbpAvg != null && gbpCountTotal > 0;
+
+    if (haveInternalServer && haveGbpServer) {
+      return (internalAvg * internalRatedCountTotal + gbpAvg * gbpCountTotal)
+        / (internalRatedCountTotal + gbpCountTotal);
+    }
+    if (haveInternalServer) return internalAvg;
+    if (haveGbpServer) return gbpAvg;
+    if (totalReviewsLoaded === 0) return null;
+    return unifiedReviews.reduce((s, r) => s + r.rating, 0) / totalReviewsLoaded;
+  }, [kpi, gbpAvgRating, internalRatedCountTotal, gbpCountTotal, unifiedReviews, totalReviewsLoaded]);
 
   const dist = useMemo(() => {
     return [5, 4, 3, 2, 1].map((n) => {
       const count = unifiedReviews.filter((r) => r.rating === n).length;
-      const pct = totalReviews > 0 ? Math.round((count / totalReviews) * 100) : 0;
+      const pct = totalReviewsLoaded > 0 ? Math.round((count / totalReviewsLoaded) * 100) : 0;
       return { n, count, pct };
     });
-  }, [unifiedReviews, totalReviews]);
+  }, [unifiedReviews, totalReviewsLoaded]);
 
   // Response rate measures how many reply-eligible reviews we've actually
   // replied to. Reviews without a working reply mechanism — internal
@@ -532,7 +574,12 @@ export function ReviewsPage() {
             <div className="bw-kpi-label">{t(lang, "reviews.kpi.fivestar") || "5-Sterne"}</div>
             <div className="bw-kpi-value">{counts.fivestar}</div>
             <div className="bw-kpi-trend is-up">
-              {totalReviews > 0 ? Math.round(counts.fivestar / totalReviews * 100) : 0}%
+              {/* Both numerator and denominator come from the loaded slice
+                  so the percentage stays internally consistent — labelled
+                  as "von geladenen" to keep operators from reading it as
+                  a global ratio. */}
+              {totalReviewsLoaded > 0 ? Math.round(counts.fivestar / totalReviewsLoaded * 100) : 0}
+              % {t(lang, "reviews.kpi.ofLoaded") || "von geladenen"}
             </div>
           </div>
           <div className="bw-kpi">
@@ -635,6 +682,16 @@ export function ReviewsPage() {
           </div>
         )}
 
+        {placesEnvMissing && (
+          <div className="bw-alert is-warn">
+            <AlertCircle className="h-4 w-4 flex-shrink-0" />
+            <span>
+              {t(lang, "reviews.gbp.placesEnvHint")
+                || "Google-Verbindung ist aktiv, aber die Places-Fallback-Konfiguration (Place-ID + API-Key) fehlt. Ohne diese Variablen können wir keine Google-Bewertungen abrufen — bitte in der Server-Konfiguration ergänzen."}
+            </span>
+          </div>
+        )}
+
         <div className="bw-grid">
           <div>
             <div className="bw-filterbar">
@@ -682,7 +739,9 @@ export function ReviewsPage() {
 
           <aside className="bw-aside">
             <section className="bw-card">
-              <div className="bw-card-head"><h3>{t(lang, "reviews.aside.distribution") || "Verteilung"}</h3></div>
+              <div className="bw-card-head">
+                <h3>{t(lang, "reviews.aside.distribution") || "Verteilung"}</h3>
+              </div>
               <div className="bw-card-body">
                 {dist.map((d) => (
                   <div key={d.n} className="bw-dist-row">
@@ -699,6 +758,17 @@ export function ReviewsPage() {
                     <span className="bw-dist-count">{d.count}</span>
                   </div>
                 ))}
+                {/* Distribution can only be computed locally because neither
+                    upstream endpoint exposes a rating histogram; clarify
+                    the scope so it isn't read as a global breakdown. */}
+                {totalReviewsLoaded < totalReviews && (
+                  <p className="bw-dist-note" style={{ fontSize: 11, color: "var(--ink-3)", margin: "8px 0 0", lineHeight: 1.45 }}>
+                    {(t(lang, "reviews.aside.distributionScope")
+                      || "Bezogen auf {{loaded}} von {{total}} geladenen Bewertungen.")
+                      .replace("{{loaded}}", String(totalReviewsLoaded))
+                      .replace("{{total}}", String(totalReviews))}
+                  </p>
+                )}
               </div>
             </section>
 
