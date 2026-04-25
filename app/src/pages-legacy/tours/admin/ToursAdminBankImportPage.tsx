@@ -435,7 +435,7 @@ function InfoRow({ label, value, mono }: { label: string; value: string; mono?: 
 function matchStatusIcon(status: string) {
   if (status === "exact") return <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />;
   if (status === "review") return <AlertTriangle className="h-4 w-4 text-yellow-600 flex-shrink-0" />;
-  return <HelpCircle className="h-4 w-4 text-zinc-400 flex-shrink-0" />;
+  return <HelpCircle className="h-4 w-4 p-text-muted flex-shrink-0" />;
 }
 
 function matchStatusText(status: string) {

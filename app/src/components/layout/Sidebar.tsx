@@ -81,12 +81,22 @@ export function useNavBadge(key: NavBadgeKey | undefined): number | null {
 
 export function Sidebar({
   onOpenCmdk,
+  isMobileOpen = false,
+  onMobileClose,
 }: {
   onOpenCmdk?: () => void;
+  isMobileOpen?: boolean;
+  onMobileClose?: () => void;
 }): JSX.Element {
   const { role } = useAuth();
   const t = useT();
   const { pathname } = useLocation();
+
+  useEffect(() => {
+    if (isMobileOpen) onMobileClose?.();
+    // Schließt das Mobile-Drawer-Menü automatisch bei Navigation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
 
   const sections = useMemo(() => filterNavForRole(role), [role]);
 
@@ -142,6 +152,7 @@ export function Sidebar({
     <aside
       className="propus-sidebar"
       data-collapsed={collapsed ? "true" : "false"}
+      data-mobile-open={isMobileOpen ? "true" : "false"}
       aria-label={t("nav.aria.sidebar")}
     >
       {/* Brand */}

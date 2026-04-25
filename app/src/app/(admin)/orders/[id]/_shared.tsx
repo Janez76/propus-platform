@@ -6,7 +6,7 @@ export const STATUS_LABEL: Record<string, { label: string; className: string }> 
   confirmed:   { label: 'Bestätigt',      className: 'bg-emerald-500/15 text-emerald-400' },
   completed:   { label: 'Abgeschlossen',  className: 'bg-blue-500/15 text-blue-400' },
   done:        { label: 'Erledigt',       className: 'bg-blue-500/15 text-blue-400' },
-  paused:      { label: 'Pausiert',       className: 'bg-zinc-500/15 text-zinc-400' },
+  paused:      { label: 'Pausiert',       className: 'bg-zinc-500/15 p-text-muted' },
   cancelled:   { label: 'Storniert',      className: 'bg-rose-500/15 text-rose-400' },
   archived:    { label: 'Archiviert',     className: 'bg-white/10 text-white/50' },
 };

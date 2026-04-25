@@ -81,7 +81,7 @@ export function CustomerPortalLayout() {
                 end={item.end}
                 className={({ isActive }) =>
                   `inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-sm ${
-                    isActive ? "bg-amber-600/20 text-amber-400" : "text-zinc-400 hover:bg-zinc-800/80 hover:text-zinc-200"
+                    isActive ? "bg-amber-600/20 text-amber-400" : "p-text-muted hover:bg-zinc-800/80 hover:text-zinc-200"
                   }`
                 }
               >

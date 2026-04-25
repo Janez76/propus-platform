@@ -56,7 +56,7 @@ export const STATUS_MAP: Record<string, StatusEntry> = {
   },
   paused: {
     label: "Pausiert",
-    badgeClass: "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-zinc-500/15 text-zinc-400 border border-zinc-500/30",
+    badgeClass: "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-zinc-500/15 p-text-muted border border-zinc-500/30",
     barColor: "bg-zinc-500",
     eventColor: "#71717a",
     iconName: "Pause",
@@ -169,7 +169,7 @@ export function getAllowedTransitions(fromStatus: string): StatusKey[] {
 
 const FALLBACK: StatusEntry = {
   label: "Unbekannt",
-  badgeClass: "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-zinc-500/15 text-zinc-400 border border-zinc-500/30",
+  badgeClass: "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-zinc-500/15 p-text-muted border border-zinc-500/30",
   barColor: "bg-zinc-500",
   eventColor: "#71717a",
   iconName: "Circle",

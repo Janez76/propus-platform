@@ -161,7 +161,7 @@ function TourCard({ tour, token, onActionComplete }: { tour: DashboardTour; toke
               <span className="text-sm text-green-700 font-medium">
                 {CLEANUP_ACTION_LABELS[tour.cleanupAction || ""] || tour.cleanupAction}
               </span>
-              <span className="text-xs text-gray-400">am {formatDate(tour.cleanupActionAt)}</span>
+              <span className="text-xs p-text-muted">am {formatDate(tour.cleanupActionAt)}</span>
             </div>
           </div>
         </div>
@@ -425,7 +425,7 @@ export function CleanupDashboardPage() {
 
         {doneTours.length > 0 && pendingTours.length > 0 && (
           <div className="pt-4">
-            <p className="text-xs text-gray-400 uppercase tracking-wide font-semibold mb-3">Bereits erledigt</p>
+            <p className="text-xs p-text-muted uppercase tracking-wide font-semibold mb-3">Bereits erledigt</p>
             <div className="space-y-3">
               {doneTours.map((tour) => (
                 <TourCard key={tour.id} tour={tour} token={token} onActionComplete={loadTours} />
@@ -438,7 +438,7 @@ export function CleanupDashboardPage() {
         {!loading && !error && (
           <div className="pt-8 pb-4 text-center">
             <div className="h-px bg-gradient-to-r from-transparent via-[#ece5d7] to-transparent mb-6" />
-            <p className="text-xs text-gray-400">
+            <p className="text-xs p-text-muted">
               Bei Fragen kontaktieren Sie uns unter{" "}
               <a href="mailto:office@propus.ch" className="text-[#8e7440] hover:underline">office@propus.ch</a>
             </p>

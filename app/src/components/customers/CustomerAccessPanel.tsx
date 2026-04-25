@@ -76,7 +76,7 @@ export function CustomerAccessPanel({ token, customerId }: Props) {
 
   return (
     <div className="mt-4 rounded-lg border border-zinc-200 p-3 border-[var(--border-soft)]">
-      <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">{t(lang, "access.customerSection")}</div>
+      <div className="mb-2 text-xs font-semibold uppercase tracking-wide p-text-muted">{t(lang, "access.customerSection")}</div>
       {error ? <p className="mb-2 text-xs text-red-600">{error}</p> : null}
       {loading && !data ? <p className="text-xs text-zinc-500">{t(lang, "common.loading")}</p> : null}
       {data ? (
