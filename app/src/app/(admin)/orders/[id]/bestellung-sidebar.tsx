@@ -4,22 +4,24 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, CalendarCheck, Users, Map,
-  FileText, Ticket, Image as ImageIcon, Settings, CircleHelp,
+  FileText, Ticket, UploadCloud, Settings,
 } from "lucide-react";
 
+// Hrefs match the canonical SPA routes registered in
+// app/src/components/ClientShell.tsx (PrivateRoutes) and the
+// nav config in app/src/config/nav.config.ts.
 const NAV_MAIN = [
-  { href: "/dashboard", label: "Dashboard",    icon: LayoutDashboard },
-  { href: "/orders",    label: "Bestellungen", icon: CalendarCheck },
-  { href: "/customers", label: "Kunden",       icon: Users },
-  { href: "/tours",     label: "Tour Manager", icon: Map },
-  { href: "/invoices",  label: "Rechnungen",   icon: FileText },
-  { href: "/tickets",   label: "Tickets",      icon: Ticket },
+  { href: "/dashboard",                label: "Dashboard",    icon: LayoutDashboard },
+  { href: "/orders",                   label: "Bestellungen", icon: CalendarCheck },
+  { href: "/customers",                label: "Kunden",       icon: Users },
+  { href: "/admin/tours",              label: "Tour Manager", icon: Map },
+  { href: "/admin/finance/invoices",   label: "Rechnungen",   icon: FileText },
+  { href: "/admin/tickets",            label: "Tickets",      icon: Ticket },
 ] as const;
 
 const NAV_SYSTEM = [
-  { href: "/media",    label: "Medien",        icon: ImageIcon },
+  { href: "/upload",   label: "Uploads",       icon: UploadCloud },
   { href: "/settings", label: "Einstellungen", icon: Settings },
-  { href: "/help",     label: "Hilfe",         icon: CircleHelp },
 ] as const;
 
 export type SidebarUser = {
