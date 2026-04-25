@@ -76,7 +76,7 @@ export function PrintOrderPage() {
   if (!data) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-white p-8">
-        <p className="text-zinc-400 text-sm">{t(language, "printOrderPage.loading")}</p>
+        <p className="p-text-muted text-sm">{t(language, "printOrderPage.loading")}</p>
       </div>
     );
   }

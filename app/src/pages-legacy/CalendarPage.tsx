@@ -191,7 +191,7 @@ export function CalendarPage() {
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold uppercase tracking-[0.08em] text-zinc-200">{t(lang, "calendar.label.filter")}</h2>
-            <p className="text-xs text-zinc-400">{t(lang, "calendar.label.filterDesc")}</p>
+            <p className="text-xs p-text-muted">{t(lang, "calendar.label.filterDesc")}</p>
           </div>
           <div className="flex items-center gap-2">
             <span className="rounded-full border border-[var(--accent)]/30 bg-[var(--accent)]/15 px-3 py-1 text-xs font-bold text-[var(--accent)]">
@@ -284,7 +284,7 @@ export function CalendarPage() {
               <div className="mt-4 space-y-3 p-4 rounded-lg bg-zinc-800/50 border border-zinc-700 text-sm">
                 <div className="font-bold text-zinc-100 text-base">{t(lang, "calendar.label.orderOptions")}</div>
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-zinc-400">{t(lang, "calendar.label.status")}</label>
+                  <label className="mb-1 block text-xs font-semibold p-text-muted">{t(lang, "calendar.label.status")}</label>
                   <OrderStatusSelect
                     orderNo={String(selected.orderNo)}
                     value={status}
@@ -294,7 +294,7 @@ export function CalendarPage() {
                     onChanged={(next) => setStatus(next)}
                     onError={(msg) => setError(msg)}
                   />
-                  <label className="mt-3 flex items-start gap-2 text-xs text-zinc-400">
+                  <label className="mt-3 flex items-start gap-2 text-xs p-text-muted">
                     <input
                       type="checkbox"
                       className="mt-0.5"
@@ -309,7 +309,7 @@ export function CalendarPage() {
                       </span>
                     </span>
                   </label>
-                  <div className={`mt-2 grid grid-cols-2 gap-2 text-xs ${sendStatusEmails ? "text-zinc-400" : "text-zinc-500 opacity-70"}`}>
+                  <div className={`mt-2 grid grid-cols-2 gap-2 text-xs ${sendStatusEmails ? "p-text-muted" : "text-zinc-500 opacity-70"}`}>
                       <label className="inline-flex items-center gap-2">
                         <input
                           type="checkbox"
@@ -349,14 +349,14 @@ export function CalendarPage() {
                     </div>
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-zinc-400">{t(lang, "orderDetail.section.appointment")}</label>
+                  <label className="mb-1 block text-xs font-semibold p-text-muted">{t(lang, "orderDetail.section.appointment")}</label>
                   <input type="datetime-local" className="ui-input" value={scheduleLocal} onChange={(e) => setScheduleLocal(e.target.value)} disabled={status.toLowerCase() === "cancelled" || status.toLowerCase() === "paused" || (selected.status || "").toLowerCase() === "cancelled"} />
                   {status.toLowerCase() === "paused" && status !== originalStatus ? (
                     <p className="mt-1 text-[11px] text-amber-400/80">Slot wird bei Pausierung freigegeben.</p>
                   ) : null}
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-zinc-400">{t(lang, "calendar.label.employee")}</label>
+                  <label className="mb-1 block text-xs font-semibold p-text-muted">{t(lang, "calendar.label.employee")}</label>
                   <select className="ui-input" value={photographerKey} onChange={(e) => setPhotographerKey(e.target.value)}>
                     <option value="">{t(lang, "calendar.select.pleaseChoose")}</option>
                     {photographers.map((p) => <option key={p.key} value={p.key}>{p.name} ({p.key})</option>)}

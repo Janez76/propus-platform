@@ -421,7 +421,7 @@ function FilePreviewCard({
               <div className="line-clamp-3 break-words text-xs font-semibold leading-tight text-zinc-100">
                 {nameParts || file.name}
               </div>
-              <div className="text-[10px] uppercase tracking-[0.18em] text-zinc-400">
+              <div className="text-[10px] uppercase tracking-[0.18em] p-text-muted">
                 {previewHint}
               </div>
               <div className="text-[10px] text-zinc-500">
@@ -574,7 +574,7 @@ function FileTreeNode({
           </ul>
         )}
         {open && (node.children?.length ?? 0) === 0 && (
-          <p className="ml-4 text-xs text-zinc-400 italic">{t(lang, "upload.label.empty")}</p>
+          <p className="ml-4 text-xs p-text-muted italic">{t(lang, "upload.label.empty")}</p>
         )}
       </li>
     );
@@ -621,7 +621,7 @@ function FileTreeNode({
         >
           {node.name || t(lang, "upload.label.file")}
         </a>
-        <span className="text-xs text-zinc-400 whitespace-nowrap shrink-0">{meta}</span>
+        <span className="text-xs p-text-muted whitespace-nowrap shrink-0">{meta}</span>
       </div>
       <button
         type="button"
@@ -1119,7 +1119,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
         {/* Upload-Formular */}
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <label htmlFor="uploadCategory" className="mb-1 block text-sm font-semibold text-zinc-400">
+            <label htmlFor="uploadCategory" className="mb-1 block text-sm font-semibold p-text-muted">
               {t(lang, "upload.label.targetFolder")}
             </label>
             <select
@@ -1137,7 +1137,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
             </select>
           </div>
           <div>
-            <label htmlFor="uploadMode" className="mb-1 block text-sm font-semibold text-zinc-400">
+            <label htmlFor="uploadMode" className="mb-1 block text-sm font-semibold p-text-muted">
               {t(lang, "upload.label.deliveryMode")}
             </label>
             <select
@@ -1168,7 +1168,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
           </div>
           {uploadMode === "new_batch" && (
             <div className="sm:col-span-2">
-              <label htmlFor="batchFolderName" className="mb-1 block text-sm font-semibold text-zinc-400">
+              <label htmlFor="batchFolderName" className="mb-1 block text-sm font-semibold p-text-muted">
                 {t(lang, "upload.label.newFolderName")}
               </label>
               <input
@@ -1183,7 +1183,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
             </div>
           )}
           <div className="sm:col-span-2">
-            <label htmlFor="uploadComment" className="mb-1 block text-sm font-semibold text-zinc-400">
+            <label htmlFor="uploadComment" className="mb-1 block text-sm font-semibold p-text-muted">
               {t(lang, "upload.label.comment")}
             </label>
             <textarea
@@ -1197,7 +1197,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
             />
           </div>
           <div className="sm:col-span-2 space-y-3">
-            <label className="mb-1 block text-sm font-semibold text-zinc-400">
+            <label className="mb-1 block text-sm font-semibold p-text-muted">
               {t(lang, "upload.label.selectOrDrop")}
             </label>
             <div
@@ -1220,7 +1220,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
                 onChange={(e) => addFiles(Array.from(e.target.files || []))}
               />
               <UploadCloud className="mx-auto mb-2 h-8 w-8 text-zinc-500" />
-              <p className="text-sm text-zinc-400">
+              <p className="text-sm p-text-muted">
                 {t(lang, "upload.hint.dragDropPrepend")}
               </p>
               <p className="mt-1 text-xs text-zinc-600">
@@ -1240,7 +1240,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
                       className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
                         fileTypeFilter === filt
                           ? "bg-[var(--accent)] text-white"
-                          : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200"
+                          : "bg-zinc-800 p-text-muted hover:bg-zinc-700 hover:text-zinc-200"
                       }`}
                     >
                       {filt === "all" ? `ALLE (${filterCounts.all})` : `${filt.toUpperCase()} (${filterCounts[filt]})`}
@@ -1339,7 +1339,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
         {/* Fortschrittsbalken */}
         {(busy === "upload" || transferActive) && (
           <div className="mt-3">
-            <div className="mb-1 flex justify-between text-xs text-zinc-400">
+            <div className="mb-1 flex justify-between text-xs p-text-muted">
               <span className="flex items-center gap-2">
                 {busy === "upload"
                   ? `${uploadedCount} von ${files.length > 0 ? files.length : "?"} Datei${files.length !== 1 ? "en" : ""}`
@@ -1364,7 +1364,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
         {currentBatch && (
           <div className="mt-3 rounded-lg border border-zinc-700 bg-zinc-800/50 p-3 text-sm">
             <div className="mb-2 font-semibold text-zinc-100">{t(lang, "upload.label.result")}</div>
-            <div className="mb-2 text-xs text-zinc-400">
+            <div className="mb-2 text-xs p-text-muted">
               {t(lang, "upload.label.targetPath")}{currentBatch.targetRelativePath || "-"}
             </div>
             <div className="space-y-1">
@@ -1395,7 +1395,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
                 }
                 if (f.status === "staged") {
                   return (
-                    <div key={idx} className="flex items-center gap-2 text-xs text-zinc-400">
+                    <div key={idx} className="flex items-center gap-2 text-xs p-text-muted">
                       <RefreshCw className="h-3.5 w-3.5 animate-spin" />
                       <span>{f.originalName}</span>
                     </div>
@@ -1409,7 +1409,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
                 );
               })}
               {!uploadedEntries.length && (
-                <div className="text-xs text-zinc-400">{t(lang, "upload.result.noEntries")}</div>
+                <div className="text-xs p-text-muted">{t(lang, "upload.result.noEntries")}</div>
               )}
             </div>
           </div>
@@ -1420,7 +1420,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
           <div className="mt-4 rounded-lg border border-zinc-700 bg-zinc-800/50 p-4">
             <div className="mb-2 font-semibold text-sm text-zinc-100">{t(lang, "upload.label.alreadyUploaded")}</div>
             {folderName && (
-              <div className="mb-2 text-xs text-zinc-400">{folderName}</div>
+              <div className="mb-2 text-xs p-text-muted">{folderName}</div>
             )}
             <ul className="list-none p-0 m-0">
               {fileTree.map((node) => (
@@ -1499,7 +1499,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
               <button
                 type="button"
                 onClick={handleDialogClose}
-                className="rounded-full p-1.5 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-100"
+                className="rounded-full p-1.5 p-text-muted hover:bg-zinc-700 hover:text-zinc-100"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -1521,7 +1521,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
                           </p>
                           <div className="flex items-center gap-3 mt-0.5">
                             {status && !uploadPaused && (
-                              <p className="text-xs text-zinc-400 truncate">{status}</p>
+                              <p className="text-xs p-text-muted truncate">{status}</p>
                             )}
                             {uploadSpeed && busy === "upload" && !uploadPaused && (
                               <span className="text-xs text-zinc-500 shrink-0">{uploadSpeed}</span>
@@ -1540,7 +1540,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
                       </div>
                       {/* Gesamtfortschritt */}
                       <div>
-                        <div className="flex justify-between text-xs text-zinc-400 mb-1">
+                        <div className="flex justify-between text-xs p-text-muted mb-1">
                           <span>{`Datei ${Math.min(uploadedCount + 1, files.length)} von ${files.length}`}</span>
                           <span>{`${progress}%`}</span>
                         </div>
@@ -1568,7 +1568,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
                                     ? <RefreshCw className="h-3.5 w-3.5 animate-spin text-[var(--accent)]" />
                                     : <span className="h-4 w-4 rounded-full border border-zinc-600" />}
                                 </span>
-                                <span className={`truncate flex-1 ${done ? "text-zinc-400" : active ? "text-zinc-100" : "text-zinc-500"}`}>{f.name}</span>
+                                <span className={`truncate flex-1 ${done ? "p-text-muted" : active ? "text-zinc-100" : "text-zinc-500"}`}>{f.name}</span>
                                 <span className="shrink-0 text-zinc-500 tabular-nums w-8 text-right">{active ? `${fProg}%` : done ? "✓" : ""}</span>
                               </div>
                             );
@@ -1580,16 +1580,16 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
                     /* Vor dem Upload: Bestätigungsdialog */
                     <>
                       <p className="text-sm font-semibold text-zinc-100">{t(lang, "upload.confirm.question")}</p>
-                      <p className="text-xs text-zinc-400">{t(lang, "upload.confirm.hint")}</p>
+                      <p className="text-xs p-text-muted">{t(lang, "upload.confirm.hint")}</p>
 
                       {/* Datei-Vorschau */}
                       {files.length > 0 && (
                         <div>
-                          <div className="mb-2 text-xs font-semibold text-zinc-400">{t(lang, "upload.label.filesToUpload")}</div>
+                          <div className="mb-2 text-xs font-semibold p-text-muted">{t(lang, "upload.label.filesToUpload")}</div>
                           <div className="max-h-40 overflow-y-auto rounded-lg border border-zinc-700 bg-zinc-800/50 p-2 space-y-1">
                             {files.map((f, idx) => (
                               <div key={idx} className="flex items-center gap-2 text-xs">
-                                <span className="h-7 w-7 shrink-0 flex items-center justify-center rounded border border-zinc-600 bg-zinc-800 text-zinc-400 text-sm">
+                                <span className="h-7 w-7 shrink-0 flex items-center justify-center rounded border border-zinc-600 bg-zinc-800 p-text-muted text-sm">
                                   {getFileIcon(getFileTypeTag(f))}
                                 </span>
                                 <span className="truncate text-zinc-300 flex-1">{f.name}</span>
@@ -1602,7 +1602,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
 
                       {/* Abschluss-Kommentar */}
                       <div>
-                        <label htmlFor="confirmComment" className="mb-1 block text-xs font-semibold text-zinc-400">
+                        <label htmlFor="confirmComment" className="mb-1 block text-xs font-semibold p-text-muted">
                           {t(lang, "upload.confirm.finalComment")}
                         </label>
                         <textarea
@@ -1661,7 +1661,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
                   {/* Frage: Weitere Dateien? */}
                   <div className="rounded-xl border border-zinc-700 bg-zinc-800/60 px-4 py-3">
                     <p className="text-sm font-semibold text-zinc-100 mb-0.5">{t(lang, "upload.confirm.moreFilesQuestion")}</p>
-                    <p className="text-xs text-zinc-400">{t(lang, "upload.confirm.moreFilesHint")}</p>
+                    <p className="text-xs p-text-muted">{t(lang, "upload.confirm.moreFilesHint")}</p>
                   </div>
 
                   <div className="flex flex-col gap-2">

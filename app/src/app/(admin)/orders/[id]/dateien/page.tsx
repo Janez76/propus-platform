@@ -58,7 +58,7 @@ export default async function DateienPage({ params }: { params: Promise<{ id: st
     uploading:  'bg-blue-500/15 text-blue-400',
     completed:  'bg-emerald-500/15 text-emerald-400',
     failed:     'bg-rose-500/15 text-rose-400',
-    cancelled:  'bg-zinc-500/15 text-zinc-400',
+    cancelled:  'bg-zinc-500/15 p-text-muted',
   };
 
   return (

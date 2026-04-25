@@ -103,7 +103,7 @@ export function ImpersonateDialog({ token, item, onClose }: Props) {
             <X className="h-4 w-4" />
           </button>
         </div>
-        <p className="mb-3 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mb-3 text-sm p-text-muted">
           {t(lang, "impersonate.hint")}{" "}
           <code className="text-xs text-zinc-800 dark:text-zinc-200">{String(item.email || "—")}</code>
         </p>

@@ -86,7 +86,7 @@ function CopyButton({ value, lang }: { value: string; lang: Lang }) {
       type="button"
       onClick={copy}
       title={t(lang, "common.copy")}
-      className="ml-1 inline-flex items-center text-zinc-400 hover:text-[var(--accent)] transition-colors"
+      className="ml-1 inline-flex items-center p-text-muted hover:text-[var(--accent)] transition-colors"
     >
       {copied ? (
         <svg className="h-3.5 w-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
@@ -828,7 +828,7 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                   <>
                     <div className="surface-card p-3">
                       <h4 className="mb-2 font-semibold">{t(lang, "orderDetail.label.customerSection")}</h4>
-                      <div><b>{t(lang, "common.company")}:</b> {customerLabel || <span className="text-zinc-400">{t(lang, "common.notSet")}</span>}</div>
+                      <div><b>{t(lang, "common.company")}:</b> {customerLabel || <span className="p-text-muted">{t(lang, "common.notSet")}</span>}</div>
                       {customerPhoneRaw && (
                         <div className="flex items-center gap-1">
                           <b>{t(lang, "common.phone")}:</b>&nbsp;
@@ -840,7 +840,7 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                         <b>{t(lang, "common.email")}:</b>&nbsp;
                         {customerEmailDisplay ? (
                           <><a href={`mailto:${customerEmailDisplay}`} className="text-[var(--accent)] hover:underline">{customerEmailDisplay}</a><CopyButton value={customerEmailDisplay} lang={lang} /></>
-                        ) : <span className="text-zinc-400">{t(lang, "common.notSet")}</span>}
+                        ) : <span className="p-text-muted">{t(lang, "common.notSet")}</span>}
                       </div>
                       {billingAddressDisplay && (
                         <div className="flex items-center gap-1">
@@ -852,18 +852,18 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                     </div>
                     <div className="surface-card p-3">
                       <h4 className="mb-2 font-semibold">{t(lang, "orderDetail.label.contactSection")}</h4>
-                      <div><b>{t(lang, "common.name")}:</b> {contactName || <span className="text-zinc-400">{t(lang, "common.notSet")}</span>}</div>
+                      <div><b>{t(lang, "common.name")}:</b> {contactName || <span className="p-text-muted">{t(lang, "common.notSet")}</span>}</div>
                       <div className="flex items-center gap-1">
                         <b>{t(lang, "common.email")}:</b>&nbsp;
                         {email ? (
                           <><a href={`mailto:${email}`} className="text-[var(--accent)] hover:underline">{email}</a><CopyButton value={email} lang={lang} /></>
-                        ) : <span className="text-zinc-400">{t(lang, "common.notSet")}</span>}
+                        ) : <span className="p-text-muted">{t(lang, "common.notSet")}</span>}
                       </div>
                       <div className="flex items-center gap-1">
                         <b>{t(lang, "common.phone")}:</b>&nbsp;
                         {phoneRaw ? (
                           <><PhoneLink value={phoneRaw} className="text-[var(--accent)]" /><CopyButton value={formatPhoneDisplay(phoneRaw)} lang={lang} /></>
-                        ) : <span className="text-zinc-400">{t(lang, "common.notSet")}</span>}
+                        ) : <span className="p-text-muted">{t(lang, "common.notSet")}</span>}
                       </div>
                       {mobileRaw ? (
                         <div className="flex items-center gap-1">
@@ -908,8 +908,8 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                     </div>
                   ) : (
                     <>
-                      <div><b>{t(lang, "orderDetail.label.street")}:</b> {billingStreetDisplay || <span className="text-zinc-400">{t(lang, "common.notSet")}</span>}</div>
-                      <div><b>{t(lang, "orderDetail.label.zipcityShort")}:</b> {billingZipcityDisplay || <span className="text-zinc-400">{t(lang, "common.notSet")}</span>}</div>
+                      <div><b>{t(lang, "orderDetail.label.street")}:</b> {billingStreetDisplay || <span className="p-text-muted">{t(lang, "common.notSet")}</span>}</div>
+                      <div><b>{t(lang, "orderDetail.label.zipcityShort")}:</b> {billingZipcityDisplay || <span className="p-text-muted">{t(lang, "common.notSet")}</span>}</div>
                       {data.billing?.order_ref ? <div><b>Bestellreferenz:</b> {data.billing.order_ref}</div> : null}
                       {(data.billing?.alt_company || data.billing?.alt_name || data.billing?.alt_street || data.billing?.alt_zipcity) ? (
                         <div className="mt-2 rounded-lg border border-zinc-200 p-2">
@@ -958,12 +958,12 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                         <b>{t(lang, "orderDetail.label.address")}</b>&nbsp;
                         {data.address ? (
                           <><a href={`https://maps.google.com/?q=${encodeURIComponent(data.address)}`} target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] hover:underline">{data.address}</a><CopyButton value={data.address} lang={lang} /></>
-                        ) : <span className="text-zinc-400">{t(lang, "common.notSet")}</span>}
+                        ) : <span className="p-text-muted">{t(lang, "common.notSet")}</span>}
                       </div>
-                      <div><b>{t(lang, "orderDetail.label.type")}:</b> {data.object?.type || <span className="text-zinc-400">{t(lang, "common.notSet")}</span>}</div>
-                      <div><b>{t(lang, "orderDetail.label.area")}:</b> {data.object?.area ? `${data.object.area} m²` : <span className="text-zinc-400">{t(lang, "common.notSet")}</span>}</div>
-                      <div><b>{t(lang, "orderDetail.label.floors")}:</b> {data.object?.floors || <span className="text-zinc-400">{t(lang, "common.notSet")}</span>}</div>
-                      <div><b>{t(lang, "orderDetail.label.rooms")}:</b> {data.object?.rooms || <span className="text-zinc-400">{t(lang, "common.notSet")}</span>}</div>
+                      <div><b>{t(lang, "orderDetail.label.type")}:</b> {data.object?.type || <span className="p-text-muted">{t(lang, "common.notSet")}</span>}</div>
+                      <div><b>{t(lang, "orderDetail.label.area")}:</b> {data.object?.area ? `${data.object.area} m²` : <span className="p-text-muted">{t(lang, "common.notSet")}</span>}</div>
+                      <div><b>{t(lang, "orderDetail.label.floors")}:</b> {data.object?.floors || <span className="p-text-muted">{t(lang, "common.notSet")}</span>}</div>
+                      <div><b>{t(lang, "orderDetail.label.rooms")}:</b> {data.object?.rooms || <span className="p-text-muted">{t(lang, "common.notSet")}</span>}</div>
                       {(data.billing?.onsiteName || data.billing?.onsitePhone) && (
                         <div className="sm:col-span-2 mt-1 border-t border-zinc-100 pt-1">
                           <b>{t(lang, "orderDetail.label.onsiteContact")}:</b>{" "}
@@ -984,7 +984,7 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                       )}
                       {(data.notes || data.billing?.notes) && (
                         <div className="sm:col-span-2 mt-1 border-t border-zinc-700 pt-2">
-                          <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-400">{t(lang, "orderDetail.label.notesLabel")}</p>
+                          <p className="mb-1 text-xs font-semibold uppercase tracking-wider p-text-muted">{t(lang, "orderDetail.label.notesLabel")}</p>
                           <span className="whitespace-pre-wrap font-semibold text-white">{data.notes || data.billing?.notes}</span>
                         </div>
                       )}
@@ -1153,7 +1153,7 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                       const qty = addon.qty && addon.qty > 1 ? addon.qty : 1;
                       return (
                         <div key={addon.id} className="flex items-baseline justify-between gap-2 text-zinc-600">
-                          <span>{addon.label}{qty > 1 ? <span className="ml-1 text-xs text-zinc-400">× {qty}</span> : null}</span>
+                          <span>{addon.label}{qty > 1 ? <span className="ml-1 text-xs p-text-muted">× {qty}</span> : null}</span>
                           <span className="shrink-0 tabular-nums">{formatCurrency((Number(addon.price) || 0) * qty)}</span>
                         </div>
                       );
@@ -1165,7 +1165,7 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                       </div>
                     )}
                     {!editPackageKey && editAddons.length === 0 && !editKeyPickupActive && (
-                      <p className="text-xs text-zinc-400">{t(lang, "orderDetail.empty.noProducts")}</p>
+                      <p className="text-xs p-text-muted">{t(lang, "orderDetail.empty.noProducts")}</p>
                     )}
                     <div className="mt-2 border-t border-zinc-200 pt-2 text-xs text-zinc-500">
                       <div className="flex justify-between"><span>{t(lang, "orderDetail.pricing.subtotal")}</span><span className="tabular-nums">{formatCurrency(editPricing.subtotal)}</span></div>
@@ -1212,14 +1212,14 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                       const linePrice = (Number(a.price) || 0) * (qty && qty > 1 ? qty : 1);
                       return (
                         <div key={String(a.id || i)} className="flex items-baseline justify-between gap-2 text-zinc-700">
-                          <span>{a.label}{qty && qty > 1 ? <span className="ml-1 text-xs text-zinc-400">× {qty}</span> : null}</span>
+                          <span>{a.label}{qty && qty > 1 ? <span className="ml-1 text-xs p-text-muted">× {qty}</span> : null}</span>
                           <span className="shrink-0 tabular-nums text-zinc-500">{formatCurrency(linePrice)}</span>
                         </div>
                       );
                     })}
                     {data.keyPickup?.address && (
                       <div className="flex items-baseline justify-between gap-2 text-zinc-700">
-                        <span>{t(lang, "orderDetail.label.keyPickupShort")} <span className="text-xs text-zinc-400">({data.keyPickup.address})</span></span>
+                        <span>{t(lang, "orderDetail.label.keyPickupShort")} <span className="text-xs p-text-muted">({data.keyPickup.address})</span></span>
                         <span className="shrink-0 tabular-nums text-zinc-500">{formatCurrency(50)}</span>
                       </div>
                     )}
@@ -1446,7 +1446,7 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                         />
                         <span>
                           {t(lang, "orderStatus.sendEmailsLabel")}
-                          <span className="block text-[11px] text-zinc-400">
+                          <span className="block text-[11px] p-text-muted">
                             {t(lang, "orderStatus.sendEmailsHint")}
                           </span>
                         </span>

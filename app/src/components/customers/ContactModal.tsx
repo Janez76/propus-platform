@@ -323,7 +323,7 @@ export function ContactModal({ token, item, onSave, onToggleAdmin, onToggleBlock
           </div>
         </div>
         <p className="mb-2 text-xs text-(--text-subtle)">{t(lang, "customerModal.hint.contactsForPersons")}</p>
-        <div className="mb-1 mt-1 text-xs font-semibold uppercase tracking-wide text-zinc-400">{t(lang, "customerModal.section.personalData")}</div>
+        <div className="mb-1 mt-1 text-xs font-semibold uppercase tracking-wide p-text-muted">{t(lang, "customerModal.section.personalData")}</div>
         <div className="grid gap-2 sm:grid-cols-3">
           <div>
             <label className="mb-1 block text-sm">{t(lang, "customer.salutation")}</label>
@@ -349,7 +349,7 @@ export function ContactModal({ token, item, onSave, onToggleAdmin, onToggleBlock
           </div>
         </div>
 
-        <div className="mb-1 mt-3 text-xs font-semibold uppercase tracking-wide text-zinc-400">{t(lang, "customerModal.section.contact")}</div>
+        <div className="mb-1 mt-3 text-xs font-semibold uppercase tracking-wide p-text-muted">{t(lang, "customerModal.section.contact")}</div>
         <div className="grid gap-2 sm:grid-cols-2">
           <div><label className="mb-1 block text-sm">{t(lang, "customerModal.label.phonePrimary")}</label><input className="ui-input" type="tel" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} /><DbFieldHint fieldPath="customers.phone" /></div>
           <div><label className="mb-1 block text-sm">{t(lang, "customer.phone2")}</label><input className="ui-input" type="tel" value={form.phone_2} onChange={(e) => setForm((f) => ({ ...f, phone_2: e.target.value }))} /></div>
@@ -360,7 +360,7 @@ export function ContactModal({ token, item, onSave, onToggleAdmin, onToggleBlock
           <div className="sm:col-span-2"><label className="mb-1 block text-sm">Website</label><input className="ui-input" type="url" value={form.website} onChange={(e) => setForm((f) => ({ ...f, website: e.target.value }))} placeholder="https://example.ch" /></div>
         </div>
 
-        <div className="mb-1 mt-3 text-xs font-semibold uppercase tracking-wide text-zinc-400">Adresse</div>
+        <div className="mb-1 mt-3 text-xs font-semibold uppercase tracking-wide p-text-muted">Adresse</div>
         <div className="grid gap-2 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <label className="mb-1 block text-sm">{t(lang, "customerView.label.street")}</label>
@@ -392,7 +392,7 @@ export function ContactModal({ token, item, onSave, onToggleAdmin, onToggleBlock
           </div>
         </div>
 
-        <div className="mb-1 mt-3 text-xs font-semibold uppercase tracking-wide text-zinc-400">EXXAS</div>
+        <div className="mb-1 mt-3 text-xs font-semibold uppercase tracking-wide p-text-muted">EXXAS</div>
         <div className="grid gap-2 sm:grid-cols-2">
           <div>
             <label className="mb-1 block text-sm">EXXAS Kunden-ID</label>
@@ -404,7 +404,7 @@ export function ContactModal({ token, item, onSave, onToggleAdmin, onToggleBlock
           </div>
         </div>
 
-        <div className="mb-1 mt-3 text-xs font-semibold uppercase tracking-wide text-zinc-400">{t(lang, "customerModal.section.other")}</div>
+        <div className="mb-1 mt-3 text-xs font-semibold uppercase tracking-wide p-text-muted">{t(lang, "customerModal.section.other")}</div>
         <div className="grid gap-2">
           <div><label className="mb-1 block text-sm">{t(lang, "common.notes")}</label><textarea rows={2} className="ui-input" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} /></div>
           <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" checked={form.is_admin} onChange={(e) => setForm((f) => ({ ...f, is_admin: e.target.checked }))} /> {t(lang, "customerModal.label.adminRights")}</label>
@@ -496,7 +496,7 @@ export function ContactModal({ token, item, onSave, onToggleAdmin, onToggleBlock
           {deleteConfirm === "confirm" && (
             <div className="w-full rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm">
               <p className="mb-2 font-semibold text-red-400">Kunden wirklich löschen?</p>
-              <p className="mb-3 text-xs text-zinc-400">Alle Kontakte und Sessions werden gelöscht. Bestellungen bleiben erhalten (ohne Kunden-Verknüpfung).</p>
+              <p className="mb-3 text-xs p-text-muted">Alle Kontakte und Sessions werden gelöscht. Bestellungen bleiben erhalten (ohne Kunden-Verknüpfung).</p>
               <div className="flex gap-2">
                 <button type="button" className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700" onClick={() => deleteNow(false)}>
                   Ja, löschen
@@ -510,7 +510,7 @@ export function ContactModal({ token, item, onSave, onToggleAdmin, onToggleBlock
           {deleteConfirm === "force" && (
             <div className="w-full rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
               <p className="mb-2 font-semibold text-amber-400">⚠ Dieser Kunde hat {deleteOrderCount} Bestellung(en)</p>
-              <p className="mb-3 text-xs text-zinc-400">Die Bestellungen bleiben in der Datenbank erhalten, aber die Kunden-Verknüpfung wird aufgehoben. Trotzdem löschen?</p>
+              <p className="mb-3 text-xs p-text-muted">Die Bestellungen bleiben in der Datenbank erhalten, aber die Kunden-Verknüpfung wird aufgehoben. Trotzdem löschen?</p>
               <div className="flex gap-2">
                 <button type="button" className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700" onClick={() => deleteNow(true)}>
                   Ja, trotzdem löschen

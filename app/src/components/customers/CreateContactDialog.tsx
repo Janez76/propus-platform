@@ -153,7 +153,7 @@ export function CreateContactDialog({ open, onOpenChange, onSubmit, onCreateCont
     "bg-[var(--surface)]",
     "border-[var(--border-soft)]",
     "text-zinc-900",
-    "placeholder:text-zinc-400",
+    "placeholder:p-text-muted",
     "hover:border-zinc-400",
     "focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/25 focus:border-[var(--accent)]",
   );
