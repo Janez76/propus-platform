@@ -40,7 +40,7 @@ export function FilterBar({
         <button
           key={pill.id}
           type="button"
-          className={`filter-pill${activePillId === pill.id ? " is-active" : ""}`}
+          className={`filter-pill${activePillId === pill.id ? " is-active active" : ""}`}
           onClick={() => onPillClick?.(pill.id)}
         >
           {pill.label}

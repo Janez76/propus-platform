@@ -5,6 +5,11 @@
 @import "./styles/selekto/gallery-admin-supplement.css";
 @import "./styles/reviews-redesign.css";
 @import "./styles/admin-redesign.css";
+/* Handoff 1:1 — order styles (tokens + .sidebar etc.) then admin shell + feature CSS */
+@import "./styles/handoff/order-styles.css";
+@import "./styles/handoff/admin-shell.css";
+@import "./styles/handoff/page-calendar.css";
+@import "./styles/handoff/product-catalog.css";
 @import "./styles/handoff/foundation.css";
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -46,9 +51,9 @@
 }
 
 :root {
-  font-family: 'Roboto', system-ui, sans-serif;
-  color: #111111;
-  background: #F1F2EA;
+  font-family: var(--propus-font-body);
+  color: var(--ink);
+  background: var(--paper);
 
   /* --- Propus Brand Tokens (abgestimmt auf propus.ch) --- */
   --propus-gold:        #B68E20;
@@ -100,21 +105,33 @@
   --text-muted:        var(--ink-3);
   --text-subtle:       var(--ink-4);
 
-  /* --- Semantic Tokens (light) --- */
-  --bg-classic:    #F1F2EA;
-  --bg-modern:     #f5f7fb;
-  --surface:       #ffffff;
-  --surface-raised:#F7F6F3;
-  --text-main:     #111111;
-  --text-muted:    #595959; /* WCAG AA (>=4.5:1) auf weissem Hintergrund */
-  --text-subtle:   #767676; /* WCAG AA Large (>=3:1); nur fuer dekorative Labels verwenden */
-  --border-soft:   #e8e6e2;
-  --border-strong: #d4d0c8;
-  --primary:       #111111;
-  --primary-contrast: #ffffff;
-  --accent:        var(--propus-gold);
-  --accent-hover:  var(--propus-gold-hover);
-  --accent-subtle: color-mix(in srgb, var(--propus-gold) 12%, transparent);
+  /* --- Handoff + Semantic (light, eine Quelle) --- */
+  --bg-modern:         #f5f7fb;
+  --border-soft:       #eae6dd;
+  --border-strong:     #d4d0c8;
+  --primary:           var(--ink);
+  --primary-contrast:  #ffffff;
+  --accent:            var(--gold-600);
+  --accent-hover:      var(--gold-700);
+  --accent-subtle:     color-mix(in srgb, var(--gold-600) 12%, transparent);
+  --font-sans:         var(--propus-font-body);
+  --font-display:      var(--propus-font-heading);
+  --fg-1:              var(--ink);
+  --fg-2:              var(--ink-2);
+  --fg-3:              var(--ink-3);
+  --fg-4:              var(--ink-4);
+  --border:            var(--border-soft);
+  --content-max:       72rem;
+  --content-max-wide:  88rem;
+  --header-h:          5.5rem;
+  --shadow-soft:       0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px -8px rgb(0 0 0 / 0.08);
+  --shadow-hover:      0 4px 12px rgb(0 0 0 / 0.06), 0 16px 40px -12px rgb(0 0 0 / 0.12);
+  --shadow-popover:    0 6px 16px rgb(0 0 0 / 0.08), 0 24px 48px -16px rgb(0 0 0 / 0.18);
+  --ease-editorial:    cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --ease-standard:     cubic-bezier(0.4, 0, 0.2, 1);
+  --text-11:           0.6875rem;
+  --text-12:           0.75rem;
+  --text-13:           0.8125rem;
   /* Aliase für Modale/Formulare (bg-[var(--bg-card)] etc.) */
   --bg-card:  var(--surface);
   --bg-input: var(--surface-raised);
@@ -150,8 +167,13 @@ html.dark {
   --text-main:         var(--ink);
   --text-muted:        var(--ink-2);
   --text-subtle:       var(--ink-3);
+  --fg-1: var(--ink);
+  --fg-2: var(--ink-2);
+  --fg-3: var(--ink-3);
+  --fg-4: var(--ink-4);
+  --border: #2A2926;
 
-  /* --- Semantic Tokens (dark) --- */
+  /* --- Semantic (dark) --- */
   --bg-modern:     #0a0c10;
   --border-soft:   #2a2926;
   --border-strong: #3a3834;
@@ -160,6 +182,8 @@ html.dark {
   --accent:        var(--propus-gold-dark);
   --accent-hover:  #c9a22a;
   --accent-subtle: color-mix(in srgb, var(--propus-gold-dark) 14%, transparent);
+  --font-sans:     var(--propus-font-body);
+  --font-display:  var(--propus-font-heading);
   --bg-card:  var(--surface);
   --bg-input: var(--surface-raised);
 

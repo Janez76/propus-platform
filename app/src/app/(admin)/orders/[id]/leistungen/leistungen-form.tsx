@@ -10,6 +10,7 @@ import { leistungenFormSchema, type LeistungenFormValues } from "@/lib/validator
 import { getAddonCatalog, PACKAGE_CATALOG } from "@/lib/pricingCatalog";
 import { calculatePricing, VAT_RATE } from "@/lib/pricing";
 import { saveLeistungen } from "./actions";
+import { ProductCatalogModal } from "@/components/handoff";
 import { Section, Empty, formatCHF } from "../_shared";
 
 type Props = {
@@ -113,6 +114,7 @@ export function LeistungenForm({ order }: Props) {
   }, [form, isDirty, shell]);
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "addons" });
   const [addSelect, setAddSelect] = useState(catalog[0]?.id ?? "");
+  const [catalogOpen, setCatalogOpen] = useState(false);
 
   const onSubmit = useCallback(
     (v: LeistungenFormValues) => {
@@ -150,6 +152,15 @@ export function LeistungenForm({ order }: Props) {
         {err && <p className="text-[var(--danger)] text-sm">{err}</p>}
 
         <Section title="Paket" icon={<Tag className="h-4 w-4" />}>
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className="btn-outline-gold text-sm"
+              onClick={() => setCatalogOpen(true)}
+            >
+              Katalog öffnen
+            </button>
+          </div>
           <select
             className="max-w-md w-full rounded-md border border-[var(--border)] bg-[var(--paper-strip)] px-3 py-2 text-sm focus:bg-white focus:border-[var(--gold-500)] focus:outline-none focus:ring-2 focus:ring-[var(--gold-500)]/20"
             {...form.register("packageKey", { setValueAs: (v) => (v === "" ? null : v) })}
@@ -248,6 +259,14 @@ export function LeistungenForm({ order }: Props) {
           <PriceSidebar form={form} discountChf={order.discount_chf} />
         </Section>
         {saving && <p className="text-xs text-[var(--ink-3)]">Wird gespeichert…</p>}
+        <ProductCatalogModal
+          open={catalogOpen}
+          onClose={() => setCatalogOpen(false)}
+          onPickPackage={(key) => { form.setValue("packageKey", key, { shouldDirty: true }); }}
+          onPickAddon={(a) => {
+            append({ id: a.id, label: a.label, group: a.group, price: a.price, qty: a.defaultQty || 1, priceOverride: null });
+          }}
+        />
       </form>
     </FormProvider>
   );

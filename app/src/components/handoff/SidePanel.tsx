@@ -16,7 +16,7 @@ export function SidePanel({ open, title, onClose, footer, children }: SidePanelP
         <header className="sp-head">
           <div className="flex items-center justify-between gap-2">
             <h3 className="m-0 text-base font-semibold">{title}</h3>
-            <button type="button" className="btn btn-ghost" onClick={onClose}>
+            <button type="button" className="btn-ghost" onClick={onClose}>
               Schliessen
             </button>
           </div>

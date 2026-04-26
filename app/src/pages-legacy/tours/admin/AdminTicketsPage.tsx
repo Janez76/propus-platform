@@ -663,7 +663,7 @@ function TicketsTab() {
         </div>
 
         {/* Table */}
-        <div className="surface-card-strong rounded-xl overflow-hidden">
+        <div className="data-table-wrap surface-card-strong rounded-xl overflow-hidden">
           {error && (
             <div className="flex items-center gap-2 p-4 text-sm text-red-400">
               <AlertCircle className="h-4 w-4 shrink-0" />
@@ -683,8 +683,8 @@ function TicketsTab() {
             </div>
           )}
           {!loading && tickets.length > 0 && (
-            <table className="w-full">
-              <thead className="border-b border-[var(--border-soft)]">
+            <table className="dt w-full">
+              <thead>
                 <tr>
                   <th className={thCls}>Status</th>
                   <th className={thCls}>Betreff</th>
@@ -831,7 +831,7 @@ function InboxTab() {
         </button>
       </div>
 
-      <div className="surface-card-strong rounded-xl overflow-hidden">
+      <div className="data-table-wrap surface-card-strong rounded-xl overflow-hidden">
         {error && (
           <div className="flex items-center gap-2 p-4 text-sm text-red-400">
             <AlertCircle className="h-4 w-4 shrink-0" />
@@ -851,8 +851,8 @@ function InboxTab() {
           </div>
         )}
         {!loading && messages.length > 0 && (
-          <table className="w-full">
-            <thead className="border-b border-[var(--border-soft)]">
+          <table className="dt w-full">
+            <thead>
               <tr>
                 <th className={thCls}>Absender</th>
                 <th className={thCls}>Betreff</th>

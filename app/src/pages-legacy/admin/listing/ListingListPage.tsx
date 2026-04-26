@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { LayoutGrid, Table2 } from "lucide-react";
 import { deleteGallery, listGalleries, publicGalleryUrl } from "../../../api/listingAdmin";
 import { pathListingAdmin } from "../../../components/listing/paths";
 import type { GalleryListRow } from "../../../components/listing/types";
+import { HandoffGalleryCards } from "../../../components/listing/HandoffGalleryCards";
 import { ListingDeleteConfirmModal } from "./ListingDeleteConfirmModal";
 
 /** Ein Chip: Versand (Offen/Versendet) oder Listing (Aktiv/Deaktiviert), nicht kombinierbar. */
@@ -74,6 +77,7 @@ export function ListingListPage() {
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   const filterDropdownRef = useRef<HTMLDivElement>(null);
   const [deleteTarget, setDeleteTarget] = useState<GalleryListRow | null>(null);
+  const [listLayout, setListLayout] = useState<"cards" | "table">("cards");
 
   const refresh = useCallback(async () => {
     setLoadErr(null);
@@ -394,11 +398,51 @@ export function ListingListPage() {
                 </div>
               ) : null}
             </div>
+            <div className="flex items-center" style={{ marginLeft: "auto" }}>
+              <div className="inline-flex rounded-lg border border-[var(--border)] p-0.5" style={{ background: "var(--paper-strip)" } as CSSProperties}>
+                <button
+                  type="button"
+                  onClick={() => setListLayout("cards")}
+                  className={`inline-flex h-8 w-8 items-center justify-center rounded-md transition ${listLayout === "cards" ? "bg-white shadow-sm text-[var(--ink)]" : "text-[var(--fg-3)]"}`}
+                  title="Kachelansicht"
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setListLayout("table")}
+                  className={`inline-flex h-8 w-8 items-center justify-center rounded-md transition ${listLayout === "table" ? "bg-white shadow-sm text-[var(--ink)]" : "text-[var(--fg-3)]"}`}
+                  title="Tabelle"
+                >
+                  <Table2 className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="admin-table-wrap gal-admin-listings-table gal-admin-listings-table--flat">
-          <table className="admin-table gal-admin-listings-tbl">
+        {listLayout === "cards" ? (
+          visibleRows.length > 0 ? (
+            <HandoffGalleryCards
+              rows={visibleRows}
+              variant="listing"
+              buildEditHref={(id) => pathListingAdmin(id)}
+              onCopyLink={(g) => void onCopyMagicLink(g as GalleryListRow)}
+              onDelete={(g) => setDeleteTarget(g as GalleryListRow)}
+              copyFlashId={copyFlashId}
+              busyId={busyId}
+              fmtDateShort={fmtDateShort}
+            />
+          ) : (
+            <p className="admin-table-empty" style={{ border: 0, padding: "2rem" }}>
+              {rows.length === 0 && !loadErr ? "Noch keine Galerie angelegt." : !loadErr ? "Keine Listings für die aktuellen Filter." : null}
+            </p>
+          )
+        ) : null}
+
+        {listLayout === "table" ? (
+        <div className="admin-table-wrap gal-admin-listings-table gal-admin-listings-table--flat data-table-wrap">
+          <table className="admin-table gal-admin-listings-tbl dt">
             <thead>
               <tr>
                 <th className="gal-admin-listings-tbl__col-title" scope="col">
@@ -534,6 +578,7 @@ export function ListingListPage() {
             <p className="admin-table-empty">Keine Listings für die aktuellen Filter.</p>
           ) : null}
         </div>
+        ) : null}
         </div>
       </div>
 

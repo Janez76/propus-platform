@@ -193,7 +193,7 @@ export function RenewalTable({
   onSendDraft?: (invoice: InvoiceRow) => void;
 }) {
   return (
-    <table className="w-full text-sm">
+    <table className="dt w-full text-sm">
       <thead>
         <tr className="text-left text-[var(--text-subtle)] border-b border-[var(--border-soft)]">
           <th className="px-4 py-3">Tour / Kunde</th>
@@ -313,7 +313,7 @@ export function ExxasTable({
   onDelete: (invoice: InvoiceRow) => void;
 }) {
   return (
-    <table className="w-full text-sm">
+    <table className="dt w-full text-sm">
       <thead>
         <tr className="text-left text-[var(--text-subtle)] border-b border-[var(--border-soft)]">
           <th className="px-4 py-3">Kunde</th>

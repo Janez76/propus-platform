@@ -1,5 +1,4 @@
-@import url(''https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap'');
-
+/* Fonts: Inter + JetBrains Mono per layout.tsx (Google Fonts); tokens from index.css :root */
 :root {
   --font-sans: var(--propus-font-body);
   --font-display: var(--propus-font-heading);

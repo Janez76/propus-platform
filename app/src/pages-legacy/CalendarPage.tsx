@@ -6,6 +6,8 @@ import { OrderStatusSelect } from "../components/orders/OrderStatusSelect";
 import { getPhotographers, type Photographer } from "../api/photographers";
 import { getCalendarEvents, type CalendarEvent } from "../api/calendar";
 import { CalendarView, type CalendarClickedEvent, normalizeMojibakeText } from "../components/calendar/CalendarView";
+import { CalMiniMonth } from "../components/calendar/CalMiniMonth";
+import { WEATHER_ZONES, WX_COLOR } from "../components/dashboard-v2/dashboardWeather";
 import { CreateOrderWizard } from "../components/orders/CreateOrderWizard";
 import { useAuthStore } from "../store/authStore";
 import { t } from "../i18n";
@@ -48,6 +50,7 @@ export function CalendarPage() {
   const [photographers, setPhotographers] = useState<Photographer[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [prefilledDate, setPrefilledDate] = useState<string | undefined>(undefined);
+  const [miniMonthAnchor, setMiniMonthAnchor] = useState(() => new Date());
 
   async function load() {
     const [evs, staff] = await Promise.all([getCalendarEvents(token), getPhotographers(token)]);
@@ -78,6 +81,15 @@ export function CalendarPage() {
       }),
     [events, filter, photographerFilter],
   );
+
+  const eventDayKeys = useMemo(() => {
+    const s = new Set<string>();
+    for (const e of filtered) {
+      const d = String(e.start || "").slice(0, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(d)) s.add(d);
+    }
+    return s;
+  }, [filtered]);
 
   function openEvent(ev: CalendarClickedEvent) {
     setSelected(ev);
@@ -194,7 +206,7 @@ export function CalendarPage() {
         sub={t(lang, "calendar.label.filterDesc")}
         kpis={[{
           id: "events",
-          label: t(lang, "calendar.label.eventCount").replace("{{n}}", "0"),
+          label: t(lang, "calendar.label.eventCount").replace("{{n}}", String(filtered.length)),
           value: String(filtered.length),
           trend: t(lang, "calendar.label.filterDesc"),
         }]}
@@ -210,54 +222,85 @@ export function CalendarPage() {
         )}
       />
       <div className="pad-content space-y-3">
-      <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-5">
-        <FilterBar
-          pills={[
-            { id: "all", label: t(lang, "common.all") },
-            ...STATUS_KEYS.map((s) => ({ id: s, label: getStatusLabel(s) })),
-          ]}
-          activePillId={filter}
-          onPillClick={setFilter}
-          rightSlot={(
-            <span className="rounded-full border border-[var(--accent)]/30 bg-[var(--accent)]/15 px-3 py-1 text-xs font-bold text-[var(--accent)]">
-              {t(lang, "calendar.label.eventCount").replace("{{n}}", String(filtered.length))}
-            </span>
-          )}
-        />
-        <div className="mt-3 grid gap-3 md:grid-cols-2">
-          <div className="rounded-xl border border-zinc-800/70 bg-zinc-950/50 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]">
-            <label htmlFor="calendarStatusFilter" className="mb-2 block text-xs font-semibold uppercase tracking-[0.08em] text-[var(--accent)]">
-              {t(lang, "calendar.label.status")}
-            </label>
-            <select id="calendarStatusFilter" name="calendarStatusFilter" aria-label={t(lang, "calendar.label.status")} className="ui-input w-full" value={filter} onChange={(e) => setFilter(e.target.value)}>
-              <option value="all">{t(lang, "common.all")}</option>
-              {STATUS_KEYS.map((s) => <option key={s} value={s}>{getStatusLabel(s)}</option>)}
-            </select>
+      <div className="cal-layout">
+        <aside className="cal-side">
+          <CalMiniMonth
+            anchor={miniMonthAnchor}
+            onChangeAnchor={setMiniMonthAnchor}
+            onPickDay={(dateKey) => prepareNewBooking(dateKey)}
+            eventDayKeys={eventDayKeys}
+          />
+          <div className="cal-side-card">
+            <h4>Filter</h4>
+            <FilterBar
+              pills={[
+                { id: "all", label: t(lang, "common.all") },
+                ...STATUS_KEYS.map((s) => ({ id: s, label: getStatusLabel(s) })),
+              ]}
+              activePillId={filter}
+              onPillClick={setFilter}
+            />
+            <div className="mt-2">
+              <label htmlFor="calendarStatusSelect" className="mb-1.5 block text-xs font-medium text-[var(--fg-3)]">
+                {t(lang, "calendar.label.status")}
+              </label>
+              <select
+                id="calendarStatusSelect"
+                className="ui-input w-full"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                aria-label={t(lang, "calendar.label.status")}
+              >
+                <option value="all">{t(lang, "common.all")}</option>
+                {STATUS_KEYS.map((s) => <option key={s} value={s}>{getStatusLabel(s)}</option>)}
+              </select>
+            </div>
           </div>
-          <div className="rounded-xl border border-zinc-800/70 bg-zinc-950/50 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]">
-            <label htmlFor="calendarPhotographerFilter" className="mb-2 block text-xs font-semibold uppercase tracking-[0.08em] text-[var(--accent)]">
-              {t(lang, "calendar.label.employee")}
-            </label>
+          <div className="cal-side-card">
+            <h4>{t(lang, "calendar.label.employee")}</h4>
             <select
-              id="calendarPhotographerFilter"
-              name="calendarPhotographerFilter"
-              aria-label={t(lang, "calendar.label.employee")}
               className="ui-input w-full"
               value={photographerFilter}
               onChange={(e) => setPhotographerFilter(e.target.value)}
+              aria-label={t(lang, "calendar.label.employee")}
             >
               <option value="all">{t(lang, "common.all")}</option>
               {photographers.map((p) => <option key={p.key} value={p.key}>{p.name} ({p.key})</option>)}
             </select>
+            <p className="mt-2 text-xs text-[var(--fg-3)]">
+              Wochen- / Tages- / Monatsansicht: Toolbar des Kalenders rechts.
+            </p>
           </div>
-        </div>
-      </div>
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
-      {savedOk ? <p className="text-sm text-emerald-600">{t(lang, "common.saved")}</p> : null}
+          <div className="cal-side-card">
+            <h4>Wetter (Karte)</h4>
+            <div className="flex flex-wrap gap-1.5">
+              {WEATHER_ZONES.map((z) => {
+                const c = WX_COLOR[z.kind];
+                return (
+                  <div
+                    key={z.city}
+                    className="inline-flex items-center gap-1 rounded-lg border px-1.5 py-1"
+                    style={{
+                      borderColor: c,
+                      color: c,
+                      background: `color-mix(in srgb, ${c} 10%, var(--card))`,
+                    }}
+                  >
+                    <span className="font-mono text-xs font-bold" style={{ fontFamily: "var(--propus-font-mono)" }}>{z.t}°</span>
+                    <span className="text-[11px] font-medium opacity-90">{z.city}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </aside>
+        <div className="min-w-0 space-y-2">
+      {error ? <p className="text-sm text-red-500">{error}</p> : null}
+      {savedOk ? <p className="text-sm text-[var(--success)]">{t(lang, "common.saved")}</p> : null}
       {filtered.length === 0 ? (
-        <div className="rounded-xl border border-zinc-800/40 bg-zinc-900/30 p-10 text-center">
-          <p className="text-sm font-medium text-zinc-300">{t(lang, "calendar.noEventsInRange")}</p>
-          <button className="btn-secondary mt-3" onClick={() => openCreateBooking()}>{t(lang, "calendar.newBooking")}</button>
+        <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)]/80 p-10 text-center">
+          <p className="text-sm font-medium text-[var(--text-main)]">{t(lang, "calendar.noEventsInRange")}</p>
+          <button type="button" className="btn-secondary mt-3" onClick={() => openCreateBooking()}>{t(lang, "calendar.newBooking")}</button>
         </div>
       ) : null}
       <CalendarView
@@ -265,6 +308,8 @@ export function CalendarPage() {
         onEventClick={openEvent}
         onDateClick={prepareNewBooking}
       />
+        </div>
+      </div>
       <CreateOrderWizard
         token={token}
         open={showCreate}
@@ -281,25 +326,33 @@ export function CalendarPage() {
       />
 
       {selected ? (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 backdrop-blur-sm p-2 sm:p-4">
-          <div className="w-full max-w-full sm:max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl bg-zinc-900 border border-zinc-800 p-4 sm:p-6 shadow-2xl my-auto">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-xl font-bold text-zinc-100">{t(lang, "calendar.modal.title")}</h3>
-              <button className="btn-secondary" onClick={() => setSelected(null)}>{t(lang, "common.close")}</button>
+        <>
+          <button
+            type="button"
+            className="sp-overlay"
+            aria-label="Schliessen"
+            onClick={() => setSelected(null)}
+          />
+          <div className="sp-panel" style={{ maxWidth: 520, width: "100%" }}>
+            <div className="sp-head">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="m-0 text-base font-semibold text-[var(--text-main)]">{t(lang, "calendar.modal.title")}</h3>
+                <button type="button" className="btn-ghost" onClick={() => setSelected(null)}>{t(lang, "common.close")}</button>
+              </div>
             </div>
-            <div className="space-y-3 text-sm text-zinc-300">
-              <div className="flex gap-2"><span className="font-semibold text-[var(--accent)] min-w-[100px]">{t(lang, "calendar.label.title")}</span><span>{normalizeMojibakeText(selected.title) || "-"}</span></div>
-              <div className="flex gap-2"><span className="font-semibold text-[var(--accent)] min-w-[100px]">{t(lang, "calendar.label.start")}</span><span>{formatDateTime(selected.start)}</span></div>
-              <div className="flex gap-2"><span className="font-semibold text-[var(--accent)] min-w-[100px]">{t(lang, "calendar.label.end")}</span><span>{formatDateTime(selected.end)}</span></div>
-              <div className="flex gap-2"><span className="font-semibold text-[var(--accent)] min-w-[100px]">{t(lang, "calendar.label.type")}</span><span>{selected.type || "-"}</span></div>
-              <div className="flex gap-2"><span className="font-semibold text-[var(--accent)] min-w-[100px]">{t(lang, "calendar.label.address")}</span><span>{selected.address || "-"}</span></div>
-              <div className="flex gap-2"><span className="font-semibold text-[var(--accent)] min-w-[100px]">{t(lang, "calendar.label.employeeColon")}</span><span>{selected.photographerName || selected.photographerKey || "-"}</span></div>
-              {selected.grund ? <div className="flex gap-2"><span className="font-semibold text-[var(--accent)] min-w-[100px]">{t(lang, "calendar.label.reason")}</span><span>{selected.grund}</span></div> : null}
+            <div className="sp-body space-y-3 text-sm text-[var(--text-main)]">
+              <div className="flex gap-2"><span className="min-w-[100px] font-semibold text-[var(--accent)]">{t(lang, "calendar.label.title")}</span><span>{normalizeMojibakeText(selected.title) || "-"}</span></div>
+              <div className="flex gap-2"><span className="min-w-[100px] font-semibold text-[var(--accent)]">{t(lang, "calendar.label.start")}</span><span>{formatDateTime(selected.start)}</span></div>
+              <div className="flex gap-2"><span className="min-w-[100px] font-semibold text-[var(--accent)]">{t(lang, "calendar.label.end")}</span><span>{formatDateTime(selected.end)}</span></div>
+              <div className="flex gap-2"><span className="min-w-[100px] font-semibold text-[var(--accent)]">{t(lang, "calendar.label.type")}</span><span>{selected.type || "-"}</span></div>
+              <div className="flex gap-2"><span className="min-w-[100px] font-semibold text-[var(--accent)]">{t(lang, "calendar.label.address")}</span><span>{selected.address || "-"}</span></div>
+              <div className="flex gap-2"><span className="min-w-[100px] font-semibold text-[var(--accent)]">{t(lang, "calendar.label.employeeColon")}</span><span>{selected.photographerName || selected.photographerKey || "-"}</span></div>
+              {selected.grund ? <div className="flex gap-2"><span className="min-w-[100px] font-semibold text-[var(--accent)]">{t(lang, "calendar.label.reason")}</span><span>{selected.grund}</span></div> : null}
             </div>
 
             {selected.orderNo ? (
-              <div className="mt-4 space-y-3 p-4 rounded-lg bg-zinc-800/50 border border-zinc-700 text-sm">
-                <div className="font-bold text-zinc-100 text-base">{t(lang, "calendar.label.orderOptions")}</div>
+              <div className="space-y-3 border-t border-[var(--border-soft)] bg-[var(--surface-raised)]/50 p-4 text-sm">
+                <div className="text-base font-bold text-[var(--text-main)]">{t(lang, "calendar.label.orderOptions")}</div>
                 <div>
                   <label className="mb-1 block text-xs font-semibold p-text-muted">{t(lang, "calendar.label.status")}</label>
                   <OrderStatusSelect
@@ -385,16 +438,25 @@ export function CalendarPage() {
               </div>
             ) : null}
 
-            <div className="mt-5 flex flex-wrap gap-2">
-              {selected.orderNo ? (
-                <button className="btn-primary flex-1" onClick={() => { navigate(`/orders?open=${encodeURIComponent(selected.orderNo || "")}`); setSelected(null); }}>
-                  {t(lang, "calendar.button.goToOrder").replace("{{orderNo}}", String(selected.orderNo))}
-                </button>
-              ) : null}
-              <button className="btn-secondary flex-1" onClick={() => setSelected(null)}>OK</button>
-            </div>
+            <footer className="sp-foot">
+              <div className="flex w-full flex-wrap gap-2">
+                {selected.orderNo ? (
+                  <button
+                    type="button"
+                    className="btn-primary flex-1"
+                    onClick={() => {
+                      navigate(`/orders/${encodeURIComponent(String(selected.orderNo))}`);
+                      setSelected(null);
+                    }}
+                  >
+                    {t(lang, "calendar.button.goToOrder").replace("{{orderNo}}", String(selected.orderNo))}
+                  </button>
+                ) : null}
+                <button type="button" className="btn-secondary flex-1" onClick={() => setSelected(null)}>OK</button>
+              </div>
+            </footer>
           </div>
-        </div>
+        </>
       ) : null}
       </div>
     </div>

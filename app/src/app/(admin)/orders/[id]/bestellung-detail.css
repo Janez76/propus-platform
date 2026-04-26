@@ -2,6 +2,7 @@
    PROPUS · Bestellungs-Detailseite — Light Mode (Paper + Gold)
    Scope: anything inside .bestellung-shell
    ============================================================ */
+@import url("../../../../styles/handoff/order-variants.css");
 
 /* Tokens are declared on the outer page wrapper so both children
    (.bd-sidebar AND .bestellung-shell) can resolve them — CSS custom

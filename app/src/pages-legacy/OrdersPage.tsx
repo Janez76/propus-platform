@@ -16,6 +16,7 @@ import { CreateOrderWizard } from "../components/orders/CreateOrderWizard";
 import { OrderMessages } from "../components/orders/OrderMessages";
 import { OrdersMapView, OrdersMapViewNoKey } from "../components/orders/OrdersMapView";
 import { OrderTable } from "../components/orders/OrderTable";
+import { OrderSidePanel } from "../components/orders/OrderSidePanel";
 import { OrderWeekCalendar } from "../components/orders/OrderWeekCalendar";
 import { useQuery } from "../hooks/useQuery";
 import { ordersQueryKey } from "../lib/queryKeys";
@@ -119,6 +120,7 @@ export function OrdersPage() {
   const [exxasNotice, setExxasNotice] = useState<string | null>(null);
   const [exxasBusy, setExxasBusy] = useState(false);
   const [showBulkDelete, setShowBulkDelete] = useState(false);
+  const [sidePanelNo, setSidePanelNo] = useState<string | null>(null);
 
   const now = useMemo(() => new Date(), []);
   const weekStart = useMemo(() => startOfWeek(now, true), [now]);
@@ -371,9 +373,14 @@ export function OrdersPage() {
     window.setTimeout(() => setBulkFeedback(null), 8000);
   }
 
-  const openDetail = useCallback((orderNo: string) => {
-    window.location.href = `/orders/${encodeURIComponent(orderNo)}`;
+  const openOrderPreview = useCallback((orderNo: string) => {
+    setSidePanelNo(orderNo);
   }, []);
+
+  const sidePanelOrder = useMemo(
+    () => (sidePanelNo ? allOrders.find((o) => o.orderNo === sidePanelNo) ?? null : null),
+    [allOrders, sidePanelNo],
+  );
 
   const overdueCount = useMemo(
     () =>
@@ -669,7 +676,7 @@ export function OrdersPage() {
         ) : (
           <OrderTable
             orders={orders}
-            onOpenDetail={openDetail}
+            onOpenDetail={openOrderPreview}
             onOpenMessages={setMsgNo}
             onOpenUpload={(no) => navigate(`/upload?order=${encodeURIComponent(no)}`)}
             selectedNos={selectedNos}
@@ -681,9 +688,9 @@ export function OrdersPage() {
           />
         )
       ) : view === "kanban" ? (
-        <OrdersKanban orders={orders} onOpenDetail={openDetail} />
+        <OrdersKanban orders={orders} onOpenDetail={openOrderPreview} />
       ) : view === "calendar" ? (
-        <OrderWeekCalendar orders={orders} onOpenDetail={openDetail} />
+        <OrderWeekCalendar orders={orders} onOpenDetail={openOrderPreview} />
       ) : (
         orders.length === 0 ? (
           <EmptyState lang={lang} />
@@ -698,7 +705,7 @@ export function OrdersPage() {
         ) : !googleMapsKey ? (
           <OrdersMapViewNoKey lang={lang} />
         ) : (
-          <OrdersMapView apiKey={googleMapsKey} orders={orders} onOpenDetail={openDetail} lang={lang} />
+          <OrdersMapView apiKey={googleMapsKey} orders={orders} onOpenDetail={openOrderPreview} lang={lang} />
         )
       )}
 
@@ -746,6 +753,13 @@ export function OrdersPage() {
         }}
       />
       {msgNo ? <OrderMessages token={token} orderNo={msgNo} onClose={() => setMsgNo(null)} /> : null}
+
+      <OrderSidePanel
+        open={Boolean(sidePanelNo && sidePanelOrder)}
+        order={sidePanelOrder}
+        onClose={() => setSidePanelNo(null)}
+        lang={lang}
+      />
     </div>
   );
 }
