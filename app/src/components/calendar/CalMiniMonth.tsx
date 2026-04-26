@@ -24,18 +24,16 @@ function isoWeek(date: Date): number {
   return 1 + Math.round((d.getTime() - firstThu.getTime()) / (7 * 24 * 60 * 60 * 1000));
 }
 
-/** Hintergrund-Tint je Wetterart (gold-/olive-/blau-Töne, sehr dezent). */
+/** Sehr dezenter Hintergrund-Tint je Wetterart — Tageszahl & Termin-Count sollen lesbar bleiben. */
 const BG_BY_KIND: Record<WeatherKind, string> = {
-  sun: "linear-gradient(180deg, #FBE9C0, #F2D58A)",
-  psun: "linear-gradient(180deg, #F4E4B6, #DCC078)",
-  cloud: "linear-gradient(180deg, #E9E4D6, #C9C2A8)",
-  rain: "linear-gradient(180deg, #DDE5EC, #B5C4D0)",
-  storm: "linear-gradient(180deg, #C9C0D8, #8E80AE)",
-  fog: "linear-gradient(180deg, #ECEAE2, #C8C4B5)",
-  snow: "linear-gradient(180deg, #F4F2EC, #DAD6C8)",
+  sun: "#FCF3DC",
+  psun: "#F8EDCC",
+  cloud: "#EFEBDD",
+  rain: "#E6ECF2",
+  storm: "#DDD6E6",
+  fog: "#EFEDE5",
+  snow: "#F6F4EE",
 };
-
-const DARK_KINDS: ReadonlySet<WeatherKind> = new Set(["psun", "rain", "cloud", "storm"]);
 
 type Props = {
   anchor: Date;
@@ -145,14 +143,9 @@ export function CalMiniMonth({
                 const isSelected = selectedDateIso === cell.iso;
                 const dim = !cell.inMonth;
                 const bg = fc ? BG_BY_KIND[fc.kind] : undefined;
-                const dark = fc ? DARK_KINDS.has(fc.kind) : false;
                 const style: CSSProperties = bg
-                  ? {
-                      backgroundImage: bg,
-                      color: dark ? "#FFFDF7" : "var(--ink)",
-                      opacity: dim ? 0.55 : 1,
-                    }
-                  : { opacity: dim ? 0.55 : 1 };
+                  ? { backgroundColor: bg, opacity: dim ? 0.45 : 1 }
+                  : { opacity: dim ? 0.45 : 1 };
                 const tip = fc
                   ? `${cell.iso} · ${weatherLabel(fc.kind)} · ${fc.t_max}°/${fc.t_min}° · ${fc.precip}% · ${count} Termin${count === 1 ? "" : "e"}`
                   : `${cell.iso} · ${count} Termin${count === 1 ? "" : "e"}`;
@@ -163,17 +156,21 @@ export function CalMiniMonth({
                     className={
                       "cal-mini-wx-cell" +
                       (isToday ? " is-today" : "") +
-                      (isSelected ? " is-selected" : "")
+                      (isSelected ? " is-selected" : "") +
+                      (count > 0 ? " has-events" : "")
                     }
                     style={style}
                     title={tip}
                     aria-label={tip}
                     onClick={() => onPickDay(cell.iso)}
                   >
-                    <span className="cal-mini-wx-emoji" aria-hidden>
-                      {fc ? weatherEmoji(fc.kind) : "·"}
-                    </span>
-                    <span className="cal-mini-wx-count">{count > 0 ? count : ""}</span>
+                    <span className="cal-mini-wx-day">{cell.date.getDate()}</span>
+                    {fc ? (
+                      <span className="cal-mini-wx-emoji" aria-hidden>
+                        {weatherEmoji(fc.kind)}
+                      </span>
+                    ) : null}
+                    {count > 0 ? <span className="cal-mini-wx-count">{count}</span> : null}
                   </button>
                 );
               })}

@@ -151,46 +151,73 @@
 }
 .cal-mini-wx-cell {
   position: relative;
-  display: grid;
-  grid-template-rows: 1fr auto;
-  place-items: center;
-  gap: 0;
-  height: 44px;
-  border: 1px solid transparent;
+  display: block;
+  height: 48px;
+  border: 1px solid var(--border-soft, rgba(20, 20, 19, 0.08));
   border-radius: 8px;
   background: var(--paper-strip);
   color: var(--ink);
   cursor: pointer;
   font-family: inherit;
-  padding: 4px 2px 4px;
-  transition: filter 120ms, transform 80ms;
+  padding: 4px 6px;
+  transition: filter 120ms, transform 80ms, border-color 120ms;
 }
-.cal-mini-wx-cell.is-empty { background: transparent; cursor: default; }
-.cal-mini-wx-cell:not(.is-empty):hover { filter: brightness(1.05); transform: translateY(-1px); }
+.cal-mini-wx-cell.is-empty {
+  background: transparent;
+  border-color: transparent;
+  cursor: default;
+}
+.cal-mini-wx-cell:not(.is-empty):hover {
+  filter: brightness(0.97);
+  transform: translateY(-1px);
+}
 .cal-mini-wx-cell:not(.is-empty):active { transform: translateY(0); }
 .cal-mini-wx-cell.is-today {
   border-color: var(--ink);
-  box-shadow: 0 0 0 1px var(--ink) inset;
+  border-width: 1.5px;
+}
+.cal-mini-wx-cell.is-today .cal-mini-wx-day {
+  background: var(--ink);
+  color: var(--paper);
 }
 .cal-mini-wx-cell.is-selected {
   outline: 2px solid var(--gold-600);
-  outline-offset: 2px;
+  outline-offset: 1px;
+}
+.cal-mini-wx-day {
+  position: absolute;
+  top: 3px;
+  left: 4px;
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--ink);
+  padding: 2px 4px;
+  border-radius: 4px;
+  min-width: 14px;
+  text-align: center;
 }
 .cal-mini-wx-emoji {
-  font-size: 16px;
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  font-size: 11px;
   line-height: 1;
-  display: inline-block;
+  opacity: 0.85;
   filter: drop-shadow(0 1px 1px rgba(20, 20, 19, 0.08));
 }
 .cal-mini-wx-count {
+  position: absolute;
+  bottom: 4px;
+  right: 6px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
   line-height: 1;
-  margin-top: 2px;
-  min-height: 12px;
+  color: var(--gold-600);
 }
+.cal-mini-wx-cell.is-today .cal-mini-wx-count { color: var(--ink); }
 
 /* Status filters */
 .cal-filters { display: flex; flex-direction: column; gap: 2px; }
