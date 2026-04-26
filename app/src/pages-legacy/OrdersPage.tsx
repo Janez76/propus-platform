@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { AlertTriangle, Calendar, List, Map as MapIcon, Plus, Search } from "lucide-react";
+import { AlertTriangle, Calendar, Columns3, List, Map as MapIcon, Plus } from "lucide-react";
 import {
   createExxasServiceOrder,
   deleteOrder,
@@ -25,8 +25,9 @@ import { getStatusLabel, normalizeStatusKey, STATUS_KEYS, type StatusKey } from 
 import { getTerminInfo, startOfWeek, addDays, sameDay } from "../lib/orderTermin";
 import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { useOrderStore } from "../store/orderStore";
+import { FilterBar, PageHeader } from "../components/handoff";
 
-type ViewMode = "list" | "calendar" | "map";
+type ViewMode = "list" | "kanban" | "calendar" | "map";
 type QuickFilter = "none" | "today" | "thisWeek" | "nextWeek" | "overdue" | "mine";
 
 // Grouped chips per redesign:
@@ -460,27 +461,58 @@ export function OrdersPage() {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(kpiOpenRevenue);
+  const headerKpis = [
+    {
+      id: "active",
+      label: t(lang, "orders.kpi.activeTotal") || "Gesamt aktiv",
+      value: String(kpiActiveCount),
+      trend: (t(lang, "orders.kpi.totalSuffix") || "von {{total}} insgesamt").replace("{{total}}", String(allOrders.length)),
+    },
+    {
+      id: "revenue",
+      label: t(lang, "orders.kpi.openRevenue") || "Umsatz offen",
+      value: formattedRevenue,
+      trend: t(lang, "orders.kpi.unbilled") || "noch nicht abgerechnet",
+      tone: "gold" as const,
+    },
+    {
+      id: "today",
+      label: t(lang, "orders.kpi.today") || "Heute",
+      value: String(kpiTodayCount),
+      trend: kpiUnassignedCount > 0
+        ? `${kpiUnassignedCount} ${t(lang, "orders.kpi.unassignedShort") || "ungeplant"}`
+        : (t(lang, "orders.kpi.allAssigned") || "alle zugewiesen"),
+      trendTone: kpiUnassignedCount > 0 ? "warn" as const : "default" as const,
+    },
+  ];
+  const quickPills = [
+    { id: "none", label: t(lang, "orders.quick.all") },
+    { id: "today", label: t(lang, "orders.quick.today") },
+    { id: "thisWeek", label: t(lang, "orders.quick.thisWeek") },
+    { id: "nextWeek", label: t(lang, "orders.quick.nextWeek") },
+    { id: "overdue", label: `${t(lang, "orders.quick.overdue")}${overdueCount > 0 ? ` (${overdueCount})` : ""}` },
+    { id: "mine", label: t(lang, "orders.quick.mine") },
+  ];
 
   return (
     <div className="padmin-shell space-y-4">
-      {/* Page header (design's PageHeader pattern) */}
-      <header className="pad-page-header">
-        <div className="pad-ph-top">
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <div className="pad-eyebrow">{eyebrowText}</div>
-            <h1 className="pad-h1">{t(lang, "orders.title")}</h1>
-            <div className="pad-ph-sub">{t(lang, "orders.description")}</div>
-          </div>
-          <div className="pad-ph-actions">
+      <PageHeader
+        eyebrow={eyebrowText}
+        title={t(lang, "orders.title")}
+        sub={t(lang, "orders.description")}
+        kpis={headerKpis}
+        actions={(
+          <>
             <Segmented
               items={[
                 { key: "list", label: t(lang, "orders.view.list"), icon: <List className="h-3.5 w-3.5" /> },
+                { key: "kanban", label: "Kanban", icon: <Columns3 className="h-3.5 w-3.5" /> },
                 { key: "calendar", label: t(lang, "orders.view.calendar"), icon: <Calendar className="h-3.5 w-3.5" /> },
-              { key: "map", label: t(lang, "orders.view.map"), icon: <MapIcon className="h-3.5 w-3.5" /> },
-            ]}
-            value={view}
-            onChange={(v) => setView(v as ViewMode)}
-          />
+                { key: "map", label: t(lang, "orders.view.map"), icon: <MapIcon className="h-3.5 w-3.5" /> },
+              ]}
+              value={view}
+              onChange={(v) => setView(v as ViewMode)}
+            />
             <button
               onClick={() => setShowCreate(true)}
               className="cust-btn-new"
@@ -488,94 +520,48 @@ export function OrdersPage() {
               <Plus className="h-5 w-5" />
               <span className="hidden sm:inline">{t(lang, "orders.button.newOrder")}</span>
             </button>
-          </div>
-        </div>
-
-        {/* KPI tiles */}
-        <div className="pad-kpis">
-          <div className="pad-kpi">
-            <div className="pad-kpi-label">{t(lang, "orders.kpi.activeTotal") || "Gesamt aktiv"}</div>
-            <div className="pad-kpi-value">{kpiActiveCount}</div>
-            <div className="pad-kpi-trend">
-              {(t(lang, "orders.kpi.totalSuffix") || "von {{total}} insgesamt").replace("{{total}}", String(allOrders.length))}
-            </div>
-          </div>
-          <div className="pad-kpi is-gold">
-            <div className="pad-kpi-label">{t(lang, "orders.kpi.openRevenue") || "Umsatz offen"}</div>
-            <div className="pad-kpi-value is-gold">{formattedRevenue}</div>
-            <div className="pad-kpi-trend">{t(lang, "orders.kpi.unbilled") || "noch nicht abgerechnet"}</div>
-          </div>
-          <div className="pad-kpi">
-            <div className="pad-kpi-label">{t(lang, "orders.kpi.today") || "Heute"}</div>
-            <div className="pad-kpi-value">{kpiTodayCount}</div>
-            <div className={"pad-kpi-trend" + (kpiUnassignedCount > 0 ? " is-warn" : "")}>
-              {kpiUnassignedCount > 0
-                ? `${kpiUnassignedCount} ${t(lang, "orders.kpi.unassignedShort") || "ungeplant"}`
-                : (t(lang, "orders.kpi.allAssigned") || "alle zugewiesen")}
-            </div>
-          </div>
-          <div className={"pad-kpi" + (kpiUnassignedCount > 0 ? " is-warn" : "")}>
-            <div className="pad-kpi-label">{t(lang, "orders.kpi.unassigned") || "Ohne Fotograf"}</div>
-            <div className="pad-kpi-value">{kpiUnassignedCount}</div>
-            <div className={"pad-kpi-trend" + (kpiUnassignedCount > 0 ? " is-warn" : " is-up")}>
-              {kpiUnassignedCount > 0
-                ? (t(lang, "orders.kpi.assignNow") || "Aufträge benötigen Zuweisung")
-                : (t(lang, "orders.kpi.allAssigned") || "alle zugewiesen")}
-            </div>
-          </div>
-        </div>
-      </header>
+          </>
+        )}
+      />
 
       {/* Filter bar */}
       <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative min-w-[220px] flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-subtle)]" />
-            <input
-              type="text"
-              placeholder={t(lang, "orders.placeholder.search")}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="h-9 w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] pl-9 pr-3 text-sm text-[var(--text-main)] placeholder:text-[var(--text-subtle)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-subtle)]"
-            />
-          </div>
-          <Segmented
-            items={[
-              { key: "none", label: t(lang, "orders.quick.all") },
-              { key: "today", label: t(lang, "orders.quick.today") },
-              { key: "thisWeek", label: t(lang, "orders.quick.thisWeek") },
-              { key: "nextWeek", label: t(lang, "orders.quick.nextWeek") },
-              { key: "overdue", label: `${t(lang, "orders.quick.overdue")}${overdueCount > 0 ? ` (${overdueCount})` : ""}`, tone: overdueCount > 0 ? "danger" : undefined },
-              { key: "mine", label: t(lang, "orders.quick.mine") },
-            ]}
-            value={quickFilter}
-            onChange={(v) => setQuickFilter(v as QuickFilter)}
-          />
-          <select
-            value={photographerFilter}
-            onChange={(e) => setPhotographerFilter(e.target.value)}
-            className="h-9 rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 text-sm text-[var(--text-main)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-subtle)]"
-          >
-            <option value="all">{t(lang, "orders.filter.allEmployees")}</option>
-            {photographers.map((p) => (
-              <option key={p.key} value={p.key}>{p.name || p.key}</option>
-            ))}
-          </select>
-          {hasAnyActiveFilter ? (
-            <button
-              type="button"
-              onClick={() => {
-                setStatusSelection(new Set());
-                setQuickFilter("none");
-                setPhotographerFilter("all");
-                setQuery("");
-              }}
-              className="h-9 rounded-lg border border-[var(--border-soft)] bg-transparent px-3 text-xs font-medium text-[var(--text-muted)] hover:bg-[var(--surface-raised)]"
-            >
-              {t(lang, "orders.filter.reset")}
-            </button>
-          ) : null}
-        </div>
+        <FilterBar
+          searchValue={query}
+          onSearchChange={setQuery}
+          searchPlaceholder={t(lang, "orders.placeholder.search")}
+          pills={quickPills}
+          activePillId={quickFilter}
+          onPillClick={(v) => setQuickFilter(v as QuickFilter)}
+          rightSlot={(
+            <>
+              <select
+                value={photographerFilter}
+                onChange={(e) => setPhotographerFilter(e.target.value)}
+                className="h-9 rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 text-sm text-[var(--text-main)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-subtle)]"
+              >
+                <option value="all">{t(lang, "orders.filter.allEmployees")}</option>
+                {photographers.map((p) => (
+                  <option key={p.key} value={p.key}>{p.name || p.key}</option>
+                ))}
+              </select>
+              {hasAnyActiveFilter ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStatusSelection(new Set());
+                    setQuickFilter("none");
+                    setPhotographerFilter("all");
+                    setQuery("");
+                  }}
+                  className="h-9 rounded-lg border border-[var(--border-soft)] bg-transparent px-3 text-xs font-medium text-[var(--text-muted)] hover:bg-[var(--surface-raised)]"
+                >
+                  {t(lang, "orders.filter.reset")}
+                </button>
+              ) : null}
+            </>
+          )}
+        />
         <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-dashed border-[var(--border-soft)] pt-3">
           {CHIP_GROUPS.filter((g) => !g.hiddenByDefault || showArchivedChip || statusSelection.has(g.id)).map((group) => {
             const n = group.members.reduce((acc, k) => acc + (statusCounts[k] || 0), 0);
@@ -694,6 +680,8 @@ export function OrdersPage() {
             onSyncExxasOrderLinks={canCreateExxasOrder ? handleSyncExxasOrderLinks : undefined}
           />
         )
+      ) : view === "kanban" ? (
+        <OrdersKanban orders={orders} onOpenDetail={openDetail} />
       ) : view === "calendar" ? (
         <OrderWeekCalendar orders={orders} onOpenDetail={openDetail} />
       ) : (
@@ -759,6 +747,50 @@ export function OrdersPage() {
       />
       {msgNo ? <OrderMessages token={token} orderNo={msgNo} onClose={() => setMsgNo(null)} /> : null}
     </div>
+  );
+}
+
+function OrdersKanban({ orders, onOpenDetail }: { orders: Order[]; onOpenDetail: (orderNo: string) => void }) {
+  const columns: { id: StatusKey; title: string }[] = [
+    { id: "pending", title: "Ausstehend" },
+    { id: "confirmed", title: "Bestätigt" },
+    { id: "done", title: "Abgeschlossen" },
+    { id: "cancelled", title: "Storniert" },
+  ];
+  return (
+    <section className="grid gap-3 xl:grid-cols-4 md:grid-cols-2 grid-cols-1">
+      {columns.map((col) => {
+        const rows = orders.filter((o) => {
+          const s = normalizeStatusKey(o.status);
+          if (col.id === "done") return s === "done" || s === "completed";
+          return s === col.id;
+        });
+        return (
+          <article key={col.id} className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-3">
+            <header className="mb-2 flex items-center justify-between">
+              <h3 className="text-sm font-semibold">{col.title}</h3>
+              <span className="rounded-full bg-[var(--surface-raised)] px-2 py-0.5 text-xs text-[var(--text-muted)]">{rows.length}</span>
+            </header>
+            <div className="space-y-2">
+              {rows.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-[var(--border-soft)] p-3 text-xs text-[var(--text-subtle)]">Keine Einträge</div>
+              ) : rows.map((o) => (
+                <button
+                  key={o.orderNo}
+                  type="button"
+                  onClick={() => onOpenDetail(o.orderNo)}
+                  className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] p-3 text-left transition hover:border-[var(--border-strong)]"
+                >
+                  <div className="mb-1 text-xs text-[var(--text-subtle)]">#{o.orderNo}</div>
+                  <div className="text-sm font-medium text-[var(--text-main)]">{o.customerName || "Unbekannt"}</div>
+                  <div className="mt-1 text-xs text-[var(--text-muted)]">{o.address || o.customerZipcity || "—"}</div>
+                </button>
+              ))}
+            </div>
+          </article>
+        );
+      })}
+    </section>
   );
 }
 
