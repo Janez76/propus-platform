@@ -73,6 +73,7 @@ export function DashboardV2() {
   const showFin = can("finance.read");
   const showDas = can("dashboard.view");
   const showAlerts = isSec("alerts") && showOrders && showDas;
+  const showOverdueList = isSec("overdueList") && showOrders && showDas;
   const showKpi = isSec("kpi") && showDas && (showOrders || showFin);
   const showPipeline = isSec("pipeline") && showOrders;
   const showUpcoming = isSec("upcoming") && showOrders;
@@ -145,8 +146,6 @@ export function DashboardV2() {
   const greeting = pickGreeting(hour, lang);
   const name = displayName || t(lang, "nav.admin");
 
-  const weeklyShoots = metrics.upcomingOrders.length + metrics.todayOrders.length;
-
   return (
     <div className={`padmin-shell dv2 dv2--density-${prefs.density}`}>
       {/* Header */}
@@ -158,24 +157,29 @@ export function DashboardV2() {
               {eyebrow}
             </div>
             <h1 className="dv2-greeting">
-              {greeting}, {name}.
+              {greeting}, <span className="dv2-greeting-name">{name}</span>.
             </h1>
             <p className="dv2-summary">
-              {metrics.overdueCount > 0 && (
+              {t(lang, "dashboardV2.summary.intro")}{" — "}
+              <span>
+                {t(lang, "dashboardV2.summary.todayAppts")
+                  .replace("{{n}}", String(metrics.todayOrders.length))}
+              </span>
+              {", "}
+              <span>
+                {t(lang, "dashboardV2.summary.openOrders")
+                  .replace("{{n}}", String(metrics.openOrdersCount))}
+              </span>
+              {", "}
+              {metrics.overdueCount > 0 ? (
                 <span className="dv2-summary-danger">
-                  {metrics.overdueCount} {t(lang, "dashboardV2.summary.overdue")}
+                  {t(lang, "dashboardV2.summary.overdueTail")
+                    .replace("{{n}}", String(metrics.overdueCount))}
                 </span>
+              ) : (
+                <span>{t(lang, "dashboardV2.summary.allGood")}</span>
               )}
-              {metrics.overdueCount > 0 && " · "}
-              <span>
-                {weeklyShoots} {t(lang, "dashboardV2.summary.weekShoots")}
-              </span>
-              {" · "}
-              <span>
-                {t(lang, "dashboardV2.summary.capacity")
-                  .replace("{{kw}}", String(metrics.currentKW))
-                  .replace("{{pct}}", String(metrics.currentCapacity))}
-              </span>
+              {"."}
             </p>
           </div>
           <div className="dv2-header-actions">
@@ -204,7 +208,7 @@ export function DashboardV2() {
       </div>
 
       {showAlerts ? <DashAlerts metrics={metrics} lang={lang} /> : null}
-      {showAlerts ? <AlertBar orders={metrics.overdueOrders} lang={lang} /> : null}
+      {showOverdueList ? <AlertBar orders={metrics.overdueOrders} lang={lang} /> : null}
 
       {showPipeline || showUpcoming ? (
         <div className={`dv2-grid-main${mainSingleCol ? " dv2-grid-main--single" : ""}`}>

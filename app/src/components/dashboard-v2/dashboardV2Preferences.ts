@@ -2,7 +2,7 @@ const LS_KEY = "propus-dash-v2";
 
 export type DashV2Density = "compact" | "comfy" | "spacious";
 
-export type DashV2SectionId = "alerts" | "kpi" | "pipeline" | "upcoming" | "tickets" | "mails" | "funnel" | "heatmap" | "perf" | "map";
+export type DashV2SectionId = "alerts" | "overdueList" | "kpi" | "pipeline" | "upcoming" | "tickets" | "mails" | "funnel" | "heatmap" | "perf" | "map";
 
 export interface DashV2Preferences {
   version: 1;
@@ -12,12 +12,14 @@ export interface DashV2Preferences {
 
 export const DEFAULT_DASH_V2: DashV2Preferences = {
   version: 1,
-  hidden: [],
+  /** Default: faithful to Claude Design — Funnel, Performance and Overdue-Liste sind ausgeblendet. */
+  hidden: ["funnel", "perf", "overdueList"],
   density: "comfy",
 };
 
 const ALL_SECTIONS: DashV2SectionId[] = [
   "alerts",
+  "overdueList",
   "kpi",
   "pipeline",
   "upcoming",
