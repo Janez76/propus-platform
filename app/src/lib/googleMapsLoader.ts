@@ -25,8 +25,8 @@ function readGlobalApi(): MapsApi | null {
 
 /**
  * Idempotent: returns existing `google.maps` if already on the page, or injects the script once.
- * Classic script URL (not loading=async) so `google.maps.*` is ready in onload
- * (avoids black map with importLibrary in our setup; see comment in original booking map).
+ * `loading=async` ist Google-empfohlen (Performance) und kompatibel mit unserem
+ * onload-Pfad: nach Script-onload ist `google.maps.*` synchron im globalen Namespace verfügbar.
  */
 export function loadGoogleMapsApi(apiKey: string): Promise<MapsApi> {
   if (typeof window === "undefined") {
@@ -55,7 +55,7 @@ export function loadGoogleMapsApi(apiKey: string): Promise<MapsApi> {
     s.id = MAPS_SCRIPT_ID;
     s.async = true;
     s.defer = true;
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=marker,geocoding&v=weekly`;
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=marker,geocoding&v=weekly&loading=async`;
     s.onload = finish;
     s.onerror = () => reject(new Error("script load failed"));
     document.head.appendChild(s);
