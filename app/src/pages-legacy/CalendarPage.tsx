@@ -11,6 +11,7 @@ import { useAuthStore } from "../store/authStore";
 import { t } from "../i18n";
 import { formatDateTime } from "../lib/utils";
 import { getStatusLabel, STATUS_KEYS, statusMatches } from "../lib/status";
+import { FilterBar, PageHeader } from "../components/handoff";
 
 const DEFAULT_STATUS_EMAIL_TARGETS = {
   customer: false,
@@ -187,47 +188,43 @@ export function CalendarPage() {
 
   return (
     <div className="padmin-shell">
-      <header className="pad-page-header">
-        <div className="pad-ph-top">
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <div className="pad-eyebrow">{t(lang, "calendar.eyebrow") || "Planung"}</div>
-            <h1 className="pad-h1">{t(lang, "nav.calendar") || "Kalender"}</h1>
-            <div className="pad-ph-sub">{t(lang, "calendar.label.filterDesc")}</div>
-          </div>
-          <div className="pad-ph-actions">
-            <button
-              type="button"
-              onClick={() => openCreateBooking()}
-              className="pad-btn-primary"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              {t(lang, "calendar.button.createBooking")}
-            </button>
-          </div>
-        </div>
-      </header>
+      <PageHeader
+        eyebrow={t(lang, "calendar.eyebrow") || "Planung"}
+        title={t(lang, "nav.calendar") || "Kalender"}
+        sub={t(lang, "calendar.label.filterDesc")}
+        kpis={[{
+          id: "events",
+          label: t(lang, "calendar.label.eventCount").replace("{{n}}", "0"),
+          value: String(filtered.length),
+          trend: t(lang, "calendar.label.filterDesc"),
+        }]}
+        actions={(
+          <button
+            type="button"
+            onClick={() => openCreateBooking()}
+            className="pad-btn-primary"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            {t(lang, "calendar.button.createBooking")}
+          </button>
+        )}
+      />
       <div className="pad-content space-y-3">
-      <div className="rounded-xl border border-zinc-700/60 bg-zinc-900/60 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-sm font-semibold uppercase tracking-[0.08em] text-zinc-200">{t(lang, "calendar.label.filter")}</h2>
-            <p className="text-xs p-text-muted">{t(lang, "calendar.label.filterDesc")}</p>
-          </div>
-          <div className="flex items-center gap-2">
+      <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-5">
+        <FilterBar
+          pills={[
+            { id: "all", label: t(lang, "common.all") },
+            ...STATUS_KEYS.map((s) => ({ id: s, label: getStatusLabel(s) })),
+          ]}
+          activePillId={filter}
+          onPillClick={setFilter}
+          rightSlot={(
             <span className="rounded-full border border-[var(--accent)]/30 bg-[var(--accent)]/15 px-3 py-1 text-xs font-bold text-[var(--accent)]">
               {t(lang, "calendar.label.eventCount").replace("{{n}}", String(filtered.length))}
             </span>
-            <button
-              type="button"
-              onClick={() => openCreateBooking()}
-              className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-[var(--accent-hover)]"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              {t(lang, "calendar.button.createBooking")}
-            </button>
-          </div>
-        </div>
-        <div className="grid gap-3 md:grid-cols-2">
+          )}
+        />
+        <div className="mt-3 grid gap-3 md:grid-cols-2">
           <div className="rounded-xl border border-zinc-800/70 bg-zinc-950/50 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]">
             <label htmlFor="calendarStatusFilter" className="mb-2 block text-xs font-semibold uppercase tracking-[0.08em] text-[var(--accent)]">
               {t(lang, "calendar.label.status")}
