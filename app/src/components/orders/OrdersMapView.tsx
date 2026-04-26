@@ -7,12 +7,17 @@ import { GMAPS_DARK_STYLES } from "../../pages-legacy/booking/gmapsDarkStyles";
 import { useThemeStore } from "../../store/themeStore";
 import {
   WX_COLOR,
+  WX_GLYPH,
+  WX_LABEL_DE,
   makeWeatherZoneSvg,
+  makeOrderWeatherSvg,
   type WeatherZone,
 } from "../dashboard-v2/dashboardWeather";
 import { paletteForStatus, statusPinIconUrl } from "./mapStatusColors";
 import { loadGeocodeCache, saveGeocodeEntry, type GeoEntry } from "../../lib/geocodeCache";
 import { formatSwissDate } from "../../lib/format";
+import { useWeatherForOrders } from "../../hooks/useWeatherForOrders";
+import type { OrderWeather, OrderWeatherPoint } from "../../api/weatherProvider";
 
 const DEFAULT_CENTER: google.maps.LatLngLiteral = { lat: 47.3769, lng: 8.5417 };
 const DEFAULT_ZOOM = 8;
@@ -25,8 +30,28 @@ type Props = {
   onOpenDetail: (orderNo: string) => void;
   lang: Lang;
   weatherZones?: readonly WeatherZone[];
+  /** Aktiviert per-Auftrag-Wetterchips (Standort + Auftragsdatum). */
+  showOrderWeather?: boolean;
   hoveredOrderNo?: string | null;
 };
+
+/** Ab welchem Zoom werden die Wetter-Chips eingeblendet (vermeidet Cluster-Lärm). */
+const WEATHER_CHIP_MIN_ZOOM = 11;
+
+function isoDateLocal(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dd}`;
+}
+
+function orderDateISO(order: Order): string | null {
+  const raw = order.appointmentDate ?? order.schedule?.date ?? null;
+  if (!raw) return null;
+  const t = Date.parse(raw);
+  if (!Number.isFinite(t)) return null;
+  return isoDateLocal(new Date(t));
+}
 
 type GeocodeMap = Map<string, GeoEntry>;
 
@@ -53,7 +78,7 @@ function escapeHtml(s: string | null | undefined): string {
   );
 }
 
-function buildInfoWindowHtml(order: Order, lang: Lang): string {
+function buildInfoWindowHtml(order: Order, lang: Lang, weather?: OrderWeather): string {
   const palette = paletteForStatus(order.status);
   const dateLabel = order.appointmentDate ? formatSwissDate(order.appointmentDate) : "—";
   const timeLabel = order.schedule?.time ? ` · ${escapeHtml(order.schedule.time)}` : "";
@@ -61,6 +86,19 @@ function buildInfoWindowHtml(order: Order, lang: Lang): string {
   const pkg = order.services?.package?.label ? escapeHtml(order.services.package.label) : "";
   const addr = order.address ? escapeHtml(order.address) : "";
   const detailLabel = escapeHtml(t(lang, "orders.map.openDetail"));
+  let weatherRow = "";
+  if (weather) {
+    const color = WX_COLOR[weather.kind];
+    const glyph = WX_GLYPH[weather.kind];
+    const label = WX_LABEL_DE[weather.kind];
+    const tag = weather.source === "archive" ? " · gemessen" : "";
+    weatherRow =
+      `<div class="dv2-map-pop-weather" style="--wx:${color}">` +
+      `<span class="dv2-map-pop-wx-glyph">${glyph}</span>` +
+      `<span class="dv2-map-pop-wx-temp">${weather.tMax}° / ${weather.tMin}°</span>` +
+      `<span class="dv2-map-pop-wx-meta">${escapeHtml(label)} · ${weather.precip}% Regen${tag}</span>` +
+      `</div>`;
+  }
   return [
     '<div class="dv2-map-pop">',
     '<div class="dv2-map-pop-row1">',
@@ -70,6 +108,7 @@ function buildInfoWindowHtml(order: Order, lang: Lang): string {
     pkg ? `<div class="dv2-map-pop-row2">${pkg}</div>` : "",
     `<div class="dv2-map-pop-row3">${escapeHtml(dateLabel)}${timeLabel}</div>`,
     addr ? `<div class="dv2-map-pop-row3">${addr}</div>` : "",
+    weatherRow,
     `<div class="dv2-map-pop-status">`,
     `<span class="dv2-map-pop-dot" style="background:${palette.ring}"></span>`,
     `<span>${escapeHtml(t(lang, palette.labelKey))}</span>`,
@@ -98,7 +137,7 @@ function makeClusterSvg(count: number, palette: ClusterPalette): string {
   ].join("");
 }
 
-export function OrdersMapView({ orders, apiKey, onOpenDetail, lang, weatherZones, hoveredOrderNo }: Props) {
+export function OrdersMapView({ orders, apiKey, onOpenDetail, lang, weatherZones, showOrderWeather = false, hoveredOrderNo }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<MapsApi | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -111,10 +150,17 @@ export function OrdersMapView({ orders, apiKey, onOpenDetail, lang, weatherZones
   const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
   const weatherCirclesRef = useRef<google.maps.Circle[]>([]);
   const weatherMarkersRef = useRef<google.maps.Marker[]>([]);
+  const orderWeatherChipsRef = useRef<google.maps.Marker[]>([]);
+  const orderPositionsRef = useRef<Map<string, { lat: number; lng: number }>>(new Map());
+  const orderWeatherRef = useRef<Map<string, OrderWeather>>(new Map());
   const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
   const [geocodeVersion, setGeocodeVersion] = useState(0);
   const [geocodingBusy, setGeocodingBusy] = useState(false);
+  const [zoomVersion, setZoomVersion] = useState(0);
+  const [orderWeatherPoints, setOrderWeatherPoints] = useState<OrderWeatherPoint[]>([]);
   const resolvedTheme = useThemeStore((s) => s.resolvedTheme);
+
+  const { data: orderWeather } = useWeatherForOrders(orderWeatherPoints, showOrderWeather);
 
   const { shortAddressCount, geocodeableOrders } = useMemo(() => {
     let short = 0;
@@ -323,6 +369,8 @@ export function OrdersMapView({ orders, apiKey, onOpenDetail, lang, weatherZones
     }
 
     const built: google.maps.Marker[] = [];
+    const nextPositions = new Map<string, { lat: number; lng: number }>();
+    const nextWeatherPoints: OrderWeatherPoint[] = [];
     for (const { pos, order } of positions) {
       const title = order.customerName
         ? `#${order.orderNo} – ${order.customerName}`
@@ -341,16 +389,24 @@ export function OrdersMapView({ orders, apiKey, onOpenDetail, lang, weatherZones
       built.push(mk);
       markersRef.current.push(mk);
       markerByOrderRef.current.set(String(order.orderNo), { marker: mk, status: order.status });
+      nextPositions.set(String(order.orderNo), { lat: pos.lat, lng: pos.lng });
+
+      const dateISO = orderDateISO(order);
+      if (dateISO) {
+        nextWeatherPoints.push({ id: String(order.orderNo), lat: pos.lat, lng: pos.lng, date: dateISO });
+      }
 
       const click = mk.addListener("click", () => {
         const iw = infoWindowRef.current;
         if (!iw) return;
-        iw.setContent(buildInfoWindowHtml(order, lang));
+        iw.setContent(buildInfoWindowHtml(order, lang, orderWeatherRef.current.get(String(order.orderNo))));
         iw.open({ map, anchor: mk });
       });
       const dbl = mk.addListener("dblclick", () => onOpenDetail(String(order.orderNo)));
       markerListenersRef.current.push(click, dbl);
     }
+    orderPositionsRef.current = nextPositions;
+    setOrderWeatherPoints(nextWeatherPoints);
 
     clustererRef.current = new MarkerClusterer({
       map,
@@ -401,6 +457,59 @@ export function OrdersMapView({ orders, apiKey, onOpenDetail, lang, weatherZones
       infoWindowRef.current?.close();
     };
   }, [loadState, geocodeVersion, onOpenDetail, byAddress, ordersGeoKey, lang]);
+
+  /** Zoom-Listener — Wetter-Chips nur ab city-level Zoom anzeigen, sonst Cluster-Lärm. */
+  useEffect(() => {
+    if (loadState !== "ready") return;
+    const map = mapRef.current;
+    if (!map) return;
+    const handler = () => setZoomVersion((v) => v + 1);
+    const listener = google.maps.event.addListener(map, "zoom_changed", handler);
+    return () => {
+      google.maps.event.removeListener(listener);
+    };
+  }, [loadState]);
+
+  /** Per-Order Wetter-Chips über jedem Pin (nur ab Stadt-Zoom & wenn Wetter geladen). */
+  useEffect(() => {
+    orderWeatherRef.current = orderWeather;
+
+    const map = mapRef.current;
+    const api = apiRef.current;
+    if (!map || !api) return;
+
+    for (const m of orderWeatherChipsRef.current) m.setMap(null);
+    orderWeatherChipsRef.current = [];
+
+    if (!showOrderWeather || orderWeather.size === 0) return;
+    const z = map.getZoom();
+    if (z != null && z < WEATHER_CHIP_MIN_ZOOM) return;
+
+    for (const [orderNo, w] of orderWeather) {
+      const pos = orderPositionsRef.current.get(orderNo);
+      if (!pos) continue;
+      const svg = makeOrderWeatherSvg(w);
+      const chip = new api.Marker({
+        map,
+        position: pos,
+        icon: {
+          url: `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`,
+          scaledSize: new google.maps.Size(58, 22),
+          // Chip oberhalb des Pins anker (Pin ist 32 px hoch, Anker am Pinfuss).
+          anchor: new google.maps.Point(29, 50),
+        },
+        clickable: false,
+        zIndex: 7000,
+        title: `${w.tMax}°/${w.tMin}° · ${WX_LABEL_DE[w.kind]} · ${w.precip}% Regen${w.source === "archive" ? " (gemessen)" : ""}`,
+      });
+      orderWeatherChipsRef.current.push(chip);
+    }
+
+    return () => {
+      for (const m of orderWeatherChipsRef.current) m.setMap(null);
+      orderWeatherChipsRef.current = [];
+    };
+  }, [orderWeather, showOrderWeather, geocodeVersion, zoomVersion]);
 
   /** Hover-Sync: hervorhebt den Marker, der zur in einer anderen Komponente fokussierten Order gehört. */
   useEffect(() => {

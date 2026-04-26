@@ -8,7 +8,6 @@ import { fetchConfig } from "../../api/bookingPublic";
 import { useQuery } from "../../hooks/useQuery";
 import { useNow } from "../../hooks/useNow";
 import { statusMatches } from "../../lib/status";
-import { useWeatherZones } from "../../hooks/useWeatherZones";
 import { OPEN_METEO_ATTRIBUTION } from "../../api/weatherProvider";
 import { STATUS_PALETTE } from "../orders/mapStatusColors";
 
@@ -64,8 +63,6 @@ export function OrdersMap({ orders, lang, hoveredOrderNo }: OrdersMapProps) {
     { enabled: true, staleTime: 15 * 60 * 1000, refetchOnWindowFocus: false },
   );
   const googleMapsKey = bookingConfig?.googleMapsKey?.trim() || null;
-
-  const { data: weatherZones } = useWeatherZones(showWeather);
 
   const mappableOrders = useMemo(
     () => orders.filter((o) => String(o.address || "").trim().length >= 6),
@@ -202,7 +199,7 @@ export function OrdersMap({ orders, lang, hoveredOrderNo }: OrdersMapProps) {
             orders={filteredOrders}
             onOpenDetail={openDetail}
             lang={lang}
-            weatherZones={showWeather ? weatherZones ?? undefined : undefined}
+            showOrderWeather={showWeather}
             hoveredOrderNo={hoveredOrderNo ?? null}
           />
         )}
@@ -223,7 +220,7 @@ export function OrdersMap({ orders, lang, hoveredOrderNo }: OrdersMapProps) {
             {t(lang, s.labelKey)}
           </span>
         ))}
-        {showWeather && weatherZones && weatherZones.length > 0 ? (
+        {showWeather ? (
           <span className="dv2-map-attrib">{OPEN_METEO_ATTRIBUTION}</span>
         ) : null}
         <span className="dv2-map-scale">{t(lang, "dashboardV2.map.legendHint")}</span>
