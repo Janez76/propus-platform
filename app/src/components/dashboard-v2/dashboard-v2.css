@@ -250,6 +250,9 @@
   margin: 0 0 6px;
   font-family: Montserrat, inherit;
 }
+.dv2-greeting-name {
+  color: var(--d-gold);
+}
 .dv2-summary {
   font-size: 13px;
   color: var(--d-text-dim);

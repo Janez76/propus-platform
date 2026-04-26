@@ -6,6 +6,7 @@ import { DEFAULT_DASH_V2 } from "./dashboardV2Preferences";
 
 const SECTIONS: { id: DashV2SectionId; labelKey: string }[] = [
   { id: "alerts", labelKey: "dashboardV2.tweaks.section.alerts" },
+  { id: "overdueList", labelKey: "dashboardV2.tweaks.section.overdueList" },
   { id: "kpi", labelKey: "dashboardV2.tweaks.section.kpi" },
   { id: "pipeline", labelKey: "dashboardV2.tweaks.section.pipeline" },
   { id: "upcoming", labelKey: "dashboardV2.tweaks.section.upcoming" },
