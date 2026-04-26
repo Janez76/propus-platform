@@ -6,6 +6,7 @@ import type { DashboardMetrics } from "./useDashboardMetrics";
 interface UpcomingV2Props {
   metrics: DashboardMetrics;
   lang: Lang;
+  onHover?: (orderNo: string | null) => void;
 }
 
 const WEEKDAYS_SHORT = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
@@ -14,7 +15,7 @@ const MONTHS_SHORT = [
   "Jul", "Aug", "Sep", "Okt", "Nov", "Dez",
 ];
 
-export function UpcomingV2({ metrics, lang }: UpcomingV2Props) {
+export function UpcomingV2({ metrics, lang, onHover }: UpcomingV2Props) {
   const navigate = useNavigate();
   const { today, todayOrders, upcomingOrders } = metrics;
   const todayLabel = `${today.getDate()}. ${MONTHS_SHORT[today.getMonth()]}`;
@@ -22,6 +23,11 @@ export function UpcomingV2({ metrics, lang }: UpcomingV2Props) {
     if (orderNo == null || orderNo === "") return;
     navigate(`/orders/${orderNo}`);
   };
+  const onEnter = (orderNo: string | number | undefined | null) => {
+    if (!onHover) return;
+    onHover(orderNo == null || orderNo === "" ? null : String(orderNo));
+  };
+  const onLeave = () => onHover?.(null);
 
   return (
     <div className="dv2-card">
@@ -37,6 +43,10 @@ export function UpcomingV2({ metrics, lang }: UpcomingV2Props) {
                 type="button"
                 className="dv2-upcoming-today-item"
                 onClick={() => goToOrder(o.orderNo)}
+                onMouseEnter={() => onEnter(o.orderNo)}
+                onMouseLeave={onLeave}
+                onFocus={() => onEnter(o.orderNo)}
+                onBlur={onLeave}
               >
                 <Camera size={13} className="dv2-upcoming-cam" />
                 <span>{o.address ?? "—"}</span>
@@ -68,6 +78,10 @@ export function UpcomingV2({ metrics, lang }: UpcomingV2Props) {
                 type="button"
                 className={`dv2-upcoming-item${i < upcomingOrders.length - 1 ? " dv2-upcoming-item--border" : ""}`}
                 onClick={() => goToOrder(o.orderNo)}
+                onMouseEnter={() => onEnter(o.orderNo)}
+                onMouseLeave={onLeave}
+                onFocus={() => onEnter(o.orderNo)}
+                onBlur={onLeave}
               >
                 <div className="dv2-upcoming-date-chip">
                   <div className="dv2-upcoming-weekday">{weekday}</div>

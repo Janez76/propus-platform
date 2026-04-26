@@ -28,16 +28,18 @@ export function paletteForStatus(status: string | undefined | null): StatusPalet
 }
 
 /** Tropfen-Pin SVG (26×32). */
-export function makeStatusPinSvg(palette: StatusPalette): string {
+export function makeStatusPinSvg(palette: StatusPalette, highlighted = false): string {
+  const stroke = highlighted ? "#D4961F" : palette.ring;
+  const strokeWidth = highlighted ? 2.4 : 1.6;
   return [
     '<svg xmlns="http://www.w3.org/2000/svg" width="26" height="32" viewBox="0 0 26 32">',
-    `  <path d="M13 1.5C6.65 1.5 1.5 6.65 1.5 13c0 8.5 11.5 17.5 11.5 17.5S24.5 21.5 24.5 13C24.5 6.65 19.35 1.5 13 1.5z" fill="${palette.bg}" stroke="${palette.ring}" stroke-width="1.6"/>`,
+    `  <path d="M13 1.5C6.65 1.5 1.5 6.65 1.5 13c0 8.5 11.5 17.5 11.5 17.5S24.5 21.5 24.5 13C24.5 6.65 19.35 1.5 13 1.5z" fill="${palette.bg}" stroke="${stroke}" stroke-width="${strokeWidth}"/>`,
     `  <circle cx="13" cy="13" r="4.2" fill="${palette.ring}"/>`,
     "</svg>",
   ].join("");
 }
 
-export function statusPinIconUrl(status: string | undefined | null): string {
-  const svg = makeStatusPinSvg(paletteForStatus(status));
+export function statusPinIconUrl(status: string | undefined | null, highlighted = false): string {
+  const svg = makeStatusPinSvg(paletteForStatus(status), highlighted);
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }

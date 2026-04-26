@@ -15,6 +15,7 @@ import { STATUS_PALETTE } from "../orders/mapStatusColors";
 interface OrdersMapProps {
   orders: Order[];
   lang: Lang;
+  hoveredOrderNo?: string | null;
 }
 
 type StatusFilter = "all" | "confirmed" | "pending" | "provisional" | "done";
@@ -50,7 +51,7 @@ function isInRange(dateStr: string | undefined | null, from: number, to: number)
   return Number.isFinite(t) && t >= from && t < to;
 }
 
-export function OrdersMap({ orders, lang }: OrdersMapProps) {
+export function OrdersMap({ orders, lang, hoveredOrderNo }: OrdersMapProps) {
   const navigate = useNavigate();
   const now = useNow();
   const [range, setRange] = useState<RangeFilter>("week");
@@ -202,6 +203,7 @@ export function OrdersMap({ orders, lang }: OrdersMapProps) {
             onOpenDetail={openDetail}
             lang={lang}
             weatherZones={showWeather ? weatherZones ?? undefined : undefined}
+            hoveredOrderNo={hoveredOrderNo ?? null}
           />
         )}
         {googleMapsKey && !configLoading && filteredOrders.length === 0 ? (

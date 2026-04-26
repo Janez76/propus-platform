@@ -25,6 +25,7 @@ type Props = {
   onOpenDetail: (orderNo: string) => void;
   lang: Lang;
   weatherZones?: readonly WeatherZone[];
+  hoveredOrderNo?: string | null;
 };
 
 type GeocodeMap = Map<string, GeoEntry>;
@@ -97,7 +98,7 @@ function makeClusterSvg(count: number, palette: ClusterPalette): string {
   ].join("");
 }
 
-export function OrdersMapView({ orders, apiKey, onOpenDetail, lang, weatherZones }: Props) {
+export function OrdersMapView({ orders, apiKey, onOpenDetail, lang, weatherZones, hoveredOrderNo }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<MapsApi | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -105,6 +106,7 @@ export function OrdersMapView({ orders, apiKey, onOpenDetail, lang, weatherZones
   const inFlight = useRef<Set<string>>(new Set());
   const markerListenersRef = useRef<google.maps.MapsEventListener[]>([]);
   const markersRef = useRef<google.maps.Marker[]>([]);
+  const markerByOrderRef = useRef<Map<string, { marker: google.maps.Marker; status: string }>>(new Map());
   const clustererRef = useRef<MarkerClusterer | null>(null);
   const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
   const weatherCirclesRef = useRef<google.maps.Circle[]>([]);
@@ -287,6 +289,7 @@ export function OrdersMapView({ orders, apiKey, onOpenDetail, lang, weatherZones
     const api = apiRef.current;
     if (loadState !== "ready" || !map || !api) return;
 
+    const markerByOrder = markerByOrderRef.current;
     if (clustererRef.current) {
       clustererRef.current.clearMarkers();
       clustererRef.current.setMap(null);
@@ -294,6 +297,7 @@ export function OrdersMapView({ orders, apiKey, onOpenDetail, lang, weatherZones
     }
     for (const m of markersRef.current) m.setMap(null);
     markersRef.current = [];
+    markerByOrder.clear();
     for (const h of markerListenersRef.current) h.remove();
     markerListenersRef.current = [];
 
@@ -336,6 +340,7 @@ export function OrdersMapView({ orders, apiKey, onOpenDetail, lang, weatherZones
       });
       built.push(mk);
       markersRef.current.push(mk);
+      markerByOrderRef.current.set(String(order.orderNo), { marker: mk, status: order.status });
 
       const click = mk.addListener("click", () => {
         const iw = infoWindowRef.current;
@@ -390,11 +395,28 @@ export function OrdersMapView({ orders, apiKey, onOpenDetail, lang, weatherZones
       }
       for (const m of markersRef.current) m.setMap(null);
       markersRef.current = [];
+      markerByOrder.clear();
       for (const h of markerListenersRef.current) h.remove();
       markerListenersRef.current = [];
       infoWindowRef.current?.close();
     };
   }, [loadState, geocodeVersion, onOpenDetail, byAddress, ordersGeoKey, lang]);
+
+  /** Hover-Sync: hervorhebt den Marker, der zur in einer anderen Komponente fokussierten Order gehört. */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const targetKey = hoveredOrderNo ? String(hoveredOrderNo) : null;
+    for (const [no, entry] of markerByOrderRef.current) {
+      const isHovered = targetKey != null && no === targetKey;
+      entry.marker.setIcon({
+        url: statusPinIconUrl(entry.status, isHovered),
+        scaledSize: new google.maps.Size(isHovered ? 34 : 26, isHovered ? 42 : 32),
+        anchor: new google.maps.Point(isHovered ? 17 : 13, isHovered ? 42 : 32),
+      });
+      entry.marker.setZIndex(isHovered ? 9000 : undefined);
+    }
+  }, [hoveredOrderNo]);
 
   const overlay = (() => {
     if (loadState === "loading") return t(lang, "orders.map.loading");
