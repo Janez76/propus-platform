@@ -255,12 +255,10 @@ export function HeatmapV2({ metrics, orders, lang }: HeatmapV2Props) {
           metrics={metrics}
           dowShort={dowShort}
           onPickDay={(day) => {
-            const target = new Date(metrics.currYear, metrics.currMonth, day);
-            const offset = Math.round(
-              (startOfDay(target).getTime() - startOfDay(today).getTime()) / MS_DAY,
-            );
-            setDayOffset(offset);
-            setView("day");
+            const y = metrics.currYear;
+            const m = String(metrics.currMonth + 1).padStart(2, "0");
+            const d = String(day).padStart(2, "0");
+            navigate(`/calendar?date=${y}-${m}-${d}`);
           }}
         />
       )}

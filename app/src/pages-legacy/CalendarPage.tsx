@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { assignPhotographer, rescheduleOrder, updateOrderStatus } from "../api/orders";
 import { OrderStatusSelect } from "../components/orders/OrderStatusSelect";
@@ -43,6 +43,7 @@ export function CalendarPage() {
   const token = useAuthStore((s) => s.token);
   const lang = useAuthStore((s) => s.language);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [filter, setFilter] = useState("all");
   const [photographerFilter, setPhotographerFilter] = useState("all");
@@ -71,6 +72,18 @@ export function CalendarPage() {
     setEvents(evs);
     setPhotographers(staff);
   }
+
+  const dateParam = searchParams.get("date");
+  useEffect(() => {
+    if (!dateParam || !/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) return;
+    const [yy, mo, da] = dateParam.split("-").map((x) => Number(x));
+    if (!yy || !mo || !da) return;
+    const parsed = new Date(yy, mo - 1, da);
+    if (Number.isNaN(parsed.getTime())) return;
+    setCalendarAnchor(parsed);
+    setMiniMonthAnchor(new Date(parsed.getFullYear(), parsed.getMonth(), 1));
+    setCalendarView("day");
+  }, [dateParam]);
 
   useEffect(() => {
     let alive = true;
