@@ -152,7 +152,7 @@
 .cal-mini-wx-cell {
   position: relative;
   display: block;
-  height: 48px;
+  height: 52px;
   border: 1px solid var(--border-soft, rgba(20, 20, 19, 0.08));
   border-radius: 8px;
   background: var(--paper-strip);
@@ -199,17 +199,18 @@
 }
 .cal-mini-wx-emoji {
   position: absolute;
-  top: 3px;
-  right: 4px;
-  font-size: 11px;
+  top: 50%;
+  right: 5px;
+  transform: translateY(-50%);
+  font-size: 16px;
   line-height: 1;
-  opacity: 0.85;
   filter: drop-shadow(0 1px 1px rgba(20, 20, 19, 0.08));
+  pointer-events: none;
 }
 .cal-mini-wx-count {
   position: absolute;
   bottom: 4px;
-  right: 6px;
+  left: 6px;
   font-family: var(--font-mono);
   font-size: 13px;
   font-weight: 700;
