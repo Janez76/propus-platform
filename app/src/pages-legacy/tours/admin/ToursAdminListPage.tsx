@@ -210,6 +210,42 @@ export function ToursAdminListPage() {
           </Link>
           </div>
         </div>
+        {data?.tours && data.tours.length > 0 ? (() => {
+          const tours = data.tours;
+          const totalItems = data.pagination?.totalItems ?? tours.length;
+          const expiringSoon = tours.filter((t) => {
+            const d = t.days_until_expiry;
+            return typeof d === "number" && d >= 0 && d <= 60;
+          }).length;
+          const expired = tours.filter((t) => {
+            const d = t.days_until_expiry;
+            return typeof d === "number" && d < 0;
+          }).length;
+          const withoutCustomer = tours.filter((t) => !t.canonical_customer_name && !t.customer_email).length;
+          return (
+            <div className="pad-kpis">
+              <div className="pad-kpi is-gold">
+                <div className="pad-kpi-label">Touren gesamt</div>
+                <div className="pad-kpi-value is-gold">{totalItems}</div>
+              </div>
+              <div className={`pad-kpi${expiringSoon > 0 ? " is-warn" : ""}`}>
+                <div className="pad-kpi-label">Läuft aus (60T)</div>
+                <div className="pad-kpi-value">{expiringSoon}</div>
+              </div>
+              <div className={`pad-kpi${expired > 0 ? " is-warn" : ""}`}>
+                <div className="pad-kpi-label">Abgelaufen</div>
+                <div className="pad-kpi-value">{expired}</div>
+                {expired > 0 && (
+                  <div className="pad-kpi-trend is-danger">Aktion erforderlich</div>
+                )}
+              </div>
+              <div className={`pad-kpi${withoutCustomer > 0 ? " is-warn" : ""}`}>
+                <div className="pad-kpi-label">Ohne Kunde</div>
+                <div className="pad-kpi-value">{withoutCustomer}</div>
+              </div>
+            </div>
+          );
+        })() : null}
       </header>
 
       <div className="pad-content space-y-6">
