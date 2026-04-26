@@ -1764,6 +1764,15 @@ button.dv2-heatmap-cell:hover {
   height: 7px;
   border-radius: 999px;
 }
+.dv2-map-pop-link {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--d-gold);
+  text-decoration: none;
+}
+.dv2-map-pop-link:hover { text-decoration: underline; }
 
 .dv2-map-legend {
   display: flex;

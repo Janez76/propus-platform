@@ -823,6 +823,7 @@
   "orders.map.loadError": "Google Maps konnte nicht geladen werden.",
   "orders.map.noAddress": "{{count}} Bestellung(en) haben keine ausreichend genaue Adresse und erscheinen nicht auf der Karte.",
   "orders.map.configLoading": "Konfiguration wird geladen…",
+  "orders.map.openDetail": "Details öffnen",
   "orders.quick.all": "Alle",
   "orders.quick.today": "Heute",
   "orders.quick.thisWeek": "Diese Woche",

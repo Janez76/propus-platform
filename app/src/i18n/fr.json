@@ -823,6 +823,7 @@
   "orders.map.loadError": "Google Maps n’a pas pu se charger.",
   "orders.map.noAddress": "{{count}} commande(s) n’ont pas d’adresse assez précise et n’apparaissent pas sur la carte.",
   "orders.map.configLoading": "Chargement de la configuration…",
+  "orders.map.openDetail": "Ouvrir les détails",
   "orders.quick.all": "Tous",
   "orders.quick.today": "Aujourd'hui",
   "orders.quick.thisWeek": "Cette semaine",
