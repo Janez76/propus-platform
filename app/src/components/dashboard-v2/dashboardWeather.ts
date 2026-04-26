@@ -1,24 +1,31 @@
 /**
- * Wetterzonen-Stub für die Dashboard-Karte (entspricht dem Design-Handoff).
- * Wird später durch echten Forecast-Endpunkt ersetzt — die Schnittstelle bleibt stabil.
+ * Wetterzonen für die Dashboard-Karte.
+ * Stadtkoordinaten sind statisch; Wetterwerte (`t`, `precip`, `kind`)
+ * werden zur Laufzeit über `useWeatherZones` von Open-Meteo geladen.
  */
-export type WeatherKind = "sun" | "psun" | "cloud" | "rain" | "storm" | "fog";
+export type WeatherKind = "sun" | "psun" | "cloud" | "rain" | "snow" | "storm" | "fog";
 
-export interface WeatherZone {
+export interface WeatherCity {
   city: string;
   lat: number;
   lng: number;
+}
+
+export interface WeatherZone extends WeatherCity {
   kind: WeatherKind;
+  /** Lufttemperatur in °C, gerundet. */
   t: number;
+  /** Niederschlagswahrscheinlichkeit 0–100. */
   precip: number;
 }
 
-export const WEATHER_ZONES: readonly WeatherZone[] = [
-  { city: "Zürich",     lat: 47.3769, lng: 8.5417, kind: "psun",  t: 18, precip: 10 },
-  { city: "Winterthur", lat: 47.5006, lng: 8.7241, kind: "cloud", t: 16, precip: 20 },
-  { city: "Zug",        lat: 47.1662, lng: 8.5155, kind: "rain",  t: 14, precip: 65 },
-  { city: "Thalwil",    lat: 47.2926, lng: 8.5634, kind: "psun",  t: 17, precip: 15 },
-  { city: "Küsnacht",   lat: 47.3174, lng: 8.5867, kind: "sun",   t: 19, precip: 0 },
+/** Für die Karte angezeigte Schweizer Städte. */
+export const WEATHER_CITIES: readonly WeatherCity[] = [
+  { city: "Zürich",     lat: 47.3769, lng: 8.5417 },
+  { city: "Winterthur", lat: 47.5006, lng: 8.7241 },
+  { city: "Zug",        lat: 47.1662, lng: 8.5155 },
+  { city: "Thalwil",    lat: 47.2926, lng: 8.5634 },
+  { city: "Küsnacht",   lat: 47.3174, lng: 8.5867 },
 ];
 
 export const WX_COLOR: Record<WeatherKind, string> = {
@@ -26,6 +33,7 @@ export const WX_COLOR: Record<WeatherKind, string> = {
   psun: "#B68A3A",
   cloud: "#6B6962",
   rain: "#2E5A7A",
+  snow: "#A8B5C5",
   storm: "#5A4080",
   fog: "#8A8680",
 };

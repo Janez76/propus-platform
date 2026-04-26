@@ -823,6 +823,7 @@
   "orders.map.loadError": "Google Maps konnte nicht geladen werden.",
   "orders.map.noAddress": "{{count}} Bestellung(en) haben keine ausreichend genaue Adresse und erscheinen nicht auf der Karte.",
   "orders.map.configLoading": "Konfiguration wird geladen…",
+  "orders.map.openDetail": "Details öffnen",
   "orders.quick.all": "Alle",
   "orders.quick.today": "Heute",
   "orders.quick.thisWeek": "Diese Woche",
@@ -2490,5 +2491,14 @@
   "dashboardV2.map.status.done": "Abgeschlossen",
   "dashboardV2.map.status.paused": "Pausiert",
   "dashboardV2.map.status.cancelled": "Storniert",
-  "dashboardV2.map.status.archived": "Archiviert"
+  "dashboardV2.map.status.archived": "Archiviert",
+  "dashboardV2.map.range.today": "Heute",
+  "dashboardV2.map.range.week": "Woche",
+  "dashboardV2.map.range.month": "Monat",
+  "dashboardV2.map.range.year": "Jahr",
+  "dashboardV2.map.titleByRange.today": "Karte · Aufträge heute",
+  "dashboardV2.map.titleByRange.week": "Karte · Aufträge der Woche",
+  "dashboardV2.map.titleByRange.month": "Karte · Aufträge des Monats",
+  "dashboardV2.map.titleByRange.year": "Karte · Aufträge des Jahres",
+  "dashboardV2.map.empty": "Keine Aufträge in der Auswahl"
 }

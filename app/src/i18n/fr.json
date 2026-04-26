@@ -823,6 +823,7 @@
   "orders.map.loadError": "Google Maps n’a pas pu se charger.",
   "orders.map.noAddress": "{{count}} commande(s) n’ont pas d’adresse assez précise et n’apparaissent pas sur la carte.",
   "orders.map.configLoading": "Chargement de la configuration…",
+  "orders.map.openDetail": "Ouvrir les détails",
   "orders.quick.all": "Tous",
   "orders.quick.today": "Aujourd'hui",
   "orders.quick.thisWeek": "Cette semaine",
@@ -2478,5 +2479,14 @@
   "dashboardV2.map.status.done": "Achevé",
   "dashboardV2.map.status.paused": "En pause",
   "dashboardV2.map.status.cancelled": "Annulé",
-  "dashboardV2.map.status.archived": "Archivé"
+  "dashboardV2.map.status.archived": "Archivé",
+  "dashboardV2.map.range.today": "Aujourd'hui",
+  "dashboardV2.map.range.week": "Semaine",
+  "dashboardV2.map.range.month": "Mois",
+  "dashboardV2.map.range.year": "Année",
+  "dashboardV2.map.titleByRange.today": "Carte · Commandes aujourd'hui",
+  "dashboardV2.map.titleByRange.week": "Carte · Commandes de la semaine",
+  "dashboardV2.map.titleByRange.month": "Carte · Commandes du mois",
+  "dashboardV2.map.titleByRange.year": "Carte · Commandes de l'année",
+  "dashboardV2.map.empty": "Aucune commande dans la sélection"
 }

@@ -62,6 +62,7 @@ export function DashboardV2() {
   const [showTweaks, setShowTweaks] = useState(false);
   const [prefs, setPrefs] = useState<DashV2Preferences>(loadDashV2Preferences);
   const [displayName, setDisplayName] = useState("");
+  const [hoveredOrderNo, setHoveredOrderNo] = useState<string | null>(null);
 
   const setPrefsAndSave = (next: DashV2Preferences) => {
     setPrefs(next);
@@ -213,7 +214,7 @@ export function DashboardV2() {
       {showPipeline || showUpcoming ? (
         <div className={`dv2-grid-main${mainSingleCol ? " dv2-grid-main--single" : ""}`}>
           {showPipeline ? <PipelineBoardV2 metrics={metrics} lang={lang} /> : null}
-          {showUpcoming ? <UpcomingV2 metrics={metrics} lang={lang} /> : null}
+          {showUpcoming ? <UpcomingV2 metrics={metrics} lang={lang} onHover={setHoveredOrderNo} /> : null}
         </div>
       ) : null}
 
@@ -235,7 +236,7 @@ export function DashboardV2() {
         </div>
       ) : null}
 
-      {showMap ? <OrdersMap orders={orders} lang={lang} /> : null}
+      {showMap ? <OrdersMap orders={orders} lang={lang} hoveredOrderNo={hoveredOrderNo} /> : null}
 
       <div className="dv2-footer">
         {t(lang, "dashboardV2.footer")}
