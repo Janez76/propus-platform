@@ -9,6 +9,7 @@ import {
   makeWeatherZoneSvg,
   type WeatherZone,
 } from "../dashboard-v2/dashboardWeather";
+import { statusPinIconUrl } from "./mapStatusColors";
 
 const DEFAULT_CENTER: google.maps.LatLngLiteral = { lat: 47.3769, lng: 8.5417 };
 const DEFAULT_ZOOM = 8;
@@ -210,7 +211,7 @@ export function OrdersMapView({ orders, apiKey, onOpenDetail, lang, weatherZones
           scaledSize: new google.maps.Size(104, 32),
           anchor: new google.maps.Point(52, 16),
         },
-        zIndex: -100,
+        zIndex: 9999,
         clickable: false,
         title: `${z.city}: ${z.t}°C · ${z.precip}%`,
       });
@@ -257,7 +258,17 @@ export function OrdersMapView({ orders, apiKey, onOpenDetail, lang, weatherZones
         ? `#${order.orderNo} – ${order.customerName}`
         : `#${order.orderNo}`;
 
-      const mk = new api.Marker({ map, position: pos, title, optimized: true });
+      const mk = new api.Marker({
+        map,
+        position: pos,
+        title,
+        optimized: true,
+        icon: {
+          url: statusPinIconUrl(order.status),
+          scaledSize: new google.maps.Size(26, 32),
+          anchor: new google.maps.Point(13, 32),
+        },
+      });
       markersRef.current.push(mk);
       const h = mk.addListener("click", () => onOpenDetail(String(order.orderNo)));
       markerListenersRef.current.push(h);
@@ -266,7 +277,7 @@ export function OrdersMapView({ orders, apiKey, onOpenDetail, lang, weatherZones
     if (any) {
       map.fitBounds(bounds, 48);
       const z = map.getZoom();
-      if (z != null && z > 16) map.setZoom(16);
+      if (z != null && z > 14) map.setZoom(14);
     } else {
       map.panTo(DEFAULT_CENTER);
       map.setZoom(DEFAULT_ZOOM);

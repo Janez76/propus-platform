@@ -2490,5 +2490,14 @@
   "dashboardV2.map.status.done": "Done",
   "dashboardV2.map.status.paused": "Paused",
   "dashboardV2.map.status.cancelled": "Cancelled",
-  "dashboardV2.map.status.archived": "Archived"
+  "dashboardV2.map.status.archived": "Archived",
+  "dashboardV2.map.range.today": "Today",
+  "dashboardV2.map.range.week": "Week",
+  "dashboardV2.map.range.month": "Month",
+  "dashboardV2.map.range.year": "Year",
+  "dashboardV2.map.titleByRange.today": "Map · Orders today",
+  "dashboardV2.map.titleByRange.week": "Map · Orders this week",
+  "dashboardV2.map.titleByRange.month": "Map · Orders this month",
+  "dashboardV2.map.titleByRange.year": "Map · Orders this year",
+  "dashboardV2.map.empty": "No orders in the current selection"
 }

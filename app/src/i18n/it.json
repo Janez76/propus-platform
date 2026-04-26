@@ -2478,5 +2478,14 @@
   "dashboardV2.map.status.done": "Concluso",
   "dashboardV2.map.status.paused": "In pausa",
   "dashboardV2.map.status.cancelled": "Annullato",
-  "dashboardV2.map.status.archived": "Archiviato"
+  "dashboardV2.map.status.archived": "Archiviato",
+  "dashboardV2.map.range.today": "Oggi",
+  "dashboardV2.map.range.week": "Settimana",
+  "dashboardV2.map.range.month": "Mese",
+  "dashboardV2.map.range.year": "Anno",
+  "dashboardV2.map.titleByRange.today": "Mappa · Ordini di oggi",
+  "dashboardV2.map.titleByRange.week": "Mappa · Ordini della settimana",
+  "dashboardV2.map.titleByRange.month": "Mappa · Ordini del mese",
+  "dashboardV2.map.titleByRange.year": "Mappa · Ordini dell'anno",
+  "dashboardV2.map.empty": "Nessun ordine nella selezione"
 }
