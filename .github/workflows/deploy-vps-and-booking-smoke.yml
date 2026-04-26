@@ -190,7 +190,11 @@ jobs:
             # Aktuell laufende Version als Rollback-Archiv sichern (nur wenn vorhanden)
             if [ -d "$PROJECT_ROOT" ] && [ "$(ls -A "$PROJECT_ROOT" 2>/dev/null)" ]; then
               echo "==> Sichere aktuellen Stand fuer moeglichen Rollback..."
-              tar -czf "${ROLLBACK_DIR}/last-good.tar.gz" -C "$PROJECT_ROOT" . 2>/dev/null || true
+              # Gleiche Excludes wie scripts/rollback-vps.sh (VPS_ROLLBACK_TAR_EXCLUDES) — weniger I/O, schneller.
+              GZIP=-1 tar --exclude-vcs -czf "${ROLLBACK_DIR}/last-good.tar.gz" \
+                --exclude=./.github --exclude=./docs --exclude=./backups \
+                --exclude=node_modules --exclude=.next --exclude=.turbo --exclude=dist --exclude=coverage \
+                -C "$PROJECT_ROOT" . 2>/dev/null || true
               if [ -f "${PROJECT_ROOT}/.env.vps" ]; then
                 cp "${PROJECT_ROOT}/.env.vps" "${ROLLBACK_DIR}/last-good.env.vps"
               fi

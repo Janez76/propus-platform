@@ -8,6 +8,9 @@
 #   /opt/propus-platform-rollback/last-good.tar.gz
 # gespeichert (erster Schritt im Deploy-Workflow).
 #
+# Fehlgeschlagene Zwischen-Snapshots (failed-*.tar.gz): nur die neuesten
+# FAILED_SNAPSHOTS_KEEP Dateien, aeltere werden nach jedem Rollback entfernt.
+#
 # Aufruf:
 #   bash /opt/propus-platform/scripts/rollback-vps.sh
 
@@ -16,9 +19,27 @@ set -euo pipefail
 PROJECT_ROOT="/opt/propus-platform"
 ROLLBACK_DIR="/opt/propus-platform-rollback"
 ROLLBACK_ARCHIVE="${ROLLBACK_DIR}/last-good.tar.gz"
+# Nach jedem Rollback: nur die neuesten N fehlgeschlagenen Snapshots behalten (Speicher)
+FAILED_SNAPSHOTS_KEEP=5
 COMPOSE_FILE="${PROJECT_ROOT}/docker-compose.vps.yml"
 ENV_FILE="${PROJECT_ROOT}/.env.vps"
 COMPOSE_PROJECT="propus-platform"
+
+# Gleiche Logik wie Rollback-Snapshot im Deploy-Workflow: keine doppelte Voll-
+# sicherung von .git, Build-Artefakten, node_modules, Runtime ./backups/.
+# (Nur Top-Level ./backups ausnehmen, nicht Pfade wie */components/backups/.)
+# Aenderungen hier auch in deploy-vps-and-booking-smoke.yml "Save rollback snapshot" pflegen.
+VPS_ROLLBACK_TAR_EXCLUDES=(
+  --exclude-vcs
+  --exclude=./.github
+  --exclude=./docs
+  --exclude=./backups
+  --exclude=node_modules
+  --exclude=.next
+  --exclude=.turbo
+  --exclude=dist
+  --exclude=coverage
+)
 
 log() {
   echo "[rollback] $(date -u +'%Y-%m-%dT%H:%M:%SZ') $*"
@@ -44,7 +65,18 @@ log "Rollback-Archiv gefunden: ${ROLLBACK_ARCHIVE} ($(du -sh "${ROLLBACK_ARCHIVE
 # Aktuelle (fehlerhafte) Version als failed-Snapshot sichern
 FAILED_SNAPSHOT="${ROLLBACK_DIR}/failed-$(date +%Y%m%d-%H%M%S).tar.gz"
 log "Sichere aktuelle (fehlerhafte) Version nach: ${FAILED_SNAPSHOT}"
-tar -czf "${FAILED_SNAPSHOT}" -C "${PROJECT_ROOT}" . 2>/dev/null || true
+GZIP=-1 tar -czf "${FAILED_SNAPSHOT}" "${VPS_ROLLBACK_TAR_EXCLUDES[@]}" -C "${PROJECT_ROOT}" . 2>/dev/null || true
+
+# Alte failed-*.tar.gz entfernen (nur neueste ${FAILED_SNAPSHOTS_KEEP} behalten)
+if compgen -G "${ROLLBACK_DIR}"/failed-*.tar.gz > /dev/null; then
+  mapfile -t _failed_all < <(ls -1t "${ROLLBACK_DIR}"/failed-*.tar.gz)
+  if [ "${#_failed_all[@]}" -gt "${FAILED_SNAPSHOTS_KEEP}" ]; then
+    for ((i = FAILED_SNAPSHOTS_KEEP; i < ${#_failed_all[@]}; i++)); do
+      log "Entferne altes failed-Snapshot: ${_failed_all[i]}"
+      rm -f "${_failed_all[i]}"
+    done
+  fi
+fi
 
 # Container stoppen
 log "Stoppe laufende Container..."

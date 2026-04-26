@@ -1,6 +1,6 @@
 # Deploy-Flow (Architektur)
 
-**Status:** verbindlich · **Letzte Aktualisierung:** 2026-04-22
+**Status:** verbindlich · **Letzte Aktualisierung:** 2026-04-26
 
 Dieses Dokument erklärt, **warum** der Deploy auf drei Dateien verteilt ist
 (GitHub-Workflow, VPS-Script, Container-Init) und **welche Datei wofür
@@ -129,6 +129,18 @@ tippt dann gegen veralteten Code, obwohl `git` sauber ist.
 (`find . -maxdepth 1` mit Ausschlüssen), Phase 2 nutzt
 `--exclude='/backups/'` (führendes `/` = relativ zum rsync-Quellroot). Kurz
 auch in [`AGENTS.md`](../AGENTS.md) unter *VPS-Deploy*.
+
+### Rollback-Snapshot (`last-good.tar.gz` und `failed-*.tar.gz`)
+
+Der Workflow **Save rollback snapshot** und `scripts/rollback-vps.sh` packen **nicht**
+blind den gesamten Tree wie früher, sondern schließen dieselben
+Speicher-/Build-Pfade aus wie sinnvoll: u. a. VCS, `.github`, `docs`,
+**nur** Top-Level `./backups/`, `node_modules` überall, `.next`, `.turbo`, `dist`,
+`coverage`. Kompression: **`GZIP=-1`** (schneller, etwas größere Datei).
+Ausgeschlossene Pfade, die schon auf der Platte lagen (z. B. `backups/`), bleiben
+beim Entpacken des Rollbacks unverändert, weil `tar` dort keine Lösch-Synchronisation
+durchführt. Die Exclude-Liste muss in **Workflow** und **`rollback-vps.sh`**
+(`VPS_ROLLBACK_TAR_EXCLUDES`) abgestimmt bleiben.
 
 ## Erweiterungen — wo gehört was hin?
 
