@@ -4,6 +4,7 @@ export type MapsApi = {
   Map: typeof google.maps.Map;
   Marker: typeof google.maps.Marker;
   Geocoder: typeof google.maps.Geocoder;
+  Circle: typeof google.maps.Circle;
 };
 
 let mapsApiPromise: Promise<MapsApi> | null = null;
@@ -11,8 +12,13 @@ const MAPS_SCRIPT_ID = "propus-gmaps-booking-js";
 
 function readGlobalApi(): MapsApi | null {
   const g = (typeof window !== "undefined" ? window.google : undefined) as typeof google | undefined;
-  if (g?.maps?.Map && g.maps.Marker && g.maps.Geocoder) {
-    return { Map: g.maps.Map, Marker: g.maps.Marker, Geocoder: g.maps.Geocoder };
+  if (g?.maps?.Map && g.maps.Marker && g.maps.Geocoder && g.maps.Circle) {
+    return {
+      Map: g.maps.Map,
+      Marker: g.maps.Marker,
+      Geocoder: g.maps.Geocoder,
+      Circle: g.maps.Circle,
+    };
   }
   return null;
 }

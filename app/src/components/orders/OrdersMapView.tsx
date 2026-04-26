@@ -4,6 +4,11 @@ import { t, type Lang } from "../../i18n";
 import { loadGoogleMapsApi, type MapsApi } from "../../lib/googleMapsLoader";
 import { GMAPS_DARK_STYLES } from "../../pages-legacy/booking/gmapsDarkStyles";
 import { useThemeStore } from "../../store/themeStore";
+import {
+  WX_COLOR,
+  makeWeatherZoneSvg,
+  type WeatherZone,
+} from "../dashboard-v2/dashboardWeather";
 
 const DEFAULT_CENTER: google.maps.LatLngLiteral = { lat: 47.3769, lng: 8.5417 };
 const DEFAULT_ZOOM = 8;
@@ -15,6 +20,7 @@ type Props = {
   apiKey: string;
   onOpenDetail: (orderNo: string) => void;
   lang: Lang;
+  weatherZones?: readonly WeatherZone[];
 };
 
 type GeoEntry = { lat: number; lng: number } | "fail";
@@ -37,7 +43,7 @@ function applyRingOffset(
   return { lat: base.lat + dLat, lng: base.lng + dLng };
 }
 
-export function OrdersMapView({ orders, apiKey, onOpenDetail, lang }: Props) {
+export function OrdersMapView({ orders, apiKey, onOpenDetail, lang, weatherZones }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<MapsApi | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -45,6 +51,8 @@ export function OrdersMapView({ orders, apiKey, onOpenDetail, lang }: Props) {
   const inFlight = useRef<Set<string>>(new Set());
   const markerListenersRef = useRef<google.maps.MapsEventListener[]>([]);
   const markersRef = useRef<google.maps.Marker[]>([]);
+  const weatherCirclesRef = useRef<google.maps.Circle[]>([]);
+  const weatherMarkersRef = useRef<google.maps.Marker[]>([]);
   const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
   const [geocodeVersion, setGeocodeVersion] = useState(0);
   const [geocodingBusy, setGeocodingBusy] = useState(false);
@@ -166,6 +174,57 @@ export function OrdersMapView({ orders, apiKey, onOpenDetail, lang }: Props) {
     return () => c.abort();
   }, [loadState, geocodeUniqueAddresses, ordersGeoKey]);
 
+  /** Wetterzonen (Halo + Mini-Pill) – nur aktiv wenn Zonen übergeben werden. */
+  useEffect(() => {
+    if (loadState !== "ready") return;
+    const map = mapRef.current;
+    const api = apiRef.current;
+    if (!map || !api) return;
+
+    for (const c of weatherCirclesRef.current) c.setMap(null);
+    weatherCirclesRef.current = [];
+    for (const m of weatherMarkersRef.current) m.setMap(null);
+    weatherMarkersRef.current = [];
+
+    if (!weatherZones || weatherZones.length === 0) return;
+
+    for (const z of weatherZones) {
+      const color = WX_COLOR[z.kind];
+      const circle = new api.Circle({
+        map,
+        center: { lat: z.lat, lng: z.lng },
+        radius: 4500,
+        strokeWeight: 0,
+        fillColor: color,
+        fillOpacity: 0.1,
+        clickable: false,
+      });
+      weatherCirclesRef.current.push(circle);
+
+      const svg = makeWeatherZoneSvg(z);
+      const marker = new api.Marker({
+        map,
+        position: { lat: z.lat, lng: z.lng },
+        icon: {
+          url: `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`,
+          scaledSize: new google.maps.Size(104, 32),
+          anchor: new google.maps.Point(52, 16),
+        },
+        zIndex: -100,
+        clickable: false,
+        title: `${z.city}: ${z.t}°C · ${z.precip}%`,
+      });
+      weatherMarkersRef.current.push(marker);
+    }
+
+    return () => {
+      for (const c of weatherCirclesRef.current) c.setMap(null);
+      weatherCirclesRef.current = [];
+      for (const m of weatherMarkersRef.current) m.setMap(null);
+      weatherMarkersRef.current = [];
+    };
+  }, [loadState, weatherZones]);
+
   useEffect(() => {
     const map = mapRef.current;
     const api = apiRef.current;
@@ -231,17 +290,17 @@ export function OrdersMapView({ orders, apiKey, onOpenDetail, lang }: Props) {
   return (
     <div className="space-y-2">
       {shortAddressCount > 0 ? (
-        <p className="text-xs text-[var(--text-subtle)]">
+        <p className="text-xs text-(--propus-text-muted)">
           {t(lang, "orders.map.noAddress").replace("{{count}}", String(shortAddressCount))}
         </p>
       ) : null}
       <div
-        className="relative w-full min-h-96 md:min-h-[32rem] overflow-hidden rounded-xl border border-[var(--border-soft)] bg-[var(--surface-raised)]"
+        className="relative w-full min-h-96 md:min-h-128 overflow-hidden rounded-xl border border-(--propus-border) bg-(--propus-bg-strip)"
       >
         <div ref={containerRef} className="absolute inset-0 h-full w-full" aria-label={t(lang, "orders.view.map")} role="region" />
         {overlay ? (
-          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-[var(--surface-raised)]/80 px-4 text-center">
-            <p className="text-sm text-[var(--text-subtle)]">{overlay}</p>
+          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-(--propus-bg-strip)/80 px-4 text-center">
+            <p className="text-sm text-(--propus-text-muted)">{overlay}</p>
           </div>
         ) : null}
       </div>
@@ -251,7 +310,7 @@ export function OrdersMapView({ orders, apiKey, onOpenDetail, lang }: Props) {
 
 export function OrdersMapViewNoKey({ lang }: { lang: Lang }) {
   return (
-    <div className="rounded-xl border border-dashed border-[var(--border-soft)] bg-[var(--surface)] p-6 text-sm text-[var(--text-subtle)]">
+    <div className="rounded-xl border border-dashed border-(--propus-border) bg-(--propus-bg-card) p-6 text-sm text-(--propus-text-muted)">
       {t(lang, "orders.map.noKey")}
     </div>
   );

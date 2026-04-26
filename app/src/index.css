@@ -5,6 +5,7 @@
 @import "./styles/selekto/gallery-admin-supplement.css";
 @import "./styles/reviews-redesign.css";
 @import "./styles/admin-redesign.css";
+@import "./styles/handoff/foundation.css";
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ─── Tailwind v4 Theme Tokens ───────────────────────────────────────────────
@@ -56,8 +57,48 @@
   --propus-gold-dark:   #d4b860;
   --propus-beige:       #F1F2EA;
   --propus-beige-alt:   #ECEAE3;
-  --propus-font-heading: 'Montserrat', system-ui, sans-serif;
-  --propus-font-body:    'Roboto', system-ui, sans-serif;
+  --propus-font-heading: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --propus-font-body:    'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --propus-font-mono:    'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* --- Handoff Foundation Tokens (Phase 0) --- */
+  --gold-50:   #FBF7EE;
+  --gold-100:  #F2E7C9;
+  --gold-200:  #E4CE94;
+  --gold-300:  #D4B462;
+  --gold-400:  #C5A073;
+  --gold-500:  #C49937;
+  --gold-600:  #B68E20;
+  --gold-700:  #9A7619;
+  --gold-800:  #7A5D14;
+  --gold-line: #C5A073;
+  --paper:       #F4F1EA;
+  --paper-strip: #F7F6F3;
+  --card:        #FFFFFF;
+  --ink:         #141413;
+  --ink-2:       #3C3B38;
+  --ink-3:       #6B6962;
+  --ink-4:       #9A968C;
+  --success:     #2A7A2A;
+  --success-bg:  #E6F2E3;
+  --warn:        #B87514;
+  --warn-bg:     #FBEED4;
+  --danger:      #B4311B;
+  --danger-bg:   #F8E0DB;
+  --info:        #2E5A7A;
+  --info-bg:     #DFEBF5;
+
+  /* --- Compatibility aliases to avoid regressions --- */
+  --propus-gold:       var(--gold-600);
+  --propus-gold-hover: var(--gold-700);
+  --propus-gold-light: #c9a22a;
+  --propus-gold-dark:  #d4b860;
+  --bg-classic:        var(--paper);
+  --surface:           var(--card);
+  --surface-raised:    var(--paper-strip);
+  --text-main:         var(--ink);
+  --text-muted:        var(--ink-3);
+  --text-subtle:       var(--ink-4);
 
   /* --- Semantic Tokens (light) --- */
   --bg-classic:    #F1F2EA;
@@ -91,14 +132,27 @@ html.dark {
   color: #f0ece4;
   background: #0f1012;
 
+  --paper:       #0F1012;
+  --paper-strip: #15171A;
+  --card:        #17181A;
+  --ink:         #F0ECE4;
+  --ink-2:       #C7C1B6;
+  --ink-3:       #8E8A80;
+  --ink-4:       #5C5A54;
+  --gold-600:    #C9A22A;
+  --gold-700:    #D4B860;
+  --gold-line:   #8A7418;
+  --propus-gold:       var(--gold-600);
+  --propus-gold-hover: var(--gold-700);
+  --bg-classic:        var(--paper);
+  --surface:           var(--card);
+  --surface-raised:    var(--paper-strip);
+  --text-main:         var(--ink);
+  --text-muted:        var(--ink-2);
+  --text-subtle:       var(--ink-3);
+
   /* --- Semantic Tokens (dark) --- */
-  --bg-classic:    #0f1012;
   --bg-modern:     #0a0c10;
-  --surface:       #161719;
-  --surface-raised:#1c1d1f;
-  --text-main:     #f0ece4;
-  --text-muted:    #c0bbb4;
-  --text-subtle:   #8a8680;
   --border-soft:   #2a2926;
   --border-strong: #3a3834;
   --primary:       #f0ece4;
