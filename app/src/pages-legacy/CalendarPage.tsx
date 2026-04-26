@@ -5,9 +5,18 @@ import { assignPhotographer, rescheduleOrder, updateOrderStatus } from "../api/o
 import { OrderStatusSelect } from "../components/orders/OrderStatusSelect";
 import { getPhotographers, type Photographer } from "../api/photographers";
 import { getCalendarEvents, type CalendarEvent } from "../api/calendar";
-import { CalendarView, type CalendarClickedEvent, normalizeMojibakeText } from "../components/calendar/CalendarView";
+import { type CalendarClickedEvent, normalizeMojibakeText } from "../components/calendar/CalendarView";
 import { CalMiniMonth } from "../components/calendar/CalMiniMonth";
-import { WEATHER_ZONES, WX_COLOR } from "../components/dashboard-v2/dashboardWeather";
+import {
+  HandoffCalendarView,
+  type CalendarView as CalendarViewKind,
+} from "../components/calendar/HandoffCalendarView";
+import {
+  getWeatherForecast,
+  indexForecastByDate,
+  weatherEmoji,
+  type WeatherForecastDay,
+} from "../api/weather";
 import { CreateOrderWizard } from "../components/orders/CreateOrderWizard";
 import { useAuthStore } from "../store/authStore";
 import { t } from "../i18n";
@@ -51,6 +60,11 @@ export function CalendarPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [prefilledDate, setPrefilledDate] = useState<string | undefined>(undefined);
   const [miniMonthAnchor, setMiniMonthAnchor] = useState(() => new Date());
+  const [calendarAnchor, setCalendarAnchor] = useState(() => new Date());
+  const [calendarView, setCalendarView] = useState<CalendarViewKind>("week");
+  const [forecastByDate, setForecastByDate] = useState<ReadonlyMap<string, WeatherForecastDay>>(
+    () => new Map(),
+  );
 
   async function load() {
     const [evs, staff] = await Promise.all([getCalendarEvents(token), getPhotographers(token)]);
@@ -72,6 +86,27 @@ export function CalendarPage() {
     return () => { alive = false; };
   }, [token]);
 
+  useEffect(() => {
+    let alive = true;
+    const y = miniMonthAnchor.getFullYear();
+    const m = miniMonthAnchor.getMonth();
+    const gridStart = new Date(y, m, 1);
+    const dow = (gridStart.getDay() + 6) % 7;
+    gridStart.setDate(gridStart.getDate() - dow - 7);
+    const fromIso = `${gridStart.getFullYear()}-${String(gridStart.getMonth() + 1).padStart(2, "0")}-${String(gridStart.getDate()).padStart(2, "0")}`;
+    getWeatherForecast(token, { from: fromIso, days: 56, region: "zurich" })
+      .then((resp) => {
+        if (!alive) return;
+        setForecastByDate(indexForecastByDate(resp));
+      })
+      .catch(() => {
+        /* Wetter ist optional */
+      });
+    return () => {
+      alive = false;
+    };
+  }, [token, miniMonthAnchor]);
+
   const filtered = useMemo(
     () =>
       events.filter((e) => {
@@ -82,13 +117,14 @@ export function CalendarPage() {
     [events, filter, photographerFilter],
   );
 
-  const eventDayKeys = useMemo(() => {
-    const s = new Set<string>();
+  const eventCounts = useMemo(() => {
+    const m = new Map<string, number>();
     for (const e of filtered) {
       const d = String(e.start || "").slice(0, 10);
-      if (/^\d{4}-\d{2}-\d{2}$/.test(d)) s.add(d);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
+      m.set(d, (m.get(d) ?? 0) + 1);
     }
-    return s;
+    return m;
   }, [filtered]);
 
   function openEvent(ev: CalendarClickedEvent) {
@@ -227,8 +263,18 @@ export function CalendarPage() {
           <CalMiniMonth
             anchor={miniMonthAnchor}
             onChangeAnchor={setMiniMonthAnchor}
-            onPickDay={(dateKey) => prepareNewBooking(dateKey)}
-            eventDayKeys={eventDayKeys}
+            onPickDay={(dateKey) => {
+              setCalendarAnchor(new Date(`${dateKey}T00:00:00`));
+              setCalendarView("day");
+            }}
+            eventCounts={eventCounts}
+            forecastByDate={forecastByDate}
+            selectedDateIso={(() => {
+              const y = calendarAnchor.getFullYear();
+              const m = String(calendarAnchor.getMonth() + 1).padStart(2, "0");
+              const d = String(calendarAnchor.getDate()).padStart(2, "0");
+              return `${y}-${m}-${d}`;
+            })()}
           />
           <div className="cal-side-card">
             <h4>Filter</h4>
@@ -272,25 +318,48 @@ export function CalendarPage() {
             </p>
           </div>
           <div className="cal-side-card">
-            <h4>Wetter (Karte)</h4>
-            <div className="flex flex-wrap gap-1.5">
-              {WEATHER_ZONES.map((z) => {
-                const c = WX_COLOR[z.kind];
-                return (
-                  <div
-                    key={z.city}
-                    className="inline-flex items-center gap-1 rounded-lg border px-1.5 py-1"
-                    style={{
-                      borderColor: c,
-                      color: c,
-                      background: `color-mix(in srgb, ${c} 10%, var(--card))`,
-                    }}
-                  >
-                    <span className="font-mono text-xs font-bold" style={{ fontFamily: "var(--propus-font-mono)" }}>{z.t}°</span>
-                    <span className="text-[11px] font-medium opacity-90">{z.city}</span>
-                  </div>
-                );
-              })}
+            <h4>Wetter · 7 Tage</h4>
+            <div className="flex flex-col gap-1">
+              {(() => {
+                const days: WeatherForecastDay[] = [];
+                const start = new Date();
+                start.setHours(0, 0, 0, 0);
+                for (let i = 0; i < 7; i += 1) {
+                  const d = new Date(start);
+                  d.setDate(start.getDate() + i);
+                  const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+                  const fc = forecastByDate.get(k);
+                  if (fc) days.push(fc);
+                }
+                if (days.length === 0) {
+                  return (
+                    <p className="text-xs text-[var(--fg-3)]">
+                      Vorhersage wird geladen …
+                    </p>
+                  );
+                }
+                return days.map((fc) => {
+                  const d = new Date(`${fc.date}T00:00:00`);
+                  const dow = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"][d.getDay()];
+                  return (
+                    <div
+                      key={fc.date}
+                      className="flex items-center justify-between rounded-md border border-[var(--border)] bg-white/60 px-2 py-1"
+                    >
+                      <span className="font-mono text-[11px] font-semibold text-[var(--ink)]" style={{ minWidth: 28 }}>
+                        {dow}
+                      </span>
+                      <span className="text-base leading-none" aria-hidden>
+                        {weatherEmoji(fc.kind)}
+                      </span>
+                      <span className="font-mono text-[11px] font-semibold text-[var(--ink)]">
+                        {fc.t_max}°/{fc.t_min}°
+                      </span>
+                      <span className="font-mono text-[10px] text-[var(--fg-3)]">{fc.precip}%</span>
+                    </div>
+                  );
+                });
+              })()}
             </div>
           </div>
         </aside>
@@ -303,10 +372,15 @@ export function CalendarPage() {
           <button type="button" className="btn-secondary mt-3" onClick={() => openCreateBooking()}>{t(lang, "calendar.newBooking")}</button>
         </div>
       ) : null}
-      <CalendarView
+      <HandoffCalendarView
         events={filtered}
+        view={calendarView}
+        anchor={calendarAnchor}
+        onChangeView={setCalendarView}
+        onChangeAnchor={setCalendarAnchor}
         onEventClick={openEvent}
         onDateClick={prepareNewBooking}
+        forecastByDate={forecastByDate}
       />
         </div>
       </div>
