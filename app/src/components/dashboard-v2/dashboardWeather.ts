@@ -56,3 +56,50 @@ export function makeWeatherZoneSvg(zone: WeatherZone): string {
     "</svg>",
   ].join("\n");
 }
+
+/** Glyph (Unicode) je Wetterart – wird im Mini-Chip gerendert. */
+export const WX_GLYPH: Record<WeatherKind, string> = {
+  sun: "☀",   // ☀
+  psun: "⛅",  // ⛅
+  cloud: "☁", // ☁
+  rain: "☔",  // ☂ (Regen-Schirm liest sich auf kleinem Chip besser als 🌧)
+  snow: "❄",  // ❄
+  storm: "⚡", // ⚡
+  fog: "▒",   // ▒ (Nebel-Hatch)
+};
+
+/** Lesbares Label (de-CH) je Wetterart – für Tooltip / InfoWindow. */
+export const WX_LABEL_DE: Record<WeatherKind, string> = {
+  sun: "Sonnig",
+  psun: "Teils sonnig",
+  cloud: "Bewölkt",
+  rain: "Regen",
+  snow: "Schnee",
+  storm: "Gewitter",
+  fog: "Nebel",
+};
+
+/**
+ * Kompakter Wetter-Chip für genau einen Auftrag (Mini-Pill über dem Pin).
+ * Format: ☀ 18°  – ~58×22 px. Source kann "forecast" oder "archive" sein.
+ */
+export function makeOrderWeatherSvg(args: {
+  kind: WeatherKind;
+  tMax: number;
+  tMin: number;
+  precip: number;
+  source: "forecast" | "archive";
+}): string {
+  const color = WX_COLOR[args.kind];
+  const glyph = WX_GLYPH[args.kind];
+  const label = `${args.tMax}°`;
+  // Forecast = solider Rand, Archive = gestrichelt (effektiv gemessen → andere Anmutung).
+  const dash = args.source === "archive" ? ' stroke-dasharray="2,2"' : "";
+  return [
+    '<svg xmlns="http://www.w3.org/2000/svg" width="58" height="22" viewBox="0 0 58 22">',
+    `  <rect x="1" y="1" width="56" height="20" rx="10" fill="rgba(255,255,255,0.97)" stroke="${color}" stroke-width="1.3"${dash}/>`,
+    `  <text x="11" y="16" text-anchor="middle" font-family="-apple-system, 'Segoe UI Emoji', 'Apple Color Emoji', system-ui, sans-serif" font-size="12" fill="${color}">${glyph}</text>`,
+    `  <text x="36" y="16" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="700" fill="${color}">${label}</text>`,
+    "</svg>",
+  ].join("");
+}
