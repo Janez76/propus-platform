@@ -11,8 +11,8 @@ export function SidePanel({ open, title, onClose, footer, children }: SidePanelP
   if (!open) return null;
   return (
     <>
-      <button type="button" className="sp-overlay" aria-label="Close panel" onClick={onClose} />
-      <aside className="sp-panel" role="dialog" aria-modal="true" aria-label={title}>
+      <button type="button" className="sp-overlay open" aria-label="Close panel" onClick={onClose} />
+      <aside className="sp-panel open" role="dialog" aria-modal="true" aria-label={title}>
         <header className="sp-head">
           <div className="flex items-center justify-between gap-2">
             <h3 className="m-0 text-base font-semibold">{title}</h3>

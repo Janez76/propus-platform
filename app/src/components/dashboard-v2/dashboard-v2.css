@@ -648,7 +648,14 @@
   gap: 8px;
   padding: 4px 0;
   color: var(--d-text);
+  background: transparent;
+  border: 0;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
 }
+.dv2-upcoming-today-item:hover { color: var(--d-gold); }
 .dv2-upcoming-cam { color: var(--d-gold); }
 .dv2-upcoming-time { color: var(--d-text-dim); margin-left: auto; }
 .dv2-upcoming-section-label {
@@ -663,7 +670,16 @@
   align-items: center;
   gap: 12px;
   padding: 10px 0;
+  background: transparent;
+  border: 0;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  transition: background 0.12s;
 }
+.dv2-upcoming-item:hover { background: var(--d-card-hover); }
 .dv2-upcoming-item--border { border-bottom: 1px solid var(--d-border); }
 .dv2-upcoming-date-chip {
   width: 40px;
@@ -728,7 +744,16 @@
   font-weight: 500;
   color: var(--d-text-muted);
   border: 1px solid transparent;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.12s, box-shadow 0.12s;
 }
+button.dv2-heatmap-cell:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 0 1px var(--d-border-gold);
+}
+.dv2-heatmap-cell--empty { cursor: default; }
 .dv2-heatmap-cell--empty { background: transparent; }
 .dv2-heatmap-cell--l0 { background: color-mix(in srgb, var(--d-gold) 0%, transparent); }
 .dv2-heatmap-cell--l1 { background: color-mix(in srgb, var(--d-gold) 18%, transparent); color: var(--d-text-dim); }

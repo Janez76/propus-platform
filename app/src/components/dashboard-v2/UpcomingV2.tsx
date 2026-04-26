@@ -1,4 +1,5 @@
 import { Camera } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { t, type Lang } from "../../i18n";
 import type { DashboardMetrics } from "./useDashboardMetrics";
 
@@ -14,8 +15,13 @@ const MONTHS_SHORT = [
 ];
 
 export function UpcomingV2({ metrics, lang }: UpcomingV2Props) {
+  const navigate = useNavigate();
   const { today, todayOrders, upcomingOrders } = metrics;
   const todayLabel = `${today.getDate()}. ${MONTHS_SHORT[today.getMonth()]}`;
+  const goToOrder = (orderNo: string | number | undefined | null) => {
+    if (orderNo == null || orderNo === "") return;
+    navigate(`/orders/${orderNo}`);
+  };
 
   return (
     <div className="dv2-card">
@@ -26,7 +32,12 @@ export function UpcomingV2({ metrics, lang }: UpcomingV2Props) {
         {todayOrders.length === 0
           ? t(lang, "dashboardV2.upcoming.todayEmpty")
           : todayOrders.map((o) => (
-              <div key={o.orderNo} className="dv2-upcoming-today-item">
+              <button
+                key={o.orderNo}
+                type="button"
+                className="dv2-upcoming-today-item"
+                onClick={() => goToOrder(o.orderNo)}
+              >
                 <Camera size={13} className="dv2-upcoming-cam" />
                 <span>{o.address ?? "—"}</span>
                 {o.appointmentDate && (
@@ -37,7 +48,7 @@ export function UpcomingV2({ metrics, lang }: UpcomingV2Props) {
                     })}
                   </span>
                 )}
-              </div>
+              </button>
             ))}
       </div>
 
@@ -52,9 +63,11 @@ export function UpcomingV2({ metrics, lang }: UpcomingV2Props) {
               ? d.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" })
               : "";
             return (
-              <div
+              <button
                 key={o.orderNo}
+                type="button"
                 className={`dv2-upcoming-item${i < upcomingOrders.length - 1 ? " dv2-upcoming-item--border" : ""}`}
+                onClick={() => goToOrder(o.orderNo)}
               >
                 <div className="dv2-upcoming-date-chip">
                   <div className="dv2-upcoming-weekday">{weekday}</div>
@@ -67,7 +80,7 @@ export function UpcomingV2({ metrics, lang }: UpcomingV2Props) {
                   </div>
                 </div>
                 <Camera size={14} className="dv2-upcoming-cam-sm" />
-              </div>
+              </button>
             );
           })}
         </>

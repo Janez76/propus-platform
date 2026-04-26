@@ -250,7 +250,20 @@ export function HeatmapV2({ metrics, orders, lang }: HeatmapV2Props) {
         </div>
       </div>
 
-      {view === "month" && <MonthView metrics={metrics} dowShort={dowShort} />}
+      {view === "month" && (
+        <MonthView
+          metrics={metrics}
+          dowShort={dowShort}
+          onPickDay={(day) => {
+            const target = new Date(metrics.currYear, metrics.currMonth, day);
+            const offset = Math.round(
+              (startOfDay(target).getTime() - startOfDay(today).getTime()) / MS_DAY,
+            );
+            setDayOffset(offset);
+            setView("day");
+          }}
+        />
+      )}
       {view === "week" && (
         <WeekView
           appts={weekAppts}
@@ -275,7 +288,15 @@ export function HeatmapV2({ metrics, orders, lang }: HeatmapV2Props) {
 }
 
 // ── Month view (existing heatmap with Mon-Sun grid + week labels)
-function MonthView({ metrics, dowShort }: { metrics: DashboardMetrics; dowShort: string[] }) {
+function MonthView({
+  metrics,
+  dowShort,
+  onPickDay,
+}: {
+  metrics: DashboardMetrics;
+  dowShort: string[];
+  onPickDay?: (day: number) => void;
+}) {
   const { heatmapData, maxDayCount, daysInMonth, firstDayOfWeek, currMonth, currYear, today } = metrics;
   const todayDay =
     today.getMonth() === currMonth && today.getFullYear() === currYear ? today.getDate() : -1;
@@ -298,8 +319,9 @@ function MonthView({ metrics, dowShort }: { metrics: DashboardMetrics; dowShort:
           c.day === null ? (
             <div key={`pad-${i}`} className="dv2-heatmap-cell dv2-heatmap-cell--empty" />
           ) : (
-            <div
+            <button
               key={c.day}
+              type="button"
               className={[
                 "dv2-heatmap-cell",
                 `dv2-heatmap-cell--l${c.lvl}`,
@@ -307,9 +329,10 @@ function MonthView({ metrics, dowShort }: { metrics: DashboardMetrics; dowShort:
               ]
                 .filter(Boolean)
                 .join(" ")}
+              onClick={() => onPickDay?.(c.day as number)}
             >
               {c.day}
-            </div>
+            </button>
           ),
         )}
       </div>

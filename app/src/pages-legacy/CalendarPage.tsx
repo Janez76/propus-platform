@@ -403,11 +403,11 @@ export function CalendarPage() {
         <>
           <button
             type="button"
-            className="sp-overlay"
+            className="sp-overlay open"
             aria-label="Schliessen"
             onClick={() => setSelected(null)}
           />
-          <div className="sp-panel" style={{ maxWidth: 520, width: "100%" }}>
+          <div className="sp-panel open" style={{ maxWidth: 520, width: "100%" }}>
             <div className="sp-head">
               <div className="flex items-center justify-between gap-2">
                 <h3 className="m-0 text-base font-semibold text-[var(--text-main)]">{t(lang, "calendar.modal.title")}</h3>
