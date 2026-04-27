@@ -128,6 +128,38 @@ export async function saveLeistungen(
     );
   }
 
+  // If duration changed, sync the 365/Outlook calendar event (delete old, create new with correct duration).
+  // The reschedule endpoint handles this silently (no emails when only duration changes).
+  if (
+    v.durationMinOverride != null &&
+    Number((before.schedule as Record<string, unknown> | null)?.durationMin ?? 0) !== v.durationMinOverride &&
+    (before.schedule as Record<string, unknown> | null)?.date &&
+    (before.schedule as Record<string, unknown> | null)?.time
+  ) {
+    try {
+      const { cookies } = await import("next/headers");
+      const token = (await cookies()).get("admin_session")?.value ?? "";
+      const apiBase = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:3001";
+      await fetch(
+        `${apiBase}/api/admin/orders/${encodeURIComponent(String(v.orderNo))}/reschedule`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            date: String((before.schedule as Record<string, unknown>).date),
+            time: String((before.schedule as Record<string, unknown>).time),
+            durationMin: v.durationMinOverride,
+          }),
+        },
+      );
+    } catch (err) {
+      console.error("[saveLeistungen] 365 calendar sync failed (non-critical)", err);
+    }
+  }
+
   revalidatePath(`/orders/${v.orderNo}/leistungen`);
   revalidatePath(`/orders/${v.orderNo}`);
   if (!skipRedirect) {
