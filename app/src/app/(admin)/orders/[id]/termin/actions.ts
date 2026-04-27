@@ -10,6 +10,7 @@ import { getTransitionError, getSideEffects, getEmailEffects } from "@/lib/order
 import { sendWorkflowMails } from "@/lib/mail/workflowMail";
 import { queryOne } from "@/lib/db";
 import { terminFormSchema, type TerminFormValues } from "@/lib/validators/orders/termin";
+import { requestAdminReschedule } from "@/lib/booking-calendar-sync.server";
 
 export type SaveTerminResult =
   | { ok: true }
@@ -81,6 +82,11 @@ export async function saveOrderTermin(
   };
   const photoBefore = order.photographer_key;
 
+  const scheduleChanged =
+    v.scheduleDate !== String(scheduleBefore.date || "") ||
+    v.scheduleTime !== String(scheduleBefore.time || "") ||
+    v.durationMin !== Number(scheduleBefore.durationMin || 0);
+
   await updateOrderTermin({
     orderNo: v.orderNo,
     scheduleDate: v.scheduleDate,
@@ -89,6 +95,14 @@ export async function saveOrderTermin(
     status: v.status,
     photographerKey: v.photographerKey,
   });
+
+  if (scheduleChanged && v.status !== "cancelled") {
+    await requestAdminReschedule(v.orderNo, {
+      date: v.scheduleDate,
+      time: v.scheduleTime,
+      durationMin: v.durationMin,
+    });
+  }
 
   const actorId = sessionActorId(editor);
 
@@ -108,11 +122,7 @@ export async function saveOrderTermin(
     );
   }
 
-  if (
-    v.scheduleDate !== String(scheduleBefore.date || "") ||
-    v.scheduleTime !== String(scheduleBefore.time || "") ||
-    v.durationMin !== Number(scheduleBefore.durationMin || 0)
-  ) {
+  if (scheduleChanged) {
     await logOrderEvent(
       v.orderNo,
       "schedule_updated",

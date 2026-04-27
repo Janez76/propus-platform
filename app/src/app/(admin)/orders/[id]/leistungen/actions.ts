@@ -8,6 +8,7 @@ import { leistungenFormSchema } from "@/lib/validators/orders/leistungen";
 import { getPackageByKey } from "@/lib/pricingCatalog";
 import { calculatePricing, VAT_RATE } from "@/lib/pricing";
 import { queryOne, withTransaction } from "@/lib/db";
+import { requestAdminReschedule } from "@/lib/booking-calendar-sync.server";
 
 type AddonRow = {
   id: string;
@@ -36,7 +37,8 @@ export async function saveLeistungen(
     services: Record<string, unknown> | null;
     pricing: Record<string, unknown> | null;
     schedule: Record<string, unknown> | null;
-  }>(`SELECT services, pricing, schedule FROM booking.orders WHERE order_no = $1`, [v.orderNo]);
+    status: string | null;
+  }>(`SELECT services, pricing, schedule, status FROM booking.orders WHERE order_no = $1`, [v.orderNo]);
   if (!before) {
     return { ok: false as const, error: "Bestellung nicht gefunden" };
   }
@@ -109,6 +111,26 @@ export async function saveLeistungen(
       [v.orderNo, JSON.stringify(servicesPatch), JSON.stringify(pricingPatch), JSON.stringify(schedPatch)],
     );
   });
+
+  const prevDuration = Number((before.schedule as { durationMin?: number } | null)?.durationMin || 0);
+  const overrideApplies = v.durationMinOverride != null;
+  const durationFromOverride =
+    overrideApplies && prevDuration !== v.durationMinOverride
+      ? v.durationMinOverride
+      : null;
+  const sched = before.schedule as { date?: string; time?: string } | null;
+  if (
+    durationFromOverride != null &&
+    sched?.date &&
+    sched?.time &&
+    String(before.status || "").toLowerCase() !== "cancelled"
+  ) {
+    await requestAdminReschedule(v.orderNo, {
+      date: sched.date,
+      time: String(sched.time).slice(0, 5),
+      durationMin: durationFromOverride,
+    });
+  }
 
   await logOrderEvent(
     v.orderNo,
