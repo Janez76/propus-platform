@@ -540,6 +540,9 @@ function WeekView({
               ))}
               {dayLayout.map((l, i) => {
                 const isOutlook = l.ev.type === "outlook" || l.ev.source === "m365";
+                const displayCategory = isOutlook && l.ev.category && !/^https?:\/\//.test(l.ev.category)
+                  ? l.ev.category
+                  : null;
                 return (
                 <button
                   key={`${l.ev.id}-${i}`}
@@ -555,7 +558,7 @@ function WeekView({
                     } as React.CSSProperties
                   }
                   onClick={() => onEventClick?.(clickedFrom(l.ev))}
-                  title={`${isOutlook ? "[365] " : ""}${normalizeMojibakeText(l.ev.title)}${l.ev.category ? ` · ${l.ev.category}` : ""}`}
+                  title={`${isOutlook ? "[365] " : ""}${normalizeMojibakeText(l.ev.title)}${displayCategory ? ` · ${displayCategory}` : ""}`}
                 >
                   {isOutlook ? (
                     <span
@@ -581,8 +584,8 @@ function WeekView({
                     <span>{durationMinutesLabel(l.ev)}</span>
                   </div>
                   <div className="wv-event-title">{normalizeMojibakeText(l.ev.title)}</div>
-                  {isOutlook && l.ev.category ? (
-                    <div className="wv-event-meta">{l.ev.category}</div>
+                  {displayCategory ? (
+                    <div className="wv-event-meta">{displayCategory}</div>
                   ) : l.ev.zipcity ? (
                     <div className="wv-event-meta">{l.ev.zipcity}</div>
                   ) : null}
@@ -619,10 +622,10 @@ function WeekView({
                             <dd>{l.ev.photographerName}</dd>
                           </div>
                         ) : null}
-                        {isOutlook && l.ev.category ? (
+                        {displayCategory ? (
                           <div>
                             <dt>Kategorie</dt>
-                            <dd>{l.ev.category}</dd>
+                            <dd>{displayCategory}</dd>
                           </div>
                         ) : null}
                       </dl>
