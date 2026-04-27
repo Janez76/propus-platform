@@ -1,0 +1,16 @@
+{
+  "name": "Propus Mobile",
+  "short_name": "Propus",
+  "description": "Propus – Kalender, Aufträge, Kontakte unterwegs",
+  "start_url": "/mobile",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f1012",
+  "theme_color": "#B68E20",
+  "lang": "de",
+  "icons": [
+    { "src": "/assets/brand/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/assets/brand/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

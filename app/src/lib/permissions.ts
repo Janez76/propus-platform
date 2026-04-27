@@ -51,6 +51,7 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   "/admin/finance/exxas-sync": "finance.manage",
   "/admin/invoices": "finance.read",
   "/admin/tickets": "tickets.read",
+  "/mobile": "dashboard.view",
 };
 
 const PREFIX_PATH_PERMISSIONS: { prefix: string; permission: string }[] = [
@@ -66,7 +67,7 @@ const PREFIX_PATH_PERMISSIONS: { prefix: string; permission: string }[] = [
   { prefix: "/settings", permission: "settings.manage" },
 ].sort((a, b) => b.prefix.length - a.prefix.length);
 
-const PHOTOGRAPHER_PATHS = new Set(["/orders", "/upload", "/calendar"]);
+const PHOTOGRAPHER_PATHS = new Set(["/orders", "/upload", "/calendar", "/mobile"]);
 const INTERNAL_STAFF_ROLES: Role[] = ["admin", "super_admin", "employee"];
 
 const ALL_ROUTE_PERMS = [...new Set(Object.values(ROUTE_PERMISSIONS))];

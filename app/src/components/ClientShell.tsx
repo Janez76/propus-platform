@@ -20,6 +20,7 @@ import { AppShell } from "./layout/AppShell";
 import { useAuth } from "../hooks/useAuth";
 import { isPublicBookingHost } from "../lib/publicBookingHost";
 import { RouteGuard } from "./routing/RouteGuard";
+import { RegisterServiceWorker } from "./pwa/RegisterServiceWorker";
 
 // Lazy-load all pages from the legacy pages directory
 const LoginPage = lazy(() => import("../pages-legacy/LoginPage").then((m) => ({ default: m.LoginPage })));
@@ -50,6 +51,7 @@ const PaymentSettingsPage = lazy(() => import("../pages-legacy/PaymentSettingsPa
 const InvoiceTemplatePage = lazy(() => import("../pages-legacy/InvoiceTemplatePage").then((m) => ({ default: m.InvoiceTemplatePage })));
 const RoleMatrixPage = lazy(() => import("../pages-legacy/RoleMatrixPage").then((m) => ({ default: m.RoleMatrixPage })));
 const BookingWizardPage = lazy(() => import("../pages-legacy/BookingWizardPage").then((m) => ({ default: m.BookingWizardPage })));
+const MobilePage = lazy(() => import("../pages-legacy/mobile/MobilePage").then((m) => ({ default: m.MobilePage })));
 
 // Admin central pages
 const AdminInvoicesPage = lazy(() => import("../pages-legacy/admin/invoices/AdminInvoicesPage").then((m) => ({ default: m.AdminInvoicesPage })));
@@ -117,9 +119,22 @@ function PrivateRoutes() {
 
   const eg = (p: string, el: ReactElement) => <RouteGuard path={p}>{el}</RouteGuard>;
 
+  const currentPath = window.location.pathname;
+
+  // Mobile-Modus: kein AppShell – eigene volle Viewport-Hülle
+  if (currentPath.startsWith("/mobile")) {
+    return (
+      <Suspense fallback={<PageSkeleton />}>
+        <Routes>
+          <Route path="/mobile" element={eg("/mobile", <MobilePage />)} />
+          <Route path="/mobile/*" element={eg("/mobile", <MobilePage />)} />
+        </Routes>
+      </Suspense>
+    );
+  }
+
   // Embed-Modus: kein AppShell
   const embedPaths = ["/embed/tours/link-matterport", "/embed/tours/"];
-  const currentPath = window.location.pathname;
   if (embedPaths.some((p) => currentPath.startsWith(p))) {
     return (
       <div className="min-h-screen p-4" style={{ background: "var(--bg-classic)" }}>
@@ -226,6 +241,7 @@ export default function ClientShell() {
       <CustomerSessionBootstrap />
       <CustomerMagicSessionRedirect />
       <OfflineIndicator />
+      <RegisterServiceWorker />
       <Suspense fallback={<PageSkeleton />}>
         <Routes>
           <Route path="/" element={<PublicBookingIndex />} />
