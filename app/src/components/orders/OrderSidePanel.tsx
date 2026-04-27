@@ -392,7 +392,15 @@ export function OrderSidePanel({
             ) : null}
           </Section>
 
-          {order.billing?.alt_company || order.billing?.alt_name || order.billing?.alt_email ? (
+          {order.billing?.alt_company ||
+          order.billing?.alt_name ||
+          order.billing?.alt_email ||
+          order.billing?.alt_phone ||
+          order.billing?.alt_phone_mobile ||
+          order.billing?.alt_street ||
+          order.billing?.alt_zipcity ||
+          order.billing?.alt_zip ||
+          order.billing?.alt_city ? (
             <Section title={tr(lang, "orders.sidePanel.section.altContact", "Abweichender Kontakt")}>
               <Row icon={<User className="h-4 w-4" />}>
                 {nonEmpty(order.billing?.alt_company, order.billing?.alt_name) || "—"}
@@ -534,6 +542,7 @@ export function OrderSidePanel({
               ) : null}
               {!order.provisionalBookedAt &&
               !order.confirmationPendingSince &&
+              !order.appointmentDate &&
               !order.doneAt &&
               !order.closedAt &&
               !order.pauseReason &&
