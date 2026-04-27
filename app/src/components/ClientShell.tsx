@@ -18,6 +18,7 @@ import { CustomerSessionBootstrap } from "./auth/CustomerSessionBootstrap";
 import { OfflineIndicator } from "./layout/OfflineIndicator";
 import { AppShell } from "./layout/AppShell";
 import { useAuth } from "../hooks/useAuth";
+import { usePermissions } from "../hooks/usePermissions";
 import { isPublicBookingHost } from "../lib/publicBookingHost";
 import { RouteGuard } from "./routing/RouteGuard";
 import { RegisterServiceWorker } from "./pwa/RegisterServiceWorker";
@@ -115,6 +116,7 @@ function LegacySelektoClientRedirect() {
 
 function PrivateRoutes() {
   const { isLoggedIn } = useAuth();
+  const { canAccessPath } = usePermissions();
   if (!isLoggedIn) return <Navigate to="/login" replace />;
 
   const eg = (p: string, el: ReactElement) => <RouteGuard path={p}>{el}</RouteGuard>;
@@ -136,8 +138,9 @@ function PrivateRoutes() {
   // Auto-Redirect: kleine Viewports auf Haupt-Admin-Seiten → /mobile.
   // User kann via "Desktop"-Button im MobileHeader das Flag prefer_desktop setzen
   // und dann frei auf Desktop-Seiten navigieren (Flag gilt für die Session).
+  // Permission-Check verhindert Redirect-Loop für User ohne /mobile-Zugriff.
   const MOBILE_REDIRECT_PATHS = new Set(["/", "/dashboard", "/orders", "/calendar", "/customers"]);
-  if (MOBILE_REDIRECT_PATHS.has(currentPath)) {
+  if (MOBILE_REDIRECT_PATHS.has(currentPath) && canAccessPath("/mobile")) {
     let preferDesktop = false;
     try {
       preferDesktop = window.sessionStorage.getItem("prefer_desktop") === "1";
