@@ -15,6 +15,11 @@ interface HeatmapV2Props {
   lang: Lang;
 }
 
+type MonthMetrics = Pick<
+  DashboardMetrics,
+  "heatmapData" | "maxDayCount" | "daysInMonth" | "firstDayOfWeek" | "currMonth" | "currYear" | "today"
+>;
+
 type ViewMode = "day" | "week" | "month";
 
 const MS_DAY = 86_400_000;
@@ -143,6 +148,7 @@ export function HeatmapV2({ metrics, orders, lang }: HeatmapV2Props) {
   const [view, setView] = useState<ViewMode>("month");
   const [weekOffset, setWeekOffset] = useState(0);
   const [dayOffset, setDayOffset] = useState(0);
+  const [monthOffset, setMonthOffset] = useState(0);
   const navigate = useNavigate();
 
   const today = metrics.today;
@@ -193,20 +199,70 @@ export function HeatmapV2({ metrics, orders, lang }: HeatmapV2Props) {
   // ── Range labels
   const weekDateLabel = `${formatDayShort(baseWeekStart, lang)} – ${formatDayShort(baseWeekEnd, lang)}`;
   const dayDateLabel = `${dayDate.getDate()}. ${months[dayDate.getMonth()]} ${dayDate.getFullYear()}`;
-  const isOnToday = weekOffset === 0 && dayOffset === 0;
+  // Pro-View „heute"-Flag: jede Ansicht ist unabhängig von Offsets der anderen.
+  const isOnToday =
+    view === "day" ? dayOffset === 0
+    : view === "week" ? weekOffset === 0
+    : monthOffset === 0;
+  const isDayToday = dayOffset === 0;
   const todayDow = ((today.getDay() + 6) % 7) as 0 | 1 | 2 | 3 | 4 | 5 | 6;
+
+  // ── Effektive Monatsmetriken (Offset = aktueller Monat ± n) ────────────
+  const monthMeta: MonthMetrics = useMemo(() => {
+    if (monthOffset === 0) {
+      return {
+        heatmapData: metrics.heatmapData,
+        maxDayCount: metrics.maxDayCount,
+        daysInMonth: metrics.daysInMonth,
+        firstDayOfWeek: metrics.firstDayOfWeek,
+        currMonth: metrics.currMonth,
+        currYear: metrics.currYear,
+        today: metrics.today,
+      };
+    }
+    const base = new Date(metrics.today.getFullYear(), metrics.today.getMonth() + monthOffset, 1);
+    const currMonth = base.getMonth();
+    const currYear = base.getFullYear();
+    const daysInMonth = new Date(currYear, currMonth + 1, 0).getDate();
+    const firstDayOfWeek = (new Date(currYear, currMonth, 1).getDay() + 6) % 7;
+    const heatmapData: Record<number, number> = {};
+    // Filter analog zu useDashboardMetrics.countsForScheduleDay: nur `paused`
+    // ausschließen, damit Tageszahlen zwischen aktuellem und verschobenem
+    // Monat konsistent bleiben.
+    for (const o of orders) {
+      if (!o.appointmentDate) continue;
+      if (statusMatches(o.status, "paused")) continue;
+      const d = new Date(o.appointmentDate);
+      if (d.getMonth() !== currMonth || d.getFullYear() !== currYear) continue;
+      const day = d.getDate();
+      heatmapData[day] = (heatmapData[day] ?? 0) + 1;
+    }
+    const counts = Object.values(heatmapData);
+    const maxDayCount = counts.length ? Math.max(1, ...counts) : 1;
+    return { heatmapData, maxDayCount, daysInMonth, firstDayOfWeek, currMonth, currYear, today: metrics.today };
+  }, [
+    monthOffset,
+    orders,
+    metrics.heatmapData,
+    metrics.maxDayCount,
+    metrics.daysInMonth,
+    metrics.firstDayOfWeek,
+    metrics.currMonth,
+    metrics.currYear,
+    metrics.today,
+  ]);
 
   // ── Wetter-Fenster pro View ────────────────────────────────────────────
   const wxWindow = useMemo(() => {
     if (view === "month") {
-      const first = new Date(metrics.currYear, metrics.currMonth, 1);
-      return { from: isoLocalDate(first), days: metrics.daysInMonth };
+      const first = new Date(monthMeta.currYear, monthMeta.currMonth, 1);
+      return { from: isoLocalDate(first), days: monthMeta.daysInMonth };
     }
     if (view === "week") {
       return { from: isoLocalDate(baseWeekStart), days: 7 };
     }
     return { from: isoLocalDate(dayDate), days: 1 };
-  }, [view, metrics.currYear, metrics.currMonth, metrics.daysInMonth, baseWeekStart, dayDate]);
+  }, [view, monthMeta.currYear, monthMeta.currMonth, monthMeta.daysInMonth, baseWeekStart, dayDate]);
   const { data: wxByDate } = useWeatherForRange(wxWindow.from, wxWindow.days);
 
   // ── Termine indexiert nach ISO-Datum (für Monats-Hover-Popover) ────────
@@ -215,16 +271,17 @@ export function HeatmapV2({ metrics, orders, lang }: HeatmapV2Props) {
   function goPrev() {
     if (view === "day") setDayOffset((o) => o - 1);
     else if (view === "week") setWeekOffset((o) => o - 1);
-    else setWeekOffset((o) => o - 4);
+    else setMonthOffset((o) => o - 1);
   }
   function goNext() {
     if (view === "day") setDayOffset((o) => o + 1);
     else if (view === "week") setWeekOffset((o) => o + 1);
-    else setWeekOffset((o) => o + 4);
+    else setMonthOffset((o) => o + 1);
   }
   function goToday() {
     setWeekOffset(0);
     setDayOffset(0);
+    setMonthOffset(0);
   }
 
   return (
@@ -235,7 +292,7 @@ export function HeatmapV2({ metrics, orders, lang }: HeatmapV2Props) {
           <div className="dv2-heatmap-subtitle">
             {view === "month" && (
               <>
-                {months[metrics.currMonth]} {metrics.currYear} · {t(lang, "dashboardV2.heatmap.subtitle")}
+                {months[monthMeta.currMonth]} {monthMeta.currYear} · {t(lang, "dashboardV2.heatmap.subtitle")}
               </>
             )}
             {view === "week" && (
@@ -292,15 +349,15 @@ export function HeatmapV2({ metrics, orders, lang }: HeatmapV2Props) {
 
       {view === "month" && (
         <MonthView
-          metrics={metrics}
+          metrics={monthMeta}
           dowShort={dowShort}
           dowLong={dowLong}
           wxByDate={wxByDate}
           ordersByDate={ordersByDate}
           lang={lang}
           onPickDay={(day) => {
-            const y = metrics.currYear;
-            const m = String(metrics.currMonth + 1).padStart(2, "0");
+            const y = monthMeta.currYear;
+            const m = String(monthMeta.currMonth + 1).padStart(2, "0");
             const d = String(day).padStart(2, "0");
             navigate(`/calendar?date=${y}-${m}-${d}`);
           }}
@@ -322,7 +379,7 @@ export function HeatmapV2({ metrics, orders, lang }: HeatmapV2Props) {
         <DayView
           appts={dayAppts}
           dayDate={dayDate}
-          isToday={isOnToday}
+          isToday={isDayToday}
           wxByDate={wxByDate}
           onApptClick={(o) => navigate(`/orders/${o.orderNo}`)}
           lang={lang}
@@ -342,7 +399,7 @@ function MonthView({
   lang,
   onPickDay,
 }: {
-  metrics: DashboardMetrics;
+  metrics: MonthMetrics;
   dowShort: string[];
   dowLong: string[];
   wxByDate: ReadonlyMap<string, WeatherForecastDay>;
