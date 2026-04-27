@@ -157,6 +157,10 @@ async function runWebsizeSync(deps) {
  * @param {object} deps - { db }
  */
 function scheduleWebsizeSync(deps) {
+  if (String(process.env.BOOKING_WEBSIZE_SYNC_ENABLED || "").toLowerCase() !== "true") {
+    console.log("[job:websizeSync] deaktiviert - kein periodischer Websize-Sync registriert");
+    return;
+  }
   cron.schedule("*/10 * * * *", async function runJob() {
     try {
       await runWebsizeSync(deps);

@@ -387,6 +387,21 @@ async function syncWebsizeForAllCustomerFolders(
   logger = console,
   { forceRebuild = false, onlyOrderNo = null, maxConcurrentJobs = Number(process.env.BOOKING_SYNC_MAX_CONCURRENT_JOBS || 3) } = {}
 ) {
+  if (String(process.env.BOOKING_WEBSIZE_SYNC_ENABLED || "").toLowerCase() !== "true") {
+    logger?.warn?.("[websize-sync] globaler Websize-Sync ist deaktiviert (BOOKING_WEBSIZE_SYNC_ENABLED!=true)");
+    return {
+      folders: 0,
+      created: 0,
+      updated: 0,
+      deleted: 0,
+      scanned: 0,
+      disabled: true,
+      maxConcurrentJobs: Math.max(1, Number(maxConcurrentJobs) || 3),
+      staging: createPipelineStats(),
+      final: createPipelineStats(),
+      floorplans: createPipelineStats(),
+    };
+  }
   if (!db || typeof db.listOrderFolderLinksByType !== "function") {
     return {
       folders: 0,

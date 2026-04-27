@@ -5618,7 +5618,10 @@ app.get("/api/admin/orders/:orderNo/ics", requirePhotographerOrAdmin, async (req
 async function notifyCompletedUploadBatch({ order, batch, storedCount, skippedCount, invalidCount }) {
   try {
     const categoryKey = String(batch?.category || "");
-    if (categoryKey === "final_fullsize" || categoryKey === "final_grundrisse") {
+    if (
+      String(process.env.BOOKING_WEBSIZE_SYNC_ENABLED || "").toLowerCase() === "true" &&
+      (categoryKey === "final_fullsize" || categoryKey === "final_grundrisse")
+    ) {
       const link = await db.getOrderFolderLink(order.orderNo, "customer_folder");
       if (link?.absolute_path && fs.existsSync(link.absolute_path) && fs.statSync(link.absolute_path).isDirectory()) {
         await syncWebsizeForOrderFolder(link.absolute_path, order, console, { forceRebuild: false });
@@ -8501,29 +8504,33 @@ if (process.env.DATABASE_URL) {
       });
   }, 2500);
 
-  setTimeout(() => {
-    syncWebsizeForAllCustomerFolders(db, console)
-      .then((stats) => {
-        if (stats.created || stats.updated || stats.deleted) {
-          console.log("[websize-sync] initial sync completed", stats);
-        }
-      })
-      .catch((err) => {
-        console.warn("[websize-sync] initial sync failed:", err?.message || err);
-      });
-  }, 6000);
+  if (String(process.env.BOOKING_WEBSIZE_SYNC_ENABLED || "").toLowerCase() === "true") {
+    setTimeout(() => {
+      syncWebsizeForAllCustomerFolders(db, console)
+        .then((stats) => {
+          if (stats.created || stats.updated || stats.deleted) {
+            console.log("[websize-sync] initial sync completed", stats);
+          }
+        })
+        .catch((err) => {
+          console.warn("[websize-sync] initial sync failed:", err?.message || err);
+        });
+    }, 6000);
 
-  setInterval(() => {
-    syncWebsizeForAllCustomerFolders(db, console)
-      .then((stats) => {
-        if (stats.created || stats.updated || stats.deleted) {
-          console.log("[websize-sync] periodic sync completed", stats);
-        }
-      })
-      .catch((err) => {
-        console.warn("[websize-sync] periodic sync failed:", err?.message || err);
-      });
-  }, 10 * 60 * 1000);
+    setInterval(() => {
+      syncWebsizeForAllCustomerFolders(db, console)
+        .then((stats) => {
+          if (stats.created || stats.updated || stats.deleted) {
+            console.log("[websize-sync] periodic sync completed", stats);
+          }
+        })
+        .catch((err) => {
+          console.warn("[websize-sync] periodic sync failed:", err?.message || err);
+        });
+    }, 10 * 60 * 1000);
+  } else {
+    console.log("[websize-sync] automatischer Sync deaktiviert - Nutzung nur per Button");
+  }
 }
 
 // ==============================
@@ -14678,17 +14685,21 @@ if (process.env.DATABASE_URL) {
       .catch((err) => { console.warn("[upload-batch] resume failed:", err?.message || err); });
   }, 2500);
 
-  setTimeout(() => {
-    syncWebsizeForAllCustomerFolders(db, console)
-      .then((stats) => { if (stats.created || stats.updated || stats.deleted) console.log("[websize-sync] initial sync completed", stats); })
-      .catch((err) => { console.warn("[websize-sync] initial sync failed:", err?.message || err); });
-  }, 6000);
+  if (String(process.env.BOOKING_WEBSIZE_SYNC_ENABLED || "").toLowerCase() === "true") {
+    setTimeout(() => {
+      syncWebsizeForAllCustomerFolders(db, console)
+        .then((stats) => { if (stats.created || stats.updated || stats.deleted) console.log("[websize-sync] initial sync completed", stats); })
+        .catch((err) => { console.warn("[websize-sync] initial sync failed:", err?.message || err); });
+    }, 6000);
 
-  setInterval(() => {
-    syncWebsizeForAllCustomerFolders(db, console)
-      .then((stats) => { if (stats.created || stats.updated || stats.deleted) console.log("[websize-sync] periodic sync completed", stats); })
-      .catch((err) => { console.warn("[websize-sync] periodic sync failed:", err?.message || err); });
-  }, 10 * 60 * 1000);
+    setInterval(() => {
+      syncWebsizeForAllCustomerFolders(db, console)
+        .then((stats) => { if (stats.created || stats.updated || stats.deleted) console.log("[websize-sync] periodic sync completed", stats); })
+        .catch((err) => { console.warn("[websize-sync] periodic sync failed:", err?.message || err); });
+    }, 10 * 60 * 1000);
+  } else {
+    console.log("[websize-sync] automatischer Sync deaktiviert - Nutzung nur per Button");
+  }
 }
 
 async function runIfMain() {
