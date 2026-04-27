@@ -26,13 +26,16 @@ function normForCompare(s: string): string {
 
 export function validateStep1(s: Step1State): ValidationError[] {
   const errors: ValidationError[] = [];
+  // Hausnummer-Quelle: kanonisches addressFields (was im Eingabefeld steht) hat
+  // Vorrang vor parsedAddress (= zuletzt aus Autocomplete uebernommen). So
+  // greift die Validierung auch, wenn die Nummer manuell eingetippt wurde —
+  // das war frueher ein Blocker und der haeufigste Buchungs-Abbruch.
+  const houseNumberValue = s.addressFields?.houseNumber?.trim()
+    ?? s.parsedAddress?.houseNumber?.trim()
+    ?? "";
   if (!s.address.trim()) {
     errors.push({ field: "address", message: "booking.validation.addressRequired" });
-  } else if (!s.parsedAddress?.houseNumber?.trim()) {
-    // parsedAddress.houseNumber wird nur per Auswahl aus dem Google-Autocomplete
-    // (street- oder houseNumber-Mode) gesetzt. Free-Text-Eingabe alleine reicht
-    // nicht — sonst werden Fantasie-Hausnummern (die an der gewaehlten Strasse
-    // gar nicht existieren) durchgewunken.
+  } else if (!houseNumberValue) {
     errors.push({ field: "address", message: "booking.validation.houseNumberRequired" });
   }
   if (s.parsedAddress && (!s.parsedAddress.zip || !s.parsedAddress.city)) {
@@ -46,15 +49,13 @@ export function validateStep1(s: Step1State): ValidationError[] {
   // Bug H: Konsistenz zwischen parsedAddress (= validierte Auswahl) und
   // canonical object.address (= Quelle der Wahrheit fuer die UI). Wenn der
   // Nutzer die Strasse manuell editiert hat, ohne aus dem Autocomplete-
-  // Dropdown neu zu waehlen, klafft hier eine Luecke — die "Weiter" darf
-  // nicht ueberbruecken. parsedAddress ohne Werte (initialer State) wird
-  // bereits oben durch die houseNumberRequired-Regel gefangen.
-  if (s.addressFields && s.parsedAddress?.houseNumber?.trim()) {
+  // Dropdown neu zu waehlen, klafft hier eine Luecke. Hausnummer ist bewusst
+  // ausgeklammert — manuell eingetippte Nummern sind erlaubt (siehe oben).
+  if (s.addressFields && s.parsedAddress?.street?.trim()) {
     const f = s.addressFields;
     const p = s.parsedAddress;
     const mismatch =
       normForCompare(f.street) !== normForCompare(p.street) ||
-      normForCompare(f.houseNumber) !== normForCompare(p.houseNumber) ||
       normForCompare(f.zip) !== normForCompare(p.zip) ||
       normForCompare(f.city) !== normForCompare(p.city);
     if (mismatch) {
