@@ -412,7 +412,7 @@ export function OrdersMapView({ orders, apiKey, onOpenDetail, lang, weatherZones
       map,
       markers: built,
       renderer: {
-        render: ({ count, position }) => {
+        render: ({ count, position }: { count: number; position: google.maps.LatLng }) => {
           const palette = dominantPaletteForCluster();
           const svg = makeClusterSvg(count, palette);
           return new google.maps.Marker({
