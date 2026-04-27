@@ -6,6 +6,21 @@
 name: Deploy VPS And Booking Smoke
 
 on:
+  # Automatischer Deploy bei jedem Push auf master (z. B. nach PR-Merge).
+  # Ignoriert reine Doku-/Markdown-Aenderungen, damit triviale Edits keinen
+  # VPS-Deploy aufwerfen. Smoke-Test laeuft NICHT bei Push (nur bei manuellem
+  # workflow_dispatch); siehe `if`-Bedingung in build-nextjs/smoke-test-Jobs.
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - ".github/ISSUE_TEMPLATE/**"
+      - "PORTING-INVENTORY.md"
+      - "AGENTS.md"
+      - "DATA_FIELDS.md"
+      - "README.md"
   workflow_dispatch:
     inputs:
       run_deploy:
