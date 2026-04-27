@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ThemeRoot } from "@/components/ThemeRoot";
 import { Toaster } from "sonner";
@@ -13,6 +13,12 @@ export const metadata: Metadata = {
     ],
     apple: "/assets/brand/favicon.png",
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 const themeScript = `(function(){function s(){try{var t=localStorage.getItem("admin_theme_v1")||"system";var d=t==="dark"||(t==="system"&&matchMedia("(prefers-color-scheme:dark)").matches);document.documentElement.classList.toggle("dark",d);document.documentElement.style.colorScheme=d?"dark":"light";if(document.body)document.body.classList.toggle("theme-dark",d)}catch(e){}}if(document.body)s();else document.addEventListener("DOMContentLoaded",s)})()`;

@@ -11,6 +11,7 @@
 }
 @media (max-width: 1100px) {
   .cal-layout { grid-template-columns: 1fr; }
+  .cal-side { position: static; top: auto; }
 }
 
 /* ── Sidebar ──────────────────────────────────────────── */
