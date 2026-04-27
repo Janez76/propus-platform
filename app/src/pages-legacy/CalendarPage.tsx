@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ExternalLink, Plus } from "lucide-react";
-import { assignPhotographer, rescheduleOrder, updateOrderStatus } from "../api/orders";
+import { assignPhotographer, getOrders, rescheduleOrder, updateOrderStatus, type Order } from "../api/orders";
 import { OrderStatusSelect } from "../components/orders/OrderStatusSelect";
 import { getPhotographers, type Photographer } from "../api/photographers";
 import {
@@ -9,6 +9,8 @@ import {
   type CalendarEvent,
   type CalendarOutlookMeta,
 } from "../api/calendar";
+import { OrdersMap } from "../components/dashboard-v2/OrdersMap";
+import "../components/dashboard-v2/dashboard-v2.css";
 import { type CalendarClickedEvent, normalizeMojibakeText } from "../components/calendar/CalendarView";
 import { CalMiniMonth } from "../components/calendar/CalMiniMonth";
 import {
@@ -106,6 +108,7 @@ export function CalendarPage() {
     readStringStorage(OUTLOOK_CATEGORY_KEY, "all"),
   );
   const [outlookMeta, setOutlookMeta] = useState<CalendarOutlookMeta | null>(null);
+  const [orders, setOrders] = useState<Order[]>([]);
 
   const outlookRange = useMemo(() => {
     const base = calendarAnchor;
@@ -115,17 +118,19 @@ export function CalendarPage() {
   }, [calendarAnchor]);
 
   async function load() {
-    const [resp, staff] = await Promise.all([
+    const [resp, staff, ordersRows] = await Promise.all([
       getCalendarEventsWithMeta(token, {
         includeOutlook: showOutlook,
         outlookFrom: outlookRange.from,
         outlookTo: outlookRange.to,
       }),
       getPhotographers(token),
+      getOrders(token).catch(() => [] as Order[]),
     ]);
     setEvents(resp.events);
     setOutlookMeta(resp.outlook ?? null);
     setPhotographers(staff);
+    setOrders(ordersRows);
   }
 
   const dateParam = searchParams.get("date");
@@ -149,12 +154,14 @@ export function CalendarPage() {
         outlookTo: outlookRange.to,
       }),
       getPhotographers(token),
+      getOrders(token).catch(() => [] as Order[]),
     ])
-      .then(([resp, staff]) => {
+      .then(([resp, staff, ordersRows]) => {
         if (!alive) return;
         setEvents(resp.events);
         setOutlookMeta(resp.outlook ?? null);
         setPhotographers(staff);
+        setOrders(ordersRows);
       })
       .catch((e) => {
         if (alive) setError(e instanceof Error ? e.message : t(lang, "common.error"));
@@ -556,6 +563,9 @@ export function CalendarPage() {
         forecastByDate={forecastByDate}
       />
         </div>
+      </div>
+      <div className="dv2">
+        <OrdersMap orders={orders} lang={lang} />
       </div>
       <CreateOrderWizard
         token={token}
