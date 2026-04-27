@@ -199,7 +199,12 @@ export function HeatmapV2({ metrics, orders, lang }: HeatmapV2Props) {
   // ── Range labels
   const weekDateLabel = `${formatDayShort(baseWeekStart, lang)} – ${formatDayShort(baseWeekEnd, lang)}`;
   const dayDateLabel = `${dayDate.getDate()}. ${months[dayDate.getMonth()]} ${dayDate.getFullYear()}`;
-  const isOnToday = weekOffset === 0 && dayOffset === 0 && monthOffset === 0;
+  // Pro-View „heute"-Flag: jede Ansicht ist unabhängig von Offsets der anderen.
+  const isOnToday =
+    view === "day" ? dayOffset === 0
+    : view === "week" ? weekOffset === 0
+    : monthOffset === 0;
+  const isDayToday = dayOffset === 0;
   const todayDow = ((today.getDay() + 6) % 7) as 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
   // ── Effektive Monatsmetriken (Offset = aktueller Monat ± n) ────────────
@@ -375,7 +380,7 @@ export function HeatmapV2({ metrics, orders, lang }: HeatmapV2Props) {
         <DayView
           appts={dayAppts}
           dayDate={dayDate}
-          isToday={isOnToday}
+          isToday={isDayToday}
           wxByDate={wxByDate}
           onApptClick={(o) => navigate(`/orders/${o.orderNo}`)}
           lang={lang}
