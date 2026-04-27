@@ -14,6 +14,9 @@ export function MobileHeader({ title }: { title: string }) {
   };
 
   const handleDesktop = () => {
+    try {
+      window.sessionStorage.setItem("prefer_desktop", "1");
+    } catch {}
     window.location.href = "/dashboard";
   };
 

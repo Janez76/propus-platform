@@ -133,6 +133,23 @@ function PrivateRoutes() {
     );
   }
 
+  // Auto-Redirect: kleine Viewports auf Haupt-Admin-Seiten → /mobile.
+  // User kann via "Desktop"-Button im MobileHeader das Flag prefer_desktop setzen
+  // und dann frei auf Desktop-Seiten navigieren (Flag gilt für die Session).
+  const MOBILE_REDIRECT_PATHS = new Set(["/", "/dashboard", "/orders", "/calendar", "/customers"]);
+  if (MOBILE_REDIRECT_PATHS.has(currentPath)) {
+    let preferDesktop = false;
+    try {
+      preferDesktop = window.sessionStorage.getItem("prefer_desktop") === "1";
+    } catch {}
+    const isMobileViewport =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(max-width: 768px)").matches;
+    if (isMobileViewport && !preferDesktop) {
+      return <Navigate to="/mobile" replace />;
+    }
+  }
+
   // Embed-Modus: kein AppShell
   const embedPaths = ["/embed/tours/link-matterport", "/embed/tours/"];
   if (embedPaths.some((p) => currentPath.startsWith(p))) {
