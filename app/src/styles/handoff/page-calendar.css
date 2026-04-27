@@ -21,6 +21,9 @@
   position: sticky;
   top: 16px;
 }
+@media (max-width: 1100px) {
+  .cal-side { position: static; top: auto; }
+}
 .cal-side-card {
   background: var(--paper, #FFFDF7);
   border: 1px solid var(--border);

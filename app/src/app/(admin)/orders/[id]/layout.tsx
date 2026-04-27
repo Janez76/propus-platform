@@ -117,7 +117,7 @@ export default async function OrderLayout({ children, params }: Props) {
           <div className="bd-crumbs">
             <Link href="/orders">
               <ArrowLeft className="h-3.5 w-3.5" />
-              Bestellungen
+              <span className="bd-crumb-label">Bestellungen</span>
             </Link>
             <span className="sep">›</span>
             <strong>#{order.order_no}</strong>
