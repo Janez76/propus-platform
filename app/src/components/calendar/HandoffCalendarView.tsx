@@ -95,6 +95,7 @@ function buildDayLayout(
   const out: EventLayout[] = [];
   for (const ev of events) {
     if (!ev.start) continue;
+    if (ev.allDay) continue;
     const start = new Date(ev.start);
     const endRaw = ev.end ? new Date(ev.end) : new Date(start.getTime() + 60 * 60_000);
     if (Number.isNaN(start.getTime())) continue;
@@ -465,6 +466,10 @@ function WeekView({
   const ws = useMemo(() => startOfWeek(anchor), [anchor]);
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(ws, i)), [ws]);
   const layouts = useMemo(() => days.map((d) => buildDayLayout(events, d)), [days, events]);
+  const alldayByDay = useMemo(
+    () => days.map((d) => events.filter((ev) => ev.allDay && ev.start && isSameDay(new Date(ev.start), d))),
+    [days, events],
+  );
 
   return (
     <div className="week-view">
@@ -473,7 +478,7 @@ function WeekView({
         {days.map((d, i) => {
           const isToday = isSameDay(d, today);
           const fc = forecastByDate?.get(isoDate(d)) ?? null;
-          const count = layouts[i].length;
+          const count = layouts[i].length + alldayByDay[i].length;
           return (
             <div key={isoDate(d)} className={`wv-day-head${isToday ? " today" : ""}`}>
               <div className="wv-day-meta">
@@ -495,6 +500,30 @@ function WeekView({
                   </span>
                 ) : null}
               </div>
+            </div>
+          );
+        })}
+        <div className="wv-allday-pad" />
+        {days.map((d, i) => {
+          const isToday = isSameDay(d, today);
+          const alldayEvs = alldayByDay[i];
+          return (
+            <div key={`ad-${isoDate(d)}`} className={`wv-allday-col${isToday ? " today" : ""}`}>
+              {alldayEvs.map((ev) => {
+                const isOutlook = ev.type === "outlook" || ev.source === "m365";
+                const color = isOutlook ? (ev.color || "#7c3aed") : getStatusEventColor(ev.status || "");
+                return (
+                  <button
+                    key={ev.id}
+                    type="button"
+                    className="wv-allday-chip"
+                    style={{ ["--ev-color" as never]: color } as React.CSSProperties}
+                    onClick={() => onEventClick?.(clickedFrom(ev))}
+                  >
+                    {normalizeMojibakeText(ev.title)}
+                  </button>
+                );
+              })}
             </div>
           );
         })}
@@ -540,6 +569,9 @@ function WeekView({
               ))}
               {dayLayout.map((l, i) => {
                 const isOutlook = l.ev.type === "outlook" || l.ev.source === "m365";
+                const displayCategory = isOutlook && l.ev.category && !/^https?:\/\//.test(l.ev.category)
+                  ? l.ev.category
+                  : null;
                 return (
                 <button
                   key={`${l.ev.id}-${i}`}
@@ -555,7 +587,7 @@ function WeekView({
                     } as React.CSSProperties
                   }
                   onClick={() => onEventClick?.(clickedFrom(l.ev))}
-                  title={`${isOutlook ? "[365] " : ""}${normalizeMojibakeText(l.ev.title)}${l.ev.category ? ` · ${l.ev.category}` : ""}`}
+                  title={`${isOutlook ? "[365] " : ""}${normalizeMojibakeText(l.ev.title)}${displayCategory ? ` · ${displayCategory}` : ""}`}
                 >
                   {isOutlook ? (
                     <span
@@ -581,8 +613,8 @@ function WeekView({
                     <span>{durationMinutesLabel(l.ev)}</span>
                   </div>
                   <div className="wv-event-title">{normalizeMojibakeText(l.ev.title)}</div>
-                  {isOutlook && l.ev.category ? (
-                    <div className="wv-event-meta">{l.ev.category}</div>
+                  {displayCategory ? (
+                    <div className="wv-event-meta">{displayCategory}</div>
                   ) : l.ev.zipcity ? (
                     <div className="wv-event-meta">{l.ev.zipcity}</div>
                   ) : null}
@@ -619,10 +651,10 @@ function WeekView({
                             <dd>{l.ev.photographerName}</dd>
                           </div>
                         ) : null}
-                        {isOutlook && l.ev.category ? (
+                        {displayCategory ? (
                           <div>
                             <dt>Kategorie</dt>
-                            <dd>{l.ev.category}</dd>
+                            <dd>{displayCategory}</dd>
                           </div>
                         ) : null}
                       </dl>
