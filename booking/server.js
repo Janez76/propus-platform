@@ -1490,6 +1490,108 @@ async function loadAbsenceCalendarEvents(colorMap, photographerKeyFilter) {
   return out;
 }
 
+// ─── Outlook/365 Kalender-Events (Read-only Overlay) ─────────────────────────
+// Liefert die persoenlichen Termine eines Mitarbeiters aus Microsoft 365 als
+// CalendarEvent[]-kompatible Objekte. Termine, die wir selbst angelegt haben
+// (subject enthaelt "[Auftrag #..."), werden ausgefiltert, um Duplikate zu
+// vermeiden. Cache: 60 s pro userEmail+range.
+const __outlookCalendarCache = new Map();
+const OUTLOOK_CACHE_TTL_MS = 60_000;
+
+function __outlookEventColor() { return "#7c3aed"; }
+
+function __extractOutlookCategory(graphEvent) {
+  const cats = Array.isArray(graphEvent && graphEvent.categories) ? graphEvent.categories : [];
+  for (const c of cats) {
+    const s = String(c || "").trim();
+    if (s) return s;
+  }
+  const subject = String(graphEvent && graphEvent.subject || "").trim();
+  const m = subject.match(/^\s*\[([^\]]{1,40})\]/);
+  if (m && m[1]) return m[1].trim();
+  return "";
+}
+
+function __isOwnPropusEvent(graphEvent) {
+  const subject = String(graphEvent && graphEvent.subject || "");
+  if (/\[Auftrag\s*#/i.test(subject)) return true;
+  if (/Propus\s+Buchung/i.test(subject)) return true;
+  return false;
+}
+
+async function loadOutlookCalendarEvents(userEmail, opts) {
+  const out = [];
+  if (!graphClient) return out;
+  const email = String(userEmail || "").trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return out;
+
+  const from = opts && opts.from ? String(opts.from) : "";
+  const to = opts && opts.to ? String(opts.to) : "";
+  const fromIso = /^\d{4}-\d{2}-\d{2}$/.test(from) ? `${from}T00:00:00` : from;
+  const toIso = /^\d{4}-\d{2}-\d{2}$/.test(to) ? `${to}T23:59:59` : to;
+  if (!fromIso || !toIso) return out;
+
+  const cacheKey = `${email.toLowerCase()}|${fromIso}|${toIso}`;
+  const now = Date.now();
+  const cached = __outlookCalendarCache.get(cacheKey);
+  if (cached && (now - cached.t) < OUTLOOK_CACHE_TTL_MS) {
+    return cached.events.slice();
+  }
+
+  let response;
+  try {
+    response = await graphClient
+      .api(`/users/${encodeURIComponent(email)}/calendarView`)
+      .query({ startDateTime: fromIso, endDateTime: toIso, $top: "200" })
+      .header("Prefer", `outlook.timezone="${process.env.TIMEZONE || "Europe/Zurich"}"`)
+      .select("id,subject,start,end,isAllDay,location,categories,bodyPreview,webLink,showAs,sensitivity")
+      .orderby("start/dateTime")
+      .get();
+  } catch (err) {
+    const code = err && (err.statusCode || err.code) || "";
+    console.warn("[outlook-calendar] fetch failed", { email, code, msg: err && err.message });
+    return out;
+  }
+
+  const items = Array.isArray(response && response.value) ? response.value : [];
+  for (const ev of items) {
+    if (__isOwnPropusEvent(ev)) continue;
+    const startDt = ev && ev.start && ev.start.dateTime ? String(ev.start.dateTime) : "";
+    const endDt = ev && ev.end && ev.end.dateTime ? String(ev.end.dateTime) : "";
+    if (!startDt) continue;
+    const category = __extractOutlookCategory(ev);
+    const subject = String(ev.subject || "Termin").trim() || "Termin";
+    const sensitivity = String(ev.sensitivity || "").toLowerCase();
+    const title = sensitivity === "private" || sensitivity === "confidential" ? "Privater Termin" : subject;
+    const address = (ev.location && (ev.location.displayName || "")) || "";
+    out.push({
+      id: `outlook-${ev.id}`,
+      title,
+      start: startDt.length > 19 ? startDt.slice(0, 19) : startDt,
+      end: endDt ? (endDt.length > 19 ? endDt.slice(0, 19) : endDt) : undefined,
+      allDay: !!ev.isAllDay,
+      status: "outlook",
+      type: "outlook",
+      source: "m365",
+      orderNo: null,
+      address: String(address || ""),
+      category: category || undefined,
+      bodyPreview: sensitivity === "private" || sensitivity === "confidential" ? "" : String(ev.bodyPreview || "").slice(0, 500),
+      webLink: ev.webLink ? String(ev.webLink) : undefined,
+      showAs: ev.showAs ? String(ev.showAs) : undefined,
+      color: __outlookEventColor(),
+      photographerColor: __outlookEventColor(),
+    });
+  }
+
+  __outlookCalendarCache.set(cacheKey, { t: now, events: out.slice() });
+  if (__outlookCalendarCache.size > 50) {
+    const oldestKey = __outlookCalendarCache.keys().next().value;
+    if (oldestKey) __outlookCalendarCache.delete(oldestKey);
+  }
+  return out;
+}
+
 function normalizeWorkdays(input) {
   const weekdayOrder = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
   const normalized = Array.isArray(input) ? input : [];
@@ -10600,6 +10702,10 @@ app.get("/api/admin/calendar-events", requirePhotographerOrAdmin, async (req, re
     const queryPhotographer = String(req.query.photographer || "").trim().toLowerCase();
     const photographerKeyFilter = String(req.photographerKey || queryPhotographer || "").trim().toLowerCase();
     const includeAbsences = String(req.query.includeAbsences || "true").toLowerCase() !== "false";
+    const includeOutlook = String(req.query.includeOutlook || "true").toLowerCase() !== "false";
+    const outlookFromRaw = String(req.query.outlookFrom || "").trim();
+    const outlookToRaw = String(req.query.outlookTo || "").trim();
+    const outlookUserOverride = String(req.query.outlookUser || "").trim().toLowerCase();
 
     const photographerRows =
       process.env.DATABASE_URL && typeof db.getAllPhotographerSettings === "function"
@@ -10685,6 +10791,34 @@ app.get("/api/admin/calendar-events", requirePhotographerOrAdmin, async (req, re
       events.push(...absenceEvents);
     }
 
+    let outlookMeta = { enabled: false, user: null, count: 0, error: null };
+    if (includeOutlook) {
+      const sessionEmail = String(req.user?.email || "").trim().toLowerCase();
+      const candidate = outlookUserOverride || sessionEmail;
+      if (graphClient && candidate && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(candidate)) {
+        const today = new Date();
+        const defaultFrom = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        const defaultTo = new Date(today.getFullYear(), today.getMonth() + 2, 0);
+        const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        const fromIso = /^\d{4}-\d{2}-\d{2}$/.test(outlookFromRaw) ? outlookFromRaw : fmt(defaultFrom);
+        const toIso = /^\d{4}-\d{2}-\d{2}$/.test(outlookToRaw) ? outlookToRaw : fmt(defaultTo);
+        try {
+          const outlookEvents = await loadOutlookCalendarEvents(candidate, { from: fromIso, to: toIso });
+          events.push(...outlookEvents);
+          outlookMeta = { enabled: true, user: candidate, count: outlookEvents.length, error: null };
+        } catch (err) {
+          outlookMeta = { enabled: false, user: candidate, count: 0, error: String(err && err.message || err) };
+        }
+      } else {
+        outlookMeta = {
+          enabled: false,
+          user: candidate || null,
+          count: 0,
+          error: graphClient ? "no_user_email" : "graph_not_configured",
+        };
+      }
+    }
+
     events.sort((a, b) => {
       const at = new Date(a.start).getTime();
       const bt = new Date(b.start).getTime();
@@ -10694,7 +10828,7 @@ app.get("/api/admin/calendar-events", requirePhotographerOrAdmin, async (req, re
       return at - bt;
     });
 
-    res.json({ ok: true, events });
+    res.json({ ok: true, events, outlook: outlookMeta });
   } catch (err) {
     console.error("[calendar-events] admin route error:", err?.message || err);
     res.status(500).json({ error: err.message || "Kalenderdaten konnten nicht geladen werden" });

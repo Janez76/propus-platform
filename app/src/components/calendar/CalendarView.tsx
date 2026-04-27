@@ -82,12 +82,17 @@ export type CalendarClickedEvent = {
   end?: string;
   allDay?: boolean;
   type?: string;
+  source?: string;
   orderNo?: string;
   address?: string;
   photographerKey?: string;
   photographerName?: string;
   grund?: string;
   status?: string;
+  category?: string;
+  bodyPreview?: string;
+  webLink?: string;
+  showAs?: string;
 };
 
 type Props = {

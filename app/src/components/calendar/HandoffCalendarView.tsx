@@ -106,7 +106,8 @@ function buildDayLayout(
     const topPx = (startMin / 60) * HOUR_HEIGHT_PX;
     const heightPx = (durMin / 60) * HOUR_HEIGHT_PX;
     const status = String(ev.status || "");
-    const color = getStatusEventColor(status);
+    const isOutlook = ev.type === "outlook" || ev.source === "m365";
+    const color = isOutlook ? (ev.color || "#7c3aed") : getStatusEventColor(status);
     out.push({ ev, topPx, heightPx, color, status });
   }
   return out;
@@ -139,12 +140,17 @@ function clickedFrom(ev: CalendarEvent): CalendarClickedEvent {
     end: ev.end,
     allDay: ev.allDay,
     type: ev.type,
+    source: ev.source,
     orderNo: ev.orderNo != null ? String(ev.orderNo) : undefined,
     address: ev.address,
     photographerKey: ev.photographerKey,
     photographerName: ev.photographerName,
     grund: ev.grund,
     status: ev.status,
+    category: ev.category,
+    bodyPreview: ev.bodyPreview,
+    webLink: ev.webLink,
+    showAs: ev.showAs,
   };
 }
 
@@ -377,32 +383,56 @@ function DayView({
               }
             />
           ))}
-          {layout.map((l, i) => (
-            <button
-              key={`${l.ev.id}-${i}`}
-              type="button"
-              className={`dv-event status-${(l.status || "").toLowerCase() || "pending"}`}
-              style={
-                {
-                  top: l.topPx,
-                  height: l.heightPx,
-                  ["--ev-color" as never]: l.color,
-                  ["--ev-bg" as never]: `color-mix(in srgb, ${l.color} 10%, var(--paper-strip))`,
-                } as React.CSSProperties
-              }
-              onClick={() => onEventClick?.(clickedFrom(l.ev))}
-            >
-              <div className="dv-event-time">
-                {fmtTimeRange(l.ev)} · {durationMinutesLabel(l.ev)}
-              </div>
-              <div className="dv-event-title">{normalizeMojibakeText(l.ev.title)}</div>
-              <div className="dv-event-meta">
-                {l.ev.zipcity ? <span>{l.ev.zipcity}</span> : null}
-                {l.ev.customerName ? <span>· {l.ev.customerName}</span> : null}
-                {l.ev.photographerName ? <span>· {l.ev.photographerName}</span> : null}
-              </div>
-            </button>
-          ))}
+          {layout.map((l, i) => {
+            const isOutlook = l.ev.type === "outlook" || l.ev.source === "m365";
+            return (
+              <button
+                key={`${l.ev.id}-${i}`}
+                type="button"
+                className={`dv-event status-${(l.status || "").toLowerCase() || "pending"}${isOutlook ? " is-outlook" : ""}`}
+                data-source={isOutlook ? "m365" : undefined}
+                style={
+                  {
+                    top: l.topPx,
+                    height: l.heightPx,
+                    ["--ev-color" as never]: l.color,
+                    ["--ev-bg" as never]: `color-mix(in srgb, ${l.color} 10%, var(--paper-strip))`,
+                  } as React.CSSProperties
+                }
+                onClick={() => onEventClick?.(clickedFrom(l.ev))}
+              >
+                {isOutlook ? (
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: 4,
+                      right: 4,
+                      background: "#7c3aed",
+                      color: "white",
+                      borderRadius: 4,
+                      padding: "1px 4px",
+                      fontSize: 9,
+                      fontWeight: 700,
+                      letterSpacing: 0.4,
+                    }}
+                    aria-label="Outlook 365 Termin"
+                  >
+                    365
+                  </span>
+                ) : null}
+                <div className="dv-event-time">
+                  {fmtTimeRange(l.ev)} · {durationMinutesLabel(l.ev)}
+                </div>
+                <div className="dv-event-title">{normalizeMojibakeText(l.ev.title)}</div>
+                <div className="dv-event-meta">
+                  {isOutlook && l.ev.category ? <span>· {l.ev.category}</span> : null}
+                  {!isOutlook && l.ev.zipcity ? <span>{l.ev.zipcity}</span> : null}
+                  {!isOutlook && l.ev.customerName ? <span>· {l.ev.customerName}</span> : null}
+                  {!isOutlook && l.ev.photographerName ? <span>· {l.ev.photographerName}</span> : null}
+                </div>
+              </button>
+            );
+          })}
           {isToday && nowTop != null ? (
             <div className="dv-now-line" style={{ top: nowTop }}>
               <div className="dv-now-dot" />
@@ -508,11 +538,14 @@ function WeekView({
                   }
                 />
               ))}
-              {dayLayout.map((l, i) => (
+              {dayLayout.map((l, i) => {
+                const isOutlook = l.ev.type === "outlook" || l.ev.source === "m365";
+                return (
                 <button
                   key={`${l.ev.id}-${i}`}
                   type="button"
-                  className={`wv-event status-${(l.status || "").toLowerCase() || "pending"}`}
+                  className={`wv-event status-${(l.status || "").toLowerCase() || "pending"}${isOutlook ? " is-outlook" : ""}`}
+                  data-source={isOutlook ? "m365" : undefined}
                   style={
                     {
                       top: l.topPx,
@@ -522,16 +555,40 @@ function WeekView({
                     } as React.CSSProperties
                   }
                   onClick={() => onEventClick?.(clickedFrom(l.ev))}
-                  title={normalizeMojibakeText(l.ev.title)}
+                  title={`${isOutlook ? "[365] " : ""}${normalizeMojibakeText(l.ev.title)}${l.ev.category ? ` · ${l.ev.category}` : ""}`}
                 >
+                  {isOutlook ? (
+                    <span
+                      style={{
+                        position: "absolute",
+                        top: 2,
+                        right: 2,
+                        background: "#7c3aed",
+                        color: "white",
+                        borderRadius: 3,
+                        padding: "0 3px",
+                        fontSize: 8,
+                        fontWeight: 700,
+                        letterSpacing: 0.3,
+                      }}
+                      aria-hidden
+                    >
+                      365
+                    </span>
+                  ) : null}
                   <div className="wv-event-time">
                     <span>{fmtTimeRange(l.ev)}</span>
                     <span>{durationMinutesLabel(l.ev)}</span>
                   </div>
                   <div className="wv-event-title">{normalizeMojibakeText(l.ev.title)}</div>
-                  {l.ev.zipcity ? <div className="wv-event-meta">{l.ev.zipcity}</div> : null}
+                  {isOutlook && l.ev.category ? (
+                    <div className="wv-event-meta">{l.ev.category}</div>
+                  ) : l.ev.zipcity ? (
+                    <div className="wv-event-meta">{l.ev.zipcity}</div>
+                  ) : null}
                 </button>
-              ))}
+                );
+              })}
               {isToday && nowTop != null ? (
                 <div className="wv-now-line" style={{ top: nowTop }}>
                   <div className="wv-now-dot" />
@@ -621,14 +678,16 @@ function MonthView({
               <div className="mv-events">
                 {visible.map((ev, i) => {
                   const status = String(ev.status || "");
-                  const color = getStatusEventColor(status);
-                  const label = getStatusEntry(status).label;
+                  const isOutlook = ev.type === "outlook" || ev.source === "m365";
+                  const color = isOutlook ? (ev.color || "#7c3aed") : getStatusEventColor(status);
+                  const label = isOutlook ? "365" : getStatusEntry(status).label;
                   return (
                     <button
                       key={`${ev.id}-${i}`}
                       type="button"
-                      className="mv-event"
-                      title={`${label} · ${normalizeMojibakeText(ev.title)}`}
+                      className={`mv-event${isOutlook ? " is-outlook" : ""}`}
+                      data-source={isOutlook ? "m365" : undefined}
+                      title={`${label} · ${normalizeMojibakeText(ev.title)}${ev.category ? ` · ${ev.category}` : ""}`}
                       style={
                         {
                           ["--ev-color" as never]: color,
@@ -640,6 +699,22 @@ function MonthView({
                         onEventClick?.(clickedFrom(ev));
                       }}
                     >
+                      {isOutlook ? (
+                        <span
+                          style={{
+                            background: "#7c3aed",
+                            color: "white",
+                            borderRadius: 3,
+                            padding: "0 3px",
+                            fontSize: 8,
+                            fontWeight: 700,
+                            marginRight: 3,
+                          }}
+                          aria-hidden
+                        >
+                          365
+                        </span>
+                      ) : null}
                       <span className="mv-event-time">{fmtTimeRange(ev).slice(0, 5)}</span>
                       <span className="mv-event-title">{normalizeMojibakeText(ev.title)}</span>
                     </button>

@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { ExternalLink, Plus } from "lucide-react";
 import { assignPhotographer, rescheduleOrder, updateOrderStatus } from "../api/orders";
 import { OrderStatusSelect } from "../components/orders/OrderStatusSelect";
 import { getPhotographers, type Photographer } from "../api/photographers";
-import { getCalendarEvents, type CalendarEvent } from "../api/calendar";
+import {
+  getCalendarEventsWithMeta,
+  type CalendarEvent,
+  type CalendarOutlookMeta,
+} from "../api/calendar";
 import { type CalendarClickedEvent, normalizeMojibakeText } from "../components/calendar/CalendarView";
 import { CalMiniMonth } from "../components/calendar/CalMiniMonth";
 import {
@@ -39,6 +43,37 @@ function toDateTimeLocal(value?: string) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+const OUTLOOK_TOGGLE_KEY = "calendar.showOutlook";
+const OUTLOOK_CATEGORY_KEY = "calendar.outlookCategory";
+
+function readBoolStorage(key: string, fallback: boolean): boolean {
+  if (typeof window === "undefined") return fallback;
+  try {
+    const v = window.localStorage.getItem(key);
+    if (v === "true") return true;
+    if (v === "false") return false;
+  } catch {
+    /* ignore */
+  }
+  return fallback;
+}
+
+function readStringStorage(key: string, fallback: string): string {
+  if (typeof window === "undefined") return fallback;
+  try {
+    const v = window.localStorage.getItem(key);
+    if (typeof v === "string" && v.length > 0) return v;
+  } catch {
+    /* ignore */
+  }
+  return fallback;
+}
+
+function isoDateOnly(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 export function CalendarPage() {
   const token = useAuthStore((s) => s.token);
   const lang = useAuthStore((s) => s.language);
@@ -66,10 +101,30 @@ export function CalendarPage() {
   const [forecastByDate, setForecastByDate] = useState<ReadonlyMap<string, WeatherForecastDay>>(
     () => new Map(),
   );
+  const [showOutlook, setShowOutlook] = useState<boolean>(() => readBoolStorage(OUTLOOK_TOGGLE_KEY, true));
+  const [outlookCategory, setOutlookCategory] = useState<string>(() =>
+    readStringStorage(OUTLOOK_CATEGORY_KEY, "all"),
+  );
+  const [outlookMeta, setOutlookMeta] = useState<CalendarOutlookMeta | null>(null);
+
+  const outlookRange = useMemo(() => {
+    const base = calendarAnchor;
+    const from = new Date(base.getFullYear(), base.getMonth() - 1, 1);
+    const to = new Date(base.getFullYear(), base.getMonth() + 2, 0);
+    return { from: isoDateOnly(from), to: isoDateOnly(to) };
+  }, [calendarAnchor]);
 
   async function load() {
-    const [evs, staff] = await Promise.all([getCalendarEvents(token), getPhotographers(token)]);
-    setEvents(evs);
+    const [resp, staff] = await Promise.all([
+      getCalendarEventsWithMeta(token, {
+        includeOutlook: showOutlook,
+        outlookFrom: outlookRange.from,
+        outlookTo: outlookRange.to,
+      }),
+      getPhotographers(token),
+    ]);
+    setEvents(resp.events);
+    setOutlookMeta(resp.outlook ?? null);
     setPhotographers(staff);
   }
 
@@ -87,17 +142,43 @@ export function CalendarPage() {
 
   useEffect(() => {
     let alive = true;
-    Promise.all([getCalendarEvents(token), getPhotographers(token)])
-      .then(([evs, staff]) => {
+    Promise.all([
+      getCalendarEventsWithMeta(token, {
+        includeOutlook: showOutlook,
+        outlookFrom: outlookRange.from,
+        outlookTo: outlookRange.to,
+      }),
+      getPhotographers(token),
+    ])
+      .then(([resp, staff]) => {
         if (!alive) return;
-        setEvents(evs);
+        setEvents(resp.events);
+        setOutlookMeta(resp.outlook ?? null);
         setPhotographers(staff);
       })
       .catch((e) => {
         if (alive) setError(e instanceof Error ? e.message : t(lang, "common.error"));
       });
     return () => { alive = false; };
-  }, [token]);
+  }, [token, showOutlook, outlookRange.from, outlookRange.to]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(OUTLOOK_TOGGLE_KEY, showOutlook ? "true" : "false");
+    } catch {
+      /* ignore */
+    }
+  }, [showOutlook]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(OUTLOOK_CATEGORY_KEY, outlookCategory);
+    } catch {
+      /* ignore */
+    }
+  }, [outlookCategory]);
 
   useEffect(() => {
     let alive = true;
@@ -120,14 +201,27 @@ export function CalendarPage() {
     };
   }, [token, miniMonthAnchor]);
 
+  const outlookCategories = useMemo(() => {
+    const set = new Set<string>();
+    for (const e of events) {
+      if (e.type === "outlook" && e.category) set.add(e.category);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "de"));
+  }, [events]);
+
   const filtered = useMemo(
     () =>
       events.filter((e) => {
+        if (e.type === "outlook") {
+          if (!showOutlook) return false;
+          if (outlookCategory !== "all" && (e.category || "") !== outlookCategory) return false;
+          return true;
+        }
         const statusOk = statusMatches(e.status, filter);
         const employeeOk = photographerFilter === "all" || e.photographerKey === photographerFilter;
         return statusOk && employeeOk;
       }),
-    [events, filter, photographerFilter],
+    [events, filter, photographerFilter, showOutlook, outlookCategory],
   );
 
   const eventCounts = useMemo(() => {
@@ -316,6 +410,72 @@ export function CalendarPage() {
             </div>
           </div>
           <div className="cal-side-card">
+            <div className="flex items-center justify-between gap-2">
+              <h4 className="m-0">365-Kalender</h4>
+              <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-[var(--fg-3)]">
+                <input
+                  type="checkbox"
+                  checked={showOutlook}
+                  onChange={(e) => setShowOutlook(e.target.checked)}
+                  aria-label="Persönliche 365-Termine anzeigen"
+                />
+                <span>{showOutlook ? "An" : "Aus"}</span>
+              </label>
+            </div>
+            <p className="mt-1 text-[11px] text-[var(--fg-3)]">
+              Persönliche Outlook-Termine werden lila markiert (Badge „365").
+              {outlookMeta?.user ? <> Verbunden mit <span className="font-mono">{outlookMeta.user}</span>.</> : null}
+              {outlookMeta?.error === "graph_not_configured" ? <> MS Graph ist nicht konfiguriert.</> : null}
+              {outlookMeta?.error === "no_user_email" ? <> Kein 365-Postfach für deinen Account hinterlegt.</> : null}
+              {outlookMeta && outlookMeta.error && outlookMeta.error !== "graph_not_configured" && outlookMeta.error !== "no_user_email" ? (
+                <> Fehler: <span className="text-red-500">{outlookMeta.error}</span></>
+              ) : null}
+            </p>
+            {showOutlook && outlookCategories.length > 0 ? (
+              <div className="mt-2">
+                <label htmlFor="outlookCategorySelect" className="mb-1.5 block text-xs font-medium text-[var(--fg-3)]">
+                  Kategorie
+                </label>
+                <select
+                  id="outlookCategorySelect"
+                  className="ui-input w-full"
+                  value={outlookCategory}
+                  onChange={(e) => setOutlookCategory(e.target.value)}
+                  aria-label="365-Kategorie filtern"
+                >
+                  <option value="all">Alle Kategorien</option>
+                  {outlookCategories.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    className={`filter-pill${outlookCategory === "all" ? " is-active active" : ""}`}
+                    onClick={() => setOutlookCategory("all")}
+                  >
+                    Alle
+                  </button>
+                  {outlookCategories.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      className={`filter-pill${outlookCategory === c ? " is-active active" : ""}`}
+                      onClick={() => setOutlookCategory(c)}
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            {showOutlook && outlookCategories.length === 0 && outlookMeta?.enabled ? (
+              <p className="mt-2 text-[11px] text-[var(--fg-3)]">Keine kategorisierten Termine im sichtbaren Zeitraum.</p>
+            ) : null}
+          </div>
+          <div className="cal-side-card">
             <h4>{t(lang, "calendar.label.employee")}</h4>
             <select
               className="ui-input w-full"
@@ -428,13 +588,43 @@ export function CalendarPage() {
               </div>
             </div>
             <div className="sp-body space-y-3 text-sm text-[var(--text-main)]">
+              {selected.type === "outlook" ? (
+                <div className="flex flex-wrap items-center gap-2 rounded-md bg-violet-50 px-2 py-1 text-[11px] font-semibold text-violet-700">
+                  <span className="rounded bg-violet-600 px-1.5 py-0.5 text-white">365</span>
+                  <span>Persönlicher Outlook-Termin (read-only)</span>
+                  {selected.category ? (
+                    <span className="rounded border border-violet-300 bg-white px-1.5 py-0.5 text-violet-700">
+                      {selected.category}
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
               <div className="flex gap-2"><span className="min-w-[100px] font-semibold text-[var(--accent)]">{t(lang, "calendar.label.title")}</span><span>{normalizeMojibakeText(selected.title) || "-"}</span></div>
               <div className="flex gap-2"><span className="min-w-[100px] font-semibold text-[var(--accent)]">{t(lang, "calendar.label.start")}</span><span>{formatDateTime(selected.start)}</span></div>
               <div className="flex gap-2"><span className="min-w-[100px] font-semibold text-[var(--accent)]">{t(lang, "calendar.label.end")}</span><span>{formatDateTime(selected.end)}</span></div>
               <div className="flex gap-2"><span className="min-w-[100px] font-semibold text-[var(--accent)]">{t(lang, "calendar.label.type")}</span><span>{selected.type || "-"}</span></div>
               <div className="flex gap-2"><span className="min-w-[100px] font-semibold text-[var(--accent)]">{t(lang, "calendar.label.address")}</span><span>{selected.address || "-"}</span></div>
-              <div className="flex gap-2"><span className="min-w-[100px] font-semibold text-[var(--accent)]">{t(lang, "calendar.label.employeeColon")}</span><span>{selected.photographerName || selected.photographerKey || "-"}</span></div>
-              {selected.grund ? <div className="flex gap-2"><span className="min-w-[100px] font-semibold text-[var(--accent)]">{t(lang, "calendar.label.reason")}</span><span>{selected.grund}</span></div> : null}
+              {selected.type === "outlook" ? (
+                <>
+                  {selected.bodyPreview ? (
+                    <div className="flex gap-2">
+                      <span className="min-w-[100px] font-semibold text-[var(--accent)]">Notiz</span>
+                      <span className="whitespace-pre-line text-[var(--fg-2)]">{selected.bodyPreview}</span>
+                    </div>
+                  ) : null}
+                  {selected.showAs ? (
+                    <div className="flex gap-2">
+                      <span className="min-w-[100px] font-semibold text-[var(--accent)]">Status</span>
+                      <span>{selected.showAs}</span>
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  <div className="flex gap-2"><span className="min-w-[100px] font-semibold text-[var(--accent)]">{t(lang, "calendar.label.employeeColon")}</span><span>{selected.photographerName || selected.photographerKey || "-"}</span></div>
+                  {selected.grund ? <div className="flex gap-2"><span className="min-w-[100px] font-semibold text-[var(--accent)]">{t(lang, "calendar.label.reason")}</span><span>{selected.grund}</span></div> : null}
+                </>
+              )}
             </div>
 
             {selected.orderNo ? (
@@ -538,6 +728,17 @@ export function CalendarPage() {
                   >
                     {t(lang, "calendar.button.goToOrder").replace("{{orderNo}}", String(selected.orderNo))}
                   </button>
+                ) : null}
+                {selected.type === "outlook" && selected.webLink ? (
+                  <a
+                    href={selected.webLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn-primary flex-1 inline-flex items-center justify-center gap-1"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    In Outlook öffnen
+                  </a>
                 ) : null}
                 <button type="button" className="btn-secondary flex-1" onClick={() => setSelected(null)}>OK</button>
               </div>
