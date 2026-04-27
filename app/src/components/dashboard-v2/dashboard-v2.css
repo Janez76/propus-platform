@@ -699,6 +699,50 @@
 .dv2-upcoming-addr { font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dv2-upcoming-meta { font-size: 11px; color: var(--d-text-dim); }
 .dv2-upcoming-cam-sm { color: var(--d-gold); opacity: 0.5; flex-shrink: 0; }
+.dv2-upcoming-primary {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--d-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+}
+.dv2-upcoming-orderno {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  color: var(--d-gold);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.dv2-upcoming-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.dv2-upcoming-side .dv2-upcoming-time {
+  margin-left: 0;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--d-text);
+}
+.dv2-upc-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border: 1px solid;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  line-height: 1.4;
+}
 
 /* ─── Funnel ─────────────────────────────────────────────────────────────── */
 .dv2-funnel { display: flex; flex-direction: column; }

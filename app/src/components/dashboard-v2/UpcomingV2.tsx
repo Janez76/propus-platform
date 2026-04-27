@@ -2,11 +2,36 @@ import { Camera } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { t, type Lang } from "../../i18n";
 import type { DashboardMetrics } from "./useDashboardMetrics";
+import { paletteForStatus } from "../orders/mapStatusColors";
+import type { Order } from "../../api/orders";
 
 interface UpcomingV2Props {
   metrics: DashboardMetrics;
   lang: Lang;
   onHover?: (orderNo: string | null) => void;
+}
+
+/** Kompakter Status-Pill — selbe Farben wie OrdersMap-Legende. */
+function StatusPill({ status, lang }: { status: string; lang: Lang }) {
+  const p = paletteForStatus(status);
+  return (
+    <span
+      className="dv2-upc-status"
+      style={{ background: p.bg, color: p.ring, borderColor: p.ring }}
+    >
+      {t(lang, p.labelKey)}
+    </span>
+  );
+}
+
+function staffShort(o: Order): string {
+  const key = o.photographer?.key?.trim();
+  if (key) return key;
+  const name = o.photographer?.name?.trim();
+  if (!name) return "—";
+  const parts = name.split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
 const WEEKDAYS_SHORT = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
@@ -72,6 +97,7 @@ export function UpcomingV2({ metrics, lang, onHover }: UpcomingV2Props) {
             const time = d
               ? d.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" })
               : "";
+            const dur = o.schedule?.durationMin ?? null;
             return (
               <button
                 key={o.orderNo}
@@ -88,12 +114,20 @@ export function UpcomingV2({ metrics, lang, onHover }: UpcomingV2Props) {
                   <div className="dv2-upcoming-day">{day}</div>
                 </div>
                 <div className="dv2-upcoming-info">
-                  <div className="dv2-upcoming-addr">{o.address ?? "—"}</div>
+                  <div className="dv2-upcoming-primary">
+                    <span className="dv2-upcoming-orderno">#{o.orderNo}</span>
+                    {o.customerName ? <span> · {o.customerName}</span> : null}
+                  </div>
                   <div className="dv2-upcoming-meta">
-                    {time} · {o.services?.package?.label ?? "Shooting"}
+                    {o.address ?? "—"}
+                    {dur ? ` · ${dur} Min` : ""}
+                    {` · ${staffShort(o)}`}
                   </div>
                 </div>
-                <Camera size={14} className="dv2-upcoming-cam-sm" />
+                <div className="dv2-upcoming-side">
+                  <span className="dv2-upcoming-time">{time}</span>
+                  <StatusPill status={o.status} lang={lang} />
+                </div>
               </button>
             );
           })}
