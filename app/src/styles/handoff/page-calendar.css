@@ -404,6 +404,45 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* All-day strip */
+.wv-allday-pad {
+  border-right: 1px solid var(--border-soft);
+  border-top: 1px solid var(--border-soft);
+  background: linear-gradient(180deg, #F8F5EC, #F3F0E7);
+  min-height: 22px;
+}
+.wv-allday-col {
+  padding: 3px 5px;
+  border-right: 1px solid var(--border-soft);
+  border-top: 1px solid var(--border-soft);
+  background: linear-gradient(180deg, #F8F5EC, #F3F0E7);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 22px;
+}
+.wv-allday-col:last-child { border-right: 0; }
+.wv-allday-col.today { background: linear-gradient(180deg, #F5EDD0, #F0E5C0); }
+.wv-allday-chip {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font-size: 10px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--ev-color, var(--gold-600));
+  border: none;
+  border-radius: 3px;
+  padding: 2px 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.4;
+  cursor: pointer;
+  font-family: inherit;
+}
+.wv-allday-chip:hover { filter: brightness(1.1); }
+
 /* body */
 .week-view-body {
   position: relative;
