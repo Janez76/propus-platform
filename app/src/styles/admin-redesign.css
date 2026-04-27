@@ -559,6 +559,147 @@
   color: #244865;
 }
 
+/* ── Staff card grid (Mitarbeiter & Fotografen) ──────── */
+.padmin-shell .pad-staff-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+.padmin-shell .pad-staff-card {
+  background: #fff;
+  border: 1px solid var(--pad-border);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.padmin-shell .pad-staff-card.is-inactive { opacity: 0.6; }
+.padmin-shell .pad-staff-head {
+  padding: 18px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  border-bottom: 1px solid var(--pad-border-soft);
+}
+.padmin-shell .pad-staff-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  background: var(--gold-600);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.padmin-shell .pad-staff-name { font-weight: 700; font-size: 15px; color: var(--ink); }
+.padmin-shell .pad-staff-role { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+.padmin-shell .pad-staff-chips {
+  display: flex; gap: 5px; margin-top: 6px; flex-wrap: wrap;
+}
+.padmin-shell .pad-chip-sm {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: 1px solid;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.padmin-shell .pad-chip-sm .pad-dot {
+  width: 6px; height: 6px; border-radius: 999px; display: inline-block;
+}
+.padmin-shell .pad-chip-sm.is-admin {
+  background: var(--ink); border-color: var(--ink); color: #fff;
+}
+.padmin-shell .pad-chip-sm.is-available {
+  background: var(--pad-success-bg); border-color: var(--pad-success-bg); color: #1B521B;
+}
+.padmin-shell .pad-chip-sm.is-inactive {
+  background: var(--paper-strip); border-color: var(--pad-border); color: var(--ink-3);
+}
+.padmin-shell .pad-staff-stats {
+  padding: 14px;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--pad-border-soft);
+}
+.padmin-shell .pad-staff-stat-label {
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-weight: 600;
+}
+.padmin-shell .pad-staff-stat-value {
+  font-size: 17px;
+  font-weight: 700;
+  font-family: var(--pad-mono);
+  color: var(--ink);
+}
+.padmin-shell .pad-staff-stat-value.is-gold { color: var(--gold-700); }
+.padmin-shell .pad-staff-cap {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--pad-border-soft);
+}
+.padmin-shell .pad-staff-cap-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--ink-3);
+  margin-bottom: 4px;
+}
+.padmin-shell .pad-staff-cap-value {
+  font-family: var(--pad-mono);
+  font-weight: 600;
+  color: var(--ink);
+}
+.padmin-shell .pad-staff-cap-value.is-warn { color: var(--pad-warn); }
+.padmin-shell .pad-staff-cap-track {
+  height: 6px;
+  background: var(--paper-strip);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.padmin-shell .pad-staff-cap-fill {
+  height: 100%;
+  background: var(--gold-600);
+  transition: width 240ms;
+}
+.padmin-shell .pad-staff-cap-fill.is-warn {
+  background: linear-gradient(90deg, var(--gold-500), var(--pad-warn));
+}
+.padmin-shell .pad-staff-actions {
+  display: flex; gap: 6px; padding: 10px;
+}
+.padmin-shell .pad-btn-ghost-sm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-2);
+  background: var(--paper-strip);
+  border: 1px solid var(--pad-border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  text-decoration: none;
+  transition: border-color 160ms, color 160ms;
+}
+.padmin-shell .pad-btn-ghost-sm:hover { border-color: var(--ink); color: var(--ink); }
+.padmin-shell .pad-btn-ghost-sm svg { width: 12px; height: 12px; }
+.padmin-shell .pad-btn-ghost-sm.is-flex { flex: 1; }
+
 /* ── Responsive ───────────────────────────────────────── */
 @media (max-width: 1100px) {
   .padmin-shell .pad-kpis { grid-template-columns: repeat(2, 1fr); }
