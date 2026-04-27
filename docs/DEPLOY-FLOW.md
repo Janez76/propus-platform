@@ -1,6 +1,6 @@
 # Deploy-Flow (Architektur)
 
-**Status:** verbindlich · **Letzte Aktualisierung:** 2026-04-26
+**Status:** verbindlich · **Letzte Aktualisierung:** 2026-04-27 (Auto-Deploy bei Push auf master)
 
 Dieses Dokument erklärt, **warum** der Deploy auf drei Dateien verteilt ist
 (GitHub-Workflow, VPS-Script, Container-Init) und **welche Datei wofür
@@ -15,7 +15,9 @@ in [`VPS-BETRIEB.md`](VPS-BETRIEB.md).
 │                                                                      │
 │   .github/workflows/deploy-vps-and-booking-smoke.yml                 │
 │                                                                      │
-│   ▸ Trigger: ausschliesslich workflow_dispatch (manuell in Actions)   │
+│   ▸ Trigger: push auf master (Auto-Deploy nach PR-Merge) ODER         │
+│              workflow_dispatch (manuell, opt. Smoke-Test)             │
+│     Doku-only-Aenderungen (*.md, docs/**) ueberspringen Auto-Deploy  │
 │   ▸ Architecture-Guard (kein neues EJS), Documentation-Guard         │
 │   ▸ Version stempeln (booking/public/VERSION etc.)                   │
 │   ▸ Deploy-Archiv (tar.gz) bauen                                     │
