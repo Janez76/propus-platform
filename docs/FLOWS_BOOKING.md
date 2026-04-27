@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei jeder Änderung an Buchungslogik, Status-Übergängen, Kalender-Sync oder Provisional-Flow dieses Dokument aktualisieren. Cursor-Regel `.cursor/rules/data-fields.mdc` erinnert daran.
 
-*Zuletzt aktualisiert: April 2026 (PR #92: §17 API-Key-Erstellung nutzt numerische Admin-ID fuer created_by). PR #91: §17 API-Key-Verwaltung CRUD. PR #89: §16 Rate-Limiting & Security-Header, helmet. PR #88: §15 Kunden-Profil-Vorausfüllung via /auth/profile*
+*Zuletzt aktualisiert: April 2026 (Cursor: §4a 365-Outlook-Overlay im Admin-Kalender, read-only Toggle + Kategorie-Filter). PR #92: §17 API-Key-Erstellung nutzt numerische Admin-ID fuer created_by. PR #91: §17 API-Key-Verwaltung CRUD. PR #89: §16 Rate-Limiting & Security-Header, helmet. PR #88: §15 Kunden-Profil-Vorausfüllung via /auth/profile*
 
 ---
 
@@ -196,6 +196,35 @@ provisional → pending nur automatisch via expiry_job
 | `deleted` | Events gelöscht |
 | `error` | Lösch-Fehler, in Retry-Queue |
 | null | Noch kein Sync |
+
+### 4a. Outlook-/365-Overlay im Admin-Kalender (read-only)
+
+**Endpunkt:** `GET /api/admin/calendar-events?includeOutlook=true&outlookFrom=YYYY-MM-DD&outlookTo=YYYY-MM-DD&outlookUser=<email>`
+
+**Backend:** `loadOutlookCalendarEvents(userEmail, { from, to })` in `booking/server.js`
+
+- Liest persönliche Termine via `graphClient.api('/users/{email}/calendarView')`
+- Default-Range: aktueller Monat ± 1 Monat (deckt Mini-Monat-Navigation ab)
+- Caching: 60 s pro `email|from|to` (In-Memory, Map)
+- Filtert eigene Buchungs-Events (`subject` enthält `[Auftrag #...]`) raus, um Duplikate zu vermeiden
+- Sensitivity `private`/`confidential` → Titel und `bodyPreview` werden auf "Privater Termin" maskiert
+- Kategorie wird aus Graph `categories[]` oder Subject-Präfix `[xyz]` extrahiert
+
+**Response-Erweiterung:** `{ ok: true, events: [...], outlook: { enabled, user, count, error } }`
+
+**Frontend:** `app/src/pages-legacy/CalendarPage.tsx`
+
+- Toggle "365-Kalender An/Aus" (`localStorage: calendar.showOutlook`)
+- Kategorie-Filter (Pills + Select, `localStorage: calendar.outlookCategory`)
+- Visuelle Kennzeichnung in `HandoffCalendarView`: lila Akzentfarbe (`#7c3aed`), Badge "365" oben rechts
+- Klick → Read-only-Detail-Panel mit Titel, Zeit, Adresse, Kategorie, Notiz; Button "In Outlook öffnen" via `webLink`
+- Order-/Status-/Reschedule-Aktionen bleiben für 365-Termine ausgeblendet (kein `orderNo`)
+
+**Voraussetzungen:**
+
+- MS Graph App-Only Berechtigung `Calendars.Read` (mind. delegiert auf den Service-Principal)
+- `req.user.email` muss eine Mailbox im Mandanten sein, sonst `outlook.error = "no_user_email"`
+- Bei fehlender Konfiguration: `outlook.error = "graph_not_configured"`, Toggle bleibt sichtbar mit Hinweis
 
 ---
 
