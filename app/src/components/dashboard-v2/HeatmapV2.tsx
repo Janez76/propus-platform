@@ -226,13 +226,12 @@ export function HeatmapV2({ metrics, orders, lang }: HeatmapV2Props) {
     const daysInMonth = new Date(currYear, currMonth + 1, 0).getDate();
     const firstDayOfWeek = (new Date(currYear, currMonth, 1).getDay() + 6) % 7;
     const heatmapData: Record<number, number> = {};
+    // Filter analog zu useDashboardMetrics.countsForScheduleDay: nur `paused`
+    // ausschließen, damit Tageszahlen zwischen aktuellem und verschobenem
+    // Monat konsistent bleiben.
     for (const o of orders) {
       if (!o.appointmentDate) continue;
-      if (
-        statusMatches(o.status, "cancelled") ||
-        statusMatches(o.status, "archived") ||
-        statusMatches(o.status, "paused")
-      ) continue;
+      if (statusMatches(o.status, "paused")) continue;
       const d = new Date(o.appointmentDate);
       if (d.getMonth() !== currMonth || d.getFullYear() !== currYear) continue;
       const day = d.getDate();
