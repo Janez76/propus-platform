@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ExternalLink, Plus } from "lucide-react";
-import { assignPhotographer, rescheduleOrder, updateOrderStatus } from "../api/orders";
+import { assignPhotographer, getOrders, rescheduleOrder, updateOrderStatus, type Order } from "../api/orders";
 import { OrderStatusSelect } from "../components/orders/OrderStatusSelect";
 import { getPhotographers, type Photographer } from "../api/photographers";
 import {
@@ -9,6 +9,8 @@ import {
   type CalendarEvent,
   type CalendarOutlookMeta,
 } from "../api/calendar";
+import { OrdersMap } from "../components/dashboard-v2/OrdersMap";
+import "../components/dashboard-v2/dashboard-v2.css";
 import { type CalendarClickedEvent, normalizeMojibakeText } from "../components/calendar/CalendarView";
 import { CalMiniMonth } from "../components/calendar/CalMiniMonth";
 import {
@@ -106,6 +108,7 @@ export function CalendarPage() {
     readStringStorage(OUTLOOK_CATEGORY_KEY, "all"),
   );
   const [outlookMeta, setOutlookMeta] = useState<CalendarOutlookMeta | null>(null);
+  const [orders, setOrders] = useState<Order[]>([]);
 
   const outlookRange = useMemo(() => {
     const base = calendarAnchor;
@@ -170,6 +173,21 @@ export function CalendarPage() {
       /* ignore */
     }
   }, [showOutlook]);
+
+  useEffect(() => {
+    if (!token) return;
+    let alive = true;
+    getOrders(token)
+      .then((rows) => {
+        if (alive) setOrders(rows);
+      })
+      .catch(() => {
+        /* Karte ist optional – Fehler werden in der Liste ignoriert. */
+      });
+    return () => {
+      alive = false;
+    };
+  }, [token]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -556,6 +574,9 @@ export function CalendarPage() {
         forecastByDate={forecastByDate}
       />
         </div>
+      </div>
+      <div className="dv2">
+        <OrdersMap orders={orders} lang={lang} />
       </div>
       <CreateOrderWizard
         token={token}
