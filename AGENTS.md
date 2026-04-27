@@ -339,3 +339,13 @@ Alle NAS-Skripte und Anleitungen liegen in `Z:\NAS Ugreen\`:
 
 - Benutzer: `Janez`
 - Dienste: Ollama (Port 11434), Buchungstool-Dev, Propusdrop, Spoolman
+
+## Learned User Preferences
+
+- Größere Fixes und Rollout lieber einmal planen und klare Deploy-Schleifen vermeiden, statt viele aufeinanderfolgende Versuche ohne abgeschlossenen Fix.
+- Einzel-PR-Deploy ist nicht zwingend: mehrere PRs dürfen nacheinander integriert und danach gebündelt deployt werden, sofern der jeweilige Staging-/Produktions-Workflow das sinnvoll unterstützt.
+- Globale Suche aus der Nav/Topbar heraus über möglichst viele Bereiche („über alles“) ist ein wiederkehrendes Produktziel.
+
+## Learned Workspace Facts
+
+- Im Platform-Docker-Setup sind **Next.js** typischerweise auf **3001** (Einstieg von außen) und **Express** auf **3100** intern (`PLATFORM_INTERNAL_URL`); Deploy-/Health-Checks zielen auf die JSON-API (`/api/core/health`), nicht nur auf die Next-Oberfläche.
