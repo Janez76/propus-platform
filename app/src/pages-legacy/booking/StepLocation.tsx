@@ -172,12 +172,17 @@ export function StepLocation({ lang }: { lang: Lang }) {
     setAddress(useBookingWizardStore.getState().object.address.formatted);
   }, [setObjectAddress, setParsedAddress, setAddress, parsedAddress]);
 
+  const onCityChange = useCallback((raw: string) => {
+    setObjectAddress({ city: raw });
+    if (parsedAddress) {
+      setParsedAddress({ ...parsedAddress, city: raw });
+    }
+    setAddress(useBookingWizardStore.getState().object.address.formatted);
+  }, [setObjectAddress, setParsedAddress, setAddress, parsedAddress]);
+
   const onChangeHouseNumber = useCallback((v: string) => {
     setObjectAddress({ houseNumber: v });
-    if (parsedAddress && parsedAddress.houseNumber) {
-      setParsedAddress({ ...parsedAddress, houseNumber: "" });
-    }
-  }, [setObjectAddress, setParsedAddress, parsedAddress]);
+  }, [setObjectAddress]);
 
   return (
     <div className="space-y-6">
@@ -197,7 +202,7 @@ export function StepLocation({ lang }: { lang: Lang }) {
           }}
           sessionToken={sessionTokenRef.current}
           dataTestIdPrefix="booking-input"
-          requireSelectionHouseNumber
+          requireSelectionHouseNumber={false}
           enableOnSelectCoords
           onSelectCoords={onSelectCoords}
           onChangeStreet={(v) => setObjectAddress({ street: v })}
@@ -205,6 +210,7 @@ export function StepLocation({ lang }: { lang: Lang }) {
           onChangeHouseNumber={onChangeHouseNumber}
           onSelectHouseNumber={onSelectHouseNumber}
           onZipDigitsChange={onZipDigitsChange}
+          onCityChange={onCityChange}
         />
         {config?.googleMapsKey ? (
           <AddressPreviewMap

@@ -44,6 +44,8 @@ type Props = {
   }) => void;
   /** Nur Ziffern, max. 5 — wird intern aus dem Input abgeleitet. */
   onZipDigitsChange: (raw: string) => void;
+  /** Optional: macht ORT editierbar (z. B. wenn Autocomplete keinen Ort liefert). */
+  onCityChange?: (raw: string) => void;
 };
 
 function testIdFor(prefix: string, suffix: string) {
@@ -68,6 +70,7 @@ export function StructuredAddressForm({
   onChangeHouseNumber,
   onSelectHouseNumber,
   onZipDigitsChange,
+  onCityChange,
 }: Props) {
   const streetContext = useMemo((): StreetContext | undefined => {
     if (!streetValue) return undefined;
@@ -163,11 +166,12 @@ export function StructuredAddressForm({
           data-testid={cityId}
           type="text"
           value={cityValue}
-          readOnly
-          tabIndex={-1}
-          className={cn(inputClass, "cursor-not-allowed opacity-75")}
+          readOnly={!onCityChange}
+          tabIndex={onCityChange ? 0 : -1}
+          onChange={onCityChange ? (e) => onCityChange(e.target.value) : undefined}
+          className={cn(inputClass, !onCityChange && "cursor-not-allowed opacity-75")}
           placeholder={t(lang, "booking.step1.cityAutoPlaceholder")}
-          aria-readonly="true"
+          aria-readonly={!onCityChange}
         />
       </div>
     </div>
