@@ -118,17 +118,19 @@ export function CalendarPage() {
   }, [calendarAnchor]);
 
   async function load() {
-    const [resp, staff] = await Promise.all([
+    const [resp, staff, ordersRows] = await Promise.all([
       getCalendarEventsWithMeta(token, {
         includeOutlook: showOutlook,
         outlookFrom: outlookRange.from,
         outlookTo: outlookRange.to,
       }),
       getPhotographers(token),
+      getOrders(token).catch(() => [] as Order[]),
     ]);
     setEvents(resp.events);
     setOutlookMeta(resp.outlook ?? null);
     setPhotographers(staff);
+    setOrders(ordersRows);
   }
 
   const dateParam = searchParams.get("date");
@@ -152,12 +154,14 @@ export function CalendarPage() {
         outlookTo: outlookRange.to,
       }),
       getPhotographers(token),
+      getOrders(token).catch(() => [] as Order[]),
     ])
-      .then(([resp, staff]) => {
+      .then(([resp, staff, ordersRows]) => {
         if (!alive) return;
         setEvents(resp.events);
         setOutlookMeta(resp.outlook ?? null);
         setPhotographers(staff);
+        setOrders(ordersRows);
       })
       .catch((e) => {
         if (alive) setError(e instanceof Error ? e.message : t(lang, "common.error"));
@@ -173,21 +177,6 @@ export function CalendarPage() {
       /* ignore */
     }
   }, [showOutlook]);
-
-  useEffect(() => {
-    if (!token) return;
-    let alive = true;
-    getOrders(token)
-      .then((rows) => {
-        if (alive) setOrders(rows);
-      })
-      .catch(() => {
-        /* Karte ist optional – Fehler werden in der Liste ignoriert. */
-      });
-    return () => {
-      alive = false;
-    };
-  }, [token]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
