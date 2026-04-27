@@ -154,20 +154,33 @@ export function CalendarPage() {
         outlookTo: outlookRange.to,
       }),
       getPhotographers(token),
-      getOrders(token).catch(() => [] as Order[]),
     ])
-      .then(([resp, staff, ordersRows]) => {
+      .then(([resp, staff]) => {
         if (!alive) return;
         setEvents(resp.events);
         setOutlookMeta(resp.outlook ?? null);
         setPhotographers(staff);
-        setOrders(ordersRows);
       })
       .catch((e) => {
         if (alive) setError(e instanceof Error ? e.message : t(lang, "common.error"));
       });
     return () => { alive = false; };
   }, [token, showOutlook, outlookRange.from, outlookRange.to]);
+
+  useEffect(() => {
+    if (!token) return;
+    let alive = true;
+    getOrders(token)
+      .then((rows) => {
+        if (alive) setOrders(rows);
+      })
+      .catch(() => {
+        /* Karte ist optional – Fehler werden hier ignoriert. */
+      });
+    return () => {
+      alive = false;
+    };
+  }, [token]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
