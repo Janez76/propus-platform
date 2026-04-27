@@ -5,6 +5,9 @@ import { t, type Lang } from "../../i18n";
 import { statusMatches } from "../../lib/status";
 import type { Order } from "../../api/orders";
 import type { DashboardMetrics } from "./useDashboardMetrics";
+import { useWeatherForRange } from "../../hooks/useWeatherForRange";
+import { weatherEmoji, weatherLabel, type WeatherForecastDay } from "../../api/weather";
+import { WxBadge } from "./WxBadge";
 
 interface HeatmapV2Props {
   metrics: DashboardMetrics;
@@ -115,6 +118,27 @@ function byTime(a: Order, b: Order): number {
   return new Date(a.appointmentDate ?? 0).getTime() - new Date(b.appointmentDate ?? 0).getTime();
 }
 
+function pad2(n: number) {
+  return String(n).padStart(2, "0");
+}
+function isoLocalDate(d: Date): string {
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+function buildOrdersByDate(orders: Order[]): Map<string, Order[]> {
+  const m = new Map<string, Order[]>();
+  for (const o of orders) {
+    if (!o.appointmentDate) continue;
+    if (statusMatches(o.status, "cancelled") || statusMatches(o.status, "archived")) continue;
+    const key = isoLocalDate(new Date(o.appointmentDate));
+    const list = m.get(key);
+    if (list) list.push(o);
+    else m.set(key, [o]);
+  }
+  for (const list of m.values()) list.sort(byTime);
+  return m;
+}
+
 export function HeatmapV2({ metrics, orders, lang }: HeatmapV2Props) {
   const [view, setView] = useState<ViewMode>("month");
   const [weekOffset, setWeekOffset] = useState(0);
@@ -171,6 +195,22 @@ export function HeatmapV2({ metrics, orders, lang }: HeatmapV2Props) {
   const dayDateLabel = `${dayDate.getDate()}. ${months[dayDate.getMonth()]} ${dayDate.getFullYear()}`;
   const isOnToday = weekOffset === 0 && dayOffset === 0;
   const todayDow = ((today.getDay() + 6) % 7) as 0 | 1 | 2 | 3 | 4 | 5 | 6;
+
+  // ── Wetter-Fenster pro View ────────────────────────────────────────────
+  const wxWindow = useMemo(() => {
+    if (view === "month") {
+      const first = new Date(metrics.currYear, metrics.currMonth, 1);
+      return { from: isoLocalDate(first), days: metrics.daysInMonth };
+    }
+    if (view === "week") {
+      return { from: isoLocalDate(baseWeekStart), days: 7 };
+    }
+    return { from: isoLocalDate(dayDate), days: 1 };
+  }, [view, metrics.currYear, metrics.currMonth, metrics.daysInMonth, baseWeekStart, dayDate]);
+  const { data: wxByDate } = useWeatherForRange(wxWindow.from, wxWindow.days);
+
+  // ── Termine indexiert nach ISO-Datum (für Monats-Hover-Popover) ────────
+  const ordersByDate = useMemo(() => buildOrdersByDate(orders), [orders]);
 
   function goPrev() {
     if (view === "day") setDayOffset((o) => o - 1);
@@ -254,6 +294,10 @@ export function HeatmapV2({ metrics, orders, lang }: HeatmapV2Props) {
         <MonthView
           metrics={metrics}
           dowShort={dowShort}
+          dowLong={dowLong}
+          wxByDate={wxByDate}
+          ordersByDate={ordersByDate}
+          lang={lang}
           onPickDay={(day) => {
             const y = metrics.currYear;
             const m = String(metrics.currMonth + 1).padStart(2, "0");
@@ -269,6 +313,7 @@ export function HeatmapV2({ metrics, orders, lang }: HeatmapV2Props) {
           baseWeekStart={baseWeekStart}
           isCurrentWeek={weekOffset === 0}
           todayDow={todayDow}
+          wxByDate={wxByDate}
           onApptClick={(o) => navigate(`/orders/${o.orderNo}`)}
           lang={lang}
         />
@@ -276,7 +321,9 @@ export function HeatmapV2({ metrics, orders, lang }: HeatmapV2Props) {
       {view === "day" && (
         <DayView
           appts={dayAppts}
+          dayDate={dayDate}
           isToday={isOnToday}
+          wxByDate={wxByDate}
           onApptClick={(o) => navigate(`/orders/${o.orderNo}`)}
           lang={lang}
         />
@@ -285,14 +332,22 @@ export function HeatmapV2({ metrics, orders, lang }: HeatmapV2Props) {
   );
 }
 
-// ── Month view (existing heatmap with Mon-Sun grid + week labels)
+// ── Month view: Mon-Sun grid + Wetter-Emoji + Hover-Popover mit Tagesterminen
 function MonthView({
   metrics,
   dowShort,
+  dowLong,
+  wxByDate,
+  ordersByDate,
+  lang,
   onPickDay,
 }: {
   metrics: DashboardMetrics;
   dowShort: string[];
+  dowLong: string[];
+  wxByDate: ReadonlyMap<string, WeatherForecastDay>;
+  ordersByDate: ReadonlyMap<string, Order[]>;
+  lang: Lang;
   onPickDay?: (day: number) => void;
 }) {
   const { heatmapData, maxDayCount, daysInMonth, firstDayOfWeek, currMonth, currYear, today } = metrics;
@@ -313,10 +368,17 @@ function MonthView({
         ))}
       </div>
       <div className="dv2-heatmap-grid">
-        {cells.map((c, i) =>
-          c.day === null ? (
-            <div key={`pad-${i}`} className="dv2-heatmap-cell dv2-heatmap-cell--empty" />
-          ) : (
+        {cells.map((c, i) => {
+          if (c.day === null) {
+            return <div key={`pad-${i}`} className="dv2-heatmap-cell dv2-heatmap-cell--empty" />;
+          }
+          const iso = `${currYear}-${pad2(currMonth + 1)}-${pad2(c.day)}`;
+          const wx = wxByDate.get(iso);
+          const dayAppts = ordersByDate.get(iso) ?? [];
+          const dayDate = new Date(currYear, currMonth, c.day);
+          const dayLabel = dowLong[(dayDate.getDay() + 6) % 7];
+          const count = heatmapData[c.day] ?? 0;
+          return (
             <button
               key={c.day}
               type="button"
@@ -324,27 +386,95 @@ function MonthView({
                 "dv2-heatmap-cell",
                 `dv2-heatmap-cell--l${c.lvl}`,
                 c.day === todayDay ? "dv2-heatmap-cell--today" : "",
+                count > 0 ? "has-appts" : "",
               ]
                 .filter(Boolean)
                 .join(" ")}
               onClick={() => onPickDay?.(c.day as number)}
+              title={
+                wx
+                  ? `${dayLabel} ${c.day}.${pad2(currMonth + 1)} · ${weatherLabel(wx.kind)} ${wx.t_max}°/${wx.t_min}° · ${count} ${count === 1 ? "Termin" : "Termine"}`
+                  : undefined
+              }
             >
-              {c.day}
+              {wx ? (
+                <span className="dv2-hm-cell-wx" data-wx={wx.kind} aria-hidden>
+                  {weatherEmoji(wx.kind)}
+                </span>
+              ) : null}
+              <span className="dv2-hm-cell-day">{c.day}</span>
+              {count > 0 ? (
+                <>
+                  <span className="dv2-hm-cell-count">{count}</span>
+                  <div className="dv2-hm-pop" role="tooltip">
+                    <div className="dv2-hm-pop-head">
+                      <div>
+                        <strong>{dayLabel}</strong>
+                        <span className="dv2-hm-pop-meta">
+                          {c.day}.{pad2(currMonth + 1)} · {count} {count === 1 ? "Termin" : "Termine"}
+                        </span>
+                      </div>
+                      {wx ? (
+                        <div className="dv2-hm-pop-wx" data-wx={wx.kind}>
+                          <span aria-hidden>{weatherEmoji(wx.kind)}</span>
+                          <span>
+                            {wx.t_max}°
+                            <span className="dv2-hm-pop-low"> / {wx.t_min}°</span>
+                          </span>
+                        </div>
+                      ) : null}
+                    </div>
+                    <div className="dv2-hm-pop-list">
+                      {dayAppts.slice(0, 8).map((o) => {
+                        const ts = new Date(o.appointmentDate ?? "");
+                        return (
+                          <div
+                            key={o.orderNo}
+                            className={`dv2-hm-pop-row ${statusClass(o.status)}`}
+                          >
+                            <span className="dv2-hm-pop-time">
+                              {timeHHMM(ts)}
+                              <span className="dv2-hm-pop-dur">
+                                · {durationMin(o)}{t(lang, "dashboardV2.heatmap.minutesShort")}
+                              </span>
+                            </span>
+                            <div className="dv2-hm-pop-info">
+                              <span className="dv2-hm-pop-cust">
+                                {o.customerName ?? `#${o.orderNo}`}
+                              </span>
+                              <span className="dv2-hm-pop-area">{o.customerZipcity ?? "—"}</span>
+                            </div>
+                            {wx ? (
+                              <span className="dv2-hm-pop-wx-mini" data-wx={wx.kind} aria-hidden>
+                                {weatherEmoji(wx.kind)}
+                              </span>
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                      {dayAppts.length > 8 ? (
+                        <div className="dv2-hm-pop-more">+{dayAppts.length - 8} weitere</div>
+                      ) : null}
+                    </div>
+                  </div>
+                </>
+              ) : null}
             </button>
-          ),
-        )}
+          );
+        })}
       </div>
     </>
   );
 }
 
-// ── Week view — 7 columns of stacked appointments
+// ── Week view — 7 columns of stacked appointments + Wetter pro Tag/Termin
 function WeekView({
   appts,
   dowLong,
   baseWeekStart,
   isCurrentWeek,
   todayDow,
+  wxByDate,
   onApptClick,
   lang,
 }: {
@@ -353,6 +483,7 @@ function WeekView({
   baseWeekStart: Date;
   isCurrentWeek: boolean;
   todayDow: number;
+  wxByDate: ReadonlyMap<string, WeatherForecastDay>;
   onApptClick: (o: Order) => void;
   lang: Lang;
 }) {
@@ -364,6 +495,8 @@ function WeekView({
         const isWeekend = i >= 5;
         const isToday = isCurrentWeek && i === todayDow;
         const list = appts[i];
+        const wx = wxByDate.get(isoLocalDate(colDate));
+        const anchor: "left" | "right" | "auto" = i === 0 ? "left" : i >= 5 ? "right" : "auto";
         return (
           <div
             key={label}
@@ -377,6 +510,17 @@ function WeekView({
                     .toString()
                     .padStart(2, "0")}
                 </span>
+                {wx ? (
+                  <span className="dv2-week-col-wx">
+                    <WxBadge forecast={wx} anchor={anchor} />
+                    <span>
+                      {wx.t_max}°<span className="dv2-week-col-wx-low">/{wx.t_min}°</span>
+                    </span>
+                    {wx.precip > 0 ? (
+                      <span className="dv2-week-col-wx-precip">{wx.precip}%</span>
+                    ) : null}
+                  </span>
+                ) : null}
               </div>
               <span className="dv2-week-col-count">{list.length}</span>
             </header>
@@ -392,8 +536,11 @@ function WeekView({
                     onClick={() => onApptClick(o)}
                   >
                     <div className="dv2-week-appt-time">
-                      {timeHHMM(new Date(o.appointmentDate ?? ""))}
-                      <span className="dv2-week-appt-dur">· {durationMin(o)}{t(lang, "dashboardV2.heatmap.minutesShort")}</span>
+                      <span>
+                        {timeHHMM(new Date(o.appointmentDate ?? ""))}
+                        <span className="dv2-week-appt-dur">· {durationMin(o)}{t(lang, "dashboardV2.heatmap.minutesShort")}</span>
+                      </span>
+                      <WxBadge forecast={wx} anchor={anchor} />
                     </div>
                     <div className="dv2-week-appt-cust">
                       {o.customerName ?? `#${o.orderNo}`}
@@ -410,15 +557,19 @@ function WeekView({
   );
 }
 
-// ── Day view — hour grid with absolutely-positioned appointment blocks
+// ── Day view — hour grid + Wetter-Header + per-Termin Wetter-Badge
 function DayView({
   appts,
+  dayDate,
   isToday,
+  wxByDate,
   onApptClick,
   lang,
 }: {
   appts: Order[];
+  dayDate: Date;
   isToday: boolean;
+  wxByDate: ReadonlyMap<string, WeatherForecastDay>;
   onApptClick: (o: Order) => void;
   lang: Lang;
 }) {
@@ -431,58 +582,84 @@ function DayView({
   const nowMin = now.getHours() * 60 + now.getMinutes();
   const showNow = isToday && nowMin >= GRID_START && nowMin <= GRID_END;
   const pxFor = (m: number) => ((m - GRID_START) / 60) * SLOT_H;
+  const wx = wxByDate.get(isoLocalDate(dayDate));
 
   return (
-    <div className="dv2-day-body">
-      <div className="dv2-day-hours">
-        {HOURS.map((h) => (
-          <div key={h} className="dv2-day-hour-row" style={{ height: SLOT_H }}>
-            <span className="dv2-day-hour-label">{`${String(h).padStart(2, "0")}:00`}</span>
-            <div className="dv2-day-hour-line" />
+    <>
+      {wx ? (
+        <div className="dv2-day-summary" data-wx={wx.kind}>
+          <div className="dv2-day-summary-wx" aria-hidden>
+            {weatherEmoji(wx.kind)}
           </div>
-        ))}
-      </div>
-      <div className="dv2-day-track">
-        {showNow && (
-          <div className="dv2-day-now-line" style={{ top: pxFor(nowMin) }}>
-            <span className="dv2-day-now-dot" />
-            <span className="dv2-day-now-label">{timeHHMM(now)}</span>
+          <div className="dv2-day-summary-meta">
+            <strong>
+              {wx.t_max}° <span className="dv2-day-summary-low">↓ {wx.t_min}°</span>
+            </strong>
+            <span>
+              {weatherLabel(wx.kind)}
+              {wx.precip > 0 ? ` · ${wx.precip}%` : ""}
+            </span>
           </div>
-        )}
-        {appts.length === 0 ? (
-          <div className="dv2-day-empty">{t(lang, "dashboardV2.heatmap.dayEmpty")}</div>
-        ) : (
-          appts.map((o) => {
-            const start = new Date(o.appointmentDate ?? "");
-            const startMin = start.getHours() * 60 + start.getMinutes();
-            if (startMin < GRID_START || startMin > GRID_END) return null;
-            const dur = durationMin(o);
-            const top = pxFor(startMin);
-            const h = (dur / 60) * SLOT_H;
-            const endMin = startMin + dur;
-            return (
-              <button
-                type="button"
-                key={o.orderNo}
-                className={`dv2-day-appt ${statusClass(o.status)}`}
-                onClick={() => onApptClick(o)}
-                style={{ top, height: h }}
-              >
-                <div className="dv2-day-appt-time">
-                  <strong>{timeHHMM(start)}</strong>
-                  <span className="dv2-day-appt-end">
-                    – {String(Math.floor(endMin / 60)).padStart(2, "0")}:
-                    {String(endMin % 60).padStart(2, "0")}
-                  </span>
-                  <span className="dv2-day-appt-dur">· {dur}{t(lang, "dashboardV2.heatmap.minutesShort")}</span>
-                </div>
-                <div className="dv2-day-appt-cust">{o.customerName ?? `#${o.orderNo}`}</div>
-                <div className="dv2-day-appt-meta">{o.customerZipcity ?? "—"}</div>
-              </button>
-            );
-          })
-        )}
+          <div className="dv2-day-summary-count">
+            <strong>{appts.length}</strong>
+            <span>{appts.length === 1 ? "Termin" : "Termine"}</span>
+          </div>
+        </div>
+      ) : null}
+      <div className="dv2-day-body">
+        <div className="dv2-day-hours">
+          {HOURS.map((h) => (
+            <div key={h} className="dv2-day-hour-row" style={{ height: SLOT_H }}>
+              <span className="dv2-day-hour-label">{`${String(h).padStart(2, "0")}:00`}</span>
+              <div className="dv2-day-hour-line" />
+            </div>
+          ))}
+        </div>
+        <div className="dv2-day-track">
+          {showNow && (
+            <div className="dv2-day-now-line" style={{ top: pxFor(nowMin) }}>
+              <span className="dv2-day-now-dot" />
+              <span className="dv2-day-now-label">{timeHHMM(now)}</span>
+            </div>
+          )}
+          {appts.length === 0 ? (
+            <div className="dv2-day-empty">{t(lang, "dashboardV2.heatmap.dayEmpty")}</div>
+          ) : (
+            appts.map((o) => {
+              const start = new Date(o.appointmentDate ?? "");
+              const startMin = start.getHours() * 60 + start.getMinutes();
+              if (startMin < GRID_START || startMin > GRID_END) return null;
+              const dur = durationMin(o);
+              const top = pxFor(startMin);
+              const h = (dur / 60) * SLOT_H;
+              const endMin = startMin + dur;
+              return (
+                <button
+                  type="button"
+                  key={o.orderNo}
+                  className={`dv2-day-appt ${statusClass(o.status)}`}
+                  onClick={() => onApptClick(o)}
+                  style={{ top, height: h }}
+                >
+                  <div className="dv2-day-appt-time">
+                    <strong>{timeHHMM(start)}</strong>
+                    <span className="dv2-day-appt-end">
+                      – {String(Math.floor(endMin / 60)).padStart(2, "0")}:
+                      {String(endMin % 60).padStart(2, "0")}
+                    </span>
+                    <span className="dv2-day-appt-dur">· {dur}{t(lang, "dashboardV2.heatmap.minutesShort")}</span>
+                  </div>
+                  <div className="dv2-day-appt-cust">{o.customerName ?? `#${o.orderNo}`}</div>
+                  <div className="dv2-day-appt-meta">
+                    <span>{o.customerZipcity ?? "—"}</span>
+                    <WxBadge forecast={wx} size="md" anchor="right" />
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }

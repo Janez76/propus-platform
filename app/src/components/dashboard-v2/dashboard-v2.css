@@ -699,6 +699,50 @@
 .dv2-upcoming-addr { font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dv2-upcoming-meta { font-size: 11px; color: var(--d-text-dim); }
 .dv2-upcoming-cam-sm { color: var(--d-gold); opacity: 0.5; flex-shrink: 0; }
+.dv2-upcoming-primary {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--d-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+}
+.dv2-upcoming-orderno {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  color: var(--d-gold);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.dv2-upcoming-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.dv2-upcoming-side .dv2-upcoming-time {
+  margin-left: 0;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--d-text);
+}
+.dv2-upc-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border: 1px solid;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  line-height: 1.4;
+}
 
 /* ─── Funnel ─────────────────────────────────────────────────────────────── */
 .dv2-funnel { display: flex; flex-direction: column; }
@@ -1865,3 +1909,331 @@ button.dv2-heatmap-cell:hover {
   .dv2-map-host { aspect-ratio: 16 / 11; min-height: 320px; }
   .dv2-map-toolbar { width: 100%; }
 }
+
+/* ─── Heatmap: Wetter & Hover-Popover (Slice "Komplett-Reimplementierung") ── */
+/* Monats-Zelle bekommt Wetter-Emoji + Termin-Count + relatives Layout. */
+.dv2-heatmap-grid .dv2-heatmap-cell {
+  position: relative;
+  height: 50px;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: 4px 6px;
+  overflow: visible;
+  z-index: 1;
+}
+.dv2-heatmap-grid .dv2-heatmap-cell.has-appts { z-index: 2; }
+.dv2-heatmap-grid .dv2-heatmap-cell.has-appts:hover,
+.dv2-heatmap-grid .dv2-heatmap-cell.has-appts:focus-visible { z-index: 50; }
+
+.dv2-hm-cell-wx {
+  position: absolute;
+  top: 4px;
+  right: 5px;
+  font-size: 13px;
+  line-height: 1;
+  pointer-events: none;
+}
+.dv2-hm-cell-day {
+  position: absolute;
+  top: 4px;
+  left: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+.dv2-hm-cell-count {
+  position: absolute;
+  bottom: 5px;
+  right: 6px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: var(--d-gold);
+}
+.dv2-heatmap-cell--l4 .dv2-hm-cell-count,
+.dv2-heatmap-cell--l3 .dv2-hm-cell-count { color: var(--propus-bg-page); }
+
+/* Hover-Popover */
+.dv2-hm-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%) translateY(-4px);
+  width: 280px;
+  background: var(--d-card);
+  border: 1px solid var(--d-border-gold);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.45);
+  padding: 10px 12px;
+  text-align: left;
+  font-family: inherit;
+  color: var(--d-text);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 120ms, transform 120ms;
+}
+.dv2-heatmap-cell.has-appts:hover .dv2-hm-pop,
+.dv2-heatmap-cell.has-appts:focus-visible .dv2-hm-pop {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
+}
+/* Linke / rechte Anker, damit Popover nicht aus dem Card-Bereich rauslappt */
+.dv2-heatmap-grid > .dv2-heatmap-cell:nth-child(7n+2) .dv2-hm-pop,
+.dv2-heatmap-grid > .dv2-heatmap-cell:nth-child(7n+3) .dv2-hm-pop {
+  left: 0;
+  transform: translateX(0) translateY(-4px);
+}
+.dv2-heatmap-grid > .dv2-heatmap-cell:nth-child(7n+2):hover .dv2-hm-pop,
+.dv2-heatmap-grid > .dv2-heatmap-cell:nth-child(7n+3):hover .dv2-hm-pop,
+.dv2-heatmap-grid > .dv2-heatmap-cell:nth-child(7n+2):focus-visible .dv2-hm-pop,
+.dv2-heatmap-grid > .dv2-heatmap-cell:nth-child(7n+3):focus-visible .dv2-hm-pop {
+  transform: translateX(0) translateY(0);
+}
+.dv2-heatmap-grid > .dv2-heatmap-cell:nth-child(7n+0) .dv2-hm-pop,
+.dv2-heatmap-grid > .dv2-heatmap-cell:nth-child(7n+6) .dv2-hm-pop {
+  left: auto;
+  right: 0;
+  transform: translateX(0) translateY(-4px);
+}
+.dv2-heatmap-grid > .dv2-heatmap-cell:nth-child(7n+0):hover .dv2-hm-pop,
+.dv2-heatmap-grid > .dv2-heatmap-cell:nth-child(7n+6):hover .dv2-hm-pop,
+.dv2-heatmap-grid > .dv2-heatmap-cell:nth-child(7n+0):focus-visible .dv2-hm-pop,
+.dv2-heatmap-grid > .dv2-heatmap-cell:nth-child(7n+6):focus-visible .dv2-hm-pop {
+  transform: translateX(0) translateY(0);
+}
+
+.dv2-hm-pop-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--d-border);
+}
+.dv2-hm-pop-head strong { font-size: 13px; color: var(--d-text); display: block; }
+.dv2-hm-pop-meta {
+  display: block;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 10.5px;
+  color: var(--d-text-muted);
+  margin-top: 2px;
+  letter-spacing: 0.04em;
+}
+.dv2-hm-pop-wx {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--d-text);
+  white-space: nowrap;
+}
+.dv2-hm-pop-low { color: var(--d-text-muted); font-weight: 500; }
+.dv2-hm-pop-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.dv2-hm-pop-row {
+  display: grid;
+  grid-template-columns: 64px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: 6px;
+  background: var(--d-card-hover);
+  font-size: 11.5px;
+}
+.dv2-hm-pop-row.is-confirmed { border-left: 2px solid #4F8B43; }
+.dv2-hm-pop-row.is-pending   { border-left: 2px solid #B87514; }
+.dv2-hm-pop-row.is-provisional { border-left: 2px solid #2E5A7A; }
+.dv2-hm-pop-row.is-completed { border-left: 2px solid #244865; }
+.dv2-hm-pop-row.is-paused    { border-left: 2px solid #6B6962; }
+.dv2-hm-pop-row.is-cancelled { border-left: 2px solid #A33; opacity: 0.65; }
+.dv2-hm-pop-time {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--d-text);
+}
+.dv2-hm-pop-dur { color: var(--d-text-muted); font-weight: 400; margin-left: 3px; }
+.dv2-hm-pop-info { display: flex; flex-direction: column; min-width: 0; }
+.dv2-hm-pop-cust {
+  font-weight: 600;
+  color: var(--d-text);
+  font-size: 11.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dv2-hm-pop-area {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 10px;
+  color: var(--d-text-muted);
+  letter-spacing: 0.04em;
+}
+.dv2-hm-pop-wx-mini { font-size: 14px; line-height: 1; }
+.dv2-hm-pop-more {
+  text-align: center;
+  padding: 4px;
+  font-size: 11px;
+  color: var(--d-text-muted);
+  font-style: italic;
+}
+
+/* ─── Wochen-View: Wetter pro Spalte + pro Termin ──────────────────────── */
+.dv2-week-col-wx {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--d-text-dim);
+  margin-top: 2px;
+}
+.dv2-week-col-wx-low { color: var(--d-text-muted); font-weight: 500; }
+.dv2-week-col-wx-precip {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 10px;
+  color: #2E5A7A;
+  font-weight: 700;
+}
+.dv2-week-appt .dv2-week-appt-time {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ─── Tag-View: Wetter-Header ──────────────────────────────────────────── */
+.dv2-day-summary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+  background: var(--d-card-hover);
+  border: 1px solid var(--d-border);
+  border-radius: 10px;
+}
+.dv2-day-summary-wx { font-size: 28px; line-height: 1; }
+.dv2-day-summary-meta { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.dv2-day-summary-meta strong { font-size: 18px; font-weight: 700; color: var(--d-text); }
+.dv2-day-summary-low { color: var(--d-text-muted); font-weight: 500; font-size: 14px; }
+.dv2-day-summary-meta span:not(.dv2-day-summary-low) {
+  font-size: 12px;
+  color: var(--d-text-muted);
+  letter-spacing: 0.02em;
+}
+.dv2-day-summary-count {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  padding-left: 14px;
+  border-left: 1px solid var(--d-border);
+}
+.dv2-day-summary-count strong {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--d-gold);
+  line-height: 1;
+}
+.dv2-day-summary-count span {
+  font-size: 10.5px;
+  color: var(--d-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.dv2-day-appt .dv2-day-appt-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ─── WxBadge (Wetter-Chip mit Hover-Popover) ──────────────────────────── */
+.dv2-wx-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background: transparent;
+  cursor: help;
+  outline: none;
+  flex-shrink: 0;
+}
+.dv2-wx-badge--md { width: 22px; height: 22px; }
+.dv2-wx-badge--lg { width: 28px; height: 28px; }
+.dv2-wx-emoji { font-size: 13px; line-height: 1; }
+.dv2-wx-badge--md .dv2-wx-emoji { font-size: 16px; }
+.dv2-wx-badge--lg .dv2-wx-emoji { font-size: 20px; }
+.dv2-wx-badge:focus-visible { outline: 2px solid var(--d-gold); outline-offset: 1px; }
+
+.dv2-wx-pop {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%) translateY(-2px);
+  min-width: 160px;
+  background: var(--d-card);
+  border: 1px solid var(--d-border-gold);
+  border-radius: 8px;
+  box-shadow: 0 8px 22px -6px rgba(0, 0, 0, 0.4);
+  padding: 8px 10px;
+  text-align: left;
+  font-family: inherit;
+  color: var(--d-text);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 120ms, transform 120ms;
+  z-index: 100;
+}
+.dv2-wx-badge:hover .dv2-wx-pop,
+.dv2-wx-badge:focus-visible .dv2-wx-pop {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+.dv2-wx-anchor--left .dv2-wx-pop { left: 0; transform: translateX(0) translateY(-2px); }
+.dv2-wx-anchor--left:hover .dv2-wx-pop,
+.dv2-wx-anchor--left:focus-visible .dv2-wx-pop { transform: translateX(0) translateY(0); }
+.dv2-wx-anchor--right .dv2-wx-pop { left: auto; right: 0; transform: translateX(0) translateY(-2px); }
+.dv2-wx-anchor--right:hover .dv2-wx-pop,
+.dv2-wx-anchor--right:focus-visible .dv2-wx-pop { transform: translateX(0) translateY(0); }
+
+.dv2-wx-pop-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 6px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--d-border);
+}
+.dv2-wx-pop-emoji { font-size: 18px; line-height: 1; }
+.dv2-wx-pop-temps { display: flex; align-items: baseline; gap: 6px; }
+.dv2-wx-pop-temps strong { font-size: 14px; color: var(--d-text); }
+.dv2-wx-pop-temps span { font-size: 11px; color: var(--d-text-muted); }
+.dv2-wx-pop-body {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 8px;
+  margin: 0;
+  font-size: 11px;
+}
+.dv2-wx-pop-body dt { color: var(--d-text-muted); font-weight: 500; }
+.dv2-wx-pop-body dd { margin: 0; color: var(--d-text); font-weight: 600; }

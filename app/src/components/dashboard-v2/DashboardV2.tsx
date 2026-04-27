@@ -86,7 +86,6 @@ export function DashboardV2() {
   const showMap = isSec("map") && showOrders;
   const mainSingleCol = (showPipeline && !showUpcoming) || (!showPipeline && showUpcoming);
   const inboxSingleCol = (showTickets && !showMails) || (!showTickets && showMails);
-  const nBottom = [showFunnel, showHeat, showPerf].filter(Boolean).length;
 
   const wallNow = useNow();
   const fetchOrders = useCallback((): Promise<Order[]> => {
@@ -225,18 +224,23 @@ export function DashboardV2() {
         </div>
       ) : null}
 
-      {nBottom > 0 ? (
+      {showHeat ? <HeatmapV2 metrics={metrics} orders={orders} lang={lang} /> : null}
+
+      {showMap ? <OrdersMap orders={orders} lang={lang} hoveredOrderNo={hoveredOrderNo} /> : null}
+
+      {showFunnel || showPerf ? (
         <div
           className="dv2-grid-bottom"
-          style={nBottom < 3 ? { gridTemplateColumns: `repeat(${nBottom}, minmax(0, 1fr))` } : undefined}
+          style={
+            (showFunnel ? 1 : 0) + (showPerf ? 1 : 0) < 2
+              ? { gridTemplateColumns: "1fr" }
+              : { gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }
+          }
         >
           {showFunnel ? <BookingFunnelV2 metrics={metrics} lang={lang} /> : null}
-          {showHeat ? <HeatmapV2 metrics={metrics} orders={orders} lang={lang} /> : null}
           {showPerf ? <PerformanceV2 metrics={metrics} lang={lang} /> : null}
         </div>
       ) : null}
-
-      {showMap ? <OrdersMap orders={orders} lang={lang} hoveredOrderNo={hoveredOrderNo} /> : null}
 
       <div className="dv2-footer">
         {t(lang, "dashboardV2.footer")}
