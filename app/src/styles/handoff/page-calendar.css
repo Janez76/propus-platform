@@ -347,6 +347,7 @@
   padding: 12px 14px 10px;
   border-right: 1px solid var(--border-soft);
   align-items: start;
+  min-width: 0;
 }
 .wv-day-head:last-child { border-right: 0; }
 .wv-day-head.today {
@@ -420,6 +421,8 @@
   flex-direction: column;
   gap: 2px;
   min-height: 22px;
+  min-width: 0;
+  overflow: hidden;
 }
 .wv-allday-col:last-child { border-right: 0; }
 .wv-allday-col.today { background: linear-gradient(180deg, #F5EDD0, #F0E5C0); }
