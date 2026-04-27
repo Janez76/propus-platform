@@ -495,7 +495,7 @@
   border-left: 3px solid var(--ev-color, var(--gold-600));
   border-radius: 5px;
   cursor: pointer;
-  overflow: hidden;
+  overflow: visible;
   display: flex; flex-direction: column; gap: 1px;
   font-family: inherit;
   z-index: 2;

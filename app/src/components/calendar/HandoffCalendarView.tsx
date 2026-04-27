@@ -586,6 +586,48 @@ function WeekView({
                   ) : l.ev.zipcity ? (
                     <div className="wv-event-meta">{l.ev.zipcity}</div>
                   ) : null}
+                  <div className="wv-event-tip" aria-hidden>
+                    <div className="wv-tip-head" style={{ borderColor: l.color, color: l.color }}>
+                      <span className="wv-tip-status">
+                        <span className="wv-tip-dot" style={{ background: l.color }} />
+                        {getStatusEntry(l.ev.status).label}
+                      </span>
+                      {l.ev.orderNo != null ? <span className="wv-tip-no">#{l.ev.orderNo}</span> : null}
+                    </div>
+                    <div className="wv-tip-body">
+                      <h5>{normalizeMojibakeText(l.ev.title)}</h5>
+                      <div className="wv-tip-time">
+                        <strong>{fmtTimeRange(l.ev)}</strong>
+                        {durationMinutesLabel(l.ev) ? <span>{durationMinutesLabel(l.ev)}</span> : null}
+                      </div>
+                      <dl className="wv-tip-list">
+                        {l.ev.address || l.ev.zipcity ? (
+                          <div>
+                            <dt>Adresse</dt>
+                            <dd>{[l.ev.address, l.ev.zipcity].filter(Boolean).join(", ")}</dd>
+                          </div>
+                        ) : null}
+                        {l.ev.customerName ? (
+                          <div>
+                            <dt>Kunde</dt>
+                            <dd>{l.ev.customerName}</dd>
+                          </div>
+                        ) : null}
+                        {l.ev.photographerName ? (
+                          <div>
+                            <dt>Fotograf</dt>
+                            <dd>{l.ev.photographerName}</dd>
+                          </div>
+                        ) : null}
+                        {isOutlook && l.ev.category ? (
+                          <div>
+                            <dt>Kategorie</dt>
+                            <dd>{l.ev.category}</dd>
+                          </div>
+                        ) : null}
+                      </dl>
+                    </div>
+                  </div>
                 </button>
                 );
               })}
