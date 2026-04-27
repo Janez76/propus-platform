@@ -259,13 +259,23 @@ docker compose -p propus-platform -f docker-compose.vps.yml --env-file .env.vps 
 
 > Die `payrexx_configured`-Info wird bei jedem Tour-Detail-Aufruf live aus den Env-Vars gelesen — kein Neustart nötig um den Status im UI zu sehen, aber die Variablen selbst brauchen einen Neustart.
 
-### Google Reviews (Firmenhomepage)
+### Google Reviews (Firmenhomepage + Reviews-Admin-Fallback)
 
-`GOOGLE_REVIEWS_PLACE_ID` legt die Google-Place-ID fuer die Bewertungsanzeige auf der Propus-Website fest. Seit PR #88 ist der Default-Wert **nicht mehr in `docker-compose.vps.yml` hartcodiert**, sondern muss in `.env.vps` (bzw. `.env.vps.example` als Vorlage) gesetzt sein. Ohne diesen Wert bleibt die Variable leer und die Google-Reviews-Integration ist inaktiv.
+Der Places-Fallback fuer Google-Reviews benoetigt auf dem Server **beide** Variablen:
+
+- `GOOGLE_PLACES_API_KEY` (alternativ reicht auch `GOOGLE_MAPS_API_KEY` als technischer Fallback im Code)
+- `GOOGLE_REVIEWS_PLACE_ID`
+
+Seit PR #88 ist die Place-ID **nicht mehr in `docker-compose.vps.yml` hartcodiert**, sondern muss in `.env.vps` (bzw. `.env.vps.example` als Vorlage) gesetzt sein. Ohne diese Werte bleibt die Integration inaktiv und das Reviews-Admin-Panel zeigt den Hinweis zur fehlenden Places-Konfiguration.
+
+In der Google Cloud Console muss zusaetzlich die **Places API (New)** aktiviert sein (inkl. Billing).
 
 ```env
+GOOGLE_PLACES_API_KEY=...
 GOOGLE_REVIEWS_PLACE_ID=ChIJCXJ70_ZCiisRJDlGdaYk66Y
 ```
+
+Hinweis: Sobald Google Business Profile vollstaendig angebunden ist (gueltige Location ueber OAuth), werden Reviews darueber geladen; der Places-Fallback ist dann nur noch Uebergangsweg.
 
 ---
 
