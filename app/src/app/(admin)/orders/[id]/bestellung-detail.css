@@ -808,6 +808,32 @@
   .bestellung-shell .bd-content { padding-left: 20px; padding-right: 20px; }
 }
 
+/* Mobile: Topbar überlappungsfrei halten — Crumbs + Actions stapeln */
+@media (max-width: 720px) {
+  .bestellung-shell .bd-topbar {
+    flex-wrap: wrap;
+    gap: 8px 10px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+  .bestellung-shell .bd-crumbs {
+    flex: 1 1 auto;
+    gap: 6px;
+    overflow: hidden;
+  }
+  .bestellung-shell .bd-crumbs .bd-crumb-label { display: none; }
+  .bestellung-shell .bd-top-actions {
+    flex: 0 0 auto;
+    margin-left: auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+  .bestellung-shell .bd-btn-outline-gold,
+  .bestellung-shell .bd-btn-primary,
+  .bestellung-shell .bd-btn-ghost { padding: 8px 10px; }
+}
+
 /* ============================================================
    Page grid: dark sidebar + main shell
    ============================================================ */
