@@ -30,6 +30,7 @@ import { SidePanel } from "../handoff/SidePanel";
 import { StatusChip } from "../handoff/StatusChip";
 import { t, type Lang } from "../../i18n";
 import { formatDateTime, formatCurrency } from "../../lib/utils";
+import { normalizeStatusKey } from "../../lib/status";
 
 type Tab = "overview" | "services" | "customer" | "history";
 
@@ -156,6 +157,9 @@ export function OrderSidePanel({
   const total = fmtMoney(order.total ?? order.pricing?.total);
 
   const obj = order.object;
+  const statusKey = normalizeStatusKey(order.status);
+  const isPaused = statusKey === "paused";
+  const isCancelled = statusKey === "cancelled";
 
   return (
     <SidePanel
@@ -395,8 +399,10 @@ export function OrderSidePanel({
           {order.billing?.alt_company ||
           order.billing?.alt_name ||
           order.billing?.alt_email ||
+          order.billing?.alt_company_email ||
           order.billing?.alt_phone ||
           order.billing?.alt_phone_mobile ||
+          order.billing?.alt_company_phone ||
           order.billing?.alt_street ||
           order.billing?.alt_zipcity ||
           order.billing?.alt_zip ||
@@ -405,12 +411,22 @@ export function OrderSidePanel({
               <Row icon={<User className="h-4 w-4" />}>
                 {nonEmpty(order.billing?.alt_company, order.billing?.alt_name) || "—"}
               </Row>
-              {order.billing?.alt_email ? (
-                <Row icon={<Mail className="h-4 w-4" />}>{order.billing.alt_email}</Row>
+              {nonEmpty(order.billing?.alt_email, order.billing?.alt_company_email) ? (
+                <Row icon={<Mail className="h-4 w-4" />}>
+                  {nonEmpty(order.billing?.alt_email, order.billing?.alt_company_email)}
+                </Row>
               ) : null}
-              {order.billing?.alt_phone || order.billing?.alt_phone_mobile ? (
+              {nonEmpty(
+                order.billing?.alt_phone,
+                order.billing?.alt_phone_mobile,
+                order.billing?.alt_company_phone,
+              ) ? (
                 <Row icon={<Phone className="h-4 w-4" />}>
-                  {nonEmpty(order.billing?.alt_phone, order.billing?.alt_phone_mobile)}
+                  {nonEmpty(
+                    order.billing?.alt_phone,
+                    order.billing?.alt_phone_mobile,
+                    order.billing?.alt_company_phone,
+                  )}
                 </Row>
               ) : null}
               {nonEmpty(order.billing?.alt_street, order.billing?.alt_zipcity) ? (
@@ -514,18 +530,18 @@ export function OrderSidePanel({
                   when={order.closedAt}
                 />
               ) : null}
-              {order.pauseReason ? (
+              {isPaused ? (
                 <HistoryItem
                   icon={<PauseCircle className="h-4 w-4" />}
                   label={tr(lang, "orders.sidePanel.event.paused", "Pausiert")}
-                  detail={order.pauseReason}
+                  detail={order.pauseReason || null}
                 />
               ) : null}
-              {order.cancelReason ? (
+              {isCancelled ? (
                 <HistoryItem
                   icon={<AlertTriangle className="h-4 w-4" />}
                   label={tr(lang, "orders.sidePanel.event.cancelled", "Storniert")}
-                  detail={order.cancelReason}
+                  detail={order.cancelReason || null}
                 />
               ) : null}
               {order.reviewRequestSentAt ? (
@@ -545,8 +561,8 @@ export function OrderSidePanel({
               !order.appointmentDate &&
               !order.doneAt &&
               !order.closedAt &&
-              !order.pauseReason &&
-              !order.cancelReason &&
+              !isPaused &&
+              !isCancelled &&
               !order.lastRescheduleOldDate &&
               !order.reviewRequestSentAt ? (
                 <li className="flex items-start gap-2 text-sm text-[var(--text-subtle)]">
