@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei jeder Änderung an Buchungslogik, Status-Übergängen, Kalender-Sync oder Provisional-Flow dieses Dokument aktualisieren. Cursor-Regel `.cursor/rules/data-fields.mdc` erinnert daran.
 
-*Zuletzt aktualisiert: April 2026 — §19 Backend-CI (`booking-ci.yml`: Vitest-ähnliche Node-Tests + htmlhint). Zuvor: §4a 365-Outlook-Overlay … PR #92 … PR #88 …*
+*Zuletzt aktualisiert: April 2026 - Kunden-Deduplizierung: `upsertCustomer()` erkennt jetzt auch bestehende `customer_contacts.email` als exakten Treffer auf den Firmenkunden. Zuvor: Kalender-Sync patcht Reschedule/Daueraenderungen in bestehenden 365-Events; Paragraf 19 Backend-CI (`booking-ci.yml`: Node-Tests + htmlhint).*
 
 ---
 
@@ -52,8 +52,11 @@ POST /api/booking
   │
   ├── 9. saveOrder():
   │        ├── upsertCustomer(billing)
-  │        │     → INSERT INTO customers (email,name,company,phone,street,zipcity)
-  │        │     → ON CONFLICT UPDATE (name,company,phone,street,zipcity)
+  |        |     -> findMatchingCustomer(billing)
+  |        |     -> exakte Treffer: customers.email oder customer_contacts.email
+  |        |     -> strong: company_key + E-Mail-Domain
+  |        |     -> weak: neuer Kunde + customer_duplicate_candidates
+  |        |     -> INSERT/UPDATE customers (email,name,company,phone,street,zipcity)
   │        └── insertOrder(record, customerId)
   │              → INSERT INTO booking.orders (alle Felder)
   │
@@ -94,6 +97,19 @@ POST /api/booking
 | `core.company_members` | UPSERT | companyId, customerId, email, role, status |
 | `booking.orders` | INSERT | alle order-Felder |
 | `booking.discount_code_usages` | INSERT | discount_code_id, customer_email, order_id |
+
+### Kundendeduplizierung bei neuen Buchungen
+
+**Datei:** `booking/customer-dedup.js`
+
+`upsertCustomer(billing)` verhindert neue Personen-Datensaetze fuer bestehende Firmenkunden:
+
+1. Exakter Treffer ueber `core.customers.email`.
+2. Exakter Treffer ueber `core.customer_contacts.email` -> Bestellung wird dem zugehoerigen Firmenkunden zugeordnet.
+3. Starker Treffer ueber `company_key` + E-Mail-Domain -> Kontakt wird am bestehenden Kunden ergaenzt.
+4. Schwacher Treffer ueber Firmenname/Fuzzy-Logik -> neuer Kunde + Review-Eintrag in `booking.customer_duplicate_candidates`.
+
+Damit Kontaktpersonen wie `name@kundendomain.ch`, die bereits unter einer Firmenzeile in `customer_contacts` gepflegt sind, keinen zweiten Kunden erzeugen.
 
 ---
 

@@ -174,6 +174,19 @@ async function findMatchingCustomer(deps, input) {
     return { match: "exact", customer: exactRows[0], reason: "email", score: 1.0 };
   }
 
+  const { rows: contactRows } = await query(
+    `SELECT c.*
+     FROM customer_contacts cc
+     INNER JOIN customers c ON c.id = cc.customer_id
+     WHERE lower(btrim(COALESCE(cc.email, ''))) = $1
+     ORDER BY c.id ASC
+     LIMIT 1`,
+    [email]
+  );
+  if (contactRows && contactRows[0]) {
+    return { match: "exact", customer: contactRows[0], reason: "contact_email", score: 1.0 };
+  }
+
   const ck = computeCompanyKey(company);
   const dom = emailDomain(email);
   if (ck && dom) {

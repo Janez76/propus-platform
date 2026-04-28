@@ -15,6 +15,15 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.398",
+    date: "2026-04-28",
+    title: "Booking: Firmenkunden-Deduplizierung ueber Kontakt-E-Mails",
+    changes: [
+      { type: "fix", text: "Neue Buchungen mit E-Mail einer bestehenden Kontaktperson werden dem Firmenkunden zugeordnet, statt einen zweiten Kunden anzulegen." },
+      { type: "fix", text: "Dublettenfall ErfolgsMandate/EV Luzern bereinigt: Kontakt-E-Mails bleiben am korrekten Firmenkunden nachvollziehbar." },
+    ],
+  },
+  {
     version: "2.3.397",
     date: "2026-04-22",
     title: "Kunden-Impersonation: Panel als Kunde testen (Als Kunde einloggen)",
