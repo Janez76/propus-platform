@@ -73,7 +73,12 @@ type Props = {
 
 export function AppSidebar({ initialRole }: Props): JSX.Element {
   const storeRole = useAuthStore((s) => s.role);
-  const role = (storeRole || initialRole || "admin") as Role;
+  // Server-resolved role wins on App-Router pages: getAdminSession() reflects
+  // the active server session, while authStore can hold a stale role from
+  // localStorage (e.g. after impersonation or first paint without the user
+  // store hydrated yet). authStore defaults to "admin", so a plain
+  // `storeRole || initialRole` would never fall back to the prop.
+  const role = (initialRole || storeRole || "admin") as Role;
   const lang: Lang = (useAuthStore((s) => s.language) || "de") as Lang;
   const t = useCallback((key: string) => translate(lang, key), [lang]);
   const pathname = usePathname() ?? "";
