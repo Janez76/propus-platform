@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei jeder Änderung an Buchungslogik, Status-Übergängen, Kalender-Sync oder Provisional-Flow dieses Dokument aktualisieren. Cursor-Regel `.cursor/rules/data-fields.mdc` erinnert daran.
 
-*Zuletzt aktualisiert: April 2026 (Cursor: §4a 365-Outlook-Overlay im Admin-Kalender, read-only Toggle + Kategorie-Filter). PR #92: §17 API-Key-Erstellung nutzt numerische Admin-ID fuer created_by. PR #91: §17 API-Key-Verwaltung CRUD. PR #89: §16 Rate-Limiting & Security-Header, helmet. PR #88: §15 Kunden-Profil-Vorausfüllung via /auth/profile*
+*Zuletzt aktualisiert: April 2026 — §19 Backend-CI (`booking-ci.yml`: Vitest-ähnliche Node-Tests + htmlhint). Zuvor: §4a 365-Outlook-Overlay … PR #92 … PR #88 …*
 
 ---
 
@@ -26,6 +26,7 @@
 16. [Rate-Limiting & Security-Header](#16-rate-limiting--security-header)
 17. [API-Key-Verwaltung (CRUD)](#17-api-key-verwaltung-crud)
 18. [Admin-Panel SPA-Auslieferung](#18-admin-panel-spa-auslieferung)
+19. [CI & HTML-Lint (Booking-Backend)](#19-ci--html-lint-booking-backend)
 
 ---
 
@@ -819,3 +820,17 @@ Falls dist-Verzeichnis existiert:
 - Alle `/api/*`- und `/auth/*`-Routen werden **nicht** vom Catch-all erfasst.
 - Wenn das dist-Verzeichnis nicht existiert (kein Build), zeigt die Root-Route einen Hinweis.
 - Frontend-Logs (`POST /api/logs`) werden mit `source: "admin-panel"` getaggt (vorher `"booking-backend"`).
+
+---
+
+## 19. CI & HTML-Lint (Booking-Backend)
+
+**Workflow:** [`.github/workflows/booking-ci.yml`](../.github/workflows/booking-ci.yml) — läuft bei PR und `push` auf `master`, sobald **`booking/**`** oder diese Workflow-Datei geändert wird (läuft **nicht** bei reinen Änderungen an `app/` ohne Booking-Touch).
+
+| Schritt | Befehl (Working Directory `booking/`) | Zweck |
+|---|---|---|
+| Abhängigkeiten | `npm ci` | Reproduzierbar wie auf dem VPS/Dev |
+| Unit-Tests | `npm test` (`node:test`, `tests/*.test.js`) | Reine Logiktests (Pricing, RBAC-Presets, Order-Transitions, Storage-Hilfen) ohne laufende Postgres — DB-Zugriff erfolgt erst in Routen/async-Pfaden bzw. lazy `require("./db")` |
+| HTML-Lint | `npm run lint:html` (htmlhint + [`.htmlhintrc`](../booking/.htmlhintrc)) | Statische Checks auf `booking/*.html` (Legacy-Admin-Spa tolerante Regeln) |
+
+Siehe Gesamtüberblick CI vs. VPS-Deploy: [`DEPLOY-FLOW.md`](DEPLOY-FLOW.md) (Abschnitt *Unit-Tests / Lint*).
