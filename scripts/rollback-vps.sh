@@ -105,6 +105,18 @@ if [ -f "${ROLLBACK_DIR}/last-good.env.vps.secrets" ]; then
   cp "${ROLLBACK_DIR}/last-good.env.vps.secrets" "${SECRETS_FILE}"
 fi
 
+ENSURE="${PROJECT_ROOT}/scripts/ensure-vps-bind-mounts.sh"
+if [ ! -f "$ENSURE" ]; then
+  ENSURE="/opt/propus-platform/scripts/ensure-vps-bind-mounts.sh"
+fi
+if [ -f "$ENSURE" ]; then
+  # shellcheck source=/dev/null
+  source "$ENSURE"
+  ensure_vps_booking_bind_mounts "${ENV_FILE}"
+else
+  log "WARNUNG: ensure-vps-bind-mounts.sh nicht gefunden – Docker-Bind-Mounts nicht vorbereitet"
+fi
+
 # Container neu starten (kein Rebuild – bestehendes Image nutzen)
 log "Starte Container aus bestehendem Image (kein Rebuild)..."
 docker compose \

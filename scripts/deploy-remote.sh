@@ -126,6 +126,14 @@ ln -s docker-compose.vps.yml compose.yaml
 rm -f .env
 ln -s .env.vps .env
 
+if [ ! -f "${PROJECT_ROOT}/scripts/ensure-vps-bind-mounts.sh" ]; then
+  echo "FEHLER: ${PROJECT_ROOT}/scripts/ensure-vps-bind-mounts.sh fehlt (Deploy-Archiv unvollstaendig?)"
+  exit 1
+fi
+# shellcheck source=scripts/ensure-vps-bind-mounts.sh
+source "${PROJECT_ROOT}/scripts/ensure-vps-bind-mounts.sh"
+ensure_vps_booking_bind_mounts "${PROJECT_ROOT}/.env.vps"
+
 echo "==> Port-Konflikt-Check"
 # Alle Host-Ports die vom propus-platform Stack benoetigt werden
 REQUIRED_PORTS="3100 3301 3302 5435 5436 4343"

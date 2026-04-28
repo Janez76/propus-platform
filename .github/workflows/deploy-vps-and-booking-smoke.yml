@@ -228,10 +228,11 @@ jobs:
           scp -i ~/.ssh/id_ed25519_propus_vps \
             scripts/deploy-remote.sh \
             scripts/rollback-vps.sh \
+            scripts/ensure-vps-bind-mounts.sh \
             scripts/vps-bootstrap-env-secrets.sh \
             root@${{ secrets.VPS_HOST }}:/tmp/propus-deploy-scripts/
           ssh -i ~/.ssh/id_ed25519_propus_vps root@${{ secrets.VPS_HOST }} \
-            "chmod +x /tmp/propus-deploy-scripts/*.sh && mkdir -p /opt/propus-platform/scripts && cp /tmp/propus-deploy-scripts/rollback-vps.sh /tmp/propus-deploy-scripts/vps-bootstrap-env-secrets.sh /opt/propus-platform/scripts/ && chmod +x /opt/propus-platform/scripts/vps-bootstrap-env-secrets.sh || true"
+            "chmod +x /tmp/propus-deploy-scripts/*.sh && mkdir -p /opt/propus-platform/scripts && cp /tmp/propus-deploy-scripts/rollback-vps.sh /tmp/propus-deploy-scripts/ensure-vps-bind-mounts.sh /tmp/propus-deploy-scripts/vps-bootstrap-env-secrets.sh /opt/propus-platform/scripts/ && chmod +x /opt/propus-platform/scripts/vps-bootstrap-env-secrets.sh || true"
 
       # ── Deploy (mit automatischem Retry bei Fehler) ────────────────────────
       - name: Deploy to VPS
