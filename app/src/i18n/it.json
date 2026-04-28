@@ -713,6 +713,8 @@
   "upload.status.uploading": "Upload in corso...",
   "upload.status.transferring": "Trasferimento al NAS in corso...",
   "upload.label.transferStatus": "Stato trasferimento NAS",
+  "upload.background.transferring": "Trasferimento al NAS in background",
+  "upload.background.progress": "{{done}} di {{total}} salvati su NAS",
   "upload.progress.fileCount": "File {{n}} di {{total}}",
   "upload.result.stored": "Salvato: ",
   "upload.result.invalidType": "Tipo file non valido: ",
