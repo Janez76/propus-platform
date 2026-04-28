@@ -5,7 +5,8 @@ import { Box, Camera, ExternalLink, FolderOpen, Receipt } from "lucide-react";
 import { Section, Empty, KpiGrid, Kpi, formatCHF, formatTS } from "../_shared";
 import { galleryDisplayHostPath, galleryUrl, matterportShowUrl } from "./_links";
 import { CopyLinkButton } from "./copy-link-button";
-import { linkGallery, linkMatterportTour, unlinkGallery, unlinkMatterportTour } from "./actions";
+import { linkGallery, unlinkGallery, unlinkMatterportTour } from "./actions";
+import { MatterportPicker } from "./matterport-picker";
 import {
   displayGallerySlug,
   type VerknuepfungenData,
@@ -51,7 +52,7 @@ export function VerknuepfungenView({
   data: VerknuepfungenData;
   searchParams?: Sp;
 }) {
-  const { orderNo, tour, gallery, folderCounts, invoices } = data;
+  const { orderNo, tour, gallery, folderCounts, invoices, matterportCandidates, matterportCandidatesError } = data;
   const gSlug = gallery ? displayGallerySlug(gallery) : null;
   const galleryLink = gSlug ? galleryUrl(gSlug) : null;
   const galleryPathDisplay = gSlug ? galleryDisplayHostPath(gSlug) : null;
@@ -164,29 +165,14 @@ export function VerknuepfungenView({
         ) : (
           <div className="space-y-3">
             <Empty>
-              Keine Tour mit dieser Bestellung verknüpft. Slug, Space-ID oder Link eintragen und
-              speichern.
+              Keine Tour mit dieser Bestellung verknüpft. Letzte Tour aus Matterport wählen oder
+              Space-ID/Link manuell eintragen.
             </Empty>
-            <form
-              action={linkMatterportTour}
-              className="flex max-w-lg flex-col gap-2 sm:flex-row sm:items-end"
-            >
-              <input type="hidden" name="order_no" value={String(orderNo)} />
-              <label className="flex-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-3)]">
-                Matterport (Space-ID oder URL mit ?m=…)
-                <input
-                  name="space_id_or_url"
-                  className="mt-1 w-full rounded-md border border-[var(--border)] bg-[var(--paper-strip)] px-2 py-1.5 text-sm focus:bg-white focus:border-[var(--gold-500)] focus:outline-none focus:ring-2 focus:ring-[var(--gold-500)]/20"
-                  placeholder="z. B. abc12XYZ oder https://my.matterport.com/show/?m=…"
-                />
-              </label>
-              <button
-                type="submit"
-                className="bd-btn-outline-gold shrink-0"
-              >
-                Verknüpfen
-              </button>
-            </form>
+            <MatterportPicker
+              orderNo={orderNo}
+              candidates={matterportCandidates}
+              candidatesError={matterportCandidatesError}
+            />
           </div>
         )}
       </Section>

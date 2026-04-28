@@ -124,6 +124,7 @@ function sha256FileAsync(filePath) {
 }
 const {
   UPLOAD_CATEGORY_MAP,
+  pickUnbearbeitetSubfolder,
   sanitizeUploadFilename,
   sanitizePathSegment,
   checkUploadExtension,
@@ -551,7 +552,15 @@ async function transferBatch(db, batchId, deps) {
         continue;
       }
 
-      const destination = path.join(targetDir, safeName);
+      // Bei Sammelkategorie `unbearbeitete` wird das Ziel pro Datei nach Endung
+      // in den passenden Unter-Ordner geroutet (Bilder/Grundrisse/Video/Sonstiges).
+      let perFileTargetDir = targetDir;
+      if (String(batch.category || "") === "unbearbeitete") {
+        const sub = pickUnbearbeitetSubfolder(safeName);
+        perFileTargetDir = path.join(targetDir, sub);
+        fs.mkdirSync(perFileTargetDir, { recursive: true });
+      }
+      const destination = path.join(perFileTargetDir, safeName);
       const fileStart = Date.now();
       try {
         // Prüfe ob identische Datei bereits auf NAS liegt (Content-Hash-Vergleich).

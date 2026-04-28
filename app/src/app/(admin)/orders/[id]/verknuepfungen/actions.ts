@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { query, queryOne } from "@/lib/db";
 import { requireOrderEditor } from "@/lib/auth.server";
 import { logOrderEvent } from "@/lib/audit";
+import { getMatterportModelMeta } from "@/lib/matterport.server";
 import { parseMatterportInput } from "./_links";
 
 function revalidateOrderLinks(orderNo: number) {
@@ -25,35 +26,74 @@ export async function linkMatterportTour(formData: FormData) {
     );
   }
 
-  const tour = await queryOne<{ id: number; booking_order_no: number | null }>(
+  const existing = await queryOne<{ id: number; booking_order_no: number | null }>(
     `SELECT id, booking_order_no FROM tour_manager.tours WHERE matterport_space_id = $1`,
     [spaceId],
   );
-  if (!tour) {
-    redirect(
-      `/orders/${orderNo}/verknuepfungen?error=${encodeURIComponent(
-        "Tour nicht in tour_manager gefunden. Bitte zuerst im Tour-Admin anlegen.",
-      )}`,
+
+  if (existing) {
+    if (existing.booking_order_no != null && existing.booking_order_no !== orderNo) {
+      redirect(
+        `/orders/${orderNo}/verknuepfungen?error=${encodeURIComponent(
+          `Diese Tour ist bereits mit Bestellung #${existing.booking_order_no} verknüpft`,
+        )}`,
+      );
+    }
+    await query(
+      `UPDATE tour_manager.tours
+       SET booking_order_no = $1, updated_at = NOW()
+       WHERE id = $2`,
+      [orderNo, existing.id],
     );
-  }
-  if (tour.booking_order_no != null && tour.booking_order_no !== orderNo) {
-    redirect(
-      `/orders/${orderNo}/verknuepfungen?error=${encodeURIComponent(
-        `Diese Tour ist bereits mit Bestellung #${tour.booking_order_no} verknüpft`,
-      )}`,
+    await logOrderEvent(
+      orderNo,
+      "matterport_linked",
+      { old: {}, new: { matterport_space_id: spaceId, tour_id: existing.id } },
+      editor,
     );
+    revalidateOrderLinks(orderNo);
+    redirect(`/orders/${orderNo}/verknuepfungen?saved=1`);
   }
 
-  await query(
-    `UPDATE tour_manager.tours
-     SET booking_order_no = $1, updated_at = NOW()
-     WHERE id = $2`,
-    [orderNo, tour.id],
+  // Tour noch nicht im tour_manager — minimalen Insert anlegen.
+  const meta = await getMatterportModelMeta(spaceId);
+  if (meta.error && !meta.created && !meta.state && !meta.name) {
+    redirect(
+      `/orders/${orderNo}/verknuepfungen?error=${encodeURIComponent(
+        `Matterport-Tour konnte nicht abgerufen werden: ${meta.error}`,
+      )}`,
+    );
+  }
+  const tourUrl = `https://my.matterport.com/show/?m=${spaceId}`;
+  const exxasAboId = `MP-${spaceId}`.slice(0, 32);
+  const inserted = await queryOne<{ id: number }>(
+    `INSERT INTO tour_manager.tours
+       (matterport_space_id, tour_url, matterport_state, matterport_created_at,
+        bezeichnung, exxas_abo_id, status, booking_order_no,
+        created_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, 'ACTIVE', $7, NOW(), NOW())
+     RETURNING id`,
+    [
+      spaceId,
+      tourUrl,
+      meta.state ?? "active",
+      meta.created ?? null,
+      meta.name ?? `Matterport ${spaceId}`,
+      exxasAboId,
+      orderNo,
+    ],
   );
   await logOrderEvent(
     orderNo,
     "matterport_linked",
-    { old: {}, new: { matterport_space_id: spaceId, tour_id: tour.id } },
+    {
+      old: {},
+      new: {
+        matterport_space_id: spaceId,
+        tour_id: inserted?.id ?? null,
+        auto_inserted: true,
+      },
+    },
     editor,
   );
   revalidateOrderLinks(orderNo);

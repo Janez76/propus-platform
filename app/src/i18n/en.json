@@ -668,6 +668,7 @@
   "upload.category.rawFloorplans": "Raw floor plans",
   "upload.category.rawVideo": "Raw video",
   "upload.category.rawOther": "Raw other",
+  "upload.category.unbearbeitete": "Unedited (auto-sorted)",
   "upload.category.finalFullsize": "Final images (fullsize)",
   "upload.category.finalWebsize": "Final images (websize 1920px)",
   "upload.category.finalFloorplans": "Final floor plans",

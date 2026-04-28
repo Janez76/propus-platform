@@ -208,11 +208,28 @@ Implementierung: `linkExistingOrderFolder` prüft per Dateiwald (`walkFilesRecur
 | `raw_grundrisse` | `Unbearbeitete/Grundrisse` | raw_material |
 | `raw_video` | `Unbearbeitete/Video` | raw_material |
 | `raw_sonstiges` | `Unbearbeitete/Sonstiges` | raw_material |
+| `unbearbeitete` | `Unbearbeitete/{Bilder,Grundrisse,Video,Sonstiges}` (auto-routed) | customer_folder |
 | `zur_auswahl` | `Zur Auswahl` | customer_folder |
 | `final_websize` | `Finale/Bilder/WEB SIZE` | customer_folder |
 | `final_fullsize` | `Finale/Bilder/FULLSIZE` | customer_folder |
 | `final_grundrisse` | `Finale/Grundrisse` | customer_folder |
 | `final_video` | `Finale/Video` | customer_folder |
+
+### Auto-Routing für `unbearbeitete`
+
+Sammelkategorie für Kundenordner-Uploads, die per Datei-Endung in den passenden
+Subfolder unter `Unbearbeitete/` einsortiert wird (Funktion
+`pickUnbearbeitetSubfolder` in `booking/order-storage.js`).
+
+| Endung | Subfolder |
+|---|---|
+| `.jpg .jpeg .png .gif .webp .tif .tiff .heic .heif .bmp .raw .nef .cr2 .cr3 .arw .orf .rw2 .dng .psd .psb` | `Bilder` |
+| `.mp4 .mov .avi .mxf .mts .m2ts .mkv .wmv .webm .r3d .braw .m4v .mpg .mpeg .3gp` | `Video` |
+| `.pdf .svg .dwg .dxf` | `Grundrisse` |
+| sonst | `Sonstiges` |
+
+Routing erfolgt im NAS-Transfer (`transferBatch` in `booking/upload-batch-service.js`),
+nicht beim Staging — `targetDir` wird pro File überschrieben.
 
 ---
 

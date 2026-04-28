@@ -36,6 +36,7 @@ const categoryAccept: Array<{ key: OrderUploadCategory; labelKey: string; accept
   { key: "raw_grundrisse",  labelKey: "upload.category.rawFloorplans",    accept: ".pdf,.jpg,.jpeg,.png,.svg,.tif,.tiff,.dwg,.dxf",                              folderTypes: ["raw_material"] },
   { key: "raw_video",       labelKey: "upload.category.rawVideo",         accept: "video/*,.mp4,.mov,.avi,.mxf,.mts,.m2ts,.mkv,.wmv,.webm,.r3d,.braw,.dng",      folderTypes: ["raw_material"] },
   { key: "raw_sonstiges",   labelKey: "upload.category.rawOther",         accept: "*",                                                                           folderTypes: ["raw_material"] },
+  { key: "unbearbeitete",   labelKey: "upload.category.unbearbeitete",    accept: "*",                                                                           folderTypes: ["customer_folder"] },
   { key: "final_fullsize",  labelKey: "upload.category.finalFullsize",    accept: ".jpg,.jpeg,.png,.tif,.tiff,.heic,.heif,.psd,.psb",                            folderTypes: ["customer_folder"] },
   { key: "final_websize",   labelKey: "upload.category.finalWebsize",     accept: ".jpg,.jpeg,.png,.webp,.tif,.tiff,.heic,.heif",                               folderTypes: ["customer_folder"] },
   { key: "final_grundrisse",labelKey: "upload.category.finalFloorplans",  accept: ".pdf,.jpg,.jpeg,.png,.svg,.tif,.tiff",                                        folderTypes: ["customer_folder"] },

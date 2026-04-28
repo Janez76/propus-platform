@@ -668,6 +668,7 @@
   "upload.category.rawFloorplans": "Planimetrie raw",
   "upload.category.rawVideo": "Video raw",
   "upload.category.rawOther": "Altro raw",
+  "upload.category.unbearbeitete": "Non elaborato (auto-ordinato)",
   "upload.category.finalFullsize": "Immagini finali (fullsize)",
   "upload.category.finalWebsize": "Immagini finali (web 1920px)",
   "upload.category.finalFloorplans": "Planimetrie finali",

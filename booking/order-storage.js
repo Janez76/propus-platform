@@ -45,6 +45,11 @@ const UPLOAD_CATEGORY_MAP = {
   raw_grundrisse: "Unbearbeitete/Grundrisse",
   raw_video: "Unbearbeitete/Video",
   raw_sonstiges: "Unbearbeitete/Sonstiges",
+  // Auto-sortierte Sammelkategorie für den Kundenordner. Der Basis-Pfad
+  // ist nur die Wurzel; das tatsächliche Subfolder (Bilder/Grundrisse/
+  // Video/Sonstiges) wird pro Datei via pickUnbearbeitetSubfolder()
+  // beim Transfer auf die NAS bestimmt.
+  unbearbeitete: "Unbearbeitete",
   zur_auswahl: "Zur Auswahl",
 };
 
@@ -117,6 +122,12 @@ const CATEGORY_PATH_SEGMENT_ALIASES = {
     "Unbearbeitet/Sonstiges",
     "unbearbeitet/Sonstiges",
   ],
+  unbearbeitete: [
+    "Unbearbeitete",
+    "Unbearbeitet",
+    "unbearbeitet",
+    "unbearbeitete",
+  ],
   zur_auswahl: [
     "Zur Auswahl",
     "Zur auswahl",
@@ -135,8 +146,37 @@ const UPLOAD_ALLOWED_EXT = {
   raw_video: new Set([".mp4", ".mov", ".avi", ".mxf", ".mts", ".m2ts", ".mkv", ".wmv", ".webm", ".r3d", ".braw", ".dng", ".mpg", ".mpeg", ".m4v", ".3gp"]),
   final_video: new Set([".mp4", ".mov", ".mkv", ".webm", ".m4v"]),
   raw_sonstiges: null,
+  // Sammelkategorie nimmt jeden Dateityp an; Routing in den richtigen
+  // Sub-Ordner erfolgt via pickUnbearbeitetSubfolder().
+  unbearbeitete: null,
   zur_auswahl: new Set([".jpg", ".jpeg"]),
 };
+
+const UNBEARBEITET_BILDER_EXT = new Set([
+  ".jpg", ".jpeg", ".png", ".gif", ".webp", ".tif", ".tiff",
+  ".heic", ".heif", ".bmp", ".raw", ".nef", ".cr2", ".cr3",
+  ".arw", ".orf", ".rw2", ".dng", ".psd", ".psb",
+]);
+const UNBEARBEITET_VIDEO_EXT = new Set([
+  ".mp4", ".mov", ".avi", ".mxf", ".mts", ".m2ts", ".mkv",
+  ".wmv", ".webm", ".r3d", ".braw", ".m4v", ".mpg", ".mpeg", ".3gp",
+]);
+const UNBEARBEITET_GRUNDRISS_EXT = new Set([
+  ".pdf", ".svg", ".dwg", ".dxf",
+]);
+
+/**
+ * Wählt das Sub-Verzeichnis für einen Upload mit Kategorie `unbearbeitete`
+ * basierend auf der Datei-Endung. Routet in:
+ *   Bilder | Video | Grundrisse | Sonstiges
+ */
+function pickUnbearbeitetSubfolder(fileName) {
+  const ext = path.extname(String(fileName || "")).toLowerCase();
+  if (UNBEARBEITET_BILDER_EXT.has(ext)) return "Bilder";
+  if (UNBEARBEITET_VIDEO_EXT.has(ext)) return "Video";
+  if (UNBEARBEITET_GRUNDRISS_EXT.has(ext)) return "Grundrisse";
+  return "Sonstiges";
+}
 
 function sanitizePathSegment(value, fallback = "Unbekannt", maxLen = 120) {
   const cleaned = String(value || "")
@@ -1305,6 +1345,7 @@ module.exports = {
   CUSTOMER_UPLOAD_STRUCTURE,
   RAW_MATERIAL_STRUCTURE,
   UPLOAD_CATEGORY_MAP,
+  pickUnbearbeitetSubfolder,
   sanitizePathSegment,
   sanitizeUploadFilename,
   normalizeUploadMode,

@@ -1,5 +1,6 @@
 import "server-only";
 import { query, queryOne } from "@/lib/db";
+import { listUnlinkedCandidates } from "@/lib/matterport.server";
 import type {
   VerknuepfungenData,
   VerknuepfungFolderCounts,
@@ -19,7 +20,7 @@ export async function loadVerknuepfungenData(orderId: string): Promise<Verknuepf
   }
   const orderNo = orderCheck.order_no;
 
-  const [tour, gallery, folderCounts, invoices] = await Promise.all([
+  const [tour, gallery, folderCounts, invoices, mpCandidates] = await Promise.all([
     queryOne<VerknuepfungTour>(`
       SELECT
         matterport_space_id,
@@ -64,7 +65,16 @@ export async function loadVerknuepfungenData(orderId: string): Promise<Verknuepf
       WHERE t.booking_order_no = $1
       ORDER BY iv.created_at DESC
     `, [orderNo]),
+    listUnlinkedCandidates(),
   ]);
 
-  return { orderNo, tour, gallery, folderCounts, invoices };
+  return {
+    orderNo,
+    tour,
+    gallery,
+    folderCounts,
+    invoices,
+    matterportCandidates: tour ? [] : mpCandidates.candidates,
+    matterportCandidatesError: tour ? null : mpCandidates.error,
+  };
 }

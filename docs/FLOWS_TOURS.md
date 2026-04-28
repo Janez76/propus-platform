@@ -199,6 +199,22 @@ Admin öffnet Tour-Detail → Abschnitt «Intern»
 
 **Komponenten:** `TourInternSection.tsx` (Dropdown `BookingDropdown`), `TourDetailPage.tsx` (Props `linkedCoreCustomerId`, `onBookingLinked`).
 
+### Cross-Reference: Booking-seitiger Matterport-Picker
+
+Seit April 2026 gibt es zusätzlich einen Picker im **Booking-Modul** unter
+`/admin/orders/{id}/verknuepfungen` (`MatterportPicker` Client-Komponente).
+Dort wählt der User aus den letzten Matterport-Spaces, die noch keine
+Bestellung haben — `app/src/lib/matterport.server.ts → listUnlinkedCandidates()`.
+
+Wichtig: Wenn die gewählte Space-ID **noch nicht** in `tour_manager.tours`
+existiert, legt die Server-Action `linkMatterportTour` einen **minimalen**
+tour_manager-Row an (matterport_space_id, tour_url, state, name, exxas_abo_id,
+status=ACTIVE, booking_order_no). Customer-/Vertrags-/Exxas-Anreicherung
+erfolgt **nicht** im Booking-Flow — diese passiert nur über Tour-Admin
+`POST /api/tours/admin/link-matterport` oder beim nächsten Sync-Cron.
+
+Siehe `docs/FLOWS_BOOKING.md` Abschnitt 19 für Details.
+
 ---
 
 ## 4. Verlängerungs-Flow (Portal)

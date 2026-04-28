@@ -30,12 +30,23 @@ export type VerknuepfungInvoice = {
   created_at: string;
 };
 
+export type VerknuepfungenMatterportCandidate = {
+  spaceId: string;
+  name: string | null;
+  internalId: string | null;
+  state: string | null;
+  created: string | null;
+  alreadyInTourManager: boolean;
+};
+
 export type VerknuepfungenData = {
   orderNo: number;
   tour: VerknuepfungTour | null;
   gallery: VerknuepfungGallery | null;
   folderCounts: VerknuepfungFolderCounts | null;
   invoices: VerknuepfungInvoice[];
+  matterportCandidates: VerknuepfungenMatterportCandidate[];
+  matterportCandidatesError: string | null;
 };
 
 export function displayGallerySlug(g: VerknuepfungGallery | null): string {

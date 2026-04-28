@@ -668,6 +668,7 @@
   "upload.category.rawFloorplans": "Raw-Grundrisse",
   "upload.category.rawVideo": "Raw-Video",
   "upload.category.rawOther": "Raw-Sonstiges",
+  "upload.category.unbearbeitete": "Unbearbeitete (auto-sortiert)",
   "upload.category.finalFullsize": "Finale Bilder (Fullsize)",
   "upload.category.finalWebsize": "Finale Bilder (Websize 1920px)",
   "upload.category.finalFloorplans": "Finale Grundrisse",

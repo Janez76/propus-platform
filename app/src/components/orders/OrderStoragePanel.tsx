@@ -26,6 +26,7 @@ import {
   getOrderStorageSummary,
   getOrderUploads,
   linkOrderStorageFolder,
+  moveRawMaterialToCustomer,
   provisionOrderStorage,
   type OrderFolderType,
   type OrderStorageSummaryResponse,
@@ -136,6 +137,15 @@ export function OrderStoragePanel({ orderNo, orderAddress }: Props) {
   const [generatingWebsite, setGeneratingWebsite] = useState(false);
   const [websiteError, setWebsiteError] = useState("");
   const [websiteSuccess, setWebsiteSuccess] = useState(false);
+
+  const [movingRaw, setMovingRaw] = useState(false);
+  const [moveError, setMoveError] = useState("");
+  const [moveStats, setMoveStats] = useState<{
+    scanned: number;
+    moved: number;
+    skippedExisting: number;
+    removedIdentical: number;
+  } | null>(null);
 
   const [contentModal, setContentModal] = useState<{
     folderType: "raw_material" | "customer_folder";
@@ -295,6 +305,30 @@ export function OrderStoragePanel({ orderNo, orderAddress }: Props) {
     }
   }
 
+  async function handleMoveToCustomer() {
+    if (!orderNo || !token) return;
+    if (
+      !window.confirm(
+        "Alle Dateien aus Rohmaterial in den Kundenordner unter Unbearbeitete/* verschieben? " +
+          "Identische Duplikate werden gelöscht, abweichende Dateien übersprungen.",
+      )
+    ) {
+      return;
+    }
+    setMovingRaw(true);
+    setMoveError("");
+    setMoveStats(null);
+    try {
+      const result = await moveRawMaterialToCustomer(token, orderNo);
+      setMoveStats(result.stats);
+      await loadSummary();
+    } catch (err) {
+      setMoveError(err instanceof Error ? err.message : "Verschieben fehlgeschlagen");
+    } finally {
+      setMovingRaw(false);
+    }
+  }
+
   if (!token) {
     return (
       <div className="rounded-lg border border-[var(--border)] bg-[var(--paper)] p-6 text-center text-sm text-[var(--ink-3)]">
@@ -399,6 +433,20 @@ export function OrderStoragePanel({ orderNo, orderAddress }: Props) {
                       Inhalt
                     </button>
                   )}
+                  {ft === "raw_material" && folder.exists && (
+                    <button
+                      type="button"
+                      onClick={() => void handleMoveToCustomer()}
+                      disabled={movingRaw}
+                      className="bd-btn-outline-gold text-xs"
+                      title="Verschiebt alle Dateien aus Rohmaterial in den Kundenordner unter Unbearbeitete/Bilder|Video|Grundrisse|Sonstiges"
+                    >
+                      {movingRaw
+                        ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        : <ChevronRight className="h-3.5 w-3.5" />}
+                      Zu Kundenordner verschieben
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => handleArchive(ft)}
@@ -427,6 +475,16 @@ export function OrderStoragePanel({ orderNo, orderAddress }: Props) {
               {ft === "customer_folder" && websiteError && (
                 <div className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600 dark:bg-red-950/30 dark:text-red-400">
                   {websiteError}
+                </div>
+              )}
+              {ft === "raw_material" && moveError && (
+                <div className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600 dark:bg-red-950/30 dark:text-red-400">
+                  {moveError}
+                </div>
+              )}
+              {ft === "raw_material" && moveStats && (
+                <div className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
+                  {moveStats.moved} verschoben · {moveStats.removedIdentical} Duplikate entfernt · {moveStats.skippedExisting} übersprungen ({moveStats.scanned} geprüft)
                 </div>
               )}
 

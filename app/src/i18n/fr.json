@@ -668,6 +668,7 @@
   "upload.category.rawFloorplans": "Plans bruts",
   "upload.category.rawVideo": "Vidéo brute",
   "upload.category.rawOther": "Autres fichiers bruts",
+  "upload.category.unbearbeitete": "Non traité (tri auto)",
   "upload.category.finalFullsize": "Images finales (plein format)",
   "upload.category.finalWebsize": "Images finales (web 1920px)",
   "upload.category.finalFloorplans": "Plans finaux",

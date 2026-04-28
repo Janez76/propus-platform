@@ -819,3 +819,83 @@ Falls dist-Verzeichnis existiert:
 - Alle `/api/*`- und `/auth/*`-Routen werden **nicht** vom Catch-all erfasst.
 - Wenn das dist-Verzeichnis nicht existiert (kein Build), zeigt die Root-Route einen Hinweis.
 - Frontend-Logs (`POST /api/logs`) werden mit `source: "admin-panel"` getaggt (vorher `"booking-backend"`).
+
+---
+
+## 19. Order-Detail → Verknüpfungen + Storage
+
+*Seit April 2026.* Order-Detail unter `/admin/orders/{id}/verknuepfungen` und `/admin/orders/{id}/dateien`.
+
+### Matterport-Tour an Bestellung verknüpfen
+
+UI: `app/src/app/(admin)/orders/[id]/verknuepfungen/verknuepfungen-view.tsx`
++ `matterport-picker.tsx` (Client-Komponente).
+
+```
+Order-Detail → Verknüpfungen
+  ├── tour ist null (keine Tour verknüpft)
+  │     → MatterportPicker
+  │           Dropdown: letzte unverknüpfte Touren live aus Matterport
+  │             (sortiert created DESC, gefiltert auf state=active)
+  │           ODER manuelles Eingabefeld (Space-ID / URL mit ?m=...)
+  │     → Submit (Server-Action linkMatterportTour)
+  │           ├── Space-ID schon in tour_manager.tours → UPDATE booking_order_no
+  │           └── Space-ID neu → INSERT minimaler tour_manager-Row
+  │                              (matterport_space_id, tour_url, state, name,
+  │                               exxas_abo_id=MP-<id>, status=ACTIVE,
+  │                               booking_order_no=<orderNo>)
+  │     → Audit-Log: matterport_linked (auto_inserted-Flag im data-JSON)
+  │
+  └── tour vorhanden
+        Anzeige Tour-Karte mit "Tour öffnen" + "Entknüpfen"-Button
+```
+
+### Datenquellen für den Picker
+
+| Was | Wo |
+|---|---|
+| Matterport-API GraphQL | `app/src/lib/matterport.server.ts` → `listRecentMatterportModels()` |
+| Auth-Credentials | DB `tour_manager.settings.matterport_api_credentials` ODER ENV `MATTERPORT_TOKEN_ID/SECRET` |
+| Cache | 30 s in-memory (Credentials + Liste); Reset via `invalidateMatterportCache()` |
+| Filter | `state === 'active'` UND keine Tour-Manager-Row mit `booking_order_no IS NOT NULL` für die Space-ID |
+| Limit | 25 Kandidaten |
+
+> Cross-Reference: das Tour-Admin-Modul hat einen separaten Endpoint
+> `GET /api/tours/admin/link-matterport` (`tours/lib/admin-phase3.js → getLinkMatterportJson`),
+> der ähnliche Daten zurückgibt — aber für den Tour-Admin-Workflow (Customer-Matching, Vertragslogik).
+> Die Booking-seitige `linkMatterportTour`-Action legt nur den minimalen tour_manager-Row an.
+
+### Galerie an Bestellung verknüpfen
+
+Server-Action `linkGallery` / `unlinkGallery` in `actions.ts`.
+Lookup über `tour_manager.galleries.slug` ODER `friendly_slug`.
+Setzt `booking_order_no` auf der Galerie-Row. Audit-Event `gallery_linked`.
+
+### Verschieben Rohmaterial → Kundenordner
+
+```
+OrderStoragePanel → Rohmaterial-Karte
+  → Button "Zu Kundenordner verschieben"
+  → POST /api/admin/orders/:orderNo/storage/move-raw-to-customer
+  → moveRawMaterialToCustomerFolder(order, db) in booking/order-storage.js
+        ├── walkFilesRecursive(rawLink.absolute_path)
+        ├── Pro Datei: target = path.join(customerLink.absolute_path, relativePath)
+        │     ├── target existiert + Hash gleich → unlink(source), removedIdentical++
+        │     ├── target existiert + Hash anders → skippedExisting++
+        │     └── target fehlt → copyFileVerified() + unlink(source), moved++
+        └── removeEmptyDirsRecursive(rawLink.absolute_path, keepRoot=true)
+  → Response: { moved, skippedExisting, removedIdentical, scanned }
+```
+
+Da `RAW_MATERIAL_STRUCTURE` (`Unbearbeitete/Bilder`, `Unbearbeitete/Video`) ein Subset
+von `CUSTOMER_UPLOAD_STRUCTURE` (`Unbearbeitete/{Bilder,Grundrisse,Video,Sonstiges}`) ist,
+landen Files automatisch im richtigen Subfolder — der relative Pfad bleibt erhalten.
+
+### API-Endpunkte
+
+| Methode | Pfad | Beschreibung |
+|---|---|---|
+| `POST` | `/api/admin/orders/:orderNo/storage/provision` | Ordner automatisch anlegen |
+| `POST` | `/api/admin/orders/:orderNo/storage/link` | Bestehenden Ordner verknüpfen |
+| `POST` | `/api/admin/orders/:orderNo/storage/move-raw-to-customer` | **NEU**: Rohmaterial → Kundenordner |
+| `DELETE` | `/api/admin/orders/:orderNo/storage/folder?folderType=...` | Ordner archivieren |

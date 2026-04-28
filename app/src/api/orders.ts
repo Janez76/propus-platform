@@ -134,6 +134,7 @@ export type OrderUploadCategory =
   | "raw_grundrisse"
   | "raw_video"
   | "raw_sonstiges"
+  | "unbearbeitete"
   | "final_websize"
   | "final_fullsize"
   | "final_grundrisse"
@@ -776,6 +777,17 @@ export const archiveOrderStorageFolder = (
   apiRequest<{ ok: boolean; folders: OrderStorageFolderSummary[] }>(
     `/api/admin/orders/${encodeURIComponent(orderNo)}/storage/folder?folderType=${encodeURIComponent(folderType)}`,
     "DELETE",
+    token,
+  );
+
+export const moveRawMaterialToCustomer = (token: string, orderNo: string) =>
+  apiRequest<{
+    ok: boolean;
+    stats: { scanned: number; moved: number; skippedExisting: number; removedIdentical: number };
+    folders: OrderStorageFolderSummary[];
+  }>(
+    `/api/admin/orders/${encodeURIComponent(orderNo)}/storage/move-raw-to-customer`,
+    "POST",
     token,
   );
 
