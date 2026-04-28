@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { ThemeRoot } from "@/components/ThemeRoot";
+import { StaleClientReloadHandler } from "@/components/StaleClientReloadHandler";
 import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
@@ -33,6 +34,7 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full flex flex-col">
+        <StaleClientReloadHandler />
         <ThemeRoot>{children}</ThemeRoot>
         <Toaster
           position="top-center"
