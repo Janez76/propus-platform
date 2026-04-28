@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
   <title>Propus - Bestell&uuml;bersicht</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -14,6 +15,11 @@
     :root{
       --gold:#9e8649;
       --gold-600:#8d7740;
+      /* WCAG AA Body-Text auf hellem BG: --gold (3.53:1 auf #fff) ist Fail.
+         --gold-text: #7A5E10 = 5.90:1 (AA Body). Verwendung: nur fuer color:
+         (Text), nicht fuer background/border. */
+      --gold-text:#7A5E10;
+      --gold-on-gold:#1C1B18; /* Dunkler Text auf Gold-BG: 4.7:1 */
       --gold-light:rgba(158,134,73,.08);
       --gold-glow:rgba(158,134,73,.15);
       --text:#1a1d23;
@@ -32,7 +38,7 @@
     }
     *{box-sizing:border-box;margin:0;padding:0}
     body{
-      font-family:'Manrope','Inter',system-ui,-apple-system,sans-serif;
+      font-family:'Manrope','Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
       color:var(--text);
       background:var(--bg);
       min-height:100vh;
@@ -79,10 +85,10 @@
       display:inline-flex;align-items:center;gap:6px;
       letter-spacing:-.01em;
     }
-    .btn-primary{background:var(--gold);color:#fff}
+    .btn-primary{background:var(--gold);color:var(--gold-on-gold)}
     .btn-primary:hover{background:var(--gold-600);transform:translateY(-1px);box-shadow:0 4px 12px rgba(158,134,73,.3)}
     .btn-ghost{background:rgba(0,0,0,.03);border:1.5px solid var(--line);color:var(--text)}
-    .btn-ghost:hover{border-color:var(--gold);color:var(--gold)}
+    .btn-ghost:hover{border-color:var(--gold-text);color:var(--gold-text)}
     .btn-sm{padding:7px 12px;font-size:12px;border-radius:8px}
     .btn-icon{
       width:34px;height:34px;padding:0;border-radius:10px;
@@ -90,7 +96,7 @@
       background:rgba(0,0,0,.03);border:1.5px solid transparent;color:var(--text-secondary);
       cursor:pointer;transition:all .2s ease;
     }
-    .btn-icon:hover{border-color:var(--gold);color:var(--gold);background:var(--gold-light)}
+    .btn-icon:hover{border-color:var(--gold-text);color:var(--gold-text);background:var(--gold-light)}
     .btn-icon-danger:hover{border-color:#ef4444;color:#ef4444;background:rgba(239,68,68,.06)}
     .cell-actions .btn-icon i{pointer-events:none}
 
@@ -115,15 +121,15 @@
       width:100%;padding:12px 16px;border:1.5px solid var(--line);border-radius:var(--radius-sm);
       font-size:15px;font-family:inherit;background:#fff;transition:border-color .2s;
     }
-    .login-field input:focus{border-color:var(--gold);outline:none;box-shadow:0 0 0 3px var(--gold-glow)}
+    .login-field input:focus{border-color:var(--gold-text);outline:none;box-shadow:0 0 0 3px var(--gold-glow)}
     .login-error{color:#d13b3b;font-size:13px;font-weight:600;margin-bottom:12px;display:none}
     .login-role-row{display:flex;gap:8px;margin-bottom:20px}
     .login-role-btn{flex:1;padding:10px;border:1.5px solid var(--line);border-radius:var(--radius-sm);background:#fff;font-size:13px;font-weight:700;cursor:pointer;color:var(--text-secondary);transition:all .2s;display:flex;align-items:center;justify-content:center;gap:6px;font-family:inherit}
-    .login-role-btn.active{border-color:var(--gold);background:rgba(158,134,73,.08);color:var(--gold)}
-    .login-role-btn:hover:not(.active){border-color:var(--gold);color:var(--gold)}
+    .login-role-btn.active{border-color:var(--gold-text);background:rgba(158,134,73,.08);color:var(--gold-text)}
+    .login-role-btn:hover:not(.active){border-color:var(--gold-text);color:var(--gold-text)}
     /* pw-wrap für Login-Felder */
     .login-field .pw-wrap input{width:100%;padding:12px 44px 12px 16px;border:1.5px solid var(--line);border-radius:var(--radius-sm);font-size:15px;font-family:inherit;background:#fff;transition:border-color .2s}
-    .login-field .pw-wrap input:focus{border-color:var(--gold);outline:none;box-shadow:0 0 0 3px var(--gold-glow)}
+    .login-field .pw-wrap input:focus{border-color:var(--gold-text);outline:none;box-shadow:0 0 0 3px var(--gold-glow)}
 
     /* ===== Content ===== */
     .content{max-width:1440px;margin:0 auto;padding:28px 32px;flex:1;width:100%}
@@ -161,7 +167,7 @@
     .stat-icon{
       width:36px;height:36px;border-radius:10px;display:grid;place-items:center;font-size:15px;
     }
-    .stat-icon.ic-total{background:var(--gold-light);color:var(--gold)}
+    .stat-icon.ic-total{background:var(--gold-light);color:var(--gold-text)}
     .stat-icon.ic-pending{background:rgba(245,183,50,.1);color:#b8860b}
     .stat-icon.ic-completed{background:rgba(34,197,94,.1);color:#16a34a}
     .stat-icon.ic-cancelled{background:rgba(239,68,68,.08);color:#ef4444}
@@ -175,8 +181,8 @@
       background:var(--card);font-weight:600;font-size:13px;cursor:pointer;
       transition:all .2s ease;font-family:inherit;color:var(--text-secondary);
     }
-    .filter-btn:hover{border-color:var(--gold);color:var(--gold)}
-    .filter-btn.active{background:var(--gold);color:#fff;border-color:var(--gold);box-shadow:0 2px 8px rgba(158,134,73,.25)}
+    .filter-btn:hover{border-color:var(--gold-text);color:var(--gold-text)}
+    .filter-btn.active{background:var(--gold);color:var(--gold-on-gold);border-color:var(--gold-text);box-shadow:0 2px 8px rgba(158,134,73,.25)}
     .toolbar{justify-content:space-between}
     .search-wrap{margin-left:auto}
 
@@ -200,7 +206,7 @@
     tr{transition:background .15s ease}
     tbody tr:nth-child(even) td{background:rgba(244,239,229,.15)}
     tr:hover td{background:var(--card-hover) !important}
-    .cell-order{font-weight:800;color:var(--gold);font-size:13px;font-variant-numeric:tabular-nums;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+    .cell-order{font-weight:800;color:var(--gold-text);font-size:13px;font-variant-numeric:tabular-nums;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
     .cell-order:hover{color:var(--gold-600)}
     .cell-date{font-size:13px;color:var(--text-secondary);white-space:nowrap}
     .cell-name{font-weight:700;font-size:14px}
@@ -218,7 +224,7 @@
       display:grid;place-items:center;font-size:13px;background:transparent;
       color:var(--text-secondary);transition:all .2s;
     }
-    .view-toggle-btn.active{background:#fff;color:var(--gold);box-shadow:0 1px 4px rgba(0,0,0,.1);font-weight:700}
+    .view-toggle-btn.active{background:#fff;color:var(--gold-text);box-shadow:0 1px 4px rgba(0,0,0,.1);font-weight:700}
     .view-toggle-btn:hover:not(.active){color:var(--text)}
 
     /* ===== Order Cards ===== */
@@ -261,7 +267,7 @@
       font-size:22px;font-weight:800;color:var(--text);
       font-variant-numeric:tabular-nums;letter-spacing:-.04em;line-height:1;
     }
-    .order-card-no span{color:var(--gold)}
+    .order-card-no span{color:var(--gold-text)}
     .order-card-meta{font-size:11px;color:var(--text-secondary);margin-top:4px;display:flex;gap:8px;align-items:center}
     .order-card-meta i{font-size:10px}
     .order-card-body{
@@ -285,7 +291,7 @@
       font-size:13px;color:var(--text-secondary);
       display:flex;align-items:flex-start;gap:8px;line-height:1.4;
     }
-    .order-card-address i{color:var(--gold);font-size:11px;margin-top:2px;flex-shrink:0}
+    .order-card-address i{color:var(--gold-text);font-size:11px;margin-top:2px;flex-shrink:0}
     .order-card-chips{display:flex;flex-wrap:wrap;gap:6px}
     .order-card-chip{
       display:inline-flex;align-items:center;gap:5px;
@@ -293,7 +299,7 @@
       background:rgba(0,0,0,.04);color:var(--text-secondary);
     }
     .order-card-chip i{font-size:10px}
-    .order-card-chip.chip-schedule{background:var(--gold-light);color:var(--gold)}
+    .order-card-chip.chip-schedule{background:var(--gold-light);color:var(--gold-text)}
     .order-card-chip.chip-pkg{background:rgba(59,130,246,.08);color:#1d4ed8}
     .order-card-chip.chip-photo{background:rgba(107,114,128,.08);color:#4b5563}
     .order-card-footer{
@@ -317,7 +323,7 @@
       -webkit-appearance:none;appearance:none;
       transition:all .2s;
     }
-    .status-select:focus{border-color:var(--gold);outline:none;box-shadow:0 0 0 3px var(--gold-glow)}
+    .status-select:focus{border-color:var(--gold-text);outline:none;box-shadow:0 0 0 3px var(--gold-glow)}
     .status-select.st-pending{color:#b8860b;border-color:rgba(245,183,50,.3);background-color:rgba(245,183,50,.04)}
     .status-select.st-confirmed{color:#1d4ed8;border-color:rgba(29,78,216,.22);background-color:rgba(29,78,216,.05)}
     .status-select.st-completed{color:#16a34a;border-color:rgba(34,197,94,.3);background-color:rgba(34,197,94,.04)}
@@ -366,17 +372,24 @@
     /* Employee Modal muss über allen anderen Modals liegen */
     #employeeModalOverlay{z-index:10030}
     #employeeModal{z-index:10031}
-    /* Druck: nur Overlay-Inhalt anzeigen */
+    /* Druck: nur Overlay-Inhalt anzeigen, mit Page-Break-Schutz */
     @media print{
       body *{visibility:hidden !important}
       #printOrderOverlay,#printOrderOverlay *{visibility:visible !important}
-      #printOrderOverlay{position:absolute !important;left:0 !important;top:0 !important;width:100% !important;overflow:visible !important;padding:0 !important;display:block !important;background:#fff !important}
-    }
-    /* Bestell-Druck: Overlay sichtbar, Rest ausgeblendet */
-    @media print{
-      body *{visibility:hidden !important}
-      #printOrderOverlay,#printOrderOverlay *{visibility:visible !important}
-      #printOrderOverlay{position:absolute !important;left:0 !important;top:0 !important;width:100% !important;overflow:visible !important;display:block !important;padding:24px !important;background:#fff !important}
+      #printOrderOverlay{
+        position:absolute !important;left:0 !important;top:0 !important;
+        width:100% !important;overflow:visible !important;
+        padding:24px !important;display:block !important;background:#fff !important;
+      }
+      /* Karten/Tabellenzeilen nicht ueber Seitenumbruch trennen */
+      #printOrderOverlay .page,
+      #printOrderOverlay table.d,
+      #printOrderOverlay table.d tr,
+      #printOrderOverlay h3{
+        page-break-inside:avoid;
+        break-inside:avoid;
+      }
+      #printOrderOverlay h3{ page-break-after:avoid; break-after:avoid; }
     }
     .modal-overlay.open{display:flex}
     .modal{
@@ -398,7 +411,7 @@
     .modal-section:last-child{margin-bottom:0}
     .modal-section h3{
       font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;
-      color:var(--gold);margin-bottom:10px;
+      color:var(--gold-text);margin-bottom:10px;
       padding-bottom:8px;border-bottom:1px solid rgba(231,232,236,.4);
     }
     .modal-row{display:flex;justify-content:space-between;font-size:13px;padding:5px 0}
@@ -410,7 +423,7 @@
       cursor:pointer;font-size:14px;display:grid;place-items:center;
       color:var(--text-secondary);transition:all .2s;z-index:10;
     }
-    .modal-close:hover{border-color:var(--gold);color:var(--gold);background:var(--gold-light)}
+    .modal-close:hover{border-color:var(--gold-text);color:var(--gold-text);background:var(--gold-light)}
     .modal-divider{height:1px;background:var(--line);margin:16px 32px 0}
 
     /* ===== Create Form ===== */
@@ -425,7 +438,7 @@
       color:var(--text);letter-spacing:-.01em;
     }
     .form-group input::placeholder,.form-group textarea::placeholder{color:rgba(26,29,35,.3);font-weight:400}
-    .form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--gold);outline:none}
+    .form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--gold-text);outline:none}
     .form-group textarea{resize:none;min-height:60px}
     .form-group select{-webkit-appearance:none;appearance:none;
       background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239e8649'/%3E%3C/svg%3E") no-repeat right 12px center;
@@ -433,7 +446,7 @@
     }
     .form-section-title{
       font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;
-      color:var(--gold);margin:18px 0 10px;padding-bottom:6px;
+      color:var(--gold-text);margin:18px 0 10px;padding-bottom:6px;
       border-bottom:1px solid rgba(231,232,236,.4);grid-column:1/-1;
     }
     .form-section-title:first-child{margin-top:0}
@@ -444,26 +457,26 @@
       cursor:pointer;transition:all .2s;text-align:center;
       background:var(--card);user-select:none;
     }
-    .pkg-card:hover{border-color:var(--gold)}
-    .pkg-card.selected{border-color:var(--gold);background:var(--gold-light)}
+    .pkg-card:hover{border-color:var(--gold-text)}
+    .pkg-card.selected{border-color:var(--gold-text);background:var(--gold-light)}
     .pkg-card .pkg-name{font-size:13px;font-weight:800;letter-spacing:.3px}
-    .pkg-card .pkg-price{font-size:18px;font-weight:800;color:var(--gold);margin-top:4px}
+    .pkg-card .pkg-price{font-size:18px;font-weight:800;color:var(--gold-text);margin-top:4px}
     .addon-card{
       display:flex;align-items:center;justify-content:space-between;
       padding:10px 14px;border:1.5px solid var(--line);border-radius:10px;
       cursor:pointer;transition:all .2s;user-select:none;background:var(--card);
     }
-    .addon-card:hover{border-color:var(--gold)}
-    .addon-card.selected{border-color:var(--gold);background:var(--gold-light)}
+    .addon-card:hover{border-color:var(--gold-text)}
+    .addon-card.selected{border-color:var(--gold-text);background:var(--gold-light)}
     .addon-card .addon-left{display:flex;align-items:center;gap:10px}
     .addon-card .addon-check{
       width:20px;height:20px;border-radius:6px;border:2px solid var(--line);
       display:grid;place-items:center;transition:all .2s;flex-shrink:0;
     }
-    .addon-card.selected .addon-check{border-color:var(--gold);background:var(--gold);color:#fff}
+    .addon-card.selected .addon-check{border-color:var(--gold-text);background:var(--gold);color:var(--gold-on-gold)}
     .addon-card .addon-name{font-size:13px;font-weight:600}
     .addon-card .addon-cat{font-size:11px;color:var(--text-secondary)}
-    .addon-card .addon-price{font-size:14px;font-weight:800;color:var(--gold);white-space:nowrap}
+    .addon-card .addon-price{font-size:14px;font-weight:800;color:var(--gold-text);white-space:nowrap}
     .addon-qty{
       display:flex;align-items:center;gap:4px;margin-left:8px;
     }
@@ -480,7 +493,7 @@
       width:100%;padding:9px 14px 9px 38px;border:1.5px solid var(--line);border-radius:10px;
       font-size:13px;font-family:inherit;background:var(--card);transition:border-color .2s;
     }
-    .search-input:focus{border-color:var(--gold);outline:none}
+    .search-input:focus{border-color:var(--gold-text);outline:none}
     .search-input::placeholder{color:rgba(26,29,35,.35)}
 
     /* ===== Pagination ===== */
@@ -494,8 +507,8 @@
       background:var(--card);font-size:13px;font-weight:700;font-family:inherit;
       cursor:pointer;display:grid;place-items:center;transition:all .2s;color:var(--text);
     }
-    .page-btn:hover{border-color:var(--gold);color:var(--gold)}
-    .page-btn.active{background:var(--gold);color:#fff;border-color:var(--gold)}
+    .page-btn:hover{border-color:var(--gold-text);color:var(--gold-text)}
+    .page-btn.active{background:var(--gold);color:var(--gold-on-gold);border-color:var(--gold-text)}
     .page-btn:disabled{opacity:.3;cursor:default;border-color:var(--line);color:var(--text)}
     .page-btn:disabled:hover{border-color:var(--line);color:var(--text)}
     .page-info{font-size:12px;color:var(--text-secondary);font-weight:600;margin:0 8px}
@@ -656,9 +669,9 @@
       font-size:13px;font-weight:800;color:var(--text);
       display:flex;align-items:center;gap:8px;margin-bottom:16px;
     }
-    .db-card-header i{color:var(--gold)}
+    .db-card-header i{color:var(--gold-text)}
     .db-card-link{
-      margin-left:auto;font-size:12px;font-weight:600;color:var(--gold);
+      margin-left:auto;font-size:12px;font-weight:600;color:var(--gold-text);
       background:none;border:none;cursor:pointer;font-family:inherit;padding:0;
     }
     .db-card-link:hover{text-decoration:underline}
@@ -678,12 +691,12 @@
     .db-upcoming-date{
       display:flex;flex-direction:column;align-items:center;justify-content:center;
       min-width:40px;padding:4px 6px;border-radius:8px;
-      background:var(--gold);color:#fff;text-align:center;flex-shrink:0;
+      background:var(--gold);color:var(--gold-on-gold);text-align:center;flex-shrink:0;
     }
     .db-upcoming-date .day{font-size:16px;font-weight:800;line-height:1}
     .db-upcoming-date .month{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;margin-top:2px}
     .db-upcoming-info{flex:1;min-width:0}
-    .db-upcoming-order{font-size:12px;font-weight:800;color:var(--gold);margin-bottom:2px}
+    .db-upcoming-order{font-size:12px;font-weight:800;color:var(--gold-text);margin-bottom:2px}
     .db-upcoming-addr{font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .db-upcoming-meta{font-size:11px;color:var(--text-secondary);margin-top:2px}
     .db-recent-list{display:flex;flex-direction:column;gap:0}
@@ -694,7 +707,7 @@
     }
     .db-recent-item:last-child{border-bottom:none}
     .db-recent-item:hover{background:rgba(158,134,73,.05)}
-    .db-recent-no{font-size:13px;font-weight:800;color:var(--gold);width:68px;flex-shrink:0}
+    .db-recent-no{font-size:13px;font-weight:800;color:var(--gold-text);width:68px;flex-shrink:0}
     .db-recent-name{flex:1;min-width:0}
     .db-recent-customer{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .db-recent-addr{font-size:11px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
@@ -726,7 +739,7 @@
       display:flex;align-items:center;gap:7px;
       transition:color .2s,border-color .2s;
     }
-    .admin-tab.active{color:var(--gold);border-bottom-color:var(--gold);}
+    .admin-tab.active{color:var(--gold-text);border-bottom-color:var(--gold-text);}
     .admin-tab:hover:not(.active){color:var(--text);}
 
     /* ===== Skill Sliders ===== */
@@ -735,8 +748,8 @@
       align-items:center;gap:10px;margin-bottom:10px;
     }
     .skill-row label{font-size:13px;font-weight:600;}
-    .skill-row input[type=range]{width:100%;accent-color:var(--gold);}
-    .skill-val{font-size:13px;font-weight:800;color:var(--gold);text-align:right;}
+    .skill-row input[type=range]{width:100%;accent-color:var(--gold-text);}
+    .skill-val{font-size:13px;font-weight:800;color:var(--gold-text);text-align:right;}
 
     /* ===== Blocked Dates ===== */
     .blocked-dates-list{
@@ -801,14 +814,14 @@
     }
     .absence-form textarea{ height:60px;padding:8px 10px;resize:vertical; }
     .absence-form input:focus,.absence-form select:focus,.absence-form textarea:focus{
-      outline:none;border-color:var(--gold);
+      outline:none;border-color:var(--gold-text);
     }
     .absence-allday-row{
       display:flex;align-items:center;gap:8px;
       margin-bottom:10px;font-size:13px;font-weight:500;
     }
     .absence-allday-row input[type=checkbox]{
-      width:16px;height:16px;accent-color:var(--gold);cursor:pointer;
+      width:16px;height:16px;accent-color:var(--gold-text);cursor:pointer;
     }
     .absence-time-row{
       display:grid;grid-template-columns:1fr 1fr;gap:10px;
@@ -895,7 +908,7 @@
     .bug-card-page{ font-size:11px;color:var(--text-secondary);word-break:break-all; }
     .bug-card-file a{
       display:inline-flex;align-items:center;gap:5px;
-      font-size:12px;color:var(--gold);font-weight:600;
+      font-size:12px;color:var(--gold-text);font-weight:600;
       text-decoration:none;margin-top:6px;
     }
     .bug-card-file a:hover{ text-decoration:underline; }
@@ -906,7 +919,7 @@
       padding:5px 8px;cursor:pointer;background:#fff;color:var(--text);
       transition:border-color .15s;
     }
-    .bug-status-select:focus{ outline:none;border-color:var(--gold); }
+    .bug-status-select:focus{ outline:none;border-color:var(--gold-text); }
 
     /* ===== Backup Cards ===== */
     .backup-card{
@@ -915,7 +928,7 @@
       display:flex;align-items:center;justify-content:space-between;
       gap:12px;flex-wrap:wrap;
     }
-    .backup-card:hover{ border-color:var(--gold);box-shadow:0 2px 12px rgba(139,122,61,.08); }
+    .backup-card:hover{ border-color:var(--gold-text);box-shadow:0 2px 12px rgba(139,122,61,.08); }
     .backup-card-info{ flex:1;min-width:0; }
     .backup-card-name{ font-size:14px;font-weight:700;color:var(--text);word-break:break-all;margin-bottom:5px; }
     .backup-card-meta{ display:flex;align-items:center;gap:12px;flex-wrap:wrap; }
@@ -979,7 +992,7 @@
     .emp-section.emp-section-sticky{ padding:10px 20px 12px; }
     .emp-section-label{
       font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;
-      color:var(--gold);margin-bottom:10px;display:flex;align-items:center;gap:7px;
+      color:var(--gold-text);margin-bottom:10px;display:flex;align-items:center;gap:7px;
     }
     /* Collapsible sections (One-Page ohne Scroll) */
     .emp-collapsible{ border-bottom:1px solid rgba(231,232,236,.6); }
@@ -987,11 +1000,11 @@
       display:flex;align-items:center;justify-content:space-between;
       padding:10px 20px;cursor:pointer;user-select:none;
       font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;
-      color:var(--gold);background:#faf9f6;transition:background .15s;
+      color:var(--gold-text);background:#faf9f6;transition:background .15s;
     }
     .emp-collapsible-header:hover{ background:rgba(158,134,73,.06); }
     .emp-collapsible-header i.fa-chevron-down{
-      font-size:10px;transition:transform .2s;color:var(--gold);
+      font-size:10px;transition:transform .2s;color:var(--gold-text);
     }
     .emp-collapsible-header.open i.fa-chevron-down{ transform:rotate(180deg); }
     .emp-collapsible-content{
@@ -1017,11 +1030,11 @@
       width:100%;
     }
     .emp-field input:focus,.emp-field select:focus{
-      outline:none;border-color:var(--gold);
+      outline:none;border-color:var(--gold-text);
       box-shadow:0 0 0 3px rgba(158,134,73,.1);
     }
     .emp-field input::placeholder{ color:rgba(26,29,35,.3); }
-    .req{ color:var(--gold); }
+    .req{ color:var(--gold-text); }
     .emp-hint{ font-weight:400;color:var(--text-secondary);font-size:11px;text-transform:none;letter-spacing:0; }
     .emp-input-icon-wrap{ position:relative; }
     .emp-input-icon{
@@ -1037,7 +1050,7 @@
     }
     .emp-skill-icon{
       width:28px;height:28px;border-radius:8px;
-      background:rgba(158,134,73,.12);color:var(--gold);
+      background:rgba(158,134,73,.12);color:var(--gold-text);
       display:grid;place-items:center;font-size:12px;flex-shrink:0;
     }
     .emp-skill-label{ font-size:13px;font-weight:600;color:var(--text); }
@@ -1053,7 +1066,7 @@
     }
     .emp-skill-badge{
       width:36px;height:28px;border-radius:8px;
-      background:var(--gold);color:#fff;
+      background:var(--gold);color:var(--gold-on-gold);
       font-size:13px;font-weight:800;
       display:grid;place-items:center;flex-shrink:0;
     }
@@ -1061,17 +1074,17 @@
     .emp-add-btn{
       display:inline-flex;align-items:center;gap:6px;
       padding:6px 12px;border-radius:8px;border:1.5px solid var(--gold);
-      background:transparent;color:var(--gold);font-family:inherit;
+      background:transparent;color:var(--gold-text);font-family:inherit;
       font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;
     }
-    .emp-add-btn:hover{ background:var(--gold);color:#fff; }
+    .emp-add-btn:hover{ background:var(--gold);color:var(--gold-on-gold); }
     /* Toggle switch */
     .emp-toggle-row{
       display:flex;align-items:center;gap:14px;cursor:pointer;
       padding:14px 16px;border-radius:12px;border:1.5px solid var(--line);
       background:var(--bg);transition:border-color .15s;
     }
-    .emp-toggle-row:hover{ border-color:var(--gold); }
+    .emp-toggle-row:hover{ border-color:var(--gold-text); }
     .emp-toggle-row input[type=checkbox]{ display:none; }
     .emp-toggle-track{
       width:42px;height:24px;border-radius:12px;background:var(--line);
@@ -1173,7 +1186,7 @@
           </label>
         </div>
         <div style="text-align:right;margin-top:4px">
-          <a href="#" id="photogForgotLink" style="font-size:12px;color:var(--gold);text-decoration:none" onclick="showPhotogForgotPanel();return false;" data-i18n="login_forgot">Passwort vergessen?</a>
+          <a href="#" id="photogForgotLink" style="font-size:12px;color:var(--gold-text);text-decoration:none" onclick="showPhotogForgotPanel();return false;" data-i18n="login_forgot">Passwort vergessen?</a>
         </div>
       </div>
       <!-- Passwort vergessen Panel -->
@@ -1185,7 +1198,7 @@
         </div>
         <div id="photogForgotMsg" style="font-size:13px;margin:8px 0 0;display:none"></div>
         <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="sendPhotogForgotPassword()" data-i18n="login_reset_btn">Reset-Link senden</button>
-        <a href="#" style="display:block;text-align:center;margin-top:10px;font-size:12px;color:var(--gold);text-decoration:none" onclick="hidePhotogForgotPanel();return false;" data-i18n="login_back">&larr; Zur&uuml;ck zum Login</a>
+        <a href="#" style="display:block;text-align:center;margin-top:10px;font-size:12px;color:var(--gold-text);text-decoration:none" onclick="hidePhotogForgotPanel();return false;" data-i18n="login_back">&larr; Zur&uuml;ck zum Login</a>
       </div>
       <button class="btn btn-primary" style="width:100%;margin-top:12px;padding:13px;font-size:15px;border-radius:var(--radius-sm);justify-content:center" onclick="login()" data-i18n="login_btn">Login</button>
     </div>
@@ -1404,7 +1417,7 @@
       <div class="table-wrap" style="padding:28px;max-width:960px;margin:0 auto">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:20px;flex-wrap:wrap">
           <div style="max-width:620px">
-            <div style="display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:rgba(158,134,73,.08);color:var(--gold);font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;margin-bottom:14px">
+            <div style="display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:rgba(158,134,73,.08);color:var(--gold-text);font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;margin-bottom:14px">
               <i class="fa-solid fa-sparkles"></i>
               Neue zentrale Konfiguration
             </div>
@@ -1487,7 +1500,7 @@
     <div id="tabContentBackups" class="tab-content" style="display:none">
       <div class="content">
         <div class="section-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:18px">
-          <h2 style="margin:0;font-size:18px;font-weight:700"><i class="fa-solid fa-database" style="color:var(--gold);margin-right:8px"></i>Backups</h2>
+          <h2 style="margin:0;font-size:18px;font-weight:700"><i class="fa-solid fa-database" style="color:var(--gold-text);margin-right:8px"></i>Backups</h2>
           <button class="btn btn-primary" onclick="createBackup()" id="createBackupBtn" style="display:flex;align-items:center;gap:7px">
             <i class="fa-solid fa-plus"></i> Neues Backup erstellen
           </button>
@@ -1540,7 +1553,7 @@
             <label for="custModalEmail">E-Mail <span class="req">*</span></label>
             <div style="display:flex;gap:8px;align-items:center">
               <input id="custModalEmail" type="email" placeholder="name@example.ch" style="flex:1">
-              <button type="button" id="custEmailChangeBtn" onclick="openEmailChangeDialog()" style="display:none;white-space:nowrap;padding:7px 12px;border-radius:8px;border:1.5px solid var(--gold);background:transparent;color:var(--gold);font-size:12px;cursor:pointer;font-weight:600"><i class="fa-solid fa-pen"></i> E-Mail ändern</button>
+              <button type="button" id="custEmailChangeBtn" onclick="openEmailChangeDialog()" style="display:none;white-space:nowrap;padding:7px 12px;border-radius:8px;border:1.5px solid var(--gold);background:transparent;color:var(--gold-text);font-size:12px;cursor:pointer;font-weight:600"><i class="fa-solid fa-pen"></i> E-Mail ändern</button>
             </div>
           </div>
           <div class="emp-field">
@@ -1564,7 +1577,7 @@
           </div>
           <div class="emp-field emp-field-full">
             <label style="display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none">
-              <input type="checkbox" id="custModalIsAdmin" style="width:18px;height:18px;accent-color:var(--gold);cursor:pointer;flex-shrink:0">
+              <input type="checkbox" id="custModalIsAdmin" style="width:18px;height:18px;accent-color:var(--gold-text);cursor:pointer;flex-shrink:0">
               <span>Admin-Zugang <span class="emp-hint">(Zugriff auf das Admin-Panel)</span></span>
             </label>
           </div>
@@ -1994,7 +2007,7 @@
     <div class="modal" style="max-width:440px">
       <button class="modal-close" onclick="closeReschedule()"><i class="fa-solid fa-xmark"></i></button>
       <div class="modal-header">
-        <h2><i class="fa-solid fa-clock-rotate-left" style="color:var(--gold);margin-right:8px;font-size:16px"></i>Termin verschieben</h2>
+        <h2><i class="fa-solid fa-clock-rotate-left" style="color:var(--gold-text);margin-right:8px;font-size:16px"></i>Termin verschieben</h2>
         <p class="modal-sub" id="rescheduleInfo"></p>
       </div>
       <div class="modal-body">
@@ -2009,7 +2022,7 @@
           </div>
         </div>
         <p style="font-size:12px;color:var(--text-secondary);margin-top:14px;line-height:1.5">
-          <i class="fa-solid fa-circle-info" style="color:var(--gold);margin-right:4px"></i>
+          <i class="fa-solid fa-circle-info" style="color:var(--gold-text);margin-right:4px"></i>
           Der alte Kalendereintrag wird gelöscht, ein neuer erstellt und alle Parteien per E-Mail informiert.
         </p>
         <div class="form-actions" style="margin-top:20px">
@@ -2025,7 +2038,7 @@
     <div class="modal" style="max-width:440px">
       <button class="modal-close" onclick="closeReassign()"><i class="fa-solid fa-xmark"></i></button>
       <div class="modal-header">
-        <h2><i class="fa-solid fa-user-pen" style="color:var(--gold);margin-right:8px;font-size:16px"></i>Fotograf ändern</h2>
+        <h2><i class="fa-solid fa-user-pen" style="color:var(--gold-text);margin-right:8px;font-size:16px"></i>Fotograf ändern</h2>
         <p class="modal-sub" id="reassignInfo"></p>
       </div>
       <div class="modal-body">
@@ -2038,7 +2051,7 @@
           <select id="ra_photographer"></select>
         </div>
         <p style="font-size:12px;color:var(--text-secondary);margin-top:14px;line-height:1.5">
-          <i class="fa-solid fa-circle-info" style="color:var(--gold);margin-right:4px"></i>
+          <i class="fa-solid fa-circle-info" style="color:var(--gold-text);margin-right:4px"></i>
           Der Kalendereintrag wird beim alten Fotografen gelöscht und beim neuen erstellt. Alle Parteien werden per E-Mail informiert.
         </p>
         <div class="form-actions" style="margin-top:20px">
@@ -2054,7 +2067,7 @@
     <div class="modal" style="max-width:500px">
       <button class="modal-close" onclick="closeUploadtoolModal()"><i class="fa-solid fa-xmark"></i></button>
       <div class="modal-header">
-        <h2><i class="fa-solid fa-cloud-arrow-up" style="color:var(--gold);margin-right:8px;font-size:16px"></i><span data-i18n="material_send">Upload</span></h2>
+        <h2><i class="fa-solid fa-cloud-arrow-up" style="color:var(--gold-text);margin-right:8px;font-size:16px"></i><span data-i18n="material_send">Upload</span></h2>
       </div>
       <div class="modal-body">
         <div class="form-group" style="margin-bottom:0">
@@ -2078,7 +2091,7 @@
     <div class="modal" style="max-width:560px">
       <button class="modal-close" onclick="closeOrderMessageModal()"><i class="fa-solid fa-xmark"></i></button>
       <div class="modal-header">
-        <h2 id="omTitle"><i class="fa-solid fa-envelope" style="color:var(--gold);margin-right:8px;font-size:16px"></i>Nachricht senden</h2>
+        <h2 id="omTitle"><i class="fa-solid fa-envelope" style="color:var(--gold-text);margin-right:8px;font-size:16px"></i>Nachricht senden</h2>
         <div class="modal-sub" id="omInfo">Auftrag</div>
       </div>
       <div class="modal-body">
@@ -2145,7 +2158,7 @@
     <div class="modal" style="position:relative;max-width:680px">
       <button class="modal-close" onclick="closeCreate()"><i class="fa-solid fa-xmark"></i></button>
       <div class="modal-header">
-        <h2><i class="fa-solid fa-plus" style="color:var(--gold);margin-right:8px;font-size:16px"></i>Neue Bestellung</h2>
+        <h2><i class="fa-solid fa-plus" style="color:var(--gold-text);margin-right:8px;font-size:16px"></i>Neue Bestellung</h2>
         <div class="modal-sub">Telefonische oder manuelle Buchung erfassen</div>
       </div>
       <div class="modal-divider"></div>
@@ -3344,7 +3357,7 @@
         box.innerHTML = `
           <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text-secondary);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between">
             <span><i class="fa-solid fa-comments" style="margin-right:5px;color:var(--gold)"></i>Letzte Nachrichten</span>
-            <button onclick="openOrderMessageModal(${orderNo})" style="font-size:11px;font-weight:700;color:var(--gold);background:none;border:none;cursor:pointer;padding:0">Alle anzeigen →</button>
+            <button onclick="openOrderMessageModal(${orderNo})" style="font-size:11px;font-weight:700;color:var(--gold-text);background:none;border:none;cursor:pointer;padding:0">Alle anzeigen →</button>
           </div>
           <div style="display:flex;flex-direction:column;gap:6px">
             ${last3.map(m => {
@@ -3412,7 +3425,7 @@
       const sendBtn = document.getElementById("omSendBtn");
       const uploadBtn = document.getElementById("omUploadBtn");
       if (orderMessageMode === "upload") {
-        if (titleEl) titleEl.innerHTML = '<i class="fa-solid fa-upload" style="color:var(--gold);margin-right:8px;font-size:16px"></i>Upload';
+        if (titleEl) titleEl.innerHTML = '<i class="fa-solid fa-upload" style="color:var(--gold-text);margin-right:8px;font-size:16px"></i>Upload';
         if (recipients) recipients.style.display = "none";
         if (msgSection) msgSection.style.display = "none";
         if (uploadSection) uploadSection.style.display = "";
@@ -3420,7 +3433,7 @@
         if (sendBtn) sendBtn.style.display = "none";
         if (uploadBtn) uploadBtn.className = "btn btn-primary";
       } else {
-        if (titleEl) titleEl.innerHTML = '<i class="fa-solid fa-envelope" style="color:var(--gold);margin-right:8px;font-size:16px"></i>Nachricht senden';
+        if (titleEl) titleEl.innerHTML = '<i class="fa-solid fa-envelope" style="color:var(--gold-text);margin-right:8px;font-size:16px"></i>Nachricht senden';
         if (msgSection) msgSection.style.display = "";
         if (uploadSection) uploadSection.style.display = "none";
         if (historySection) historySection.style.display = "";
@@ -4927,7 +4940,7 @@ ${o.keyPickup?`<h3>Schl\u00fcsselabholung</h3><table class="d"><tr><td>Adresse</
 
           return `<div class="backup-card">
             <div class="backup-card-info">
-              <div class="backup-card-name"><i class="fa-solid ${typeIcon}" style="color:var(--gold);margin-right:8px"></i>${escHtml(b.name)}</div>
+              <div class="backup-card-name"><i class="fa-solid ${typeIcon}" style="color:var(--gold-text);margin-right:8px"></i>${escHtml(b.name)}</div>
               <div class="backup-card-meta">
                 <span><i class="fa-solid fa-tag" style="font-size:11px;opacity:.5;margin-right:4px"></i>${typeLabel}</span>
                 <span><i class="fa-regular fa-clock" style="font-size:11px;opacity:.5;margin-right:4px"></i>${date}</span>
@@ -5067,7 +5080,7 @@ ${o.keyPickup?`<h3>Schl\u00fcsselabholung</h3><table class="d"><tr><td>Adresse</
             <span style="font-weight:700">${escHtml(c.name || "–")}</span>
             ${c.company ? `<br><span style="font-size:11px;color:var(--text-secondary)">${escHtml(c.company)}</span>` : ""}
           </td>
-          <td><a href="mailto:${escHtml(c.email)}" style="color:var(--gold);text-decoration:none">${escHtml(c.email)}</a></td>
+          <td><a href="mailto:${escHtml(c.email)}" style="color:var(--gold-text);text-decoration:none">${escHtml(c.email)}</a></td>
           <td>${escHtml(c.phone || "–")}</td>
           <td style="font-size:12px">${escHtml(addr || "–")}</td>
           <td style="text-align:center">
@@ -5082,7 +5095,7 @@ ${o.keyPickup?`<h3>Schl\u00fcsselabholung</h3><table class="d"><tr><td>Adresse</
           <td style="font-size:12px;color:var(--text-secondary)">${dateStr}</td>
           <td style="text-align:center">
             <div style="display:flex;gap:4px;justify-content:center">
-              <button class="icon-btn" title="Neue Bestellung" onclick="quickCreateOrder(${c.id})" style="color:var(--gold);background:rgba(212,175,55,0.1);border:1px solid rgba(212,175,55,0.2)"><i class="fa-solid fa-cart-plus"></i></button>
+              <button class="icon-btn" title="Neue Bestellung" onclick="quickCreateOrder(${c.id})" style="color:var(--gold-text);background:rgba(212,175,55,0.1);border:1px solid rgba(212,175,55,0.2)"><i class="fa-solid fa-cart-plus"></i></button>
               <button class="icon-btn" title="Bearbeiten" onclick="openCustomerModal(${c.id})" style="color:#3b82f6;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2)"><i class="fa-solid fa-pen-to-square"></i></button>
               <button class="icon-btn" title="${isBlocked ? "Entsperren" : "Sperren"}" onclick="quickToggleBlock(${c.id},${!isBlocked})" style="color:${isBlocked ? "#16a34a" : "#ef4444"};background:${isBlocked ? "rgba(22,163,74,0.1)" : "rgba(239,68,68,0.1)"};border:1px solid ${isBlocked ? "rgba(22,163,74,0.2)" : "rgba(239,68,68,0.2)"}"><i class="fa-solid ${isBlocked ? "fa-lock-open" : "fa-lock"}"></i></button>
             </div>
@@ -5710,7 +5723,7 @@ ${o.keyPickup?`<h3>Schl\u00fcsselabholung</h3><table class="d"><tr><td>Adresse</
           : `<span title="Noch kein Kalender-Eintrag" style="font-size:11px;color:var(--text-secondary);margin-left:6px"><i class="fa-regular fa-calendar"></i></span>`;
         return `<div class="absence-card">
           <div class="absence-card-info">
-            <div class="absence-card-dates"><i class="fa-solid fa-calendar-xmark" style="color:var(--gold);margin-right:5px"></i>${vonStr}${bisStr}${timeStr}${calIcon}</div>
+            <div class="absence-card-dates"><i class="fa-solid fa-calendar-xmark" style="color:var(--gold-text);margin-right:5px"></i>${vonStr}${bisStr}${timeStr}${calIcon}</div>
             <div class="absence-card-grund"><i class="fa-solid ${icon}"></i> ${escHtml(d.grund)}</div>
             ${noteHtml}
           </div>
