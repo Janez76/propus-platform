@@ -124,6 +124,12 @@ type OrderFormData = {
   travelZoneLabel: string;
 };
 
+/** Formatiert ein ISO-Datum (YYYY-MM-DD) als deutsches Datum (DD.MM.YYYY); gibt sonst die Eingabe zurück. */
+function formatDateDe(iso: string): string {
+  const m = (iso || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? `${m[3]}.${m[2]}.${m[1]}` : iso;
+}
+
 /** Trennt „Bahnhofstrasse 12a“ in Strasse + Hausnummer (gleiche Heuristik wie Buchung). */
 function splitSwissStreetLine(line: string): { street: string; houseNumber: string } {
   const t = (line || "").trim();
@@ -1844,7 +1850,7 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                   {/* Ausgewählter Slot Info */}
                   {formData.time && (
                     <p className="mt-3 text-sm font-semibold text-[var(--accent)]">
-                      Gewählt: {formData.date} um {formData.time} Uhr
+                      Gewählt: {formatDateDe(formData.date)} um {formData.time} Uhr
                     </p>
                   )}
                 </div>
