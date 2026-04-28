@@ -407,7 +407,7 @@ body.admin-body--login #root {
 .gal-login-flat__sub {
 	margin: 0 0 2rem;
 	font-size: 13px;
-	color: #aaa;
+	color: #767676;
 	text-align: center;
 	line-height: 1.45;
 }
@@ -439,11 +439,11 @@ body.admin-body--login #root {
 }
 
 .gal-login-flat__field input:focus {
-	border-color: #b68e20;
+	border-color: #7A5E10;
 }
 
 .gal-login-flat__field input::placeholder {
-	color: #ccc;
+	color: #767676;
 }
 
 body.theme-dark .gal-login-flat__field input {
@@ -2033,7 +2033,7 @@ body.theme-dark .gal-et-save--flash.admin-btn--outline.gal-admin-btn-new-listing
 }
 
 .gal-et-dd-trigger--open {
-	border-color: #b68e20;
+	border-color: #7A5E10;
 }
 
 .gal-et-dd-trigger-left {
@@ -2127,7 +2127,7 @@ body.theme-dark .gal-et-save--flash.admin-btn--outline.gal-admin-btn-new-listing
 	font-size: 11px;
 	font-weight: 600;
 	letter-spacing: 0.07em;
-	color: #aaa;
+	color: #767676;
 	text-transform: uppercase;
 	padding: 0.75rem 1rem 0.4rem;
 }
@@ -2336,7 +2336,7 @@ body.theme-dark .gal-et-dd-chevron-svg {
 
 .gal-et-ph-sub {
 	font-size: 11px;
-	color: #bbb;
+	color: #767676;
 	margin-bottom: 0.5rem;
 }
 

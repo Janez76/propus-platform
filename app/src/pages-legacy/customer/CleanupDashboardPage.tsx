@@ -376,7 +376,7 @@ export function CleanupDashboardPage() {
       <div className="max-w-3xl mx-auto px-4 py-6 sm:py-10 space-y-5">
         {loading && (
           <div className="flex flex-col items-center py-16">
-            <Loader2 className="h-8 w-8 animate-spin" style={{ color: "#B68E20" }} />
+            <Loader2 className="h-8 w-8 animate-spin" style={{ color: "#7A5E10" }} />
             <p className="text-sm text-gray-500 mt-3">Touren werden geladen…</p>
           </div>
         )}

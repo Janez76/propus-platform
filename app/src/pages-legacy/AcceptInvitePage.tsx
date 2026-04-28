@@ -150,12 +150,12 @@ const aipStyles = `
   .aip-actions { display: flex; gap: 10px; flex-wrap: wrap; }
   .aip-card button {
     flex: 1; min-width: 160px; border: 0; border-radius: 10px; padding: 0.82rem 1rem;
-    background: #B68E20; color: #fff; font: inherit; font-weight: 600; cursor: pointer;
+    background: #7A5E10; color: #fff; font: inherit; font-weight: 600; cursor: pointer;
   }
-  .aip-card button:hover { background: #9a7619; }
+  .aip-card button:hover { background: #5e470d; }
   .aip-card button:disabled { opacity: 0.7; cursor: not-allowed; }
   .aip-actions a, .aip-back a {
-    color: #B68E20; text-decoration: none; font-weight: 600; font-size: 0.9rem;
+    color: #7A5E10; text-decoration: none; font-weight: 600; font-size: 0.9rem;
     display: inline-flex; align-items: center; padding: 0.82rem 1rem;
   }
   .aip-back { text-align: center; margin-top: 1rem; }

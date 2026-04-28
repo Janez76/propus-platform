@@ -786,7 +786,7 @@ Ihr Propus Team`,
                 <div style="font-size:11px;color:#6b7280;line-height:1.5;">{{weiterfuehrenHint}}</div>
               </td>
               <td style="padding:13px 16px;vertical-align:middle;white-space:nowrap;">
-                <a href="{{weiterfuehrenUrl}}" style="display:inline-block;padding:10px 22px;border-radius:999px;background-color:#B68E20;background:linear-gradient(135deg,#c9a03a 0%,#8a6c18 100%);color:#fff;text-decoration:none;font-size:13px;font-weight:700;box-shadow:0 3px 10px rgba(182,142,32,0.45);mso-padding-alt:0;line-height:1.4;">&#10003;&nbsp;Weiterführen</a>
+                <a href="{{weiterfuehrenUrl}}" style="display:inline-block;padding:10px 22px;border-radius:999px;background-color:#7A5E10;background:linear-gradient(135deg,#8a6c18 0%,#5e470d 100%);color:#fff;text-decoration:none;font-size:13px;font-weight:700;box-shadow:0 3px 10px rgba(122,94,16,0.45);mso-padding-alt:0;line-height:1.4;">&#10003;&nbsp;Weiterführen</a>
               </td>
             </tr>
           </table>

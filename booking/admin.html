@@ -4040,18 +4040,18 @@ body{font-family:Arial,Helvetica,sans-serif;margin:0;padding:0;color:#222;backgr
 .page{max-width:174mm;margin:0 auto}
 .hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2.5pt solid #9e8649;padding-bottom:10pt;margin-bottom:16pt}
 .brand{font-size:18pt;font-weight:900;letter-spacing:1px;color:#9e8649;line-height:1}
-.brand small{display:block;font-size:7.5pt;color:#aaa;font-weight:400;letter-spacing:.5px;margin-top:3pt}
+.brand small{display:block;font-size:7.5pt;color:#767676;font-weight:400;letter-spacing:.5px;margin-top:3pt}
 .order-no{font-size:14pt;font-weight:800;color:#111;text-align:right}
 .badge{display:inline-block;padding:2pt 8pt;border-radius:20pt;font-size:8pt;font-weight:700;background:#fef3cd;color:#b07d00;margin-top:3pt}
 .badge.done,.badge.completed{background:#e8f5e9;color:#2e7d32}.badge.cancelled{background:#fde8e8;color:#c0392b}.badge.confirmed{background:#e3f2fd;color:#1565c0}.badge.paused{background:#ffede0;color:#c2410c}.badge.archived{background:#eef0f3;color:#4b5563}
-.meta{font-size:8pt;color:#aaa;margin-top:3pt;text-align:right}
-h3{font-size:7.5pt;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:#9e8649;margin:12pt 0 5pt;border-bottom:1pt solid #eee;padding-bottom:3pt}
+.meta{font-size:8pt;color:#767676;margin-top:3pt;text-align:right}
+h3{font-size:7.5pt;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:#7A5E10;margin:12pt 0 5pt;border-bottom:1pt solid #eee;padding-bottom:3pt}
 table.d{width:100%;border-collapse:collapse;margin-bottom:2pt}
 table.d td{padding:2.5pt 0;vertical-align:top;font-size:10pt}
-table.d td:first-child{color:#888;width:110pt}
+table.d td:first-child{color:#767676;width:110pt}
 table.d td:last-child{font-weight:500;text-align:right}
 .tot td{font-weight:800;font-size:11pt;border-top:1.5pt solid #ddd;padding-top:5pt}
-.footer{margin-top:24pt;border-top:1pt solid #eee;padding-top:8pt;font-size:8pt;color:#bbb;text-align:center}
+.footer{margin-top:24pt;border-top:1pt solid #eee;padding-top:8pt;font-size:8pt;color:#767676;text-align:center}
 @media screen{body{padding:24px;background:#f5f3ee}.page{background:#fff;padding:24px;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,.1);max-width:700px;margin:0 auto}}`;
       const printBody = `<div class="page">
 <div class="hdr">
@@ -4530,7 +4530,7 @@ ${o.keyPickup?`<h3>Schl\u00fcsselabholung</h3><table class="d"><tr><td>Adresse</
         { key:"confirmed", label:"\u00dcbernommen", color:"#3b82f6" },
         { key:"completed", label:"Erledigt",   color:"#22c55e" },
         { key:"cancelled", label:"Abgesagt",   color:"#ef4444" },
-        { key:"archived",  label:"Archiviert", color:"#9ca3af" },
+        { key:"archived",  label:"Archiviert", color:"#6b7280" },
         { key:"paused",    label:"Pausiert",   color:"#fb923c" },
       ];
       const barsEl = document.getElementById("dbStatusBars");
@@ -4828,23 +4828,23 @@ ${o.keyPickup?`<h3>Schl\u00fcsselabholung</h3><table class="d"><tr><td>Adresse</
 <style>
   body{font-family:Arial,sans-serif;margin:0;padding:32px;color:#222;background:#fff}
   .header{border-bottom:3px solid #9e8649;padding-bottom:12px;margin-bottom:24px;display:flex;justify-content:space-between;align-items:flex-end}
-  .brand{font-size:22px;font-weight:900;letter-spacing:1px;color:#9e8649}
-  .brand span{font-size:11px;display:block;color:#aaa;font-weight:400;letter-spacing:.5px}
+  .brand{font-size:22px;font-weight:900;letter-spacing:1px;color:#7A5E10}
+  .brand span{font-size:11px;display:block;color:#767676;font-weight:400;letter-spacing:.5px}
   h2{margin:0 0 20px;font-size:17px;color:#111}
   table{border-collapse:collapse;width:100%;margin-bottom:20px}
   td{padding:6px 12px 6px 0;font-size:13px;vertical-align:top}
-  td:first-child{color:#888;width:120px;white-space:nowrap}
+  td:first-child{color:#767676;width:120px;white-space:nowrap}
   .desc{background:#f9f7f2;border-left:4px solid #9e8649;padding:14px 16px;border-radius:4px;font-size:13px;line-height:1.7;white-space:pre-wrap;margin-bottom:20px}
   .status{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;background:#eee}
   .status.new{background:#fde8e8;color:#c0392b}
   .status.in_progress{background:#fef3cd;color:#b07d00}
   .status.done{background:#e8f5e9;color:#2e7d32}
-  .footer{border-top:1px solid #eee;padding-top:10px;font-size:11px;color:#bbb;text-align:center;margin-top:32px}
+  .footer{border-top:1px solid #eee;padding-top:10px;font-size:11px;color:#767676;text-align:center;margin-top:32px}
   @media print{body{padding:16px}}
 </style></head><body>
 <div class="header">
   <div class="brand">PROPUS<span>Real Estate Photography</span></div>
-  <div style="font-size:12px;color:#aaa">Fehlerbericht #${b.id}</div>
+  <div style="font-size:12px;color:#767676">Fehlerbericht #${b.id}</div>
 </div>
 <h2>Fehlerbericht #${b.id}</h2>
 <table>
@@ -5946,7 +5946,7 @@ ${o.keyPickup?`<h3>Schl\u00fcsselabholung</h3><table class="d"><tr><td>Adresse</
     .admin-addr-sugg{position:absolute;top:100%;left:0;right:0;z-index:9999;background:#fff;border:1.5px solid #e7e8ec;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.1);margin:4px 0 0;padding:4px 0;list-style:none;max-height:220px;overflow-y:auto}
     .admin-addr-sugg li{padding:9px 14px;cursor:pointer;font-size:13px;display:flex;align-items:flex-start;gap:10px}
     .admin-addr-sugg li:hover,.admin-addr-sugg li[aria-selected="true"]{background:#f9f7f2}
-    .admin-addr-sugg .as-ico{color:#9e8649;font-size:12px;margin-top:2px;flex-shrink:0}
+    .admin-addr-sugg .as-ico{color:#7A5E10;font-size:12px;margin-top:2px;flex-shrink:0}
     .admin-addr-sugg .as-main{font-weight:600;color:#1a1d23;line-height:1.3}
     .admin-addr-sugg .as-sub{font-size:11px;color:#888;margin-top:1px}
   </style>
@@ -6054,17 +6054,17 @@ ${o.keyPickup?`<h3>Schl\u00fcsselabholung</h3><table class="d"><tr><td>Adresse</
     </div>
     <div style="padding:20px 24px;display:flex;flex-direction:column;gap:14px">
       <div style="display:flex;flex-direction:column;gap:5px">
-        <label for="adminBugName" style="font-size:12px;font-weight:700;color:#6b7280">Dein Name <span style="color:#9e8649">*</span></label>
+        <label for="adminBugName" style="font-size:12px;font-weight:700;color:#6b7280">Dein Name <span style="color:#7A5E10">*</span></label>
         <input id="adminBugName" type="text" placeholder="Vor- und Nachname" style="border:1.5px solid rgba(231,232,236,.9);border-radius:10px;padding:10px 12px;font-family:inherit;font-size:13px;color:#1a1d23;background:#fff;width:100%;box-sizing:border-box;outline:none" onfocus="this.style.borderColor='#9e8649';this.style.boxShadow='0 0 0 3px rgba(158,134,73,.1)'" onblur="this.style.borderColor='rgba(231,232,236,.9)';this.style.boxShadow='none'">
       </div>
       <div style="display:flex;flex-direction:column;gap:5px">
-        <label for="adminBugText" style="font-size:12px;font-weight:700;color:#6b7280">Fehlerbeschreibung <span style="color:#9e8649">*</span></label>
+        <label for="adminBugText" style="font-size:12px;font-weight:700;color:#6b7280">Fehlerbeschreibung <span style="color:#7A5E10">*</span></label>
         <textarea id="adminBugText" placeholder="Was ist passiert? Was hast du erwartet?" style="border:1.5px solid rgba(231,232,236,.9);border-radius:10px;padding:10px 12px;font-family:inherit;font-size:13px;color:#1a1d23;background:#fff;width:100%;min-height:100px;resize:vertical;box-sizing:border-box;outline:none" onfocus="this.style.borderColor='#9e8649';this.style.boxShadow='0 0 0 3px rgba(158,134,73,.1)'" onblur="this.style.borderColor='rgba(231,232,236,.9)';this.style.boxShadow='none'"></textarea>
       </div>
       <div style="display:flex;flex-direction:column;gap:5px">
-        <span style="font-size:12px;font-weight:700;color:#6b7280">Screenshot / Datei <span style="font-weight:400;color:#9ca3af;font-size:11px">(optional, max. 5 MB)</span></span>
+        <span style="font-size:12px;font-weight:700;color:#6b7280">Screenshot / Datei <span style="font-weight:400;color:#6b7280;font-size:11px">(optional, max. 5 MB)</span></span>
         <label id="adminBugUploadArea" for="adminBugFile" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border:2px dashed rgba(231,232,236,.9);border-radius:12px;padding:20px;cursor:pointer;background:#fafafa;text-align:center;transition:all .15s" onmouseover="this.style.borderColor='#9e8649';this.style.background='rgba(158,134,73,.04)'" onmouseout="if(!this.classList.contains('has-file')){this.style.borderColor='rgba(231,232,236,.9)';this.style.background='#fafafa'}">
-          <i id="adminBugUploadIcon" class="fa-solid fa-cloud-arrow-up" style="font-size:22px;color:#9ca3af"></i>
+          <i id="adminBugUploadIcon" class="fa-solid fa-cloud-arrow-up" style="font-size:22px;color:#6b7280"></i>
           <span id="adminBugUploadLabel" style="font-size:12px;color:#6b7280;font-weight:500">Datei ausw&auml;hlen oder hierher ziehen</span>
           <input type="file" id="adminBugFile" accept="image/*,.pdf" style="display:none" onchange="handleAdminBugFile(this)">
         </label>
