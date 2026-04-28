@@ -108,9 +108,13 @@ export interface NavSection {
 /* Rollen-Sets                                                                */
 /* -------------------------------------------------------------------------- */
 
-const ADMIN: Role[] = ["admin", "super_admin"];
-const ADMIN_PLUS_PHOTOGRAPHER: Role[] = ["admin", "super_admin", "photographer"];
-const ADMIN_PLUS_TOUR_MANAGER: Role[] = ["admin", "super_admin", "tour_manager"];
+// "employee" is treated as full internal staff (see INTERNAL_STAFF_ROLES in
+// app/src/lib/permissions.ts) and must see the same sections as admin /
+// super_admin. SUPER_ADMIN stays exclusive — only super-admins see backups
+// and bug-tracker entries.
+const ADMIN: Role[] = ["admin", "super_admin", "employee"];
+const ADMIN_PLUS_PHOTOGRAPHER: Role[] = ["admin", "super_admin", "employee", "photographer"];
+const ADMIN_PLUS_TOUR_MANAGER: Role[] = ["admin", "super_admin", "employee", "tour_manager"];
 const SUPER_ADMIN: Role[] = ["super_admin"];
 
 /* -------------------------------------------------------------------------- */
