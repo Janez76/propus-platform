@@ -14,20 +14,51 @@
 _ensure_one_vps_bind_path() {
   local p="$1"
   local label="$2"
+  local fallback="${3:-}"
 
   if [ -z "$p" ] || [ "$p" = "/" ]; then
     echo "FEHLER: ungueltiger Bind-Mount-Pfad ($label)"
     return 1
   fi
 
-  # Bereits eingebundener Host-Pfad (z. B. NFS): nicht anfassen; bei »Host is down« abbrechen.
+  _use_fallback_vps_bind_path() {
+    local reason="$1"
+    if [ -z "$fallback" ]; then
+      echo "FEHLER: $label ($p) $reason"
+      return 1
+    fi
+    echo "WARNUNG: $label ($p) $reason – nutze lokalen Fallback $fallback"
+    mkdir -p "$fallback" || {
+      echo "FEHLER: mkdir -p $fallback ($label fallback) fehlgeschlagen"
+      return 1
+    }
+    chown -R 1001:65533 "$fallback" 2>/dev/null || true
+    chmod 775 "$fallback" 2>/dev/null || true
+    export "$label=$fallback"
+    echo "  OK       Bind-Mount-Host $label -> $fallback (Fallback)"
+    return 0
+  }
+
+  # NFS/cifs: findmnt erkennt den Einhaengepunkt zuverlaessiger als mountpoint bei manchen Zustaenden.
+  if command -v findmnt >/dev/null 2>&1 && findmnt -n -T "$p" >/dev/null 2>&1; then
+    if ls "$p" >/dev/null 2>&1; then
+      echo "  OK       Bind-Mount-Host $label -> $p (Remote-Mount erreichbar)"
+      export "$label=$p"
+      return 0
+    fi
+    _use_fallback_vps_bind_path "ist eingehängt (findmnt), aber nicht lesbar; typisch NFS/CIFS »Host is down«" || return 1
+    return 0
+  fi
+
+  # Fallback: klassischer Mountpoint-Check
   if mountpoint -q "$p" 2>/dev/null; then
     if ls "$p" >/dev/null 2>&1; then
       echo "  OK       Bind-Mount-Host $label -> $p (Mountpoint erreichbar)"
+      export "$label=$p"
       return 0
     fi
-    echo "FEHLER: $label ($p) ist Mountpoint, aber nicht lesbar (NFS »Host is down« o. ä.). NAS/Netz pruefen, ggf. mount -a."
-    return 1
+    _use_fallback_vps_bind_path "ist Mountpoint, aber nicht lesbar; typisch NFS/CIFS »Host is down«" || return 1
+    return 0
   fi
 
   if [ -L "$p" ] && [ ! -d "$p" ]; then
@@ -47,9 +78,10 @@ _ensure_one_vps_bind_path() {
   fi
 
   mkdir -p "$p" || {
-    echo "FEHLER: mkdir -p $p ($label) fehlgeschlagen"
-    return 1
+    _use_fallback_vps_bind_path "konnte nicht angelegt werden" || return 1
+    return 0
   }
+  export "$label=$p"
   echo "  OK       Bind-Mount-Host $label -> $p"
 }
 
@@ -78,6 +110,6 @@ ensure_vps_booking_bind_mounts() {
 
   echo "==> Buchungs-Upload Bind-Mounts auf dem Host pruefen"
   _ensure_one_vps_bind_path "$staging" "BOOKING_UPLOAD_STAGING_HOST_PATH" || return 1
-  _ensure_one_vps_bind_path "$customer" "BOOKING_UPLOAD_CUSTOMER_HOST_PATH" || return 1
-  _ensure_one_vps_bind_path "$raw" "BOOKING_UPLOAD_RAW_HOST_PATH" || return 1
+  _ensure_one_vps_bind_path "$customer" "BOOKING_UPLOAD_CUSTOMER_HOST_PATH" "/opt/propus-upload-customers-fallback" || return 1
+  _ensure_one_vps_bind_path "$raw" "BOOKING_UPLOAD_RAW_HOST_PATH" "/opt/propus-upload-raw-fallback" || return 1
 }
