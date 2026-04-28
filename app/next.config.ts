@@ -12,6 +12,20 @@ const nextConfig: NextConfig = {
     "nodemailer",
     "winston",
   ],
+  async redirects() {
+    return [
+      {
+        source: "/admin/orders/:id",
+        destination: "/orders/:id",
+        permanent: false,
+      },
+      {
+        source: "/admin/orders/:id/:path*",
+        destination: "/orders/:id/:path*",
+        permanent: false,
+      },
+    ];
+  },
   async rewrites() {
     // On VPS: PLATFORM_INTERNAL_URL is set -> kritische Runtime-Pfade direkt
     // an Express leiten (beforeFiles), um den internen Next-Proxy-Hop zu umgehen.

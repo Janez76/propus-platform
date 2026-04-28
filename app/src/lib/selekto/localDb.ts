@@ -515,7 +515,7 @@ function defaultPicdropAdminNotifyBodyHtml(): string {
         <tr>
           <td style="padding:36px 40px 20px;">
             <img src="${logo}" alt="Propus" width="140" style="display:block;width:140px;max-width:100%;height:auto;border:0;margin-bottom:18px;" />
-            <p style="margin:0 0 6px;font-family:${ff};font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#b68e20;">Benachrichtigung</p>
+            <p style="margin:0 0 6px;font-family:${ff};font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#7A5E10;">Benachrichtigung</p>
             <h1 style="margin:0 0 18px;font-family:${ff};font-size:20px;line-height:1.25;font-weight:700;color:#0f0f0f;">Neue Bildauswahl eingegangen</h1>
             <p style="margin:0 0 20px;font-family:${ff};font-size:15px;line-height:1.6;color:#2a2a2a;">Der Kunde hat die Auswahl bestätigt. Zusammenfassung:</p>
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f9f9f7;border:1px solid #ececec;border-radius:10px;">

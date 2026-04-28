@@ -6,6 +6,13 @@ export type VerknuepfungTour = {
   display_title: string;
 };
 
+export type VerknuepfungSuggestedTour = VerknuepfungTour & {
+  id: number;
+  customer_label: string | null;
+  matterport_created_at: string | null;
+  updated_at: string | null;
+};
+
 export type VerknuepfungGallery = {
   slug: string;
   friendly_slug: string | null;
@@ -33,6 +40,7 @@ export type VerknuepfungInvoice = {
 export type VerknuepfungenData = {
   orderNo: number;
   tour: VerknuepfungTour | null;
+  suggestedTours: VerknuepfungSuggestedTour[];
   gallery: VerknuepfungGallery | null;
   folderCounts: VerknuepfungFolderCounts | null;
   invoices: VerknuepfungInvoice[];

@@ -60,6 +60,60 @@ export async function linkMatterportTour(formData: FormData) {
   redirect(`/orders/${orderNo}/verknuepfungen?saved=1`);
 }
 
+export async function linkSuggestedMatterportTour(formData: FormData) {
+  const editor = await requireOrderEditor();
+  const orderNo = Number(formData.get("order_no"));
+  const tourId = Number(formData.get("tour_id"));
+  if (!Number.isFinite(orderNo) || orderNo <= 0) {
+    redirect(`/orders/${formData.get("order_no")}/verknuepfungen?error=${encodeURIComponent("Ungültige Bestellnummer")}`);
+  }
+  if (!Number.isInteger(tourId) || tourId <= 0) {
+    redirect(`/orders/${orderNo}/verknuepfungen?error=${encodeURIComponent("Ungültige Tour")}`);
+  }
+
+  const tour = await queryOne<{
+    id: number;
+    booking_order_no: number | null;
+    matterport_space_id: string | null;
+    tour_url: string | null;
+  }>(
+    `SELECT id, booking_order_no, matterport_space_id, tour_url
+     FROM tour_manager.tours
+     WHERE id = $1`,
+    [tourId],
+  );
+  if (!tour) {
+    redirect(`/orders/${orderNo}/verknuepfungen?error=${encodeURIComponent("Tour nicht gefunden.")}`);
+  }
+  if (tour.booking_order_no != null && tour.booking_order_no !== orderNo) {
+    redirect(
+      `/orders/${orderNo}/verknuepfungen?error=${encodeURIComponent(
+        `Diese Tour ist bereits mit Bestellung #${tour.booking_order_no} verknüpft`,
+      )}`,
+    );
+  }
+  if (!tour.matterport_space_id && !tour.tour_url) {
+    redirect(
+      `/orders/${orderNo}/verknuepfungen?error=${encodeURIComponent("Diese Tour hat noch keine Matterport-ID oder URL.")}`,
+    );
+  }
+
+  await query(
+    `UPDATE tour_manager.tours
+     SET booking_order_no = $1, updated_at = NOW()
+     WHERE id = $2`,
+    [orderNo, tour.id],
+  );
+  await logOrderEvent(
+    orderNo,
+    "matterport_linked",
+    { old: {}, new: { matterport_space_id: tour.matterport_space_id, tour_id: tour.id, via: "suggestion" } },
+    editor,
+  );
+  revalidateOrderLinks(orderNo);
+  redirect(`/orders/${orderNo}/verknuepfungen?saved=1`);
+}
+
 export async function unlinkMatterportTour(formData: FormData) {
   const editor = await requireOrderEditor();
   const orderNo = Number(formData.get("order_no"));

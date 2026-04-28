@@ -25,7 +25,8 @@ Die Dokumentation liegt im Ordner `docs/` im Repo-Root. `DATA_FIELDS.md` ist der
 | Datei | Inhalt |
 |---|---|
 | `DATA_FIELDS.md` | Hauptindex mit Links auf alle Module |
-| `docs/FLOWS_BOOKING.md` | Buchungs-Flows (Provisional, Reschedule, Kalender, Payrexx, Storno) |
+| `docs/DEPLOY-FLOW.md` | Deploy: GitHub → VPS → Container; Trigger (`push`/`workflow_dispatch`), `app-ci`/`booking-ci` vs. Deploy-Workflow |
+| `docs/FLOWS_BOOKING.md` | Buchungs-Flows (Provisional, Reschedule, Kalender, Payrexx, Storno); ggf. §19 Backend-CI (`booking-ci.yml`) |
 | `docs/FLOWS_TOURS.md` | Tour-Manager Flows (Matterport, Verlängerung, zentrales Rechnungsmodul, Archiv, KI, Incoming Emails) |
 | `docs/WORKFLOW_TOURS.md` | Tour-Workflow Produkt-Regelwerk (Status, Reminder, Preise, Admin `/admin/tours/workflow-settings`); bei Workflow-Änderungen mit `FLOWS_TOURS.md` synchron halten |
 | `docs/FLOWS_UPLOAD.md` | Upload-System (Chunked-Upload, NAS-Pfade, Kategorien, Konflikt-Modi) |
@@ -46,6 +47,7 @@ Die Dokumentation liegt im Ordner `docs/` im Repo-Root. `DATA_FIELDS.md` ist der
 | Neue Rolle oder Permission | `docs/ROLES_PERMISSIONS.md` |
 | Neues E-Mail-Template oder Platzhalter | `docs/EMAIL_TEMPLATES.md` |
 | Neuer Sync-Flow | Passende Flow-Datei |
+| Neue/angepasste Deploy- oder CI-Workflows (Trigger, `paths:`) | `docs/DEPLOY-FLOW.md`; bei `booking-ci` ggf. `docs/FLOWS_BOOKING.md` §19 |
 | Neue bekannte Lücke | `DATA_FIELDS.md` Abschnitt "Bekannte Lücken" |
 | Behobene Lücke | `DATA_FIELDS.md` aktualisieren |
 

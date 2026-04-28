@@ -1,13 +1,35 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getVerknuepfungenForClient } from "./verknuepfungen-data-actions";
 import { VerknuepfungenView } from "./verknuepfungen-view";
 import type { VerknuepfungenData } from "@/lib/repos/orders/verknuepfungenTypes";
 
 type Props = {
   orderId: string;
 };
+
+type GetVerknuepfungenResult =
+  | { ok: true; data: VerknuepfungenData }
+  | { ok: false; error: string };
+
+async function loadVerknuepfungenForClient(orderId: string): Promise<GetVerknuepfungenResult> {
+  try {
+    const res = await fetch(`/orders/${encodeURIComponent(orderId)}/verknuepfungen/data`, {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
+    const payload = (await res.json().catch(() => null)) as GetVerknuepfungenResult | null;
+    if (!res.ok) {
+      return { ok: false, error: payload?.ok === false ? payload.error : "Daten konnten nicht geladen werden." };
+    }
+    if (payload?.ok) {
+      return payload;
+    }
+    return { ok: false, error: "Unerwartete Antwort beim Laden der Verknüpfungen." };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Daten konnten nicht geladen werden." };
+  }
+}
 
 export function VerknuepfungenSectionClient({ orderId }: Props) {
   const [data, setData] = useState<VerknuepfungenData | null>(null);
@@ -19,7 +41,7 @@ export function VerknuepfungenSectionClient({ orderId }: Props) {
     setLoading(true);
     setError(null);
     void (async () => {
-      const r = await getVerknuepfungenForClient(orderId);
+      const r = await loadVerknuepfungenForClient(orderId);
       if (!c) return;
       if (r.ok) {
         setData(r.data);

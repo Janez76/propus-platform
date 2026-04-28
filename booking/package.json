@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "test": "node --test \"tests/*.test.js\"",
+    "lint:html": "htmlhint -c .htmlhintrc \"*.html\"",
     "analyze-duplicate-customers": "node ../scripts/find-duplicate-customers.js --export",
     "analyze-duplicate-customers:help": "node ../scripts/find-duplicate-customers.js --help",
     "audit:customer-stammdaten": "node ../scripts/customer-stammdaten-audit.js --export"
@@ -34,5 +35,8 @@
     "pg": "^8.13.3",
     "sharp": "^0.34.5",
     "winston": "^3.19.0"
+  },
+  "devDependencies": {
+    "htmlhint": "^1.9.2"
   }
 }

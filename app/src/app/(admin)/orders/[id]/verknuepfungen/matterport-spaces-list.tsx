@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ExternalLink } from "lucide-react";
-import { linkMatterportTour } from "./actions";
 
 type OpenSpace = {
   id: string | number;
@@ -53,6 +52,7 @@ function isRecentSpace(dateStr: unknown): boolean {
 }
 
 export function MatterportSpacesList({ orderNo }: Props) {
+  const mutateAction = `/orders/${orderNo}/verknuepfungen/mutate`;
   const [q, setQ] = useState("");
   const [searchDraft, setSearchDraft] = useState("");
   const [sort, setSort] = useState<"space" | "created">("space");
@@ -228,8 +228,8 @@ export function MatterportSpacesList({ orderNo }: Props) {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1.5">
-                        <form action={linkMatterportTour} className="inline">
-                          <input type="hidden" name="order_no" value={String(orderNo)} />
+                        <form action={mutateAction} method="post" className="inline">
+                          <input type="hidden" name="_action" value="link-matterport" />
                           <input type="hidden" name="space_id_or_url" value={id} />
                           <button
                             type="submit"

@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei jeder Änderung an Buchungslogik, Status-Übergängen, Kalender-Sync oder Provisional-Flow dieses Dokument aktualisieren. Cursor-Regel `.cursor/rules/data-fields.mdc` erinnert daran.
 
-*Zuletzt aktualisiert: April 2026 (Cursor: §4a 365-Outlook-Overlay im Admin-Kalender, read-only Toggle + Kategorie-Filter). PR #92: §17 API-Key-Erstellung nutzt numerische Admin-ID fuer created_by. PR #91: §17 API-Key-Verwaltung CRUD. PR #89: §16 Rate-Limiting & Security-Header, helmet. PR #88: §15 Kunden-Profil-Vorausfüllung via /auth/profile*
+*Zuletzt aktualisiert: April 2026 - Admin-Bestell-Detail routet alte `/admin/orders/:id/...`-Links per Next.js-Redirect auf `/orders/:id/...`; zuvor Kunden-Deduplizierung und Kalender-Sync.*
 
 ---
 
@@ -26,6 +26,7 @@
 16. [Rate-Limiting & Security-Header](#16-rate-limiting--security-header)
 17. [API-Key-Verwaltung (CRUD)](#17-api-key-verwaltung-crud)
 18. [Admin-Panel SPA-Auslieferung](#18-admin-panel-spa-auslieferung)
+19. [CI & HTML-Lint (Booking-Backend)](#19-ci--html-lint-booking-backend)
 
 ---
 
@@ -51,8 +52,11 @@ POST /api/booking
   │
   ├── 9. saveOrder():
   │        ├── upsertCustomer(billing)
-  │        │     → INSERT INTO customers (email,name,company,phone,street,zipcity)
-  │        │     → ON CONFLICT UPDATE (name,company,phone,street,zipcity)
+  |        |     -> findMatchingCustomer(billing)
+  |        |     -> exakte Treffer: customers.email oder customer_contacts.email
+  |        |     -> strong: company_key + E-Mail-Domain
+  |        |     -> weak: neuer Kunde + customer_duplicate_candidates
+  |        |     -> INSERT/UPDATE customers (email,name,company,phone,street,zipcity)
   │        └── insertOrder(record, customerId)
   │              → INSERT INTO booking.orders (alle Felder)
   │
@@ -93,6 +97,19 @@ POST /api/booking
 | `core.company_members` | UPSERT | companyId, customerId, email, role, status |
 | `booking.orders` | INSERT | alle order-Felder |
 | `booking.discount_code_usages` | INSERT | discount_code_id, customer_email, order_id |
+
+### Kundendeduplizierung bei neuen Buchungen
+
+**Datei:** `booking/customer-dedup.js`
+
+`upsertCustomer(billing)` verhindert neue Personen-Datensaetze fuer bestehende Firmenkunden:
+
+1. Exakter Treffer ueber `core.customers.email`.
+2. Exakter Treffer ueber `core.customer_contacts.email` -> Bestellung wird dem zugehoerigen Firmenkunden zugeordnet.
+3. Starker Treffer ueber `company_key` + E-Mail-Domain -> Kontakt wird am bestehenden Kunden ergaenzt.
+4. Schwacher Treffer ueber Firmenname/Fuzzy-Logik -> neuer Kunde + Review-Eintrag in `booking.customer_duplicate_candidates`.
+
+Damit Kontaktpersonen wie `name@kundendomain.ch`, die bereits unter einer Firmenzeile in `customer_contacts` gepflegt sind, keinen zweiten Kunden erzeugen.
 
 ---
 
@@ -185,6 +202,7 @@ provisional → pending nur automatisch via expiry_job
 ### Events aktualisieren
 
 - **Reschedule:** PATCH auf bestehende Event-IDs. Falls PATCH fehlschlägt → neue Events erstellen.
+- **Dauer-Only-Änderungen aus Next.js-Admin-Actions:** `requestAdminReschedule()` ruft dieselbe Route auf und nutzt bevorzugt `PLATFORM_INTERNAL_URL`, sonst `NEXT_PUBLIC_API_BASE`. Der Backend-Reschedule patcht vorhandene Graph-Events in möglichen Mailbox-Kandidaten (kanonische Fotografen-Mailbox + gespeicherte Mailbox), damit alte 60-Minuten-Termine nicht als Dublette in Outlook bleiben.
 - **Storno:** DELETE auf beide Event-IDs. 404 = bereits gelöscht (ok). Andere Fehler → `calendar_delete_queue` für Retry.
 
 ### `calendar_sync_status`-Werte
@@ -206,7 +224,7 @@ provisional → pending nur automatisch via expiry_job
 - Liest persönliche Termine via `graphClient.api('/users/{email}/calendarView')`
 - Default-Range: aktueller Monat ± 1 Monat (deckt Mini-Monat-Navigation ab)
 - Caching: 60 s pro `email|from|to` (In-Memory, Map)
-- Filtert eigene Buchungs-Events (`subject` enthält `[Auftrag #...]`) raus, um Duplikate zu vermeiden
+- Filtert eigene Buchungs-Events (`[Auftrag #...]`, `Propus Buchung` oder Titel mit `(#100091)`) raus, um Duplikate zu vermeiden
 - Sensitivity `private`/`confidential` → Titel und `bodyPreview` werden auf "Privater Termin" maskiert
 - Kategorie wird aus Graph `categories[]` oder Subject-Präfix `[xyz]` extrahiert
 
@@ -235,9 +253,14 @@ PATCH /api/admin/orders/:orderNo/reschedule
   │
   ├── Felder aktualisieren:
   │     → schedule.date, schedule.time (neu)
+  │     → schedule.durationMin wird mitgeführt, wenn die Dauer explizit geändert wurde
   │     → bestehende Reschedule-Hilfsfelder werden hier nicht separat gesetzt
   │
   ├── Kalender-Events aktualisieren (PATCH auf bestehende IDs)
+  │     → Fotograf: PATCH in kanonischer + gespeicherter Mailbox versuchen
+  │     → Büro: PATCH in OFFICE_EMAIL
+  │     → Fallback nur wenn PATCH nicht möglich: neues Event erstellen
+  │     → reine Daueränderung: keine Reschedule-Mails
   │
   └── E-Mails:
         ├── Büro (buildRescheduleOfficeEmail, alt + neu)
@@ -805,6 +828,16 @@ POST /api/admin/api-keys  { label }
 
 *Seit PR #94 (April 2026).* Das Booking-Admin-Panel (`booking/admin-panel/`) ist ein Vite/React-SPA, das von `booking/server.js` ausgeliefert wird. **Deprecated** — neue Features nach `app/src/`.
 
+### Next.js Admin-Bestell-Detail
+
+Neue Bestell-Detailseiten liegen in `app/src/app/(admin)/orders/[id]/...` und werden unter `/orders/:id` ausgeliefert. Erwartete/alte Admin-Links unter `/admin/orders/:id` werden in `app/next.config.ts` per Redirect auf `/orders/:id` normalisiert; Unterseiten wie `/admin/orders/:id/verknuepfungen` landen damit auf `/orders/:id/verknuepfungen`.
+
+Die Tabbar im Bestell-Detail navigiert direkt auf die Subroutes (`/objekt`, `/leistungen`, `/termin`, `/kommunikation`, `/dateien`, `/verknuepfungen`, `/verlauf`). Verknuepfungen und Verlauf sind keine versteckten Inline-Buttons mehr.
+
+Die Verknuepfungsseite laedt neben dem aktuellen Link-Status die 10 neuesten unverknuepften Matterport-Touren aus `tour_manager.tours` (`booking_order_no IS NULL`) und erlaubt das direkte Verknuepfen per Tour-ID. Die manuelle Eingabe von Matterport-Space-ID oder `my.matterport.com/show/?m=...` bleibt als Fallback erhalten.
+
+Mutationen laufen ueber die stabile POST-Route `/orders/:id/verknuepfungen/mutate` mit `_action` (`link-matterport`, `link-suggested-matterport`, `unlink-matterport`, `link-gallery`, `unlink-gallery`). Die Formulare verwenden bewusst keine gehashten Next Server Actions, damit nach einem Deploy bereits offene Bestellseiten nicht mit `UnrecognizedActionError` scheitern.
+
 ### Routing in `booking/server.js`
 
 ```
@@ -819,3 +852,17 @@ Falls dist-Verzeichnis existiert:
 - Alle `/api/*`- und `/auth/*`-Routen werden **nicht** vom Catch-all erfasst.
 - Wenn das dist-Verzeichnis nicht existiert (kein Build), zeigt die Root-Route einen Hinweis.
 - Frontend-Logs (`POST /api/logs`) werden mit `source: "admin-panel"` getaggt (vorher `"booking-backend"`).
+
+---
+
+## 19. CI & HTML-Lint (Booking-Backend)
+
+**Workflow:** [`.github/workflows/booking-ci.yml`](../.github/workflows/booking-ci.yml) — läuft bei PR und `push` auf `master`, sobald **`booking/**`** oder diese Workflow-Datei geändert wird (läuft **nicht** bei reinen Änderungen an `app/` ohne Booking-Touch).
+
+| Schritt | Befehl (Working Directory `booking/`) | Zweck |
+|---|---|---|
+| Abhängigkeiten | `npm ci` | Reproduzierbar wie auf dem VPS/Dev |
+| Unit-Tests | `npm test` (`node:test`, `tests/*.test.js`) | Reine Logiktests (Pricing, RBAC-Presets, Order-Transitions, Storage-Hilfen) ohne laufende Postgres — DB-Zugriff erfolgt erst in Routen/async-Pfaden bzw. lazy `require("./db")` |
+| HTML-Lint | `npm run lint:html` (htmlhint + [`.htmlhintrc`](../booking/.htmlhintrc)) | Statische Checks auf `booking/*.html` (Legacy-Admin-Spa tolerante Regeln) |
+
+Siehe Gesamtüberblick CI vs. VPS-Deploy: [`DEPLOY-FLOW.md`](DEPLOY-FLOW.md) (Abschnitt *Unit-Tests / Lint*).

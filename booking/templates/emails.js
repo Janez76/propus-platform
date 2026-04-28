@@ -944,12 +944,12 @@ function buildMailHtml({ heading, intro, sections, footer, lang = "de" }){
       <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
         <tr><td align="center">
           <p style="margin:0 0 8px;font-size:13px;color:#6b7280;line-height:1.6">
-            ${footer ? footer + " <span style='color:#9ca3af'>&middot;</span> " : ""}
+            ${footer ? footer + " <span style='color:#6b7280'>&middot;</span> " : ""}
             &copy; 2026 Propus GmbH
           </p>
           <p style="margin:0;font-size:12px;color:#6b7280">
             <a href="https://propus.ch" style="color:#7a6520;text-decoration:none;font-weight:600">propus.ch</a>
-            <span style='color:#9ca3af;margin:0 8px'>&middot;</span>
+            <span style='color:#6b7280;margin:0 8px'>&middot;</span>
             <a href="mailto:office@propus.ch" style="color:#7a6520;text-decoration:none;font-weight:600">office@propus.ch</a>
           </p>
         </td></tr>
@@ -1369,7 +1369,7 @@ function buildCancellationCustomerEmail(order, photogPhone, lang = "de"){
     intro:   cancellationBadge + `<p style="margin:16px 0 0;font-size:15px;color:#6b7280;line-height:1.65">${t.cancellationCustomer.intro}</p>`,
     sections: [
       sec(t.cancellationCustomer.cancelledAppointment, [
-        tr(t.labels.dateTime, `<span style="text-decoration:line-through;color:#9ca3af">${fmtDate(order.schedule?.date, order.schedule?.time, lang)}</span>`),
+        tr(t.labels.dateTime, `<span style="text-decoration:line-through;color:#6b7280">${fmtDate(order.schedule?.date, order.schedule?.time, lang)}</span>`),
         tr(t.labels.orderNo,  `<span style="font-family:monospace;color:#6b7280;background:#f3f4f6;padding:2px 8px;border-radius:4px;font-size:13px">#${order.orderNo}</span>`)
       ]),
       sec(`🏢 ${t.sections.address}`, [
@@ -1466,7 +1466,7 @@ function buildRescheduleCustomerEmail(order, oldDate, oldTime, newDate, newTime,
     intro:   rescheduleBadge + `<p style="margin:16px 0 0;font-size:15px;color:#6b7280;line-height:1.65">${t.rescheduleCustomer.intro}</p>`,
     sections: [
       sec(t.rescheduleCustomer.changeTitle, [
-        tr(t.rescheduleCustomer.oldDate, `<span style="text-decoration:line-through;color:#9ca3af">${fmtDate(oldDate, oldTime, lang)}</span>`),
+        tr(t.rescheduleCustomer.oldDate, `<span style="text-decoration:line-through;color:#6b7280">${fmtDate(oldDate, oldTime, lang)}</span>`),
         tr(t.rescheduleCustomer.newDate, `<strong style="color:#7A5E10;font-size:15px;background:#fef3c7;padding:4px 10px;border-radius:6px;display:inline-block">${fmtDate(newDate, newTime, lang)}</strong>`),
         tr(t.labels.orderNo,  `<span style="font-family:monospace;color:#6b7280;background:#f3f4f6;padding:2px 8px;border-radius:4px;font-size:13px">#${order.orderNo}</span>`)
       ]),

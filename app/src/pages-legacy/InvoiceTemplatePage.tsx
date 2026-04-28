@@ -120,7 +120,7 @@ function InvoicePreview({ creditor, emailHtml }: { creditor: InvoiceCreditor; em
           <div style={{ background: PROPUS_DARK, color: "#fff", padding: "18px 32px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div>
               <div style={{ fontSize: "1.05rem", fontWeight: 700, color: PROPUS_GOLD }}>{creditor.name || "Propus GmbH"}</div>
-              <div style={{ fontSize: "0.72rem", color: "#9CA3AF", marginTop: 2 }}>{creditor.email} · {creditor.website}</div>
+              <div style={{ fontSize: "0.72rem", color: "#6b7280", marginTop: 2 }}>{creditor.email} · {creditor.website}</div>
             </div>
             <div style={{ fontSize: "0.7rem", fontWeight: 700, letterSpacing: "1.5px", border: `1.5px solid ${PROPUS_GOLD}`, color: PROPUS_GOLD, padding: "4px 12px", borderRadius: 2 }}>RECHNUNG</div>
           </div>
@@ -142,7 +142,7 @@ function InvoicePreview({ creditor, emailHtml }: { creditor: InvoiceCreditor; em
               <div style={{ fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.8px", textTransform: "uppercase", color: PROPUS_GOLD, marginBottom: 6 }}>Absender</div>
               <div style={{ fontWeight: 600 }}>{creditor.name}</div>
               <div style={{ color: "#4B5563", fontSize: "0.85rem" }}>{creditor.street} {creditor.buildingNumber}, {creditor.zip} {creditor.city}</div>
-              {creditor.vatId && <div style={{ color: "#9CA3AF", fontSize: "0.78rem", marginTop: 2 }}>MwSt: {creditor.vatId}</div>}
+              {creditor.vatId && <div style={{ color: "#6b7280", fontSize: "0.78rem", marginTop: 2 }}>MwSt: {creditor.vatId}</div>}
             </div>
           </div>
 
@@ -150,17 +150,17 @@ function InvoicePreview({ creditor, emailHtml }: { creditor: InvoiceCreditor; em
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: PROPUS_DARK }}>
-                <th style={{ padding: "10px 32px", fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.8px", textTransform: "uppercase", color: "#9CA3AF", textAlign: "left", width: 60 }}>Pos.</th>
-                <th style={{ padding: "10px 32px", fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.8px", textTransform: "uppercase", color: "#9CA3AF", textAlign: "left" }}>Beschreibung</th>
-                <th style={{ padding: "10px 32px", fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.8px", textTransform: "uppercase", color: "#9CA3AF", textAlign: "right" }}>Betrag (CHF)</th>
+                <th style={{ padding: "10px 32px", fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.8px", textTransform: "uppercase", color: "#6b7280", textAlign: "left", width: 60 }}>Pos.</th>
+                <th style={{ padding: "10px 32px", fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.8px", textTransform: "uppercase", color: "#6b7280", textAlign: "left" }}>Beschreibung</th>
+                <th style={{ padding: "10px 32px", fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.8px", textTransform: "uppercase", color: "#6b7280", textAlign: "right" }}>Betrag (CHF)</th>
               </tr>
             </thead>
             <tbody>
               <tr style={{ borderBottom: "1px solid #F0EFED" }}>
-                <td style={{ padding: "14px 32px", color: "#9CA3AF" }}>1</td>
+                <td style={{ padding: "14px 32px", color: "#6b7280" }}>1</td>
                 <td style={{ padding: "14px 32px" }}>
                   <div style={{ fontWeight: 600 }}>{sampleData.bezeichnung}</div>
-                  <div style={{ fontSize: "0.75rem", color: "#9CA3AF", marginTop: 2 }}>{sampleData.billingPeriodLabel}</div>
+                  <div style={{ fontSize: "0.75rem", color: "#6b7280", marginTop: 2 }}>{sampleData.billingPeriodLabel}</div>
                 </td>
                 <td style={{ padding: "14px 32px", textAlign: "right", fontWeight: 600 }}>{sampleData.amountNet}</td>
               </tr>
@@ -186,11 +186,11 @@ function InvoicePreview({ creditor, emailHtml }: { creditor: InvoiceCreditor; em
           {/* Zahlung */}
           <div style={{ margin: "0 32px 20px", background: "#FAFAF9", border: "1px solid #F0EFED", borderRadius: 4, padding: "14px 18px" }}>
             <div style={{ display: "flex", gap: 16, marginBottom: 6, fontSize: "0.8rem" }}>
-              <span style={{ minWidth: 100, color: "#9CA3AF", fontWeight: 600, fontSize: "0.75rem", textTransform: "uppercase" }}>IBAN</span>
+              <span style={{ minWidth: 100, color: "#6b7280", fontWeight: 600, fontSize: "0.75rem", textTransform: "uppercase" }}>IBAN</span>
               <span style={{ fontFamily: "monospace" }}>{sampleData.creditorIbanFormatted}</span>
             </div>
             <div style={{ display: "flex", gap: 16, fontSize: "0.8rem" }}>
-              <span style={{ minWidth: 100, color: "#9CA3AF", fontWeight: 600, fontSize: "0.75rem", textTransform: "uppercase" }}>QR-Referenz</span>
+              <span style={{ minWidth: 100, color: "#6b7280", fontWeight: 600, fontSize: "0.75rem", textTransform: "uppercase" }}>QR-Referenz</span>
               <span style={{ fontFamily: "monospace" }}>{sampleData.qrReferenceFormatted}</span>
             </div>
           </div>

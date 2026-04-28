@@ -3633,14 +3633,14 @@ async function sendOrderMessageMails({ order, orderNo, senderLabel, senderRole, 
   const safe = escMailHtml(message);
   const buildHtml = () => `<div style="font-family:Arial,Helvetica,sans-serif;line-height:1.6;color:#222;max-width:560px">
     <div style="border-bottom:3px solid #9e8649;padding-bottom:10px;margin-bottom:20px">
-      <span style="font-size:20px;font-weight:900;color:#9e8649;letter-spacing:1px">PROPUS</span>
-      <span style="font-size:11px;color:#aaa;margin-left:8px">Real Estate Photography</span>
+      <span style="font-size:20px;font-weight:900;color:#7A5E10;letter-spacing:1px">PROPUS</span>
+      <span style="font-size:11px;color:#767676;margin-left:8px">Real Estate Photography</span>
     </div>
     <h2 style="margin:0 0 12px;font-size:17px;color:#111">Neue Nachricht zu Auftrag #${orderNo}</h2>
     <p style="margin:0 0 6px"><strong>Absender:</strong> ${escMailHtml(senderLabel)} <span style="color:#888;font-size:13px">(${escMailHtml(senderRoleLabel)})</span></p>
     <p style="margin:0 0 16px"><strong>Objekt:</strong> ${escMailHtml(String(order.address || "\u2014"))}</p>
     <div style="padding:14px 16px;border-left:4px solid #9e8649;background:#fafafa;border-radius:4px;white-space:pre-wrap;font-size:14px;line-height:1.6">${safe}</div>
-    <p style="margin-top:20px;font-size:12px;color:#aaa">Auftrag #${orderNo} &middot; Propus GmbH</p>
+    <p style="margin-top:20px;font-size:12px;color:#767676">Auftrag #${orderNo} &middot; Propus GmbH</p>
   </div>`;
 
   const text = `Neue Nachricht zu Auftrag #${orderNo}\nAbsender: ${senderLabel} (${senderRoleLabel})\nObjekt: ${order.address || "\u2014"}\n\n${message}`;
@@ -13191,7 +13191,7 @@ app.post("/api/admin/bug-reports/:id/send-email", requireAdmin, async (req, res)
   <div style="margin-top:20px;padding:16px;background:#f9f7f2;border-radius:8px;font-size:13px;color:#333;line-height:1.6;white-space:pre-wrap">${b.text}</div>
 </td></tr>
 <tr><td style="background:#f9f7f2;border-top:1px solid #ede9e0;padding:14px 32px;text-align:center">
-  <p style="margin:0;font-size:12px;color:#aaa">&copy; 2026 Propus GmbH</p>
+  <p style="margin:0;font-size:12px;color:#767676">&copy; 2026 Propus GmbH</p>
 </td></tr>
 </table></td></tr></table></body></html>`;
     const textBody = `Fehlerbericht #${b.id}\nVon: ${b.name}\nDatum: ${dateStr}\n${b.page ? "Seite: " + b.page + "\n" : ""}${b.file_name ? "Datei: " + b.file_name + "\n" : ""}\n${b.text}`;

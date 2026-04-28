@@ -1,6 +1,4 @@
 const { calculateDiscount } = require("./discount-codes.js");
-const db = require("./db");
-const { getSetting } = require("./settings-resolver");
 
 function roundCHF(n, step = 0.05){
   const val = Number(n);
@@ -108,6 +106,8 @@ function isRuleWithinDate(rule, now = new Date()) {
 }
 
 async function computePricing({ services, object, discountCode, customerEmail, context = {} }){
+  const db = require("./db");
+  const { getSetting } = require("./settings-resolver");
   const vatRateResolved = await getSetting("pricing.vatRate", context);
   const roundingStepResolved = await getSetting("pricing.chfRoundingStep", context);
   const roundingModeResolved = await getSetting("pricing.roundingMode", context);

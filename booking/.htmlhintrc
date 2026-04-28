@@ -1,0 +1,7 @@
+{
+  "attr-no-duplication": true,
+  "attr-unsafe-chars": true,
+  "id-unique": true,
+  "spec-char-escape": true,
+  "tagname-lowercase": true
+}

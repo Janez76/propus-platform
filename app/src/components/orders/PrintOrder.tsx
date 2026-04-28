@@ -37,7 +37,7 @@ function printPhoneLink(raw?: string | null): ReactNode {
   const href = phoneTelHref(String(raw ?? ""));
   if (!href) return display;
   return (
-    <a href={href} style={{ color: "#9E8649", textDecoration: "none" }}>
+    <a href={href} style={{ color: "#7A5E10", textDecoration: "none" }}>
       {display}
     </a>
   );
@@ -48,7 +48,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     <div style={{ marginBottom: 16 }}>
       <div style={{
         fontSize: 8, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase",
-        color: "#9E8649", borderLeft: "3px solid #9E8649", paddingLeft: 6, marginBottom: 8,
+        color: "#7A5E10", borderLeft: "3px solid #9E8649", paddingLeft: 6, marginBottom: 8,
         lineHeight: 1,
       }}>
         {title}
@@ -99,12 +99,12 @@ export function PrintOrder({ data }: Props) {
       {/* ── HEADER ── */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
         <div>
-          <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: "0.18em", color: "#9E8649" }}>PROPUS</div>
-          <div style={{ fontSize: 9, color: "#aaa", letterSpacing: "0.06em", textTransform: "uppercase", marginTop: 2 }}>Real Estate Photography</div>
+          <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: "0.18em", color: "#7A5E10" }}>PROPUS</div>
+          <div style={{ fontSize: 9, color: "#767676", letterSpacing: "0.06em", textTransform: "uppercase", marginTop: 2 }}>Real Estate Photography</div>
         </div>
         <div style={{ textAlign: "right" }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a", marginBottom: 4 }}>
-            {t(language, "printOrder.order")} <span style={{ color: "#9E8649" }}>#{data.orderNo}</span>
+            {t(language, "printOrder.order")} <span style={{ color: "#7A5E10" }}>#{data.orderNo}</span>
           </div>
           <div style={{ marginBottom: 4 }}>
             <StatusPill status={data.status} />
@@ -190,7 +190,7 @@ export function PrintOrder({ data }: Props) {
 
           {/* PREIS BOX */}
           <div style={{ background: "#fdfaf3", border: "1px solid #e8d5a3", borderRadius: 8, padding: "12px 14px", marginBottom: 16 }}>
-            <div style={{ fontSize: 8, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "#9E8649", marginBottom: 8 }}>
+            <div style={{ fontSize: 8, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "#7A5E10", marginBottom: 8 }}>
               {t(language, "printOrder.section.price")}
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, marginBottom: 4, color: "#666" }}>
@@ -201,7 +201,7 @@ export function PrintOrder({ data }: Props) {
               <span>{t(language, "orderDetail.pricing.vatPercent").replace("8.1", vatRate)}</span>
               <span>{formatCurrency(vat)}</span>
             </div>
-            <div style={{ borderTop: "1px solid #d4b97a", paddingTop: 8, display: "flex", justifyContent: "space-between", fontWeight: 800, fontSize: 13, color: "#9E8649" }}>
+            <div style={{ borderTop: "1px solid #d4b97a", paddingTop: 8, display: "flex", justifyContent: "space-between", fontWeight: 800, fontSize: 13, color: "#7A5E10" }}>
               <span>{t(language, "orderDetail.pricing.total")}</span>
               <span>{formatCurrency(total)}</span>
             </div>
@@ -239,9 +239,9 @@ export function PrintOrder({ data }: Props) {
       )}
 
       {/* ── FOOTER ── */}
-      <div style={{ marginTop: 24, paddingTop: 10, borderTop: "1px solid #f0ece4", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 9, color: "#bbb" }}>
+      <div style={{ marginTop: 24, paddingTop: 10, borderTop: "1px solid #f0ece4", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 9, color: "#767676" }}>
         <span>© {new Date().getFullYear()} Propus GmbH · {t(language, "printOrder.footerRights")}</span>
-        <span style={{ color: "#9E8649", fontWeight: 700, letterSpacing: "0.06em" }}>propus.ch</span>
+        <span style={{ color: "#7A5E10", fontWeight: 700, letterSpacing: "0.06em" }}>propus.ch</span>
       </div>
 
     </div>

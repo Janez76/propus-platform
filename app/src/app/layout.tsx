@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { StaleClientReloadHandler } from "@/components/StaleClientReloadHandler";
 import { ThemeRoot } from "@/components/ThemeRoot";
 import { Toaster } from "sonner";
 
@@ -54,6 +55,7 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full flex flex-col">
+        <StaleClientReloadHandler />
         <ThemeRoot>{children}</ThemeRoot>
         <Toaster
           position="top-center"

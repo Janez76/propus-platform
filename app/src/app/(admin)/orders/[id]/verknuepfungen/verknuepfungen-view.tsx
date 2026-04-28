@@ -5,7 +5,6 @@ import { Box, Camera, ExternalLink, FolderOpen, Receipt } from "lucide-react";
 import { Section, Empty, KpiGrid, Kpi, formatCHF, formatTS } from "../_shared";
 import { galleryDisplayHostPath, galleryUrl, matterportShowUrl } from "./_links";
 import { CopyLinkButton } from "./copy-link-button";
-import { linkGallery, linkMatterportTour, unlinkGallery, unlinkMatterportTour } from "./actions";
 import { MatterportSpacesList } from "./matterport-spaces-list";
 import {
   displayGallerySlug,
@@ -38,6 +37,10 @@ function sourceLabel(src: string): { label: string; className: string } {
   return { label: src, className: "bg-[var(--paper-strip)] text-[var(--ink-3)] border border-[var(--border)]" };
 }
 
+function suggestedTourDateLabel(tour: VerknuepfungenData["suggestedTours"][0]): string {
+  return formatTS(tour.matterport_created_at ?? tour.updated_at);
+}
+
 const btnSecondary = "bd-btn-ghost";
 const btnPrimary = "bd-btn-outline-gold";
 
@@ -52,7 +55,8 @@ export function VerknuepfungenView({
   data: VerknuepfungenData;
   searchParams?: Sp;
 }) {
-  const { orderNo, tour, gallery, folderCounts, invoices } = data;
+  const { orderNo, tour, suggestedTours, gallery, folderCounts, invoices } = data;
+  const mutateAction = `/orders/${orderId}/verknuepfungen/mutate`;
   const gSlug = gallery ? displayGallerySlug(gallery) : null;
   const galleryLink = gSlug ? galleryUrl(gSlug) : null;
   const galleryPathDisplay = gSlug ? galleryDisplayHostPath(gSlug) : null;
@@ -151,8 +155,8 @@ export function VerknuepfungenView({
                   Direct Matterport
                 </a>
               )}
-              <form action={unlinkMatterportTour} className="inline">
-                <input type="hidden" name="order_no" value={String(orderNo)} />
+              <form action={mutateAction} method="post" className="inline">
+                <input type="hidden" name="_action" value="unlink-matterport" />
                 <button
                   type="submit"
                   className="rounded-md border border-[var(--border)] bg-white px-2.5 py-1.5 text-xs text-[var(--danger)] hover:border-[var(--danger)]"
@@ -165,14 +169,71 @@ export function VerknuepfungenView({
         ) : (
           <div className="space-y-3">
             <Empty>
-              Keine Tour mit dieser Bestellung verknüpft. Slug, Space-ID oder Link eintragen und
-              speichern.
+              Keine Tour mit dieser Bestellung verknüpft. Wähle eine der neuesten Touren oder trage
+              Space-ID/Link manuell ein.
             </Empty>
+            {suggestedTours.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-3)]">
+                  Neueste unverknüpfte Touren
+                </p>
+                <div className="grid gap-2">
+                  {suggestedTours.map((suggested) => {
+                    const directUrl =
+                      suggested.tour_url ?? matterportShowUrl(suggested.matterport_space_id);
+                    return (
+                      <div
+                        key={suggested.id}
+                        className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--paper-strip)] px-4 py-3"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-[var(--ink)]">
+                            {suggested.display_title}
+                          </p>
+                          <p className="mt-1 text-xs text-[var(--ink-3)]">
+                            {suggested.customer_label ?? "Kein Kunde"} · {suggestedTourDateLabel(suggested)}
+                            {suggested.matterport_space_id && (
+                              <>
+                                {" · "}
+                                <code className="font-mono text-[var(--ink-2)]">
+                                  {suggested.matterport_space_id}
+                                </code>
+                              </>
+                            )}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 flex-wrap items-center gap-2">
+                          {directUrl && (
+                            <a
+                              href={directUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={btnSecondary}
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              Prüfen
+                            </a>
+                          )}
+                          <form action={mutateAction} method="post">
+                            <input type="hidden" name="_action" value="link-suggested-matterport" />
+                            <input type="hidden" name="tour_id" value={String(suggested.id)} />
+                            <button type="submit" className={btnPrimary}>
+                              Verknüpfen
+                            </button>
+                          </form>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             <form
-              action={linkMatterportTour}
+              action={mutateAction}
+              method="post"
               className="flex max-w-lg flex-col gap-2 sm:flex-row sm:items-end"
             >
-              <input type="hidden" name="order_no" value={String(orderNo)} />
+              <input type="hidden" name="_action" value="link-matterport" />
               <label className="flex-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-3)]">
                 Matterport (Space-ID oder URL mit ?m=…)
                 <input
@@ -228,8 +289,8 @@ export function VerknuepfungenView({
                   <CopyLinkButton url={galleryLink} />
                 </>
               )}
-              <form action={unlinkGallery} className="inline">
-                <input type="hidden" name="order_no" value={String(orderNo)} />
+              <form action={mutateAction} method="post" className="inline">
+                <input type="hidden" name="_action" value="unlink-gallery" />
                 <button
                   type="submit"
                   className="rounded-md border border-[var(--border)] bg-white px-2.5 py-1.5 text-xs text-[var(--danger)] hover:border-[var(--danger)]"
@@ -246,10 +307,11 @@ export function VerknuepfungenView({
               eintragen.
             </Empty>
             <form
-              action={linkGallery}
+              action={mutateAction}
+              method="post"
               className="flex max-w-lg flex-col gap-2 sm:flex-row sm:items-end"
             >
-              <input type="hidden" name="order_no" value={String(orderNo)} />
+              <input type="hidden" name="_action" value="link-gallery" />
               <label className="flex-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-3)]">
                 Slug oder freundlicher Slug
                 <input
