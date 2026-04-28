@@ -239,6 +239,8 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
   // Customer & contact state
   const [customerContacts, setCustomerContacts] = useState<CustomerContact[]>([]);
   const [selectedContactId, setSelectedContactId] = useState<string>(""); // "" = none/new, "new" = manual, "N" = contact id
+  // "idle" = noch keine Firma/Kunde gewählt; "loading"/"loaded"/"error" = Ladezustand der Ansprechpartner.
+  const [contactsLoadState, setContactsLoadState] = useState<"idle" | "loading" | "loaded" | "error">("idle");
 
   // Submit state
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -301,9 +303,18 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
     setSelectedContactId("");
     setCustomerContacts([]);
     if (initialCustomer.id && token) {
+      setContactsLoadState("loading");
       getCustomerContacts(token, initialCustomer.id)
-        .then((contacts) => setCustomerContacts(contacts))
-        .catch(() => {});
+        .then((contacts) => {
+          setCustomerContacts(contacts);
+          setContactsLoadState("loaded");
+        })
+        .catch((err) => {
+          console.warn("[CreateOrderWizard] Ansprechpartner laden fehlgeschlagen", err);
+          setContactsLoadState("error");
+        });
+    } else {
+      setContactsLoadState("idle");
     }
   }, [open, initialCustomer, token]);
 
@@ -592,9 +603,18 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
     setCustomerContacts([]);
 
     if (cid && token) {
+      setContactsLoadState("loading");
       getCustomerContacts(token, cid)
-        .then((contacts) => setCustomerContacts(contacts))
-        .catch(() => {});
+        .then((contacts) => {
+          setCustomerContacts(contacts);
+          setContactsLoadState("loaded");
+        })
+        .catch((err) => {
+          console.warn("[CreateOrderWizard] Ansprechpartner laden fehlgeschlagen", err);
+          setContactsLoadState("error");
+        });
+    } else {
+      setContactsLoadState("idle");
     }
   }
 
@@ -926,13 +946,27 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                   </div>
                 </div>
 
-                {/* Ansprechpartner (wenn Firma-Kontakte vorhanden) */}
-                {customerContacts.length > 0 && (
+                {/* Ansprechpartner — nach Firma-/Kundenauswahl immer sichtbar (mit Lade-/Leer-/Fehlerzustand) */}
+                {contactsLoadState !== "idle" && (
                   <div className="pt-3 border-t border-slate-100 border-[var(--border-soft)]">
                     <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-subtle)] mb-2 flex items-center gap-1.5">
                       <Users className="h-3.5 w-3.5" />
                       Ansprechpartner
                     </p>
+                    {contactsLoadState === "loading" && (
+                      <p className="mb-3 text-xs text-[var(--text-subtle)]">Lade Ansprechpartner…</p>
+                    )}
+                    {contactsLoadState === "error" && (
+                      <p className="mb-3 text-xs text-amber-500" role="alert">
+                        Ansprechpartner konnten nicht geladen werden.
+                      </p>
+                    )}
+                    {contactsLoadState === "loaded" && customerContacts.length === 0 && (
+                      <p className="mb-3 text-xs text-[var(--text-subtle)]">
+                        Keine Ansprechpartner hinterlegt — Felder oben manuell befüllen.
+                      </p>
+                    )}
+                    {customerContacts.length > 0 && (
                     <div className="mb-3">
                       <select
                         value={selectedContactId}
@@ -965,6 +999,7 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                         <option value="new">+ Manuell eingeben</option>
                       </select>
                     </div>
+                    )}
                   </div>
                 )}
 
