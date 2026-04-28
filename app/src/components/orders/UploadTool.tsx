@@ -740,10 +740,19 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
     if (sequenceUploadActive) return;
     if (!currentBatch?.id) return;
     if (!["staged", "transferring", "retrying"].includes(currentBatch.status)) return;
+    let lastStoredCount = currentBatch.files?.filter((f) => f.status === "stored").length ?? 0;
     const intervalId = window.setInterval(() => {
       getUploadBatch(token, orderNo, currentBatch.id)
         .then(async (response) => {
           setCurrentBatch(response.batch);
+          const storedNow = response.batch.files?.filter((f) => f.status === "stored").length ?? 0;
+          // Zwischenstand: sobald weitere Dateien auf dem NAS gelandet sind,
+          // den Dateibaum aktualisieren – so füllt sich „Bereits hochgeladen"
+          // schon während des Hintergrund-Transfers.
+          if (storedNow > lastStoredCount) {
+            lastStoredCount = storedNow;
+            await loadTree().catch(() => {});
+          }
           if (response.batch.status === "completed") {
             await loadTree().catch(() => {});
             await onChanged?.();
@@ -754,7 +763,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
         });
     }, BATCH_STATUS_POLL_MS);
     return () => window.clearInterval(intervalId);
-  }, [currentBatch?.id, currentBatch?.status, loadTree, onChanged, orderNo, sequenceUploadActive, token]);
+  }, [currentBatch?.id, currentBatch?.status, currentBatch?.files, loadTree, onChanged, orderNo, sequenceUploadActive, token]);
 
   async function waitForBatchCompletion(batchId: string) {
     const deadline = Date.now() + 10 * 60_000;
@@ -977,13 +986,17 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
               ...(addOrderSuffix ? { addOrderSuffix: true } : {}),
             });
 
-      // Sofort Erfolg zeigen – NAS-Transfer läuft im Hintergrund
+      // Sofort Erfolg zeigen – NAS-Transfer läuft im Hintergrund.
+      // Auswahl leeren, damit direkt neue Dateien gewählt werden können,
+      // ohne auf den NAS-Transfer warten zu müssen.
       setCurrentBatch(result.batch);
       setUploadedCount(total);
       setUploadSuccess(true);
       setUploadError(false);
       setConfirmDone(true);
       setStatus(t(lang, "upload.confirm.sent"));
+      setFiles([]);
+      setFileProgress({});
 
       // Hintergrund: auf NAS-Transfer warten, dann Mail + Dateibaum aktualisieren
       waitForBatchCompletion(result.batch.id).then(async (finished) => {
@@ -1097,6 +1110,10 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
   }, [files, fileTypeFilter]);
   const transferActive = Boolean(currentBatch && ["staged", "transferring", "retrying"].includes(currentBatch.status));
   const uploadedEntries = useMemo(() => currentBatch?.files || [], [currentBatch]);
+  const storedFileCount = useMemo(
+    () => uploadedEntries.filter((f) => f.status === "stored").length,
+    [uploadedEntries],
+  );
 
   const containerClassName = embedded
     ? "rounded-2xl border border-zinc-800 bg-zinc-900 p-4 sm:p-6 shadow-xl"
@@ -1348,32 +1365,44 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
           ) : null}
         </div>
 
-        {/* Fortschrittsbalken */}
-        {(busy === "upload" || transferActive) && (
+        {/* Fortschrittsbalken nur während Chunk-Upload; NAS-Transfer läuft im Hintergrund */}
+        {busy === "upload" && (
           <div className="mt-3">
             <div className="mb-1 flex justify-between text-xs p-text-muted">
               <span className="flex items-center gap-2">
-                {busy === "upload"
-                  ? `${uploadedCount} von ${files.length > 0 ? files.length : "?"} Datei${files.length !== 1 ? "en" : ""}`
-                  : t(lang, "upload.label.transferStatus")}
+                {`${uploadedCount} von ${files.length > 0 ? files.length : "?"} Datei${files.length !== 1 ? "en" : ""}`}
                 {uploadPaused && <span className="text-amber-400 font-semibold">– Pausiert</span>}
-                {uploadSpeed && busy === "upload" && !uploadPaused && (
+                {uploadSpeed && !uploadPaused && (
                   <span className="text-zinc-500">{uploadSpeed}</span>
                 )}
               </span>
-              <span>{busy === "upload" ? `${progress}%` : currentBatch?.status || "-"}</span>
+              <span>{`${progress}%`}</span>
             </div>
             <div className="h-2 overflow-hidden rounded bg-zinc-800">
               <div
-                className={`h-full transition-all ${transferActive ? "animate-pulse bg-[var(--accent)]" : uploadPaused ? "bg-amber-500" : "bg-[var(--accent)]"}`}
-                style={{ width: `${busy === "upload" ? progress : transferActive ? 100 : 0}%` }}
+                className={`h-full transition-all ${uploadPaused ? "bg-amber-500" : "bg-[var(--accent)]"}`}
+                style={{ width: `${progress}%` }}
               />
             </div>
           </div>
         )}
 
-        {/* Upload-Ergebnis */}
-        {currentBatch && (
+        {/* Upload-Ergebnis – kompakt während Hintergrund-Transfer, voll nach Abschluss */}
+        {currentBatch && transferActive ? (
+          <div className="mt-3 flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800/40 px-3 py-2 text-xs">
+            <RefreshCw className="h-3.5 w-3.5 shrink-0 animate-spin text-[var(--accent)]" />
+            <span className="truncate text-zinc-300">
+              {t(lang, "upload.background.transferring")}
+              {uploadedEntries.length > 0 && (
+                <span className="ml-2 text-zinc-500">
+                  {t(lang, "upload.background.progress")
+                    .replace("{{done}}", String(storedFileCount))
+                    .replace("{{total}}", String(uploadedEntries.length))}
+                </span>
+              )}
+            </span>
+          </div>
+        ) : currentBatch ? (
           <div className="mt-3 rounded-lg border border-zinc-700 bg-zinc-800/50 p-3 text-sm">
             <div className="mb-2 font-semibold text-zinc-100">{t(lang, "upload.label.result")}</div>
             <div className="mb-2 text-xs p-text-muted">
@@ -1425,7 +1454,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
               )}
             </div>
           </div>
-        )}
+        ) : null}
 
         {/* Dateibaum */}
         {(anyFile || folderExists) && (
