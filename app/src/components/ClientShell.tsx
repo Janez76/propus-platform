@@ -11,8 +11,8 @@
  * The shell is mounted at the (admin), (portal) and other layout pages.
  */
 
-import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
-import { Suspense, lazy, useLayoutEffect, type ReactElement } from "react";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams } from "react-router-dom";
+import { Suspense, lazy, type ReactElement } from "react";
 import { CustomerMagicSessionRedirect } from "./auth/CustomerMagicSessionRedirect";
 import { CustomerSessionBootstrap } from "./auth/CustomerSessionBootstrap";
 import { OfflineIndicator } from "./layout/OfflineIndicator";
@@ -22,12 +22,15 @@ import { usePermissions } from "../hooks/usePermissions";
 import { isPublicBookingHost } from "../lib/publicBookingHost";
 import { RouteGuard } from "./routing/RouteGuard";
 import { RegisterServiceWorker } from "./pwa/RegisterServiceWorker";
+import { deleteOrder } from "../api/orders";
+import { useAuthStore } from "../store/authStore";
 
 // Lazy-load all pages from the legacy pages directory
 const LoginPage = lazy(() => import("../pages-legacy/LoginPage").then((m) => ({ default: m.LoginPage })));
 const AcceptInvitePage = lazy(() => import("../pages-legacy/AcceptInvitePage").then((m) => ({ default: m.AcceptInvitePage })));
 const DashboardPage = lazy(() => import("../pages-legacy/DashboardPage").then((m) => ({ default: m.DashboardPage })));
 const OrdersPage = lazy(() => import("../pages-legacy/OrdersPage").then((m) => ({ default: m.OrdersPage })));
+const OrderDetail = lazy(() => import("../components/orders/OrderDetail").then((m) => ({ default: m.OrderDetail })));
 const UploadsPage = lazy(() => import("../pages-legacy/UploadsPage").then((m) => ({ default: m.UploadsPage })));
 const CalendarPage = lazy(() => import("../pages-legacy/CalendarPage").then((m) => ({ default: m.CalendarPage })));
 const CustomersPage = lazy(() => import("../pages-legacy/CustomersPage").then((m) => ({ default: m.CustomersPage })));
@@ -114,16 +117,26 @@ function LegacySelektoClientRedirect() {
   return <Navigate to={`/selekto/${slug ?? ""}`} replace />;
 }
 
-/**
- * Bestelldetails liegen als Next.js App-Route unter `app/(admin)/orders/[id]/`, nicht in React Router.
- * Client-seitiges `navigate("/orders/…")` würde sonst keine Route matchen → leere Ansicht.
- */
-function FullPageOrderDetailFromSpa() {
-  useLayoutEffect(() => {
-    const { pathname, search, hash } = window.location;
-    window.location.replace(`${pathname}${search}${hash}`);
-  }, []);
-  return <PageSkeleton />;
+function OrderDetailRoute() {
+  const { orderNo } = useParams<{ orderNo: string }>();
+  const navigate = useNavigate();
+  const token = useAuthStore((s) => s.token);
+
+  if (!orderNo) return <Navigate to="/orders" replace />;
+  if (!token) return <Navigate to="/login" replace />;
+
+  return (
+    <OrderDetail
+      token={token}
+      orderNo={orderNo}
+      onClose={() => navigate("/orders")}
+      onDelete={async (no) => {
+        await deleteOrder(token, no);
+        navigate("/orders");
+      }}
+      onOpenUpload={(no) => navigate(`/upload?orderNo=${encodeURIComponent(no)}`)}
+    />
+  );
 }
 
 function PrivateRoutes() {
@@ -198,7 +211,7 @@ function PrivateRoutes() {
         <Route path="/settings/roles" element={eg("/settings/roles", <RoleMatrixPage />)} />
         <Route path="/admin/roles" element={<Navigate to="/settings/roles" replace />} />
         <Route path="/dashboard" element={eg("/dashboard", <DashboardPage />)} />
-        <Route path="/orders/:orderNo" element={eg("/orders", <FullPageOrderDetailFromSpa />)} />
+        <Route path="/orders/:orderNo" element={eg("/orders", <OrderDetailRoute />)} />
         <Route path="/orders" element={eg("/orders", <OrdersPage />)} />
         <Route path="/upload" element={eg("/upload", <UploadsPage />)} />
         <Route path="/calendar" element={eg("/calendar", <CalendarPage />)} />
