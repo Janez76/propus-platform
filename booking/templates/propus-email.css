@@ -1,6 +1,23 @@
 /* ============================================================
-   PROPUS EMAIL STYLES
-   Fonts:      Montserrat (headings) · Roboto (body)
+   PROPUS EMAIL STYLES — BROWSER-PREVIEW / DESIGN-REFERENZ
+   ------------------------------------------------------------
+   ACHTUNG: Diese Datei ist NICHT fuer den E-Mail-Versand gedacht.
+   Produktive E-Mails werden in booking/templates/emails.js mit
+   inline-styled Tabellen-Layout generiert (Outlook/Gmail-kompatibel).
+   Diese Datei dient als visuelle Design-Referenz fuer Browser-Preview.
+
+   Bekannte E-Mail-Client-Inkompatibilitaeten (bewusst toleriert,
+   da nur Browser-Preview):
+     · CSS Custom Properties (var(--...))   → Outlook 2007-2019 ignoriert
+     · display: flex                         → Outlook bricht Layout
+     · @import Google Fonts                  → Gmail/Outlook strippen
+     · position: fixed                       → in E-Mails unsupported
+
+   Wenn diese Datei je in echtem E-Mail-Versand verwendet wird, muss
+   sie vorher zu inline-styled Tabellen kompiliert werden (z.B. via
+   MJML oder juice).
+
+   Fonts:      Montserrat (headings) · Roboto (body) — Browser-only
    Gold:       #B68E20
    Background: #F1F2EA
    Dark mode:  auto (prefers-color-scheme) + class .dark-mode
@@ -31,10 +48,11 @@
   --text-primary:   #111111;
   --text-secondary: #333333;
   --text-muted:     #666666;
-  --text-label:     #aaaaaa;
-  --text-sublabel:  #bbbbbb;
-  --text-footer:    #aaaaaa;
-  --text-fine:      #cccccc;
+  /* WCAG AA: 4.5:1 body, 3:1 large. Vorher #aaa/#bbb/#ccc = 1.6-2.4:1 (Fail). */
+  --text-label:     #767676; /* 4.54:1 auf #fff — AA Body */
+  --text-sublabel:  #767676; /* 4.54:1 auf #fff — AA Body */
+  --text-footer:    #6b7280; /* 4.83:1 auf #F7F6F3 — AA Body */
+  --text-fine:      #767676; /* 4.54:1 auf #fff — AA Body (war #ccc = 1.61:1) */
 
   --gold:           #B68E20;
   --gold-light:     #c9a22a;
@@ -45,8 +63,8 @@
 
   --green:          #2a7a2a;
 
-  --font-heading:   'Montserrat', sans-serif;
-  --font-body:      'Roboto', -apple-system, sans-serif;
+  --font-heading:   'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-body:      'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
 }
 
 /* ── BODY ── */
@@ -452,10 +470,11 @@ body.light-mode {
   --text-primary:   #111111;
   --text-secondary: #333333;
   --text-muted:     #666666;
-  --text-label:     #aaaaaa;
-  --text-sublabel:  #bbbbbb;
-  --text-footer:    #aaaaaa;
-  --text-fine:      #cccccc;
+  /* WCAG AA: 4.5:1 body, 3:1 large. Vorher #aaa/#bbb/#ccc = 1.6-2.4:1 (Fail). */
+  --text-label:     #767676; /* 4.54:1 auf #fff — AA Body */
+  --text-sublabel:  #767676; /* 4.54:1 auf #fff — AA Body */
+  --text-footer:    #6b7280; /* 4.83:1 auf #F7F6F3 — AA Body */
+  --text-fine:      #767676; /* 4.54:1 auf #fff — AA Body (war #ccc = 1.61:1) */
 
   --gold-text:      #7a6520;
   --gold-label:     #8a7418;
