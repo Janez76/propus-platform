@@ -366,17 +366,24 @@
     /* Employee Modal muss über allen anderen Modals liegen */
     #employeeModalOverlay{z-index:10030}
     #employeeModal{z-index:10031}
-    /* Druck: nur Overlay-Inhalt anzeigen */
+    /* Druck: nur Overlay-Inhalt anzeigen, mit Page-Break-Schutz */
     @media print{
       body *{visibility:hidden !important}
       #printOrderOverlay,#printOrderOverlay *{visibility:visible !important}
-      #printOrderOverlay{position:absolute !important;left:0 !important;top:0 !important;width:100% !important;overflow:visible !important;padding:0 !important;display:block !important;background:#fff !important}
-    }
-    /* Bestell-Druck: Overlay sichtbar, Rest ausgeblendet */
-    @media print{
-      body *{visibility:hidden !important}
-      #printOrderOverlay,#printOrderOverlay *{visibility:visible !important}
-      #printOrderOverlay{position:absolute !important;left:0 !important;top:0 !important;width:100% !important;overflow:visible !important;display:block !important;padding:24px !important;background:#fff !important}
+      #printOrderOverlay{
+        position:absolute !important;left:0 !important;top:0 !important;
+        width:100% !important;overflow:visible !important;
+        padding:24px !important;display:block !important;background:#fff !important;
+      }
+      /* Karten/Tabellenzeilen nicht ueber Seitenumbruch trennen */
+      #printOrderOverlay .page,
+      #printOrderOverlay table.d,
+      #printOrderOverlay table.d tr,
+      #printOrderOverlay h3{
+        page-break-inside:avoid;
+        break-inside:avoid;
+      }
+      #printOrderOverlay h3{ page-break-after:avoid; break-after:avoid; }
     }
     .modal-overlay.open{display:flex}
     .modal{
