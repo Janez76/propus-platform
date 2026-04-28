@@ -5,6 +5,10 @@ import { useEffect } from "react";
 /**
  * Lädt die Seite einmalig neu, wenn der Browser nach einem Deploy auf
  * gelöschte Chunks oder unbekannte Server-Action-IDs trifft.
+ *
+ * Schutz gegen Reload-Loops: vor dem Reload wird ein Marker in der
+ * sessionStorage gesetzt; bei einem zweiten Treffer in derselben Session
+ * wird nicht erneut geladen.
  */
 const STORAGE_KEY = "stale_client_reload_at";
 const COOLDOWN_MS = 60_000;
