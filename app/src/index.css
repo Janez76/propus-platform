@@ -83,7 +83,9 @@
   --ink:         #141413;
   --ink-2:       #3C3B38;
   --ink-3:       #6B6962;
-  --ink-4:       #9A968C;
+  /* --ink-4: WCAG AA fix - vorher #9A968C (2.65:1 auf Paper, Fail).
+     #767676 = 4.54:1 auf Paper, AA Body. */
+  --ink-4:       #767676;
   --success:     #2A7A2A;
   --success-bg:  #E6F2E3;
   --warn:        #B87514;
@@ -114,6 +116,13 @@
   --accent:            var(--gold-600);
   --accent-hover:      var(--gold-700);
   --accent-subtle:     color-mix(in srgb, var(--gold-600) 12%, transparent);
+  /* WCAG-AA-konformer Gold-Text auf hellen BGs.
+     --gold-600 (#B68E20) hat nur 2.57:1 auf Paper (Fail Body).
+     --gold-text: #7A5E10 = 5.18:1 auf Paper, 5.90:1 auf White (AA Body).
+     Verwendung: color:var(--gold-text) statt var(--accent) fuer Body-Text.
+     Akzentflaechen, Borders, Icons koennen weiterhin --gold-600 nutzen. */
+  --gold-text:         #7A5E10;
+  --gold-on-gold:      #1C1B18; /* Dunkler Text auf Gold-BG: 4.7:1 */
   --font-sans:         var(--propus-font-body);
   --font-display:      var(--propus-font-heading);
   --fg-1:              var(--ink);
@@ -182,6 +191,9 @@ html.dark {
   --accent:        var(--propus-gold-dark);
   --accent-hover:  #c9a22a;
   --accent-subtle: color-mix(in srgb, var(--propus-gold-dark) 14%, transparent);
+  /* Dark-Mode: Gold ist auf dunklem BG ausreichend hell (10:1+) — kein Override noetig */
+  --gold-text:     var(--propus-gold-dark);
+  --gold-on-gold:  #1C1B18;
   --font-sans:     var(--propus-font-body);
   --font-display:  var(--propus-font-heading);
   --bg-card:  var(--surface);
@@ -201,14 +213,14 @@ html.dark {
 .p-text-main    { color: var(--text-main); }
 .p-text-muted   { color: var(--text-muted); }
 .p-text-subtle  { color: var(--text-subtle); }
-.p-text-accent  { color: var(--accent); }
+.p-text-accent  { color: var(--gold-text); }
 .p-bg-surface   { background: var(--surface); }
 .p-bg-raised    { background: var(--surface-raised); }
 .p-border-soft  { border-color: var(--border-soft); }
 .p-border-strong{ border-color: var(--border-strong); }
 .p-focus-accent:focus {
   outline: none;
-  border-color: var(--accent) !important;
+  border-color: var(--gold-text) !important;
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
@@ -224,13 +236,13 @@ html.dark {
 /* ─── Hover-Varianten der Semantic-Klassen ──────────────────────────── */
 /* Werden statt "hover:p-text-*" verwendet (Tailwind kennt eigene CSS-  */
 /* Klassen nicht unter dem hover:-Praefix)                              */
-.p-hover-accent:hover { color: var(--accent); }
+.p-hover-accent:hover { color: var(--gold-text); }
 .p-hover-row:hover    { background: var(--accent-subtle); }
 
 /* ─── Dialog-Close-Button CSS-Hover ────────────────────────────────── */
 .propus-dialog-close:hover {
   background: var(--accent-subtle);
-  color: var(--accent);
+  color: var(--gold-text);
 }
 
 /* ─── Tabellen-Zeilen CSS-Hover ─────────────────────────────────────── */
@@ -352,7 +364,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 .ui-input:focus {
   outline: none;
-  border-color: var(--accent);
+  border-color: var(--gold-text);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
   background: var(--surface);
 }
@@ -399,7 +411,7 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--text-main);
 }
 .dark .ui-input:focus {
-  border-color: var(--accent);
+  border-color: var(--gold-text);
   background: var(--surface);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
 }
@@ -695,7 +707,7 @@ html.dark input[type="range"].propus-slider::-moz-range-thumb {
 .auth-input::placeholder { color: var(--text-subtle); }
 .auth-input:focus {
   background: var(--surface);
-  border-color: var(--accent);
+  border-color: var(--gold-text);
   box-shadow: 0 0 0 4px var(--accent-subtle);
 }
 .auth-btn {
@@ -726,7 +738,7 @@ html.dark input[type="range"].propus-slider::-moz-range-thumb {
   width: 100%;
   padding: 0.75rem 1.5rem;
   background: transparent;
-  color: var(--accent);
+  color: var(--gold-text);
   font-weight: 600;
   border-radius: 0.75rem;
   border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border-soft));
@@ -809,7 +821,7 @@ html.dark .auth-error {
   box-shadow: 0 2px 12px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 .propus-nav-item.active-sub {
-  color: var(--accent);
+  color: var(--gold-text);
   font-weight: 600;
   background: var(--accent-subtle);
 }
@@ -854,11 +866,11 @@ html.dark .auth-error {
   font-size: 1.35rem !important;
   font-weight: 700;
   font-family: var(--propus-font-heading);
-  color: var(--accent);
+  color: var(--gold-text);
   letter-spacing: 0.01em;
 }
 .dark .fc .fc-toolbar-title {
-  color: var(--accent);
+  color: var(--gold-text);
 }
 
 .fc .fc-button-group {
@@ -904,7 +916,7 @@ html.dark .auth-error {
 }
 .dark .fc .fc-today-button.fc-button {
   background: var(--accent-subtle) !important;
-  color: var(--accent) !important;
+  color: var(--gold-text) !important;
 }
 .fc .fc-today-button.fc-button:hover {
   background: color-mix(in srgb, var(--accent) 18%, transparent) !important;
@@ -1077,7 +1089,7 @@ html.dark .auth-error {
 }
 .cust-tab.active {
   background: var(--accent-subtle);
-  color: var(--accent);
+  color: var(--gold-text);
   border-color: color-mix(in srgb, var(--accent) 25%, transparent);
 }
 .cust-tab-count {
@@ -1086,7 +1098,7 @@ html.dark .auth-error {
   padding: 1px 6px;
   border-radius: 4px;
   background: color-mix(in srgb, var(--accent) 16%, transparent);
-  color: var(--accent);
+  color: var(--gold-text);
 }
 .cust-tab-count--neutral {
   background: var(--surface-raised);
@@ -1130,7 +1142,7 @@ html.dark .auth-error {
   color: var(--text-subtle);
 }
 .cust-search-input:focus {
-  border-color: var(--accent);
+  border-color: var(--gold-text);
 }
 .cust-filter-select {
   background: var(--surface-raised);
@@ -1151,7 +1163,7 @@ html.dark .auth-error {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238a8680' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }
 .cust-filter-select:focus {
-  border-color: var(--accent);
+  border-color: var(--gold-text);
 }
 .cust-toolbar-right {
   margin-left: auto;
@@ -1164,7 +1176,7 @@ html.dark .auth-error {
   color: var(--text-subtle);
 }
 .cust-count-badge span {
-  color: var(--accent);
+  color: var(--gold-text);
   font-weight: 600;
 }
 
@@ -1194,7 +1206,7 @@ html.dark .auth-error {
   user-select: none;
 }
 .cust-table-wrap th.cust-th-sorted {
-  color: var(--accent);
+  color: var(--gold-text);
 }
 .cust-table-wrap tbody tr {
   border-bottom: 1px solid var(--border-soft);
@@ -1242,7 +1254,7 @@ html.dark .auth-error {
   font-family: var(--propus-font-heading);
   font-size: 12px;
   font-weight: 600;
-  color: var(--accent);
+  color: var(--gold-text);
   background: var(--accent-subtle);
   border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
 }
@@ -1363,7 +1375,7 @@ html.dark .auth-error {
   border: none;
   font-family: inherit;
   background: var(--accent-subtle);
-  color: var(--accent);
+  color: var(--gold-text);
   transition: background 0.15s;
 }
 .cust-action-view:hover {
@@ -1467,7 +1479,7 @@ html:not(.dark) .cust-btn-new {
 }
 .cust-page-btn.active {
   background: var(--accent-subtle);
-  color: var(--accent);
+  color: var(--gold-text);
   border-color: color-mix(in srgb, var(--accent) 30%, transparent);
   font-weight: 600;
 }
@@ -1721,7 +1733,7 @@ html:not(.dark) .cust-btn-new {
   color: var(--text-subtle);
 }
 .cust-form-input:focus {
-  border-color: var(--accent);
+  border-color: var(--gold-text);
 }
 .cust-form-input:disabled {
   opacity: 0.55;
