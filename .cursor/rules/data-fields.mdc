@@ -47,6 +47,7 @@ Die Dokumentation liegt im Ordner `docs/` im Repo-Root. `DATA_FIELDS.md` ist der
 | Neue Rolle oder Permission | `docs/ROLES_PERMISSIONS.md` |
 | Neues E-Mail-Template oder Platzhalter | `docs/EMAIL_TEMPLATES.md` |
 | Neuer Sync-Flow | Passende Flow-Datei |
+| Neue/angepasste Deploy- oder CI-Workflows (Trigger, `paths:`) | `docs/DEPLOY-FLOW.md`; bei `booking-ci` ggf. `docs/FLOWS_BOOKING.md` §19 |
 | Neue bekannte Lücke | `DATA_FIELDS.md` Abschnitt "Bekannte Lücken" |
 | Behobene Lücke | `DATA_FIELDS.md` aktualisieren |
 
