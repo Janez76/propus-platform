@@ -6,6 +6,7 @@ import { Section, Empty, KpiGrid, Kpi, formatCHF, formatTS } from "../_shared";
 import { galleryDisplayHostPath, galleryUrl, matterportShowUrl } from "./_links";
 import { CopyLinkButton } from "./copy-link-button";
 import { linkGallery, linkMatterportTour, unlinkGallery, unlinkMatterportTour } from "./actions";
+import { MatterportSpacesList } from "./matterport-spaces-list";
 import {
   displayGallerySlug,
   type VerknuepfungenData,
@@ -187,6 +188,12 @@ export function VerknuepfungenView({
                 Verknüpfen
               </button>
             </form>
+            <div className="pt-2">
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-3)]">
+                Offene Matterport-Spaces
+              </p>
+              <MatterportSpacesList orderNo={Number(orderNo)} />
+            </div>
           </div>
         )}
       </Section>
