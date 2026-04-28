@@ -27,8 +27,6 @@ export function QuickImpersonateButton() {
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  if (!token || !ADMIN_ROLES.has(String(role))) return null;
-
   const filtered = query.trim()
     ? customers.filter((c) => {
         const q = query.toLowerCase();
@@ -72,6 +70,8 @@ export function QuickImpersonateButton() {
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
+
+  if (!token || !ADMIN_ROLES.has(String(role))) return null;
 
   return (
     <div ref={containerRef} className="relative hidden sm:block">

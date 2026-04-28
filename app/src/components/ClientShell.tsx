@@ -12,7 +12,7 @@
  */
 
 import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
-import { Suspense, lazy, type ReactElement } from "react";
+import { Suspense, lazy, useLayoutEffect, type ReactElement } from "react";
 import { CustomerMagicSessionRedirect } from "./auth/CustomerMagicSessionRedirect";
 import { CustomerSessionBootstrap } from "./auth/CustomerSessionBootstrap";
 import { OfflineIndicator } from "./layout/OfflineIndicator";
@@ -114,6 +114,18 @@ function LegacySelektoClientRedirect() {
   return <Navigate to={`/selekto/${slug ?? ""}`} replace />;
 }
 
+/**
+ * Bestelldetails liegen als Next.js App-Route unter `app/(admin)/orders/[id]/`, nicht in React Router.
+ * Client-seitiges `navigate("/orders/…")` würde sonst keine Route matchen → leere Ansicht.
+ */
+function FullPageOrderDetailFromSpa() {
+  useLayoutEffect(() => {
+    const { pathname, search, hash } = window.location;
+    window.location.replace(`${pathname}${search}${hash}`);
+  }, []);
+  return <PageSkeleton />;
+}
+
 function PrivateRoutes() {
   const { isLoggedIn } = useAuth();
   const { canAccessPath } = usePermissions();
@@ -186,6 +198,7 @@ function PrivateRoutes() {
         <Route path="/settings/roles" element={eg("/settings/roles", <RoleMatrixPage />)} />
         <Route path="/admin/roles" element={<Navigate to="/settings/roles" replace />} />
         <Route path="/dashboard" element={eg("/dashboard", <DashboardPage />)} />
+        <Route path="/orders/:orderNo" element={eg("/orders", <FullPageOrderDetailFromSpa />)} />
         <Route path="/orders" element={eg("/orders", <OrdersPage />)} />
         <Route path="/upload" element={eg("/upload", <UploadsPage />)} />
         <Route path="/calendar" element={eg("/calendar", <CalendarPage />)} />

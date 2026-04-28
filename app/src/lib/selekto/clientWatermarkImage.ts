@@ -16,8 +16,8 @@ export async function tryCreateWatermarkedBlobUrl(
     const done = (v: string | null) => resolve(v);
     img.onload = () => {
       try {
-        let w = img.naturalWidth || img.width;
-        let h = img.naturalHeight || img.height;
+        const w = img.naturalWidth || img.width;
+        const h = img.naturalHeight || img.height;
         if (w <= 0 || h <= 0) {
           done(null);
           return;

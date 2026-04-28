@@ -1,5 +1,4 @@
 import { useState, type ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   ExternalLink,
   User,
@@ -143,13 +142,13 @@ export function OrderSidePanel({
   onClose: () => void;
   lang: Lang;
 }) {
-  const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>("overview");
 
   if (!open) return null;
   if (!order) return null;
 
   const orderNo = order.orderNo;
+  const fullOrderHref = `/orders/${encodeURIComponent(orderNo)}`;
   const pkg = order.services?.package?.label ?? "—";
   const photographer = order.photographer?.name ?? "—";
   const termin = order.appointmentDate ? formatDateTime(order.appointmentDate) : "—";
@@ -171,16 +170,13 @@ export function OrderSidePanel({
           <button type="button" className="btn-ghost" onClick={onClose}>
             {tr(lang, "common.close", "Schliessen")}
           </button>
-          <button
-            type="button"
-            className="btn-primary inline-flex items-center gap-1.5"
-            onClick={() => {
-              navigate(`/orders/${encodeURIComponent(orderNo)}`);
-            }}
+          <a
+            href={fullOrderHref}
+            className="btn-primary inline-flex items-center gap-1.5 no-underline"
           >
             <ExternalLink className="h-3.5 w-3.5" />
             {tr(lang, "orders.sidePanel.fullView", "Volle Ansicht")}
-          </button>
+          </a>
         </div>
       }
     >
@@ -595,14 +591,13 @@ export function OrderSidePanel({
             </Section>
           ) : null}
 
-          <button
-            type="button"
-            className="btn-ghost inline-flex items-center gap-1.5 text-xs"
-            onClick={() => navigate(`/orders/${encodeURIComponent(orderNo)}`)}
+          <a
+            href={fullOrderHref}
+            className="btn-ghost inline-flex items-center gap-1.5 text-xs no-underline"
           >
             <Link2 className="h-3.5 w-3.5" />
             {tr(lang, "orders.sidePanel.openFullHistory", "Vollständige Historie öffnen")}
-          </button>
+          </a>
         </div>
       )}
     </SidePanel>
