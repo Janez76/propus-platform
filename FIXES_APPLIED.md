@@ -269,3 +269,35 @@ Automatisierte Tests: keine — alle Änderungen sind statisch (HTML-Attribute, 
    - PDF-Print einer Bestellung (page-break Schutz)
    - App in light + dark Mode (gold-text Token greift in beiden)
 3. **Nach Merge:** `COMPATIBILITY_AUDIT.md` + `FIXES_APPLIED.md` als Referenz für künftige Brand-Iterationen.
+
+---
+
+## 7. Phase 4 — finaler Cleanup
+
+Stand: Abschlussarbeiten auf Branch `claude/audit-platform-compatibility-mCdJt` (Commits nach den ursprünglichen 12 Audit-Commits).
+
+| Aufgabe | Status | Kurzbeschreibung |
+|--------|--------|-------------------|
+| **1** Pre-existing Test-Failures (`pg`) | Erledigt | `booking/pricing.js`: `db` + `settings-resolver` erst in `computePricing()` per `require()` (kein Top-Level-`pg` für reine Funktionen). `booking/access-rbac.js`: `getDb()` lazy statt `const db = require("./db")`. |
+| **2** `propus-email.css` `.header-title .gold` | Erledigt | `color: var(--gold-text)` (AA), Kommentar zur Large-Text-Schwelle. |
+| **3** `emailPreviewShell.ts` Inter | Erledigt | Kein `fonts.googleapis.com` mehr; iframe nutzt System-Sans-Stack per inline `<style>`. |
+| **4** Manuelle Smoke-Tests | Teilweise | Siehe unten. |
+| **5** `index.css` Stichprobe `gold-text` | Erledigt | Stichprobe: alle Treffer sind Fliesstext, Navigation, Fokusrahmen, Kalender-Titel, Tabs, Avatare oder Form-UI — keine reinen Icon-Container (z. B. `.cust-action-icon` bleibt `--text-subtle`). **Keine Rücknahme** auf `var(--accent)`. |
+| **6** CI `booking/**` | Erledigt | `.github/workflows/booking-ci.yml`: `npm ci`, `npm test`, `npm run lint:html`; `booking/.htmlhintrc` (minimale Regeln); `htmlhint` devDependency. |
+
+### Automatisierte Verifikation (Phase 4)
+
+- **`cd booking && npm test`:** alle Module-Tests grün (aktuell 77 Subtests inkl. `pricing`, `rbac-pure`, Storage, Order-Workflow).
+- **`cd booking && npm run lint:html`:** `*.html` im Booking-Root ohne Befunde (attr-no-duplication, id-unique, …).
+
+### Smoke-Tests (manuell — aus Agent-Umgebung)
+
+Die folgenden Punkte konnten hier **nicht** mit echtem Browser / Mail-Client durchgespielt werden (kein interaktives UI, kein konfigurierter Dev-Mailer).
+
+| Checkliste | Empfehlung |
+|-------------|------------|
+| **4a** Booking `admin.html` (Login, Bestellliste, Filter, Modals, `Strg+P`) | Lokal `cd booking && npm start` → `http://localhost:3000/admin.html` |
+| **4b** E-Mail-Klienten (Outlook, Gmail, iOS Mail) | Testbestellung mit Dev-Mailers oder Roh-HTML über Litmus/Email on Acid |
+| **4c** App Light/Dark (`app`, `--ink-4`, `--gold-text`) | Lokal `cd app && npm run dev` |
+
+**PR-Beschreibung:** Abschnitte 4a–4c nach lokalem QA in den PR-Texthinweis („Smoke: … erledigt/am …“) ergänzen.
