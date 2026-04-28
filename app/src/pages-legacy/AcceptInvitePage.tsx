@@ -146,7 +146,7 @@ const aipStyles = `
     width: 100%; padding: 0.78rem 0.95rem; border: 1px solid #e8e6e2;
     border-radius: 10px; font: inherit; margin-bottom: 1rem;
   }
-  .aip-card input:focus { outline: none; border-color: #B68E20; box-shadow: 0 0 0 3px rgba(182,142,32,0.2); }
+  .aip-card input:focus { outline: none; border-color: #7A5E10; box-shadow: 0 0 0 3px rgba(182,142,32,0.2); }
   .aip-actions { display: flex; gap: 10px; flex-wrap: wrap; }
   .aip-card button {
     flex: 1; min-width: 160px; border: 0; border-radius: 10px; padding: 0.82rem 1rem;

@@ -259,7 +259,7 @@ body.admin-body--login #root {
 }
 
 .gal-login-flat__field input:focus {
-	border-color: #b68e20;
+	border-color: #7A5E10;
 }
 
 .gal-login-flat__field input::placeholder {
@@ -1756,7 +1756,7 @@ body.theme-dark .gal-admin-mail-send-modal__err {
 }
 
 .gal-et-dd-trigger--open {
-	border-color: #b68e20;
+	border-color: #7A5E10;
 }
 
 .gal-et-dd-trigger-left {
