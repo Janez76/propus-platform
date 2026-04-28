@@ -326,7 +326,9 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: var(--gold);
+  /* WCAG AA: white auf #B68E20 = 2.90:1 (Fail).
+     Solid #7A5E10 mit White-Text = 5.90:1 (AA Body). */
+  background: #7A5E10;
   color: #fff;
   text-decoration: none;
   font-size: 12px;

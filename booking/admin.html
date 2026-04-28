@@ -85,7 +85,7 @@
       display:inline-flex;align-items:center;gap:6px;
       letter-spacing:-.01em;
     }
-    .btn-primary{background:var(--gold);color:#fff}
+    .btn-primary{background:var(--gold);color:var(--gold-on-gold)}
     .btn-primary:hover{background:var(--gold-600);transform:translateY(-1px);box-shadow:0 4px 12px rgba(158,134,73,.3)}
     .btn-ghost{background:rgba(0,0,0,.03);border:1.5px solid var(--line);color:var(--text)}
     .btn-ghost:hover{border-color:var(--gold-text);color:var(--gold-text)}
@@ -182,7 +182,7 @@
       transition:all .2s ease;font-family:inherit;color:var(--text-secondary);
     }
     .filter-btn:hover{border-color:var(--gold-text);color:var(--gold-text)}
-    .filter-btn.active{background:var(--gold);color:#fff;border-color:var(--gold-text);box-shadow:0 2px 8px rgba(158,134,73,.25)}
+    .filter-btn.active{background:var(--gold);color:var(--gold-on-gold);border-color:var(--gold-text);box-shadow:0 2px 8px rgba(158,134,73,.25)}
     .toolbar{justify-content:space-between}
     .search-wrap{margin-left:auto}
 
@@ -473,7 +473,7 @@
       width:20px;height:20px;border-radius:6px;border:2px solid var(--line);
       display:grid;place-items:center;transition:all .2s;flex-shrink:0;
     }
-    .addon-card.selected .addon-check{border-color:var(--gold-text);background:var(--gold);color:#fff}
+    .addon-card.selected .addon-check{border-color:var(--gold-text);background:var(--gold);color:var(--gold-on-gold)}
     .addon-card .addon-name{font-size:13px;font-weight:600}
     .addon-card .addon-cat{font-size:11px;color:var(--text-secondary)}
     .addon-card .addon-price{font-size:14px;font-weight:800;color:var(--gold-text);white-space:nowrap}
@@ -508,7 +508,7 @@
       cursor:pointer;display:grid;place-items:center;transition:all .2s;color:var(--text);
     }
     .page-btn:hover{border-color:var(--gold-text);color:var(--gold-text)}
-    .page-btn.active{background:var(--gold);color:#fff;border-color:var(--gold-text)}
+    .page-btn.active{background:var(--gold);color:var(--gold-on-gold);border-color:var(--gold-text)}
     .page-btn:disabled{opacity:.3;cursor:default;border-color:var(--line);color:var(--text)}
     .page-btn:disabled:hover{border-color:var(--line);color:var(--text)}
     .page-info{font-size:12px;color:var(--text-secondary);font-weight:600;margin:0 8px}
@@ -691,7 +691,7 @@
     .db-upcoming-date{
       display:flex;flex-direction:column;align-items:center;justify-content:center;
       min-width:40px;padding:4px 6px;border-radius:8px;
-      background:var(--gold);color:#fff;text-align:center;flex-shrink:0;
+      background:var(--gold);color:var(--gold-on-gold);text-align:center;flex-shrink:0;
     }
     .db-upcoming-date .day{font-size:16px;font-weight:800;line-height:1}
     .db-upcoming-date .month{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;margin-top:2px}
@@ -1066,7 +1066,7 @@
     }
     .emp-skill-badge{
       width:36px;height:28px;border-radius:8px;
-      background:var(--gold);color:#fff;
+      background:var(--gold);color:var(--gold-on-gold);
       font-size:13px;font-weight:800;
       display:grid;place-items:center;flex-shrink:0;
     }
@@ -1077,7 +1077,7 @@
       background:transparent;color:var(--gold-text);font-family:inherit;
       font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;
     }
-    .emp-add-btn:hover{ background:var(--gold);color:#fff; }
+    .emp-add-btn:hover{ background:var(--gold);color:var(--gold-on-gold); }
     /* Toggle switch */
     .emp-toggle-row{
       display:flex;align-items:center;gap:14px;cursor:pointer;

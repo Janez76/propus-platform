@@ -871,7 +871,7 @@ function buildPricingSummary(pricing, lang = "de"){
     disc > 0 ? `<tr><td ${tdL}>${t.pricing.discount}</td><td style="padding:5px 0;font-size:13px;color:#059669;text-align:right;font-weight:600">−CHF ${disc.toFixed(2)}</td></tr>` : null,
     `<tr><td ${tdL}>${t.pricing.vat}</td><td ${tdR}>CHF ${vat.toFixed(2)}</td></tr>`,
     `<tr><td colspan="2" style="padding:2px 0"><div style="border-top:2px solid #e5e7eb"></div></td></tr>`,
-    `<tr><td style="padding:6px 0 4px;font-size:15px;font-weight:800;color:#1f2937">${t.pricing.total}</td><td style="padding:6px 0 4px;font-size:15px;font-weight:800;color:#9e8649;text-align:right">CHF ${total.toFixed(2)}</td></tr>`,
+    `<tr><td style="padding:6px 0 4px;font-size:15px;font-weight:800;color:#1f2937">${t.pricing.total}</td><td style="padding:6px 0 4px;font-size:15px;font-weight:800;color:#7A5E10;text-align:right">CHF ${total.toFixed(2)}</td></tr>`,
   ].filter(Boolean);
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows.join("")}</table>`;
 }
@@ -892,7 +892,7 @@ function sec(title, rows){
   const inner = rows.filter(Boolean).join("");
   if (!inner.trim()) return "";
   return `<div style="margin:0 0 28px">
-    <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#9e8649;margin-bottom:12px;padding-bottom:6px;border-bottom:2px solid #f0ead8;display:flex;align-items:center">
+    <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#7A5E10;margin-bottom:12px;padding-bottom:6px;border-bottom:2px solid #f0ead8;display:flex;align-items:center">
       <span style="display:inline-block;width:4px;height:16px;background:#c5a059;margin-right:10px;border-radius:2px"></span>
       ${title}
     </div>
@@ -1138,7 +1138,7 @@ function buildCustomerEmail(data, lang = "de"){
   const portalMagicLink = data.portalMagicLink || null;
 
   const ctaButtons = [
-    mapsUrl ? `<a href="${mapsUrl}" style="display:inline-block;background:#9e8649;color:#fff;padding:11px 22px;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;margin-right:8px">${t.customerBooking.routeBtn}</a>` : null,
+    mapsUrl ? `<a href="${mapsUrl}" style="display:inline-block;background:#7A5E10;color:#fff;padding:11px 22px;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;margin-right:8px">${t.customerBooking.routeBtn}</a>` : null,
     icsUrl  ? `<a href="${icsUrl}"  style="display:inline-block;background:#f3f4f6;color:#374151;padding:11px 22px;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;border:1px solid #d1d5db;margin-right:8px">${t.customerBooking.calendarBtn}</a>` : null,
     portalMagicLink ? `<a href="${portalMagicLink}" style="display:inline-block;background:#111827;color:#ffffff;padding:11px 22px;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px">${t.customerBooking.portalBtn}</a>` : null,
   ].filter(Boolean);
@@ -1146,12 +1146,12 @@ function buildCustomerEmail(data, lang = "de"){
   const keyBlock = `<div style="background:#f9f7f2;border-left:4px solid #c5a059;border-radius:0 8px 8px 0;padding:16px 20px;margin-bottom:8px">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
     <tr>
-      <td style="padding:4px 12px 4px 0;width:110px;font-size:11px;font-weight:700;color:#9e8649;text-transform:uppercase;letter-spacing:0.5px;vertical-align:top">${t.sections.appointment}</td>
+      <td style="padding:4px 12px 4px 0;width:110px;font-size:11px;font-weight:700;color:#7A5E10;text-transform:uppercase;letter-spacing:0.5px;vertical-align:top">${t.sections.appointment}</td>
       <td style="padding:4px 0;font-size:14px;font-weight:700;color:#1f2937">${fmtDate(data.date, data.time, lang)}</td>
     </tr>
-    ${addressStr ? `<tr><td style="padding:4px 12px 4px 0;font-size:11px;font-weight:700;color:#9e8649;text-transform:uppercase;letter-spacing:0.5px;vertical-align:top">${t.labels.address}</td><td style="padding:4px 0;font-size:13px;color:#374151">${addressStr}</td></tr>` : ""}
-    ${data.orderNo ? `<tr><td style="padding:4px 12px 4px 0;font-size:11px;font-weight:700;color:#9e8649;text-transform:uppercase;letter-spacing:0.5px">${t.labels.orderNo}</td><td style="padding:4px 0;font-size:13px;font-family:monospace;font-weight:700;color:#374151">#${data.orderNo}</td></tr>` : ""}
-    ${data.billing?.order_ref ? `<tr><td style="padding:4px 12px 4px 0;font-size:11px;font-weight:700;color:#9e8649;text-transform:uppercase;letter-spacing:0.5px">Bestellreferenz</td><td style="padding:4px 0;font-size:13px;color:#374151">${data.billing.order_ref}</td></tr>` : ""}
+    ${addressStr ? `<tr><td style="padding:4px 12px 4px 0;font-size:11px;font-weight:700;color:#7A5E10;text-transform:uppercase;letter-spacing:0.5px;vertical-align:top">${t.labels.address}</td><td style="padding:4px 0;font-size:13px;color:#374151">${addressStr}</td></tr>` : ""}
+    ${data.orderNo ? `<tr><td style="padding:4px 12px 4px 0;font-size:11px;font-weight:700;color:#7A5E10;text-transform:uppercase;letter-spacing:0.5px">${t.labels.orderNo}</td><td style="padding:4px 0;font-size:13px;font-family:monospace;font-weight:700;color:#374151">#${data.orderNo}</td></tr>` : ""}
+    ${data.billing?.order_ref ? `<tr><td style="padding:4px 12px 4px 0;font-size:11px;font-weight:700;color:#7A5E10;text-transform:uppercase;letter-spacing:0.5px">Bestellreferenz</td><td style="padding:4px 0;font-size:13px;color:#374151">${data.billing.order_ref}</td></tr>` : ""}
   </table>
 </div>`;
 
@@ -1175,7 +1175,7 @@ function buildCustomerEmail(data, lang = "de"){
       secKeyPickup(data.keyPickup, lang),
       `<div style="margin-top:32px;padding:20px;background:linear-gradient(135deg,#fef3c7,#fde68a);border-radius:12px;border:1px solid #fbbf24">
         <p style="margin:0 0 12px;font-size:14px;color:#92400e;font-weight:700">${t.customerBooking.infoTitle}</p>
-        <p style="margin:0;font-size:13px;color:#78350f;line-height:1.6">${t.customerBooking.infoText} <a href="mailto:office@propus.ch" style="color:#9e8649;font-weight:700">office@propus.ch</a>.</p>
+        <p style="margin:0;font-size:13px;color:#78350f;line-height:1.6">${t.customerBooking.infoText} <a href="mailto:office@propus.ch" style="color:#7A5E10;font-weight:700">office@propus.ch</a>.</p>
       </div>`
     ],
     footer: t.customerBooking.footer
@@ -1221,7 +1221,7 @@ function buildPhotographerEmail(data, lang){
     // Fügen wir den Link vor dem Footer ein
     html = html.replace('<!-- FOOTER_PLACEHOLDER -->', `
       <div style="margin-top:20px;margin-bottom:10px;">
-        <a href="${link}" style="display:inline-block;background:#9e8649;color:#fff;padding:12px 26px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px">
+        <a href="${link}" style="display:inline-block;background:#7A5E10;color:#fff;padding:12px 26px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px">
           ${btnLabel}
         </a>
       </div>
@@ -1376,12 +1376,12 @@ function buildCancellationCustomerEmail(order, photogPhone, lang = "de"){
       ]),
       sec(t.cancellationCustomer.photographerTitle, [
         tr(t.labels.name, order.photographer?.name),
-        tr(t.labels.email, order.photographer?.email ? `<a href="mailto:${order.photographer.email}" style="color:#9e8649;text-decoration:none">${order.photographer.email}</a>` : ""),
+        tr(t.labels.email, order.photographer?.email ? `<a href="mailto:${order.photographer.email}" style="color:#7A5E10;text-decoration:none">${order.photographer.email}</a>` : ""),
         tr(t.labels.phone, photogPhone || order.photographer?.phone)
       ]),
       `<div style="margin-top:32px;padding:20px;background:#f0f9ff;border-radius:12px;border:1px solid #bfdbfe">
         <p style="margin:0 0 12px;font-size:14px;color:#1e40af;font-weight:700">${t.cancellationCustomer.rebookTitle}</p>
-        <p style="margin:0;font-size:13px;color:#1e3a8a;line-height:1.6">${t.cancellationCustomer.rebookText} <a href="mailto:office@propus.ch" style="color:#9e8649;font-weight:700">office@propus.ch</a>. <a href="https://propus.ch" style="color:#9e8649;font-weight:700">propus.ch</a>.</p>
+        <p style="margin:0;font-size:13px;color:#1e3a8a;line-height:1.6">${t.cancellationCustomer.rebookText} <a href="mailto:office@propus.ch" style="color:#7A5E10;font-weight:700">office@propus.ch</a>. <a href="https://propus.ch" style="color:#7A5E10;font-weight:700">propus.ch</a>.</p>
       </div>`
     ],
     footer: t.cancellationCustomer.footer
@@ -1400,7 +1400,7 @@ function buildRescheduleOfficeEmail(order, oldDate, oldTime, newDate, newTime, p
     sections: [
       sec(t.sections.change, [
         tr(t.rescheduleOffice.oldDate, fmtDate(oldDate, oldTime, lang)),
-        tr(t.rescheduleOffice.newDate, `<strong style="color:#9e8649">${fmtDate(newDate, newTime, lang)}</strong>`),
+        tr(t.rescheduleOffice.newDate, `<strong style="color:#7A5E10">${fmtDate(newDate, newTime, lang)}</strong>`),
         tr(t.labels.orderNo,  `#${order.orderNo}`)
       ]),
       sec(t.sections.address, [
@@ -1435,7 +1435,7 @@ function buildReschedulePhotographerEmail(order, oldDate, oldTime, newDate, newT
     sections: [
       sec(t.change, [
         tr(t.oldDate, fmtDate(oldDate, oldTime)),
-        tr(t.newDate, `<strong style="color:#9e8649">${fmtDate(newDate, newTime)}</strong>`)
+        tr(t.newDate, `<strong style="color:#7A5E10">${fmtDate(newDate, newTime)}</strong>`)
       ]),
       sec(t.address, [
         tr("Adresse",    order.address),
@@ -1465,7 +1465,7 @@ function buildRescheduleCustomerEmail(order, oldDate, oldTime, newDate, newTime,
     sections: [
       sec(t.rescheduleCustomer.changeTitle, [
         tr(t.rescheduleCustomer.oldDate, `<span style="text-decoration:line-through;color:#9ca3af">${fmtDate(oldDate, oldTime, lang)}</span>`),
-        tr(t.rescheduleCustomer.newDate, `<strong style="color:#9e8649;font-size:15px;background:#fef3c7;padding:4px 10px;border-radius:6px;display:inline-block">${fmtDate(newDate, newTime, lang)}</strong>`),
+        tr(t.rescheduleCustomer.newDate, `<strong style="color:#7A5E10;font-size:15px;background:#fef3c7;padding:4px 10px;border-radius:6px;display:inline-block">${fmtDate(newDate, newTime, lang)}</strong>`),
         tr(t.labels.orderNo,  `<span style="font-family:monospace;color:#6b7280;background:#f3f4f6;padding:2px 8px;border-radius:4px;font-size:13px">#${order.orderNo}</span>`)
       ]),
       sec(t.rescheduleCustomer.photographerTitle, [
@@ -1478,7 +1478,7 @@ function buildRescheduleCustomerEmail(order, oldDate, oldTime, newDate, newTime,
         tr(t.labels.objectType, objType(order.object?.type, lang))
       ])
     ],
-    footer: `${t.rescheduleCustomer.footer} <a href='mailto:office@propus.ch' style='color:#9e8649'>office@propus.ch</a>`
+    footer: `${t.rescheduleCustomer.footer} <a href='mailto:office@propus.ch' style='color:#7A5E10'>office@propus.ch</a>`
   });
   return out(t.rescheduleCustomer.subject(order.orderNo), html);
 }
@@ -1575,7 +1575,7 @@ function buildReassignCustomerEmail(order, newPhotog, lang = "de"){
         tr(t.labels.objectType, objType(order.object?.type, lang))
       ])
     ],
-    footer: `${t.reassignCustomer.footer} <a href='mailto:office@propus.ch' style='color:#9e8649'>office@propus.ch</a>`
+    footer: `${t.reassignCustomer.footer} <a href='mailto:office@propus.ch' style='color:#7A5E10'>office@propus.ch</a>`
   });
   return out(t.reassignCustomer.subject(order.orderNo), html);
 }
@@ -1589,7 +1589,7 @@ function buildWelcomeEmail({ name, adminUrl }, lang) {
     intro: t.intro,
     sections: [
       `<div style="text-align:center;margin:32px 0">
-        <a href="${adminUrl}" style="display:inline-block;background:linear-gradient(135deg,#9e8649,#bfa25a);color:#fff;padding:16px 32px;border-radius:12px;text-decoration:none;font-weight:700;font-size:15px;box-shadow:0 4px 16px rgba(158,134,73,0.3);letter-spacing:0.3px">
+        <a href="${adminUrl}" style="display:inline-block;background:#7A5E10;color:#fff;padding:16px 32px;border-radius:12px;text-decoration:none;font-weight:700;font-size:15px;box-shadow:0 4px 16px rgba(158,134,73,0.3);letter-spacing:0.3px">
           ${t.loginBtn}
         </a>
       </div>`,
@@ -1612,15 +1612,15 @@ function buildCredentialsEmail({ name, key, email, tempPw, adminUrl, resetUrl },
   const btnLabel = tempPw ? t.setPasswordBtn : t.resetPasswordBtn;
   const pwBtn = resetUrl
     ? `<div style="text-align:center;margin:28px 0">
-        <a href="${resetUrl}" style="display:inline-block;background:linear-gradient(135deg,#9e8649,#bfa25a);color:#fff;padding:14px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;box-shadow:0 3px 12px rgba(158,134,73,0.25);letter-spacing:0.3px">
+        <a href="${resetUrl}" style="display:inline-block;background:#7A5E10;color:#fff;padding:14px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;box-shadow:0 3px 12px rgba(158,134,73,0.25);letter-spacing:0.3px">
           ${btnLabel}
         </a>
       </div>`
     : null;
     
   const loginSection = `<div style="background:#f9f7f2;border:1px solid #e8e3d6;border-radius:12px;padding:20px;margin:24px 0">
-    <h3 style="margin:0 0 16px 0;color:#9e8649;font-size:16px;font-weight:700">Schnellzugriff</h3>
-    <a href="${adminUrl}" style="display:inline-block;background:#fff;border:2px solid #9e8649;color:#9e8649;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;transition:all 0.3s ease;width:100%;text-align:center;box-sizing:border-box">
+    <h3 style="margin:0 0 16px 0;color:#7A5E10;font-size:16px;font-weight:700">Schnellzugriff</h3>
+    <a href="${adminUrl}" style="display:inline-block;background:#fff;border:2px solid #9e8649;color:#7A5E10;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;transition:all 0.3s ease;width:100%;text-align:center;box-sizing:border-box">
       🚀 Zum Admin-Panel
     </a>
   </div>`;
@@ -1642,7 +1642,7 @@ function buildCredentialsEmail({ name, key, email, tempPw, adminUrl, resetUrl },
     intro: `${t.greeting(name)} ${t.intro}`,
     sections: [
       sec("Ihre Zugangsdaten", [
-        tr(t.key,       `<strong style="color:#9e8649;font-size:15px">${key}</strong>`),
+        tr(t.key,       `<strong style="color:#7A5E10;font-size:15px">${key}</strong>`),
         tr(t.email,     `<span style="font-family:monospace;color:#374151">${email}</span>`),
         tr(t.password,  pwInfo),
       ]),
@@ -1664,7 +1664,7 @@ function buildResetPasswordEmail({ name, resetUrl }, lang) {
     intro: `${t.resetGreeting(name)} ${t.resetIntro}`,
     sections: [
       `<div style="text-align:center;margin:32px 0">
-        <a href="${resetUrl}" style="display:inline-block;background:linear-gradient(135deg,#9e8649,#bfa25a);color:#fff;padding:16px 32px;border-radius:12px;text-decoration:none;font-weight:700;font-size:15px;box-shadow:0 4px 16px rgba(158,134,73,0.3);transition:all 0.3s ease;letter-spacing:0.3px">
+        <a href="${resetUrl}" style="display:inline-block;background:#7A5E10;color:#fff;padding:16px 32px;border-radius:12px;text-decoration:none;font-weight:700;font-size:15px;box-shadow:0 4px 16px rgba(158,134,73,0.3);transition:all 0.3s ease;letter-spacing:0.3px">
           ${t.resetButton}
         </a>
       </div>`,
@@ -1673,14 +1673,14 @@ function buildResetPasswordEmail({ name, resetUrl }, lang) {
           <div style="width:20px;height:20px;background:#9e8649;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-right:10px">
             <span style="color:#fff;font-size:12px;font-weight:bold">!</span>
           </div>
-          <strong style="color:#9e8649;font-size:13px">Wichtiger Sicherheitshinweis</strong>
+          <strong style="color:#7A5E10;font-size:13px">Wichtiger Sicherheitshinweis</strong>
         </div>
         <p style="font-size:13px;color:#666;margin:0;line-height:1.5">${t.resetExpiry}</p>
       </div>`,
       `<div style="border-top:1px solid #ede9e0;padding-top:20px;margin-top:30px">
         <p style="font-size:12px;color:#999;margin:0;text-align:center">
           Sollten Sie Probleme mit dem Button haben, kopieren Sie diesen Link:<br>
-          <a href="${resetUrl}" style="color:#9e8649;font-size:11px;word-break:break-all">${resetUrl}</a>
+          <a href="${resetUrl}" style="color:#7A5E10;font-size:11px;word-break:break-all">${resetUrl}</a>
         </p>
       </div>`,
     ],
