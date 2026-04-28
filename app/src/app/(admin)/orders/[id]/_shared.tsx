@@ -108,15 +108,15 @@ export function formatCHF(amount: number | string | null | undefined) {
 
 export function formatDateTime(dateStr: string | null, timeStr?: string | null): string {
   if (!dateStr) return '—';
-  const d = new Date(`${dateStr}T${timeStr ?? '00:00'}:00`);
+  const d = new Date(`${dateStr}T${timeStr ?? '00:00'}:00Z`);
   const datePart = new Intl.DateTimeFormat('de-CH', {
     weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric',
-    timeZone: 'Europe/Zurich',
+    timeZone: 'UTC',
   }).format(d);
   if (timeStr) {
     const timePart = new Intl.DateTimeFormat('de-CH', {
       hour: '2-digit', minute: '2-digit',
-      timeZone: 'Europe/Zurich',
+      timeZone: 'UTC',
     }).format(d);
     return `${datePart}, ${timePart}`;
   }
