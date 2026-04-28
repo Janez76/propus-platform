@@ -108,12 +108,16 @@ export function formatCHF(amount: number | string | null | undefined) {
 
 export function formatDateTime(dateStr: string | null, timeStr?: string | null): string {
   if (!dateStr) return '—';
-  const d = new Date(`${dateStr}T${timeStr ?? '00:00'}:00`);
+  const d = new Date(`${dateStr}T${timeStr ?? '00:00'}:00Z`);
   const datePart = new Intl.DateTimeFormat('de-CH', {
     weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric',
+    timeZone: 'UTC',
   }).format(d);
   if (timeStr) {
-    const timePart = new Intl.DateTimeFormat('de-CH', { hour: '2-digit', minute: '2-digit' }).format(d);
+    const timePart = new Intl.DateTimeFormat('de-CH', {
+      hour: '2-digit', minute: '2-digit',
+      timeZone: 'UTC',
+    }).format(d);
     return `${datePart}, ${timePart}`;
   }
   return datePart;
@@ -132,5 +136,6 @@ export function formatTS(ts: string | Date | null | undefined): string {
   return new Intl.DateTimeFormat('de-CH', {
     day: '2-digit', month: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
+    timeZone: 'Europe/Zurich',
   }).format(new Date(ts as string));
 }

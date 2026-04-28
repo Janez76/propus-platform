@@ -40,10 +40,13 @@ interface CreateContactDialogProps {
   onSubmit: (data: CreateContactPayload, mergeWithId?: number) => Promise<void>;
   onCreateContact: (contact: { name: string; role: string; phone: string; email: string }, customerId?: number | null) => Promise<void>;
   existingCustomers?: Customer[];
+  mode?: "customer" | "contact";
 }
 
-export function CreateContactDialog({ open, onOpenChange, onSubmit, onCreateContact, existingCustomers = [] }: CreateContactDialogProps) {
+export function CreateContactDialog({ open, onOpenChange, onSubmit, onCreateContact, existingCustomers = [], mode = "customer" }: CreateContactDialogProps) {
   const lang = useAuthStore((s) => s.language);
+  const titleKey = mode === "contact" ? "createContact.title" : "createCustomer.title";
+  const submitButtonKey = mode === "contact" ? "createContact.button.create" : "createCustomer.button.create";
   const [form, setForm] = useState<CreateContactPayload>({
     name: "",
     email: "",
@@ -175,7 +178,7 @@ export function CreateContactDialog({ open, onOpenChange, onSubmit, onCreateCont
       <DialogContent className="max-w-5xl">
         <DialogClose onClose={() => onOpenChange(false)} />
         <DialogHeader>
-          <DialogTitle>{t(lang, "createCustomer.title")}</DialogTitle>
+          <DialogTitle>{t(lang, titleKey)}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-5">
@@ -350,7 +353,7 @@ export function CreateContactDialog({ open, onOpenChange, onSubmit, onCreateCont
               ) : (
                 <>
                   <Plus className="h-4 w-4" />
-                  <span>{t(lang, "createCustomer.button.create")}</span>
+                  <span>{t(lang, submitButtonKey)}</span>
                 </>
               )}
             </button>
