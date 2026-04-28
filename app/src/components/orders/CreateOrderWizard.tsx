@@ -1140,7 +1140,7 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                   <label className={labelClass}>{t(lang, "wizard.label.addressRequired")}</label>
                   <AddressAutocompleteInput
                     required
-                    mode="street"
+                    mode="combined"
                     value={formData.address}
                     onChange={(v) => updateField("address", v)}
                     onBlur={() => {
