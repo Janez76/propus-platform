@@ -913,40 +913,42 @@ function buildMailHtml({ heading, intro, sections, footer, lang = "de" }){
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="x-apple-disable-message-reformatting">
+  <meta name="color-scheme" content="light only">
+  <meta name="supported-color-schemes" content="light">
 </head>
-<body style="margin:0;padding:0;background:#f4f1e8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif,'Apple Color Emoji'">
-<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#f4f1e8">
+<body bgcolor="#f4f1e8" style="margin:0;padding:0;background:#f4f1e8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif,'Apple Color Emoji'">
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" bgcolor="#f4f1e8" style="background:#f4f1e8">
 <tr><td align="center" style="padding:40px 20px">
-  <table width="600" cellpadding="0" cellspacing="0" role="presentation" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
-    <!-- Header with Premium Gradient -->
-    <tr><td style="background:linear-gradient(135deg,#9e8649 0%,#bfa25a 50%,#c5a059 100%);padding:32px 40px">
+  <table width="600" cellpadding="0" cellspacing="0" role="presentation" bgcolor="#ffffff" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
+    <!-- Header with Premium Gradient (Outlook faellt auf bgcolor zurueck) -->
+    <tr><td bgcolor="#9e8649" style="background:#9e8649;background:linear-gradient(135deg,#9e8649 0%,#bfa25a 50%,#c5a059 100%);padding:32px 40px">
       <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
         <tr>
           <td>
             <div style="font-size:28px;font-weight:900;color:#ffffff;letter-spacing:-0.5px;text-shadow:0 2px 8px rgba(0,0,0,0.15)">PROPUS</div>
-            <div style="font-size:11px;color:rgba(255,255,255,0.85);margin-top:4px;letter-spacing:1.2px;text-transform:uppercase;font-weight:600">Swiss Real Estate Photography</div>
+            <div style="font-size:11px;color:#ffffff;margin-top:4px;letter-spacing:1.2px;text-transform:uppercase;font-weight:600">Swiss Real Estate Photography</div>
           </td>
         </tr>
       </table>
     </td></tr>
     <!-- Main Content -->
-    <tr><td style="padding:40px 40px 32px">
+    <tr><td bgcolor="#ffffff" style="padding:40px 40px 32px">
       <h1 style="margin:0 0 12px;font-size:24px;font-weight:800;color:#1f2937;line-height:1.3;letter-spacing:-0.3px">${heading}</h1>
       ${intro ? `<p style="margin:0 0 32px;font-size:15px;color:#6b7280;line-height:1.65">${intro}</p>` : ""}
       <div style="border-top:2px solid #f0ead8;padding-top:28px">${body}</div>
     </td></tr>
     <!-- Footer -->
-    <tr><td style="background:#fafaf9;border-top:1px solid #e7e5e4;padding:24px 40px">
+    <tr><td bgcolor="#fafaf9" style="background:#fafaf9;border-top:1px solid #e7e5e4;padding:24px 40px">
       <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
         <tr><td align="center">
-          <p style="margin:0 0 8px;font-size:13px;color:#9ca3af;line-height:1.6">
-            ${footer ? footer + " <span style='color:#d1d5db'>&middot;</span> " : ""}
+          <p style="margin:0 0 8px;font-size:13px;color:#6b7280;line-height:1.6">
+            ${footer ? footer + " <span style='color:#9ca3af'>&middot;</span> " : ""}
             &copy; 2026 Propus GmbH
           </p>
-          <p style="margin:0;font-size:12px;color:#9ca3af">
-            <a href="https://propus.ch" style="color:#9e8649;text-decoration:none;font-weight:600">propus.ch</a>
-            <span style='color:#d1d5db;margin:0 8px'>&middot;</span>
-            <a href="mailto:office@propus.ch" style="color:#9e8649;text-decoration:none;font-weight:600">office@propus.ch</a>
+          <p style="margin:0;font-size:12px;color:#6b7280">
+            <a href="https://propus.ch" style="color:#7a6520;text-decoration:none;font-weight:600">propus.ch</a>
+            <span style='color:#9ca3af;margin:0 8px'>&middot;</span>
+            <a href="mailto:office@propus.ch" style="color:#7a6520;text-decoration:none;font-weight:600">office@propus.ch</a>
           </p>
         </td></tr>
       </table>
