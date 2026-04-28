@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei jeder Änderung an Buchungslogik, Status-Übergängen, Kalender-Sync oder Provisional-Flow dieses Dokument aktualisieren. Cursor-Regel `.cursor/rules/data-fields.mdc` erinnert daran.
 
-*Zuletzt aktualisiert: April 2026 - Kunden-Deduplizierung: `upsertCustomer()` erkennt jetzt auch bestehende `customer_contacts.email` als exakten Treffer auf den Firmenkunden. Zuvor: Kalender-Sync patcht Reschedule/Daueraenderungen in bestehenden 365-Events; Paragraf 19 Backend-CI (`booking-ci.yml`: Node-Tests + htmlhint).*
+*Zuletzt aktualisiert: April 2026 - Admin-Bestell-Detail routet alte `/admin/orders/:id/...`-Links per Next.js-Redirect auf `/orders/:id/...`; zuvor Kunden-Deduplizierung und Kalender-Sync.*
 
 ---
 
@@ -202,6 +202,7 @@ provisional → pending nur automatisch via expiry_job
 ### Events aktualisieren
 
 - **Reschedule:** PATCH auf bestehende Event-IDs. Falls PATCH fehlschlägt → neue Events erstellen.
+- **Dauer-Only-Änderungen aus Next.js-Admin-Actions:** `requestAdminReschedule()` ruft dieselbe Route auf und nutzt bevorzugt `PLATFORM_INTERNAL_URL`, sonst `NEXT_PUBLIC_API_BASE`. Der Backend-Reschedule patcht vorhandene Graph-Events in möglichen Mailbox-Kandidaten (kanonische Fotografen-Mailbox + gespeicherte Mailbox), damit alte 60-Minuten-Termine nicht als Dublette in Outlook bleiben.
 - **Storno:** DELETE auf beide Event-IDs. 404 = bereits gelöscht (ok). Andere Fehler → `calendar_delete_queue` für Retry.
 
 ### `calendar_sync_status`-Werte
@@ -223,7 +224,7 @@ provisional → pending nur automatisch via expiry_job
 - Liest persönliche Termine via `graphClient.api('/users/{email}/calendarView')`
 - Default-Range: aktueller Monat ± 1 Monat (deckt Mini-Monat-Navigation ab)
 - Caching: 60 s pro `email|from|to` (In-Memory, Map)
-- Filtert eigene Buchungs-Events (`subject` enthält `[Auftrag #...]`) raus, um Duplikate zu vermeiden
+- Filtert eigene Buchungs-Events (`[Auftrag #...]`, `Propus Buchung` oder Titel mit `(#100091)`) raus, um Duplikate zu vermeiden
 - Sensitivity `private`/`confidential` → Titel und `bodyPreview` werden auf "Privater Termin" maskiert
 - Kategorie wird aus Graph `categories[]` oder Subject-Präfix `[xyz]` extrahiert
 
@@ -252,9 +253,14 @@ PATCH /api/admin/orders/:orderNo/reschedule
   │
   ├── Felder aktualisieren:
   │     → schedule.date, schedule.time (neu)
+  │     → schedule.durationMin wird mitgeführt, wenn die Dauer explizit geändert wurde
   │     → bestehende Reschedule-Hilfsfelder werden hier nicht separat gesetzt
   │
   ├── Kalender-Events aktualisieren (PATCH auf bestehende IDs)
+  │     → Fotograf: PATCH in kanonischer + gespeicherter Mailbox versuchen
+  │     → Büro: PATCH in OFFICE_EMAIL
+  │     → Fallback nur wenn PATCH nicht möglich: neues Event erstellen
+  │     → reine Daueränderung: keine Reschedule-Mails
   │
   └── E-Mails:
         ├── Büro (buildRescheduleOfficeEmail, alt + neu)
@@ -821,6 +827,14 @@ POST /api/admin/api-keys  { label }
 ## 18. Admin-Panel SPA-Auslieferung
 
 *Seit PR #94 (April 2026).* Das Booking-Admin-Panel (`booking/admin-panel/`) ist ein Vite/React-SPA, das von `booking/server.js` ausgeliefert wird. **Deprecated** — neue Features nach `app/src/`.
+
+### Next.js Admin-Bestell-Detail
+
+Neue Bestell-Detailseiten liegen in `app/src/app/(admin)/orders/[id]/...` und werden unter `/orders/:id` ausgeliefert. Erwartete/alte Admin-Links unter `/admin/orders/:id` werden in `app/next.config.ts` per Redirect auf `/orders/:id` normalisiert; Unterseiten wie `/admin/orders/:id/verknuepfungen` landen damit auf `/orders/:id/verknuepfungen`.
+
+Die Tabbar im Bestell-Detail navigiert direkt auf die Subroutes (`/objekt`, `/leistungen`, `/termin`, `/kommunikation`, `/dateien`, `/verknuepfungen`, `/verlauf`). Verknuepfungen und Verlauf sind keine versteckten Inline-Buttons mehr.
+
+Die Verknuepfungsseite laedt neben dem aktuellen Link-Status die 10 neuesten unverknuepften Matterport-Touren aus `tour_manager.tours` (`booking_order_no IS NULL`) und erlaubt das direkte Verknuepfen per Tour-ID. Die manuelle Eingabe von Matterport-Space-ID oder `my.matterport.com/show/?m=...` bleibt als Fallback erhalten.
 
 ### Routing in `booking/server.js`
 

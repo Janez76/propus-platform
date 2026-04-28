@@ -5,6 +5,7 @@ import type {
   VerknuepfungFolderCounts,
   VerknuepfungGallery,
   VerknuepfungInvoice,
+  VerknuepfungSuggestedTour,
   VerknuepfungTour,
 } from "./verknuepfungenTypes";
 
@@ -19,7 +20,7 @@ export async function loadVerknuepfungenData(orderId: string): Promise<Verknuepf
   }
   const orderNo = orderCheck.order_no;
 
-  const [tour, gallery, folderCounts, invoices] = await Promise.all([
+  const [tour, suggestedTours, gallery, folderCounts, invoices] = await Promise.all([
     queryOne<VerknuepfungTour>(`
       SELECT
         matterport_space_id,
@@ -34,6 +35,33 @@ export async function loadVerknuepfungenData(orderId: string): Promise<Verknuepf
       WHERE booking_order_no = $1
       LIMIT 1
     `, [orderNo]),
+    query<VerknuepfungSuggestedTour>(`
+      SELECT
+        id,
+        matterport_space_id,
+        tour_url,
+        matterport_state,
+        matterport_created_at,
+        updated_at,
+        COALESCE(
+          NULLIF(TRIM(object_label), ''),
+          NULLIF(TRIM(bezeichnung), ''),
+          'Matterport-Tour'
+        ) AS display_title,
+        COALESCE(
+          NULLIF(TRIM(customer_name), ''),
+          NULLIF(TRIM(kunde_ref), ''),
+          NULLIF(TRIM(customer_email), '')
+        ) AS customer_label
+      FROM tour_manager.tours
+      WHERE booking_order_no IS NULL
+        AND (
+          NULLIF(TRIM(matterport_space_id), '') IS NOT NULL
+          OR NULLIF(TRIM(tour_url), '') IS NOT NULL
+        )
+      ORDER BY COALESCE(matterport_created_at, updated_at, created_at) DESC NULLS LAST, id DESC
+      LIMIT 10
+    `),
     queryOne<VerknuepfungGallery>(`
       SELECT slug, friendly_slug, status, cloud_share_url
       FROM tour_manager.galleries
@@ -66,5 +94,5 @@ export async function loadVerknuepfungenData(orderId: string): Promise<Verknuepf
     `, [orderNo]),
   ]);
 
-  return { orderNo, tour, gallery, folderCounts, invoices };
+  return { orderNo, tour, suggestedTours, gallery, folderCounts, invoices };
 }

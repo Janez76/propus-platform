@@ -15,6 +15,35 @@ export interface ChangelogVersion {
 // CHANGELOG: Bei jeder neuen Version oben eintragen (dieses Modul), dann in ChangelogPage importieren.
 export const CHANGELOG: ChangelogVersion[] = [
   {
+    version: "2.3.408",
+    date: "2026-04-28",
+    title: "Bestell-Verknuepfungen: Admin-URL und Tab-Navigation repariert",
+    changes: [
+      { type: "fix", text: "Bestell-Detail: /admin/orders/:id/... leitet auf die aktive Next.js-Route /orders/:id/... weiter, damit alte/erwartete Admin-Links nicht ins Leere laufen." },
+      { type: "fix", text: "Tabs 'Verknuepfungen' und 'Verlauf' oeffnen jetzt direkt die jeweilige Subroute; der separate Popout-Umweg entfaellt." },
+      { type: "improvement", text: "Bestell-Verknuepfungen schlagen die 10 neuesten unverknuepften Matterport-Touren direkt zur Auswahl vor; manuelle Space-ID-/Link-Eingabe bleibt als Fallback." },
+    ],
+  },
+  {
+    version: "2.3.400",
+    date: "2026-04-28",
+    title: "Exxas-Export: Kunden-ID korrekt als ref_kunde setzen",
+    changes: [
+      { type: "fix", text: "Dienstleistungsaufträge an Exxas verwenden für ref_kunde nur noch die Exxas-Kunden-ID; Kontakt-IDs werden nicht mehr versehentlich als Kunde gesendet." },
+      { type: "fix", text: "Nextkey/CSL-Fallback: Fehlt die Exxas-ID am Auftragskunden, sucht der Export per Billing-Mail inklusive Alias-Domain einen verknüpften Firmenkunden mit Exxas-ID." },
+      { type: "fix", text: "Bestandsdaten: Der CSL-Kunde erhält defensiv den Alias `@nextkey.ch`, damit neue Nextkey-Kontaktadressen den bestehenden Exxas-Kunden finden." },
+      { type: "fix", text: "Fehlt die Exxas-Kunden-Verknüpfung am Kunden, bricht der Export mit klarer Meldung ab, statt EXXAS HTTP 406 auszulösen." },
+    ],
+  },
+  {
+    version: "2.3.399",
+    date: "2026-04-28",
+    title: "Booking-Kalender: eigene Outlook-Termine korrekt ausblenden",
+    changes: [
+      { type: "fix", text: "Propus-Auftragstermine im Outlook-Format „BESTAETIGT - … – #100097“ werden wieder als eigene Termine erkannt und nicht doppelt im Admin-Kalender angezeigt." },
+    ],
+  },
+  {
     version: "2.3.398",
     date: "2026-04-28",
     title: "Booking: Firmenkunden-Deduplizierung ueber Kontakt-E-Mails",
@@ -1997,6 +2026,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     changes: [
       { type: "fix", text: "Wenn im Bestell-Detail nur die Einsatzdauer geändert wird, werden keine Reschedule-E-Mails mehr ausgelöst." },
       { type: "improvement", text: "Dauer-Only-Änderungen aktualisieren weiterhin Kalender, Events und ICS stillschweigend im Hintergrund." },
+      { type: "fix", text: "Der stille 365-/Outlook-Sync patcht bestehende Graph-Events jetzt direkt und nutzt NEXT_PUBLIC_API_BASE als Fallback, damit Daueränderungen nicht als alte 60-Minuten-Termine in Outlook stehen bleiben." },
     ],
   },
   {
