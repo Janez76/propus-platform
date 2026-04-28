@@ -111,9 +111,13 @@ export function formatDateTime(dateStr: string | null, timeStr?: string | null):
   const d = new Date(`${dateStr}T${timeStr ?? '00:00'}:00`);
   const datePart = new Intl.DateTimeFormat('de-CH', {
     weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric',
+    timeZone: 'Europe/Zurich',
   }).format(d);
   if (timeStr) {
-    const timePart = new Intl.DateTimeFormat('de-CH', { hour: '2-digit', minute: '2-digit' }).format(d);
+    const timePart = new Intl.DateTimeFormat('de-CH', {
+      hour: '2-digit', minute: '2-digit',
+      timeZone: 'Europe/Zurich',
+    }).format(d);
     return `${datePart}, ${timePart}`;
   }
   return datePart;
@@ -132,5 +136,6 @@ export function formatTS(ts: string | Date | null | undefined): string {
   return new Intl.DateTimeFormat('de-CH', {
     day: '2-digit', month: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
+    timeZone: 'Europe/Zurich',
   }).format(new Date(ts as string));
 }
