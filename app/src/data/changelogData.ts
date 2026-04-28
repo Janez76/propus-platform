@@ -22,6 +22,7 @@ export const CHANGELOG: ChangelogVersion[] = [
       { type: "fix", text: "Bestell-Detail: /admin/orders/:id/... leitet auf die aktive Next.js-Route /orders/:id/... weiter, damit alte/erwartete Admin-Links nicht ins Leere laufen." },
       { type: "fix", text: "Tabs 'Verknuepfungen' und 'Verlauf' oeffnen jetzt direkt die jeweilige Subroute; der separate Popout-Umweg entfaellt." },
       { type: "improvement", text: "Bestell-Verknuepfungen schlagen die 10 neuesten unverknuepften Matterport-Touren direkt zur Auswahl vor; manuelle Space-ID-/Link-Eingabe bleibt als Fallback." },
+      { type: "fix", text: "Verknuepfungsformular nutzt eine stabile POST-Route statt gehashter Server Actions, damit offene Tabs nach Deploys nicht mit UnrecognizedActionError abbrechen." },
     ],
   },
   {

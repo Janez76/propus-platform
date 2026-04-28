@@ -836,6 +836,8 @@ Die Tabbar im Bestell-Detail navigiert direkt auf die Subroutes (`/objekt`, `/le
 
 Die Verknuepfungsseite laedt neben dem aktuellen Link-Status die 10 neuesten unverknuepften Matterport-Touren aus `tour_manager.tours` (`booking_order_no IS NULL`) und erlaubt das direkte Verknuepfen per Tour-ID. Die manuelle Eingabe von Matterport-Space-ID oder `my.matterport.com/show/?m=...` bleibt als Fallback erhalten.
 
+Mutationen laufen ueber die stabile POST-Route `/orders/:id/verknuepfungen/mutate` mit `_action` (`link-matterport`, `link-suggested-matterport`, `unlink-matterport`, `link-gallery`, `unlink-gallery`). Die Formulare verwenden bewusst keine gehashten Next Server Actions, damit nach einem Deploy bereits offene Bestellseiten nicht mit `UnrecognizedActionError` scheitern.
+
 ### Routing in `booking/server.js`
 
 ```
