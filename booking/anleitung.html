@@ -1792,6 +1792,11 @@ textarea{ resize: none; }
   body{
     background:#fff !important;
   }
+  /* Viewport-abhaengige Schriftgroessen und Hoehen fuer Print neutralisieren */
+  .landing-h1{ font-size: 32pt !important; }
+  *{
+    max-height: none !important;
+  }
   body > *:not(#thankYouScreen){
     display:none !important;
   }

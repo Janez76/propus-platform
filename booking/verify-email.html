@@ -1790,6 +1790,10 @@ textarea{ resize: none; }
   body{
     background:#fff !important;
   }
+  /* Viewport-Units fuer Print neutralisieren (vh/vw nicht zuverlaessig in PDF-Renderern) */
+  *{
+    max-height: none !important;
+  }
   body > *:not(#thankYouScreen){
     display:none !important;
   }
