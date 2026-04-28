@@ -920,8 +920,10 @@ function buildMailHtml({ heading, intro, sections, footer, lang = "de" }){
 <table width="100%" cellpadding="0" cellspacing="0" role="presentation" bgcolor="#f4f1e8" style="background:#f4f1e8">
 <tr><td align="center" style="padding:40px 20px">
   <table width="600" cellpadding="0" cellspacing="0" role="presentation" bgcolor="#ffffff" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
-    <!-- Header with Premium Gradient (Outlook faellt auf bgcolor zurueck) -->
-    <tr><td bgcolor="#9e8649" style="background:#9e8649;background:linear-gradient(135deg,#9e8649 0%,#bfa25a 50%,#c5a059 100%);padding:32px 40px">
+    <!-- Header with Premium Gradient (Outlook faellt auf bgcolor zurueck).
+         WCAG AA: weisser Text auf #7A5E10 = 5.90:1 (Body).
+         Frueherer Gradient-Endpunkt #c5a059 hatte nur 2.46:1. -->
+    <tr><td bgcolor="#7A5E10" style="background:#7A5E10;background:linear-gradient(135deg,#5e470d 0%,#7A5E10 50%,#9e8649 100%);padding:32px 40px">
       <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
         <tr>
           <td>
