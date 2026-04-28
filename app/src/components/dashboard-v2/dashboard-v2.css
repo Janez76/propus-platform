@@ -961,7 +961,7 @@ button.dv2-heatmap-cell:hover {
 }
 .dv2-ph-kpi-trend.is-up { color: var(--d-success); }
 .dv2-ph-kpi-trend.is-down { color: var(--d-danger); }
-.dv2-ph-kpi-trend.is-warn { color: #B68E20; }
+.dv2-ph-kpi-trend.is-warn { color: var(--gold-text, #7A5E10); } /* WCAG AA Body 5.90:1 */
 
 .dv2-ph-kpi--gold {
   background: linear-gradient(180deg,
