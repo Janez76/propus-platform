@@ -984,6 +984,7 @@ export type PosteingangMessageRow = {
 export type PosteingangTaskRow = {
   id: number;
   title: string;
+  description: string | null;
   status: string;
   priority: string;
   due_at: string | null;
