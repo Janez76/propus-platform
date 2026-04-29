@@ -1,18 +1,13 @@
 ---
 import FooterSocialIcon from './FooterSocialIcon.astro';
-import NewsletterSignup from './NewsletterSignup.astro';
 import { site, footerCredit, footerSocialLinks } from '../content/site';
 import type { SeoNavLink } from '../lib/seo';
-import { serverEnv } from '../lib/serverEnv';
 
 interface Props {
 	footerLegalItems: SeoNavLink[];
 }
 
 const { footerLegalItems } = Astro.props;
-const newsletterEnabled = Boolean(
-	serverEnv('MAILCHIMP_API_KEY')?.trim() && serverEnv('MAILCHIMP_NEWSLETTER_LIST_ID')?.trim(),
-);
 const year = new Date().getFullYear();
 ---
 
@@ -104,8 +99,6 @@ const year = new Date().getFullYear();
 					))
 				}
 			</div>
-
-			{newsletterEnabled && <NewsletterSignup />}
 
 			<nav class="site-footer__legal" aria-label="Rechtliche Hinweise">
 				<ul class="site-footer__legal-list">
