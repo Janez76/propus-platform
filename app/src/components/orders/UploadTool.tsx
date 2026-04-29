@@ -497,7 +497,9 @@ function FilePreviewCard({
 }
 
 const CHUNK_RETRY_ATTEMPTS = 5;
-const BATCH_STATUS_POLL_MS = 500;
+const BATCH_STATUS_FAST_POLL_MS = 1000;
+const BATCH_STATUS_IDLE_POLL_MS = 3500;
+const BATCH_STATUS_ERROR_POLL_MS = 5000;
 const UPLOAD_CONCURRENCY = 2;
 
 function sleep(ms: number) {
@@ -677,6 +679,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
   const [uploadPaused, setUploadPaused] = useState(false);
   const [isOffline, setIsOffline] = useState(false);
   const [uploadSpeed, setUploadSpeed] = useState<string | null>(null);
+  const [batchStatusNotice, setBatchStatusNotice] = useState("");
   const pausedRef = useRef(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [confirmComment, setConfirmComment] = useState("");
@@ -725,7 +728,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
     loadTree().catch((e) =>
       setStatus(e instanceof Error ? e.message : t(lang, "upload.error.loadFailed")),
     );
-  }, [loadTree]);
+  }, [lang, loadTree]);
 
   // Wenn keine Dateien vorhanden → Modus zurück auf "existing"
   useEffect(() => {
@@ -735,34 +738,58 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
   }, [anyFile]);
 
   useEffect(() => {
-    // Stilles Hintergrund-Polling: NAS-Transfer-Status updaten ohne den User zu stören.
+    // Hintergrund-Polling mit Backoff: Status aktuell halten, ohne den Webprozess
+    // bei langen NAS-Transfers mit Request-Stapeln zu belasten.
     // sequenceUploadActive-Pfad hat sein eigenes waitForBatchCompletion im Hintergrund.
     if (sequenceUploadActive) return;
     if (!currentBatch?.id) return;
     if (!["staged", "transferring", "retrying"].includes(currentBatch.status)) return;
+    const batchId = currentBatch.id;
+    let stopped = false;
+    let timerId: number | null = null;
     let lastStoredCount = currentBatch.files?.filter((f) => f.status === "stored").length ?? 0;
-    const intervalId = window.setInterval(() => {
-      getUploadBatch(token, orderNo, currentBatch.id)
+    let consecutiveErrors = 0;
+
+    const poll = () => {
+      getUploadBatch(token, orderNo, batchId)
         .then(async (response) => {
+          if (stopped) return;
           setCurrentBatch(response.batch);
+          consecutiveErrors = 0;
           const storedNow = response.batch.files?.filter((f) => f.status === "stored").length ?? 0;
+          const madeProgress = storedNow > lastStoredCount;
           // Zwischenstand: sobald weitere Dateien auf dem NAS gelandet sind,
           // den Dateibaum aktualisieren – so füllt sich „Bereits hochgeladen"
           // schon während des Hintergrund-Transfers.
-          if (storedNow > lastStoredCount) {
+          if (madeProgress) {
             lastStoredCount = storedNow;
+            setBatchStatusNotice("");
             await loadTree().catch(() => {});
           }
           if (response.batch.status === "completed") {
+            setBatchStatusNotice("");
             await loadTree().catch(() => {});
             await onChanged?.();
+            return;
           }
+          const delay = madeProgress ? BATCH_STATUS_FAST_POLL_MS : BATCH_STATUS_IDLE_POLL_MS;
+          if (!stopped) timerId = window.setTimeout(poll, delay);
         })
         .catch(() => {
-          // Stiller Fehler – Polling wird beim nächsten Intervall erneut versucht
+          if (stopped) return;
+          consecutiveErrors += 1;
+          if (consecutiveErrors >= 2) {
+            setBatchStatusNotice("Transfer läuft im Hintergrund, Status wird erneut geladen.");
+          }
+          timerId = window.setTimeout(poll, BATCH_STATUS_ERROR_POLL_MS);
         });
-    }, BATCH_STATUS_POLL_MS);
-    return () => window.clearInterval(intervalId);
+    };
+
+    timerId = window.setTimeout(poll, BATCH_STATUS_FAST_POLL_MS);
+    return () => {
+      stopped = true;
+      if (timerId != null) window.clearTimeout(timerId);
+    };
   }, [currentBatch?.id, currentBatch?.status, currentBatch?.files, loadTree, onChanged, orderNo, sequenceUploadActive, token]);
 
   async function waitForBatchCompletion(batchId: string) {
@@ -777,7 +804,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
       if (response.batch.status === "failed") {
         throw new Error(response.batch.errorMessage || t(lang, "upload.error.uploadFailed"));
       }
-      await sleep(BATCH_STATUS_POLL_MS);
+      await sleep(BATCH_STATUS_FAST_POLL_MS);
     }
   }
 
@@ -829,7 +856,6 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
       while (!chunkDone) {
         await waitWhilePaused();
         let lastLoaded = 0;
-        const chunkStart = Date.now();
         try {
           await uploadChunkPart(
             token,
@@ -896,6 +922,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
     setUploadSuccess(false);
     setUploadError(false);
     setUploadSpeed(null);
+    setBatchStatusNotice("");
     pausedRef.current = false;
     setUploadPaused(false);
     const total = files.length || 1;
@@ -1001,11 +1028,14 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
       // Hintergrund: auf NAS-Transfer warten, dann Mail + Dateibaum aktualisieren
       waitForBatchCompletion(result.batch.id).then(async (finished) => {
         setCurrentBatch(finished);
+        setBatchStatusNotice("");
         await confirmUploadBatch(token, orderNo, finished.id, uploadComment || undefined).catch(() => {});
         await loadTree().catch(() => {});
         await onChanged?.();
-      }).catch(() => {
-        // Stiller Fehler im Hintergrund – User hat bereits weitergarbeitet
+      }).catch((error) => {
+        setBatchStatusNotice(error instanceof Error
+          ? error.message
+          : "Transfer läuft im Hintergrund, Status bitte später erneut prüfen.");
       });
     } catch (e) {
       setUploadError(true);
@@ -1076,6 +1106,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
     if (!currentBatch) return;
     setBusy("retry");
     setUploadError(false);
+    setBatchStatusNotice("");
     setStatus(t(lang, "upload.status.transferring"));
     try {
       const response = await retryUploadBatch(token, orderNo, currentBatch.id);
@@ -1399,6 +1430,9 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
                     .replace("{{done}}", String(storedFileCount))
                     .replace("{{total}}", String(uploadedEntries.length))}
                 </span>
+              )}
+              {batchStatusNotice && (
+                <span className="ml-2 text-amber-300">{batchStatusNotice}</span>
               )}
             </span>
           </div>

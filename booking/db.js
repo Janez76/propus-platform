@@ -2073,6 +2073,41 @@ async function listPendingUploadBatches() {
   return rows;
 }
 
+async function claimNextUploadBatch(workerId = "upload-worker") {
+  const { rows } = await query(
+    `WITH next_batch AS (
+       SELECT id
+       FROM upload_batches
+       WHERE status IN ('staged','retrying')
+       ORDER BY created_at ASC
+       FOR UPDATE SKIP LOCKED
+       LIMIT 1
+     )
+     UPDATE upload_batches b
+     SET status = 'transferring',
+         started_at = COALESCE(b.started_at, NOW()),
+         error_message = NULL,
+         updated_at = NOW()
+     FROM next_batch
+     WHERE b.id = next_batch.id
+     RETURNING b.*, $1::text AS claimed_by`,
+    [String(workerId || "upload-worker")]
+  );
+  return rows[0] || null;
+}
+
+async function resetInterruptedUploadBatches() {
+  const { rows } = await query(
+    `UPDATE upload_batches
+     SET status = 'retrying',
+         error_message = NULL,
+         updated_at = NOW()
+     WHERE status = 'transferring'
+     RETURNING *`
+  );
+  return rows;
+}
+
 async function createUploadBatchFiles(batchId, files = []) {
   const created = [];
   for (const file of files) {
@@ -2641,6 +2676,8 @@ module.exports = {
   listUploadBatches,
   listUploadBatchesByGroupId,
   listPendingUploadBatches,
+  claimNextUploadBatch,
+  resetInterruptedUploadBatches,
   createUploadBatchFiles,
   listUploadBatchFiles,
   updateUploadBatchFile,

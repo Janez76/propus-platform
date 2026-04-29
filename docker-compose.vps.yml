@@ -111,6 +111,11 @@ services:
       BOOKING_UPLOAD_RAW_ROOT: /booking_upload_raw
       BOOKING_UPLOAD_STAGING_ROOT: /upload_staging
       BOOKING_UPLOAD_REQUIRE_MOUNT: ${BOOKING_UPLOAD_REQUIRE_MOUNT:-true}
+      UPLOAD_WORKER_ENABLED: ${UPLOAD_WORKER_ENABLED:-true}
+      UPLOAD_WORKER_CONCURRENCY: ${UPLOAD_WORKER_CONCURRENCY:-1}
+      UPLOAD_STRICT_HASH_VERIFY: ${UPLOAD_STRICT_HASH_VERIFY:-false}
+      UPLOAD_HASH_VERIFY_MAX_MB: ${UPLOAD_HASH_VERIFY_MAX_MB:-100}
+      UPLOAD_WORKER_POLL_MS: ${UPLOAD_WORKER_POLL_MS:-1000}
       ORDERS_FILE: /data/state/orders.json
       BACKUP_ROOT: /data/backups
       BACKUP_SCRIPT_PATH: /app/scripts/backup-vps.sh
@@ -146,6 +151,50 @@ services:
     volumes:
       - platform-state:/data/state
       - ./backups:/data/backups
+      - platform-logs:/app/logs
+      - ${BOOKING_UPLOAD_STAGING_HOST_PATH:-/opt/propus-upload-staging}:/upload_staging
+      - ${BOOKING_UPLOAD_CUSTOMER_HOST_PATH:-/mnt/propus-nas-customers}:/booking_upload_customer
+      - ${BOOKING_UPLOAD_RAW_HOST_PATH:-/mnt/propus-nas-raw}:/booking_upload_raw
+    restart: unless-stopped
+    networks:
+      - propus
+
+  upload-worker:
+    build:
+      context: .
+      dockerfile: platform/Dockerfile
+      args:
+        PLATFORM_INTERNAL_URL: http://127.0.0.1:3100
+    command: ["node", "booking/upload-worker.js"]
+    env_file:
+      - .env.vps
+      - path: .env.vps.secrets
+        required: false
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      DB_SEARCH_PATH: booking,tour_manager,core,public
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      NODE_ENV: production
+      TIMEZONE: ${TIMEZONE:-Europe/Zurich}
+      BOOKING_UPLOAD_ROOT: /booking_upload_customer
+      BOOKING_UPLOAD_CUSTOMER_ROOT: /booking_upload_customer
+      BOOKING_UPLOAD_RAW_ROOT: /booking_upload_raw
+      BOOKING_UPLOAD_STAGING_ROOT: /upload_staging
+      BOOKING_UPLOAD_REQUIRE_MOUNT: ${BOOKING_UPLOAD_REQUIRE_MOUNT:-true}
+      UPLOAD_WORKER_ENABLED: "true"
+      UPLOAD_WORKER_ID: ${UPLOAD_WORKER_ID:-upload-worker}
+      UPLOAD_WORKER_CONCURRENCY: ${UPLOAD_WORKER_CONCURRENCY:-1}
+      UPLOAD_STRICT_HASH_VERIFY: ${UPLOAD_STRICT_HASH_VERIFY:-false}
+      UPLOAD_HASH_VERIFY_MAX_MB: ${UPLOAD_HASH_VERIFY_MAX_MB:-100}
+      UPLOAD_WORKER_POLL_MS: ${UPLOAD_WORKER_POLL_MS:-1000}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
       - platform-logs:/app/logs
       - ${BOOKING_UPLOAD_STAGING_HOST_PATH:-/opt/propus-upload-staging}:/upload_staging
       - ${BOOKING_UPLOAD_CUSTOMER_HOST_PATH:-/mnt/propus-nas-customers}:/booking_upload_customer

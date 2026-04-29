@@ -139,6 +139,7 @@ const {
 } = require("./order-storage");
 
 const activeTransfers = new Set();
+const MB = 1024 * 1024;
 const log = (msg, data = {}) => {
   const prefix = "[upload-batch]";
   if (Object.keys(data).length) {
@@ -148,6 +149,24 @@ const log = (msg, data = {}) => {
   }
 };
 const logWarn = (msg, err) => console.warn("[upload-batch]", msg, err?.message || err);
+
+function uploadWorkerEnabled() {
+  return String(process.env.UPLOAD_WORKER_ENABLED || "").toLowerCase() === "true";
+}
+
+function shouldVerifyTargetHash(sizeBytes) {
+  if (String(process.env.UPLOAD_STRICT_HASH_VERIFY || "").toLowerCase() === "true") return true;
+  const maxMb = Math.max(0, Number(process.env.UPLOAD_HASH_VERIFY_MAX_MB || 100));
+  if (maxMb <= 0) return false;
+  return Number(sizeBytes || 0) <= maxMb * MB;
+}
+
+function mbPerSec(bytes, ms) {
+  const seconds = Number(ms || 0) / 1000;
+  if (!Number.isFinite(seconds) || seconds <= 0) return null;
+  const mb = Number(bytes || 0) / MB;
+  return Number.isFinite(mb) ? Number((mb / seconds).toFixed(2)) : null;
+}
 
 function buildBatchId(orderNo) {
   const random = crypto.randomBytes(4).toString("hex");
@@ -591,10 +610,28 @@ async function transferBatch(db, batchId, deps) {
           throw new Error(`Dateigrösse nach Kopie stimmt nicht überein (${sourceSize} vs ${targetSize})`);
         }
 
-        // SHA-256-Verifikation: erst danach Staging-File löschen
-        const targetHash = await sha256FileAsync(destination);
-        if (incomingHash && targetHash !== incomingHash) {
-          throw new Error(`SHA-256 nach Kopie stimmt nicht überein (NAS-Fehler?)`);
+        const verifyTargetHash = shouldVerifyTargetHash(sourceSize);
+        if (verifyTargetHash) {
+          const verifyStart = Date.now();
+          const targetHash = await sha256FileAsync(destination);
+          if (incomingHash && targetHash !== incomingHash) {
+            throw new Error(`SHA-256 nach Kopie stimmt nicht überein (NAS-Fehler?)`);
+          }
+          log("verify_target completed", {
+            batchId,
+            fileIndex,
+            total: files.length,
+            fileMB: (sourceSize / MB).toFixed(1),
+            phaseMs: Date.now() - verifyStart,
+          });
+        } else {
+          log("verify_target skipped", {
+            batchId,
+            fileIndex,
+            total: files.length,
+            fileMB: (sourceSize / MB).toFixed(1),
+            reason: "large_file",
+          });
         }
 
         // Erst jetzt – nach erfolgreicher Verifikation – Staging-File entfernen
@@ -606,7 +643,15 @@ async function transferBatch(db, batchId, deps) {
         });
         const fileMs = Date.now() - fileStart;
         if (fileIndex % 5 === 0 || fileIndex === files.length || fileMs > 10000) {
-          log("file progress", { batchId, fileIndex, total: files.length, lastFileMs: fileMs, lastFile: safeName });
+          log("file progress", {
+            batchId,
+            fileIndex,
+            total: files.length,
+            fileMB: (sourceSize / MB).toFixed(1),
+            lastFileMs: fileMs,
+            mbPerSec: mbPerSec(sourceSize, fileMs),
+            lastFile: safeName,
+          });
         }
       } catch (error) {
         failed += 1;
@@ -684,9 +729,41 @@ async function transferBatch(db, batchId, deps) {
 }
 
 function enqueueBatchTransfer(db, batchId, deps) {
+  if (uploadWorkerEnabled()) {
+    log("transfer queued for worker", { batchId });
+    return;
+  }
   setTimeout(() => {
     transferBatch(db, batchId, deps).catch(() => {});
   }, 25);
+}
+
+async function runWorkerTransferOnce(db, deps = {}) {
+  if (!db || typeof db.claimNextUploadBatch !== "function") {
+    throw new Error("Worker benötigt db.claimNextUploadBatch");
+  }
+  const workerId = String(deps.workerId || process.env.UPLOAD_WORKER_ID || `${process.env.HOSTNAME || "upload-worker"}:${process.pid}`);
+  const batch = await db.claimNextUploadBatch(workerId);
+  if (!batch?.id) return null;
+  await transferBatch(db, batch.id, deps);
+  return String(batch.id);
+}
+
+async function runUploadWorker(db, deps = {}) {
+  const pollMs = Math.max(250, Number(process.env.UPLOAD_WORKER_POLL_MS || 1000));
+  const workerId = String(deps.workerId || process.env.UPLOAD_WORKER_ID || `${process.env.HOSTNAME || "upload-worker"}:${process.pid}`);
+  log("worker started", { workerId, pollMs });
+  while (true) {
+    try {
+      const batchId = await runWorkerTransferOnce(db, { ...deps, workerId });
+      if (!batchId) {
+        await new Promise((resolve) => setTimeout(resolve, pollMs));
+      }
+    } catch (error) {
+      logWarn("worker iteration failed", error);
+      await new Promise((resolve) => setTimeout(resolve, pollMs));
+    }
+  }
 }
 
 async function retryBatchTransfer(db, batchId, deps) {
@@ -743,5 +820,8 @@ module.exports = {
   enqueueBatchTransfer,
   retryBatchTransfer,
   resumePendingTransfers,
+  runWorkerTransferOnce,
+  runUploadWorker,
+  shouldVerifyTargetHash,
   toBatchDto,
 };
