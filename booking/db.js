@@ -1567,15 +1567,30 @@ async function insertOrder(record, customerId) {
       settings_snapshot, discount, key_pickup, ics_uid, photographer_event_id, office_event_id,
       created_at,
       confirmation_token, confirmation_token_expires_at, confirmation_pending_since,
-      attendee_emails, onsite_email, onsite_contacts
+      attendee_emails, onsite_email, onsite_contacts,
+      address_lat, address_lon, assignment_trace
     ) VALUES (
       $1,$2,$3,$4,
       $5,$6,$7,$8,$9,$10,
       $11,$12,$13,$14,$15,$16,
       $17,
       $18,$19,$20,
-      $21,$22,$23
+      $21,$22,$23,
+      $24,$25,$26::jsonb
     ) RETURNING id`;
+  const latRaw = Number(normalizedRecord.address_lat);
+  const lonRaw = Number(normalizedRecord.address_lon);
+  const addressLat = Number.isFinite(latRaw) ? latRaw : null;
+  const addressLon = Number.isFinite(lonRaw) ? lonRaw : null;
+  const assignmentTraceRaw =
+    normalizedRecord.assignment_trace !== undefined && normalizedRecord.assignment_trace !== null
+      ? normalizedRecord.assignment_trace
+      : normalizedRecord.assignmentTrace;
+  const assignmentTraceJson =
+    assignmentTraceRaw !== undefined && assignmentTraceRaw !== null
+      ? JSON.stringify(assignmentTraceRaw)
+      : null;
+
   const baseParams = [
     normalizedRecord.orderNo,
     customerId,
@@ -1600,6 +1615,9 @@ async function insertOrder(record, customerId) {
     normalizedRecord.attendeeEmails || null,
     normalizedRecord.onsiteEmail || normalizedRecord.billing?.onsiteEmail || null,
     JSON.stringify(Array.isArray(normalizedRecord.onsiteContacts) ? normalizedRecord.onsiteContacts : []),
+    addressLat,
+    addressLon,
+    assignmentTraceJson,
   ];
 
   const insertWithKeyPickup = async (keyPickupParam) => {
@@ -2600,6 +2618,9 @@ function dbRowToRecord(row) {
     provisionalExpiresAt: row.provisional_expires_at || null,
     lastRescheduleOldDate: row.last_reschedule_old_date || null,
     lastRescheduleOldTime: row.last_reschedule_old_time || null,
+    address_lat: row.address_lat != null ? Number(row.address_lat) : null,
+    address_lon: row.address_lon != null ? Number(row.address_lon) : null,
+    assignmentTrace: row.assignment_trace != null ? row.assignment_trace : null,
   });
 }
 
