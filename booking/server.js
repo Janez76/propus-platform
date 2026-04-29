@@ -8488,7 +8488,7 @@ app.patch("/api/admin/orders/:orderNo/review/dismiss", requireAdmin, async (req,
 
 // -ffentlich: Review-Token abrufen (kein Login)
 
-if (process.env.DATABASE_URL) {
+if (process.env.DATABASE_URL && String(process.env.UPLOAD_WORKER_ENABLED || "").toLowerCase() !== "true") {
   setTimeout(() => {
     resumePendingTransfers(db, {
       loadOrder: async (orderNo) => db.getOrderByNo(orderNo),
@@ -14676,15 +14676,6 @@ async function startServer() {
 }
 
 if (process.env.DATABASE_URL) {
-  setTimeout(() => {
-    resumePendingTransfers(db, {
-      loadOrder: async (orderNo) => db.getOrderByNo(orderNo),
-      notifyCompleted: typeof notifyCompletedUploadBatch === "function" ? notifyCompletedUploadBatch : () => {},
-    })
-      .then((count) => { if (count > 0) console.log("[upload-batch] resumed pending transfers", { count }); })
-      .catch((err) => { console.warn("[upload-batch] resume failed:", err?.message || err); });
-  }, 2500);
-
   if (String(process.env.BOOKING_WEBSIZE_SYNC_ENABLED || "").toLowerCase() === "true") {
     setTimeout(() => {
       syncWebsizeForAllCustomerFolders(db, console)

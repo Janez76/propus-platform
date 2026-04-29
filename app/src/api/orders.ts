@@ -656,7 +656,7 @@ export const initChunkedUpload = (
     "POST",
     token,
     input,
-    { timeoutMs: CHUNKED_UPLOAD_TIMEOUT_MS, maxRetries: 1 },
+    { timeoutMs: CHUNKED_UPLOAD_TIMEOUT_MS, maxRetries: 3 },
   );
 
 export const getChunkedUploadStatus = (
@@ -669,7 +669,7 @@ export const getChunkedUploadStatus = (
     "POST",
     token,
     { uploadId },
-    { timeoutMs: CHUNKED_UPLOAD_TIMEOUT_MS, maxRetries: 1 },
+    { timeoutMs: CHUNKED_UPLOAD_TIMEOUT_MS, maxRetries: 3 },
   );
 
 export function uploadChunkPart(
@@ -725,7 +725,7 @@ export const completeChunkedUpload = (
     "POST",
     token,
     { uploadId },
-    { timeoutMs: CHUNKED_UPLOAD_TIMEOUT_MS, maxRetries: 1 },
+    { timeoutMs: CHUNKED_UPLOAD_TIMEOUT_MS, maxRetries: 3 },
   );
 
 export const finalizeChunkedUpload = (
@@ -738,7 +738,7 @@ export const finalizeChunkedUpload = (
     "POST",
     token,
     input,
-    { timeoutMs: CHUNKED_UPLOAD_TIMEOUT_MS, maxRetries: 1 },
+    { timeoutMs: CHUNKED_UPLOAD_TIMEOUT_MS, maxRetries: 3 },
   );
 
 export const getOrderUploads = (token: string, orderNo: string, folderType?: string) => {
@@ -821,7 +821,7 @@ export const getUploadBatch = (token: string, orderNo: string, batchId: string) 
     "GET",
     token,
     undefined,
-    { timeoutMs: 60_000 },
+    { timeoutMs: 15_000, maxRetries: 1, dedupe: false },
   );
 
 export const listUploadBatches = (token: string, orderNo: string) =>
