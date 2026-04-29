@@ -2,7 +2,7 @@
 
 export type MapsApi = {
   Map: typeof google.maps.Map;
-  Marker: typeof google.maps.Marker;
+  AdvancedMarker: typeof google.maps.marker.AdvancedMarkerElement;
   Geocoder: typeof google.maps.Geocoder;
   Circle: typeof google.maps.Circle;
 };
@@ -18,10 +18,15 @@ type WindowWithCb = Window & { [MAPS_READY_CB]?: GmapsReadyCallback };
 
 function readGlobalApi(): MapsApi | null {
   const g = (typeof window !== "undefined" ? window.google : undefined) as typeof google | undefined;
-  if (g?.maps?.Map && g.maps.Marker && g.maps.Geocoder && g.maps.Circle) {
+  if (
+    g?.maps?.Map &&
+    g.maps.marker?.AdvancedMarkerElement &&
+    g.maps.Geocoder &&
+    g.maps.Circle
+  ) {
     return {
       Map: g.maps.Map,
-      Marker: g.maps.Marker,
+      AdvancedMarker: g.maps.marker.AdvancedMarkerElement,
       Geocoder: g.maps.Geocoder,
       Circle: g.maps.Circle,
     };
@@ -104,4 +109,36 @@ export function loadGoogleMapsApi(apiKey: string): Promise<MapsApi> {
   });
 
   return mapsApiPromise;
+}
+
+/**
+ * Erzeugt ein DOM-Element für `AdvancedMarkerElement.content` aus einer SVG-Quelle.
+ * `AdvancedMarkerElement` verankert immer die Bottom-Center des Inhalts an der Position;
+ * der ursprüngliche `google.maps.Marker.icon.anchor` wird per `translate()` nachgebildet.
+ */
+export function createSvgMarkerContent(opts: {
+  svg: string;
+  width: number;
+  height: number;
+  /** Anker im Bild wie beim Legacy-`Marker.icon.anchor` (px ab top-left). */
+  anchorX: number;
+  anchorY: number;
+}): HTMLElement {
+  const { svg, width, height, anchorX, anchorY } = opts;
+  const img = document.createElement("img");
+  img.src = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+  img.width = width;
+  img.height = height;
+  img.style.width = `${width}px`;
+  img.style.height = `${height}px`;
+  img.style.display = "block";
+  img.style.userSelect = "none";
+  img.style.pointerEvents = "none";
+  // Default-Anker = Bottom-Center → Pixel (W/2, H). Verschieben nach (ax, ay).
+  const dx = width / 2 - anchorX;
+  const dy = height - anchorY;
+  if (dx !== 0 || dy !== 0) {
+    img.style.transform = `translate(${dx}px, ${dy}px)`;
+  }
+  return img;
 }

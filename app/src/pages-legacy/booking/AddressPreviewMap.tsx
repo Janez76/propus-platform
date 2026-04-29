@@ -28,7 +28,7 @@ export function AddressPreviewMap({ apiKey, address, coords, onCoordsChange, cla
   const containerRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<MapsApi | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
-  const markerRef = useRef<google.maps.Marker | null>(null);
+  const markerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
   const geocodeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [loadState, setLoadState] = useState<LoadState>("idle");
   const [geoState, setGeoState] = useState<GeoState>("idle");
@@ -64,7 +64,7 @@ export function AddressPreviewMap({ apiKey, address, coords, onCoordsChange, cla
     return () => {
       cancelled = true;
       if (markerRef.current) {
-        markerRef.current.setMap(null);
+        markerRef.current.map = null;
         markerRef.current = null;
       }
       mapRef.current = null;
@@ -86,23 +86,26 @@ export function AddressPreviewMap({ apiKey, address, coords, onCoordsChange, cla
 
     const placeMarker = (pos: google.maps.LatLngLiteral) => {
       if (!markerRef.current) {
-        markerRef.current = new api.Marker({
+        const marker = new api.AdvancedMarker({
           map,
           position: pos,
-          draggable: Boolean(onCoordsChange),
-          cursor: onCoordsChange ? "grab" : undefined,
+          gmpDraggable: Boolean(onCoordsChange),
           title: onCoordsChange ? t(lang, "booking.step1.mapDragHint") : undefined,
         });
+        markerRef.current = marker;
         if (onCoordsChange) {
-          markerRef.current.addListener("dragend", () => {
-            const p = markerRef.current?.getPosition();
+          marker.addListener("dragend", () => {
+            const p = marker.position;
             if (!p) return;
-            onCoordsChange({ lat: p.lat(), lng: p.lng() });
+            const lat = typeof p.lat === "function" ? p.lat() : p.lat;
+            const lng = typeof p.lng === "function" ? p.lng() : p.lng;
+            if (typeof lat !== "number" || typeof lng !== "number") return;
+            onCoordsChange({ lat, lng });
           });
         }
       } else {
-        markerRef.current.setPosition(pos);
-        markerRef.current.setMap(map);
+        markerRef.current.position = pos;
+        markerRef.current.map = map;
       }
       map.panTo(pos);
       map.setZoom(FOCUS_ZOOM);
@@ -110,7 +113,7 @@ export function AddressPreviewMap({ apiKey, address, coords, onCoordsChange, cla
 
     const clearMarker = () => {
       if (markerRef.current) {
-        markerRef.current.setMap(null);
+        markerRef.current.map = null;
       }
     };
 
