@@ -326,6 +326,9 @@ Tech-Stack (real, aus `app/package.json` + `AGENTS.md`):
 > Migrations-Nummern werden bei Implementierung vergeben (aktuell zuletzt 043).
 
 ```sql
+-- schema (muss vor allen schema-qualifizierten Typen/Tabellen existieren)
+CREATE SCHEMA IF NOT EXISTS posteingang;
+
 -- enums
 CREATE TYPE posteingang.conversation_channel AS ENUM ('email','internal','task_only');
 CREATE TYPE posteingang.conversation_status  AS ENUM ('open','in_progress','waiting','resolved','archived');
@@ -333,19 +336,22 @@ CREATE TYPE posteingang.priority             AS ENUM ('low','medium','high','urg
 CREATE TYPE posteingang.message_direction    AS ENUM ('inbound','outbound','internal_note','system');
 CREATE TYPE posteingang.task_status          AS ENUM ('open','in_progress','done','cancelled');
 
+-- FK-Typen muessen zu den referenzierten PKs passen:
+--   core.customers.id, booking.orders.id, tour_manager.tours.id  -> SERIAL  (INTEGER)
+--   core.admin_users.id                                           -> BIGSERIAL (BIGINT)
 CREATE TABLE posteingang.conversations (
   id                       TEXT PRIMARY KEY,
   subject                  TEXT NOT NULL,
   channel                  posteingang.conversation_channel NOT NULL,
   status                   posteingang.conversation_status NOT NULL DEFAULT 'open',
   priority                 posteingang.priority           NOT NULL DEFAULT 'medium',
-  customer_id              BIGINT REFERENCES core.customers(id),
-  order_id                 BIGINT REFERENCES booking.orders(id),
-  tour_id                  BIGINT REFERENCES tour_manager.tours(id),
+  customer_id              INTEGER REFERENCES core.customers(id),
+  order_id                 INTEGER REFERENCES booking.orders(id),
+  tour_id                  INTEGER REFERENCES tour_manager.tours(id),
   -- Rechnungen liegen heute in zwei Tabellen (tour_manager.exxas_invoices,
   -- tour_manager.renewal_invoices). Daher kein FK, sondern (invoice_kind, invoice_id):
   invoice_kind             TEXT CHECK (invoice_kind IN ('exxas','renewal')),
-  invoice_id               BIGINT,
+  invoice_id               INTEGER,
   assigned_to_id           BIGINT REFERENCES core.admin_users(id),
   created_by_id            BIGINT NOT NULL REFERENCES core.admin_users(id),
   graph_conversation_id    TEXT UNIQUE,
