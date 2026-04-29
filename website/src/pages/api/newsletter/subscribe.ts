@@ -13,13 +13,17 @@ function json(data: unknown, status = 200): Response {
 	});
 }
 
-/** MailerLite Marketing API — Subscriber einer Gruppe hinzufügen. */
+/** MailerLite Marketing API — Subscriber einer oder mehrerer Gruppen hinzufügen. */
 export const POST: APIRoute = async ({ request }) => {
 	const token = serverEnv('MAILERLITE_API_KEY')?.trim();
-	const groupId = serverEnv('MAILERLITE_NEWSLETTER_GROUP_ID')?.trim();
+	const groupIdsRaw = serverEnv('MAILERLITE_NEWSLETTER_GROUP_ID')?.trim() ?? '';
+	const groups = groupIdsRaw
+		.split(',')
+		.map((s) => s.trim())
+		.filter(Boolean);
 	const voucherCode = serverEnv('NEWSLETTER_VOUCHER_CODE')?.trim();
 
-	if (!token || !groupId) {
+	if (!token || groups.length === 0) {
 		return json({ ok: false, error: 'newsletter_not_configured' }, 503);
 	}
 
@@ -49,7 +53,7 @@ export const POST: APIRoute = async ({ request }) => {
 		},
 		body: JSON.stringify({
 			email,
-			groups: [groupId],
+			groups,
 		}),
 	});
 
