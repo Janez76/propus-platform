@@ -83,7 +83,12 @@ export async function POST(request: Request, { params }: Props) {
     if (!tour) {
       // Keine Tour vorhanden → Stub anlegen (Adresse aus Bestellung befüllen).
       const order = await queryOne<{ address: string | null; customer_name: string | null; customer_email: string | null }>(
-        `SELECT address, customer_name, customer_email FROM booking.orders WHERE order_no = $1`,
+        `SELECT o.address,
+                c.name AS customer_name,
+                c.email AS customer_email
+         FROM booking.orders o
+         LEFT JOIN core.customers c ON c.id = o.customer_id
+         WHERE o.order_no = $1`,
         [orderNo],
       );
       const newTour = await queryOne<{ id: number }>(
