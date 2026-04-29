@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { serverEnv } from '../../../lib/serverEnv';
+import { buildMailerLitePayload, parseNewsletterSignupInput } from '../../../lib/newsletter';
 
 export const prerender = false;
 
@@ -27,22 +28,29 @@ export const POST: APIRoute = async ({ request }) => {
 		return json({ ok: false, error: 'newsletter_not_configured' }, 503);
 	}
 
-	let body: { email?: unknown; hp?: unknown };
+	let body: { email?: unknown; firstName?: unknown; hp?: unknown };
 	try {
-		body = (await request.json()) as { email?: unknown; hp?: unknown };
+		body = (await request.json()) as { email?: unknown; firstName?: unknown; hp?: unknown };
 	} catch {
 		return json({ ok: false, error: 'invalid_json' }, 400);
 	}
 
-	const hp = typeof body.hp === 'string' ? body.hp : '';
+	let signup;
+	try {
+		signup = parseNewsletterSignupInput(body);
+	} catch (error) {
+		if (error instanceof Error && error.message === 'error:invalid_email') {
+			return json({ ok: false, error: 'invalid_email' }, 400);
+		}
+		return json({ ok: false, error: 'invalid_request' }, 400);
+	}
+
+	const { hp, email, firstName } = signup;
 	if (hp.trim() !== '') {
 		return json({ ok: true, skipped: true });
 	}
 
-	const email = typeof body.email === 'string' ? body.email.trim() : '';
-	if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-		return json({ ok: false, error: 'invalid_email' }, 400);
-	}
+	const doubleOptIn = true;
 
 	const res = await fetch('https://connect.mailerlite.com/api/subscribers', {
 		method: 'POST',
@@ -51,10 +59,14 @@ export const POST: APIRoute = async ({ request }) => {
 			'Content-Type': 'application/json',
 			Accept: 'application/json',
 		},
-		body: JSON.stringify({
-			email,
-			groups,
-		}),
+		body: JSON.stringify(
+			buildMailerLitePayload({
+				email,
+				firstName,
+				groups,
+				doubleOptIn,
+			}),
+		),
 	});
 
 	const raw = await res.text();
@@ -72,6 +84,7 @@ export const POST: APIRoute = async ({ request }) => {
 	return json({
 		ok: true,
 		voucherPercent: 10,
+		doubleOptIn,
 		...(voucherCode ? { voucherCode } : {}),
 	});
 };
