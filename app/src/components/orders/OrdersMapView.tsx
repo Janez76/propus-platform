@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MarkerClusterer } from "@googlemaps/markerclusterer";
 import type { Order } from "../../api/orders";
 import { t, type Lang } from "../../i18n";
-import { loadGoogleMapsApi, type MapsApi } from "../../lib/googleMapsLoader";
+import { createSvgMarkerContent, loadGoogleMapsApi, type MapsApi } from "../../lib/googleMapsLoader";
 import { GMAPS_DARK_STYLES } from "../../pages-legacy/booking/gmapsDarkStyles";
 import { useThemeStore } from "../../store/themeStore";
 import {
@@ -13,7 +13,7 @@ import {
   makeOrderWeatherSvg,
   type WeatherZone,
 } from "../dashboard-v2/dashboardWeather";
-import { paletteForStatus, statusPinIconUrl } from "./mapStatusColors";
+import { makeStatusPinSvg, paletteForStatus } from "./mapStatusColors";
 import { loadGeocodeCache, saveGeocodeEntry, type GeoEntry } from "../../lib/geocodeCache";
 import { formatSwissDate } from "../../lib/format";
 import { useWeatherForOrders } from "../../hooks/useWeatherForOrders";
@@ -144,13 +144,13 @@ export function OrdersMapView({ orders, apiKey, onOpenDetail, lang, weatherZones
   const geocodeRef = useRef<GeocodeMap>(loadGeocodeCache());
   const inFlight = useRef<Set<string>>(new Set());
   const markerListenersRef = useRef<google.maps.MapsEventListener[]>([]);
-  const markersRef = useRef<google.maps.Marker[]>([]);
-  const markerByOrderRef = useRef<Map<string, { marker: google.maps.Marker; status: string }>>(new Map());
+  const markersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const markerByOrderRef = useRef<Map<string, { marker: google.maps.marker.AdvancedMarkerElement; status: string }>>(new Map());
   const clustererRef = useRef<MarkerClusterer | null>(null);
   const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
   const weatherCirclesRef = useRef<google.maps.Circle[]>([]);
-  const weatherMarkersRef = useRef<google.maps.Marker[]>([]);
-  const orderWeatherChipsRef = useRef<google.maps.Marker[]>([]);
+  const weatherMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const orderWeatherChipsRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const orderPositionsRef = useRef<Map<string, { lat: number; lng: number }>>(new Map());
   const orderWeatherRef = useRef<Map<string, OrderWeather>>(new Map());
   const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
@@ -198,6 +198,8 @@ export function OrdersMapView({ orders, apiKey, onOpenDetail, lang, weatherZones
         if (cancelled || !el) return;
         apiRef.current = api;
         const dark = useThemeStore.getState().resolvedTheme === "dark";
+        // Kein `mapId`: AdvancedMarkerElement loggt dann eine Hinweis-Warnung,
+        // dafür bleiben aber die inline `styles` (Dark-Mode) wirksam.
         const m = new api.Map(el, {
           center: DEFAULT_CENTER,
           zoom: DEFAULT_ZOOM,
@@ -288,7 +290,7 @@ export function OrdersMapView({ orders, apiKey, onOpenDetail, lang, weatherZones
 
     for (const c of weatherCirclesRef.current) c.setMap(null);
     weatherCirclesRef.current = [];
-    for (const m of weatherMarkersRef.current) m.setMap(null);
+    for (const m of weatherMarkersRef.current) m.map = null;
     weatherMarkersRef.current = [];
 
     if (!weatherZones || weatherZones.length === 0) return;
@@ -306,17 +308,18 @@ export function OrdersMapView({ orders, apiKey, onOpenDetail, lang, weatherZones
       });
       weatherCirclesRef.current.push(circle);
 
-      const svg = makeWeatherZoneSvg(z);
-      const marker = new api.Marker({
+      const marker = new api.AdvancedMarker({
         map,
         position: { lat: z.lat, lng: z.lng },
-        icon: {
-          url: `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`,
-          scaledSize: new google.maps.Size(104, 32),
-          anchor: new google.maps.Point(52, 16),
-        },
+        content: createSvgMarkerContent({
+          svg: makeWeatherZoneSvg(z),
+          width: 104,
+          height: 32,
+          anchorX: 52,
+          anchorY: 16,
+        }),
         zIndex: 9999,
-        clickable: false,
+        gmpClickable: false,
         title: `${z.city}: ${z.t}°C · ${z.precip}%`,
       });
       weatherMarkersRef.current.push(marker);
@@ -325,7 +328,7 @@ export function OrdersMapView({ orders, apiKey, onOpenDetail, lang, weatherZones
     return () => {
       for (const c of weatherCirclesRef.current) c.setMap(null);
       weatherCirclesRef.current = [];
-      for (const m of weatherMarkersRef.current) m.setMap(null);
+      for (const m of weatherMarkersRef.current) m.map = null;
       weatherMarkersRef.current = [];
     };
   }, [loadState, weatherZones]);
@@ -341,7 +344,7 @@ export function OrdersMapView({ orders, apiKey, onOpenDetail, lang, weatherZones
       clustererRef.current.setMap(null);
       clustererRef.current = null;
     }
-    for (const m of markersRef.current) m.setMap(null);
+    for (const m of markersRef.current) m.map = null;
     markersRef.current = [];
     markerByOrder.clear();
     for (const h of markerListenersRef.current) h.remove();
@@ -368,7 +371,7 @@ export function OrdersMapView({ orders, apiKey, onOpenDetail, lang, weatherZones
       }
     }
 
-    const built: google.maps.Marker[] = [];
+    const built: google.maps.marker.AdvancedMarkerElement[] = [];
     const nextPositions = new Map<string, { lat: number; lng: number }>();
     const nextWeatherPoints: OrderWeatherPoint[] = [];
     for (const { pos, order } of positions) {
@@ -376,15 +379,16 @@ export function OrdersMapView({ orders, apiKey, onOpenDetail, lang, weatherZones
         ? `#${order.orderNo} – ${order.customerName}`
         : `#${order.orderNo}`;
 
-      const mk = new api.Marker({
+      const mk = new api.AdvancedMarker({
         position: pos,
         title,
-        optimized: true,
-        icon: {
-          url: statusPinIconUrl(order.status),
-          scaledSize: new google.maps.Size(26, 32),
-          anchor: new google.maps.Point(13, 32),
-        },
+        content: createSvgMarkerContent({
+          svg: makeStatusPinSvg(paletteForStatus(order.status)),
+          width: 26,
+          height: 32,
+          anchorX: 13,
+          anchorY: 32,
+        }),
       });
       built.push(mk);
       markersRef.current.push(mk);
@@ -414,14 +418,15 @@ export function OrdersMapView({ orders, apiKey, onOpenDetail, lang, weatherZones
       renderer: {
         render: ({ count, position }: { count: number; position: google.maps.LatLng }) => {
           const palette = dominantPaletteForCluster();
-          const svg = makeClusterSvg(count, palette);
-          return new google.maps.Marker({
+          return new api.AdvancedMarker({
             position,
-            icon: {
-              url: `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`,
-              scaledSize: new google.maps.Size(44, 44),
-              anchor: new google.maps.Point(22, 22),
-            },
+            content: createSvgMarkerContent({
+              svg: makeClusterSvg(count, palette),
+              width: 44,
+              height: 44,
+              anchorX: 22,
+              anchorY: 22,
+            }),
             zIndex: 1000 + count,
             title: `${count}`,
           });
@@ -449,7 +454,7 @@ export function OrdersMapView({ orders, apiKey, onOpenDetail, lang, weatherZones
         clustererRef.current.setMap(null);
         clustererRef.current = null;
       }
-      for (const m of markersRef.current) m.setMap(null);
+      for (const m of markersRef.current) m.map = null;
       markersRef.current = [];
       markerByOrder.clear();
       for (const h of markerListenersRef.current) h.remove();
@@ -478,7 +483,7 @@ export function OrdersMapView({ orders, apiKey, onOpenDetail, lang, weatherZones
     const api = apiRef.current;
     if (!map || !api) return;
 
-    for (const m of orderWeatherChipsRef.current) m.setMap(null);
+    for (const m of orderWeatherChipsRef.current) m.map = null;
     orderWeatherChipsRef.current = [];
 
     if (!showOrderWeather || orderWeather.size === 0) return;
@@ -488,17 +493,18 @@ export function OrdersMapView({ orders, apiKey, onOpenDetail, lang, weatherZones
     for (const [orderNo, w] of orderWeather) {
       const pos = orderPositionsRef.current.get(orderNo);
       if (!pos) continue;
-      const svg = makeOrderWeatherSvg(w);
-      const chip = new api.Marker({
+      const chip = new api.AdvancedMarker({
         map,
         position: pos,
-        icon: {
-          url: `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`,
-          scaledSize: new google.maps.Size(58, 22),
+        content: createSvgMarkerContent({
+          svg: makeOrderWeatherSvg(w),
+          width: 58,
+          height: 22,
           // Chip oberhalb des Pins anker (Pin ist 32 px hoch, Anker am Pinfuss).
-          anchor: new google.maps.Point(29, 50),
-        },
-        clickable: false,
+          anchorX: 29,
+          anchorY: 50,
+        }),
+        gmpClickable: false,
         zIndex: 7000,
         title: `${w.tMax}°/${w.tMin}° · ${WX_LABEL_DE[w.kind]} · ${w.precip}% Regen${w.source === "archive" ? " (gemessen)" : ""}`,
       });
@@ -506,7 +512,7 @@ export function OrdersMapView({ orders, apiKey, onOpenDetail, lang, weatherZones
     }
 
     return () => {
-      for (const m of orderWeatherChipsRef.current) m.setMap(null);
+      for (const m of orderWeatherChipsRef.current) m.map = null;
       orderWeatherChipsRef.current = [];
     };
   }, [orderWeather, showOrderWeather, geocodeVersion, zoomVersion]);
@@ -518,12 +524,16 @@ export function OrdersMapView({ orders, apiKey, onOpenDetail, lang, weatherZones
     const targetKey = hoveredOrderNo ? String(hoveredOrderNo) : null;
     for (const [no, entry] of markerByOrderRef.current) {
       const isHovered = targetKey != null && no === targetKey;
-      entry.marker.setIcon({
-        url: statusPinIconUrl(entry.status, isHovered),
-        scaledSize: new google.maps.Size(isHovered ? 34 : 26, isHovered ? 42 : 32),
-        anchor: new google.maps.Point(isHovered ? 17 : 13, isHovered ? 42 : 32),
+      const w = isHovered ? 34 : 26;
+      const h = isHovered ? 42 : 32;
+      entry.marker.content = createSvgMarkerContent({
+        svg: makeStatusPinSvg(paletteForStatus(entry.status), isHovered),
+        width: w,
+        height: h,
+        anchorX: isHovered ? 17 : 13,
+        anchorY: h,
       });
-      entry.marker.setZIndex(isHovered ? 9000 : undefined);
+      entry.marker.zIndex = isHovered ? 9000 : null;
     }
   }, [hoveredOrderNo]);
 
