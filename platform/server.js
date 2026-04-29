@@ -31,10 +31,12 @@ const { pool } = require("../tours/lib/db");
 const { createPostgresSessionStore } = require("../auth/postgres-session-store");
 const { requireAdmin } = require("../tours/middleware/auth");
 const toursAdminApi = require("../tours/routes/admin-api");
+const posteingangAdminApi = require("../tours/routes/posteingang-admin-api");
 const toursCronApi = require("../tours/routes/cron-api");
 const galleryAdminApi = require("../tours/routes/gallery-admin-api");
 const galleryPublicApi = require("../tours/routes/gallery-public-api");
 const adminSearchApi = require("../tours/routes/admin-search");
+const posteingangWebhook = require("../tours/routes/posteingang-webhook");
 
 const main = express();
 main.set("trust proxy", true);
@@ -124,9 +126,18 @@ async function bridgeBookingAdminSession(req, _res, next) {
 }
 
 main.use("/api/tours/admin/search", express.json(), toursSessionMiddleware, bridgeBookingAdminSession, requireAdmin, adminSearchApi);
+main.use(
+  "/api/tours/admin/posteingang",
+  express.json(),
+  toursSessionMiddleware,
+  bridgeBookingAdminSession,
+  requireAdmin,
+  posteingangAdminApi,
+);
 main.use("/api/tours/admin", express.json(), toursSessionMiddleware, bridgeBookingAdminSession, requireAdmin, toursAdminApi);
 main.use("/api/tours/admin/galleries", express.json(), toursSessionMiddleware, bridgeBookingAdminSession, requireAdmin, galleryAdminApi);
 main.use("/api/tours/cron", express.json(), toursCronApi);
+main.use("/api/tours/posteingang/webhook", posteingangWebhook);
 main.use("/api/listing", express.json(), galleryPublicApi);
 
 // Bereinigungslauf-Aktionsseiten: öffentlich auf Root-Ebene erreichbar (Token-Links in E-Mails zeigen auf /cleanup/...)

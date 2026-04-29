@@ -943,6 +943,181 @@ export async function postTicketUpload(file: File): Promise<{ ok: true; path: st
   return res.json();
 }
 
+// ─── Posteingang (zentrale Konversationen) ───────────────────────────────────
+
+export type PosteingangChannel = "email" | "internal" | "task_only";
+export type PosteingangConvStatus = "open" | "in_progress" | "waiting" | "resolved" | "archived";
+export type PosteingangMsgDirection = "inbound" | "outbound" | "internal_note" | "system";
+
+export type PosteingangConversationRow = {
+  id: number;
+  subject: string;
+  channel: PosteingangChannel;
+  status: PosteingangConvStatus;
+  priority: string;
+  customer_id: number | null;
+  order_id: number | null;
+  tour_id: number | null;
+  assigned_admin_user_id: number | null;
+  graph_conversation_id: string | null;
+  graph_mailbox_address: string | null;
+  last_message_at: string | null;
+  message_count?: number;
+  created_at: string;
+};
+
+export type PosteingangMessageRow = {
+  id: number;
+  conversation_id: number;
+  direction: PosteingangMsgDirection;
+  from_name: string | null;
+  from_email: string | null;
+  to_emails: string[];
+  subject: string | null;
+  body_html: string | null;
+  body_text: string | null;
+  graph_message_id: string | null;
+  sent_at: string;
+  author_email: string | null;
+};
+
+export type PosteingangTaskRow = {
+  id: number;
+  title: string;
+  status: string;
+  priority: string;
+  due_at: string | null;
+  conversation_id: number | null;
+  customer_id: number | null;
+};
+
+export function getPosteingangConversations(qs: string) {
+  const q = qs.startsWith("?") ? qs : qs ? `?${qs}` : "";
+  return toursAdminFetch<{ ok: true; conversations: PosteingangConversationRow[]; total: number }>(
+    `/posteingang/conversations${q}`,
+  );
+}
+
+export type PosteingangRelated = {
+  tours: {
+    id: number;
+    bezeichnung: string | null;
+    status: string;
+    customer_email: string | null;
+    matterport_space_id: string | null;
+  }[];
+  orders: { id: number; order_no: number; status: string; created_at: string }[];
+  renewal_invoices: {
+    id: number;
+    invoice_number: string | null;
+    invoice_status: string;
+    amount_chf: string | null;
+    created_at: string;
+    tour_id: number;
+    tour_bezeichnung: string | null;
+  }[];
+  exxas_invoices: {
+    id: number;
+    nummer: string | null;
+    exxas_status: string | null;
+    preis_brutto: string | null;
+    synced_at: string;
+    tour_id: number;
+    tour_bezeichnung: string | null;
+  }[];
+};
+
+export function getPosteingangConversation(id: string | number) {
+  return toursAdminFetch<{
+    ok: true;
+    conversation: PosteingangConversationRow & {
+      customer_name?: string | null;
+      customer_email?: string | null;
+      assignee_email?: string | null;
+    };
+    messages: PosteingangMessageRow[];
+    tags: string[];
+    tasks: PosteingangTaskRow[];
+    related: PosteingangRelated;
+  }>(`/posteingang/conversations/${id}`);
+}
+
+export function postPosteingangSyncPull(body?: { mailbox?: string }) {
+  return toursAdminPost("/posteingang/sync/pull", body as Record<string, unknown> | undefined);
+}
+
+export function patchPosteingangConversation(id: string | number, body: Record<string, unknown>) {
+  return toursAdminFetch<Record<string, unknown>>(`/posteingang/conversations/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export function postPosteingangMessage(
+  conversationId: string | number,
+  body: { mode: "reply" | "note"; bodyHtml?: string; bodyText?: string },
+) {
+  return toursAdminFetch<{ ok: true } & Awaited<ReturnType<typeof getPosteingangConversation>>>(
+    `/posteingang/conversations/${conversationId}/messages`,
+    { method: "POST", body: JSON.stringify(body) },
+  );
+}
+
+export function getPosteingangTasks(qs: string) {
+  const q = qs.startsWith("?") ? qs : qs ? `?${qs}` : "";
+  return toursAdminFetch<{ ok: true; tasks: PosteingangTaskRow[]; total: number }>(`/posteingang/tasks${q}`);
+}
+
+export function postPosteingangTask(body: Record<string, unknown>) {
+  return toursAdminPost("/posteingang/tasks", body);
+}
+
+export function patchPosteingangTask(id: string | number, body: Record<string, unknown>) {
+  return toursAdminFetch<{ ok: true; task: PosteingangTaskRow }>(`/posteingang/tasks/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export function deletePosteingangTask(id: string | number) {
+  return toursAdminFetch<{ ok: true }>(`/posteingang/tasks/${id}`, { method: "DELETE" });
+}
+
+export function postPosteingangConversation(body: { subject?: string; channel?: string; priority?: string; customer_id?: number | null }) {
+  return toursAdminPost("/posteingang/conversations", body);
+}
+
+export function postPosteingangTag(conversationId: string | number, name: string) {
+  return toursAdminPost(`/posteingang/conversations/${conversationId}/tags`, { name });
+}
+
+export function deletePosteingangTag(conversationId: string | number, name: string) {
+  return toursAdminFetch<{ ok: true }>(`/posteingang/conversations/${conversationId}/tags/${encodeURIComponent(name)}`, { method: "DELETE" });
+}
+
+export type PosteingangStats = {
+  open_conversations: number | null;
+  in_progress_conversations: number | null;
+  waiting_conversations: number | null;
+  resolved_conversations: number | null;
+  open_tasks: number | null;
+  avg_response_time_hours: number | null;
+};
+
+export function getPosteingangStats() {
+  return toursAdminFetch<{ ok: true; stats: PosteingangStats }>("/posteingang/stats");
+}
+
+export type PosteingangAdminUser = { id: number; email: string; name: string; role: string };
+
+export function getPosteingangAdminUsers() {
+  return toursAdminFetch<{ ok: true; users: PosteingangAdminUser[] }>("/posteingang/admin-users");
+}
+
+export function postPosteingangRunTriggers() {
+  return toursAdminPost("/posteingang/run-triggers");
+}
+
 export function getMailInbox(params?: {
   top?: number;
   folder?: string;

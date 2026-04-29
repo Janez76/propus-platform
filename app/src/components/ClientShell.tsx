@@ -82,6 +82,10 @@ const ToursAdminTeamPage = lazy(() => import("../pages-legacy/tours/admin/ToursA
 const ToursAdminAiChatPage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminAiChatPage").then((m) => ({ default: m.ToursAdminAiChatPage })));
 const PortalPreviewPage = lazy(() => import("../pages-legacy/tours/admin/PortalPreviewPage").then((m) => ({ default: m.PortalPreviewPage })));
 const AdminTicketsPage = lazy(() => import("../pages-legacy/tours/admin/AdminTicketsPage").then((m) => ({ default: m.AdminTicketsPage })));
+const PosteingangPage = lazy(() => import("../pages-legacy/admin/posteingang/PosteingangPage").then((m) => ({ default: m.PosteingangPage })));
+const PosteingangAufgabenPage = lazy(() =>
+  import("../pages-legacy/admin/posteingang/PosteingangAufgabenPage").then((m) => ({ default: m.PosteingangAufgabenPage })),
+);
 const ToursAdminCleanupPage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminCleanupPage").then((m) => ({ default: m.ToursAdminCleanupPage })));
 
 // Listing (Galerie) pages
@@ -262,6 +266,9 @@ function PrivateRoutes() {
         <Route path="/admin/tours/ai-chat" element={eg("/admin/tours", <ToursAdminAiChatPage />)} />
         <Route path="/admin/tours/portal-vorschau" element={eg("/admin/tours", <PortalPreviewPage />)} />
         <Route path="/admin/tickets" element={eg("/admin/tickets", <AdminTicketsPage />)} />
+        <Route path="/admin/posteingang/aufgaben" element={eg("/admin/posteingang", <PosteingangAufgabenPage />)} />
+        <Route path="/admin/posteingang/:id" element={eg("/admin/posteingang", <PosteingangPage />)} />
+        <Route path="/admin/posteingang" element={eg("/admin/posteingang", <PosteingangPage />)} />
         <Route path="/admin/tours/:id" element={eg("/admin/tours", <TourDetailPage />)} />
         <Route path="/admin/tours" element={eg("/admin/tours", <ToursAdminDashboardPage />)} />
         <Route path="/admin/selekto/new" element={eg("/admin/selekto", <SelektoCreateRedirect />)} />

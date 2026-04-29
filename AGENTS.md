@@ -206,6 +206,73 @@ Zentrales Ticketsystem für alle Module (Touren, Buchung), erreichbar unter `/ad
 
 Zeigt E-Mails aus `office@propus.ch` via `GET /api/tours/admin/mail/inbox`. Automatisches Matching gegen Touren und Kunden. Pro E-Mail: "Ticket erstellen" (mit Vorausfüllung) oder "Auto" (direktes Erstellen mit erkannten Zuordnungen).
 
+## Posteingang-Modul (seit April 2026)
+
+Zentrales E-Mail- und Konversationssystem mit Microsoft Graph-Integration, erreichbar unter `/admin/posteingang`.
+
+### DB-Tabellen (in `tour_manager`)
+
+| Tabelle | Beschreibung |
+|---------|-------------|
+| `posteingang_conversations` | Konversationen (E-Mail-Threads, interne Notizen) |
+| `posteingang_messages` | Einzelne Nachrichten (inbound/outbound/note) |
+| `posteingang_message_attachments` | Anhänge zu Nachrichten |
+| `posteingang_tasks` | Aufgaben an Konversationen/Kunden gebunden |
+| `posteingang_tags` | Tags pro Konversation |
+| `posteingang_graph_sync_state` | Delta-Token für Graph-Sync (inbox/sentitems) |
+
+### API-Endpunkte (unter `/api/tours/admin/posteingang`)
+
+| Methode | Pfad | Beschreibung |
+|---------|------|-------------|
+| `GET` | `/conversations` | Liste (Filter: status, assigned, customer_id, search) |
+| `GET` | `/conversations/:id` | Detail inkl. Nachrichten, Tasks, Tags, Related |
+| `POST` | `/conversations` | Neue interne Konversation |
+| `PATCH` | `/conversations/:id` | Status, Priorität, Zuweisung, Kunde ändern |
+| `POST` | `/conversations/:id/messages` | Antwort senden oder interne Notiz |
+| `POST` | `/conversations/:id/tags` | Tag hinzufügen |
+| `DELETE` | `/conversations/:id/tags/:name` | Tag entfernen |
+| `GET` | `/tasks` | Aufgaben-Liste |
+| `POST` | `/tasks` | Neue Aufgabe |
+| `PATCH` | `/tasks/:id` | Aufgabe aktualisieren |
+| `DELETE` | `/tasks/:id` | Aufgabe löschen |
+| `POST` | `/sync/pull` | Manueller Graph-Sync (Inbox + Gesendet) |
+| `GET` | `/stats` | Dashboard-Statistiken |
+| `GET` | `/admin-users` | Admin-Liste für Zuweisung |
+| `POST` | `/run-triggers` | Auto-Trigger manuell ausführen |
+
+### Webhook (unter `/api/tours/posteingang/webhook`)
+
+Empfängt Microsoft Graph Notifications für Echtzeit-Sync. Erfordert öffentliche HTTPS-URL und Graph-Subscription-Registrierung.
+
+### Auto-Trigger Engine (`tours/lib/posteingang-triggers.js`)
+
+| Trigger | Beschreibung |
+|---------|-------------|
+| `triggerExpiringTours()` | Touren in 30/14/7 Tagen → Task "Verlängerung anbieten" |
+| `triggerOverdueInvoices()` | Rechnung 14+ Tage fällig → Task "Mahnung senden" |
+| `triggerUnknownSenderTag()` | E-Mail ohne Kunde → Tag "Neukunde?" |
+
+Cron: `POST /api/tours/cron/posteingang-triggers`
+
+### Backend-Module
+
+| Modul | Beschreibung |
+|-------|-------------|
+| `tours/lib/posteingang-store.js` | DB-Persistenz (Conversations, Messages, Tasks, Tags) |
+| `tours/lib/posteingang-sync.js` | Graph Delta-Sync (Inbox + Sentitems) |
+| `tours/lib/posteingang-match.js` | Kunden-Matching per Domain (exkl. Freemail) |
+| `tours/lib/posteingang-triggers.js` | Auto-Trigger Engine |
+| `tours/routes/posteingang-admin-api.js` | Express-Router |
+| `tours/routes/posteingang-webhook.js` | Graph Webhook Endpoint |
+
+### Frontend
+
+| Datei | Beschreibung |
+|-------|-------------|
+| `app/src/pages-legacy/admin/posteingang/PosteingangPage.tsx` | 3-Spalten-Layout (Liste, Detail, Kontext) |
+| `app/src/pages-legacy/admin/posteingang/PosteingangAufgabenPage.tsx` | Aufgaben-Übersicht |
+
 ## Technologie-Stack
 
 - **Frontend**: React 19, Next.js, TypeScript, Tailwind CSS
@@ -345,7 +412,27 @@ Alle NAS-Skripte und Anleitungen liegen in `Z:\NAS Ugreen\`:
 - Größere Fixes und Rollout lieber einmal planen und klare Deploy-Schleifen vermeiden, statt viele aufeinanderfolgende Versuche ohne abgeschlossenen Fix.
 - Einzel-PR-Deploy ist nicht zwingend: mehrere PRs dürfen nacheinander integriert und danach gebündelt deployt werden, sofern der jeweilige Staging-/Produktions-Workflow das sinnvoll unterstützt.
 - Globale Suche aus der Nav/Topbar heraus über möglichst viele Bereiche („über alles“) ist ein wiederkehrendes Produktziel.
+- Nach signifikanten Änderungen/Deploys erwartet der User „flow md nachführen" — Dokumentations-Updates in `docs/FLOWS_*.md`.
+- Kurze Bestätigungen wie „mach alles", „ja mach es", „go" signalisieren Fortfahren ohne weitere Rückfragen.
+- Bei komplexen Tasks bevorzugt der User zuerst Planung („plane es gründlich"), bevor implementiert wird.
+
+## Microsoft Graph App-Registrierungen
+
+| App | Tenant ID | Client ID | Verwendung |
+|-----|-----------|-----------|------------|
+| **claude** | `8aee6efb-b620-459d-95b1-0ea7ff434458` | `e23a0d84-9f8d-47ce-9a1c-73be8809d787` | Chat/Teams + Mail (volle Berechtigungen) |
+| **Produktion (VPS)** | `8aee6efb-b620-459d-95b1-0ea7ff434458` | `8b602a1c-def3-44f3-8a39-84d4f3664ef4` | Produktive Mail/Kalender-Integration |
+
+Client Secrets liegen in `.env` (lokal) bzw. `.env.vps` (VPS) — nicht hier.
 
 ## Learned Workspace Facts
 
 - Im Platform-Docker-Setup sind **Next.js** typischerweise auf **3001** (Einstieg von außen) und **Express** auf **3100** intern (`PLATFORM_INTERNAL_URL`); Deploy-/Health-Checks zielen auf die JSON-API (`/api/core/health`), nicht nur auf die Next-Oberfläche.
+- Der produktive Admin-Einstieg ist `https://admin-booking.propus.ch`; Order-Detail-Routen liegen unter `/orders/<orderNo>` (nicht primär unter `/admin/orders/...`).
+- Für Next.js-Admin-Order-Flows nach Deploys stabile GET-/POST-Routen bevorzugen; gehashte Server Actions können in offenen Tabs mit `UnrecognizedActionError` brechen.
+- Termin-/Daueränderungen im Next.js-Admin müssen die Express-Route `PATCH /api/admin/orders/:orderNo/reschedule` über `PLATFORM_INTERNAL_URL` auslösen, damit Outlook/365-Events neu mit korrekter Endzeit erstellt werden.
+- Nextcloud auf dem NAS nutzt External-Storage-Mounts für `PROPUS DRIVE`; damit SMB-Löschungen an Desktop-Clients propagieren, sind `check_changes=2` pro Mount und `filesystem_check_changes=1` global relevant.
+- Für VPS-SSH auf diesem Rechner funktioniert `root@87.106.24.107` mit `C:\Users\svajc\.ssh\id_ed25519`; der ältere `id_ed25519_propus_vps`-Key ist nicht der verlässliche Standard.
+- Websize-Sync läuft nur noch per Knopfdruck (nicht automatisch per Cron) — deaktiviert per `WEBSIZE_SYNC_DISABLED=true` oder Admin-UI-Toggle.
+- NAS-Ordner-Duplikate können durch NTFS-Unicode-Unterschiede (z.B. `#` Varianten) und Alias-Logik entstehen; Diagnose-Skripte unter `scripts/diagnose-nas-*`.
+- EXXAS-Dienstleistungsaufträge benötigen korrektes `ref_kunde`-Mapping via `exxas_customer_id` auf dem Kunden-Datensatz.

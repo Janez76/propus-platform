@@ -175,6 +175,14 @@ export const navConfig: NavSection[] = [
         matchNested: true,
       },
       {
+        id: "posteingang",
+        to: "/admin/posteingang",
+        labelKey: "nav.item.posteingang",
+        icon: Inbox,
+        roles: ADMIN,
+        matchNested: true,
+      },
+      {
         id: "tickets",
         to: "/admin/tickets",
         labelKey: "nav.item.tickets",

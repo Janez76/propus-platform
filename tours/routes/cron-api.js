@@ -7,6 +7,7 @@
  * Endpunkte:
  *   POST /sync-matterport-state   — matterport_state aller Touren aktualisieren
  *   POST /process-pending-deletions — fällige Löschvormerkungen ausführen
+ *   POST /sync-posteingang        — Posteingang (Graph Delta)
  */
 
 'use strict';
@@ -14,6 +15,9 @@
 const express = require('express');
 const router = express.Router();
 const phase3 = require('../lib/admin-phase3');
+const posteingangSync = require('../lib/posteingang-sync');
+const posteingangTriggers = require('../lib/posteingang-triggers');
+const { getGraphConfig } = require('../lib/microsoft-graph');
 
 function requireCron(req, res, next) {
   const secret = String(process.env.CRON_SECRET || '').trim();
@@ -49,6 +53,39 @@ router.post('/sync-matterport-state', requireCron, async (req, res) => {
   }
 });
 
+// POST /api/tours/cron/sync-posteingang
+router.post('/sync-posteingang', requireCron, async (req, res) => {
+  const start = Date.now();
+  try {
+    const mailbox = String(req.body?.mailbox || getGraphConfig().mailboxUpn || '').trim();
+    let r = await posteingangSync.syncPosteingangFull(mailbox);
+    if (!r.inbox?.ok) {
+      const boot = await posteingangSync.bootstrapFromInboxList(mailbox, 100);
+      r = { ...r, inboxFallback: boot, processed: (r.processed || 0) + (boot.processed || 0) };
+    }
+    if (!r.sentitems?.ok) {
+      const sentPull = await posteingangSync.pullRecentSent(mailbox, 80);
+      r = { ...r, sentFallback: sentPull, processed: (r.processed || 0) + (sentPull.processed || 0) };
+    }
+    const anyOk =
+      Boolean(r.inbox?.ok) ||
+      Boolean(r.sentitems?.ok) ||
+      Boolean(r.inboxFallback?.ok) ||
+      Boolean(r.sentFallback?.ok);
+    const elapsed = Date.now() - start;
+    if (!anyOk) {
+      console.warn(`[cron] sync-posteingang FEHLER (${elapsed}ms):`, r.error);
+      return res.status(500).json({ ok: false, ...r, elapsed });
+    }
+    console.log(`[cron] sync-posteingang OK — mailbox=${mailbox} (${elapsed}ms)`);
+    return res.json({ ok: true, ...r, elapsed });
+  } catch (err) {
+    const elapsed = Date.now() - start;
+    console.error('[cron] sync-posteingang Exception:', err.message);
+    return res.status(500).json({ ok: false, error: err.message, elapsed });
+  }
+});
+
 // POST /api/tours/cron/process-pending-deletions
 // Führt fällige Löschvormerkungen aus: zuerst Matterport, dann Tour-Datensatz.
 router.post('/process-pending-deletions', requireCron, async (req, res) => {
@@ -66,6 +103,22 @@ router.post('/process-pending-deletions', requireCron, async (req, res) => {
   } catch (err) {
     const elapsed = Date.now() - start;
     console.error('[cron] process-pending-deletions Exception:', err.message);
+    return res.status(500).json({ ok: false, error: err.message, elapsed });
+  }
+});
+
+// POST /api/tours/cron/posteingang-triggers
+// Auto-Trigger Engine: ablaufende Touren, überfällige Rechnungen, Neukunde-Tag
+router.post('/posteingang-triggers', requireCron, async (req, res) => {
+  const start = Date.now();
+  try {
+    const result = await posteingangTriggers.runAllTriggers();
+    const elapsed = Date.now() - start;
+    console.log(`[cron] posteingang-triggers OK — tasks=${result.tasksCreated}, tagged=${result.tagged} (${elapsed}ms)`);
+    return res.json({ ok: true, ...result, elapsed });
+  } catch (err) {
+    const elapsed = Date.now() - start;
+    console.error('[cron] posteingang-triggers Exception:', err.message);
     return res.status(500).json({ ok: false, error: err.message, elapsed });
   }
 });

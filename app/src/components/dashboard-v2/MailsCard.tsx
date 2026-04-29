@@ -66,7 +66,7 @@ export function MailsCard({ lang }: MailsCardProps) {
             )}
           </div>
         </div>
-        <Link to="/admin/tickets?tab=mail" className="dv2-card-link">
+        <Link to="/admin/posteingang" className="dv2-card-link">
           {t(lang, "dashboardV2.mails.allLink")}
           <ArrowUpRight size={12} />
         </Link>
@@ -87,7 +87,7 @@ export function MailsCard({ lang }: MailsCardProps) {
           return (
             <Link
               key={id}
-              to="/admin/tickets?tab=mail"
+              to="/admin/posteingang"
               className={`dv2-mail-row${isUnread ? " is-unread" : ""}`}
             >
               <span className="dv2-mail-avatar">

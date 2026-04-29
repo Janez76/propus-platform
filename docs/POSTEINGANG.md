@@ -2,7 +2,7 @@
 
 > **Stand:** 29. April 2026
 > **Repo:** `Janez76/propus-platform`
-> **Ziel:** Zammad, separater Planer und Outlook-Tool-Wechsel ablösen durch ein einziges Modul im Admin Panel.
+> **Ziel:** Separater Planer und ständiger Wechsel zwischen Outlook und internen Tools reduzieren — ein einziges Modul im Admin Panel.
 
 ---
 
@@ -15,7 +15,7 @@ Ein einziger Arbeitsplatz für alles, was kommunikativ und operativ pro Kunde an
 - **Aufgaben** mit Fälligkeit, Priorität, Zuweisung
 - **Verknüpfung** mit Kunde, Auftrag, Tour und Rechnung in der Propus-Plattform
 
-Statt zwischen Outlook, Zammad und einem Aufgaben-Tool zu wechseln, läuft alles in einer Konversations-orientierten Inbox direkt im Propus Admin Panel im Dark/Gold-Designsystem.
+Statt zwischen Outlook und mehreren internen Tools zu wechseln, läuft die Kommunikation in einer Konversations-orientierten Inbox direkt im Propus Admin Panel im Dark/Gold-Designsystem.
 
 ### Erfolgskriterien
 
@@ -23,11 +23,9 @@ Statt zwischen Outlook, Zammad und einem Aufgaben-Tool zu wechseln, läuft alles
 - Antworten gehen über Microsoft Graph mit korrektem Threading raus.
 - Aufgaben können standalone existieren oder an Konversationen hängen.
 - Ein Klick auf einen Kunden zeigt alle zugehörigen Konversationen, Aufgaben, Aufträge, Touren und Rechnungen in einer Ansicht.
-- Zammad ist nach Migration vollständig abgeschaltet.
-
 ### Out of Scope (vorerst)
 
-- Knowledge Base (Zammad-KB wird nicht migriert; ggf. später separates Modul)
+- Knowledge Base (ggf. später separates Modul)
 - SLA-Eskalationen, automatisierte Helpdesk-Reports
 - Mehrere Mailboxen (initial nur `office@propus.ch`; weitere später trivial)
 - Live-Chat / Webchat-Integration
@@ -181,12 +179,14 @@ App-Permissions sind erteilt (Mail.ReadWrite, Mail.Send). App-only-Auth.
 
 ### Pull-Strategie (Phase 1)
 
-Pro überwachtem Folder eine eigene Delta-Query mit eigenem Delta-Token in `graph_sync_state`:
+Pro überwachtem Ordner eine eigene Delta-Query mit eigenem Delta-Token in `tour_manager.posteingang_graph_sync_state`:
 
-- `/users/office@propus.ch/mailFolders/inbox/messages/delta` — eingehende Mails (`direction=inbound`)
-- `/users/office@propus.ch/mailFolders/sentitems/messages/delta` — aus Outlook gesendete Mails, damit sie als `direction=outbound` in der Plattform sichtbar werden
+- `folder_scope = inbox` → `/users/{mailbox}/mailFolders/inbox/messages/delta`
+- `folder_scope = sentitems` → `/users/{mailbox}/mailFolders/sentitems/messages/delta` (Gesendet, u. a. Antworten aus Outlook)
 
-`graph_sync_state` bekommt deshalb pro Mailbox + Folder eine Zeile (Primärschlüssel `(mailbox_address, folder)`). Cron alle 2 Minuten.
+Implementiert in `tours/lib/posteingang-sync.js` als `syncPosteingangFull()` (wird von `POST /api/tours/admin/posteingang/sync/pull` und `POST /api/tours/cron/sync-posteingang` aufgerufen). Scheitert ein Delta-Lauf, greift ein Fallback (Inbox: letzte N Nachrichten; Gesendet: `pullRecentSent`).
+
+Primärschlüssel `(mailbox_address, folder_scope)`. Cron z. B. alle 2 Minuten.
 
 ### Senden
 
@@ -203,25 +203,9 @@ Optionen für Phase 1: Vercel Cron, Synology Task Scheduler, Container in Hestia
 
 ---
 
-## 7. Migration aus Zammad
+## 7. Externe Helpdesk-Migration
 
-### Mapping
-
-- Tickets → `conversations` (channel=email)
-- Articles → `messages`
-- Customers → bestehende `customers` (matchen auf E-Mail/Domain)
-- Tags → `conversation_tags`
-- Status: `open→open`, `pending close→waiting`, `closed→resolved`
-
-**Nicht** migriert: KB, Time-Accounting, SLAs, Reports.
-
-### Strategie
-
-1. Zammad weiterlaufen lassen (read-only) während Migration.
-2. Snapshot-Import via `scripts/migrate-zammad.js`.
-3. Inkrementeller Daily-Sync während Übergangsphase.
-4. Mailflow-Cutover auf `office@propus.ch` direkt.
-5. Zammad nach 30 Tagen abschalten.
+Nicht anwendbar (kein Zammad o. ä. im Einsatz). Historische E-Mails liegen in Exchange/Outlook; der Posteingang baut auf Microsoft Graph auf.
 
 ---
 
@@ -257,9 +241,9 @@ Optionen für Phase 1: Vercel Cron, Synology Task Scheduler, Container in Hestia
 
 ### Phase 4 — Kunden-Verknüpfung & Auto-Match (M)
 
-**Deliverables:** `matchCustomer.ts` (E-Mail-Domain via `core.customer_email_matches` + neue `customers.domains TEXT[]`), Kontext-Panel mit „Kunde zuweisen"-Dialog für unklare Fälle.
+**Deliverables:** `tours/lib/posteingang-match.js` — exakte E-Mail via `getCustomerByEmail()`, Domain-Match über primäre E-Mail, `email_aliases` und `customer_contacts` (Freemail-Domains ausgeschlossen). UI: „Kunde zuweisen", Kontext-Panel.
 
-**Acceptance:** Mail von `irene.ulrich@freycie-holding.ch` wird Frey + Cie zugewiesen. Bei unbekannter Domain Banner „Kunde nicht erkannt".
+**Acceptance:** Firmen-Domain eindeutig einem Kunden zugeordnet; bei Mehrdeutigkeit keine automatische Zuweisung; Banner wenn kein Kunde.
 
 ### Phase 5 — Auftrag/Tour/Rechnung-Verknüpfung (S/M)
 
@@ -267,17 +251,47 @@ Optionen für Phase 1: Vercel Cron, Synology Task Scheduler, Container in Hestia
 
 **Acceptance:** Verknüpfung mit einem Klick. Im Kunden-Profil alle Konversationen sichtbar.
 
-### Phase 6 — Zammad-Migration & Cutover (M/L)
+### Phase 6 — Sent-Folder-Delta & Deduplizierung (M)
 
-**Deliverables:** `scripts/migrate-zammad.js`, User-Mapping-Tabelle, Mailflow umgestellt, Zammad eingefroren.
+**Stand Code:** `syncPosteingangFull` synchronisiert Inbox + `sentitems` mit getrenntem Delta-Token; Dedupe über `graph_message_id`. Nach Antwort aus der Plattform weiterhin `pullRecentSent` im Message-Handler.
 
-**Acceptance:** 20 Stichproben identisch. Neue Mails nur in Plattform. Zammad nach 30 Tagen stoppbar.
+**Optional:** Write-through-Outbound mit Graph-ID aus der Send-Response, wenn Graph das zuverlässig liefert.
+
+**Acceptance:** Aus Outlook gesendete Mails erscheinen im Thread; keine doppelten Zeilen bei gleicher `graph_message_id`.
 
 ### Phase 7 — Automationen & Webhooks (M)
 
-**Deliverables:** Graph Webhook Subscription, Auto-Trigger Engine (Tour-Verlängerung, Mahnung, Neukunden-Tag), Reports.
+**Stand Code:**
 
-**Acceptance:** Echtzeit-Mails. Mindestens 3 aktive Auto-Trigger.
+1. **Auto-Trigger Engine** (`tours/lib/posteingang-triggers.js`):
+   - `triggerExpiringTours()` — Touren die in 30/14/7 Tagen ablaufen → Task "Verlängerung anbieten"
+   - `triggerOverdueInvoices()` — Rechnungen 14+ Tage überfällig → Task "Mahnung senden"
+   - `triggerUnknownSenderTag()` — E-Mail-Konversationen ohne Kunde → Tag "Neukunde?"
+   - `runAllTriggers()` — orchestriert alle Trigger (Cron + manueller Button)
+
+2. **Graph Webhook Endpoint** (`tours/routes/posteingang-webhook.js`):
+   - `POST /api/tours/posteingang/webhook` — empfängt Microsoft Graph Notifications
+   - Validierung via `validationToken` bei Subscription-Erstellung
+   - `clientState`-Check via `GRAPH_WEBHOOK_SECRET`
+   - Triggert `syncPosteingangFull` im Hintergrund bei neuen Nachrichten
+
+3. **Cron-Endpoints**:
+   - `POST /api/tours/cron/posteingang-triggers` — Trigger-Ausführung per Cronjob
+
+4. **Admin-API-Erweiterungen**:
+   - `GET /api/tours/admin/posteingang/stats` — Dashboard-Statistiken
+   - `GET /api/tours/admin/posteingang/admin-users` — Admin-Liste für Zuweisung
+   - `POST /api/tours/admin/posteingang/run-triggers` — manuelle Trigger-Ausführung
+
+5. **UI-Erweiterungen** in `PosteingangPage.tsx`:
+   - Stats-Leiste: Offene Konversationen, Tasks, Ø Antwortzeit
+   - Neue Konversation: Dialog für interne Threads
+   - Priorität-Selector: low/medium/high/urgent
+   - Zuweisung-Selector: Admin-User-Dropdown
+   - Tag-Management: Inline hinzufügen/entfernen
+   - Trigger-Button: manuelles Ausführen der Auto-Trigger
+
+**Acceptance:** Mindestens 3 aktive Auto-Trigger (Verlängerung, Mahnung, Neukunde). Webhook-Endpoint für Echtzeit-Benachrichtigungen (erfordert öffentliche URL + Graph-Subscription-Registrierung).
 
 ---
 
@@ -303,8 +317,7 @@ Tech-Stack (real, aus `app/package.json` + `AGENTS.md`):
 1. **Multi-User-Berechtigungen** — ab Phase 4 oder erst nach Phase 7?
 2. **E-Mail-Anhänge — Storage-Backend?** (R2, MinIO, Vercel Blob, Synology FS?)
 3. **Graph-Sync Cron-Host?** (Vercel, Synology, HestiaCP, oder bestehender `node-cron` im Express-Backend?)
-4. **Zammad-Cutover** — hard oder 30 Tage Parallelbetrieb?
-5. **Mehrere Mailboxen** initial relevant? (`info@`, `office@`, ...)
+4. **Mehrere Mailboxen** initial relevant? (`info@`, `office@`, ...)
 
 ---
 

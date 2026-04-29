@@ -51,6 +51,7 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   "/admin/finance/exxas-sync": "finance.manage",
   "/admin/invoices": "finance.read",
   "/admin/tickets": "tickets.read",
+  "/admin/posteingang": "tickets.read",
   "/mobile": "dashboard.view",
 };
 
@@ -61,6 +62,7 @@ const PREFIX_PATH_PERMISSIONS: { prefix: string; permission: string }[] = [
   { prefix: "/admin/finance", permission: "finance.read" },
   { prefix: "/admin/tours", permission: "tours.read" },
   { prefix: "/admin/tickets", permission: "tickets.read" },
+  { prefix: "/admin/posteingang", permission: "tickets.read" },
   { prefix: "/admin/listing", permission: "listing.manage" },
   { prefix: "/admin/selekto", permission: "picdrop.manage" },
   { prefix: "/embed/tours", permission: "tours.manage" },
@@ -108,9 +110,9 @@ export function legacyCanAccessPath(role: Role, path: string): boolean {
   if (role === "tour_manager") {
     if (path.startsWith("/admin/finance")) return false;
     if (path.startsWith("/settings") || path === "/exxas-reconcile") return false;
-    if (["/backups", "/bugs", "/discount-codes", "/products", "/changelog", "/admin/listing", "/admin/selekto", "/admin/tickets"].some((b) => path === b || path.startsWith(`${b}/`)))
+    if (["/backups", "/bugs", "/discount-codes", "/products", "/changelog", "/admin/listing", "/admin/selekto", "/admin/tickets", "/admin/posteingang"].some((b) => path === b || path.startsWith(`${b}/`)))
       return false;
-    if (path.startsWith("/admin/listing") || path.startsWith("/admin/selekto") || path.startsWith("/admin/tickets")) {
+    if (path.startsWith("/admin/listing") || path.startsWith("/admin/selekto") || path.startsWith("/admin/tickets") || path.startsWith("/admin/posteingang")) {
       return false;
     }
     return true;
