@@ -402,11 +402,6 @@ Alle NAS-Skripte und Anleitungen liegen in `Z:\NAS Ugreen\`:
 | **Router** | UniFi OS · `192.168.1.1` |
 | **Hinweis DNS** | UniFi lokale DNS-Overrides für interne Domains immer prüfen — können Cloudflare-Tunnel-Routing stören |
 
-### Zweites NAS (Dev – 192.168.1.4)
-
-- Benutzer: `Janez`
-- Dienste: Ollama (Port 11434), Buchungstool-Dev, Propusdrop, Spoolman
-
 ## Learned User Preferences
 
 - Größere Fixes und Rollout lieber einmal planen und klare Deploy-Schleifen vermeiden, statt viele aufeinanderfolgende Versuche ohne abgeschlossenen Fix.
@@ -417,6 +412,7 @@ Alle NAS-Skripte und Anleitungen liegen in `Z:\NAS Ugreen\`:
 - Bei komplexen Tasks bevorzugt der User zuerst Planung („plane es gründlich"), bevor implementiert wird.
 - Upload-/Material-Benachrichtigungen per Mail: gewünscht ist ein direkter Link nach Nextcloud (`https://cloud.propus.ch`) in den jeweiligen Upload-/Zielordner (nicht nur interne Pfadangaben).
 - Touren-Bereinigungs- und ähnliche Workflow-/Automationen: bei **inaktivem** Toggle sollen keine Folgeaktionen laufen (z. B. keine Benachrichtigungs-Mails).
+- Website-Popups (z. B. Newsletter): lieber **einmalig** pro Besucher statt bei jedem Aufruf; **ohne Cookies** ist dafür oft **`localStorage`** oder **`sessionStorage`** (einmal pro Gerät bzw. pro Browser-Session) die pragmatische Alternative.
 
 ## Microsoft Graph App-Registrierungen
 
@@ -439,3 +435,5 @@ Client Secrets liegen in `.env` (lokal) bzw. `.env.vps` (VPS) — nicht hier.
 - NAS-Ordner-Duplikate können durch NTFS-Unicode-Unterschiede (z.B. `#` Varianten) und Alias-Logik entstehen; Diagnose-Skripte unter `scripts/diagnose-nas-*`.
 - EXXAS-Dienstleistungsaufträge benötigen korrektes `ref_kunde`-Mapping via `exxas_customer_id` auf dem Kunden-Datensatz.
 - Auftrags-/Kanban-Ansichten: Anzeige der **Objektadresse** ist neben der Auftragsnummer relevant (nicht nur die Nummer allein).
+- Nach Next.js-Deploys kann `ChunkLoadError` bei **`React.lazy()`** auftreten: reine **`window`-Error- / `unhandledrejection`-Listener** erfassen das oft nicht; ein **`ErrorBoundary`** um den **`Suspense`/`Routes`**-Block (z. B. `ChunkErrorBoundary` in `ClientShell`) löst gezielt Auto-Reload mit Cooldown.
+- Die Büro-Mail von **upload.propus.ch** („PROPUS UPLOAD-SYSTEM“ / neues Material) kommt vom **Uploadtool-Backend** auf dem VPS (`/www/wwwroot/uploadtool/`, Container `upload_backend`), nicht von der Buchungs-`notifyCompletedUploadBatch`-Logik in `booking/server.js`.

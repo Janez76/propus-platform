@@ -1130,7 +1130,6 @@ Alle Hosts zeigen auf `http://127.0.0.1:3100` (= Next.js via Port-Mapping):
 | `api-booking.propus.ch` | `http://127.0.0.1:3100` |
 | `api.propus.ch` | `http://127.0.0.1:3100` |
 | `upload.propus.ch` | `http://127.0.0.1:4455` |
-| `api-booking-dev.propus.ch` | `http://127.0.0.1:3200` |
 
 ### Cloudflare CSP (Zaraz)
 
