@@ -13,6 +13,7 @@
 
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams } from "react-router-dom";
 import { Suspense, lazy, type ReactElement } from "react";
+import { ChunkErrorBoundary } from "./StaleClientReloadHandler";
 import { CustomerMagicSessionRedirect } from "./auth/CustomerMagicSessionRedirect";
 import { CustomerSessionBootstrap } from "./auth/CustomerSessionBootstrap";
 import { OfflineIndicator } from "./layout/OfflineIndicator";
@@ -311,33 +312,35 @@ export default function ClientShell() {
       <CustomerMagicSessionRedirect />
       <OfflineIndicator />
       <RegisterServiceWorker />
-      <Suspense fallback={<PageSkeleton />}>
-        <Routes>
-          <Route path="/" element={<PublicBookingIndex />} />
-          <Route path="/book" element={<BookingWizardPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/accept-invite" element={<AcceptInvitePage />} />
-          <Route path="/confirm/:token" element={<ConfirmBookingPage />} />
-          <Route path="/print/orders/:orderNo" element={<PrintOrderPage />} />
-          <Route path="/print/order/:orderNo" element={<PrintOrderPage />} />
-          <Route path="/listing/:slug" element={<ClientListingPage />} />
-          <Route path="/selekto/bilder-auswahl" element={<Navigate to="/admin/selekto" replace />} />
-          <Route path="/selekto/bilder-auswahl/templates" element={<Navigate to="/admin/selekto/templates" replace />} />
-          <Route path="/selekto/bilder-auswahl/galleries/:id" element={<LegacyBildauswahlGalleryRedirect />} />
-          <Route path="/selekto/listing/:slug" element={<LegacySelektoClientRedirect />} />
-          <Route path="/selekto/:slug" element={<ClientSelektoPage />} />
-          <Route path="/cleanup/dashboard" element={<CleanupDashboardPage />} />
-          <Route
-            path="/account/*"
-            element={
-              <Suspense fallback={<PageSkeleton />}>
-                <CustomerPortalLayout />
-              </Suspense>
-            }
-          />
-          <Route path="*" element={<PortalCatchAllOrAdmin />} />
-        </Routes>
-      </Suspense>
+      <ChunkErrorBoundary>
+        <Suspense fallback={<PageSkeleton />}>
+          <Routes>
+            <Route path="/" element={<PublicBookingIndex />} />
+            <Route path="/book" element={<BookingWizardPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/accept-invite" element={<AcceptInvitePage />} />
+            <Route path="/confirm/:token" element={<ConfirmBookingPage />} />
+            <Route path="/print/orders/:orderNo" element={<PrintOrderPage />} />
+            <Route path="/print/order/:orderNo" element={<PrintOrderPage />} />
+            <Route path="/listing/:slug" element={<ClientListingPage />} />
+            <Route path="/selekto/bilder-auswahl" element={<Navigate to="/admin/selekto" replace />} />
+            <Route path="/selekto/bilder-auswahl/templates" element={<Navigate to="/admin/selekto/templates" replace />} />
+            <Route path="/selekto/bilder-auswahl/galleries/:id" element={<LegacyBildauswahlGalleryRedirect />} />
+            <Route path="/selekto/listing/:slug" element={<LegacySelektoClientRedirect />} />
+            <Route path="/selekto/:slug" element={<ClientSelektoPage />} />
+            <Route path="/cleanup/dashboard" element={<CleanupDashboardPage />} />
+            <Route
+              path="/account/*"
+              element={
+                <Suspense fallback={<PageSkeleton />}>
+                  <CustomerPortalLayout />
+                </Suspense>
+              }
+            />
+            <Route path="*" element={<PortalCatchAllOrAdmin />} />
+          </Routes>
+        </Suspense>
+      </ChunkErrorBoundary>
     </BrowserRouter>
   );
 }

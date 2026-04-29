@@ -32,7 +32,7 @@ Der Workflow kann auf zwei Arten laufen:
   - `run_deploy=true`, `run_smoke=false`
     - nur Deploy
   - `run_deploy=false`, `run_smoke=true`
-    - nur Smoke-Test gegen bereits laufende Staging-/Produktiv-URL
+    - nur Smoke-Test gegen die produktive Buchungs-URL (oder per Secret konfigurierter Override)
 
 ## GitHub Environment `production`
 
@@ -57,7 +57,7 @@ Der Workflow kann auf zwei Arten laufen:
 
 ### Playwright-Secrets (Deploy-Workflow `deploy-vps-and-booking-smoke.yml`)
 
-- `STAGING_URL` (Repository-Secret, **optional**)
+- `E2E_BASE_URL` (Repository-Secret, **optional**) — bevorzugt; alternativ weiterhin `STAGING_URL` (historischer Name)
   - Wird in CI als `BASE_URL` an Playwright uebergeben (siehe Schritt **Run smoke tests**).
   - **Nicht** gesetzt: Default ist `https://booking.propus.ch` (oeffentliche Buchung, Wizard-Start `/`; siehe `e2e/booking-wizard-smoke.spec.ts`).
   - Falscher Host: GitHub-Runner liefert z. B. `net::ERR_NAME_NOT_RESOLVED` (nur in Cloudflare-Zone existierend, oeffentliches DNS, Admin-Subdomain, …).
@@ -66,8 +66,7 @@ Der Workflow kann auf zwei Arten laufen:
 ### Playwright-Secrets (aeltere / lokale Live-Specs)
 
 - `PLAYWRIGHT_BASE_URL`
-  - bevorzugt eine echte Staging-Domain
-  - Produktion ist moeglich, erzeugt aber echte Buchungen
+  - Ziel-Host fuer Live-Specs, z. B. `https://booking.propus.ch` (echte Buchungen moeglich)
 
 - `PLAYWRIGHT_LIVE_BOOKING`
   - muss `1` sein, sonst wird der Live-Spec bewusst uebersprungen
@@ -91,7 +90,7 @@ Optional:
 - `PLAYWRIGHT_BOOKING_ONSITE_NAME`
 - `PLAYWRIGHT_BOOKING_ONSITE_PHONE`
 
-## Empfohlene Staging-Testdaten
+## Empfohlene Testdaten (Live-Spec)
 
 Der Live-Spec ist nur dann stabil, wenn folgende Daten bewusst fix gehalten werden:
 
@@ -103,9 +102,9 @@ Der Live-Spec ist nur dann stabil, wenn folgende Daten bewusst fix gehalten werd
 
 ## Empfohlene Betriebsregeln
 
-- Den Live-Spec zunaechst gegen Staging laufen lassen, nicht gegen Produktion.
-- Fuer Produktion nur dann aktivieren, wenn Testauftraege downstream klar markiert oder automatisiert bereinigt werden.
-- Wenn der Staging-Slot konsumiert wird, den Secret-Wert `PLAYWRIGHT_BOOKING_DATE` oder `PLAYWRIGHT_BOOKING_SLOT` direkt anpassen.
+- Live-Specs nur mit bewussten Testdaten gegen `https://booking.propus.ch` (oder konfigurierte URL) — es entstehen echte Buchungsvorgaenge.
+- Testauftraege nachvollziehbar halten (Dedizierte Test-E-Mail / Kennzeichnung) oder Slots regelmaessig anpassen.
+- Wenn ein reservierter Slot verbraucht wurde, `PLAYWRIGHT_BOOKING_DATE` oder `PLAYWRIGHT_BOOKING_SLOT` anpassen.
 - Wenn sich Paket-Keys aendern, `PLAYWRIGHT_BOOKING_PACKAGE_KEY` sofort mitpflegen.
 
 ## Lokale Befehle
@@ -117,11 +116,11 @@ cd app
 npm run test:e2e
 ```
 
-Remote-Staging-Test:
+Remote-Live-Test (Produktion — echte Buchungen moeglich):
 
 ```powershell
 cd app
-$env:PLAYWRIGHT_BASE_URL="https://staging-booking.propus.ch"
+$env:PLAYWRIGHT_BASE_URL="https://booking.propus.ch"
 $env:PLAYWRIGHT_LIVE_BOOKING="1"
-npm run test:e2e:staging
+npm run test:e2e
 ```

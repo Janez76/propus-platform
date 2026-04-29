@@ -632,6 +632,6 @@ jobs:
         run: npx playwright test e2e/
         working-directory: app
         env:
-          # Default: oeffentlicher Buchungs-Host. Hostname muss im Internet aufloesbar
-          # sein. Optional Secret STAGING_URL (z. B. https://admin.booking.propus.ch).
-          BASE_URL: ${{ secrets.STAGING_URL || 'https://booking.propus.ch' }}
+          # Default: oeffentlicher Buchungs-Host. Optional: Secret E2E_BASE_URL (oder
+          # historisch STAGING_URL) als Override; Hostname muss oeffentlich aufloesbar sein.
+          BASE_URL: ${{ secrets.E2E_BASE_URL || secrets.STAGING_URL || 'https://booking.propus.ch' }}

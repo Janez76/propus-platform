@@ -23,6 +23,9 @@ Thumbs.db
 .cursor/prompts/
 # Hook-Laufzeit (Zähler, letzte Verarbeitung) — nicht versionieren
 .cursor/hooks/state/continual-learning.json
+# Newsletter / MailerLite — lokale Secrets (nie committen)
+scripts/mailerlite.env
+scripts/mailchimp.env
 .vscode/
 dist/
 .next/

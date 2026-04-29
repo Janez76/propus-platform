@@ -166,6 +166,53 @@
 | `BOOKING_UPLOAD_RAW_ARCHIVE_ROOT` | Archiv-Root für Rohmaterial |
 | `BOOKING_UPLOAD_REQUIRE_MOUNT` | Optionaler Guard: verlangt gemountete Zielpfade vor NAS-Transfers |
 
+### NAS-Pull-Transfer (rsync, empfohlen seit April 2026)
+
+Statt dass der VPS Dateien über **CIFS/SMB** ins NAS schreibt (langsam, kann hängen), kann ein **Worker auf dem NAS** fertige Staging-Dateien per **rsync über SSH** vom VPS ziehen und lokal auf die NAS-Platte schreiben.
+
+**VPS / Platform (`docker-compose.vps.yml` bzw. `.env.vps`):**
+
+| Variable | Wert | Bedeutung |
+|---|---|---|
+| `UPLOAD_TRANSFER_BACKEND` | `cifs` (Default) oder `nas_pull` | Bei `nas_pull`: kein CIFS-Kopieren auf dem VPS; der NAS-Worker claimt Batches und zieht die Staging-Dateien per rsync. |
+| `UPLOAD_WORKER_ENABLED` | `true`/`false` | Bei `nas_pull` den **VPS-**`upload-worker` deaktivieren (`false`), sonst konkurrieren zwei Claimer. |
+| `UPLOAD_HASH_VERIFY_MAX_MB` | Zahl in MB | `0` deaktiviert den Ziel-Hash-Read nach dem Kopieren; empfohlen für grosse RAW-Batches, wenn rsync + Grössenprüfung genügt. |
+| `UPLOAD_STRICT_HASH_VERIFY` | `true`/`false` | `true` erzwingt Hash-Verifikation für jede Datei; für RAW-Massenuploads nicht als Default verwenden. |
+
+**NAS (Umgebung für `node booking/nas-upload-worker.js`):**
+
+| Variable | Bedeutung |
+|---|---|
+| `DATABASE_URL` | Postgres (muss vom NAS aus erreichbar sein; ggf. Tunnel) |
+| `NAS_BOOKING_UPLOAD_RAW_ROOT` | Lokaler Pfad, der `/booking_upload_raw` auf dem VPS entspricht |
+| `NAS_BOOKING_UPLOAD_CUSTOMER_ROOT` | Lokaler Pfad für `/booking_upload_customer` |
+| `NAS_VPS_SSH_HOST` | z. B. `root@87.106.24.107` (öffentlicher SSH-Zugang zum VPS) |
+| `NAS_VPS_STAGING_HOST_PATH` | Host-Pfad zum Staging, default `/opt/propus-upload-staging` |
+| `BOOKING_UPLOAD_STAGING_ROOT` | Container-Staging-Prefix wie auf dem VPS, default `/upload_staging` |
+
+Vorlage: [`scripts/nas-upload-worker.env.example`](../scripts/nas-upload-worker.env.example), systemd: [`scripts/nas-upload-worker.service`](../scripts/nas-upload-worker.service).
+
+**Produktionsbetrieb seit 29. April 2026:**
+
+| Dienst | Host | Zweck |
+|---|---|---|
+| `propus-vps-postgres-tunnel.service` | NAS `192.168.1.5` | SSH-Forward `127.0.0.1:15435` → VPS-Postgres `127.0.0.1:5435`, damit der NAS-Worker Batches claimen kann. |
+| `propus-nas-upload-worker.service` | NAS `192.168.1.5` | Führt `node booking/nas-upload-worker.js` aus und zieht Staging-Dateien per `rsync -a --whole-file --partial --inplace`. |
+| `propus-platform-upload-worker-1` | VPS | Bei `nas_pull` gestoppt; darf nicht parallel claimen. |
+
+Aktive VPS-Werte:
+
+```env
+UPLOAD_TRANSFER_BACKEND=nas_pull
+UPLOAD_WORKER_ENABLED=false
+UPLOAD_HASH_VERIFY_MAX_MB=0
+UPLOAD_STRICT_HASH_VERIFY=false
+```
+
+**Rollout:** Zuerst Code deployen, auf dem NAS Worker mit Testbatch starten, danach auf dem VPS `UPLOAD_TRANSFER_BACKEND=nas_pull` und `UPLOAD_WORKER_ENABLED=false` setzen und `upload-worker`-Container stoppen. Rollback: `UPLOAD_TRANSFER_BACKEND=cifs`, `UPLOAD_WORKER_ENABLED=true`, NAS-Service stoppen.
+
+**Laufenden Batch abbrechen/umstellen:** Den VPS-Worker zuerst stoppen, dann `upload_batches.status='retrying'` für aktuell `transferring` setzen. Danach Platform mit `nas_pull` neu erstellen und den NAS-Worker starten. Wenn der alte Worker vor dem Abbruch Dateien bereits ins Ziel kopiert und Staging-Dateien gelöscht hat, aber die DB noch `failed` meldet, Zielordner und Dateigrössen prüfen; nur bei vollständigem Zielbestand die betroffenen `upload_batch_files` auf `stored` und den Batch auf `completed` korrigieren.
+
 ### Pfad-Aufbau
 
 ```
@@ -234,6 +281,7 @@ Implementierung: `linkExistingOrderFolder` prüft per Dateiwald (`walkFilesRecur
 4. complete (POST .../upload-chunked/complete):
    → Alle Chunks zu einer Datei zusammenfügen
    → SHA-256 und Grösse prüfen
+   → mtime/atime auf `lastModified` aus dem Browser setzen
    → Merged file in Session unter `BOOKING_UPLOAD_CHUNK_SESSION_ROOT/{sessionId}` ablegen
 
 5. finalize (POST .../upload-chunked/finalize):
@@ -269,13 +317,16 @@ Ermöglichen das Zusammenfassen mehrerer Batches zu einer logischen Einheit (z.B
 ## 8. Was nach erfolgreichem Upload passiert
 
 ```
-1. Dateien via copyFileSync Staging → NAS
-2. SHA-256 + Dateigrösse nach Kopieren nochmals prüfen
-3. Timestamps (atime/mtime) von Quelldatei übernehmen
-4. Kommentar-Datei in Zielordner schreiben (falls comment gesetzt)
-5. Staging-Verzeichnis löschen (fs.rmSync)
-6. notifyCompleted-Callback: ggf. E-Mail, ggf. Websize-Sync auslösen
-7. Batch: status='completed', completed_at=NOW()
+1. Dateien im Staging ablegen; bei Chunked-Uploads wird `lastModified` vom Browser als mtime/atime übernommen
+2. Transfer auslösen:
+   - `nas_pull`: NAS-Worker zieht per rsync vom VPS-Staging auf lokale NAS-Platte
+   - `cifs`: VPS-Worker kopiert vom Staging auf CIFS-Mount
+3. Dateigrösse prüfen; SHA-256 des Zieles nur bis `UPLOAD_HASH_VERIFY_MAX_MB` oder bei `UPLOAD_STRICT_HASH_VERIFY=true`
+4. Timestamps (atime/mtime) von der Staging-Datei ins Ziel übernehmen (`rsync -a` bzw. `utimes`)
+5. Kommentar-Datei in Zielordner schreiben (falls comment gesetzt)
+6. Staging-Verzeichnis löschen (fs.rmSync)
+7. notifyCompleted-Callback: ggf. E-Mail, ggf. Websize-Sync auslösen
+8. Batch: status='completed', completed_at=NOW()
 
 Bei Fehler:
    → status='failed', Staging bleibt erhalten

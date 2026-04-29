@@ -141,6 +141,25 @@ export function loadGoogleMapsApi(apiKey: string): Promise<MapsApi> {
  * `AdvancedMarkerElement` verankert immer die Bottom-Center des Inhalts an der Position;
  * der ursprüngliche `google.maps.Marker.icon.anchor` wird per `translate()` nachgebildet.
  */
+/**
+ * Icon für klassische `google.maps.Marker` (ohne `mapId` / ohne Advanced Markers).
+ * Verhindert die wiederholte Konsolenwarnung „ohne gültige Karten-ID“.
+ */
+export function svgToLegacyMarkerIcon(opts: {
+  svg: string;
+  width: number;
+  height: number;
+  anchorX: number;
+  anchorY: number;
+}): google.maps.Icon {
+  const { svg, width, height, anchorX, anchorY } = opts;
+  return {
+    url: `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`,
+    scaledSize: new google.maps.Size(width, height),
+    anchor: new google.maps.Point(anchorX, anchorY),
+  };
+}
+
 export function createSvgMarkerContent(opts: {
   svg: string;
   width: number;

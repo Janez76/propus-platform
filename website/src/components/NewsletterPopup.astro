@@ -7,9 +7,19 @@
 		<button type="button" class="newsletter-popup__close" aria-label="Schließen">&times;</button>
 		<p class="newsletter-popup__eyebrow" id="newsletter-popup-title">Newsletter</p>
 		<p class="newsletter-popup__lead">
-			<strong>10&nbsp;% Rabatt</strong> auf Ihre nächste Online-Buchung — E-Mail eintragen und Gutscheincode sichern.
+			<strong>10&nbsp;% Rabatt</strong> auf Ihre nächste Online-Buchung sichern und Immobilien-News per E-Mail erhalten.
 		</p>
 		<form class="newsletter-popup__form" id="newsletter-popup-form" novalidate>
+			<label class="visually-hidden" for="newsletter-popup-first-name">Vorname</label>
+			<input
+				id="newsletter-popup-first-name"
+				name="firstName"
+				type="text"
+				autocomplete="given-name"
+				maxlength="80"
+				class="newsletter-popup__input newsletter-popup__input--name"
+				placeholder="Vorname (optional)"
+			/>
 			<label class="visually-hidden" for="newsletter-popup-email">E-Mail</label>
 			<input
 				id="newsletter-popup-email"
@@ -28,8 +38,11 @@
 		</form>
 		<p class="newsletter-popup__status" id="newsletter-popup-status" role="status" aria-live="polite"></p>
 		<p class="newsletter-popup__legal">
-			Mit der Anmeldung erhalten Sie gelegentlich News per E-Mail. Abmeldung jederzeit möglich.
+			Mit der Anmeldung willigen Sie in den Versand unseres Newsletters ein. Die Anmeldung wird per
+			Double-Opt-in bestätigt, Abmeldung jederzeit möglich.
 			<a href="/datenschutz/">Datenschutz</a>
+			<span aria-hidden="true">·</span>
+			<a href="/impressum/">Impressum</a>
 		</p>
 	</div>
 </dialog>
@@ -78,6 +91,7 @@
 			e.preventDefault();
 			statusEl.textContent = '';
 			const fd = new FormData(form);
+			const firstName = String(fd.get('firstName') ?? '').trim();
 			const email = String(fd.get('email') ?? '').trim();
 			const hp = String(fd.get('website') ?? '');
 			if (!email) {
@@ -88,7 +102,7 @@
 				const res = await fetch('/api/newsletter/subscribe', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ email, hp }),
+					body: JSON.stringify({ email, firstName, hp }),
 				});
 				const data = await res.json();
 				if (!res.ok || !data.ok) {
@@ -103,7 +117,19 @@
 				}
 				form.reset();
 				const pct = data.voucherPercent ?? 10;
-				if (data.voucherCode) {
+				if (data.doubleOptIn) {
+					if (data.voucherCode) {
+						statusEl.innerHTML =
+							'Fast geschafft: Bitte bestätigen Sie Ihre Anmeldung per E-Mail. Danach erhalten Sie Ihren <strong>' +
+							pct +
+							'&nbsp;%</strong>-Code: <strong class="newsletter-popup__code">' +
+							escapeHtml(data.voucherCode) +
+							'</strong>';
+					} else {
+						statusEl.textContent =
+							'Fast geschafft: Bitte bestätigen Sie Ihre Anmeldung per E-Mail. Danach ist Ihr Newsletter aktiv.';
+					}
+				} else if (data.voucherCode) {
 					statusEl.innerHTML =
 						'Vielen Dank! Ihr <strong>' +
 						pct +
@@ -250,6 +276,10 @@
 		border-radius: var(--radius-sm);
 		background: var(--color-bg-muted);
 		color: var(--color-text);
+	}
+
+	.newsletter-popup__input--name {
+		flex-basis: 8.5rem;
 	}
 
 	.newsletter-popup__input:focus-visible {

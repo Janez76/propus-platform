@@ -103,7 +103,7 @@ Alle Farben, Fonts und Container-Grössen liegen in `src/styles/global.css` im `
 ## TODOs für Phase 2
 
 - [ ] Kontaktformular verkabeln (Resend für Mail-Versand, Cloudflare Turnstile gegen Bots)
-- [ ] MailerLite-Integration für optionales Newsletter-Opt-in
+- [ ] Newsletter-Opt-in (Provider noch festlegen)
 - [ ] Echte Screenshots statt SVG-Platzhaltern in `public/cases/`
 - [ ] Foto von Janez in `About.astro` einsetzen
 - [ ] Dritten Referenz-Case (`TODO: Case 3`) ersetzen

@@ -11,6 +11,9 @@ const FOCUS_ZOOM = 16;
 const GEO_DEBOUNCE_MS = 450;
 const MIN_ADDRESS_CHARS = 6;
 
+/** Marker kann je nach `mapId` Advanced (Vektor-Map) oder Legacy (Raster) sein. */
+type AnyMarker = google.maps.marker.AdvancedMarkerElement | google.maps.Marker;
+
 type AddressPreviewMapProps = {
   apiKey: string;
   /** Aus `/api/config` — für Advanced Markers erforderlich. */
@@ -38,12 +41,13 @@ export function AddressPreviewMap({
   const containerRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<MapsApi | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
-  const markerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
+  const markerRef = useRef<AnyMarker | null>(null);
   const geocodeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [loadState, setLoadState] = useState<LoadState>("idle");
   const [geoState, setGeoState] = useState<GeoState>("idle");
   const resolvedTheme = useThemeStore((s) => s.resolvedTheme);
   const effectiveMapId = useMemo(() => resolveGoogleMapId(googleMapId), [googleMapId]);
+  const useAdvancedMarkers = Boolean(effectiveMapId);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -76,8 +80,13 @@ export function AddressPreviewMap({
 
     return () => {
       cancelled = true;
-      if (markerRef.current) {
-        markerRef.current.map = null;
+      const m = markerRef.current;
+      if (m) {
+        if (m instanceof google.maps.Marker) {
+          m.setMap(null);
+        } else {
+          m.map = null;
+        }
         markerRef.current = null;
       }
       mapRef.current = null;
@@ -103,35 +112,60 @@ export function AddressPreviewMap({
     if (!map || !api) return;
 
     const placeMarker = (pos: google.maps.LatLngLiteral) => {
-      if (!markerRef.current) {
-        const marker = new api.AdvancedMarker({
-          map,
-          position: pos,
-          gmpDraggable: Boolean(onCoordsChange),
-          title: onCoordsChange ? t(lang, "booking.step1.mapDragHint") : undefined,
-        });
-        markerRef.current = marker;
-        if (onCoordsChange) {
-          marker.addListener("dragend", () => {
-            const p = marker.position;
-            if (!p) return;
-            const lat = typeof p.lat === "function" ? p.lat() : p.lat;
-            const lng = typeof p.lng === "function" ? p.lng() : p.lng;
-            if (typeof lat !== "number" || typeof lng !== "number") return;
-            onCoordsChange({ lat, lng });
+      const existing = markerRef.current;
+      if (!existing) {
+        if (useAdvancedMarkers) {
+          const marker = new api.AdvancedMarker({
+            map,
+            position: pos,
+            gmpDraggable: Boolean(onCoordsChange),
+            title: onCoordsChange ? t(lang, "booking.step1.mapDragHint") : undefined,
           });
+          markerRef.current = marker;
+          if (onCoordsChange) {
+            marker.addListener("dragend", () => {
+              const p = marker.position;
+              if (!p) return;
+              const lat = typeof p.lat === "function" ? p.lat() : p.lat;
+              const lng = typeof p.lng === "function" ? p.lng() : p.lng;
+              if (typeof lat !== "number" || typeof lng !== "number") return;
+              onCoordsChange({ lat, lng });
+            });
+          }
+        } else {
+          const marker = new google.maps.Marker({
+            map,
+            position: pos,
+            draggable: Boolean(onCoordsChange),
+            title: onCoordsChange ? t(lang, "booking.step1.mapDragHint") : undefined,
+          });
+          markerRef.current = marker;
+          if (onCoordsChange) {
+            marker.addListener("dragend", () => {
+              const p = marker.getPosition();
+              if (!p) return;
+              onCoordsChange({ lat: p.lat(), lng: p.lng() });
+            });
+          }
         }
+      } else if (existing instanceof google.maps.Marker) {
+        existing.setPosition(pos);
+        existing.setMap(map);
       } else {
-        markerRef.current.position = pos;
-        markerRef.current.map = map;
+        existing.position = pos;
+        existing.map = map;
       }
       map.panTo(pos);
       map.setZoom(FOCUS_ZOOM);
     };
 
     const clearMarker = () => {
-      if (markerRef.current) {
-        markerRef.current.map = null;
+      const m = markerRef.current;
+      if (!m) return;
+      if (m instanceof google.maps.Marker) {
+        m.setMap(null);
+      } else {
+        m.map = null;
       }
     };
 

@@ -1,0 +1,20 @@
+[Unit]
+Description=Propus NAS Upload Pull Worker (rsync vom VPS)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Repository-Pfad auf dem NAS anpassen (git clone des Propus-Repos oder Deployment-Verzeichnis)
+WorkingDirectory=/opt/propus-platform
+EnvironmentFile=-/etc/propus/nas-upload-worker.env
+ExecStart=/usr/bin/node booking/nas-upload-worker.js
+Restart=always
+RestartSec=5
+
+# Optional: dedizierter Benutzer mit SSH-Key zu NAS_VPS_SSH_HOST
+# User=janez
+# Group=users
+
+[Install]
+WantedBy=multi-user.target
