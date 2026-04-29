@@ -5752,6 +5752,45 @@ async function notifyCompletedUploadBatch({ order, batch, storedCount, skippedCo
   }
 }
 
+/** Test: Büro-Mail wie nach erfolgreichem NAS-Upload (inkl. Nextcloud-Link). Body: { orderNo, optional targetRelativePath, category, folderType, fileCount, storedCount, … } */
+app.post("/api/admin/upload-batch-notification/test-send", requireAdmin, async (req, res) => {
+  try {
+    if (!process.env.DATABASE_URL) return res.status(503).json({ error: "DB nicht verfuegbar" });
+    const body = req.body || {};
+    const orderNo = Number(body.orderNo);
+    if (!Number.isFinite(orderNo)) {
+      return res.status(400).json({ error: "Body.orderNo (Auftragsnummer) erforderlich" });
+    }
+    const order = await db.getOrderByNo(orderNo);
+    if (!order) return res.status(404).json({ error: "Auftrag nicht gefunden" });
+    const targetRel = String(body.targetRelativePath || "Finale/Video").trim() || "Finale/Video";
+    const folderType = String(body.folderType || "customer_folder");
+    const syntheticBatch = {
+      id: `test_${Date.now()}`,
+      category: String(body.category || "final_video"),
+      folder_type: folderType,
+      folderType,
+      target_relative_path: targetRel,
+      targetRelativePath: targetRel,
+      fileCount: Math.max(0, Number(body.fileCount || 3)),
+    };
+    const storedCount = Math.max(0, Number(body.storedCount ?? 3));
+    const skippedCount = Math.max(0, Number(body.skippedCount ?? 0));
+    const invalidCount = Math.max(0, Number(body.invalidCount ?? 0));
+    await notifyCompletedUploadBatch({
+      order,
+      batch: syntheticBatch,
+      storedCount,
+      skippedCount,
+      invalidCount,
+    });
+    res.json({ ok: true, to: OFFICE_EMAIL, orderNo });
+  } catch (err) {
+    console.warn("[upload-batch-notification/test-send]", err?.message || err);
+    res.status(500).json({ error: err.message || "Test-Mail fehlgeschlagen" });
+  }
+});
+
 app.get("/api/admin/storage/health", requireAdmin, (_req, res) => {
   try {
     const roots = getStorageHealth();
