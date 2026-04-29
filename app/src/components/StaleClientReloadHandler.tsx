@@ -39,6 +39,11 @@ function reloadOnce() {
 /**
  * Globaler Event-Listener für Chunk-Fehler die NICHT durch React-Boundaries
  * abgefangen werden (z. B. Script-Load-Fehler, unhandled promise rejections).
+ *
+ * Zusätzlich: fetch-Interceptor für Next.js Server-Action-Requests.
+ * React fängt `UnrecognizedActionError` intern ab – er erreicht weder
+ * `window.onerror` noch `unhandledrejection`. Der einzige zuverlässige
+ * Trigger ist der HTTP-404-Response auf einen `Next-Action`-Request.
  */
 export function StaleClientReloadHandler() {
   useEffect(() => {
@@ -54,9 +59,30 @@ export function StaleClientReloadHandler() {
     };
     window.addEventListener("error", onError);
     window.addEventListener("unhandledrejection", onUnhandled);
+
+    // Fetch-Interceptor: Server-Action-Requests (Next-Action Header) mit 404
+    // → neues Build, Action-Hash ungültig → einmaliger Reload.
+    const originalFetch = window.fetch;
+    window.fetch = async function patchedFetch(input, init) {
+      const response = await originalFetch(input, init);
+      try {
+        const isActionRequest =
+          (init?.headers instanceof Headers && init.headers.has("Next-Action")) ||
+          (init?.headers && typeof init.headers === "object" && !Array.isArray(init.headers) &&
+            "Next-Action" in (init.headers as Record<string, string>));
+        if (isActionRequest && response.status === 404) {
+          reloadOnce();
+        }
+      } catch {
+        // Fehler beim Header-Check nie nach oben propagieren.
+      }
+      return response;
+    };
+
     return () => {
       window.removeEventListener("error", onError);
       window.removeEventListener("unhandledrejection", onUnhandled);
+      window.fetch = originalFetch;
     };
   }, []);
   return null;
