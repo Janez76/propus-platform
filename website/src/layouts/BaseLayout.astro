@@ -6,7 +6,6 @@ import Header from '../components/Header.astro';
 import { loadSiteBranding, type SiteBranding } from '../lib/cms/resolve';
 import { serverEnv } from '../lib/serverEnv';
 import Footer from '../components/Footer.astro';
-import NewsletterPopup from '../components/NewsletterPopup.astro';
 import { loadSiteSeoLinks, type SeoNavLink } from '../lib/seo';
 import SchemaLocalBusiness from '../components/SchemaLocalBusiness.astro';
 
@@ -52,10 +51,6 @@ const absoluteOg =
 
 const branding = brandingProp ?? (await loadSiteBranding());
 const siteLinks = siteLinksProp ?? (await loadSiteSeoLinks());
-
-const newsletterEnabled = Boolean(
-	serverEnv('MAILCHIMP_API_KEY')?.trim() && serverEnv('MAILCHIMP_NEWSLETTER_LIST_ID')?.trim(),
-);
 
 let supabaseOrigin = '';
 try {
@@ -141,7 +136,6 @@ try {
 			<slot />
 		</main>
 		<Footer footerLegalItems={siteLinks.footerLegalItems} />
-		{newsletterEnabled && <NewsletterPopup />}
 	</body>
 </html>
 

@@ -6,7 +6,6 @@ node_modules/
 .env.staging.secrets
 .env.local
 .env.*.local
-scripts/local.github-actions.secrets.env
 /backups/
 .backups/
 core/dumps/
@@ -16,6 +15,8 @@ booking/analysis-customer-stammdaten/
 analysis-nas-customer-folders/
 *.log
 .tmp*/
+# Lokale ZIP-Entpackung (z. B. BKBN-Extractor-Artefakte)
+_tmp_bkbn_zip/
 .DS_Store
 Thumbs.db
 .cursor/mcp.json
