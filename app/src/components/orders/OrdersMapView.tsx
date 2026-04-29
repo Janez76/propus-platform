@@ -7,6 +7,7 @@ import {
   gmapsMapIdThemeOptions,
   loadGoogleMapsApi,
   resolveGoogleMapId,
+  svgToLegacyMarkerIcon,
   type MapsApi,
 } from "../../lib/googleMapsLoader";
 import { GMAPS_DARK_STYLES } from "../../pages-legacy/booking/gmapsDarkStyles";
@@ -86,6 +87,16 @@ function escapeHtml(s: string | null | undefined): string {
   );
 }
 
+type MapPin = google.maps.marker.AdvancedMarkerElement | google.maps.Marker;
+
+function clearMapPin(m: MapPin, useAdvancedMarkers: boolean) {
+  if (useAdvancedMarkers) {
+    (m as google.maps.marker.AdvancedMarkerElement).map = null;
+  } else {
+    (m as google.maps.Marker).setMap(null);
+  }
+}
+
 function buildInfoWindowHtml(order: Order, lang: Lang, weather?: OrderWeather): string {
   const palette = paletteForStatus(order.status);
   const dateLabel = order.appointmentDate ? formatSwissDate(order.appointmentDate) : "—";
@@ -161,13 +172,13 @@ export function OrdersMapView({
   const geocodeRef = useRef<GeocodeMap>(loadGeocodeCache());
   const inFlight = useRef<Set<string>>(new Set());
   const markerListenersRef = useRef<google.maps.MapsEventListener[]>([]);
-  const markersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
-  const markerByOrderRef = useRef<Map<string, { marker: google.maps.marker.AdvancedMarkerElement; status: string }>>(new Map());
+  const markersRef = useRef<MapPin[]>([]);
+  const markerByOrderRef = useRef<Map<string, { marker: MapPin; status: string }>>(new Map());
   const clustererRef = useRef<MarkerClusterer | null>(null);
   const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
   const weatherCirclesRef = useRef<google.maps.Circle[]>([]);
-  const weatherMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
-  const orderWeatherChipsRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const weatherMarkersRef = useRef<MapPin[]>([]);
+  const orderWeatherChipsRef = useRef<MapPin[]>([]);
   const orderPositionsRef = useRef<Map<string, { lat: number; lng: number }>>(new Map());
   const orderWeatherRef = useRef<Map<string, OrderWeather>>(new Map());
   const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
@@ -180,6 +191,8 @@ export function OrdersMapView({
   const { data: orderWeather } = useWeatherForOrders(orderWeatherPoints, showOrderWeather);
 
   const effectiveMapId = useMemo(() => resolveGoogleMapId(googleMapId), [googleMapId]);
+  /** Ohne gültige `mapId` sind Advanced Markers nicht erlaubt → klassische Marker + Icon. */
+  const useAdvancedMarkers = Boolean(effectiveMapId);
 
   const { shortAddressCount, geocodeableOrders } = useMemo(() => {
     let short = 0;
@@ -314,7 +327,7 @@ export function OrdersMapView({
 
     for (const c of weatherCirclesRef.current) c.setMap(null);
     weatherCirclesRef.current = [];
-    for (const m of weatherMarkersRef.current) m.map = null;
+    for (const m of weatherMarkersRef.current) clearMapPin(m, useAdvancedMarkers);
     weatherMarkersRef.current = [];
 
     if (!weatherZones || weatherZones.length === 0) return;
@@ -332,30 +345,48 @@ export function OrdersMapView({
       });
       weatherCirclesRef.current.push(circle);
 
-      const marker = new api.AdvancedMarker({
-        map,
-        position: { lat: z.lat, lng: z.lng },
-        content: createSvgMarkerContent({
-          svg: makeWeatherZoneSvg(z),
-          width: 104,
-          height: 32,
-          anchorX: 52,
-          anchorY: 16,
-        }),
-        zIndex: 9999,
-        gmpClickable: false,
-        title: `${z.city}: ${z.t}°C · ${z.precip}%`,
-      });
-      weatherMarkersRef.current.push(marker);
+      if (useAdvancedMarkers) {
+        const marker = new api.AdvancedMarker({
+          map,
+          position: { lat: z.lat, lng: z.lng },
+          content: createSvgMarkerContent({
+            svg: makeWeatherZoneSvg(z),
+            width: 104,
+            height: 32,
+            anchorX: 52,
+            anchorY: 16,
+          }),
+          zIndex: 9999,
+          gmpClickable: false,
+          title: `${z.city}: ${z.t}°C · ${z.precip}%`,
+        });
+        weatherMarkersRef.current.push(marker);
+      } else {
+        const marker = new google.maps.Marker({
+          map,
+          position: { lat: z.lat, lng: z.lng },
+          icon: svgToLegacyMarkerIcon({
+            svg: makeWeatherZoneSvg(z),
+            width: 104,
+            height: 32,
+            anchorX: 52,
+            anchorY: 16,
+          }),
+          zIndex: 9999,
+          clickable: false,
+          title: `${z.city}: ${z.t}°C · ${z.precip}%`,
+        });
+        weatherMarkersRef.current.push(marker);
+      }
     }
 
     return () => {
       for (const c of weatherCirclesRef.current) c.setMap(null);
       weatherCirclesRef.current = [];
-      for (const m of weatherMarkersRef.current) m.map = null;
+      for (const m of weatherMarkersRef.current) clearMapPin(m, useAdvancedMarkers);
       weatherMarkersRef.current = [];
     };
-  }, [loadState, weatherZones]);
+  }, [loadState, weatherZones, useAdvancedMarkers]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -368,7 +399,7 @@ export function OrdersMapView({
       clustererRef.current.setMap(null);
       clustererRef.current = null;
     }
-    for (const m of markersRef.current) m.map = null;
+    for (const m of markersRef.current) clearMapPin(m, useAdvancedMarkers);
     markersRef.current = [];
     markerByOrder.clear();
     for (const h of markerListenersRef.current) h.remove();
@@ -395,7 +426,7 @@ export function OrdersMapView({
       }
     }
 
-    const built: google.maps.marker.AdvancedMarkerElement[] = [];
+    const built: MapPin[] = [];
     const nextPositions = new Map<string, { lat: number; lng: number }>();
     const nextWeatherPoints: OrderWeatherPoint[] = [];
     for (const { pos, order } of positions) {
@@ -403,17 +434,32 @@ export function OrdersMapView({
         ? `#${order.orderNo} – ${order.customerName}`
         : `#${order.orderNo}`;
 
-      const mk = new api.AdvancedMarker({
-        position: pos,
-        title,
-        content: createSvgMarkerContent({
-          svg: makeStatusPinSvg(paletteForStatus(order.status)),
-          width: 26,
-          height: 32,
-          anchorX: 13,
-          anchorY: 32,
-        }),
-      });
+      let mk: MapPin;
+      if (useAdvancedMarkers) {
+        mk = new api.AdvancedMarker({
+          position: pos,
+          title,
+          content: createSvgMarkerContent({
+            svg: makeStatusPinSvg(paletteForStatus(order.status)),
+            width: 26,
+            height: 32,
+            anchorX: 13,
+            anchorY: 32,
+          }),
+        });
+      } else {
+        mk = new google.maps.Marker({
+          position: pos,
+          title,
+          icon: svgToLegacyMarkerIcon({
+            svg: makeStatusPinSvg(paletteForStatus(order.status)),
+            width: 26,
+            height: 32,
+            anchorX: 13,
+            anchorY: 32,
+          }),
+        });
+      }
       built.push(mk);
       markersRef.current.push(mk);
       markerByOrderRef.current.set(String(order.orderNo), { marker: mk, status: order.status });
@@ -428,7 +474,7 @@ export function OrdersMapView({
         const iw = infoWindowRef.current;
         if (!iw) return;
         iw.setContent(buildInfoWindowHtml(order, lang, orderWeatherRef.current.get(String(order.orderNo))));
-        iw.open({ map, anchor: mk });
+        iw.open({ map, anchor: mk as google.maps.MVCObject });
       });
       const dbl = mk.addListener("dblclick", () => onOpenDetail(String(order.orderNo)));
       markerListenersRef.current.push(click, dbl);
@@ -442,9 +488,23 @@ export function OrdersMapView({
       renderer: {
         render: ({ count, position }: { count: number; position: google.maps.LatLng }) => {
           const palette = dominantPaletteForCluster();
-          return new api.AdvancedMarker({
+          if (useAdvancedMarkers) {
+            return new api.AdvancedMarker({
+              position,
+              content: createSvgMarkerContent({
+                svg: makeClusterSvg(count, palette),
+                width: 44,
+                height: 44,
+                anchorX: 22,
+                anchorY: 22,
+              }),
+              zIndex: 1000 + count,
+              title: `${count}`,
+            });
+          }
+          return new google.maps.Marker({
             position,
-            content: createSvgMarkerContent({
+            icon: svgToLegacyMarkerIcon({
               svg: makeClusterSvg(count, palette),
               width: 44,
               height: 44,
@@ -478,14 +538,14 @@ export function OrdersMapView({
         clustererRef.current.setMap(null);
         clustererRef.current = null;
       }
-      for (const m of markersRef.current) m.map = null;
+      for (const m of markersRef.current) clearMapPin(m, useAdvancedMarkers);
       markersRef.current = [];
       markerByOrder.clear();
       for (const h of markerListenersRef.current) h.remove();
       markerListenersRef.current = [];
       infoWindowRef.current?.close();
     };
-  }, [loadState, geocodeVersion, onOpenDetail, byAddress, ordersGeoKey, lang]);
+  }, [loadState, geocodeVersion, onOpenDetail, byAddress, ordersGeoKey, lang, useAdvancedMarkers]);
 
   /** Zoom-Listener — Wetter-Chips nur ab city-level Zoom anzeigen, sonst Cluster-Lärm. */
   useEffect(() => {
@@ -507,39 +567,60 @@ export function OrdersMapView({
     const api = apiRef.current;
     if (!map || !api) return;
 
-    for (const m of orderWeatherChipsRef.current) m.map = null;
+    for (const m of orderWeatherChipsRef.current) clearMapPin(m, useAdvancedMarkers);
     orderWeatherChipsRef.current = [];
 
     if (!showOrderWeather || orderWeather.size === 0) return;
     const z = map.getZoom();
     if (z != null && z < WEATHER_CHIP_MIN_ZOOM) return;
 
+    const chipTitle = (w: OrderWeather) =>
+      `${w.tMax}°/${w.tMin}° · ${WX_LABEL_DE[w.kind]} · ${w.precip}% Regen${w.source === "archive" ? " (gemessen)" : ""}`;
+
     for (const [orderNo, w] of orderWeather) {
       const pos = orderPositionsRef.current.get(orderNo);
       if (!pos) continue;
-      const chip = new api.AdvancedMarker({
-        map,
-        position: pos,
-        content: createSvgMarkerContent({
-          svg: makeOrderWeatherSvg(w),
-          width: 58,
-          height: 22,
-          // Chip oberhalb des Pins anker (Pin ist 32 px hoch, Anker am Pinfuss).
-          anchorX: 29,
-          anchorY: 50,
-        }),
-        gmpClickable: false,
-        zIndex: 7000,
-        title: `${w.tMax}°/${w.tMin}° · ${WX_LABEL_DE[w.kind]} · ${w.precip}% Regen${w.source === "archive" ? " (gemessen)" : ""}`,
-      });
-      orderWeatherChipsRef.current.push(chip);
+      if (useAdvancedMarkers) {
+        const chip = new api.AdvancedMarker({
+          map,
+          position: pos,
+          content: createSvgMarkerContent({
+            svg: makeOrderWeatherSvg(w),
+            width: 58,
+            height: 22,
+            // Chip oberhalb des Pins anker (Pin ist 32 px hoch, Anker am Pinfuss).
+            anchorX: 29,
+            anchorY: 50,
+          }),
+          gmpClickable: false,
+          zIndex: 7000,
+          title: chipTitle(w),
+        });
+        orderWeatherChipsRef.current.push(chip);
+      } else {
+        const chip = new google.maps.Marker({
+          map,
+          position: pos,
+          icon: svgToLegacyMarkerIcon({
+            svg: makeOrderWeatherSvg(w),
+            width: 58,
+            height: 22,
+            anchorX: 29,
+            anchorY: 50,
+          }),
+          clickable: false,
+          zIndex: 7000,
+          title: chipTitle(w),
+        });
+        orderWeatherChipsRef.current.push(chip);
+      }
     }
 
     return () => {
-      for (const m of orderWeatherChipsRef.current) m.map = null;
+      for (const m of orderWeatherChipsRef.current) clearMapPin(m, useAdvancedMarkers);
       orderWeatherChipsRef.current = [];
     };
-  }, [orderWeather, showOrderWeather, geocodeVersion, zoomVersion]);
+  }, [orderWeather, showOrderWeather, geocodeVersion, zoomVersion, useAdvancedMarkers]);
 
   /** Hover-Sync: hervorhebt den Marker, der zur in einer anderen Komponente fokussierten Order gehört. */
   useEffect(() => {
@@ -550,16 +631,33 @@ export function OrdersMapView({
       const isHovered = targetKey != null && no === targetKey;
       const w = isHovered ? 34 : 26;
       const h = isHovered ? 42 : 32;
-      entry.marker.content = createSvgMarkerContent({
-        svg: makeStatusPinSvg(paletteForStatus(entry.status), isHovered),
-        width: w,
-        height: h,
-        anchorX: isHovered ? 17 : 13,
-        anchorY: h,
-      });
-      entry.marker.zIndex = isHovered ? 9000 : null;
+      const anchorX = isHovered ? 17 : 13;
+      const svg = makeStatusPinSvg(paletteForStatus(entry.status), isHovered);
+      if (useAdvancedMarkers) {
+        const am = entry.marker as google.maps.marker.AdvancedMarkerElement;
+        am.content = createSvgMarkerContent({
+          svg,
+          width: w,
+          height: h,
+          anchorX,
+          anchorY: h,
+        });
+        am.zIndex = isHovered ? 9000 : null;
+      } else {
+        const lm = entry.marker as google.maps.Marker;
+        lm.setIcon(
+          svgToLegacyMarkerIcon({
+            svg,
+            width: w,
+            height: h,
+            anchorX,
+            anchorY: h,
+          }),
+        );
+        lm.setZIndex(isHovered ? 9000 : 0);
+      }
     }
-  }, [hoveredOrderNo]);
+  }, [hoveredOrderNo, useAdvancedMarkers]);
 
   const overlay = (() => {
     if (loadState === "loading") return t(lang, "orders.map.loading");

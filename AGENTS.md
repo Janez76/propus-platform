@@ -415,6 +415,8 @@ Alle NAS-Skripte und Anleitungen liegen in `Z:\NAS Ugreen\`:
 - Nach signifikanten Änderungen/Deploys erwartet der User „flow md nachführen" — Dokumentations-Updates in `docs/FLOWS_*.md`.
 - Kurze Bestätigungen wie „mach alles", „ja mach es", „go" signalisieren Fortfahren ohne weitere Rückfragen.
 - Bei komplexen Tasks bevorzugt der User zuerst Planung („plane es gründlich"), bevor implementiert wird.
+- Upload-/Material-Benachrichtigungen per Mail: gewünscht ist ein direkter Link nach Nextcloud (`https://cloud.propus.ch`) in den jeweiligen Upload-/Zielordner (nicht nur interne Pfadangaben).
+- Touren-Bereinigungs- und ähnliche Workflow-/Automationen: bei **inaktivem** Toggle sollen keine Folgeaktionen laufen (z. B. keine Benachrichtigungs-Mails).
 
 ## Microsoft Graph App-Registrierungen
 
@@ -436,3 +438,4 @@ Client Secrets liegen in `.env` (lokal) bzw. `.env.vps` (VPS) — nicht hier.
 - Websize-Sync läuft nur noch per Knopfdruck (nicht automatisch per Cron) — deaktiviert per `WEBSIZE_SYNC_DISABLED=true` oder Admin-UI-Toggle.
 - NAS-Ordner-Duplikate können durch NTFS-Unicode-Unterschiede (z.B. `#` Varianten) und Alias-Logik entstehen; Diagnose-Skripte unter `scripts/diagnose-nas-*`.
 - EXXAS-Dienstleistungsaufträge benötigen korrektes `ref_kunde`-Mapping via `exxas_customer_id` auf dem Kunden-Datensatz.
+- Auftrags-/Kanban-Ansichten: Anzeige der **Objektadresse** ist neben der Auftragsnummer relevant (nicht nur die Nummer allein).

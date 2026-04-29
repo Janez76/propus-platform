@@ -154,6 +154,97 @@ function uploadWorkerEnabled() {
   return String(process.env.UPLOAD_WORKER_ENABLED || "").toLowerCase() === "true";
 }
 
+/**
+ * cifs: VPS schreibt auf CIFS-Mount (bestehend).
+ * nas_pull: Transfer läuft auf dem NAS per rsync-Pull; VPS-Worker soll nicht claimen.
+ * disabled: kein automatischer Transfer (Fehlerfall / Wartung).
+ */
+function uploadTransferBackend() {
+  const v = String(process.env.UPLOAD_TRANSFER_BACKEND || "cifs").trim().toLowerCase();
+  if (v === "nas_pull" || v === "nas-pull") return "nas_pull";
+  if (v === "disabled" || v === "off" || v === "none") return "disabled";
+  return "cifs";
+}
+
+function shouldDeferTransferToExternalWorker() {
+  return uploadWorkerEnabled() || uploadTransferBackend() === "nas_pull";
+}
+
+/**
+ * Reine Zielpfad-Berechnung (keine mkdir), für Tests und NAS-Pull-Worker.
+ * @param {object} batch DB-Zeile upload_batches
+ * @param {{ absolute_path: string }} folderLink order_folder_links
+ */
+function computeUploadBatchTargetLayout(batch, folderLink) {
+  const categoryPath = UPLOAD_CATEGORY_MAP[String(batch.category || "")];
+  if (!categoryPath) throw new Error("Ungültige Upload-Kategorie");
+  const categoryDir = resolveCategoryPath(folderLink.absolute_path, String(batch.category || ""), { createMissing: false });
+
+  let targetDir = categoryDir;
+  let batchFolder = batch.batch_folder ? String(batch.batch_folder) : null;
+  const mode = String(batch.upload_mode || "existing");
+  const customName = String(batch.custom_folder_name || "").trim();
+
+  if (mode === "new_named" && customName) {
+    const safeFolderName = sanitizeUploadFilename(customName).replace(/\.[^.]+$/, "");
+    batchFolder = safeFolderName || batchFolder;
+    targetDir = path.join(categoryDir, safeFolderName);
+  } else if (mode === "new_batch") {
+    if (batchFolder) {
+      targetDir = path.join(categoryDir, batchFolder);
+    } else {
+      return {
+        categoryDir,
+        targetDir: null,
+        batchFolder: null,
+        targetRelativePath: null,
+        needsUniqueBatchDir: true,
+      };
+    }
+  }
+
+  const targetRelativePath = toPortablePath(path.relative(folderLink.absolute_path, targetDir));
+  return {
+    categoryDir,
+    targetDir,
+    batchFolder,
+    targetRelativePath,
+    needsUniqueBatchDir: false,
+  };
+}
+
+/**
+ * Erstellt Zielverzeichnisse auf dem lokalen Dateisystem (VPS-CIFS oder NAS-Disk).
+ */
+function materializeUploadBatchTargetDirs(batch, folderLink) {
+  const layout = computeUploadBatchTargetLayout(batch, folderLink);
+  fs.mkdirSync(layout.categoryDir, { recursive: true });
+
+  if (layout.needsUniqueBatchDir) {
+    const created = createUniqueBatchDir(layout.categoryDir);
+    const batchFolder = created.name;
+    const targetDir = created.abs;
+    const targetRelativePath = toPortablePath(path.relative(folderLink.absolute_path, targetDir));
+    return {
+      targetDir,
+      batchFolder,
+      targetRelativePath,
+      categoryDir: layout.categoryDir,
+    };
+  }
+
+  const targetDir = layout.targetDir;
+  if (targetDir !== layout.categoryDir) {
+    fs.mkdirSync(targetDir, { recursive: true });
+  }
+  return {
+    targetDir,
+    batchFolder: layout.batchFolder,
+    targetRelativePath: layout.targetRelativePath,
+    categoryDir: layout.categoryDir,
+  };
+}
+
 function shouldVerifyTargetHash(sizeBytes) {
   if (String(process.env.UPLOAD_STRICT_HASH_VERIFY || "").toLowerCase() === "true") return true;
   const maxMb = Math.max(0, Number(process.env.UPLOAD_HASH_VERIFY_MAX_MB || 100));
@@ -362,8 +453,17 @@ async function stageUploadBatch({
     const targetPath = path.join(batchDir, safeName);
     if (sourcePath && fs.existsSync(sourcePath)) {
       // copyFileSync + unlinkSync verhindert EXDEV bei Cross-Filesystem-Mounts (tmp -> upload_staging)
+      let srcStat = null;
+      try {
+        srcStat = fs.statSync(sourcePath);
+      } catch (_) {}
       fs.copyFileSync(sourcePath, targetPath);
       try { fs.unlinkSync(sourcePath); } catch (_) {}
+      if (srcStat && srcStat.mtime) {
+        try {
+          fs.utimesSync(targetPath, srcStat.atime || srcStat.mtime, srcStat.mtime);
+        } catch (_) {}
+      }
     } else {
       fs.writeFileSync(targetPath, file?.buffer || Buffer.alloc(0));
     }
@@ -448,8 +548,17 @@ async function stageUploadBatchFromPaths({
       }
     } catch (renameErr) {
       if (renameErr.code === "EXDEV") {
+        let srcStat = null;
+        try {
+          srcStat = fs.statSync(sourcePath);
+        } catch (_) {}
         fs.copyFileSync(sourcePath, targetPath);
         try { fs.unlinkSync(sourcePath); } catch (_) {}
+        if (srcStat && srcStat.mtime) {
+          try {
+            fs.utimesSync(targetPath, srcStat.atime || srcStat.mtime, srcStat.mtime);
+          } catch (_) {}
+        }
       } else {
         throw renameErr;
       }
@@ -487,6 +596,21 @@ async function transferBatch(db, batchId, deps) {
     let batch = await db.getUploadBatch(batchId);
     if (!batch) return;
 
+    const backend = uploadTransferBackend();
+    if (backend === "nas_pull") {
+      log("transfer skipped (nas_pull handled by NAS worker)", { batchId });
+      activeTransfers.delete(batchId);
+      return;
+    }
+    if (backend === "disabled") {
+      await db.updateUploadBatch(batchId, {
+        status: "failed",
+        error_message: "UPLOAD_TRANSFER_BACKEND=disabled",
+      }).catch(() => {});
+      activeTransfers.delete(batchId);
+      return;
+    }
+
     batch = await db.updateUploadBatch(batchId, {
       status: batch.status === "retrying" ? "retrying" : "transferring",
       started_at: batch.started_at || new Date().toISOString(),
@@ -504,34 +628,15 @@ async function transferBatch(db, batchId, deps) {
     const folderLink = links[folderType] || await db.getOrderFolderLink(order.orderNo, folderType);
     if (!folderLink) throw new Error(`Kein Zielordner für ${folderType} vorhanden`);
 
-    const categoryPath = UPLOAD_CATEGORY_MAP[String(batch.category || "")];
-    if (!categoryPath) throw new Error("Ungültige Upload-Kategorie");
-    const categoryDir = resolveCategoryPath(folderLink.absolute_path, String(batch.category || ""), { createMissing: true });
-    fs.mkdirSync(categoryDir, { recursive: true });
-
-    let targetDir = categoryDir;
-    let batchFolder = batch.batch_folder ? String(batch.batch_folder) : null;
-    const mode = String(batch.upload_mode || "existing");
-    const customName = String(batch.custom_folder_name || "").trim();
-
-    if (mode === "new_named" && customName) {
-      const safeFolderName = sanitizeUploadFilename(customName).replace(/\.[^.]+$/, "");
-      batchFolder = safeFolderName || batchFolder;
-      targetDir = path.join(categoryDir, safeFolderName);
-      fs.mkdirSync(targetDir, { recursive: true });
-    } else if (mode === "new_batch") {
-      if (batchFolder) {
-        targetDir = path.join(categoryDir, batchFolder);
-        fs.mkdirSync(targetDir, { recursive: true });
-      } else {
-        const newBatchDir = createUniqueBatchDir(categoryDir);
-        batchFolder = newBatchDir.name;
-        targetDir = newBatchDir.abs;
-      }
+    const materialized = materializeUploadBatchTargetDirs(batch, folderLink);
+    let targetDir = materialized.targetDir;
+    let batchFolder = materialized.batchFolder;
+    const targetRelativePath = materialized.targetRelativePath;
+    if (!batch.batch_folder && batchFolder) {
+      await db.updateUploadBatch(batchId, { batch_folder: batchFolder });
+      batch = { ...batch, batch_folder: batchFolder };
     }
 
-    const conflictMode = String(batch.conflict_mode || "skip");
-    const targetRelativePath = toPortablePath(path.relative(folderLink.absolute_path, targetDir));
     const files = await db.listUploadBatchFiles(batchId);
     const totalMB = (Number(batch.total_bytes) / (1024 * 1024)).toFixed(1);
     log("transfer started", {
@@ -729,8 +834,11 @@ async function transferBatch(db, batchId, deps) {
 }
 
 function enqueueBatchTransfer(db, batchId, deps) {
-  if (uploadWorkerEnabled()) {
-    log("transfer queued for worker", { batchId });
+  if (shouldDeferTransferToExternalWorker()) {
+    log("transfer queued for worker", {
+      batchId,
+      mode: uploadWorkerEnabled() ? "vps_worker" : uploadTransferBackend() === "nas_pull" ? "nas_pull" : "deferred",
+    });
     return;
   }
   setTimeout(() => {
@@ -739,6 +847,9 @@ function enqueueBatchTransfer(db, batchId, deps) {
 }
 
 async function runWorkerTransferOnce(db, deps = {}) {
+  if (uploadTransferBackend() === "nas_pull") {
+    return null;
+  }
   if (!db || typeof db.claimNextUploadBatch !== "function") {
     throw new Error("Worker benötigt db.claimNextUploadBatch");
   }
@@ -823,5 +934,11 @@ module.exports = {
   runWorkerTransferOnce,
   runUploadWorker,
   shouldVerifyTargetHash,
+  uploadTransferBackend,
+  shouldDeferTransferToExternalWorker,
+  computeUploadBatchTargetLayout,
+  materializeUploadBatchTargetDirs,
+  uploadWorkerEnabled,
+  sha256FileAsync,
   toBatchDto,
 };
