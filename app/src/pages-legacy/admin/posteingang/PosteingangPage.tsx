@@ -789,13 +789,18 @@ export function PosteingangPage() {
                   <div className="mb-1 flex items-center gap-1 text-xs uppercase tracking-wide text-[#5a5a5a]">
                     <ShoppingCart className="h-3 w-3" /> Aufträge
                   </div>
-                  <ul className="space-y-1">
+                  <ul className="space-y-1.5">
                     {detail.related.orders.map((o) => (
                       <li key={o.id}>
                         <Link to={`/orders/${o.order_no}`} className="text-[#B68E20] hover:underline">
                           #{o.order_no}
                         </Link>
                         <span className="ml-1 text-xs text-[#888]">{o.status}</span>
+                        {o.address && (
+                          <div className="text-xs text-[#888] truncate" title={o.address}>
+                            {o.address}
+                          </div>
+                        )}
                       </li>
                     ))}
                   </ul>

@@ -1006,7 +1006,7 @@ export type PosteingangRelated = {
     customer_email: string | null;
     matterport_space_id: string | null;
   }[];
-  orders: { id: number; order_no: number; status: string; created_at: string }[];
+  orders: { id: number; order_no: number; status: string; created_at: string; address?: string }[];
   renewal_invoices: {
     id: number;
     invoice_number: string | null;

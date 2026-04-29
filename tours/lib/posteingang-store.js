@@ -220,7 +220,7 @@ async function loadRelatedForCustomer(customerId) {
       [customerId],
     ),
     pool.query(
-      `SELECT o.id, o.order_no, o.status, o.created_at
+      `SELECT o.id, o.order_no, o.status, o.created_at, o.address
        FROM booking.orders o
        WHERE o.customer_id = $1
        ORDER BY o.id DESC
