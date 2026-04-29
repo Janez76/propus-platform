@@ -103,6 +103,7 @@ const {
   enqueueBatchTransfer,
   retryBatchTransfer,
   resumePendingTransfers,
+  uploadTransferBackend,
 } = require("./upload-batch-service");
 const {
   initChunkedUpload,
@@ -5678,10 +5679,39 @@ async function notifyCompletedUploadBatch({ order, batch, storedCount, skippedCo
   const subject = groupedUpload
     ? `Sammel-Upload auf NAS abgeschlossen - Auftrag #${order.orderNo}`
     : `Upload auf NAS abgeschlossen - Auftrag #${order.orderNo}`;
+
+  let nextcloudFolderUrl = null;
+  try {
+    const { buildNextcloudFolderFilesUrl } = require("./nextcloud-share");
+    const folderType = String(effectiveBatch.folderType || effectiveBatch.folder_type || "customer_folder");
+    const batchRel = String(
+      effectiveBatch.targetRelativePath || effectiveBatch.target_relative_path || "",
+    )
+      .replace(/\\/g, "/")
+      .replace(/^\/+|\/+$/g, "");
+    const linkRow = await db.getOrderFolderLink(Number(order.orderNo), folderType);
+    if (linkRow?.relative_path) {
+      const folderRel = String(linkRow.relative_path || "")
+        .replace(/\\/g, "/")
+        .replace(/^\/+|\/+$/g, "");
+      const combinedRelPath = batchRel ? `${folderRel}/${batchRel}` : folderRel;
+      nextcloudFolderUrl = buildNextcloudFolderFilesUrl(combinedRelPath);
+    }
+  } catch (ncErr) {
+    console.warn("[upload-batch] Nextcloud-Link konnte nicht gebaut werden:", ncErr?.message || ncErr);
+  }
+
+  const ncLinkHtml = nextcloudFolderUrl
+    ? `<p style="margin:18px 0"><a href="${String(nextcloudFolderUrl)
+        .replace(/&/g, "&amp;")
+        .replace(/"/g, "&quot;")}" style="display:inline-block;background:#7A5E10;color:#ffffff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px">Ordner in Nextcloud öffnen</a></p>`
+    : "";
+
   const html = `
     <p>${groupedUpload
       ? `Der Sammel-Upload fuer <strong>Auftrag #${order.orderNo}</strong> wurde vollstaendig auf die NAS uebertragen.`
       : `Der Upload fuer <strong>Auftrag #${order.orderNo}</strong> wurde auf die NAS uebertragen.`}</p>
+    ${ncLinkHtml}
     <table style="border-collapse:collapse;font-size:14px">
       <tr><td style="padding:4px 12px 4px 0;color:#888">Adresse</td><td><strong>${order.address || "-"}</strong></td></tr>
       <tr><td style="padding:4px 12px 4px 0;color:#888">Kategorie</td><td>${effectiveBatch.category || "-"}</td></tr>
@@ -5699,6 +5729,7 @@ async function notifyCompletedUploadBatch({ order, batch, storedCount, skippedCo
     groupedUpload
       ? `Der Sammel-Upload fuer Auftrag #${order.orderNo} wurde vollstaendig auf die NAS uebertragen.`
       : `Der Upload fuer Auftrag #${order.orderNo} wurde auf die NAS uebertragen.`,
+    ...(nextcloudFolderUrl ? [`Nextcloud (Upload-Ordner): ${nextcloudFolderUrl}`] : []),
     `Adresse: ${order.address || "-"}`,
     `Kategorie: ${effectiveBatch.category || "-"}`,
     ...(groupedUpload ? [`Teilpakete: ${uploadGroupTotalParts}`] : []),
@@ -8488,7 +8519,11 @@ app.patch("/api/admin/orders/:orderNo/review/dismiss", requireAdmin, async (req,
 
 // -ffentlich: Review-Token abrufen (kein Login)
 
-if (process.env.DATABASE_URL && String(process.env.UPLOAD_WORKER_ENABLED || "").toLowerCase() !== "true") {
+if (
+  process.env.DATABASE_URL &&
+  String(process.env.UPLOAD_WORKER_ENABLED || "").toLowerCase() !== "true" &&
+  uploadTransferBackend() !== "nas_pull"
+) {
   setTimeout(() => {
     resumePendingTransfers(db, {
       loadOrder: async (orderNo) => db.getOrderByNo(orderNo),

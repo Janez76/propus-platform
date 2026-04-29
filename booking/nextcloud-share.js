@@ -106,6 +106,24 @@ function buildNextcloudPath(relativePath) {
   return customerFolderPath ? `${customerFolderPath}/${rel}` : `/${rel}`;
 }
 
+/**
+ * Web-UI-Link zur Files-App im angegebenen Ordner (gleiches Pfad-Mapping wie API-Shares).
+ * Benötigt nur NEXTCLOUD_URL (keine Nextcloud-Login-Daten).
+ *
+ * @param {string} relativePathUnderBookingCustomerRoot Relativpfad ab BOOKING-Kundenroot (wie bei buildNextcloudPath)
+ * @returns {string|null}
+ */
+function buildNextcloudFolderFilesUrl(relativePathUnderBookingCustomerRoot) {
+  const baseUrl = readEnv("NEXTCLOUD_URL").replace(/\/$/, "");
+  if (!baseUrl) return null;
+  const ncPath = buildNextcloudPath(relativePathUnderBookingCustomerRoot);
+  let norm = String(ncPath || "")
+    .replace(/\\/g, "/")
+    .trim();
+  if (!norm.startsWith("/")) norm = `/${norm.replace(/^\/+/, "")}`;
+  return `${baseUrl}/apps/files/?dir=${encodeURIComponent(norm)}`;
+}
+
 module.exports = {
   getNextcloudConfig,
   getNextcloudConfigError,
@@ -113,4 +131,5 @@ module.exports = {
   createNextcloudShare,
   deleteNextcloudShare,
   buildNextcloudPath,
+  buildNextcloudFolderFilesUrl,
 };
