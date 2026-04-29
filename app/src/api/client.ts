@@ -47,6 +47,63 @@ const DEFAULT_MAX_RETRIES = 2;
 const RETRY_BASE_DELAY_MS = 300;
 const pendingRequests = new Map<string, Promise<unknown>>();
 
+/**
+ * Globaler 401-Handler für Admin-Sessions:
+ * Wenn ein authentifizierter (token-basierter) Request mit 401 fehlschlägt,
+ * ist die Admin-Session abgelaufen. Wir räumen die lokalen Tokens auf und
+ * navigieren zur Login-Seite – ohne dass jeder Aufrufer das selbst handlen muss.
+ *
+ * Wichtig:
+ *  - Wir importieren bewusst NICHT den authStore, um Zirkularimporte zu vermeiden.
+ *  - Customer-Portal-Calls nutzen Cookies (kein Bearer-Token) und bleiben unberührt.
+ *  - Login-Endpunkte (/api/auth/login, /api/admin/login) lösen keinen Redirect aus,
+ *    sonst würde ein falsches Passwort die Seite neu laden.
+ */
+const ADMIN_TOKEN_STORAGE_KEYS = [
+  "admin_token_v2",
+  "admin_role_v1",
+  "admin_permissions_v1",
+  "admin_auth_provider_v1",
+];
+let unauthorizedRedirectInFlight = false;
+function isLoginPath(path: string): boolean {
+  const p = String(path || "").toLowerCase();
+  return (
+    p.includes("/auth/login") ||
+    p.includes("/admin/login") ||
+    p.includes("/api/customer/")
+  );
+}
+function handleUnauthorizedAdminSession(path: string) {
+  if (typeof window === "undefined") return;
+  if (unauthorizedRedirectInFlight) return;
+  if (isLoginPath(path)) return;
+  unauthorizedRedirectInFlight = true;
+  try {
+    for (const key of ADMIN_TOKEN_STORAGE_KEYS) {
+      try {
+        window.localStorage.removeItem(key);
+        window.sessionStorage.removeItem(key);
+      } catch {
+        // ignore
+      }
+    }
+  } catch {
+    // ignore
+  }
+  try {
+    const here = `${window.location.pathname || "/"}${window.location.search || ""}`;
+    if (window.location.pathname.startsWith("/login")) {
+      unauthorizedRedirectInFlight = false;
+      return;
+    }
+    const target = `/login?returnTo=${encodeURIComponent(here)}&reason=expired`;
+    window.location.replace(target);
+  } catch {
+    unauthorizedRedirectInFlight = false;
+  }
+}
+
 function humanizeApiError(raw: string, status: number, path: string) {
   const text = String(raw || "").trim();
   const lower = text.toLowerCase();
@@ -197,6 +254,9 @@ export async function apiRequest<T>(
       } catch (error) {
         if (attempt >= maxRetries || !shouldRetry(error)) {
           if (error instanceof ApiHttpError) {
+            if (error.status === 401 && token) {
+              handleUnauthorizedAdminSession(path);
+            }
             const enriched = new Error(error.message) as Error & {
               status?: number;
               code?: string;

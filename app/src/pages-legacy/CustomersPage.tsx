@@ -965,6 +965,7 @@ export function CustomersPage() {
       <CreateContactDialog
         open={createContactDialogOpen}
         onOpenChange={setCreateContactDialogOpen}
+        mode={viewMode === "contacts" ? "contact" : "customer"}
         onSubmit={create}
         onCreateContact={async (contact, customerId) => {
           await createContact(token, {
