@@ -181,11 +181,21 @@ App-Permissions sind erteilt (Mail.ReadWrite, Mail.Send). App-only-Auth.
 
 ### Pull-Strategie (Phase 1)
 
-Delta-Query gegen `/users/office@propus.ch/mailFolders/inbox/messages/delta`. Delta-Token in `graph_sync_state` persistieren. Cron alle 2 Minuten.
+Pro überwachtem Folder eine eigene Delta-Query mit eigenem Delta-Token in `graph_sync_state`:
+
+- `/users/office@propus.ch/mailFolders/inbox/messages/delta` — eingehende Mails (`direction=inbound`)
+- `/users/office@propus.ch/mailFolders/sentitems/messages/delta` — aus Outlook gesendete Mails, damit sie als `direction=outbound` in der Plattform sichtbar werden
+
+`graph_sync_state` bekommt deshalb pro Mailbox + Folder eine Zeile (Primärschlüssel `(mailbox_address, folder)`). Cron alle 2 Minuten.
 
 ### Senden
 
-Reply via `/users/office@propus.ch/messages/{id}/reply` — beim nächsten Sync wird die Outbound-Mail aus `Sent Items` zurückgespiegelt.
+Reply via `/users/office@propus.ch/messages/{id}/reply`. Damit Phase-2-Acceptance erfüllt ist, **muss** die Outbound-Message zusätzlich auf einem von zwei Wegen in der Plattform-Konversation auftauchen:
+
+1. **Write-through (bevorzugt):** Beim Senden direkt eine `messages`-Zeile mit `direction=outbound` einfügen, Graph-IDs nachziehen sobald die API-Response zurückkommt.
+2. **Sent-Items-Delta-Sync:** Der oben definierte zweite Delta-Loop ingestiert die Mail beim nächsten Pull.
+
+Beide Mechanismen werden implementiert (Write-through für Sofort-UX, Sent-Items-Sync als Quelle der Wahrheit + Backfill für aus Outlook gesendete Mails). Deduplizierung über `graph_message_id`.
 
 ### Cron
 
@@ -330,11 +340,14 @@ CREATE TABLE posteingang.conversations (
   status                   posteingang.conversation_status NOT NULL DEFAULT 'open',
   priority                 posteingang.priority           NOT NULL DEFAULT 'medium',
   customer_id              BIGINT REFERENCES core.customers(id),
-  order_id                 BIGINT REFERENCES core.orders(id),
+  order_id                 BIGINT REFERENCES booking.orders(id),
   tour_id                  BIGINT REFERENCES tour_manager.tours(id),
+  -- Rechnungen liegen heute in zwei Tabellen (tour_manager.exxas_invoices,
+  -- tour_manager.renewal_invoices). Daher kein FK, sondern (invoice_kind, invoice_id):
+  invoice_kind             TEXT CHECK (invoice_kind IN ('exxas','renewal')),
   invoice_id               BIGINT,
-  assigned_to_id           BIGINT REFERENCES core.users(id),
-  created_by_id            BIGINT NOT NULL REFERENCES core.users(id),
+  assigned_to_id           BIGINT REFERENCES core.admin_users(id),
+  created_by_id            BIGINT NOT NULL REFERENCES core.admin_users(id),
   graph_conversation_id    TEXT UNIQUE,
   graph_mailbox_address    TEXT,
   external_source          TEXT,
