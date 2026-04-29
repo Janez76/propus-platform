@@ -1,0 +1,41 @@
+# Server Configuration
+PORT=3001
+NODE_ENV=production
+
+# SMTP Mail Notification
+SMTP_HOST=smtp.office365.com
+SMTP_PORT=587
+SMTP_USER=office@propus.ch
+SMTP_PASS=
+SMTP_SECURE=false
+MAIL_FROM=office@propus.ch
+OFFICE_EMAIL=office@propus.ch
+
+# CORS Configuration (comma-separated list of allowed origins)
+ALLOWED_ORIGINS=https://propus.ch,https://www.propus.ch,http://localhost:4455
+
+# Upload Configuration
+MAX_UPLOAD_SIZE_MB=64
+CHUNK_SIZE_MB=32
+TEMP_CLEANUP_AGE_HOURS=24
+
+# Rate Limiting
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX_REQUESTS=100
+
+# Request Timeouts
+REQUEST_TIMEOUT_MS=3600000
+UPLOAD_TIMEOUT_MS=3600000
+
+# Path Validation
+MAX_FILENAME_LENGTH=255
+MAX_CUSTOMER_LENGTH=100
+MAX_PROJECT_LENGTH=100
+
+# Upload Output Directory (optional, defaults to ./uploads)
+# UPLOAD_OUTPUT_DIR=/mnt/user/propus_drive/UPLOAD_Fotograf
+
+# Nextcloud — Button «Ordner in Nextcloud öffnen» in der Büro-Mail (Uploadtool → PREFIX/customer/project).
+# PREFIX = Pfad ab Files-Wurzel bis zur Gemountete SMB-Wurzel von UPLOAD_OUTPUT_DIR (gleiche Ebene wie im Explorer).
+NEXTCLOUD_URL=https://cloud.propus.ch
+# NEXTCLOUD_UPLOAD_TOOL_PREFIX=/PROPUS DRIVE/UPLOAD/TOOL_UPLOAD
