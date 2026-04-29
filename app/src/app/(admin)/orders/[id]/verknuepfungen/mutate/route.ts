@@ -9,8 +9,20 @@ type Props = {
   params: Promise<{ id: string }>;
 };
 
+/**
+ * Baut die Redirect-URL mit dem korrekten externen Origin.
+ * In Docker ist `request.url` die interne Adresse (0.0.0.0:3001);
+ * der Reverse-Proxy setzt X-Forwarded-Host / X-Forwarded-Proto.
+ */
+function getExternalOrigin(request: Request): string {
+  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+  const proto = request.headers.get("x-forwarded-proto") ?? "https";
+  if (host) return `${proto.split(",")[0].trim()}://${host.split(",")[0].trim()}`;
+  return new URL(request.url).origin;
+}
+
 function backUrl(request: Request, orderNo: number, params?: Record<string, string>): URL {
-  const url = new URL(`/orders/${orderNo}/verknuepfungen`, request.url);
+  const url = new URL(`/orders/${orderNo}/verknuepfungen`, getExternalOrigin(request));
   for (const [key, value] of Object.entries(params ?? {})) {
     url.searchParams.set(key, value);
   }
@@ -63,13 +75,37 @@ export async function POST(request: Request, { params }: Props) {
       return redirectBack(request, orderNo, { error: "Bitte Matterport-Space-ID oder Link mit ?m=... eintragen" });
     }
 
-    const tour = await queryOne<{ id: number; booking_order_no: number | null }>(
+    let tour = await queryOne<{ id: number; booking_order_no: number | null }>(
       `SELECT id, booking_order_no FROM tour_manager.tours WHERE matterport_space_id = $1`,
       [spaceId],
     );
+
     if (!tour) {
-      return redirectBack(request, orderNo, { error: "Tour nicht in tour_manager gefunden. Bitte zuerst im Tour-Admin anlegen." });
+      // Keine Tour vorhanden → Stub anlegen (Adresse aus Bestellung befüllen).
+      const order = await queryOne<{ address: string | null; customer_name: string | null; customer_email: string | null }>(
+        `SELECT address, customer_name, customer_email FROM booking.orders WHERE order_no = $1`,
+        [orderNo],
+      );
+      const newTour = await queryOne<{ id: number }>(
+        `INSERT INTO tour_manager.tours
+           (matterport_space_id, booking_order_no, object_label, customer_name, customer_email, status)
+         VALUES ($1, $2, $3, $4, $5, 'ACTIVE')
+         RETURNING id`,
+        [spaceId, orderNo, order?.address ?? null, order?.customer_name ?? null, order?.customer_email ?? null],
+      );
+      if (!newTour) {
+        return redirectBack(request, orderNo, { error: "Tour konnte nicht angelegt werden." });
+      }
+      await logOrderEvent(
+        orderNo,
+        "matterport_linked",
+        { old: {}, new: { matterport_space_id: spaceId, tour_id: newTour.id, auto_created: true } },
+        editor,
+      );
+      revalidateOrderLinks(orderNo);
+      return redirectBack(request, orderNo, { saved: "1" });
     }
+
     if (tour.booking_order_no != null && tour.booking_order_no !== orderNo) {
       return redirectBack(request, orderNo, { error: `Diese Tour ist bereits mit Bestellung #${tour.booking_order_no} verknüpft` });
     }
