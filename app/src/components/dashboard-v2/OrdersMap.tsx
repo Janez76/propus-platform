@@ -196,6 +196,7 @@ export function OrdersMap({ orders, lang, hoveredOrderNo }: OrdersMapProps) {
         ) : (
           <OrdersMapView
             apiKey={googleMapsKey}
+            googleMapId={bookingConfig?.googleMapId ?? null}
             orders={filteredOrders}
             onOpenDetail={openDetail}
             lang={lang}

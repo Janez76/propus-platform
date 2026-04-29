@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "../../lib/utils";
 import { useThemeStore } from "../../store/themeStore";
 import { GMAPS_DARK_STYLES } from "./gmapsDarkStyles";
 import { t, type Lang } from "../../i18n";
-import { loadGoogleMapsApi, type MapsApi } from "../../lib/googleMapsLoader";
+import { gmapsMapIdThemeOptions, loadGoogleMapsApi, resolveGoogleMapId, type MapsApi } from "../../lib/googleMapsLoader";
 
 const DEFAULT_CENTER: google.maps.LatLngLiteral = { lat: 47.3769, lng: 8.5417 };
 const DEFAULT_ZOOM = 8;
@@ -13,6 +13,8 @@ const MIN_ADDRESS_CHARS = 6;
 
 type AddressPreviewMapProps = {
   apiKey: string;
+  /** Aus `/api/config` — für Advanced Markers erforderlich. */
+  googleMapId?: string | null;
   address: string;
   coords: { lat: number; lng: number } | null;
   /** Wenn gesetzt, wird der Pin draggable und ruft bei dragend den Callback mit neuen Koordinaten. */
@@ -24,7 +26,15 @@ type AddressPreviewMapProps = {
 type LoadState = "idle" | "loading" | "ready" | "error";
 type GeoState = "idle" | "geocoding" | "found" | "notFound";
 
-export function AddressPreviewMap({ apiKey, address, coords, onCoordsChange, className, lang = "de" }: AddressPreviewMapProps) {
+export function AddressPreviewMap({
+  apiKey,
+  googleMapId,
+  address,
+  coords,
+  onCoordsChange,
+  className,
+  lang = "de",
+}: AddressPreviewMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<MapsApi | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -33,6 +43,7 @@ export function AddressPreviewMap({ apiKey, address, coords, onCoordsChange, cla
   const [loadState, setLoadState] = useState<LoadState>("idle");
   const [geoState, setGeoState] = useState<GeoState>("idle");
   const resolvedTheme = useThemeStore((s) => s.resolvedTheme);
+  const effectiveMapId = useMemo(() => resolveGoogleMapId(googleMapId), [googleMapId]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -51,7 +62,9 @@ export function AddressPreviewMap({ apiKey, address, coords, onCoordsChange, cla
           mapTypeControl: false,
           streetViewControl: false,
           fullscreenControl: false,
-          styles: dark ? GMAPS_DARK_STYLES : [],
+          ...(effectiveMapId
+            ? { mapId: effectiveMapId, ...gmapsMapIdThemeOptions(dark) }
+            : { styles: dark ? GMAPS_DARK_STYLES : [] }),
         });
         mapRef.current = m;
         setLoadState("ready");
@@ -69,15 +82,20 @@ export function AddressPreviewMap({ apiKey, address, coords, onCoordsChange, cla
       }
       mapRef.current = null;
     };
-  }, [apiKey]);
+  }, [apiKey, effectiveMapId]);
 
   useEffect(() => {
     const m = mapRef.current;
     if (!m) return;
-    m.setOptions({
-      styles: resolvedTheme === "dark" ? GMAPS_DARK_STYLES : [],
-    });
-  }, [resolvedTheme, loadState]);
+    const dark = resolvedTheme === "dark";
+    if (effectiveMapId) {
+      m.setOptions(gmapsMapIdThemeOptions(dark));
+    } else {
+      m.setOptions({
+        styles: dark ? GMAPS_DARK_STYLES : [],
+      });
+    }
+  }, [resolvedTheme, loadState, effectiveMapId]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -161,15 +179,15 @@ export function AddressPreviewMap({ apiKey, address, coords, onCoordsChange, cla
   return (
     <div
       className={cn(
-        "relative mt-3 w-full overflow-hidden rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)]",
-        "h-64 sm:h-72 min-h-[16rem] max-h-[18rem]",
+        "relative mt-3 w-full overflow-hidden rounded-lg border border-border bg-surface-raised",
+        "h-64 sm:h-72 min-h-64 max-h-72",
         className,
       )}
     >
       <div ref={containerRef} className="absolute inset-0 h-full w-full" aria-hidden />
       {overlayText ? (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-[var(--surface-raised)]/85 px-4 text-center">
-          <p className="text-xs text-[var(--text-subtle)]">{overlayText}</p>
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-(--surface-raised)/85 px-4 text-center">
+          <p className="text-xs text-subtle">{overlayText}</p>
         </div>
       ) : null}
     </div>

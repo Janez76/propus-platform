@@ -705,7 +705,13 @@ export function OrdersPage() {
         ) : !googleMapsKey ? (
           <OrdersMapViewNoKey lang={lang} />
         ) : (
-          <OrdersMapView apiKey={googleMapsKey} orders={orders} onOpenDetail={openOrderPreview} lang={lang} />
+          <OrdersMapView
+            apiKey={googleMapsKey}
+            googleMapId={bookingConfig?.googleMapId ?? null}
+            orders={orders}
+            onOpenDetail={openOrderPreview}
+            lang={lang}
+          />
         )
       )}
 

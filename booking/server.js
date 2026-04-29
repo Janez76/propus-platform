@@ -10021,7 +10021,9 @@ app.get("/api/zip-city-suggest", async (req, res) => {
 
 app.get("/api/config", async (_req, res) => {
   const key = googlePlacesOrMapsApiKey();
-  const mapId = String(process.env.GOOGLE_MAP_ID || "DEMO_MAP_ID").trim();
+  const mapIdRaw = String(process.env.GOOGLE_MAP_ID || "").trim();
+  const googleMapId =
+    mapIdRaw && mapIdRaw !== "DEMO_MAP_ID" && mapIdRaw !== "demo_map_id" ? mapIdRaw : null;
   let dbFieldHintsEnabled = false;
   let provisionalBookingEnabled = false;
   let vatRate = 0.081;
@@ -10053,7 +10055,7 @@ app.get("/api/config", async (_req, res) => {
   res.json({
     ok: true,
     googleMapsKey: key || null,
-    googleMapId: mapId || null,
+    googleMapId,
     dbFieldHintsEnabled,
     provisionalBookingEnabled,
     vatRate,

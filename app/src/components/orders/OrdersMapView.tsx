@@ -2,7 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MarkerClusterer } from "@googlemaps/markerclusterer";
 import type { Order } from "../../api/orders";
 import { t, type Lang } from "../../i18n";
-import { createSvgMarkerContent, loadGoogleMapsApi, type MapsApi } from "../../lib/googleMapsLoader";
+import {
+  createSvgMarkerContent,
+  gmapsMapIdThemeOptions,
+  loadGoogleMapsApi,
+  resolveGoogleMapId,
+  type MapsApi,
+} from "../../lib/googleMapsLoader";
 import { GMAPS_DARK_STYLES } from "../../pages-legacy/booking/gmapsDarkStyles";
 import { useThemeStore } from "../../store/themeStore";
 import {
@@ -27,6 +33,8 @@ const GEO_STAGGER_MS = 100;
 type Props = {
   orders: Order[];
   apiKey: string;
+  /** Aus `/api/config` (`GOOGLE_MAP_ID`); ohne gültige ID warnen Advanced Markers wiederholt. */
+  googleMapId?: string | null;
   onOpenDetail: (orderNo: string) => void;
   lang: Lang;
   weatherZones?: readonly WeatherZone[];
@@ -137,7 +145,16 @@ function makeClusterSvg(count: number, palette: ClusterPalette): string {
   ].join("");
 }
 
-export function OrdersMapView({ orders, apiKey, onOpenDetail, lang, weatherZones, showOrderWeather = false, hoveredOrderNo }: Props) {
+export function OrdersMapView({
+  orders,
+  apiKey,
+  googleMapId,
+  onOpenDetail,
+  lang,
+  weatherZones,
+  showOrderWeather = false,
+  hoveredOrderNo,
+}: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<MapsApi | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -161,6 +178,8 @@ export function OrdersMapView({ orders, apiKey, onOpenDetail, lang, weatherZones
   const resolvedTheme = useThemeStore((s) => s.resolvedTheme);
 
   const { data: orderWeather } = useWeatherForOrders(orderWeatherPoints, showOrderWeather);
+
+  const effectiveMapId = useMemo(() => resolveGoogleMapId(googleMapId), [googleMapId]);
 
   const { shortAddressCount, geocodeableOrders } = useMemo(() => {
     let short = 0;
@@ -198,15 +217,15 @@ export function OrdersMapView({ orders, apiKey, onOpenDetail, lang, weatherZones
         if (cancelled || !el) return;
         apiRef.current = api;
         const dark = useThemeStore.getState().resolvedTheme === "dark";
-        // Kein `mapId`: AdvancedMarkerElement loggt dann eine Hinweis-Warnung,
-        // dafür bleiben aber die inline `styles` (Dark-Mode) wirksam.
         const m = new api.Map(el, {
           center: DEFAULT_CENTER,
           zoom: DEFAULT_ZOOM,
           mapTypeControl: false,
           streetViewControl: false,
           fullscreenControl: true,
-          styles: dark ? GMAPS_DARK_STYLES : [],
+          ...(effectiveMapId
+            ? { mapId: effectiveMapId, ...gmapsMapIdThemeOptions(dark) }
+            : { styles: dark ? GMAPS_DARK_STYLES : [] }),
         });
         mapRef.current = m;
         setLoadState("ready");
@@ -218,15 +237,20 @@ export function OrdersMapView({ orders, apiKey, onOpenDetail, lang, weatherZones
       cancelled = true;
       mapRef.current = null;
     };
-  }, [apiKey]);
+  }, [apiKey, effectiveMapId]);
 
   useEffect(() => {
     const m = mapRef.current;
     if (!m) return;
-    m.setOptions({
-      styles: resolvedTheme === "dark" ? GMAPS_DARK_STYLES : [],
-    });
-  }, [resolvedTheme, loadState]);
+    const dark = resolvedTheme === "dark";
+    if (effectiveMapId) {
+      m.setOptions(gmapsMapIdThemeOptions(dark));
+    } else {
+      m.setOptions({
+        styles: dark ? GMAPS_DARK_STYLES : [],
+      });
+    }
+  }, [resolvedTheme, loadState, effectiveMapId]);
 
   const geocodeUniqueAddresses = useCallback(async (signal: AbortSignal) => {
     const cache = geocodeRef.current;

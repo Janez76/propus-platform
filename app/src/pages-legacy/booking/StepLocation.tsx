@@ -215,6 +215,7 @@ export function StepLocation({ lang }: { lang: Lang }) {
         {config?.googleMapsKey ? (
           <AddressPreviewMap
             apiKey={config.googleMapsKey}
+            googleMapId={config.googleMapId ?? null}
             address={object.address.formatted || address}
             coords={coords}
             onCoordsChange={(c) => {

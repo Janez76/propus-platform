@@ -1,5 +1,30 @@
 /** Shared Google Maps JS API bootstrap (one script tag site-wide; libraries=marker,geocoding). */
 
+/** Backend-Platzhalter / leere Werte — keine gültige Cloud-Map-ID. */
+const INVALID_GOOGLE_MAP_IDS = new Set(["", "DEMO_MAP_ID", "demo_map_id"]);
+
+/**
+ * Liefert eine Map-ID für `google.maps.Map`/`AdvancedMarkerElement`, oder `undefined`.
+ * Ohne gültige ID loggt die Maps-API wiederholt, dass Advanced Markers nicht nutzbar sind.
+ */
+export function resolveGoogleMapId(raw: string | null | undefined): string | undefined {
+  const s = String(raw ?? "").trim();
+  if (!s || INVALID_GOOGLE_MAP_IDS.has(s)) return undefined;
+  return s;
+}
+
+/**
+ * Vector Maps mit `mapId` nutzen `colorScheme` statt `styles[]` für Hell/Dunkel.
+ * @see https://developers.google.com/maps/documentation/javascript/map-color-scheme
+ */
+export function gmapsMapIdThemeOptions(dark: boolean): google.maps.MapOptions {
+  const CS = (typeof google !== "undefined" && google.maps && (google.maps as unknown as { ColorScheme?: { DARK: string; LIGHT: string } }).ColorScheme) as
+    | { DARK: string; LIGHT: string }
+    | undefined;
+  if (!CS) return {};
+  return { colorScheme: dark ? CS.DARK : CS.LIGHT };
+}
+
 export type MapsApi = {
   Map: typeof google.maps.Map;
   AdvancedMarker: typeof google.maps.marker.AdvancedMarkerElement;
