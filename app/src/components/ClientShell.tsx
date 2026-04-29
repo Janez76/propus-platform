@@ -20,6 +20,7 @@ import { AppShell } from "./layout/AppShell";
 import { useAuth } from "../hooks/useAuth";
 import { usePermissions } from "../hooks/usePermissions";
 import { isPublicBookingHost } from "../lib/publicBookingHost";
+import { isPortalHost } from "../lib/portalHost";
 import { RouteGuard } from "./routing/RouteGuard";
 import { RegisterServiceWorker } from "./pwa/RegisterServiceWorker";
 import { deleteOrder } from "../api/orders";
@@ -278,7 +279,22 @@ function PrivateRoutes() {
 }
 
 function PublicBookingIndex() {
+  if (isPortalHost()) return <Navigate to="/account" replace />;
   return isPublicBookingHost() ? <BookingWizardPage /> : <Navigate to="/login" replace />;
+}
+
+/**
+ * Auf der Kunden-Portal-Domain (z. B. portal.propus.ch) darf das Admin-Panel nie
+ * gerendert werden. Alle Pfade, die nicht ausdrücklich zum Portal gehören (`/account/*`,
+ * `/login`, `/accept-invite`, magische Bestätigungs-/Print-/Listing-Links), werden
+ * deterministisch auf `/account` umgeleitet — auch wenn ein altes Admin-Token im
+ * Browser-`localStorage` liegt. Sonst fielen Pfade wie `/dashboard`, `/orders` …
+ * in `PrivateRoutes` und versuchten u. a. Google Maps zu laden, was unter dem
+ * Portal-Hostnamen zwangsläufig mit Referrer-Restriction-Fehler scheitert.
+ */
+function PortalCatchAllOrAdmin() {
+  if (isPortalHost()) return <Navigate to="/account" replace />;
+  return <PrivateRoutes />;
 }
 
 export default function ClientShell() {
@@ -312,7 +328,7 @@ export default function ClientShell() {
               </Suspense>
             }
           />
-          <Route path="*" element={<PrivateRoutes />} />
+          <Route path="*" element={<PortalCatchAllOrAdmin />} />
         </Routes>
       </Suspense>
     </BrowserRouter>
