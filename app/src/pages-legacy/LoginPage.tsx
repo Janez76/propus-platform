@@ -28,6 +28,8 @@ export function LoginPage() {
   const successMessages: Record<string, string> = {
     password_reset: "Passwort gespeichert. Sie können sich jetzt anmelden.",
   };
+  const reasonParam = params.get("reason");
+  const sessionExpired = reasonParam === "expired";
 
   useEffect(() => {
     usernameRef.current?.focus();
@@ -101,6 +103,11 @@ export function LoginPage() {
             {successParam && successMessages[successParam] && (
               <div className="mb-4 rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300">
                 {successMessages[successParam]}
+              </div>
+            )}
+            {sessionExpired && !error && (
+              <div className="mb-4 rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-200">
+                Ihre Sitzung ist abgelaufen. Bitte erneut anmelden.
               </div>
             )}
             {error && <div className="auth-error mb-4">{error}</div>}
