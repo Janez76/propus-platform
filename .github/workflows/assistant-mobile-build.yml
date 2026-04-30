@@ -40,17 +40,22 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: Install dependencies
-        run: npm install
-
-      - name: Verify EAS projectId is configured
+      - name: Check EAS projectId
+        id: eas_check
         run: |
-          if ! node -e "process.exit(require('./app.json').expo?.extra?.eas?.projectId ? 0 : 1)"; then
-            echo "::error::Kein EAS projectId in app.json. Bitte einmalig lokal 'eas init' ausführen und das aktualisierte app.json committen, bevor CI-Builds laufen."
-            exit 1
+          if node -e "process.exit(require('./app.json').expo?.extra?.eas?.projectId ? 0 : 1)"; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Skipping build — kein EAS projectId in app.json. Einmalig 'cd apps/propus-assistant-mobile && eas init' ausführen und das aktualisierte app.json committen."
           fi
 
+      - name: Install dependencies
+        if: steps.eas_check.outputs.ready == 'true'
+        run: npm install
+
       - name: Build APK / AAB on EAS
+        if: steps.eas_check.outputs.ready == 'true'
         run: |
           PROFILE="${{ github.event.inputs.profile || 'preview' }}"
           eas build --non-interactive --platform android --profile "$PROFILE" --no-wait
