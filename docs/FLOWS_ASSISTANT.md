@@ -347,8 +347,8 @@ Haiku (schnell/günstig) → Sonnet (Standard) → Opus (optional, max)
 | ENV-Variable | Default | Beschreibung |
 |-------------|---------|-------------|
 | `ASSISTANT_AUTO_ESCALATION` | `true` | Escalation aktiviert |
-| `ASSISTANT_MAX_MODEL_TIER` | `sonnet` | Maximales Modell (`haiku`/`sonnet`/`opus`) |
-| `ASSISTANT_ENABLE_OPUS_ESCALATION` | `false` | Opus als Ziel erlauben |
+| `ASSISTANT_MAX_MODEL_TIER` | `opus` | Maximales Modell (`haiku`/`sonnet`/`opus`) |
+| `ASSISTANT_ENABLE_OPUS_ESCALATION` | `true` | Opus als Ziel erlauben |
 
 Alternativ über Admin-Settings (DB): `autoEscalation` (boolean) und `maxModelTier` (string).
 
