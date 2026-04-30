@@ -10,6 +10,18 @@ export type MatterportUnlinkPlan = {
   resetIds: number[];
 };
 
+const SUBSCRIPTION_MONTHS = 6;
+
+export function toIsoDate(value: Date): string {
+  return value.toISOString().slice(0, 10);
+}
+
+export function addSubscriptionMonths(baseDate: Date, months = SUBSCRIPTION_MONTHS): Date {
+  const next = new Date(baseDate);
+  next.setMonth(next.getMonth() + months);
+  return next;
+}
+
 export function planMatterportUnlink(targets: MatterportUnlinkTarget[]): MatterportUnlinkPlan {
   return targets.reduce<MatterportUnlinkPlan>(
     (plan, target) => {

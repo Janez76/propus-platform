@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { planMatterportUnlink } from "@/app/(admin)/orders/[id]/verknuepfungen/matterport-linking";
+import { addSubscriptionMonths, planMatterportUnlink, toIsoDate } from "@/app/(admin)/orders/[id]/verknuepfungen/matterport-linking";
 
 describe("planMatterportUnlink", () => {
   it("deletes auto-created Matterport stubs without dependencies", () => {
@@ -14,5 +14,11 @@ describe("planMatterportUnlink", () => {
       unlinkIds: [366, 12],
       resetIds: [366],
     });
+  });
+
+  it("computes the initial six-month term for auto-created Matterport stubs", () => {
+    const createdAt = new Date("2026-04-30T21:00:53.857Z");
+
+    expect(toIsoDate(addSubscriptionMonths(createdAt))).toBe("2026-10-30");
   });
 });

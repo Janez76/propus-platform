@@ -4,7 +4,7 @@ import { query, queryOne } from "@/lib/db";
 import { getAdminSession, isOrderEditorRole } from "@/lib/auth.server";
 import { logOrderEvent } from "@/lib/audit";
 import { parseMatterportInput } from "../_links";
-import { planMatterportUnlink } from "../matterport-linking";
+import { addSubscriptionMonths, planMatterportUnlink, toIsoDate } from "../matterport-linking";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -83,8 +83,9 @@ export async function POST(request: Request, { params }: Props) {
 
     if (!tour) {
       // Keine Tour vorhanden → Stub anlegen (Adresse aus Bestellung befüllen).
-      const order = await queryOne<{ address: string | null; customer_name: string | null; customer_email: string | null }>(
+      const order = await queryOne<{ address: string | null; customer_id: number | null; customer_name: string | null; customer_email: string | null }>(
         `SELECT o.address,
+                c.id AS customer_id,
                 c.name AS customer_name,
                 c.email AS customer_email
          FROM booking.orders o
@@ -92,12 +93,26 @@ export async function POST(request: Request, { params }: Props) {
          WHERE o.order_no = $1`,
         [orderNo],
       );
+      const now = new Date();
+      const initialTermEnd = toIsoDate(addSubscriptionMonths(now));
+      const tourUrl = `https://my.matterport.com/show/?m=${encodeURIComponent(spaceId)}`;
       const newTour = await queryOne<{ id: number }>(
         `INSERT INTO tour_manager.tours
-           (matterport_space_id, booking_order_no, object_label, customer_name, customer_email, status)
-         VALUES ($1, $2, $3, $4, $5, 'ACTIVE')
+           (matterport_space_id, tour_url, booking_order_no, object_label, customer_id, customer_name, customer_email,
+            status, subscription_start_date, term_end_date, ablaufdatum)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'ACTIVE', $8::date, $9::date, $9::date)
          RETURNING id`,
-        [spaceId, orderNo, order?.address ?? null, order?.customer_name ?? null, order?.customer_email ?? null],
+        [
+          spaceId,
+          tourUrl,
+          orderNo,
+          order?.address ?? null,
+          order?.customer_id ?? null,
+          order?.customer_name ?? null,
+          order?.customer_email ?? null,
+          toIsoDate(now),
+          initialTermEnd,
+        ],
       );
       if (!newTour) {
         return redirectBack(request, orderNo, { error: "Tour konnte nicht angelegt werden." });
