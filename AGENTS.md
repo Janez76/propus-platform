@@ -425,6 +425,9 @@ Client Secrets liegen in `.env` (lokal) bzw. `.env.vps` (VPS) — nicht hier.
 
 ## Learned Workspace Facts
 
+- In **PowerShell** kann `&&` **nicht** für Befehlsverkettung genutzt werden; stattdessen `;` oder `if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }` für sequenzielle Ausführung mit Fehlerbehandlung verwenden.
+- Für **mehrzeilige Git-Commit-Messages in PowerShell** die Here-String-Syntax nutzen: `$msg = @'...'@; git commit -m $msg` statt Bash-Heredocs (`<<'EOF'`).
+- `npm test` von **UNC-Pfaden** (`//192.168.1.5/...`) aus schlägt oft fehl — stattdessen von gemappten Laufwerksbuchstaben (z. B. `Y:`) ausführen.
 - Im Platform-Docker-Setup sind **Next.js** typischerweise auf **3001** (Einstieg von außen) und **Express** auf **3100** intern (`PLATFORM_INTERNAL_URL`); Deploy-/Health-Checks zielen auf die JSON-API (`/api/core/health`), nicht nur auf die Next-Oberfläche.
 - Der produktive Admin-Einstieg ist `https://admin-booking.propus.ch`; Order-Detail-Routen liegen unter `/orders/<orderNo>` (nicht primär unter `/admin/orders/...`).
 - Für Next.js-Admin-Order-Flows nach Deploys stabile GET-/POST-Routen bevorzugen; gehashte Server Actions können in offenen Tabs mit `UnrecognizedActionError` brechen.

@@ -3,6 +3,7 @@ import { databaseHandlers, databaseTools } from "./database";
 import { designsHandlers, designsTools } from "./designs";
 import { emailHandlers, emailTools } from "./email";
 import { invoicesHandlers, invoicesTools } from "./invoices";
+import { memoriesHandlers, memoriesTools } from "./memories";
 import { ordersHandlers, ordersTools } from "./orders";
 import { posteingangHandlers, posteingangTools } from "./posteingang";
 import { toursHandlers, toursTools } from "./tours";
@@ -26,11 +27,14 @@ export type ToolContext = {
   role?: string;
   ipAddress?: string;
   userAgent?: string;
+  /** Aktuelle Assistant-Konversation (falls schon angelegt) */
+  conversationId?: string;
 };
 
 export type ToolHandler = (input: Record<string, unknown>, ctx: ToolContext) => Promise<unknown>;
 
 export const allTools: ToolDefinition[] = [
+  ...memoriesTools,
   ...ordersTools,
   ...toursTools,
   ...invoicesTools,
@@ -43,6 +47,7 @@ export const allTools: ToolDefinition[] = [
 ];
 
 export const allHandlers: Record<string, ToolHandler> = {
+  ...memoriesHandlers,
   ...ordersHandlers,
   ...toursHandlers,
   ...invoicesHandlers,

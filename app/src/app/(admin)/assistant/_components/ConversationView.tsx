@@ -162,6 +162,7 @@ export function ConversationView() {
   const [historyFilter, setHistoryFilter] = useState<HistoryFilter>("active");
   const [historyBusyId, setHistoryBusyId] = useState<string | null>(null);
   const [memories, setMemories] = useState<MemoryItem[]>([]);
+  const [memoryToast, setMemoryToast] = useState(false);
   const [showMemories, setShowMemories] = useState(false);
   const [showMobileTokens, setShowMobileTokens] = useState(false);
   const [mobileTokens, setMobileTokens] = useState<MobileToken[]>([]);
@@ -184,12 +185,23 @@ export function ConversationView() {
   const conversationIdRef = useRef<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  /** Aborts stale history GETs so an older in-flight response cannot overwrite after delete/archive. */
+  const historyFetchAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, isLoading, pendingConfirmation]);
 
+  useEffect(() => {
+    if (!memoryToast) return;
+    const t = window.setTimeout(() => setMemoryToast(false), 3200);
+    return () => window.clearTimeout(t);
+  }, [memoryToast]);
+
   const loadHistory = useCallback(async (options?: { q?: string; filter?: HistoryFilter }) => {
+    historyFetchAbortRef.current?.abort();
+    const ac = new AbortController();
+    historyFetchAbortRef.current = ac;
     try {
       const q = options?.q ?? "";
       const filter = options?.filter ?? "active";
@@ -197,10 +209,18 @@ export function ConversationView() {
       if (q.trim()) params.set("q", q.trim());
       if (filter !== "active") params.set("filter", filter);
       const url = params.toString() ? `/api/assistant/history?${params}` : "/api/assistant/history";
-      const res = await fetch(url, { cache: "no-store" });
+      const res = await fetch(url, {
+        cache: "no-store",
+        credentials: "same-origin",
+        signal: ac.signal,
+      });
       const data = (await res.json().catch(() => ({}))) as { conversations?: HistoryItem[] };
       if (res.ok) setHistoryItems(data.conversations || []);
-    } catch { /* non-critical */ }
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      if (err && typeof err === "object" && (err as { name?: string }).name === "AbortError") return;
+      /* non-critical */
+    }
   }, []);
 
   async function loadMemories() {
@@ -317,11 +337,13 @@ export function ConversationView() {
             ),
       });
       if (res.ok) {
+        historyFetchAbortRef.current?.abort();
         setHistoryItems((current) => current.filter((item) => item.id !== id));
         if (action === "trash" && conversationIdRef.current === id) {
           conversationIdRef.current = null;
           setRestoredBanner(false);
         }
+        void loadHistory({ q: historySearch, filter: historyFilter });
       }
     } catch { /* non-critical */ }
     setHistoryBusyId(null);
@@ -468,6 +490,10 @@ export function ConversationView() {
             historyRef.current = [];
             void loadHistory();
             void loadSettings();
+            if (event.memorySaved) {
+              setMemoryToast(true);
+              void loadMemories();
+            }
           } else if (event.type === "error") {
             throw { message: event.error as string, code: "model_error" as ErrorCode };
           }
@@ -520,6 +546,7 @@ export function ConversationView() {
         pendingConfirmation?: PendingConfirmation;
         modelUsed?: string;
         escalated?: boolean;
+        memorySaved?: boolean;
         error?: string;
         code?: ErrorCode;
       };
@@ -548,6 +575,11 @@ export function ConversationView() {
 
       if (data.pendingConfirmation) {
         setPendingConfirmation(data.pendingConfirmation);
+      }
+
+      if (data.memorySaved) {
+        setMemoryToast(true);
+        void loadMemories();
       }
     } catch (err) {
       const errObj = err as { message?: string; code?: ErrorCode };
@@ -582,7 +614,15 @@ export function ConversationView() {
   return (
     <section className="grid h-[calc(100vh-1.5rem)] min-h-0 overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))] shadow-sm lg:h-[calc(100vh-3rem)] lg:grid-cols-[minmax(0,1fr)_320px]">
       <div className="flex min-h-0 flex-col">
-      <header className="flex items-center justify-between border-b border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))] px-5 py-4">
+      <header className="relative flex items-center justify-between border-b border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))] px-5 py-4">
+        {memoryToast ? (
+          <div
+            className="absolute left-1/2 top-full z-10 mt-2 -translate-x-1/2 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-4 py-1.5 text-xs font-medium text-emerald-100 shadow-md"
+            role="status"
+          >
+            Erinnerung gespeichert
+          </div>
+        ) : null}
         <div>
           <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--gold-text,var(--accent))]">Propus</div>
           <h1 className="text-xl font-semibold text-[var(--text-main)]">Assistant</h1>

@@ -1,6 +1,9 @@
 /**
  * Propus Platform – zentraler Entry-Point
  * Mountet Tour Manager unter TOURS_MOUNT_PATH (default /tour-manager) und das Booking-Backend auf /.
+ *
+ * Hinweis ki.propus.ch: öffentlicher Hostname für Assistant/Mobile zeigt auf dieselbe Next.js-Instanz
+ * (Port NEXTJS_PORT, typ. 3001) per Nginx — siehe docs/KI_PROPUS_CH.md. Express bleibt intern (PORT/3100).
  */
 const path = require("path");
 const fs = require("fs");

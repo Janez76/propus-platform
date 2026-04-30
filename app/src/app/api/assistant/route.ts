@@ -13,7 +13,7 @@ import {
   getAssistantUsageToday,
   writeAudit,
 } from "@/lib/assistant/store";
-import { listMemoriesForUser, createMemory } from "@/lib/assistant/memory-store";
+import { createMemory, selectMemoriesForPrompt } from "@/lib/assistant/memory-store";
 import { resolveAssistantUser } from "@/lib/assistant/auth";
 import { getAssistantSettings } from "@/lib/assistant/settings";
 
@@ -59,9 +59,12 @@ export async function POST(req: NextRequest) {
     return errorResponse("Anfragelimit erreicht. Bitte morgen erneut versuchen.", "rate_limited", 429);
   }
 
-  // "Merk dir" shortcut
+  const streamParam = req.nextUrl.searchParams.get("stream");
+  const useStreaming = streamParam === "false" ? false : settings.streamingEnabled;
+
+  // "Merk dir" shortcut (nur Non-Streaming — bei SSE würde JSON den Event-Stream brechen)
   const merkDirMatch = userMessage.match(/^(?:merk\s+dir|merke\s+dir|notiere|speicher[en]?)\s*[:\s]+([\s\S]+)/i);
-  if (merkDirMatch) {
+  if (merkDirMatch && !useStreaming) {
     try {
       const memBody = merkDirMatch[1].trim();
       const conversationId = typeof body.conversationId === "string" ? body.conversationId : undefined;
@@ -71,6 +74,7 @@ export async function POST(req: NextRequest) {
         history,
         toolCallsExecuted: [],
         conversationId: conversationId || null,
+        memorySaved: true,
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Fehler beim Speichern";
@@ -86,10 +90,6 @@ export async function POST(req: NextRequest) {
     if (allHandlers[name]) filteredHandlers[name] = allHandlers[name];
   }
 
-  // Determine if streaming
-  const streamParam = req.nextUrl.searchParams.get("stream");
-  const useStreaming = streamParam === "false" ? false : settings.streamingEnabled;
-
   try {
     const conversationId = await ensureConversation({
       conversationId: typeof body.conversationId === "string" ? body.conversationId : undefined,
@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
     await insertAssistantMessage({ conversationId, role: "user", content: { text: userMessage } });
 
     const [memories, now] = await Promise.all([
-      listMemoriesForUser(user.id, 50).then((rows) => rows.map((r) => r.body)),
+      selectMemoriesForPrompt(user.id, userMessage, 40),
       Promise.resolve(new Date()),
     ]);
     const systemPrompt = buildSystemPrompt({
@@ -119,7 +119,14 @@ export async function POST(req: NextRequest) {
         userMessage,
         tools: filteredTools,
         toolHandlers: filteredHandlers,
-        context: { userId: user.id, userEmail: user.email, role: user.role, ipAddress, userAgent },
+        context: {
+          userId: user.id,
+          userEmail: user.email,
+          role: user.role,
+          ipAddress,
+          userAgent,
+          conversationId,
+        },
         model: settings.model !== "claude-sonnet-4-6" ? settings.model : undefined,
         autoEscalation: settings.autoEscalation,
         maxModelTier: settings.maxModelTier,
@@ -182,7 +189,14 @@ export async function POST(req: NextRequest) {
       userMessage,
       tools: filteredTools,
       toolHandlers: filteredHandlers,
-      context: { userId: user.id, userEmail: user.email, role: user.role, ipAddress, userAgent },
+      context: {
+        userId: user.id,
+        userEmail: user.email,
+        role: user.role,
+        ipAddress,
+        userAgent,
+        conversationId,
+      },
       autoEscalation: settings.autoEscalation,
       maxModelTier: settings.maxModelTier,
     });
@@ -209,6 +223,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const memorySaved = result.toolCallsExecuted.some(
+      (c) =>
+        c.name === "save_memory" &&
+        !c.error &&
+        c.output &&
+        typeof c.output === "object" &&
+        (c.output as Record<string, unknown>).ok === true,
+    );
+
     const responsePayload: Record<string, unknown> = {
       finalText: result.finalText,
       history: result.history,
@@ -216,6 +239,7 @@ export async function POST(req: NextRequest) {
       conversationId,
       modelUsed: result.modelUsed,
       escalated: result.escalated,
+      memorySaved,
     };
 
     if (result.pendingConfirmation) {

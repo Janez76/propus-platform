@@ -1,24 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminSession, type AdminSession } from "@/lib/auth.server";
+import { resolveAssistantUser } from "@/lib/assistant/auth";
 import { softDeleteMemory } from "@/lib/assistant/memory-store";
 
 export const runtime = "nodejs";
 
-const INTERNAL_ROLES = new Set(["admin", "super_admin", "employee"]);
-
-function sessionUser(session: AdminSession) {
-  const userId = String(session.userKey || session.userName || session.role || "admin").trim();
-  return { id: userId || "admin" };
-}
-
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getAdminSession();
-  if (!session) return NextResponse.json({ error: "Nicht authentifiziert" }, { status: 401 });
-  if (!INTERNAL_ROLES.has(String(session.role || "").toLowerCase())) {
-    return NextResponse.json({ error: "Keine Berechtigung" }, { status: 403 });
-  }
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const user = await resolveAssistantUser(req);
+  if (!user) return NextResponse.json({ error: "Nicht authentifiziert" }, { status: 401 });
 
   const { id } = await params;
-  await softDeleteMemory(sessionUser(session).id, id);
+  const deleted = await softDeleteMemory(user.id, id);
+  if (!deleted) return NextResponse.json({ error: "Erinnerung nicht gefunden" }, { status: 404 });
   return NextResponse.json({ ok: true });
 }

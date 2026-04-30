@@ -1,48 +1,41 @@
-# Propus Assistant Mobile
+# Propus Assistant (Mobile)
 
-Expo-App für den Propus Assistant mit Voice-first UI.
+Expo-App für Sprach-/Text-Zugriff auf den Propus Assistant (`/api/assistant`).
 
-## API
+## API-Basis-URL (Single Source of Truth)
 
-Die App spricht gegen:
+Die Base-URL kommt aus **`app.config.ts`** → `extra.apiBaseUrl`:
 
-```text
-https://ki.propus.ch
-```
+1. **`EXPO_PUBLIC_API_BASE_URL`** (Build-Zeit), falls gesetzt — z. B. in `eas.json` unter `build.*.env` oder lokal via `dotenv-cli`.
+2. Sonst Fallback aus **`app.json`** → `expo.extra.apiBaseUrl` (Standard: `https://ki.propus.ch`).
+3. Der Client liest zur Laufzeit: `expo-constants` → `Constants.expoConfig?.extra?.apiBaseUrl` (siehe `lib/api.ts`).
 
-Die Domain muss auf dem VPS auf die Assistant-API weiterleiten.
+Lokale Overrides **nicht** committen: `.env.expo.local` ist gitignored.
 
-## Lokal testen mit Expo Go
+## EAS Build (Android APK / Preview)
+
+Preview-Profil in `eas.json` setzt `EXPO_PUBLIC_API_BASE_URL` auf `https://ki.propus.ch`. Bei lokaler `.env.expo.local`:
 
 ```bash
 cd apps/propus-assistant-mobile
 npm install
-npx expo start
+npx dotenv-cli -e .env.expo.local -- eas build --platform android --profile preview
 ```
 
-Dann QR-Code mit Expo Go scannen.
-
-## Android APK bauen
-
-Einmalig anmelden:
+oder npm-Script:
 
 ```bash
-npx eas login
+npm run eas:android:preview:env
 ```
 
-Preview-APK bauen:
+Ohne lokale Env-Datei reicht:
 
 ```bash
-cd apps/propus-assistant-mobile
-npx eas build --platform android --profile preview
+eas build --platform android --profile preview
 ```
 
-EAS gibt am Ende einen Download-Link aus. Die APK kann direkt auf Android installiert werden
-(„unbekannte Quellen“ erlauben).
+**Hinweis:** `eas build` benötigt Expo-Account und ggf. Credentials; ohne Zugriff nur die Befehle dokumentiert ausführen.
 
-## Token
+## Auth
 
-1. In der Admin-App `/assistant` öffnen.
-2. Abschnitt „Mobile-Zugang“ öffnen.
-3. Neuen Token erstellen und einmalig kopieren.
-4. In der Mobile-App beim Login einfügen.
+Bearer-Token aus dem Assistant unter „Mobile-Zugang“ erstellen; die App speichert ihn in `expo-secure-store`.

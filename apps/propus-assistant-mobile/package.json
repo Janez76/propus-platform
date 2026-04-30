@@ -8,7 +8,9 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "build:ios": "eas build --platform ios",
-    "build:android": "eas build --platform android"
+    "build:android": "eas build --platform android",
+    "eas:android:preview": "eas build --platform android --profile preview",
+    "eas:android:preview:env": "dotenv-cli -e .env.expo.local -- eas build --platform android --profile preview"
   },
   "dependencies": {
     "expo": "~52.0.0",
@@ -25,6 +27,7 @@
   },
   "devDependencies": {
     "@types/react": "~18.3.12",
+    "dotenv-cli": "^8.0.0",
     "typescript": "~5.3.3"
   },
   "private": true

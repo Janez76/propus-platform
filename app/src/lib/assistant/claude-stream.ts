@@ -227,6 +227,15 @@ export function runAssistantTurnStreaming(input: StreamingTurnInput): {
         escalated,
       };
 
+      const memorySaved = toolCallsExecuted.some(
+        (c) =>
+          c.name === "save_memory" &&
+          !c.error &&
+          c.output &&
+          typeof c.output === "object" &&
+          (c.output as Record<string, unknown>).ok === true,
+      );
+
       enqueue({
         type: "done",
         toolCallsExecuted: toolCallsExecuted.map((c) => ({
@@ -238,6 +247,7 @@ export function runAssistantTurnStreaming(input: StreamingTurnInput): {
         outputTokens: totalOutputTokens,
         modelUsed: model,
         escalated,
+        memorySaved,
       });
 
       controllerRef?.close();

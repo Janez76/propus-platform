@@ -17,5 +17,8 @@ export async function GET(req: NextRequest) {
     q: url.searchParams.get("q") || "",
     filter,
   });
-  return NextResponse.json({ ok: true, conversations: rows });
+  return NextResponse.json(
+    { ok: true, conversations: rows },
+    { headers: { "Cache-Control": "private, no-store, max-age=0" } },
+  );
 }

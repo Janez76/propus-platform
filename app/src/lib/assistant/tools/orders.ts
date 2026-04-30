@@ -33,6 +33,11 @@ function stringValue(value: unknown): string | null {
   return s || null;
 }
 
+function optionalPositiveInt(value: unknown): number | null {
+  const n = Number(value);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
 function firstString(source: Record<string, unknown> | null | undefined, keys: string[]): string | null {
   if (!source) return null;
   for (const key of keys) {
@@ -142,6 +147,34 @@ export const ordersTools: ToolDefinition[] = [
     description:
       "Listet alle verfügbaren Dienstleistungen (Pakete + Addons) aus dem Buchungssystem. Nutze dieses Tool um dem Benutzer die verfügbaren Services bei der Auftragsanlage zu zeigen.",
     input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "validate_booking_order",
+    description:
+      "Prüft eine noch unvollständige Auftragsanlage und listet fehlende Pflichtschritte bzw. Validierungsfehler (ohne DB-Schreibung). Nutze dieses Tool im Auftrags-Wizard nach Teilangaben oder vor create_order.",
+    input_schema: {
+      type: "object",
+      properties: {
+        customer_id: { type: "number", description: "Kunden-ID aus search_customers" },
+        address: { type: "string", description: "Objektadresse" },
+        services: {
+          type: "object",
+          description: "Gewählte Dienstleistungen als Boolean-Flags",
+          properties: {
+            photography: { type: "boolean" },
+            drone: { type: "boolean" },
+            matterport: { type: "boolean" },
+            floorplan: { type: "boolean" },
+            video: { type: "boolean" },
+            staging: { type: "boolean" },
+          },
+        },
+        schedule_date: { type: "string", description: "Wunschtermin Datum ISO" },
+        schedule_time: { type: "string", description: "Uhrzeit HH:mm" },
+        photographer_key: { type: "string", description: "Fotografen-Schlüssel (optional)" },
+        notes: { type: "string", description: "Notizen (optional)" },
+      },
+    },
   },
 ];
 
@@ -323,6 +356,68 @@ export function createOrdersHandlers(deps: OrdersDeps): Record<string, ToolHandl
           categoryKey: r.category_key,
           description: r.description || null,
         })),
+      };
+    },
+
+    validate_booking_order: async (input: Record<string, unknown>) => {
+      const missing: string[] = [];
+      const errors: string[] = [];
+
+      const customerId = optionalPositiveInt(input.customer_id);
+      if (!customerId) missing.push("Kunde wählen (search_customers → customer_id)");
+
+      const address = stringValue(input.address);
+      if (!address) missing.push("Objektadresse");
+
+      const services = (input.services && typeof input.services === "object") ? (input.services as Record<string, unknown>) : {};
+      const VALID_SERVICE_KEYS = new Set(["photography", "drone", "matterport", "floorplan", "video", "staging"]);
+      let selectedCount = 0;
+      for (const [key, value] of Object.entries(services)) {
+        if (!VALID_SERVICE_KEYS.has(key)) continue;
+        if (value === true) selectedCount += 1;
+      }
+      if (selectedCount === 0) missing.push("Mindestens eine Dienstleistung (list_available_services)");
+
+      if (customerId) {
+        const custRows = await runQuery<{ id: number }>(
+          `SELECT id FROM core.customers WHERE id = $1 LIMIT 1`,
+          [customerId],
+        );
+        if (custRows.length === 0) errors.push(`Kunde ${customerId} existiert nicht`);
+      }
+
+      const photographerKey = stringValue(input.photographer_key);
+      if (photographerKey) {
+        const photoRows = await runQuery<{ key: string }>(
+          `SELECT key FROM booking.photographers WHERE key = $1 AND active = TRUE LIMIT 1`,
+          [photographerKey],
+        );
+        if (photoRows.length === 0) errors.push(`Fotograf "${photographerKey}" nicht gefunden oder inaktiv`);
+      }
+
+      const scheduleDate = stringValue(input.schedule_date);
+      const scheduleTime = stringValue(input.schedule_time);
+      if (scheduleTime && !scheduleDate) {
+        errors.push("Bei Uhrzeit auch ein Datum angeben");
+      }
+
+      const ready = missing.length === 0 && errors.length === 0;
+
+      return {
+        ready,
+        missingSteps: missing,
+        validationErrors: errors,
+        collected: {
+          customerId: customerId || null,
+          address: address || null,
+          servicesSelected: selectedCount,
+          schedule: scheduleDate ? { date: scheduleDate, time: scheduleTime || null } : null,
+          photographerKey: photographerKey || null,
+          hasNotes: Boolean(stringValue(input.notes)),
+        },
+        nextHint: ready
+          ? "Alle Pflichtfelder vorhanden — Zusammenfassung zeigen und create_order vorschlagen."
+          : "Fehlende Schritte mit dem Benutzer klären; bei Unklarheiten list_available_services oder list_photographers nutzen.",
       };
     },
   };

@@ -6,6 +6,7 @@ node_modules/
 .env.staging.secrets
 .env.local
 .env.*.local
+.env.secrets
 /backups/
 .backups/
 core/dumps/
