@@ -8,6 +8,7 @@
  *   POST /sync-matterport-state   — matterport_state aller Touren aktualisieren
  *   POST /process-pending-deletions — fällige Löschvormerkungen ausführen
  *   POST /sync-posteingang        — Posteingang (Graph Delta)
+ *   POST /mark-overdue-invoices   — sent-Rechnungen mit abgelaufenem due_at auf overdue setzen
  */
 
 'use strict';
@@ -119,6 +120,22 @@ router.post('/posteingang-triggers', requireCron, async (req, res) => {
   } catch (err) {
     const elapsed = Date.now() - start;
     console.error('[cron] posteingang-triggers Exception:', err.message);
+    return res.status(500).json({ ok: false, error: err.message, elapsed });
+  }
+});
+
+// POST /api/tours/cron/mark-overdue-invoices
+// Setzt alle sent-Rechnungen mit abgelaufenem due_at auf invoice_status='overdue'
+router.post('/mark-overdue-invoices', requireCron, async (req, res) => {
+  const start = Date.now();
+  try {
+    const result = await phase3.markOverdueInvoices();
+    const elapsed = Date.now() - start;
+    console.log(`[cron] mark-overdue-invoices OK — updated=${result.updated} (${elapsed}ms)`);
+    return res.json({ ok: true, ...result, elapsed });
+  } catch (err) {
+    const elapsed = Date.now() - start;
+    console.error('[cron] mark-overdue-invoices Exception:', err.message);
     return res.status(500).json({ ok: false, error: err.message, elapsed });
   }
 });

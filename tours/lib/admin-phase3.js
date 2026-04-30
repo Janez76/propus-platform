@@ -49,7 +49,7 @@ async function getRenewalInvoicesJson(status) {
   } else if (status === 'bezahlt') {
     q += ` AND i.invoice_status = 'paid'`;
   } else if (status === 'ueberfaellig') {
-    q += ` AND i.invoice_status = 'overdue'`;
+    q += ` AND (i.invoice_status = 'overdue' OR (i.invoice_status = 'sent' AND i.due_at IS NOT NULL AND i.due_at < NOW()))`;
   } else if (status === 'entwurf') {
     q += ` AND i.invoice_status = 'draft'`;
   }
@@ -58,6 +58,10 @@ async function getRenewalInvoicesJson(status) {
   const stats = await pool.query(`
     SELECT invoice_status, COUNT(*)::int as cnt FROM tour_manager.renewal_invoices GROUP BY invoice_status
   `);
+  const overdueExactLegacy = await pool.query(`
+    SELECT COUNT(*)::int AS cnt FROM tour_manager.renewal_invoices
+    WHERE invoice_status = 'overdue' OR (invoice_status = 'sent' AND due_at IS NOT NULL AND due_at < NOW())
+  `);
   const statusCounts = Object.fromEntries(stats.rows.map((r) => [r.invoice_status, r.cnt]));
   return {
     ok: true,
@@ -65,7 +69,7 @@ async function getRenewalInvoicesJson(status) {
     filters: { status: status || null, source: 'renewal' },
     stats: {
       offen: (statusCounts.sent || 0) + (statusCounts.overdue || 0),
-      ueberfaellig: statusCounts.overdue || 0,
+      ueberfaellig: overdueExactLegacy.rows[0]?.cnt || 0,
       bezahlt: statusCounts.paid || 0,
       entwurf: statusCounts.draft || 0,
       archiviert: statusCounts.archived || 0,
@@ -1612,7 +1616,7 @@ async function getRenewalInvoicesCentral(status, search) {
   } else if (status === 'bezahlt') {
     q += ` AND i.invoice_status = 'paid'`;
   } else if (status === 'ueberfaellig') {
-    q += ` AND i.invoice_status = 'overdue'`;
+    q += ` AND (i.invoice_status = 'overdue' OR (i.invoice_status = 'sent' AND i.due_at IS NOT NULL AND i.due_at < NOW()))`;
   } else if (status === 'entwurf') {
     q += ` AND i.invoice_status = 'draft'`;
   }
@@ -1625,16 +1629,26 @@ async function getRenewalInvoicesCentral(status, search) {
   }
   q += ` ORDER BY COALESCE(i.paid_at, i.sent_at, i.created_at) DESC NULLS LAST, i.created_at DESC`;
   const invoices = await pool.query(q, params);
-  const stats = await pool.query(`
-    SELECT invoice_status, COUNT(*)::int as cnt FROM tour_manager.renewal_invoices GROUP BY invoice_status
+  const overdueStats = await pool.query(`
+    SELECT
+      invoice_status,
+      COUNT(*)::int AS cnt
+    FROM tour_manager.renewal_invoices
+    GROUP BY invoice_status
   `);
-  const statusCounts = Object.fromEntries(stats.rows.map((r) => [r.invoice_status, r.cnt]));
+  const overdueExact = await pool.query(`
+    SELECT COUNT(*)::int AS cnt
+    FROM tour_manager.renewal_invoices
+    WHERE invoice_status = 'overdue'
+       OR (invoice_status = 'sent' AND due_at IS NOT NULL AND due_at < NOW())
+  `);
+  const statusCounts = Object.fromEntries(overdueStats.rows.map((r) => [r.invoice_status, r.cnt]));
   return {
     ok: true,
     invoices: invoices.rows,
     stats: {
       offen: (statusCounts.sent || 0) + (statusCounts.overdue || 0),
-      ueberfaellig: statusCounts.overdue || 0,
+      ueberfaellig: overdueExact.rows[0]?.cnt || 0,
       bezahlt: statusCounts.paid || 0,
       entwurf: statusCounts.draft || 0,
       archiviert: statusCounts.archived || 0,
@@ -2647,6 +2661,18 @@ async function executeRenewalRun(tourIds, actorEmail) {
   };
 }
 
+async function markOverdueInvoices() {
+  const r = await pool.query(`
+    UPDATE tour_manager.renewal_invoices
+    SET invoice_status = 'overdue', updated_at = NOW()
+    WHERE invoice_status = 'sent'
+      AND due_at IS NOT NULL
+      AND due_at < NOW()
+    RETURNING id
+  `);
+  return { ok: true, updated: r.rowCount };
+}
+
 module.exports = {
   getRenewalInvoicesJson,
   getRenewalInvoicesCentral,
@@ -2687,4 +2713,5 @@ module.exports = {
   getLinkMatterportCustomerDetailJson,
   searchByOrderNo,
   getInvoicesByOrderNo,
+  markOverdueInvoices,
 };
