@@ -16,9 +16,25 @@ import type { NextRequest } from "next/server";
 import { createHash } from "crypto";
 import { query, queryOne } from "@/lib/db";
 import { getAdminSession, type AdminSession } from "@/lib/auth.server";
-import { isPortalOnlyRole } from "@/lib/postLoginRedirect";
 
 const API_KEY_PREFIX = "ppk_live_";
+
+/**
+ * Strikte Allow-List der Rollen, die Assistant-Tools nutzen duerfen.
+ * Spiegelt `requireAdmin` in booking/server.js (`SUPER_ADMIN_ROLES`-Set plus
+ * "tour_manager" via `internalPanel`-Check).
+ *
+ * Ausgeschlossen sind explizit:
+ *   - photographer (kein voller Schreibzugriff auf Mails / HA / MailerLite)
+ *   - customer_admin / customer_user (Portal-Kunden)
+ *   - alles unbekannte / nicht gepflegte
+ */
+const ASSISTANT_ALLOWED_ROLES = new Set([
+  "super_admin",
+  "admin",
+  "employee",
+  "tour_manager",
+]);
 
 function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
@@ -88,8 +104,13 @@ async function lookupApiKeyToken(token: string): Promise<AdminSession | null> {
 
 /**
  * Liefert eine gültige Session für den Assistant oder `null`.
- * Lehnt portal-only-Rollen ohne Impersonation ab — diese gehören nicht aufs Admin-Panel,
- * und die Assistant-Tools sind admin-Niveau (Mails versenden, HA-Services aufrufen, etc.).
+ * Strenge Rollen-Allow-List (siehe `ASSISTANT_ALLOWED_ROLES`) — spiegelt das
+ * Verhalten von `requireAdmin` in booking/server.js. Photographer + Portal-
+ * Kunden bekommen 401, weil die Tools (Mails, HA-Services, MailerLite) ueber
+ * deren normalen Berechtigungsumfang hinausgehen.
+ *
+ * Impersonation: ein Intern-Admin im Kunden-Impersonation-Modus behaelt seine
+ * eigene Allowlist-Pruefung (role ist dann der Admin-Role, nicht customer_*).
  */
 export async function getAssistantSession(req: NextRequest): Promise<AdminSession | null> {
   let session = await getAdminSession();
@@ -108,7 +129,8 @@ export async function getAssistantSession(req: NextRequest): Promise<AdminSessio
   }
 
   if (!session) return null;
-  if (isPortalOnlyRole(session.role) && !session.isImpersonating) return null;
+  const role = String(session.role || "").toLowerCase();
+  if (!ASSISTANT_ALLOWED_ROLES.has(role)) return null;
 
   return session;
 }
