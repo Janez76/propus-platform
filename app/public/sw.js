@@ -1,8 +1,12 @@
 // Propus Mobile SW – minimaler Service Worker fuer PWA-Install + leichten Cache.
 // Scope: '/' (Datei liegt im public-Root). Admin-/Next-Seiten duerfen nicht
 // cache-first laufen, sonst bleiben neue Deploys bis Ctrl+Shift+R unsichtbar.
-const CACHE = "propus-shell-v2";
-const SHELL = ["/mobile", "/manifest.webmanifest", "/assets/brand/favicon.svg", "/assets/brand/logopropus.png"];
+const CACHE = "propus-shell-v3";
+const SHELL = [
+  "/mobile", "/manifest.webmanifest",
+  "/assistant", "/manifest-ki.webmanifest",
+  "/assets/brand/favicon.svg", "/assets/brand/logopropus.png",
+];
 const SHELL_SET = new Set(SHELL);
 
 self.addEventListener("install", (event) => {

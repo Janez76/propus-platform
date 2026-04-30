@@ -22,17 +22,31 @@
       "adaptiveIcon": {
         "backgroundColor": "#0c0d10"
       },
-      "permissions": ["RECORD_AUDIO", "INTERNET"]
+      "permissions": [
+        "RECORD_AUDIO",
+        "INTERNET"
+      ]
     },
     "web": {
       "bundler": "metro"
     },
-    "plugins": ["expo-router", "expo-av", "expo-secure-store"],
+    "plugins": [
+      "expo-router",
+      "expo-av",
+      "expo-secure-store"
+    ],
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
-      "apiBaseUrl": "https://ki.propus.ch"
-    }
+      "apiBaseUrl": "https://ki.propus.ch",
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "adb6eb1b-aca9-4e72-b407-b97962d1e7f0"
+      }
+    },
+    "owner": "janez1976"
   }
 }
