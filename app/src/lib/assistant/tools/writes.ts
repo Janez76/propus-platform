@@ -1,0 +1,258 @@
+import { query as defaultQuery, queryOne as defaultQueryOne } from "@/lib/db";
+import { getAllowedTransitions, normalizeStatusKey } from "@/lib/status";
+import type { ToolContext, ToolDefinition, ToolHandler } from "./index";
+
+type QueryFn = <T = Record<string, unknown>>(sql: string, params?: unknown[]) => Promise<T[]>;
+type QueryOneFn = <T = Record<string, unknown>>(sql: string, params?: unknown[]) => Promise<T | null>;
+
+type WriteDeps = {
+  query: QueryFn;
+  queryOne: QueryOneFn;
+};
+
+function requireString(value: unknown, label: string): string {
+  const s = typeof value === "string" ? value.trim() : "";
+  if (!s) throw new Error(`${label} ist erforderlich`);
+  return s;
+}
+
+function optionalString(value: unknown): string | null {
+  const s = typeof value === "string" ? value.trim() : "";
+  return s || null;
+}
+
+function optionalPositiveInt(value: unknown): number | null {
+  const n = Number(value);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+export const writeTools: ToolDefinition[] = [
+  {
+    name: "create_posteingang_task",
+    description: "Erstellt eine neue Aufgabe im Posteingang-System.",
+    kind: "write",
+    requiresConfirmation: true,
+    input_schema: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "Titel der Aufgabe" },
+        description: { type: "string", description: "Optionale Beschreibung" },
+        priority: { type: "string", description: "normal | high | low (Default: normal)" },
+        due_at: { type: "string", description: "Fälligkeitsdatum (ISO 8601, optional)" },
+        conversation_id: { type: "number", description: "Verknüpfte Konversations-ID (optional)" },
+        customer_id: { type: "number", description: "Verknüpfte Kunden-ID (optional)" },
+      },
+      required: ["title"],
+    },
+  },
+  {
+    name: "create_ticket",
+    description: "Erstellt ein neues Ticket im Ticket-System.",
+    kind: "write",
+    requiresConfirmation: true,
+    input_schema: {
+      type: "object",
+      properties: {
+        module: { type: "string", description: "tours | booking" },
+        subject: { type: "string", description: "Betreff des Tickets" },
+        description: { type: "string", description: "Optionale Beschreibung" },
+        category: { type: "string", description: "startpunkt | name_aendern | blur_request | sweep_verschieben | sonstiges" },
+        priority: { type: "string", description: "normal | high | low (Default: normal)" },
+        reference_id: { type: "string", description: "Referenz-ID (Tour-ID oder Auftrags-Nr.)" },
+        reference_type: { type: "string", description: "tour | order" },
+      },
+      required: ["module", "subject"],
+    },
+  },
+  {
+    name: "create_posteingang_note",
+    description: "Erstellt eine interne Notiz in einer Posteingang-Konversation.",
+    kind: "write",
+    requiresConfirmation: true,
+    input_schema: {
+      type: "object",
+      properties: {
+        conversation_id: { type: "number", description: "Konversations-ID" },
+        body_text: { type: "string", description: "Notiztext" },
+      },
+      required: ["conversation_id", "body_text"],
+    },
+  },
+  {
+    name: "draft_email",
+    description: "Bereitet einen E-Mail-Entwurf vor (wird NICHT gesendet). Der Admin kann ihn dann manuell über Posteingang oder Outlook versenden.",
+    kind: "write",
+    requiresConfirmation: true,
+    input_schema: {
+      type: "object",
+      properties: {
+        to: { type: "string", description: "Empfänger-E-Mail" },
+        subject: { type: "string", description: "Betreff" },
+        body_html: { type: "string", description: "E-Mail-Inhalt (HTML)" },
+      },
+      required: ["to", "subject", "body_html"],
+    },
+  },
+  {
+    name: "update_order_status",
+    description: "Ändert den Status eines Buchungsauftrags. Nur erlaubte Übergänge werden akzeptiert.",
+    kind: "write",
+    requiresConfirmation: true,
+    input_schema: {
+      type: "object",
+      properties: {
+        order_no: { type: "number", description: "Auftragsnummer" },
+        new_status: { type: "string", description: "Neuer Status (pending, provisional, confirmed, paused, completed, done, cancelled, archived)" },
+        note: { type: "string", description: "Optionale Notiz zur Statusänderung" },
+      },
+      required: ["order_no", "new_status"],
+    },
+  },
+];
+
+const VALID_PRIORITIES = new Set(["normal", "high", "low"]);
+const VALID_MODULES = new Set(["tours", "booking"]);
+const VALID_CATEGORIES = new Set(["startpunkt", "name_aendern", "blur_request", "sweep_verschieben", "sonstiges"]);
+const VALID_REF_TYPES = new Set(["tour", "order"]);
+
+export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler> {
+  const runQuery = deps.query;
+  const runQueryOne = deps.queryOne;
+
+  return {
+    create_posteingang_task: async (input: Record<string, unknown>, ctx: ToolContext) => {
+      const title = requireString(input.title, "title");
+      const description = optionalString(input.description);
+      const priority = optionalString(input.priority);
+      if (priority && !VALID_PRIORITIES.has(priority)) {
+        return { error: `Ungültige Priorität: ${priority}. Erlaubt: normal, high, low` };
+      }
+      const dueAt = optionalString(input.due_at);
+      const conversationId = optionalPositiveInt(input.conversation_id);
+      const customerId = optionalPositiveInt(input.customer_id);
+
+      const row = await runQueryOne<{ id: number }>(
+        `INSERT INTO tour_manager.posteingang_tasks (title, description, status, priority, due_at, conversation_id, customer_id)
+         VALUES ($1, $2, 'open', $3, $4::timestamptz, $5, $6)
+         RETURNING id`,
+        [title, description, priority || "normal", dueAt, conversationId, customerId],
+      );
+
+      return { ok: true, taskId: row?.id, message: `Aufgabe "${title}" erstellt.` };
+    },
+
+    create_ticket: async (input: Record<string, unknown>, ctx: ToolContext) => {
+      const module = requireString(input.module, "module").toLowerCase();
+      if (!VALID_MODULES.has(module)) {
+        return { error: `Ungültiges Modul: ${module}. Erlaubt: tours, booking` };
+      }
+      const subject = requireString(input.subject, "subject");
+      const description = optionalString(input.description);
+      const category = optionalString(input.category);
+      if (category && !VALID_CATEGORIES.has(category)) {
+        return { error: `Ungültige Kategorie: ${category}. Erlaubt: startpunkt, name_aendern, blur_request, sweep_verschieben, sonstiges` };
+      }
+      const priority = optionalString(input.priority);
+      if (priority && !VALID_PRIORITIES.has(priority)) {
+        return { error: `Ungültige Priorität: ${priority}. Erlaubt: normal, high, low` };
+      }
+      const referenceId = optionalString(input.reference_id);
+      const referenceType = optionalString(input.reference_type);
+      if (referenceType && !VALID_REF_TYPES.has(referenceType)) {
+        return { error: `Ungültiger reference_type: ${referenceType}. Erlaubt: tour, order` };
+      }
+
+      const row = await runQueryOne<{ id: number }>(
+        `INSERT INTO tour_manager.tickets (module, subject, description, category, priority, reference_id, reference_type, status, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'open', $8)
+         RETURNING id`,
+        [module, subject, description, category || "sonstiges", priority || "normal", referenceId, referenceType, ctx.userEmail],
+      );
+
+      return { ok: true, ticketId: row?.id, message: `Ticket "${subject}" erstellt.` };
+    },
+
+    create_posteingang_note: async (input: Record<string, unknown>, ctx: ToolContext) => {
+      const conversationId = optionalPositiveInt(input.conversation_id);
+      if (!conversationId) return { error: "conversation_id ist erforderlich" };
+      const bodyText = requireString(input.body_text, "body_text");
+
+      const conv = await runQueryOne<{ id: number }>(
+        `SELECT id FROM tour_manager.posteingang_conversations WHERE id = $1`,
+        [conversationId],
+      );
+      if (!conv) return { error: `Konversation ${conversationId} nicht gefunden` };
+
+      const row = await runQueryOne<{ id: number }>(
+        `INSERT INTO tour_manager.posteingang_messages (conversation_id, direction, from_name, from_email, body_text, sent_at)
+         VALUES ($1, 'internal_note', $2, $3, $4, NOW())
+         RETURNING id`,
+        [conversationId, ctx.userEmail.split("@")[0], ctx.userEmail, bodyText],
+      );
+
+      await runQuery(
+        `UPDATE tour_manager.posteingang_conversations SET updated_at = NOW() WHERE id = $1`,
+        [conversationId],
+      );
+
+      return { ok: true, messageId: row?.id, message: "Interne Notiz erstellt." };
+    },
+
+    draft_email: async (input: Record<string, unknown>, ctx: ToolContext) => {
+      const to = requireString(input.to, "to");
+      const subject = requireString(input.subject, "subject");
+      const bodyHtml = requireString(input.body_html, "body_html");
+
+      return {
+        ok: true,
+        draft: { to, subject, bodyHtml },
+        message: `E-Mail-Entwurf an ${to} vorbereitet. Bitte manuell über Posteingang oder Outlook versenden.`,
+      };
+    },
+
+    update_order_status: async (input: Record<string, unknown>, ctx: ToolContext) => {
+      const orderNo = optionalPositiveInt(input.order_no);
+      if (!orderNo) return { error: "order_no ist erforderlich" };
+
+      const newStatus = requireString(input.new_status, "new_status").toLowerCase();
+      const normalizedNew = normalizeStatusKey(newStatus);
+      if (!normalizedNew) return { error: `Ungültiger Status: ${newStatus}` };
+
+      const note = optionalString(input.note);
+
+      const order = await runQueryOne<{ status: string }>(
+        `SELECT status FROM booking.orders WHERE order_no = $1`,
+        [orderNo],
+      );
+      if (!order) return { error: `Auftrag ${orderNo} nicht gefunden` };
+
+      const allowed = getAllowedTransitions(order.status);
+      if (!allowed.includes(normalizedNew)) {
+        return {
+          error: `Statusübergang von "${order.status}" nach "${normalizedNew}" ist nicht erlaubt. Erlaubt: ${allowed.join(", ") || "keine"}`,
+        };
+      }
+
+      await runQuery(
+        `UPDATE booking.orders SET status = $1 WHERE order_no = $2`,
+        [normalizedNew, orderNo],
+      );
+
+      await runQuery(
+        `INSERT INTO booking.order_status_audit (order_no, from_status, to_status, source, actor_id, calendar_result, error_message)
+         VALUES ($1, $2, $3, 'api', $4, 'not_required', $5)`,
+        [orderNo, order.status, normalizedNew, ctx.userEmail, note],
+      );
+
+      return {
+        ok: true,
+        orderNo,
+        oldStatus: order.status,
+        newStatus: normalizedNew,
+        message: `Auftrag ${orderNo}: Status von "${order.status}" auf "${normalizedNew}" geändert.`,
+      };
+    },
+  };
+}
+
+export const writeHandlers = createWriteHandlers({ query: defaultQuery, queryOne: defaultQueryOne });
