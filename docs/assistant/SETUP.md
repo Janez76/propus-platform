@@ -113,13 +113,14 @@ export default async function AdminGroupLayout({ children }: { children: ReactNo
 
 ## Auth-Integration
 
-Beide API-Routen nutzen `getAdminSession()` aus `@/lib/auth.server`. Mit jedem gültigen `admin_session`-Cookie (d.h. wer schon im Admin-Panel eingeloggt ist) hat Zugriff. Web-UI braucht nichts extra.
+Beide API-Routen nutzen `getAssistantSession(req)` aus `@/lib/assistant/auth`. Akzeptiert wird:
 
-Mobile-App: Schickt aktuell `Authorization: Bearer <token>`, der Server liest aktuell aber nur den Cookie. Du musst entweder
-- die Mobile-App so anpassen, dass sie das Session-Cookie setzt, oder
-- einen Cookie-/Bearer-Brückenpunkt für Mobile bauen.
+- **Cookie** `admin_session` (wie der Rest des Admin-Panels — Web-UI braucht nichts extra), ODER
+- **Header** `Authorization: Bearer <token>` (für Mobile)
 
-Siehe `docs/assistant/DEPLOYMENT.md` Abschnitt „Auth-Brücke Mobile ↔ Web".
+Beide Wege schauen den Token-Hash in `booking.admin_sessions` nach. Portal-only-Rollen (Kunden) werden abgelehnt — der Assistant ist admin-Niveau.
+
+Mobile: Im Login-Screen kannst du momentan einen `admin_session`-Token aus dem Browser-Cookie ins Token-Feld pasten. Phase 4 wäre ein eigener Mobile-Login-Endpoint, der Email/Passwort entgegennimmt und einen langlebigen Token zurückgibt.
 
 ## Was wir bereits gefixt haben
 

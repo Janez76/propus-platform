@@ -9,7 +9,8 @@
  * Antwort:
  *   - finalText, history, toolCallsExecuted
  *
- * Auth: admin_session-Cookie (siehe lib/auth.server.ts).
+ * Auth: admin_session-Cookie ODER Bearer-Token (siehe lib/assistant/auth.ts).
+ *       Portal-only-Rollen werden abgelehnt.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -17,13 +18,13 @@ import { runAssistantTurn } from "@/lib/assistant/claude";
 import { allTools, allHandlers } from "@/lib/assistant/tools";
 import { buildSystemPrompt } from "@/lib/assistant/system-prompt";
 import { writeAudit } from "@/lib/assistant/audit";
-import { getAdminSession } from "@/lib/auth.server";
+import { getAssistantSession } from "@/lib/assistant/auth";
 import { logger } from "@/lib/logger";
 
 const WRITE_TOOL_REGEX = /^(create_|update_|delete_|send_|ha_call_service|mailerlite_add)/;
 
 export async function POST(req: NextRequest) {
-  const session = await getAdminSession();
+  const session = await getAssistantSession(req);
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

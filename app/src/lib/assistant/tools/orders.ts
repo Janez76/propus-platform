@@ -3,7 +3,7 @@
  *
  * Reales Schema:
  *   - id (SERIAL), order_no (UNIQUE INTEGER)
- *   - customer_id → booking.customers(id)
+ *   - customer_id → core.customers(id)
  *   - status enum: 'pending','paused','confirmed','completed','done','cancelled','archived'
  *   - address (TEXT), object/services/photographer/schedule/billing/pricing (JSONB)
  *
@@ -54,7 +54,7 @@ const SELECT_ORDER_LIST = `
               ), '')
               ELSE '' END                                                         AS services_summary
   FROM booking.orders o
-  LEFT JOIN booking.customers c ON c.id = o.customer_id
+  LEFT JOIN core.customers c ON c.id = o.customer_id
 `;
 
 export const ordersTools: ToolDefinition[] = [
