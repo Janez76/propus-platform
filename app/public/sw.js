@@ -1,7 +1,9 @@
 // Propus Mobile SW – minimaler Service Worker fuer PWA-Install + leichten Cache.
-// Scope: '/' (Datei liegt im public-Root).
-const CACHE = "propus-shell-v1";
+// Scope: '/' (Datei liegt im public-Root). Admin-/Next-Seiten duerfen nicht
+// cache-first laufen, sonst bleiben neue Deploys bis Ctrl+Shift+R unsichtbar.
+const CACHE = "propus-shell-v2";
 const SHELL = ["/mobile", "/manifest.webmanifest", "/assets/brand/favicon.svg", "/assets/brand/logopropus.png"];
+const SHELL_SET = new Set(SHELL);
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -40,20 +42,21 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Statische Shell: cache-first, dann network, fallback /mobile
+  // Next.js-Runtime/Chunks und normale Seiten immer aus dem Netzwerk laden.
+  // Browser/Next regeln die Versionierung der hashed Assets selbst.
+  if (url.pathname.startsWith("/_next/") || req.mode === "navigate" || !SHELL_SET.has(url.pathname)) {
+    event.respondWith(fetch(req));
+    return;
+  }
+
+  // Nur die kleine Mobile-PWA-Shell cache-first halten.
   event.respondWith(
-    caches.match(req).then(
-      (hit) =>
-        hit ||
-        fetch(req)
-          .then((res) => {
-            if (res.ok) {
-              const copy = res.clone();
-              caches.open(CACHE).then((c) => c.put(req, copy));
-            }
-            return res;
-          })
-          .catch(() => caches.match("/mobile"))
-    )
+    caches.match(req).then((hit) => hit || fetch(req).then((res) => {
+      if (res.ok) {
+        const copy = res.clone();
+        caches.open(CACHE).then((c) => c.put(req, copy));
+      }
+      return res;
+    }).catch(() => caches.match("/mobile")))
   );
 });
