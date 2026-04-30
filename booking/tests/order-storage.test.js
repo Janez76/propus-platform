@@ -285,3 +285,44 @@ test("ensureDirStructure: legt websize an wenn kein Alias-Ordner vorhanden ist",
     fs.rmSync(customerRoot, { recursive: true, force: true });
   }
 });
+
+// ── Szenario 13: Rohmaterial wird in Kundenordner/Unbearbeitete verschoben
+test("moveRawMaterialToCustomerFolder: verschiebt Rohmaterial in Kundenordner Unbearbeitete", async () => {
+  const customerRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ost-move-"));
+  const rawRoot = path.join(customerRoot, "_raw");
+  const { mod, restore } = loadOrderStorage({
+    BOOKING_UPLOAD_CUSTOMER_ROOT: customerRoot,
+    BOOKING_UPLOAD_RAW_ROOT: rawRoot,
+  });
+  try {
+    const rawOrderDir = path.join(rawRoot, "8712 Staefa, Seestrasse 65 #100099");
+    const customerOrderDir = path.join(customerRoot, "Testkunde #42", "8712 Staefa, Seestrasse 65 #100099");
+    const rawImage = path.join(rawOrderDir, "Unbearbeitete", "Bilder", "bild-1.jpg");
+    fs.mkdirSync(path.dirname(rawImage), { recursive: true });
+    fs.mkdirSync(customerOrderDir, { recursive: true });
+    fs.writeFileSync(rawImage, "raw image", "utf8");
+
+    const db = {
+      getOrderFolderLink: async (_orderNo, folderType) => {
+        if (folderType === "raw_material") {
+          return { folder_type: "raw_material", absolute_path: rawOrderDir };
+        }
+        if (folderType === "customer_folder") {
+          return { folder_type: "customer_folder", absolute_path: customerOrderDir };
+        }
+        return null;
+      },
+    };
+
+    const stats = await mod.moveRawMaterialToCustomerFolder({ orderNo: 100099 }, db);
+
+    const customerImage = path.join(customerOrderDir, "Unbearbeitete", "Bilder", "bild-1.jpg");
+    assert.equal(stats.scanned, 1);
+    assert.equal(stats.moved, 1);
+    assert.equal(fs.existsSync(rawImage), false, "Quelldatei muss entfernt werden");
+    assert.equal(fs.readFileSync(customerImage, "utf8"), "raw image");
+  } finally {
+    restore();
+    fs.rmSync(customerRoot, { recursive: true, force: true });
+  }
+});

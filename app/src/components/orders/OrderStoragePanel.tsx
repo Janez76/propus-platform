@@ -26,6 +26,7 @@ import {
   getOrderStorageSummary,
   getOrderUploads,
   linkOrderStorageFolder,
+  moveRawMaterialToCustomerFolder,
   provisionOrderStorage,
   type OrderFolderType,
   type OrderStorageSummaryResponse,
@@ -159,7 +160,7 @@ export function OrderStoragePanel({ orderNo, orderAddress }: Props) {
     [],
   );
 
-  async function loadSummary() {
+  const loadSummary = useCallback(async () => {
     if (!orderNo || !token) return;
     setLoadingSummary(true);
     setError("");
@@ -171,11 +172,11 @@ export function OrderStoragePanel({ orderNo, orderAddress }: Props) {
     } finally {
       setLoadingSummary(false);
     }
-  }
+  }, [orderNo, token]);
 
   useEffect(() => {
     loadSummary();
-  }, [orderNo, token]);
+  }, [loadSummary]);
 
   async function handleGenerateWebsite() {
     if (!orderNo || !token) return;
@@ -295,6 +296,19 @@ export function OrderStoragePanel({ orderNo, orderAddress }: Props) {
     }
   }
 
+  async function handleMoveRawToCustomerFolder() {
+    if (!orderNo || !token) return;
+    if (!window.confirm("Rohmaterial in den Kundenordner unter Unbearbeitete verschieben?")) return;
+    setLoadingSummary(true);
+    try {
+      await moveRawMaterialToCustomerFolder(token, orderNo);
+      await loadSummary();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Rohmaterial konnte nicht verschoben werden");
+      setLoadingSummary(false);
+    }
+  }
+
   if (!token) {
     return (
       <div className="rounded-lg border border-[var(--border)] bg-[var(--paper)] p-6 text-center text-sm text-[var(--ink-3)]">
@@ -399,14 +413,26 @@ export function OrderStoragePanel({ orderNo, orderAddress }: Props) {
                       Inhalt
                     </button>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => handleArchive(ft)}
-                    className="bd-btn-ghost text-xs"
-                  >
-                    <Archive className="h-3.5 w-3.5" />
-                    Archivieren
-                  </button>
+                  {ft === "raw_material" ? (
+                    <button
+                      type="button"
+                      onClick={() => void handleMoveRawToCustomerFolder()}
+                      disabled={loadingSummary}
+                      className="bd-btn-ghost text-xs"
+                    >
+                      <FolderOpen className="h-3.5 w-3.5" />
+                      Verschieben nach Kundenordner unbearbeitet
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleArchive(ft)}
+                      className="bd-btn-ghost text-xs"
+                    >
+                      <Archive className="h-3.5 w-3.5" />
+                      Archivieren
+                    </button>
+                  )}
                   {ft === "customer_folder" && folder.exists && (
                     <button
                       type="button"

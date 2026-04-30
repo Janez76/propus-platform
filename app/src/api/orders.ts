@@ -779,6 +779,16 @@ export const archiveOrderStorageFolder = (
     token,
   );
 
+export const moveRawMaterialToCustomerFolder = (
+  token: string,
+  orderNo: string,
+) =>
+  apiRequest<{ ok: boolean; stats: Record<string, number>; folders: OrderStorageFolderSummary[] }>(
+    `/api/admin/orders/${encodeURIComponent(orderNo)}/storage/raw-to-customer`,
+    "POST",
+    token,
+  );
+
 export const generateNextcloudShare = (
   token: string,
   orderNo: string,

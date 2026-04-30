@@ -5995,6 +5995,20 @@ app.delete("/api/admin/orders/:orderNo/storage/folder", requireAdmin, async (req
   }
 });
 
+app.post("/api/admin/orders/:orderNo/storage/raw-to-customer", requireAdmin, async (req, res) => {
+  try {
+    if (!process.env.DATABASE_URL) return res.status(503).json({ error: "DB nicht verfuegbar" });
+    const orderNo = Number(req.params.orderNo);
+    const order = await db.getOrderByNo(orderNo);
+    if (!order) return res.status(404).json({ error: "Order not found" });
+    const stats = await moveRawMaterialToCustomerFolder(order, db);
+    const folders = await getOrderFolderSummary(order, db, { createMissing: false });
+    res.json({ ok: true, stats, folders });
+  } catch (err) {
+    res.status(400).json({ error: err.message || "Rohmaterial konnte nicht in den Kundenordner verschoben werden" });
+  }
+});
+
 app.post("/api/admin/orders/:orderNo/upload-chunked/init", requirePhotographerOrAdmin, async (req, res) => {
   try {
     if (!process.env.DATABASE_URL) {

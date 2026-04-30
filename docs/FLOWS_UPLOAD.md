@@ -42,6 +42,7 @@
 | `POST` | `/api/admin/orders/:orderNo/storage/provision` | Admin | Kanonische NAS-Struktur anlegen + DB-Link (`createMissing`) |
 | `POST` | `/api/admin/orders/:orderNo/storage/link` | Admin | Bestehenden Ordner verknüpfen; optional Umbenennen auf kanonischen Pfad |
 | `POST` | `/api/admin/orders/:orderNo/storage/nextcloud-share` | Admin | Nextcloud-Freigabe für `customer_folder` |
+| `POST` | `/api/admin/orders/:orderNo/storage/raw-to-customer` | Admin | Rohmaterial-Dateien in den Kundenordner unter `Unbearbeitete/...` verschieben |
 | `DELETE` | `/api/admin/orders/:orderNo/storage/folder` | Admin | Ordner archivieren (phys. ins Archiv-Root) |
 
 ---
@@ -238,6 +239,7 @@ Die Felder `customerNasCustomerFolderBase` und `customerNasRawFolderBase` kommen
 | Statuswechsel auf `confirmed` (`booking/order-status-workflow.js`) | `provisionOrderFolders` legt die leere Standard-Unterstruktur am **kanonischen** Pfad an und schreibt den DB-Link. |
 | `POST .../storage/provision` | Gleiches über die Admin-API. |
 | `POST .../storage/link` (`customer_folder`, `rename` default `true`) | Gewählter Ordner soll auf den kanonischen Pfad **verschoben/umbenannt** werden (`booking/order-storage.js` → `linkExistingOrderFolder`). |
+| `POST .../storage/raw-to-customer` | Verschiebt vorhandene Rohmaterial-Dateien vom `raw_material`-Ordner in den `customer_folder` und erhält dabei die Struktur unter `Unbearbeitete/...`; identische Zieldateien werden entfernt, abweichende Konflikte bleiben im Rohmaterial liegen. |
 
 **Platzhalter vor Umbenennung (April 2026):** Liegt der kanonische Zielpfad bereits (z. B. durch Provisioning), blockierte das früher die Umbenennung — es entstanden zwei Ordner (leerer Kanon + alter Kurzname). Enthält der Zielbaum **keine einzige Datei** (nur leere Ordner), wird dieser Platzhalter vor dem Verschieben entfernt; der verknüpfte Ordner rückt an die kanonische Stelle. Sobald **irgendwo** unter dem Zielpfad Dateien liegen, bleibt das bisherige Verhalten: Warnung *Zielordner existiert bereits*, kein Löschen.
 
