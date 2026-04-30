@@ -410,3 +410,138 @@ describe("assistant posteingang detail tools", () => {
     });
   });
 });
+
+describe("assistant list_photographers tool", () => {
+  it("returns active bookable photographers with settings", async () => {
+    const query = vi.fn().mockResolvedValue([
+      { key: "janez", name: "Janez Svajcer", display_name: "Janez Svajcer", home_address: "Zürich", skills: { photography: true, drone: true } },
+      { key: "marco", name: "Marco Rossi", display_name: "Marco Rossi", home_address: null, skills: null },
+    ]);
+
+    const handlers = createOrdersHandlers({ query });
+    const result = await handlers.list_photographers({}, { userId: "u", userEmail: "u@example.com" });
+
+    expect(query).toHaveBeenCalledWith(expect.stringContaining("booking.photographers"), []);
+    expect(result).toEqual({
+      count: 2,
+      photographers: [
+        { key: "janez", displayName: "Janez Svajcer", homeAddress: "Zürich", skills: { photography: true, drone: true } },
+        { key: "marco", displayName: "Marco Rossi", homeAddress: null, skills: null },
+      ],
+    });
+  });
+});
+
+describe("assistant list_available_services tool", () => {
+  it("returns active products sorted by sort_order", async () => {
+    const query = vi.fn().mockResolvedValue([
+      { id: 1, code: "PHOTO", name: "Fotografie", kind: "package", category_key: "photo", description: "Professionelle Immobilienfotografie" },
+      { id: 2, code: "DRONE", name: "Drohne", kind: "addon", category_key: "aerial", description: null },
+    ]);
+
+    const handlers = createOrdersHandlers({ query });
+    const result = await handlers.list_available_services({}, { userId: "u", userEmail: "u@example.com" });
+
+    expect(query).toHaveBeenCalledWith(expect.stringContaining("booking.products"), []);
+    expect(result).toEqual({
+      count: 2,
+      services: [
+        { id: 1, code: "PHOTO", name: "Fotografie", kind: "package", categoryKey: "photo", description: "Professionelle Immobilienfotografie" },
+        { id: 2, code: "DRONE", name: "Drohne", kind: "addon", categoryKey: "aerial", description: null },
+      ],
+    });
+  });
+});
+
+describe("assistant create_order write tool", () => {
+  const ctx = { userId: "u", userEmail: "admin@propus.ch" };
+
+  it("creates an order with all fields and returns order number", async () => {
+    const query = vi.fn();
+    const queryOne = vi.fn()
+      .mockResolvedValueOnce({ id: 5, name: "Muster AG", email: "info@muster.ch", company: "Muster AG" })
+      .mockResolvedValueOnce({ key: "janez" })
+      .mockResolvedValueOnce({ order_no: 142 });
+
+    const handlers = createWriteHandlers({ query, queryOne });
+    const result = await handlers.create_order({
+      customer_id: 5,
+      address: "Bahnhofstrasse 1, Zürich",
+      services: { photography: true, drone: true, matterport: false },
+      schedule_date: "2026-05-15",
+      schedule_time: "10:00",
+      photographer_key: "janez",
+      notes: "Schlüssel beim Hausmeister",
+    }, ctx) as Record<string, unknown>;
+
+    expect(queryOne).toHaveBeenCalledTimes(3);
+    expect(result.ok).toBe(true);
+    expect(result.orderNo).toBe(142);
+    expect(result.customerId).toBe(5);
+    expect(result.services).toEqual(["photography", "drone"]);
+    expect(result.schedule).toEqual({ date: "2026-05-15", time: "10:00" });
+    expect(result.photographer).toBe("janez");
+  });
+
+  it("rejects when customer_id is missing", async () => {
+    const handlers = createWriteHandlers({ query: vi.fn(), queryOne: vi.fn() });
+    const result = await handlers.create_order({ address: "Test", services: { photography: true } }, ctx);
+    expect(result).toEqual({ error: "customer_id ist erforderlich" });
+  });
+
+  it("rejects when address is empty", async () => {
+    const queryOne = vi.fn().mockResolvedValueOnce({ id: 1, name: "Test", email: "t@t.ch", company: null });
+    const handlers = createWriteHandlers({ query: vi.fn(), queryOne });
+    await expect(
+      handlers.create_order({ customer_id: 1, address: "", services: { photography: true } }, ctx),
+    ).rejects.toThrow("address ist erforderlich");
+  });
+
+  it("rejects when no services are selected", async () => {
+    const queryOne = vi.fn().mockResolvedValueOnce({ id: 1, name: "Test", email: "t@t.ch", company: null });
+    const handlers = createWriteHandlers({ query: vi.fn(), queryOne });
+    const result = await handlers.create_order({ customer_id: 1, address: "Musterweg 5", services: {} }, ctx);
+    expect(result).toEqual({ error: "Mindestens eine Dienstleistung muss ausgewählt sein" });
+  });
+
+  it("rejects when customer is not found", async () => {
+    const queryOne = vi.fn().mockResolvedValueOnce(null);
+    const handlers = createWriteHandlers({ query: vi.fn(), queryOne });
+    const result = await handlers.create_order({ customer_id: 999, address: "Test", services: { photography: true } }, ctx);
+    expect(result).toEqual({ error: "Kunde 999 nicht gefunden" });
+  });
+
+  it("rejects when photographer is not found", async () => {
+    const queryOne = vi.fn()
+      .mockResolvedValueOnce({ id: 1, name: "Test", email: "t@t.ch", company: null })
+      .mockResolvedValueOnce(null);
+    const handlers = createWriteHandlers({ query: vi.fn(), queryOne });
+    const result = await handlers.create_order({
+      customer_id: 1,
+      address: "Musterweg 5",
+      services: { photography: true },
+      photographer_key: "unknown",
+    }, ctx);
+    expect(result).toEqual({ error: 'Fotograf "unknown" nicht gefunden oder nicht aktiv' });
+  });
+
+  it("creates order without optional fields", async () => {
+    const query = vi.fn();
+    const queryOne = vi.fn()
+      .mockResolvedValueOnce({ id: 3, name: null, email: "test@test.ch", company: "TestCo" })
+      .mockResolvedValueOnce({ order_no: 143 });
+
+    const handlers = createWriteHandlers({ query, queryOne });
+    const result = await handlers.create_order({
+      customer_id: 3,
+      address: "Seestrasse 10, Luzern",
+      services: { matterport: true },
+    }, ctx) as Record<string, unknown>;
+
+    expect(result.ok).toBe(true);
+    expect(result.orderNo).toBe(143);
+    expect(result.schedule).toBeNull();
+    expect(result.photographer).toBeNull();
+    expect(result.customerName).toBe("TestCo");
+  });
+});
