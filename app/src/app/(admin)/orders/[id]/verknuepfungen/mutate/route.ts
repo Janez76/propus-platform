@@ -4,7 +4,7 @@ import { query, queryOne } from "@/lib/db";
 import { getAdminSession, isOrderEditorRole } from "@/lib/auth.server";
 import { logOrderEvent } from "@/lib/audit";
 import { parseMatterportInput } from "../_links";
-import { planMatterportUnlink } from "./matterport-linking";
+import { planMatterportUnlink } from "../matterport-linking";
 
 type Props = {
   params: Promise<{ id: string }>;
