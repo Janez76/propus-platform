@@ -139,6 +139,8 @@ Verlängerungsrechnungen und Exxas-Rechnungen werden in einem **eigenständigen 
 |---------|------|-------------|
 | `GET` | `/api/tours/admin/invoices-central?type=renewal\|exxas&status=&search=` | Kombinierte Rechnungsliste (neu) |
 | `GET` | `/api/tours/admin/invoices` | Nur Verlängerungsrechnungen (Legacy, bleibt für Tour-Detail) |
+| `GET` | `/api/tours/admin/invoices/deleted` | Soft-gelöschte Rechnungen (Papierkorb) |
+| `POST` | `/api/tours/admin/invoices/:type/:id/restore` | Rechnung wiederherstellen (type = `renewal` oder `exxas`) |
 
 ### Backend-Logik
 
@@ -146,21 +148,27 @@ Verlängerungsrechnungen und Exxas-Rechnungen werden in einem **eigenständigen 
 |----------|-------|
 | `getRenewalInvoicesCentral(status, search)` | `tours/lib/admin-phase3.js` |
 | `getExxasInvoicesCentral(status, search)` | `tours/lib/admin-phase3.js` |
+| `getDeletedInvoices()` | `tours/lib/admin-phase3.js` |
+| `restoreRenewalInvoice(id)` | `tours/lib/admin-phase3.js` |
+| `restoreExxasInvoice(id)` | `tours/lib/admin-phase3.js` |
 
 ### DB
 
 | Was | Wo |
 |-----|----|
 | View (beide Tabellen kombiniert) | `tour_manager.invoices_central_v` |
-| Migration | `core/migrations/026_invoices_central_view.sql` |
+| Migration (Central View) | `core/migrations/026_invoices_central_view.sql` |
+| Migration (Soft-Delete) | `core/migrations/045_invoices_soft_delete.sql` |
 | Verlängerungsrechnungen | `tour_manager.renewal_invoices` |
 | Exxas-Rechnungen | `tour_manager.exxas_invoices` |
+| Soft-Delete-Spalte | `renewal_invoices.deleted_at` und `exxas_invoices.deleted_at` |
 
 ### Wichtig
 
 - `TourInvoicesSection.tsx` in Tour-Detail bleibt **unverändert** — zeigt beide Rechnungstypen pro Tour
 - Das zentrale Modul zeigt **alle** Rechnungen systemweit (mit Suche + Status-Filter)
 - Exxas-Status `'bz'` = bezahlt; alle anderen Werte = offen
+- Rechnungen werden **nicht physisch gelöscht** (Soft-Delete via `deleted_at`); Papierkorb-Tab in `AdminInvoicesPage` mit Reaktivieren-Funktion (`DeletedInvoicesTable` in `invoice-components.tsx`)
 
 ## Ticket-System (seit April 2026)
 

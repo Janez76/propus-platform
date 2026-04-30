@@ -14,6 +14,7 @@ import {
   RefreshCw,
   Send,
   Trash2,
+  Undo2,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -1890,5 +1891,115 @@ export function RechnungslaufModal({ onClose, onDone }: { onClose: () => void; o
         </div>
       </div>
     </div>
+  );
+}
+
+export function DeletedInvoicesTable({
+  invoices,
+  busyActionKey,
+  onRestore,
+}: {
+  invoices: InvoiceRow[];
+  busyActionKey: string | null;
+  onRestore: (type: "renewal" | "exxas", invoice: InvoiceRow) => void;
+}) {
+  return (
+    <table className="dt w-full text-sm">
+      <thead>
+        <tr className="text-left text-[var(--text-subtle)] border-b border-[var(--border-soft)]">
+          <th className="px-4 py-3">Tour / Kunde</th>
+          <th className="px-4 py-3">Nr.</th>
+          <th className="px-4 py-3">Typ</th>
+          <th className="px-4 py-3">Betrag</th>
+          <th className="px-4 py-3">Gelöscht am</th>
+          <th className="px-4 py-3 text-right">Aktionen</th>
+        </tr>
+      </thead>
+      <tbody>
+        {invoices.length === 0 ? (
+          <tr>
+            <td colSpan={6} className="px-4 py-10 text-center text-[var(--text-subtle)]">
+              Papierkorb ist leer.
+            </td>
+          </tr>
+        ) : (
+          invoices.map((row) => {
+            const source = String(row.invoice_source || "renewal") as "renewal" | "exxas";
+            const iid = row.id as string | number;
+            const tid = row.tour_id as number | null;
+            const label =
+              source === "renewal"
+                ? String(row.tour_object_label || `Tour #${tid}`)
+                : String(row.kunde_name || "—");
+            const subLabel =
+              source === "renewal"
+                ? String(row.tour_customer_name || "")
+                : String(row.tour_object_label || "");
+            const nr = String(
+              source === "renewal"
+                ? (row.invoice_number ?? iid)
+                : (row.nummer ?? iid),
+            );
+            const amount =
+              source === "renewal"
+                ? formatMoney(row.amount_chf)
+                : formatMoney(row.preis_brutto);
+            const typeLabel =
+              source === "renewal"
+                ? invoiceKindLabel(String(row.invoice_kind || ""))
+                : String(row.bezeichnung || "Exxas");
+
+            return (
+              <tr
+                key={`${source}-${String(iid)}`}
+                className="border-b border-[var(--border-soft)]/50 hover:bg-[var(--accent)]/5 transition-colors"
+              >
+                <td className="px-4 py-3">
+                  {tid ? (
+                    <Link
+                      to={`/admin/tours/${tid}`}
+                      className="text-[var(--accent)] hover:underline font-medium"
+                    >
+                      {label}
+                    </Link>
+                  ) : (
+                    <span className="font-medium text-[var(--text-main)]">{label}</span>
+                  )}
+                  {subLabel ? (
+                    <div className="text-xs text-[var(--text-subtle)] mt-0.5">{subLabel}</div>
+                  ) : null}
+                  <div className="text-[10px] mt-0.5">
+                    <span className={`inline-flex items-center rounded-full border px-1.5 py-0 text-[10px] font-medium ${source === "renewal" ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-purple-50 text-purple-700 border-purple-200"}`}>
+                      {source === "renewal" ? "Intern" : "Exxas"}
+                    </span>
+                  </div>
+                </td>
+                <td className="px-4 py-3 font-mono text-xs">{nr}</td>
+                <td className="px-4 py-3 text-xs text-[var(--text-subtle)] max-w-[180px] truncate" title={typeLabel}>
+                  {typeLabel}
+                </td>
+                <td className="px-4 py-3 font-medium">{amount}</td>
+                <td className="px-4 py-3 text-xs text-[var(--text-subtle)]">
+                  {formatDate(row.deleted_at)}
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      disabled={busyActionKey !== null}
+                      onClick={() => onRestore(source, row)}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-green-300 px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-50 hover:border-green-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Undo2 className="h-3.5 w-3.5" />
+                      Reaktivieren
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            );
+          })
+        )}
+      </tbody>
+    </table>
   );
 }

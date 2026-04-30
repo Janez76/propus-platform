@@ -219,6 +219,20 @@ export function archiveAdminInvoice(type: "renewal" | "exxas", invoiceId: string
   });
 }
 
+export function getAdminDeletedInvoices() {
+  return toursAdminFetch<{
+    ok: boolean;
+    invoices: Array<Record<string, unknown>>;
+    stats: { total: number; renewal: number; exxas: number };
+  }>("/invoices/deleted");
+}
+
+export function restoreAdminInvoice(type: "renewal" | "exxas", invoiceId: string | number) {
+  return toursAdminFetch<{ ok: true }>(`/invoices/${type}/${invoiceId}/restore`, {
+    method: "POST",
+  });
+}
+
 export function updateAdminInvoice(
   type: "renewal" | "exxas",
   invoiceId: string | number,

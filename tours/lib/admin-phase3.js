@@ -1605,6 +1605,7 @@ async function getRenewalInvoicesCentral(status, search) {
     JOIN tour_manager.tours t ON t.id = i.tour_id
     WHERE 1=1
     AND i.invoice_status != 'archived'
+    AND i.deleted_at IS NULL
   `;
   const params = [];
   if (status === 'offen') {
@@ -1659,6 +1660,7 @@ async function getExxasInvoicesCentral(status, search) {
      AND ri.exxas_invoice_id = COALESCE(NULLIF(ei.exxas_document_id, ''), NULLIF(ei.nummer, ''))
     WHERE 1=1
     AND (ei.archived_at IS NULL)
+    AND (ei.deleted_at IS NULL)
   `;
   const params = [];
   if (status === 'offen') {
@@ -1685,7 +1687,7 @@ async function getExxasInvoicesCentral(status, search) {
       COALESCE(SUM(preis_brutto) FILTER (WHERE exxas_status = 'bz'), 0)::numeric  AS bezahlt_sum,
       COALESCE(SUM(preis_brutto), 0)::numeric                                      AS total_sum
     FROM tour_manager.exxas_invoices
-    WHERE archived_at IS NULL
+    WHERE archived_at IS NULL AND deleted_at IS NULL
   `);
   const verbuchtRes = await pool.query(`
     SELECT COUNT(DISTINCT ei.id)::int AS verbucht
@@ -1732,7 +1734,7 @@ async function deleteRenewalInvoice(invoiceId, actorEmail) {
   if (inv.invoice_status === 'paid') throw new Error('Bezahlte Rechnungen können nicht gelöscht werden');
 
   const r = await pool.query(
-    `DELETE FROM tour_manager.renewal_invoices WHERE id = $1 AND invoice_status != 'paid' RETURNING id`,
+    `UPDATE tour_manager.renewal_invoices SET deleted_at = NOW() WHERE id = $1 AND invoice_status != 'paid' AND deleted_at IS NULL RETURNING id`,
     [id]
   );
   if (r.rowCount === 0) throw new Error('Bezahlte Rechnungen können nicht gelöscht werden');
@@ -1961,8 +1963,76 @@ async function deleteExxasInvoice(invoiceId) {
   await ensureExxasArchivedColumn();
   const id = parseInt(String(invoiceId), 10);
   if (!Number.isFinite(id)) throw new Error('Ungültige Rechnungs-ID');
-  const r = await pool.query(`DELETE FROM tour_manager.exxas_invoices WHERE id = $1 RETURNING id`, [id]);
-  if (r.rowCount === 0) throw new Error('Rechnung nicht gefunden');
+  const r = await pool.query(
+    `UPDATE tour_manager.exxas_invoices SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id`,
+    [id]
+  );
+  if (r.rowCount === 0) throw new Error('Rechnung nicht gefunden oder bereits gelöscht');
+  return { ok: true };
+}
+
+async function getDeletedInvoices() {
+  const renewalRes = await pool.query(`
+    SELECT i.*,
+      'renewal' AS invoice_source,
+      COALESCE(t.object_label, t.bezeichnung) AS tour_object_label,
+      COALESCE(t.customer_name, t.kunde_ref) AS tour_customer_name
+    FROM tour_manager.renewal_invoices i
+    LEFT JOIN tour_manager.tours t ON t.id = i.tour_id
+    WHERE i.deleted_at IS NOT NULL
+    ORDER BY i.deleted_at DESC
+  `);
+  const exxasRes = await pool.query(`
+    SELECT ei.*,
+      'exxas' AS invoice_source,
+      COALESCE(t.object_label, t.bezeichnung) AS tour_object_label,
+      COALESCE(t.customer_name, t.kunde_ref) AS tour_customer_name
+    FROM tour_manager.exxas_invoices ei
+    LEFT JOIN tour_manager.tours t ON t.id = ei.tour_id
+    WHERE ei.deleted_at IS NOT NULL
+    ORDER BY ei.deleted_at DESC
+  `);
+  return {
+    ok: true,
+    invoices: [
+      ...renewalRes.rows,
+      ...exxasRes.rows,
+    ].sort((a, b) => new Date(b.deleted_at) - new Date(a.deleted_at)),
+    stats: {
+      total: renewalRes.rows.length + exxasRes.rows.length,
+      renewal: renewalRes.rows.length,
+      exxas: exxasRes.rows.length,
+    },
+  };
+}
+
+async function restoreRenewalInvoice(invoiceId, actorEmail) {
+  const id = parseInt(String(invoiceId), 10);
+  if (!Number.isFinite(id)) throw new Error('Ungültige Rechnungs-ID');
+  const r = await pool.query(
+    `UPDATE tour_manager.renewal_invoices SET deleted_at = NULL WHERE id = $1 AND deleted_at IS NOT NULL RETURNING id, tour_id, invoice_number, invoice_status`,
+    [id]
+  );
+  if (r.rowCount === 0) throw new Error('Rechnung nicht gefunden oder nicht im Papierkorb');
+  const inv = r.rows[0];
+  if (inv.tour_id) {
+    await logAction(inv.tour_id, 'admin', actorEmail || null, 'RESTORE_INVOICE', {
+      invoice_id: id,
+      invoice_number: inv.invoice_number || null,
+      invoice_status: inv.invoice_status || null,
+    });
+  }
+  return { ok: true };
+}
+
+async function restoreExxasInvoice(invoiceId) {
+  const id = parseInt(String(invoiceId), 10);
+  if (!Number.isFinite(id)) throw new Error('Ungültige Rechnungs-ID');
+  const r = await pool.query(
+    `UPDATE tour_manager.exxas_invoices SET deleted_at = NULL WHERE id = $1 AND deleted_at IS NOT NULL RETURNING id`,
+    [id]
+  );
+  if (r.rowCount === 0) throw new Error('Rechnung nicht gefunden oder nicht im Papierkorb');
   return { ok: true };
 }
 
@@ -2645,6 +2715,9 @@ module.exports = {
   bulkStornoHostingMatterportInExxas,
   archiveExxasInvoice,
   updateExxasInvoice,
+  getDeletedInvoices,
+  restoreRenewalInvoice,
+  restoreExxasInvoice,
   getBankImportJson,
   previewBankImportUpload,
   runBankImportUpload,

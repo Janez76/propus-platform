@@ -6,12 +6,14 @@ import {
   bulkDeleteRenewal63Invoices,
   bulkStornoHostingMatterportInExxas,
   deleteAdminInvoice,
+  getAdminDeletedInvoices,
   getAdminInvoicesCentral,
   getHostingMatterportDeletePreview,
   getHostingMatterportStornoPreview,
   getRenewal63DeletePreview,
   importExxasAdminInvoice,
   resendAdminInvoice,
+  restoreAdminInvoice,
   type BulkDeleteHostingPreview,
   type BulkDeleteRenewal63Preview,
   type BulkStornoHostingPreview,
@@ -24,6 +26,7 @@ import {
   type InvoiceRow,
   type InvoiceType,
   CreateInvoiceModal,
+  DeletedInvoicesTable,
   EXXAS_FILTERS,
   RENEWAL_FILTERS,
   EditInvoiceModal,
@@ -35,7 +38,7 @@ import {
 export function AdminInvoicesPage() {
   const { can } = usePermissions();
   const finManage = can("finance.manage");
-  const [tab, setTab] = useState<InvoiceType>("renewal");
+  const [tab, setTab] = useState<InvoiceType | "deleted">("renewal");
   const [renewalStatus, setRenewalStatus] = useState("");
   const [exxasStatus, setExxasStatus] = useState("");
   const [renewalSearch, setRenewalSearch] = useState("");
@@ -66,7 +69,9 @@ export function AdminInvoicesPage() {
 
   const qk = adminInvoicesCentralQueryKey(tab, status, search);
   const queryFn = useCallback(
-    () => getAdminInvoicesCentral(tab, status || undefined, search || undefined),
+    () => tab === "deleted"
+      ? (getAdminDeletedInvoices() as unknown as Promise<{ ok: true; invoices: Record<string, unknown>[]; stats: Record<string, number>; source: string }>)
+      : getAdminInvoicesCentral(tab as InvoiceType, status || undefined, search || undefined),
     [tab, status, search],
   );
   const { data, loading, error, refetch } = useQuery(qk, queryFn, { staleTime: 30_000 });
@@ -130,6 +135,20 @@ export function AdminInvoicesPage() {
         `${type}-${id}-delete`,
         () => deleteAdminInvoice(type, id),
         "Rechnung wurde gelöscht.",
+      );
+    },
+    [runMutation],
+  );
+
+  const handleRestore = useCallback(
+    async (type: "renewal" | "exxas", invoice: InvoiceRow) => {
+      const id = String(invoice.id ?? "");
+      const label = String(invoice.invoice_number ?? invoice.nummer ?? invoice.id ?? "die Rechnung");
+      if (!window.confirm(`Rechnung ${label} reaktivieren?`)) return;
+      await runMutation(
+        `${type}-${id}-restore`,
+        () => restoreAdminInvoice(type, id),
+        "Rechnung wurde reaktiviert.",
       );
     },
     [runMutation],
@@ -444,60 +463,73 @@ export function AdminInvoicesPage() {
         >
           Exxas (Übergang)
         </button>
+        <button
+          type="button"
+          onClick={() => setTab("deleted")}
+          className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+            tab === "deleted"
+              ? "bg-red-600 text-white shadow-sm"
+              : "text-[var(--text-subtle)] hover:text-[var(--text-main)]"
+          }`}
+        >
+          Papierkorb
+          {tab !== "deleted" && (stats as Record<string, number>).total != null ? null : null}
+        </button>
       </div>
 
-      {/* Search + Filter row */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap gap-2">
-          {filters.map(({ val, label }) => (
-            <button
-              key={val || "all"}
-              type="button"
-              onClick={() => setCurrentStatus(val)}
-              className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
-                currentStatus === val
-                  ? "border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]"
-                  : "border-[var(--border-soft)] text-[var(--text-subtle)] hover:border-[var(--accent)]/50"
-              }`}
-            >
-              {label}
-              {val === "offen" && stats.offen != null ? ` (${stats.offen})` : null}
-              {val === "bezahlt" && stats.bezahlt != null ? ` (${stats.bezahlt})` : null}
-              {val === "ueberfaellig" && stats.ueberfaellig != null ? ` (${stats.ueberfaellig})` : null}
-              {val === "entwurf" && stats.entwurf != null ? ` (${stats.entwurf})` : null}
-            </button>
-          ))}
-        </div>
-
-        <form onSubmit={handleSearchSubmit} className="flex gap-2 items-center">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--text-subtle)]" />
-            <input
-              type="text"
-              value={currentSearchInput}
-              onChange={(e) => setCurrentSearchInput(e.target.value)}
-              placeholder={tab === "renewal" ? "Tour, Kunde, Nr." : "Kunde, Nr., Bezeichnung"}
-              className="pl-8 pr-3 py-1.5 text-sm border border-[var(--border-soft)] rounded-lg bg-[var(--surface)] text-[var(--text-main)] placeholder:text-[var(--text-subtle)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] w-52"
-            />
+      {/* Search + Filter row — only for non-deleted tabs */}
+      {tab === "deleted" ? null : (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap gap-2">
+            {filters.map(({ val, label }) => (
+              <button
+                key={val || "all"}
+                type="button"
+                onClick={() => setCurrentStatus(val)}
+                className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
+                  currentStatus === val
+                    ? "border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]"
+                    : "border-[var(--border-soft)] text-[var(--text-subtle)] hover:border-[var(--accent)]/50"
+                }`}
+              >
+                {label}
+                {val === "offen" && stats.offen != null ? ` (${stats.offen})` : null}
+                {val === "bezahlt" && stats.bezahlt != null ? ` (${stats.bezahlt})` : null}
+                {val === "ueberfaellig" && stats.ueberfaellig != null ? ` (${stats.ueberfaellig})` : null}
+                {val === "entwurf" && stats.entwurf != null ? ` (${stats.entwurf})` : null}
+              </button>
+            ))}
           </div>
-          <button
-            type="submit"
-            className="rounded-lg px-3 py-1.5 text-xs font-medium bg-[var(--accent)] text-white hover:bg-[var(--accent)]/90"
-          >
-            Suchen
-          </button>
-          {(tab === "renewal" ? renewalSearch : exxasSearch) && (
-            <button
-              type="button"
-              onClick={handleSearchClear}
-              className="rounded-lg px-3 py-1.5 text-xs font-medium border border-[var(--border-soft)] text-[var(--text-subtle)] hover:text-[var(--text-main)]"
-            >
-              Zurücksetzen
-            </button>
-          )}
-        </form>
-      </div>
 
+          <form onSubmit={handleSearchSubmit} className="flex gap-2 items-center">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--text-subtle)]" />
+              <input
+                type="text"
+                value={currentSearchInput}
+                onChange={(e) => setCurrentSearchInput(e.target.value)}
+                placeholder={tab === "renewal" ? "Tour, Kunde, Nr." : "Kunde, Nr., Bezeichnung"}
+                className="pl-8 pr-3 py-1.5 text-sm border border-[var(--border-soft)] rounded-lg bg-[var(--surface)] text-[var(--text-main)] placeholder:text-[var(--text-subtle)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] w-52"
+              />
+            </div>
+            <button
+              type="submit"
+              className="rounded-lg px-3 py-1.5 text-xs font-medium bg-[var(--accent)] text-white hover:bg-[var(--accent)]/90"
+            >
+              Suchen
+            </button>
+            {(tab === "renewal" ? renewalSearch : exxasSearch) && (
+              <button
+                type="button"
+                onClick={handleSearchClear}
+                className="rounded-lg px-3 py-1.5 text-xs font-medium border border-[var(--border-soft)] text-[var(--text-subtle)] hover:text-[var(--text-main)]"
+              >
+                Zurücksetzen
+              </button>
+            )}
+          </form>
+        </div>
+      )}
       {error ? (
         <p className="text-sm text-red-600">
           {error}{" "}
@@ -526,7 +558,7 @@ export function AdminInvoicesPage() {
               onResend={(invoice) => void handleResend(invoice)}
               onSendDraft={(invoice) => void handleSendDraft(invoice)}
             />
-          ) : (
+          ) : tab === "exxas" ? (
             <ExxasTable
               invoices={invoices as InvoiceRow[]}
               busyActionKey={busyActionKey}
@@ -534,6 +566,12 @@ export function AdminInvoicesPage() {
               onEdit={(invoice) => setEditingInvoice({ type: "exxas", invoice })}
               onArchive={(invoice) => void handleArchive("exxas", invoice)}
               onDelete={(invoice) => void handleDelete("exxas", invoice)}
+            />
+          ) : (
+            <DeletedInvoicesTable
+              invoices={invoices as InvoiceRow[]}
+              busyActionKey={busyActionKey}
+              onRestore={(type, invoice) => void handleRestore(type, invoice)}
             />
           )}
         </div>

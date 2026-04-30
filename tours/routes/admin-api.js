@@ -2685,6 +2685,28 @@ router.patch('/invoices/:type/:id/archive', async (req, res) => {
   }
 });
 
+router.get('/invoices/deleted', async (req, res) => {
+  try {
+    const result = await phase3.getDeletedInvoices();
+    return res.json(result);
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+router.post('/invoices/:type/:id/restore', async (req, res) => {
+  try {
+    const type = String(req.params.type || '');
+    const invoiceId = String(req.params.id || '');
+    const result = type === 'exxas'
+      ? await phase3.restoreExxasInvoice(invoiceId)
+      : await phase3.restoreRenewalInvoice(invoiceId, adminEmail(req));
+    return res.json(result);
+  } catch (err) {
+    return res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
 router.patch('/invoices/:type/:id', async (req, res) => {
   try {
     const type = String(req.params.type || '');
