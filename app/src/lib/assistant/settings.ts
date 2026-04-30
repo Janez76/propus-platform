@@ -18,7 +18,7 @@ const DEFAULT_SETTINGS: AssistantSettings = {
   dailyTokenLimit: Number(process.env.ASSISTANT_DAILY_TOKEN_LIMIT) || 500_000,
   streamingEnabled: true,
   autoEscalation: process.env.ASSISTANT_AUTO_ESCALATION !== "false",
-  maxModelTier: (process.env.ASSISTANT_MAX_MODEL_TIER as ModelTier) || "sonnet",
+  maxModelTier: (process.env.ASSISTANT_MAX_MODEL_TIER as ModelTier) || "opus",
 };
 
 export async function getAssistantSettings(): Promise<AssistantSettings> {
