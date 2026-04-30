@@ -46,6 +46,11 @@ export function VoiceButton({ onTranscript, onError, disabled }: VoiceButtonProp
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
+  // Wenn der User loslaesst BEVOR getUserMedia aufloest, merken wir uns das hier
+  // und stoppen sofort nach dem `recorder.start()`. Sonst bleibt das Mikro
+  // ungewollt aktiv bis zur naechsten User-Interaktion.
+  const wantStopRef = useRef(false);
+  const startingRef = useRef(false);
 
   useEffect(() => {
     return () => {
@@ -54,7 +59,9 @@ export function VoiceButton({ onTranscript, onError, disabled }: VoiceButtonProp
   }, []);
 
   const startRecording = async () => {
-    if (disabled || state !== 'idle') return;
+    if (disabled || state !== 'idle' || startingRef.current) return;
+    startingRef.current = true;
+    wantStopRef.current = false;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
@@ -89,14 +96,35 @@ export function VoiceButton({ onTranscript, onError, disabled }: VoiceButtonProp
       recorder.start();
       recorderRef.current = recorder;
       setState('recording');
+
+      // Falls der User waehrend des Permission-/Start-Awaits losgelassen hat,
+      // sofort wieder stoppen (kurze Aufnahme, aber kein dangling Mikrofon).
+      if (wantStopRef.current) {
+        try {
+          recorder.stop();
+        } catch {
+          // ignore
+        }
+      }
     } catch (err) {
       onError?.(err instanceof Error ? err.message : 'Mikrofon-Zugriff verweigert');
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    } finally {
+      startingRef.current = false;
     }
   };
 
   const stopRecording = () => {
+    // Auch wenn der State noch 'idle' ist (start hat noch nicht resolved),
+    // den Wunsch merken — startRecording prueft das nach `recorder.start()`.
+    wantStopRef.current = true;
     if (state === 'recording' && recorderRef.current) {
-      recorderRef.current.stop();
+      try {
+        recorderRef.current.stop();
+      } catch {
+        // ignore
+      }
     }
   };
 

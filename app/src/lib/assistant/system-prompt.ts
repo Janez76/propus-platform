@@ -9,7 +9,8 @@ export function buildSystemPrompt(opts: {
   currentTime: string;
   timezone: string;
 }): string {
-  return `Du bist der persönliche Assistent von ${opts.userName} (${opts.userEmail}) für Propus GmbH — eine Schweizer B2B-Firma für Immobilien-Fotografie und virtuelle Touren mit Sitz in Zug.
+  const identity = opts.userEmail ? `${opts.userName} (${opts.userEmail})` : opts.userName;
+  return `Du bist der persönliche Assistent von ${identity} für Propus GmbH — eine Schweizer B2B-Firma für Immobilien-Fotografie und virtuelle Touren mit Sitz in Zug.
 
 KONTEXT
 - Aktuelle Zeit: ${opts.currentTime} (${opts.timezone})

@@ -35,6 +35,12 @@ export default function HomeScreen() {
   const [error, setError] = useState<string | null>(null);
   const historyRef = useRef<unknown[]>([]);
   const pulse = useRef(new Animated.Value(1)).current;
+  // Wenn der User loslaesst BEVOR startRecording() resolved (Permission-Prompt
+  // / langsame Geraete), merken wir uns das hier. handlePressIn checkt das
+  // nach erfolgreichem Start und stoppt sofort wieder — sonst bleibt das
+  // Mikro ungewollt aktiv.
+  const wantStopRef = useRef(false);
+  const startingRef = useRef(false);
 
   const animatePulse = () => {
     Animated.loop(
@@ -50,20 +56,7 @@ export default function HomeScreen() {
     Animated.timing(pulse, { toValue: 1, duration: 200, useNativeDriver: true }).start();
   };
 
-  const handlePressIn = async () => {
-    if (state !== 'idle') return;
-    try {
-      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      await startRecording();
-      setState('recording');
-      animatePulse();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Aufnahme fehlgeschlagen');
-    }
-  };
-
-  const handlePressOut = async () => {
-    if (state !== 'recording') return;
+  const finalizeRecording = async () => {
     stopPulse();
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -76,6 +69,36 @@ export default function HomeScreen() {
       setError(err instanceof Error ? err.message : 'Fehler');
       setState('idle');
     }
+  };
+
+  const handlePressIn = async () => {
+    if (state !== 'idle' || startingRef.current) return;
+    startingRef.current = true;
+    wantStopRef.current = false;
+    try {
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await startRecording();
+      setState('recording');
+      animatePulse();
+
+      // Falls der User waehrend Permission-Prompt / startRecording-Async
+      // bereits losgelassen hat, sofort wieder stoppen.
+      if (wantStopRef.current) {
+        await finalizeRecording();
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Aufnahme fehlgeschlagen');
+    } finally {
+      startingRef.current = false;
+    }
+  };
+
+  const handlePressOut = async () => {
+    // Wunsch immer merken — auch wenn state noch nicht 'recording' ist
+    // (handlePressIn checkt das nach erfolgreichem Start).
+    wantStopRef.current = true;
+    if (state !== 'recording') return;
+    await finalizeRecording();
   };
 
   const processMessage = async (text: string) => {

@@ -18,7 +18,7 @@ import { runAssistantTurn } from "@/lib/assistant/claude";
 import { allTools, allHandlers } from "@/lib/assistant/tools";
 import { buildSystemPrompt } from "@/lib/assistant/system-prompt";
 import { writeAudit } from "@/lib/assistant/audit";
-import { getAssistantSession } from "@/lib/assistant/auth";
+import { getAssistantSession, resolveAdminEmail } from "@/lib/assistant/auth";
 import { logger } from "@/lib/logger";
 
 const WRITE_TOOL_REGEX = /^(create_|update_|delete_|send_|ha_call_service|mailerlite_add)/;
@@ -64,7 +64,8 @@ export async function POST(req: NextRequest) {
   }
 
   const userId = session.userKey ?? session.userName ?? "admin";
-  const userEmail = session.userKey ?? "admin@propus.ch";
+  const resolvedEmail = await resolveAdminEmail(session);
+  const userEmail = resolvedEmail ?? "";
   const userName = session.userName ?? session.userKey ?? "Admin";
 
   const now = new Date();

@@ -112,3 +112,35 @@ export async function getAssistantSession(req: NextRequest): Promise<AdminSessio
 
   return session;
 }
+
+/**
+ * Loest die echte Mail-Adresse hinter einer Admin-Session auf.
+ * `session.userKey` ist je nach Quelle ein Username (booking.admin_sessions),
+ * eine numerische Admin-ID (core.api_keys-Pfad) oder ein photographer_key.
+ * Wir probieren in dieser Reihenfolge: Email-im-Key erkennen, dann ID-Lookup,
+ * dann Username/Email-Match in core.admin_users.
+ *
+ * Liefert null wenn nichts aufloesbar ist — der Aufrufer entscheidet, was im
+ * System-Prompt steht.
+ */
+export async function resolveAdminEmail(session: AdminSession): Promise<string | null> {
+  const key = String(session.userKey ?? "").trim();
+  if (!key) return null;
+  if (key.includes("@")) return key;
+
+  if (/^\d+$/.test(key)) {
+    const byId = await queryOne<{ email: string | null }>(
+      `SELECT email FROM core.admin_users WHERE id = $1 LIMIT 1`,
+      [Number.parseInt(key, 10)],
+    );
+    if (byId?.email) return byId.email;
+  }
+
+  const byUsername = await queryOne<{ email: string | null }>(
+    `SELECT email FROM core.admin_users
+      WHERE LOWER(username) = LOWER($1) OR LOWER(email) = LOWER($1)
+      LIMIT 1`,
+    [key],
+  );
+  return byUsername?.email ?? null;
+}
