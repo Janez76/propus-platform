@@ -137,7 +137,7 @@ Zwei Pfade (`app/src/lib/assistant/auth.ts`):
 
 | Modul | Tools |
 |-------|-------|
-| Orders | `get_open_orders`, `get_order_by_id`, `get_order_detail`, `search_orders`, `get_today_schedule` |
+| Orders | `get_open_orders`, `get_order_by_id`, `get_order_detail`, `search_orders`, `get_today_schedule`, `list_photographers`, `list_available_services` |
 | Tours | `get_tours_expiring_soon`, `get_tour_status`, `get_tour_detail`, `count_active_tours`, `get_cleanup_selections`, `summarize_cleanup_status` |
 | Invoices | `search_invoices`, `get_overdue_invoices`, `get_invoice_stats` |
 | Posteingang | `search_posteingang_conversations`, `get_recent_posteingang_messages`, `get_open_tasks`, `get_posteingang_conversation_detail`, `get_posteingang_stats` |
@@ -145,7 +145,7 @@ Zwei Pfade (`app/src/lib/assistant/auth.ts`):
 | Email | `search_emails`, `get_email_thread`, `send_email`✏️, `draft_email_reply`✏️ |
 | Designs | `create_listing_gallery`✏️, `prepare_customer_delivery`✏️ |
 | Database | `query_database` (nur `super_admin`, nur SELECT) |
-| Writes | `create_posteingang_task`✏️, `create_ticket`✏️, `create_posteingang_note`✏️, `draft_email`✏️, `update_order_status`✏️ |
+| Writes | `create_posteingang_task`✏️, `create_ticket`✏️, `create_posteingang_note`✏️, `draft_email`✏️, `update_order_status`✏️, `create_order`✏️ |
 
 ✏️ = Write-Tool mit `requiresConfirmation: true`
 
@@ -189,6 +189,67 @@ Sicherheitsmaßnahmen:
 - `SET statement_timeout = '5s'` vor jeder Abfrage
 - Automatisches `LIMIT 100` falls kein LIMIT vorhanden
 - `ctx.role === 'super_admin'` Prüfung im Handler
+
+## Auftragsanlage (Conversational Order Creation)
+
+### Übersicht
+
+Der Assistent kann Aufträge im natürlichen Gespräch erstellen. Trigger-Phrasen: „neue Bestellung", „neuer Auftrag", „Auftrag erstellen", „new order". Claude sammelt die erforderlichen Felder schrittweise und erstellt den Auftrag nach expliziter Bestätigung.
+
+### Conversation Flow
+
+```
+Benutzer: "Neuer Auftrag"
+  │
+  ├─ 1. Kunde → search_customers → Bestätigung
+  ├─ 2. Objektadresse → Freitext
+  ├─ 3. Dienstleistungen → list_available_services → Auswahl
+  ├─ 4. Wunschtermin → Datum + Uhrzeit (optional)
+  ├─ 5. Fotograf → list_photographers → Auswahl (optional)
+  ├─ 6. Notizen/Hinweise (optional)
+  │
+  └─ 7. Zusammenfassung → create_order (requiresConfirmation: true)
+         │
+         └─► Bestätigung → INSERT booking.orders → Auftragsnummer zurück
+```
+
+Claude überspringt bereits beantwortete Schritte, wenn der Benutzer mehrere Informationen auf einmal gibt.
+
+### Neue Tools
+
+| Tool | Typ | Datei | Beschreibung |
+|------|-----|-------|-------------|
+| `list_photographers` | read | `orders.ts` | Aktive, buchbare Fotografen mit Key, Name, Adresse, Skills |
+| `list_available_services` | read | `orders.ts` | Alle aktiven Produkte (Pakete + Addons) aus `booking.products` |
+| `create_order` | write | `writes.ts` | Erstellt `booking.orders`-Eintrag. `requiresConfirmation: true` |
+
+### create_order — Input-Schema
+
+| Feld | Typ | Pflicht | Beschreibung |
+|------|-----|---------|-------------|
+| `customer_id` | number | ✅ | Kunden-ID (via `search_customers` ermittelt) |
+| `address` | string | ✅ | Objektadresse (Immobilie) |
+| `services` | object | ✅ | `{ photography?, drone?, matterport?, floorplan?, video?, staging? }` (Boolean-Flags) |
+| `schedule_date` | string | — | ISO-Datum (z.B. `2026-05-15`) |
+| `schedule_time` | string | — | Uhrzeit (z.B. `10:00`) |
+| `photographer_key` | string | — | Fotografen-Schlüssel |
+| `notes` | string | — | Zusätzliche Hinweise |
+
+### create_order — DB-Insert
+
+- `order_no`: `COALESCE(MAX(order_no), 0) + 1` (atomic INSERT)
+- `status`: `pending`
+- `object`: `{ "type": "Immobilie" }`
+- `billing`: Kopie aus Kundenstammdaten (name, email, company)
+- `pricing`: `{}` (wird später berechnet)
+- `settings_snapshot`: enthält `assistant_notes` falls Notizen vorhanden
+
+### Validierungen
+
+- Kunde muss in `core.customers` existieren
+- Mindestens ein Service muss `true` sein
+- Fotograf (falls angegeben) muss aktiv in `booking.photographers` sein
+- Adresse darf nicht leer sein
 
 ## Mobile App (Propus Assistant)
 

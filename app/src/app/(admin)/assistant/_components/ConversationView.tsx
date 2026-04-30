@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, Bot, Brain, CheckCircle, Clock, Send, Settings, ShieldAlert, Trash2, UserRound, X, XCircle } from "lucide-react";
+import { AlertCircle, Bot, Brain, CheckCircle, Clock, Copy, Send, Settings, ShieldAlert, Smartphone, Trash2, UserRound, X, XCircle } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { VoiceButton } from "./VoiceButton";
 
@@ -40,6 +40,14 @@ type MemoryItem = {
   body: string;
   source: string;
   createdAt: string;
+};
+
+type MobileToken = {
+  id: string;
+  label: string;
+  scope: string;
+  created_at: string;
+  last_used_at: string | null;
 };
 
 type ErrorCode = "auth_failed" | "rate_limited" | "model_error" | "tool_error" | "validation_error";
@@ -142,6 +150,11 @@ export function ConversationView() {
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
   const [memories, setMemories] = useState<MemoryItem[]>([]);
   const [showMemories, setShowMemories] = useState(false);
+  const [showMobileTokens, setShowMobileTokens] = useState(false);
+  const [mobileTokens, setMobileTokens] = useState<MobileToken[]>([]);
+  const [newTokenLabel, setNewTokenLabel] = useState("");
+  const [createdToken, setCreatedToken] = useState<string | null>(null);
+  const [tokenBusy, setTokenBusy] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [restoredBanner, setRestoredBanner] = useState(false);
   const [textInput, setTextInput] = useState("");
@@ -206,6 +219,41 @@ export function ConversationView() {
     } catch { /* non-critical */ }
   }
 
+  async function loadMobileTokens() {
+    try {
+      const res = await fetch("/api/assistant/tokens", { cache: "no-store" });
+      const data = (await res.json().catch(() => ({}))) as { tokens?: MobileToken[] };
+      if (res.ok) setMobileTokens(data.tokens || []);
+    } catch { /* non-critical */ }
+  }
+
+  async function createMobileToken() {
+    if (tokenBusy) return;
+    setTokenBusy(true);
+    setCreatedToken(null);
+    try {
+      const res = await fetch("/api/assistant/tokens", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: newTokenLabel.trim() || "Mobile" }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; token?: string };
+      if (res.ok && data.token) {
+        setCreatedToken(data.token);
+        setNewTokenLabel("");
+        void loadMobileTokens();
+      }
+    } catch { /* non-critical */ }
+    setTokenBusy(false);
+  }
+
+  async function revokeMobileToken(id: string) {
+    try {
+      await fetch(`/api/assistant/tokens/${id}`, { method: "DELETE" });
+      setMobileTokens((prev) => prev.filter((t) => t.id !== id));
+    } catch { /* non-critical */ }
+  }
+
   async function loadConversation(id: string) {
     try {
       const res = await fetch(`/api/assistant/history/${id}`, { cache: "no-store" });
@@ -238,6 +286,7 @@ export function ConversationView() {
     void loadHistory();
     void loadMemories();
     void loadSettings();
+    void loadMobileTokens();
   }, []);
 
   async function handleConfirm(approved: boolean) {
@@ -809,6 +858,87 @@ export function ConversationView() {
                     className="mt-0.5 shrink-0 rounded p-0.5 text-[var(--text-subtle)] opacity-0 transition hover:bg-red-500/10 hover:text-red-500 group-hover:opacity-100"
                     onClick={() => void deleteMemory(mem.id)}
                     title="Erinnerung löschen"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="border-t border-[var(--border-soft)]">
+          <button
+            type="button"
+            className="flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-[var(--surface-raised)]"
+            onClick={() => setShowMobileTokens(!showMobileTokens)}
+          >
+            <div className="flex items-center gap-2">
+              <Smartphone className="h-4 w-4 text-[var(--gold-text,var(--accent))]" />
+              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-subtle)]">Mobile-Zugang</span>
+            </div>
+            {mobileTokens.length > 0 ? (
+              <span className="rounded-full bg-[var(--accent)]/15 px-2 py-0.5 text-[11px] font-semibold text-[var(--gold-text,var(--accent))]">
+                {mobileTokens.length}
+              </span>
+            ) : null}
+          </button>
+          {showMobileTokens ? (
+            <div className="max-h-60 space-y-2 overflow-y-auto px-3 pb-3">
+              <div className="flex gap-1.5">
+                <input
+                  className="min-w-0 flex-1 rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-2.5 py-1.5 text-xs text-[var(--text-main)] outline-none placeholder:text-[var(--text-subtle)] focus:border-[var(--accent)]"
+                  placeholder="Label (z. B. iPhone Janez)"
+                  value={newTokenLabel}
+                  onChange={(e) => setNewTokenLabel(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") void createMobileToken(); }}
+                />
+                <button
+                  type="button"
+                  className="shrink-0 rounded-lg bg-[var(--accent)] px-2.5 py-1.5 text-xs font-semibold text-[var(--gold-on-gold)] transition hover:bg-[var(--accent-hover)] disabled:opacity-50"
+                  onClick={() => void createMobileToken()}
+                  disabled={tokenBusy}
+                >
+                  Erstellen
+                </button>
+              </div>
+
+              {createdToken ? (
+                <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
+                  <div className="text-[11px] font-semibold text-emerald-400">Neuer Token — nur jetzt sichtbar:</div>
+                  <div className="mt-1 flex items-center gap-1.5">
+                    <code className="flex-1 break-all rounded bg-[var(--surface)] px-2 py-1 text-[11px] text-[var(--text-main)] select-all">{createdToken}</code>
+                    <button
+                      type="button"
+                      className="shrink-0 rounded p-1 text-[var(--text-subtle)] transition hover:bg-[var(--surface-raised)] hover:text-[var(--text-main)]"
+                      onClick={() => void navigator.clipboard.writeText(createdToken)}
+                      title="Kopieren"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              {mobileTokens.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-[var(--border-soft)] px-3 py-2 text-xs text-[var(--text-subtle)]">
+                  Keine aktiven Mobile-Tokens.
+                </div>
+              ) : null}
+              {mobileTokens.map((t) => (
+                <div key={t.id} className="group flex items-start gap-2 rounded-lg border border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))] px-3 py-2">
+                  <div className="flex-1">
+                    <div className="text-xs font-medium text-[var(--text-main)]">{t.label || "Ohne Label"}</div>
+                    <div className="mt-0.5 text-[10px] text-[var(--text-subtle)]">
+                      Erstellt: {new Date(t.created_at).toLocaleDateString("de-CH")}
+                      {t.last_used_at ? ` · Zuletzt: ${new Date(t.last_used_at).toLocaleDateString("de-CH")}` : " · Noch nie benutzt"}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="mt-0.5 shrink-0 rounded p-0.5 text-[var(--text-subtle)] opacity-0 transition hover:bg-red-500/10 hover:text-red-500 group-hover:opacity-100"
+                    onClick={() => void revokeMobileToken(t.id)}
+                    title="Token widerrufen"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
