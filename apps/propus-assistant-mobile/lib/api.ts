@@ -23,14 +23,28 @@ export interface AssistantResponse {
   }>;
 }
 
+function audioFilename(audioUri: string, mimeType: string): string {
+  const normalized = mimeType.toLowerCase();
+  const uriExtension = audioUri.split('?')[0]?.split('.').pop()?.toLowerCase();
+  if (uriExtension && ['m4a', 'mp4', 'mp3', 'wav', 'webm', 'ogg'].includes(uriExtension)) {
+    return `audio.${uriExtension === 'mp4' ? 'm4a' : uriExtension}`;
+  }
+  if (normalized.includes('mp4') || normalized.includes('m4a')) return 'audio.m4a';
+  if (normalized.includes('mpeg') || normalized.includes('mp3')) return 'audio.mp3';
+  if (normalized.includes('wav')) return 'audio.wav';
+  if (normalized.includes('ogg')) return 'audio.ogg';
+  return 'audio.webm';
+}
+
 export async function transcribe(audioUri: string, mimeType: string): Promise<string> {
   const formData = new FormData();
-  formData.append('audio', {
+  // React Native accepts URI-backed file parts although DOM FormData types do not.
+  const audioPart = {
     uri: audioUri,
-    name: 'audio.m4a',
+    name: audioFilename(audioUri, mimeType),
     type: mimeType,
-    // @ts-expect-error — RN FormData-Typen
-  });
+  } as unknown as Blob;
+  formData.append('audio', audioPart);
 
   const headers = await authHeaders();
   const res = await fetch(`${API_BASE}/api/assistant/transcribe`, {
@@ -38,7 +52,10 @@ export async function transcribe(audioUri: string, mimeType: string): Promise<st
     body: formData,
     headers,
   });
-  if (!res.ok) throw new Error(`Transkription fehlgeschlagen (${res.status})`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error ?? `Transkription fehlgeschlagen (${res.status})`);
+  }
   const data = (await res.json()) as { text: string };
   return data.text;
 }

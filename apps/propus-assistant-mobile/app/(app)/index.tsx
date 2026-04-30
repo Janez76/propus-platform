@@ -27,6 +27,7 @@ interface Message {
 }
 
 type State = 'idle' | 'recording' | 'transcribing' | 'thinking';
+const MIN_RECORDING_MS = 300;
 
 export default function HomeScreen() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -67,7 +68,12 @@ export default function HomeScreen() {
     stopPulse();
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      const { uri, mimeType } = await stopRecording();
+      const { uri, mimeType, durationMs } = await stopRecording();
+      if (durationMs < MIN_RECORDING_MS) {
+        setError('Aufnahme zu kurz. Bitte mindestens eine kurze Frage aufnehmen.');
+        setState('idle');
+        return;
+      }
       setState('transcribing');
       const text = await transcribe(uri, mimeType);
       if (text.trim()) await processMessage(text);
