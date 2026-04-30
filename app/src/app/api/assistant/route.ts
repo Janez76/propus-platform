@@ -14,6 +14,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { isIP } from "net";
 import { runAssistantTurn } from "@/lib/assistant/claude";
 import { allTools, allHandlers } from "@/lib/assistant/tools";
 import { buildSystemPrompt } from "@/lib/assistant/system-prompt";
@@ -24,8 +25,6 @@ import { logger } from "@/lib/logger";
 const WRITE_TOOL_REGEX = /^(create_|update_|delete_|send_|ha_call_service|mailerlite_add)/;
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-// Sehr lockere IP-Plausibilitaets-Pruefung; INET-Cast in Postgres macht die echte Validierung.
-const IP_REGEX = /^(?:[0-9a-f.:]+)$/i;
 
 function isUuid(value: unknown): value is string {
   return typeof value === "string" && UUID_REGEX.test(value);
@@ -33,14 +32,15 @@ function isUuid(value: unknown): value is string {
 
 /**
  * x-forwarded-for kann eine Komma-Liste sein: "client, proxy1, proxy2".
- * Postgres INET akzeptiert nur eine einzelne Adresse. Erste Adresse nehmen,
- * trimmen und nur durchlassen, wenn sie wie eine IP aussieht.
+ * Erste Adresse nehmen + strikte IPv4/IPv6-Validierung via net.isIP — sonst
+ * lehnt Postgres die INET-Spalte ab und der Audit-Insert geht schweigend
+ * verloren (Fehler wird im writeAudit-catch verschluckt).
  */
 function parseFirstIp(header: string | null): string | undefined {
   if (!header) return undefined;
   const first = header.split(",")[0]?.trim();
   if (!first) return undefined;
-  return IP_REGEX.test(first) ? first : undefined;
+  return isIP(first) ? first : undefined;
 }
 
 export async function POST(req: NextRequest) {

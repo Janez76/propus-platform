@@ -17,10 +17,22 @@ export interface AuditEntry {
 
 export async function writeAudit(entry: AuditEntry): Promise<void> {
   try {
+    // Subquery auf assistant.conversations: existiert die conversation_id
+    // nicht (z.B. weil der Client eine spontan generierte UUID schickt, ohne
+    // dass eine Conversation-Row angelegt wurde), wird der FK auf NULL gesetzt
+    // statt den Insert mit FK-Violation zu sprengen. ON DELETE SET NULL der
+    // Spalte erlaubt diesen Fall ohnehin.
     await query(
       `INSERT INTO assistant.audit_log
          (user_id, conversation_id, action, payload, ip_address, user_agent)
-       VALUES ($1, $2, $3, $4::jsonb, $5, $6)`,
+       VALUES (
+         $1,
+         (SELECT id FROM assistant.conversations WHERE id = $2::uuid),
+         $3,
+         $4::jsonb,
+         $5,
+         $6
+       )`,
       [
         entry.userId,
         entry.conversationId ?? null,
