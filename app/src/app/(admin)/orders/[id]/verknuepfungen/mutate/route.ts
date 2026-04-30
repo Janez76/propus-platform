@@ -4,6 +4,7 @@ import { query, queryOne } from "@/lib/db";
 import { getAdminSession, isOrderEditorRole } from "@/lib/auth.server";
 import { logOrderEvent } from "@/lib/audit";
 import { parseMatterportInput } from "../_links";
+import { planMatterportUnlink } from "./matterport-linking";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -75,7 +76,7 @@ export async function POST(request: Request, { params }: Props) {
       return redirectBack(request, orderNo, { error: "Bitte Matterport-Space-ID oder Link mit ?m=... eintragen" });
     }
 
-    let tour = await queryOne<{ id: number; booking_order_no: number | null }>(
+    const tour = await queryOne<{ id: number; booking_order_no: number | null }>(
       `SELECT id, booking_order_no FROM tour_manager.tours WHERE matterport_space_id = $1`,
       [spaceId],
     );
@@ -170,15 +171,80 @@ export async function POST(request: Request, { params }: Props) {
   }
 
   if (action === "unlink-matterport") {
-    const rows = await query<{ id: number }>(
-      `UPDATE tour_manager.tours
-       SET booking_order_no = NULL, updated_at = NOW()
-       WHERE booking_order_no = $1
-       RETURNING id`,
+    const targets = await query<{ id: number; auto_created: boolean; has_dependencies: boolean }>(
+      `WITH target AS (
+         SELECT id
+         FROM tour_manager.tours
+         WHERE booking_order_no = $1
+       ),
+       auto_created AS (
+         SELECT DISTINCT (new_value->>'tour_id')::int AS tour_id
+         FROM booking.order_event_log
+         WHERE order_no = $1
+           AND event_type = 'matterport_linked'
+           AND new_value->>'auto_created' = 'true'
+           AND (new_value->>'tour_id') ~ '^[0-9]+$'
+       )
+       SELECT
+         t.id,
+         (a.tour_id IS NOT NULL) AS auto_created,
+         (
+           EXISTS (SELECT 1 FROM tour_manager.renewal_invoices ri WHERE ri.tour_id = t.id)
+           OR EXISTS (SELECT 1 FROM tour_manager.exxas_invoices ei WHERE ei.tour_id = t.id)
+           OR EXISTS (SELECT 1 FROM tour_manager.actions_log al WHERE al.tour_id = t.id)
+           OR EXISTS (SELECT 1 FROM tour_manager.tickets tk WHERE tk.reference_type = 'tour' AND tk.reference_id = t.id::text)
+         ) AS has_dependencies
+       FROM target t
+       LEFT JOIN auto_created a ON a.tour_id = t.id`,
       [orderNo],
     );
-    if (rows.length > 0) {
-      await logOrderEvent(orderNo, "matterport_unlinked", { old: { tour_ids: rows.map((r) => r.id) }, new: {} }, editor);
+    const plan = planMatterportUnlink(
+      targets.map((target) => ({
+        id: target.id,
+        autoCreated: target.auto_created,
+        hasDependencies: target.has_dependencies,
+      })),
+    );
+    if (plan.deleteIds.length > 0) {
+      await query(
+        `DELETE FROM tour_manager.tours
+         WHERE id = ANY($1::int[])`,
+        [plan.deleteIds],
+      );
+    }
+    if (plan.unlinkIds.length > 0) {
+      await query(
+        `UPDATE tour_manager.tours
+         SET booking_order_no = NULL, updated_at = NOW()
+         WHERE id = ANY($1::int[])`,
+        [plan.unlinkIds],
+      );
+    }
+    if (plan.resetIds.length > 0) {
+      await query(
+        `UPDATE tour_manager.tours
+         SET object_label = NULL,
+             bezeichnung = NULL,
+             customer_id = NULL,
+             customer_name = NULL,
+             customer_email = NULL,
+             customer_contact = NULL,
+             kunde_ref = NULL,
+             updated_at = NOW()
+         WHERE id = ANY($1::int[])`,
+        [plan.resetIds],
+      );
+    }
+    if (targets.length > 0) {
+      await logOrderEvent(
+        orderNo,
+        "matterport_unlinked",
+        {
+          old: { tour_ids: targets.map((target) => target.id) },
+          new: { deleted_tour_ids: plan.deleteIds, unlinked_tour_ids: plan.unlinkIds, reset_tour_ids: plan.resetIds },
+        },
+        editor,
+      );
     }
     revalidateOrderLinks(orderNo);
     return redirectBack(request, orderNo, { saved: "1" });
