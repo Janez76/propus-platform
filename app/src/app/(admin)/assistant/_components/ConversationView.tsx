@@ -79,15 +79,15 @@ export function ConversationView() {
   }
 
   return (
-    <section className="flex h-[calc(100vh-1.5rem)] min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-card,#111217)] shadow-sm lg:h-[calc(100vh-3rem)]">
-      <header className="flex items-center justify-between border-b border-[var(--border-soft)] px-5 py-4">
+    <section className="flex h-[calc(100vh-1.5rem)] min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))] shadow-sm lg:h-[calc(100vh-3rem)]">
+      <header className="flex items-center justify-between border-b border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))] px-5 py-4">
         <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accent,#B68E20)]">Propus</div>
+          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--gold-text,var(--accent))]">Propus</div>
           <h1 className="text-xl font-semibold text-[var(--text-main)]">Assistant</h1>
         </div>
         <button
           type="button"
-          className="rounded-full border border-[var(--border-soft)] px-3 py-1.5 text-sm text-[var(--text-subtle)] hover:text-[var(--text-main)] disabled:opacity-40"
+          className="rounded-full border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-1.5 text-sm text-[var(--text-subtle)] transition hover:border-[var(--accent)]/40 hover:bg-[var(--surface-raised)] hover:text-[var(--text-main)] disabled:opacity-40"
           disabled={messages.length === 0}
           onClick={() => {
             setMessages([]);
@@ -100,10 +100,10 @@ export function ConversationView() {
         </button>
       </header>
 
-      <div ref={scrollRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-5">
+      <div ref={scrollRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-[var(--surface-raised)]/40 px-5 py-5">
         {messages.length === 0 ? (
           <div className="mx-auto flex max-w-xl flex-col items-center justify-center py-24 text-center">
-            <Bot className="mb-4 h-10 w-10 text-[var(--accent,#B68E20)]" />
+            <Bot className="mb-4 h-10 w-10 text-[var(--gold-text,var(--accent))]" />
             <h2 className="text-lg font-semibold text-[var(--text-main)]">Frag mich nach Aufträgen, Touren oder Posteingang.</h2>
             <p className="mt-2 text-sm text-[var(--text-subtle)]">
               Phase 1 ist bewusst read-only: Der Assistant liest Daten, führt aber keine Änderungen aus.
@@ -119,15 +119,15 @@ export function ConversationView() {
         {messages.map((message) => (
           <div key={message.id} className={`flex gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}>
             {message.role === "assistant" ? (
-              <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--accent,#B68E20)]/15 text-[var(--accent,#B68E20)]">
+              <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--accent-subtle,var(--surface-raised))] text-[var(--gold-text,var(--accent))]">
                 <Bot className="h-4 w-4" />
               </div>
             ) : null}
-            <div className={`max-w-[78%] rounded-2xl px-4 py-3 text-sm leading-6 ${message.role === "user" ? "bg-[var(--accent,#B68E20)] text-black" : "border border-[var(--border-soft)] bg-[var(--surface)] text-[var(--text-main)]"}`}>
+            <div className={`max-w-[78%] rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm ${message.role === "user" ? "bg-[var(--accent)] text-[var(--gold-on-gold)]" : "border border-[var(--border-soft)] bg-[var(--surface)] text-[var(--text-main)]"}`}>
               {message.toolCalls?.length ? (
                 <div className="mb-2 flex flex-wrap gap-1">
                   {message.toolCalls.map((call, idx) => (
-                    <span key={`${call.name}-${idx}`} className={`rounded-full px-2 py-0.5 text-[11px] ${call.error ? "bg-red-500/15 text-red-300" : "bg-[var(--accent,#B68E20)]/15 text-[var(--accent,#B68E20)]"}`}>
+                    <span key={`${call.name}-${idx}`} className={`rounded-full border px-2 py-0.5 text-[11px] ${call.error ? "border-red-500/30 bg-red-500/10 text-[var(--text-main)]" : "border-[var(--accent)]/25 bg-[var(--accent)]/10 text-[var(--gold-text,var(--accent))]"}`}>
                       {call.name}
                     </span>
                   ))}
@@ -136,7 +136,7 @@ export function ConversationView() {
               <div className="whitespace-pre-wrap">{message.content}</div>
             </div>
             {message.role === "user" ? (
-              <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--accent,#B68E20)] text-black">
+              <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-[var(--gold-on-gold)]">
                 <UserRound className="h-4 w-4" />
               </div>
             ) : null}
@@ -144,13 +144,13 @@ export function ConversationView() {
         ))}
 
         {isLoading ? <div className="text-sm text-[var(--text-subtle)]">Assistant denkt nach ...</div> : null}
-        {error ? <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{error}</div> : null}
+        {error ? <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-[var(--text-main)]">{error}</div> : null}
       </div>
 
-      <footer className="border-t border-[var(--border-soft)] px-5 py-4">
+      <footer className="border-t border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))] px-5 py-4">
         <div className="flex flex-wrap items-center gap-3">
           <input
-            className="min-w-[220px] flex-1 rounded-full border border-[var(--border-soft)] bg-[var(--surface)] px-4 py-2.5 text-sm text-[var(--text-main)] outline-none focus:border-[var(--accent,#B68E20)]"
+            className="min-w-[220px] flex-1 rounded-full border border-[var(--border-soft)] bg-[var(--surface)] px-4 py-2.5 text-sm text-[var(--text-main)] outline-none placeholder:text-[var(--text-subtle)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20"
             value={textInput}
             onChange={(event) => setTextInput(event.target.value)}
             onKeyDown={(event) => {
@@ -166,7 +166,7 @@ export function ConversationView() {
             type="button"
             onClick={submitText}
             disabled={isLoading || !textInput.trim()}
-            className="inline-flex items-center gap-2 rounded-full bg-[var(--accent,#B68E20)] px-4 py-2.5 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-full bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-[var(--gold-on-gold)] transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Send className="h-4 w-4" />
             Senden

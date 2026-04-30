@@ -76,7 +76,7 @@ export function VoiceButton({ onTranscript, onError, disabled }: VoiceButtonProp
       onTouchStart={startRecording}
       onTouchEnd={stopRecording}
       disabled={disabled || state === "transcribing"}
-      className="inline-flex items-center gap-2 rounded-full border border-[var(--accent,#B68E20)]/40 px-4 py-2 text-sm font-medium text-[var(--text-main)] transition hover:border-[var(--accent,#B68E20)] disabled:cursor-not-allowed disabled:opacity-50 data-[recording=true]:bg-[var(--accent,#B68E20)] data-[recording=true]:text-black"
+      className="inline-flex items-center gap-2 rounded-full border border-[var(--accent)]/40 bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--text-main)] transition hover:border-[var(--accent)] hover:bg-[var(--surface-raised)] disabled:cursor-not-allowed disabled:opacity-50 data-[recording=true]:bg-[var(--accent)] data-[recording=true]:text-[var(--gold-on-gold)]"
       data-recording={state === "recording" ? "true" : "false"}
       aria-label={state === "recording" ? "Aufnahme läuft, loslassen zum Senden" : "Halten zum Sprechen"}
     >
