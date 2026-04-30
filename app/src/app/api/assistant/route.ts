@@ -79,6 +79,10 @@ export async function POST(req: NextRequest) {
   const ipAddress = parseFirstIp(req.headers.get("x-forwarded-for"));
   const userAgent = req.headers.get("user-agent") ?? undefined;
   const conversationId = isUuid(body.conversationId) ? body.conversationId : undefined;
+  const forwardAuth = {
+    authorization: req.headers.get("authorization") ?? undefined,
+    cookie: req.headers.get("cookie") ?? undefined,
+  };
 
   try {
     const result = await runAssistantTurn({
@@ -92,6 +96,7 @@ export async function POST(req: NextRequest) {
         userEmail,
         ipAddress,
         userAgent,
+        forwardAuth,
       },
       onToolCall: (name, toolInput) => {
         logger.info("[ASSISTANT] tool-call", { name, input: toolInput, userId });

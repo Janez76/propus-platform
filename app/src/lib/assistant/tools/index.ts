@@ -16,6 +16,12 @@ export interface ToolContext {
   userEmail: string;
   ipAddress?: string;
   userAgent?: string;
+  /**
+   * Auth-Header zur Weiterleitung an das Express-Backend (z.B. fuer Tools, die
+   * Workflow-Endpoints `/api/admin/...` aufrufen muessen, statt direkt in die DB
+   * zu schreiben). Vom route.ts-Handler aus dem Original-Request gefuellt.
+   */
+  forwardAuth?: { authorization?: string; cookie?: string };
   /** Optional: SQL-Connection oder ORM-Instanz, je nach Setup einsetzen */
   db?: unknown;
 }

@@ -216,7 +216,7 @@ export const ordersHandlers: Record<string, ToolHandler> = {
     };
   },
 
-  update_order_status: async (input) => {
+  update_order_status: async (input, ctx) => {
     const newStatus = String(input.new_status ?? "");
     if (!ORDER_STATUS_VALUES.includes(newStatus as (typeof ORDER_STATUS_VALUES)[number])) {
       return { error: `Ungültiger Status. Erlaubt: ${ORDER_STATUS_VALUES.join(", ")}` };
@@ -224,19 +224,51 @@ export const ordersHandlers: Record<string, ToolHandler> = {
     const ref = parseOrderRef(input.order_id);
     if (ref === null) return { error: "order_id muss eine vollstaendige Zahl sein" };
 
-    const targetId = await resolveOrderId(ref);
-    if (targetId === null) return { error: "Auftrag nicht gefunden" };
-
-    const updated = await query<{ id: number; order_no: number; status: string }>(
-      `UPDATE booking.orders
-          SET status = $1,
-              updated_at = NOW(),
-              done_at = CASE WHEN $1 IN ('done','completed') AND done_at IS NULL THEN NOW() ELSE done_at END
-        WHERE id = $2
-        RETURNING id, order_no, status`,
-      [newStatus, targetId],
+    // Auf order_no normalisieren (Express-Endpoint nimmt order_no, nicht id).
+    const row = await queryOne<{ order_no: number }>(
+      `SELECT order_no FROM booking.orders
+        WHERE order_no = $1 OR id = $1
+        ORDER BY (order_no = $1) DESC, id ASC
+        LIMIT 1`,
+      [ref],
     );
-    if (updated.length === 0) return { error: "Auftrag nicht gefunden" };
-    return { ok: true, order: updated[0] };
+    if (!row) return { error: "Auftrag nicht gefunden" };
+
+    // Statusaenderungen MUESSEN durch booking/order-status-workflow.js laufen
+    // (State-Machine-Validierung, Kalender-Side-Effects, Folder-Provisioning,
+    // Audit-Log). Direkter UPDATE ist laut Header-Comment dort verboten.
+    // Wir rufen daher die existierende Express-Route /api/admin/orders/:orderNo/status
+    // mit der weitergeleiteten User-Auth auf.
+    const baseUrl = process.env.PLATFORM_INTERNAL_URL;
+    if (!baseUrl) {
+      return { error: "PLATFORM_INTERNAL_URL nicht gesetzt — Status-Update kann nicht ueber Workflow-Endpoint laufen" };
+    }
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (ctx.forwardAuth?.authorization) headers["Authorization"] = ctx.forwardAuth.authorization;
+    if (ctx.forwardAuth?.cookie) headers["Cookie"] = ctx.forwardAuth.cookie;
+
+    const res = await fetch(
+      `${baseUrl}/api/admin/orders/${row.order_no}/status`,
+      {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ status: newStatus }),
+        signal: AbortSignal.timeout(20_000),
+      },
+    );
+    const responseText = await res.text();
+    if (!res.ok) {
+      return {
+        error: `Workflow-Endpoint lehnte ab (${res.status})`,
+        detail: responseText.slice(0, 500),
+      };
+    }
+    let parsed: unknown = null;
+    try {
+      parsed = responseText ? JSON.parse(responseText) : null;
+    } catch {
+      parsed = null;
+    }
+    return { ok: true, order_no: row.order_no, new_status: newStatus, workflow_response: parsed };
   },
 };
