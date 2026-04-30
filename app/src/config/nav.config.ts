@@ -57,6 +57,7 @@ import {
   CalendarDays,
   Plug,
   Inbox,
+  Bot,
 } from "lucide-react";
 
 import type { Role } from "../types";
@@ -155,6 +156,14 @@ export const navConfig: NavSection[] = [
         to: "/upload",
         labelKey: "nav.item.upload",
         icon: UploadCloud,
+      },
+      {
+        id: "assistant",
+        to: "/assistant",
+        labelKey: "nav.item.assistant",
+        icon: Bot,
+        roles: ADMIN,
+        matchNested: true,
       },
     ],
   },
