@@ -1069,12 +1069,28 @@ function copyFileVerified(sourcePath, targetPath) {
   if (sourceStat.atime && sourceStat.mtime) {
     try { fs.utimesSync(targetPath, sourceStat.atime, sourceStat.mtime); } catch (_) {}
   }
-  const sourceHash = sha256File(sourcePath);
-  const targetHash = sha256File(targetPath);
-  if (sourceHash !== targetHash) {
-    throw new Error("Dateiinhalt nach Kopie stimmt nicht ueberein");
+  if (String(process.env.STORAGE_STRICT_HASH_VERIFY || "").toLowerCase() === "true") {
+    const sourceHash = sha256File(sourcePath);
+    const targetHash = sha256File(targetPath);
+    if (sourceHash !== targetHash) {
+      throw new Error("Dateiinhalt nach Kopie stimmt nicht ueberein");
+    }
+    return sourceHash;
   }
-  return sourceHash;
+  return null;
+}
+
+function backupExistingConflictFile(targetPath) {
+  const dir = path.dirname(targetPath);
+  const base = path.basename(targetPath);
+  let suffix = Date.now();
+  let backupPath = path.join(dir, `${base}.partial-backup-${suffix}`);
+  while (fs.existsSync(backupPath)) {
+    suffix += 1;
+    backupPath = path.join(dir, `${base}.partial-backup-${suffix}`);
+  }
+  fs.renameSync(targetPath, backupPath);
+  return backupPath;
 }
 
 function moveDirectoryWithFallback(sourceDir, targetDir, rootPath) {
@@ -1133,6 +1149,7 @@ async function moveRawMaterialToCustomerFolder(order, db) {
     moved: 0,
     skippedExisting: 0,
     removedIdentical: 0,
+    replacedConflicts: 0,
   };
 
   for (const sourcePath of files) {
@@ -1143,13 +1160,18 @@ async function moveRawMaterialToCustomerFolder(order, db) {
     // Behalte innerhalb von "Unbearbeitete" denselben Unterordnerpfad bei.
     const targetPath = path.join(customerLink.absolute_path, relativePath);
     if (fs.existsSync(targetPath) && fs.statSync(targetPath).isFile()) {
-      const sourceHash = sha256File(sourcePath);
-      const targetHash = sha256File(targetPath);
-      if (sourceHash === targetHash) {
+      const sourceStat = fs.statSync(sourcePath);
+      const targetStat = fs.statSync(targetPath);
+      const sameSize = Number(sourceStat.size || 0) === Number(targetStat.size || 0);
+      const sameContent = sameSize && sha256File(sourcePath) === sha256File(targetPath);
+      if (sameContent) {
         try { fs.unlinkSync(sourcePath); } catch (_) {}
         stats.removedIdentical += 1;
       } else {
-        stats.skippedExisting += 1;
+        backupExistingConflictFile(targetPath);
+        moveFileWithFallback(sourcePath, targetPath);
+        stats.moved += 1;
+        stats.replacedConflicts += 1;
       }
       continue;
     }

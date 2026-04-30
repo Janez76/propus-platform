@@ -42,7 +42,7 @@
 | `POST` | `/api/admin/orders/:orderNo/storage/provision` | Admin | Kanonische NAS-Struktur anlegen + DB-Link (`createMissing`) |
 | `POST` | `/api/admin/orders/:orderNo/storage/link` | Admin | Bestehenden Ordner verknüpfen; optional Umbenennen auf kanonischen Pfad |
 | `POST` | `/api/admin/orders/:orderNo/storage/nextcloud-share` | Admin | Nextcloud-Freigabe für `customer_folder` |
-| `POST` | `/api/admin/orders/:orderNo/storage/raw-to-customer` | Admin | Rohmaterial-Dateien in den Kundenordner unter `Unbearbeitete/...` verschieben |
+| `POST` | `/api/admin/orders/:orderNo/storage/raw-to-customer` | Admin | Rohmaterial → Kundenordner als Background-Job starten (`202`, blockiert Express nicht) |
 | `DELETE` | `/api/admin/orders/:orderNo/storage/folder` | Admin | Ordner archivieren (phys. ins Archiv-Root) |
 
 ---
@@ -362,6 +362,18 @@ final_grundrisse → JPG-Variante (PDF → JPEG)
 ### NAS-Archivierung
 
 Wenn ein Auftrag archiviert wird, werden die Ordner-Links in `booking.order_folder_links` auf `status='archived'`, `archived_at=NOW()` gesetzt. Die physischen Dateien werden in die Archive-Root verschoben.
+
+### Rohmaterial → Kundenordner
+
+Der Admin-Button **Rohmaterial in Kundenordner verschieben** startet seit April 2026 einen separaten Child-Prozess (`booking/raw-to-customer-worker.js`) statt den Move synchron im Express-Request auszuführen. Der API-Request antwortet direkt mit `202` (`queued=true`); die UI bleibt bedienbar und der Status wird per **Aktualisieren** neu geladen.
+
+Verhalten:
+
+- Quelle: `raw_material`-Link des Auftrags
+- Ziel: `customer_folder`-Link des Auftrags, gleicher relativer Pfad (z. B. `Unbearbeitete/Bilder/...`)
+- Wenn eine identische Zieldatei existiert: Quelle wird gelöscht (`removedIdentical`)
+- Wenn eine abweichende/teilweise Zieldatei existiert: Zieldatei wird als `*.partial-backup-<timestamp>` gesichert, die vollständige Quelle ersetzt sie (`replacedConflicts`)
+- Cross-Filesystem-Moves nutzen `copyFileSync` + Grössenprüfung + `unlink`; Hash-Prüfung ist nur mit `STORAGE_STRICT_HASH_VERIFY=true` aktiv, damit grosse CIFS-Moves nicht durch doppeltes Lesen blockieren
 
 ### Tabelle `booking.order_folder_links`
 

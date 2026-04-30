@@ -119,6 +119,7 @@ export function OrderStoragePanel({ orderNo, orderAddress }: Props) {
   const [summary, setSummary] = useState<OrderStorageSummaryResponse | null>(null);
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [error, setError] = useState("");
+  const [moveNotice, setMoveNotice] = useState("");
   const [selectedFolderType, setSelectedFolderType] = useState<OrderFolderType | null>(null);
   const [linkInputs, setLinkInputs] = useState<Record<string, string>>({
     raw_material: "",
@@ -300,8 +301,14 @@ export function OrderStoragePanel({ orderNo, orderAddress }: Props) {
     if (!orderNo || !token) return;
     if (!window.confirm("Rohmaterial in den Kundenordner unter Unbearbeitete verschieben?")) return;
     setLoadingSummary(true);
+    setMoveNotice("");
     try {
-      await moveRawMaterialToCustomerFolder(token, orderNo);
+      const result = await moveRawMaterialToCustomerFolder(token, orderNo);
+      if (result.alreadyRunning) {
+        setMoveNotice("Rohmaterial-Transfer läuft bereits im Hintergrund. Bitte in Kürze aktualisieren.");
+      } else if (result.queued) {
+        setMoveNotice("Rohmaterial-Transfer wurde im Hintergrund gestartet. Die Seite bleibt bedienbar; Fortschritt per Aktualisieren prüfen.");
+      }
       await loadSummary();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Rohmaterial konnte nicht verschoben werden");
@@ -351,6 +358,11 @@ export function OrderStoragePanel({ orderNo, orderAddress }: Props) {
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
           {error}
+        </div>
+      )}
+      {moveNotice && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+          {moveNotice}
         </div>
       )}
 

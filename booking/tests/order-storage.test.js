@@ -379,3 +379,49 @@ test("moveRawMaterialToCustomerFolder: nutzt Rename statt Kopie wenn moeglich", 
     fs.rmSync(customerRoot, { recursive: true, force: true });
   }
 });
+
+test("moveRawMaterialToCustomerFolder: sichert abweichende Teil-Zieldatei und ersetzt sie", async () => {
+  const customerRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ost-move-conflict-"));
+  const rawRoot = path.join(customerRoot, "_raw");
+  const { mod, restore } = loadOrderStorage({
+    BOOKING_UPLOAD_CUSTOMER_ROOT: customerRoot,
+    BOOKING_UPLOAD_RAW_ROOT: rawRoot,
+  });
+  try {
+    const rawOrderDir = path.join(rawRoot, "8266 Steckborn, Frauenfelderstrasse 60 #100089");
+    const customerOrderDir = path.join(customerRoot, "BILO GmbH #89", "8266 Steckborn, Frauenfelderstrasse 60 #100089");
+    const rel = path.join("Unbearbeitete", "Bilder", "bild-1.dng");
+    const rawImage = path.join(rawOrderDir, rel);
+    const customerImage = path.join(customerOrderDir, rel);
+    fs.mkdirSync(path.dirname(rawImage), { recursive: true });
+    fs.mkdirSync(path.dirname(customerImage), { recursive: true });
+    fs.writeFileSync(rawImage, "vollstaendige raw datei", "utf8");
+    fs.writeFileSync(customerImage, "teil", "utf8");
+
+    const db = {
+      getOrderFolderLink: async (_orderNo, folderType) => {
+        if (folderType === "raw_material") {
+          return { folder_type: "raw_material", absolute_path: rawOrderDir };
+        }
+        if (folderType === "customer_folder") {
+          return { folder_type: "customer_folder", absolute_path: customerOrderDir };
+        }
+        return null;
+      },
+    };
+
+    const stats = await mod.moveRawMaterialToCustomerFolder({ orderNo: 100089 }, db);
+    const backups = fs.readdirSync(path.dirname(customerImage)).filter((name) => name.includes(".partial-backup-"));
+
+    assert.equal(stats.scanned, 1);
+    assert.equal(stats.moved, 1);
+    assert.equal(stats.replacedConflicts, 1);
+    assert.equal(fs.existsSync(rawImage), false, "Quelle muss nach Ersatz entfernt werden");
+    assert.equal(fs.readFileSync(customerImage, "utf8"), "vollstaendige raw datei");
+    assert.equal(backups.length, 1, "abweichende Teil-Zieldatei muss als Backup erhalten bleiben");
+    assert.equal(fs.readFileSync(path.join(path.dirname(customerImage), backups[0]), "utf8"), "teil");
+  } finally {
+    restore();
+    fs.rmSync(customerRoot, { recursive: true, force: true });
+  }
+});

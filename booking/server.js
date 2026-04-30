@@ -93,9 +93,9 @@ const {
   linkExistingOrderFolder,
   archiveOrderFolder,
   getStorageHealth,
-  moveRawMaterialToCustomerFolder,
   resolveCategoryPath,
 } = require("./order-storage");
+const { startRawToCustomerJob } = require("./raw-to-customer-job");
 const {
   stageUploadBatch,
   stageUploadBatchFromPaths,
@@ -125,6 +125,10 @@ const { executeSideEffects } = require("./workflow-effects");
 const { startJobs } = require("./jobs/index");
 const templateRenderer = require("./template-renderer");
 const { normalizeTextDeep, repairTextEncoding } = require("./text-normalization");
+const {
+  buildExxasServiceOrderBody,
+  resolveExxasCustomerIdForOrder,
+} = require("./exxas-service-order");
 const gbpClient = require("./gbp-client");
 const { resolveAdminSendEmails, resolveAdminEmailTargets, getEmailSendListForAdminStatus, getResendEmailEffectsForStatus, shouldSendAttendeeNotifications } = require("./admin-status-email");
 const crypto = require("crypto");
@@ -6001,9 +6005,15 @@ app.post("/api/admin/orders/:orderNo/storage/raw-to-customer", requireAdmin, asy
     const orderNo = Number(req.params.orderNo);
     const order = await db.getOrderByNo(orderNo);
     if (!order) return res.status(404).json({ error: "Order not found" });
-    const stats = await moveRawMaterialToCustomerFolder(order, db);
+    const job = startRawToCustomerJob({ orderNo });
     const folders = await getOrderFolderSummary(order, db, { createMissing: false });
-    res.json({ ok: true, stats, folders });
+    res.status(job.started ? 202 : 200).json({
+      ok: true,
+      queued: job.started,
+      alreadyRunning: job.alreadyRunning,
+      job,
+      folders,
+    });
   } catch (err) {
     res.status(400).json({ error: err.message || "Rohmaterial konnte nicht in den Kundenordner verschoben werden" });
   }
@@ -8244,11 +8254,13 @@ app.post("/api/admin/orders/:orderNo/exxas-create-service-order", requireAdmin, 
     }
     const addressLine = String(order.address || order.billing?.street || order.customerStreet || "").trim() || "Ohne Adresse";
     const bezeichnung = `${addressLine} #${String(order.orderNo || orderNo)}`;
-    // Exxas-Kunden-ID aus dem Order-Datensatz (über Kunden-Verknüpfung)
-    const exxasKundeId = String(
-      order.exxasContactId || order.exxas_contact_id ||
-      order.exxasCustomerId || order.exxas_customer_id || ""
-    ).trim();
+    const exxasCustomerResolution = await resolveExxasCustomerIdForOrder(order, db);
+    const exxasKundeId = exxasCustomerResolution.value;
+    if (!exxasKundeId) {
+      const error = exxasCustomerResolution.error || "Exxas-Kunden-ID fehlt";
+      await db.setExxasError(orderNo, error);
+      return res.status(422).json({ ok: false, error });
+    }
 
     // Termin aus schedule.date (Format YYYY-MM-DD)
     const termin = String(order.schedule?.date || "").trim();
@@ -8268,13 +8280,12 @@ app.post("/api/admin/orders/:orderNo/exxas-create-service-order", requireAdmin, 
       }
     } catch (_e) { /* non-fatal */ }
 
-    const body = {
+    const body = buildExxasServiceOrderBody({
       bezeichnung,
-      typ: "s",
-      ...(exxasKundeId ? { ref_kunde: exxasKundeId } : {}),
-      ...(refKontakt ? { ref_kontakt: refKontakt } : {}),
-      ...(termin ? { termin } : {}),
-    };
+      exxasCustomerId: exxasKundeId,
+      refKontakt,
+      termin,
+    });
     const result = await postExxasAuftrag(credentials, body);
     if (!result.ok) {
       await db.setExxasError(orderNo, result.err);

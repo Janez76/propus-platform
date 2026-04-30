@@ -1,7 +1,5 @@
 import { apiRequest, API_BASE } from "./client";
 
-const ORDER_STORAGE_MOVE_TIMEOUT_MS = 10 * 60_000;
-
 type OrderObject = {
   type?: string;
   area?: number | string;
@@ -785,12 +783,19 @@ export const moveRawMaterialToCustomerFolder = (
   token: string,
   orderNo: string,
 ) =>
-  apiRequest<{ ok: boolean; stats: Record<string, number>; folders: OrderStorageFolderSummary[] }>(
+  apiRequest<{
+    ok: boolean;
+    queued?: boolean;
+    alreadyRunning?: boolean;
+    job?: { orderNo: number; pid: number | null; started?: boolean; alreadyRunning?: boolean };
+    stats?: Record<string, number>;
+    folders: OrderStorageFolderSummary[];
+  }>(
     `/api/admin/orders/${encodeURIComponent(orderNo)}/storage/raw-to-customer`,
     "POST",
     token,
     undefined,
-    { timeoutMs: ORDER_STORAGE_MOVE_TIMEOUT_MS, maxRetries: 0 },
+    { timeoutMs: 30_000, maxRetries: 0 },
   );
 
 export const generateNextcloudShare = (
