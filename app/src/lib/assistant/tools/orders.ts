@@ -117,11 +117,33 @@ export const ordersTools: ToolDefinition[] = [
   },
 ];
 
-function toIdParts(raw: string): { numericId: number | null; orderNo: number | null } {
-  const trimmed = String(raw).trim();
-  const asInt = Number.parseInt(trimmed, 10);
-  if (!Number.isFinite(asInt)) return { numericId: null, orderNo: null };
-  return { numericId: asInt, orderNo: asInt };
+/**
+ * Akzeptiert ausschliesslich vollstaendig numerische Strings ("123" → 123,
+ * aber NICHT "123abc" — sonst wuerde Number.parseInt das Praefix akzeptieren
+ * und einen unbeabsichtigten Datensatz treffen).
+ */
+function parseOrderRef(raw: unknown): number | null {
+  const trimmed = String(raw ?? "").trim();
+  if (!/^\d+$/.test(trimmed)) return null;
+  const n = Number.parseInt(trimmed, 10);
+  return Number.isSafeInteger(n) && n > 0 ? n : null;
+}
+
+/**
+ * Loest einen numerischen Order-Identifier eindeutig auf.
+ * `order_no` (User-sichtbare Auftragsnummer) hat Vorrang vor `id` (interner SERIAL).
+ * Liefert immer genau einen Datensatz oder null — verhindert, dass eine
+ * UPDATE-Query mit `id = X OR order_no = X` zwei verschiedene Zeilen erwischt.
+ */
+async function resolveOrderId(ref: number): Promise<number | null> {
+  const row = await queryOne<{ id: number }>(
+    `SELECT id FROM booking.orders
+      WHERE order_no = $1 OR id = $1
+      ORDER BY (order_no = $1) DESC, id ASC
+      LIMIT 1`,
+    [ref],
+  );
+  return row?.id ?? null;
 }
 
 export const ordersHandlers: Record<string, ToolHandler> = {
@@ -146,14 +168,15 @@ export const ordersHandlers: Record<string, ToolHandler> = {
   },
 
   get_order_by_id: async (input) => {
-    const { numericId, orderNo } = toIdParts(String(input.order_id ?? ""));
-    if (numericId === null) return { error: "order_id muss numerisch sein" };
+    const ref = parseOrderRef(input.order_id);
+    if (ref === null) return { error: "order_id muss eine vollstaendige Zahl sein" };
 
     const row = await queryOne(
       `${SELECT_ORDER_LIST}
-       WHERE o.id = $1 OR o.order_no = $2
+       WHERE o.order_no = $1 OR o.id = $1
+       ORDER BY (o.order_no = $1) DESC, o.id ASC
        LIMIT 1`,
-      [numericId, orderNo],
+      [ref],
     );
     return row ?? { error: "Auftrag nicht gefunden" };
   },
@@ -198,17 +221,20 @@ export const ordersHandlers: Record<string, ToolHandler> = {
     if (!ORDER_STATUS_VALUES.includes(newStatus as (typeof ORDER_STATUS_VALUES)[number])) {
       return { error: `Ungültiger Status. Erlaubt: ${ORDER_STATUS_VALUES.join(", ")}` };
     }
-    const { numericId, orderNo } = toIdParts(String(input.order_id ?? ""));
-    if (numericId === null) return { error: "order_id muss numerisch sein" };
+    const ref = parseOrderRef(input.order_id);
+    if (ref === null) return { error: "order_id muss eine vollstaendige Zahl sein" };
+
+    const targetId = await resolveOrderId(ref);
+    if (targetId === null) return { error: "Auftrag nicht gefunden" };
 
     const updated = await query<{ id: number; order_no: number; status: string }>(
       `UPDATE booking.orders
           SET status = $1,
               updated_at = NOW(),
               done_at = CASE WHEN $1 IN ('done','completed') AND done_at IS NULL THEN NOW() ELSE done_at END
-        WHERE id = $2 OR order_no = $3
+        WHERE id = $2
         RETURNING id, order_no, status`,
-      [newStatus, numericId, orderNo],
+      [newStatus, targetId],
     );
     if (updated.length === 0) return { error: "Auftrag nicht gefunden" };
     return { ok: true, order: updated[0] };

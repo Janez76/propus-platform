@@ -71,7 +71,9 @@ export const toursHandlers: Record<string, ToolHandler> = {
     const raw = String(input.tour_id ?? "").trim();
     if (!raw) return { error: "tour_id fehlt" };
 
-    const numericId = Number.parseInt(raw, 10);
+    // Strict-numeric: nur "123" matcht id; "123abc" wird ausschliesslich gegen
+    // matterport_space_id geprueft (verhindert Number.parseInt-Praefix-Trick).
+    const numericId = /^\d+$/.test(raw) ? Number.parseInt(raw, 10) : null;
     const row = await queryOne(
       `SELECT
          t.id,
@@ -90,7 +92,7 @@ export const toursHandlers: Record<string, ToolHandler> = {
        WHERE ($1::int IS NOT NULL AND t.id = $1::int)
           OR t.matterport_space_id = $2
        LIMIT 1`,
-      [Number.isFinite(numericId) ? numericId : null, raw],
+      [numericId, raw],
     );
     return row ?? { error: "Tour nicht gefunden" };
   },
