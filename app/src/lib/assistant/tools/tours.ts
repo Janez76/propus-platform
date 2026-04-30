@@ -181,6 +181,16 @@ export const toursTools: ToolDefinition[] = [
     },
   },
   {
+    name: "get_tour_detail",
+    description:
+      "Gibt den vollständigen Tour-Kontext zurück: Stammdaten, Matterport-Status, Kunde, verknüpfte Bestellung, Rechnungen, Aktionsprotokoll, Bereinigungsstatus und Tickets.",
+    input_schema: {
+      type: "object",
+      properties: { tour_id: { type: "number", description: "Tour-ID" } },
+      required: ["tour_id"],
+    },
+  },
+  {
     name: "count_active_tours",
     description: "Zählt aktive Touren in tour_manager.tours.",
     input_schema: { type: "object", properties: {} },
@@ -199,6 +209,12 @@ export const toursTools: ToolDefinition[] = [
         limit: { type: "number", description: "Maximale Anzahl (Default: 10, max. 50)" },
       },
     },
+  },
+  {
+    name: "summarize_cleanup_status",
+    description:
+      "Gibt eine Gesamtübersicht über den Bereinigungslauf: Anzahl pro Aktion, ausstehende Löschungen, kürzlich abgeschlossene, und Pipeline-Summary.",
+    input_schema: { type: "object", properties: {} },
   },
 ];
 
@@ -232,6 +248,105 @@ export function createToursHandlers(deps: ToursDeps): Record<string, ToolHandler
       );
       if (rows.length === 0) return { error: "Tour nicht gefunden" };
       return normalizeTour(rows[0]);
+    },
+
+    get_tour_detail: async (input) => {
+      const tourId = Number(input.tour_id);
+      if (!Number.isInteger(tourId) || tourId <= 0) return { error: "Ungültige Tour-ID" };
+
+      const baseRows = await runQuery<TourRow & {
+        tour_url: string | null;
+        customer_verified: boolean | null;
+        customer_intent: string | null;
+        cleanup_action: string | null;
+        cleanup_action_at: string | Date | null;
+        cleanup_completed: boolean | null;
+        delete_requested_at: string | Date | null;
+        delete_after_at: string | Date | null;
+      }>(
+        `SELECT t.id, t.bezeichnung, t.object_label, t.canonical_object_label, t.customer_name, t.customer_email,
+                t.customer_id, t.status, t.matterport_space_id, t.canonical_matterport_space_id,
+                t.term_end_date, t.ablaufdatum, t.canonical_term_end_date, t.booking_order_no,
+                t.tour_url, t.customer_verified, t.customer_intent,
+                t.cleanup_action, t.cleanup_action_at, t.cleanup_completed,
+                t.delete_requested_at, t.delete_after_at
+         FROM tour_manager.tours t
+         WHERE t.id = $1
+         LIMIT 1`,
+        [tourId],
+      );
+      if (baseRows.length === 0) return { error: "Tour nicht gefunden" };
+      const row = baseRows[0];
+
+      const renewalInvoices = await runQuery<{ invoice_number: string | null; invoice_status: string | null; amount_chf: number | null; due_at: string | Date | null }>(
+        `SELECT invoice_number, invoice_status, amount_chf, due_at
+         FROM tour_manager.renewal_invoices
+         WHERE tour_id = $1 AND deleted_at IS NULL
+         ORDER BY due_at DESC NULLS LAST
+         LIMIT 5`,
+        [tourId],
+      );
+
+      const exxasInvoices = await runQuery<{ nummer: string | null; exxas_status: string | null; preis_brutto: number | null }>(
+        `SELECT nummer, exxas_status, preis_brutto
+         FROM tour_manager.exxas_invoices
+         WHERE tour_id = $1 AND deleted_at IS NULL
+         ORDER BY id DESC
+         LIMIT 3`,
+        [tourId],
+      );
+
+      const actionsLog = await runQuery<{ action: string; actor_ref: string | null; created_at: string | Date; details_json: Record<string, unknown> | null }>(
+        `SELECT action AS action, actor_ref, created_at, details_json
+         FROM tour_manager.actions_log
+         WHERE tour_id = $1
+         ORDER BY created_at DESC, id DESC
+         LIMIT 5`,
+        [tourId],
+      );
+
+      const tickets = await runQuery<{ subject: string; status: string; category: string | null }>(
+        `SELECT subject, status, category
+         FROM tour_manager.tickets
+         WHERE reference_id = $1::text AND reference_type = 'tour'
+         ORDER BY id DESC
+         LIMIT 3`,
+        [String(tourId)],
+      );
+
+      const base = normalizeTour(row);
+      return {
+        ...base,
+        tourUrl: row.tour_url,
+        customerVerified: Boolean(row.customer_verified),
+        customerIntent: row.customer_intent,
+        cleanup: {
+          action: row.cleanup_action,
+          actionLabel: cleanupActionLabel(row.cleanup_action),
+          actionAt: isoDateTime(row.cleanup_action_at),
+          completed: Boolean(row.cleanup_completed),
+          deleteRequestedAt: isoDateTime(row.delete_requested_at),
+          deleteAfterAt: isoDateTime(row.delete_after_at),
+        },
+        renewalInvoices: renewalInvoices.map((i) => ({
+          number: i.invoice_number,
+          status: i.invoice_status,
+          amount: i.amount_chf,
+          dueAt: isoDate(i.due_at as string | Date | null),
+        })),
+        exxasInvoices: exxasInvoices.map((i) => ({
+          nummer: i.nummer,
+          status: i.exxas_status,
+          amount: i.preis_brutto,
+        })),
+        actionsLog: actionsLog.map((a) => ({
+          action: a.action,
+          actor: a.actor_ref,
+          at: isoDateTime(a.created_at),
+          details: a.details_json ? JSON.stringify(a.details_json).slice(0, 200) : null,
+        })),
+        tickets: tickets.map((t) => ({ subject: t.subject, status: t.status, category: t.category })),
+      };
     },
 
     count_active_tours: async () => {
@@ -311,6 +426,48 @@ export function createToursHandlers(deps: ToursDeps): Record<string, ToolHandler
         [email, customerId, tourId, q, limit],
       );
       return { count: rows.length, cleanupSelections: rows.map(normalizeCleanupSelection) };
+    },
+
+    summarize_cleanup_status: async () => {
+      const actionCounts = await runQuery<{ cleanup_action: string; cnt: string }>(
+        `SELECT COALESCE(cleanup_action, 'keine_auswahl') AS cleanup_action, COUNT(*) AS cnt
+         FROM tour_manager.tours
+         WHERE confirmation_required = TRUE OR cleanup_sent_at IS NOT NULL OR cleanup_action IS NOT NULL OR customer_intent IS NOT NULL
+         GROUP BY COALESCE(cleanup_action, 'keine_auswahl')
+         ORDER BY cnt DESC`,
+      );
+
+      const pendingDeletions = await runQuery<{ id: number; label: string | null; delete_after_at: string | Date }>(
+        `SELECT id, COALESCE(canonical_object_label, object_label, bezeichnung) AS label, delete_after_at
+         FROM tour_manager.tours
+         WHERE delete_after_at IS NOT NULL AND delete_after_at > NOW() AND cleanup_completed = FALSE
+         ORDER BY delete_after_at ASC
+         LIMIT 10`,
+      );
+
+      const recentCompleted = await runQuery<{ id: number; label: string | null; cleanup_action: string | null; cleanup_action_at: string | Date }>(
+        `SELECT id, COALESCE(canonical_object_label, object_label, bezeichnung) AS label, cleanup_action, cleanup_action_at
+         FROM tour_manager.tours
+         WHERE cleanup_completed = TRUE AND cleanup_action_at >= NOW() - INTERVAL '7 days'
+         ORDER BY cleanup_action_at DESC
+         LIMIT 10`,
+      );
+
+      const summary = await runQuery<{ total: string; responded: string; pending: string }>(
+        `SELECT
+           COUNT(*) FILTER (WHERE confirmation_required = TRUE OR cleanup_sent_at IS NOT NULL OR cleanup_action IS NOT NULL OR customer_intent IS NOT NULL) AS total,
+           COUNT(*) FILTER (WHERE cleanup_action IS NOT NULL) AS responded,
+           COUNT(*) FILTER (WHERE cleanup_action IS NULL AND (confirmation_required = TRUE OR cleanup_sent_at IS NOT NULL)) AS pending
+         FROM tour_manager.tours`,
+      );
+
+      const s = summary[0] || { total: "0", responded: "0", pending: "0" };
+      return {
+        byAction: actionCounts.map((r) => ({ action: r.cleanup_action, label: cleanupActionLabel(r.cleanup_action), count: Number(r.cnt) })),
+        pendingDeletions: pendingDeletions.map((r) => ({ tourId: r.id, label: r.label, deleteAfter: isoDate(r.delete_after_at) })),
+        recentlyCompleted: recentCompleted.map((r) => ({ tourId: r.id, label: r.label, action: r.cleanup_action, completedAt: isoDateTime(r.cleanup_action_at) })),
+        summary: { totalInPipeline: Number(s.total), responded: Number(s.responded), pending: Number(s.pending) },
+      };
     },
   };
 }

@@ -1,6 +1,8 @@
+import { invoicesHandlers, invoicesTools } from "./invoices";
 import { ordersHandlers, ordersTools } from "./orders";
 import { posteingangHandlers, posteingangTools } from "./posteingang";
 import { toursHandlers, toursTools } from "./tours";
+import { writeTools, writeHandlers } from "./writes";
 
 export type ToolDefinition = {
   name: string;
@@ -10,6 +12,8 @@ export type ToolDefinition = {
     properties?: Record<string, unknown>;
     required?: string[];
   };
+  kind?: "read" | "write";
+  requiresConfirmation?: boolean;
 };
 
 export type ToolContext = {
@@ -21,10 +25,28 @@ export type ToolContext = {
 
 export type ToolHandler = (input: Record<string, unknown>, ctx: ToolContext) => Promise<unknown>;
 
-export const allTools: ToolDefinition[] = [...ordersTools, ...toursTools, ...posteingangTools];
+export const allTools: ToolDefinition[] = [
+  ...ordersTools,
+  ...toursTools,
+  ...invoicesTools,
+  ...posteingangTools,
+  ...writeTools,
+];
 
 export const allHandlers: Record<string, ToolHandler> = {
   ...ordersHandlers,
   ...toursHandlers,
+  ...invoicesHandlers,
   ...posteingangHandlers,
+  ...writeHandlers,
 };
+
+export function isWriteTool(toolName: string): boolean {
+  const def = allTools.find((t) => t.name === toolName);
+  return def?.kind === "write";
+}
+
+export function toolRequiresConfirmation(toolName: string): boolean {
+  const def = allTools.find((t) => t.name === toolName);
+  return Boolean(def?.requiresConfirmation);
+}

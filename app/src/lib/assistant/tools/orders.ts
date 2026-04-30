@@ -101,6 +101,16 @@ export const ordersTools: ToolDefinition[] = [
     },
   },
   {
+    name: "get_order_detail",
+    description:
+      "Gibt den vollständigen Auftragskontext zurück: Basisdaten, Kunden-Info, Ordner-Status, verknüpfte Rechnungen, letzte Chat-Nachrichten und Kalender-Verknüpfung.",
+    input_schema: {
+      type: "object",
+      properties: { order_no: { type: "number", description: "Auftragsnummer" } },
+      required: ["order_no"],
+    },
+  },
+  {
     name: "search_orders",
     description: "Sucht Aufträge nach Adresse, Rechnungsname oder Rechnungs-E-Mail.",
     input_schema: {
@@ -151,6 +161,67 @@ export function createOrdersHandlers(deps: OrdersDeps): Record<string, ToolHandl
       );
       if (rows.length === 0) return { error: "Auftrag nicht gefunden" };
       return normalizeOrder(rows[0]);
+    },
+
+    get_order_detail: async (input: Record<string, unknown>) => {
+      const orderNo = Number(input.order_no);
+      if (!Number.isInteger(orderNo) || orderNo <= 0) return { error: "Ungültige Auftragsnummer" };
+
+      const baseRows = await runQuery<OrderRow & { done_at: string | Date | null; cust_name: string | null; cust_email: string | null; photographer_event_id: string | null; office_event_id: string | null }>(
+        `SELECT o.order_no, o.status, o.address, o.object, o.services, o.photographer, o.schedule, o.billing,
+                o.customer_id, o.created_at, o.done_at,
+                c.name AS cust_name, c.email AS cust_email,
+                o.photographer_event_id, o.office_event_id
+         FROM booking.orders o
+         LEFT JOIN core.customers c ON c.id = o.customer_id
+         WHERE o.order_no = $1
+         LIMIT 1`,
+        [orderNo],
+      );
+      if (baseRows.length === 0) return { error: "Auftrag nicht gefunden" };
+      const row = baseRows[0];
+
+      const folders = await runQuery<{ folder_type: string; status: string; display_name: string | null }>(
+        `SELECT folder_type, status, display_name
+         FROM booking.order_folder_links
+         WHERE order_no = $1
+         LIMIT 5`,
+        [orderNo],
+      );
+
+      const invoices = await runQuery<{ source: string; invoice_number: string | null; status: string | null; amount: number | null; due_at: string | Date | null }>(
+        `SELECT 'renewal' AS source, ri.invoice_number, ri.invoice_status AS status, ri.amount_chf AS amount, ri.due_at
+         FROM tour_manager.renewal_invoices ri
+         JOIN tour_manager.tours t ON t.id = ri.tour_id
+         WHERE t.booking_order_no = $1
+         UNION ALL
+         SELECT 'exxas' AS source, ei.nummer AS invoice_number, ei.exxas_status AS status, ei.preis_brutto AS amount, NULL AS due_at
+         FROM tour_manager.exxas_invoices ei
+         JOIN tour_manager.tours t ON t.id = ei.tour_id
+         WHERE t.booking_order_no = $1
+         LIMIT 5`,
+        [orderNo],
+      );
+
+      const chatMessages = await runQuery<{ sender_role: string; sender_name: string | null; body_text: string; created_at: string | Date }>(
+        `SELECT sender_role, sender_name, LEFT(body_text, 200) AS body_text, created_at
+         FROM booking.order_chat_messages
+         WHERE order_no = $1
+         ORDER BY created_at DESC
+         LIMIT 5`,
+        [orderNo],
+      );
+
+      const base = normalizeOrder(row);
+      return {
+        ...base,
+        doneAt: row.done_at instanceof Date ? row.done_at.toISOString() : row.done_at,
+        customer: { id: row.customer_id, name: row.cust_name, email: row.cust_email },
+        calendarLinked: { photographer: Boolean(row.photographer_event_id), office: Boolean(row.office_event_id) },
+        folders: folders.map((f) => ({ type: f.folder_type, status: f.status, displayName: f.display_name })),
+        invoices: invoices.map((i) => ({ source: i.source, number: i.invoice_number, status: i.status, amount: i.amount, dueAt: i.due_at instanceof Date ? i.due_at.toISOString().slice(0, 10) : i.due_at })),
+        recentChat: chatMessages.reverse().map((m) => ({ role: m.sender_role, name: m.sender_name, text: m.body_text, at: m.created_at instanceof Date ? m.created_at.toISOString() : m.created_at })),
+      };
     },
 
     search_orders: async (input: Record<string, unknown>) => {

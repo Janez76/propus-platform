@@ -1,6 +1,6 @@
 # Propus Assistant Flow
 
-*Zuletzt aktualisiert: April 2026 (Web-MVP read-only, Claude Tool-Use, Whisper, Audit-Tabellen).*
+*Zuletzt aktualisiert: April 2026 (Web-MVP read-only, Claude Tool-Use, Whisper, Audit-Tabellen, Mobile App + Token-Auth).*
 
 ---
 
@@ -34,11 +34,12 @@ Im Desktop-Layout zeigt der Assistant rechts die letzten 20 Chats. Wenn Tool-Erg
 | `POST` | `/api/assistant/transcribe` | Audio → Text via OpenAI Whisper |
 | `GET` | `/api/assistant/history` | Letzte 20 Konversationen inkl. möglicher Kunden-/Bestell-/Tour-Zuordnung |
 
-Auth:
+Auth (zwei Pfade, siehe `app/src/lib/assistant/auth.ts`):
 
-- Browser-Admin-Session via `booking.admin_sessions` / `getAdminSession()`.
-- Erlaubt: `admin`, `super_admin`, `employee`.
-- Portal-/Kundenrollen werden abgewiesen.
+1. **Cookie** (Browser): Admin-Session via `booking.admin_sessions` / `getAdminSession()`. Erlaubt: `admin`, `super_admin`, `employee`.
+2. **Bearer Token** (Mobile App): `Authorization: Bearer <token>` → SHA-256-Hash gegen `tour_manager.assistant_mobile_tokens`.
+
+Portal-/Kundenrollen werden abgewiesen.
 
 ---
 
@@ -87,6 +88,7 @@ Alle Tools sind read-only.
 |---|---|
 | `get_open_orders` | `booking.orders` |
 | `get_order_by_id` | `booking.orders` |
+| `get_order_detail` | `booking.orders` + `core.customers` + `booking.order_folder_links` + `tour_manager.renewal_invoices`/`exxas_invoices` + `booking.order_chat_messages` |
 | `search_orders` | `booking.orders` |
 | `get_today_schedule` | `booking.orders.schedule` |
 
@@ -96,7 +98,18 @@ Alle Tools sind read-only.
 |---|---|
 | `get_tours_expiring_soon` | `tour_manager.tours`, bevorzugt `canonical_*` |
 | `get_tour_status` | `tour_manager.tours` |
+| `get_tour_detail` | `tour_manager.tours` + `renewal_invoices` + `exxas_invoices` + `actions_log` + `tickets` |
 | `count_active_tours` | `tour_manager.tours` |
+| `get_cleanup_selections` | `tour_manager.tours` + `cleanup_sessions` + `actions_log` + `core.customers` |
+| `summarize_cleanup_status` | `tour_manager.tours` (Aggregation über Bereinigungspipeline) |
+
+### Invoices
+
+| Tool | Datenquelle |
+|---|---|
+| `search_invoices` | `tour_manager.invoices_central_v` |
+| `get_overdue_invoices` | `tour_manager.renewal_invoices` + `tours` |
+| `get_invoice_stats` | `tour_manager.renewal_invoices` + `exxas_invoices` |
 
 ### Posteingang
 
@@ -105,6 +118,8 @@ Alle Tools sind read-only.
 | `search_posteingang_conversations` | `tour_manager.posteingang_conversations/messages` |
 | `get_recent_posteingang_messages` | `tour_manager.posteingang_messages` |
 | `get_open_tasks` | `tour_manager.posteingang_tasks` |
+| `get_posteingang_conversation_detail` | `tour_manager.posteingang_conversations` + `messages` + `tags` + `tasks` + `core.customers` |
+| `get_posteingang_stats` | `tour_manager.posteingang_conversations` + `posteingang_tasks` + `posteingang_messages` |
 
 ---
 
@@ -118,10 +133,53 @@ Alle Tools sind read-only.
 
 ---
 
-## 8. Bewusst nicht in Phase 1
+## 8. Mobile App (Propus Assistant)
+
+### Überblick
+
+Expo-basierte React Native App unter `apps/propus-assistant-mobile/`. Voice-first Interface mit Push-to-talk, Whisper-Transkription und TTS (expo-speech).
+
+### Abhängigkeiten
+
+expo ~52, expo-av, expo-haptics, expo-router, expo-secure-store, expo-speech, React 18 / RN 0.76.
+
+### Auth-Flow (Bearer Token)
+
+Die Mobile App nutzt **Bearer Tokens** (nicht Cookie-Sessions). Flow:
+
+1. Admin erstellt Token in `/assistant` → Sidebar → „Mobile-Zugang" → „Erstellen"
+2. Token wird einmalig angezeigt (SHA-256-Hash in DB: `tour_manager.assistant_mobile_tokens`)
+3. User gibt Token in der Mobile App ein (Login-Screen)
+4. App speichert Token in `expo-secure-store` und sendet ihn als `Authorization: Bearer <token>`
+5. Backend (`app/src/lib/assistant/auth.ts`) prüft Hash gegen DB, nutzt `user_id`/`user_email` aus Token-Zeile
+
+### Token-Management-API
+
+| Methode | Route | Beschreibung |
+|---------|-------|-------------|
+| `GET` | `/api/assistant/tokens` | Aktive Tokens auflisten (nur Admin-Session) |
+| `POST` | `/api/assistant/tokens` | Neuen Token generieren (nur Admin-Session) |
+| `DELETE` | `/api/assistant/tokens/[id]` | Token widerrufen (nur Admin-Session) |
+
+### API-Domain
+
+Die Mobile App verbindet sich über `ki.propus.ch` (konfiguriert in `app.json` → `expo.extra.apiBaseUrl`).
+
+### DNS-Setup (manuell)
+
+`ki.propus.ch` muss als **Cloudflare DNS A-Record** auf den VPS (`87.106.24.107`) zeigen — analog zu `admin-booking.propus.ch`. Auf dem VPS muss der Reverse-Proxy (Caddy/Nginx) die Domain auf den Platform-Container weiterleiten.
+
+Dies ist ein **manueller Schritt** — nicht automatisiert.
+
+### DB-Migration
+
+`core/migrations/048_assistant_mobile_tokens.sql` erstellt die Tabelle `tour_manager.assistant_mobile_tokens`.
+
+---
+
+## 9. Bewusst nicht in Phase 1
 
 - Keine schreibenden Tools.
 - Kein direkter Graph-Mail-Versand.
 - Keine Order-/Tour-Statusänderungen.
 - Keine Home-Assistant-/MailerLite-/Paperless-Aktionen.
-- Keine Mobile-Produktivfreigabe ohne separates Token-/Auth-Konzept.
