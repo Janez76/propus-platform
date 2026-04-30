@@ -80,7 +80,7 @@ export function runAssistantTurnStreaming(input: StreamingTurnInput): {
   const client = new Anthropic({ apiKey });
 
   const autoEscalation = input.autoEscalation !== false;
-  const maxTier = input.maxModelTier || parseTier(runtimeEnv("ASSISTANT_MAX_MODEL_TIER"), "sonnet");
+  const maxTier = input.maxModelTier || parseTier(runtimeEnv("ASSISTANT_MAX_MODEL_TIER"), "opus");
 
   let selectedModel: string;
   if (input.model) {

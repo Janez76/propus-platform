@@ -101,7 +101,7 @@ export async function runAssistantTurn(input: AssistantTurnInput): Promise<Assis
   const client = new Anthropic({ apiKey });
 
   const autoEscalation = input.autoEscalation !== false;
-  const maxTier = input.maxModelTier || parseTier(runtimeEnv("ASSISTANT_MAX_MODEL_TIER"), "sonnet");
+  const maxTier = input.maxModelTier || parseTier(runtimeEnv("ASSISTANT_MAX_MODEL_TIER"), "opus");
 
   let currentTier: ModelTier;
   if (input.forceModel) {
