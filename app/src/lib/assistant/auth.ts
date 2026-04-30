@@ -1,27 +1,30 @@
 /**
  * Auth-Helper für Assistant-Routen.
  *
- * - Cookie `admin_session` (wie der Rest des Admin-Panels), ODER
- * - `Authorization: Bearer <token>` (für die Mobile-App).
+ * Akzeptiert (in Reihenfolge):
+ *  1. Cookie `admin_session`              — Browser-Login (gleicher Pfad wie Admin-Panel)
+ *  2. `Authorization: Bearer <token>`     — Mobile + Integrationen
+ *     - Token-Prefix `ppk_live_…`         → core.api_keys  (langlebiger API-Key)
+ *     - sonst                             → booking.admin_sessions  (Login-Session)
  *
- * Der Bearer-Token wird gleich gehasht und in `booking.admin_sessions` gesucht
- * wie der Cookie-Token (`getAdminSession` in lib/auth.server.ts).
- *
- * Portal-only-Rollen (Kunden) werden abgelehnt — die Tools sind admin-Niveau.
+ * Beide Token-Pfade werden mit SHA-256 gehasht (gleich wie der Express-Backend
+ * in booking/server.js:2454-2474). Portal-only-Rollen werden abgelehnt — die
+ * Assistant-Tools sind admin-Niveau (Mails versenden, HA-Services aufrufen).
  */
 
 import type { NextRequest } from "next/server";
 import { createHash } from "crypto";
-import { queryOne } from "@/lib/db";
+import { query, queryOne } from "@/lib/db";
 import { getAdminSession, type AdminSession } from "@/lib/auth.server";
 import { isPortalOnlyRole } from "@/lib/postLoginRedirect";
+
+const API_KEY_PREFIX = "ppk_live_";
 
 function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
-async function lookupBearerSession(token: string): Promise<AdminSession | null> {
-  const tokenHash = hashToken(token);
+async function lookupAdminSessionToken(token: string): Promise<AdminSession | null> {
   const row = await queryOne<{
     role: string;
     user_key: string | null;
@@ -31,7 +34,7 @@ async function lookupBearerSession(token: string): Promise<AdminSession | null> 
     `SELECT role, user_key, user_name, impersonator_user_key
        FROM booking.admin_sessions
       WHERE token_hash = $1 AND expires_at > NOW()`,
-    [tokenHash],
+    [hashToken(token)],
   );
   if (!row) return null;
   return {
@@ -41,6 +44,45 @@ async function lookupBearerSession(token: string): Promise<AdminSession | null> 
     isImpersonating:
       row.impersonator_user_key != null &&
       String(row.impersonator_user_key).trim() !== "",
+  };
+}
+
+async function lookupApiKeyToken(token: string): Promise<AdminSession | null> {
+  const tokenHash = hashToken(token);
+  const row = await queryOne<{
+    api_key_id: number;
+    role: string | null;
+    user_key: string;
+    user_name: string | null;
+    is_active: boolean;
+  }>(
+    `SELECT
+        k.id                                                     AS api_key_id,
+        (u.roles)[1]                                             AS role,
+        u.id::text                                               AS user_key,
+        COALESCE(NULLIF(u.full_name, ''), NULLIF(u.username, ''), u.email) AS user_name,
+        u.is_active
+       FROM core.api_keys k
+       JOIN core.admin_users u ON u.id = k.created_by
+      WHERE k.token_hash = $1
+        AND k.revoked_at IS NULL
+        AND (k.expires_at IS NULL OR k.expires_at > NOW())
+      LIMIT 1`,
+    [tokenHash],
+  );
+  if (!row || !row.is_active) return null;
+
+  // last_used_at als best-effort fire-and-forget; Fehler ignorieren.
+  void query(
+    `UPDATE core.api_keys SET last_used_at = NOW() WHERE id = $1`,
+    [row.api_key_id],
+  ).catch(() => {});
+
+  return {
+    role: String(row.role || "admin"),
+    userKey: row.user_key,
+    userName: row.user_name,
+    isImpersonating: false,
   };
 }
 
@@ -57,7 +99,11 @@ export async function getAssistantSession(req: NextRequest): Promise<AdminSessio
     const match = auth?.match(/^\s*Bearer\s+(\S.*)$/i);
     if (match) {
       const token = match[1].trim();
-      if (token) session = await lookupBearerSession(token);
+      if (token) {
+        session = token.startsWith(API_KEY_PREFIX)
+          ? await lookupApiKeyToken(token)
+          : await lookupAdminSessionToken(token);
+      }
     }
   }
 
