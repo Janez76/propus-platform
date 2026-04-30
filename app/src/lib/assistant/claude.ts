@@ -1,16 +1,25 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { ToolDefinition, ToolHandler, ToolContext } from "./tools";
+import { isWriteTool, toolRequiresConfirmation } from "./tools";
 
 const DEFAULT_MODEL = "claude-sonnet-4-6";
-const MAX_TOKENS = 2048;
-const MAX_TOOL_ITERATIONS = 8;
+const MAX_TOKENS = 4096;
+const MAX_TOOL_ITERATIONS = 12;
 const MAX_TOOL_RESULT_CHARS = 12_000;
+const TOOL_RESULT_SUMMARY_THRESHOLD = 2_000;
 
 function runtimeEnv(name: string): string | undefined {
   return (globalThis as typeof globalThis & { process?: { env?: Record<string, string | undefined> } }).process?.env?.[name];
 }
 
 export type AssistantHistory = Anthropic.Messages.MessageParam[];
+
+export type PendingConfirmation = {
+  id: string;
+  toolName: string;
+  description: string;
+  input: Record<string, unknown>;
+};
 
 export type AssistantTurnInput = {
   systemPrompt: string;
@@ -33,13 +42,46 @@ export type AssistantTurnResult = {
     durationMs: number;
     error?: string;
   }>;
+  pendingConfirmation?: PendingConfirmation;
+  inputTokens: number;
+  outputTokens: number;
 };
 
-function serializeToolResult(output: unknown): string {
-  const text = typeof output === "string" ? output : JSON.stringify(output);
-  if (text.length <= MAX_TOOL_RESULT_CHARS) return text;
-  return `${text.slice(0, MAX_TOOL_RESULT_CHARS)}\n… Ergebnis gekürzt (${text.length} Zeichen).`;
+function toolResultContextPrefix(output: unknown): string {
+  if (output && typeof output === "object") {
+    const obj = output as Record<string, unknown>;
+    if (obj.error) return `[Fehler: ${String(obj.error).slice(0, 120)}]\n`;
+    if (obj.count === 0) return "[Keine Ergebnisse]\n";
+    if (Array.isArray(obj) && obj.length === 0) return "[Keine Ergebnisse]\n";
+  }
+  return "";
 }
+
+function serializeToolResult(output: unknown): string {
+  const prefix = toolResultContextPrefix(output);
+  const text = typeof output === "string" ? output : JSON.stringify(output);
+  const full = prefix + text;
+  if (full.length <= MAX_TOOL_RESULT_CHARS) return full;
+  return `${full.slice(0, MAX_TOOL_RESULT_CHARS)}\n… Ergebnis gekürzt (${text.length} Zeichen).`;
+}
+
+export function maybeSummarize(result: string): string {
+  if (result.length <= TOOL_RESULT_SUMMARY_THRESHOLD) return result;
+  const lines = result.split("\n").length;
+  const itemCount = (result.match(/\{/g) || []).length;
+  const summary = itemCount > 1
+    ? `[Zusammenfassung: ~${itemCount} Einträge gefunden, Details folgen]`
+    : `[Zusammenfassung: ${lines} Zeilen Ergebnis, Details folgen]`;
+  return `${summary}\n\n${result}`;
+}
+
+const WRITE_TOOL_LABELS: Record<string, string> = {
+  create_posteingang_task: "Posteingang-Aufgabe erstellen",
+  create_ticket: "Ticket erstellen",
+  create_posteingang_note: "Interne Notiz erstellen",
+  draft_email: "E-Mail-Entwurf vorbereiten",
+  update_order_status: "Auftragsstatus ändern",
+};
 
 export async function runAssistantTurn(input: AssistantTurnInput): Promise<AssistantTurnResult> {
   const apiKey = runtimeEnv("ANTHROPIC_API_KEY");
@@ -49,6 +91,8 @@ export async function runAssistantTurn(input: AssistantTurnInput): Promise<Assis
   const model = runtimeEnv("ANTHROPIC_MODEL") || DEFAULT_MODEL;
   const history: AssistantHistory = [...input.history, { role: "user", content: input.userMessage }];
   const toolCallsExecuted: AssistantTurnResult["toolCallsExecuted"] = [];
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
 
   for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration += 1) {
     const response = await client.messages.create({
@@ -59,6 +103,8 @@ export async function runAssistantTurn(input: AssistantTurnInput): Promise<Assis
       messages: history,
     });
 
+    totalInputTokens += response.usage?.input_tokens || 0;
+    totalOutputTokens += response.usage?.output_tokens || 0;
     history.push({ role: "assistant", content: response.content });
 
     const toolUseBlocks = response.content.filter((block): block is Anthropic.Messages.ToolUseBlock => block.type === "tool_use");
@@ -68,7 +114,31 @@ export async function runAssistantTurn(input: AssistantTurnInput): Promise<Assis
         .map((block) => block.text)
         .join("\n")
         .trim();
-      return { finalText, history, toolCallsExecuted };
+      return { finalText, history, toolCallsExecuted, inputTokens: totalInputTokens, outputTokens: totalOutputTokens };
+    }
+
+    const writeBlock = toolUseBlocks.find((b) => isWriteTool(b.name) && toolRequiresConfirmation(b.name));
+
+    if (writeBlock) {
+      const finalText = response.content
+        .filter((block): block is Anthropic.Messages.TextBlock => block.type === "text")
+        .map((block) => block.text)
+        .join("\n")
+        .trim();
+
+      return {
+        finalText,
+        history,
+        toolCallsExecuted,
+        pendingConfirmation: {
+          id: writeBlock.id,
+          toolName: writeBlock.name,
+          description: WRITE_TOOL_LABELS[writeBlock.name] || writeBlock.name,
+          input: writeBlock.input as Record<string, unknown>,
+        },
+        inputTokens: totalInputTokens,
+        outputTokens: totalOutputTokens,
+      };
     }
 
     const toolResults: Anthropic.Messages.ToolResultBlockParam[] = [];
@@ -97,10 +167,11 @@ export async function runAssistantTurn(input: AssistantTurnInput): Promise<Assis
       try {
         const output = await handler(block.input as Record<string, unknown>, input.context);
         const durationMs = Date.now() - start;
+        const serialized = serializeToolResult(output);
         toolResults.push({
           type: "tool_result",
           tool_use_id: block.id,
-          content: serializeToolResult(output),
+          content: maybeSummarize(serialized),
         });
         toolCallsExecuted.push({ name: block.name, input: block.input, output, durationMs });
         input.onToolResult?.(block.name, output, durationMs);
@@ -130,5 +201,7 @@ export async function runAssistantTurn(input: AssistantTurnInput): Promise<Assis
     finalText: "Ich habe das Tool-Limit erreicht. Bitte stelle die Anfrage enger oder konkreter.",
     history,
     toolCallsExecuted,
+    inputTokens: totalInputTokens,
+    outputTokens: totalOutputTokens,
   };
 }

@@ -1,185 +1,159 @@
-# Propus Assistant Flow
+# FLOWS_ASSISTANT.md — Propus Assistant
 
-*Zuletzt aktualisiert: April 2026 (Web-MVP read-only, Claude Tool-Use, Whisper, Audit-Tabellen, Mobile App + Token-Auth).*
+Zuletzt aktualisiert: 2026-04-30
 
----
+## Übersicht
 
-## 1. Zweck
+Der Propus Assistant ist eine interne AI-Chat-Oberfläche (Claude-basiert) für Admin/Employee,
+erreichbar unter `/assistant`. Er ermöglicht Read-/Write-Zugriff auf Aufträge, Touren,
+Posteingang und Rechnungen via Tool-Calls.
 
-Der Propus Assistant ist eine interne Admin-Seite unter `/assistant`. In Phase 1 beantwortet er Fragen zu Aufträgen, Touren und Posteingang read-only. Schreibende Aktionen sind bewusst deaktiviert.
-
----
-
-## 2. Frontend
-
-| Pfad | Zweck |
-|---|---|
-| `app/src/app/(admin)/assistant/page.tsx` | Admin-Seite `/assistant` |
-| `app/src/app/(admin)/assistant/layout.tsx` | App-Router-Layout mit `AppSidebar` |
-| `app/src/app/(admin)/assistant/_components/ConversationView.tsx` | Chat-UI |
-| `app/src/app/(admin)/assistant/_components/VoiceButton.tsx` | Push-to-talk Aufnahme |
-| `app/src/components/global/FloatingVoiceButton.tsx` | Optionaler globaler Trigger, nicht standardmässig eingebunden |
-
-Navigation: `app/src/config/nav.config.ts` (`nav.item.assistant`).
-
-Im Desktop-Layout zeigt der Assistant rechts die letzten 20 Chats. Wenn Tool-Ergebnisse eine Bestellung, Tour oder einen Kunden enthalten, wird die Konversation automatisch mit `booking_order_no`, `tour_id` und/oder `customer_id` markiert.
-
----
-
-## 3. API-Endpunkte
-
-| Methode | Route | Zweck |
-|---|---|---|
-| `POST` | `/api/assistant` | Chat-Turn mit Claude + read-only Tools |
-| `POST` | `/api/assistant/transcribe` | Audio → Text via OpenAI Whisper |
-| `GET` | `/api/assistant/history` | Letzte 20 Konversationen inkl. möglicher Kunden-/Bestell-/Tour-Zuordnung |
-
-Auth (zwei Pfade, siehe `app/src/lib/assistant/auth.ts`):
-
-1. **Cookie** (Browser): Admin-Session via `booking.admin_sessions` / `getAdminSession()`. Erlaubt: `admin`, `super_admin`, `employee`.
-2. **Bearer Token** (Mobile App): `Authorization: Bearer <token>` → SHA-256-Hash gegen `tour_manager.assistant_mobile_tokens`.
-
-Portal-/Kundenrollen werden abgewiesen.
-
----
-
-## 4. Datenfluss
+## Architektur
 
 ```
-Admin /assistant
+Browser (React SPA)
   │
-  ├─ Text → POST /api/assistant
-  │        ├─ Admin-Session prüfen
-  │        ├─ assistant_conversations/messages speichern
-  │        ├─ Claude Tool-Use ausführen
-  │        ├─ Tool-Calls speichern
-  │        └─ Antwort + history + conversationId zurückgeben
-  │
-  └─ Audio → POST /api/assistant/transcribe
-           ├─ Admin-Session prüfen
-           ├─ max. 10 MB Audio lesen
-           └─ Whisper-Transkription zurückgeben
+  ├─► POST /api/assistant?stream=true   (SSE-Streaming)
+  ├─► POST /api/assistant?stream=false   (JSON-Response, Fallback)
+  ├─► GET  /api/assistant/settings       (Einstellungen + Usage lesen)
+  ├─► PATCH /api/assistant/settings      (Einstellungen ändern, nur super_admin)
+  ├─► GET  /api/assistant/history        (Verlauf-Liste)
+  ├─► GET  /api/assistant/history/:id    (Konversation laden)
+  ├─► GET  /api/assistant/memories       (Erinnerungen)
+  └─► DELETE /api/assistant/memories/:id (Erinnerung löschen)
+         │
+         ▼
+  Anthropic Claude API (Streaming / Non-Streaming)
+         │
+         ▼
+  Tool-Handler (orders, tours, invoices, posteingang, writes)
 ```
 
----
+## Streaming (Feature seit 2026-04-30)
 
-## 5. Datenbank
+### Backend (`app/src/lib/assistant/claude-stream.ts`)
 
-Migration: `core/migrations/045_assistant_tables.sql`
+- Nutzt `client.messages.stream(...)` aus dem Anthropic SDK
+- Sendet SSE-Events über `ReadableStream`:
+  - `{"type":"text_delta","text":"..."}` — inkrementeller Text
+  - `{"type":"tool_start","name":"..."}` — Tool-Aufruf startet
+  - `{"type":"tool_result","name":"...","duration":123}` — Tool fertig
+  - `{"type":"done","toolCallsExecuted":[...],"inputTokens":...,"outputTokens":...}` — Stream fertig
+  - `{"type":"error","error":"..."}` — Fehler
+- DB-Persistenz erfolgt **nach** Stream-Ende (fire-and-forget Promise)
+- Fallback: `?stream=false` Query-Param → klassische JSON-Response
 
-| Tabelle | Zweck |
-|---|---|
-| `tour_manager.assistant_conversations` | Konversation pro Admin/User |
-| `tour_manager.assistant_messages` | User-/Assistant-/Tool-Nachrichten |
-| `tour_manager.assistant_tool_calls` | Tool-Ausführung inkl. Input/Output/Fehler |
-| `tour_manager.assistant_audit_log` | Audit für schreibende Aktionen (für Phase 2 vorbereitet) |
+### Frontend (`ConversationView.tsx`)
 
-Migration `core/migrations/046_assistant_conversation_links.sql` ergänzt `customer_id`, `booking_order_no` und `tour_id` auf `assistant_conversations` für die Verlaufs-Zuordnung.
+- `fetch` mit `getReader()` konsumiert den SSE-Stream
+- Assistant-Bubble erscheint sofort mit blinkenden Cursor
+- Tool-Badges werden in Echtzeit hinzugefügt
+- Bei Client-Disconnect: Stream wird graceful abgebrochen
 
----
+## Error Handling
 
-## 6. Tools Phase 1
+Strukturierte Fehler mit `{ error: "...", code: "..." }`:
 
-Alle Tools sind read-only.
+| Code | HTTP | Nachricht (DE) |
+|------|------|----------------|
+| `auth_failed` | 401/403 | Nicht authentifiziert / Keine Berechtigung |
+| `rate_limited` | 429 | Anfragelimit erreicht. Bitte warten. |
+| `model_error` | 500/503 | Claude ist gerade nicht erreichbar. Bitte in 30s erneut versuchen. |
+| `tool_error` | 400 | Fehler bei der Tool-Ausführung |
+| `validation_error` | 400/413 | Ungültige Anfrage |
 
-### Orders
+## Token-Tracking & Tageslimit
 
-| Tool | Datenquelle |
-|---|---|
-| `get_open_orders` | `booking.orders` |
-| `get_order_by_id` | `booking.orders` |
-| `get_order_detail` | `booking.orders` + `core.customers` + `booking.order_folder_links` + `tour_manager.renewal_invoices`/`exxas_invoices` + `booking.order_chat_messages` |
-| `search_orders` | `booking.orders` |
-| `get_today_schedule` | `booking.orders.schedule` |
+### DB-Schema
 
-### Tours
+```sql
+ALTER TABLE tour_manager.assistant_conversations
+  ADD COLUMN input_tokens INTEGER DEFAULT 0,
+  ADD COLUMN output_tokens INTEGER DEFAULT 0;
+```
 
-| Tool | Datenquelle |
-|---|---|
-| `get_tours_expiring_soon` | `tour_manager.tours`, bevorzugt `canonical_*` |
-| `get_tour_status` | `tour_manager.tours` |
-| `get_tour_detail` | `tour_manager.tours` + `renewal_invoices` + `exxas_invoices` + `actions_log` + `tickets` |
-| `count_active_tours` | `tour_manager.tours` |
-| `get_cleanup_selections` | `tour_manager.tours` + `cleanup_sessions` + `actions_log` + `core.customers` |
-| `summarize_cleanup_status` | `tour_manager.tours` (Aggregation über Bereinigungspipeline) |
+Migration: `core/migrations/049_assistant_usage_tracking.sql`
 
-### Invoices
+### Logik
 
-| Tool | Datenquelle |
-|---|---|
-| `search_invoices` | `tour_manager.invoices_central_v` |
-| `get_overdue_invoices` | `tour_manager.renewal_invoices` + `tours` |
-| `get_invoice_stats` | `tour_manager.renewal_invoices` + `exxas_invoices` |
+- Nach jedem Turn werden `usage.input_tokens` und `usage.output_tokens` gespeichert
+- `getAssistantUsageToday(userId)` summiert Tokens des heutigen Tages (Timezone Europe/Zurich)
+- Tageslimit: `ASSISTANT_DAILY_TOKEN_LIMIT` ENV (Default: 500.000)
+- Bei Überschreitung: `rate_limited` (429) vor Aufruf
 
-### Posteingang
+### UI
 
-| Tool | Datenquelle |
-|---|---|
-| `search_posteingang_conversations` | `tour_manager.posteingang_conversations/messages` |
-| `get_recent_posteingang_messages` | `tour_manager.posteingang_messages` |
-| `get_open_tasks` | `tour_manager.posteingang_tasks` |
-| `get_posteingang_conversation_detail` | `tour_manager.posteingang_conversations` + `messages` + `tags` + `tasks` + `core.customers` |
-| `get_posteingang_stats` | `tour_manager.posteingang_conversations` + `posteingang_tasks` + `posteingang_messages` |
+- Footer zeigt „~Xk Token heute"
+- Farben: normal → gelb (>80%) → rot (>95%)
 
----
+## Tool Result Summaries
 
-## 7. ENV
+Wenn ein Tool-Ergebnis länger als 2.000 Zeichen ist, wird eine Zusammenfassung vorangestellt:
 
-| Variable | Zweck |
-|---|---|
-| `ANTHROPIC_API_KEY` | Claude Messages API |
-| `ANTHROPIC_MODEL` | Optional, Default `claude-sonnet-4-6` |
-| `OPENAI_API_KEY` | Whisper-Transkription |
+```
+[Zusammenfassung: ~10 Einträge gefunden, Details folgen]
 
----
+{vollständiges Ergebnis}
+```
 
-## 8. Mobile App (Propus Assistant)
+Dies hilft Claude, präzisere Antworten zu geben, ohne das volle Ergebnis ignorieren zu müssen.
 
-### Überblick
+## Admin-Einstellungen
 
-Expo-basierte React Native App unter `apps/propus-assistant-mobile/`. Voice-first Interface mit Push-to-talk, Whisper-Transkription und TTS (expo-speech).
+### Speicherung
 
-### Abhängigkeiten
+`booking.app_settings` mit Key `assistant_config` (JSONB):
 
-expo ~52, expo-av, expo-haptics, expo-router, expo-secure-store, expo-speech, React 18 / RN 0.76.
+```json
+{
+  "model": "claude-sonnet-4-6",
+  "enabledTools": ["get_open_orders", "search_tours", ...],
+  "dailyTokenLimit": 500000,
+  "streamingEnabled": true
+}
+```
 
-### Auth-Flow (Bearer Token)
+### API
 
-Die Mobile App nutzt **Bearer Tokens** (nicht Cookie-Sessions). Flow:
+| Methode | Pfad | Rolle | Beschreibung |
+|---------|------|-------|-------------|
+| `GET` | `/api/assistant/settings` | admin/employee | Settings + Usage + verfügbare Tools/Modelle |
+| `PATCH` | `/api/assistant/settings` | super_admin | Einstellungen ändern |
 
-1. Admin erstellt Token in `/assistant` → Sidebar → „Mobile-Zugang" → „Erstellen"
-2. Token wird einmalig angezeigt (SHA-256-Hash in DB: `tour_manager.assistant_mobile_tokens`)
-3. User gibt Token in der Mobile App ein (Login-Screen)
-4. App speichert Token in `expo-secure-store` und sendet ihn als `Authorization: Bearer <token>`
-5. Backend (`app/src/lib/assistant/auth.ts`) prüft Hash gegen DB, nutzt `user_id`/`user_email` aus Token-Zeile
+### UI
 
-### Token-Management-API
+- Gear-Icon im Assistant-Header öffnet Settings-Modal
+- Felder: Modell-Dropdown, Tageslimit, Streaming-Toggle, Tool-Checkboxen
+- Nur `super_admin` kann ändern; andere sehen read-only
 
-| Methode | Route | Beschreibung |
-|---------|-------|-------------|
-| `GET` | `/api/assistant/tokens` | Aktive Tokens auflisten (nur Admin-Session) |
-| `POST` | `/api/assistant/tokens` | Neuen Token generieren (nur Admin-Session) |
-| `DELETE` | `/api/assistant/tokens/[id]` | Token widerrufen (nur Admin-Session) |
+## Authentifizierung
 
-### API-Domain
+Zwei Pfade (`app/src/lib/assistant/auth.ts`):
 
-Die Mobile App verbindet sich über `ki.propus.ch` (konfiguriert in `app.json` → `expo.extra.apiBaseUrl`).
+1. **Cookie** (`admin_session`) — Browser/Desktop
+2. **Bearer Token** — Mobile App (SHA-256 Hash in `tour_manager.assistant_mobile_tokens`)
 
-### DNS-Setup (manuell)
+## Tool-Kategorien
 
-`ki.propus.ch` muss als **Cloudflare DNS A-Record** auf den VPS (`87.106.24.107`) zeigen — analog zu `admin-booking.propus.ch`. Auf dem VPS muss der Reverse-Proxy (Caddy/Nginx) die Domain auf den Platform-Container weiterleiten.
+| Modul | Tools |
+|-------|-------|
+| Orders | `get_open_orders`, `get_order_detail`, `search_orders` |
+| Tours | `search_tours`, `get_tour_detail`, `get_expiring_tours` |
+| Invoices | `search_invoices`, `get_invoice_detail` |
+| Posteingang | `get_posteingang_conversations`, `get_posteingang_tasks` |
+| Writes | `create_posteingang_task`, `create_ticket`, etc. (mit Confirmation) |
 
-Dies ist ein **manueller Schritt** — nicht automatisiert.
+## Dateien
 
-### DB-Migration
-
-`core/migrations/048_assistant_mobile_tokens.sql` erstellt die Tabelle `tour_manager.assistant_mobile_tokens`.
-
----
-
-## 9. Bewusst nicht in Phase 1
-
-- Keine schreibenden Tools.
-- Kein direkter Graph-Mail-Versand.
-- Keine Order-/Tour-Statusänderungen.
-- Keine Home-Assistant-/MailerLite-/Paperless-Aktionen.
+| Datei | Beschreibung |
+|-------|-------------|
+| `app/src/app/api/assistant/route.ts` | Haupt-API (Streaming + Non-Streaming) |
+| `app/src/app/api/assistant/settings/route.ts` | Settings-API |
+| `app/src/lib/assistant/claude.ts` | Non-Streaming Claude-Loop |
+| `app/src/lib/assistant/claude-stream.ts` | Streaming Claude-Loop |
+| `app/src/lib/assistant/settings.ts` | Settings CRUD |
+| `app/src/lib/assistant/store.ts` | DB-Persistenz (Messages, ToolCalls, Usage) |
+| `app/src/lib/assistant/auth.ts` | Auth (Cookie + Bearer) |
+| `app/src/lib/assistant/tools/index.ts` | Tool-Registry |
+| `app/src/app/(admin)/assistant/_components/ConversationView.tsx` | Frontend-UI |
+| `core/migrations/049_assistant_usage_tracking.sql` | Token-Spalten |
