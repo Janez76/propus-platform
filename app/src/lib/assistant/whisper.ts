@@ -6,8 +6,12 @@ export type TranscriptionResult = {
   language?: string;
 };
 
+function runtimeEnv(name: string): string | undefined {
+  return (globalThis as typeof globalThis & { process?: { env?: Record<string, string | undefined> } }).process?.env?.[name];
+}
+
 export async function transcribeAudio(audioBuffer: Buffer, mimeType = "audio/webm"): Promise<TranscriptionResult> {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = runtimeEnv("OPENAI_API_KEY");
   if (!apiKey) throw new Error("OPENAI_API_KEY ist nicht gesetzt");
 
   const start = Date.now();

@@ -6,6 +6,10 @@ const MAX_TOKENS = 2048;
 const MAX_TOOL_ITERATIONS = 8;
 const MAX_TOOL_RESULT_CHARS = 12_000;
 
+function runtimeEnv(name: string): string | undefined {
+  return (globalThis as typeof globalThis & { process?: { env?: Record<string, string | undefined> } }).process?.env?.[name];
+}
+
 export type AssistantHistory = Anthropic.Messages.MessageParam[];
 
 export type AssistantTurnInput = {
@@ -38,11 +42,11 @@ function serializeToolResult(output: unknown): string {
 }
 
 export async function runAssistantTurn(input: AssistantTurnInput): Promise<AssistantTurnResult> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = runtimeEnv("ANTHROPIC_API_KEY");
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY ist nicht gesetzt");
 
   const client = new Anthropic({ apiKey });
-  const model = process.env.ANTHROPIC_MODEL || DEFAULT_MODEL;
+  const model = runtimeEnv("ANTHROPIC_MODEL") || DEFAULT_MODEL;
   const history: AssistantHistory = [...input.history, { role: "user", content: input.userMessage }];
   const toolCallsExecuted: AssistantTurnResult["toolCallsExecuted"] = [];
 
