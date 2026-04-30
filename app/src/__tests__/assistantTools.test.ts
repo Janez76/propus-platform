@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createOrdersHandlers } from "@/lib/assistant/tools/orders";
 import { createToursHandlers } from "@/lib/assistant/tools/tours";
+import { deriveConversationLinksFromToolCalls } from "@/lib/assistant/store";
 
 describe("assistant order tools", () => {
   it("caps open-order limits and maps booking.orders JSON fields", async () => {
@@ -42,6 +43,34 @@ describe("assistant order tools", () => {
         },
       ],
     });
+  });
+});
+
+describe("assistant conversation links", () => {
+  it("derives customer, order and tour links from tool call inputs and outputs", () => {
+    expect(
+      deriveConversationLinksFromToolCalls([
+        {
+          name: "get_order_by_id",
+          input: { order_id: "101" },
+          output: { orderNo: 101, customerId: 12, tours: [{ tourId: 55 }] },
+          durationMs: 5,
+        },
+      ]),
+    ).toEqual({ customerId: 12, bookingOrderNo: 101, tourId: 55 });
+  });
+
+  it("ignores generic id fields when deriving conversation links", () => {
+    expect(
+      deriveConversationLinksFromToolCalls([
+        {
+          name: "search_posteingang_conversations",
+          input: { query: "Kunde" },
+          output: { conversations: [{ id: 999, subject: "Keine direkte Tour-ID" }] },
+          durationMs: 5,
+        },
+      ]),
+    ).toEqual({});
   });
 });
 

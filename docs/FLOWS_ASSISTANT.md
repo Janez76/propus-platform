@@ -22,6 +22,8 @@ Der Propus Assistant ist eine interne Admin-Seite unter `/assistant`. In Phase 1
 
 Navigation: `app/src/config/nav.config.ts` (`nav.item.assistant`).
 
+Im Desktop-Layout zeigt der Assistant rechts die letzten 20 Chats. Wenn Tool-Ergebnisse eine Bestellung, Tour oder einen Kunden enthalten, wird die Konversation automatisch mit `booking_order_no`, `tour_id` und/oder `customer_id` markiert.
+
 ---
 
 ## 3. API-Endpunkte
@@ -30,6 +32,7 @@ Navigation: `app/src/config/nav.config.ts` (`nav.item.assistant`).
 |---|---|---|
 | `POST` | `/api/assistant` | Chat-Turn mit Claude + read-only Tools |
 | `POST` | `/api/assistant/transcribe` | Audio → Text via OpenAI Whisper |
+| `GET` | `/api/assistant/history` | Letzte 20 Konversationen inkl. möglicher Kunden-/Bestell-/Tour-Zuordnung |
 
 Auth:
 
@@ -69,6 +72,8 @@ Migration: `core/migrations/045_assistant_tables.sql`
 | `tour_manager.assistant_messages` | User-/Assistant-/Tool-Nachrichten |
 | `tour_manager.assistant_tool_calls` | Tool-Ausführung inkl. Input/Output/Fehler |
 | `tour_manager.assistant_audit_log` | Audit für schreibende Aktionen (für Phase 2 vorbereitet) |
+
+Migration `core/migrations/046_assistant_conversation_links.sql` ergänzt `customer_id`, `booking_order_no` und `tour_id` auf `assistant_conversations` für die Verlaufs-Zuordnung.
 
 ---
 

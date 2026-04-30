@@ -783,6 +783,8 @@ Read-only View: vereinheitlicht `renewal_invoices` und `exxas_invoices` für Rep
 | `assistant_tool_calls` | `id UUID PK`, `conversation_id`, `message_id`, `tool_name`, `input JSONB`, `output JSONB`, `status`, `error_message`, `duration_ms`, `created_at` |
 | `assistant_audit_log` | `id UUID PK`, `user_id`, `conversation_id`, `action`, `payload JSONB`, `ip_address`, `user_agent`, `executed_at` |
 
+**Migration 046:** `assistant_conversations` enthält zusätzlich `customer_id`, `booking_order_no`, `tour_id` für die Anzeige der letzten Chats mit Kunden-/Bestell-/Tour-Bezug.
+
 ---
 
 ### `tour_manager.bank_import_runs` & `tour_manager.bank_import_transactions`

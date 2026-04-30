@@ -11,8 +11,23 @@ type DisplayMessage = {
   toolCalls?: Array<{ name: string; durationMs: number; error?: string }>;
 };
 
+type HistoryItem = {
+  id: string;
+  title: string | null;
+  updatedAt: string;
+  customerId: number | null;
+  customerName: string | null;
+  bookingOrderNo: number | null;
+  bookingAddress: string | null;
+  tourId: number | null;
+  tourLabel: string | null;
+  lastUserMessage: string | null;
+  lastAssistantMessage: string | null;
+};
+
 export function ConversationView() {
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
+  const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
   const [textInput, setTextInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -23,6 +38,20 @@ export function ConversationView() {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, isLoading]);
+
+  async function loadHistory() {
+    try {
+      const res = await fetch("/api/assistant/history", { cache: "no-store" });
+      const data = (await res.json().catch(() => ({}))) as { conversations?: HistoryItem[] };
+      if (res.ok) setHistoryItems(data.conversations || []);
+    } catch {
+      // Verlauf ist Komfort-UI; Chat selbst soll bei Fehlern weiter funktionieren.
+    }
+  }
+
+  useEffect(() => {
+    void loadHistory();
+  }, []);
 
   async function send(userText: string) {
     const text = userText.trim();
@@ -52,6 +81,7 @@ export function ConversationView() {
 
       historyRef.current = data.history || [];
       conversationIdRef.current = data.conversationId || conversationIdRef.current;
+      void loadHistory();
       setMessages((current) => [
         ...current,
         {
@@ -79,7 +109,8 @@ export function ConversationView() {
   }
 
   return (
-    <section className="flex h-[calc(100vh-1.5rem)] min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))] shadow-sm lg:h-[calc(100vh-3rem)]">
+    <section className="grid h-[calc(100vh-1.5rem)] min-h-0 overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))] shadow-sm lg:h-[calc(100vh-3rem)] lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="flex min-h-0 flex-col">
       <header className="flex items-center justify-between border-b border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))] px-5 py-4">
         <div>
           <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--gold-text,var(--accent))]">Propus</div>
@@ -174,6 +205,59 @@ export function ConversationView() {
           <VoiceButton disabled={isLoading} onTranscript={(text) => void send(text)} onError={setError} />
         </div>
       </footer>
+      </div>
+
+      <aside className="hidden min-h-0 border-l border-[var(--border-soft)] bg-[var(--surface)]/80 lg:flex lg:flex-col">
+        <div className="border-b border-[var(--border-soft)] px-4 py-4">
+          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-subtle)]">Verlauf</div>
+          <h2 className="mt-1 text-sm font-semibold text-[var(--text-main)]">Letzte 20 Chats</h2>
+        </div>
+        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
+          {historyItems.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-[var(--border-soft)] px-3 py-4 text-sm text-[var(--text-subtle)]">
+              Noch kein Verlauf vorhanden.
+            </div>
+          ) : null}
+          {historyItems.map((item) => {
+            const snippet = item.lastUserMessage || item.title || "Ohne Titel";
+            return (
+              <article key={item.id} className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))] p-3">
+                <div className="text-sm font-medium text-[var(--text-main)]">{snippet}</div>
+                <div className="mt-1 text-[11px] text-[var(--text-subtle)]">
+                  {new Date(item.updatedAt).toLocaleString("de-CH", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {item.customerId ? (
+                    <span className="rounded-full bg-[var(--accent)]/10 px-2 py-0.5 text-[11px] text-[var(--gold-text,var(--accent))]">
+                      Kunde: {item.customerName || `#${item.customerId}`}
+                    </span>
+                  ) : null}
+                  {item.bookingOrderNo ? (
+                    <span className="rounded-full bg-[var(--accent)]/10 px-2 py-0.5 text-[11px] text-[var(--gold-text,var(--accent))]">
+                      Auftrag #{item.bookingOrderNo}
+                    </span>
+                  ) : null}
+                  {item.tourId ? (
+                    <span className="rounded-full bg-[var(--accent)]/10 px-2 py-0.5 text-[11px] text-[var(--gold-text,var(--accent))]">
+                      Tour: {item.tourLabel || `#${item.tourId}`}
+                    </span>
+                  ) : null}
+                  {!item.customerId && !item.bookingOrderNo && !item.tourId ? (
+                    <span className="rounded-full bg-[var(--surface-raised)] px-2 py-0.5 text-[11px] text-[var(--text-subtle)]">
+                      keine Zuordnung
+                    </span>
+                  ) : null}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </aside>
     </section>
   );
 }

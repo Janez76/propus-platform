@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { runAssistantTurn, type AssistantHistory } from "@/lib/assistant/claude";
 import { allHandlers, allTools } from "@/lib/assistant/tools";
 import { buildSystemPrompt } from "@/lib/assistant/system-prompt";
-import { ensureConversation, insertAssistantMessage, insertAssistantToolCalls, writeAudit } from "@/lib/assistant/store";
+import { ensureConversation, insertAssistantMessage, insertAssistantToolCalls, updateConversationLinksFromToolCalls, writeAudit } from "@/lib/assistant/store";
 import { getAdminSession, type AdminSession } from "@/lib/auth.server";
 
 export const runtime = "nodejs";
@@ -79,6 +79,7 @@ export async function POST(req: NextRequest) {
       content: { text: result.finalText, toolCalls: result.toolCallsExecuted.map((call) => ({ name: call.name, error: call.error })) },
     });
     await insertAssistantToolCalls({ conversationId, messageId: assistantMessageId, toolCalls: result.toolCallsExecuted });
+    await updateConversationLinksFromToolCalls({ conversationId, toolCalls: result.toolCallsExecuted });
 
     for (const call of result.toolCallsExecuted) {
       if (/^(create_|update_|delete_|send_|ha_call_service|mailerlite_add)/.test(call.name)) {

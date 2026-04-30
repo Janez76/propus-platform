@@ -8,6 +8,63 @@ export type AssistantToolCallRecord = {
   error?: string;
 };
 
+export type AssistantConversationLinks = {
+  customerId?: number | null;
+  bookingOrderNo?: number | null;
+  tourId?: number | null;
+};
+
+export type AssistantHistoryRow = {
+  id: string;
+  title: string | null;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+  customerId: number | null;
+  customerName: string | null;
+  bookingOrderNo: number | null;
+  bookingAddress: string | null;
+  tourId: number | null;
+  tourLabel: string | null;
+  lastUserMessage: string | null;
+  lastAssistantMessage: string | null;
+};
+
+function asPositiveInt(value: unknown): number | null {
+  const n = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+  if (!Number.isInteger(n) || n <= 0) return null;
+  return n;
+}
+
+function walkObject(value: unknown, visit: (key: string, entry: unknown) => void): void {
+  if (!value || typeof value !== "object") return;
+  if (Array.isArray(value)) {
+    for (const entry of value) walkObject(entry, visit);
+    return;
+  }
+  for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+    visit(key, entry);
+    walkObject(entry, visit);
+  }
+}
+
+export function deriveConversationLinksFromToolCalls(toolCalls: AssistantToolCallRecord[]): AssistantConversationLinks {
+  const links: AssistantConversationLinks = {};
+  for (const call of toolCalls) {
+    const sources = [call.input, call.output];
+    for (const source of sources) {
+      walkObject(source, (key, value) => {
+        const normalizedKey = key.replace(/[_-]/g, "").toLowerCase();
+        const n = asPositiveInt(value);
+        if (!n) return;
+        if (links.customerId == null && normalizedKey === "customerid") links.customerId = n;
+        if (links.bookingOrderNo == null && (normalizedKey === "bookingorderno" || normalizedKey === "orderno")) links.bookingOrderNo = n;
+        if (links.tourId == null && normalizedKey === "tourid") links.tourId = n;
+      });
+    }
+  }
+  return links;
+}
+
 export async function ensureConversation(input: {
   conversationId?: string;
   userId: string;
@@ -73,6 +130,64 @@ export async function insertAssistantToolCalls(input: {
       ],
     );
   }
+}
+
+export async function updateConversationLinksFromToolCalls(input: {
+  conversationId: string;
+  toolCalls: AssistantToolCallRecord[];
+}): Promise<AssistantConversationLinks> {
+  const links = deriveConversationLinksFromToolCalls(input.toolCalls);
+  if (links.customerId == null && links.bookingOrderNo == null && links.tourId == null) return links;
+
+  await query(
+    `UPDATE tour_manager.assistant_conversations
+     SET customer_id = COALESCE(customer_id, $2),
+         booking_order_no = COALESCE(booking_order_no, $3),
+         tour_id = COALESCE(tour_id, $4),
+         updated_at = NOW()
+     WHERE id = $1`,
+    [input.conversationId, links.customerId ?? null, links.bookingOrderNo ?? null, links.tourId ?? null],
+  );
+  return links;
+}
+
+export async function listAssistantHistory(input: { userId: string; limit?: number }): Promise<AssistantHistoryRow[]> {
+  const limit = Math.min(Math.max(Number(input.limit || 20), 1), 20);
+  return query<AssistantHistoryRow>(
+    `SELECT
+       c.id,
+       c.title,
+       c.created_at AS "createdAt",
+       c.updated_at AS "updatedAt",
+       c.customer_id AS "customerId",
+       cust.name AS "customerName",
+       c.booking_order_no AS "bookingOrderNo",
+       o.address AS "bookingAddress",
+       c.tour_id AS "tourId",
+       COALESCE(t.canonical_object_label, t.object_label, t.bezeichnung) AS "tourLabel",
+       (
+         SELECT m.content->>'text'
+         FROM tour_manager.assistant_messages m
+         WHERE m.conversation_id = c.id AND m.role = 'user'
+         ORDER BY m.created_at DESC
+         LIMIT 1
+       ) AS "lastUserMessage",
+       (
+         SELECT m.content->>'text'
+         FROM tour_manager.assistant_messages m
+         WHERE m.conversation_id = c.id AND m.role = 'assistant'
+         ORDER BY m.created_at DESC
+         LIMIT 1
+       ) AS "lastAssistantMessage"
+     FROM tour_manager.assistant_conversations c
+     LEFT JOIN core.customers cust ON cust.id = c.customer_id
+     LEFT JOIN booking.orders o ON o.order_no = c.booking_order_no
+     LEFT JOIN tour_manager.tours t ON t.id = c.tour_id
+     WHERE c.user_id = $1
+     ORDER BY c.updated_at DESC
+     LIMIT $2`,
+    [input.userId, limit],
+  );
 }
 
 export async function writeAudit(input: {
