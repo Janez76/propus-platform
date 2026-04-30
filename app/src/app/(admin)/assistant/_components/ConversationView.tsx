@@ -79,7 +79,7 @@ export function ConversationView() {
   }
 
   return (
-    <section className="flex h-full min-h-[680px] flex-col overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-card,#111217)] shadow-sm">
+    <section className="flex h-[calc(100vh-1.5rem)] min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-card,#111217)] shadow-sm lg:h-[calc(100vh-3rem)]">
       <header className="flex items-center justify-between border-b border-[var(--border-soft)] px-5 py-4">
         <div>
           <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accent,#B68E20)]">Propus</div>

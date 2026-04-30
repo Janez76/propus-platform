@@ -6,9 +6,9 @@ import type { Role } from "@/types";
 export default async function AssistantLayout({ children }: { children: ReactNode }) {
   const session = await requireAdminLayoutSession();
   return (
-    <div className="flex min-h-screen bg-[var(--surface)]">
+    <div className="min-h-screen bg-[var(--surface)]">
       <AppSidebar initialRole={session.role as Role} />
-      <main className="min-w-0 flex-1 px-6 py-6 lg:px-8">{children}</main>
+      <main className="min-h-screen min-w-0 p-3 lg:py-6 lg:pr-6 lg:pl-[calc(272px+1.5rem)]">{children}</main>
     </div>
   );
 }
