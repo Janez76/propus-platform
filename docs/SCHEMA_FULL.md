@@ -770,6 +770,21 @@ Read-only View: vereinheitlicht `renewal_invoices` und `exxas_invoices` für Rep
 
 ---
 
+### `tour_manager.assistant_*` — Propus Assistant
+
+→ Vollständige Beschreibung: [FLOWS_ASSISTANT.md](./FLOWS_ASSISTANT.md)
+
+**Migration:** `core/migrations/045_assistant_tables.sql`
+
+| Tabelle | Wichtigste Felder |
+|---|---|
+| `assistant_conversations` | `id UUID PK`, `user_id`, `user_email`, `title`, `created_at`, `updated_at` |
+| `assistant_messages` | `id UUID PK`, `conversation_id`, `role` (`user`, `assistant`, `tool`), `content JSONB`, `audio_url`, `created_at` |
+| `assistant_tool_calls` | `id UUID PK`, `conversation_id`, `message_id`, `tool_name`, `input JSONB`, `output JSONB`, `status`, `error_message`, `duration_ms`, `created_at` |
+| `assistant_audit_log` | `id UUID PK`, `user_id`, `conversation_id`, `action`, `payload JSONB`, `ip_address`, `user_agent`, `executed_at` |
+
+---
+
 ### `tour_manager.bank_import_runs` & `tour_manager.bank_import_transactions`
 
 → Vollständige Beschreibung: [FLOWS_TOURS.md](./FLOWS_TOURS.md#6-bank-import)

@@ -12,7 +12,7 @@
  */
 
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams } from "react-router-dom";
-import { Suspense, lazy, type ReactElement } from "react";
+import { Suspense, lazy, useEffect, type ReactElement } from "react";
 import { ChunkErrorBoundary } from "./StaleClientReloadHandler";
 import { CustomerMagicSessionRedirect } from "./auth/CustomerMagicSessionRedirect";
 import { CustomerSessionBootstrap } from "./auth/CustomerSessionBootstrap";
@@ -123,6 +123,13 @@ function LegacySelektoClientRedirect() {
   return <Navigate to={`/selekto/${slug ?? ""}`} replace />;
 }
 
+function AssistantAppRouterRedirect() {
+  useEffect(() => {
+    window.location.assign("/assistant");
+  }, []);
+  return <PageSkeleton />;
+}
+
 function OrderDetailRoute() {
   const { orderNo } = useParams<{ orderNo: string }>();
   const navigate = useNavigate();
@@ -214,6 +221,7 @@ function PrivateRoutes() {
     <AppShell>
       <Routes>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/assistant" element={<AssistantAppRouterRedirect />} />
         <Route path="/settings/roles" element={eg("/settings/roles", <RoleMatrixPage />)} />
         <Route path="/admin/roles" element={<Navigate to="/settings/roles" replace />} />
         <Route path="/dashboard" element={eg("/dashboard", <DashboardPage />)} />

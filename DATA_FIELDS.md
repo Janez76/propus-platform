@@ -17,6 +17,7 @@
 | [docs/WORKFLOW_TOURS.md](docs/WORKFLOW_TOURS.md) | Tour-Workflow Regelwerk (Produkt), Admin `/admin/tours/workflow-settings`; mit `FLOWS_TOURS.md` synchron halten |
 | [docs/FLOWS_UPLOAD.md](docs/FLOWS_UPLOAD.md) | Upload-System: Endpunkte, upload_batches/files-Tabellen, NAS-Pfad-Logik, produktiver NAS-Pull/rsync-Worker, Chunked-Upload, Zeitstempel-Erhalt, Konflikt-Modi, Upload-Gruppen |
 | [docs/FLOWS_EXXAS.md](docs/FLOWS_EXXAS.md) | Exxas-Integration: Gespeicherte Felder, exxas_invoices-Tabelle, Reconcile-Flow, Scoring, API-Funktionen, Order-Sync |
+| [docs/FLOWS_ASSISTANT.md](docs/FLOWS_ASSISTANT.md) | Propus Assistant: `/assistant`, `/api/assistant`, Whisper-Transkription, Claude Tool-Use, read-only Tools, Audit-Tabellen |
 | [docs/SCHEMA_FULL.md](docs/SCHEMA_FULL.md) | Vollständiges DB-Schema: core.*, booking.*, tour_manager.* — alle Tabellen mit allen Feldern |
 | [docs/ROLES_PERMISSIONS.md](docs/ROLES_PERMISSIONS.md) | Rollen & Permissions: RBAC-System, System-Rollen, Permission-Keys, Mapping-Tabelle, Rollen-Sync, Portal-Rollen |
 | [docs/EMAIL_TEMPLATES.md](docs/EMAIL_TEMPLATES.md) | E-Mail-Templates: Mail-Transport, alle Booking-Builder-Funktionen, Tour-Manager DB-Templates mit Platzhaltern, Logging |
@@ -32,7 +33,7 @@
 |---|---|
 | `core` | `customers`, `customer_contacts`, `companies`, `company_members`, `admin_users`, `sessions`, `api_keys` |
 | `booking` | `orders`, `photographers`, `products`, `discount_codes`, `upload_batches`, `access_subjects`, `app_settings` |
-| `tour_manager` | `tours`, `galleries`, `gallery_images`, `gallery_feedback`, `renewal_invoices`, `exxas_invoices`, `invoices_central_v` (View), `incoming_emails`, `outgoing_emails`, `ai_suggestions`, `settings` |
+| `tour_manager` | `tours`, `galleries`, `gallery_images`, `gallery_feedback`, `renewal_invoices`, `exxas_invoices`, `invoices_central_v` (View), `incoming_emails`, `outgoing_emails`, `ai_suggestions`, `assistant_*`, `settings` |
 
 ---
 
