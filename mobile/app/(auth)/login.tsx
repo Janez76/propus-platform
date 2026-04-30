@@ -1,29 +1,39 @@
 /**
- * Login-Screen — einfacher Token-Login.
- * Für Phase 3 simpel gehalten: User klebt einen API-Token rein.
- * In Phase 4: Email/Passwort gegen Propus-Auth-Endpoint.
+ * Login-Screen — Token-Eingabe + Server-Validierung.
+ * Token wird gegen /api/assistant/whoami geprueft, bevor er gespeichert wird —
+ * sonst koennte der User mit einem revoked/falschen Token im Hauptscreen
+ * stranden und die App haette keinen Re-Login-Pfad.
  */
 
 import { useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, Alert } from 'react-native';
 import { router } from 'expo-router';
-import { setAuthToken } from '../../lib/api';
+import { setAuthToken, verifyToken, UnauthorizedError } from '../../lib/api';
 
 export default function LoginScreen() {
   const [token, setToken] = useState('');
   const [busy, setBusy] = useState(false);
 
   const handleLogin = async () => {
-    if (!token.trim()) {
+    const trimmed = token.trim();
+    if (!trimmed) {
       Alert.alert('Fehler', 'Bitte Token eingeben');
       return;
     }
     setBusy(true);
     try {
-      await setAuthToken(token.trim());
+      // Erst gegen den Server pruefen, dann in den SecureStore schreiben.
+      await verifyToken(trimmed);
+      await setAuthToken(trimmed);
       router.replace('/(app)');
     } catch (err) {
-      Alert.alert('Fehler', err instanceof Error ? err.message : 'Login fehlgeschlagen');
+      const msg =
+        err instanceof UnauthorizedError
+          ? 'Token wurde abgelehnt. Bitte einen gueltigen API-Token aus admin-booking.propus.ch verwenden.'
+          : err instanceof Error
+            ? err.message
+            : 'Login fehlgeschlagen';
+      Alert.alert('Fehler', msg);
     } finally {
       setBusy(false);
     }
@@ -44,7 +54,7 @@ export default function LoginScreen() {
         secureTextEntry
       />
       <Pressable style={[styles.btn, busy && styles.btnDisabled]} onPress={handleLogin} disabled={busy}>
-        <Text style={styles.btnText}>{busy ? 'Anmelden …' : 'Anmelden'}</Text>
+        <Text style={styles.btnText}>{busy ? 'Pruefe Token …' : 'Anmelden'}</Text>
       </Pressable>
     </View>
   );

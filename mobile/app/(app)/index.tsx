@@ -13,11 +13,19 @@ import {
   Animated,
   Easing,
   Platform,
+  Alert,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import * as Speech from 'expo-speech';
+import { router } from 'expo-router';
 import { startRecording, stopRecording } from '../../lib/audio';
-import { transcribe, sendMessage, type AssistantResponse } from '../../lib/api';
+import {
+  transcribe,
+  sendMessage,
+  clearAuthToken,
+  UnauthorizedError,
+  type AssistantResponse,
+} from '../../lib/api';
 
 interface Message {
   id: string;
@@ -66,6 +74,11 @@ export default function HomeScreen() {
       if (text.trim()) await processMessage(text);
       else setState('idle');
     } catch (err) {
+      if (err instanceof UnauthorizedError) {
+        await clearAuthToken().catch(() => {});
+        router.replace('/(auth)/login');
+        return;
+      }
       setError(err instanceof Error ? err.message : 'Fehler');
       setState('idle');
     }
@@ -121,10 +134,29 @@ export default function HomeScreen() {
         Speech.speak(data.finalText, { language: 'de-DE', rate: 1.05 });
       }
     } catch (err) {
+      if (err instanceof UnauthorizedError) {
+        await clearAuthToken().catch(() => {});
+        router.replace('/(auth)/login');
+        return;
+      }
       setError(err instanceof Error ? err.message : 'Fehler');
     } finally {
       setState('idle');
     }
+  };
+
+  const handleLogout = () => {
+    Alert.alert('Abmelden', 'Token loeschen und zum Login zurueck?', [
+      { text: 'Abbrechen', style: 'cancel' },
+      {
+        text: 'Abmelden',
+        style: 'destructive',
+        onPress: async () => {
+          await clearAuthToken().catch(() => {});
+          router.replace('/(auth)/login');
+        },
+      },
+    ]);
   };
 
   const handleTextSubmit = async () => {
@@ -138,17 +170,22 @@ export default function HomeScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.brand}>Propus Assistant</Text>
-        {messages.length > 0 && (
-          <Pressable
-            onPress={() => {
-              setMessages([]);
-              historyRef.current = [];
-              setError(null);
-            }}
-          >
-            <Text style={styles.clearBtn}>Neu</Text>
+        <View style={styles.headerActions}>
+          {messages.length > 0 && (
+            <Pressable
+              onPress={() => {
+                setMessages([]);
+                historyRef.current = [];
+                setError(null);
+              }}
+            >
+              <Text style={styles.clearBtn}>Neu</Text>
+            </Pressable>
+          )}
+          <Pressable onPress={handleLogout}>
+            <Text style={styles.clearBtn}>Abmelden</Text>
           </Pressable>
-        )}
+        </View>
       </View>
 
       <ScrollView style={styles.messages} contentContainerStyle={styles.messagesContent}>
@@ -226,6 +263,7 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(255,255,255,0.06)',
   },
   brand: { color: '#d4a93a', fontSize: 20, fontWeight: '600', letterSpacing: 0.3 },
+  headerActions: { flexDirection: 'row', gap: 8 },
   clearBtn: {
     color: '#f5f0e1',
     fontSize: 14,
