@@ -557,6 +557,11 @@ export function ConversationView() {
               {message.isStreaming ? (
                 <span className="mt-1 inline-block h-4 w-1 animate-pulse bg-[var(--accent)]" />
               ) : null}
+              {message.escalated && message.modelUsed ? (
+                <span className="mt-1.5 inline-block rounded-full border border-[var(--accent)]/20 bg-[var(--accent)]/5 px-2 py-0.5 text-[10px] text-[var(--gold-text,var(--accent))]">
+                  ⚡ {message.modelUsed.replace("claude-", "").replace(/-\d+(-\d+)?$/, "")}
+                </span>
+              ) : null}
             </div>
             {message.role === "user" ? (
               <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-[var(--gold-on-gold)]">

@@ -3,6 +3,7 @@ import { createOrdersHandlers } from "@/lib/assistant/tools/orders";
 import { createToursHandlers } from "@/lib/assistant/tools/tours";
 import { createInvoicesHandlers } from "@/lib/assistant/tools/invoices";
 import { createPosteingangHandlers } from "@/lib/assistant/tools/posteingang";
+import { createWriteHandlers } from "@/lib/assistant/tools/writes";
 import { deriveConversationLinksFromToolCalls } from "@/lib/assistant/store";
 
 describe("assistant order tools", () => {
