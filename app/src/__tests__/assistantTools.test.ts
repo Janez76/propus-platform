@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createOrdersHandlers } from "@/lib/assistant/tools/orders";
 import { createToursHandlers } from "@/lib/assistant/tools/tours";
 import { createInvoicesHandlers } from "@/lib/assistant/tools/invoices";
+import { createCustomersHandlers } from "@/lib/assistant/tools/customers";
 import { createPosteingangHandlers } from "@/lib/assistant/tools/posteingang";
 import { createWriteHandlers } from "@/lib/assistant/tools/writes";
 import { toAnthropicTools, type ToolDefinition } from "@/lib/assistant/tools";
@@ -416,6 +417,91 @@ describe("assistant invoice tools", () => {
         byStatus: [{ status: "bz", count: 8 }, { status: "offen", count: 2 }],
       },
     });
+  });
+});
+
+describe("assistant customer tools", () => {
+  it("search_customers uses notes (not notiz) column and returns mapped results", async () => {
+    const query = vi.fn().mockResolvedValue([
+      {
+        id: 7,
+        name: "Polleti Immobilien AG",
+        email: "info@polleti.ch",
+        email_aliases: [],
+        phone: "+41 44 123 45 67",
+        company: "Polleti Immobilien AG",
+        notes: "Stammkunde seit 2020",
+        created_at: "2020-01-15T10:00:00.000Z",
+        contact_names: "Max Polleti",
+      },
+    ]);
+    const queryOne = vi.fn();
+
+    const handlers = createCustomersHandlers({ query, queryOne });
+    const result = await handlers.search_customers({ query: "polleti" }, { userId: "u", userEmail: "u@example.com" }) as { count: number; customers: unknown[] };
+
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining("c.notes"),
+      ["%polleti%", 20],
+    );
+    expect(result.count).toBe(1);
+    expect(result.customers[0]).toEqual({
+      id: 7,
+      name: "Polleti Immobilien AG",
+      email: "info@polleti.ch",
+      emailAliases: null,
+      phone: "+41 44 123 45 67",
+      company: "Polleti Immobilien AG",
+      note: "Stammkunde seit 2020",
+      contactNames: "Max Polleti",
+      createdAt: "2020-01-15T10:00:00.000Z",
+    });
+  });
+
+  it("search_customers returns empty for blank query", async () => {
+    const query = vi.fn();
+    const queryOne = vi.fn();
+    const handlers = createCustomersHandlers({ query, queryOne });
+    const result = await handlers.search_customers({ query: "" }, { userId: "u", userEmail: "u@example.com" });
+    expect(result).toEqual({ count: 0, customers: [] });
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it("get_customer_detail uses street (not address) and notes (not notiz) columns", async () => {
+    const queryOne = vi.fn().mockResolvedValueOnce({
+      id: 7,
+      name: "Polleti Immobilien AG",
+      email: "info@polleti.ch",
+      email_aliases: ["alt@polleti.ch"],
+      phone: "+41 44 123 45 67",
+      company: "Polleti Immobilien AG",
+      street: "Bahnhofstrasse 10",
+      city: "Zürich",
+      zip: "8001",
+      country: "Schweiz",
+      notes: "VIP-Kunde",
+      exxas_customer_id: "EX-007",
+      created_at: "2020-01-15T10:00:00.000Z",
+    });
+    const query = vi.fn()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+
+    const handlers = createCustomersHandlers({ query, queryOne });
+    const result = await handlers.get_customer_detail({ customer_id: 7 }, { userId: "u", userEmail: "u@example.com" }) as Record<string, unknown>;
+
+    expect(queryOne).toHaveBeenCalledWith(
+      expect.stringContaining("street"),
+      [7],
+    );
+    expect(queryOne).toHaveBeenCalledWith(
+      expect.stringContaining("notes"),
+      [7],
+    );
+    expect((result.customer as Record<string, unknown>).address).toBe("Bahnhofstrasse 10, 8001, Zürich, Schweiz");
+    expect((result.customer as Record<string, unknown>).note).toBe("VIP-Kunde");
   });
 });
 

@@ -68,19 +68,19 @@ export function createInvoicesHandlers(deps: InvoicesDeps): Record<string, ToolH
         tour_label: string | null;
       }>(
         `SELECT
-           v.invoice_type,
+           v.invoice_source   AS invoice_type,
            v.invoice_number,
            v.invoice_status,
-           v.amount,
+           v.amount_chf       AS amount,
            v.due_at,
-           v.customer_name,
+           v.tour_customer_name AS customer_name,
            v.tour_id,
-           v.tour_label
+           v.tour_object_label  AS tour_label
          FROM tour_manager.invoices_central_v v
          WHERE (
-           v.customer_name ILIKE $1
+           v.tour_customer_name ILIKE $1
            OR v.invoice_number ILIKE $1
-           OR v.tour_label ILIKE $1
+           OR v.tour_object_label ILIKE $1
          )
          AND ($2::text IS NULL OR LOWER(v.invoice_status) = $2::text)
          ORDER BY v.due_at DESC NULLS LAST

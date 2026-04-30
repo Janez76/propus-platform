@@ -133,12 +133,12 @@ export function createCustomersHandlers(deps: CustomersDeps): Record<string, Too
         email_aliases: string[] | null;
         phone: string | null;
         company: string | null;
-        notiz: string | null;
+        notes: string | null;
         created_at: string | Date | null;
         contact_names: string | null;
       }>(
         `SELECT c.id, c.name, c.email, c.email_aliases, c.phone, c.company,
-                LEFT(c.notiz, 200) AS notiz, c.created_at,
+                LEFT(c.notes, 200) AS notes, c.created_at,
                 (
                   SELECT STRING_AGG(cc.name, ', ' ORDER BY cc.is_primary_contact DESC NULLS LAST, cc.id)
                   FROM core.customer_contacts cc
@@ -169,7 +169,7 @@ export function createCustomersHandlers(deps: CustomersDeps): Record<string, Too
           emailAliases: r.email_aliases?.length ? r.email_aliases : null,
           phone: r.phone,
           company: r.company,
-          note: truncate(r.notiz, 200),
+          note: truncate(r.notes, 200),
           contactNames: r.contact_names,
           createdAt: isoDateTime(r.created_at),
         })),
@@ -187,16 +187,16 @@ export function createCustomersHandlers(deps: CustomersDeps): Record<string, Too
         email_aliases: string[] | null;
         phone: string | null;
         company: string | null;
-        address: string | null;
+        street: string | null;
         city: string | null;
         zip: string | null;
         country: string | null;
-        notiz: string | null;
+        notes: string | null;
         exxas_customer_id: string | null;
         created_at: string | Date | null;
       }>(
-        `SELECT id, name, email, email_aliases, phone, company, address, city, zip, country,
-                LEFT(notiz, 500) AS notiz, exxas_customer_id, created_at
+        `SELECT id, name, email, email_aliases, phone, company, street, city, zip, country,
+                LEFT(notes, 500) AS notes, exxas_customer_id, created_at
          FROM core.customers
          WHERE id = $1`,
         [customerId],
@@ -271,8 +271,8 @@ export function createCustomersHandlers(deps: CustomersDeps): Record<string, Too
           emailAliases: customer.email_aliases?.length ? customer.email_aliases : null,
           phone: customer.phone,
           company: customer.company,
-          address: [customer.address, customer.zip, customer.city, customer.country].filter(Boolean).join(", ") || null,
-          note: truncate(customer.notiz, 500),
+          address: [customer.street, customer.zip, customer.city, customer.country].filter(Boolean).join(", ") || null,
+          note: truncate(customer.notes, 500),
           exxasCustomerId: customer.exxas_customer_id,
           createdAt: isoDateTime(customer.created_at),
         },
