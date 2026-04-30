@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { AuthLogoHeader, AuthCard } from "@/components/auth/AuthPageLayout";
+import { AuthThemeToggle } from "@/components/auth/AuthThemeToggle";
 import { Footer } from "@/components/layout/Footer";
 import { Eye, EyeOff, KeyRound, ArrowLeft } from "lucide-react";
 
@@ -188,6 +189,7 @@ function ResetPasswordShell() {
   return (
     <div className="auth-page" style={{ display: "flex", flexDirection: "column" }}>
       <div className="auth-dots" aria-hidden="true" />
+      <AuthThemeToggle />
       <div className="flex-1 flex items-center justify-center p-4 relative z-10">
         <div className="w-full max-w-md">
           <AuthLogoHeader title="Neues Passwort" subtitle="Wähle ein neues Passwort für dein Konto." />

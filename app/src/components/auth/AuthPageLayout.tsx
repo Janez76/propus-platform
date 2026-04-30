@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { AuthThemeToggle } from "./AuthThemeToggle";
 
 interface AuthPageLayoutProps {
   children: ReactNode;
@@ -8,6 +9,7 @@ export function AuthPageLayout({ children }: AuthPageLayoutProps) {
   return (
     <div className="auth-page">
       <div className="auth-dots" aria-hidden="true" />
+      <AuthThemeToggle />
       <div className="flex-1 flex items-center justify-center p-4 relative z-10">
         <div className="w-full max-w-md">{children}</div>
       </div>

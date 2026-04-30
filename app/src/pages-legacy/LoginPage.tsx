@@ -5,6 +5,7 @@ import { normalizeStoredRole, useAuthStore } from "../store/authStore";
 import { t } from "../i18n";
 import { Footer } from "../components/layout/Footer";
 import { AuthLogoHeader, AuthCard } from "../components/auth/AuthPageLayout";
+import { AuthThemeToggle } from "../components/auth/AuthThemeToggle";
 import { resolvePostLoginTarget } from "../lib/postLoginRedirect";
 
 export function LoginPage() {
@@ -91,6 +92,7 @@ export function LoginPage() {
   return (
     <div className="auth-page" style={{ display: "flex", flexDirection: "column" }}>
       <div className="auth-dots" aria-hidden="true" />
+      <AuthThemeToggle />
 
       <div className="flex-1 flex items-center justify-center p-4 relative z-10">
         <div className="w-full max-w-md">
