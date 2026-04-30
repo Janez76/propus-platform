@@ -1,23 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runAssistantTurn, type AssistantHistory } from "@/lib/assistant/claude";
+import { runAssistantTurnStreaming } from "@/lib/assistant/claude-stream";
 import { allHandlers, allTools } from "@/lib/assistant/tools";
 import { buildSystemPrompt } from "@/lib/assistant/system-prompt";
-import { ensureConversation, insertAssistantMessage, insertAssistantToolCalls, updateConversationLinksFromToolCalls, writeAudit } from "@/lib/assistant/store";
-import { getAdminSession, type AdminSession } from "@/lib/auth.server";
+import {
+  ensureConversation,
+  insertAssistantMessage,
+  insertAssistantToolCalls,
+  insertPendingConfirmation,
+  updateConversationLinksFromToolCalls,
+  updateConversationTokens,
+  getAssistantUsageToday,
+  writeAudit,
+} from "@/lib/assistant/store";
+import { listMemoriesForUser, createMemory } from "@/lib/assistant/memory-store";
+import { resolveAssistantUser } from "@/lib/assistant/auth";
+import { getAssistantSettings } from "@/lib/assistant/settings";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const INTERNAL_ROLES = new Set(["admin", "super_admin", "employee"]);
+type ErrorCode = "auth_failed" | "rate_limited" | "model_error" | "tool_error" | "validation_error";
 
-function sessionUser(session: AdminSession) {
-  const userId = String(session.userKey || session.userName || session.role || "admin").trim();
-  const email = String(session.userKey || "").includes("@") ? String(session.userKey) : "";
-  return {
-    id: userId || "admin",
-    email: email || "admin@propus.local",
-    name: session.userName || userId || "Admin",
-  };
+function errorResponse(message: string, code: ErrorCode, status: number) {
+  return NextResponse.json({ error: message, code }, { status });
 }
 
 function clientIp(req: NextRequest): string | undefined {
@@ -25,27 +31,64 @@ function clientIp(req: NextRequest): string | undefined {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getAdminSession();
-  if (!session) return NextResponse.json({ error: "Nicht authentifiziert" }, { status: 401 });
-  if (!INTERNAL_ROLES.has(String(session.role || "").toLowerCase())) {
-    return NextResponse.json({ error: "Keine Berechtigung für den Assistant" }, { status: 403 });
-  }
+  const user = await resolveAssistantUser(req);
+  if (!user) return errorResponse("Nicht authentifiziert", "auth_failed", 401);
 
   let body: { userMessage?: unknown; history?: unknown; conversationId?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
-    return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
+    return errorResponse("Ungültiges JSON", "validation_error", 400);
   }
 
   const userMessage = typeof body.userMessage === "string" ? body.userMessage.trim() : "";
-  if (!userMessage) return NextResponse.json({ error: "userMessage fehlt" }, { status: 400 });
-  if (userMessage.length > 8_000) return NextResponse.json({ error: "userMessage ist zu lang" }, { status: 413 });
+  if (!userMessage) return errorResponse("userMessage fehlt", "validation_error", 400);
+  if (userMessage.length > 8_000) return errorResponse("userMessage ist zu lang", "validation_error", 413);
 
   const history = Array.isArray(body.history) ? (body.history as AssistantHistory) : [];
-  const user = sessionUser(session);
   const ipAddress = clientIp(req);
   const userAgent = req.headers.get("user-agent") || undefined;
+
+  // Load settings
+  const settings = await getAssistantSettings();
+  const dailyLimit = settings.dailyTokenLimit;
+
+  // Check daily token limit
+  const usage = await getAssistantUsageToday(user.id);
+  if (usage.totalTokens >= dailyLimit) {
+    return errorResponse("Anfragelimit erreicht. Bitte morgen erneut versuchen.", "rate_limited", 429);
+  }
+
+  // "Merk dir" shortcut
+  const merkDirMatch = userMessage.match(/^(?:merk\s+dir|merke\s+dir|notiere|speicher[en]?)\s*[:\s]+([\s\S]+)/i);
+  if (merkDirMatch) {
+    try {
+      const memBody = merkDirMatch[1].trim();
+      const conversationId = typeof body.conversationId === "string" ? body.conversationId : undefined;
+      await createMemory(user.id, memBody, "explicit_user", conversationId || undefined);
+      return NextResponse.json({
+        finalText: `Alles klar, ich habe mir gemerkt: „${memBody}"`,
+        history,
+        toolCallsExecuted: [],
+        conversationId: conversationId || null,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Fehler beim Speichern";
+      return errorResponse(message, "tool_error", 400);
+    }
+  }
+
+  // Filter tools based on settings
+  const enabledToolNames = new Set(settings.enabledTools);
+  const filteredTools = allTools.filter((t) => enabledToolNames.has(t.name));
+  const filteredHandlers: Record<string, typeof allHandlers[string]> = {};
+  for (const name of enabledToolNames) {
+    if (allHandlers[name]) filteredHandlers[name] = allHandlers[name];
+  }
+
+  // Determine if streaming
+  const streamParam = req.nextUrl.searchParams.get("stream");
+  const useStreaming = streamParam === "false" ? false : settings.streamingEnabled;
 
   try {
     const conversationId = await ensureConversation({
@@ -56,20 +99,87 @@ export async function POST(req: NextRequest) {
     });
     await insertAssistantMessage({ conversationId, role: "user", content: { text: userMessage } });
 
-    const now = new Date();
+    const [memories, now] = await Promise.all([
+      listMemoriesForUser(user.id, 50).then((rows) => rows.map((r) => r.body)),
+      Promise.resolve(new Date()),
+    ]);
     const systemPrompt = buildSystemPrompt({
       userName: user.name,
       userEmail: user.email,
       currentTime: now.toLocaleString("de-CH", { timeZone: "Europe/Zurich" }),
       timezone: "Europe/Zurich",
+      memories,
     });
 
+    // ──── Streaming Path ────
+    if (useStreaming) {
+      const { stream, metaPromise } = runAssistantTurnStreaming({
+        systemPrompt,
+        history,
+        userMessage,
+        tools: filteredTools,
+        toolHandlers: filteredHandlers,
+        context: { userId: user.id, userEmail: user.email, ipAddress, userAgent },
+        model: settings.model,
+      });
+
+      void metaPromise.then(async (meta) => {
+        const lastAssistantContent = meta.history
+          .filter((m) => m.role === "assistant")
+          .pop();
+        const finalText = lastAssistantContent && Array.isArray(lastAssistantContent.content)
+          ? (lastAssistantContent.content as Array<{ type: string; text?: string }>)
+              .filter((b) => b.type === "text")
+              .map((b) => b.text || "")
+              .join("\n")
+              .trim()
+          : "";
+
+        const assistantMessageId = await insertAssistantMessage({
+          conversationId,
+          role: "assistant",
+          content: {
+            text: finalText,
+            toolCalls: meta.toolCallsExecuted.map((c) => ({ name: c.name, error: c.error })),
+          },
+        });
+        await insertAssistantToolCalls({ conversationId, messageId: assistantMessageId, toolCalls: meta.toolCallsExecuted });
+        await updateConversationLinksFromToolCalls({ conversationId, toolCalls: meta.toolCallsExecuted });
+        await updateConversationTokens({ conversationId, inputTokens: meta.inputTokens, outputTokens: meta.outputTokens });
+
+        for (const call of meta.toolCallsExecuted) {
+          if (/^(create_|update_|delete_|send_|ha_call_service|mailerlite_add)/.test(call.name)) {
+            await writeAudit({
+              userId: user.id,
+              conversationId,
+              action: call.name,
+              payload: { input: call.input, output: call.output, error: call.error },
+              ipAddress,
+              userAgent,
+            });
+          }
+        }
+      }).catch((err) => {
+        console.error("[assistant-stream] post-stream persistence error:", err);
+      });
+
+      return new Response(stream, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+          "X-Conversation-Id": conversationId,
+        },
+      });
+    }
+
+    // ──── Non-streaming Path ────
     const result = await runAssistantTurn({
       systemPrompt,
       history,
       userMessage,
-      tools: allTools,
-      toolHandlers: allHandlers,
+      tools: filteredTools,
+      toolHandlers: filteredHandlers,
       context: { userId: user.id, userEmail: user.email, ipAddress, userAgent },
     });
 
@@ -80,6 +190,7 @@ export async function POST(req: NextRequest) {
     });
     await insertAssistantToolCalls({ conversationId, messageId: assistantMessageId, toolCalls: result.toolCallsExecuted });
     await updateConversationLinksFromToolCalls({ conversationId, toolCalls: result.toolCallsExecuted });
+    await updateConversationTokens({ conversationId, inputTokens: result.inputTokens, outputTokens: result.outputTokens });
 
     for (const call of result.toolCallsExecuted) {
       if (/^(create_|update_|delete_|send_|ha_call_service|mailerlite_add)/.test(call.name)) {
@@ -94,15 +205,51 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({
+    const responsePayload: Record<string, unknown> = {
       finalText: result.finalText,
       history: result.history,
       toolCallsExecuted: result.toolCallsExecuted,
       conversationId,
-    });
+    };
+
+    if (result.pendingConfirmation) {
+      const confirmationId = await insertPendingConfirmation({
+        conversationId,
+        toolCallId: result.pendingConfirmation.id,
+        toolName: result.pendingConfirmation.toolName,
+        toolInput: result.pendingConfirmation.input,
+        userId: user.id,
+      });
+
+      await writeAudit({
+        userId: user.id,
+        conversationId,
+        action: `${result.pendingConfirmation.toolName}_proposed`,
+        payload: { input: result.pendingConfirmation.input, confirmationId },
+        ipAddress,
+        userAgent,
+      });
+
+      responsePayload.pendingConfirmation = {
+        id: confirmationId,
+        toolName: result.pendingConfirmation.toolName,
+        description: result.pendingConfirmation.description,
+        input: result.pendingConfirmation.input,
+      };
+    }
+
+    return NextResponse.json(responsePayload);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Assistant-Fehler";
     console.error("[assistant]", err);
-    return NextResponse.json({ error: message }, { status: 500 });
+
+    if (message.includes("rate_limit") || message.includes("429")) {
+      return errorResponse("Anfragelimit erreicht. Bitte warten.", "rate_limited", 429);
+    }
+    if (message.includes("overloaded") || message.includes("503") || message.includes("500")) {
+      return errorResponse("Claude ist gerade nicht erreichbar. Bitte in 30s erneut versuchen.", "model_error", 503);
+    }
+
+    return errorResponse(message, "model_error", 500);
   }
 }

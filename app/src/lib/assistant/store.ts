@@ -190,6 +190,57 @@ export async function listAssistantHistory(input: { userId: string; limit?: numb
   );
 }
 
+export type AssistantMessageRow = {
+  id: string;
+  role: "user" | "assistant" | "tool";
+  content: unknown;
+  createdAt: string;
+};
+
+export async function listConversationMessages(input: {
+  conversationId: string;
+  userId: string;
+}): Promise<AssistantMessageRow[]> {
+  return query<AssistantMessageRow>(
+    `SELECT m.id, m.role, m.content, m.created_at AS "createdAt"
+     FROM tour_manager.assistant_messages m
+     JOIN tour_manager.assistant_conversations c ON c.id = m.conversation_id
+     WHERE m.conversation_id = $1 AND c.user_id = $2
+     ORDER BY m.created_at ASC`,
+    [input.conversationId, input.userId],
+  );
+}
+
+export async function updateConversationTokens(input: {
+  conversationId: string;
+  inputTokens: number;
+  outputTokens: number;
+}): Promise<void> {
+  await query(
+    `UPDATE tour_manager.assistant_conversations
+     SET input_tokens = COALESCE(input_tokens, 0) + $2,
+         output_tokens = COALESCE(output_tokens, 0) + $3,
+         updated_at = NOW()
+     WHERE id = $1`,
+    [input.conversationId, input.inputTokens, input.outputTokens],
+  );
+}
+
+export async function getAssistantUsageToday(userId: string): Promise<{ inputTokens: number; outputTokens: number; totalTokens: number }> {
+  const row = await queryOne<{ input_tokens: string; output_tokens: string }>(
+    `SELECT
+       COALESCE(SUM(input_tokens), 0) AS input_tokens,
+       COALESCE(SUM(output_tokens), 0) AS output_tokens
+     FROM tour_manager.assistant_conversations
+     WHERE user_id = $1
+       AND created_at >= (NOW() AT TIME ZONE 'Europe/Zurich')::date`,
+    [userId],
+  );
+  const inputTokens = Number(row?.input_tokens || 0);
+  const outputTokens = Number(row?.output_tokens || 0);
+  return { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens };
+}
+
 export async function writeAudit(input: {
   userId: string;
   conversationId?: string;
@@ -209,6 +260,70 @@ export async function writeAudit(input: {
       JSON.stringify(input.payload ?? null),
       input.ipAddress || null,
       input.userAgent || null,
+    ],
+  );
+}
+
+export async function insertPendingConfirmation(input: {
+  conversationId: string;
+  toolCallId: string;
+  toolName: string;
+  toolInput: unknown;
+  userId: string;
+}): Promise<string> {
+  const row = await queryOne<{ id: string }>(
+    `INSERT INTO tour_manager.assistant_tool_calls
+       (conversation_id, tool_name, input, output, status, duration_ms)
+     VALUES ($1, $2, $3::jsonb, NULL, 'pending', 0)
+     RETURNING id`,
+    [input.conversationId, input.toolName, JSON.stringify(input.toolInput ?? null)],
+  );
+  if (!row?.id) throw new Error("Pending Confirmation konnte nicht gespeichert werden");
+  return row.id;
+}
+
+export async function getPendingConfirmation(input: {
+  confirmationId: string;
+  userId: string;
+}): Promise<{ id: string; conversationId: string; toolName: string; toolInput: unknown } | null> {
+  const row = await queryOne<{
+    id: string;
+    conversation_id: string;
+    tool_name: string;
+    input: unknown;
+  }>(
+    `SELECT tc.id, tc.conversation_id, tc.tool_name, tc.input
+     FROM tour_manager.assistant_tool_calls tc
+     JOIN tour_manager.assistant_conversations c ON c.id = tc.conversation_id
+     WHERE tc.id = $1 AND tc.status = 'pending' AND c.user_id = $2`,
+    [input.confirmationId, input.userId],
+  );
+  if (!row) return null;
+  return {
+    id: row.id,
+    conversationId: row.conversation_id,
+    toolName: row.tool_name,
+    toolInput: row.input,
+  };
+}
+
+export async function resolveConfirmation(input: {
+  confirmationId: string;
+  status: "success" | "error" | "rejected";
+  output?: unknown;
+  error?: string;
+  durationMs?: number;
+}): Promise<void> {
+  await query(
+    `UPDATE tour_manager.assistant_tool_calls
+     SET status = $2, output = $3::jsonb, error_message = $4, duration_ms = $5
+     WHERE id = $1 AND status = 'pending'`,
+    [
+      input.confirmationId,
+      input.status,
+      JSON.stringify(input.output ?? null),
+      input.error || null,
+      input.durationMs ?? 0,
     ],
   );
 }
