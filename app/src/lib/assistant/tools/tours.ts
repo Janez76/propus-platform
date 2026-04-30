@@ -201,7 +201,7 @@ export const toursTools: ToolDefinition[] = [
   {
     name: "get_cleanup_selections",
     description:
-      "Liest Bereinigungslauf-Auswahl und Status pro Tour. Verwende dieses Tool bei Fragen wie „was hat der Kunde im Bereinigungslauf ausgewählt?“ nach Tour-ID, Kunden-ID, Kunden-E-Mail oder Suchbegriff.",
+      "Liest Bereinigungslauf-Auswahl und Status pro Tour. Verwende dieses Tool bei Fragen wie „was hat der Kunde im Bereinigungslauf ausgewählt?“ nach Tour-ID, Kunden-ID, Kunden-E-Mail oder Suchbegriff. Suchbegriffe können Tipp-/Sprachfehler haben — best-effort-Anfrage und bei Bedarf mehrere Varianten; Antwort listet passende Treffer (begrenzt).",
     input_schema: {
       type: "object",
       properties: {

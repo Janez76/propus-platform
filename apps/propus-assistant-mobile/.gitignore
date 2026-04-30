@@ -1,0 +1,3 @@
+# Von `expo prebuild` / EAS erzeugt — nicht versionieren (EAS baut frisch).
+/android
+/ios

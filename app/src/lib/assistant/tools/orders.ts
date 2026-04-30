@@ -100,7 +100,7 @@ export const ordersTools: ToolDefinition[] = [
   {
     name: "get_order_by_id",
     description:
-      "Nutze dieses Tool wenn eine bestimmte Auftragsnummer genannt wird oder du Basisdaten zu einem Auftrag brauchst.",
+      "Nutze dieses Tool wenn eine bestimmte Auftragsnummer genannt wird oder du Basisdaten zu einem Auftrag brauchst. Bei fehlgeschlagenem Abruf wegen möglicher Ziffern-/Diktierfehler andere plausible Varianten oder search_orders nutzen.",
     input_schema: {
       type: "object",
       properties: { order_id: { type: "string", description: "Auftragsnummer" } },
@@ -120,7 +120,7 @@ export const ordersTools: ToolDefinition[] = [
   {
     name: "search_orders",
     description:
-      "Nutze dieses Tool wenn nach einem Kunden, einer Adresse oder einem Stichwort in Aufträgen gesucht wird. Durchsucht Adresse, Rechnungsname und Rechnungs-E-Mail.",
+      "Nutze dieses Tool wenn nach einem Kunden, einer Adresse oder einem Stichwort in Aufträgen gesucht wird. Durchsucht Adresse, Rechnungsname und Rechnungs-E-Mail. Suchbegriffe können Tipp-/Sprachfehler haben — best-effort-Anfrage und bei Bedarf mehrere Varianten; Antwort listet passende Treffer (begrenzt).",
     input_schema: {
       type: "object",
       properties: {

@@ -16,6 +16,8 @@ import {
 import { createMemory, selectMemoriesForPrompt } from "@/lib/assistant/memory-store";
 import { resolveAssistantUser } from "@/lib/assistant/auth";
 import { getAssistantSettings } from "@/lib/assistant/settings";
+import { parseAssistantModelModeFromRequest, resolveAssistantModelForRequest } from "@/lib/assistant/assistant-model-mode";
+import { parseTier } from "@/lib/assistant/model-router";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -34,12 +36,17 @@ export async function POST(req: NextRequest) {
   const user = await resolveAssistantUser(req);
   if (!user) return errorResponse("Nicht authentifiziert", "auth_failed", 401);
 
-  let body: { userMessage?: unknown; history?: unknown; conversationId?: unknown };
+  let body: { userMessage?: unknown; history?: unknown; conversationId?: unknown; modelMode?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
     return errorResponse("Ungültiges JSON", "validation_error", 400);
   }
+
+  const clientModelMode = parseAssistantModelModeFromRequest(
+    req.headers.get("x-assistant-model-mode"),
+    body.modelMode,
+  );
 
   const userMessage = typeof body.userMessage === "string" ? body.userMessage.trim() : "";
   if (!userMessage) return errorResponse("userMessage fehlt", "validation_error", 400);
@@ -111,6 +118,16 @@ export async function POST(req: NextRequest) {
       memories,
     });
 
+    const modelResolution = resolveAssistantModelForRequest({
+      clientMode: clientModelMode,
+      settingsAutoEscalation: settings.autoEscalation,
+      settingsMaxModelTier: settings.maxModelTier,
+      envMaxModelTier: parseTier(
+        process.env.ANTHROPIC_MAX_MODEL_TIER ?? process.env.ASSISTANT_MAX_MODEL_TIER,
+        settings.maxModelTier,
+      ),
+    });
+
     // ──── Streaming Path ────
     if (useStreaming) {
       const { stream, metaPromise } = runAssistantTurnStreaming({
@@ -127,9 +144,15 @@ export async function POST(req: NextRequest) {
           userAgent,
           conversationId,
         },
-        model: settings.model !== "claude-sonnet-4-6" ? settings.model : undefined,
-        autoEscalation: settings.autoEscalation,
-        maxModelTier: settings.maxModelTier,
+        model: modelResolution.streamingExplicitModel,
+        autoEscalation: modelResolution.autoEscalation,
+        maxModelTier: modelResolution.maxModelTier,
+        responseMeta: {
+          modelModeRequested: modelResolution.requestedMode,
+          modelModeEffective: modelResolution.effectiveMode,
+          modelTierApplied: modelResolution.appliedTier,
+          modelModeNotice: modelResolution.notice,
+        },
       });
 
       void metaPromise.then(async (meta) => {
@@ -197,8 +220,9 @@ export async function POST(req: NextRequest) {
         userAgent,
         conversationId,
       },
-      autoEscalation: settings.autoEscalation,
-      maxModelTier: settings.maxModelTier,
+      autoEscalation: modelResolution.autoEscalation,
+      maxModelTier: modelResolution.maxModelTier,
+      forceModel: modelResolution.nonStreamingForceModel,
     });
 
     const assistantMessageId = await insertAssistantMessage({
@@ -240,6 +264,10 @@ export async function POST(req: NextRequest) {
       modelUsed: result.modelUsed,
       escalated: result.escalated,
       memorySaved,
+      modelModeRequested: modelResolution.requestedMode,
+      modelModeEffective: modelResolution.effectiveMode,
+      modelTierApplied: modelResolution.appliedTier,
+      modelModeNotice: modelResolution.notice,
     };
 
     if (result.pendingConfirmation) {

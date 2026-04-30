@@ -40,7 +40,7 @@ export const customersTools: ToolDefinition[] = [
   {
     name: "search_customers",
     description:
-      "Nutze dieses Tool wenn nach einem Kunden, einer Firma, einer E-Mail-Adresse oder einem Kontakt gefragt wird. Auch für Teilnamen oder Domains. Durchsucht Name, E-Mail, Firma, Telefon und email_aliases.",
+      "Nutze dieses Tool wenn nach einem Kunden, einer Firma, einer E-Mail-Adresse oder einem Kontakt gefragt wird. Auch für Teilnamen oder Domains. Durchsucht Name, E-Mail, Firma, Telefon und email_aliases. Suchbegriffe können Tipp-/Sprachfehler haben — best-effort-Anfrage und bei Bedarf mehrere Varianten; Antwort listet passende Treffer (begrenzt).",
     input_schema: {
       type: "object",
       properties: {
@@ -73,7 +73,7 @@ export const customersTools: ToolDefinition[] = [
   {
     name: "search_contacts",
     description:
-      "Nutze dieses Tool wenn nach einer bestimmten Kontaktperson über alle Kunden hinweg gesucht wird. Durchsucht Name und E-Mail in customer_contacts.",
+      "Nutze dieses Tool wenn nach einer bestimmten Kontaktperson über alle Kunden hinweg gesucht wird. Durchsucht Name und E-Mail in customer_contacts. Suchbegriffe können Tipp-/Sprachfehler haben — best-effort-Anfrage und bei Bedarf mehrere Varianten; Antwort listet passende Treffer (begrenzt).",
     input_schema: {
       type: "object",
       properties: {

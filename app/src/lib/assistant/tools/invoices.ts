@@ -17,7 +17,7 @@ export const invoicesTools: ToolDefinition[] = [
   {
     name: "search_invoices",
     description:
-      "Nutze dieses Tool wenn nach Rechnungen eines Kunden, einer Rechnungsnummer oder Rechnungsstatus gefragt wird. Durchsucht Verlängerungs- und Exxas-Rechnungen nach Kundenname, Nummer oder Status.",
+      "Nutze dieses Tool wenn nach Rechnungen eines Kunden, einer Rechnungsnummer oder Rechnungsstatus gefragt wird. Durchsucht Verlängerungs- und Exxas-Rechnungen nach Kundenname, Nummer oder Status. Suchbegriffe können Tipp-/Sprachfehler haben — best-effort-Anfrage und bei Bedarf mehrere Varianten; Antwort listet passende Treffer (begrenzt).",
     input_schema: {
       type: "object",
       properties: {

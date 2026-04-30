@@ -22,6 +22,12 @@ export type StreamingTurnInput = {
   model?: string;
   autoEscalation?: boolean;
   maxModelTier?: ModelTier;
+  responseMeta?: {
+    modelModeRequested: "auto" | "sonnet" | "opus";
+    modelModeEffective: "auto" | "sonnet" | "opus";
+    modelTierApplied: ModelTier;
+    modelModeNotice?: string;
+  };
 };
 
 export type StreamingTurnMeta = {
@@ -248,6 +254,10 @@ export function runAssistantTurnStreaming(input: StreamingTurnInput): {
         modelUsed: model,
         escalated,
         memorySaved,
+        modelModeRequested: input.responseMeta?.modelModeRequested,
+        modelModeEffective: input.responseMeta?.modelModeEffective,
+        modelTierApplied: input.responseMeta?.modelTierApplied,
+        modelModeNotice: input.responseMeta?.modelModeNotice,
       });
 
       controllerRef?.close();

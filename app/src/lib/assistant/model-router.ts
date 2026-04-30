@@ -1,4 +1,5 @@
 export type ModelTier = "haiku" | "sonnet" | "opus";
+export type ModelMode = "auto" | "sonnet" | "opus";
 
 export const MODEL_IDS: Record<ModelTier, string> = {
   haiku: "claude-haiku-4-5",
@@ -46,7 +47,16 @@ export function tierOrder(tier: ModelTier): number {
   return tier === "haiku" ? 0 : tier === "sonnet" ? 1 : 2;
 }
 
+export function clampTier(requested: ModelTier, maxTier: ModelTier): ModelTier {
+  return tierOrder(requested) <= tierOrder(maxTier) ? requested : maxTier;
+}
+
 export function parseTier(value: string | undefined, fallback: ModelTier): ModelTier {
   if (value === "haiku" || value === "sonnet" || value === "opus") return value;
+  return fallback;
+}
+
+export function parseModelMode(value: unknown, fallback: ModelMode = "auto"): ModelMode {
+  if (value === "auto" || value === "sonnet" || value === "opus") return value;
   return fallback;
 }

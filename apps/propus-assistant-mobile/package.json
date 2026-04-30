@@ -3,12 +3,14 @@
   "version": "1.0.0",
   "main": "expo-router/entry",
   "scripts": {
-    "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web",
+    "start": "node ./node_modules/expo/bin/cli start",
+    "android": "node ./node_modules/expo/bin/cli run:android",
+    "ios": "node ./node_modules/expo/bin/cli run:ios",
+    "web": "node ./node_modules/expo/bin/cli start --web",
     "build:ios": "eas build --platform ios",
     "build:android": "eas build --platform android",
+    "build:android:preview": "eas build --platform android --profile preview",
+    "prebuild:android": "node ./node_modules/expo/bin/cli prebuild --platform android",
     "eas:android:preview": "eas build --platform android --profile preview",
     "eas:android:preview:env": "dotenv-cli -e .env.expo.local -- eas build --platform android --profile preview"
   },
@@ -21,7 +23,7 @@
     "expo-speech": "~13.0.0",
     "expo-status-bar": "~2.0.0",
     "react": "18.3.1",
-    "react-native": "0.76.5",
+    "react-native": "0.76.9",
     "react-native-safe-area-context": "~4.12.0",
     "react-native-screens": "~4.4.0"
   },

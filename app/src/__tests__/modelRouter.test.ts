@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { selectInitialModel, shouldEscalate, parseTier } from "@/lib/assistant/model-router";
+import { clampTier, parseModelMode, parseTier, selectInitialModel, shouldEscalate } from "@/lib/assistant/model-router";
 
 describe("model-router", () => {
   describe("selectInitialModel", () => {
@@ -123,6 +123,32 @@ describe("model-router", () => {
       expect(parseTier(undefined, "sonnet")).toBe("sonnet");
       expect(parseTier("invalid", "sonnet")).toBe("sonnet");
       expect(parseTier("", "haiku")).toBe("haiku");
+    });
+  });
+
+  describe("clampTier", () => {
+    it("keeps tier when within cap", () => {
+      expect(clampTier("sonnet", "opus")).toBe("sonnet");
+      expect(clampTier("haiku", "sonnet")).toBe("haiku");
+    });
+
+    it("caps tier when above max", () => {
+      expect(clampTier("opus", "sonnet")).toBe("sonnet");
+      expect(clampTier("sonnet", "haiku")).toBe("haiku");
+    });
+  });
+
+  describe("parseModelMode", () => {
+    it("parses valid mode values", () => {
+      expect(parseModelMode("auto")).toBe("auto");
+      expect(parseModelMode("sonnet")).toBe("sonnet");
+      expect(parseModelMode("opus")).toBe("opus");
+    });
+
+    it("returns fallback for invalid values", () => {
+      expect(parseModelMode(undefined)).toBe("auto");
+      expect(parseModelMode("invalid")).toBe("auto");
+      expect(parseModelMode("x", "sonnet")).toBe("sonnet");
     });
   });
 });

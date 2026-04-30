@@ -2,6 +2,11 @@
 
 import { AlertCircle, Archive, ArchiveRestore, Bot, Brain, CheckCircle, Copy, Search, Send, Settings, ShieldAlert, Smartphone, Trash2, UserRound, X, XCircle } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  ASSISTANT_MODEL_MODE_STORAGE_KEY,
+  type AssistantModelMode,
+  parseAssistantModelMode,
+} from "@/lib/assistant/assistant-model-mode";
 import { VoiceButton } from "./VoiceButton";
 
 type DisplayMessage = {
@@ -12,6 +17,7 @@ type DisplayMessage = {
   isStreaming?: boolean;
   modelUsed?: string;
   escalated?: boolean;
+  modelModeNotice?: string;
 };
 
 type PendingConfirmation = {
@@ -181,6 +187,7 @@ export function ConversationView() {
   const [availableTools, setAvailableTools] = useState<ToolInfo[]>([]);
   const [availableModels, setAvailableModels] = useState<ModelInfo[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [modelMode, setModelMode] = useState<AssistantModelMode>("auto");
   const historyRef = useRef<unknown[]>([]);
   const conversationIdRef = useRef<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -357,6 +364,23 @@ export function ConversationView() {
   }, [loadHistory]);
 
   useEffect(() => {
+    try {
+      setModelMode(parseAssistantModelMode(localStorage.getItem(ASSISTANT_MODEL_MODE_STORAGE_KEY)));
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  function persistModelMode(next: AssistantModelMode) {
+    setModelMode(next);
+    try {
+      localStorage.setItem(ASSISTANT_MODEL_MODE_STORAGE_KEY, next);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  useEffect(() => {
     const timer = window.setTimeout(() => {
       void loadHistory({ q: historySearch, filter: historyFilter });
     }, 250);
@@ -418,11 +442,15 @@ export function ConversationView() {
     try {
       const res = await fetch("/api/assistant?stream=true", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Assistant-Model-Mode": modelMode,
+        },
         body: JSON.stringify({
           userMessage: text,
           history: historyRef.current,
           conversationId: conversationIdRef.current,
+          modelMode,
         }),
         signal: controller.signal,
       });
@@ -484,7 +512,15 @@ export function ConversationView() {
           } else if (event.type === "done") {
             setMessages((current) =>
               current.map((m) =>
-                m.id === streamingMsgId ? { ...m, isStreaming: false, modelUsed: event.modelUsed as string | undefined, escalated: event.escalated as boolean | undefined } : m,
+                m.id === streamingMsgId
+                  ? {
+                      ...m,
+                      isStreaming: false,
+                      modelUsed: event.modelUsed as string | undefined,
+                      escalated: event.escalated as boolean | undefined,
+                      modelModeNotice: event.modelModeNotice as string | undefined,
+                    }
+                  : m,
               ),
             );
             historyRef.current = [];
@@ -511,7 +547,7 @@ export function ConversationView() {
       setError({ message: errObj.message || "Streaming-Fehler", code: errObj.code });
       setMessages((current) => current.filter((m) => m.id !== streamingMsgId || m.content));
     }
-  }, [loadHistory]);
+  }, [loadHistory, modelMode]);
 
   async function send(userText: string) {
     const text = userText.trim();
@@ -531,11 +567,15 @@ export function ConversationView() {
     try {
       const res = await fetch("/api/assistant?stream=false", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Assistant-Model-Mode": modelMode,
+        },
         body: JSON.stringify({
           userMessage: text,
           history: historyRef.current,
           conversationId: conversationIdRef.current,
+          modelMode,
         }),
       });
       const data = (await res.json().catch(() => ({}))) as {
@@ -547,6 +587,7 @@ export function ConversationView() {
         modelUsed?: string;
         escalated?: boolean;
         memorySaved?: boolean;
+        modelModeNotice?: string;
         error?: string;
         code?: ErrorCode;
       };
@@ -570,6 +611,7 @@ export function ConversationView() {
           })),
           modelUsed: data.modelUsed,
           escalated: data.escalated,
+          modelModeNotice: data.modelModeNotice,
         },
       ]);
 
@@ -614,7 +656,7 @@ export function ConversationView() {
   return (
     <section className="grid h-[calc(100vh-1.5rem)] min-h-0 overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))] shadow-sm lg:h-[calc(100vh-3rem)] lg:grid-cols-[minmax(0,1fr)_320px]">
       <div className="flex min-h-0 flex-col">
-      <header className="relative flex items-center justify-between border-b border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))] px-5 py-4">
+      <header className="relative flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))] px-5 py-4">
         {memoryToast ? (
           <div
             className="absolute left-1/2 top-full z-10 mt-2 -translate-x-1/2 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-4 py-1.5 text-xs font-medium text-emerald-100 shadow-md"
@@ -626,6 +668,38 @@ export function ConversationView() {
         <div>
           <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--gold-text,var(--accent))]">Propus</div>
           <h1 className="text-xl font-semibold text-[var(--text-main)]">Assistant</h1>
+        </div>
+        <div
+          className="flex items-center gap-0.5 rounded-full border border-[var(--border-soft)] bg-[var(--surface)] p-0.5"
+          role="radiogroup"
+          aria-label="Modellmodus für Anfragen"
+        >
+          {(
+            [
+              { key: "auto" as const, label: "Auto", title: "Standard: Haiku startet und kann bis zum Server-Maximum eskalieren" },
+              { key: "sonnet" as const, label: "Sonnet fix", title: "Fix auf Sonnet (oder tiefer bei Server-Limit), ohne Auto-Eskalation" },
+              { key: "opus" as const, label: "Opus fix", title: "Fix auf Opus (oder tiefer bei Server-Limit), ohne Auto-Eskalation" },
+            ] as const
+          ).map((opt) => {
+            const active = modelMode === opt.key;
+            return (
+              <button
+                key={opt.key}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                title={opt.title}
+                onClick={() => persistModelMode(opt.key)}
+                className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-card,var(--surface))] ${
+                  active
+                    ? "bg-[var(--accent)] text-[var(--gold-on-gold)]"
+                    : "text-[var(--text-subtle)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-main)]"
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -698,10 +772,19 @@ export function ConversationView() {
               {message.isStreaming ? (
                 <span className="mt-1 inline-block h-4 w-1 animate-pulse bg-[var(--accent)]" />
               ) : null}
-              {message.escalated && message.modelUsed ? (
-                <span className="mt-1.5 inline-block rounded-full border border-[var(--accent)]/20 bg-[var(--accent)]/5 px-2 py-0.5 text-[10px] text-[var(--gold-text,var(--accent))]">
-                  ⚡ {message.modelUsed.replace("claude-", "").replace(/-\d+(-\d+)?$/, "")}
-                </span>
+              {message.modelUsed || message.modelModeNotice ? (
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                  {message.escalated && message.modelUsed ? (
+                    <span className="inline-block rounded-full border border-[var(--accent)]/20 bg-[var(--accent)]/5 px-2 py-0.5 text-[10px] text-[var(--gold-text,var(--accent))]">
+                      ⚡ {message.modelUsed.replace("claude-", "").replace(/-\d+(-\d+)?$/, "")}
+                    </span>
+                  ) : null}
+                  {message.modelModeNotice ? (
+                    <span className="inline-block rounded-full border border-[var(--border-soft)] bg-[var(--surface-raised)] px-2 py-0.5 text-[10px] text-[var(--text-subtle)]">
+                      {message.modelModeNotice}
+                    </span>
+                  ) : null}
+                </div>
               ) : null}
             </div>
             {message.role === "user" ? (
