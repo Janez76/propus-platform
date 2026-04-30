@@ -1,23 +1,13 @@
-import { NextResponse } from "next/server";
-import { getAdminSession, type AdminSession } from "@/lib/auth.server";
+import { NextRequest, NextResponse } from "next/server";
+import { resolveAssistantUser } from "@/lib/assistant/auth";
 import { listAssistantHistory } from "@/lib/assistant/store";
 
 export const runtime = "nodejs";
 
-const INTERNAL_ROLES = new Set(["admin", "super_admin", "employee"]);
+export async function GET(req: NextRequest) {
+  const user = await resolveAssistantUser(req);
+  if (!user) return NextResponse.json({ error: "Nicht authentifiziert" }, { status: 401 });
 
-function sessionUser(session: AdminSession) {
-  const userId = String(session.userKey || session.userName || session.role || "admin").trim();
-  return { id: userId || "admin" };
-}
-
-export async function GET() {
-  const session = await getAdminSession();
-  if (!session) return NextResponse.json({ error: "Nicht authentifiziert" }, { status: 401 });
-  if (!INTERNAL_ROLES.has(String(session.role || "").toLowerCase())) {
-    return NextResponse.json({ error: "Keine Berechtigung für den Assistant" }, { status: 403 });
-  }
-
-  const rows = await listAssistantHistory({ userId: sessionUser(session).id, limit: 20 });
+  const rows = await listAssistantHistory({ userId: user.id, limit: 20 });
   return NextResponse.json({ ok: true, conversations: rows });
 }

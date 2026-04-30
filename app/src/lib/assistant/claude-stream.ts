@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { ToolDefinition, ToolHandler, ToolContext } from "./tools";
+import { type ModelTier, MODEL_IDS, selectInitialModel, parseTier } from "./model-router";
 
-const DEFAULT_MODEL = "claude-sonnet-4-6";
 const MAX_TOKENS = 4096;
 const MAX_TOOL_ITERATIONS = 12;
 const MAX_TOOL_RESULT_CHARS = 12_000;
@@ -19,6 +19,8 @@ export type StreamingTurnInput = {
   toolHandlers: Record<string, ToolHandler>;
   context: ToolContext;
   model?: string;
+  autoEscalation?: boolean;
+  maxModelTier?: ModelTier;
 };
 
 export type StreamingTurnMeta = {
@@ -32,6 +34,8 @@ export type StreamingTurnMeta = {
   }>;
   inputTokens: number;
   outputTokens: number;
+  modelUsed: string;
+  escalated: boolean;
 };
 
 function toolResultContextPrefix(output: unknown): string {
@@ -74,7 +78,22 @@ export function runAssistantTurnStreaming(input: StreamingTurnInput): {
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY ist nicht gesetzt");
 
   const client = new Anthropic({ apiKey });
-  const model = input.model || runtimeEnv("ANTHROPIC_MODEL") || DEFAULT_MODEL;
+
+  const autoEscalation = input.autoEscalation !== false;
+  const maxTier = input.maxModelTier || parseTier(runtimeEnv("ASSISTANT_MAX_MODEL_TIER"), "sonnet");
+
+  let selectedModel: string;
+  if (input.model) {
+    selectedModel = input.model;
+  } else if (autoEscalation) {
+    const tier = selectInitialModel(input.userMessage, maxTier);
+    selectedModel = MODEL_IDS[tier];
+  } else {
+    selectedModel = MODEL_IDS[maxTier];
+  }
+
+  const model = selectedModel;
+  const escalated = autoEscalation && model !== MODEL_IDS[maxTier] ? false : false;
   const history: Anthropic.Messages.MessageParam[] = [...input.history, { role: "user", content: input.userMessage }];
   const toolCallsExecuted: StreamingTurnMeta["toolCallsExecuted"] = [];
   let totalInputTokens = 0;
@@ -203,6 +222,8 @@ export function runAssistantTurnStreaming(input: StreamingTurnInput): {
         toolCallsExecuted,
         inputTokens: totalInputTokens,
         outputTokens: totalOutputTokens,
+        modelUsed: model,
+        escalated,
       };
 
       enqueue({
@@ -214,6 +235,8 @@ export function runAssistantTurnStreaming(input: StreamingTurnInput): {
         })),
         inputTokens: totalInputTokens,
         outputTokens: totalOutputTokens,
+        modelUsed: model,
+        escalated,
       });
 
       controllerRef?.close();

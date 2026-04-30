@@ -119,8 +119,10 @@ export async function POST(req: NextRequest) {
         userMessage,
         tools: filteredTools,
         toolHandlers: filteredHandlers,
-        context: { userId: user.id, userEmail: user.email, ipAddress, userAgent },
-        model: settings.model,
+        context: { userId: user.id, userEmail: user.email, role: user.role, ipAddress, userAgent },
+        model: settings.model !== "claude-sonnet-4-6" ? settings.model : undefined,
+        autoEscalation: settings.autoEscalation,
+        maxModelTier: settings.maxModelTier,
       });
 
       void metaPromise.then(async (meta) => {
@@ -180,7 +182,9 @@ export async function POST(req: NextRequest) {
       userMessage,
       tools: filteredTools,
       toolHandlers: filteredHandlers,
-      context: { userId: user.id, userEmail: user.email, ipAddress, userAgent },
+      context: { userId: user.id, userEmail: user.email, role: user.role, ipAddress, userAgent },
+      autoEscalation: settings.autoEscalation,
+      maxModelTier: settings.maxModelTier,
     });
 
     const assistantMessageId = await insertAssistantMessage({
@@ -210,6 +214,8 @@ export async function POST(req: NextRequest) {
       history: result.history,
       toolCallsExecuted: result.toolCallsExecuted,
       conversationId,
+      modelUsed: result.modelUsed,
+      escalated: result.escalated,
     };
 
     if (result.pendingConfirmation) {

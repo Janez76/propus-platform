@@ -40,11 +40,11 @@ export const customersTools: ToolDefinition[] = [
   {
     name: "search_customers",
     description:
-      "Sucht Kunden in core.customers nach Name, E-Mail, Firma oder Telefon. Berücksichtigt email_aliases und zeigt verknüpfte Kontakte.",
+      "Nutze dieses Tool wenn nach einem Kunden, einer Firma, einer E-Mail-Adresse oder einem Kontakt gefragt wird. Auch für Teilnamen oder Domains. Durchsucht Name, E-Mail, Firma, Telefon und email_aliases.",
     input_schema: {
       type: "object",
       properties: {
-        query: { type: "string", description: "Suchbegriff (Name, E-Mail, Firma, Telefon)" },
+        query: { type: "string", description: "Suchbegriff (Name, E-Mail, Firma, Telefon, Domain)" },
         limit: { type: "number", description: "Maximale Anzahl (Default: 20, max. 20)" },
       },
       required: ["query"],
@@ -53,7 +53,7 @@ export const customersTools: ToolDefinition[] = [
   {
     name: "get_customer_detail",
     description:
-      "Vollständiges Kundenprofil: Stammdaten, alle Kontakte, verknüpfte Firmen, letzte 5 Bestellungen und aktive Touren.",
+      "Nutze dieses Tool wenn du alle Details zu einem bereits identifizierten Kunden brauchst: Stammdaten, Kontakte, Firmen, Bestellungen und aktive Touren.",
     input_schema: {
       type: "object",
       properties: { customer_id: { type: "number", description: "Kunden-ID" } },
@@ -62,7 +62,8 @@ export const customersTools: ToolDefinition[] = [
   },
   {
     name: "get_customer_contacts",
-    description: "Listet alle Kontaktpersonen (core.customer_contacts) für eine Kunden-ID.",
+    description:
+      "Nutze dieses Tool wenn nach Ansprechpartnern, Kontaktpersonen oder Mitarbeitern eines bestimmten Kunden gefragt wird.",
     input_schema: {
       type: "object",
       properties: { customer_id: { type: "number", description: "Kunden-ID" } },
@@ -71,7 +72,8 @@ export const customersTools: ToolDefinition[] = [
   },
   {
     name: "search_contacts",
-    description: "Sucht über core.customer_contacts nach Name oder E-Mail. Gibt Kontakt mit übergeordnetem Kunden zurück.",
+    description:
+      "Nutze dieses Tool wenn nach einer bestimmten Kontaktperson über alle Kunden hinweg gesucht wird. Durchsucht Name und E-Mail in customer_contacts.",
     input_schema: {
       type: "object",
       properties: {

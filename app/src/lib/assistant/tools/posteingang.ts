@@ -16,11 +16,12 @@ function boundedNumber(value: unknown, fallback: number, max: number): number {
 export const posteingangTools: ToolDefinition[] = [
   {
     name: "search_posteingang_conversations",
-    description: "Sucht Posteingang-Konversationen nach Betreff, Kunde oder Text-Ausschnitt.",
+    description:
+      "Nutze dieses Tool wenn nach E-Mails, Konversationen oder Nachrichten von/an bestimmte Personen gefragt wird. Durchsucht Betreff, Kundenname und Nachrichtentext.",
     input_schema: {
       type: "object",
       properties: {
-        query: { type: "string", description: "Suchbegriff" },
+        query: { type: "string", description: "Suchbegriff (Name, Betreff, E-Mail, Stichwort)" },
         limit: { type: "number", description: "Maximale Anzahl (Default: 10, max. 30)" },
       },
       required: ["query"],
@@ -28,7 +29,8 @@ export const posteingangTools: ToolDefinition[] = [
   },
   {
     name: "get_recent_posteingang_messages",
-    description: "Listet aktuelle Posteingang-Nachrichten.",
+    description:
+      "Nutze dieses Tool wenn nach den neuesten E-Mails, letzten Nachrichten oder aktuellen Posteingängen gefragt wird.",
     input_schema: {
       type: "object",
       properties: { limit: { type: "number", description: "Maximale Anzahl (Default: 10, max. 30)" } },
@@ -36,7 +38,8 @@ export const posteingangTools: ToolDefinition[] = [
   },
   {
     name: "get_open_tasks",
-    description: "Listet offene Posteingang-Aufgaben.",
+    description:
+      "Nutze dieses Tool wenn nach offenen Aufgaben, Pendenzen oder To-Dos gefragt wird.",
     input_schema: {
       type: "object",
       properties: { limit: { type: "number", description: "Maximale Anzahl (Default: 10, max. 30)" } },
@@ -45,7 +48,7 @@ export const posteingangTools: ToolDefinition[] = [
   {
     name: "get_posteingang_conversation_detail",
     description:
-      "Gibt den vollständigen Thread einer Konversation zurück: alle Nachrichten, Tags, Aufgaben und verknüpfte Entitäten (Kunde, Bestellung, Tour).",
+      "Nutze dieses Tool wenn du den vollständigen Thread einer bestimmten Konversation brauchst: alle Nachrichten, Tags, Aufgaben und verknüpfte Entitäten.",
     input_schema: {
       type: "object",
       properties: { conversation_id: { type: "number", description: "Konversations-ID" } },
@@ -54,7 +57,8 @@ export const posteingangTools: ToolDefinition[] = [
   },
   {
     name: "get_posteingang_stats",
-    description: "Gibt Posteingang-Statistiken: offene/laufende/wartende/gelöste Konversationen, offene Aufgaben.",
+    description:
+      "Nutze dieses Tool wenn nach einer Übersicht, Statistiken oder dem aktuellen Stand des Posteingangs gefragt wird.",
     input_schema: { type: "object", properties: {} },
   },
 ];

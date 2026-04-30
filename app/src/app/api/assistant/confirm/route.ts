@@ -68,6 +68,7 @@ export async function POST(req: NextRequest) {
     const output = await handler(toolInput, {
       userId: user.id,
       userEmail: user.email,
+      role: user.role,
       ipAddress,
       userAgent,
     });

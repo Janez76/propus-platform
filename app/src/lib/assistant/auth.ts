@@ -11,6 +11,7 @@ export interface AssistantUser {
   id: string;
   email: string;
   name: string;
+  role: string;
   source: "cookie" | "bearer";
 }
 
@@ -27,6 +28,7 @@ function sessionToUser(session: AdminSession): AssistantUser {
     id: userId || "admin",
     email: email || "admin@propus.local",
     name: session.userName || userId || "Admin",
+    role: String(session.role || "admin").toLowerCase(),
     source: "cookie",
   };
 }
@@ -67,6 +69,7 @@ export async function resolveAssistantUser(req: NextRequest): Promise<AssistantU
       id: row.user_id,
       email: row.user_email,
       name: row.user_email.split("@")[0] || row.user_id,
+      role: "admin",
       source: "bearer",
     };
   }

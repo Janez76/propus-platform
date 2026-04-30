@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "Propus Assistant",
+    "slug": "propus-assistant",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "scheme": "propusassistant",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0c0d10"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "ch.propus.assistant",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Propus Assistant nutzt das Mikrofon für Sprachbefehle."
+      }
+    },
+    "android": {
+      "package": "ch.propus.assistant",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0c0d10"
+      },
+      "permissions": ["RECORD_AUDIO"]
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": ["expo-router", "expo-av", "expo-secure-store"],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "apiBaseUrl": "https://ki.propus.ch"
+    }
+  }
+}

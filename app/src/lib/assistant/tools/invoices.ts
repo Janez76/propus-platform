@@ -17,11 +17,11 @@ export const invoicesTools: ToolDefinition[] = [
   {
     name: "search_invoices",
     description:
-      "Sucht über Verlängerungs- und Exxas-Rechnungen nach Kundenname, Rechnungsnummer oder Status. Nutzt die zentrale View invoices_central_v.",
+      "Nutze dieses Tool wenn nach Rechnungen eines Kunden, einer Rechnungsnummer oder Rechnungsstatus gefragt wird. Durchsucht Verlängerungs- und Exxas-Rechnungen nach Kundenname, Nummer oder Status.",
     input_schema: {
       type: "object",
       properties: {
-        query: { type: "string", description: "Suchbegriff (Kundenname, Rechnungsnummer)" },
+        query: { type: "string", description: "Suchbegriff (Kundenname, Rechnungsnummer, Tour-Label)" },
         status: { type: "string", description: "Optionaler Status-Filter (z.B. 'open', 'paid', 'overdue', 'bz')" },
         limit: { type: "number", description: "Maximale Anzahl (Default: 20, max. 20)" },
       },
@@ -30,7 +30,8 @@ export const invoicesTools: ToolDefinition[] = [
   },
   {
     name: "get_overdue_invoices",
-    description: "Listet überfällige Verlängerungsrechnungen (unbezahlt, Fälligkeitsdatum überschritten).",
+    description:
+      "Nutze dieses Tool wenn nach überfälligen, unbezahlten oder ausstehenden Rechnungen gefragt wird. Listet Verlängerungsrechnungen mit überschrittenem Fälligkeitsdatum.",
     input_schema: {
       type: "object",
       properties: {
@@ -40,7 +41,8 @@ export const invoicesTools: ToolDefinition[] = [
   },
   {
     name: "get_invoice_stats",
-    description: "Gibt Zählung nach Status für Verlängerungs- und Exxas-Rechnungen zurück.",
+    description:
+      "Nutze dieses Tool wenn nach einer Rechnungsübersicht, Statistiken oder dem Gesamtstatus aller Rechnungen gefragt wird.",
     input_schema: { type: "object", properties: {} },
   },
 ];

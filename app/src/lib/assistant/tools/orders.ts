@@ -82,7 +82,8 @@ const orderSelect = `
 export const ordersTools: ToolDefinition[] = [
   {
     name: "get_open_orders",
-    description: "Listet offene Aufträge aus booking.orders. Standard: nächste 14 Tage, max. 50 Einträge.",
+    description:
+      "Nutze dieses Tool wenn der User nach heutigen, offenen oder bevorstehenden Aufträgen fragt. Listet offene Aufträge aus booking.orders. Standard: nächste 14 Tage, max. 50 Einträge.",
     input_schema: {
       type: "object",
       properties: {
@@ -93,7 +94,8 @@ export const ordersTools: ToolDefinition[] = [
   },
   {
     name: "get_order_by_id",
-    description: "Holt einen Auftrag anhand der Auftragsnummer.",
+    description:
+      "Nutze dieses Tool wenn eine bestimmte Auftragsnummer genannt wird oder du Basisdaten zu einem Auftrag brauchst.",
     input_schema: {
       type: "object",
       properties: { order_id: { type: "string", description: "Auftragsnummer" } },
@@ -103,7 +105,7 @@ export const ordersTools: ToolDefinition[] = [
   {
     name: "get_order_detail",
     description:
-      "Gibt den vollständigen Auftragskontext zurück: Basisdaten, Kunden-Info, Ordner-Status, verknüpfte Rechnungen, letzte Chat-Nachrichten und Kalender-Verknüpfung.",
+      "Nutze dieses Tool wenn du den vollständigen Kontext eines Auftrags brauchst: Basisdaten, Kunden-Info, Ordner-Status, verknüpfte Rechnungen, letzte Chat-Nachrichten und Kalender-Verknüpfung.",
     input_schema: {
       type: "object",
       properties: { order_no: { type: "number", description: "Auftragsnummer" } },
@@ -112,11 +114,12 @@ export const ordersTools: ToolDefinition[] = [
   },
   {
     name: "search_orders",
-    description: "Sucht Aufträge nach Adresse, Rechnungsname oder Rechnungs-E-Mail.",
+    description:
+      "Nutze dieses Tool wenn nach einem Kunden, einer Adresse oder einem Stichwort in Aufträgen gesucht wird. Durchsucht Adresse, Rechnungsname und Rechnungs-E-Mail.",
     input_schema: {
       type: "object",
       properties: {
-        query: { type: "string", description: "Suchbegriff" },
+        query: { type: "string", description: "Suchbegriff (Adresse, Kundenname, E-Mail)" },
         limit: { type: "number", description: "Maximale Anzahl (Default: 10, max. 50)" },
       },
       required: ["query"],
@@ -124,7 +127,20 @@ export const ordersTools: ToolDefinition[] = [
   },
   {
     name: "get_today_schedule",
-    description: "Listet heutige Aufträge anhand booking.orders.schedule->>'date'.",
+    description:
+      "Nutze dieses Tool wenn nach dem heutigen Tagesplan, heutigen Terminen oder heutigen Aufträgen gefragt wird.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "list_photographers",
+    description:
+      "Listet alle aktiven Fotografen mit Schlüssel, Name, Heimatadresse und Skills. Nutze dieses Tool wenn ein Fotograf für einen Auftrag ausgewählt werden soll.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "list_available_services",
+    description:
+      "Listet alle verfügbaren Dienstleistungen (Pakete + Addons) aus dem Buchungssystem. Nutze dieses Tool um dem Benutzer die verfügbaren Services bei der Auftragsanlage zu zeigen.",
     input_schema: { type: "object", properties: {} },
   },
 ];
@@ -251,6 +267,63 @@ export function createOrdersHandlers(deps: OrdersDeps): Record<string, ToolHandl
         [],
       );
       return { count: rows.length, orders: rows.map(normalizeOrder) };
+    },
+
+    list_photographers: async () => {
+      const rows = await runQuery<{
+        key: string;
+        name: string;
+        display_name: string | null;
+        home_address: string | null;
+        skills: Record<string, unknown> | null;
+      }>(
+        `SELECT p.key, p.name,
+                COALESCE(NULLIF(TRIM(p.name), ''), p.key) AS display_name,
+                ps.home_address,
+                ps.skills
+         FROM booking.photographers p
+         LEFT JOIN booking.photographer_settings ps ON ps.photographer_key = p.key
+         WHERE p.active = TRUE AND p.bookable = TRUE
+         ORDER BY p.name ASC`,
+        [],
+      );
+      return {
+        count: rows.length,
+        photographers: rows.map((r) => ({
+          key: r.key,
+          displayName: r.display_name || r.key,
+          homeAddress: r.home_address || null,
+          skills: r.skills && typeof r.skills === "object" ? r.skills : null,
+        })),
+      };
+    },
+
+    list_available_services: async () => {
+      const rows = await runQuery<{
+        id: number;
+        code: string;
+        name: string;
+        kind: string;
+        category_key: string;
+        description: string | null;
+      }>(
+        `SELECT id, code, name, kind, category_key, description
+         FROM booking.products
+         WHERE active = TRUE
+         ORDER BY sort_order ASC, name ASC`,
+        [],
+      );
+      return {
+        count: rows.length,
+        services: rows.map((r) => ({
+          id: r.id,
+          code: r.code,
+          name: r.name,
+          kind: r.kind,
+          categoryKey: r.category_key,
+          description: r.description || null,
+        })),
+      };
     },
   };
 }

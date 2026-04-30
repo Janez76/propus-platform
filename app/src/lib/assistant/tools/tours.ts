@@ -162,7 +162,8 @@ const tourSelect = `
 export const toursTools: ToolDefinition[] = [
   {
     name: "get_tours_expiring_soon",
-    description: "Listet aktive Matterport-Touren, deren kanonisches Laufzeitende bald erreicht ist.",
+    description:
+      "Nutze dieses Tool wenn nach ablaufenden, bald endenden oder zu verlängernden Touren gefragt wird. Listet aktive Matterport-Touren, deren Laufzeitende bald erreicht ist.",
     input_schema: {
       type: "object",
       properties: {
@@ -173,7 +174,8 @@ export const toursTools: ToolDefinition[] = [
   },
   {
     name: "get_tour_status",
-    description: "Holt den Status einer Tour anhand ihrer ID.",
+    description:
+      "Nutze dieses Tool wenn nach dem Status, Kunden oder Basisdaten einer bestimmten Tour gefragt wird. Auch geeignet um den Kundennamen oder die E-Mail einer Tour herauszufinden.",
     input_schema: {
       type: "object",
       properties: { tour_id: { type: "number", description: "Tour-ID" } },
@@ -183,7 +185,7 @@ export const toursTools: ToolDefinition[] = [
   {
     name: "get_tour_detail",
     description:
-      "Gibt den vollständigen Tour-Kontext zurück: Stammdaten, Matterport-Status, Kunde, verknüpfte Bestellung, Rechnungen, Aktionsprotokoll, Bereinigungsstatus und Tickets.",
+      "Nutze dieses Tool wenn du den vollständigen Kontext einer Tour brauchst: Stammdaten, Matterport-Status, Kunde, verknüpfte Bestellung, Rechnungen, Aktionsprotokoll, Bereinigungsstatus und Tickets.",
     input_schema: {
       type: "object",
       properties: { tour_id: { type: "number", description: "Tour-ID" } },
@@ -192,7 +194,8 @@ export const toursTools: ToolDefinition[] = [
   },
   {
     name: "count_active_tours",
-    description: "Zählt aktive Touren in tour_manager.tours.",
+    description:
+      "Nutze dieses Tool wenn nach der Gesamtzahl aktiver Touren oder einer Statistik über aktive Touren gefragt wird.",
     input_schema: { type: "object", properties: {} },
   },
   {
@@ -204,7 +207,7 @@ export const toursTools: ToolDefinition[] = [
       properties: {
         tour_id: { type: "number", description: "Tour-ID" },
         customer_id: { type: "number", description: "Kunden-ID aus core.customers/tour_manager.tours" },
-        customer_email: { type: "string", description: "Kunden-E-Mail; berücksichtigt core.customers.email_aliases" },
+        customer_email: { type: "string", description: "Kunden-E-Mail oder Domain (z.B. info@csl.ch); berücksichtigt email_aliases" },
         query: { type: "string", description: "Suchbegriff für Objekt, Kunde, E-Mail oder Matterport-Space-ID" },
         limit: { type: "number", description: "Maximale Anzahl (Default: 10, max. 50)" },
       },
@@ -213,7 +216,7 @@ export const toursTools: ToolDefinition[] = [
   {
     name: "summarize_cleanup_status",
     description:
-      "Gibt eine Gesamtübersicht über den Bereinigungslauf: Anzahl pro Aktion, ausstehende Löschungen, kürzlich abgeschlossene, und Pipeline-Summary.",
+      "Nutze dieses Tool wenn nach einer Gesamtübersicht des Bereinigungslaufs gefragt wird: Anzahl pro Aktion, ausstehende Löschungen, kürzlich abgeschlossene, und Pipeline-Summary.",
     input_schema: { type: "object", properties: {} },
   },
 ];

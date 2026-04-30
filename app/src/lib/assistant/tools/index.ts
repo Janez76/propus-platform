@@ -1,3 +1,7 @@
+import { customersHandlers, customersTools } from "./customers";
+import { databaseHandlers, databaseTools } from "./database";
+import { designsHandlers, designsTools } from "./designs";
+import { emailHandlers, emailTools } from "./email";
 import { invoicesHandlers, invoicesTools } from "./invoices";
 import { ordersHandlers, ordersTools } from "./orders";
 import { posteingangHandlers, posteingangTools } from "./posteingang";
@@ -19,6 +23,7 @@ export type ToolDefinition = {
 export type ToolContext = {
   userId: string;
   userEmail: string;
+  role?: string;
   ipAddress?: string;
   userAgent?: string;
 };
@@ -30,6 +35,10 @@ export const allTools: ToolDefinition[] = [
   ...toursTools,
   ...invoicesTools,
   ...posteingangTools,
+  ...customersTools,
+  ...emailTools,
+  ...designsTools,
+  ...databaseTools,
   ...writeTools,
 ];
 
@@ -38,6 +47,10 @@ export const allHandlers: Record<string, ToolHandler> = {
   ...toursHandlers,
   ...invoicesHandlers,
   ...posteingangHandlers,
+  ...customersHandlers,
+  ...emailHandlers,
+  ...designsHandlers,
+  ...databaseHandlers,
   ...writeHandlers,
 };
 

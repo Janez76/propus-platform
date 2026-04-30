@@ -1,4 +1,5 @@
 import { query, queryOne } from "@/lib/db";
+import type { ModelTier } from "./model-router";
 
 const SETTINGS_KEY = "assistant_config";
 
@@ -7,13 +8,17 @@ export type AssistantSettings = {
   enabledTools: string[];
   dailyTokenLimit: number;
   streamingEnabled: boolean;
+  autoEscalation: boolean;
+  maxModelTier: ModelTier;
 };
 
 const DEFAULT_SETTINGS: AssistantSettings = {
   model: "claude-sonnet-4-6",
-  enabledTools: [], // empty = all enabled (filled at runtime)
+  enabledTools: [],
   dailyTokenLimit: Number(process.env.ASSISTANT_DAILY_TOKEN_LIMIT) || 500_000,
   streamingEnabled: true,
+  autoEscalation: process.env.ASSISTANT_AUTO_ESCALATION !== "false",
+  maxModelTier: (process.env.ASSISTANT_MAX_MODEL_TIER as ModelTier) || "sonnet",
 };
 
 export async function getAssistantSettings(): Promise<AssistantSettings> {
@@ -32,7 +37,6 @@ export async function getAssistantSettings(): Promise<AssistantSettings> {
   }
 
   const stored = row.value_json;
-  // Fill missing fields with defaults
   return {
     model: stored.model || DEFAULT_SETTINGS.model,
     enabledTools: Array.isArray(stored.enabledTools) && stored.enabledTools.length > 0
@@ -40,6 +44,8 @@ export async function getAssistantSettings(): Promise<AssistantSettings> {
       : (await import("./tools")).allTools.map((t) => t.name),
     dailyTokenLimit: stored.dailyTokenLimit || DEFAULT_SETTINGS.dailyTokenLimit,
     streamingEnabled: stored.streamingEnabled !== false,
+    autoEscalation: stored.autoEscalation !== false,
+    maxModelTier: stored.maxModelTier || DEFAULT_SETTINGS.maxModelTier,
   };
 }
 
@@ -52,6 +58,8 @@ export async function updateAssistantSettings(patch: Partial<AssistantSettings>)
       ? patch.dailyTokenLimit
       : current.dailyTokenLimit,
     streamingEnabled: typeof patch.streamingEnabled === "boolean" ? patch.streamingEnabled : current.streamingEnabled,
+    autoEscalation: typeof patch.autoEscalation === "boolean" ? patch.autoEscalation : current.autoEscalation,
+    maxModelTier: patch.maxModelTier || current.maxModelTier,
   };
 
   await query(

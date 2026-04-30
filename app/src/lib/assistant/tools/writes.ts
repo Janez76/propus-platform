@@ -108,6 +108,37 @@ export const writeTools: ToolDefinition[] = [
       required: ["order_no", "new_status"],
     },
   },
+  {
+    name: "create_order",
+    description:
+      "Erstellt einen neuen Buchungsauftrag. Nutze dieses Tool am Ende des Auftragsanlage-Gesprächs, nachdem alle Pflichtfelder gesammelt und dem Benutzer zur Bestätigung zusammengefasst wurden.",
+    kind: "write",
+    requiresConfirmation: true,
+    input_schema: {
+      type: "object",
+      properties: {
+        customer_id: { type: "number", description: "Kunden-ID (aus search_customers)" },
+        address: { type: "string", description: "Objektadresse (wo fotografiert werden soll)" },
+        services: {
+          type: "object",
+          description: "Gewählte Dienstleistungen als Boolean-Flags",
+          properties: {
+            photography: { type: "boolean" },
+            drone: { type: "boolean" },
+            matterport: { type: "boolean" },
+            floorplan: { type: "boolean" },
+            video: { type: "boolean" },
+            staging: { type: "boolean" },
+          },
+        },
+        schedule_date: { type: "string", description: "Wunschtermin Datum (ISO, z.B. 2026-05-15)" },
+        schedule_time: { type: "string", description: "Wunschtermin Uhrzeit (HH:mm, z.B. 10:00)" },
+        photographer_key: { type: "string", description: "Fotografen-Schlüssel (optional, aus list_photographers)" },
+        notes: { type: "string", description: "Zusätzliche Hinweise oder Notizen (optional)" },
+      },
+      required: ["customer_id", "address", "services"],
+    },
+  },
 ];
 
 const VALID_PRIORITIES = new Set(["normal", "high", "low"]);
@@ -207,6 +238,90 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
         ok: true,
         draft: { to, subject, bodyHtml },
         message: `E-Mail-Entwurf an ${to} vorbereitet. Bitte manuell über Posteingang oder Outlook versenden.`,
+      };
+    },
+
+    create_order: async (input: Record<string, unknown>, ctx: ToolContext) => {
+      const customerId = optionalPositiveInt(input.customer_id);
+      if (!customerId) return { error: "customer_id ist erforderlich" };
+      const address = requireString(input.address, "address");
+
+      const customer = await runQueryOne<{ id: number; name: string | null; email: string | null; company: string | null }>(
+        `SELECT id, name, email, company FROM core.customers WHERE id = $1`,
+        [customerId],
+      );
+      if (!customer) return { error: `Kunde ${customerId} nicht gefunden` };
+
+      const services = (input.services && typeof input.services === "object") ? input.services as Record<string, unknown> : {};
+      const VALID_SERVICE_KEYS = new Set(["photography", "drone", "matterport", "floorplan", "video", "staging"]);
+      const servicesJson: Record<string, boolean> = {};
+      for (const [key, value] of Object.entries(services)) {
+        if (VALID_SERVICE_KEYS.has(key) && value === true) {
+          servicesJson[key] = true;
+        }
+      }
+      if (Object.keys(servicesJson).length === 0) {
+        return { error: "Mindestens eine Dienstleistung muss ausgewählt sein" };
+      }
+
+      const scheduleDate = optionalString(input.schedule_date);
+      const scheduleTime = optionalString(input.schedule_time);
+      const photographerKey = optionalString(input.photographer_key);
+      const notes = optionalString(input.notes);
+
+      if (photographerKey) {
+        const photographer = await runQueryOne<{ key: string }>(
+          `SELECT key FROM booking.photographers WHERE key = $1 AND active = TRUE`,
+          [photographerKey],
+        );
+        if (!photographer) return { error: `Fotograf "${photographerKey}" nicht gefunden oder nicht aktiv` };
+      }
+
+      const status = scheduleDate ? "pending" : "pending";
+
+      const scheduleJson = scheduleDate ? { date: scheduleDate, ...(scheduleTime ? { time: scheduleTime } : {}) } : {};
+      const photographerJson = photographerKey ? { key: photographerKey } : {};
+      const billingJson = {
+        name: customer.name || customer.company || "",
+        email: customer.email || "",
+        ...(customer.company ? { company: customer.company } : {}),
+      };
+      const objectJson = { type: "Immobilie" };
+      const settingsJson = notes ? { assistant_notes: notes } : {};
+
+      const row = await runQueryOne<{ order_no: number }>(
+        `INSERT INTO booking.orders (order_no, customer_id, status, address, object, services, photographer, schedule, billing, pricing, settings_snapshot)
+         VALUES (
+           (SELECT COALESCE(MAX(order_no), 0) + 1 FROM booking.orders),
+           $1, $2, $3, $4::jsonb, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb, '{}'::jsonb, $9::jsonb
+         )
+         RETURNING order_no`,
+        [
+          customerId,
+          status,
+          address,
+          JSON.stringify(objectJson),
+          JSON.stringify(servicesJson),
+          JSON.stringify(photographerJson),
+          JSON.stringify(scheduleJson),
+          JSON.stringify(billingJson),
+          JSON.stringify(settingsJson),
+        ],
+      );
+
+      if (!row?.order_no) return { error: "Auftrag konnte nicht erstellt werden" };
+
+      return {
+        ok: true,
+        orderNo: row.order_no,
+        customerId,
+        customerName: customer.name || customer.company,
+        address,
+        services: Object.keys(servicesJson),
+        schedule: scheduleDate ? { date: scheduleDate, time: scheduleTime } : null,
+        photographer: photographerKey,
+        status,
+        message: `Auftrag #${row.order_no} für "${customer.name || customer.company}" an "${address}" erstellt.`,
       };
     },
 
