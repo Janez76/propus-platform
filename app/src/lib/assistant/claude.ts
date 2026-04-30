@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { ToolDefinition, ToolHandler, ToolContext } from "./tools";
 
-const DEFAULT_MODEL = "claude-opus-4-7";
+const DEFAULT_MODEL = "claude-sonnet-4-6";
 const MAX_TOKENS = 2048;
 const MAX_TOOL_ITERATIONS = 8;
 const MAX_TOOL_RESULT_CHARS = 12_000;

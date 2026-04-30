@@ -108,7 +108,7 @@ Alle Tools sind read-only.
 | Variable | Zweck |
 |---|---|
 | `ANTHROPIC_API_KEY` | Claude Messages API |
-| `ANTHROPIC_MODEL` | Optional, Default `claude-opus-4-7` |
+| `ANTHROPIC_MODEL` | Optional, Default `claude-sonnet-4-6` |
 | `OPENAI_API_KEY` | Whisper-Transkription |
 
 ---
