@@ -60,6 +60,9 @@ export function VerknuepfungenView({
   const gSlug = gallery ? displayGallerySlug(gallery) : null;
   const galleryLink = gSlug ? galleryUrl(gSlug) : null;
   const galleryPathDisplay = gSlug ? galleryDisplayHostPath(gSlug) : null;
+  const directMatterportLink = tour?.matterport_space_id
+    ? matterportShowUrl(tour.matterport_space_id)
+    : null;
 
   const invoicesPaid = invoices.filter((iv) => {
     if (iv.paid_at) return true;
@@ -144,16 +147,19 @@ export function VerknuepfungenView({
                   Tour öffnen
                 </a>
               )}
-              {tour.matterport_space_id && matterportShowUrl(tour.matterport_space_id) && (
-                <a
-                  href={matterportShowUrl(tour.matterport_space_id) ?? "#"}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={btnSecondary}
-                >
-                  <ExternalLink className="h-3 w-3" />
-                  Direct Matterport
-                </a>
+              {directMatterportLink && (
+                <>
+                  <a
+                    href={directMatterportLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={btnSecondary}
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    Direct Matterport
+                  </a>
+                  <CopyLinkButton url={directMatterportLink} />
+                </>
               )}
               <form action={mutateAction} method="post" className="inline">
                 <input type="hidden" name="_action" value="unlink-matterport" />
