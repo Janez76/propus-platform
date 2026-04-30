@@ -4,11 +4,9 @@
     "slug": "propus-assistant",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "scheme": "propusassistant",
     "splash": {
-      "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#0c0d10"
     },
@@ -22,35 +20,19 @@
     "android": {
       "package": "ch.propus.assistant",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0c0d10"
       },
-      "permissions": [
-        "RECORD_AUDIO",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS"
-      ]
+      "permissions": ["RECORD_AUDIO", "INTERNET"]
     },
     "web": {
       "bundler": "metro"
     },
-    "plugins": [
-      "expo-router",
-      "expo-av",
-      "expo-secure-store"
-    ],
+    "plugins": ["expo-router", "expo-av", "expo-secure-store"],
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
-      "apiBaseUrl": "https://ki.propus.ch",
-      "router": {
-        "origin": false
-      },
-      "eas": {
-        "projectId": "adb6eb1b-aca9-4e72-b407-b97962d1e7f0"
-      }
-    },
-    "owner": "janez1976"
+      "apiBaseUrl": "https://ki.propus.ch"
+    }
   }
 }

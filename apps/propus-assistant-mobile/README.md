@@ -1,41 +1,63 @@
-# Propus Assistant (Mobile)
+# Propus Assistant — Mobile
 
-Expo-App für Sprach-/Text-Zugriff auf den Propus Assistant (`/api/assistant`).
+Expo / React-Native-App (Voice + Text-Chat) gegen das Propus-Backend
+(`/api/assistant`, `/api/assistant/transcribe`).
 
-## API-Basis-URL (Single Source of Truth)
+## APK bauen
 
-Die Base-URL kommt aus **`app.config.ts`** → `extra.apiBaseUrl`:
+### Variante A — EAS Cloud (empfohlen, kein lokales Android SDK nötig)
 
-1. **`EXPO_PUBLIC_API_BASE_URL`** (Build-Zeit), falls gesetzt — z. B. in `eas.json` unter `build.*.env` oder lokal via `dotenv-cli`.
-2. Sonst Fallback aus **`app.json`** → `expo.extra.apiBaseUrl` (Standard: `https://ki.propus.ch`).
-3. Der Client liest zur Laufzeit: `expo-constants` → `Constants.expoConfig?.extra?.apiBaseUrl` (siehe `lib/api.ts`).
-
-Lokale Overrides **nicht** committen: `.env.expo.local` ist gitignored.
-
-## EAS Build (Android APK / Preview)
-
-Preview-Profil in `eas.json` setzt `EXPO_PUBLIC_API_BASE_URL` auf `https://ki.propus.ch`. Bei lokaler `.env.expo.local`:
+Einmalig:
 
 ```bash
+npm install -g eas-cli
+eas login                       # Expo-Account
 cd apps/propus-assistant-mobile
 npm install
-npx dotenv-cli -e .env.expo.local -- eas build --platform android --profile preview
+eas init                        # legt projectId in app.json an
 ```
 
-oder npm-Script:
-
-```bash
-npm run eas:android:preview:env
-```
-
-Ohne lokale Env-Datei reicht:
+APK bauen (Profil `preview` aus `eas.json`):
 
 ```bash
 eas build --platform android --profile preview
 ```
 
-**Hinweis:** `eas build` benötigt Expo-Account und ggf. Credentials; ohne Zugriff nur die Befehle dokumentiert ausführen.
+Die fertige `.apk` erscheint im EAS-Dashboard und als Download-Link
+in der Konsole. Direkt auf ein Android-Gerät installieren.
 
-## Auth
+Play-Store-Release als `.aab`:
 
-Bearer-Token aus dem Assistant unter „Mobile-Zugang“ erstellen; die App speichert ihn in `expo-secure-store`.
+```bash
+eas build --platform android --profile production
+```
+
+### Variante B — GitHub Actions
+
+Der Workflow `.github/workflows/assistant-mobile-build.yml` triggert
+einen EAS-Build bei Push auf `main` (Pfad `apps/propus-assistant-mobile/**`)
+oder manuell via "Run workflow".
+
+Voraussetzung: Repo-Secret `EXPO_TOKEN`
+(in Expo unter *Account Settings → Access Tokens* erzeugen).
+
+### Variante C — Lokal (benötigt Android Studio + JDK 17)
+
+```bash
+npx expo prebuild --platform android
+cd android && ./gradlew assembleRelease
+# → android/app/build/outputs/apk/release/app-release.apk
+```
+
+## Entwicklung
+
+```bash
+npm install
+npm run start          # Expo Dev Server
+npm run android        # auf angeschlossenes Gerät / Emulator
+```
+
+## Konfiguration
+
+Backend-URL in `app.json` unter `expo.extra.apiBaseUrl` setzen
+(aktuell `https://ki.propus.ch`).
