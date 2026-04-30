@@ -54,6 +54,14 @@ export const allHandlers: Record<string, ToolHandler> = {
   ...writeHandlers,
 };
 
+export function toAnthropicTools(tools: ToolDefinition[]) {
+  return tools.map(({ name, description, input_schema }) => ({
+    name,
+    description,
+    input_schema,
+  }));
+}
+
 export function isWriteTool(toolName: string): boolean {
   const def = allTools.find((t) => t.name === toolName);
   return def?.kind === "write";

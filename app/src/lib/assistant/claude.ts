@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { ToolDefinition, ToolHandler, ToolContext } from "./tools";
-import { isWriteTool, toolRequiresConfirmation } from "./tools";
+import { isWriteTool, toAnthropicTools, toolRequiresConfirmation } from "./tools";
 import { type ModelTier, MODEL_IDS, selectInitialModel, shouldEscalate, parseTier } from "./model-router";
 
 const MAX_TOKENS = 4096;
@@ -123,7 +123,7 @@ export async function runAssistantTurn(input: AssistantTurnInput): Promise<Assis
         model,
         max_tokens: MAX_TOKENS,
         system: input.systemPrompt,
-        tools: input.tools as Anthropic.Messages.Tool[],
+        tools: toAnthropicTools(input.tools) as Anthropic.Messages.Tool[],
         messages: history,
       });
 

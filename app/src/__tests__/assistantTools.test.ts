@@ -4,7 +4,30 @@ import { createToursHandlers } from "@/lib/assistant/tools/tours";
 import { createInvoicesHandlers } from "@/lib/assistant/tools/invoices";
 import { createPosteingangHandlers } from "@/lib/assistant/tools/posteingang";
 import { createWriteHandlers } from "@/lib/assistant/tools/writes";
+import { toAnthropicTools, type ToolDefinition } from "@/lib/assistant/tools";
 import { deriveConversationLinksFromToolCalls } from "@/lib/assistant/store";
+
+describe("assistant tool schema", () => {
+  it("strips internal metadata before sending tools to Anthropic", () => {
+    const tools: ToolDefinition[] = [
+      {
+        name: "create_ticket",
+        description: "Ticket erstellen",
+        input_schema: { type: "object", properties: { subject: { type: "string" } } },
+        kind: "write",
+        requiresConfirmation: true,
+      },
+    ];
+
+    expect(toAnthropicTools(tools)).toEqual([
+      {
+        name: "create_ticket",
+        description: "Ticket erstellen",
+        input_schema: { type: "object", properties: { subject: { type: "string" } } },
+      },
+    ]);
+  });
+});
 
 describe("assistant order tools", () => {
   it("caps open-order limits and maps booking.orders JSON fields", async () => {
