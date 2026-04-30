@@ -1919,6 +1919,23 @@ async function updateRenewalInvoice(invoiceId, body = {}) {
     patches.push(`writeoff_reason = $${n++}`);
     vals.push(reason);
   }
+  // Adressat-Overrides + Verwendungszweck (greifen in PDF/Mail vor Tour-Daten,
+  // sobald nicht-leer). Leerstring => NULL => zurück zur Tour-Adresse.
+  const RECIPIENT_FIELDS = ['customer_name', 'customer_email', 'customer_address', 'description'];
+  for (const field of RECIPIENT_FIELDS) {
+    if (body[field] !== undefined) {
+      const raw = body[field];
+      const norm = raw == null ? null : String(raw).trim();
+      patches.push(`${field} = $${n++}`);
+      vals.push(norm === '' ? null : norm);
+    }
+  }
+  if (body.invoice_date !== undefined) {
+    const d = body.invoice_date;
+    const iso = d == null || d === '' ? null : toIsoDate(String(d));
+    patches.push(`invoice_date = $${n++}`);
+    vals.push(iso);
+  }
   if (!patches.length) return { ok: true, invoice: row.rows[0] };
   vals.push(id);
   const q = `UPDATE tour_manager.renewal_invoices SET ${patches.join(', ')} WHERE id = $${n} RETURNING *`;

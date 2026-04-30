@@ -625,7 +625,10 @@ async function sendInvoiceWithQrEmail(tourId, invoiceId) {
   );
   const invoice = invResult.rows[0];
   if (!invoice) return { success: false, error: 'Rechnung nicht gefunden' };
-  const recipientEmail = (t.customer_email || '').trim().toLowerCase();
+  // Pro Rechnung gespeicherte E-Mail (customer_email) schlägt Tour-E-Mail,
+  // damit Korrekturen am Adressaten ohne Storno+Neuausstellung möglich sind.
+  const overrideEmail = (invoice.customer_email || '').trim().toLowerCase();
+  const recipientEmail = overrideEmail || (t.customer_email || '').trim().toLowerCase();
   if (!recipientEmail) return { success: false, error: 'Tour hat keine Kunden-E-Mail' };
 
   const isReactivation = invoice.invoice_kind === 'portal_reactivation';

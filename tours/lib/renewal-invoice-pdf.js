@@ -90,12 +90,13 @@ function buildInvoiceContext(invoice, tour, paymentContext) {
   let amountVat = null;
   let vatPercent = null;
 
+  const overrideDescription = (invoice.description || '').trim();
   if (invoice.invoice_kind === 'freeform') {
-    bezeichnung = invoice.description || 'Dienstleistung';
+    bezeichnung = overrideDescription || 'Dienstleistung';
   } else if (invoice.invoice_kind === 'portal_extension') {
-    bezeichnung = 'Virtueller Rundgang – Verlängerung (6 Monate)';
+    bezeichnung = overrideDescription || 'Virtueller Rundgang – Verlängerung (6 Monate)';
   } else if (invoice.invoice_kind === 'portal_reactivation') {
-    bezeichnung = 'Virtueller Rundgang – Reaktivierung (6 Monate)';
+    bezeichnung = overrideDescription || 'Virtueller Rundgang – Reaktivierung (6 Monate)';
   } else if (invoice.invoice_kind === 'floorplan_order') {
     const note = invoice.payment_note || '';
     const etagenMatch = note.match(/Etagen:\s*(\d+)/);
@@ -115,18 +116,22 @@ function buildInvoiceContext(invoice, tour, paymentContext) {
       amountVat = Math.round((amount - amountNet) * 100) / 100;
     }
   } else {
-    bezeichnung = invoice.description || 'Virtueller Rundgang – Hosting / Verlängerung';
+    bezeichnung = overrideDescription || 'Virtueller Rundgang – Hosting / Verlängerung';
   }
 
   const skontoChf = invoice.skonto_chf ? Number(invoice.skonto_chf) : null;
   const paymentChannel = invoice.payment_channel || null;
   const writeoff = invoice.writeoff || false;
 
-  const customerName = tour
-    ? ([tour.customer_name, tour.customer_contact].filter(Boolean).join(' – ') || tour.customer_contact || '-')
-    : (invoice.customer_name || '-');
-  const customerEmail = tour ? (tour.customer_email || '') : (invoice.customer_email || '');
-  const customerAddress = !tour ? (invoice.customer_address || '') : '';
+  const overrideName = (invoice.customer_name || '').trim();
+  const overrideEmail = (invoice.customer_email || '').trim();
+  const overrideAddress = (invoice.customer_address || '').trim();
+  const tourCustomerName = tour
+    ? ([tour.customer_name, tour.customer_contact].filter(Boolean).join(' – ') || tour.customer_contact || '')
+    : '';
+  const customerName = overrideName || tourCustomerName || '-';
+  const customerEmail = overrideEmail || (tour ? (tour.customer_email || '') : '');
+  const customerAddress = overrideAddress || '';
 
   const tourLabel = tour
     ? (tour.canonical_object_label || tour.object_label || tour.bezeichnung || `Tour #${tour.id}`)

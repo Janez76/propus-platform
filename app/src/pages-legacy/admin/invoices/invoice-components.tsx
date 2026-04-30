@@ -222,7 +222,21 @@ export function RenewalTable({
                   <Link to={`/admin/tours/${tid}`} className="text-[var(--accent)] hover:underline font-medium">
                     {String(row.tour_object_label || `Tour #${tid}`)}
                   </Link>
-                  <div className="text-xs text-[var(--text-subtle)] mt-0.5">{String(row.tour_customer_name || "")}</div>
+                  <div className="text-xs text-[var(--text-subtle)] mt-0.5">
+                    {row.customer_name ? (
+                      <span title="Adressat auf Rechnung überschrieben (weicht von Tour-Kunde ab)">
+                        <span className="font-medium text-[var(--text-main)]">{String(row.customer_name)}</span>
+                        <span className="ml-1.5 inline-flex items-center rounded-full border border-amber-400/40 bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                          Adressat angepasst
+                        </span>
+                        {row.tour_customer_name ? (
+                          <span className="ml-1 text-[var(--text-subtle)]">· Tour: {String(row.tour_customer_name)}</span>
+                        ) : null}
+                      </span>
+                    ) : (
+                      String(row.tour_customer_name || "")
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 py-3 font-mono text-xs">{String(row.invoice_number || iid)}</td>
                 <td className="px-4 py-3 text-xs text-[var(--text-subtle)]">{invoiceKindLabel(String(row.invoice_kind || ""))}</td>
@@ -446,6 +460,14 @@ export function EditInvoiceModal({
   const [paidReceivedChf, setPaidReceivedChf] = useState("");
   const [writeoff, setWriteoff] = useState(invoice.writeoff === true || invoice.writeoff === "true");
   const [writeoffReason, setWriteoffReason] = useState(String(invoice.writeoff_reason || ""));
+  // Adressat-Override + Verwendungszweck (greift in PDF/Mail vor Tour-Daten,
+  // sobald nicht-leer). Leerlassen => Tour-Daten werden wieder verwendet.
+  const [recipientName, setRecipientName] = useState(String(invoice.customer_name || ""));
+  const [recipientAddress, setRecipientAddress] = useState(String(invoice.customer_address || ""));
+  const [recipientEmail, setRecipientEmail] = useState(String(invoice.customer_email || ""));
+  const [descriptionOverride, setDescriptionOverride] = useState(String(invoice.description || ""));
+  const tourId = invoice.tour_id != null ? Number(invoice.tour_id) : null;
+  const hasTour = Number.isFinite(tourId) && (tourId as number) > 0;
 
   const skontoFromDifference = useMemo(() => {
     const inv = parseFloat(String(amountCHF).replace(",", ".")) || 0;
@@ -491,6 +513,10 @@ export function EditInvoiceModal({
           skonto_chf: skontoChf !== "" ? skontoChf : null,
           writeoff,
           writeoff_reason: writeoff ? writeoffReason : null,
+          customer_name: recipientName,
+          customer_address: recipientAddress,
+          customer_email: recipientEmail,
+          description: descriptionOverride,
         };
       } else {
         payload = { exxas_status: exxasStatus };
@@ -636,6 +662,59 @@ export function EditInvoiceModal({
                   className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)]"
                 />
               </label>
+
+              <details className="rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] open:bg-[var(--surface-raised)]">
+                <summary className="cursor-pointer select-none px-3 py-2 text-sm font-medium text-[var(--text-main)]">
+                  Rechnungsadressat & Verwendungszweck überschreiben
+                </summary>
+                <div className="space-y-3 px-3 py-3 border-t border-[var(--border-soft)]">
+                  <p className="text-[11px] text-[var(--text-subtle)]">
+                    {hasTour
+                      ? "Diese Felder schlagen die Tour-Stammdaten in PDF und beim erneuten Versand. Leerlassen = Tour-Adresse verwenden."
+                      : "Adressat dieser freistehenden Rechnung. PDF und Mail nutzen exakt diese Werte."}
+                  </p>
+                  <label className="block space-y-1">
+                    <span className="text-xs font-medium text-[var(--text-subtle)]">Empfänger / Firma</span>
+                    <input
+                      type="text"
+                      value={recipientName}
+                      onChange={(e) => setRecipientName(e.target.value)}
+                      placeholder="z. B. LICHTTEAM AG, z. H. Sven Schuler"
+                      className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)] placeholder:text-[var(--text-subtle)]"
+                    />
+                  </label>
+                  <label className="block space-y-1">
+                    <span className="text-xs font-medium text-[var(--text-subtle)]">Adresse (mehrzeilig)</span>
+                    <textarea
+                      value={recipientAddress}
+                      onChange={(e) => setRecipientAddress(e.target.value)}
+                      rows={3}
+                      placeholder={"Stationsstrasse 89\n6023 Rothenburg"}
+                      className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)] placeholder:text-[var(--text-subtle)] whitespace-pre"
+                    />
+                  </label>
+                  <label className="block space-y-1">
+                    <span className="text-xs font-medium text-[var(--text-subtle)]">E-Mail (für erneuten Versand)</span>
+                    <input
+                      type="email"
+                      value={recipientEmail}
+                      onChange={(e) => setRecipientEmail(e.target.value)}
+                      placeholder={hasTour ? "Tour-E-Mail wird verwendet, wenn leer" : "buchhaltung@firma.ch"}
+                      className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)] placeholder:text-[var(--text-subtle)]"
+                    />
+                  </label>
+                  <label className="block space-y-1">
+                    <span className="text-xs font-medium text-[var(--text-subtle)]">Verwendungszweck / Bezeichnung auf der Rechnung</span>
+                    <input
+                      type="text"
+                      value={descriptionOverride}
+                      onChange={(e) => setDescriptionOverride(e.target.value)}
+                      placeholder="z. B. Für den virtuellen Rundgang des Showrooms"
+                      className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)] placeholder:text-[var(--text-subtle)]"
+                    />
+                  </label>
+                </div>
+              </details>
 
               <div className="rounded-lg border border-amber-500/25 bg-amber-500/5 px-4 py-3 space-y-3">
                 <label className="flex items-center gap-3 cursor-pointer">

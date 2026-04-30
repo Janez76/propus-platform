@@ -757,6 +757,25 @@ Systemweite Rechnungsliste **ausserhalb** des Tour-Untermenüs. Pro-Tour-Ansicht
 
 **Backend:** `tours/lib/admin-phase3.js` — `getRenewalInvoicesCentral()`, `getExxasInvoicesCentral()`, `deleteRenewalInvoice(invoiceId, actorEmail)`; Route `tours/routes/admin-api.js` → `GET /invoices-central`.
 
+### Rechnungsadressat überschreiben (pro Rechnung)
+
+Der Edit-Dialog im zentralen Modul erlaubt, Adressat (`customer_name`, `customer_address`, `customer_email`) und Verwendungszweck (`description`) **pro Rechnung** zu überschreiben — auch wenn die Rechnung an eine Tour gebunden ist. Anwendungsfall: Office-Korrekturen ohne Storno + Neuausstellung (z. B. „bitte auf abweichende Firma adressieren").
+
+| Spalte (`tour_manager.renewal_invoices`) | Effekt bei nicht-leerem Wert |
+|---|---|
+| `customer_name` | PDF und Stammdaten-Block der Rechnung verwenden diesen Empfänger statt Tour-Kunde |
+| `customer_address` | Mehrzeilige Adresse direkt im PDF (Tour-`object_address` wird ignoriert für den Empfänger) |
+| `customer_email` | `sendInvoiceWithQrEmail()` versendet an diese E-Mail; sonst Tour-`customer_email` |
+| `description` | Bezeichnung/Verwendungszweck im PDF (`portal_extension`, `portal_reactivation`, `freeform`, default: «Hosting / Verlängerung») |
+
+**Leerstring/leeres Feld** = zurück zur Tour-Adresse. In der Rechnungsliste markiert ein gelbes Badge `Adressat angepasst`, dass eine Rechnung vom Tour-Kunden abweicht.
+
+**Code:**
+- Backend: `updateRenewalInvoice(id, { customer_name, customer_address, customer_email, description, invoice_date, ... })` in `tours/lib/admin-phase3.js`
+- PDF: `tours/lib/renewal-invoice-pdf.js` (`overrideName`, `overrideAddress`, `overrideEmail`, `overrideDescription`)
+- Mail: `tours/lib/tour-actions.js` → `sendInvoiceWithQrEmail` priorisiert `invoice.customer_email`
+- UI: `EditInvoiceModal` in `app/src/pages-legacy/admin/invoices/invoice-components.tsx` (collapsible „Rechnungsadressat & Verwendungszweck überschreiben")
+
 ### Massen-Bereinigung (Bulk-Delete)
 
 Zwei spezielle Bulk-Delete-Endpunkte für gezielte Bereinigungsaktionen:
