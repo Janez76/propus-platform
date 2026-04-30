@@ -239,7 +239,7 @@ Die Felder `customerNasCustomerFolderBase` und `customerNasRawFolderBase` kommen
 | Statuswechsel auf `confirmed` (`booking/order-status-workflow.js`) | `provisionOrderFolders` legt die leere Standard-Unterstruktur am **kanonischen** Pfad an und schreibt den DB-Link. |
 | `POST .../storage/provision` | Gleiches über die Admin-API. |
 | `POST .../storage/link` (`customer_folder`, `rename` default `true`) | Gewählter Ordner soll auf den kanonischen Pfad **verschoben/umbenannt** werden (`booking/order-storage.js` → `linkExistingOrderFolder`). |
-| `POST .../storage/raw-to-customer` | Verschiebt vorhandene Rohmaterial-Dateien vom `raw_material`-Ordner in den `customer_folder` und erhält dabei die Struktur unter `Unbearbeitete/...`; identische Zieldateien werden entfernt, abweichende Konflikte bleiben im Rohmaterial liegen. |
+| `POST .../storage/raw-to-customer` | Verschiebt vorhandene Rohmaterial-Dateien vom `raw_material`-Ordner in den `customer_folder` und erhält dabei die Struktur unter `Unbearbeitete/...`; identische Zieldateien werden entfernt, abweichende Konflikte bleiben im Rohmaterial liegen. Der Backend-Move nutzt `rename` mit Copy-Fallback, der Client hat für große NAS-Moves ein eigenes langes Timeout ohne Retry. |
 
 **Platzhalter vor Umbenennung (April 2026):** Liegt der kanonische Zielpfad bereits (z. B. durch Provisioning), blockierte das früher die Umbenennung — es entstanden zwei Ordner (leerer Kanon + alter Kurzname). Enthält der Zielbaum **keine einzige Datei** (nur leere Ordner), wird dieser Platzhalter vor dem Verschieben entfernt; der verknüpfte Ordner rückt an die kanonische Stelle. Sobald **irgendwo** unter dem Zielpfad Dateien liegen, bleibt das bisherige Verhalten: Warnung *Zielordner existiert bereits*, kein Löschen.
 

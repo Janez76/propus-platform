@@ -1,5 +1,7 @@
 import { apiRequest, API_BASE } from "./client";
 
+const ORDER_STORAGE_MOVE_TIMEOUT_MS = 10 * 60_000;
+
 type OrderObject = {
   type?: string;
   area?: number | string;
@@ -787,6 +789,8 @@ export const moveRawMaterialToCustomerFolder = (
     `/api/admin/orders/${encodeURIComponent(orderNo)}/storage/raw-to-customer`,
     "POST",
     token,
+    undefined,
+    { timeoutMs: ORDER_STORAGE_MOVE_TIMEOUT_MS, maxRetries: 0 },
   );
 
 export const generateNextcloudShare = (

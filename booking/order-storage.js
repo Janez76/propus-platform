@@ -1154,8 +1154,7 @@ async function moveRawMaterialToCustomerFolder(order, db) {
       continue;
     }
 
-    copyFileVerified(sourcePath, targetPath);
-    try { fs.unlinkSync(sourcePath); } catch (_) {}
+    moveFileWithFallback(sourcePath, targetPath);
     stats.moved += 1;
   }
 

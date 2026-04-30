@@ -326,3 +326,56 @@ test("moveRawMaterialToCustomerFolder: verschiebt Rohmaterial in Kundenordner Un
     fs.rmSync(customerRoot, { recursive: true, force: true });
   }
 });
+
+test("moveRawMaterialToCustomerFolder: nutzt Rename statt Kopie wenn moeglich", async () => {
+  const customerRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ost-move-fast-"));
+  const rawRoot = path.join(customerRoot, "_raw");
+  const { mod, restore } = loadOrderStorage({
+    BOOKING_UPLOAD_CUSTOMER_ROOT: customerRoot,
+    BOOKING_UPLOAD_RAW_ROOT: rawRoot,
+  });
+  const originalRenameSync = fs.renameSync;
+  const originalCopyFileSync = fs.copyFileSync;
+  let renameCount = 0;
+  let copyCount = 0;
+  try {
+    const rawOrderDir = path.join(rawRoot, "8266 Steckborn, Frauenfelderstrasse 60 #100089");
+    const customerOrderDir = path.join(customerRoot, "BILO GmbH #89", "8266 Steckborn, Frauenfelderstrasse 60 #100089");
+    const rawImage = path.join(rawOrderDir, "Unbearbeitete", "Bilder", "bild-1.jpg");
+    fs.mkdirSync(path.dirname(rawImage), { recursive: true });
+    fs.mkdirSync(customerOrderDir, { recursive: true });
+    fs.writeFileSync(rawImage, "raw image", "utf8");
+
+    fs.renameSync = (...args) => {
+      renameCount += 1;
+      return originalRenameSync(...args);
+    };
+    fs.copyFileSync = (...args) => {
+      copyCount += 1;
+      return originalCopyFileSync(...args);
+    };
+
+    const db = {
+      getOrderFolderLink: async (_orderNo, folderType) => {
+        if (folderType === "raw_material") {
+          return { folder_type: "raw_material", absolute_path: rawOrderDir };
+        }
+        if (folderType === "customer_folder") {
+          return { folder_type: "customer_folder", absolute_path: customerOrderDir };
+        }
+        return null;
+      },
+    };
+
+    const stats = await mod.moveRawMaterialToCustomerFolder({ orderNo: 100089 }, db);
+
+    assert.equal(stats.moved, 1);
+    assert.equal(renameCount, 1, "Datei soll per Rename verschoben werden");
+    assert.equal(copyCount, 0, "Kopie ist nur Fallback fuer Cross-Filesystem-Moves");
+  } finally {
+    fs.renameSync = originalRenameSync;
+    fs.copyFileSync = originalCopyFileSync;
+    restore();
+    fs.rmSync(customerRoot, { recursive: true, force: true });
+  }
+});
