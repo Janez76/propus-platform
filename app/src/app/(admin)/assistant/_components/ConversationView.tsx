@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, Bot, Brain, CheckCircle, Clock, Copy, Send, Settings, ShieldAlert, Smartphone, Trash2, UserRound, X, XCircle } from "lucide-react";
+import { AlertCircle, Archive, ArchiveRestore, Bot, Brain, CheckCircle, Copy, Search, Send, Settings, ShieldAlert, Smartphone, Trash2, UserRound, X, XCircle } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { VoiceButton } from "./VoiceButton";
 
@@ -25,6 +25,8 @@ type HistoryItem = {
   id: string;
   title: string | null;
   updatedAt: string;
+  archivedAt: string | null;
+  deletedAt: string | null;
   customerId: number | null;
   customerName: string | null;
   bookingOrderNo: number | null;
@@ -34,6 +36,14 @@ type HistoryItem = {
   lastUserMessage: string | null;
   lastAssistantMessage: string | null;
 };
+
+type HistoryFilter = "active" | "archived" | "trash";
+
+const HISTORY_FILTERS: Array<{ key: HistoryFilter; label: string }> = [
+  { key: "active", label: "Aktiv" },
+  { key: "archived", label: "Archiv" },
+  { key: "trash", label: "Papierkorb" },
+];
 
 type MemoryItem = {
   id: string;
@@ -148,6 +158,9 @@ function ConfirmationCard({
 export function ConversationView() {
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
+  const [historySearch, setHistorySearch] = useState("");
+  const [historyFilter, setHistoryFilter] = useState<HistoryFilter>("active");
+  const [historyBusyId, setHistoryBusyId] = useState<string | null>(null);
   const [memories, setMemories] = useState<MemoryItem[]>([]);
   const [showMemories, setShowMemories] = useState(false);
   const [showMobileTokens, setShowMobileTokens] = useState(false);
@@ -176,13 +189,19 @@ export function ConversationView() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, isLoading, pendingConfirmation]);
 
-  async function loadHistory() {
+  const loadHistory = useCallback(async (options?: { q?: string; filter?: HistoryFilter }) => {
     try {
-      const res = await fetch("/api/assistant/history", { cache: "no-store" });
+      const q = options?.q ?? "";
+      const filter = options?.filter ?? "active";
+      const params = new URLSearchParams();
+      if (q.trim()) params.set("q", q.trim());
+      if (filter !== "active") params.set("filter", filter);
+      const url = params.toString() ? `/api/assistant/history?${params}` : "/api/assistant/history";
+      const res = await fetch(url, { cache: "no-store" });
       const data = (await res.json().catch(() => ({}))) as { conversations?: HistoryItem[] };
       if (res.ok) setHistoryItems(data.conversations || []);
     } catch { /* non-critical */ }
-  }
+  }, []);
 
   async function loadMemories() {
     try {
@@ -282,12 +301,45 @@ export function ConversationView() {
     } catch { /* non-critical */ }
   }
 
+  async function updateHistoryItem(id: string, action: "archive" | "unarchive" | "trash" | "restore") {
+    if (historyBusyId) return;
+    setHistoryBusyId(id);
+    try {
+      const res = await fetch(`/api/assistant/history/${id}`, {
+        method: action === "trash" ? "DELETE" : "PATCH",
+        headers: action === "trash" ? undefined : { "Content-Type": "application/json" },
+        body: action === "trash"
+          ? undefined
+          : JSON.stringify(
+              action === "restore"
+                ? { deleted: false }
+                : { archived: action === "archive" },
+            ),
+      });
+      if (res.ok) {
+        setHistoryItems((current) => current.filter((item) => item.id !== id));
+        if (action === "trash" && conversationIdRef.current === id) {
+          conversationIdRef.current = null;
+          setRestoredBanner(false);
+        }
+      }
+    } catch { /* non-critical */ }
+    setHistoryBusyId(null);
+  }
+
   useEffect(() => {
     void loadHistory();
     void loadMemories();
     void loadSettings();
     void loadMobileTokens();
-  }, []);
+  }, [loadHistory]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadHistory({ q: historySearch, filter: historyFilter });
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [historyFilter, historySearch, loadHistory]);
 
   async function handleConfirm(approved: boolean) {
     if (!pendingConfirmation) return;
@@ -433,7 +485,7 @@ export function ConversationView() {
       setError({ message: errObj.message || "Streaming-Fehler", code: errObj.code });
       setMessages((current) => current.filter((m) => m.id !== streamingMsgId || m.content));
     }
-  }, []);
+  }, [loadHistory]);
 
   async function send(userText: string) {
     const text = userText.trim();
@@ -772,6 +824,34 @@ export function ConversationView() {
         <div className="border-b border-[var(--border-soft)] px-4 py-4">
           <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-subtle)]">Verlauf</div>
           <h2 className="mt-1 text-sm font-semibold text-[var(--text-main)]">Letzte 20 Chats</h2>
+          <div className="relative mt-3">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--text-subtle)]" />
+            <input
+              className="w-full rounded-full border border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))] py-2 pl-8 pr-3 text-xs text-[var(--text-main)] outline-none placeholder:text-[var(--text-subtle)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/15"
+              placeholder="Chats suchen ..."
+              value={historySearch}
+              onChange={(event) => setHistorySearch(event.target.value)}
+            />
+          </div>
+          <div className="mt-2 flex gap-1">
+            {HISTORY_FILTERS.map((filter) => {
+              const active = historyFilter === filter.key;
+              return (
+                <button
+                  key={filter.key}
+                  type="button"
+                  onClick={() => setHistoryFilter(filter.key)}
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition ${
+                    active
+                      ? "bg-[var(--accent)] text-[var(--gold-on-gold)]"
+                      : "border border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))] text-[var(--text-subtle)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-main)]"
+                  }`}
+                >
+                  {filter.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
         <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
           {historyItems.length === 0 ? (
@@ -782,23 +862,71 @@ export function ConversationView() {
           {historyItems.map((item) => {
             const snippet = item.lastUserMessage || item.title || "Ohne Titel";
             const isActive = conversationIdRef.current === item.id;
+            const isBusy = historyBusyId === item.id;
             return (
               <article
                 key={item.id}
                 role="button"
                 tabIndex={0}
-                className={`cursor-pointer rounded-xl border p-3 transition hover:border-[var(--accent)]/40 hover:bg-[var(--surface-raised)] ${isActive ? "border-[var(--accent)]/50 bg-[var(--accent)]/5" : "border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))]"}`}
+                className={`group cursor-pointer rounded-xl border p-3 transition hover:border-[var(--accent)]/40 hover:bg-[var(--surface-raised)] ${isActive ? "border-[var(--accent)]/50 bg-[var(--accent)]/5" : "border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))]"}`}
                 onClick={() => void loadConversation(item.id)}
                 onKeyDown={(e) => { if (e.key === "Enter") void loadConversation(item.id); }}
               >
-                <div className="text-sm font-medium text-[var(--text-main)] line-clamp-2">{snippet}</div>
-                <div className="mt-1 text-[11px] text-[var(--text-subtle)]">
-                  {new Date(item.updatedAt).toLocaleString("de-CH", {
-                    day: "2-digit",
-                    month: "2-digit",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
+                <div className="flex items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium text-[var(--text-main)] line-clamp-2">{snippet}</div>
+                    <div className="mt-1 text-[11px] text-[var(--text-subtle)]">
+                      {new Date(item.updatedAt).toLocaleString("de-CH", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 gap-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
+                    {historyFilter === "trash" ? (
+                      <button
+                        type="button"
+                        className="rounded-md p-1 text-[var(--text-subtle)] transition hover:bg-emerald-500/10 hover:text-emerald-500 disabled:opacity-40"
+                        title="Wiederherstellen"
+                        disabled={isBusy}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void updateHistoryItem(item.id, "restore");
+                        }}
+                      >
+                        <ArchiveRestore className="h-3.5 w-3.5" />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="rounded-md p-1 text-[var(--text-subtle)] transition hover:bg-[var(--accent)]/10 hover:text-[var(--gold-text,var(--accent))] disabled:opacity-40"
+                        title={historyFilter === "archived" ? "Aus Archiv holen" : "Archivieren"}
+                        disabled={isBusy}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void updateHistoryItem(item.id, historyFilter === "archived" ? "unarchive" : "archive");
+                        }}
+                      >
+                        {historyFilter === "archived" ? <ArchiveRestore className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />}
+                      </button>
+                    )}
+                    {historyFilter !== "trash" ? (
+                      <button
+                        type="button"
+                        className="rounded-md p-1 text-[var(--text-subtle)] transition hover:bg-red-500/10 hover:text-red-500 disabled:opacity-40"
+                        title="In Papierkorb"
+                        disabled={isBusy}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void updateHistoryItem(item.id, "trash");
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-1">
                   {item.customerId ? (

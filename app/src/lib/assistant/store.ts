@@ -19,6 +19,8 @@ export type AssistantHistoryRow = {
   title: string | null;
   createdAt: string | Date;
   updatedAt: string | Date;
+  archivedAt: string | Date | null;
+  deletedAt: string | Date | null;
   customerId: number | null;
   customerName: string | null;
   bookingOrderNo: number | null;
@@ -28,6 +30,8 @@ export type AssistantHistoryRow = {
   lastUserMessage: string | null;
   lastAssistantMessage: string | null;
 };
+
+export type AssistantHistoryFilter = "active" | "archived" | "trash";
 
 function asPositiveInt(value: unknown): number | null {
   const n = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
@@ -151,14 +155,56 @@ export async function updateConversationLinksFromToolCalls(input: {
   return links;
 }
 
-export async function listAssistantHistory(input: { userId: string; limit?: number }): Promise<AssistantHistoryRow[]> {
+export async function listAssistantHistory(input: {
+  userId: string;
+  limit?: number;
+  q?: string;
+  filter?: AssistantHistoryFilter;
+}): Promise<AssistantHistoryRow[]> {
   const limit = Math.min(Math.max(Number(input.limit || 20), 1), 20);
+  const filter: AssistantHistoryFilter =
+    input.filter === "archived" || input.filter === "trash" ? input.filter : "active";
+  const q = String(input.q || "").trim();
+  const params: unknown[] = [input.userId];
+  const where = ["c.user_id = $1"];
+
+  if (filter === "trash") {
+    where.push("c.deleted_at IS NOT NULL");
+  } else {
+    where.push("c.deleted_at IS NULL");
+    where.push(filter === "archived" ? "c.archived_at IS NOT NULL" : "c.archived_at IS NULL");
+  }
+
+  if (q) {
+    params.push(`%${q}%`);
+    const idx = params.length;
+    where.push(`(
+      c.title ILIKE $${idx}
+      OR cust.name ILIKE $${idx}
+      OR o.address ILIKE $${idx}
+      OR c.booking_order_no::TEXT ILIKE $${idx}
+      OR COALESCE(t.canonical_object_label, t.object_label, t.bezeichnung) ILIKE $${idx}
+      OR EXISTS (
+        SELECT 1
+        FROM tour_manager.assistant_messages sm
+        WHERE sm.conversation_id = c.id
+          AND sm.role IN ('user', 'assistant')
+          AND sm.content->>'text' ILIKE $${idx}
+      )
+    )`);
+  }
+
+  params.push(limit);
+  const limitParam = params.length;
+
   return query<AssistantHistoryRow>(
     `SELECT
        c.id,
        c.title,
        c.created_at AS "createdAt",
        c.updated_at AS "updatedAt",
+       c.archived_at AS "archivedAt",
+       c.deleted_at AS "deletedAt",
        c.customer_id AS "customerId",
        cust.name AS "customerName",
        c.booking_order_no AS "bookingOrderNo",
@@ -183,11 +229,44 @@ export async function listAssistantHistory(input: { userId: string; limit?: numb
      LEFT JOIN core.customers cust ON cust.id = c.customer_id
      LEFT JOIN booking.orders o ON o.order_no = c.booking_order_no
      LEFT JOIN tour_manager.tours t ON t.id = c.tour_id
-     WHERE c.user_id = $1
+     WHERE ${where.join("\n       AND ")}
      ORDER BY c.updated_at DESC
-     LIMIT $2`,
-    [input.userId, limit],
+     LIMIT $${limitParam}`,
+    params,
   );
+}
+
+export async function setAssistantConversationArchived(input: {
+  conversationId: string;
+  userId: string;
+  archived: boolean;
+}): Promise<boolean> {
+  const rows = await query<{ id: string }>(
+    `UPDATE tour_manager.assistant_conversations
+     SET archived_at = ${input.archived ? "NOW()" : "NULL"},
+         updated_at = NOW()
+     WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL
+     RETURNING id`,
+    [input.conversationId, input.userId],
+  );
+  return rows.length > 0;
+}
+
+export async function setAssistantConversationDeleted(input: {
+  conversationId: string;
+  userId: string;
+  deleted: boolean;
+}): Promise<boolean> {
+  const rows = await query<{ id: string }>(
+    `UPDATE tour_manager.assistant_conversations
+     SET deleted_at = ${input.deleted ? "NOW()" : "NULL"},
+         archived_at = CASE WHEN ${input.deleted ? "TRUE" : "FALSE"} THEN NULL ELSE archived_at END,
+         updated_at = NOW()
+     WHERE id = $1 AND user_id = $2
+     RETURNING id`,
+    [input.conversationId, input.userId],
+  );
+  return rows.length > 0;
 }
 
 export type AssistantMessageRow = {

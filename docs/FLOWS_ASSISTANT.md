@@ -17,8 +17,10 @@ Browser (React SPA)
   ├─► POST /api/assistant?stream=false   (JSON-Response, Fallback)
   ├─► GET  /api/assistant/settings       (Einstellungen + Usage lesen)
   ├─► PATCH /api/assistant/settings      (Einstellungen ändern, nur super_admin)
-  ├─► GET  /api/assistant/history        (Verlauf-Liste)
+  ├─► GET  /api/assistant/history        (Verlauf-Liste, Suche/Filter)
   ├─► GET  /api/assistant/history/:id    (Konversation laden)
+  ├─► PATCH /api/assistant/history/:id   (Archiv/Papierkorb wiederherstellen)
+  ├─► DELETE /api/assistant/history/:id  (Konversation soft-löschen)
   ├─► GET  /api/assistant/memories       (Erinnerungen)
   └─► DELETE /api/assistant/memories/:id (Erinnerung löschen)
          │
@@ -73,6 +75,31 @@ ALTER TABLE tour_manager.assistant_conversations
 ```
 
 Migration: `core/migrations/049_assistant_usage_tracking.sql`
+
+## Verlauf: Suche, Archiv und Papierkorb
+
+### DB-Schema
+
+```sql
+ALTER TABLE tour_manager.assistant_conversations
+  ADD COLUMN archived_at TIMESTAMPTZ,
+  ADD COLUMN deleted_at TIMESTAMPTZ;
+```
+
+Migration: `core/migrations/050_assistant_history_archive_trash.sql`
+
+### API
+
+| Methode | Route | Beschreibung |
+|---------|-------|--------------|
+| `GET` | `/api/assistant/history?q=&filter=active\|archived\|trash` | Listet max. 20 Chats; Standard ist aktive, nicht archivierte und nicht gelöschte Chats |
+| `PATCH` | `/api/assistant/history/[id]` mit `{ "archived": true\|false }` | Archiviert oder reaktiviert eine Konversation |
+| `PATCH` | `/api/assistant/history/[id]` mit `{ "deleted": false }` | Stellt eine Konversation aus dem Papierkorb wieder her |
+| `DELETE` | `/api/assistant/history/[id]` | Setzt `deleted_at=NOW()` und blendet den Chat aus aktiven/archivierten Listen aus |
+
+### UI
+
+Die Sidebar „Verlauf / Letzte 20 Chats" enthält Suche, Filterchips (`Aktiv`, `Archiv`, `Papierkorb`) sowie kompakte Aktionen pro Chat. Archivierte Chats erscheinen nur im Archivfilter; gelöschte Chats nur im Papierkorb und können dort wiederhergestellt werden.
 
 ### Logik
 
