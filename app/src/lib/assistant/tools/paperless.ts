@@ -5,6 +5,8 @@
 
 import type { ToolDefinition, ToolHandler } from './index';
 
+const PAPERLESS_TIMEOUT_MS = 15_000;
+
 async function paperless(path: string, init?: RequestInit) {
   const base = process.env.PAPERLESS_BASE_URL;
   const token = process.env.PAPERLESS_API_TOKEN;
@@ -17,6 +19,7 @@ async function paperless(path: string, init?: RequestInit) {
       Accept: 'application/json',
       ...(init?.headers ?? {}),
     },
+    signal: init?.signal ?? AbortSignal.timeout(PAPERLESS_TIMEOUT_MS),
   });
   if (!res.ok) throw new Error(`Paperless ${path} → ${res.status}: ${await res.text()}`);
   return res.json();

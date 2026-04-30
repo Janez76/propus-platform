@@ -7,6 +7,8 @@ import type { ToolDefinition, ToolHandler } from './index';
 
 const ML_BASE = 'https://connect.mailerlite.com/api';
 
+const ML_TIMEOUT_MS = 15_000;
+
 async function ml(path: string, init?: RequestInit) {
   const apiKey = process.env.MAILERLITE_API_KEY;
   if (!apiKey) throw new Error('MAILERLITE_API_KEY fehlt');
@@ -18,6 +20,7 @@ async function ml(path: string, init?: RequestInit) {
       Accept: 'application/json',
       ...(init?.headers ?? {}),
     },
+    signal: init?.signal ?? AbortSignal.timeout(ML_TIMEOUT_MS),
   });
   if (!res.ok) throw new Error(`MailerLite ${path} → ${res.status}: ${await res.text()}`);
   return res.json();

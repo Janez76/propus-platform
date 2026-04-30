@@ -7,6 +7,8 @@ import type { ToolDefinition, ToolHandler } from './index';
 
 const HA_BASE = process.env.HA_BASE_URL ?? 'https://smartzh.janez.ch';
 
+const HA_TIMEOUT_MS = 10_000;
+
 async function ha(path: string, init?: RequestInit) {
   const token = process.env.HA_LONG_LIVED_TOKEN;
   if (!token) throw new Error('HA_LONG_LIVED_TOKEN fehlt');
@@ -17,6 +19,7 @@ async function ha(path: string, init?: RequestInit) {
       'Content-Type': 'application/json',
       ...(init?.headers ?? {}),
     },
+    signal: init?.signal ?? AbortSignal.timeout(HA_TIMEOUT_MS),
   });
   if (!res.ok) throw new Error(`HA ${path} → ${res.status}: ${await res.text()}`);
   return res.json();
