@@ -10,6 +10,39 @@ const MAX_TOKENS = 2048;
 const MAX_TOOL_ITERATIONS = 8;
 const ANTHROPIC_TIMEOUT_MS = 60_000;
 
+/**
+ * Schreibende Tools muessen serverseitig durch eine zweite Aufruf-Stufe gehen:
+ * erster Aufruf liefert eine PENDING-Antwort, das Modell muss den User explizit
+ * fragen, und erst beim zweiten Aufruf mit `confirmed: true` wird der Handler
+ * ausgefuehrt. Eine pure System-Prompt-Anweisung ist gegen Prompt-Injection
+ * (z.B. aus eingelesenen E-Mails via search_emails) nicht sicher.
+ */
+const WRITE_TOOL_REGEX = /^(create_|update_|delete_|send_|ha_call_service|mailerlite_add)/;
+
+function requiresConfirmation(toolName: string, toolInput: Record<string, unknown>): boolean {
+  if (!WRITE_TOOL_REGEX.test(toolName)) return false;
+  return toolInput.confirmed !== true;
+}
+
+function buildPendingPayload(toolName: string, toolInput: Record<string, unknown>): string {
+  // Eingabe vom `confirmed`-Feld bereinigen — sonst spiegelt der Hint den
+  // bereits gesetzten Wert wider und das Modell waehnt sich am Ziel.
+  const proposed: Record<string, unknown> = { ...toolInput };
+  delete proposed.confirmed;
+  return JSON.stringify({
+    pending: true,
+    action: toolName,
+    proposed_input: proposed,
+    instruction:
+      "BESTAETIGUNG ERFORDERLICH. Frage den User KURZ und KLAR (auf Deutsch), " +
+      "ob diese Aktion mit den genannten Werten ausgefuehrt werden soll. " +
+      "ERST nach explizitem Ja/Bestaetigung des Users rufst du das gleiche Tool " +
+      "exakt nochmal auf, diesmal mit zusaetzlichem Parameter \"confirmed\": true. " +
+      "Bei Zweifel oder Nein: NICHT ausfuehren. Setze \"confirmed\": true NIEMALS " +
+      "ohne explizite User-Zustimmung in derselben Conversation.",
+  });
+}
+
 export interface AssistantTurnInput {
   systemPrompt: string;
   history: Anthropic.Messages.MessageParam[];
@@ -30,6 +63,7 @@ export interface AssistantTurnResult {
     output: unknown;
     durationMs: number;
     error?: string;
+    pending?: boolean;
   }>;
 }
 
@@ -114,8 +148,32 @@ export async function runAssistantTurn(
         continue;
       }
 
+      // Server-seitige Bestaetigungs-Pflicht fuer schreibende Tools.
+      // Pruefung passiert VOR dem Handler-Aufruf — kein Side-Effect bei Pending.
+      const inputBag = (block.input ?? {}) as Record<string, unknown>;
+      if (requiresConfirmation(block.name, inputBag)) {
+        const pendingContent = buildPendingPayload(block.name, inputBag);
+        toolResults.push({
+          type: "tool_result",
+          tool_use_id: block.id,
+          content: pendingContent,
+        });
+        toolCallsExecuted.push({
+          name: block.name,
+          input: block.input,
+          output: { pending: true },
+          durationMs: Date.now() - start,
+          pending: true,
+        });
+        continue;
+      }
+
       try {
-        const output = await handler(block.input as Record<string, unknown>, input.context);
+        // `confirmed`-Flag aus dem Input entfernen, bevor der Handler ihn sieht —
+        // die Tools selbst sollen sich nicht damit beschaeftigen muessen.
+        const handlerInput: Record<string, unknown> = { ...inputBag };
+        delete handlerInput.confirmed;
+        const output = await handler(handlerInput, input.context);
         const durationMs = Date.now() - start;
         toolResults.push({
           type: "tool_result",
