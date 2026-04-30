@@ -11,6 +11,17 @@ export interface TranscriptionResult {
   language?: string;
 }
 
+// Whisper akzeptiert: webm, m4a, mp3, mp4, mpeg, mpga, wav, oga, ogg, flac.
+function pickWhisperExtension(mimeType: string): string {
+  const m = mimeType.toLowerCase();
+  if (m.includes('m4a') || m.includes('mp4') || m.includes('aac')) return 'm4a';
+  if (m.includes('wav')) return 'wav';
+  if (m.includes('ogg') || m.includes('oga') || m.includes('opus')) return 'ogg';
+  if (m.includes('mpeg') || m.includes('mp3') || m.includes('mpga')) return 'mp3';
+  if (m.includes('flac')) return 'flac';
+  return 'webm';
+}
+
 export async function transcribeAudio(
   audioBuffer: Buffer,
   mimeType: string = 'audio/webm',
@@ -24,7 +35,7 @@ export async function transcribeAudio(
 
   const formData = new FormData();
   const blob = new Blob([audioBuffer], { type: mimeType });
-  const ext = mimeType.includes('mp4') ? 'm4a' : mimeType.includes('wav') ? 'wav' : 'webm';
+  const ext = pickWhisperExtension(mimeType);
   formData.append('file', blob, `audio.${ext}`);
   formData.append('model', 'whisper-1');
   formData.append('language', 'de');

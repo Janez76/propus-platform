@@ -23,6 +23,26 @@ import { logger } from "@/lib/logger";
 
 const WRITE_TOOL_REGEX = /^(create_|update_|delete_|send_|ha_call_service|mailerlite_add)/;
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Sehr lockere IP-Plausibilitaets-Pruefung; INET-Cast in Postgres macht die echte Validierung.
+const IP_REGEX = /^(?:[0-9a-f.:]+)$/i;
+
+function isUuid(value: unknown): value is string {
+  return typeof value === "string" && UUID_REGEX.test(value);
+}
+
+/**
+ * x-forwarded-for kann eine Komma-Liste sein: "client, proxy1, proxy2".
+ * Postgres INET akzeptiert nur eine einzelne Adresse. Erste Adresse nehmen,
+ * trimmen und nur durchlassen, wenn sie wie eine IP aussieht.
+ */
+function parseFirstIp(header: string | null): string | undefined {
+  if (!header) return undefined;
+  const first = header.split(",")[0]?.trim();
+  if (!first) return undefined;
+  return IP_REGEX.test(first) ? first : undefined;
+}
+
 export async function POST(req: NextRequest) {
   const session = await getAssistantSession(req);
   if (!session) {
@@ -55,8 +75,9 @@ export async function POST(req: NextRequest) {
     timezone: "Europe/Zurich",
   });
 
-  const ipAddress = req.headers.get("x-forwarded-for") ?? undefined;
+  const ipAddress = parseFirstIp(req.headers.get("x-forwarded-for"));
   const userAgent = req.headers.get("user-agent") ?? undefined;
+  const conversationId = isUuid(body.conversationId) ? body.conversationId : undefined;
 
   try {
     const result = await runAssistantTurn({
@@ -80,7 +101,7 @@ export async function POST(req: NextRequest) {
       if (WRITE_TOOL_REGEX.test(tc.name)) {
         await writeAudit({
           userId,
-          conversationId: body.conversationId,
+          conversationId,
           action: tc.name,
           payload: { input: tc.input, output: tc.output, error: tc.error },
           ipAddress,
