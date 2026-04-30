@@ -54,8 +54,9 @@ export async function getAssistantSession(req: NextRequest): Promise<AdminSessio
 
   if (!session) {
     const auth = req.headers.get("authorization");
-    if (auth?.startsWith("Bearer ")) {
-      const token = auth.slice("Bearer ".length).trim();
+    const match = auth?.match(/^\s*Bearer\s+(\S.*)$/i);
+    if (match) {
+      const token = match[1].trim();
       if (token) session = await lookupBearerSession(token);
     }
   }

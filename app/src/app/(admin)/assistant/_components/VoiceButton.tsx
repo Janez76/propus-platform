@@ -15,6 +15,32 @@ interface VoiceButtonProps {
 
 type State = 'idle' | 'recording' | 'transcribing';
 
+// Bevorzugt webm/opus (Chrome/Firefox/Edge), fällt auf MP4/AAC zurück (Safari/iOS).
+// Whisper akzeptiert webm, m4a, mp3, mp4, mpeg, mpga, wav, oga, ogg, flac.
+const RECORDER_MIME_CANDIDATES = [
+  'audio/webm;codecs=opus',
+  'audio/webm',
+  'audio/mp4;codecs=mp4a.40.2',
+  'audio/mp4',
+  'audio/aac',
+  'audio/ogg;codecs=opus',
+];
+
+function pickRecorderMimeType(): string {
+  if (typeof MediaRecorder === 'undefined') return '';
+  for (const candidate of RECORDER_MIME_CANDIDATES) {
+    if (MediaRecorder.isTypeSupported?.(candidate)) return candidate;
+  }
+  return ''; // Browser-Default
+}
+
+function mimeTypeToExtension(mime: string): string {
+  if (mime.includes('mp4') || mime.includes('aac')) return 'm4a';
+  if (mime.includes('ogg')) return 'ogg';
+  if (mime.includes('wav')) return 'wav';
+  return 'webm';
+}
+
 export function VoiceButton({ onTranscript, onError, disabled }: VoiceButtonProps) {
   const [state, setState] = useState<State>('idle');
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -32,16 +58,21 @@ export function VoiceButton({ onTranscript, onError, disabled }: VoiceButtonProp
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
-      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      const mimeType = pickRecorderMimeType();
+      const recorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
       chunksRef.current = [];
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) chunksRef.current.push(e.data);
       };
       recorder.onstop = async () => {
         setState('transcribing');
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        const blobType = recorder.mimeType || mimeType || chunksRef.current[0]?.type || 'audio/webm';
+        const blob = new Blob(chunksRef.current, { type: blobType });
+        const ext = mimeTypeToExtension(blobType);
         const fd = new FormData();
-        fd.append('audio', blob, 'audio.webm');
+        fd.append('audio', blob, `audio.${ext}`);
         try {
           const res = await fetch('/api/assistant/transcribe', { method: 'POST', body: fd });
           if (!res.ok) throw new Error(`Transkription fehlgeschlagen (${res.status})`);
