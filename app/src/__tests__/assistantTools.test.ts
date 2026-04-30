@@ -27,6 +27,34 @@ describe("assistant tool schema", () => {
       },
     ]);
   });
+
+  it("strips accidental internal metadata from input schemas", () => {
+    const tools = [
+      {
+        name: "create_ticket",
+        description: "Ticket erstellen",
+        input_schema: {
+          type: "object",
+          properties: { subject: { type: "string" } },
+          required: ["subject"],
+          kind: "write",
+          requiresConfirmation: true,
+        },
+      },
+    ] as unknown as ToolDefinition[];
+
+    expect(toAnthropicTools(tools)).toEqual([
+      {
+        name: "create_ticket",
+        description: "Ticket erstellen",
+        input_schema: {
+          type: "object",
+          properties: { subject: { type: "string" } },
+          required: ["subject"],
+        },
+      },
+    ]);
+  });
 });
 
 describe("assistant order tools", () => {

@@ -54,11 +54,20 @@ export const allHandlers: Record<string, ToolHandler> = {
   ...writeHandlers,
 };
 
+function toAnthropicInputSchema(input_schema: ToolDefinition["input_schema"]): ToolDefinition["input_schema"] {
+  const { type, properties, required } = input_schema;
+  return {
+    type,
+    ...(properties ? { properties } : {}),
+    ...(required ? { required } : {}),
+  };
+}
+
 export function toAnthropicTools(tools: ToolDefinition[]) {
   return tools.map(({ name, description, input_schema }) => ({
     name,
     description,
-    input_schema,
+    input_schema: toAnthropicInputSchema(input_schema),
   }));
 }
 
