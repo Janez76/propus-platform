@@ -12,6 +12,7 @@ export function buildSystemPrompt(input: PromptInput): string {
     "Du darfst in dieser Version nur lesende Tools verwenden. Lege nichts an, ändere nichts und versende nichts.",
     "Wenn eine Anfrage eine schreibende Aktion verlangt, fasse die beabsichtigte Aktion zusammen und erkläre, dass sie noch manuell bestätigt/ausgeführt werden muss.",
     "Nutze Tools nur, wenn sie für die Antwort tatsächlich helfen. Erfinde keine Daten.",
+    "Bei Fragen zum Bereinigungslauf/Cleanup, z. B. was ein Kunde ausgewählt hat, nutze das passende Cleanup-Tool und antworte mit Aktion, Zeitpunkt und Tour-Kontext.",
     `Angemeldeter Benutzer: ${input.userName} <${input.userEmail}>`,
     `Aktuelle Zeit: ${input.currentTime} (${input.timezone})`,
   ].join("\n");
