@@ -79,6 +79,7 @@ export type TuneReportResult = {
   mdContent: string;
   jsonBasename: string;
   mdBasename: string;
+  reportsDir: string;
 };
 
 function parseArgCase(): string | null {
@@ -219,7 +220,7 @@ export function writeMarkdownReport(report: TuneReportJson, mdPath: string): voi
 async function runApply(patchId: string): Promise<void> {
   const jsonPath = latestTuneReportJsonPath();
   if (!jsonPath) {
-    console.error("Keine tuning-report-*.json in scripts/ gefunden.");
+    console.error(`Keine tuning-report-*.json unter ${resolveScriptsDir()} gefunden.`);
     process.exit(1);
   }
   const report = JSON.parse(fs.readFileSync(jsonPath, "utf8")) as TuneReportJson;
@@ -295,7 +296,7 @@ export async function runTuneReportGeneration(
     fs.writeFileSync(jsonPath, JSON.stringify(minimal, null, 2), "utf8");
     writeMarkdownReport(minimal, mdPath);
     const mdContent = fs.readFileSync(mdPath, "utf8");
-    return { report: minimal, mdContent, jsonBasename, mdBasename };
+    return { report: minimal, mdContent, jsonBasename, mdBasename, reportsDir };
   }
 
   const aggregatedPatches: ProposedPatch[] = [];
@@ -334,7 +335,7 @@ export async function runTuneReportGeneration(
   fs.writeFileSync(jsonPath, JSON.stringify(report, null, 2), "utf8");
   writeMarkdownReport(report, mdPath);
   const mdContent = fs.readFileSync(mdPath, "utf8");
-  return { report, mdContent, jsonBasename, mdBasename };
+  return { report, mdContent, jsonBasename, mdBasename, reportsDir };
 }
 
 async function main() {
@@ -354,9 +355,11 @@ async function main() {
   const client = new Anthropic({ apiKey });
 
   try {
-    const { jsonBasename, mdBasename, report } = await runTuneReportGeneration(client, { caseId });
-    const jsonPath = path.join(SCRIPT_DIR, jsonBasename);
-    const mdPath = path.join(SCRIPT_DIR, mdBasename);
+    const { jsonBasename, mdBasename, report, reportsDir } = await runTuneReportGeneration(client, {
+      caseId,
+    });
+    const jsonPath = path.join(reportsDir, jsonBasename);
+    const mdPath = path.join(reportsDir, mdBasename);
 
     if (report.failedCases.length === 0) {
       console.log(`Alle Tests grün (${report.evalSummary.passed}/${report.evalSummary.total}). Kein Tuning nötig.`);
