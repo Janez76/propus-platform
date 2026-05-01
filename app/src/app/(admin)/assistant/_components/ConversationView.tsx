@@ -273,6 +273,7 @@ export function ConversationView() {
   const historyRef = useRef<unknown[]>([]);
   const conversationIdRef = useRef<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const mobileTokensSectionRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   /** Aborts stale history GETs so an older in-flight response cannot overwrite after delete/archive. */
   const historyFetchAbortRef = useRef<AbortController | null>(null);
@@ -375,6 +376,15 @@ export function ConversationView() {
       await fetch(`/api/assistant/memories/${id}`, { method: "DELETE" });
       setMemories((prev) => prev.filter((m) => m.id !== id));
     } catch { /* non-critical */ }
+  }
+
+  /** Öffnet Verlauf-Panel und scrollt zur Sektion „Mobile-Zugang“ (Handy-Browser). */
+  function openMobileAccessPanel() {
+    setHistorySheetOpen(true);
+    setShowMobileTokens(true);
+    requestAnimationFrame(() => {
+      mobileTokensSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
   }
 
   async function loadMobileTokens() {
@@ -848,9 +858,18 @@ export function ConversationView() {
           </div>
           <button
             type="button"
+            onClick={() => openMobileAccessPanel()}
+            className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--text-subtle)] transition hover:bg-[var(--surface-raised)] hover:text-[var(--gold-text,var(--accent))]"
+            title="Handy-App: API-Token erstellen"
+            aria-label="Handy-App Token"
+          >
+            <Smartphone className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
             onClick={() => setHistorySheetOpen(true)}
             className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--text-subtle)] transition hover:bg-[var(--surface-raised)] hover:text-[var(--text-main)]"
-            title="Verlauf, Erinnerungen & Mobile-Zugang"
+            title="Verlauf & Chats"
             aria-label="Verlauf öffnen"
           >
             <HistoryIcon className="h-4 w-4" />
@@ -944,6 +963,14 @@ export function ConversationView() {
             </div>
           ) : null}
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 sm:justify-start lg:ml-auto">
+            <button
+              type="button"
+              className="rounded-full border border-[var(--border-soft)] bg-[var(--surface)] p-2 text-[var(--text-subtle)] transition hover:border-[var(--accent)]/40 hover:bg-[var(--surface-raised)] hover:text-[var(--gold-text,var(--accent))]"
+              onClick={() => openMobileAccessPanel()}
+              title="Handy-App: API-Token erstellen (Propus Assistant APK)"
+            >
+              <Smartphone className="h-4 w-4" />
+            </button>
             <button
               type="button"
               className="rounded-full border border-[var(--border-soft)] bg-[var(--surface)] p-2 text-[var(--text-subtle)] transition hover:border-[var(--accent)]/40 hover:bg-[var(--surface-raised)] hover:text-[var(--text-main)]"
@@ -1279,7 +1306,7 @@ export function ConversationView() {
       ) : null}
 
       <aside
-        className={`flex min-h-0 min-w-0 flex-col bg-[var(--surface-card,var(--surface))] lg:border-l lg:border-[var(--border-soft)] max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-40 max-lg:max-h-[85dvh] max-lg:rounded-t-2xl max-lg:border max-lg:border-[var(--border-soft)] max-lg:shadow-2xl max-lg:transition-transform max-lg:duration-200 max-lg:will-change-transform ${historySheetOpen ? "max-lg:translate-y-0" : "max-lg:translate-y-full max-lg:pointer-events-none"}`}
+        className={`flex min-h-0 min-w-0 flex-col bg-[var(--surface-card,var(--surface))] lg:border-l lg:border-[var(--border-soft)] max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-40 max-lg:max-h-[85dvh] max-lg:overflow-y-auto max-lg:overscroll-contain max-lg:rounded-t-2xl max-lg:border max-lg:border-[var(--border-soft)] max-lg:shadow-2xl max-lg:transition-transform max-lg:duration-200 max-lg:will-change-transform ${historySheetOpen ? "max-lg:translate-y-0" : "max-lg:translate-y-full max-lg:pointer-events-none"}`}
       >
         <div className="lg:hidden">
           <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-[var(--border-soft)]" aria-hidden />
@@ -1469,15 +1496,20 @@ export function ConversationView() {
           ) : null}
         </div>
 
-        <div className="border-t border-[var(--border-soft)]">
+        <div ref={mobileTokensSectionRef} className="scroll-mt-3 border-t border-[var(--border-soft)]">
           <button
             type="button"
             className="flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-[var(--surface-raised)]"
             onClick={() => setShowMobileTokens(!showMobileTokens)}
           >
-            <div className="flex items-center gap-2">
-              <Smartphone className="h-4 w-4 text-[var(--gold-text,var(--accent))]" />
-              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-subtle)]">Mobile-Zugang</span>
+            <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left sm:flex-row sm:items-center sm:gap-2">
+              <span className="flex items-center gap-2">
+                <Smartphone className="h-4 w-4 shrink-0 text-[var(--gold-text,var(--accent))]" />
+                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-subtle)]">Mobile-Zugang</span>
+              </span>
+              <span className="pl-6 text-[11px] leading-snug text-[var(--text-subtle)] sm:pl-0">
+                Token für die Propus-Assistant-App (APK)
+              </span>
             </div>
             {mobileTokens.length > 0 ? (
               <span className="rounded-full bg-[var(--accent)]/15 px-2 py-0.5 text-[11px] font-semibold text-[var(--gold-text,var(--accent))]">
