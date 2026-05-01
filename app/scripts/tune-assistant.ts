@@ -355,8 +355,9 @@ async function main() {
 
   try {
     const { jsonBasename, mdBasename, report } = await runTuneReportGeneration(client, { caseId });
-    const jsonPath = path.join(SCRIPT_DIR, jsonBasename);
-    const mdPath = path.join(SCRIPT_DIR, mdBasename);
+    const reportsDir = resolveScriptsDir();
+    const jsonPath = path.join(reportsDir, jsonBasename);
+    const mdPath = path.join(reportsDir, mdBasename);
 
     if (report.failedCases.length === 0) {
       console.log(`Alle Tests grün (${report.evalSummary.passed}/${report.evalSummary.total}). Kein Tuning nötig.`);
