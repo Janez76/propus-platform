@@ -1,4 +1,4 @@
-{
+﻿{
   "cli": {
     "version": ">= 13.0.0",
     "appVersionSource": "local"
@@ -13,7 +13,6 @@
     },
     "preview": {
       "distribution": "internal",
-      "channel": "preview",
       "android": {
         "buildType": "apk"
       },

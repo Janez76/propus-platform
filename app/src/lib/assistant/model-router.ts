@@ -60,3 +60,38 @@ export function parseModelMode(value: unknown, fallback: ModelMode = "auto"): Mo
   if (value === "auto" || value === "sonnet" || value === "opus") return value;
   return fallback;
 }
+
+/** Resolve tier from Anthropic model id (exact `MODEL_IDS` match, then id substring). */
+export function inferTierFromAnthropicModelId(id: string): ModelTier | undefined {
+  const norm = id.trim();
+  for (const tier of ["haiku", "sonnet", "opus"] as const) {
+    if (MODEL_IDS[tier] === norm) return tier;
+  }
+  const lower = norm.toLowerCase();
+  if (lower.includes("haiku")) return "haiku";
+  if (lower.includes("opus")) return "opus";
+  if (lower.includes("sonnet")) return "sonnet";
+  return undefined;
+}
+
+/**
+ * Short German UI label: family name + version snippet when parsable (e.g. "Sonnet 4.6").
+ */
+export function formatModelLabel(id: string): string {
+  const trimmed = id.trim();
+  if (!trimmed) return "Unbekannt";
+
+  const tier = inferTierFromAnthropicModelId(trimmed);
+  const tierDe = tier === "haiku" ? "Haiku" : tier === "sonnet" ? "Sonnet" : tier === "opus" ? "Opus" : null;
+
+  const vm = trimmed.match(/(\d+)-(\d+)(?:-(\d+))?$/);
+  let ver = "";
+  if (vm) {
+    ver = vm[3] ? `${vm[1]}.${vm[2]}.${vm[3]}` : `${vm[1]}.${vm[2]}`;
+  }
+
+  if (tierDe && ver) return `${tierDe} ${ver}`;
+  if (tierDe) return tierDe;
+
+  return trimmed.replace(/^claude-/i, "").replace(/-/g, " ") || trimmed;
+}

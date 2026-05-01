@@ -305,19 +305,72 @@ export async function updateConversationTokens(input: {
   );
 }
 
-export async function getAssistantUsageToday(userId: string): Promise<{ inputTokens: number; outputTokens: number; totalTokens: number }> {
-  const row = await queryOne<{ input_tokens: string; output_tokens: string }>(
-    `SELECT
-       COALESCE(SUM(input_tokens), 0) AS input_tokens,
-       COALESCE(SUM(output_tokens), 0) AS output_tokens
-     FROM tour_manager.assistant_conversations
-     WHERE user_id = $1
-       AND created_at >= (NOW() AT TIME ZONE 'Europe/Zurich')::date`,
+export type AssistantUsageSlice = {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+};
+
+/**
+ * Token totals per calendar period in Europe/Zurich (PostgreSQL `AT TIME ZONE`).
+ * Each slice sums `input_tokens` / `output_tokens` on rows where `created_at` falls in the interval
+ * [period_start, ∞) — same convention as the historical daily limit query.
+ *
+ * Week = ISO-style Monday 00:00 local Zurich; month = first day 00:00 local Zurich.
+ */
+export async function getAssistantUsageReport(userId: string): Promise<{
+  today: AssistantUsageSlice;
+  week: AssistantUsageSlice;
+  month: AssistantUsageSlice;
+}> {
+  const row = await queryOne<{
+    today_input: string;
+    today_output: string;
+    week_input: string;
+    week_output: string;
+    month_input: string;
+    month_output: string;
+  }>(
+    `WITH b AS (
+       SELECT
+         ((CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Zurich')::date::timestamp AT TIME ZONE 'Europe/Zurich') AS day_start,
+         (date_trunc('week', (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Zurich')::timestamp) AT TIME ZONE 'Europe/Zurich') AS week_start,
+         (date_trunc('month', (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Zurich')::timestamp) AT TIME ZONE 'Europe/Zurich') AS month_start
+     )
+     SELECT
+       COALESCE(SUM(CASE WHEN c.created_at >= b.day_start THEN c.input_tokens ELSE 0 END), 0) AS today_input,
+       COALESCE(SUM(CASE WHEN c.created_at >= b.day_start THEN c.output_tokens ELSE 0 END), 0) AS today_output,
+       COALESCE(SUM(CASE WHEN c.created_at >= b.week_start THEN c.input_tokens ELSE 0 END), 0) AS week_input,
+       COALESCE(SUM(CASE WHEN c.created_at >= b.week_start THEN c.output_tokens ELSE 0 END), 0) AS week_output,
+       COALESCE(SUM(CASE WHEN c.created_at >= b.month_start THEN c.input_tokens ELSE 0 END), 0) AS month_input,
+       COALESCE(SUM(CASE WHEN c.created_at >= b.month_start THEN c.output_tokens ELSE 0 END), 0) AS month_output
+     FROM tour_manager.assistant_conversations c
+     CROSS JOIN b
+     WHERE c.user_id = $1`,
     [userId],
   );
-  const inputTokens = Number(row?.input_tokens || 0);
-  const outputTokens = Number(row?.output_tokens || 0);
-  return { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens };
+
+  if (!row) {
+    const empty: AssistantUsageSlice = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
+    return { today: empty, week: empty, month: empty };
+  }
+
+  const slice = (inputRaw: string, outputRaw: string): AssistantUsageSlice => {
+    const inputTokens = Number(inputRaw || 0);
+    const outputTokens = Number(outputRaw || 0);
+    return { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens };
+  };
+
+  return {
+    today: slice(row.today_input, row.today_output),
+    week: slice(row.week_input, row.week_output),
+    month: slice(row.month_input, row.month_output),
+  };
+}
+
+export async function getAssistantUsageToday(userId: string): Promise<AssistantUsageSlice> {
+  const { today } = await getAssistantUsageReport(userId);
+  return today;
 }
 
 export async function writeAudit(input: {

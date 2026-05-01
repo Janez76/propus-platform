@@ -17,7 +17,7 @@ export const posteingangTools: ToolDefinition[] = [
   {
     name: "search_posteingang_conversations",
     description:
-      "Nutze dieses Tool wenn nach E-Mails, Konversationen oder Nachrichten von/an bestimmte Personen gefragt wird. Durchsucht Betreff, Kundenname und Nachrichtentext.",
+      "Suche nach Konversationen (E-Mail-Threads), nicht nach einzelnen Nachrichten chronologisch. Durchsucht Betreff, Kundenname und Nachrichtentext. Für „die letzten X E-Mails/Nachrichten“ immer get_recent_posteingang_messages nutzen.",
     input_schema: {
       type: "object",
       properties: {
@@ -30,10 +30,16 @@ export const posteingangTools: ToolDefinition[] = [
   {
     name: "get_recent_posteingang_messages",
     description:
-      "Nutze dieses Tool wenn nach den neuesten E-Mails, letzten Nachrichten oder aktuellen Posteingängen gefragt wird.",
+      "Einzelne Nachrichten chronologisch (neueste zuerst), keine Thread-Zusammenfassung. Bei „letzte 20 E-Mails“ limit=20 setzen — das sind bis zu 20 Nachrichten, nicht 20 Konversationen. Die Antwort enthält requested_limit, returned_count und conversation_count: niemals behaupten, es seien N E-Mails geliefert, wenn returned_count oder die Liste weniger Einträge hat; bei wenigen Threads aber vielen Nachrichten die Zahlen aus summary_note verwenden.",
     input_schema: {
       type: "object",
-      properties: { limit: { type: "number", description: "Maximale Anzahl (Default: 10, max. 30)" } },
+      properties: {
+        limit: {
+          type: "number",
+          description:
+            "Maximale Anzahl einzelner Nachrichten (Default: 20, max. 30). Explizit die vom Nutzer genannte Zahl setzen (z. B. 20).",
+        },
+      },
     },
   },
   {
@@ -91,17 +97,60 @@ export function createPosteingangHandlers(deps: PosteingangDeps): Record<string,
     },
 
     get_recent_posteingang_messages: async (input) => {
-      const limit = boundedNumber(input.limit, 10, 30);
-      const rows = await runQuery(
+      const requestedLimit = boundedNumber(input.limit, 20, 30);
+      const rows = await runQuery<{
+        id: number;
+        conversation_id: number;
+        direction: string;
+        from_name: string | null;
+        from_email: string | null;
+        subject: string | null;
+        body_text: string | null;
+        sent_at: string | Date | null;
+        conversation_status: string;
+      }>(
         `SELECT m.id, m.conversation_id, m.direction, m.from_name, m.from_email,
-                m.subject, m.body_text, m.sent_at, c.status AS conversation_status
+                m.subject, LEFT(m.body_text, 500) AS body_text, m.sent_at, c.status AS conversation_status
          FROM tour_manager.posteingang_messages m
          JOIN tour_manager.posteingang_conversations c ON c.id = m.conversation_id
          ORDER BY m.sent_at DESC NULLS LAST, m.id DESC
          LIMIT $1`,
-        [limit],
+        [requestedLimit],
       );
-      return { count: rows.length, messages: rows };
+
+      const returnedCount = rows.length;
+      const conversationIds = new Set(rows.map((r) => r.conversation_id));
+      const conversationCount = conversationIds.size;
+
+      let summaryNote: string;
+      if (returnedCount === 0) {
+        summaryNote = "Keine Nachrichten gefunden.";
+      } else if (returnedCount < requestedLimit) {
+        summaryNote = `${returnedCount} Nachricht(en) zurückgegeben (angefordert bis zu ${requestedLimit}); das sind alle aktuell verfügbaren Treffer. Verteilt auf ${conversationCount} Konversation(en).`;
+      } else {
+        summaryNote = `${returnedCount} einzelne Nachrichten (Limit erreicht), aus ${conversationCount} Konversation(en).`;
+      }
+
+      const messages = rows.map((r) => ({
+        id: r.id,
+        conversationId: r.conversation_id,
+        direction: r.direction,
+        fromName: r.from_name,
+        fromEmail: r.from_email,
+        subject: r.subject,
+        bodyPreview: r.body_text,
+        sentAt: r.sent_at instanceof Date ? r.sent_at.toISOString() : r.sent_at,
+        conversationStatus: r.conversation_status,
+      }));
+
+      return {
+        requested_limit: requestedLimit,
+        returned_count: returnedCount,
+        conversation_count: conversationCount,
+        summary_note: summaryNote,
+        count: returnedCount,
+        messages,
+      };
     },
 
     get_open_tasks: async (input) => {

@@ -12,7 +12,14 @@ vi.mock("@/lib/db", () => ({
 
 describe("token limit enforcement", () => {
   it("getAssistantUsageToday sums tokens correctly", async () => {
-    mockQueryOne.mockResolvedValueOnce({ input_tokens: "120000", output_tokens: "30000" });
+    mockQueryOne.mockResolvedValueOnce({
+      today_input: "120000",
+      today_output: "30000",
+      week_input: "200000",
+      week_output: "40000",
+      month_input: "500000",
+      month_output: "100000",
+    });
     const { getAssistantUsageToday } = await import("@/lib/assistant/store");
     const usage = await getAssistantUsageToday("user-1");
     expect(usage.totalTokens).toBe(150_000);
@@ -21,7 +28,7 @@ describe("token limit enforcement", () => {
   });
 
   it("returns zero for new users", async () => {
-    mockQueryOne.mockResolvedValueOnce({ input_tokens: "0", output_tokens: "0" });
+    mockQueryOne.mockResolvedValueOnce(null);
     const { getAssistantUsageToday } = await import("@/lib/assistant/store");
     const usage = await getAssistantUsageToday("new-user");
     expect(usage.totalTokens).toBe(0);

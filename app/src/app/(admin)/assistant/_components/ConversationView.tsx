@@ -7,6 +7,7 @@ import {
   type AssistantModelMode,
   parseAssistantModelMode,
 } from "@/lib/assistant/assistant-model-mode";
+import { formatModelLabel } from "@/lib/assistant/model-router";
 import { VoiceButton } from "./VoiceButton";
 
 type DisplayMessage = {
@@ -77,6 +78,21 @@ type AssistantSettings = {
 
 type ToolInfo = { name: string; description: string };
 type ModelInfo = { id: string; label: string };
+
+type UsagePeriodFooter = { totalTokens: number; costChf: number };
+
+function formatUsageTokens(n: number): string {
+  return new Intl.NumberFormat("de-CH", { maximumFractionDigits: 0 }).format(Math.round(n));
+}
+
+function formatUsageChf(amount: number): string {
+  return new Intl.NumberFormat("de-CH", {
+    style: "currency",
+    currency: "CHF",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
 
 const INPUT_LABELS: Record<string, string> = {
   title: "Titel",
@@ -183,11 +199,22 @@ export function ConversationView() {
   const [error, setError] = useState<{ message: string; code?: ErrorCode } | null>(null);
   const [pendingConfirmation, setPendingConfirmation] = useState<PendingConfirmation | null>(null);
   const [tokenUsage, setTokenUsage] = useState<{ total: number; limit: number }>({ total: 0, limit: 500_000 });
+  const [usagePeriods, setUsagePeriods] = useState<{
+    today: UsagePeriodFooter;
+    week: UsagePeriodFooter;
+    month: UsagePeriodFooter;
+  }>({
+    today: { totalTokens: 0, costChf: 0 },
+    week: { totalTokens: 0, costChf: 0 },
+    month: { totalTokens: 0, costChf: 0 },
+  });
   const [settings, setSettings] = useState<AssistantSettings | null>(null);
   const [availableTools, setAvailableTools] = useState<ToolInfo[]>([]);
   const [availableModels, setAvailableModels] = useState<ModelInfo[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [modelMode, setModelMode] = useState<AssistantModelMode>("auto");
+  /** Last resolved Claude model label for header (streaming updates + last reply). */
+  const [liveModelLabel, setLiveModelLabel] = useState<string | null>(null);
   const historyRef = useRef<unknown[]>([]);
   const conversationIdRef = useRef<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -240,7 +267,10 @@ export function ConversationView() {
 
   async function loadSettings() {
     try {
-      const res = await fetch("/api/assistant/settings", { cache: "no-store" });
+      const [res, resUsage] = await Promise.all([
+        fetch("/api/assistant/settings", { cache: "no-store" }),
+        fetch("/api/assistant/usage", { cache: "no-store" }),
+      ]);
       const data = (await res.json().catch(() => ({}))) as {
         settings?: AssistantSettings;
         usage?: { totalTokens: number };
@@ -248,12 +278,39 @@ export function ConversationView() {
         availableModels?: ModelInfo[];
         isAdmin?: boolean;
       };
+      const usagePayload = (await resUsage.json().catch(() => ({}))) as {
+        today?: { totalTokens?: number; costChf?: number };
+        week?: { totalTokens?: number; costChf?: number };
+        month?: { totalTokens?: number; costChf?: number };
+      };
+
       if (res.ok && data.settings) {
         setSettings(data.settings);
-        setTokenUsage({ total: data.usage?.totalTokens || 0, limit: data.settings.dailyTokenLimit });
+        const todayTotal =
+          resUsage.ok && usagePayload.today?.totalTokens != null
+            ? usagePayload.today.totalTokens
+            : data.usage?.totalTokens || 0;
+        setTokenUsage({ total: todayTotal, limit: data.settings.dailyTokenLimit });
         setAvailableTools(data.availableTools || []);
         setAvailableModels(data.availableModels || []);
         setIsAdmin(Boolean(data.isAdmin));
+      }
+
+      if (resUsage.ok && usagePayload.today && usagePayload.week && usagePayload.month) {
+        setUsagePeriods({
+          today: {
+            totalTokens: usagePayload.today.totalTokens ?? 0,
+            costChf: usagePayload.today.costChf ?? 0,
+          },
+          week: {
+            totalTokens: usagePayload.week.totalTokens ?? 0,
+            costChf: usagePayload.week.costChf ?? 0,
+          },
+          month: {
+            totalTokens: usagePayload.month.totalTokens ?? 0,
+            costChf: usagePayload.month.costChf ?? 0,
+          },
+        });
       }
     } catch { /* non-critical */ }
   }
@@ -434,6 +491,7 @@ export function ConversationView() {
     abortRef.current = controller;
 
     const streamingMsgId = crypto.randomUUID();
+    setLiveModelLabel(null);
     setMessages((current) => [
       ...current,
       { id: streamingMsgId, role: "assistant", content: "", toolCalls: [], isStreaming: true },
@@ -483,7 +541,13 @@ export function ConversationView() {
           let event: Record<string, unknown>;
           try { event = JSON.parse(json); } catch { continue; }
 
-          if (event.type === "text_delta") {
+          if (event.type === "meta") {
+            const label =
+              typeof event.modelLabel === "string" && event.modelLabel.trim()
+                ? event.modelLabel
+                : formatModelLabel(String(event.model ?? ""));
+            if (label.trim()) setLiveModelLabel(label.trim());
+          } else if (event.type === "text_delta") {
             setMessages((current) =>
               current.map((m) =>
                 m.id === streamingMsgId ? { ...m, content: m.content + (event.text as string) } : m,
@@ -510,6 +574,11 @@ export function ConversationView() {
               }),
             );
           } else if (event.type === "done") {
+            const doneLabel =
+              typeof event.modelLabel === "string" && event.modelLabel.trim()
+                ? event.modelLabel.trim()
+                : formatModelLabel(String(event.modelUsed ?? event.model ?? ""));
+            if (doneLabel) setLiveModelLabel(doneLabel);
             setMessages((current) =>
               current.map((m) =>
                 m.id === streamingMsgId
@@ -585,6 +654,7 @@ export function ConversationView() {
         toolCallsExecuted?: Array<{ name: string; durationMs: number; error?: string }>;
         pendingConfirmation?: PendingConfirmation;
         modelUsed?: string;
+        modelLabel?: string;
         escalated?: boolean;
         memorySaved?: boolean;
         modelModeNotice?: string;
@@ -598,6 +668,13 @@ export function ConversationView() {
       setRestoredBanner(false);
       void loadHistory();
       void loadSettings();
+      const resolvedLabel =
+        typeof data.modelLabel === "string" && data.modelLabel.trim()
+          ? data.modelLabel.trim()
+          : data.modelUsed
+            ? formatModelLabel(data.modelUsed)
+            : null;
+      if (resolvedLabel) setLiveModelLabel(resolvedLabel);
       setMessages((current) => [
         ...current,
         {
@@ -701,6 +778,22 @@ export function ConversationView() {
             );
           })}
         </div>
+        {liveModelLabel ? (
+          <div
+            className="order-last w-full shrink-0 text-center text-[11px] text-[var(--text-subtle)] sm:order-none sm:w-auto sm:text-left"
+            title="Zuletzt verwendetes Claude-Modell für die Antwort"
+          >
+            <span className="font-medium text-[var(--text-main)]">Modell:</span>{" "}
+            <span className="rounded-full border border-[var(--border-soft)] bg-[var(--surface-raised)] px-2 py-0.5 font-medium text-[var(--gold-text,var(--accent))]">
+              {liveModelLabel}
+            </span>
+          </div>
+        ) : messages.some((m) => m.isStreaming) ? (
+          <div className="order-last w-full shrink-0 text-center text-[11px] text-[var(--text-subtle)] sm:order-none sm:w-auto sm:text-left">
+            <span className="font-medium text-[var(--text-main)]">Modell:</span>{" "}
+            <span className="animate-pulse">…</span>
+          </div>
+        ) : null}
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -721,6 +814,7 @@ export function ConversationView() {
               setError(null);
               setRestoredBanner(false);
               setPendingConfirmation(null);
+              setLiveModelLabel(null);
             }}
           >
             Neu starten
@@ -774,9 +868,10 @@ export function ConversationView() {
               ) : null}
               {message.modelUsed || message.modelModeNotice ? (
                 <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                  {message.escalated && message.modelUsed ? (
+                  {message.modelUsed ? (
                     <span className="inline-block rounded-full border border-[var(--accent)]/20 bg-[var(--accent)]/5 px-2 py-0.5 text-[10px] text-[var(--gold-text,var(--accent))]">
-                      ⚡ {message.modelUsed.replace("claude-", "").replace(/-\d+(-\d+)?$/, "")}
+                      {message.escalated ? "⚡ " : null}
+                      {formatModelLabel(message.modelUsed)}
                     </span>
                   ) : null}
                   {message.modelModeNotice ? (
@@ -842,12 +937,23 @@ export function ConversationView() {
           </button>
           <VoiceButton disabled={inputDisabled} onTranscript={(text) => void send(text)} onError={(msg) => setError({ message: msg })} />
         </div>
-        <div className="mt-2 flex items-center justify-between">
-          <span className={`text-[11px] ${tokenColor}`}>
-            ~{Math.round(tokenUsage.total / 1000)}k Token heute
-          </span>
+        <div className="mt-2 flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between">
+          <div className="grid w-full max-w-md grid-cols-[auto_1fr_1fr_1fr] gap-x-3 gap-y-0.5 text-[11px] leading-tight">
+            <span className="text-[var(--text-subtle)]" aria-hidden />
+            <span className="text-[var(--text-subtle)]">Heute</span>
+            <span className="text-[var(--text-subtle)]">Diese Woche</span>
+            <span className="text-[var(--text-subtle)]">Dieser Monat</span>
+            <span className="text-[var(--text-subtle)]">Token</span>
+            <span className={`tabular-nums ${tokenColor}`}>{formatUsageTokens(usagePeriods.today.totalTokens)}</span>
+            <span className="tabular-nums text-[var(--text-subtle)]">{formatUsageTokens(usagePeriods.week.totalTokens)}</span>
+            <span className="tabular-nums text-[var(--text-subtle)]">{formatUsageTokens(usagePeriods.month.totalTokens)}</span>
+            <span className="text-[var(--text-subtle)]">Kosten</span>
+            <span className={`tabular-nums ${tokenColor}`}>{formatUsageChf(usagePeriods.today.costChf)}</span>
+            <span className="tabular-nums text-[var(--text-subtle)]">{formatUsageChf(usagePeriods.week.costChf)}</span>
+            <span className="tabular-nums text-[var(--text-subtle)]">{formatUsageChf(usagePeriods.month.costChf)}</span>
+          </div>
           {tokenPct > 80 ? (
-            <span className="text-[11px] text-yellow-500">
+            <span className="shrink-0 text-[11px] text-yellow-500 sm:pt-0.5">
               {Math.round(tokenPct)}% des Tageslimits
             </span>
           ) : null}

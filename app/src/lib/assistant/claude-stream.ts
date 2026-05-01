@@ -1,7 +1,14 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { ToolDefinition, ToolHandler, ToolContext } from "./tools";
 import { toAnthropicTools } from "./tools";
-import { type ModelTier, MODEL_IDS, selectInitialModel, parseTier } from "./model-router";
+import {
+  type ModelTier,
+  MODEL_IDS,
+  selectInitialModel,
+  parseTier,
+  formatModelLabel,
+  inferTierFromAnthropicModelId,
+} from "./model-router";
 
 const MAX_TOKENS = 4096;
 const MAX_TOOL_ITERATIONS = 12;
@@ -126,6 +133,14 @@ export function runAssistantTurnStreaming(input: StreamingTurnInput): {
 
   async function run() {
     try {
+      const tierResolved = inferTierFromAnthropicModelId(model);
+      enqueue({
+        type: "meta",
+        model,
+        modelLabel: formatModelLabel(model),
+        ...(tierResolved ? { tier: tierResolved } : {}),
+      });
+
       for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration += 1) {
         const stream = client.messages.stream({
           model,
@@ -252,7 +267,10 @@ export function runAssistantTurnStreaming(input: StreamingTurnInput): {
         })),
         inputTokens: totalInputTokens,
         outputTokens: totalOutputTokens,
+        model,
         modelUsed: model,
+        modelLabel: formatModelLabel(model),
+        ...(tierResolved ? { tier: tierResolved } : {}),
         escalated,
         memorySaved,
         modelModeRequested: input.responseMeta?.modelModeRequested,

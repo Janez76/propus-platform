@@ -17,7 +17,7 @@ import { createMemory, selectMemoriesForPrompt } from "@/lib/assistant/memory-st
 import { resolveAssistantUser } from "@/lib/assistant/auth";
 import { getAssistantSettings } from "@/lib/assistant/settings";
 import { parseAssistantModelModeFromRequest, resolveAssistantModelForRequest } from "@/lib/assistant/assistant-model-mode";
-import { parseTier } from "@/lib/assistant/model-router";
+import { formatModelLabel, inferTierFromAnthropicModelId, parseTier } from "@/lib/assistant/model-router";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -256,12 +256,16 @@ export async function POST(req: NextRequest) {
         (c.output as Record<string, unknown>).ok === true,
     );
 
+    const modelTierFromId = inferTierFromAnthropicModelId(result.modelUsed);
     const responsePayload: Record<string, unknown> = {
       finalText: result.finalText,
       history: result.history,
       toolCallsExecuted: result.toolCallsExecuted,
       conversationId,
+      model: result.modelUsed,
       modelUsed: result.modelUsed,
+      modelLabel: formatModelLabel(result.modelUsed),
+      ...(modelTierFromId ? { tier: modelTierFromId } : {}),
       escalated: result.escalated,
       memorySaved,
       modelModeRequested: modelResolution.requestedMode,

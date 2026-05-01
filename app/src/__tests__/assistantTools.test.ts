@@ -535,6 +535,73 @@ describe("assistant customer tools", () => {
   });
 });
 
+describe("assistant posteingang recent messages tool", () => {
+  it("defaults to 20 messages, passes limit to SQL, and returns metadata plus mapped rows", async () => {
+    const query = vi.fn().mockResolvedValue([
+      {
+        id: 1,
+        conversation_id: 10,
+        direction: "inbound",
+        from_name: "A",
+        from_email: "a@x.ch",
+        subject: "S1",
+        body_text: "Hi",
+        sent_at: "2026-04-20T10:00:00.000Z",
+        conversation_status: "open",
+      },
+      {
+        id: 2,
+        conversation_id: 10,
+        direction: "outbound",
+        from_name: "Office",
+        from_email: "office@propus.ch",
+        subject: "Re: S1",
+        body_text: "Ok",
+        sent_at: "2026-04-19T09:00:00.000Z",
+        conversation_status: "open",
+      },
+      {
+        id: 3,
+        conversation_id: 11,
+        direction: "inbound",
+        from_name: "B",
+        from_email: "b@y.ch",
+        subject: "S2",
+        body_text: "Ping",
+        sent_at: "2026-04-18T08:00:00.000Z",
+        conversation_status: "open",
+      },
+    ]);
+
+    const handlers = createPosteingangHandlers({ query });
+    const result = (await handlers.get_recent_posteingang_messages({}, { userId: "u", userEmail: "u@example.com" })) as Record<
+      string,
+      unknown
+    >;
+
+    expect(query).toHaveBeenCalledWith(expect.stringContaining("LIMIT $1"), [20]);
+    expect(result.requested_limit).toBe(20);
+    expect(result.returned_count).toBe(3);
+    expect(result.conversation_count).toBe(2);
+    expect(typeof result.summary_note).toBe("string");
+    expect(result.count).toBe(3);
+    expect(Array.isArray(result.messages)).toBe(true);
+    expect((result.messages as unknown[])[0]).toMatchObject({
+      id: 1,
+      conversationId: 10,
+      direction: "inbound",
+      bodyPreview: "Hi",
+    });
+  });
+
+  it("respects explicit limit up to 30", async () => {
+    const query = vi.fn().mockResolvedValue([]);
+    const handlers = createPosteingangHandlers({ query });
+    await handlers.get_recent_posteingang_messages({ limit: 25 }, { userId: "u", userEmail: "u@example.com" });
+    expect(query).toHaveBeenCalledWith(expect.stringContaining("LIMIT $1"), [25]);
+  });
+});
+
 describe("assistant posteingang detail tools", () => {
   it("get_posteingang_conversation_detail returns thread with messages and tags", async () => {
     const query = vi.fn()
