@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei jeder Änderung an Tour-Status, Matterport-Integration, Verlängerungs- oder Archivierungs-Logik dieses Dokument aktualisieren. **Produkt-Workflow (Regeln, Reminder-Stufen, Preise):** [WORKFLOW_TOURS.md](./WORKFLOW_TOURS.md) — bei Abweichungen beide Dateien abstimmen.
 
-*Zuletzt aktualisiert: April 2026 (§16 Portal-Auth: Unified Login + Session-Bridge; Galerie/NAS: Migrationen 031–032, 038 (friendly_slug); Admin `/api/tours/admin/galleries` NAS-Import; öffentlich `/api/listing/...` Video/Grundriss/ZIP; Bestellung nachträglich verknüpfen via Tour-Detail Intern-Sektion; Bank-Import: Vorschau/Multi-Upload, Bestellungssuche zur Rechnungszuordnung; Bestellungs-Admin: Finanzblock «Rechnungen & Zahlungen»; Bereinigungslauf: CUSTOMER_ACCEPTED_AWAITING_PAYMENT-Label + termEndFormatted-Fix; Matterport-State-Cron: POST /api/tours/cron/sync-matterport-state alle 5 Min; Rechnung löschen mit Workflow-Reset; Reaktivierung ohne Rechnung (Admin-Kulanz); Bereinigungslauf-Widget in Tour-Detail; Cleanup-Dashboard mit Matterport-Reaktivierung, 30-Tage-Löschvormerkung, Lösch-Cron und Gutschein-Nachversand; Gelesen-Tracking via `last_accessed_at` in `cleanup_sessions`; Erinnerungs-Batch `batch-reminder` für bereits kontaktierte Kunden ohne Aktion; Bulk-Delete: Exxas Hosting VR Tour Matterport 500xxx + Renewal CHF 63.80 offen/überfällig; Listing-Editor: Auto-Fill Kundenordner + Freigabe-Link nach Bestell-Auswahl via `?orderNo`-Override auf `nas-context`; Bestell-Kontakt-Fallback (Sentinel-ID −1) wenn Kunde keine gespeicherten Kontakte hat; NAS-Vorschläge: Raw-Material-Ordner im Editor ausgeblendet; Kundenordner-Vorschlag zeigt auf `/Finale`-Unterordner wenn vorhanden; Status-Wechsel im Listing-Editor wird sofort via PATCH persistiert; `getGallery()` akzeptiert UUID oder Slug — Admin-Routen mit `:id`-Parameter funktionieren nun auch mit Slug-URLs; Public-Listing: Websize-only Galerie (strikt nur Websize-Bilder, Fallback auf Deduplizierung), nur ein Download-Button «Alle Medien herunterladen», `GalleryMediaSummary` im Payload, Lightbox-Chrome-Fix, Feedback→Ticket-Integration (`gallery_anmerkung`); Friendly-Slug-URLs: automatisch generierte leserliche URLs `<plz>-<ort>-<bestellnr>` mit Fallback auf Zufalls-Slug)*
+*Zuletzt aktualisiert: Mai 2026 (§17 Posteingang: Admin-JSON-API unter `/api/tours/admin/posteingang`, Graph-Mail löschen `DELETE …/messages/:messageId`; §16 Portal-Auth: Unified Login + Session-Bridge; Galerie/NAS: Migrationen 031–032, 038 (friendly_slug); Admin `/api/tours/admin/galleries` NAS-Import; öffentlich `/api/listing/...` Video/Grundriss/ZIP; Bestellung nachträglich verknüpfen via Tour-Detail Intern-Sektion; Bank-Import: Vorschau/Multi-Upload, Bestellungssuche zur Rechnungszuordnung; Bestellungs-Admin: Finanzblock «Rechnungen & Zahlungen»; Bereinigungslauf: CUSTOMER_ACCEPTED_AWAITING_PAYMENT-Label + termEndFormatted-Fix; Matterport-State-Cron: POST /api/tours/cron/sync-matterport-state alle 5 Min; Rechnung löschen mit Workflow-Reset; Reaktivierung ohne Rechnung (Admin-Kulanz); Bereinigungslauf-Widget in Tour-Detail; Cleanup-Dashboard mit Matterport-Reaktivierung, 30-Tage-Löschvormerkung, Lösch-Cron und Gutschein-Nachversand; Gelesen-Tracking via `last_accessed_at` in `cleanup_sessions`; Erinnerungs-Batch `batch-reminder` für bereits kontaktierte Kunden ohne Aktion; Bulk-Delete: Exxas Hosting VR Tour Matterport 500xxx + Renewal CHF 63.80 offen/überfällig; Listing-Editor: Auto-Fill Kundenordner + Freigabe-Link nach Bestell-Auswahl via `?orderNo`-Override auf `nas-context`; Bestell-Kontakt-Fallback (Sentinel-ID −1) wenn Kunde keine gespeicherten Kontakte hat; NAS-Vorschläge: Raw-Material-Ordner im Editor ausgeblendet; Kundenordner-Vorschlag zeigt auf `/Finale`-Unterordner wenn vorhanden; Status-Wechsel im Listing-Editor wird sofort via PATCH persistiert; `getGallery()` akzeptiert UUID oder Slug — Admin-Routen mit `:id`-Parameter funktionieren nun auch mit Slug-URLs; Public-Listing: Websize-only Galerie (strikt nur Websize-Bilder, Fallback auf Deduplizierung), nur ein Download-Button «Alle Medien herunterladen», `GalleryMediaSummary` im Payload, Lightbox-Chrome-Fix, Feedback→Ticket-Integration (`gallery_anmerkung`); Friendly-Slug-URLs: automatisch generierte leserliche URLs `<plz>-<ort>-<bestellnr>` mit Fallback auf Zufalls-Slug)*
 
 ---
 
@@ -24,6 +24,7 @@
 14. [Listing / Kunden-Galerie (Magic-Link)](#14-listing--kunden-galerie-magic-link)
 15. [Bereinigungslauf (Cleanup)](#15-bereinigungslauf-cleanup)
 16. [Portal-Auth: Unified Login & Session-Bridge](#16-portal-auth-unified-login--session-bridge)
+17. [Posteingang (Admin, Microsoft Graph)](#17-posteingang-admin-microsoft-graph)
 
 ---
 
@@ -607,6 +608,8 @@ Dedizierte Cron-Endpunkte mit `X-Cron-Secret`-Header-Auth (kein Admin-Login nöt
 |---|---|---|
 | `POST /api/tours/cron/sync-matterport-state` | `*/5 * * * *` (alle 5 Min) | `matterport_state` aller Touren via `listModels()` aktualisieren |
 | `POST /api/tours/cron/process-pending-deletions` | frei planbar (empfohlen: alle 5–15 Min) | Führt fällige Löschvormerkungen aus und löscht zuerst Matterport, dann den Tour-Datensatz |
+| `POST /api/tours/cron/sync-posteingang` | z. B. alle 1–2 Min (optional) | Posteingang: Graph-Delta Inbox + Sentitems (`tours/lib/posteingang-sync.js`) |
+| `POST /api/tours/cron/posteingang-triggers` | z. B. stündlich (optional) | Auto-Trigger (ablaufende Touren, überfällige Rechnungen, Tag «Neukunde?») |
 
 **Auth:** `X-Cron-Secret: <CRON_SECRET>` (Wert aus `/opt/propus-platform/.env.vps`)
 
@@ -1213,3 +1216,45 @@ Portal-Kunden können ihr Passwort über `/login` → «Passwort vergessen?» zu
 - Fire-and-forget-Pattern verhindert E-Mail-Enumeration via Timing
 
 Vollständige Auth-Dokumentation: [docs/FLOWS_AUTH.md](./FLOWS_AUTH.md)
+
+---
+
+## 17. Posteingang (Admin, Microsoft Graph)
+
+Zentrales E-Mail-/Konversations-Modul im Admin-Panel. **Express-Mount:** `platform/server.js` — JSON-Router `tours/routes/posteingang-admin-api.js` unter **`/api/tours/admin/posteingang`** (Admin-Session wie übrige Tour-Admin-API).
+
+**React:** `/admin/posteingang`, `/admin/posteingang/:id`, `/admin/posteingang/aufgaben` — `app/src/pages-legacy/admin/posteingang/`, Aufrufe über `app/src/api/toursAdmin.ts` (Pfade relativ zu `/api/tours/admin`).
+
+### Admin-JSON-Endpunkte (Prefix `/api/tours/admin/posteingang`)
+
+| Methode | Suffix | Zweck |
+|---|---|---|
+| `GET` | `/conversations` | Liste (`status`, `assigned`, `customer_id`, `search`, `page`, `limit`) |
+| `GET` | `/conversations/:id` | Detail inkl. Messages, Tasks, Tags |
+| `POST` | `/conversations` | Neue interne Konversation |
+| `PATCH` | `/conversations/:id` | Status, Priorität, Zuweisung, Kunde, … |
+| `DELETE` | `/conversations/:id/messages/:messageId` | **Microsoft Graph:** Nachricht im Postfach löschen, lokale Zeile entfernen (nur synchronisierte E-Mail mit `graph_message_id`) |
+| `POST` | `/conversations/:id/messages` | E-Mail-Antwort (Graph Reply-Draft) oder interne Notiz (`mode`: `internal_note` / `note`) |
+| `POST` | `/conversations/:id/tags` | Tag hinzufügen |
+| `DELETE` | `/conversations/:id/tags/:name` | Tag entfernen |
+| `GET` | `/tasks` | Aufgaben-Liste |
+| `POST` | `/tasks` | Neue Aufgabe |
+| `PATCH` | `/tasks/:id` | Aufgabe aktualisieren |
+| `DELETE` | `/tasks/:id` | Aufgabe löschen |
+| `POST` | `/sync/pull` | Manueller Graph-Delta-Sync (Body/Query: `mailbox`) |
+| `GET` | `/stats` | Kurzstatistiken |
+| `GET` | `/messages/:messageId/attachments` | Anhänge einer Nachricht |
+| `GET` | `/admin-users` | Admin-Liste für Zuweisung |
+| `POST` | `/run-triggers` | Auto-Trigger manuell (`tours/lib/posteingang-triggers.js`) |
+
+### Webhook & Cron (ohne Admin-Session)
+
+| Methode | Pfad | Zweck |
+|---|---|---|
+| `POST` | `/api/tours/posteingang/webhook` | Microsoft Graph Subscription Notifications (`tours/routes/posteingang-webhook.js`) |
+| `POST` | `/api/tours/cron/sync-posteingang` | Geplanter Pull (s. §10 Tabelle) |
+| `POST` | `/api/tours/cron/posteingang-triggers` | Geplante Trigger (s. §10 Tabelle) |
+
+**Backend-Module:** `tours/lib/posteingang-store.js`, `posteingang-sync.js`, `posteingang-triggers.js`, `posteingang-match.js`, `tours/lib/microsoft-graph.js`.
+
+Produkt-Spez und Phasenplan: **[POSTEINGANG.md](./POSTEINGANG.md)** (API-Pfade dort an die Tabelle in diesem Abschnitt anbinden).
