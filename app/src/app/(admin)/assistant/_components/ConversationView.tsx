@@ -10,7 +10,9 @@ import {
   ChevronDown,
   Copy,
   GraduationCap,
+  History as HistoryIcon,
   Loader2,
+  RotateCcw,
   Search,
   Send,
   Settings,
@@ -225,6 +227,7 @@ export function ConversationView() {
   const [createdToken, setCreatedToken] = useState<string | null>(null);
   const [tokenBusy, setTokenBusy] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [historySheetOpen, setHistorySheetOpen] = useState(false);
   const [restoredBanner, setRestoredBanner] = useState(false);
   const [textInput, setTextInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -434,6 +437,7 @@ export function ConversationView() {
       setRestoredBanner(true);
       setError(null);
       setPendingConfirmation(null);
+      setHistorySheetOpen(false);
     } catch { /* non-critical */ }
   }
 
@@ -792,9 +796,9 @@ export function ConversationView() {
   const tokenColor = tokenPct > 95 ? "text-red-500" : tokenPct > 80 ? "text-yellow-500" : "text-[var(--text-subtle)]";
 
   return (
-    <section className="flex h-[calc(100dvh-1rem)] min-h-0 min-w-0 max-w-full flex-col overflow-hidden rounded-xl border border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))] shadow-sm sm:h-[calc(100dvh-1.5rem)] sm:rounded-2xl lg:grid lg:h-[calc(100vh-3rem)] lg:grid-cols-[minmax(0,1fr)_320px]">
-      <div className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col max-lg:min-h-0 lg:h-full lg:min-h-0 lg:overflow-hidden">
-      <header className="relative flex flex-col gap-3 border-b border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))] px-3 py-3 sm:px-5 sm:py-4 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
+    <section className="relative grid h-[calc(100dvh-1rem)] min-h-0 min-w-0 max-w-full grid-cols-1 grid-rows-1 overflow-hidden rounded-xl border border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))] shadow-sm sm:h-[calc(100dvh-1.5rem)] sm:rounded-2xl lg:h-[calc(100vh-3rem)] lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="flex min-h-0 min-w-0 max-w-full flex-col">
+      <header className="relative border-b border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))]">
         {memoryToast ? (
           <div
             className="absolute left-1/2 top-full z-10 mt-2 -translate-x-1/2 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-4 py-1.5 text-xs font-medium text-emerald-100 shadow-md"
@@ -803,73 +807,68 @@ export function ConversationView() {
             Erinnerung gespeichert
           </div>
         ) : null}
-        <div className="flex w-full min-w-0 items-center justify-between gap-2 lg:w-auto lg:max-w-[55%]">
-        <div className="min-w-0 shrink-0">
-          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--gold-text,var(--accent))]">Propus</div>
-          <h1 className="text-xl font-semibold text-[var(--text-main)]">Assistant</h1>
-        </div>
-        <div
-          className="flex max-w-full min-w-0 shrink flex-wrap items-center justify-end gap-0.5 rounded-full border border-[var(--border-soft)] bg-[var(--surface)] p-0.5 sm:justify-center"
-          role="radiogroup"
-          aria-label="Modellmodus für Anfragen"
-        >
-          {(
-            [
-              { key: "auto" as const, label: "Auto", labelShort: "Auto", title: "Standard: Haiku startet und kann bis zum Server-Maximum eskalieren" },
-              { key: "sonnet" as const, label: "Sonnet fix", labelShort: "Sonn.", title: "Fix auf Sonnet (oder tiefer bei Server-Limit), ohne Auto-Eskalation" },
-              { key: "opus" as const, label: "Opus fix", labelShort: "Opus", title: "Fix auf Opus (oder tiefer bei Server-Limit), ohne Auto-Eskalation" },
-            ] as const
-          ).map((opt) => {
-            const active = modelMode === opt.key;
-            return (
-              <button
-                key={opt.key}
-                type="button"
-                role="radio"
-                aria-checked={active}
-                title={opt.title}
-                onClick={() => persistModelMode(opt.key)}
-                className={`rounded-full px-2 py-1 text-[11px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-card,var(--surface))] sm:px-2.5 ${
-                  active
-                    ? "bg-[var(--accent)] text-[var(--gold-on-gold)]"
-                    : "text-[var(--text-subtle)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-main)]"
-                }`}
-              >
-                <span className="sm:hidden">{opt.labelShort}</span>
-                <span className="hidden sm:inline">{opt.label}</span>
-              </button>
-            );
-          })}
-        </div>
-        </div>
-        {liveModelLabel ? (
+
+        {/* Mobile: kompakter Single-Row Header */}
+        <div className="flex items-center gap-2 px-3 py-2.5 lg:hidden">
+          <div className="flex min-w-0 shrink items-baseline gap-1.5">
+            <span className="truncate text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--gold-text,var(--accent))]">Propus</span>
+            <h1 className="truncate text-sm font-semibold text-[var(--text-main)]">Assistant</h1>
+          </div>
           <div
-            className="w-full min-w-0 shrink-0 text-center text-[11px] text-[var(--text-subtle)] lg:w-auto lg:text-left"
-            title="Zuletzt verwendetes Claude-Modell für die Antwort"
+            className="ml-auto flex shrink-0 items-center gap-0.5 rounded-full border border-[var(--border-soft)] bg-[var(--surface)] p-0.5"
+            role="radiogroup"
+            aria-label="Modellmodus für Anfragen"
           >
-            <span className="font-medium text-[var(--text-main)]">Modell:</span>{" "}
-            <span className="rounded-full border border-[var(--border-soft)] bg-[var(--surface-raised)] px-2 py-0.5 font-medium text-[var(--gold-text,var(--accent))]">
-              {liveModelLabel}
-            </span>
+            {(
+              [
+                { key: "auto" as const, labelShort: "Auto", title: "Standard: Haiku startet und kann bis zum Server-Maximum eskalieren" },
+                { key: "sonnet" as const, labelShort: "Son.", title: "Fix auf Sonnet (oder tiefer bei Server-Limit), ohne Auto-Eskalation" },
+                { key: "opus" as const, labelShort: "Opus", title: "Fix auf Opus (oder tiefer bei Server-Limit), ohne Auto-Eskalation" },
+              ] as const
+            ).map((opt) => {
+              const active = modelMode === opt.key;
+              return (
+                <button
+                  key={opt.key}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  title={opt.title}
+                  onClick={() => persistModelMode(opt.key)}
+                  className={`rounded-full px-2 py-1 text-[10px] font-semibold transition ${
+                    active
+                      ? "bg-[var(--accent)] text-[var(--gold-on-gold)]"
+                      : "text-[var(--text-subtle)] hover:text-[var(--text-main)]"
+                  }`}
+                >
+                  {opt.labelShort}
+                </button>
+              );
+            })}
           </div>
-        ) : messages.some((m) => m.isStreaming) ? (
-          <div className="w-full min-w-0 shrink-0 text-center text-[11px] text-[var(--text-subtle)] lg:w-auto lg:text-left">
-            <span className="font-medium text-[var(--text-main)]">Modell:</span>{" "}
-            <span className="animate-pulse">…</span>
-          </div>
-        ) : null}
-        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 sm:justify-start lg:ml-auto">
           <button
             type="button"
-            className="rounded-full border border-[var(--border-soft)] bg-[var(--surface)] p-2 text-[var(--text-subtle)] transition hover:border-[var(--accent)]/40 hover:bg-[var(--surface-raised)] hover:text-[var(--text-main)]"
+            onClick={() => setHistorySheetOpen(true)}
+            className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--text-subtle)] transition hover:bg-[var(--surface-raised)] hover:text-[var(--text-main)]"
+            title="Verlauf, Erinnerungen & Mobile-Zugang"
+            aria-label="Verlauf öffnen"
+          >
+            <HistoryIcon className="h-4 w-4" />
+            {historyItems.length > 0 ? (
+              <span className="absolute right-1 top-1 inline-flex h-1.5 w-1.5 rounded-full bg-[var(--accent)]" aria-hidden />
+            ) : null}
+          </button>
+          <button
+            type="button"
             onClick={() => setShowSettings(true)}
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--text-subtle)] transition hover:bg-[var(--surface-raised)] hover:text-[var(--text-main)]"
             title="Einstellungen"
+            aria-label="Einstellungen"
           >
             <Settings className="h-4 w-4" />
           </button>
           <button
             type="button"
-            className="rounded-full border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-1.5 text-sm text-[var(--text-subtle)] transition hover:border-[var(--accent)]/40 hover:bg-[var(--surface-raised)] hover:text-[var(--text-main)] disabled:opacity-40"
             disabled={messages.length === 0}
             onClick={() => {
               setMessages([]);
@@ -880,9 +879,96 @@ export function ConversationView() {
               setPendingConfirmation(null);
               setLiveModelLabel(null);
             }}
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--text-subtle)] transition hover:bg-[var(--surface-raised)] hover:text-[var(--text-main)] disabled:opacity-30 disabled:hover:bg-transparent"
+            title="Neu starten"
+            aria-label="Neu starten"
           >
-            Neu starten
+            <RotateCcw className="h-4 w-4" />
           </button>
+        </div>
+
+        {/* Desktop: bisheriger 2-zeiliger Header */}
+        <div className="hidden flex-col gap-3 px-5 py-4 lg:flex lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
+          <div className="flex w-full min-w-0 items-center justify-between gap-2 lg:w-auto lg:max-w-[55%]">
+            <div className="min-w-0 shrink-0">
+              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--gold-text,var(--accent))]">Propus</div>
+              <h1 className="text-xl font-semibold text-[var(--text-main)]">Assistant</h1>
+            </div>
+            <div
+              className="flex max-w-full min-w-0 shrink flex-wrap items-center justify-end gap-0.5 rounded-full border border-[var(--border-soft)] bg-[var(--surface)] p-0.5 sm:justify-center"
+              role="radiogroup"
+              aria-label="Modellmodus für Anfragen"
+            >
+              {(
+                [
+                  { key: "auto" as const, label: "Auto", title: "Standard: Haiku startet und kann bis zum Server-Maximum eskalieren" },
+                  { key: "sonnet" as const, label: "Sonnet fix", title: "Fix auf Sonnet (oder tiefer bei Server-Limit), ohne Auto-Eskalation" },
+                  { key: "opus" as const, label: "Opus fix", title: "Fix auf Opus (oder tiefer bei Server-Limit), ohne Auto-Eskalation" },
+                ] as const
+              ).map((opt) => {
+                const active = modelMode === opt.key;
+                return (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    title={opt.title}
+                    onClick={() => persistModelMode(opt.key)}
+                    className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-card,var(--surface))] ${
+                      active
+                        ? "bg-[var(--accent)] text-[var(--gold-on-gold)]"
+                        : "text-[var(--text-subtle)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-main)]"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          {liveModelLabel ? (
+            <div
+              className="w-full min-w-0 shrink-0 text-center text-[11px] text-[var(--text-subtle)] lg:w-auto lg:text-left"
+              title="Zuletzt verwendetes Claude-Modell für die Antwort"
+            >
+              <span className="font-medium text-[var(--text-main)]">Modell:</span>{" "}
+              <span className="rounded-full border border-[var(--border-soft)] bg-[var(--surface-raised)] px-2 py-0.5 font-medium text-[var(--gold-text,var(--accent))]">
+                {liveModelLabel}
+              </span>
+            </div>
+          ) : messages.some((m) => m.isStreaming) ? (
+            <div className="w-full min-w-0 shrink-0 text-center text-[11px] text-[var(--text-subtle)] lg:w-auto lg:text-left">
+              <span className="font-medium text-[var(--text-main)]">Modell:</span>{" "}
+              <span className="animate-pulse">…</span>
+            </div>
+          ) : null}
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 sm:justify-start lg:ml-auto">
+            <button
+              type="button"
+              className="rounded-full border border-[var(--border-soft)] bg-[var(--surface)] p-2 text-[var(--text-subtle)] transition hover:border-[var(--accent)]/40 hover:bg-[var(--surface-raised)] hover:text-[var(--text-main)]"
+              onClick={() => setShowSettings(true)}
+              title="Einstellungen"
+            >
+              <Settings className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              className="rounded-full border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-1.5 text-sm text-[var(--text-subtle)] transition hover:border-[var(--accent)]/40 hover:bg-[var(--surface-raised)] hover:text-[var(--text-main)] disabled:opacity-40"
+              disabled={messages.length === 0}
+              onClick={() => {
+                setMessages([]);
+                historyRef.current = [];
+                conversationIdRef.current = null;
+                setError(null);
+                setRestoredBanner(false);
+                setPendingConfirmation(null);
+                setLiveModelLabel(null);
+              }}
+            >
+              Neu starten
+            </button>
+          </div>
         </div>
       </header>
 
@@ -894,16 +980,29 @@ export function ConversationView() {
         ) : null}
 
         {messages.length === 0 ? (
-          <div className="mx-auto flex max-w-xl flex-col items-center justify-center py-24 text-center">
+          <div className="mx-auto flex max-w-xl flex-col items-center justify-center py-12 text-center sm:py-24">
             <Bot className="mb-4 h-10 w-10 text-[var(--gold-text,var(--accent))]" />
             <h2 className="text-lg font-semibold text-[var(--text-main)]">Frag mich nach Aufträgen, Touren oder Posteingang.</h2>
             <p className="mt-2 text-sm text-[var(--text-subtle)]">
               Ich kann Daten lesen und auf Wunsch Aufgaben, Tickets und Notizen erstellen oder Statusänderungen vorschlagen — mit Bestätigung.
             </p>
-            <div className="mt-6 grid gap-2 text-sm text-[var(--text-subtle)]">
-              <span>„Welche Aufträge habe ich heute?"</span>
-              <span>„Erstelle ein Ticket für Tour 123: Startpunkt anpassen"</span>
-              <span>„Setze Auftrag 456 auf erledigt"</span>
+            <div className="mt-6 flex w-full flex-wrap justify-center gap-2">
+              {[
+                "Welche Aufträge habe ich heute?",
+                "Zeig mir den Posteingang von heute",
+                "Welche Touren laufen aktuell?",
+                "Welche Tickets sind offen?",
+              ].map((prompt) => (
+                <button
+                  key={prompt}
+                  type="button"
+                  disabled={inputDisabled}
+                  onClick={() => void send(prompt)}
+                  className="rounded-full border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--text-main)] transition hover:border-[var(--accent)]/40 hover:bg-[var(--accent)]/5 hover:text-[var(--gold-text,var(--accent))] disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
+                >
+                  {prompt}
+                </button>
+              ))}
             </div>
           </div>
         ) : null}
@@ -975,64 +1074,109 @@ export function ConversationView() {
         ) : null}
       </div>
 
-      <footer className="shrink-0 border-t border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))] px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-5 sm:py-4">
-        <div className="flex min-w-0 flex-row flex-wrap items-center gap-2 sm:gap-3">
-          <input
-            className="min-h-11 min-w-0 flex-1 basis-[min(100%,12rem)] rounded-full border border-[var(--border-soft)] bg-[var(--surface)] px-4 py-2.5 text-sm text-[var(--text-main)] outline-none placeholder:text-[var(--text-subtle)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20 disabled:opacity-50 sm:min-w-[12rem]"
-            value={textInput}
-            onChange={(event) => setTextInput(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey) {
-                event.preventDefault();
-                submitText();
-              }
-            }}
-            placeholder={pendingConfirmation ? "Bitte bestätige oder brich die Aktion ab …" : "Nach Aufträgen, Touren oder Posteingang fragen ..."}
-            disabled={inputDisabled}
-          />
-          <button
-            type="button"
-            onClick={submitText}
-            disabled={inputDisabled || !textInput.trim()}
-            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-[var(--gold-on-gold)] transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Send className="h-4 w-4" />
-            Senden
-          </button>
-          <div className="lg:hidden">
+      <footer className="border-t border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))] px-3 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] sm:px-5 sm:py-4">
+        {/* Mobile: Single-Pill mit Mic + Input + Send */}
+        <div className="lg:hidden">
+          <div className="flex min-w-0 items-center gap-1 rounded-full border border-[var(--border-soft)] bg-[var(--surface)] py-1 pl-1 pr-1.5 focus-within:border-[var(--accent)] focus-within:ring-2 focus-within:ring-[var(--accent)]/20">
             <VoiceButton
+              variant="icon"
               disabled={inputDisabled}
-              compact
               onTranscript={(text) => void send(text)}
               onError={(msg) => setError({ message: msg })}
             />
+            <input
+              className="min-w-0 flex-1 bg-transparent px-1 py-2 text-sm text-[var(--text-main)] outline-none placeholder:text-[var(--text-subtle)] disabled:opacity-50"
+              value={textInput}
+              onChange={(event) => setTextInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  submitText();
+                }
+              }}
+              placeholder={pendingConfirmation ? "Bestätigen oder abbrechen …" : "Nachricht …"}
+              disabled={inputDisabled}
+            />
+            <button
+              type="button"
+              onClick={submitText}
+              disabled={inputDisabled || !textInput.trim()}
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-[var(--gold-on-gold)] transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+              aria-label="Senden"
+              title="Senden"
+            >
+              <Send className="h-4 w-4" />
+            </button>
           </div>
-          <div className="hidden lg:contents">
-            <VoiceButton disabled={inputDisabled} onTranscript={(text) => void send(text)} onError={(msg) => setError({ message: msg })} />
+          <div className="mt-1.5 flex items-center justify-between gap-2 text-[10px] text-[var(--text-subtle)]">
+            <span className="min-w-0 truncate">
+              {liveModelLabel ? (
+                <>
+                  <span className="text-[var(--text-main)]">Modell:</span>{" "}
+                  <span className="text-[var(--gold-text,var(--accent))]">{liveModelLabel}</span>
+                  <span className="mx-1.5 opacity-40">·</span>
+                </>
+              ) : null}
+              <span className={`tabular-nums ${tokenColor}`}>
+                {formatUsageTokens(usagePeriods.today.totalTokens)} Tok / {formatUsageChf(usagePeriods.today.costChf)} heute
+              </span>
+            </span>
+            {tokenPct > 80 ? (
+              <span className="shrink-0 text-yellow-500">{Math.round(tokenPct)}%</span>
+            ) : null}
           </div>
         </div>
-        <div className="mt-2 flex min-w-0 flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0 max-w-full overflow-x-auto [-webkit-overflow-scrolling:touch]">
-          <div className="grid w-full min-w-[16rem] max-w-full grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] gap-x-2 gap-y-0.5 text-[10px] leading-tight sm:min-w-0 sm:max-w-md sm:gap-x-3 sm:text-[11px]">
-            <span className="text-[var(--text-subtle)]" aria-hidden />
-            <span className="text-[var(--text-subtle)]">Heute</span>
-            <span className="text-[var(--text-subtle)]">Diese Woche</span>
-            <span className="text-[var(--text-subtle)]">Dieser Monat</span>
-            <span className="text-[var(--text-subtle)]">Token</span>
-            <span className={`tabular-nums ${tokenColor}`}>{formatUsageTokens(usagePeriods.today.totalTokens)}</span>
-            <span className="tabular-nums text-[var(--text-subtle)]">{formatUsageTokens(usagePeriods.week.totalTokens)}</span>
-            <span className="tabular-nums text-[var(--text-subtle)]">{formatUsageTokens(usagePeriods.month.totalTokens)}</span>
-            <span className="text-[var(--text-subtle)]">Kosten</span>
-            <span className={`tabular-nums ${tokenColor}`}>{formatUsageChf(usagePeriods.today.costChf)}</span>
-            <span className="tabular-nums text-[var(--text-subtle)]">{formatUsageChf(usagePeriods.week.costChf)}</span>
-            <span className="tabular-nums text-[var(--text-subtle)]">{formatUsageChf(usagePeriods.month.costChf)}</span>
+
+        {/* Desktop: Bisherige Footer-Struktur */}
+        <div className="hidden lg:block">
+          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+            <input
+              className="min-h-11 min-w-0 w-full flex-1 rounded-full border border-[var(--border-soft)] bg-[var(--surface)] px-4 py-2.5 text-sm text-[var(--text-main)] outline-none placeholder:text-[var(--text-subtle)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20 disabled:opacity-50 sm:min-w-[12rem]"
+              value={textInput}
+              onChange={(event) => setTextInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  submitText();
+                }
+              }}
+              placeholder={pendingConfirmation ? "Bitte bestätige oder brich die Aktion ab …" : "Nach Aufträgen, Touren oder Posteingang fragen ..."}
+              disabled={inputDisabled}
+            />
+            <button
+              type="button"
+              onClick={submitText}
+              disabled={inputDisabled || !textInput.trim()}
+              className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-[var(--gold-on-gold)] transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Send className="h-4 w-4" />
+              Senden
+            </button>
+            <VoiceButton disabled={inputDisabled} onTranscript={(text) => void send(text)} onError={(msg) => setError({ message: msg })} />
           </div>
+          <div className="mt-2 flex min-w-0 flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0 max-w-full overflow-x-auto [-webkit-overflow-scrolling:touch]">
+              <div className="grid w-full min-w-[16rem] max-w-full grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] gap-x-2 gap-y-0.5 text-[10px] leading-tight sm:min-w-0 sm:max-w-md sm:gap-x-3 sm:text-[11px]">
+                <span className="text-[var(--text-subtle)]" aria-hidden />
+                <span className="text-[var(--text-subtle)]">Heute</span>
+                <span className="text-[var(--text-subtle)]">Diese Woche</span>
+                <span className="text-[var(--text-subtle)]">Dieser Monat</span>
+                <span className="text-[var(--text-subtle)]">Token</span>
+                <span className={`tabular-nums ${tokenColor}`}>{formatUsageTokens(usagePeriods.today.totalTokens)}</span>
+                <span className="tabular-nums text-[var(--text-subtle)]">{formatUsageTokens(usagePeriods.week.totalTokens)}</span>
+                <span className="tabular-nums text-[var(--text-subtle)]">{formatUsageTokens(usagePeriods.month.totalTokens)}</span>
+                <span className="text-[var(--text-subtle)]">Kosten</span>
+                <span className={`tabular-nums ${tokenColor}`}>{formatUsageChf(usagePeriods.today.costChf)}</span>
+                <span className="tabular-nums text-[var(--text-subtle)]">{formatUsageChf(usagePeriods.week.costChf)}</span>
+                <span className="tabular-nums text-[var(--text-subtle)]">{formatUsageChf(usagePeriods.month.costChf)}</span>
+              </div>
+            </div>
+            {tokenPct > 80 ? (
+              <span className="shrink-0 text-[11px] text-yellow-500 sm:pt-0.5">
+                {Math.round(tokenPct)}% des Tageslimits
+              </span>
+            ) : null}
           </div>
-          {tokenPct > 80 ? (
-            <span className="shrink-0 text-[11px] text-yellow-500 sm:pt-0.5">
-              {Math.round(tokenPct)}% des Tageslimits
-            </span>
-          ) : null}
         </div>
       </footer>
       </div>
@@ -1125,10 +1269,35 @@ export function ConversationView() {
         </div>
       ) : null}
 
-      <aside className="flex min-h-0 min-w-0 max-h-[min(42dvh,48svh)] shrink-0 flex-col border-t border-[var(--border-soft)] bg-[var(--surface)]/80 max-lg:overflow-y-auto max-lg:overscroll-y-contain lg:max-h-none lg:h-full lg:shrink lg:overflow-hidden lg:border-l lg:border-t-0">
-        <div className="border-b border-[var(--border-soft)] px-4 py-4">
-          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-subtle)]">Verlauf</div>
-          <h2 className="mt-1 text-sm font-semibold text-[var(--text-main)]">Letzte 20 Chats</h2>
+      {historySheetOpen ? (
+        <button
+          type="button"
+          aria-label="Verlauf schließen"
+          onClick={() => setHistorySheetOpen(false)}
+          className="fixed inset-0 z-30 bg-black/40 lg:hidden"
+        />
+      ) : null}
+
+      <aside
+        className={`flex min-h-0 min-w-0 flex-col bg-[var(--surface-card,var(--surface))] lg:border-l lg:border-[var(--border-soft)] max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-40 max-lg:max-h-[85dvh] max-lg:rounded-t-2xl max-lg:border max-lg:border-[var(--border-soft)] max-lg:shadow-2xl max-lg:transition-transform max-lg:duration-200 max-lg:will-change-transform ${historySheetOpen ? "max-lg:translate-y-0" : "max-lg:translate-y-full max-lg:pointer-events-none"}`}
+      >
+        <div className="lg:hidden">
+          <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-[var(--border-soft)]" aria-hidden />
+          <div className="flex items-center justify-between px-4 pb-1 pt-2">
+            <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-subtle)]">Verlauf</span>
+            <button
+              type="button"
+              onClick={() => setHistorySheetOpen(false)}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-[var(--text-subtle)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-main)]"
+              aria-label="Schließen"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+        <div className="border-b border-[var(--border-soft)] px-4 py-4 max-lg:pt-1">
+          <div className="hidden text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-subtle)] lg:block">Verlauf</div>
+          <h2 className="text-sm font-semibold text-[var(--text-main)] lg:mt-1">Letzte 20 Chats</h2>
           <div className="relative mt-3">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--text-subtle)]" />
             <input
