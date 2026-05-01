@@ -67,15 +67,19 @@ async function seed() {
 
   // ─── Booking: Fotografen ──────────────────────────────────────
   const photographers = [
-    { key: 'janez', name: 'Janez Svajcer', email: 'janez@propus.ch', phone: '+41 79 111 22 33', initials: 'JS' },
-    { key: 'ivan', name: 'Ivan Demo', email: 'ivan@propus.ch', phone: '+41 79 222 33 44', initials: 'ID' },
+    { key: 'janez', name: 'Janez Smirmaul', email: 'janez.smirmaul@propus.ch', phone: '+41 76 340 70 75', initials: 'JS' },
+    { key: 'ivan', name: 'Ivan Mijajlovic', email: 'ivan.mijajlovic@propus.ch', phone: '', initials: 'IM' },
   ];
 
   for (const p of photographers) {
     await pool.query(
       `INSERT INTO booking.photographers (key, name, email, phone, initials)
        VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (key) DO NOTHING`,
+       ON CONFLICT (key) DO UPDATE
+         SET name = EXCLUDED.name,
+             email = EXCLUDED.email,
+             phone = EXCLUDED.phone,
+             initials = EXCLUDED.initials`,
       [p.key, p.name, p.email, p.phone, p.initials]
     );
   }
