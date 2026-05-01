@@ -801,6 +801,195 @@ export function ConversationView() {
     } catch { /* non-critical */ }
   }
 
+  function flashTrainingBanner(type: "ok" | "err", text: string) {
+    setTrainingBanner({ type, text });
+    window.setTimeout(() => setTrainingBanner((cur) => (cur && cur.text === text ? null : cur)), 6000);
+  }
+
+  async function loadTrainingFewShots() {
+    setTrainingFewShotsLoading(true);
+    try {
+      const res = await fetch("/api/assistant/training/few-shots", { cache: "no-store" });
+      const data = (await res.json().catch(() => ({}))) as {
+        count?: number;
+        shots?: Array<{ id: string; tags: string[] }>;
+        error?: string;
+      };
+      if (res.ok && typeof data.count === "number") {
+        setTrainingFewShots({ count: data.count, shots: data.shots || [] });
+        setTrainingFewShotsListOpen(true);
+      } else {
+        flashTrainingBanner("err", data.error || "Few-Shots konnten nicht geladen werden.");
+      }
+    } catch (e) {
+      flashTrainingBanner("err", e instanceof Error ? e.message : String(e));
+    } finally {
+      setTrainingFewShotsLoading(false);
+    }
+  }
+
+  async function runTrainingEval() {
+    setTrainingEvalLoading(true);
+    setTrainingEvalSummaryText(null);
+    try {
+      const res = await fetch("/api/assistant/training/eval", { method: "POST" });
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        summary?: {
+          passed: number;
+          total: number;
+          totalInputTokens: number;
+          totalOutputTokens: number;
+          failedCaseIds: string[];
+        };
+      };
+      if (res.ok && data.ok && data.summary) {
+        const s = data.summary;
+        const failed = s.failedCaseIds.length;
+        const totalTokens = s.totalInputTokens + s.totalOutputTokens;
+        setTrainingEvalSummaryText(
+          `${s.passed}/${s.total} bestanden · ${totalTokens.toLocaleString("de-CH")} Tokens${
+            failed ? ` · failed: ${s.failedCaseIds.join(", ")}` : ""
+          }`,
+        );
+        flashTrainingBanner(
+          failed ? "err" : "ok",
+          failed ? `${failed} Eval-Fall/Fälle fehlgeschlagen.` : "Alle Eval-Fälle bestanden.",
+        );
+      } else {
+        flashTrainingBanner("err", data.error || "Eval fehlgeschlagen.");
+      }
+    } catch (e) {
+      flashTrainingBanner("err", e instanceof Error ? e.message : String(e));
+    } finally {
+      setTrainingEvalLoading(false);
+    }
+  }
+
+  async function runTrainingTune() {
+    setTrainingTuneLoading(true);
+    setTrainingTuneInfo(null);
+    try {
+      const res = await fetch("/api/assistant/training/tune", { method: "POST" });
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        mdFilename?: string;
+        markdownPreview?: string;
+        previewTruncated?: boolean;
+        markdownFull?: string;
+        responseTruncatedAt100kb?: boolean;
+        patchCount?: number;
+        failedCaseCount?: number;
+      };
+      if (res.ok && data.ok && data.mdFilename) {
+        setTrainingTuneInfo({
+          mdFilename: data.mdFilename,
+          markdownPreview: data.markdownPreview || "",
+          previewTruncated: Boolean(data.previewTruncated),
+          markdownFull: data.markdownFull || "",
+          responseTruncatedAt100kb: Boolean(data.responseTruncatedAt100kb),
+        });
+        flashTrainingBanner(
+          "ok",
+          `Tune-Report: ${data.patchCount ?? 0} Patch(es), ${data.failedCaseCount ?? 0} Fail(s).`,
+        );
+      } else {
+        flashTrainingBanner("err", data.error || "Tune fehlgeschlagen.");
+      }
+    } catch (e) {
+      flashTrainingBanner("err", e instanceof Error ? e.message : String(e));
+    } finally {
+      setTrainingTuneLoading(false);
+    }
+  }
+
+  function downloadTuneReport() {
+    if (!trainingTuneInfo) return;
+    const blob = new Blob([trainingTuneInfo.markdownFull], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = trainingTuneInfo.mdFilename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  async function runTrainingSeed(dryRun: boolean) {
+    setTrainingSeedLoading(dryRun ? "dry" : "live");
+    try {
+      const res = await fetch("/api/assistant/training/seed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dryRun }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        created?: number;
+        skipped?: number;
+        total?: number;
+      };
+      if (res.ok && data.ok) {
+        flashTrainingBanner(
+          "ok",
+          `${dryRun ? "Dry-Run" : "Seed"}: ${data.created ?? 0} neu · ${data.skipped ?? 0} übersprungen · ${data.total ?? 0} gesamt.`,
+        );
+      } else {
+        flashTrainingBanner("err", data.error || "Seed fehlgeschlagen.");
+      }
+    } catch (e) {
+      flashTrainingBanner("err", e instanceof Error ? e.message : String(e));
+    } finally {
+      setTrainingSeedLoading(null);
+    }
+  }
+
+  async function runTrainingReplayHarvest() {
+    setTrainingReplayLoading(true);
+    setTrainingReplayMessage(null);
+    try {
+      const res = await fetch("/api/assistant/training/replay-harvest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ limit: trainingReplayLimit }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        caseCount?: number;
+        download?: { filename: string; base64: string; byteLength: number } | null;
+        downloadOmittedReason?: string | null;
+      };
+      if (res.ok && data.ok) {
+        if (data.download?.base64) {
+          const link = document.createElement("a");
+          link.href = `data:application/json;base64,${data.download.base64}`;
+          link.download = data.download.filename;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          const msg = `${data.caseCount ?? 0} Fälle exportiert (${data.download.filename}).`;
+          setTrainingReplayMessage(msg);
+          flashTrainingBanner("ok", msg);
+        } else {
+          const msg = data.downloadOmittedReason || "Download nicht enthalten.";
+          setTrainingReplayMessage(msg);
+          flashTrainingBanner("err", msg);
+        }
+      } else {
+        flashTrainingBanner("err", data.error || "Replay-Harvest fehlgeschlagen.");
+      }
+    } catch (e) {
+      flashTrainingBanner("err", e instanceof Error ? e.message : String(e));
+    } finally {
+      setTrainingReplayLoading(false);
+    }
+  }
+
   const inputDisabled = isLoading || !!pendingConfirmation;
   const tokenPct = tokenUsage.limit > 0 ? (tokenUsage.total / tokenUsage.limit) * 100 : 0;
   const tokenColor = tokenPct > 95 ? "text-red-500" : tokenPct > 80 ? "text-yellow-500" : "text-[var(--text-subtle)]";
@@ -1210,16 +1399,29 @@ export function ConversationView() {
 
       {/* Settings Panel */}
       {showSettings ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="w-full max-w-lg rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))] p-6 shadow-xl">
-            <div className="mb-4 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))] shadow-xl">
+            <div className="flex shrink-0 items-center justify-between border-b border-[var(--border-soft)] px-6 py-4">
               <h2 className="text-lg font-semibold text-[var(--text-main)]">Assistant-Einstellungen</h2>
               <button type="button" onClick={() => setShowSettings(false)} className="text-[var(--text-subtle)] hover:text-[var(--text-main)]">
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="space-y-4">
+            {trainingBanner ? (
+              <div
+                className={`mx-6 mt-4 rounded-lg border px-3 py-2 text-xs ${
+                  trainingBanner.type === "ok"
+                    ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200"
+                    : "border-red-500/40 bg-red-500/10 text-red-200"
+                }`}
+                role="status"
+              >
+                {trainingBanner.text}
+              </div>
+            ) : null}
+
+            <div className="space-y-4 overflow-y-auto px-6 py-4">
               <div>
                 <label className="mb-1 block text-sm font-medium text-[var(--text-main)]">Modell</label>
                 <select
@@ -1288,9 +1490,200 @@ export function ConversationView() {
                 </div>
               </div>
 
-              {!isAdmin ? (
+              {isAdmin ? (
+                <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-3">
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between text-left"
+                    onClick={() => setTrainingOpen((v) => !v)}
+                    aria-expanded={trainingOpen}
+                  >
+                    <span className="flex items-center gap-2 text-sm font-semibold text-[var(--text-main)]">
+                      <GraduationCap className="h-4 w-4" />
+                      Training
+                    </span>
+                    <ChevronDown className={`h-4 w-4 text-[var(--text-subtle)] transition ${trainingOpen ? "rotate-180" : ""}`} />
+                  </button>
+
+                  {trainingOpen ? (
+                    <div className="mt-3 space-y-4 text-sm">
+                      <p className="text-xs text-[var(--text-subtle)]">
+                        Eval, Tuner, Memory-Seeds, Replay-Harvest und Few-Shots — wie in <code className="rounded bg-[var(--surface-raised)] px-1">app/scripts/README-training.md</code>. Benötigt <code className="rounded bg-[var(--surface-raised)] px-1">ANTHROPIC_API_KEY</code> auf dem Server.
+                      </p>
+
+                      {/* Eval */}
+                      <div className="rounded-lg border border-[var(--border-soft)] p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <div className="text-sm font-medium text-[var(--text-main)]">Eval-Suite</div>
+                            <div className="text-[11px] text-[var(--text-subtle)]">Regression gegen gemockte Tools.</div>
+                          </div>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-[var(--gold-on-gold)] disabled:opacity-50"
+                            onClick={() => void runTrainingEval()}
+                            disabled={trainingEvalLoading}
+                          >
+                            {trainingEvalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                            Ausführen
+                          </button>
+                        </div>
+                        {trainingEvalSummaryText ? (
+                          <div className="mt-2 rounded bg-[var(--surface-raised)] px-2 py-1.5 text-[11px] text-[var(--text-main)]">
+                            {trainingEvalSummaryText}
+                          </div>
+                        ) : null}
+                      </div>
+
+                      {/* Tune */}
+                      <div className="rounded-lg border border-[var(--border-soft)] p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <div className="text-sm font-medium text-[var(--text-main)]">Auto-Tuner</div>
+                            <div className="text-[11px] text-[var(--text-subtle)]">Opus schlägt Prompt-Patches vor — überschreibt nichts.</div>
+                          </div>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-[var(--gold-on-gold)] disabled:opacity-50"
+                            onClick={() => void runTrainingTune()}
+                            disabled={trainingTuneLoading}
+                          >
+                            {trainingTuneLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                            Report erzeugen
+                          </button>
+                        </div>
+                        {trainingTuneInfo ? (
+                          <div className="mt-2 space-y-2">
+                            <div className="flex items-center justify-between text-[11px] text-[var(--text-subtle)]">
+                              <span className="truncate">{trainingTuneInfo.mdFilename}</span>
+                              <button
+                                type="button"
+                                className="rounded border border-[var(--border-soft)] px-2 py-0.5 text-[11px] text-[var(--text-main)] hover:bg-[var(--surface-raised)]"
+                                onClick={downloadTuneReport}
+                              >
+                                .md herunterladen
+                              </button>
+                            </div>
+                            <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded bg-[var(--surface-raised)] p-2 text-[11px] text-[var(--text-main)]">
+                              {trainingTuneInfo.markdownPreview}
+                              {trainingTuneInfo.previewTruncated ? "\n…(Vorschau gekürzt)" : ""}
+                            </pre>
+                            {trainingTuneInfo.responseTruncatedAt100kb ? (
+                              <p className="text-[11px] text-yellow-500">Response &gt; 100 KB — vollständige Datei lokal in <code>app/scripts/</code>.</p>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
+
+                      {/* Memory Seed */}
+                      <div className="rounded-lg border border-[var(--border-soft)] p-3">
+                        <div className="text-sm font-medium text-[var(--text-main)]">Memory-Seed</div>
+                        <div className="text-[11px] text-[var(--text-subtle)]">
+                          Idempotent aus <code className="rounded bg-[var(--surface-raised)] px-1">scripts/seed-memories.yaml</code> — gleiche bodys werden übersprungen. Ziel: dein Account.
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-xs text-[var(--text-main)] hover:bg-[var(--surface-raised)] disabled:opacity-50"
+                            onClick={() => void runTrainingSeed(true)}
+                            disabled={trainingSeedLoading !== null}
+                          >
+                            {trainingSeedLoading === "dry" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                            Dry-Run
+                          </button>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-[var(--gold-on-gold)] disabled:opacity-50"
+                            onClick={() => void runTrainingSeed(false)}
+                            disabled={trainingSeedLoading !== null}
+                          >
+                            {trainingSeedLoading === "live" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                            Seed schreiben
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Replay Harvest */}
+                      <div className="rounded-lg border border-[var(--border-soft)] p-3">
+                        <div className="text-sm font-medium text-[var(--text-main)]">Replay-Harvest</div>
+                        <div className="text-[11px] text-[var(--text-subtle)]">
+                          Eigene Konversationen als <code>replay-cases.json</code> exportieren.
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-end gap-2">
+                          <label className="flex flex-col gap-1 text-[11px] text-[var(--text-subtle)]">
+                            Limit
+                            <input
+                              type="number"
+                              min={1}
+                              max={500}
+                              step={10}
+                              value={trainingReplayLimit}
+                              onChange={(e) => setTrainingReplayLimit(Math.max(1, Number(e.target.value) || 1))}
+                              className="w-24 rounded-md border border-[var(--border-soft)] bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-main)]"
+                              disabled={trainingReplayLoading}
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-[var(--gold-on-gold)] disabled:opacity-50"
+                            onClick={() => void runTrainingReplayHarvest()}
+                            disabled={trainingReplayLoading}
+                          >
+                            {trainingReplayLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                            Export &amp; Download
+                          </button>
+                        </div>
+                        {trainingReplayMessage ? (
+                          <div className="mt-2 text-[11px] text-[var(--text-subtle)]">{trainingReplayMessage}</div>
+                        ) : null}
+                      </div>
+
+                      {/* Few-Shots */}
+                      <div className="rounded-lg border border-[var(--border-soft)] p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <div className="text-sm font-medium text-[var(--text-main)]">Few-Shots</div>
+                            <div className="text-[11px] text-[var(--text-subtle)]">Aktuell hinterlegte Beispiele.</div>
+                          </div>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-xs text-[var(--text-main)] hover:bg-[var(--surface-raised)] disabled:opacity-50"
+                            onClick={() => void loadTrainingFewShots()}
+                            disabled={trainingFewShotsLoading}
+                          >
+                            {trainingFewShotsLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                            {trainingFewShots ? "Neu laden" : "Laden"}
+                          </button>
+                        </div>
+                        {trainingFewShots ? (
+                          <div className="mt-2">
+                            <button
+                              type="button"
+                              className="flex w-full items-center justify-between text-[11px] text-[var(--text-subtle)] hover:text-[var(--text-main)]"
+                              onClick={() => setTrainingFewShotsListOpen((v) => !v)}
+                            >
+                              <span>{trainingFewShots.count} Beispiele</span>
+                              <ChevronDown className={`h-3.5 w-3.5 transition ${trainingFewShotsListOpen ? "rotate-180" : ""}`} />
+                            </button>
+                            {trainingFewShotsListOpen ? (
+                              <ul className="mt-2 max-h-40 space-y-1 overflow-auto rounded bg-[var(--surface-raised)] p-2 text-[11px]">
+                                {trainingFewShots.shots.map((s) => (
+                                  <li key={s.id} className="flex items-start gap-2">
+                                    <span className="font-mono text-[var(--text-main)]">{s.id}</span>
+                                    <span className="text-[var(--text-subtle)]">{s.tags.join(", ")}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
                 <p className="text-xs text-[var(--text-subtle)]">Nur Super-Admins können Einstellungen ändern.</p>
-              ) : null}
+              )}
             </div>
           </div>
         </div>
