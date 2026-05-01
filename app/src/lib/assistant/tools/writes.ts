@@ -215,8 +215,11 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
       if (!conv) return { error: `Konversation ${conversationId} nicht gefunden` };
 
       const row = await runQueryOne<{ id: number }>(
-        `INSERT INTO tour_manager.posteingang_messages (conversation_id, direction, from_name, from_email, body_text, sent_at)
-         VALUES ($1, 'internal_note', $2, $3, $4, NOW())
+        `INSERT INTO tour_manager.posteingang_messages (
+           conversation_id, direction, from_name, from_email,
+           to_emails, cc_emails, bcc_emails, subject, body_html, body_text, sent_at
+         )
+         VALUES ($1, 'internal_note', $2, $3, '{}', '{}', '{}', NULL, NULL, $4, NOW())
          RETURNING id`,
         [conversationId, ctx.userEmail.split("@")[0], ctx.userEmail, bodyText],
       );

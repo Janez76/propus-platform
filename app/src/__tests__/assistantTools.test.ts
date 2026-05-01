@@ -608,7 +608,7 @@ describe("assistant posteingang detail tools", () => {
       .mockResolvedValueOnce([{
         id: 77, subject: "Anfrage", status: "open", priority: "normal",
         customer_id: 3, customer_name: "Firma Y", customer_email: "info@firmay.ch",
-        assigned_to: "admin@propus.ch", created_at: "2026-04-15T08:00:00.000Z", last_message_at: "2026-04-16T09:00:00.000Z",
+        assignee_email: "admin@propus.ch", assignee_name: "Admin", created_at: "2026-04-15T08:00:00.000Z", last_message_at: "2026-04-16T09:00:00.000Z",
       }])
       .mockResolvedValueOnce([
         { direction: "inbound", from_name: "Firma Y", from_email: "info@firmay.ch", subject: "Anfrage", body_text: "Bitte info...", sent_at: "2026-04-15T08:00:00.000Z" },

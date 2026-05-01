@@ -392,7 +392,7 @@ describe("get_email_thread", () => {
           direction: "inbound",
           from_name: "Kunde",
           from_email: "kunde@test.ch",
-          to_recipients: "office@propus.ch",
+          to_emails: ["office@propus.ch"],
           subject: "Anfrage",
           body_text: "Guten Tag...",
           sent_at: "2026-04-30T10:00:00Z",

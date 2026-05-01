@@ -87,7 +87,11 @@ export function createPosteingangHandlers(deps: PosteingangDeps): Record<string,
             OR EXISTS (
               SELECT 1 FROM tour_manager.posteingang_messages m
               WHERE m.conversation_id = c.id
-                AND (m.body_text ILIKE $1 OR m.subject ILIKE $1)
+                AND (
+                  m.body_text ILIKE $1
+                  OR m.subject ILIKE $1
+                  OR COALESCE(m.body_html, '') ILIKE $1
+                )
             )
          ORDER BY c.last_message_at DESC NULLS LAST, c.id DESC
          LIMIT $2`,
@@ -110,7 +114,15 @@ export function createPosteingangHandlers(deps: PosteingangDeps): Record<string,
         conversation_status: string;
       }>(
         `SELECT m.id, m.conversation_id, m.direction, m.from_name, m.from_email,
-                m.subject, LEFT(m.body_text, 500) AS body_text, m.sent_at, c.status AS conversation_status
+                m.subject,
+                LEFT(
+                  COALESCE(
+                    NULLIF(btrim(m.body_text), ''),
+                    regexp_replace(COALESCE(m.body_html, ''), '<[^>]*>', ' ', 'g')
+                  ),
+                  500
+                ) AS body_text,
+                m.sent_at, c.status AS conversation_status
          FROM tour_manager.posteingang_messages m
          JOIN tour_manager.posteingang_conversations c ON c.id = m.conversation_id
          ORDER BY m.sent_at DESC NULLS LAST, m.id DESC
@@ -174,13 +186,17 @@ export function createPosteingangHandlers(deps: PosteingangDeps): Record<string,
       const convRows = await runQuery<{
         id: number; subject: string | null; status: string; priority: string | null;
         customer_id: number | null; customer_name: string | null; customer_email: string | null;
-        assigned_to: string | null; created_at: string | Date; last_message_at: string | Date | null;
+        assignee_email: string | null; assignee_name: string | null;
+        created_at: string | Date; last_message_at: string | Date | null;
       }>(
         `SELECT c.id, c.subject, c.status, c.priority, c.customer_id,
                 cust.name AS customer_name, cust.email AS customer_email,
-                c.assigned_to, c.created_at, c.last_message_at
+                au.email AS assignee_email,
+                au.full_name AS assignee_name,
+                c.created_at, c.last_message_at
          FROM tour_manager.posteingang_conversations c
          LEFT JOIN core.customers cust ON cust.id = c.customer_id
+         LEFT JOIN core.admin_users au ON au.id = c.assigned_admin_user_id
          WHERE c.id = $1
          LIMIT 1`,
         [convId],
@@ -192,7 +208,15 @@ export function createPosteingangHandlers(deps: PosteingangDeps): Record<string,
         direction: string; from_name: string | null; from_email: string | null;
         subject: string | null; body_text: string | null; sent_at: string | Date | null;
       }>(
-        `SELECT direction, from_name, from_email, subject, LEFT(body_text, 300) AS body_text, sent_at
+        `SELECT direction, from_name, from_email, subject,
+                LEFT(
+                  COALESCE(
+                    NULLIF(btrim(body_text), ''),
+                    regexp_replace(COALESCE(body_html, ''), '<[^>]*>', ' ', 'g')
+                  ),
+                  300
+                ) AS body_text,
+                sent_at
          FROM tour_manager.posteingang_messages
          WHERE conversation_id = $1
          ORDER BY sent_at ASC NULLS LAST, id ASC
@@ -220,7 +244,7 @@ export function createPosteingangHandlers(deps: PosteingangDeps): Record<string,
           subject: conv.subject,
           status: conv.status,
           priority: conv.priority,
-          assignedTo: conv.assigned_to,
+          assignedTo: conv.assignee_email || conv.assignee_name || null,
           createdAt: conv.created_at instanceof Date ? conv.created_at.toISOString() : conv.created_at,
           lastMessageAt: conv.last_message_at instanceof Date ? conv.last_message_at.toISOString() : conv.last_message_at,
           customer: conv.customer_id ? { id: conv.customer_id, name: conv.customer_name, email: conv.customer_email } : null,

@@ -156,14 +156,22 @@ export function createEmailHandlers(deps: EmailDeps): Record<string, ToolHandler
         direction: string;
         from_name: string | null;
         from_email: string | null;
-        to_recipients: string | null;
+        to_emails: string[] | null;
         subject: string | null;
         body_text: string | null;
         sent_at: string | Date | null;
       }>(
         `SELECT m.id, m.direction, m.from_name, m.from_email,
-                m.to_recipients, m.subject,
-                LEFT(m.body_text, 500) AS body_text, m.sent_at
+                m.to_emails,
+                m.subject,
+                LEFT(
+                  COALESCE(
+                    NULLIF(btrim(m.body_text), ''),
+                    regexp_replace(COALESCE(m.body_html, ''), '<[^>]*>', ' ', 'g')
+                  ),
+                  500
+                ) AS body_text,
+                m.sent_at
          FROM tour_manager.posteingang_messages m
          WHERE m.conversation_id = $1
          ORDER BY m.sent_at ASC NULLS LAST, m.id ASC
@@ -180,7 +188,7 @@ export function createEmailHandlers(deps: EmailDeps): Record<string, ToolHandler
           id: m.id,
           direction: m.direction,
           from: m.from_name ? `${m.from_name} <${m.from_email}>` : m.from_email,
-          to: m.to_recipients,
+          to: Array.isArray(m.to_emails) && m.to_emails.length ? m.to_emails.join(", ") : null,
           subject: m.subject,
           body: truncate(m.body_text, 500),
           sentAt: isoDateTime(m.sent_at),
