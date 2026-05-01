@@ -753,7 +753,7 @@ export function ConversationView() {
   const tokenColor = tokenPct > 95 ? "text-red-500" : tokenPct > 80 ? "text-yellow-500" : "text-[var(--text-subtle)]";
 
   return (
-    <section className="grid h-[calc(100dvh-1rem)] min-h-0 min-w-0 max-w-full overflow-hidden rounded-xl border border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))] shadow-sm sm:h-[calc(100dvh-1.5rem)] sm:rounded-2xl lg:h-[calc(100vh-3rem)] lg:grid-cols-[minmax(0,1fr)_320px]">
+    <section className="grid h-[calc(100dvh-1rem)] min-h-0 min-w-0 max-w-full overflow-hidden rounded-xl border border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))] shadow-sm sm:h-[calc(100dvh-1.5rem)] sm:rounded-2xl lg:h-[calc(100vh-3rem)] grid-rows-[minmax(0,1fr)_minmax(0,38vh)] lg:grid-rows-1 lg:grid-cols-[minmax(0,1fr)_320px]">
       <div className="flex min-h-0 min-w-0 max-w-full flex-col">
       <header className="relative flex flex-col gap-3 border-b border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))] px-3 py-3 sm:px-5 sm:py-4 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
         {memoryToast ? (
@@ -1078,7 +1078,7 @@ export function ConversationView() {
         </div>
       ) : null}
 
-      <aside className="hidden min-h-0 border-l border-[var(--border-soft)] bg-[var(--surface)]/80 lg:flex lg:flex-col">
+      <aside className="flex min-h-0 min-w-0 flex-col border-t border-[var(--border-soft)] bg-[var(--surface)]/80 lg:border-l lg:border-t-0 max-lg:overflow-y-auto max-lg:overscroll-y-contain">
         <div className="border-b border-[var(--border-soft)] px-4 py-4">
           <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-subtle)]">Verlauf</div>
           <h2 className="mt-1 text-sm font-semibold text-[var(--text-main)]">Letzte 20 Chats</h2>
