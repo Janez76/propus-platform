@@ -10,9 +10,43 @@ import Anthropic from "@anthropic-ai/sdk";
 import { runEvalSuite, TEST_CASES, type EvalTestCase, type EvalCaseResult } from "./eval-assistant";
 import { MODEL_IDS } from "../src/lib/assistant/model-router";
 
-const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
-const APP_ROOT = path.join(SCRIPT_DIR, "..");
-const SYSTEM_PROMPT_PATH = path.join(APP_ROOT, "src", "lib", "assistant", "system-prompt.ts");
+const SCRIPT_DIR_FROM_URL = path.dirname(fileURLToPath(import.meta.url));
+const APP_ROOT_FROM_URL = path.join(SCRIPT_DIR_FROM_URL, "..");
+
+function resolveExisting(candidates: string[], fallbackIndex = 0): string {
+  for (const c of candidates) {
+    try {
+      if (fs.existsSync(c)) return c;
+    } catch {
+      // ignore
+    }
+  }
+  return candidates[fallbackIndex] ?? candidates[0];
+}
+
+function resolveSystemPromptPath(): string {
+  return resolveExisting([
+    path.join(process.cwd(), "src", "lib", "assistant", "system-prompt.ts"),
+    path.join(APP_ROOT_FROM_URL, "src", "lib", "assistant", "system-prompt.ts"),
+  ]);
+}
+
+function resolveScriptsDir(): string {
+  const candidates = [path.join(process.cwd(), "scripts"), SCRIPT_DIR_FROM_URL];
+  for (const c of candidates) {
+    try {
+      if (fs.existsSync(c)) return c;
+    } catch {
+      // ignore
+    }
+  }
+  const target = candidates[0];
+  fs.mkdirSync(target, { recursive: true });
+  return target;
+}
+
+const SCRIPT_DIR = SCRIPT_DIR_FROM_URL;
+const SYSTEM_PROMPT_PATH = resolveSystemPromptPath();
 
 function isCliEntry(): boolean {
   const script = path.normalize(fileURLToPath(import.meta.url));
@@ -61,14 +95,15 @@ function parseApplyPatchId(): string | null {
 }
 
 function latestTuneReportJsonPath(): string | null {
-  const files = fs.readdirSync(SCRIPT_DIR).filter((f) => /^tuning-report-.*\.json$/.test(f));
+  const dir = resolveScriptsDir();
+  const files = fs.readdirSync(dir).filter((f) => /^tuning-report-.*\.json$/.test(f));
   if (files.length === 0) return null;
   files.sort((a, b) => {
-    const ta = fs.statSync(path.join(SCRIPT_DIR, a)).mtimeMs;
-    const tb = fs.statSync(path.join(SCRIPT_DIR, b)).mtimeMs;
+    const ta = fs.statSync(path.join(dir, a)).mtimeMs;
+    const tb = fs.statSync(path.join(dir, b)).mtimeMs;
     return tb - ta;
   });
-  return path.join(SCRIPT_DIR, files[0]!);
+  return path.join(dir, files[0]!);
 }
 
 function simpleDiffLine(oldLine: string, newLine: string): string {
@@ -245,8 +280,9 @@ export async function runTuneReportGeneration(
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
   const jsonBasename = `tuning-report-${ts}.json`;
   const mdBasename = `tuning-report-${ts}.md`;
-  const jsonPath = path.join(SCRIPT_DIR, jsonBasename);
-  const mdPath = path.join(SCRIPT_DIR, mdBasename);
+  const reportsDir = resolveScriptsDir();
+  const jsonPath = path.join(reportsDir, jsonBasename);
+  const mdPath = path.join(reportsDir, mdBasename);
 
   if (failed.length === 0) {
     const minimal: TuneReportJson = {

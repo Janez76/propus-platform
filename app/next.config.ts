@@ -12,6 +12,11 @@ const nextConfig: NextConfig = {
     "nodemailer",
     "winston",
   ],
+  outputFileTracingIncludes: {
+    "/api/assistant/training/eval": ["./src/lib/assistant/system-prompt.ts"],
+    "/api/assistant/training/tune": ["./src/lib/assistant/system-prompt.ts"],
+    "/api/assistant/training/seed": ["./scripts/seed-memories.yaml"],
+  },
   async redirects() {
     return [
       {
