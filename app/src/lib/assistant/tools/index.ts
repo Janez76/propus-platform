@@ -3,10 +3,12 @@ import { databaseHandlers, databaseTools } from "./database";
 import { designsHandlers, designsTools } from "./designs";
 import { emailHandlers, emailTools } from "./email";
 import { invoicesHandlers, invoicesTools } from "./invoices";
+import { mapsHandlers, mapsTools } from "./maps";
 import { memoriesHandlers, memoriesTools } from "./memories";
 import { ordersHandlers, ordersTools } from "./orders";
 import { posteingangHandlers, posteingangTools } from "./posteingang";
 import { toursHandlers, toursTools } from "./tours";
+import { weatherHandlers, weatherTools } from "./weather";
 import { writeTools, writeHandlers } from "./writes";
 
 export type ToolDefinition = {
@@ -43,6 +45,8 @@ export const allTools: ToolDefinition[] = [
   ...emailTools,
   ...designsTools,
   ...databaseTools,
+  ...weatherTools,
+  ...mapsTools,
   ...writeTools,
 ];
 
@@ -56,6 +60,8 @@ export const allHandlers: Record<string, ToolHandler> = {
   ...emailHandlers,
   ...designsHandlers,
   ...databaseHandlers,
+  ...weatherHandlers,
+  ...mapsHandlers,
   ...writeHandlers,
 };
 
