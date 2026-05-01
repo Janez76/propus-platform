@@ -792,8 +792,8 @@ export function ConversationView() {
   const tokenColor = tokenPct > 95 ? "text-red-500" : tokenPct > 80 ? "text-yellow-500" : "text-[var(--text-subtle)]";
 
   return (
-    <section className="grid h-[calc(100dvh-1rem)] min-h-0 min-w-0 max-w-full overflow-hidden rounded-xl border border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))] shadow-sm sm:h-[calc(100dvh-1.5rem)] sm:rounded-2xl lg:h-[calc(100vh-3rem)] grid-rows-[minmax(0,1fr)_minmax(0,38vh)] lg:grid-rows-1 lg:grid-cols-[minmax(0,1fr)_320px]">
-      <div className="flex min-h-0 min-w-0 max-w-full flex-col">
+    <section className="flex h-[calc(100dvh-1rem)] min-h-0 min-w-0 max-w-full flex-col overflow-hidden rounded-xl border border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))] shadow-sm sm:h-[calc(100dvh-1.5rem)] sm:rounded-2xl lg:grid lg:h-[calc(100vh-3rem)] lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col max-lg:min-h-0 lg:h-full lg:min-h-0 lg:overflow-hidden">
       <header className="relative flex flex-col gap-3 border-b border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))] px-3 py-3 sm:px-5 sm:py-4 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
         {memoryToast ? (
           <div
@@ -975,10 +975,10 @@ export function ConversationView() {
         ) : null}
       </div>
 
-      <footer className="border-t border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))] px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-5 sm:py-4">
-        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+      <footer className="shrink-0 border-t border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))] px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-5 sm:py-4">
+        <div className="flex min-w-0 flex-row flex-wrap items-center gap-2 sm:gap-3">
           <input
-            className="min-h-11 min-w-0 w-full flex-1 rounded-full border border-[var(--border-soft)] bg-[var(--surface)] px-4 py-2.5 text-sm text-[var(--text-main)] outline-none placeholder:text-[var(--text-subtle)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20 disabled:opacity-50 sm:min-w-[12rem]"
+            className="min-h-11 min-w-0 flex-1 basis-[min(100%,12rem)] rounded-full border border-[var(--border-soft)] bg-[var(--surface)] px-4 py-2.5 text-sm text-[var(--text-main)] outline-none placeholder:text-[var(--text-subtle)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20 disabled:opacity-50 sm:min-w-[12rem]"
             value={textInput}
             onChange={(event) => setTextInput(event.target.value)}
             onKeyDown={(event) => {
@@ -994,13 +994,21 @@ export function ConversationView() {
             type="button"
             onClick={submitText}
             disabled={inputDisabled || !textInput.trim()}
-            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-[var(--gold-on-gold)] transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 sm:inline-flex"
+            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-[var(--gold-on-gold)] transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Send className="h-4 w-4" />
             Senden
           </button>
-          <div className="flex shrink-0 justify-end sm:contents">
-          <VoiceButton disabled={inputDisabled} onTranscript={(text) => void send(text)} onError={(msg) => setError({ message: msg })} />
+          <div className="lg:hidden">
+            <VoiceButton
+              disabled={inputDisabled}
+              compact
+              onTranscript={(text) => void send(text)}
+              onError={(msg) => setError({ message: msg })}
+            />
+          </div>
+          <div className="hidden lg:contents">
+            <VoiceButton disabled={inputDisabled} onTranscript={(text) => void send(text)} onError={(msg) => setError({ message: msg })} />
           </div>
         </div>
         <div className="mt-2 flex min-w-0 flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between">
@@ -1117,7 +1125,7 @@ export function ConversationView() {
         </div>
       ) : null}
 
-      <aside className="flex min-h-0 min-w-0 flex-col border-t border-[var(--border-soft)] bg-[var(--surface)]/80 lg:border-l lg:border-t-0 max-lg:overflow-y-auto max-lg:overscroll-y-contain">
+      <aside className="flex min-h-0 min-w-0 max-h-[min(42dvh,48svh)] shrink-0 flex-col border-t border-[var(--border-soft)] bg-[var(--surface)]/80 max-lg:overflow-y-auto max-lg:overscroll-y-contain lg:max-h-none lg:h-full lg:shrink lg:overflow-hidden lg:border-l lg:border-t-0">
         <div className="border-b border-[var(--border-soft)] px-4 py-4">
           <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-subtle)]">Verlauf</div>
           <h2 className="mt-1 text-sm font-semibold text-[var(--text-main)]">Letzte 20 Chats</h2>

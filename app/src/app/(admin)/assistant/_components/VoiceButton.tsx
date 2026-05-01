@@ -7,6 +7,8 @@ type VoiceButtonProps = {
   onTranscript: (text: string) => void;
   onError: (error: string) => void;
   disabled?: boolean;
+  /** Nur Mikrofon-Icon (schmale Viewports), voller Text ab Desktop */
+  compact?: boolean;
 };
 
 type RecordingState = "idle" | "recording" | "transcribing";
@@ -29,7 +31,7 @@ function audioExtensionForMimeType(mimeType: string): string {
   return "webm";
 }
 
-export function VoiceButton({ onTranscript, onError, disabled }: VoiceButtonProps) {
+export function VoiceButton({ onTranscript, onError, disabled, compact }: VoiceButtonProps) {
   const [state, setState] = useState<RecordingState>("idle");
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -98,6 +100,30 @@ export function VoiceButton({ onTranscript, onError, disabled }: VoiceButtonProp
     }
   }
 
+  const label =
+    state === "idle" ? "Halten zum Sprechen" : state === "recording" ? "Aufnahme läuft …" : "Transkribiere …";
+  const aria =
+    state === "recording" ? "Aufnahme läuft, loslassen zum Senden" : "Halten zum Sprechen, loslassen zum Senden";
+
+  if (compact) {
+    return (
+      <button
+        type="button"
+        onPointerDown={startRecording}
+        onPointerUp={stopRecording}
+        onPointerLeave={stopRecording}
+        onPointerCancel={stopRecording}
+        disabled={disabled || state === "transcribing"}
+        title={label}
+        aria-label={aria}
+        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[var(--accent)]/40 bg-[var(--surface)] text-[var(--text-main)] transition hover:border-[var(--accent)] hover:bg-[var(--surface-raised)] disabled:cursor-not-allowed disabled:opacity-50 data-[recording=true]:bg-[var(--accent)] data-[recording=true]:text-[var(--gold-on-gold)]"
+        data-recording={state === "recording" ? "true" : "false"}
+      >
+        {state === "transcribing" ? <Loader2 className="h-5 w-5 animate-spin" /> : <Mic className="h-5 w-5" />}
+      </button>
+    );
+  }
+
   return (
     <button
       type="button"
@@ -108,10 +134,10 @@ export function VoiceButton({ onTranscript, onError, disabled }: VoiceButtonProp
       disabled={disabled || state === "transcribing"}
       className="inline-flex items-center gap-2 rounded-full border border-[var(--accent)]/40 bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--text-main)] transition hover:border-[var(--accent)] hover:bg-[var(--surface-raised)] disabled:cursor-not-allowed disabled:opacity-50 data-[recording=true]:bg-[var(--accent)] data-[recording=true]:text-[var(--gold-on-gold)]"
       data-recording={state === "recording" ? "true" : "false"}
-      aria-label={state === "recording" ? "Aufnahme läuft, loslassen zum Senden" : "Halten zum Sprechen"}
+      aria-label={aria}
     >
       {state === "transcribing" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mic className="h-4 w-4" />}
-      {state === "idle" ? "Halten zum Sprechen" : state === "recording" ? "Aufnahme läuft ..." : "Transkribiere ..."}
+      {label}
     </button>
   );
 }
