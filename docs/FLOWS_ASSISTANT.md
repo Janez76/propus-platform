@@ -189,6 +189,8 @@ Pro Turn werden aktive Erinnerungen geladen und per einfachem Stichwort-Match zu
 
 ### ki.propus.ch
 
+Unter diesem Hostname erlaubt die **Next.js-Middleware** nur noch `/assistant`, `/login`, `/api/assistant/*` und `/api/auth/*`; alle anderen Pfade (z. B. `/mobile`, `/dashboard`) werden auf `/assistant` umgeleitet.
+
 Siehe **`docs/KI_PROPUS_CH.md`** (DNS, Nginx, Checks).
 
 ## Tool-Kategorien

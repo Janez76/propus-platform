@@ -7,6 +7,7 @@ import { ProfileModal } from "../profile/ProfileModal";
 import { QuickImpersonateButton } from "./QuickImpersonateButton";
 import { TopbarSearch } from "../search/TopbarSearch";
 import { API_BASE } from "../../api/client";
+import { isKiAssistantHostname } from "../../lib/kiHost";
 
 interface TopbarProps {
   onMenuToggle?: () => void;
@@ -21,6 +22,8 @@ function resolveAdminBookingUrl() {
 
 export function Topbar({ onMenuToggle }: TopbarProps) {
   const [showProfile, setShowProfile] = useState(false);
+  const isKiAssistantHost =
+    typeof window !== "undefined" && isKiAssistantHostname(window.location.hostname);
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const language = useAuthStore((s) => s.language);
   const setLanguage = useAuthStore((s) => s.setLanguage);
@@ -118,6 +121,7 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
 
           <QuickImpersonateButton />
 
+          {!isKiAssistantHost && (
           <button
             onClick={openMobileView}
             className="hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all duration-200 hover:text-(--accent) focus:outline-none"
@@ -128,6 +132,7 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
             <Smartphone className="h-4 w-4" />
             <span className="hidden md:inline">Mobile</span>
           </button>
+          )}
 
           <button
             onClick={openAdminBooking}
@@ -161,7 +166,7 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
             <span>{t(language, "auth.logout")}</span>
           </button>
 
-          {/* Mobile: Mobile-Ansicht */}
+          {!isKiAssistantHost && (
           <button
             onClick={openMobileView}
             className="sm:hidden p-2.5 rounded-lg transition-all duration-200 hover:text-(--accent)"
@@ -171,6 +176,7 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
           >
             <Smartphone className="h-4 w-4" />
           </button>
+          )}
 
           {/* Mobile: booking link */}
           <button

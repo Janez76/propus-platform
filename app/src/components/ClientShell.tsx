@@ -22,6 +22,7 @@ import { useAuth } from "../hooks/useAuth";
 import { usePermissions } from "../hooks/usePermissions";
 import { isPublicBookingHost } from "../lib/publicBookingHost";
 import { isPortalHost } from "../lib/portalHost";
+import { isKiAssistantHostname } from "../lib/kiHost";
 import { RouteGuard } from "./routing/RouteGuard";
 import { RegisterServiceWorker } from "./pwa/RegisterServiceWorker";
 import { deleteOrder } from "../api/orders";
@@ -160,9 +161,10 @@ function PrivateRoutes() {
   const eg = (p: string, el: ReactElement) => <RouteGuard path={p}>{el}</RouteGuard>;
 
   const currentPath = window.location.pathname;
+  const kiAssistantOnly = typeof window !== "undefined" && isKiAssistantHostname(window.location.hostname);
 
-  // Mobile-Modus: kein AppShell – eigene volle Viewport-Hülle
-  if (currentPath.startsWith("/mobile")) {
+  // Mobile-Modus: kein AppShell – eigene volle Viewport-Hülle (nicht auf ki.propus.ch — dort nur Assistant)
+  if (currentPath.startsWith("/mobile") && !kiAssistantOnly) {
     return (
       <Suspense fallback={<PageSkeleton />}>
         <Routes>
@@ -178,7 +180,7 @@ function PrivateRoutes() {
   // und dann frei auf Desktop-Seiten navigieren (Flag gilt für die Session).
   // Permission-Check verhindert Redirect-Loop für User ohne /mobile-Zugriff.
   const MOBILE_REDIRECT_PATHS = new Set(["/", "/dashboard", "/orders", "/calendar", "/customers"]);
-  if (MOBILE_REDIRECT_PATHS.has(currentPath) && canAccessPath("/mobile")) {
+  if (!kiAssistantOnly && MOBILE_REDIRECT_PATHS.has(currentPath) && canAccessPath("/mobile")) {
     let preferDesktop = false;
     try {
       preferDesktop = window.sessionStorage.getItem("prefer_desktop") === "1";

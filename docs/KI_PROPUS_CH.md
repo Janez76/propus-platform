@@ -1,6 +1,6 @@
 # ki.propus.ch — Routing & Deploy-Checkliste
 
-Ziel: **`ki.propus.ch`** zeigt dieselbe Plattform wie der Admin-Einstieg (Next.js auf Port **3001**, Express intern **3100** im Docker-Setup), sodass Mobile und ggf. Web die Pfade `/api/assistant`, `/api/assistant/transcribe` usw. ohne andere Domain erreichen.
+Ziel: **`ki.propus.ch`** zeigt dieselbe Next.js-Instanz wie der Admin, ist aber **auf den Propus-Assistant begrenzt** (plus Login und `/api/assistant/*` sowie `/api/auth/*` für die Session). Die **Mobile-PWA** (`/mobile`) und übrige Admin-Routen werden per **Next.js-Middleware** auf `/assistant` umgeleitet — die Expo-App ruft nur `/api/assistant` auf und bleibt unverändert.
 
 ## DNS (Cloudflare)
 
@@ -45,9 +45,10 @@ Assistant-Endpunkte liegen in der **Next.js-App** (`app/src/app/api/assistant/..
 
 ## Manuelle Checks nach Rollout
 
-1. `curl -sI https://ki.propus.ch/` → HTTP 200/307 wie bei Admin-Host.
-2. Mit gültigem Mobile-Token: `curl -s -H "Authorization: Bearer …" https://ki.propus.ch/api/assistant/settings` → JSON mit Settings.
-3. Optional: Browser `/assistant` unter derselben Domain nur wenn ihr dieselbe Next-Instanz ausliefert (Cookies/Login wie Admin-Domain).
+1. `curl -sI https://ki.propus.ch/` → Redirect nach `/assistant` (HTTP 307/308).
+2. `curl -sI https://ki.propus.ch/mobile` → Redirect nach `/assistant`.
+3. Mit gültigem Mobile-Token: `curl -s -H "Authorization: Bearer …" https://ki.propus.ch/api/assistant/settings` → JSON mit Settings.
+4. Browser: `/assistant` und `/login` erreichbar; `/dashboard`, `/orders` usw. → Redirect `/assistant`.
 
 ## SSH (VPS)
 
