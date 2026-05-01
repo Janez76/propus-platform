@@ -3,6 +3,7 @@ import { runAssistantTurn, type AssistantHistory } from "@/lib/assistant/claude"
 import { runAssistantTurnStreaming } from "@/lib/assistant/claude-stream";
 import { allHandlers, allTools } from "@/lib/assistant/tools";
 import { buildSystemPrompt } from "@/lib/assistant/system-prompt";
+import { selectFewShots } from "@/lib/assistant/few-shot-examples";
 import {
   ensureConversation,
   insertAssistantMessage,
@@ -15,6 +16,7 @@ import {
 } from "@/lib/assistant/store";
 import { createMemory, selectMemoriesForPrompt } from "@/lib/assistant/memory-store";
 import { resolveAssistantUser } from "@/lib/assistant/auth";
+import { isAssistantDailyLimitExempt } from "@/lib/assistant/access-env";
 import { getAssistantSettings } from "@/lib/assistant/settings";
 import { parseAssistantModelModeFromRequest, resolveAssistantModelForRequest } from "@/lib/assistant/assistant-model-mode";
 import { formatModelLabel, inferTierFromAnthropicModelId, parseTier } from "@/lib/assistant/model-router";
@@ -62,7 +64,7 @@ export async function POST(req: NextRequest) {
 
   // Check daily token limit
   const usage = await getAssistantUsageToday(user.id);
-  if (usage.totalTokens >= dailyLimit) {
+  if (!isAssistantDailyLimitExempt(user.email) && usage.totalTokens >= dailyLimit) {
     return errorResponse("Anfragelimit erreicht. Bitte morgen erneut versuchen.", "rate_limited", 429);
   }
 
@@ -110,12 +112,14 @@ export async function POST(req: NextRequest) {
       selectMemoriesForPrompt(user.id, userMessage, 40),
       Promise.resolve(new Date()),
     ]);
+    const fewShots = selectFewShots(userMessage);
     const systemPrompt = buildSystemPrompt({
       userName: user.name,
       userEmail: user.email,
       currentTime: now.toLocaleString("de-CH", { timeZone: "Europe/Zurich" }),
       timezone: "Europe/Zurich",
       memories,
+      fewShots,
     });
 
     const modelResolution = resolveAssistantModelForRequest({

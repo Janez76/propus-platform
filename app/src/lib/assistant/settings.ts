@@ -15,7 +15,8 @@ export type AssistantSettings = {
 const DEFAULT_SETTINGS: AssistantSettings = {
   model: "claude-sonnet-4-6",
   enabledTools: [],
-  dailyTokenLimit: Number(process.env.ASSISTANT_DAILY_TOKEN_LIMIT) || 500_000,
+  // Default for production assistant usage; override via ASSISTANT_DAILY_TOKEN_LIMIT or app_settings.
+  dailyTokenLimit: Number(process.env.ASSISTANT_DAILY_TOKEN_LIMIT) || 2_000_000,
   streamingEnabled: true,
   autoEscalation: process.env.ASSISTANT_AUTO_ESCALATION !== "false",
   maxModelTier: (process.env.ASSISTANT_MAX_MODEL_TIER as ModelTier) || "opus",

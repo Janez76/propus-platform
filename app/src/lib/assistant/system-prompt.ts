@@ -1,9 +1,13 @@
-type PromptInput = {
+import type { FewShot } from "@/lib/assistant/few-shot-examples";
+
+export type PromptInput = {
   userName: string;
   userEmail: string;
   currentTime: string;
   timezone: string;
   memories?: string[];
+  /** Max. 3 kuratierte Stil-/Tool-Muster (optional). */
+  fewShots?: FewShot[];
 };
 
 const MAX_MEMORIES_CHARS = 3000;
@@ -82,6 +86,18 @@ export function buildSystemPrompt(input: PromptInput): string {
       if (totalChars + mem.length > MAX_MEMORIES_CHARS) break;
       lines.push(`- ${mem}`);
       totalChars += mem.length;
+    }
+  }
+
+  const shots = input.fewShots?.slice(0, 3) ?? [];
+  if (shots.length > 0) {
+    lines.push("");
+    lines.push("BEISPIELE (Muster, kein Wortlaut):");
+    for (const ex of shots) {
+      lines.push("");
+      lines.push(`• Nutzer: ${ex.user}`);
+      lines.push(`  Tool-Plan: ${ex.assistantToolPlan}`);
+      lines.push(`  Antwort: ${ex.assistantFinal}`);
     }
   }
 

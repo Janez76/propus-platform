@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/auth.server";
+import { isAssistantSettingsAdminUi, isAssistantSettingsSuperAdmin } from "@/lib/assistant/access-env";
 import { getAssistantSettings, updateAssistantSettings } from "@/lib/assistant/settings";
 import { getAssistantUsageToday } from "@/lib/assistant/store";
 import { allTools } from "@/lib/assistant/tools";
@@ -27,13 +28,13 @@ export async function GET() {
       { id: "claude-opus-4-7", label: "Claude Opus 4.7" },
       { id: "claude-haiku-4-5", label: "Claude Haiku 4.5" },
     ],
-    isAdmin: String(session.role || "").toLowerCase() === "super_admin",
+    isAdmin: isAssistantSettingsAdminUi(session),
   });
 }
 
 export async function PATCH(req: NextRequest) {
   const session = await getAdminSession();
-  if (!session || session.role !== "super_admin") {
+  if (!session || !isAssistantSettingsSuperAdmin(session)) {
     return NextResponse.json({ error: "Nur Super-Admin darf Einstellungen ändern", code: "auth_failed" }, { status: 403 });
   }
 

@@ -1,3 +1,20 @@
-# Von `expo prebuild` / EAS erzeugt — nicht versionieren (EAS baut frisch).
+# Lokale Abhängigkeiten
+node_modules/
+
+# Von expo prebuild / EAS erzeugt - nicht versionieren (EAS baut frisch).
 /android
 /ios
+
+# Lokale Umgebungsvariablen
+.env.expo.local
+
+# Expo
+.expo/
+dist/
+web-build/
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db

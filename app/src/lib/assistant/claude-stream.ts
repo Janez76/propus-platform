@@ -282,9 +282,16 @@ export function runAssistantTurnStreaming(input: StreamingTurnInput): {
       controllerRef?.close();
       resolveMetaPromise!(meta);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Streaming-Fehler";
+      let message = err instanceof Error ? err.message : "Streaming-Fehler";
+      let code: "rate_limited" | "model_error" | undefined;
+      if (message.includes("rate_limit") || message.includes("429")) {
+        code = "rate_limited";
+      } else if (message.includes("overloaded") || message.includes("503") || message.includes("500")) {
+        code = "model_error";
+        message = "Claude ist gerade nicht erreichbar. Bitte in 30s erneut versuchen.";
+      }
       try {
-        enqueue({ type: "error", error: message });
+        enqueue({ type: "error", error: message, ...(code ? { code } : {}) });
         controllerRef?.close();
       } catch { /* already closed */ }
       rejectMetaPromise!(err instanceof Error ? err : new Error(message));

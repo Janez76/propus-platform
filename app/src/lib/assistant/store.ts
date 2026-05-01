@@ -160,8 +160,11 @@ export async function listAssistantHistory(input: {
   limit?: number;
   q?: string;
   filter?: AssistantHistoryFilter;
+  /** Obergrenze für LIMIT (Standard 20; intern z. B. 50 für Harvest). */
+  limitCap?: number;
 }): Promise<AssistantHistoryRow[]> {
-  const limit = Math.min(Math.max(Number(input.limit || 20), 1), 20);
+  const cap = input.limitCap ?? 20;
+  const limit = Math.min(Math.max(Number(input.limit || 20), 1), cap);
   const filter: AssistantHistoryFilter =
     input.filter === "archived" || input.filter === "trash" ? input.filter : "active";
   const q = String(input.q || "").trim();
@@ -288,6 +291,42 @@ export async function listConversationMessages(input: {
      ORDER BY m.created_at ASC`,
     [input.conversationId, input.userId],
   );
+}
+
+/**
+ * Tool-Namen in zeitlicher Reihenfolge (nur abgeschlossene Aufrufe, kein pending).
+ * Optional: nur Aufrufe ab einem Zeitpunkt (z. B. nach letzter Nutzernachricht).
+ */
+export async function listAssistantToolCallsForConversation(input: {
+  conversationId: string;
+  userId: string;
+  afterCreatedAt?: string;
+}): Promise<string[]> {
+  const after = String(input.afterCreatedAt || "").trim();
+  const rows =
+    after.length > 0
+      ? await query<{ tool_name: string }>(
+          `SELECT tc.tool_name
+           FROM tour_manager.assistant_tool_calls tc
+           JOIN tour_manager.assistant_conversations c ON c.id = tc.conversation_id
+           WHERE tc.conversation_id = $1
+             AND c.user_id = $2
+             AND tc.status IN ('success', 'error')
+             AND tc.created_at >= $3::timestamptz
+           ORDER BY tc.created_at ASC`,
+          [input.conversationId, input.userId, after],
+        )
+      : await query<{ tool_name: string }>(
+          `SELECT tc.tool_name
+           FROM tour_manager.assistant_tool_calls tc
+           JOIN tour_manager.assistant_conversations c ON c.id = tc.conversation_id
+           WHERE tc.conversation_id = $1
+             AND c.user_id = $2
+             AND tc.status IN ('success', 'error')
+           ORDER BY tc.created_at ASC`,
+          [input.conversationId, input.userId],
+        );
+  return rows.map((r) => r.tool_name);
 }
 
 export async function updateConversationTokens(input: {

@@ -122,6 +122,19 @@ const ERROR_DISPLAY: Record<ErrorCode, string> = {
   validation_error: "Ungültige Anfrage.",
 };
 
+/** Rate limits: show API `message` (daily budget vs. provider 429); other codes keep catalog text when set. */
+function formatAssistantErrorBanner(error: { message: string; code?: ErrorCode }): string {
+  if (error.code === "rate_limited") {
+    const detail = error.message?.trim();
+    if (detail) return detail;
+    return ERROR_DISPLAY.rate_limited;
+  }
+  if (error.code && ERROR_DISPLAY[error.code]) {
+    return ERROR_DISPLAY[error.code];
+  }
+  return error.message;
+}
+
 function ConfirmationCard({
   confirmation,
   onConfirm,
@@ -600,7 +613,16 @@ export function ConversationView() {
               void loadMemories();
             }
           } else if (event.type === "error") {
-            throw { message: event.error as string, code: "model_error" as ErrorCode };
+            const msg =
+              typeof event.error === "string" && event.error.trim()
+                ? event.error
+                : "Streaming-Fehler";
+            const fromEvent = event.code as ErrorCode | undefined;
+            const inferred: ErrorCode | undefined =
+              !fromEvent && (msg.includes("rate_limit") || msg.includes("429"))
+                ? "rate_limited"
+                : undefined;
+            throw { message: msg, code: fromEvent ?? inferred ?? "model_error" };
           }
         }
       }
@@ -906,7 +928,7 @@ export function ConversationView() {
         {error ? (
           <div className="flex items-start gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-[var(--text-main)]">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
-            <span>{error.code && ERROR_DISPLAY[error.code] ? ERROR_DISPLAY[error.code] : error.message}</span>
+            <span>{formatAssistantErrorBanner(error)}</span>
           </div>
         ) : null}
       </div>

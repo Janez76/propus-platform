@@ -425,18 +425,15 @@ Client Secrets liegen in `.env` (lokal) bzw. `.env.vps` (VPS) — nicht hier.
 
 ## Learned Workspace Facts
 
-- In **PowerShell** kann `&&` **nicht** für Befehlsverkettung genutzt werden; stattdessen `;` oder `if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }` für sequenzielle Ausführung mit Fehlerbehandlung verwenden.
-- Für **mehrzeilige Git-Commit-Messages in PowerShell** die Here-String-Syntax nutzen: `$msg = @'...'@; git commit -m $msg` statt Bash-Heredocs (`<<'EOF'`).
-- `npm test` von **UNC-Pfaden** (`//192.168.1.5/...`) aus schlägt oft fehl — stattdessen von gemappten Laufwerksbuchstaben (z. B. `Y:`) ausführen.
-- Im Platform-Docker-Setup sind **Next.js** typischerweise auf **3001** (Einstieg von außen) und **Express** auf **3100** intern (`PLATFORM_INTERNAL_URL`); Deploy-/Health-Checks zielen auf die JSON-API (`/api/core/health`), nicht nur auf die Next-Oberfläche.
-- Der produktive Admin-Einstieg ist `https://admin-booking.propus.ch`; Order-Detail-Routen liegen unter `/orders/<orderNo>` (nicht primär unter `/admin/orders/...`).
-- Für Next.js-Admin-Order-Flows nach Deploys stabile GET-/POST-Routen bevorzugen; gehashte Server Actions können in offenen Tabs mit `UnrecognizedActionError` brechen.
-- Termin-/Daueränderungen im Next.js-Admin müssen die Express-Route `PATCH /api/admin/orders/:orderNo/reschedule` über `PLATFORM_INTERNAL_URL` auslösen, damit Outlook/365-Events neu mit korrekter Endzeit erstellt werden.
-- Nextcloud auf dem NAS nutzt External-Storage-Mounts für `PROPUS DRIVE`; SMB-Löschungen brauchen `check_changes=2` pro Mount und `filesystem_check_changes=1` global. Bei „Datenverzeichnis ungültig“ trotz vorhandener `.ncdata` kann die Host-POSIX-Permission von `/volume1/PROPUS DRIVE/nextcloud` zurückgesetzt sein; `chmod 2777` stellt Docker/PHP-FPM-Zugriff wieder her.
-- Für VPS-SSH auf diesem Rechner funktioniert `root@87.106.24.107` mit `C:\Users\svajc\.ssh\id_ed25519`; der ältere `id_ed25519_propus_vps`-Key ist nicht der verlässliche Standard.
-- Websize-Sync läuft nur noch per Knopfdruck (nicht automatisch per Cron) — deaktiviert per `WEBSIZE_SYNC_DISABLED=true` oder Admin-UI-Toggle.
-- NAS-Ordner-Duplikate können durch NTFS-Unicode-Unterschiede (z.B. `#` Varianten) und Alias-Logik entstehen; Diagnose-Skripte unter `scripts/diagnose-nas-*`.
-- EXXAS-Dienstleistungsaufträge benötigen korrektes `ref_kunde`-Mapping via `exxas_customer_id` auf dem Kunden-Datensatz.
-- Im zentralen Rechnungsmodul haben Verlängerungsrechnungen pro-Rechnung-Overrides (`customer_name`, `customer_address`, `customer_email`, `description`) für abweichende Adressaten; PDF und `sendInvoiceWithQrEmail()` priorisieren diese Werte vor Tour-Stammdaten. Gelöschte Renewal-/Exxas-Rechnungen nutzen Soft-Delete via `deleted_at` und den Papierkorb-/Restore-Flow.
-- Nach Next.js-Deploys kann `ChunkLoadError` bei **`React.lazy()`** auftreten: reine **`window`-Error- / `unhandledrejection`-Listener** erfassen das oft nicht; ein **`ErrorBoundary`** um den **`Suspense`/`Routes`**-Block (z. B. `ChunkErrorBoundary` in `ClientShell`) löst gezielt Auto-Reload mit Cooldown.
-- Die Büro-Mail von **upload.propus.ch** („PROPUS UPLOAD-SYSTEM“ / neues Material) kommt vom **Uploadtool-Backend** auf dem VPS (`/www/wwwroot/uploadtool/`, Container `upload_backend`), nicht von der Buchungs-`notifyCompletedUploadBatch`-Logik in `booking/server.js`.
+- In **PowerShell** ist `&&` für Verkettung unzuverlässig; stattdessen `;` oder `if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }`. **Mehrzeilige Git-Commits:** Here-String (`$msg = @'...'@; git commit -m $msg`).
+- **UNC/SMB:** `npm test`, längere npm-/Vitest-/Gradle-Läufe von gemappten Laufwerken (z. B. `Y:`) statt UNC; auf Netzlaufwerken können Jobs hängen oder sehr langsam sein. **NAS-Ordner-Duplikate** (NTFS/Unicode): Diagnose unter `scripts/diagnose-nas-*`.
+- **Platform-Docker:** Next.js ~**3001**, Express ~**3100** (`PLATFORM_INTERNAL_URL`); Health-Checks auf **`/api/core/health`**.
+- Produktiver Admin: **`https://admin-booking.propus.ch`**; Order-Details unter **`/orders/<orderNo>`**; nach Deploys stabile GET-/POST-Routen — gehashte **Server Actions** können `UnrecognizedActionError` auslösen.
+- Termin-/Daueränderungen: Express-Route **`PATCH /api/admin/orders/:orderNo/reschedule`** über **`PLATFORM_INTERNAL_URL`**, damit Outlook/365-Events mit korrekter Endzeit neu erstellt werden.
+- **Nextcloud** (NAS): External-Storage für `PROPUS DRIVE`; SMB: `check_changes=2` pro Mount, global `filesystem_check_changes=1`. „Datenverzeichnis ungültig“: ggf. Host-POSIX am Nextcloud-Datenpfad (`chmod 2777`).
+- **VPS-SSH:** `root@87.106.24.107` mit `C:\Users\svajc\.ssh\id_ed25519`; der ältere `id_ed25519_propus_vps`-Key ist nicht der Standard.
+- **Websize-Sync** nur per Knopfdruck (nicht per Cron), wenn deaktiviert: `WEBSIZE_SYNC_DISABLED=true` oder Admin-Toggle.
+- **EXXAS** / zentrale Rechnungen: korrektes **`ref_kunde`** via **`exxas_customer_id`**; Renewal-**Overrides** für PDF/Mail; Soft-Delete über **`deleted_at`**.
+- **`apps/propus-assistant-mobile` (Expo/EAS):** Unter Windows oft **`node ./node_modules/expo/bin/cli …`** statt `npx expo`; EAS mit **`npx eas-cli`** (`eas whoami` allein kann fehlen). Lokaler Android-Release: **JDK 17** und **`JAVA_HOME`**; SMB erschwert Gradle/npm.
+- **Assistant-DB-Tools** (z. B. `search_customers`, `search_invoices`): **`core.customers`** nutzt **`notes`** / **`street`** (nicht `notiz` / Spalte `address`). View **`tour_manager.invoices_central_v`**: u. a. **`invoice_source`**, **`amount_chf`**, **`tour_customer_name`**, **`tour_object_label`**.
+- **`ChunkLoadError`** nach Next-Deploy bei **`React.lazy()`** → **`ChunkErrorBoundary`** um **`Suspense`/`Routes`** in **`ClientShell`**. Büro-Mail **upload.propus.ch** („PROPUS UPLOAD-SYSTEM“) vom **Uploadtool-Backend** auf dem VPS, nicht aus **`booking/server.js`**.

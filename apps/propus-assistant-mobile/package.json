@@ -12,7 +12,8 @@
     "build:android:preview": "eas build --platform android --profile preview",
     "prebuild:android": "node ./node_modules/expo/bin/cli prebuild --platform android",
     "eas:android:preview": "eas build --platform android --profile preview",
-    "eas:android:preview:env": "dotenv-cli -e .env.expo.local -- eas build --platform android --profile preview"
+    "eas:android:preview:env": "dotenv-cli -e .env.expo.local -- eas build --platform android --profile preview",
+    "eas-build-pre-install": "echo 'EAS PRE-INSTALL: node version:' && node --version && echo 'pwd:' && pwd && ls -la"
   },
   "dependencies": {
     "expo": "~52.0.0",
@@ -24,6 +25,7 @@
     "expo-secure-store": "~14.0.0",
     "expo-speech": "~13.0.0",
     "expo-status-bar": "~2.0.0",
+    "expo-system-ui": "~4.0.9",
     "react": "18.3.1",
     "react-native": "0.76.9",
     "react-native-safe-area-context": "~4.12.0",
