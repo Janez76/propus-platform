@@ -1,6 +1,6 @@
 # POSTEINGANG — Vereinheitlichte Zentrale für E-Mail, Tickets und Aufgaben
 
-> **Stand:** 29. April 2026
+> **Stand:** 1. Mai 2026
 > **Repo:** `Janez76/propus-platform`
 > **Ziel:** Separater Planer und ständiger Wechsel zwischen Outlook und internen Tools reduzieren — ein einziges Modul im Admin Panel.
 
@@ -81,41 +81,52 @@ Bestehende Relationen erweitern: `customers`, `orders`, `tours`, `invoices`, `us
 
 ## 4. API-Routen
 
-> Express-Routen in `tours/routes/` (JSON-only) plus Next.js-Proxy in `app/next.config.ts`.
+> **Implementiert:** Express-Router `tours/routes/posteingang-admin-api.js`, in `platform/server.js` unter **`/api/tours/admin/posteingang`** gemountet (Admin-Session). Next.js-Proxy: `app/next.config.ts` (Rewrite auf Platform-Express).
 
 ### Konversationen
 
 | Methode | Route | Zweck |
 |---|---|---|
-| `GET` | `/api/posteingang/conversations` | Liste mit Filtern (status, assigned, customer, search, page, limit) |
-| `GET` | `/api/posteingang/conversations/:id` | Detail inkl. Messages, Tasks, Participants, Tags |
-| `POST` | `/api/posteingang/conversations` | Neue Konversation (channel=internal oder task_only) |
-| `PATCH` | `/api/posteingang/conversations/:id` | Status, Priorität, Zuweisung, Verknüpfungen ändern |
-| `POST` | `/api/posteingang/conversations/:id/tags` | Tag hinzufügen |
-| `DELETE` | `/api/posteingang/conversations/:id/tags/:name` | Tag entfernen |
+| `GET` | `/api/tours/admin/posteingang/conversations` | Liste mit Filtern (status, assigned, customer_id, search, page, limit) |
+| `GET` | `/api/tours/admin/posteingang/conversations/:id` | Detail inkl. Messages, Tasks, Tags |
+| `POST` | `/api/tours/admin/posteingang/conversations` | Neue interne Konversation |
+| `PATCH` | `/api/tours/admin/posteingang/conversations/:id` | Status, Priorität, Zuweisung, Verknüpfungen ändern |
+| `DELETE` | `/api/tours/admin/posteingang/conversations/:id/messages/:messageId` | E-Mail: Graph-Löschen im Postfach + lokale Zeile entfernen |
+| `POST` | `/api/tours/admin/posteingang/conversations/:id/tags` | Tag hinzufügen |
+| `DELETE` | `/api/tours/admin/posteingang/conversations/:id/tags/:name` | Tag entfernen |
 
 ### Nachrichten
 
 | Methode | Route | Zweck |
 |---|---|---|
-| `POST` | `/api/posteingang/conversations/:id/messages` | Neue Nachricht. Bei `direction=outbound` wird via Graph gesendet. |
-| `POST` | `/api/posteingang/conversations/:id/messages/:msgId/reply` | Antwort als neue Nachricht im Thread |
+| `POST` | `/api/tours/admin/posteingang/conversations/:id/messages` | E-Mail-Antwort (Graph Reply) oder interne Notiz (`mode`: `internal_note` / `note`) |
 
 ### Aufgaben
 
 | Methode | Route | Zweck |
 |---|---|---|
-| `GET` | `/api/posteingang/tasks` | Liste mit Filtern (status, assigned, due, customer, conversation) |
-| `POST` | `/api/posteingang/tasks` | Neue Aufgabe (mit oder ohne Konversation) |
-| `PATCH` | `/api/posteingang/tasks/:id` | Status, Priorität, Fälligkeit, Zuweisung |
-| `DELETE` | `/api/posteingang/tasks/:id` | Löschen |
+| `GET` | `/api/tours/admin/posteingang/tasks` | Liste mit Filtern (status, assigned, due, customer_id, conversation_id) |
+| `POST` | `/api/tours/admin/posteingang/tasks` | Neue Aufgabe (mit oder ohne Konversation) |
+| `PATCH` | `/api/tours/admin/posteingang/tasks/:id` | Status, Priorität, Fälligkeit, Zuweisung |
+| `DELETE` | `/api/tours/admin/posteingang/tasks/:id` | Löschen |
 
-### Sync (intern)
+### Sync, Statistik, Anhänge, Trigger
 
 | Methode | Route | Zweck |
 |---|---|---|
-| `POST` | `/api/posteingang/sync/pull` | Manueller Pull-Trigger. Cron ruft das alle 2 Min auf. |
-| `POST` | `/api/posteingang/sync/webhook` | (Phase 7) MS Graph Subscription Endpoint |
+| `POST` | `/api/tours/admin/posteingang/sync/pull` | Manueller Graph-Delta-Pull (Body/Query: `mailbox`) |
+| `GET` | `/api/tours/admin/posteingang/stats` | Dashboard-Kurzstatistiken |
+| `GET` | `/api/tours/admin/posteingang/messages/:messageId/attachments` | Anhänge einer Nachricht |
+| `GET` | `/api/tours/admin/posteingang/admin-users` | Admin-Liste für Zuweisung |
+| `POST` | `/api/tours/admin/posteingang/run-triggers` | Auto-Trigger manuell |
+
+### Öffentlich / Cron (kein Admin-Login)
+
+| Methode | Route | Zweck |
+|---|---|---|
+| `POST` | `/api/tours/posteingang/webhook` | MS Graph Subscription Endpoint (`tours/routes/posteingang-webhook.js`) |
+| `POST` | `/api/tours/cron/sync-posteingang` | Geplanter Pull (`X-Cron-Secret`) |
+| `POST` | `/api/tours/cron/posteingang-triggers` | Geplante Auto-Trigger (`X-Cron-Secret`) |
 
 ---
 
@@ -136,7 +147,7 @@ Bestehende Relationen erweitern: `customers`, `orders`, `tours`, `invoices`, `us
 - **Mitte:** Ausgewählte Konversation (Header, Thread, Composer)
 - **Rechts:** Kontext-Panel (Kunde, verknüpfte Aufträge/Touren/Rechnungen, Aufgaben)
 
-### Komponenten (React, in `app/src/pages-legacy/posteingang/` + `app/src/components/posteingang/`)
+### Komponenten (React, in `app/src/pages-legacy/admin/posteingang/` + ggf. `app/src/components/posteingang/`)
 
 ```
 PosteingangShell, KonversationsListe, KonversationsListenItem,
@@ -390,4 +401,4 @@ Konkrete Schemas, Constraints und Backfill-Reihenfolge werden im Phase-1-PR fina
 
 ---
 
-*Letzte Aktualisierung: 29. April 2026 — Stack-Sektion an Repo-Realität angepasst.*
+*Letzte Aktualisierung: 1. Mai 2026 — API-Pfade an `/api/tours/admin/posteingang` angepasst; Verweis [FLOWS_TOURS.md §17](./FLOWS_TOURS.md#17-posteingang-admin-microsoft-graph).*
