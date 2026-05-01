@@ -15,7 +15,7 @@ Workflow für Few-Shots, Eval, Memory-Seeds und Produktions-Replay — **ohne** 
 
 ## Voraussetzungen
 
-- `ANTHROPIC_API_KEY` in der Umgebung (nicht committen).
+- `ANTHROPIC_API_KEY` in der Umgebung oder in **`app/.env.local`** / **`app/.env`** (wie beim Next-Server; Eval/Tune laden diese Dateien automatisch). Nicht committen.
 - Datenbank: `DATABASE_URL` (o. ä.) für Seeds und Replay-Harvest.
 - Optional: `ASSISTANT_SEED_USER_ID` — UUID des Ziel-Users für YAML mit `userId: admin` (o. ä. Platzhalter).
 - Replay-Harvest: `ASSISTANT_REPLAY_USER_ID` — UUID des Users, dessen Konversationen exportiert werden.
@@ -24,12 +24,14 @@ Workflow für Few-Shots, Eval, Memory-Seeds und Produktions-Replay — **ohne** 
 
 ```bash
 cd app
-ANTHROPIC_API_KEY=... npm run eval:assistant
+npm run eval:assistant
 ```
 
 - `--json` — maschinenlesbare Ausgabe inkl. `failedCases`.
 - `--replay` — lädt `scripts/replay-cases.json` (wenn vorhanden) und merged Zusatzfälle; Drift: `observedTools` muss Teilfolge der Eval-Tools sein.
 - `--case=<id>` — nur ein Fall (z. B. für schnelle Iteration).
+
+**Wetter & Routing:** Im Chat gibt es keine Live-Wetter- oder Routing-APIs — Verhalten ist in `src/lib/assistant/system-prompt.ts` und bei Bedarf in `src/lib/assistant/few-shot-examples.ts` festgelegt (Schweiz: MeteoSchweiz; Fahrzeiten: grobe Schätzung + Karten-App). Regression: Eval-Fälle `weather-honest` und `routing-honest` in `scripts/eval-assistant.ts`.
 
 ## 2) Replay-Harvest (Produktion → JSON)
 
@@ -42,7 +44,7 @@ Erzeugt `scripts/replay-cases.json` (gitignored). Anschließend Eval mit `--repl
 ## 3) Auto-Tuner (Patch-Vorschläge)
 
 ```bash
-ANTHROPIC_API_KEY=... npm run tune:assistant
+npm run tune:assistant
 ```
 
 - Führt Eval aus, schlägt bei Fehlern per Claude Opus Text-Patches für `src/lib/assistant/system-prompt.ts` vor.

@@ -9,8 +9,9 @@ const MAX_JSON_BYTES = 450_000;
 
 export async function POST(req: NextRequest) {
   const access = await requireAssistantTrainingAccess(req);
-  if (!access) {
-    return NextResponse.json({ error: "Nicht berechtigt", code: "auth_failed" }, { status: 403 });
+  if (!access.ok) {
+    const msg = access.status === 403 ? "Nur Super-Admin" : "Nicht authentifiziert";
+    return NextResponse.json({ error: msg, code: "auth_failed" }, { status: access.status });
   }
 
   let body: { limit?: number };

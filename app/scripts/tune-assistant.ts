@@ -45,7 +45,6 @@ function resolveScriptsDir(): string {
   return target;
 }
 
-const SCRIPT_DIR = SCRIPT_DIR_FROM_URL;
 const SYSTEM_PROMPT_PATH = resolveSystemPromptPath();
 
 function isCliEntry(): boolean {

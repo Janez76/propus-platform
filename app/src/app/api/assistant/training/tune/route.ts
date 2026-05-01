@@ -10,8 +10,9 @@ const MAX_MD_RESPONSE_CHARS = 100 * 1024;
 
 export async function POST(req: NextRequest) {
   const access = await requireAssistantTrainingAccess(req);
-  if (!access) {
-    return NextResponse.json({ error: "Nicht berechtigt", code: "auth_failed" }, { status: 403 });
+  if (!access.ok) {
+    const msg = access.status === 403 ? "Nur Super-Admin" : "Nicht authentifiziert";
+    return NextResponse.json({ error: msg, code: "auth_failed" }, { status: access.status });
   }
 
   try {

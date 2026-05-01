@@ -8,14 +8,22 @@ import { resolveAssistantUser, type AssistantUser } from "@/lib/assistant/auth";
 
 const INTERNAL_ROLES = new Set(["admin", "super_admin", "employee"]);
 
-export type TrainingAccessOk = { session: AdminSession; user: AssistantUser };
+export type TrainingAccessResult =
+  | { ok: true; session: AdminSession; user: AssistantUser }
+  | { ok: false; status: 401 | 403 };
 
-export async function requireAssistantTrainingAccess(req: NextRequest): Promise<TrainingAccessOk | null> {
+export async function requireAssistantTrainingAccess(req: NextRequest): Promise<TrainingAccessResult> {
   const session = await getAdminSession();
   const role = String(session?.role || "").toLowerCase();
-  if (!session || !INTERNAL_ROLES.has(role)) return null;
-  if (!isAssistantSettingsAdminUi(session)) return null;
+  if (!session || !INTERNAL_ROLES.has(role)) {
+    return { ok: false, status: 401 };
+  }
+  if (!isAssistantSettingsAdminUi(session)) {
+    return { ok: false, status: 403 };
+  }
   const user = await resolveAssistantUser(req);
-  if (!user) return null;
-  return { session, user };
+  if (!user) {
+    return { ok: false, status: 401 };
+  }
+  return { ok: true, session, user };
 }

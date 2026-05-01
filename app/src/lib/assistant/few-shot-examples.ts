@@ -60,6 +60,15 @@ export const FEW_SHOTS: FewShot[] = [
     tags: ["wetter", "schweiz"],
   },
   {
+    id: "routing-honest-ch",
+    user: "Wie weit ist es von der Albisstrasse Zürich nach Mettmenstetten?",
+    assistantToolPlan:
+      "Kein Routing-Tool — Schätzung klar kennzeichnen, Referenzband aus dem System-Prompt nutzen, auf Karten-App verweisen.",
+    assistantFinal:
+      "Kein eingebundenes Routing. Grob von der Albisstrasse Zürich nach Mettmenstetten (8932) oft ca. 25–30 km und etwa 35–40 Min mit dem Auto — stark von Route und Verkehr abhängig. Für die genaue Strecke: Google Maps, Apple Maps oder OpenStreetMap.",
+    tags: ["routing", "distanz", "fahrtzeit", "km", "auto", "zürich", "mettmenstetten"],
+  },
+  {
     id: "smalltalk-no-tools",
     user: "Danke, das reicht mir!",
     assistantToolPlan: "Keine Tools nötig.",
