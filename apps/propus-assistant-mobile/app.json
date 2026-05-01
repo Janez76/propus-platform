@@ -6,7 +6,10 @@
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "scheme": "propusassistant",
+    "icon": "./assets/icon.png",
+    "backgroundColor": "#0c0d10",
     "splash": {
+      "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#0c0d10"
     },
@@ -19,7 +22,9 @@
     },
     "android": {
       "package": "ch.propus.assistant",
+      "backgroundColor": "#0c0d10",
       "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0c0d10"
       },
       "permissions": [
@@ -33,7 +38,15 @@
     "plugins": [
       "expo-router",
       "expo-av",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#0c0d10"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
