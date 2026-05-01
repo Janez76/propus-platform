@@ -28,10 +28,11 @@ npm run eval:assistant
 ```
 
 - `--json` — maschinenlesbare Ausgabe inkl. `failedCases`.
-- `--replay` — lädt `scripts/replay-cases.json` (wenn vorhanden) und merged Zusatzfälle; Drift: `observedTools` muss Teilfolge der Eval-Tools sein.
+- `--replay` — lädt `scripts/replay-cases.json` und merged Zusatzfälle; Drift: `observedTools` muss Teilfolge der Eval-Tools sein.
+- `--replay-file=C:\pfad\replay-cases.json` — gleiches Merge aus beliebigem Pfad (impliziert Replay wie `--replay`; Standarddatei entfällt).
 - `--case=<id>` — nur ein Fall (z. B. für schnelle Iteration).
 
-**Wetter & Routing:** Im Chat gibt es keine Live-Wetter- oder Routing-APIs — Verhalten ist in `src/lib/assistant/system-prompt.ts` und bei Bedarf in `src/lib/assistant/few-shot-examples.ts` festgelegt (Schweiz: MeteoSchweiz; Fahrzeiten: grobe Schätzung + Karten-App). Regression: Eval-Fälle `weather-honest` und `routing-honest` in `scripts/eval-assistant.ts`.
+**Wetter & Routing:** Wetter über `get_weather_forecast` (Open-Meteo / ICON-CH); amtliche Warnungen weiterhin MeteoSchweiz-Web. Routing über `get_route` / `get_distance_matrix` (Google), bei Nichterreichbarkeit grobe Schätzung + Karten-App — siehe `src/lib/assistant/system-prompt.ts` und `few-shot-examples.ts`. Regression: `weather-honest`, `routing-honest` in `scripts/eval-assistant.ts`.
 
 ## 2) Replay-Harvest (Produktion → JSON)
 

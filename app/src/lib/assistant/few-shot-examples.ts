@@ -54,18 +54,19 @@ export const FEW_SHOTS: FewShot[] = [
   {
     id: "weather-honest-ch",
     user: "Wie wird das Wetter morgen in Bern?",
-    assistantToolPlan: "Keine Wetter-API — ehrlich auf Unsicherheit/Live-Daten hinweisen.",
+    assistantToolPlan:
+      "get_weather_forecast mit zip (3011 oder andere Bern-PLZ) oder Koordinaten — nur Zahlen/Wetterart aus der Tool-Antwort; für Warnungen kurz meteoschweiz.admin.ch erwähnen.",
     assistantFinal:
-      "Kein Live-Wetter im Chat. MeteoSchweiz (https://www.meteoschweiz.admin.ch) ist die verbindliche Quelle für aktuelle Lage, stündliche und mehrtägige Vorhersagen, Warnungen sowie regional genaue Daten — dort prüfen. Keine erfundenen Temperaturen oder Prognosen.",
+      "Konkrete Min/Max und Beschreibung aus dem Tool-Ergebnis für Bern — keine erfundenen Werte. Für amtliche Unwetterwarnungen: https://www.meteoschweiz.admin.ch.",
     tags: ["wetter", "schweiz"],
   },
   {
     id: "routing-honest-ch",
     user: "Wie weit ist es von der Albisstrasse Zürich nach Mettmenstetten?",
     assistantToolPlan:
-      "Kein Routing-Tool — Schätzung klar kennzeichnen, Referenzband aus dem System-Prompt nutzen, auf Karten-App verweisen.",
+      "get_route oder get_distance_matrix mit origin/destination — Distanz und Dauer aus Tool-Ergebnis; nur bei Tool-Fehler Schätzung aus Prompt-Referenzband plus Karten-App.",
     assistantFinal:
-      "Kein eingebundenes Routing. Grob von der Albisstrasse Zürich nach Mettmenstetten (8932) oft ca. 25–30 km und etwa 35–40 Min mit dem Auto — stark von Route und Verkehr abhängig. Für die genaue Strecke: Google Maps, Apple Maps oder OpenStreetMap.",
+      "Distanz und Fahrzeit aus dem Routing-Tool wiedergeben. Schlägt das Tool fehl: grob ca. 25–30 km / ~35–40 Min von der Albisstrasse Richtung Mettmenstetten (8932) als Schätzung; genaue Route: Maps.",
     tags: ["routing", "distanz", "fahrtzeit", "km", "auto", "zürich", "mettmenstetten"],
   },
   {

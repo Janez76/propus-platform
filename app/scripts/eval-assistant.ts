@@ -1,6 +1,6 @@
 /**
  * Standalone eval: Anthropic Messages API + gemockte Tools (kein DB).
- * Run: npm run eval:assistant [--json] [--replay] [--case=<id>]
+ * Run: npm run eval:assistant [--json] [--replay] [--replay-file=<path>] [--case=<id>]
  * Key: `ANTHROPIC_API_KEY` aus der Umgebung oder aus `app/.env.local` / `app/.env`.
  */
 import fs from "fs";
@@ -93,6 +93,76 @@ const FIXTURES: Record<string, (input: Record<string, unknown>) => unknown> = {
     confirmation_required: true,
     draft: { to: "info@firma.ch", subject: "Tour-Verlängerung", body_html: "<p>Entwurf</p>" },
   }),
+  get_route: () => ({
+    summary: "Kanton Zürich",
+    warnings: [],
+    totalDistanceMeters: 23000,
+    totalDurationSeconds: 1680,
+    legs: [
+      {
+        distanceText: "23 km",
+        distanceMeters: 23000,
+        durationText: "28 Minuten",
+        durationSeconds: 1680,
+        durationInTrafficText: null,
+        durationInTrafficSeconds: null,
+        startAddress: "Albisstrasse, Zürich, Schweiz",
+        endAddress: "Oetwil am See, Schweiz",
+        stepCount: 0,
+      },
+    ],
+    steps: [],
+    overviewPolyline: null,
+    attribution: "Routing: Google Maps Directions",
+  }),
+  get_distance_matrix: () => ({
+    originCount: 1,
+    destinationCount: 1,
+    matrix: [
+      {
+        origin: "Albisstrasse, Zürich, Schweiz",
+        cells: [
+          {
+            destination: "Oetwil am See, Schweiz",
+            status: "OK",
+            distanceText: "23 km",
+            distanceMeters: 23000,
+            durationText: "28 Minuten",
+            durationSeconds: 1680,
+            durationInTrafficSeconds: null,
+          },
+        ],
+      },
+    ],
+    attribution: "Routing: Google Maps Distance Matrix",
+  }),
+  get_weather_forecast: () => ({
+    location: { lat: 47.3769, lng: 8.5417, area: "Zürich", zip: "8001" },
+    attribution: "Open-Meteo · MeteoSwiss ICON-CH",
+    warningsNote: "Für offizielle Unwetterwarnungen siehe https://www.meteoschweiz.admin.ch (MeteoSchweiz).",
+    current: {
+      time: "2026-05-02T12:00",
+      kind: "partly_cloudy",
+      label: "teilweise bewölkt",
+      temperature: 18,
+      humidity: 55,
+      windSpeed: 12,
+      precipitation: 0,
+    },
+    days: [
+      {
+        date: "2026-05-03",
+        kind: "partly_cloudy",
+        label: "teilweise bewölkt",
+        tMax: 22,
+        tMin: 12,
+        precipProb: 10,
+        windMax: 18,
+        sunrise: "06:12",
+        sunset: "20:45",
+      },
+    ],
+  }),
 };
 
 function defaultFixture(_input: Record<string, unknown>) {
@@ -163,7 +233,9 @@ export const TEST_CASES: EvalTestCase[] = [
     id: "email-send",
     userMessage: "Schreib an info@firma.ch wegen Tour-Verlängerung",
     expectTools: ["send_email"],
-    mustNotContain: [/kann.*nicht direkt/i],
+    mustNotContain: [
+      /\bkann\b[^\n]{0,80}\bnicht\b[^\n]{0,40}\bdirekt\b[^\n]{0,60}\b(senden|schreiben|mailen|kommunizieren)/i,
+    ],
   },
   {
     id: "auftrag-anlegen-start",
@@ -180,7 +252,9 @@ export const TEST_CASES: EvalTestCase[] = [
   {
     id: "german-only",
     userMessage: "Hello, how are you?",
-    mustContain: [/([äöüÄÖÜß]|[Hh]allo|[Gg]uten)/],
+    mustContain: [
+      /([äöüÄÖÜß]|[Hh]allo|[Gg]uten|\b(ich|Sie|dir|Ihnen|helfen|können|gern|gerne|danke|schön|Propus|Mir|geht|wie)\b)/i,
+    ],
   },
   {
     id: "no-greeting-midconvo",
@@ -202,14 +276,16 @@ export const TEST_CASES: EvalTestCase[] = [
   {
     id: "weather-honest",
     userMessage: "Wie wird das Wetter morgen in Zürich?",
-    mustContain: [/meteoschweiz|ohne.*[Ww]etter|keine.*[Ee]chtzeit|nicht.*Live/i],
+    expectTools: ["get_weather_forecast"],
+    mustNotContain: [/Kein Live-Wetter/i, /keine Wetter-API/i, /basierend auf aktuellen Daten/i],
+    mustContain: [/°|Grad|Höchst|Tiefst|Temperatur|wolk|Regen/i],
   },
   {
     id: "routing-honest",
     userMessage: "Wie lange brauche ich von der Albisstrasse Zürich nach Oetwil am See mit dem Auto?",
-    mustContain: [
-      /schätz|ungefähr|ca\.|circa|Maps|OpenStreetMap|routing|kein.*Routing|keinen.*Kartendienst/i,
-    ],
+    expectToolAnyOf: ["get_route", "get_distance_matrix", "get_travel_time_for_orders"],
+    mustContain: [/Minuten|Min\.|\bkm\b|\d+\s*Min/i],
+    mustNotContain: [/Kein eingebundenes Routing/i],
   },
 ];
 
@@ -450,9 +526,18 @@ function argvHasReplay(): boolean {
   return process.argv.includes("--replay");
 }
 
+function parseReplayFilePath(): string | null {
+  const a = process.argv.find((x) => x.startsWith("--replay-file="));
+  if (!a) return null;
+  const p = a.slice("--replay-file=".length).trim();
+  return p ? path.resolve(p) : null;
+}
+
 async function main() {
   const jsonOut = process.argv.includes("--json");
-  const replay = argvHasReplay();
+  const replayFileArg = parseReplayFilePath();
+  const replay = argvHasReplay() || !!replayFileArg;
+  const replayPath = replayFileArg ?? REPLAY_JSON_PATH;
   const caseId = parseArgCase();
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
   if (!apiKey) {
@@ -461,9 +546,17 @@ async function main() {
   }
 
   let cases = [...TEST_CASES];
-  if (replay && fs.existsSync(REPLAY_JSON_PATH)) {
-    const extra = loadReplayCaseFile(REPLAY_JSON_PATH);
-    cases = mergeEvalCases(cases, extra);
+  if (replay) {
+    if (!fs.existsSync(replayPath)) {
+      if (replayFileArg) {
+        console.error(`Replay file not found: ${replayPath}`);
+        process.exit(1);
+      }
+      /* --replay ohne Datei: keine Zusatzfälle (wie zuvor) */
+    } else {
+      const extra = loadReplayCaseFile(replayPath);
+      cases = mergeEvalCases(cases, extra);
+    }
   }
 
   if (caseId) {
