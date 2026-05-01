@@ -287,7 +287,7 @@ describe("assistant order detail tool", () => {
       }])
       .mockResolvedValueOnce([{ folder_type: "raw", status: "uploaded", display_name: "RAW-Fotos" }])
       .mockResolvedValueOnce([{ source: "renewal", invoice_number: "R-2026-01", status: "open", amount: 590, due_at: "2026-06-01" }])
-      .mockResolvedValueOnce([{ sender_role: "customer", sender_name: "Hans", body_text: "Hallo", created_at: "2026-04-20T08:00:00.000Z" }]);
+      .mockResolvedValueOnce([{ sender_role: "customer", sender_name: "Hans", message: "Hallo", created_at: "2026-04-20T08:00:00.000Z" }]);
 
     const handlers = createOrdersHandlers({ query });
     const result = await handlers.get_order_detail({ order_no: 101 }, { userId: "u", userEmail: "u@example.com" }) as Record<string, unknown>;

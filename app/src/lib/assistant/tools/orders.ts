@@ -252,10 +252,10 @@ export function createOrdersHandlers(deps: OrdersDeps): Record<string, ToolHandl
         [orderNo],
       );
 
-      const chatMessages = await runQuery<{ sender_role: string; sender_name: string | null; body_text: string; created_at: string | Date }>(
-        `SELECT sender_role, sender_name, LEFT(body_text, 200) AS body_text, created_at
+      const chatMessages = await runQuery<{ sender_role: string; sender_name: string | null; message: string; created_at: string | Date }>(
+        `SELECT sender_role, sender_name, LEFT(message, 200) AS message, created_at
          FROM booking.order_chat_messages
-         WHERE order_no = $1
+         WHERE order_no = $1 AND deleted_at IS NULL
          ORDER BY created_at DESC
          LIMIT 5`,
         [orderNo],
@@ -269,7 +269,7 @@ export function createOrdersHandlers(deps: OrdersDeps): Record<string, ToolHandl
         calendarLinked: { photographer: Boolean(row.photographer_event_id), office: Boolean(row.office_event_id) },
         folders: folders.map((f) => ({ type: f.folder_type, status: f.status, displayName: f.display_name })),
         invoices: invoices.map((i) => ({ source: i.source, number: i.invoice_number, status: i.status, amount: i.amount, dueAt: i.due_at instanceof Date ? i.due_at.toISOString().slice(0, 10) : i.due_at })),
-        recentChat: chatMessages.reverse().map((m) => ({ role: m.sender_role, name: m.sender_name, text: m.body_text, at: m.created_at instanceof Date ? m.created_at.toISOString() : m.created_at })),
+        recentChat: chatMessages.reverse().map((m) => ({ role: m.sender_role, name: m.sender_name, text: m.message, at: m.created_at instanceof Date ? m.created_at.toISOString() : m.created_at })),
       };
     },
 
