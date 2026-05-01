@@ -1,10 +1,8 @@
 /**
  * Root-Layout — Auth-Gate + Stack.
  *
- * Wichtig: <Stack> immer mounten, damit expo-router navigieren kann.
- * Auth-Check läuft parallel und triggert router.replace, sobald der
- * Navigator bereit ist. Der Splash bleibt sichtbar, bis wir wissen,
- * wohin geroutet wird — sonst weißer Blitz auf Android-Release-APK.
+ * Gruppen `(auth)` und `(app)` haben eigene `_layout.tsx` mit Stack, damit
+ * expo-router auf Android-Release keine leeren Screens rendert (siehe Expo #33774).
  */
 
 import { useEffect, useState } from 'react';
@@ -51,9 +49,12 @@ export default function RootLayout() {
   return (
     <View style={{ flex: 1, backgroundColor: '#0c0d10' }}>
       <StatusBar style="light" />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0c0d10' } }}>
-        <Stack.Screen name="(auth)/login" />
-        <Stack.Screen name="(app)/index" />
+      <Stack
+        initialRouteName="(auth)"
+        screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0c0d10' } }}
+      >
+        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="(app)" />
       </Stack>
     </View>
   );
