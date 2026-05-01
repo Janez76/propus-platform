@@ -39,6 +39,23 @@ export default function RootLayout() {
     };
   }, []);
 
+  /** Nach Login bleibt `authed` sonst auf false → Auth-Gate schickt zurück zum Login (Loop). */
+  useEffect(() => {
+    if (!authChecked) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const ok = await hasAuthToken();
+        if (!cancelled) setAuthed(ok);
+      } catch {
+        if (!cancelled) setAuthed(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [authChecked, segments]);
+
   useEffect(() => {
     if (!authChecked) return;
     const inAuthGroup = segments[0] === '(auth)';
