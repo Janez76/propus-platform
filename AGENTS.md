@@ -230,6 +230,7 @@ Zentrales E-Mail- und Konversationssystem mit Microsoft Graph-Integration, errei
 | `POST` | `/conversations` | Neue interne Konversation |
 | `PATCH` | `/conversations/:id` | Status, Priorität, Zuweisung, Kunde ändern |
 | `POST` | `/conversations/:id/messages` | Antwort senden oder interne Notiz |
+| `DELETE` | `/conversations/:id/messages/:messageId` | E-Mail in Outlook löschen (Graph) und lokale Zeile entfernen; erfordert App-Permission **Mail.ReadWrite** |
 | `POST` | `/conversations/:id/tags` | Tag hinzufügen |
 | `DELETE` | `/conversations/:id/tags/:name` | Tag entfernen |
 | `GET` | `/tasks` | Aufgaben-Liste |

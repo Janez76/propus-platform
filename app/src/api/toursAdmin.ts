@@ -978,6 +978,7 @@ export type PosteingangMessageRow = {
   body_text: string | null;
   graph_message_id: string | null;
   sent_at: string;
+  received_at: string | null;
   author_email: string | null;
 };
 
@@ -1061,6 +1062,13 @@ export function postPosteingangMessage(
   return toursAdminFetch<{ ok: true } & Awaited<ReturnType<typeof getPosteingangConversation>>>(
     `/posteingang/conversations/${conversationId}/messages`,
     { method: "POST", body: JSON.stringify(body) },
+  );
+}
+
+export function deletePosteingangSyncedMessage(conversationId: string | number, messageId: string | number) {
+  return toursAdminFetch<{ ok: true; conversation_removed: boolean }>(
+    `/posteingang/conversations/${conversationId}/messages/${messageId}`,
+    { method: "DELETE" },
   );
 }
 
