@@ -1,4 +1,5 @@
 import { query, queryOne } from "@/lib/db";
+import { normalizeTimestamptzParam } from "@/lib/pg-timestamptz";
 
 export type AssistantToolCallRecord = {
   name: string;
@@ -276,7 +277,8 @@ export type AssistantMessageRow = {
   id: string;
   role: "user" | "assistant" | "tool";
   content: unknown;
-  createdAt: string;
+  /** pg kann hier `Date` liefern — nicht mit `String()` an Postgres weiterreichen. */
+  createdAt: string | Date;
 };
 
 export async function listConversationMessages(input: {
@@ -300,11 +302,11 @@ export async function listConversationMessages(input: {
 export async function listAssistantToolCallsForConversation(input: {
   conversationId: string;
   userId: string;
-  afterCreatedAt?: string;
+  afterCreatedAt?: string | Date;
 }): Promise<string[]> {
-  const after = String(input.afterCreatedAt || "").trim();
+  const after = normalizeTimestamptzParam(input.afterCreatedAt);
   const rows =
-    after.length > 0
+    after
       ? await query<{ tool_name: string }>(
           `SELECT tc.tool_name
            FROM tour_manager.assistant_tool_calls tc

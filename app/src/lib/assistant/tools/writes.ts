@@ -1,4 +1,5 @@
 import { query as defaultQuery, queryOne as defaultQueryOne } from "@/lib/db";
+import { normalizeTimestamptzParam } from "@/lib/pg-timestamptz";
 import { getAllowedTransitions, normalizeStatusKey } from "@/lib/status";
 import type { ToolContext, ToolDefinition, ToolHandler } from "./index";
 
@@ -158,7 +159,17 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
       if (priority && !VALID_PRIORITIES.has(priority)) {
         return { error: `Ungültige Priorität: ${priority}. Erlaubt: normal, high, low` };
       }
-      const dueAt = optionalString(input.due_at);
+      const dueAtRaw = optionalString(input.due_at);
+      let dueAtIso: string | null = null;
+      if (dueAtRaw) {
+        dueAtIso = normalizeTimestamptzParam(dueAtRaw);
+        if (!dueAtIso) {
+          return {
+            error:
+              "due_at: ungültiges Datumsformat. Bitte ISO 8601 verwenden (z. B. 2026-05-15 oder 2026-05-15T10:00:00Z).",
+          };
+        }
+      }
       const conversationId = optionalPositiveInt(input.conversation_id);
       const customerId = optionalPositiveInt(input.customer_id);
 
@@ -166,7 +177,7 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
         `INSERT INTO tour_manager.posteingang_tasks (title, description, status, priority, due_at, conversation_id, customer_id)
          VALUES ($1, $2, 'open', $3, $4::timestamptz, $5, $6)
          RETURNING id`,
-        [title, description, priority || "normal", dueAt, conversationId, customerId],
+        [title, description, priority || "normal", dueAtIso, conversationId, customerId],
       );
 
       return { ok: true, taskId: row?.id, message: `Aufgabe "${title}" erstellt.` };
