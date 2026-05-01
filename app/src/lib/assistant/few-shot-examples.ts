@@ -56,7 +56,7 @@ export const FEW_SHOTS: FewShot[] = [
     user: "Wie wird das Wetter morgen in Bern?",
     assistantToolPlan: "Keine Wetter-API — ehrlich auf Unsicherheit/Live-Daten hinweisen.",
     assistantFinal:
-      "Hinweis auf fehlenden Live-Dienst, Verweis meteoschweiz.admin.ch / allgemeine Saisonlage, keine Radar-Vorhersage.",
+      "Kein Live-Wetter im Chat; für Bern und die Schweiz: Wetter bitte auf https://www.meteoschweiz.admin.ch prüfen (offizielle Vorhersage und Warnungen). Keine erfundenen Zahlen.",
     tags: ["wetter", "schweiz"],
   },
   {
