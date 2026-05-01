@@ -7,6 +7,7 @@ type VoiceButtonProps = {
   onTranscript: (text: string) => void;
   onError: (error: string) => void;
   disabled?: boolean;
+  variant?: "default" | "icon";
 };
 
 type RecordingState = "idle" | "recording" | "transcribing";
@@ -29,7 +30,7 @@ function audioExtensionForMimeType(mimeType: string): string {
   return "webm";
 }
 
-export function VoiceButton({ onTranscript, onError, disabled }: VoiceButtonProps) {
+export function VoiceButton({ onTranscript, onError, disabled, variant = "default" }: VoiceButtonProps) {
   const [state, setState] = useState<RecordingState>("idle");
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -96,6 +97,25 @@ export function VoiceButton({ onTranscript, onError, disabled }: VoiceButtonProp
     if (state === "recording" && recorderRef.current?.state === "recording") {
       recorderRef.current.stop();
     }
+  }
+
+  if (variant === "icon") {
+    return (
+      <button
+        type="button"
+        onPointerDown={startRecording}
+        onPointerUp={stopRecording}
+        onPointerLeave={stopRecording}
+        onPointerCancel={stopRecording}
+        disabled={disabled || state === "transcribing"}
+        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[var(--text-subtle)] transition hover:bg-[var(--surface-raised)] hover:text-[var(--text-main)] disabled:cursor-not-allowed disabled:opacity-40 data-[recording=true]:bg-[var(--accent)] data-[recording=true]:text-[var(--gold-on-gold)] data-[recording=true]:animate-pulse"
+        data-recording={state === "recording" ? "true" : "false"}
+        aria-label={state === "recording" ? "Aufnahme läuft, loslassen zum Senden" : "Halten zum Sprechen"}
+        title={state === "idle" ? "Halten zum Sprechen" : state === "recording" ? "Aufnahme läuft …" : "Transkribiere …"}
+      >
+        {state === "transcribing" ? <Loader2 className="h-5 w-5 animate-spin" /> : <Mic className="h-5 w-5" />}
+      </button>
+    );
   }
 
   return (
