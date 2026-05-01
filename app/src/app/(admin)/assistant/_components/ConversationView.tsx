@@ -1279,8 +1279,7 @@ export function ConversationView() {
       ) : null}
 
       <aside
-        className={`flex min-h-0 min-w-0 flex-col bg-[var(--surface-card,var(--surface))] lg:border-l lg:border-[var(--border-soft)] max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-40 max-lg:max-h-[85dvh] max-lg:rounded-t-2xl max-lg:border max-lg:border-[var(--border-soft)] max-lg:shadow-2xl max-lg:transition-transform max-lg:duration-200 max-lg:will-change-transform ${historySheetOpen ? "max-lg:translate-y-0" : "max-lg:translate-y-full"}`}
-        aria-hidden={historySheetOpen ? undefined : true}
+        className={`flex min-h-0 min-w-0 flex-col bg-[var(--surface-card,var(--surface))] lg:border-l lg:border-[var(--border-soft)] max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-40 max-lg:max-h-[85dvh] max-lg:rounded-t-2xl max-lg:border max-lg:border-[var(--border-soft)] max-lg:shadow-2xl max-lg:transition-transform max-lg:duration-200 max-lg:will-change-transform ${historySheetOpen ? "max-lg:translate-y-0" : "max-lg:translate-y-full max-lg:pointer-events-none"}`}
       >
         <div className="lg:hidden">
           <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-[var(--border-soft)]" aria-hidden />
