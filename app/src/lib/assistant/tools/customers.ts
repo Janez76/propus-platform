@@ -25,6 +25,18 @@ function optionalPositiveInt(value: unknown): number | null {
   return Number.isInteger(n) && n > 0 ? n : null;
 }
 
+/** Primäre Kunden-E-Mail normalisieren (wie Admin-Kundenanlage). */
+function normalizeCustomerEmail(value: unknown): string | null {
+  const s = typeof value === "string" ? value.trim().toLowerCase() : "";
+  if (!s) return null;
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)) return null;
+  return s;
+}
+
+function emptyAsDefault(value: unknown): string {
+  return text(value) ?? "";
+}
+
 function isoDateTime(value: string | Date | null | undefined): string | null {
   if (!value) return null;
   if (value instanceof Date) return value.toISOString();
@@ -112,6 +124,27 @@ export const customersTools: ToolDefinition[] = [
         note: { type: "string", description: "Neuer Notiztext" },
       },
       required: ["customer_id", "note"],
+    },
+  },
+  {
+    name: "create_customer",
+    description:
+      "Legt einen neuen Stammdaten-Kunden in der zentralen Kundenliste (core.customers) an. Nutze dieses Tool, wenn der Nutzer einen Kunden anlegen möchte, der noch nicht existiert — z. B. bevor create_order mit customer_id aufgerufen wird. Erfordert Bestätigung. Bei bereits vorhandener primärer E-Mail schlägt das Tool fehl (existingId).",
+    kind: "write",
+    requiresConfirmation: true,
+    input_schema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Anzeigename / Kontaktname (Pflicht)" },
+        email: { type: "string", description: "Primäre E-Mail-Adresse (Pflicht, eindeutig)" },
+        company: { type: "string", description: "Firmenname (optional)" },
+        phone: { type: "string", description: "Telefon (optional)" },
+        street: { type: "string", description: "Strasse (optional)" },
+        zipcity: { type: "string", description: "PLZ und Ort in einem Feld, z. B. «8001 Zürich» (optional)" },
+        notes: { type: "string", description: "Interne Notiz (optional)" },
+        exxas_contact_id: { type: "string", description: "Exxas-Kontakt-ID falls bekannt (optional)" },
+      },
+      required: ["name", "email"],
     },
   },
 ];
@@ -421,6 +454,47 @@ export function createCustomersHandlers(deps: CustomersDeps): Record<string, Too
       );
 
       return { ok: true, customerId, message: `Notiz für Kunde ${customerId} aktualisiert.` };
+    },
+
+    create_customer: async (input: Record<string, unknown>, _ctx: ToolContext) => {
+      const name = text(input.name);
+      if (!name) return { error: "name ist erforderlich" };
+      const email = normalizeCustomerEmail(input.email);
+      if (!email) return { error: "email ist erforderlich und muss eine gültige E-Mail-Adresse sein" };
+
+      const existing = await runQueryOne<{ id: number }>(
+        `SELECT id FROM core.customers WHERE LOWER(TRIM(email)) = $1`,
+        [email],
+      );
+      if (existing) {
+        return {
+          error: "Ein Kunde mit dieser primären E-Mail existiert bereits.",
+          existingId: existing.id,
+        };
+      }
+
+      const company = emptyAsDefault(input.company);
+      const phone = emptyAsDefault(input.phone);
+      const street = emptyAsDefault(input.street);
+      const zipcity = emptyAsDefault(input.zipcity);
+      const notes = emptyAsDefault(input.notes);
+      const exxasContactId = text(input.exxas_contact_id);
+
+      const row = await runQueryOne<{ id: number }>(
+        `INSERT INTO core.customers
+           (name, email, company, phone, street, zipcity, notes, exxas_contact_id, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+         RETURNING id`,
+        [name, email, company, phone, street, zipcity, notes, exxasContactId],
+      );
+
+      if (!row?.id) return { error: "Kunde konnte nicht angelegt werden." };
+
+      return {
+        ok: true,
+        customerId: row.id,
+        message: `Kunde «${name}» (${email}) angelegt. Kunden-ID: ${row.id}.`,
+      };
     },
   };
 }

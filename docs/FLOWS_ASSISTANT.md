@@ -200,7 +200,7 @@ Siehe **`docs/KI_PROPUS_CH.md`** (DNS, Nginx, Checks).
 | Tours | `get_tours_expiring_soon`, `get_tour_status`, `get_tour_detail`, `count_active_tours`, `get_cleanup_selections`, `summarize_cleanup_status` |
 | Invoices | `search_invoices`, `get_overdue_invoices`, `get_invoice_stats` |
 | Posteingang | `search_posteingang_conversations`, `get_recent_posteingang_messages`, `get_open_tasks`, `get_posteingang_conversation_detail`, `get_posteingang_stats` |
-| Customers (CRM) | `search_customers`, `get_customer_detail`, `get_customer_contacts`, `search_contacts`, `create_customer_contact`✏️, `update_customer_note`✏️ |
+| Customers (CRM) | `search_customers`, `get_customer_detail`, `get_customer_contacts`, `search_contacts`, `create_customer`✏️, `create_customer_contact`✏️, `update_customer_note`✏️ |
 | Email | `search_emails`, `get_email_thread`, `send_email`✏️, `draft_email_reply`✏️ |
 | Designs | `create_listing_gallery`✏️, `prepare_customer_delivery`✏️ |
 | Database | `query_database` (nur `super_admin`, nur SELECT) |
@@ -216,8 +216,9 @@ Siehe **`docs/KI_PROPUS_CH.md`** (DNS, Nginx, Checks).
 | `get_customer_detail` | read | Vollständiges Profil: Stammdaten, Kontakte, Firmen, letzte Bestellungen, aktive Touren |
 | `get_customer_contacts` | read | Alle Kontaktpersonen für eine Kunden-ID |
 | `search_contacts` | read | Kontakte nach Name/E-Mail suchen mit Parent-Kunden-Info |
+| `create_customer` | write | Neuen Stammdaten-Kunden in `core.customers` anlegen (Name+E-Mail Pflicht; Duplikat-Check primäre E-Mail) |
 | `create_customer_contact` | write | Neue Kontaktperson für Kunden erstellen |
-| `update_customer_note` | write | Notiz-Feld (`notiz`) auf Kundendatensatz aktualisieren |
+| `update_customer_note` | write | Notiz-Feld (`notes`) auf Kundendatensatz aktualisieren |
 
 ### Email Tools (`app/src/lib/assistant/tools/email.ts`)
 
@@ -260,7 +261,7 @@ Der Assistent kann Aufträge im natürlichen Gespräch erstellen. Trigger-Phrase
 ```
 Benutzer: "Neuer Auftrag"
   │
-  ├─ 1. Kunde → search_customers → Bestätigung
+  ├─ 1. Kunde → search_customers; falls kein Treffer → create_customer (Bestätigung) oder bestehenden Kunden bestätigen
   ├─ 2. Objektadresse → Freitext
   ├─ 3. Dienstleistungen → list_available_services → Auswahl
   ├─ 4. Wunschtermin → Datum + Uhrzeit (optional)

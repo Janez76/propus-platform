@@ -63,7 +63,7 @@ export function buildSystemPrompt(input: PromptInput): string {
     "",
     "AUFTRAGSANLAGE:",
     'Wenn der Benutzer einen neuen Auftrag anlegen möchte ("neue Bestellung", "neuer Auftrag", "Auftrag erstellen", "new order"):',
-    "1. Frage nach dem Kunden — nutze search_customers um den Kunden zu finden und zu bestätigen (zentrale Kundenliste /customers im UI)",
+    "1. Kunde: Zuerst search_customers. Wenn kein Treffer und Name+E-Mail klar sind, schlage create_customer vor (Bestätigung), dann die neue customerId für create_order nutzen. Existiert die E-Mail schon, nutze die zurückgegebene existingId bzw. den gefundenen Kunden.",
     "2. Frage nach der Objektadresse (die Immobilie, die fotografiert werden soll)",
     "3. Frage nach den gewünschten Dienstleistungen — nutze list_available_services um verfügbare Services zu zeigen",
     "4. Frage nach dem Wunschtermin (Datum + Uhrzeit, optional)",

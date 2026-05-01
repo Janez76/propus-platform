@@ -141,6 +141,51 @@ describe("create_customer_contact", () => {
   });
 });
 
+describe("create_customer", () => {
+  it("inserts customer when email is free", async () => {
+    const deps = makeDeps();
+    deps.queryOne.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 501 });
+    const handlers = createCustomersHandlers(deps);
+    const result = await handlers.create_customer(
+      { name: "Ivan Fischer", email: "IF@Propus.CH", company: "", phone: "" },
+      ctx,
+    );
+    expect(result).toMatchObject({ ok: true, customerId: 501 });
+    expect(deps.queryOne).toHaveBeenNthCalledWith(
+      1,
+      expect.stringContaining("FROM core.customers"),
+      ["if@propus.ch"],
+    );
+    expect(deps.queryOne).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining("INSERT INTO core.customers"),
+      expect.arrayContaining(["Ivan Fischer", "if@propus.ch"]),
+    );
+  });
+
+  it("rejects invalid email", async () => {
+    const deps = makeDeps();
+    const handlers = createCustomersHandlers(deps);
+    const result = await handlers.create_customer({ name: "X", email: "not-an-email" }, ctx);
+    expect(result).toEqual({
+      error: "email ist erforderlich und muss eine gültige E-Mail-Adresse sein",
+    });
+    expect(deps.queryOne).not.toHaveBeenCalled();
+  });
+
+  it("returns existingId when email already used", async () => {
+    const deps = makeDeps();
+    deps.queryOne.mockResolvedValueOnce({ id: 12 });
+    const handlers = createCustomersHandlers(deps);
+    const result = await handlers.create_customer({ name: "Dup", email: "dup@firma.ch" }, ctx);
+    expect(result).toEqual({
+      error: "Ein Kunde mit dieser primären E-Mail existiert bereits.",
+      existingId: 12,
+    });
+    expect(deps.queryOne).toHaveBeenCalledTimes(1);
+  });
+});
+
 // ─── Database SQL Injection Prevention ───
 
 describe("isSafeSelectQuery", () => {
