@@ -65,9 +65,11 @@ export async function sendMessage(
   history: unknown[] = [],
 ): Promise<AssistantResponse> {
   const headers = await authHeaders();
-  const res = await fetch(`${API_BASE}/api/assistant`, {
+  /** Backend streamt standardmäßig SSE (`data:…`) wenn Streaming aktiv ist — Mobile erwartet JSON. */
+  const url = `${API_BASE}/api/assistant?stream=false`;
+  const res = await fetch(url, {
     method: 'POST',
-    headers: { ...headers, 'Content-Type': 'application/json' },
+    headers: { ...headers, 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({ userMessage, history }),
   });
   if (!res.ok) {
