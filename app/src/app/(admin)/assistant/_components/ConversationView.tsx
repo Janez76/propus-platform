@@ -1,6 +1,26 @@
 "use client";
 
-import { AlertCircle, Archive, ArchiveRestore, Bot, Brain, CheckCircle, Copy, Search, Send, Settings, ShieldAlert, Smartphone, Trash2, UserRound, X, XCircle } from "lucide-react";
+import {
+  AlertCircle,
+  Archive,
+  ArchiveRestore,
+  Bot,
+  Brain,
+  CheckCircle,
+  ChevronDown,
+  Copy,
+  GraduationCap,
+  Loader2,
+  Search,
+  Send,
+  Settings,
+  ShieldAlert,
+  Smartphone,
+  Trash2,
+  UserRound,
+  X,
+  XCircle,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ASSISTANT_MODEL_MODE_STORAGE_KEY,
@@ -225,6 +245,25 @@ export function ConversationView() {
   const [availableTools, setAvailableTools] = useState<ToolInfo[]>([]);
   const [availableModels, setAvailableModels] = useState<ModelInfo[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [trainingOpen, setTrainingOpen] = useState(false);
+  const [trainingFewShots, setTrainingFewShots] = useState<{ count: number; shots: Array<{ id: string; tags: string[] }> } | null>(null);
+  const [trainingFewShotsListOpen, setTrainingFewShotsListOpen] = useState(false);
+  const [trainingFewShotsLoading, setTrainingFewShotsLoading] = useState(false);
+  const [trainingEvalLoading, setTrainingEvalLoading] = useState(false);
+  const [trainingEvalSummaryText, setTrainingEvalSummaryText] = useState<string | null>(null);
+  const [trainingTuneLoading, setTrainingTuneLoading] = useState(false);
+  const [trainingTuneInfo, setTrainingTuneInfo] = useState<{
+    mdFilename: string;
+    markdownPreview: string;
+    previewTruncated: boolean;
+    markdownFull: string;
+    responseTruncatedAt100kb: boolean;
+  } | null>(null);
+  const [trainingSeedLoading, setTrainingSeedLoading] = useState<"dry" | "live" | null>(null);
+  const [trainingReplayLoading, setTrainingReplayLoading] = useState(false);
+  const [trainingReplayLimit, setTrainingReplayLimit] = useState(30);
+  const [trainingReplayMessage, setTrainingReplayMessage] = useState<string | null>(null);
+  const [trainingBanner, setTrainingBanner] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [modelMode, setModelMode] = useState<AssistantModelMode>("auto");
   /** Last resolved Claude model label for header (streaming updates + last reply). */
   const [liveModelLabel, setLiveModelLabel] = useState<string | null>(null);

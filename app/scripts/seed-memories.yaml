@@ -1,0 +1,16 @@
+# Beispiel-Einträge für assistant_memories (Staging/Dev).
+# userId: admin → wird über ASSISTANT_SEED_USER_ID auf echte UUID gemappt.
+version: 1
+entries:
+  - userId: admin
+    body: "Beispiel: Bevorzugte Kontaktzeit für Demo-Kunden ist werktags 09–12 Uhr."
+  - userId: admin
+    body: "Intern: Touren-Status „active“ im UI entspricht aktiver Verlängerung."
+  - userId: admin
+    body: "Kunde Polletti: Rechnungen immer mit Referenz „REF-POL“ prüfen."
+  - userId: admin
+    body: "Bei Suche nach Tippfehlern zuerst kürzere Teilstrings und Domain-Hinweise nutzen."
+  - userId: admin
+    body: "Posteingang: dringende Mails mit „URGENT“ im Betreff priorisieren."
+  - userId: admin
+    body: "Buchung: Standard-Fotograf nur vorschlagen, wenn im Kalender frei."

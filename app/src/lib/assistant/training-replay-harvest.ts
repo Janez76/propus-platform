@@ -1,28 +1,11 @@
-/**
- * Harvest: letzte Konversationen → replay-cases.json für Eval (--replay).
- * Benötigt DATABASE_URL und ASSISTANT_REPLAY_USER_ID (UUID des Admin-Users).
- */
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
 import type { MessageParam } from "@anthropic-ai/sdk/resources/messages";
+import type { EvalTestCase } from "../../../scripts/eval-assistant";
+import { anonymizeReplayText } from "@/lib/assistant/replay-anonymize";
 import {
   listAssistantHistory,
   listAssistantToolCallsForConversation,
   listConversationMessages,
-} from "../src/lib/assistant/store";
-import type { EvalTestCase } from "./eval-assistant";
-import { anonymizeReplayText } from "../src/lib/assistant/replay-anonymize";
-
-const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
-const OUT_PATH = path.join(SCRIPT_DIR, "replay-cases.json");
-
-function isCliEntry(): boolean {
-  const script = path.normalize(fileURLToPath(import.meta.url));
-  const argv1 = process.argv[1];
-  if (!argv1) return false;
-  return path.normalize(argv1) === script;
-}
+} from "@/lib/assistant/store";
 
 function extractUserText(content: unknown): string {
   if (typeof content === "string") return content;
@@ -33,7 +16,10 @@ function extractUserText(content: unknown): string {
   return "";
 }
 
-function toPriorMessages(rows: Awaited<ReturnType<typeof listConversationMessages>>, upToExclusiveId: string): MessageParam[] {
+function toPriorMessages(
+  rows: Awaited<ReturnType<typeof listConversationMessages>>,
+  upToExclusiveId: string,
+): MessageParam[] {
   const out: MessageParam[] = [];
   for (const m of rows) {
     if (m.id === upToExclusiveId) break;
@@ -48,24 +34,25 @@ function toPriorMessages(rows: Awaited<ReturnType<typeof listConversationMessage
   return out;
 }
 
-async function main() {
-  const userId = process.env.ASSISTANT_REPLAY_USER_ID?.trim();
-  if (!userId) {
-    console.error("ASSISTANT_REPLAY_USER_ID (User-UUID) ist erforderlich");
-    process.exit(1);
-  }
+export type ReplayHarvestPayload = {
+  version: 1;
+  generatedAt: string;
+  cases: EvalTestCase[];
+};
 
+export async function harvestReplayCases(input: { userId: string; limit?: number }): Promise<ReplayHarvestPayload> {
+  const cap = Math.min(Math.max(Number(input.limit ?? 50), 1), 100);
   const convs = await listAssistantHistory({
-    userId,
-    limit: 50,
-    limitCap: 50,
+    userId: input.userId,
+    limit: cap,
+    limitCap: 100,
     filter: "active",
   });
 
   const cases: EvalTestCase[] = [];
 
   for (const c of convs) {
-    const msgs = await listConversationMessages({ conversationId: c.id, userId });
+    const msgs = await listConversationMessages({ conversationId: c.id, userId: input.userId });
     if (msgs.length === 0) continue;
 
     let lastUser: (typeof msgs)[0] | null = null;
@@ -83,7 +70,7 @@ async function main() {
     const priorMessages = toPriorMessages(msgs, lastUser.id);
     const observedTools = await listAssistantToolCallsForConversation({
       conversationId: c.id,
-      userId,
+      userId: input.userId,
       afterCreatedAt: lastUser.createdAt,
     });
 
@@ -95,20 +82,9 @@ async function main() {
     });
   }
 
-  const payload = {
+  return {
     version: 1,
     generatedAt: new Date().toISOString(),
-    userIdHint: "[redacted]",
     cases,
   };
-
-  fs.writeFileSync(OUT_PATH, JSON.stringify(payload, null, 2), "utf8");
-  console.log(`Wrote ${cases.length} cases to ${OUT_PATH}`);
-}
-
-if (isCliEntry()) {
-  main().catch((e) => {
-    console.error(e);
-    process.exit(1);
-  });
 }

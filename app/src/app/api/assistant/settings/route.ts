@@ -35,7 +35,7 @@ export async function GET() {
 export async function PATCH(req: NextRequest) {
   const session = await getAdminSession();
   if (!session || !isAssistantSettingsSuperAdmin(session)) {
-    return NextResponse.json({ error: "Nur Super-Admin darf Einstellungen ändern", code: "auth_failed" }, { status: 403 });
+    return NextResponse.json({ error: "Nur Admin oder Super-Admin darf Einstellungen ändern", code: "auth_failed" }, { status: 403 });
   }
 
   let body: Record<string, unknown>;

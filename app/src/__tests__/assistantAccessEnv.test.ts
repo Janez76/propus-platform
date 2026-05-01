@@ -20,7 +20,17 @@ describe("assistant access-env", () => {
     expect(isAssistantDailyLimitExempt("other@propus.ch")).toBe(false);
   });
 
-  it("isAssistantSettingsSuperAdmin: role super_admin", async () => {
+  it("isAssistantSettingsAdmin: roles super_admin and admin (case-insensitive)", async () => {
+    const { isAssistantSettingsAdmin } = await import("@/lib/assistant/access-env");
+    expect(isAssistantSettingsAdmin("super_admin")).toBe(true);
+    expect(isAssistantSettingsAdmin("SUPER_ADMIN")).toBe(true);
+    expect(isAssistantSettingsAdmin("admin")).toBe(true);
+    expect(isAssistantSettingsAdmin("ADMIN")).toBe(true);
+    expect(isAssistantSettingsAdmin("employee")).toBe(false);
+    expect(isAssistantSettingsAdmin(undefined)).toBe(false);
+  });
+
+  it("isAssistantSettingsSuperAdmin: role super_admin and admin", async () => {
     const { isAssistantSettingsSuperAdmin } = await import("@/lib/assistant/access-env");
     expect(
       isAssistantSettingsSuperAdmin({
@@ -37,7 +47,7 @@ describe("assistant access-env", () => {
         userName: "J",
         isImpersonating: false,
       }),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("isAssistantSettingsSuperAdmin: ASSISTANT_SUPERADMIN_EMAILS", async () => {

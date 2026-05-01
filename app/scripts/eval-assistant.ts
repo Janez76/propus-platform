@@ -21,6 +21,13 @@ import { MODEL_IDS } from "../src/lib/assistant/model-router";
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPLAY_JSON_PATH = path.join(SCRIPT_DIR, "replay-cases.json");
 
+function isCliEntry(): boolean {
+  const script = path.normalize(fileURLToPath(import.meta.url));
+  const argv1 = process.argv[1];
+  if (!argv1) return false;
+  return path.normalize(argv1) === script;
+}
+
 export const EVAL_MODEL = MODEL_IDS.sonnet;
 const MAX_TOKENS = 1024;
 const TEMPERATURE = 0;
@@ -35,7 +42,7 @@ export type EvalTestCase = {
   expectTools?: string[];
   /** Mindestens eines dieser Tools muss vorkommen. */
   expectToolAnyOf?: string[];
-  /** Diese Tool-Namen dürfen nicht aufgerufen werden. */
+  /** Diese Tool-Namen dürfen nicht aufgerufen werden (leer = keine Prüfung). */
   expectNoTools?: string[];
   mustContain?: RegExp[];
   mustNotContain?: RegExp[];
@@ -500,7 +507,9 @@ async function main() {
   }
 }
 
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+if (isCliEntry()) {
+  main().catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });
+}
