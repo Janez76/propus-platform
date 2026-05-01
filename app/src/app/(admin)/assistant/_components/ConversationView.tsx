@@ -523,7 +523,7 @@ export function ConversationView() {
                   : m,
               ),
             );
-            historyRef.current = [];
+            historyRef.current = Array.isArray(event.history) ? event.history as unknown[] : [];
             void loadHistory();
             void loadSettings();
             if (event.memorySaved) {

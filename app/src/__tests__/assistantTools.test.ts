@@ -503,6 +503,36 @@ describe("assistant customer tools", () => {
     expect((result.customer as Record<string, unknown>).address).toBe("Bahnhofstrasse 10, 8001, Zürich, Schweiz");
     expect((result.customer as Record<string, unknown>).note).toBe("VIP-Kunde");
   });
+
+  it("update_customer_note uses notes (not notiz) column", async () => {
+    const queryOne = vi.fn().mockResolvedValueOnce({ id: 7 });
+    const query = vi.fn().mockResolvedValue([]);
+
+    const handlers = createCustomersHandlers({ query, queryOne });
+    const result = await handlers.update_customer_note(
+      { customer_id: 7, note: "Neue Notiz" },
+      { userId: "u", userEmail: "u@example.com" },
+    ) as Record<string, unknown>;
+
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining("SET notes ="),
+      [7, "Neue Notiz"],
+    );
+    expect(result.ok).toBe(true);
+    expect(result.customerId).toBe(7);
+  });
+
+  it("update_customer_note returns error for missing customer", async () => {
+    const queryOne = vi.fn().mockResolvedValueOnce(null);
+    const query = vi.fn();
+    const handlers = createCustomersHandlers({ query, queryOne });
+    const result = await handlers.update_customer_note(
+      { customer_id: 999, note: "Test" },
+      { userId: "u", userEmail: "u@example.com" },
+    );
+    expect(query).not.toHaveBeenCalled();
+    expect(result).toEqual({ error: "Kunde 999 nicht gefunden" });
+  });
 });
 
 describe("assistant posteingang detail tools", () => {

@@ -244,6 +244,7 @@ export function runAssistantTurnStreaming(input: StreamingTurnInput): {
 
       enqueue({
         type: "done",
+        history,
         toolCallsExecuted: toolCallsExecuted.map((c) => ({
           name: c.name,
           durationMs: c.durationMs,

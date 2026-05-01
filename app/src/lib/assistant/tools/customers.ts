@@ -102,7 +102,7 @@ export const customersTools: ToolDefinition[] = [
   },
   {
     name: "update_customer_note",
-    description: "Aktualisiert die Notiz (Feld 'notiz') auf einem Kundendatensatz.",
+    description: "Aktualisiert die Notiz (Feld 'notes') auf einem Kundendatensatz.",
     kind: "write",
     requiresConfirmation: true,
     input_schema: {
@@ -140,7 +140,7 @@ export function createCustomersHandlers(deps: CustomersDeps): Record<string, Too
         `SELECT c.id, c.name, c.email, c.email_aliases, c.phone, c.company,
                 LEFT(c.notes, 200) AS notes, c.created_at,
                 (
-                  SELECT STRING_AGG(cc.name, ', ' ORDER BY cc.is_primary_contact DESC NULLS LAST, cc.id)
+                  SELECT STRING_AGG(cc.name, ', ' ORDER BY cc.sort_order ASC, cc.id)
                   FROM core.customer_contacts cc
                   WHERE cc.customer_id = c.id
                   LIMIT 5
@@ -209,12 +209,12 @@ export function createCustomersHandlers(deps: CustomersDeps): Record<string, Too
         email: string | null;
         phone: string | null;
         role: string | null;
-        is_primary_contact: boolean | null;
+        sort_order: number;
       }>(
-        `SELECT id, name, email, phone, role, is_primary_contact
+        `SELECT id, name, email, phone, role, sort_order
          FROM core.customer_contacts
          WHERE customer_id = $1
-         ORDER BY is_primary_contact DESC NULLS LAST, id ASC
+         ORDER BY sort_order ASC, id ASC
          LIMIT 20`,
         [customerId],
       );
@@ -282,7 +282,7 @@ export function createCustomersHandlers(deps: CustomersDeps): Record<string, Too
           email: c.email,
           phone: c.phone,
           role: c.role,
-          isPrimary: Boolean(c.is_primary_contact),
+          sortOrder: c.sort_order,
         })),
         companies: companies.map((c) => ({
           companyId: c.company_id,
@@ -314,13 +314,13 @@ export function createCustomersHandlers(deps: CustomersDeps): Record<string, Too
         email: string | null;
         phone: string | null;
         role: string | null;
-        is_primary_contact: boolean | null;
+        sort_order: number;
         created_at: string | Date | null;
       }>(
-        `SELECT id, name, email, phone, role, is_primary_contact, created_at
+        `SELECT id, name, email, phone, role, sort_order, created_at
          FROM core.customer_contacts
          WHERE customer_id = $1
-         ORDER BY is_primary_contact DESC NULLS LAST, id ASC
+         ORDER BY sort_order ASC, id ASC
          LIMIT 30`,
         [customerId],
       );
@@ -334,7 +334,7 @@ export function createCustomersHandlers(deps: CustomersDeps): Record<string, Too
           email: c.email,
           phone: c.phone,
           role: c.role,
-          isPrimary: Boolean(c.is_primary_contact),
+          sortOrder: c.sort_order,
           createdAt: isoDateTime(c.created_at),
         })),
       };
@@ -416,7 +416,7 @@ export function createCustomersHandlers(deps: CustomersDeps): Record<string, Too
       if (!customer) return { error: `Kunde ${customerId} nicht gefunden` };
 
       await runQuery(
-        `UPDATE core.customers SET notiz = $2 WHERE id = $1`,
+        `UPDATE core.customers SET notes = $2 WHERE id = $1`,
         [customerId, note || null],
       );
 
