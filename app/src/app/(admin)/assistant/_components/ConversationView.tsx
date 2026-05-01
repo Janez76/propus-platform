@@ -151,7 +151,7 @@ function ConfirmationCard({
   );
 
   return (
-    <div className="mx-auto max-w-[78%] rounded-2xl border-2 border-[var(--accent)]/40 bg-[var(--surface)] p-4 shadow-md">
+    <div className="mx-auto max-w-[78%] rounded-2xl border-2 border-[var(--accent)]/40 bg-[var(--surface)] p-4 shadow-md sm:max-w-[78%] max-sm:mx-0 max-sm:max-w-full">
       <div className="mb-3 flex items-center gap-2">
         <ShieldAlert className="h-5 w-5 text-[var(--gold-text,var(--accent))]" />
         <span className="text-sm font-semibold text-[var(--text-main)]">{confirmation.description}</span>
@@ -753,9 +753,9 @@ export function ConversationView() {
   const tokenColor = tokenPct > 95 ? "text-red-500" : tokenPct > 80 ? "text-yellow-500" : "text-[var(--text-subtle)]";
 
   return (
-    <section className="grid h-[calc(100vh-1.5rem)] min-h-0 overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))] shadow-sm lg:h-[calc(100vh-3rem)] lg:grid-cols-[minmax(0,1fr)_320px]">
-      <div className="flex min-h-0 flex-col">
-      <header className="relative flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))] px-5 py-4">
+    <section className="grid h-[calc(100dvh-1rem)] min-h-0 min-w-0 max-w-full overflow-hidden rounded-xl border border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))] shadow-sm sm:h-[calc(100dvh-1.5rem)] sm:rounded-2xl lg:h-[calc(100vh-3rem)] lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="flex min-h-0 min-w-0 max-w-full flex-col">
+      <header className="relative flex flex-col gap-3 border-b border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))] px-3 py-3 sm:px-5 sm:py-4 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
         {memoryToast ? (
           <div
             className="absolute left-1/2 top-full z-10 mt-2 -translate-x-1/2 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-4 py-1.5 text-xs font-medium text-emerald-100 shadow-md"
@@ -764,20 +764,21 @@ export function ConversationView() {
             Erinnerung gespeichert
           </div>
         ) : null}
-        <div>
+        <div className="flex w-full min-w-0 items-center justify-between gap-2 lg:w-auto lg:max-w-[55%]">
+        <div className="min-w-0 shrink-0">
           <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--gold-text,var(--accent))]">Propus</div>
           <h1 className="text-xl font-semibold text-[var(--text-main)]">Assistant</h1>
         </div>
         <div
-          className="flex items-center gap-0.5 rounded-full border border-[var(--border-soft)] bg-[var(--surface)] p-0.5"
+          className="flex max-w-full min-w-0 shrink flex-wrap items-center justify-end gap-0.5 rounded-full border border-[var(--border-soft)] bg-[var(--surface)] p-0.5 sm:justify-center"
           role="radiogroup"
           aria-label="Modellmodus für Anfragen"
         >
           {(
             [
-              { key: "auto" as const, label: "Auto", title: "Standard: Haiku startet und kann bis zum Server-Maximum eskalieren" },
-              { key: "sonnet" as const, label: "Sonnet fix", title: "Fix auf Sonnet (oder tiefer bei Server-Limit), ohne Auto-Eskalation" },
-              { key: "opus" as const, label: "Opus fix", title: "Fix auf Opus (oder tiefer bei Server-Limit), ohne Auto-Eskalation" },
+              { key: "auto" as const, label: "Auto", labelShort: "Auto", title: "Standard: Haiku startet und kann bis zum Server-Maximum eskalieren" },
+              { key: "sonnet" as const, label: "Sonnet fix", labelShort: "Sonn.", title: "Fix auf Sonnet (oder tiefer bei Server-Limit), ohne Auto-Eskalation" },
+              { key: "opus" as const, label: "Opus fix", labelShort: "Opus", title: "Fix auf Opus (oder tiefer bei Server-Limit), ohne Auto-Eskalation" },
             ] as const
           ).map((opt) => {
             const active = modelMode === opt.key;
@@ -789,20 +790,22 @@ export function ConversationView() {
                 aria-checked={active}
                 title={opt.title}
                 onClick={() => persistModelMode(opt.key)}
-                className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-card,var(--surface))] ${
+                className={`rounded-full px-2 py-1 text-[11px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-card,var(--surface))] sm:px-2.5 ${
                   active
                     ? "bg-[var(--accent)] text-[var(--gold-on-gold)]"
                     : "text-[var(--text-subtle)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-main)]"
                 }`}
               >
-                {opt.label}
+                <span className="sm:hidden">{opt.labelShort}</span>
+                <span className="hidden sm:inline">{opt.label}</span>
               </button>
             );
           })}
         </div>
+        </div>
         {liveModelLabel ? (
           <div
-            className="order-last w-full shrink-0 text-center text-[11px] text-[var(--text-subtle)] sm:order-none sm:w-auto sm:text-left"
+            className="w-full min-w-0 shrink-0 text-center text-[11px] text-[var(--text-subtle)] lg:w-auto lg:text-left"
             title="Zuletzt verwendetes Claude-Modell für die Antwort"
           >
             <span className="font-medium text-[var(--text-main)]">Modell:</span>{" "}
@@ -811,12 +814,12 @@ export function ConversationView() {
             </span>
           </div>
         ) : messages.some((m) => m.isStreaming) ? (
-          <div className="order-last w-full shrink-0 text-center text-[11px] text-[var(--text-subtle)] sm:order-none sm:w-auto sm:text-left">
+          <div className="w-full min-w-0 shrink-0 text-center text-[11px] text-[var(--text-subtle)] lg:w-auto lg:text-left">
             <span className="font-medium text-[var(--text-main)]">Modell:</span>{" "}
             <span className="animate-pulse">…</span>
           </div>
         ) : null}
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 sm:justify-start lg:ml-auto">
           <button
             type="button"
             className="rounded-full border border-[var(--border-soft)] bg-[var(--surface)] p-2 text-[var(--text-subtle)] transition hover:border-[var(--accent)]/40 hover:bg-[var(--surface-raised)] hover:text-[var(--text-main)]"
@@ -844,7 +847,7 @@ export function ConversationView() {
         </div>
       </header>
 
-      <div ref={scrollRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-[var(--surface-raised)]/40 px-5 py-5">
+      <div ref={scrollRef} className="min-h-0 min-w-0 flex-1 space-y-4 overflow-y-auto overflow-x-hidden bg-[var(--surface-raised)]/40 px-3 py-4 sm:px-5 sm:py-5">
         {restoredBanner ? (
           <div className="rounded-xl border border-[var(--accent)]/20 bg-[var(--accent)]/5 px-4 py-2.5 text-center text-sm text-[var(--text-subtle)]">
             Ältere Konversation geladen — neuer Kontext ab hier
@@ -867,13 +870,13 @@ export function ConversationView() {
         ) : null}
 
         {messages.map((message) => (
-          <div key={message.id} className={`flex gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+          <div key={message.id} className={`flex min-w-0 gap-2 sm:gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}>
             {message.role === "assistant" ? (
               <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--accent-subtle,var(--surface-raised))] text-[var(--gold-text,var(--accent))]">
                 <Bot className="h-4 w-4" />
               </div>
             ) : null}
-            <div className={`max-w-[78%] rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm ${message.role === "user" ? "bg-[var(--accent)] text-[var(--gold-on-gold)]" : "border border-[var(--border-soft)] bg-[var(--surface)] text-[var(--text-main)]"}`}>
+            <div className={`min-w-0 max-w-[min(100%,calc(100vw-4.5rem),28rem)] rounded-2xl px-3 py-3 text-sm leading-6 shadow-sm sm:max-w-[78%] sm:px-4 ${message.role === "user" ? "bg-[var(--accent)] text-[var(--gold-on-gold)]" : "border border-[var(--border-soft)] bg-[var(--surface)] text-[var(--text-main)]"}`}>
               {message.toolCalls?.length ? (
                 <div className="mb-2 flex flex-wrap gap-1">
                   {message.toolCalls.map((call, idx) => (
@@ -884,7 +887,7 @@ export function ConversationView() {
                   ))}
                 </div>
               ) : null}
-              <div className="whitespace-pre-wrap">{message.content}</div>
+              <div className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{message.content}</div>
               {message.isStreaming ? (
                 <span className="mt-1 inline-block h-4 w-1 animate-pulse bg-[var(--accent)]" />
               ) : null}
@@ -933,10 +936,10 @@ export function ConversationView() {
         ) : null}
       </div>
 
-      <footer className="border-t border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))] px-5 py-4">
-        <div className="flex flex-wrap items-center gap-3">
+      <footer className="border-t border-[var(--border-soft)] bg-[var(--surface-card,var(--surface))] px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-5 sm:py-4">
+        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
           <input
-            className="min-w-[220px] flex-1 rounded-full border border-[var(--border-soft)] bg-[var(--surface)] px-4 py-2.5 text-sm text-[var(--text-main)] outline-none placeholder:text-[var(--text-subtle)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20 disabled:opacity-50"
+            className="min-h-11 min-w-0 w-full flex-1 rounded-full border border-[var(--border-soft)] bg-[var(--surface)] px-4 py-2.5 text-sm text-[var(--text-main)] outline-none placeholder:text-[var(--text-subtle)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20 disabled:opacity-50 sm:min-w-[12rem]"
             value={textInput}
             onChange={(event) => setTextInput(event.target.value)}
             onKeyDown={(event) => {
@@ -952,15 +955,18 @@ export function ConversationView() {
             type="button"
             onClick={submitText}
             disabled={inputDisabled || !textInput.trim()}
-            className="inline-flex items-center gap-2 rounded-full bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-[var(--gold-on-gold)] transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-[var(--gold-on-gold)] transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 sm:inline-flex"
           >
             <Send className="h-4 w-4" />
             Senden
           </button>
+          <div className="flex shrink-0 justify-end sm:contents">
           <VoiceButton disabled={inputDisabled} onTranscript={(text) => void send(text)} onError={(msg) => setError({ message: msg })} />
+          </div>
         </div>
-        <div className="mt-2 flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between">
-          <div className="grid w-full max-w-md grid-cols-[auto_1fr_1fr_1fr] gap-x-3 gap-y-0.5 text-[11px] leading-tight">
+        <div className="mt-2 flex min-w-0 flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 max-w-full overflow-x-auto [-webkit-overflow-scrolling:touch]">
+          <div className="grid w-full min-w-[16rem] max-w-full grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] gap-x-2 gap-y-0.5 text-[10px] leading-tight sm:min-w-0 sm:max-w-md sm:gap-x-3 sm:text-[11px]">
             <span className="text-[var(--text-subtle)]" aria-hidden />
             <span className="text-[var(--text-subtle)]">Heute</span>
             <span className="text-[var(--text-subtle)]">Diese Woche</span>
@@ -973,6 +979,7 @@ export function ConversationView() {
             <span className={`tabular-nums ${tokenColor}`}>{formatUsageChf(usagePeriods.today.costChf)}</span>
             <span className="tabular-nums text-[var(--text-subtle)]">{formatUsageChf(usagePeriods.week.costChf)}</span>
             <span className="tabular-nums text-[var(--text-subtle)]">{formatUsageChf(usagePeriods.month.costChf)}</span>
+          </div>
           </div>
           {tokenPct > 80 ? (
             <span className="shrink-0 text-[11px] text-yellow-500 sm:pt-0.5">
