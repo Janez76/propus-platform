@@ -256,6 +256,58 @@ async function loadRelatedForCustomer(customerId) {
   };
 }
 
+async function getMessageRowForConversation(conversationId, messageId) {
+  const { rows } = await pool.query(
+    `SELECT m.id, m.graph_message_id, m.direction, c.graph_mailbox_address, c.channel
+     FROM tour_manager.posteingang_messages m
+     JOIN tour_manager.posteingang_conversations c ON c.id = m.conversation_id
+     WHERE m.id = $1 AND m.conversation_id = $2`,
+    [messageId, conversationId],
+  );
+  return rows[0] || null;
+}
+
+/**
+ * Entfernt eine synchronisierte E-Mail-Nachricht aus der DB; löscht die Konversation, wenn keine Nachrichten mehr übrig sind.
+ */
+async function deleteSyncedEmailMessageRow(conversationId, messageId) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query(
+      `DELETE FROM tour_manager.posteingang_messages
+       WHERE id = $1 AND conversation_id = $2
+         AND graph_message_id IS NOT NULL
+         AND direction IN ('inbound', 'outbound')
+       RETURNING id`,
+      [messageId, conversationId],
+    );
+    if (!rows[0]) {
+      await client.query('ROLLBACK');
+      return { deleted: false, conversationRemoved: false };
+    }
+    const { rows: cnt } = await client.query(
+      `SELECT COUNT(*)::int AS n FROM tour_manager.posteingang_messages WHERE conversation_id = $1`,
+      [conversationId],
+    );
+    const empty = (cnt[0]?.n ?? 0) === 0;
+    if (empty) {
+      await client.query(`DELETE FROM tour_manager.posteingang_conversations WHERE id = $1`, [conversationId]);
+    }
+    await client.query('COMMIT');
+    return { deleted: true, conversationRemoved: empty };
+  } catch (err) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      /* ignore */
+    }
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 async function getConversationDetail(id) {
   const { rows } = await pool.query(
     `SELECT c.*,
@@ -548,6 +600,8 @@ async function getPosteingangStats() {
 module.exports = {
   getConversationByGraphConversationId,
   messageExistsByGraphId,
+  getMessageRowForConversation,
+  deleteSyncedEmailMessageRow,
   insertMessage,
   createConversation,
   updateConversationTimestamps,

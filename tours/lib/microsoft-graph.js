@@ -315,6 +315,18 @@ async function sendMailDirect(options = {}) {
   return { success: !error, error: error || null };
 }
 
+/**
+ * Löscht eine Nachricht im Postfach (verschiebt in „Gelöschte Elemente“, wie Outlook-Löschen).
+ * Erfordert Mail.ReadWrite (Application).
+ */
+async function deleteMailboxMessage(options = {}) {
+  const { mailboxUpn = getGraphConfig().mailboxUpn, messageId } = options;
+  if (!messageId) return { success: false, error: 'messageId fehlt' };
+  const url = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(mailboxUpn)}/messages/${encodeURIComponent(messageId)}`;
+  const { error } = await graphRequest(url, { method: 'DELETE' });
+  return { success: !error, error: error || null };
+}
+
 async function moveMessageToFolder(options = {}) {
   const { mailboxUpn = getGraphConfig().mailboxUpn, messageId, folderName = 'archive' } = options;
   if (!messageId) return { success: false, error: 'messageId fehlt' };
@@ -333,6 +345,7 @@ async function moveMessageToFolder(options = {}) {
 module.exports = {
   createReplyDraft,
   createDraftMessage,
+  deleteMailboxMessage,
   fetchMailboxMessages,
   getMailFolderId,
   graphRequest,

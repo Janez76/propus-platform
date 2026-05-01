@@ -9,6 +9,7 @@ const {
   sendDraftMessage,
   getGraphConfig,
   stripHtml,
+  deleteMailboxMessage,
 } = require('../lib/microsoft-graph');
 const store = require('../lib/posteingang-store');
 const sync = require('../lib/posteingang-sync');
@@ -71,6 +72,49 @@ router.post('/conversations', async (req, res) => {
     return res.json({ ok: true, ...detail });
   } catch (err) {
     console.error('[posteingang] POST /conversations', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// DELETE /conversations/:id/messages/:messageId — Outlook-Löschen (Graph) + lokale Zeile entfernen
+router.delete('/conversations/:id/messages/:messageId', async (req, res) => {
+  try {
+    const conversationId = req.params.id;
+    const messageId = req.params.messageId;
+    const row = await store.getMessageRowForConversation(conversationId, messageId);
+    if (!row) {
+      return res.status(404).json({ ok: false, error: 'Nachricht nicht gefunden' });
+    }
+    if (String(row.channel) !== 'email') {
+      return res.status(400).json({ ok: false, error: 'Löschen nur bei E-Mail-Konversationen' });
+    }
+    if (!['inbound', 'outbound'].includes(String(row.direction))) {
+      return res.status(400).json({ ok: false, error: 'Nur synchronisierte E-Mails können gelöscht werden' });
+    }
+    if (!row.graph_message_id) {
+      return res.status(400).json({ ok: false, error: 'Keine Graph-Nachricht-ID — nicht aus Postfach löschbar' });
+    }
+    const mailboxUpn = row.graph_mailbox_address || getGraphConfig().mailboxUpn;
+    const graphDel = await deleteMailboxMessage({ mailboxUpn, messageId: row.graph_message_id });
+    if (!graphDel.success) {
+      return res.status(502).json({
+        ok: false,
+        error: graphDel.error || 'Microsoft Graph: Löschen fehlgeschlagen (Mail.ReadWrite?)',
+      });
+    }
+    const { deleted, conversationRemoved } = await store.deleteSyncedEmailMessageRow(
+      Number(conversationId),
+      Number(messageId),
+    );
+    if (!deleted) {
+      return res.status(409).json({
+        ok: false,
+        error: 'Graph gelöscht, lokaler Eintrag konnte nicht entfernt werden — bitte Sync ausführen.',
+      });
+    }
+    return res.json({ ok: true, conversation_removed: conversationRemoved });
+  } catch (err) {
+    console.error('[posteingang] DELETE /conversations/:id/messages/:messageId', err);
     return res.status(500).json({ ok: false, error: err.message });
   }
 });

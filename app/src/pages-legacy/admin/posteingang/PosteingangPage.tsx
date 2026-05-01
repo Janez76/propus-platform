@@ -20,6 +20,7 @@ import {
   Tag,
   Users,
   Zap,
+  Trash2,
 } from "lucide-react";
 import {
   getPosteingangConversations,
@@ -35,6 +36,7 @@ import {
   getPosteingangStats,
   getPosteingangAdminUsers,
   postPosteingangRunTriggers,
+  deletePosteingangSyncedMessage,
   type PosteingangConversationRow,
   type PosteingangMessageRow,
   type PosteingangStats,
@@ -104,6 +106,7 @@ export function PosteingangPage() {
   const [newConvSaving, setNewConvSaving] = useState(false);
   const [tagInput, setTagInput] = useState("");
   const [runningTriggers, setRunningTriggers] = useState(false);
+  const [deletingMessageId, setDeletingMessageId] = useState<number | null>(null);
 
   const selectedId = routeId || null;
 
@@ -338,6 +341,29 @@ export function PosteingangPage() {
       alert(e instanceof Error ? e.message : String(e));
     } finally {
       setRunningTriggers(false);
+    }
+  }
+
+  async function onDeleteSyncedMail(messageDbId: number) {
+    if (!selectedId) return;
+    const ok = window.confirm(
+      "Diese E-Mail im Microsoft-Postfach löschen (wie Löschen in Outlook)? Sie landet im Papierkorb. Hier wird der Eintrag entfernt; bei leerem Thread auch die Konversation.",
+    );
+    if (!ok) return;
+    setDeletingMessageId(messageDbId);
+    try {
+      const r = await deletePosteingangSyncedMessage(selectedId, messageDbId);
+      if ((r as { conversation_removed?: boolean }).conversation_removed) {
+        navigate("/admin/posteingang");
+        setDetail(null);
+      } else {
+        await loadDetail(selectedId);
+      }
+      await loadList();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : String(e));
+    } finally {
+      setDeletingMessageId(null);
     }
   }
 
@@ -612,7 +638,13 @@ export function PosteingangPage() {
               <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
                 <div className="space-y-4">
                   {detail.messages.map((m: PosteingangMessageRow) => (
-                    <MessageBubble key={m.id} m={m} />
+                    <MessageBubble
+                      key={m.id}
+                      m={m}
+                      channel={detail.conversation.channel}
+                      deleting={deletingMessageId === m.id}
+                      onDeleteSynced={() => void onDeleteSyncedMail(m.id)}
+                    />
                   ))}
                 </div>
               </div>
@@ -845,16 +877,44 @@ export function PosteingangPage() {
   );
 }
 
-function MessageBubble({ m }: { m: PosteingangMessageRow }) {
+function MessageBubble({
+  m,
+  channel,
+  deleting,
+  onDeleteSynced,
+}: {
+  m: PosteingangMessageRow;
+  channel: string;
+  deleting: boolean;
+  onDeleteSynced: () => void;
+}) {
   const note = m.direction === "internal_note";
   const inbound = m.direction === "inbound";
   const align = note ? "mx-auto max-w-[95%] border border-amber-500/30 bg-amber-500/10" : inbound ? "mr-auto max-w-[92%] bg-[#111217]" : "ml-auto max-w-[92%] bg-[#1a1c24]";
+  const canDeleteFromMailbox =
+    channel === "email" &&
+    (m.direction === "inbound" || m.direction === "outbound") &&
+    Boolean(m.graph_message_id);
   return (
     <div className={`rounded-md px-3 py-2 text-sm ${align}`}>
-      <div className="mb-1 flex flex-wrap items-center gap-2 text-xs text-[#888]">
-        {note ? <StickyNote className="h-3 w-3" /> : inbound ? <Mail className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
-        <span>{m.from_email || m.author_email || "—"}</span>
-        <span>· {fmtDate(m.sent_at)}</span>
+      <div className="mb-1 flex flex-wrap items-center justify-between gap-2 text-xs text-[#888]">
+        <div className="flex flex-wrap items-center gap-2">
+          {note ? <StickyNote className="h-3 w-3" /> : inbound ? <Mail className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
+          <span>{m.from_email || m.author_email || "—"}</span>
+          <span>· {fmtDate(m.sent_at)}</span>
+        </div>
+        {canDeleteFromMailbox && (
+          <button
+            type="button"
+            disabled={deleting}
+            onClick={onDeleteSynced}
+            title="Im Postfach löschen (Outlook)"
+            className="inline-flex shrink-0 items-center gap-1 rounded border border-red-500/35 px-1.5 py-0.5 text-[11px] text-red-300/95 hover:bg-red-500/15 disabled:opacity-40"
+          >
+            {deleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+            Löschen
+          </button>
+        )}
       </div>
       {m.body_html && m.direction !== "internal_note" ? (
         <div className="prose prose-invert max-w-none text-[#e8e4dc]" dangerouslySetInnerHTML={{ __html: m.body_html }} />
