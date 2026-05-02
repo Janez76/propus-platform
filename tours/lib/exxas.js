@@ -605,6 +605,74 @@ async function searchInvoices(query, options = {}) {
 const EXXAS_CONTACTS_CACHE_MS = 5 * 60 * 1000;
 let exxasContactsListCache = { at: 0, rows: null, error: null };
 
+function clearExxasContactsListCache() {
+  exxasContactsListCache = { at: 0, rows: null, error: null };
+}
+
+function extractExxasEntityId(data) {
+  const payload =
+    data && typeof data === 'object' && data.message && typeof data.message === 'object'
+      ? data.message
+      : data;
+  const idValue = payload?.id ?? data?.id;
+  return idValue != null && String(idValue).trim() !== '' ? String(idValue).trim() : '';
+}
+
+/**
+ * Legt einen Kontakt in Exxas an (POST /api/v2/contacts).
+ * Felder entsprechen der GET-Antwort (ref_kunde, kt_*).
+ *
+ * @param {string} refKunde — Exxas-Kunden-ID (raw.id / nummer)
+ * @param {object} fields — vorname, nachname, email, phone, phone_mobile, role, salutation, department
+ * @returns {{ success: boolean, id: string | null, error: string | null, status?: number, raw?: unknown }}
+ */
+async function createContactForCustomer(refKunde, fields = {}) {
+  const rk = String(refKunde || '').trim();
+  if (!rk) {
+    return { success: false, id: null, error: 'ref_kunde fehlt' };
+  }
+  const fn = String(fields.firstName ?? fields.first_name ?? '').trim();
+  const ln = String(fields.lastName ?? fields.last_name ?? '').trim();
+  const email = String(fields.email || '').trim().toLowerCase();
+  const body = {
+    ref_kunde: rk,
+    kt_vorname: fn,
+    kt_nachname: ln,
+    kt_email: email,
+    kt_direkt: String(fields.phoneDirect || fields.phone || '').trim(),
+    kt_mobile: String(fields.phoneMobile || fields.phone_mobile || '').trim(),
+    kt_funktion: String(fields.role || '').trim(),
+    kt_anrede: String(fields.salutation || '').trim(),
+    kt_abteilung: String(fields.department || '').trim(),
+  };
+  try {
+    const { ok, status, data } = await exxasRequest('/api/v2/contacts', {
+      method: 'POST',
+      body,
+      timeoutMs: 20000,
+    });
+    const id = extractExxasEntityId(data);
+    if (ok && id) {
+      clearExxasContactsListCache();
+      return { success: true, id, error: null, status, raw: data };
+    }
+    const msg =
+      (data && typeof data === 'object' && (data.error || data.message)) ||
+      (typeof data === 'string' ? data : '') ||
+      `HTTP ${status}`;
+    return {
+      success: false,
+      id: id || null,
+      error: String(msg).slice(0, 500),
+      status,
+      raw: data,
+    };
+  } catch (e) {
+    const err = e.name === 'TimeoutError' ? 'Exxas API Timeout' : e.message;
+    return { success: false, id: null, error: err };
+  }
+}
+
 async function fetchExxasContactsRawList() {
   const now = Date.now();
   if (exxasContactsListCache.rows && now - exxasContactsListCache.at < EXXAS_CONTACTS_CACHE_MS) {
@@ -852,6 +920,8 @@ module.exports = {
   getCustomer,
   resolveCustomerIdentity,
   getContactsForCustomer,
+  createContactForCustomer,
+  clearExxasContactsListCache,
   invalidateRuntimeConfigCache,
   fetchExxasInvoicesRawList,
   mapInvoicePayload,

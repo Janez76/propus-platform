@@ -6,6 +6,8 @@
  * - Nach manueller Bestaetigung selektiv in lokale DB uebernehmen
  */
 const { findMatchingCustomer } = require("./customer-dedup");
+const exxas = require("../tours/lib/exxas");
+
 function registerExxasReconcileRoutes(app, db, requireAdmin, ensureCustomerInRequestCompany) {
   function asString(value) {
     return value == null ? "" : String(value).trim();
@@ -647,6 +649,110 @@ function registerExxasReconcileRoutes(app, db, requireAdmin, ensureCustomerInReq
     }
   }
 
+  async function loadCustomerExxasCustomerRef(p, customerId) {
+    const { rows } = await p.query(
+      `SELECT TRIM(COALESCE(exxas_customer_id, '')) AS cid FROM customers WHERE id = $1 LIMIT 1`,
+      [customerId]
+    );
+    const cid = rows[0]?.cid;
+    return cid ? String(cid).trim() : "";
+  }
+
+  /**
+   * Nach erfolgreicher Kundenverknuepfung: lokale Kontakte ohne exxas_contact_id in Exxas anlegen
+   * und die neue ID speichern (bidirektionaler Abgleich).
+   */
+  async function pushUnlinkedLocalContactsToExxas(p, localCustomerId, exxasCustomerRef) {
+    const rk = asString(exxasCustomerRef);
+    if (!rk) return [];
+
+    const { rows } = await p.query(
+      `SELECT id, name, role, phone, email, salutation, first_name, last_name, phone_mobile, department, exxas_contact_id
+       FROM customer_contacts
+       WHERE customer_id = $1
+         AND (exxas_contact_id IS NULL OR TRIM(COALESCE(exxas_contact_id, '')) = '')
+       ORDER BY id ASC`,
+      [localCustomerId]
+    );
+
+    const outcomes = [];
+    for (const row of rows) {
+      const fn = asString(row.first_name);
+      const ln = asString(row.last_name);
+      const nameFallback = asString(row.name);
+      let firstName = fn;
+      let lastName = ln;
+      if (!firstName && !lastName && nameFallback) {
+        const parts = nameFallback.trim().split(/\s+/);
+        if (parts.length >= 2) {
+          firstName = parts[0];
+          lastName = parts.slice(1).join(" ");
+        } else {
+          firstName = nameFallback;
+        }
+      }
+
+      const email = normalizeCustomerEmail(row.email);
+      if (!email && !firstName && !lastName) {
+        outcomes.push({
+          ok: false,
+          exxasContactId: null,
+          localContactId: Number(row.id),
+          pushedToExxas: true,
+          error: "Kontakt ohne verwertbaren Namen und ohne E-Mail — in Exxas nicht angelegt",
+        });
+        continue;
+      }
+
+      const res = await exxas.createContactForCustomer(rk, {
+        firstName,
+        lastName,
+        email,
+        phone: asString(row.phone),
+        phoneMobile: asString(row.phone_mobile),
+        role: asString(row.role),
+        salutation: asString(row.salutation),
+        department: asString(row.department),
+      });
+
+      if (!res.success || !res.id) {
+        outcomes.push({
+          ok: false,
+          exxasContactId: null,
+          localContactId: Number(row.id),
+          pushedToExxas: true,
+          error: res.error || "Exxas: Kontakt konnte nicht angelegt werden",
+        });
+        continue;
+      }
+
+      try {
+        await p.query(`UPDATE customer_contacts SET exxas_contact_id = $1 WHERE id = $2 AND customer_id = $3`, [
+          res.id,
+          Number(row.id),
+          localCustomerId,
+        ]);
+      } catch (updErr) {
+        outcomes.push({
+          ok: false,
+          exxasContactId: res.id,
+          localContactId: Number(row.id),
+          pushedToExxas: true,
+          error: updErr.message || "exxas_contact_id konnte nicht gespeichert werden",
+        });
+        continue;
+      }
+
+      outcomes.push({
+        ok: true,
+        exxasContactId: res.id,
+        localContactId: Number(row.id),
+        pushedToExxas: true,
+      });
+    }
+    return outcomes;
+  }
+
   async function findContactByExxasId(p, exxasContactId, excludeContactId) {
     const exxasId = asString(exxasContactId);
     const ex = Number.isFinite(excludeContactId) ? excludeContactId : null;
@@ -1274,12 +1380,20 @@ function registerExxasReconcileRoutes(app, db, requireAdmin, ensureCustomerInReq
           throw new Error(`Ungueltige contact action: ${contactAction}`);
         }
 
+        const exxasRefForPush = await loadCustomerExxasCustomerRef(p, Number(targetCustomerId));
+        const pushToExxasOutcomes = await pushUnlinkedLocalContactsToExxas(
+          p,
+          Number(targetCustomerId),
+          exxasRefForPush || exxasCustomerId
+        );
+
         await p.query("COMMIT");
         outcomes.push({
           ok: true,
           exxasCustomerId,
           localCustomerId: Number(targetCustomerId),
           contactOutcomes,
+          pushToExxasOutcomes,
         });
       } catch (err) {
         await p.query("ROLLBACK");

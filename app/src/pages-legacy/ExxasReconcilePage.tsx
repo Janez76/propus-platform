@@ -1511,6 +1511,18 @@ export function ExxasReconcilePage() {
                     ))}
                   </div>
                 ) : null}
+                {outcome.pushToExxasOutcomes?.length ? (
+                  <div className="mt-2 space-y-1 border-t border-[var(--border-soft)] pt-2">
+                    <div className="text-xs font-medium text-[var(--text-main)]">Nach EXXAS gepusht (lokal ohne Exxas-ID)</div>
+                    {outcome.pushToExxasOutcomes.map((pushOutcome, pushIndex) => (
+                      <div key={`push-${pushOutcome.localContactId ?? pushIndex}`} className="text-xs text-[var(--text-muted)]">
+                        Lokaler Kontakt #{pushOutcome.localContactId ?? "-"}
+                        {pushOutcome.exxasContactId ? ` -> EXXAS ${pushOutcome.exxasContactId}` : ""}:{" "}
+                        {pushOutcome.ok ? "angelegt" : pushOutcome.error || "Fehler"}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             ))}
           </div>
