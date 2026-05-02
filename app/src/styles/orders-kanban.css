@@ -1,0 +1,374 @@
+/* Orders → Kanban page
+ * Scoped under .padmin-shell.pkanban so it inherits paper/ink tokens
+ * defined by .padmin-shell in admin-redesign.css.
+ */
+
+.padmin-shell.pkanban {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding: 0;
+}
+
+/* Tabs row (Liste | Kanban) */
+.padmin-shell .pkanban__tabs {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 8px 16px 0;
+  border-bottom: 1px solid var(--pad-border);
+  background: #fff;
+}
+.padmin-shell .pkanban__tab {
+  position: relative;
+  padding: 12px 4px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-3);
+  text-decoration: none;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+.padmin-shell .pkanban__tab:hover {
+  color: var(--ink-2);
+}
+.padmin-shell .pkanban__tab[data-active="true"] {
+  color: var(--ink);
+  border-bottom-color: #1a8cff; /* matches reference screenshot accent */
+  cursor: default;
+}
+
+/* Toolbar row (+ Hinzufügen, sort, search, refresh) */
+.padmin-shell .pkanban__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #fff;
+  border-bottom: 1px solid var(--pad-border);
+}
+.padmin-shell .pkanban__toolbar-spacer { flex: 1; }
+
+.padmin-shell .pkanban__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid var(--pad-border);
+  background: #fff;
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.padmin-shell .pkanban__btn:hover {
+  background: var(--paper-strip);
+  color: var(--ink);
+}
+.padmin-shell .pkanban__btn--primary {
+  border-color: transparent;
+  background: var(--ink);
+  color: #fff;
+}
+.padmin-shell .pkanban__btn--primary:hover {
+  background: var(--ink-2);
+  color: #fff;
+}
+.padmin-shell .pkanban__btn--ghost {
+  background: transparent;
+}
+
+.padmin-shell .pkanban__select {
+  height: 32px;
+  padding: 0 28px 0 10px;
+  border-radius: 6px;
+  border: 1px solid var(--pad-border);
+  background: #fff;
+  color: var(--ink);
+  font-size: 13px;
+  cursor: pointer;
+}
+.padmin-shell .pkanban__select:focus {
+  outline: none;
+  border-color: var(--ink-3);
+}
+
+.padmin-shell .pkanban__search {
+  position: relative;
+  flex: 1;
+  min-width: 220px;
+  max-width: 480px;
+}
+.padmin-shell .pkanban__search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  color: var(--ink-4);
+  pointer-events: none;
+}
+.padmin-shell .pkanban__search-input {
+  width: 100%;
+  height: 32px;
+  padding: 0 12px 0 30px;
+  border-radius: 6px;
+  border: 1px solid var(--pad-border);
+  background: #fff;
+  color: var(--ink);
+  font-size: 13px;
+}
+.padmin-shell .pkanban__search-input::placeholder { color: var(--ink-4); }
+.padmin-shell .pkanban__search-input:focus {
+  outline: none;
+  border-color: var(--ink-3);
+}
+
+.padmin-shell .pkanban__icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid var(--pad-border);
+  background: #fff;
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.padmin-shell .pkanban__icon-btn:hover {
+  background: var(--paper-strip);
+  color: var(--ink);
+}
+.padmin-shell .pkanban__icon-btn[data-busy="true"] {
+  cursor: progress;
+}
+.padmin-shell .pkanban__icon-btn[data-busy="true"] svg {
+  animation: pkanban-spin 0.9s linear infinite;
+}
+@keyframes pkanban-spin {
+  to { transform: rotate(360deg); }
+}
+
+.padmin-shell .pkanban__error {
+  margin: 12px 16px 0;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--pad-danger-bg);
+  color: var(--pad-danger);
+  font-size: 13px;
+}
+
+/* Board */
+.padmin-shell .pkanban__board {
+  flex: 1;
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: var(--paper);
+}
+
+/* Column */
+.padmin-shell .pkanban__column {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 280px;
+  min-width: 280px;
+  max-height: 100%;
+  background: var(--paper-strip);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  transition: background 0.12s, border-color 0.12s;
+}
+.padmin-shell .pkanban__column[data-drop-active="true"] {
+  background: #EAF3FE;
+  border-color: #1a8cff;
+}
+
+.padmin-shell .pkanban__col-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px 8px;
+}
+.padmin-shell .pkanban__col-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.padmin-shell .pkanban__col-count {
+  font-weight: 400;
+  color: var(--ink-4);
+  margin-left: 2px;
+}
+.padmin-shell .pkanban__col-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: 0;
+  background: transparent;
+  color: var(--ink-4);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s, background 0.12s, color 0.12s;
+}
+.padmin-shell .pkanban__col-header:hover .pkanban__col-delete,
+.padmin-shell .pkanban__col-delete:focus {
+  opacity: 1;
+}
+.padmin-shell .pkanban__col-delete:hover {
+  background: var(--pad-danger-bg);
+  color: var(--pad-danger);
+}
+
+.padmin-shell .pkanban__col-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 8px 12px;
+  overflow-y: auto;
+}
+
+/* Card */
+.padmin-shell .pkanban__card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: #fff;
+  border: 1px solid var(--pad-border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  box-shadow: 0 1px 0 rgba(20, 20, 19, 0.03);
+  cursor: grab;
+  transition: border-color 0.12s, box-shadow 0.12s, transform 0.05s;
+}
+.padmin-shell .pkanban__card:hover {
+  border-color: var(--ink-4);
+  box-shadow: 0 2px 6px rgba(20, 20, 19, 0.06);
+}
+.padmin-shell .pkanban__card:active {
+  cursor: grabbing;
+}
+.padmin-shell .pkanban__card[data-dragging="true"] {
+  opacity: 0.4;
+}
+.padmin-shell .pkanban__card-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  line-height: 1.35;
+  word-break: break-word;
+}
+.padmin-shell .pkanban__card-no {
+  color: var(--ink-4);
+  font-weight: 400;
+}
+.padmin-shell .pkanban__card-sub {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--ink-3);
+  line-height: 1.4;
+  word-break: break-word;
+}
+.padmin-shell .pkanban__card-foot {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.padmin-shell .pkanban__card-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: var(--paper-strip);
+  color: var(--ink-3);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+.padmin-shell .pkanban__card-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--gold-100);
+  color: var(--gold-800);
+  font-size: 10px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+/* Add-column column */
+.padmin-shell .pkanban__column--add {
+  background: transparent;
+  border: 1px dashed var(--pad-border);
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 8px;
+}
+.padmin-shell .pkanban__add-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--ink-3);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.12s, color 0.12s;
+}
+.padmin-shell .pkanban__add-trigger:hover {
+  background: var(--paper-strip);
+  color: var(--ink);
+}
+.padmin-shell .pkanban__add-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.padmin-shell .pkanban__add-input {
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid var(--pad-border);
+  background: #fff;
+  color: var(--ink);
+  font-size: 13px;
+}
+.padmin-shell .pkanban__add-input:focus {
+  outline: none;
+  border-color: var(--ink-3);
+}
+.padmin-shell .pkanban__add-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.padmin-shell .pkanban__add-actions .pkanban__btn {
+  height: 28px;
+  padding: 0 10px;
+}
