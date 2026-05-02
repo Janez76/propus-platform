@@ -171,6 +171,10 @@ POST /api/admin/integrations/exxas/reconcile/confirm
   │     ├── "link_existing" → exxas_contact_id setzen
   │     └── "create_contact" → INSERT customer_contacts
   │
+  └── Nach den Kontakt-Entscheidungen (vor Commit):
+        → pushUnlinkedLocalContactsToExxas(): für jeden lokalen `customer_contact` ohne `exxas_contact_id`
+          → `POST /api/v2/contacts` (Felder `ref_kunde`, `kt_vorname`, `kt_nachname`, `kt_email`, …)
+          → neue Exxas-ID in `exxas_contact_id` speichern
   └── Nach Commit:
         → syncCustomerContactToCompanyMember()
 
@@ -197,6 +201,7 @@ POST /api/admin/integrations/exxas/reconcile/confirm
 | `getCustomer(id)` | Kunden abrufen (5-Min-Cache) |
 | `resolveCustomerIdentity(ref, opts)` | Exxas-Kunde per ID/Name/Email finden |
 | `getContactsForCustomer(customerId)` | Kontakte per `ref_kunde` |
+| `createContactForCustomer(refKunde, fields)` | Kontakt anlegen (`POST /api/v2/contacts`), invalidiert Kontakt-Cache |
 
 **Caching:**
 - Rechnungsliste: 1-Min-Cache in `exxasInvoiceListCache`

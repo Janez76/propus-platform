@@ -179,6 +179,13 @@ export type ExxasConfirmResponse = {
       skipped?: boolean;
       error?: string;
     }>;
+    pushToExxasOutcomes?: Array<{
+      ok: boolean;
+      exxasContactId: string | null;
+      localContactId?: number;
+      pushedToExxas?: boolean;
+      error?: string;
+    }>;
   }>;
 };
 
