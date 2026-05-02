@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, DragEvent, KeyboardEvent } from "react";
-import { Plus, Search, Trash2, X } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 
 import { getOrders, type Order } from "../api/orders";
 import { OrderSidePanel } from "../components/orders/OrderSidePanel";
-import { PageHeader } from "../components/handoff";
 import { useQuery } from "../hooks/useQuery";
 import { ordersQueryKey } from "../lib/queryKeys";
 import { normalizeStatusKey, type StatusKey } from "../lib/status";
 import { useAuthStore } from "../store/authStore";
 import { t as translate } from "../i18n";
+
+import "../styles/orders-kanban.css";
 
 const LS_COLUMNS = "propus.orders.kanban.columns.v1";
 const LS_CARD_COLUMN = "propus.orders.kanban.cardColumn.v1";
@@ -122,8 +124,9 @@ export function OrdersKanbanPage() {
   const lang = useAuthStore((s) => s.language);
   const t = useCallback((key: string) => translate(lang, key), [lang]);
 
+  const navigate = useNavigate();
   const queryKey = ordersQueryKey(token);
-  const { data: allOrders = [], loading, error } = useQuery<Order[]>(
+  const { data: allOrders = [], error, isFetching, refetch } = useQuery<Order[]>(
     queryKey,
     () => getOrders(token),
     { enabled: Boolean(token), staleTime: 5 * 60 * 1000 },
@@ -278,7 +281,7 @@ export function OrdersKanbanPage() {
     setDropTargetCol(null);
   }, []);
 
-  const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>, columnId: string) => {
+  const handleDragOver = useCallback((e: DragEvent<HTMLElement>, columnId: string) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
     if (dropTargetCol !== columnId) setDropTargetCol(columnId);
@@ -289,7 +292,7 @@ export function OrdersKanbanPage() {
   }, []);
 
   const handleDrop = useCallback(
-    (e: DragEvent<HTMLDivElement>, columnId: string) => {
+    (e: DragEvent<HTMLElement>, columnId: string) => {
       e.preventDefault();
       const orderNo = e.dataTransfer.getData("text/plain") || draggedOrderNo;
       setDraggedOrderNo(null);
@@ -341,87 +344,97 @@ export function OrdersKanbanPage() {
   }, [handleAddColumn]);
 
   return (
-    <div className="padmin-shell space-y-4">
-      <PageHeader
-        title={t("orders.kanban.title")}
-        sub={t("orders.kanban.description")}
-      />
+    <div className="padmin-shell pkanban">
+      {/* Tabs row — only Liste/Kanban for now since there is no separate
+          "Tabelle" view in this codebase (OrdersPage uses a single list). */}
+      <nav className="pkanban__tabs" aria-label={t("orders.kanban.title")}>
+        <Link to="/orders" className="pkanban__tab" data-active="false">
+          {t("nav.item.ordersList")}
+        </Link>
+        <span className="pkanban__tab" data-active="true" aria-current="page">
+          {t("nav.item.ordersKanban")}
+        </span>
+      </nav>
 
-      <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-3 flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-[240px]">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--text-subtle)]" aria-hidden="true" />
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={t("orders.kanban.search.placeholder")}
-            className="h-9 w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] pl-8 pr-3 text-sm text-[var(--text-main)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-subtle)]"
-          />
-        </div>
+      {/* Toolbar */}
+      <div className="pkanban__toolbar">
+        <button
+          type="button"
+          onClick={() => navigate("/orders?create=1")}
+          className="pkanban__btn pkanban__btn--primary"
+        >
+          <Plus className="h-4 w-4" aria-hidden="true" />
+          <span>{t("orders.button.newOrder")}</span>
+        </button>
         <select
           value={sort}
           onChange={(e) => setSort(e.target.value as "created" | "appointment")}
-          className="h-9 rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 text-sm text-[var(--text-main)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-subtle)]"
+          className="pkanban__select"
           aria-label={t("orders.kanban.sort.created")}
         >
           <option value="created">{t("orders.kanban.sort.created")}</option>
           <option value="appointment">{t("orders.kanban.sort.appointment")}</option>
         </select>
+        <div className="pkanban__search">
+          <Search className="pkanban__search-icon" aria-hidden="true" />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t("orders.kanban.search.placeholder")}
+            className="pkanban__search-input"
+          />
+        </div>
+        <div className="pkanban__toolbar-spacer" />
+        <button
+          type="button"
+          onClick={() => void refetch({ force: true })}
+          className="pkanban__icon-btn"
+          aria-label="Refresh"
+          title="Refresh"
+          disabled={isFetching}
+          data-busy={isFetching ? "true" : undefined}
+        >
+          <RefreshCw className="h-4 w-4" aria-hidden="true" />
+        </button>
       </div>
 
       {error ? (
-        <div className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
-          {error}
-        </div>
+        <div className="pkanban__error">{error}</div>
       ) : null}
 
       <div
-        className="flex gap-3 overflow-x-auto pb-3"
+        className="pkanban__board"
         style={{ scrollbarGutter: "stable" } as CSSProperties}
       >
         {columns.map((col) => {
           const rows = ordersByColumn.get(col.id) ?? [];
           const dropActive = dropTargetCol === col.id;
           return (
-            <article
+            <section
               key={col.id}
-              className="flex w-[280px] shrink-0 flex-col rounded-xl border border-[var(--border-soft)] bg-[var(--surface)]"
+              className="pkanban__column"
+              data-drop-active={dropActive ? "true" : "false"}
+              onDragOver={(e) => handleDragOver(e, col.id)}
+              onDragLeave={() => handleDragLeave(col.id)}
+              onDrop={(e) => handleDrop(e, col.id)}
             >
-              <header className="group flex items-center justify-between gap-2 border-b border-[var(--border-soft)] px-3 py-2">
-                <div className="flex min-w-0 items-center gap-2">
-                  <h3 className="truncate text-sm font-semibold text-[var(--text-main)]" title={col.label}>
-                    {col.label}
-                  </h3>
-                  <span className="rounded-full bg-[var(--surface-raised)] px-2 py-0.5 text-xs text-[var(--text-muted)]">
-                    {rows.length}
-                  </span>
-                </div>
+              <header className="pkanban__col-header group">
+                <h3 className="pkanban__col-title" title={col.label}>
+                  {col.label}{" "}
+                  <span className="pkanban__col-count">({rows.length})</span>
+                </h3>
                 <button
                   type="button"
                   onClick={() => handleDeleteColumn(col.id)}
-                  className="invisible rounded p-1 text-[var(--text-subtle)] hover:bg-[var(--surface-raised)] hover:text-red-600 group-hover:visible"
+                  className="pkanban__col-delete"
                   aria-label={t("orders.kanban.column.delete")}
                   title={t("orders.kanban.column.delete")}
                 >
                   <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                 </button>
               </header>
-              <div
-                className="flex flex-1 flex-col gap-2 p-2 transition-colors"
-                data-drop-active={dropActive ? "true" : "false"}
-                style={{
-                  minHeight: 80,
-                  background: dropActive ? "var(--accent-subtle)" : undefined,
-                }}
-                onDragOver={(e) => handleDragOver(e, col.id)}
-                onDragLeave={() => handleDragLeave(col.id)}
-                onDrop={(e) => handleDrop(e, col.id)}
-              >
-                {rows.length === 0 && !loading ? (
-                  <div className="rounded-lg border border-dashed border-[var(--border-soft)] p-3 text-xs text-[var(--text-subtle)]">
-                    {t("orders.kanban.column.empty")}
-                  </div>
-                ) : null}
+              <div className="pkanban__col-body">
                 {rows.map((o) => (
                   <KanbanCard
                     key={o.orderNo}
@@ -434,13 +447,13 @@ export function OrdersKanbanPage() {
                   />
                 ))}
               </div>
-            </article>
+            </section>
           );
         })}
 
-        <article className="flex w-[280px] shrink-0 flex-col rounded-xl border border-dashed border-[var(--border-soft)] bg-[var(--surface)]">
+        <section className="pkanban__column pkanban__column--add">
           {adding ? (
-            <div className="flex flex-col gap-2 p-3">
+            <div className="pkanban__add-form">
               <input
                 ref={newColumnInputRef}
                 type="text"
@@ -448,22 +461,24 @@ export function OrdersKanbanPage() {
                 onChange={(e) => setNewColumnName(e.target.value)}
                 onKeyDown={onAddInputKey}
                 placeholder={t("orders.kanban.column.addPlaceholder")}
-                className="h-9 rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-2 text-sm text-[var(--text-main)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-subtle)]"
+                className="pkanban__add-input"
               />
-              <div className="flex justify-end gap-1">
+              <div className="pkanban__add-actions">
                 <button
                   type="button"
                   onClick={() => { setAdding(false); setNewColumnName(""); }}
-                  className="inline-flex items-center gap-1 rounded-md border border-[var(--border-soft)] px-2 py-1 text-xs text-[var(--text-muted)] hover:bg-[var(--surface-raised)]"
+                  className="pkanban__btn pkanban__btn--ghost"
+                  aria-label="Abbrechen"
                 >
-                  <X className="h-3 w-3" aria-hidden="true" />
+                  <X className="h-3.5 w-3.5" aria-hidden="true" />
                 </button>
                 <button
                   type="button"
                   onClick={handleAddColumn}
-                  className="inline-flex items-center gap-1 rounded-md border border-[var(--accent)] bg-[var(--accent)] px-2 py-1 text-xs text-white hover:opacity-90"
+                  className="pkanban__btn pkanban__btn--primary"
+                  aria-label={t("orders.kanban.column.add")}
                 >
-                  <Plus className="h-3 w-3" aria-hidden="true" />
+                  <Plus className="h-3.5 w-3.5" aria-hidden="true" />
                 </button>
               </div>
             </div>
@@ -471,13 +486,13 @@ export function OrdersKanbanPage() {
             <button
               type="button"
               onClick={() => setAdding(true)}
-              className="m-2 inline-flex items-center justify-center gap-1 rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-muted)] hover:border-[var(--border-strong)] hover:text-[var(--text-main)]"
+              className="pkanban__add-trigger"
             >
               <Plus className="h-4 w-4" aria-hidden="true" />
               {t("orders.kanban.column.add")}
             </button>
           )}
-        </article>
+        </section>
       </div>
 
       <OrderSidePanel
@@ -520,24 +535,25 @@ function KanbanCard({
       onDragStart={(e) => onDragStart(e, order.orderNo)}
       onDragEnd={onDragEnd}
       onClick={onOpen}
-      className="group/card w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] p-3 text-left transition hover:border-[var(--border-strong)]"
-      style={{ opacity: isDragging ? 0.4 : 1, cursor: "grab" }}
+      className="pkanban__card"
+      data-dragging={isDragging ? "true" : undefined}
     >
-      <div className="text-sm font-medium text-[var(--text-main)]">
-        {titleLine || "—"} <span className="text-[var(--text-subtle)]">#{order.orderNo}</span>
+      <div className="pkanban__card-title">
+        {titleLine || "—"}{" "}
+        <span className="pkanban__card-no">#{order.orderNo}</span>
       </div>
       {subLine ? (
-        <div className="mt-1 text-xs text-[var(--text-muted)]">{subLine}</div>
+        <div className="pkanban__card-sub">{subLine}</div>
       ) : null}
-      <div className="mt-2 flex items-center justify-between gap-2">
+      <div className="pkanban__card-foot">
         {showServiceTag ? (
-          <span className="rounded bg-[var(--surface)] px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
-            {serviceOrderTag}
-          </span>
-        ) : <span />}
+          <span className="pkanban__card-tag">{serviceOrderTag}</span>
+        ) : (
+          <span />
+        )}
         {photographerName ? (
           <span
-            className="grid h-6 w-6 place-items-center rounded-full bg-[var(--accent-subtle)] text-[10px] font-semibold text-[var(--text-main)]"
+            className="pkanban__card-avatar"
             title={photographerName}
             aria-label={photographerName}
           >
