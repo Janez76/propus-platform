@@ -208,15 +208,41 @@ export function OrdersKanbanPage() {
     const buckets = new Map<string, Order[]>();
     for (const col of columns) buckets.set(col.id, []);
 
+    const resolveColumnId = (defaultId: string): string | null => {
+      if (columnIdSet.has(defaultId)) return defaultId;
+      // Default column has been deleted by the user. Walk forward through
+      // DEFAULT_COLUMN_KEYS (later in the workflow) for the next visible
+      // bucket; if none exist forward, walk backward; only as a final
+      // resort use the last user column. We never silently dump cards
+      // into columns[0], because that mixes e.g. "archived" into "Neu".
+      const startIdx = DEFAULT_COLUMN_KEYS.indexOf(defaultId as DefaultColumnKey);
+      if (startIdx >= 0) {
+        for (let i = startIdx + 1; i < DEFAULT_COLUMN_KEYS.length; i += 1) {
+          if (columnIdSet.has(DEFAULT_COLUMN_KEYS[i])) return DEFAULT_COLUMN_KEYS[i];
+        }
+        for (let i = startIdx - 1; i >= 0; i -= 1) {
+          if (columnIdSet.has(DEFAULT_COLUMN_KEYS[i])) return DEFAULT_COLUMN_KEYS[i];
+        }
+      }
+      return columns[columns.length - 1]?.id ?? null;
+    };
+
     for (const o of filteredOrders) {
       if (normalizeStatusKey(o.status) === "cancelled") continue;
       const override = cardOverrides[o.orderNo];
       const targetId =
-        override && columnIdSet.has(override) ? override : defaultColumnFor(o);
+        override && columnIdSet.has(override)
+          ? override
+          : resolveColumnId(defaultColumnFor(o));
+      if (!targetId) continue;
       const bucket = buckets.get(targetId);
       if (bucket) bucket.push(o);
-      else buckets.get(columns[0]?.id ?? "")?.push(o);
     }
+
+    const orderNoNum = (no: string) => {
+      const n = Number(no);
+      return Number.isFinite(n) ? n : null;
+    };
 
     const cmp = (a: Order, b: Order) => {
       if (sort === "appointment") {
@@ -224,7 +250,11 @@ export function OrdersKanbanPage() {
         const bv = b.appointmentDate ? new Date(b.appointmentDate).getTime() : 0;
         return bv - av;
       }
-      // "created" → fall back to orderNo desc as proxy
+      // "created" → newest first, using orderNo as proxy. Compare numerically
+      // when both ids parse as numbers so that #1000 sorts before #999.
+      const aNum = orderNoNum(a.orderNo);
+      const bNum = orderNoNum(b.orderNo);
+      if (aNum !== null && bNum !== null) return bNum - aNum;
       return String(b.orderNo).localeCompare(String(a.orderNo));
     };
 
