@@ -113,6 +113,19 @@ export function OrdersPage() {
 
   const [msgNo, setMsgNo] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+
+  // Open the create dialog when entered via ?create=1 (e.g. from the
+  // Kanban CTA). The flag is stripped from the URL after consumption so
+  // a reload doesn't re-open the dialog.
+  useEffect(() => {
+    if (searchParams.get("create") === "1") {
+      setShowCreate(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete("create");
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
   const [selectedNos, setSelectedNos] = useState<Set<string>>(() => new Set());
   const [bulkTargetStatus, setBulkTargetStatus] = useState<StatusKey>("pending");
   const [bulkBusy, setBulkBusy] = useState(false);
