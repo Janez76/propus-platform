@@ -344,7 +344,7 @@ export function OrdersKanbanPage() {
   }, [handleAddColumn]);
 
   return (
-    <div className="padmin-shell pkanban -mx-4 w-[calc(100%+2rem)] sm:-mx-6 sm:w-[calc(100%+3rem)] lg:-mx-8 lg:w-[calc(100%+4rem)]">
+    <div className="padmin-shell pkanban flex min-h-0 flex-1 flex-col -mx-4 w-[calc(100%+2rem)] sm:-mx-6 sm:w-[calc(100%+3rem)] lg:-mx-8 lg:w-[calc(100%+4rem)]">
       {/* Tabs row — only Liste/Kanban for now since there is no separate
           "Tabelle" view in this codebase (OrdersPage uses a single list). */}
       <nav className="pkanban__tabs" aria-label={t("orders.kanban.title")}>

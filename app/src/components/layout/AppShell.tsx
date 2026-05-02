@@ -33,14 +33,22 @@ export function AppShell({ children }: PropsWithChildren) {
       />
       <SearchPalette open={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
 
-      <div className="flex min-h-screen flex-col lg:pl-[272px]">
+      <div
+        className={cn(
+          "flex min-h-[100dvh] flex-col overflow-hidden lg:pl-[272px]",
+          /* Feste Viewport-Höhe: innere Flex-Kinder (z. B. Kanban) können min-height:0 + Scroll nutzen */
+          "h-[100dvh] max-h-[100dvh]",
+        )}
+      >
         <Topbar onMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)} />
 
-        <main className={cn(
-          "flex-1 px-4 py-6 sm:px-6 lg:px-8",
-          "pb-20 lg:pb-6"
-        )}>
-          <div className="mx-auto max-w-7xl">
+        <main
+          className={cn(
+            "flex min-h-0 flex-1 flex-col px-4 py-6 sm:px-6 lg:px-8",
+            "overflow-y-auto pb-20 lg:pb-6",
+          )}
+        >
+          <div className="mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col">
             {children}
           </div>
         </main>
