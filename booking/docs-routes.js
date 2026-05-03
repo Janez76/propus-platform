@@ -10,20 +10,26 @@
  * Routen *nicht* registriert, damit der Server trotzdem hochkommt.
  */
 const fs = require("fs");
+const fsp = require("fs/promises");
 const path = require("path");
 const YAML = require("yaml");
 const swaggerUi = require("swagger-ui-express");
 
 const SPEC_PATH = path.resolve(__dirname, "..", "docs", "openapi", "openapi.yaml");
 
-function loadSpec() {
+function loadSpecSync() {
   const raw = fs.readFileSync(SPEC_PATH, "utf8");
+  return YAML.parse(raw);
+}
+
+async function loadSpec() {
+  const raw = await fsp.readFile(SPEC_PATH, "utf8");
   return YAML.parse(raw);
 }
 
 function registerDocsRoutes(app, log = console) {
   try {
-    loadSpec();
+    loadSpecSync();
   } catch (err) {
     log.warn?.("[docs] OpenAPI-Spec konnte nicht geladen werden – /api/docs deaktiviert", err.message);
     return;
@@ -33,9 +39,9 @@ function registerDocsRoutes(app, log = console) {
     res.type("application/yaml").sendFile(SPEC_PATH);
   });
 
-  app.get("/api/docs/openapi.json", (_req, res) => {
+  app.get("/api/docs/openapi.json", async (_req, res) => {
     try {
-      res.json(loadSpec());
+      res.json(await loadSpec());
     } catch (err) {
       log.error?.("[docs] OpenAPI-Spec konnte nicht serialisiert werden", err.message);
       res.status(500).json({ error: "OpenAPI-Spec nicht verfügbar" });
