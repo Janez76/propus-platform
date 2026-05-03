@@ -10,12 +10,14 @@
  *  4. E-Mails werden im Job gesendet (ausserhalb Workflow-Engine)
  *
  * Idempotent: prueft status='pending' + confirmation_pending_since IS NOT NULL + age > 24h.
+ *
+ * Nutzt scheduleSafeCronJob (Distributed-Lock + Per-Row-Boundary).
  */
 
 "use strict";
 
-const cron = require("node-cron");
 const crypto = require("crypto");
+const { scheduleSafeCronJob } = require("../../core/lib/safe-cron-job");
 const { buildTemplateVars, sendMailIdempotent, sendAttendeeNotifications } = require("../template-renderer");
 const { changeOrderStatus } = require("../order-status-workflow");
 const { calcProvisionalExpiresAt } = require("../state-machine");
@@ -25,18 +27,22 @@ const { calcProvisionalExpiresAt } = require("../state-machine");
  */
 function scheduleConfirmationPending(deps) {
   const { db, getSetting, sendMail, graphClient, OFFICE_EMAIL, PHOTOG_PHONES, createPortalMagicLink } = deps;
+  const pool = db && typeof db.getPool === "function" ? db.getPool() : null;
 
-  cron.schedule("15 * * * *", async function runPendingConfirmation() {
-    console.log("[job:confirmation-pending] Job gestartet");
-    try {
+  scheduleSafeCronJob({
+    name: "confirmation-pending",
+    cron: "15 * * * *",
+    pool,
+    timezone: "Europe/Zurich",
+    run: async (ctx) => {
+      ctx.log("Job gestartet");
+
       const flagResult = await getSetting("feature.backgroundJobs");
       if (!flagResult || !flagResult.value) {
-        console.log("[job:confirmation-pending] feature.backgroundJobs=false, uebersprungen");
+        ctx.log("feature.backgroundJobs=false, uebersprungen");
         return;
       }
-
-      const pool = db.getPool ? db.getPool() : null;
-      if (!pool) { console.warn("[job:confirmation-pending] DB nicht verfuegbar"); return; }
+      if (!pool) { ctx.warn("DB nicht verfuegbar"); return; }
 
       const mailEnabled = await getSetting("feature.emailTemplatesOnStatusChange");
       const mailOn = !!(mailEnabled && mailEnabled.value);
@@ -51,34 +57,33 @@ function scheduleConfirmationPending(deps) {
       );
 
       if (!rows.length) {
-        console.log("[job:confirmation-pending] keine Auftraege nach 24h ohne Bestaetigung");
+        ctx.log("keine Auftraege nach 24h ohne Bestaetigung");
         return;
       }
 
-      console.log("[job:confirmation-pending] Auftraege nach 24h:", rows.length);
+      ctx.log("Auftraege nach 24h:", rows.length);
 
       for (const row of rows) {
-        const orderNo = row.order_no;
-        try {
+        await ctx.perRow(row, async (r) => {
+          const orderNo = r.order_no;
           // Loader: gibt Row-Objekt in normalisierter Form zurueck
           const loadOrder = async function() {
             return {
               orderNo,
-              status: row.status,
-              photographer: row.photographer || {},
-              photographerEventId: row.photographer_event_id,
-              officeEventId: row.office_event_id,
-              schedule: row.schedule || {},
-              billing: row.billing || {},
-              address: row.address || "",
-              services: row.services || {},
-              pricing: row.pricing || {},
-              object: row.object || {},
+              status: r.status,
+              photographer: r.photographer || {},
+              photographerEventId: r.photographer_event_id,
+              officeEventId: r.office_event_id,
+              schedule: r.schedule || {},
+              billing: r.billing || {},
+              address: r.address || "",
+              services: r.services || {},
+              pricing: r.pricing || {},
+              object: r.object || {},
             };
           };
 
           // provisional_booked_at + expires_at im DB setzen (vor changeOrderStatus)
-          // damit der Kalender-Effect die richtigen Daten hat
           const provisionalBooked = new Date();
           const provisionalExpires = calcProvisionalExpiresAt(provisionalBooked);
           const freshToken = crypto.randomBytes(32).toString("base64url");
@@ -97,7 +102,7 @@ function scheduleConfirmationPending(deps) {
               [provisionalExpires.toISOString(), orderNo, freshToken, tokenExpires.toISOString()]
             );
           } catch (preErr) {
-            console.error("[job:confirmation-pending] Provisorium-Felder konnten nicht gesetzt werden:", orderNo, preErr && preErr.message);
+            ctx.error("Provisorium-Felder konnten nicht gesetzt werden:", orderNo, preErr && preErr.message);
           }
 
           // Zentrale Workflow-Engine: pending -> provisional
@@ -108,64 +113,57 @@ function scheduleConfirmationPending(deps) {
           }, { db, getSetting, graphClient, OFFICE_EMAIL, PHOTOG_PHONES: PHOTOG_PHONES || {} });
 
           if (!result.success) {
-            console.error("[job:confirmation-pending] changeOrderStatus fehlgeschlagen:", { orderNo, error: result.error, code: result.code });
-            continue;
+            ctx.error("changeOrderStatus fehlgeschlagen:", { orderNo, error: result.error, code: result.code });
+            return;
           }
 
-          console.log("[job:confirmation-pending] Auftrag auf provisional gesetzt:", orderNo, { calendarResult: result.calendarResult });
+          ctx.log("Auftrag auf provisional gesetzt:", orderNo, { calendarResult: result.calendarResult });
 
           // E-Mails senden (ausserhalb Workflow-Engine gemaess Plan-Ausschluss)
           if (mailOn && sendMail) {
             const orderObj = {
               orderNo,
-              address: row.address,
-              billing: row.billing,
-              services: row.services,
-              pricing: row.pricing,
-              photographer: row.photographer,
-              schedule: row.schedule,
+              address: r.address,
+              billing: r.billing,
+              services: r.services,
+              pricing: r.pricing,
+              photographer: r.photographer,
+              schedule: r.schedule,
               status: "provisional",
               provisionalExpiresAt: provisionalExpires.toISOString(),
               confirmationToken: freshToken,
-              attendeeEmails: row.attendee_emails,
+              attendeeEmails: r.attendee_emails,
             };
             const provisionalMagicLink = createPortalMagicLink
-              ? await createPortalMagicLink(row.billing || {}, { sessionDays: 30, returnTo: "/portal/dashboard" }).catch(() => null)
+              ? await createPortalMagicLink(r.billing || {}, { sessionDays: 30, returnTo: "/portal/dashboard" }).catch(() => null)
               : null;
             const vars = buildTemplateVars(orderObj, { portalMagicLink: provisionalMagicLink || "" });
             const sendFn = function(to, subj, html, text) { return sendMail(to, subj, html, text, null); };
             const mailSummary = [];
 
-            if (row.billing && row.billing.email) {
-              const customerResult = await sendMailIdempotent(pool, "provisional_created", row.billing.email, orderNo, vars, sendFn)
+            if (r.billing && r.billing.email) {
+              const customerResult = await sendMailIdempotent(pool, "provisional_created", r.billing.email, orderNo, vars, sendFn)
                 .catch(function(e) {
-                  console.error("[job:confirmation-pending] provisional_created mail failed:", orderNo, e && e.message);
+                  ctx.error("provisional_created mail failed:", orderNo, e && e.message);
                   return { sent: false, reason: "send_error" };
                 });
               mailSummary.push({ role: "customer", templateKey: "provisional_created", sent: customerResult && customerResult.sent === true, reason: customerResult && customerResult.reason ? customerResult.reason : null });
             }
             // Büro-Hinweis bei pending→provisional wird nicht mehr gesendet.
-            // Das Büro wird erst beim Reminder 3 (letzter Tag vor Ablauf) benachrichtigt.
             const attendeeResult = await sendAttendeeNotifications(pool, orderObj, "provisional", sendFn)
               .catch(function(e) {
-                console.error("[job:confirmation-pending] attendee CC mail failed:", orderNo, e && e.message);
+                ctx.error("attendee CC mail failed:", orderNo, e && e.message);
                 return { sent: 0, skipped: 0, failed: 1 };
               });
             mailSummary.push({ role: "cc", templateKey: "attendee_notification", sent: (attendeeResult && attendeeResult.sent) || 0, skipped: (attendeeResult && attendeeResult.skipped) || 0, failed: (attendeeResult && attendeeResult.failed) || 0 });
-            console.log("[job:confirmation-pending] Mail-Summary", { orderNo, mailSummary });
+            ctx.log("Mail-Summary", { orderNo, mailSummary });
           }
-        } catch (err) {
-          console.error("[job:confirmation-pending] Fehler bei Auftrag", orderNo, err && err.message);
-        }
+        });
       }
 
-      console.log("[job:confirmation-pending] Job abgeschlossen");
-    } catch (err) {
-      console.error("[job:confirmation-pending] Unerwarteter Fehler:", err && err.message);
-    }
-  }, { timezone: "Europe/Zurich" });
-
-  console.log("[job:confirmation-pending] Job registriert (stuendlich :15)");
+      ctx.log("Job abgeschlossen");
+    },
+  });
 }
 
 module.exports = { scheduleConfirmationPending };

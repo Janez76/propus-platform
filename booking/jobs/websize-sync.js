@@ -13,8 +13,8 @@
 
 const fs    = require("fs");
 const path  = require("path");
-const cron  = require("node-cron");
 const sharp = require("sharp");
+const { scheduleSafeCronJob } = require("../../core/lib/safe-cron-job");
 
 const FULLSIZE_SUBPATH = "Finale/Bilder/FULLSIZE";
 const WEBSIZE_SUBPATH  = "Finale/Bilder/WEB SIZE";
@@ -161,17 +161,20 @@ function scheduleWebsizeSync(deps) {
     console.log("[job:websizeSync] deaktiviert - kein periodischer Websize-Sync registriert");
     return;
   }
-  cron.schedule("*/10 * * * *", async function runJob() {
-    try {
-      await runWebsizeSync(deps);
-    } catch (err) {
-      console.error("[job:websizeSync] Unerwarteter Fehler:", err && err.message);
-    }
-  }, {
-    timezone: process.env.TIMEZONE || "Europe/Zurich",
-  });
+  const { db } = deps || {};
+  const pool = db && typeof db.getPool === "function" ? db.getPool() : null;
 
-  console.log("[job:websizeSync] Websize-Sync registriert (alle 10 Minuten)");
+  scheduleSafeCronJob({
+    name: "websize-sync",
+    cron: "*/10 * * * *",
+    pool,
+    timezone: process.env.TIMEZONE || "Europe/Zurich",
+    run: async (_ctx) => {
+      // runWebsizeSync hat eigene Loops + per-File-error-Behandlung; hier
+      // reicht Tick-Boundary + Distributed-Lock vom Wrapper.
+      await runWebsizeSync(deps);
+    },
+  });
 }
 
 module.exports = { scheduleWebsizeSync, runWebsizeSync, ensureWebsizeCopy };
