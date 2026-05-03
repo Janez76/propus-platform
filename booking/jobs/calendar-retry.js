@@ -53,34 +53,36 @@ function scheduleCalendarRetry(deps) {
           try {
             await graphClient.api("/users/" + r.user_email + "/events/" + r.event_id).delete();
 
-            // Erfolg: Eintrag als erledigt markieren
-            await pool.query("UPDATE calendar_delete_queue SET done_at = NOW() WHERE id = $1", [r.id]);
-
-            // Event-ID in der orders-Tabelle nullen + calendar_sync_status korrigieren
+            // Reihenfolge wichtig: erst Order-Cleanup, dann done_at setzen.
+            // Wenn updateOrderFields scheitert, bleibt done_at IS NULL und der
+            // naechste Tick kann den Eintrag erneut bearbeiten — kein dauerhaft
+            // inkonsistenter Zustand (CodeRabbit Major).
             const eventIdField = r.event_type === "photographer" ? "photographer_event_id" : "office_event_id";
-            try {
-              await db.updateOrderFields(Number(r.order_no), {
-                [eventIdField]: null,
-                calendar_sync_status: "deleted",
-              });
-            } catch (dbErr) {
-              ctx.error("DB-Update nach Erfolg fehlgeschlagen", { orderNo: r.order_no, error: dbErr && dbErr.message });
-            }
+            await db.updateOrderFields(Number(r.order_no), {
+              [eventIdField]: null,
+              calendar_sync_status: "deleted",
+            });
+            await pool.query("UPDATE calendar_delete_queue SET done_at = NOW() WHERE id = $1", [r.id]);
 
             ctx.log("Retry erfolgreich", { orderNo: r.order_no, eventType: r.event_type, eventId: r.event_id });
 
           } catch (err) {
             const isGone = err && (err.statusCode === 404);
             if (isGone) {
-              // 404 = Event existiert nicht mehr, gilt als erledigt
-              await pool.query("UPDATE calendar_delete_queue SET done_at = NOW() WHERE id = $1", [r.id]);
+              // 404 = Event existiert nicht mehr, gilt als erledigt. Auch hier
+              // erst Order-Cleanup, dann done_at — bei DB-Fehler retryt der
+              // Job, aber graphClient liefert eh weiter 404, also no-op.
               const eventIdField = r.event_type === "photographer" ? "photographer_event_id" : "office_event_id";
               try {
                 await db.updateOrderFields(Number(r.order_no), {
                   [eventIdField]: null,
                   calendar_sync_status: "deleted",
                 });
-              } catch (_dbErr) { /* ignorieren */ }
+              } catch (dbErr) {
+                ctx.error("DB-Update im 404-Zweig fehlgeschlagen, done_at wird NICHT gesetzt:", { orderNo: r.order_no, error: dbErr && dbErr.message });
+                return; // done_at bleibt offen, naechster Tick versucht erneut
+              }
+              await pool.query("UPDATE calendar_delete_queue SET done_at = NOW() WHERE id = $1", [r.id]);
               ctx.log("Event bereits geloescht (404), als done markiert", { orderNo: r.order_no, eventType: r.event_type });
             } else {
               // Noch ein Fehler: Backoff erhoehen
