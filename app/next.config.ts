@@ -43,6 +43,17 @@ const nextConfig: NextConfig = {
           source: "/api/admin/:path*",
           destination: `${PLATFORM_INTERNAL_URL}/api/admin/:path*`,
         },
+        // Swagger UI + OpenAPI-Spec (booking/docs-routes.js).
+        // /api/docs allein muss separat gelistet werden, sonst greift der
+        // /:path*-Eintrag nicht (path ist hier optional/leer).
+        {
+          source: "/api/docs",
+          destination: `${PLATFORM_INTERNAL_URL}/api/docs`,
+        },
+        {
+          source: "/api/docs/:path*",
+          destination: `${PLATFORM_INTERNAL_URL}/api/docs/:path*`,
+        },
         {
           source: "/api/catalog/:path*",
           destination: `${PLATFORM_INTERNAL_URL}/api/catalog/:path*`,
