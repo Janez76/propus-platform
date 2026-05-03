@@ -60,7 +60,7 @@ Upstream: [softaworks/agent-toolkit](https://github.com/softaworks/agent-toolkit
 | **Claude Code** | `.claude/settings.json` registriert das Marketplace **`agent-toolkit`** (GitHub `softaworks/agent-toolkit`). Repo **trusted** → ggf. `/plugin marketplace add softaworks/agent-toolkit` → Plugins z. B. `/plugin install codex@agent-toolkit` (weitere Namen siehe Upstream-README) |
 | **Cursor** | Skills liegen im Submodule unter `third-party/agent-toolkit/skills/<skill-name>/`; einzelne `SKILL.md` bei Bedarf in die eigene Cursor-Skills-/Rules-Struktur übernehmen. Mit installiertem Node optional: **`npx skills add softaworks/agent-toolkit`** (empfohlener CLI-Weg gemäß Upstream). |
 
-Zusätzlich in **`.claude/settings.json`** (Äquivalent zu `npx claudepluginhub … --plugin …` ohne Node hier): **`cascade-code-testing-misc`** + **`etewiah-property-web-builder`**, sowie **`prial-plugins`** (`jamesprial/prial-plugins`) + **`unraid-assistant`**, sowie **`claude-homelab`** (`jmagar/claude-homelab`) + **`unraid-mcp`** (Plugin beschreibt laufenden **unraid-mcp**-Server / GraphQL wie im Upstream-README).
+Zusätzlich in **`.claude/settings.json`** (Äquivalent zu `npx claudepluginhub … --plugin …` ohne Node hier): **`cascade-code-testing-misc`** + **`etewiah-property-web-builder`**, sowie **`prial-plugins`** (`jamesprial/prial-plugins`) + **`unraid-assistant`**, sowie **`claude-homelab`** (`jmagar/claude-homelab`) + **`unraid-mcp`** (Plugin beschreibt laufenden **unraid-mcp**-Server / GraphQL wie im Upstream-README), sowie **`cascade-ai-ml-agents-misc-1`** (`joshuarweaver/cascade-ai-ml-agents-misc-1`) + **`homeassistant-ai-skills`**.
 
 ## Dubletten-Prävention & Wartung (Kunden)
 
