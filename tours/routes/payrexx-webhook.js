@@ -76,6 +76,22 @@ async function claimWebhookEvent({ provider, eventId, referenceId, status, paylo
 }
 
 /**
+ * Marker fuer Fehler, bei denen der Idempotency-Claim sicher freigegeben werden
+ * darf, weil noch keine schreibenden Side-Effects stattgefunden haben (z.B.
+ * referenzierte Datensaetze fehlen → Race-Condition zwischen Checkout und
+ * Persistenz). Fehler OHNE diesen Marker werden NICHT released, damit ein
+ * Payrexx-Retry nicht-idempotente Schritte nicht doppelt ausfuehrt (etwa
+ * Subscription-Verlaengerung mit bereits verschobener End-Date als Basis).
+ */
+class RetryableWebhookError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'RetryableWebhookError';
+    this.retryable = true;
+  }
+}
+
+/**
  * Gibt einen Webhook-Claim wieder frei. Wird bei einem Top-Level-Fehler im
  * Side-Effect-Block aufgerufen, damit Payrexx-Retries die Verarbeitung erneut
  * starten koennen. Vollwertige two-state Idempotency (received vs processed)
@@ -208,14 +224,14 @@ router.post('/payrexx', express.raw({ type: '*/*' }), async (req, res) => {
         const invoice = invoiceResult.rows[0];
         if (!invoice) {
           // Race-Condition zwischen Checkout und Persistenz oder verzoegerte
-          // Invoice-Erstellung. Throw -> outer catch gibt den Idempotency-
-          // Claim frei -> Payrexx-Retry verarbeitet erneut.
-          throw new Error(`payrexx-webhook: renewal_invoice nicht gefunden (referenceId=${referenceId})`);
+          // Invoice-Erstellung. Hier sind noch KEINE schreibenden Updates
+          // gelaufen → Retryable, Claim wird im outer catch released.
+          throw new RetryableWebhookError(`renewal_invoice nicht gefunden (referenceId=${referenceId})`);
         }
         const tourResult = await pool.query('SELECT * FROM tour_manager.tours WHERE id = $1 LIMIT 1', [tourId]);
         const tour = normalizeTourRow(tourResult.rows[0] || null);
         if (!tour) {
-          throw new Error(`payrexx-webhook: tour nicht gefunden (tourId=${tourId}, referenceId=${referenceId})`);
+          throw new RetryableWebhookError(`tour nicht gefunden (tourId=${tourId}, referenceId=${referenceId})`);
         }
         const isReactivation = invoice?.invoice_kind === 'portal_reactivation';
         let matterportState = tour?.matterport_state || null;
@@ -285,12 +301,21 @@ router.post('/payrexx', express.raw({ type: '*/*' }), async (req, res) => {
         console.log('[payrexx-webhook] referenceId passt nicht zu Tour-Format:', referenceId);
       }
     } catch (err) {
-      // Slot wieder freigeben, damit Payrexx beim Retry erneut angenommen wird.
+      // Slot NUR fuer markierte RetryableWebhookErrors freigeben (= Fehler
+      // VOR jeder schreibenden DB-Operation). Andere Fehler (z.B. UPDATE
+      // failed, logAction failed) duerfen NICHT released werden — sonst
+      // wuerde ein Payrexx-Retry nicht-idempotente Schritte (Subscription-
+      // Verlaengerung, etc.) doppelt ausfuehren. Solche Faelle bleiben
+      // gebunden und brauchen manuelle Intervention; vollwertige two-state
+      // Idempotency (received vs processed) ist Backlog Sprint B.
+      const releaseClaim = err && err.retryable === true;
       console.error(
-        '[payrexx-webhook] Fehler in Side-Effect-Block, gebe Idempotency-Claim frei:',
+        `[payrexx-webhook] Fehler in Side-Effect-Block (${releaseClaim ? 'release+retry' : 'KEEP claim'}):`,
         err && err.message ? err.message : err,
       );
-      await releaseWebhookEvent({ provider: 'payrexx', eventId: claimedEventId });
+      if (releaseClaim) {
+        await releaseWebhookEvent({ provider: 'payrexx', eventId: claimedEventId });
+      }
       throw err;
     }
   }

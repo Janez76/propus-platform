@@ -21,10 +21,13 @@ const crypto = require("crypto");
 // den falschen Account. Aliase fuer die existierenden Deploy-Variablen
 // ADMIN_USER / ADMIN_PASS bleiben erhalten (siehe docker-compose.vps.yml,
 // .env.vps.example, scripts/ADMIN-SETUP-ANLEITUNG.md).
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || process.env.ADMIN_USER  || "";
-const ADMIN_EMAIL    = process.env.ADMIN_EMAIL    || "";
-const ADMIN_NAME     = process.env.ADMIN_NAME     || "";
-const ADMIN_ROLE     = process.env.ADMIN_ROLE     || "super_admin";
+// Username/Email werden in den Lookup-Queries via LOWER(...) verglichen, daher
+// hier schon trim+lowercase, damit Mixed-Case-Eingaben nicht zu doppelten
+// Accounts oder Unique-Constraint-Konflikten fuehren.
+const ADMIN_USERNAME = (process.env.ADMIN_USERNAME || process.env.ADMIN_USER || "").trim().toLowerCase();
+const ADMIN_EMAIL    = (process.env.ADMIN_EMAIL    || "").trim().toLowerCase();
+const ADMIN_NAME     = (process.env.ADMIN_NAME     || "").trim();
+const ADMIN_ROLE     = (process.env.ADMIN_ROLE     || "super_admin").trim();
 const ADMIN_PASSWORD =
   process.argv[2] ||
   process.env.ADMIN_PASSWORD ||
