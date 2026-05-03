@@ -130,20 +130,22 @@ router.post('/payrexx', express.raw({ type: '*/*' }), async (req, res) => {
 
   console.log('[payrexx-webhook] OK – status:', status, 'referenceId:', referenceId);
 
-  // Replay-Schutz: Pro (provider, event_id) nur einmal verarbeiten. Wenn die
-  // Reservation false zurueckliefert, war der Event schon mal da -> mit 200
-  // antworten (damit Payrexx nicht endlos retried), aber Side-Effects skippen.
+  // Replay-Schutz: Pro (provider, event_id) nur einmal verarbeiten. Wichtig:
+  // event_id schliesst den Status mit ein, damit ein frueher Non-Terminal-Event
+  // (z.B. "pending") nicht den Slot fuer das spaetere "confirmed"/"paid"
+  // belegt. Codex-Review #250: ohne Status im Key wuerde der echte Payment-
+  // Webhook als Replay verworfen werden.
   const transactionId = String(transaction?.id || transaction?.uuid || '').trim();
   if (transactionId) {
     const fresh = await claimWebhookEvent({
       provider: 'payrexx',
-      eventId: transactionId,
+      eventId: `${transactionId}:${status || 'unknown'}`,
       referenceId,
       status,
       payloadSha256: crypto.createHash('sha256').update(rawBody, 'utf8').digest('hex'),
     });
     if (!fresh) {
-      console.log('[payrexx-webhook] replay ignoriert – transactionId:', transactionId);
+      console.log('[payrexx-webhook] replay ignoriert – transactionId:', transactionId, 'status:', status);
       return res.json({ ok: true, replay: true });
     }
   } else {
