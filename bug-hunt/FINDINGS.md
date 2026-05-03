@@ -53,8 +53,8 @@ Cross-Cutting-Dedup (−19) → **68 unique** = `Total (ohne Pilot)`.
 - [T10][HIGH] `setup-admin-user.js` mit Default-Passwort → `scripts/setup-admin-user.js:24`
 - [T01][HIGH] Portal-API IDOR via Admin-Bridge → `tours/routes/portal-api.js:54-69`
 - [T03][HIGH] Open Redirect (`//attacker.com`) → `tours/routes/auth.js:119-121`
-- [T02][HIGH] Multi-Step-Mutation ohne Transaktion → `…/order-bulk-actions.ts:21-68`
-- [T02][HIGH] TOCTOU Order-No-Allokation → `…/duplicate-actions.ts:56-90`
+- [T02][HIGH] Multi-Step-Mutation ohne Transaktion → `app/src/app/(admin)/orders/[id]/order-bulk-actions.ts:21-68`
+- [T02][HIGH] TOCTOU Order-No-Allokation → `app/src/app/(admin)/orders/[id]/duplicate-actions.ts:56-90`
 - [T02][HIGH] `revalidate*()` nach `redirect()` (Throw verschluckt Revalidate) → `verknuepfungen/actions.ts:59,113,133,175,195`
 - [T02][HIGH] Status-Coercion `String(x || "pending")` → `status-change-actions.ts:40`
 - [T02][HIGH] Status-Update ohne Optimistic Concurrency → `status-change-actions.ts:20-85`
@@ -326,7 +326,7 @@ Cross-Cutting-Dedup (−19) → **68 unique** = `Total (ohne Pilot)`.
 - Tags: —
 
 #### [T02][HIGH][H] Status-Update ohne Optimistic-Concurrency
-- Datei: `…/status-change-actions.ts:20-85`
+- Datei: `app/src/app/(admin)/orders/[id]/status-change-actions.ts:20-85`
 - Kategorie: 8. Race Conditions
 - Problem: Read-then-Write ohne `expected_updated_at`. Zwei parallele Status-
   Wechsel überschreiben sich still.
@@ -378,7 +378,7 @@ Cross-Cutting-Dedup (−19) → **68 unique** = `Total (ohne Pilot)`.
 - Tags: #security
 
 #### [T05][HIGH][H] Form-Doppel-Submit in Posteingang
-- Datei: `…/PosteingangPage.tsx:693-700` (Send-Button)
+- Datei: `app/src/pages-legacy/admin/posteingang/PosteingangPage.tsx:693-700` (Send-Button)
 - Kategorie: 7. Logik / UX
 - Problem: `disabled={sending}` ist gesetzt, `setSending(true)` aber erst innerhalb
   des async-Handlers – React-Batching kann das State-Update verzögern.
@@ -547,30 +547,30 @@ Cross-Cutting-Dedup (−19) → **68 unique** = `Total (ohne Pilot)`.
 - Aufwand: M · Confidence: M
 
 #### [T02][MEDIUM][M] `String(input.orderNo)` ohne `Number.isInteger`-Guard
-- Datei: `…/order-bulk-actions.ts:24-26`
+- Datei: `app/src/app/(admin)/orders/[id]/order-bulk-actions.ts:24-26`
 - Problem: `String(...)` immer truthy → Validation-Check `if (!n)` läuft nie.
 - Vorschlag: `if (!Number.isInteger(input.orderNo) || input.orderNo <= 0) return error`.
 - Aufwand: S · Confidence: M
 
 #### [T04][MEDIUM][H] `getVerknuepfungenForClient` lädt vor Auth-Check
-- Datei: `…/verknuepfungen/verknuepfungen-data-actions.ts:11-22`
+- Datei: `app/src/app/(admin)/orders/[id]/verknuepfungen/verknuepfungen-data-actions.ts:11-22`
 - Problem: Daten werden geholt bevor `requireOrderViewAccess()` zwingend wirft.
 - Vorschlag: Auth zuerst, Daten danach.
 - Aufwand: S · Confidence: M
 
 #### [T02][MEDIUM][M] Leistungen-Update ohne Optimistic-Concurrency
-- Datei: `…/leistungen/actions.ts:24-113`
+- Datei: `app/src/app/(admin)/orders/[id]/leistungen/actions.ts:24-113`
 - Vorschlag: `updated_at`-Vergleich in WHERE.
 - Aufwand: M · Confidence: M
 
 #### [T02][MEDIUM][M] `sendOrderMessage` ohne Order-Existenz-Check
-- Datei: `…/kommunikation/actions.ts:16-45`
+- Datei: `app/src/app/(admin)/orders/[id]/kommunikation/actions.ts:16-45`
 - Problem: INSERT ohne Vorab-Check; FK-Fehler wird verschluckt.
 - Vorschlag: SELECT 1 davor oder strukturierten FK-Fehler ans UI.
 - Aufwand: S · Confidence: M
 
 #### [T02][MEDIUM][M] Chat-Delete: Audit-Log außerhalb Tx
-- Datei: `…/kommunikation/actions.ts:47-65`
+- Datei: `app/src/app/(admin)/orders/[id]/kommunikation/actions.ts:47-65`
 - Problem: `withTransaction` umfasst nur UPDATE; `logOrderEvent` danach.
 - Vorschlag: Beide in selbe Tx oder Outbox.
 - Aufwand: M · Confidence: M
@@ -581,7 +581,7 @@ Cross-Cutting-Dedup (−19) → **68 unique** = `Total (ohne Pilot)`.
 - Aufwand: S · Confidence: M
 
 #### [T05][MEDIUM][M] matterport-spaces-list: setLoading nicht durchgängig guarded
-- Datei: `…/verknuepfungen/matterport-spaces-list.tsx:74-105`
+- Datei: `app/src/app/(admin)/orders/[id]/verknuepfungen/matterport-spaces-list.tsx:74-105`
 - Vorschlag: Alle setState-Calls hinter `if (!cancelled)`.
 - Aufwand: S · Confidence: M
 
@@ -591,12 +591,12 @@ Cross-Cutting-Dedup (−19) → **68 unique** = `Total (ohne Pilot)`.
 - Aufwand: S · Confidence: M
 
 #### [T05][MEDIUM][M] AppSidebar: zwei `useEffect` mit überlappendem State
-- Datei: `…/AppSidebar.tsx:99-124`
+- Datei: `app/src/components/layout/AppSidebar.tsx:99-124`
 - Vorschlag: Effects mergen oder klare Reihenfolge mit Ref-Flag.
 - Aufwand: M · Confidence: M
 
 #### [T05][MEDIUM][M] topbar-actions: Kein Rollback bei Action-Error
-- Datei: `…/topbar-actions.tsx:47-71`
+- Datei: `app/src/app/(admin)/orders/[id]/topbar-actions.tsx:47-71`
 - Vorschlag: Bei `ok:false` UI-State (Menu-Open) wiederherstellen + Toast.
 - Aufwand: M · Confidence: M
 
@@ -712,12 +712,12 @@ Cross-Cutting-Dedup (−19) → **68 unique** = `Total (ohne Pilot)`.
 ### LOW
 
 #### [T02][LOW][M] Hard-coded Status-Strings
-- Datei: `…/status-change-actions.ts:22`
+- Datei: `app/src/app/(admin)/orders/[id]/status-change-actions.ts:22`
 - Vorschlag: `STATUS`-Const aus `lib/orderWorkflow/stateMachine` importieren.
 - Aufwand: M · Confidence: L
 
 #### [T02][LOW][M] `|| null` löscht leere Strings (Billing-Patch)
-- Datei: `…/orders/[id]/actions.ts:37-50`
+- Datei: `app/src/app/(admin)/orders/[id]/actions.ts:37-50`
 - Vorschlag: `value === '' ? null : value` explizit.
 - Aufwand: S · Confidence: M
 
