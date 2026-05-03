@@ -48,6 +48,16 @@ booking/          → Buchungsportal
 platform/         → Docker-Container (Express + Next.js)
 ```
 
+## Softaworks agent-toolkit (Cursor / Claude Code)
+
+Upstream: [softaworks/agent-toolkit](https://github.com/softaworks/agent-toolkit) (Agent-Skills-Format). Im Repo als **Git-Submodule** unter **`third-party/agent-toolkit`**.
+
+| Schritt | Aktion |
+|--------|--------|
+| Submodule auschecken | `git submodule update --init --recursive` (nach frischem Clone oder wenn `third-party/agent-toolkit` leer ist) |
+| **Claude Code** | `.claude/settings.json` registriert das Marketplace **`agent-toolkit`** (GitHub `softaworks/agent-toolkit`). Repo **trusted** → ggf. `/plugin marketplace add softaworks/agent-toolkit` → Plugins z. B. `/plugin install codex@agent-toolkit` (weitere Namen siehe Upstream-README) |
+| **Cursor** | Skills liegen im Submodule unter `third-party/agent-toolkit/skills/<skill-name>/`; einzelne `SKILL.md` bei Bedarf in die eigene Cursor-Skills-/Rules-Struktur übernehmen. Mit installiertem Node optional: **`npx skills add softaworks/agent-toolkit`** (empfohlener CLI-Weg gemäß Upstream). |
+
 ## Dubletten-Prävention & Wartung (Kunden)
 
 - **Logik (Backend):** `booking/customer-dedup.js` – `findMatchingCustomer` (exact/strong/weak); starke Treffer: Kontakt an bestehendem Kunden; schwache: neuer Kunde + Eintrag in `booking.customer_duplicate_candidates` (siehe Migrationen 087/088).
