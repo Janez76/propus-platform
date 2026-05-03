@@ -5,6 +5,15 @@
         "source": "github",
         "repo": "softaworks/agent-toolkit"
       }
+    },
+    "cascade-code-testing-misc": {
+      "source": {
+        "source": "github",
+        "repo": "joshuarweaver/cascade-code-testing-misc"
+      }
     }
+  },
+  "enabledPlugins": {
+    "etewiah-property-web-builder@cascade-code-testing-misc": true
   }
 }
