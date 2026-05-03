@@ -25,7 +25,10 @@ const REMINDER_MAX_DAYS = 60;
 
 function scheduleReviewRequests(deps) {
   const { db, getSetting, sendMail, createPortalMagicLink } = deps;
-  const pool = db.getPool ? db.getPool() : null;
+  // Defensiver Guard gegen null-deps oder DB-loses Boot (Test-Setups,
+  // PROPUS_PLATFORM_MERGED ohne booking-DB): null statt crash bei
+  // Job-Registrierung.
+  const pool = db && typeof db.getPool === "function" ? db.getPool() : null;
 
   scheduleSafeCronJob({
     name: "review-requests",
