@@ -12,6 +12,12 @@
         "repo": "joshuarweaver/cascade-code-testing-misc"
       }
     },
+    "cascade-ai-ml-agents-misc-1": {
+      "source": {
+        "source": "github",
+        "repo": "joshuarweaver/cascade-ai-ml-agents-misc-1"
+      }
+    },
     "prial-plugins": {
       "source": {
         "source": "github",
@@ -28,6 +34,7 @@
   "enabledPlugins": {
     "etewiah-property-web-builder@cascade-code-testing-misc": true,
     "unraid-assistant@prial-plugins": true,
-    "unraid-mcp@claude-homelab": true
+    "unraid-mcp@claude-homelab": true,
+    "homeassistant-ai-skills@cascade-ai-ml-agents-misc-1": true
   }
 }
