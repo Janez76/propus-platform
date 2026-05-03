@@ -139,6 +139,7 @@ const { buildAuthContext } = require("./authz/middleware");
 const { registerAccessRoutes } = require("./access-routes");
 const { registerExxasReconcileRoutes } = require("./exxas-reconcile-routes");
 const { registerAdminMissingRoutes } = require("./admin-missing-routes");
+const { registerDocsRoutes } = require("./docs-routes");
 const portalAuthBridge = require("./portal-auth-bridge");
 const portalTeam = require("../tours/lib/portal-team");
 
@@ -2838,6 +2839,8 @@ app.post("/api/admin/first-setup", async (req, res) => {
     return res.status(500).json({ error: err.message });
   }
 });
+
+registerDocsRoutes(app, logger);
 
 app.get("/api/health", (_req, res) => {
   res.json({

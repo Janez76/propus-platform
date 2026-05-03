@@ -12,6 +12,8 @@ RUN cd booking && npm ci --omit=dev
 
 COPY booking ./booking
 COPY core ./core
+# OpenAPI-Spec wird zur Laufzeit von booking/docs-routes.js (/api/docs) gelesen.
+COPY docs/openapi ./docs/openapi
 
 WORKDIR /app/booking
 

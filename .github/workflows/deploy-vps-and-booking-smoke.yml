@@ -153,10 +153,12 @@ jobs:
           # selektieren wir explizit die Top-Level-Pfade die geliefert werden sollen
           # und uebergeben sie mit -T. Fuehrt zu deterministischen, erklaerbaren
           # Archiv-Inhalten ohne tar-Glob-Pattern-Ueberraschungen.
+          # docs/openapi/openapi.yaml wird zur Laufzeit von booking/docs-routes.js
+          # serviert (/api/docs) und MUSS deshalb mit deployed werden. Restliche
+          # Markdown-Dokumente in docs/ kommen ohne nennenswerten Overhead mit.
           find . -maxdepth 1 -mindepth 1 \
             -not -name '.git' \
             -not -name '.github' \
-            -not -name 'docs' \
             -not -name 'backups' \
             -not -name 'node_modules' \
             -print > /tmp/deploy-archive-files.txt
