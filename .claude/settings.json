@@ -11,9 +11,16 @@
         "source": "github",
         "repo": "joshuarweaver/cascade-code-testing-misc"
       }
+    },
+    "prial-plugins": {
+      "source": {
+        "source": "github",
+        "repo": "jamesprial/prial-plugins"
+      }
     }
   },
   "enabledPlugins": {
-    "etewiah-property-web-builder@cascade-code-testing-misc": true
+    "etewiah-property-web-builder@cascade-code-testing-misc": true,
+    "unraid-assistant@prial-plugins": true
   }
 }
