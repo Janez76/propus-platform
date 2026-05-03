@@ -48,7 +48,9 @@ booking/          → Buchungsportal
 platform/         → Docker-Container (Express + Next.js)
 ```
 
-## Softaworks agent-toolkit (Cursor / Claude Code)
+## Claude Code: Agent-Toolkit & weitere Marketplaces
+
+### Softaworks agent-toolkit
 
 Upstream: [softaworks/agent-toolkit](https://github.com/softaworks/agent-toolkit) (Agent-Skills-Format). Im Repo als **Git-Submodule** unter **`third-party/agent-toolkit`**.
 
@@ -57,6 +59,8 @@ Upstream: [softaworks/agent-toolkit](https://github.com/softaworks/agent-toolkit
 | Submodule auschecken | `git submodule update --init --recursive` (nach frischem Clone oder wenn `third-party/agent-toolkit` leer ist) |
 | **Claude Code** | `.claude/settings.json` registriert das Marketplace **`agent-toolkit`** (GitHub `softaworks/agent-toolkit`). Repo **trusted** → ggf. `/plugin marketplace add softaworks/agent-toolkit` → Plugins z. B. `/plugin install codex@agent-toolkit` (weitere Namen siehe Upstream-README) |
 | **Cursor** | Skills liegen im Submodule unter `third-party/agent-toolkit/skills/<skill-name>/`; einzelne `SKILL.md` bei Bedarf in die eigene Cursor-Skills-/Rules-Struktur übernehmen. Mit installiertem Node optional: **`npx skills add softaworks/agent-toolkit`** (empfohlener CLI-Weg gemäß Upstream). |
+
+Zusätzlich in **`.claude/settings.json`**: Marketplace **`cascade-code-testing-misc`** (`joshuarweaver/cascade-code-testing-misc`) und Plugin **`etewiah-property-web-builder`** (entspricht lokal dem Befehl `npx claudepluginhub joshuarweaver/cascade-code-testing-misc --plugin etewiah-property-web-builder`).
 
 ## Dubletten-Prävention & Wartung (Kunden)
 
