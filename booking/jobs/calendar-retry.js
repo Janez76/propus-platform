@@ -27,8 +27,8 @@ function scheduleCalendarRetry(deps) {
     timezone: process.env.TIMEZONE || "Europe/Zurich",
     run: async (ctx) => {
       ctx.log("Calendar-Delete-Retry-Job gestartet");
-      if (!pool) { ctx.log("Kein DB-Pool verfuegbar, uebersprungen"); return; }
-      if (!graphClient) { ctx.log("graphClient nicht verfuegbar, uebersprungen"); return; }
+      if (!pool) { ctx.warn("Kein DB-Pool verfuegbar, uebersprungen"); return; }
+      if (!graphClient) { ctx.warn("graphClient nicht verfuegbar, uebersprungen"); return; }
 
       let rows;
       try {

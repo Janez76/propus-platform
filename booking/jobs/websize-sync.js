@@ -91,10 +91,22 @@ async function ensureWebsizeCopy(srcAbs, srcRoot, dstRoot) {
 }
 
 /**
+ * Fallback-Logger wenn runWebsizeSync ohne ctx aufgerufen wird (z.B. aus
+ * Tests oder direktem Aufruf). Verhalten: identische Signatur zu ctx.log/
+ * warn/error, aber via console.* mit altem Prefix.
+ */
+const _consoleCtx = {
+  log:   (...args) => console.log("[job:websizeSync]", ...args),
+  warn:  (...args) => console.warn("[job:websizeSync]", ...args),
+  error: (...args) => console.error("[job:websizeSync]", ...args),
+};
+
+/**
  * Führt die Synchronisation für alle Aufträge durch, die einen Kundenordner haben.
  * @param {object} deps - { db }  db muss eine getPool()-Methode besitzen
+ * @param {object} [ctx] - Logger aus scheduleSafeCronJob (optional, fallback console)
  */
-async function runWebsizeSync(deps) {
+async function runWebsizeSync(deps, ctx = _consoleCtx) {
   const { db } = deps;
   if (!db) return;
 
@@ -103,7 +115,7 @@ async function runWebsizeSync(deps) {
   try {
     const pool = db.getPool ? db.getPool() : null;
     if (!pool) {
-      console.warn("[job:websizeSync] Kein DB-Pool verfügbar, übersprungen");
+      ctx.warn("Kein DB-Pool verfügbar, übersprungen");
       return;
     }
     const { rows } = await pool.query(
@@ -116,7 +128,7 @@ async function runWebsizeSync(deps) {
     );
     folderLinks = rows;
   } catch (err) {
-    console.error("[job:websizeSync] Kann Ordnerliste nicht laden:", err && err.message);
+    ctx.error("Kann Ordnerliste nicht laden:", err && err.message);
     return;
   }
 
@@ -145,8 +157,8 @@ async function runWebsizeSync(deps) {
   }
 
   if (totalCreated > 0 || totalErrors > 0) {
-    console.log(
-      `[job:websizeSync] Fertig — erzeugt: ${totalCreated}, übersprungen: ${totalSkipped}, Fehler: ${totalErrors}`,
+    ctx.log(
+      `Fertig — erzeugt: ${totalCreated}, übersprungen: ${totalSkipped}, Fehler: ${totalErrors}`,
     );
   }
 }
@@ -169,10 +181,12 @@ function scheduleWebsizeSync(deps) {
     cron: "*/10 * * * *",
     pool,
     timezone: process.env.TIMEZONE || "Europe/Zurich",
-    run: async (_ctx) => {
+    run: async (ctx) => {
       // runWebsizeSync hat eigene Loops + per-File-error-Behandlung; hier
-      // reicht Tick-Boundary + Distributed-Lock vom Wrapper.
-      await runWebsizeSync(deps);
+      // reicht Tick-Boundary + Distributed-Lock vom Wrapper. ctx wird
+      // durchgereicht damit Logs konsistent das `[cron:websize-sync]`-
+      // Prefix tragen.
+      await runWebsizeSync(deps, ctx);
     },
   });
 }
