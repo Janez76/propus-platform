@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { logger } from "./logger";
 
 const PLATFORM_INTERNAL_URL = process.env.PLATFORM_INTERNAL_URL;
+const PROXY_TIMEOUT_MS = Number(process.env.PROXY_TIMEOUT_MS ?? 30_000);
 const REQUEST_HEADERS_TO_SKIP = new Set([
   "accept-encoding",
   "connection",
@@ -70,6 +71,7 @@ export async function proxyToExpress(
       headers,
       body,
       redirect: opts?.redirect ?? "follow",
+      signal: AbortSignal.timeout(PROXY_TIMEOUT_MS),
     });
 
     if (opts?.redirect === "manual" && [301, 302, 303, 307, 308].includes(res.status)) {
@@ -105,14 +107,16 @@ export async function proxyToExpress(
       headers: resHeaders,
     });
   } catch (e) {
+    const isTimeout = e instanceof Error && e.name === "TimeoutError";
     logger.error(`${label} proxy error`, {
       url: targetUrl,
       method: req.method,
+      timeout: isTimeout,
       error: e instanceof Error ? e.message : String(e),
     });
     return NextResponse.json(
-      { error: `${label} backend unavailable` },
-      { status: 503 },
+      { error: `${label} backend ${isTimeout ? "timed out" : "unavailable"}` },
+      { status: isTimeout ? 504 : 503 },
     );
   }
 }

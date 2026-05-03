@@ -2424,10 +2424,22 @@ app.use(cors({ origin: "*", methods: ["GET","POST","PUT","PATCH","DELETE","OPTIO
 app.use(compression());
 app.use(express.json({ limit: "1mb" }));
 const sessionCookieDomain = String(process.env.SESSION_COOKIE_DOMAIN || "").trim();
-const bookingSessionSecret =
-  process.env.BOOKING_SESSION_SECRET ||
-  process.env.SESSION_SECRET ||
-  "buchungstool_sso_session_secret";
+// Session-Secret: in Production zwingend per Env, kein hartkodierter Fallback,
+// damit ein vergessener Deploy-Setup-Schritt nicht zu trivialer Session-Forgery führt.
+const bookingSessionSecret = (() => {
+  const envSecret = process.env.BOOKING_SESSION_SECRET || process.env.SESSION_SECRET || "";
+  if (envSecret && envSecret.length >= 32) return envSecret;
+  if (process.env.NODE_ENV === "production") {
+    console.error(
+      "✖ BOOKING_SESSION_SECRET (oder SESSION_SECRET) muss in Production gesetzt sein und ≥ 32 Zeichen lang sein.",
+    );
+    process.exit(1);
+  }
+  console.warn(
+    "[booking] WARN: BOOKING_SESSION_SECRET nicht gesetzt – nutze Dev-Fallback. NICHT für Production geeignet.",
+  );
+  return envSecret || "buchungstool_sso_session_secret_dev_only";
+})();
 const bookingSessionPool = db.getPool ? db.getPool() : null;
 const bookingSessionStore = bookingSessionPool
   ? createPostgresSessionStore(session.Store, {

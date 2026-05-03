@@ -17,11 +17,22 @@ const { Pool } = require("pg");
 const crypto = require("crypto");
 
 // ─── Konfiguration ────────────────────────────────────────────────────────────
-const ADMIN_USERNAME = "janez";
-const ADMIN_EMAIL    = "js@propus.ch";
-const ADMIN_NAME     = "Janez";
-const ADMIN_ROLE     = "super_admin";
-const ADMIN_PASSWORD = process.argv[2] || "Zuerich8038!";
+// Defaults stammen aus Env-Vars, damit dieses Skript nicht versehentlich mit
+// einem im Repo dokumentierten Default-Passwort einen Admin anlegt.
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "janez";
+const ADMIN_EMAIL    = process.env.ADMIN_EMAIL    || "js@propus.ch";
+const ADMIN_NAME     = process.env.ADMIN_NAME     || "Janez";
+const ADMIN_ROLE     = process.env.ADMIN_ROLE     || "super_admin";
+const ADMIN_PASSWORD = process.argv[2] || process.env.ADMIN_PASSWORD || "";
+
+if (!ADMIN_PASSWORD) {
+  console.error(
+    "✖ Kein Passwort übergeben.\n" +
+      "  Verwendung:  node scripts/setup-admin-user.js <password>\n" +
+      "  oder Env:    ADMIN_PASSWORD=… node scripts/setup-admin-user.js",
+  );
+  process.exit(1);
+}
 
 // ─── Passwort-Hashing (identisch mit customer-auth.js) ───────────────────────
 async function scryptAsync(password, salt, keylen) {

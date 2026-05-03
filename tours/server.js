@@ -92,10 +92,22 @@ app.use(express.urlencoded({ extended: true }));
 // true = allen Proxies in der Chain vertrauen (Cloudflare → Tunnel → Nginx → App)
 app.set('trust proxy', true);
 
-const toursSessionSecret =
-  process.env.TOURS_SESSION_SECRET ||
-  process.env.SESSION_SECRET ||
-  'propus-tour-manager-secret';
+// Session-Secret: in Production zwingend per Env, kein hartkodierter Fallback,
+// damit ein vergessener Deploy-Setup-Schritt nicht zu trivialer Session-Forgery führt.
+const toursSessionSecret = (() => {
+  const envSecret = process.env.TOURS_SESSION_SECRET || process.env.SESSION_SECRET || '';
+  if (envSecret && envSecret.length >= 32) return envSecret;
+  if (process.env.NODE_ENV === 'production') {
+    console.error(
+      '✖ TOURS_SESSION_SECRET (oder SESSION_SECRET) muss in Production gesetzt sein und ≥ 32 Zeichen lang sein.',
+    );
+    process.exit(1);
+  }
+  console.warn(
+    '[tours] WARN: TOURS_SESSION_SECRET nicht gesetzt – nutze Dev-Fallback. NICHT für Production geeignet.',
+  );
+  return envSecret || 'propus-tour-manager-secret-dev-only';
+})();
 /** Gemergte Platform (SPA auf /): Cookie-Path / damit /api/tours/admin dieselbe Session nutzt. */
 const toursSessionPath =
   process.env.PROPUS_PLATFORM_MERGED === '1' ? '/' : (TOURS_MOUNT_PATH || '/');
