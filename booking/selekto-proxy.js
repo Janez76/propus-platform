@@ -60,6 +60,22 @@ function isIpv4String(s) {
   return /^\d{1,3}(\.\d{1,3}){3}$/.test(s);
 }
 
+/**
+ * Wrappt eine Promise mit einem Timeout — rejected wenn das Original nicht
+ * innerhalb von `ms` ms aufloest. Wird fuer dns.resolve4 verwendet, weil
+ * Node's DNS-API selbst keinen Timeout-Parameter kennt; bei System-DNS-
+ * Outage wuerde die Middleware sonst blockieren.
+ */
+function withTimeout(promise, ms, label) {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(`${label || "operation"} timeout after ${ms}ms`)), ms);
+    promise.then(
+      (v) => { clearTimeout(t); resolve(v); },
+      (e) => { clearTimeout(t); reject(e); },
+    );
+  });
+}
+
 async function resolveConnectIpv4(host) {
   const forceSystem =
     process.env.NEXTCLOUD_PROXY_USE_SYSTEM_DNS?.trim() === "1" ||
@@ -67,7 +83,10 @@ async function resolveConnectIpv4(host) {
   if (forceSystem) return host;
 
   try {
-    const sys = await dns.resolve4(host);
+    // Bug-Hunt T07: System-DNS hat keinen nativen Timeout. Bei DNS-Outage
+    // wuerde resolve4 unbegrenzt haengen. 2s reicht fuer normales DNS;
+    // bei Timeout faellt der Code auf den DoH-Pfad weiter unten.
+    const sys = await withTimeout(dns.resolve4(host), 2_000, "dns.resolve4");
     const pub = sys.find((ip) => !isPrivateOrLoopbackIpv4(ip));
     if (pub) return pub;
   } catch {
@@ -76,7 +95,11 @@ async function resolveConnectIpv4(host) {
 
   try {
     const dohUrl = `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(host)}&type=A`;
-    const r = await fetch(dohUrl, { headers: { accept: "application/dns-json" } });
+    // Bug-Hunt T07: ohne Timeout haengt der DNS-Resolve-Pfad bei DoH-Outage.
+    const r = await fetch(dohUrl, {
+      headers: { accept: "application/dns-json" },
+      signal: AbortSignal.timeout(5_000),
+    });
     if (!r.ok) return host;
     const data = await r.json();
     const answers = (data.Answer || []).filter((x) => x.type === 1 && isIpv4String(x.data.trim()));
@@ -323,7 +346,10 @@ async function pdfInlineMiddleware(req, res, next) {
       res.end("Parameter url fehlt oder ungültig.");
       return;
     }
-    const upstream = await fetch(target, { redirect: "follow" });
+    const upstream = await fetch(target, {
+      redirect: "follow",
+      signal: AbortSignal.timeout(30_000),
+    });
     if (!upstream.ok) {
       res.statusCode = upstream.status;
       res.end();
