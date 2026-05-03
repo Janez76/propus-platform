@@ -27,6 +27,77 @@ async function ensureRenewalInvoiceSchema() {
 }
 
 /**
+ * Idempotency-Tabelle (siehe core/migrations/054_webhook_idempotency.sql).
+ * Wird einmal pro Prozess sichergestellt, falls die Migration noch nicht
+ * gefahren wurde (defensiv).
+ */
+let webhookIdempotencyReady = false;
+async function ensureWebhookIdempotencySchema() {
+  if (webhookIdempotencyReady) return;
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS tour_manager.webhook_events (
+        id             BIGSERIAL PRIMARY KEY,
+        provider       TEXT        NOT NULL,
+        event_id       TEXT        NOT NULL,
+        reference_id   TEXT        NULL,
+        status         TEXT        NULL,
+        received_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        payload_sha256 TEXT        NULL,
+        CONSTRAINT webhook_events_provider_event_uniq UNIQUE (provider, event_id)
+      )
+    `);
+    webhookIdempotencyReady = true;
+  } catch (err) {
+    // Bewusst NICHT readyReady setzen, damit der naechste Aufruf erneut probiert.
+    // Die Migration core/migrations/054_webhook_idempotency.sql ist die kanonische
+    // Quelle; dieses ensure ist nur ein defensives Bootstrap.
+    console.warn(
+      '[payrexx-webhook] ensureWebhookIdempotencySchema fehlgeschlagen:',
+      err && err.message ? err.message : err,
+    );
+  }
+}
+
+/**
+ * Versucht einen Webhook-Event zu reservieren. Rueckgabe true = neu,
+ * false = bereits verarbeitet (Replay).
+ */
+async function claimWebhookEvent({ provider, eventId, referenceId, status, payloadSha256 }) {
+  await ensureWebhookIdempotencySchema();
+  const result = await pool.query(
+    `INSERT INTO tour_manager.webhook_events (provider, event_id, reference_id, status, payload_sha256)
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (provider, event_id) DO NOTHING
+     RETURNING id`,
+    [provider, eventId, referenceId || null, status || null, payloadSha256 || null],
+  );
+  return result.rowCount > 0;
+}
+
+/**
+ * Gibt einen Webhook-Claim wieder frei. Wird bei einem Top-Level-Fehler im
+ * Side-Effect-Block aufgerufen — aber NUR wenn noch keine schreibende
+ * Operation gelaufen ist (siehe `committed`-Flag im Handler).
+ * Vollwertige two-state Idempotency (received vs processed) ist Sprint-B-
+ * Material; bis dahin geben wir bei pre-write-Fehlern den Slot frei, damit
+ * transiente DB-/Netzwerk-Fehler durch Payrexx-Retry erholt werden koennen.
+ */
+async function releaseWebhookEvent({ provider, eventId }) {
+  try {
+    await pool.query(
+      `DELETE FROM tour_manager.webhook_events WHERE provider = $1 AND event_id = $2`,
+      [provider, eventId],
+    );
+  } catch (err) {
+    console.warn(
+      '[payrexx-webhook] releaseWebhookEvent fehlgeschlagen (ignoriert):',
+      err && err.message ? err.message : err,
+    );
+  }
+}
+
+/**
  * Parst PHP-style URL-encoded Nested Arrays:
  *   transaction[id]=1 → { transaction: { id: '1' } }
  */
@@ -92,87 +163,162 @@ router.post('/payrexx', express.raw({ type: '*/*' }), async (req, res) => {
   console.log('[payrexx-webhook] OK – status:', status, 'referenceId:', referenceId);
 
   if (status === 'confirmed' || status === 'paid') {
-    const match = referenceId.match(/tour-(\d+)-(?:inv|internal)-(.+)/);
-    if (match) {
-      const tourId = parseInt(match[1], 10);
-      const invoiceRef = match[2];
-      const invoiceResult = await pool.query(
-        `SELECT id, invoice_number, invoice_kind, invoice_status, tour_id
-         FROM tour_manager.renewal_invoices
-         WHERE (id::text = $1 OR invoice_number = $1)
-           AND tour_id = $2
-         LIMIT 1`,
-        [invoiceRef, tourId]
-      );
-      const invoice = invoiceResult.rows[0];
-      const tourResult = await pool.query('SELECT * FROM tour_manager.tours WHERE id = $1 LIMIT 1', [tourId]);
-      const tour = normalizeTourRow(tourResult.rows[0] || null);
-      const isReactivation = invoice?.invoice_kind === 'portal_reactivation';
-      let matterportState = tour?.matterport_state || null;
+    // Replay-Schutz: NUR fuer terminale Payment-States deduzieren. Davor wuerde
+    // ein frueher 'pending'-Event den Slot konsumieren (Codex Review #1) und
+    // 'confirmed'+'paid' wuerden als zwei verschiedene Events laufen, obwohl
+    // beide denselben Side-Effect-Branch triggern (Codex Review #2). Loesung:
+    // claimWebhookEvent NUR hier, mit kanonischem ':paid'-Suffix.
+    //
+    // event_id-Strategie:
+    //   1. transaction.id wenn vorhanden  -> stabiler Provider-Identifier
+    //   2. sonst SHA-256 des Roh-Bodies   -> deterministischer Fallback
+    const transactionId = String(transaction?.id || transaction?.uuid || '').trim();
+    const payloadSha256 = crypto.createHash('sha256').update(rawBody, 'utf8').digest('hex');
+    const baseEventId = transactionId || `sha256-${payloadSha256}`;
+    const fresh = await claimWebhookEvent({
+      provider: 'payrexx',
+      eventId: `${baseEventId}:paid`,
+      referenceId,
+      status,
+      payloadSha256,
+    });
+    if (!fresh) {
+      console.log('[payrexx-webhook] replay ignoriert – baseEventId:', baseEventId, 'status:', status);
+      return res.json({ ok: true, replay: true });
+    }
 
-      const paidAtRaw = transaction?.time || new Date().toISOString();
-
-      let subscriptionWindow;
-      if (isReactivation) {
-        subscriptionWindow = getSubscriptionWindowFromStart(paidAtRaw);
-      } else {
-        const existingEnd = tour?.canonical_term_end_date || tour?.term_end_date || tour?.ablaufdatum || null;
-        const base = existingEnd && new Date(existingEnd) > new Date() ? existingEnd : paidAtRaw;
-        subscriptionWindow = getSubscriptionWindowFromStart(base);
-      }
-
-      if (isReactivation && tour?.matterport_space_id) {
-        const mpResult = await mpUnarchiveSpace(tour.matterport_space_id);
-        if (mpResult?.success) {
-          matterportState = 'active';
-          await mpSetVisibility(tour.matterport_space_id, 'LINK_ONLY').catch((err) =>
-            console.warn('payrexx-webhook: setVisibility LINK_ONLY failed', tour.matterport_space_id, err?.message)
-          );
+    // Compensating action: bei einem Top-Level-Fehler im Side-Effect-Block den
+    // Claim freigeben, **wenn noch keine schreibende DB-Operation gelaufen ist**.
+    // Sobald `committed = true` gesetzt wurde, bleibt der Claim auch im
+    // Fehlerfall belegt — ein Retry darf die nicht-idempotenten Updates dann
+    // NICHT erneut anstossen (sonst Subscription-Verlaengerung doppelt).
+    // Vollwertige two-state-Idempotency (received vs processed) ist Backlog.
+    const claimedEventId = `${baseEventId}:paid`;
+    let committed = false;
+    try {
+      const match = referenceId.match(/tour-(\d+)-(?:inv|internal)-(.+)/);
+      if (match) {
+        const tourId = parseInt(match[1], 10);
+        const invoiceRef = match[2];
+        const invoiceResult = await pool.query(
+          `SELECT id, invoice_number, invoice_kind, invoice_status, tour_id
+           FROM tour_manager.renewal_invoices
+           WHERE (id::text = $1 OR invoice_number = $1)
+             AND tour_id = $2
+           LIMIT 1`,
+          [invoiceRef, tourId]
+        );
+        const invoice = invoiceResult.rows[0];
+        if (!invoice) {
+          // Race-Condition zwischen Checkout und Persistenz oder verzoegerte
+          // Invoice-Erstellung. Hier sind noch KEINE schreibenden Updates
+          // gelaufen → committed=false → outer catch released den Claim.
+          throw new Error(`renewal_invoice nicht gefunden (referenceId=${referenceId})`);
         }
-      }
+        const tourResult = await pool.query('SELECT * FROM tour_manager.tours WHERE id = $1 LIMIT 1', [tourId]);
+        const tour = normalizeTourRow(tourResult.rows[0] || null);
+        if (!tour) {
+          throw new Error(`tour nicht gefunden (tourId=${tourId}, referenceId=${referenceId})`);
+        }
+        const isReactivation = invoice?.invoice_kind === 'portal_reactivation';
+        let matterportState = tour?.matterport_state || null;
 
-      await pool.query(
-        `UPDATE tour_manager.renewal_invoices
-         SET invoice_status = 'paid',
-             paid_at = $3::date,
-             payment_source = 'payrexx',
-             payment_method = 'payrexx',
-             subscription_start_at = $3::date,
-             subscription_end_at = $4::date
-         WHERE (id::text = $1 OR invoice_number = $1)
-           AND tour_id = $2`,
-        [invoiceRef, tourId, subscriptionWindow.startIso, subscriptionWindow.endIso]
-      );
+        const paidAtRaw = transaction?.time || new Date().toISOString();
 
-      const newTermEndDate = subscriptionWindow.endIso;
-      const tourUpdateResult = await pool.query(
-        `UPDATE tour_manager.tours
-         SET status = 'ACTIVE',
-             term_end_date = $2,
-             ablaufdatum = $2,
-             subscription_start_date = $4::date,
-             matterport_state = COALESCE($3, matterport_state),
-             updated_at = NOW()
-         WHERE id = $1 AND status = 'CUSTOMER_ACCEPTED_AWAITING_PAYMENT'`,
-        [tourId, newTermEndDate, matterportState, subscriptionWindow.startIso]
-      );
+        let subscriptionWindow;
+        if (isReactivation) {
+          subscriptionWindow = getSubscriptionWindowFromStart(paidAtRaw);
+        } else {
+          const existingEnd = tour?.canonical_term_end_date || tour?.term_end_date || tour?.ablaufdatum || null;
+          const base = existingEnd && new Date(existingEnd) > new Date() ? existingEnd : paidAtRaw;
+          subscriptionWindow = getSubscriptionWindowFromStart(base);
+        }
 
-      await logAction(tourId, 'system', 'payrexx', 'PAYMENT_CONFIRMED', {
-        referenceId,
-        transactionStatus: status,
-        reactivation: isReactivation,
-        subscription_start_at: subscriptionWindow.startIso,
-        subscription_end_at: subscriptionWindow.endIso,
-      });
+        // Matterport-Reaktivierung läuft VOR `committed=true`. Begründung:
+        //   - mpUnarchiveSpace ist idempotent (no-op auf bereits aktivem Space).
+        //   - Wenn Matterport transient failed (Netzwerk/API-Outage), darf
+        //     der Claim freigegeben werden, damit Payrexx-Retry die Zahlung
+        //     anwendet. Bisher waren noch keine DB-UPDATEs gelaufen.
+        if (isReactivation && tour?.matterport_space_id) {
+          const mpResult = await mpUnarchiveSpace(tour.matterport_space_id);
+          if (mpResult?.success) {
+            matterportState = 'active';
+            await mpSetVisibility(tour.matterport_space_id, 'LINK_ONLY').catch((err) =>
+              console.warn('payrexx-webhook: setVisibility LINK_ONLY failed', tour.matterport_space_id, err?.message)
+            );
+          }
+        }
 
-      if (tourUpdateResult.rowCount > 0) {
-        const templateKey = isReactivation ? 'reactivation_confirmed' : 'extension_confirmed';
-        tourActions.sendPaymentConfirmedEmail(tourId, newTermEndDate, templateKey).catch((err) => {
-          console.error('[payrexx-webhook] sendPaymentConfirmedEmail failed', tourId, err.message);
+        await pool.query(
+          `UPDATE tour_manager.renewal_invoices
+           SET invoice_status = 'paid',
+               paid_at = $3::date,
+               payment_source = 'payrexx',
+               payment_method = 'payrexx',
+               subscription_start_at = $3::date,
+               subscription_end_at = $4::date
+           WHERE (id::text = $1 OR invoice_number = $1)
+             AND tour_id = $2`,
+          [invoiceRef, tourId, subscriptionWindow.startIso, subscriptionWindow.endIso]
+        );
+
+        // Ab hier ist die Zahlung in der DB als 'paid' markiert (renewal_invoices).
+        // Spaetere Schritte (tours-UPDATE, logAction, sendPaymentConfirmedEmail)
+        // sind entweder idempotent (UPDATE … WHERE status='CUSTOMER_ACCEPTED_…')
+        // oder best-effort. Ein Retry an dieser Stelle wuerde aber die nicht-
+        // idempotente Subscription-Window-Berechnung (existingEnd-basiert)
+        // doppelt anwenden -> committed=true.
+        committed = true;
+
+        const newTermEndDate = subscriptionWindow.endIso;
+        const tourUpdateResult = await pool.query(
+          `UPDATE tour_manager.tours
+           SET status = 'ACTIVE',
+               term_end_date = $2,
+               ablaufdatum = $2,
+               subscription_start_date = $4::date,
+               matterport_state = COALESCE($3, matterport_state),
+               updated_at = NOW()
+           WHERE id = $1 AND status = 'CUSTOMER_ACCEPTED_AWAITING_PAYMENT'`,
+          [tourId, newTermEndDate, matterportState, subscriptionWindow.startIso]
+        );
+
+        await logAction(tourId, 'system', 'payrexx', 'PAYMENT_CONFIRMED', {
+          referenceId,
+          transactionStatus: status,
+          reactivation: isReactivation,
+          subscription_start_at: subscriptionWindow.startIso,
+          subscription_end_at: subscriptionWindow.endIso,
         });
+
+        if (tourUpdateResult.rowCount > 0) {
+          const templateKey = isReactivation ? 'reactivation_confirmed' : 'extension_confirmed';
+          tourActions.sendPaymentConfirmedEmail(tourId, newTermEndDate, templateKey).catch((err) => {
+            console.error('[payrexx-webhook] sendPaymentConfirmedEmail failed', tourId, err.message);
+          });
+        }
+      } else {
+        console.log('[payrexx-webhook] referenceId passt nicht zu Tour-Format:', referenceId);
       }
-    } else {
-      console.log('[payrexx-webhook] referenceId passt nicht zu Tour-Format:', referenceId);
+    } catch (err) {
+      // Release-Logik:
+      //   committed === false  -> noch keine schreibenden Side-Effects gelaufen
+      //                           (transient SELECT-Fehler, fehlende Datensaetze).
+      //                           Slot freigeben, damit Payrexx-Retry erneut
+      //                           verarbeiten kann.
+      //   committed === true   -> mind. eine schreibende Operation lief schon
+      //                           (Matterport-Unarchive, invoice/tour UPDATE).
+      //                           Slot bleibt gebunden, sonst doppelte Side-
+      //                           Effects bei Retry. Manuelle Intervention.
+      const releaseClaim = !committed;
+      console.error(
+        `[payrexx-webhook] Fehler in Side-Effect-Block (${releaseClaim ? 'release+retry' : 'KEEP claim, manuelle Intervention'}):`,
+        err && err.message ? err.message : err,
+      );
+      if (releaseClaim) {
+        await releaseWebhookEvent({ provider: 'payrexx', eventId: claimedEventId });
+      }
+      throw err;
     }
   }
 

@@ -2,6 +2,9 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../docker/.env') });
 require('dotenv').config();
 const express = require('express');
+// Async-Error-Shim MUSS vor allen Routern geladen werden, damit Express-Layers
+// gepatcht sind, bevor Handler registriert werden.
+require('./lib/async-error-shim');
 const session = require('express-session');
 const { requireAdminOrRedirect } = require('./middleware/auth');
 
@@ -92,10 +95,22 @@ app.use(express.urlencoded({ extended: true }));
 // true = allen Proxies in der Chain vertrauen (Cloudflare → Tunnel → Nginx → App)
 app.set('trust proxy', true);
 
-const toursSessionSecret =
-  process.env.TOURS_SESSION_SECRET ||
-  process.env.SESSION_SECRET ||
-  'propus-tour-manager-secret';
+// Session-Secret: in Production zwingend per Env, kein hartkodierter Fallback,
+// damit ein vergessener Deploy-Setup-Schritt nicht zu trivialer Session-Forgery führt.
+const toursSessionSecret = (() => {
+  const envSecret = process.env.TOURS_SESSION_SECRET || process.env.SESSION_SECRET || '';
+  if (envSecret && envSecret.length >= 32) return envSecret;
+  if (process.env.NODE_ENV === 'production') {
+    console.error(
+      '✖ TOURS_SESSION_SECRET (oder SESSION_SECRET) muss in Production gesetzt sein und ≥ 32 Zeichen lang sein.',
+    );
+    process.exit(1);
+  }
+  console.warn(
+    '[tours] WARN: TOURS_SESSION_SECRET nicht gesetzt – nutze Dev-Fallback. NICHT für Production geeignet.',
+  );
+  return envSecret || 'propus-tour-manager-secret-dev-only';
+})();
 /** Gemergte Platform (SPA auf /): Cookie-Path / damit /api/tours/admin dieselbe Session nutzt. */
 const toursSessionPath =
   process.env.PROPUS_PLATFORM_MERGED === '1' ? '/' : (TOURS_MOUNT_PATH || '/');
@@ -155,6 +170,64 @@ app.use('/api', apiRoutes);
 
 // Health
 app.get('/health', (req, res) => res.json({ ok: true }));
+
+// Globaler Express-Error-Handler: faengt alles ab, was via async-error-shim
+// (oder explizites next(err)) hier landet. Antwortet strukturiert statt den
+// Client haengen zu lassen, leakt aber keine Stack-Traces in Production. Bei
+// bereits gesendeten Headers (Streams/SSE/Downloads) wird an Express' Default-
+// Handler delegiert.
+app.use((err, req, res, next) => {
+  const status = Number((err && (err.statusCode ?? err.status)) || 500);
+  const expose = process.env.NODE_ENV !== 'production';
+  const payload = {
+    error: status >= 500 ? 'Internal Server Error' : (err && err.message) || 'Bad Request',
+  };
+  if (expose && err) {
+    payload.message = String(err.message || err);
+    if (err.stack) payload.stack = String(err.stack).split('\n').slice(0, 6);
+  }
+  try {
+    console.error('[tours] route error', {
+      method: req && req.method,
+      url: req && req.originalUrl,
+      status,
+      message: err && err.message,
+    });
+  } catch (_e) {}
+  if (res && res.headersSent) return next(err);
+  return res.status(status).json(payload);
+});
+
+// Globale Error-Handler / Sicherheitsnetz fuer Cron/Timer/non-Express-Pfade.
+// Idempotent registriert damit Mehrfach-Imports nicht zu Listener-Leaks fuehren.
+let _toursProcessHandlersInstalled = false;
+function installProcessHandlers() {
+  if (_toursProcessHandlersInstalled) return;
+  _toursProcessHandlersInstalled = true;
+  process.on('unhandledRejection', (reason) => {
+    try {
+      console.error('[tours] unhandledRejection', reason && (reason.stack || reason.message || reason));
+    } finally {
+      // Wie uncaughtException: nach einer Promise-Rejection ist der Zustand
+      // potenziell inkonsistent. Default-Verhalten von Node.js ist Crash;
+      // wir erhalten dieses Verhalten nach kurzem Log-Flush. Restart durch
+      // Docker/PM2.
+      setTimeout(() => process.exit(1), 100);
+    }
+  });
+  process.on('uncaughtException', (err) => {
+    try {
+      console.error('[tours] uncaughtException', err && (err.stack || err.message || err));
+    } finally {
+      // Node.js-Doku: nach uncaughtException ist der Prozesszustand
+      // potenziell korrupt. Verzoegerter Exit damit Logs geflusht werden,
+      // danach Restart durch Docker/PM2. KEIN .unref() — sonst koennte der
+      // Prozess vor Ablauf des Timers regulaer enden (Exit-Code 0).
+      setTimeout(() => process.exit(1), 100);
+    }
+  });
+}
+installProcessHandlers();
 
 const PORT = process.env.PORT || 3000;
 

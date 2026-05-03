@@ -279,6 +279,54 @@ async function sendDraftMessage(options = {}) {
 }
 
 /**
+ * Empfänger-Allowlist für sendMailDirect (Bug-Hunt T14 CRITICAL: Mail-Abuse).
+ *
+ * Konfiguration per Env (alles optional):
+ *   MAIL_RECIPIENT_ALLOW_DOMAINS    – komma-getrennt, z.B. "propus.ch,kunde.com"
+ *   MAIL_RECIPIENT_ALLOW_ADDRESSES  – komma-getrennt, exakte Adressen
+ *   MAIL_RECIPIENT_STRICT=1         – Hard-Block bei nicht-allowlist (sonst nur WARN)
+ *
+ * Verhalten:
+ *   - Sind weder ALLOW_DOMAINS noch ALLOW_ADDRESSES gesetzt, ist die Allowlist
+ *     deaktiviert und jeder formatvalide Empfaenger wird durchgelassen
+ *     (out-of-the-box keine Funktionsregression bei externen Customer-Mails).
+ *   - Sobald mindestens eine Allowlist-Variable gesetzt ist, gilt sie. Wer
+ *     nicht passt, bekommt im Default warn-only (Mail geht raus + Log) und
+ *     mit MAIL_RECIPIENT_STRICT=1 hard-block.
+ *   - Aktivierungs-Pfad fuer Production: Allowlist anhand der gesehenen
+ *     Domains pflegen, dann STRICT=1 setzen.
+ */
+function parseMailAllowlistEnv(name) {
+  // Liest aus derselben Config-Quelle wie der Rest des Moduls (process.env +
+  // M365_ENV_FILE / Fallback-.env), damit Allowlist und STRICT-Flag aus einer
+  // M365-Setup-Datei nicht stillschweigend ignoriert werden.
+  return String(getEnvValue(name) || '')
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function isRecipientAllowed(to) {
+  const addr = String(to || '').trim().toLowerCase();
+  if (!addr || !addr.includes('@')) return false;
+  const allowAddresses = parseMailAllowlistEnv('MAIL_RECIPIENT_ALLOW_ADDRESSES');
+  const allowDomains = parseMailAllowlistEnv('MAIL_RECIPIENT_ALLOW_DOMAINS');
+  // Keine Allowlist konfiguriert -> Funktion ist deaktiviert, alles erlaubt.
+  if (!allowAddresses.length && !allowDomains.length) return true;
+  if (allowAddresses.includes(addr)) return true;
+  const domain = addr.slice(addr.lastIndexOf('@') + 1);
+  return allowDomains.includes(domain);
+}
+
+/** Maskiert eine Empfaenger-Adresse fuer Logs (PII-Schutz). */
+function maskRecipientForLog(value) {
+  const addr = String(value || '').trim().toLowerCase();
+  const at = addr.indexOf('@');
+  if (at <= 0) return '[redacted]';
+  return `${addr[0]}***${addr.slice(at)}`;
+}
+
+/**
  * Sendet eine E-Mail direkt (ein API-Call, ohne Draft).
  * Benötigt Mail.Send Application Permission + ggf. ApplicationAccessPolicy in Exchange.
  * Siehe docker/M365-MAIL-SETUP.md falls "Access is denied".
@@ -287,6 +335,22 @@ async function sendMailDirect(options = {}) {
   const { mailboxUpn = getGraphConfig().mailboxUpn, to, subject, htmlBody, textBody, attachments = [] } = options;
   if (!to || !subject || (!htmlBody && !textBody)) {
     return { success: false, error: 'Empfänger, Betreff oder Body fehlen' };
+  }
+  if (!isRecipientAllowed(to)) {
+    // Default-Modus: warn-only (Mail wird trotzdem verschickt). Codex- vs.
+    // CodeRabbit-Trade-off: ein Production-Auto-Strict wuerde mit der
+    // Default-Allowlist (nur 'propus.ch') legitime Customer-Mails (portal/
+    // admin-Notifications, Bestaetigungen) blockieren — Mail-Outage statt
+    // Sicherheitsgewinn. Daher Strict NUR bei expliziter Aktivierung via
+    // MAIL_RECIPIENT_STRICT=1, nachdem die Allowlist (MAIL_RECIPIENT_ALLOW_
+    // DOMAINS / -ADDRESSES) anhand der Log-Beobachtung vervollstaendigt wurde.
+    const strict = String(getEnvValue('MAIL_RECIPIENT_STRICT') || '').trim() === '1';
+    const masked = maskRecipientForLog(to);
+    if (strict) {
+      console.error('[microsoft-graph] sendMailDirect blockiert (strict): nicht in Allowlist:', masked);
+      return { success: false, error: 'recipient_not_allowed' };
+    }
+    console.warn('[microsoft-graph] sendMailDirect: Empfaenger NICHT in Allowlist (warn-only):', masked);
   }
   const contentType = htmlBody ? 'HTML' : 'Text';
   const content = htmlBody || String(textBody || '').trim();

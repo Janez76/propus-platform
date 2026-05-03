@@ -17,11 +17,38 @@ const { Pool } = require("pg");
 const crypto = require("crypto");
 
 // ─── Konfiguration ────────────────────────────────────────────────────────────
-const ADMIN_USERNAME = "janez";
-const ADMIN_EMAIL    = "js@propus.ch";
-const ADMIN_NAME     = "Janez";
-const ADMIN_ROLE     = "super_admin";
-const ADMIN_PASSWORD = process.argv[2] || "Zuerich8038!";
+// KEINE hartkodierten Identitaets-Defaults: das Skript schreibt sonst still in
+// den falschen Account. Aliase fuer die existierenden Deploy-Variablen
+// ADMIN_USER / ADMIN_PASS bleiben erhalten (siehe docker-compose.vps.yml,
+// .env.vps.example, scripts/ADMIN-SETUP-ANLEITUNG.md).
+// Username/Email werden in den Lookup-Queries via LOWER(...) verglichen, daher
+// hier schon trim+lowercase, damit Mixed-Case-Eingaben nicht zu doppelten
+// Accounts oder Unique-Constraint-Konflikten fuehren.
+const ADMIN_USERNAME = (process.env.ADMIN_USERNAME || process.env.ADMIN_USER || "").trim().toLowerCase();
+const ADMIN_EMAIL    = (process.env.ADMIN_EMAIL    || "").trim().toLowerCase();
+const ADMIN_NAME     = (process.env.ADMIN_NAME     || "").trim();
+const ADMIN_ROLE     = (process.env.ADMIN_ROLE     || "super_admin").trim();
+const ADMIN_PASSWORD =
+  process.argv[2] ||
+  process.env.ADMIN_PASSWORD ||
+  process.env.ADMIN_PASS ||
+  "";
+
+if (!ADMIN_USERNAME || !ADMIN_EMAIL || !ADMIN_NAME || !ADMIN_PASSWORD) {
+  const missing = [
+    !ADMIN_USERNAME && "ADMIN_USERNAME (oder ADMIN_USER)",
+    !ADMIN_EMAIL && "ADMIN_EMAIL",
+    !ADMIN_NAME && "ADMIN_NAME",
+    !ADMIN_PASSWORD && "ADMIN_PASSWORD (oder ADMIN_PASS, oder Argument $1)",
+  ].filter(Boolean);
+  console.error(
+    "✖ Admin-Bootstrap unvollständig konfiguriert. Fehlend: " + missing.join(", ") + "\n" +
+      "  Verwendung:  node scripts/setup-admin-user.js <password>\n" +
+      "  Env:         ADMIN_USERNAME, ADMIN_EMAIL, ADMIN_NAME, ADMIN_PASSWORD\n" +
+      "  Aliase:      ADMIN_USER, ADMIN_PASS (Legacy)",
+  );
+  process.exit(1);
+}
 
 // ─── Passwort-Hashing (identisch mit customer-auth.js) ───────────────────────
 async function scryptAsync(password, salt, keylen) {

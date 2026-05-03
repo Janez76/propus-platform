@@ -19,8 +19,8 @@ Cross-Cutting-Block referenziert.
 
 | Severity | Anzahl |
 |----------|-------:|
-| CRITICAL | 7 |
-| HIGH     | 23 |
+| CRITICAL | 6 |
+| HIGH     | 24 |
 | MEDIUM   | 30 |
 | LOW      | 6 |
 | INFO     | 2 |
@@ -29,7 +29,12 @@ Cross-Cutting-Block referenziert.
 > **Zählbasis:** dedupliziert, exklusive Pilot. Pilot-Findings
 > (`bug-hunt/PILOT.md`, 11 Einträge inkl. eigener TOCTOU-/Tx-/Mail-Findings)
 > sind hier bewusst **nicht** dupliziert und werden nur im Cross-Cutting-Block
-> (Punkt 10) referenziert. 7+23+30+6+2 = 68 = Tabelle.
+> (Punkt 10) referenziert. 6+24+30+6+2 = 68 = Tabelle.
+>
+> **Severity-Update Sprint A:** „Admin-Bridge Customer-Impersonation" wurde
+> CRITICAL → HIGH herabgestuft (sichtbarer Code setzt nur die E-Mail des Admins
+> selbst, nicht eine fremde Kunden-E-Mail). Damit: CRITICAL 7→6, HIGH 23→24.
+> Total bleibt 68.
 
 Tranchen-Verteilung (vor Dedup): T01/T03 (12) · T02/T04 (16) · T05/T08 (15) ·
 T07/T09 (15) · T10/T12/T15 (12) · T13/T14 (17) = 87 Roh-Findings · nach
@@ -40,16 +45,17 @@ Cross-Cutting-Dedup (−19) → **68 unique** = `Total (ohne Pilot)`.
 ## Index
 
 ### CRITICAL
-- [T01][CRITICAL] JWT ohne Signaturprüfung → `app/src/lib/auth.ts:18-39`
-- [T01][CRITICAL] Admin-Bridge ermöglicht Customer-Impersonation → `tours/routes/portal.js:91-124`
-- [T07][CRITICAL] Kein Fetch-Timeout im Next-Proxy → `app/src/lib/proxy.ts:68`
-- [T09][CRITICAL] Payrexx-Webhook ohne Replay-Schutz → `tours/routes/payrexx-webhook.js:51-73`
-- [T10][CRITICAL] Leere `key`-Datei im Repo-Root → `key`
-- [T13][CRITICAL] Async-Express-Handler ohne try/catch → `tours/routes/api.js:28-545`
-- [T14][CRITICAL] `sendMailDirect` ohne Empfänger-Allowlist → `tours/lib/microsoft-graph.js:286-316`
+- [T01][CRITICAL] JWT ohne Signaturprüfung → `app/src/lib/auth.ts:18-39` *(Sprint A: gefixt durch Entfernen des unsicheren Codes — siehe commit `ce57b82`)*
+- ~~[T01][CRITICAL] Admin-Bridge ermöglicht Customer-Impersonation~~ → **auf HIGH herabgestuft nach Re-Lesen** (siehe Detail-Block, der sichtbare Code setzt nur die E-Mail des Admins selbst).
+- [T07][CRITICAL] Kein Fetch-Timeout im Next-Proxy → `app/src/lib/proxy.ts:68` *(Sprint A: gefixt — commit `ce57b82`)*
+- [T09][CRITICAL] Payrexx-Webhook ohne Replay-Schutz → `tours/routes/payrexx-webhook.js:51-73` *(Sprint A: gefixt via `webhook_events`-Idempotency-Tabelle)*
+- [T10][CRITICAL] Leere `key`-Datei im Repo-Root → bereits gelöscht vor Sprint A.
+- [T13][CRITICAL] Async-Express-Handler ohne try/catch → `tours/routes/api.js:28-545` *(Sprint A: globaler Async-Error-Shim in tours+booking — commit `5e531fd`)*
+- [T14][CRITICAL] `sendMailDirect` ohne Empfänger-Allowlist → `tours/lib/microsoft-graph.js:286-316` *(Sprint A: Allowlist-Helper mit warn-only Default + STRICT-Env)*
 
 ### HIGH
-- [T01/T13/T14][HIGH] Hardcoded Default Session-Secrets → `tours/server.js:96`, `booking/server.js:2456`
+- [T01][HIGH] Admin-Bridge: ungeprüfter Impersonation-Pfad *(Re-Klassifizierung CRITICAL→HIGH in Sprint A)* → `tours/routes/portal-api.js:54-69` (+ `tours/routes/portal.js:91-124`). Detail-Block siehe HIGH-Sektion weiter unten.
+- [T01/T13/T14][HIGH] Hardcoded Default Session-Secrets → `tours/server.js:96`, `booking/server.js:2456` *(Sprint A: gefixt mit Hard-Fail in production)*
 - [T10][HIGH] `setup-admin-user.js` mit Default-Passwort → `scripts/setup-admin-user.js:24`
 - [T01][HIGH] Portal-API IDOR via Admin-Bridge → `tours/routes/portal-api.js:54-69`
 - [T03][HIGH] Open Redirect (`//attacker.com`) → `tours/routes/auth.js:119-121`
@@ -133,20 +139,10 @@ Cross-Cutting-Dedup (−19) → **68 unique** = `Total (ohne Pilot)`.
 - Confidence: H
 - Tags: #security #breaking
 
-#### [T01][CRITICAL][H] Admin-Bridge ermöglicht Impersonation jedes Customers
-- Datei: `tours/routes/portal.js:91-124`
-- Kategorie: 1. Security / Privilege Escalation
-- Problem: `/portal/admin-bridge` setzt `portalCustomerEmail` aus `row.user_key`
-  ohne zu prüfen, ob der eingeloggte Admin diesen spezifischen Kunden
-  impersonifizieren darf. `isAdminImpersonation: true` wird unkonditional
-  gesetzt.
-- Auswirkung: Horizontale Privilege-Escalation – jeder Admin mit
-  `customer_admin`-Rolle pivotet zu beliebigem Kunden.
-- Vorschlag: Whitelist pro Admin (`admin_id → allowed_customer_ids`), zwingender
-  Audit-Log-Eintrag pro Bridge, Re-Auth-Prompt für sensible Aktionen.
-- Aufwand: M
-- Confidence: H
-- Tags: #security #data-loss
+> **Hinweis:** Das ursprünglich hier verortete CRITICAL „Admin-Bridge ermöglicht
+> Customer-Impersonation" wurde in Sprint A nach erneutem Lesen auf **HIGH**
+> herabgestuft und in den HIGH-Block weiter unten verschoben (siehe Sprint-A-PR
+> #250 / Commit-Trail).
 
 #### [T07][CRITICAL][H] Kein Fetch-Timeout im Next→Express-Proxy
 - Datei: `app/src/lib/proxy.ts:68`
@@ -222,6 +218,31 @@ Cross-Cutting-Dedup (−19) → **68 unique** = `Total (ohne Pilot)`.
 ---
 
 ### HIGH
+
+#### [T01][HIGH][M] Admin-Bridge: ungeprüfter Impersonation-Pfad (Re-Klassifizierung CRITICAL→HIGH)
+- Datei: `tours/routes/portal-api.js:54-69` (`requirePortalSession`-Bridge), zusätzlich `tours/routes/portal.js:91-124` (`/portal/admin-bridge` Redirect-Setter)
+- Kategorie: 1. Security / Privilege Escalation
+- **Update Sprint A (2026-05-03):** Beim erneuten Lesen **CRITICAL → HIGH
+  herabgestuft.** Der Code setzt `portalCustomerEmail = row.user_key`, also die
+  E-Mail des **eingeloggten Admins selbst** – nicht eine fremde Kunden-E-Mail.
+  Der ursprüngliche „pivotet zu beliebigem Kunden“-Pfad ist im sichtbaren Code
+  nicht reproduzierbar. Allerdings:
+    - `isAdminImpersonation: true` wird unkonditional gesetzt,
+    - `impersonatorUserKey` wird gesetzt, ohne dass irgendwo geprüft wird,
+      welchen Customer der Admin als Subject übernehmen soll,
+    - in nachgelagerten Routen könnte ein zusätzlicher Switch-Mechanismus den
+      `portalCustomerEmail` umsetzen, ohne dass dieser Bridge-Endpoint die
+      Berechtigung mitprüft.
+- Auswirkung: Solange kein nachgelagerter Subject-Switch existiert, sieht der
+  Admin im Portal nur die Daten zu seiner eigenen E-Mail (limitierter Effekt).
+  Existiert ein solcher Switch, ist horizontale Privilege-Escalation möglich.
+- Vorschlag (unverändert): Whitelist `admin_id → allowed_customer_ids`,
+  zwingender Audit-Log pro Bridge, Re-Auth-Prompt für sensible Aktionen. Vor
+  Implementierung: separater Audit, der den vollständigen Impersonation-Flow
+  durch `tours/routes/portal*.js` und das Frontend traced.
+- Aufwand: M (nach Audit ggf. L)
+- Confidence: M
+- Tags: #security
 
 #### [T01/T13/T14][HIGH][H] Hardcoded Default Session-Secrets
 - Dateien: `tours/server.js:96-98`, `booking/server.js:2456-2457`

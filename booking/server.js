@@ -1,4 +1,6 @@
 const express = require("express");
+// Async-Error-Shim MUSS vor allen Routern geladen werden.
+require("./lib/async-error-shim");
 const compression = require("compression");
 const multer = require("multer");
 const cors = require("cors");
@@ -2424,10 +2426,22 @@ app.use(cors({ origin: "*", methods: ["GET","POST","PUT","PATCH","DELETE","OPTIO
 app.use(compression());
 app.use(express.json({ limit: "1mb" }));
 const sessionCookieDomain = String(process.env.SESSION_COOKIE_DOMAIN || "").trim();
-const bookingSessionSecret =
-  process.env.BOOKING_SESSION_SECRET ||
-  process.env.SESSION_SECRET ||
-  "buchungstool_sso_session_secret";
+// Session-Secret: in Production zwingend per Env, kein hartkodierter Fallback,
+// damit ein vergessener Deploy-Setup-Schritt nicht zu trivialer Session-Forgery führt.
+const bookingSessionSecret = (() => {
+  const envSecret = process.env.BOOKING_SESSION_SECRET || process.env.SESSION_SECRET || "";
+  if (envSecret && envSecret.length >= 32) return envSecret;
+  if (process.env.NODE_ENV === "production") {
+    console.error(
+      "✖ BOOKING_SESSION_SECRET (oder SESSION_SECRET) muss in Production gesetzt sein und ≥ 32 Zeichen lang sein.",
+    );
+    process.exit(1);
+  }
+  console.warn(
+    "[booking] WARN: BOOKING_SESSION_SECRET nicht gesetzt – nutze Dev-Fallback. NICHT für Production geeignet.",
+  );
+  return envSecret || "buchungstool_sso_session_secret_dev_only";
+})();
 const bookingSessionPool = db.getPool ? db.getPool() : null;
 const bookingSessionStore = bookingSessionPool
   ? createPostgresSessionStore(session.Store, {
@@ -14735,6 +14749,79 @@ async function seedExxasConfigFromEnvIfUnset() {
     console.warn("[boot] EXXAS env seed:", e?.message || e);
   }
 }
+
+// ─── Catch-all Express-Error-Handler (module-level) ───────────────────────────
+// Fängt alles ab, was via async-error-shim oder next(err) hier landet. MUSS
+// NACH dem Mount aller Routen stehen — daher hier am Ende des Module-Scopes,
+// noch vor startServer(). So bleibt der Handler auch im PROPUS_PLATFORM_MERGED-
+// Modus aktiv (in dem startServer() nicht laeuft, app aber von platform/server.js
+// gemountet wird).
+//
+// Liest sowohl err.status als auch err.statusCode (Express idiomatisch) damit
+// 4xx-Fehler nicht faelschlich als 500 antworten.
+app.use((err, req, res, next) => {
+  if (!err) return;
+  const status = Number(err.statusCode ?? err.status) || 500;
+  const expose = process.env.NODE_ENV !== "production";
+  const payload = {
+    error: status >= 500 ? "Internal Server Error" : err.message || "Bad Request",
+  };
+  if (expose) {
+    payload.message = String(err.message || err);
+    if (err.stack) payload.stack = String(err.stack).split("\n").slice(0, 6);
+  }
+  try {
+    console.error("[booking] route error", {
+      method: req && req.method,
+      url: req && req.originalUrl,
+      status,
+      message: err.message,
+    });
+  } catch (_e) {}
+  // Wenn die Response schon teilweise gesendet wurde (z.B. SSE/Stream/Download),
+  // an Express' Default-Handler delegieren, damit die Verbindung sauber beendet
+  // wird statt mit einem ERR_HTTP_HEADERS_SENT zu hängen.
+  if (res && res.headersSent) return next(err);
+  return res.status(status).json(payload);
+});
+
+// ─── Process-Sicherheitsnetze (einmalig, idempotent) ──────────────────────────
+// Module-level damit auch im Merged-Modus + bei Mehrfach-Imports nur einmal
+// registriert wird. Nach Node.js-Doku darf der Prozess nach uncaughtException
+// NICHT weiterlaufen (undefined state), daher process.exit(1) mit setTimeout
+// zum Logs-Flushen.
+let _bookingProcessHandlersInstalled = false;
+function installProcessHandlers() {
+  if (_bookingProcessHandlersInstalled) return;
+  _bookingProcessHandlersInstalled = true;
+  process.on("unhandledRejection", (reason) => {
+    try {
+      console.error(
+        "[booking] unhandledRejection",
+        reason && (reason.stack || reason.message || reason),
+      );
+    } finally {
+      // Wie uncaughtException: Default Node-Verhalten ist Crash. Wir erhalten
+      // das nach kurzem Log-Flush; Restart durch Docker/PM2.
+      setTimeout(() => process.exit(1), 100);
+    }
+  });
+  process.on("uncaughtException", (err) => {
+    try {
+      console.error(
+        "[booking] uncaughtException",
+        err && (err.stack || err.message || err),
+      );
+    } finally {
+      // Verzögerter Exit damit Logs noch geflusht werden; danach uebernimmt
+      // der externe Prozess-Monitor (Docker/PM2) den Restart. KEIN .unref()
+      // — sonst koennte der Prozess vor dem Exit-Timer auslaufen und mit
+      // Code 0 enden, was Docker als "normal stop" interpretieren wuerde.
+      setTimeout(() => process.exit(1), 100);
+    }
+  });
+}
+installProcessHandlers();
 
 async function startServer() {
   await ensureDatabaseBootstrapped();

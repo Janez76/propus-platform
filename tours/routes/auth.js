@@ -22,6 +22,21 @@ function shouldUseSecureCookie(req) {
   return req.secure || String(req.headers['x-forwarded-proto'] || '').includes('https');
 }
 
+/**
+ * Verhindert Open-Redirects: nur same-origin-relative Pfade akzeptieren.
+ * Blockt insbesondere protokoll-relative Targets wie `//attacker.com/x`,
+ * Backslash-Tricks (`/\\evil.com`) und absolute URLs.
+ */
+function safeReturnTo(returnTo, fallback = '/admin') {
+  const raw = String(returnTo || '');
+  if (!raw.startsWith('/')) return fallback;
+  // protokoll-relativ (//host) oder normalisiert zu //host
+  if (raw.startsWith('//') || raw.startsWith('/\\') || raw.startsWith('/%5C')) return fallback;
+  // Whitelist: nur Pfad-Zeichen + ggf. Query/Fragment
+  if (!/^\/[A-Za-z0-9_\-./?&=%#:,+]*$/.test(raw)) return fallback;
+  return raw;
+}
+
 async function ensureRememberSchema() {
   if (rememberSchemaReady) return;
   await pool.query(`
@@ -64,7 +79,7 @@ router.get('/login', (req, res) => {
 
   // Logto aktiv → direkt zu OIDC-Login weiterleiten
   if (LOGTO_ENABLED) {
-    const returnTo = req.query.returnTo || '/admin';
+    const returnTo = safeReturnTo(req.query.returnTo, '/admin');
     return res.redirect('/auth/login?returnTo=' + encodeURIComponent(returnTo));
   }
 
@@ -116,9 +131,7 @@ router.post('/login', async (req, res) => {
       req.session.adminEmail = matchedEmail;
       await touchAdminLastLogin(matchedEmail).catch(() => null);
       req.session.save(() => {
-        const returnTo = req.query.returnTo || '/admin';
-        const safe = returnTo.startsWith('/') ? returnTo : '/admin';
-        return res.redirect(safe);
+        return res.redirect(safeReturnTo(req.query.returnTo, '/admin'));
       });
     });
   }

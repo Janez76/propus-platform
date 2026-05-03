@@ -1,10 +1,19 @@
 /**
- * Authentication helpers for Next.js — lokale Session-basierte Auth.
+ * Hilfsfunktionen für Next.js Routen.
+ *
+ * Wichtig: Die produktive Authentifizierung läuft über `auth.server.ts`
+ * (`getAdminSession`/`requireOrderEditor`) auf Basis von `booking.admin_sessions`
+ * mit SHA-256-Token-Hash. Das ist die einzige vertrauenswürdige Auth-Quelle.
+ *
+ * Frühere Helper `decodeJwtPayload` und `requireAuth` wurden hier entfernt:
+ * Sie haben Token ohne Signaturverifikation als Identität durchgereicht und
+ * waren ein Auth-Bypass-Vektor (Bug-Hunt CRITICAL). Sie waren ungenutzt;
+ * jeder neue Auth-Pfad muss `auth.server.ts` verwenden.
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 
-/** Bearer-Token aus Authorization-Header oder Cookie */
+/** Bearer-Token aus Authorization-Header oder Cookie. */
 export function getTokenFromRequest(req: NextRequest): string | null {
   const authHeader = req.headers.get("authorization");
   if (authHeader?.startsWith("Bearer ")) {
@@ -13,27 +22,4 @@ export function getTokenFromRequest(req: NextRequest): string | null {
   const cookie = req.cookies.get("admin_session");
   if (cookie?.value) return cookie.value;
   return null;
-}
-
-/** JWT-Payload dekodieren (ohne Verifikation) */
-export function decodeJwtPayload(token: string): Record<string, unknown> | null {
-  try {
-    const parts = token.split(".");
-    if (parts.length !== 3) return null;
-    const payload = Buffer.from(parts[1], "base64url").toString("utf-8");
-    return JSON.parse(payload);
-  } catch {
-    return null;
-  }
-}
-
-/** Middleware: 401 wenn kein Token vorhanden */
-export async function requireAuth(
-  req: NextRequest,
-): Promise<{ user: { sub: string; email?: string; roles?: string[] } } | NextResponse> {
-  const token = getTokenFromRequest(req);
-  if (!token) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  return { user: { sub: token } };
 }
