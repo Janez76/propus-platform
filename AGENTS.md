@@ -60,7 +60,7 @@ Upstream: [softaworks/agent-toolkit](https://github.com/softaworks/agent-toolkit
 | **Claude Code** | `.claude/settings.json` registriert das Marketplace **`agent-toolkit`** (GitHub `softaworks/agent-toolkit`). Repo **trusted** → ggf. `/plugin marketplace add softaworks/agent-toolkit` → Plugins z. B. `/plugin install codex@agent-toolkit` (weitere Namen siehe Upstream-README) |
 | **Cursor** | Skills liegen im Submodule unter `third-party/agent-toolkit/skills/<skill-name>/`; einzelne `SKILL.md` bei Bedarf in die eigene Cursor-Skills-/Rules-Struktur übernehmen. Mit installiertem Node optional: **`npx skills add softaworks/agent-toolkit`** (empfohlener CLI-Weg gemäß Upstream). |
 
-Zusätzlich in **`.claude/settings.json`**: Marketplace **`cascade-code-testing-misc`** (`joshuarweaver/cascade-code-testing-misc`) und Plugin **`etewiah-property-web-builder`** (entspricht lokal dem Befehl `npx claudepluginhub joshuarweaver/cascade-code-testing-misc --plugin etewiah-property-web-builder`).
+Zusätzlich in **`.claude/settings.json`** (Aquivalent zu `npx claudepluginhub … --plugin …` ohne Node hier): **`cascade-code-testing-misc`** + **`etewiah-property-web-builder`**, sowie **`prial-plugins`** (`jamesprial/prial-plugins`) + **`unraid-assistant`**.
 
 ## Dubletten-Prävention & Wartung (Kunden)
 
